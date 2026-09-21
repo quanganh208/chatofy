@@ -169,43 +169,43 @@ Replace placeholder values `[TARGET]`, `[ENTITY]`, etc. with real data. Use the 
 %%{ init: { 'theme': 'dark', 'themeVariables': { 'fontSize': '14px' } } }%%
 ```
 
-| Entity Type  | Shape + Style                  | Example                    |
-| ------------ | ------------------------------ | -------------------------- |
-| TARGET       | `:::target` (red, bold border) | Main investigation subject |
-| PERSON       | `:::person` (blue)             | Individual                 |
-| ORGANIZATION | `:::org` (green)               | Company, group             |
-| DOMAIN       | `:::domain` (orange)           | Website, domain name       |
-| EMAIL        | `:::email` (purple)            | Email address              |
-| USERNAME     | `:::username` (teal)           | Social handle              |
-| IP_ADDRESS   | `:::ip` (gray)                 | Server, network            |
-| PHONE        | `:::phone` (pink)              | Phone number               |
-| LOCATION     | `:::location` (brown)          | Geographic location        |
-| DOCUMENT     | `:::doc` (slate)               | File, record               |
+| Entity Type    | Shape + Style                                    | Example                          |
+|----------------|--------------------------------------------------|----------------------------------|
+| TARGET         | `:::target` (red, bold border)                   | Main investigation subject       |
+| PERSON         | `:::person` (blue)                               | Individual                       |
+| ORGANIZATION   | `:::org` (green)                                 | Company, group                   |
+| DOMAIN         | `:::domain` (orange)                             | Website, domain name             |
+| EMAIL          | `:::email` (purple)                              | Email address                    |
+| USERNAME       | `:::username` (teal)                             | Social handle                    |
+| IP_ADDRESS     | `:::ip` (gray)                                   | Server, network                  |
+| PHONE          | `:::phone` (pink)                                | Phone number                     |
+| LOCATION       | `:::location` (brown)                            | Geographic location              |
+| DOCUMENT       | `:::doc` (slate)                                 | File, record                     |
 
 ### Edge Style Guide
 
-| Relationship      | Arrow Style            | Label Example  |
-| ----------------- | ---------------------- | -------------- |
-| OWNERSHIP         | `==>` (thick)          | `owns`         |
-| EMPLOYMENT        | `-->` (solid)          | `works at`     |
-| ALIAS_OF          | `-.->` (dotted)        | `alias`        |
-| REGISTRATION      | `-->` (solid)          | `registered`   |
-| HOSTING           | `-->` (solid)          | `hosted on`    |
-| ASSOCIATED_WITH   | `-.->` (dotted)        | `linked to`    |
-| COMMUNICATES_WITH | `<-->` (bidirectional) | `communicates` |
-| LOCATED_AT        | `-->` (solid)          | `located at`   |
-| CONTAINS          | `-->` (solid)          | `contains`     |
+| Relationship      | Arrow Style          | Label Example        |
+|--------------------|----------------------|----------------------|
+| OWNERSHIP          | `==>` (thick)        | `owns`               |
+| EMPLOYMENT         | `-->` (solid)        | `works at`           |
+| ALIAS_OF           | `-.->`  (dotted)     | `alias`              |
+| REGISTRATION       | `-->` (solid)        | `registered`         |
+| HOSTING            | `-->` (solid)        | `hosted on`          |
+| ASSOCIATED_WITH    | `-.->` (dotted)      | `linked to`          |
+| COMMUNICATES_WITH  | `<-->` (bidirectional)| `communicates`       |
+| LOCATED_AT         | `-->` (solid)        | `located at`         |
+| CONTAINS           | `-->` (solid)        | `contains`           |
 
 ### Confidence Badges
 
 Append confidence inline to node labels:
 
-| Level     | Badge     |
-| --------- | --------- |
-| HIGH      | `🟢 HIGH` |
-| MEDIUM    | `🟡 MED`  |
-| LOW       | `🔴 LOW`  |
-| UNCERTAIN | `⚪ UNC`  |
+| Level     | Badge       |
+|-----------|-------------|
+| HIGH      | `🟢 HIGH`   |
+| MEDIUM    | `🟡 MED`    |
+| LOW       | `🔴 LOW`    |
+| UNCERTAIN | `⚪ UNC`    |
 
 ---
 
@@ -361,7 +361,6 @@ Compact tree format for quick terminal display when full map is too large.
 ## 2. Horizontal Timeline Template
 
 ### Investigation Timeline
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           INVESTIGATION TIMELINE                             │
@@ -392,7 +391,6 @@ Compact tree format for quick terminal display when full map is too large.
 ```
 
 ### Event-Based Timeline
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                            ACTIVITY TIMELINE                                 │
@@ -419,7 +417,6 @@ Compact tree format for quick terminal display when full map is too large.
 ```
 
 ### Compact Timeline
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         TIMELINE SUMMARY                                     │
@@ -446,7 +443,6 @@ Compact tree format for quick terminal display when full map is too large.
 ## 3. Risk Matrix Template
 
 ### 5x5 Risk Assessment
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           RISK ASSESSMENT MATRIX                             │
@@ -494,7 +490,6 @@ Compact tree format for quick terminal display when full map is too large.
 ```
 
 ### Simplified Risk View
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           RISK SUMMARY                                       │
@@ -528,7 +523,6 @@ Compact tree format for quick terminal display when full map is too large.
 ## 4. Connection Network Template
 
 ### Social Network Graph
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         CONNECTION NETWORK                                   │
@@ -571,7 +565,6 @@ Compact tree format for quick terminal display when full map is too large.
 ```
 
 ### Infrastructure Network
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                        INFRASTRUCTURE NETWORK                                │
@@ -619,7 +612,6 @@ Compact tree format for quick terminal display when full map is too large.
 ```
 
 ### Communication Flow
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                        COMMUNICATION FLOW                                    │
@@ -668,7 +660,6 @@ Compact tree format for quick terminal display when full map is too large.
 ## 5. Confidence Distribution Bar Chart
 
 ### Entity Confidence Distribution
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                      CONFIDENCE DISTRIBUTION                                 │
@@ -717,7 +708,6 @@ Compact tree format for quick terminal display when full map is too large.
 ```
 
 ### Source Reliability Distribution
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                      SOURCE RELIABILITY ANALYSIS                             │
@@ -762,7 +752,6 @@ Compact tree format for quick terminal display when full map is too large.
 ## 6. Progress Bar Templates
 
 ### Investigation Progress
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                        INVESTIGATION PROGRESS                                │
@@ -798,7 +787,6 @@ Compact tree format for quick terminal display when full map is too large.
 ```
 
 ### Task Completion
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                          TASK COMPLETION                                     │
@@ -832,7 +820,6 @@ Compact tree format for quick terminal display when full map is too large.
 ```
 
 ### Data Collection Progress
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                        DATA COLLECTION STATUS                                │
@@ -877,7 +864,6 @@ Compact tree format for quick terminal display when full map is too large.
 ## 7. Metric Dashboard Components
 
 ### Key Metrics Display
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         KEY INVESTIGATION METRICS                            │
@@ -910,7 +896,6 @@ Compact tree format for quick terminal display when full map is too large.
 ```
 
 ### Status Overview
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         INVESTIGATION STATUS                                 │
@@ -953,7 +938,6 @@ Compact tree format for quick terminal display when full map is too large.
 ## 8. Comparison Templates
 
 ### Before/After Comparison
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                       BEFORE / AFTER COMPARISON                              │
@@ -987,7 +971,6 @@ Compact tree format for quick terminal display when full map is too large.
 ```
 
 ### Entity Comparison
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                        ENTITY COMPARISON                                     │
@@ -1015,4 +998,4 @@ Compact tree format for quick terminal display when full map is too large.
 
 ---
 
-_Version: 1.0 | Templates: 18 | Last Updated: 2026-02-27_
+*Version: 1.0 | Templates: 18 | Last Updated: 2026-02-27*

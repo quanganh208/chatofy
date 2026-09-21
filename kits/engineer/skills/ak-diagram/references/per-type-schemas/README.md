@@ -12,7 +12,6 @@ wired, but until a template opts in by placing slots in its HTML, a JSON
 spec's structured keys (arrays / nested objects) do not render.
 
 The intended progression per template is:
-
 1. Author identifies a piece of content in the exemplar HTML that should
    be user-driven (e.g. the four labels of a `loop`).
 2. Author replaces that content with `{{key}}` matching a schema property.
@@ -24,12 +23,12 @@ use the raw HTML editing path (Tier 3 in `SKILL.md`).
 
 ## Common keys (every type)
 
-| Key       | Type   | Purpose                                                                 |
-| --------- | ------ | ----------------------------------------------------------------------- |
-| `variant` | string | `"light"`, `"dark"`, or `"full"` (chooses template file)                |
-| `title`   | string | Rendered as `<h1 class="ak-diag__title">` when the template supports it |
-| `caption` | string | Optional editorial subtitle                                             |
-| `accent`  | string | CSS color override for `--ak-diag-accent`                               |
+| Key | Type | Purpose |
+|-----|------|---------|
+| `variant` | string | `"light"`, `"dark"`, or `"full"` (chooses template file) |
+| `title` | string | Rendered as `<h1 class="ak-diag__title">` when the template supports it |
+| `caption` | string | Optional editorial subtitle |
+| `accent` | string | CSS color override for `--ak-diag-accent` |
 
 ## Schemas provided
 

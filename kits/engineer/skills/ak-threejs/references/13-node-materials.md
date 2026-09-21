@@ -5,7 +5,6 @@ Modern node-based material system for creating custom shaders visually.
 ## What is TSL?
 
 Three Shading Language (TSL) is a node-based system for creating materials and shaders:
-
 - Functional approach to shader composition
 - Type-safe node graph
 - Unified GLSL/WGSL output (WebGL & WebGPU)
@@ -37,7 +36,14 @@ material.normalNode = normalMap(normalTexture);
 ### Input Nodes
 
 ```javascript
-import { attribute, uniform, texture, cubeTexture, instancedArray, storage } from 'three/nodes';
+import {
+  attribute,
+  uniform,
+  texture,
+  cubeTexture,
+  instancedArray,
+  storage
+} from 'three/nodes';
 
 // Geometry attributes
 const positionNode = attribute('position');
@@ -64,10 +70,10 @@ const storageNode = storage(buffer, 'vec4', count);
 import { add, sub, mul, div, pow, sin, cos, length, normalize } from 'three/nodes';
 
 // Basic operations
-const result = add(a, b); // a + b
-const result = sub(a, b); // a - b
-const result = mul(a, b); // a * b
-const result = div(a, b); // a / b
+const result = add(a, b);     // a + b
+const result = sub(a, b);     // a - b
+const result = mul(a, b);     // a * b
+const result = div(a, b);     // a / b
 
 // Trigonometry
 const result = sin(angle);
@@ -136,7 +142,10 @@ material.colorNode = texture(tex, rotatedUV);
 ```javascript
 import { normalView, positionView, dot, pow } from 'three/nodes';
 
-const fresnel = pow(float(1).sub(dot(normalView, positionView.normalize())), 3);
+const fresnel = pow(
+  float(1).sub(dot(normalView, positionView.normalize())),
+  3
+);
 
 material.colorNode = mix(baseColor, edgeColor, fresnel);
 ```
@@ -192,7 +201,7 @@ import {
   MeshBasicNodeMaterial,
   PointsNodeMaterial,
   LineBasicNodeMaterial,
-  SpriteNodeMaterial,
+  SpriteNodeMaterial
 } from 'three/nodes';
 
 // Standard PBR
@@ -237,7 +246,7 @@ import {
   timerLocal,
   sin,
   cos,
-  vec2,
+  vec2
 } from 'three/nodes';
 
 const material = new MeshStandardNodeMaterial();
@@ -245,7 +254,10 @@ const material = new MeshStandardNodeMaterial();
 // Animated UV scroll
 const time = timerLocal();
 const scrollSpeed = uniform(0.1);
-const uvOffset = vec2(time.mul(scrollSpeed), sin(time).mul(0.1));
+const uvOffset = vec2(
+  time.mul(scrollSpeed),
+  sin(time).mul(0.1)
+);
 const scrolledUV = uv().add(uvOffset);
 
 // Apply to color
@@ -263,10 +275,10 @@ material.emissiveNode = color(1, 0.5, 0).mul(emission);
 // Old way (ShaderMaterial)
 const material = new THREE.ShaderMaterial({
   uniforms: {
-    time: { value: 0 },
+    time: { value: 0 }
   },
   vertexShader: `...`,
-  fragmentShader: `...`,
+  fragmentShader: `...`
 });
 
 // New way (Node Material)

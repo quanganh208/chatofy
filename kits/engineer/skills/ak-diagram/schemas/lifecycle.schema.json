@@ -34,19 +34,7 @@
           "label": { "$ref": "common.schema.json#/definitions/SafeText" },
           "description": { "$ref": "common.schema.json#/definitions/SafeText" },
           "lane": { "$ref": "common.schema.json#/definitions/Identifier" },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "initial",
-              "active",
-              "waiting",
-              "failure-recoverable",
-              "failure-fatal",
-              "terminal-success",
-              "terminal-cancelled"
-            ],
-            "default": "active"
-          }
+          "kind": { "type": "string", "enum": ["initial", "active", "waiting", "failure-recoverable", "failure-fatal", "terminal-success", "terminal-cancelled"], "default": "active" }
         }
       }
     },
@@ -63,11 +51,7 @@
           "to": { "$ref": "common.schema.json#/definitions/Identifier" },
           "event": { "$ref": "common.schema.json#/definitions/SafeText" },
           "action": { "$ref": "common.schema.json#/definitions/SafeText" },
-          "kind": {
-            "type": "string",
-            "enum": ["normal", "retry", "timeout", "cancel", "fail"],
-            "default": "normal"
-          }
+          "kind": { "type": "string", "enum": ["normal", "retry", "timeout", "cancel", "fail"], "default": "normal" }
         }
       }
     }

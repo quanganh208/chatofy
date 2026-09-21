@@ -12,34 +12,27 @@ node "$PR_BIN"
 ## Required sections
 
 ### 1. End-to-end work summary
-
 Workflow from task/issue/plan → implementation → verification → review → ship.
 Facts only; do not invent steps that did not run.
 
 ### 2. Subagent delegation
-
 Count used. For each: role, task, status, concise result. If none: say so.
 
 ### 3. Technical decisions
-
 Material decisions + rationale/evidence. Do not fabricate filler.
 
 ### 4. Deviations from plan
-
 Compare to the active plan when one exists. If none/no deviations: state that.
 
 ### 5. Completion evidence
-
 Map acceptance criteria to tests, commands, artifacts, review, CI. UI/UX PRs
 need relevant screenshots (or an explicit unavailable reason). Non-UI PRs must
 not add decorative screenshots.
 
 ### 6. Checklist
-
 Completed vs incomplete/skipped with reasons. Never mark unknown work done.
 
 ### 7. Human actions required
-
 Decisions, credentials, manual QA, rollout, approvals. If none: `None` (localized).
 
 ## Traceability (retain)

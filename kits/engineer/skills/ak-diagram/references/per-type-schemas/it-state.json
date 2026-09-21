@@ -2,11 +2,18 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ak:diagram it-state spec",
   "type": "object",
-  "required": ["state", "transitions"],
+  "required": [
+    "state",
+    "transitions"
+  ],
   "properties": {
     "variant": {
       "type": "string",
-      "enum": ["light", "dark", "full"],
+      "enum": [
+        "light",
+        "dark",
+        "full"
+      ],
       "default": "light"
     },
     "title": {
@@ -26,7 +33,10 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["to", "trigger"],
+        "required": [
+          "to",
+          "trigger"
+        ],
         "properties": {
           "to": {
             "type": "string"

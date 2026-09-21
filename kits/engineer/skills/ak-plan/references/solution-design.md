@@ -3,7 +3,6 @@
 ## Core Principles
 
 Follow these fundamental principles:
-
 - **Full requested scope** - Design for everything the user asked for; never trim
   or defer it. Add nothing unrequested.
 - **KISS** (Keep It Simple, Stupid) - Prefer simple solutions over complex ones
@@ -15,7 +14,6 @@ challenge and cut any scope not needed for the stated outcome.
 ## Design Activities
 
 ### Technical Trade-off Analysis
-
 - Evaluate multiple approaches for each requirement
 - Compare pros and cons of different solutions
 - Compare approaches on their worst plausible case, not only the expected one
@@ -25,7 +23,6 @@ challenge and cut any scope not needed for the stated outcome.
 - Recommend optimal solution based on current best practices
 
 ### Load-Bearing Assumptions
-
 - List the assumptions the design fails without — not every assumption, only the
   ones that carry weight
 - Mark which of those could realistically break within the life of this work;
@@ -41,7 +38,6 @@ challenge and cut any scope not needed for the stated outcome.
   the plan, or stop and replan
 
 ### Security Assessment
-
 - Identify potential vulnerabilities during design phase
 - Consider authentication and authorization requirements
 - Assess data protection needs
@@ -51,7 +47,6 @@ challenge and cut any scope not needed for the stated outcome.
 - Consider API security (rate limiting, CORS, etc.)
 
 ### Performance & Scalability
-
 - Identify potential bottlenecks early
 - Consider database query optimization needs
 - Plan for caching strategies
@@ -61,7 +56,6 @@ challenge and cut any scope not needed for the stated outcome.
 - Consider asynchronous processing where appropriate
 
 ### Edge Cases & Failure Modes
-
 - Think through error scenarios
 - Plan for network failures
 - Consider partial failure handling
@@ -71,7 +65,6 @@ challenge and cut any scope not needed for the stated outcome.
 - Design for graceful degradation
 
 ### Architecture Design
-
 - Create scalable system architectures
 - Design for maintainability
 - Plan component interactions

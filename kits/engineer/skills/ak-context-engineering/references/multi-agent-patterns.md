@@ -1,90 +1,48 @@
-# Multi-Agent Patterns
+# Multi-agent patterns and total cost
 
-Distribute work across multiple context windows for isolation and scale.
+Use independent contexts when a bounded subtask can reduce coordinator load or improve
+coverage. A second agent adds startup input, reasoning, communication and integration;
+isolation does not automatically reduce total tokens or elapsed time.
 
-## Core Insight
+## Delegate only with a reason
 
-Sub-agents exist to **isolate context**, not anthropomorphize roles.
+Prefer one agent for coupled edits, a small lookup, or a task whose inputs already fit.
+Delegate independent scans/reviews when they can return concise evidence and the runtime
+allows it. Do not spawn merely because a task is parallelizable or a quota is high.
+No universal worker count, cost multiplier or default cheaper model is justified.
 
-## Token Economics
+## Packet
 
-| Architecture   | Multiplier | Use Case                 |
-| -------------- | ---------- | ------------------------ |
-| Single agent   | 1x         | Simple tasks             |
-| Single + tools | ~4x        | Moderate complexity      |
-| Multi-agent    | ~15x       | Context isolation needed |
-
-**Key**: Token usage explains 80% of performance variance.
-
-## Patterns
-
-### Supervisor/Orchestrator
-
-```python
-class Supervisor:
-    def process(self, task):
-        subtasks = self.decompose(task)
-        results = [worker.execute(st, clean_context=True) for st in subtasks]
-        return self.aggregate(results)
+```text
+Task: concrete outcome
+Read: exact sources/search terms
+May modify: exclusive paths, or none
+Acceptance: checkable results
+Decisions and constraints: preserve verbatim scope flags and user choices
+Budget: amount + unit + what it includes; mark advisory or enforced
+Stop: criteria met; deterministic blocker; allocation nearly spent
+Escalate: new dependency, insufficient evidence, unexpected scope/cost
+Report: bounded summary, evidence/revisions, checks, spend if known, remaining gaps
 ```
 
-**Pros**: Control, human-in-loop | **Cons**: Bottleneck, telephone game
+Do not pass full history by default. Give enough decisions and interfaces to avoid
+re-derivation. Bound recursive delegation and reports. Integration and verification
+reserve belongs to the coordinator, not to the last worker that asks for more tokens.
 
-### Peer-to-Peer/Swarm
+## Accounting
 
-```python
-def process_with_handoff(agent, task):
-    result = agent.process(task)
-    if "handoff" in result:
-        return process_with_handoff(select_agent(result["to"]), result["state"])
-    return result
-```
+Count every agent and retry in cumulative task spend. Unspent allocations are commitments,
+not additional consumed tokens. Reconcile them as work proceeds. Cheaper model routing is
+a configuration choice requiring runtime support and user authority; use
+[model selection](model-selection.md), not assumptions from a model's name.
 
-**Pros**: No SPOF, scales | **Cons**: Complex coordination
+Consequence and uncertainty determine report verification. Do not re-run every delegate
+step; check important claims against actual changed state and executable evidence.
 
-### Hierarchical
+## Evidence boundary
 
-Strategy → Planning → Execution layers
-**Pros**: Separation of concerns | **Cons**: Coordination overhead
-
-## Context Isolation Patterns
-
-| Pattern             | Isolation | Use Case       |
-| ------------------- | --------- | -------------- |
-| Full delegation     | None      | Max capability |
-| Instruction passing | High      | Simple tasks   |
-| File coordination   | Medium    | Shared state   |
-
-## Consensus Mechanisms
-
-```python
-def weighted_consensus(responses):
-    scores = {}
-    for r in responses:
-        weight = r["confidence"] * r["expertise"]
-        scores[r["answer"]] = scores.get(r["answer"], 0) + weight
-    return max(scores, key=scores.get)
-```
-
-## Failure Recovery
-
-| Failure    | Mitigation                     |
-| ---------- | ------------------------------ |
-| Bottleneck | Output schemas, checkpointing  |
-| Overhead   | Clear handoffs, batching       |
-| Divergence | Boundaries, convergence checks |
-| Errors     | Validation, circuit breakers   |
-
-## Guidelines
-
-1. Use multi-agent for context isolation, not role-play
-2. Accept ~15x token cost for benefits
-3. Implement circuit breakers
-4. Use files for shared state
-5. Design clear handoffs
-6. Validate between agents
-
-## Related
-
-- [Context Optimization](./context-optimization.md)
-- [Evaluation](./evaluation.md)
+[Anthropic's 2025 research-system report](https://www.anthropic.com/engineering/multi-agent-research-system)
+found approximately 4x token use for agents and 15x for multi-agent systems **relative to
+chat interactions** in its data. Its 80% variance observation concerned BrowseComp.
+These are historical workload-specific observations, not general multipliers for coding
+agents or evidence that model upgrades matter less than budget. Measure the actual pair.

@@ -3,12 +3,12 @@ name: ak:git
 description: "Git operations with conventional commits. Use for staging, committing, pushing, PRs, merges, stacked PRs. Auto-splits commits by type/scope. Security scans for secrets."
 user-invocable: true
 when_to_use: "Invoke for commits, PRs, stacked PRs, branch hygiene, or release git steps."
-category: dev-tools
+category: workflow
 keywords: [git, commits, staging, PR, merge, merge-pr, stack, stacked-prs, ci]
 argument-hint: "cm|cp|pr|merge|merge-pr|stack [args]"
 metadata:
   author: agentkit
-  version: "1.2.1"
+  version: "1.2.2"
 ---
 
 # Git Operations
@@ -28,8 +28,9 @@ If invoked without arguments, use `ask_user capability` to present available git
 
 Present as options via `ask_user capability` with header "Git Operation", question "What would you like to do?".
 
-Execute git workflows via `git-manager` subagent to isolate verbose output.
-Activate `ak:context-engineering` skill.
+Execute simple scoped operations directly when supported. Delegate only when isolation
+or coordination benefits the task and delegation is permitted. Load context-engineering
+only for an actual context/budget problem.
 
 **IMPORTANT:**
 - Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
@@ -71,7 +72,11 @@ Activate `ak:context-engineering` skill.
 
 ### Step 1: Stage + Analyze
 ```bash
-git add -A && git diff --cached --stat && git diff --cached --name-only
+git status --short
+git diff -- <authorized-paths>
+git add -- <authorized-paths>
+git diff --cached --stat
+git diff --cached --name-only
 ```
 
 ### Step 2: Security Check
@@ -85,7 +90,7 @@ git diff --cached | grep -iE "(api[_-]?key|token|password|secret|credential)"
 
 **NOTE:**
 - Search for related issues on GitHub and add to body.
-- Only use `feat`, `fix`, or `perf` prefixes for files in `.claude` directory (do not use `docs`).
+- Choose commit type/scope from repository policy and actual change, including skill/docs edits. Preserve unrelated staged changes; verify staged scope before committing.
 
 **Split commits if:**
 - Different types mixed (feat + fix, code + docs)

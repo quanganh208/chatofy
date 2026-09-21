@@ -10,7 +10,7 @@ A comprehensive investigation workflow for researching individuals.
 **Use Cases:** Hiring verification, dating safety, tenant screening, professional networking  
 **Duration:** 20-30 minutes  
 **Complexity:** Intermediate to Advanced  
-**Output:** Identity verification report with timeline
+**Output:** Identity verification report with timeline  
 
 ### Required Information
 
@@ -29,14 +29,12 @@ A comprehensive investigation workflow for researching individuals.
 **Objective:** Confirm the person exists and basic details match
 
 **Verification Points:**
-
 - Name spelling variations
 - Age/date of birth consistency
 - Location history
 - Basic digital footprint existence
 
 **Search Queries:**
-
 ```
 /scan "{{full_name}}" {{location}}
 /dorking "{{full_name}}" {{location}} (profile OR directory)
@@ -46,15 +44,14 @@ A comprehensive investigation workflow for researching individuals.
 
 **Expected Findings:**
 
-| Finding                            | Verification Value                                      |
-| ---------------------------------- | ------------------------------------------------------- |
-| Multiple people with same name     | Need additional identifiers                             |
-| Unique name + location match       | Strong initial match                                    |
-| No results                         | Name may be false, very private, or spelled differently |
-| Consistent location across sources | Increases confidence                                    |
+| Finding | Verification Value |
+|---------|-------------------|
+| Multiple people with same name | Need additional identifiers |
+| Unique name + location match | Strong initial match |
+| No results | Name may be false, very private, or spelled differently |
+| Consistent location across sources | Increases confidence |
 
 **Identity Resolution:**
-
 ```
 If multiple matches found:
   → Ask user: "I found 3 Jane Smiths in Boston:
@@ -78,7 +75,6 @@ If no matches found:
 **Search Priority (in order):**
 
 1. **Professional Networks**
-
 ```
 /dorking "{{full_name}}" LinkedIn
 /dorking "{{full_name}}" {{location}} site:linkedin.com/in
@@ -86,7 +82,6 @@ If no matches found:
 ```
 
 2. **Social Media**
-
 ```
 /dorking "{{full_name}}" (Twitter OR X) {{location}}
 /dorking "{{full_name}}" Facebook profile
@@ -95,7 +90,6 @@ If no matches found:
 ```
 
 3. **Specialized Platforms**
-
 ```
 /dorking "{{full_name}}" GitHub OR Stack Overflow
 /dorking "{{full_name}}" Medium OR Substack
@@ -104,7 +98,6 @@ If no matches found:
 ```
 
 4. **Forum/Community Presence**
-
 ```
 /dorking "{{full_name}}" OR "{{username}}" (forum OR reddit)
 /dorking "{{full_name}}" site:quora.com
@@ -112,17 +105,16 @@ If no matches found:
 
 **Expected Findings:**
 
-| Platform  | Finding              | Significance            |
-| --------- | -------------------- | ----------------------- |
-| LinkedIn  | Professional profile | Employment verification |
-| Twitter/X | Active account       | Personality, opinions   |
-| Facebook  | Personal profile     | Social connections      |
-| Instagram | Photo sharing        | Lifestyle, location     |
-| GitHub    | Code repository      | Technical skills        |
-| Forums    | Discussion posts     | Interests, expertise    |
+| Platform | Finding | Significance |
+|----------|---------|--------------|
+| LinkedIn | Professional profile | Employment verification |
+| Twitter/X | Active account | Personality, opinions |
+| Facebook | Personal profile | Social connections |
+| Instagram | Photo sharing | Lifestyle, location |
+| GitHub | Code repository | Technical skills |
+| Forums | Discussion posts | Interests, expertise |
 
 **Platform Verification:**
-
 ```
 For each profile found, check:
   ✓ Profile completeness
@@ -139,7 +131,6 @@ For each profile found, check:
 **Objective:** Verify employment, education, and professional claims
 
 **Employment Verification:**
-
 ```
 /dorking "{{full_name}}" "{{claimed_employer}}"
 /dorking "{{full_name}}" {{location}} "worked at" OR "employed"
@@ -148,7 +139,6 @@ For each profile found, check:
 ```
 
 **Education Verification:**
-
 ```
 /dorking "{{full_name}}" "{{claimed_school}}" alumni OR graduate
 /dorking "{{full_name}}" site:alumni.{{school_domain}}
@@ -156,7 +146,6 @@ For each profile found, check:
 ```
 
 **Professional Credentials:**
-
 ```
 /dorking "{{full_name}}" "{{certification}}" license OR certified
 /dorking "{{full_name}}" site:{{professional_association}}.org
@@ -165,13 +154,13 @@ For each profile found, check:
 
 **Credential Red Flags:**
 
-| Claim                | Verification Method            | Red Flag                      |
-| -------------------- | ------------------------------ | ----------------------------- |
-| Specific degree      | Alumni database check          | Not listed, different degree  |
-| Current employment   | Company directory              | Not employed there            |
-| Professional license | State licensing board          | No record, expired, suspended |
-| Published works      | Google Scholar, journal search | No publications found         |
-| Awards/recognition   | Awarding organization          | No record of award            |
+| Claim | Verification Method | Red Flag |
+|-------|-------------------|----------|
+| Specific degree | Alumni database check | Not listed, different degree |
+| Current employment | Company directory | Not employed there |
+| Professional license | State licensing board | No record, expired, suspended |
+| Published works | Google Scholar, journal search | No publications found |
+| Awards/recognition | Awarding organization | No record of award |
 
 ---
 
@@ -180,7 +169,6 @@ For each profile found, check:
 **Objective:** Map complete online presence and activity patterns
 
 **Search Strategy:**
-
 ```
 # Comprehensive search
 /scan "{{full_name}}" --comprehensive
@@ -197,17 +185,16 @@ For each profile found, check:
 
 **Footprint Components:**
 
-| Component   | What to Find              | Tools                |
-| ----------- | ------------------------- | -------------------- |
-| Profiles    | All social accounts       | /scan, /dorking      |
-| Content     | Posts, articles, comments | /dorking, /chrono    |
-| Photos      | Public images             | Reverse image search |
-| Connections | Associates, colleagues    | /follow              |
-| Interests   | Groups, forums, topics    | Content analysis     |
-| Timeline    | Activity over time        | /chrono              |
+| Component | What to Find | Tools |
+|-----------|--------------|-------|
+| Profiles | All social accounts | /scan, /dorking |
+| Content | Posts, articles, comments | /dorking, /chrono |
+| Photos | Public images | Reverse image search |
+| Connections | Associates, colleagues | /follow |
+| Interests | Groups, forums, topics | Content analysis |
+| Timeline | Activity over time | /chrono |
 
 **Privacy Assessment:**
-
 ```
 Privacy Score Evaluation:
 
@@ -236,7 +223,6 @@ Low Exposure (privacy-conscious):
 **Objective:** Identify any concerning history or red flags
 
 **Public Records Search:**
-
 ```
 /dorking "{{full_name}}" {{location}} court OR lawsuit
 /dorking "{{full_name}}" arrest OR charged OR indictment
@@ -245,14 +231,12 @@ Low Exposure (privacy-conscious):
 ```
 
 **News and Media:**
-
 ```
 /news "{{full_name}}" {{location}} --years 10
 /dorking "{{full_name}}" {{location}} news OR article
 ```
 
 **Professional Standing:**
-
 ```
 /dorking "{{full_name}}" "disciplinary action" OR "sanctioned"
 /dorking "{{full_name}}" "barred" OR "suspended" OR "disbarred"
@@ -261,12 +245,12 @@ Low Exposure (privacy-conscious):
 
 **Red Flag Categories:**
 
-| Category     | Indicators                              | Severity |
-| ------------ | --------------------------------------- | -------- |
-| Criminal     | Arrests, convictions, charges           | High     |
-| Financial    | Bankruptcies, liens, judgments          | Medium   |
-| Professional | License sanctions, disciplinary actions | High     |
-| Civil        | Lawsuits, restraining orders            | Medium   |
+| Category | Indicators | Severity |
+|----------|------------|----------|
+| Criminal | Arrests, convictions, charges | High |
+| Financial | Bankruptcies, liens, judgments | Medium |
+| Professional | License sanctions, disciplinary actions | High |
+| Civil | Lawsuits, restraining orders | Medium |
 | Reputational | Scandals, controversies, negative press | Variable |
 
 ---
@@ -276,7 +260,6 @@ Low Exposure (privacy-conscious):
 **Objective:** Build chronological history of person's life and activities
 
 **Timeline Data Sources:**
-
 ```
 /chrono "{{full_name}}" --auto-build
 
@@ -309,7 +292,6 @@ Year | Age | Event Type | Details | Source
 ```
 
 **Timeline Verification:**
-
 ```
 Consistency Checks:
   ✓ Employment dates don't overlap impossibly
@@ -365,13 +347,13 @@ Gaps to Investigate:
 
 **Confidence Scoring:**
 
-| Score | Level     | Meaning                                 |
-| ----- | --------- | --------------------------------------- |
-| 9-10  | Very High | Extensive verification, consistent data |
-| 7-8   | High      | Good verification, minor gaps           |
-| 5-6   | Medium    | Some verification, notable gaps         |
-| 3-4   | Low       | Limited verification, many gaps         |
-| 1-2   | Very Low  | Minimal data, unverified claims         |
+| Score | Level | Meaning |
+|-------|-------|---------|
+| 9-10 | Very High | Extensive verification, consistent data |
+| 7-8 | High | Good verification, minor gaps |
+| 5-6 | Medium | Some verification, notable gaps |
+| 3-4 | Low | Limited verification, many gaps |
+| 1-2 | Very Low | Minimal data, unverified claims |
 
 ---
 
@@ -398,7 +380,6 @@ Privacy options:
 ### Report Sections
 
 **Summary Report (1 page):**
-
 ```
 BACKGROUND CHECK SUMMARY
 Subject: {{full_name}}
@@ -488,7 +469,7 @@ identity, and online presence.
 
 Required:
   • Full name: _
-
+  
 Highly recommended:
   • Location (city/state): _
   • Approximate age: _

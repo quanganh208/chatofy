@@ -1,20 +1,20 @@
 ---
 name: ak:threejs
-description: "Build 3D web experiences with Three.js. Use for WebGL/WebGPU scenes, GLTF models, animations, physics, VR/XR. Supports 556 searchable examples."
+description: "Build 3D web experiences with Three.js. Use for WebGL/WebGPU scenes, GLTF models, animations, physics, VR/XR."
 user-invocable: true
 when_to_use: "Invoke for 3D, WebGL/WebGPU, GLTF, physics, or XR."
-category: frontend
+category: engineering
 keywords: [threejs, 3d, webgl, webgpu, gltf]
 license: MIT
 argument-hint: "[3D scene or feature]"
 metadata:
   author: agentkit
-  version: "3.0.0"
+  version: "3.0.1"
 ---
 
 # Three.js Development
 
-Build high-performance 3D web applications using Three.js. Contains 556 searchable examples across 13 categories, 60 API classes, and 20 use-case templates.
+Build high-performance 3D web applications using Three.js. Search the bundled data for available examples and API recipes.
 
 ## When to Use
 
@@ -60,16 +60,11 @@ python3 scripts/search.py --category webgpu -n 10
 python3 scripts/search.py --complexity high -n 5
 ```
 
-## Example Categories
+## Compatibility and completion
 
-| Category | Count | Description |
-|----------|-------|-------------|
-| `webgl` | 216 | Standard WebGL rendering |
-| `webgpu (wip)` | 190 | Modern WebGPU + compute shaders |
-| `webgl / advanced` | 48 | Low-level GPU, custom shaders |
-| `webgl / postprocessing` | 27 | Bloom, SSAO, SSR, DOF |
-| `webxr` | 26 | VR/AR experiences |
-| `physics` | 13 | Physics simulation |
+Read the installed Three.js version and renderer before using a recipe. WebGL, WebGPU and TSL APIs are not interchangeable. Verify add-on import paths and browser capabilities against the selected version. Handle unsupported rendering with the product's fallback.
+
+Validate the actual render and interaction. On teardown cancel animation loops, remove listeners, and dispose owned geometry, materials, textures and render targets. Measure frame time or memory when performance is part of the outcome.
 
 ## Common Use Cases
 

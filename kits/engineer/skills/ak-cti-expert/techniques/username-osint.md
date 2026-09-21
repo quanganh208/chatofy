@@ -18,7 +18,6 @@ Username OSINT discovers accounts across platforms using a single handle. Use wh
 ## 2. Tool Inventory
 
 ### Primary — Maigret (3000+ sites)
-
 ```bash
 pip3 install maigret
 # or
@@ -26,7 +25,6 @@ pipx install maigret
 ```
 
 ### Secondary — Sherlock (400+ sites)
-
 ```bash
 pipx install sherlock-project
 # or
@@ -34,13 +32,11 @@ pip3 install sherlock-project
 ```
 
 ### Tertiary — Blackbird (600+ sites, async)
-
 ```bash
 pip3 install blackbird-osint
 ```
 
 ### Web Fallback — WhatsMyName
-
 - URL: https://whatsmyname.app
 - Repo: https://github.com/WebBreacher/WhatsMyName
 - No install required; browser-based or API-accessible
@@ -74,7 +70,6 @@ Step 6: Document and correlate findings
 ## 4. CLI Commands & Expected Output
 
 ### Maigret
-
 ```bash
 # Top 500 sites, JSON output
 maigret <username> --top-sites 500 --json maigret_results.json
@@ -87,7 +82,6 @@ maigret <username> --top-sites 500 --tor
 ```
 
 **Expected output:**
-
 ```
 [+] Checking username "johndoe" on 500 sites
 [+] Twitter: https://twitter.com/johndoe
@@ -99,7 +93,6 @@ maigret <username> --top-sites 500 --tor
 ```
 
 ### Sherlock
-
 ```bash
 # Standard scan with JSON output
 sherlock <username> --output sherlock_results.txt --print-found
@@ -112,7 +105,6 @@ sherlock <username> --nsfw
 ```
 
 **Expected output:**
-
 ```
 [*] Checking username "johndoe" on: Twitter
 [+] Twitter: https://twitter.com/johndoe
@@ -121,7 +113,6 @@ sherlock <username> --nsfw
 ```
 
 ### Blackbird
-
 ```bash
 # Basic scan
 blackbird -u <username>
@@ -160,7 +151,6 @@ API rate-limited?
 ## 6. Output Interpretation
 
 ### Claim Status Meanings
-
 ```
 [+] Found/Claimed   → Account confirmed active with content
 [*] Available       → Username not taken on that platform
@@ -169,7 +159,6 @@ API rate-limited?
 ```
 
 ### False Positive Handling
-
 ```
 Common false positives:
   - 404 pages that still return HTTP 200
@@ -185,7 +174,6 @@ Verification steps:
 ```
 
 ### Cross-Platform Correlation
-
 ```
 Strong correlation signals:
   - Same profile photo across platforms
@@ -200,15 +188,15 @@ Strong correlation signals:
 
 ## 7. Confidence Ratings
 
-| Finding Type                          | Confidence | Verification Method       |
-| ------------------------------------- | ---------- | ------------------------- |
-| Username found on major platform      | HIGH       | Manual profile review     |
-| Username found on niche site          | MEDIUM     | Cross-check photo/bio     |
-| Maigret-only result (no manual check) | LOW        | Always verify manually    |
-| Cross-platform photo match            | HIGH       | Reverse image search      |
-| Same bio text match                   | HIGH       | Direct comparison         |
-| Activity timeline overlap             | MEDIUM     | Timezone/language check   |
-| Deleted/suspended account evidence    | MEDIUM     | Archive.org, cached pages |
+| Finding Type | Confidence | Verification Method |
+|---|---|---|
+| Username found on major platform | HIGH | Manual profile review |
+| Username found on niche site | MEDIUM | Cross-check photo/bio |
+| Maigret-only result (no manual check) | LOW | Always verify manually |
+| Cross-platform photo match | HIGH | Reverse image search |
+| Same bio text match | HIGH | Direct comparison |
+| Activity timeline overlap | MEDIUM | Timezone/language check |
+| Deleted/suspended account evidence | MEDIUM | Archive.org, cached pages |
 
 ---
 
@@ -226,14 +214,14 @@ Strong correlation signals:
 
 ## 9. Command Reference
 
-| Command                       | Purpose                           | Input           |
-| ----------------------------- | --------------------------------- | --------------- |
-| `/username [handle]`          | Full cross-platform username scan | Username string |
-| `/username-variants [handle]` | Generate and scan common variants | Base username   |
-| `/username-report [handle]`   | Compile correlation report        | Username string |
+| Command | Purpose | Input |
+|---|---|---|
+| `/username [handle]` | Full cross-platform username scan | Username string |
+| `/username-variants [handle]` | Generate and scan common variants | Base username |
+| `/username-report [handle]` | Compile correlation report | Username string |
 
 ---
 
-_Username OSINT Module v1.0.0_
-_Part of Free OSINT Expert Skill - Phase 5_
-_For authorized investigation and educational purposes only_
+*Username OSINT Module v1.0.0*
+*Part of Free OSINT Expert Skill - Phase 5*
+*For authorized investigation and educational purposes only*

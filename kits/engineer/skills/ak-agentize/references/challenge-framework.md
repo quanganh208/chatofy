@@ -19,14 +19,14 @@ and surface constraints. Cut requested scope only when the user passed
 
 ## Architectural challenges
 
-| Question                | Red Flag                             | Green Flag                        |
-| ----------------------- | ------------------------------------ | --------------------------------- |
-| Core extractable?       | Business logic tangled with HTTP/CLI | Clear function boundaries         |
-| Side effects localized? | Scattered across modules             | Isolated into clients             |
-| Async/long-running ops? | 30+ sec calls, no cancel             | Quick calls or streaming progress |
-| Auth complexity?        | Multi-step OAuth dance per call      | Static token or one-time login    |
-| Large outputs?          | Megabyte responses typical           | Pageable, filterable              |
-| Stateful workflows?     | Requires client-side state machine   | Each call self-contained          |
+| Question | Red Flag | Green Flag |
+| --- | --- | --- |
+| Core extractable? | Business logic tangled with HTTP/CLI | Clear function boundaries |
+| Side effects localized? | Scattered across modules | Isolated into clients |
+| Async/long-running ops? | 30+ sec calls, no cancel | Quick calls or streaming progress |
+| Auth complexity? | Multi-step OAuth dance per call | Static token or one-time login |
+| Large outputs? | Megabyte responses typical | Pageable, filterable |
+| Stateful workflows? | Requires client-side state machine | Each call self-contained |
 
 ## Cut-scope challenges (`--yagni` only)
 
@@ -34,7 +34,6 @@ Skip this section unless the user passed `--yagni`. Without the flag, use these
 questions only to reject unrequested additions, never to remove requested work.
 
 Ask for each proposed capability:
-
 - Can an agent accomplish the user's goal without this one?
 - Is this 80% covered by another capability?
 - Does this leak internal model details the agent doesn't need?
@@ -51,19 +50,18 @@ Ask for each proposed capability:
 ## Decision matrix template
 
 ```markdown
-| #   | Decision           | Option A   | Option B     | Chosen    | Why                   |
-| --- | ------------------ | ---------- | ------------ | --------- | --------------------- |
-| 1   | Transport          | stdio only | all three    | all       | remote deploy planned |
-| 2   | Credential storage | env only   | keychain+env | both      | dev UX + prod safety  |
-| 3   | CLI framework      | commander  | cac          | commander | wider adoption        |
-| 4   | Test runner        | vitest     | jest         | vitest    | speed + TS native     |
-| 5   | Deploy target v1   | Cloudflare | Docker       | both      | CI cost is low        |
+| # | Decision            | Option A       | Option B       | Chosen | Why |
+| - | ------------------- | -------------- | -------------- | ------ | --- |
+| 1 | Transport           | stdio only     | stdio + Streamable HTTP | both   | remote deploy planned |
+| 2 | Credential storage  | env only       | keychain+env   | both   | dev UX + prod safety |
+| 3 | CLI framework       | commander      | cac            | commander | wider adoption |
+| 4 | Test runner         | vitest         | jest           | vitest | speed + TS native |
+| 5 | Deploy target v1    | Cloudflare     | Docker         | both   | CI cost is low |
 ```
 
 ## Stop conditions
 
 Abort and propose an alternative if:
-
 - Core cannot be extracted without significant refactor the user hasn't scoped
 - With `--yagni`, no capabilities survive the cut-scope pass
 - Legal/compliance blocks publishing (licensing of upstream deps, etc.)

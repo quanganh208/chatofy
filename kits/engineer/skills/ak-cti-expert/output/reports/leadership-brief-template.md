@@ -7,7 +7,6 @@ Ultra-condensed one-page template for executive decision-makers.
 ## Template Structure
 
 ### Physical Layout
-
 - **Format:** Single page, letter size (8.5" × 11") or A4
 - **Margins:** 0.5" all sides
 - **Font:** Monospace 10pt for ASCII version; use clean sans-serif for printed
@@ -136,25 +135,21 @@ Ultra-condensed one-page template for executive decision-makers.
 ### Section 1: Situation
 
 **Rules:**
-
-- Maximum 50 words
-- One paragraph only
-- No technical terms
-- Explain both WHAT and WHY
+- One short paragraph an executive can absorb in a single glance
+- No technical terms; the reader is a decision-maker, not an analyst
+- Explain both WHAT happened and WHY it matters
 
 **Good Example:**
-
 ```
-We investigated concerns about unauthorized data access by reviewing John Doe's
-public digital footprint including social media, professional networks, and public
+We investigated concerns about unauthorized data access by reviewing John Doe's 
+public digital footprint including social media, professional networks, and public 
 records over 30 days.
 ```
 
 **Bad Example:**
-
 ```
-OSINT investigation conducted utilizing advanced reconnaissance techniques including
-domain enumeration, social media scraping, and metadata analysis to identify potential
+OSINT investigation conducted utilizing advanced reconnaissance techniques including 
+domain enumeration, social media scraping, and metadata analysis to identify potential 
 indicators of compromise in subject's digital attack surface.
 ```
 
@@ -163,14 +158,12 @@ indicators of compromise in subject's digital attack surface.
 ### Section 2: Key Findings
 
 **Rules:**
-
 - Maximum 3 findings
 - One sentence per finding
 - Include impact statement
 - Label confidence clearly
 
 **Finding Format:**
-
 ```
 ■ FINDING: [Subject] [Action] [Object] [Context]
   Impact: [Consequence for organization]
@@ -178,7 +171,6 @@ indicators of compromise in subject's digital attack surface.
 ```
 
 **Example Findings:**
-
 ```
 ■ FINDING 1: John Doe accessed sensitive customer database outside business hours.
   Impact: Potential data breach affecting 10,000+ customer records.
@@ -198,7 +190,6 @@ indicators of compromise in subject's digital attack surface.
 ### Section 3: Risk Summary
 
 **Risk Score Calculation:**
-
 ```
 Risk Score = (Impact × Likelihood) + (Threat Level × Vulnerability)
 
@@ -216,7 +207,6 @@ Score Ranges:
 ```
 
 **Risk Matrix:**
-
 ```
 ┌─────────────────┬─────────┬─────────────────────────────────────┐
 │ Risk Type       │ Status  │ Meaning                             │
@@ -234,19 +224,16 @@ Score Ranges:
 ### Section 4: Immediate Actions
 
 **Action Format:**
-
 ```
 [ ] [TIMEFRAME] [SPECIFIC ACTION] [OWNER]
 ```
 
 **Priority Levels:**
-
 - **24 hours:** Stop immediate harm, secure critical assets
 - **72 hours:** Mitigate ongoing risk, begin investigation
 - **1 week:** Implement monitoring, complete review
 
 **Examples:**
-
 ```
 □ 24 hours   Revoke Doe's system access and credentials      IT Security Lead
 □ 24 hours   Preserve all Doe's system logs and emails       Legal/IT
@@ -261,13 +248,10 @@ Score Ranges:
 ### Section 5: Recommendations
 
 **Format:**
-
-- Maximum 2 "DO" items
-- Maximum 1 "DO NOT" item
-- Each item: maximum 10 words
+- Two "DO" items and one "DO NOT" item, so the ask stays a decision rather than a backlog
+- Each item written as a single scannable line of plain language
 
 **Examples:**
-
 ```
 DO:
 • Initiate formal internal investigation immediately
@@ -284,14 +268,12 @@ DO NOT:
 **Purpose:** Identify the most important unknown that affects decision-making.
 
 **Format:**
-
 ```
 Gap: [What we don't know]
 Impact: [Why it matters for decisions]
 ```
 
 **Examples:**
-
 ```
 Gap: Whether Doe shared data with competitor.
 Impact: Cannot assess full scope of damage or legal exposure.
@@ -308,7 +290,6 @@ Impact: Single incident vs. coordinated breach changes response.
 ### Section 7: Bottom Line
 
 **Rules:**
-
 - Exactly one sentence
 - Must answer two questions:
   1. Should we be worried? (Yes/No/Qualified)
@@ -317,30 +298,26 @@ Impact: Single incident vs. coordinated breach changes response.
 **Examples by Risk Level:**
 
 **CRITICAL:**
-
 ```
-We have confirmed active data exfiltration requiring immediate system lockdown,
+We have confirmed active data exfiltration requiring immediate system lockdown, 
 legal engagement, and potential law enforcement notification within 24 hours.
 ```
 
 **HIGH:**
-
 ```
-We have verified significant security concerns requiring immediate access revocation
+We have verified significant security concerns requiring immediate access revocation 
 and 90-day enhanced monitoring of affected systems.
 ```
 
 **MEDIUM:**
-
 ```
-We have identified potential policy violations requiring internal review and
+We have identified potential policy violations requiring internal review and 
 enhanced supervision for 30 days pending further investigation.
 ```
 
 **LOW:**
-
 ```
-We have found minor compliance issues that can be addressed through standard
+We have found minor compliance issues that can be addressed through standard 
 HR procedures without immediate business impact.
 ```
 
@@ -350,19 +327,18 @@ HR procedures without immediate business impact.
 
 ### Recommended Colors (for printed/screen display)
 
-| Section       | Color            | Usage                            |
-| ------------- | ---------------- | -------------------------------- |
-| CRITICAL risk | Red (#DC2626)    | Header, risk score, urgent items |
-| HIGH risk     | Orange (#EA580C) | Risk indicators                  |
-| MEDIUM risk   | Yellow (#CA8A04) | Warnings                         |
-| LOW risk      | Green (#16A34A)  | Positive indicators              |
-| Headers       | Navy (#1E3A8A)   | Section titles                   |
-| Text          | Black (#000000)  | Body text                        |
+| Section | Color | Usage |
+|---------|-------|-------|
+| CRITICAL risk | Red (#DC2626) | Header, risk score, urgent items |
+| HIGH risk | Orange (#EA580C) | Risk indicators |
+| MEDIUM risk | Yellow (#CA8A04) | Warnings |
+| LOW risk | Green (#16A34A) | Positive indicators |
+| Headers | Navy (#1E3A8A) | Section titles |
+| Text | Black (#000000) | Body text |
 
 ### Visual Elements
 
 **Risk Indicator Boxes:**
-
 ```
 ┌─────────────────────────────────────┐
 │  🔴 CRITICAL RISK DETECTED          │
@@ -371,7 +347,6 @@ HR procedures without immediate business impact.
 ```
 
 **Checklist Items:**
-
 ```
 ☐ Incomplete    ☑ Completed    ⚠ Attention Required
 ```
@@ -402,7 +377,6 @@ Before finalizing the Executive Brief:
 ## Alternative Formats
 
 ### Email-Compatible Version (Plain Text)
-
 ```
 EXECUTIVE BRIEF: [CASE NAME]
 Date: [YYYY-MM-DD] | Classification: [LEVEL]
@@ -429,7 +403,6 @@ Contact: [Name] | [Email] | Full report: [Link]
 ```
 
 ### Mobile-Optimized Version (SMS/Slack)
-
 ```
 [CASE] Risk: [LEVEL] | Score: XX/100
 
@@ -553,4 +526,4 @@ Contact: [Name] [Phone]
 
 ---
 
-_Version: 1.0 | Format: One-page maximum | Last Updated: 2026-02-27_
+*Version: 1.0 | Format: One-page maximum | Last Updated: 2026-02-27*

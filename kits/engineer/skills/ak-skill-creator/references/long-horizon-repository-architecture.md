@@ -18,33 +18,33 @@ baseline or authorize changes outside the selected target.
 observe → hypothesize → experiment → evaluate → decide → promote → release → observe
 ```
 
-A plain skill (SKILL.md + scripts/references/assets) is the _product surface_. A long-horizon
-repository wraps that surface with a _verification surface_ and a _learning surface_, and keeps
+A plain skill (SKILL.md + scripts/references/assets) is the *product surface*. A long-horizon
+repository wraps that surface with a *verification surface* and a *learning surface*, and keeps
 the three from leaking into each other.
 
 ## Stable product surface (what ships)
 
-| Path          | Owns                                                           |
-| ------------- | -------------------------------------------------------------- |
-| `SKILL.md`    | Public entry point and routing contract                        |
-| `contracts/`  | Stable input, output, diagnostics, and compatibility decisions |
-| `references/` | Progressive-disclosure domain knowledge                        |
-| `data/`       | Runtime datasets the skill reads                               |
-| `templates/`  | Runtime boilerplate copied into outputs                        |
-| `scripts/`    | Runtime automation shipped with the skill                      |
-| `agents/`     | Canonical role bodies and delegation contracts                 |
-| `gates/`      | Named, stable acceptance checks                                |
+| Path | Owns |
+|---|---|
+| `SKILL.md` | Public entry point and routing contract |
+| `contracts/` | Stable input, output, diagnostics, and compatibility decisions |
+| `references/` | Progressive-disclosure domain knowledge |
+| `data/` | Runtime datasets the skill reads |
+| `templates/` | Runtime boilerplate copied into outputs |
+| `scripts/` | Runtime automation shipped with the skill |
+| `agents/` | Canonical role bodies and delegation contracts |
+| `gates/` | Named, stable acceptance checks |
 
 Production behavior never imports from `experiments/`, `evals/`, or `observations/`.
 
 ## Verification surface (how we know it works)
 
-| Path          | Owns                                                          |
-| ------------- | ------------------------------------------------------------- |
-| `tests/`      | Deterministic code and integration behavior                   |
-| `evals/`      | Skill-output quality over representative datasets and rubrics |
-| `benchmarks/` | Fixed longitudinal cases and append-only measurements         |
-| `examples/`   | Accepted outputs that teach expected usage                    |
+| Path | Owns |
+|---|---|
+| `tests/` | Deterministic code and integration behavior |
+| `evals/` | Skill-output quality over representative datasets and rubrics |
+| `benchmarks/` | Fixed longitudinal cases and append-only measurements |
+| `examples/` | Accepted outputs that teach expected usage |
 
 Tests answer "is implementation-owned behavior correct". Evals answer "is the skill's result
 useful". Benchmarks answer "did quality move over time". Examples are documentation, not an
@@ -55,11 +55,11 @@ with disposable output in `evals/results/` (ignored) and only approved baselines
 
 ## Learning surface (where change comes from)
 
-| Path            | Owns                                                                                              |
-| --------------- | ------------------------------------------------------------------------------------------------- |
+| Path | Owns |
+|---|---|
 | `observations/` | Curated user feedback, failure reports, requests (`inbox/`, `failures/`, `requests/`, `curated/`) |
-| `experiments/`  | Time-bounded hypotheses, prototypes, evidence, and verdicts (`YYMMDD-purpose-kind/`)              |
-| `decisions/`    | Durable architecture decision records                                                             |
+| `experiments/` | Time-bounded hypotheses, prototypes, evidence, and verdicts (`YYMMDD-purpose-kind/`) |
+| `decisions/` | Durable architecture decision records |
 
 Raw observations may contain private material. Keep `observations/inbox/` ignored, anonymize a
 case before tracking it, preserve provenance, never store credentials or personal data.
@@ -83,10 +83,10 @@ shipped as runtime resources. A command the skill tells an agent to run belongs 
 The repository carries one agent instruction file that points at the shared docs and adds only
 repository-level operating rules:
 
-| Harness     | File        |
-| ----------- | ----------- |
+| Harness | File |
+|---|---|
 | Claude Code | `CLAUDE.md` |
-| Codex       | `AGENTS.md` |
+| Codex | `AGENTS.md` |
 
 Selection precedence:
 

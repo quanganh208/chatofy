@@ -1,7 +1,6 @@
 # Parallel Workflow (`--parallel`)
 
-**Thinking level:** Ultrathink parallel
-**User gates:** Design approval, then normal parallel cook review gates. Implementation uses multi-agent parallel execution after user-approved cook continuation.
+**Continuation:** Reuse accepted design and scope, then execute independent work in parallel; ask only for material missing decisions.
 
 The opening brainstorm contract in the parent skill is already satisfied and
 must be passed to every independent planning branch.
@@ -33,7 +32,7 @@ No user gate — proceed automatically.
 3. If no logo: generate with `ak:ai-multimodal` skill
 4. Screenshot with `ak:agent-browser` -> save to `./docs/wireframes/`
 
-**Gate:** Ask user to approve design. Repeat if rejected.
+Resolve material design gaps; reuse an accepted direction without another approval.
 
 **Image tools:** `ak:ai-multimodal` for generation/analysis, `imagemagick` for crop/resize, background removal tool as needed.
 
@@ -45,7 +44,7 @@ Activate **ak:plan** skill: `/ak:plan --parallel <requirements>`
 - `plan.md` includes dependency graph, execution strategy, file ownership matrix
 - Task hydration with `addBlockedBy` for sequential deps, no blockers for parallel groups
 
-After planning, hand off to cook with normal review gates. Add `--auto` only if the user explicitly asked for autonomous bootstrap.
+After planning, hand off the accepted contract and scope to cook for implementation and verification.
 
 ## Step 5: Parallel Implementation → Final Report
 
@@ -58,6 +57,6 @@ Activate **ak:cook** skill: `/ak:cook --parallel <plan-path>`
 - Use `ui-ux-designer` for frontend (generate/analyze assets with `ak:ai-multimodal`, edit with `imagemagick`)
 - Respect file ownership boundaries
 - Run type checking after implementation
-- Keep cook review gates; `--parallel` controls execution shape, not approval bypass
+- Keep verification and safety gates; `--parallel` controls execution shape
 
 Cook handles testing, review, docs, onboarding, final report per `shared-phases.md`.

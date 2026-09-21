@@ -4,17 +4,16 @@ Every investigation automatically delivers structured intelligence reports.
 
 ## Standard Formats
 
-| Format               | File Types                       | Target Audience                    |
-| -------------------- | -------------------------------- | ---------------------------------- |
-| **Technical INTSUM** | `.md`, `.docx`, optional `.html` | Security teams, SOC/IR analysts    |
-| **Executive Brief**  | `.md`, `.docx`, optional `.html` | Leadership, CISOs, management      |
-| **Legal Evidence**   | `.md`, `.docx`                   | Compliance officers, legal counsel |
-| **IOC Export**       | `.json`, `.csv`, `.stix`         | SIEM, SOAR, firewall ingestion     |
+| Format | File Types | Target Audience |
+|---|---|---|
+| **Technical INTSUM** | `.md`, `.docx`, optional `.html` | Security teams, SOC/IR analysts |
+| **Executive Brief** | `.md`, `.docx`, optional `.html` | Leadership, CISOs, management |
+| **Legal Evidence** | `.md`, `.docx` | Compliance officers, legal counsel |
+| **IOC Export** | `.json`, `.csv`, `.stix` | SIEM, SOAR, firewall ingestion |
 
 ## File Export Naming
 
 Reports auto-save to the case workspace:
-
 - `CTI-REPORT-<CASE-ID>-<YYYY-MM-DD>.md`
 - `CTI-REPORT-<CASE-ID>-<YYYY-MM-DD>.docx`
 - `CTI-REPORT-<CASE-ID>-<YYYY-MM-DD>.html` (when `--format html` is requested)

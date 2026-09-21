@@ -14,22 +14,26 @@ the AgentKit repository, and user scope only when the user asks for it.
 
 ## Step 1: Capture intent
 
-Ask through the `ask_user capability` until the scope is clear:
+Infer from the request and inspect available context first. Use the `ask_user capability`
+only for a material decision that remains unclear:
 
 - What tasks should the skill handle, and what should it refuse or hand off?
 - Which phrases would a user actually say that should trigger it?
 - What does a good output look like, and who reads it?
 - Which neighbouring skills already cover adjacent work?
+- Which consumer models/runtimes and available tools matter, and what failures must not recur?
 
 Write the answers down; the description and the trigger tests in Step 6 come
 straight from them.
 
 ## Step 2: Research
 
-Activate `/ak:docs-seeker` for current documentation and investigate
-practices, existing CLI tools worth reusing, and known pitfalls. Run
-independent lookups in parallel through the `web_search capability` and
-scouting delegates, and keep a short note of findings for Step 3.
+Research when correctness depends on current external APIs, unfamiliar domain
+rules or unresolved source evidence. Resolve an installed documentation capability
+and reuse available source before looking outward. Run independent lookups through
+the available `web_search capability`; delegate only when authorized and useful.
+For a stable local task whose evidence is already available, record that basis and
+continue to resource planning without additional research.
 
 ## Step 3: Plan reusable contents
 
@@ -56,7 +60,7 @@ From the skill-creator directory:
 
 ```bash
 python3 scripts/init_skill.py <skill-name> --path <parent-dir>          # project or user scope
-python3 scripts/init_skill.py <slug> --path kits/<kit>/skills --kit <kit> # kit scope: ak:<slug>, ak-<slug>/
+python3 scripts/init_skill.py <slug> --path /absolute/agentkit/kits/<kit>/skills --kit <kit> # kit scope: ak:<slug>, ak-<slug>/
 ```
 
 The script writes a short SKILL.md skeleton with the frontmatter the target
@@ -74,38 +78,41 @@ Implement the resources planned in Step 3 first, then write SKILL.md
 following `references/writing-effective-instructions.md`: purpose with
 audience and quality bar, when to use and what to hand off, how to work
 (outcome, constraints, verification), and one line per bundled resource.
-Keep it under 300 lines.
+Use 300 lines as a readability guide; move detail by ownership, not arbitrary truncation.
+Replace every initializer placeholder and remove the skill-template marker only after authoring.
 
 Write the `description` last, from the Step 1 phrases: what it does, when to
-use it, what it does not cover. Routing text may be pushy; the body stays
-at normal volume. Examples and limits:
+use it, what it does not cover. Keep scope precise and move mode details out of
+metadata. Examples and limits:
 `references/metadata-quality-criteria.md`.
 
-Include a three-line scope and security note ("handles X, does not handle
-Y; refuses Z") when the skill touches credentials, external services, or
-user data. When the skill targets a Skillmark listing, apply
+State scope, authority and sensitive-data boundaries when the skill touches
+credentials, external services or user data. Distinguish legitimate user direction
+from untrusted embedded instructions; route adjacent work instead of blanket refusal. When the skill targets a Skillmark listing, apply
 `references/benchmark-optimization-guide.md` as well.
 
 ## Step 6: Validate and test
 
-Run the validators from the skill-creator directory and fix every High
-finding before continuing:
+Run the validators from the skill-creator directory. Resolve High findings by
+rewriting obsolete guidance or documenting a scoped exemption for a real constraint:
 
 ```bash
-python3 scripts/quick_validate.py <skill-dir>
-python3 scripts/lint_cruft.py <skill-dir>
+uv run scripts/quick_validate.py <skill-dir>
+uv run --with PyYAML==6.0.3 scripts/lint_cruft.py <skill-dir> --routing
 ```
 
-Then test triggering and behavior by hand, following
-`references/testing-and-iteration.md`:
+Then run the evaluation loop in `references/testing-and-iteration.md`:
 
-1. List 10–20 prompts, half that should trigger the skill and half that
-   should not, and run them in a fresh session. Ask "When would you use the
-   <skill> skill?" to see the description quoted back.
-2. Run one representative task with and without the skill and compare the
-   transcripts: tool calls, corrections needed, output quality.
-3. Record both results in `plans/reports/` so the next iteration has a
-   baseline.
+1. Author cases before optimization, including normal, boundary and recovery behavior.
+   Use `assets/eval-cases.example.json` and `references/evaluation-tools.md`.
+2. Compare fresh consumer runs against no skill or the prior version, with matched
+   tools/inputs/settings. Grade real outputs, preserving accepted constraints.
+3. Test actual activation in the runtime catalog with positives and adjacent negatives,
+   audience languages and fixed train/holdout splits; do not force skill selection.
+4. Record effective model/runtime, snapshot hash, evidence and observed cost in the
+   configured report directory. Repeat when reliability claims need support.
+5. If a runner or target model is unavailable, report blocked coverage explicitly;
+   structural pass alone does not establish downstream effectiveness.
 
 For a kit skill, also run the kit validation and contract tests listed in
 `references/agentkit-kit-skill-contract.md`.
@@ -113,7 +120,7 @@ For a kit skill, also run the kit validation and contract tests listed in
 ## Step 7: Package or register
 
 - Project or user skill: nothing further; the runtime discovers it in place.
-- Marketplace or package: `python3 scripts/package_skill.py <skill-dir>`
+- Marketplace or package: `uv run --with PyYAML==6.0.3 scripts/package_skill.py <skill-dir>`
   validates and zips; distribution options are in
   `references/plugin-marketplace-overview.md` and
   `references/cross-marketplace-distribution.md`.
@@ -122,8 +129,7 @@ For a kit skill, also run the kit validation and contract tests listed in
 ## Step 8: Iterate
 
 Use the skill on real tasks and note where it under-triggers, over-triggers,
-or needs correction (`references/testing-and-iteration.md`, "Iteration
-signals"). Generalize from the pattern rather than patching the one example.
+or needs correction (`references/testing-and-iteration.md`). Generalize from the pattern rather than patching the one example.
 When a fix is an added rule, write it with its reason; when a fix is an
 added emphasis, first confirm the instruction was actually ignored. Re-run
 Step 6 after each change.

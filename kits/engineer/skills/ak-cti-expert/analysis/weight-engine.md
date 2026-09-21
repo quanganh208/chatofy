@@ -22,44 +22,44 @@ WHERE:
 
 ### Security Group (total weight: 0.46)
 
-| Indicator              | Raw Scale | Min | Max | Weight |
-| ---------------------- | --------- | --- | --- | ------ |
-| Breach count score     | 0–100     | 0   | 100 | 0.17   |
-| Credential reuse score | 0–100     | 0   | 100 | 0.13   |
-| Account security score | 0–100     | 0   | 100 | 0.16   |
+| Indicator | Raw Scale | Min | Max | Weight |
+|---|---|---|---|---|
+| Breach count score | 0–100 | 0 | 100 | 0.17 |
+| Credential reuse score | 0–100 | 0 | 100 | 0.13 |
+| Account security score | 0–100 | 0 | 100 | 0.16 |
 
 ### Privacy Group (total weight: 0.16)
 
-| Indicator              | Raw Scale | Min | Max | Weight |
-| ---------------------- | --------- | --- | --- | ------ |
-| Personal info exposure | 0–100     | 0   | 100 | 0.09   |
-| Metadata leakage score | 0–100     | 0   | 100 | 0.07   |
+| Indicator | Raw Scale | Min | Max | Weight |
+|---|---|---|---|---|
+| Personal info exposure | 0–100 | 0 | 100 | 0.09 |
+| Metadata leakage score | 0–100 | 0 | 100 | 0.07 |
 
 ### Reputation Group (total weight: 0.19)
 
-| Indicator                 | Raw Scale | Min | Max | Weight |
-| ------------------------- | --------- | --- | --- | ------ |
-| Content liability score   | 0–100     | 0   | 100 | 0.11   |
-| Persona consistency score | 0–100     | 0   | 100 | 0.08   |
+| Indicator | Raw Scale | Min | Max | Weight |
+|---|---|---|---|---|
+| Content liability score | 0–100 | 0 | 100 | 0.11 |
+| Persona consistency score | 0–100 | 0 | 100 | 0.08 |
 
 ### Legal Group (total weight: 0.12)
 
-| Indicator                  | Raw Scale | Min | Max | Weight |
-| -------------------------- | --------- | --- | --- | ------ |
-| Legal finding score        | 0–100     | 0   | 100 | 0.08   |
-| Compliance violation score | 0–100     | 0   | 100 | 0.04   |
+| Indicator | Raw Scale | Min | Max | Weight |
+|---|---|---|---|---|
+| Legal finding score | 0–100 | 0 | 100 | 0.08 |
+| Compliance violation score | 0–100 | 0 | 100 | 0.04 |
 
 ### Infrastructure Group (total weight: 0.11)
 
-| Indicator                 | Raw Scale | Min | Max | Weight |
-| ------------------------- | --------- | --- | --- | ------ |
-| Threat intelligence score | 0–100     | 0   | 100 | 0.11   |
+| Indicator | Raw Scale | Min | Max | Weight |
+|---|---|---|---|---|
+| Threat intelligence score | 0–100 | 0 | 100 | 0.11 |
 
 ### Surface Group (total weight: 0.06)
 
-| Indicator              | Raw Scale | Min | Max | Weight |
-| ---------------------- | --------- | --- | --- | ------ |
-| Platform breadth score | 0–100     | 0   | 100 | 0.06   |
+| Indicator | Raw Scale | Min | Max | Weight |
+|---|---|---|---|---|
+| Platform breadth score | 0–100 | 0 | 100 | 0.06 |
 
 **Weight sum verification:** 0.17+0.13+0.16+0.09+0.07+0.11+0.08+0.08+0.04+0.11+0.06 = **1.00**
 
@@ -78,13 +78,13 @@ def minmax_normalize(raw, min_val=0, max_val=100):
 
 For indicators already on a 0–100 scale, normalization is a no-op. For indicators on other scales (e.g., raw breach count 0–20), use domain-appropriate min/max:
 
-| Indicator             | Raw Input     | Min | Max | Notes                          |
-| --------------------- | ------------- | --- | --- | ------------------------------ |
-| Breach count          | integer count | 0   | 10  | Cap at 10; higher → same as 10 |
-| AbuseIPDB confidence  | 0–100         | 0   | 100 | Direct percentage              |
-| OTX pulse count       | integer count | 0   | 20  | Cap at 20                      |
-| VirusTotal detections | engine count  | 0   | 90  | Total engines ≈ 90             |
-| Platform count        | integer count | 0   | 100 | Cap at 100                     |
+| Indicator | Raw Input | Min | Max | Notes |
+|---|---|---|---|---|
+| Breach count | integer count | 0 | 10 | Cap at 10; higher → same as 10 |
+| AbuseIPDB confidence | 0–100 | 0 | 100 | Direct percentage |
+| OTX pulse count | integer count | 0 | 20 | Cap at 20 |
+| VirusTotal detections | engine count | 0 | 90 | Total engines ≈ 90 |
+| Platform count | integer count | 0 | 100 | Cap at 100 |
 
 ---
 
@@ -92,21 +92,21 @@ For indicators already on a 0–100 scale, normalization is a no-op. For indicat
 
 ### Per-Indicator Additive Components
 
-| Indicator               | Condition                | Points Added                 |
-| ----------------------- | ------------------------ | ---------------------------- |
-| **Breach count**        | 1 breach                 | +22; 2–3 → +40; 4+ → +60     |
-|                         | Recent breach ≤12mo      | +18                          |
-|                         | Password exposed         | +20; sensitive fields → +12  |
-| **Credential reuse**    | Reuse per platform       | +10 each (cap 50)            |
-|                         | Weak pattern reuse       | +25; no MFA → +10            |
-| **Account security**    | Impossible travel event  | +18 each (cap 40)            |
-|                         | Suspicious login pattern | +25; session signal → +20    |
-| **Content liability**   | Harassment detected      | +30; misinformation → +25    |
-|                         | Mass deletion signal     | +15; threat actor link → +35 |
-| **Threat intelligence** | AbuseIPDB 25–74%         | +20; ≥75% → +40              |
-|                         | GreyNoise malicious      | +40; OTX pulses ≥3 → +28     |
-|                         | VirusTotal ≥10 engines   | +40; 3–9 → +22; 1–2 → +10    |
-|                         | Confirmed C2/botnet      | +45                          |
+| Indicator | Condition | Points Added |
+|---|---|---|
+| **Breach count** | 1 breach | +22; 2–3 → +40; 4+ → +60 |
+| | Recent breach ≤12mo | +18 |
+| | Password exposed | +20; sensitive fields → +12 |
+| **Credential reuse** | Reuse per platform | +10 each (cap 50) |
+| | Weak pattern reuse | +25; no MFA → +10 |
+| **Account security** | Impossible travel event | +18 each (cap 40) |
+| | Suspicious login pattern | +25; session signal → +20 |
+| **Content liability** | Harassment detected | +30; misinformation → +25 |
+| | Mass deletion signal | +15; threat actor link → +35 |
+| **Threat intelligence** | AbuseIPDB 25–74% | +20; ≥75% → +40 |
+| | GreyNoise malicious | +40; OTX pulses ≥3 → +28 |
+| | VirusTotal ≥10 engines | +40; 3–9 → +22; 1–2 → +10 |
+| | Confirmed C2/botnet | +45 |
 
 ---
 
@@ -114,13 +114,13 @@ For indicators already on a 0–100 scale, normalization is a no-op. For indicat
 
 Applied after weighted sum, before final cap at 100:
 
-| Condition                      | Multiplier | Applies To     |
-| ------------------------------ | ---------- | -------------- |
-| Finding age ≤ 30 days          | ×1.25      | Any indicator  |
-| Finding age > 730 days         | ×0.80      | Any indicator  |
-| Verified public figure         | ×1.20      | Full composite |
-| Confirmed active compromise    | ×1.35      | Full composite |
-| Anonymous/pseudonymous subject | ×0.90      | Full composite |
+| Condition | Multiplier | Applies To |
+|---|---|---|
+| Finding age ≤ 30 days | ×1.25 | Any indicator |
+| Finding age > 730 days | ×0.80 | Any indicator |
+| Verified public figure | ×1.20 | Full composite |
+| Confirmed active compromise | ×1.35 | Full composite |
+| Anonymous/pseudonymous subject | ×0.90 | Full composite |
 
 ```python
 def apply_multipliers(base_score, subject, context):
@@ -179,15 +179,15 @@ def weighted_composite(subject):
 
 ## 6. Score Bands
 
-| Score  | Grade | Action                         |
-| ------ | ----- | ------------------------------ |
-| 0–15   | A     | Routine monitoring only        |
-| 16–30  | B     | Quarterly review               |
-| 31–45  | C     | Bi-monthly analyst review      |
-| 46–65  | D     | Active case, weekly review     |
-| 66–80  | F1    | Priority escalation            |
-| 81–90  | F2    | Critical — daily monitoring    |
-| 91–100 | F3    | Emergency — immediate response |
+| Score | Grade | Action |
+|---|---|---|
+| 0–15 | A | Routine monitoring only |
+| 16–30 | B | Quarterly review |
+| 31–45 | C | Bi-monthly analyst review |
+| 46–65 | D | Active case, weekly review |
+| 66–80 | F1 | Priority escalation |
+| 81–90 | F2 | Critical — daily monitoring |
+| 91–100 | F3 | Emergency — immediate response |
 
 ---
 

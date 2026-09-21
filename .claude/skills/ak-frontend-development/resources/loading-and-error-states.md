@@ -1,3 +1,7 @@
+# Applicability
+
+Use these examples only when their packages and conventions match the inspected project. Preserve existing router, component library, aliases and dependency versions.
+
 # Loading & Error States
 
 Handling loading and error states in place, rather than by swapping the tree, prevents layout shift and keeps the page stable while data arrives.

@@ -58,13 +58,11 @@ my-marketplace/
 {
   "name": "acme-tools",
   "owner": { "name": "Acme" },
-  "plugins": [
-    {
-      "name": "my-plugin",
-      "source": "./plugins/my-plugin",
-      "description": "Bundles the my-skill workflow"
-    }
-  ]
+  "plugins": [{
+    "name": "my-plugin",
+    "source": "./plugins/my-plugin",
+    "description": "Bundles the my-skill workflow"
+  }]
 }
 ```
 
@@ -141,21 +139,19 @@ Repo / personal marketplace catalog (separate from Claude's `.claude-plugin/` pa
 ```json
 {
   "name": "acme-codex",
-  "plugins": [
-    {
-      "name": "my-plugin",
-      "source": { "source": "local", "path": "./plugins/my-plugin" }
-    }
-  ]
+  "plugins": [{
+    "name": "my-plugin",
+    "source": { "source": "local", "path": "./plugins/my-plugin" }
+  }]
 }
 ```
 
 ### SKILL.md / AGENTS.md interplay
 
-| File        | Role                                                           |
-| ----------- | -------------------------------------------------------------- |
-| `SKILL.md`  | On-demand workflow; activate when description matches the task |
-| `AGENTS.md` | Always-on project rules (build/test conventions, guardrails)   |
+| File | Role |
+|------|------|
+| `SKILL.md` | On-demand workflow; activate when description matches the task |
+| `AGENTS.md` | Always-on project rules (build/test conventions, guardrails) |
 
 Put repeatable specialized procedures in skills; put repo-wide standing rules in `AGENTS.md`. Do not duplicate always-on policy into every skill.
 
@@ -221,13 +217,13 @@ Browse/rank: [skills.sh](https://skills.sh) · CLI docs: [skills.sh/docs/cli](ht
 
 Base: `https://skills.sh` under `/api/v1/` (JSON; Vercel OIDC auth). Useful endpoints (as of 2026-08-20):
 
-| Method | Path                                    | Purpose                                                |
-| ------ | --------------------------------------- | ------------------------------------------------------ |
-| GET    | `/api/v1/skills`                        | Paginated leaderboard (`view=all-time\|trending\|hot`) |
-| GET    | `/api/v1/skills/search?q=`              | Search                                                 |
-| GET    | `/api/v1/skills/curated`                | First-party curated set                                |
-| GET    | `/api/v1/skills/{source}/{skill}`       | Detail + file tree                                     |
-| GET    | `/api/v1/skills/audit/{source}/{skill}` | Security audits                                        |
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/v1/skills` | Paginated leaderboard (`view=all-time\|trending\|hot`) |
+| GET | `/api/v1/skills/search?q=` | Search |
+| GET | `/api/v1/skills/curated` | First-party curated set |
+| GET | `/api/v1/skills/{source}/{skill}` | Detail + file tree |
+| GET | `/api/v1/skills/audit/{source}/{skill}` | Security audits |
 
 Docs: [skills.sh/docs/api](https://www.skills.sh/docs/api).
 
@@ -237,14 +233,14 @@ Docs: [skills.sh/docs/api](https://www.skills.sh/docs/api).
 
 Anthropic-style / agentskills.io `SKILL.md` frontmatter across targets (verify limits before release — they move):
 
-| Field / concern          | Claude Plugins                                                         | Codex plugins                                                                                      | Vercel skills.sh / `npx skills`                                                                                                          |
-| ------------------------ | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                   | kebab-case; AgentKit also documents `namespace:skill-name` for Claude  | kebab-case plugin + skill dirs; match folder                                                       | Must match parent dir; `a-z0-9-` only, ≤64 chars, no leading/trailing/consecutive hyphens ([spec](https://agentskills.io/specification)) |
-| `description`            | ≤1024 chars; trigger-oriented                                          | Same portable field; drives activation                                                             | ≤1024 chars; what + when                                                                                                                 |
-| Extra required manifests | `.claude-plugin/marketplace.json` + `plugin.json`                      | `.codex-plugin/plugin.json`; optional `.agents/plugins/marketplace.json`, `.mcp.json`, `.app.json` | None beyond `SKILL.md` (+ README recommended)                                                                                            |
-| Naming rules             | Marketplace/plugin IDs kebab-case; reserved marketplace names blocked  | Plugin `name` is install ID; interface display names separate                                      | `name` == directory; no uppercase                                                                                                        |
-| Optional portable fields | `license`, `compatibility`, `metadata`, `allowed-tools` (experimental) | Same in skill; richer metadata lives in `plugin.json`                                              | Same agentskills.io optional fields                                                                                                      |
-| Always-on vs on-demand   | Skill activation via description                                       | Skills on-demand; `AGENTS.md` always-on                                                            | Skills on-demand; use agent `AGENTS.md` for standing rules                                                                               |
+| Field / concern | Claude Plugins | Codex plugins | Vercel skills.sh / `npx skills` |
+|-----------------|----------------|---------------|----------------------------------|
+| `name` | kebab-case; AgentKit also documents `namespace:skill-name` for Claude | kebab-case plugin + skill dirs; match folder | Must match parent dir; `a-z0-9-` only, ≤64 chars, no leading/trailing/consecutive hyphens ([spec](https://agentskills.io/specification)) |
+| `description` | ≤1024 chars; trigger-oriented | Same portable field; drives activation | ≤1024 chars; what + when |
+| Extra required manifests | `.claude-plugin/marketplace.json` + `plugin.json` | `.codex-plugin/plugin.json`; optional `.agents/plugins/marketplace.json`, `.mcp.json`, `.app.json` | None beyond `SKILL.md` (+ README recommended) |
+| Naming rules | Marketplace/plugin IDs kebab-case; reserved marketplace names blocked | Plugin `name` is install ID; interface display names separate | `name` == directory; no uppercase |
+| Optional portable fields | `license`, `compatibility`, `metadata`, `allowed-tools` (experimental) | Same in skill; richer metadata lives in `plugin.json` | Same agentskills.io optional fields |
+| Always-on vs on-demand | Skill activation via description | Skills on-demand; `AGENTS.md` always-on | Skills on-demand; use agent `AGENTS.md` for standing rules |
 
 Prefer the intersection: lowercase kebab `name`, ≤1024-char trigger `description`, no Claude-only `namespace:` names if you also ship to Codex / skills.sh.
 

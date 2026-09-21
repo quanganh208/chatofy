@@ -17,18 +17,17 @@ Techniques for extracting intelligence from web platforms, DNS records, and onli
 
 Append `&tbs=` parameters to Google Image search URLs for precision filtering:
 
-| Filter         | Parameter               | Use Case                              |
-| -------------- | ----------------------- | ------------------------------------- |
-| Faces only     | `itp:face`              | Profile photos — strips logos/banners |
-| Clipart        | `itp:clipart`           | Logos, icons                          |
-| Animated GIF   | `itp:animated`          | Animated images                       |
-| Specific color | `ic:specific,isc:green` | Dominant color filter                 |
-| Transparent BG | `ic:trans`              | PNGs with transparency                |
-| Large images   | `isz:l`                 | High resolution only                  |
-| Min resolution | `isz:lt,islt:2mp`       | Greater than 2 megapixels             |
+| Filter | Parameter | Use Case |
+|--------|-----------|----------|
+| Faces only | `itp:face` | Profile photos — strips logos/banners |
+| Clipart | `itp:clipart` | Logos, icons |
+| Animated GIF | `itp:animated` | Animated images |
+| Specific color | `ic:specific,isc:green` | Dominant color filter |
+| Transparent BG | `ic:trans` | PNGs with transparency |
+| Large images | `isz:l` | High resolution only |
+| Min resolution | `isz:lt,islt:2mp` | Greater than 2 megapixels |
 
 **Combined example — LinkedIn face photos:**
-
 ```
 https://www.google.com/search?q="company"+"intern"+site:linkedin.com&tbm=isch&tbs=itp:face
 ```
@@ -41,12 +40,12 @@ The `itp:face` filter is especially useful — combine with `site:` and `after:Y
 
 When targets share Google Docs/Sheets links, try these access URLs:
 
-| URL Suffix             | Purpose                      |
-| ---------------------- | ---------------------------- |
-| `/export?format=csv`   | Export as CSV                |
-| `/pub`                 | Published version            |
+| URL Suffix | Purpose |
+|-----------|---------|
+| `/export?format=csv` | Export as CSV |
+| `/pub` | Published version |
 | `/gviz/tq?tqx=out:csv` | Visualization API CSV export |
-| `/htmlview`            | HTML view                    |
+| `/htmlview` | HTML view |
 
 Sheet IDs are stable identifiers even if sharing settings change. Private sheets require authentication.
 
@@ -59,13 +58,11 @@ Extracts metadata and permissions from any publicly shared Google document witho
 **Supported document types:** Docs, Sheets, Slides, Drawings, Drive files, My Maps, Apps Script, Jamboard.
 
 **Installation:**
-
 ```bash
 pip3 install xeuledoc
 ```
 
 **Usage:**
-
 ```bash
 # Analyze any Google document share link
 xeuledoc "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
@@ -73,38 +70,34 @@ xeuledoc "https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptl
 
 **Extracted data:**
 
-| Field              | Forensic Value                         | Confidence |
-| ------------------ | -------------------------------------- | ---------- |
-| Document ID        | Persistent identifier (33 or 44 chars) | HIGH       |
-| Creation date      | Document origin timestamp (UTC)        | HIGH       |
-| Last edit date     | Most recent modification (UTC)         | HIGH       |
-| Public permissions | Viewer/editor/commenter roles          | HIGH       |
-| Owner name         | Document creator identity              | HIGH       |
-| Owner email        | Creator email address                  | HIGH       |
-| Owner Google ID    | Persistent Google account identifier   | HIGH       |
+| Field | Forensic Value | Confidence |
+|-------|---------------|------------|
+| Document ID | Persistent identifier (33 or 44 chars) | HIGH |
+| Creation date | Document origin timestamp (UTC) | HIGH |
+| Last edit date | Most recent modification (UTC) | HIGH |
+| Public permissions | Viewer/editor/commenter roles | HIGH |
+| Owner name | Document creator identity | HIGH |
+| Owner email | Creator email address | HIGH |
+| Owner Google ID | Persistent Google account identifier | HIGH |
 
 **OSINT value:**
-
 - Reveals document owner identity (name, email, Google ID) even when the doc itself shows no author
 - Creation vs edit date gap exposes document lifecycle and editing patterns
 - Public permissions reveal whether the target intentionally shared or misconfigured access
 - Owner Google ID is a persistent identifier useful for cross-referencing across Google services
 
 **Integration with case model:**
-
 - Owner email → register as EMAIL subject → feed to `/email-deep` and `/breach-deep`
 - Owner name → register as PERSON subject → feed to `/username` enumeration
 - Document → register as ASSET subject with `owns` connection to owner
 - Timestamps → feed to `/timeline`
 
 **Fallback cascade:**
-
 1. xeuledoc (primary — automated, structured output)
 2. Manual Google Drive API query with document ID (secondary)
 3. Google cache / Wayback Machine snapshot of the document (tertiary)
 
 **Limitations:**
-
 - Only works on public or anyone-with-link documents; private docs return error
 - Rate-limited by Google — automatic retries (up to 100) with progress display
 - Metadata can theoretically be manipulated; treat as findings, not ground truth
@@ -202,7 +195,6 @@ Bot responses may reveal: attacker identity, credentials to secondary systems, d
 Track organizational donors through FEC filings.
 
 **Resources:**
-
 - [FEC.gov](https://www.fec.gov/data/) — Committee receipts and expenditures
 - 501(c)(4) organizations can donate to Super PACs without disclosing original funders
 
@@ -248,13 +240,13 @@ Visually-identical Unicode characters from different blocks encode binary data i
 
 ### Common Homoglyph Pairs
 
-| ASCII        | Homoglyph    | Unicode Block |
-| ------------ | ------------ | ------------- |
-| `a` (U+0061) | `а` (U+0430) | Cyrillic      |
-| `o` (U+006F) | `о` (U+043E) | Cyrillic      |
-| `e` (U+0065) | `е` (U+0435) | Cyrillic      |
-| `s` (U+0073) | `ѕ` (U+0455) | Cyrillic DZE  |
-| `p` (U+0070) | `р` (U+0440) | Cyrillic      |
+| ASCII | Homoglyph | Unicode Block |
+|-------|-----------|---------------|
+| `a` (U+0061) | `а` (U+0430) | Cyrillic |
+| `o` (U+006F) | `о` (U+043E) | Cyrillic |
+| `e` (U+0065) | `е` (U+0435) | Cyrillic |
+| `s` (U+0073) | `ѕ` (U+0455) | Cyrillic DZE |
+| `p` (U+0070) | `р` (U+0440) | Cyrillic |
 
 ### Decoding
 
@@ -284,18 +276,18 @@ def decode_homoglyph_stego(text):
 
 ## 12. Confidence Ratings
 
-| Finding                        | Confidence | Notes                      |
-| ------------------------------ | ---------- | -------------------------- |
-| DNS TXT record data            | HIGH       | Authoritative DNS response |
-| WHOIS registration data        | HIGH       | Registrar-verified         |
-| Wayback Machine archive        | HIGH       | Timestamped snapshot       |
-| GitHub commit/issue data       | HIGH       | Platform audit trail       |
-| Tor relay fingerprint match    | HIGH       | Cryptographic identity     |
-| FEC filing data                | HIGH       | Government records         |
-| Homoglyph steganography decode | HIGH       | Mathematical decoding      |
-| Reverse WHOIS correlation      | MEDIUM     | May be shared hosting      |
+| Finding | Confidence | Notes |
+|---------|-----------|-------|
+| DNS TXT record data | HIGH | Authoritative DNS response |
+| WHOIS registration data | HIGH | Registrar-verified |
+| Wayback Machine archive | HIGH | Timestamped snapshot |
+| GitHub commit/issue data | HIGH | Platform audit trail |
+| Tor relay fingerprint match | HIGH | Cryptographic identity |
+| FEC filing data | HIGH | Government records |
+| Homoglyph steganography decode | HIGH | Mathematical decoding |
+| Reverse WHOIS correlation | MEDIUM | May be shared hosting |
 
 ---
 
-_Web & DNS Forensics Module v1.0.0_
-_Part of Free OSINT Expert Skill - Phase 5_
+*Web & DNS Forensics Module v1.0.0*
+*Part of Free OSINT Expert Skill - Phase 5*

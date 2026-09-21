@@ -9,12 +9,12 @@ description: >-
   "diagram this repo" or "visualize the architecture".
 user-invocable: true
 when_to_use: "Invoke for editable canvas diagrams or codebase visual maps."
-category: dev-tools
+category: engineering
 keywords: [diagrams, architecture, flowcharts, whiteboard, SVG]
 argument-hint: "[diagram description|path] [--export <png|svg>] [--live]"
 metadata:
   author: agentkit
-  version: "1.2.1"
+  version: "1.2.2"
 ---
 
 # Excalidraw Diagram Skill
@@ -26,7 +26,7 @@ Generate diagrams that **argue visually** — shapes mirror meaning, not just la
 This skill supports two rendering backends. Detect which is available:
 
 **Mode A — MCP Canvas (preferred):** Test with `mcp__excalidraw__read_diagram_guide()`.
-If it works, use MCP tools for live canvas editing. See `references/mcp-workflow.md`.
+Probe only if that tool is present in the live catalog. If it works, load only `references/mcp-workflow.md` for live editing.
 
 **Mode B — File-based (fallback):** Generate `.excalidraw` JSON files, render to PNG
 via Playwright. No server needed. See `references/file-workflow.md`.
@@ -95,7 +95,7 @@ Follow the full pipeline in `references/auto-diagram-guide.md`:
 1. **Detect** project type and framework
 2. **Discover** components (max 15 tool calls)
 3. **Map** connections (max 10 tool calls)
-4. **Verify** with user before drawing
+4. **Verify** source evidence; ask only for an unresolved material layout/content decision
 5. **Select** layout pattern
 6. **Generate** diagram using active mode
 
@@ -105,7 +105,7 @@ Follow the full pipeline in `references/auto-diagram-guide.md`:
 
 ## Color Quick Reference
 
-Pull colors from `references/color-palette.md` (single source of truth).
+When editing, preserve existing element IDs, bindings, palette and typography unless the request changes them. For new diagrams without a style brief, use `references/color-palette.md` as a default palette.
 
 | Role | Background | Stroke |
 |---|---|---|
@@ -137,7 +137,7 @@ Pull colors from `references/color-palette.md` (single source of truth).
 
 ---
 
-## Sizing Rules
+## Default sizing (adapt to content and existing style)
 
 **Err on the side of too much space.** Tight spacing is the #1 mistake.
 
@@ -189,7 +189,7 @@ After generating, validate before presenting:
 - [ ] Lines as structure for trees/timelines
 - [ ] All relationships have arrows
 - [ ] Clear visual flow path
-- [ ] `roughness: 0`, `opacity: 100`, `fontFamily: 3`
+- [ ] Existing/selected style preserved; defaults used only without a style brief
 - [ ] Rendered and visually validated
 - [ ] No overlapping/clipped elements
 - [ ] Balanced composition

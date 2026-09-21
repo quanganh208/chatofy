@@ -13,6 +13,7 @@ written; add references/, scripts/, or assets/ when the skill needs them.
 """
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -25,15 +26,15 @@ KIT_NAMESPACE = 'ak'
 
 PLAIN_FRONTMATTER = '''---
 name: {full_name}
-description: "{description}"
+description: {description}
 ---
 '''
 
 KIT_FRONTMATTER = '''---
 name: {full_name}
-description: "{description}"
+description: {description}
 user-invocable: true
-when_to_use: "Invoke when [one third-person sentence describing the trigger situation]."
+when_to_use: "Use when [precise activation condition]."
 category: utilities
 keywords: [{keyword}]
 argument-hint: "[task or path] [--flag]"
@@ -44,6 +45,7 @@ metadata:
 '''
 
 BODY = '''
+<!-- skill-template: incomplete -->
 # {title}
 
 [Two or three sentences: what this skill produces, for whom, and the quality
@@ -56,9 +58,10 @@ bar. Name the environment or product context only the author knows.]
 
 ## How to work
 
-[State the outcome, the constraints, and how to verify the result. Number
-steps only when the order is a safety condition, and give the exact command
-there. Attach a reason to every real constraint.]
+[State the outcome, constraints, authority and observable completion criteria.
+For multiple workflows, route to references only when their branch applies.
+Number steps when order encodes dependencies or prevents errors. Retain useful
+examples; choose verification by changed behavior and explain real constraints.]
 
 ## Resources
 
@@ -73,7 +76,7 @@ def title_case(slug):
 
 def sanitize_description(description):
     """Flatten a description into one double-quotable YAML scalar."""
-    return ' '.join(description.replace('"', "'").split())
+    return json.dumps(' '.join(description.split()), ensure_ascii=False)
 
 
 def build_skill_md(full_name, slug, description, kit):
@@ -124,10 +127,10 @@ def main(argv=None):
 
     print(f'Created {directory / "SKILL.md"}')
     print('Next:')
-    print('  1. Replace every bracketed placeholder in SKILL.md.')
+    print('  1. Replace every bracketed placeholder and remove the skill-template marker.')
     print('  2. Add references/, scripts/ (with scripts/tests/), or assets/ only when the skill needs them.')
-    print(f'  3. Run: python3 scripts/quick_validate.py {directory}')
-    print(f'  4. Run: python3 scripts/lint_cruft.py {directory}')
+    print(f'  3. Run: uv run scripts/quick_validate.py {directory}')
+    print(f'  4. Run: uv run --with PyYAML==6.0.3 scripts/lint_cruft.py {directory} --routing')
     if args.kit:
         print(f'  5. Register the skill in kits/{args.kit}/kit.yaml and run: cd apps/cli && go run . kit validate ../../kits/')
     return 0

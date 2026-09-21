@@ -1,7 +1,19 @@
 {
   "image": "eed5317c07fd8b093f039a0848e801d8.jpg",
-  "style_cues": ["3d render", "glossy", "playful", "modern digital", "dynamic composition"],
-  "palette_hexes": ["#F1D3C4", "#F0EFEF", "#71BDBF", "#EC9A9A", "#C36F7B"],
+  "style_cues": [
+    "3d render",
+    "glossy",
+    "playful",
+    "modern digital",
+    "dynamic composition"
+  ],
+  "palette_hexes": [
+    "#F1D3C4",
+    "#F0EFEF",
+    "#71BDBF",
+    "#EC9A9A",
+    "#C36F7B"
+  ],
   "layout": {
     "grid": "centered stack",
     "focal": "center",
@@ -11,7 +23,22 @@
     "material": "glossy",
     "finish": "gradient mesh"
   },
-  "mood": ["playful", "energetic", "modern", "bold"],
-  "shape_primitives": ["circle", "3d typography", "organic curve", "rounded form"],
-  "typography": ["stylized graffiti", "3d render", "all caps", "sans-serif"]
+  "mood": [
+    "playful",
+    "energetic",
+    "modern",
+    "bold"
+  ],
+  "shape_primitives": [
+    "circle",
+    "3d typography",
+    "organic curve",
+    "rounded form"
+  ],
+  "typography": [
+    "stylized graffiti",
+    "3d render",
+    "all caps",
+    "sans-serif"
+  ]
 }

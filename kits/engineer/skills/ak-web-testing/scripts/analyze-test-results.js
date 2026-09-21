@@ -138,7 +138,9 @@ function parseVitest(filePath) {
     summary.suites.push(suiteSummary);
   }
 
-  summary.duration += data.startTime ? Date.now() - data.startTime : 0;
+  summary.duration += data.startTime
+    ? Date.now() - data.startTime
+    : 0;
 }
 
 // Parse JUnit XML results
@@ -176,9 +178,7 @@ function parseJunit(filePath) {
   }
 
   // Extract failure details
-  const failureMatches = xml.matchAll(
-    /<testcase[^>]*name="([^"]+)"[^>]*>[\s\S]*?<failure[^>]*>([\s\S]*?)<\/failure>/g,
-  );
+  const failureMatches = xml.matchAll(/<testcase[^>]*name="([^"]+)"[^>]*>[\s\S]*?<failure[^>]*>([\s\S]*?)<\/failure>/g);
   for (const match of failureMatches) {
     summary.failures.push({
       name: match[1],
@@ -190,7 +190,9 @@ function parseJunit(filePath) {
 
 // Output formatters
 function outputText() {
-  const passRate = summary.total > 0 ? ((summary.passed / summary.total) * 100).toFixed(1) : 0;
+  const passRate = summary.total > 0
+    ? ((summary.passed / summary.total) * 100).toFixed(1)
+    : 0;
 
   console.log('\n📊 Test Results Summary');
   console.log('='.repeat(50));
@@ -223,7 +225,9 @@ function outputJson() {
 }
 
 function outputMarkdown() {
-  const passRate = summary.total > 0 ? ((summary.passed / summary.total) * 100).toFixed(1) : 0;
+  const passRate = summary.total > 0
+    ? ((summary.passed / summary.total) * 100).toFixed(1)
+    : 0;
 
   console.log('## Test Results Summary\n');
   console.log('| Metric | Value |');

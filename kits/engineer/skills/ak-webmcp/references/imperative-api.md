@@ -20,11 +20,10 @@ charset/length rule. A non-serializable `inputSchema` rejects with `TypeError`
 
 ```js
 await document.modelContext.registerTool({
-  name: 'toggle_layer', // 1..128 chars, [A-Za-z0-9_.-]
-  title: 'Toggle pizza layer', // optional, human-readable
+  name: 'toggle_layer',                              // 1..128 chars, [A-Za-z0-9_.-]
+  title: 'Toggle pizza layer',                       // optional, human-readable
   description: 'Control pizza layers (sauce, cheese). Use add, remove, or toggle.',
-  inputSchema: {
-    // JSON Schema object
+  inputSchema: {                                     // JSON Schema object
     type: 'object',
     properties: {
       layer: { type: 'string', enum: ['sauce-layer', 'cheese-layer'] },
@@ -32,14 +31,12 @@ await document.modelContext.registerTool({
     },
     required: ['layer'],
   },
-  annotations: {
-    // optional safety hints
+  annotations: {                                     // optional safety hints
     readOnlyHint: false,
     untrustedContentHint: false,
     consequentialHint: false,
   },
-  execute: async ({ layer, action }, { signal }) => {
-    // args, then context
+  execute: async ({ layer, action }, { signal }) => { // args, then context
     await toggleLayer(layer, action);
     return `Performed ${action || 'toggle'} on layer: ${layer}`;
   },
@@ -181,7 +178,7 @@ another and when another embeds you.
 ```js
 // https://partner.org
 await document.modelContext.registerTool(
-  { name: 'my_shared_tool', description: 'Shared across origins' /* ... */ },
+  { name: 'my_shared_tool', description: 'Shared across origins', /* ... */ },
   { exposedTo: ['https://trusted.com', 'https://example.com'] },
 );
 ```

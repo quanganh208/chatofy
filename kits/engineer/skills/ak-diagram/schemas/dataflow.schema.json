@@ -34,17 +34,9 @@
           "id": { "$ref": "common.schema.json#/definitions/Identifier" },
           "label": { "$ref": "common.schema.json#/definitions/SafeText" },
           "description": { "$ref": "common.schema.json#/definitions/SafeText" },
-          "role": {
-            "type": "string",
-            "enum": ["source", "transform", "store", "sink", "consumer", "filter", "governance"],
-            "default": "transform"
-          },
+          "role": { "type": "string", "enum": ["source", "transform", "store", "sink", "consumer", "filter", "governance"], "default": "transform" },
           "stage": { "$ref": "common.schema.json#/definitions/Identifier" },
-          "classification": {
-            "type": "string",
-            "enum": ["public", "internal", "confidential", "pii", "restricted"],
-            "default": "internal"
-          }
+          "classification": { "type": "string", "enum": ["public", "internal", "confidential", "pii", "restricted"], "default": "internal" }
         }
       }
     },

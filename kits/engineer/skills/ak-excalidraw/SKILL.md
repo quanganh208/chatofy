@@ -8,12 +8,13 @@ description: >-
   rendering. Also supports zero-config codebase auto-diagramming — just say
   "diagram this repo" or "visualize the architecture".
 user-invocable: true
-when_to_use: 'Invoke for editable canvas diagrams or codebase visual maps.'
-category: dev-tools
+when_to_use: "Invoke for editable canvas diagrams or codebase visual maps."
+category: engineering
 keywords: [diagrams, architecture, flowcharts, whiteboard, SVG]
+argument-hint: "[diagram description|path] [--export <png|svg>] [--live]"
 metadata:
   author: agentkit
-  version: '1.2.0'
+  version: "1.2.2"
 ---
 
 # Excalidraw Diagram Skill
@@ -25,7 +26,7 @@ Generate diagrams that **argue visually** — shapes mirror meaning, not just la
 This skill supports two rendering backends. Detect which is available:
 
 **Mode A — MCP Canvas (preferred):** Test with `mcp__excalidraw__read_diagram_guide()`.
-If it works, use MCP tools for live canvas editing. See `references/mcp-workflow.md`.
+Probe only if that tool is present in the live catalog. If it works, load only `references/mcp-workflow.md` for live editing.
 
 **Mode B — File-based (fallback):** Generate `.excalidraw` JSON files, render to PNG
 via Playwright. No server needed. See `references/file-workflow.md`.
@@ -51,28 +52,28 @@ Aim for <30% of text elements inside containers.
 
 ### Step 0: Assess Depth
 
-| Simple/Conceptual                      | Comprehensive/Technical                     |
-| -------------------------------------- | ------------------------------------------- |
+| Simple/Conceptual | Comprehensive/Technical |
+|---|---|
 | Abstract shapes, labels, relationships | Concrete examples, code snippets, real data |
-| Mental models, philosophies            | Systems, architectures, tutorials           |
-| ~30 seconds to explain                 | ~2-3 minutes of teaching                    |
+| Mental models, philosophies | Systems, architectures, tutorials |
+| ~30 seconds to explain | ~2-3 minutes of teaching |
 
 **For technical diagrams**: Research actual specs, event names, APIs before drawing.
 Include evidence artifacts. See `references/design-methodology.md`.
 
 ### Step 1: Map Concepts to Visual Patterns
 
-| Concept behavior            | Pattern                                  |
-| --------------------------- | ---------------------------------------- |
-| Spawns multiple outputs     | **Fan-out** (radial arrows)              |
-| Combines inputs into one    | **Convergence** (funnel)                 |
-| Has hierarchy/nesting       | **Tree** (lines + text, no boxes)        |
-| Sequence of steps           | **Timeline** (line + dots + labels)      |
-| Loops/improves continuously | **Spiral/Cycle**                         |
-| Abstract state/context      | **Cloud** (overlapping ellipses)         |
-| Transforms input→output     | **Assembly line** (before→process→after) |
-| Compares two things         | **Side-by-side**                         |
-| Separates into phases       | **Gap/Break**                            |
+| Concept behavior | Pattern |
+|---|---|
+| Spawns multiple outputs | **Fan-out** (radial arrows) |
+| Combines inputs into one | **Convergence** (funnel) |
+| Has hierarchy/nesting | **Tree** (lines + text, no boxes) |
+| Sequence of steps | **Timeline** (line + dots + labels) |
+| Loops/improves continuously | **Spiral/Cycle** |
+| Abstract state/context | **Cloud** (overlapping ellipses) |
+| Transforms input→output | **Assembly line** (before→process→after) |
+| Compares two things | **Side-by-side** |
+| Separates into phases | **Gap/Break** |
 
 Each major concept should use a **different** visual pattern — no uniform card grids.
 
@@ -91,11 +92,10 @@ Follow the workflow for your active mode (MCP or file-based).
 When user says "diagram this repo", "visualize the architecture", or "auto diagram":
 
 Follow the full pipeline in `references/auto-diagram-guide.md`:
-
 1. **Detect** project type and framework
 2. **Discover** components (max 15 tool calls)
 3. **Map** connections (max 10 tool calls)
-4. **Verify** with user before drawing
+4. **Verify** source evidence; ask only for an unresolved material layout/content decision
 5. **Select** layout pattern
 6. **Generate** diagram using active mode
 
@@ -105,20 +105,20 @@ Follow the full pipeline in `references/auto-diagram-guide.md`:
 
 ## Color Quick Reference
 
-Pull colors from `references/color-palette.md` (single source of truth).
+When editing, preserve existing element IDs, bindings, palette and typography unless the request changes them. For new diagrams without a style brief, use `references/color-palette.md` as a default palette.
 
-| Role         | Background | Stroke    |
-| ------------ | ---------- | --------- |
-| Frontend/UI  | `#a5d8ff`  | `#1971c2` |
-| Backend/API  | `#d0bfff`  | `#7048e8` |
-| Database     | `#b2f2bb`  | `#2f9e44` |
-| Storage      | `#ffec99`  | `#f08c00` |
-| AI/ML        | `#e599f7`  | `#9c36b5` |
-| External API | `#ffc9c9`  | `#e03131` |
-| Queue/Event  | `#fff3bf`  | `#fab005` |
-| Cache        | `#ffe8cc`  | `#fd7e14` |
-| Decision     | `#ffd8a8`  | `#e8590c` |
-| Zone/Group   | `#e9ecef`  | `#868e96` |
+| Role | Background | Stroke |
+|---|---|---|
+| Frontend/UI | `#a5d8ff` | `#1971c2` |
+| Backend/API | `#d0bfff` | `#7048e8` |
+| Database | `#b2f2bb` | `#2f9e44` |
+| Storage | `#ffec99` | `#f08c00` |
+| AI/ML | `#e599f7` | `#9c36b5` |
+| External API | `#ffc9c9` | `#e03131` |
+| Queue/Event | `#fff3bf` | `#fab005` |
+| Cache | `#ffe8cc` | `#fd7e14` |
+| Decision | `#ffd8a8` | `#e8590c` |
+| Zone/Group | `#e9ecef` | `#868e96` |
 
 **Rule**: Same-role shapes get same colors. Max 3-4 fill colors per diagram.
 
@@ -126,32 +126,32 @@ Pull colors from `references/color-palette.md` (single source of truth).
 
 ## Shape Reference
 
-| Concept              | Shape                     | Why                    |
-| -------------------- | ------------------------- | ---------------------- |
-| Labels, descriptions | **none** (free text)      | Typography = hierarchy |
-| Timeline markers     | small `ellipse` (10-20px) | Anchor, not container  |
-| Start/trigger/input  | `ellipse`                 | Soft, origin-like      |
-| Decision/condition   | `diamond`                 | Classic decision       |
-| Process/action/step  | `rectangle`               | Contained action       |
-| Abstract state       | overlapping `ellipse`     | Cloud-like             |
+| Concept | Shape | Why |
+|---|---|---|
+| Labels, descriptions | **none** (free text) | Typography = hierarchy |
+| Timeline markers | small `ellipse` (10-20px) | Anchor, not container |
+| Start/trigger/input | `ellipse` | Soft, origin-like |
+| Decision/condition | `diamond` | Classic decision |
+| Process/action/step | `rectangle` | Contained action |
+| Abstract state | overlapping `ellipse` | Cloud-like |
 
 ---
 
-## Sizing Rules
+## Default sizing (adapt to content and existing style)
 
 **Err on the side of too much space.** Tight spacing is the #1 mistake.
 
-| Property               | Value                   |
-| ---------------------- | ----------------------- |
-| Box width              | 200-240px               |
-| Box height             | 120-160px               |
-| Gap (labeled arrows)   | **150-200px**           |
-| Gap (unlabeled arrows) | 100-120px               |
-| Row spacing            | 280-350px               |
-| Font (labels)          | 16px                    |
-| Font (titles)          | 20-24px                 |
-| Zone opacity           | 25-40                   |
-| Zone padding           | 50-60px around children |
+| Property | Value |
+|---|---|
+| Box width | 200-240px |
+| Box height | 120-160px |
+| Gap (labeled arrows) | **150-200px** |
+| Gap (unlabeled arrows) | 100-120px |
+| Row spacing | 280-350px |
+| Font (labels) | 16px |
+| Font (titles) | 20-24px |
+| Zone opacity | 25-40 |
+| Zone padding | 50-60px around children |
 
 ---
 
@@ -189,7 +189,7 @@ After generating, validate before presenting:
 - [ ] Lines as structure for trees/timelines
 - [ ] All relationships have arrows
 - [ ] Clear visual flow path
-- [ ] `roughness: 0`, `opacity: 100`, `fontFamily: 3`
+- [ ] Existing/selected style preserved; defaults used only without a style brief
 - [ ] Rendered and visually validated
 - [ ] No overlapping/clipped elements
 - [ ] Balanced composition
@@ -198,14 +198,14 @@ After generating, validate before presenting:
 
 ## References (Load As Needed)
 
-| File                               | Content                                                                        |
-| ---------------------------------- | ------------------------------------------------------------------------------ |
+| File | Content |
+|---|---|
 | `references/design-methodology.md` | Deep design philosophy, evidence artifacts, multi-zoom, large diagram strategy |
-| `references/mcp-workflow.md`       | MCP canvas tools, batch creation, examples, self-critique                      |
-| `references/file-workflow.md`      | JSON generation, section-by-section, render script usage                       |
-| `references/auto-diagram-guide.md` | Zero-config codebase analysis pipeline                                         |
-| `references/color-palette.md`      | All colors: semantic, platform (AWS/Azure/GCP/K8s), text hierarchy             |
-| `references/element-templates.md`  | Copy-paste JSON templates for file-based mode                                  |
-| `references/json-schema.md`        | Excalidraw JSON format reference                                               |
+| `references/mcp-workflow.md` | MCP canvas tools, batch creation, examples, self-critique |
+| `references/file-workflow.md` | JSON generation, section-by-section, render script usage |
+| `references/auto-diagram-guide.md` | Zero-config codebase analysis pipeline |
+| `references/color-palette.md` | All colors: semantic, platform (AWS/Azure/GCP/K8s), text hierarchy |
+| `references/element-templates.md` | Copy-paste JSON templates for file-based mode |
+| `references/json-schema.md` | Excalidraw JSON format reference |
 
 For universal SVG layout rules that apply across any rendered SVG output, load `/ak:tech-graph` and apply its spacing, arrow routing, label placement, and z-index ordering guidance. Useful when reviewing exported Excalidraw SVGs for collisions or unreadable labels.

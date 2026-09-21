@@ -42,11 +42,11 @@ reads those fields. See `references/agentkit-kit-skill-contract.md`.
 - Cannot contain "claude" or "anthropic" (reserved)
 
 ### description (required)
-- At most 1024 characters; 150–400 is the useful range
-- Structure: `[What it does] + [When to use it] + [Key capabilities]`
+- At most 1024 characters; precise activation boundary without a minimum length
+- Structure: `[What it does] + [When to use it]`; add a not-for boundary when useful
 - Include trigger phrases users would actually say
 - Mention relevant file types if applicable
-- Use third-person: "This skill should be used when..."
+- Direct phrasing such as "Use when..." is acceptable; see `references/metadata-quality-criteria.md`
 
 ### license (optional)
 - Common: MIT, Apache-2.0

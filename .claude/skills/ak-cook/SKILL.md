@@ -3,282 +3,65 @@ name: ak:cook
 description: "Implement features, plans, and fixes with structured workflow. Use for feature development, plan execution, code implementation pipelines."
 user-invocable: true
 when_to_use: "Invoke to implement known scope after requirements are clear."
-category: utilities
+category: workflow
 keywords: [implementation, workflow, feature, pipeline]
 argument-hint: "[task|plan-path] [--interactive|--fast|--parallel|--auto|--no-test] [--tdd] [--advice] [--yagni] [--skip-journal]"
 metadata:
   author: agentkit
-  version: "2.4.0"
+  version: "2.5.1"
   workflow:
     follows: [ak-plan]
     precedes: [ak-test]
 ---
 
-# Cook - Smart Feature Implementation
+# Cook
 
-End-to-end implementation with automatic workflow detection.
+Invoke `/ak:cook <task|plan-path> [flags]` in Claude Code; use the runtime's
+installed invocation form elsewhere.
 
-**Principles:** KISS, DRY | Full requested scope, nothing extra (`--yagni` to opt into scope-cutting) | Token efficiency | Concise reports
+Implement the full authorized outcome through verification and review. Capture or reuse
+outcome, constraints, non-goals and acceptance criteria; inspect nearby code and tests.
+Ask only for a material missing decision or an action outside that authorization.
+Repair regressions caused by the change and rerun affected checks before finishing.
 
-## Usage
+## Select a mode
 
-```
-/ak:cook <natural language task OR plan path>
-```
+| Input | Route |
+|---|---|
+| No flag | Continue authorized implementation, checks, review and completion |
+| Accepted plan path | Execute the plan with current evidence; retain its explicit modes |
+| `--interactive` | Pause for user review at major steps |
+| `--fast` | Skip research; inspect, make a concise plan, implement and verify |
+| `--parallel` | Delegate independent owned work when supported and authorized |
+| `--auto` | Continue all authorized phases without routine approval |
+| `--no-test` | Skip test execution and report that verification gap |
 
-If no flag is provided, the skill uses `interactive` mode.
+`--tdd` preserves current behavior with tests before each refactoring phase.
+`--advice` loads `references/advisory-supervision-checkpoints.md`; also honor an
+accepted plan's advice handover or Failure Protocol. Its failed-verification counsel
+checkpoint remains active in every mode. `--yagni` opts into scope cutting; otherwise
+deliver all requested scope and nothing extra. Pass selected flags to delegates.
 
-**Optional flags to select the workflow mode:** 
-- `--interactive`: Full workflow with user input (**default**)
-- `--fast`: Skip research, scout→plan→code
-- `--parallel`: Multi-agent execution
-- `--no-test`: Skip testing step
-- `--auto`: Auto-approve all steps
+Parse detailed signals with `references/intent-detection.md` only when necessary.
+For cross-skill sequence decisions use `references/workflow-routing.md`.
 
-**Composable flags** (combine with any mode):
-- `--tdd`: Tests-first per phase — write tests for current behavior before
-  refactoring, then verify they still pass after the implementation step
-- `--advice`: Run under `kongming` advisory supervision (see Advisory
-  supervision)
-- `--yagni`: Opt into YAGNI — challenge and cut scope not needed for the stated
-  outcome. Default is to implement the full requested scope
+## Implement and finish
 
-**Example:**
-```
-/ak:cook "Add user authentication to the app" --fast
-/ak:cook path/to/plan.md --auto
-/ak:cook "Refactor auth middleware" --tdd
-```
+1. Reuse valid inspection and acceptance evidence. A small change needs a concise
+   plan; write phase files when modules, public contracts, schemas or data require coordination.
+2. Follow `references/workflow-steps.md` for implementation, TDD and finalization.
+   Resolve existing plans files-first via `references/plan-state-files-first.md`.
+3. Run the narrowest useful checks, then broaden for affected callers and contracts.
+   Reuse results only for unchanged source, inputs and environment. Do not weaken checks.
+4. Review acceptance, compatibility, security and regression risk. Use
+   `references/review-cycle.md` and `references/required-subagents.md` to scale review.
+5. Continue repairing within scope. Pause for a changed product decision, destructive
+   action without authorization, or an evidenced blocker. Explicit interactive gates
+   are in `references/blocking-gates.md`.
+6. Reconcile existing plan state, update impacted docs, and report result, evidence and
+   unresolved limitations. Commit/publish only within the user's authorized scope.
 
-## Advisory supervision (`--advice`)
-
-When `--advice` is present, run this skill under `kongming` supervision.
-Load `../ak-brainstorm/references/advisory-supervision.md` for supervisor
-identity, host detection, and model routing (Claude subscription → Fable 5;
-Codex → `gpt-5.6-sol` + high effort; Cursor → `claude-fable-5-high`).
-
-Spawn `kongming` at these checkpoints:
-
-- **After each phase completes** — pass the phase goal, what changed, and the
-  evidence; ask for a go/no-go and the next risk to watch before the next phase.
-- **When stuck** — repeated failures, a blocked step, or contradictory evidence;
-  pass everything already tried and the exact obstacle.
-- **On a failed verification** — any test, build, lint, type-check, or a plan
-  phase's own Verify step that misses its stated pass condition on a change you
-  believed complete (not an expected-red step while iterating toward a known
-  remaining error list). This is an objective trigger: it fires on every failed
-  verification, including the first, whether or not you feel stuck. STOP before
-  editing anything else and spawn `kongming` with the exact command, its verbatim
-  output, the change you just made, what you already tried, and the phase/task
-  id. Counsel arrives before this skill's own failure branch runs — it informs
-  that branch, never replaces it. If `kongming` cannot be spawned, note once that
-  advisory supervision is unavailable and continue under this skill's own
-  authoritative failure gates; never treat missing counsel as license to
-  self-reason a fix past a red check.
-- **Before a high-stakes decision** — a design fork, a public-contract or
-  security-sensitive change, or an irreversible action; get counsel first.
-
-Treat `--advice` as active when the flag is passed OR the plan being executed
-declares the `--advice` handover contract or contains a `## Failure Protocol`
-block. Each phase file then carries its own Failure Protocol — honor it verbatim
-on any failed Verify; it is the same rule travelling with the artifact.
-
-**When the workflow reaches a PR** (e.g. handed off to the installed ship
-skill): pass `--advice` to the downstream skill so supervision persists across
-the handoff. Watch and fix CI until every required check is green, then spawn
-`kongming` to review the whole implementation and post its assessment plus
-concrete next steps as a comment directly on the PR and the source issue (when
-one exists).
-
-<HARD-GATE-BRAINSTORM-FIRST>
-Before planning or implementation, capture the opening brainstorm contract:
-outcome, constraints, non-goals, and observable acceptance criteria.
-
-- If the input is an accepted plan or design, reuse those fields and identify
-  only material gaps.
-- If the input is a natural-language task, state the fields from the request and
-  ask only about a missing decision that would change the result or safety.
-- `--fast`, `--parallel`, and `--auto` change execution shape, not this gate.
-- Route concrete bugs to `/ak:fix`; it frames intent first, then proves the root
-  cause before selecting a solution.
-</HARD-GATE-BRAINSTORM-FIRST>
-
-<HARD-GATE>
-Do NOT write implementation code until a plan exists and has been reviewed.
-This applies regardless of task simplicity. "Simple" tasks are where unexamined assumptions waste the most time.
-Exception: `--fast` mode skips research but still requires a plan step.
-User override: If user explicitly says "just code it" or "skip planning", respect their instruction.
-</HARD-GATE>
-
-<HARD-GATE-SCOUT-FIRST>
-After the opening brainstorm gate and before planning, scan the codebase.
-Mandatory scout outputs:
-1. Project type, language(s), framework(s)
-2. Existing modules/files relevant to the task
-3. Current patterns/conventions for similar features (so the implementation matches them)
-4. Existing docs in `./docs/` and any in-flight plans in your configured plans dir (`plans/` by default) covering this area
-5. Public APIs, schemas, contracts that the task could affect
-
-State a concise codebase-context summary before asking any further questions.
-Skip only when an accepted plan already contains current scout evidence.
-</HARD-GATE-SCOUT-FIRST>
-
-<HARD-GATE-EXACT-REQUIREMENTS>
-Before producing a plan, the brainstorm contract must be concrete and scout
-evidence must identify likely touchpoints and stable public contracts. Ask only
-for a material requirement that neither the request, accepted plan, nor current
-evidence resolves. Ground questions in discovered paths and behavior.
-</HARD-GATE-EXACT-REQUIREMENTS>
-
-<HARD-GATE-NO-SIDE-EFFECTS>
-Implementation is not done until it is verified side-effect-free, because a change that passes its own tests can still break a caller it never ran. The code-review and test gates prove:
-
-1. New behavior matches every acceptance criterion above.
-2. All tests pass — including tests in modules that share files/contracts with the change.
-3. No existing business logic / workflow regression: explicitly walk each touchpoint and any caller of changed functions.
-4. No new lint/type/build errors anywhere in the repo.
-5. Public contracts unchanged unless intentional and called out (function signatures, exported types, API responses, DB schemas, env vars, config keys).
-
-User override: If user invoked `--no-test`, item 2 is downgraded to a warning. Surface the unverified-tests risk in the finalize `ask_user capability` so the user accepts the trade-off rather than having it silently chosen. Items 1, 3, 4, 5 remain enforceable via the mandatory `code-reviewer` subagent.
-
-If review/testing reveals a side effect, regression, or broken workflow, STOP. Use `ask_user capability` to present:
-- What broke (file, test, workflow, user-facing behavior)
-- Why this implementation caused it (1-line cause)
-- 2-4 concrete options for the user to choose, e.g.:
-  - "Revert this slice and re-plan with stricter scope"
-  - "Keep the implementation and update <dependents> to match the new contract"
-  - "Add a compatibility shim at <boundary> so old callers keep working"
-  - "Accept the regression — old behavior was unintended/buggy"
-
-Let the user decide. Do not silently patch around regressions.
-
-Under `--advice`, spawn `kongming` with the failure evidence before composing
-these options and fold its counsel into them; the `ask_user` gate is a stop
-condition, not a reasoning allowance — no fix or option list may be authored
-between a red Verify and kongming's reply. Kongming advises; the user decides.
-</HARD-GATE-NO-SIDE-EFFECTS>
-
-## Anti-Rationalization
-
-| Thought | Reality |
-|---------|---------|
-| "This is too simple to plan" | Simple tasks have hidden complexity. Plan takes 30 seconds. |
-| "I already know how to do this" | Knowing ≠ planning. Write it down. |
-| "Let me just start coding" | Undisciplined action wastes tokens. Plan first. |
-| "The user wants speed" | Fastest path = plan → implement → done. Not: implement → debug → rewrite. |
-| "I'll plan as I go" | That's not planning, that's hoping. |
-| "Just this once" | Every skip is "just this once." No exceptions. |
-
-## Smart Intent Detection
-
-| Input Pattern | Detected Mode | Behavior |
-|---------------|---------------|----------|
-| Path to `plan.md` or `phase-*.md` | code | Execute existing plan |
-| Contains "fast", "quick" | fast | Skip research, scout→plan→code |
-| Contains "trust me", "auto" | auto | Auto-approve all steps |
-| Lists 3+ features OR "parallel" | parallel | Multi-agent execution |
-| Contains "no test", "skip test" | no-test | Skip testing step |
-| Default | interactive | Full workflow with user input |
-
-See `references/intent-detection.md` for detection logic.
-
-If the task needs a cross-skill workflow sequence decision after intent
-detection, load `references/workflow-routing.md`.
-
-## Process Flow (Authoritative)
-
-```mermaid
-flowchart TD
-    A[Capture or reuse brainstorm contract] --> A2[Intent Detection]
-    A2 --> B{Has accepted plan path?}
-    B -->|Yes| F[Load Plan and current evidence]
-    B -->|No| C{Mode?}
-    C -->|fast| D[Scout → Plan → Code]
-    C -->|interactive/auto/parallel/no-test| SC[Scout Codebase]
-    SC --> SR[Summarize Findings to User]
-    SR --> RQ{Brainstorm contract concrete?<br/>outcome, constraints, non-goals, acceptance}
-    RQ -->|No| SR
-    RQ -->|Yes| E[Research → Review → Plan]
-    E --> F
-    D --> F
-    F --> G[Review Gate]
-    G -->|approved| H[Implement]
-    G -->|rejected| E
-    H --> H1{Simplify signal?}
-    H1 -->|Yes| H2[Conditional Simplify]
-    H1 -->|No| I[Review Gate]
-    H2 --> I
-    I -->|approved| J{--no-test?}
-    J -->|No| K[Test]
-    J -->|Yes| L[Finalize]
-    K --> L
-    L --> M[Report + Journal]
-```
-
-**This diagram is the authoritative workflow.** Prose sections below provide detail for each node. If prose conflicts with this flow, follow the diagram.
-
-## Workflow Overview
-
-```
-[Brainstorm Contract] → [Intent Detection] → [Inspect/Research?] → [Review] → [Plan] → [Review] → [Implement] → [Conditional Simplify?] → [Review] → [Test?] → [Review] → [Finalize]
-```
-
-**Default (non-auto):** Stops at `[Review]` gates for human approval before each major step.
-**Auto mode (`--auto`):** Skips human review gates, implements all phases continuously.
-**Progress tracking:** Discover the live task-management surface at runtime and
-use it when available. Otherwise, update the active plan directly. Plan files
-are the durable source of truth; do not infer support from cached tool lists.
-
-**Plan resolution (files-first):** when the input is a plan path or an
-existing plan is in scope, resolve it via the CLI current-plan pointer
-(`ak plan use`) first, falling back to `ak plan resolve` for the current
-repo/branch/worktree. Read phase content with `ak plan show` (or the files
-directly) and mutate status only through `ak plan` file-mutating commands
-(`check`/`uncheck`/`update`/`status`) — never from GitHub issue comments, and
-never require a linked issue to resolve or progress a plan. See
-`references/plan-state-files-first.md` for the full model.
-
-| Mode | Research | Testing | Review Gates | Phase Progression |
-|------|----------|---------|--------------|-------------------|
-| interactive | ✓ | ✓ | **User approval at each step** | One at a time |
-| auto | ✓ | ✓ | Per `references/review-cycle.md` | All at once (no stops) |
-| fast | ✗ | ✓ | **User approval at each step** | One at a time |
-| parallel | Optional | ✓ | **User approval at each step** | Parallel groups |
-| no-test | ✓ | ✗ | **User approval at each step** | One at a time |
-| code | ✗ | ✓ | **User approval at each step** | Per plan |
-
-## Step Output Format
-
-```
-✓ Step [N]: [Brief status] - [Key metrics]
-```
-
-## Blocking Gates (Non-Auto Mode)
-
-Human review required at these checkpoints (skipped with `--auto`):
-- **Post-Research:** Review findings before planning
-- **Post-Plan:** Approve plan before implementation
-- **Post-Implementation:** Approve code before testing
-- **Post-Testing:** 100% pass + approve before finalize
-
-**Always enforced (all modes):**
-- **Testing:** 100% pass required (unless no-test mode)
-- **Code Review:** Spawn a `code-reviewer` subagent, since a fresh context catches what the implementing context has already rationalised. Give it explicit checks:
-  (a) every acceptance criterion met,
-  (b) no regression to business logic in touchpoints/blast-radius,
-  (c) no breaking changes to public contracts (signatures, schemas, APIs, env vars) unless called out,
-  (d) follows existing patterns from scout,
-  (e) no new lint/type/build errors anywhere.
-  Pass scout summary + acceptance criteria as context. If reviewer flags side effects → trigger HARD-GATE-NO-SIDE-EFFECTS (`ask_user capability` with 2-4 options).
-  Then: user approval or the auto-mode decision in `references/review-cycle.md`.
-- **Finalize:**
-  1. **Activate `the engineer project-management skill` skill** → run full plan sync-back across ALL `phase-XX-*.md` (not only current phase), update `plan.md` status/progress, refresh runtime tracking when available, generate progress report
-  2. Evaluate docs impact; use `docs-manager` only for affected routed authority surfaces
-  3. After sync-back verification, reflect completion in the live task-management surface when available
-  4. Ask user if they want to commit via `git-manager` subagent
-  5. Run `/ak:journal` to write a concise technical journal entry upon completion — unless the shared "Journal step — opt-out" below applies.
-
-### Journal step — opt-out
+## Journal step — opt-out
 
 Skip the automatic `/ak:journal` step when either applies:
 - The invocation includes the `--skip-journal` flag, OR
@@ -290,37 +73,3 @@ When skipped, print one line:
 - `journal skipped by preference` (config).
 
 Explicit `/ak:journal` and `ak journal create` are unaffected. The opt-out covers the journal step only; the rest of the Finalize block still runs.
-
-## Required Subagents
-
-| Phase | Subagent | Requirement |
-|-------|----------|-------------|
-| Research | `researcher` | Optional in fast/code |
-| Scout | `ak:scout` | Optional in code |
-| Plan | `planner` | Optional in code |
-| UI Work | `ui-ux-designer` | If frontend work |
-| Testing | `tester`, `debugger` | Spawned in every mode except `no-test` |
-| Review | `code-reviewer` | Spawned in every mode |
-| Finalize | `the engineer project-management skill`; conditional `docs-manager`; configured git workflow | Project sync and docs-impact decision are mandatory |
-
-Steps 4, 5 and 6 are delegated, not done inline: a fresh-context tester, reviewer, and finalizer catch what the implementing context has already rationalised, and a run that skips them has not verified its own work. Delegate with the live capability:
-
-- Pattern: `delegate_agent capability(subagent_type="[type]", prompt="[task]", description="[brief]")`
-- If the user passed `--yagni`, include it in every subagent prompt and pass it
-  to downstream skills, so the opt-in survives the handoff. Without it the
-  delegate defaults to delivering the full requested scope.
-
-## References
-
-- `references/intent-detection.md` - Detection rules and routing logic
-- `references/workflow-routing.md` - Cross-skill sequence routing for ambiguous workflows
-- `references/workflow-steps.md` - Detailed step definitions for all modes
-- `references/review-cycle.md` - Interactive and auto review processes
-- `references/subagent-patterns.md` - Subagent invocation patterns
-- `references/plan-state-files-first.md` - Canonical plan-file model, `ak plan` index, and optional GitHub projection
-
-## Workflow Position
-
-**Typically follows:** `ak-plan` (execute a plan), `/ak:brainstorm` (implement agreed solution)
-**Typically precedes:** `ak-test` (validate changes)
-**Related:** `/ak:fix` (alternative for bug fixes), `ak-plan` (create plan before cooking), `the installed code-review skill` (review after implementation, engineer tier)

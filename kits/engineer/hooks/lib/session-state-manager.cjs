@@ -5,16 +5,22 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { parseTranscript } = require('./transcript-parser.cjs');
-const { gitEnvironment, pathContains } = require('./runtime-state-identity.cjs');
-const { readSessionState, updateSessionState } = require('./ck-config-utils.cjs');
+const {
+  gitEnvironment,
+  pathContains
+} = require('./runtime-state-identity.cjs');
+const {
+  readSessionState,
+  updateSessionState
+} = require('./ck-config-utils.cjs');
 const {
   createEmptyActivitySnapshot,
-  sanitizeActivitySnapshot,
+  sanitizeActivitySnapshot
 } = require('./statusline-session-cache.cjs');
 const {
   allocateEventRevision,
   loadProjectCheckpoint,
-  writeProjectCheckpoint,
+  writeProjectCheckpoint
 } = require('./project-handoff-store.cjs');
 
 const TRANSCRIPT_MAX_BYTES = 4 * 1024 * 1024;
@@ -32,7 +38,7 @@ function execGit(args, cwd) {
       encoding: 'utf8',
       timeout: EXEC_TIMEOUT_MS,
       stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true,
+      windowsHide: true
     }).trim();
   } catch {
     return '';
@@ -41,10 +47,9 @@ function execGit(args, cwd) {
 
 function providerHome(context, environment = process.env) {
   const home = environment.HOME || environment.USERPROFILE || os.homedir();
-  const candidate =
-    context.runtime === 'codex'
-      ? environment.CODEX_HOME || path.join(home, '.codex')
-      : environment.AGENTKIT_CLAUDE_HOME || path.join(home, '.claude');
+  const candidate = context.runtime === 'codex'
+    ? environment.CODEX_HOME || path.join(home, '.codex')
+    : environment.AGENTKIT_CLAUDE_HOME || path.join(home, '.claude');
   try {
     return fs.realpathSync.native(candidate);
   } catch {
@@ -70,31 +75,19 @@ function codexTranscriptMatchesProject(context, transcriptPath) {
     try {
       const buffer = Buffer.alloc(TRANSCRIPT_IDENTITY_SCAN_BYTES);
       const bytesRead = fs.readSync(descriptor, buffer, 0, buffer.length, 0);
-      const lines = buffer
-        .subarray(0, bytesRead)
-        .toString('utf8')
-        .split(/\r?\n/)
-        .slice(0, TRANSCRIPT_IDENTITY_SCAN_LINES);
+      const lines = buffer.subarray(0, bytesRead).toString('utf8').split(/\r?\n/).slice(0, TRANSCRIPT_IDENTITY_SCAN_LINES);
       for (const line of lines) {
         if (!line.trim()) continue;
         let record;
-        try {
-          record = JSON.parse(line);
-        } catch {
-          continue;
-        }
+        try { record = JSON.parse(line); } catch { continue; }
         const candidates = [
           record?.payload?.cwd,
           record?.payload?.environment_context?.cwd,
-          record?.cwd,
-        ].filter((value) => typeof value === 'string' && value.trim());
+          record?.cwd
+        ].filter(value => typeof value === 'string' && value.trim());
         for (const candidate of candidates) {
           let canonical;
-          try {
-            canonical = fs.realpathSync.native(path.resolve(candidate));
-          } catch {
-            continue;
-          }
+          try { canonical = fs.realpathSync.native(path.resolve(candidate)); } catch { continue; }
           if (pathContains(context.canonicalProjectRoot, canonical)) return true;
         }
       }
@@ -118,19 +111,14 @@ function ownedTranscriptPath(context, candidate, environment = process.env) {
 
     const basename = path.basename(resolved);
     if (context.runtime === 'claude-code') {
-      const expectedDirectory = path.join(
-        root,
-        'projects',
-        claudeProjectSlug(context.sessionLaunchRoot),
-      );
+      const expectedDirectory = path.join(root, 'projects', claudeProjectSlug(context.sessionLaunchRoot));
       if (!pathsEqual(path.dirname(resolved), expectedDirectory)) return null;
       if (basename !== `${context.normalizedSessionId}.jsonl`) return null;
     } else {
       const sessionsRoot = path.join(root, 'sessions');
       const expectedSuffix = `-${context.normalizedSessionId}.jsonl`;
       if (!pathContains(sessionsRoot, resolved)) return null;
-      if (basename !== `${context.normalizedSessionId}.jsonl` && !basename.endsWith(expectedSuffix))
-        return null;
+      if (basename !== `${context.normalizedSessionId}.jsonl` && !basename.endsWith(expectedSuffix)) return null;
       if (!codexTranscriptMatchesProject(context, resolved)) return null;
     }
     return { path: resolved, size: info.size };
@@ -152,14 +140,11 @@ function applyStatuslineEvent(snapshot, stdinData, now) {
   const agentId = stdinData.agent_id == null ? null : String(stdinData.agent_id);
   const agentType = typeof stdinData.agent_type === 'string' ? stdinData.agent_type : null;
   if (!agentId && !agentType) return normalized;
-  const agents = normalized.agents.map((agent) => ({ ...agent }));
+  const agents = normalized.agents.map(agent => ({ ...agent }));
   let matched = false;
   for (let index = agents.length - 1; index >= 0; index -= 1) {
     const agent = agents[index];
-    if (
-      (agentId && agent.id === agentId) ||
-      (!agentId && agentType && agent.status === 'running' && agent.type === agentType)
-    ) {
+    if ((agentId && agent.id === agentId) || (!agentId && agentType && agent.status === 'running' && agent.type === agentType)) {
       agent.status = 'completed';
       agent.endTime = agent.endTime || now;
       matched = true;
@@ -171,34 +156,20 @@ function applyStatuslineEvent(snapshot, stdinData, now) {
 
 function hasSnapshotActivity(snapshot) {
   return Boolean(
-    snapshot &&
-    ((Array.isArray(snapshot.agents) && snapshot.agents.length) ||
-      (Array.isArray(snapshot.todos) && snapshot.todos.length)),
+    snapshot && ((Array.isArray(snapshot.agents) && snapshot.agents.length) ||
+      (Array.isArray(snapshot.todos) && snapshot.todos.length))
   );
 }
 
 function shouldPreserveExistingSnapshot(existing, parsed, transcript) {
   if (!hasSnapshotActivity(existing) || existing.warmed !== true) return false;
   const existingTime = Date.parse(existing.updatedAt || '');
-  const transcriptTime = Date.parse(
-    transcript?.lastActivityAt || transcript?.lastValidEntryAt || '',
-  );
-  if (
-    Number.isFinite(existingTime) &&
-    Number.isFinite(transcriptTime) &&
-    existingTime >= transcriptTime
-  )
-    return true;
+  const transcriptTime = Date.parse(transcript?.lastActivityAt || transcript?.lastValidEntryAt || '');
+  if (Number.isFinite(existingTime) && Number.isFinite(transcriptTime) && existingTime >= transcriptTime) return true;
   if (!transcript || transcript.invalidLineCount === 0) {
-    return (
-      !hasSnapshotActivity(parsed) && (!transcript || transcript.statuslineActivityCount === 0)
-    );
+    return !hasSnapshotActivity(parsed) && (!transcript || transcript.statuslineActivityCount === 0);
   }
-  return (
-    !Number.isFinite(existingTime) ||
-    !Number.isFinite(transcriptTime) ||
-    existingTime >= transcriptTime
-  );
+  return !Number.isFinite(existingTime) || !Number.isFinite(transcriptTime) || existingTime >= transcriptTime;
 }
 
 async function refreshStatuslineSnapshot(context, stdinData, options = {}) {
@@ -206,32 +177,19 @@ async function refreshStatuslineSnapshot(context, stdinData, options = {}) {
     if (!context) return { success: false, reason: 'missing-session-context' };
     const now = new Date(options.now || Date.now()).toISOString();
     const existingState = readSessionState(context) || {};
-    const transcriptSource = resolveTranscript(
-      context,
-      stdinData,
-      existingState,
-      options.environment,
-    );
+    const transcriptSource = resolveTranscript(context, stdinData, existingState, options.environment);
 
     if (!transcriptSource) {
       if (options.requireOwnedTranscript) {
         return { success: false, reason: 'missing-owned-transcript' };
       }
-      const success = updateSessionState(context, (state) => ({
+      const success = updateSessionState(context, state => ({
         ...state,
-        statusline: applyStatuslineEvent(
-          state.statusline || createEmptyActivitySnapshot(),
-          stdinData,
-          now,
-        ),
+        statusline: applyStatuslineEvent(state.statusline || createEmptyActivitySnapshot(), stdinData, now)
       }));
       const current = success ? readSessionState(context) : null;
       return current
-        ? {
-            success: true,
-            warmed: Boolean(current.statusline?.warmed),
-            snapshotRevision: current.stateRevision,
-          }
+        ? { success: true, warmed: Boolean(current.statusline?.warmed), snapshotRevision: current.stateRevision }
         : { success: false, reason: 'write-failed' };
     }
 
@@ -240,31 +198,22 @@ async function refreshStatuslineSnapshot(context, stdinData, options = {}) {
       start,
       end: transcriptSource.size > 0 ? transcriptSource.size - 1 : undefined,
       maxLines: TRANSCRIPT_MAX_LINES,
-      deadline: Date.now() + TRANSCRIPT_BUDGET_MS,
+      deadline: Date.now() + TRANSCRIPT_BUDGET_MS
     });
-    const success = updateSessionState(context, (state) => {
+    const success = updateSessionState(context, state => {
       const currentSnapshot = state.statusline || createEmptyActivitySnapshot();
-      const parsedSnapshot = applyStatuslineEvent(
-        {
-          sessionStart: transcript.sessionStart
-            ? new Date(transcript.sessionStart).toISOString()
-            : currentSnapshot.sessionStart || now,
-          updatedAt: now,
-          warmed: true,
-          agents: transcript.agents || [],
-          todos: transcript.todos || [],
-        },
-        stdinData,
-        now,
-      );
+      const parsedSnapshot = applyStatuslineEvent({
+        sessionStart: transcript.sessionStart ? new Date(transcript.sessionStart).toISOString() : currentSnapshot.sessionStart || now,
+        updatedAt: now,
+        warmed: true,
+        agents: transcript.agents || [],
+        todos: transcript.todos || []
+      }, stdinData, now);
       const preserve = shouldPreserveExistingSnapshot(currentSnapshot, parsedSnapshot, transcript);
       return {
         ...state,
-        statusline: sanitizeActivitySnapshot(
-          preserve ? applyStatuslineEvent(currentSnapshot, stdinData, now) : parsedSnapshot,
-        ),
-        lastTranscriptPath:
-          preserve && state.lastTranscriptPath ? state.lastTranscriptPath : transcriptSource.path,
+        statusline: sanitizeActivitySnapshot(preserve ? applyStatuslineEvent(currentSnapshot, stdinData, now) : parsedSnapshot),
+        lastTranscriptPath: preserve && state.lastTranscriptPath ? state.lastTranscriptPath : transcriptSource.path
       };
     });
     const current = success ? readSessionState(context) : null;
@@ -285,7 +234,7 @@ function extractSessionData(context, stdinData) {
     branch: execGit(['branch', '--show-current'], cwd),
     activePlan: typeof state.activePlan === 'string' ? state.activePlan : null,
     todos: Array.isArray(state.statusline?.todos) ? state.statusline.todos : [],
-    modifiedFiles: modified ? modified.split('\n').filter(Boolean).slice(0, 20) : [],
+    modifiedFiles: modified ? modified.split('\n').filter(Boolean).slice(0, 20) : []
   };
 }
 
@@ -295,21 +244,18 @@ async function persistProjectCheckpoint(context, stdinData, options = {}) {
   if (!eventRevision) return { success: false, reason: 'revision-allocation-failed' };
   const refresh = await refreshStatuslineSnapshot(context, stdinData, {
     ...options,
-    requireOwnedTranscript: true,
+    requireOwnedTranscript: true
   });
-  if (!refresh.success || !refresh.snapshotRevision)
-    return { success: false, reason: refresh.reason || 'refresh-failed' };
+  if (!refresh.success || !refresh.snapshotRevision) return { success: false, reason: refresh.reason || 'refresh-failed' };
   const data = extractSessionData(context, stdinData);
   if (!data) return { success: false, reason: 'missing-fresh-state' };
   const success = writeProjectCheckpoint(context, data, {
     ...options,
     generatedAt,
     eventRevision,
-    snapshotRevision: refresh.snapshotRevision,
+    snapshotRevision: refresh.snapshotRevision
   });
-  return success
-    ? { success: true, eventRevision }
-    : { success: false, reason: 'checkpoint-write-failed' };
+  return success ? { success: true, eventRevision } : { success: false, reason: 'checkpoint-write-failed' };
 }
 
 module.exports = {
@@ -321,5 +267,5 @@ module.exports = {
   ownedTranscriptPath,
   persistProjectCheckpoint,
   refreshStatuslineSnapshot,
-  shouldPreserveExistingSnapshot,
+  shouldPreserveExistingSnapshot
 };

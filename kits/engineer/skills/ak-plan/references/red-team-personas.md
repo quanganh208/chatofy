@@ -2,12 +2,12 @@
 
 ## Available Lenses
 
-| Reviewer                      | Lens                       | Focus                                                                                                                                                                                                                                                                                                                     |
-| ----------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Security Adversary**        | Attacker mindset           | Auth bypass, injection, data exposure, privilege escalation, supply chain, OWASP top 10                                                                                                                                                                                                                                   |
-| **Failure Mode Analyst**      | Murphy's Law               | Race conditions, data loss, cascading failures, recovery gaps, deployment risks, rollback holes                                                                                                                                                                                                                           |
-| **Assumption Destroyer**      | Skeptic                    | Unstated dependencies, false "will work" claims, missing error paths, scale assumptions, integration assumptions. Target assumptions that are both load-bearing (the plan fails without them) and breakable within the plan's life; for each, state the condition under which the plan stops meeting its success criteria |
-| **Scope & Complexity Critic** | Unrequested-scope detector | Over-engineering, premature abstraction, unnecessary complexity, scope creep, gold plating                                                                                                                                                                                                                                |
+| Reviewer | Lens | Focus |
+|----------|------|-------|
+| **Security Adversary** | Attacker mindset | Auth bypass, injection, data exposure, privilege escalation, supply chain, OWASP top 10 |
+| **Failure Mode Analyst** | Murphy's Law | Race conditions, data loss, cascading failures, recovery gaps, deployment risks, rollback holes |
+| **Assumption Destroyer** | Skeptic | Unstated dependencies, false "will work" claims, missing error paths, scale assumptions, integration assumptions. Target assumptions that are both load-bearing (the plan fails without them) and breakable within the plan's life; for each, state the condition under which the plan stops meeting its success criteria |
+| **Scope & Complexity Critic** | Unrequested-scope detector | Over-engineering, premature abstraction, unnecessary complexity, scope creep, gold plating |
 
 **Scope & Complexity Critic constraint:** requested scope is a constraint, not a
 finding. Flag only additions beyond the user's request; raise doubts about
@@ -22,12 +22,12 @@ Load: `references/verification-roles.md` for full role definitions.
 
 **Tier precedence rule:** The verification tier (Light/Standard/Full) determines which verification roles are active — NOT the reviewer's persona assignment. At Light tier, all reviewers use Fact Checker regardless of persona. At Standard tier, Fact Checker + Contract Verifier. At Full tier, the persona-specific role below applies.
 
-| Reviewer                  | Adversarial Lens           | Verification Role (Full Tier) |
-| ------------------------- | -------------------------- | ----------------------------- |
-| Security Adversary        | Attacker mindset           | Fact Checker                  |
-| Failure Mode Analyst      | Murphy's Law               | Flow Tracer                   |
-| Assumption Destroyer      | Skeptic                    | Scope Auditor                 |
-| Scope & Complexity Critic | Unrequested-scope detector | Contract Verifier             |
+| Reviewer | Adversarial Lens | Verification Role (Full Tier) |
+|----------|-----------------|-------------------------------|
+| Security Adversary | Attacker mindset | Fact Checker |
+| Failure Mode Analyst | Murphy's Law | Flow Tracer |
+| Assumption Destroyer | Skeptic | Scope Auditor |
+| Scope & Complexity Critic | Unrequested-scope detector | Contract Verifier |
 
 ### Evidence Requirement
 
@@ -78,7 +78,6 @@ Output format per finding:
 ## Red Team Findings
 
 ### Finding 1: {title} — {SEVERITY}
-
 **Reviewer:** {lens name}
 **Location:** {phase/section}
 **Flaw:** {description}
@@ -93,11 +92,10 @@ Output format per finding:
 ## Red Team Review
 
 ### Session — {YYYY-MM-DD}
-
 **Findings:** {total} ({accepted} accepted, {rejected} rejected)
 **Severity breakdown:** {N} Critical, {N} High, {N} Medium
 
-| #   | Finding | Severity | Disposition | Applied To |
-| --- | ------- | -------- | ----------- | ---------- |
-| 1   | {title} | Critical | Accept      | Phase 2    |
+| # | Finding | Severity | Disposition | Applied To |
+|---|---------|----------|-------------|------------|
+| 1 | {title} | Critical | Accept | Phase 2 |
 ```

@@ -10,19 +10,12 @@ const { parsePlanPhases, normalizeStatus, filenameToTitle } = require('./plan-ta
 /** Escape HTML special characters to prevent XSS */
 function escapeHtml(str) {
   if (!str) return '';
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 /** Generate a slug from text for anchor IDs */
 function slugify(text) {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
 /**
@@ -37,7 +30,7 @@ function detectPlan(filePath) {
 
   const files = fs.readdirSync(dir);
   const phases = files
-    .filter((f) => f.startsWith('phase-') && f.endsWith('.md'))
+    .filter(f => f.startsWith('phase-') && f.endsWith('.md'))
     .sort((a, b) => {
       const matchA = a.match(/phase-(\d+)([a-z]?)/);
       const matchB = b.match(/phase-(\d+)([a-z]?)/);
@@ -47,7 +40,7 @@ function detectPlan(filePath) {
       return (matchA?.[2] || '').localeCompare(matchB?.[2] || '');
     });
 
-  return { isPlan: true, planDir: dir, planFile, phases: phases.map((f) => path.join(dir, f)) };
+  return { isPlan: true, planDir: dir, planFile, phases: phases.map(f => path.join(dir, f)) };
 }
 
 /**
@@ -69,7 +62,7 @@ function parsePlanTable(planFilePath) {
       while ((linkMatch = linkRegex.exec(phaseFilesSection[0])) !== null) {
         const [, , linkPath] = linkMatch;
         const phaseNum = parseInt(linkMatch[1].match(/phase-0?(\d+)/i)?.[1] || '0', 10);
-        const phase = phases.find((p) => p.phase === phaseNum);
+        const phase = phases.find(p => p.phase === phaseNum);
         if (phase && (!phase.file || phase.file === planFilePath)) {
           phase.file = path.resolve(dir, linkPath);
           phase.anchor = null;
@@ -79,34 +72,29 @@ function parsePlanTable(planFilePath) {
   }
 
   // Filter out inline-only phases (no separate file)
-  return phases.filter((p) => p.file && p.file !== planFilePath);
+  return phases.filter(p => p.file && p.file !== planFilePath);
 }
 
 /** Get navigation context for a file */
 function getNavigationContext(filePath) {
   const planInfo = detectPlan(filePath);
-  if (!planInfo.isPlan)
-    return { planInfo, currentIndex: -1, prev: null, next: null, allPhases: [] };
+  if (!planInfo.isPlan) return { planInfo, currentIndex: -1, prev: null, next: null, allPhases: [] };
 
   const phaseMeta = parsePlanTable(planInfo.planFile);
-  const allPhases = [
-    { phase: 0, phaseId: '0', name: 'Plan Overview', status: 'overview', file: planInfo.planFile },
-    ...phaseMeta,
-  ];
+  const allPhases = [{ phase: 0, phaseId: '0', name: 'Plan Overview', status: 'overview', file: planInfo.planFile }, ...phaseMeta];
 
   const normalizedPath = path.normalize(filePath);
-  const currentIndex = allPhases.findIndex((p) => path.normalize(p.file) === normalizedPath);
+  const currentIndex = allPhases.findIndex(p => path.normalize(p.file) === normalizedPath);
   const prev = currentIndex > 0 ? allPhases[currentIndex - 1] : null;
-  const next =
-    currentIndex < allPhases.length - 1 && currentIndex >= 0 ? allPhases[currentIndex + 1] : null;
+  const next = currentIndex < allPhases.length - 1 && currentIndex >= 0 ? allPhases[currentIndex + 1] : null;
 
   return { planInfo, currentIndex, prev, next, allPhases };
 }
 
 /** Get status badge HTML for a phase group */
 function getGroupBadge(phases) {
-  const completed = phases.filter((p) => p.status === 'completed').length;
-  const inProgress = phases.filter((p) => p.status === 'in-progress').length;
+  const completed = phases.filter(p => p.status === 'completed').length;
+  const inProgress = phases.filter(p => p.status === 'in-progress').length;
   if (completed === phases.length) return '<span class="phase-badge badge-done">&#10003;</span>';
   if (inProgress > 0) return '<span class="phase-badge badge-progress">&#9679;</span>';
   return '<span class="phase-badge badge-pending">&#9675;</span>';
@@ -133,16 +121,10 @@ function renderPhaseItem(phase, index, currentIndex, normalizedCurrentPath) {
       </span></li>`;
   }
 
-  let href,
-    isInlineSection = false;
-  if (isSameFile && safeAnchor) {
-    href = `#${safeAnchor}`;
-    isInlineSection = true;
-  } else if (safeAnchor) {
-    href = `/view?file=${encodeURIComponent(phase.file)}#${safeAnchor}`;
-  } else {
-    href = `/view?file=${encodeURIComponent(phase.file)}`;
-  }
+  let href, isInlineSection = false;
+  if (isSameFile && safeAnchor) { href = `#${safeAnchor}`; isInlineSection = true; }
+  else if (safeAnchor) { href = `/view?file=${encodeURIComponent(phase.file)}#${safeAnchor}`; }
+  else { href = `/view?file=${encodeURIComponent(phase.file)}`; }
 
   const dataAnchor = safeAnchor ? `data-anchor="${safeAnchor}"` : '';
   const inlineSectionClass = isInlineSection ? 'inline-section' : '';
@@ -164,9 +146,7 @@ function generateNavSidebar(filePath) {
 
   // Flat list when <= 15 phases (no accordion grouping needed)
   if (allPhases.length <= 15) {
-    const items = allPhases
-      .map((phase, index) => renderPhaseItem(phase, index, currentIndex, normalizedCurrentPath))
-      .join('');
+    const items = allPhases.map((phase, index) => renderPhaseItem(phase, index, currentIndex, normalizedCurrentPath)).join('');
     return `<nav class="plan-nav" id="plan-nav">
       <div class="plan-title"><span class="plan-icon">&#128214;</span><span>${escapeHtml(planName)}</span></div>
       <ul class="phase-list">${items}</ul></nav>`;
@@ -174,43 +154,27 @@ function generateNavSidebar(filePath) {
 
   // Accordion groups for large plans (> 15 phases)
   const groups = [];
-  let currentGroup = [],
-    groupStart = 0;
+  let currentGroup = [], groupStart = 0;
   allPhases.forEach((phase, index) => {
     if (currentGroup.length === 0) groupStart = phase.phase;
     currentGroup.push({ phase, index });
-    if (
-      currentGroup.length === 10 ||
-      index === allPhases.length - 1 ||
-      (phase.phase % 10 === 0 && phase.phase !== groupStart)
-    ) {
+    if (currentGroup.length === 10 || index === allPhases.length - 1 || (phase.phase % 10 === 0 && phase.phase !== groupStart)) {
       groups.push({ start: groupStart, end: phase.phase, phases: [...currentGroup] });
       currentGroup = [];
     }
   });
 
-  const groupsHtml = groups
-    .map((group) => {
-      const groupId = `phase-group-${group.start}-${group.end}`;
-      const groupLabel =
-        group.start === 0
-          ? 'Overview'
-          : group.start === group.end
-            ? `Phase ${group.start}`
-            : `Phases ${group.start}-${group.end}`;
-      const badge = getGroupBadge(group.phases.map((p) => p.phase));
-      const items = group.phases
-        .map(({ phase, index }) =>
-          renderPhaseItem(phase, index, currentIndex, normalizedCurrentPath),
-        )
-        .join('');
-      return `<div class="phase-group" data-phase-id="${groupId}">
+  const groupsHtml = groups.map(group => {
+    const groupId = `phase-group-${group.start}-${group.end}`;
+    const groupLabel = group.start === 0 ? 'Overview' : group.start === group.end ? `Phase ${group.start}` : `Phases ${group.start}-${group.end}`;
+    const badge = getGroupBadge(group.phases.map(p => p.phase));
+    const items = group.phases.map(({ phase, index }) => renderPhaseItem(phase, index, currentIndex, normalizedCurrentPath)).join('');
+    return `<div class="phase-group" data-phase-id="${groupId}">
       <button class="phase-header" tabindex="0" aria-expanded="true" aria-controls="${groupId}-items">
         <span class="phase-chevron">&#9660;</span><span class="phase-name">${escapeHtml(groupLabel)}</span>${badge}
       </button>
       <ul class="phase-items" id="${groupId}-items">${items}</ul></div>`;
-    })
-    .join('');
+  }).join('');
 
   return `<nav class="plan-nav" id="plan-nav">
     <div class="plan-title"><span class="plan-icon">&#128214;</span><span>${escapeHtml(planName)}</span></div>
@@ -225,25 +189,17 @@ function generateNavFooter(filePath) {
   const prevExists = prev && fs.existsSync(prev.file);
   const nextExists = next && fs.existsSync(next.file);
 
-  const prevHtml = prev
-    ? prevExists
-      ? `<a href="/view?file=${encodeURIComponent(prev.file)}" class="nav-prev"><span class="nav-arrow">&larr;</span><span class="nav-label">${escapeHtml(prev.name)}</span></a>`
-      : `<span class="nav-prev nav-unavailable" title="Phase planned but not yet implemented"><span class="nav-arrow">&larr;</span><span class="nav-label">${escapeHtml(prev.name)}</span><span class="nav-badge">Planned</span></span>`
+  const prevHtml = prev ? (prevExists
+    ? `<a href="/view?file=${encodeURIComponent(prev.file)}" class="nav-prev"><span class="nav-arrow">&larr;</span><span class="nav-label">${escapeHtml(prev.name)}</span></a>`
+    : `<span class="nav-prev nav-unavailable" title="Phase planned but not yet implemented"><span class="nav-arrow">&larr;</span><span class="nav-label">${escapeHtml(prev.name)}</span><span class="nav-badge">Planned</span></span>`)
     : '<span></span>';
 
-  const nextHtml = next
-    ? nextExists
-      ? `<a href="/view?file=${encodeURIComponent(next.file)}" class="nav-next"><span class="nav-label">${escapeHtml(next.name)}</span><span class="nav-arrow">&rarr;</span></a>`
-      : `<span class="nav-next nav-unavailable" title="Phase planned but not yet implemented"><span class="nav-label">${escapeHtml(next.name)}</span><span class="nav-badge">Planned</span><span class="nav-arrow">&rarr;</span></span>`
+  const nextHtml = next ? (nextExists
+    ? `<a href="/view?file=${encodeURIComponent(next.file)}" class="nav-next"><span class="nav-label">${escapeHtml(next.name)}</span><span class="nav-arrow">&rarr;</span></a>`
+    : `<span class="nav-next nav-unavailable" title="Phase planned but not yet implemented"><span class="nav-label">${escapeHtml(next.name)}</span><span class="nav-badge">Planned</span><span class="nav-arrow">&rarr;</span></span>`)
     : '<span></span>';
 
   return `<footer class="nav-footer">${prevHtml}${nextHtml}</footer>`;
 }
 
-module.exports = {
-  detectPlan,
-  parsePlanTable,
-  getNavigationContext,
-  generateNavSidebar,
-  generateNavFooter,
-};
+module.exports = { detectPlan, parsePlanTable, getNavigationContext, generateNavSidebar, generateNavFooter };

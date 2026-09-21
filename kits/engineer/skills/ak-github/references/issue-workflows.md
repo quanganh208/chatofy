@@ -6,12 +6,12 @@ URL). Author prose in the resolved writing language.
 
 ## Create an issue
 
-### 1. Scout first (mandatory)
+### 1. Ground source-dependent claims
 
-Activate `ak:scout` on the area the issue concerns. Collect: owning files,
-relevant functions, existing behavior, and nearby tests. An issue written
-without codebase grounding is not created — the scout output is its evidence
-base.
+Reuse supplied scout/reproduction evidence for the same revision. Inspect source
+only when the issue's claims depend on behavior not already verified; an external
+service request or administrative issue does not require a repository-wide scout.
+Keep the evidence links and run the dedup/history checks relevant to the issue.
 
 ### 2. Dedup + already-resolved check (mandatory)
 
@@ -35,7 +35,6 @@ git branch -r --contains <sha>                      # which branches carry the f
 ```
 
 Outcomes:
-
 - **Duplicate open issue** → comment on it with your new evidence instead of
   creating a new one; report the existing URL.
 - **Already resolved** (closed issue / merged PR / fix on a branch) → do not
@@ -61,17 +60,17 @@ the latter swallows permission and network errors alongside the intended
 Standard taxonomy (create on demand, reuse existing spellings when the repo
 already has equivalents — never create `enhancement` next to `enhance`):
 
-| Label                      | Use for                                                    |
-| -------------------------- | ---------------------------------------------------------- |
-| `bug`                      | Incorrect behavior with reproduction evidence              |
-| `feature`                  | New capability                                             |
-| `enhancement`              | Improvement to existing behavior                           |
-| `docs`                     | Documentation only                                         |
-| `security`                 | Vulnerability or hardening (never include exploit secrets) |
-| `ci`                       | Pipeline/workflow issues                                   |
-| `refactor`                 | Internal restructuring, no behavior change                 |
-| `question`                 | Needs clarification/decision                               |
-| `priority:high/medium/low` | Triage priority                                            |
+| Label | Use for |
+|-------|---------|
+| `bug` | Incorrect behavior with reproduction evidence |
+| `feature` | New capability |
+| `enhancement` | Improvement to existing behavior |
+| `docs` | Documentation only |
+| `security` | Vulnerability or hardening (never include exploit secrets) |
+| `ci` | Pipeline/workflow issues |
+| `refactor` | Internal restructuring, no behavior change |
+| `question` | Needs clarification/decision |
+| `priority:high/medium/low` | Triage priority |
 
 Apply 1 type label + optional priority. In `--interactive`, confirm new label
 creation with the user.

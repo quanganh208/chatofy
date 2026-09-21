@@ -15,7 +15,6 @@ Comprehensive testing approaches, frameworks, and quality assurance practices (2
 ```
 
 **Rationale:**
-
 - Unit tests: Fast, cheap, isolate bugs quickly
 - Integration tests: Verify component interactions
 - E2E tests: Expensive, slow, but validate real user flows
@@ -25,17 +24,14 @@ Comprehensive testing approaches, frameworks, and quality assurance practices (2
 ### Frameworks by Language
 
 **TypeScript/JavaScript:**
-
 - **Vitest** - 50% faster than Jest in CI/CD, ESM native
 - **Jest** - Mature, large ecosystem, snapshot testing
 
 **Python:**
-
 - **Pytest** - Industry standard, fixtures, parametrization
 - **Unittest** - Built-in, standard library
 
 **Go:**
-
 - **testing** - Built-in, table-driven tests
 - **testify** - Assertions and mocking
 
@@ -56,7 +52,8 @@ describe('UserService', () => {
     it('should throw error with duplicate email', async () => {
       const userData = { email: 'existing@example.com', name: 'Test' };
 
-      await expect(userService.createUser(userData)).rejects.toThrow('Email already exists');
+      await expect(userService.createUser(userData))
+        .rejects.toThrow('Email already exists');
     });
 
     it('should hash password before storing', async () => {
@@ -209,7 +206,6 @@ describe('Auth Service Contract', () => {
 ### Tools Comparison
 
 **k6** (Modern, Developer-Friendly)
-
 ```javascript
 import http from 'k6/http';
 import { check, sleep } from 'k6';
@@ -218,7 +214,7 @@ export const options = {
   stages: [
     { duration: '2m', target: 100 }, // Ramp up to 100 users
     { duration: '5m', target: 100 }, // Stay at 100 users
-    { duration: '2m', target: 0 }, // Ramp down to 0 users
+    { duration: '2m', target: 0 },   // Ramp down to 0 users
   ],
   thresholds: {
     http_req_duration: ['p(95)<500'], // 95% requests under 500ms
@@ -306,7 +302,7 @@ describe('Database Migrations', () => {
       SELECT column_name FROM information_schema.columns
       WHERE table_name = 'users'
     `);
-    expect(columns.rows.map((r) => r.column_name)).not.toContain('created_at');
+    expect(columns.rows.map(r => r.column_name)).not.toContain('created_at');
   });
 });
 ```

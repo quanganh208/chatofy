@@ -20,15 +20,14 @@ node_A ──[w=0.25]── node_C   (propagated: 0.95 × 0.61 × decay)
 
 ### Exact Matching
 
-| Match Type                       | Normalization Applied                    | Weight |
-| -------------------------------- | ---------------------------------------- | ------ |
-| Email (exact)                    | lowercase, strip dots, strip plus-suffix | 0.95   |
-| Username (exact, cross-platform) | lowercase, strip punctuation             | 0.90   |
-| Phone number (normalized)        | E.164 format, strip country prefixes     | 0.93   |
-| Profile image (perceptual hash)  | pHash distance ≤ 4                       | 0.88   |
+| Match Type | Normalization Applied | Weight |
+|---|---|---|
+| Email (exact) | lowercase, strip dots, strip plus-suffix | 0.95 |
+| Username (exact, cross-platform) | lowercase, strip punctuation | 0.90 |
+| Phone number (normalized) | E.164 format, strip country prefixes | 0.93 |
+| Profile image (perceptual hash) | pHash distance ≤ 4 | 0.88 |
 
 Email normalization:
-
 ```python
 def normalize_email(raw):
     local, domain = raw.lower().split("@")
@@ -41,7 +40,6 @@ def normalize_email(raw):
 ### Fuzzy Matching
 
 **Handle Similarity (Levenshtein + Leet Bonus):**
-
 ```python
 def handle_similarity(h1, h2):
     h1n, h2n = normalize_handle(h1), normalize_handle(h2)
@@ -59,7 +57,6 @@ def handle_similarity(h1, h2):
 ```
 
 **Content Similarity (Jaccard for short-form, TF-IDF cosine for long-form):**
-
 ```python
 def content_cross_reference(text_A, text_B):
     if max(len(text_A), len(text_B)) < 280:
@@ -80,20 +77,20 @@ def content_cross_reference(text_A, text_B):
 
 ## 2. Attribute Weight Table
 
-| Attribute                    | Match Type           | Edge Weight |
-| ---------------------------- | -------------------- | ----------- |
-| Email address                | Exact (normalized)   | 0.95        |
-| Phone number                 | Exact (E.164)        | 0.93        |
-| Profile image                | Perceptual hash ≤4   | 0.88        |
-| Username                     | Exact cross-platform | 0.90        |
-| Username                     | Fuzzy (sim ≥ 0.82)   | 0.62        |
-| Bio text                     | Jaccard ≥ 0.70       | 0.55        |
-| Location (exact)             | String match         | 0.30        |
-| Posting timezone overlap     | Window ≤ 2h          | 0.35        |
-| Content duplicate            | Jaccard ≥ 0.85       | 0.72        |
-| Content similar              | Jaccard 0.60–0.85    | 0.42        |
-| Network proximity (degree-1) | Direct follow        | 0.40        |
-| Network proximity (degree-2) | Mutual connection    | 0.25        |
+| Attribute | Match Type | Edge Weight |
+|---|---|---|
+| Email address | Exact (normalized) | 0.95 |
+| Phone number | Exact (E.164) | 0.93 |
+| Profile image | Perceptual hash ≤4 | 0.88 |
+| Username | Exact cross-platform | 0.90 |
+| Username | Fuzzy (sim ≥ 0.82) | 0.62 |
+| Bio text | Jaccard ≥ 0.70 | 0.55 |
+| Location (exact) | String match | 0.30 |
+| Posting timezone overlap | Window ≤ 2h | 0.35 |
+| Content duplicate | Jaccard ≥ 0.85 | 0.72 |
+| Content similar | Jaccard 0.60–0.85 | 0.42 |
+| Network proximity (degree-1) | Direct follow | 0.40 |
+| Network proximity (degree-2) | Mutual connection | 0.25 |
 
 ---
 
@@ -116,14 +113,14 @@ def cross_reference_score(subject_A, subject_B, findings):
 
 ### Interpretation
 
-| Score     | Classification         | Recommended Action                   |
-| --------- | ---------------------- | ------------------------------------ |
+| Score | Classification | Recommended Action |
+|---|---|---|
 | 0.90–1.00 | Confirmed same subject | Merge nodes; treat as single subject |
-| 0.75–0.89 | Highly probable match  | Deep verification before merge       |
-| 0.55–0.74 | Probable connection    | Investigate connection type          |
-| 0.35–0.54 | Possible link          | Expand findings before concluding    |
-| 0.15–0.34 | Weak signal            | Monitor; do not expand yet           |
-| 0.00–0.14 | No meaningful link     | Disregard                            |
+| 0.75–0.89 | Highly probable match | Deep verification before merge |
+| 0.55–0.74 | Probable connection | Investigate connection type |
+| 0.35–0.54 | Possible link | Expand findings before concluding |
+| 0.15–0.34 | Weak signal | Monitor; do not expand yet |
+| 0.00–0.14 | No meaningful link | Disregard |
 
 ---
 
@@ -152,13 +149,13 @@ THEN operator_overlap_probability = HIGH
 
 ## 6. Network Proximity Scoring
 
-| Proximity Type                           | Score |
-| ---------------------------------------- | ----- |
-| Mutual follow                            | 0.55  |
-| Direct follow (one direction)            | 0.40  |
-| Shared follower cluster (quality ≥ 60)   | 0.30  |
-| Same community (≥ 3 shared niche spaces) | 0.20  |
-| No network overlap                       | 0.00  |
+| Proximity Type | Score |
+|---|---|
+| Mutual follow | 0.55 |
+| Direct follow (one direction) | 0.40 |
+| Shared follower cluster (quality ≥ 60) | 0.30 |
+| Same community (≥ 3 shared niche spaces) | 0.20 |
+| No network overlap | 0.00 |
 
 ---
 

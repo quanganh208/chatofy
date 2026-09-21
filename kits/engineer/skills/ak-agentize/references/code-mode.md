@@ -15,33 +15,33 @@ Introduced by Cloudflare (September 2025) to fix tool bloat: classic MCP injects
 
 ```ts
 const result = await (async () => {
-  const users = await api.users.list({ limit: 100, status: 'active' });
-  const filtered = users.filter((u) => u.created > '2025-01-01');
+  const users = await api.users.list({ limit: 100, status: "active" });
+  const filtered = users.filter((u) => u.created > "2025-01-01");
   return { count: filtered.length, users: filtered };
 })();
 ```
 
-**Sources:** [MCP spec](https://modelcontextprotocol.io/specification/2025-06-18), [Dynamic Workers](https://developers.cloudflare.com/dynamic-workers/)
+**Sources:** [MCP spec](https://modelcontextprotocol.io/specification/2026-07-28), [Dynamic Workers](https://developers.cloudflare.com/dynamic-workers/)
 
 ## When to use vs classic tool calls
 
-| Factor               | Classic tool calls        | Code Mode                          |
-| -------------------- | ------------------------- | ---------------------------------- |
-| Tool count           | < 5 tools                 | Many tools / 3+ servers            |
-| Task shape           | 1–2 steps                 | Multi-step chains (4+)             |
-| Intermediate results | Small                     | Large result sets, local filtering |
-| Context pressure     | Acceptable                | High (schemas dominate context)    |
-| Latency              | Prefer single round-trips | Tolerate code-exec overhead        |
-| Setup                | Minimal                   | Needs sandbox infrastructure       |
+| Factor | Classic tool calls | Code Mode |
+| --- | --- | --- |
+| Tool count | < 5 tools | Many tools / 3+ servers |
+| Task shape | 1–2 steps | Multi-step chains (4+) |
+| Intermediate results | Small | Large result sets, local filtering |
+| Context pressure | Acceptable | High (schemas dominate context) |
+| Latency | Prefer single round-trips | Tolerate code-exec overhead |
+| Setup | Minimal | Needs sandbox infrastructure |
 
 ### Published token-savings figures
 
-| Scale                  | Reported savings                   | Source                                                                                                               |
-| ---------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Large (~500 APIs)      | ~1.15M → ~83K tokens (~14× / ~93%) | [WorkOS on Cloudflare](https://workos.com/blog/cloudflare-code-mode-cuts-token-usage-by-81)                          |
-| Across scales          | ~58–99% depending on tool count    | [Dev.to benchmarks](https://dev.to/anthonymax/how-to-cut-mcp-token-costs-save-up-to-92-at-scale-with-code-mode-3fco) |
-| Stripe-style workflows | ~2.4× more efficient than raw MCP  | [CLI vs MCP vs Code Mode](https://portofcontext.com/blog/cli-vs-mcp-vs-code-mode)                                    |
-| Medium (50–100 tools)  | ~65–80% reduction                  | Same benchmarks                                                                                                      |
+| Scale | Reported savings | Source |
+| --- | --- | --- |
+| Large (~500 APIs) | ~14× fewer tokens (~93%) | [WorkOS on Cloudflare](https://workos.com/blog/cloudflare-code-mode-cuts-token-usage-by-81) |
+| Across scales | ~58–99% depending on tool count | [Dev.to benchmarks](https://dev.to/anthonymax/how-to-cut-mcp-token-costs-save-up-to-92-at-scale-with-code-mode-3fco) |
+| Stripe-style workflows | ~2.4× more efficient than raw MCP | [CLI vs MCP vs Code Mode](https://portofcontext.com/blog/cli-vs-mcp-vs-code-mode) |
+| Medium (50–100 tools) | ~65–80% reduction | Same benchmarks |
 
 Skip Code Mode when the task is 1–2 calls, human approval is required between steps, or the toolset is small and stable.
 
@@ -71,10 +71,10 @@ Run Anthropic `@anthropic-ai/sandbox-runtime` (Seatbelt / bubblewrap) or Deno Sa
 
 Package the Code Mode executor in Docker; on Kubernetes prefer `RuntimeClass` with gVisor or Kata/Firecracker microVMs.
 
-| Option             | Isolation                   | Overhead                             |
-| ------------------ | --------------------------- | ------------------------------------ |
-| gVisor             | Userspace syscall intercept | ~10–30%                              |
-| Firecracker / Kata | Hardware microVM            | Higher resources, strongest boundary |
+| Option | Isolation | Overhead |
+| --- | --- | --- |
+| gVisor | Userspace syscall intercept | ~10–30% |
+| Firecracker / Kata | Hardware microVM | Higher resources, strongest boundary |
 
 **Tradeoffs:** Full language support and air-gapped friendly; highest ops cost.
 
@@ -93,11 +93,11 @@ Package the Code Mode executor in Docker; on Kubernetes prefer `RuntimeClass` wi
 
 ## Available SDKs
 
-| SDK               | Package                         | Notes                                                   |
-| ----------------- | ------------------------------- | ------------------------------------------------------- |
-| Cloudflare Agents | `@cloudflare/codemode`          | `createCodeTool`, `DynamicWorkerExecutor`; experimental |
-| Anthropic         | `@anthropic-ai/sandbox-runtime` | Local/VPS process sandbox; research preview             |
-| Deno              | `@deno/sandbox`                 | Firecracker microVMs; proxy secret injection            |
+| SDK | Package | Notes |
+| --- | --- | --- |
+| Cloudflare Agents | `@cloudflare/codemode` | `createCodeTool`, `DynamicWorkerExecutor`; experimental |
+| Anthropic | `@anthropic-ai/sandbox-runtime` | Local/VPS process sandbox; research preview |
+| Deno | `@deno/sandbox` | Firecracker microVMs; proxy secret injection |
 
 ## Related
 

@@ -9,12 +9,12 @@ node scripts/resolve-config.cjs --json
 
 ## Sources (highest → lowest precedence)
 
-| #   | Source                             | Scope                     | Keys read                                                                    |
-| --- | ---------------------------------- | ------------------------- | ---------------------------------------------------------------------------- |
-| 1   | `<project>/.agentkit/journal.yaml` | project, journal-specific | all `journal.*` keys, at the file's top level (no `journal:` wrapper needed) |
-| 2   | `<project>/.agentkit/config.yaml`  | project, general config   | the `journal:` block                                                         |
-| 3   | `~/.agentkit/config.yaml`          | user, general config      | the `journal:` block                                                         |
-| 4   | built-in defaults                  | —                         | —                                                                            |
+| # | Source | Scope | Keys read |
+|---|--------|-------|-----------|
+| 1 | `<project>/.agentkit/journal.yaml` | project, journal-specific | all `journal.*` keys, at the file's top level (no `journal:` wrapper needed) |
+| 2 | `<project>/.agentkit/config.yaml` | project, general config | the `journal:` block |
+| 3 | `~/.agentkit/config.yaml` | user, general config | the `journal:` block |
+| 4 | built-in defaults | — | — |
 
 Per-channel fields (e.g. a channel's own `language`) live inside each entry
 of the `channels` array and are resolved by the calling script
@@ -44,15 +44,15 @@ discovery.
 
 ## Field reference
 
-| Field                    | Type                                    | Default                           | Notes                                                                                                                                                    |
-| ------------------------ | --------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `journal.language`       | string                                  | `"English"`                       | Default body language when a channel doesn't set its own.                                                                                                |
-| `journal.channels`       | array of channel objects                | `[]`                              | See `references/channels-config.md` for the full channel shape.                                                                                          |
-| `journal.writing_style`  | string \| null                          | `null`                            | Explicit filename (without `.md`) in `<project>/assets/writing-styles/`. Overrides alphabetical discovery — see `references/writing-styles-resolver.md`. |
-| `journal.auto`           | boolean                                 | `true`                            | Controls automatic journal creation in cook/ship hooks. Does **not** control posting — `--social` is always explicit.                                    |
-| `journal.video.engine`   | `"hyperframes" \| "remotion" \| "auto"` | `"auto"`                          | `"auto"` detects an installed video-generation skill; prefers hyperframes if both are present.                                                           |
-| `journal.ai.image_model` | string                                  | `"google/gemini-2.5-flash-image"` | Model id passed to the image-generation skill for `--image-ai`.                                                                                          |
-| `journal.ai.video_model` | string                                  | `"veo-3"`                         | Model id passed to the video-generation skill for `--video-ai`.                                                                                          |
+| Field | Type | Default | Notes |
+|-------|------|---------|-------|
+| `journal.language` | string | `"English"` | Default body language when a channel doesn't set its own. |
+| `journal.channels` | array of channel objects | `[]` | See `references/channels-config.md` for the full channel shape. |
+| `journal.writing_style` | string \| null | `null` | Explicit filename (without `.md`) in `<project>/assets/writing-styles/`. Overrides alphabetical discovery — see `references/writing-styles-resolver.md`. |
+| `journal.auto` | boolean | `true` | Controls automatic journal creation in cook/ship hooks. Does **not** control posting — `--social` is always explicit. |
+| `journal.video.engine` | `"hyperframes" \| "remotion" \| "auto"` | `"auto"` | `"auto"` detects an installed video-generation skill; prefers hyperframes if both are present. |
+| `journal.ai.image_model` | string | `"google/gemini-2.5-flash-image"` | Model id passed to the image-generation skill for `--image-ai`. |
+| `journal.ai.video_model` | string | `"veo-3"` | Model id passed to the video-generation skill for `--video-ai`. |
 
 ## Example: project `.agentkit/journal.yaml`
 

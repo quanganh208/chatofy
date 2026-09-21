@@ -7,7 +7,7 @@ const {
   privateDirectoryIsSafe,
   privateFileIsSafe,
   readJsonFile,
-  writeJsonFileExclusive,
+  writeJsonFileExclusive
 } = require('./bounded-json-file.cjs');
 
 const REVISION_WIDTH = 16;
@@ -28,10 +28,9 @@ function parseRevisionName(name, suffix) {
 function listRevisions(directory, suffix, root) {
   try {
     if (!privateDirectoryIsSafe(directory, root)) return [];
-    return fs
-      .readdirSync(directory, { withFileTypes: true })
-      .filter((entry) => entry.isFile() && !entry.isSymbolicLink())
-      .map((entry) => parseRevisionName(entry.name, suffix))
+    return fs.readdirSync(directory, { withFileTypes: true })
+      .filter(entry => entry.isFile() && !entry.isSymbolicLink())
+      .map(entry => parseRevisionName(entry.name, suffix))
       .filter(Boolean)
       .sort((left, right) => left - right);
   } catch {
@@ -54,11 +53,7 @@ function abandonedPath(directory, revision) {
 function pruneOldEntries(directory, suffix, root, keep = MAX_REVISIONS) {
   const revisions = listRevisions(directory, suffix, root);
   for (const revision of revisions.slice(0, Math.max(0, revisions.length - keep))) {
-    try {
-      fs.unlinkSync(path.join(directory, `${revisionName(revision)}${suffix}`));
-    } catch {
-      /* best effort */
-    }
+    try { fs.unlinkSync(path.join(directory, `${revisionName(revision)}${suffix}`)); } catch { /* best effort */ }
   }
 }
 
@@ -79,18 +74,11 @@ function allocateRevision({ root, directory }) {
         pruneOldEntries(directory, '.reserve', root);
         return revision;
       } catch (error) {
-        if (descriptor != null)
-          try {
-            fs.closeSync(descriptor);
-          } catch {
-            /* ignore */
-          }
+        if (descriptor != null) try { fs.closeSync(descriptor); } catch { /* ignore */ }
         if (error?.code !== 'EEXIST') return null;
       }
     }
-  } catch {
-    /* fail open to the hook caller */
-  }
+  } catch { /* fail open to the hook caller */ }
   return null;
 }
 
@@ -99,7 +87,7 @@ function writeRevision({ root, directory, revision, value }) {
   const success = writeJsonFileExclusive({
     root,
     filePath: recordPath(directory, revision),
-    value,
+    value
   });
   if (success) pruneOldEntries(directory, '.json', root);
   return success;
@@ -107,26 +95,20 @@ function writeRevision({ root, directory, revision, value }) {
 
 function abandonRevision({ root, directory, revision, blockedByRevision = null }) {
   const value = { schemaVersion: 1, revision };
-  if (
-    Number.isSafeInteger(blockedByRevision) &&
-    blockedByRevision > 0 &&
-    blockedByRevision < revision
-  ) {
+  if (Number.isSafeInteger(blockedByRevision) && blockedByRevision > 0 && blockedByRevision < revision) {
     value.blockedByRevision = blockedByRevision;
   }
   const success = writeJsonFileExclusive({
     root,
     filePath: abandonedPath(directory, revision),
-    value,
+    value
   });
   if (success) pruneOldEntries(directory, '.abandoned', root);
   return success;
 }
 
 function readHighestRevision(directory, beforeRevision = Number.MAX_SAFE_INTEGER, root) {
-  const revisions = listRevisions(directory, '.json', root).filter(
-    (revision) => revision < beforeRevision,
-  );
+  const revisions = listRevisions(directory, '.json', root).filter(revision => revision < beforeRevision);
   const revision = revisions[revisions.length - 1];
   return revision ? { revision, value: readJsonFile(recordPath(directory, revision), root) } : null;
 }
@@ -149,11 +131,8 @@ function unresolvedPredecessor(directory, sequenceDirectory, revision, root) {
     if (privateFileIsSafe(recordPath(directory, predecessorRevision), root)) return null;
     const abandoned = readJsonFile(abandonedPath(directory, predecessorRevision), root);
     if (abandoned?.schemaVersion === 1 && abandoned.revision === predecessorRevision) {
-      if (
-        Number.isSafeInteger(abandoned.blockedByRevision) &&
-        abandoned.blockedByRevision > 0 &&
-        abandoned.blockedByRevision < predecessorRevision
-      ) {
+      if (Number.isSafeInteger(abandoned.blockedByRevision) && abandoned.blockedByRevision > 0 &&
+          abandoned.blockedByRevision < predecessorRevision) {
         predecessorRevision = abandoned.blockedByRevision;
         continue;
       }
@@ -166,13 +145,7 @@ function unresolvedPredecessor(directory, sequenceDirectory, revision, root) {
   return predecessorRevision > 0 ? predecessorRevision : null;
 }
 
-function waitForPredecessor(
-  directory,
-  sequenceDirectory,
-  revision,
-  root,
-  timeoutMs = PREDECESSOR_WAIT_MS,
-) {
+function waitForPredecessor(directory, sequenceDirectory, revision, root, timeoutMs = PREDECESSOR_WAIT_MS) {
   if (!Number.isSafeInteger(revision) || revision <= 1) return true;
   const deadline = Date.now() + timeoutMs;
   const signal = new Int32Array(new SharedArrayBuffer(4));
@@ -193,5 +166,5 @@ module.exports = {
   recordPath,
   revisionName,
   waitForPredecessor,
-  writeRevision,
+  writeRevision
 };

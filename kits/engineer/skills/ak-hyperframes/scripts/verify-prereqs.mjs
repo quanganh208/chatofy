@@ -70,16 +70,10 @@ function checkNodeVersion() {
 }
 
 function checkFfmpeg() {
-  const FFMPEG_INSTALL_HINT =
-    'Install FFmpeg: brew install ffmpeg (macOS) or apt install ffmpeg (Debian/Ubuntu)';
+  const FFMPEG_INSTALL_HINT = 'Install FFmpeg: brew install ffmpeg (macOS) or apt install ffmpeg (Debian/Ubuntu)';
 
   if (TEST_MODE && process.env.MOCK_FFMPEG_PRESENT === '0') {
-    return {
-      name: 'ffmpeg',
-      ok: false,
-      detail: 'ffmpeg not found on PATH (mocked)',
-      remediation: FFMPEG_INSTALL_HINT,
-    };
+    return { name: 'ffmpeg', ok: false, detail: 'ffmpeg not found on PATH (mocked)', remediation: FFMPEG_INSTALL_HINT };
   }
   if (TEST_MODE && process.env.MOCK_FFMPEG_PRESENT === '1') {
     return { name: 'ffmpeg', ok: true, detail: 'ffmpeg present (mocked)', remediation: null };

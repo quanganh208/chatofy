@@ -6,10 +6,10 @@ Goal: "Integrate sandbox payments and run a test charge in sandbox."
 
 ## Preflight
 
-| Phase       | Requirement                 | Status  | Unblock                          | Blocking? |
-| ----------- | --------------------------- | ------- | -------------------------------- | --------- |
-| integration | third-party sandbox account | missing | user creates sandbox + API key   | yes       |
-| integration | non-mutating connectivity   | unknown | user confirms network/API access | yes       |
+| Phase | Requirement | Status | Unblock | Blocking? |
+|-------|-------------|--------|---------|-----------|
+| integration | third-party sandbox account | missing | user creates sandbox + API key | yes |
+| integration | non-mutating connectivity | unknown | user confirms network/API access | yes |
 
 ## Expected terminal state
 
@@ -22,7 +22,7 @@ This fixture pins the first case: **Blocked**.
 
 ## Assertions
 
-- MUST NOT run chargeable or mutating API calls during preflight
-- MUST use non-mutating probes only if any
-- MUST NOT start /goal
-- MUST list exact unblock actions for missing sandbox access
+- Runs no chargeable or mutating API calls during preflight
+- Uses non-mutating probes only, if it probes at all
+- Leaves /goal unstarted
+- Lists the exact unblock actions for the missing sandbox access

@@ -6,24 +6,24 @@ Detects, categorizes, and resolves contradictions between findings in a case. Ev
 
 ## Conflict Types
 
-| Type                  | Description                                             |
-| --------------------- | ------------------------------------------------------- |
-| `VALUE_MISMATCH`      | Same attribute has irreconcilable values across sources |
-| `TIME_IMPOSSIBLE`     | Timeline events cannot coexist chronologically          |
-| `EXISTENCE_DISPUTE`   | One source asserts existence; another asserts absence   |
-| `CONNECTION_PARADOX`  | Two connections of the same pair are mutually exclusive |
-| `LOCATION_IMPOSSIBLE` | Subject cannot occupy two locations within elapsed time |
+| Type                  | Description                                               |
+|-----------------------|-----------------------------------------------------------|
+| `VALUE_MISMATCH`      | Same attribute has irreconcilable values across sources   |
+| `TIME_IMPOSSIBLE`     | Timeline events cannot coexist chronologically            |
+| `EXISTENCE_DISPUTE`   | One source asserts existence; another asserts absence     |
+| `CONNECTION_PARADOX`  | Two connections of the same pair are mutually exclusive   |
+| `LOCATION_IMPOSSIBLE` | Subject cannot occupy two locations within elapsed time   |
 
 ---
 
 ## Severity Levels
 
-| Severity   | Meaning                                                           | Auto-resolve? |
-| ---------- | ----------------------------------------------------------------- | ------------- |
-| `CRITICAL` | Both conflicting sources have trust_score >= 4; no obvious winner | No            |
-| `HIGH`     | Both sources have trust_score >= 3; significant disagreement      | No            |
-| `NOTABLE`  | Trust scores differ; lower-trust source is likely wrong           | Possible      |
-| `MINOR`    | One source is clearly low-quality (trust_score <= 2)              | Yes           |
+| Severity   | Meaning                                                 | Auto-resolve?  |
+|------------|---------------------------------------------------------|----------------|
+| `CRITICAL` | Both conflicting sources have trust_score >= 4; no obvious winner | No |
+| `HIGH`     | Both sources have trust_score >= 3; significant disagreement | No |
+| `NOTABLE`  | Trust scores differ; lower-trust source is likely wrong | Possible       |
+| `MINOR`    | One source is clearly low-quality (trust_score <= 2)    | Yes            |
 
 ---
 

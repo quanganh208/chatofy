@@ -1,65 +1,65 @@
 # Writing Effective Instructions
 <!-- cruft-lint-allow: this file names the patterns the linter reports -->
 
-A skill is a set of practical instructions for a capable model. Write it the
-way you would brief a strong colleague: say what you want, why it matters,
-and how you will know it worked. Current models take a system prompt
-literally and follow it closely, so calm, specific, reasoned text outperforms
-emphasis.
+A skill provides practical instructions for the models and runtimes its users
+actually run. State the outcome, context, constraints and verification. Treat
+claims about prompting effectiveness as hypotheses until consumer tests support them.
 
 ## Writing style
 
 Write in imperative form, verb first, in complete sentences.
 
-- Good: "To validate the export, run `scripts/validate.py --input {file}`."
+- Good: "To validate the export, run `scripts/validate.py --input {file}`." <!-- resource-link-example: illustrative command -->
 - Bad: "You should probably validate the data before proceeding."
 
 Describe the audience, the product, the environment, and the quality bar.
 That context is the part of a skill only the author knows; the model can
 supply the rest.
 
-## Writing for current models
+## Calibrate instructions to consumers
 
-These ten rules replace the older "critical headers, repetition, and
-terseness" advice. `scripts/lint_cruft.py` flags most violations; see
-`references/prompt-cruft-patterns.md` for the signals and the keep list.
+These rules guide authoring; linter matches are review signals, not proof that
+an instruction is harmful. Use `references/testing-and-iteration.md` to decide.
 
-1. **Say what you want at normal volume.** "Use this tool when…" instead of
-   "CRITICAL: You MUST…". Attach a reason to every real constraint. Use
-   emphasis at most once or twice per skill, and only for an instruction you
-   have measured being ignored.
-2. **Describe the goal, not the method.** For work that needs judgment, state
-   the outcome, the constraints, and how to verify. Number steps only when
-   order is a safety condition (destructive commands, auth flows, compliance);
-   there, give the exact command and say "do not modify this command".
-3. **Delegation is context, not a threat.** Say when to delegate and why
-   (a fresh context catches what the implementing context has already
-   rationalised). Do not write "INCOMPLETE" or "DO NOT do X yourself", and do
-   not forbid parallel delegation; current models handle it well.
-4. **Prohibitions need provenance.** Keep a "never" only when it encodes a
-   business or safety rule with a stated reason. Rewrite style prohibitions
-   written for older models as one sentence describing the desired result.
-5. **Say it once, in the right place.** No repeated key points; one closing
-   recap is enough. Do not paste agent boilerplate such as "ensure token
-   efficiency": token use and effort are model configuration, not prose.
-6. **Reports lead with the outcome, in complete sentences.** Keep them short
-   by choosing what to include, not by compressing into fragments,
-   abbreviations, or arrow chains.
-7. **No numeric caps on prose.** Replace "3-4 sentences max" with a
-   description of the reader and the purpose. Keep real format requirements
-   (a table, a named section) as format instructions.
-8. **Examples: few, varied, labelled illustrative.** A single gold output
-   freezes an older model's habits into the new one. Keep examples only where
-   the output shape is format-sensitive.
-9. **No volatile facts.** Model names, context sizes, version pins, and hard
-   paths drift. Link the machine-readable owner (for example
-   `docs/conformance/runtime-support-matrix.yaml` or `skill.yaml`) or omit.
-10. **Do not write in diff style.** "X now works differently" and "no longer"
-    describe a prompt version the model never saw. Write as if the current
-    rule is the only rule.
+1. **Use clear language with reasons.** State real constraints plainly. Keep emphasis
+   when it measurably helps enforce an important boundary; avoid pressure boilerplate.
+2. **Match specificity to the task.** Goals and constraints suit open-ended work;
+   numbered steps suit data dependencies and reliable procedures; exact commands suit
+   fragile operations. State dependencies rather than prescribing incidental choreography.
+3. **Respect available delegation.** Delegate when independent work benefits from fresh
+   context and the runtime, authorization, ownership and resource budget permit it.
+   Provide an inline fallback when delegation is optional; report a required missing
+   capability instead of inventing it. Explain constraints rather than deleting them.
+4. **Preserve accepted boundaries.** Keep user decisions, safety rules, output contracts
+   and reproduced failure protections. Classify a prohibition by its purpose first.
+5. **Keep useful context accessible.** Avoid redundant boilerplate; retain a short
+   reminder when it measurably prevents errors across separately loaded resources.
+6. **Write for the reader.** Lead reports with the outcome and use complete sentences.
+   Concision comes from relevant content, not removing evidence or verification.
+7. **Distinguish real budgets from arbitrary caps.** Preserve explicit user limits,
+   machine format constraints and operating budgets; explain their purpose. Do not
+   remove them just because a regex recognizes a number.
+8. **Use examples to teach decisions.** Include varied normal/edge examples where they
+   reduce ambiguity, show domain reasoning or pin a format. Label illustrative examples;
+   distinguish exact machine contracts. Test whether consumers need more or less detail.
+9. **Own volatile facts.** Resolve model/tool capabilities from the live environment.
+   Put required reproducibility pins in manifests or invocation contracts and link
+   their owner; avoid copying inventories into unrelated prose.
+10. **Describe current behavior.** Explain what to do in a fresh session without assuming
+    knowledge of the previous prompt version. Report changes in maintainer records.
+11. **Define completion and reuse authorization.** Continue through the requested
+    result and relevant verification inside the accepted scope. Ask for material
+    missing decisions or new effects; keep explicit interactive modes and genuine
+    destructive boundaries. Repair regressions caused by the change rather than
+    turning every failed check into a permission loop.
+12. **Route before loading.** Read the owning resource for the current task. Keep
+    complete-read requirements when their dependency or format constraint needs
+    them; avoid making every request load the whole catalog. Report decisions and
+    evidence without requiring a transcript of internal reasoning.
 
-Cruft is not length. Never delete a line because of a character count; delete
-it because it has no purpose for the current model.
+A shorter prompt is not automatically better. Test target models independently;
+a less capable consumer may need examples that a stronger consumer can infer.
+Preserve prompt improvements only when actual outcomes support them.
 
 ## Recommended SKILL.md shape
 
@@ -70,24 +70,34 @@ description: [What it does] + [when to use it] + [what it does not cover]
 ---
 # Skill Name
 Purpose in two or three sentences, including the audience and quality bar.
-## When to use
-Trigger situations, and the neighbouring skills that own adjacent work.
-## How to work
-Outcome, constraints, and verification. Exact commands for fragile steps.
+## Workflow router
+Select the task-specific reference; state when to load it. For a single simple
+workflow, inline its instructions instead of creating an unnecessary reference.
+## Completion and boundaries
+Outcome, constraints, authority and verification. Exact commands for fragile steps.
 ## Resources
-One line per bundled script, reference, and asset, with when to open each.
+Point to common-path resources; branch references own their own details.
 ```
 
-Add `## Examples` only when the output shape is format-sensitive, and label
-each example illustrative. Add `## Troubleshooting` when a failure recurs and
+Add `## Examples` when domain decisions, edge cases or output shape need clarification;
+label illustrative examples and distinguish exact contracts. Add `## Troubleshooting` when a failure recurs and
 has a known fix.
+
+## Complete the authorized task
+
+Define completion in observable terms: artifacts, required checks and honest partial
+status. Reuse authorization for reversible work and fixes; ask only about material
+unresolved decisions or protected boundaries. Preserve explicit review requirements,
+but do not add a stop after a first draft when delivery is authorized.
+Select verification from the change: new behavior needs outcome checks; formatting-only
+changes need structural review. Repeat a passed check when new evidence justifies it.
 
 ## Be specific about fragile steps
 
 Good:
 
 ```markdown
-Run `python3 scripts/validate.py --input {filename}` to check the format.
+Run `python3 scripts/validate.py --input {filename}` to check the format. <!-- resource-link-example: illustrative validator -->
 If validation fails, the usual causes are missing required fields or dates
 that are not in YYYY-MM-DD form.
 ```
@@ -104,7 +114,7 @@ than describing the check in prose.
 ## Reference bundled resources clearly
 
 ```markdown
-Before writing queries, read `references/api-patterns.md` for rate limits,
+Before writing queries, read `references/api-patterns.md` for rate limits, <!-- resource-link-example: illustrative API -->
 pagination, and error codes.
 ```
 

@@ -123,9 +123,7 @@ function discoverWritingStyle(projectRoot, explicitStyle) {
  */
 function resolveConfig(options = {}) {
   const startDir = options.cwd || process.cwd();
-  const projectRoot = options.projectRoot
-    ? path.resolve(startDir, options.projectRoot)
-    : findProjectRoot(startDir);
+  const projectRoot = options.projectRoot ? path.resolve(startDir, options.projectRoot) : findProjectRoot(startDir);
   const homeDir = getHomeDir();
 
   const userConfig = readYamlFile(path.join(homeDir, '.agentkit', 'config.yaml'));

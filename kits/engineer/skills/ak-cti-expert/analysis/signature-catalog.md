@@ -6,35 +6,32 @@ Reference library of observable signatures used during case analysis. Organized 
 
 ## Categories
 
-| Category              | Scope                                                                 |
-| --------------------- | --------------------------------------------------------------------- |
-| TEMPORAL_SIGNATURES   | Activity timing, cadence, and scheduling regularities                 |
+| Category | Scope |
+|---|---|
+| TEMPORAL_SIGNATURES | Activity timing, cadence, and scheduling regularities |
 | BEHAVIORAL_SIGNATURES | Handle construction, platform presence, and account lifecycle markers |
-| NETWORK_SIGNATURES    | Connection structure, follower quality, and coordination indicators   |
-| LINGUISTIC_SIGNATURES | Writing style, vocabulary, and content fingerprinting                 |
+| NETWORK_SIGNATURES | Connection structure, follower quality, and coordination indicators |
+| LINGUISTIC_SIGNATURES | Writing style, vocabulary, and content fingerprinting |
 
 ---
 
 ## TEMPORAL_SIGNATURES
 
 ### T-01: Precision Posting Interval
-
 Automated scheduling often produces machine-precise intervals.
 
-| Variance Window | Interpretation              |
-| --------------- | --------------------------- |
-| ≤ 3 minutes     | High automation probability |
-| 3–15 minutes    | Possible scheduler          |
-| > 15 minutes    | Likely manual               |
+| Variance Window | Interpretation |
+|---|---|
+| ≤ 3 minutes | High automation probability |
+| 3–15 minutes | Possible scheduler |
+| > 15 minutes | Likely manual |
 
 Regex to detect clock-hour posting:
-
 ```regex
 ^(0[0-9]|[01][0-9]|2[0-3]):00:\d{2}$
 ```
 
 ### T-02: Off-Timezone Clustering
-
 Posts clustered outside claimed timezone's waking hours (23:00–06:00 local).
 
 ```python
@@ -46,7 +43,6 @@ def timezone_mismatch_score(post_times, claimed_tz):
 ```
 
 ### T-03: Coordinated Multi-Account Timing
-
 Multiple accounts posting within a tight window on a recurring basis.
 
 ```
@@ -57,7 +53,6 @@ THEN classify = COORDINATED_CAMPAIGN
 ```
 
 ### T-04: Dormancy-Burst Cycle
-
 Long silence followed by dense activity, then silence again.
 
 ```
@@ -73,15 +68,14 @@ THEN classify = DORMANCY_BURST_CYCLE
 
 ### B-01: Handle Obfuscation Variants
 
-| Substitution Class  | Characters                     | Example                 |
-| ------------------- | ------------------------------ | ----------------------- |
-| Numeral-alpha swap  | 0→o, 1→l/i, 3→e, 4→a, 5→s, 7→t | `j4ck5on`               |
-| Symbol injection    | @ → a, $ → s, ! → i            | `c@rter`                |
-| Separator insertion | _, ., -                        | `john.doe` vs `johndoe` |
-| Prefix/suffix       | real, the, official, 1, 2      | `realjohndoe`           |
+| Substitution Class | Characters | Example |
+|---|---|---|
+| Numeral-alpha swap | 0→o, 1→l/i, 3→e, 4→a, 5→s, 7→t | `j4ck5on` |
+| Symbol injection | @ → a, $ → s, ! → i | `c@rter` |
+| Separator insertion | _, ., - | `john.doe` vs `johndoe` |
+| Prefix/suffix | real, the, official, 1, 2 | `realjohndoe` |
 
 Detection regex (leet numerals):
-
 ```regex
 [a-z]*[013457@$!][a-z0-9@$!]*
 ```
@@ -89,7 +83,6 @@ Detection regex (leet numerals):
 ### B-02: Disposable Email Fingerprints
 
 Common patterns:
-
 ```regex
 # Random prefix (bot-generated)
 ^[a-z]{6,12}[0-9]{3,6}@
@@ -102,7 +95,6 @@ Common patterns:
 ```
 
 ### B-03: Account Age Disparity
-
 Subject claims long-standing presence but account creation timestamp is recent.
 
 ```
@@ -116,7 +108,6 @@ THEN flag = CLAIMED_HISTORY_MISMATCH
 Flag when subject avoids all high-verification platforms (LinkedIn, verified accounts) despite professional claims. Presence only on email-only or no-auth platforms indicates deliberate identity compartmentalization.
 
 ### B-05: Catch-All Email Domain
-
 ```
 # Probe: send to random@targetdomain.com
 # Delivery without bounce = catch-all enabled
@@ -136,7 +127,6 @@ Score each follower: +2 per quality signal (profile complete, >10 posts, account
 ```
 
 ### N-02: Coordinated Mutual Cluster
-
 ```
 WHEN account_set_A follows account_set_B AND vice versa
 AND all_accounts_created_within(30_days)
@@ -145,7 +135,6 @@ THEN classify = INAUTHENTIC_MUTUAL_CLUSTER
 ```
 
 ### N-03: Hub-Spoke Coordination
-
 One central account followed by dozens of low-quality amplifier accounts that repost exclusively from the hub.
 
 ```regex
@@ -164,18 +153,17 @@ Build 4-gram fingerprints per account. Compute Jaccard coefficient across combin
 ### L-02: Capitalization and Punctuation Habits
 
 Machine-distinctive personal style markers (regex examples):
-
 - Oxford comma: `,\s+and\s+\w+\.$`
 - Habitual ellipsis: `\w\.\.\.` (no trailing space)
 - Double punctuation: `\w[!?]{2,}`
 
 ### L-03: Non-Native Language Markers
 
-| Construction      | Probable L1      |
-| ----------------- | ---------------- |
-| "I am agree"      | Russian / Slavic |
-| "very much thank" | CJK              |
-| "since X years"   | Romance language |
+| Construction | Probable L1 |
+|---|---|
+| "I am agree" | Russian / Slavic |
+| "very much thank" | CJK |
+| "since X years" | Romance language |
 
 ### L-04: Copy-Paste Bot Content
 
@@ -189,14 +177,14 @@ THEN classify = CONTENT_SYNDICATION_BOT
 
 ## Confidence Reference
 
-| Signature               | Confidence | Key Booster              |
-| ----------------------- | ---------- | ------------------------ |
-| T-01 precision interval | 78%        | Multi-week consistency   |
-| T-03 coordinated timing | 85%        | Recurrence count         |
-| B-01 leet handle        | 72%        | Cross-platform confirm   |
-| B-02 disposable email   | 90%        | Domain in known-bad list |
-| N-01 follower quality   | 80%        | Sample size              |
-| L-01 phrase overlap     | 82%        | Higher Jaccard           |
+| Signature | Confidence | Key Booster |
+|---|---|---|
+| T-01 precision interval | 78% | Multi-week consistency |
+| T-03 coordinated timing | 85% | Recurrence count |
+| B-01 leet handle | 72% | Cross-platform confirm |
+| B-02 disposable email | 90% | Domain in known-bad list |
+| N-01 follower quality | 80% | Sample size |
+| L-01 phrase overlap | 82% | Higher Jaccard |
 
 ---
 

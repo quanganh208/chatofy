@@ -32,7 +32,6 @@ The running Chrome receives the message and creates a new tab in `Profile 17`. T
 Without an anchor, after `chrome-profile cognition https://x` the agent only knows "a new tab in Cognition exists somewhere." `list_pages` returns all tabs. Race conditions (e.g. the user opens another tab manually in the same moment) make "find the newest tab" unreliable.
 
 The `#cdp-profile=<key>&cdp-open=<token>` fragment is:
-
 - **Client-only** — never sent in HTTP requests, never logged by upstream servers.
 - **Profile-labelled** — `cdp-profile=<key>` gives the agent a CLI marker sanity check for the requested key; profile identity is resolved before launch by `chrome-profile`.
 - **Unique per open** — `cdp-open=<token>` is generated for each `chrome-profile open` call, so repeated calls in the same profile do not collide.
@@ -63,7 +62,6 @@ A natural-sounding architecture is: one Chrome process per automation profile, e
 The single-process + URL-anchor pattern in this skill gives equivalent determinism without any of those costs, because it works WITH Chrome's existing IPC instead of around it.
 
 The multi-process pattern is still appropriate for:
-
 - Pure-background automation where no human ever opens the Chrome window.
 - True parallel automation that needs process-level isolation.
 - Profiles you do NOT want loaded in your daily Chrome.
@@ -78,11 +76,11 @@ Conclusion: profile selection has to happen at the **per-call layer**, not the M
 
 ## Cross-OS variations (informational)
 
-| Concern           | macOS                                                          | Linux                            | Windows                                               |
-| ----------------- | -------------------------------------------------------------- | -------------------------------- | ----------------------------------------------------- |
-| Chrome binary     | `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` | `google-chrome` on PATH          | `%ProgramFiles%\Google\Chrome\Application\chrome.exe` |
-| user-data-dir     | `~/Library/Application Support/Google/Chrome`                  | `~/.config/google-chrome`        | `%LOCALAPPDATA%\Google\Chrome\User Data`              |
-| IPC transport     | Mach port                                                      | Unix domain socket               | Named pipe                                            |
-| Cookie encryption | macOS Keychain (v10)                                           | Linux libsecret/kwallet (v10/11) | Windows DPAPI + App-Bound (v10/v20)                   |
+| Concern | macOS | Linux | Windows |
+|---|---|---|---|
+| Chrome binary | `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` | `google-chrome` on PATH | `%ProgramFiles%\Google\Chrome\Application\chrome.exe` |
+| user-data-dir | `~/Library/Application Support/Google/Chrome` | `~/.config/google-chrome` | `%LOCALAPPDATA%\Google\Chrome\User Data` |
+| IPC transport | Mach port | Unix domain socket | Named pipe |
+| Cookie encryption | macOS Keychain (v10) | Linux libsecret/kwallet (v10/11) | Windows DPAPI + App-Bound (v10/v20) |
 
 The skill's Python CLI abstracts all four columns. The `--profile-directory` IPC works on all three OSes because Chromium's `ProcessSingleton` implements the platform-appropriate transport.

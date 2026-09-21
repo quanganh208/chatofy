@@ -19,14 +19,14 @@ Audits cloud infrastructure (AWS, GCP, Azure) for misconfigurations, excessive p
 
 ## 2. Tool Inventory
 
-| Priority  | Tool         | Coverage                             | Install                                              |
-| --------- | ------------ | ------------------------------------ | ---------------------------------------------------- |
-| Primary   | `aws` CLI    | AWS IAM, S3, EC2, VPC, CloudTrail    | Pre-installed or `pip3 install awscli`               |
-| Primary   | `gcloud` CLI | GCP IAM, GCS, Compute, Audit Logs    | `curl https://sdk.cloud.google.com \| bash`          |
-| Primary   | `az` CLI     | Azure AD, Blob, VM, Activity Log     | `curl -sL https://aka.ms/InstallAzureCLIDeb \| bash` |
-| Secondary | ScoutSuite   | Multi-cloud automated audit          | `pip3 install scoutsuite`                            |
-| Secondary | Trivy        | Container/IaC vulnerability scan     | `apt install -y trivy`                               |
-| Manual    | IaC Review   | Terraform/CloudFormation/Pulumi grep | No install — file review                             |
+| Priority | Tool | Coverage | Install |
+|----------|------|----------|---------|
+| Primary | `aws` CLI | AWS IAM, S3, EC2, VPC, CloudTrail | Pre-installed or `pip3 install awscli` |
+| Primary | `gcloud` CLI | GCP IAM, GCS, Compute, Audit Logs | `curl https://sdk.cloud.google.com \| bash` |
+| Primary | `az` CLI | Azure AD, Blob, VM, Activity Log | `curl -sL https://aka.ms/InstallAzureCLIDeb \| bash` |
+| Secondary | ScoutSuite | Multi-cloud automated audit | `pip3 install scoutsuite` |
+| Secondary | Trivy | Container/IaC vulnerability scan | `apt install -y trivy` |
+| Manual | IaC Review | Terraform/CloudFormation/Pulumi grep | No install — file review |
 
 ---
 
@@ -85,7 +85,6 @@ az ad user list
 ### Network Security
 
 **Check for across all providers:**
-
 - Security groups / firewall rules allowing `0.0.0.0/0` ingress
 - Unrestricted SSH (port 22) or RDP (port 3389) from internet
 - VPC flow logs disabled
@@ -140,24 +139,18 @@ grep -rn 'password\|secret\|api_key' *.tf *.yaml *.json
 
 ```markdown
 # Cloud Security Audit Report
-
 ## Account(s): [account ID(s)]
-
 ## Provider: [AWS/GCP/Azure]
-
 ## Regions: [audited regions]
-
 ## Date: [date]
 
 ### Summary
-
 - Total findings: X
 - Critical: X | High: X | Medium: X | Low: X
 
 ### Findings
 
 #### [SEVERITY] [Category]: [Title]
-
 **Resource:** [resource ARN/ID]
 **Region:** [region]
 **Issue:** [what the misconfiguration is]
@@ -166,7 +159,6 @@ grep -rn 'password\|secret\|api_key' *.tf *.yaml *.json
 **Remediation:** [specific fix command or IaC change]
 
 ### Prioritized Action Plan
-
 1. [Critical — immediate]
 2. [High — this week]
 3. [Medium — this month]

@@ -142,6 +142,7 @@ Measured maintenance cost exceeds the value of the separation across several com
   "evals": [
     {
       "id": 0,
+      "split": "train",
       "prompt": "<one realistic request the skill must handle>",
       "expected_output": "<what a correct result contains>",
       "files": [],

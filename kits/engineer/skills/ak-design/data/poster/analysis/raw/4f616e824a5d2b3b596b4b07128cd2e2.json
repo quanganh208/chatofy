@@ -7,7 +7,14 @@
     "layered composition",
     "intellectual"
   ],
-  "palette_hexes": ["#d7c8b0", "#432314", "#886a4d", "#f7a247", "#000000", "#e05021"],
+  "palette_hexes": [
+    "#d7c8b0",
+    "#432314",
+    "#886a4d",
+    "#f7a247",
+    "#000000",
+    "#e05021"
+  ],
   "layout": {
     "grid": "puzzle grid, asymmetric",
     "focal": "center-left",
@@ -17,12 +24,22 @@
     "material": "matte paper",
     "finish": "photo collage, puzzle piece cutouts"
   },
-  "mood": ["serious", "intellectual", "introspective", "complex"],
+  "mood": [
+    "serious",
+    "intellectual",
+    "introspective",
+    "complex"
+  ],
   "shape_primitives": [
     "puzzle pieces",
     "organic curves",
     "rectangular text blocks",
     "implied squares"
   ],
-  "typography": ["geometric sans", "all caps", "extreme size contrast", "hierarchical text"]
+  "typography": [
+    "geometric sans",
+    "all caps",
+    "extreme size contrast",
+    "hierarchical text"
+  ]
 }

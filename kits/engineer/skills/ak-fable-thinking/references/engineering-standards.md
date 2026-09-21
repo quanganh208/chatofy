@@ -162,23 +162,23 @@ its own — these are then the default.
 
 ## Evaluate before delivering (act-backed, per the Self-Review Gate)
 
-| Dimension        | Passes when                                          | Proven by                   |
-| ---------------- | ---------------------------------------------------- | --------------------------- |
-| Necessity        | every component buys a named requirement             | requirement map             |
-| Boundaries       | dependencies point inward; effects at the edges      | import and layer check      |
-| Failure handling | each dependency's failure modes have chosen behavior | failure-mode table          |
-| Contracts        | public surfaces typed, versioned, tested             | contract audit              |
-| Operability      | logs, metrics, health, rollback, migration present   | checklist answers           |
-| Simplicity       | no simpler design passes the same requirements       | the last checklist question |
+| Dimension | Passes when | Proven by |
+|-----------|-------------|-----------|
+| Necessity | every component buys a named requirement | requirement map |
+| Boundaries | dependencies point inward; effects at the edges | import and layer check |
+| Failure handling | each dependency's failure modes have chosen behavior | failure-mode table |
+| Contracts | public surfaces typed, versioned, tested | contract audit |
+| Operability | logs, metrics, health, rollback, migration present | checklist answers |
+| Simplicity | no simpler design passes the same requirements | the last checklist question |
 
 ## Do / Don't
 
-| Don't                                  | Instead                                                      |
-| -------------------------------------- | ------------------------------------------------------------ |
-| Add an abstraction for one caller      | Inline it; abstract at the second real caller                |
-| Adopt a pattern because it is standard | Name the force that demands it, or skip it                   |
-| Design the happy path                  | Enumerate failure modes per dependency; choose each behavior |
-| Retry blindly                          | Backoff with jitter, a cap, idempotency on the retried call  |
-| Treat the cache as truth               | One source of truth; cache with an invalidation story        |
-| Change a schema in place               | Expand, migrate, contract; rollback at each step             |
-| Ship without a way to see it fail      | A metric, a log line, and an alert on the symptom            |
+| Don't | Instead |
+|-------|---------|
+| Add an abstraction for one caller | Inline it; abstract at the second real caller |
+| Adopt a pattern because it is standard | Name the force that demands it, or skip it |
+| Design the happy path | Enumerate failure modes per dependency; choose each behavior |
+| Retry blindly | Backoff with jitter, a cap, idempotency on the retried call |
+| Treat the cache as truth | One source of truth; cache with an invalidation story |
+| Change a schema in place | Expand, migrate, contract; rollback at each step |
+| Ship without a way to see it fail | A metric, a log line, and an alert on the symptom |

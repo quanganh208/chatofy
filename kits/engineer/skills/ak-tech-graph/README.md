@@ -6,9 +6,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/code)
-[![7 Visual Styles](https://img.shields.io/badge/Styles-7-purple)](<>)
-[![14 Diagram Types](https://img.shields.io/badge/Diagram%20Types-14-green)](<>)
-[![UML Support](https://img.shields.io/badge/UML-Full%20Support-orange)](<>)
+[![7 Visual Styles](https://img.shields.io/badge/Styles-7-purple)]()
+[![14 Diagram Types](https://img.shields.io/badge/Diagram%20Types-14-green)]()
+[![UML Support](https://img.shields.io/badge/UML-Full%20Support-orange)]()
 
 ---
 
@@ -31,38 +31,31 @@ User: "Generate a Mem0 memory architecture diagram, dark style"
 > All samples exported at 1920px width (2× retina) via `rsvg-convert`. PNG is lossless and the right choice for technical diagrams — sharp edges, no JPEG compression artifacts on text/lines.
 
 ### Style 1 — Flat Icon (default)
-
-_Mem0 Memory Architecture — white background, semantic arrows, layered memory system_
+*Mem0 Memory Architecture — white background, semantic arrows, layered memory system*
 ![Style 1 — Flat Icon](assets/samples/sample-style1-flat.png)
 
 ### Style 2 — Dark Terminal
-
-_Tool Call Flow — dark background, neon accents, monospace font_
+*Tool Call Flow — dark background, neon accents, monospace font*
 ![Style 2 — Dark Terminal](assets/samples/sample-style2-dark.png)
 
 ### Style 3 — Blueprint
-
-_Microservices Architecture — deep blue background, grid lines, cyan strokes_
+*Microservices Architecture — deep blue background, grid lines, cyan strokes*
 ![Style 3 — Blueprint](assets/samples/sample-style3-blueprint.png)
 
 ### Style 4 — Notion Clean
-
-_Agent Memory Types — minimal white, single accent color_
+*Agent Memory Types — minimal white, single accent color*
 ![Style 4 — Notion Clean](assets/samples/sample-style4-notion.png)
 
 ### Style 5 — Glassmorphism
-
-_Multi-Agent Collaboration — dark gradient background, frosted glass cards_
+*Multi-Agent Collaboration — dark gradient background, frosted glass cards*
 ![Style 5 — Glassmorphism](assets/samples/sample-style5-glass.png)
 
 ### Style 6 — Claude Official
-
-_System Architecture — warm cream background (#f8f6f3), Anthropic brand colors, clean professional aesthetic_
+*System Architecture — warm cream background (#f8f6f3), Anthropic brand colors, clean professional aesthetic*
 ![Style 6 — Claude Official](assets/samples/sample-style6-claude.png)
 
 ### Style 7 — OpenAI Official
-
-_API Integration Flow — pure white background, OpenAI brand palette, modern minimalist design_
+*API Integration Flow — pure white background, OpenAI brand palette, modern minimalist design*
 ![Style 7 — OpenAI Official](assets/samples/sample-style7-openai.png)
 
 ---
@@ -72,7 +65,6 @@ _API Integration Flow — pure white background, OpenAI brand palette, modern mi
 Use prompts like these when you want the model to stay close to the repo's strongest regression-tested outputs:
 
 ### Style 1 — Flat Icon
-
 ```text
 Draw a Mem0 memory architecture diagram in style 1 (Flat Icon).
 Use four horizontal sections: Input Layer, Memory Manager, Storage Layer, Output / Retrieval.
@@ -81,7 +73,6 @@ Use semantic arrows for read, write, control, and data flow. Keep the layout cle
 ```
 
 ### Style 2 — Dark Terminal
-
 ```text
 Draw a tool call flow diagram in style 2 (Dark Terminal).
 Show User query, Retrieve chunks, Generate answer, Knowledge base, Agent, Terminal, Source documents, and Grounded answer.
@@ -89,7 +80,6 @@ Use terminal chrome, neon accents, monospace typography, and semantic arrows for
 ```
 
 ### Style 3 — Blueprint
-
 ```text
 Draw a microservices architecture diagram in style 3 (Blueprint).
 Create numbered engineering sections like 01 // EDGE, 02 // APPLICATION SERVICES, 03 // DATA + EVENT INFRA, 04 // OBSERVABILITY.
@@ -98,7 +88,6 @@ Use blueprint grid, cyan strokes, and a bottom-right title block.
 ```
 
 ### Style 4 — Notion Clean
-
 ```text
 Draw an agent memory types diagram in style 4 (Notion Clean).
 Compare Sensory Memory, Working Memory, Episodic Memory, Semantic Memory, and Procedural Memory around a central Agent core.
@@ -106,7 +95,6 @@ Use a minimal white layout, neutral borders, one accent color for arrows, and sh
 ```
 
 ### Style 5 — Glassmorphism
-
 ```text
 Draw a multi-agent collaboration diagram in style 5 (Glassmorphism).
 Use three sections: Mission Control, Specialist Agents, and Synthesis.
@@ -115,7 +103,6 @@ Use frosted cards, soft glow, and semantic arrows for delegation, shared memory 
 ```
 
 ### Style 6 — Claude Official
-
 ```text
 Draw a system architecture diagram in style 6 (Claude Official).
 Use left-side layer labels: Interface Layer, Core Layer, Foundation Layer.
@@ -124,7 +111,6 @@ Use warm cream background, restrained brand-like palette, generous whitespace, a
 ```
 
 ### Style 7 — OpenAI Official
-
 ```text
 Draw an API integration flow diagram in style 7 (OpenAI Official).
 Use three sections: Entry, Model + Tools, and Delivery.
@@ -192,14 +178,14 @@ rsvg-convert --version
 
 ## Why Not Mermaid or draw.io?
 
-|                          | Mermaid | draw.io | **fireworks-tech-graph** |
-| ------------------------ | ------- | ------- | ------------------------ |
-| Natural language input   | ✗       | ✗       | ✅                       |
-| AI/Agent domain patterns | ✗       | ✗       | ✅                       |
-| Multiple visual styles   | ✗       | manual  | ✅ 5 built-in            |
-| High-res PNG export      | ✗       | manual  | ✅ auto 1920px           |
-| Semantic arrow colors    | ✗       | manual  | ✅ auto                  |
-| No online tool needed    | ✅      | ✗       | ✅                       |
+| | Mermaid | draw.io | **fireworks-tech-graph** |
+|--|---------|---------|--------------------------|
+| Natural language input | ✗ | ✗ | ✅ |
+| AI/Agent domain patterns | ✗ | ✗ | ✅ |
+| Multiple visual styles | ✗ | manual | ✅ 5 built-in |
+| High-res PNG export | ✗ | manual | ✅ auto 1920px |
+| Semantic arrow colors | ✗ | manual | ✅ auto |
+| No online tool needed | ✅ | ✗ | ✅ |
 
 Mermaid is great for quick inline diagrams in markdown. draw.io is great for manual polishing. `fireworks-tech-graph` is optimized for **describing a system and getting a polished diagram immediately**, without writing DSL syntax or clicking around a GUI.
 
@@ -255,31 +241,26 @@ Create a tool call flow diagram --output /tmp/diagrams/
 ```
 Compare Agentic RAG vs standard RAG in a feature matrix, Notion clean style
 ```
-
 → Comparison matrix: RAG vs Agentic RAG, covering retrieval strategy, agent loop, tool use
 
 ```
 Generate a Mem0 memory architecture diagram with vector store, graph DB, KV store, and memory manager
 ```
-
 → Memory Architecture with swim lanes: Input → Memory Manager → Storage tiers → Retrieval
 
 ```
 Draw a Multi-Agent diagram: Orchestrator dispatches 3 SubAgents (search / compute / code execution), results aggregated
 ```
-
 → Agent Architecture with hexagons, tool layers, and result aggregation
 
 ```
 Visualize the Tool Call execution flow: LLM → Tool Selector → Execution → Parser → back to LLM
 ```
-
 → Flowchart with decision loop showing tool invocation cycle
 
 ```
 Draw the 5 agent memory types: Sensory, Working, Episodic, Semantic, Procedural
 ```
-
 → Mind map or layered architecture showing memory tiers from sensory to procedural
 
 ### Infrastructure & Cloud
@@ -287,19 +268,16 @@ Draw the 5 agent memory types: Sensory, Working, Episodic, Semantic, Procedural
 ```
 Draw a microservices architecture: Client → API Gateway → [User Service / Order Service / Payment Service] → PostgreSQL + Redis
 ```
-
 → Architecture diagram with horizontal layers, swim lanes per service cluster
 
 ```
 Generate a data pipeline diagram: Kafka → Spark processing → write to S3 → Athena query
 ```
-
 → Data flow diagram with labeled arrows (stream / batch / query)
 
 ```
 Draw a Kubernetes deployment: Ingress → Service → [Pod × 3] → ConfigMap + PersistentVolume
 ```
-
 → Architecture with dashed containers per namespace, solid arrows for traffic flow
 
 ### API & Sequence Flows
@@ -307,13 +285,11 @@ Draw a Kubernetes deployment: Ingress → Service → [Pod × 3] → ConfigMap +
 ```
 Draw an OAuth2 authorization code flow sequence diagram: User → Client → Auth Server → Resource Server
 ```
-
 → Sequence diagram with vertical lifelines and activation boxes
 
 ```
 Draw the ChatGPT Plugin call sequence diagram
 ```
-
 → Sequence: User → ChatGPT → Plugin Manifest → API → Response chain
 
 ### Decision & Process Flows
@@ -321,13 +297,11 @@ Draw the ChatGPT Plugin call sequence diagram
 ```
 Draw a pre-launch QA flowchart for an AI app: Code Review → Security Scan → Performance Test → Manual Approval → Deploy
 ```
-
 → Flowchart with diamond decision nodes and parallel branches
 
 ```
 Generate a feature comparison matrix: RAG vs Fine-tuning vs Prompt Engineering
 ```
-
 → Comparison matrix with checked/unchecked cells across cost, latency, accuracy, flexibility
 
 ### Concept Maps
@@ -335,34 +309,31 @@ Generate a feature comparison matrix: RAG vs Fine-tuning vs Prompt Engineering
 ```
 Visualize the LLM application tech stack: from foundation model to SDK to app framework to deployment
 ```
-
 → Layered architecture or mind map from model layer to product layer
 
 ```
 Draw an AI Agent capability map: Perception / Memory / Reasoning / Action / Learning
 ```
-
 → Mind map with central "AI Agent" node and 5 radial branches
 
 ---
 
 ## Styles
 
-| #   | Name                      | Background         | Font                | Best For                                 |
-| --- | ------------------------- | ------------------ | ------------------- | ---------------------------------------- |
-| 1   | **Flat Icon** _(default)_ | `#ffffff`          | Helvetica           | Blogs, slides, docs                      |
-| 2   | **Dark Terminal**         | `#0f0f1a`          | SF Mono / Fira Code | GitHub README, dev articles              |
-| 3   | **Blueprint**             | `#0a1628`          | Courier New         | Architecture docs, engineering           |
-| 4   | **Notion Clean**          | `#ffffff`          | system-ui           | Notion, Confluence, wikis                |
-| 5   | **Glassmorphism**         | `#0d1117` gradient | Inter               | Product sites, keynotes                  |
-| 6   | **Claude Official**       | `#f8f6f3`          | system-ui           | Anthropic-style diagrams, warm aesthetic |
-| 7   | **OpenAI Official**       | `#ffffff`          | system-ui           | OpenAI-style diagrams, clean modern look |
+| # | Name | Background | Font | Best For |
+|---|------|-----------|------|----------|
+| 1 | **Flat Icon** *(default)* | `#ffffff` | Helvetica | Blogs, slides, docs |
+| 2 | **Dark Terminal** | `#0f0f1a` | SF Mono / Fira Code | GitHub README, dev articles |
+| 3 | **Blueprint** | `#0a1628` | Courier New | Architecture docs, engineering |
+| 4 | **Notion Clean** | `#ffffff` | system-ui | Notion, Confluence, wikis |
+| 5 | **Glassmorphism** | `#0d1117` gradient | Inter | Product sites, keynotes |
+| 6 | **Claude Official** | `#f8f6f3` | system-ui | Anthropic-style diagrams, warm aesthetic |
+| 7 | **OpenAI Official** | `#ffffff` | system-ui | OpenAI-style diagrams, clean modern look |
 
 Each style has a dedicated reference file in `references/` with exact color tokens, SVG patterns, and templates.
 The generator also consumes style-aware structure fields such as `containers`, semantic `nodes[].kind`, `arrows[].flow`, and explicit port anchors so sample-grade layouts can be reproduced more consistently.
 
 Useful high-leverage fields for style-specific polish:
-
 - `style_overrides` to nudge title alignment or palette tokens without forking a full style
 - `containers[].header_prefix` / `containers[].header_text` for blueprint-style numbered section headers such as `01 // EDGE`
 - `containers[].side_label` for Claude-style left layer labels
@@ -372,27 +343,23 @@ Useful high-leverage fields for style-specific polish:
 ### Style Selection Guide
 
 **For UML Diagrams:**
-
 - **Class/Component/Package**: Style 1 (Flat Icon) or Style 4 (Notion Clean) — clear structure, easy to read
 - **Sequence/Timing**: Style 2 (Dark Terminal) — monospace fonts help with alignment
 - **State Machine/Activity**: Style 3 (Blueprint) — engineering aesthetic fits process flows
 - **Use Case/Interview**: Style 1 (Flat Icon) — colorful, accessible
 
 **For AI/Agent Diagrams:**
-
 - **RAG/Agentic Search**: Style 2 (Dark Terminal) or Style 5 (Glassmorphism) — tech-forward aesthetic
 - **Memory Architecture**: Style 3 (Blueprint) — emphasizes layered storage tiers
 - **Multi-Agent**: Style 5 (Glassmorphism) — frosted cards distinguish agent boundaries
 
 **For Documentation:**
-
 - **Internal docs**: Style 4 (Notion Clean) — minimal, wiki-friendly
 - **Blog posts**: Style 1 (Flat Icon) — colorful, engaging
 - **GitHub README**: Style 2 (Dark Terminal) — matches dark theme
 - **Presentations**: Style 5 (Glassmorphism) or Style 6 (Claude Official) — polished
 
 **Brand-Specific:**
-
 - **Anthropic/Claude projects**: Style 6 (Claude Official) — warm cream background, brand colors
 - **OpenAI projects**: Style 7 (OpenAI Official) — clean white, OpenAI palette
 
@@ -400,35 +367,35 @@ Useful high-leverage fields for style-specific polish:
 
 ## Diagram Types
 
-| Type                    | Description                       | Key Layout Rule                               |
-| ----------------------- | --------------------------------- | --------------------------------------------- |
-| **Architecture**        | Services, components, cloud infra | Horizontal layers top→bottom                  |
-| **Data Flow**           | What data moves where             | Label every arrow with data type              |
-| **Flowchart**           | Decisions, process steps          | Diamond = decision, top→bottom                |
-| **Agent Architecture**  | LLM + tools + memory              | 5-layer model: Input/Agent/Memory/Tool/Output |
-| **Memory Architecture** | Mem0, MemGPT-style                | Separate read/write paths, memory tiers       |
-| **Sequence**            | API call chains, time-ordered     | Vertical lifelines, horizontal messages       |
-| **Comparison**          | Feature matrix, side-by-side      | Column = system, row = attribute              |
-| **Mind Map**            | Concept maps, radial              | Central node, bezier branches                 |
+| Type | Description | Key Layout Rule |
+|------|-------------|-----------------|
+| **Architecture** | Services, components, cloud infra | Horizontal layers top→bottom |
+| **Data Flow** | What data moves where | Label every arrow with data type |
+| **Flowchart** | Decisions, process steps | Diamond = decision, top→bottom |
+| **Agent Architecture** | LLM + tools + memory | 5-layer model: Input/Agent/Memory/Tool/Output |
+| **Memory Architecture** | Mem0, MemGPT-style | Separate read/write paths, memory tiers |
+| **Sequence** | API call chains, time-ordered | Vertical lifelines, horizontal messages |
+| **Comparison** | Feature matrix, side-by-side | Column = system, row = attribute |
+| **Mind Map** | Concept maps, radial | Central node, bezier branches |
 
 ### UML Diagram Support (14 Types)
 
-| UML Type                  | Description                                 | Best Style |
-| ------------------------- | ------------------------------------------- | ---------- |
-| **Class Diagram**         | Classes, attributes, methods, relationships | Style 1, 4 |
-| **Component Diagram**     | Software components and dependencies        | Style 1, 3 |
-| **Deployment Diagram**    | Hardware nodes and software deployment      | Style 3    |
-| **Package Diagram**       | Package organization and dependencies       | Style 1, 4 |
-| **Composite Structure**   | Internal structure of classes/components    | Style 1, 3 |
-| **Object Diagram**        | Object instances and relationships          | Style 1, 4 |
-| **Use Case Diagram**      | Actors, use cases, system boundaries        | Style 1    |
-| **Activity Diagram**      | Workflows, parallel processes               | Style 3    |
-| **State Machine**         | State transitions and events                | Style 2, 3 |
-| **Sequence Diagram**      | Message exchanges over time                 | Style 2    |
-| **Communication Diagram** | Object interactions and messages            | Style 1, 2 |
-| **Timing Diagram**        | State changes over time                     | Style 2    |
-| **Interaction Overview**  | High-level interaction flow                 | Style 1, 2 |
-| **ER Diagram**            | Entity-relationship data models             | Style 1, 3 |
+| UML Type | Description | Best Style |
+|----------|-------------|------------|
+| **Class Diagram** | Classes, attributes, methods, relationships | Style 1, 4 |
+| **Component Diagram** | Software components and dependencies | Style 1, 3 |
+| **Deployment Diagram** | Hardware nodes and software deployment | Style 3 |
+| **Package Diagram** | Package organization and dependencies | Style 1, 4 |
+| **Composite Structure** | Internal structure of classes/components | Style 1, 3 |
+| **Object Diagram** | Object instances and relationships | Style 1, 4 |
+| **Use Case Diagram** | Actors, use cases, system boundaries | Style 1 |
+| **Activity Diagram** | Workflows, parallel processes | Style 3 |
+| **State Machine** | State transitions and events | Style 2, 3 |
+| **Sequence Diagram** | Message exchanges over time | Style 2 |
+| **Communication Diagram** | Object interactions and messages | Style 1, 2 |
+| **Timing Diagram** | State changes over time | Style 2 |
+| **Interaction Overview** | High-level interaction flow | Style 1, 2 |
+| **ER Diagram** | Entity-relationship data models | Style 1, 3 |
 
 ---
 
@@ -452,35 +419,35 @@ Tool Call Flow       → LLM → Tool Selector → Execution → Parser → LLM 
 
 Shapes encode semantic meaning consistently across all styles:
 
-| Concept              | Shape                           |
-| -------------------- | ------------------------------- |
-| User / Human         | Circle + body                   |
-| LLM / Model          | Rounded rect, double border, ⚡ |
-| Agent / Orchestrator | Hexagon                         |
-| Memory (short-term)  | Dashed-border rounded rect      |
-| Memory (long-term)   | Solid cylinder                  |
-| Vector Store         | Cylinder with inner rings       |
-| Graph DB             | 3-circle cluster                |
-| Tool / Function      | Rect with ⚙                     |
-| API / Gateway        | Hexagon (single border)         |
-| Queue / Stream       | Horizontal pipe/tube            |
-| Document / File      | Folded-corner rect              |
-| Browser / UI         | Rect with 3-dot titlebar        |
-| Decision             | Diamond                         |
-| External Service     | Dashed-border rect              |
+| Concept | Shape |
+|---------|-------|
+| User / Human | Circle + body |
+| LLM / Model | Rounded rect, double border, ⚡ |
+| Agent / Orchestrator | Hexagon |
+| Memory (short-term) | Dashed-border rounded rect |
+| Memory (long-term) | Solid cylinder |
+| Vector Store | Cylinder with inner rings |
+| Graph DB | 3-circle cluster |
+| Tool / Function | Rect with ⚙ |
+| API / Gateway | Hexagon (single border) |
+| Queue / Stream | Horizontal pipe/tube |
+| Document / File | Folded-corner rect |
+| Browser / UI | Rect with 3-dot titlebar |
+| Decision | Diamond |
+| External Service | Dashed-border rect |
 
 ---
 
 ## Arrow Semantics
 
-| Flow Type         | Stroke       | Dash  | Meaning               |
-| ----------------- | ------------ | ----- | --------------------- |
-| Primary data flow | 2px solid    | —     | Main request/response |
-| Control / trigger | 1.5px solid  | —     | System A triggers B   |
-| Memory read       | 1.5px solid  | —     | Retrieve from store   |
-| Memory write      | 1.5px        | `5,3` | Write/store operation |
-| Async / event     | 1.5px        | `4,2` | Non-blocking          |
-| Feedback / loop   | 1.5px curved | —     | Iterative reasoning   |
+| Flow Type | Stroke | Dash | Meaning |
+|-----------|--------|------|---------|
+| Primary data flow | 2px solid | — | Main request/response |
+| Control / trigger | 1.5px solid | — | System A triggers B |
+| Memory read | 1.5px solid | — | Retrieve from store |
+| Memory write | 1.5px | `5,3` | Write/store operation |
+| Async / event | 1.5px | `4,2` | Non-blocking |
+| Feedback / loop | 1.5px curved | — | Iterative reasoning |
 
 ---
 
@@ -542,13 +509,13 @@ fireworks-tech-graph/
 
 ## Troubleshooting
 
-| Symptom                   | Cause                                                   | Fix                                                                                                                                                |
-| ------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PNG is blank or all-black | `@import url()` in SVG — rsvg-convert can't fetch fonts | Remove `@import`, use system font stack                                                                                                            |
-| PNG not generated         | `rsvg-convert` not installed                            | macOS: `brew install librsvg`; Linux: `apt install librsvg2-bin`; Windows: `choco install rsvg-convert -y` or `pacman -S mingw-w64-x86_64-librsvg` |
-| Diagram cut off at bottom | ViewBox height too short                                | Increase `height` in `viewBox="0 0 960 <height>"`                                                                                                  |
-| Text overflowing boxes    | Labels too long                                         | Add `text-anchor="middle"` + `<clipPath>` or shorten label                                                                                         |
-| Icons not rendering       | External CDN URL in rsvg-convert context                | Use inline SVG paths from `references/icons.md`                                                                                                    |
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| PNG is blank or all-black | `@import url()` in SVG — rsvg-convert can't fetch fonts | Remove `@import`, use system font stack |
+| PNG not generated | `rsvg-convert` not installed | macOS: `brew install librsvg`; Linux: `apt install librsvg2-bin`; Windows: `choco install rsvg-convert -y` or `pacman -S mingw-w64-x86_64-librsvg` |
+| Diagram cut off at bottom | ViewBox height too short | Increase `height` in `viewBox="0 0 960 <height>"` |
+| Text overflowing boxes | Labels too long | Add `text-anchor="middle"` + `<clipPath>` or shorten label |
+| Icons not rendering | External CDN URL in rsvg-convert context | Use inline SVG paths from `references/icons.md` |
 
 ---
 

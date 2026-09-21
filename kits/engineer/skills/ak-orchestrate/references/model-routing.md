@@ -9,9 +9,10 @@ Routing is resolved at execution time. Runtime availability, model catalogs,
 aliases, permission controls, and CLI flags are volatile. Never treat a model
 name, provider catalog, or previous run as current evidence.
 
-Scope: CLI runtimes and the `runtime: internal` branch. Internal agents keep
-the model declared by their live agent definition; the coordinator selects an
-agent rather than setting its model.
+Scope: CLI runtimes and the `runtime: internal` branch. Preserve the internal
+agent's configured model unless the live dispatch interface permits selection
+and the user's pin or applicable routing policy requests it. Capability comes
+from that interface, not a blanket assumption about all internal agents.
 
 ## Inputs
 
@@ -52,11 +53,11 @@ satisfy a route merely because an older report used them.
 Select the minimum capability tier that can reliably produce and verify the
 expected output.
 
-| Tier              | Required behavior                                                                             | Typical work                                   |
-| ----------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| **C1 throughput** | Accurate search, extraction, summarization, and bounded repetitive changes                    | scout, docs, mechanical fan-out                |
-| **C2 delivery**   | Multi-file implementation judgment, test design, and failure-path handling                    | normal implementation and tests                |
-| **C3 judgment**   | Deep trade-off analysis, conflict resolution, security reasoning, and independent arbitration | architecture, review, audit, security, arbiter |
+| Tier | Required behavior | Typical work |
+| --- | --- | --- |
+| **C1 throughput** | Accurate search, extraction, summarization, and bounded repetitive changes | scout, docs, mechanical fan-out |
+| **C2 delivery** | Multi-file implementation judgment, test design, and failure-path handling | normal implementation and tests |
+| **C3 judgment** | Deep trade-off analysis, conflict resolution, security reasoning, and independent arbitration | architecture, review, audit, security, arbiter |
 
 Capability is established from the live runtime catalog, operator policy, and
 recent observed evidence when available. Marketing labels alone do not prove a
@@ -68,11 +69,11 @@ load-bearing job.
 Risk determines the minimum harness controls independently of model
 capability.
 
-| Tier                        | Effect                                                               | Minimum controls                                                                                                      |
-| --------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **R0 observe**              | Read/report only                                                     | Explicit cwd, bounded timeout, captured result, no unnecessary write or shell grant                                   |
-| **R1 scoped write**         | Reversible edits in owned files                                      | Scoped write boundary, tool restrictions, diff capture, no permission bypass                                          |
-| **R2 isolated write**       | Parallel, high-impact, untrusted, or hard-to-revert changes          | Separate worktree or stronger isolation, enforced sandbox where available, explicit checks and arbiter review         |
+| Tier | Effect | Minimum controls |
+| --- | --- | --- |
+| **R0 observe** | Read/report only | Explicit cwd, bounded timeout, captured result, no unnecessary write or shell grant |
+| **R1 scoped write** | Reversible edits in owned files | Scoped write boundary, tool restrictions, diff capture, no permission bypass |
+| **R2 isolated write** | Parallel, high-impact, untrusted, or hard-to-revert changes | Separate worktree or stronger isolation, enforced sandbox where available, explicit checks and arbiter review |
 | **R3 external/destructive** | Deploy, release, delete, credentialed, or other external side effect | Explicit user approval, preview/rollback plan, strongest verified controls; block when those controls are unavailable |
 
 Secrets never belong in prompts, logs, inventory, or reports at any tier.
@@ -106,16 +107,16 @@ Secrets never belong in prompts, logs, inventory, or reports at any tier.
 
 These are capability and risk floors, not runtime or provider routes.
 
-| Task class                    | Capability floor               | Default risk floor                                         |
-| ----------------------------- | ------------------------------ | ---------------------------------------------------------- |
-| `scout`                       | C1                             | R0                                                         |
-| `architecture`                | C3                             | R0                                                         |
-| `implement`                   | C2; C3 when `importance: high` | R1; R2 when parallel or high-impact                        |
-| `review`, `audit`, `security` | C3                             | R0 for review-only; match the effect if fixes are included |
-| `test`                        | C2                             | R0 for design, R1 for writing or execution artifacts       |
-| `docs`                        | C1                             | R1 when files change                                       |
-| `mechanical`                  | C1                             | R1; R2 for broad or parallel edits                         |
-| arbiter                       | C3                             | R0                                                         |
+| Task class | Capability floor | Default risk floor |
+| --- | --- | --- |
+| `scout` | C1 | R0 |
+| `architecture` | C3 | R0 |
+| `implement` | C2; C3 when `importance: high` | R1; R2 when parallel or high-impact |
+| `review`, `audit`, `security` | C3 | R0 for review-only; match the effect if fixes are included |
+| `test` | C2 | R0 for design, R1 for writing or execution artifacts |
+| `docs` | C1 | R1 when files change |
+| `mechanical` | C1 | R1; R2 for broad or parallel edits |
+| arbiter | C3 | R0 |
 
 Raise either floor when the prompt, files, trust boundary, or expected output
 demands it. Never lower a floor solely to meet a budget.
@@ -135,6 +136,11 @@ For each job:
 7. Record the selected runtime, resolved model or agent, capability tier, risk
    tier, controls, evidence source, and fallback reason.
 
+Compare resolved model families, not executable names: two different harnesses
+may invoke the same provider/model. Unknown family metadata cannot establish
+different-family review. Record separately when independence comes only from
+a fresh, independently configured agent context.
+
 If no candidate qualifies, mark the job `blocked`. Do not silently weaken the
 risk posture or substitute a lower capability tier.
 
@@ -147,7 +153,8 @@ For `runtime: internal`:
   descriptions and declared tools, choosing the most specific qualified
   agent;
 - use a general-purpose agent only when it is present and meets the risk tier;
-- do not set `model:`; the resolved agent definition owns it;
+- honor `model:` only when the live internal dispatch interface supports that
+  exact selection; otherwise preserve the pin and use a qualified CLI route;
 - when model-family diversity or stronger isolation is required but cannot be
   proven internally, choose a verified CLI candidate or disclose a blocked
   fallback.
@@ -177,12 +184,12 @@ configuration key or assume values are portable between runtimes.
 
 "Audit a settings surface, implement the accepted fix, then review it":
 
-| Job           | Task           | Required route                                          |
-| ------------- | -------------- | ------------------------------------------------------- |
-| map-settings  | `scout`        | C1/R0, live verified read-only candidate                |
-| design-fix    | `architecture` | C3/R0, depends on map-settings                          |
-| implement-fix | `implement`    | C2/R1, or C3/R2 when marked high importance             |
-| review-fix    | `review`       | C3/R0, independent model family when live and qualified |
+| Job | Task | Required route |
+| --- | --- | --- |
+| map-settings | `scout` | C1/R0, live verified read-only candidate |
+| design-fix | `architecture` | C3/R0, depends on map-settings |
+| implement-fix | `implement` | C2/R1, or C3/R2 when marked high importance |
+| review-fix | `review` | C3/R0, independent model family when live and qualified |
 
 Exact runtime, model, agent, and flags are resolved and recorded during that
 run; this document does not preselect them.

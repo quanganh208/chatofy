@@ -1,35 +1,30 @@
 ---
 name: ak:diagram
 description: >-
-  Unified interactive diagram surface — compile typed JSON IR into deterministic, interactive
-  architecture maps, technical workflows, API sequences, data pipelines, and state lifecycles
-  (inspired by Archify); render Mermaid and editorial templates; export to SVG, self-contained
-  HTML readers, PNG, and video. Use when the user requests an interactive system map, an
-  Archify-style diagram, a grounded reader with shortest-route (R), reach tracing, role lenses (L),
-  presentation stage (F), guided story chapters ([/]), or browser-free offline compilation.
-  Distinct from ak:excalidraw (freeform editable canvas), ak:tech-graph (publication SVG/PNG),
-  and ak:mermaidjs-v11 (raw markdown inline diagrams).
+  Compile typed JSON IR into validated interactive system maps and self-contained
+  HTML readers. Use for architecture, workflow, sequence, dataflow and lifecycle
+  maps; use editable-canvas or publication-diagram skills for those artifacts.
 user-invocable: true
 when_to_use: >-
   Choose ak:diagram when the desired artifact is a validated interactive system map,
   typed JSON IR diagram, or self-contained HTML reader with grounded graph queries. Route to
   ak:excalidraw for whiteboard sketches, ak:tech-graph for static publication charts, or
   ak:mermaidjs-v11 for inline markdown diagrams.
-category: dev-tools
+category: engineering
 keywords: [diagram, archify, architecture, workflow, sequence, dataflow, lifecycle, interactive-map, system-map, visual-map, reader-runtime]
 argument-hint: "[input-file] [--format <svg|fragment|html>] [--preset <classic|signal-flow|blueprint|editorial>] [--theme <light|dark>] [--out <path>]"
 license: MIT
 metadata:
   author: agentkit
-  version: "2.1.0"
+  version: "3.0.0"
   upstream_templates: cathrynlavery/diagram-design (MIT)
-  upstream_compiler: tt-a1i/archify v2.16.0 (MIT, commit c826e6c3a7abad19c0f3cd1ca57207d54b1ad8de)
+  design_reference: tt-a1i/archify (MIT; IR archetypes, presets and reader concepts only, no code vendored)
   vendored_mermaid_version: "11.4.1"
 ---
 
-# ak:diagram — Unified System Map & Interactive Diagram Surface
+# ak:diagram - Unified System Map & Interactive Diagram Surface
 
-Compile typed JSON IR specifications into deterministic SVGs, embeddable fragments, and self-contained interactive HTML readers without browser dependencies.
+Compile typed JSON IR specifications into deterministic SVGs, embeddable fragments, and self-contained interactive HTML readers without browser dependencies. The compiler owns layout: it ranks the graph, orders columns to reduce crossings, routes orthogonal edges around unrelated nodes, and renders role-aware cards with a legend, so authors describe topology and never coordinates.
 
 ## Archetype Decision Matrix
 
@@ -47,12 +42,12 @@ Compile typed JSON IR specifications into deterministic SVGs, embeddable fragmen
 2. **Author Typed JSON IR**:
    - Set envelope: `{"schema_version": 1, "diagram_type": "<type>", "meta": {...}}`.
    - Set visual preset: `classic` (clean slate), `signal-flow` (emerald/cyan glow), `blueprint` (technical dark blue), or `editorial` (warm serif).
-   - Set theme: `light` or `dark`. For finite motion, set `animation: "trace"` ($\le 8\text{s}$).
+   - Set theme: `light` or `dark`. Every diagram plays a finite staggered entrance (nodes fade in by column, edges draw themselves). Set `animation: "trace"` to add one finite flow pass along every route after the entrance.
    - Optional guided story: add `meta.views: [{"id": "ch1", "title": "...", "narrative": "...", "focus_nodes": [...]}]` (max 5 chapters).
 3. **Apply Schema Invariants**:
    - Use strict role enums on nodes (compiler validates node roles at compile time).
    - Keep IDs alphanumeric + hyphens (`^[a-zA-Z0-9_-]{1,64}$`).
-   - For `workflow`, ensure lane names have adequate horizontal space (`currentX >= 240`).
+   - Placement follows the IR: `layer` picks the architecture column, `lane` picks the workflow row, `stage.order` picks the dataflow column, `initial` states open a lifecycle. Unranked nodes take the longest path from their predecessors; cycles are drawn as return routes.
 4. **Compile Offline (Zero Browser)**:
    ```bash
    node scripts/compiler/compile.mjs --input diagram.json --format html --out ./build/diagram.html --preset signal-flow --theme dark
@@ -62,39 +57,14 @@ Compile typed JSON IR specifications into deterministic SVGs, embeddable fragmen
 
 ## Schema Cheat Sheet & Valid Enums
 
-### 1. Architecture (`diagram_type: "architecture"`)
-- `components[]` (1–250): `role`: `frontend` | `backend` | `database` | `cache` | `queue` | `storage` | `gateway` | `auth` | `external` | `worker` (default `backend`). `layer`: integer 0–10.
-- `boundaries[]`: `role`: `cloud` | `vpc` | `cluster` | `trust-boundary` | `private-network` | `external-zone`.
-- `connections[]` ($\le 1000$): `kind`: `sync` | `async` | `stream` | `fallback` | `bi-directional`.
+Load `references/schema-and-reader.md` only for this part of the task.
 
-### 2. Workflow (`diagram_type: "workflow"`)
-- `lanes[]`: `role`: `user` | `frontend` | `orchestrator` | `worker` | `approver` | `system`.
-- `steps[]` (1–250): `kind`: `start` | `action` | `decision` | `wait` | `subprocess` | `terminal-success` | `terminal-failure`.
-- `transitions[]` ($\le 1000$): `kind`: `normal` | `branch-true` | `branch-false` | `retry` | `exception`.
+## Layout & Motion Contract
 
-### 3. Sequence (`diagram_type: "sequence"`)
-- `participants[]` (2–50): `role`: `client` | `service` | `database` | `gateway` | `external` | `queue`.
-- `messages[]` (1–500): `kind`: `sync-call` | `async-signal` | `return` | `self-call` | `error` (only `return` renders dashed line).
-
-### 4. Dataflow (`diagram_type: "dataflow"`)
-- `stages[]`: `id`, `label`, `order` (integer).
-- `nodes[]` (1–250): `role`: `source` | `transform` | `store` | `sink` | `consumer` | `filter` | `governance`. `classification`: `public` | `internal` | `confidential` | `pii` | `restricted`.
-- `flows[]` ($\le 1000$): `from`, `to`, `label`.
-
-### 5. Lifecycle (`diagram_type: "lifecycle"`)
-- `states[]` (1–250): `kind`: `initial` | `active` | `waiting` | `failure-recoverable` | `failure-fatal` | `terminal-success` | `terminal-cancelled`.
-- `transitions[]` ($\le 1000$): `kind`: `normal` | `retry` | `timeout` | `cancel` | `fail`.
-
-## Grounded Reader Shortcuts
-
-Interactive HTML readers include built-in client-side capabilities operating on authored topology:
-- **Search (`/`)**: Case-folded label and ID search with highlight.
-- **Node Focus (Click)**: Isolates component and direct edges.
-- **Shortest Route (`R`)**: Highlights BFS shortest path between two selected nodes.
-- **Role Lens (`L`)**: Filters nodes by semantic role (`gateway`, `database`, etc.).
-- **Presentation Stage (`F`)**: Toggles distraction-free full-window view (`Esc` to exit).
-- **Guided Stories (`[` / `]`)**: Advances through authored `meta.views` chapters.
-- **Theme Toggle (`☀️/🌙`)**: Switches between light and dark palette without geometry shift.
+- Layout is deterministic: identical IR yields identical geometry. Nodes never overlap, routes never cross an unrelated node, boundaries, lanes and stages fully contain their members (`scripts/test_layout_geometry.mjs` enforces this on every fixture).
+- Each node role maps to a visual family (client, service, data, queue, cache, gateway, security, external, worker, start, success, failure, waiting, decision, process, governance, transform, filter) with its own colour token, sigil and legend entry; families are exposed as `data-family` on `.ak-node`.
+- Motion is CSS only. Nodes and edges carry `data-animate` and a `--step` index (capped at 40) so the whole entrance finishes in under 8 s; `prefers-reduced-motion: reduce` renders the final frame directly. The reader's Replay button (`M`) re-arms the sequence.
+- Compiler modules live under `scripts/compiler/`: validation, layered graph ranking and ordering, per-archetype layout, orthogonal routing, semantics and palettes, and the SVG emitter. The emitted `.ak-node` / `.ak-edge` attribute order is a consumer contract for the reader.
 
 ## Common Commands
 
@@ -116,5 +86,5 @@ python3 scripts/render.py --input diagram.json --out ./build/
 
 - **Zero Network**: Compilation operates offline in pure Node.js; no remote calls, telemetry, or font downloads.
 - **Deterministic**: Compiling identical IR bytes emits identical SHA-256 output bytes across environments.
-- **Finite Motion**: All animations are finite ($\le 8\text{s}$) and automatically disabled under `prefers-reduced-motion: reduce`.
+- **Finite Motion**: Entrance and trace animations are finite (under 8 s in total), replayable, and automatically disabled under `prefers-reduced-motion: reduce`.
 - **Scope Limit**: For freeform whiteboard sketching, use `ak:excalidraw`. For static print infographics, use `ak:tech-graph`. For raw markdown inline doc blocks, use `ak:mermaidjs-v11`.

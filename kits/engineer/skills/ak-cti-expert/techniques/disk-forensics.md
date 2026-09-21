@@ -19,16 +19,16 @@ Analyzes disk images and file systems to recover evidence, reconstruct timelines
 
 ## 2. Tool Inventory
 
-| Priority  | Tool                                                    | Purpose                           | Install                                 |
-| --------- | ------------------------------------------------------- | --------------------------------- | --------------------------------------- |
-| Primary   | Sleuth Kit (`fls`, `icat`, `mmls`, `fsstat`, `mactime`) | File system analysis              | `apt install -y sleuthkit`              |
-| Primary   | `exiftool`                                              | Metadata extraction               | `apt install -y libimage-exiftool-perl` |
-| Primary   | `foremost`                                              | File carving by header signatures | `apt install -y foremost`               |
-| Secondary | `scalpel`                                               | Advanced file carving             | `apt install -y scalpel`                |
-| Secondary | `bulk_extractor`                                        | Automated data extraction         | `apt install -y bulk-extractor`         |
-| Secondary | `binwalk`                                               | Embedded file detection           | `pip3 install binwalk`                  |
-| Tertiary  | `ewfinfo`                                               | E01 image metadata                | `apt install -y ewf-tools`              |
-| Tertiary  | `steghide`                                              | Steganography detection           | `apt install -y steghide`               |
+| Priority | Tool | Purpose | Install |
+|----------|------|---------|---------|
+| Primary | Sleuth Kit (`fls`, `icat`, `mmls`, `fsstat`, `mactime`) | File system analysis | `apt install -y sleuthkit` |
+| Primary | `exiftool` | Metadata extraction | `apt install -y libimage-exiftool-perl` |
+| Primary | `foremost` | File carving by header signatures | `apt install -y foremost` |
+| Secondary | `scalpel` | Advanced file carving | `apt install -y scalpel` |
+| Secondary | `bulk_extractor` | Automated data extraction | `apt install -y bulk-extractor` |
+| Secondary | `binwalk` | Embedded file detection | `pip3 install binwalk` |
+| Tertiary | `ewfinfo` | E01 image metadata | `apt install -y ewf-tools` |
+| Tertiary | `steghide` | Steganography detection | `apt install -y steghide` |
 
 ---
 
@@ -119,14 +119,14 @@ scalpel <image> -o /tmp/carved/
 
 ### System Artifacts
 
-| Artifact                 | Location                                                 |
-| ------------------------ | -------------------------------------------------------- |
-| Browser history          | `~/.mozilla`, `~/Library/Safari`, `AppData\Local\Google` |
-| System logs              | `/var/log/*`, Windows Event Logs                         |
-| Registry hives (Windows) | SAM, SYSTEM, SOFTWARE, NTUSER.DAT                        |
-| Recent files             | Recently accessed, MRU lists                             |
-| USB history              | `SYSTEM` hive, `/var/log/syslog`                         |
-| Prefetch files           | `C:\Windows\Prefetch\`                                   |
+| Artifact | Location |
+|----------|----------|
+| Browser history | `~/.mozilla`, `~/Library/Safari`, `AppData\Local\Google` |
+| System logs | `/var/log/*`, Windows Event Logs |
+| Registry hives (Windows) | SAM, SYSTEM, SOFTWARE, NTUSER.DAT |
+| Recent files | Recently accessed, MRU lists |
+| USB history | `SYSTEM` hive, `/var/log/syslog` |
+| Prefetch files | `C:\Windows\Prefetch\` |
 
 ### Metadata & Timestamps
 
@@ -157,7 +157,6 @@ mactime -b body.txt > timeline.csv
 ```
 
 **Anomaly flags:**
-
 - Timestamps before OS install date
 - Future-dated files
 - Gaps in continuous log sequences
@@ -169,44 +168,34 @@ mactime -b body.txt > timeline.csv
 
 ```markdown
 # Forensic Analysis Report
-
 ## Case: [identifier]
-
 ## Image: [filename] -- SHA256: [hash]
-
 ## Date of Analysis: [date]
 
 ### Image Integrity
-
 - Hash verified: [yes/no]
 - Algorithm: [SHA256]
 
 ### Partition Layout
-
-| #   | Type | Start | Size | File System |
-| --- | ---- | ----- | ---- | ----------- |
+| # | Type | Start | Size | File System |
+|---|------|-------|------|-------------|
 
 ### Key Findings
-
 #### Finding 1: [Title]
-
 - **Evidence:** [file path or artifact]
 - **Content:** [description]
 - **Timestamp:** [UTC]
 - **Significance:** [why this matters]
 
 ### Recovered Files
-
 | File | Source | Recovery Method | SHA256 | Significance |
-| ---- | ------ | --------------- | ------ | ------------ |
+|------|--------|-----------------|--------|-------------|
 
 ### Timeline
-
 | Timestamp (UTC) | Event | Source | Notes |
-| --------------- | ----- | ------ | ----- |
+|-----------------|-------|--------|-------|
 
 ### Conclusions
-
 [Summary of findings and their implications]
 ```
 

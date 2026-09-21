@@ -3,13 +3,13 @@ name: ak:vibe
 description: "Run the full vibe pipeline from request intake to PR readiness, with optional merge and post-merge CI convergence. Orchestrates worktree, plan, cook/fix, code-review, ship, and review-pr, integrating debug, research, test, and docs. Supports dual-stage beta-then-stable ships via --both, ultra verifier mode via --ultra, and kongming advisory supervision via --advice."
 user-invocable: true
 when_to_use: "Invoke when a user wants one command to take a GitHub issue or feature request from planning through implementation, PR review, shipping, and optional merge."
-category: dev-tools
+category: workflow
 keywords: [vibe, pipeline, autonomous, ship, worktree, plan, cook, fix, review-pr, ci, advice, kongming, ultra, debug, research, test, docs]
 argument-hint: "[--ship] [--beta] [--both] [--advice] [--ultra] <github-issue-url | feature request>"
 license: MIT
 metadata:
   author: agentkit
-  version: "1.4.0"
+  version: "1.4.1"
 ---
 
 # Vibe Pipeline
@@ -24,15 +24,6 @@ skills' approval gates, tests, code-review blockers, branch protections, or
 security policies.
 
 ## Inputs
-
-Accepted forms:
-
-```bash
-/ak:vibe <github-issue-url>
-/ak:vibe --ship --beta <github-issue-url>
-/ak:vibe --both <github-issue-url>
-/ak:vibe --ship <feature request>
-```
 
 Flags:
 
@@ -51,7 +42,11 @@ resolution below wins. Mode resolution: `--both` > `--beta` > default stable.
 If `--both` and `--beta` are given together, warn once and proceed in `both`
 mode. `--advice` and `--ultra` are orthogonal to ship mode and compose with all of them.
 `--ultra` activates ultra verifier mode for `/ak:plan` and `/ak:code-review` only (vibe deliberately scopes `--ultra` to plan and code-review).
-When `--advice` is present, forward `--advice` to all supporting skills that accept it (`/ak:plan`, `/ak:cook`, `/ak:fix`, `/ak:code-review`, `/ak:ship`, `/ak:review-pr`, `/ak:test`; do not forward to `/ak:docs` in pipeline runs because it prompts for user confirmation).
+When `--advice` is present, forward `--advice` to all supporting skills that accept it (`/ak:plan`, `/ak:cook`, `/ak:fix`, `/ak:code-review`, `/ak:ship`, `/ak:review-pr`, `/ak:test`; forward to `/ak:docs` only when its installed mode supports the accepted advisory contract).
+
+## Evidence and continuation
+
+Maintain one controller ledger of accepted scope, source/plan/diff revision, completed checks, findings, authority and outstanding decisions. Pass downstream only its needed context plus evidence pointers. Reuse valid results for unchanged inputs; invalidate them after relevant edits or runtime changes. Continue authorized work through inspection, repairs and PR readiness. Keep exact-head and optional merge/CI gates.
 
 ## Subagent orchestration
 
@@ -62,7 +57,7 @@ code-review fanout, testing, advisory reviews).
 For parallel implementation:
 - **Disjoint file ownership:** partition files strictly before fanning out; concurrent subagents in the same worktree MUST NOT touch the same file, because overlapping writes clobber each other. For multi-file writes, prefer worktree-isolated subagents via `ak:orchestrate`.
 - **Serialize shared files:** name one owner for shared schemas, exports, or configs.
-- **Contracts up front:** freeze interfaces before fanout; subagents skip mid-flight tests/linting until reunited.
+- **Contracts up front:** freeze interfaces before fanout; delegates run independent focused checks within their owned scope; serialize shared build outputs and expensive whole-worktree suites at integration.
 - **Fresh context:** use subagents for evaluation, review, and verification to eliminate self-grading bias.
 
 Full orchestration protocol: `references/subagent-orchestration.md`.
@@ -77,7 +72,7 @@ the handover contract in `../ak-plan/references/advice-handover-plan.md` (phases
 decompose into step-by-step tasks with explicit success criteria and mechanical
 verification for lower-capability models like Sonnet or Gemini Flash).
 
-Spawn `kongming` at these checkpoints:
+Spawn `kongming` at these checkpoints. A downstream advisory review can satisfy the same checkpoint when it covers the same scope, revision and question; record its receipt rather than repeating it. New failures or materially changed evidence require fresh counsel:
 
 - **After each pipeline phase completes** — after investigation, after the plan gates, after
   implementation, after local code review, and after testing/docs. Pass the
@@ -139,7 +134,7 @@ implementation and comment assessment plus next steps on the PR and source issue
      ```
      Pass `--ultra` if set on vibe; pass `--advice` if set on vibe (authors the plan under `../ak-plan/references/advice-handover-plan.md`).
    - For newly created plans, capture the absolute `plan.md` path from `/ak:plan`.
-   - Always run both gates, even when the plan already existed:
+   - Require evidence for both gates, even when the plan already existed:
      ```bash
      /ak:plan validate <plan.md>
      /ak:plan red-team <plan.md>
@@ -206,7 +201,7 @@ implementation and comment assessment plus next steps on the PR and source issue
 
 9. **Documentation sync (conditional & mode-aware)**
    - In `official` mode: skip in-repo `/ak:docs update` (owned by `/ak:ship official` in background to prevent write races); record docs impact in the PR.
-   - In `beta` mode: run `/ak:docs update` when public contracts, APIs, or agent context changed (do not pass `--advice` in pipeline runs to avoid interactive confirmation prompts).
+   - In `beta` mode: run `/ak:docs update` when public contracts, APIs, or agent context changed (reuse accepted authorization and valid advisory evidence).
    - For official docs in an external repo (e.g. `bestagentkits/agentkit-docs`): search existing issues, then file or link a follow-up issue with the `ai-handle` label.
    - See `references/pipeline-skill-integration.md`.
 

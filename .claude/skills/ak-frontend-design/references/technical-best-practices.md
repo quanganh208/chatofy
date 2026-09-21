@@ -17,7 +17,7 @@ Quality gates and checklists for asset generation workflows.
 - [ ] Generated multiple variations if exploring
 
 ### After Generation
-- [ ] Ran comprehensive visual analysis (score ≥ 7/10)
+- [ ] Ran comprehensive visual analysis against the brief and observable defects
 - [ ] Extracted exact color palette with hex codes
 - [ ] Compared multiple variations and selected best
 - [ ] Tested with overlaid text/UI elements
@@ -40,7 +40,7 @@ Quality gates and checklists for asset generation workflows.
 ## Quality Gates
 
 ### Never Proceed to Integration Without
-- [ ] Visual analysis score ≥ 7/10
+- [ ] Visual analysis acceptance criteria met
 - [ ] Extracted color palette documented
 - [ ] Accessibility contrast checks passed
 - [ ] Responsive variants generated

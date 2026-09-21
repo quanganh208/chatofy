@@ -1,15 +1,15 @@
 ---
 name: ak:bootstrap
-description: "Bootstrap new projects with research, tech stack, design, planning, and implementation. Modes: full (default interactive), auto (explicit autonomous), fast (skip research), parallel (multi-agent)."
+description: "Bootstrap new projects with research, tech stack, design, planning, and implementation. Modes: full (default thorough), auto (explicit autonomous), fast (skip research), parallel (multi-agent)."
 user-invocable: true
 when_to_use: "Invoke to start a new project or full-stack setup from scratch."
-category: utilities
+category: workflow
 keywords: [scaffold, project, setup, boilerplate]
 license: MIT
 argument-hint: "[requirements] [--full|--auto|--fast|--parallel] [--ultra] [--yagni] [--skip-journal]"
 metadata:
   author: agentkit
-  version: "1.1.1"
+  version: "1.1.3"
 ---
 
 # Bootstrap - New Project Scaffolding
@@ -26,12 +26,12 @@ End-to-end project bootstrapping from idea to running code.
 
 **Flags** (optional, default `--full`):
 
-| Flag | Mode | Thinking | User Gates | Planning Skill | Cook Skill |
-|------|------|----------|------------|----------------|------------|
-| `--full` | Full interactive | Ultrathink | Every phase | `--hard` | (interactive) |
-| `--auto` | Automatic explicit opt-in | Ultrathink | Design only | `--auto` | `--auto` |
-| `--fast` | Quick | Think hard | Cook review gates | `--fast` | (interactive) |
-| `--parallel` | Multi-agent | Ultrathink | Design only | `--parallel` | `--parallel` |
+| Flag | Mode | User Gates | Planning Skill | Cook Skill |
+|------|------|------------|----------------|------------|
+| `--full` | Full workflow | Missing material decisions | `--hard` | default continuation |
+| `--auto` | Automatic explicit opt-in | Missing material decisions | `--auto` | `--auto` |
+| `--fast` | Quick | Missing material decisions | `--fast` | default continuation |
+| `--parallel` | Multi-agent | Missing material decisions | `--parallel` | `--parallel` |
 
 **Composable flags** (combine with any mode):
 
@@ -83,11 +83,9 @@ All mode references inherit the opening brainstorm contract. Load
 
 ## Step 0: Git Init (ALL modes)
 
-Check if Git initialized. If not:
-- `--full`: Ask user if they want to init → `git-manager` subagent (`main` branch)
-- Others: Auto-init via `git-manager` subagent (`main` branch)
+Inspect the actual destination, existing files, manifests and Git state first. Reuse an existing project and its branch conventions; never re-scaffold or reset it. Initialize Git only for a new project when included in the requested setup, using the repository’s requested/default branch. Preserve unrelated files.
 
-## Skill Triggers (MANDATORY)
+## Downstream ownership
 
 After early phases (research, tech stack, design), trigger downstream skills:
 
@@ -109,9 +107,9 @@ Planning skill outputs a plan path. Pass this to cook.
 
 ### Implementation Phase
 Activate **ak:cook** skill with the plan path and mode-appropriate flag:
-- `--full` → `/ak:cook <plan-path>` (interactive review gates)
+- `--full` → `/ak:cook <plan-path>` (continue within accepted scope)
 - `--auto` → `/ak:cook --auto <plan-path>` (explicit autonomous implementation)
-- `--fast` → `/ak:cook <plan-path>` (skip extra research, keep cook review gates)
+- `--fast` → `/ak:cook <plan-path>` (skip extra research, continue within accepted scope)
 - `--parallel` → `/ak:cook --parallel <plan-path>` (multi-agent execution)
 
 ## Role
@@ -122,12 +120,12 @@ Elite software engineering expert specializing in system architecture and techni
 
 - Activate relevant skills from catalog during the process
 - Keep all research reports ≤150 lines
-- All docs written to `./docs` directory
+- Resolve documentation paths from repository instructions and navigation
 - Plans written to `./plans` directory using naming from `## Naming` section
 - DO NOT implement code directly — delegate through planning + cook skills
 - Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
 - List unresolved questions at end of reports
-- Run `/ak:journal` to write a concise technical journal entry upon completion — unless the shared "Journal step — opt-out" below applies.
+- Follow the installed journal owner and its opt-out preference to write a concise technical journal entry upon completion — unless the shared "Journal step — opt-out" below applies.
 
 ### Journal step — opt-out
 

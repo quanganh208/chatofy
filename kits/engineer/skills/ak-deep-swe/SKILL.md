@@ -3,14 +3,14 @@ name: ak:deep-swe
 description: Benchmark a coding model on DeepSWE through Pier and OpenRouter. Use when users ask to run DeepSWE, score a model, or verify coding-agent benchmark results.
 user-invocable: true
 when_to_use: Invoke for a costed external coding-agent evaluation, not repository-local optimization.
-category: dev-tools
+category: workflow
 keywords: [benchmark, deepswe, pier, openrouter, evaluation]
 license: MIT
-argument-hint: '<OpenRouter model slug>'
+argument-hint: "<OpenRouter model slug>"
 metadata:
   author: agentkit
-  version: '1.0.0'
-  upstream: 'Pinned MIT source archive: run-deep-swe@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5'
+  version: "1.0.1"
+  upstream: "Pinned MIT source archive: run-deep-swe@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5"
 ---
 
 # DeepSWE Benchmark
@@ -27,7 +27,7 @@ repository metric or authorize model spend without the user's confirmation.
 - Never echo, persist, commit, or place the key in a command, report, prompt,
   or benchmark artifact.
 - Run one task before a subset. Get explicit user confirmation before a full
-  113-task corpus run because it consumes time and model tokens.
+  corpus run because it consumes time and model tokens.
 
 ## Setup
 
@@ -40,8 +40,8 @@ Run the commands below from the directory that contains the cloned deep-swe
 folder. If you change into deep-swe instead, use tasks or tasks/<task-id> as
 the -p value.
 
-DeepSWE currently documents 113 tasks and Pier as the runner. Confirm current
-flags and task paths with help before running because this toolchain changes:
+Enumerate the cloned task roster and record its revision/count. Confirm current
+flags and task paths with installed help before running because this toolchain changes:
 https://github.com/datacurve-ai/deep-swe
 https://pypi.org/project/datacurve-pier/
 https://deepswe.datacurve.ai/
@@ -59,7 +59,6 @@ https://deepswe.datacurve.ai/
 
        pier run -p deep-swe/tasks --agent mini-swe-agent \
          --model openrouter/<vendor/model> --n-tasks 10 --sample-seed 0
-
 4. Use a separate model-class route only when the installed Pier help explicitly
    documents it; do not guess a version-specific flag.
 5. Before a full corpus run, present the exact command, expected cost exposure,
@@ -70,7 +69,11 @@ https://deepswe.datacurve.ai/
 Inspect the generated job directory with the current Pier commands. When the
 installed version provides them, use pier view, pier analyze, and pier critique
 to inspect the result. Report the exact command, Pier version, task count, model
-slug, score or reward, cost when available, and blockers. Do not submit results
+slug, effective model/effort settings, prompt hash, attempted/completed/passed counts,
+score or reward, cost when available, and blockers. Record cache telemetry only
+when exposed; unknown is not zero. Compare configurations on a fixed task split,
+keep held-out tasks separate from tuning, and distinguish these observed runs
+from provider-published benchmark scores. Do not submit results
 or contact a leaderboard without the user's request.
 
 ## Failure Handling

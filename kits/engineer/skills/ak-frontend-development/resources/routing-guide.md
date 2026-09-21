@@ -1,3 +1,7 @@
+# Applicability
+
+Use these examples only when their packages and conventions match the inspected project. Preserve existing router, component library, aliases and dependency versions.
+
 # Routing Guide
 
 TanStack Router implementation with folder-based routing and lazy loading patterns.
@@ -7,7 +11,6 @@ TanStack Router implementation with folder-based routing and lazy loading patter
 ## TanStack Router Overview
 
 **TanStack Router** with file-based routing:
-
 - Folder structure defines routes
 - Lazy loading for code splitting
 - Type-safe routing
@@ -33,7 +36,6 @@ routes/
 ```
 
 **Pattern**:
-
 - `index.tsx` = Route at that path
 - `$param.tsx` = Dynamic parameter
 - Nested folders = Nested routes
@@ -81,7 +83,6 @@ export default PostsPage;
 ```
 
 **Key Points:**
-
 - Lazy load heavy components
 - `createFileRoute` with route path
 - `loader` for breadcrumb data
@@ -99,7 +100,9 @@ import { lazy } from 'react';
 
 // For named exports, use .then() to map to default
 const MyPage = lazy(() =>
-  import('@/features/my-feature/components/MyPage').then((module) => ({ default: module.MyPage })),
+    import('@/features/my-feature/components/MyPage').then(
+        (module) => ({ default: module.MyPage })
+    )
 );
 ```
 
@@ -139,10 +142,10 @@ function MyRoutePage() {
 
 ```typescript
 export const Route = createFileRoute('/my-route/')({
-  component: MyRoutePage,
-  loader: () => ({
-    crumb: 'My Route Title',
-  }),
+    component: MyRoutePage,
+    loader: () => ({
+        crumb: 'My Route Title',
+    }),
 });
 ```
 
@@ -152,12 +155,12 @@ Breadcrumb appears in navigation/app bar automatically.
 
 ```typescript
 export const Route = createFileRoute('/my-route/')({
-  component: MyRoutePage,
-  loader: async () => {
-    // Can prefetch data here
-    const data = await api.getData();
-    return { crumb: 'My Route', data };
-  },
+    component: MyRoutePage,
+    loader: async () => {
+        // Can prefetch data here
+        const data = await api.getData();
+        return { crumb: 'My Route', data };
+    },
 });
 ```
 
@@ -165,18 +168,18 @@ export const Route = createFileRoute('/my-route/')({
 
 ```typescript
 export const Route = createFileRoute('/search/')({
-  component: SearchPage,
-  validateSearch: (search: Record<string, unknown>) => {
-    return {
-      query: (search.query as string) || '',
-      page: Number(search.page) || 1,
-    };
-  },
+    component: SearchPage,
+    validateSearch: (search: Record<string, unknown>) => {
+        return {
+            query: (search.query as string) || '',
+            page: Number(search.page) || 1,
+        };
+    },
 });
 
 function SearchPage() {
-  const { query, page } = Route.useSearch();
-  // Use query and page
+    const { query, page } = Route.useSearch();
+    // Use query and page
 }
 ```
 
@@ -240,10 +243,10 @@ export const MyComponent: React.FC = () => {
 
 ```typescript
 const handleNavigate = () => {
-  navigate({
-    to: '/users/$userId',
-    params: { userId: '123' },
-  });
+    navigate({
+        to: '/users/$userId',
+        params: { userId: '123' },
+    });
 };
 ```
 
@@ -251,10 +254,10 @@ const handleNavigate = () => {
 
 ```typescript
 const handleSearch = () => {
-  navigate({
-    to: '/search',
-    search: { query: 'test', page: 1 },
-  });
+    navigate({
+        to: '/search',
+        search: { query: 'test', page: 1 },
+    });
 };
 ```
 
@@ -351,7 +354,6 @@ export default UserPage;
 ## Summary
 
 **Routing Checklist:**
-
 - ✅ Folder-based: `routes/my-route/index.tsx`
 - ✅ Lazy load components: `React.lazy(() => import())`
 - ✅ Use `createFileRoute` with route path
@@ -361,7 +363,6 @@ export default UserPage;
 - ✅ Use `useNavigate()` for programmatic navigation
 
 **See Also:**
-
 - [component-patterns.md](component-patterns.md) - Lazy loading patterns
 - [loading-and-error-states.md](loading-and-error-states.md) - SuspenseLoader usage
 - [complete-examples.md](complete-examples.md) - Full route examples

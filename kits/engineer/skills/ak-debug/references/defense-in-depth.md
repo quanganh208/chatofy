@@ -14,7 +14,6 @@ Single validation: "We fixed bug"
 Multiple layers: "We made bug impossible"
 
 Different layers catch different cases:
-
 - Entry validation catches most bugs
 - Business logic catches edge cases
 - Environment guards prevent context-specific dangers
@@ -23,7 +22,6 @@ Different layers catch different cases:
 ## The Four Layers
 
 ### Layer 1: Entry Point Validation
-
 **Purpose:** Reject obviously invalid input at API boundary
 
 ```typescript
@@ -42,7 +40,6 @@ function createProject(name: string, workingDirectory: string) {
 ```
 
 ### Layer 2: Business Logic Validation
-
 **Purpose:** Ensure data makes sense for this operation
 
 ```typescript
@@ -55,7 +52,6 @@ function initializeWorkspace(projectDir: string, sessionId: string) {
 ```
 
 ### Layer 3: Environment Guards
-
 **Purpose:** Prevent dangerous operations in specific contexts
 
 ```typescript
@@ -66,7 +62,9 @@ async function gitInit(directory: string) {
     const tmpDir = normalize(resolve(tmpdir()));
 
     if (!normalized.startsWith(tmpDir)) {
-      throw new Error(`Refusing git init outside temp dir during tests: ${directory}`);
+      throw new Error(
+        `Refusing git init outside temp dir during tests: ${directory}`
+      );
     }
   }
   // proceed
@@ -74,7 +72,6 @@ async function gitInit(directory: string) {
 ```
 
 ### Layer 4: Debug Instrumentation
-
 **Purpose:** Capture context for forensics
 
 ```typescript
@@ -103,14 +100,12 @@ When find bug:
 Bug: Empty `projectDir` caused `git init` in source code
 
 **Data flow:**
-
 1. Test setup → empty string
 2. `Project.create(name, '')`
 3. `WorkspaceManager.createWorkspace('')`
 4. `git init` runs in `process.cwd()`
 
 **Four layers added:**
-
 - Layer 1: `Project.create()` validates not empty/exists/writable
 - Layer 2: `WorkspaceManager` validates projectDir not empty
 - Layer 3: `WorktreeManager` refuses git init outside tmpdir in tests
@@ -121,7 +116,6 @@ Bug: Empty `projectDir` caused `git init` in source code
 ## Key Insight
 
 All four layers were necessary. During testing, each layer caught bugs others missed:
-
 - Different code paths bypassed entry validation
 - Mocks bypassed business logic checks
 - Edge cases on different platforms needed environment guards

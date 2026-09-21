@@ -54,12 +54,16 @@
 Run packaging script to validate and zip:
 
 ```bash
-scripts/package_skill.py <path/to/skill-folder>
-scripts/package_skill.py <path/to/skill-folder> ./dist  # custom output dir
+uv run --with PyYAML==6.0.3 scripts/package_skill.py <path/to/skill-folder>
+uv run --with PyYAML==6.0.3 scripts/package_skill.py <path/to/skill-folder> ./dist
 ```
 
 Validates: frontmatter, naming, description (at most 1024 chars), structure.
 Creates: `skill-name.zip` with proper directory structure.
+Use an output directory outside the skill tree. Inspect source for symlinks and
+private configuration before running the existing packager, then inspect ZIP
+members and validate an extracted copy before distribution. The script currently
+does not automate archive containment checks or atomic replacement.
 
 ## Plugin Marketplaces
 

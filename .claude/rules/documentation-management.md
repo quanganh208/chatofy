@@ -9,6 +9,11 @@ configuration, architecture, security, public contracts, machine-readable
 contracts, or durable maintainer decisions. Internal edits and phase completion
 do not require evergreen docs churn.
 
+- Authorized work outside the repository that establishes or changes an
+  operational route — deploy path, log source, credential source,
+  webhook/OAuth/DNS, backup/rollback, or a lookup route proven wrong — is docs
+  impact.
+
 Discover the target through repository instructions, the root README, and the
 project's existing docs navigation. Do not assume a fixed filename list or docs
 tree. Update the smallest owning surface, and link to machine-owned scripts,

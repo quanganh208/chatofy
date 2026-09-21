@@ -1,15 +1,15 @@
 ---
 name: ak:goal-warmup
-description: 'Outcome-locked preflight before long-running /goal or autonomous runs. Interview to a user-approved Outcome Contract, plan without silent scope drift, contract-preserving review, whole-plan preflight matrix, then Ready/Blocked/Decision handoff. Never auto-starts /goal. Use for goal warmup, goal prepare, long-running goal prep, outcome lock, execution readiness.'
+description: "Outcome-locked preflight before long-running /goal or autonomous runs. Interview to a user-approved Outcome Contract, plan without silent scope drift, contract-preserving review, whole-plan preflight matrix, then Ready/Blocked/Decision handoff. Never auto-starts /goal. Use for goal warmup, goal prepare, long-running goal prep, outcome lock, execution readiness."
 user-invocable: true
-when_to_use: 'Invoke before expensive multi-phase /goal or long-run work when outcome must stay locked and blockers must surface first.'
-category: dev-tools
+when_to_use: "Invoke before expensive multi-phase /goal or long-run work when outcome must stay locked and blockers must surface first."
+category: workflow
 keywords: [goal, warmup, preflight, outcome-contract, readiness, codex-goal, long-running]
-argument-hint: '"<goal>" [--fast]'
+argument-hint: "\"<goal>\" [--fast]"
 license: MIT
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: "1.0.2"
 ---
 
 # Goal Warmup
@@ -31,8 +31,8 @@ Does not replace `ak:vibe` or `ak:issue-to-plan`.
 /ak:goal-warmup "<goal>" --fast
 ```
 
-| Flag     | Effect                                                                                                                           |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Flag | Effect |
+| --- | --- |
 | `--fast` | Skip expensive adversarial review only if eligibility passes (see `references/fast-path.md`) and user accepts reduced assurance. |
 
 ## Hard gates
@@ -67,7 +67,11 @@ Parse goal + --fast
   → handoff packet only (see references/handoff-packet.md)
 ```
 
-Load detailed rules from references as each stage starts.
+Load detailed rules from references as each stage starts. Reuse verified facts and
+recorded explicit approvals for this same unchanged contract; do not re-interview
+answered questions. Both distinct approval events remain required: contract
+approval before planning and final-summary confirmation before Ready. Inspect
+every phase, but load preflight detail only for its actual dependencies.
 
 ### 1. Estimate risk
 
@@ -86,7 +90,6 @@ Present:
 
 ```markdown
 ## Goal outcome contract
-
 - Intended result: <observable end state>
 - In scope: <must-have deliverables>
 - Out of scope: <explicit exclusions>
@@ -106,7 +109,7 @@ Invoke `ak:plan` (or equivalent steps) with the contract as hard constraint.
 Traceability table (required columns):
 
 | Phase | Contract items | Acceptance signals | Facts / assumptions / prereqs / user decisions |
-| ----- | -------------- | ------------------ | ---------------------------------------------- |
+| --- | --- | --- | --- |
 
 - Distinguish verified facts vs assumptions vs external prereqs vs user decisions.
 - If plan CLI unavailable: degrade to session markdown plan — do not hard-fail.
@@ -119,12 +122,12 @@ any plan file edit. Prefer local review under this skill when cheaper.
 
 Classify each finding as exactly one of:
 
-| Class                        | May amend plan?           | User gate?                  |
-| ---------------------------- | ------------------------- | --------------------------- |
-| `mitigation-within-contract` | Yes — implementation only | Report                      |
-| `preflight-required`         | Annotate only             | Feeds matrix                |
-| `blocker`                    | Annotate; not-ready       | Readiness gate              |
-| `outcome-change-request`     | **No** silent edit        | **Yes** — Decision required |
+| Class | May amend plan? | User gate? |
+| --- | --- | --- |
+| `mitigation-within-contract` | Yes — implementation only | Report |
+| `preflight-required` | Annotate only | Feeds matrix |
+| `blocker` | Annotate; not-ready | Readiness gate |
+| `outcome-change-request` | **No** silent edit | **Yes** — Decision required |
 
 Any `outcome-change-request` → **Decision required** (present options; wait). Do
 not auto-reject or auto-keep silently. If locked outcome is infeasible → same.
@@ -148,11 +151,11 @@ Scrub tool stdout/stderr before writing matrix rows.
 
 ### 6. Terminal states
 
-| State                 | When                                                                  | Output                       |
-| --------------------- | --------------------------------------------------------------------- | ---------------------------- |
-| **Ready**             | No blockers; no open outcome-change; **and** `ask_user` final confirm | Handoff packet + scope guard |
-| **Blocked**           | Unresolved hard blockers                                              | Exact unblock actions only   |
-| **Decision required** | Outcome-affecting trade-off or any OCR finding                        | Options + consequences; wait |
+| State | When | Output |
+| --- | --- | --- |
+| **Ready** | No blockers; no open outcome-change; **and** `ask_user` final confirm | Handoff packet + scope guard |
+| **Blocked** | Unresolved hard blockers | Exact unblock actions only |
+| **Decision required** | Outcome-affecting trade-off or any OCR finding | Options + consequences; wait |
 
 Templates: `references/handoff-packet.md`.
 
@@ -167,16 +170,16 @@ Before claiming Ready, self-check assertions in `fixtures/*`.
 
 ## Failure modes
 
-| Situation                             | Action                                   |
-| ------------------------------------- | ---------------------------------------- |
-| User aborts contract / final confirm  | Stop; no packet                          |
-| Plan CLI missing                      | Session markdown plan; continue          |
-| Default red-team would apply findings | Stop apply; re-run classify-first path   |
-| Preflight stdout may contain secrets  | Scrub; never copy raw into matrix/packet |
-| User asks skill to start `/goal`      | Refuse; emit packet only if Ready        |
-| Contradictory contract fields         | Decision required / re-interview         |
-| `--fast` on external-deps goal        | Refuse fast; full path                   |
-| Core-only install (skill missing)     | Document engineer kit required           |
+| Situation | Action |
+| --- | --- |
+| User aborts contract / final confirm | Stop; no packet |
+| Plan CLI missing | Session markdown plan; continue |
+| Default red-team would apply findings | Stop apply; re-run classify-first path |
+| Preflight stdout may contain secrets | Scrub; never copy raw into matrix/packet |
+| User asks skill to start `/goal` | Refuse; emit packet only if Ready |
+| Contradictory contract fields | Decision required / re-interview |
+| `--fast` on external-deps goal | Refuse fast; full path |
+| Core-only install (skill missing) | Document engineer kit required |
 
 ## Security
 
@@ -202,7 +205,6 @@ See `references/decisions.md` (D1–D8 locked product defaults).
 
 ```markdown
 **Goal-warmup result**
-
 - State: Ready | Blocked | Decision required
 - Contract: approved | not approved
 - Plan: <path or session>

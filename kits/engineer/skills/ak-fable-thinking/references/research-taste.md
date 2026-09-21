@@ -103,14 +103,14 @@ or market analysis, a research brief or memo.
 
 ## Evaluate before delivering (act-backed, per the Self-Review Gate)
 
-| Dimension       | Passes when                                    | Proven by          |
-| --------------- | ---------------------------------------------- | ------------------ |
-| Decision fit    | a recommendation answers the framed decision   | FRAME artifact     |
-| Sourcing        | load-bearing facts have primary, dated sources | source audit list  |
-| Triangulation   | key facts confirmed by independent sources     | independence check |
-| Disconfirmation | counter-search run per recommendation          | search log         |
-| Calibration     | confidence matches evidence; unknowns listed   | claim typing pass  |
-| Bound           | stop rules honored                             | budget log         |
+| Dimension | Passes when | Proven by |
+|-----------|-------------|-----------|
+| Decision fit | a recommendation answers the framed decision | FRAME artifact |
+| Sourcing | load-bearing facts have primary, dated sources | source audit list |
+| Triangulation | key facts confirmed by independent sources | independence check |
+| Disconfirmation | counter-search run per recommendation | search log |
+| Calibration | confidence matches evidence; unknowns listed | claim typing pass |
+| Bound | stop rules honored | budget log |
 
 ## Synthesis template
 
@@ -123,12 +123,12 @@ Facts (dated): … | Interpretations: … | Open questions: …
 
 ## Do / Don't
 
-| Don't                                             | Instead                                           |
-| ------------------------------------------------- | ------------------------------------------------- |
-| Answer from memory about versions, prices, limits | Open the primary source; date it                  |
-| Search to confirm the first idea                  | Search to disconfirm it                           |
-| Report the top result                             | Rank sources; triangulate the load-bearing ones   |
-| List options without a call                       | Recommend, with criteria and what would change it |
-| Blend opinion into fact                           | Type every claim; keep the grammar honest         |
-| Research until the budget dies                    | Set stop rules; stop at saturation or threshold   |
-| Ship a novel option on enthusiasm                 | Hold it to the same evidence bar; spike it        |
+| Don't | Instead |
+|-------|---------|
+| Answer from memory about versions, prices, limits | Open the primary source; date it |
+| Search to confirm the first idea | Search to disconfirm it |
+| Report the top result | Rank sources; triangulate the load-bearing ones |
+| List options without a call | Recommend, with criteria and what would change it |
+| Blend opinion into fact | Type every claim; keep the grammar honest |
+| Research until the budget dies | Set stop rules; stop at saturation or threshold |
+| Ship a novel option on enthusiasm | Hold it to the same evidence bar; spike it |

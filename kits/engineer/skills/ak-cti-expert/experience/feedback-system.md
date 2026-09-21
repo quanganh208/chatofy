@@ -29,14 +29,14 @@ Run /blind-spots for a ranked gap list with suggested commands.
 
 ### Suggested Commands by Path Type
 
-| Unchecked Path Category | Suggested Command   |
-| ----------------------- | ------------------- |
-| Identity / name query   | `/sweep --identity` |
-| Breach / exposure       | `/scan --breach`    |
-| Social media            | `/scan --social`    |
-| Legal / court records   | `/search --legal`   |
-| Domain / DNS            | `/scan --dns`       |
-| Email pivot             | `/pivot --email`    |
+| Unchecked Path Category | Suggested Command      |
+|-------------------------|------------------------|
+| Identity / name query   | `/sweep --identity`    |
+| Breach / exposure       | `/scan --breach`       |
+| Social media            | `/scan --social`       |
+| Legal / court records   | `/search --legal`      |
+| Domain / DNS            | `/scan --dns`          |
+| Email pivot             | `/pivot --email`       |
 
 ---
 
@@ -83,13 +83,13 @@ Composite 0–100 score summarizing investigation completeness.
 
 ### Scoring Formula
 
-| Component             | Weight | Source                              |
-| --------------------- | ------ | ----------------------------------- |
-| Coverage              | 30%    | coverage_score from coverage matrix |
-| Source diversity      | 20%    | unique source domains / findings    |
-| Finding verification  | 20%    | findings with trust_score >= 3      |
-| Conflict resolution   | 15%    | flagged conflicts with resolution   |
-| Citation completeness | 15%    | findings with source_url present    |
+| Component              | Weight | Source                              |
+|------------------------|--------|-------------------------------------|
+| Coverage               | 30%    | coverage_score from coverage matrix |
+| Source diversity       | 20%    | unique source domains / findings    |
+| Finding verification   | 20%    | findings with trust_score >= 3      |
+| Conflict resolution    | 15%    | flagged conflicts with resolution   |
+| Citation completeness  | 15%    | findings with source_url present    |
 
 ```
 quality_score = (
@@ -103,13 +103,13 @@ quality_score = (
 
 ### Score Bands
 
-| Score  | Label        | Meaning                                    |
-| ------ | ------------ | ------------------------------------------ |
-| 0–39   | Insufficient | Not ready for any report format            |
-| 40–59  | Developing   | Executive summary only; note major gaps    |
-| 60–74  | Acceptable   | Standard report with limitations section   |
-| 75–89  | Strong       | Full report; document minor gaps           |
-| 90–100 | Exemplary    | All paths attempted, findings corroborated |
+| Score   | Label        | Meaning                                      |
+|---------|--------------|----------------------------------------------|
+| 0–39    | Insufficient | Not ready for any report format              |
+| 40–59   | Developing   | Executive summary only; note major gaps      |
+| 60–74   | Acceptable   | Standard report with limitations section     |
+| 75–89   | Strong       | Full report; document minor gaps             |
+| 90–100  | Exemplary    | All paths attempted, findings corroborated   |
 
 ### Output Template
 
@@ -134,16 +134,15 @@ Top improvement actions:
 
 ## Tier Display Rules
 
-| Tier         | Coverage Feedback     | Confidence Feedback   | /quality Display            |
-| ------------ | --------------------- | --------------------- | --------------------------- |
-| Novice       | Always show           | Always show           | Always show                 |
-| Practitioner | Show after each phase | Show after each phase | Show after each phase       |
-| Specialist   | Show if score < 40%   | On demand only        | On demand only (`/quality`) |
+| Tier         | Coverage Feedback       | Confidence Feedback    | /quality Display         |
+|--------------|-------------------------|------------------------|--------------------------|
+| Novice       | Always show             | Always show            | Always show              |
+| Practitioner | Show after each phase   | Show after each phase  | Show after each phase    |
+| Specialist   | Show if score < 40%     | On demand only         | On demand only (`/quality`) |
 
 ### Phase Boundaries (Practitioner trigger points)
 
 A "phase" ends when the user runs any of:
-
 - `/validate`
 - `/coverage`
 - `/brief`
@@ -158,11 +157,11 @@ Quality score and feedback state are persisted between sessions:
 ```json
 {
   "feedback": {
-    "last_quality_score": 82,
-    "last_quality_timestamp": "<ISO-8601>",
-    "low_confidence_flagged": ["F-003", "F-007"],
-    "low_confidence_resolved": ["F-003"],
-    "coverage_feedback_shown": true
+    "last_quality_score":       82,
+    "last_quality_timestamp":   "<ISO-8601>",
+    "low_confidence_flagged":   ["F-003", "F-007"],
+    "low_confidence_resolved":  ["F-003"],
+    "coverage_feedback_shown":  true
   }
 }
 ```

@@ -58,16 +58,16 @@ observe → hypothesize → experiment → evaluate → decide → promote → r
 
 ## Repository map
 
-| Path                                              | Responsibility                                                 |
-| ------------------------------------------------- | -------------------------------------------------------------- |
-| `SKILL.md`                                        | Public entry point and routing contract                        |
-| `contracts/`                                      | Stable input, output, diagnostics, and compatibility contracts |
-| `references/`                                     | Progressive-disclosure domain guidance                         |
-| `data/` · `templates/` · `scripts/`               | Runtime datasets, output templates, shipped automation         |
-| `agents/` · `gates/`                              | Role bodies and delegation contracts; named acceptance checks  |
-| `tests/` · `evals/` · `benchmarks/` · `examples/` | Verification surface                                           |
-| `experiments/` · `observations/` · `decisions/`   | Learning surface                                               |
-| `tools/`                                          | Maintainer commands not shipped as runtime resources           |
+| Path | Responsibility |
+|---|---|
+| `SKILL.md` | Public entry point and routing contract |
+| `contracts/` | Stable input, output, diagnostics, and compatibility contracts |
+| `references/` | Progressive-disclosure domain guidance |
+| `data/` · `templates/` · `scripts/` | Runtime datasets, output templates, shipped automation |
+| `agents/` · `gates/` | Role bodies and delegation contracts; named acceptance checks |
+| `tests/` · `evals/` · `benchmarks/` · `examples/` | Verification surface |
+| `experiments/` · `observations/` · `decisions/` | Learning surface |
+| `tools/` | Maintainer commands not shipped as runtime resources |
 
 The active harness instructions live in `{{HARNESS_FILE}}`. Do not create the other harness
 file unless support for a second harness becomes an explicit repository decision.
@@ -90,27 +90,22 @@ See `docs/development-loop.md` for the lifecycle and ownership rules.
 # Development loop
 
 ## Observe
-
 Curate reproducible, anonymized evidence from real use. Keep raw private material ignored.
 
 ## Hypothesize and experiment
-
 Write the problem, falsifiable hypothesis, baseline, success criteria, fixed inputs, budget,
 and promotion destination before prototyping. Close every experiment with `KEEP`, `REVISE`,
 or `REJECT`.
 
 ## Evaluate
-
 Run deterministic graders before rubric or human judgment. Use smoke and regression evals on
 each change; reserve capability, adversarial, benchmark, and human review for releases.
 
 ## Promote
-
 Rewrite accepted work into its canonical production directory. Add regression coverage,
 update any changed contract and compatibility decision, and leave the experiment as evidence.
 
 ## Release and learn
-
 Run applicable gates, update the changelog and version, then observe real use again. Never
 loosen a baseline silently or describe missing evidence as a pass.
 ```
@@ -121,26 +116,21 @@ loosen a baseline silently or describe missing evidence as a pass.
 # 0001 — Use a loop-first repository
 
 ## Status
-
 Accepted at repository initialization.
 
 ## Context
-
 `{{SKILL_NAME}}` needs to learn from real use without letting prototypes or generated
 evidence become accidental production dependencies.
 
 ## Decision
-
 Separate the stable skill surface from observations, experiments, evals, and benchmarks.
 Promote accepted work through an explicit verdict plus regression coverage.
 
 ## Consequences
-
 More named directories, but ownership and promotion paths stay visible. Experiments are
 disposable; accepted behavior is rewritten into canonical runtime sources.
 
 ## Reconsider when
-
 Measured maintenance cost exceeds the value of the separation across several completed cycles.
 ```
 
@@ -156,7 +146,9 @@ Measured maintenance cost exceeds the value of the separation across several com
       "prompt": "<one realistic request the skill must handle>",
       "expected_output": "<what a correct result contains>",
       "files": [],
-      "assertions": [{ "id": "<kebab-id>", "text": "<one checkable statement about the output>" }]
+      "assertions": [
+        {"id": "<kebab-id>", "text": "<one checkable statement about the output>"}
+      ]
     }
   ]
 }

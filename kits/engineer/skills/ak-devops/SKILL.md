@@ -2,14 +2,14 @@
 name: ak:devops
 description: Deploy to Cloudflare (Workers, R2, D1), Docker, GCP (Cloud Run, GKE), Kubernetes (kubectl, Helm). Use for serverless, containers, CI/CD, GitOps, security audit.
 user-invocable: true
-when_to_use: 'Invoke for cloud, containers, Kubernetes, CI/CD, or GitOps.'
-category: infrastructure
+when_to_use: "Invoke for cloud, containers, Kubernetes, CI/CD, or GitOps."
+category: engineering
 keywords: [cloudflare, docker, gcp, kubernetes, cicd]
 license: MIT
-argument-hint: '[platform] [task]'
+argument-hint: "[platform] [task]"
 metadata:
   author: agentkit
-  version: '2.0.0'
+  version: "2.1.0"
 ---
 
 # DevOps Skill
@@ -26,40 +26,21 @@ Deploy and manage cloud infrastructure across Cloudflare, Docker, Google Cloud, 
 - CI/CD pipelines, multi-region deployments
 - Security audits, RBAC, network policies
 
-## Platform Selection
+## Select the target and effect
 
-| Need                             | Choose                 |
-| -------------------------------- | ---------------------- |
-| Sub-50ms latency globally        | Cloudflare Workers     |
-| Large file storage (zero egress) | Cloudflare R2          |
-| SQL database (global reads)      | Cloudflare D1          |
-| Containerized workloads          | Docker + Cloud Run/GKE |
-| Enterprise Kubernetes            | GKE                    |
-| Managed relational DB            | Cloud SQL              |
-| Static site + API                | Cloudflare Pages       |
-| Container orchestration          | Kubernetes             |
-| Package management for K8s       | Helm                   |
+Read repository deployment/container configuration and the user's target first. Preserve
+that provider; do not change cloud vendors to fit an example. Choose local build/test,
+preview or production rollout explicitly. Local Docker work does not call cloud CLIs.
 
-## Quick Start
-
-```bash
-# Cloudflare Worker
-wrangler init my-worker && cd my-worker && wrangler deploy
-
-# Docker
-docker build -t myapp . && docker run -p 3000:3000 myapp
-
-# GCP Cloud Run
-gcloud run deploy my-service --image gcr.io/project/image --region us-central1
-
-# Kubernetes
-kubectl apply -f manifests/ && kubectl get pods
-```
+Load only the target reference below. For new-platform comparisons or invocation examples,
+use `references/platform-recipes.md`, verifying CLI/version-sensitive details first.
+Before production rollout establish exact account/project/region, health checks and rollback;
+reuse existing authorization for those effects. Keep secrets out of output and preserve
+state ownership. Track and stop only processes started for this work.
 
 ## Reference Navigation
 
 ### Cloudflare Platform
-
 - `cloudflare-platform.md` - Edge computing overview
 - `cloudflare-workers-basics.md` - Handler types, patterns
 - `cloudflare-workers-advanced.md` - Performance, optimization
@@ -69,21 +50,17 @@ kubectl apply -f manifests/ && kubectl get pods
 - `browser-rendering.md` - Puppeteer automation
 
 ### Docker
-
 - `docker-basics.md` - Dockerfile, images, containers
 - `docker-compose.md` - Multi-container apps
 
 ### Google Cloud
-
 - `gcloud-platform.md` - gcloud CLI, authentication
 - `gcloud-services.md` - Compute Engine, GKE, Cloud Run
 
 ### Kubernetes
-
 - Use upstream Kubernetes and Helm documentation for cluster-specific details.
 
 ### Scripts
-
 - `scripts/cloudflare_deploy.py` - Automate Worker deployments
 - `scripts/docker_optimize.py` - Analyze Dockerfiles
 
@@ -93,6 +70,12 @@ kubectl apply -f manifests/ && kubectl get pods
 **Performance:** Multi-stage builds, edge caching, resource limits
 **Cost:** R2 for large egress, caching, right-size resources
 **Development:** Docker Compose local dev, wrangler dev, version control IaC
+
+When an authorized task sets up or changes an operational route — a deploy path,
+a log source, a credential retrieval route, a webhook/OAuth/DNS entry, or a
+backup/rollback route — update the affected project guide within authorized
+scope, or report the proposed diff and the blocker when the write is not
+authorized. Route it through the project's documentation workflow (`/ak:docs update`).
 
 ## Resources
 

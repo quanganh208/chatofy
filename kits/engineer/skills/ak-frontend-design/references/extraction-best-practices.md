@@ -5,7 +5,6 @@ Guidelines for capturing and analyzing design references effectively.
 ## Capture Quality Guidelines
 
 ### Screenshot Requirements
-
 - High-resolution (minimum 1920px wide for desktop)
 - Accurate color reproduction (disable browser extensions that alter colors)
 - Actual viewport size, not full-page scrolls
@@ -13,7 +12,6 @@ Guidelines for capturing and analyzing design references effectively.
 - Multiple states: default, hover, active, responsive breakpoints
 
 ### Multiple Examples
-
 - Analyze 3-5 screens minimum for pattern recognition
 - Include different page types (home, product, about, contact)
 - Single screenshots miss patterns
@@ -22,7 +20,6 @@ Guidelines for capturing and analyzing design references effectively.
 ## Analysis Best Practices
 
 ### 1. Demand Specifics
-
 âŒ Accept: "Uses blue and gray colors"
 âœ“ Demand: "Primary: #1E40AF, Secondary: #6B7280, Accent: #F59E0B"
 
@@ -30,15 +27,12 @@ Guidelines for capturing and analyzing design references effectively.
 âœ“ Demand: "Inter, weight 600, 48px for h1, tracking -0.02em"
 
 ### 2. Document Rationale
-
-Understand _why_ design decisions work, not just _what_ they are:
-
+Understand *why* design decisions work, not just *what* they are:
 - Why does this color palette create trust?
 - Why does this spacing scale improve readability?
 - Why does this typography hierarchy guide user attention?
 
 ### 3. Create Actionable Guidelines
-
 Output should be directly implementable in code:
 
 ```css
@@ -47,8 +41,8 @@ Output should be directly implementable in code:
   --font-display: 'Bebas Neue', sans-serif;
   --font-body: 'Inter', sans-serif;
 
-  --color-primary-600: #1e40af;
-  --color-accent-500: #f59e0b;
+  --color-primary-600: #1E40AF;
+  --color-accent-500: #F59E0B;
 
   --spacing-xs: 4px;
   --spacing-sm: 8px;
@@ -58,21 +52,18 @@ Output should be directly implementable in code:
   --radius-sm: 4px;
   --radius-md: 8px;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
 }
 ```
 
 ### 4. Cross-Reference
-
 - Validate font predictions against Google Fonts library
 - Use font identification tools (WhatFont, Font Ninja) for accuracy
 - Manually verify extracted colors with eyedropper tools
 
 ### 5. Iterate Analysis
-
 First pass may miss subtleties:
-
 - Run initial comprehensive analysis
 - Review output, identify gaps
 - Run focused follow-up queries for specific elements
@@ -80,7 +71,6 @@ First pass may miss subtleties:
 ## Advanced Techniques
 
 ### Design System Mining
-
 Extract complete design system from single brand (10+ screens):
 
 ```bash
@@ -98,7 +88,6 @@ Output as CSS variables ready for implementation." \
 ```
 
 ### Trend Analysis
-
 Analyze multiple top designs to identify current trends:
 
 ```bash
@@ -116,7 +105,6 @@ Identify what's trending in 2024 web design." \
 ```
 
 ### Historical Evolution
-
 Track design evolution of single brand over time:
 
 ```bash
@@ -134,21 +122,17 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
 ## Common Pitfalls
 
 ### âŒ Surface-Level Analysis
-
 "Uses blue colors and sans-serif fonts"
 **Fix**: Demand specificsâ€”hex codes, font names, size values
 
 ### âŒ Missing Context
-
 Extracting design without understanding target audience or purpose
 **Fix**: Research brand context before analysis
 
 ### âŒ Blind Copying
-
 Extracting and applying design 1:1 to your project
 **Fix**: Extract principles, adapt to your unique context
 
 ### âŒ Single Source
-
 Learning from one example only
 **Fix**: Analyze 3-5 examples to identify patterns vs. anomalies

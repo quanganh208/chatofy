@@ -4,14 +4,14 @@ description: "Autonomous iterative optimization loop — run N iterations agains
 user-invocable: true
 disable-model-invocation: true
 when_to_use: "Invoke only when an objective metric can drive repeated trials."
-category: utilities
+category: workflow
 keywords: [optimization, iteration, metrics, loop]
 argument-hint: "[Goal/Metric description] or inline config block"
 metadata:
   author: agentkit
   attribution: "Core patterns adapted from autoresearch by Udit Goenka (MIT)"
   license: MIT
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # ak:loop — Autonomous Optimization Loop
@@ -56,6 +56,7 @@ Parsed from user message. Missing required fields trigger a **batched** `ask_use
 | `Noise` | medium | Tolerance for metric variance: `low` / `medium` / `high` |
 | `Min-Delta` | 0 | Minimum improvement to count as progress |
 | `Direction` | higher | Whether `higher` or `lower` metric value is better |
+| `Timeout` | 30s | Per-verify deadline; choose a longer explicit value when justified by measured workload |
 
 ## Interactive Setup
 
@@ -81,6 +82,10 @@ See [`references/autonomous-loop-protocol.md`](references/autonomous-loop-protoc
 - Commit BEFORE verify — git is memory, not a safety net
 - Guard files are **read-only** — never modify files in guard command's scope
 - Prefer `git revert` over `git reset` — preserve history
+
+## Quality and cost guard
+
+Record a baseline before edits and reserve representative held-out cases when optimizing a generalizable metric. Keep assertions and consumer behavior intact: coverage gains from weakened tests are regressions. Measure full iteration duration, retries and available cost telemetry; unknown cost is not zero. Keep separate notes beside the established TSV when fields do not fit its schema.
 
 ## Results Logging
 
@@ -174,7 +179,7 @@ When a reproduction command needs real credentials, write it as a *template* the
 - Cannot modify files referenced by the `Guard` command
 - Cannot guarantee improvement — some metrics have hard ceilings
 - Requires a **git repository with a clean working tree** before starting
-- `Verify` command must complete in **< 30 seconds** (otherwise loop is impractical)
+- Enforce the configured verify timeout (default 30 seconds); record timeout and discard safely rather than leaving an unbounded process
 - Does not parallelize iterations — sequential by design (each iteration learns from the last)
 
 ## References

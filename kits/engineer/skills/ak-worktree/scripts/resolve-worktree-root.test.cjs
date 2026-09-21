@@ -57,7 +57,7 @@ test('project-only relative value resolves against gitRoot', () => {
   assert(result.source === 'project', `expected project source, got ${result.source}`);
   assert(
     result.root === path.resolve(gitRoot, '../my-app-worktrees'),
-    `unexpected root: ${result.root}`,
+    `unexpected root: ${result.root}`
   );
 });
 
@@ -80,7 +80,7 @@ test('project scope wins over user scope when both are set', () => {
   assert(result.source === 'project', `expected project to win, got ${result.source}`);
   assert(
     result.root === path.resolve(gitRoot, '../project-worktrees'),
-    `unexpected root: ${result.root}`,
+    `unexpected root: ${result.root}`
   );
 });
 
@@ -93,14 +93,8 @@ test('absolute value at project scope is skipped with a warning, falls through t
   const result = resolveWorktreeRoot({ gitRoot, agentkitHome: path.join(homeDir, '.agentkit') });
   assert(result.source === 'user', `expected fallback to user, got ${result.source}`);
   assert(result.root === userAbsolute, `unexpected root: ${result.root}`);
-  assert(
-    result.warnings.length === 1,
-    `expected exactly one warning, got ${result.warnings.length}`,
-  );
-  assert(
-    /project scope only honors a relative path/.test(result.warnings[0]),
-    'warning should explain the rejection',
-  );
+  assert(result.warnings.length === 1, `expected exactly one warning, got ${result.warnings.length}`);
+  assert(/project scope only honors a relative path/.test(result.warnings[0]), 'warning should explain the rejection');
 });
 
 test('absolute value at project scope with no user config falls through to null', () => {
@@ -124,12 +118,9 @@ test('relative value resolves from gitRoot, not process.cwd()', () => {
     const result = resolveWorktreeRoot({ gitRoot, agentkitHome: path.join(homeDir, '.agentkit') });
     assert(
       result.root === path.resolve(gitRoot, 'sibling-worktrees'),
-      `expected resolution against gitRoot, got ${result.root}`,
+      `expected resolution against gitRoot, got ${result.root}`
     );
-    assert(
-      result.root !== path.resolve(elsewhere, 'sibling-worktrees'),
-      'must not resolve against cwd',
-    );
+    assert(result.root !== path.resolve(elsewhere, 'sibling-worktrees'), 'must not resolve against cwd');
   } finally {
     process.chdir(previousCwd);
   }
@@ -143,24 +134,18 @@ test('Windows-style backslash relative value normalizes on any host', () => {
   assert(result.source === 'project', `expected project source, got ${result.source}`);
   assert(
     result.root === path.resolve(gitRoot, '../windows-style-worktrees'),
-    `unexpected root: ${result.root}`,
+    `unexpected root: ${result.root}`
   );
 });
 
 test('Windows drive-letter absolute value at user scope is recognized as rooted', () => {
-  assert(
-    isRootedWorktreeRootValue('D:\\AgentKit\\worktrees'),
-    'drive-letter path should be rooted',
-  );
+  assert(isRootedWorktreeRootValue('D:\\AgentKit\\worktrees'), 'drive-letter path should be rooted');
   const gitRoot = mkTempDir('ak-wt-git-');
   const homeDir = mkTempDir('ak-wt-home-');
   writeWorktreeConfig(homeDir, 'D:\\AgentKit\\worktrees');
   const result = resolveWorktreeRoot({ gitRoot, agentkitHome: path.join(homeDir, '.agentkit') });
   assert(result.source === 'user', `expected user source, got ${result.source}`);
-  assert(
-    result.root === 'D:\\AgentKit\\worktrees',
-    `expected drive path unchanged, got ${result.root}`,
-  );
+  assert(result.root === 'D:\\AgentKit\\worktrees', `expected drive path unchanged, got ${result.root}`);
 });
 
 test('empty/whitespace-only value is treated as absent', () => {
@@ -194,10 +179,7 @@ test('deep .. traversal at project scope cannot escape past the parent directory
   const result = resolveWorktreeRoot({ gitRoot, agentkitHome: path.join(homeDir, '.agentkit') });
   assert(result.root === null, `expected the escape to be rejected, got ${result.root}`);
   assert(result.warnings.length === 1, 'expected exactly one warning');
-  assert(
-    /resolves outside the project and its parent directory/.test(result.warnings[0]),
-    'warning should explain the boundary',
-  );
+  assert(/resolves outside the project and its parent directory/.test(result.warnings[0]), 'warning should explain the boundary');
 });
 
 test('single-level .. (the documented sibling layout) still resolves', () => {
@@ -208,7 +190,7 @@ test('single-level .. (the documented sibling layout) still resolves', () => {
   assert(result.source === 'project', `expected project source, got ${result.source}`);
   assert(
     result.root === path.resolve(gitRoot, '../my-app-worktrees'),
-    `expected the sibling path to resolve, got ${result.root}`,
+    `expected the sibling path to resolve, got ${result.root}`
   );
   assert(result.warnings.length === 0, 'sibling layout should not warn');
 });
@@ -231,10 +213,7 @@ test('a symlink planted inside the repo cannot smuggle a relative value past the
   const result = resolveWorktreeRoot({ gitRoot, agentkitHome: path.join(homeDir, '.agentkit') });
   assert(result.root === null, `expected the symlink escape to be rejected, got ${result.root}`);
   assert(result.warnings.length === 1, 'expected exactly one warning');
-  assert(
-    /resolves outside the project and its parent directory/.test(result.warnings[0]),
-    'warning should explain the boundary',
-  );
+  assert(/resolves outside the project and its parent directory/.test(result.warnings[0]), 'warning should explain the boundary');
 });
 
 test('a value rooted at .agentkit is rejected even though it is nested inside the project', () => {
@@ -244,10 +223,7 @@ test('a value rooted at .agentkit is rejected even though it is nested inside th
   const result = resolveWorktreeRoot({ gitRoot, agentkitHome: path.join(homeDir, '.agentkit') });
   assert(result.root === null, `expected .agentkit destination to be rejected, got ${result.root}`);
   assert(result.warnings.length === 1, 'expected exactly one warning');
-  assert(
-    /reserved for AgentKit configuration/.test(result.warnings[0]),
-    'warning should explain the rejection',
-  );
+  assert(/reserved for AgentKit configuration/.test(result.warnings[0]), 'warning should explain the rejection');
 });
 
 test('agentkitHome need not be nested under a .agentkit directory (AGENTKIT_HOME override contract)', () => {
@@ -257,10 +233,7 @@ test('agentkitHome need not be nested under a .agentkit directory (AGENTKIT_HOME
   // not agentkitHome/.agentkit/config.yaml.
   const gitRoot = mkTempDir('ak-wt-git-');
   const customAgentkitHome = mkTempDir('ak-wt-custom-akhome-');
-  fs.writeFileSync(
-    path.join(customAgentkitHome, 'config.yaml'),
-    'worktree:\n  root: /custom-akhome-worktrees\n',
-  );
+  fs.writeFileSync(path.join(customAgentkitHome, 'config.yaml'), 'worktree:\n  root: /custom-akhome-worktrees\n');
   const result = resolveWorktreeRoot({ gitRoot, agentkitHome: customAgentkitHome });
   assert(result.source === 'user', `expected user source, got ${result.source}`);
   assert(result.root === '/custom-akhome-worktrees', `unexpected root: ${result.root}`);

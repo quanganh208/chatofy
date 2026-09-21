@@ -1,75 +1,48 @@
-# Context Fundamentals
+# Context fundamentals
 
-Context = all input provided to LLM for task completion.
+Context includes instructions, tools, retrieved material, history and observations.
+Their proportions vary by workload; no fixed share describes all agents.
 
-## Anatomy of Context
+## Capacity versus consumption
 
-| Component        | Purpose                           | Token Impact             |
-| ---------------- | --------------------------------- | ------------------------ |
-| System Prompt    | Identity, constraints, guidelines | Stable, cacheable        |
-| Tool Definitions | Action specs with params/returns  | Grows with capabilities  |
-| Retrieved Docs   | Domain knowledge, just-in-time    | Variable, selective      |
-| Message History  | Conversation state, task progress | Accumulates over time    |
-| Tool Outputs     | Results from actions              | 83.9% of typical context |
+A context window limits one request's active content. Task consumption sums every call,
+including repeated/cached input, outputs and provider-reported reasoning where applicable.
+Do not double-count reasoning already included in output totals. Billing categories
+are provider-specific and may differ from context accounting.
 
-## Attention Mechanics
+Keep a stable instruction/tool prefix when the harness supports caching; put changing
+query data after it. Cache hits can reduce billed cost without shrinking active context.
+Load only relevant material, but retain enough surrounding evidence to avoid false edits.
 
-- **U-shaped curve**: Beginning/end get more attention than middle
-- **Attention budget**: n^2 relationships for n tokens depletes with growth
-- **Position encoding**: Interpolation allows longer sequences with degradation
-- **First-token sink**: BOS token absorbs large attention budget
+## Progressive disclosure
 
-## System Prompt Structure
+Metadata routes to a skill; the entry file provides a short operating procedure;
+references load only for a current question. Repeated instructions and oversized initial
+prompts are costs too. Follow required runtime/project instructions rather than silently
+removing them; fix duplication at its owning source when authorized.
 
-```xml
-<BACKGROUND_INFORMATION>Domain knowledge, role definition</BACKGROUND_INFORMATION>
-<INSTRUCTIONS>Step-by-step procedures</INSTRUCTIONS>
-<TOOL_GUIDANCE>When/how to use tools</TOOL_GUIDANCE>
-<OUTPUT_DESCRIPTION>Format requirements</OUTPUT_DESCRIPTION>
-```
+## Meaningful compaction
 
-## Progressive Disclosure Levels
-
-1. **Metadata** (~100 words) - Always in context
-2. **SKILL.md body** (<5k words) - When skill triggers
-3. **Bundled resources** (Unlimited) - As needed
-
-## Token Budget Allocation
-
-| Component        | Typical Range    | Notes                 |
-| ---------------- | ---------------- | --------------------- |
-| System Prompt    | 500-2000         | Stable, optimize once |
-| Tool Definitions | 100-500 per tool | Keep under 20 tools   |
-| Retrieved Docs   | 1000-5000        | Selective loading     |
-| Message History  | Variable         | Summarize at 70%      |
-| Reserved Buffer  | 10-20%           | For responses         |
-
-## Document Management
-
-**Strong identifiers**: `customer_pricing_rates.json` not `data/file1.json`
-**Chunk at semantic boundaries**: Paragraphs, sections, not arbitrary lengths
-**Include metadata**: Source, date, relevance score
-
-## Message History Pattern
+An application-owned harness may replace an older history segment with a summary:
 
 ```python
-# Summary injection every 20 messages
-if len(messages) % 20 == 0:
-    summary = summarize_conversation(messages[-20:])
-    messages.append({"role": "system", "content": f"Summary: {summary}"})
+older, recent = split_at_safe_boundary(history)
+summary = summarize_as_untrusted_task_state(older)
+history = [summary] + recent
 ```
 
-## Guidelines
+This is pseudocode for harness authors, not a callable capability in every runtime.
+Appending a summary without replacing old history increases context. Never promote
+untrusted transcript content into system authority. Preserve higher-priority instructions,
+active tool-call/result pairs, decisions, constraints and recoverable evidence pointers.
+Compare a continuation task before/after to detect information loss.
 
-1. Treat context as finite with diminishing returns
-2. Place critical info at attention-favored positions
-3. Use file-system-based access for large documents
-4. Pre-load stable content, just-in-time load dynamic
-5. Design with explicit token budgets
-6. Monitor usage, implement compaction triggers at 70-80%
+## Attention and evidence
 
-## Related Topics
+Long-context retrieval and instruction-following depend on model, task and placement.
+Put concise goals/constraints where easily retrieved and test retention; do not infer
+accuracy from a universal U-shaped attention curve or token-position threshold.
+See [Anthropic's context engineering guidance](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents).
 
-- [Context Degradation](./context-degradation.md) - Failure patterns
-- [Context Optimization](./context-optimization.md) - Efficiency techniques
-- [Memory Systems](./memory-systems.md) - External storage
+Use [runtime awareness](runtime-awareness.md) for budgets, [compression](context-compression.md)
+for retained state and [evaluation](evaluation.md) for outcome checks.

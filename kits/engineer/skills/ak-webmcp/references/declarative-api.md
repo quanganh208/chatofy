@@ -15,7 +15,8 @@ Add two attributes to the `<form>`:
 - `tooldescription`: what the tool does and when to use it.
 
 ```html
-<form toolname="createSupportRequest" tooldescription="Submits a request for customer support.">
+<form toolname="createSupportRequest"
+      tooldescription="Submits a request for customer support.">
   ...
 </form>
 ```
@@ -33,22 +34,17 @@ the option label as the `title`.
 Improve accuracy with `toolparamdescription` on a control:
 
 ```html
-<form
-  toolname="supportRequestTool"
-  tooldescription="Submit a request for support."
-  action="/submit"
->
+<form toolname="supportRequestTool"
+      tooldescription="Submit a request for support."
+      action="/submit">
   <label for="firstName">First Name</label>
-  <input type="text" name="firstName" id="firstName" />
+  <input type="text" name="firstName" id="firstName">
 
   <label for="lastName">Last Name</label>
-  <input type="text" name="lastName" id="lastName" />
+  <input type="text" name="lastName" id="lastName">
 
-  <select
-    name="select"
-    required
-    toolparamdescription="Determines what team this request is routed to."
-  >
+  <select name="select" required
+          toolparamdescription="Determines what team this request is routed to.">
     <option value="Customer happiness team">Return my purchase.</option>
     <option value="Distribution team">Check where my package is.</option>
     <option value="Website support team">Get help on the website.</option>
@@ -59,7 +55,6 @@ Improve accuracy with `toolparamdescription` on a control:
 ```
 
 Parameter description precedence when `toolparamdescription` is absent:
-
 1. the associated `<label>` text (skipping nested labelable descendants), then
 2. the control's `aria-description`.
 
@@ -74,8 +69,9 @@ Two options:
   triggers navigation.
 
 ```html
-<form toolautosubmit toolname="search_tool" tooldescription="Search the web" action="/search">
-  <input type="text" name="query" />
+<form toolautosubmit toolname="search_tool"
+      tooldescription="Search the web" action="/search">
+  <input type="text" name="query">
 </form>
 ```
 
@@ -91,14 +87,14 @@ Two options:
 
 ```html
 <script>
-  document.querySelector('form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    if (!myFormIsValid()) {
-      if (e.agentInvoked) e.respondWith(myFormValidationErrorPromise);
-      return;
-    }
-    if (e.agentInvoked) e.respondWith(Promise.resolve('Search is done!'));
-  });
+document.querySelector('form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (!myFormIsValid()) {
+    if (e.agentInvoked) e.respondWith(myFormValidationErrorPromise);
+    return;
+  }
+  if (e.agentInvoked) e.respondWith(Promise.resolve('Search is done!'));
+});
 </script>
 ```
 
@@ -146,13 +142,11 @@ input:tool-submit-active {
 ## Declarative vs imperative — when to use which
 
 Use **declarative** when:
-
 - the action is a form submission,
 - you want to reuse native validation and the visible form UI,
 - parameters map cleanly to form controls.
 
 Use **imperative** (`imperative-api.md`) when:
-
 - the action is not a form (state toggle, navigation, custom widget),
 - you need dynamic per-state registration or annotations
   (`readOnlyHint`/`consequentialHint`/`untrustedContentHint`),

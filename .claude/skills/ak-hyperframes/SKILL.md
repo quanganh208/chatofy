@@ -3,13 +3,13 @@ name: ak:hyperframes
 description: "Wrap HeyGen HyperFrames CLI for HTML-first programmatic video generation. Use for short vertical/social videos, product-launch clips, motion graphics rendered from HTML composition. See also the installed remotion skill for a React-based alternative."
 user-invocable: true
 when_to_use: "Invoke for HTML-first programmatic video via HeyGen HyperFrames."
-category: frontend
+category: media
 keywords: [video, hyperframes, heygen, html, vertical, social, motion-graphics]
 license: Apache-2.0
 argument-hint: "[composition or command]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # ak:hyperframes
@@ -51,39 +51,14 @@ node scripts/verify-prereqs.mjs --json
 See [references/env-and-deps.md](references/env-and-deps.md) for install
 instructions per platform and the pinned-version verification note.
 
-## Pinned CLI version
+## Version and render route
 
-Every invocation below pins `hyperframes@0.7.99` — the latest published
-version as of 2026-08-07 (`npm view hyperframes version`). Bump this pin in
-one place (this file + `references/render-workflow.md`) when upgrading; do
-not run an unpinned `npx -y hyperframes ...` in scripts or docs.
-
-## Workflow
-
-The standard loop is `init → edit HTML → preview → lint → render`. Full
-concrete invocations for each stage live in
-[references/render-workflow.md](references/render-workflow.md); the short
-form:
-
-```bash
-# 1. Scaffold a new composition project.
-npx -y hyperframes@0.7.99 init my-composition --resolution portrait
-
-# 2. Edit the generated HTML composition (see composition-basics.md for the
-#    data-composition-id / data-start / data-width / data-height contract).
-
-# 3. Preview in a local dev server.
-npx -y hyperframes@0.7.99 preview my-composition
-
-# 4. Lint the composition before rendering (catches malformed timing attrs).
-npx -y hyperframes@0.7.99 lint my-composition
-
-# 5. Render to MP4.
-npx -y hyperframes@0.7.99 render my-composition --output ./assets/videos/my-composition.mp4
-```
-
-Always run `lint` before `render` — a composition that lints clean fails the
-render step far less often than one that skips straight to rendering.
+`references/render-workflow.md` owns the pinned CLI invocation/version. Use that pin for
+reproducibility; it is not a claim of latest availability. A mismatch requires reporting
+installed versus expected version and resolving the invocation, not silently upgrading.
+Load that reference for init/edit/preview/lint/render. Always run lint before render because
+render depends on valid composition attributes. Reuse successful prerequisite diagnostics
+until the environment changes, and stop only preview processes started for this task.
 
 ## Composition contract
 
@@ -97,7 +72,7 @@ full attribute reference and a complete vertical 1080×1920 example.
 
 - [references/heygen-skills.md](references/heygen-skills.md) — the 25 HeyGen
   agent skills this wrapper defers to instead of re-implementing; install
-  them via `npx -y hyperframes@0.7.99 skills` when deeper HyperFrames-specific
+  them using the pinned command in the render-workflow reference when deeper HyperFrames-specific
   expertise (animation, keyframes, captions, product-launch templates, etc.)
   is needed.
 - [references/composition-basics.md](references/composition-basics.md) — HTML
@@ -112,7 +87,7 @@ full attribute reference and a complete vertical 1080×1920 example.
 | Symptom | Action |
 | --- | --- |
 | `command not found: ffmpeg` | Run `node scripts/verify-prereqs.mjs` for the exact remediation for your platform. |
-| `npx hyperframes` reports an unknown flag | The pinned version in this file may be behind upstream; run `npx -y hyperframes@0.7.99 --help` to confirm current flags before updating the pin. |
+| `npx hyperframes` reports an unknown flag | The pinned version in the render-workflow reference may be behind upstream; run the pinned CLI with `--help` to confirm current flags before updating the pin. |
 | `render` fails with a blank/short MP4 | Run `lint` first; most render failures are malformed `data-start`/`data-composition-id` attributes caught by lint. |
 | Remote/cloud render needed | Set `HEYGEN_API_KEY` per [references/env-and-deps.md](references/env-and-deps.md), then use `hyperframes cloud render` (a separate top-level command, not a `render` flag) — see [references/render-workflow.md](references/render-workflow.md). |
 
@@ -121,9 +96,9 @@ full attribute reference and a complete vertical 1080×1920 example.
 - The installed remotion skill (`ak-remotion`) — React-based programmatic
   video generation; use it when the composition is naturally a React
   component tree rather than HTML markup.
-- The ak-html-video skill — a separate HTML-to-MP4 wrapper
-  (`nexu-io/html-video`) with its own template/Studio workflow; use
-  ak-hyperframes specifically when the task is a HeyGen HyperFrames
-  composition.
+- [references/nexu-html-video-alternative.md](references/nexu-html-video-alternative.md)
+  — the `nexu-io/html-video` template/Studio CLI, an alternative HTML-to-MP4
+  engine; use it only when its template catalog or an existing install fits
+  the request better than a HyperFrames composition.
 - The ak-motion-graphics skill — router across all in-repo video/motion
   skills plus external motion-skills packs.

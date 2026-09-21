@@ -4,7 +4,13 @@
   "title": "OSINT Case Engine Schema v3.0",
   "description": "Canonical JSON Schema for OSINT case subjects, connections, findings, and activity history.",
   "type": "object",
-  "required": ["version", "case_id", "created_at", "subjects", "connections"],
+  "required": [
+    "version",
+    "case_id",
+    "created_at",
+    "subjects",
+    "connections"
+  ],
   "additionalProperties": false,
   "properties": {
     "version": {
@@ -28,7 +34,12 @@
     },
     "classification": {
       "type": "string",
-      "enum": ["OPEN", "CONFIDENTIAL", "SENSITIVE", "RESTRICTED"],
+      "enum": [
+        "OPEN",
+        "CONFIDENTIAL",
+        "SENSITIVE",
+        "RESTRICTED"
+      ],
       "default": "OPEN",
       "description": "Case classification level."
     },
@@ -76,12 +87,25 @@
   "definitions": {
     "confidenceLevel": {
       "type": "string",
-      "enum": ["VERIFIED", "STRONG", "MODERATE", "WEAK", "TENTATIVE", "CHALLENGED"],
+      "enum": [
+        "VERIFIED",
+        "STRONG",
+        "MODERATE",
+        "WEAK",
+        "TENTATIVE",
+        "CHALLENGED"
+      ],
       "description": "Confidence in the accuracy of the data."
     },
     "findingType": {
       "type": "string",
-      "enum": ["PRIMARY", "DERIVED", "CONFIRMED", "CONTESTED", "ANECDOTAL"],
+      "enum": [
+        "PRIMARY",
+        "DERIVED",
+        "CONFIRMED",
+        "CONTESTED",
+        "ANECDOTAL"
+      ],
       "description": "Classification of the finding."
     },
     "trustScore": {
@@ -130,7 +154,12 @@
     },
     "subject": {
       "type": "object",
-      "required": ["id", "type", "value", "created_at"],
+      "required": [
+        "id",
+        "type",
+        "value",
+        "created_at"
+      ],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -201,7 +230,13 @@
         },
         "status": {
           "type": "string",
-          "enum": ["ACTIVE", "VERIFIED", "CHALLENGED", "STALE", "ARCHIVED"],
+          "enum": [
+            "ACTIVE",
+            "VERIFIED",
+            "CHALLENGED",
+            "STALE",
+            "ARCHIVED"
+          ],
           "default": "ACTIVE"
         },
         "notes": {
@@ -272,7 +307,13 @@
     },
     "connection": {
       "type": "object",
-      "required": ["id", "from_id", "to_id", "type", "created_at"],
+      "required": [
+        "id",
+        "from_id",
+        "to_id",
+        "type",
+        "created_at"
+      ],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -310,7 +351,10 @@
         },
         "direction": {
           "type": "string",
-          "enum": ["DIRECTED", "BIDIRECTIONAL"],
+          "enum": [
+            "DIRECTED",
+            "BIDIRECTIONAL"
+          ],
           "default": "DIRECTED"
         },
         "confidence": {
@@ -341,7 +385,12 @@
     },
     "finding": {
       "type": "object",
-      "required": ["id", "type", "source", "recorded_at"],
+      "required": [
+        "id",
+        "type",
+        "source",
+        "recorded_at"
+      ],
       "additionalProperties": false,
       "properties": {
         "id": {

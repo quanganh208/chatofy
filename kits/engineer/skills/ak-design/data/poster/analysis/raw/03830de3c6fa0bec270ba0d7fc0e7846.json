@@ -1,7 +1,17 @@
 {
   "image": "03830de3c6fa0bec270ba0d7fc0e7846.jpg",
-  "style_cues": ["monochromatic", "dynamic", "metallic", "bold typography"],
-  "palette_hexes": ["#000000", "#3F3F3F", "#AAAAAA", "#FFFFFF"],
+  "style_cues": [
+    "monochromatic",
+    "dynamic",
+    "metallic",
+    "bold typography"
+  ],
+  "palette_hexes": [
+    "#000000",
+    "#3F3F3F",
+    "#AAAAAA",
+    "#FFFFFF"
+  ],
   "layout": {
     "grid": "dynamic flow",
     "focal": "full-bleed",
@@ -11,7 +21,21 @@
     "material": "glossy",
     "finish": "gradient mesh"
   },
-  "mood": ["powerful", "modern", "rebellious"],
-  "shape_primitives": ["wavy form", "stacked rectangles", "thick letterforms", "curved line"],
-  "typography": ["geometric sans", "all caps", "3d effect", "extreme size contrast"]
+  "mood": [
+    "powerful",
+    "modern",
+    "rebellious"
+  ],
+  "shape_primitives": [
+    "wavy form",
+    "stacked rectangles",
+    "thick letterforms",
+    "curved line"
+  ],
+  "typography": [
+    "geometric sans",
+    "all caps",
+    "3d effect",
+    "extreme size contrast"
+  ]
 }

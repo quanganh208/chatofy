@@ -48,7 +48,6 @@ gh run view <run-id> --log > /tmp/ci-logs.txt
 ```
 
 **For codebase understanding:**
-
 - Read repository instructions and follow the existing documentation navigation to locate relevant architecture, ownership, and runbook context
 - Verify that context against current source, tests, configuration, and logs
 - Use `/ak:scout` or `/ak:scout ext` to find relevant files whenever context is missing or conflicting
@@ -66,7 +65,6 @@ gh run view <run-id> --log > /tmp/ci-logs.txt
 5. **Dependency mapping** - Which components depend on the failing one?
 
 **Key questions:**
-
 - Does issue correlate with specific deployments or time windows?
 - Is it intermittent or consistent?
 - Does it affect all users or a subset?
@@ -98,7 +96,6 @@ gh run view <run-id> --log > /tmp/ci-logs.txt
 ## Integration with Code-Level Debugging
 
 When investigation narrows to specific code:
-
 - Switch to `systematic-debugging.md` for the code-level fix
 - Use `root-cause-tracing.md` if error is deep in call stack
 - Apply `defense-in-depth.md` after fixing

@@ -1,13 +1,14 @@
 ---
 name: ak:sowat
-description: 'Analyze recently implemented work and related issues like a product owner. Use to identify high-impact next steps, challenge weak priorities, and explain what matters now.'
+description: "Analyze recently implemented work and related issues like a product owner. Use to identify high-impact next steps, challenge weak priorities, and explain what matters now."
 user-invocable: true
-when_to_use: 'Invoke after implementation or when the user asks what matters, what to prioritize, what to do next, or whether the team focused on the wrong thing.'
-category: utilities
+when_to_use: "Invoke after implementation or when the user asks what matters, what to prioritize, what to do next, or whether the team focused on the wrong thing."
+category: workflow
 keywords: [product, impact, priorities, next-steps, issues, strategy, outcome]
+argument-hint: "[recent-changes|issue|PR]"
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: "1.0.1"
 ---
 
 # So What
@@ -35,6 +36,13 @@ Keep the answer brief:
 4. **Defer or ignore** — optional; name tempting work that should not consume attention now.
 
 Separate fact from inference. Say when evidence is missing. Use the user's language and favor clear judgment over exhaustive issue lists.
+
+## Counterexample
+
+A polished new feature with no adoption evidence is not automatically the top priority.
+If a measured onboarding failure blocks existing users, prioritize repairing that failure
+and treat feature adoption as unknown until observed. State confidence and a success signal;
+do not invent a mandatory scoring framework or confuse source completion with shipping.
 
 ## Safety
 

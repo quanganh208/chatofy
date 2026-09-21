@@ -20,9 +20,7 @@ function parseArgs(argv) {
       args.open = true;
     } else if (arg === '--dir' || arg === '--plans' || arg === '--port' || arg === '--host') {
       const value = argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[++i] : '';
-      warn(
-        `ignoring deprecated ${arg}${value ? ` ${value}` : ''}; AgentKit dashboard owns plan scope`,
-      );
+      warn(`ignoring deprecated ${arg}${value ? ` ${value}` : ''}; AgentKit dashboard owns plan scope`);
     } else if (arg === '--background' || arg === '--foreground') {
       warn(`ignoring deprecated ${arg}; dashboard process is managed by ak config`);
     } else if (!arg.startsWith('--')) {
@@ -45,7 +43,7 @@ function akBin() {
 function runAK(args) {
   return spawnSync(akBin(), args, {
     encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['ignore', 'pipe', 'pipe']
   });
 }
 
@@ -54,10 +52,7 @@ function akAvailable() {
 }
 
 function parseJSONEnvelope(stdout) {
-  const lines = String(stdout || '')
-    .trim()
-    .split(/\r?\n/)
-    .filter(Boolean);
+  const lines = String(stdout || '').trim().split(/\r?\n/).filter(Boolean);
   for (let i = lines.length - 1; i >= 0; i--) {
     try {
       return JSON.parse(lines[i]);
@@ -82,14 +77,17 @@ function statusURL() {
 }
 
 function startDashboard() {
-  const child = spawn(
-    akBin(),
-    ['config', 'start', '--port', String(DEFAULT_PORT), '--no-open', '--no-interactive'],
-    {
-      detached: true,
-      stdio: 'ignore',
-    },
-  );
+  const child = spawn(akBin(), [
+    'config',
+    'start',
+    '--port',
+    String(DEFAULT_PORT),
+    '--no-open',
+    '--no-interactive'
+  ], {
+    detached: true,
+    stdio: 'ignore'
+  });
   child.unref();
 }
 
@@ -195,9 +193,7 @@ async function main() {
   }
 
   if (!baseURL) {
-    console.error(
-      '[plans-kanban] dashboard did not expose /api/plans. Upgrade AgentKit CLI or run `ak config start --no-open` manually.',
-    );
+    console.error('[plans-kanban] dashboard did not expose /api/plans. Upgrade AgentKit CLI or run `ak config start --no-open` manually.');
     process.exit(1);
   }
 
@@ -210,14 +206,12 @@ async function main() {
     }
   }
 
-  console.log(
-    JSON.stringify({
-      success: true,
-      url,
-      opened: args.open,
-      platform: os.platform(),
-    }),
-  );
+  console.log(JSON.stringify({
+    success: true,
+    url,
+    opened: args.open,
+    platform: os.platform()
+  }));
 }
 
 main().catch((err) => {

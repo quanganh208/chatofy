@@ -10,22 +10,22 @@ Match at least these categories. Replace each hit with a stable, non-raw
 marker of the form `[REDACTED:<category>]`. Do not include any part of the
 original value, its length, or its hash.
 
-| Category                                     | Pattern class                                                                                                    | Marker                         |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| AWS access key ID                            | `AKIA[0-9A-Z]{16}`                                                                                               | `[REDACTED:aws-key-id]`        |
-| AWS secret access key                        | `[A-Za-z0-9/+=]{40}` in `AWS_SECRET_*=…` context                                                                 | `[REDACTED:aws-key]`           |
-| Generic API key                              | `(?i)(api[_-]?key                                                                                                | apikey                         | access[_-]?token | secret)\s*[:=]\s*\S+` | `[REDACTED:api-key]`           |
-| Bearer token                                 | `(?i)authorization:\s*bearer\s+\S+`                                                                              | `[REDACTED:bearer]`            |
-| JWT                                          | `eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+`                                                              | `[REDACTED:jwt]`               |
-| SSH/PEM private key block                    | `-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]+?-----END [A-Z ]*PRIVATE KEY-----`                                     | `[REDACTED:private-key-block]` |
-| `.env` credential-like line                  | `^[A-Z][A-Z0-9_]*(?:PASSWORD                                                                                     | SECRET                         | TOKEN            | KEY                   | CREDENTIAL                     | PASSWD              | API | AUTH | SESSION)[A-Z0-9_]*=.+$` | `[REDACTED:env-value]` |
-| Database URL with credentials                | `(?i)(postgres                                                                                                   | postgresql                     | mysql            | mongodb               | redis)://[^:@\s]+:[^@\s]+@\S+` | `[REDACTED:db-url]` |
-| Private URL with signed token                | URL with `?token=`, `?sig=`, `?signature=`, `X-Amz-Signature`, `Goog-Signature`, `sv=…&sig=…` (SAS) query params | `[REDACTED:signed-url]`        |
-| Internal/staging host                        | Hosts matching `*.internal`, `*.corp`, `*.staging.<org>`, RFC1918 IPs in URL context, or private CIDR ranges     | `[REDACTED:internal-host]`     |
-| GitHub PAT / OAuth token                     | `gh[pousr]_[A-Za-z0-9]{36,}`, `github_pat_[A-Za-z0-9_]{22,}`                                                     | `[REDACTED:github-token]`      |
-| Slack token                                  | `xox[abpr]-[A-Za-z0-9-]+`                                                                                        | `[REDACTED:slack-token]`       |
-| Basic-auth in URL                            | `https?://[^:/\s]+:[^@\s]+@\S+`                                                                                  | `[REDACTED:basic-auth-url]`    |
-| Personal/customer data captured incidentally | full-name/email/phone/address matches from workspace probes that were not the user's own repo-committed data     | `[REDACTED:pii]`               |
+| Category | Pattern class | Marker |
+|---|---|---|
+| AWS access key ID | `AKIA[0-9A-Z]{16}` | `[REDACTED:aws-key-id]` |
+| AWS secret access key | `[A-Za-z0-9/+=]{40}` in `AWS_SECRET_*=…` context | `[REDACTED:aws-key]` |
+| Generic API key | `(?i)(api[_-]?key|apikey|access[_-]?token|secret)\s*[:=]\s*\S+` | `[REDACTED:api-key]` |
+| Bearer token | `(?i)authorization:\s*bearer\s+\S+` | `[REDACTED:bearer]` |
+| JWT | `eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+` | `[REDACTED:jwt]` |
+| SSH/PEM private key block | `-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]+?-----END [A-Z ]*PRIVATE KEY-----` | `[REDACTED:private-key-block]` |
+| `.env` credential-like line | `^[A-Z][A-Z0-9_]*(?:PASSWORD|SECRET|TOKEN|KEY|CREDENTIAL|PASSWD|API|AUTH|SESSION)[A-Z0-9_]*=.+$` | `[REDACTED:env-value]` |
+| Database URL with credentials | `(?i)(postgres|postgresql|mysql|mongodb|redis)://[^:@\s]+:[^@\s]+@\S+` | `[REDACTED:db-url]` |
+| Private URL with signed token | URL with `?token=`, `?sig=`, `?signature=`, `X-Amz-Signature`, `Goog-Signature`, `sv=…&sig=…` (SAS) query params | `[REDACTED:signed-url]` |
+| Internal/staging host | Hosts matching `*.internal`, `*.corp`, `*.staging.<org>`, RFC1918 IPs in URL context, or private CIDR ranges | `[REDACTED:internal-host]` |
+| GitHub PAT / OAuth token | `gh[pousr]_[A-Za-z0-9]{36,}`, `github_pat_[A-Za-z0-9_]{22,}` | `[REDACTED:github-token]` |
+| Slack token | `xox[abpr]-[A-Za-z0-9-]+` | `[REDACTED:slack-token]` |
+| Basic-auth in URL | `https?://[^:/\s]+:[^@\s]+@\S+` | `[REDACTED:basic-auth-url]` |
+| Personal/customer data captured incidentally | full-name/email/phone/address matches from workspace probes that were not the user's own repo-committed data | `[REDACTED:pii]` |
 
 Add categories as they appear in real capture; do not remove categories.
 
@@ -64,7 +64,7 @@ Do **not** substitute:
 - inferences from unrelated files.
 
 The successor agent uses `Not captured in this session` as a signal to
-gather that evidence itself before acting, and `ak:handover` treats an
+gather that evidence itself before acting, and `ak:handoff --dispatch` treats an
 empty required section as a validation failure.
 
 ## Verification recipe (for the `--advice` reviewer)

@@ -31,7 +31,7 @@
      git rev-parse --verify origin/$b 2>/dev/null && echo "$b" && break
    done
    ```
-4. Run `git status` (never use `-uall`). Uncommitted changes are always included.
+4. Run `git status` (never use `-uall`). Record task ownership and intended ship scope; preserve unrelated uncommitted changes.
 5. Run `git diff <target>...HEAD --stat` and `git log <target>..HEAD --oneline` to understand what's being shipped.
 6. If `--dry-run`: output what would happen at each step and stop here. Do not
    spawn `kongming`, activate `ak:review-pr`, publish social content, or perform
@@ -46,7 +46,6 @@
 Find or create related GitHub issues for traceability.
 
 1. Search for related open issues by keywords from branch name and commit messages:
-
    ```bash
    # Extract keywords from branch name
    BRANCH=$(git branch --show-current)
@@ -57,7 +56,6 @@ Find or create related GitHub issues for traceability.
    ```
 
 2. Also check if any issues are referenced in commit messages:
-
    ```bash
    git log <target>..HEAD --oneline | grep -oE '#[0-9]+' | sort -u
    ```
@@ -65,7 +63,6 @@ Find or create related GitHub issues for traceability.
 3. **If related issues found:** Note issue numbers for PR linking.
 
 4. **If NO related issues found:** Create a new issue with structured format:
-
    ```bash
    gh issue create --title "<type>: <summary from commits>" --body "$(cat <<'EOF'
    ## Problem Statement
@@ -79,7 +76,6 @@ Find or create related GitHub issues for traceability.
 
    ### Architecture
    ```
-
    <ASCII diagram of component interactions>
    ```
 
@@ -96,11 +92,8 @@ Find or create related GitHub issues for traceability.
    - [ ] Verify business logic correctness
    - [ ] Check for edge cases not covered by tests
    - [ ] Validate UX/API contract changes (if any)
-         EOF
-         )"
-
-   ```
-
+   EOF
+   )"
    ```
 
 5. Store issue numbers for Step 12 (PR creation).
@@ -124,7 +117,7 @@ git fetch origin <target> && git merge origin/<target> --no-edit
 2. Delegate to `tester` subagent — don't inline test execution
 3. Check pass/fail from agent result
 
-- **If any test fails:** Show failures and **STOP**. Do not proceed.
+- **If a test fails:** Classify the cause. Repair branch-caused failures within scope, then rerun affected checks. Preserve evidence and stop publication for unresolved external blockers or scope-changing decisions; never weaken tests.
 - **If all pass:** Note counts briefly and continue.
 - **If no test runner detected:** Use `ask_user capability` — "No test runner detected. Skip tests or provide command?"
 
@@ -139,20 +132,15 @@ git fetch origin <target> && git merge origin/<target> --no-edit
    - **Pass 2 (INFORMATIONAL):** Dead code, magic numbers, test gaps, style
 
 4. **Output findings:**
-
    ```
    Pre-Landing Review: N issues (X critical, Y informational)
    ```
 
-5. **If critical issues found:** For EACH critical issue, use `ask_user capability`:
-   - Problem description with `file:line`
-   - Recommended fix
-   - Options: A) Fix now (recommended), B) Acknowledge and ship, C) False positive — skip
+5. **If critical issues found:** Verify the failure and repair in-scope defects. Ask only for a material missing decision or scope change; do not offer to bypass a real blocker. Record false positives with evidence.
 
-6. **If user chose Fix (A):** Apply fixes, commit fixed files, then **re-run tests** (Step 4) before continuing.
+6. **After fixes:** Re-run affected tests (Step 4) before continuing.
 7. **If only informational:** Include in PR body, continue.
 8. **If no issues:** Output "No issues found." and continue.
-
 ## Mandatory advice checkpoint after Steps 4-5
 
 If `--advice`, run the mandatory post-tests/local-review Kongming checkpoint
@@ -190,9 +178,9 @@ section of the shared files-first plan-state reference
    step silently** (most ships carry no plan).
 2. Verify checkboxes with `ak plan status`; if the diff proves a phase done,
    `ak plan check <phase-file>` it. If the work is genuinely partial, `ak plan
-update <id> --status in-progress` and skip the completion below.
+   update <id> --status in-progress` and skip the completion below.
 3. `ak plan update <id> --status completed` — rewrites `plan.md` front-matter
-   `status:` (canonical) and the index in one op. Step 10's `git add -A` then
+   `status:` (canonical) and the index in one op. Step 10's scoped staging then
    commits the finalized plan files with the ship, so `status: completed` reaches
    the target branch in the same merge as the code.
 
@@ -203,7 +191,7 @@ or delete plan files.
 
 ## Step 10: Commit
 
-1. Stage all changes: `git add -A`
+1. Stage only reviewed task-owned paths, including intended plan/version/docs artifacts: `git add -- <owned-paths>`. Inspect the staged diff against ship scope; do not absorb unrelated dirty files or existing staged work.
 2. Security check: scan staged diff for secrets (API keys, tokens, passwords)
    - If secrets found: **STOP**, warn user, suggest `.gitignore`
 3. Compose commit message:
@@ -233,7 +221,6 @@ git push -u origin $(git branch --show-current)
 ## Step 12: Create PR
 
 Check if `gh` CLI is available:
-
 ```bash
 which gh 2>/dev/null || echo "MISSING"
 ```
@@ -241,17 +228,14 @@ which gh 2>/dev/null || echo "MISSING"
 If missing: output "Install GitHub CLI (gh) to auto-create PRs" and stop after push.
 
 **Resolve writing language** before rendering the body:
-
 ```bash
 WL_BIN=.claude/hooks/lib/writing-language.cjs
 test -f "$WL_BIN" || WL_BIN=kits/core/hooks/lib/writing-language.cjs
 node "$WL_BIN" --json
 ```
-
 Load `references/pr-template.md` and the shared contracts:
-
-- `kits/core/skills/ak-review-pr/references/writing-language.md`
-- `kits/core/skills/ak-review-pr/references/pr-body-contract.md`
+- `kits/engineer/skills/ak-review-pr/references/writing-language.md`
+- `kits/engineer/skills/ak-review-pr/references/pr-body-contract.md`
 
 Render the **seven required sections** plus Linked Issues / Ship Mode in the
 effective language. Keep the PR **title** English conventional-commit form.
@@ -261,7 +245,6 @@ Record language `source` / `fallbackReason` under Ship Mode.
 keywords inside the Linked Issues section.
 
 Create PR targeting the correct branch:
-
 ```bash
 gh pr create --base <target-branch> --title "<type(scope): summary>" --body "$(cat <<'EOF'
 <localized evidence-rich body from pr-template.md>
@@ -270,7 +253,6 @@ EOF
 ```
 
 Validate before finishing:
-
 ```bash
 PR_BIN=.claude/hooks/lib/pr-body-contract.cjs
 test -f "$PR_BIN" || PR_BIN=kits/core/hooks/lib/pr-body-contract.cjs
@@ -280,7 +262,6 @@ gh pr view --json body -q .body | node "$PR_BIN"
 **Output the PR URL** — this is the final output the user sees.
 
 If PR already exists for this branch, update it instead (same contract):
-
 ```bash
 gh pr edit --title "<type(scope): summary>" --body "$(cat <<'EOF'
 <localized evidence-rich body>
@@ -292,11 +273,9 @@ EOF
 
 If Step 9b finalized a plan, record the PR number on it so the merge flow can
 match plan to PR and close the index unambiguously:
-
 ```bash
 ak plan update <plan-id> --linked-pr <pr-number>
 ```
-
 `--linked-pr` is index-only (it does not touch files). Skip silently when no
 plan was finalized. Do not close the plan here — the index `close` happens only
 after the PR merges (see the shared reference's "Delivery finalization" section).

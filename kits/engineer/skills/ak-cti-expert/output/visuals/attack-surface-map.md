@@ -12,8 +12,8 @@ Spec for rendering a structured attack surface enumeration from case subjects. G
 
 **Options:**
 
-| Option                      | Default      | Description                                                         |
-| --------------------------- | ------------ | ------------------------------------------------------------------- |
+| Option | Default | Description |
+|--------|---------|-------------|
 | `--subject <org_or_domain>` | all subjects | Restrict enumeration to subjects linked to a specific org or domain |
 
 ---
@@ -21,7 +21,7 @@ Spec for rendering a structured attack surface enumeration from case subjects. G
 ## Subject Type Mapping
 
 | Subject Type | Surface Category |
-| ------------ | ---------------- |
+|--------------|------------------|
 | DOMAIN       | EXTERNAL         |
 | URL          | EXTERNAL         |
 | NETWORK_ADDR | INFRASTRUCTURE   |
@@ -39,12 +39,12 @@ Subject types not in this table (DOCUMENT, ORG) are listed in a separate METADAT
 
 Each subject's exposure score drives its risk tier label. Uses scores from `analysis/exposure-model.md`:
 
-| Composite Score | Tier Label |
-| --------------- | ---------- |
-| 0–30            | LOW        |
-| 31–65           | MEDIUM     |
-| 66–80           | HIGH       |
-| 81–100          | CRITICAL   |
+| Composite Score | Tier Label   |
+|-----------------|--------------|
+| 0–30            | LOW          |
+| 31–65           | MEDIUM       |
+| 66–80           | HIGH         |
+| 81–100          | CRITICAL     |
 
 Within each section, subjects are sorted descending by exposure score.
 
@@ -99,11 +99,10 @@ Tier breakdown:  CRITICAL: {n_crit}  HIGH: {n_high}  MEDIUM: {n_med}  LOW: {n_lo
 ```
 
 **Tier label display:**
-
 - `[CRITICAL]` — bold in terminal output (ANSI `\e[1;31m`)
-- `[HIGH]` — red (`\e[31m`)
-- `[MEDIUM]` — yellow (`\e[33m`)
-- `[LOW]` — default
+- `[HIGH]`     — red (`\e[31m`)
+- `[MEDIUM]`   — yellow (`\e[33m`)
+- `[LOW]`      — default
 
 ---
 
@@ -138,7 +137,6 @@ def render_attack_surface(case, subject_filter=None):
 ## Integration
 
 Reads from:
-
 - **Subject registry** — `engine/subject-registry.md` — subject type, value, verified flag
 - **Exposure scores** — `analysis/exposure-model.md` — composite score per subject
 - **Workspace** — `engine/workspace-format.md` — case ID, metadata

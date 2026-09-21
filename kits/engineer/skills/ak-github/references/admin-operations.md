@@ -75,7 +75,6 @@ gh variable list / set / delete                 # same shapes, non-sensitive con
 ```
 
 Rules:
-
 - Value sources: prompt the user to provide via file/stdin, or a secret
   store. Never accept a value pasted into chat and echo it back; never
   `echo "$VALUE" |` in a way that lands the value in logs.

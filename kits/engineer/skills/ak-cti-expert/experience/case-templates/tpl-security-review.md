@@ -6,15 +6,15 @@
 
 ## Template Metadata
 
-| Field                  | Value                                                              |
-| ---------------------- | ------------------------------------------------------------------ |
-| ID                     | `security-review`                                                  |
-| Category               | security                                                           |
-| Skill tier             | Practitioner to Specialist                                         |
-| Duration               | 10–20 min standard · 30–45 min full                                |
-| Required inputs        | Domain name                                                        |
+| Field | Value |
+|-------|-------|
+| ID | `security-review` |
+| Category | security |
+| Skill tier | Practitioner to Specialist |
+| Duration | 10–20 min standard · 30–45 min full |
+| Required inputs | Domain name |
 | Required authorization | Yes — only scan domains you own or have written permission to test |
-| Output                 | Security grade A–F + prioritized remediation list                  |
+| Output | Security grade A–F + prioritized remediation list |
 
 ---
 
@@ -54,15 +54,14 @@ Registration data, DNS records, hosting, CDN.
 /sweep {{domain}} --hosting
 ```
 
-| Check | Data Collected            | Risk Signal                  |
-| ----- | ------------------------- | ---------------------------- |
-| WHOIS | Registrar, dates, privacy | Expiring soon, no privacy    |
-| DNS   | Records, nameservers      | Single nameserver, no DNSSEC |
-| IP    | Provider, geo             | High-risk hosting            |
-| CDN   | Network present           | None detected                |
+| Check | Data Collected | Risk Signal |
+|-------|---------------|-------------|
+| WHOIS | Registrar, dates, privacy | Expiring soon, no privacy |
+| DNS | Records, nameservers | Single nameserver, no DNSSEC |
+| IP | Provider, geo | High-risk hosting |
+| CDN | Network present | None detected |
 
 **Reconnaissance flags:**
-
 ```
 Critical:  Expiring registration · suspicious registrar
 Warning:   Single-point DNS · recently transferred
@@ -80,21 +79,19 @@ Enumerate all subdomains and assess exposure per entry point.
 ```
 
 Standard subdomain targets:
-
 ```
 www · mail · ftp · admin · test · dev · staging · api · app · cdn
 ```
 
-| Subdomain Type | Risk Level | Reason                        |
-| -------------- | ---------- | ----------------------------- |
-| Admin panels   | High       | Management interface exposure |
-| Test/staging   | High       | Often has weaker controls     |
-| API endpoints  | Variable   | Data access surface           |
-| Legacy systems | High       | Outdated software likely      |
-| Development    | High       | Incomplete security controls  |
+| Subdomain Type | Risk Level | Reason |
+|----------------|-----------|--------|
+| Admin panels | High | Management interface exposure |
+| Test/staging | High | Often has weaker controls |
+| API endpoints | Variable | Data access surface |
+| Legacy systems | High | Outdated software likely |
+| Development | High | Incomplete security controls |
 
 **Risk scoring:**
-
 ```
 +5  admin panel with no auth
 +5  test environment reachable
@@ -108,7 +105,6 @@ www · mail · ftp · admin · test · dev · staging · api · app · cdn
 Systematic search for unintentionally exposed information.
 
 **Configuration and backup files:**
-
 ```
 /dork site:{{domain}} ext:env OR ext:config OR ext:ini
 /dork site:{{domain}} (backup.zip OR dump.sql OR .git)
@@ -116,7 +112,6 @@ Systematic search for unintentionally exposed information.
 ```
 
 **Sensitive documents:**
-
 ```
 /dork site:{{domain}} filetype:pdf "confidential"
 /dork site:{{domain}} filetype:xls OR filetype:xlsx
@@ -124,7 +119,6 @@ Systematic search for unintentionally exposed information.
 ```
 
 **Vulnerability indicators:**
-
 ```
 /dork site:{{domain}} inurl:admin OR inurl:wp-admin
 /dork site:{{domain}} "error" "sql syntax"
@@ -133,14 +127,14 @@ Systematic search for unintentionally exposed information.
 
 **Dork priority tiers:**
 
-| Priority | Finding                       | Response        |
-| -------- | ----------------------------- | --------------- |
-| P0       | Database dump accessible      | Immediate alert |
-| P0       | Admin panel unprotected       | Immediate alert |
-| P1       | Source code (.git) reachable  | Urgent          |
-| P1       | Backup files accessible       | Urgent          |
-| P2       | Config files with credentials | High            |
-| P3       | Directory listing enabled     | Medium          |
+| Priority | Finding | Response |
+|----------|---------|----------|
+| P0 | Database dump accessible | Immediate alert |
+| P0 | Admin panel unprotected | Immediate alert |
+| P1 | Source code (.git) reachable | Urgent |
+| P1 | Backup files accessible | Urgent |
+| P2 | Config files with credentials | High |
+| P3 | Directory listing enabled | Medium |
 
 ### Phase 4 — Technology Fingerprinting
 
@@ -154,13 +148,13 @@ Identify stack versions for CVE matching.
 
 **Technology risk matrix:**
 
-| Component        | Check            | Vulnerability Source      |
-| ---------------- | ---------------- | ------------------------- |
-| Web server       | Version exposed? | CVE database              |
-| CMS              | Core version     | WPScan / advisories       |
-| Framework        | Detect version   | NPM / composer audit      |
-| Database         | Port exposed?    | Default credentials check |
-| Language runtime | Version?         | Known CVEs                |
+| Component | Check | Vulnerability Source |
+|-----------|-------|---------------------|
+| Web server | Version exposed? | CVE database |
+| CMS | Core version | WPScan / advisories |
+| Framework | Detect version | NPM / composer audit |
+| Database | Port exposed? | Default credentials check |
+| Language runtime | Version? | Known CVEs |
 
 ### Phase 5 — Header & TLS Assessment
 
@@ -172,14 +166,14 @@ Identify stack versions for CVE matching.
 
 **Headers checklist:**
 
-| Header                    | Required    | Risk if Missing   |
-| ------------------------- | ----------- | ----------------- |
-| Content-Security-Policy   | Yes         | XSS exposure      |
-| Strict-Transport-Security | Yes         | Downgrade attacks |
-| X-Frame-Options           | Yes         | Clickjacking      |
-| X-Content-Type-Options    | Yes         | MIME sniffing     |
-| Referrer-Policy           | Yes         | Data leakage      |
-| Permissions-Policy        | Recommended | Feature abuse     |
+| Header | Required | Risk if Missing |
+|--------|----------|-----------------|
+| Content-Security-Policy | Yes | XSS exposure |
+| Strict-Transport-Security | Yes | Downgrade attacks |
+| X-Frame-Options | Yes | Clickjacking |
+| X-Content-Type-Options | Yes | MIME sniffing |
+| Referrer-Policy | Yes | Data leakage |
+| Permissions-Policy | Recommended | Feature abuse |
 
 **TLS requirements:**
 
@@ -193,23 +187,23 @@ Prohibited: TLS 1.1 · TLS 1.0 · SSLv3 · weak ciphers
 
 **Category weights:**
 
-| Category                | Weight |
-| ----------------------- | ------ |
-| Infrastructure          | 20%    |
-| Exposure                | 25%    |
-| Technology currency     | 20%    |
-| Vulnerabilities         | 25%    |
-| Security responsiveness | 10%    |
+| Category | Weight |
+|----------|--------|
+| Infrastructure | 20% |
+| Exposure | 25% |
+| Technology currency | 20% |
+| Vulnerabilities | 25% |
+| Security responsiveness | 10% |
 
 **Grade scale:**
 
-| Score  | Grade | Status    |
-| ------ | ----- | --------- |
-| 90–100 | A     | Excellent |
-| 80–89  | B     | Good      |
-| 70–79  | C     | Fair      |
-| 60–69  | D     | Poor      |
-| < 60   | F     | Critical  |
+| Score | Grade | Status |
+|-------|-------|--------|
+| 90–100 | A | Excellent |
+| 80–89 | B | Good |
+| 70–79 | C | Fair |
+| 60–69 | D | Poor |
+| < 60 | F | Critical |
 
 ### Phase 7 — Remediation Roadmap
 
@@ -230,12 +224,12 @@ Medium — Within 30 days:
 
 **Standard roadmap structure:**
 
-| Timeframe  | Action Items                                        |
-| ---------- | --------------------------------------------------- |
-| Immediate  | Critical: exposed data, unauth admin panels         |
-| This week  | High: outdated software, missing core headers       |
-| This month | Medium: error handling, orphaned subdomains         |
-| Ongoing    | Monitoring schedule, patch process, staff awareness |
+| Timeframe | Action Items |
+|-----------|-------------|
+| Immediate | Critical: exposed data, unauth admin panels |
+| This week | High: outdated software, missing core headers |
+| This month | Medium: error handling, orphaned subdomains |
+| Ongoing | Monitoring schedule, patch process, staff awareness |
 
 ---
 

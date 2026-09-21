@@ -3,12 +3,12 @@ name: ak:plans-kanban
 description: Open the AgentKit plans dashboard in the CLI config UI. Use for plan kanban views, progress tracking, timeline checks, and quick navigation into plan files.
 user-invocable: true
 when_to_use: "Invoke to open or inspect the plans dashboard."
-category: dev-tools
+category: meta
 keywords: [plans, dashboard, kanban, progress, timeline]
 argument-hint: "[deprecated flags are accepted with warnings]"
 metadata:
   author: agentkit
-  version: "2.0.0"
+  version: "2.0.1"
 ---
 
 # plans-kanban
@@ -85,15 +85,7 @@ The dashboard at `/plans` is only opened when the running AgentKit CLI instance 
 
 If neither probe succeeds, the launcher prints an upgrade message and exits with code 1 without opening the browser. Upgrade the CLI to a version that exposes the plans-dashboard capability to use this launcher.
 
-## Migration Notes
-
-The legacy standalone server, renderer, and assets have been retired from this skill.
-
-For migration details:
-
-```text
-deprecated/MIGRATION.md
-```
+Legacy migration details: `references/legacy-migration.md` when troubleshooting old launchers.
 
 ## Troubleshooting
 
@@ -104,7 +96,8 @@ Install the AgentKit CLI and confirm `ak --version` works in your shell, or set 
 Start it manually with `ak config start --port 8766`, then open `/plans` on whichever port the CLI reports.
 
 **Need to stop a launcher-started dashboard**
-Run the launcher again with `--stop`, or run `ak config stop`.
+Run the launcher again with `--stop`, or run `ak config stop`, only for a dashboard
+this task started/owns. Reuse the actual status URL and do not stop another session.
 
 **Need custom host or different port**
 Run `ak config start` directly with the flags you need. The `plans-kanban` launcher intentionally stays thin and opinionated.

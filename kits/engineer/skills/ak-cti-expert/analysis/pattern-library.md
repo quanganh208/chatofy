@@ -21,7 +21,6 @@ def normalize_leet(handle):
 ```
 
 **Detection regex** (flags any handle containing substitutable chars):
-
 ```regex
 [a-z0-9]*[013457@$!9|][a-z0-9@$!|]*
 ```
@@ -35,7 +34,6 @@ def normalize_leet(handle):
 **Description:** Inserts or removes separators (`.`, `_`, `-`) between name components. Common when primary handle is taken.
 
 **Normalization:**
-
 ```python
 def strip_separators(handle):
     return re.sub(r'[._\-]', '', handle.lower())
@@ -55,7 +53,6 @@ def strip_separators(handle):
 **Common suffixes:** `official`, `real`, `hq`, `1`, `2`, `3`, `_`, `__`, `xo`, `tv`, `yt`
 
 **Detection regex:**
-
 ```regex
 ^(real|the|official|its|im|iam|hi|hey)(.+)$
 ^(.+)(official|real|hq|tv|yt|xo|1|2|3|_+)$
@@ -74,7 +71,6 @@ Cross-ref: `analysis/signature-catalog.md` B-02
 **Description:** Matches email domain against a curated list of disposable/throwaway providers.
 
 **Top disposable domains (representative sample — full list maintained separately):**
-
 ```
 mailinator.com  guerrillamail.com  10minutemail.com  tempmail.com  throwam.com
 yopmail.com     maildrop.cc        sharklasers.com   tempr.email   discard.email
@@ -84,7 +80,6 @@ dayrep.com      einrot.com         filzmail.com      gustr.com     incognitomail
 ```
 
 **Detection:**
-
 ```python
 def is_disposable_domain(email):
     domain = email.split('@')[-1].lower()
@@ -100,7 +95,6 @@ def is_disposable_domain(email):
 **Description:** Bot-generated addresses typically have a random alphanumeric local part followed by digits. Distinguishes from human-chosen addresses.
 
 **Regex:**
-
 ```regex
 ^[a-z]{4,12}[0-9]{3,8}@
 ```
@@ -114,7 +108,6 @@ def is_disposable_domain(email):
 **Description:** Plus-aliasing (`user+tag@domain`) is used by privacy-conscious users or automation to create trackable unique addresses per service.
 
 **Regex:**
-
 ```regex
 ^[^+@]+\+[a-z0-9._\-]{2,}@
 ```
@@ -132,7 +125,6 @@ def is_disposable_domain(email):
 Cross-ref: `analysis/signature-catalog.md` T-01
 
 **Rule:** Coefficient of variation (CV) of inter-post intervals. CV < 0.05 → bot-like; CV > 0.30 → human-like.
-
 ```python
 def posting_regularity_score(timestamps):
     intervals = [(timestamps[i+1]-timestamps[i]).seconds for i in range(len(timestamps)-1)]
@@ -153,7 +145,6 @@ def posting_regularity_score(timestamps):
 Cross-ref: `analysis/signature-catalog.md` L-04
 
 **Rule:**
-
 ```python
 # Jaccard similarity on 4-gram token sets
 def jaccard_4gram(text_a, text_b):
@@ -176,11 +167,11 @@ def jaccard_4gram(text_a, text_b):
 
 **Scoring:** bio (+2), non-default avatar (+2), location set (+1), account age >90d (+2), pinned post (+1), link in bio (+1), verified badge (+2). Max: 11.
 
-| Score | Assessment                    |
-| ----- | ----------------------------- |
-| 0–3   | HIGH bot probability          |
+| Score | Assessment |
+|-------|------------|
+| 0–3   | HIGH bot probability |
 | 4–6   | MEDIUM — review other signals |
-| 7–11  | LOW bot probability           |
+| 7–11  | LOW bot probability |
 
 **Confidence:** 65% at score 0–3 | **FP Rate:** 20%
 

@@ -1,10 +1,14 @@
 ---
 name: ak:document-skills
 description: Read, create, and edit Office documents (docx, pdf, pptx, xlsx). Use for tables, forms, slides, spreadsheets.
-argument-hint: '<docx|pdf|pptx|xlsx> [path] [action]'
+user-invocable: true
+when_to_use: "Invoke to read, create, or edit docx, pdf, pptx, or xlsx files."
+category: media
+keywords: [docx, pdf, pptx, xlsx, office]
+argument-hint: "<docx|pdf|pptx|xlsx> [path] [action]"
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: "1.0.0"
 ---
 
 # Document skills

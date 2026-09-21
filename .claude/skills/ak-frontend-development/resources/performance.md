@@ -1,3 +1,7 @@
+# Applicability
+
+Use these examples only when their packages and conventions match the inspected project. Preserve existing router, component library, aliases and dependency versions.
+
 # Performance Optimization
 
 Patterns for optimizing React component performance, preventing unnecessary re-renders, and avoiding memory leaks.

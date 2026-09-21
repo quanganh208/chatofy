@@ -1,15 +1,15 @@
 ---
 name: ak:explain
-description: Explain concepts, code, systems, architecture, errors, documents, and technical decisions accurately and at the requested depth. Use whenever the user asks "explain this", "how does this work", "why does X happen", requests a code walkthrough, or needs a complex topic simplified; use --eli5 for plain analogies without losing safety warnings and --html for a visual self-contained explanation.
+description: Explain concepts, code, systems, errors, and documents with grounded evidence. Use --eli5 for plain-language analogies or --html for a visual explanation.
 user-invocable: true
 when_to_use: "Invoke when the user wants an explanation, walkthrough, mental model, ELI5 simplification, or visual HTML explanation of a concept, codebase, or system."
-category: utilities
+category: reasoning
 keywords: [explain, walkthrough, mental-model, eli5, visual, html, code, concept, architecture]
 argument-hint: "[subject|path|URL] [--html] [--eli5]"
 license: MIT
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # Explain (`ak:explain`)
@@ -21,6 +21,8 @@ Build a grounded mental model and clear explanation of any technical subject, co
 - **`ak:bro`**: use ONLY when the user asks to simplify or restate the assistant's *immediately preceding response*.
 - **`ak:preview`**: use for generic file/artifact viewing, slide presentations, or visual diff comparisons.
 - **`ak:explain`**: use for explaining new topics, files, concepts, systems, code paths, errors, and `--eli5` / `--html` explanations.
+
+Explaining an error is read-only. If the user requests a repair, route implementation to the installed repair capability and carry over the evidence.
 
 ## Argument Resolution & Modes
 

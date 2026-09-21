@@ -7,7 +7,13 @@
     "conceptual",
     "digital rendering"
   ],
-  "palette_hexes": ["#000000", "#C69C6D", "#7F001F", "#F0E0D0", "#503A26"],
+  "palette_hexes": [
+    "#000000",
+    "#C69C6D",
+    "#7F001F",
+    "#F0E0D0",
+    "#503A26"
+  ],
   "layout": {
     "grid": "figure-dominant",
     "focal": "center-right",
@@ -17,7 +23,12 @@
     "material": "digital flat",
     "finish": "3d text rendering"
   },
-  "mood": ["introspective", "strong", "complex", "artistic"],
+  "mood": [
+    "introspective",
+    "strong",
+    "complex",
+    "artistic"
+  ],
   "shape_primitives": [
     "organic forms",
     "curved text paths",
@@ -25,5 +36,10 @@
     "diagonal alignment",
     "text outlines"
   ],
-  "typography": ["all caps", "sans-serif", "variable size", "curved baselines"]
+  "typography": [
+    "all caps",
+    "sans-serif",
+    "variable size",
+    "curved baselines"
+  ]
 }

@@ -1,7 +1,20 @@
 {
   "image": "f3e0358f167e6471f7dd6636529a9fc6.jpg",
-  "style_cues": ["fantasy", "traditional chinese art", "illustrative", "dramatic", "ornate"],
-  "palette_hexes": ["#C84F3D", "#3C6E8F", "#FDE8A0", "#87A97A", "#E68B4D", "#FFC000"],
+  "style_cues": [
+    "fantasy",
+    "traditional chinese art",
+    "illustrative",
+    "dramatic",
+    "ornate"
+  ],
+  "palette_hexes": [
+    "#C84F3D",
+    "#3C6E8F",
+    "#FDE8A0",
+    "#87A97A",
+    "#E68B4D",
+    "#FFC000"
+  ],
   "layout": {
     "grid": "dynamic diagonal",
     "focal": "center",
@@ -11,7 +24,12 @@
     "material": "textured canvas",
     "finish": "brush strokes"
   },
-  "mood": ["mystical", "epic", "dramatic", "traditional"],
+  "mood": [
+    "mystical",
+    "epic",
+    "dramatic",
+    "traditional"
+  ],
   "shape_primitives": [
     "flowing curves",
     "diagonal folds",
@@ -19,5 +37,10 @@
     "geometric structures",
     "organic clouds"
   ],
-  "typography": ["stylized calligraphic", "geometric sans", "size contrast", "mixed styles"]
+  "typography": [
+    "stylized calligraphic",
+    "geometric sans",
+    "size contrast",
+    "mixed styles"
+  ]
 }

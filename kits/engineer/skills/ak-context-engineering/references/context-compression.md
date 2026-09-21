@@ -1,90 +1,92 @@
-# Context Compression
+# Compression and continuation quality
 
-Strategies for long-running sessions exceeding context windows.
+Optimize total cost to finish correctly. Aggressive compression can omit constraints
+and force re-fetching; no universal reduction percentage guarantees quality.
 
-## Core Insight
+## Retain the continuation contract
 
-Optimize **tokens-per-task** (total to completion), not tokens-per-request.
-Aggressive compression causing re-fetching costs more than better retention.
+Merge current intent/constraints, artifacts/revisions, decisions/reasons, verified
+checks, open failures and next safe action. Replace superseded content rather than
+recreating the note from memory. Keep source pointers for exact error text and contracts.
+Never promote a transcript summary to system authority or discard active tool pairs.
 
-## Compression Methods
+Choose a safe task boundary using available headroom and the next operation's expected
+size. Use only supported compaction or authorized handoff capabilities. Test whether a
+successor can continue from the summary without guessing or repeating discarded work.
 
-| Method                 | Compression | Quality | Best For        |
-| ---------------------- | ----------- | ------- | --------------- |
-| **Anchored Iterative** | 98.6%       | 3.70/5  | Best balance    |
-| **Regenerative Full**  | 98.7%       | 3.44/5  | Readability     |
-| **Opaque**             | 99.3%       | 3.35/5  | Max compression |
+## Lexical checks are not semantic evaluation
 
-## Anchored Iterative Summary Template
-
-```markdown
-## Session Intent
-
-Original goal: [preserved]
-
-## Files Modified
-
-- file.py: Changes made
-
-## Decisions Made
-
-- Key decisions with rationale
-
-## Current State
-
-Progress summary
-
-## Next Steps
-
-1. Next action items
+```bash
+python3 scripts/compression_evaluator.py generate-probes original.json > candidates.json
+python3 scripts/compression_evaluator.py evaluate original.json summary.txt
 ```
 
-**On compression**: Merge new content into existing sections, don't regenerate.
+`original.json` is a list of message objects with string `content`, or an object with
+that `messages` list. Generated probes are unreviewed candidates, not verified ground
+truth; edit them and add missing constraints before evaluation. Empty candidates are
+legitimate. A phrase and its negation may both match lexically.
 
-## Compression Triggers
+Schema v2 defaults to `quality_status: ungraded`, `quality_score: null` and null dimension
+scores. `lexical_evidence` reports text matches only. `compression_ratio` is a numeric
+estimated reduction (negative means expansion; null for empty source), no longer a
+formatted percentage. It uses source message text, not JSON wrapper overhead. Character
+estimates are not tokenizer counts, especially for multilingual/code/media content.
 
-| Strategy        | Trigger                     | Use Case             |
-| --------------- | --------------------------- | -------------------- |
-| Fixed threshold | 70-80% utilization          | General purpose      |
-| Sliding window  | Keep last N turns + summary | Conversations        |
-| Task-boundary   | At logical completion       | Multi-step workflows |
+## Explicit external grading
 
-## Artifact Trail Problem
+Use independent model/human grading of a continuation exercise against reviewed probes.
+The script validates supplied grading, not the truth of the grader's judgment. Include
+response/evidence and judge identity/method so the result can be audited.
 
-Weakest dimension (2.2-2.5/5.0). Coding agents need explicit tracking of:
+A reviewed rubric is a JSON array, for example:
 
-- Files created/modified/read
-- Function/variable names, error messages
+```json
+[{"id":"tls","type":"constraint","question":"Which TLS constraint must remain true?",
+  "ground_truth":"Keep TLS verification enabled.",
+  "context_reference":"Keep TLS verification enabled.","critical":true,"reviewed":true}]
+```
 
-**Solution**: Dedicated artifact section in summary.
+`context_reference` must be exact source text. IDs are unique. Types and required scores:
 
-## Probe-Based Evaluation
+| Type | Scores |
+|---|---|
+| recall | accuracy, completeness |
+| artifact | accuracy, artifact_trail |
+| continuation | continuity, context_awareness |
+| decision | accuracy, context_awareness |
+| constraint | accuracy, instruction_following |
 
-| Probe Type   | Tests             | Example                 |
-| ------------ | ----------------- | ----------------------- |
-| Recall       | Factual retention | "What was the error?"   |
-| Artifact     | File tracking     | "Which files modified?" |
-| Continuation | Task planning     | "What next?"            |
-| Decision     | Reasoning chains  | "Why chose X?"          |
+Run `evaluate original.json summary.txt --probes probes.json` and copy `input_binding`
+into the grade file. Bindings cover canonical source messages, exact summary UTF-8 text
+and the full normalized rubric (SHA-256). Do not reuse grades after any input changes.
 
-## Six Evaluation Dimensions
+```json
+{"schema_version":1,"source_sha256":"<source hash>","summary_sha256":"<summary hash>",
+ "probes_sha256":"<rubric hash>","judge":{"id":"reviewer/run","method":"continuation rubric"},
+ "results":[{"probe_id":"tls","response":"Keep TLS verification enabled.",
+ "evidence":"Cite the actual continuation result and source constraint here.",
+ "scores":{"accuracy":1,"instruction_following":1}}]}
+```
 
-1. **Accuracy** - Technical correctness
-2. **Context Awareness** - Conversation state
-3. **Artifact Trail** - File tracking (universally weak)
-4. **Completeness** - Coverage depth
-5. **Continuity** - Work continuation
-6. **Instruction Following** - Constraints
+This is an input-shape illustration, not an observed model evaluation. Replace every
+placeholder with actual evidence; never manufacture a passing grade.
 
-## Guidelines
+```bash
+python3 scripts/compression_evaluator.py evaluate original.json summary.txt \
+  --probes probes.json --grades grades.json
+```
 
-1. Use anchored iterative for best quality/compression
-2. Maintain explicit artifact tracking section
-3. Trigger compression at 70% utilization
-4. Merge into sections, don't regenerate
-5. Evaluate with probes, not lexical metrics
+Results must cover all reviewed probes exactly once with the correct dimensions and
+finite scores in [0,1]. Missing, duplicate, stale or malformed grades fail. Untested
+dimensions remain null. The aggregate is the mean of probe means; any critical score
+below 1 yields `failed_critical_constraint` with quality_score 0, preserving the ungated
+`graded_mean_score`. Complete supplied grading reports `externally_graded`, never a
+claim of universal quality. Coverage is relative to the supplied rubric only; reviewers
+must ensure it covers original user intent, artifacts, failures and next actions.
 
-## Related
+## Local comparison
 
-- [Context Optimization](./context-optimization.md)
-- [Evaluation](./evaluation.md)
+Compare baseline and compressed continuations on the same tasks, tools and settings.
+Include omitted constraints, opposite meaning, stale state and unrecoverable evidence.
+Use executable acceptance checks first, attributable judgments where necessary, and
+[the four task metrics](model-selection.md). Do not call lexical overlap a quality gate.

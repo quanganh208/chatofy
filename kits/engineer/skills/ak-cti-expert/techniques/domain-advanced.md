@@ -14,7 +14,6 @@ Performs deep subdomain discovery and infrastructure clustering using passive an
 **When to use:** Attack surface mapping, org infrastructure recon, pre-pentest scope validation, exposure assessment.
 
 **Passive vs Active:**
-
 - **Passive** — queries third-party databases; no direct contact with target. Safe, stealthy.
 - **Active** — sends DNS queries or probes directly to target infrastructure. Leaves footprint.
 
@@ -24,14 +23,14 @@ This module defaults to **passive** enumeration only.
 
 ## 2. Tool Inventory
 
-| Priority   | Tool        | Sources                                                        | Install                                                                    |
-| ---------- | ----------- | -------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Primary    | Subfinder   | 45+ passive sources                                            | `go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest` |
-| Secondary  | Amass       | 87 passive sources                                             | `go install github.com/owasp-amass/amass/v4/...@master`                    |
-| CT Logs    | crt.sh      | Certificate Transparency                                       | `curl` + `jq` (no install)                                                 |
-| Network    | ASN Tool    | BGP/ASN/CIDR/peers                                             | `pip3 install asn` or `go install github.com/nitefood/asn@latest`          |
-| Historical | **Waymore** | Wayback + Common Crawl + OTX + URLScan + VT + more (7 sources) | `pip3 install waymore`                                                     |
-| Historical | GAU         | Wayback + AlienVault + Common Crawl + URLScan                  | `go install github.com/lc/gau/v2/cmd/gau@latest`                           |
+| Priority | Tool | Sources | Install |
+|----------|------|---------|---------|
+| Primary | Subfinder | 45+ passive sources | `go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest` |
+| Secondary | Amass | 87 passive sources | `go install github.com/owasp-amass/amass/v4/...@master` |
+| CT Logs | crt.sh | Certificate Transparency | `curl` + `jq` (no install) |
+| Network | ASN Tool | BGP/ASN/CIDR/peers | `pip3 install asn` or `go install github.com/nitefood/asn@latest` |
+| Historical | **Waymore** | Wayback + Common Crawl + OTX + URLScan + VT + more (7 sources) | `pip3 install waymore` |
+| Historical | GAU | Wayback + AlienVault + Common Crawl + URLScan | `go install github.com/lc/gau/v2/cmd/gau@latest` |
 
 ---
 
@@ -54,7 +53,6 @@ This module defaults to **passive** enumeration only.
 ## 4. CLI Commands & Expected Output
 
 ### crt.sh — Certificate Transparency logs
-
 ```bash
 curl -s "https://crt.sh/?q=%25.<domain>&output=json" \
   | jq -r '.[].name_value' \
@@ -62,9 +60,7 @@ curl -s "https://crt.sh/?q=%25.<domain>&output=json" \
   | sort -u \
   | tee crtsh-subdomains.txt
 ```
-
 **Expected output:**
-
 ```
 api.example.com
 dev.example.com
@@ -74,38 +70,29 @@ vpn.example.com
 ```
 
 ### Subfinder — multi-source passive enumeration
-
 ```bash
 subfinder -d <domain> -o subfinder-subdomains.txt -oJ -silent
 ```
-
 **With provider config (recommended for full coverage):**
-
 ```bash
 subfinder -d <domain> -pc ~/.config/subfinder/provider-config.yaml -o subfinder-subdomains.txt -oJ
 ```
-
 **Expected JSON output:**
-
 ```json
 {"host":"api.example.com","input":"example.com","source":"censys"}
 {"host":"dev.example.com","input":"example.com","source":"certspotter"}
 ```
 
 ### Amass — passive-only enumeration
-
 ```bash
 amass enum -passive -d <domain> -json amass-output.json -timeout 15
 ```
-
 **Extract hostnames from JSON:**
-
 ```bash
 cat amass-output.json | jq -r '.name' | sort -u | tee amass-subdomains.txt
 ```
 
 ### Deduplicate combined output
-
 ```bash
 cat crtsh-subdomains.txt subfinder-subdomains.txt amass-subdomains.txt \
   | sort -u \
@@ -115,26 +102,20 @@ wc -l all-subdomains.txt
 ```
 
 ### ASN Tool — BGP/network infrastructure mapping
-
 ```bash
 asn -d <domain>
 ```
-
 **Per-IP ASN lookup:**
-
 ```bash
 asn <ip_address>
 ```
-
 **Expected output:**
-
 ```
 AS13335 | CLOUDFLARENET | US | 104.21.0.0/16 | Cloudflare
 AS16509 | AMAZON-02     | US | 54.230.0.0/15 | AWS CloudFront
 ```
 
 ### Waymore — multi-source historical URL discovery (PRIMARY)
-
 ```bash
 # All archived URLs including subdomains:
 waymore -i <domain> -mode U -oU waymore-urls.txt
@@ -148,11 +129,9 @@ waymore -i <domain> -mode R -oR ./waymore-responses/ -l 1000
 # Filter by date range for targeted historical analysis:
 waymore -i <domain> -mode U -from 2020 -to 2024 -oU waymore-urls.txt
 ```
-
 **Install:** `pip3 install waymore` — https://github.com/xnl-h4ck3r/waymore
 
 ### GAU — historical URL discovery (FALLBACK if waymore unavailable)
-
 ```bash
 echo <domain> | gau --subs --threads 5 2>/dev/null \
   | grep -oP '(?<=://)[^/]+' \
@@ -191,7 +170,6 @@ ASN tool unavailable
 ## 6. Output Interpretation
 
 **Subdomain naming patterns to flag:**
-
 ```
 dev.*, staging.*, test.*, qa.*  → Pre-production, often less hardened
 admin.*, panel.*, manage.*      → Admin interfaces
@@ -202,13 +180,11 @@ internal.*, intranet.*          → May be accidentally public
 ```
 
 **Infrastructure clustering by ASN:**
-
 - Same ASN across many subdomains = self-hosted or single cloud account
 - Mixed ASNs = CDN + origin separation; CDN may mask real IP
 - Single IP hosting many subdomains = shared hosting, virtual hosting attack surface
 
 **GAU historical findings:**
-
 - URLs present in archive but not in current DNS = decommissioned assets
 - Check if old subdomains still resolve — forgotten infrastructure is often unpatched
 
@@ -216,14 +192,14 @@ internal.*, intranet.*          → May be accidentally public
 
 ## 7. Confidence Ratings
 
-| Finding Type                 | Confidence | Notes                                     |
-| ---------------------------- | ---------- | ----------------------------------------- |
-| crt.sh CT log match          | HIGH       | Certificate was issued; subdomain existed |
-| Subfinder verified source    | HIGH       | Cross-referenced across providers         |
-| Amass passive result         | HIGH       | 87-source cross-reference                 |
-| GAU historical URL           | MEDIUM     | May be decommissioned                     |
-| ASN attribution              | HIGH       | BGP routing data is authoritative         |
-| Inferred from naming pattern | LOW        | Guessed, not confirmed                    |
+| Finding Type | Confidence | Notes |
+|--------------|-----------|-------|
+| crt.sh CT log match | HIGH | Certificate was issued; subdomain existed |
+| Subfinder verified source | HIGH | Cross-referenced across providers |
+| Amass passive result | HIGH | 87-source cross-reference |
+| GAU historical URL | MEDIUM | May be decommissioned |
+| ASN attribution | HIGH | BGP routing data is authoritative |
+| Inferred from naming pattern | LOW | Guessed, not confirmed |
 
 ---
 
@@ -245,7 +221,6 @@ internal.*, intranet.*          → May be accidentally public
 
 **Input:** Apex domain (e.g., `example.com`)
 **Process:**
-
 1. crt.sh CT log query
 2. Subfinder passive scan
 3. Amass passive enum (15-min timeout)
@@ -256,7 +231,6 @@ internal.*, intranet.*          → May be accidentally public
 8. Flag high-interest naming patterns
 
 **Subfinder Provider Config** (`~/.config/subfinder/provider-config.yaml`):
-
 ```yaml
 shodan:
   - YOUR_SHODAN_API_KEY
@@ -265,13 +239,12 @@ censys:
 securitytrails:
   - YOUR_ST_API_KEY
 ```
-
 All above have free tiers sufficient for OSINT use.
 
 **Output:** Deduplicated subdomain list, ASN/provider map, flagged high-interest targets, total unique count per source.
 
 ---
 
-_Domain Advanced Module v1.0.0_
-_Part of Free OSINT Expert Skill - Phase 5_
-_For authorized reconnaissance and educational purposes only_
+*Domain Advanced Module v1.0.0*
+*Part of Free OSINT Expert Skill - Phase 5*
+*For authorized reconnaissance and educational purposes only*

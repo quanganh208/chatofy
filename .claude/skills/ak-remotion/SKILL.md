@@ -3,12 +3,12 @@ name: ak:remotion
 description: "Build video content with Remotion in React. Use for programmatic video creation, animated sequences, data-driven video rendering."
 user-invocable: true
 when_to_use: "Invoke for programmatic video generation with React."
-category: frontend
+category: media
 keywords: [video, react, remotion, rendering]
 metadata:
   tags: remotion, video, react, animation, composition
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 argument-hint: "[video or component]"
 ---
 
@@ -49,6 +49,13 @@ Read individual rule files for detailed explanations and code examples:
 - [rules/transitions.md](rules/transitions.md) - Scene transition patterns for Remotion
 - [rules/trimming.md](rules/trimming.md) - Trimming patterns for Remotion - cut the beginning or end of animations
 - [rules/videos.md](rules/videos.md) - Embedding videos in Remotion - trimming, volume, speed, looping, pitch
+
+## Completion
+
+Read only the rule for the requested change. Verify composition ID/props, dimensions, fps,
+duration and frame range, plus asset loading and audio synchronization. For export requests,
+use the installed version's render command and inspect the final media; a preview alone is
+not render proof. Report any unverified audio/frame dimension.
 
 ## See also
 

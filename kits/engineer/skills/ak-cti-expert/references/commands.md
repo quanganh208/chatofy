@@ -3,9 +3,7 @@
 Commands are organized by AEAD case lifecycle phase.
 
 ## 1. Acquire
-
 Collect raw intelligence from open sources:
-
 - `/case [target]` — Full autonomous investigation running all applicable vectors.
 - `/sweep [target]` — Multi-vector recon across domains, handles, emails, or IPs.
 - `/query [subject]` — Builds 12–15 precision search engine dorks.
@@ -22,9 +20,7 @@ Collect raw intelligence from open sources:
 - `/cert-history [domain]` — SSL/TLS certificate timeline from CT logs.
 
 ## 2. Enrich
-
 Expand leads and discover latent connections:
-
 - `/branch [data]` — Expand a discovered identifier laterally.
 - `/timeline [subject]` — Assemble dated event sequence.
 - `/crossref` — Detect shared identifiers across subjects.
@@ -34,9 +30,7 @@ Expand leads and discover latent connections:
 - `/pathfind [A] [B]` — Discover connection path between subjects.
 
 ## 3. Assess
-
 Score risk and verify evidence:
-
 - `/exposure [target]` — Composite exposure score (0–100).
 - `/threat-model` — Build threat model from validated findings.
 - `/signatures` — Surface recurring behavioral patterns.
@@ -45,9 +39,7 @@ Score risk and verify evidence:
 - `/blind-spots` — Prioritized investigation gap analysis.
 
 ## 4. Deliver
-
 Package intelligence artifacts:
-
 - `/report` — Technical intelligence summary (.md + .docx + optional .html).
 - `/report brief` — Single-page executive brief.
 - `/report legal` — Chain-of-custody evidence format.

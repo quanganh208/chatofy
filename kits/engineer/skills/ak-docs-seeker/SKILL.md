@@ -2,13 +2,13 @@
 name: ak:docs-seeker
 description: Search library/framework documentation via llms.txt (context7.com). Use for API docs, GitHub repository analysis, technical documentation lookup, latest library features.
 user-invocable: true
-when_to_use: 'Invoke when current library or framework docs are needed.'
-category: dev-tools
+when_to_use: "Invoke when current library or framework docs are needed."
+category: engineering
 keywords: [docs, llms-txt, api, library, context7]
-argument-hint: '[library-name] [topic]'
+argument-hint: "[library-name] [topic]"
 metadata:
   author: agentkit
-  version: '3.1.0'
+  version: "3.1.1"
 ---
 
 # Documentation Discovery via Scripts
@@ -21,7 +21,9 @@ Execute scripts to handle entire workflow - no manual URL construction needed.
 
 ## Primary Workflow
 
-**ALWAYS execute scripts in this order:**
+If a precise official documentation URL is supplied, read it directly and confirm its
+version applies. Reuse the fetched result within this task while that version/source is
+unchanged. For discovery or fallback, use the scripts in dependency order:
 
 ```bash
 # 1. DETECT query type (topic-specific vs general)
@@ -39,25 +41,22 @@ Scripts handle URL construction, fallback chains, and error handling automatical
 ## Scripts
 
 **`detect-topic.js`** - Classify query type
-
 - Identifies topic-specific vs general queries
 - Extracts library name + topic keyword
 - Returns JSON: `{topic, library, isTopicSpecific}`
-- Zero-token execution
+- Inspect the bounded script output
 
 **`fetch-docs.js`** - Retrieve documentation
-
 - Constructs context7.com URLs automatically
 - Handles fallback: topic → general → error
 - Outputs llms.txt content or error message
-- Zero-token execution
+- Inspect the bounded script output
 
 **`analyze-llms-txt.js`** - Process llms.txt
-
 - Categorizes URLs (critical/important/supplementary)
 - Recommends agent distribution (1 agent, 3 agents, 7 agents, phased)
 - Returns JSON with strategy
-- Zero-token execution
+- Inspect the bounded script output
 
 ## Workflow References
 
@@ -77,8 +76,8 @@ Scripts handle URL construction, fallback chains, and error handling automatical
 
 ## Execution Principles
 
-1. **Scripts first** - Execute scripts instead of manual URL construction
-2. **Zero-token overhead** - Scripts run without context loading
+1. **Direct URL or discovery** - Read a known URL directly; use scripts for discovery/fallback
+2. **Bound outputs** - Scripts execute outside model context; their results still consume context
 3. **Automatic fallback** - Scripts handle topic → general → error chains
 4. **Progressive disclosure** - Load workflows/references only when needed
 5. **Agent distribution** - Scripts recommend parallel agent strategy
@@ -86,7 +85,6 @@ Scripts handle URL construction, fallback chains, and error handling automatical
 ## Quick Start
 
 **Topic query:** "How do I use date picker in shadcn?"
-
 ```bash
 node scripts/detect-topic.js "<query>"  # → {topic, library, isTopicSpecific}
 node scripts/fetch-docs.js "<query>"    # → 2-3 URLs
@@ -94,7 +92,6 @@ node scripts/fetch-docs.js "<query>"    # → 2-3 URLs
 ```
 
 **General query:** "Documentation for Next.js"
-
 ```bash
 node scripts/detect-topic.js "<query>"         # → {isTopicSpecific: false}
 node scripts/fetch-docs.js "<query>"           # → 8+ URLs

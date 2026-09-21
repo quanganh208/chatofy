@@ -32,11 +32,10 @@ fields are authoritative and additive — do not drop a handover field because a
 similarly named section already exists.
 
 Precedence when `--advice` combines with other modes:
-
 - `--tdd`: the test-first commands become the `Verify` field's mechanical pass
   condition. When a task requires a failing test first (red phase), state that
   explicitly as the pass condition (e.g. `Verify: test command exits non-zero with
-assertion failure; passing test is a failure`) so the expected red state is
+  assertion failure; passing test is a failure`) so the expected red state is
   not mistaken for a verification failure. The regression gate is one of the
   verification steps.
 - `--deep`: keep the deeper inventories and scenario matrices; still decompose
@@ -85,18 +84,16 @@ implied. Use this shape:
 
 ```markdown
 ## Failure Protocol
-
 If any Verify step does not meet its stated pass condition, STOP this phase.
 Do not improvise a fix, retry blindly, or reason around the failure.
 Spawn the `kongming` subagent for next-step counsel and pass:
-
 - the phase and task id,
 - what you attempted (the steps you ran),
 - the exact command and its full output,
 - the pass condition it failed to meet.
-  Apply kongming's guidance, then re-run the Verify step.
-  If `kongming` cannot be spawned in this environment, STOP and report the same
-  failure evidence to the user. Never continue by self-reasoning.
+Apply kongming's guidance, then re-run the Verify step.
+If `kongming` cannot be spawned in this environment, STOP and report the same
+failure evidence to the user. Never continue by self-reasoning.
 ```
 
 The STOP is the load-bearing part. Spawning `kongming` is the enhancement; a plan
@@ -112,7 +109,6 @@ the example harder than the prose. A phase task written under this contract:
 
 ```markdown
 ### Task 2.3 — Add the 401 branch to the auth middleware
-
 - Goal: unauthenticated requests to protected routes return HTTP 401.
 - Target files: `src/server/middleware/auth.ts` (function `requireAuth`).
 - Steps:
@@ -123,12 +119,11 @@ the example harder than the prose. A phase task written under this contract:
 ```
 
 Now the executor runs `npm test -- auth.middleware` and it prints `500` and exits
-
 1. The pass condition said exit 0 and `401 unauthorized`. They do not match, so the
-   executor does not edit further, does not guess that a different file is at fault,
-   and does not lower the assertion. It follows the Failure Protocol: it stops, spawns
-   `kongming` with the task id, the change it made, the failing command, and its full
-   output, and waits for counsel before touching the code again.
+executor does not edit further, does not guess that a different file is at fault,
+and does not lower the assertion. It follows the Failure Protocol: it stops, spawns
+`kongming` with the task id, the change it made, the failing command, and its full
+output, and waits for counsel before touching the code again.
 
 ## Handoff note
 

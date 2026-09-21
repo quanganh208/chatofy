@@ -2,7 +2,7 @@
 
 Use this template when creating or updating PRs via `gh pr create` / `gh pr edit`.
 
-Resolve writing language first (`references/writing-language.md` in `ak:review-pr`,
+Resolve writing language first (the writing-language reference supplied by installed `ak:review-pr`,
 or `WL_BIN=.claude/hooks/lib/writing-language.cjs
 test -f "$WL_BIN" || WL_BIN=kits/core/hooks/lib/writing-language.cjs
 node "$WL_BIN" --json`). Render **headings and
@@ -12,28 +12,23 @@ prose** in that language. Keep the PR **title** as English conventional commits.
 
 ```markdown
 ## End-to-end work summary
-
 <facts from task/issue/plan → implement → verify → review → ship>
 <mark inferences explicitly; omit steps that did not run>
 
 ## Subagent delegation
-
 - Count: <N>
 - <role>: <task> — <status> — <result>
-  <or "None.">
+<or "None.">
 
 ## Technical decisions
-
 - <decision> — <rationale/evidence>
-  <or "None.">
+<or "None.">
 
 ## Deviations from plan
-
 - <deviation> — <why> — <impact>
-  <or "No plan." / "No deviations.">
+<or "No plan." / "No deviations.">
 
 ## Completion evidence
-
 - Acceptance: <criterion> → <evidence>
 - Tests: <command/result or "skipped: reason">
 - Review: <outcome>
@@ -42,22 +37,18 @@ prose** in that language. Keep the PR **title** as English conventional commits.
 - Changes: <git diff --stat summary>
 
 ## Checklist
-
 - [x] <completed item>
 - [ ] <incomplete/skipped item> — reason: <why>
 
 ## Human actions required
-
 <None or concrete human follow-ups>
 
 ## Linked Issues
-
 - Closes #XX — <issue title>
 - Relates to #YY — <issue title>
-  <or "No linked issues.">
+<or "No linked issues.">
 
 ## Ship Mode
-
 - Mode: <official|beta>
 - Target: <target-branch>
 - Writing language: <tag> (source: <source>; fallback: <reason or none>)
@@ -65,17 +56,17 @@ prose** in that language. Keep the PR **title** as English conventional commits.
 
 ## Vietnamese heading map (`language: vi`)
 
-| English                 | Vietnamese                   |
-| ----------------------- | ---------------------------- |
+| English | Vietnamese |
+|---------|------------|
 | End-to-end work summary | Tóm tắt công việc end-to-end |
-| Subagent delegation     | Ủy thác subagent             |
-| Technical decisions     | Quyết định kỹ thuật          |
-| Deviations from plan    | Lệch so với plan             |
-| Completion evidence     | Bằng chứng hoàn thành        |
-| Checklist               | Checklist                    |
-| Human actions required  | Việc cần người xử lý         |
-| Linked Issues           | Issues liên quan             |
-| Ship Mode               | Chế độ ship                  |
+| Subagent delegation | Ủy thác subagent |
+| Technical decisions | Quyết định kỹ thuật |
+| Deviations from plan | Lệch so với plan |
+| Completion evidence | Bằng chứng hoàn thành |
+| Checklist | Checklist |
+| Human actions required | Việc cần người xử lý |
+| Linked Issues | Issues liên quan |
+| Ship Mode | Chế độ ship |
 
 ## PR Title Format
 

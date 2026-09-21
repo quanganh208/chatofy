@@ -1,3 +1,7 @@
+# Applicability
+
+Use these examples only when their packages and conventions match the inspected project. Preserve existing router, component library, aliases and dependency versions.
+
 # Common Patterns
 
 Frequently used patterns for forms, authentication, DataGrid, dialogs, and other common UI elements.

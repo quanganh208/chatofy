@@ -64,7 +64,6 @@ Must complete each phase before proceeding to next.
 ## Red Flags - STOP and Follow Process
 
 If catch yourself thinking:
-
 - "Quick fix for now, investigate later"
 - "Just try changing X and see if it works"
 - "Add multiple changes, run tests"
@@ -80,24 +79,23 @@ If catch yourself thinking:
 - "Is that not happening?" - Assumed without verifying
 - "Will it show us...?" - Should have added evidence gathering
 - "Stop guessing" - Proposing fixes without understanding
-- "Ultrathink this" - Question fundamentals, not just symptoms
+- "Look deeper than that" - Question fundamentals, not just symptoms
 - "We're stuck?" (frustrated) - Approach isn't working
 
 **When see these:** STOP. Return to Phase 1.
 
 ## Common Rationalizations
 
-| Excuse                                     | Reality                                     |
-| ------------------------------------------ | ------------------------------------------- |
-| "Issue is simple, don't need process"      | Simple issues have root causes too          |
-| "Emergency, no time for process"           | Systematic is FASTER than guess-and-check   |
-| "Just try this first, then investigate"    | First fix sets pattern. Do right from start |
-| "One more fix attempt" (after 2+ failures) | 3+ failures = architectural problem         |
+| Excuse | Reality |
+|--------|---------|
+| "Issue is simple, don't need process" | Simple issues have root causes too |
+| "Emergency, no time for process" | Systematic is FASTER than guess-and-check |
+| "Just try this first, then investigate" | First fix sets pattern. Do right from start |
+| "One more fix attempt" (after 2+ failures) | 3+ failures = architectural problem |
 
 ## Real-World Impact
 
 From debugging sessions:
-
 - Systematic approach: 15-30 minutes to fix
 - Random fixes approach: 2-3 hours of thrashing
 - First-time fix rate: 95% vs 40%

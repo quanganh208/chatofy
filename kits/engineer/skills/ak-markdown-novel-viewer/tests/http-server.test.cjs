@@ -4,6 +4,8 @@
  */
 
 const assert = require('assert');
+const fs = require('fs');
+const http = require('http');
 const {
   createHttpServer,
   getMimeType,
@@ -13,9 +15,57 @@ const {
   isPathSafe,
   setAllowedDirs,
   sanitizeErrorMessage,
-  MIME_TYPES,
+  MIME_TYPES
 } = require('../scripts/lib/http-server.cjs');
 const path = require('path');
+
+const skillRoot = path.join(__dirname, '..');
+const assetsDir = path.join(skillRoot, 'assets');
+
+function localCssImports(cssText) {
+  const refs = [];
+  const pattern = /@import\s+(?:url\(\s*)?['"]([^'"]+)['"]\s*\)?/gi;
+  let match;
+  while ((match = pattern.exec(cssText)) !== null) {
+    const ref = match[1].trim();
+    if (!ref || /^(?:https?:)?\/\//i.test(ref) || /^data:/i.test(ref)) {
+      continue;
+    }
+    refs.push(ref);
+  }
+  return refs;
+}
+
+function listen(server) {
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      resolve(server.address().port);
+    });
+  });
+}
+
+function closeServer(server) {
+  return new Promise((resolve, reject) => {
+    server.close((err) => (err ? reject(err) : resolve()));
+  });
+}
+
+function httpGet(port, urlPath) {
+  return new Promise((resolve, reject) => {
+    http.get({ hostname: '127.0.0.1', port, path: urlPath }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode,
+          type: String(res.headers['content-type'] || ''),
+          body: Buffer.concat(chunks)
+        });
+      });
+    }).on('error', reject);
+  });
+}
 
 describe('MIME_TYPES', () => {
   it('should have common file types', () => {
@@ -149,7 +199,7 @@ describe('createHttpServer', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
-      allowedDirs: [__dirname],
+      allowedDirs: [__dirname]
     });
     assert(server);
     assert(typeof server.listen === 'function');
@@ -159,7 +209,7 @@ describe('createHttpServer', () => {
   it('should require assetsDir', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
-      renderMarkdown: (fp) => '<html></html>',
+      renderMarkdown: (fp) => '<html></html>'
     });
     assert(server);
     server.close();
@@ -169,7 +219,7 @@ describe('createHttpServer', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
-      plansDir: '/plans',
+      plansDir: '/plans'
     });
     assert(server);
     server.close();
@@ -179,7 +229,7 @@ describe('createHttpServer', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
-      allowedDirs: [__dirname, '/tmp'],
+      allowedDirs: [__dirname, '/tmp']
     });
     assert(server);
     server.close();
@@ -190,7 +240,7 @@ describe('Route: /assets/*', () => {
   it('should prevent directory traversal in assets path', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
-      renderMarkdown: (fp) => '<html></html>',
+      renderMarkdown: (fp) => '<html></html>'
     });
     // Route validation happens internally - can't test HTTP response without full setup
     server.close();
@@ -199,10 +249,43 @@ describe('Route: /assets/*', () => {
   it('should validate asset paths for ../', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
-      renderMarkdown: (fp) => '<html></html>',
+      renderMarkdown: (fp) => '<html></html>'
     });
     // Security check happens in route handler
     server.close();
+  });
+
+  it('serves novel-theme.css and every local @import as text/css 200', async () => {
+    const entryPath = path.join(assetsDir, 'novel-theme.css');
+    const entryCss = fs.readFileSync(entryPath, 'utf8');
+    const imports = localCssImports(entryCss);
+    assert.ok(imports.length > 0, 'novel-theme.css must @import at least one local module');
+
+    const assetUrls = ['/assets/novel-theme.css'];
+    for (const rel of imports) {
+      const abs = path.resolve(assetsDir, rel);
+      assert.ok(abs.startsWith(path.resolve(assetsDir) + path.sep), `import escaped assets: ${rel}`);
+      assert.ok(fs.existsSync(abs), `missing CSS module ${rel}`);
+      assetUrls.push('/assets/' + path.relative(assetsDir, abs).split(path.sep).join('/'));
+    }
+
+    const server = createHttpServer({
+      assetsDir,
+      renderMarkdown: () => '<html></html>',
+      allowedDirs: [assetsDir]
+    });
+
+    try {
+      const port = await listen(server);
+      for (const urlPath of assetUrls) {
+        const res = await httpGet(port, urlPath);
+        assert.strictEqual(res.status, 200, `${urlPath} status`);
+        assert.ok(res.type.includes('text/css'), `${urlPath} content-type ${res.type}`);
+        assert.ok(res.body.length > 0, `${urlPath} empty body`);
+      }
+    } finally {
+      await closeServer(server);
+    }
   });
 });
 
@@ -211,7 +294,7 @@ describe('Route: /dashboard', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
-      plansDir: __dirname,
+      plansDir: __dirname
     });
     server.close();
   });
@@ -220,7 +303,7 @@ describe('Route: /dashboard', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
-      allowedDirs: [__dirname],
+      allowedDirs: [__dirname]
     });
     server.close();
   });
@@ -231,7 +314,7 @@ describe('Route: /api/dashboard', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
-      plansDir: __dirname,
+      plansDir: __dirname
     });
     server.close();
   });
@@ -239,7 +322,7 @@ describe('Route: /api/dashboard', () => {
   it('should handle missing plansDir gracefully', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
-      renderMarkdown: (fp) => '<html></html>',
+      renderMarkdown: (fp) => '<html></html>'
     });
     server.close();
   });
@@ -250,7 +333,7 @@ describe('Route: /file/*', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
-      allowedDirs: [__dirname],
+      allowedDirs: [__dirname]
     });
     server.close();
   });
@@ -260,7 +343,7 @@ describe('Route: /api/files', () => {
   it('should be disabled for security', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
-      renderMarkdown: (fp) => '<html></html>',
+      renderMarkdown: (fp) => '<html></html>'
     });
     server.close();
   });

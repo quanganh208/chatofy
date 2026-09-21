@@ -78,10 +78,9 @@ When score < 6/10:
 2. **Address each in refined prompt**
 3. **Regenerate with fast model** first
 4. **Re-analyze before committing** to standard model
-5. **Iterate until score â‰¥ 7/10**
+5. **Iterate until acceptance criteria met**
 
 Example:
-
 ```bash
 # First attempt scores 5/10 - "colors too muted, composition unbalanced"
 

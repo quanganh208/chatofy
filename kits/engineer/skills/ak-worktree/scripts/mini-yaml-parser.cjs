@@ -78,10 +78,7 @@ function parseFlowMap(text) {
   for (const pair of pairs) {
     const idx = pair.indexOf(':');
     if (idx === -1) continue;
-    const key = pair
-      .slice(0, idx)
-      .trim()
-      .replace(/^["']|["']$/g, '');
+    const key = pair.slice(0, idx).trim().replace(/^["']|["']$/g, '');
     const value = pair.slice(idx + 1).trim();
     map[key] = parseScalar(value);
   }
@@ -154,10 +151,7 @@ function parseYaml(content) {
         pos += 1;
         continue;
       }
-      const key = line.text
-        .slice(0, colonIdx)
-        .trim()
-        .replace(/^["']|["']$/g, '');
+      const key = line.text.slice(0, colonIdx).trim().replace(/^["']|["']$/g, '');
       const rest = line.text.slice(colonIdx + 1).trim();
       pos += 1;
 
@@ -206,10 +200,7 @@ function parseYaml(content) {
       // "key: value" lines (indent === indent + 2, i.e. deeper than the dash
       // column) belong to the same map item.
       const itemIndent = indent + 2;
-      const firstKey = afterDash
-        .slice(0, colonIdx)
-        .trim()
-        .replace(/^["']|["']$/g, '');
+      const firstKey = afterDash.slice(0, colonIdx).trim().replace(/^["']|["']$/g, '');
       const firstRest = afterDash.slice(colonIdx + 1).trim();
       const map = { [firstKey]: firstRest === '' ? null : parseScalar(firstRest) };
 
@@ -217,19 +208,12 @@ function parseYaml(content) {
         const innerLine = lines[pos];
         const innerColon = innerLine.text.indexOf(':');
         if (innerColon === -1) break;
-        const innerKey = innerLine.text
-          .slice(0, innerColon)
-          .trim()
-          .replace(/^["']|["']$/g, '');
+        const innerKey = innerLine.text.slice(0, innerColon).trim().replace(/^["']|["']$/g, '');
         const innerRest = innerLine.text.slice(innerColon + 1).trim();
         pos += 1;
         if (innerRest !== '') {
           map[innerKey] = parseScalar(innerRest);
-        } else if (
-          pos < lines.length &&
-          lines[pos].indent > itemIndent &&
-          lines[pos].text.startsWith('-')
-        ) {
+        } else if (pos < lines.length && lines[pos].indent > itemIndent && lines[pos].text.startsWith('-')) {
           map[innerKey] = parseList(lines[pos].indent);
         } else if (pos < lines.length && lines[pos].indent > itemIndent) {
           map[innerKey] = parseBlock(lines[pos].indent);

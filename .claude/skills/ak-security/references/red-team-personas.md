@@ -175,5 +175,5 @@ Mask every secret value per the redaction rule in `SKILL.md` § Security Policy 
 ## Attribution
 
 Persona catalog and discovery loop pattern adapted from:
-- uditgoenka/autoresearch `references/security-workflow.md` § "Red-Team Adversarial Lenses" (MIT License)
+- uditgoenka/autoresearch upstream security workflow, section "Red-Team Adversarial Lenses" (MIT License)
 - Strix AI-powered security testing platform patterns (via upstream attribution)

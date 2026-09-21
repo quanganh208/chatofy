@@ -70,13 +70,13 @@ No headings allowed in this prose block.
 
 Rules:
 
-| Element        | Requirement                                                                                                         |
-| -------------- | ------------------------------------------------------------------------------------------------------------------- |
-| H1             | **Required.** Exactly one `#` with the project/site name.                                                           |
-| Blockquote     | One-line (or short) summary after the H1. Use `> …`.                                                                |
-| Optional prose | Zero or more paragraphs/lists **without any headings**.                                                             |
-| H2 sections    | Group related links. Each item: `- [title](url): one-line note`.                                                    |
-| `## Optional`  | Last H2. Agents may skip these entries when context is short. Put changelogs, legacy, and supplementary links here. |
+| Element | Requirement |
+|---|---|
+| H1 | **Required.** Exactly one `#` with the project/site name. |
+| Blockquote | One-line (or short) summary after the H1. Use `> …`. |
+| Optional prose | Zero or more paragraphs/lists **without any headings**. |
+| H2 sections | Group related links. Each item: `- [title](url): one-line note`. |
+| `## Optional` | Last H2. Agents may skip these entries when context is short. Put changelogs, legacy, and supplementary links here. |
 
 Hard constraints for `llms.txt`:
 
@@ -97,12 +97,12 @@ discoverable (e.g. as a heading link).
 
 Size guidance (from llmstxt.org practice):
 
-| Size        | Guidance                                                                                    |
-| ----------- | ------------------------------------------------------------------------------------------- |
-| <200 KB     | Comfortable for most agent queries                                                          |
-| 200 KB–1 MB | Prefer for focused/deep queries                                                             |
-| 1–2 MB      | Near typical context limits; agents may chunk                                               |
-| >2 MB       | May exceed agent context — warn, trim non-essential pages, or expect fallback to `llms.txt` |
+| Size | Guidance |
+|---|---|
+| <200 KB | Comfortable for most agent queries |
+| 200 KB–1 MB | Prefer for focused/deep queries |
+| 1–2 MB | Near typical context limits; agents may chunk |
+| >2 MB | May exceed agent context — warn, trim non-essential pages, or expect fallback to `llms.txt` |
 
 Exclude changelogs, forums, and archived versions from the full file unless the
 user explicitly requests them. Prefer essential, citation-worthy content.
@@ -146,7 +146,6 @@ Report output paths, entry counts, approximate `llms-full.txt` size, and any
 unresolved links or skipped pages.
 
 ## Additional requests
-
 <additional_requests>
-$ARGUMENTS
+  $ARGUMENTS
 </additional_requests>

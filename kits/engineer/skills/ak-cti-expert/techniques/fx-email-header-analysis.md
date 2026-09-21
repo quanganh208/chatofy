@@ -1,20 +1,17 @@
 # fx-email-header-analysis
 
 ## Purpose
-
 Parse raw email headers to trace the routing path, verify sender authentication, and flag spoofing or manipulation. Scope is headers only — no body content analysis.
 
 ## Quick Reference
-
-| Item       | Detail                                                          |
-| ---------- | --------------------------------------------------------------- |
-| Command    | /analyze-email                                                  |
-| Input      | Pasted raw email header block                                   |
-| Output     | Routing trace, auth verdict, anomaly list                       |
+| Item | Detail |
+|------|--------|
+| Command | /analyze-email |
+| Input | Pasted raw email header block |
+| Output | Routing trace, auth verdict, anomaly list |
 | Confidence | HIGH for server-generated fields; LOW for sender-claimed fields |
 
 ## Annotated Header Example
-
 ```
 Received: from mail.attacker.io (HELO legit.bank.com [198.51.100.9])   ← HELO spoofed
         by mx.victim.com with ESMTPS id x7f;
@@ -34,7 +31,6 @@ Return-Path: <bounce@attacker.io>                                      ← misma
 ```
 
 ## Methodology
-
 1. Read `Received` chain **bottom-to-top** — oldest hop first, newest (your server) at top
 2. Extract originating IP from the lowest `Received` line's bracket value
 3. Check HELO name matches the sending IP's reverse DNS — mismatch = suspicious
@@ -45,27 +41,24 @@ Return-Path: <bounce@attacker.io>                                      ← misma
 8. Check `Message-ID` format matches claimed sending platform (Gmail IDs differ from Outlook)
 
 ## Auth Decision Matrix
-
-| SPF  | DKIM | DMARC | Verdict        |
-| ---- | ---- | ----- | -------------- |
-| pass | pass | pass  | Authenticated  |
-| pass | none | pass  | Acceptable     |
-| fail | pass | pass  | Suspicious     |
-| fail | fail | fail  | Likely spoofed |
-| none | none | none  | Unverifiable   |
+| SPF | DKIM | DMARC | Verdict |
+|-----|------|-------|---------|
+| pass | pass | pass | Authenticated |
+| pass | none | pass | Acceptable |
+| fail | pass | pass | Suspicious |
+| fail | fail | fail | Likely spoofed |
+| none | none | none | Unverifiable |
 
 ## Tools & Fallbacks
-
-| Priority | Tool                      | Install                                   | Notes                             |
-| -------- | ------------------------- | ----------------------------------------- | --------------------------------- |
-| 1        | MXToolbox Header Analyzer | mxtoolbox.com/EmailHeaders                | Paste-and-parse; free             |
-| 2        | Google Admin Toolbox      | toolbox.googleapps.com/apps/messageheader | Visualizes hop timing             |
-| 3        | mailheader.org            | mailheader.org                            | Lightweight alternative           |
-| 4        | dig / nslookup            | Built-in                                  | Manual SPF/DKIM DNS lookup        |
-| 5        | ipinfo.io                 | ipinfo.io                                 | IP geolocation of originating hop |
+| Priority | Tool | Install | Notes |
+|----------|------|---------|-------|
+| 1 | MXToolbox Header Analyzer | mxtoolbox.com/EmailHeaders | Paste-and-parse; free |
+| 2 | Google Admin Toolbox | toolbox.googleapps.com/apps/messageheader | Visualizes hop timing |
+| 3 | mailheader.org | mailheader.org | Lightweight alternative |
+| 4 | dig / nslookup | Built-in | Manual SPF/DKIM DNS lookup |
+| 5 | ipinfo.io | ipinfo.io | IP geolocation of originating hop |
 
 ## Output Format
-
 ```
 Originating IP: 198.51.100.9 → AS64496 (OVH FR)
 HELO Claim:     legit.bank.com [MISMATCH — no reverse DNS match]
@@ -86,7 +79,6 @@ Verdict: HIGH CONFIDENCE SPOOFING
 ```
 
 ## Limitations
-
 - Early `Received` headers are operator-controlled and can be forged entirely
 - NAT hides true internal origin; private IPs reveal topology but not identity
 - Greylisting causes legitimate delays that mimic suspicious timing patterns
@@ -94,7 +86,6 @@ Verdict: HIGH CONFIDENCE SPOOFING
 - ARC chains (forwarded mail) add complexity; treat preserved auth results cautiously
 
 ## Related Techniques
-
 - [fx-http-fingerprint.md](fx-http-fingerprint.md) — server-side header analysis
 - [fx-breach-discovery.md](fx-breach-discovery.md) — verify sender address against known exposures
 - [fx-network-mapping.md](fx-network-mapping.md) — map sending infrastructure as network finding

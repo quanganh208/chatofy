@@ -3,15 +3,12 @@
 Copy-paste JSON templates for `.excalidraw` files. Pull colors from `color-palette.md`.
 
 ## Free-Floating Text (no container)
-
 ```json
 {
   "type": "text",
   "id": "label1",
-  "x": 100,
-  "y": 100,
-  "width": 200,
-  "height": 25,
+  "x": 100, "y": 100,
+  "width": 200, "height": 25,
   "text": "Section Title",
   "originalText": "Section Title",
   "fontSize": 20,
@@ -40,15 +37,12 @@ Copy-paste JSON templates for `.excalidraw` files. Pull colors from `color-palet
 ```
 
 ## Line (structural, not arrow)
-
 ```json
 {
   "type": "line",
   "id": "line1",
-  "x": 100,
-  "y": 100,
-  "width": 0,
-  "height": 200,
+  "x": 100, "y": 100,
+  "width": 0, "height": 200,
   "strokeColor": "#1e3a5f",
   "backgroundColor": "transparent",
   "fillStyle": "solid",
@@ -65,23 +59,17 @@ Copy-paste JSON templates for `.excalidraw` files. Pull colors from `color-palet
   "boundElements": null,
   "link": null,
   "locked": false,
-  "points": [
-    [0, 0],
-    [0, 200]
-  ]
+  "points": [[0, 0], [0, 200]]
 }
 ```
 
 ## Small Marker Dot
-
 ```json
 {
   "type": "ellipse",
   "id": "dot1",
-  "x": 94,
-  "y": 94,
-  "width": 12,
-  "height": 12,
+  "x": 94, "y": 94,
+  "width": 12, "height": 12,
   "strokeColor": "#3b82f6",
   "backgroundColor": "#3b82f6",
   "fillStyle": "solid",
@@ -102,15 +90,11 @@ Copy-paste JSON templates for `.excalidraw` files. Pull colors from `color-palet
 ```
 
 ## Rectangle
-
 ```json
 {
   "type": "rectangle",
   "id": "elem1",
-  "x": 100,
-  "y": 100,
-  "width": 180,
-  "height": 90,
+  "x": 100, "y": 100, "width": 180, "height": 90,
   "strokeColor": "#1971c2",
   "backgroundColor": "#a5d8ff",
   "fillStyle": "solid",
@@ -124,23 +108,20 @@ Copy-paste JSON templates for `.excalidraw` files. Pull colors from `color-palet
   "versionNonce": 67890,
   "isDeleted": false,
   "groupIds": [],
-  "boundElements": [{ "id": "text1", "type": "text" }],
+  "boundElements": [{"id": "text1", "type": "text"}],
   "link": null,
   "locked": false,
-  "roundness": { "type": 3 }
+  "roundness": {"type": 3}
 }
 ```
 
 ## Text (centered in shape)
-
 ```json
 {
   "type": "text",
   "id": "text1",
-  "x": 130,
-  "y": 132,
-  "width": 120,
-  "height": 25,
+  "x": 130, "y": 132,
+  "width": 120, "height": 25,
   "text": "Process",
   "originalText": "Process",
   "fontSize": 16,
@@ -169,15 +150,11 @@ Copy-paste JSON templates for `.excalidraw` files. Pull colors from `color-palet
 ```
 
 ## Arrow
-
 ```json
 {
   "type": "arrow",
   "id": "arrow1",
-  "x": 282,
-  "y": 145,
-  "width": 118,
-  "height": 0,
+  "x": 282, "y": 145, "width": 118, "height": 0,
   "strokeColor": "#1971c2",
   "backgroundColor": "transparent",
   "fillStyle": "solid",
@@ -194,12 +171,9 @@ Copy-paste JSON templates for `.excalidraw` files. Pull colors from `color-palet
   "boundElements": null,
   "link": null,
   "locked": false,
-  "points": [
-    [0, 0],
-    [118, 0]
-  ],
-  "startBinding": { "elementId": "elem1", "focus": 0, "gap": 2 },
-  "endBinding": { "elementId": "elem2", "focus": 0, "gap": 2 },
+  "points": [[0, 0], [118, 0]],
+  "startBinding": {"elementId": "elem1", "focus": 0, "gap": 2},
+  "endBinding": {"elementId": "elem2", "focus": 0, "gap": 2},
   "startArrowhead": null,
   "endArrowhead": "arrow"
 }

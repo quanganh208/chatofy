@@ -35,8 +35,8 @@ FUNCTION detectMode(input):
   IF count(features) >= 3 OR keywords contains "parallel":
     RETURN "parallel"
 
-  # Default: interactive workflow
-  RETURN "interactive"
+  # Default: authorized continuation
+  RETURN "auto"
 ```
 
 ## Feature Extraction
@@ -53,19 +53,18 @@ Detect multiple features from natural language:
 
 ## Mode Behaviors
 
-| Mode        | Skip Research | Skip Test | Review Gates    | Auto-Approve          | Parallel Exec  |
-| ----------- | ------------- | --------- | --------------- | --------------------- | -------------- |
-| interactive | ✗             | ✗         | **Yes (stops)** | ✗                     | ✗              |
-| auto        | ✗             | ✗         | **No (skips)**  | Per `review-cycle.md` | ✓ (all phases) |
-| fast        | ✓             | ✗         | Yes (stops)     | ✗                     | ✗              |
-| parallel    | Optional      | ✗         | Yes (stops)     | ✗                     | ✓              |
-| no-test     | ✗             | ✓         | Yes (stops)     | ✗                     | ✗              |
-| code        | ✓             | ✗         | Yes (stops)     | Per plan              | Per plan       |
+| Mode | Skip Research | Skip Test | Review Gates | Auto-Approve | Parallel Exec |
+|------|---------------|-----------|--------------|--------------|---------------|
+| interactive | ✗ | ✗ | Explicit checkpoints | ✗ | ✗ |
+| auto | ✗ | ✗ | No routine human stops | Within authorized scope | When independent |
+| fast | ✓ | ✗ | No routine stops | ✗ | ✗ |
+| parallel | Optional | ✗ | No routine stops | ✗ | ✓ |
+| no-test | ✗ | ✓ | No routine stops | ✗ | ✗ |
+| code | ✓ | ✗ | No routine stops | Per plan | Per plan |
 
 **Review Gates:** Human approval checkpoints between major steps (see `workflow-steps.md`).
-
-- All modes EXCEPT `auto` stop at review gates for human approval.
-- `auto` mode is the only mode that runs continuously without stopping.
+- Only explicit `--interactive` stops at review gates for human approval.
+- Other modes continue within the authorized scope.
 
 ## Examples
 
@@ -74,22 +73,22 @@ Detect multiple features from natural language:
 → Mode: interactive (explicit flag, stops at review gates)
 
 "/ak:cook implement user auth"
-→ Mode: interactive (default, stops at review gates)
+→ Mode: auto (default, authorized continuation)
 
 "/ak:cook <plan-dir>/phase-02-api.md"
-→ Mode: code (path detected, stops at review gates)
+→ Mode: code (path detected, continues within authorized scope)
 
 "/ak:cook quick fix for the login bug"
-→ Mode: fast ("quick" keyword, stops at review gates)
+→ Mode: fast ("quick" keyword, continues within authorized scope)
 
 "/ak:cook implement auth, payments, notifications, shipping"
-→ Mode: parallel (4 features, stops at review gates)
+→ Mode: parallel (4 features, continues within authorized scope)
 
 "/ak:cook implement dashboard --fast"
-→ Mode: fast (explicit flag, stops at review gates)
+→ Mode: fast (explicit flag, continues within authorized scope)
 
 "/ak:cook refactor auth middleware --tdd"
-→ Mode: interactive (default mode, with tests-first implementation behavior)
+→ Mode: auto (default mode, with tests-first implementation behavior)
 
 "/ak:cook implement everything --auto"
 → Mode: auto (NO STOPS, implements all phases continuously)
@@ -98,14 +97,13 @@ Detect multiple features from natural language:
 → Mode: auto ("trust me" keyword, NO STOPS)
 ```
 
-**Note:** Only `--auto` flag or "trust me"/"auto"/"yolo" keywords enable continuous execution.
+**Note:** No flag and accepted plan execution continue within authorized scope. Explicit interactive/advice contracts remain active.
 
 ## Conflict Resolution
 
 When multiple signals detected, priority order:
-
 1. Explicit flags (`--fast`, `--auto`, etc.)
 2. Path detection (plan files)
 3. Keywords in text
 4. Feature count analysis
-5. Default (interactive)
+5. Default (authorized continuation)

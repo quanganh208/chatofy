@@ -93,7 +93,6 @@ Ship `.env.example` instead as a documentation template.
 ## Documentation Requirements
 
 ### .env.example
-
 Show required variables without values:
 
 ```
@@ -103,7 +102,6 @@ DEBUG=false
 ```
 
 ### requirements.txt (Python) — conditional
-
 Ship a `requirements.txt` **only** when the "Legit local-dep exceptions" cases
 in [`./script-dependency-strategy.md`](./script-dependency-strategy.md) apply
 (offline user runtime, native/binary deps ephemeral runners handle poorly, org
@@ -119,7 +117,6 @@ For the default path (no exception), invoke tools via `pipx run pkg==x.y.z`
 or `uvx --from 'pkg==x.y.z' cmd`, or declare deps inline via PEP 723 + `uv run`.
 
 ### package.json (Node.js) — conditional
-
 Only ship a `package.json` under the same exception cases as `requirements.txt`.
 Otherwise call the tool via `npx -y pkg@x.y.z` at the invocation site.
 `node_modules/` is stripped by `scripts/package_skill.py` when packaging, so
@@ -141,7 +138,7 @@ Before packaging, test with real use cases:
 
 ```bash
 # Example: PDF rotation script
-python scripts/rotate_pdf.py input.pdf 90 output.pdf
+python scripts/rotate_pdf.py input.pdf 90 output.pdf # resource-link-example: illustrative script
 ```
 
 Verify output matches expectations.

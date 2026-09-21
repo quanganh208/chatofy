@@ -13,7 +13,6 @@ Use AI multimodal vision to analyze generated assets and verify design standards
 ## Quick Start
 
 ### Comprehensive Analysis
-
 ```bash
 npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
   --files docs/assets/generated-hero.png \
@@ -23,7 +22,6 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
 ```
 
 ### Compare Multiple Variations
-
 ```bash
 npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
   --files docs/assets/option-1.png docs/assets/option-2.png docs/assets/option-3.png \
@@ -33,7 +31,6 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
 ```
 
 ### Extract Color Palette
-
 ```bash
 npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
   --files docs/assets/final-asset.png \
@@ -42,37 +39,17 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
   --model gemini-2.5-flash
 ```
 
-## Decision Framework
+## Decision framework
 
-### Score â‰¥ 8/10: Proceed to Integration
+- When the asset meets the brief, has adequate resolution, and integrates without legibility or visual defects, optimize and integrate it.
+- For a specific defect, repair or regenerate that area and check the result again.
+- For a mismatch to the requested content or brand, revise the prompt or select another asset. A low subjective score alone does not require generation, and a high score does not excuse a concrete defect.
 
-**Actions**:
-
-- Optimize for web delivery
-- Create responsive variants
-- Document implementation guidelines
-- Extract color palette for CSS variables
-
-### Score 6-7/10: Minor Refinements Needed
-
-**Actions**:
-
-- Use `ak:media-processing` skill for adjustments (brightness/contrast/saturation)
-- Consider selective regeneration of problem areas
-- May proceed with caution if time-constrained
-
-### Score < 6/10: Major Iteration Required
-
-**Actions**:
-
-- Analyze specific failure points from report
-- Refine generation prompt substantially
-- Regenerate with corrected parameters
-- Consider alternative aesthetic approach
+Use native vision when available; provider commands above are optional alternatives requiring the user's authorized provider setup. Do not force multiple generations or reports for an already-suitable asset.
 
 ## Before Finishing
 
-Regardless of score, once the asset is integrated into the frontend build,
+Once the asset is integrated into the frontend build,
 run the handoff gate in `../../ak-design/references/handoff-gate.md` before
 presenting the result as done: fix each failing dimension, or list it under
 "Known limitations" in the handoff template — never ship a known failure
@@ -90,19 +67,19 @@ silently.
 /* Extracted Color Palette */
 :root {
   /* Primary Colors */
-  --color-primary-600: #2c5f7d; /* Dark teal - headers, CTAs */
-  --color-primary-400: #4a90b8; /* Medium teal - links, accents */
+  --color-primary-600: #2C5F7D;  /* Dark teal - headers, CTAs */
+  --color-primary-400: #4A90B8;  /* Medium teal - links, accents */
 
   /* Accent Colors */
-  --color-accent-500: #e8b44f; /* Warm gold - highlights */
+  --color-accent-500: #E8B44F;   /* Warm gold - highlights */
 
   /* Neutral Colors */
-  --color-neutral-900: #1a1a1a; /* Near black - body text */
-  --color-neutral-100: #f5f5f5; /* Light gray - backgrounds */
+  --color-neutral-900: #1A1A1A;  /* Near black - body text */
+  --color-neutral-100: #F5F5F5;  /* Light gray - backgrounds */
 
   /* Semantic Usage */
   --color-text-primary: var(--color-neutral-900);
-  --color-text-on-primary: #ffffff;
+  --color-text-on-primary: #FFFFFF;
   --color-background: var(--color-neutral-100);
   --color-cta: var(--color-primary-600);
 }

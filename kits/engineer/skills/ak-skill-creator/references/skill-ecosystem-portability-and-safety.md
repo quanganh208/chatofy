@@ -10,12 +10,12 @@ A skill is a versioned package of instructions plus optional scripts, references
 and assets. It separates reusable workflow guidance from the always-loaded
 system prompt.
 
-| Alternative                         | Failure mode                                | Skill response                    |
-| ----------------------------------- | ------------------------------------------- | --------------------------------- |
-| System-prompt stuffing              | Context cost grows for every task           | Load only when the task matches   |
-| Repeating instructions each session | Guidance drifts and is not reviewable       | Version the workflow beside code  |
-| Fine-tuning for local process       | Slow, opaque, and costly to change          | Edit and review a small artifact  |
-| Tools without guidance              | Capability exists but usage is inconsistent | Pair tools with a tested workflow |
+| Alternative | Failure mode | Skill response |
+|---|---|---|
+| System-prompt stuffing | Context cost grows for every task | Load only when the task matches |
+| Repeating instructions each session | Guidance drifts and is not reviewable | Version the workflow beside code |
+| Fine-tuning for local process | Slow, opaque, and costly to change | Edit and review a small artifact |
+| Tools without guidance | Capability exists but usage is inconsistent | Pair tools with a tested workflow |
 
 Use a skill when the gap is repeatable process or context. Do not create one for
 general model knowledge, a single user preference, or a workflow with no stable

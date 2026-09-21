@@ -39,12 +39,8 @@ function withLogLock(fn) {
       try {
         return fn();
       } finally {
-        try {
-          fs.closeSync(fd);
-        } catch (_) {}
-        try {
-          fs.unlinkSync(LOCK_FILE);
-        } catch (_) {}
+        try { fs.closeSync(fd); } catch (_) {}
+        try { fs.unlinkSync(LOCK_FILE); } catch (_) {}
       }
     } catch (error) {
       if (!error || error.code !== 'EEXIST') {
@@ -103,7 +99,7 @@ function logHook(hookName, data) {
       dur: data.dur || 0,
       status: data.status || 'ok',
       exit: data.exit !== undefined ? data.exit : 0,
-      error: data.error || '',
+      error: data.error || ''
     };
 
     const serialized = JSON.stringify(entry) + '\n';
@@ -136,7 +132,7 @@ function createHookTimer(hookName, baseData = {}) {
       ended = true;
       const dur = Date.now() - start;
       logHook(hookName, { ...baseData, ...data, dur });
-    },
+    }
   };
 }
 
@@ -157,12 +153,12 @@ function logHookCrash(hookName, error, data = {}) {
     ...data,
     status: 'crash',
     exit: data.exit !== undefined ? data.exit : 0,
-    error: message,
+    error: message
   });
 }
 
 module.exports = {
   logHook,
   createHookTimer,
-  logHookCrash,
+  logHookCrash
 };

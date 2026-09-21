@@ -9,7 +9,7 @@ Canonical tree for `--both` mode (Node/TypeScript). Adapt paths for other ecosys
 ├── packages/
 │   ├── core/
 │   │   ├── src/
-│   │   │   ├── capabilities/       # one file per capability
+│   │   │   ├── capabilities/       # one file per curated capability
 │   │   │   ├── config/             # config schema + loader
 │   │   │   ├── errors.ts           # typed error classes
 │   │   │   └── index.ts            # public exports
@@ -18,8 +18,8 @@ Canonical tree for `--both` mode (Node/TypeScript). Adapt paths for other ecosys
 │   │   └── tsconfig.json
 │   ├── cli/
 │   │   ├── src/
-│   │   │   ├── commands/           # one file per command
-│   │   │   ├── credentials.ts      # resolution chain
+│   │   │   ├── commands/           # one file per command (stateless --api-key)
+│   │   │   ├── credentials.ts      # auth resolution chain
 │   │   │   ├── formatter.ts        # json + text renderers
 │   │   │   └── bin.ts              # #!/usr/bin/env node entry
 │   │   ├── test/
@@ -27,19 +27,27 @@ Canonical tree for `--both` mode (Node/TypeScript). Adapt paths for other ecosys
 │   │   └── tsconfig.json
 │   └── mcp/
 │       ├── src/
-│       │   ├── tools/              # one file per tool
+│       │   ├── tools/              # Tier 1 curated tools + Tier 2 escape hatch
+│       │   ├── resources/          # schemas, docs, live status
+│       │   ├── prompts/            # workflow prompt templates
 │       │   ├── transports/
-│       │   │   ├── stdio.ts
-│       │   │   ├── sse.ts
-│       │   │   └── streamable-http.ts
-│       │   ├── auth.ts
+│       │   │   ├── stdio.ts        # local stdio transport
+│       │   │   └── streamable-http.ts # Streamable HTTP (/mcp)
+│       │   ├── discover.ts         # server/discover implementation
+│       │   ├── auth.ts             # OAuth 2.1 + CIMD + RFC 9207 validation
 │       │   └── server.ts           # transport-agnostic server factory
 │       ├── test/
 │       ├── package.json
 │       ├── wrangler.toml           # Cloudflare Workers
 │       ├── Dockerfile
 │       └── tsconfig.json
-├── claude/skills/<tool-name>/      # companion skill (staged for marketplace)
+├── skills/<tool-name>/             # companion skill (single source of truth)
+│   ├── SKILL.md                    # Core instructions (skills.sh compatible)
+│   ├── references/                 # loaded on-demand
+│   └── scripts/                    # executable helpers
+│   # Target manifests generated per cross-marketplace-distribution.md:
+│   #   Claude: .claude-plugin/plugin.json & marketplace.json
+│   #   Codex:  .codex-plugin/plugin.json
 ├── docs/
 │   ├── cli.md
 │   ├── mcp.md
@@ -47,11 +55,11 @@ Canonical tree for `--both` mode (Node/TypeScript). Adapt paths for other ecosys
 │   └── contributing.md
 ├── scripts/
 ├── .github/workflows/
-│   ├── ci.yml
-│   └── release.yml
-├── .changeset/                     # changesets for release
+│   ├── ci.yml                      # Test, lint, typecheck
+│   └── release.yml                 # NPM Trusted Publisher (OIDC) + SemVer release
+├── .changeset/                     # or release-please config for conventional commits
 ├── package.json                    # workspaces
-├── pnpm-workspace.yaml             # or workspaces field
+├── pnpm-workspace.yaml
 ├── tsconfig.base.json
 ├── .gitignore
 ├── LICENSE
@@ -76,20 +84,58 @@ Canonical tree for `--both` mode (Node/TypeScript). Adapt paths for other ecosys
 }
 ```
 
-## `packages/core/package.json`
+## Automated SemVer & Conventional Commits
 
-```json
-{
-  "name": "@<scope>/<tool-name>-core",
-  "private": true,
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "scripts": {
-    "build": "tsc -p .",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit"
-  }
-}
+Releases use SemVer driven by Conventional Commits (`feat:`, `fix:`, `feat!:`, `chore:`):
+- Automatic version bumping (patch for `fix:`, minor for `feat:`, major for `!:` or `BREAKING CHANGE:`).
+- Automatic changelog generation (`CHANGELOG.md`) categorizing changes.
+- Uses Changesets (`@changesets/cli`) or GitHub Action `google-github-actions/release-please-action`.
+
+## GitHub Actions Release Workflow (NPM Trusted Publisher)
+
+Uses GitHub Actions OpenID Connect (OIDC) for tokenless publishing directly to NPM with verifiable build provenance (requires registering the repository and workflow on npmjs.com as a Trusted Publisher under package Settings):
+
+`.github/workflows/release.yml`:
+
+```yaml
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write    # Create Git tags and releases
+  id-token: write    # Required for NPM Trusted Publishing via OIDC token exchange
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24   # Node 24 ships npm >=11.5.1 with native OIDC token resolution
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r build
+      - run: pnpm -r test
+
+      # Publishes to NPM via OIDC without storing any NPM_TOKEN secrets
+      - name: Publish to NPM via Changesets
+        run: pnpm changeset publish --provenance
+
+      # Optional: Deploy MCP server to Cloudflare Workers
+      - name: Deploy MCP to Cloudflare
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: 'packages/mcp'
 ```
 
 ## `packages/cli/package.json`
@@ -106,8 +152,7 @@ Canonical tree for `--both` mode (Node/TypeScript). Adapt paths for other ecosys
   "dependencies": {
     "@<scope>/<tool-name>-core": "workspace:*",
     "commander": "^12",
-    "dotenv": "^16",
-    "keytar": "^7"
+    "dotenv": "^16"
   },
   "scripts": {
     "build": "tsc -p . && chmod +x dist/bin.js",
@@ -128,39 +173,22 @@ Canonical tree for `--both` mode (Node/TypeScript). Adapt paths for other ecosys
   "publishConfig": { "access": "public", "provenance": true },
   "dependencies": {
     "@<scope>/<tool-name>-core": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1",
-    "hono": "^4"
+    "@modelcontextprotocol/server": "^2",
+    "hono": "^4",
+    "zod": "^3"
   }
 }
 ```
 
-## Core/adapter boundary
+## Core/Adapter boundary rules
 
-`core/` rules:
+`core/`:
+- Zero `process.argv`, zero `console.log` as control flow, zero transport or HTTP server imports.
+- Pure functions where feasible; external side-effects isolated into client adapters.
+- Accepts parameters explicitly; returns plain data objects or throws typed errors.
 
-- No `process.argv`, no `console.log` as control flow, no HTTP server code.
-- Accepts config via explicit parameters; returns plain data or throws typed errors.
-- Pure functions where feasible; side-effects isolated into injected clients.
-
-`cli/` and `mcp/` rules:
-
-- Import only from `core/` (and formatting/transport deps).
-- Translate argv / MCP arguments → core params.
-- Translate core results/errors → CLI output / MCP response.
-- No business logic.
-
-If you find yourself adding business logic to an adapter, it belongs in `core/`.
-
-## Single-package fallback (`--cli` or `--mcp` alone)
-
-```
-.
-├── src/
-│   ├── core/           # same boundary, just not a separate package yet
-│   ├── cli/  (or mcp/)
-│   └── index.ts
-├── package.json
-└── tsconfig.json
-```
-
-Keep the `src/core/` folder even when there's only one adapter — it makes adding the other surface later a file move, not a rewrite.
+`cli/` and `mcp/`:
+- Import exclusively from `core/` (plus framework/transport dependencies).
+- Translate CLI argv / MCP tool parameters → core function calls.
+- Translate core results/errors → formatted output or structured MCP responses.
+- No business logic in adapters.

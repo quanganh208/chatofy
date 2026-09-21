@@ -6,17 +6,17 @@ file to choose the mode.
 
 ## Mode Selection
 
-| Need                                              | Preview mode                              |
-| ------------------------------------------------- | ----------------------------------------- |
-| View an existing Markdown file or directory       | `/ak:preview <path>`                      |
-| Explain a concept or code path                    | `/ak:preview --explain <topic>`           |
-| Generate a focused architecture/data-flow diagram | `/ak:preview --diagram <topic>`           |
-| Terminal-friendly diagram only                    | `/ak:preview --ascii <topic>`             |
-| Self-contained HTML explanation                   | `/ak:preview --html --explain <topic>`    |
-| Slide deck                                        | `/ak:preview --html --slides <topic>`     |
-| Visual diff review for a branch, PR, or commit    | `/ak:preview --html --diff [ref]`         |
-| Compare an implementation plan to code            | `/ak:preview --html --plan-review <plan>` |
-| Recap recent project context                      | `/ak:preview --html --recap [timeframe]`  |
+| Need | Preview mode |
+|---|---|
+| View an existing Markdown file or directory | `/ak:preview <path>` |
+| Explain a concept or code path | `/ak:preview --explain <topic>` |
+| Generate a focused architecture/data-flow diagram | `/ak:preview --diagram <topic>` |
+| Terminal-friendly diagram only | `/ak:preview --ascii <topic>` |
+| Self-contained HTML explanation | `/ak:preview --html --explain <topic>` |
+| Slide deck | `/ak:preview --html --slides <topic>` |
+| Visual diff review for a branch, PR, or commit | `/ak:preview --html --diff [ref]` |
+| Compare an implementation plan to code | `/ak:preview --html --plan-review <plan>` |
+| Recap recent project context | `/ak:preview --html --recap [timeframe]` |
 
 ## Specialist Handoffs
 

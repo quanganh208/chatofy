@@ -7,7 +7,6 @@
 Use `Plan dir:` from `## Naming` section injected by hooks. This is the full computed path.
 
 Default scope:
-
 - project scope → `plans/<timestamp>-authentication/`
 - global scope → `{configured-global-plans-root}/<timestamp>-authentication/`
   - Default when unset: `~/.claude/plans/<timestamp>-authentication/`
@@ -17,7 +16,6 @@ Use global scope only when `--global` is explicit or there is no project context
 ### File Organization
 
 In the active scope root:
-
 ```
 {plan-dir}/                                    # From `Plan dir:` in ## Naming
 ├── research/
@@ -46,7 +44,6 @@ After creating plan.md and phase files, hydrate tasks (unless `--no-tasks`):
 When `--html` is present, hydrate tasks only from the companion `plan.md`
 index if it contains actionable checkboxes; otherwise skip hydration and state
 that `plan.html` is the authoritative artifact.
-
 1. Discover the live task-management surface
 2. If available, mirror phases, dependencies, and critical high-risk steps
 3. Otherwise, keep progress in the active plan; see `task-management.md` for the cook handoff protocol
@@ -54,7 +51,6 @@ that `plan.html` is the authoritative artifact.
 ### HTML Artifact Layout
 
 When `--html` is present:
-
 - Keep `plan.html` as the primary user-facing artifact.
 - Keep `plan.md` as a concise index for metadata, GitHub links, and cook handoff
   compatibility when needed.
@@ -70,7 +66,6 @@ When `--html` is present:
 ### AgentWiki Publish Layout
 
 When `--wiki` is present:
-
 - Publish after final plan gates and after `plan.html` exists when `--html`
   is also present.
 - Use `agentwiki doc share` for the default private/workspace document URL.
@@ -91,7 +86,6 @@ When `--wiki` is present:
 ### Active Plan State Tracking
 
 See SKILL.md "Active Plan State" section for full rules. Key points:
-
 - Check `## Plan Context` injected by hooks for active/suggested/none state
 - After creating plan: use the active plan mechanism provided by the host project or dashboard
 - Active plans use plan-specific reports path; suggested plans use default path
@@ -114,7 +108,8 @@ After determining phases from research/design:
    - Architecture, implementation steps, success criteria
    - Requirements, risk assessment, security considerations
 
-5. **NEVER edit the Phases table directly** when it is CLI-owned. Use the
+5. Do not edit the Phases table directly when it is CLI-owned; the CLI
+   rewrites it from its own state, so a hand edit is silently discarded. Use the
    status and structure operations exposed by live help.
 
 6. **If `--html`, generate `plan.html` after final plan gates:**
@@ -124,7 +119,7 @@ After determining phases from research/design:
    - Embed generated watercolor technical sketch images when available.
    - Verify `plan.html` opens without missing local assets.
 
-7. **If `--wiki`, publish final artifacts after gates:**
+6. **If `--wiki`, publish final artifacts after gates:**
    - Use `agentwiki doc upload` followed by `agentwiki doc share` for private
      Markdown document sharing.
    - Use `agentwiki doc publish` only on explicit user request for public docs.
@@ -134,7 +129,7 @@ After determining phases from research/design:
      are exposed in the active session.
    - Capture and report the returned URL, or report the exact skip reason.
 
-**MANDATORY:** Markdown plan creation goes through CLI. The `ak` CLI is required
+Markdown plan creation goes through the CLI. The `ak` CLI is required
 for AgentKit users. If the selected scaffolding operation fails, report the error; do not fall
 back to direct Markdown file scaffolding. In `--html` mode, write the primary
 `plan.html` after planning gates finish so the HTML reflects the reviewed plan.
@@ -145,17 +140,16 @@ only for the requested repo-relative `plan.md` link.
 
 ### Overview Plan (plan.md)
 
-**IMPORTANT:** All plan.md files MUST include YAML frontmatter. See `output-standards.md` for schema.
+Every `plan.md` needs YAML frontmatter — the plan index parses it, and a file without it is invisible to the store. See `output-standards.md` for the schema.
 When `--html` is active, `plan.md` may be a concise index instead of the full
 plan body. It should link to `plan.html`, summarize phases, and keep GitHub
 issue metadata stable.
 
 **Example plan.md structure:**
-
 ```markdown
 ---
-title: 'Feature Implementation Plan'
-description: 'Add user authentication with OAuth2 support'
+title: "Feature Implementation Plan"
+description: "Add user authentication with OAuth2 support"
 status: pending
 priority: P1
 effort: 8h
@@ -175,21 +169,21 @@ Brief description of what this plan accomplishes.
 
 ## Cross-Plan Dependencies
 
-| Relationship | Plan                                | Status  |
-| ------------ | ----------------------------------- | ------- |
-| Blocks       | `global:<timestamp>-user-dashboard` | pending |
+| Relationship | Plan | Status |
+|-------------|------|--------|
+| Blocks | `global:<timestamp>-user-dashboard` | pending |
 
 ## Phases
 
-| Phase | Name                                       | Status  |
-| ----- | ------------------------------------------ | ------- |
-| 1     | [Setup Environment](./phase-01-setup.md)   | Pending |
-| 2     | [Core Implementation](./phase-02-impl.md)  | Pending |
-| 3     | [Testing & Validation](./phase-03-test.md) | Pending |
+| Phase | Name | Status |
+|-------|------|--------|
+| 1 | [Setup Environment](./<setup-phase>.md) | Pending |
+| 2 | [Core Implementation](./<implementation-phase>.md) | Pending |
+| 3 | [Testing & Validation](./<test-phase>.md) | Pending |
 
 <!-- IMPORTANT: Link text MUST be human-readable names (not filenames).
-     Bad:  [phase-01-setup.md](./phase-01-setup.md)
-     Good: [Setup Environment](./phase-01-setup.md) -->
+     Bad:  [phase-01-setup.md](./<setup-phase>.md)
+     Good: [Setup Environment](./<setup-phase>.md) -->
 
 ## Dependencies
 
@@ -197,94 +191,77 @@ Brief description of what this plan accomplishes.
 ```
 
 Reference rules:
-
 - Bare refs stay in the current scope.
 - Use `global:` or `project:` when the dependency crosses scopes.
 - The live plan CLI's status operation is authoritative for resolved dependency state; confirm its invocation through help.
 
 **Guidelines:**
-
 - Keep generic and under 80 lines
 - List each phase with status/progress
 - Link to detailed phase files
 - Key dependencies
 
 ### Phase Files (phase-XX-name.md)
-
 Discover and follow the consuming repository's instruction and development-standard documents. Do not assume a fixed docs path.
 Each phase file should contain:
 
 **Context Links**
-
 - Links to related reports, files, documentation
 
 **Overview**
-
 - Priority
 - Current status
 - Brief description
 
 **Key Insights**
-
 - Important findings from research
 - Critical considerations
 
 **Requirements**
-
 - Functional requirements
 - Non-functional requirements
 
 **Architecture**
-
 - System design
 - Component interactions
 - Data flow
 
 **Related Code Files**
-
 - List of files to modify
 - List of files to create
 - List of files to delete
 
 **Implementation Steps**
-
 - Detailed, numbered steps
 - Specific instructions
 
 **Todo List**
-
 - Checkbox list for tracking
 
 **Success Criteria**
-
 - Definition of done
 - Validation methods
 
 **Risk Assessment**
-
 - Potential issues
 - Mitigation strategies
 
 **Security Considerations**
-
 - Auth/authorization
 - Data protection
 
 **Next Steps**
-
 - Dependencies
 - Follow-up tasks
 
 ### Deep / TDD Extensions
 
 When `--deep` is used, add:
-
 - a file inventory table with action, rough size, and test impact
 - a test scenario matrix for critical, high, and medium paths
 - a dependency map that calls out links to other phases
 
 When `--tdd` is used, add:
-
 - a **Tests Before** section for regression coverage written first
 - a **Refactor** section describing the protected code changes
 - a **Tests After** section for new behavior introduced in that phase

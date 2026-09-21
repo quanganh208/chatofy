@@ -3,12 +3,12 @@ name: ak:scout
 description: "Fast codebase scouting using native search, optional Explore agents, and user-permitted OpenCode probes. Use for file discovery, task context gathering, and scoped searches across directories."
 user-invocable: true
 when_to_use: "Invoke for fast file discovery and codebase orientation."
-category: dev-tools
+category: workflow
 keywords: [codebase, scouting, file-discovery, search]
 argument-hint: "[search-target] [ext] [--ultra]"
 metadata:
   author: agentkit
-  version: "1.1.1"
+  version: "1.1.2"
 ---
 
 # Scout
@@ -16,7 +16,7 @@ metadata:
 Fast, token-efficient codebase scouting using parallel agents to find files needed for tasks.
 
 ## Arguments
-- Default: Scout using built-in Explore subagents in parallel when delegation is permitted (`./references/internal-scouting.md`)
+- Default: Use local search for one owner/path; partition only independent domains when delegation is authorized and useful (`./references/internal-scouting.md`)
 - `ext`: Scout using user-permitted OpenCode probes when native/local search is insufficient (`./references/external-scouting.md`)
 - `--ultra`: Run the scout as a best-of-5 verifier pass (see Ultra Verifier Mode)
 
@@ -27,6 +27,13 @@ Fast, token-efficient codebase scouting using parallel agents to find files need
 - Starting debugging session requiring file relationships understanding
 - User asks about project structure or where functionality lives
 - Before changes that might affect multiple codebase parts
+
+## Fast path
+
+For one pathname/symbol, search locally and return the verified path/role directly. Reuse a
+source map while its revision and relevant files are unchanged. No standalone report is
+required for one lookup. Use the fuller workflow below only for multiple independent domains;
+explicit `--ultra` retains its separate five-candidate contract.
 
 ## Quick Start
 

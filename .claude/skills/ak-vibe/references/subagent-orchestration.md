@@ -32,9 +32,7 @@ same time without waiting on each other's output.
 3. **Contracts up front.** Decide cross-slice interfaces (types, function
    signatures, API shapes) before fanning out and state them in the shared
    context, not left for delegates to negotiate mid-flight.
-4. **No mid-flight validation in parallel writers.** Delegates skip build/lint/
-   full-suite runs while siblings are still editing; the controller runs the
-   affected checks once after the wave rejoins.
+4. **Separate independent and shared checks.** Delegates run focused tests or syntax checks that read only stable owned inputs and write isolated outputs. Serialize shared build/lint/full-suite jobs while siblings edit; the controller verifies integrated boundaries after the wave rejoins.
 5. **Scoped mutation.** Delegates edit strictly within their assigned file boundary.
    The controller performs the whole-worktree validation, git staging, and commit.
 6. **Cap concurrency.** Stay within the runtime's concurrent-subagent cap; excess

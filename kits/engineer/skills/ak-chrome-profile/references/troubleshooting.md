@@ -27,7 +27,6 @@ If the target site is known to rewrite the hash, prepend a sentinel path that th
 ## "Cookies are empty / not logged in"
 
 Verify the user-data-dir Chrome is using:
-
 ```
 chrome://version  →  Profile Path
 ```
@@ -35,7 +34,6 @@ chrome://version  →  Profile Path
 If the path is not the original user-data-dir, you are running against a fresh profile. Re-launch Chrome without overriding `--user-data-dir`, or use the right user-data-dir.
 
 If the path IS correct but cookies are still empty:
-
 - Did you copy the profile to a different path? Don't. Cookies on macOS won't decrypt at a new path. See `architecture.md`.
 - Did the user sign out? Sign back in inside Chrome's UI.
 

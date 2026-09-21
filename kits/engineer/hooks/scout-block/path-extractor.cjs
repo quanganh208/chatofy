@@ -9,79 +9,38 @@
 // Flags that indicate the following value should NOT be checked as a path
 // These are "exclude" semantics - the user is explicitly skipping these paths
 const EXCLUDE_FLAGS = [
-  '--exclude',
-  '--ignore',
-  '--skip',
-  '--prune',
-  '-x', // tar exclude shorthand
-  '-path', // find -path (used with -prune)
-  '--exclude-dir', // grep --exclude-dir
+  '--exclude', '--ignore', '--skip', '--prune',
+  '-x',           // tar exclude shorthand
+  '-path',        // find -path (used with -prune)
+  '--exclude-dir' // grep --exclude-dir
 ];
 
 // Filesystem commands where bare directory names (build, dist, etc.)
 // should be extracted as paths. For non-fs commands (grep, echo, sed),
 // only tokens that look like actual paths (contain / or extension) are extracted.
 const FILESYSTEM_COMMANDS = [
-  'cd',
-  'ls',
-  'cat',
-  'head',
-  'tail',
-  'less',
-  'more',
-  'rm',
-  'cp',
-  'mv',
-  'find',
-  'touch',
-  'mkdir',
-  'rmdir',
-  'stat',
-  'file',
-  'du',
-  'tree',
-  'chmod',
-  'chown',
-  'ln',
-  'readlink',
-  'realpath',
-  'wc',
-  'tee',
-  'tar',
-  'zip',
-  'unzip',
-  'open',
-  'code',
-  'vim',
-  'nano',
-  'bat',
-  'rsync',
-  'scp',
-  'diff',
+  'cd', 'ls', 'cat', 'head', 'tail', 'less', 'more',
+  'rm', 'cp', 'mv', 'find', 'touch', 'mkdir', 'rmdir',
+  'stat', 'file', 'du', 'tree', 'chmod', 'chown', 'ln',
+  'readlink', 'realpath', 'wc', 'tee', 'tar', 'zip', 'unzip',
+  'open', 'code', 'vim', 'nano', 'bat', 'rsync', 'scp', 'diff'
 ];
 
 // Commands whose quoted arguments are search patterns / regexes / filter
 // expressions, NOT filesystem paths. A quoted arg to one of these (e.g.
 // `grep -v "node_modules\|.claude"`) must never be treated as an accessed path.
 const PATTERN_ARG_COMMANDS = [
-  'grep',
-  'egrep',
-  'fgrep',
-  'rg',
-  'ag',
-  'ack',
-  'sed',
-  'awk',
-  'gawk',
-  'jq',
-  'perl',
+  'grep', 'egrep', 'fgrep', 'rg', 'ag', 'ack',
+  'sed', 'awk', 'gawk', 'jq', 'perl'
 ];
 
 // Flags whose following value is a search pattern / regex / glob rather than an
 // accessed path (covers `git grep -e "..."`, `git log --grep "..."`,
 // `grep --include="*.js"`, etc.). Matched against the token immediately before
 // a quoted string, with any trailing `=` stripped.
-const PATTERN_ARG_FLAGS = ['-e', '-E', '-P', '-G', '-S', '--regexp', '--grep', '--include'];
+const PATTERN_ARG_FLAGS = [
+  '-e', '-E', '-P', '-G', '-S', '--regexp', '--grep', '--include'
+];
 
 // Command wrappers to skip when resolving the governing command of a segment.
 const COMMAND_WRAPPERS = ['sudo', 'env', 'nice', 'nohup', 'time', 'timeout'];
@@ -245,7 +204,11 @@ function extractFromCommand(command) {
     // trailing argument is usually the real target file, not a pattern —
     // only this quoted-adjacent structural shape is unambiguous enough to
     // skip.
-    if (commandName && PATTERN_ARG_COMMANDS.includes(commandName) && /^s[\/|@#,]/.test(token)) {
+    if (
+      commandName &&
+      PATTERN_ARG_COMMANDS.includes(commandName) &&
+      /^s[\/|@#,]/.test(token)
+    ) {
       continue;
     }
 
@@ -280,9 +243,9 @@ function quotedArgContext(command, index) {
 
   let commandName = null;
   for (const word of words) {
-    if (/^\w+=/.test(word)) continue; // env assignment (KEY=value)
+    if (/^\w+=/.test(word)) continue;              // env assignment (KEY=value)
     if (COMMAND_WRAPPERS.includes(word)) continue; // sudo/env/time/...
-    if (word.startsWith('-')) continue; // flags
+    if (word.startsWith('-')) continue;            // flags
     commandName = word.toLowerCase();
     break;
   }
@@ -301,18 +264,8 @@ function quotedArgContext(command, index) {
 // match command keywords (e.g., "build" is both a subcommand and a dir name)
 // Keep in sync with DEFAULT_PATTERNS in pattern-matcher.cjs
 const BLOCKED_DIR_NAMES = [
-  'node_modules',
-  '__pycache__',
-  '.git',
-  'dist',
-  'build',
-  '.next',
-  '.nuxt',
-  '.venv',
-  'venv',
-  'vendor',
-  'target',
-  'coverage',
+  'node_modules', '__pycache__', '.git', 'dist', 'build',
+  '.next', '.nuxt', '.venv', 'venv', 'vendor', 'target', 'coverage'
 ];
 
 /**
@@ -380,135 +333,30 @@ function isSkippableToken(token) {
 function isCommandKeyword(token) {
   const keywords = [
     // Shell commands
-    'echo',
-    'cat',
-    'ls',
-    'cd',
-    'rm',
-    'cp',
-    'mv',
-    'find',
-    'grep',
-    'head',
-    'tail',
-    'wc',
-    'du',
-    'tree',
-    'touch',
-    'mkdir',
-    'rmdir',
-    'pwd',
-    'which',
-    'env',
-    'export',
-    'source',
-    'bash',
-    'sh',
-    'zsh',
-    'true',
-    'false',
-    'test',
-    'xargs',
-    'tee',
-    'sort',
-    'uniq',
-    'cut',
-    'tr',
-    'sed',
-    'awk',
-    'diff',
-    'chmod',
-    'chown',
-    'ln',
-    'file',
+    'echo', 'cat', 'ls', 'cd', 'rm', 'cp', 'mv', 'find', 'grep', 'head', 'tail',
+    'wc', 'du', 'tree', 'touch', 'mkdir', 'rmdir', 'pwd', 'which', 'env', 'export',
+    'source', 'bash', 'sh', 'zsh', 'true', 'false', 'test', 'xargs', 'tee', 'sort',
+    'uniq', 'cut', 'tr', 'sed', 'awk', 'diff', 'chmod', 'chown', 'ln', 'file',
 
     // Package managers and their subcommands
-    'npm',
-    'pnpm',
-    'yarn',
-    'bun',
-    'npx',
-    'pnpx',
-    'bunx',
-    'node',
-    'run',
-    'build',
-    'test',
-    'lint',
-    'dev',
-    'start',
-    'install',
-    'ci',
-    'exec',
-    'add',
-    'remove',
-    'update',
-    'publish',
-    'pack',
-    'init',
-    'create',
+    'npm', 'pnpm', 'yarn', 'bun', 'npx', 'pnpx', 'bunx', 'node',
+    'run', 'build', 'test', 'lint', 'dev', 'start', 'install', 'ci', 'exec',
+    'add', 'remove', 'update', 'publish', 'pack', 'init', 'create',
 
     // Build tools
-    'tsc',
-    'esbuild',
-    'vite',
-    'webpack',
-    'rollup',
-    'turbo',
-    'nx',
-    'jest',
-    'vitest',
-    'mocha',
-    'eslint',
-    'prettier',
+    'tsc', 'esbuild', 'vite', 'webpack', 'rollup', 'turbo', 'nx',
+    'jest', 'vitest', 'mocha', 'eslint', 'prettier',
 
     // Git
-    'git',
-    'commit',
-    'push',
-    'pull',
-    'merge',
-    'rebase',
-    'checkout',
-    'branch',
-    'status',
-    'log',
-    'diff',
-    'add',
-    'reset',
-    'stash',
-    'fetch',
-    'clone',
+    'git', 'commit', 'push', 'pull', 'merge', 'rebase', 'checkout', 'branch',
+    'status', 'log', 'diff', 'add', 'reset', 'stash', 'fetch', 'clone',
 
     // Docker
-    'docker',
-    'compose',
-    'up',
-    'down',
-    'ps',
-    'logs',
-    'exec',
-    'container',
-    'image',
+    'docker', 'compose', 'up', 'down', 'ps', 'logs', 'exec', 'container', 'image',
 
     // Misc
-    'sudo',
-    'time',
-    'timeout',
-    'watch',
-    'make',
-    'cargo',
-    'python',
-    'python3',
-    'pip',
-    'ruby',
-    'gem',
-    'go',
-    'rust',
-    'java',
-    'javac',
-    'mvn',
-    'gradle',
+    'sudo', 'time', 'timeout', 'watch', 'make', 'cargo', 'python', 'python3', 'pip',
+    'ruby', 'gem', 'go', 'rust', 'java', 'javac', 'mvn', 'gradle'
   ];
 
   return keywords.includes(token.toLowerCase());
@@ -528,10 +376,8 @@ function normalizeExtractedPath(path) {
   let normalized = path.trim();
 
   // Remove surrounding quotes
-  if (
-    (normalized.startsWith('"') && normalized.endsWith('"')) ||
-    (normalized.startsWith("'") && normalized.endsWith("'"))
-  ) {
+  if ((normalized.startsWith('"') && normalized.endsWith('"')) ||
+      (normalized.startsWith("'") && normalized.endsWith("'"))) {
     normalized = normalized.slice(1, -1);
   }
 
@@ -562,5 +408,5 @@ module.exports = {
   EXCLUDE_FLAGS,
   FILESYSTEM_COMMANDS,
   PATTERN_ARG_COMMANDS,
-  PATTERN_ARG_FLAGS,
+  PATTERN_ARG_FLAGS
 };

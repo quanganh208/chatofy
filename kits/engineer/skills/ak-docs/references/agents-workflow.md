@@ -17,7 +17,7 @@ filter and write/don't-write table in that file; this workflow adds mining and
 ranking only, and never invents a second filter.
 
 Before proposing or applying a test-related root-context edit, load and apply
-`references/practical-principles-for-setting-up-and-running-tests.md`. It does
+`../../ak-test/references/practical-principles-for-setting-up-and-running-tests.md`. It does
 not bypass the evidence, keep-or-cut, placement, or user-confirmation gates.
 
 ## Hard constraints
@@ -28,7 +28,9 @@ not bypass the evidence, keep-or-cut, placement, or user-confirmation gates.
   200 CI runs. Positional override: `agents 30d`, `agents 500`.
   Never open-ended: old history describes code that no longer exists.
 - **Confirm before write.** Nothing lands in the agent context file without
-  explicit user approval on the proposed diff.
+  explicit user approval on the proposed diff. This mining operation keeps its
+  own confirmed-change contract; the routine write authority in
+  `doc-content-rules.md` belongs to the other documentation operations.
 - **`--advice` is implied.** The Kongming review pass is built into step 5.
   A separate `--advice` flag is redundant here.
 - **`--dry-run` stops after step 3.** Reports mined signals and watchlist,
@@ -58,14 +60,14 @@ Exclude merge commits and mass renames when counting incidents
 
 ### Git
 
-| Signal                 | Command (illustrative)                                                                                                                                | Rule class                                                                 |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Reverts                | `git log --since=<w> --grep='^Revert' --oneline` + touched files                                                                                      | Deny-list, definition of done                                              |
-| Fix-of-fix chains      | `git log --since=<w> -iE --grep='fix (again\|properly\|actually)\|really fix\|follow-?up\|typo in prev'`                                              | Missing verification step                                                  |
-| Fix-density hotspots   | `git log --since=<w> --grep='^fix' --name-only --pretty=format: \| sort \| uniq -c \| sort -rn`                                                       | Non-derivable gotcha on file/module                                        |
-| CI-repair after merge  | commits like `fix ci`, `fix lint`, `fix build` on the integration branch                                                                              | "Run X before push" (DoD)                                                  |
-| Co-change coupling     | pair-mine `git log --pretty=%h --name-only`: file pairs that change together but were split across two commits (second commit added the missing half) | "When editing X, also update Y" — the highest-value generator              |
-| Commit velocity / size | —                                                                                                                                                     | **Skip.** Almost always yields vibe rules that fail the verifiability test |
+| Signal | Command (illustrative) | Rule class |
+|---|---|---|
+| Reverts | `git log --since=<w> --grep='^Revert' --oneline` + touched files | Deny-list, definition of done |
+| Fix-of-fix chains | `git log --since=<w> -iE --grep='fix (again\|properly\|actually)\|really fix\|follow-?up\|typo in prev'` | Missing verification step |
+| Fix-density hotspots | `git log --since=<w> --grep='^fix' --name-only --pretty=format: \| sort \| uniq -c \| sort -rn` | Non-derivable gotcha on file/module |
+| CI-repair after merge | commits like `fix ci`, `fix lint`, `fix build` on the integration branch | "Run X before push" (DoD) |
+| Co-change coupling | pair-mine `git log --pretty=%h --name-only`: file pairs that change together but were split across two commits (second commit added the missing half) | "When editing X, also update Y" — the highest-value generator |
+| Commit velocity / size | — | **Skip.** Almost always yields vibe rules that fail the verifiability test |
 
 ### CI (via `gh`, degrade gracefully)
 
@@ -83,15 +85,15 @@ Only when `--source` is set. Spawn `ak:scout` **once** with the fixed pattern
 query list below, read-only, excluding vendored/generated/dependency dirs
 noted in step 1. Do not force Explore delegation; native search is fine.
 
-| Signal                                              | Pattern (illustrative)                                                                  | Rule class                      |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------- |
-| Editor-directed imperative in header comments       | `-iE 'do not (edit\|modify\|touch\|use)\|generated by\|autogenerated\|source of truth'` | Deny-list / editor guidance     |
-| Sync invariants across paired files                 | `-iE 'keep (in sync\|synchronized) with\|mirror(s)? of\|must match'`                    | "When editing X, also update Y" |
-| Generated-artifact mapping to owner script          | `-iE '^// Code generated\|// GENERATED FILE\|@generated\|do not edit; regenerate with'` | Owner-script pointer            |
-| Guarded boundaries (privileged paths, safety walls) | `-iE 'requires elevated\|privileged\|sandbox\|do not run outside\|guarded by'`          | Boundary rule                   |
-| Silent-failure preconditions                        | `-iE 'must (be set\|be initialized)\|precondition\|assumes\|only valid when'`           | Non-derivable gotcha            |
-| Skip / quarantine with reason                       | `-iE '@skip\|xit\(\|skip\(\|// TODO: re-enable when'` (Tier 2)                          | Test-coverage gotcha            |
-| Inverted convention / legacy twin                   | `-iE 'legacy\|deprecated in favor of\|prefer .* over\|do not use .* use'` (Tier 2)      | Convention rule                 |
+| Signal | Pattern (illustrative) | Rule class |
+|---|---|---|
+| Editor-directed imperative in header comments | `-iE 'do not (edit\|modify\|touch\|use)\|generated by\|autogenerated\|source of truth'` | Deny-list / editor guidance |
+| Sync invariants across paired files | `-iE 'keep (in sync\|synchronized) with\|mirror(s)? of\|must match'` | "When editing X, also update Y" |
+| Generated-artifact mapping to owner script | `-iE '^// Code generated\|// GENERATED FILE\|@generated\|do not edit; regenerate with'` | Owner-script pointer |
+| Guarded boundaries (privileged paths, safety walls) | `-iE 'requires elevated\|privileged\|sandbox\|do not run outside\|guarded by'` | Boundary rule |
+| Silent-failure preconditions | `-iE 'must (be set\|be initialized)\|precondition\|assumes\|only valid when'` | Non-derivable gotcha |
+| Skip / quarantine with reason | `-iE '@skip\|xit\(\|skip\(\|// TODO: re-enable when'` (Tier 2) | Test-coverage gotcha |
+| Inverted convention / legacy twin | `-iE 'legacy\|deprecated in favor of\|prefer .* over\|do not use .* use'` (Tier 2) | Convention rule |
 
 Skip from mining: bare `TODO`/`FIXME`/`XXX`/`HACK` markers, redundant
 `@deprecated` annotations already surfaced by tooling, `readonly` keyword
@@ -116,10 +118,10 @@ This is mining, not investigation.
 
 Apply all four gates. Missing any one → cut.
 
-1. **Recurrence: ≥3 independent incidents.** Independent = different day _or_
+1. **Recurrence: ≥3 independent incidents.** Independent = different day *or*
    different author/PR. A fixup chain on the same day counts as **one** incident.
    Two incidents → watchlist (chat-only, no file, no proposal). One → drop.
-2. **Preventability.** Would one imperative line read _before_ acting have
+2. **Preventability.** Would one imperative line read *before* acting have
    prevented the incident? If prevention requires judgment/context depth, this
    is not a root-context rule — route it via placement router in step 4.
 3. **Already-enforced test.** Check current live state (lint config, hook,
@@ -179,7 +181,7 @@ context file):
 
 **Forbidden in rule text:** SHA, dates, "we once…", plan/finding IDs,
 uppercase-as-emphasis, and any wording that narrates history. The rule
-describes _future behavior_.
+describes *future behavior*.
 
 ## 5. Kongming review pass — spawn once
 

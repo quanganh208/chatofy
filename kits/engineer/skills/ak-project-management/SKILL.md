@@ -1,14 +1,14 @@
 ---
 name: ak:project-management
-description: 'Track progress, update plan statuses, coordinate runtime work, generate reports, and preserve cross-session continuity.'
+description: "Track progress, update plan statuses, coordinate runtime work, generate reports, and preserve cross-session continuity."
 user-invocable: true
-when_to_use: 'Invoke for progress tracking, plan status, or handoffs.'
-category: utilities
+when_to_use: "Invoke for progress tracking, plan status, or handoffs."
+category: workflow
 keywords: [project, progress, status, reports]
-argument-hint: '[task: status, hydrate, sync, report]'
+argument-hint: "[task: status, hydrate, sync, report]"
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: "1.0.2"
 ---
 
 # Project Management
@@ -23,7 +23,7 @@ Project oversight and coordination with durable plan files and optional runtime 
 - Updating plan statuses after feature completion
 - Mirroring plan work into the live task-management surface
 - Generating status reports or summaries
-- Coordinating documentation updates after milestones
+- Coordinating documentation updates when product or maintainer contracts change
 - Verifying task completeness against acceptance criteria
 - Cross-session resume of multi-phase work
 
@@ -35,32 +35,31 @@ plan directly. Never infer availability from a client name or cached tool list.
 Plan files are the durable source of truth, and sync-back must work without
 runtime task tracking.
 
+## Route the request
+
+For status, read durable state and evidence; for update, change affected items; for hydrate, rebuild the optional live view; for close/handoff, run full-plan sync-back. Load only the matching reference. Task loss does not erase file-backed progress.
+
 ## Core Capabilities
 
 ### 1. Runtime Work Tracking
-
 Load: `references/task-operations.md`
 
 When a live task-management surface exists:
-
 - Mirror plan items with enough context to map them back to their source
 - Track pending, active, blocked, and completed state
 - Preserve dependency relationships
 - Coordinate parallel agents with scoped ownership
 
 ### 2. Session Bridging (Hydration Pattern)
-
 Load: `references/hydration-workflow.md`
 
 Runtime tracking may be ephemeral. Plan files are durable. The hydration pattern bridges them:
-
 - **Hydrate:** Read unchecked plan items and mirror them when a live surface exists
 - **Work:** Track live progress when possible; otherwise update the active plan
 - **Sync-back:** Reconcile all completed tasks against all phase files, update `[ ]` → `[x]`, update YAML frontmatter status
 - **Resume:** Next session re-hydrates from remaining `[ ]` items
 
 ### 3. Progress Tracking
-
 Load: `references/progress-tracking.md`
 
 - Scan `./plans/*/plan.md` for active plans
@@ -70,25 +69,21 @@ Load: `references/progress-tracking.md`
 - Verify acceptance criteria met before marking complete
 
 ### 4. Documentation Coordination
-
 Load: `references/documentation-triggers.md`
 
 Trigger `./docs` updates when:
-
-- Phase status changes, major features complete
+- User-visible behavior, setup, commands, or configuration changes
 - API contracts change, architecture decisions made
 - Security patches applied, breaking changes occur
 
 Delegate to `docs-manager` subagent for actual updates.
 
 ### 5. Status Reporting
-
 Load: `references/reporting-patterns.md`
 
 Generate reports: session summaries, plan completion, multi-plan overviews.
-
 - Use naming: `{reports-path}/pm-{date}-{time}-{slug}.md`
-- Sacrifice grammar for brevity; use tables over prose
+- Lead with the outcome and keep the report short by being selective, in complete sentences; use a table where it reads better than prose
 - List unresolved questions at end
 
 ## Workflow
@@ -106,7 +101,7 @@ Generate reports: session summaries, plan completion, multi-plan overviews.
 
 ## Mandatory Sync-Back Guard
 
-When updating plan status, NEVER mark only the currently active phase.
+At completion or handoff, reconcile every phase; stale earlier checkboxes misreport completion. During execution, update changed items and evidence without sweeping unchanged phases on every status tick.
 
 1. Sweep all `phase-XX-*.md` files under the target plan directory.
 2. Reconcile every completed runtime item to its source phase and checklist item.
@@ -116,12 +111,12 @@ When updating plan status, NEVER mark only the currently active phase.
 
 ## Plan YAML Frontmatter
 
-All `plan.md` files MUST have:
+Every `plan.md` file carries this frontmatter:
 
 ```yaml
 ---
 title: Feature name
-status: in-progress # pending | in-progress | completed
+status: in-progress  # pending | in-progress | completed
 priority: P1
 effort: medium
 branch: feature-branch

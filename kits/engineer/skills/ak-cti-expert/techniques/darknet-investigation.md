@@ -22,7 +22,6 @@ Darknet investigation OSINT locates threat actor activity, ransomware victim cla
 ### Search & Discovery
 
 #### Ahmia.fi
-
 **URL:** https://ahmia.fi/
 **Tor access:** http://juhanurmihxlp77nkq76byazcldy2hlmovfu2epvl5ankdibsot4csyd.onion/
 
@@ -33,7 +32,6 @@ Search engine for Tor hidden services. Accessible via clearnet — no Tor requir
 - **Best for:** Initial keyword sweep across indexed `.onion` content
 
 #### onionsearch (CLI)
-
 **Install:** `pip3 install onionsearch`
 **Repo:** https://github.com/megadose/onionsearch
 
@@ -44,7 +42,6 @@ CLI tool that queries multiple `.onion` search engines simultaneously and aggreg
 - **Clearnet:** No — requires Tor proxy
 
 #### DarknetLive
-
 **URL:** https://darknetlive.com/onions/
 **Forums section:** https://darknetlive.com/forums/
 
@@ -57,7 +54,6 @@ Curated, actively maintained directory of verified `.onion` services. Lists mark
 ### Ransomware & Extortion Monitoring
 
 #### ransomwatch
-
 **URL:** https://ransomwatch.telemetry.ltd/
 **API:** https://api.ransomwatch.telemetry.ltd/
 
@@ -68,7 +64,6 @@ Transparent ransomware group claim tracker. Monitors leak sites for new victim p
 - **Best for:** Confirming whether a target organization appears as a ransomware victim
 
 #### DDoSecrets (Distributed Denial of Secrets)
-
 **URL:** https://ddosecrets.com/
 
 Repository of leaked datasets published by hacktivist groups. Hosts publicly released data from breaches, government leaks, and corporate exposures.
@@ -80,7 +75,6 @@ Repository of leaked datasets published by hacktivist groups. Hosts publicly rel
 ### Scanning & Analysis
 
 #### OnionScan
-
 **Repo:** https://github.com/s-rah/onionscan
 
 Open-source scanner for analyzing `.onion` services for security misconfigurations that may deanonymize the operator (Apache server leaks, Bitcoin addresses, email addresses, linked clearnet infrastructure).
@@ -148,7 +142,6 @@ Step 6: Documentation (critical for legal and compliance)
 ## 4. CLI Commands & Expected Output
 
 ### Ahmia Clearnet Search
-
 ```bash
 # Keyword search via clearnet — no Tor required
 # Replace spaces with + in query
@@ -164,7 +157,6 @@ for u in urls[:20]:
 ```
 
 **Expected output:**
-
 ```
 http://exampleabcdef.onion/forum/thread/12345
 http://darkmarketxyz.onion/vendor/target-name
@@ -172,7 +164,6 @@ http://leaksite123.onion/post/organization-dump
 ```
 
 ### ransomwatch API Query
-
 ```bash
 # Query ransomwatch for victims matching a keyword (clearnet, no auth)
 curl -s "https://api.ransomwatch.telemetry.ltd/victims" \
@@ -185,7 +176,6 @@ curl -s "https://api.ransomwatch.telemetry.ltd/victims" \
 ```
 
 **Expected output:**
-
 ```json
 {
   "group": "lockbit",
@@ -196,7 +186,6 @@ curl -s "https://api.ransomwatch.telemetry.ltd/victims" \
 ```
 
 ### ransomware.live Cross-Reference (existing cti-expert tool)
-
 ```bash
 # Supplement with ransomware.live API
 curl -s "https://api.ransomware.live/victims" \
@@ -208,7 +197,6 @@ curl -s "https://api.ransomware.live/victims" \
 ```
 
 ### onionsearch CLI (requires Tor proxy on 127.0.0.1:9050)
-
 ```bash
 # Install
 pip3 install onionsearch
@@ -224,7 +212,6 @@ onionsearch "target keyword" --len 50 > darkweb_results.txt
 ```
 
 **Expected output:**
-
 ```
 Searching for: target keyword
 [*] Ahmia      - Found 7 results
@@ -238,7 +225,6 @@ http://forumyyy.onion/thread/99 - Title: ...
 ```
 
 ### OnionScan Attribution Scan
-
 ```bash
 # Install Go, then:
 go install github.com/s-rah/onionscan@latest
@@ -259,7 +245,6 @@ onionscan --torProxyAddress 127.0.0.1:9050 \
 ```
 
 ### Paste Site Dork (Clearnet)
-
 ```bash
 # Construct Google dork queries for paste site leak monitoring
 # Run these in browser — no CLI
@@ -372,16 +357,16 @@ For incident response and legal proceedings:
 
 ## 6. Confidence Ratings
 
-| Finding Type              | Confidence | Notes                                                 |
-| ------------------------- | ---------- | ----------------------------------------------------- |
-| Ransomwatch victim claim  | MEDIUM     | Claim present; data may be fabricated or recycled     |
-| DDoSecrets leak dataset   | HIGH       | Published, verifiable data exists                     |
-| Ahmia search result       | MEDIUM     | Index may be stale; .onion may be offline             |
-| OnionScan linked domain   | HIGH       | Technical evidence of server misconfiguration         |
-| Handle cross-reference    | MEDIUM     | Requires corroborating signals                        |
-| PGP key identity match    | HIGH       | Cryptographic evidence if key is verified             |
-| Bitcoin address cluster   | MEDIUM     | Heuristics-based; not definitive without exchange KYC |
-| Writing style attribution | LOW        | Probabilistic; not legally admissible alone           |
+| Finding Type | Confidence | Notes |
+|---|---|---|
+| Ransomwatch victim claim | MEDIUM | Claim present; data may be fabricated or recycled |
+| DDoSecrets leak dataset | HIGH | Published, verifiable data exists |
+| Ahmia search result | MEDIUM | Index may be stale; .onion may be offline |
+| OnionScan linked domain | HIGH | Technical evidence of server misconfiguration |
+| Handle cross-reference | MEDIUM | Requires corroborating signals |
+| PGP key identity match | HIGH | Cryptographic evidence if key is verified |
+| Bitcoin address cluster | MEDIUM | Heuristics-based; not definitive without exchange KYC |
+| Writing style attribution | LOW | Probabilistic; not legally admissible alone |
 
 ---
 
@@ -399,14 +384,14 @@ For incident response and legal proceedings:
 
 ## 8. Command Reference
 
-| Command                     | Purpose                             | Input                              |
-| --------------------------- | ----------------------------------- | ---------------------------------- |
+| Command | Purpose | Input |
+|---|---|---|
 | `/darknet-search [keyword]` | Search dark web indexes for keyword | Organization name, domain, or term |
-| `/ransomware-check [org]`   | Check ransomware victim claims      | Organization name or domain        |
-| `/onion-scan [url]`         | Scan .onion service for OPSEC leaks | `.onion` URL                       |
+| `/ransomware-check [org]` | Check ransomware victim claims | Organization name or domain |
+| `/onion-scan [url]` | Scan .onion service for OPSEC leaks | `.onion` URL |
 
 ---
 
-_Darknet Investigation Module v1.0.0_
-_Part of Free OSINT Expert Skill - Phase 5_
-_For authorized investigation and educational purposes only_
+*Darknet Investigation Module v1.0.0*
+*Part of Free OSINT Expert Skill - Phase 5*
+*For authorized investigation and educational purposes only*

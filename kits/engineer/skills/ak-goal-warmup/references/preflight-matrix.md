@@ -8,19 +8,19 @@ over false Ready when a check cannot run safely.
 ## Matrix columns
 
 | Phase | Requirement | Check method | Status | Owner / unblock action | Blocking? |
-| ----- | ----------- | ------------ | ------ | ---------------------- | --------- |
+|-------|-------------|--------------|--------|------------------------|-----------|
 
 **Status:** `available` | `missing` | `pending` | `unknown` | `n/a`
 
 ## Portable check catalog (v1)
 
-| Check            | Method                             | Secret-safe |
-| ---------------- | ---------------------------------- | ----------- |
-| CLI present      | `command -v <bin>`                 | yes         |
-| Env var present  | name exists; **never print value** | yes         |
-| Config shape     | parse keys/schema only             | yes         |
-| GitHub auth      | `gh auth status` (no token dump)   | yes         |
-| Adapter-specific | optional documented probes         | yes         |
+| Check | Method | Secret-safe |
+|-------|--------|-------------|
+| CLI present | `command -v <bin>` | yes |
+| Env var present | name exists; **never print value** | yes |
+| Config shape | parse keys/schema only | yes |
+| GitHub auth | `gh auth status` (no token dump) | yes |
+| Adapter-specific | optional documented probes | yes |
 
 ## Output groups
 

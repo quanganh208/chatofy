@@ -1,119 +1,77 @@
-# Runtime Awareness
+# Runtime awareness and budget accounting
 
-Read the two numbers that decide the session protocol band: context window utilization
-and usage-limit consumption. This reference says where each runtime shows them, how the
-displayed percentage is computed, and what to do at each threshold.
+## Discover capabilities
 
-## Two metrics
+Prefer runtime-supplied usage tools/metadata. Inspect the available tool catalog and
+runtime help; do not assume that a terminal slash command is an agent-callable tool.
+Claude Code commonly exposes /context and /compact, Codex CLI /status and /compact,
+and Gemini CLI /stats and /compress. These are user-interface examples, not a promise
+for every installed version. Verify support locally before offering or executing them.
+If no compaction capability is callable, write a checkpoint and continue safely or
+explain the required user action; do not claim a reset occurred.
 
-| Metric | Meaning | Decides |
-|--------|---------|---------|
-| Context window | tokens in the current conversation vs the model window | when to trim, checkpoint, compact, hand off |
-| Usage limits | quota consumed in the provider's rolling windows (for Claude: 5-hour and 7-day) | how much parallel or exploratory work to start |
+The engineer usage hooks refresh a cosmetic quota cache for the statusline; their
+presence does not prove usage was injected into the conversation. Follow installed
+hook/statusline source and runtime observations. Never read credentials to fetch usage.
+Core is internal composition input, not an installable user kit.
 
-Context utilization is the operative number. Usage limits change pacing, not procedure.
+## Distinct quantities
 
-## Where each runtime shows the numbers
+| Quantity | Unit / source | Purpose |
+|---|---|---|
+| Context occupancy | Current request tokens / verified window | Capacity and compaction |
+| Task consumption | Sum across calls, agents, retries | Overall allocation |
+| Cost | Actual invoice or dated pricing estimate | Economic selection |
+| Provider quota | Provider-specific rolling limit | Scheduling/pacing |
 
-| Runtime | Context window | Usage limits | Compact / reset |
-|---------|----------------|--------------|-----------------|
-| Claude Code | `/context` (per-category breakdown), statusline percent when configured | `/cost`; statusline 5h/wk when the installed statusline reads them | `/compact <focus>`, `/clear` |
-| Codex CLI | `/status` | `/status` | `/compact`, `/new` |
-| Gemini CLI | `/stats` | `/stats` | `/compress`, `/clear` |
-| Other runtimes | run `/help` and look for context, stats, status, cost | same | same; else start a new session |
+Cached input still occupies context; cache billing is a different calculation. A
+statusline may already include reserved capacity. Record that basis, and do not count
+the same buffer again. Report measured, caller-reported, estimated or unknown values.
+A chars/4 file estimate is English-oriented, not a tokenizer count for all languages,
+code or media, and excludes unobserved system/tools/history. Do not infer session usage
+from file totals. Use a native tokenizer/counter when available; never invent precision.
 
-Slash commands change between releases. If a command is missing, `/help` is the
-authority; do not guess a number.
+## Analyzer
 
-### AgentKit statusline (engineer kit)
-
-The engineer kit ships a statusline that renders the context percent and, when it can
-fetch them, the 5-hour and weekly usage percentages. It computes the context percent as
-the runtime's pre-calculated `used_percentage` when present, otherwise:
-
-```text
-total   = input_tokens + cache_creation_input_tokens + cache_read_input_tokens
-percent = (total + AUTOCOMPACT_BUFFER) / context_window_size × 100
+```bash
+python3 scripts/context_analyzer.py analyze messages.json --limit 200000 \
+  --used-tokens 120000 --next-step 30000 --output-reserve 8000 --checkpoint-reserve 4000
 ```
 
-The buffer (40k tokens at the time of writing; the constant lives in the statusline
-source) reserves room for auto-compaction, so a displayed 80% means the visible
-conversation is smaller than 80% of the window and auto-compaction is closer than the
-raw number suggests. Treat the displayed value as the truth for banding.
+`--used-tokens` is caller-reported telemetry; without it, supplied message content is
+estimated. Without `--limit`, utilization and capacity band are unknown. Lexical matches
+are diagnostics, not evidence of poisoning. `health_score`, `degradation_risk` and
+`poisoning_risk` are null in schema version 2. They cannot drive automatic recovery.
 
-### No counter available
+## Two independent budgets
 
-Estimate. Size everything you loaded with
-`python scripts/context_analyzer.py estimate <paths> --limit <model window>` and add the
-runtime's system prompt and tool definitions (typically 5–20k tokens). Or fall back to
-tool-call counting: Yellow after 20 calls, Orange after 40.
+```bash
+python3 scripts/context_analyzer.py budget --system 2000 --tools 2000 \
+  --docs 4000 --history 12000 --window 100000 --next-step 10000 \
+  --output-reserve 4000 --checkpoint-reserve 2000 \
+  --task-limit 200000 --task-spent 70000 --agent-budget scan=20000 \
+  --verification-reserve 30000
+```
 
-## Engineer-kit usage hooks (do not delete them)
+Context headroom = window minus disjoint current input categories. The next step fits
+only if result estimate + output reserve + checkpoint reserve fit in that headroom.
+Do not count tool results separately if already included in history. Verify that the
+runtime's window accounting includes the output budget before applying this calculation.
 
-The engineer kit ships `usage-context-awareness.cjs` and `usage-quota-cache-refresh.cjs`,
-registered in its `hooks.json` on PostToolUse/UserPromptSubmit/SessionStart. They are live,
-not legacy — do not treat their presence in `settings.json` as a stale install to remove.
-Their job today is narrower than the name suggests: they only refresh a cosmetic 5-hour/
-weekly usage cache (`os.tmpdir()/ck-usage-limits-cache.json`) that the engineer statusline
-reads to render its `5h`/`wk` numbers. They do not inject an `<usage-awareness>` block or
-any other `additionalContext`/`systemMessage` into the conversation. A base `core`-kit
-install (no `engineer` kit) ships neither hook.
+Unallocated task budget = task limit minus cumulative spend across all agents/retries,
+minus **unspent** worker allocations, minus verification/integration reserve. When a
+worker spends tokens, transfer that amount from its allocation to cumulative spend;
+never count the same consumption twice. Checkpointing reduces window occupancy, not
+cumulative task spend. A negative remaining budget is reported as overcommitted.
 
-If an `<usage-awareness>` block ever does appear in context, it came from an older install
-or from user-provided content, not from a currently-shipped hook; use the runtime's own
-command to confirm the number before acting on it, and do not delete the engineer hooks to
-"fix" it.
+The legacy `--buffer` fraction is a subtotal-based planning estimate. It does not infer
+the model window; explicit `--output-reserve` overrides it. Warning/critical thresholds
+are null without a window. Supplied limits must be valid; no limit means unknown.
+These are planning calculations, not enforced provider limits or hidden reasoning caps.
 
-Never read credential files, keychains, or OAuth tokens to fetch usage yourself. The
-runtime and the installed statusline own that access.
+## Timing
 
-## Thresholds and actions
-
-### Context window
-
-| Utilization | Band | Action |
-|-------------|------|--------|
-| < 50% | Green | normal work; keep the ledger |
-| 50–70% | Yellow | search-then-range reads only; limiter on every command; no speculative loads |
-| 70–85% | Orange | finish the atomic step; write the checkpoint note; compact with focus or hand off |
-| ≥ 85% | Red | nothing new; checkpoint; compact or fresh session from the note |
-
-Procedure per band: [session-protocol.md](./session-protocol.md).
-
-### Usage limits (Claude 5-hour window)
-
-| Utilization | Action |
-|-------------|--------|
-| < 70% | normal |
-| 70–90% | reduce parallel sub-agents; prefer one discriminating check over several confirming ones; batch independent calls |
-| > 90% | essential steps only; checkpoint so work resumes cleanly after the reset; consider a cheaper model for scans |
-
-### Usage limits (Claude 7-day window)
-
-| Utilization | Action |
-|-------------|--------|
-| < 70% | normal |
-| 70–90% | avoid best-of-N and exploratory fan-out; hand bulk transforms to cheaper workers |
-| > 90% | essential tasks only |
-
-## Degradation before the limit
-
-Every model degrades before its advertised window is full: retrieval accuracy and
-instruction adherence slip first, then fall sharply. Onset differs per model and moves
-with each release, so treat symptoms as the signal, not a fixed token number:
-
-- answers that ignore a constraint stated early in the session;
-- repeated tool calls the session already made;
-- a wrong belief that survives correction (poisoning).
-
-Any of these at Yellow means act as if Orange. Patterns and recovery:
-[context-degradation.md](./context-degradation.md).
-
-## Troubleshooting
-
-| Issue | Likely cause | Fix |
-|-------|--------------|-----|
-| Statusline shows no context percent | statusline not configured for this runtime, or runtime does not pass `context_window` | use `/context` or `/status`; check the statusline setting |
-| No usage-limit numbers | runtime not logged in, or statusline cannot reach the usage endpoint | run the runtime's login command; usage is optional for the protocol |
-| Percent jumps after a tool call | a large output entered context | trim at the command next time; consider compaction if now Orange |
-| Percent drops unexpectedly | auto-compaction fired | read the checkpoint note; re-verify one load-bearing fact before continuing |
+Bands Green <50%, Yellow 50–<70%, Orange 70–<85%, Red ≥85% are fallback policy hints.
+Override the timing with observed headroom, the next atomic operation, and model/task
+calibration. Provider quota affects pacing but never authorizes cutting user scope,
+changing model/effort, or skipping required verification.

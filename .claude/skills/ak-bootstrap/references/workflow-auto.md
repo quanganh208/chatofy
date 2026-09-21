@@ -1,7 +1,6 @@
 # Auto Workflow (`--auto`) — Explicit Opt-In
 
-**Thinking level:** Ultrathink
-**User gates:** Design approval only. All other phases proceed automatically because the user explicitly selected `--auto`.
+**Continuation:** Proceed automatically within scope; resolve material design decisions only if still missing.
 
 The opening brainstorm contract in the parent skill is already satisfied;
 explicit auto mode may proceed without a routine approval pause.
@@ -32,7 +31,7 @@ No user gate — auto-select best option.
 3. If no logo provided: generate with `ak:ai-multimodal` skill
 4. Screenshot wireframes with `ak:agent-browser` -> save to `./docs/wireframes/`
 
-**Gate:** Ask user to approve design. Repeat if rejected.
+Resolve material design gaps; reuse an accepted direction without another approval.
 
 **Image tools:** `ak:ai-multimodal` for generation/analysis, `imagemagick` for crop/resize, background removal tool as needed.
 
@@ -50,6 +49,6 @@ No user gate after planning in explicit auto mode — proceed to implementation.
 Load `references/shared-phases.md` for remaining phases.
 
 Activate **ak:cook** skill: `/ak:cook --auto <plan-path>`
-- Skips cook review gates because `--auto` was explicitly requested
-- Auto-approves if score≥9.5 and 0 critical issues
-- Continues through all phases without stopping
+- Continues accepted scope through cook verification and review
+- Requires evidence that acceptance criteria hold and blocking findings are resolved
+- Continues through all phases unless an external blocker or material missing decision prevents progress

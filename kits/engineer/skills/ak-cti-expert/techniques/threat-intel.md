@@ -15,28 +15,27 @@ Aggregates threat reputation data for IPs, domains, URLs, and file hashes from f
 
 ## 2. Tool Inventory
 
-| Priority  | Tool                 | Target Types         | Free Limit         | Register                                           |
-| --------- | -------------------- | -------------------- | ------------------ | -------------------------------------------------- |
-| Primary   | AbuseIPDB            | IP                   | 1000/day           | abuseipdb.com/account/api                          |
-| Primary   | VirusTotal           | Domain, URL, Hash    | 500/day, 4/min     | virustotal.com                                     |
-| Primary   | MalwareBazaar        | Hash                 | Unlimited          | bazaar.abuse.ch                                    |
-| Secondary | GreyNoise Community  | IP                   | 50/week            | greynoise.io                                       |
-| Secondary | AlienVault OTX       | IP, Domain           | Unlimited          | otx.alienvault.com                                 |
-| Secondary | URLhaus              | URL                  | Unlimited          | None required                                      |
-| Secondary | ThreatFox            | Domain, IP, Hash     | Unlimited          | None required                                      |
-| Secondary | **URLScan.io**       | Domain, URL, IP      | 100 scans/day free | https://urlscan.io/user/signup                     |
-| Tertiary  | Pulsedive            | IP, Domain           | Limited            | pulsedive.com                                      |
-| Tertiary  | HudsonRock Cavalier  | Domain               | Unlimited          | None required                                      |
-| Tertiary  | **CIRCL CVE Search** | CVE, Vendor, Product | Unlimited          | None required                                      |
-| Tertiary  | **NVD API v2**       | CVE, Keyword, CPE    | 5 req/30s (no key) | https://nvd.nist.gov/developers/request-an-api-key |
-| Tertiary  | **Ransomware.live**  | Org name, Domain     | Unlimited          | None required                                      |
+| Priority | Tool | Target Types | Free Limit | Register |
+|----------|------|-------------|-----------|---------|
+| Primary | AbuseIPDB | IP | 1000/day | abuseipdb.com/account/api |
+| Primary | VirusTotal | Domain, URL, Hash | 500/day, 4/min | virustotal.com |
+| Primary | MalwareBazaar | Hash | Unlimited | bazaar.abuse.ch |
+| Secondary | GreyNoise Community | IP | 50/week | greynoise.io |
+| Secondary | AlienVault OTX | IP, Domain | Unlimited | otx.alienvault.com |
+| Secondary | URLhaus | URL | Unlimited | None required |
+| Secondary | ThreatFox | Domain, IP, Hash | Unlimited | None required |
+| Secondary | **URLScan.io** | Domain, URL, IP | 100 scans/day free | https://urlscan.io/user/signup |
+| Tertiary | Pulsedive | IP, Domain | Limited | pulsedive.com |
+| Tertiary | HudsonRock Cavalier | Domain | Unlimited | None required |
+| Tertiary | **CIRCL CVE Search** | CVE, Vendor, Product | Unlimited | None required |
+| Tertiary | **NVD API v2** | CVE, Keyword, CPE | 5 req/30s (no key) | https://nvd.nist.gov/developers/request-an-api-key |
+| Tertiary | **Ransomware.live** | Org name, Domain | Unlimited | None required |
 
 ---
 
 ## 3. Investigation Workflow
 
 **Step 1: Classify input type**
-
 - IPv4/IPv6 address → IP path
 - Domain name (no path) → Domain path
 - Full URL (with scheme/path) → URL path
@@ -55,7 +54,6 @@ Aggregates threat reputation data for IPs, domains, URLs, and file hashes from f
 ## 4. CLI Commands & Expected Output
 
 **IP — AbuseIPDB:**
-
 ```bash
 curl -sG "https://api.abuseipdb.com/api/v2/check" \
   -d "ipAddress=<IP>" -d "maxAgeInDays=90" \
@@ -64,7 +62,6 @@ curl -sG "https://api.abuseipdb.com/api/v2/check" \
 ```
 
 **IP — GreyNoise Community:**
-
 ```bash
 curl -s "https://api.greynoise.io/v3/community/<IP>" \
   -H "key: <YOUR_KEY>" | jq .
@@ -72,14 +69,12 @@ curl -s "https://api.greynoise.io/v3/community/<IP>" \
 ```
 
 **IP — AlienVault OTX:**
-
 ```bash
 curl -s "https://otx.alienvault.com/api/v1/indicators/IPv4/<IP>/general" | jq .pulse_info.count
 # Returns: pulse count (threat intel hits), reputation score
 ```
 
 **Domain — VirusTotal:**
-
 ```bash
 curl -s "https://www.virustotal.com/api/v3/domains/<domain>" \
   -H "x-apikey: <YOUR_KEY>" | jq '.data.attributes.last_analysis_stats'
@@ -87,21 +82,18 @@ curl -s "https://www.virustotal.com/api/v3/domains/<domain>" \
 ```
 
 **URL — URLhaus:**
-
 ```bash
 curl -s -d "url=<URL>" "https://urlhaus-api.abuse.ch/v1/url/" | jq '{query_status, threat, tags}'
 # Returns: query_status (is_listed/not_listed), threat type, tags
 ```
 
 **Domain — ThreatFox:**
-
 ```bash
 curl -s -d '{"query":"search_ioc","search_term":"<domain>"}' \
   "https://threatfox-api.abuse.ch/api/v1/" | jq '.data[0] | {ioc_type, malware, confidence_level}'
 ```
 
 **Hash — MalwareBazaar:**
-
 ```bash
 curl -s -d "query=get_info&hash=<sha256>" "https://mb-api.abuse.ch/api/v1/" | \
   jq '.data[0] | {file_name, file_type, tags, vendor_intel}'
@@ -109,14 +101,12 @@ curl -s -d "query=get_info&hash=<sha256>" "https://mb-api.abuse.ch/api/v1/" | \
 ```
 
 **Domain — HudsonRock (stealer log exposure):**
-
 ```bash
 curl -s "https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-domain?domain=<domain>"
 # Returns: employee/user credential exposures from infostealer logs
 ```
 
 **Domain/URL — URLScan.io (search existing scans):**
-
 ```bash
 # Search for existing scans of a domain (no auth needed for search):
 curl -s "https://urlscan.io/api/v1/search/?q=domain:<domain>" | jq '.results[] | {url: .page.url, ip: .page.ip, country: .page.country, server: .page.server, title: .page.title}'
@@ -134,7 +124,6 @@ curl -s "https://urlscan.io/api/v1/result/<uuid>/" | jq '{page: .page, lists: .l
 ```
 
 **CVE — CIRCL CVE Search (free, no auth):**
-
 ```bash
 # Lookup specific CVE:
 curl -s "https://cve.circl.lu/api/cve/<CVE-ID>" | jq '{id: .id, summary: .summary, cvss: .cvss, references: .references}'
@@ -149,7 +138,6 @@ curl -s "https://cve.circl.lu/api/last" | jq '.[0:10] | .[] | {id: .id, summary:
 ```
 
 **CVE — NVD API v2 (NIST, rate-limited):**
-
 ```bash
 # Search by keyword:
 curl -s "https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch=<keyword>&resultsPerPage=5" \
@@ -166,7 +154,6 @@ curl -s "https://services.nvd.nist.gov/rest/json/cves/2.0?cpeName=cpe:2.3:a:<ven
 ```
 
 **Org — Ransomware.live (ransomware victim/group tracking):**
-
 ```bash
 # Search for an organization by keyword:
 curl -s "https://api.ransomware.live/v2/searchvictims/<org_name>" | jq '.[0:5] | .[] | {victim: .victim, group: .group_name, date: .discovered, country: .country}'
@@ -193,38 +180,34 @@ curl -s "https://api.ransomware.live/v2/groupvictims/<group_name>" | jq '.[0:5] 
 
 ## 5. Fallback Cascade
 
-| Primary Unavailable | Use Instead                                 |
-| ------------------- | ------------------------------------------- |
-| AbuseIPDB (quota)   | OTX + GreyNoise manual via web UI           |
-| VirusTotal (quota)  | ThreatFox + URLhaus for domains/URLs        |
-| MalwareBazaar       | VirusTotal hash endpoint                    |
-| GreyNoise (quota)   | Shodan web search (no key needed for basic) |
-| All APIs down       | Manual web UI search on any primary tool    |
+| Primary Unavailable | Use Instead |
+|--------------------|-------------|
+| AbuseIPDB (quota) | OTX + GreyNoise manual via web UI |
+| VirusTotal (quota) | ThreatFox + URLhaus for domains/URLs |
+| MalwareBazaar | VirusTotal hash endpoint |
+| GreyNoise (quota) | Shodan web search (no key needed for basic) |
+| All APIs down | Manual web UI search on any primary tool |
 
 ---
 
 ## 6. Output Interpretation
 
 **AbuseIPDB score:**
-
 - 0–24: Clean/low noise
 - 25–74: Suspicious, investigate further
 - 75–100: Malicious, block/alert
 
 **GreyNoise classification:**
-
 - `riot: true` = Known benign internet scanner (CDN, security vendor) — likely FP
 - `noise: true, classification: malicious` = Active threat actor
 - `noise: false` = Not observed scanning internet — could be targeted
 
 **VirusTotal stats:**
-
 - `malicious ≥ 3` vendors: Confirmed threat
 - `malicious 1–2`: Investigate; check which vendors flagged
 - `suspicious > 0, malicious 0`: Borderline; context required
 
 **Verdict aggregation (majority vote):**
-
 ```
 weight: VirusTotal=3, AbuseIPDB=3, MalwareBazaar=3, OTX=2, ThreatFox=2, URLhaus=2, GreyNoise=1
 MALICIOUS  → weighted_malicious > weighted_clean
@@ -236,15 +219,15 @@ CLEAN      → all sources return benign/not listed
 
 ## 7. Confidence Ratings
 
-| Finding Type                  | Confidence | Notes                              |
-| ----------------------------- | ---------- | ---------------------------------- |
-| Hash malware match            | HIGH       | Cryptographic match, no ambiguity  |
-| IP abuse score ≥ 75           | HIGH       | Multi-reporter consensus           |
-| URL listed in URLhaus         | HIGH       | Active/recent listing              |
-| Domain VirusTotal ≥ 5 vendors | HIGH       | Strong consensus                   |
-| Single-source flag only       | LOW        | Possible false positive            |
-| GreyNoise noise=true only     | MEDIUM     | Known scanner, not targeted threat |
-| OTX pulse count only          | LOW        | Community-submitted, unverified    |
+| Finding Type | Confidence | Notes |
+|-------------|-----------|-------|
+| Hash malware match | HIGH | Cryptographic match, no ambiguity |
+| IP abuse score ≥ 75 | HIGH | Multi-reporter consensus |
+| URL listed in URLhaus | HIGH | Active/recent listing |
+| Domain VirusTotal ≥ 5 vendors | HIGH | Strong consensus |
+| Single-source flag only | LOW | Possible false positive |
+| GreyNoise noise=true only | MEDIUM | Known scanner, not targeted threat |
+| OTX pulse count only | LOW | Community-submitted, unverified |
 
 ---
 
@@ -263,14 +246,14 @@ CLEAN      → all sources return benign/not listed
 
 ## 9. Command Reference
 
-| Command                   | Purpose                   | Input                               |
-| ------------------------- | ------------------------- | ----------------------------------- |
-| `/threat-check <IP>`      | Full IP reputation lookup | IPv4 or IPv6 address                |
-| `/threat-check <domain>`  | Domain threat intel       | Domain name                         |
-| `/threat-check <url>`     | URL threat lookup         | Full URL with scheme                |
-| `/threat-check <hash>`    | Malware hash lookup       | MD5, SHA1, or SHA256                |
-| `/vuln-check <query>`     | CVE/vulnerability lookup  | CVE ID, vendor, product, or keyword |
-| `/ransomware-check <org>` | Ransomware victim lookup  | Organization name or domain         |
+| Command | Purpose | Input |
+|---------|---------|-------|
+| `/threat-check <IP>` | Full IP reputation lookup | IPv4 or IPv6 address |
+| `/threat-check <domain>` | Domain threat intel | Domain name |
+| `/threat-check <url>` | URL threat lookup | Full URL with scheme |
+| `/threat-check <hash>` | Malware hash lookup | MD5, SHA1, or SHA256 |
+| `/vuln-check <query>` | CVE/vulnerability lookup | CVE ID, vendor, product, or keyword |
+| `/ransomware-check <org>` | Ransomware victim lookup | Organization name or domain |
 
 ---
 
@@ -279,13 +262,11 @@ CLEAN      → all sources return benign/not listed
 Queries CIRCL CVE Search and NVD API v2 to surface known vulnerabilities for a product, vendor, or specific CVE ID. Use during org exposure assessment or infrastructure vetting.
 
 **Input classification:**
-
 - `CVE-YYYY-NNNNN` → direct CVE lookup on both CIRCL and NVD
 - `vendor/product` (e.g., `apache/httpd`) → search by vendor+product on CIRCL
 - Free text keyword → keyword search on NVD API v2
 
 **Workflow:**
-
 1. Classify input type
 2. Query CIRCL CVE Search first (no auth, no rate limit)
 3. Cross-reference with NVD API v2 for CVSS scores and severity
@@ -302,7 +283,6 @@ Queries ransomware.live API to determine if an organization has appeared on rans
 
 **Input:** Organization name or domain
 **Workflow:**
-
 1. Query `https://api.ransomware.live/v2/searchvictims/<org_name>` for direct keyword search
 2. If match found: extract group name, discovery date, country, and activity status
 3. Query `https://api.ransomware.live/v2/groupvictims/<group_name>` for group victim list
@@ -320,7 +300,6 @@ Queries ransomware.live API to determine if an organization has appeared on rans
 URLScan.io provides passive domain/URL intelligence by searching existing scan results, or active scanning with a free API key.
 
 **OSINT use cases:**
-
 - Domain infrastructure mapping (IPs, ASNs, technologies, certificates)
 - Phishing page detection (screenshot + DOM analysis)
 - Related domain discovery (shared IPs, tracking codes)
@@ -331,6 +310,6 @@ URLScan.io provides passive domain/URL intelligence by searching existing scan r
 
 ---
 
-_Threat Intelligence Module v1.1.0 — Updated 2026-03-30_
-_Part of Free OSINT Expert Skill - Phase 5_
-_For authorized security research and incident response purposes only_
+*Threat Intelligence Module v1.1.0 — Updated 2026-03-30*
+*Part of Free OSINT Expert Skill - Phase 5*
+*For authorized security research and incident response purposes only*

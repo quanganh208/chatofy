@@ -40,7 +40,7 @@ function buildBlocks(input, hookType, projectName, sessionId) {
   const blocks = [
     {
       type: 'header',
-      text: { type: 'plain_text', text: getTitle(hookType) },
+      text: { type: 'plain_text', text: getTitle(hookType) }
     },
     {
       type: 'section',
@@ -48,21 +48,23 @@ function buildBlocks(input, hookType, projectName, sessionId) {
         { type: 'mrkdwn', text: `*Project:*\n${projectName}` },
         { type: 'mrkdwn', text: `*Time:*\n${timestamp}` },
         { type: 'mrkdwn', text: `*Session:*\n\`${sessionId}...\`` },
-        { type: 'mrkdwn', text: `*Event:*\n${hookType}` },
-      ],
+        { type: 'mrkdwn', text: `*Event:*\n${hookType}` }
+      ]
     },
     { type: 'divider' },
     {
       type: 'context',
-      elements: [{ type: 'mrkdwn', text: `📍 \`${cwd}\`` }],
-    },
+      elements: [
+        { type: 'mrkdwn', text: `📍 \`${cwd}\`` }
+      ]
+    }
   ];
 
   // Add agent_type for SubagentStop
   if (hookType === 'SubagentStop' && input.agent_type) {
     blocks.splice(2, 0, {
       type: 'section',
-      text: { type: 'mrkdwn', text: `*Agent Type:* ${input.agent_type}` },
+      text: { type: 'mrkdwn', text: `*Agent Type:* ${input.agent_type}` }
     });
   }
 
@@ -82,7 +84,7 @@ function formatMessage(input) {
 
   return {
     text: `Claude Code: ${hookType} in ${projectName}`, // Fallback required
-    blocks: buildBlocks(input, hookType, projectName, sessionId),
+    blocks: buildBlocks(input, hookType, projectName, sessionId)
   };
 }
 
@@ -105,5 +107,5 @@ module.exports = {
   send: async (input, env) => {
     const payload = formatMessage(input);
     return send('slack', env.SLACK_WEBHOOK_URL, payload);
-  },
+  }
 };

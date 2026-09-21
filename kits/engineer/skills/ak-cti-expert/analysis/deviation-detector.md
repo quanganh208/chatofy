@@ -6,13 +6,13 @@ Flags subjects whose observed behavior diverges from their established baseline.
 
 ## Detection Categories
 
-| Category         | Description                                                          |
-| ---------------- | -------------------------------------------------------------------- |
-| BEHAVIORAL_SHIFT | Content type, tone, or engagement style changes materially           |
-| TEMPORAL_GAP     | Posting cadence interrupted without explanation                      |
-| PATTERN_BREAK    | Established routine is abandoned abruptly                            |
-| VOLUME_SPIKE     | Output rate exceeds baseline by a defined multiplier                 |
-| IDENTITY_DRIFT   | Profile attributes shift in ways inconsistent with natural evolution |
+| Category | Description |
+|---|---|
+| BEHAVIORAL_SHIFT | Content type, tone, or engagement style changes materially |
+| TEMPORAL_GAP | Posting cadence interrupted without explanation |
+| PATTERN_BREAK | Established routine is abandoned abruptly |
+| VOLUME_SPIKE | Output rate exceeds baseline by a defined multiplier |
+| IDENTITY_DRIFT | Profile attributes shift in ways inconsistent with natural evolution |
 
 ---
 
@@ -20,13 +20,13 @@ Flags subjects whose observed behavior diverges from their established baseline.
 
 Collect a minimum two-week observation window before scoring.
 
-| Metric                | Capture Method                  |
-| --------------------- | ------------------------------- |
-| Posts per day         | Rolling 14-day median           |
-| Active hours          | Hour-of-day frequency histogram |
-| Dominant content type | Category with >50% share        |
-| Engagement rate       | (likes + replies) / impressions |
-| Follower delta        | Weekly net change               |
+| Metric | Capture Method |
+|---|---|
+| Posts per day | Rolling 14-day median |
+| Active hours | Hour-of-day frequency histogram |
+| Dominant content type | Category with >50% share |
+| Engagement rate | (likes + replies) / impressions |
+| Follower delta | Weekly net change |
 
 ---
 
@@ -35,7 +35,6 @@ Collect a minimum two-week observation window before scoring.
 Format: WHEN [condition] THEN [classification] FLAG [severity]
 
 **TEMPORAL_GAP**
-
 ```
 WHEN posts_last_30d = 0
 AND posts_prior_30d >= 20
@@ -53,7 +52,6 @@ confidence = 85%
 ```
 
 **VOLUME_SPIKE**
-
 ```
 WHEN posts_in_24h > (daily_median * 8)
 THEN classify = VOLUME_SPIKE
@@ -69,7 +67,6 @@ confidence = 90%
 ```
 
 **TEMPORAL_GAP / timezone**
-
 ```
 WHEN posts_clustered_between(03:00, 06:00, local_claimed_tz)
 AND streak >= 5_days
@@ -79,7 +76,6 @@ confidence = 65%
 ```
 
 **IDENTITY_DRIFT**
-
 ```
 WHEN display_name changed
 AND bio changed
@@ -91,7 +87,6 @@ confidence = 88%
 ```
 
 **PATTERN_BREAK**
-
 ```
 WHEN content_category_distribution shifts > 60%
 COMPARED_TO 30_day_baseline
@@ -104,14 +99,14 @@ confidence = 70%
 
 ## 3. Deviation Thresholds
 
-| Metric                 | Baseline Range | DRIFT_NOTICE | DRIFT_WARNING | DRIFT_CRITICAL |
-| ---------------------- | -------------- | ------------ | ------------- | -------------- |
-| Posts/day              | ±25% of median | 1.5x–2x      | 2x–5x         | >5x or =0      |
-| Active hours           | Within window  | 2h outside   | 4h outside    | >6h outside    |
-| Content type match     | >75%           | 60–75%       | 40–60%        | <40%           |
-| Engagement rate        | ±25%           | ±50%         | ±75%          | >2x or <0.3x   |
-| Follower weekly delta  | ±4%            | 5–10%        | 10–20%        | >20%           |
-| Profile fields changed | 0–1            | 2            | 3             | 4+             |
+| Metric | Baseline Range | DRIFT_NOTICE | DRIFT_WARNING | DRIFT_CRITICAL |
+|---|---|---|---|---|
+| Posts/day | ±25% of median | 1.5x–2x | 2x–5x | >5x or =0 |
+| Active hours | Within window | 2h outside | 4h outside | >6h outside |
+| Content type match | >75% | 60–75% | 40–60% | <40% |
+| Engagement rate | ±25% | ±50% | ±75% | >2x or <0.3x |
+| Follower weekly delta | ±4% | 5–10% | 10–20% | >20% |
+| Profile fields changed | 0–1 | 2 | 3 | 4+ |
 
 ---
 
@@ -155,13 +150,13 @@ def deviation_score(subject, baseline):
 
 WHEN a deviation fires, check these suppressors before escalating:
 
-| Deviation Type   | Common Legitimate Cause             | Suppressor Check                               |
-| ---------------- | ----------------------------------- | ---------------------------------------------- |
-| TEMPORAL_GAP     | Holiday, illness, device loss       | Search subject's posts for travel/OOO mentions |
-| VOLUME_SPIKE     | Viral content, coordinated campaign | Check engagement source quality                |
-| IDENTITY_DRIFT   | Platform rebrand, marriage          | Check for announcement posts                   |
-| PATTERN_BREAK    | Life event, job change              | Cross-reference LinkedIn updates               |
-| BEHAVIORAL_SHIFT | Night shift, timezone change        | Verify consistency across 2+ weeks             |
+| Deviation Type | Common Legitimate Cause | Suppressor Check |
+|---|---|---|
+| TEMPORAL_GAP | Holiday, illness, device loss | Search subject's posts for travel/OOO mentions |
+| VOLUME_SPIKE | Viral content, coordinated campaign | Check engagement source quality |
+| IDENTITY_DRIFT | Platform rebrand, marriage | Check for announcement posts |
+| PATTERN_BREAK | Life event, job change | Cross-reference LinkedIn updates |
+| BEHAVIORAL_SHIFT | Night shift, timezone change | Verify consistency across 2+ weeks |
 
 ---
 

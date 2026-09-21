@@ -6,28 +6,28 @@ Track which discovery paths have been attempted and their yield for each subject
 
 ## Matrix — Person Subject
 
-| Discovery path                               | Checked | Result | Finding IDs |
-| -------------------------------------------- | ------- | ------ | ----------- |
-| Identity: full name operator query           | ☐       |        |             |
-| Identity: LinkedIn profile                   | ☐       |        |             |
-| Identity: professional license lookup        | ☐       |        |             |
-| Identity: government public records          | ☐       |        |             |
-| Employment: company website team page        | ☐       |        |             |
-| Employment: SEC / regulatory filings         | ☐       |        |             |
-| Employment: LinkedIn tenure                  | ☐       |        |             |
-| Credentials: degree verification (CHEA)      | ☐       |        |             |
-| Credentials: certification body lookup       | ☐       |        |             |
-| Legal: court record search                   | ☐       |        |             |
-| Legal: regulatory enforcement search         | ☐       |        |             |
-| Financial: property records                  | ☐       |        |             |
-| Financial: business registration             | ☐       |        |             |
-| Digital: social media platforms (list)       | ☐       |        |             |
-| Digital: username trace                      | ☐       |        |             |
-| Digital: email pivot                         | ☐       |        |             |
-| Exposure: breach database check              | ☐       |        |             |
-| Exposure: paste site search                  | ☐       |        |             |
-| Network: associates / co-parties             | ☐       |        |             |
-| Historical: Wayback Machine / archived pages | ☐       |        |             |
+| Discovery path | Checked | Result | Finding IDs |
+|----------------|---------|--------|-------------|
+| Identity: full name operator query | ☐ | | |
+| Identity: LinkedIn profile | ☐ | | |
+| Identity: professional license lookup | ☐ | | |
+| Identity: government public records | ☐ | | |
+| Employment: company website team page | ☐ | | |
+| Employment: SEC / regulatory filings | ☐ | | |
+| Employment: LinkedIn tenure | ☐ | | |
+| Credentials: degree verification (CHEA) | ☐ | | |
+| Credentials: certification body lookup | ☐ | | |
+| Legal: court record search | ☐ | | |
+| Legal: regulatory enforcement search | ☐ | | |
+| Financial: property records | ☐ | | |
+| Financial: business registration | ☐ | | |
+| Digital: social media platforms (list) | ☐ | | |
+| Digital: username trace | ☐ | | |
+| Digital: email pivot | ☐ | | |
+| Exposure: breach database check | ☐ | | |
+| Exposure: paste site search | ☐ | | |
+| Network: associates / co-parties | ☐ | | |
+| Historical: Wayback Machine / archived pages | ☐ | | |
 
 **Coverage score:** `___ / 20 paths checked = ___% `
 
@@ -35,29 +35,29 @@ Track which discovery paths have been attempted and their yield for each subject
 
 ## Matrix — Domain / Org Subject
 
-| Discovery path                                    | Checked | Result | Finding IDs |
-| ------------------------------------------------- | ------- | ------ | ----------- |
-| WHOIS registration (universal cascade)            | ☐       |        |             |
-| WHOIS reverse lookup (free)                       | ☐       |        |             |
-| WHOIS historical records                          | ☐       |        |             |
-| DNS records (A, MX, TXT, NS)                      | ☐       |        |             |
-| Certificate transparency (crt.sh)                 | ☐       |        |             |
-| Subdomain sweep                                   | ☐       |        |             |
-| Open directory / exposed files                    | ☐       |        |             |
-| Admin panel discovery                             | ☐       |        |             |
-| API endpoint discovery                            | ☐       |        |             |
-| Third-party references (GitHub, Pastebin)         | ☐       |        |             |
-| Scrapling web collection (static/stealth/dynamic) | ☐       |        |             |
-| Email security (SPF, DKIM, DMARC)                 | ☐       |        |             |
-| Port / service scan (Shodan / Censys)             | ☐       |        |             |
-| SSL certificate details                           | ☐       |        |             |
-| Credential / breach exposure                      | ☐       |        |             |
-| Code repository exposure                          | ☐       |        |             |
-| ASN / hosting info                                | ☐       |        |             |
-| Historical WHOIS / DNS                            | ☐       |        |             |
-| News and press mentions                           | ☐       |        |             |
-| Legal / regulatory filings                        | ☐       |        |             |
-| Social media presence                             | ☐       |        |             |
+| Discovery path | Checked | Result | Finding IDs |
+|----------------|---------|--------|-------------|
+| WHOIS registration (universal cascade) | ☐ | | |
+| WHOIS reverse lookup (free) | ☐ | | |
+| WHOIS historical records | ☐ | | |
+| DNS records (A, MX, TXT, NS) | ☐ | | |
+| Certificate transparency (crt.sh) | ☐ | | |
+| Subdomain sweep | ☐ | | |
+| Open directory / exposed files | ☐ | | |
+| Admin panel discovery | ☐ | | |
+| API endpoint discovery | ☐ | | |
+| Third-party references (GitHub, Pastebin) | ☐ | | |
+| Scrapling web collection (static/stealth/dynamic) | ☐ | | |
+| Email security (SPF, DKIM, DMARC) | ☐ | | |
+| Port / service scan (Shodan / Censys) | ☐ | | |
+| SSL certificate details | ☐ | | |
+| Credential / breach exposure | ☐ | | |
+| Code repository exposure | ☐ | | |
+| ASN / hosting info | ☐ | | |
+| Historical WHOIS / DNS | ☐ | | |
+| News and press mentions | ☐ | | |
+| Legal / regulatory filings | ☐ | | |
+| Social media presence | ☐ | | |
 
 **Coverage score:** `___ / 22 paths checked = ___% `
 
@@ -65,18 +65,18 @@ Track which discovery paths have been attempted and their yield for each subject
 
 ## Matrix — Handle / Username Subject
 
-| Discovery path                       | Checked | Result | Finding IDs |
-| ------------------------------------ | ------- | ------ | ----------- |
-| Platform sweep (10+ platforms)       | ☐       |        |             |
-| GitHub profile + commit email        | ☐       |        |             |
-| Email pivot from extracted address   | ☐       |        |             |
-| Paste site mentions                  | ☐       |        |             |
-| Forum presence                       | ☐       |        |             |
-| Real name correlation attempt        | ☐       |        |             |
-| Profile creation date analysis       | ☐       |        |             |
-| Cross-platform consistency check     | ☐       |        |             |
-| Breach database — extracted email    | ☐       |        |             |
-| Associate network (followers, teams) | ☐       |        |             |
+| Discovery path | Checked | Result | Finding IDs |
+|----------------|---------|--------|-------------|
+| Platform sweep (10+ platforms) | ☐ | | |
+| GitHub profile + commit email | ☐ | | |
+| Email pivot from extracted address | ☐ | | |
+| Paste site mentions | ☐ | | |
+| Forum presence | ☐ | | |
+| Real name correlation attempt | ☐ | | |
+| Profile creation date analysis | ☐ | | |
+| Cross-platform consistency check | ☐ | | |
+| Breach database — extracted email | ☐ | | |
+| Associate network (followers, teams) | ☐ | | |
 
 **Coverage score:** `___ / 10 paths checked = ___% `
 
@@ -84,12 +84,12 @@ Track which discovery paths have been attempted and their yield for each subject
 
 ## Coverage Scoring Guide
 
-| Score   | Status        | Action                                   |
-| ------- | ------------- | ---------------------------------------- |
-| 0–30%   | Minimal       | Major gaps — continue before reporting   |
-| 31–60%  | Partial       | Significant gaps — note limitations      |
-| 61–80%  | Solid         | Minor gaps — document and justify skips  |
-| 81–95%  | Thorough      | Few gaps — acceptable for most reports   |
+| Score | Status | Action |
+|-------|--------|--------|
+| 0–30% | Minimal | Major gaps — continue before reporting |
+| 31–60% | Partial | Significant gaps — note limitations |
+| 61–80% | Solid | Minor gaps — document and justify skips |
+| 81–95% | Thorough | Few gaps — acceptable for most reports |
 | 96–100% | Comprehensive | All paths attempted — highest confidence |
 
 ---
@@ -97,11 +97,9 @@ Track which discovery paths have been attempted and their yield for each subject
 ## Null Result Policy
 
 A discovery path that returns no finding is still a completed path. Log as:
-
 ```
 Path: [label]  Checked: ✓  Result: NULL  Finding IDs: —
 ```
-
 Null results improve coverage score and document due diligence.
 
 ---
@@ -123,16 +121,16 @@ Reads the coverage matrix and surfaces unchecked paths, ranked by investigation 
 
 ### Priority Classification
 
-| Priority | Discovery Path Categories                      |
-| -------- | ---------------------------------------------- |
-| HIGH     | Identity, breach/exposure, legal/court records |
-| MEDIUM   | Employment, credentials, financial             |
-| LOW      | Historical/archived pages, media/news mentions |
+| Priority | Discovery Path Categories                        |
+|----------|--------------------------------------------------|
+| HIGH     | Identity, breach/exposure, legal/court records  |
+| MEDIUM   | Employment, credentials, financial               |
+| LOW      | Historical/archived pages, media/news mentions  |
 
 ### Path-to-Priority Mapping (Person Subject)
 
 | Discovery Path                        | Priority |
-| ------------------------------------- | -------- |
+|---------------------------------------|----------|
 | Identity: full name operator query    | HIGH     |
 | Identity: LinkedIn profile            | HIGH     |
 | Identity: professional license lookup | HIGH     |
@@ -195,4 +193,4 @@ Run /coverage to update the matrix after completing paths.
 
 ---
 
-_See also: [`validation/quality-scoring.md`](./quality-scoring.md) | [`validation/verification-checklist.md`](./verification-checklist.md)_
+*See also: [`validation/quality-scoring.md`](./quality-scoring.md) | [`validation/verification-checklist.md`](./verification-checklist.md)*

@@ -74,13 +74,13 @@ await waitFor(() => expect(screen.getByText('Done')).toBeInTheDocument());
 
 ```javascript
 vi.mock('./api', () => ({
-  fetchUser: vi.fn().mockResolvedValue({ name: 'John' }),
+  fetchUser: vi.fn().mockResolvedValue({ name: 'John' })
 }));
 
 render(
   <UserContext.Provider value={{ user: mockUser }}>
     <Profile />
-  </UserContext.Provider>,
+  </UserContext.Provider>
 );
 ```
 

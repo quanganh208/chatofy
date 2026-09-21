@@ -9,13 +9,13 @@ moves. Running a mode is never a substitute for Ground and Attack.
 
 ## Choosing a mode
 
-| Symptom                                                                                        | Mode                                         |
-| ---------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| "Everyone does it this way"; the conventional answer violates a constraint; high-stakes design | First principles                             |
-| Later steps depend on earlier ones; understanding evolves; revisions likely                    | Sequential                                   |
-| Every option fails; all options share one shape; a breakthrough is asked for                   | Creative (diverge, then converge)            |
-| Evidence contradicts itself; the framing is unclear                                            | Sequential with branches                     |
-| A known problem with a known answer                                                            | None — the moves alone; a mode here is waste |
+| Symptom | Mode |
+|---------|------|
+| "Everyone does it this way"; the conventional answer violates a constraint; high-stakes design | First principles |
+| Later steps depend on earlier ones; understanding evolves; revisions likely | Sequential |
+| Every option fails; all options share one shape; a breakthrough is asked for | Creative (diverge, then converge) |
+| Evidence contradicts itself; the framing is unclear | Sequential with branches |
+| A known problem with a known answer | None — the moves alone; a mode here is waste |
 
 ## First-principles thinking
 
@@ -66,8 +66,9 @@ makes each step depend visibly on the previous one and allows revision without r
   contradiction is open.
 
 **Where to run it.** In the private reasoning space when the runtime grants one; otherwise
-as a short visible chain (restate → numbered steps → answer last). For explicit scaffolding
-and tracking scripts, `ak:sequential-thinking`.
+as a short visible chain (restate → numbered steps → answer last). Number each thought
+(`T1/N`), mark revisions (`[REVISION of T2]`) and branches (`[BRANCH A]`), and close with
+`[FINAL]` so a reader can audit the chain without extra tooling.
 
 **Token rules.** One to three sentences per thought. Reference earlier thoughts by number;
 never restate them. Contract the estimate when the problem turns out simpler.
@@ -116,12 +117,12 @@ stage; stop at the first stage that yields a decision meeting the criteria.
 
 ## Do / Don't
 
-| Don't                                         | Instead                                                           |
-| --------------------------------------------- | ----------------------------------------------------------------- |
-| Run a mode because it sounds rigorous         | Match the symptom to the mode; skip it for known problems         |
+| Don't | Instead |
+|-------|---------|
+| Run a mode because it sounds rigorous | Match the symptom to the mode; skip it for known problems |
 | Discard verified constraints as "assumptions" | Keep OBSERVED constraints; discard only conventions and analogies |
-| Restate earlier thoughts in each new one      | Reference by number; one aspect per thought                       |
-| Never revise on a hard problem                | Mark revisions explicitly when evidence invalidates a step        |
-| Evaluate the first idea as it appears         | Fill the quota first; judge after                                 |
-| Ship the novel option on excitement           | Same evidence bar; spike the top two                              |
-| Let a mode replace verification               | Hand every mode's output to Ground and Attack                     |
+| Restate earlier thoughts in each new one | Reference by number; one aspect per thought |
+| Never revise on a hard problem | Mark revisions explicitly when evidence invalidates a step |
+| Evaluate the first idea as it appears | Fill the quota first; judge after |
+| Ship the novel option on excitement | Same evidence bar; spike the top two |
+| Let a mode replace verification | Hand every mode's output to Ground and Attack |

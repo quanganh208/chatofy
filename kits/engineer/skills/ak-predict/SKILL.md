@@ -1,16 +1,16 @@
 ---
 name: ak:predict
-description: '5 expert personas debate proposed changes before implementation. Catches architectural, security, performance, and UX issues early. Use before major features or risky changes.'
+description: "5 expert personas debate proposed changes before implementation. Catches architectural, security, performance, and UX issues early. Use before major features or risky changes."
 user-invocable: true
-when_to_use: 'Invoke before high-risk changes that need persona debate.'
-category: utilities
+when_to_use: "Invoke before high-risk changes that need persona debate."
+category: reasoning
 keywords: [prediction, debate, review, risk]
-argument-hint: '<feature description or change proposal> [--files <glob>] [--chain reason|probe]'
+argument-hint: "<feature description or change proposal> [--files <glob>] [--chain reason|probe]"
 metadata:
   author: agentkit
-  attribution: 'Multi-persona prediction pattern adapted from autoresearch by Udit Goenka (MIT)'
+  attribution: "Multi-persona prediction pattern adapted from autoresearch by Udit Goenka (MIT)"
   license: MIT
-  version: '1.1.0'
+  version: "1.1.1"
 ---
 
 # ak:predict — Multi-Persona Pre-Analysis
@@ -34,13 +34,13 @@ Five expert personas independently analyze a proposed change, then debate confli
 
 ## The 5 Personas
 
-| Persona              | Focus                                        | Core Questions                                                                                                                                                                             |
-| -------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Architect**        | System design, scalability, coupling         | Does this fit the architecture? Will it scale? What new coupling does it introduce?                                                                                                        |
-| **Security**         | Attack surface, data protection, auth        | What can be abused? Where is data exposed? Are auth boundaries respected?                                                                                                                  |
-| **Performance**      | Latency, memory, queries, bundle size        | What is the latency impact? N+1 queries? Memory leaks? Bundle bloat?                                                                                                                       |
-| **UX**               | User experience, accessibility, error states | Is this intuitive? What does the error state look like? Accessible on mobile?                                                                                                              |
-| **Devil's Advocate** | Hidden assumptions, simpler alternatives     | Why not do nothing? What is the simplest alternative? Which load-bearing assumption — one the proposal fails without — could be wrong, and what does it cost to reverse course once it is? |
+| Persona | Focus | Core Questions |
+|---------|-------|----------------|
+| **Architect** | System design, scalability, coupling | Does this fit the architecture? Will it scale? What new coupling does it introduce? |
+| **Security** | Attack surface, data protection, auth | What can be abused? Where is data exposed? Are auth boundaries respected? |
+| **Performance** | Latency, memory, queries, bundle size | What is the latency impact? N+1 queries? Memory leaks? Bundle bloat? |
+| **UX** | User experience, accessibility, error states | Is this intuitive? What does the error state look like? Accessible on mobile? |
+| **Devil's Advocate** | Hidden assumptions, simpler alternatives | Why not do nothing? What is the simplest alternative? Which load-bearing assumption — one the proposal fails without — could be wrong, and what does it cost to reverse course once it is? |
 
 ---
 
@@ -48,11 +48,11 @@ Five expert personas independently analyze a proposed change, then debate confli
 
 1. **Read** the proposed change/feature description from the argument
 2. **Read relevant code** if file paths are provided (grep for affected areas)
-3. **Each persona analyzes independently** — do not let personas influence each other during this phase
+3. **Each persona analyzes independently** — require source evidence, assumptions and a concrete counterexample or failure path per finding. Different persona names do not prove independent evidence.
 4. **Identify agreements** — points where all (or 4+) personas align
 5. **Identify conflicts** — points where personas meaningfully disagree
 6. **Weigh tradeoffs** — for each conflict, evaluate which concern has higher impact, comparing the options on their worst plausible case, not only their expected one
-7. **Produce verdict** — GO / CAUTION / STOP with actionable recommendations
+7. **Produce verdict** — GO / CAUTION / STOP with actionable recommendations. Deduplicate root causes and distinguish agreement from proof. Preserve approved scope; present proposed reversals as user decisions.
 
 ---
 
@@ -89,14 +89,13 @@ Five expert personas independently analyze a proposed change, then debate confli
 
 ## Verdict Levels
 
-| Verdict     | Meaning                                                                                |
-| ----------- | -------------------------------------------------------------------------------------- |
-| **GO**      | All personas aligned, no critical risks, proceed with confidence                       |
-| **CAUTION** | Concerns exist but are manageable — mitigations identified, proceed carefully          |
-| **STOP**    | Critical unresolved issue found — needs redesign or more information before proceeding |
+| Verdict | Meaning |
+|---------|---------|
+| **GO** | Evidence supports the design and no critical risks remain; agreement alone is insufficient |
+| **CAUTION** | Concerns exist but are manageable — mitigations identified, proceed carefully |
+| **STOP** | Critical unresolved issue found — needs redesign or more information before proceeding |
 
 ### STOP Triggers (any one is sufficient)
-
 - Security persona identifies auth bypass or data exposure with no viable mitigation
 - Architect identifies fundamental design incompatibility requiring significant rework
 - Performance persona identifies unacceptable latency or query explosion with no workaround
@@ -108,10 +107,10 @@ Five expert personas independently analyze a proposed change, then debate confli
 
 After producing the verdict, predict can chain into a follow-on workflow that always runs as part of a predict session (not as a standalone skill).
 
-| Flag             | Purpose                                                                                                | When to use                                                                                  |
-| ---------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `--chain reason` | Subjective refinement loop — generate → critique → synthesize → blind judge → repeat until convergence | Verdict is CAUTION with subjective tradeoffs (architecture polish, design coherence)         |
-| `--chain probe`  | Requirement interrogation — saturation-driven harvest of missing constraints + assumptions             | Verdict is CAUTION or STOP because of "missing constraint" or "unstated assumption" findings |
+| Flag | Purpose | When to use |
+|------|---------|-------------|
+| `--chain reason` | Subjective refinement loop — generate → critique → synthesize → blind judge → repeat until convergence | Verdict is CAUTION with subjective tradeoffs (architecture polish, design coherence) |
+| `--chain probe` | Requirement interrogation — saturation-driven harvest of missing constraints + assumptions | Verdict is CAUTION or STOP because of "missing constraint" or "unstated assumption" findings |
 
 Use the chain-mode summaries below as the supported protocol for this kit.
 
@@ -121,11 +120,11 @@ These chain modes absorb upstream `/autoresearch:reason` and `/autoresearch:prob
 
 ## Integration with Other Skills
 
-| Workflow Step                    | Skill         | How                                              |
-| -------------------------------- | ------------- | ------------------------------------------------ |
-| Deepen risk scenarios            | `ak:scenario` | Feed Risk Summary rows as feature description    |
-| Create implementation plan       | `ak:plan`     | Attach Recommendations as constraints to planner |
-| High-risk feature implementation | `ak:cook`     | Reference CAUTION/STOP items as acceptance gates |
+| Workflow Step | Skill | How |
+|---------------|-------|-----|
+| Deepen risk scenarios | `ak:scenario` | Feed Risk Summary rows as feature description |
+| Create implementation plan | `ak:plan` | Attach Recommendations as constraints to planner |
+| High-risk feature implementation | `ak:cook` | Reference CAUTION/STOP items as acceptance gates |
 
 ---
 

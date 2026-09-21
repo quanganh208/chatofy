@@ -98,13 +98,13 @@ form" — and whenever the harness can render, crop, zoom, or extract a text lay
 
 ## Evaluate before delivering (act-backed, per the Self-Review Gate)
 
-| Dimension   | Passes when                              | Proven by                      |
-| ----------- | ---------------------------------------- | ------------------------------ |
-| Fidelity    | each value has a location                | transcription with references  |
-| Typing      | EXACT / ESTIMATED / UNREADABLE separated | tag audit                      |
-| Structure   | headers, units, footnotes preserved      | cell-count and hierarchy check |
-| Consistency | totals and text/figure agreement hold    | recomputation                  |
-| Precision   | matches the decision's need              | FRAME precision note           |
+| Dimension | Passes when | Proven by |
+|-----------|-------------|-----------|
+| Fidelity | each value has a location | transcription with references |
+| Typing | EXACT / ESTIMATED / UNREADABLE separated | tag audit |
+| Structure | headers, units, footnotes preserved | cell-count and hierarchy check |
+| Consistency | totals and text/figure agreement hold | recomputation |
+| Precision | matches the decision's need | FRAME precision note |
 
 ## Delivery template
 
@@ -118,11 +118,11 @@ Cross-checks: <totals recomputed, text/figure agreement, contradictions>.
 
 ## Do / Don't
 
-| Don't                                   | Instead                                                |
-| --------------------------------------- | ------------------------------------------------------ |
-| Answer from the picture directly        | Transcribe with tags, then reason on the transcription |
-| Fill a blurry digit with the likely one | Mark it UNREADABLE or give a band                      |
-| Report a bar's height to one decimal    | Report the estimate with its ± band                    |
-| Flatten merged headers                  | Keep the hierarchy; check cell counts per row          |
-| Skip captions and footnotes             | Read them first; they define units and exclusions      |
-| Trust a re-look                         | Extract, recompute, reconcile                          |
+| Don't | Instead |
+|-------|---------|
+| Answer from the picture directly | Transcribe with tags, then reason on the transcription |
+| Fill a blurry digit with the likely one | Mark it UNREADABLE or give a band |
+| Report a bar's height to one decimal | Report the estimate with its ± band |
+| Flatten merged headers | Keep the hierarchy; check cell counts per row |
+| Skip captions and footnotes | Read them first; they define units and exclusions |
+| Trust a re-look | Extract, recompute, reconcile |

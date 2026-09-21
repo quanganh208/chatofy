@@ -1,30 +1,14 @@
 ---
 name: ak:docs
-description: "Analyze a codebase and create, refresh, summarize, or audit project documentation without imposing a fixed docs layout, including authoring and optimizing the root CLAUDE.md/AGENTS.md agent context file, or distilling DO/DON'T rules for that file from git history, CI runs, and (with --source) current source-tree markers."
+description: "Analyze a codebase and create, refresh, summarize, or audit project documentation without imposing a fixed docs layout, with an opt-in classic layout via --preset classic, including authoring and optimizing the root CLAUDE.md/AGENTS.md agent context file, or distilling DO/DON'T rules for that file from git history, CI runs, and (with --source) current source-tree markers."
 user-invocable: true
 when_to_use: "Invoke to create, refresh, summarize, or audit project documentation; to author or optimize the root CLAUDE.md/AGENTS.md agent context file; or to distill DO/DON'T rules for that file from git history, CI runs, and optionally source-tree markers via --source."
-category: utilities
-keywords:
-  [
-    documentation,
-    init,
-    update,
-    summarize,
-    audit,
-    agent-context,
-    claude-md,
-    agents-md,
-    agents,
-    rules,
-    git-history,
-    ci-failures,
-    source-mining,
-    scout,
-  ]
-argument-hint: 'init|update|summarize|agent-context|agents|llms'
+category: workflow
+keywords: [documentation, init, update, summarize, audit, agent-context, claude-md, agents-md, agents, rules, git-history, ci-failures, source-mining, scout, preset, classic-layout]
+argument-hint: "init|update|summarize|agent-context|agents|llms"
 metadata:
   author: agentkit
-  version: '1.9.0'
+  version: "1.11.0"
 ---
 
 # Documentation Management
@@ -63,18 +47,22 @@ questions. Do not reopen settled intent without new evidence.
 
 Parse the first word of `$ARGUMENTS`:
 
-| Input            | Load                                | Purpose                                                                                                                                             |
-| ---------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `init`           | `references/init-workflow.md`       | Establish a minimal project-specific docs route                                                                                                     |
-| `update`         | `references/update-workflow.md`     | Reconcile impacted docs with current evidence                                                                                                       |
-| `summarize`      | `references/summarize-workflow.md`  | Summarize current evidence without forcing a new file                                                                                               |
-| `agent-context`  | `references/agent-context-rules.md` | Author, audit, or optimize the root `CLAUDE.md`/`AGENTS.md` agent context file                                                                      |
-| `agents`         | `references/agents-workflow.md`     | Mine bounded git and CI history for recurring failures and non-derivable gotchas; distill confirmed DO/DON'T rules into the root agent context file |
-| `llms`           | `references/llms.md`                | Generate or update `llms.txt` and `llms-full.txt` per llmstxt.org                                                                                   |
-| empty or unclear | ask the user                        | Choose the operation; never assume `init`                                                                                                           |
+| Input | Load | Purpose |
+|---|---|---|
+| `init` | `references/init-workflow.md` | Establish a minimal project-specific docs route |
+| `update` | `references/update-workflow.md` | Reconcile impacted docs with current evidence |
+| `summarize` | `references/summarize-workflow.md` | Summarize current evidence without forcing a new file |
+| `agent-context` | `references/agent-context-rules.md` | Author, audit, or optimize the root `CLAUDE.md`/`AGENTS.md` agent context file |
+| `agents` | `references/agents-workflow.md` | Mine bounded git and CI history for recurring failures and non-derivable gotchas; distill confirmed DO/DON'T rules into the root agent context file |
+| `llms` | `references/llms.md` | Generate or update `llms.txt` and `llms-full.txt` per llmstxt.org |
+| empty or unclear | ask the user | Choose the operation; never assume `init` |
 
 Other workflows deciding whether docs are affected should load
 `references/documentation-management.md`.
+
+`init`, `update`, and `agent-context` also load
+`references/operational-lookup.md` when the operation establishes, changes, or
+disproves a route to a system the repository does not own.
 
 ## Flags
 
@@ -83,7 +71,7 @@ Composable with any operation unless noted:
 - `--advice` — before writing or updating any doc or agent context file, spawn
   `kongming` for counsel on what to keep, cut, or restructure, and factor it into
   the change. `kongming` advises only; this skill stays responsible for every
-  edit and still confirms writes with the user. Spawn it again when stuck or
+  edit and applies already-authorized documentation changes directly. Explicit interview modes retain their confirmed-change contract. Spawn it again when stuck or
   before an irreversible docs change. **Implied by `agents`** (do not re-spawn).
 - `--audit` — for `agent-context`: first get a `kongming` audit pass over the
   current `CLAUDE.md`/`AGENTS.md`, then interview the user one question at a time
@@ -98,6 +86,17 @@ Composable with any operation unless noted:
   Adds a corroboration gate for source-only clusters (≥2 anchors plus a
   code/test guard or git-CI corroboration). Composes with `--dry-run` and
   `--audit`.
+- `--preset classic` — scoped to `init`. Opt into the classic layout under
+  `docs/`: `project-overview-pdr.md`, `code-standards.md`,
+  `codebase-summary.md`, `design-guidelines.md`, `deployment-guide.md`,
+  `system-architecture.md`, and `project-roadmap.md`.
+  Use it when a team wants predictable filenames across projects, when external
+  tooling reads fixed paths, or when the reader is a person returning to the
+  project rather than an agent reading source. The preset selects filenames
+  only. Every file still follows `references/doc-content-rules.md`, so a preset
+  file is a pointer-first WHY/WHERE document, never implementation paraphrase.
+  Skip a preset file whose information does not exist instead of writing a
+  placeholder, and record the resulting route in the docs index.
 
 `agents` also accepts an optional positional bound: `agents 30d` (days) or
 `agents 500` (commits). Defaults: 90 days OR 300 commits (whichever is smaller),
@@ -118,8 +117,24 @@ Use `docs/` for project documentation when that is the repository convention.
 Treat source and tests as evidence, not prose that must be copied into every
 document.
 
+An explicit route overrides discovery. A layout declared in repository
+instructions, or `--preset classic` on `init`, fixes the filenames directly.
+Discovery still decides what content each file earns and which files to skip.
+
 ## Maintenance Rules
 
+- Maintain affected instructions in authorized scope on completion or at a
+  meaningful operational milestone, even when no source file changed; do not
+  wait to be asked for a separate update run.
+- Write nothing when there is no new durable instruction or the content is
+  already equivalent. A no-op is a correct outcome, and it is not a reason to
+  touch timestamps, reorder sections, or rewrite a file.
+- Apply the write-authority ladder and the credential invariant in
+  `references/doc-content-rules.md`; do not restate them here.
+- A root agent context file may carry a short policy plus a pointer to the
+  project's operational guide. The pointer is one line — a link plus a purpose
+  clause, never a locator, URL, account or project id, or customer name. Root
+  does not import the whole runbook and does not become a copy of outside state.
 - Update only documents whose contract or evidence changed.
 - Delete stale or duplicate guidance instead of preserving it for history.
 - Link to the owning script, manifest, or generated source instead of copying

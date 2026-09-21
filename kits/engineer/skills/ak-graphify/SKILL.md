@@ -1,16 +1,17 @@
 ---
 name: ak:graphify
-description: 'Build queryable knowledge graphs from code, docs, papers, and images. Use for codebase understanding, architecture analysis, cross-file relationship discovery, token-efficient navigation.'
+description: "Build queryable knowledge graphs from code, docs, papers, and images. Use for repeated relationship queries and architecture analysis when a reusable graph adds value beyond native search."
 user-invocable: true
-when_to_use: 'Invoke to turn code or docs into a queryable graph.'
-category: dev-tools
+when_to_use: "Invoke to turn code or docs into a queryable graph."
+category: engineering
 keywords: [knowledge-graph, code-analysis, tree-sitter, codebase-understanding, ast]
-argument-hint: '[path] [--mcp|--report|--watch]'
+argument-hint: "[path] [--mcp|--report|--watch]"
 related: [ak:repomix, ak:scout, ak:gkg]
 maturity: beta
 metadata:
+  version: "1.0.1"
   author: safishamsi
-  attribution: 'https://github.com/safishamsi/graphify'
+  attribution: "https://github.com/safishamsi/graphify"
 ---
 
 # Graphify — Knowledge Graph Builder
@@ -19,11 +20,11 @@ Turn any folder of code, docs, papers, or images into a queryable knowledge grap
 
 ## When to Use
 
-- Understanding unfamiliar codebase architecture before planning
+- Repeated architecture or dependency questions that benefit from a reusable graph
 - Discovering cross-file relationships and dependency chains
 - Finding "god nodes" (most-connected concepts) in large projects
 - Navigating by structure instead of grepping every file
-- Preparing context-efficient codebase representation (71.5x fewer tokens vs raw files)
+- Preparing a reusable representation when build cost is justified by repeated queries
 
 ## Installation
 
@@ -46,6 +47,10 @@ pip install 'graphifyy[all]'
 
 **Requirements:** Python 3.10+
 
+## Choose the discovery cost
+
+For one function or a small file lookup, use native search directly. Before graph construction, inspect existing graph/cache provenance and source revision; refresh only stale inputs and verify consequential inferred edges against source. Before LLM processing, review which documents/images leave the machine and confirm that this data transfer is within the user-authorized scope. Record build time/provider cost when observable, otherwise mark unknown.
+
 ## Quick Start
 
 ```bash
@@ -61,12 +66,12 @@ graphify . --watch
 
 ## Output Artifacts
 
-| File                           | Purpose                                                           |
-| ------------------------------ | ----------------------------------------------------------------- |
-| `graphify-out/graph.html`      | Interactive visualization with search + community filtering       |
-| `graphify-out/GRAPH_REPORT.md` | God nodes, surprising connections, suggested questions            |
-| `graphify-out/graph.json`      | Persistent graph for queries across sessions                      |
-| `graphify-out/cache/`          | SHA256-based incremental updates (only reprocesses changed files) |
+| File | Purpose |
+|------|---------|
+| `graphify-out/graph.html` | Interactive visualization with search + community filtering |
+| `graphify-out/GRAPH_REPORT.md` | God nodes, surprising connections, suggested questions |
+| `graphify-out/graph.json` | Persistent graph for queries across sessions |
+| `graphify-out/cache/` | SHA256-based incremental updates (only reprocesses changed files) |
 
 ## MCP Server Mode
 
@@ -78,17 +83,16 @@ python -m graphify.serve graphify-out/graph.json
 
 ### MCP Tools Available
 
-| Tool            | Purpose                                   |
-| --------------- | ----------------------------------------- |
-| `query_graph`   | Search for concepts and relationships     |
-| `get_node`      | Get details of a specific node            |
-| `get_neighbors` | Find related concepts                     |
+| Tool | Purpose |
+|------|---------|
+| `query_graph` | Search for concepts and relationships |
+| `get_node` | Get details of a specific node |
+| `get_neighbors` | Find related concepts |
 | `shortest_path` | Find connection path between two concepts |
 
 ### Claude Code MCP Setup
 
 Add to `.claude/.mcp.json`:
-
 ```json
 {
   "mcpServers": {
@@ -114,18 +118,18 @@ Python, JavaScript, TypeScript, Go, Rust, Java, C, C++, Ruby, C#, Kotlin, Scala,
 
 Relationships in the graph are tagged by provenance:
 
-| Tag         | Meaning                                                        |
-| ----------- | -------------------------------------------------------------- |
+| Tag | Meaning |
+|-----|---------|
 | `EXTRACTED` | Directly from AST (imports, function calls, class inheritance) |
-| `INFERRED`  | LLM-derived with confidence score                              |
-| `AMBIGUOUS` | Uncertain — needs human verification                           |
+| `INFERRED` | LLM-derived with confidence score |
+| `AMBIGUOUS` | Uncertain — needs human verification |
 
 ## Workflow Integration
 
 ### Before Planning
 
 ```bash
-# Build graph first, then plan with context
+# Only build when repeated relationship queries justify it; otherwise scout
 graphify .
 # Claude reads GRAPH_REPORT.md → understands architecture → better plans
 ```
@@ -133,7 +137,7 @@ graphify .
 ### With Scout
 
 ```bash
-# Graph for high-level structure, scout for specific files
+# Reuse the graph for high-level structure; scout specific files
 graphify .                        # build graph
 /ak:scout "auth module"           # find specific files
 ```

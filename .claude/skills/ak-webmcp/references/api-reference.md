@@ -33,8 +33,8 @@ things with different runtimes, transports, and audiences.
 
 - Building an in-browser page tool via `document.modelContext` → this skill.
 - Building a stdio/HTTP MCP server → `ak:mcp-builder`.
-- Executing existing MCP tools → `ak:use-mcp`. Exposing code as an MCP surface →
-  `ak:agentize`.
+- Executing existing MCP tools → the runtime's native MCP tools and tool search.
+  Exposing code as an MCP surface → `ak:agentize`.
 
 ## Availability [Spec] [Chrome]
 

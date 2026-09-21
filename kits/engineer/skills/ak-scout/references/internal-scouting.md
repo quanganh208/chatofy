@@ -7,7 +7,6 @@ when the active runtime permits the `delegate_agent` capability.
 
 Do not spawn Explore only because this reference says to use Explore. Spawn
 Explore only when:
-
 - The user explicitly asked for subagents, delegation, or parallel agent work.
 - The active runtime exposes a delegate_agent capability.
 - Each subagent has a distinct scope and useful work to do.
@@ -69,9 +68,7 @@ Report format:
 ## Spawning Strategy
 
 ### Directory Division
-
 Split codebase logically:
-
 - `src/` - Source code
 - `lib/` - Libraries
 - `tests/` - Test files
@@ -79,7 +76,6 @@ Split codebase logically:
 - `api/` - API routes
 
 ### Parallel Execution
-
 - Spawn all agents in a single assistant turn when the runtime supports parallel tool calls
 - Each agent gets distinct directory scope
 - No overlap between agents
@@ -106,21 +102,18 @@ Agent 6: Scout types/, interfaces/ for auth types
 
 ## Reading File Content
 
-When needing to read file content, use chunking to stay within context limits (<150K tokens safe zone).
+When reading file content, chunk it rather than loading whole large files, so the scout stays well inside the context window.
 
 ### Step 1: Get Line Counts
-
 ```bash
 wc -l path/to/file1.ts path/to/file2.ts path/to/file3.ts
 ```
 
 ### Step 2: Calculate Chunks
-
 - **Target:** ~500 lines per chunk (safe for most files)
 - **Max files per agent:** 3-5 small files OR 1 large file chunked
 
 **Chunking formula:**
-
 ```
 chunks = ceil(total_lines / 500)
 lines_per_chunk = ceil(total_lines / chunks)
@@ -138,7 +131,6 @@ only when the user explicitly requested parallel delegation and the runtime has
 an appropriate worker role.
 
 ### Chunking Decision Tree
-
 ```
 File < 500 lines     → Read entire file
 File 500-1500 lines  → Split into 2-3 chunks
@@ -150,7 +142,6 @@ Spawn all in a single assistant turn only when delegation is permitted.
 ## Result Aggregation
 
 Combine results from all agents:
-
 1. Deduplicate file paths
 2. Merge descriptions
 3. Note any gaps/timeouts

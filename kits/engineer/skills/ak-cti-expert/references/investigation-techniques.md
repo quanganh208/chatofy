@@ -3,7 +3,6 @@
 ## Subject & Connection Model
 
 Subject Types:
-
 - **Person**: Full name, aliases, online handles, phone, email, public records.
 - **Organization**: Company, domain, subsidiaries, infrastructure, tenant IDs.
 - **Domain / Infrastructure**: Domain, DNS, SSL certs, IP addresses, ASNs, mail servers.

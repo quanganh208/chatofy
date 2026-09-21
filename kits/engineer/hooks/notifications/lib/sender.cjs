@@ -115,6 +115,7 @@ async function send(provider, url, body, headers = {}) {
     // Success - clear any previous throttle
     clearThrottle(provider);
     return { success: true };
+
   } catch (err) {
     // Network error - record for throttling
     recordError(provider);

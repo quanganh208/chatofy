@@ -1,7 +1,18 @@
 {
   "image": "780f94a12f778c2f2b5514597c6fef4a.jpg",
-  "style_cues": ["anime-inspired", "high-contrast", "graphic", "grunge", "japanese aesthetic"],
-  "palette_hexes": ["#FFFFFF", "#E60000", "#000000", "#C0C0C0"],
+  "style_cues": [
+    "anime-inspired",
+    "high-contrast",
+    "graphic",
+    "grunge",
+    "japanese aesthetic"
+  ],
+  "palette_hexes": [
+    "#FFFFFF",
+    "#E60000",
+    "#000000",
+    "#C0C0C0"
+  ],
   "layout": {
     "grid": "centered figure, fragmented background",
     "focal": "center",
@@ -9,9 +20,18 @@
   },
   "texture": {
     "material": "digital flat",
-    "finish": ["ink splatter", "flat vector", "collage"]
+    "finish": [
+      "ink splatter",
+      "flat vector",
+      "collage"
+    ]
   },
-  "mood": ["edgy", "intense", "rebellious", "cyberpunk"],
+  "mood": [
+    "edgy",
+    "intense",
+    "rebellious",
+    "cyberpunk"
+  ],
   "shape_primitives": [
     "rectangle",
     "sharp point",

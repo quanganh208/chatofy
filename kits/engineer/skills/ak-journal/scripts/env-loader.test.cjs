@@ -66,10 +66,7 @@ test('loadEnv: cascade precedence — project .agentkit/.env wins over user .age
     process.env.HOME = homeDir;
 
     fs.mkdirSync(path.join(homeDir, '.claude'), { recursive: true });
-    fs.writeFileSync(
-      path.join(homeDir, '.claude', '.env'),
-      'VAR=legacy-user\nONLY_LEGACY_USER=1\n',
-    );
+    fs.writeFileSync(path.join(homeDir, '.claude', '.env'), 'VAR=legacy-user\nONLY_LEGACY_USER=1\n');
 
     fs.mkdirSync(path.join(projectRoot, '.claude'), { recursive: true });
     fs.writeFileSync(path.join(projectRoot, '.claude', '.env'), 'VAR=legacy-project\n');
@@ -119,10 +116,7 @@ test('resolveAllEnv: merges file cascade with process.env, process.env winning',
   try {
     process.env.HOME = homeDir;
     fs.mkdirSync(path.join(projectRoot, '.agentkit'), { recursive: true });
-    fs.writeFileSync(
-      path.join(projectRoot, '.agentkit', '.env'),
-      'FILE_ONLY=from-file\nOVERRIDDEN=from-file\n',
-    );
+    fs.writeFileSync(path.join(projectRoot, '.agentkit', '.env'), 'FILE_ONLY=from-file\nOVERRIDDEN=from-file\n');
     process.env.OVERRIDDEN = 'from-process';
 
     const merged = resolveAllEnv(projectRoot);

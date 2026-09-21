@@ -9,13 +9,11 @@
 SVG 验证脚本，检查 SVG 语法并报告详细错误。
 
 **用法：**
-
 ```bash
 ./validate-svg.sh <svg-file>
 ```
 
 **检查项目：**
-
 - 标签平衡（开标签 vs 闭标签）
 - 属性引号完整性
 - 特殊字符转义
@@ -24,7 +22,6 @@ SVG 验证脚本，检查 SVG 语法并报告详细错误。
 - rsvg-convert 验证
 
 **示例：**
-
 ```bash
 ./validate-svg.sh /path/to/diagram.svg
 ```
@@ -34,13 +31,11 @@ SVG 验证脚本，检查 SVG 语法并报告详细错误。
 SVG 图表生成脚本，提供自动验证和 PNG 导出。
 
 **用法：**
-
 ```bash
 ./generate-diagram.sh [OPTIONS]
 ```
 
 **选项：**
-
 - `-t, --type TYPE` - 图表类型（见脚本帮助）
 - `-s, --style STYLE` - 风格编号（1-7，默认：1）
 - `-o, --output PATH` - 输出路径（默认：当前目录）
@@ -49,7 +44,6 @@ SVG 图表生成脚本，提供自动验证和 PNG 导出。
 - `-h, --help` - 显示帮助
 
 **示例：**
-
 ```bash
 # 生成架构图（Style 1）
 ./generate-diagram.sh -t architecture -s 1 -o ./output/arch.svg
@@ -78,13 +72,11 @@ SVG 图表生成脚本，提供自动验证和 PNG 导出。
 - `blueprint_title_block` - 工程蓝图右下角 title block
 
 **用法：**
-
 ```bash
 python3 ./generate-from-template.py architecture ./output/arch.svg '{"style":1,"title":"My Diagram","containers":[],"nodes":[],"arrows":[]}'
 ```
 
 **示例：**
-
 ```bash
 python3 ./generate-from-template.py memory ./output/mem0.svg '{
   "style": 1,
@@ -107,13 +99,11 @@ python3 ./generate-from-template.py memory ./output/mem0.svg '{
 批量测试脚本，测试 7 种风格的回归样例图。
 
 **用法：**
-
 ```bash
 ./test-all-styles.sh
 ```
 
 **功能：**
-
 - 检查所有风格的参考文件
 - 渲染 `fixtures/*.json` 回归样例
 - 验证生成出的 SVG 文件
@@ -121,13 +111,11 @@ python3 ./generate-from-template.py memory ./output/mem0.svg '{
 - 生成测试报告
 
 **输出：**
-
 - 测试摘要（通过/失败统计）
 - PNG 文件（带时间戳）
 - 详细的验证错误信息
 
 **示例：**
-
 ```bash
 ./test-all-styles.sh
 ```
@@ -137,7 +125,6 @@ python3 ./generate-from-template.py memory ./output/mem0.svg '{
 所有脚本需要以下工具：
 
 - **rsvg-convert** - SVG 转 PNG
-
   ```bash
   brew install librsvg
   ```
@@ -191,14 +178,12 @@ cd ${CLAUDE_PLUGIN_ROOT}/skills/fireworks-tech-graph/scripts
 ```
 
 测试脚本会自动：
-
 1. 读取 `../fixtures/*.json`
 2. 按 `template_type + style` 调用 `generate-from-template.py`
 3. 运行 `validate-svg.sh`
 4. 导出 PNG 到 `../test-output/`
 
 查看测试输出：
-
 ```bash
 ls -lh ../test-output/
 ```
@@ -208,7 +193,6 @@ ls -lh ../test-output/
 ### 问题：rsvg-convert 未找到
 
 **解决方案：**
-
 ```bash
 brew install librsvg
 ```
@@ -216,7 +200,6 @@ brew install librsvg
 ### 问题：权限被拒绝
 
 **解决方案：**
-
 ```bash
 chmod +x *.sh
 ```
@@ -224,7 +207,6 @@ chmod +x *.sh
 ### 问题：SVG 验证失败
 
 **解决方案：**
-
 1. 查看详细错误信息
 2. 使用 Edit 工具修复语法错误
 3. 重新运行验证

@@ -4,7 +4,7 @@ Concrete taxonomy of "AI slop" code patterns the reviewer should flag, with dete
 
 ## Why this matters
 
-LLM-assisted contributions often produce code that _compiles, passes tests, and looks reasonable per-file_ — but pollutes the codebase at the aggregate. Common drivers:
+LLM-assisted contributions often produce code that *compiles, passes tests, and looks reasonable per-file* — but pollutes the codebase at the aggregate. Common drivers:
 
 - Low-quality LLMs that pattern-match without understanding constraints
 - Contributors who don't read their own diffs before pushing
@@ -20,49 +20,42 @@ The result is **code rác** (garbage code) and **code dư thừa** (redundant co
 One bad call here infects 100 files later. Always flag.
 
 ### 1.1 Dumping-ground new files
-
 **Pattern**: New file at `utils/helpers.ts`, `lib/common/index.ts`, `services/manager.ts`, `core/utils.go`.
 **Why bad**: Generic name = no domain anchor. The next agent dumps more there. Within 6 months it's a 2000-line junk drawer.
 **Detection**: `git diff --name-status --diff-filter=A` for new files with generic names in dumping-ground dirs.
 **Fix**: Rename to a domain-anchored name (`token-bucket-rate-limit.ts`, not `rate-limit-helper.ts`). Or move the function into the only file that calls it.
 
 ### 1.2 Parallel reimplementation
-
 **Pattern**: New `formatDate()` / `slugify()` / `chunk()` / HTTP retry wrapper when the repo already has one.
 **Why bad**: Two implementations diverge over time. Bugs get fixed in one but not the other.
 **Detection**: Grep the repo for similar function names or behavior before approving any new utility.
-**Fix**: Use the existing one. If the existing one is inadequate, _extend_ it — don't fork it.
+**Fix**: Use the existing one. If the existing one is inadequate, *extend* it — don't fork it.
 
 ### 1.3 Premature abstraction
-
 **Pattern**: New interface + factory + builder + adapter for a feature with one implementation and two callers.
 **Why bad**: Abstraction cost (indirection, mental load, test surface) paid up front without the payoff (multiple implementations) that justifies it.
 **Detection**: Count concrete implementations of any new interface. One = premature.
 **Fix**: Inline the concrete type. Add the abstraction when the second implementation actually shows up.
 
 ### 1.4 Config flag for what should be a constant
-
 **Pattern**: New env var or config field `ENABLE_X`, `USE_NEW_Y`, `FEATURE_Z_ENABLED` for behavior that should be hardcoded.
 **Why bad**: Will never be turned off. Becomes documentation lag and a foot-gun. Doubles the test matrix.
 **Detection**: Any new config field — ask "would we actually flip this in production? If no, why is it a flag?"
 **Fix**: Pick the value, hardcode it. Delete the flag plumbing.
 
 ### 1.5 Schema/contract change without migration
-
 **Pattern**: PR adds a NOT NULL column, renames a field, changes a response shape — no migration, no backward-compat shim.
 **Why bad**: Breaks deployed clients or existing data.
 **Detection**: Diff touches DB schema, API DTOs, public types, or persisted config formats.
 **Fix**: Add migration, deprecation path, or version the contract.
 
 ### 1.6 God-file growth
-
 **Pattern**: A 180-line file grows to 450 in one PR. Project's stated size limit (often 200 lines) ignored.
 **Why bad**: Files become unreadable. Context loads become expensive. The next agent has even less room to work cleanly.
 **Detection**: `wc -l` on modified files in the diff vs project size convention.
 **Fix**: Split before merge. Group related additions into a new focused module.
 
 ### 1.7 Phantom dependencies
-
 **Pattern**: `package.json` / `go.mod` / `requirements.txt` adds a dep — diff doesn't actually import it, OR imports it for one trivial call that the language stdlib already supports.
 **Why bad**: Supply chain risk, install size, transitive vulnerabilities — all for nothing.
 **Detection**: Cross-check dep additions against actual `import`/`require`/`use` lines in the diff.
@@ -75,64 +68,52 @@ One bad call here infects 100 files later. Always flag.
 Don't block merges, but call out. Aggregate is rot.
 
 ### 2.1 Defensive paranoia
-
 **Pattern**: `try/catch` around code that cannot throw. Null checks on typed-non-null parameters. "Just in case" guards before stdlib calls that already validate.
 **Fix**: Delete the guard. Trust the types and the stdlib.
 
 ### 2.2 Catch-and-swallow
-
 **Pattern**: `catch (e) { console.log(e) }`, `catch { return null }`, `except: pass`.
 **Fix**: Either handle the error meaningfully (retry, fallback, user message) or let it propagate. Logging-and-continuing is a bug factory.
 
 ### 2.3 Comment paraphrasing
-
 **Pattern**: `// increment counter` next to `counter++`. `// returns the user's name` above `getUserName()`.
-**Fix**: Delete. Comments should explain _why_, not narrate _what_.
+**Fix**: Delete. Comments should explain *why*, not narrate *what*.
 
 ### 2.4 Generic error messages
-
 **Pattern**: `"An error occurred. Please try again."`, `throw new Error("Failed")`, `return errors.New("error")`.
 **Fix**: Include the operation, the inputs, and the failure mode. `"failed to fetch user %d: %w"`.
 
 ### 2.5 One-line wrappers
-
 **Pattern**: `function getName(u) { return u.name }`. Adds indirection, hides nothing.
 **Fix**: Inline. Delete the wrapper.
 
 ### 2.6 Reimplementing stdlib
-
 **Pattern**: Custom `chunk`, `range`, `groupBy`, `debounce`, `deepEqual` when language stdlib or an existing dep covers it.
 **Fix**: Use the stdlib/dep. If you don't trust the dep, that's a separate decision worth flagging upward.
 
 ### 2.7 Silencing the linter
-
 **Pattern**: `any` widening, `@ts-ignore`, `@ts-expect-error`, `// eslint-disable`, `# noqa`, `//nolint` introduced to hide a warning instead of resolving it.
 **Detection**: `git diff | grep -E '^\+.*(any|@ts-ignore|@ts-expect-error|eslint-disable|noqa|nolint)'`
 **Fix**: Resolve the underlying issue. Use these only with a comment explaining why the linter is wrong.
 
 ### 2.8 Phantom test coverage
-
 **Pattern**: Tests that exercise lines without meaningful assertions: `expect(result).toBeTruthy()` on a value that's always truthy; `assert result is not None` when the function can't return None.
 **Fix**: Assert on the actual behavior — value, side effect, error.
 
 ### 2.9 Mock-of-a-mock
-
 **Pattern**: Tests where 80% of setup is mocking, and the assertions verify the mock got called — not that the SUT did the right thing.
 **Fix**: Use real implementations where possible. Mock only at integration boundaries.
 
 ### 2.10 Unused symbols introduced
-
 **Pattern**: New imports, exports, parameters, or variables in the diff that nothing references.
 **Detection**: Language linter (`tsc --noUnusedLocals`, `go vet`, `pyflakes`, `ruff`).
 **Fix**: Delete.
 
 ### 2.11 Magic numbers
-
 **Pattern**: `if (retries > 7)`, `setTimeout(fn, 3600000)`, `if (status === 418)`.
 **Fix**: Name the constant. `const MAX_RETRIES = 7`.
 
 ### 2.12 Style inconsistency
-
 **Pattern**: New code uses arrow functions / camelCase / async-await / a different formatter than the rest of the file.
 **Fix**: Match the surrounding file. The reviewer should not have to think about style.
 
@@ -143,37 +124,32 @@ Don't block merges, but call out. Aggregate is rot.
 Look across the whole diff, not per-file.
 
 ### 3.1 Scope mismatch
-
 **Signal**: PR title says "fix typo" but diff is +800/−60 across 12 files.
 **What it means**: Author wasn't watching what the agent did, OR the title is wrong.
 **Action**: Ask for the PR to be split into focused commits, or ask the author to rewrite the title/description.
 
 ### 3.2 Unrelated files
-
 **Signal**: "Fix auth bug" PR also rewrites a logging helper, reorders imports in 5 unrelated files, bumps a dep.
 **Action**: Ask the author to separate the unrelated changes into their own PR.
 
 ### 3.3 Tests missing or skipped
-
 **Signal**: Production code changed; no test changes. Or test changes are `it.skip()` / `t.Skip()` / `@pytest.mark.skip` on previously-passing tests.
 **Action**: Block until tests cover the new path, or the skips are justified in the PR description.
 
 ### 3.4 Docs claim features that don't exist
-
 **Signal**: README, changelog, or doc updates describe behavior the diff doesn't implement.
 **Action**: Either the docs are aspirational (remove), or the implementation is incomplete (block).
 
 ### 3.5 Commit messages with LLM-style fluff
-
 **Signal**: Commits titled "Improve code quality and enhance maintainability", "Refactor for clarity", "Update various files".
 **What it means**: Author didn't read the diff before committing.
-**Action**: Informational. Mention it in the review — recommend conventional-commits format with the _actual_ change described.
+**Action**: Informational. Mention it in the review — recommend conventional-commits format with the *actual* change described.
 
 ---
 
 ## Section 4: How to phrase the finding
 
-Slop findings are _judgment calls_. Bug findings are not. The reviewer LLM tends to swing between "aggressive style cop" and "too polite to flag anything". Both fail.
+Slop findings are *judgment calls*. Bug findings are not. The reviewer LLM tends to swing between "aggressive style cop" and "too polite to flag anything". Both fail.
 
 ### Good phrasing
 
@@ -186,7 +162,7 @@ Slop findings are _judgment calls_. Bug findings are not. The reviewer LLM tends
 
 - "This is AI slop." — accusatory, unhelpful, often wrong.
 - "This violates DRY/YAGNI/SOLID." — principle-thumping. State the concrete cost instead.
-- "Please refactor." — vague. Refactor _how_?
+- "Please refactor." — vague. Refactor *how*?
 - "I don't like this." — preference dressed as review.
 
 ---
@@ -214,7 +190,7 @@ Concrete examples from common stacks. Use these as templates for finding languag
 
 ### 6.1 Go
 
-- **Error wrapping**: `fmt.Errorf("doing X: %w", err)` — wrapping with `%w` preserves the chain. `fmt.Errorf("doing X: %v", err)` _loses_ the chain. Flag the latter.
+- **Error wrapping**: `fmt.Errorf("doing X: %w", err)` — wrapping with `%w` preserves the chain. `fmt.Errorf("doing X: %v", err)` *loses* the chain. Flag the latter.
 - **`if err != nil { return err }`** is canonical Go — do **not** flag it as defensive paranoia.
 - **`interface{}` / `any` parameter** introduced where a concrete type would do — flag.
 - **`for rows.Next()` loop missing `rows.Err()` check** — `database/sql` requires it. Bug, not slop.

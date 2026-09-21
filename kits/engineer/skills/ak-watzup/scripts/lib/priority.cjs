@@ -51,19 +51,12 @@ function scorePlan(plan, current) {
   let fromLocalRef = false;
   for (const source of sources) {
     if (source.worktree && samePath(source.worktree, current.root)) alignedWorktree = true;
-    if (current.branch && (source.branch === current.branch || source.ref === current.branch))
-      alignedBranch = true;
+    if (current.branch && (source.branch === current.branch || source.ref === current.branch)) alignedBranch = true;
     if (source.type === 'filesystem') fromFilesystem = true;
     if (source.refType === 'local') fromLocalRef = true;
   }
-  if (alignedWorktree) {
-    score += 600;
-    reasons.push('current-worktree');
-  }
-  if (alignedBranch) {
-    score += 400;
-    reasons.push('current-branch');
-  }
+  if (alignedWorktree) { score += 600; reasons.push('current-worktree'); }
+  if (alignedBranch) { score += 400; reasons.push('current-branch'); }
   if (fromFilesystem) score += 80;
   if (fromLocalRef) score += 40;
 
@@ -134,9 +127,7 @@ function buildRankedNextSteps(payload, limit = 6) {
     if (steps.length >= limit) break;
     if (!roadmap.activeMilestones || roadmap.activeMilestones.length === 0) continue;
     const top = roadmap.activeMilestones[0];
-    const pct = roadmap.progress
-      ? `, ${Math.round(roadmap.progress.complete * 100)}% done overall`
-      : '';
+    const pct = roadmap.progress ? `, ${Math.round(roadmap.progress.complete * 100)}% done overall` : '';
     steps.push({
       priority: 'roadmap',
       action: `Advance roadmap milestone: "${top.heading}".`,

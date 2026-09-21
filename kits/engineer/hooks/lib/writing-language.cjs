@@ -75,7 +75,7 @@ function resolveWritingLanguage(options = {}) {
   const candidates = [
     { source: 'env:AGENTKIT_LANGUAGE', raw: env.AGENTKIT_LANGUAGE },
     { source: 'env:CK_RESPONSE_LANGUAGE', raw: env.CK_RESPONSE_LANGUAGE },
-    { source: 'config:locale.responseLanguage', raw: locale.responseLanguage },
+    { source: 'config:locale.responseLanguage', raw: locale.responseLanguage }
   ];
 
   /** @type {Array<{ source: string, raw: string, reason: string }>} */
@@ -93,14 +93,14 @@ function resolveWritingLanguage(options = {}) {
         requested: String(candidate.raw).trim(),
         fallbackReason: null,
         rejected,
-        defaultLanguage: DEFAULT_LANGUAGE,
+        defaultLanguage: DEFAULT_LANGUAGE
       };
     }
     // Skip invalid candidates and continue the precedence chain.
     rejected.push({
       source: candidate.source,
       raw: String(candidate.raw).trim(),
-      reason: normalized.reason,
+      reason: normalized.reason
     });
   }
 
@@ -111,7 +111,7 @@ function resolveWritingLanguage(options = {}) {
     requested: lastRejected ? lastRejected.raw : null,
     fallbackReason: lastRejected ? lastRejected.reason : null,
     rejected,
-    defaultLanguage: DEFAULT_LANGUAGE,
+    defaultLanguage: DEFAULT_LANGUAGE
   };
 }
 
@@ -129,7 +129,7 @@ module.exports = {
   DEFAULT_LANGUAGE,
   LANGUAGE_TAG_RE,
   normalizeLanguageTag,
-  resolveWritingLanguage,
+  resolveWritingLanguage
 };
 
 if (require.main === module) {

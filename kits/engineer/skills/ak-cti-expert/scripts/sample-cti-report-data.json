@@ -179,22 +179,22 @@
     }
   ],
   "timeline": [
-    { "date": "2018-03-15", "event": "Domain acme-corp.com registered" },
-    { "date": "2020-01-10", "event": "Primary server 203.0.113.50 first seen" },
-    { "date": "2021-04-12", "event": "CFO email appears in first breach database" },
-    { "date": "2023-09-01", "event": "S3 bucket acme-corp-backup first indexed" },
-    { "date": "2026-02-14", "event": "SSL certificate expired on primary server" },
-    { "date": "2026-03-28", "event": "Investigation initiated" },
-    { "date": "2026-03-30", "event": "DNS zone transfer vulnerability confirmed" }
+    {"date": "2018-03-15", "event": "Domain acme-corp.com registered"},
+    {"date": "2020-01-10", "event": "Primary server 203.0.113.50 first seen"},
+    {"date": "2021-04-12", "event": "CFO email appears in first breach database"},
+    {"date": "2023-09-01", "event": "S3 bucket acme-corp-backup first indexed"},
+    {"date": "2026-02-14", "event": "SSL certificate expired on primary server"},
+    {"date": "2026-03-28", "event": "Investigation initiated"},
+    {"date": "2026-03-30", "event": "DNS zone transfer vulnerability confirmed"}
   ],
   "sources": [
-    { "name": "Have I Been Pwned", "url": "https://haveibeenpwned.com/", "date": "2026-03-28" },
-    { "name": "GrayhatWarfare", "url": "https://grayhatwarfare.com/", "date": "2026-03-28" },
-    { "name": "SSL Labs", "url": "https://www.ssllabs.com/", "date": "2026-03-28" },
-    { "name": "GitHub", "url": "https://github.com/jsmith", "date": "2026-03-29" },
-    { "name": "Shodan", "url": "https://www.shodan.io/", "date": "2026-03-29" },
-    { "name": "crt.sh", "url": "https://crt.sh/", "date": "2026-03-30" },
-    { "name": "SecurityTrails", "url": "https://securitytrails.com/", "date": "2026-03-30" }
+    {"name": "Have I Been Pwned", "url": "https://haveibeenpwned.com/", "date": "2026-03-28"},
+    {"name": "GrayhatWarfare", "url": "https://grayhatwarfare.com/", "date": "2026-03-28"},
+    {"name": "SSL Labs", "url": "https://www.ssllabs.com/", "date": "2026-03-28"},
+    {"name": "GitHub", "url": "https://github.com/jsmith", "date": "2026-03-29"},
+    {"name": "Shodan", "url": "https://www.shodan.io/", "date": "2026-03-29"},
+    {"name": "crt.sh", "url": "https://crt.sh/", "date": "2026-03-30"},
+    {"name": "SecurityTrails", "url": "https://securitytrails.com/", "date": "2026-03-30"}
   ],
   "intelligence_gaps": [
     "Unable to confirm whether S3 bucket data was accessed by unauthorized parties",
@@ -224,11 +224,11 @@
       "paid": 5
     },
     "top_countries": [
-      { "country": "United States", "share": 38 },
-      { "country": "Vietnam", "share": 18 },
-      { "country": "United Kingdom", "share": 12 },
-      { "country": "Germany", "share": 8 },
-      { "country": "Japan", "share": 6 }
+      {"country": "United States", "share": 38},
+      {"country": "Vietnam", "share": 18},
+      {"country": "United Kingdom", "share": 12},
+      {"country": "Germany", "share": 8},
+      {"country": "Japan", "share": 6}
     ],
     "technology": {
       "cms": ["WordPress 6.4"],

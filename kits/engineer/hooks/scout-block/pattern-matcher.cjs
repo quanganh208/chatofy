@@ -39,11 +39,10 @@ function readPatternsFromFile(filePath) {
   }
 
   try {
-    return fs
-      .readFileSync(filePath, 'utf-8')
+    return fs.readFileSync(filePath, 'utf-8')
       .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith('#'));
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith('#'));
   } catch (error) {
     console.error('WARN: Failed to read .ckignore:', error.message);
     return [];
@@ -112,7 +111,7 @@ function createMatcher(patterns) {
   return {
     ig,
     patterns: normalizedPatterns,
-    original: patterns,
+    original: patterns
   };
 }
 
@@ -198,7 +197,7 @@ function findMatchingPattern(originalPatterns, path) {
     }
   }
 
-  return originalPatterns.find((p) => !p.startsWith('!')) || 'unknown';
+  return originalPatterns.find(p => !p.startsWith('!')) || 'unknown';
 }
 
 module.exports = {
@@ -206,5 +205,5 @@ module.exports = {
   createMatcher,
   matchPath,
   findMatchingPattern,
-  DEFAULT_PATTERNS,
+  DEFAULT_PATTERNS
 };

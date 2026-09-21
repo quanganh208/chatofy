@@ -1,16 +1,16 @@
 ---
 name: ak:test
-description: 'Run unit, integration, e2e, and UI tests. Use for test execution, coverage analysis, build verification, visual regression, and QA reports.'
+description: "Run unit, integration, e2e, and UI tests. Use for test execution, coverage analysis, build verification, visual regression, and QA reports."
 user-invocable: true
-when_to_use: 'Invoke for running or designing validation suites.'
-category: utilities
+when_to_use: "Invoke for running or designing validation suites."
+category: workflow
 keywords: [test, unit, integration, e2e, coverage]
-argument-hint: '[context] OR ui [url] OR create|optimize|audit [scope] [--advice] [--ultra] [--interview]'
+argument-hint: "[context] OR ui [url] OR create|optimize|audit [scope] [--advice] [--ultra] [--interview]"
 metadata:
   author: agentkit
-  version: '1.1.0'
+  version: "1.2.0"
   workflow:
-    precedes: [ak-code-review]
+    precedes: [ak-git]
 ---
 
 # Testing & Quality Assurance
@@ -21,13 +21,13 @@ Comprehensive testing framework covering code-level testing (unit, integration, 
 
 If invoked with context (test scope), proceed with testing. If invoked WITHOUT arguments, use `ask_user capability` to present available test operations:
 
-| Operation   | Description                                                                        |
-| ----------- | ---------------------------------------------------------------------------------- |
-| `(default)` | Run unit/integration/e2e tests                                                     |
-| `ui`        | Run UI tests on a website                                                          |
-| `create`    | Scout the codebase + docs, then create a covering test suite                       |
-| `optimize`  | Parallel-scout CI/CD, git history, codebase + docs, then cut test cost/time safely |
-| `audit`     | Parallel-scout the suite + CI, detect deceptive/weak tests, then repair            |
+| Operation | Description |
+|-----------|-------------|
+| `(default)` | Run unit/integration/e2e tests |
+| `ui` | Run UI tests on a website |
+| `create` | Scout the codebase + docs, then create a covering test suite |
+| `optimize` | Parallel-scout CI/CD, git history, codebase + docs, then cut test cost/time safely |
+| `audit` | Inspect the suite + CI and report evidence-backed findings |
 
 Present as options via `ask_user capability` with header "Test Operation", question "What would you like to do?".
 
@@ -35,10 +35,14 @@ Present as options via `ask_user capability` with header "Test Operation", quest
 
 **NEVER IGNORE FAILING TESTS.** Fix root causes, not symptoms. No mocks/cheats/tricks to pass builds.
 
+`references/practical-principles-for-setting-up-and-running-tests.md` is the
+authority for scope, layer, environment, and execution choices. Every workflow
+and operation below assumes it; load it before designing or changing tests.
+
 ## When to Use
 
 - **After implementation**: Validate new features or bug fixes
-- **Coverage checks**: Ensure coverage meets project thresholds (80%+)
+- **Coverage checks**: Assess coverage against repository thresholds and critical behavior
 - **UI verification**: Visual regression, responsive layout, accessibility
 - **Build validation**: Verify build process, dependencies, CI/CD compatibility
 - **Pre-commit/push**: Final quality gate
@@ -85,13 +89,29 @@ cost, faster ships, no lost coverage.
 `audit`: multiple parallel `ak:scout` subagents analyze the test suite and
 CI/CD workflows, detect deceptive or weak tests (tests written only to pass,
 commented-out/skipped tests, unfinished tests, redundant or outdated tests,
-security gaps), then fix and apply the improvements.
+security gaps), then report ranked findings and proposed repairs. Audit alone does not authorize edits.
 
 **Load when:** `audit` argument — trust or quality concerns about the suite
+
+### 7. Test Principles (`references/practical-principles-for-setting-up-and-running-tests.md`)
+
+The eleven governing rules for every operation: test what your system owns,
+scope by risk, test at the lowest reliable layer, isolate environments, run
+sequentially by default, run expensive tests with a purpose, keep concurrency
+tests deterministic, never game the green build, investigate failures with
+evidence, test the final code, and keep tests in sync with specifications.
+
+**Load when:** choosing test scope, layer, or environment; deciding whether a
+slow, flaky, or parallel test earns its place; triaging a failure; or
+reconciling tests with changed specifications. Any suite change, optimize or
+audit proposal, or QA report must be consistent with these rules.
 
 ## Quick Reference
 
 ```
+Principles     → practical-principles-for-setting-up-and-running-tests.md
+  Scope, layer, environment, sequential vs parallel, expensive tests, failure triage
+
 Code tests     → test-execution-workflow.md
   npm test / pytest / go test / cargo test / flutter test
   Coverage: npm run test:coverage / pytest --cov
@@ -107,7 +127,7 @@ Reports        → report-format.md
 ## Working Process
 
 1. Identify testing scope from recent changes or requirements
-2. Run typecheck/analyze commands to catch syntax errors first
+2. Run the narrowest relevant check; add typecheck/build when it covers the affected contract
 3. Execute appropriate test suites
 4. Analyze results — focus on failures
 5. Generate coverage reports if applicable
@@ -121,7 +141,7 @@ Reports        → report-format.md
 - **Browser**: `ak:agent-browser` for live browser interaction without real user cookies; `ak:chrome-profile` for the user's actual Chrome login state, opened with `chrome-profile open --json` and bound by the returned selector; `ak:web-testing` or project-native Playwright/Vitest/k6 for repeatable UI tests
 - **Analysis**: `ak:ai-multimodal` skill for screenshot analysis
 - **Debugging**: `ak:debug` skill when tests reveal bugs requiring investigation
-- **Thinking**: `ak:sequential-thinking` skill for complex test failure analysis
+- **Thinking**: `ak:fable-thinking` skill for complex test failure analysis
 
 ## Quality Standards
 
@@ -133,15 +153,13 @@ Reports        → report-format.md
 - Never ignore failing tests to pass the build
 
 ## Report Output
-
-**IMPORTANT:** Invoke "the engineer project-organization skill" skill to organize the outputs.
+Use the repository report location when a durable report is needed; return concise results directly for a small run.
 
 Use naming pattern from `## Naming` section injected by hooks.
 
 ## Team Mode
 
 When operating as teammate:
-
 1. Discover the live task-management surface and the live team-coordination surface
 2. Claim the assigned or next unblocked item when supported; otherwise read and update the active plan
 3. Read the full work description before starting and wait for implementation prerequisites
@@ -154,7 +172,7 @@ or session-scoped.
 ## Workflow Position
 
 **Typically follows:** `/ak:cook` (test after implementation), `/ak:fix` (test after bug fix)
-**Typically precedes:** `ak-code-review` (review after tests pass)
+**Typically precedes:** `ak-git` (commit once tests pass)
 **Related:** `/ak:cook` (implement then test), `/ak:fix` (fix then test)
 
 ## Flags (create / optimize / audit)
@@ -165,8 +183,7 @@ or session-scoped.
 - `--interview` — before applying any change, list every proposed change
   (tests added/removed/rewritten, CI workflow edits) with a one-line reason and
   interview the user via `ask_user capability` — one decision per change group;
-  apply only the approved changes. Without `--interview`, apply directly but
-  still report the full change list.
+  apply only the approved changes. Without `--interview`, `create` and `optimize` apply directly and report the full change list; `audit` reports findings unless repair was separately requested.
 
 ## Advisory supervision (`--advice`)
 

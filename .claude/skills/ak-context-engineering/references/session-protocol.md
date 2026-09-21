@@ -1,135 +1,72 @@
-# Session Protocol — keeping one session inside its window
+# Session protocol
 
-Mechanical procedure for an agent running a long task. It assumes nothing about the
-model: every step is a check the agent can perform, not a judgment it must get right.
-Bands are keyed to context utilization as the runtime reports it; when no number is
-available, count tool calls (Yellow after 20, Orange after 40).
+## Before the next step
 
-## Know your defaults (where the budget goes)
+Ask what evidence is missing and which bounded action can supply it. Search for the
+owner, read enough context to understand the contract, and avoid speculative loading.
+A large file may need whole-file analysis; a small file may be irrelevant. Size is a
+routing hint, not a substitute for relevance or mandatory repository instructions.
 
-- **Whole-file reflex**: opening a 900-line file to find one function. Costs 8–10k tokens;
-  a search plus a 40-line range costs under 1k.
-- **Output carry**: a full test run or install log lands in context and stays there for
-  the rest of the session, even though only the failing line mattered.
-- **Re-read to remember**: opening the same file a third time because the first two reads
-  were not written down.
-- **Narration**: "Now I will…" before each step and "I have now…" after it. Zero
-  information, paid twice per step.
-- **Speculative loading**: three references and two skills loaded "in case".
-- **Late checkpoint**: nothing written down until auto-compaction fires mid-edit; the
-  summary keeps the wrong things.
+Match effort to stakes, irreversibility and uncertainty. Direct answers need little
+bookkeeping. Long work benefits from a compact ledger of decisions, evidence, failed
+approaches and open items. Avoid a write call after every read.
 
-## Band procedure
+## Safe output handling
 
-### Green (0–50%)
+Prefer structured output and the harness's native output cap when it preserves exit
+status. A plain `command | tail` can return tail's success after the producer fails.
+In Bash, this pattern saves full evidence and preserves the producer status:
 
-1. Start a ledger in your working note (plan file or work-context path). Format:
-   `OBSERVED path:line – fact` or `DERIVED – conclusion (from which observations)`.
-2. Search before read. Read ranges. Note after every read.
-3. Trim outputs from the first command, not from the first warning.
+```bash
+log=$(mktemp "${TMPDIR:-/tmp}/agentkit-check.XXXXXX")
+status=0
+command_to_check >"$log" 2>&1 || status=$?
+tail -n 40 "$log"
+printf 'exit_code=%s full_log=%s (showing last 40 lines)\n' "$status" "$log"
+exit "$status"
+```
 
-### Yellow (50–70%)
+Run this as a bounded child command. If the tail omits the failure, search the retained
+log and read the relevant range before deciding. Redact secrets before exposing any
+log; avoid sensitive commands when a structured safe query exists. Remove logs you
+own after evidence is no longer needed; never remove another session's files.
+For pipelines, enable `set -o pipefail` or capture the producer's own status. Other
+shells require their native equivalent. Output truncation is not evidence of success.
 
-1. Whole-file reads stop. Use the estimate script when a file's size is unknown.
-2. Every command gets a limiter: `| tail -n 40`, `| head -n 40`, a pattern filter, or a
-   test name.
-3. No new reference or skill loads unless the current step cannot proceed without it.
-4. Re-anchor: re-read your ledger (not the files) and confirm the next step.
+## Budget and checkpoints
 
-### Orange (70–85%)
+- Use measured occupancy when available. Unknown remains unknown; tool-call count
+  merely prompts a check after sustained work and never implies a utilization band.
+- Consider the next result, output and checkpoint reserve before starting work.
+- Green/Yellow: work normally with selective reads; avoid speculative references.
+- Orange or insufficient headroom: checkpoint at an atomic boundary and compact
+  through a capability actually available to the agent.
+- Red: prioritize safe completion/checkpoint. Do not start broad exploration, but
+  preserve necessary checks and user scope. Never silently abandon work.
+- Symptoms (lost constraints, repeated reads, persistent wrong beliefs) justify
+  checking the note and source even below a threshold; a keyword score does not.
 
-1. Finish the atomic step in flight (an edit plus its narrow check). Do not start the
-   next one.
-2. Write or merge the checkpoint note (six sections; template in `SKILL.md`). Content:
-   current state only. Verified facts marked as such; everything else under Open Items.
-3. Choose: **compact** when the task continues in this session; **hand off** when the
-   session, model, or runtime changes, or when the remaining work is more than one window.
-4. Compact with a focus instruction naming what to keep:
+Checkpoint sections: Intent, Files/revisions, Decisions, Verified State, Open Items,
+Next Step. Mark OBSERVED, DERIVED and REPORTED where the distinction affects action.
+Merge current state, replace stale entries, retain important negative findings and
+constraints. Include remaining allocations and running processes when relevant.
 
-   ```text
-   /compact Keep: session intent, files touched with line refs, decisions with reasons,
-   verified commands and results, open items, next step. Drop: exploration output,
-   superseded attempts, file contents already reflected in edits.
-   ```
+After compaction, load the note, refresh changed or consequential state, and continue.
+Do not repeat every old check solely because a summary was produced.
 
-5. After compaction: read the checkpoint note, verify one load-bearing fact with the
-   narrowest check (the failing test still fails; the edited file still contains the
-   edit), then continue from Next Step.
+## Retry and delegation
 
-### Red (85%+)
+Transient errors may use bounded retries with backoff when the operation is safe to
+repeat. Deterministic failures require diagnosis and a changed premise. When uncertain
+whether a mutation happened, inspect state before retrying to avoid duplicate effects.
 
-1. Start no new investigation, no new sub-agent, no new file read beyond what the
-   checkpoint needs.
-2. Write the checkpoint note if it does not exist. Carry only OBSERVED facts; unverified
-   claims go under Open Items so the successor re-checks them.
-3. Compact, or open a fresh session and paste the note as the first message.
+A delegate needs scope, inputs, acceptance, decisions, budget unit, stop conditions and
+a bounded report. A cheaper scan can help only if it saves more than setup and review.
+Delegate reports are evidence claims; validate consequential ones with focused checks,
+not by blindly redoing the entire assignment. Shared workspace freshness still matters.
 
-## Hygiene examples (bad → good)
+## Self-check
 
-| Situation | Wasteful | Efficient |
-|-----------|----------|-----------|
-| Find a function | open the whole file | search the symbol; read 30 lines around the hit |
-| Understand a module | list every file recursively | list one level; read the entry file's exports |
-| Run tests | whole suite, full output | one test file, `\| tail -n 40`; whole suite only after a shared contract changed |
-| Inspect a diff | whole-repo diff | `git diff --stat`, then one file's diff |
-| Read a log | full log | pattern filter for the error, then 20 lines of context |
-| Check a JSON config | print the file | query one key with a one-line script or a filter |
-| Confirm an edit landed | re-open the file | read the edited range only, or run the narrow test |
-| Learn a library API | fetch the full docs page | fetch one section or search for the signature |
-| Report progress | "I have now read X, next I will…" | three lines at a milestone; outcome first |
-| Ask a sub-agent | paste the transcript | the delegation packet from `SKILL.md` |
-
-## Ledger and checkpoint mechanics
-
-- The ledger is the cache. Consult it before any read; a fact already in it is not
-  re-fetched.
-- Ledger lines are short and typed. `OBSERVED` came from a tool result you saw.
-  `DERIVED` is your inference. `REPORTED` came from a sub-agent or a document and is not
-  yet verified.
-- The checkpoint note is the ledger reorganized into the six sections. Merge new content
-  into existing sections; do not rewrite the note from scratch each time (regeneration
-  drifts and drops artifacts).
-- Artifact trail is the weakest dimension in compaction studies. Always list exact file
-  paths, function names, error strings, and test names; those are what a successor cannot
-  guess.
-
-## Compact or hand off?
-
-| Signal | Action |
-|--------|--------|
-| Same session, task continues, one more window is enough | compact with focus instruction |
-| Switching model, runtime, or session; or work exceeds one more window | hand off (`ak:handoff` when installed; else the checkpoint note) |
-| Context is poisoned (persistent wrong belief survives correction) | fresh session from the note; carry OBSERVED facts only |
-| Runtime has no compaction command | fresh session from the note |
-
-## Sub-agents and context
-
-- Delegate to keep large reads out of your window (scans, bulk transforms, independent
-  review), not to have something to do while waiting.
-- The packet carries decisions, not history. A delegate never saw the conversation;
-  "as discussed" is an empty string to it.
-- Ask for a bounded report: outcome, evidence lines, status line. Long reports re-import
-  the context you delegated away.
-- Verify load-bearing claims yourself with the narrowest check before acting on them.
-
-## Self-check (evidence, not feelings)
-
-| Question | Evidence |
-|----------|----------|
-| Did every file read above 2k tokens go through search first? | the list of reads |
-| Did every command carry a limiter? | the command log |
-| Is there a ledger line for each read? | the note |
-| Was the checkpoint written at Orange? | note timestamp vs utilization |
-| After compaction, was one fact re-verified before continuing? | the first command after compaction |
-| Did any sub-agent receive history instead of a packet? | the spawn prompt |
-
-## Do / Don't
-
-| Don't | Instead |
-|-------|---------|
-| Open files to remember what they said | Keep the ledger; read once |
-| Carry full tool output forward | Extract the relevant lines; trim at the command |
-| Wait for auto-compaction | Checkpoint at Orange; compact with a focus instruction |
-| Regenerate the checkpoint note | Merge into existing sections |
-| Load references in case | Load one per distinct question, when it blocks the step |
-| Trust "tests pass" from a delegate | Run the narrowest test yourself |
+Did each action supply needed evidence? Were full logs available for failures? Did the
+producer exit status survive filtering? Are the ledger and budget current? Can a fresh
+session resume without guessing constraints, changed files or remaining checks?

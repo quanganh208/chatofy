@@ -3,7 +3,7 @@
  * Handles theme toggle, font size, sidebar, and keyboard navigation
  */
 
-(function () {
+(function() {
   'use strict';
 
   // DOM Elements
@@ -75,26 +75,43 @@
     localStorage.setItem(FONT_KEY, size);
 
     // Update button states
-    fontBtns.forEach((btn) => {
+    fontBtns.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.size === size);
     });
+  }
+
+  function compactSidebar() {
+    return window.innerWidth <= 900;
   }
 
   // Initialize sidebar
   function initSidebar() {
     const stored = localStorage.getItem(SIDEBAR_KEY);
-    const isMobile = window.innerWidth <= 900;
+    const isMobile = compactSidebar();
 
     if (isMobile) {
       sidebar?.classList.add('hidden');
+      sidebar?.classList.remove('visible');
     } else if (stored === 'hidden') {
       sidebar?.classList.add('hidden');
+      sidebar?.classList.remove('visible');
     }
   }
 
   // Toggle sidebar
   function toggleSidebar() {
-    const isHidden = sidebar?.classList.toggle('hidden');
+    if (!sidebar) return;
+
+    if (compactSidebar()) {
+      const opening = !sidebar.classList.contains('visible');
+      sidebar.classList.toggle('visible', opening);
+      sidebar.classList.toggle('hidden', !opening);
+      localStorage.setItem(SIDEBAR_KEY, opening ? 'visible' : 'hidden');
+      return;
+    }
+
+    const isHidden = sidebar.classList.toggle('hidden');
+    sidebar.classList.remove('visible');
     localStorage.setItem(SIDEBAR_KEY, isHidden ? 'hidden' : 'visible');
   }
 
@@ -248,7 +265,7 @@
     if (!planNav) return;
 
     // Remove active from all items
-    planNav.querySelectorAll('.phase-item').forEach((item) => {
+    planNav.querySelectorAll('.phase-item').forEach(item => {
       item.classList.remove('active');
     });
 
@@ -265,34 +282,32 @@
     if (!planNav) return;
 
     // Get all anchors from sidebar
-    const anchors = Array.from(planNav.querySelectorAll('[data-anchor]')).map(
-      (item) => item.dataset.anchor,
-    );
+    const anchors = Array.from(planNav.querySelectorAll('[data-anchor]'))
+      .map(item => item.dataset.anchor);
 
     if (anchors.length === 0) return;
 
     // Find corresponding elements in content
-    const sections = anchors.map((id) => document.getElementById(id)).filter((el) => el !== null);
+    const sections = anchors
+      .map(id => document.getElementById(id))
+      .filter(el => el !== null);
 
     if (sections.length === 0) return;
 
     // Create observer
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            updateSidebarActiveState(entry.target.id);
-          }
-        });
-      },
-      {
-        rootMargin: '-20% 0px -60% 0px', // Trigger when section is in upper portion of viewport
-        threshold: 0,
-      },
-    );
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          updateSidebarActiveState(entry.target.id);
+        }
+      });
+    }, {
+      rootMargin: '-20% 0px -60% 0px', // Trigger when section is in upper portion of viewport
+      threshold: 0
+    });
 
     // Observe all sections
-    sections.forEach((section) => observer.observe(section));
+    sections.forEach(section => observer.observe(section));
   }
 
   // Handle hash change (browser back/forward)
@@ -310,7 +325,7 @@
   // Throttle utility
   function throttle(func, wait) {
     let timeout;
-    return function (...args) {
+    return function(...args) {
       if (!timeout) {
         timeout = setTimeout(() => {
           timeout = null;
@@ -361,7 +376,7 @@
     // Wait for mermaid module to load (imported in template.html)
     let attempts = 0;
     while (!window.mermaidModule && attempts < 50) {
-      await new Promise((r) => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 100));
       attempts++;
     }
 
@@ -378,7 +393,7 @@
       startOnLoad: false,
       theme: isDark ? 'dark' : 'default',
       securityLevel: 'loose',
-      fontFamily: 'Inter, sans-serif',
+      fontFamily: 'Inter, sans-serif'
     });
 
     // Find unprocessed mermaid elements (both pre and div)
@@ -389,7 +404,7 @@
     }
 
     // Store original source before mermaid replaces content (for theme switching)
-    diagrams.forEach((el) => {
+    diagrams.forEach(el => {
       if (!el.dataset.mermaidSource) {
         el.dataset.mermaidSource = el.textContent;
       }
@@ -399,12 +414,12 @@
     try {
       await mermaid.run({
         nodes: diagrams,
-        suppressErrors: false,
+        suppressErrors: false
       });
     } catch (err) {
       console.error('Mermaid run error:', err);
       // Show errors inline for diagrams that failed
-      diagrams.forEach((el) => {
+      diagrams.forEach(el => {
         if (!el.querySelector('svg') && !el.hasAttribute('data-processed')) {
           const code = el.dataset.mermaidSource || el.textContent;
           el.innerHTML = `<div class="mermaid-error">
@@ -429,12 +444,12 @@
       startOnLoad: false,
       theme: isDark ? 'dark' : 'default',
       securityLevel: 'loose',
-      fontFamily: 'Inter, sans-serif',
+      fontFamily: 'Inter, sans-serif'
     });
 
     // Restore original source and re-render
     const diagrams = document.querySelectorAll('.mermaid[data-processed="true"]');
-    diagrams.forEach((el) => {
+    diagrams.forEach(el => {
       const source = el.dataset.mermaidSource;
       if (source) {
         el.textContent = source;
@@ -468,9 +483,8 @@
 
   // Recalculate expanded wrappers on resize or sidebar toggle
   window.addEventListener('resize', () => {
-    document
-      .querySelectorAll('.mermaid-wrapper.expanded, .code-wrapper.expanded')
-      .forEach((w) => applyExpandLayout(w, true));
+    document.querySelectorAll('.mermaid-wrapper.expanded, .code-wrapper.expanded')
+      .forEach(w => applyExpandLayout(w, true));
   });
 
   // Initialize Mermaid expand toggle buttons
@@ -478,7 +492,7 @@
     // Find all rendered mermaid diagrams not already wrapped
     const diagrams = document.querySelectorAll('.mermaid[data-processed="true"]');
 
-    diagrams.forEach((diagram) => {
+    diagrams.forEach(diagram => {
       // Skip if already wrapped
       if (diagram.parentElement?.classList.contains('mermaid-wrapper')) {
         return;
@@ -500,9 +514,9 @@
       // Toggle handler — expand to fill .main-content, re-render at new width
       btn.addEventListener('click', async () => {
         const isExpanded = wrapper.classList.toggle('expanded');
-        btn.setAttribute(
-          'aria-label',
-          isExpanded ? 'Collapse diagram' : 'Expand diagram to full width',
+        btn.setAttribute('aria-label', isExpanded
+          ? 'Collapse diagram'
+          : 'Expand diagram to full width'
         );
         applyExpandLayout(wrapper, isExpanded);
 
@@ -535,12 +549,10 @@
     // Find all pre elements that are not mermaid and not already wrapped
     const codeBlocks = document.querySelectorAll('pre:not(.mermaid)');
 
-    codeBlocks.forEach((pre) => {
+    codeBlocks.forEach(pre => {
       // Skip if already wrapped or inside mermaid error
-      if (
-        pre.parentElement?.classList.contains('code-wrapper') ||
-        pre.parentElement?.classList.contains('mermaid-error')
-      ) {
+      if (pre.parentElement?.classList.contains('code-wrapper') ||
+          pre.parentElement?.classList.contains('mermaid-error')) {
         return;
       }
 
@@ -566,9 +578,9 @@
       // Toggle handler — expand to fill .main-content
       btn.addEventListener('click', () => {
         const isExpanded = wrapper.classList.toggle('expanded');
-        btn.setAttribute(
-          'aria-label',
-          isExpanded ? 'Collapse code block' : 'Expand code block to full width',
+        btn.setAttribute('aria-label', isExpanded
+          ? 'Collapse code block'
+          : 'Expand code block to full width'
         );
         applyExpandLayout(wrapper, isExpanded);
       });
@@ -603,7 +615,7 @@
     const planName = planNav.querySelector('.plan-title span:last-child')?.textContent || 'unknown';
     const planId = planName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
-    phaseHeaders.forEach((header) => {
+    phaseHeaders.forEach(header => {
       const phaseGroup = header.closest('.phase-group');
       if (!phaseGroup) return;
 
@@ -695,21 +707,13 @@
     let touchStartY = 0;
     let touchEndY = 0;
 
-    handle?.addEventListener(
-      'touchstart',
-      (e) => {
-        touchStartY = e.touches[0].clientY;
-      },
-      { passive: true },
-    );
+    handle?.addEventListener('touchstart', (e) => {
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
 
-    handle?.addEventListener(
-      'touchmove',
-      (e) => {
-        touchEndY = e.touches[0].clientY;
-      },
-      { passive: true },
-    );
+    handle?.addEventListener('touchmove', (e) => {
+      touchEndY = e.touches[0].clientY;
+    }, { passive: true });
 
     handle?.addEventListener('touchend', () => {
       const swipeDistance = touchEndY - touchStartY;
@@ -812,7 +816,7 @@
     themeToggle?.addEventListener('click', toggleTheme);
     sidebarToggle?.addEventListener('click', toggleSidebar);
 
-    fontBtns.forEach((btn) => {
+    fontBtns.forEach(btn => {
       btn.addEventListener('click', () => setFontSize(btn.dataset.size));
     });
 

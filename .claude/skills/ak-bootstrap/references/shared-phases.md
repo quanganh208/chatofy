@@ -40,16 +40,14 @@ Plans are execution state, not evergreen product documentation.
 
 Guide user to get started with the project:
 - Ask 1 question at a time, wait for answer before next
-- Example: instruct user to obtain API key → ask for key → add to env vars
+- For required credentials, explain the secure environment/secret-store setup; check presence without asking the user to paste the value into chat
 - If user requests config changes, repeat until approved
 
 ## Final Report
 
 1. Summary of all changes, brief explanations
 2. Guide user to get started + suggest next steps
-3. Ask user if they want to commit/push:
-   - If yes: `git-manager` subagent to commit (and push if requested)
-   - `--fast` mode: keep the same commit approval gate; speed mode does not imply git automation
+3. Commit/push only when requested or already authorized; bootstrap alone does not authorize publication. Reuse existing authorization and report remaining setup precisely.
 
 **Report rules:**
 - Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.

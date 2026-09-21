@@ -144,7 +144,7 @@ function resolveRelativeValue(scope, gitRoot, value, warnings) {
   const segment = firstPathSegment(clean).toLowerCase();
   if (segment === '.agentkit') {
     warnings.push(
-      `worktree.root in ${scope} config points inside the .agentkit directory ("${value}"); that location is reserved for AgentKit configuration, so it is being skipped.`,
+      `worktree.root in ${scope} config points inside the .agentkit directory ("${value}"); that location is reserved for AgentKit configuration, so it is being skipped.`
     );
     return null;
   }
@@ -157,7 +157,7 @@ function resolveRelativeValue(scope, gitRoot, value, warnings) {
   const boundaryReal = realpathDeepestExisting(boundary);
   if (!isWithinBoundary(resolvedReal, boundaryReal)) {
     warnings.push(
-      `worktree.root in ${scope} config ("${value}") resolves outside the project and its parent directory, so it is being skipped as a safety boundary. Use a path no deeper than one level above the project root (e.g. "../my-app-worktrees"), or set an absolute path in user config instead.`,
+      `worktree.root in ${scope} config ("${value}") resolves outside the project and its parent directory, so it is being skipped as a safety boundary. Use a path no deeper than one level above the project root (e.g. "../my-app-worktrees"), or set an absolute path in user config instead.`
     );
     return null;
   }
@@ -178,7 +178,7 @@ function resolveScopeValue(scope, gitRoot, rawValue, warnings) {
   if (scope === 'project') {
     if (rooted) {
       warnings.push(
-        `worktree.root in project config is an absolute path ("${value}"); project scope only honors a relative path, so it is being skipped. Set it in your user config (~/.agentkit/config.yaml) instead.`,
+        `worktree.root in project config is an absolute path ("${value}"); project scope only honors a relative path, so it is being skipped. Set it in your user config (~/.agentkit/config.yaml) instead.`
       );
       return null;
     }
@@ -206,9 +206,7 @@ function resolveWorktreeRoot({ gitRoot, agentkitHome }) {
   const projectConfig = readYamlFile(path.join(gitRoot, '.agentkit', 'config.yaml'));
   const userConfig = readYamlFile(path.join(agentkitHome, 'config.yaml'));
 
-  const projectRaw = isPlainObject(projectConfig.worktree)
-    ? projectConfig.worktree.root
-    : undefined;
+  const projectRaw = isPlainObject(projectConfig.worktree) ? projectConfig.worktree.root : undefined;
   const projectResolved = resolveScopeValue('project', gitRoot, projectRaw, warnings);
   if (projectResolved) {
     return { root: projectResolved, source: 'project', warnings };
@@ -242,9 +240,7 @@ function main() {
   }
 
   if (values.help || !values['git-root']) {
-    console.error(
-      'Usage: node resolve-worktree-root.cjs --git-root <path> [--agentkit-home <path>] [--json]',
-    );
+    console.error('Usage: node resolve-worktree-root.cjs --git-root <path> [--agentkit-home <path>] [--json]');
     process.exit(values.help ? 0 : 1);
     return;
   }
@@ -253,7 +249,7 @@ function main() {
   const homeDir = process.env.HOME || process.env.USERPROFILE || os.homedir();
   const agentkitHome = values['agentkit-home']
     ? path.resolve(values['agentkit-home'])
-    : process.env.AGENTKIT_HOME || path.join(homeDir, '.agentkit');
+    : (process.env.AGENTKIT_HOME || path.join(homeDir, '.agentkit'));
   const resolved = resolveWorktreeRoot({ gitRoot, agentkitHome });
   console.log(values.json ? JSON.stringify(resolved, null, 2) : JSON.stringify(resolved));
 }

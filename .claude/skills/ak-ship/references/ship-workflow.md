@@ -31,7 +31,7 @@
      git rev-parse --verify origin/$b 2>/dev/null && echo "$b" && break
    done
    ```
-4. Run `git status` (never use `-uall`). Uncommitted changes are always included.
+4. Run `git status` (never use `-uall`). Record task ownership and intended ship scope; preserve unrelated uncommitted changes.
 5. Run `git diff <target>...HEAD --stat` and `git log <target>..HEAD --oneline` to understand what's being shipped.
 6. If `--dry-run`: output what would happen at each step and stop here. Do not
    spawn `kongming`, activate `ak:review-pr`, publish social content, or perform
@@ -117,7 +117,7 @@ git fetch origin <target> && git merge origin/<target> --no-edit
 2. Delegate to `tester` subagent — don't inline test execution
 3. Check pass/fail from agent result
 
-- **If any test fails:** Show failures and **STOP**. Do not proceed.
+- **If a test fails:** Classify the cause. Repair branch-caused failures within scope, then rerun affected checks. Preserve evidence and stop publication for unresolved external blockers or scope-changing decisions; never weaken tests.
 - **If all pass:** Note counts briefly and continue.
 - **If no test runner detected:** Use `ask_user capability` — "No test runner detected. Skip tests or provide command?"
 
@@ -136,12 +136,9 @@ git fetch origin <target> && git merge origin/<target> --no-edit
    Pre-Landing Review: N issues (X critical, Y informational)
    ```
 
-5. **If critical issues found:** For EACH critical issue, use `ask_user capability`:
-   - Problem description with `file:line`
-   - Recommended fix
-   - Options: A) Fix now (recommended), B) Acknowledge and ship, C) False positive — skip
+5. **If critical issues found:** Verify the failure and repair in-scope defects. Ask only for a material missing decision or scope change; do not offer to bypass a real blocker. Record false positives with evidence.
 
-6. **If user chose Fix (A):** Apply fixes, commit fixed files, then **re-run tests** (Step 4) before continuing.
+6. **After fixes:** Re-run affected tests (Step 4) before continuing.
 7. **If only informational:** Include in PR body, continue.
 8. **If no issues:** Output "No issues found." and continue.
 ## Mandatory advice checkpoint after Steps 4-5
@@ -183,7 +180,7 @@ section of the shared files-first plan-state reference
    `ak plan check <phase-file>` it. If the work is genuinely partial, `ak plan
    update <id> --status in-progress` and skip the completion below.
 3. `ak plan update <id> --status completed` — rewrites `plan.md` front-matter
-   `status:` (canonical) and the index in one op. Step 10's `git add -A` then
+   `status:` (canonical) and the index in one op. Step 10's scoped staging then
    commits the finalized plan files with the ship, so `status: completed` reaches
    the target branch in the same merge as the code.
 
@@ -194,7 +191,7 @@ or delete plan files.
 
 ## Step 10: Commit
 
-1. Stage all changes: `git add -A`
+1. Stage only reviewed task-owned paths, including intended plan/version/docs artifacts: `git add -- <owned-paths>`. Inspect the staged diff against ship scope; do not absorb unrelated dirty files or existing staged work.
 2. Security check: scan staged diff for secrets (API keys, tokens, passwords)
    - If secrets found: **STOP**, warn user, suggest `.gitignore`
 3. Compose commit message:
@@ -237,8 +234,8 @@ test -f "$WL_BIN" || WL_BIN=kits/core/hooks/lib/writing-language.cjs
 node "$WL_BIN" --json
 ```
 Load `references/pr-template.md` and the shared contracts:
-- `kits/core/skills/ak-review-pr/references/writing-language.md`
-- `kits/core/skills/ak-review-pr/references/pr-body-contract.md`
+- `kits/engineer/skills/ak-review-pr/references/writing-language.md`
+- `kits/engineer/skills/ak-review-pr/references/pr-body-contract.md`
 
 Render the **seven required sections** plus Linked Issues / Ship Mode in the
 effective language. Keep the PR **title** English conventional-commit form.

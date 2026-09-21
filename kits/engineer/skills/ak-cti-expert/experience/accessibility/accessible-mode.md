@@ -16,15 +16,15 @@ Display and interaction settings for users who need adjusted output format, redu
 
 ## Settings Overview
 
-| Setting          | Command                                     | Default |
-| ---------------- | ------------------------------------------- | ------- |
-| Text size        | `/accessible text [normal\|large\|xl]`      | normal  |
-| Contrast         | `/accessible contrast [normal\|high\|dark]` | normal  |
-| Screen reader    | `/accessible reader [on\|off]`              | off     |
-| Simple commands  | `/accessible commands [on\|off]`            | off     |
-| Natural language | `/accessible natural [on\|off]`             | off     |
-| Confirm actions  | `/accessible confirm [on\|off]`             | on      |
-| Step narration   | `/accessible narrate [on\|off]`             | off     |
+| Setting | Command | Default |
+|---------|---------|---------|
+| Text size | `/accessible text [normal\|large\|xl]` | normal |
+| Contrast | `/accessible contrast [normal\|high\|dark]` | normal |
+| Screen reader | `/accessible reader [on\|off]` | off |
+| Simple commands | `/accessible commands [on\|off]` | off |
+| Natural language | `/accessible natural [on\|off]` | off |
+| Confirm actions | `/accessible confirm [on\|off]` | on |
+| Step narration | `/accessible narrate [on\|off]` | off |
 
 ---
 
@@ -46,13 +46,11 @@ Changes:
 **Comparison:**
 
 Normal:
-
 ```
 Found 5 emails for example.com: admin@example.com, support@example.com
 ```
 
 Large:
-
 ```
 ━━━━━━━━━━━━━━━━━━
 RESULTS
@@ -82,7 +80,6 @@ Success:    #006600
 ```
 
 All indicators use **both** symbol and color:
-
 ```
 ✓ Complete   (symbol + green text)
 ✗ Error      (symbol + red text)
@@ -113,13 +110,11 @@ Success:    #44FF44
 Optimizes all output for assistive technology:
 
 **Standard output:**
-
 ```
 Found 5. admin@example.com support@example.com …
 ```
 
 **Screen reader output:**
-
 ```
 Search complete. Found 5 email addresses.
 First: admin at example dot com.
@@ -129,14 +124,14 @@ Say NEXT to hear more, or STOP to end.
 
 ### Navigation Keys
 
-| Key | Action               |
-| --- | -------------------- |
-| R   | Read current section |
-| N   | Next item            |
-| P   | Previous item        |
-| S   | Stop reading         |
-| H   | Hear available help  |
-| 1–9 | Jump to section      |
+| Key | Action |
+|-----|--------|
+| R | Read current section |
+| N | Next item |
+| P | Previous item |
+| S | Stop reading |
+| H | Hear available help |
+| 1–9 | Jump to section |
 
 ### Audio Descriptions for Visuals
 
@@ -158,17 +153,17 @@ Timeline showing:
 
 Enables short-form aliases for all core commands:
 
-| Full Command     | Alias              | Action                   |
-| ---------------- | ------------------ | ------------------------ |
-| `/sweep`         | `/look-up`         | Search for a subject     |
-| `/dork`          | `/search`          | Run a web query          |
-| `/flow`          | `/guide-me`        | Start a guided flow      |
-| `/chrono`        | `/history`         | Show timeline            |
-| `/verify`        | `/check`           | Verify a finding         |
-| `/define`        | `/what-is`         | Look up a term           |
-| `/status`        | `/whats-happening` | Show case status         |
-| `/cancel`        | `/stop`            | Cancel current operation |
-| `/case-template` | `/guide`           | Run a case template      |
+| Full Command | Alias | Action |
+|-------------|-------|--------|
+| `/sweep` | `/look-up` | Search for a subject |
+| `/dork` | `/search` | Run a web query |
+| `/flow` | `/guide-me` | Start a guided flow |
+| `/chrono` | `/history` | Show timeline |
+| `/verify` | `/check` | Verify a finding |
+| `/define` | `/what-is` | Look up a term |
+| `/status` | `/whats-happening` | Show case status |
+| `/cancel` | `/stop` | Cancel current operation |
+| `/case-template` | `/guide` | Run a case template |
 
 ### Natural Language Input
 
@@ -203,14 +198,12 @@ Accepts conversational phrasing:
 Adds explicit framing around each operation step.
 
 **Without narration:**
-
 ```
 /sweep example.com
 Found 5 emails.
 ```
 
 **With narration:**
-
 ```
 Starting lookup for example.com.
 
@@ -238,13 +231,11 @@ Would you like to look at any of these, or move on to something else?
 Errors are rephrased to avoid technical jargon and always include a recovery path.
 
 **Standard:**
-
 ```
 ERR_UNKNOWN_COMMAND: rekcon
 ```
 
 **Accessible:**
-
 ```
 That command wasn't recognized.
 
@@ -268,7 +259,6 @@ Or type /guide-me for step-by-step help.
 ```
 
 Print output uses:
-
 - Black text on white background
 - No decorative elements
 - Page breaks between sections

@@ -1,14 +1,14 @@
 ---
 name: ak:find-skills
-description: Helps users discover and install agent skills when they ask questions like "how do I do X", "find a skill for X", "is there a skill that can...", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.
+description: "Discover or install agent skills when users explicitly seek new capabilities or a verified capability gap blocks their task. Prefer the live installed catalog before external search."
 user-invocable: true
-when_to_use: 'Invoke when the user is looking for a skill capability.'
-category: dev-tools
+when_to_use: "Invoke when the user is looking for a skill capability."
+category: meta
 keywords: [discover, install, skills, search]
-argument-hint: '[capability or task description]'
+argument-hint: "[capability or task description]"
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: "1.0.1"
 ---
 
 # Find Skills
@@ -17,14 +17,10 @@ This skill helps you discover and install skills from the open agent skills ecos
 
 ## When to Use This Skill
 
-Use this skill when the user:
-
-- Asks "how do I do X" where X might be a common task with an existing skill
-- Says "find a skill for X" or "is there a skill for X"
-- Asks "can you do X" where X is a specialized capability
-- Expresses interest in extending agent capabilities
-- Wants to search for tools, templates, or workflows
-- Mentions they wish they had help with a specific domain (design, testing, deployment, etc.)
+Use this skill when the user explicitly asks to find, compare, or install skills,
+or when a verified missing capability requires discovery. Ordinary requests such
+as “write a React component” or “help review this PR” belong to their installed
+workflows; do that work directly instead of searching for skills.
 
 ## Local AgentKit Routing
 
@@ -65,9 +61,9 @@ npx skills find [query]
 
 For example:
 
-- User asks "how do I make my React app faster?" → `npx skills find react performance`
-- User asks "can you help me with PR reviews?" → `npx skills find pr review`
-- User asks "I need to create a changelog" → `npx skills find changelog`
+- User asks "find a skill for React performance" → `npx skills find react performance`
+- User asks "find a skill for PR reviews" → `npx skills find pr review`
+- User asks "find a changelog skill" → `npx skills find changelog`
 
 The command will return results like:
 
@@ -103,10 +99,10 @@ Learn more: https://skills.sh/vercel-labs/agent-skills/vercel-react-best-practic
 If the user wants to proceed, you can install the skill for them:
 
 ```bash
-npx skills add <owner/repo@skill> -g -y
+npx skills add <owner/repo@skill>
 ```
 
-The `-g` flag installs globally (user-level) and `-y` skips confirmation prompts.
+Resolve scope from the request and current project; inspect installed CLI help for scope and noninteractive flags. Use `-g` only for an explicitly selected user-wide install. Report package provenance, chosen runtime, destination scope, and observed result.
 
 ## Common Skill Categories
 
@@ -140,7 +136,7 @@ Example:
 
 ```
 I searched for skills related to "xyz" but didn't find any matches.
-I can still help you with this task directly! Would you like me to proceed?
+I can continue the already-requested task with available capabilities; no install was performed.
 
 If this is something you do often, you could create your own skill:
 npx skills init my-xyz-skill

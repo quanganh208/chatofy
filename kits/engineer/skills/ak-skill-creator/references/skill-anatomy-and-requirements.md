@@ -11,7 +11,6 @@ Claude Code skills directory/
     └── Bundled Resources (optional)
         ├── scripts/      Executable code (Python/Node.js)
         ├── references/   Docs loaded into context as needed
-        ├── agents/       Eval agent templates (grader, comparator, analyzer)
         └── assets/       Files used in output (templates, etc.)
 ```
 
@@ -20,7 +19,7 @@ Claude Code skills directory/
 - **SKILL.md:** <300 lines. Concise quick-reference guide.
 - **References:** <300 lines each. Split by logical boundaries.
 - **Scripts:** No length limit. Must have tests. Must work cross-platform.
-- **Description:** <200 chars. Specific triggers, not generic.
+- **Description:** at most 1024 chars. Precise triggers and useful not-for cases; no minimum length.
 - **Consolidation:** Related topics combined (e.g., cloudflare+docker → devops)
 - **No duplication:** Info lives in ONE place (SKILL.md OR references, not both)
 
@@ -28,8 +27,8 @@ Claude Code skills directory/
 
 ```yaml
 ---
-name: kebab-case-name # optional namespace: namespace:kebab-case-name
-description: Under 200 chars, specific triggers and use cases
+name: kebab-case-name  # optional namespace: namespace:kebab-case-name
+description: At most 1024 chars; specific triggers and not-for cases
 license: Optional
 version: Optional
 ---
@@ -46,7 +45,8 @@ version: Optional
 - **Env hierarchy:** `process.env` > skill `.env` > shared `.env` > global `.env`
 - Token-efficient: executed without loading into context
 
-See `references/script-quality-criteria.md` for full criteria.
+See `references/script-quality-criteria.md` for full criteria and
+`references/structure-organization-criteria.md` for layout and naming.
 
 ## References (`references/`)
 
@@ -65,14 +65,13 @@ See `references/script-quality-criteria.md` for full criteria.
 ## Progressive Disclosure
 
 Three-level loading for context efficiency:
-
-1. **Metadata** (~200 chars) — always in context
+1. **Metadata** (name and description) — always in context
 2. **SKILL.md body** (<300 lines) — when skill triggers
 3. **Bundled resources** — as needed (scripts: unlimited, execute without loading)
 
 ## Writing Style
 
 - **Imperative form:** "To accomplish X, do Y"
-- **Third-person metadata:** "This skill should be used when..."
-- **Concise:** Sacrifice grammar for brevity in references
-- **Practical:** Teach _how_ to do tasks, not _what_ tools are
+- **Precise metadata:** owned tasks and activation conditions; direct phrasing is acceptable
+- **Complete sentences:** short by selecting content, not by compressing it; see `references/writing-effective-instructions.md`
+- **Practical:** Teach *how* to do tasks, not *what* tools are

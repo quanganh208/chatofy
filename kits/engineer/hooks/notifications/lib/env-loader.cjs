@@ -32,24 +32,14 @@ function parseEnvContent(content) {
     let value = trimmed.slice(eqIndex + 1).trim();
 
     // Handle quoted values (single or double quotes)
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
       value = value.slice(1, -1);
     }
 
     // Handle inline comments (only if not quoted)
-    if (
-      !trimmed
-        .slice(eqIndex + 1)
-        .trim()
-        .startsWith('"') &&
-      !trimmed
-        .slice(eqIndex + 1)
-        .trim()
-        .startsWith("'")
-    ) {
+    if (!trimmed.slice(eqIndex + 1).trim().startsWith('"') &&
+        !trimmed.slice(eqIndex + 1).trim().startsWith("'")) {
       const commentIndex = value.indexOf('#');
       if (commentIndex !== -1) {
         value = value.slice(0, commentIndex).trim();

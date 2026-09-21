@@ -9,22 +9,22 @@ redefine user intent or silently reduce scope.
 
 ## Finding classes (exclusive)
 
-| Class                        | Meaning                                                                                | Plan edit                     |
-| ---------------------------- | -------------------------------------------------------------------------------------- | ----------------------------- |
-| `mitigation-within-contract` | Safer/clearer implementation that preserves every locked outcome and acceptance signal | Allowed                       |
-| `preflight-required`         | Needs a readiness check later (cred, tool, access, quota)                              | Annotate only                 |
-| `blocker`                    | Prevents Ready until resolved                                                          | Annotate; mark not-ready      |
-| `outcome-change-request`     | Would change result, remove must-have, or swap approach outside Allowed substitutions  | **No** silent edit; user gate |
+| Class | Meaning | Plan edit |
+|-------|---------|-----------|
+| `mitigation-within-contract` | Safer/clearer implementation that preserves every locked outcome and acceptance signal | Allowed |
+| `preflight-required` | Needs a readiness check later (cred, tool, access, quota) | Annotate only |
+| `blocker` | Prevents Ready until resolved | Annotate; mark not-ready |
+| `outcome-change-request` | Would change result, remove must-have, or swap approach outside Allowed substitutions | **No** silent edit; user gate |
 
 ## Rubric examples
 
-| Observation                                             | Class                                                     |
-| ------------------------------------------------------- | --------------------------------------------------------- |
-| Rename helper for clarity; same behavior                | `mitigation-within-contract`                              |
-| Deploy phase needs cloud credentials                    | `preflight-required` or `blocker` if no path without them |
-| "Skip E2E to ship faster" when E2E is acceptance signal | `outcome-change-request`                                  |
-| "Ship docs only" when feature is in scope               | `outcome-change-request`                                  |
-| Unknown third-party rate limit                          | `preflight-required`                                      |
+| Observation | Class |
+|-------------|-------|
+| Rename helper for clarity; same behavior | `mitigation-within-contract` |
+| Deploy phase needs cloud credentials | `preflight-required` or `blocker` if no path without them |
+| "Skip E2E to ship faster" when E2E is acceptance signal | `outcome-change-request` |
+| "Ship docs only" when feature is in scope | `outcome-change-request` |
+| Unknown third-party rate limit | `preflight-required` |
 
 ## Hard stop vs default plan red-team
 

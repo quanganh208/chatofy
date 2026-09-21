@@ -1,16 +1,16 @@
 # Auth Resolution Chain
 
-One chain, used by both CLI and MCP-stdio. MCP-HTTP/SSE uses bearer tokens at transport layer, but tools may still need per-request values pulled from the chain.
+One chain, used by both CLI and MCP-stdio. MCP over Streamable HTTP uses bearer tokens at the transport layer, but tools may still need per-request values pulled from the chain.
 
 ## Resolution chain (first hit wins)
 
-1. **Explicit flag** — `--api-key <v>`, `--token <v>`, etc. Never logged, never echoed.
+1. **Explicit flag** — `--api-key <v>`, `--token <v>`, etc. Never logged, never echoed. Highest priority.
 2. **Process env vars** — convention: `<TOOL>_<KEY>` (e.g. `ACME_API_KEY`).
 3. **dotenv files**, in this order:
    - `.env.local` (git-ignored, highest priority)
    - `.env.<NODE_ENV>` (e.g. `.env.production`)
    - `.env`
-     Search starts in CWD and walks up to the nearest package root or repo root.
+   Search starts in CWD and walks up to the nearest package root or repo root.
 4. **User config JSON**:
    - Linux/macOS: `$XDG_CONFIG_HOME/<tool>/config.json` or `~/.config/<tool>/config.json`
    - Windows: `%APPDATA%\<tool>\config.json`
@@ -20,6 +20,13 @@ One chain, used by both CLI and MCP-stdio. MCP-HTTP/SSE uses bearer tokens at tr
    - Service name: `<tool>`, account = profile name
 
 Document the chain in `docs/cli.md`. `doctor` command reports which layer supplied each value without revealing the value itself.
+
+### Stateless execution guarantee (`--api-key`)
+
+Every command in the generated CLI MUST support running completely statelessly via `--api-key <value>` (or `--token <value>`):
+- **Zero disk writes** — never writes credentials to user config (`config.json`), project config (`.<tool>rc.json`), or OS keychain as a side effect.
+- **No interactive setup prerequisite** — never prompts the user or requires running `<tool> login` first if `--api-key` is passed.
+- **Agent & CI friendly** — ephemeral subagents, Docker containers, and GitHub Actions workflows can safely pass `--api-key "$SECRET"` without polluting the host environment or leaving credentials behind on disk.
 
 ## Config file shape
 
@@ -42,7 +49,6 @@ Document the chain in `docs/cli.md`. `doctor` command reports which layer suppli
 ```
 
 Resolver supports indirection:
-
 - `env:NAME` → read from process env
 - `keychain:<service>/<account>` → read from OS keychain
 - `file:/absolute/path` → read file contents (for mounted files)
@@ -64,12 +70,8 @@ Resolver supports indirection:
 
 ```json
 {
-  "apiKey": { "resolved": true, "source": "keychain:acme/default" },
-  "baseUrl": {
-    "resolved": true,
-    "source": "config:~/.config/acme/config.json",
-    "value": "https://api.acme.dev"
-  }
+  "apiKey":   { "resolved": true, "source": "keychain:acme/default" },
+  "baseUrl":  { "resolved": true, "source": "config:~/.config/acme/config.json", "value": "https://api.acme.dev" }
 }
 ```
 

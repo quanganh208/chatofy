@@ -1,7 +1,20 @@
 {
   "image": "329159bd006090d76c9f17723b03266e.jpg",
-  "style_cues": ["editorial", "futuristic", "high-contrast", "digital art", "conceptual"],
-  "palette_hexes": ["#151515", "#FFFFFF", "#6277F7", "#C2C2C2", "#3A3075", "#2A1E2A"],
+  "style_cues": [
+    "editorial",
+    "futuristic",
+    "high-contrast",
+    "digital art",
+    "conceptual"
+  ],
+  "palette_hexes": [
+    "#151515",
+    "#FFFFFF",
+    "#6277F7",
+    "#C2C2C2",
+    "#3A3075",
+    "#2A1E2A"
+  ],
   "layout": {
     "grid": "broken grid",
     "focal": "center",
@@ -11,7 +24,12 @@
     "material": "distressed digital",
     "finish": "translucent render"
   },
-  "mood": ["conceptual", "mysterious", "futuristic", "meditative"],
+  "mood": [
+    "conceptual",
+    "mysterious",
+    "futuristic",
+    "meditative"
+  ],
   "shape_primitives": [
     "circle",
     "straight rule",
@@ -20,5 +38,10 @@
     "barcode",
     "perforated grid"
   ],
-  "typography": ["geometric sans", "all caps", "extreme size contrast", "serif body text"]
+  "typography": [
+    "geometric sans",
+    "all caps",
+    "extreme size contrast",
+    "serif body text"
+  ]
 }

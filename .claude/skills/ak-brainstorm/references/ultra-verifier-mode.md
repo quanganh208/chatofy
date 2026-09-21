@@ -39,7 +39,7 @@ path.
   model-tier degrade note below).
 - **Verifier** — one verifier subagent (Kongming). Model routing matches
   `--advice`: Claude Code subscription → `fable` (Fable 5); Codex →
-  `gpt-5.6-sol` at high reasoning; see
+  `gpt-6-astra` at low reasoning; see
   `advisory-supervision.md`. It runs on the runtime's strongest available
   model when tier routing exists; otherwise it shares the candidates' tier
   under the degrade note. Advisory: it scores and selects; it does not edit
@@ -103,6 +103,28 @@ so reject-all and evidence-backed rubric scores stay mandatory, not optional.
 8. **Materialize (controller only).** The controller applies the skill-specific
    finalizer below, writes the final artifact, and records a short ranking
    appendix (winner/rationale, or the finding-union summary).
+9. **Write the verifier receipt.** Append one line to the report or plan the run
+   produced, so a later cohort can tell whether the fan-out earned its cost:
+
+   ```
+   ultra: picked=<k>/5 margin=high|low unanimous=yes|no rejected_all=yes|no
+   ```
+
+   `margin` is `high` when the winner leads the runner-up by more than a quarter
+   of the rubric's full range on the deciding criteria, `low` otherwise; a `low`
+   margin means the default single-pass path would likely have produced
+   equivalent output at a fifth of the cost. `unanimous=yes` means the winner
+   topped every rubric criterion. For union finalizers (`ak:code-review`,
+   `ak:review-pr`, `ak:scout`) report coverage instead:
+
+   ```
+   ultra: union=<findings-kept>/<findings-proposed> single_candidate_only=<n>
+   ```
+
+   where `single_candidate_only` counts validated findings that appeared in
+   exactly one candidate — the number that justifies the fan-out for union
+   skills, since a one-candidate finding is what a single pass would have
+   missed.
 
 ## Asymmetric finalizer
 

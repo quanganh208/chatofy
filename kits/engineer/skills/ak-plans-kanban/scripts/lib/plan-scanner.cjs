@@ -12,7 +12,7 @@ const {
   extractPlanMetadata,
   generateTimelineStats,
   generateActivityHeatmap,
-  normalizeStatus,
+  normalizeStatus
 } = require('./plan-metadata-extractor.cjs');
 
 /**
@@ -29,7 +29,7 @@ function calculateProgress(phases) {
     total: phases.length,
     completed: 0,
     inProgress: 0,
-    pending: 0,
+    pending: 0
   };
 
   for (const phase of phases) {
@@ -43,7 +43,9 @@ function calculateProgress(phases) {
     }
   }
 
-  stats.percentage = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+  stats.percentage = stats.total > 0
+    ? Math.round((stats.completed / stats.total) * 100)
+    : 0;
 
   return stats;
 }
@@ -60,7 +62,7 @@ function parsePlanName(dirName) {
   // Convert kebab-case to Title Case
   return withoutDate
     .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 }
 
@@ -86,11 +88,7 @@ function deriveStatus(stats, headerStatus) {
     if (normalized.includes('progress') || normalized.includes('active')) {
       return 'in-progress';
     }
-    if (
-      normalized.includes('pending') ||
-      normalized.includes('todo') ||
-      normalized.includes('planned')
-    ) {
+    if (normalized.includes('pending') || normalized.includes('todo') || normalized.includes('planned')) {
       return 'pending';
     }
   }
@@ -136,10 +134,9 @@ function getPlanMetadata(planFilePath) {
       progress: progress.percentage,
       lastModified: stats.mtime.toISOString(),
       // Use frontmatter status if hasFrontmatter (already normalized), otherwise derive from phases
-      status:
-        richMeta.hasFrontmatter && richMeta.headerStatus
-          ? normalizeStatus(richMeta.headerStatus)
-          : deriveStatus(progress, richMeta.headerStatus),
+      status: richMeta.hasFrontmatter && richMeta.headerStatus
+        ? normalizeStatus(richMeta.headerStatus)
+        : deriveStatus(progress, richMeta.headerStatus),
       // Rich metadata
       createdDate: richMeta.createdDate,
       completedDate: richMeta.completedDate,
@@ -154,7 +151,7 @@ function getPlanMetadata(planFilePath) {
       description: richMeta.description,
       tags: richMeta.tags || [],
       assignee: richMeta.assignee,
-      title: richMeta.title,
+      title: richMeta.title
     };
   } catch (err) {
     console.error(`[plan-scanner] Error reading plan: ${planFilePath}`, err.message);
@@ -194,8 +191,10 @@ function isPathSafe(targetPath, baseDir) {
  * @returns {Array<Object>} - Array of plan metadata objects sorted by lastModified desc
  */
 function scanPlans(plansDir, options = {}) {
-  const { maxDepth = 2, exclude = ['node_modules', '.git', 'templates', 'reports', 'research'] } =
-    options;
+  const {
+    maxDepth = 2,
+    exclude = ['node_modules', '.git', 'templates', 'reports', 'research']
+  } = options;
 
   const resolvedBase = path.resolve(plansDir);
   const plans = [];
@@ -269,5 +268,5 @@ module.exports = {
   isPathSafe,
   // Re-export timeline helpers
   generateTimelineStats,
-  generateActivityHeatmap,
+  generateActivityHeatmap
 };

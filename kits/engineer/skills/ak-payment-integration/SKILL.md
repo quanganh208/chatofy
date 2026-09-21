@@ -2,14 +2,14 @@
 name: ak:payment-integration
 description: Integrate payments with SePay (VietQR), Polar, and Stripe. Checkout, webhooks, subscriptions, QR codes, and multi-provider orders.
 user-invocable: true
-when_to_use: 'Invoke for checkout, subscriptions, webhooks, or QR payments.'
-category: backend
+when_to_use: "Invoke for checkout, subscriptions, webhooks, or QR payments."
+category: engineering
 keywords: [payments, stripe, polar, webhooks, qr]
 license: MIT
-argument-hint: '[provider] [task]'
+argument-hint: "[provider] [task]"
 metadata:
   author: agentkit
-  version: '2.2.0'
+  version: "2.2.1"
 ---
 
 # Payment Integration
@@ -24,18 +24,25 @@ Production-proven payment processing with SePay (Vietnamese banks), Polar (globa
 - QR code payments (VietQR, NAPAS)
 - Multi-provider order management
 
+## Payment state invariants
+
+Keep the existing provider/API version unless the request changes it. Load only its recipe.
+Verify webhook signatures on the required raw payload, deduplicate with idempotency keys,
+and keep order amount/currency/status server-owned. Client redirects do not prove payment.
+Handle duplicate, invalid-signature and out-of-order events without incorrect fulfillment.
+Use sandbox fixtures/accounts for tests, then report the actual verified transitions.
+
 ## Platform Selection
 
-| Platform   | Best For                                                        |
-| ---------- | --------------------------------------------------------------- |
-| **SePay**  | Vietnamese market, VND, bank transfers, VietQR                  |
-| **Polar**  | Global SaaS, subscriptions, automated benefits (GitHub/Discord) |
-| **Stripe** | Enterprise payments, Connect platforms, custom checkout         |
+| Platform | Best For |
+|----------|----------|
+| **SePay** | Vietnamese market, VND, bank transfers, VietQR |
+| **Polar** | Global SaaS, subscriptions, automated benefits (GitHub/Discord) |
+| **Stripe** | Enterprise payments, Connect platforms, custom checkout |
 
 ## Quick Reference
 
 ### SePay
-
 - `references/sepay/overview.md` - Auth, supported banks
 - `references/sepay/api.md` - Endpoints, transactions
 - `references/sepay/webhooks.md` - Setup, verification
@@ -44,7 +51,6 @@ Production-proven payment processing with SePay (Vietnamese banks), Polar (globa
 - `references/sepay/best-practices.md` - Production patterns
 
 ### Polar
-
 - `references/polar/overview.md` - Auth, MoR concept
 - `references/polar/products.md` - Pricing models
 - `references/polar/checkouts.md` - Checkout flows
@@ -55,7 +61,6 @@ Production-proven payment processing with SePay (Vietnamese banks), Polar (globa
 - `references/polar/best-practices.md` - Production patterns
 
 ### Stripe
-
 - `references/stripe/stripe-best-practices.md` - Integration design
 - `references/stripe/stripe-sdks.md` - Server SDKs
 - `references/stripe/stripe-js.md` - Payment Element
@@ -64,22 +69,20 @@ Production-proven payment processing with SePay (Vietnamese banks), Polar (globa
 - External: https://docs.stripe.com/llms.txt
 
 ### Multi-Provider
-
 - `references/multi-provider-order-management-patterns.md` - Unified orders, currency conversion
 
 ### Scripts
-
 - `scripts/sepay-webhook-verify.js` - SePay webhook verification
 - `scripts/polar-webhook-verify.js` - Polar webhook verification
 - `scripts/checkout-helper.js` - Checkout session generator
 
 ## Key Capabilities
 
-| Platform   | Highlights                                               |
-| ---------- | -------------------------------------------------------- |
-| **SePay**  | QR/bank/cards, 44+ VN banks, webhooks, 2 req/s           |
-| **Polar**  | MoR, subscriptions, usage billing, benefits, 300 req/min |
-| **Stripe** | CheckoutSessions, Billing, Connect, Payment Element      |
+| Platform | Highlights |
+|----------|------------|
+| **SePay** | QR/bank/cards, 44+ VN banks, webhooks, 2 req/s |
+| **Polar** | MoR, subscriptions, usage billing, benefits, 300 req/min |
+| **Stripe** | CheckoutSessions, Billing, Connect, Payment Element |
 
 ## Implementation
 

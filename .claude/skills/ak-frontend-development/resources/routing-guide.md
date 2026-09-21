@@ -1,3 +1,7 @@
+# Applicability
+
+Use these examples only when their packages and conventions match the inspected project. Preserve existing router, component library, aliases and dependency versions.
+
 # Routing Guide
 
 TanStack Router implementation with folder-based routing and lazy loading patterns.

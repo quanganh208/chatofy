@@ -15,7 +15,7 @@ Every bash block in this workflow that reads or writes PR state MUST source the 
 ```bash
 _ak_lib=.claude/skills/ak-review-pr/references/gh-api-helpers.sh
 [ -f "$_ak_lib" ] || _ak_lib="${HOME:-}/.claude/skills/ak-review-pr/references/gh-api-helpers.sh"
-[ -f "$_ak_lib" ] || _ak_lib=kits/core/skills/ak-review-pr/references/gh-api-helpers.sh
+[ -f "$_ak_lib" ] || _ak_lib=kits/engineer/skills/ak-review-pr/references/gh-api-helpers.sh
 [ -f "$_ak_lib" ] || { (set +u; [ -n "${CLAUDE_PLUGIN_ROOT}" ]) && _ak_lib="${CLAUDE_PLUGIN_ROOT}/skills/ak-review-pr/references/gh-api-helpers.sh"; }
 [ -f "$_ak_lib" ] || { echo "gh-api-helpers.sh not found" >&2; exit 1; }
 . "$_ak_lib"
@@ -37,13 +37,13 @@ REST `_ak_pr_meta` returns snake_case fields (`base.ref`, `head.ref`, `mergeable
 
 Gate conditions:
 
-| Check            | Requirement                                                           |
-| ---------------- | --------------------------------------------------------------------- |
-| `state`          | `OPEN`                                                                |
-| `mergeable`      | `MERGEABLE` (no conflicts)                                            |
-| CI checks        | All passing, or only pending (pending → use `--auto`)                 |
-| `reviewDecision` | Not `CHANGES_REQUESTED`                                               |
-| Branch           | Never merge into a branch the repo forbids; respect branch protection |
+| Check | Requirement |
+|-------|-------------|
+| `state` | `OPEN` |
+| `mergeable` | `MERGEABLE` (no conflicts) |
+| CI checks | All passing, or only pending (pending → use `--auto`) |
+| `reviewDecision` | Not `CHANGES_REQUESTED` |
+| Branch | Never merge into a branch the repo forbids; respect branch protection |
 
 If any check fails deterministically (red CI, conflicts), report the blocker instead of merging.
 
@@ -122,7 +122,6 @@ gh api -X PUT "repos/$OWNER/$REPO/pulls/$NUMBER/merge" -f "merge_method=$REST_ME
 ```
 
 Rules (apply to both paths):
-
 - Never force push. Never direct-push to protected target branches.
 - Do not pass `--delete-branch` (or REST `delete_branch=true`) unless the repo convention deletes head branches.
 - With native `--auto`, poll until the PR actually merges before moving to Step 4:
@@ -163,7 +162,6 @@ If a post-merge run fails with a deterministic, repo-fixable error:
 4. Ship the fix through the repo's normal PR flow, merge it with this same workflow, and watch again.
 
 Stop conditions — stop and report when any of:
-
 - target-branch CI is green (success)
 - the failure is an external blocker (infra outage, missing secret, flaky third-party)
 - the same failure survives 3 fix attempts (not converging)
@@ -178,7 +176,7 @@ Before declaring done:
 - If the repo has post-merge automation (release tagging, deploy workflows), confirm those runs also succeeded or are intentionally out of scope.
 - **Close a plan-backed change's index row.** Match this merged PR to a plan by
   its recorded `--linked-pr`, or by plan branch == the PR head branch (`ak plan
-list --json` — post-merge you are on the target branch, so `resolve`, scoped to
+  list --json` — post-merge you are on the target branch, so `resolve`, scoped to
   the current branch, will not find the head-branch plan). On a unique match,
   `ak plan close <id>` — an
   index-only transition; the plan files already carry `status: completed` from
@@ -191,10 +189,10 @@ list --json` — post-merge you are on the target branch, so `resolve`, scoped t
 
 ## Error Handling
 
-| Error                               | Action                                                                        |
-| ----------------------------------- | ----------------------------------------------------------------------------- |
-| Merge conflicts (`CONFLICTING`)     | Report; suggest updating the head branch, do not resolve on the target branch |
-| Branch protection blocks merge      | Report required approvals/checks; never bypass                                |
-| `gh` not authenticated              | Report; suggest `gh auth login`                                               |
-| Self-merge forbidden by repo policy | Report; hand off to a human maintainer                                        |
-| CI stuck pending > 30 min           | Report stall with run URL                                                     |
+| Error | Action |
+|-------|--------|
+| Merge conflicts (`CONFLICTING`) | Report; suggest updating the head branch, do not resolve on the target branch |
+| Branch protection blocks merge | Report required approvals/checks; never bypass |
+| `gh` not authenticated | Report; suggest `gh auth login` |
+| Self-merge forbidden by repo policy | Report; hand off to a human maintainer |
+| CI stuck pending > 30 min | Report stall with run URL |

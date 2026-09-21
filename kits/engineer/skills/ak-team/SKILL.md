@@ -1,14 +1,14 @@
 ---
 name: ak:team
-description: 'Orchestrate Agent Teams for parallel multi-session collaboration. Use for research, implementation, review, and debug workflows requiring independent teammates.'
+description: "Orchestrate Agent Teams for parallel multi-session collaboration. Use for research, implementation, review, and debug workflows requiring independent teammates."
 user-invocable: true
-when_to_use: 'Invoke for coordinated multi-session agent teamwork.'
-category: dev-tools
+when_to_use: "Invoke for coordinated multi-session agent teamwork."
+category: workflow
 keywords: [agents, parallel, multi-session, collaboration]
-argument-hint: '<template> <context> [--devs|--researchers|--reviewers N] [--delegate]'
+argument-hint: "<template> <context> [--devs|--researchers|--reviewers N] [--delegate]"
 metadata:
   author: agentkit
-  version: '3.0.0'
+  version: "3.0.2"
 ---
 
 # Agent Teams
@@ -69,6 +69,8 @@ Use this lifecycle for every template:
 7. **Verify** the combined result; teammate completion messages are not proof.
 8. **Shut down** teammates gracefully, wait for acknowledgements or concise
    handoffs, then invoke the live cleanup capability.
+9. **Close out** with the durable report and `/ak:journal` (unless the shared
+   "Journal step — opt-out" applies — see kits/core/skills/ak-journal/SKILL.md).
 
 Do not poll a copied command name or fixed client interval. Wait through the
 live surface and re-inspect state after relevant messages, state changes, or a
@@ -99,78 +101,9 @@ Every teammate receives only the context needed for its scope:
 Resolve these values from the current workspace and live AgentKit context. Do
 not copy environment-variable snapshots into teammate prompts.
 
-## Research Template
+## Workflow template
 
-Use for independent research angles.
-
-1. Derive distinct angles such as proven approaches, alternatives, and risks.
-2. Register one owned work item and report destination per angle.
-3. Spawn one researcher per angle.
-4. Wait for completion messages and verified shared state; redirect stalled or
-   overlapping work through direct messages.
-5. Read all reports and synthesize one comparison with recommendations and
-   unresolved questions.
-6. Complete the shared lifecycle with shutdown, cleanup, reporting, and
-   `/ak:journal` (unless the shared "Journal step — opt-out" applies — see
-   kits/core/skills/ak-journal/SKILL.md).
-
-## Cook Template
-
-Use for parallel implementation from an accepted plan or bounded description.
-
-1. Read or create the plan, then split it into independent groups with
-   non-overlapping file ownership.
-2. Register developer work plus verification work that depends on all relevant
-   implementation groups.
-3. Spawn developers with isolated worktrees when supported and required.
-4. If plan approval is enabled, keep each developer read-only until the lead
-   approves its scoped plan through the live approval surface.
-5. Wait for verified developer completion before assigning integrated testing.
-6. Integrate branches through an assigned merge teammate in delegate mode, or
-   through the repository's normal merge workflow otherwise.
-7. Run the combined test and review gates.
-8. Record the required docs-impact decision:
-
-   ```text
-   Docs impact: [none|minor|major]
-   Action: [no update needed -- reason] | [updated page] | [needs separate PR]
-   ```
-
-9. Complete the shared lifecycle with shutdown, cleanup, reporting, and
-   `/ak:journal` (unless the shared "Journal step — opt-out" applies — see
-   kits/core/skills/ak-journal/SKILL.md).
-
-## Review Template
-
-Use for independent evidence-based review focuses.
-
-1. Derive distinct focuses such as security, performance, test coverage,
-   architecture, or accessibility.
-2. Register one read-only scope and report destination per reviewer.
-3. Require severity, evidence, impact, and recommendation for every finding.
-4. Wait for all required scopes, contact stale owners, and do not treat idle as
-   completion.
-5. Deduplicate findings, reconcile disagreements, and synthesize an ordered
-   action list.
-6. Complete the shared lifecycle with shutdown, cleanup, reporting, and
-   `/ak:journal` (unless the shared "Journal step — opt-out" applies — see
-   kits/core/skills/ak-journal/SKILL.md).
-
-## Debug Template
-
-Use for competing, independently testable root-cause hypotheses.
-
-1. Derive hypotheses that predict different observable evidence.
-2. Register one hypothesis per debugger with explicit evidence-for and
-   evidence-against requirements.
-3. Encourage direct challenges between debuggers through the live message
-   surface.
-4. Wait for all relevant evidence, then identify the surviving theory.
-5. Write a durable root-cause report with the evidence chain, disproven
-   hypotheses, and recommended fix.
-6. Complete the shared lifecycle with shutdown, cleanup, reporting, and
-   `/ak:journal` (unless the shared "Journal step — opt-out" applies — see
-   kits/core/skills/ak-journal/SKILL.md).
+Read the selected research, cook, review or debug section in `references/workflow-templates.md`. Relay concise findings, evidence paths and decisions rather than full histories.
 
 ## Plan Approval
 
@@ -202,21 +135,24 @@ the repository's normal workflow.
 
 ## Agent Teams vs Ordinary Subagents
 
-| Scenario                              | Prefer             |
-| ------------------------------------- | ------------------ |
-| Focused test, lint, or single review  | Ordinary subagent  |
-| Sequential plan → code → test chain   | Ordinary subagents |
-| Three or more independent workstreams | Agent Team         |
-| Competing hypotheses that need debate | Agent Team         |
-| Cross-layer work with clean ownership | Agent Team         |
-| Tight runtime budget                  | Ordinary subagents |
+| Scenario | Prefer |
+|----------|--------|
+| Focused test, lint, or single review | Ordinary subagent |
+| Sequential plan → code → test chain | Ordinary subagents |
+| Three or more independent workstreams | Agent Team |
+| Competing hypotheses that need debate | Agent Team |
+| Cross-layer work with clean ownership | Agent Team |
+| Tight runtime budget | Ordinary subagents |
 
 ## Resource and Memory Policy
 
 Every teammate owns a separate context and increases runtime cost. Inspect live
 limits and use the smallest useful team. Use persistent teammate memory only
 when the live runtime exposes it and project policy permits it. Treat memory
-storage and lifecycle as runtime-owned.
+storage and lifecycle as runtime-owned. When evaluating team overhead, compare
+startup, communication, retries and successful-task cost with an inline baseline
+on the same workload; do not claim savings from team size alone. Track processes
+started by each teammate and stop only those owned by this team during cleanup.
 
 ## References
 

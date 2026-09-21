@@ -62,7 +62,6 @@ not suppress this explicit opt-in.
      --jq '.[] | select(.author_association == "COLLABORATOR" or .author_association == "MEMBER" or .author_association == "OWNER") | .body' \
      > /tmp/pr-collaborator-notes.md
    ```
-
 4. Resolve and run the installed-first composer:
 
    ```bash

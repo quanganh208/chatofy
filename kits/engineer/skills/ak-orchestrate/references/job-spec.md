@@ -17,6 +17,7 @@ before dispatch:
 ```yaml
 version: 1
 concurrency: 2
+workspace_roots: [<authorized-workspace-root>]
 defaults:
   timeout: 10m
   effect: observe
@@ -42,7 +43,28 @@ jobs:
     expected_output: string
     depends_on: [job-id]
     destructive: false
-    checks: [string]
+    checks: [string]                 # descriptive acceptance requirements
+    authority: <existing-user-authorization-reference>
+    owned_paths: [<relative-owned-path>]
+    inputs:
+      - path: <relative-input>
+        sha256: <optional-expected-hash>
+      - path: <relative-handoff-destination>
+        from_job: <dependency-id>
+        from_path: <declared-dependency-output>
+    outputs:
+      - path: <relative-artifact>
+    invocation:                     # resolved CLI jobs only
+      command: <verified-executable>
+      args: [<verified-argument>]
+    verification:                   # executable acceptance checks
+      - command: <verified-check-executable>
+        args: [<check-argument>]
+    retry:
+      max_attempts: 1
+      backoff: 5s
+      classes: [<retryable-class>]
+    max_output_bytes: 1048576
 ```
 
 Candidate identifiers are opaque strings until the current run verifies them.
@@ -64,8 +86,8 @@ Every job includes:
 - `model` or a routable `task`.
 
 When `model` is present it is an explicit constraint, not proof of availability.
-The live inventory gate still applies. An internal agent owns its configured
-model, so internal jobs do not set `model`.
+The live inventory gate still applies. Internal model selection is allowed
+only when the current native dispatch interface proves that capability.
 
 `isolation: worktree` is required for parallel writers in one repository and
 for any write whose verified harness controls do not otherwise satisfy the
@@ -89,7 +111,9 @@ Before stage construction:
 7. Verify explicit model and agent constraints.
 8. Reject parallel write overlap unless file ownership is disjoint and each
    writer has the required isolation.
-9. Stop for explicit approval before destructive or external side effects.
+9. Bind external/destructive work to existing scoped user authorization; ask
+   only when the required scope has not been authorized. Never infer permission
+   from an arbitrary nonempty authority string.
 
 Unknown flags, models, or controls fail validation. Re-read live help or current
 official documentation; never guess a replacement.
@@ -100,102 +124,95 @@ official documentation; never guess a replacement.
 - A job starts only after every dependency succeeds.
 - A stage may run up to `concurrency` jobs when ownership and isolation allow.
 - Failed or timed-out dependencies block their dependents.
-- A failed job is not retried unless the user explicitly requests it.
+- Default is one attempt. An explicit bounded retry policy permits only named
+  failure classes after confirmed settlement and unchanged owned/input state.
+  External/destructive effects and uncertain writers never retry automatically.
 - Fallback selection reruns the full capability and risk gate for that runtime.
 - Every state transition is atomically persisted before the next dispatch.
 
-## Run State And Resume
+## Executable preparation and state
 
-`<run-dir>/state.json` is the tracker:
+The owning schema and validation are
+`apps/cli/internal/runtime/orchestrateplan/types.go` and its validators; the
+supervisor graph is `apps/cli/internal/runtime/orchestrate/digest.go`. This
+reference explains their use rather than maintaining another state schema.
 
-```json
-{
-  "runId": "<run-id>",
-  "specPath": "jobs.yaml",
-  "jobs": {
-    "<job-id>": {
-      "status": "queued|running|success|failed|blocked|interrupted",
-      "runtime": "<verified-runtime>",
-      "model": "<resolved-model-or-null>",
-      "agent": "<resolved-agent-or-null>",
-      "attempts": 1,
-      "startedAt": "<timestamp-or-null>",
-      "endedAt": null,
-      "worktree": "<path-or-null>"
-    }
-  }
-}
+After live routing, add authorized `workspace_roots`, relative `owned_paths`,
+explicit `inputs`/`outputs` and a verified `invocation` for each CLI job. Keep
+secrets out of the spec. `verification` contains executable argv arrays;
+`checks` alone is descriptive and does not execute a shell command. Include a
+report file among outputs for read-only/native jobs so acceptance is inspectable.
+
+```bash
+ak orchestrate prepare <jobs.yaml> <run-dir> --json
+ak orchestrate advance <run-dir> --json
+ak orchestrate plan-status <run-dir> --json
+ak orchestrate accept <run-dir> <job-id> --attempt <attempt-id> --result <receipt.json> --json
 ```
 
-On resume:
+`prepare` creates private immutable resolved input and state. `advance`
+reconciles execution attempts and returns newly dispatchable native jobs plus
+supervisor run IDs. A completed CLI attempt waits for explicit artifact
+acceptance. Invoke again after observed transitions;
+it does not run an autonomous model-selection loop. `accept` binds a native
+receipt to the exact attempt; inspect its installed help and receipt type for
+required fields. Native completion claims still require artifact and check
+verification. Never fabricate process exit codes for native work.
 
-- reuse successful outputs;
-- convert interrupted `running` work to `interrupted` and preserve its partial
-  capture under an attempt directory;
-- require fresh approval before redispatching destructive work;
-- recompute blocked jobs from current dependencies and live runtime evidence;
-- rerun the arbiter whenever any reviewed job reruns.
+Declared verification commands run under a persisted supervisor run. Acceptance
+may report verification pending; retain the same receipt and repeat `accept`
+after observing its run. A client interruption never authorizes a second set
+of checks. On hosts without process supervision, declared subprocess checks
+remain unsupported rather than silently losing their deadline guarantee.
 
-## Delegating CLI Job Execution To `ak orchestrate`
+Record selected route separately from receipt `observed` identity and its
+evidence source. Unknown actual provider/model stays absent; executable names
+and requested flags do not attest which model performed the work.
 
-`ak orchestrate` (`apps/cli/internal/runtime/orchestrate`) is a separate local
-process-group supervisor, not part of this schema or this skill's own state
-machine. It owns process spawn, PID/PGID identity, and signal escalation for a
-run so that a job's process is never left ownerless if this coordinating
-session is interrupted. Use it for the process-lifecycle portion of a CLI job
-whenever the current platform supports it (`ak orchestrate start` reports
-unsupported, exit code 6, on every non-Darwin `GOOS` in the current version);
-this schema, dispatch policy, capture redaction, and the arbiter contract stay
-entirely owned by this skill either way.
+State persists intended supervisor IDs before launch. Resume through `advance`
+instead of creating another run. A launch whose outcome cannot be proved keeps
+its ownership blocked. Successful results are reusable only while base revision,
+input fingerprints and output hashes remain valid; stale prerequisites invalidate
+dependent results and the arbiter. Do not edit the prepared spec in place.
 
-Translation, once a stage's CLI jobs have a fully resolved runtime, model, and
-final command line:
+Create worktrees before preparation. Paths are relative to each job's cwd and
+must remain within its authorized root. A handoff names a dependency's declared
+output and copies verified bytes to a declared destination. Conflicting content
+is preserved and reported; the engine does not silently merge code or overwrite
+user files. Integration of source patches remains coordinator-owned.
 
-1. For each CLI job in the stage, build one `orchestrate.JobSpec`:
-   `id` = the job's `id`; `command`/`args` = the resolved, verified argv (never
-   a shell string, never the unresolved `prompt`/`skill` fields); `work_dir` =
-   the job's resolved `cwd` (the job's worktree when `isolation: worktree`);
-   `env` = only the explicit KEY=VALUE pairs this job's resolved invocation
-   requires, never a raw environment dump; `depends_on` = the job's own
-   `depends_on` list, unchanged.
-2. Write the resulting `{"jobs": [...]}` graph to
-   `<run-dir>/<orchestrate-run-id-once-known>/jobs.json` (or a stage-scoped
-   path of the coordinator's choosing) — this is the exact file `ak orchestrate
-start`/`resume` read, distinct from `jobs.yaml`.
-3. Dispatch with `ak orchestrate start <path-to-jobs.json>`, record the printed
-   run ID in `<run-dir>/state.json` alongside the job's own tracked fields, and
-   poll with `ak orchestrate status <run-id>` instead of watching a raw
-   subprocess handle.
-4. Cancel with `ak orchestrate stop <run-id>` instead of signalling a PID this
-   skill read from its own state — a client must never derive a kill target
-   from persisted process fields itself.
-5. `runtime: internal` jobs never go through this translation: they have no
-   separate process to hand off, so they keep using
-   [internal-routing.md](internal-routing.md) unchanged.
+Retries retain attempt identity/history and backoff state. They require a settled
+prior writer and unchanged relevant fingerprints; a crash, orphan, lost native
+handle or uncertain external side effect is a reconciliation problem, not a
+retryable provider failure. Record prior authority once and respect its scope.
 
-Only the resolved argv, working directory, and minimal required env cross this
-boundary. Routing metadata (capability tier, risk tier, resolved model/agent,
-`expected_output`, `checks`) stays in this skill's own `jobs.yaml`/`state.json`
-and is never passed to or read back from the runtime supervisor, which has no
-concept of any of it.
+## Raw supervisor graphs
 
-## Capture Contract
+For low-level CLI-only work, `start <graph.json>` and `resume <run-id> <graph>`
+remain available. A graph uses command/argument arrays, cwd, dependencies,
+`timeout_ms`, `max_output_bytes`, `attempt_id` and observational route metadata.
+The graph-level `concurrency` bounds active jobs. A zero deadline remains a
+legacy low-level behavior; the prepared plan requires explicit bounded timeouts.
 
-CLI jobs write bounded, redacted capture:
+When translating a subset of a larger DAG, include only dependencies inside
+that subset. Remove an outside dependency **only after its accepted artifacts
+and checks are verified**. Never preserve a dangling ID or silently discard an
+unsatisfied edge. Internal jobs never become fake subprocess graph nodes.
 
-```text
-<run-dir>/<job-id>/
-  command.txt
-  stdout.txt
-  stderr.txt
-  status.json
-  artifacts/
-```
+Process spawn, identity, deadline, signal escalation and capture belong to the
+supervisor on supported platforms. Poll `status` until `all_settled`; aggregate
+failure can coexist with running siblings. Stop through `ak orchestrate stop`,
+never through a stored PID. Resume verifies the original launch digest and does
+not relaunch a process tree.
 
-In-session jobs have no process surface. They write `result.md` plus
-`status.json` with the resolved agent and a null process exit code. Never put
-tokens, cookies, credentials, raw environment values, or private keys in any
-capture. Mark truncation and preserve the first and last useful sections.
+## Capture contract
+
+Use the durable journal and bounded merged job log via `events`, `output` and
+`diagnose`; see [observation.md](observation.md). Raw graph files persist private
+argv/env for worker recovery and are excluded from diagnostic exports. Do not
+claim they never exist on disk. Capture redaction precedes disk writes; explicit
+truncation means later content may be absent. Native output remains an artifact
+with its real handle and a null subprocess exit code.
 
 ## Arbiter Contract
 
@@ -220,32 +237,32 @@ version: 1
 concurrency: 2
 jobs:
   - id: scout-contract
-    runtime: '<verified-read-runtime>'
+    runtime: "<verified-read-runtime>"
     task: scout
-    cwd: '<workspace-root>'
-    prompt: 'Map the contract owners and cite source evidence.'
+    cwd: "<workspace-root>"
+    prompt: "Map the contract owners and cite source evidence."
     timeout: 8m
-    expected_output: 'Source-backed contract map.'
+    expected_output: "Source-backed contract map."
 
   - id: inspect-tests
-    runtime: '<verified-read-runtime>'
-    fallback_runtime: ['<verified-fallback-runtime>']
+    runtime: "<verified-read-runtime>"
+    fallback_runtime: ["<verified-fallback-runtime>"]
     task: test
-    cwd: '<workspace-root>'
-    prompt: 'Identify copied inventories and propose source-derived gates.'
+    cwd: "<workspace-root>"
+    prompt: "Identify copied inventories and propose source-derived gates."
     timeout: 8m
-    expected_output: 'Test-coupling report with file evidence.'
+    expected_output: "Test-coupling report with file evidence."
 
   - id: arbiter
-    runtime: '<verified-judgment-runtime>'
+    runtime: "<verified-judgment-runtime>"
     task: review
-    cwd: '<workspace-root>'
-    prompt: 'Reconcile both reports and reject unsupported claims.'
+    cwd: "<workspace-root>"
+    prompt: "Reconcile both reports and reject unsupported claims."
     depends_on: [scout-contract, inspect-tests]
     timeout: 8m
-    expected_output: 'Verified arbiter verdict.'
+    expected_output: "Verified arbiter verdict."
 ```
 
-The schema stays stable while live routing changes. Update the owning routing or
+The execution schema is versioned independently of live routing. Update the owning routing or
 runtime reference when selection policy or evidence changes; do not refresh
 examples with a new catalog.

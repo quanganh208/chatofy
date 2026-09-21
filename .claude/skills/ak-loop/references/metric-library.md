@@ -163,7 +163,7 @@ Direction: lower | Noise: low | Guard: `npm test`
 
 **PyTorch (eval script)**
 ```bash
-python3 scripts/evaluate.py --split val 2>/dev/null | grep 'accuracy' | awk '{print $NF}'
+python3 <project-evaluator> --split val 2>/dev/null | grep 'accuracy' | awk '{print $NF}'
 ```
 Direction: higher | Noise: high | Guard: `pytest tests/`
 

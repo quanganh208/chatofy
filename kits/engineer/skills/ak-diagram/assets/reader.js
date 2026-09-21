@@ -2,7 +2,7 @@
  * AgentKit Diagram Reader Runtime (Archify-informed)
  * Pure vanilla JavaScript, zero runtime dependencies.
  */
-(function () {
+(function() {
   function escapeXml(unsafe) {
     if (typeof unsafe !== 'string') return '';
     return unsafe
@@ -34,7 +34,7 @@
       activeRoute: null,
       activeLensIndex: -1,
       currentChapterIndex: 0,
-      isPresentation: false,
+      isPresentation: false
     };
 
     // DOM Elements
@@ -52,19 +52,30 @@
     const chapterPrevBtn = container.querySelector('.ak-btn-prev-chapter');
     const chapterNextBtn = container.querySelector('.ak-btn-next-chapter');
     const chapterLabel = container.querySelector('.ak-chapter-label');
+    const motionBtn = container.querySelector('.ak-btn-motion');
+    const svgEl = container.querySelector('.ak-diagram-svg');
+
+    // Replay the finite entrance/trace motion by re-arming data-motion on the svg.
+    function replayMotion() {
+      if (!svgEl) return;
+      svgEl.removeAttribute('data-motion');
+      void svgEl.getBoundingClientRect();
+      svgEl.setAttribute('data-motion', 'play');
+    }
+    if (motionBtn) motionBtn.addEventListener('click', replayMotion);
 
     // Build Graph Adjacency & Distinct Roles
     const outgoing = new Map();
     const incoming = new Map();
     const allRoles = new Set();
 
-    nodes.forEach((n) => {
+    nodes.forEach(n => {
       const role = n.getAttribute('data-role');
       if (role) allRoles.add(role);
     });
     const rolesList = Array.from(allRoles).sort();
 
-    edges.forEach((edgeEl) => {
+    edges.forEach(edgeEl => {
       const from = edgeEl.getAttribute('data-from');
       const to = edgeEl.getAttribute('data-to');
       const edgeId = edgeEl.getAttribute('data-edge-id') || `${from}->${to}`;
@@ -78,10 +89,10 @@
     });
 
     function clearHighlights() {
-      nodes.forEach((n) => {
+      nodes.forEach(n => {
         n.classList.remove('is-focused', 'is-dimmed');
       });
-      edges.forEach((e) => {
+      edges.forEach(e => {
         e.classList.remove('is-highlighted', 'is-dimmed', 'is-active-trace');
       });
       state.focusedNodeId = null;
@@ -100,12 +111,12 @@
 
       const focusSet = new Set(ids);
       const connectedNodeIds = new Set(ids);
-      ids.forEach((id) => {
-        (outgoing.get(id) || []).forEach((e) => connectedNodeIds.add(e.to));
-        (incoming.get(id) || []).forEach((e) => connectedNodeIds.add(e.from));
+      ids.forEach(id => {
+        (outgoing.get(id) || []).forEach(e => connectedNodeIds.add(e.to));
+        (incoming.get(id) || []).forEach(e => connectedNodeIds.add(e.from));
       });
 
-      nodes.forEach((n) => {
+      nodes.forEach(n => {
         const id = n.getAttribute('data-node-id');
         if (focusSet.has(id)) {
           n.classList.add('is-focused');
@@ -114,7 +125,7 @@
         }
       });
 
-      edges.forEach((e) => {
+      edges.forEach(e => {
         const from = e.getAttribute('data-from');
         const to = e.getAttribute('data-to');
         if (focusSet.has(from) || focusSet.has(to)) {
@@ -130,8 +141,7 @@
     }
 
     function traceReach(nodeId, direction) {
-      const targetId =
-        nodeId || state.focusedNodeId || (nodes[0] ? nodes[0].getAttribute('data-node-id') : null);
+      const targetId = nodeId || state.focusedNodeId || (nodes[0] ? nodes[0].getAttribute('data-node-id') : null);
       if (!targetId) return;
       clearHighlights();
       state.focusedNodeId = targetId;
@@ -143,10 +153,9 @@
 
       while (queue.length > 0) {
         const current = queue.shift();
-        const neighbors =
-          direction === 'downstream' ? outgoing.get(current) || [] : incoming.get(current) || [];
-        neighbors.forEach((item) => {
-          const nextNode = direction === 'downstream' ? item.to : item.from;
+        const neighbors = (direction === 'downstream') ? (outgoing.get(current) || []) : (incoming.get(current) || []);
+        neighbors.forEach(item => {
+          const nextNode = (direction === 'downstream') ? item.to : item.from;
           reachedEdges.add(item.edgeEl);
           if (!reachedNodes.has(nextNode)) {
             reachedNodes.add(nextNode);
@@ -155,7 +164,7 @@
         });
       }
 
-      nodes.forEach((n) => {
+      nodes.forEach(n => {
         const id = n.getAttribute('data-node-id');
         if (id === targetId) {
           n.classList.add('is-focused');
@@ -164,7 +173,7 @@
         }
       });
 
-      edges.forEach((e) => {
+      edges.forEach(e => {
         if (reachedEdges.has(e)) {
           e.classList.add('is-highlighted', 'is-active-trace');
         } else {
@@ -206,17 +215,17 @@
       for (let i = 0; i < shortestPath.length - 1; i++) {
         const u = shortestPath[i];
         const v = shortestPath[i + 1];
-        const edgeObj = (outgoing.get(u) || []).find((e) => e.to === v);
+        const edgeObj = (outgoing.get(u) || []).find(e => e.to === v);
         if (edgeObj) pathEdges.add(edgeObj.edgeEl);
       }
 
-      nodes.forEach((n) => {
+      nodes.forEach(n => {
         const id = n.getAttribute('data-node-id');
         if (!pathNodes.has(id)) n.classList.add('is-dimmed');
         else if (id === sourceId || id === targetId) n.classList.add('is-focused');
       });
 
-      edges.forEach((e) => {
+      edges.forEach(e => {
         if (pathEdges.has(e)) e.classList.add('is-highlighted', 'is-active-trace');
         else e.classList.add('is-dimmed');
       });
@@ -236,7 +245,7 @@
       clearHighlights();
       state.activeLens = roleName;
 
-      nodes.forEach((n) => {
+      nodes.forEach(n => {
         const role = n.getAttribute('data-role');
         if (role !== roleName) {
           n.classList.add('is-dimmed');
@@ -274,149 +283,82 @@
       if (chapter.focus_nodes && chapter.focus_nodes.length > 0) {
         focusNodes(chapter.focus_nodes);
       } else if (chapter.highlight_route && chapter.highlight_route.length >= 2) {
-        traceShortestRoute(
-          chapter.highlight_route[0],
-          chapter.highlight_route[chapter.highlight_route.length - 1],
-        );
+        traceShortestRoute(chapter.highlight_route[0], chapter.highlight_route[chapter.highlight_route.length - 1]);
       }
     }
     const PRESET_THEME_PALETTES = {
       'classic:light': {
-        '--ak-bg': '#ffffff',
-        '--ak-surface': '#f8fafc',
-        '--ak-surface-border': '#e2e8f0',
-        '--ak-text-primary': '#0f172a',
-        '--ak-text-secondary': '#475569',
-        '--ak-text-muted': '#94a3b8',
-        '--ak-accent': '#2563eb',
-        '--ak-accent-light': '#dbeafe',
-        '--ak-node-bg': '#ffffff',
-        '--ak-node-border': '#cbd5e1',
-        '--ak-edge-stroke': '#64748b',
-        '--ak-edge-active': '#2563eb',
-        '--ak-badge-bg': '#f1f5f9',
-        '--ak-font-sans': 'system-ui, -apple-system, sans-serif',
-        '--ak-font-mono': 'ui-monospace, monospace',
+        '--ak-bg': '#ffffff', '--ak-surface': '#f8fafc', '--ak-surface-border': '#e2e8f0',
+        '--ak-text-primary': '#0f172a', '--ak-text-secondary': '#475569', '--ak-text-muted': '#94a3b8',
+        '--ak-accent': '#2563eb', '--ak-accent-light': '#dbeafe',
+        '--ak-node-bg': '#ffffff', '--ak-node-border': '#cbd5e1',
+        '--ak-edge-stroke': '#64748b', '--ak-edge-active': '#2563eb',
+        '--ak-badge-bg': '#f1f5f9', '--ak-font-sans': 'system-ui, -apple-system, sans-serif',
+        '--ak-font-mono': 'ui-monospace, monospace'
       },
       'classic:dark': {
-        '--ak-bg': '#090d16',
-        '--ak-surface': '#0f172a',
-        '--ak-surface-border': '#1e293b',
-        '--ak-text-primary': '#f8fafc',
-        '--ak-text-secondary': '#94a3b8',
-        '--ak-text-muted': '#64748b',
-        '--ak-accent': '#38bdf8',
-        '--ak-accent-light': '#0369a1',
-        '--ak-node-bg': '#0f172a',
-        '--ak-node-border': '#334155',
-        '--ak-edge-stroke': '#475569',
-        '--ak-edge-active': '#38bdf8',
-        '--ak-badge-bg': '#1e293b',
-        '--ak-font-sans': 'system-ui, -apple-system, sans-serif',
-        '--ak-font-mono': 'ui-monospace, monospace',
+        '--ak-bg': '#090d16', '--ak-surface': '#0f172a', '--ak-surface-border': '#1e293b',
+        '--ak-text-primary': '#f8fafc', '--ak-text-secondary': '#94a3b8', '--ak-text-muted': '#64748b',
+        '--ak-accent': '#38bdf8', '--ak-accent-light': '#0369a1',
+        '--ak-node-bg': '#0f172a', '--ak-node-border': '#334155',
+        '--ak-edge-stroke': '#475569', '--ak-edge-active': '#38bdf8',
+        '--ak-badge-bg': '#1e293b', '--ak-font-sans': 'system-ui, -apple-system, sans-serif',
+        '--ak-font-mono': 'ui-monospace, monospace'
       },
       'signal-flow:light': {
-        '--ak-bg': '#f0fdf4',
-        '--ak-surface': '#dcfce7',
-        '--ak-surface-border': '#86efac',
-        '--ak-text-primary': '#14532d',
-        '--ak-text-secondary': '#166534',
-        '--ak-text-muted': '#4ade80',
-        '--ak-accent': '#059669',
-        '--ak-accent-light': '#d1fae5',
-        '--ak-node-bg': '#ffffff',
-        '--ak-node-border': '#10b981',
-        '--ak-edge-stroke': '#059669',
-        '--ak-edge-active': '#047857',
-        '--ak-badge-bg': '#dcfce7',
-        '--ak-font-sans': 'system-ui, -apple-system, sans-serif',
-        '--ak-font-mono': 'ui-monospace, monospace',
+        '--ak-bg': '#f0fdf4', '--ak-surface': '#dcfce7', '--ak-surface-border': '#86efac',
+        '--ak-text-primary': '#14532d', '--ak-text-secondary': '#166534', '--ak-text-muted': '#4ade80',
+        '--ak-accent': '#059669', '--ak-accent-light': '#d1fae5',
+        '--ak-node-bg': '#ffffff', '--ak-node-border': '#10b981',
+        '--ak-edge-stroke': '#059669', '--ak-edge-active': '#047857',
+        '--ak-badge-bg': '#dcfce7', '--ak-font-sans': 'system-ui, -apple-system, sans-serif',
+        '--ak-font-mono': 'ui-monospace, monospace'
       },
       'signal-flow:dark': {
-        '--ak-bg': '#031c18',
-        '--ak-surface': '#064e3b',
-        '--ak-surface-border': '#047857',
-        '--ak-text-primary': '#ecfdf5',
-        '--ak-text-secondary': '#a7f3d0',
-        '--ak-text-muted': '#34d399',
-        '--ak-accent': '#34d399',
-        '--ak-accent-light': '#065f46',
-        '--ak-node-bg': '#064e3b',
-        '--ak-node-border': '#10b981',
-        '--ak-edge-stroke': '#34d399',
-        '--ak-edge-active': '#6ee7b7',
-        '--ak-badge-bg': '#064e3b',
-        '--ak-font-sans': 'system-ui, -apple-system, sans-serif',
-        '--ak-font-mono': 'ui-monospace, monospace',
+        '--ak-bg': '#031c18', '--ak-surface': '#064e3b', '--ak-surface-border': '#047857',
+        '--ak-text-primary': '#ecfdf5', '--ak-text-secondary': '#a7f3d0', '--ak-text-muted': '#34d399',
+        '--ak-accent': '#34d399', '--ak-accent-light': '#065f46',
+        '--ak-node-bg': '#064e3b', '--ak-node-border': '#10b981',
+        '--ak-edge-stroke': '#34d399', '--ak-edge-active': '#6ee7b7',
+        '--ak-badge-bg': '#064e3b', '--ak-font-sans': 'system-ui, -apple-system, sans-serif',
+        '--ak-font-mono': 'ui-monospace, monospace'
       },
       'blueprint:light': {
-        '--ak-bg': '#f0f9ff',
-        '--ak-surface': '#e0f2fe',
-        '--ak-surface-border': '#7dd3fc',
-        '--ak-text-primary': '#0369a1',
-        '--ak-text-secondary': '#0284c7',
-        '--ak-text-muted': '#38bdf8',
-        '--ak-accent': '#0284c7',
-        '--ak-accent-light': '#bae6fd',
-        '--ak-node-bg': '#ffffff',
-        '--ak-node-border': '#0ea5e9',
-        '--ak-edge-stroke': '#0284c7',
-        '--ak-edge-active': '#0369a1',
-        '--ak-badge-bg': '#e0f2fe',
-        '--ak-font-sans': 'ui-monospace, monospace',
-        '--ak-font-mono': 'ui-monospace, monospace',
+        '--ak-bg': '#f0f9ff', '--ak-surface': '#e0f2fe', '--ak-surface-border': '#7dd3fc',
+        '--ak-text-primary': '#0369a1', '--ak-text-secondary': '#0284c7', '--ak-text-muted': '#38bdf8',
+        '--ak-accent': '#0284c7', '--ak-accent-light': '#bae6fd',
+        '--ak-node-bg': '#ffffff', '--ak-node-border': '#0ea5e9',
+        '--ak-edge-stroke': '#0284c7', '--ak-edge-active': '#0369a1',
+        '--ak-badge-bg': '#e0f2fe', '--ak-font-sans': 'ui-monospace, monospace',
+        '--ak-font-mono': 'ui-monospace, monospace'
       },
       'blueprint:dark': {
-        '--ak-bg': '#081d33',
-        '--ak-surface': '#0c2a4a',
-        '--ak-surface-border': '#1e4976',
-        '--ak-text-primary': '#e0f2fe',
-        '--ak-text-secondary': '#bae6fd',
-        '--ak-text-muted': '#38bdf8',
-        '--ak-accent': '#38bdf8',
-        '--ak-accent-light': '#0369a1',
-        '--ak-node-bg': '#0c213a',
-        '--ak-node-border': '#38bdf8',
-        '--ak-edge-stroke': '#7dd3fc',
-        '--ak-edge-active': '#38bdf8',
-        '--ak-badge-bg': '#0c213a',
-        '--ak-font-sans': 'ui-monospace, monospace',
-        '--ak-font-mono': 'ui-monospace, monospace',
+        '--ak-bg': '#081d33', '--ak-surface': '#0c2a4a', '--ak-surface-border': '#1e4976',
+        '--ak-text-primary': '#e0f2fe', '--ak-text-secondary': '#bae6fd', '--ak-text-muted': '#38bdf8',
+        '--ak-accent': '#38bdf8', '--ak-accent-light': '#0369a1',
+        '--ak-node-bg': '#0c213a', '--ak-node-border': '#38bdf8',
+        '--ak-edge-stroke': '#7dd3fc', '--ak-edge-active': '#38bdf8',
+        '--ak-badge-bg': '#0c213a', '--ak-font-sans': 'ui-monospace, monospace',
+        '--ak-font-mono': 'ui-monospace, monospace'
       },
       'editorial:light': {
-        '--ak-bg': '#faf8f5',
-        '--ak-surface': '#f3efe6',
-        '--ak-surface-border': '#e2dacb',
-        '--ak-text-primary': '#1c1917',
-        '--ak-text-secondary': '#57534e',
-        '--ak-text-muted': '#a8a29e',
-        '--ak-accent': '#991b1b',
-        '--ak-accent-light': '#fecaca',
-        '--ak-node-bg': '#ffffff',
-        '--ak-node-border': '#d6cfc4',
-        '--ak-edge-stroke': '#78716c',
-        '--ak-edge-active': '#991b1b',
-        '--ak-badge-bg': '#f3efe6',
-        '--ak-font-sans': 'system-ui, serif',
-        '--ak-font-mono': 'ui-monospace, monospace',
+        '--ak-bg': '#faf8f5', '--ak-surface': '#f3efe6', '--ak-surface-border': '#e2dacb',
+        '--ak-text-primary': '#1c1917', '--ak-text-secondary': '#57534e', '--ak-text-muted': '#a8a29e',
+        '--ak-accent': '#991b1b', '--ak-accent-light': '#fecaca',
+        '--ak-node-bg': '#ffffff', '--ak-node-border': '#d6cfc4',
+        '--ak-edge-stroke': '#78716c', '--ak-edge-active': '#991b1b',
+        '--ak-badge-bg': '#f3efe6', '--ak-font-sans': 'system-ui, serif',
+        '--ak-font-mono': 'ui-monospace, monospace'
       },
       'editorial:dark': {
-        '--ak-bg': '#1c1917',
-        '--ak-surface': '#292524',
-        '--ak-surface-border': '#44403c',
-        '--ak-text-primary': '#fafaf9',
-        '--ak-text-secondary': '#d6d3d1',
-        '--ak-text-muted': '#78716c',
-        '--ak-accent': '#ef4444',
-        '--ak-accent-light': '#7f1d1d',
-        '--ak-node-bg': '#292524',
-        '--ak-node-border': '#78716c',
-        '--ak-edge-stroke': '#a8a29e',
-        '--ak-edge-active': '#f87171',
-        '--ak-badge-bg': '#292524',
-        '--ak-font-sans': 'system-ui, serif',
-        '--ak-font-mono': 'ui-monospace, monospace',
-      },
+        '--ak-bg': '#1c1917', '--ak-surface': '#292524', '--ak-surface-border': '#44403c',
+        '--ak-text-primary': '#fafaf9', '--ak-text-secondary': '#d6d3d1', '--ak-text-muted': '#78716c',
+        '--ak-accent': '#ef4444', '--ak-accent-light': '#7f1d1d',
+        '--ak-node-bg': '#292524', '--ak-node-border': '#78716c',
+        '--ak-edge-stroke': '#a8a29e', '--ak-edge-active': '#f87171',
+        '--ak-badge-bg': '#292524', '--ak-font-sans': 'system-ui, serif',
+        '--ak-font-mono': 'ui-monospace, monospace'
+      }
     };
 
     function exportShareCard() {
@@ -428,44 +370,29 @@
       const theme = root.getAttribute('data-theme') || 'light';
 
       const VAR_WHITELIST = [
-        '--ak-bg',
-        '--ak-surface',
-        '--ak-surface-border',
-        '--ak-text-primary',
-        '--ak-text-secondary',
-        '--ak-text-muted',
-        '--ak-accent',
-        '--ak-accent-light',
-        '--ak-node-bg',
-        '--ak-node-border',
-        '--ak-edge-stroke',
-        '--ak-edge-active',
-        '--ak-badge-bg',
-        '--ak-font-sans',
-        '--ak-font-mono',
+        '--ak-bg', '--ak-surface', '--ak-surface-border',
+        '--ak-text-primary', '--ak-text-secondary', '--ak-text-muted',
+        '--ak-accent', '--ak-accent-light',
+        '--ak-node-bg', '--ak-node-border',
+        '--ak-edge-stroke', '--ak-edge-active',
+        '--ak-badge-bg', '--ak-font-sans', '--ak-font-mono'
       ];
 
       const paletteKey = `${preset}:${theme}`;
-      const fallbackPalette =
-        PRESET_THEME_PALETTES[paletteKey] || PRESET_THEME_PALETTES['classic:light'];
+      const fallbackPalette = PRESET_THEME_PALETTES[paletteKey] || PRESET_THEME_PALETTES['classic:light'];
 
       let computed = null;
       if (typeof window !== 'undefined' && typeof window.getComputedStyle === 'function') {
-        try {
-          computed = window.getComputedStyle(root);
-        } catch (e) {
-          computed = null;
-        }
+        try { computed = window.getComputedStyle(root); } catch (e) { computed = null; }
       }
 
       const resolvedVars = {};
-      VAR_WHITELIST.forEach((varName) => {
+      VAR_WHITELIST.forEach(varName => {
         let val = '';
         if (computed && typeof computed.getPropertyValue === 'function') {
           val = computed.getPropertyValue(varName);
         }
-        resolvedVars[varName] =
-          val && val.trim() ? val.trim() : fallbackPalette[varName] || '#000000';
+        resolvedVars[varName] = (val && val.trim()) ? val.trim() : (fallbackPalette[varName] || '#000000');
       });
 
       const cardBg = resolvedVars['--ak-bg'];
@@ -519,7 +446,7 @@
     }
 
     // Attach Node Click Handlers
-    nodes.forEach((nodeEl) => {
+    nodes.forEach(nodeEl => {
       nodeEl.addEventListener('click', (e) => {
         e.stopPropagation();
         const id = nodeEl.getAttribute('data-node-id');
@@ -547,7 +474,7 @@
           return;
         }
         clearHighlights();
-        nodes.forEach((n) => {
+        nodes.forEach(n => {
           const label = (n.getAttribute('data-label') || '').toLowerCase();
           const id = (n.getAttribute('data-node-id') || '').toLowerCase();
           const desc = (n.getAttribute('data-desc') || '').toLowerCase();
@@ -608,6 +535,9 @@
       } else if (e.key === 'l' || e.key === 'L') {
         e.preventDefault();
         cycleRoleLens();
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        replayMotion();
       } else if (e.key === '[') {
         e.preventDefault();
         setChapter(state.currentChapterIndex - 1);

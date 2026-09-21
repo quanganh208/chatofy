@@ -18,11 +18,7 @@
         "properties": {
           "id": { "$ref": "common.schema.json#/definitions/Identifier" },
           "label": { "$ref": "common.schema.json#/definitions/SafeText" },
-          "role": {
-            "type": "string",
-            "enum": ["user", "frontend", "orchestrator", "worker", "approver", "system"],
-            "default": "system"
-          }
+          "role": { "type": "string", "enum": ["user", "frontend", "orchestrator", "worker", "approver", "system"], "default": "system" }
         }
       }
     },
@@ -39,23 +35,8 @@
           "label": { "$ref": "common.schema.json#/definitions/SafeText" },
           "description": { "$ref": "common.schema.json#/definitions/SafeText" },
           "lane": { "$ref": "common.schema.json#/definitions/Identifier" },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "start",
-              "action",
-              "decision",
-              "wait",
-              "subprocess",
-              "terminal-success",
-              "terminal-failure"
-            ],
-            "default": "action"
-          },
-          "tags": {
-            "type": "array",
-            "items": { "$ref": "common.schema.json#/definitions/SafeText" }
-          }
+          "kind": { "type": "string", "enum": ["start", "action", "decision", "wait", "subprocess", "terminal-success", "terminal-failure"], "default": "action" },
+          "tags": { "type": "array", "items": { "$ref": "common.schema.json#/definitions/SafeText" } }
         }
       }
     },
@@ -72,11 +53,7 @@
           "to": { "$ref": "common.schema.json#/definitions/Identifier" },
           "label": { "$ref": "common.schema.json#/definitions/SafeText" },
           "condition": { "$ref": "common.schema.json#/definitions/SafeText" },
-          "kind": {
-            "type": "string",
-            "enum": ["normal", "branch-true", "branch-false", "retry", "exception"],
-            "default": "normal"
-          }
+          "kind": { "type": "string", "enum": ["normal", "branch-true", "branch-false", "retry", "exception"], "default": "normal" }
         }
       }
     }

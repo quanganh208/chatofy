@@ -23,33 +23,30 @@ When the user issues `/intel-report`, generate a markdown file following this ex
 
 ## 2. Subject Profile
 
-| Field                 | Value                                        | Confidence             |
-| --------------------- | -------------------------------------------- | ---------------------- |
-| **Name / Identifier** | [value]                                      | [🟢/🟡/🔴]             |
-| **Type**              | [person / organization / domain / etc.]      | —                      |
-| **Known Aliases**     | [usernames, alternate names]                 | [confidence per alias] |
-| **Location**          | [city, country if known]                     | [🟢/🟡/🔴]             |
-| **Affiliation**       | [employer, org]                              | [🟢/🟡/🔴]             |
-| **Online Presence**   | [list of confirmed platforms WITH FULL URLs] | [🟢/🟡/🔴]             |
-| **First Seen Online** | [earliest dated reference]                   | [🟢/🟡/🔴]             |
+| Field | Value | Confidence |
+|-------|-------|------------|
+| **Name / Identifier** | [value] | [🟢/🟡/🔴] |
+| **Type** | [person / organization / domain / etc.] | — |
+| **Known Aliases** | [usernames, alternate names] | [confidence per alias] |
+| **Location** | [city, country if known] | [🟢/🟡/🔴] |
+| **Affiliation** | [employer, org] | [🟢/🟡/🔴] |
+| **Online Presence** | [list of confirmed platforms WITH FULL URLs] | [🟢/🟡/🔴] |
+| **First Seen Online** | [earliest dated reference] | [🟢/🟡/🔴] |
 
 ---
 
 ## 3. Key Findings
 
 ### Finding 1: [Descriptive Title]
-
 - **Confidence:** [🟢 HIGH / 🟡 MEDIUM / 🔴 LOW]
 - **Summary:** [What was found]
 - **Evidence:** [Specific URLs, search queries, or data points]
 - **Analyst Note:** [Interpretation or significance]
 
 ### Finding 2: [Descriptive Title]
-
 [repeat structure]
 
 ### Finding N: [Descriptive Title]
-
 [repeat structure]
 
 ---
@@ -57,24 +54,23 @@ When the user issues `/intel-report`, generate a markdown file following this ex
 ## 4. Entity Relationship Map
 
 [Text-based representation of discovered connections between entities]
-```
 
+```
 [Primary Subject]
 ├── email: subject@example.com
-│ └── linked to: GitHub account "username"
-│ └── real name visible: "John Doe"
+│   └── linked to: GitHub account "username"
+│       └── real name visible: "John Doe"
 ├── username: "cooluser99"
-│ ├── Twitter/X: active, 2.3k followers
-│ ├── Reddit: active in r/technology, r/cybersecurity
-│ └── GitHub: 47 repos, employed at TechCorp (bio)
+│   ├── Twitter/X: active, 2.3k followers
+│   ├── Reddit: active in r/technology, r/cybersecurity
+│   └── GitHub: 47 repos, employed at TechCorp (bio)
 ├── domain: example.com
-│ ├── registered: 2019-03-15
-│ ├── registrant: privacy-protected
-│ └── hosted at: 203.0.113.50 (AWS us-east-1)
+│   ├── registered: 2019-03-15
+│   ├── registrant: privacy-protected
+│   └── hosted at: 203.0.113.50 (AWS us-east-1)
 └── organization: TechCorp Inc.
-├── founded: 2017
-└── CEO: Jane Smith
-
+    ├── founded: 2017
+    └── CEO: Jane Smith
 ```
 
 ---

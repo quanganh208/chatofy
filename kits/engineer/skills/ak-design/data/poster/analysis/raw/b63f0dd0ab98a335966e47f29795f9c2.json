@@ -7,7 +7,11 @@
     "event poster",
     "digital"
   ],
-  "palette_hexes": ["#1A1A1A", "#FFFFFF", "#F5DD36"],
+  "palette_hexes": [
+    "#1A1A1A",
+    "#FFFFFF",
+    "#F5DD36"
+  ],
   "layout": {
     "grid": "asymmetric grid",
     "focal": "full-bleed",
@@ -17,8 +21,18 @@
     "material": "digital flat",
     "finish": "gradient mesh"
   },
-  "mood": ["modern", "abstract", "intriguing", "sophisticated"],
-  "shape_primitives": ["organic curves", "thin rules", "abstract letterforms", "dots"],
+  "mood": [
+    "modern",
+    "abstract",
+    "intriguing",
+    "sophisticated"
+  ],
+  "shape_primitives": [
+    "organic curves",
+    "thin rules",
+    "abstract letterforms",
+    "dots"
+  ],
   "typography": [
     "geometric sans-serif",
     "abstract fluid forms",

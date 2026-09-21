@@ -9,6 +9,26 @@ safety behavior must be revalidated in the actual execution environment.
 verified candidates. [harness-profiles.md](harness-profiles.md) defines the
 evidence fields used by that decision.
 
+Use `ak orchestrate probe --json` for bounded local version/help discovery;
+`--runtime` narrows candidates and repeated `--path <id>=<executable>` handles
+explicit installations outside PATH. `--refresh` discards cached help evidence.
+A `help-probe-timeout` reason is a probe-budget failure, not a broken binary;
+raise `--timeout` on a slow host. The probe asks Pi for help without
+extensions, so extension-provided flags are verified only at dispatch.
+Reuse session discovery only while identity, host, authentication context and
+required controls remain unchanged; invalidate on change or probe failure.
+Version is freshly probed; cached help is keyed by resolved executable,
+version and config-file metadata and has a short expiry. Metadata-preserving
+changes require refresh. The implementation is owned by
+`apps/cli/internal/runtime/runtimeprobe`; never copy its flags into a model
+catalog. Advertised controls are not verified execution guarantees.
+
+The probe never authenticates or runs inference. Extend its report with a
+fresh, non-secret auth/readiness check and a bounded task-relevant smoke test
+when the selected route requires them. Unknown readiness cannot become a pass
+because an older cache or successful help command exists. On non-Unix hosts,
+probe timeout bounds the direct child only; it does not prove descendant cleanup.
+
 ## Candidate Set
 
 Start with only candidates relevant to the requested run:
@@ -19,6 +39,17 @@ Start with only candidates relevant to the requested run:
   interface;
 - a runtime the user explicitly asks the coordinator to consider.
 
+When the user asks to use other installed runtimes if available, discover
+optional candidates through the active dispatcher's runtime registry and
+explicit executable configuration. Use the optional CLI probes below for
+requested candidates that have no dispatcher entry. A kit emitter or registry
+entry is a discovery hint, not proof of a working headless runner.
+
+Record whether each candidate is required by a job pin or optional discovery.
+Skip unavailable optional candidates with a reason; do not block a qualified
+route because another optional runtime is missing. Never substitute for a
+pinned runtime without the user's authorization.
+
 Treat each value as a candidate identifier, not proof of support. Do not add a
 runtime because it appeared in an old report or this repository's history. Do
 not install, update, authenticate, or alter configuration during discovery.
@@ -26,6 +57,52 @@ not install, update, authenticate, or alter configuration during discovery.
 The current [job-spec.md](job-spec.md) and active dispatch implementation own
 accepted identifiers. If they disagree, stop and report the contract mismatch
 instead of inventing a mapping.
+
+## Optional CLI Discovery
+
+These names identify probe targets, not a support roster, model catalog, or
+default route. When requested, consider Pi agent (`pi`), Oh My Pi (`omp`),
+Google Antigravity CLI (`agy`), and Grok Build (`grok`) independently.
+
+1. Resolve explicit executable configuration, then the current process PATH.
+   If unresolved, inspect only the candidate's documented installation paths
+   under the current user's home or package-manager bin directory. Record an
+   outside-PATH executable's source and resolved symlink target; do not rewrite
+   PATH, scan unrelated user directories, or silently switch binaries.
+2. Bound version/help probes with an external timeout. Confirm product
+   identity before trusting a same-named executable. A broken launcher is
+   unavailable; a version response alone does not establish authentication.
+3. Read the matching upstream reference below, then verify the selected
+   invocation against installed help. Reuse an active dispatcher only when it
+   exposes the controls the job needs; otherwise qualify a direct CLI route.
+
+| Requested candidate | Upstream reference | Probe focus |
+| --- | --- | --- |
+| Pi agent (`pi`) | Installed package `docs/` and upstream GitHub repository `earendil-works/pi-mono`; session, dispatch and onboarding contract in [pi-sessions.md](pi-sessions.md) and [pi-onboarding.md](pi-onboarding.md) | Print/JSON versus RPC mode, provider/model resolution, tool and extension controls, explicit skill loading, project trust, run-scoped session directory and session identity |
+| Oh My Pi (`omp`) | Oh My Pi README, upstream GitHub repository `can1357/oh-my-pi` | Print/JSON versus RPC/ACP mode, provider/model roles, cwd, approval, extensions, nested task agents, native time limit |
+| Antigravity CLI (`agy`) | Google Antigravity headless documentation at `www.agy.dev/docs/cli/headless/` | Print input/output, model/agent discovery, sandbox on this OS, print timeout, conversation identity, instruction discovery |
+| Grok Build (`grok`) | Grok Build CLI reference at `docs.x.ai/build/cli/reference` | Single-turn/prompt-file input, structured terminal result, model discovery, permission/sandbox controls, nested agents, session identity |
+
+Do not copy Pi flags into OMP, equate an `agy` kit export with CLI execution
+support, or equate a Grok model available inside Pi with the Grok Build runtime.
+Verify whether native worktree flags actually apply in headless mode; otherwise
+create the job worktree through the coordinator before launch.
+
+Prefer a status-only, non-refreshing auth probe when advertised. Never use a
+credential-printing command, a credential-output option, or read auth stores
+to establish readiness. If no non-secret readiness probe exists, keep auth
+unverified until an authorized bounded invocation proves it. Never start a
+login, install, update, or configuration migration as discovery. A candidate
+that a job or the user requires and that discovery reports missing or
+unauthenticated leaves discovery and enters its onboarding reference as a
+separate visible setup step (Pi: [pi-onboarding.md](pi-onboarding.md)), after
+which it is probed again.
+
+Record provider, resolved model, model family when evidenced, enabled
+extensions, and nested-agent controls. Pi and OMP can select the same model
+family as another runtime; different executable names do not prove independent
+review. Disable unnecessary nested delegation using verified controls, or
+account for it within the run's concurrency and budget before dispatch.
 
 ## Live Matrix Record
 
@@ -143,12 +220,12 @@ is not an OS sandbox.
 
 The live matrix uses evidence states rather than a permanent support tier:
 
-| State         | Required evidence                                            | Allowed use                                    |
-| ------------- | ------------------------------------------------------------ | ---------------------------------------------- |
-| `available`   | Command, auth, required controls, and capture verified live  | Eligible for routing                           |
+| State | Required evidence | Allowed use |
+| --- | --- | --- |
+| `available` | Command, auth, required controls, and capture verified live | Eligible for routing |
 | `constrained` | Dispatch verified, but controls or capture have known limits | Eligible only when policy accepts those limits |
-| `unverified`  | Candidate exists, but required behavior was not proven       | Advisory/non-load-bearing work only            |
-| `unavailable` | Missing, unauthenticated, incompatible, or failed probe      | Do not dispatch                                |
+| `unverified` | Candidate exists, but required behavior was not proven | Advisory/non-load-bearing work only |
+| `unavailable` | Missing, unauthenticated, incompatible, or failed probe | Do not dispatch |
 
 Runtime selection, capability floors, risk floors, and fallback acceptance are
 defined only in [model-routing.md](model-routing.md).

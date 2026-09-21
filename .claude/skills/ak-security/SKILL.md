@@ -3,14 +3,14 @@ name: ak:security
 description: "Scan codebase for security vulnerabilities, hardcoded secrets, dependency issues, and OWASP patterns, with optional STRIDE threat modeling, red-team persona discovery, and auto-fix. Use when asked to 'security scan', 'check for secrets', 'audit security', or before major releases."
 user-invocable: true
 when_to_use: "Invoke for security scan, secret detection, dependency audit, STRIDE/OWASP threat audit, or auto-fix loops."
-category: utilities
+category: workflow
 keywords: [security, secrets, vulnerabilities, dependencies, STRIDE, OWASP, audit, red-team, penetration-testing, vulnerability-discovery]
 argument-hint: "[scope] [--secrets-only] [--deps-only] [--fix] [--red-team] [--iterations N]"
 metadata:
   author: agentkit
   attribution: "Security audit pattern adapted from autoresearch by Udit Goenka (MIT)"
   license: MIT
-  version: "2.0.1"
+  version: "2.0.2"
 ---
 
 # ak:security — Security Scan & Threat Audit
@@ -62,7 +62,8 @@ ak:security-scan <dir>          → /ak:security <dir>
 
 ## Audit & Scan Methodology
 
-### 1. Scope Resolution & Stack Detection
+### 1. Scope Resolution, Assets & Stack Detection
+- Identify protected assets, actors, trust boundaries and exposure before assigning severity. A risky API name alone is not an exploit; verify reachable failure paths and current controls. Load only relevant checklists.
 - Check for manifest: `package.json` (Node.js), `requirements.txt`/`pyproject.toml` (Python), `go.mod` (Go), `Cargo.toml` (Rust), `pom.xml`/`build.gradle` (Java).
 - Resolve scope (defaults to project root). Exclude `.env.example`, test fixtures, documentation (`*.md`), `node_modules/`, `dist/`.
 
@@ -111,7 +112,7 @@ Evaluate threats systematically:
 Map findings to OWASP categories (A01–A10). See `references/stride-owasp-checklist.md`.
 
 ### 8. Finding Categorization
-Assign each finding a severity level on the 5-level scale (see Severity Definitions below).
+Deduplicate by root cause across code patterns, STRIDE, OWASP and personas. Attach path, reproducible evidence, impact, assumptions and mitigation to each finding. Record disproven concerns as non-issues with their verification source. Assign severity using the definitions below.
 
 ---
 
@@ -203,7 +204,7 @@ This skill does NOT handle: Live active network penetration testing, DDoS simula
 ## Integration with Other Skills
 
 - Run after `ak:predict` when the security persona flags concerns
-- Feed Critical/High findings into `ak:autoresearch --fix` for automated remediation
+- Use this skill’s explicit `--fix` mode for guarded remediation of confirmed findings
 - Use `ak:scenario` with `--focus authorization` for deeper auth flow testing
 - Pair with `ak:plan` to schedule Medium/Low findings as sprint tasks
 

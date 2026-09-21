@@ -1,20 +1,17 @@
 # fx-network-mapping
 
 ## Purpose
-
 Construct a node-edge map of infrastructure or social relationships associated with a subject. Output is graph-ready data suitable for visualization in tools like Gephi or Maltego.
 
 ## Quick Reference
-
-| Item       | Detail                                                            |
-| ---------- | ----------------------------------------------------------------- |
-| Command    | /map-network                                                      |
-| Input      | Seed identifier (domain, IP, username, or organization name)      |
-| Output     | Node list, edge list, adjacency summary, visual-ready export      |
+| Item | Detail |
+|------|--------|
+| Command | /map-network |
+| Input | Seed identifier (domain, IP, username, or organization name) |
+| Output | Node list, edge list, adjacency summary, visual-ready export |
 | Confidence | HIGH for directly observed connections; MEDIUM for inferred edges |
 
 ## Methodology
-
 1. **Define the map boundary:** Set seed subject, hop depth (typically 2), and whether mapping infrastructure or social connections
 2. **Infrastructure map path:**
    - Resolve all A/AAAA, MX, NS records for seed domain
@@ -31,7 +28,6 @@ Construct a node-edge map of infrastructure or social relationships associated w
 7. Export in edge-list CSV format; optionally convert to GEXF for Gephi
 
 ## Map Structure
-
 ```
 Nodes:  subjects, organizations, IP blocks, domains
 Edges:  follows, mentions, employs, hosts, resolves-to, registered-by
@@ -47,28 +43,25 @@ Example edge record:
 ```
 
 ## Tools & Fallbacks
-
-| Priority | Tool              | Install                   | Notes                                            |
-| -------- | ----------------- | ------------------------- | ------------------------------------------------ |
-| 1        | Maltego CE        | maltego.com               | Visual graph building; transforms for OSINT      |
-| 2        | Gephi             | gephi.org                 | Post-collection visualization; layout algorithms |
-| 3        | crt.sh            | crt.sh                    | Certificate transparency → subdomain nodes       |
-| 4        | NetworkX (Python) | `pip3 install networkx`   | Scripted graph analysis; centrality metrics      |
-| 5        | SpiderFoot        | `pip3 install spiderfoot` | Automated OSINT → graph data                     |
-| 6        | Shodan            | shodan.io                 | Infrastructure node discovery                    |
+| Priority | Tool | Install | Notes |
+|----------|------|---------|-------|
+| 1 | Maltego CE | maltego.com | Visual graph building; transforms for OSINT |
+| 2 | Gephi | gephi.org | Post-collection visualization; layout algorithms |
+| 3 | crt.sh | crt.sh | Certificate transparency → subdomain nodes |
+| 4 | NetworkX (Python) | `pip3 install networkx` | Scripted graph analysis; centrality metrics |
+| 5 | SpiderFoot | `pip3 install spiderfoot` | Automated OSINT → graph data |
+| 6 | Shodan | shodan.io | Infrastructure node discovery |
 
 ## Graph Metrics Reference
-
-| Metric                 | Meaning                   | High Value =                   |
-| ---------------------- | ------------------------- | ------------------------------ |
-| Degree centrality      | Direct connection count   | Popular / well-connected node  |
+| Metric | Meaning | High Value = |
+|--------|---------|-------------|
+| Degree centrality | Direct connection count | Popular / well-connected node |
 | Betweenness centrality | Bridge paths through node | Information broker, gatekeeper |
-| Closeness centrality   | Average hops to all nodes | Rapid information spreader     |
-| Clustering coefficient | Neighbor interconnection  | Tight-knit local cluster       |
-| PageRank               | Weighted importance       | Authority node                 |
+| Closeness centrality | Average hops to all nodes | Rapid information spreader |
+| Clustering coefficient | Neighbor interconnection | Tight-knit local cluster |
+| PageRank | Weighted importance | Authority node |
 
 ## Output Format
-
 ```
 Seed: example.com
 
@@ -90,7 +83,6 @@ Betweenness: @exec_name ranks highest — single bridge between
 ```
 
 ## Limitations
-
 - Private accounts and internal communications produce invisible edges — map is always incomplete
 - Cross-platform identity resolution is heuristic; false merges are possible
 - Large graphs (>10K nodes) require layout algorithm tuning to remain readable
@@ -98,7 +90,6 @@ Betweenness: @exec_name ranks highest — single bridge between
 - Infrastructure maps reflect DNS TTL state; short TTLs may show stale data
 
 ## Related Techniques
-
 - [fx-social-topology.md](fx-social-topology.md) — deeper graph metrics and community detection
 - [fx-geolocation.md](fx-geolocation.md) — geolocate IP nodes onto physical map
 - [fx-http-fingerprint.md](fx-http-fingerprint.md) — fingerprint infrastructure nodes after mapping

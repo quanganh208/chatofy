@@ -9,7 +9,7 @@ Performance optimization techniques for images, fonts, scripts, and bundles.
 Automatic optimization with modern formats (WebP, AVIF):
 
 ```tsx
-import Image from 'next/image';
+import Image from 'next/image'
 
 export default function Page() {
   return (
@@ -53,20 +53,18 @@ export default function Page() {
         blurDataURL="data:image/jpeg;base64,..." // Or use static import
       />
     </>
-  );
+  )
 }
 ```
 
 ### Image Props Reference
 
 **Required:**
-
 - `src` - Image path (string or static import)
 - `alt` - Alt text for accessibility
 - `width`, `height` - Dimensions (required unless using `fill`)
 
 **Optional:**
-
 - `fill` - Fill parent container (makes width/height optional)
 - `sizes` - Responsive sizes hint for srcset
 - `quality` - 1-100 (default 75)
@@ -90,7 +88,6 @@ export default function Page() {
 ```
 
 This tells browser:
-
 - Mobile (<768px): Use 100% viewport width
 - Tablet (768-1200px): Use 50% viewport width
 - Desktop (>1200px): Use 33% viewport width
@@ -98,14 +95,14 @@ This tells browser:
 ### Static Import for Local Images
 
 ```tsx
-import heroImage from '@/public/hero.jpg';
+import heroImage from '@/public/hero.jpg'
 
 <Image
   src={heroImage}
   alt="Hero"
   placeholder="blur" // Automatically generated
   // No width/height needed - inferred from import
-/>;
+/>
 ```
 
 ### Remote Image Configuration
@@ -123,7 +120,7 @@ module.exports = {
       {
         protocol: 'https',
         hostname: 'cdn.example.com',
-      },
+      }
     ],
     // Device sizes for srcset
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
@@ -133,8 +130,8 @@ module.exports = {
     formats: ['image/webp'],
     // Cache optimization images for 60 days
     minimumCacheTTL: 60 * 60 * 24 * 60,
-  },
-};
+  }
+}
 ```
 
 ## Font Optimization
@@ -145,39 +142,38 @@ Automatic optimization with zero layout shift:
 
 ```tsx
 // app/layout.tsx
-import { Inter, Roboto_Mono, Playfair_Display } from 'next/font/google';
+import { Inter, Roboto_Mono, Playfair_Display } from 'next/font/google'
 
 const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-inter',
-});
+})
 
 const robotoMono = Roboto_Mono({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '700'],
   variable: '--font-roboto-mono',
-});
+})
 
 const playfair = Playfair_Display({
   subsets: ['latin'],
   display: 'swap',
   weight: ['400', '700', '900'],
   style: ['normal', 'italic'],
-});
+})
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${inter.variable} ${robotoMono.variable}`}>
       <body className={inter.className}>{children}</body>
     </html>
-  );
+  )
 }
 ```
 
 Use CSS variables:
-
 ```css
 .code {
   font-family: var(--font-roboto-mono);
@@ -187,7 +183,7 @@ Use CSS variables:
 ### Local Fonts
 
 ```tsx
-import localFont from 'next/font/local';
+import localFont from 'next/font/local'
 
 const myFont = localFont({
   src: [
@@ -200,18 +196,18 @@ const myFont = localFont({
       path: './fonts/my-font-bold.woff2',
       weight: '700',
       style: 'normal',
-    },
+    }
   ],
   variable: '--font-my-font',
   display: 'swap',
-});
+})
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={myFont.variable}>
       <body>{children}</body>
     </html>
-  );
+  )
 }
 ```
 
@@ -224,7 +220,7 @@ const font = Inter({
   // display: 'block', // Hide text until font loads (max 3s)
   // display: 'fallback', // Show fallback briefly, swap if loaded quickly
   // display: 'auto', // Browser default
-});
+})
 ```
 
 ## Script Optimization
@@ -234,19 +230,28 @@ const font = Inter({
 Control loading behavior:
 
 ```tsx
-import Script from 'next/script';
+import Script from 'next/script'
 
 export default function Page() {
   return (
     <>
       {/* Load after page is interactive (recommended for analytics) */}
-      <Script src="https://www.googletagmanager.com/gtag/js" strategy="afterInteractive" />
+      <Script
+        src="https://www.googletagmanager.com/gtag/js"
+        strategy="afterInteractive"
+      />
 
       {/* Load while page is idle (lowest priority) */}
-      <Script src="https://connect.facebook.net/en_US/sdk.js" strategy="lazyOnload" />
+      <Script
+        src="https://connect.facebook.net/en_US/sdk.js"
+        strategy="lazyOnload"
+      />
 
       {/* Load before page is interactive (use sparingly) */}
-      <Script src="https://maps.googleapis.com/maps/api/js" strategy="beforeInteractive" />
+      <Script
+        src="https://maps.googleapis.com/maps/api/js"
+        strategy="beforeInteractive"
+      />
 
       {/* Inline script with strategy */}
       <Script id="analytics" strategy="afterInteractive">
@@ -264,12 +269,11 @@ export default function Page() {
         onError={(e) => console.error('Script failed', e)}
       />
     </>
-  );
+  )
 }
 ```
 
 **Strategy options:**
-
 - `beforeInteractive` - Load before page interactive (blocking)
 - `afterInteractive` - Load after page interactive (default)
 - `lazyOnload` - Load during idle time
@@ -290,11 +294,11 @@ npm install @next/bundle-analyzer
 // next.config.js
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
-});
+})
 
 module.exports = withBundleAnalyzer({
   // Your Next.js config
-});
+})
 ```
 
 ```bash
@@ -307,13 +311,13 @@ ANALYZE=true npm run build
 Split code and load on-demand:
 
 ```tsx
-import dynamic from 'next/dynamic';
+import dynamic from 'next/dynamic'
 
 // Dynamic import with loading state
 const DynamicChart = dynamic(() => import('@/components/chart'), {
   loading: () => <div>Loading chart...</div>,
   ssr: false, // Disable SSR for this component
-});
+})
 
 export default function Dashboard() {
   return (
@@ -321,21 +325,21 @@ export default function Dashboard() {
       <h1>Dashboard</h1>
       <DynamicChart />
     </div>
-  );
+  )
 }
 ```
 
 Named exports:
-
 ```tsx
-const DynamicComponent = dynamic(() => import('@/components/hello').then((mod) => mod.Hello));
+const DynamicComponent = dynamic(
+  () => import('@/components/hello').then(mod => mod.Hello)
+)
 ```
 
 Multiple components:
-
 ```tsx
-const DynamicHeader = dynamic(() => import('@/components/header'));
-const DynamicFooter = dynamic(() => import('@/components/footer'));
+const DynamicHeader = dynamic(() => import('@/components/header'))
+const DynamicFooter = dynamic(() => import('@/components/footer'))
 ```
 
 ### Tree Shaking
@@ -344,20 +348,20 @@ Import only what you need:
 
 ```tsx
 // ❌ Bad - imports entire library
-import _ from 'lodash';
-const result = _.debounce(fn, 300);
+import _ from 'lodash'
+const result = _.debounce(fn, 300)
 
 // ✅ Good - imports only debounce
-import debounce from 'lodash/debounce';
-const result = debounce(fn, 300);
+import debounce from 'lodash/debounce'
+const result = debounce(fn, 300)
 
 // ❌ Bad
-import * as Icons from 'react-icons/fa';
-<Icons.FaHome />;
+import * as Icons from 'react-icons/fa'
+<Icons.FaHome />
 
 // ✅ Good
-import { FaHome } from 'react-icons/fa';
-<FaHome />;
+import { FaHome } from 'react-icons/fa'
+<FaHome />
 ```
 
 ## Partial Prerendering (PPR)
@@ -369,13 +373,13 @@ Experimental: Combine static and dynamic rendering in same route.
 module.exports = {
   experimental: {
     ppr: true,
-  },
-};
+  }
+}
 ```
 
 ```tsx
 // app/page.tsx
-import { Suspense } from 'react';
+import { Suspense } from 'react'
 
 // Static shell
 export default function Page() {
@@ -390,16 +394,16 @@ export default function Page() {
 
       <footer>Static Footer</footer>
     </div>
-  );
+  )
 }
 
 // Dynamic component
 async function DynamicContent() {
   const data = await fetch('https://api.example.com/data', {
-    cache: 'no-store',
-  }).then((r) => r.json());
+    cache: 'no-store'
+  }).then(r => r.json())
 
-  return <div>{data.content}</div>;
+  return <div>{data.content}</div>
 }
 ```
 
@@ -411,7 +415,7 @@ Static shell loads instantly, dynamic content streams in.
 
 ```tsx
 // app/page.tsx
-import { Metadata } from 'next';
+import { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'My Page',
@@ -435,7 +439,7 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
-};
+}
 ```
 
 ### Dynamic Metadata
@@ -443,7 +447,7 @@ export const metadata: Metadata = {
 ```tsx
 // app/blog/[slug]/page.tsx
 export async function generateMetadata({ params }): Promise<Metadata> {
-  const post = await getPost(params.slug);
+  const post = await getPost(params.slug)
 
   return {
     title: post.title,
@@ -456,7 +460,7 @@ export async function generateMetadata({ params }): Promise<Metadata> {
       publishedTime: post.publishedAt,
       authors: [post.author.name],
     },
-  };
+  }
 }
 ```
 
@@ -473,22 +477,21 @@ Create these files in `app/` directory:
 - `sitemap.xml` - Sitemap
 
 Or generate dynamically:
-
 ```tsx
 // app/sitemap.ts
 export default async function sitemap() {
-  const posts = await getPosts();
+  const posts = await getPosts()
 
   return [
     {
       url: 'https://example.com',
       lastModified: new Date(),
     },
-    ...posts.map((post) => ({
+    ...posts.map(post => ({
       url: `https://example.com/blog/${post.slug}`,
       lastModified: post.updatedAt,
-    })),
-  ];
+    }))
+  ]
 }
 ```
 

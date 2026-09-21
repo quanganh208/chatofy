@@ -11,39 +11,48 @@ const REQUIRED_SECTIONS = [
     id: 'end-to-end-summary',
     headingPatterns: [
       /^#{2,3}\s+End-to-end work summary\s*$/im,
-      /^#{2,3}\s+Tóm tắt công việc end-to-end\s*$/im,
-    ],
+      /^#{2,3}\s+Tóm tắt công việc end-to-end\s*$/im
+    ]
   },
   {
     id: 'subagent-delegation',
-    headingPatterns: [/^#{2,3}\s+Subagent delegation\s*$/im, /^#{2,3}\s+Ủy thác subagent\s*$/im],
+    headingPatterns: [
+      /^#{2,3}\s+Subagent delegation\s*$/im,
+      /^#{2,3}\s+Ủy thác subagent\s*$/im
+    ]
   },
   {
     id: 'technical-decisions',
-    headingPatterns: [/^#{2,3}\s+Technical decisions\s*$/im, /^#{2,3}\s+Quyết định kỹ thuật\s*$/im],
+    headingPatterns: [
+      /^#{2,3}\s+Technical decisions\s*$/im,
+      /^#{2,3}\s+Quyết định kỹ thuật\s*$/im
+    ]
   },
   {
     id: 'deviations-from-plan',
-    headingPatterns: [/^#{2,3}\s+Deviations from plan\s*$/im, /^#{2,3}\s+Lệch so với plan\s*$/im],
+    headingPatterns: [
+      /^#{2,3}\s+Deviations from plan\s*$/im,
+      /^#{2,3}\s+Lệch so với plan\s*$/im
+    ]
   },
   {
     id: 'completion-evidence',
     headingPatterns: [
       /^#{2,3}\s+Completion evidence\s*$/im,
-      /^#{2,3}\s+Bằng chứng hoàn thành\s*$/im,
-    ],
+      /^#{2,3}\s+Bằng chứng hoàn thành\s*$/im
+    ]
   },
   {
     id: 'checklist',
-    headingPatterns: [/^#{2,3}\s+Checklist\s*$/im],
+    headingPatterns: [/^#{2,3}\s+Checklist\s*$/im]
   },
   {
     id: 'human-actions-required',
     headingPatterns: [
       /^#{2,3}\s+Human actions required\s*$/im,
-      /^#{2,3}\s+Việc cần người xử lý\s*$/im,
-    ],
-  },
+      /^#{2,3}\s+Việc cần người xử lý\s*$/im
+    ]
+  }
 ];
 
 /**
@@ -53,12 +62,18 @@ const REQUIRED_SECTIONS = [
 const TRACEABILITY_SECTIONS = [
   {
     id: 'linked-issues',
-    headingPatterns: [/^#{2,3}\s+Linked Issues\s*$/im, /^#{2,3}\s+Issues liên quan\s*$/im],
+    headingPatterns: [
+      /^#{2,3}\s+Linked Issues\s*$/im,
+      /^#{2,3}\s+Issues liên quan\s*$/im
+    ]
   },
   {
     id: 'ship-mode',
-    headingPatterns: [/^#{2,3}\s+Ship Mode\s*$/im, /^#{2,3}\s+Chế độ ship\s*$/im],
-  },
+    headingPatterns: [
+      /^#{2,3}\s+Ship Mode\s*$/im,
+      /^#{2,3}\s+Chế độ ship\s*$/im
+    ]
+  }
 ];
 
 /**
@@ -85,7 +100,7 @@ function validateShipPrBody(body, options = {}) {
       findings.push({
         severity: 'Important',
         id: section.id,
-        message: `Missing required PR body section: ${section.id}`,
+        message: `Missing required PR body section: ${section.id}`
       });
     }
   }
@@ -98,14 +113,15 @@ function validateShipPrBody(body, options = {}) {
         findings.push({
           severity: 'Suggestion',
           id: section.id,
-          message: `Missing traceability section: ${section.id}`,
+          message: `Missing traceability section: ${section.id}`
         });
       }
     }
   }
 
   const ok =
-    missingRequired.length === 0 && (!requireTraceability || missingTraceability.length === 0);
+    missingRequired.length === 0 &&
+    (!requireTraceability || missingTraceability.length === 0);
 
   if (requireTraceability) {
     for (const finding of findings) {
@@ -122,7 +138,7 @@ function validateShipPrBody(body, options = {}) {
     ok,
     missingRequired,
     missingTraceability,
-    findings,
+    findings
   };
 }
 
@@ -136,7 +152,9 @@ function main(argv = process.argv.slice(2)) {
   } else if (!process.stdin.isTTY) {
     body = fs.readFileSync(0, 'utf8');
   } else {
-    process.stderr.write('usage: pr-body-contract.cjs [--loose] --file <path> | <body on stdin>\n');
+    process.stderr.write(
+      'usage: pr-body-contract.cjs [--loose] --file <path> | <body on stdin>\n'
+    );
     process.exit(2);
   }
 
@@ -148,7 +166,7 @@ function main(argv = process.argv.slice(2)) {
 module.exports = {
   REQUIRED_SECTIONS,
   TRACEABILITY_SECTIONS,
-  validateShipPrBody,
+  validateShipPrBody
 };
 
 if (require.main === module) {

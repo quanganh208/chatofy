@@ -7,7 +7,14 @@
     "storytelling",
     "traditional art"
   ],
-  "palette_hexes": ["#2e3032", "#e6e0d2", "#3c7e7b", "#e28a2a", "#d33b2a", "#3a4e51"],
+  "palette_hexes": [
+    "#2e3032",
+    "#e6e0d2",
+    "#3c7e7b",
+    "#e28a2a",
+    "#d33b2a",
+    "#3a4e51"
+  ],
   "layout": {
     "grid": "dynamic diagonal",
     "focal": "top-center",
@@ -17,7 +24,12 @@
     "material": "ink wash paper",
     "finish": "textured brushstrokes"
   },
-  "mood": ["mysterious", "epic", "adventure", "intense"],
+  "mood": [
+    "mysterious",
+    "epic",
+    "adventure",
+    "intense"
+  ],
   "shape_primitives": [
     "circle",
     "curved path",

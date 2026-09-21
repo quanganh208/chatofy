@@ -1,7 +1,19 @@
 {
   "image": "451a8579b449a332a95f0b8f1022ce97.jpg",
-  "style_cues": ["modern", "high-contrast", "editorial", "digital", "futuristic"],
-  "palette_hexes": ["#000000", "#FFFFFF", "#A0D0E0", "#8000FF", "#B0B0B0"],
+  "style_cues": [
+    "modern",
+    "high-contrast",
+    "editorial",
+    "digital",
+    "futuristic"
+  ],
+  "palette_hexes": [
+    "#000000",
+    "#FFFFFF",
+    "#A0D0E0",
+    "#8000FF",
+    "#B0B0B0"
+  ],
   "layout": {
     "grid": "broken grid",
     "focal": "full-bleed",
@@ -11,7 +23,22 @@
     "material": "digital render",
     "finish": "translucent gloss"
   },
-  "mood": ["futuristic", "elegant", "serene", "sophisticated"],
-  "shape_primitives": ["circle", "organic curve", "rectangle", "straight line"],
-  "typography": ["sans-serif", "all caps", "extreme size contrast", "display typography"]
+  "mood": [
+    "futuristic",
+    "elegant",
+    "serene",
+    "sophisticated"
+  ],
+  "shape_primitives": [
+    "circle",
+    "organic curve",
+    "rectangle",
+    "straight line"
+  ],
+  "typography": [
+    "sans-serif",
+    "all caps",
+    "extreme size contrast",
+    "display typography"
+  ]
 }

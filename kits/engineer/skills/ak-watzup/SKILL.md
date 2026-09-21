@@ -2,13 +2,13 @@
 name: ak:watzup
 description: "Generate short handoff reports from Git branches, remote refs, worktrees, unfinished plans, and roadmap docs. Surfaces priority-ranked next steps with checkbox progress and rationale. Use when the user asks what's in flight, wants progress/next steps, is in a fresh worktree or detached checkout, or needs end-of-session status."
 user-invocable: true
-when_to_use: 'Invoke for end-of-session handoffs, progress summaries, cross-branch worktree status, unfinished plan discovery, and next-step recommendations.'
-category: utilities
-keywords:
-  [session, wrap-up, changes, review, worktree, branches, plans, roadmap, priority, next-steps]
+when_to_use: "Invoke for end-of-session handoffs, progress summaries, cross-branch worktree status, unfinished plan discovery, and next-step recommendations."
+category: workflow
+keywords: [session, wrap-up, changes, review, worktree, branches, plans, roadmap, priority, next-steps]
+argument-hint: "[branch|worktree|status]"
 metadata:
   author: agentkit
-  version: '1.2.0'
+  version: "1.2.1"
 ---
 
 # Wrap Up
@@ -37,7 +37,6 @@ node scripts/watzup-scan.cjs --json --fetch
 When developing from this source repository before install, run the same command from the source skill directory.
 
 Default behavior:
-
 - Scan local branches and remote branch refs.
 - Scan registered worktrees.
 - Scan unfinished plans from visible worktrees and tracked branch refs.
@@ -56,7 +55,7 @@ The scanner now emits `nextSteps[]` as objects with `{priority, action, rational
 - **Provenance**: filesystem source (+80), local ref (+40).
 - **Momentum**: plans between 40-90% complete get bumped (close to done). Brand-new plans (<10%) get a small starter bump.
 
-Hygiene steps (dirty working tree, detached HEAD) always rank first. Roadmap milestones fill remaining slots after plan-driven actions.
+The scanner places hygiene steps (dirty working tree, detached HEAD) first and fills remaining slots with roadmap milestones. This is a heuristic, not a mandate: in the human report rank the user's current goal, release blockers, and demonstrated risk first. Explain any reranking and retain the raw scanner evidence. Dirty work alone is not a blocker or permission to discard it.
 
 ## Report Format
 

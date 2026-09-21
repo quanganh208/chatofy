@@ -10,16 +10,16 @@ Maltego is a powerful visual link analysis tool used by investigators and securi
 
 ### Core Entities
 
-| Maltego Entity         | OSINT Equivalent  | Properties     |
-| ---------------------- | ----------------- | -------------- |
-| `maltego.Domain`       | Domain names      | Name, DNS info |
-| `maltego.IPv4Address`  | IP addresses      | Address, ASN   |
-| `maltego.URL`          | Web addresses     | URL, Title     |
-| `maltego.EmailAddress` | Email addresses   | Email, Domain  |
-| `maltego.Person`       | Individuals       | Name, Details  |
-| `maltego.PhoneNumber`  | Phone numbers     | Number, Type   |
-| `maltego.Alias`        | Usernames/handles | Username       |
-| `maltego.Organization` | Companies/groups  | Name, Type     |
+| Maltego Entity | OSINT Equivalent | Properties |
+|----------------|------------------|------------|
+| `maltego.Domain` | Domain names | Name, DNS info |
+| `maltego.IPv4Address` | IP addresses | Address, ASN |
+| `maltego.URL` | Web addresses | URL, Title |
+| `maltego.EmailAddress` | Email addresses | Email, Domain |
+| `maltego.Person` | Individuals | Name, Details |
+| `maltego.PhoneNumber` | Phone numbers | Number, Type |
+| `maltego.Alias` | Usernames/handles | Username |
+| `maltego.Organization` | Companies/groups | Name, Type |
 
 ### Custom OSINT Entities
 
@@ -62,9 +62,9 @@ GraphML is the native XML format for Maltego graphs.
   <key id="label" for="node" attr.name="Label" attr.type="string"/>
   <key id="notes" for="node" attr.name="Notes" attr.type="string"/>
   <key id="confidence" for="node" attr.name="Confidence" attr.type="string"/>
-
+  
   <graph id="osint-investigation" edgedefault="directed">
-
+    
     <!-- Example Domain Entity -->
     <node id="domain1">
       <data key="type">maltego.Domain</data>
@@ -72,7 +72,7 @@ GraphML is the native XML format for Maltego graphs.
       <data key="notes">Primary domain for target</data>
       <data key="confidence">High</data>
     </node>
-
+    
     <!-- Example IP Entity -->
     <node id="ip1">
       <data key="type">maltego.IPv4Address</data>
@@ -80,7 +80,7 @@ GraphML is the native XML format for Maltego graphs.
       <data key="notes">Hosting IP</data>
       <data key="confidence">High</data>
     </node>
-
+    
     <!-- Example Person Entity -->
     <node id="person1">
       <data key="type">maltego.Person</data>
@@ -88,7 +88,7 @@ GraphML is the native XML format for Maltego graphs.
       <data key="notes">Target individual</data>
       <data key="confidence">Medium</data>
     </node>
-
+    
     <!-- Example Email Entity -->
     <node id="email1">
       <data key="type">maltego.EmailAddress</data>
@@ -96,7 +96,7 @@ GraphML is the native XML format for Maltego graphs.
       <data key="notes">Primary email</data>
       <data key="confidence">High</data>
     </node>
-
+    
     <!-- Example Username Entity -->
     <node id="alias1">
       <data key="type">maltego.Alias</data>
@@ -104,24 +104,24 @@ GraphML is the native XML format for Maltego graphs.
       <data key="notes">Twitter handle</data>
       <data key="confidence">Medium</data>
     </node>
-
+    
     <!-- Relationships (Edges) -->
     <edge source="domain1" target="ip1">
       <data key="label">Resolves to</data>
     </edge>
-
+    
     <edge source="person1" target="email1">
       <data key="label">Owns</data>
     </edge>
-
+    
     <edge source="email1" target="domain1">
       <data key="label">Domain</data>
     </edge>
-
+    
     <edge source="person1" target="alias1">
       <data key="label">Uses</data>
     </edge>
-
+    
   </graph>
 </graphml>
 ```
@@ -131,7 +131,6 @@ GraphML is the native XML format for Maltego graphs.
 For importing entities and relationships separately:
 
 **Entities CSV:**
-
 ```csv
 Entity Type,Label,Notes,Confidence,Additional Properties
 maltego.Domain,example.com,Primary domain,High,"{\"registrar\":\"GoDaddy\",\"created\":\"2020-01-01\"}"
@@ -142,7 +141,6 @@ maltego.Alias,johndoe123,Twitter handle,Medium,"{\"platform\":\"Twitter\"}"
 ```
 
 **Relationships CSV:**
-
 ```csv
 Source Entity,Relationship Type,Target Entity,Notes
 example.com,Resolves to,192.168.1.1,A record
@@ -176,20 +174,20 @@ Table: Relationships
 
 ### Standard Relationships
 
-| Source Type  | Relationship | Target Type  | Description       |
-| ------------ | ------------ | ------------ | ----------------- |
-| Domain       | Resolves to  | IPv4Address  | DNS A record      |
-| Domain       | MX record    | Domain       | Mail server       |
-| Domain       | NS record    | Domain       | Nameserver        |
-| EmailAddress | Domain       | Domain       | Email domain      |
-| Person       | Owns         | EmailAddress | Personal email    |
-| Person       | Uses         | Alias        | Username/handle   |
-| Person       | Works at     | Organization | Employment        |
-| Person       | Located at   | Location     | Address           |
-| Alias        | On platform  | SocialMedia  | Platform presence |
-| IPv4Address  | ASN          | AS           | Network block     |
-| Organization | Owns         | Domain       | Corporate domain  |
-| Organization | Located at   | Location     | Office address    |
+| Source Type | Relationship | Target Type | Description |
+|-------------|--------------|-------------|-------------|
+| Domain | Resolves to | IPv4Address | DNS A record |
+| Domain | MX record | Domain | Mail server |
+| Domain | NS record | Domain | Nameserver |
+| EmailAddress | Domain | Domain | Email domain |
+| Person | Owns | EmailAddress | Personal email |
+| Person | Uses | Alias | Username/handle |
+| Person | Works at | Organization | Employment |
+| Person | Located at | Location | Address |
+| Alias | On platform | SocialMedia | Platform presence |
+| IPv4Address | ASN | AS | Network block |
+| Organization | Owns | Domain | Corporate domain |
+| Organization | Located at | Location | Office address |
 
 ### Investigation-Specific Relationships
 
@@ -230,7 +228,6 @@ IOC → [Observed in] → Incident
 ### Export from OSINT Investigation
 
 **Step 1: Prepare Entity Data**
-
 ```bash
 # Export tracked entities to intermediate format
 /osint-export --format=maltego --target=investigation-name
@@ -239,7 +236,6 @@ IOC → [Observed in] → Incident
 ```
 
 **Step 2: Validate Export**
-
 ```bash
 # Check XML validity
 xmllint --noout investigation-name-maltego.graphml
@@ -284,7 +280,7 @@ grep -c '<edge' investigation-name-maltego.graphml
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <graphml xmlns="http://graphml.graphdrawing.org/xmlns">
-
+  
   <!-- Property Keys -->
   <key id="entity_type" for="node" attr.name="Entity Type" attr.type="string"/>
   <key id="label" for="node" attr.name="Label" attr.type="string"/>
@@ -292,12 +288,12 @@ grep -c '<edge' investigation-name-maltego.graphml
   <key id="confidence" for="node" attr.name="Confidence" attr.type="string"/>
   <key id="first_seen" for="node" attr.name="First Seen" attr.type="string"/>
   <key id="source" for="node" attr.name="Source" attr.type="string"/>
-
+  
   <key id="relationship" for="edge" attr.name="Relationship" attr.type="string"/>
   <key id="evidence" for="edge" attr.name="Evidence" attr.type="string"/>
-
+  
   <graph id="osint-case-2024-001" edgedefault="directed">
-
+    
     <!-- Investigation Metadata -->
     <node id="investigation">
       <data key="entity_type">osint.Investigation</data>
@@ -305,7 +301,7 @@ grep -c '<edge' investigation-name-maltego.graphml
       <data key="notes">Investigation into data theft from TechCorp</data>
       <data key="date">2024-01-15</data>
     </node>
-
+    
     <!-- Primary Target -->
     <node id="target">
       <data key="entity_type">maltego.Person</data>
@@ -314,7 +310,7 @@ grep -c '<edge' investigation-name-maltego.graphml
       <data key="confidence">High</data>
       <data key="first_seen">2024-01-15</data>
     </node>
-
+    
     <!-- Digital Presence -->
     <node id="email">
       <data key="entity_type">maltego.EmailAddress</data>
@@ -322,7 +318,7 @@ grep -c '<edge' investigation-name-maltego.graphml
       <data key="notes">Personal email</data>
       <data key="confidence">High</data>
     </node>
-
+    
     <node id="alias">
       <data key="entity_type">maltego.Alias</data>
       <data key="label">asmith_dev</data>
@@ -330,7 +326,7 @@ grep -c '<edge' investigation-name-maltego.graphml
       <data key="confidence">Medium</data>
       <data key="source">GitHub profile</data>
     </node>
-
+    
     <node id="domain">
       <data key="entity_type">maltego.Domain</data>
       <data key="label">asmith-consulting.com</data>
@@ -338,14 +334,14 @@ grep -c '<edge' investigation-name-maltego.graphml
       <data key="confidence">High</data>
       <data key="source">WHOIS lookup</data>
     </node>
-
+    
     <node id="ip">
       <data key="entity_type">maltego.IPv4Address</data>
       <data key="label">203.0.113.45</data>
       <data key="notes">Hosting IP for suspect domain</data>
       <data key="confidence">High</data>
     </node>
-
+    
     <!-- Infrastructure -->
     <node id="hosting">
       <data key="entity_type">maltego.Organization</data>
@@ -353,7 +349,7 @@ grep -c '<edge' investigation-name-maltego.graphml
       <data key="notes">Bulletproof hosting provider</data>
       <data key="confidence">High</data>
     </node>
-
+    
     <!-- Related Entity -->
     <node id="associate">
       <data key="entity_type">maltego.Person</data>
@@ -361,42 +357,42 @@ grep -c '<edge' investigation-name-maltego.graphml
       <data key="notes">Competitor employee, contacted suspect</data>
       <data key="confidence">Medium</data>
     </node>
-
+    
     <!-- Relationships -->
     <edge source="investigation" target="target">
       <data key="relationship">Primary Subject</data>
     </edge>
-
+    
     <edge source="target" target="email">
       <data key="relationship">Owns</data>
       <data key="evidence">Email signature on documents</data>
     </edge>
-
+    
     <edge source="target" target="alias">
       <data key="relationship">Uses</data>
       <data key="evidence">Profile photos match</data>
     </edge>
-
+    
     <edge source="email" target="domain">
       <data key="relationship">Registered</data>
       <data key="evidence">WHOIS registration email</data>
     </edge>
-
+    
     <edge source="domain" target="ip">
       <data key="relationship">Resolves to</data>
       <data key="evidence">DNS A record</data>
     </edge>
-
+    
     <edge source="ip" target="hosting">
       <data key="relationship">Hosted by</data>
       <data key="evidence">IP WHOIS lookup</data>
     </edge>
-
+    
     <edge source="target" target="associate">
       <data key="relationship">Communicated with</data>
       <data key="evidence">Email headers show correspondence</data>
     </edge>
-
+    
   </graph>
 </graphml>
 ```
@@ -440,25 +436,21 @@ grep -c '<edge' investigation-name-maltego.graphml
 ### Post-Import Transform Suggestions
 
 **For Domains:**
-
 - DNS transforms (To DNS Name [MX], To IP Address)
 - WHOIS transforms
 - Certificate transparency logs
 
 **For IP Addresses:**
-
 - To Netblock [Whois]
 - To AS Number
 - To Geolocation
 
 **For Persons:**
-
 - Social media transforms
 - Email to social profiles
 - Name to location correlations
 
 **For Email Addresses:**
-
 - To Domain
 - To social profiles
 - Breach database checks
@@ -483,25 +475,21 @@ grep -c '<edge' investigation-name-maltego.graphml
 ### Common Issues
 
 **Import Fails:**
-
 - Check XML validity
 - Verify encoding (UTF-8)
 - Ensure proper GraphML namespace
 
 **Entities Don't Display:**
-
 - Check entity type names match Maltego
 - Verify custom entities are created
 - Check for special characters in labels
 
 **Relationships Missing:**
-
 - Verify edge source/target IDs exist
 - Check for self-referencing edges
 - Ensure edge direction is correct
 
 **Large Graphs Slow:**
-
 - Split into multiple exports
 - Filter by confidence level
 - Use aggregation for dense areas
@@ -517,50 +505,50 @@ import xml.etree.ElementTree as ET
 
 def export_to_maltego(entities, relationships, filename):
     """Export OSINT data to Maltego GraphML format."""
-
+    
     # Create GraphML structure
     root = ET.Element('graphml')
     root.set('xmlns', 'http://graphml.graphdrawing.org/xmlns')
-
+    
     # Add property keys
     key_type = ET.SubElement(root, 'key')
     key_type.set('id', 'type')
     key_type.set('for', 'node')
     key_type.set('attr.name', 'Entity Type')
     key_type.set('attr.type', 'string')
-
+    
     # Create graph
     graph = ET.SubElement(root, 'graph')
     graph.set('id', 'osint-export')
     graph.set('edgedefault', 'directed')
-
+    
     # Add nodes (entities)
     for entity in entities:
         node = ET.SubElement(graph, 'node')
         node.set('id', entity['id'])
-
+        
         data_type = ET.SubElement(node, 'data')
         data_type.set('key', 'type')
         data_type.text = entity['type']
-
+        
         data_label = ET.SubElement(node, 'data')
         data_label.set('key', 'label')
         data_label.text = entity['label']
-
+    
     # Add edges (relationships)
     for rel in relationships:
         edge = ET.SubElement(graph, 'edge')
         edge.set('source', rel['source'])
         edge.set('target', rel['target'])
-
+        
         data_rel = ET.SubElement(edge, 'data')
         data_rel.set('key', 'relationship')
         data_rel.text = rel['type']
-
+    
     # Write to file
     tree = ET.ElementTree(root)
     tree.write(filename, encoding='utf-8', xml_declaration=True)
-
+    
     print(f"Exported {len(entities)} entities and {len(relationships)} relationships to {filename}")
 
 # Example usage

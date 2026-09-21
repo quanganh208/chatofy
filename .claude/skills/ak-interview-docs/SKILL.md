@@ -3,13 +3,13 @@ name: ak:interview-docs
 description: Extract a user's vision and decisions into durable project documents through a guided interview. Use for README, ADR, strategy, principles, and structured-doc authoring.
 user-invocable: true
 when_to_use: Invoke when the user's answers, not AI proposals or code inspection, should become the document.
-category: utilities
+category: workflow
 keywords: [interview, documentation, adr, strategy, vision]
 license: MIT
 argument-hint: "<vision | document-path | topic>"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
   upstream: "Pinned MIT source archive: brain-to-docs and interview-style-doc-building@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5"
 ---
 
@@ -28,13 +28,11 @@ documentation from source code.
 
 ## Vision Mode
 
-1. Read README.md and the existing docs/adr directory before asking anything.
-2. Ask a batch of five high-variety questions unless the user requests another
-   number or a focused area.
+1. Read README.md and repository docs navigation to locate the existing vision/decision owner. Do not assume docs/adr exists.
+2. Ask a focused batch about unresolved vision decisions; skip questions answered by the brief or earlier replies. Preserve any user-requested interview cadence.
 3. After every answer, re-read the affected document and patch the user’s words
-   into README.md or an ADR before processing the next answer.
-4. Keep README.md to vision. Put decisions in short numbered ADR files with
-   Status, Context, Decision, and Consequences.
+   into the existing owning document before processing the next answer.
+4. Keep README.md to vision and record confirmed decisions in the repository-selected owner. Use ADR files only when that is the established convention; never promote tentative opinions to decisions.
 5. Continue until the user ends the interview. Keep replies concise and in
    plain English.
 

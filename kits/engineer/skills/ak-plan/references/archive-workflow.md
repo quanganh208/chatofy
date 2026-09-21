@@ -1,11 +1,9 @@
 # Archive Workflow
 
 ## Your mission
-
 Read and analyze the plans, then write journal entries and archive specific plans or all plans in the `plans` directory.
 
 ## Plan Resolution
-
 1. If `$ARGUMENTS` provided → Use that path
 2. Else read all plans in the `plans` directory
 
@@ -14,7 +12,6 @@ Read and analyze the plans, then write journal entries and archive specific plan
 ### Step 1: Read Plan Files
 
 Read the plan directory:
-
 - `plan.md` - Overview and phases list
 - `phase-*.md` - 20 first lines of each phase file to understand the progress and status
 
@@ -22,20 +19,17 @@ Read the plan directory:
 
 Respect the shared "Journal step — opt-out" contract before prompting. Skip the
 entire journal sub-step silently — do NOT ask — when either applies:
-
 - The invocation includes the `--skip-journal` flag, OR
 - `ak config prefs resolve --json | jq -r 'if .prefs.journal.auto == false then "false" else "true" end'` returns `false`. If the command errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt or missing config never suppresses the automatic journal.
 
 Precedence: flag > project config > user config > default (`true`). When
 skipped, print one line and jump to Step 3:
-
 - `journal skipped by --skip-journal` (flag), or
 - `journal skipped by preference` (config).
 
 Otherwise, use `ask_user capability` tool to ask if user wants to document journal entries or not.
 Skip this step if user selects "No".
 If user selects "Yes":
-
 - Analyze the information in previous steps.
 - Use delegate_agent capability with `subagent_type="journal-writer"` in parallel to document all plans.
 - Journal entries should be concise and focused on the most important events, key changes, impacts, and decisions.
@@ -44,7 +38,6 @@ If user selects "Yes":
   docs or ADRs.
 
 ### Step 3: Ask user to confirm the action before archiving these plans
-
 Use `ask_user capability` tool to ask if user wants to proceed with archiving these plans, select specific plans to archive or all completed plans only.
 
 Archiving is an **index-visibility change, not file deletion**. The plan `.md`
@@ -53,9 +46,7 @@ files are canonical repo history and stay on disk. Do NOT offer, and never run, 
 is exactly the "stale plan read as false context" harm this workflow avoids.
 
 ### Step 4: Archive the plans
-
 Archive by changing index visibility, never by touching files:
-
 - Run `ak plan archive <plan-dir>` (and/or `ak plan cleanup` for a retention
   sweep of stale closed plans — dry-run by default). Run `ak plan --help` and
   each subcommand's `--help` for exact flags; those live surfaces own syntax.
@@ -72,24 +63,18 @@ Archive by changing index visibility, never by touching files:
   hand-move plans into an `./plans/archive` directory.
 
 ### Step 5: Ask if user wants to commit the changes
-
 Use `ask_user capability` tool to ask if user wants to commit the changes with these options:
-
 - Stage and commit the changes (Use `/ak:git` for commit flow)
 - Commit and push the changes (Use `/ak:git` for push flow)
 - Nah, I'll do it later
 
 ## Output
-
 After archiving the plans, provide summary:
-
 - Number of plans archived (index visibility only; files kept on disk)
 - Table of plans that are archived (title, status, created date, LOC)
 - Table of journal entries that are created (title, status, created date, LOC)
 
 ## Important Notes
-
 - Only ask questions about genuine decision points
-- Sacrifice grammar for concision
+- Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
 - List any unresolved questions at the end
-- Ensure token efficiency while maintaining high quality

@@ -112,16 +112,16 @@ score = sum(1 for m in matches if m.distance < 50)
 
 ### Country Identification Shortcuts
 
-| Feature                      | Country/Region                    |
-| ---------------------------- | --------------------------------- |
-| Kanji + blue highway signs   | Japan                             |
-| Cyrillic + wide boulevards   | Russia/CIS                        |
-| White X-shape crossing signs | Canada                            |
-| Yellow diamond warning signs | USA/Canada                        |
-| Green autobahn signs         | Germany                           |
-| Brown tourist signs          | France                            |
-| Bollards with red reflectors | Netherlands                       |
-| Left-hand traffic            | Japan, UK, Australia, India, etc. |
+| Feature | Country/Region |
+|---------|---------------|
+| Kanji + blue highway signs | Japan |
+| Cyrillic + wide boulevards | Russia/CIS |
+| White X-shape crossing signs | Canada |
+| Yellow diamond warning signs | USA/Canada |
+| Green autobahn signs | Germany |
+| Brown tourist signs | France |
+| Bollards with red reflectors | Netherlands |
+| Left-hand traffic | Japan, UK, Australia, India, etc. |
 
 ### Systematic Approach
 
@@ -158,12 +158,12 @@ Google Lens performs significantly better on cropped regions than full-scene ima
 
 ### When to Crop
 
-| Element            | Crop Strategy                          |
-| ------------------ | -------------------------------------- |
-| Shop fronts        | Just the storefront and signage        |
-| Landmarks          | Distinctive architectural feature only |
-| Signs              | Just the sign text                     |
-| Churches/buildings | Unique facade portion                  |
+| Element | Crop Strategy |
+|---------|--------------|
+| Shop fronts | Just the storefront and signage |
+| Landmarks | Distinctive architectural feature only |
+| Signs | Just the sign text |
+| Churches/buildings | Unique facade portion |
 
 ### Workflow
 
@@ -180,7 +180,6 @@ Google Lens performs significantly better on cropped regions than full-scene ima
 
 1. Identify reflected text (water reflections, glass surfaces, mirrors)
 2. Flip image horizontally:
-
 ```bash
 # ImageMagick
 convert input.jpg -flop flipped.jpg
@@ -192,7 +191,6 @@ img = Image.open('input.jpg')
 img.transpose(Image.FLIP_LEFT_RIGHT).save('flipped.jpg')
 "
 ```
-
 3. If partially obscured, search readable portion as prefix:
    - `"Aguas de Lind"` → finds "Aguas de Lindoia"
 4. Try both variants for ambiguous letters (e.g., "T" vs "I")
@@ -265,12 +263,12 @@ node(around:200,48.8566,2.3522)["tourism"="hotel"];
 
 ### Key OSM Tags
 
-| Tag       | Values                                          |
-| --------- | ----------------------------------------------- |
-| `shop`    | `newsagent`, `kiosk`, `bakery`, `supermarket`   |
+| Tag | Values |
+|-----|--------|
+| `shop` | `newsagent`, `kiosk`, `bakery`, `supermarket` |
 | `amenity` | `cafe`, `restaurant`, `bank`, `atm`, `pharmacy` |
-| `tourism` | `hotel`, `attraction`, `museum`, `viewpoint`    |
-| `railway` | `station`, `subway_entrance`, `halt`            |
+| `tourism` | `hotel`, `attraction`, `museum`, `viewpoint` |
+| `railway` | `station`, `subway_entrance`, `halt` |
 
 The `around` operator (proximity filter) replaces hours of manual map browsing.
 
@@ -288,29 +286,29 @@ https://graph.baidu.com
 
 ### Engine Selection Guide
 
-| Engine             | Best For                             |
-| ------------------ | ------------------------------------ |
-| Google Lens        | Landmarks, shops, signs (crop first) |
-| TinEye             | Finding oldest/original version      |
-| Yandex             | Faces, Eastern Europe                |
-| Baidu              | Chinese locations                    |
-| Bing Visual Search | Alternative results                  |
+| Engine | Best For |
+|--------|---------|
+| Google Lens | Landmarks, shops, signs (crop first) |
+| TinEye | Finding oldest/original version |
+| Yandex | Faces, Eastern Europe |
+| Baidu | Chinese locations |
+| Bing Visual Search | Alternative results |
 
 ---
 
 ## 14. Confidence Ratings
 
-| Technique                                 | Confidence | Notes                           |
-| ----------------------------------------- | ---------- | ------------------------------- |
-| W3W/Plus Code from verified location      | HIGH       | Depends on GPS precision        |
-| MGRS conversion                           | HIGH       | Mathematical conversion         |
-| Street View panorama match (multi-metric) | HIGH       | Multiple scoring methods        |
-| Road sign country identification          | MEDIUM     | May have exceptions             |
-| Overpass Turbo POI query                  | HIGH       | OSM data authoritative          |
-| Google Lens cropped region match          | MEDIUM     | Depends on uniqueness           |
-| Reflected text reading                    | MEDIUM     | Partial text, ambiguous letters |
+| Technique | Confidence | Notes |
+|-----------|-----------|-------|
+| W3W/Plus Code from verified location | HIGH | Depends on GPS precision |
+| MGRS conversion | HIGH | Mathematical conversion |
+| Street View panorama match (multi-metric) | HIGH | Multiple scoring methods |
+| Road sign country identification | MEDIUM | May have exceptions |
+| Overpass Turbo POI query | HIGH | OSM data authoritative |
+| Google Lens cropped region match | MEDIUM | Depends on uniqueness |
+| Reflected text reading | MEDIUM | Partial text, ambiguous letters |
 
 ---
 
-_Advanced Geolocation Techniques Module v1.0.0_
-_Part of Free OSINT Expert Skill - Phase 5_
+*Advanced Geolocation Techniques Module v1.0.0*
+*Part of Free OSINT Expert Skill - Phase 5*

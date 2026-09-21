@@ -21,8 +21,8 @@ Claude Code skills directory/
 
 ```yaml
 ---
-name: skill-name # optional namespace: namespace:skill-name
-description: Under 200 chars, specific triggers
+name: skill-name  # optional namespace: namespace:skill-name
+description: At most 1024 chars; specific triggers and not-for cases
 license: Optional
 version: Optional
 ---
@@ -31,7 +31,6 @@ version: Optional
 ## Resource Directories
 
 ### scripts/
-
 Executable code for deterministic tasks.
 
 ```
@@ -45,7 +44,6 @@ scripts/
 ```
 
 ### references/
-
 Documentation loaded into context as needed.
 
 ```
@@ -56,7 +54,6 @@ references/
 ```
 
 ### assets/
-
 Files used in output, not loaded into context.
 
 ```
@@ -71,39 +68,29 @@ assets/
 **Format:** kebab-case, descriptive
 
 **Good:**
-
 - `api-endpoints-authentication.md`
 - `database-schema-users.md`
 - `rotate-pdf-script.py`
 
 **Bad:**
-
 - `docs.md` - not descriptive
 - `apiEndpoints.md` - wrong case
 - `1.md` - meaningless
 
 ## Cleanup
 
-After initialization, delete unused example files:
-
-```bash
-# Remove if not needed
-rm -rf scripts/example_script.py
-rm -rf references/example_reference.md
-rm -rf assets/example_asset.txt
-```
+`scripts/init_skill.py` writes only SKILL.md. Delete any resource you added
+during drafting and did not reference from SKILL.md.
 
 ## Scope Consolidation
 
 Related topics should be combined into single skill:
 
 **Consolidate:**
-
 - `cloudflare` + `cloudflare-r2` + `cloudflare-workers` → `devops`
 - `mongodb` + `postgresql` → `databases`
 
 **Keep separate:**
-
 - Unrelated domains
 - Different tech stacks with no overlap
 
@@ -116,7 +103,6 @@ scripts/package_skill.py <skill-path>
 ```
 
 Checks:
-
 - SKILL.md exists
 - Valid frontmatter
 - Proper directory structure

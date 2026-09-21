@@ -79,7 +79,7 @@ If catch yourself thinking:
 - "Is that not happening?" - Assumed without verifying
 - "Will it show us...?" - Should have added evidence gathering
 - "Stop guessing" - Proposing fixes without understanding
-- "Ultrathink this" - Question fundamentals, not just symptoms
+- "Look deeper than that" - Question fundamentals, not just symptoms
 - "We're stuck?" (frustrated) - Approach isn't working
 
 **When see these:** STOP. Return to Phase 1.

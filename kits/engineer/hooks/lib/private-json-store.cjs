@@ -9,14 +9,14 @@ const {
   readJsonFile,
   serializeJson,
   writeJsonFile: writeBoundedJsonFile,
-  writeJsonFileExclusive,
+  writeJsonFileExclusive
 } = require('./bounded-json-file.cjs');
 const {
   abandonRevision,
   allocateRevision,
   readHighestRevision,
   waitForPredecessor,
-  writeRevision,
+  writeRevision
 } = require('./immutable-revision-journal.cjs');
 
 function privateRoot(context) {
@@ -57,13 +57,11 @@ function getContextTempPath(context) {
 function sessionJournalPaths(context, name) {
   const directory = sessionDirectory(context);
   const root = privateRoot(context);
-  return directory && root
-    ? {
-        root,
-        records: path.join(directory, `${name}-revisions`),
-        sequence: path.join(directory, `${name}-sequence`),
-      }
-    : null;
+  return directory && root ? {
+    root,
+    records: path.join(directory, `${name}-revisions`),
+    sequence: path.join(directory, `${name}-sequence`)
+  } : null;
 }
 
 function bindingValue(context) {
@@ -74,19 +72,15 @@ function bindingValue(context) {
     sessionKey: context.sessionKey,
     normalizedSessionId: context.normalizedSessionId,
     canonicalProjectRoot: context.canonicalProjectRoot,
-    sessionLaunchRoot: context.sessionLaunchRoot,
+    sessionLaunchRoot: context.sessionLaunchRoot
   };
 }
 
 function bindingMatchesContext(binding, context) {
   return Boolean(
-    binding &&
-    binding.schemaVersion === 2 &&
-    binding.runtime === context.runtime &&
-    binding.sessionKey === context.sessionKey &&
-    binding.normalizedSessionId === context.normalizedSessionId &&
-    binding.projectKey === context.projectKey &&
-    binding.canonicalProjectRoot === context.canonicalProjectRoot,
+    binding && binding.schemaVersion === 2 && binding.runtime === context.runtime &&
+    binding.sessionKey === context.sessionKey && binding.normalizedSessionId === context.normalizedSessionId &&
+    binding.projectKey === context.projectKey && binding.canonicalProjectRoot === context.canonicalProjectRoot
   );
 }
 
@@ -114,9 +108,7 @@ function bindSessionStateContext(candidate) {
 function resolveBoundSessionContext(candidate) {
   if (!isSessionStateContext(candidate)) return null;
   const root = privateRoot(candidate);
-  return root
-    ? contextFromBinding(candidate, readJsonFile(getSessionBindingPath(candidate), root))
-    : null;
+  return root ? contextFromBinding(candidate, readJsonFile(getSessionBindingPath(candidate), root)) : null;
 }
 
 function writeJsonFile(context, filePath, value, verify = null) {
@@ -126,15 +118,11 @@ function writeJsonFile(context, filePath, value, verify = null) {
 
 function stateMatchesContext(state, context, revision = state?.stateRevision) {
   return Boolean(
-    state &&
-    state.schemaVersion === 2 &&
-    state.runtime === context.runtime &&
-    state.projectKey === context.projectKey &&
-    state.sessionKey === context.sessionKey &&
+    state && state.schemaVersion === 2 && state.runtime === context.runtime &&
+    state.projectKey === context.projectKey && state.sessionKey === context.sessionKey &&
     state.canonicalProjectRoot === context.canonicalProjectRoot &&
     state.sessionLaunchRoot === context.sessionLaunchRoot &&
-    Number.isSafeInteger(state.stateRevision) &&
-    state.stateRevision === revision,
+    Number.isSafeInteger(state.stateRevision) && state.stateRevision === revision
   );
 }
 
@@ -152,14 +140,11 @@ function readSessionState(context) {
   const paths = sessionJournalPaths(context, 'live');
   if (!paths) return null;
   const latest = readHighestRevision(paths.records, Number.MAX_SAFE_INTEGER, paths.root);
-  return latest && stateMatchesContext(latest.value, context, latest.revision)
-    ? latest.value
-    : null;
+  return latest && stateMatchesContext(latest.value, context, latest.revision) ? latest.value : null;
 }
 
 function commitSessionState(context, buildState) {
-  if (!isSessionStateContext(context) || !safeCompatibilityPath(getSessionTempPath(context)))
-    return false;
+  if (!isSessionStateContext(context) || !safeCompatibilityPath(getSessionTempPath(context))) return false;
   const paths = sessionJournalPaths(context, 'live');
   if (!paths) return false;
   const revision = allocateRevision({ root: paths.root, directory: paths.sequence });
@@ -169,15 +154,14 @@ function commitSessionState(context, buildState) {
       root: paths.root,
       directory: paths.records,
       revision,
-      blockedByRevision: revision - 1,
+      blockedByRevision: revision - 1
     });
     return false;
   }
   const currentEntry = readHighestRevision(paths.records, revision, paths.root);
-  const current =
-    currentEntry && stateMatchesContext(currentEntry.value, context, currentEntry.revision)
-      ? currentEntry.value
-      : {};
+  const current = currentEntry && stateMatchesContext(currentEntry.value, context, currentEntry.revision)
+    ? currentEntry.value
+    : {};
   const updated = buildState({ ...current });
   if (!updated || typeof updated !== 'object') {
     abandonRevision({ root: paths.root, directory: paths.records, revision });
@@ -191,7 +175,7 @@ function commitSessionState(context, buildState) {
     sessionKey: context.sessionKey,
     canonicalProjectRoot: context.canonicalProjectRoot,
     sessionLaunchRoot: context.sessionLaunchRoot,
-    stateRevision: revision,
+    stateRevision: revision
   };
   delete next.sessionOrigin;
   if (!writeRevision({ root: paths.root, directory: paths.records, revision, value: next })) {
@@ -208,27 +192,20 @@ function writeSessionState(context, state) {
 }
 
 function updateSessionState(context, updater) {
-  return commitSessionState(context, (current) =>
-    typeof updater === 'function' ? updater(current) : { ...current, ...(updater || {}) },
-  );
+  return commitSessionState(context, current => (
+    typeof updater === 'function' ? updater(current) : { ...current, ...(updater || {}) }
+  ));
 }
 
 function readContextState(context) {
   if (!isSessionStateContext(context)) return null;
   const paths = sessionJournalPaths(context, 'context');
-  return paths
-    ? readHighestRevision(paths.records, Number.MAX_SAFE_INTEGER, paths.root)?.value || null
-    : null;
+  return paths ? readHighestRevision(paths.records, Number.MAX_SAFE_INTEGER, paths.root)?.value || null : null;
 }
 
 function writeContextState(context, value) {
-  if (
-    !isSessionStateContext(context) ||
-    !value ||
-    typeof value !== 'object' ||
-    !safeCompatibilityPath(getContextTempPath(context))
-  )
-    return false;
+  if (!isSessionStateContext(context) || !value || typeof value !== 'object' ||
+      !safeCompatibilityPath(getContextTempPath(context))) return false;
   const paths = sessionJournalPaths(context, 'context');
   if (!paths) return false;
   const revision = allocateRevision({ root: paths.root, directory: paths.sequence });
@@ -238,7 +215,7 @@ function writeContextState(context, value) {
       root: paths.root,
       directory: paths.records,
       revision,
-      blockedByRevision: revision - 1,
+      blockedByRevision: revision - 1
     });
     return false;
   }
@@ -266,5 +243,5 @@ module.exports = {
   updateSessionState,
   writeContextState,
   writeJsonFile,
-  writeSessionState,
+  writeSessionState
 };

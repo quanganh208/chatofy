@@ -6,74 +6,74 @@ Pre-delivery checklist. Complete before finalizing any case report.
 
 ## A — Subject Verification
 
-| #   | Check                                                                   | Pass | Notes |
-| --- | ----------------------------------------------------------------------- | ---- | ----- |
-| A1  | Every subject has a type assigned (person / org / domain / ip / handle) | ☐    |       |
-| A2  | Every subject has a confidence score (0–100)                            | ☐    |       |
-| A3  | Subjects with confidence < 50 are flagged as UNVERIFIED in report       | ☐    |       |
-| A4  | Primary subject identity confirmed by ≥ 2 independent sources           | ☐    |       |
-| A5  | Aliases / alternate names documented if found                           | ☐    |       |
+| # | Check | Pass | Notes |
+|---|-------|------|-------|
+| A1 | Every subject has a type assigned (person / org / domain / ip / handle) | ☐ | |
+| A2 | Every subject has a confidence score (0–100) | ☐ | |
+| A3 | Subjects with confidence < 50 are flagged as UNVERIFIED in report | ☐ | |
+| A4 | Primary subject identity confirmed by ≥ 2 independent sources | ☐ | |
+| A5 | Aliases / alternate names documented if found | ☐ | |
 
 ---
 
 ## B — Finding Verification
 
-| #   | Check                                                                         | Pass | Notes |
-| --- | ----------------------------------------------------------------------------- | ---- | ----- |
-| B1  | Every finding has: ID, type, weight, source URL, collected timestamp          | ☐    |       |
-| B2  | Every CRITICAL or HIGH finding cross-checked against ≥ 1 corroborating source | ☐    |       |
-| B3  | No finding labeled CONFIRMED with only 1 source                               | ☐    |       |
-| B4  | Contradictory findings are documented and flagged — not silently dropped      | ☐    |       |
-| B5  | Findings linked to subject ID (no orphan findings)                            | ☐    |       |
+| # | Check | Pass | Notes |
+|---|-------|------|-------|
+| B1 | Every finding has: ID, type, weight, source URL, collected timestamp | ☐ | |
+| B2 | Every CRITICAL or HIGH finding cross-checked against ≥ 1 corroborating source | ☐ | |
+| B3 | No finding labeled CONFIRMED with only 1 source | ☐ | |
+| B4 | Contradictory findings are documented and flagged — not silently dropped | ☐ | |
+| B5 | Findings linked to subject ID (no orphan findings) | ☐ | |
 
 ---
 
 ## C — Source and Citation Verification
 
-| #   | Check                                                                | Pass | Notes |
-| --- | -------------------------------------------------------------------- | ---- | ----- |
-| C1  | All source URLs verified live at time of collection                  | ☐    |       |
-| C2  | Ephemeral sources (social posts, paste sites) archived before citing | ☐    |       |
-| C3  | No shortened URLs cited — expanded form only                         | ☐    |       |
-| C4  | Access timestamps recorded for all sources                           | ☐    |       |
-| C5  | Chain of custody documented for any screenshots used as findings     | ☐    |       |
+| # | Check | Pass | Notes |
+|---|-------|------|-------|
+| C1 | All source URLs verified live at time of collection | ☐ | |
+| C2 | Ephemeral sources (social posts, paste sites) archived before citing | ☐ | |
+| C3 | No shortened URLs cited — expanded form only | ☐ | |
+| C4 | Access timestamps recorded for all sources | ☐ | |
+| C5 | Chain of custody documented for any screenshots used as findings | ☐ | |
 
 ---
 
 ## D — Coverage Verification
 
-| #   | Check                                                    | Pass | Notes |
-| --- | -------------------------------------------------------- | ---- | ----- |
-| D1  | Coverage matrix completed for primary subject type       | ☐    |       |
-| D2  | All skipped discovery paths have documented reason       | ☐    |       |
-| D3  | Null results logged (did not hide empty paths)           | ☐    |       |
-| D4  | Coverage score ≥ 60% for primary subject                 | ☐    |       |
-| D5  | Any paths not checked due to legal constraints are noted | ☐    |       |
+| # | Check | Pass | Notes |
+|---|-------|------|-------|
+| D1 | Coverage matrix completed for primary subject type | ☐ | |
+| D2 | All skipped discovery paths have documented reason | ☐ | |
+| D3 | Null results logged (did not hide empty paths) | ☐ | |
+| D4 | Coverage score ≥ 60% for primary subject | ☐ | |
+| D5 | Any paths not checked due to legal constraints are noted | ☐ | |
 
 ---
 
 ## E — Report Verification
 
-| #   | Check                                                                          | Pass | Notes |
-| --- | ------------------------------------------------------------------------------ | ---- | ----- |
-| E1  | Report format matches intended audience                                        | ☐    |       |
-| E2  | Confidence levels stated explicitly — no unqualified factual assertions        | ☐    |       |
-| E3  | Limitations section present (what was not checked and why)                     | ☐    |       |
-| E4  | No PII of private individuals unless directly relevant and legally permissible | ☐    |       |
-| E5  | All cross-references in report point to current file paths                     | ☐    |       |
-| E6  | Report classification level assigned and visible                               | ☐    |       |
+| # | Check | Pass | Notes |
+|---|-------|------|-------|
+| E1 | Report format matches intended audience | ☐ | |
+| E2 | Confidence levels stated explicitly — no unqualified factual assertions | ☐ | |
+| E3 | Limitations section present (what was not checked and why) | ☐ | |
+| E4 | No PII of private individuals unless directly relevant and legally permissible | ☐ | |
+| E5 | All cross-references in report point to current file paths | ☐ | |
+| E6 | Report classification level assigned and visible | ☐ | |
 
 ---
 
 ## F — Legal and Ethics Verification
 
-| #   | Check                                                            | Pass | Notes |
-| --- | ---------------------------------------------------------------- | ---- | ----- |
-| F1  | All collection methods were legal in the applicable jurisdiction | ☐    |       |
-| F2  | No unauthorized account access occurred                          | ☐    |       |
-| F3  | No pretexting or deception used to obtain information            | ☐    |       |
-| F4  | Client authorization (if applicable) documented in case record   | ☐    |       |
-| F5  | Case scope not exceeded                                          | ☐    |       |
+| # | Check | Pass | Notes |
+|---|-------|------|-------|
+| F1 | All collection methods were legal in the applicable jurisdiction | ☐ | |
+| F2 | No unauthorized account access occurred | ☐ | |
+| F3 | No pretexting or deception used to obtain information | ☐ | |
+| F4 | Client authorization (if applicable) documented in case record | ☐ | |
+| F5 | Case scope not exceeded | ☐ | |
 
 ---
 
@@ -119,12 +119,12 @@ Scans all `source_url` values in the active case and reports link health.
 
 ### URL Status Classifications
 
-| Status      | Condition                               |
-| ----------- | --------------------------------------- |
-| Accessible  | HTTP 200                                |
-| Redirected  | HTTP 301 / 302 — note final destination |
-| Broken      | HTTP 4xx or 5xx                         |
-| Unreachable | Connection timeout or DNS failure       |
+| Status       | Condition                                  |
+|--------------|--------------------------------------------|
+| Accessible   | HTTP 200                                   |
+| Redirected   | HTTP 301 / 302 — note final destination    |
+| Broken       | HTTP 4xx or 5xx                            |
+| Unreachable  | Connection timeout or DNS failure          |
 
 ### Implementation
 
@@ -188,4 +188,4 @@ Tip: /source-check --archive-missing to submit unreachable
 
 ---
 
-_See also: [`validation/coverage-matrix.md`](./coverage-matrix.md) | [`validation/quality-scoring.md`](./quality-scoring.md)_
+*See also: [`validation/coverage-matrix.md`](./coverage-matrix.md) | [`validation/quality-scoring.md`](./quality-scoring.md)*

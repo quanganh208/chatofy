@@ -7,7 +7,6 @@ Reusable UI elements for Free OSINT Expert text-based interface.
 ## 1. Header/Banner Styles
 
 ### Main Application Banner
-
 ```
 ╔═══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
@@ -25,7 +24,6 @@ Reusable UI elements for Free OSINT Expert text-based interface.
 ```
 
 ### Compact Header
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  OSINT INVESTIGATOR v1.0  │  Case: PHOENIX  │  Status: ACTIVE  │  14:32:18 │
@@ -33,7 +31,6 @@ Reusable UI elements for Free OSINT Expert text-based interface.
 ```
 
 ### Minimal Header
-
 ```
 [OSINT-v2] PHOENIX | ACTIVE | 14:32
 ```
@@ -41,7 +38,6 @@ Reusable UI elements for Free OSINT Expert text-based interface.
 ### Section Banners
 
 **Main Section**:
-
 ```
 ╔═══════════════════════════════════════════════════════════════════════════════╗
 ║                           INVESTIGATION DASHBOARD                             ║
@@ -49,7 +45,6 @@ Reusable UI elements for Free OSINT Expert text-based interface.
 ```
 
 **Sub-Section**:
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                        ENTITY RELATIONSHIPS                                  │
@@ -57,7 +52,6 @@ Reusable UI elements for Free OSINT Expert text-based interface.
 ```
 
 **Sub-Sub-Section**:
-
 ```
 ─── CONTACT INFORMATION ─────────────────────────────────────────────────────
 ```
@@ -65,25 +59,21 @@ Reusable UI elements for Free OSINT Expert text-based interface.
 ### Decorative Dividers
 
 **Heavy Divider**:
-
 ```
 ═══════════════════════════════════════════════════════════════════════════════
 ```
 
 **Medium Divider**:
-
 ```
 ───────────────────────────────────────────────────────────────────────────────
 ```
 
 **Light Divider**:
-
 ```
 ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈
 ```
 
 **Dotted Divider**:
-
 ```
 ···············································································
 ```
@@ -91,7 +81,6 @@ Reusable UI elements for Free OSINT Expert text-based interface.
 ### Alert Banners
 
 **Critical**:
-
 ```
 ╔═══════════════════════════════════════════════════════════════════════════════╗
 ║  ⚠️  CRITICAL ALERT  ⚠️                                                       ║
@@ -101,7 +90,6 @@ Reusable UI elements for Free OSINT Expert text-based interface.
 ```
 
 **Warning**:
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  ⚠️  WARNING: 3 entities have low confidence scores and need verification   │
@@ -109,7 +97,6 @@ Reusable UI elements for Free OSINT Expert text-based interface.
 ```
 
 **Info**:
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  ℹ️  INFO: Daily automated scan completed successfully                       │
@@ -117,7 +104,6 @@ Reusable UI elements for Free OSINT Expert text-based interface.
 ```
 
 **Success**:
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  ✓ SUCCESS: Report generated and saved to exports/                          │
@@ -131,25 +117,21 @@ Reusable UI elements for Free OSINT Expert text-based interface.
 ### Standard Dividers
 
 **Full Width**:
-
 ```
 ───────────────────────────────────────────────────────────────────────────────
 ```
 
 **Double Line**:
-
 ```
 ═══════════════════════════════════════════════════════════════════════════════
 ```
 
 **With Title**:
-
 ```
 ─────────────────── SECTION TITLE ────────────────────────────────────────────
 ```
 
 **Centered Title**:
-
 ```
 ────────────┬ SECTION TITLE ┬──────────────────────────────────────────────────
 ```
@@ -157,7 +139,6 @@ Reusable UI elements for Free OSINT Expert text-based interface.
 ### Decorative Dividers
 
 **Box Style**:
-
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              SECTION HEADER                                  │
@@ -165,13 +146,11 @@ Reusable UI elements for Free OSINT Expert text-based interface.
 ```
 
 **Shadow Style**:
-
 ```
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 ```
 
 **Gradient Style**:
-
 ```
 ███████████████████████████████████████████████████████████████████████████████
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
@@ -182,19 +161,16 @@ Reusable UI elements for Free OSINT Expert text-based interface.
 ### Content Separators
 
 **Between Items**:
-
 ```
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 **Sub-item**:
-
 ```
   ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─
 ```
 
 **Related Items**:
-
 ```
   · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · ·
 ```
@@ -205,18 +181,17 @@ Reusable UI elements for Free OSINT Expert text-based interface.
 
 ### Completion Status
 
-| Status      | Symbol | Meaning                    |
-| ----------- | ------ | -------------------------- |
-| Complete    | ✓      | Task finished successfully |
-| Verified    | ✓      | Information confirmed      |
-| In Progress | ⏳     | Currently processing       |
-| Pending     | ○      | Waiting to start           |
-| Blocked     | ✗      | Cannot proceed             |
-| Skipped     | ⊘      | Intentionally bypassed     |
-| Unknown     | ?      | Status unclear             |
+| Status | Symbol | Meaning |
+|--------|--------|---------|
+| Complete | ✓ | Task finished successfully |
+| Verified | ✓ | Information confirmed |
+| In Progress | ⏳ | Currently processing |
+| Pending | ○ | Waiting to start |
+| Blocked | ✗ | Cannot proceed |
+| Skipped | ⊘ | Intentionally bypassed |
+| Unknown | ? | Status unclear |
 
 ### Example Usage
-
 ```
 TASK LIST:
   ✓ Initial reconnaissance completed
@@ -229,16 +204,15 @@ TASK LIST:
 
 ### Data Quality Indicators
 
-| Quality   | Symbol | Meaning                     |
-| --------- | ------ | --------------------------- |
-| Excellent | ★★★★★  | Multiple verified sources   |
-| Good      | ★★★★☆  | Primary source confirmed    |
-| Fair      | ★★★☆☆  | Single source, no conflicts |
-| Poor      | ★★☆☆☆  | Conflicting information     |
-| Unknown   | ☆☆☆☆☆  | No assessment possible      |
+| Quality | Symbol | Meaning |
+|---------|--------|---------|
+| Excellent | ★★★★★ | Multiple verified sources |
+| Good | ★★★★☆ | Primary source confirmed |
+| Fair | ★★★☆☆ | Single source, no conflicts |
+| Poor | ★★☆☆☆ | Conflicting information |
+| Unknown | ☆☆☆☆☆ | No assessment possible |
 
 ### Example Usage
-
 ```
 SOURCE QUALITY:
   ★★★★★ LinkedIn Profile (verified)
@@ -250,18 +224,17 @@ SOURCE QUALITY:
 
 ### Activity Indicators
 
-| Activity   | Symbol | Meaning                |
-| ---------- | ------ | ---------------------- |
-| Added      | ●      | New item created       |
-| Updated    | ▲      | Existing item modified |
-| Removed    | ▼      | Item deleted           |
-| Connected  | →      | Link established       |
-| Discovered | ⚡     | Found during scan      |
-| Verified   | ✓      | Confirmed authentic    |
-| Failed     | ✗      | Error occurred         |
+| Activity | Symbol | Meaning |
+|----------|--------|---------|
+| Added | ● | New item created |
+| Updated | ▲ | Existing item modified |
+| Removed | ▼ | Item deleted |
+| Connected | → | Link established |
+| Discovered | ⚡ | Found during scan |
+| Verified | ✓ | Confirmed authentic |
+| Failed | ✗ | Error occurred |
 
 ### Example Usage
-
 ```
 RECENT ACTIVITY:
   14:32 ● New entity discovered: "Acme Corp"
@@ -279,26 +252,22 @@ RECENT ACTIVITY:
 ### Percentage Bars
 
 **Standard Bar (20 chars)**:
-
 ```
 Confidence: 85% [████████████████████░░░░░░░░░░░░░░░░]
 ```
 
 **Compact Bar (10 chars)**:
-
 ```
 Confidence: 85% [████████░░]
 ```
 
 **Block Bar**:
-
 ```
 Confidence: 85% [████████████████████░░░░░░░░░░░░░░░░]
                   ████ = Verified  ░░░░ = Uncertain
 ```
 
 **Gradient Bar**:
-
 ```
 Confidence: 85% [████████████████████░░░░░░░░░░░░░░░░]
                 High ████████████████████ Medium ░░░░░░ Low
@@ -307,7 +276,6 @@ Confidence: 85% [████████████████████░
 ### Confidence Tiers
 
 **Tier Display**:
-
 ```
 CONFIDENCE ASSESSMENT:
   ┌─────────────────────────────────────────────────────────────────────┐
@@ -324,7 +292,6 @@ CONFIDENCE ASSESSMENT:
 ```
 
 ### Source Confidence Matrix
-
 ```
 CONFIDENCE BY SOURCE TYPE:
   ┌────────────────────┬───────────┬─────────────────────────────────────────┐
@@ -340,7 +307,6 @@ CONFIDENCE BY SOURCE TYPE:
 ```
 
 ### Confidence Alerts
-
 ```
 LOW CONFIDENCE ALERTS:
   ⚠️  3 entities below 40% confidence require verification
@@ -360,7 +326,6 @@ RECOMMENDATIONS:
 ### Risk Score Display
 
 **Numerical with Bar**:
-
 ```
 RISK SCORE: 73/100 [████████████████████████████░░░░░░░░]
                    ▲
@@ -368,7 +333,6 @@ RISK SCORE: 73/100 [████████████████████
 ```
 
 **With Trend**:
-
 ```
 RISK SCORE: 73/100 [████████████████████████████░░░░░░░░] ↑ +12
                                     ▲
@@ -376,7 +340,6 @@ RISK SCORE: 73/100 [████████████████████
 ```
 
 **Historical**:
-
 ```
 RISK HISTORY (30 days):
   Day  1-10: ████████░░░░░░░░░░░░░░ 35  LOW
@@ -389,7 +352,6 @@ RISK HISTORY (30 days):
 ### Risk Level Badges
 
 **Standard Badges**:
-
 ```
 ╔═══════════════════════════════════════════════════════════════════════════════╗
 ║  RISK LEVELS                                                                  ║
@@ -424,7 +386,6 @@ RISK HISTORY (30 days):
 ```
 
 ### Risk Distribution
-
 ```
 RISK DISTRIBUTION:
   CRITICAL (90-100)  ████████████████████████████████  3 findings
@@ -435,7 +396,6 @@ RISK DISTRIBUTION:
 ```
 
 ### Risk Factor Breakdown
-
 ```
 RISK FACTORS:
   ┌───────────────────────┬─────────┬──────────────────────────────────────────┐
@@ -639,7 +599,6 @@ RISK FACTORS:
 ### Buttons
 
 **Standard Button**:
-
 ```
 ┌──────────────┐
 │  [ACTION]    │
@@ -647,7 +606,6 @@ RISK FACTORS:
 ```
 
 **Primary Button**:
-
 ```
 ╔══════════════╗
 ║  [ACTION]    ║
@@ -655,7 +613,6 @@ RISK FACTORS:
 ```
 
 **Disabled Button**:
-
 ```
 ┌──────────────┐
 │  [disabled]  │
@@ -663,7 +620,6 @@ RISK FACTORS:
 ```
 
 **Button Group**:
-
 ```
 ┌──────────┐┌──────────┐┌──────────┐
 │  [Save]  ││ [Cancel] ││ [Delete] │
@@ -673,31 +629,26 @@ RISK FACTORS:
 ### Input Fields
 
 **Text Input**:
-
 ```
 Label: [________________________]
 ```
 
 **Text Input with Value**:
-
 ```
 Label: [John Doe________________]
 ```
 
 **Number Input**:
-
 ```
 Confidence: [85%____] [+][-]
 ```
 
 **Dropdown**:
-
 ```
 Entity Type: [Person ▼]
 ```
 
 **Multi-line Text**:
-
 ```
 Description:
 [________________________________]
@@ -708,7 +659,6 @@ Description:
 ### Cards
 
 **Info Card**:
-
 ```
 ┌────────────────────────────────┐
 │  Title                         │
@@ -721,7 +671,6 @@ Description:
 ```
 
 **Metric Card**:
-
 ```
 ┌──────────────────┐
 │    ENTITIES      │
@@ -733,7 +682,6 @@ Description:
 ```
 
 **Alert Card**:
-
 ```
 ╔════════════════════════════════╗
 ║  ⚠️  WARNING                   ║
@@ -747,7 +695,6 @@ Description:
 ### Lists
 
 **Bullet List**:
-
 ```
   • Item one
   • Item two
@@ -755,7 +702,6 @@ Description:
 ```
 
 **Numbered List**:
-
 ```
   1. First item
   2. Second item
@@ -763,17 +709,15 @@ Description:
 ```
 
 **Definition List**:
-
 ```
   Term 1
     → Definition of term 1
-
+  
   Term 2
     → Definition of term 2
 ```
 
 **Table List**:
-
 ```
   ┌──────────┬──────────┬──────────┐
   │ Column 1 │ Column 2 │ Column 3 │
@@ -786,19 +730,16 @@ Description:
 ### Navigation
 
 **Breadcrumbs**:
-
 ```
 Home > Cases > PHOENIX > Entities > John Doe
 ```
 
 **Pagination**:
-
 ```
 [< Previous] Page 3 of 12 [Next >]
 ```
 
 **Tabs**:
-
 ```
 [Overview] [Entities] [Sources] [Timeline] [Reports] [Settings]
           ═══════════════════════════════════════════════════
@@ -806,7 +747,6 @@ Home > Cases > PHOENIX > Entities > John Doe
 ```
 
 **Vertical Menu**:
-
 ```
   ┌─────────────────────┐
   │ > Dashboard         │
@@ -820,4 +760,4 @@ Home > Cases > PHOENIX > Entities > John Doe
 
 ---
 
-_Version: 1.0 | Components: 50+ | Last Updated: 2026-02-27_
+*Version: 1.0 | Components: 50+ | Last Updated: 2026-02-27*

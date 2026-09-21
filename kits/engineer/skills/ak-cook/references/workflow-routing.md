@@ -5,18 +5,18 @@ map only; load the owning `SKILL.md` before executing details.
 
 ## Core Sequences
 
-| User intent                            | Sequence                                                                                                                       |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Implement a feature                    | `/ak:brainstorm` -> `the engineer plan skill` -> `/ak:cook` -> `the installed test skill` -> `the installed code-review skill` |
-| Execute an accepted plan               | reuse its brainstorm contract -> `/ak:cook <plan-path>`                                                                        |
-| Quick implementation                   | bounded brainstorm gate -> `/ak:cook --fast`                                                                                   |
-| Bug, error, failed test, or CI failure | opening intent frame -> `/ak:fix`                                                                                              |
-| Investigate before deciding            | `/ak:scout` -> `the engineer debug skill` -> `/ak:brainstorm` -> `the engineer plan skill`                                     |
-| Review a PR                            | `the installed review-pr skill <PR>`                                                                                           |
-| Fix review feedback                    | `the installed review-pr skill <PR> --fix` or `/ak:fix --parallel`                                                             |
-| Ship a completed branch                | `the engineer ship skill`                                                                                                      |
-| Explain work visually                  | `/ak:preview --explain` or `/ak:preview --html --diff`                                                                         |
-| Update project docs                    | `/ak:docs update`                                                                                                              |
+| User intent | Sequence |
+|---|---|
+| Implement a feature | `/ak:brainstorm` -> `the engineer plan skill` -> `/ak:cook` -> `the installed test skill` -> `the installed code-review skill` |
+| Execute an accepted plan | reuse its brainstorm contract -> `/ak:cook <plan-path>` |
+| Quick implementation | bounded brainstorm gate -> `/ak:cook --fast` |
+| Bug, error, failed test, or CI failure | opening intent frame -> `/ak:fix` |
+| Investigate before deciding | `/ak:scout` -> `the engineer debug skill` -> `/ak:brainstorm` -> `the engineer plan skill` |
+| Review a PR | `the installed review-pr skill <PR>` |
+| Fix review feedback | `the installed review-pr skill <PR> --fix` or `/ak:fix --parallel` |
+| Ship a completed branch | `the engineer ship skill` |
+| Explain work visually | `/ak:preview --explain` or `/ak:preview --html --diff` |
+| Update project docs | `/ak:docs update` |
 
 ## Implementation Owner
 

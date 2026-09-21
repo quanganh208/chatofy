@@ -22,11 +22,9 @@ flowchart LR
 ## Scope
 
 **In scope**
-
 - <!-- concrete deliverables -->
 
 **Out of scope / non-goals**
-
 - <!-- explicitly excluded, to prevent scope creep -->
 
 ## Acceptance criteria

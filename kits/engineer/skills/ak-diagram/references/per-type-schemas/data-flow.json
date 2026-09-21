@@ -2,11 +2,18 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ak:diagram data-flow spec",
   "type": "object",
-  "required": ["nodes", "edges"],
+  "required": [
+    "nodes",
+    "edges"
+  ],
   "properties": {
     "variant": {
       "type": "string",
-      "enum": ["light", "dark", "full"],
+      "enum": [
+        "light",
+        "dark",
+        "full"
+      ],
       "default": "light"
     },
     "title": {
@@ -22,7 +29,10 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "label"],
+        "required": [
+          "id",
+          "label"
+        ],
         "properties": {
           "id": {
             "type": "string"
@@ -37,7 +47,10 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["from", "to"],
+        "required": [
+          "from",
+          "to"
+        ],
         "properties": {
           "from": {
             "type": "string"

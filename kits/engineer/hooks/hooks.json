@@ -7,7 +7,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/dev-rules-reminder.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/dev-rules-reminder.cjs"
+            ]
           }
         ]
       },
@@ -17,7 +19,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/plan-format-kanban.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/plan-format-kanban.cjs"
+            ]
           }
         ]
       },
@@ -27,7 +31,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/session-state.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/session-state.cjs"
+            ]
           }
         ]
       },
@@ -37,7 +43,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/usage-quota-cache-refresh.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/usage-quota-cache-refresh.cjs"
+            ]
           }
         ]
       }
@@ -49,7 +57,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/precompact-capture.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/precompact-capture.cjs"
+            ]
           }
         ]
       }
@@ -61,7 +71,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/descriptive-name.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/descriptive-name.cjs"
+            ]
           }
         ]
       },
@@ -71,7 +83,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/privacy-block.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/privacy-block.cjs"
+            ]
           }
         ]
       },
@@ -81,7 +95,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/scout-block.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/scout-block.cjs"
+            ]
           }
         ]
       }
@@ -93,7 +109,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/session-init.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/session-init.cjs"
+            ]
           }
         ]
       }
@@ -105,17 +123,23 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/cook-after-plan-reminder.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/cook-after-plan-reminder.cjs"
+            ]
           },
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/session-state.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/session-state.cjs"
+            ]
           },
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/usage-quota-cache-refresh.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/usage-quota-cache-refresh.cjs"
+            ]
           }
         ]
       }
@@ -127,12 +151,16 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/subagent-init.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/subagent-init.cjs"
+            ]
           },
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/team-context-inject.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/team-context-inject.cjs"
+            ]
           }
         ]
       }
@@ -144,7 +172,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/session-state.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/session-state.cjs"
+            ]
           }
         ]
       }
@@ -156,12 +186,16 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/secret-output-guardrail.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/secret-output-guardrail.cjs"
+            ]
           },
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/simplify-gate.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/simplify-gate.cjs"
+            ]
           }
         ]
       },
@@ -171,22 +205,30 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/secret-output-guardrail.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/secret-output-guardrail.cjs"
+            ]
           },
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/dev-rules-reminder.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/dev-rules-reminder.cjs"
+            ]
           },
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/simplify-gate.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/simplify-gate.cjs"
+            ]
           },
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/usage-quota-cache-refresh.cjs"]
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/usage-quota-cache-refresh.cjs"
+            ]
           }
         ]
       }

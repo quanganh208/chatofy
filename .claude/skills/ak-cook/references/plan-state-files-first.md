@@ -131,8 +131,10 @@ because the CLI splits them:
    --status in-progress` and stop — never blind-complete a half-done plan.
 3. When the plan is actually complete, `ak plan update <id> --status completed`.
    `--status` is file-owned: it rewrites the `plan.md` front-matter `status:`
-   (the canonical state) and updates the index in one operation. The ship's own
-   `git add -A` + commit then carries the finalized plan files onto the branch,
+   (the canonical state) and updates the index in one operation. Inspect the
+   finalized plan diff, then stage only the intended, owned plan files with
+   `git add -- <owned-plan-paths>`, preserving unrelated staged and dirty work.
+   The ship commit then carries those finalized plan files onto the branch,
    so `status: completed` reaches the target branch in the **same merge** as the
    code it describes — the files can never claim completion for code that did not
    land. Make this a synchronous/foreground step; do not fold it into a

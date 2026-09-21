@@ -3,21 +3,18 @@
 
 try {
   const fs = require('fs');
-  const { createSessionStateContext, isHookEnabled } = require('./lib/ck-config-utils.cjs');
+  const {
+    createSessionStateContext,
+    isHookEnabled
+  } = require('./lib/ck-config-utils.cjs');
   const {
     persistProjectCheckpoint,
-    refreshStatuslineSnapshot,
+    refreshStatuslineSnapshot
   } = require('./lib/session-state-manager.cjs');
 
   if (!isHookEnabled('session-state')) process.exit(0);
 
-  const TRACKED_POST_TOOL_EVENTS = new Set([
-    'Agent',
-    'Task',
-    'TaskCreate',
-    'TaskUpdate',
-    'TodoWrite',
-  ]);
+  const TRACKED_POST_TOOL_EVENTS = new Set(['Agent', 'Task', 'TaskCreate', 'TaskUpdate', 'TodoWrite']);
 
   async function main() {
     const stdin = fs.readFileSync(0, 'utf8').trim();
@@ -26,7 +23,7 @@ try {
     const context = createSessionStateContext({
       sessionId: data.session_id,
       cwd: process['env'].CK_PROJECT_ROOT || data.cwd || process.cwd(),
-      requireBinding: true,
+      requireBinding: true
     });
     if (!context) process.exit(0);
 

@@ -39,31 +39,17 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
   --model gemini-2.5-flash
 ```
 
-## Decision Framework
+## Decision framework
 
-### Score â‰¥ 8/10: Proceed to Integration
-**Actions**:
-- Optimize for web delivery
-- Create responsive variants
-- Document implementation guidelines
-- Extract color palette for CSS variables
+- When the asset meets the brief, has adequate resolution, and integrates without legibility or visual defects, optimize and integrate it.
+- For a specific defect, repair or regenerate that area and check the result again.
+- For a mismatch to the requested content or brand, revise the prompt or select another asset. A low subjective score alone does not require generation, and a high score does not excuse a concrete defect.
 
-### Score 6-7/10: Minor Refinements Needed
-**Actions**:
-- Use `ak:media-processing` skill for adjustments (brightness/contrast/saturation)
-- Consider selective regeneration of problem areas
-- May proceed with caution if time-constrained
-
-### Score < 6/10: Major Iteration Required
-**Actions**:
-- Analyze specific failure points from report
-- Refine generation prompt substantially
-- Regenerate with corrected parameters
-- Consider alternative aesthetic approach
+Use native vision when available; provider commands above are optional alternatives requiring the user's authorized provider setup. Do not force multiple generations or reports for an already-suitable asset.
 
 ## Before Finishing
 
-Regardless of score, once the asset is integrated into the frontend build,
+Once the asset is integrated into the frontend build,
 run the handoff gate in `../../ak-design/references/handoff-gate.md` before
 presenting the result as done: fix each failing dimension, or list it under
 "Known limitations" in the handoff template — never ship a known failure

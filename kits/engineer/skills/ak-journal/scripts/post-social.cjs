@@ -53,8 +53,7 @@ const RATE_LIMIT_PATTERN = /rate.?limit|\b429\b/i;
 const RETRY_AFTER_PATTERN = /retry-after"?\s*[:=]\s*"?(\d+)/i;
 // A channel's posts:create rejecting an attached medium downstream (format/size unsupported
 // for that platform) — see Phase 8 risk assessment. Distinct from a rate limit.
-const MEDIA_REJECT_PATTERN =
-  /media.*(unsupported|rejected|invalid format|too large|not supported)/i;
+const MEDIA_REJECT_PATTERN = /media.*(unsupported|rejected|invalid format|too large|not supported)/i;
 
 function parseCliArgs(argv) {
   return parseArgs({
@@ -93,9 +92,7 @@ function readChannelBodies(channelBodiesPath) {
   const raw = fs.readFileSync(channelBodiesPath, 'utf8');
   const parsed = JSON.parse(raw);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error(
-      `--channel-bodies must be a JSON object mapping channel id to body: ${channelBodiesPath}`,
-    );
+    throw new Error(`--channel-bodies must be a JSON object mapping channel id to body: ${channelBodiesPath}`);
   }
   return parsed;
 }
@@ -106,12 +103,7 @@ function journalStateSlug(journalFile) {
 }
 
 function journalStateDir(projectRoot, journalFile) {
-  return path.join(
-    projectRoot,
-    'plans',
-    'reports',
-    `journal-media-${journalStateSlug(journalFile)}`,
-  );
+  return path.join(projectRoot, 'plans', 'reports', `journal-media-${journalStateSlug(journalFile)}`);
 }
 
 function readPostedState(statePath) {
@@ -137,8 +129,7 @@ function writePostedState(statePath, state) {
 function validateChannelShape(channel) {
   if (!channel || typeof channel !== 'object') return 'channel is not an object';
   if (!channel.id || typeof channel.id !== 'string') return 'channel.id is missing or not a string';
-  if (!channel.platform || typeof channel.platform !== 'string')
-    return 'channel.platform is missing or not a string';
+  if (!channel.platform || typeof channel.platform !== 'string') return 'channel.platform is missing or not a string';
   if (!channel.account_id || typeof channel.account_id !== 'string') {
     return 'channel.account_id is missing or not a string';
   }
@@ -146,15 +137,7 @@ function validateChannelShape(channel) {
 }
 
 function buildZernioArgv({ body, channel, threadPosts, mediaUrls = [] }) {
-  const argv = [
-    '-y',
-    ZERNIO_PACKAGE,
-    'posts:create',
-    '--text',
-    body,
-    '--accounts',
-    channel.account_id,
-  ];
+  const argv = ['-y', ZERNIO_PACKAGE, 'posts:create', '--text', body, '--accounts', channel.account_id];
   if (threadPosts && threadPosts.length > 1) {
     argv.push('--threadJson', JSON.stringify(threadPosts));
   }
@@ -180,9 +163,7 @@ function mockZernioResponse(argv, env) {
     const filePath = argv[argv.indexOf('media:upload') + 1];
     return {
       status: 0,
-      stdout: JSON.stringify({
-        data: { url: `https://mock.zernio.local/media/${path.basename(filePath)}` },
-      }),
+      stdout: JSON.stringify({ data: { url: `https://mock.zernio.local/media/${path.basename(filePath)}` } }),
       stderr: '',
       signal: null,
     };
@@ -193,18 +174,11 @@ function mockZernioResponse(argv, env) {
   const hasMedia = argv.includes('--media');
   const rejectAccounts = (env.MOCK_ZERNIO_MEDIA_REJECT_ACCOUNTS || '').split(',').filter(Boolean);
   if (hasMedia && accountId && rejectAccounts.includes(accountId)) {
-    return {
-      status: 1,
-      stdout: '',
-      stderr: 'error: media format unsupported for this account/platform',
-      signal: null,
-    };
+    return { status: 1, stdout: '', stderr: 'error: media format unsupported for this account/platform', signal: null };
   }
   return {
     status: 0,
-    stdout: JSON.stringify({
-      data: { url: `https://mock.zernio.local/posts/${accountId || 'unknown'}` },
-    }),
+    stdout: JSON.stringify({ data: { url: `https://mock.zernio.local/posts/${accountId || 'unknown'}` } }),
     stderr: '',
     signal: null,
   };
@@ -286,15 +260,13 @@ function uploadMediaFiles(paths, env) {
     const result = runZernio(argv, env);
     if (result.status !== 0) {
       console.error(
-        `[post-social] warning: media upload failed for ${path.basename(filePath)}, continuing without it: ${redactSecrets((result.stderr || result.stdout || 'unknown error').trim(), env)}`,
+        `[post-social] warning: media upload failed for ${path.basename(filePath)}, continuing without it: ${redactSecrets((result.stderr || result.stdout || 'unknown error').trim(), env)}`
       );
       continue;
     }
     const url = extractPostUrl(result.stdout);
     if (!url) {
-      console.error(
-        `[post-social] warning: media:upload returned no URL for ${path.basename(filePath)}, skipping`,
-      );
+      console.error(`[post-social] warning: media:upload returned no URL for ${path.basename(filePath)}, skipping`);
       continue;
     }
     urls.push(url);
@@ -324,13 +296,7 @@ function sleepSync(ms) {
 function postToChannel({ channel, body, isDryRun, env, mediaUrls = [] }) {
   const shapeError = validateChannelShape(channel);
   if (shapeError) {
-    return {
-      channelId: (channel && channel.id) || '(unknown)',
-      status: 'INVALID_CHANNEL',
-      argv: null,
-      url: null,
-      error: shapeError,
-    };
+    return { channelId: (channel && channel.id) || '(unknown)', status: 'INVALID_CHANNEL', argv: null, url: null, error: shapeError };
   }
 
   const usesThread = THREAD_PLATFORMS.has(channel.platform);
@@ -375,46 +341,21 @@ function postToChannel({ channel, body, isDryRun, env, mediaUrls = [] }) {
     sleepSync(Math.min(retryAfterSeconds, 30) * 1000);
     result = runZernio(argv, env);
     if (result.status !== 0) {
-      return {
-        channelId: channel.id,
-        status: 'RATE_LIMITED',
-        argv,
-        url: null,
-        error: (result.stderr || result.stdout || '').trim(),
-      };
+      return { channelId: channel.id, status: 'RATE_LIMITED', argv, url: null, error: (result.stderr || result.stdout || '').trim() };
     }
   }
 
   if (result.status !== 0) {
-    return {
-      channelId: channel.id,
-      status: 'FAILED',
-      argv,
-      url: null,
-      error: (result.stderr || result.stdout || '').trim(),
-    };
+    return { channelId: channel.id, status: 'FAILED', argv, url: null, error: (result.stderr || result.stdout || '').trim() };
   }
 
-  return {
-    channelId: channel.id,
-    status: 'SUCCESS',
-    argv,
-    url: extractPostUrl(result.stdout),
-    error: null,
-  };
+  return { channelId: channel.id, status: 'SUCCESS', argv, url: extractPostUrl(result.stdout), error: null };
 }
 
 function printSummaryTable(results, statePath) {
   console.error('channel\tstatus\turl\terror');
   for (const r of results) {
-    console.error(
-      [
-        r.channelId,
-        r.status,
-        r.url || '',
-        r.error ? r.error.slice(0, 160).replace(/\s+/g, ' ') : '',
-      ].join('\t'),
-    );
+    console.error([r.channelId, r.status, r.url || '', r.error ? r.error.slice(0, 160).replace(/\s+/g, ' ') : ''].join('\t'));
   }
   console.error(`posted-state: ${statePath}`);
 }
@@ -431,7 +372,7 @@ async function main() {
 
   if (values.help) {
     console.error(
-      'Usage: node post-social.cjs --journal-file <path> [--channels <ids>] [--channel-bodies <path>] [--dry-run] [--json] [--image <path-or-glob>]... [--image-ai <prompt>] [--video <path-or-glob>]... [--video-ai <prompt>]',
+      'Usage: node post-social.cjs --journal-file <path> [--channels <ids>] [--channel-bodies <path>] [--dry-run] [--json] [--image <path-or-glob>]... [--image-ai <prompt>] [--video <path-or-glob>]... [--video-ai <prompt>]'
     );
     return;
   }
@@ -451,15 +392,12 @@ async function main() {
 
   const isDryRun = Boolean(values['dry-run']) || process.env.POST_SOCIAL_DRY_RUN === '1';
 
-  const config = resolveConfig({
-    projectRoot: values['project-root'],
-    cwd: path.dirname(journalFile),
-  });
+  const config = resolveConfig({ projectRoot: values['project-root'], cwd: path.dirname(journalFile) });
   const env = { ...resolveAllEnv(config.projectRoot), ZERNIO_CLI_LOAD_ENV: '1' };
 
   if (!env.ZERNIO_API_KEY) {
     console.error(
-      '[post-social] ZERNIO_API_KEY is not set. Set it via .agentkit/.env, ~/.agentkit/.env, process.env, or run `zernio auth:login` (see references/zernio-integration.md).',
+      '[post-social] ZERNIO_API_KEY is not set. Set it via .agentkit/.env, ~/.agentkit/.env, process.env, or run `zernio auth:login` (see references/zernio-integration.md).'
     );
     process.exitCode = 1;
     return;
@@ -487,18 +425,14 @@ async function main() {
 
     for (const id of requestedIds) {
       if (!targetChannels.some((c) => c.id === id)) {
-        console.error(
-          `[post-social] warning: unknown channel id "${id}" — not found in resolved config, skipping`,
-        );
+        console.error(`[post-social] warning: unknown channel id "${id}" — not found in resolved config, skipping`);
       }
     }
     targetChannels = targetChannels.filter((c) => requestedIds.has(c.id));
   }
 
   if (targetChannels.length === 0) {
-    console.error(
-      '[post-social] no channels to post to — check .agentkit/journal.yaml `channels:` and any --channels filter',
-    );
+    console.error('[post-social] no channels to post to — check .agentkit/journal.yaml `channels:` and any --channels filter');
     process.exitCode = 1;
     return;
   }
@@ -531,9 +465,7 @@ async function main() {
     });
     localMediaPaths.push(...images.paths);
   } catch (error) {
-    console.error(
-      `[post-social] warning: image generation failed, continuing without it: ${redactSecrets(error.message, env)}`,
-    );
+    console.error(`[post-social] warning: image generation failed, continuing without it: ${redactSecrets(error.message, env)}`);
   }
   try {
     const videos = await generateVideos({
@@ -546,9 +478,7 @@ async function main() {
     });
     localMediaPaths.push(...videos.paths);
   } catch (error) {
-    console.error(
-      `[post-social] warning: video generation failed, continuing without it: ${redactSecrets(error.message, env)}`,
-    );
+    console.error(`[post-social] warning: video generation failed, continuing without it: ${redactSecrets(error.message, env)}`);
   }
 
   // Dry-run: never invoke media:upload — print a mocked URL per file so the argv preview
@@ -566,7 +496,7 @@ async function main() {
   for (const channel of targetChannels) {
     if (postedState[channel.id] === 'SUCCESS') {
       console.error(
-        `warning: channel "${channel.id}" was already posted successfully in a previous run; refusing to re-post (see ${statePath})`,
+        `warning: channel "${channel.id}" was already posted successfully in a previous run; refusing to re-post (see ${statePath})`
       );
       results.push({
         channelId: channel.id,
@@ -578,9 +508,7 @@ async function main() {
       continue;
     }
 
-    const body = Object.prototype.hasOwnProperty.call(channelBodies, channel.id)
-      ? channelBodies[channel.id]
-      : journalBody;
+    const body = Object.prototype.hasOwnProperty.call(channelBodies, channel.id) ? channelBodies[channel.id] : journalBody;
     const result = postToChannel({ channel, body, isDryRun, env, mediaUrls });
     results.push(result);
 
@@ -598,9 +526,7 @@ async function main() {
   }
 
   const attempted = results.filter((r) => r.status !== 'SKIPPED_ALREADY_POSTED');
-  const anySuccess = results.some(
-    (r) => r.status === 'SUCCESS' || r.status === 'MEDIA_UNSUPPORTED' || r.status === 'DRY_RUN',
-  );
+  const anySuccess = results.some((r) => r.status === 'SUCCESS' || r.status === 'MEDIA_UNSUPPORTED' || r.status === 'DRY_RUN');
   process.exitCode = !anySuccess && attempted.length > 0 ? 1 : 0;
 }
 

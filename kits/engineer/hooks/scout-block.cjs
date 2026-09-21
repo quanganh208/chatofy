@@ -34,7 +34,7 @@ try {
     checkScoutBlock,
     isBuildCommand,
     isVenvExecutable,
-    isAllowedCommand,
+    isAllowedCommand
   } = require('./lib/scout-checker.cjs');
   const { isHookEnabled } = require('./lib/ck-config-utils.cjs');
 
@@ -83,7 +83,9 @@ try {
     const toolInput = data.tool_input;
     const toolName = data.tool_name || 'unknown';
     const claudeDir = path.dirname(__dirname); // Go up from hooks/ to .claude/
-    const payloadCwd = typeof data.cwd === 'string' && data.cwd.trim() ? data.cwd : process.cwd();
+    const payloadCwd = typeof data.cwd === 'string' && data.cwd.trim()
+      ? data.cwd
+      : process.cwd();
 
     // Use shared scout checker
     const result = checkScoutBlock({
@@ -94,8 +96,8 @@ try {
         cwd: payloadCwd,
         projectConfigDirName: '.claude',
         ckignorePath: path.join(claudeDir, '.ckignore'),
-        checkBroadPatterns: true,
-      },
+        checkBroadPatterns: true
+      }
     });
 
     // Handle allowed commands
@@ -106,21 +108,18 @@ try {
 
     // Handle broad pattern blocks
     if (result.blocked && result.isBroadPattern) {
-      const errorMsg = formatBroadPatternError(
-        {
-          blocked: true,
-          reason: result.reason,
-          suggestions: result.suggestions,
-        },
-        claudeDir,
-      );
+      const errorMsg = formatBroadPatternError({
+        blocked: true,
+        reason: result.reason,
+        suggestions: result.suggestions
+      }, claudeDir);
       console.error(errorMsg);
       timer.end({
         tool: toolName,
         status: 'block',
         exit: 2,
         target: result.pattern || toolInput.path || toolInput.file_path || '',
-        note: result.reason || 'broad-pattern',
+        note: result.reason || 'broad-pattern'
       });
       process.exit(2);
     }
@@ -132,7 +131,7 @@ try {
         pattern: result.pattern,
         tool: toolName,
         claudeDir: claudeDir,
-        configPath: result.configPath,
+        configPath: result.configPath
       });
       console.error(errorMsg);
       timer.end({
@@ -140,7 +139,7 @@ try {
         status: 'block',
         exit: 2,
         target: result.path || '',
-        note: result.pattern || 'blocked-path',
+        note: result.pattern || 'blocked-path'
       });
       process.exit(2);
     }
@@ -148,6 +147,7 @@ try {
     // All paths allowed
     timer.end({ tool: toolName, status: 'ok', exit: 0 });
     process.exit(0);
+
   } catch (error) {
     // Fail-open for unexpected errors
     console.error('WARN: Hook error, allowing operation -', error.message);

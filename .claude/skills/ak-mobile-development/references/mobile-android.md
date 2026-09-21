@@ -542,11 +542,10 @@ NavigationBar {
 }
 ```
 
-## Google Play Requirements (2024-2025)
+## Google Play release checks
 
 ### SDK Requirements
-- **Current**: Target Android 14 (API 34)
-- **Mandatory (Aug 31, 2025)**: Target Android 15 (API 35)
+- Resolve target/compile SDK and toolchain from the project. Verify current Google Play target API deadlines and app-category requirements in official documentation before release.
 
 ### Privacy & Security
 - **Privacy policy**: Required for apps collecting data

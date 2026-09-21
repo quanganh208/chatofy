@@ -6,9 +6,9 @@
 
 Load this reference when reviewing a design output — self-critique before delivery, or a second pass on a previously shipped design. The rubric is universal; scoring is contextual (a slide is not a logo). Cultural sensibility varies — treat the ranges as anchors, not verdicts.
 
-For HTML/CSS craft numerics (spacing scale, contrast ratio, font count, whitespace %, OKLCH ramps, 60/30/10), defer to `ak-frontend-design`. This guide owns the _what to check_ and _how to weigh it_; the numeric standards live in the front-end skill so a single number is not restated in two places.
+For HTML/CSS craft numerics (spacing scale, contrast ratio, font count, whitespace %, OKLCH ramps, 60/30/10), defer to `ak-frontend-design`. This guide owns the *what to check* and *how to weigh it*; the numeric standards live in the front-end skill so a single number is not restated in two places.
 
-This guide scores a _finished_ piece. For the pre-generation gate (the one-line Design Read, and the converged failure-mode catalog — generic gradients, template card grids, fake screenshots, generic content, decorative furniture, one-note palettes), see `../../ak-frontend-design/references/design-quality-preflight.md`.
+This guide scores a *finished* piece. For the pre-generation gate (the one-line Design Read, and the converged failure-mode catalog — generic gradients, template card grids, fake screenshots, generic content, decorative furniture, one-note palettes), see `../../ak-frontend-design/references/design-quality-preflight.md`.
 
 ## The 6 dimensions
 
@@ -18,17 +18,17 @@ Concept first, then five execution dimensions. Execution is a multiplier — a g
 
 Ask "does this design have an idea?" before "is it well made?" Execution amplifies; amplifying a hollow concept only makes it emptier.
 
-| Score | Standard                                                                                    |
-| ----- | ------------------------------------------------------------------------------------------- |
-| 9–10  | A unique idea that grew out of the user's content; the visual motif is not swappable        |
-| 7–8   | Clear intent; motif relates to content but would just barely still work for a similar topic |
-| 5–6   | Style only, no concept — good-looking, says nothing                                         |
-| 3–4   | Generic template dressed up; concept layer is zero                                          |
-| 1–2   | Not even the right style — decorative pile-on                                               |
+| Score | Standard |
+| --- | --- |
+| 9–10 | A unique idea that grew out of the user's content; the visual motif is not swappable |
+| 7–8 | Clear intent; motif relates to content but would just barely still work for a similar topic |
+| 5–6 | Style only, no concept — good-looking, says nothing |
+| 3–4 | Generic template dressed up; concept layer is zero |
+| 1–2 | Not even the right style — decorative pile-on |
 
 Core questions:
 
-- What does this design _say_? Can you name the idea in one sentence? If not, there isn't one.
+- What does this design *say*? Can you name the idea in one sentence? If not, there isn't one.
 - Cover every piece of text and the logo — is the subject still recognizable? If not, visuals aren't carrying the message. (Exception: type-as-motif layouts — reframe the question to "does this type treatment survive being applied to a different subject?")
 - Swap the client name / product name — does it still work? **If yes, it's a template — this dimension is ≤5.**
 - Does the form derive from a unique motif in the content, or was it lifted from a style library?
@@ -39,13 +39,13 @@ Core questions:
 
 Does the piece stay coherent with the design philosophy / style / school it commits to?
 
-| Score | Standard                                                                         |
-| ----- | -------------------------------------------------------------------------------- |
-| 9–10  | Fully embodies the philosophy's core spirit; every detail has a reason inside it |
-| 7–8   | Right overall direction; core traits present; minor detail drift                 |
-| 5–6   | Intent visible but execution mixes in other-style elements; not pure             |
-| 3–4   | Surface mimicry; the philosophy's core is not understood                         |
-| 1–2   | Basically unrelated to the stated philosophy                                     |
+| Score | Standard |
+| --- | --- |
+| 9–10 | Fully embodies the philosophy's core spirit; every detail has a reason inside it |
+| 7–8 | Right overall direction; core traits present; minor detail drift |
+| 5–6 | Intent visible but execution mixes in other-style elements; not pure |
+| 3–4 | Surface mimicry; the philosophy's core is not understood |
+| 1–2 | Basically unrelated to the stated philosophy |
 
 Review checks:
 
@@ -57,13 +57,13 @@ Review checks:
 
 Can the viewer's eye find the entry, follow the intended path, and reach the CTA without friction?
 
-| Score | Standard                                                                                  |
-| ----- | ----------------------------------------------------------------------------------------- |
-| 9–10  | Eye flows naturally along the designer's intended path; zero-friction information capture |
-| 7–8   | Primary vs. secondary is clear; 1–2 places of hierarchy drift                             |
-| 5–6   | Title vs. body separable; mid-level hierarchy is muddled                                  |
-| 3–4   | Information laid flat; no clear visual entry                                              |
-| 1–2   | Chaos — viewer doesn't know where to look first                                           |
+| Score | Standard |
+| --- | --- |
+| 9–10 | Eye flows naturally along the designer's intended path; zero-friction information capture |
+| 7–8 | Primary vs. secondary is clear; 1–2 places of hierarchy drift |
+| 5–6 | Title vs. body separable; mid-level hierarchy is muddled |
+| 3–4 | Information laid flat; no clear visual entry |
+| 1–2 | Chaos — viewer doesn't know where to look first |
 
 Review checks:
 
@@ -76,13 +76,13 @@ Review checks:
 
 Alignment, spacing, color discipline, edge quality.
 
-| Score | Standard                                                              |
-| ----- | --------------------------------------------------------------------- |
-| 9–10  | Pixel-precise; no visible alignment / spacing / color flaws           |
-| 7–8   | Polished overall; 1–2 tiny alignment / spacing issues                 |
-| 5–6   | Basically aligned but spacing is inconsistent, color use unsystematic |
-| 3–4   | Obvious alignment errors, spacing chaos, too many colors              |
-| 1–2   | Rough — looks like a draft                                            |
+| Score | Standard |
+| --- | --- |
+| 9–10 | Pixel-precise; no visible alignment / spacing / color flaws |
+| 7–8 | Polished overall; 1–2 tiny alignment / spacing issues |
+| 5–6 | Basically aligned but spacing is inconsistent, color use unsystematic |
+| 3–4 | Obvious alignment errors, spacing chaos, too many colors |
+| 1–2 | Rough — looks like a draft |
 
 Review checks (**numeric standards defer to `ak-frontend-design`**):
 
@@ -96,13 +96,13 @@ Review checks (**numeric standards defer to `ak-frontend-design`**):
 
 Does every element serve the goal, or is decoration crowding the message?
 
-| Score | Standard                                                           |
-| ----- | ------------------------------------------------------------------ |
-| 9–10  | Every element serves the goal; zero redundancy                     |
-| 7–8   | Clear function orientation; a small amount of trimmable decoration |
-| 5–6   | Basically usable but decorative elements distract                  |
-| 3–4   | Form over function; the viewer must work to find information       |
-| 1–2   | Drowned in decoration; lost the ability to convey information      |
+| Score | Standard |
+| --- | --- |
+| 9–10 | Every element serves the goal; zero redundancy |
+| 7–8 | Clear function orientation; a small amount of trimmable decoration |
+| 5–6 | Basically usable but decorative elements distract |
+| 3–4 | Form over function; the viewer must work to find information |
+| 1–2 | Drowned in decoration; lost the ability to convey information |
 
 Review checks:
 
@@ -115,13 +115,13 @@ Review checks:
 
 Freshness within the philosophy — not novelty for its own sake.
 
-| Score | Standard                                                                |
-| ----- | ----------------------------------------------------------------------- |
-| 9–10  | Genuinely fresh; found a unique expression inside the chosen philosophy |
-| 7–8   | Has its own voice; not just template reuse                              |
-| 5–6   | Middle-of-the-road; looks like a template                               |
-| 3–4   | Heavy use of clichés (see below)                                        |
-| 1–2   | Pure template or stock-asset collage                                    |
+| Score | Standard |
+| --- | --- |
+| 9–10 | Genuinely fresh; found a unique expression inside the chosen philosophy |
+| 7–8 | Has its own voice; not just template reuse |
+| 5–6 | Middle-of-the-road; looks like a template |
+| 3–4 | Heavy use of clichés (see below) |
+| 1–2 | Pure template or stock-asset collage |
 
 Review checks:
 
@@ -133,15 +133,15 @@ Review checks:
 
 Concept dimension is not in this table — it is the first gate for every scene and is never traded off.
 
-| Subskill                                                              | Most important                                  | Second               | Can relax                                            |
-| --------------------------------------------------------------------- | ----------------------------------------------- | -------------------- | ---------------------------------------------------- |
-| Logo                                                                  | Craft quality, Originality                      | Philosophy alignment | Functionality (a mark carries no interaction)        |
-| CIP (Corporate Identity Program — business card, letterhead, signage) | Craft quality, Philosophy alignment             | Functionality        | Originality (fidelity to the brand system > novelty) |
-| Slides                                                                | Visual hierarchy, Functionality                 | Craft quality        | Originality (clarity first)                          |
-| Banner (marketing / hero)                                             | Functionality, Visual hierarchy                 | Originality          | — (all-around requirement)                           |
-| Social photos (e.g. Xiaohongshu / IG posts)                           | Originality, Visual hierarchy                   | Philosophy alignment | Craft quality (atmosphere first)                     |
-| Icon                                                                  | Craft quality, Functionality (semantic clarity) | Philosophy alignment | Originality (recognizability > novelty)              |
-| Poster                                                                | Visual hierarchy, Originality                   | Craft quality        | Functionality (single-glance impact leads)           |
+| Subskill | Most important | Second | Can relax |
+| --- | --- | --- | --- |
+| Logo | Craft quality, Originality | Philosophy alignment | Functionality (a mark carries no interaction) |
+| CIP (Corporate Identity Program — business card, letterhead, signage) | Craft quality, Philosophy alignment | Functionality | Originality (fidelity to the brand system > novelty) |
+| Slides | Visual hierarchy, Functionality | Craft quality | Originality (clarity first) |
+| Banner (marketing / hero) | Functionality, Visual hierarchy | Originality | — (all-around requirement) |
+| Social photos (e.g. Xiaohongshu / IG posts) | Originality, Visual hierarchy | Philosophy alignment | Craft quality (atmosphere first) |
+| Icon | Craft quality, Functionality (semantic clarity) | Philosophy alignment | Originality (recognizability > novelty) |
+| Poster | Visual hierarchy, Originality | Craft quality | Functionality (single-glance impact leads) |
 
 Rows describe defaults; a brief that inverts the emphasis wins.
 
@@ -234,7 +234,7 @@ Ranked by how often they show up in image-generation and mixed-medium design out
 - [ ] [third]
 ```
 
-## When _not_ to critique this way
+## When *not* to critique this way
 
 - Sketch / rough / thumbnail: use "does the shape work at all?" — not the 6-dim rubric.
 - User-requested-cliché brief (parody, retro tribute, deliberate template): the "default-off" bans lift. Note in the review that they are lifted.

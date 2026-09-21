@@ -1,16 +1,15 @@
 ---
 name: ak:issue-to-plan
-description: 'Turn a GitHub issue into an audited, validated implementation plan. Reads the issue, scouts the codebase, runs a hard brainstorm gate, and only then plans with mandatory --html --wiki, validate, and red-team, before pushing a plan branch and handing off on the issue. Use to convert a GitHub issue into a validated plan that is ready for plan audit.'
+description: "Turn a GitHub issue into an audited, validated implementation plan. Reads the issue, scouts the codebase, runs a hard brainstorm gate, and only then plans with mandatory --html --wiki, validate, and red-team, before pushing a plan branch and handing off on the issue. Use to convert a GitHub issue into a validated plan that is ready for plan audit."
 user-invocable: true
-when_to_use: 'Invoke when a user wants one command to take a GitHub issue through scouting, an audit/brainstorm gate, and (only if it passes) plan generation, validation, red-team, a pushed plan branch, and an issue handoff — stopping before implementation.'
-category: dev-tools
-keywords:
-  [issue-to-plan, plan, scout, brainstorm, audit, gate, worktree, agentwiki, red-team, validate]
-argument-hint: '<github-issue-url | issue-number> [--repo owner/name] [--plan-ready-label <name>] [--decision-label <name>]'
+when_to_use: "Invoke when a user wants one command to take a GitHub issue through scouting, an audit/brainstorm gate, and (only if it passes) plan generation, validation, red-team, a pushed plan branch, and an issue handoff — stopping before implementation."
+category: workflow
+keywords: [issue-to-plan, plan, scout, brainstorm, audit, gate, worktree, agentwiki, red-team, validate]
+argument-hint: "<github-issue-url | issue-number> [--repo owner/name] [--plan-ready-label <name>] [--decision-label <name>]"
 license: MIT
 metadata:
   author: agentkit
-  version: '1.1.0'
+  version: "1.1.1"
 ---
 
 # Issue to Plan
@@ -48,11 +47,11 @@ Accepted forms:
 
 Flags:
 
-| Flag                        | Effect                                                                                              |
-| --------------------------- | --------------------------------------------------------------------------------------------------- |
-| `--repo <owner/name>`       | Target repo. Default: current repo from `gh repo view`.                                             |
-| `--plan-ready-label <name>` | Label applied when a plan is ready. Default: `ready for plan audit`.                                |
-| `--decision-label <name>`   | Label applied when the issue needs human/product/architecture decisions. Default: `need decisions`. |
+| Flag | Effect |
+| --- | --- |
+| `--repo <owner/name>` | Target repo. Default: current repo from `gh repo view`. |
+| `--plan-ready-label <name>` | Label applied when a plan is ready. Default: `ready for plan audit`. |
+| `--decision-label <name>` | Label applied when the issue needs human/product/architecture decisions. Default: `need decisions`. |
 
 ## Defaults
 
@@ -71,7 +70,6 @@ Repo-convention defaults; a maintainer flag or issue comment may override:
 ## Pipeline
 
 ### 1. Read and classify the issue
-
 - Resolve the repo with `gh repo view --json nameWithOwner,defaultBranchRef`. For
   an issue URL, parse `OWNER/REPO` and compare with the current repo. If it
   differs and no `--repo` targets it, stop and ask the user to switch to the
@@ -84,8 +82,7 @@ Repo-convention defaults; a maintainer flag or issue comment may override:
   decisions, and unresolved questions.
 
 ### 2. Scout and verify
-
-- Activate `/ak:scout`.
+- Reuse audit/source evidence tied to the same revision and requirements; inspect only gaps or changed surfaces. Activate `/ak:scout` when additional discovery is needed.
 - Scan the codebase, docs, and tests relevant to the issue.
 - Verify whether the issue is real, already implemented, duplicate, out of scope,
   or under-specified.
@@ -93,7 +90,6 @@ Repo-convention defaults; a maintainer flag or issue comment may override:
   useful.
 
 ### 3. Brainstorm gate (hard gate)
-
 - Activate `/ak:brainstorm`.
 - Evaluate fit against AgentKit standards, architecture, roadmap, security model,
   maintainability, and user value.
@@ -115,10 +111,11 @@ Repo-convention defaults; a maintainer flag or issue comment may override:
   decisions and wait for maintainer input.
 
 ### 4. Plan generation (only after passing the gate)
-
 - Activate `/ak:plan` with flags suited to the issue type. **Always request
   `--html --wiki`** so the plan produces an HTML artifact and publishes to
-  AgentWiki.
+  AgentWiki. `/ak:plan --html` owns the single execution of the shared HTML composition
+  contract in `../ak-preview/references/html-skill-composition.md` (activating `ak:frontend-design`
+  then `ak:diagram`). Do not double-activate.
 - Dependency note: the HTML + AgentWiki output requires the active `/ak:plan`
   build to support `--html`/`--wiki`. If the active build does not yet support
   them, degrade gracefully: generate the Markdown `plan.md`, skip the HTML and
@@ -133,14 +130,13 @@ Repo-convention defaults; a maintainer flag or issue comment may override:
   URL when `/ak:plan` emits them.
 
 ### 5. Validate and red-team (never skipped)
-
-- Run `/ak:plan validate <plan.md>`. Block or revise on validation failures.
-- Run `/ak:plan red-team <plan.md>`. Apply findings to the plan. If any finding
+- Reuse completed validation/red-team evidence for identical plan content, scope and source revision; otherwise run affected checks and the consistency sweep. Both gates require evidence, not repeated execution without a change.
+- Run `/ak:plan validate <plan.md>` when not already evidenced. Block or revise on validation failures.
+- Run `/ak:plan red-team <plan.md>` when not already evidenced. Apply findings to the plan. If any finding
   is not applied, record why in the plan.
 - Perform the whole-plan consistency sweep required by `/ak:plan` before handoff.
 
 ### 6. Persist the plan on a worktree branch
-
 - Create a worktree and a descriptive branch, e.g. `plan/issue-<n>-<short-slug>`.
 - Save plan artifacts under `plans/<timestamp>-<slug>/` (or the repo-standard
   equivalent). Ensure the generated HTML plan is committed.
@@ -148,7 +144,6 @@ Repo-convention defaults; a maintainer flag or issue comment may override:
 - Use `/ak:git cp` to stage, commit, and push the plan branch. Do not open a PR.
 
 ### 7. Final issue update
-
 - **If planning was skipped after audit**, reply with: decision (duplicate /
   already handled / defer / reject / out of scope / not worth implementing / need
   decisions); evidence summary from scout/audit; labels applied; the reason the
@@ -177,7 +172,6 @@ Evaluation comment (post before stopping or planning):
 
 ```markdown
 ## Issue-to-Plan Evaluation
-
 - Classification: <bug|feature|refactor|docs|security-risk|task|decision>
 - Scout findings: <real|already-implemented|duplicate|out-of-scope|under-specified>
 - Evidence: <files/symbols/docs/prior PRs>
@@ -190,7 +184,6 @@ Final planning handoff:
 
 ```markdown
 ## Issue-to-Plan Handoff
-
 - Decision: <ready for plan audit|need decisions>
 - Branch: `<branch-name>`
 - Plan: `<relative/path/to/plan.md>`
@@ -202,7 +195,6 @@ Final planning handoff:
 - Next: <recommended command or owner>
 
 ### Phase summaries
-
 - Phase 1 — <name>: <one-line summary of what it delivers>
 - Phase 2 — <name>: <one-line summary of what it delivers>
 - <one line for every remaining phase in the plan>
@@ -220,7 +212,7 @@ access to the target repo.
   and no `--repo` targets it — stop and ask the user to switch.
 - **Missing label**: `--plan-ready-label` or `--decision-label` does not exist —
   create it (e.g. `gh label create "ready for plan audit" --color "0E8A16"
---description "Plan validated and red-teamed; awaiting plan audit"`), or fall
+  --description "Plan validated and red-teamed; awaiting plan audit"`), or fall
   back to `question`/`triage` for the decision label, and note the fallback in
   the comment.
 - **Auth gap**: `gh` cannot create labels, comment, or push — stop and report the
@@ -247,7 +239,6 @@ End with:
 
 ```markdown
 **Issue-to-Plan Result**
-
 - Source: <issue url>
 - Decision: proceed|needs-decisions|duplicate|reject|defer|not-worth
 - Branch/worktree: <branch> | <path> (only if planned)
@@ -257,6 +248,5 @@ End with:
 - Labels: <final labels>
 
 Unresolved questions:
-
 - None
 ```

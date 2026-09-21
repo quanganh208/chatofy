@@ -4,16 +4,11 @@ Google Stitch free tier quota tracking and conservation strategies.
 
 ## Limits
 
-| Pool | Credits/Day | Reset |
-|------|-------------|-------|
-| Daily Credits (generate, variants) | 400 | Midnight UTC |
-| Redesign Credits (edit_screens) | 15 | Midnight UTC |
-
-Each generation = 1 credit. Each variant = 1 credit. Each edit = 1 redesign credit (separate pool).
+Use current service/account evidence for limits, operation costs and resets. The bundled script’s default 400 is a local configuration assumption, not a verified service entitlement.
 
 ## Local Tracking
 
-Stitch SDK has no programmatic quota check endpoint. AgentKit tracks locally:
+The bundled tracker reads a local file rather than querying the service. Verify whether the installed SDK/service exposes account usage before choosing an observation route:
 
 **File:** `~/.claudekit/.stitch-quota.json`
 
@@ -59,6 +54,6 @@ When quota is exhausted:
 
 Local tracking can drift if user generates designs outside AgentKit (via Stitch web UI or other tools). If you hit `RATE_LIMITED` error despite local tracker showing credits available:
 
-1. Run `npx tsx stitch-quota.ts reset`
-2. Set count to match actual usage (or leave at 0 if unknown)
-3. Stitch API itself enforces the real limit — local tracker is advisory only
+1. Preserve the local observation and report the service rate-limit response.
+2. Follow the service retry/reset guidance; unknown usage must not become zero.
+3. Reconcile the tracker only with observed usage. Resetting a local file does not reset service quota.

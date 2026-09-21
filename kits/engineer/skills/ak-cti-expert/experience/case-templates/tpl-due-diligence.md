@@ -6,15 +6,15 @@
 
 ## Template Metadata
 
-| Field           | Value                                   |
-| --------------- | --------------------------------------- |
-| ID              | `due-diligence`                         |
-| Category        | business                                |
-| Skill tier      | Practitioner                            |
-| Duration        | 15–25 min (standard) · 30–45 min (deep) |
-| Required inputs | Company name, domain                    |
-| Optional inputs | Country/region, industry sector         |
-| Output          | Risk score 0–10, prioritized findings   |
+| Field | Value |
+|-------|-------|
+| ID | `due-diligence` |
+| Category | business |
+| Skill tier | Practitioner |
+| Duration | 15–25 min (standard) · 30–45 min (deep) |
+| Required inputs | Company name, domain |
+| Optional inputs | Country/region, industry sector |
+| Output | Risk score 0–10, prioritized findings |
 
 ---
 
@@ -31,7 +31,6 @@ Inputs:
 ```
 
 Flags:
-
 - `--depth deep` — extended leadership and financial research
 - `--depth quick` — surface only (5–10 min, core checks)
 - `--focus legal` — expanded litigation and regulatory coverage
@@ -44,13 +43,13 @@ Flags:
 
 **Goal:** Confirm legal existence and registration status.
 
-| Signal             | Healthy                    | Risk Flag               |
-| ------------------ | -------------------------- | ----------------------- |
-| Registry record    | Found in official registry | No record               |
-| Registration age   | 2+ years                   | Under 6 months          |
-| Registered address | Physical address           | PO box only             |
-| Standing           | Active / Good standing     | Dissolved / Suspended   |
-| Name changes       | Stable                     | Multiple recent changes |
+| Signal | Healthy | Risk Flag |
+|--------|---------|-----------|
+| Registry record | Found in official registry | No record |
+| Registration age | 2+ years | Under 6 months |
+| Registered address | Physical address | PO box only |
+| Standing | Active / Good standing | Dissolved / Suspended |
+| Name changes | Stable | Multiple recent changes |
 
 ```
 /sweep {{company_name}} --type registration
@@ -62,12 +61,12 @@ Flags:
 
 **Goal:** Map web presence and verify cross-platform consistency.
 
-| Platform  | Check                         | Risk Signal                     |
-| --------- | ----------------------------- | ------------------------------- |
-| Website   | Domain age, completeness      | New domain, placeholder content |
-| LinkedIn  | Employee count, post activity | 0–2 employees, stale            |
-| Twitter/X | Follower growth pattern       | Fake follower cluster           |
-| Facebook  | Reviews, engagement           | No reviews, inactive            |
+| Platform | Check | Risk Signal |
+|----------|-------|-------------|
+| Website | Domain age, completeness | New domain, placeholder content |
+| LinkedIn | Employee count, post activity | 0–2 employees, stale |
+| Twitter/X | Follower growth pattern | Fake follower cluster |
+| Facebook | Reviews, engagement | No reviews, inactive |
 
 ```
 /sweep {{domain}}
@@ -80,13 +79,13 @@ Flags:
 
 **Goal:** Verify executives exist and have credible backgrounds.
 
-| Check             | Healthy               | Risk Flag               |
-| ----------------- | --------------------- | ----------------------- |
-| LinkedIn presence | Complete history      | No profile found        |
-| Prior employment  | Verifiable            | Gaps or unverifiable    |
-| Education claims  | Confirmed institution | Unknown school          |
-| Affiliations      | Related experience    | Unrelated, missing      |
-| Press mentions    | Neutral or positive   | Negative investigations |
+| Check | Healthy | Risk Flag |
+|-------|---------|-----------|
+| LinkedIn presence | Complete history | No profile found |
+| Prior employment | Verifiable | Gaps or unverifiable |
+| Education claims | Confirmed institution | Unknown school |
+| Affiliations | Related experience | Unrelated, missing |
+| Press mentions | Neutral or positive | Negative investigations |
 
 ```
 /sweep "{{exec_name}}"
@@ -104,12 +103,12 @@ Flags:
 /dork "{{company_name}}" bankruptcy OR insolvency
 ```
 
-| Record             | Normal               | Concern               |
-| ------------------ | -------------------- | --------------------- |
-| Minor litigation   | 1–2 small claims     | Multiple large suits  |
-| Regulatory filings | Standard disclosures | Enforcement actions   |
-| Bankruptcy         | None                 | Recent or repeated    |
-| IP disputes        | Occasional           | Frequent infringement |
+| Record | Normal | Concern |
+|--------|--------|---------|
+| Minor litigation | 1–2 small claims | Multiple large suits |
+| Regulatory filings | Standard disclosures | Enforcement actions |
+| Bankruptcy | None | Recent or repeated |
+| IP disputes | Occasional | Frequent infringement |
 
 ### Phase 5 — Reputation Signals
 
@@ -122,12 +121,12 @@ Flags:
 /news "{{company_name}}" --sentiment
 ```
 
-| Source     | Target Range        | Risk Threshold            |
-| ---------- | ------------------- | ------------------------- |
-| BBB        | A or B              | F + unresolved complaints |
-| Trustpilot | 3.5+                | Below 2.0                 |
-| Reddit     | Balanced discussion | Complaint pattern threads |
-| Glassdoor  | 3.0+                | Below 2.5 + CEO comments  |
+| Source | Target Range | Risk Threshold |
+|--------|-------------|----------------|
+| BBB | A or B | F + unresolved complaints |
+| Trustpilot | 3.5+ | Below 2.0 |
+| Reddit | Balanced discussion | Complaint pattern threads |
+| Glassdoor | 3.0+ | Below 2.5 + CEO comments |
 
 ### Phase 6 — Financial Indicators
 
@@ -139,35 +138,35 @@ Flags:
 /dork "{{company_name}}" Crunchbase OR Pitchbook
 ```
 
-| Indicator  | Positive                           | Red Flag             |
-| ---------- | ---------------------------------- | -------------------- |
-| Funding    | Named investors, verifiable rounds | Unverifiable claims  |
-| Revenue    | Consistent across sources          | Wildly varying       |
-| Growth     | Steady trajectory                  | Declining or erratic |
-| Disclosure | Transparent                        | Evasive              |
+| Indicator | Positive | Red Flag |
+|-----------|----------|----------|
+| Funding | Named investors, verifiable rounds | Unverifiable claims |
+| Revenue | Consistent across sources | Wildly varying |
+| Growth | Steady trajectory | Declining or erratic |
+| Disclosure | Transparent | Evasive |
 
 ### Phase 7 — Risk Score
 
 **Scoring matrix:**
 
-| Category         | Weight | Score (1–10) |
-| ---------------- | ------ | ------------ |
-| Registration     | 20%    | _            |
-| Online footprint | 15%    | _            |
-| Personnel        | 20%    | _            |
-| Legal            | 20%    | _            |
-| Reputation       | 15%    | _            |
-| Financial        | 10%    | _            |
+| Category | Weight | Score (1–10) |
+|----------|--------|--------------|
+| Registration | 20% | _ |
+| Online footprint | 15% | _ |
+| Personnel | 20% | _ |
+| Legal | 20% | _ |
+| Reputation | 15% | _ |
+| Financial | 10% | _ |
 
 **Score interpretation:**
 
-| Score | Level     | Action                         |
-| ----- | --------- | ------------------------------ |
-| 0–2   | Very Low  | Proceed standard               |
-| 3–4   | Low       | Document gaps                  |
-| 5–6   | Medium    | Extended research recommended  |
-| 7–8   | High      | Legal review before proceeding |
-| 9–10  | Very High | Avoid or extreme caution       |
+| Score | Level | Action |
+|-------|-------|--------|
+| 0–2 | Very Low | Proceed standard |
+| 3–4 | Low | Document gaps |
+| 5–6 | Medium | Extended research recommended |
+| 7–8 | High | Legal review before proceeding |
+| 9–10 | Very High | Avoid or extreme caution |
 
 ---
 

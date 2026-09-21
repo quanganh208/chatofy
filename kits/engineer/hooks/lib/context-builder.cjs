@@ -8,39 +8,38 @@
  * @module context-builder
  */
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { execSync } = require('child_process');
-const { safeDisplayValue } = require('./session-state-renderer.cjs');
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { execSync } = require("child_process");
+const { safeDisplayValue } = require("./session-state-renderer.cjs");
 
 const RECENT_INJECTION_TTL_MS = 5 * 60 * 1000;
 const PENDING_INJECTION_TTL_MS = 30 * 1000;
 const WARN_THRESHOLD = 70;
 const CRITICAL_THRESHOLD = 90;
 const {
-  loadConfig,
-  resolvePlanPath,
-  getReportsPath,
-  resolveNamingPattern,
-  normalizePath,
-  toDisplayPath,
-  getGitBranch,
-  readContextState,
-  readSessionState,
-  updateSessionState,
-} = require('./ck-config-utils.cjs');
+	loadConfig,
+	resolvePlanPath,
+	getReportsPath,
+	resolveNamingPattern,
+	normalizePath,
+	toDisplayPath,
+	getGitBranch,
+	readSessionState,
+	updateSessionState,
+} = require("./ck-config-utils.cjs");
 
 function getUsageCachePath() {
-  return process['env'].CK_USAGE_CACHE_PATH || path.join(os.tmpdir(), 'ck-usage-limits-cache.json');
+	return process["env"].CK_USAGE_CACHE_PATH || path.join(os.tmpdir(), "ck-usage-limits-cache.json");
 }
 
 function execSafe(cmd) {
-  try {
-    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
-  } catch {
-    return null;
-  }
+	try {
+		return execSync(cmd, { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+	} catch {
+		return null;
+	}
 }
 
 /**
@@ -49,22 +48,22 @@ function execSafe(cmd) {
  * @param {string} [configDirName='.claude'] - Config directory name
  * @returns {string|null} Resolved path or null
  */
-function resolveRulesPath(filename, configDirName = '.claude') {
-  // Try rules/ first (new location)
-  const localRulesPath = path.join(process.cwd(), configDirName, 'rules', filename);
-  const globalRulesPath = path.join(os.homedir(), '.claude', 'rules', filename);
+function resolveRulesPath(filename, configDirName = ".claude") {
+	// Try rules/ first (new location)
+	const localRulesPath = path.join(process.cwd(), configDirName, "rules", filename);
+	const globalRulesPath = path.join(os.homedir(), ".claude", "rules", filename);
 
-  if (fs.existsSync(localRulesPath)) return `${configDirName}/rules/${filename}`;
-  if (fs.existsSync(globalRulesPath)) return `~/.claude/rules/${filename}`;
+	if (fs.existsSync(localRulesPath)) return `${configDirName}/rules/${filename}`;
+	if (fs.existsSync(globalRulesPath)) return `~/.claude/rules/${filename}`;
 
-  // Backward compat: try workflows/ (legacy location)
-  const localWorkflowsPath = path.join(process.cwd(), configDirName, 'workflows', filename);
-  const globalWorkflowsPath = path.join(os.homedir(), '.claude', 'workflows', filename);
+	// Backward compat: try workflows/ (legacy location)
+	const localWorkflowsPath = path.join(process.cwd(), configDirName, "workflows", filename);
+	const globalWorkflowsPath = path.join(os.homedir(), ".claude", "workflows", filename);
 
-  if (fs.existsSync(localWorkflowsPath)) return `${configDirName}/workflows/${filename}`;
-  if (fs.existsSync(globalWorkflowsPath)) return `~/.claude/workflows/${filename}`;
+	if (fs.existsSync(localWorkflowsPath)) return `${configDirName}/workflows/${filename}`;
+	if (fs.existsSync(globalWorkflowsPath)) return `~/.claude/workflows/${filename}`;
 
-  return null;
+	return null;
 }
 
 /**
@@ -73,12 +72,12 @@ function resolveRulesPath(filename, configDirName = '.claude') {
  * @param {string} [configDirName='.claude'] - Config directory name
  * @returns {string|null} Resolved path or null
  */
-function resolveScriptPath(filename, configDirName = '.claude') {
-  const localPath = path.join(process.cwd(), configDirName, 'scripts', filename);
-  const globalPath = path.join(os.homedir(), '.claude', 'scripts', filename);
-  if (fs.existsSync(localPath)) return `${configDirName}/scripts/${filename}`;
-  if (fs.existsSync(globalPath)) return `~/.claude/scripts/${filename}`;
-  return null;
+function resolveScriptPath(filename, configDirName = ".claude") {
+	const localPath = path.join(process.cwd(), configDirName, "scripts", filename);
+	const globalPath = path.join(os.homedir(), ".claude", "scripts", filename);
+	if (fs.existsSync(localPath)) return `${configDirName}/scripts/${filename}`;
+	if (fs.existsSync(globalPath)) return `~/.claude/scripts/${filename}`;
+	return null;
 }
 
 /**
@@ -86,28 +85,24 @@ function resolveScriptPath(filename, configDirName = '.claude') {
  * @param {string} [configDirName='.claude'] - Config directory name
  * @returns {string|null} Resolved venv Python path or null
  */
-function resolveSkillsVenv(configDirName = '.claude') {
-  const isWindows = process.platform === 'win32';
-  const venvBin = isWindows ? 'Scripts' : 'bin';
-  const pythonExe = isWindows ? 'python.exe' : 'python3';
+function resolveSkillsVenv(configDirName = ".claude") {
+	const isWindows = process.platform === "win32";
+	const venvBin = isWindows ? "Scripts" : "bin";
+	const pythonExe = isWindows ? "python.exe" : "python3";
 
-  const localVenv = path.join(process.cwd(), configDirName, 'skills', '.venv', venvBin, pythonExe);
-  const globalVenv = path.join(os.homedir(), '.claude', 'skills', '.venv', venvBin, pythonExe);
+	const localVenv = path.join(process.cwd(), configDirName, "skills", ".venv", venvBin, pythonExe);
+	const globalVenv = path.join(os.homedir(), ".claude", "skills", ".venv", venvBin, pythonExe);
 
-  // Windows keeps its own layout (Scripts/python.exe) but not its separator:
-  // this string is quoted into a command the model runs, and Windows resolves a
-  // forward-slash path fine while bash would eat the backslashes.
-  if (fs.existsSync(localVenv)) {
-    return isWindows
-      ? `${configDirName}/skills/.venv/Scripts/python.exe`
-      : `${configDirName}/skills/.venv/bin/python3`;
-  }
-  if (fs.existsSync(globalVenv)) {
-    return isWindows
-      ? '~/.claude/skills/.venv/Scripts/python.exe'
-      : '~/.claude/skills/.venv/bin/python3';
-  }
-  return null;
+	// Windows keeps its own layout (Scripts/python.exe) but not its separator:
+	// this string is quoted into a command the model runs, and Windows resolves a
+	// forward-slash path fine while bash would eat the backslashes.
+	if (fs.existsSync(localVenv)) {
+		return isWindows ? `${configDirName}/skills/.venv/Scripts/python.exe` : `${configDirName}/skills/.venv/bin/python3`;
+	}
+	if (fs.existsSync(globalVenv)) {
+		return isWindows ? "~/.claude/skills/.venv/Scripts/python.exe" : "~/.claude/skills/.venv/bin/python3";
+	}
+	return null;
 }
 
 /**
@@ -117,36 +112,28 @@ function resolveSkillsVenv(configDirName = '.claude') {
  * @returns {Object} Plan context object
  */
 function buildPlanContext(sessionContext, config) {
-  const { plan, paths } = config;
-  const gitBranch = getGitBranch();
-  const resolved = resolvePlanPath(sessionContext, config);
-  const reportsPath = getReportsPath(resolved.path, resolved.resolvedBy, plan, paths);
+	const { plan, paths } = config;
+	const gitBranch = getGitBranch();
+	const resolved = resolvePlanPath(sessionContext, config);
+	const reportsPath = getReportsPath(resolved.path, resolved.resolvedBy, plan, paths);
 
-  // Compute naming pattern directly for reliable injection
-  const namePattern = resolveNamingPattern(plan, gitBranch);
+	// Compute naming pattern directly for reliable injection
+	const namePattern = resolveNamingPattern(plan, gitBranch);
 
-  const planLine =
-    resolved.resolvedBy === 'session'
-      ? `- Plan: ${safeDisplayValue(resolved.path)}`
-      : resolved.resolvedBy === 'branch'
-        ? `- Plan: none | Suggested: ${safeDisplayValue(resolved.path)}`
-        : `- Plan: none`;
+	const planLine =
+		resolved.resolvedBy === "session"
+			? `- Plan: ${safeDisplayValue(resolved.path)}`
+			: resolved.resolvedBy === "branch"
+				? `- Plan: none | Suggested: ${safeDisplayValue(resolved.path)}`
+				: `- Plan: none`;
 
-  // Validation config (injected so LLM can reference it)
-  const validation = plan.validation || {};
-  const validationMode = validation.mode || 'prompt';
-  const validationMin = validation.minQuestions || 3;
-  const validationMax = validation.maxQuestions || 8;
+	// Validation config (injected so LLM can reference it)
+	const validation = plan.validation || {};
+	const validationMode = validation.mode || "prompt";
+	const validationMin = validation.minQuestions || 3;
+	const validationMax = validation.maxQuestions || 8;
 
-  return {
-    reportsPath,
-    gitBranch,
-    planLine,
-    namePattern,
-    validationMode,
-    validationMin,
-    validationMax,
-  };
+	return { reportsPath, gitBranch, planLine, namePattern, validationMode, validationMin, validationMax };
 }
 
 /**
@@ -156,42 +143,42 @@ function buildPlanContext(sessionContext, config) {
  * @returns {string} Stable scope key
  */
 function buildInjectionScopeKey({ baseDir } = {}) {
-  const cwdKey = normalizePath(path.resolve(baseDir || process.cwd())) || process.cwd();
-  return cwdKey;
+	const cwdKey = normalizePath(path.resolve(baseDir || process.cwd())) || process.cwd();
+	return cwdKey;
 }
 
 function parseTimestamp(value) {
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') return Date.parse(value);
-  return NaN;
+	if (typeof value === "number") return value;
+	if (typeof value === "string") return Date.parse(value);
+	return NaN;
 }
 
 function getReminderScopeState(reminderState, scopeKey) {
-  const scopes = reminderState?.scopes;
-  if (!scopes || typeof scopes !== 'object') return null;
-  const scopeState = scopes[scopeKey];
-  return scopeState && typeof scopeState === 'object' ? scopeState : null;
+	const scopes = reminderState?.scopes;
+	if (!scopes || typeof scopes !== "object") return null;
+	const scopeState = scopes[scopeKey];
+	return scopeState && typeof scopeState === "object" ? scopeState : null;
 }
 
 function hasRecentInjection(scopeState, now = Date.now()) {
-  const injectedTs = parseTimestamp(scopeState?.lastInjectedAt);
-  return Number.isFinite(injectedTs) && now - injectedTs < RECENT_INJECTION_TTL_MS;
+	const injectedTs = parseTimestamp(scopeState?.lastInjectedAt);
+	return Number.isFinite(injectedTs) && now - injectedTs < RECENT_INJECTION_TTL_MS;
 }
 
 function hasPendingInjection(scopeState, now = Date.now()) {
-  const pendingTs = parseTimestamp(scopeState?.pendingAt);
-  return Number.isFinite(pendingTs) && now - pendingTs < PENDING_INJECTION_TTL_MS;
+	const pendingTs = parseTimestamp(scopeState?.pendingAt);
+	return Number.isFinite(pendingTs) && now - pendingTs < PENDING_INJECTION_TTL_MS;
 }
 
 function pruneReminderScopes(scopes, now = Date.now()) {
-  const nextScopes = {};
-  for (const [scopeKey, scopeState] of Object.entries(scopes || {})) {
-    if (!scopeState || typeof scopeState !== 'object') continue;
-    if (hasRecentInjection(scopeState, now) || hasPendingInjection(scopeState, now)) {
-      nextScopes[scopeKey] = scopeState;
-    }
-  }
-  return nextScopes;
+	const nextScopes = {};
+	for (const [scopeKey, scopeState] of Object.entries(scopes || {})) {
+		if (!scopeState || typeof scopeState !== "object") continue;
+		if (hasRecentInjection(scopeState, now) || hasPendingInjection(scopeState, now)) {
+			nextScopes[scopeKey] = scopeState;
+		}
+	}
+	return nextScopes;
 }
 
 /**
@@ -202,14 +189,14 @@ function pruneReminderScopes(scopes, now = Date.now()) {
  * @param {string|null} [scopeKey='session'] - Scope key for cwd/transcript-aware dedup
  * @returns {boolean} true if recently injected
  */
-function wasRecentlyInjected(_transcriptPath, sessionContext = null, scopeKey = 'session') {
-  try {
-    if (!sessionContext) return false;
-    const reminderState = readSessionState(sessionContext)?.devRulesReminder;
-    return hasRecentInjection(getReminderScopeState(reminderState, scopeKey));
-  } catch {
-    return false;
-  }
+function wasRecentlyInjected(_transcriptPath, sessionContext = null, scopeKey = "session") {
+	try {
+		if (!sessionContext) return false;
+		const reminderState = readSessionState(sessionContext)?.devRulesReminder;
+		return hasRecentInjection(getReminderScopeState(reminderState, scopeKey));
+	} catch {
+		return false;
+	}
 }
 
 /**
@@ -219,58 +206,56 @@ function wasRecentlyInjected(_transcriptPath, sessionContext = null, scopeKey = 
  * @param {string|null} [_transcriptPath] - Ignored compatibility argument
  * @returns {{ shouldInject: boolean, reserved: boolean }} Whether to inject and whether a pending reservation was written
  */
-function reserveInjectionScope(sessionContext, scopeKey = 'session', _transcriptPath = null) {
-  if (!sessionContext) {
-    return {
-      shouldInject: true,
-      reserved: false,
-    };
-  }
+function reserveInjectionScope(sessionContext, scopeKey = "session", _transcriptPath = null) {
+	if (!sessionContext) {
+		return {
+			shouldInject: true,
+			reserved: false,
+		};
+	}
 
-  try {
-    let shouldInject = false;
-    const now = Date.now();
-    const updated = updateSessionState(sessionContext, (state) => {
-      const reminderState =
-        state.devRulesReminder && typeof state.devRulesReminder === 'object'
-          ? state.devRulesReminder
-          : {};
-      const scopes = pruneReminderScopes(reminderState.scopes, now);
-      const scopeState = getReminderScopeState({ scopes }, scopeKey) || {};
+	try {
+		let shouldInject = false;
+		const now = Date.now();
+		const updated = updateSessionState(sessionContext, (state) => {
+			const reminderState =
+				state.devRulesReminder && typeof state.devRulesReminder === "object" ? state.devRulesReminder : {};
+			const scopes = pruneReminderScopes(reminderState.scopes, now);
+			const scopeState = getReminderScopeState({ scopes }, scopeKey) || {};
 
-      if (hasRecentInjection(scopeState, now) || hasPendingInjection(scopeState, now)) {
-        return state;
-      }
+			if (hasRecentInjection(scopeState, now) || hasPendingInjection(scopeState, now)) {
+				return state;
+			}
 
-      shouldInject = true;
-      scopes[scopeKey] = {
-        ...scopeState,
-        pendingAt: new Date(now).toISOString(),
-      };
+			shouldInject = true;
+			scopes[scopeKey] = {
+				...scopeState,
+				pendingAt: new Date(now).toISOString(),
+			};
 
-      return {
-        ...state,
-        devRulesReminder: {
-          ...reminderState,
-          scopes,
-        },
-      };
-    });
+			return {
+				...state,
+				devRulesReminder: {
+					...reminderState,
+					scopes,
+				},
+			};
+		});
 
-    if (!updated) {
-      return {
-        shouldInject: true,
-        reserved: false,
-      };
-    }
+		if (!updated) {
+			return {
+				shouldInject: true,
+				reserved: false,
+			};
+		}
 
-    return { shouldInject, reserved: shouldInject };
-  } catch {
-    return {
-      shouldInject: true,
-      reserved: false,
-    };
-  }
+		return { shouldInject, reserved: shouldInject };
+	} catch {
+		return {
+			shouldInject: true,
+			reserved: false,
+		};
+	}
 }
 
 /**
@@ -279,35 +264,33 @@ function reserveInjectionScope(sessionContext, scopeKey = 'session', _transcript
  * @param {string|null} [scopeKey='session'] - Scope key for cwd/transcript-aware dedup
  * @returns {boolean} true when the marker is written
  */
-function markRecentlyInjected(sessionContext, scopeKey = 'session') {
-  if (!sessionContext) return false;
+function markRecentlyInjected(sessionContext, scopeKey = "session") {
+	if (!sessionContext) return false;
 
-  try {
-    return updateSessionState(sessionContext, (state) => {
-      const reminderState =
-        state.devRulesReminder && typeof state.devRulesReminder === 'object'
-          ? state.devRulesReminder
-          : {};
-      const scopes = pruneReminderScopes(reminderState.scopes);
-      const scopeState = getReminderScopeState({ scopes }, scopeKey) || {};
+	try {
+		return updateSessionState(sessionContext, (state) => {
+			const reminderState =
+				state.devRulesReminder && typeof state.devRulesReminder === "object" ? state.devRulesReminder : {};
+			const scopes = pruneReminderScopes(reminderState.scopes);
+			const scopeState = getReminderScopeState({ scopes }, scopeKey) || {};
 
-      scopes[scopeKey] = {
-        ...scopeState,
-        lastInjectedAt: new Date().toISOString(),
-      };
-      delete scopes[scopeKey].pendingAt;
+			scopes[scopeKey] = {
+				...scopeState,
+				lastInjectedAt: new Date().toISOString(),
+			};
+			delete scopes[scopeKey].pendingAt;
 
-      return {
-        ...state,
-        devRulesReminder: {
-          ...reminderState,
-          scopes,
-        },
-      };
-    });
-  } catch {
-    return false;
-  }
+			return {
+				...state,
+				devRulesReminder: {
+					...reminderState,
+					scopes,
+				},
+			};
+		});
+	} catch {
+		return false;
+	}
 }
 
 /**
@@ -316,42 +299,40 @@ function markRecentlyInjected(sessionContext, scopeKey = 'session') {
  * @param {string|null} [scopeKey='session'] - Scope key for cwd/transcript-aware dedup
  * @returns {boolean} true when cleanup succeeds
  */
-function clearPendingInjection(sessionContext, scopeKey = 'session') {
-  if (!sessionContext) return false;
+function clearPendingInjection(sessionContext, scopeKey = "session") {
+	if (!sessionContext) return false;
 
-  try {
-    return updateSessionState(sessionContext, (state) => {
-      const reminderState =
-        state.devRulesReminder && typeof state.devRulesReminder === 'object'
-          ? state.devRulesReminder
-          : {};
-      const scopes = pruneReminderScopes(reminderState.scopes);
-      const scopeState = getReminderScopeState({ scopes }, scopeKey);
+	try {
+		return updateSessionState(sessionContext, (state) => {
+			const reminderState =
+				state.devRulesReminder && typeof state.devRulesReminder === "object" ? state.devRulesReminder : {};
+			const scopes = pruneReminderScopes(reminderState.scopes);
+			const scopeState = getReminderScopeState({ scopes }, scopeKey);
 
-      if (!scopeState || !scopeState.pendingAt) {
-        return state;
-      }
+			if (!scopeState || !scopeState.pendingAt) {
+				return state;
+			}
 
-      const nextScopeState = { ...scopeState };
-      delete nextScopeState.pendingAt;
+			const nextScopeState = { ...scopeState };
+			delete nextScopeState.pendingAt;
 
-      if (Object.keys(nextScopeState).length === 0) {
-        delete scopes[scopeKey];
-      } else {
-        scopes[scopeKey] = nextScopeState;
-      }
+			if (Object.keys(nextScopeState).length === 0) {
+				delete scopes[scopeKey];
+			} else {
+				scopes[scopeKey] = nextScopeState;
+			}
 
-      return {
-        ...state,
-        devRulesReminder: {
-          ...reminderState,
-          scopes,
-        },
-      };
-    });
-  } catch {
-    return false;
-  }
+			return {
+				...state,
+				devRulesReminder: {
+					...reminderState,
+					scopes,
+				},
+			};
+		});
+	} catch {
+		return false;
+	}
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -366,27 +347,27 @@ function clearPendingInjection(sessionContext, scopeKey = 'session') {
  * @returns {string[]} Lines for language section
  */
 function buildLanguageSection({ thinkingLanguage, responseLanguage }) {
-  // Auto-default thinkingLanguage to 'en' when only responseLanguage is set
-  const effectiveThinking = thinkingLanguage || (responseLanguage ? 'en' : null);
-  const hasThinking = effectiveThinking && effectiveThinking !== responseLanguage;
-  const hasResponse = responseLanguage;
-  const lines = [];
+	// Auto-default thinkingLanguage to 'en' when only responseLanguage is set
+	const effectiveThinking = thinkingLanguage || (responseLanguage ? "en" : null);
+	const hasThinking = effectiveThinking && effectiveThinking !== responseLanguage;
+	const hasResponse = responseLanguage;
+	const lines = [];
 
-  if (hasThinking || hasResponse) {
-    lines.push(`## Language`);
-    if (hasThinking) {
-      lines.push(`- Thinking: Use ${effectiveThinking} for reasoning (logic, precision).`);
-    }
-    if (hasResponse) {
-      lines.push(`- Response: Respond in ${responseLanguage} (natural, fluent).`);
-      lines.push(
-        `- The response language is configured in the AgentKit config file (locale.response_language). Every agent and subagent MUST comply, including prose in delegated subagent prompts and reports. Resolve it with \`ak config prefs resolve --json\` (.prefs.locale.responseLanguage) or read the AgentKit config file directly when the CLI is unavailable.`,
-      );
-    }
-    lines.push(``);
-  }
+	if (hasThinking || hasResponse) {
+		lines.push(`## Language`);
+		if (hasThinking) {
+			lines.push(`- Thinking: Use ${effectiveThinking} for reasoning (logic, precision).`);
+		}
+		if (hasResponse) {
+			lines.push(`- Response: Respond in ${responseLanguage} (natural, fluent).`);
+			lines.push(
+				`- The response language is configured in the AgentKit config file (locale.response_language). Every agent and subagent MUST comply, including prose in delegated subagent prompts and reports. Resolve it with \`ak config prefs resolve --json\` (.prefs.locale.responseLanguage) or read the AgentKit config file directly when the CLI is unavailable.`,
+			);
+		}
+		lines.push(``);
+	}
 
-  return lines;
+	return lines;
 }
 
 /**
@@ -395,28 +376,22 @@ function buildLanguageSection({ thinkingLanguage, responseLanguage }) {
  * @returns {string[]} Lines for session section
  */
 function buildSessionSection(staticEnv = {}) {
-  const memUsed = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
-  const memTotal = Math.round(os.totalmem() / 1024 / 1024);
-  const memPercent = Math.round((memUsed / memTotal) * 100);
-  const cpuUsage = Math.round((process.cpuUsage().user / 1000000) * 100);
-  const cpuSystem = Math.round((process.cpuUsage().system / 1000000) * 100);
-
-  return [
-    `## Session`,
-    `- DateTime: ${new Date().toLocaleString()}`,
-    `- CWD: ${safeDisplayValue(staticEnv.cwd || process.cwd())}`,
-    `- Timezone: ${safeDisplayValue(staticEnv.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone)}`,
-    `- Working directory: ${safeDisplayValue(staticEnv.cwd || process.cwd())}`,
-    `- OS: ${safeDisplayValue(staticEnv.osPlatform || process.platform)}`,
-    `- User: ${safeDisplayValue(staticEnv.user || process['env'].USERNAME || process['env'].USER)}`,
-    `- Locale: ${safeDisplayValue(staticEnv.locale || process['env'].LANG || '')}`,
-    `- Memory usage: ${memUsed}MB/${memTotal}MB (${memPercent}%)`,
-    `- CPU usage: ${cpuUsage}% user / ${cpuSystem}% system`,
-    `- Spawning multiple subagents can cause performance issues; delegate only when the current user request authorizes subagent or parallel work.`,
-    `- Remember that each subagent only has 200K tokens in context window; keep prompts scoped. Advisory subagents report findings and do not mutate plan/code unless explicitly tasked.`,
-    `- IMPORTANT: Include these environment information when prompting subagents to perform tasks.`,
-    ``,
-  ];
+	// Only values the model cannot infer belong here. Memory and CPU readings
+	// were this hook process's own figures, not the machine's, and they changed
+	// on every prompt; the delegation contract lives in the orchestration rules,
+	// where it applies to the tasks that warrant a delegate rather than to
+	// every turn.
+	return [
+		`## Session`,
+		`- DateTime: ${new Date().toLocaleString()}`,
+		`- Timezone: ${safeDisplayValue(staticEnv.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone)}`,
+		`- Working directory: ${safeDisplayValue(staticEnv.cwd || process.cwd())}`,
+		`- OS: ${safeDisplayValue(staticEnv.osPlatform || process.platform)}`,
+		`- User: ${safeDisplayValue(staticEnv.user || process["env"].USERNAME || process["env"].USER)}`,
+		`- Locale: ${safeDisplayValue(staticEnv.locale || process["env"].LANG || "")}`,
+		`- Pass the working directory, timezone, and language settings to any delegate you spawn.`,
+		``,
+	];
 }
 
 /**
@@ -424,16 +399,16 @@ function buildSessionSection(staticEnv = {}) {
  * @returns {Object|null} Usage data or null if unavailable
  */
 function readUsageCache(cachePath = getUsageCachePath()) {
-  try {
-    if (fs.existsSync(cachePath)) {
-      const cache = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
-      // Cache is valid for 5 minutes for injection purposes
-      if (Date.now() - cache.timestamp < 300000 && cache.data) {
-        return cache.data;
-      }
-    }
-  } catch {}
-  return null;
+	try {
+		if (fs.existsSync(cachePath)) {
+			const cache = JSON.parse(fs.readFileSync(cachePath, "utf-8"));
+			// Cache is valid for 5 minutes for injection purposes
+			if (Date.now() - cache.timestamp < 300000 && cache.data) {
+				return cache.data;
+			}
+		}
+	} catch {}
+	return null;
 }
 
 /**
@@ -442,13 +417,13 @@ function readUsageCache(cachePath = getUsageCachePath()) {
  * @returns {string|null} Formatted time or null
  */
 function formatTimeUntilReset(resetAt) {
-  if (!resetAt) return null;
-  const resetTime = new Date(resetAt);
-  const remaining = Math.floor(resetTime.getTime() / 1000) - Math.floor(Date.now() / 1000);
-  if (remaining <= 0 || remaining > 18000) return null; // Only show if < 5 hours
-  const hours = Math.floor(remaining / 3600);
-  const mins = Math.floor((remaining % 3600) / 60);
-  return `${hours}h ${mins}m`;
+	if (!resetAt) return null;
+	const resetTime = new Date(resetAt);
+	const remaining = Math.floor(resetTime.getTime() / 1000) - Math.floor(Date.now() / 1000);
+	if (remaining <= 0 || remaining > 18000) return null; // Only show if < 5 hours
+	const hours = Math.floor(remaining / 3600);
+	const mins = Math.floor((remaining % 3600) / 60);
+	return `${hours}h ${mins}m`;
 }
 
 /**
@@ -458,10 +433,10 @@ function formatTimeUntilReset(resetAt) {
  * @returns {string} Formatted string with warning if applicable
  */
 function formatUsagePercent(value, label) {
-  const pct = Math.round(value);
-  if (pct >= CRITICAL_THRESHOLD) return `${label}: ${pct}% [CRITICAL]`;
-  if (pct >= WARN_THRESHOLD) return `${label}: ${pct}% [WARNING]`;
-  return `${label}: ${pct}%`;
+	const pct = Math.round(value);
+	if (pct >= CRITICAL_THRESHOLD) return `${label}: ${pct}% [CRITICAL]`;
+	if (pct >= WARN_THRESHOLD) return `${label}: ${pct}% [WARNING]`;
+	return `${label}: ${pct}%`;
 }
 
 /**
@@ -469,43 +444,11 @@ function formatUsagePercent(value, label) {
  * @param {string} sessionId - Session ID
  * @returns {string[]} Lines for context section
  */
-function buildContextSection(sessionContext) {
-  // TEMPORARILY DISABLED
-  return [];
-  if (!sessionContext) return [];
-
-  // RE-ENABLED IF NEEDED IN THE FUTURE
-  try {
-    const data = readContextState(sessionContext);
-    if (!data) return [];
-    // Only use fresh data (< 5 min old - statusline updates every 300ms when active)
-    if (Date.now() - data.timestamp > 300000) return [];
-
-    const lines = [`## Current Session's Context`];
-
-    // Format: 48% used (96K/200K tokens)
-    const usedK = Math.round(data.tokens / 1000);
-    const sizeK = Math.round(data.size / 1000);
-    lines.push(`- Context: ${data.percent}% used (${usedK}K/${sizeK}K tokens)`);
-    lines.push(`- **NOTE:** Optimize the workflow for token efficiency`);
-
-    // Warning if high usage
-    if (data.percent >= CRITICAL_THRESHOLD) {
-      lines.push(`- **CRITICAL:** Context nearly full. Before compaction hits:`);
-      lines.push(`  1. Update TodoWrite with current progress (completed + remaining)`);
-      lines.push(`  2. Be extremely concise — no verbose explanations`);
-      lines.push(`  3. Session state will auto-restore after compaction`);
-    } else if (data.percent >= WARN_THRESHOLD) {
-      lines.push(
-        `- **WARNING:** Context usage moderate - be concise, optimize token efficiency, keep tool outputs short.`,
-      );
-    }
-
-    lines.push(``);
-    return lines;
-  } catch {
-    return [];
-  }
+function buildContextSection(_sessionContext) {
+	// Intentionally empty: rendering a context-usage countdown into the prompt
+	// causes premature wrap-up on current models. The status line shows usage
+	// to the user instead. Do not re-enable.
+	return [];
 }
 
 /**
@@ -513,40 +456,10 @@ function buildContextSection(sessionContext) {
  * @returns {string[]} Lines for usage section
  */
 function buildUsageSection() {
-  // TEMPORARILY DISABLED
-  return [];
-
-  // RE-ENABLED IF NEEDED IN THE FUTURE
-  const usage = readUsageCache();
-  if (!usage) return [];
-
-  const lines = [];
-  const parts = [];
-
-  // 5-hour limit
-  if (usage.five_hour) {
-    const util = usage.five_hour.utilization;
-    if (typeof util === 'number') {
-      parts.push(formatUsagePercent(util, '5h'));
-    }
-    const timeLeft = formatTimeUntilReset(usage.five_hour.resets_at);
-    if (timeLeft) {
-      parts.push(`resets in ${timeLeft}`);
-    }
-  }
-
-  // 7-day limit
-  if (usage.seven_day?.utilization != null) {
-    parts.push(formatUsagePercent(usage.seven_day.utilization, '7d'));
-  }
-
-  if (parts.length > 0) {
-    lines.push(`## Usage Limits`);
-    lines.push(`- ${parts.join(' | ')}`);
-    lines.push(``);
-  }
-
-  return lines;
+	// Budget countdowns push the model to cut work short; usage belongs in the
+	// status line, not the prompt. The renderer that followed this return was
+	// unreachable and is removed so an edit cannot revive it by accident.
+	return [];
 }
 
 /**
@@ -559,66 +472,45 @@ function buildUsageSection() {
  * @returns {string[]} Lines for rules section
  */
 function buildRulesSection({ devRulesPath, skillsVenv, plansPath, docsPath }) {
-  const lines = [`## Rules`];
+	const lines = [`## Rules`];
 
-  if (devRulesPath) {
-    lines.push(`- Read and follow development rules: "${devRulesPath}"`);
-  }
+	if (devRulesPath) {
+		lines.push(`- Read and follow development rules: "${devRulesPath}"`);
+	}
 
-  // Absolute paths prevent LLM confusion in multi-CLAUDE.md projects.
-  const plansRef = plansPath || 'plans';
-  const docsRef = docsPath || 'docs';
-  lines.push(
-    `- Markdown files are organized in: Plans → "${plansRef}" directory, Docs → "${docsRef}" directory`,
-  );
-  lines.push(
-    `- **IMPORTANT:** DO NOT create markdown files outside of "${plansRef}" or "${docsRef}" UNLESS the user explicitly requests it.`,
-  );
+	// Absolute paths prevent LLM confusion in multi-CLAUDE.md projects.
+	const plansRef = plansPath || "plans";
+	const docsRef = docsPath || "docs";
+	lines.push(`- Markdown files are organized in: Plans → "${plansRef}" directory, Docs → "${docsRef}" directory`);
+	lines.push(
+		`- **IMPORTANT:** DO NOT create markdown files outside of "${plansRef}" or "${docsRef}" UNLESS the user explicitly requests it.`,
+	);
 
-  if (skillsVenv) {
-    lines.push(`- Python scripts in .claude/skills/: Use \`${skillsVenv}\``);
-  }
+	if (skillsVenv) {
+		lines.push(`- Python scripts in .claude/skills/: Use \`${skillsVenv}\``);
+	}
 
-  lines.push(
-    `- Based on the current task, invoke these skills: "ak:scout", "ak:debug", "ak:cook", "ak:fix", "ak:git", "ak:test", "ak:code-review", "ak:docs", "ak:ship", "ak:review-pr"`,
-  );
-  lines.push(
-    `- When skills' scripts fail, report the failure unless the current task explicitly authorizes fixing skill code; only then fix and rerun.`,
-  );
-  lines.push(
-    `- When working with a database, always back up before any schema or data change (migration, drop, bulk update).`,
-  );
-  // YAGNI is opt-in: the model reads the request, so the condition lives in the
-  // instruction rather than in a prompt-parsing parameter threaded through here.
-  // The predicate must name the user's own request — this rules text is itself
-  // injected into the prompt, so "the prompt contains --yagni" would always be
-  // true and would silently re-enable YAGNI everywhere.
-  lines.push(
-    `- Follow **KISS (Keep It Simple, Stupid) - DRY (Don't Repeat Yourself)** principles. Deliver the full requested scope; add nothing unrequested. Apply **YAGNI** (challenge and cut scope not needed for the stated outcome) only when the user's own request explicitly passes the \`--yagni\` flag; this rules text mentioning the flag never counts.`,
-  );
-  lines.push(`- Sacrifice grammar for the sake of concision when writing reports.`);
-  lines.push(`- In reports, list any unresolved questions at the end, if any.`);
-  lines.push(`- IMPORTANT: Ensure token consumption efficiency while maintaining high quality.`);
-  lines.push(``);
+	lines.push(
+		`- When skills' scripts fail, report the failure unless the current task explicitly authorizes fixing skill code; only then fix and rerun.`,
+	);
+	lines.push(
+		`- When working with a database, always back up before any schema or data change (migration, drop, bulk update).`,
+	);
+	// YAGNI is opt-in: the model reads the request, so the condition lives in the
+	// instruction rather than in a prompt-parsing parameter threaded through here.
+	// The predicate must name the user's own request — this rules text is itself
+	// injected into the prompt, so "the prompt contains --yagni" would always be
+	// true and would silently re-enable YAGNI everywhere.
+	lines.push(
+		`- Follow **KISS (Keep It Simple, Stupid) - DRY (Don't Repeat Yourself)** principles. Deliver the full requested scope; add nothing unrequested. Apply **YAGNI** (challenge and cut scope not needed for the stated outcome) only when the user's own request explicitly passes the \`--yagni\` flag; this rules text mentioning the flag never counts.`,
+	);
+	lines.push(
+		`- Lead with the outcome. Keep reports short by being selective about what you include, not by compressing the writing into fragments, abbreviations, or arrow chains; write complete sentences.`,
+	);
+	lines.push(`- In reports, list any unresolved questions at the end, if any.`);
+	lines.push(``);
 
-  return lines;
-}
-
-/**
- * Build modularization section
- * @returns {string[]} Lines for modularization section
- */
-function buildModularizationSection() {
-  return [
-    `## **[IMPORTANT] Consider Modularization:**`,
-    `- Check existing modules before creating new`,
-    `- Analyze logical separation boundaries (functions, classes, concerns)`,
-    `- Prefer kebab-case for JS/TS/Python/shell; respect language conventions (C#/Java use PascalCase, Go/Rust use snake_case)`,
-    `- Write descriptive code comments`,
-    `- After modularization, continue with the main task only when the current request authorizes implementation; advisory/report-only tasks should report the recommendation.`,
-    `- When not to modularize: Markdown files, plain text files, bash scripts, configuration files, environment variables files, etc.`,
-    ``,
-  ];
+	return lines;
 }
 
 /**
@@ -631,11 +523,11 @@ function buildModularizationSection() {
  * @returns {string[]} Lines for paths section
  */
 function buildPathsSection({ reportsPath, plansPath, docsPath, docsMaxLoc = 800 }) {
-  return [
-    `## Paths`,
-    `Reports: ${safeDisplayValue(reportsPath)} | Plans: ${safeDisplayValue(plansPath)} | Docs: ${safeDisplayValue(docsPath)} | docs.maxLoc: ${docsMaxLoc}`,
-    ``,
-  ];
+	return [
+		`## Paths`,
+		`Reports: ${safeDisplayValue(reportsPath)} | Plans: ${safeDisplayValue(plansPath)} | Docs: ${safeDisplayValue(docsPath)} | docs.maxLoc: ${docsMaxLoc}`,
+		``,
+	];
 }
 
 /**
@@ -649,24 +541,17 @@ function buildPathsSection({ reportsPath, plansPath, docsPath, docsMaxLoc = 800 
  * @param {number} params.validationMax - Max questions
  * @returns {string[]} Lines for plan context section
  */
-function buildPlanContextSection({
-  planLine,
-  reportsPath,
-  gitBranch,
-  validationMode,
-  validationMin,
-  validationMax,
-}) {
-  const lines = [`## Plan Context`, planLine, `- Reports: ${safeDisplayValue(reportsPath)}`];
+function buildPlanContextSection({ planLine, reportsPath, gitBranch, validationMode, validationMin, validationMax }) {
+	const lines = [`## Plan Context`, planLine, `- Reports: ${safeDisplayValue(reportsPath)}`];
 
-  if (gitBranch) {
-    lines.push(`- Branch: ${safeDisplayValue(gitBranch)}`);
-  }
+	if (gitBranch) {
+		lines.push(`- Branch: ${safeDisplayValue(gitBranch)}`);
+	}
 
-  lines.push(`- Validation: mode=${validationMode}, questions=${validationMin}-${validationMax}`);
-  lines.push(``);
+	lines.push(`- Validation: mode=${validationMode}, questions=${validationMin}-${validationMax}`);
+	lines.push(``);
 
-  return lines;
+	return lines;
 }
 
 /**
@@ -678,13 +563,13 @@ function buildPlanContextSection({
  * @returns {string[]} Lines for naming section
  */
 function buildNamingSection({ reportsPath, plansPath, namePattern }) {
-  return [
-    `## Naming`,
-    `- Report: \`${reportsPath}{type}-${namePattern}.md\``,
-    `- Plan dir: \`${plansPath}/${namePattern}/\``,
-    `- Replace \`{type}\` with: agent name, report type, or context`,
-    `- Replace \`{slug}\` in pattern with: descriptive-kebab-slug`,
-  ];
+	return [
+		`## Naming`,
+		`- Report: \`${reportsPath}{type}-${namePattern}.md\``,
+		`- Plan dir: \`${plansPath}/${namePattern}/\``,
+		`- Replace \`{type}\` with: agent name, report type, or context`,
+		`- Replace \`{slug}\` in pattern with: descriptive-kebab-slug`,
+	];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -697,49 +582,41 @@ function buildNamingSection({ reportsPath, plansPath, namePattern }) {
  * @returns {string[]} Array of lines
  */
 function buildReminder(params) {
-  const {
-    sessionContext,
-    thinkingLanguage,
-    responseLanguage,
-    devRulesPath,
-    skillsVenv,
-    reportsPath,
-    plansPath,
-    docsPath,
-    docsMaxLoc,
-    planLine,
-    gitBranch,
-    namePattern,
-    validationMode,
-    validationMin,
-    validationMax,
-    staticEnv,
-    hooks,
-  } = params;
+	const {
+		sessionContext,
+		thinkingLanguage,
+		responseLanguage,
+		devRulesPath,
+		skillsVenv,
+		reportsPath,
+		plansPath,
+		docsPath,
+		docsMaxLoc,
+		planLine,
+		gitBranch,
+		namePattern,
+		validationMode,
+		validationMin,
+		validationMax,
+		staticEnv,
+		hooks,
+	} = params;
 
-  // Respect hooks config — skip sections when their corresponding hook is disabled
-  const hooksConfig = hooks || {};
-  const contextEnabled = hooksConfig['context-tracking'] !== false;
-  const usageEnabled = hooksConfig['usage-context-awareness'] !== false;
+	// Respect hooks config — skip sections when their corresponding hook is disabled
+	const hooksConfig = hooks || {};
+	const contextEnabled = hooksConfig["context-tracking"] !== false;
+	const usageEnabled = hooksConfig["usage-context-awareness"] !== false;
 
-  return [
-    ...buildLanguageSection({ thinkingLanguage, responseLanguage }),
-    ...buildSessionSection(staticEnv),
-    ...(contextEnabled ? buildContextSection(sessionContext) : []),
-    ...(usageEnabled ? buildUsageSection() : []),
-    ...buildRulesSection({ devRulesPath, skillsVenv, plansPath, docsPath }),
-    ...buildModularizationSection(),
-    ...buildPathsSection({ reportsPath, plansPath, docsPath, docsMaxLoc }),
-    ...buildPlanContextSection({
-      planLine,
-      reportsPath,
-      gitBranch,
-      validationMode,
-      validationMin,
-      validationMax,
-    }),
-    ...buildNamingSection({ reportsPath, plansPath, namePattern }),
-  ];
+	return [
+		...buildLanguageSection({ thinkingLanguage, responseLanguage }),
+		...buildSessionSection(staticEnv),
+		...(contextEnabled ? buildContextSection(sessionContext) : []),
+		...(usageEnabled ? buildUsageSection() : []),
+		...buildRulesSection({ devRulesPath, skillsVenv, plansPath, docsPath }),
+		...buildPathsSection({ reportsPath, plansPath, docsPath, docsMaxLoc }),
+		...buildPlanContextSection({ planLine, reportsPath, gitBranch, validationMode, validationMin, validationMax }),
+		...buildNamingSection({ reportsPath, plansPath, namePattern }),
+	];
 }
 
 /**
@@ -757,97 +634,81 @@ function buildReminder(params) {
  *   sections: Object
  * }}
  */
-function buildReminderContext({
-  sessionContext,
-  config,
-  staticEnv,
-  configDirName = '.claude',
-  baseDir,
-} = {}) {
-  // Load config if not provided
-  const cfg = config || loadConfig({ includeProject: false, includeAssertions: false });
+function buildReminderContext({ sessionContext, config, staticEnv, configDirName = ".claude", baseDir } = {}) {
+	// Load config if not provided
+	const cfg = config || loadConfig({ includeProject: false, includeAssertions: false });
 
-  // Resolve paths
-  const devRulesPath = resolveRulesPath('development-rules.md', configDirName);
-  const skillsVenv = resolveSkillsVenv(configDirName);
+	// Resolve paths
+	const devRulesPath = resolveRulesPath("development-rules.md", configDirName);
+	const skillsVenv = resolveSkillsVenv(configDirName);
 
-  // Build plan context
-  const planCtx = buildPlanContext(sessionContext, cfg);
+	// Build plan context
+	const planCtx = buildPlanContext(sessionContext, cfg);
 
-  // Use baseDir for subdirectory-aware absolute path resolution.
-  // If baseDir provided, resolve paths as absolute; otherwise use relative paths
-  const effectiveBaseDir = baseDir || null;
-  const plansPathRel = normalizePath(cfg.paths?.plans) || 'plans';
-  const docsPathRel = normalizePath(cfg.paths?.docs) || 'docs';
+	// Use baseDir for subdirectory-aware absolute path resolution.
+	// If baseDir provided, resolve paths as absolute; otherwise use relative paths
+	const effectiveBaseDir = baseDir || null;
+	const plansPathRel = normalizePath(cfg.paths?.plans) || "plans";
+	const docsPathRel = normalizePath(cfg.paths?.docs) || "docs";
 
-  // Build all parameters with absolute paths if baseDir provided
-  const params = {
-    sessionContext,
-    thinkingLanguage: cfg.locale?.thinkingLanguage,
-    responseLanguage: cfg.locale?.responseLanguage,
-    devRulesPath,
-    skillsVenv,
-    // toDisplayPath after the join: path.join renders native separators, and
-    // these three land in the injected prompt for the model to read back.
-    reportsPath: effectiveBaseDir
-      ? toDisplayPath(path.join(effectiveBaseDir, planCtx.reportsPath))
-      : planCtx.reportsPath,
-    plansPath: effectiveBaseDir
-      ? toDisplayPath(path.join(effectiveBaseDir, plansPathRel))
-      : plansPathRel,
-    docsPath: effectiveBaseDir
-      ? toDisplayPath(path.join(effectiveBaseDir, docsPathRel))
-      : docsPathRel,
-    docsMaxLoc: Math.max(1, parseInt(cfg.docs?.maxLoc, 10) || 800),
-    planLine: planCtx.planLine,
-    gitBranch: planCtx.gitBranch,
-    namePattern: planCtx.namePattern,
-    validationMode: planCtx.validationMode,
-    validationMin: planCtx.validationMin,
-    validationMax: planCtx.validationMax,
-    staticEnv,
-    hooks: cfg.hooks,
-  };
+	// Build all parameters with absolute paths if baseDir provided
+	const params = {
+		sessionContext,
+		thinkingLanguage: cfg.locale?.thinkingLanguage,
+		responseLanguage: cfg.locale?.responseLanguage,
+		devRulesPath,
+		skillsVenv,
+		// toDisplayPath after the join: path.join renders native separators, and
+		// these three land in the injected prompt for the model to read back.
+		reportsPath: effectiveBaseDir
+			? toDisplayPath(path.join(effectiveBaseDir, planCtx.reportsPath))
+			: planCtx.reportsPath,
+		plansPath: effectiveBaseDir ? toDisplayPath(path.join(effectiveBaseDir, plansPathRel)) : plansPathRel,
+		docsPath: effectiveBaseDir ? toDisplayPath(path.join(effectiveBaseDir, docsPathRel)) : docsPathRel,
+		docsMaxLoc: Math.max(1, parseInt(cfg.docs?.maxLoc, 10) || 800),
+		planLine: planCtx.planLine,
+		gitBranch: planCtx.gitBranch,
+		namePattern: planCtx.namePattern,
+		validationMode: planCtx.validationMode,
+		validationMin: planCtx.validationMin,
+		validationMax: planCtx.validationMax,
+		staticEnv,
+		hooks: cfg.hooks,
+	};
 
-  const lines = buildReminder(params);
+	const lines = buildReminder(params);
 
-  // Respect hooks config for sections object too
-  const hooksConfig = cfg.hooks || {};
-  const contextEnabled = hooksConfig['context-tracking'] !== false;
-  const usageEnabled = hooksConfig['usage-context-awareness'] !== false;
+	// Respect hooks config for sections object too
+	const hooksConfig = cfg.hooks || {};
+	const contextEnabled = hooksConfig["context-tracking"] !== false;
+	const usageEnabled = hooksConfig["usage-context-awareness"] !== false;
 
-  return {
-    content: lines.join('\n'),
-    lines,
-    sections: {
-      language: buildLanguageSection({
-        thinkingLanguage: params.thinkingLanguage,
-        responseLanguage: params.responseLanguage,
-      }),
-      session: buildSessionSection(staticEnv),
-      context: contextEnabled ? buildContextSection(sessionContext) : [],
-      usage: usageEnabled ? buildUsageSection() : [],
-      rules: buildRulesSection({
-        devRulesPath,
-        skillsVenv,
-        plansPath: params.plansPath,
-        docsPath: params.docsPath,
-      }),
-      modularization: buildModularizationSection(),
-      paths: buildPathsSection({
-        reportsPath: params.reportsPath,
-        plansPath: params.plansPath,
-        docsPath: params.docsPath,
-        docsMaxLoc: params.docsMaxLoc,
-      }),
-      planContext: buildPlanContextSection(planCtx),
-      naming: buildNamingSection({
-        reportsPath: params.reportsPath,
-        plansPath: params.plansPath,
-        namePattern: params.namePattern,
-      }),
-    },
-  };
+	return {
+		content: lines.join("\n"),
+		lines,
+		sections: {
+			language: buildLanguageSection({
+				thinkingLanguage: params.thinkingLanguage,
+				responseLanguage: params.responseLanguage,
+			}),
+			session: buildSessionSection(staticEnv),
+			context: contextEnabled ? buildContextSection(sessionContext) : [],
+			usage: usageEnabled ? buildUsageSection() : [],
+			rules: buildRulesSection({ devRulesPath, skillsVenv, plansPath: params.plansPath, docsPath: params.docsPath }),
+			paths: buildPathsSection({
+				reportsPath: params.reportsPath,
+				plansPath: params.plansPath,
+				docsPath: params.docsPath,
+				docsMaxLoc: params.docsMaxLoc,
+			}),
+			planContext: buildPlanContextSection(planCtx),
+			naming: buildNamingSection({
+				reportsPath: params.reportsPath,
+				plansPath: params.plansPath,
+				namePattern: params.namePattern,
+			}),
+		},
+	};
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -855,35 +716,34 @@ function buildReminderContext({
 // ═══════════════════════════════════════════════════════════════════════════
 
 module.exports = {
-  // Main entry points
-  buildReminderContext,
-  buildReminder,
+	// Main entry points
+	buildReminderContext,
+	buildReminder,
 
-  // Section builders
-  buildLanguageSection,
-  buildSessionSection,
-  buildContextSection,
-  buildUsageSection,
-  buildRulesSection,
-  buildModularizationSection,
-  buildPathsSection,
-  buildPlanContextSection,
-  buildNamingSection,
+	// Section builders
+	buildLanguageSection,
+	buildSessionSection,
+	buildContextSection,
+	buildUsageSection,
+	buildRulesSection,
+	buildPathsSection,
+	buildPlanContextSection,
+	buildNamingSection,
 
-  // Helpers
-  execSafe,
-  getUsageCachePath,
-  readUsageCache,
-  resolveRulesPath,
-  resolveScriptPath,
-  resolveSkillsVenv,
-  buildPlanContext,
-  buildInjectionScopeKey,
-  wasRecentlyInjected,
-  reserveInjectionScope,
-  markRecentlyInjected,
-  clearPendingInjection,
+	// Helpers
+	execSafe,
+	getUsageCachePath,
+	readUsageCache,
+	resolveRulesPath,
+	resolveScriptPath,
+	resolveSkillsVenv,
+	buildPlanContext,
+	buildInjectionScopeKey,
+	wasRecentlyInjected,
+	reserveInjectionScope,
+	markRecentlyInjected,
+	clearPendingInjection,
 
-  // Backward compat alias
-  resolveWorkflowPath: resolveRulesPath,
+	// Backward compat alias
+	resolveWorkflowPath: resolveRulesPath,
 };

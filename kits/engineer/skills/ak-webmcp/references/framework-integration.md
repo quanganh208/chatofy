@@ -11,25 +11,22 @@ Tie registration to view transitions. Keep an `AbortController` per view:
 ```js
 function mountCartView() {
   const controller = new AbortController();
-  document.modelContext.registerTool(
-    {
-      name: 'add_to_cart',
-      description: 'Add a product to the cart by SKU and quantity.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          sku: { type: 'string' },
-          quantity: { type: 'number' },
-        },
-        required: ['sku'],
+  document.modelContext.registerTool({
+    name: 'add_to_cart',
+    description: 'Add a product to the cart by SKU and quantity.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sku: { type: 'string' },
+        quantity: { type: 'number' },
       },
-      execute: async ({ sku, quantity = 1 }) => {
-        await api.addToCart(sku, quantity);
-        return `Added ${quantity} x ${sku} to cart.`;
-      },
+      required: ['sku'],
     },
-    { signal: controller.signal },
-  );
+    execute: async ({ sku, quantity = 1 }) => {
+      await api.addToCart(sku, quantity);
+      return `Added ${quantity} x ${sku} to cart.`;
+    },
+  }, { signal: controller.signal });
   return () => controller.abort(); // call on view teardown
 }
 ```

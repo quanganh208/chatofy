@@ -26,7 +26,7 @@ X" is a design task; the word "design" need not appear.
 
 ## Know Your Own Defaults (why model-generated design converges on slop)
 
-These are the design-domain instances of the failure modes in SKILL.md:
+These are the design-domain instances of the failure modes in `reasoning-protocol.md`:
 
 - **Mode collapse / template gravity** — with no strong brief, you emit the statistical
   mean of training data: one favorite palette, one favorite font, one favorite hero
@@ -70,6 +70,45 @@ These are the design-domain instances of the failure modes in SKILL.md:
 5. **Subtract before delivering.** One deliberate pass: remove every element, color,
    border, shadow, and animation whose absence loses no information. What survives is
    the design.
+
+## UX before UI (the flow decides what the screen must do)
+
+Visual quality cannot rescue a surface whose flow is wrong. Decide the interaction before
+styling it. Each rule below is evaluable, and each is a routine finding in UI reviews:
+
+1. **Map the task flow first.** Lay out the user's path as steps: entry → decision →
+   action → confirmation → exit. Count the steps and the decisions; each must earn its
+   place. Design the screen for the step it sits on, not for everything the system knows.
+2. **One primary action per screen.** Exactly one visually dominant call to action;
+   secondary actions quieter; destructive actions separated, visibly different, and
+   reversible. Undo beats a confirmation dialog, which users click through; reserve
+   confirmation for the genuinely irreversible.
+3. **Progressive disclosure and defaults.** Show what most users need now; put the rest
+   behind a step, an accordion, or an "advanced" section. Every choice ships with a sane
+   default. A form the user can submit unchanged is an achievement, not a shortcut.
+4. **Feedback at the right timing.** Under about 100 ms reads as instant; around one
+   second needs a visible state change; longer needs progress, an estimate, or a way to
+   leave and come back. Every action produces a visible result where the user is looking.
+5. **Prevent errors, then recover from them.** Constrain inputs (pickers, masks, typed
+   fields) before validating them; validate inline on blur, not only on submit; an error
+   message says what happened and what to do next, beside the field; entered data is
+   never discarded on an error, a refresh, or a back navigation.
+6. **Forms.** Visible labels (a placeholder is not a label); logical grouping and tab
+   order; the right input type and autocomplete attribute; one column; required versus
+   optional stated once; a submit button never silently disabled — enable it and say what
+   is missing.
+7. **Navigation and consistency.** The user always knows where they are, how they got
+   here, and how to go back. Same action, same word, same place, everywhere. Follow
+   platform conventions before inventing.
+8. **Accessibility is correctness, not polish.** Keyboard reachability and visible focus;
+   an accessible name on every control; contrast per the readability rules below;
+   reduced-motion respected; information never carried by color alone; touch targets at
+   or above ~44px.
+9. **First-run, empty, and recovery states.** The empty state teaches the next action;
+   the first run offers one thing to do, not a tour; recovery (session expired, offline,
+   permission denied) explains and preserves work.
+10. **Perceived performance.** Optimistic updates where safe, skeletons over spinners for
+    content, progressive loading — and never a layout that jumps under the cursor.
 
 ## What good design is (evaluable, not vibes)
 
@@ -123,6 +162,8 @@ Enumerate these deliberately — negative-space scanning, because absence is inv
 - Layout shift while fonts and images load; sticky elements covering content; z-index
   collisions; mobile safe-area insets.
 - Print/export appearance when the artifact is a document or slide.
+- Motion: every transition has a named job, a duration and easing from a scale, a
+  reduced-motion fallback, and was watched, not imagined — `references/motion-taste.md`.
 
 ## Verify (render blindness makes this mandatory, not optional)
 
@@ -155,14 +196,14 @@ and hand-tracing the layout with concrete content lengths.
 
 Each verdict must point to the act that proved it:
 
-| Dimension       | Passes when                                | Proven by           |
-| --------------- | ------------------------------------------ | ------------------- |
-| Hierarchy       | #1 element wins the squint test            | rendered inspection |
-| Consistency     | all values on the token scales             | token audit / grep  |
-| Readability     | contrast, measure, line height in range    | computation         |
-| States          | interaction + data states designed         | state walk          |
-| Robustness      | survives longest/empty/overflow content    | stress render       |
-| Distinctiveness | zero slop-catalog matches; fits this brief | checklist scan      |
+| Dimension | Passes when | Proven by |
+|-----------|-------------|-----------|
+| Hierarchy | #1 element wins the squint test | rendered inspection |
+| Consistency | all values on the token scales | token audit / grep |
+| Readability | contrast, measure, line height in range | computation |
+| States | interaction + data states designed | state walk |
+| Robustness | survives longest/empty/overflow content | stress render |
+| Distinctiveness | zero slop-catalog matches; fits this brief | checklist scan |
 
 Deliver with Claim Discipline: "verified at three widths with stressed content" is a
 different — and honest — claim than "this should look good". If a dimension was not
@@ -170,13 +211,18 @@ verified, name it as the weakest link instead of letting fluent delivery imply i
 
 ## Do / Don't
 
-| Don't                                          | Instead                                                    |
-| ---------------------------------------------- | ---------------------------------------------------------- |
-| Start typing markup from the prompt            | FRAME the job, rank the elements, fix the tokens first     |
-| Judge the design from its source code          | Render it and look, or downgrade the claim honestly        |
-| Add decoration when a section feels weak       | Subtract noise; strengthen hierarchy or content            |
-| Emphasize everything that seems important      | Pick what loses; one accent voice                          |
-| Design with lorem ipsum and medium-length data | Use real longest/shortest/empty content from the start     |
-| Eyeball contrast, measure, and spacing         | Compute them — they are arithmetic                         |
-| Ship the first error-free render               | Run the stress + states + slop passes, then loop repairs   |
-| Restyle what the brief did not ask about       | Scope line from Move 1: flag adjacent issues, one sentence |
+| Don't | Instead |
+|-------|---------|
+| Start typing markup from the prompt | FRAME the job, rank the elements, fix the tokens first |
+| Judge the design from its source code | Render it and look, or downgrade the claim honestly |
+| Add decoration when a section feels weak | Subtract noise; strengthen hierarchy or content |
+| Emphasize everything that seems important | Pick what loses; one accent voice |
+| Design with lorem ipsum and medium-length data | Use real longest/shortest/empty content from the start |
+| Eyeball contrast, measure, and spacing | Compute them — they are arithmetic |
+| Ship the first error-free render | Run the stress + states + slop passes, then loop repairs |
+| Restyle what the brief did not ask about | Scope line from Move 1: flag adjacent issues, one sentence |
+| Guard a destructive action with a confirm dialog | Make it reversible; offer undo; confirm only the irreversible |
+| Label a field with its placeholder | Give it a visible label; use the placeholder for an example |
+| Show every option and setting at once | Ship defaults; disclose the rest progressively |
+| Encode state or meaning in color alone | Pair color with text, icon, or position |
+| Design the happy path and ship | Design empty, loading, error, offline, and recovery states too |

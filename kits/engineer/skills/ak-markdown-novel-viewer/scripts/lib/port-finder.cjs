@@ -44,5 +44,5 @@ module.exports = {
   isPortAvailable,
   findAvailablePort,
   DEFAULT_PORT,
-  PORT_RANGE_END,
+  PORT_RANGE_END
 };

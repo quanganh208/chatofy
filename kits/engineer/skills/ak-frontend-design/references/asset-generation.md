@@ -7,7 +7,6 @@ Complete workflow for generating design-aligned visual assets using `ak:ai-multi
 ### Step 1: Define Design Context
 
 Before generating, extract from the design brief:
-
 - **Aesthetic direction**: Minimalist? Maximalist? Brutalist? Organic?
 - **Color palette**: Primary colors, accent colors, mood
 - **Typography character**: Modern sans-serif? Elegant serif? Bold display?
@@ -19,13 +18,11 @@ Before generating, extract from the design brief:
 Translate design thinking into generation prompts.
 
 **Generic (âŒ Avoid)**:
-
 ```
 "Modern website hero image"
 ```
 
-**Design-Driven (âœ“ Use)**:
-
+**Design-Driven (✓ Use)**:
 ```
 "Brutalist architectural photograph, stark concrete textures,
 dramatic shadows, high contrast black and white, raw unpolished
@@ -34,7 +31,6 @@ surfaces, geometric shapes, monumental scale, inspired by
 ```
 
 **Prompt Components**:
-
 1. **Style/Movement**: "Neo-brutalism", "Art Deco", "Organic modernism"
 2. **Visual Elements**: Textures, shapes, composition style
 3. **Color Direction**: "Muted earth tones", "Vibrant neon accents", "Monochromatic"
@@ -69,13 +65,11 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini generate \
 ```
 
 **Model Selection**:
-
 - **imagen-4.0-generate-001**: Default choice, balanced quality/speed
 - **imagen-4.0-ultra-generate-001**: Final production assets, marketing materials
 - **imagen-4.0-fast-generate-001**: Rapid prototyping, multiple variations
 
 **Aspect Ratios**:
-
 - **16:9**: Hero sections, wide banners
 - **9:16**: Mobile-first, vertical content
 - **1:1**: Square cards, social media
@@ -102,15 +96,13 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
 
 ### Step 5: Iterate or Integrate
 
-**If evaluation score < 7/10 or doesn't meet standards**:
-
+**If evaluation acceptance criteria met or doesn't meet standards**:
 1. Identify specific issues (color, composition, mood, technical)
 2. Refine prompt with improvements
 3. Regenerate with adjusted parameters
 4. Consider using `ak:media-processing` skill for post-generation adjustments
 
 **If meets standards**:
-
 1. Optimize for web (compress, format conversion)
 2. Create responsive variants if needed
 3. Document asset usage guidelines
@@ -123,7 +115,6 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
 **Design Context**: Clean, refined interface with generous white space
 
 **Prompt Strategy**:
-
 ```
 "Subtle paper texture, off-white color (#F8F8F8), barely visible
 grain pattern, high-end stationery feel, minimal contrast,
@@ -137,7 +128,6 @@ professional and clean, 1:1 aspect ratio for tiling"
 **Design Context**: Bold, energetic landing page with vibrant colors
 
 **Prompt Strategy**:
-
 ```
 "Explosive color gradients, neon pink to electric blue,
 holographic reflections, dynamic diagonal composition,
@@ -152,7 +142,6 @@ layered transparency effects, 16:9 cinematic"
 **Design Context**: Raw, bold interface with strong typography
 
 **Prompt Strategy**:
-
 ```
 "Monochromatic geometric pattern, overlapping rectangles,
 stark black and white, high contrast, Swiss design influence,
@@ -167,7 +156,6 @@ pattern for backgrounds"
 **Design Context**: Wellness brand, calming user experience
 
 **Prompt Strategy**:
-
 ```
 "Soft botanical watercolor, sage green and cream tones,
 gentle leaf shadows, natural light quality, serene atmosphere,
@@ -181,7 +169,6 @@ minimal detail for text overlay, 3:4 portrait orientation"
 **Design Context**: Tech product with nostalgic twist
 
 **Prompt Strategy**:
-
 ```
 "80s computer graphics aesthetic, wireframe grids, cyan and magenta
 gradients, digital sunrise, Tron-inspired, geometric precision,
@@ -195,7 +182,6 @@ nostalgic future vision, 16:9 widescreen"
 **Design Context**: Content-heavy site with strong visual hierarchy
 
 **Prompt Strategy**:
-
 ```
 "High-contrast editorial photography, dramatic side lighting,
 stark shadows, black and white, fashion magazine quality,
@@ -207,31 +193,25 @@ strong vertical composition, 3:4 portrait for text layout"
 ## Prompt Engineering Best Practices
 
 ### 1. Be Specific About Style
-
 âŒ "Modern design"
-âœ“ "Bauhaus-inspired geometric abstraction with primary colors"
+✓ "Bauhaus-inspired geometric abstraction with primary colors"
 
 ### 2. Define Color Precisely
-
 âŒ "Colorful"
-âœ“ "Vibrant sunset palette: coral (#FF6B6B), amber (#FFB84D), violet (#A66FF0)"
+✓ "Vibrant sunset palette: coral (#FF6B6B), amber (#FFB84D), violet (#A66FF0)"
 
 ### 3. Specify Composition
-
 âŒ "Nice layout"
-âœ“ "Rule of thirds composition, subject left-aligned, negative space right for text overlay"
+✓ "Rule of thirds composition, subject left-aligned, negative space right for text overlay"
 
 ### 4. Reference Movements/Artists
-
 âŒ "Artistic"
-âœ“ "Inspired by Bauhaus geometric abstraction and Swiss International Style"
+✓ "Inspired by Bauhaus geometric abstraction and Swiss International Style"
 
 ### 5. Technical Requirements First
-
 Always include: aspect ratio, resolution needs, intended use case
 
 ### 6. Iterate Strategically
-
 - First generation: Broad aesthetic exploration
 - Second generation: Refine color and composition
 - Third generation: Fine-tune details and mood
@@ -239,24 +219,19 @@ Always include: aspect ratio, resolution needs, intended use case
 ## Common Pitfalls to Avoid
 
 ### âŒ Generic Stock Photo Aesthetics
-
 Don't prompt: "Professional business team working together"
 Instead: Design-specific, contextual imagery that serves the interface
 
 ### âŒ Overcomplex Generated Images
-
 Generated assets that compete with UI elements create visual chaos
 Keep backgrounds subtle enough for text/button overlay
 
 ### âŒ Inconsistent Visual Language
-
 Each generated asset should feel part of the same design system
 Maintain color palette, visual style, mood consistency
 
 ### âŒ Ignoring Integration Context
-
-Assets aren't standaloneâ€”consider how they work with:
-
+Assets aren't standalone—consider how they work with:
 - Typography overlays
 - Interactive elements (buttons, forms)
 - Navigation and UI chrome
@@ -265,19 +240,16 @@ Assets aren't standaloneâ€”consider how they work with:
 ## Responsive Asset Strategy
 
 ### Desktop-First Approach
-
 1. Generate primary asset at 16:9 (desktop hero)
 2. Generate mobile variant at 9:16 with same prompt
 3. Ensure focal point works in both orientations
 
 ### Mobile-First Approach
-
 1. Generate primary asset at 9:16 (mobile hero)
 2. Generate desktop variant at 16:9 with same prompt
 3. Test that composition scales effectively
 
 ### Variant Generation
-
 ```bash
 # Desktop (16:9)
 npx -y -p @mrgoonie/multix@0.2.0 multix gemini generate \
@@ -304,13 +276,11 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini generate \
 ## Model Cost Optimization
 
 **Imagen 4 Pricing** (as of 2024):
-
 - Standard: ~$0.04 per image
 - Ultra: ~$0.08 per image
 - Fast: ~$0.02 per image
 
 **Optimization Strategy**:
-
 1. Use Fast model for exploration (3-5 variations)
 2. Select best direction, generate with Standard model
 3. Use Ultra only for final production assets
@@ -334,7 +304,7 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
   --output docs/assets/analysis-1.md \
   --model gemini-2.5-flash
 
-# 3. If score â‰¥ 7/10, generate production version
+# 3. If acceptance criteria met, generate production version
 npx -y -p @mrgoonie/multix@0.2.0 multix gemini generate \
   --prompt "[refined prompt based on analysis]" \
   --output docs/assets/hero-final \

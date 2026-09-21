@@ -5,7 +5,6 @@ When `--html` is passed, `plan.html` is the primary, authoritative user-facing p
 ## Shared Composition Contract
 
 Follow the shared HTML composition contract in `../ak-preview/references/html-skill-composition.md`:
-
 1. **Activate `ak:frontend-design` first** for page layout architecture, typography hierarchy, tokens, responsive shell, modal styling, and accessibility.
 2. **Activate `ak:diagram` second** (when installed) to author and compile typed JSON IR for architecture, sequence, and implementation workflow diagrams.
 3. **Fallback**: If `ak:diagram` is absent, produce clean semantic inline SVG/CSS with `<title>` and `<desc>`.

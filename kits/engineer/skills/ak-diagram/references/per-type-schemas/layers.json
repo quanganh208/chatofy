@@ -2,11 +2,17 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ak:diagram layers spec",
   "type": "object",
-  "required": ["layers"],
+  "required": [
+    "layers"
+  ],
   "properties": {
     "variant": {
       "type": "string",
-      "enum": ["light", "dark", "full"],
+      "enum": [
+        "light",
+        "dark",
+        "full"
+      ],
       "default": "light"
     },
     "title": {

@@ -37,15 +37,15 @@ The `ak` adapters read these fields; unknown fields are preserved but unused.
 ```yaml
 ---
 name: ak:<slug>
-description: 'What it does, when to use it, what it does not cover.'
+description: "What it does, when to use it, what it does not cover."
 user-invocable: true
-when_to_use: 'A precise activation condition for the routing catalog.'
-category: utilities
+when_to_use: "A precise activation condition for the routing catalog."
+category: workflow
 keywords: [three, to, six, nouns]
-argument-hint: '<subcommand> [path] [--flag]'
+argument-hint: "<subcommand> [path] [--flag]"
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: "1.0.0"
   workflow:
     follows: [ak-plan]
     precedes: [ak-test]
@@ -53,6 +53,16 @@ metadata:
 ```
 
 - `name` uses the `ak:` namespace; the directory is `ak-<slug>`.
+- `user-invocable`, `when_to_use`, `category`, and `keywords` are required on
+  every kit skill; a content test fails the build when one is missing.
+- `category` is one of `workflow` (the delivery loop: plan, build, test,
+  review, ship, hand off), `engineering` (building and operating software with
+  a specific stack or tool), `design` (visual, interface, brand), `marketing`
+  (growth, content, go-to-market), `media` (producing or transforming audio,
+  video, images, documents, slides), `reasoning` (thinking protocols and
+  explanation), `meta` (AgentKit itself, skills, routing), or `runtime`
+  (runtime-specific operating modes). The owner is
+  `apps/cli/internal/core/kitloader/skill_routing_frontmatter_test.go`.
 - `description` is at most 1024 characters. The block-scalar form (`>-`) is
   valid, and `quick_validate.py` measures the folded text.
 - `allowed-tools`, `license`, `compatibility`, `disable-model-invocation`
@@ -70,16 +80,16 @@ Kit markdown must not name a runtime's native tools, because the same skill
 is projected to runtimes with different tool names. Write the portable
 capability instead:
 
-| Write this                  | Instead of the native names                          |
-| --------------------------- | ---------------------------------------------------- |
-| `ask_user capability`       | AskUserQuestion                                      |
-| `web_search capability`     | WebSearch, WebFetch                                  |
-| `delegate_agent capability` | Task                                                 |
-| `manage_plan capability`    | TodoWrite, TaskCreate, TaskGet, TaskUpdate, TaskList |
-| `edit_file capability`      | Edit, Write                                          |
-| `read_file capability`      | Read                                                 |
-| `search_files capability`   | Grep, Glob                                           |
-| `run_shell capability`      | Bash                                                 |
+| Write this | Instead of the native names |
+|---|---|
+| `ask_user capability` | AskUserQuestion |
+| `web_search capability` | WebSearch, WebFetch |
+| `delegate_agent capability` | Task |
+| `manage_plan capability` | TodoWrite, TaskCreate, TaskGet, TaskUpdate, TaskList |
+| `edit_file capability` | Edit, Write |
+| `read_file capability` | Read |
+| `search_files capability` | Grep, Glob |
+| `run_shell capability` | Bash |
 
 The lint matches a native name in backticks, after "Use … tool", after
 "via", or followed by "(". A line that must show native syntax (for example
@@ -126,12 +136,12 @@ Files under `kits/*/hooks/` are OS-risk paths: a change there needs the
 
 ## Choosing a target
 
-| Target                      | Location                                                                            | Namespace       | Validation                                          |
-| --------------------------- | ----------------------------------------------------------------------------------- | --------------- | --------------------------------------------------- |
-| Kit skill (this repository) | `kits/<kit>/skills/ak-<slug>/`                                                      | `ak:<slug>`     | everything above                                    |
-| Project skill               | `.claude/skills/<slug>/` (Claude Code), `.agents/skills/<slug>/` (Codex and others) | none            | `quick_validate.py`, `lint_cruft.py`, consumer eval |
-| User skill                  | the runtime's user skill directory                                                  | none            | same as project                                     |
-| Marketplace / package       | `package_skill.py` output                                                           | per marketplace | `references/cross-marketplace-distribution.md`      |
+| Target | Location | Namespace | Validation |
+|---|---|---|---|
+| Kit skill (this repository) | `kits/<kit>/skills/ak-<slug>/` | `ak:<slug>` | everything above |
+| Project skill | `.claude/skills/<slug>/` (Claude Code), `.agents/skills/<slug>/` (Codex and others) | none | `quick_validate.py`, `lint_cruft.py`, consumer eval |
+| User skill | the runtime's user skill directory | none | same as project |
+| Marketplace / package | `package_skill.py` output | per marketplace | `references/cross-marketplace-distribution.md` |
 
 Per-runtime discovery paths and projection limits are owned by
 `docs/conformance/runtime-support-matrix.yaml`; read it when the target

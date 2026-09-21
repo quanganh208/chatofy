@@ -6,15 +6,15 @@ elements — there is no separate scene-graph or timeline file to keep in sync.
 
 ## Attribute contract
 
-| Attribute             | Applies to                         | Meaning                                                                                                                                                                                     |
-| --------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `data-composition-id` | Root element (once per file)       | Stable identifier the CLI uses to address this composition. Required.                                                                                                                       |
-| `data-width`          | Root element                       | Output width in pixels.                                                                                                                                                                     |
-| `data-height`         | Root element                       | Output height in pixels.                                                                                                                                                                    |
-| `data-start`          | Any timed child element            | Start time in seconds relative to composition start.                                                                                                                                        |
-| `data-duration`       | Any timed child element (optional) | How long the element stays visible/active, in seconds. Omit for "until composition end".                                                                                                    |
-| `data-track-index`    | Any timed child element (optional) | Timeline track number; controls z-ordering when elements overlap in time.                                                                                                                   |
-| `class="clip"`        | Any timed child element            | Required — this is what tells the HyperFrames runtime to manage the element's visibility lifecycle from `data-start`/`data-duration`. An element without it is not treated as a timed clip. |
+| Attribute | Applies to | Meaning |
+| --- | --- | --- |
+| `data-composition-id` | Root element (once per file) | Stable identifier the CLI uses to address this composition. Required. |
+| `data-width` | Root element | Output width in pixels. |
+| `data-height` | Root element | Output height in pixels. |
+| `data-start` | Any timed child element | Start time in seconds relative to composition start. |
+| `data-duration` | Any timed child element (optional) | How long the element stays visible/active, in seconds. Omit for "until composition end". |
+| `data-track-index` | Any timed child element (optional) | Timeline track number; controls z-ordering when elements overlap in time. |
+| `class="clip"` | Any timed child element | Required — this is what tells the HyperFrames runtime to manage the element's visibility lifecycle from `data-start`/`data-duration`. An element without it is not treated as a timed clip. |
 
 `lint` fails the composition if `data-composition-id` is missing/duplicated,
 if any `data-start`/`data-duration` value doesn't parse, or if a timed
@@ -28,33 +28,30 @@ element is missing `class="clip"`.
   <head>
     <meta charset="utf-8" />
     <style>
-      body {
-        margin: 0;
-        background: #0b0b0f;
-      }
+      body { margin: 0; background: #0b0b0f; }
       .headline {
         position: absolute;
         left: 64px;
         right: 64px;
         top: 40%;
-        font:
-          700 84px/1.1 system-ui,
-          sans-serif;
+        font: 700 84px/1.1 system-ui, sans-serif;
         color: #ffffff;
       }
       .cta {
         position: absolute;
         left: 64px;
         bottom: 160px;
-        font:
-          500 40px system-ui,
-          sans-serif;
+        font: 500 40px system-ui, sans-serif;
         color: #7cf29c;
       }
     </style>
   </head>
   <body>
-    <main data-composition-id="product-launch-vertical" data-width="1080" data-height="1920">
+    <main
+      data-composition-id="product-launch-vertical"
+      data-width="1080"
+      data-height="1920"
+    >
       <section class="clip headline" data-start="0" data-duration="2.5" data-track-index="0">
         <h1>Introducing AgentKit</h1>
       </section>

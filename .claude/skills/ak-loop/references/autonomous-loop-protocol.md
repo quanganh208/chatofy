@@ -72,7 +72,7 @@ Convention: `loop(iter-N):` prefix enables log filtering later.
 
 ## Phase 5: Verify
 
-Run the configured verify command. Extract the numeric result.
+Run the configured verify command under `Timeout` (default 30 seconds). Extract the numeric result. On timeout, stop its owned process, log timeout/crash evidence and safely discard this iteration. Record full duration/retries separately from stable TSV fields.
 
 ```bash
 RESULT=$(eval "$VERIFY_CMD")
@@ -86,7 +86,7 @@ DELTA=$(echo "$RESULT - $PREV_METRIC" | bc)
 | Exit 0, number printed | Success | Proceed to Phase 5.5 / 6 |
 | Exit 0, no number | Bad command | Log `error:no-number`, revert, fix verify cmd |
 | Exit non-zero | Verify crash | Log `error:verify-crash`, revert, treat as discard |
-| Timeout (>30s) | Too slow | Log `error:timeout`, abort loop, surface to user |
+| Configured `Timeout` exceeded | Iteration did not finish in its budget | Stop owned processes, log `error:timeout` and duration, safely revert the iteration and treat as discard; continue within the remaining iteration budget |
 
 ---
 

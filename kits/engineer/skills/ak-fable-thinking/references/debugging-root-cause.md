@@ -79,15 +79,15 @@ fix" request — quick fixes are where symptom patches live.
 
 ## Investigation toolkit (first moves by symptom)
 
-| Symptom                        | First moves                                                                                         |
-| ------------------------------ | --------------------------------------------------------------------------------------------------- |
-| Deterministic failure          | minimal reproduction → literal read → bisect                                                        |
-| Flaky or intermittent          | loop and stress → timing, ordering, concurrency → shared state → environment differences            |
-| Works locally, fails in CI     | diff the environment: OS, time zone, locale, versions, parallelism, paths, cwd, secrets, caches     |
-| Performance regression         | measure first (profile), bisect commits and config, check data growth, N+1 queries, lock contention |
-| Wrong output or corrupted data | trace one record end to end through every transform; time zone, encoding, floating point            |
-| "Nothing changed"              | something did: dependencies, certificates, data, clock, quotas, upstream; check timestamps          |
-| Disappears under observation   | logging shifted the timing → sample, record, replay; suspect a race                                 |
+| Symptom | First moves |
+|---------|-------------|
+| Deterministic failure | minimal reproduction → literal read → bisect |
+| Flaky or intermittent | loop and stress → timing, ordering, concurrency → shared state → environment differences |
+| Works locally, fails in CI | diff the environment: OS, time zone, locale, versions, parallelism, paths, cwd, secrets, caches |
+| Performance regression | measure first (profile), bisect commits and config, check data growth, N+1 queries, lock contention |
+| Wrong output or corrupted data | trace one record end to end through every transform; time zone, encoding, floating point |
+| "Nothing changed" | something did: dependencies, certificates, data, clock, quotas, upstream; check timestamps |
+| Disappears under observation | logging shifted the timing → sample, record, replay; suspect a race |
 
 ## What good debugging is (evaluable, not vibes)
 
@@ -134,14 +134,14 @@ fix" request — quick fixes are where symptom patches live.
 
 ## Evaluate before delivering (act-backed, per the Self-Review Gate)
 
-| Dimension      | Passes when                                              | Proven by                     |
-| -------------- | -------------------------------------------------------- | ----------------------------- |
-| Reproduction   | deterministic repro, or flakiness quantified             | command and result            |
-| Mechanism      | chain from symptom to root, each link observed           | causal chain notes            |
-| Discrimination | two or more hypotheses; survivor confirmed by prediction | hypothesis log                |
-| Altitude       | fix removes the class, not the instance                  | fix rationale, sibling search |
-| Proof          | test fails without, passes with; suite green             | both runs recorded            |
-| Prevention     | a guard that catches the next instance earlier           | guard verified                |
+| Dimension | Passes when | Proven by |
+|-----------|-------------|-----------|
+| Reproduction | deterministic repro, or flakiness quantified | command and result |
+| Mechanism | chain from symptom to root, each link observed | causal chain notes |
+| Discrimination | two or more hypotheses; survivor confirmed by prediction | hypothesis log |
+| Altitude | fix removes the class, not the instance | fix rationale, sibling search |
+| Proof | test fails without, passes with; suite green | both runs recorded |
+| Prevention | a guard that catches the next instance earlier | guard verified |
 
 ## Root-cause record template
 
@@ -159,12 +159,12 @@ Open: ...
 
 ## Do / Don't
 
-| Don't                                 | Instead                                                                     |
-| ------------------------------------- | --------------------------------------------------------------------------- |
-| Patch the symptom                     | Remove the mechanism at the altitude of the cause                           |
-| Diagnose from the error's resemblance | Two hypotheses; the discriminating check first                              |
-| Fix what you never reproduced         | Reproduce or characterize before touching code                              |
-| Stop at the line that threw           | Follow the chain to the violable invariant and the missing guard            |
-| Declare fixed when the test passes    | Prove both ways; run the suite; search for siblings                         |
-| Ship without prevention               | Add the type, constraint, lint, alert, or comment that catches the next one |
-| Mark the flaky test as retry          | Loop it, find the shared state or race, fix it                              |
+| Don't | Instead |
+|-------|---------|
+| Patch the symptom | Remove the mechanism at the altitude of the cause |
+| Diagnose from the error's resemblance | Two hypotheses; the discriminating check first |
+| Fix what you never reproduced | Reproduce or characterize before touching code |
+| Stop at the line that threw | Follow the chain to the violable invariant and the missing guard |
+| Declare fixed when the test passes | Prove both ways; run the suite; search for siblings |
+| Ship without prevention | Add the type, constraint, lint, alert, or comment that catches the next one |
+| Mark the flaky test as retry | Loop it, find the shared state or race, fix it |

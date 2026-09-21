@@ -5,7 +5,6 @@ Advanced techniques for optimization, performance, and complex workflows.
 ## Session Reuse and Connection Pooling
 
 ### Durable Objects for Persistent Sessions
-
 ```typescript
 export class Browser {
   state: DurableObjectState;
@@ -70,17 +69,15 @@ export default {
     response = await fetch(request);
 
     // 4. Store in both caches
-    ctx.waitUntil(
-      Promise.all([
-        cache.put(cacheKey, response.clone()),
-        env.MY_KV.put(request.url, await response.clone().text(), {
-          expirationTtl: CACHE_TTL,
-        }),
-      ]),
-    );
+    ctx.waitUntil(Promise.all([
+      cache.put(cacheKey, response.clone()),
+      env.MY_KV.put(request.url, await response.clone().text(), {
+        expirationTtl: CACHE_TTL
+      })
+    ]));
 
     return response;
-  },
+  }
 };
 ```
 
@@ -132,7 +129,8 @@ export default {
 
       // Extract links
       const links = await page.evaluate(() => {
-        return Array.from(document.querySelectorAll('a')).map((a) => a.href);
+        return Array.from(document.querySelectorAll('a'))
+          .map(a => a.href);
       });
 
       // Queue new links
@@ -145,7 +143,7 @@ export default {
     }
 
     await browser.close();
-  },
+  }
 };
 ```
 
@@ -175,7 +173,7 @@ export default {
     } catch (error) {
       return new Response('Unauthorized', { status: 401 });
     }
-  },
+  }
 };
 ```
 
@@ -193,7 +191,7 @@ export default {
     }
 
     return new Response('OK');
-  },
+  }
 };
 ```
 
@@ -201,8 +199,9 @@ export default {
 
 ```typescript
 // Efficient bulk inserts
-const statements = users.map((user) =>
-  env.DB.prepare('INSERT INTO users (name, email) VALUES (?, ?)').bind(user.name, user.email),
+const statements = users.map(user =>
+  env.DB.prepare('INSERT INTO users (name, email) VALUES (?, ?)')
+    .bind(user.name, user.email)
 );
 
 await env.DB.batch(statements);
@@ -215,7 +214,7 @@ const { readable, writable } = new TransformStream({
   transform(chunk, controller) {
     // Process chunk
     controller.enqueue(chunk);
-  },
+  }
 });
 
 response.body.pipeTo(writable);
@@ -242,40 +241,36 @@ export default {
       messages: [
         {
           role: 'system',
-          content: 'Extract top 5 article titles and URLs as JSON array',
+          content: 'Extract top 5 article titles and URLs as JSON array'
         },
-        { role: 'user', content: content },
-      ],
+        { role: 'user', content: content }
+      ]
     });
 
     return Response.json(response);
-  },
+  }
 };
 ```
 
 ## Performance Optimization
 
 ### Bundle Size
-
 - Keep Workers <1MB bundled
 - Remove unused dependencies
 - Use code splitting
 - Check with: `wrangler deploy --dry-run --outdir=dist`
 
 ### Cold Starts
-
 - Minimize initialization code
 - Use bindings over fetch
 - Avoid large imports at top level
 
 ### Memory Management
-
 - Close pages when done: `await page.close()`
 - Disconnect browsers: `await browser.disconnect()`
 - Implement cleanup alarms in Durable Objects
 
 ### Request Optimization
-
 - Use server-side filtering with `--filter`
 - Batch operations with D1 `.batch()`
 - Stream large responses
