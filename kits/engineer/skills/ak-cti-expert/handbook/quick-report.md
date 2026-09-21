@@ -72,25 +72,25 @@ CONTRADICTED — sources conflict, do not treat as fact
 
 ## Usage Notes
 
-| Situation          | Adaptation                                                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Situation | Adaptation |
+|-----------|-----------|
 | Legal or HR matter | Switch to F4 (evidentiary) format instead — see [`output/reports/format-catalog.md`](../output/reports/format-catalog.md) |
-| Exec audience      | Shorten findings to top 3 only; remove glossary                                                                           |
-| Technical audience | Replace glossary with full citation list                                                                                  |
-| Urgent brief       | Complete only Bottom Line + Findings + Actions                                                                            |
+| Exec audience | Shorten findings to top 3 only; remove glossary |
+| Technical audience | Replace glossary with full citation list |
+| Urgent brief | Complete only Bottom Line + Findings + Actions |
 
 ---
 
 ## Exposure Level Decision Guide
 
-| Evidence type                                              | Exposure level |
-| ---------------------------------------------------------- | -------------- |
-| Active credential exposure (plaintext passwords, API keys) | CRITICAL       |
-| Confirmed data in breach database, identity confirmed      | HIGH           |
-| Suspicious findings, unconfirmed exposure                  | MODERATE       |
-| Informational findings only, no confirmed harm             | LOW            |
-| No concerning findings                                     | NONE           |
+| Evidence type | Exposure level |
+|---------------|---------------|
+| Active credential exposure (plaintext passwords, API keys) | CRITICAL |
+| Confirmed data in breach database, identity confirmed | HIGH |
+| Suspicious findings, unconfirmed exposure | MODERATE |
+| Informational findings only, no confirmed harm | LOW |
+| No concerning findings | NONE |
 
 ---
 
-_For full multi-section reports, see [`output/reports/format-catalog.md`](../output/reports/format-catalog.md)_
+*For full multi-section reports, see [`output/reports/format-catalog.md`](../output/reports/format-catalog.md)*

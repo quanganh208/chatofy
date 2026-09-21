@@ -51,10 +51,8 @@ function parseEnvContent(content) {
     const rawValue = trimmed.slice(eqIndex + 1).trim();
     let value = rawValue;
 
-    const isDoubleQuoted =
-      rawValue.startsWith('"') && rawValue.endsWith('"') && rawValue.length >= 2;
-    const isSingleQuoted =
-      rawValue.startsWith("'") && rawValue.endsWith("'") && rawValue.length >= 2;
+    const isDoubleQuoted = rawValue.startsWith('"') && rawValue.endsWith('"') && rawValue.length >= 2;
+    const isSingleQuoted = rawValue.startsWith("'") && rawValue.endsWith("'") && rawValue.length >= 2;
 
     if (isDoubleQuoted || isSingleQuoted) {
       value = rawValue.slice(1, -1);

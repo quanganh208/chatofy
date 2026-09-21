@@ -2,14 +2,14 @@
 name: ak:devops
 description: Deploy to Cloudflare (Workers, R2, D1), Docker, GCP (Cloud Run, GKE), Kubernetes (kubectl, Helm). Use for serverless, containers, CI/CD, GitOps, security audit.
 user-invocable: true
-when_to_use: 'Invoke for cloud, containers, Kubernetes, CI/CD, or GitOps.'
+when_to_use: "Invoke for cloud, containers, Kubernetes, CI/CD, or GitOps."
 category: engineering
 keywords: [cloudflare, docker, gcp, kubernetes, cicd]
 license: MIT
-argument-hint: '[platform] [task]'
+argument-hint: "[platform] [task]"
 metadata:
   author: agentkit
-  version: '2.1.0'
+  version: "2.1.0"
 ---
 
 # DevOps Skill
@@ -41,7 +41,6 @@ state ownership. Track and stop only processes started for this work.
 ## Reference Navigation
 
 ### Cloudflare Platform
-
 - `cloudflare-platform.md` - Edge computing overview
 - `cloudflare-workers-basics.md` - Handler types, patterns
 - `cloudflare-workers-advanced.md` - Performance, optimization
@@ -51,21 +50,17 @@ state ownership. Track and stop only processes started for this work.
 - `browser-rendering.md` - Puppeteer automation
 
 ### Docker
-
 - `docker-basics.md` - Dockerfile, images, containers
 - `docker-compose.md` - Multi-container apps
 
 ### Google Cloud
-
 - `gcloud-platform.md` - gcloud CLI, authentication
 - `gcloud-services.md` - Compute Engine, GKE, Cloud Run
 
 ### Kubernetes
-
 - Use upstream Kubernetes and Helm documentation for cluster-specific details.
 
 ### Scripts
-
 - `scripts/cloudflare_deploy.py` - Automate Worker deployments
 - `scripts/docker_optimize.py` - Analyze Dockerfiles
 

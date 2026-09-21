@@ -4,29 +4,11 @@ description: "Analyze a codebase and create, refresh, summarize, or audit projec
 user-invocable: true
 when_to_use: "Invoke to create, refresh, summarize, or audit project documentation; to author or optimize the root CLAUDE.md/AGENTS.md agent context file; or to distill DO/DON'T rules for that file from git history, CI runs, and optionally source-tree markers via --source."
 category: workflow
-keywords:
-  [
-    documentation,
-    init,
-    update,
-    summarize,
-    audit,
-    agent-context,
-    claude-md,
-    agents-md,
-    agents,
-    rules,
-    git-history,
-    ci-failures,
-    source-mining,
-    scout,
-    preset,
-    classic-layout,
-  ]
-argument-hint: 'init|update|summarize|agent-context|agents|llms'
+keywords: [documentation, init, update, summarize, audit, agent-context, claude-md, agents-md, agents, rules, git-history, ci-failures, source-mining, scout, preset, classic-layout]
+argument-hint: "init|update|summarize|agent-context|agents|llms"
 metadata:
   author: agentkit
-  version: '1.11.0'
+  version: "1.11.0"
 ---
 
 # Documentation Management
@@ -65,15 +47,15 @@ questions. Do not reopen settled intent without new evidence.
 
 Parse the first word of `$ARGUMENTS`:
 
-| Input            | Load                                | Purpose                                                                                                                                             |
-| ---------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `init`           | `references/init-workflow.md`       | Establish a minimal project-specific docs route                                                                                                     |
-| `update`         | `references/update-workflow.md`     | Reconcile impacted docs with current evidence                                                                                                       |
-| `summarize`      | `references/summarize-workflow.md`  | Summarize current evidence without forcing a new file                                                                                               |
-| `agent-context`  | `references/agent-context-rules.md` | Author, audit, or optimize the root `CLAUDE.md`/`AGENTS.md` agent context file                                                                      |
-| `agents`         | `references/agents-workflow.md`     | Mine bounded git and CI history for recurring failures and non-derivable gotchas; distill confirmed DO/DON'T rules into the root agent context file |
-| `llms`           | `references/llms.md`                | Generate or update `llms.txt` and `llms-full.txt` per llmstxt.org                                                                                   |
-| empty or unclear | ask the user                        | Choose the operation; never assume `init`                                                                                                           |
+| Input | Load | Purpose |
+|---|---|---|
+| `init` | `references/init-workflow.md` | Establish a minimal project-specific docs route |
+| `update` | `references/update-workflow.md` | Reconcile impacted docs with current evidence |
+| `summarize` | `references/summarize-workflow.md` | Summarize current evidence without forcing a new file |
+| `agent-context` | `references/agent-context-rules.md` | Author, audit, or optimize the root `CLAUDE.md`/`AGENTS.md` agent context file |
+| `agents` | `references/agents-workflow.md` | Mine bounded git and CI history for recurring failures and non-derivable gotchas; distill confirmed DO/DON'T rules into the root agent context file |
+| `llms` | `references/llms.md` | Generate or update `llms.txt` and `llms-full.txt` per llmstxt.org |
+| empty or unclear | ask the user | Choose the operation; never assume `init` |
 
 Other workflows deciding whether docs are affected should load
 `references/documentation-management.md`.

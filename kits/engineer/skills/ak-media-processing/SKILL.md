@@ -2,14 +2,14 @@
 name: ak:media-processing
 description: Process media with FFmpeg (video/audio), ImageMagick (images), RMBG (AI background removal). Use for encoding, format conversion, filters, thumbnails, batch processing, HLS/DASH streaming.
 user-invocable: true
-when_to_use: 'Invoke for FFmpeg, ImageMagick, or batch media work.'
+when_to_use: "Invoke for FFmpeg, ImageMagick, or batch media work."
 category: media
 keywords: [ffmpeg, imagemagick, video, audio, images]
 license: MIT
-argument-hint: '[input-file] [operation]'
+argument-hint: "[input-file] [operation]"
 metadata:
   author: agentkit
-  version: '1.0.1'
+  version: "1.0.1"
 ---
 
 # Media Processing Skill
@@ -23,15 +23,15 @@ codec/dimensions/duration or image metadata. In-place recipes require explicit o
 
 ## Tool Selection
 
-| Task                        | Tool               | Reason                                   |
-| --------------------------- | ------------------ | ---------------------------------------- |
-| Video encoding/conversion   | FFmpeg             | Native codec support, streaming          |
-| Audio extraction/conversion | FFmpeg             | Direct stream manipulation               |
-| Image resize/effects        | ImageMagick        | Optimized for still images               |
-| Background removal          | RMBG               | AI-powered, local processing             |
-| Batch images                | ImageMagick        | mogrify for in-place edits               |
-| Video thumbnails            | FFmpeg             | Frame extraction built-in                |
-| GIF creation                | FFmpeg/ImageMagick | FFmpeg for video, ImageMagick for images |
+| Task | Tool | Reason |
+|------|------|--------|
+| Video encoding/conversion | FFmpeg | Native codec support, streaming |
+| Audio extraction/conversion | FFmpeg | Direct stream manipulation |
+| Image resize/effects | ImageMagick | Optimized for still images |
+| Background removal | RMBG | AI-powered, local processing |
+| Batch images | ImageMagick | mogrify for in-place edits |
+| Video thumbnails | FFmpeg | Frame extraction built-in |
+| GIF creation | FFmpeg/ImageMagick | FFmpeg for video, ImageMagick for images |
 
 ## Installation
 
@@ -74,21 +74,18 @@ rmbg input.jpg -m u2netp -o output.png  # Fast
 ## Key Parameters
 
 **FFmpeg:**
-
 - `-c:v libx264` - H.264 codec
 - `-crf 22` - Quality (0-51, lower=better)
 - `-preset slow` - Speed/compression balance
 - `-c:a aac` - Audio codec
 
 **ImageMagick:**
-
 - `800x600` - Fit within (maintains aspect)
 - `800x600^` - Fill (may crop)
 - `-quality 85` - JPEG quality
 - `-strip` - Remove metadata
 
 **RMBG:**
-
 - `-m briaai` - High quality model
 - `-m u2netp` - Fast model
 - `-r 4096` - Max resolution
@@ -96,7 +93,6 @@ rmbg input.jpg -m u2netp -o output.png  # Fast
 ## References
 
 Detailed guides in `references/`:
-
 - `ffmpeg-encoding.md` - Codecs, quality, hardware acceleration
 - `ffmpeg-streaming.md` - HLS/DASH, live streaming
 - `ffmpeg-filters.md` - Filters, complex filtergraphs

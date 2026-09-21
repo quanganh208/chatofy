@@ -19,14 +19,14 @@ Guides rapid triage and initial response to security incidents following NIST SP
 
 ## 2. Tool Inventory
 
-| Priority  | Tool                                | Purpose                             | Install                                           |
-| --------- | ----------------------------------- | ----------------------------------- | ------------------------------------------------- |
-| Primary   | `ps`, `ss`, `who`, `lsof`           | Volatile evidence capture (Linux)   | Built-in                                          |
-| Primary   | `journalctl`                        | System log analysis                 | Built-in (systemd)                                |
-| Primary   | `tasklist`, `netstat`, `query user` | Volatile evidence capture (Windows) | Built-in                                          |
-| Secondary | LiME                                | Linux memory dump                   | `git clone https://github.com/504ensicsLabs/LiME` |
-| Secondary | WinPmem                             | Windows memory dump                 | Download from GitHub releases                     |
-| Tertiary  | YARA                                | IOC pattern matching                | `apt install -y yara`                             |
+| Priority | Tool | Purpose | Install |
+|----------|------|---------|---------|
+| Primary | `ps`, `ss`, `who`, `lsof` | Volatile evidence capture (Linux) | Built-in |
+| Primary | `journalctl` | System log analysis | Built-in (systemd) |
+| Primary | `tasklist`, `netstat`, `query user` | Volatile evidence capture (Windows) | Built-in |
+| Secondary | LiME | Linux memory dump | `git clone https://github.com/504ensicsLabs/LiME` |
+| Secondary | WinPmem | Windows memory dump | Download from GitHub releases |
+| Tertiary | YARA | IOC pattern matching | `apt install -y yara` |
 
 ---
 
@@ -59,35 +59,33 @@ Guides rapid triage and initial response to security incidents following NIST SP
 ## 5. Incident Classification
 
 ### Type
-
-| Type                          | Examples                              |
-| ----------------------------- | ------------------------------------- |
-| Malware                       | Ransomware, trojan, worm, cryptominer |
-| Unauthorized access           | Compromised credentials, exploitation |
-| Data exfiltration             | Data theft, insider threat            |
-| Denial of service             | DDoS, resource exhaustion             |
-| Web compromise                | Defacement, skimming, backdoor        |
-| Phishing / social engineering | Credential harvesting, BEC            |
+| Type | Examples |
+|------|---------|
+| Malware | Ransomware, trojan, worm, cryptominer |
+| Unauthorized access | Compromised credentials, exploitation |
+| Data exfiltration | Data theft, insider threat |
+| Denial of service | DDoS, resource exhaustion |
+| Web compromise | Defacement, skimming, backdoor |
+| Phishing / social engineering | Credential harvesting, BEC |
 
 ### Severity
-
-| Level    | Criteria                                                                   |
-| -------- | -------------------------------------------------------------------------- |
+| Level | Criteria |
+|-------|---------|
 | Critical | Active data exfiltration, ransomware spreading, critical system compromise |
-| High     | Confirmed compromise, malware detected, unauthorized access                |
-| Medium   | Suspicious activity, potential indicators, failed attacks                  |
-| Low      | Policy violation, reconnaissance detected, likely false positive           |
+| High | Confirmed compromise, malware detected, unauthorized access |
+| Medium | Suspicious activity, potential indicators, failed attacks |
+| Low | Policy violation, reconnaissance detected, likely false positive |
 
 ---
 
 ## 6. Containment Actions
 
-| Vector      | Action                                                      |
-| ----------- | ----------------------------------------------------------- |
-| Network     | Block suspicious IPs/domains at firewall                    |
-| Host        | Isolate affected system (network disconnect, NOT power off) |
-| Account     | Disable compromised accounts, force password resets         |
-| Application | Disable affected service if safe to do so                   |
+| Vector | Action |
+|--------|--------|
+| Network | Block suspicious IPs/domains at firewall |
+| Host | Isolate affected system (network disconnect, NOT power off) |
+| Account | Disable compromised accounts, force password resets |
+| Application | Disable affected service if safe to do so |
 
 ---
 
@@ -122,27 +120,27 @@ If memory forensics tools available (LiME, WinPmem), capture memory dump **befor
 
 ## 8. Analysis Checklist
 
-| Area         | What to Check                                                             |
-| ------------ | ------------------------------------------------------------------------- |
-| Process tree | Unusual process names, paths, parent-child relationships                  |
-| Network      | Unusual outbound connections, suspicious DNS, beaconing patterns          |
-| Files        | Recently modified in unusual locations, hidden files, new executables     |
-| Logs         | Auth failures, privilege escalation, service changes, cleared logs        |
-| Persistence  | Crontab, systemd units, registry Run keys, scheduled tasks, startup items |
+| Area | What to Check |
+|------|--------------|
+| Process tree | Unusual process names, paths, parent-child relationships |
+| Network | Unusual outbound connections, suspicious DNS, beaconing patterns |
+| Files | Recently modified in unusual locations, hidden files, new executables |
+| Logs | Auth failures, privilege escalation, service changes, cleared logs |
+| Persistence | Crontab, systemd units, registry Run keys, scheduled tasks, startup items |
 
 ---
 
 ## 9. IOC Extraction
 
-| IOC Type        | Examples                               |
-| --------------- | -------------------------------------- |
-| IP addresses    | Source and destination IPs             |
-| Domains         | C2 domains, phishing domains           |
-| File hashes     | MD5 and SHA256 of suspicious files     |
-| File paths      | Malware locations, dropped files       |
-| Email addresses | Phishing sender addresses              |
-| URLs            | Malicious URLs, C2 endpoints           |
-| User agents     | Unusual or known-malicious user agents |
+| IOC Type | Examples |
+|----------|---------|
+| IP addresses | Source and destination IPs |
+| Domains | C2 domains, phishing domains |
+| File hashes | MD5 and SHA256 of suspicious files |
+| File paths | Malware locations, dropped files |
+| Email addresses | Phishing sender addresses |
+| URLs | Malicious URLs, C2 endpoints |
+| User agents | Unusual or known-malicious user agents |
 
 ---
 
@@ -150,53 +148,40 @@ If memory forensics tools available (LiME, WinPmem), capture memory dump **befor
 
 ```markdown
 # Incident Triage Report
-
 ## Incident ID: [ID]
-
 ## Date/Time: [UTC]
-
 ## Severity: [Critical/High/Medium/Low]
-
 ## Classification: [incident type]
-
 ## Status: [Triage/Contained/Analyzing/Resolved]
 
 ### Summary
-
 [2-3 sentence overview]
 
 ### Affected Systems
-
-| Hostname | IP  | Role | Status |
-| -------- | --- | ---- | ------ |
+| Hostname | IP | Role | Status |
+|----------|-----|------|--------|
 
 ### Timeline
-
 | Time (UTC) | Event | Source | Notes |
-| ---------- | ----- | ------ | ----- |
+|------------|-------|--------|-------|
 
 ### Indicators of Compromise
-
 | Type | Value | Context | Confidence |
-| ---- | ----- | ------- | ---------- |
+|------|-------|---------|------------|
 
 ### Containment Actions Taken
-
 - [ ] [Action and result]
 
 ### Evidence Preserved
-
 | Type | Location | Hash | Notes |
-| ---- | -------- | ---- | ----- |
+|------|----------|------|-------|
 
 ### Recommended Next Steps
-
 1. [Immediate priority]
 2. [Short-term action]
 3. [Follow-up investigation]
 
 ### Escalation Checklist
-
 - [ ] Management notified
 - [ ] Legal notified (if data breach)
 - [ ] Law enforcement (if applicable)

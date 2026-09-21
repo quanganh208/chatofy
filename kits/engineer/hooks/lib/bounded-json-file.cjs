@@ -8,11 +8,7 @@ const MAX_JSON_BYTES = 256 * 1024;
 const MAX_JSON_DEPTH = 8;
 const MAX_JSON_ITEMS = 1000;
 
-function privateOwnershipIsSafe(
-  info,
-  platform = process.platform,
-  userId = typeof process.getuid === 'function' ? process.getuid() : null,
-) {
+function privateOwnershipIsSafe(info, platform = process.platform, userId = typeof process.getuid === 'function' ? process.getuid() : null) {
   if (platform === 'win32' || userId == null) return true;
   return info?.uid === userId && (info.mode & 0o077) === 0;
 }
@@ -33,8 +29,7 @@ function ensurePrivateDirectory(directory, anchor) {
   const absoluteAnchor = path.resolve(anchor);
   const absoluteDirectory = path.resolve(directory);
   const relative = path.relative(absoluteAnchor, absoluteDirectory);
-  if (relative.startsWith('..') || path.isAbsolute(relative))
-    throw new Error('state path escapes private root');
+  if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('state path escapes private root');
 
   let current = absoluteAnchor;
   fs.mkdirSync(current, { recursive: true, mode: 0o700 });
@@ -92,7 +87,7 @@ function validateJsonShape(value, depth = 0, budget = { items: 0 }) {
   const values = Array.isArray(value) ? value : Object.values(value);
   budget.items += values.length;
   if (budget.items > MAX_JSON_ITEMS) return false;
-  return values.every((entry) => validateJsonShape(entry, depth + 1, budget));
+  return values.every(entry => validateJsonShape(entry, depth + 1, budget));
 }
 
 function readJsonFile(filePath, root) {
@@ -143,18 +138,8 @@ function writeJsonFile({ root, filePath, value, verify = null }) {
   } catch {
     return false;
   } finally {
-    if (descriptor != null)
-      try {
-        fs.closeSync(descriptor);
-      } catch {
-        /* ignore */
-      }
-    if (temporaryPath)
-      try {
-        fs.unlinkSync(temporaryPath);
-      } catch {
-        /* ignore */
-      }
+    if (descriptor != null) try { fs.closeSync(descriptor); } catch { /* ignore */ }
+    if (temporaryPath) try { fs.unlinkSync(temporaryPath); } catch { /* ignore */ }
   }
 }
 
@@ -178,18 +163,8 @@ function writeJsonFileExclusive({ root, filePath, value }) {
   } catch {
     return false;
   } finally {
-    if (descriptor != null)
-      try {
-        fs.closeSync(descriptor);
-      } catch {
-        /* ignore */
-      }
-    if (temporaryPath)
-      try {
-        fs.unlinkSync(temporaryPath);
-      } catch {
-        /* ignore */
-      }
+    if (descriptor != null) try { fs.closeSync(descriptor); } catch { /* ignore */ }
+    if (temporaryPath) try { fs.unlinkSync(temporaryPath); } catch { /* ignore */ }
   }
 }
 
@@ -203,5 +178,5 @@ module.exports = {
   serializeJson,
   validateJsonShape,
   writeJsonFile,
-  writeJsonFileExclusive,
+  writeJsonFileExclusive
 };

@@ -41,49 +41,31 @@ response/evidence and judge identity/method so the result can be audited.
 A reviewed rubric is a JSON array, for example:
 
 ```json
-[
-  {
-    "id": "tls",
-    "type": "constraint",
-    "question": "Which TLS constraint must remain true?",
-    "ground_truth": "Keep TLS verification enabled.",
-    "context_reference": "Keep TLS verification enabled.",
-    "critical": true,
-    "reviewed": true
-  }
-]
+[{"id":"tls","type":"constraint","question":"Which TLS constraint must remain true?",
+  "ground_truth":"Keep TLS verification enabled.",
+  "context_reference":"Keep TLS verification enabled.","critical":true,"reviewed":true}]
 ```
 
 `context_reference` must be exact source text. IDs are unique. Types and required scores:
 
-| Type         | Scores                          |
-| ------------ | ------------------------------- |
-| recall       | accuracy, completeness          |
-| artifact     | accuracy, artifact_trail        |
-| continuation | continuity, context_awareness   |
-| decision     | accuracy, context_awareness     |
-| constraint   | accuracy, instruction_following |
+| Type | Scores |
+|---|---|
+| recall | accuracy, completeness |
+| artifact | accuracy, artifact_trail |
+| continuation | continuity, context_awareness |
+| decision | accuracy, context_awareness |
+| constraint | accuracy, instruction_following |
 
 Run `evaluate original.json summary.txt --probes probes.json` and copy `input_binding`
 into the grade file. Bindings cover canonical source messages, exact summary UTF-8 text
 and the full normalized rubric (SHA-256). Do not reuse grades after any input changes.
 
 ```json
-{
-  "schema_version": 1,
-  "source_sha256": "<source hash>",
-  "summary_sha256": "<summary hash>",
-  "probes_sha256": "<rubric hash>",
-  "judge": { "id": "reviewer/run", "method": "continuation rubric" },
-  "results": [
-    {
-      "probe_id": "tls",
-      "response": "Keep TLS verification enabled.",
-      "evidence": "Cite the actual continuation result and source constraint here.",
-      "scores": { "accuracy": 1, "instruction_following": 1 }
-    }
-  ]
-}
+{"schema_version":1,"source_sha256":"<source hash>","summary_sha256":"<summary hash>",
+ "probes_sha256":"<rubric hash>","judge":{"id":"reviewer/run","method":"continuation rubric"},
+ "results":[{"probe_id":"tls","response":"Keep TLS verification enabled.",
+ "evidence":"Cite the actual continuation result and source constraint here.",
+ "scores":{"accuracy":1,"instruction_following":1}}]}
 ```
 
 This is an input-shape illustration, not an observed model evaluation. Replace every

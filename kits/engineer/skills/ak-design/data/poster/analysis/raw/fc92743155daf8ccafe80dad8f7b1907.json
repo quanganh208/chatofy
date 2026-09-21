@@ -7,7 +7,14 @@
     "dreamlike aesthetic",
     "historical modern blend"
   ],
-  "palette_hexes": ["#FFFFFF", "#D6E6F2", "#FFD700", "#E42D00", "#296B50", "#0D0C0B"],
+  "palette_hexes": [
+    "#FFFFFF",
+    "#D6E6F2",
+    "#FFD700",
+    "#E42D00",
+    "#296B50",
+    "#0D0C0B"
+  ],
   "layout": {
     "grid": "serpentine vertical flow",
     "focal": "full-bleed",
@@ -17,7 +24,12 @@
     "material": "watercolor paper",
     "finish": "watercolor wash"
   },
-  "mood": ["festive", "vibrant", "aspirational", "cultural"],
+  "mood": [
+    "festive",
+    "vibrant",
+    "aspirational",
+    "cultural"
+  ],
   "shape_primitives": [
     "organic curves",
     "rectilinear buildings",

@@ -1,14 +1,14 @@
 ---
 name: ak:react-best-practices
-description: 'Apply React and Next.js performance optimization patterns from Vercel Engineering. Use for component optimization, rendering performance, bundle analysis.'
+description: "Apply React and Next.js performance optimization patterns from Vercel Engineering. Use for component optimization, rendering performance, bundle analysis."
 user-invocable: true
-when_to_use: 'Invoke for React/Next.js performance and rendering issues.'
+when_to_use: "Invoke for React/Next.js performance and rendering issues."
 category: engineering
 keywords: [react, nextjs, performance, vercel]
-argument-hint: '[component or pattern]'
+argument-hint: "[component or pattern]"
 metadata:
   author: agentkit
-  version: '1.0.2'
+  version: "1.0.2"
 ---
 
 # Vercel React Best Practices
@@ -18,7 +18,6 @@ Comprehensive performance optimization guide for React and Next.js applications,
 ## When to Apply
 
 Reference these guidelines when:
-
 - Addressing a measured or explicitly identified performance issue in components/pages
 - Reviewing data fetching for observed waterfalls or redundant requests
 - Reviewing code for performance issues
@@ -27,16 +26,16 @@ Reference these guidelines when:
 
 ## Rule Categories by Priority
 
-| Priority | Category                  | Impact      | Prefix       |
-| -------- | ------------------------- | ----------- | ------------ |
-| 1        | Eliminating Waterfalls    | CRITICAL    | `async-`     |
-| 2        | Bundle Size Optimization  | CRITICAL    | `bundle-`    |
-| 3        | Server-Side Performance   | HIGH        | `server-`    |
-| 4        | Client-Side Data Fetching | MEDIUM-HIGH | `client-`    |
-| 5        | Re-render Optimization    | MEDIUM      | `rerender-`  |
-| 6        | Rendering Performance     | MEDIUM      | `rendering-` |
-| 7        | JavaScript Performance    | LOW-MEDIUM  | `js-`        |
-| 8        | Advanced Patterns         | LOW         | `advanced-`  |
+| Priority | Category | Impact | Prefix |
+|----------|----------|--------|--------|
+| 1 | Eliminating Waterfalls | CRITICAL | `async-` |
+| 2 | Bundle Size Optimization | CRITICAL | `bundle-` |
+| 3 | Server-Side Performance | HIGH | `server-` |
+| 4 | Client-Side Data Fetching | MEDIUM-HIGH | `client-` |
+| 5 | Re-render Optimization | MEDIUM | `rerender-` |
+| 6 | Rendering Performance | MEDIUM | `rendering-` |
+| 7 | JavaScript Performance | LOW-MEDIUM | `js-` |
+| 8 | Advanced Patterns | LOW | `advanced-` |
 
 ## Quick Reference
 
@@ -120,7 +119,6 @@ rules/_sections.md
 ```
 
 Each rule file contains:
-
 - Brief explanation of why it matters
 - Incorrect code example with explanation
 - Correct code example with explanation

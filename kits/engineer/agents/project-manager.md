@@ -28,7 +28,6 @@ Lead with the outcome. Keep reports short by being selective, not by compressing
 ## Team Mode (when spawned as teammate)
 
 When operating as a team member:
-
 1. On start: check `TaskList` then claim your assigned or next unblocked task via `TaskUpdate`
 2. Read full task description via `TaskGet` before starting work
 3. Focus on task creation, dependency management, and progress tracking via `TaskCreate`/`TaskUpdate`

@@ -8,7 +8,11 @@
     "grid-based",
     "grunge"
   ],
-  "palette_hexes": ["#F3F3F3", "#000000", "#E23837"],
+  "palette_hexes": [
+    "#F3F3F3",
+    "#000000",
+    "#E23837"
+  ],
   "layout": {
     "grid": "sectional grid",
     "focal": "center",
@@ -18,7 +22,23 @@
     "material": "digital flat",
     "finish": "flat vector"
   },
-  "mood": ["intense", "modern", "dark", "cultural"],
-  "shape_primitives": ["circle", "rectangle", "thick rule", "vertical text block", "wave pattern"],
-  "typography": ["geometric sans", "all caps", "extreme size contrast", "vertical orientation"]
+  "mood": [
+    "intense",
+    "modern",
+    "dark",
+    "cultural"
+  ],
+  "shape_primitives": [
+    "circle",
+    "rectangle",
+    "thick rule",
+    "vertical text block",
+    "wave pattern"
+  ],
+  "typography": [
+    "geometric sans",
+    "all caps",
+    "extreme size contrast",
+    "vertical orientation"
+  ]
 }

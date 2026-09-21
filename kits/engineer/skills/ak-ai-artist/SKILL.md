@@ -1,14 +1,14 @@
 ---
 name: ak:ai-artist
-description: 'Generate product mockups, marketing assets, brand visuals, and concept art via Nano Banana with 129 curated prompts. Reuse supplied style, mood, and color constraints; ask only for missing consequential choices. 3 modes: search, creative, wild. Styles: Ukiyo-e, Bento grid, cyberpunk, cinematic, vintage patent.'
+description: "Generate product mockups, marketing assets, brand visuals, and concept art via Nano Banana with 129 curated prompts. Reuse supplied style, mood, and color constraints; ask only for missing consequential choices. 3 modes: search, creative, wild. Styles: Ukiyo-e, Bento grid, cyberpunk, cinematic, vintage patent."
 user-invocable: true
-when_to_use: 'Invoke for visual assets, prompt search, or mockups.'
+when_to_use: "Invoke for visual assets, prompt search, or mockups."
 category: media
 keywords: [image, generation, prompts, styles]
 metadata:
   author: agentkit
-  version: '3.1.2'
-argument-hint: '[concept] [--mode search|creative|wild|all] [--provider auto|google|openrouter] [--skip]'
+  version: "3.1.2"
+argument-hint: "[concept] [--mode search|creative|wild|all] [--provider auto|google|openrouter] [--skip]"
 ---
 
 # AI Artist - Nano Banana Image Generation
@@ -30,12 +30,12 @@ python3 scripts/generate.py "<concept>" -o <output.png> [--mode MODE] [--provide
 
 ### Generation Modes
 
-| Mode       | Description                                                     |
-| ---------- | --------------------------------------------------------------- |
-| `search`   | Find best matching prompt from 129 curated prompts (default)    |
-| `creative` | Remix elements from top 3 matching prompts                      |
-| `wild`     | Out-of-the-box creative interpretation (random style transform) |
-| `all`      | Generate all 3 variations                                       |
+| Mode | Description |
+|------|-------------|
+| `search` | Find best matching prompt from 129 curated prompts (default) |
+| `creative` | Remix elements from top 3 matching prompts |
+| `wild` | Out-of-the-box creative interpretation (random style transform) |
+| `all` | Generate all 3 variations |
 
 ### Examples
 
@@ -58,16 +58,16 @@ python3 scripts/generate.py "futuristic city" -o city.png --mode all -v
 
 ### Options
 
-| Flag                  | Description                                                        |
-| --------------------- | ------------------------------------------------------------------ |
-| `-o, --output`        | Output path (required)                                             |
-| `-m, --mode`          | search, creative, wild, or all                                     |
-| `--provider`          | auto (default), google, or openrouter                              |
-| `-ar, --aspect-ratio` | 1:1, 16:9, 9:16, etc.                                              |
-| `--model`             | flash2 (default, fast+quality), flash (previous), pro (quality/4K) |
-| `-v, --verbose`       | Show matched prompts and details                                   |
-| `--dry-run`           | Show prompt without generating                                     |
-| `--skip`              | Bypass validation interview                                        |
+| Flag | Description |
+|------|-------------|
+| `-o, --output` | Output path (required) |
+| `-m, --mode` | search, creative, wild, or all |
+| `--provider` | auto (default), google, or openrouter |
+| `-ar, --aspect-ratio` | 1:1, 16:9, 9:16, etc. |
+| `--model` | flash2 (default, fast+quality), flash (previous), pro (quality/4K) |
+| `-v, --verbose` | Show matched prompts and details |
+| `--dry-run` | Show prompt without generating |
+| `--skip` | Bypass validation interview |
 
 `--provider auto` will honor `IMAGE_GEN_PROVIDER=openrouter` when set; otherwise it prefers direct Google unless only OpenRouter credentials are configured.
 
@@ -86,7 +86,6 @@ cat data/awesome-prompts.csv
 ```
 
 ### Categories include:
-
 - **Profile/Avatar**: Thought-leader headshots, mirror selfies
 - **Infographics**: Bento grid, chalkboard, ingredient labels
 - **Social Media**: Quote cards, banners, thumbnails
@@ -115,19 +114,19 @@ The `wild` mode randomly applies one of these artistic transformations:
 
 ## References
 
-| Topic             | File                            |
-| ----------------- | ------------------------------- |
-| All Prompts       | `data/awesome-prompts.csv`      |
-| Nano Banana Guide | `references/nano-banana.md`     |
-| Image Prompting   | `references/image-prompting.md` |
+| Topic | File |
+|-------|------|
+| All Prompts | `data/awesome-prompts.csv` |
+| Nano Banana Guide | `references/nano-banana.md` |
+| Image Prompting | `references/image-prompting.md` |
 
 ---
 
 ## Scripts
 
-| Script               | Purpose                            |
-| -------------------- | ---------------------------------- |
-| `generate.py`        | Main image generation with 3 modes |
-| `search.py`          | Search prompts database            |
-| `extract_prompts.py` | Extract prompts from markdown      |
-| `core.py`            | BM25 search engine                 |
+| Script | Purpose |
+|--------|---------|
+| `generate.py` | Main image generation with 3 modes |
+| `search.py` | Search prompts database |
+| `extract_prompts.py` | Extract prompts from markdown |
+| `core.py` | BM25 search engine |

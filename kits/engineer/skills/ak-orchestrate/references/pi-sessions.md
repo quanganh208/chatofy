@@ -174,11 +174,11 @@ run and stays inside the declared budget.
 
 ## Failure signatures
 
-| Observation                                      | Meaning                                                 | Action                                                    |
-| ------------------------------------------------ | ------------------------------------------------------- | --------------------------------------------------------- |
-| Probe reason `help-probe-timeout`                | Launcher startup exceeded the probe budget on this host | Re-probe with a longer `--timeout`                        |
-| Auth check `not_ready` with `provider_not_found` | Provider name unknown to this installation              | Check `--list-models` and the provider name; do not guess |
-| Auth check `not_ready` without credentials       | Provider not logged in                                  | Onboarding auth step; the user logs in                    |
-| Skill named in the prompt was not loaded         | `--no-approve` skipped project-local resources          | Pass `--skill <path>` explicitly                          |
-| Stream ends without `agent_end`                  | Truncated or interrupted attempt                        | Treat as unsettled; inspect stderr and supervisor events  |
-| Unknown flag error                               | Help drift or an extension flag that is off             | Re-read live help; rebuild the command                    |
+| Observation | Meaning | Action |
+| --- | --- | --- |
+| Probe reason `help-probe-timeout` | Launcher startup exceeded the probe budget on this host | Re-probe with a longer `--timeout` |
+| Auth check `not_ready` with `provider_not_found` | Provider name unknown to this installation | Check `--list-models` and the provider name; do not guess |
+| Auth check `not_ready` without credentials | Provider not logged in | Onboarding auth step; the user logs in |
+| Skill named in the prompt was not loaded | `--no-approve` skipped project-local resources | Pass `--skill <path>` explicitly |
+| Stream ends without `agent_end` | Truncated or interrupted attempt | Treat as unsettled; inspect stderr and supervisor events |
+| Unknown flag error | Help drift or an extension flag that is off | Re-read live help; rebuild the command |

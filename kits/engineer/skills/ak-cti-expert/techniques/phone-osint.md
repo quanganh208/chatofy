@@ -18,7 +18,6 @@ Phone OSINT extracts carrier, location, line type, and registration intelligence
 ## 2. Tool Inventory
 
 ### Primary — PhoneInfoga
-
 ```bash
 # Docker (recommended)
 docker pull sundowndev/phoneinfoga
@@ -29,16 +28,13 @@ go install github.com/sundowndev/phoneinfoga/v2/cmd/phoneinfoga@latest
 ```
 
 ### Secondary — FreeCNAM (US CallerID)
-
 ```bash
 # Free, no key required — US numbers only
 curl "https://freecnam.org/dip?q=2025551234"
 ```
-
 Returns caller ID name for US phone numbers. Lightweight, fast, no authentication.
 
 ### Tertiary — WhoCalld (Phone Type + Carrier Scraping)
-
 ```bash
 # No install required — scrape phone type, carrier, location
 curl "http://whocalld.com/+12025551234" | python3 -c "
@@ -47,11 +43,9 @@ soup = BeautifulSoup(sys.stdin.read(), 'html.parser')
 for div in soup.find_all('div', class_='info'): print(div.text.strip())
 "
 ```
-
 Returns phone type (mobile/virtual/unknown), carrier, location. Complements PhoneInfoga.
 
 ### Quaternary — USPhoneBook (Reverse Person Lookup)
-
 ```bash
 # Requires cloudscraper (pip3 install cloudscraper)
 # Search by phone number — returns name, addresses, relatives, emails
@@ -66,18 +60,15 @@ for script in soup.find_all('script', type='application/ld+json'):
     if 'name' in data: print(json.dumps(data, indent=2))
 "
 ```
-
 US-only. Extracts: name, current/previous addresses, related persons, emails, phone numbers from JSON-LD structured data. Useful for identity correlation and pivot chaining.
 
 **Also supports name-based search:**
-
 ```bash
 # Search by name + state (optional city)
 # URL: https://usphonebook.com/{fullname}/{state}/{city}
 ```
 
 ### Quinary — Moriarty-Project
-
 ```bash
 git clone https://github.com/AzizKpln/Moriarty-Project
 cd Moriarty-Project
@@ -86,14 +77,12 @@ python3 moriarty.py
 ```
 
 ### Senary — NumVerify API (free tier: 100 requests/month)
-
 ```bash
 # Free key at apilayer.com/marketplace/number_verification-api
 curl "http://apilayer.net/api/validate?access_key=YOUR_FREE_KEY&number=+12025551234&format=1"
 ```
 
 ### Web Fallback — Google Dork
-
 ```
 No install required; manual browser search
 ```
@@ -136,7 +125,6 @@ Step 8: Assess disposable/VOIP risk
 ## 4. CLI Commands & Expected Output
 
 ### PhoneInfoga
-
 ```bash
 # Basic scan
 phoneinfoga scan -n "+12025551234"
@@ -150,7 +138,6 @@ phoneinfoga scan -n "+12025551234" --output json > phone_results.json
 ```
 
 **Expected output:**
-
 ```
 Results for +12025551234
 ├── Raw local: 2025551234
@@ -168,14 +155,12 @@ Bing search: https://www.bing.com/search?q=%2B12025551234
 ```
 
 ### NumVerify API
-
 ```bash
 # Validate and classify line type
 curl "http://apilayer.net/api/validate?access_key=FREE_KEY&number=+12025551234&format=1"
 ```
 
 **Expected JSON response:**
-
 ```json
 {
   "valid": true,
@@ -192,7 +177,6 @@ curl "http://apilayer.net/api/validate?access_key=FREE_KEY&number=+12025551234&f
 ```
 
 ### Google Dork Fallback
-
 ```bash
 # Paste into browser
 "+12025551234"
@@ -202,7 +186,6 @@ intext:"202-555-1234" -site:yellowpages.com
 ```
 
 ### Moriarty (interactive)
-
 ```bash
 cd Moriarty-Project
 python3 moriarty.py
@@ -242,7 +225,6 @@ All automated tools blocked?
 ## 6. Output Interpretation
 
 ### Line Type Significance
-
 ```
 mobile    → SIM card; can receive SMS 2FA; trackable via SS7
 landline  → Fixed location; geo-reliable; not SMS-capable
@@ -253,7 +235,6 @@ unknown   → Ported number or carrier data unavailable
 ```
 
 ### Disposable Number Detection
-
 ```
 High-risk carriers (VoIP/disposable):
   - Google Voice (US: 646/929/850 area codes common)
@@ -267,7 +248,6 @@ Detection signal: carrier name contains "LLC" + unknown location
 ```
 
 ### VoIP vs. Mobile Significance
-
 ```
 VoIP findings mean:
   - Number may be ephemeral (cancel anytime)
@@ -282,7 +262,6 @@ Mobile findings mean:
 ```
 
 ### E.164 Normalization Rules
-
 ```
 Input variations to normalize before scanning:
   (202) 555-1234    → +12025551234
@@ -297,16 +276,16 @@ Rule: strip all non-digits, prepend "+" and country code
 
 ## 7. Confidence Ratings
 
-| Finding Type                | Confidence | Notes                       |
-| --------------------------- | ---------- | --------------------------- |
-| Country code identification | HIGH       | E.164 standard              |
-| Carrier name                | HIGH       | MNP database lookup         |
-| Line type (mobile/landline) | HIGH       | Carrier-reported            |
-| VoIP classification         | HIGH       | Carrier name match          |
-| Geographic location         | MEDIUM     | Area code; may be ported    |
-| Owner identity              | LOW        | Requires public records     |
-| Social app registration     | MEDIUM     | App-dependent; may be stale |
-| Disposable number flag      | MEDIUM     | Known carrier list only     |
+| Finding Type | Confidence | Notes |
+|---|---|---|
+| Country code identification | HIGH | E.164 standard |
+| Carrier name | HIGH | MNP database lookup |
+| Line type (mobile/landline) | HIGH | Carrier-reported |
+| VoIP classification | HIGH | Carrier name match |
+| Geographic location | MEDIUM | Area code; may be ported |
+| Owner identity | LOW | Requires public records |
+| Social app registration | MEDIUM | App-dependent; may be stale |
+| Disposable number flag | MEDIUM | Known carrier list only |
 
 ---
 
@@ -324,14 +303,14 @@ Rule: strip all non-digits, prepend "+" and country code
 
 ## 9. Command Reference
 
-| Command                    | Purpose                                 | Input                     |
-| -------------------------- | --------------------------------------- | ------------------------- |
-| `/phone [number]`          | Full phone intelligence scan            | Phone number (any format) |
-| `/phone-validate [number]` | Format validation + carrier lookup only | Phone number              |
-| `/phone-type [number]`     | Classify VoIP / mobile / landline       | Phone number              |
+| Command | Purpose | Input |
+|---|---|---|
+| `/phone [number]` | Full phone intelligence scan | Phone number (any format) |
+| `/phone-validate [number]` | Format validation + carrier lookup only | Phone number |
+| `/phone-type [number]` | Classify VoIP / mobile / landline | Phone number |
 
 ---
 
-_Phone OSINT Module v1.0.0_
-_Part of Free OSINT Expert Skill - Phase 5_
-_For authorized investigation and educational purposes only_
+*Phone OSINT Module v1.0.0*
+*Part of Free OSINT Expert Skill - Phase 5*
+*For authorized investigation and educational purposes only*

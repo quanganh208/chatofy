@@ -1,28 +1,11 @@
 ---
 name: ak:review-pr
-description: 'Review GitHub pull requests for correctness, regressions and security. Optional fix, reply and merge modes authorize their respective delivery steps.'
+description: "Review GitHub pull requests for correctness, regressions and security. Optional fix, reply and merge modes authorize their respective delivery steps."
 user-invocable: true
-when_to_use: 'Invoke to review one or more GitHub PRs by number/URL, optionally fix findings, optionally post the review back to GitHub, optionally merge when ready and watch CI.'
+when_to_use: "Invoke to review one or more GitHub PRs by number/URL, optionally fix findings, optionally post the review back to GitHub, optionally merge when ready and watch CI."
 category: workflow
-keywords:
-  [
-    pr,
-    pull request,
-    review,
-    github,
-    gh,
-    fix,
-    reply,
-    merge,
-    ci,
-    anti-slop,
-    ai-slop,
-    multi-pr,
-    graphql,
-    rest,
-    cloud-environment,
-  ]
-argument-hint: '<PR number or URL> [<PR number or URL> ...] [--fix] [--reply] [--merge] [--advice] [--ultra]'
+keywords: [pr, pull request, review, github, gh, fix, reply, merge, ci, anti-slop, ai-slop, multi-pr, graphql, rest, cloud-environment]
+argument-hint: "<PR number or URL> [<PR number or URL> ...] [--fix] [--reply] [--merge] [--advice] [--ultra]"
 allowed-tools:
   - Bash(gh pr view *)
   - Bash(gh pr diff *)
@@ -59,7 +42,7 @@ allowed-tools:
   - Task
 metadata:
   author: agentkit
-  version: '2.6.1'
+  version: "2.6.1"
 ---
 
 # Review Pull Request
@@ -98,7 +81,6 @@ functions (`_ak_probe_gh_api`, `_ak_split_pr`, `_ak_pr_meta`, `_ak_pr_diff`,
 `_ak_pr_files`, `_ak_pr_checks`, `_ak_pr_body`, `_ak_pr_review`,
 `_ak_pr_comment`), and the two write-op caveats — auto-merge enable is
 GraphQL-only, and self-PR approve returns 422 on both paths.
-
 ## Argument parsing
 
 Strip mode flags, then tokenize the remainder into `PR_REFS`:
@@ -134,27 +116,24 @@ Review-only never posts, edits or merges.
 Load `references/mode-fix.md` when `$ARGUMENTS` contains `--fix`. It owns the
 decision to fix, the per-finding fix rules, the commit and push contract, and the
 re-review loop.
-
 ## Reply mode (`--reply`)
 
 Load `references/mode-reply.md` when `$ARGUMENTS` contains `--reply`. It owns the
 pre-flight checks, the review body format, the verdict-to-`gh` flag mapping, the
 self-PR `COMMENT` fallback, composition with `--fix`, and idempotency.
-
 ## Merge mode (`--merge`)
 
 Load `references/mode-merge.md` when `$ARGUMENTS` contains `--merge`. It owns the
 merge-readiness gate, the `ak:git merge-pr` handoff, post-merge CI watching, and
 failure handling.
-
 ## Final output
 
 After every PR has completed its flow, report to the chat:
 
 ### Per-PR table
 
-| PR         | Verdict                             | Iterations     | Commits                   | Reply                                               | Merge                                               | CI                          |
-| ---------- | ----------------------------------- | -------------- | ------------------------- | --------------------------------------------------- | --------------------------------------------------- | --------------------------- |
+| PR | Verdict | Iterations | Commits | Reply | Merge | CI |
+|----|---------|------------|---------|-------|-------|----|
 | `<PR_REF>` | Approve / Request changes / Comment | N (if `--fix`) | list of SHAs (if `--fix`) | posted / fell-back / printed-locally (if `--reply`) | merged / not-ready(reason) / blocked (if `--merge`) | green / red / pending / n/a |
 
 ### Aggregate

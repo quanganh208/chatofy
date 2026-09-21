@@ -21,11 +21,9 @@ task-management surface when available; otherwise keep it in the active plan.
 ## Steps
 
 ### Step 1: Scout Codebase
-
 Record the scout phase as active.
 
 **Mandatory skill chain:**
-
 1. Activate `ak:scout` skill OR launch 2-3 parallel `Explore` subagents when delegation is explicitly requested/permitted.
 2. Map: affected files, module boundaries, dependencies, related tests, recent git changes.
 
@@ -40,11 +38,9 @@ Record the scout phase as completed after its evidence is captured.
 **Output:** `✓ Step 1: Scouted [N] areas - [M] files, [K] tests found`
 
 ### Step 2: Diagnose Root Cause
-
 Record the diagnose phase as active.
 
 **Mandatory skill chain:**
-
 1. **Capture pre-fix state:** Record exact error messages, failing test output, stack traces.
 2. Activate `ak:debug` skill. Use `debugger` subagent if needed.
 3. Use `ak:fable-thinking` (sequential mode) only when a decision/evidence log would help — form hypotheses through structured reasoning.
@@ -63,7 +59,6 @@ approaches or an architecture decision remain, activate `ak:brainstorm` and
 escalate to Deep workflow for a plan.
 
 ### Step 3: Implement Fix
-
 Record the implementation phase as active once scout and diagnosis are complete.
 
 Fix the ROOT CAUSE per diagnosis findings. Not symptoms.
@@ -77,11 +72,9 @@ Record the implementation phase as completed.
 **Output:** `✓ Step 3: Implemented - [N] files changed`
 
 ### Step 4: Verify + Prevent
-
 Record the verify phase as active.
 
 **Mandatory skill chain:**
-
 1. **Iron-law verify:** Re-run the EXACT commands from pre-fix state capture. Compare before/after.
 2. **Regression test:** Add/update test(s) covering the fixed issue. Test MUST fail without fix, pass with fix.
 3. **Side-effect sweep (HARD-GATE-NO-SIDE-EFFECTS):** Walk each dependent caller of changed functions from Step 1 blast-radius. Run tests in modules that share files/contracts. Confirm public contracts (signatures, schemas, APIs, env vars) unchanged. See SKILL.md HARD-GATE-NO-SIDE-EFFECTS.
@@ -100,7 +93,6 @@ Record the verify phase as completed only after fresh evidence passes.
 **Output:** `✓ Step 4: Verified + Prevented - [before/after], [N] tests added, [M] guards`
 
 ### Step 5: Code Review
-
 Record the review phase as active.
 Use `code-reviewer` through `delegate_agent` when delegation is explicitly
 requested/permitted; otherwise review the changed files locally.
@@ -111,9 +103,7 @@ Record the review phase as completed after accepted findings are resolved.
 **Output:** `✓ Step 5: Review [score]/10 - [status]`
 
 ### Step 6: Finalize
-
 Record the finalize phase as active.
-
 - Report summary: root cause, changes, prevention measures, confidence score
 - Activate `ak:project-management` for task sync-back and plan status updates
 - Evaluate docs impact and use `docs-manager` only for affected authority surfaces
@@ -125,14 +115,14 @@ Record the finalize phase as completed in the live surface when available and in
 
 ## Skills/Subagents Activated
 
-| Step | Skills/Subagents                                                                                                                                                                             |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | `ak:scout` OR parallel `Explore` subagents when delegation is permitted                                                                                                                      |
-| 2    | `ak:debug`, `ak:fable-thinking` (sequential mode), optional delegated debugger/Explore when permitted, optional `ak:problem-solving` when stuck, conditional `ak:brainstorm` after diagnosis |
-| 3    | `ak:problem-solving` (if stuck), `ak:fable-thinking` (sequential mode) (complex logic)                                                                                                       |
-| 4    | `run_shell` verification; optional delegated tester/workers when permitted                                                                                                                   |
-| 5    | `code-reviewer` via `delegate_agent` when permitted, otherwise local review                                                                                                                  |
-| 6    | `ak:project-management`; docs/git delegation only when permitted                                                                                                                             |
+| Step | Skills/Subagents |
+|------|------------------|
+| 1 | `ak:scout` OR parallel `Explore` subagents when delegation is permitted |
+| 2 | `ak:debug`, `ak:fable-thinking` (sequential mode), optional delegated debugger/Explore when permitted, optional `ak:problem-solving` when stuck, conditional `ak:brainstorm` after diagnosis |
+| 3 | `ak:problem-solving` (if stuck), `ak:fable-thinking` (sequential mode) (complex logic) |
+| 4 | `run_shell` verification; optional delegated tester/workers when permitted |
+| 5 | `code-reviewer` via `delegate_agent` when permitted, otherwise local review |
+| 6 | `ak:project-management`; docs/git delegation only when permitted |
 
 **Rules:** Don't skip steps. Validate before proceeding. One phase at a time.
 **Frontend:** Use `ak:agent-browser`, Chrome MCP / `chrome-devtools-mcp`, or any relevant project-native browser tests to verify.

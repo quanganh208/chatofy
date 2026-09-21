@@ -23,21 +23,21 @@ Do NOT spawn when:
 
 ## Optional delegation opportunities
 
-| Stage      | Condition                                                                     | Role (examples)                                                                                            |
-| ---------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| understand | Independent areas whose mapping benefits from parallelism                     | explorer, read-only, in parallel (`Explore`, `scout`)                                                      |
-| understand | External tech or unknown API involved                                         | researcher (`researcher`)                                                                                  |
-| decide     | size epic, multi-file build ahead                                             | planner (`planner`) — prefer the planning skill instead when the user should review the plan               |
-| decide     | Approach contested or high-stakes                                             | second-opinion role (`brainstormer`) with an adversarial prompt                                            |
-| execute    | Independent file sets across phases                                           | implementer per phase (`fullstack-developer`), disjoint ownership, parallel only when files do not overlap |
-| execute    | Marketing: multiple channels from one brief                                   | one content role per channel (`content-creator`, `copywriter`, `email-wizard`, `social-media-manager`)     |
-| verify     | Independent validation adds coverage beyond direct checks                     | tester (`tester`)                                                                                          |
-| verify     | Ship/publish/public-contract ahead, or risk high                              | independent reviewer (`code-reviewer`, `content-reviewer`)                                                 |
-| any        | Same failure twice despite fixes                                              | debugger with all evidence so far (`debugger`, `campaign-debugger`)                                        |
-| any        | Hard problem on a model below `fable` (stuck after retries, high-stakes fork) | strategist (`kongming`) — autonomous counsel from the strongest model in one reply; no user round-trips    |
-| deliver    | Behavior, setup, or commands changed                                          | docs role (`docs-manager`)                                                                                 |
-| deliver    | Durable lesson, incident, or hard failure worth recording                     | journal role (`journal-writer`)                                                                            |
-| any        | Data pull or analysis too large for the main context                          | analyst (`analytics-analyst`, `database-admin`)                                                            |
+| Stage | Condition | Role (examples) |
+|---|---|---|
+| understand | Independent areas whose mapping benefits from parallelism | explorer, read-only, in parallel (`Explore`, `scout`) |
+| understand | External tech or unknown API involved | researcher (`researcher`) |
+| decide | size epic, multi-file build ahead | planner (`planner`) — prefer the planning skill instead when the user should review the plan |
+| decide | Approach contested or high-stakes | second-opinion role (`brainstormer`) with an adversarial prompt |
+| execute | Independent file sets across phases | implementer per phase (`fullstack-developer`), disjoint ownership, parallel only when files do not overlap |
+| execute | Marketing: multiple channels from one brief | one content role per channel (`content-creator`, `copywriter`, `email-wizard`, `social-media-manager`) |
+| verify | Independent validation adds coverage beyond direct checks | tester (`tester`) |
+| verify | Ship/publish/public-contract ahead, or risk high | independent reviewer (`code-reviewer`, `content-reviewer`) |
+| any | Same failure twice despite fixes | debugger with all evidence so far (`debugger`, `campaign-debugger`) |
+| any | Hard problem on a model below `fable` (stuck after retries, high-stakes fork) | strategist (`kongming`) — autonomous counsel from the strongest model in one reply; no user round-trips |
+| deliver | Behavior, setup, or commands changed | docs role (`docs-manager`) |
+| deliver | Durable lesson, incident, or hard failure worth recording | journal role (`journal-writer`) |
+| any | Data pull or analysis too large for the main context | analyst (`analytics-analyst`, `database-admin`) |
 
 Select delegation only when allowed by the active runtime and user instructions. Direct verification satisfies routine work; explicit advice/ultra modes retain their own contracts.
 
@@ -55,7 +55,7 @@ contract is its entire world:
 6. **Report path** — where to write findings when the project keeps reports
    (`plans/reports/` convention when present); otherwise return in the result.
 7. **Status line** — end with `Status: DONE | DONE_WITH_CONCERNS | BLOCKED |
-NEEDS_CONTEXT` plus a one-line summary.
+   NEEDS_CONTEXT` plus a one-line summary.
 
 Handle `BLOCKED` / `NEEDS_CONTEXT` by changing the context, scope, or approach
 before re-delegating. Re-sending a failing prompt unchanged is a loop, not a

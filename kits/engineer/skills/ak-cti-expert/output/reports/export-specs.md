@@ -6,14 +6,14 @@ Schema definitions for case data export. Machine-readable formats.
 
 ## Format Options
 
-| Format          | Use case                                                    | Schema type                                                                                           |
-| --------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| JSON            | API integration, tooling                                    | Object schema below                                                                                   |
-| CSV             | Spreadsheet import                                          | Flat row per finding                                                                                  |
-| STIX 2.1        | Threat intel sharing                                        | OASIS standard                                                                                        |
-| Markdown bundle | Archive, human review                                       | Directory + index                                                                                     |
-| **DOCX**        | **Formal reports, sharing with non-technical stakeholders** | **Pandoc-converted from Markdown**                                                                    |
-| **IOC**         | **SIEM/TIP ingest, threat intel sharing**                   | **STIX bundle, flat list, or CSV — see [`techniques/ioc-export.md`](../../techniques/ioc-export.md)** |
+| Format | Use case | Schema type |
+|--------|----------|-------------|
+| JSON | API integration, tooling | Object schema below |
+| CSV | Spreadsheet import | Flat row per finding |
+| STIX 2.1 | Threat intel sharing | OASIS standard |
+| Markdown bundle | Archive, human review | Directory + index |
+| **DOCX** | **Formal reports, sharing with non-technical stakeholders** | **Pandoc-converted from Markdown** |
+| **IOC** | **SIEM/TIP ingest, threat intel sharing** | **STIX bundle, flat list, or CSV — see [`techniques/ioc-export.md`](../../techniques/ioc-export.md)** |
 
 ---
 
@@ -35,66 +35,66 @@ Schema definitions for case data export. Machine-readable formats.
 
 ### case object
 
-| Field            | Type          | Required | Notes                                         |
-| ---------------- | ------------- | -------- | --------------------------------------------- |
-| `id`             | string        | yes      | unique case identifier                        |
-| `label`          | string        | yes      | human name                                    |
-| `classification` | enum          | yes      | PUBLIC / INTERNAL / RESTRICTED / CONFIDENTIAL |
-| `analyst`        | string        | yes      | assigned analyst                              |
-| `opened_at`      | ISO-8601      | yes      |                                               |
-| `updated_at`     | ISO-8601      | yes      |                                               |
-| `status`         | enum          | yes      | active / closed / archived                    |
-| `exposure_score` | integer 0–100 | no       | latest aggregate score                        |
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `id` | string | yes | unique case identifier |
+| `label` | string | yes | human name |
+| `classification` | enum | yes | PUBLIC / INTERNAL / RESTRICTED / CONFIDENTIAL |
+| `analyst` | string | yes | assigned analyst |
+| `opened_at` | ISO-8601 | yes | |
+| `updated_at` | ISO-8601 | yes | |
+| `status` | enum | yes | active / closed / archived |
+| `exposure_score` | integer 0–100 | no | latest aggregate score |
 
 ### subjects array item
 
-| Field        | Type          | Required | Notes                                          |
-| ------------ | ------------- | -------- | ---------------------------------------------- |
-| `id`         | string        | yes      | `SUB-NNN`                                      |
-| `label`      | string        | yes      | name or handle                                 |
-| `type`       | enum          | yes      | person / org / domain / ip / handle / document |
-| `confidence` | integer 0–100 | yes      |                                                |
-| `verified`   | boolean       | yes      |                                                |
-| `aliases`    | string[]      | no       |                                                |
-| `first_seen` | ISO-8601      | no       |                                                |
-| `notes`      | string        | no       |                                                |
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `id` | string | yes | `SUB-NNN` |
+| `label` | string | yes | name or handle |
+| `type` | enum | yes | person / org / domain / ip / handle / document |
+| `confidence` | integer 0–100 | yes | |
+| `verified` | boolean | yes | |
+| `aliases` | string[] | no | |
+| `first_seen` | ISO-8601 | no | |
+| `notes` | string | no | |
 
 ### findings array item
 
-| Field          | Type          | Required | Notes                                                                  |
-| -------------- | ------------- | -------- | ---------------------------------------------------------------------- |
-| `id`           | string        | yes      | `FND-NNN`                                                              |
-| `subject_id`   | string        | yes      | links to subject                                                       |
-| `type`         | enum          | yes      | credential / infrastructure / identity / exposure / behavioral / legal |
-| `weight`       | enum          | yes      | CRITICAL / HIGH / MEDIUM / LOW / INFO                                  |
-| `description`  | string        | yes      |                                                                        |
-| `source_url`   | string        | yes      |                                                                        |
-| `archive_url`  | string        | no       |                                                                        |
-| `collected_at` | ISO-8601      | yes      |                                                                        |
-| `confidence`   | integer 0–100 | yes      |                                                                        |
-| `tags`         | string[]      | no       |                                                                        |
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `id` | string | yes | `FND-NNN` |
+| `subject_id` | string | yes | links to subject |
+| `type` | enum | yes | credential / infrastructure / identity / exposure / behavioral / legal |
+| `weight` | enum | yes | CRITICAL / HIGH / MEDIUM / LOW / INFO |
+| `description` | string | yes | |
+| `source_url` | string | yes | |
+| `archive_url` | string | no | |
+| `collected_at` | ISO-8601 | yes | |
+| `confidence` | integer 0–100 | yes | |
+| `tags` | string[] | no | |
 
 ### connections array item
 
-| Field          | Type   | Required | Notes                                                                     |
-| -------------- | ------ | -------- | ------------------------------------------------------------------------- |
-| `id`           | string | yes      | `CON-NNN`                                                                 |
-| `from_id`      | string | yes      | subject or finding ID                                                     |
-| `to_id`        | string | yes      | subject or finding ID                                                     |
-| `relationship` | enum   | yes      | employs / owns / associated_with / operates / aliases / linked_by_finding |
-| `strength`     | enum   | yes      | confirmed / probable / possible                                           |
-| `finding_id`   | string | no       | supporting finding ID                                                     |
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `id` | string | yes | `CON-NNN` |
+| `from_id` | string | yes | subject or finding ID |
+| `to_id` | string | yes | subject or finding ID |
+| `relationship` | enum | yes | employs / owns / associated_with / operates / aliases / linked_by_finding |
+| `strength` | enum | yes | confirmed / probable / possible |
+| `finding_id` | string | no | supporting finding ID |
 
 ### discovery_paths array item
 
-| Field            | Type     | Required | Notes                                |
-| ---------------- | -------- | -------- | ------------------------------------ |
-| `id`             | string   | yes      | `DP-NNN`                             |
-| `label`          | string   | yes      | e.g. "email header analysis"         |
-| `status`         | enum     | yes      | completed / null / partial / skipped |
-| `subject_id`     | string   | yes      |                                      |
-| `findings_count` | integer  | no       |                                      |
-| `completed_at`   | ISO-8601 | no       |                                      |
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `id` | string | yes | `DP-NNN` |
+| `label` | string | yes | e.g. "email header analysis" |
+| `status` | enum | yes | completed / null / partial / skipped |
+| `subject_id` | string | yes | |
+| `findings_count` | integer | no | |
+| `completed_at` | ISO-8601 | no | |
 
 ---
 
@@ -134,7 +134,6 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/ak-cti-expert/scripts/generate-cti-docx.py 
 ```
 
 The Python generator (`scripts/generate-cti-docx.py`) produces:
-
 - Professional cover page with "CTI REPORT" title
 - Table of contents
 - Styled headings, tables, and finding cards
@@ -163,22 +162,22 @@ CTI-REPORT-[CASE-ID]-[YYYY-MM-DD].json      # Structured data (input to DOCX gen
 
 ### What's Included in Rich DOCX
 
-| Element           | DOCX Rendering                                    |
-| ----------------- | ------------------------------------------------- |
-| Cover page        | "CTI REPORT" title, case metadata, classification |
-| Table of contents | Word TOC field (update on open)                   |
-| Headings          | Word heading styles (H1–H3) with navy/cyan colors |
-| Tables            | Styled Word tables with colored headers           |
-| Pie chart         | Finding type distribution (embedded PNG)          |
-| Bar chart         | Severity distribution (embedded PNG)              |
-| Risk gauge        | Semi-circular exposure score meter (embedded PNG) |
-| Timeline          | Chronological event chart (embedded PNG)          |
-| Entity diagram    | NetworkX relationship map (embedded PNG)          |
-| Network topology  | Infrastructure topology diagram (embedded PNG)    |
-| Header            | Classification + report ID                        |
-| Footer            | Page numbers + report ID                          |
-| Finding cards     | Severity-colored styled tables per finding        |
-| Sources table     | Formatted citation table                          |
+| Element | DOCX Rendering |
+|---------|---------------|
+| Cover page | "CTI REPORT" title, case metadata, classification |
+| Table of contents | Word TOC field (update on open) |
+| Headings | Word heading styles (H1–H3) with navy/cyan colors |
+| Tables | Styled Word tables with colored headers |
+| Pie chart | Finding type distribution (embedded PNG) |
+| Bar chart | Severity distribution (embedded PNG) |
+| Risk gauge | Semi-circular exposure score meter (embedded PNG) |
+| Timeline | Chronological event chart (embedded PNG) |
+| Entity diagram | NetworkX relationship map (embedded PNG) |
+| Network topology | Infrastructure topology diagram (embedded PNG) |
+| Header | Classification + report ID |
+| Footer | Page numbers + report ID |
+| Finding cards | Severity-colored styled tables per finding |
+| Sources table | Formatted citation table |
 
 ### Mandatory Auto-Save Rule
 
@@ -196,11 +195,11 @@ Exports Indicators of Compromise extracted from case subjects as standalone mach
 
 **Three formats available:**
 
-| Format | Output File                      | Best For                                 |
-| ------ | -------------------------------- | ---------------------------------------- |
-| `stix` | `IOC-{CASE_ID}-{date}.stix.json` | TAXII feeds, OpenCTI, MISP               |
-| `flat` | `IOC-{CASE_ID}-{date}.txt`       | Firewall blocklists, grep pipelines      |
-| `csv`  | `IOC-{CASE_ID}-{date}.csv`       | Excel, Splunk lookup tables, bulk import |
+| Format | Output File | Best For |
+|--------|-------------|----------|
+| `stix` | `IOC-{CASE_ID}-{date}.stix.json` | TAXII feeds, OpenCTI, MISP |
+| `flat` | `IOC-{CASE_ID}-{date}.txt` | Firewall blocklists, grep pipelines |
+| `csv`  | `IOC-{CASE_ID}-{date}.csv` | Excel, Splunk lookup tables, bulk import |
 
 **IOC type coverage:** IPv4/IPv6 addresses, domains, URLs, email addresses, file hashes (MD5, SHA-1, SHA-256), usernames.
 
@@ -211,4 +210,4 @@ Full specification, STIX bundle template, flat list format, and CSV column defin
 
 ---
 
-_See also: [`output/reports/format-catalog.md`](./format-catalog.md) | [`output/reports/citation-guide.md`](./citation-guide.md)_
+*See also: [`output/reports/format-catalog.md`](./format-catalog.md) | [`output/reports/citation-guide.md`](./citation-guide.md)*

@@ -21,7 +21,6 @@ Retrieves historical DNS records and SSL/TLS certificate timelines for a domain.
 ### 2.1 Methods (all free, no API keys)
 
 **Primary — SecurityTrails (web search, no auth for cached results):**
-
 ```bash
 # Google dork to find cached SecurityTrails DNS history
 # WebSearch: site:securitytrails.com/domain/<domain>/history/a
@@ -31,7 +30,6 @@ Retrieves historical DNS records and SSL/TLS certificate timelines for a domain.
 ```
 
 **Secondary — ViewDNS.info (free web lookup):**
-
 ```bash
 # IP History — shows historical A record → IP mappings with dates
 curl -s "https://viewdns.info/iphistory/?domain=<domain>"
@@ -42,7 +40,6 @@ curl -s "https://viewdns.info/iphistory/?domain=<domain>"
 ```
 
 **Tertiary — Mnemonic PassiveDNS (free API, no key):**
-
 ```bash
 # Free passive DNS lookup — returns historical resolutions
 curl -s "https://api.mnemonic.no/pdns/v3/<domain>" | python3 -m json.tool
@@ -51,7 +48,6 @@ curl -s "https://api.mnemonic.no/pdns/v3/<domain>" | python3 -m json.tool
 ```
 
 **Quaternary — Wayback CDX API (free, no auth):**
-
 ```bash
 # Find archived DNS-related pages
 curl -s "https://web.archive.org/cdx/search/cdx?url=<domain>&output=json&fl=timestamp,original&limit=50"
@@ -99,13 +95,13 @@ Sources: Mnemonic PassiveDNS, SecurityTrails (cached), ViewDNS
 
 ### 2.4 Forensic Value
 
-| Change Type                 | What It Reveals                               | Confidence |
-| --------------------------- | --------------------------------------------- | ---------- |
-| A record IP change          | Hosting migration, infrastructure shift       | HIGH       |
-| NS record change            | DNS provider swap, possible ownership change  | HIGH       |
-| MX record change            | Email provider migration                      | HIGH       |
-| Multiple domains → same IP  | Shared hosting, co-owned properties           | MEDIUM     |
-| Sudden Cloudflare migration | May indicate DDoS attack or security incident | MEDIUM     |
+| Change Type | What It Reveals | Confidence |
+|---|---|---|
+| A record IP change | Hosting migration, infrastructure shift | HIGH |
+| NS record change | DNS provider swap, possible ownership change | HIGH |
+| MX record change | Email provider migration | HIGH |
+| Multiple domains → same IP | Shared hosting, co-owned properties | MEDIUM |
+| Sudden Cloudflare migration | May indicate DDoS attack or security incident | MEDIUM |
 
 ### 2.5 Fallback Cascade
 
@@ -124,7 +120,6 @@ Mnemonic API down?
 ### 3.1 Methods (all free, no API keys)
 
 **Primary — crt.sh JSON API (free, no auth, comprehensive):**
-
 ```bash
 # Full certificate history — returns ALL certs ever issued for domain
 curl -s "https://crt.sh/?q=<domain>&output=json" | python3 -m json.tool
@@ -136,14 +131,12 @@ curl -s "https://crt.sh/?q=%25.<domain>&output=json" | python3 -m json.tool
 ```
 
 **Secondary — CertSpotter (free tier, no key for basic):**
-
 ```bash
 # WebSearch for cached CertSpotter results
 # WebSearch: site:sslmate.com/certspotter "<domain>"
 ```
 
 **Tertiary — Google Transparency Report:**
-
 ```bash
 # WebSearch: site:transparencyreport.google.com "<domain>"
 # Shows certificate transparency log entries
@@ -197,14 +190,14 @@ Sources: crt.sh Certificate Transparency
 
 ### 3.4 Forensic Value
 
-| Pattern                           | What It Reveals                                   | Confidence |
-| --------------------------------- | ------------------------------------------------- | ---------- |
-| Issuer change (EV → DV/LE)        | Budget reduction, ownership change, or automation | MEDIUM     |
-| New SANs appearing                | New services/subdomains launched                  | HIGH       |
-| SANs disappearing                 | Services discontinued or moved                    | MEDIUM     |
-| Validity gap (no cert for period) | Site downtime, abandonment, or migration          | MEDIUM     |
-| Wildcard cert introduced          | Infrastructure scaling or simplification          | LOW        |
-| Very short validity (<30 days)    | Testing, staging, or misconfiguration             | LOW        |
+| Pattern | What It Reveals | Confidence |
+|---|---|---|
+| Issuer change (EV → DV/LE) | Budget reduction, ownership change, or automation | MEDIUM |
+| New SANs appearing | New services/subdomains launched | HIGH |
+| SANs disappearing | Services discontinued or moved | MEDIUM |
+| Validity gap (no cert for period) | Site downtime, abandonment, or migration | MEDIUM |
+| Wildcard cert introduced | Infrastructure scaling or simplification | LOW |
+| Very short validity (<30 days) | Testing, staging, or misconfiguration | LOW |
 
 ### 3.5 Fallback Cascade
 
@@ -252,13 +245,13 @@ Cross-Reference Analysis:
 
 ## 6. Command Reference
 
-| Command                  | Purpose                                   | Input       |
-| ------------------------ | ----------------------------------------- | ----------- |
-| `/dns-history [domain]`  | Historical DNS record changes (A, NS, MX) | Domain name |
+| Command | Purpose | Input |
+|---|---|---|
+| `/dns-history [domain]` | Historical DNS record changes (A, NS, MX) | Domain name |
 | `/cert-history [domain]` | SSL/TLS certificate timeline from CT logs | Domain name |
 
 ---
 
-_DNS & Certificate History Module v1.0.0_
-_Part of CTI Expert Skill_
-_For authorized investigation and educational purposes only_
+*DNS & Certificate History Module v1.0.0*
+*Part of CTI Expert Skill*
+*For authorized investigation and educational purposes only*

@@ -17,7 +17,6 @@ my-monorepo/
 ```
 
 **turbo.json:**
-
 ```json
 {
   "$schema": "https://turbo.build/schema.json",
@@ -42,7 +41,7 @@ my-monorepo/
 
 ```tsx
 // packages/ui/src/button.tsx
-import { RiLoader4Line } from '@remixicon/react';
+import { RiLoader4Line } from "@remixicon/react"
 
 export function Button({ children, loading, icon }) {
   return (
@@ -50,15 +49,15 @@ export function Button({ children, loading, icon }) {
       {loading ? <RiLoader4Line className="animate-spin" /> : icon}
       {children}
     </button>
-  );
+  )
 }
 
 // apps/web/app/page.tsx
-import { Button } from '@repo/ui/button';
-import { RiHomeLine } from '@remixicon/react';
+import { Button } from "@repo/ui/button"
+import { RiHomeLine } from "@remixicon/react"
 
 export default function Page() {
-  return <Button icon={<RiHomeLine />}>Home</Button>;
+  return <Button icon={<RiHomeLine />}>Home</Button>
 }
 ```
 
@@ -66,28 +65,28 @@ export default function Page() {
 
 ```tsx
 // app/posts/[slug]/page.tsx
-import { notFound } from 'next/navigation';
+import { notFound } from 'next/navigation'
 
 // Static generation at build time
 export async function generateStaticParams() {
-  const posts = await getPosts();
-  return posts.map((post) => ({ slug: post.slug }));
+  const posts = await getPosts()
+  return posts.map(post => ({ slug: post.slug }))
 }
 
 // Revalidate every hour
 async function getPost(slug: string) {
   const res = await fetch(`https://api.example.com/posts/${slug}`, {
-    next: { revalidate: 3600 },
-  });
-  if (!res.ok) return null;
-  return res.json();
+    next: { revalidate: 3600 }
+  })
+  if (!res.ok) return null
+  return res.json()
 }
 
 export default async function Post({ params }: { params: { slug: string } }) {
-  const post = await getPost(params.slug);
-  if (!post) notFound();
+  const post = await getPost(params.slug)
+  if (!post) notFound()
 
-  return <article>{post.content}</article>;
+  return <article>{post.content}</article>
 }
 ```
 

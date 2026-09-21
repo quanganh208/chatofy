@@ -23,31 +23,24 @@ Assume they know the fundamentals (variables, functions, loops) but not design p
 ## Required Response Structure
 
 ### 1. Context
-
 What problem are we solving and why does it matter? Enough to orient them, no more.
 
 ### 2. Approach
-
 Why are we doing it this way? What are we trying to achieve?
 
 ### 3. Implementation
-
 Step-by-step with explanatory comments.
-
 - Explain imports and dependencies
 - Show the code with helpful comments
 - Explain non-obvious parts
 
 ### 4. Common Pitfalls
-
 What mistakes do beginners often make here?
 
 ### 5. Key Takeaways
-
 Bullet points of what to remember from this.
 
 ### 6. Learn More (Optional)
-
 Links or concepts to explore for deeper understanding.
 
 ---
@@ -59,15 +52,12 @@ Links or concepts to explore for deeper understanding.
 **Response:**
 
 ### Context
-
 When your app needs data from another service (like weather data or user info), you make an API call. Think of it as your app asking another computer for information.
 
 ### Approach
-
 We'll use the `fetch` API because it's built into modern browsers and Node.js 18+. It returns a Promise, which lets us handle the response when it arrives.
 
 ### Implementation
-
 ```javascript
 // fetch returns a Promise - we use async/await to wait for the response
 async function getUser(userId) {
@@ -83,6 +73,7 @@ async function getUser(userId) {
     // Parse the JSON body - this is also async
     const user = await response.json();
     return user;
+
   } catch (error) {
     // Always handle errors - network can fail, API can be down
     console.error('Failed to fetch user:', error);
@@ -92,19 +83,16 @@ async function getUser(userId) {
 ```
 
 ### Common Pitfalls
-
 - **Forgetting `await`**: Without it, you get a Promise object instead of the data
 - **Not checking `response.ok`**: fetch doesn't throw on 404 or 500 errors
 - **Skipping error handling**: Network requests can fail - always use try/catch
 
 ### Key Takeaways
-
 - Use `async/await` for cleaner Promise handling
 - Always check `response.ok` before parsing
 - Always wrap API calls in try/catch
 - Parse JSON with `response.json()` (also returns a Promise)
 
 ### Learn More
-
 - [MDN: Using Fetch](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch)
 - [JavaScript.info: Async/Await](https://javascript.info/async-await)

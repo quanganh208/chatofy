@@ -2,13 +2,13 @@
 name: ak:shopify
 description: Build Shopify apps, extensions, themes with Shopify CLI. Use for GraphQL/REST APIs, Polaris UI, Liquid templates, checkout customization, webhooks, billing integration.
 user-invocable: true
-when_to_use: 'Invoke for Shopify apps, themes, extensions, or billing.'
+when_to_use: "Invoke for Shopify apps, themes, extensions, or billing."
 category: engineering
 keywords: [shopify, polaris, liquid, checkout]
-argument-hint: '[extension-type] [feature]'
+argument-hint: "[extension-type] [feature]"
 metadata:
   author: agentkit
-  version: '1.1.1'
+  version: "1.1.1"
 ---
 
 # Shopify development
@@ -35,7 +35,6 @@ Liquid product-display loop.
 ## Best Practices
 
 **API Usage:**
-
 - Prefer GraphQL over REST for new development
 - Request only needed fields to reduce costs
 - Implement pagination for large datasets
@@ -43,7 +42,6 @@ Liquid product-display loop.
 - Respect rate limits (cost-based for GraphQL)
 
 **Security:**
-
 - Store API credentials in environment variables
 - Verify webhook signatures
 - Use OAuth for public apps
@@ -51,7 +49,6 @@ Liquid product-display loop.
 - Implement session tokens for embedded apps
 
 **Performance:**
-
 - Cache API responses when appropriate
 - Optimize images in themes
 - Minimize Liquid logic complexity
@@ -59,7 +56,6 @@ Liquid product-display loop.
 - Monitor query costs in GraphQL
 
 **Testing:**
-
 - Use development stores for testing
 - Test across different store plans
 - Verify mobile responsiveness
@@ -77,7 +73,6 @@ Detailed guides for advanced topics:
 ## Scripts
 
 **[shopify_init.py](scripts/shopify_init.py)** - Initialize Shopify projects interactively
-
 ```bash
 python scripts/shopify_init.py
 ```
@@ -85,25 +80,21 @@ python scripts/shopify_init.py
 ## Troubleshooting
 
 **Rate Limit Errors:**
-
 - Monitor `X-Shopify-Shop-Api-Call-Limit` header
 - Implement exponential backoff
 - Use bulk operations for large datasets
 
 **Authentication Failures:**
-
 - Verify access token validity
 - Check required scopes granted
 - Ensure OAuth flow completed
 
 **Extension Not Appearing:**
-
 - Verify extension target correct
 - Check extension published
 - Ensure app installed on store
 
 **Webhook Not Receiving:**
-
 - Verify webhook URL accessible
 - Check signature validation
 - Review logs in Partner Dashboard
@@ -111,20 +102,17 @@ python scripts/shopify_init.py
 ## Resources
 
 **Official Documentation:**
-
 - Shopify Docs: https://shopify.dev/docs
 - GraphQL API: https://shopify.dev/docs/api/admin-graphql
 - Shopify CLI: https://shopify.dev/docs/api/shopify-cli
 - Polaris: https://polaris.shopify.com
 
 **Tools:**
-
 - GraphiQL Explorer (Admin → Settings → Apps → Develop apps)
 - Partner Dashboard (app management)
 - Development stores (free testing)
 
 **API Versioning:**
-
 - Quarterly releases (YYYY-MM format)
 - Resolve the configured API version from the project and current official support policy
 - 12-month support per version

@@ -20,7 +20,6 @@ Image forensics and face recognition for OSINT investigations. Covers reverse im
 All tools below are free to use with no API key or account required for basic searches.
 
 ### 2.1 FaceCheck.id — Face-to-Profile Search
-
 **URL:** https://facecheck.id/
 
 Upload a face photo to find matching social profiles, blogs, and news articles. Best free face search engine as of 2025 — indexes social media, personal sites, and news sources. Web-based, no install required.
@@ -30,7 +29,6 @@ Upload a face photo to find matching social profiles, blogs, and news articles. 
 - **Limitation:** Requires a clear, front-facing face crop for highest match rate
 
 ### 2.2 FotoForensics — Error Level Analysis
-
 **URL:** https://fotoforensics.com/
 
 Detects image manipulation by analyzing compression artifact inconsistencies (ELA). Web-based, no install.
@@ -40,7 +38,6 @@ Detects image manipulation by analyzing compression artifact inconsistencies (EL
 - **Limitation:** Only meaningful on JPEG; lossless PNG/BMP require noise analysis instead
 
 ### 2.3 Forensically — Digital Forensics Suite
-
 **URL:** https://29a.ch/photo-forensics/
 
 Browser-based suite providing: clone detection, noise analysis, ELA, luminance gradient, JPEG analysis, magnifier, and metadata viewer. No install, drag-and-drop interface.
@@ -50,7 +47,6 @@ Browser-based suite providing: clone detection, noise analysis, ELA, luminance g
 - **Limitation:** Browser processes locally; large images may be slow on low-spec hardware
 
 ### 2.4 picarta.ai — AI Photo Geolocation
-
 **URL:** https://www.picarta.ai/
 
 AI model predicts where a photo was taken using visual clues (architecture, vegetation, signage, terrain, lighting). Returns predicted GPS coordinates with confidence score.
@@ -60,7 +56,6 @@ AI model predicts where a photo was taken using visual clues (architecture, vege
 - **Limitation:** Low confidence on indoor, featureless, or heavily cropped images
 
 ### 2.5 GeoSpy — AI Location Prediction
-
 **URL:** https://geospy.web.app/
 
 Alternative AI-powered photo geolocation. Independent model from picarta — run both for cross-validation.
@@ -70,7 +65,6 @@ Alternative AI-powered photo geolocation. Independent model from picarta — run
 - **Limitation:** Accuracy degrades sharply on rural or non-Western locations
 
 ### 2.6 Pic2Map — EXIF GPS Extractor
-
 **URL:** https://www.pic2map.com/
 
 Extracts GPS coordinates from photo EXIF metadata and displays the result on an interactive map. No install.
@@ -80,7 +74,6 @@ Extracts GPS coordinates from photo EXIF metadata and displays the result on an 
 - **Limitation:** Social media platforms strip EXIF on upload; downloaded images often have no GPS
 
 ### 2.7 TinEye — Reverse Image Search
-
 **URL:** https://tineye.com/
 
 Reverse image search engine. Finds all indexed instances of an image across the web, tracks modifications, and identifies the oldest known publication.
@@ -163,21 +156,19 @@ exiftool -r -GPSLatitude -GPSLongitude /path/to/images/
 ## 5. Analysis & Interpretation Guidance
 
 ### ELA Interpretation
-
 Error Level Analysis re-saves the image at a known compression level and computes the difference from the original. Regions that were edited (then re-saved) show higher residual error — appearing brighter in the ELA heatmap.
 
-| ELA Pattern                                    | Interpretation                         |
-| ---------------------------------------------- | -------------------------------------- |
-| Uniform brightness across entire image         | Likely original, single-save           |
-| Isolated bright patches on faces/objects       | Probable element insertion or removal  |
-| Bright rectangular block                       | Cropped and re-pasted region           |
-| Uniform bright overlay on whole image          | Heavy re-compression; ELA inconclusive |
-| Text with different brightness from background | Text added in post-processing          |
+| ELA Pattern | Interpretation |
+|-------------|---------------|
+| Uniform brightness across entire image | Likely original, single-save |
+| Isolated bright patches on faces/objects | Probable element insertion or removal |
+| Bright rectangular block | Cropped and re-pasted region |
+| Uniform bright overlay on whole image | Heavy re-compression; ELA inconclusive |
+| Text with different brightness from background | Text added in post-processing |
 
 **Caution:** ELA is not definitive proof. Multiple JPEG saves (WhatsApp, social media re-upload) produce bright regions without manipulation. Combine with clone detection and provenance for a confident verdict.
 
 ### Clone Detection Interpretation
-
 Clone detection finds copy-pasted regions within the same image — a technique used to add, remove, or duplicate objects.
 
 - Highlighted overlapping regions with connecting lines = copy-paste detected
@@ -185,38 +176,38 @@ Clone detection finds copy-pasted regions within the same image — a technique 
 
 ### AI Geolocation Confidence Tiers
 
-| Confidence                   | Action                                             |
-| ---------------------------- | -------------------------------------------------- |
-| >80%                         | Treat as probable location; verify via Street View |
-| 50–80%                       | Cross-validate with second tool (GeoSpy)           |
-| <50%                         | Flag as unverified; note in findings               |
-| Both tools agree within 10km | Elevate to HIGH confidence                         |
-| Tools diverge >50km          | Treat as unresolved; note both estimates           |
+| Confidence | Action |
+|-----------|--------|
+| >80% | Treat as probable location; verify via Street View |
+| 50–80% | Cross-validate with second tool (GeoSpy) |
+| <50% | Flag as unverified; note in findings |
+| Both tools agree within 10km | Elevate to HIGH confidence |
+| Tools diverge >50km | Treat as unresolved; note both estimates |
 
 ### EXIF Software Field Indicators
 
-| Software Value                 | Interpretation                                         |
-| ------------------------------ | ------------------------------------------------------ |
-| Camera firmware (e.g., `v1.4`) | Likely unmodified                                      |
-| `Adobe Photoshop`              | Post-processed                                         |
-| `GIMP`                         | Post-processed (open source)                           |
-| `Affinity Photo`               | Post-processed                                         |
-| `WhatsApp`                     | Re-encoded by app; EXIF likely stripped                |
-| Absent                         | Stripped — could be intentional or social media upload |
+| Software Value | Interpretation |
+|---------------|---------------|
+| Camera firmware (e.g., `v1.4`) | Likely unmodified |
+| `Adobe Photoshop` | Post-processed |
+| `GIMP` | Post-processed (open source) |
+| `Affinity Photo` | Post-processed |
+| `WhatsApp` | Re-encoded by app; EXIF likely stripped |
+| Absent | Stripped — could be intentional or social media upload |
 
 ---
 
 ## 6. Confidence Ratings
 
-| Finding                   | Confidence  | Notes                                        |
-| ------------------------- | ----------- | -------------------------------------------- |
-| EXIF GPS coordinates      | HIGH        | Device-recorded; verify not spoofed          |
-| TinEye provenance date    | HIGH        | Indexed crawl timestamp                      |
-| FaceCheck.id match        | MEDIUM-HIGH | Depends on face quality and index coverage   |
-| ELA manipulation evidence | MEDIUM      | Inconclusive without corroboration           |
-| AI geolocation >80%       | MEDIUM      | Visual inference; verify against Street View |
-| AI geolocation <50%       | LOW         | Directional only; do not treat as confirmed  |
-| Clone detection finding   | HIGH        | Mathematical pattern match                   |
+| Finding | Confidence | Notes |
+|---------|-----------|-------|
+| EXIF GPS coordinates | HIGH | Device-recorded; verify not spoofed |
+| TinEye provenance date | HIGH | Indexed crawl timestamp |
+| FaceCheck.id match | MEDIUM-HIGH | Depends on face quality and index coverage |
+| ELA manipulation evidence | MEDIUM | Inconclusive without corroboration |
+| AI geolocation >80% | MEDIUM | Visual inference; verify against Street View |
+| AI geolocation <50% | LOW | Directional only; do not treat as confirmed |
+| Clone detection finding | HIGH | Mathematical pattern match |
 
 ---
 
@@ -229,5 +220,5 @@ Clone detection finds copy-pasted regions within the same image — a technique 
 
 ---
 
-_Image Forensics & Face Search Module v1.0.0_
-_Part of CTI Expert Skill - Phase 5 Enhancement Modules_
+*Image Forensics & Face Search Module v1.0.0*
+*Part of CTI Expert Skill - Phase 5 Enhancement Modules*

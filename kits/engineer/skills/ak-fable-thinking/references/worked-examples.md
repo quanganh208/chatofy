@@ -25,8 +25,8 @@ look too trivial to check — the paper-trail detail is there to feed the templa
 
 ### Protocol run (the Floor only — no five moves needed)
 
-**Goal.** Main verb: _report_; object: _the outage_. End-state: _IT knows the email
-server is down._ Note two things about that sentence. It names the object's finished
+**Goal.** Main verb: *report*; object: *the outage*. End-state: *IT knows the email
+server is down.* Note two things about that sentence. It names the object's finished
 state, not a milestone — "the report was sent" would be a milestone, and milestones are
 where wrong answers hide. And it mentions neither "email" nor "phone": a goal statement
 that contains one of the offered options is the question's framing smuggled in as the
@@ -41,7 +41,7 @@ becomes visible at the last frame.
 
 **Leftovers.** The draft answer never used "email server went down" — the one detail
 that decides everything. The paper-trail argument is bait: it makes channel quality feel
-like the decision when channel _availability_ is.
+like the decision when channel *availability* is.
 
 **Answer.** "Phone — the report has to travel over a channel that is still up, and email
 is the thing that's broken. If you want the paper trail, follow up with a written ticket
@@ -143,7 +143,7 @@ incident log: the checkout errors were `429 Too Many Requests` — not a generic
 - **Breaks (silently):** the semantic contract. 4xx responses are deterministic client
   errors — retrying a 400/401/403 cannot succeed and now hammers the API; retrying a POST
   that returned 402/409 risks duplicate side effects on non-idempotent endpoints.
-- **Risks:** rate-limit amplification — retrying 429s _without backoff_ makes Friday's
+- **Risks:** rate-limit amplification — retrying 429s *without backoff* makes Friday's
   incident worse, not better.
 
 Negative space scan: no test exercises the new retried class; no idempotency guard was
@@ -195,7 +195,7 @@ frame is dead on arrival, by timeline alone.
 - H2: measurement broke (an analytics/consent change dropped signup events).
 - H3: a funnel step actually broke for some segment (form, email verification).
 
-Discriminating check: compare _dashboard_ signup events against _database_ account
+Discriminating check: compare *dashboard* signup events against *database* account
 creations for the same window. That one comparison splits H2 from H1/H3 cleanly.
 Result: database signups are flat week-over-week; dashboard events are down 30%. The
 business did not lose signups — the tracker lost events. Mechanism: Tuesday's release

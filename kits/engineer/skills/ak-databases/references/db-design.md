@@ -6,12 +6,12 @@ Use this reference when the task is about shaping data before writing queries: s
 
 Classify the primary workload before choosing a model:
 
-| Workload          | Optimize For                              | Common Shape                                |
-| ----------------- | ----------------------------------------- | ------------------------------------------- |
-| OLTP              | Correct writes, constraints, transactions | Normalized relational tables                |
-| OLAP              | Scans, aggregations, reporting            | Fact and dimension tables                   |
-| Document workflow | Locality, flexible nested data            | MongoDB collections with embedded documents |
-| Event history     | Append-only audit and replay              | Events plus projected read models           |
+| Workload | Optimize For | Common Shape |
+| --- | --- | --- |
+| OLTP | Correct writes, constraints, transactions | Normalized relational tables |
+| OLAP | Scans, aggregations, reporting | Fact and dimension tables |
+| Document workflow | Locality, flexible nested data | MongoDB collections with embedded documents |
+| Event history | Append-only audit and replay | Events plus projected read models |
 
 Ask for expected write rate, read paths, retention, reporting needs, and consistency requirements. Do not pick MongoDB or PostgreSQL only from preference; pick from access patterns and integrity needs.
 

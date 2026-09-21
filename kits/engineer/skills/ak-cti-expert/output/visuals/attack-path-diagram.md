@@ -12,10 +12,10 @@ Spec for rendering threat-path visualizations from case graph data. Traces attac
 
 **Options:**
 
-| Option              | Default      | Description                                                |
-| ------------------- | ------------ | ---------------------------------------------------------- |
+| Option | Default | Description |
+|--------|---------|-------------|
 | `--scope <subject>` | all subjects | Restrict to paths involving a specific subject ID or label |
-| `--depth <n>`       | 4            | Maximum hop count from entry point to target               |
+| `--depth <n>` | 4 | Maximum hop count from entry point to target |
 
 ---
 
@@ -30,7 +30,6 @@ ENTRY_POINT_TYPES = [DOMAIN, URL, EMAIL, NETWORK_ADDR, USERNAME]
 ```
 
 Score each candidate:
-
 - DOMAIN with open ports → base score 60
 - URL resolving to login/admin panel → base score 75
 - EMAIL in breach dump → base score 55
@@ -67,19 +66,19 @@ def trace_path(entry_point, depth, visited=None):
 Cumulative trust score degrades along each hop. Each edge multiplies the current path score by its strength factor:
 
 | Edge Strength | Multiplier |
-| ------------- | ---------- |
+|---------------|------------|
 | confirmed     | 1.0        |
 | probable      | 0.75       |
 | possible      | 0.50       |
 
 Path risk label based on final cumulative score × entry point base score:
 
-| Score Range | Label    |
-| ----------- | -------- |
-| 75–100      | CRITICAL |
-| 50–74       | HIGH     |
-| 25–49       | MEDIUM   |
-| 0–24        | LOW      |
+| Score Range | Label      |
+|-------------|------------|
+| 75–100      | CRITICAL   |
+| 50–74       | HIGH       |
+| 25–49       | MEDIUM     |
+| 0–24        | LOW        |
 
 ### Step 4 — Filter and Sort
 
@@ -154,7 +153,6 @@ RISK SUMMARY
 ```
 
 **Box styles:**
-
 - `┌──┐` / `└──┘` — confirmed subjects (verified=true in subject registry)
 - `╔══╗` / `╚══╝` — target/high-risk terminal nodes
 - `═══▶` — confirmed or probable edge
@@ -165,7 +163,6 @@ RISK SUMMARY
 ## Integration
 
 Reads from:
-
 - **Case subjects** — `engine/subject-registry.md` — source of node types, labels, confidence
 - **Case connections** — `engine/workspace-format.md` — edge strength and relationship type
 - **Exposure scores** — `analysis/exposure-model.md` — used to weight target severity

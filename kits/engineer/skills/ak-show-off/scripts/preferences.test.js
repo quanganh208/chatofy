@@ -4,7 +4,12 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { loadPreferences, parseSetArgs, resetPreferences, savePreferences } from './preferences.js';
+import {
+  loadPreferences,
+  parseSetArgs,
+  resetPreferences,
+  savePreferences,
+} from './preferences.js';
 
 async function withTempPrefs(fn) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'ak-show-off-prefs-'));
@@ -40,7 +45,10 @@ test('resolve defaults under AGENTKIT_HOME', async () => {
 
 test('savePreferences persists opt-out choices', async () => {
   await withTempPrefs(async (env, prefsPath) => {
-    await savePreferences({ screenshots: false, publishing: false, languages: ['en'] }, { env });
+    await savePreferences(
+      { screenshots: false, publishing: false, languages: ['en'] },
+      { env },
+    );
 
     const stored = JSON.parse(await fs.readFile(prefsPath, 'utf8'));
     const loaded = await loadPreferences({ env });
@@ -52,7 +60,12 @@ test('savePreferences persists opt-out choices', async () => {
 });
 
 test('parseSetArgs supports user-facing aliases', () => {
-  const updates = parseSetArgs(['--no-screenshots', '--no-publish', '--languages', 'en']);
+  const updates = parseSetArgs([
+    '--no-screenshots',
+    '--no-publish',
+    '--languages',
+    'en',
+  ]);
 
   assert.deepEqual(updates, {
     screenshots: false,
@@ -74,5 +87,8 @@ test('resetPreferences removes persisted preferences', async () => {
 });
 
 test('parseSetArgs rejects unsupported languages', () => {
-  assert.throws(() => parseSetArgs(['--languages', 'en,fr']), /Unsupported language/);
+  assert.throws(
+    () => parseSetArgs(['--languages', 'en,fr']),
+    /Unsupported language/,
+  );
 });

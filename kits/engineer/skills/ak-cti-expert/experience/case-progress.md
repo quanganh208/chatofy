@@ -8,12 +8,12 @@ Phase-based tracking for active cases. Shows what's complete, what's running, wh
 
 Every case moves through four phases. Progress is tracked per phase.
 
-| Phase      | Description                                | Typical Duration |
-| ---------- | ------------------------------------------ | ---------------- |
-| Intake     | Scope definition, target validation        | 1–3 min          |
-| Collection | Data gathering from all sources            | 2–30 min         |
-| Analysis   | Cross-reference, pattern matching, scoring | 1–10 min         |
-| Reporting  | Output generation, export                  | 1–5 min          |
+| Phase | Description | Typical Duration |
+|-------|-------------|-----------------|
+| Intake | Scope definition, target validation | 1–3 min |
+| Collection | Data gathering from all sources | 2–30 min |
+| Analysis | Cross-reference, pattern matching, scoring | 1–10 min |
+| Reporting | Output generation, export | 1–5 min |
 
 ---
 
@@ -55,12 +55,12 @@ This should take about 2 more minutes.
 
 ## Time Estimates
 
-| Progress      | Display Style | Example                 |
-| ------------- | ------------- | ----------------------- |
-| Under 30%     | Range         | "3–8 minutes remaining" |
-| 30–70%        | Estimate      | "About 4 minutes left"  |
-| Over 70%      | Countdown     | "50 seconds remaining"  |
-| Unknown scope | Indefinite    | "Working…"              |
+| Progress | Display Style | Example |
+|----------|--------------|---------|
+| Under 30% | Range | "3–8 minutes remaining" |
+| 30–70% | Estimate | "About 4 minutes left" |
+| Over 70% | Countdown | "50 seconds remaining" |
+| Unknown scope | Indefinite | "Working…" |
 
 Time estimates are recalculated every 10 seconds using elapsed rate. Final 10% pads by 20% for slower completion tasks.
 
@@ -159,13 +159,13 @@ Signals emit every 15 seconds when no other output is produced.
 
 ## Progress Timing Rules
 
-| Operation Duration | Display               |
-| ------------------ | --------------------- |
-| < 2 seconds        | No indicator          |
-| 2–10 seconds       | Spinner only          |
-| 10–60 seconds      | Bar + phase name      |
-| 60s–5 min          | Full phase breakdown  |
-| > 5 min            | Background mode offer |
+| Operation Duration | Display |
+|-------------------|---------|
+| < 2 seconds | No indicator |
+| 2–10 seconds | Spinner only |
+| 10–60 seconds | Bar + phase name |
+| 60s–5 min | Full phase breakdown |
+| > 5 min | Background mode offer |
 
 Update frequency: every second under 10s, every 5s up to 60s, every 10s beyond.
 

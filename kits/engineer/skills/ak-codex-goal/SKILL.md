@@ -6,11 +6,11 @@ when_to_use: Invoke for Codex-native /goal guidance, not generic iteration loops
 category: runtime
 keywords: [codex, goal, autonomous, validation, long-running]
 license: MIT
-argument-hint: '<objective | goal draft>'
+argument-hint: "<objective | goal draft>"
 metadata:
   author: agentkit
-  version: '1.0.1'
-  upstream: 'Pinned MIT source archive: codex-goal-loop@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5'
+  version: "1.0.1"
+  upstream: "Pinned MIT source archive: codex-goal-loop@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5"
 ---
 
 # Codex Goal

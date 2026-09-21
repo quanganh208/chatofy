@@ -8,35 +8,35 @@ Pre-built case workflows organized by domain. Run with `/case-template run [id]`
 
 ### Business
 
-| ID                  | Name                  | Inputs        | Duration  | Output            |
-| ------------------- | --------------------- | ------------- | --------- | ----------------- |
-| `due-diligence`     | Company Due Diligence | Name, domain  | 15–25 min | Risk score 0–10   |
-| `vendor-verify`     | Supplier Verification | Name, domain  | 10–15 min | Pass/Fail + flags |
-| `executive-profile` | Leadership Research   | Name, company | 20–30 min | Profile + risk    |
+| ID | Name | Inputs | Duration | Output |
+|----|------|--------|----------|--------|
+| `due-diligence` | Company Due Diligence | Name, domain | 15–25 min | Risk score 0–10 |
+| `vendor-verify` | Supplier Verification | Name, domain | 10–15 min | Pass/Fail + flags |
+| `executive-profile` | Leadership Research | Name, company | 20–30 min | Profile + risk |
 
 ### Individual
 
-| ID                 | Name                    | Inputs         | Duration  | Output              |
-| ------------------ | ----------------------- | -------------- | --------- | ------------------- |
-| `background-check` | Subject Background      | Name, region   | 20–30 min | Verification report |
-| `dating-verify`    | Online Connection Check | Name, platform | 15–20 min | Risk assessment     |
-| `tenant-screen`    | Rental Applicant Review | Name, location | 15–25 min | Screening report    |
+| ID | Name | Inputs | Duration | Output |
+|----|------|--------|----------|--------|
+| `background-check` | Subject Background | Name, region | 20–30 min | Verification report |
+| `dating-verify` | Online Connection Check | Name, platform | 15–20 min | Risk assessment |
+| `tenant-screen` | Rental Applicant Review | Name, location | 15–25 min | Screening report |
 
 ### Security
 
-| ID                | Name                   | Inputs          | Duration  | Output              |
-| ----------------- | ---------------------- | --------------- | --------- | ------------------- |
-| `security-review` | Domain Security Review | Domain          | 10–20 min | Grade A–F + roadmap |
-| `breach-check`    | Data Exposure Check    | Domain or email | 5–10 min  | Exposure summary    |
-| `app-security`    | Application Analysis   | App name/domain | 15–20 min | Security findings   |
+| ID | Name | Inputs | Duration | Output |
+|----|------|--------|----------|--------|
+| `security-review` | Domain Security Review | Domain | 10–20 min | Grade A–F + roadmap |
+| `breach-check` | Data Exposure Check | Domain or email | 5–10 min | Exposure summary |
+| `app-security` | Application Analysis | App name/domain | 15–20 min | Security findings |
 
 ### Media & Content
 
-| ID              | Name                     | Inputs         | Duration  | Output               |
-| --------------- | ------------------------ | -------------- | --------- | -------------------- |
-| `image-check`   | Image Authenticity Check | Image file/URL | 5–10 min  | Authenticity verdict |
-| `source-verify` | News Source Assessment   | URL or name    | 8–12 min  | Credibility score    |
-| `content-trace` | Content Origin Trace     | Text or image  | 10–15 min | Source attribution   |
+| ID | Name | Inputs | Duration | Output |
+|----|------|--------|----------|--------|
+| `image-check` | Image Authenticity Check | Image file/URL | 5–10 min | Authenticity verdict |
+| `source-verify` | News Source Assessment | URL or name | 8–12 min | Credibility score |
+| `content-trace` | Content Origin Trace | Text or image | 10–15 min | Source attribution |
 
 ---
 
@@ -99,14 +99,14 @@ Run: /case-template run due-diligence
 
 ## Execution States
 
-| State      | Meaning                      |
-| ---------- | ---------------------------- |
-| INPUT      | Collecting required inputs   |
-| VALIDATE   | Checking input completeness  |
-| COLLECTION | Running research phases      |
-| ANALYSIS   | Scoring and pattern matching |
-| REPORT     | Generating output            |
-| COMPLETE   | Results available            |
+| State | Meaning |
+|-------|---------|
+| INPUT | Collecting required inputs |
+| VALIDATE | Checking input completeness |
+| COLLECTION | Running research phases |
+| ANALYSIS | Scoring and pattern matching |
+| REPORT | Generating output |
+| COMPLETE | Results available |
 
 ---
 
@@ -129,14 +129,14 @@ Add another phase? (yes / no)
 
 ### Variable Reference
 
-| Variable              | Source      | Example        |
-| --------------------- | ----------- | -------------- |
-| `{{company_name}}`    | User input  | "Acme Corp"    |
-| `{{domain}}`          | User input  | "acme.com"     |
-| `{{location}}`        | User input  | "Germany"      |
-| `{{date}}`            | System      | "2026-03-30"   |
-| `{{phase1.emails}}`   | Prior phase | list of emails |
-| `{{phase2.profiles}}` | Prior phase | profile URLs   |
+| Variable | Source | Example |
+|----------|--------|---------|
+| `{{company_name}}` | User input | "Acme Corp" |
+| `{{domain}}` | User input | "acme.com" |
+| `{{location}}` | User input | "Germany" |
+| `{{date}}` | System | "2026-03-30" |
+| `{{phase1.emails}}` | Prior phase | list of emails |
+| `{{phase2.profiles}}` | Prior phase | profile URLs |
 
 ### Template YAML Format
 

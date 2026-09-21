@@ -105,8 +105,8 @@ Multi-vector reconnaissance on any target type — person, domain, organization,
 
 <div align="center">
 
-|                         INTSUM Report                         |                                  Network Topology                                  |                                Risk Assessment                                 |
-| :-----------------------------------------------------------: | :--------------------------------------------------------------------------------: | :----------------------------------------------------------------------------: |
+| INTSUM Report | Network Topology | Risk Assessment |
+|:---:|:---:|:---:|
 | <img src="assets/intsum.png" alt="INTSUM Report" width="280"> | <img src="assets/network-topology.png" alt="Network Topology Diagram" width="280"> | <img src="assets/risk-assessment.png" alt="Risk Assessment Score" width="280"> |
 
 </div>
@@ -119,46 +119,46 @@ Multi-vector reconnaissance on any target type — person, domain, organization,
 
 ## What's New in v2.3
 
-| Category           | What's New                         | Details                                                              |
-| ------------------ | ---------------------------------- | -------------------------------------------------------------------- |
-| **WHOIS**          | Universal WHOIS for all TLDs       | whoisdomain + CLI + Whoxy API; .vn, .th, .sg, .kr, 27+ ccTLD servers |
-| **WHOIS**          | Reverse & historical WHOIS (free)  | Whoxy reverse API, historical lookup, ViewDNS                        |
-| **Web Collection** | Scrapling adaptive scraping        | 3-tier: static → anti-bot → JS rendering; headless auto-open         |
-| **Web Collection** | Headless browser auto-open default | JS-heavy sites auto-detected and rendered via DynamicFetcher         |
-| **Orchestration**  | AgentFlow parallel enrichment      | DAG-based parallel pivot expansion for 3+ subjects                   |
-| **Performance**    | HTML parsing ~2ms                  | Scrapling parser replaces slow HTTP scraping                         |
-| **Platform**       | Python 3.10+ minimum               | Required by Scrapling and AgentFlow                                  |
+| Category | What's New | Details |
+|----------|-----------|---------|
+| **WHOIS** | Universal WHOIS for all TLDs | whoisdomain + CLI + Whoxy API; .vn, .th, .sg, .kr, 27+ ccTLD servers |
+| **WHOIS** | Reverse & historical WHOIS (free) | Whoxy reverse API, historical lookup, ViewDNS |
+| **Web Collection** | Scrapling adaptive scraping | 3-tier: static → anti-bot → JS rendering; headless auto-open |
+| **Web Collection** | Headless browser auto-open default | JS-heavy sites auto-detected and rendered via DynamicFetcher |
+| **Orchestration** | AgentFlow parallel enrichment | DAG-based parallel pivot expansion for 3+ subjects |
+| **Performance** | HTML parsing ~2ms | Scrapling parser replaces slow HTTP scraping |
+| **Platform** | Python 3.10+ minimum | Required by Scrapling and AgentFlow |
 
 <details>
 <summary><b>What's New in v2.2</b></summary>
 
 ## What's New in v2.2
 
-| Category            | What's New                                                         | Details                                                                                                               |
-| ------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| **Image Forensics** | Face search, reverse image, manipulation detection, AI geolocation | FaceCheck.id, TinEye, FotoForensics, Forensically, picarta.ai, GeoSpy, Pic2Map                                        |
-| **Blockchain**      | Crypto wallet tracing, transaction graphs, scam detection          | Blockchair, Etherscan, WalletExplorer, OXT.me, Chainabuse, Breadcrumbs                                                |
-| **Transport**       | Aircraft tracking (unfiltered), vessel AIS, vehicle VIN lookup     | ADS-B Exchange, Flightradar24, Marine Traffic, VesselFinder, NICB VINCheck                                            |
-| **Darknet**         | Tor search, ransomware monitoring, onion service discovery         | Ahmia.fi, onionsearch, DarknetLive, ransomwatch                                                                       |
-| **Social Media**    | Reddit, Instagram, TikTok, Telegram investigation                  | Osintgram, instaloader, toutatis, RedditMetis, TGStat, TelegramDB, Bellingcat TikTok Timestamp                        |
-| **People Search**   | US people search engines, free reverse lookups                     | TruePeopleSearch, FastPeopleSearch, IDCrawl, That's Them                                                              |
-| **Mega-Dorks**      | 11 cross-platform Google dork templates covering 73 unique domains | Social, Telegram ecosystem, dev platforms, forums, paste sites, darknet, breach DBs, business, image, messaging, jobs |
-| **IoT**             | Webcam directories, IoT device search                              | Insecam, Thingful                                                                                                     |
+| Category | What's New | Details |
+|----------|-----------|---------|
+| **Image Forensics** | Face search, reverse image, manipulation detection, AI geolocation | FaceCheck.id, TinEye, FotoForensics, Forensically, picarta.ai, GeoSpy, Pic2Map |
+| **Blockchain** | Crypto wallet tracing, transaction graphs, scam detection | Blockchair, Etherscan, WalletExplorer, OXT.me, Chainabuse, Breadcrumbs |
+| **Transport** | Aircraft tracking (unfiltered), vessel AIS, vehicle VIN lookup | ADS-B Exchange, Flightradar24, Marine Traffic, VesselFinder, NICB VINCheck |
+| **Darknet** | Tor search, ransomware monitoring, onion service discovery | Ahmia.fi, onionsearch, DarknetLive, ransomwatch |
+| **Social Media** | Reddit, Instagram, TikTok, Telegram investigation | Osintgram, instaloader, toutatis, RedditMetis, TGStat, TelegramDB, Bellingcat TikTok Timestamp |
+| **People Search** | US people search engines, free reverse lookups | TruePeopleSearch, FastPeopleSearch, IDCrawl, That's Them |
+| **Mega-Dorks** | 11 cross-platform Google dork templates covering 73 unique domains | Social, Telegram ecosystem, dev platforms, forums, paste sites, darknet, breach DBs, business, image, messaging, jobs |
+| **IoT** | Webcam directories, IoT device search | Insecam, Thingful |
 
 <details>
 <summary><b>What's New in v2.1</b></summary>
 
-| Category         | New Commands                                                            | What It Does                                              |
-| ---------------- | ----------------------------------------------------------------------- | --------------------------------------------------------- |
-| **Intelligence** | `/cti-expert /render threat-path`, `/cti-expert /render attack-surface` | Attack path flow + infrastructure exposure visualization  |
-| **Intelligence** | `/cti-expert /snapshots`, `/cti-expert /diff`                           | Wayback Machine snapshots and version diffing             |
-| **Intelligence** | `/cti-expert /drift`, `/cti-expert /report ioc`                         | Temporal risk tracking + IOC export (STIX 2.1)            |
-| **UX**           | `/cti-expert /onboard`, `/cti-expert /clarify`, `/cti-expert /quality`  | First-time tutorial, finding explanation, quality scoring |
-| **UX**           | `/cti-expert /blind-spots`, `/cti-expert /source-check`                 | Gap analysis + batch URL verification                     |
-| **UX**           | `/cti-expert /workspace diff`                                           | Compare two saved investigation sessions                  |
-| **Data Model**   | Source Reliability A-F                                                  | Complements trust scores with source-level grading        |
-| **Data Model**   | 4 new entity types                                                      | Device, Image, Crypto Address, Custom                     |
-| **Data Model**   | HIGH conflict severity                                                  | 4-level severity: CRITICAL/HIGH/NOTABLE/MINOR             |
+| Category | New Commands | What It Does |
+|----------|-------------|--------------|
+| **Intelligence** | `/cti-expert /render threat-path`, `/cti-expert /render attack-surface` | Attack path flow + infrastructure exposure visualization |
+| **Intelligence** | `/cti-expert /snapshots`, `/cti-expert /diff` | Wayback Machine snapshots and version diffing |
+| **Intelligence** | `/cti-expert /drift`, `/cti-expert /report ioc` | Temporal risk tracking + IOC export (STIX 2.1) |
+| **UX** | `/cti-expert /onboard`, `/cti-expert /clarify`, `/cti-expert /quality` | First-time tutorial, finding explanation, quality scoring |
+| **UX** | `/cti-expert /blind-spots`, `/cti-expert /source-check` | Gap analysis + batch URL verification |
+| **UX** | `/cti-expert /workspace diff` | Compare two saved investigation sessions |
+| **Data Model** | Source Reliability A-F | Complements trust scores with source-level grading |
+| **Data Model** | 4 new entity types | Device, Image, Crypto Address, Custom |
+| **Data Model** | HIGH conflict severity | 4-level severity: CRITICAL/HIGH/NOTABLE/MINOR |
 
 </details>
 
@@ -177,7 +177,6 @@ Multi-vector reconnaissance on any target type — person, domain, organization,
 ### Why Claude Code CLI?
 
 The entire CTI Expert workflow is optimized for Claude Code CLI. The CLI gives you:
-
 - **Persistent sessions** — investigations survive terminal restarts via `/cti-expert /workspace save`
 - **Full tool access** — file writes, Python scripts, DOCX generation, all run natively
 - **Skill invocation** — type `/cti-expert` directly in the terminal, no browser required
@@ -252,12 +251,12 @@ bash scripts/install.sh --go          # + Go tools (subfinder, amass, gau, gitle
 bash scripts/install.sh --all         # + Everything above
 ```
 
-| Flag         | What it installs                                                                                                                     | Size    |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ------- |
-| _(none)_     | Python packages, whois, dig, jq, exiftool, maigret, sherlock, holehe, h8mail, theHarvester, trufflehog, waymore, xeuledoc, agentflow | ~50 MB  |
-| `--headless` | Scrapling StealthyFetcher + DynamicFetcher + Chromium                                                                                | +200 MB |
-| `--go`       | subfinder, amass, gau, gitleaks, httpx, phoneinfoga                                                                                  | +150 MB |
-| `--all`      | Everything                                                                                                                           | ~400 MB |
+| Flag | What it installs | Size |
+|------|-----------------|------|
+| *(none)* | Python packages, whois, dig, jq, exiftool, maigret, sherlock, holehe, h8mail, theHarvester, trufflehog, waymore, xeuledoc, agentflow | ~50 MB |
+| `--headless` | Scrapling StealthyFetcher + DynamicFetcher + Chromium | +200 MB |
+| `--go` | subfinder, amass, gau, gitleaks, httpx, phoneinfoga | +150 MB |
+| `--all` | Everything | ~400 MB |
 
 ---
 
@@ -283,10 +282,10 @@ claude   # opens Claude Code CLI
 2. **Download CTI Expert** &mdash; Go to the [GitHub repository](https://github.com/7onez/cti-expert), click the green **"Code"** button, then select **"Download ZIP"**
 3. **Extract to your skills folder** &mdash; Unzip the downloaded file, then move the extracted folder to your skills directory and rename it to `cti-expert`:
 
-   | Platform    | How to navigate                                                                                                                              |
-   | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-   | **macOS**   | Open **Finder** &rarr; Press **Cmd + Shift + G** &rarr; Type `${CLAUDE_PLUGIN_ROOT}/skills/` &rarr; Press **Go** &rarr; Move the folder here |
-   | **Windows** | Open **File Explorer** &rarr; Type `%USERPROFILE%\.claude\skills\` in the address bar &rarr; Press **Enter** &rarr; Move the folder here     |
+   | Platform | How to navigate |
+   |----------|----------------|
+   | **macOS** | Open **Finder** &rarr; Press **Cmd + Shift + G** &rarr; Type `${CLAUDE_PLUGIN_ROOT}/skills/` &rarr; Press **Go** &rarr; Move the folder here |
+   | **Windows** | Open **File Explorer** &rarr; Type `%USERPROFILE%\.claude\skills\` in the address bar &rarr; Press **Enter** &rarr; Move the folder here |
 
    > **Note:** If the `skills` folder does not exist, create it inside the `.claude` folder first.
 
@@ -309,14 +308,14 @@ claude   # opens Claude Code CLI
 <summary><b>System Requirements</b></summary>
 <br>
 
-| Requirement                                                                | Version                | Purpose                                      |
-| -------------------------------------------------------------------------- | ---------------------- | -------------------------------------------- |
-| [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/overview) | Latest                 | **Recommended** terminal runtime             |
-| [Claude Code Desktop](https://claude.ai/download)                          | Latest                 | GUI runtime (macOS/Windows)                  |
-| Node.js                                                                    | 18+                    | Required by Claude Code CLI                  |
-| Python                                                                     | 3.10+                  | DOCX report generation, Scrapling, AgentFlow |
-| pip packages                                                               | See `requirements.txt` | Charts, diagrams, styling                    |
-| git                                                                        | Any                    | Clone the repository                         |
+| Requirement | Version | Purpose |
+|-------------|---------|---------|
+| [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/overview) | Latest | **Recommended** terminal runtime |
+| [Claude Code Desktop](https://claude.ai/download) | Latest | GUI runtime (macOS/Windows) |
+| Node.js | 18+ | Required by Claude Code CLI |
+| Python | 3.10+ | DOCX report generation, Scrapling, AgentFlow |
+| pip packages | See `requirements.txt` | Charts, diagrams, styling |
+| git | Any | Clone the repository |
 
 </details>
 
@@ -509,17 +508,17 @@ Every investigation follows four automated phases:
 <summary><b>Acquire</b> — Data collection commands</summary>
 <br>
 
-| Command                              | Purpose                                                  |
-| ------------------------------------ | -------------------------------------------------------- |
-| `/cti-expert /case [target]`         | Full pipeline — every applicable technique               |
-| `/cti-expert /sweep [target]`        | Multi-vector recon (person/domain/org/username/email/IP) |
-| `/cti-expert /query [subject]`       | 12-15 advanced search operator queries                   |
-| `/cti-expert /username [handle]`     | 3000+ platform enumeration                               |
-| `/cti-expert /phone [number]`        | Carrier lookup, reputation, associations                 |
-| `/cti-expert /email-deep [email]`    | Accounts, breaches, infrastructure                       |
-| `/cti-expert /subdomain [domain]`    | CT logs + passive enumeration                            |
-| `/cti-expert /threat-check [target]` | IP/domain/URL/hash threat intelligence                   |
-| `/cti-expert /breach-deep [email]`   | Multi-source breach lookup                               |
+| Command | Purpose |
+|---------|---------|
+| `/cti-expert /case [target]` | Full pipeline — every applicable technique |
+| `/cti-expert /sweep [target]` | Multi-vector recon (person/domain/org/username/email/IP) |
+| `/cti-expert /query [subject]` | 12-15 advanced search operator queries |
+| `/cti-expert /username [handle]` | 3000+ platform enumeration |
+| `/cti-expert /phone [number]` | Carrier lookup, reputation, associations |
+| `/cti-expert /email-deep [email]` | Accounts, breaches, infrastructure |
+| `/cti-expert /subdomain [domain]` | CT logs + passive enumeration |
+| `/cti-expert /threat-check [target]` | IP/domain/URL/hash threat intelligence |
+| `/cti-expert /breach-deep [email]` | Multi-source breach lookup |
 
 </details>
 
@@ -527,13 +526,13 @@ Every investigation follows four automated phases:
 <summary><b>Enrich</b> — Lateral expansion commands</summary>
 <br>
 
-| Command                              | Purpose                                                            |
-| ------------------------------------ | ------------------------------------------------------------------ |
-| `/cti-expert /branch [data]`         | Lateral expansion (email&rarr;username, username&rarr;email, etc.) |
-| `/cti-expert /crossref`              | Shared identifier detection across subjects                        |
-| `/cti-expert /link-subjects [A] [B]` | Define connection between subjects                                 |
-| `/cti-expert /show-connections`      | Display logged connections                                         |
-| `/cti-expert /graph`                 | Full ASCII subject relationship map                                |
+| Command | Purpose |
+|---------|---------|
+| `/cti-expert /branch [data]` | Lateral expansion (email&rarr;username, username&rarr;email, etc.) |
+| `/cti-expert /crossref` | Shared identifier detection across subjects |
+| `/cti-expert /link-subjects [A] [B]` | Define connection between subjects |
+| `/cti-expert /show-connections` | Display logged connections |
+| `/cti-expert /graph` | Full ASCII subject relationship map |
 
 </details>
 
@@ -541,12 +540,12 @@ Every investigation follows four automated phases:
 <summary><b>Assess</b> — Scoring & verification commands</summary>
 <br>
 
-| Command                          | Purpose                          |
-| -------------------------------- | -------------------------------- |
-| `/cti-expert /exposure [target]` | Composite risk score (0-100)     |
-| `/cti-expert /threat-model`      | Build threat model from findings |
-| `/cti-expert /validate`          | Verify finding evidence chains   |
-| `/cti-expert /coverage`          | Check investigation completeness |
+| Command | Purpose |
+|---------|---------|
+| `/cti-expert /exposure [target]` | Composite risk score (0-100) |
+| `/cti-expert /threat-model` | Build threat model from findings |
+| `/cti-expert /validate` | Verify finding evidence chains |
+| `/cti-expert /coverage` | Check investigation completeness |
 
 </details>
 
@@ -554,11 +553,11 @@ Every investigation follows four automated phases:
 <summary><b>Deliver</b> — Report generation commands</summary>
 <br>
 
-| Command                       | Purpose                              |
-| ----------------------------- | ------------------------------------ |
-| `/cti-expert /report`         | Technical INTSUM report              |
-| `/cti-expert /report brief`   | Executive summary                    |
-| `/cti-expert /brief`          | Plain-language summary               |
+| Command | Purpose |
+|---------|---------|
+| `/cti-expert /report` | Technical INTSUM report |
+| `/cti-expert /report brief` | Executive summary |
+| `/cti-expert /brief` | Plain-language summary |
 | `/cti-expert /workspace save` | Save workspace + auto-generate .docx |
 
 </details>
@@ -614,43 +613,43 @@ Raw technique access, custom evidence weighting, CONTESTED finding resolution, d
 <summary><b>35 techniques</b> — click to expand full catalog</summary>
 <br>
 
-| Technique                            | Coverage                                                                             | API Key Required?                     |
-| ------------------------------------ | ------------------------------------------------------------------------------------ | ------------------------------------- |
-| `fx-metadata-parsing.md`             | EXIF, email headers, document forensics                                              | No                                    |
-| `fx-image-verification.md`           | Image authenticity, provenance, reverse search                                       | No                                    |
-| `fx-breach-discovery.md`             | Breach database + paste site enumeration                                             | Optional (HIBP bulk, DeHashed paid)   |
-| `fx-http-fingerprint.md`             | HTTP signature analysis, server fingerprinting                                       | No                                    |
-| `fx-leak-monitoring.md`              | Leak and breach monitoring automation                                                | Mixed (IntelligenceX/Shodan paid)     |
-| `fx-dns-cert-history.md`             | Historical DNS + SSL/TLS certificate timeline                                        | No                                    |
-| `fx-document-forensics.md`           | PDF/Office authorship, creation chain, hidden content                                | No                                    |
-| `fx-network-mapping.md`              | Network topology, entity graph construction                                          | No                                    |
-| `username-osint.md`                  | 3000+ platform enumeration                                                           | No                                    |
-| `phone-osint.md`                     | Carrier lookup, VoIP, FreeCNAM, WhoCalld                                             | No                                    |
-| `email-osint.md`                     | Deep email investigation, breach history                                             | No                                    |
-| `threat-intel.md`                    | GreyNoise, AbuseIPDB, OTX, VirusTotal, CIRCL CVE, NVD                                | Optional (VT/URLScan free keys)       |
-| `web-traffic-analysis.md`            | SimilarWeb, Semrush estimation                                                       | No                                    |
-| `domain-advanced.md`                 | CT logs, Amass, Subfinder, passive enum                                              | No                                    |
-| `social-media-platforms.md`          | Twitter/X, Discord, Strava, BlueSky, ShareTrace, Reddit, Instagram, TikTok, Telegram | Partial (Discord needs token)         |
-| `image-forensics-and-face-search.md` | FaceCheck.id, TinEye, FotoForensics, Forensically, picarta.ai, GeoSpy, Pic2Map       | No                                    |
-| `blockchain-investigation.md`        | Blockchair, Etherscan, WalletExplorer, OXT.me, Chainabuse, Breadcrumbs               | Optional (Etherscan API for bulk)     |
-| `transport-tracking.md`              | ADS-B Exchange, Flightradar24, Marine Traffic, VesselFinder, VIN decode              | No                                    |
-| `darknet-investigation.md`           | Ahmia.fi, onionsearch, DarknetLive, ransomwatch                                      | No                                    |
-| `advanced-geolocation-techniques.md` | W3W, Plus Codes, MGRS, Overpass Turbo                                                | No                                    |
-| `wifi-ssid-osint.md`                 | Wigle.net SSID/BSSID geolocation                                                     | Free account (Wigle API)              |
-| `web-dns-forensics.md`               | Zone transfers, GitHub, Telegram, WHOIS                                              | Optional (WHOIS API)                  |
-| `scam-check.md`                      | Phishing/scam domain verification                                                    | No                                    |
-| `ioc-export.md`                      | IOC export (STIX 2.1, flat list)                                                     | No                                    |
-| `cloud-audit.md`                     | AWS/GCP/Azure IAM, network, compute audit                                            | No                                    |
-| `dependency-audit.md`                | CVE, supply chain, CI/CD security                                                    | No                                    |
-| `disk-forensics.md`                  | Sleuth Kit, file carving, artifact recovery                                          | No                                    |
-| `incident-triage.md`                 | NIST 800-61, containment, IOC extraction                                             | No                                    |
-| `owasp-audit.md`                     | OWASP Top 10 source code review                                                      | No                                    |
-| `prompt-injection-audit.md`          | LLM/agent/MCP security assessment                                                    | No                                    |
-| `fx-visitor-intelligence.md`         | Visitor stats, tech stack, geo analysis                                              | No                                    |
-| `fx-social-topology.md`              | Social graph construction and analysis                                               | No                                    |
-| `fx-geolocation.md`                  | GPS, W3W, Plus Codes, MGRS, Street View                                              | No                                    |
-| `secret-scanning.md`                 | Credential/secret detection in code                                                  | Optional (GitHub token for GitDorker) |
-| `fx-email-header-analysis.md`        | Email header analysis, SPF/DKIM                                                      | No                                    |
+| Technique | Coverage | API Key Required? |
+|-----------|----------|-------------------|
+| `fx-metadata-parsing.md` | EXIF, email headers, document forensics | No |
+| `fx-image-verification.md` | Image authenticity, provenance, reverse search | No |
+| `fx-breach-discovery.md` | Breach database + paste site enumeration | Optional (HIBP bulk, DeHashed paid) |
+| `fx-http-fingerprint.md` | HTTP signature analysis, server fingerprinting | No |
+| `fx-leak-monitoring.md` | Leak and breach monitoring automation | Mixed (IntelligenceX/Shodan paid) |
+| `fx-dns-cert-history.md` | Historical DNS + SSL/TLS certificate timeline | No |
+| `fx-document-forensics.md` | PDF/Office authorship, creation chain, hidden content | No |
+| `fx-network-mapping.md` | Network topology, entity graph construction | No |
+| `username-osint.md` | 3000+ platform enumeration | No |
+| `phone-osint.md` | Carrier lookup, VoIP, FreeCNAM, WhoCalld | No |
+| `email-osint.md` | Deep email investigation, breach history | No |
+| `threat-intel.md` | GreyNoise, AbuseIPDB, OTX, VirusTotal, CIRCL CVE, NVD | Optional (VT/URLScan free keys) |
+| `web-traffic-analysis.md` | SimilarWeb, Semrush estimation | No |
+| `domain-advanced.md` | CT logs, Amass, Subfinder, passive enum | No |
+| `social-media-platforms.md` | Twitter/X, Discord, Strava, BlueSky, ShareTrace, Reddit, Instagram, TikTok, Telegram | Partial (Discord needs token) |
+| `image-forensics-and-face-search.md` | FaceCheck.id, TinEye, FotoForensics, Forensically, picarta.ai, GeoSpy, Pic2Map | No |
+| `blockchain-investigation.md` | Blockchair, Etherscan, WalletExplorer, OXT.me, Chainabuse, Breadcrumbs | Optional (Etherscan API for bulk) |
+| `transport-tracking.md` | ADS-B Exchange, Flightradar24, Marine Traffic, VesselFinder, VIN decode | No |
+| `darknet-investigation.md` | Ahmia.fi, onionsearch, DarknetLive, ransomwatch | No |
+| `advanced-geolocation-techniques.md` | W3W, Plus Codes, MGRS, Overpass Turbo | No |
+| `wifi-ssid-osint.md` | Wigle.net SSID/BSSID geolocation | Free account (Wigle API) |
+| `web-dns-forensics.md` | Zone transfers, GitHub, Telegram, WHOIS | Optional (WHOIS API) |
+| `scam-check.md` | Phishing/scam domain verification | No |
+| `ioc-export.md` | IOC export (STIX 2.1, flat list) | No |
+| `cloud-audit.md` | AWS/GCP/Azure IAM, network, compute audit | No |
+| `dependency-audit.md` | CVE, supply chain, CI/CD security | No |
+| `disk-forensics.md` | Sleuth Kit, file carving, artifact recovery | No |
+| `incident-triage.md` | NIST 800-61, containment, IOC extraction | No |
+| `owasp-audit.md` | OWASP Top 10 source code review | No |
+| `prompt-injection-audit.md` | LLM/agent/MCP security assessment | No |
+| `fx-visitor-intelligence.md` | Visitor stats, tech stack, geo analysis | No |
+| `fx-social-topology.md` | Social graph construction and analysis | No |
+| `fx-geolocation.md` | GPS, W3W, Plus Codes, MGRS, Street View | No |
+| `secret-scanning.md` | Credential/secret detection in code | Optional (GitHub token for GitDorker) |
+| `fx-email-header-analysis.md` | Email header analysis, SPF/DKIM | No |
 
 </details>
 
@@ -770,12 +769,12 @@ cti-expert/
 
 ## Professional Workflows
 
-| Workflow                           | Audience                     | File                                   |
-| ---------------------------------- | ---------------------------- | -------------------------------------- |
-| **Journalist Source Verification** | Reporters, fact-checkers     | `workflows/wf-journalist.md`           |
-| **HR Screening**                   | HR professionals, recruiters | `workflows/wf-hr-screening.md`         |
-| **Cyber Threat Intelligence**      | Security analysts, IR teams  | `workflows/wf-threat-analyst.md`       |
-| **Private Investigator**           | Licensed PIs, legal teams    | `workflows/wf-private-investigator.md` |
+| Workflow | Audience | File |
+|----------|----------|------|
+| **Journalist Source Verification** | Reporters, fact-checkers | `workflows/wf-journalist.md` |
+| **HR Screening** | HR professionals, recruiters | `workflows/wf-hr-screening.md` |
+| **Cyber Threat Intelligence** | Security analysts, IR teams | `workflows/wf-threat-analyst.md` |
+| **Private Investigator** | Licensed PIs, legal teams | `workflows/wf-private-investigator.md` |
 
 > Activate with `/cti-expert /flow [type]` for interactive guided prompts.
 
@@ -834,15 +833,12 @@ We welcome research contributions, new techniques, and workflow improvements.
 <br>
 
 **Adding techniques:**
-
 1. Create `techniques/fx-[name].md` with method description, free tool lists, limitations
 
 **Workflow improvements:**
-
 1. Document in `workflows/` with success criteria
 
 **Pull request process:**
-
 1. Fork and create feature branch: `git checkout -b feature/technique-name`
 2. Document changes in SKILL.md and README.md
 3. Test on at least 3 real-world targets
@@ -924,7 +920,6 @@ Một kỹ năng của Claude Code biến Claude thành một nhà phân tích t
 #### Tại sao nên dùng Claude Code CLI?
 
 Toàn bộ workflow CTI Expert được tối ưu cho Claude Code CLI:
-
 - **Phiên làm việc liên tục** — điều tra được lưu qua `/cti-expert /workspace save`
 - **Truy cập đầy đủ công cụ** — ghi file, chạy Python, tạo DOCX, tất cả chạy tự nhiên
 - **Gọi skill trực tiếp** — gõ `/cti-expert` ngay trong terminal
@@ -999,12 +994,12 @@ bash scripts/install.sh --go          # + Go tools (subfinder, amass, gau, gitle
 bash scripts/install.sh --all         # + Tất cả
 ```
 
-| Flag         | Cài gì                                                                                                                               | Kích thước |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
-| _(không có)_ | Python packages, whois, dig, jq, exiftool, maigret, sherlock, holehe, h8mail, theHarvester, trufflehog, waymore, xeuledoc, agentflow | ~50 MB     |
-| `--headless` | Scrapling StealthyFetcher + DynamicFetcher + Chromium                                                                                | +200 MB    |
-| `--go`       | subfinder, amass, gau, gitleaks, httpx, phoneinfoga                                                                                  | +150 MB    |
-| `--all`      | Tất cả                                                                                                                               | ~400 MB    |
+| Flag | Cài gì | Kích thước |
+|------|--------|-----------|
+| *(không có)* | Python packages, whois, dig, jq, exiftool, maigret, sherlock, holehe, h8mail, theHarvester, trufflehog, waymore, xeuledoc, agentflow | ~50 MB |
+| `--headless` | Scrapling StealthyFetcher + DynamicFetcher + Chromium | +200 MB |
+| `--go` | subfinder, amass, gau, gitleaks, httpx, phoneinfoga | +150 MB |
+| `--all` | Tất cả | ~400 MB |
 
 ---
 
@@ -1026,10 +1021,10 @@ claude   # mở Claude Code CLI
 2. **Tải CTI Expert** &mdash; Vào [kho GitHub](https://github.com/7onez/cti-expert), nhấn nút **"Code"** màu xanh, sau đó chọn **"Download ZIP"**
 3. **Giải nén vào thư mục skills** &mdash; Giải nén file đã tải, di chuyển thư mục vào thư mục skills và đổi tên thành `cti-expert`:
 
-   | Hệ điều hành | Cách điều hướng                                                                                              |
-   | ------------ | ------------------------------------------------------------------------------------------------------------ |
-   | **macOS**    | Mở **Finder** &rarr; Nhấn **Cmd + Shift + G** &rarr; Nhập `${CLAUDE_PLUGIN_ROOT}/skills/` &rarr; Nhấn **Go** |
-   | **Windows**  | Mở **File Explorer** &rarr; Nhập `%USERPROFILE%\.claude\skills\` vào thanh địa chỉ &rarr; Nhấn **Enter**     |
+   | Hệ điều hành | Cách điều hướng |
+   |-------------|----------------|
+   | **macOS** | Mở **Finder** &rarr; Nhấn **Cmd + Shift + G** &rarr; Nhập `${CLAUDE_PLUGIN_ROOT}/skills/` &rarr; Nhấn **Go** |
+   | **Windows** | Mở **File Explorer** &rarr; Nhập `%USERPROFILE%\.claude\skills\` vào thanh địa chỉ &rarr; Nhấn **Enter** |
 
 4. **Chạy installer** &mdash; Mở terminal trong Claude Code Desktop:
 
@@ -1050,14 +1045,14 @@ claude   # mở Claude Code CLI
 <summary><b>Yêu cầu hệ thống</b></summary>
 <br>
 
-| Yêu cầu                                                                    | Phiên bản              | Mục đích                               |
-| -------------------------------------------------------------------------- | ---------------------- | -------------------------------------- |
-| [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/overview) | Mới nhất               | **Khuyến nghị** — runtime terminal     |
-| [Claude Code Desktop](https://claude.ai/download)                          | Mới nhất               | Runtime giao diện (macOS/Windows)      |
-| Node.js                                                                    | 18+                    | Yêu cầu bởi Claude Code CLI            |
-| Python                                                                     | 3.10+                  | Tạo báo cáo DOCX, Scrapling, AgentFlow |
-| pip packages                                                               | Xem `requirements.txt` | Biểu đồ, sơ đồ, định dạng              |
-| git                                                                        | Bất kỳ                 | Clone repository                       |
+| Yêu cầu | Phiên bản | Mục đích |
+|----------|-----------|----------|
+| [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/overview) | Mới nhất | **Khuyến nghị** — runtime terminal |
+| [Claude Code Desktop](https://claude.ai/download) | Mới nhất | Runtime giao diện (macOS/Windows) |
+| Node.js | 18+ | Yêu cầu bởi Claude Code CLI |
+| Python | 3.10+ | Tạo báo cáo DOCX, Scrapling, AgentFlow |
+| pip packages | Xem `requirements.txt` | Biểu đồ, sơ đồ, định dạng |
+| git | Bất kỳ | Clone repository |
 
 </details>
 
@@ -1082,14 +1077,14 @@ claude   # mở Claude Code CLI
 
 ### Tính năng theo lĩnh vực
 
-| Lĩnh vực                  | Khả năng                                                                                                              |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Lĩnh vực | Khả năng |
+|-----------|----------|
 | **Danh tính & Con người** | Tra cứu cá nhân (50+ điểm dữ liệu), điều tra số điện thoại, email chuyên sâu, liệt kê tên người dùng (3000+ nền tảng) |
-| **Tên miền & Hạ tầng**    | Liệt kê subdomain, fingerprint kỹ thuật, pháp y DNS, phân tích lưu lượng                                              |
-| **Phân tích & Xác minh**  | Xác minh hình ảnh, pháp y metadata, pháp y web, cơ sở dữ liệu rò rỉ                                                   |
-| **WiFi & Định vị**        | Định vị WiFi qua Wigle.net, định vị nâng cao (W3W, Plus Codes, MGRS)                                                  |
-| **Kiểm tra bảo mật**      | Kiểm tra đám mây (AWS/GCP/Azure), kiểm tra OWASP, kiểm tra dependency, kiểm tra prompt injection                      |
-| **Báo cáo & Xuất**        | Báo cáo Markdown, DOCX với biểu đồ, workspace case, định dạng chuyên nghiệp                                           |
+| **Tên miền & Hạ tầng** | Liệt kê subdomain, fingerprint kỹ thuật, pháp y DNS, phân tích lưu lượng |
+| **Phân tích & Xác minh** | Xác minh hình ảnh, pháp y metadata, pháp y web, cơ sở dữ liệu rò rỉ |
+| **WiFi & Định vị** | Định vị WiFi qua Wigle.net, định vị nâng cao (W3W, Plus Codes, MGRS) |
+| **Kiểm tra bảo mật** | Kiểm tra đám mây (AWS/GCP/Azure), kiểm tra OWASP, kiểm tra dependency, kiểm tra prompt injection |
+| **Báo cáo & Xuất** | Báo cáo Markdown, DOCX với biểu đồ, workspace case, định dạng chuyên nghiệp |
 
 ---
 
@@ -1140,7 +1135,6 @@ claude   # mở Claude Code CLI
 #### 为什么推荐 Claude Code CLI？
 
 整个 CTI Expert 工作流针对 Claude Code CLI 进行了优化：
-
 - **持久会话** — 调查通过 `/cti-expert /workspace save` 跨重启保存
 - **完整工具访问** — 文件写入、Python 脚本、DOCX 生成均原生运行
 - **直接调用技能** — 在终端中直接输入 `/cti-expert`
@@ -1215,12 +1209,12 @@ bash scripts/install.sh --go          # + Go 工具（subfinder、amass、gau、
 bash scripts/install.sh --all         # + 以上所有内容
 ```
 
-| 标志         | 安装内容                                                                                                                       | 大小    |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------ | ------- |
-| _(无)_       | Python 包、whois、dig、jq、exiftool、maigret、sherlock、holehe、h8mail、theHarvester、trufflehog、waymore、xeuledoc、agentflow | ~50 MB  |
-| `--headless` | Scrapling StealthyFetcher + DynamicFetcher + Chromium                                                                          | +200 MB |
-| `--go`       | subfinder、amass、gau、gitleaks、httpx、phoneinfoga                                                                            | +150 MB |
-| `--all`      | 全部内容                                                                                                                       | ~400 MB |
+| 标志 | 安装内容 | 大小 |
+|------|---------|------|
+| *(无)* | Python 包、whois、dig、jq、exiftool、maigret、sherlock、holehe、h8mail、theHarvester、trufflehog、waymore、xeuledoc、agentflow | ~50 MB |
+| `--headless` | Scrapling StealthyFetcher + DynamicFetcher + Chromium | +200 MB |
+| `--go` | subfinder、amass、gau、gitleaks、httpx、phoneinfoga | +150 MB |
+| `--all` | 全部内容 | ~400 MB |
 
 ---
 
@@ -1242,10 +1236,10 @@ claude   # 打开 Claude Code CLI
 2. **下载 CTI Expert** &mdash; 访问 [GitHub 仓库](https://github.com/7onez/cti-expert)，点击绿色 **"Code"** 按钮，然后选择 **"Download ZIP"**
 3. **解压到 skills 文件夹** &mdash; 解压文件，将文件夹重命名为 `cti-expert` 并移动到：
 
-   | 操作系统    | 路径                                                          |
-   | ----------- | ------------------------------------------------------------- |
-   | **macOS**   | `${CLAUDE_PLUGIN_ROOT}/skills/` （Finder &rarr; Cmd+Shift+G） |
-   | **Windows** | `%USERPROFILE%\.claude\skills\` （文件资源管理器地址栏）      |
+   | 操作系统 | 路径 |
+   |---------|------|
+   | **macOS** | `${CLAUDE_PLUGIN_ROOT}/skills/` （Finder &rarr; Cmd+Shift+G） |
+   | **Windows** | `%USERPROFILE%\.claude\skills\` （文件资源管理器地址栏） |
 
 4. **运行安装脚本** &mdash; 在 Claude Code Desktop 终端中运行：
 
@@ -1266,14 +1260,14 @@ claude   # 打开 Claude Code CLI
 <summary><b>系统要求</b></summary>
 <br>
 
-| 要求                                                                       | 版本                  | 用途                                |
-| -------------------------------------------------------------------------- | --------------------- | ----------------------------------- |
-| [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/overview) | 最新版                | **推荐** — 终端运行时               |
-| [Claude Code 桌面版](https://claude.ai/download)                           | 最新版                | 图形界面运行时（macOS/Windows）     |
-| Node.js                                                                    | 18+                   | Claude Code CLI 所需                |
-| Python                                                                     | 3.10+                 | DOCX 报告生成、Scrapling、AgentFlow |
-| pip 包                                                                     | 见 `requirements.txt` | 图表、图形、样式                    |
-| git                                                                        | 任意版本              | 克隆仓库                            |
+| 要求 | 版本 | 用途 |
+|------|------|------|
+| [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/overview) | 最新版 | **推荐** — 终端运行时 |
+| [Claude Code 桌面版](https://claude.ai/download) | 最新版 | 图形界面运行时（macOS/Windows） |
+| Node.js | 18+ | Claude Code CLI 所需 |
+| Python | 3.10+ | DOCX 报告生成、Scrapling、AgentFlow |
+| pip 包 | 见 `requirements.txt` | 图表、图形、样式 |
+| git | 任意版本 | 克隆仓库 |
 
 </details>
 
@@ -1298,14 +1292,14 @@ claude   # 打开 Claude Code CLI
 
 ### 功能领域
 
-| 领域                | 能力                                                                     |
-| ------------------- | ------------------------------------------------------------------------ |
-| **身份与人员**      | 人员查询（50+ 数据点）、电话调查、深度邮件分析、用户名枚举（3000+ 平台） |
-| **域名与基础设施**  | 子域枚举、技术指纹、DNS 取证、流量分析                                   |
-| **分析与验证**      | 图像验证、元数据取证、网页取证、泄露数据库                               |
-| **WiFi 与地理定位** | 通过 Wigle.net WiFi 定位、高级地理定位（W3W、Plus Codes、MGRS）          |
-| **安全审计**        | 云审计（AWS/GCP/Azure）、OWASP 审计、依赖审计、提示注入审计              |
-| **报告与导出**      | Markdown 报告、带图表的 DOCX、案例工作空间、专业格式                     |
+| 领域 | 能力 |
+|------|------|
+| **身份与人员** | 人员查询（50+ 数据点）、电话调查、深度邮件分析、用户名枚举（3000+ 平台） |
+| **域名与基础设施** | 子域枚举、技术指纹、DNS 取证、流量分析 |
+| **分析与验证** | 图像验证、元数据取证、网页取证、泄露数据库 |
+| **WiFi 与地理定位** | 通过 Wigle.net WiFi 定位、高级地理定位（W3W、Plus Codes、MGRS） |
+| **安全审计** | 云审计（AWS/GCP/Azure）、OWASP 审计、依赖审计、提示注入审计 |
+| **报告与导出** | Markdown 报告、带图表的 DOCX、案例工作空间、专业格式 |
 
 ---
 

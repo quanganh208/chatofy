@@ -11,10 +11,10 @@ allowed-tools:
   - Read
   - Write
   - Edit
-argument-hint: '[file-path] [prompt]'
+argument-hint: "[file-path] [prompt]"
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: "1.0.0"
 ---
 
 # AI Multimodal
@@ -32,12 +32,12 @@ npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix --version
 
 Decide the route before invoking Multix. Do not select a route speculatively.
 
-| Task                                                                       | Preferred route                                               | Route to Multix only when                                                                                                                       |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Task | Preferred route | Route to Multix only when |
+|------|------|------|
 | Image/document visual understanding (OCR, layout, description, extraction) | **Native vision** — inspect the file directly in this session | Native vision is unavailable/ineligible, the input exceeds its documented limits, or the user explicitly requests Multix or a specific provider |
-| Image generation/editing                                                   | Multix                                                        | A compatible image-generation key (`GEMINI_API_KEY`, `OPENROUTER_API_KEY`, or `MINIMAX_API_KEY`) is already configured                          |
-| Video generation                                                           | Multix                                                        | A compatible video-generation key (`GEMINI_API_KEY`, `OPENROUTER_API_KEY`, or `MINIMAX_API_KEY`) is already configured                          |
-| TTS, music, audio transcription                                            | Multix                                                        | A compatible audio/music key is already configured (`GEMINI_API_KEY` for transcription, `MINIMAX_API_KEY` for speech/music)                     |
+| Image generation/editing | Multix | A compatible image-generation key (`GEMINI_API_KEY`, `OPENROUTER_API_KEY`, or `MINIMAX_API_KEY`) is already configured |
+| Video generation | Multix | A compatible video-generation key (`GEMINI_API_KEY`, `OPENROUTER_API_KEY`, or `MINIMAX_API_KEY`) is already configured |
+| TTS, music, audio transcription | Multix | A compatible audio/music key is already configured (`GEMINI_API_KEY` for transcription, `MINIMAX_API_KEY` for speech/music) |
 
 ### 1. Native vision takes precedence
 
@@ -61,7 +61,7 @@ any `multix` command:
 
 1. Identify the requested capability: visual analysis/OCR, image generation,
    video generation, or audio/music (transcription, TTS, music).
-2. Check only whether the relevant credential is _present_; never print its
+2. Check only whether the relevant credential is *present*; never print its
    value or the contents of `.env`:
 
    ```bash
@@ -131,16 +131,16 @@ and check the upstream issue tracker. Do not revive a parallel local backend.
 
 Load for detailed guidance:
 
-| Topic     | File                                 | Description                                                                                      |
-| --------- | ------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| Setup     | `references/setup.md`                | Node.js, API keys, `multix check`, and backend-ownership rules.                                  |
-| Music     | `references/music-generation.md`     | Stable music brief and review workflow; resolve live provider controls.                          |
-| Audio     | `references/audio-processing.md`     | Stable transcription and generation workflow; resolve live formats, models, limits, and pricing. |
-| Images    | `references/vision-understanding.md` | Stable OCR and visual-analysis workflow; resolve live input limits.                              |
-| Image Gen | `references/image-generation.md`     | Stable generation/editing workflow; resolve live model capabilities and pricing.                 |
-| Video     | `references/video-analysis.md`       | Stable video-analysis workflow; resolve live inputs and limits.                                  |
-| Video Gen | `references/video-generation.md`     | Stable video-generation workflow; resolve live controls and models.                              |
-| MiniMax   | `references/minimax-generation.md`   | Stable multimodal workflow; resolve the live MiniMax catalog.                                    |
+| Topic | File | Description |
+|-------|------|-------------|
+| Setup | `references/setup.md` | Node.js, API keys, `multix check`, and backend-ownership rules. |
+| Music | `references/music-generation.md` | Stable music brief and review workflow; resolve live provider controls. |
+| Audio | `references/audio-processing.md` | Stable transcription and generation workflow; resolve live formats, models, limits, and pricing. |
+| Images | `references/vision-understanding.md` | Stable OCR and visual-analysis workflow; resolve live input limits. |
+| Image Gen | `references/image-generation.md` | Stable generation/editing workflow; resolve live model capabilities and pricing. |
+| Video | `references/video-analysis.md` | Stable video-analysis workflow; resolve live inputs and limits. |
+| Video Gen | `references/video-generation.md` | Stable video-generation workflow; resolve live controls and models. |
+| MiniMax | `references/minimax-generation.md` | Stable multimodal workflow; resolve the live MiniMax catalog. |
 
 ## Limits
 

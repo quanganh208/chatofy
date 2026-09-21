@@ -1,14 +1,14 @@
 ---
 name: ak:scout
-description: 'Fast codebase scouting using native search, optional Explore agents, and user-permitted OpenCode probes. Use for file discovery, task context gathering, and scoped searches across directories.'
+description: "Fast codebase scouting using native search, optional Explore agents, and user-permitted OpenCode probes. Use for file discovery, task context gathering, and scoped searches across directories."
 user-invocable: true
-when_to_use: 'Invoke for fast file discovery and codebase orientation.'
+when_to_use: "Invoke for fast file discovery and codebase orientation."
 category: workflow
 keywords: [codebase, scouting, file-discovery, search]
-argument-hint: '[search-target] [ext] [--ultra]'
+argument-hint: "[search-target] [ext] [--ultra]"
 metadata:
   author: agentkit
-  version: '1.1.2'
+  version: "1.1.2"
 ---
 
 # Scout
@@ -16,7 +16,6 @@ metadata:
 Fast, token-efficient codebase scouting using parallel agents to find files needed for tasks.
 
 ## Arguments
-
 - Default: Use local search for one owner/path; partition only independent domains when delegation is authorized and useful (`./references/internal-scouting.md`)
 - `ext`: Scout using user-permitted OpenCode probes when native/local search is insufficient (`./references/external-scouting.md`)
 - `--ultra`: Run the scout as a best-of-5 verifier pass (see Ultra Verifier Mode)
@@ -46,7 +45,6 @@ explicit `--ultra` retains its separate five-candidate contract.
 ## Runtime Tooling
 
 Use portable capabilities first:
-
 - `search_files` for local discovery.
 - `read_file` for scoped file reads.
 - `run_shell` for local commands such as `rg`, `wc`, or `sed`.
@@ -61,7 +59,6 @@ authorization is absent, this skill scouts inline in the main agent with
 wall-clock.
 
 Runtime mapping for `delegate_agent`:
-
 - Claude Code: use the native delegate call with `subagent_type: "Explore"`.
 - Codex Desktop: Explore is a deferred multi-agent role. If `multi_agent_v1`
   is not visible, call `tool_search` for multi-agent spawn tools first, then use
@@ -71,19 +68,16 @@ Runtime mapping for `delegate_agent`:
 ## Workflow
 
 ### 1. Analyze Task
-
 - Parse user prompt for search targets
 - Identify key directories, patterns, file types, lines of code
 - Determine optimal SCALE value of subagents to spawn
 
 ### 2. Divide and Conquer
-
 - Split codebase into logical segments per agent
 - Assign each agent specific directories or patterns
 - Ensure no overlap, maximize coverage
 
 ### 3. Register Scout Work
-
 - **Skip if:** Agent count ≤ 2 (overhead exceeds benefit)
 - Discover the live task-management surface and check for existing scout work
 - If available, register one scoped item per agent; otherwise update the active plan
@@ -91,14 +85,11 @@ Runtime mapping for `delegate_agent`:
 - Treat the active plan as the durable source of truth
 
 ### 4. Spawn Parallel Agents
-
 Load appropriate reference based on decision tree:
-
 - **Internal (Default):** `references/internal-scouting.md` (Explore subagents)
 - **External:** `references/external-scouting.md` (OpenCode)
 
 **Notes:**
-
 - Record each scope as in progress before spawning its agent
 - Prompt detailed instructions for each subagent with exact directories or files it should read
 - Size each scope to fit one subagent's context window; a scope that cannot fit is two scopes
@@ -108,7 +99,6 @@ Load appropriate reference based on decision tree:
 - If runtime policy blocks subagents because the user did not explicitly request delegation, continue with main-agent scouting instead of forcing a spawn.
 
 ### 5. Collect Results
-
 Invoke "the engineer project-organization skill" skill to organize the outputs.
 
 - Timeout: 3 minutes per agent (skip non-responders)
@@ -122,12 +112,10 @@ Invoke "the engineer project-organization skill" skill to organize the outputs.
 # Scout Report
 
 ## Relevant Files
-
 - `path/to/file.ts` - Brief description
 - ...
 
 ## Unresolved Questions
-
 - Any gaps in findings
 ```
 

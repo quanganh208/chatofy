@@ -98,12 +98,12 @@ Upstream moves quickly. Before relying on memorized commands run `html_video --h
 
 ## Troubleshooting
 
-| Symptom                                                           | Action                                                                                                  |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `html-video CLI not found`                                        | Install a global binary, or set `HTML_VIDEO_HOME` to a built source checkout.                           |
-| `doctor` reports missing browser                                  | Install Playwright/Chromium per upstream instructions, rerun `doctor`.                                  |
+| Symptom | Action |
+| --- | --- |
+| `html-video CLI not found` | Install a global binary, or set `HTML_VIDEO_HOME` to a built source checkout. |
+| `doctor` reports missing browser | Install Playwright/Chromium per upstream instructions, rerun `doctor`. |
 | Render reports `Executable doesn't exist` for Playwright Chromium | From the checkout run `pnpm --filter @html-video/adapter-hyperframes exec playwright install chromium`. |
-| `doctor` reports ffmpeg missing                                   | Install ffmpeg with the platform package manager and verify `ffmpeg -version`.                          |
-| Template has no variables                                         | Customize copy/layout in Studio; CLI variable commands cannot theme an empty schema.                    |
-| Render starts but MP4 is blank                                    | Preview first, inspect the browser console, rerun `project-render` with `--stream-progress`.            |
-| Output path is wrong                                              | Re-render with an explicit `--output`; do not move partial render directories.                          |
+| `doctor` reports ffmpeg missing | Install ffmpeg with the platform package manager and verify `ffmpeg -version`. |
+| Template has no variables | Customize copy/layout in Studio; CLI variable commands cannot theme an empty schema. |
+| Render starts but MP4 is blank | Preview first, inspect the browser console, rerun `project-render` with `--stream-progress`. |
+| Output path is wrong | Re-render with an explicit `--output`; do not move partial render directories. |

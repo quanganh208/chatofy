@@ -28,7 +28,7 @@ const RESOLVE_TIMEOUT_MS = 2000;
 // Argument vectors are frozen here and chosen by key, so no caller can shape a
 // command line. Adding an entry is the only way to add a call.
 const AK_OPERATIONS = Object.freeze({
-  'prefs-resolve': Object.freeze(['config', 'prefs', 'resolve', '--json']),
+  'prefs-resolve': Object.freeze(['config', 'prefs', 'resolve', '--json'])
 });
 
 let cachedBinary;
@@ -146,12 +146,12 @@ function resolvePrefs(options = {}) {
       // state, including a test's.
       env: process.env,
       stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true,
+      windowsHide: true
     });
   } catch (e) {
     debugOnce(
       `could not read preferences (${e && e.code ? e.code : 'failed'}); using defaults. ` +
-        'Install or update the ak CLI to apply your saved settings.',
+      'Install or update the ak CLI to apply your saved settings.'
     );
     return null;
   }
@@ -166,7 +166,7 @@ function resolvePrefs(options = {}) {
 
   if (!payload || payload.schema_version !== SUPPORTED_SCHEMA_VERSION) {
     debugOnce(
-      `preferences use an unsupported format (version ${payload && payload.schema_version}); using defaults.`,
+      `preferences use an unsupported format (version ${payload && payload.schema_version}); using defaults.`
     );
     return null;
   }
@@ -204,5 +204,5 @@ module.exports = {
   resolveAkBinary,
   resolvePrefs,
   resolvePrefsSection,
-  resetPrefsCache,
+  resetPrefsCache
 };

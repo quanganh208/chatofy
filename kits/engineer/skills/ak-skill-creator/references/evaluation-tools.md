@@ -13,12 +13,12 @@ python3 scripts/eval_skill.py validate /absolute/target-skill/evals/evals.json
 
 Assertions have `id`, `text`, and optional `kind`:
 
-| Kind               | Required fields           | Evidence                                        |
-| ------------------ | ------------------------- | ----------------------------------------------- |
-| `file-exists`      | `path`                    | Contained file exists                           |
-| `json-equals`      | `path`, `expected`        | Parsed artifact matches expected JSON           |
-| `text-contains`    | `path`, `expected` string | Required contract fragment exists               |
-| `rubric` (default) | `text`                    | Independent review with cited artifact evidence |
+| Kind | Required fields | Evidence |
+|---|---|---|
+| `file-exists` | `path` | Contained file exists |
+| `json-equals` | `path`, `expected` | Parsed artifact matches expected JSON |
+| `text-contains` | `path`, `expected` string | Required contract fragment exists |
+| `rubric` (default) | `text` | Independent review with cited artifact evidence |
 
 Use exact equality for machine contracts, not wording preferences. Paths are
 relative to the output root; escaping paths and symlinks fail. Missing or malformed
@@ -61,24 +61,15 @@ Illustrative shape (null means unavailable, not zero):
   "effective_effort": null,
   "cache_state": null,
   "fingerprints": {
-    "configuration": null,
-    "cases": null,
-    "tools": null,
-    "catalog": null
+    "configuration": null, "cases": null, "tools": null, "catalog": null
   },
   "usage": {
-    "input_tokens": null,
-    "output_tokens": null,
-    "cache_read_tokens": null,
-    "cache_write_tokens": null,
-    "source": null,
-    "semantics": null
+    "input_tokens": null, "output_tokens": null,
+    "cache_read_tokens": null, "cache_write_tokens": null,
+    "source": null, "semantics": null
   },
   "cost": {
-    "amount": null,
-    "currency": null,
-    "source": null,
-    "pricing_date": null
+    "amount": null, "currency": null, "source": null, "pricing_date": null
   },
   "loaded_references": null
 }

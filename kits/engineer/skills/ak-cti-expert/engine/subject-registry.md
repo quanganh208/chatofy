@@ -272,11 +272,11 @@ def archive_subject(id_or_value, cascade=False):
 
 Deduplication thresholds:
 
-| Score range  | Action          |
-| ------------ | --------------- |
-| >= 0.92      | Auto-merge      |
-| 0.75 – <0.92 | Flag for review |
-| < 0.75       | No action       |
+| Score range    | Action          |
+|---------------|-----------------|
+| >= 0.92       | Auto-merge      |
+| 0.75 – <0.92  | Flag for review |
+| < 0.75        | No action       |
 
 ```python
 def find_duplicate(subject_type, value, aliases=None):
@@ -569,35 +569,27 @@ def query_subjects(spec):
 ## Type-Specific Attributes
 
 ### INDIVIDUAL
-
 `full_name`, `dob` (YYYY-MM-DD), `nationality`, `occupation`, `locale`, `gender`, `pob`
 
 ### DOMAIN
-
 `registrar`, `creation_date`, `expiration_date`, `nameservers[]`, `status[]`, `dns_records{}`
 
 ### EMAIL
-
 `domain`, `local_part`, `provider`, `disposable` (bool), `breached` (bool)
 
 ### NETWORK_ADDR
-
 `version` (4/6), `asn`, `isp`, `geo{}`, `reverse_dns`, `open_ports[]`
 
 ### USERNAME
-
 `platforms[]`, `variations[]`, `avatar_url`, `bio`, `account_created`
 
 ### ORG
-
 `legal_name`, `reg_number`, `founded`, `jurisdiction`, `industry`, `headcount`, `revenue`
 
 ### PHONE
-
 `country_code`, `national_format`, `carrier`, `line_type` (MOBILE/LANDLINE/VOIP), `valid` (bool), `whatsapp` (bool)
 
 ### LOCALE
-
 `address`, `city`, `region`, `country`, `postal`, `coordinates{}`, `timezone`
 
 ---
@@ -632,17 +624,17 @@ def format_subject(subject, mode="summary"):
 
 ## Command Reference
 
-| Command             | Description                               |
-| ------------------- | ----------------------------------------- |
-| `/register`         | Add a new subject to the registry         |
-| `/lookup`           | Retrieve a subject by ID or value         |
-| `/find`             | Filter subjects by criteria               |
-| `/modify`           | Update subject fields                     |
-| `/archive-subject`  | Soft-archive subject (non-destructive)    |
-| `/link-subjects`    | Form a connection between two subjects    |
-| `/show-connections` | List connections for a subject            |
-| `/pathfind`         | Shortest path (Dijkstra) between subjects |
-| `/crossref`         | Cross-reference a subject against case    |
-| `/query-subjects`   | Advanced filtered/sorted subject query    |
-| `/merge-subjects`   | Merge duplicate subjects                  |
-| `/split-subject`    | Split a multi-identity subject            |
+| Command              | Description                              |
+|----------------------|------------------------------------------|
+| `/register`          | Add a new subject to the registry        |
+| `/lookup`            | Retrieve a subject by ID or value        |
+| `/find`              | Filter subjects by criteria              |
+| `/modify`            | Update subject fields                    |
+| `/archive-subject`   | Soft-archive subject (non-destructive)   |
+| `/link-subjects`     | Form a connection between two subjects   |
+| `/show-connections`  | List connections for a subject           |
+| `/pathfind`          | Shortest path (Dijkstra) between subjects|
+| `/crossref`          | Cross-reference a subject against case   |
+| `/query-subjects`    | Advanced filtered/sorted subject query   |
+| `/merge-subjects`    | Merge duplicate subjects                 |
+| `/split-subject`     | Split a multi-identity subject           |

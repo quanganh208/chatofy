@@ -1,15 +1,15 @@
 ---
 name: ak:ship
-description: 'Ship a completed branch through tests, review, commit, push, and PR creation. Supports official/beta aliases, Kongming advice, and optional reviewed merge with CI convergence.'
+description: "Ship a completed branch through tests, review, commit, push, and PR creation. Supports official/beta aliases, Kongming advice, and optional reviewed merge with CI convergence."
 user-invocable: true
-when_to_use: 'Invoke when a completed branch needs PR shipping workflow.'
+when_to_use: "Invoke when a completed branch needs PR shipping workflow."
 category: workflow
 keywords: [ship, PR, merge, push, release, advice, kongming, review-pr]
-argument-hint: '[official|stable|main|beta|dev|next] [--both] [--advice] [--merge] [--skip-tests] [--skip-review] [--skip-journal] [--skip-docs] [--social] [--yes-post] [--yes-post-private] [--dry-run]'
+argument-hint: "[official|stable|main|beta|dev|next] [--both] [--advice] [--merge] [--skip-tests] [--skip-review] [--skip-journal] [--skip-docs] [--social] [--yes-post] [--yes-post-private] [--dry-run]"
 license: MIT
 metadata:
   author: agentkit
-  version: '2.3.2'
+  version: "2.3.2"
 ---
 
 # Ship: Unified Ship Pipeline
@@ -20,22 +20,22 @@ Single command to ship a feature branch. Continue through authorized repairs and
 
 ## Arguments
 
-| Flag                         | Effect                                                                                                                                                                                                   |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `official`, `stable`, `main` | Normalize to `official`; ship to the detected default branch (main/master). Full pipeline with docs + journal                                                                                            |
-| `beta`, `dev`, `next`        | Normalize to `beta`; ship to the detected development branch (dev/beta/develop). Lighter pipeline, skip docs update                                                                                      |
-| (none)                       | Auto-detect: if base branch is main/master → official, else → beta                                                                                                                                       |
-| `--both`                     | Dual-target ship: beta stage first, then a gated stable stage (see Dual-target ship). Supersedes a positional mode token                                                                                 |
-| `--advice`                   | Run the ship-to-PR path under advisory-only `kongming` supervision                                                                                                                                       |
-| `--merge`                    | After PR creation, activate `ak:review-pr <PR> --fix --reply --merge`; append `--advice` when both flags are present                                                                                     |
-| `--skip-tests`               | Skip test step (use when tests already passed)                                                                                                                                                           |
-| `--skip-review`              | Skip pre-landing review step                                                                                                                                                                             |
-| `--skip-journal`             | Skip journal writing step (also honors `journal.auto=false` config preference)                                                                                                                           |
-| `--skip-docs`                | Skip docs update step                                                                                                                                                                                    |
-| `--social`                   | Opt-in: after the PR is created, compose a build-in-public journal draft and publish it to social channels (see "Build-in-public publishing" below). Off by default — never fires on a plain `/ak:ship`. |
-| `--yes-post`                 | Required alongside `--social` to actually publish. Without it, the social step runs in dry-run mode: renders and prints the per-channel posts, makes no API call, exits 0.                               |
-| `--yes-post-private`         | Required alongside `--social --yes-post` when the repo is private — an explicit second opt-in for posting about non-public work.                                                                         |
-| `--dry-run`                  | Show what would happen without executing                                                                                                                                                                 |
+| Flag | Effect |
+|------|--------|
+| `official`, `stable`, `main` | Normalize to `official`; ship to the detected default branch (main/master). Full pipeline with docs + journal |
+| `beta`, `dev`, `next` | Normalize to `beta`; ship to the detected development branch (dev/beta/develop). Lighter pipeline, skip docs update |
+| (none) | Auto-detect: if base branch is main/master → official, else → beta |
+| `--both` | Dual-target ship: beta stage first, then a gated stable stage (see Dual-target ship). Supersedes a positional mode token |
+| `--advice` | Run the ship-to-PR path under advisory-only `kongming` supervision |
+| `--merge` | After PR creation, activate `ak:review-pr <PR> --fix --reply --merge`; append `--advice` when both flags are present |
+| `--skip-tests` | Skip test step (use when tests already passed) |
+| `--skip-review` | Skip pre-landing review step |
+| `--skip-journal` | Skip journal writing step (also honors `journal.auto=false` config preference) |
+| `--skip-docs` | Skip docs update step |
+| `--social` | Opt-in: after the PR is created, compose a build-in-public journal draft and publish it to social channels (see "Build-in-public publishing" below). Off by default — never fires on a plain `/ak:ship`. |
+| `--yes-post` | Required alongside `--social` to actually publish. Without it, the social step runs in dry-run mode: renders and prints the per-channel posts, makes no API call, exits 0. |
+| `--yes-post-private` | Required alongside `--social --yes-post` when the repo is private — an explicit second opt-in for posting about non-public work. |
+| `--dry-run` | Show what would happen without executing |
 
 ## Ship Mode Detection
 
@@ -168,7 +168,6 @@ durable journal entry), then publishes to the channels tagged
 configured channels if that group isn't defined).
 
 Guardrails (never bypassed by any flag):
-
 - **CI must be green.** If the PR's checks are failing, the step refuses to
   post and explains why — the ship itself still completed.
 - **`--skip-journal` skips the whole social step**, not just the journal
@@ -182,7 +181,7 @@ Guardrails (never bypassed by any flag):
   channel's post and stops — no API call. Re-run with `--social --yes-post`
   to actually publish.
 - **Private-repo confirmation.** If the repository is private, `--social
---yes-post` alone still refuses; add `--yes-post-private` too.
+  --yes-post` alone still refuses; add `--yes-post-private` too.
 
 Full step-by-step commands: `references/release-and-social-workflow.md` (Step 14).
 

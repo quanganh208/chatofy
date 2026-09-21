@@ -87,7 +87,6 @@ Canonical tree for `--both` mode (Node/TypeScript). Adapt paths for other ecosys
 ## Automated SemVer & Conventional Commits
 
 Releases use SemVer driven by Conventional Commits (`feat:`, `fix:`, `feat!:`, `chore:`):
-
 - Automatic version bumping (patch for `fix:`, minor for `feat:`, major for `!:` or `BREAKING CHANGE:`).
 - Automatic changelog generation (`CHANGELOG.md`) categorizing changes.
 - Uses Changesets (`@changesets/cli`) or GitHub Action `google-github-actions/release-please-action`.
@@ -106,8 +105,8 @@ on:
     branches: [main]
 
 permissions:
-  contents: write # Create Git tags and releases
-  id-token: write # Required for NPM Trusted Publishing via OIDC token exchange
+  contents: write    # Create Git tags and releases
+  id-token: write    # Required for NPM Trusted Publishing via OIDC token exchange
 
 jobs:
   release:
@@ -120,7 +119,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24 # Node 24 ships npm >=11.5.1 with native OIDC token resolution
+          node-version: 24   # Node 24 ships npm >=11.5.1 with native OIDC token resolution
           cache: 'pnpm'
 
       - run: pnpm install --frozen-lockfile
@@ -184,13 +183,11 @@ jobs:
 ## Core/Adapter boundary rules
 
 `core/`:
-
 - Zero `process.argv`, zero `console.log` as control flow, zero transport or HTTP server imports.
 - Pure functions where feasible; external side-effects isolated into client adapters.
 - Accepts parameters explicitly; returns plain data objects or throws typed errors.
 
 `cli/` and `mcp/`:
-
 - Import exclusively from `core/` (plus framework/transport dependencies).
 - Translate CLI argv / MCP tool parameters → core function calls.
 - Translate core results/errors → formatted output or structured MCP responses.

@@ -1,8 +1,8 @@
 ---
 name: ak:stitch
-description: 'AI design generation with Google Stitch. Generate UI designs from text prompts, export Tailwind/HTML/DESIGN.md, orchestrate design-to-code pipeline. Use for rapid prototyping, UI generation, design exploration.'
+description: "AI design generation with Google Stitch. Generate UI designs from text prompts, export Tailwind/HTML/DESIGN.md, orchestrate design-to-code pipeline. Use for rapid prototyping, UI generation, design exploration."
 user-invocable: true
-when_to_use: 'Invoke for AI-generated UI designs and design-to-code handoff.'
+when_to_use: "Invoke for AI-generated UI designs and design-to-code handoff."
 category: design
 keywords: [Stitch, UI-generation, prototyping, Tailwind]
 license: MIT
@@ -11,10 +11,10 @@ allowed-tools:
   - Read
   - Write
   - Edit
-argument-hint: '[design prompt or action]'
+argument-hint: "[design prompt or action]"
 metadata:
   author: agentkit
-  version: '1.0.1'
+  version: "1.0.1"
 ---
 
 # Google Stitch — AI Design Generation
@@ -69,7 +69,6 @@ npx tsx scripts/stitch-export.ts <screen-id> [--format html|image|all] [--output
 ```
 
 Outputs:
-
 - `design.html` — Semantic HTML with Tailwind CSS classes
 - `design.png` — Screenshot of the design
 - `DESIGN.md` — Agent-readable design spec (colors, typography, spacing, components)
@@ -89,7 +88,7 @@ npx tsx scripts/stitch-quota.ts reset       # Force reset (auto-resets daily)
 Refine an existing design.
 
 ```typescript
-const editedScreen = await screen.edit('Make the header darker and add a search bar');
+const editedScreen = await screen.edit("Make the header darker and add a search bar");
 ```
 
 ### Project Isolation
@@ -97,7 +96,6 @@ const editedScreen = await screen.edit('Make the header darker and add a search 
 Stitch auto-isolates designs per git repo. Each repo gets its own Stitch project automatically.
 
 **Resolution priority:**
-
 1. `--project <id>` — direct Stitch project ID
 2. `--project-name <title>` — title-based lookup-or-create
 3. `STITCH_PROJECT_ID` env — user's global override
@@ -105,7 +103,6 @@ Stitch auto-isolates designs per git repo. Each repo gets its own Stitch project
 5. `"claudekit-default"` fallback
 
 When an active plan exists, pass `--project-name "{repo}/{plan-slug}"` to group designs by plan:
-
 ```bash
 npx tsx scripts/stitch-generate.ts "checkout page" --project-name "my-saas/auth-system"
 ```
@@ -156,9 +153,9 @@ See `references/quota-management.md` for strategies.
 
 ## References
 
-| Topic             | File                                    |
-| ----------------- | --------------------------------------- |
-| SDK API           | `references/stitch-sdk-api.md`          |
-| MCP Setup         | `references/stitch-mcp-setup.md`        |
+| Topic | File |
+|-------|------|
+| SDK API | `references/stitch-sdk-api.md` |
+| MCP Setup | `references/stitch-mcp-setup.md` |
 | Pipeline Patterns | `references/design-to-code-pipeline.md` |
-| Quota Strategy    | `references/quota-management.md`        |
+| Quota Strategy | `references/quota-management.md` |

@@ -2,11 +2,17 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ak:diagram scatter spec",
   "type": "object",
-  "required": ["points"],
+  "required": [
+    "points"
+  ],
   "properties": {
     "variant": {
       "type": "string",
-      "enum": ["light", "dark", "full"],
+      "enum": [
+        "light",
+        "dark",
+        "full"
+      ],
       "default": "light"
     },
     "title": {
@@ -22,7 +28,10 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["x", "y"],
+        "required": [
+          "x",
+          "y"
+        ],
         "properties": {
           "x": {
             "type": "number"

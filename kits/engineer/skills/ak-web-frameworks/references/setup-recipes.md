@@ -3,7 +3,6 @@
 ### Single Application: Next.js (optional RemixIcon)
 
 Use when building a standalone application:
-
 - E-commerce sites
 - Marketing websites
 - SaaS applications
@@ -11,7 +10,6 @@ Use when building a standalone application:
 - Blogs and content platforms
 
 **Setup:**
-
 ```bash
 npx create-next-app@latest my-app
 cd my-app
@@ -21,7 +19,6 @@ npm install remixicon
 ### Monorepo: Next.js + Turborepo (optional RemixIcon)
 
 Use when building multiple applications with shared code:
-
 - Microfrontends
 - Multi-tenant platforms
 - Internal tools with shared component library
@@ -29,7 +26,6 @@ Use when building multiple applications with shared code:
 - Design system with documentation site
 
 **Setup:**
-
 ```bash
 npx create-turbo@latest my-monorepo
 # Then configure Next.js apps in apps/ directory
@@ -38,12 +34,12 @@ npx create-turbo@latest my-monorepo
 
 ### Framework Features Comparison
 
-| Feature     | Next.js               | Turborepo                | RemixIcon                  |
-| ----------- | --------------------- | ------------------------ | -------------------------- |
-| Primary Use | Web framework         | Build system             | UI icons                   |
-| Best For    | SSR/SSG apps          | Monorepos                | Consistent iconography     |
-| Performance | Built-in optimization | Caching & parallel tasks | Lightweight fonts/SVG      |
-| TypeScript  | Full support          | Full support             | Type definitions available |
+| Feature | Next.js | Turborepo | RemixIcon |
+|---------|---------|-----------|-----------|
+| Primary Use | Web framework | Build system | UI icons |
+| Best For | SSR/SSG apps | Monorepos | Consistent iconography |
+| Performance | Built-in optimization | Caching & parallel tasks | Lightweight fonts/SVG |
+| TypeScript | Full support | Full support | Type definitions available |
 
 ## Quick Start
 

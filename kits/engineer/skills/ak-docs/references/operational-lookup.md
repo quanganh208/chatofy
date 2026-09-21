@@ -23,15 +23,15 @@ Record the method and its conditions, not the state you happened to observe.
 One record per route, with these fields. Skip a field only when it genuinely
 does not apply, and say why.
 
-| Field                     | What it answers                                                                                                                          |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| When to use               | Which task, symptom, or milestone needs this source                                                                                      |
-| Scope                     | The project, account, tenant, region, and environment to select; never fall back to an implicit default account                          |
-| Source of truth           | The provider, dashboard section, repository script, manifest, or knowledge-base document that owns the answer                            |
-| How to look up            | The verified command or tool operation, or a UI or query path precise enough to reproduce                                                |
-| Access and permission     | The identity or role needed, the credential retrieval reference, the actions already authorized, and how to request a missing permission |
-| Limits                    | Query scope, time window, result count, sensitive data, cost, and any stop condition                                                     |
-| Verification and fallback | How to confirm the target and the result; what to do when an API, tool, or permission changed                                            |
+| Field | What it answers |
+|---|---|
+| When to use | Which task, symptom, or milestone needs this source |
+| Scope | The project, account, tenant, region, and environment to select; never fall back to an implicit default account |
+| Source of truth | The provider, dashboard section, repository script, manifest, or knowledge-base document that owns the answer |
+| How to look up | The verified command or tool operation, or a UI or query path precise enough to reproduce |
+| Access and permission | The identity or role needed, the credential retrieval reference, the actions already authorized, and how to request a missing permission |
+| Limits | Query scope, time window, result count, sensitive data, cost, and any stop condition |
+| Verification and fallback | How to confirm the target and the result; what to do when an API, tool, or permission changed |
 
 Prefer a link to the script or manifest that owns a command over copying its
 logic. A specific how-to step stays when the procedure lives only in a
@@ -39,12 +39,12 @@ third-party console.
 
 ## Where each class of knowledge lives
 
-| Information                                  | Destination                                                        |
-| -------------------------------------------- | ------------------------------------------------------------------ |
-| Stable rules, boundaries, and approval paths | The project's agent context file                                   |
-| How to reach and operate a system            | The discovered owning operational guide or approved knowledge base |
-| Credential values                            | The approved secret store or broker                                |
-| Observed state, run results, receipts        | The appropriate report surface                                     |
+| Information | Destination |
+|---|---|
+| Stable rules, boundaries, and approval paths | The project's agent context file |
+| How to reach and operate a system | The discovered owning operational guide or approved knowledge base |
+| Credential values | The approved secret store or broker |
+| Observed state, run results, receipts | The appropriate report surface |
 
 One topic has one owner and links to it; do not create copies that need manual
 synchronisation. `docs/deployment.md`, `docs/operations.md`, and

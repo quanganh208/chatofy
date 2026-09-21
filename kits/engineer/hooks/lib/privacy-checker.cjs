@@ -33,23 +33,23 @@ const DENO_EVAL_OPTIONS_WITH_VALUES = new Set([
 
 // Safe file patterns - exempt from privacy checks (documentation/template files)
 const SAFE_PATTERNS = [
-  /\.example$/i, // .env.example, config.example
-  /\.sample$/i, // .env.sample
-  /\.template$/i, // .env.template
+  /\.example$/i,   // .env.example, config.example
+  /\.sample$/i,    // .env.sample
+  /\.template$/i,  // .env.template
 ];
 
 // Privacy-sensitive patterns
 const PRIVACY_PATTERNS = [
-  /^\.env$/, // .env
-  /^\.env\./, // .env.local, .env.production, etc.
-  /\.env$/, // path/to/.env
-  /\/\.env\./, // path/to/.env.local
-  /credentials/i, // credentials.json, etc.
-  /secrets?\.ya?ml$/i, // secrets.yaml, secret.yml
-  /\.pem$/, // Private keys
-  /\.key$/, // Private keys
-  /id_rsa/, // SSH keys
-  /id_ed25519/, // SSH keys
+  /^\.env$/,              // .env
+  /^\.env\./,             // .env.local, .env.production, etc.
+  /\.env$/,               // path/to/.env
+  /\/\.env\./,            // path/to/.env.local
+  /credentials/i,         // credentials.json, etc.
+  /secrets?\.ya?ml$/i,    // secrets.yaml, secret.yml
+  /\.pem$/,               // Private keys
+  /\.key$/,               // Private keys
+  /id_rsa/,               // SSH keys
+  /id_ed25519/,           // SSH keys
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -64,7 +64,7 @@ const PRIVACY_PATTERNS = [
 function isSafeFile(testPath) {
   if (!testPath) return false;
   const basename = path.basename(testPath);
-  return SAFE_PATTERNS.some((p) => p.test(basename));
+  return SAFE_PATTERNS.some(p => p.test(basename));
 }
 
 /**
@@ -143,7 +143,7 @@ function lexShellWords(command) {
   let start = -1;
   let quote = null;
 
-  const flush = (end) => {
+  const flush = end => {
     if (start >= 0) words.push({ value, start, end });
     value = '';
     start = -1;
@@ -201,7 +201,10 @@ function findEnvSplitString(words) {
       index++;
       continue;
     }
-    if (option.startsWith('-') || /^[A-Za-z_][A-Za-z0-9_]*=/.test(option)) {
+    if (
+      option.startsWith('-')
+      || /^[A-Za-z_][A-Za-z0-9_]*=/.test(option)
+    ) {
       continue;
     }
     break;
@@ -241,8 +244,7 @@ function findEvaluatorSource(words) {
     }
   }
 
-  const executable = path
-    .basename((words[executableIndex]?.value || '').replace(/\\/g, '/'))
+  const executable = path.basename((words[executableIndex]?.value || '').replace(/\\/g, '/'))
     .replace(/\.exe$/i, '');
   if (executable !== 'node' && executable !== 'bun' && executable !== 'deno') return null;
   if (executable === 'deno' && words[executableIndex + 1]?.value === 'eval') {
@@ -270,9 +272,7 @@ function findEvaluatorSource(words) {
 }
 
 function isRuntimeEnvironmentReference(value) {
-  return /^\$?(?:(?:(?:globalThis|global)\.)?process(?:\.|\?\.)env|(?:Deno|Bun)(?:\.|\?\.)env|import\.meta(?:\.|\?\.)env)(?:(?:\.|\?\.)[A-Za-z_$][\w$]*)*$/.test(
-    value,
-  );
+  return /^\$?(?:(?:(?:globalThis|global)\.)?process(?:\.|\?\.)env|(?:Deno|Bun)(?:\.|\?\.)env|import\.meta(?:\.|\?\.)env)(?:(?:\.|\?\.)[A-Za-z_$][\w$]*)*$/.test(value);
 }
 
 /**
@@ -282,9 +282,8 @@ function isRuntimeEnvironmentReference(value) {
  */
 function extractEvaluatorTokens(source) {
   if (source.includes('`')) return [];
-  return (source.match(/[^\s"'`|;&<>(){}\[\],]+/g) || []).filter(
-    (value) => !isRuntimeEnvironmentReference(value),
-  );
+  return (source.match(/[^\s"'`|;&<>(){}\[\],]+/g) || [])
+    .filter(value => !isRuntimeEnvironmentReference(value));
 }
 /**
  * Extract balanced command-substitution bodies while respecting shell quotes.
@@ -302,7 +301,7 @@ function extractCommandSubstitutions(command) {
       continue;
     }
     if (char === '"' || char === "'") {
-      quote = quote === char ? null : quote || char;
+      quote = quote === char ? null : (quote || char);
       continue;
     }
     if (char !== '$' || command[index + 1] !== '(' || quote === "'") continue;
@@ -317,7 +316,7 @@ function extractCommandSubstitutions(command) {
         continue;
       }
       if (inner === '"' || inner === "'") {
-        innerQuote = innerQuote === inner ? null : innerQuote || inner;
+        innerQuote = innerQuote === inner ? null : (innerQuote || inner);
         continue;
       }
       if (innerQuote) continue;
@@ -349,7 +348,7 @@ function splitPrivacyCommandSegments(command) {
       continue;
     }
     if (char === '"' || char === "'") {
-      quote = quote === char ? null : quote || char;
+      quote = quote === char ? null : (quote || char);
       normalized += char;
       continue;
     }
@@ -393,10 +392,9 @@ function extractPaths(toolInput) {
       const evaluatorSource = findEvaluatorSource(words);
 
       for (let index = 0; index < words.length; index++) {
-        const rawValues =
-          evaluatorSource?.index === index
-            ? extractEvaluatorTokens(evaluatorSource.value)
-            : [words[index].value];
+        const rawValues = evaluatorSource?.index === index
+          ? extractEvaluatorTokens(evaluatorSource.value)
+          : [words[index].value];
 
         for (const rawValue of rawValues) {
           const assignment = rawValue.match(/^[A-Za-z_][A-Za-z0-9_]*=(.+)$/);
@@ -406,8 +404,8 @@ function extractPaths(toolInput) {
           // Command extraction historically covers dotenv paths plus explicitly
           // approved paths. Other sensitive filename classes remain direct-path
           // checks; do not silently broaden the Bash hook's scope here.
-          const isDotenvCandidate =
-            value.includes('.env') && (isPrivacySensitive(value) || isSafeFile(value));
+          const isDotenvCandidate = value.includes('.env')
+            && (isPrivacySensitive(value) || isSafeFile(value));
           if (isDotenvCandidate || hasApprovalPrefix(value)) {
             paths.push({ value, field: 'command' });
           }
@@ -416,7 +414,7 @@ function extractPaths(toolInput) {
     }
   }
 
-  return paths.filter((p) => p.value);
+  return paths.filter(p => p.value);
 }
 
 /**
@@ -452,9 +450,9 @@ function buildPromptData(filePath) {
       text: `I need to read "${basename}" which may contain sensitive data (API keys, passwords, tokens). Do you approve?`,
       options: [
         { label: 'Yes, approve access', description: `Allow reading ${basename} this time` },
-        { label: 'No, skip this file', description: 'Continue without accessing this file' },
-      ],
-    },
+        { label: 'No, skip this file', description: 'Continue without accessing this file' }
+      ]
+    }
   };
 }
 
@@ -504,7 +502,7 @@ function checkPrivacy({ toolName, toolInput, options = {} }) {
         blocked: false,
         approved: true,
         filePath: strippedPath,
-        suspicious: isSuspiciousPath(strippedPath),
+        suspicious: isSuspiciousPath(strippedPath)
       };
     }
 
@@ -514,7 +512,7 @@ function checkPrivacy({ toolName, toolInput, options = {} }) {
         blocked: false,
         isBash: true,
         filePath: testPath,
-        reason: `Bash command accesses sensitive file: ${testPath}`,
+        reason: `Bash command accesses sensitive file: ${testPath}`
       };
     }
 
@@ -523,7 +521,7 @@ function checkPrivacy({ toolName, toolInput, options = {} }) {
       blocked: true,
       filePath: testPath,
       reason: `Sensitive file access requires user approval`,
-      promptData: buildPromptData(testPath),
+      promptData: buildPromptData(testPath)
     };
   }
 
@@ -552,5 +550,5 @@ module.exports = {
   // Constants
   APPROVED_PREFIX,
   SAFE_PATTERNS,
-  PRIVACY_PATTERNS,
+  PRIVACY_PATTERNS
 };

@@ -6,12 +6,12 @@ active plan directly. Plan files are the durable source of truth.
 
 ## When Tracking Helps
 
-| Review scope             | Track separately? | Reason                                           |
-| ------------------------ | ----------------- | ------------------------------------------------ |
-| Single-file fix          | No                | Run scout, review, and verification directly     |
-| Multi-file feature       | Yes               | Preserve the scout → review → fix → verify chain |
-| Parallel reviewer scopes | Yes               | Record ownership and join points                 |
-| Critical fix cycle       | Yes               | Keep each re-review tied to its prerequisite fix |
+| Review scope | Track separately? | Reason |
+|--------------|-------------------|--------|
+| Single-file fix | No | Run scout, review, and verification directly |
+| Multi-file feature | Yes | Preserve the scout → review → fix → verify chain |
+| Parallel reviewer scopes | Yes | Record ownership and join points |
+| Critical fix cycle | Yes | Keep each re-review tied to its prerequisite fix |
 
 Skip runtime tracking for fewer than three meaningful steps.
 

@@ -28,7 +28,7 @@ function execSafe(cmd, timeoutMs = 5000) {
     return execSync(cmd, {
       encoding: 'utf8',
       timeout: timeoutMs,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe']
     }).trim();
   } catch (e) {
     return null;
@@ -47,7 +47,7 @@ function execFileSafe(binary, args, timeoutMs = 2000) {
     return execFileSync(binary, args, {
       encoding: 'utf8',
       timeout: timeoutMs,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe']
     }).trim();
   } catch (e) {
     return null;
@@ -243,9 +243,7 @@ function detectProjectType(configOverride) {
       const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
       if (pkg.workspaces) return 'monorepo';
       if (pkg.main || pkg.exports) return 'library';
-    } catch (e) {
-      /* ignore */
-    }
+    } catch (e) { /* ignore */ }
   }
 
   return 'single-repo';
@@ -314,7 +312,7 @@ function getCodingLevelStyleName(level) {
     2: 'coding-level-2-mid',
     3: 'coding-level-3-senior',
     4: 'coding-level-4-lead',
-    5: 'coding-level-5-god',
+    5: 'coding-level-5-god'
   };
   return styleMap[level] || 'coding-level-5-god';
 }
@@ -344,7 +342,7 @@ function getCodingLevelGuidelines(level, configDir) {
   const candidates = [
     path.join(basePath, 'output-styles', `${styleName}.md`),
     path.join(basePath, '.agentkit', 'output-styles', `${styleName}.md`),
-    path.join(basePath, `${styleName}.md`),
+    path.join(basePath, `${styleName}.md`)
   ];
 
   for (const stylePath of candidates) {
@@ -360,9 +358,7 @@ function getCodingLevelGuidelines(level, configDir) {
   // configDir was explicitly resolved (hook install root) yet no style exists
   // for an enabled level: surface it rather than silently injecting nothing.
   if (configDir) {
-    console.error(
-      `[coding-level] no output style found for ${styleName} under ${basePath} (checked output-styles/, .agentkit/output-styles/, and extension-root ${styleName}.md)`,
-    );
+    console.error(`[coding-level] no output style found for ${styleName} under ${basePath} (checked output-styles/, .agentkit/output-styles/, and extension-root ${styleName}.md)`);
   }
   return null;
 }
@@ -438,7 +434,7 @@ function detectProject(options = {}) {
     osPlatform: process.platform,
     user: process.env.USERNAME || process.env.USER || process.env.LOGNAME || os.userInfo().username,
     locale: process.env.LANG || '',
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
   };
 }
 
@@ -458,7 +454,7 @@ function buildStaticEnv(configDir) {
     user: process.env.USERNAME || process.env.USER || process.env.LOGNAME || os.userInfo().username,
     locale: process.env.LANG || '',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    configDir: configDir || path.join(process.cwd(), '.claude'),
+    configDir: configDir || path.join(process.cwd(), '.claude')
   };
 }
 
@@ -497,5 +493,5 @@ module.exports = {
 
   // Helpers
   execSafe,
-  execFileSafe,
+  execFileSafe
 };

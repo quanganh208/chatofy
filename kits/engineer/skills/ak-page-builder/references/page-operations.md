@@ -36,8 +36,8 @@ Illustrative mutation payload; adapt it to the implemented API:
   "baseRevision": 12,
   "idempotencyKey": "edit-request-123",
   "operations": [
-    { "op": "setProps", "nodeId": "hero", "props": { "title": "Team plans" } },
-    { "op": "move", "nodeId": "faq", "afterNodeId": "pricing-table" }
+    {"op": "setProps", "nodeId": "hero", "props": {"title": "Team plans"}},
+    {"op": "move", "nodeId": "faq", "afterNodeId": "pricing-table"}
   ]
 }
 ```

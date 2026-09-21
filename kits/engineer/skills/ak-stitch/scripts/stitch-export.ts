@@ -14,10 +14,10 @@
  *   5. "claudekit-default"     last resort fallback
  */
 
-import { stitch } from '@google/stitch-sdk';
-import fs from 'fs';
-import path from 'path';
-import { execSync } from 'child_process';
+import { stitch } from "@google/stitch-sdk";
+import fs from "fs";
+import path from "path";
+import { execSync } from "child_process";
 
 // -- Argument parsing --
 
@@ -33,7 +33,7 @@ function getFlag(name: string): string | undefined {
 function getPositionalArgs(): string[] {
   const positional: string[] = [];
   for (let i = 0; i < args.length; i++) {
-    if (args[i].startsWith('--')) {
+    if (args[i].startsWith("--")) {
       i++; // skip flag value
     } else {
       positional.push(args[i]);
@@ -51,29 +51,23 @@ function getPositionalArgs(): string[] {
  */
 function autoDetectProjectName(): string {
   try {
-    const remoteUrl = execSync('git remote get-url origin', {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'ignore'],
+    const remoteUrl = execSync("git remote get-url origin", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "ignore"],
     }).trim();
     // Extract repo name from SSH (git@github.com:org/repo.git) or HTTPS (https://github.com/org/repo.git)
-    const repoName =
-      remoteUrl
-        .replace(/\.git$/, '')
-        .split(/[/:}]/)
-        .pop() || '';
+    const repoName = remoteUrl.replace(/\.git$/, "").split(/[/:}]/).pop() || "";
     if (repoName) return repoName.slice(0, 50);
-  } catch {
-    /* not a git repo or no remote */
-  }
+  } catch { /* not a git repo or no remote */ }
   const cwdName = path.basename(process.cwd());
-  return cwdName ? cwdName.slice(0, 50) : '';
+  return cwdName ? cwdName.slice(0, 50) : "";
 }
 
 const screenId = getPositionalArgs()[0];
 
 // Resolve project identity per priority order
-const directProjectId = getFlag('project') || process.env.STITCH_PROJECT_ID;
-const projectNameFlag = getFlag('project-name');
+const directProjectId = getFlag("project") || process.env.STITCH_PROJECT_ID;
+const projectNameFlag = getFlag("project-name");
 
 // Determine if we use a direct ID (no lookup) or a title (lookup-or-create)
 let projectId: string;
@@ -94,7 +88,7 @@ if (directProjectId) {
 } else {
   // Priority 4 & 5: auto-detect or fallback
   const detected = autoDetectProjectName();
-  projectId = detected || 'claudekit-default';
+  projectId = detected || "claudekit-default";
   resolvedProjectName = projectId;
   isNameBasedProject = true;
   if (detected) {
@@ -104,20 +98,16 @@ if (directProjectId) {
   }
 }
 
-const format = getFlag('format') || 'all';
-const outputDir = getFlag('output') || './stitch-exports';
+const format = getFlag("format") || "all";
+const outputDir = getFlag("output") || "./stitch-exports";
 
 if (!screenId) {
-  console.error(
-    'Usage: npx tsx stitch-export.ts <screen-id> [--project <id>] [--project-name <title>] [--format html|image|all] [--output <dir>]',
-  );
+  console.error("Usage: npx tsx stitch-export.ts <screen-id> [--project <id>] [--project-name <title>] [--format html|image|all] [--output <dir>]");
   process.exit(1);
 }
 
 if (!process.env.STITCH_API_KEY) {
-  console.error(
-    '[X] STITCH_API_KEY not set. Get one at https://stitch.withgoogle.com/settings/api',
-  );
+  console.error("[X] STITCH_API_KEY not set. Get one at https://stitch.withgoogle.com/settings/api");
   process.exit(1);
 }
 
@@ -135,60 +125,47 @@ async function downloadFile(url: string, dest: string): Promise<void> {
  * color values, typography patterns, and component structure.
  */
 function generateDesignMd(html: string): string {
-  const lines: string[] = ['# Design System', '', 'Auto-generated from Google Stitch export.', ''];
+  const lines: string[] = ["# Design System", "", "Auto-generated from Google Stitch export.", ""];
 
   // Extract colors from Tailwind classes and inline styles
   const colorMatches = html.match(/(?:bg|text|border)-(?:\w+)-(\d+)/g) || [];
   const uniqueColors = [...new Set(colorMatches)].slice(0, 20);
   if (uniqueColors.length > 0) {
-    lines.push('## Colors', '');
+    lines.push("## Colors", "");
     uniqueColors.forEach((c) => lines.push(`- \`${c}\``));
-    lines.push('');
+    lines.push("");
   }
 
   // Extract typography classes
-  const textMatches =
-    html.match(
-      /(?:text-(?:xs|sm|base|lg|xl|2xl|3xl|4xl|5xl)|font-(?:thin|light|normal|medium|semibold|bold|extrabold))/g,
-    ) || [];
+  const textMatches = html.match(/(?:text-(?:xs|sm|base|lg|xl|2xl|3xl|4xl|5xl)|font-(?:thin|light|normal|medium|semibold|bold|extrabold))/g) || [];
   const uniqueText = [...new Set(textMatches)].slice(0, 15);
   if (uniqueText.length > 0) {
-    lines.push('## Typography', '');
+    lines.push("## Typography", "");
     uniqueText.forEach((t) => lines.push(`- \`${t}\``));
-    lines.push('');
+    lines.push("");
   }
 
   // Extract spacing patterns
   const spacingMatches = html.match(/(?:p|m|gap|space)-(?:x|y)?-?\d+/g) || [];
   const uniqueSpacing = [...new Set(spacingMatches)].slice(0, 15);
   if (uniqueSpacing.length > 0) {
-    lines.push('## Spacing', '');
+    lines.push("## Spacing", "");
     uniqueSpacing.forEach((s) => lines.push(`- \`${s}\``));
-    lines.push('');
+    lines.push("");
   }
 
   // Extract component-level structure from HTML tags
-  const componentMatches =
-    html.match(/<(section|nav|header|footer|main|aside|form|button|input|table|dialog)[^>]*>/gi) ||
-    [];
-  const uniqueComponents = [
-    ...new Set(componentMatches.map((c) => c.match(/<(\w+)/)?.[1] || '')),
-  ].filter(Boolean);
+  const componentMatches = html.match(/<(section|nav|header|footer|main|aside|form|button|input|table|dialog)[^>]*>/gi) || [];
+  const uniqueComponents = [...new Set(componentMatches.map((c) => c.match(/<(\w+)/)?.[1] || ""))].filter(Boolean);
   if (uniqueComponents.length > 0) {
-    lines.push('## Components', '');
+    lines.push("## Components", "");
     uniqueComponents.forEach((c) => lines.push(`- \`<${c}>\``));
-    lines.push('');
+    lines.push("");
   }
 
-  lines.push(
-    '## Notes',
-    '',
-    '- Generated by Google Stitch AI',
-    '- Tailwind CSS utility classes used throughout',
-    '- Review and customize colors/typography for brand alignment',
-  );
+  lines.push("## Notes", "", "- Generated by Google Stitch AI", "- Tailwind CSS utility classes used throughout", "- Review and customize colors/typography for brand alignment");
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 // -- Main --
@@ -202,7 +179,7 @@ async function main() {
     let project;
     if (isNameBasedProject) {
       const projects = await stitch.projects();
-      const found = projects.find((p) => p.data?.title === resolvedProjectName);
+      const found = projects.find(p => p.data?.title === resolvedProjectName);
       if (found) {
         console.error(`[i] Using existing project: "${resolvedProjectName}" (${found.id})`);
         project = stitch.project(found.id);
@@ -219,18 +196,18 @@ async function main() {
     const exported: Record<string, string> = {};
 
     // Export HTML
-    if (format === 'html' || format === 'all') {
+    if (format === "html" || format === "all") {
       const htmlUrl = await screen.getHtml();
-      const htmlPath = path.join(outputDir, 'design.html');
+      const htmlPath = path.join(outputDir, "design.html");
       await downloadFile(htmlUrl, htmlPath);
       exported.html = htmlPath;
       console.error(`[OK] HTML exported: ${htmlPath}`);
 
       // Generate DESIGN.md from HTML
-      if (format === 'all') {
-        const htmlContent = fs.readFileSync(htmlPath, 'utf-8');
+      if (format === "all") {
+        const htmlContent = fs.readFileSync(htmlPath, "utf-8");
         const designMd = generateDesignMd(htmlContent);
-        const designPath = path.join(outputDir, 'DESIGN.md');
+        const designPath = path.join(outputDir, "DESIGN.md");
         fs.writeFileSync(designPath, designMd);
         exported.designMd = designPath;
         console.error(`[OK] DESIGN.md generated: ${designPath}`);
@@ -238,9 +215,9 @@ async function main() {
     }
 
     // Export image
-    if (format === 'image' || format === 'all') {
+    if (format === "image" || format === "all") {
       const imageUrl = await screen.getImage();
-      const imagePath = path.join(outputDir, 'design.png');
+      const imagePath = path.join(outputDir, "design.png");
       await downloadFile(imageUrl, imagePath);
       exported.image = imagePath;
       console.error(`[OK] Image exported: ${imagePath}`);
@@ -250,10 +227,10 @@ async function main() {
     console.log(JSON.stringify({ screenId, projectId, format, exported }, null, 2));
   } catch (error: unknown) {
     const err = error as { code?: string; message?: string };
-    if (err.code === 'NOT_FOUND') {
+    if (err.code === "NOT_FOUND") {
       console.error(`[X] Screen "${screenId}" not found in project "${projectId}".`);
-    } else if (err.code === 'AUTH_FAILED') {
-      console.error('[X] Authentication failed. Check STITCH_API_KEY env var.');
+    } else if (err.code === "AUTH_FAILED") {
+      console.error("[X] Authentication failed. Check STITCH_API_KEY env var.");
     } else {
       console.error(`[X] Export error: ${err.message || error}`);
     }

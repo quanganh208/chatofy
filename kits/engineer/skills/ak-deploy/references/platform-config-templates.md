@@ -15,37 +15,30 @@ keeping. Route the change through the project's documentation workflow
 # Deployment
 
 ## Platform
-
 [Platform name] — [URL to dashboard]
 
 ## Production URL
-
 [https://your-app.example.com]
 
 ## Deploy Command
-
 \`\`\`bash
 [deploy command here]
 \`\`\`
 
 ## Environment Variables
-
-| Variable       | Source of value                                                  |
-| -------------- | ---------------------------------------------------------------- |
+| Variable | Source of value |
+|---|---|
 | `DATABASE_URL` | secret store or broker entry (record the locator, not the value) |
-| `API_TOKEN`    | deploy platform secret store                                     |
+| `API_TOKEN` | deploy platform secret store |
 
 ## Custom Domain
-
 [Steps to configure custom domain, if applicable]
 
 ## Rollback
-
 \`\`\`bash
 [rollback command — e.g., vercel rollback, fly releases, etc.]
 \`\`\`
 
 ## Troubleshooting
-
 [Common issues and solutions]
 ```

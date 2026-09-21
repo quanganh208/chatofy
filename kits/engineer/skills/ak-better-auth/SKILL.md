@@ -2,14 +2,14 @@
 name: ak:better-auth
 description: Add authentication with Better Auth (TypeScript). Use for email/password, OAuth providers (Google, GitHub), 2FA/MFA, passkeys/WebAuthn, sessions, RBAC, rate limiting.
 user-invocable: true
-when_to_use: 'Invoke for Better Auth setup, sessions, OAuth, MFA, or RBAC.'
+when_to_use: "Invoke for Better Auth setup, sessions, OAuth, MFA, or RBAC."
 category: engineering
 keywords: [auth, oauth, 2fa, passkeys, sessions]
 license: MIT
-argument-hint: '[auth-method or feature]'
+argument-hint: "[auth-method or feature]"
 metadata:
   author: agentkit
-  version: '2.0.1'
+  version: "2.0.1"
 ---
 
 # Better Auth Skill
@@ -37,19 +37,19 @@ Keep secrets server-side; protect session binding, token single use and verified
 
 ## Feature Selection Matrix
 
-| Feature                      | Plugin Required      | Use Case               | Reference                                                                             |
-| ---------------------------- | -------------------- | ---------------------- | ------------------------------------------------------------------------------------- |
-| Email/Password               | No (built-in)        | Basic auth             | [email-password-auth.md](./references/email-password-auth.md)                         |
-| OAuth (GitHub, Google, etc.) | No (built-in)        | Social login           | [oauth-providers.md](./references/oauth-providers.md)                                 |
-| Email Verification           | No (built-in)        | Verify email addresses | [email-password-auth.md](./references/email-password-auth.md#email-verification)      |
-| Password Reset               | No (built-in)        | Forgot password flow   | [email-password-auth.md](./references/email-password-auth.md#password-reset)          |
-| Two-Factor Auth (2FA/TOTP)   | Yes (`twoFactor`)    | Enhanced security      | [advanced-features.md](./references/advanced-features.md#two-factor-authentication)   |
-| Passkeys/WebAuthn            | Yes (`passkey`)      | Passwordless auth      | [advanced-features.md](./references/advanced-features.md#passkeys-webauthn)           |
-| Magic Link                   | Yes (`magicLink`)    | Email-based login      | [advanced-features.md](./references/advanced-features.md#magic-link)                  |
-| Username Auth                | Yes (`username`)     | Username login         | [email-password-auth.md](./references/email-password-auth.md#username-authentication) |
-| Organizations/Multi-tenant   | Yes (`organization`) | Team/org features      | [advanced-features.md](./references/advanced-features.md#organizations)               |
-| Rate Limiting                | No (built-in)        | Prevent abuse          | [advanced-features.md](./references/advanced-features.md#rate-limiting)               |
-| Session Management           | No (built-in)        | User sessions          | [advanced-features.md](./references/advanced-features.md#session-management)          |
+| Feature | Plugin Required | Use Case | Reference |
+|---------|----------------|----------|-----------|
+| Email/Password | No (built-in) | Basic auth | [email-password-auth.md](./references/email-password-auth.md) |
+| OAuth (GitHub, Google, etc.) | No (built-in) | Social login | [oauth-providers.md](./references/oauth-providers.md) |
+| Email Verification | No (built-in) | Verify email addresses | [email-password-auth.md](./references/email-password-auth.md#email-verification) |
+| Password Reset | No (built-in) | Forgot password flow | [email-password-auth.md](./references/email-password-auth.md#password-reset) |
+| Two-Factor Auth (2FA/TOTP) | Yes (`twoFactor`) | Enhanced security | [advanced-features.md](./references/advanced-features.md#two-factor-authentication) |
+| Passkeys/WebAuthn | Yes (`passkey`) | Passwordless auth | [advanced-features.md](./references/advanced-features.md#passkeys-webauthn) |
+| Magic Link | Yes (`magicLink`) | Email-based login | [advanced-features.md](./references/advanced-features.md#magic-link) |
+| Username Auth | Yes (`username`) | Username login | [email-password-auth.md](./references/email-password-auth.md#username-authentication) |
+| Organizations/Multi-tenant | Yes (`organization`) | Team/org features | [advanced-features.md](./references/advanced-features.md#organizations) |
+| Rate Limiting | No (built-in) | Prevent abuse | [advanced-features.md](./references/advanced-features.md#rate-limiting) |
+| Session Management | No (built-in) | User sessions | [advanced-features.md](./references/advanced-features.md#session-management) |
 
 Choose another auth method only when requested or required by the accepted design. Read `references/method-selection.md` for a new integration.
 
@@ -65,13 +65,11 @@ Check the installed version against [upstream security advisories](https://githu
 ## Reference Documentation
 
 ### Core Authentication
-
 - [Email/Password Authentication](./references/email-password-auth.md) - Email/password setup, verification, password reset, username auth
 - [OAuth Providers](./references/oauth-providers.md) - Social login setup, provider configuration, token management
 - [Database Integration](./references/database-integration.md) - Database adapters, schema setup, migrations
 
 ### Advanced Features
-
 - [Advanced Features](./references/advanced-features.md) - 2FA/MFA, passkeys, magic links, organizations, rate limiting, session management
 
 ## Scripts

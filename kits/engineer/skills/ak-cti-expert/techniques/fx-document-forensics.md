@@ -1,20 +1,17 @@
 # fx-document-forensics
 
 ## Purpose
-
 Extract authorship, creation chain, and hidden content from PDF and Office documents supplied by the operator. Findings reveal identity, software environment, and document lifecycle that subjects may not intend to disclose.
 
 ## Quick Reference
-
-| Item       | Detail                                                          |
-| ---------- | --------------------------------------------------------------- |
-| Command    | /analyze-doc                                                    |
-| Input      | Document file path or pasted metadata dump                      |
-| Output     | Structured forensics finding report                             |
+| Item | Detail |
+|------|--------|
+| Command | /analyze-doc |
+| Input | Document file path or pasted metadata dump |
+| Output | Structured forensics finding report |
 | Confidence | HIGH for direct metadata fields; MEDIUM for inferred authorship |
 
 ## Methodology
-
 1. Identify format: PDF, DOCX/XLSX/PPTX, or legacy binary (.doc/.xls)
 2. **PDF path:** Run `pdfinfo` for standard fields; run `exiftool -a` for XMP layer; run `pdfdetach -list` to surface embedded files
 3. **Office path:** Unzip archive; parse `docProps/core.xml` (creator, lastModifiedBy, revision count, timestamps); parse `docProps/app.xml` (template, TotalTime, Company)
@@ -25,18 +22,16 @@ Extract authorship, creation chain, and hidden content from PDF and Office docum
 8. Merge findings into a timeline: creation → edits → conversions → final state
 
 ## Tools & Fallbacks
-
-| Priority | Tool                 | Install                              | Notes                                     |
-| -------- | -------------------- | ------------------------------------ | ----------------------------------------- |
-| 1        | exiftool             | `apt install libimage-exiftool-perl` | Handles PDF + Office + images             |
-| 2        | pdfinfo (Poppler)    | `apt install poppler-utils`          | Fast PDF metadata sweep                   |
-| 3        | oletools             | `pip3 install oletools`              | OLE binary formats; macro detection       |
-| 4        | qpdf                 | `apt install qpdf`                   | PDF structure inspection; unpack streams  |
-| 5        | strings + grep       | Built-in                             | Fallback text extraction on corrupt files |
-| 6        | LibreOffice headless | `apt install libreoffice`            | Convert to plain text for diff work       |
+| Priority | Tool | Install | Notes |
+|----------|------|---------|-------|
+| 1 | exiftool | `apt install libimage-exiftool-perl` | Handles PDF + Office + images |
+| 2 | pdfinfo (Poppler) | `apt install poppler-utils` | Fast PDF metadata sweep |
+| 3 | oletools | `pip3 install oletools` | OLE binary formats; macro detection |
+| 4 | qpdf | `apt install qpdf` | PDF structure inspection; unpack streams |
+| 5 | strings + grep | Built-in | Fallback text extraction on corrupt files |
+| 6 | LibreOffice headless | `apt install libreoffice` | Convert to plain text for diff work |
 
 ## Output Format
-
 ```
 File: proposal.docx
 
@@ -57,7 +52,6 @@ Anomalies:
 ```
 
 ## Limitations
-
 - Password-protected documents require cracking tools outside this technique's scope
 - Metadata can be set to arbitrary values; treat as a finding to verify, not ground truth
 - Stripped metadata (intentionally sanitized docs) yields minimal findings
@@ -65,7 +59,6 @@ Anomalies:
 - Redaction verification only detects layer-based failures; pixel-level removal passes the test
 
 ## Related Techniques
-
 - [fx-metadata-parsing.md](fx-metadata-parsing.md) — image EXIF and archive metadata
 - [fx-image-verification.md](fx-image-verification.md) — verify embedded images within documents
 - [fx-breach-discovery.md](fx-breach-discovery.md) — cross-reference author emails against known breaches

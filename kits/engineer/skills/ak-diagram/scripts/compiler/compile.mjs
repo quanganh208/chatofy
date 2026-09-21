@@ -43,19 +43,13 @@ function parseArgs(args) {
     else if (arg === '--theme' && next !== null) options.theme = args[++i];
   }
   if (!VALID_FORMATS.includes(options.format)) {
-    throw new Error(
-      `Invalid --format "${options.format}". Must be one of ${VALID_FORMATS.join(', ')}`,
-    );
+    throw new Error(`Invalid --format "${options.format}". Must be one of ${VALID_FORMATS.join(', ')}`);
   }
   if (options.preset && !VALID_PRESETS.includes(options.preset)) {
-    throw new Error(
-      `Invalid --preset "${options.preset}". Must be one of ${VALID_PRESETS.join(', ')}`,
-    );
+    throw new Error(`Invalid --preset "${options.preset}". Must be one of ${VALID_PRESETS.join(', ')}`);
   }
   if (options.theme && !VALID_THEMES.includes(options.theme)) {
-    throw new Error(
-      `Invalid --theme "${options.theme}". Must be one of ${VALID_THEMES.join(', ')}`,
-    );
+    throw new Error(`Invalid --theme "${options.theme}". Must be one of ${VALID_THEMES.join(', ')}`);
   }
   return options;
 }
@@ -74,17 +68,13 @@ function loadAssets() {
 
 function toolbar(data, theme) {
   const meta = data.meta;
-  const subtitleHtml = meta.subtitle
-    ? `<span class="ak-diagram-subtitle"> - ${escapeXml(meta.subtitle)}</span>`
-    : '';
+  const subtitleHtml = meta.subtitle ? `<span class="ak-diagram-subtitle"> - ${escapeXml(meta.subtitle)}</span>` : '';
   const hasViews = meta.views && meta.views.length > 0;
-  const chapterControl = hasViews
-    ? `<div class="ak-chapter-controls">
+  const chapterControl = hasViews ? `<div class="ak-chapter-controls">
     <button type="button" class="ak-diagram-btn ak-btn-prev-chapter" title="Previous Chapter ([)">&#8249;</button>
     <span class="ak-chapter-label">1/${meta.views.length}</span>
     <button type="button" class="ak-diagram-btn ak-btn-next-chapter" title="Next Chapter (])">&#8250;</button>
-  </div>`
-    : '';
+  </div>` : '';
   return `<div class="ak-diagram-toolbar">
       <h4 class="ak-diagram-title"><span>&#128202;</span> ${escapeXml(meta.title)}${subtitleHtml}</h4>
       <div class="ak-diagram-controls">
@@ -163,9 +153,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     const options = parseArgs(process.argv.slice(2));
     if (!options.input) {
-      console.error(
-        'Usage: node compile.mjs --input <diagram.json> [--format svg|fragment|html] [--out <output_path>] [--preset <preset>] [--theme <light|dark>]',
-      );
+      console.error('Usage: node compile.mjs --input <diagram.json> [--format svg|fragment|html] [--out <output_path>] [--preset <preset>] [--theme <light|dark>]');
       process.exit(1);
     }
     const raw = readFileSync(options.input, 'utf-8');

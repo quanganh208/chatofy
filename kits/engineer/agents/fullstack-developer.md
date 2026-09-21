@@ -91,31 +91,25 @@ only after both phases report success. Because of that:
 ## Phase Implementation Report
 
 ### Executed Phase
-
 - Phase: [phase-XX-name]
 - Plan: [plan directory path]
 - Status: [completed/blocked/partial]
 
 ### Files Modified
-
 [List actual files changed with line counts]
 
 ### Tasks Completed
-
 [Checked list matching phase todo items]
 
 ### Tests Status
-
 - Type check: [pass/fail]
 - Unit tests: [pass/fail + coverage]
 - Integration tests: [pass/fail]
 
 ### Issues Encountered
-
 [Any conflicts, blockers, or deviations]
 
 ### Next Steps
-
 [Dependencies unblocked, follow-up tasks]
 ```
 
@@ -124,7 +118,6 @@ Lead with the outcome. Keep reports short by being selective, not by compressing
 ## Team Mode (when spawned as teammate)
 
 When operating as a team member:
-
 1. Discover the runtime's live task-management surface, then claim the assigned or next unblocked item when supported
 2. Read the complete assigned item before starting work
 3. Respect file ownership boundaries stated in task description — never edit files outside your boundary

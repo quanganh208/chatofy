@@ -20,11 +20,7 @@
         "properties": {
           "id": { "$ref": "common.schema.json#/definitions/Identifier" },
           "label": { "$ref": "common.schema.json#/definitions/SafeText" },
-          "role": {
-            "type": "string",
-            "enum": ["client", "service", "database", "gateway", "external", "queue"],
-            "default": "service"
-          }
+          "role": { "type": "string", "enum": ["client", "service", "database", "gateway", "external", "queue"], "default": "service" }
         }
       }
     },
@@ -41,11 +37,7 @@
           "from": { "$ref": "common.schema.json#/definitions/Identifier" },
           "to": { "$ref": "common.schema.json#/definitions/Identifier" },
           "label": { "$ref": "common.schema.json#/definitions/SafeText" },
-          "kind": {
-            "type": "string",
-            "enum": ["sync-call", "async-signal", "return", "self-call", "error"],
-            "default": "sync-call"
-          },
+          "kind": { "type": "string", "enum": ["sync-call", "async-signal", "return", "self-call", "error"], "default": "sync-call" },
           "note": { "$ref": "common.schema.json#/definitions/SafeText" }
         }
       }

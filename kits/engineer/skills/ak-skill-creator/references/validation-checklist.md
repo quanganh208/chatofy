@@ -1,5 +1,4 @@
 # Skill Validation Checklist
-
 <!-- cruft-lint-allow: this file names the patterns the linter reports -->
 
 Select checks for the changed behavior and delivery surface, then inspect their evidence. Run from the skill-creator directory. YAML checks use the declared PyYAML
@@ -27,13 +26,11 @@ with a reason on that line. Keep exemptions narrow; actual workflow commands
 must resolve without exemptions.
 
 ### Metadata
-
 - [ ] `name` is `skill-name` or `namespace:skill-name`, kebab-case, at most 64 characters per segment
 - [ ] `description` is at most 1024 characters and states a precise activation boundary; brevity alone is not a defect
 - [ ] `when_to_use` present for kit skills and consistent with the description
 
 ### Size and structure
-
 - [ ] Size warnings reviewed for readability and ownership; useful context retained
 - [ ] Valid typed YAML, no duplicate keys, no unfinished initializer placeholders
 - [ ] Concrete resources resolve from SKILL.md and references, including after packaging
@@ -41,7 +38,6 @@ must resolve without exemptions.
 - [ ] File names are kebab-case and self-describing; no leftover template files
 
 ### Prompt quality (`lint_cruft.py` reports no High findings)
-
 - [ ] No pressure walls (clusters of MUST, NEVER, CRITICAL); each real constraint carries a reason
 - [ ] No "sacrifice grammar", "ensure token efficiency", or other copied boilerplate
 - [ ] Delegation guidance says when and why, not "INCOMPLETE" or "do not do X yourself"
@@ -49,14 +45,12 @@ must resolve without exemptions.
 - [ ] No volatile facts (model names, context sizes, version pins) without a link to their owner
 
 ## Scripts, if any
-
 - [ ] Tests exist under `scripts/tests/` and pass
 - [ ] Cross-platform (Python or Node.js); UTF-8 console configured on Windows
 - [ ] Dependencies declared at the invocation site (pinned runner or inline metadata), see `references/script-dependency-strategy.md`
 - [ ] `.env.example` shipped, never `.env`; env hierarchy respected (`process.env` > skill `.env` > shared `.env` > global `.env`)
 
 ## Quality
-
 - [ ] Clear direct instructions; consistent description and activation conditions
 - [ ] Teaches how to do the task, with the audience and quality bar stated
 - [ ] Checks selected by changed behavior: routing for metadata, consumer regression for instructions/scripts, creator-consumer for creator workflow; explain semantic no-op exceptions
@@ -69,7 +63,6 @@ must resolve without exemptions.
 - [ ] Delegation, when present, names the agent and the reason a fresh context is needed
 
 ## Integration
-
 - [ ] Plausible overlaps resolved by activation boundaries; not-for cases included when useful
 - [ ] Related topics consolidated rather than split into near-duplicate skills
 - [ ] For kit skills: `metadata.workflow` refs resolve in every consuming kit; contract tests still pass

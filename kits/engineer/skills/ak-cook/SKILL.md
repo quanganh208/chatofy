@@ -1,14 +1,14 @@
 ---
 name: ak:cook
-description: 'Implement features, plans, and fixes with structured workflow. Use for feature development, plan execution, code implementation pipelines.'
+description: "Implement features, plans, and fixes with structured workflow. Use for feature development, plan execution, code implementation pipelines."
 user-invocable: true
-when_to_use: 'Invoke to implement known scope after requirements are clear.'
+when_to_use: "Invoke to implement known scope after requirements are clear."
 category: workflow
 keywords: [implementation, workflow, feature, pipeline]
-argument-hint: '[task|plan-path] [--interactive|--fast|--parallel|--auto|--no-test] [--tdd] [--advice] [--yagni] [--skip-journal]'
+argument-hint: "[task|plan-path] [--interactive|--fast|--parallel|--auto|--no-test] [--tdd] [--advice] [--yagni] [--skip-journal]"
 metadata:
   author: agentkit
-  version: '2.5.1'
+  version: "2.5.1"
   workflow:
     follows: [ak-plan]
     precedes: [ak-test]
@@ -26,15 +26,15 @@ Repair regressions caused by the change and rerun affected checks before finishi
 
 ## Select a mode
 
-| Input              | Route                                                             |
-| ------------------ | ----------------------------------------------------------------- |
-| No flag            | Continue authorized implementation, checks, review and completion |
+| Input | Route |
+|---|---|
+| No flag | Continue authorized implementation, checks, review and completion |
 | Accepted plan path | Execute the plan with current evidence; retain its explicit modes |
-| `--interactive`    | Pause for user review at major steps                              |
-| `--fast`           | Skip research; inspect, make a concise plan, implement and verify |
-| `--parallel`       | Delegate independent owned work when supported and authorized     |
-| `--auto`           | Continue all authorized phases without routine approval           |
-| `--no-test`        | Skip test execution and report that verification gap              |
+| `--interactive` | Pause for user review at major steps |
+| `--fast` | Skip research; inspect, make a concise plan, implement and verify |
+| `--parallel` | Delegate independent owned work when supported and authorized |
+| `--auto` | Continue all authorized phases without routine approval |
+| `--no-test` | Skip test execution and report that verification gap |
 
 `--tdd` preserves current behavior with tests before each refactoring phase.
 `--advice` loads `references/advisory-supervision-checkpoints.md`; also honor an
@@ -64,13 +64,11 @@ For cross-skill sequence decisions use `references/workflow-routing.md`.
 ## Journal step — opt-out
 
 Skip the automatic `/ak:journal` step when either applies:
-
 - The invocation includes the `--skip-journal` flag, OR
 - `ak config prefs resolve --json | jq -r 'if .prefs.journal.auto == false then "false" else "true" end'` returns `false`. If the command errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt or missing config never suppresses the automatic journal.
 
 Precedence: flag > project config > user config > default (`true`).
 When skipped, print one line:
-
 - `journal skipped by --skip-journal` (flag), or
 - `journal skipped by preference` (config).
 

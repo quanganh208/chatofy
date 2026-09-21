@@ -18,13 +18,13 @@ Load `slides-create.md` for the creation workflow.
 
 ### Slides: Knowledge Base
 
-| Topic           | File                             |
-| --------------- | -------------------------------- |
-| Creation Guide  | `slides-create.md`               |
-| Layout Patterns | `slides-layout-patterns.md`      |
-| HTML Template   | `slides-html-template.md`        |
-| Copywriting     | `slides-copywriting-formulas.md` |
-| Strategies      | `slides-strategies.md`           |
+| Topic | File |
+|-------|------|
+| Creation Guide | `slides-create.md` |
+| Layout Patterns | `slides-layout-patterns.md` |
+| HTML Template | `slides-html-template.md` |
+| Copywriting | `slides-copywriting-formulas.md` |
+| Strategies | `slides-strategies.md` |
 
 ## Banner Design (Built-in)
 
@@ -42,28 +42,28 @@ Load `banner-sizes-and-styles.md` for complete sizes and styles reference.
 
 ### Banner: Quick Size Reference
 
-| Platform   | Type          | Size (px)       |
-| ---------- | ------------- | --------------- |
-| Facebook   | Cover         | 820 x 312       |
-| Twitter/X  | Header        | 1500 x 500      |
-| LinkedIn   | Personal      | 1584 x 396      |
-| YouTube    | Channel art   | 2560 x 1440     |
-| Instagram  | Story         | 1080 x 1920     |
-| Instagram  | Post          | 1080 x 1080     |
-| Google Ads | Med Rectangle | 300 x 250       |
-| Website    | Hero          | 1920 x 600-1080 |
+| Platform | Type | Size (px) |
+|----------|------|-----------|
+| Facebook | Cover | 820 x 312 |
+| Twitter/X | Header | 1500 x 500 |
+| LinkedIn | Personal | 1584 x 396 |
+| YouTube | Channel art | 2560 x 1440 |
+| Instagram | Story | 1080 x 1920 |
+| Instagram | Post | 1080 x 1080 |
+| Google Ads | Med Rectangle | 300 x 250 |
+| Website | Hero | 1920 x 600-1080 |
 
 ### Banner: Top Art Styles
 
-| Style           | Best For         |
-| --------------- | ---------------- |
-| Minimalist      | SaaS, tech       |
-| Bold Typography | Announcements    |
-| Gradient        | Modern brands    |
-| Photo-Based     | Lifestyle, e-com |
-| Geometric       | Tech, fintech    |
-| Glassmorphism   | SaaS, apps       |
-| Neon/Cyberpunk  | Gaming, events   |
+| Style | Best For |
+|-------|----------|
+| Minimalist | SaaS, tech |
+| Bold Typography | Announcements |
+| Gradient | Modern brands |
+| Photo-Based | Lifestyle, e-com |
+| Geometric | Tech, fintech |
+| Glassmorphism | SaaS, apps |
+| Neon/Cyberpunk | Gaming, events |
 
 ### Banner: Design Rules
 
@@ -104,12 +104,12 @@ Load `social-photos-design.md` for sizes, templates, best practices.
 
 ### Social Photos: Key Sizes
 
-| Platform    | Size (px) | Platform  | Size (px) |
-| ----------- | --------- | --------- | --------- |
-| IG Post     | 1080×1080 | FB Post   | 1200×630  |
-| IG Story    | 1080×1920 | X Post    | 1200×675  |
-| IG Carousel | 1080×1350 | LinkedIn  | 1200×627  |
-| YT Thumb    | 1280×720  | Pinterest | 1000×1500 |
+| Platform | Size (px) | Platform | Size (px) |
+|----------|-----------|----------|-----------|
+| IG Post | 1080×1080 | FB Post | 1200×630 |
+| IG Story | 1080×1920 | X Post | 1200×675 |
+| IG Carousel | 1080×1350 | LinkedIn | 1200×627 |
+| YT Thumb | 1280×720 | Pinterest | 1000×1500 |
 
 ## Workflows
 

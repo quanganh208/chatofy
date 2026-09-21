@@ -226,27 +226,9 @@
     }
   ],
   "arrows": [
-    {
-      "source": "user",
-      "target": "app",
-      "source_port": "right",
-      "target_port": "left",
-      "flow": "read"
-    },
-    {
-      "source": "app",
-      "target": "llm",
-      "source_port": "right",
-      "target_port": "left",
-      "flow": "control"
-    },
-    {
-      "source": "llm",
-      "target": "client",
-      "source_port": "right",
-      "target_port": "left",
-      "flow": "control"
-    },
+    { "source": "user", "target": "app", "source_port": "right", "target_port": "left", "flow": "read" },
+    { "source": "app", "target": "llm", "source_port": "right", "target_port": "left", "flow": "control" },
+    { "source": "llm", "target": "client", "source_port": "right", "target_port": "left", "flow": "control" },
     {
       "source": "llm",
       "target": "manager",
@@ -268,22 +250,8 @@
       "label_dx": 18,
       "label_dy": -12
     },
-    {
-      "source": "extractor",
-      "target": "manager",
-      "source_port": "right",
-      "target_port": "left",
-      "flow": "data",
-      "label": "facts"
-    },
-    {
-      "source": "resolver",
-      "target": "manager",
-      "source_port": "left",
-      "target_port": "right",
-      "flow": "data",
-      "label": "resolved"
-    },
+    { "source": "extractor", "target": "manager", "source_port": "right", "target_port": "left", "flow": "data", "label": "facts" },
+    { "source": "resolver", "target": "manager", "source_port": "left", "target_port": "right", "flow": "data", "label": "resolved" },
     {
       "source": "manager",
       "target": "vector",
@@ -292,90 +260,17 @@
       "flow": "write",
       "dashed": true,
       "label": "write",
-      "route_points": [
-        [370, 332],
-        [150, 332]
-      ]
+      "route_points": [[370, 332], [150, 332]]
     },
-    {
-      "source": "manager",
-      "target": "graph",
-      "source_port": "bottom",
-      "target_port": "top",
-      "flow": "write",
-      "dashed": true,
-      "route_points": [
-        [470, 332],
-        [394, 332]
-      ]
-    },
-    {
-      "source": "manager",
-      "target": "kv",
-      "source_port": "bottom",
-      "target_port": "top",
-      "flow": "write",
-      "dashed": true,
-      "route_points": [
-        [610, 332],
-        [641, 332]
-      ]
-    },
-    {
-      "source": "manager",
-      "target": "history",
-      "source_port": "bottom",
-      "target_port": "top",
-      "flow": "write",
-      "dashed": true,
-      "route_points": [
-        [725, 332],
-        [858, 332]
-      ]
-    },
-    {
-      "source": "vector",
-      "target": "builder",
-      "source_port": "bottom",
-      "target_port": "top",
-      "flow": "read",
-      "label": "read"
-    },
-    {
-      "source": "graph",
-      "target": "builder",
-      "source_port": "bottom",
-      "target_port": "top",
-      "flow": "read"
-    },
-    {
-      "source": "kv",
-      "target": "ranker",
-      "source_port": "bottom",
-      "target_port": "top",
-      "flow": "read"
-    },
-    {
-      "source": "history",
-      "target": "ranker",
-      "source_port": "bottom",
-      "target_port": "top",
-      "flow": "read"
-    },
-    {
-      "source": "builder",
-      "target": "ranker",
-      "source_port": "right",
-      "target_port": "left",
-      "flow": "control"
-    },
-    {
-      "source": "ranker",
-      "target": "output",
-      "source_port": "right",
-      "target_port": "left",
-      "flow": "control"
-    },
+    { "source": "manager", "target": "graph", "source_port": "bottom", "target_port": "top", "flow": "write", "dashed": true, "route_points": [[470, 332], [394, 332]] },
+    { "source": "manager", "target": "kv", "source_port": "bottom", "target_port": "top", "flow": "write", "dashed": true, "route_points": [[610, 332], [641, 332]] },
+    { "source": "manager", "target": "history", "source_port": "bottom", "target_port": "top", "flow": "write", "dashed": true, "route_points": [[725, 332], [858, 332]] },
+    { "source": "vector", "target": "builder", "source_port": "bottom", "target_port": "top", "flow": "read", "label": "read" },
+    { "source": "graph", "target": "builder", "source_port": "bottom", "target_port": "top", "flow": "read" },
+    { "source": "kv", "target": "ranker", "source_port": "bottom", "target_port": "top", "flow": "read" },
+    { "source": "history", "target": "ranker", "source_port": "bottom", "target_port": "top", "flow": "read" },
+    { "source": "builder", "target": "ranker", "source_port": "right", "target_port": "left", "flow": "control" },
+    { "source": "ranker", "target": "output", "source_port": "right", "target_port": "left", "flow": "control" },
     {
       "source": "client",
       "target": "output",
@@ -383,10 +278,7 @@
       "target_port": "right",
       "flow": "control",
       "dashed": true,
-      "route_points": [
-        [1060, 131],
-        [1060, 637]
-      ],
+      "route_points": [[1060, 131], [1060, 637]],
       "corridor_x": [970],
       "label": "context",
       "label_dx": 28,

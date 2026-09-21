@@ -22,12 +22,12 @@ Always in the user-facing menu for this skill. `ak:orchestrate` re-verifies
 acceptance from the live matrix at dispatch time; nothing here asserts
 current implementation support.
 
-| ID            | Kind                | Notes                                                                       |
-| ------------- | ------------------- | --------------------------------------------------------------------------- |
-| `claude-code` | CLI                 | Default target for interactive-workflow continuation.                       |
-| `codex`       | CLI                 | Uses the local `ak` MCP runtime for dispatch.                               |
-| `ak-run`      | Skill-run           | For AgentKit skill invocations.                                             |
-| `internal`    | In-session subagent | See `ak:orchestrate/references/internal-routing.md`. `--model` is rejected. |
+| ID | Kind | Notes |
+|---|---|---|
+| `claude-code` | CLI | Default target for interactive-workflow continuation. |
+| `codex` | CLI | Uses the local `ak` MCP runtime for dispatch. |
+| `ak-run` | Skill-run | For AgentKit skill invocations. |
+| `internal` | In-session subagent | See `ak:orchestrate/references/internal-routing.md`. `--model` is rejected. |
 
 ## External, preflight-gated
 
@@ -35,24 +35,24 @@ In the user-facing menu but always subject to orchestrate preflight. A
 missing binary, missing authentication, or unverified capability makes the
 candidate `unavailable` and returns a blocker without silent substitution.
 
-| ID          | Kind |
-| ----------- | ---- |
-| `opencode`  | CLI  |
-| `copilot`   | CLI  |
-| `cursor`    | CLI  |
-| `cline`     | CLI  |
-| `qwen-code` | CLI  |
-| `grok`      | CLI  |
-| `kimi`      | CLI  |
-| `agy`       | CLI  |
+| ID | Kind |
+|---|---|
+| `opencode` | CLI |
+| `copilot` | CLI |
+| `cursor` | CLI |
+| `cline` | CLI |
+| `qwen-code` | CLI |
+| `grok` | CLI |
+| `kimi` | CLI |
+| `agy` | CLI |
 
 ## Not dispatchable
 
 Explicitly denied. Rejecting immediately, with actionable guidance, is
 better than a silent substitution or a confusing preflight failure.
 
-| ID           | Rejection message                                                                                                                                                                    |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ID | Rejection message |
+|---|---|
 | `gemini-cli` | "The retired Gemini CLI path is not supported by ak:orchestrate. Choose a first-class runtime (`claude-code`, `codex`, `ak-run`, `internal`) or a preflight-gated external runtime." |
 
 ## User-supplied IDs

@@ -6,11 +6,11 @@ Three tiers adapt output density and automation to user proficiency.
 
 ## Tier Overview
 
-| Tier         | Profile                                 | Output Density   | Automation     | Explanations        |
-| ------------ | --------------------------------------- | ---------------- | -------------- | ------------------- |
-| Novice       | First cases, unfamiliar with OSINT      | Minimal, curated | High           | Built-in, always on |
-| Practitioner | Recurring use, knows core commands      | Moderate detail  | Selective      | On request          |
-| Specialist   | Daily operator, builds custom workflows | Full data dump   | Off by default | Reference only      |
+| Tier | Profile | Output Density | Automation | Explanations |
+|------|---------|----------------|------------|--------------|
+| Novice | First cases, unfamiliar with OSINT | Minimal, curated | High | Built-in, always on |
+| Practitioner | Recurring use, knows core commands | Moderate detail | Selective | On request |
+| Specialist | Daily operator, builds custom workflows | Full data dump | Off by default | Reference only |
 
 ---
 
@@ -18,13 +18,13 @@ Three tiers adapt output density and automation to user proficiency.
 
 ### Behavior Specs
 
-| Parameter            | Value                      |
-| -------------------- | -------------------------- |
-| Findings per screen  | Max 3, ranked by relevance |
-| Technical vocabulary | Translated on first use    |
-| Next-step prompts    | Always provided            |
-| Error handling       | Full recovery path         |
-| Confirmation gates   | All operations             |
+| Parameter | Value |
+|-----------|-------|
+| Findings per screen | Max 3, ranked by relevance |
+| Technical vocabulary | Translated on first use |
+| Next-step prompts | Always provided |
+| Error handling | Full recovery path |
+| Confirmation gates | All operations |
 
 ### Sample Output
 
@@ -55,13 +55,13 @@ Novice output:
 
 ### Behavior Specs
 
-| Parameter            | Value                        |
-| -------------------- | ---------------------------- |
-| Findings per screen  | Up to 10 with context        |
+| Parameter | Value |
+|-----------|-------|
+| Findings per screen | Up to 10 with context |
 | Technical vocabulary | Defined via `/define [term]` |
-| Next-step prompts    | Suggested when relevant      |
-| Error handling       | Short recovery steps         |
-| Confirmation gates   | Bulk operations only         |
+| Next-step prompts | Suggested when relevant |
+| Error handling | Short recovery steps |
+| Confirmation gates | Bulk operations only |
 
 ### Sample Output
 
@@ -83,13 +83,13 @@ Practitioner output:
 
 ### Behavior Specs
 
-| Parameter            | Value                                       |
-| -------------------- | ------------------------------------------- |
-| Findings per screen  | Raw structured data                         |
-| Technical vocabulary | Not defined                                 |
-| Next-step prompts    | Only via `/hint`                            |
-| Error handling       | Status codes only                           |
-| Confirmation gates   | Disabled (add `/confirm` flag to re-enable) |
+| Parameter | Value |
+|-----------|-------|
+| Findings per screen | Raw structured data |
+| Technical vocabulary | Not defined |
+| Next-step prompts | Only via `/hint` |
+| Error handling | Status codes only |
+| Confirmation gates | Disabled (add `/confirm` flag to re-enable) |
 
 ### Sample Output
 
@@ -118,21 +118,21 @@ Specialist output:
 
 ### Auto-Detection Signals
 
-| Signals → Novice                | Signals → Specialist     |
-| ------------------------------- | ------------------------ |
-| First session                   | Rapid command sequences  |
-| Full-sentence input             | Advanced flag usage      |
-| Repeated similar commands       | Custom dork construction |
-| High `/help` rate (>3 in 5 min) | Pipeline chaining        |
-| Syntax errors > 2 consecutive   | OSINT cert mention       |
+| Signals → Novice | Signals → Specialist |
+|------------------|---------------------|
+| First session | Rapid command sequences |
+| Full-sentence input | Advanced flag usage |
+| Repeated similar commands | Custom dork construction |
+| High `/help` rate (>3 in 5 min) | Pipeline chaining |
+| Syntax errors > 2 consecutive | OSINT cert mention |
 
 ### Tier Mismatch Prompts
 
-| Condition                                 | Prompt                                                         |
-| ----------------------------------------- | -------------------------------------------------------------- |
-| Specialist + frequent `/help`             | "Switch to Practitioner? `/tier practitioner`"                 |
-| Novice + advanced commands used correctly | "Try Practitioner tier? `/tier practitioner`"                  |
-| Novice + declining all explanations       | "Speed things up with Practitioner mode? `/tier practitioner`" |
+| Condition | Prompt |
+|-----------|--------|
+| Specialist + frequent `/help` | "Switch to Practitioner? `/tier practitioner`" |
+| Novice + advanced commands used correctly | "Try Practitioner tier? `/tier practitioner`" |
+| Novice + declining all explanations | "Speed things up with Practitioner mode? `/tier practitioner`" |
 
 ### Persistence
 
@@ -144,16 +144,16 @@ Specialist output:
 
 ## Tier Feature Matrix
 
-| Feature                | Novice        | Practitioner       | Specialist |
-| ---------------------- | ------------- | ------------------ | ---------- |
-| Output verbosity       | Curated       | Moderate           | Raw        |
-| Auto-explanation       | Always        | Never (on request) | Never      |
-| Operation confirmation | All           | Bulk only          | None       |
-| Error detail           | Full guide    | Steps              | Code       |
-| Progress display       | Visual + text | Text               | None       |
-| Examples shown         | Always        | On demand          | Never      |
-| Glossary links         | Auto-injected | Manual             | None       |
-| Tutorial offers        | Frequent      | Rare               | Never      |
+| Feature | Novice | Practitioner | Specialist |
+|---------|--------|--------------|------------|
+| Output verbosity | Curated | Moderate | Raw |
+| Auto-explanation | Always | Never (on request) | Never |
+| Operation confirmation | All | Bulk only | None |
+| Error detail | Full guide | Steps | Code |
+| Progress display | Visual + text | Text | None |
+| Examples shown | Always | On demand | Never |
+| Glossary links | Auto-injected | Manual | None |
+| Tutorial offers | Frequent | Rare | Never |
 
 ---
 

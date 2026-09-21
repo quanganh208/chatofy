@@ -7,7 +7,6 @@ python scripts/thumbnail.py template.pptx [output_prefix]
 ```
 
 **Features**:
-
 - Creates: `thumbnails.jpg` (or `thumbnails-1.jpg`, `thumbnails-2.jpg`, etc. for large decks)
 - Default: 5 columns, max 30 slides per grid (5×6)
 - Custom prefix: `python scripts/thumbnail.py template.pptx my-grid`
@@ -17,14 +16,12 @@ python scripts/thumbnail.py template.pptx [output_prefix]
 - Slides are zero-indexed (Slide 0, Slide 1, etc.)
 
 **Use cases**:
-
 - Template analysis: Quickly understand slide layouts and design patterns
 - Content review: Visual overview of entire presentation
 - Navigation reference: Find specific slides by their visual appearance
 - Quality check: Verify all slides are properly formatted
 
 **Examples**:
-
 ```bash
 # Basic usage
 python scripts/thumbnail.py presentation.pptx
@@ -38,7 +35,6 @@ python scripts/thumbnail.py template.pptx analysis --cols 4
 To visually analyze PowerPoint slides, convert them to images using a two-step process:
 
 1. **Convert PPTX to PDF**:
-
    ```bash
    soffice --headless --convert-to pdf template.pptx
    ```
@@ -50,7 +46,6 @@ To visually analyze PowerPoint slides, convert them to images using a two-step p
    This creates files like `slide-1.jpg`, `slide-2.jpg`, etc.
 
 Options:
-
 - `-r 150`: Sets resolution to 150 DPI (adjust for quality/size balance)
 - `-jpeg`: Output JPEG format (use `-png` for PNG if preferred)
 - `-f N`: First page to convert (e.g., `-f 2` starts from page 2)
@@ -58,15 +53,12 @@ Options:
 - `slide`: Prefix for output files
 
 Example for specific range:
-
 ```bash
 pdftoppm -jpeg -r 150 -f 2 -l 5 template.pdf slide  # Converts only pages 2-5
 ```
 
 ## Code Style Guidelines
-
 When generating code for PPTX operations:
-
 - Write concise code
 - Avoid verbose variable names and redundant operations
 - Avoid unnecessary print statements

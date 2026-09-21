@@ -6,19 +6,19 @@ The `ak:diagram` interactive reader provides rich, browser-free, self-contained 
 
 Every interaction operates strictly on **authored nodes and relationships** in the JSON IR; it never infers unverified topology or runtime causality.
 
-| Action / Feature       | Shortcut / Button         | Behavior                                                                                   |
-| ---------------------- | ------------------------- | ------------------------------------------------------------------------------------------ |
-| **Search & Filter**    | `/` or Search input       | Filters nodes by label, ID, or description; highlights matches and dims others             |
-| **Node Focus**         | Click on node             | Focuses selected node, dims unrelated nodes, and highlights direct incoming/outgoing edges |
-| **Clear Focus**        | `Escape` or Click canvas  | Clears all focus and dimming states                                                        |
-| **Reach Tracing**      | Context Menu / Script API | Traverses directed edges upstream (incoming) or downstream (outgoing) using BFS            |
-| **Route Inspection**   | `R` or Path controls      | Computes and highlights the deterministic shortest directed path between two nodes         |
-| **Role Lens**          | `L` or Role filter        | Highlights all nodes matching a declared semantic role (e.g., `database`, `gateway`)       |
-| **Presentation Stage** | `F`                       | Toggles distraction-free full-window presentation stage; `Escape` restores normal view     |
-| **Guided Stories**     | `[` / `]` or Chapter UI   | Plays through authored `meta.views` chapters sequentially                                  |
-| **Share Card Export**  | 📤 Card button            | Exports a canonical 1200×630 SVG share card representing the current diagram state         |
-| **Theme Toggle**       | ☀️ / 🌙                   | Toggles between `light` and `dark` color tokens without altering geometry or preset        |
-| **Replay Motion**      | `M` or Replay button      | Re-arms the finite entrance (and trace pass when authored) from the first column           |
+| Action / Feature | Shortcut / Button | Behavior |
+|---|---|---|
+| **Search & Filter** | `/` or Search input | Filters nodes by label, ID, or description; highlights matches and dims others |
+| **Node Focus** | Click on node | Focuses selected node, dims unrelated nodes, and highlights direct incoming/outgoing edges |
+| **Clear Focus** | `Escape` or Click canvas | Clears all focus and dimming states |
+| **Reach Tracing** | Context Menu / Script API | Traverses directed edges upstream (incoming) or downstream (outgoing) using BFS |
+| **Route Inspection** | `R` or Path controls | Computes and highlights the deterministic shortest directed path between two nodes |
+| **Role Lens** | `L` or Role filter | Highlights all nodes matching a declared semantic role (e.g., `database`, `gateway`) |
+| **Presentation Stage** | `F` | Toggles distraction-free full-window presentation stage; `Escape` restores normal view |
+| **Guided Stories** | `[` / `]` or Chapter UI | Plays through authored `meta.views` chapters sequentially |
+| **Share Card Export** | 📤 Card button | Exports a canonical 1200×630 SVG share card representing the current diagram state |
+| **Theme Toggle** | ☀️ / 🌙 | Toggles between `light` and `dark` color tokens without altering geometry or preset |
+| **Replay Motion** | `M` or Replay button | Re-arms the finite entrance (and trace pass when authored) from the first column |
 
 ## Visual Presets
 

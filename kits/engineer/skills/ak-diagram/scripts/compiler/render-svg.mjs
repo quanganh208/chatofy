@@ -25,8 +25,7 @@ function renderHeader(scene) {
   const y = scene.viewBox.y + 34;
   let out = '<g class="ak-header">';
   if (title) out += `<text class="ak-title" x="${fmt(x)}" y="${fmt(y)}">${escapeXml(title)}</text>`;
-  if (subtitle)
-    out += `<text class="ak-subtitle" x="${fmt(x)}" y="${fmt(y + 18)}">${escapeXml(subtitle)}</text>`;
+  if (subtitle) out += `<text class="ak-subtitle" x="${fmt(x)}" y="${fmt(y + 18)}">${escapeXml(subtitle)}</text>`;
   return out + '</g>';
 }
 

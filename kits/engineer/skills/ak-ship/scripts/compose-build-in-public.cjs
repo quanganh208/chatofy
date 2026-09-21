@@ -69,9 +69,7 @@ function redactSecretsFromDraft(text) {
     if (out !== before) redactedAny = true;
   }
   if (redactedAny) {
-    process.stderr.write(
-      '[compose-build-in-public] warning: redacted secret-looking value(s) from the draft body\n',
-    );
+    process.stderr.write('[compose-build-in-public] warning: redacted secret-looking value(s) from the draft body\n');
   }
   return out;
 }
@@ -144,11 +142,7 @@ function composeBuildInPublic({
   sections.push('', "## What's next", whatsNext);
 
   if (collaborators && collaborators.length > 0) {
-    sections.push(
-      '',
-      '## A quick thanks',
-      `Thanks to ${collaborators.join(', ')} for the help along the way.`,
-    );
+    sections.push('', '## A quick thanks', `Thanks to ${collaborators.join(', ')} for the help along the way.`);
   }
 
   sections.push('', '_Shipping in the open._');
@@ -205,7 +199,7 @@ function main() {
 
   if (values.help) {
     console.error(
-      'Usage: node compose-build-in-public.cjs --pr-title <title> [--pr-body-file <path>] [--issue-body-file <path>] [--plan-overview-file <path>] [--plan-next-phase <text>] [--journal-blockers-file <path>] [--collaborators <n1,n2>] [--writing-style <name>] --output <path> [--json]',
+      'Usage: node compose-build-in-public.cjs --pr-title <title> [--pr-body-file <path>] [--issue-body-file <path>] [--plan-overview-file <path>] [--plan-next-phase <text>] [--journal-blockers-file <path>] [--collaborators <n1,n2>] [--writing-style <name>] --output <path> [--json]'
     );
     return;
   }
@@ -227,13 +221,9 @@ function main() {
   const draft = composeBuildInPublic({
     pr: { title: values['pr-title'], body: readFileIfExists(values['pr-body-file']) },
     issue: values['issue-body-file'] ? { body: readFileIfExists(values['issue-body-file']) } : null,
-    plan:
-      values['plan-overview-file'] || values['plan-next-phase']
-        ? {
-            overview: readFileIfExists(values['plan-overview-file']),
-            nextPhase: values['plan-next-phase'],
-          }
-        : null,
+    plan: values['plan-overview-file'] || values['plan-next-phase']
+      ? { overview: readFileIfExists(values['plan-overview-file']), nextPhase: values['plan-next-phase'] }
+      : null,
     journalEntries,
     collaborators: values.collaborators
       ? values.collaborators

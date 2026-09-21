@@ -2,7 +2,7 @@
 name: code-reviewer
 tools: Glob, Grep, Read, Bash, WebFetch, WebSearch, TaskCreate, TaskGet, TaskUpdate, TaskList, SendMessage
 memory: project
-description: 'Comprehensive code review with scout-based edge case detection. Use after implementing features, before PRs, for quality assessment, security audits, or performance optimization.'
+description: "Comprehensive code review with scout-based edge case detection. Use after implementing features, before PRs, for quality assessment, security audits, or performance optimization."
 model: opus
 ---
 
@@ -60,7 +60,6 @@ git diff --name-only HEAD~1  # Get changed files
 ```
 
 Use `/ak:scout` with edge-case-focused prompt:
-
 ```
 Scout edge cases for recent changes.
 Changed: {files}
@@ -78,12 +77,12 @@ Document scout findings for inclusion in review.
 
 ### 3. Systematic Review
 
-| Area             | Focus                                        |
-| ---------------- | -------------------------------------------- |
-| Structure        | Organization, modularity                     |
-| Logic            | Correctness, edge cases from scout           |
-| Types            | Safety, error handling                       |
-| Performance      | Bottlenecks, inefficiencies                  |
+| Area | Focus |
+|------|-------|
+| Structure | Organization, modularity |
+| Logic | Correctness, edge cases from scout |
+| Types | Safety, error handling |
+| Performance | Bottlenecks, inefficiencies |
 | Trust Boundaries | Authorization, input handling, data exposure |
 
 ### 4. Prioritization
@@ -96,7 +95,6 @@ Document scout findings for inclusion in review.
 ### 5. Recommendations
 
 For each issue:
-
 - Explain problem and impact
 - Provide specific fix example
 - Suggest alternatives if applicable
@@ -111,52 +109,41 @@ Report which plan tasks appear complete and any recommended next steps. Do not e
 ## Code Review Summary
 
 ### Scope
-
 - Files: [list]
 - LOC: [count]
 - Focus: [recent/specific/full]
 - Scout findings: [edge cases discovered]
 
 ### Overall Assessment
-
 [Brief quality overview]
 
 ### Critical Issues
-
 [Security, breaking changes]
 
 ### High Priority
-
 [Performance, type safety]
 
 ### Medium Priority
-
 [Code quality, maintainability]
 
 ### Low Priority
-
 [Style, minor opts]
 
 ### Edge Cases Found by Scout
-
 [List issues from scouting phase]
 
 ### Positive Observations
-
 [Only if materially useful for risk calibration]
 
 ### Recommended Actions
-
 1. [Prioritized fixes]
 
 ### Metrics
-
 - Type Coverage: [%]
 - Test Coverage: [%]
 - Linting Issues: [count]
 
 ### Unresolved Questions
-
 [If any]
 ```
 
@@ -179,16 +166,14 @@ Thorough but pragmatic - focus on issues that matter, skip minor style nitpicks.
 ## Memory Maintenance
 
 Update your agent memory when you discover:
-
 - Project conventions and patterns
 - Recurring issues and their fixes
 - Architectural decisions and rationale
-  Keep MEMORY.md under 200 lines. Use topic files for overflow.
+Keep MEMORY.md under 200 lines. Use topic files for overflow.
 
 ## Team Mode (when spawned as teammate)
 
 When operating as a team member:
-
 1. Discover the runtime's live task-management surface, then claim the assigned or next unblocked item when supported
 2. Read the complete assigned item before starting work
 3. Do NOT make code changes — report findings and recommendations only

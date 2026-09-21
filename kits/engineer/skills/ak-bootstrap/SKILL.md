@@ -1,15 +1,15 @@
 ---
 name: ak:bootstrap
-description: 'Bootstrap new projects with research, tech stack, design, planning, and implementation. Modes: full (default thorough), auto (explicit autonomous), fast (skip research), parallel (multi-agent).'
+description: "Bootstrap new projects with research, tech stack, design, planning, and implementation. Modes: full (default thorough), auto (explicit autonomous), fast (skip research), parallel (multi-agent)."
 user-invocable: true
-when_to_use: 'Invoke to start a new project or full-stack setup from scratch.'
+when_to_use: "Invoke to start a new project or full-stack setup from scratch."
 category: workflow
 keywords: [scaffold, project, setup, boilerplate]
 license: MIT
-argument-hint: '[requirements] [--full|--auto|--fast|--parallel] [--ultra] [--yagni] [--skip-journal]'
+argument-hint: "[requirements] [--full|--auto|--fast|--parallel] [--ultra] [--yagni] [--skip-journal]"
 metadata:
   author: agentkit
-  version: '1.1.3'
+  version: "1.1.3"
 ---
 
 # Bootstrap - New Project Scaffolding
@@ -26,22 +26,21 @@ End-to-end project bootstrapping from idea to running code.
 
 **Flags** (optional, default `--full`):
 
-| Flag         | Mode                      | User Gates                 | Planning Skill | Cook Skill           |
-| ------------ | ------------------------- | -------------------------- | -------------- | -------------------- |
-| `--full`     | Full workflow             | Missing material decisions | `--hard`       | default continuation |
-| `--auto`     | Automatic explicit opt-in | Missing material decisions | `--auto`       | `--auto`             |
-| `--fast`     | Quick                     | Missing material decisions | `--fast`       | default continuation |
-| `--parallel` | Multi-agent               | Missing material decisions | `--parallel`   | `--parallel`         |
+| Flag | Mode | User Gates | Planning Skill | Cook Skill |
+|------|------|------------|----------------|------------|
+| `--full` | Full workflow | Missing material decisions | `--hard` | default continuation |
+| `--auto` | Automatic explicit opt-in | Missing material decisions | `--auto` | `--auto` |
+| `--fast` | Quick | Missing material decisions | `--fast` | default continuation |
+| `--parallel` | Multi-agent | Missing material decisions | `--parallel` | `--parallel` |
 
 **Composable flags** (combine with any mode):
 
-| Flag      | Effect                                                                                                                                                                                 |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--yagni` | Opt into YAGNI: challenge and cut scope not needed for the stated outcome (default: scaffold the full requested scope). Passed through to `ak:plan` and `ak:cook`                      |
+| Flag | Effect |
+|------|--------|
+| `--yagni` | Opt into YAGNI: challenge and cut scope not needed for the stated outcome (default: scaffold the full requested scope). Passed through to `ak:plan` and `ak:cook` |
 | `--ultra` | Planning uses the best-of-5 verifier mode: the planning phase runs `/ak:plan --ultra` instead of the mode-mapped plan flag (see Ultra Verifier Mode). Hard-conflicts with `--parallel` |
 
 **Example:**
-
 ```
 /ak:bootstrap "Build a SaaS dashboard with auth" --fast
 /ak:bootstrap "E-commerce platform with Stripe" --parallel
@@ -74,7 +73,6 @@ Each mode loads a specific workflow reference + shared phases.
 If no flag provided, default to `--full`.
 
 Load the appropriate workflow reference:
-
 - `--full`: Load `references/workflow-full.md`
 - `--auto`: Load `references/workflow-auto.md` only when explicitly requested
 - `--fast`: Load `references/workflow-fast.md`
@@ -92,9 +90,7 @@ Inspect the actual destination, existing files, manifests and Git state first. R
 After early phases (research, tech stack, design), trigger downstream skills:
 
 ### Planning Phase
-
 Activate **ak:plan** skill with mode-appropriate flag:
-
 - `--full` → `/ak:plan --hard <requirements>` (thorough research + validation)
 - `--auto` → `/ak:plan --auto <requirements>` (auto-detect complexity)
 - `--fast` → `/ak:plan --fast <requirements>` (skip research)
@@ -110,9 +106,7 @@ accepted outcome, constraints, non-goals, and acceptance criteria.
 Planning skill outputs a plan path. Pass this to cook.
 
 ### Implementation Phase
-
 Activate **ak:cook** skill with the plan path and mode-appropriate flag:
-
 - `--full` → `/ak:cook <plan-path>` (continue within accepted scope)
 - `--auto` → `/ak:cook --auto <plan-path>` (explicit autonomous implementation)
 - `--fast` → `/ak:cook <plan-path>` (skip extra research, continue within accepted scope)
@@ -136,13 +130,11 @@ Elite software engineering expert specializing in system architecture and techni
 ### Journal step — opt-out
 
 Skip the automatic `/ak:journal` step when either applies:
-
 - The invocation includes the `--skip-journal` flag, OR
 - `ak config prefs resolve --json | jq -r 'if .prefs.journal.auto == false then "false" else "true" end'` returns `false`. If the command errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt or missing config never suppresses the automatic journal.
 
 Precedence: flag > project config > user config > default (`true`).
 When skipped, print one line:
-
 - `journal skipped by --skip-journal` (flag), or
 - `journal skipped by preference` (config).
 

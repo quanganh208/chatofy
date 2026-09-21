@@ -44,9 +44,9 @@ value is not protected by it.
 Maintenance inside an authorized scope is self-authorized when it is routine.
 Confirmation is required only for the non-routine edits below.
 
-| Tier                        | Edits                                                                                                                                                                                                                                                                                                          |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Routine (self-authorized)   | Correcting a path, command, or route that current evidence proves false; refreshing a record whose target moved; removing a duplicate of a route owned elsewhere; adding the first record for a route an authorized action just established, together with the minimal navigation pointer to it.               |
+| Tier | Edits |
+|---|---|
+| Routine (self-authorized) | Correcting a path, command, or route that current evidence proves false; refreshing a record whose target moved; removing a duplicate of a route owned elsewhere; adding the first record for a route an authorized action just established, together with the minimal navigation pointer to it. |
 | Non-routine (confirm first) | Replacing hand-written prose; replacing an existing owning document; changing a user's prior correction; granting or widening access; a refresh that enlarges the authorized actions, scope, or audience a record states; changing an approval path or quality gate; broadening the audience of a destination. |
 
 A refresh is routine only while it leaves the authorized actions, scope, and

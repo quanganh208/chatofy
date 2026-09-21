@@ -5,7 +5,6 @@ When `--format html` is specified, `ak:cti-expert` emits a self-contained, offli
 ## Shared Composition Contract
 
 Follow the shared HTML composition contract in `../ak-preview/references/html-skill-composition.md`:
-
 1. **Activate `ak:frontend-design` first** for layout, typography, responsive containers, dark/light styles, and accessibility.
 2. **Activate `ak:diagram` second** (when installed) to compile typed JSON IR for threat models, entity graphs, and attack sequence flows.
 3. **Fallback**: If `ak:diagram` is absent, produce clean semantic inline SVG/CSS with `<title>` and `<desc>`.

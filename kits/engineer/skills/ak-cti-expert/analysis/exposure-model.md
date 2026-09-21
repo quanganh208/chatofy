@@ -6,12 +6,12 @@ Structured assessment of a subject's observable exposure across four dimensions.
 
 ## Dimensions
 
-| Dimension               | Covers                                                              |
-| ----------------------- | ------------------------------------------------------------------- |
-| SURFACE_EXPOSURE        | Breadth of public-facing identity across platforms and indices      |
-| CREDENTIAL_EXPOSURE     | Presence in breach dumps, password reuse, authentication weaknesses |
-| REPUTATION_EXPOSURE     | Content that creates legal, professional, or social liability       |
-| INFRASTRUCTURE_EXPOSURE | Technical indicators: IPs, domains, known-malicious signals         |
+| Dimension | Covers |
+|---|---|
+| SURFACE_EXPOSURE | Breadth of public-facing identity across platforms and indices |
+| CREDENTIAL_EXPOSURE | Presence in breach dumps, password reuse, authentication weaknesses |
+| REPUTATION_EXPOSURE | Content that creates legal, professional, or social liability |
+| INFRASTRUCTURE_EXPOSURE | Technical indicators: IPs, domains, known-malicious signals |
 
 ---
 
@@ -19,15 +19,15 @@ Structured assessment of a subject's observable exposure across four dimensions.
 
 Each dimension scores 0–100 internally. The composite converts to a letter grade with numeric subscale (1–9).
 
-| Grade | Composite Range | Operational Meaning                           |
-| ----- | --------------- | --------------------------------------------- |
-| A     | 0–15            | Minimal exposure; no action warranted         |
-| B     | 16–30           | Low exposure; routine monitoring              |
-| C     | 31–45           | Moderate exposure; analyst review recommended |
-| D     | 46–65           | Significant exposure; active case warranted   |
-| F1    | 66–80           | High exposure; priority escalation            |
-| F2    | 81–90           | Critical exposure; immediate response         |
-| F3    | 91–100          | Severe exposure; emergency protocols          |
+| Grade | Composite Range | Operational Meaning |
+|---|---|---|
+| A | 0–15 | Minimal exposure; no action warranted |
+| B | 16–30 | Low exposure; routine monitoring |
+| C | 31–45 | Moderate exposure; analyst review recommended |
+| D | 46–65 | Significant exposure; active case warranted |
+| F1 | 66–80 | High exposure; priority escalation |
+| F2 | 81–90 | Critical exposure; immediate response |
+| F3 | 91–100 | Severe exposure; emergency protocols |
 
 Example: `D7` = composite score of 62 (within D band, near the F boundary).
 
@@ -47,15 +47,15 @@ def letter_grade(composite):
 
 Measures how widely a subject's identity is distributed.
 
-| Indicator                                                           | Points           |
-| ------------------------------------------------------------------- | ---------------- |
-| 5–9 confirmed platforms                                             | 12               |
-| 10–19 confirmed platforms                                           | 22               |
-| 20–49 confirmed platforms                                           | 32               |
-| 50+ confirmed platforms                                             | 42               |
+| Indicator | Points |
+|---|---|
+| 5–9 confirmed platforms | 12 |
+| 10–19 confirmed platforms | 22 |
+| 20–49 confirmed platforms | 32 |
+| 50+ confirmed platforms | 42 |
 | Presence on high-sensitivity platform (dating, extremist, dark web) | +18 per platform |
-| Multiple distinct personas detected                                 | +15              |
-| Cross-linked accounts (subject links them explicitly)               | +8               |
+| Multiple distinct personas detected | +15 |
+| Cross-linked accounts (subject links them explicitly) | +8 |
 
 ```python
 # see analysis/weight-engine.md for full per-indicator scoring
@@ -67,18 +67,18 @@ Measures how widely a subject's identity is distributed.
 
 Measures breach involvement and authentication hygiene.
 
-| Indicator                                                  | Points |
-| ---------------------------------------------------------- | ------ |
-| 0 breaches                                                 | 0      |
-| 1 breach                                                   | 22     |
-| 2–3 breaches                                               | 40     |
-| 4+ breaches                                                | 60     |
-| Breach within last 12 months                               | +18    |
-| Password exposed in breach                                 | +20    |
-| Credential reuse detected (same password across platforms) | +45    |
-| Similar password pattern across platforms                  | +25    |
-| No 2FA on any confirmed account                            | +10    |
-| Security question answers exposed                          | +12    |
+| Indicator | Points |
+|---|---|
+| 0 breaches | 0 |
+| 1 breach | 22 |
+| 2–3 breaches | 40 |
+| 4+ breaches | 60 |
+| Breach within last 12 months | +18 |
+| Password exposed in breach | +20 |
+| Credential reuse detected (same password across platforms) | +45 |
+| Similar password pattern across platforms | +25 |
+| No 2FA on any confirmed account | +10 |
+| Security question answers exposed | +12 |
 
 ```python
 # see analysis/weight-engine.md — breach_count_score + credential_reuse_score
@@ -90,16 +90,16 @@ Measures breach involvement and authentication hygiene.
 
 Measures content-derived liability.
 
-| Indicator                                                | Points |
-| -------------------------------------------------------- | ------ |
-| Inflammatory or harassing content                        | 25     |
-| Misinformation or false professional claims              | 22     |
-| Content contradicting stated credentials                 | 18     |
-| Mass deletion detected (cover-up signal)                 | 15     |
-| Archived but deleted controversial material              | 12     |
-| Documented court/legal mentions                          | 30     |
-| False DMCA or defamation indicators                      | 20     |
-| Association with named threat actor or criminal campaign | 35     |
+| Indicator | Points |
+|---|---|
+| Inflammatory or harassing content | 25 |
+| Misinformation or false professional claims | 22 |
+| Content contradicting stated credentials | 18 |
+| Mass deletion detected (cover-up signal) | 15 |
+| Archived but deleted controversial material | 12 |
+| Documented court/legal mentions | 30 |
+| False DMCA or defamation indicators | 20 |
+| Association with named threat actor or criminal campaign | 35 |
 
 ```python
 # see analysis/weight-engine.md — content_liability_score + legal_finding_score
@@ -111,18 +111,18 @@ Measures content-derived liability.
 
 Applies to cases with IP addresses, domains, or file hashes. Threat-intelligence sourced.
 
-| Indicator                           | Source         | Points |
-| ----------------------------------- | -------------- | ------ |
-| AbuseIPDB confidence 25–74%         | AbuseIPDB      | 20     |
-| AbuseIPDB confidence ≥ 75%          | AbuseIPDB      | 40     |
-| GreyNoise classification: malicious | GreyNoise      | 40     |
-| OTX pulse count 1–2                 | AlienVault OTX | 15     |
-| OTX pulse count ≥ 3                 | AlienVault OTX | 28     |
-| VirusTotal: 1–2 engine detections   | VirusTotal     | 10     |
-| VirusTotal: 3–9 engine detections   | VirusTotal     | 22     |
-| VirusTotal: ≥ 10 engine detections  | VirusTotal     | 40     |
-| Confirmed C2 / botnet node          | Any feed       | 45     |
-| Active phishing infrastructure      | Any feed       | 40     |
+| Indicator | Source | Points |
+|---|---|---|
+| AbuseIPDB confidence 25–74% | AbuseIPDB | 20 |
+| AbuseIPDB confidence ≥ 75% | AbuseIPDB | 40 |
+| GreyNoise classification: malicious | GreyNoise | 40 |
+| OTX pulse count 1–2 | AlienVault OTX | 15 |
+| OTX pulse count ≥ 3 | AlienVault OTX | 28 |
+| VirusTotal: 1–2 engine detections | VirusTotal | 10 |
+| VirusTotal: 3–9 engine detections | VirusTotal | 22 |
+| VirusTotal: ≥ 10 engine detections | VirusTotal | 40 |
+| Confirmed C2 / botnet node | Any feed | 45 |
+| Active phishing infrastructure | Any feed | 40 |
 
 ```python
 # see analysis/weight-engine.md — threat_intel_score

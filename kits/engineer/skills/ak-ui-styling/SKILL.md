@@ -2,14 +2,14 @@
 name: ak:ui-styling
 description: Style UIs with shadcn/ui components (Radix UI + Tailwind CSS). Use for accessible components, themes, dark mode, responsive layouts, design systems, color customization.
 user-invocable: true
-when_to_use: 'Invoke for shadcn, Tailwind, themes, or component styling.'
+when_to_use: "Invoke for shadcn, Tailwind, themes, or component styling."
 category: design
 keywords: [shadcn, radix, tailwind, themes]
 license: MIT
-argument-hint: '[component or layout]'
+argument-hint: "[component or layout]"
 metadata:
   author: agentkit
-  version: '1.1.1'
+  version: "1.1.1"
 ---
 
 # UI Styling Skill
@@ -24,7 +24,6 @@ Comprehensive skill for creating beautiful, accessible user interfaces combining
 ## When to Use This Skill
 
 Use when:
-
 - Building UI with React-based frameworks (Next.js, Vite, Remix, Astro)
 - Implementing accessible components (dialogs, forms, tables, navigation)
 - Styling with utility-first CSS approach
@@ -38,7 +37,6 @@ Use when:
 ## Core Stack
 
 ### Component Layer: shadcn/ui
-
 - Pre-built accessible components via Radix UI primitives
 - Copy-paste distribution model (components live in your codebase)
 - TypeScript-first with full type safety
@@ -46,7 +44,6 @@ Use when:
 - CLI-based installation and management
 
 ### Styling Layer: Tailwind CSS
-
 - Utility-first CSS framework
 - Build-time processing with zero runtime overhead
 - Mobile-first responsive design
@@ -54,7 +51,6 @@ Use when:
 - Automatic dead code elimination
 
 ### Visual Design Layer: Canvas
-
 - Museum-quality visual compositions
 - Philosophy-driven design approach
 - Sophisticated visual communication
@@ -72,7 +68,6 @@ Inspect package versions, `components.json`, existing Tailwind configuration, to
 See: `references/shadcn-components.md`
 
 Covers:
-
 - Form & input components (Button, Input, Select, Checkbox, Date Picker, Form validation)
 - Layout & navigation (Card, Tabs, Accordion, Navigation Menu)
 - Overlays & dialogs (Dialog, Drawer, Popover, Toast, Command)
@@ -86,7 +81,6 @@ Covers:
 See: `references/shadcn-theming.md`
 
 Covers:
-
 - Dark mode setup with next-themes
 - CSS variable system
 - Color customization and palettes
@@ -100,7 +94,6 @@ Covers:
 See: `references/shadcn-accessibility.md`
 
 Covers:
-
 - Radix UI accessibility features
 - Keyboard navigation patterns
 - Focus management
@@ -114,7 +107,6 @@ Covers:
 See: `references/tailwind-utilities.md`
 
 Covers:
-
 - Layout utilities (Flexbox, Grid, positioning)
 - Spacing system (padding, margin, gap)
 - Typography (font sizes, weights, alignment, line height)
@@ -129,7 +121,6 @@ Covers:
 See: `references/tailwind-responsive.md`
 
 Covers:
-
 - Mobile-first approach
 - Breakpoint system (sm, md, lg, xl, 2xl)
 - Responsive utility patterns
@@ -144,7 +135,6 @@ Covers:
 See: `references/tailwind-customization.md`
 
 Covers:
-
 - @theme directive for custom tokens
 - Custom colors and fonts
 - Spacing and breakpoint extensions
@@ -160,7 +150,6 @@ Covers:
 See: `references/canvas-design-system.md`
 
 Covers:
-
 - Design philosophy approach
 - Visual communication over text
 - Systematic patterns and composition
@@ -174,17 +163,13 @@ Covers:
 **Python automation for component installation and configuration generation.**
 
 ### shadcn_add.py
-
 Add shadcn/ui components with dependency handling:
-
 ```bash
 python scripts/shadcn_add.py button card dialog
 ```
 
 ### tailwind_config_gen.py
-
 Generate tailwind.config.js with custom theme:
-
 ```bash
 python scripts/tailwind_config_gen.py --colors brand:blue --fonts display:Inter
 ```
@@ -205,23 +190,19 @@ python scripts/tailwind_config_gen.py --colors brand:blue --fonts display:Inter
 ## Reference Navigation
 
 **Component Library**
-
 - `references/shadcn-components.md` - Complete component catalog
 - `references/shadcn-theming.md` - Theming and customization
 - `references/shadcn-accessibility.md` - Accessibility patterns
 
 **Styling System**
-
 - `references/tailwind-utilities.md` - Core utility classes
 - `references/tailwind-responsive.md` - Responsive design
 - `references/tailwind-customization.md` - Configuration and extensions
 
 **Visual Design**
-
 - `references/canvas-design-system.md` - Design philosophy and canvas workflows
 
 **Automation**
-
 - `scripts/shadcn_add.py` - Component installation
 - `scripts/tailwind_config_gen.py` - Config generation
 

@@ -12,11 +12,11 @@ Spec for exporting Indicators of Compromise (IOCs) from a case in machine-readab
 
 **Options:**
 
-| Option          | Default | Description                         |
-| --------------- | ------- | ----------------------------------- |
-| `--format stix` | —       | STIX 2.1 JSON bundle                |
-| `--format flat` | —       | One IOC per line with type prefix   |
-| `--format csv`  | —       | Structured CSV with metadata fields |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--format stix` | — | STIX 2.1 JSON bundle |
+| `--format flat` | — | One IOC per line with type prefix |
+| `--format csv`  | — | Structured CSV with metadata fields |
 
 Default format when `--format` is omitted: `flat`.
 
@@ -26,16 +26,16 @@ Default format when `--format` is omitted: `flat`.
 
 Subjects and findings are mapped to STIX 2.1 SCO (Cyber Observable) types:
 
-| Internal Type    | STIX 2.1 Type           | Flat Prefix | Notes                                                 |
-| ---------------- | ----------------------- | ----------- | ----------------------------------------------------- |
-| NETWORK_ADDR     | `ipv4-addr`             | `ip:`       | IPv6 maps to `ipv6-addr`                              |
-| DOMAIN           | `domain-name`           | `domain:`   |                                                       |
-| URL              | `url`                   | `url:`      |                                                       |
-| EMAIL            | `email-addr`            | `email:`    |                                                       |
-| FILE_HASH_MD5    | `file` (hashes.MD5)     | `md5:`      |                                                       |
-| FILE_HASH_SHA1   | `file` (hashes.SHA-1)   | `sha1:`     |                                                       |
-| FILE_HASH_SHA256 | `file` (hashes.SHA-256) | `sha256:`   |                                                       |
-| USERNAME         | — (custom)              | `handle:`   | Not a native STIX SCO; use `x-osint-handle` extension |
+| Internal Type   | STIX 2.1 Type   | Flat Prefix | Notes |
+|-----------------|-----------------|-------------|-------|
+| NETWORK_ADDR    | `ipv4-addr`     | `ip:`       | IPv6 maps to `ipv6-addr` |
+| DOMAIN          | `domain-name`   | `domain:`   | |
+| URL             | `url`           | `url:`      | |
+| EMAIL           | `email-addr`    | `email:`    | |
+| FILE_HASH_MD5   | `file` (hashes.MD5) | `md5:` | |
+| FILE_HASH_SHA1  | `file` (hashes.SHA-1) | `sha1:` | |
+| FILE_HASH_SHA256 | `file` (hashes.SHA-256) | `sha256:` | |
+| USERNAME        | — (custom)      | `handle:`   | Not a native STIX SCO; use `x-osint-handle` extension |
 
 Only subjects with `confidence >= 60` and `verified = true` are included by default. Pass `--min-confidence <n>` to override.
 
@@ -146,14 +146,14 @@ sha256,e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855,2026-02-
 
 **Column definitions:**
 
-| Column       | Source                                     | Notes                      |
-| ------------ | ------------------------------------------ | -------------------------- |
-| `type`       | IOC type mapping table above               | flat prefix value          |
-| `value`      | subject.value                              | normalized                 |
-| `first_seen` | finding.collected_at or subject.first_seen | ISO-8601                   |
-| `last_seen`  | most recent finding using this IOC         | ISO-8601; blank if unknown |
-| `confidence` | subject.confidence                         | 0–100                      |
-| `source`     | finding.id that introduced this IOC        | `FND-NNN`                  |
+| Column | Source | Notes |
+|--------|--------|-------|
+| `type` | IOC type mapping table above | flat prefix value |
+| `value` | subject.value | normalized |
+| `first_seen` | finding.collected_at or subject.first_seen | ISO-8601 |
+| `last_seen` | most recent finding using this IOC | ISO-8601; blank if unknown |
+| `confidence` | subject.confidence | 0–100 |
+| `source` | finding.id that introduced this IOC | `FND-NNN` |
 
 ---
 

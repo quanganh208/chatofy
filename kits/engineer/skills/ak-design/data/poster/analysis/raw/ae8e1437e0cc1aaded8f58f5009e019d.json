@@ -8,7 +8,12 @@
     "deconstructed",
     "editorial"
   ],
-  "palette_hexes": ["#FFFFFF", "#000000", "#444444", "#AAAAAA"],
+  "palette_hexes": [
+    "#FFFFFF",
+    "#000000",
+    "#444444",
+    "#AAAAAA"
+  ],
   "layout": {
     "grid": "broken grid",
     "focal": "center",
@@ -18,7 +23,12 @@
     "material": "digital mixed media",
     "finish": "photorealistic render, flat vector, digital glitch"
   },
-  "mood": ["dystopian", "futuristic", "intense", "technical"],
+  "mood": [
+    "dystopian",
+    "futuristic",
+    "intense",
+    "technical"
+  ],
   "shape_primitives": [
     "rectangle",
     "thick rule",
@@ -27,5 +37,10 @@
     "circle",
     "abstract geometric"
   ],
-  "typography": ["geometric sans", "extreme size contrast", "all caps", "monospace"]
+  "typography": [
+    "geometric sans",
+    "extreme size contrast",
+    "all caps",
+    "monospace"
+  ]
 }

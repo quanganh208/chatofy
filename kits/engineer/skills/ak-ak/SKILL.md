@@ -1,14 +1,14 @@
 ---
 name: ak:ak
-description: 'Operate the ak control-plane CLI itself — the AgentKit binary that installs, inspects, updates, recovers, and removes kits and their skills. Use when the next action is invoking an ak subcommand (init, kit, skills, plan, journal, doctor, recover, self-update, login), deciding between read-only inspection and lifecycle mutation, disambiguating project vs global scope, or interpreting ak --json output. Not for authoring skills (use ak:skill-creator) or routing generic work (use ak:agentkit).'
+description: "Operate the ak control-plane CLI itself — the AgentKit binary that installs, inspects, updates, recovers, and removes kits and their skills. Use when the next action is invoking an ak subcommand (init, kit, skills, plan, journal, doctor, recover, self-update, login), deciding between read-only inspection and lifecycle mutation, disambiguating project vs global scope, or interpreting ak --json output. Not for authoring skills (use ak:skill-creator) or routing generic work (use ak:agentkit)."
 user-invocable: true
-when_to_use: 'Invoke when the next action is running an ak subcommand or interpreting its output. Do not invoke for skill authoring (ak:skill-creator), plan writing (ak:plan), journal writing (ak:journal), generic task routing (ak:agentkit), or kit-specific workflows already covered by their own skills.'
+when_to_use: "Invoke when the next action is running an ak subcommand or interpreting its output. Do not invoke for skill authoring (ak:skill-creator), plan writing (ak:plan), journal writing (ak:journal), generic task routing (ak:agentkit), or kit-specific workflows already covered by their own skills."
 category: meta
 keywords: [ak, cli, lifecycle, install, kit, skills, scope, adapter, doctor, recover, self-update]
-argument-hint: '[goal or subcommand]'
+argument-hint: "[goal or subcommand]"
 metadata:
   author: agentkit
-  version: '1.0.1'
+  version: "1.0.1"
 ---
 
 # ak — safe CLI operation
@@ -34,15 +34,15 @@ Use `ak:ak` when the next concrete action is:
 
 Do **not** invoke for:
 
-| Intent                                                     | Route to                    |
-| ---------------------------------------------------------- | --------------------------- |
-| Authoring or refining a Claude skill                       | `ak:skill-creator`          |
-| Writing or executing an implementation plan                | `ak:plan`, `ak:cook`        |
-| Writing a technical journal entry                          | `ak:journal`                |
-| Choosing which installed skill fits a task                 | `ak:agentkit` (task router) |
-| Any kit-specific workflow already covered by its own skill | that skill                  |
+| Intent | Route to |
+|--------|----------|
+| Authoring or refining a Claude skill | `ak:skill-creator` |
+| Writing or executing an implementation plan | `ak:plan`, `ak:cook` |
+| Writing a technical journal entry | `ak:journal` |
+| Choosing which installed skill fits a task | `ak:agentkit` (task router) |
+| Any kit-specific workflow already covered by its own skill | that skill |
 
-`ak:agentkit` decides _which skill runs_. `ak:ak` runs _the ak binary itself_.
+`ak:agentkit` decides *which skill runs*. `ak:ak` runs *the ak binary itself*.
 
 ## Safe operating protocol
 
@@ -80,7 +80,7 @@ same binary/version and target; refresh only when either changes or syntax is un
    `ak kit refresh`, `ak self-update`, `ak uninstall`, or `ak recover`, run
    the corresponding read-only path: `ak doctor`, `ak kit list-kits`,
    `ak kit validate`, `ak skill verify`, `ak plan status`, `ak sessions
-list`, `ak backups list`, `ak diagnostics export`, etc. Preview conflicts
+   list`, `ak backups list`, `ak diagnostics export`, etc. Preview conflicts
    instead of guessing. **Snapshot before mutate:** before `ak recover`,
    `ak backups restore`, `ak uninstall`, or any command combined with
    `--fresh`, first run `ak backups create` (or confirm a current backup
@@ -101,7 +101,7 @@ list`, `ak backups list`, `ak diagnostics export`, etc. Preview conflicts
 
 ## Command families by task
 
-Names below are the _task category_; the full command list with
+Names below are the *task category*; the full command list with
 classifications is in
 [`references/command-reference.md`](./references/command-reference.md).
 Use the appendix to find the exact command, then `ak <cmd> --help` for
@@ -120,8 +120,8 @@ flags.
   Reads (`list`, `show`, `search`), writes (`install`, `remove`), and one
   domain-specific mutating action per group.
 - **Plans and journals** — file-first plan and journal management. `ak plan
-list|show|status|search|validate|resolve|parse` are read-only. `ak plan
-create|check|uncheck|add-phase|update|use|archive|close|reindex|migrate`
+  list|show|status|search|validate|resolve|parse` are read-only. `ak plan
+  create|check|uncheck|add-phase|update|use|archive|close|reindex|migrate`
   mutate the plan store or plan files. `ak plan kanban` is a diagnostic
   TUI. `ak journal list|show|validate` read; `ak journal create` writes.
 - **Diagnostics** — `ak doctor`, `ak activity`, `ak audit`, `ak sessions`,
@@ -161,13 +161,13 @@ create|check|uncheck|add-phase|update|use|archive|close|reindex|migrate`
   processes; `start` classifies as diagnostic, `stop` as mutating (it kills
   the process), `status` and `dry-run` as read-only.
 - **Config, auth, and MCP** — `ak config prefs
-resolve|set|unset|validate`, top-level auth commands (`ak login`,
+  resolve|set|unset|validate`, top-level auth commands (`ak login`,
   `ak logout`, `ak whoami`, `ak licenses`), and `ak mcp
-add|link|list|remove|show|verify`. Writes here reach user-scope
+  add|link|list|remove|show|verify`. Writes here reach user-scope
   state; verify scope before invoking. Note: auth commands are
   top-level, not under an `ak auth` parent.
 - **Selfupdate and migrations** — `ak self-update`, `ak migrate
-prefs|rollback`. Always run `ak versions` and check `ak changelog`
+  prefs|rollback`. Always run `ak versions` and check `ak changelog`
   before invoking; keep the installed skill copies in mind (see
   source-of-truth clause below — the binary can advance without the
   skill copies moving).

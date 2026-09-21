@@ -17,20 +17,17 @@ Patterns for launching multiple subagents in parallel to scout codebase, verify 
 ## Parallel Exploration (Scouting)
 
 Launch multiple `Explore` subagents simultaneously when needing to find:
-
 - Related files across different areas
 - Similar implementations/patterns
 - Dependencies and usage
 
 **Portable pattern:**
-
 - Delegate Explore with distinct prompts for area1, area2, and area3.
 - Claude Code native form: `delegate_agent capability(subagent_type="Explore", prompt="...", description="...")`.
 - Codex Desktop native form: `multi_agent_v1.spawn_agent(agent_type="Explore", message="...")`.
 
 **Example - Multi-area scouting:**
 Launch in one assistant turn when the runtime supports parallel calls:
-
 - Explore auth-related files in `src/`
 - Explore API routes handling users
 - Explore tests for the auth module
@@ -52,7 +49,6 @@ coordinate parallel agents when available. Otherwise, track scopes and status
 in the active plan.
 
 **Pattern - Parallel issue trees:**
-
 - Create separate plan items per independent issue.
 - Mark each issue's debug item as blocking its fix item.
 - Add a final integration-verify item blocked by all issue fixes.
@@ -64,13 +60,13 @@ blocked work only after prerequisites complete.
 
 ## When to Use Parallel
 
-| Scenario                              | Parallel Strategy                                                    |
-| ------------------------------------- | -------------------------------------------------------------------- |
-| Root cause unclear, multiple suspects | 2-3 Explore agents on different areas                                |
-| Multi-module fix                      | Explore each module in parallel when delegation is permitted         |
-| After implementation                  | `run_shell` for typecheck + lint + build; delegate only if permitted |
-| Before commit                         | `run_shell` for test + build + lint; delegate only if permitted      |
-| 2+ independent issues                 | Plan tree per issue + delegated fullstack-developer agents           |
+| Scenario | Parallel Strategy |
+|----------|-------------------|
+| Root cause unclear, multiple suspects | 2-3 Explore agents on different areas |
+| Multi-module fix | Explore each module in parallel when delegation is permitted |
+| After implementation | `run_shell` for typecheck + lint + build; delegate only if permitted |
+| Before commit | `run_shell` for test + build + lint; delegate only if permitted |
+| 2+ independent issues | Plan tree per issue + delegated fullstack-developer agents |
 
 ## Combining Explore + Tasks + Bash
 

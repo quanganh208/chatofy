@@ -1,7 +1,6 @@
 # Mode-specific port analysis
 
 Mode-specific focus:
-
 - `--compare`: architectural differences and trade-offs
 - `--copy`: compatibility gaps and the minimum adaptation needed
 - `--improve`: anti-patterns to replace during adoption

@@ -44,7 +44,6 @@ under "Known limitations" in the handoff below instead.
 **Accepted direction**: [the direction/brief this output committed to]
 
 **Files changed/created**:
-
 - `path/to/file` — [what changed]
 
 **Screenshots/preview path**: [file path or URL where the result can be viewed]

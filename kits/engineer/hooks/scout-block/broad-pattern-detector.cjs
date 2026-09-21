@@ -38,32 +38,10 @@ const BROAD_PATTERN_REGEXES = [
 
 // Common source directories that indicate a more specific search
 const SPECIFIC_DIRS = [
-  'src',
-  'lib',
-  'app',
-  'apps',
-  'packages',
-  'components',
-  'pages',
-  'api',
-  'server',
-  'client',
-  'web',
-  'mobile',
-  'shared',
-  'common',
-  'utils',
-  'helpers',
-  'services',
-  'hooks',
-  'store',
-  'routes',
-  'models',
-  'controllers',
-  'views',
-  'tests',
-  '__tests__',
-  'spec',
+  'src', 'lib', 'app', 'apps', 'packages', 'components', 'pages',
+  'api', 'server', 'client', 'web', 'mobile', 'shared', 'common',
+  'utils', 'helpers', 'services', 'hooks', 'store', 'routes',
+  'models', 'controllers', 'views', 'tests', '__tests__', 'spec'
 ];
 
 // High-risk paths (project/worktree roots)
@@ -73,7 +51,7 @@ const HIGH_RISK_INDICATORS = [
   // Project roots (contain package.json, etc.)
   /^\.?\/?$/,
   // Shallow paths (just one directory deep)
-  /^[^/]+\/?$/,
+  /^[^/]+\/?$/
 ];
 
 /**
@@ -145,18 +123,15 @@ function isHighLevelPath(basePath, cwd) {
   }
 
   // Check path depth - shallow paths are higher risk
-  const segments = normalized.split('/').filter((s) => s && s !== '.');
+  const segments = normalized.split('/').filter(s => s && s !== '.');
   if (segments.length <= 1) {
     return true;
   }
 
   // If path doesn't contain a specific directory, it's high-level
-  const hasSpecific = SPECIFIC_DIRS.some(
-    (dir) =>
-      normalized.includes(`/${dir}/`) ||
-      normalized.includes(`/${dir}`) ||
-      normalized.startsWith(`${dir}/`) ||
-      normalized === dir,
+  const hasSpecific = SPECIFIC_DIRS.some(dir =>
+    normalized.includes(`/${dir}/`) || normalized.includes(`/${dir}`) ||
+    normalized.startsWith(`${dir}/`) || normalized === dir
   );
 
   return !hasSpecific;
@@ -241,7 +216,7 @@ function detectBroadPatternIssue(toolInput) {
     blocked: true,
     reason: `Pattern '${pattern}' is too broad for ${basePath || 'project root'}`,
     pattern: pattern,
-    suggestions: suggestSpecificPatterns(pattern),
+    suggestions: suggestSpecificPatterns(pattern)
   };
 }
 
@@ -287,5 +262,5 @@ module.exports = {
   formatBroadPatternError,
   BROAD_PATTERN_REGEXES,
   SPECIFIC_DIRS,
-  HIGH_RISK_INDICATORS,
+  HIGH_RISK_INDICATORS
 };

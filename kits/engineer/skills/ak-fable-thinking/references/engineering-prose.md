@@ -179,23 +179,23 @@ exists.
 
 ## Evaluate before delivering (act-backed, per the Self-Review Gate)
 
-| Dimension     | Passes when                                               | Proven by         |
-| ------------- | --------------------------------------------------------- | ----------------- |
-| Reader        | the form is written for its reader's next action          | FRAME note        |
-| Why           | commit, PR, and ADR state the reason, not only the change | body check        |
-| Evidence      | commands and results shown; untested parts named          | tested section    |
-| Actionability | reviews and issues carry location plus fix                | per-comment audit |
-| Runnable      | every snippet and command executed                        | clean-shell run   |
-| Portability   | model-facing text carries no runtime-specific tokens      | lint pass         |
+| Dimension | Passes when | Proven by |
+|-----------|-------------|-----------|
+| Reader | the form is written for its reader's next action | FRAME note |
+| Why | commit, PR, and ADR state the reason, not only the change | body check |
+| Evidence | commands and results shown; untested parts named | tested section |
+| Actionability | reviews and issues carry location plus fix | per-comment audit |
+| Runnable | every snippet and command executed | clean-shell run |
+| Portability | model-facing text carries no runtime-specific tokens | lint pass |
 
 ## Do / Don't
 
-| Don't                                          | Instead                                          |
-| ---------------------------------------------- | ------------------------------------------------ |
-| Describe the diff in the commit body           | Explain why; let the diff show what              |
-| Paste the commit list as the PR body           | What, why, how, tested, risk, docs impact        |
-| Write "this could be cleaner"                  | Location, mechanism, severity, concrete fix      |
-| Ship a snippet you never ran                   | Run it in a clean shell; paste the real output   |
-| Mix tutorial, reference, and essay on one page | One page, one type, one reader                   |
-| Tell a model to "be careful"                   | Give a checkable rule with stated precedence     |
-| Open a README with adjectives                  | Open with what it is and one working quick start |
+| Don't | Instead |
+|-------|---------|
+| Describe the diff in the commit body | Explain why; let the diff show what |
+| Paste the commit list as the PR body | What, why, how, tested, risk, docs impact |
+| Write "this could be cleaner" | Location, mechanism, severity, concrete fix |
+| Ship a snippet you never ran | Run it in a clean shell; paste the real output |
+| Mix tutorial, reference, and essay on one page | One page, one type, one reader |
+| Tell a model to "be careful" | Give a checkable rule with stated precedence |
+| Open a README with adjectives | Open with what it is and one working quick start |

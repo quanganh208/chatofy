@@ -53,35 +53,35 @@ whois -h whois.vnnic.vn domain.vn
 
 #### ccTLD WHOIS Server Reference
 
-| TLD | WHOIS Server          | Country        |
-| --- | --------------------- | -------------- |
-| .vn | whois.vnnic.vn        | Vietnam        |
-| .th | whois.thnic.co.th     | Thailand       |
-| .sg | whois.sgnic.sg        | Singapore      |
-| .kr | whois.kr              | South Korea    |
-| .jp | whois.jprs.jp         | Japan          |
-| .cn | whois.cnnic.cn        | China          |
-| .tw | whois.twnic.net.tw    | Taiwan         |
-| .id | whois.id              | Indonesia      |
-| .my | whois.mynic.my        | Malaysia       |
-| .ph | whois.dot.ph          | Philippines    |
-| .in | whois.registry.in     | India          |
-| .ru | whois.tcinet.ru       | Russia         |
-| .br | whois.registro.br     | Brazil         |
-| .za | whois.registry.net.za | South Africa   |
-| .ng | whois.nic.net.ng      | Nigeria        |
-| .ke | whois.kenic.or.ke     | Kenya          |
-| .de | whois.denic.de        | Germany        |
-| .fr | whois.nic.fr          | France         |
-| .it | whois.nic.it          | Italy          |
-| .es | whois.nic.es          | Spain          |
-| .nl | whois.sidn.nl         | Netherlands    |
-| .uk | whois.nic.uk          | United Kingdom |
-| .au | whois.auda.org.au     | Australia      |
-| .nz | whois.srs.net.nz      | New Zealand    |
-| .mx | whois.mx              | Mexico         |
-| .ar | whois.nic.ar          | Argentina      |
-| .co | whois.nic.co          | Colombia       |
+| TLD | WHOIS Server | Country |
+|-----|-------------|---------|
+| .vn | whois.vnnic.vn | Vietnam |
+| .th | whois.thnic.co.th | Thailand |
+| .sg | whois.sgnic.sg | Singapore |
+| .kr | whois.kr | South Korea |
+| .jp | whois.jprs.jp | Japan |
+| .cn | whois.cnnic.cn | China |
+| .tw | whois.twnic.net.tw | Taiwan |
+| .id | whois.id | Indonesia |
+| .my | whois.mynic.my | Malaysia |
+| .ph | whois.dot.ph | Philippines |
+| .in | whois.registry.in | India |
+| .ru | whois.tcinet.ru | Russia |
+| .br | whois.registro.br | Brazil |
+| .za | whois.registry.net.za | South Africa |
+| .ng | whois.nic.net.ng | Nigeria |
+| .ke | whois.kenic.or.ke | Kenya |
+| .de | whois.denic.de | Germany |
+| .fr | whois.nic.fr | France |
+| .it | whois.nic.it | Italy |
+| .es | whois.nic.es | Spain |
+| .nl | whois.sidn.nl | Netherlands |
+| .uk | whois.nic.uk | United Kingdom |
+| .au | whois.auda.org.au | Australia |
+| .nz | whois.srs.net.nz | New Zealand |
+| .mx | whois.mx | Mexico |
+| .ar | whois.nic.ar | Argentina |
+| .co | whois.nic.co | Colombia |
 
 **Usage:** `whois -h <server> <domain>`
 
@@ -209,9 +209,9 @@ Tag findings: `[whois-lib]` · `[whois-cli]` · `[whois-api]` · `[whois-scrape]
 
 ## 8. Confidence Ratings
 
-| Source             | Tag            | Confidence | Notes                     |
-| ------------------ | -------------- | ---------- | ------------------------- |
-| whoisdomain parsed | [whois-lib]    | HIGH       | Direct WHOIS server query |
-| CLI whois raw      | [whois-cli]    | HIGH       | Authoritative server      |
-| Whoxy API          | [whois-api]    | MEDIUM     | Third-party aggregator    |
-| Web scrape         | [whois-scrape] | LOW        | May be cached/stale       |
+| Source | Tag | Confidence | Notes |
+|--------|-----|-----------|-------|
+| whoisdomain parsed | [whois-lib] | HIGH | Direct WHOIS server query |
+| CLI whois raw | [whois-cli] | HIGH | Authoritative server |
+| Whoxy API | [whois-api] | MEDIUM | Third-party aggregator |
+| Web scrape | [whois-scrape] | LOW | May be cached/stale |

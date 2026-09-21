@@ -1,7 +1,19 @@
 {
   "image": "d8209a3ab55acb51fc51a77807842349.jpg",
-  "style_cues": ["abstract", "monochromatic", "layered", "textural", "typographic"],
-  "palette_hexes": ["#000000", "#FFFFFF", "#333333", "#999999", "#CCCCCC"],
+  "style_cues": [
+    "abstract",
+    "monochromatic",
+    "layered",
+    "textural",
+    "typographic"
+  ],
+  "palette_hexes": [
+    "#000000",
+    "#FFFFFF",
+    "#333333",
+    "#999999",
+    "#CCCCCC"
+  ],
   "layout": {
     "grid": "dynamic composition",
     "focal": "full-bleed",
@@ -11,7 +23,12 @@
     "material": "translucent fabric",
     "finish": "photorealistic folds"
   },
-  "mood": ["artistic", "abstract", "subtle", "editorial"],
+  "mood": [
+    "artistic",
+    "abstract",
+    "subtle",
+    "editorial"
+  ],
   "shape_primitives": [
     "large letterforms",
     "organic fabric folds",
@@ -20,5 +37,10 @@
     "thick rule",
     "square"
   ],
-  "typography": ["geometric sans", "all caps", "extreme size contrast", "overlapping"]
+  "typography": [
+    "geometric sans",
+    "all caps",
+    "extreme size contrast",
+    "overlapping"
+  ]
 }

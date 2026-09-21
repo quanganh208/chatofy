@@ -7,7 +7,13 @@
     "geometric overlay",
     "high-contrast"
   ],
-  "palette_hexes": ["#000000", "#c26f4f", "#f0d1bd", "#5b7a70", "#ffffff"],
+  "palette_hexes": [
+    "#000000",
+    "#c26f4f",
+    "#f0d1bd",
+    "#5b7a70",
+    "#ffffff"
+  ],
   "layout": {
     "grid": "diagonal composition",
     "focal": "center",
@@ -17,12 +23,22 @@
     "material": "digital print",
     "finish": "painterly brushstrokes"
   },
-  "mood": ["bold", "serious", "elegant", "rebellious"],
+  "mood": [
+    "bold",
+    "serious",
+    "elegant",
+    "rebellious"
+  ],
   "shape_primitives": [
     "diagonal rectangles",
     "organic floral shapes",
     "geometric cross",
     "splatter"
   ],
-  "typography": ["blackletter display", "sans-serif contrast", "all caps", "distressed lettering"]
+  "typography": [
+    "blackletter display",
+    "sans-serif contrast",
+    "all caps",
+    "distressed lettering"
+  ]
 }

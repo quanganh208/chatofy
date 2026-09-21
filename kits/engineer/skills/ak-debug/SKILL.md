@@ -1,15 +1,15 @@
 ---
 name: ak:debug
-description: 'Debug systematically with root cause analysis before fixes. Use for bugs, test failures, unexpected behavior, performance issues, call stack tracing, multi-layer validation, log analysis, CI/CD failures, database diagnostics, system investigation.'
+description: "Debug systematically with root cause analysis before fixes. Use for bugs, test failures, unexpected behavior, performance issues, call stack tracing, multi-layer validation, log analysis, CI/CD failures, database diagnostics, system investigation."
 user-invocable: true
-when_to_use: 'Invoke when root cause must be proven before a fix.'
+when_to_use: "Invoke when root cause must be proven before a fix."
 category: workflow
 keywords: [debug, root-cause, bugs, test-failures]
 languages: all
-argument-hint: '[error or issue description] [--ultra]'
+argument-hint: "[error or issue description] [--ultra]"
 metadata:
   author: agentkit
-  version: '4.1.3'
+  version: "4.1.3"
 ---
 
 # Debugging & System Investigation
@@ -121,7 +121,6 @@ Frontend fix   → frontend-verification.md (agent-browser/chrome-profile/Chrome
 ## Red Flags
 
 Stop and follow process if thinking:
-
 - "Quick fix for now, investigate later"
 - "Just try changing X and see if it works"
 - "It's probably X, let me fix that"

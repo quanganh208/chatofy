@@ -31,44 +31,21 @@ claim of savings or cross-model effectiveness. Unit fixtures test accounting, no
 ```json
 {
   "schema_version": 1,
-  "runs": [
-    {
-      "config": {
-        "id": "baseline",
-        "model": "<exact model>",
-        "effort": "<setting>",
-        "harness": "<version>"
-      },
-      "metadata": {
-        "benchmark": "<name>",
-        "benchmark_version": "<version>",
-        "source": "<source URL or receipt>",
-        "date": "2026-09-08",
-        "cohort": "<snapshot ID>",
-        "success_definition": "All task acceptance checks pass without user repair",
-        "duration_definition": "end-to-end wall-clock seconds including tools",
-        "step_definition": "assistant turns, including tool-use turns",
-        "limits": "<time, step and token limits>",
-        "cost_basis": {
-          "currency": "USD",
-          "pricing": "<invoice or dated rate source>",
-          "cache": "<cache inclusion>",
-          "tools": "<included/excluded costs>"
-        }
-      },
-      "rows": [
-        {
-          "task_id": "<task>",
-          "trial_id": "1",
-          "attempt": 1,
-          "success": null,
-          "cost": null,
-          "duration_seconds": null,
-          "agent_steps": null
-        }
-      ]
-    }
-  ]
+  "runs": [{
+    "config": {"id":"baseline","model":"<exact model>","effort":"<setting>","harness":"<version>"},
+    "metadata": {
+      "benchmark":"<name>","benchmark_version":"<version>",
+      "source":"<source URL or receipt>","date":"2026-09-08","cohort":"<snapshot ID>",
+      "success_definition":"All task acceptance checks pass without user repair",
+      "duration_definition":"end-to-end wall-clock seconds including tools",
+      "step_definition":"assistant turns, including tool-use turns",
+      "limits":"<time, step and token limits>",
+      "cost_basis":{"currency":"USD","pricing":"<invoice or dated rate source>",
+                    "cache":"<cache inclusion>","tools":"<included/excluded costs>"}
+    },
+    "rows":[{"task_id":"<task>","trial_id":"1","attempt":1,
+             "success":null,"cost":null,"duration_seconds":null,"agent_steps":null}]
+  }]
 }
 ```
 

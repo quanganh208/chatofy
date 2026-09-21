@@ -15,15 +15,15 @@ Estimates website traffic and popularity using free public ranking datasets and 
 
 ## 2. Tool Inventory
 
-| Priority  | Source                | Data Type         | Free Limit | Notes                         |
-| --------- | --------------------- | ----------------- | ---------- | ----------------------------- |
-| Primary   | Tranco                | Rank list         | Unlimited  | research-oriented, aggregated |
-| Primary   | Cloudflare Radar      | Rank + trend      | Unlimited  | requires free CF account      |
-| Primary   | Cisco Umbrella Top 1M | DNS rank          | Unlimited  | daily CSV from S3             |
-| Secondary | CrUX API              | Real user metrics | Unlimited  | requires free Google API key  |
-| Secondary | Majestic Million      | Link-based rank   | Unlimited  | daily CSV download            |
-| Tertiary  | Wayback Machine CDX   | Crawl frequency   | Unlimited  | no key required               |
-| Tertiary  | crt.sh                | CT log frequency  | Unlimited  | no key required               |
+| Priority | Source | Data Type | Free Limit | Notes |
+|----------|--------|-----------|-----------|-------|
+| Primary | Tranco | Rank list | Unlimited | research-oriented, aggregated |
+| Primary | Cloudflare Radar | Rank + trend | Unlimited | requires free CF account |
+| Primary | Cisco Umbrella Top 1M | DNS rank | Unlimited | daily CSV from S3 |
+| Secondary | CrUX API | Real user metrics | Unlimited | requires free Google API key |
+| Secondary | Majestic Million | Link-based rank | Unlimited | daily CSV download |
+| Tertiary | Wayback Machine CDX | Crawl frequency | Unlimited | no key required |
+| Tertiary | crt.sh | CT log frequency | Unlimited | no key required |
 
 ---
 
@@ -42,14 +42,12 @@ Estimates website traffic and popularity using free public ranking datasets and 
 ## 4. CLI Commands & Expected Output
 
 **Tranco rank:**
-
 ```bash
 curl -s "https://tranco-list.eu/api/ranks/domain/<domain>" | jq .
 # Returns: {"domain":"example.com","ranks":[{"list":"2024-01-15","rank":1523}]}
 ```
 
 **Cloudflare Radar:**
-
 ```bash
 curl -s "https://api.cloudflare.com/client/v4/radar/ranking/domain/<domain>" \
   -H "Authorization: Bearer <CF_FREE_TOKEN>" | jq '.result.details_0.bucket'
@@ -57,7 +55,6 @@ curl -s "https://api.cloudflare.com/client/v4/radar/ranking/domain/<domain>" \
 ```
 
 **Cisco Umbrella Top 1M:**
-
 ```bash
 curl -s "http://s3-us-west-1.amazonaws.com/umbrella-static/top-1m.csv.zip" -o /tmp/umbrella.zip
 unzip -p /tmp/umbrella.zip | grep -i "^[0-9]*,<domain>$"
@@ -65,7 +62,6 @@ unzip -p /tmp/umbrella.zip | grep -i "^[0-9]*,<domain>$"
 ```
 
 **CrUX API:**
-
 ```bash
 curl -s -X POST "https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=<GOOGLE_KEY>" \
   -H "Content-Type: application/json" \
@@ -74,7 +70,6 @@ curl -s -X POST "https://chromeuxreport.googleapis.com/v1/records:queryRecord?ke
 ```
 
 **Majestic Million:**
-
 ```bash
 curl -s "https://downloads.majestic.com/majestic_million.csv" -o /tmp/majestic.csv
 grep -i ",<domain>," /tmp/majestic.csv | cut -d',' -f1,3
@@ -82,14 +77,12 @@ grep -i ",<domain>," /tmp/majestic.csv | cut -d',' -f1,3
 ```
 
 **Wayback Machine crawl frequency:**
-
 ```bash
 curl -s "https://web.archive.org/cdx/search/cdx?url=<domain>/*&output=json&limit=0&showNumPages=true"
 # Returns page count; multiply by 100 for approximate snapshot count
 ```
 
 **crt.sh CT log frequency:**
-
 ```bash
 curl -s "https://crt.sh/?q=<domain>&output=json" | jq 'length'
 # Returns integer — certificate count; high = active domain
@@ -99,13 +92,13 @@ curl -s "https://crt.sh/?q=<domain>&output=json" | jq 'length'
 
 ## 5. Fallback Cascade
 
-| Primary Unavailable      | Use Instead                                           |
-| ------------------------ | ----------------------------------------------------- |
-| Tranco API down          | Download weekly list CSV from tranco-list.eu manually |
-| Cloudflare token missing | Use Radar web UI at radar.cloudflare.com              |
-| Umbrella S3 unavailable  | Use Majestic Million as substitute (same weight)      |
-| CrUX key missing         | Skip; note in report as unscored                      |
-| Majestic CSV unavailable | Use crt.sh count as activity proxy                    |
+| Primary Unavailable | Use Instead |
+|--------------------|-------------|
+| Tranco API down | Download weekly list CSV from tranco-list.eu manually |
+| Cloudflare token missing | Use Radar web UI at radar.cloudflare.com |
+| Umbrella S3 unavailable | Use Majestic Million as substitute (same weight) |
+| CrUX key missing | Skip; note in report as unscored |
+| Majestic CSV unavailable | Use crt.sh count as activity proxy |
 
 ---
 
@@ -130,14 +123,14 @@ Composite = sum(source_score × weight)
 
 **Tier classification:**
 
-| Tier         | Score  | Description                    |
-| ------------ | ------ | ------------------------------ |
-| Mega         | 85–100 | Top global properties          |
-| Very Popular | 65–84  | Major site, broad audience     |
-| Popular      | 45–64  | Established niche or regional  |
-| Moderate     | 25–44  | Smaller but active site        |
-| Niche        | 10–24  | Limited audience / low traffic |
-| Unranked     | 0–9    | No ranking signal found        |
+| Tier | Score | Description |
+|------|-------|-------------|
+| Mega | 85–100 | Top global properties |
+| Very Popular | 65–84 | Major site, broad audience |
+| Popular | 45–64 | Established niche or regional |
+| Moderate | 25–44 | Smaller but active site |
+| Niche | 10–24 | Limited audience / low traffic |
+| Unranked | 0–9 | No ranking signal found |
 
 **Tertiary signals:** Wayback snapshots > 500 = multi-year active history; crt.sh certs > 50 = active infrastructure.
 
@@ -145,16 +138,16 @@ Composite = sum(source_score × weight)
 
 ## 7. Confidence Ratings
 
-| Finding                    | Confidence | Notes                              |
-| -------------------------- | ---------- | ---------------------------------- |
-| Tranco rank (top 10k)      | HIGH       | Aggregated from multiple sources   |
-| Cloudflare bucket (top 1k) | HIGH       | Based on DNS resolver traffic      |
-| CrUX record present        | HIGH       | Real Chrome user data              |
-| Umbrella rank (top 100k)   | MEDIUM     | DNS-based, biased toward US        |
-| Majestic rank              | MEDIUM     | Link-graph proxy, not visits       |
-| Wayback frequency only     | LOW        | Crawl rate ≠ visitor traffic       |
-| crt.sh count only          | LOW        | Infrastructure signal, not traffic |
-| Unranked in all sources    | MEDIUM     | Likely low traffic, not certainty  |
+| Finding | Confidence | Notes |
+|---------|-----------|-------|
+| Tranco rank (top 10k) | HIGH | Aggregated from multiple sources |
+| Cloudflare bucket (top 1k) | HIGH | Based on DNS resolver traffic |
+| CrUX record present | HIGH | Real Chrome user data |
+| Umbrella rank (top 100k) | MEDIUM | DNS-based, biased toward US |
+| Majestic rank | MEDIUM | Link-graph proxy, not visits |
+| Wayback frequency only | LOW | Crawl rate ≠ visitor traffic |
+| crt.sh count only | LOW | Infrastructure signal, not traffic |
+| Unranked in all sources | MEDIUM | Likely low traffic, not certainty |
 
 ---
 
@@ -173,15 +166,15 @@ Composite = sum(source_score × weight)
 
 ## 9. Command Reference
 
-| Command                       | Purpose                           | Input       |
-| ----------------------------- | --------------------------------- | ----------- |
-| `/traffic <domain>`           | Full composite traffic estimate   | Domain name |
-| `/traffic <domain> --sources` | Per-source raw ranks              | Domain name |
+| Command | Purpose | Input |
+|---------|---------|-------|
+| `/traffic <domain>` | Full composite traffic estimate | Domain name |
+| `/traffic <domain> --sources` | Per-source raw ranks | Domain name |
 | `/traffic <domain> --history` | Wayback + crt.sh activity signals | Domain name |
 
 Report output includes: per-source rank and normalized score, weighted composite (0–100), tier label, and tertiary activity signals (Wayback snapshot count, crt.sh cert count).
 
 ---
 
-_Web Traffic Analysis Module v1.0.0_
-_Part of Free OSINT Expert Skill - Phase 5_
+*Web Traffic Analysis Module v1.0.0*
+*Part of Free OSINT Expert Skill - Phase 5*

@@ -8,12 +8,12 @@
 
 ## Tool Support
 
-| Tool       | Support | Method                 |
-| ---------- | ------- | ---------------------- |
-| Playwright | Native  | `>>` piercing selector |
-| Cypress    | Good    | `.shadow()` command    |
-| Selenium   | Limited | JS execution           |
-| Axe        | v5.7+   | API support            |
+| Tool | Support | Method |
+|------|---------|--------|
+| Playwright | Native | `>>` piercing selector |
+| Cypress | Good | `.shadow()` command |
+| Selenium | Limited | JS execution |
+| Axe | v5.7+ | API support |
 
 ## Playwright Shadow Piercing
 

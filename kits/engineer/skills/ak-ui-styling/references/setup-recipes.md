@@ -3,7 +3,6 @@
 ### Component + Styling Setup
 
 **Install shadcn/ui with Tailwind:**
-
 ```bash
 npx shadcn@latest init
 ```
@@ -11,16 +10,14 @@ npx shadcn@latest init
 CLI prompts for framework, TypeScript, paths, and theme preferences. This configures both shadcn/ui and Tailwind CSS.
 
 **Add components:**
-
 ```bash
 npx shadcn@latest add button card dialog form
 ```
 
 **Use components with utility styling:**
-
 ```tsx
-import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from "@/components/ui/button"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 
 export function Dashboard() {
   return (
@@ -37,25 +34,24 @@ export function Dashboard() {
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }
 ```
 
 ### Alternative: Tailwind-Only Setup
 
 **Vite projects:**
-
 ```bash
 npm install -D tailwindcss @tailwindcss/vite
 ```
 
 ```javascript
 // vite.config.ts
-import tailwindcss from '@tailwindcss/vite';
-export default { plugins: [tailwindcss()] };
+import tailwindcss from '@tailwindcss/vite'
+export default { plugins: [tailwindcss()] }
 ```
 
 ```css
 /* src/index.css */
-@import 'tailwindcss';
+@import "tailwindcss";
 ```

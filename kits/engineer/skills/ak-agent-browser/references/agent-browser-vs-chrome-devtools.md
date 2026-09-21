@@ -60,12 +60,12 @@ This restriction applies only after the decision tree says real profile state is
 
 ## Migration Notes
 
-| Old local script habit                         | Current route                                                            |
-| ---------------------------------------------- | ------------------------------------------------------------------------ |
-| `node navigate.js --url X`                     | `agent-browser open X`                                                   |
-| `node aria-snapshot.js --url X`                | `agent-browser open X && agent-browser snapshot -i`                      |
-| `node select-ref.js --ref e5 --action click`   | `agent-browser click @e5`                                                |
-| `node fill.js --selector "#email" --value "X"` | `agent-browser fill @e1 "X"`                                             |
-| `node screenshot.js --output X.png`            | `agent-browser screenshot -o X.png`                                      |
-| `node console.js --types error`                | Configured MCP browser console tools, or a project-local Playwright test |
-| `node network.js`                              | Configured MCP network tools, or a project-local Playwright test         |
+| Old local script habit | Current route |
+|------------------------|---------------|
+| `node navigate.js --url X` | `agent-browser open X` |
+| `node aria-snapshot.js --url X` | `agent-browser open X && agent-browser snapshot -i` |
+| `node select-ref.js --ref e5 --action click` | `agent-browser click @e5` |
+| `node fill.js --selector "#email" --value "X"` | `agent-browser fill @e1 "X"` |
+| `node screenshot.js --output X.png` | `agent-browser screenshot -o X.png` |
+| `node console.js --types error` | Configured MCP browser console tools, or a project-local Playwright test |
+| `node network.js` | Configured MCP network tools, or a project-local Playwright test |

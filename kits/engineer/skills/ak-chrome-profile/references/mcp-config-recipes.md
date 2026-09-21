@@ -21,11 +21,9 @@ Before telling the user that the browser is not connected:
 **Why:** This keeps the workflow independent of runtime-specific browser extensions. The first DevTools MCP call can trigger Chrome's remote-control consent prompt, which is exactly why agents must try the tool before declaring the bridge unavailable.
 
 ### Install
-
 1. Add Chrome DevTools MCP to the agent runtime's MCP config with auto-connect. Use the config format for the active host:
 
    Claude Code / AgentKit JSON:
-
    ```jsonc
    "mcpServers": {
      "chrome-devtools": {
@@ -36,7 +34,6 @@ Before telling the user that the browser is not connected:
    ```
 
    Codex / AgentKit TOML:
-
    ```toml
    [mcp_servers.chrome-devtools]
    command = "npx"
@@ -48,19 +45,16 @@ Before telling the user that the browser is not connected:
 3. Call the Chrome DevTools MCP page-list tool. If Chrome asks for remote-control approval, approve it and retry the same call once.
 
 ### Verify
-
 ```bash
 chrome-profile doctor
 # Static setup hint only. A live Chrome DevTools MCP page-list/read call is the final check.
 ```
 
 Then run a live probe through the runtime's Chrome DevTools MCP tools. In Claude Code, for example:
-
 - `mcp__chrome-devtools__list_pages` returns Chrome tabs.
 - `mcp__chrome-devtools__select_page` + `evaluate_script`/`take_snapshot` read the tab.
 
 ### Limits
-
 - The user may need to approve Chrome remote-control access on first use.
 - If auto-connect cannot attach to the intended Chrome process, use Recipe 2 with an explicit endpoint.
 
@@ -73,7 +67,6 @@ Then run a live probe through the runtime's Chrome DevTools MCP tools. In Claude
 **Trade-off:** Requires relaunching daily Chrome with `--remote-debugging-port=9222`. **Closes all open tabs** unless session restore catches them. Genuinely costly if you have live work in tabs.
 
 ### One-time setup
-
 ```bash
 # 1. Fully quit daily Chrome (Cmd-Q is NOT enough; this guarantees no helper survives):
 osascript -e 'quit app "Google Chrome"'
@@ -95,11 +88,9 @@ curl -s http://127.0.0.1:9222/json/version
 ```
 
 ### Wire the MCP
-
 Add the endpoint to the active runtime's MCP config.
 
 Claude Code / AgentKit JSON:
-
 ```jsonc
 "mcpServers": {
   "chrome-devtools": {
@@ -110,7 +101,6 @@ Claude Code / AgentKit JSON:
 ```
 
 Codex / AgentKit TOML:
-
 ```toml
 [mcp_servers.chrome-devtools]
 command = "npx"
@@ -121,7 +111,6 @@ enabled = true
 Restart the agent session.
 
 ### Verify
-
 ```bash
 chrome-profile doctor
 # Expected: bridge=chrome_devtools_mcp_attached, ok=true,
@@ -129,7 +118,6 @@ chrome-profile doctor
 ```
 
 Then run a live probe through the runtime's available tools. In Claude Code, for example:
-
 - `mcp__chrome-devtools__list_pages` returns daily-Chrome tabs (across all profiles).
 - `mcp__chrome-devtools__select_page` + `evaluate_script`/`take_snapshot` read the tab.
 
@@ -169,7 +157,6 @@ ps -axww -o pid=,ppid=,command= | rg 'ssh .*-[LDR]|ssh .*9222|chrome-devtools-mc
 ```
 
 Interpretation:
-
 - `127.0.0.1:9222` listening but the tailnet IP refuses `:9222` means the port is
   local-only, not published through Tailscale.
 - `No serve config` and `No funnel config` mean Tailscale is not publishing it.
@@ -207,12 +194,12 @@ Then list Chrome DevTools MCP pages and select the page whose URL contains the r
 
 ## Quick decision matrix
 
-| Your situation                                                   | Recipe                                                                                            |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Daily Chrome with live work, multi-profile, agent must read tabs | **Recipe 1 (Chrome DevTools MCP auto-connect)**                                                   |
-| Fresh Chrome / CI / scripted, willing to relaunch                | **Recipe 2 (Chrome DevTools MCP attach)**                                                         |
-| Just want tab visible to yourself, no agent read                 | `chrome-profile <key> <url> --force`                                                              |
-| Unsure                                                           | Run `chrome-profile doctor`, then try a live Chrome DevTools MCP page-list probe before blocking. |
+| Your situation | Recipe |
+|---|---|
+| Daily Chrome with live work, multi-profile, agent must read tabs | **Recipe 1 (Chrome DevTools MCP auto-connect)** |
+| Fresh Chrome / CI / scripted, willing to relaunch | **Recipe 2 (Chrome DevTools MCP attach)** |
+| Just want tab visible to yourself, no agent read | `chrome-profile <key> <url> --force` |
+| Unsure | Run `chrome-profile doctor`, then try a live Chrome DevTools MCP page-list probe before blocking. |
 
 ---
 

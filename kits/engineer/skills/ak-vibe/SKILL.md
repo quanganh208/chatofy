@@ -1,34 +1,15 @@
 ---
 name: ak:vibe
-description: 'Run the full vibe pipeline from request intake to PR readiness, with optional merge and post-merge CI convergence. Orchestrates worktree, plan, cook/fix, code-review, ship, and review-pr, integrating debug, research, test, and docs. Supports dual-stage beta-then-stable ships via --both, ultra verifier mode via --ultra, and kongming advisory supervision via --advice.'
+description: "Run the full vibe pipeline from request intake to PR readiness, with optional merge and post-merge CI convergence. Orchestrates worktree, plan, cook/fix, code-review, ship, and review-pr, integrating debug, research, test, and docs. Supports dual-stage beta-then-stable ships via --both, ultra verifier mode via --ultra, and kongming advisory supervision via --advice."
 user-invocable: true
-when_to_use: 'Invoke when a user wants one command to take a GitHub issue or feature request from planning through implementation, PR review, shipping, and optional merge.'
+when_to_use: "Invoke when a user wants one command to take a GitHub issue or feature request from planning through implementation, PR review, shipping, and optional merge."
 category: workflow
-keywords:
-  [
-    vibe,
-    pipeline,
-    autonomous,
-    ship,
-    worktree,
-    plan,
-    cook,
-    fix,
-    review-pr,
-    ci,
-    advice,
-    kongming,
-    ultra,
-    debug,
-    research,
-    test,
-    docs,
-  ]
-argument-hint: '[--ship] [--beta] [--both] [--advice] [--ultra] <github-issue-url | feature request>'
+keywords: [vibe, pipeline, autonomous, ship, worktree, plan, cook, fix, review-pr, ci, advice, kongming, ultra, debug, research, test, docs]
+argument-hint: "[--ship] [--beta] [--both] [--advice] [--ultra] <github-issue-url | feature request>"
 license: MIT
 metadata:
   author: agentkit
-  version: '1.4.1'
+  version: "1.4.1"
 ---
 
 # Vibe Pipeline
@@ -46,15 +27,15 @@ security policies.
 
 Flags:
 
-| Flag        | Effect                                                                                                                                                                                                                         |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--beta`    | Ship to beta/dev target via `/ak:ship beta`; final ready label is `ready to ship beta`.                                                                                                                                        |
-| `--ship`    | After review/fix/reply, merge the PR and watch/fix CI until success or true external blocker.                                                                                                                                  |
-| `--both`    | Dual-stage ship: run the full beta stage first (ship, review, merge, watch CI until green), then the stable stage (ship official, review, merge, watch CI until green). Implies `--ship` for both stages; supersedes `--beta`. |
-| `--advice`  | Run the whole pipeline under `kongming` advisory supervision, authoring plans formatted for handover to lower-capability executor models with verify-fail escalation (see Advisory supervision). Composes with any ship mode.  |
-| `--ultra`   | Run `/ak:plan` and `/ak:code-review` in ultra verifier mode (best-of-5 candidate pass; opt-in only, significantly increases run cost/time).                                                                                    |
-| no `--beta` | Ship stable via `/ak:ship official`; final ready label is `ready to ship stable`.                                                                                                                                              |
-| no `--ship` | Stop after PR is reviewed, fixed, replied, and labeled ready.                                                                                                                                                                  |
+| Flag | Effect |
+| --- | --- |
+| `--beta` | Ship to beta/dev target via `/ak:ship beta`; final ready label is `ready to ship beta`. |
+| `--ship` | After review/fix/reply, merge the PR and watch/fix CI until success or true external blocker. |
+| `--both` | Dual-stage ship: run the full beta stage first (ship, review, merge, watch CI until green), then the stable stage (ship official, review, merge, watch CI until green). Implies `--ship` for both stages; supersedes `--beta`. |
+| `--advice` | Run the whole pipeline under `kongming` advisory supervision, authoring plans formatted for handover to lower-capability executor models with verify-fail escalation (see Advisory supervision). Composes with any ship mode. |
+| `--ultra` | Run `/ak:plan` and `/ak:code-review` in ultra verifier mode (best-of-5 candidate pass; opt-in only, significantly increases run cost/time). |
+| no `--beta` | Ship stable via `/ak:ship official`; final ready label is `ready to ship stable`. |
+| no `--ship` | Stop after PR is reviewed, fixed, replied, and labeled ready. |
 
 Rows describe individual flags in isolation; when `--both` is present, mode
 resolution below wins. Mode resolution: `--both` > `--beta` > default stable.
@@ -74,7 +55,6 @@ subagents to accelerate work and provide fresh, unbiased context (planning fanou
 code-review fanout, testing, advisory reviews).
 
 For parallel implementation:
-
 - **Disjoint file ownership:** partition files strictly before fanning out; concurrent subagents in the same worktree MUST NOT touch the same file, because overlapping writes clobber each other. For multi-file writes, prefer worktree-isolated subagents via `ak:orchestrate`.
 - **Serialize shared files:** name one owner for shared schemas, exports, or configs.
 - **Contracts up front:** freeze interfaces before fanout; delegates run independent focused checks within their owned scope; serialize shared build outputs and expensive whole-worktree suites at integration.
@@ -284,7 +264,6 @@ implementation and comment assessment plus next steps on the PR and source issue
 ## GitHub Issue Body
 
 When creating or updating a pipeline issue, include:
-
 - **Outcome:** user-visible outcome.
 - **How It Works:** 3 operational bullets (mechanism, data flow, boundaries).
 - **Architecture / Flow:** Mermaid flowchart (`flowchart TD`) of components.
@@ -305,7 +284,6 @@ Full template: `references/report-templates.md`.
 ## Completion Report
 
 End every vibe run with a structured report containing:
-
 - **Vibe Result:** source, branch/worktree, plan, issue, PR(s), mode, route, review, merge, CI status, and disposition lines for all conditional steps (`Research`, `Debug`, `Test`, `Docs`: run or skipped + reason).
 - **Journey Diagram:** Mermaid flowchart (`flowchart LR`) showing pipeline execution path.
 - **Implementation Summary:** concrete changes shipped across components.

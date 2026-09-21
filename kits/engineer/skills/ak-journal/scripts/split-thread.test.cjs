@@ -14,7 +14,12 @@ test('splitThread: short text under the limit returns a single post with no numb
 });
 
 test('splitThread: long paragraph-heavy text splits on paragraph boundaries first', () => {
-  const paragraphs = ['A'.repeat(200), 'B'.repeat(200), 'C'.repeat(200), 'D'.repeat(200)];
+  const paragraphs = [
+    'A'.repeat(200),
+    'B'.repeat(200),
+    'C'.repeat(200),
+    'D'.repeat(200),
+  ];
   const text = paragraphs.join('\n\n');
   const result = splitThread(text, { platform: 'x' });
   assert.ok(result.posts.length > 1);
@@ -42,7 +47,7 @@ test('splitThread: single sentence longer than the limit splits at word boundari
       if (token === '') continue;
       assert.ok(
         /^word\d+\.?$/.test(token) || /^\(\d+\/\d+\)$/.test(token),
-        `unexpected mid-word fragment: "${token}"`,
+        `unexpected mid-word fragment: "${token}"`
       );
     }
   }
@@ -78,19 +83,14 @@ test('splitThread: fenced code block is treated as atomic, never split mid-fence
   const result = splitThread(text, { platform: 'threads', maxPosts: 6 });
   const codeHolder = result.posts.find((post) => post.includes('```js'));
   assert.ok(codeHolder, 'code fence must appear in some post');
-  assert.ok(
-    (codeHolder.includes('```js') && codeHolder.trim().endsWith('```') === false) ||
-      codeHolder.includes(code),
-  );
+  assert.ok(codeHolder.includes('```js') && codeHolder.trim().endsWith('```') === false || codeHolder.includes(code));
   // The fence markers must be balanced (even count) within whichever post holds it.
   const fenceCount = (codeHolder.match(/```/g) || []).length;
   assert.equal(fenceCount % 2, 0, 'code fence markers must be balanced, never split mid-fence');
 });
 
 test('splitThread: input needing more than maxPosts truncates with truncated=true and trailing ellipsis', () => {
-  const text = Array.from({ length: 20 }, (_, i) => `Paragraph number ${i} `.repeat(15)).join(
-    '\n\n',
-  );
+  const text = Array.from({ length: 20 }, (_, i) => `Paragraph number ${i} `.repeat(15)).join('\n\n');
   const result = splitThread(text, { platform: 'x', maxPosts: 6 });
   assert.equal(result.posts.length, 6);
   assert.equal(result.truncated, true);
@@ -101,17 +101,14 @@ test('splitThread: numbering budget is respected — every numbered post stays w
   const text = Array.from({ length: 6 }, (_, i) => `Section ${i}: ${'x'.repeat(270)}`).join('\n\n');
   const result = splitThread(text, { platform: 'x', maxPosts: 6 });
   for (const post of result.posts) {
-    assert.ok(
-      effectiveLength(post, 'x') <= LIMITS.x,
-      `numbered post exceeds limit: ${effectiveLength(post, 'x')}`,
-    );
+    assert.ok(effectiveLength(post, 'x') <= LIMITS.x, `numbered post exceeds limit: ${effectiveLength(post, 'x')}`);
   }
   if (result.posts.length > 1) {
     assert.match(result.posts[0], /\(\d+\/\d+\)$/);
   }
 });
 
-test("splitThread: threads platform uses the 500-char limit, not X's 280", () => {
+test('splitThread: threads platform uses the 500-char limit, not X\'s 280', () => {
   const text = 'word '.repeat(80).trim(); // 400 chars, many word boundaries
   const resultThreads = splitThread(text, { platform: 'threads' });
   assert.equal(resultThreads.posts.length, 1);
@@ -120,16 +117,10 @@ test("splitThread: threads platform uses the 500-char limit, not X's 280", () =>
 });
 
 test('CLI: prints a stderr truncation warning BEFORE the stdout JSON when truncated', () => {
-  const text = Array.from({ length: 20 }, (_, i) => `Paragraph number ${i} `.repeat(15)).join(
-    '\n\n',
-  );
-  const result = spawnSync(
-    process.execPath,
-    [path.join(__dirname, 'split-thread.cjs'), '--platform', 'x', '--text', text],
-    {
-      encoding: 'utf8',
-    },
-  );
+  const text = Array.from({ length: 20 }, (_, i) => `Paragraph number ${i} `.repeat(15)).join('\n\n');
+  const result = spawnSync(process.execPath, [path.join(__dirname, 'split-thread.cjs'), '--platform', 'x', '--text', text], {
+    encoding: 'utf8',
+  });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stderr, /^warning: input exceeds \d+ posts;.*consider shortening/);
   const parsed = JSON.parse(result.stdout);
@@ -137,13 +128,9 @@ test('CLI: prints a stderr truncation warning BEFORE the stdout JSON when trunca
 });
 
 test('CLI: no truncation warning and valid JSON for short input', () => {
-  const result = spawnSync(
-    process.execPath,
-    [path.join(__dirname, 'split-thread.cjs'), '--platform', 'threads', '--text', 'short body'],
-    {
-      encoding: 'utf8',
-    },
-  );
+  const result = spawnSync(process.execPath, [path.join(__dirname, 'split-thread.cjs'), '--platform', 'threads', '--text', 'short body'], {
+    encoding: 'utf8',
+  });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stderr, '');
   const parsed = JSON.parse(result.stdout);

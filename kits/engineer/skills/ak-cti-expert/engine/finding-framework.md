@@ -10,37 +10,37 @@ Findings attach to subjects and connections. They carry a type, a trust score, o
 
 Key properties:
 
-| Property       | Values                                            |
-| -------------- | ------------------------------------------------- |
+| Property       | Values                                          |
+|----------------|-------------------------------------------------|
 | `type`         | PRIMARY, DERIVED, CONFIRMED, CONTESTED, ANECDOTAL |
-| `trust_score`  | 1–5 integer                                       |
-| `strength`     | 0.0–10.0 float (computed)                         |
-| `confirmed_by` | list of finding IDs that corroborate this item    |
+| `trust_score`  | 1–5 integer                                     |
+| `strength`     | 0.0–10.0 float (computed)                       |
+| `confirmed_by` | list of finding IDs that corroborate this item  |
 
 ---
 
 ## Trust Scale
 
-| Score | Label         | Typical Sources                                      |
-| ----- | ------------- | ---------------------------------------------------- |
-| 5     | Authoritative | Official registries, government records, direct API  |
-| 4     | Reliable      | Established outlets, corporate websites, signed data |
-| 3     | Moderate      | Blogs with verifiable history, industry publications |
-| 2     | Questionable  | Anonymous forums, unverified claims                  |
-| 1     | Unverified    | Cannot assess; insufficient signal                   |
+| Score | Label           | Typical Sources                                    |
+|-------|-----------------|----------------------------------------------------|
+| 5     | Authoritative   | Official registries, government records, direct API|
+| 4     | Reliable        | Established outlets, corporate websites, signed data|
+| 3     | Moderate        | Blogs with verifiable history, industry publications|
+| 2     | Questionable    | Anonymous forums, unverified claims                |
+| 1     | Unverified      | Cannot assess; insufficient signal                 |
 
 ### Source Reliability Scale
 
 Complements numeric trust scores with source-level grading. Trust score rates the finding content; source reliability rates the source itself. Both recorded per finding.
 
-| Grade | Label                | Typical Sources                           |
-| ----- | -------------------- | ----------------------------------------- |
-| A     | Completely Reliable  | Official registries, government records   |
-| B     | Usually Reliable     | Established outlets, corporate sources    |
-| C     | Fairly Reliable      | Known blogs, industry publications        |
-| D     | Not Usually Reliable | Anonymous forums, unverified claims       |
-| E     | Unreliable           | Known disinformation, fabricated content  |
-| F     | Cannot Be Judged     | Insufficient information to assess source |
+| Grade | Label                | Typical Sources                                    |
+|-------|----------------------|----------------------------------------------------|
+| A     | Completely Reliable  | Official registries, government records             |
+| B     | Usually Reliable     | Established outlets, corporate sources              |
+| C     | Fairly Reliable      | Known blogs, industry publications                  |
+| D     | Not Usually Reliable | Anonymous forums, unverified claims                 |
+| E     | Unreliable           | Known disinformation, fabricated content             |
+| F     | Cannot Be Judged     | Insufficient information to assess source           |
 
 ```python
 def assess_source_reliability(source_url):
@@ -163,22 +163,22 @@ Strength is additive, capped at 10.0.
 Strength = TypeBase + TrustModifier + ConfirmationBonus
 ```
 
-| Component         | Formula                         | Range         |
-| ----------------- | ------------------------------- | ------------- |
-| TypeBase          | Per-type constant (table below) | 0, 2, 4, 7, 8 |
-| TrustModifier     | trust_score × 0.4               | 0.4–2.0       |
-| ConfirmationBonus | +0.5 per confirming source      | max +1.5      |
-| **Cap**           | min(result, 10.0)               | 0.0–10.0      |
+| Component           | Formula                          | Range         |
+|---------------------|----------------------------------|---------------|
+| TypeBase            | Per-type constant (table below)  | 0, 2, 4, 7, 8 |
+| TrustModifier       | trust_score × 0.4                | 0.4–2.0       |
+| ConfirmationBonus   | +0.5 per confirming source       | max +1.5      |
+| **Cap**             | min(result, 10.0)                | 0.0–10.0      |
 
 TypeBase values:
 
-| Type      | TypeBase |
-| --------- | -------- |
-| CONFIRMED | 8        |
-| PRIMARY   | 7        |
-| DERIVED   | 4        |
-| ANECDOTAL | 2        |
-| CONTESTED | 0        |
+| Type       | TypeBase |
+|------------|----------|
+| CONFIRMED  | 8        |
+| PRIMARY    | 7        |
+| DERIVED    | 4        |
+| ANECDOTAL  | 2        |
+| CONTESTED  | 0        |
 
 ```python
 TYPE_BASE = {
@@ -201,14 +201,14 @@ def compute_strength(finding):
 
 Strength-to-confidence mapping:
 
-| Strength | Confidence Level |
-| -------- | ---------------- |
-| >= 9.0   | VERIFIED         |
-| >= 7.0   | STRONG           |
-| >= 5.0   | MODERATE         |
-| >= 3.0   | WEAK             |
-| >= 1.0   | TENTATIVE        |
-| < 1.0    | CHALLENGED       |
+| Strength     | Confidence Level |
+|-------------|-----------------|
+| >= 9.0      | VERIFIED        |
+| >= 7.0      | STRONG          |
+| >= 5.0      | MODERATE        |
+| >= 3.0      | WEAK            |
+| >= 1.0      | TENTATIVE       |
+| < 1.0       | CHALLENGED      |
 
 ```python
 def strength_to_confidence(strength):

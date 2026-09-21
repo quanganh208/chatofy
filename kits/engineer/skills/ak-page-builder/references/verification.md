@@ -6,21 +6,21 @@ expand for shared contracts. Keep evidence tied to the actual source/artifact.
 
 ## Capability acceptance
 
-| Area               | Evidence                                                                                               |
-| ------------------ | ------------------------------------------------------------------------------------------------------ |
-| Discovery/adapters | Actual stack and owners found; representative existing components render                               |
-| Registry/model     | Props/slots/bindings validated; stable IDs survive round-trip and migration                            |
-| Widget sizing      | Meaningful small/medium/large presentations; container-fit rules, lossless resize and interface parity |
-| Operations         | Atomic batches, scoped auth, idempotent retry and revision conflict recovery                           |
-| Human editor       | Phone/tablet/desktop edits; touch/keyboard alternatives, autosave and reconnect                        |
-| Draft/preview      | Correct immutable revision, private access, expiry/revocation and no export leakage                    |
-| Publication        | Exact revision/build becomes live; failure preserves live state; rollback works                        |
-| Interfaces         | Real API/CLI/stdio/HTTP/WebMCP calls, or specifically identified unsupported runtime                   |
-| Docs/exports       | Tested examples, OpenAPI viewer, HTML/Markdown parity and public-only indexes                          |
-| Performance        | Representative baseline/budgets, responsive interactions and public bundle separation                  |
-| Deployment         | Cloudflare configuration and live smoke when authorized/available                                      |
-| Operator skill     | Installed creator activated; project skill created/updated and consumer-tested                         |
-| Rerun safety       | Second setup/update preserves custom files and does not duplicate storage/config                       |
+| Area | Evidence |
+|---|---|
+| Discovery/adapters | Actual stack and owners found; representative existing components render |
+| Registry/model | Props/slots/bindings validated; stable IDs survive round-trip and migration |
+| Widget sizing | Meaningful small/medium/large presentations; container-fit rules, lossless resize and interface parity |
+| Operations | Atomic batches, scoped auth, idempotent retry and revision conflict recovery |
+| Human editor | Phone/tablet/desktop edits; touch/keyboard alternatives, autosave and reconnect |
+| Draft/preview | Correct immutable revision, private access, expiry/revocation and no export leakage |
+| Publication | Exact revision/build becomes live; failure preserves live state; rollback works |
+| Interfaces | Real API/CLI/stdio/HTTP/WebMCP calls, or specifically identified unsupported runtime |
+| Docs/exports | Tested examples, OpenAPI viewer, HTML/Markdown parity and public-only indexes |
+| Performance | Representative baseline/budgets, responsive interactions and public bundle separation |
+| Deployment | Cloudflare configuration and live smoke when authorized/available |
+| Operator skill | Installed creator activated; project skill created/updated and consumer-tested |
+| Rerun safety | Second setup/update preserves custom files and does not duplicate storage/config |
 
 Run the central journey: an agent discovers existing blocks, creates a page,
 changes props and a binding, resizes a widget, reorders content and creates a preview; a human

@@ -1,14 +1,14 @@
 ---
 name: ak:test
-description: 'Run unit, integration, e2e, and UI tests. Use for test execution, coverage analysis, build verification, visual regression, and QA reports.'
+description: "Run unit, integration, e2e, and UI tests. Use for test execution, coverage analysis, build verification, visual regression, and QA reports."
 user-invocable: true
-when_to_use: 'Invoke for running or designing validation suites.'
+when_to_use: "Invoke for running or designing validation suites."
 category: workflow
 keywords: [test, unit, integration, e2e, coverage]
-argument-hint: '[context] OR ui [url] OR create|optimize|audit [scope] [--advice] [--ultra] [--interview]'
+argument-hint: "[context] OR ui [url] OR create|optimize|audit [scope] [--advice] [--ultra] [--interview]"
 metadata:
   author: agentkit
-  version: '1.2.0'
+  version: "1.2.0"
   workflow:
     precedes: [ak-git]
 ---
@@ -21,13 +21,13 @@ Comprehensive testing framework covering code-level testing (unit, integration, 
 
 If invoked with context (test scope), proceed with testing. If invoked WITHOUT arguments, use `ask_user capability` to present available test operations:
 
-| Operation   | Description                                                                        |
-| ----------- | ---------------------------------------------------------------------------------- |
-| `(default)` | Run unit/integration/e2e tests                                                     |
-| `ui`        | Run UI tests on a website                                                          |
-| `create`    | Scout the codebase + docs, then create a covering test suite                       |
-| `optimize`  | Parallel-scout CI/CD, git history, codebase + docs, then cut test cost/time safely |
-| `audit`     | Inspect the suite + CI and report evidence-backed findings                         |
+| Operation | Description |
+|-----------|-------------|
+| `(default)` | Run unit/integration/e2e tests |
+| `ui` | Run UI tests on a website |
+| `create` | Scout the codebase + docs, then create a covering test suite |
+| `optimize` | Parallel-scout CI/CD, git history, codebase + docs, then cut test cost/time safely |
+| `audit` | Inspect the suite + CI and report evidence-backed findings |
 
 Present as options via `ask_user capability` with header "Test Operation", question "What would you like to do?".
 
@@ -153,7 +153,6 @@ Reports        → report-format.md
 - Never ignore failing tests to pass the build
 
 ## Report Output
-
 Use the repository report location when a durable report is needed; return concise results directly for a small run.
 
 Use naming pattern from `## Naming` section injected by hooks.
@@ -161,7 +160,6 @@ Use naming pattern from `## Naming` section injected by hooks.
 ## Team Mode
 
 When operating as teammate:
-
 1. Discover the live task-management surface and the live team-coordination surface
 2. Claim the assigned or next unblocked item when supported; otherwise read and update the active plan
 3. Read the full work description before starting and wait for implementation prerequisites

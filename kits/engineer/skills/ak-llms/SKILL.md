@@ -1,14 +1,14 @@
 ---
 name: ak:llms
-description: 'Generate llms.txt files from docs or codebase scanning. Follows llmstxt.org spec. Use for LLM-friendly site indexes, documentation summaries, AI context optimization.'
+description: "Generate llms.txt files from docs or codebase scanning. Follows llmstxt.org spec. Use for LLM-friendly site indexes, documentation summaries, AI context optimization."
 user-invocable: true
-when_to_use: 'Invoke to produce LLM-friendly indexes like llms.txt.'
+when_to_use: "Invoke to produce LLM-friendly indexes like llms.txt."
 category: engineering
 keywords: [llms-txt, documentation, AI-context]
-argument-hint: '[path|url] [--full] [--output path]'
+argument-hint: "[path|url] [--full] [--output path]"
 metadata:
   author: agentkit
-  version: '1.0.1'
+  version: "1.0.1"
 ---
 
 # llms.txt Generator
@@ -47,7 +47,6 @@ Use `web_search capability` to retrieve existing documentation structure.
 ### 2. Analyze & Categorize
 
 For each discovered file:
-
 - Resolve title from navigation/frontmatter/H1 and check it against the page
 - Summarize actual page content; the first paragraph may be boilerplate
 - Preserve source paths/URLs and intended public link roots
@@ -57,7 +56,6 @@ For each discovered file:
 ### 3. Generate llms.txt
 
 Run generation script:
-
 ```bash
 scripts/generate-llms-txt.py \
   --source <path> \
@@ -97,22 +95,22 @@ Follow llmstxt.org specification strictly:
 
 ## Format Rules (llmstxt.org Spec)
 
-| Element       | Rule                                                  |
-| ------------- | ----------------------------------------------------- |
-| H1            | Required. Project/site name                           |
-| Blockquote    | Recommended. Brief essential context                  |
-| Sections      | H2-delimited groups of related links                  |
-| Links         | `[Title](url): Optional description`                  |
+| Element | Rule |
+|---------|------|
+| H1 | Required. Project/site name |
+| Blockquote | Recommended. Brief essential context |
+| Sections | H2-delimited groups of related links |
+| Links | `[Title](url): Optional description` |
 | `## Optional` | Special section — skippable for short context windows |
-| Language      | Concise, clear, no unexplained jargon                 |
+| Language | Concise, clear, no unexplained jargon |
 
 See `references/llms-txt-specification.md` for full spec details.
 
 ## Output Files
 
-| File            | Content                                                 |
-| --------------- | ------------------------------------------------------- |
-| `llms.txt`      | Curated index with links and descriptions               |
+| File | Content |
+|------|---------|
+| `llms.txt` | Curated index with links and descriptions |
 | `llms-full.txt` | Expanded version with inline doc content (use `--full`) |
 
 ## Security

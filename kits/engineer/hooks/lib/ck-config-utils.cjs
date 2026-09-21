@@ -12,7 +12,7 @@ const { execFileSync } = require('child_process');
 const {
   createCandidateSessionStateContext,
   gitEnvironment,
-  normalizeSessionId,
+  normalizeSessionId
 } = require('./runtime-state-identity.cjs');
 const sessionStore = require('./private-json-store.cjs');
 const { resolvePrefs } = require('./ak-prefs-client.cjs');
@@ -27,39 +27,39 @@ const DEFAULT_CONFIG = {
       // CHANGED: Removed 'mostRecent' - only explicit session state activates plans
       // Branch matching now returns 'suggested' not 'active'
       order: ['session', 'branch'],
-      branchPattern: '(?:feat|fix|chore|refactor|docs)/(?:[^/]+/)?(.+)',
+      branchPattern: '(?:feat|fix|chore|refactor|docs)/(?:[^/]+/)?(.+)'
     },
     validation: {
-      mode: 'prompt', // 'auto' | 'prompt' | 'off'
+      mode: 'prompt',  // 'auto' | 'prompt' | 'off'
       minQuestions: 3,
       maxQuestions: 8,
-      focusAreas: ['assumptions', 'risks', 'tradeoffs', 'architecture'],
-    },
+      focusAreas: ['assumptions', 'risks', 'tradeoffs', 'architecture']
+    }
   },
   paths: {
     docs: 'docs',
-    plans: 'plans',
+    plans: 'plans'
   },
   docs: {
-    maxLoc: 800, // Maximum lines of code per doc file before warning
+    maxLoc: 800  // Maximum lines of code per doc file before warning
   },
   locale: {
-    thinkingLanguage: null, // Language for reasoning (e.g., "en" for precision)
-    responseLanguage: null, // Language for user-facing output (e.g., "vi")
+    thinkingLanguage: null,  // Language for reasoning (e.g., "en" for precision)
+    responseLanguage: null   // Language for user-facing output (e.g., "vi")
   },
   trust: {
     passphrase: null,
-    enabled: false,
+    enabled: false
   },
   project: {
     type: 'auto',
     packageManager: 'auto',
-    framework: 'auto',
+    framework: 'auto'
   },
   skills: {
     research: {
-      useGemini: false, // Legacy compatibility input; active workflows ignore this retired CLI toggle
-    },
+      useGemini: false  // Legacy compatibility input; active workflows ignore this retired CLI toggle
+    }
   },
   assertions: [],
   statusline: 'full',
@@ -76,8 +76,8 @@ const DEFAULT_CONFIG = {
     'secret-output-guardrail': true,
     'final-subagent-reminder': false,
     'simplify-gate': true,
-    'session-state': true,
-  },
+    'session-state': true
+  }
 };
 
 /**
@@ -201,8 +201,8 @@ function findMostRecentPlan(plansDir) {
     if (!fs.existsSync(plansDir)) return null;
     const entries = fs.readdirSync(plansDir, { withFileTypes: true });
     const planDirs = entries
-      .filter((e) => e.isDirectory() && /^\d{6}/.test(e.name))
-      .map((e) => e.name)
+      .filter(e => e.isDirectory() && /^\d{6}/.test(e.name))
+      .map(e => e.name)
       .sort()
       .reverse();
     return planDirs.length > 0 ? path.join(plansDir, planDirs[0]) : null;
@@ -230,7 +230,7 @@ function execSafe(cmd, options = {}) {
   const allowedCommands = {
     'git branch --show-current': ['git', ['branch', '--show-current']],
     'git rev-parse --abbrev-ref HEAD': ['git', ['rev-parse', '--abbrev-ref', 'HEAD']],
-    'git rev-parse --show-toplevel': ['git', ['rev-parse', '--show-toplevel']],
+    'git rev-parse --show-toplevel': ['git', ['rev-parse', '--show-toplevel']]
   };
   const commandSpec = allowedCommands[cmd];
   if (!commandSpec) {
@@ -247,7 +247,7 @@ function execSafe(cmd, options = {}) {
       cwd,
       env: gitEnvironment(),
       stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true,
+      windowsHide: true
     }).trim();
   } catch (e) {
     return null;
@@ -292,15 +292,12 @@ function resolvePlanPath(sessionContext, config) {
           if (!sessionContext?.canonicalProjectRoot) break;
           const projectRoot = sessionContext.canonicalProjectRoot;
           const launchRoot = sessionContext.sessionLaunchRoot;
-          const projectPlansDir = path.isAbsolute(plansDir)
-            ? plansDir
-            : path.join(launchRoot, plansDir);
+          const projectPlansDir = path.isAbsolute(plansDir) ? plansDir : path.join(launchRoot, plansDir);
           const branch = execSafe('git branch --show-current', { cwd: projectRoot });
           const slug = extractSlugFromBranch(branch, branchPattern);
           if (slug && fs.existsSync(projectPlansDir)) {
-            const entries = fs
-              .readdirSync(projectPlansDir, { withFileTypes: true })
-              .filter((e) => e.isDirectory() && e.name.includes(slug));
+            const entries = fs.readdirSync(projectPlansDir, { withFileTypes: true })
+              .filter(e => e.isDirectory() && e.name.includes(slug));
             if (entries.length > 0) {
               let planPath = path.join(projectPlansDir, entries[entries.length - 1].name);
               // projectPlansDir descends from the session launch root, which is stored in
@@ -318,7 +315,7 @@ function resolvePlanPath(sessionContext, config) {
               }
               return {
                 path: toDisplayPath(planPath),
-                resolvedBy: 'branch',
+                resolvedBy: 'branch'
               };
             }
           }
@@ -446,12 +443,12 @@ function sanitizeConfig(config, projectRoot) {
     // Merge resolution defaults
     result.plan.resolution = {
       ...DEFAULT_CONFIG.plan.resolution,
-      ...result.plan.resolution,
+      ...result.plan.resolution
     };
     // Merge validation defaults
     result.plan.validation = {
       ...DEFAULT_CONFIG.plan.validation,
-      ...result.plan.validation,
+      ...result.plan.validation
     };
   }
 
@@ -497,7 +494,7 @@ function loadConfig(options = {}) {
     includeProject = true,
     includeAssertions = true,
     includeLocale = true,
-    cwd = process.cwd(),
+    cwd = process.cwd()
   } = options;
   const projectRoot = cwd;
 
@@ -516,7 +513,7 @@ function loadConfig(options = {}) {
     const result = {
       plan: merged.plan || DEFAULT_CONFIG.plan,
       paths: merged.paths || DEFAULT_CONFIG.paths,
-      docs: merged.docs || DEFAULT_CONFIG.docs,
+      docs: merged.docs || DEFAULT_CONFIG.docs
     };
 
     if (includeLocale) {
@@ -558,12 +555,12 @@ function getDefaultConfig(includeProject = true, includeAssertions = true, inclu
     plan: { ...DEFAULT_CONFIG.plan },
     paths: { ...DEFAULT_CONFIG.paths },
     docs: { ...DEFAULT_CONFIG.docs },
-    codingLevel: -1, // Default: disabled (no injection, saves tokens)
+    codingLevel: -1,  // Default: disabled (no injection, saves tokens)
     skills: { ...DEFAULT_CONFIG.skills },
     hooks: { ...DEFAULT_CONFIG.hooks },
     statusline: 'full',
     statuslineColors: true,
-    statuslineQuota: true,
+    statuslineQuota: true
   };
   if (includeLocale) {
     result.locale = { ...DEFAULT_CONFIG.locale };
@@ -584,10 +581,10 @@ function getDefaultConfig(includeProject = true, includeAssertions = true, inclu
 function escapeShellValue(str) {
   if (typeof str !== 'string') return str;
   return str
-    .replace(/\\/g, '\\\\') // Backslash first
-    .replace(/"/g, '\\"') // Double quotes
-    .replace(/\$/g, '\\$') // Dollar sign
-    .replace(/`/g, '\\`'); // Backticks (command substitution)
+    .replace(/\\/g, '\\\\')   // Backslash first
+    .replace(/"/g, '\\"')     // Double quotes
+    .replace(/\$/g, '\\$')    // Dollar sign
+    .replace(/`/g, '\\`');    // Backticks (command substitution)
 }
 
 /**
@@ -649,7 +646,11 @@ function formatIssueId(issueId, planConfig) {
  */
 function extractIssueFromBranch(branch) {
   if (!branch) return null;
-  const patterns = [/(?:issue|gh|fix|feat|bug)[/-]?(\d+)/i, /[/-](\d+)[/-]/, /#(\d+)/];
+  const patterns = [
+    /(?:issue|gh|fix|feat|bug)[/-]?(\d+)/i,
+    /[/-](\d+)[/-]/,
+    /#(\d+)/
+  ];
   for (const pattern of patterns) {
     const match = branch.match(pattern);
     if (match) return match[1];
@@ -668,13 +669,13 @@ function formatDate(format) {
   const pad = (n, len = 2) => String(n).padStart(len, '0');
 
   const tokens = {
-    YYYY: now.getFullYear(),
-    YY: String(now.getFullYear()).slice(-2),
-    MM: pad(now.getMonth() + 1),
-    DD: pad(now.getDate()),
-    HH: pad(now.getHours()),
-    mm: pad(now.getMinutes()),
-    ss: pad(now.getSeconds()),
+    'YYYY': now.getFullYear(),
+    'YY': String(now.getFullYear()).slice(-2),
+    'MM': pad(now.getMonth() + 1),
+    'DD': pad(now.getDate()),
+    'HH': pad(now.getHours()),
+    'mm': pad(now.getMinutes()),
+    'ss': pad(now.getSeconds())
   };
 
   let result = format;
@@ -697,10 +698,7 @@ function validateNamingPattern(pattern) {
   }
 
   // After removing {slug} placeholder, should still have content
-  const withoutSlug = pattern
-    .replace(/\{slug\}/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+  const withoutSlug = pattern.replace(/\{slug\}/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
   if (!withoutSlug) {
     return { valid: false, error: 'Pattern resolves to empty after removing {slug}' };
   }
@@ -754,11 +752,11 @@ function resolveNamingPattern(planConfig, gitBranch) {
   // - Remove leading/trailing hyphens
   // - Collapse multiple hyphens (except around {slug})
   pattern = pattern
-    .replace(/^-+/, '') // Remove leading hyphens
-    .replace(/-+$/, '') // Remove trailing hyphens
-    .replace(/-+(\{slug\})/g, '-$1') // Single hyphen before {slug}
-    .replace(/(\{slug\})-+/g, '$1-') // Single hyphen after {slug}
-    .replace(/--+/g, '-'); // Collapse other multiple hyphens
+    .replace(/^-+/, '')           // Remove leading hyphens
+    .replace(/-+$/, '')           // Remove trailing hyphens
+    .replace(/-+(\{slug\})/g, '-$1')  // Single hyphen before {slug}
+    .replace(/(\{slug\})-+/g, '$1-')  // Single hyphen after {slug}
+    .replace(/--+/g, '-');        // Collapse other multiple hyphens
 
   // Validate the resulting pattern
   const validation = validateNamingPattern(pattern);
@@ -822,7 +820,7 @@ function isHookEnabled(hookName, options = {}) {
     includeProject: false,
     includeAssertions: false,
     includeLocale: false,
-    ...(options.cwd ? { cwd: options.cwd } : {}),
+    ...(options.cwd ? { cwd: options.cwd } : {})
   });
   const hooks = config.hooks || {};
   // Return true if undefined (default enabled), otherwise return the boolean value
@@ -863,5 +861,5 @@ module.exports = {
   getGitBranch,
   getGitRoot,
   extractTaskListId,
-  isHookEnabled,
+  isHookEnabled
 };

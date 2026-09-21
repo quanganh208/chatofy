@@ -1,17 +1,17 @@
 ---
 name: ak:graphify
-description: 'Build queryable knowledge graphs from code, docs, papers, and images. Use for repeated relationship queries and architecture analysis when a reusable graph adds value beyond native search.'
+description: "Build queryable knowledge graphs from code, docs, papers, and images. Use for repeated relationship queries and architecture analysis when a reusable graph adds value beyond native search."
 user-invocable: true
-when_to_use: 'Invoke to turn code or docs into a queryable graph.'
+when_to_use: "Invoke to turn code or docs into a queryable graph."
 category: engineering
 keywords: [knowledge-graph, code-analysis, tree-sitter, codebase-understanding, ast]
-argument-hint: '[path] [--mcp|--report|--watch]'
+argument-hint: "[path] [--mcp|--report|--watch]"
 related: [ak:repomix, ak:scout, ak:gkg]
 maturity: beta
 metadata:
-  version: '1.0.1'
+  version: "1.0.1"
   author: safishamsi
-  attribution: 'https://github.com/safishamsi/graphify'
+  attribution: "https://github.com/safishamsi/graphify"
 ---
 
 # Graphify — Knowledge Graph Builder
@@ -66,12 +66,12 @@ graphify . --watch
 
 ## Output Artifacts
 
-| File                           | Purpose                                                           |
-| ------------------------------ | ----------------------------------------------------------------- |
-| `graphify-out/graph.html`      | Interactive visualization with search + community filtering       |
-| `graphify-out/GRAPH_REPORT.md` | God nodes, surprising connections, suggested questions            |
-| `graphify-out/graph.json`      | Persistent graph for queries across sessions                      |
-| `graphify-out/cache/`          | SHA256-based incremental updates (only reprocesses changed files) |
+| File | Purpose |
+|------|---------|
+| `graphify-out/graph.html` | Interactive visualization with search + community filtering |
+| `graphify-out/GRAPH_REPORT.md` | God nodes, surprising connections, suggested questions |
+| `graphify-out/graph.json` | Persistent graph for queries across sessions |
+| `graphify-out/cache/` | SHA256-based incremental updates (only reprocesses changed files) |
 
 ## MCP Server Mode
 
@@ -83,17 +83,16 @@ python -m graphify.serve graphify-out/graph.json
 
 ### MCP Tools Available
 
-| Tool            | Purpose                                   |
-| --------------- | ----------------------------------------- |
-| `query_graph`   | Search for concepts and relationships     |
-| `get_node`      | Get details of a specific node            |
-| `get_neighbors` | Find related concepts                     |
+| Tool | Purpose |
+|------|---------|
+| `query_graph` | Search for concepts and relationships |
+| `get_node` | Get details of a specific node |
+| `get_neighbors` | Find related concepts |
 | `shortest_path` | Find connection path between two concepts |
 
 ### Claude Code MCP Setup
 
 Add to `.claude/.mcp.json`:
-
 ```json
 {
   "mcpServers": {
@@ -119,11 +118,11 @@ Python, JavaScript, TypeScript, Go, Rust, Java, C, C++, Ruby, C#, Kotlin, Scala,
 
 Relationships in the graph are tagged by provenance:
 
-| Tag         | Meaning                                                        |
-| ----------- | -------------------------------------------------------------- |
+| Tag | Meaning |
+|-----|---------|
 | `EXTRACTED` | Directly from AST (imports, function calls, class inheritance) |
-| `INFERRED`  | LLM-derived with confidence score                              |
-| `AMBIGUOUS` | Uncertain — needs human verification                           |
+| `INFERRED` | LLM-derived with confidence score |
+| `AMBIGUOUS` | Uncertain — needs human verification |
 
 ## Workflow Integration
 

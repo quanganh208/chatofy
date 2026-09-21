@@ -7,7 +7,7 @@ Three.js materials - PBR, basic, phong, shader materials, material properties. U
 ## Quick Start
 
 ```javascript
-import * as THREE from 'three';
+import * as THREE from "three";
 
 // PBR material (recommended for realistic rendering)
 const material = new THREE.MeshStandardMaterial({
@@ -129,7 +129,7 @@ const material = new THREE.MeshStandardMaterial({
 });
 
 // Note: aoMap requires second UV channel
-geometry.setAttribute('uv2', geometry.attributes.uv);
+geometry.setAttribute("uv2", geometry.attributes.uv);
 ```
 
 ## MeshPhysicalMaterial (Advanced PBR)
@@ -277,8 +277,8 @@ const points = new THREE.Points(geometry, material);
 const lineMaterial = new THREE.LineBasicMaterial({
   color: 0xffffff,
   linewidth: 1, // Note: >1 only works on some systems
-  linecap: 'round',
-  linejoin: 'round',
+  linecap: "round",
+  linejoin: "round",
 });
 
 // Dashed lines
@@ -446,12 +446,12 @@ geometry.addGroup(6, 6, 1);
 // Load cube texture
 const cubeLoader = new THREE.CubeTextureLoader();
 const envMap = cubeLoader.load([
-  'px.jpg',
-  'nx.jpg', // positive/negative X
-  'py.jpg',
-  'ny.jpg', // positive/negative Y
-  'pz.jpg',
-  'nz.jpg', // positive/negative Z
+  "px.jpg",
+  "nx.jpg", // positive/negative X
+  "py.jpg",
+  "ny.jpg", // positive/negative Y
+  "pz.jpg",
+  "nz.jpg", // positive/negative Z
 ]);
 
 // Apply to material
@@ -462,9 +462,9 @@ material.envMapIntensity = 1;
 scene.environment = envMap;
 
 // HDR environment (recommended)
-import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 const rgbeLoader = new RGBELoader();
-rgbeLoader.load('environment.hdr', (texture) => {
+rgbeLoader.load("environment.hdr", (texture) => {
   texture.mapping = THREE.EquirectangularReflectionMapping;
   scene.environment = texture;
   scene.background = texture;

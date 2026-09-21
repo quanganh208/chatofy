@@ -28,14 +28,14 @@ the block's size contract, including narrow slots inside wide desktop pages.
 Extend the host's existing layout schema rather than inventing a second one.
 For each resizable block, expose:
 
-| Field responsibility        | Contract                                                                                    |
-| --------------------------- | ------------------------------------------------------------------------------------------- |
-| Supported sizes and default | Stable semantic IDs such as small/medium/large                                              |
-| Size geometry               | Grid spans or container constraints, minimum/maximum extents and aspect ratio when relevant |
-| Presentation mapping        | Content priority and interactions available in each size                                    |
-| Resize behavior             | Allowed axes, snap points, permitted parent slots and reflow/collision policy               |
-| Responsive resolution       | Deterministic fit/fallback rules and any explicit breakpoint overrides                      |
-| Migration                   | Default for older nodes and recovery when a size is renamed or removed                      |
+| Field responsibility | Contract |
+|---|---|
+| Supported sizes and default | Stable semantic IDs such as small/medium/large |
+| Size geometry | Grid spans or container constraints, minimum/maximum extents and aspect ratio when relevant |
+| Presentation mapping | Content priority and interactions available in each size |
+| Resize behavior | Allowed axes, snap points, permitted parent slots and reflow/collision policy |
+| Responsive resolution | Deterministic fit/fallback rules and any explicit breakpoint overrides |
+| Migration | Default for older nodes and recovery when a size is renamed or removed |
 
 Persist the requested semantic size and supported layout constraints/overrides.
 Derive effective presentation from the resolved container; do not autosave a new

@@ -20,7 +20,6 @@ Guided introduction to the CTI Expert skill. Adapts depth to tier.
 
 Suggested automatically when tier auto-detects as `novice` and
 `workspace_metadata.onboarding_completed` is absent. Prompt:
-
 ```
 First session detected. Run /onboard to start, or /onboard --yolo to skip.
 ```
@@ -30,7 +29,7 @@ First session detected. Run /onboard to start, or /onboard --yolo to skip.
 ## Tier Adaptation Table
 
 | Step | Topic                          | Novice       | Practitioner | Specialist   |
-| ---- | ------------------------------ | ------------ | ------------ | ------------ |
+|------|--------------------------------|--------------|--------------|--------------|
 | 1    | What is OSINT?                 | Full verbose | Skip         | Skip         |
 | 2    | Start a case demo              | Full verbose | Concise      | Concise      |
 | 3    | Read results — trust scores    | Full verbose | Concise      | Concise      |
@@ -41,7 +40,7 @@ First session detected. Run /onboard to start, or /onboard --yolo to skip.
 
 ## Step 1 — What Is OSINT?
 
-_Novice only. Practitioners and Specialists skip to Step 2._
+*Novice only. Practitioners and Specialists skip to Step 2.*
 
 ```
 OSINT (Open-Source Intelligence) means gathering information from
@@ -68,7 +67,6 @@ never advises accessing private systems or deceiving subjects.
 ## Step 2 — Start a Case Demo
 
 **Novice (verbose):**
-
 ```
 Let's open a demo case to see how investigations work.
 
@@ -82,7 +80,6 @@ are investigating. You can add more with /subject add.
 ```
 
 **Practitioner / Specialist (concise):**
-
 ```
 Demo case: /case new --name "Tutorial Demo" --subject "example.com"
 Add subjects later with /subject add. Starting now.
@@ -93,7 +90,6 @@ Add subjects later with /subject add. Starting now.
 ## Step 3 — Read Results — Trust Scores
 
 **Novice (verbose):**
-
 ```
 After a scan you will see findings like this:
 
@@ -112,7 +108,6 @@ Use /clarify F-001 to get a plain-language explanation of any finding.
 ```
 
 **Practitioner / Specialist (concise):**
-
 ```
 Trust scores: 1=unverified → 5=authoritative. Use /clarify [id]
 to decompose any finding. Scores ≤ 2 flag for /verify-finding.
@@ -123,7 +118,6 @@ to decompose any finding. Scores ≤ 2 flag for /verify-finding.
 ## Step 4 — Dig Deeper — /branch and /crossref
 
 **Novice (verbose):**
-
 ```
 Findings often unlock new leads. Two key commands:
 
@@ -141,21 +135,19 @@ rather than silently dropping one.
 ```
 
 **Practitioner (concise):**
-
 ```
 /branch [id] — follow a finding outward.
 /crossref [id] [id] — compare findings for shared attributes.
 /resolve — document conflicting findings.
 ```
 
-_Specialist: full verbose (same as Novice)._
+*Specialist: full verbose (same as Novice).*
 
 ---
 
 ## Step 5 — Report — /brief and /report
 
 **Novice / Specialist (verbose):**
-
 ```
 When your investigation is ready for delivery:
 
@@ -173,7 +165,6 @@ Tip: /coverage shows which discovery paths you have not yet tried.
 ```
 
 **Practitioner (concise):**
-
 ```
 /brief — executive summary. /report [--format] — full report.
 Run /validate first. /coverage shows unchecked paths.
@@ -188,7 +179,7 @@ On completion, write to `workspace_metadata`:
 ```json
 {
   "onboarding_completed": true,
-  "onboarding_tier": "novice",
+  "onboarding_tier":      "novice",
   "onboarding_timestamp": "<ISO-8601>"
 }
 ```

@@ -37,40 +37,40 @@ Terminal dashboard layout for active case monitoring.
 
 ## Widget Specs
 
-| Widget              | Position    | Data source        | Refresh         |
-| ------------------- | ----------- | ------------------ | --------------- |
-| Header bar          | Row 1       | Case metadata      | on change       |
-| Subjects counter    | TL quadrant | subject registry   | on add          |
-| Findings counter    | TL quadrant | findings log       | on add          |
-| Connections counter | TL quadrant | connection map     | on add          |
-| Exposure gauge      | TL quadrant | scoring engine     | on score update |
-| Feed                | BL panel    | event log (last 5) | live            |
-| Commands            | BR panel    | static             | —               |
-| Sweep bar           | Bottom row  | discovery paths    | on milestone    |
+| Widget | Position | Data source | Refresh |
+|--------|----------|-------------|---------|
+| Header bar | Row 1 | Case metadata | on change |
+| Subjects counter | TL quadrant | subject registry | on add |
+| Findings counter | TL quadrant | findings log | on add |
+| Connections counter | TL quadrant | connection map | on add |
+| Exposure gauge | TL quadrant | scoring engine | on score update |
+| Feed | BL panel | event log (last 5) | live |
+| Commands | BR panel | static | — |
+| Sweep bar | Bottom row | discovery paths | on milestone |
 
 ---
 
 ## Exposure Gauge Thresholds
 
-| Score  | Label    | Visual                   |
-| ------ | -------- | ------------------------ |
-| 0–24   | MINIMAL  | `[░░░░░░░░░░░░░░░░░░░░]` |
-| 25–49  | LOW      | `[████░░░░░░░░░░░░░░░░]` |
-| 50–69  | MODERATE | `[██████████░░░░░░░░░░]` |
-| 70–84  | HIGH     | `[████████████████░░░░]` |
+| Score | Label | Visual |
+|-------|-------|--------|
+| 0–24 | MINIMAL | `[░░░░░░░░░░░░░░░░░░░░]` |
+| 25–49 | LOW | `[████░░░░░░░░░░░░░░░░]` |
+| 50–69 | MODERATE | `[██████████░░░░░░░░░░]` |
+| 70–84 | HIGH | `[████████████████░░░░]` |
 | 85–100 | CRITICAL | `[████████████████████]` |
 
 ---
 
 ## Feed Event Types
 
-| Glyph | Type          | Trigger                             |
-| ----- | ------------- | ----------------------------------- |
-| ●     | subject event | new subject added, subject merged   |
-| ✓     | verification  | finding confirmed, subject verified |
-| ⚠     | exposure      | score change ≥ 5 pts                |
-| →     | discovery     | discovery path completed            |
-| ✗     | dead end      | path returned null result           |
+| Glyph | Type | Trigger |
+|-------|------|---------|
+| ● | subject event | new subject added, subject merged |
+| ✓ | verification | finding confirmed, subject verified |
+| ⚠ | exposure | score change ≥ 5 pts |
+| → | discovery | discovery path completed |
+| ✗ | dead end | path returned null result |
 
 ---
 
@@ -93,4 +93,4 @@ Terminal dashboard layout for active case monitoring.
 
 ---
 
-_See also: [`output/visuals/render-engine.md`](./render-engine.md)_
+*See also: [`output/visuals/render-engine.md`](./render-engine.md)*

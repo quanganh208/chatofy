@@ -35,7 +35,6 @@ git branch -r --contains <sha>                      # which branches carry the f
 ```
 
 Outcomes:
-
 - **Duplicate open issue** → comment on it with your new evidence instead of
   creating a new one; report the existing URL.
 - **Already resolved** (closed issue / merged PR / fix on a branch) → do not
@@ -61,17 +60,17 @@ the latter swallows permission and network errors alongside the intended
 Standard taxonomy (create on demand, reuse existing spellings when the repo
 already has equivalents — never create `enhancement` next to `enhance`):
 
-| Label                      | Use for                                                    |
-| -------------------------- | ---------------------------------------------------------- |
-| `bug`                      | Incorrect behavior with reproduction evidence              |
-| `feature`                  | New capability                                             |
-| `enhancement`              | Improvement to existing behavior                           |
-| `docs`                     | Documentation only                                         |
-| `security`                 | Vulnerability or hardening (never include exploit secrets) |
-| `ci`                       | Pipeline/workflow issues                                   |
-| `refactor`                 | Internal restructuring, no behavior change                 |
-| `question`                 | Needs clarification/decision                               |
-| `priority:high/medium/low` | Triage priority                                            |
+| Label | Use for |
+|-------|---------|
+| `bug` | Incorrect behavior with reproduction evidence |
+| `feature` | New capability |
+| `enhancement` | Improvement to existing behavior |
+| `docs` | Documentation only |
+| `security` | Vulnerability or hardening (never include exploit secrets) |
+| `ci` | Pipeline/workflow issues |
+| `refactor` | Internal restructuring, no behavior change |
+| `question` | Needs clarification/decision |
+| `priority:high/medium/low` | Triage priority |
 
 Apply 1 type label + optional priority. In `--interactive`, confirm new label
 creation with the user.

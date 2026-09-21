@@ -146,14 +146,8 @@ function sidesFor(kind, a, b, nodes) {
   if (kind === 'forward') return ['right', 'left'];
   if (kind === 'back') return ['right', 'left'];
   if (kind === 'self') return ['right', 'right'];
-  const between = nodes.some(
-    (n) =>
-      n.rank === a.rank &&
-      n.id !== a.id &&
-      n.id !== b.id &&
-      n.y + n.h > Math.min(a.y, b.y) &&
-      n.y < Math.max(a.y + a.h, b.y + b.h),
-  );
+  const between = nodes.some((n) => n.rank === a.rank && n.id !== a.id && n.id !== b.id
+    && n.y + n.h > Math.min(a.y, b.y) && n.y < Math.max(a.y + a.h, b.y + b.h));
   if (!between) return a.y < b.y ? ['bottom', 'top'] : ['top', 'bottom'];
   return ['right', 'right'];
 }
@@ -169,9 +163,7 @@ function assignChannels(entries, gaps) {
       if (!next || next.gap !== p.gap) continue;
       const key = p.gap;
       if (!usage.has(key)) usage.set(key, []);
-      usage
-        .get(key)
-        .push({ entry, index: i, y0: Math.min(p.y, next.y), y1: Math.max(p.y, next.y) });
+      usage.get(key).push({ entry, index: i, y0: Math.min(p.y, next.y), y1: Math.max(p.y, next.y) });
       i += 1;
     }
   }
@@ -183,10 +175,7 @@ function assignChannels(entries, gaps) {
       if (pm !== qm) return pm - qm;
       return p.entry.id < q.entry.id ? -1 : 1;
     });
-    const spacing = Math.min(
-      CHANNEL_SPACING,
-      Math.max(gap.w - 20, 0) / Math.max(list.length - 1, 1),
-    );
+    const spacing = Math.min(CHANNEL_SPACING, Math.max(gap.w - 20, 0) / Math.max(list.length - 1, 1));
     list.forEach((item, k) => {
       const x = gap.x + gap.w / 2 + (k - (list.length - 1) / 2) * spacing;
       item.entry.plan[item.index].x = x;
@@ -281,27 +270,19 @@ export function labelAnchor(points, label) {
   }
   const mx = (best.p.x + best.q.x) / 2;
   const my = (best.p.y + best.q.y) / 2;
-  if (best.horizontal)
-    return { x: mx, y: my - 12, w, h, anchor: 'middle', rect: { x: mx - w / 2, y: my - 21 } };
+  if (best.horizontal) return { x: mx, y: my - 12, w, h, anchor: 'middle', rect: { x: mx - w / 2, y: my - 21 } };
   return { x: mx + 8 + w / 2, y: my, w, h, anchor: 'middle', rect: { x: mx + 8, y: my - h / 2 } };
 }
 
 /** Push overlapping label boxes apart vertically, in deterministic order. */
 function separateLabels(edges) {
   const placed = [];
-  const overlaps = (a, b) =>
-    a.rect.x < b.rect.x + b.w + 4 &&
-    a.rect.x + a.w + 4 > b.rect.x &&
-    a.rect.y < b.rect.y + b.h + 2 &&
-    a.rect.y + a.h + 2 > b.rect.y;
+  const overlaps = (a, b) => a.rect.x < b.rect.x + b.w + 4 && a.rect.x + a.w + 4 > b.rect.x
+    && a.rect.y < b.rect.y + b.h + 2 && a.rect.y + a.h + 2 > b.rect.y;
   for (const edge of edges) {
     const box = edge.labelBox;
     if (!box) continue;
-    for (
-      let attempt = 0;
-      attempt < 6 && placed.some((other) => overlaps(box, other));
-      attempt += 1
-    ) {
+    for (let attempt = 0; attempt < 6 && placed.some((other) => overlaps(box, other)); attempt += 1) {
       box.rect.y += box.h + 4;
       box.y += box.h + 4;
     }

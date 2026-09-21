@@ -28,7 +28,6 @@ MCP_TRANSPORT = "http"
 ```
 
 ### Architecture on Cloudflare
-
 - **Stateless default:** Streamable HTTP (`POST /mcp`) executes directly inside standard Worker compute. Every request is self-contained.
 - **Application state via Durable Objects:** When tools require continuity across calls (e.g. multi-step transactions or staged approvals), the server issues an explicit application handle (e.g. `handle_id: "app_123"`). Subsequent tool invocations pass this handle, and the Worker routes to `ApplicationStateDO.get(id)`. Follow the negotiated protocol transport lifecycle separately.
 - **Secrets:** Inject secrets via `wrangler secret put API_KEY` or `wrangler secret put OAUTH_CLIENT_SECRET`. Never hardcode secrets in `wrangler.toml`.
@@ -69,7 +68,6 @@ Publish image to GHCR (`ghcr.io/<org>/<tool>-mcp`) from `.github/workflows/relea
 ## 3. PaaS (Fly.io, Railway, Render)
 
 Any standard container or Node runtime hosting Streamable HTTP:
-
 - **Fly.io**: `fly launch` with Dockerfile; set secrets with `fly secrets set`.
 - **Railway**: Connect repo; set `MCP_TRANSPORT=http`; inject secrets via environment variables.
 - **Render**: Web Service with Docker runtime; health check endpoint `/healthz`.

@@ -1,14 +1,14 @@
 ---
 name: ak:team
-description: 'Orchestrate Agent Teams for parallel multi-session collaboration. Use for research, implementation, review, and debug workflows requiring independent teammates.'
+description: "Orchestrate Agent Teams for parallel multi-session collaboration. Use for research, implementation, review, and debug workflows requiring independent teammates."
 user-invocable: true
-when_to_use: 'Invoke for coordinated multi-session agent teamwork.'
+when_to_use: "Invoke for coordinated multi-session agent teamwork."
 category: workflow
 keywords: [agents, parallel, multi-session, collaboration]
-argument-hint: '<template> <context> [--devs|--researchers|--reviewers N] [--delegate]'
+argument-hint: "<template> <context> [--devs|--researchers|--reviewers N] [--delegate]"
 metadata:
   author: agentkit
-  version: '3.0.2'
+  version: "3.0.2"
 ---
 
 # Agent Teams
@@ -135,14 +135,14 @@ the repository's normal workflow.
 
 ## Agent Teams vs Ordinary Subagents
 
-| Scenario                              | Prefer             |
-| ------------------------------------- | ------------------ |
-| Focused test, lint, or single review  | Ordinary subagent  |
-| Sequential plan → code → test chain   | Ordinary subagents |
-| Three or more independent workstreams | Agent Team         |
-| Competing hypotheses that need debate | Agent Team         |
-| Cross-layer work with clean ownership | Agent Team         |
-| Tight runtime budget                  | Ordinary subagents |
+| Scenario | Prefer |
+|----------|--------|
+| Focused test, lint, or single review | Ordinary subagent |
+| Sequential plan → code → test chain | Ordinary subagents |
+| Three or more independent workstreams | Agent Team |
+| Competing hypotheses that need debate | Agent Team |
+| Cross-layer work with clean ownership | Agent Team |
+| Tight runtime budget | Ordinary subagents |
 
 ## Resource and Memory Policy
 

@@ -1,7 +1,6 @@
 ## Command-Line Tools
 
 ### pdftotext (poppler-utils)
-
 ```bash
 # Extract text
 pdftotext input.pdf output.txt
@@ -14,7 +13,6 @@ pdftotext -f 1 -l 5 input.pdf output.txt  # Pages 1-5
 ```
 
 ### qpdf
-
 ```bash
 # Merge PDFs
 qpdf --empty --pages file1.pdf file2.pdf -- merged.pdf
@@ -31,7 +29,6 @@ qpdf --password=mypassword --decrypt encrypted.pdf decrypted.pdf
 ```
 
 ### pdftk (if available)
-
 ```bash
 # Merge
 pdftk file1.pdf file2.pdf cat output merged.pdf

@@ -1,16 +1,16 @@
 ---
 name: ak:cti-expert
-description: 'Analyze cyber threat intelligence and OSINT cases. Use for exposure reviews, domain recon, breach checks, username/email/phone research, image forensics, blockchain tracing, darknet checks, cloud tenant recon, vulnerability lookup, threat modeling, and structured reports.'
+description: "Analyze cyber threat intelligence and OSINT cases. Use for exposure reviews, domain recon, breach checks, username/email/phone research, image forensics, blockchain tracing, darknet checks, cloud tenant recon, vulnerability lookup, threat modeling, and structured reports."
 user-invocable: true
-when_to_use: 'Invoke for OSINT, exposure review, or threat intelligence reports.'
+when_to_use: "Invoke for OSINT, exposure review, or threat intelligence reports."
 category: engineering
 keywords: [osint, cti, threat-intelligence, recon, investigation, darknet, breach, forensics]
-argument-hint: '[target] [--yolo] [--case|--sweep|--query|--flow] [--format html|md] [--no-antv|--no-diagram-design|--no-editorial-visuals]'
+argument-hint: "[target] [--yolo] [--case|--sweep|--query|--flow] [--format html|md] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 license: MIT
 metadata:
-  version: '2.1.2'
-  author: 'Hieu Ngo - chongluadao.vn'
-  source: 'https://github.com/7onez/cti-expert'
+  version: "2.1.2"
+  author: "Hieu Ngo - chongluadao.vn"
+  source: "https://github.com/7onez/cti-expert"
 ---
 
 # CTI Expert (`ak:cti-expert`)
@@ -30,21 +30,20 @@ Select acquire, enrich, assess, or deliver from the request; load only that bran
 
 ## Core Commands Quick Reference
 
-| Phase        | Core Commands                                                      | Purpose                                                 |
-| ------------ | ------------------------------------------------------------------ | ------------------------------------------------------- |
-| **Acquire**  | `/case [target]`, `/sweep [target]`, `/query [target]`             | Full pipeline recon and dork generation                 |
-| **Identity** | `/username [handle]`, `/phone [num]`, `/email-deep [email]`        | Footprint enumeration through available passive sources |
-| **Infra**    | `/subdomain [domain]`, `/msftrecon [domain]`, `/threat-check [ip]` | Certificate logs, tenant discovery, threat scoring      |
-| **Leaks**    | `/docleak [target]`, `/secrets [target]`, `/breach-deep [email]`   | Credential and document leak monitoring                 |
-| **Assess**   | `/exposure [target]`, `/threat-model`, `/validate`                 | Exposure scoring (0–100) and evidence auditing          |
-| **Deliver**  | `/report`, `/brief`, `/workspace save [name]`                      | Structured intelligence reports & workspace persistence |
+| Phase | Core Commands | Purpose |
+|---|---|---|
+| **Acquire** | `/case [target]`, `/sweep [target]`, `/query [target]` | Full pipeline recon and dork generation |
+| **Identity** | `/username [handle]`, `/phone [num]`, `/email-deep [email]` | Footprint enumeration through available passive sources |
+| **Infra** | `/subdomain [domain]`, `/msftrecon [domain]`, `/threat-check [ip]` | Certificate logs, tenant discovery, threat scoring |
+| **Leaks** | `/docleak [target]`, `/secrets [target]`, `/breach-deep [email]` | Credential and document leak monitoring |
+| **Assess** | `/exposure [target]`, `/threat-model`, `/validate` | Exposure scoring (0–100) and evidence auditing |
+| **Deliver** | `/report`, `/brief`, `/workspace save [name]` | Structured intelligence reports & workspace persistence |
 
 See `references/commands.md` for the exhaustive command catalog.
 
 ## Guided Flows & Workflows
 
 Activate interactive walkthroughs via `/flow [type]`:
-
 - **Threat Analyst**: `workflows/wf-threat-analyst.md`
 - **Journalist Source Verification**: `workflows/wf-journalist.md`
 - **HR / Background Screening**: `workflows/wf-hr-screening.md`
@@ -53,7 +52,6 @@ Activate interactive walkthroughs via `/flow [type]`:
 ## Output Formats & HTML Mirror (`--format html`)
 
 Every `/report`, `/brief`, and `/case` auto-saves two files to disk:
-
 1. Markdown report: `CTI-REPORT-<CASE-ID>-<YYYY-MM-DD>.md`
 2. Word document: `CTI-REPORT-<CASE-ID>-<YYYY-MM-DD>.docx`
 

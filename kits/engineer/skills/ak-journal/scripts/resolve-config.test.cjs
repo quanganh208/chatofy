@@ -41,10 +41,7 @@ test('resolveConfig: no config files anywhere returns built-in defaults', () => 
       assert.equal(resolved.language, DEFAULTS.language);
       assert.deepEqual(resolved.channels, []);
       assert.equal(resolved.writing_style, null);
-      assert.deepEqual(resolved.ai, {
-        image_model: 'google/gemini-2.5-flash-image',
-        video_model: 'veo-3',
-      });
+      assert.deepEqual(resolved.ai, { image_model: 'google/gemini-2.5-flash-image', video_model: 'veo-3' });
       assert.deepEqual(resolved.video, { engine: 'auto' });
       assert.equal(resolved.auto, true);
     });
@@ -60,7 +57,7 @@ test('resolveConfig: user ~/.agentkit/config.yaml journal.language overrides def
     fs.mkdirSync(path.join(homeDir, '.agentkit'), { recursive: true });
     fs.writeFileSync(
       path.join(homeDir, '.agentkit', 'config.yaml'),
-      'journal:\n  language: Vietnamese\n',
+      'journal:\n  language: Vietnamese\n'
     );
     withHome(homeDir, () => {
       const resolved = resolveConfig({ projectRoot });
@@ -76,14 +73,8 @@ test('resolveConfig: project .agentkit/journal.yaml wins over project config.yam
   const homeDir = makeHome();
   try {
     fs.mkdirSync(path.join(homeDir, '.agentkit'), { recursive: true });
-    fs.writeFileSync(
-      path.join(homeDir, '.agentkit', 'config.yaml'),
-      'journal:\n  language: Vietnamese\n',
-    );
-    fs.writeFileSync(
-      path.join(projectRoot, '.agentkit', 'config.yaml'),
-      'journal:\n  language: French\n',
-    );
+    fs.writeFileSync(path.join(homeDir, '.agentkit', 'config.yaml'), 'journal:\n  language: Vietnamese\n');
+    fs.writeFileSync(path.join(projectRoot, '.agentkit', 'config.yaml'), 'journal:\n  language: French\n');
     fs.writeFileSync(path.join(projectRoot, '.agentkit', 'journal.yaml'), 'language: Japanese\n');
 
     withHome(homeDir, () => {
@@ -112,7 +103,7 @@ test('resolveConfig: project .agentkit/journal.yaml channels array-of-maps parse
         '    account_id: acc_456',
         '    language: Vietnamese',
         '',
-      ].join('\n'),
+      ].join('\n')
     );
 
     withHome(homeDir, () => {
@@ -194,7 +185,7 @@ test('mini-yaml-parser: nested maps, comments, quoted/unquoted strings', () => {
       '    image_model: google/gemini-2.5-flash-image',
       '    video_model: veo-3',
       '',
-    ].join('\n'),
+    ].join('\n')
   );
 
   assert.deepEqual(parsed, {
@@ -211,9 +202,7 @@ test('mini-yaml-parser: nested maps, comments, quoted/unquoted strings', () => {
 });
 
 test('mini-yaml-parser: flow-style array-of-maps and empty input', () => {
-  const parsed = parseYaml(
-    'channels: [{id: x_main, platform: x}, {id: li_main, platform: linkedin}]\n',
-  );
+  const parsed = parseYaml('channels: [{id: x_main, platform: x}, {id: li_main, platform: linkedin}]\n');
   assert.deepEqual(parsed.channels, [
     { id: 'x_main', platform: 'x' },
     { id: 'li_main', platform: 'linkedin' },
@@ -230,7 +219,7 @@ test('resolveConfig: --json CLI output is valid parseable JSON with resolved fie
     const result = spawnSync(
       process.execPath,
       [path.join(__dirname, 'resolve-config.cjs'), '--project-root', projectRoot, '--json'],
-      { encoding: 'utf8', env: { ...process.env, HOME: homeDir } },
+      { encoding: 'utf8', env: { ...process.env, HOME: homeDir } }
     );
     assert.equal(result.status, 0, result.stderr);
     const parsed = JSON.parse(result.stdout);
@@ -248,7 +237,7 @@ test('resolveConfig: CLI without --json still prints valid compact JSON', () => 
     const result = spawnSync(
       process.execPath,
       [path.join(__dirname, 'resolve-config.cjs'), '--project-root', projectRoot],
-      { encoding: 'utf8', env: { ...process.env, HOME: homeDir } },
+      { encoding: 'utf8', env: { ...process.env, HOME: homeDir } }
     );
     assert.equal(result.status, 0, result.stderr);
     const parsed = JSON.parse(result.stdout);

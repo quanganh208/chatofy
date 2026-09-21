@@ -18,7 +18,6 @@ This skill orchestrates planning, while the AgentKit CLI (`ak`) owns plan file s
 ## Mandatory Generated-File Read Pass
 
 After CLI scaffolding and before composing replacement content:
-
 1. Enumerate generated files: `plan.md` plus all `phase-*.md`.
 2. Read `plan.md`.
 3. Read every generated `phase-*.md` stub, including future phases.
@@ -29,30 +28,26 @@ After CLI scaffolding and before composing replacement content:
 ```markdown
 ---
 phase: <N>
-title: '<Phase Name>'
-status: pending # pending | in-progress | completed
-priority: P2 # P1 | P2 | P3
-effort: '' # e.g. "4h", "2d"
-dependencies: [] # phase IDs this blocks on
+title: "<Phase Name>"
+status: pending       # pending | in-progress | completed
+priority: P2          # P1 | P2 | P3
+effort: ""            # e.g. "4h", "2d"
+dependencies: []      # phase IDs this blocks on
 ---
 
 # Phase <id>: <Name>
 
 ## Goal
-
 [One clear sentence defining what this phase accomplishes]
 
 ## Files to Create / Modify
-
 - Create: `path/to/file.ts`
 - Modify: `path/to/existing.ts`
 
 ## Tasks & Steps
-
 1. [Concrete actionable step]
 2. [Concrete actionable step]
 
 ## Verification
-
 - [Command to verify]
 ```

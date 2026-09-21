@@ -25,7 +25,7 @@ try {
   const {
     createSessionStateContext,
     updateSessionState,
-    isHookEnabled,
+    isHookEnabled
   } = require('./lib/ck-config-utils.cjs');
 
   if (!isHookEnabled('precompact-capture')) process.exit(0);
@@ -34,23 +34,20 @@ try {
     const environment = { ...process.env };
     for (const key of Object.keys(environment)) {
       const normalized = key.toUpperCase();
-      if (normalized === 'GIT_CONFIG_COUNT' || normalized.startsWith('GIT_'))
-        delete environment[key];
+      if (normalized === 'GIT_CONFIG_COUNT' || normalized.startsWith('GIT_')) delete environment[key];
     }
     return environment;
   }
 
   function git(args, cwd) {
     try {
-      return (
-        execFileSync('git', args, {
-          cwd,
-          env: cleanGitEnvironment(),
-          encoding: 'utf8',
-          timeout: 2000,
-          stdio: ['ignore', 'pipe', 'ignore'],
-        }).trim() || null
-      );
+      return execFileSync('git', args, {
+        cwd,
+        env: cleanGitEnvironment(),
+        encoding: 'utf8',
+        timeout: 2000,
+        stdio: ['ignore', 'pipe', 'ignore']
+      }).trim() || null;
     } catch {
       return null;
     }
@@ -78,7 +75,9 @@ try {
   const context = createSessionStateContext({
     sessionId: data.session_id,
     cwd,
-    ...(piRuntime ? { runtime: 'pi', bindSession: true } : { requireBinding: true }),
+    ...(piRuntime
+      ? { runtime: 'pi', bindSession: true }
+      : { requireBinding: true })
   });
   if (!context) process.exit(0);
 
@@ -96,7 +95,7 @@ try {
     mainRoot: mainRoot && mainRoot !== worktree ? mainRoot : null,
     branch: git(['branch', '--show-current'], cwd),
     head: git(['rev-parse', '--short', 'HEAD'], cwd),
-    dirtyCount: dirty ? dirty.split('\n').filter(Boolean).length : 0,
+    dirtyCount: dirty ? dirty.split('\n').filter(Boolean).length : 0
   };
 
   updateSessionState(context, (state) => ({
@@ -104,8 +103,8 @@ try {
     compactRecovery: {
       ...compactRecovery,
       // Carry the active plan the checkpoint pipeline already tracks, if any.
-      activePlan: typeof state?.activePlan === 'string' ? state.activePlan : null,
-    },
+      activePlan: typeof state?.activePlan === 'string' ? state.activePlan : null
+    }
   }));
 
   process.exit(0);

@@ -29,20 +29,10 @@ const os = require('os');
 const { spawn, execSync } = require('child_process');
 
 const { findAvailablePort, DEFAULT_PORT } = require('./lib/port-finder.cjs');
-const {
-  writePidFile,
-  stopAllServers,
-  setupShutdownHandlers,
-  findRunningInstances,
-} = require('./lib/process-mgr.cjs');
+const { writePidFile, stopAllServers, setupShutdownHandlers, findRunningInstances } = require('./lib/process-mgr.cjs');
 const { createHttpServer } = require('./lib/http-server.cjs');
 const { renderMarkdownFile, renderTOCHtml } = require('./lib/markdown-renderer.cjs');
-const {
-  generateNavSidebar,
-  generateNavFooter,
-  detectPlan,
-  getNavigationContext,
-} = require('./lib/plan-navigator.cjs');
+const { generateNavSidebar, generateNavFooter, detectPlan, getNavigationContext } = require('./lib/plan-navigator.cjs');
 
 /**
  * Parse command line arguments
@@ -53,11 +43,11 @@ function parseArgs(argv) {
     dir: null,
     port: DEFAULT_PORT,
     host: 'localhost',
-    open: true, // Auto-open browser by default
+    open: true,  // Auto-open browser by default
     stop: false,
     background: false,
     foreground: false,
-    isChild: false,
+    isChild: false
   };
 
   for (let i = 2; i < argv.length; i++) {
@@ -173,20 +163,18 @@ function generateFullPage(filePath, assetsDir) {
   // Generate header nav (prev/next) for plan files
   let headerNav = '';
   if (navContext.prev || navContext.next) {
-    const prevBtn =
-      navContext.prev && fs.existsSync(navContext.prev.file)
-        ? `<a href="/view?file=${encodeURIComponent(navContext.prev.file)}" class="header-nav-btn prev" title="${navContext.prev.name}">
+    const prevBtn = navContext.prev && fs.existsSync(navContext.prev.file)
+      ? `<a href="/view?file=${encodeURIComponent(navContext.prev.file)}" class="header-nav-btn prev" title="${navContext.prev.name}">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
           <span>Prev</span>
         </a>`
-        : '';
-    const nextBtn =
-      navContext.next && fs.existsSync(navContext.next.file)
-        ? `<a href="/view?file=${encodeURIComponent(navContext.next.file)}" class="header-nav-btn next" title="${navContext.next.name}">
+      : '';
+    const nextBtn = navContext.next && fs.existsSync(navContext.next.file)
+      ? `<a href="/view?file=${encodeURIComponent(navContext.next.file)}" class="header-nav-btn next" title="${navContext.next.name}">
           <span>Next</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
         </a>`
-        : '';
+      : '';
     headerNav = `<div class="header-nav">${prevBtn}${nextBtn}</div>`;
   }
 
@@ -314,16 +302,16 @@ async function main() {
     const child = spawn(process.execPath, [__filename, ...childArgs], {
       detached: true,
       stdio: 'ignore',
-      cwd: cwd,
+      cwd: cwd
     });
     child.unref();
 
     // Wait briefly for child to start
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 500));
 
     // Find the port the child is using
     const instances = findRunningInstances();
-    const instance = instances.find((i) => i.port >= args.port);
+    const instance = instances.find(i => i.port >= args.port);
     const port = instance ? instance.port : args.port;
 
     const { url, networkUrl } = buildUrl(args.host, port, resolved.type, resolved.path);
@@ -334,7 +322,7 @@ async function main() {
       path: resolved.path,
       port,
       host: args.host,
-      mode: resolved.type,
+      mode: resolved.type
     };
     if (networkUrl) result.networkUrl = networkUrl;
 
@@ -362,7 +350,7 @@ async function main() {
   const server = createHttpServer({
     assetsDir,
     renderMarkdown: (fp) => generateFullPage(fp, assetsDir),
-    allowedDirs,
+    allowedDirs
   });
 
   // Start server
@@ -386,7 +374,7 @@ async function main() {
         path: resolved.path,
         port,
         host: args.host,
-        mode: resolved.type,
+        mode: resolved.type
       };
       if (networkUrl) result.networkUrl = networkUrl;
       console.log(JSON.stringify(result));
@@ -417,7 +405,7 @@ async function main() {
 }
 
 // Run
-main().catch((err) => {
+main().catch(err => {
   console.error(`Error: ${err.message}`);
   process.exit(1);
 });

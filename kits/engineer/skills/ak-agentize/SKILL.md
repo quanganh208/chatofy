@@ -1,15 +1,14 @@
 ---
 name: ak:agentize
-description: 'Expose existing code or APIs through an agent-friendly CLI, MCP server, or both. Choose the surface and deployment scope from the user’s task and existing project.'
+description: "Expose existing code or APIs through an agent-friendly CLI, MCP server, or both. Choose the surface and deployment scope from the user’s task and existing project."
 user-invocable: true
-when_to_use: 'Invoke to expose existing code as a reusable CLI or MCP tool across Claude, ChatGPT, Cursor, and skills.sh.'
+when_to_use: "Invoke to expose existing code as a reusable CLI or MCP tool across Claude, ChatGPT, Cursor, and skills.sh."
 category: engineering
-keywords:
-  [agentize, mcp, cli, monorepo, npm, cloudflare, oauth, openapi, discovery, marketplace, skills-sh]
-argument-hint: '[feature-or-module] [--both|--mcp|--cli] [--auto|--ask] [--ultra] [--advice] [--yagni]'
+keywords: [agentize, mcp, cli, monorepo, npm, cloudflare, oauth, openapi, discovery, marketplace, skills-sh]
+argument-hint: "[feature-or-module] [--both|--mcp|--cli] [--auto|--ask] [--ultra] [--advice] [--yagni]"
 metadata:
   author: agentkit
-  version: '2.0.2'
+  version: "2.0.2"
 ---
 
 # Agentize
@@ -31,24 +30,20 @@ Scope: converting existing code into CLI and/or MCP. Not for: building a server 
 ```
 
 Output modes:
-
-- `--both` _(default)_: CLI and MCP adapters sharing existing business logic; follow repository layout
+- `--both` *(default)*: CLI and MCP adapters sharing existing business logic; follow repository layout
 - `--mcp`: MCP server only
 - `--cli`: CLI only
 
 Interaction modes:
-
-- `--auto` _(default)_: fully autonomous — analyze, decide, implement without questions
+- `--auto` *(default)*: fully autonomous — analyze, decide, implement without questions
 - `--ask`: after analysis, challenge the user with clarifying questions before implementing
 
 Scope & Quality modes:
-
 - `--yagni`: challenge and cut scope not needed for stated outcomes. Pass flag to downstream subagents.
 - `--ultra`: fan analysis/decision as best-of-5 verifier pass (see Ultra Verifier Mode)
 - `--advice`: run under `kongming` advisory supervision (see Advisory supervision)
 
 Intent detection:
-
 - "MCP only", "server only" → `--mcp` | "CLI only", "npm package" → `--cli` | "ask me", "clarify" → `--ask` | otherwise → `--both --auto`
 
 ## Workflow

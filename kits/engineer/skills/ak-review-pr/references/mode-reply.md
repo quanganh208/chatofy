@@ -21,7 +21,7 @@ Construct the full markdown body containing the summary, risk level, findings (b
 
 Use `date -u +"%Y-%m-%dT%H:%M:%SZ"` for the timestamp.
 
-**Length cap**: GitHub limits comment bodies to ~65,536 chars. If the body exceeds 60,000 chars, truncate the _Findings_ section and append `[truncated — N findings omitted; see local output]` so the reviewer knows to consult the full chat output.
+**Length cap**: GitHub limits comment bodies to ~65,536 chars. If the body exceeds 60,000 chars, truncate the *Findings* section and append `[truncated — N findings omitted; see local output]` so the reviewer knows to consult the full chat output.
 
 ## 3. Map verdict to gh flag
 
@@ -44,7 +44,7 @@ printf '%s\n' "$REVIEW_BODY" | _ak_pr_review "$OWNER" "$REPO" "$NUMBER" "$EVENT"
 Verdict → `EVENT`:
 
 | Verdict         | `EVENT`           |
-| --------------- | ----------------- |
+|-----------------|-------------------|
 | Approve         | `APPROVE`         |
 | Request changes | `REQUEST_CHANGES` |
 | Comment         | `COMMENT`         |

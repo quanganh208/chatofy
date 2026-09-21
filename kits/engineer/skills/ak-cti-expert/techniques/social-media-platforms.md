@@ -18,7 +18,6 @@ Platform-specific techniques for extracting intelligence from social media. Cove
 ### 2.1 Persistent Numeric User ID
 
 Every Twitter/X account has a permanent numeric ID that survives username changes:
-
 - Access by ID: `https://x.com/i/user/<numeric_id>`
 - Find ID from archived pages (JSON-LD `"author":{"identifier":"..."}`)
 - t.co shortlinks point to OLD usernames — the redirect URL contains the username at time of posting
@@ -26,7 +25,6 @@ Every Twitter/X account has a permanent numeric ID that survives username change
 ### 2.2 Snowflake Timestamp Decoding
 
 Twitter IDs encode creation timestamps:
-
 ```python
 def snowflake_to_timestamp(tweet_id):
     """Convert Twitter Snowflake ID to Unix timestamp (ms)."""
@@ -36,23 +34,21 @@ def snowflake_to_timestamp(tweet_id):
 ### 2.3 Username Rename Detection
 
 - Wayback CDX API for archived profiles:
-
 ```bash
 curl "http://web.archive.org/cdx/search/cdx?url=twitter.com/USERNAME*&output=json&fl=timestamp,original,statuscode"
 ```
-
 - Archived pages contain JSON-LD with user ID, creation date, follower/following counts
 - t.co links in archived tweets reveal previous usernames
 - Same tweet ID accessible under different usernames = confirmed rename
 
 ### 2.4 Alternative Data Sources
 
-| Source                  | URL Pattern                                                         | Auth Required |
-| ----------------------- | ------------------------------------------------------------------- | ------------- |
-| Nitter                  | `nitter.poast.org/USERNAME`                                         | No            |
-| Syndication API         | `syndication.twitter.com/srv/timeline-profile/screen-name/USERNAME` | No            |
-| memory.lol              | `memory.lol`                                                        | No            |
-| twitter.lolarchiver.com | Tracks username history                                             | No            |
+| Source | URL Pattern | Auth Required |
+|--------|-------------|---------------|
+| Nitter | `nitter.poast.org/USERNAME` | No |
+| Syndication API | `syndication.twitter.com/srv/timeline-profile/screen-name/USERNAME` | No |
+| memory.lol | `memory.lol` | No |
+| twitter.lolarchiver.com | Tracks username history | No |
 
 **Note:** Twitter strips EXIF on upload — don't waste time on stego for Twitter-served images.
 
@@ -70,7 +66,6 @@ curl -sI "https://USERNAME.tumblr.com" | grep -i "x-tumblr-user"
 ### 3.2 Post Content Extraction
 
 Tumblr embeds post data as JSON in page HTML:
-
 - Search for `"content":[` to find post body data
 - Posts contain `type: "text"` with `text` field, and `type: "image"` with media URLs
 
@@ -112,7 +107,6 @@ curl -s "https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=at://d
 ```
 
 **Search filters:**
-
 ```
 from:username        # Posts from specific user
 since:2025-01-01     # Date range
@@ -141,7 +135,6 @@ curl -H "Authorization: $TOKEN" "https://discord.com/api/v10/guilds/GUILD_ID/mes
 ```
 
 **Animated emoji technique:** Download GIF, extract frames — hidden data in brief frames invisible at normal speed:
-
 ```bash
 # Extract all frames from animated GIF
 convert emoji.gif frame_%03d.png
@@ -179,13 +172,13 @@ Fitness apps are high-value OSINT targets — users rarely restrict activity vis
 
 Platforms that return HTTP 200 but no real profile:
 
-| Platform               | Behavior           | How to Distinguish                                      |
-| ---------------------- | ------------------ | ------------------------------------------------------- |
-| Telegram (`t.me/USER`) | Always returns 200 | Check title: "View" = exists, "Contact" = doesn't       |
-| TikTok                 | Returns 200        | Check body for "Couldn't find this account"             |
-| Smule                  | Returns 200        | Check body for "Not Found"                              |
-| linkin.bio             | Returns 200        | Redirects to Later.com product page for unclaimed names |
-| Instagram              | Returns 200        | Shows login wall — may or may not exist                 |
+| Platform | Behavior | How to Distinguish |
+|----------|----------|-------------------|
+| Telegram (`t.me/USER`) | Always returns 200 | Check title: "View" = exists, "Contact" = doesn't |
+| TikTok | Returns 200 | Check body for "Couldn't find this account" |
+| Smule | Returns 200 | Check body for "Not Found" |
+| linkin.bio | Returns 200 | Redirects to Later.com product page for unclaimed names |
+| Instagram | Returns 200 | Shows login wall — may or may not exist |
 
 ---
 
@@ -193,12 +186,12 @@ Platforms that return HTTP 200 but no real profile:
 
 Usernames often embed geographic or temporal signals:
 
-| Pattern                           | Example         | Signal               |
-| --------------------------------- | --------------- | -------------------- |
+| Pattern | Example | Signal |
+|---------|---------|--------|
 | Trailing digits = postal/ZIP code | `LinXiayu35170` | 35170 = Bruz, France |
-| Birth year suffix                 | `jsmith1998`    | Born 1998            |
-| Area code prefix                  | `user212nyc`    | 212 = Manhattan      |
-| Country code                      | `player44uk`    | +44 = United Kingdom |
+| Birth year suffix | `jsmith1998` | Born 1998 |
+| Area code prefix | `user212nyc` | 212 = Manhattan |
+| Country code | `player44uk` | +44 = United Kingdom |
 
 Cross-reference extracted codes with postal code databases, phone number registries, or geographic gazetteers.
 
@@ -219,7 +212,6 @@ Cross-reference extracted codes with postal code databases, phone number registr
 Extracts identity information embedded in social media and platform share links. When users share content via platform-generated links, those links often contain metadata about the sharer — usernames, user IDs, avatars, and account details.
 
 **Installation:**
-
 ```bash
 git clone https://github.com/7onez/sharetrace.git
 cd sharetrace
@@ -227,7 +219,6 @@ pip3 install -r requirements.txt
 ```
 
 **Usage:**
-
 ```bash
 # Analyze a share link (plain text output)
 python -m sharetrace "https://vm.tiktok.com/ABC123"
@@ -244,19 +235,19 @@ python -m sharetrace "https://..." --quiet
 
 ### 9.1 Supported Platforms (11)
 
-| Platform       | Extracts                                                                                                                                                         | Link Format Notes                                                    |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| **TikTok**     | User ID, username, nickname, country, avatar, signature, device, share method, timestamp, follower/following/video/heart counts, private status, DM availability | Short links only: `vm.tiktok.com`, `vt.tiktok.com`, `tiktok.com/t`   |
-| **Instagram**  | Username, user ID, display name, profile URL, profile pic                                                                                                        | Data expires ~24h; fresh links only                                  |
-| **Discord**    | User ID, username, display name, avatar, account creation time                                                                                                   | Vanity invites may lack inviter data                                 |
-| **ChatGPT**    | Display name                                                                                                                                                     | —                                                                    |
-| **Claude**     | Display name, user ID                                                                                                                                            | —                                                                    |
-| **Perplexity** | Username, avatar, user ID                                                                                                                                        | —                                                                    |
-| **Microsoft**  | Email                                                                                                                                                            | SharePoint/OneDrive personal links; no HTTP request needed           |
-| **Pinterest**  | Username, user ID, display name, avatar, profile URL                                                                                                             | Short links only: `pin.it` with invite code                          |
-| **Substack**   | User ID, name, handle, bio, avatar, profile setup date                                                                                                           | Requires referral link (`?r=` parameter)                             |
-| **Suno**       | Username, display name, avatar, profile URL                                                                                                                      | —                                                                    |
-| **Telegram**   | User ID                                                                                                                                                          | Decoded from `joinchat` hash; no HTTP needed. `AAAAA`-prefix = empty |
+| Platform | Extracts | Link Format Notes |
+|----------|----------|-------------------|
+| **TikTok** | User ID, username, nickname, country, avatar, signature, device, share method, timestamp, follower/following/video/heart counts, private status, DM availability | Short links only: `vm.tiktok.com`, `vt.tiktok.com`, `tiktok.com/t` |
+| **Instagram** | Username, user ID, display name, profile URL, profile pic | Data expires ~24h; fresh links only |
+| **Discord** | User ID, username, display name, avatar, account creation time | Vanity invites may lack inviter data |
+| **ChatGPT** | Display name | — |
+| **Claude** | Display name, user ID | — |
+| **Perplexity** | Username, avatar, user ID | — |
+| **Microsoft** | Email | SharePoint/OneDrive personal links; no HTTP request needed |
+| **Pinterest** | Username, user ID, display name, avatar, profile URL | Short links only: `pin.it` with invite code |
+| **Substack** | User ID, name, handle, bio, avatar, profile setup date | Requires referral link (`?r=` parameter) |
+| **Suno** | Username, display name, avatar, profile URL | — |
+| **Telegram** | User ID | Decoded from `joinchat` hash; no HTTP needed. `AAAAA`-prefix = empty |
 
 ### 9.2 OSINT Value
 
@@ -277,15 +268,15 @@ python -m sharetrace "https://..." --quiet
 
 ### 9.4 Confidence Ratings
 
-| Finding                          | Confidence | Notes                         |
-| -------------------------------- | ---------- | ----------------------------- |
-| User ID from share link          | HIGH       | Platform-generated identifier |
-| Username from share link         | HIGH       | Direct platform data          |
-| Email from Microsoft link        | HIGH       | Locally decoded, no HTTP      |
-| Telegram user ID from hash       | HIGH       | Mathematical decoding         |
-| Display name                     | MEDIUM     | User-controlled, changeable   |
-| Avatar URL                       | MEDIUM     | May be updated or removed     |
-| Instagram data from expired link | LOW        | Data expires ~24h             |
+| Finding | Confidence | Notes |
+|---------|-----------|-------|
+| User ID from share link | HIGH | Platform-generated identifier |
+| Username from share link | HIGH | Direct platform data |
+| Email from Microsoft link | HIGH | Locally decoded, no HTTP |
+| Telegram user ID from hash | HIGH | Mathematical decoding |
+| Display name | MEDIUM | User-controlled, changeable |
+| Avatar URL | MEDIUM | May be updated or removed |
+| Instagram data from expired link | LOW | Data expires ~24h |
 
 ### 9.5 Limitations
 
@@ -301,7 +292,6 @@ python -m sharetrace "https://..." --quiet
 ### Pattern: Platform Chaining
 
 Each platform links to the next — follow the breadcrumbs:
-
 1. Start with known username → enumerate across ALL platforms
 2. Find profile on platform X with clues pointing to platform Y
 3. Discovered new username → enumerate again
@@ -313,28 +303,28 @@ Reddit username → Spotify social link → Base58-encoded string → Spotify pl
 
 ### Platform-Specific Data Locations
 
-| Platform   | Where to Look                                     |
-| ---------- | ------------------------------------------------- |
-| Spotify    | Playlist names, artist bio, song title initials   |
-| BlueSky    | Post content, replies to official posts           |
-| Tumblr     | Avatar image, post text                           |
-| Reddit     | Post/comment content                              |
-| SoundCloud | Track description                                 |
-| GitHub     | Issue comments, PR reviews, commit messages, wiki |
+| Platform | Where to Look |
+|----------|--------------|
+| Spotify | Playlist names, artist bio, song title initials |
+| BlueSky | Post content, replies to official posts |
+| Tumblr | Avatar image, post text |
+| Reddit | Post/comment content |
+| SoundCloud | Track description |
+| GitHub | Issue comments, PR reviews, commit messages, wiki |
 
 ---
 
 ## 11. Confidence Ratings
 
-| Finding                                 | Confidence | Notes                        |
-| --------------------------------------- | ---------- | ---------------------------- |
-| Twitter numeric User ID match           | HIGH       | Persistent identifier        |
-| Snowflake timestamp decode              | HIGH       | Mathematical certainty       |
-| BlueSky API profile data                | HIGH       | Direct from platform         |
-| Username across platforms (photo match) | HIGH       | Visual confirmation          |
-| Username across platforms (name only)   | MEDIUM     | May be different person      |
-| Strava GPS endpoint location            | HIGH       | Hardware GPS data            |
-| Platform false positive filtered        | MEDIUM     | Requires manual verification |
+| Finding | Confidence | Notes |
+|---------|-----------|-------|
+| Twitter numeric User ID match | HIGH | Persistent identifier |
+| Snowflake timestamp decode | HIGH | Mathematical certainty |
+| BlueSky API profile data | HIGH | Direct from platform |
+| Username across platforms (photo match) | HIGH | Visual confirmation |
+| Username across platforms (name only) | MEDIUM | May be different person |
+| Strava GPS endpoint location | HIGH | Hardware GPS data |
+| Platform false positive filtered | MEDIUM | Requires manual verification |
 
 ---
 
@@ -342,11 +332,11 @@ Reddit username → Spotify social link → Base58-encoded string → Spotify pl
 
 ### 12.1 User Analysis Tools
 
-| Tool                  | URL                                       | Auth | Notes                                                                    |
-| --------------------- | ----------------------------------------- | ---- | ------------------------------------------------------------------------ |
-| Reddit User Analyser  | https://reddit-user-analyser.netlify.app/ | No   | Activity patterns, subreddit frequency, posting history, karma breakdown |
-| RedditMetis           | https://redditmetis.com/                  | No   | Word clouds, activity heat maps, top subreddits, sentiment               |
-| Reddit Comment Search | https://www.redditcommentsearch.com/      | No   | Search all comments by a specific username                               |
+| Tool | URL | Auth | Notes |
+|------|-----|------|-------|
+| Reddit User Analyser | https://reddit-user-analyser.netlify.app/ | No | Activity patterns, subreddit frequency, posting history, karma breakdown |
+| RedditMetis | https://redditmetis.com/ | No | Word clouds, activity heat maps, top subreddits, sentiment |
+| Reddit Comment Search | https://www.redditcommentsearch.com/ | No | Search all comments by a specific username |
 
 ### 12.2 Investigation Workflow
 
@@ -378,12 +368,12 @@ site:reddit.com/r/SUBREDDIT "USERNAME"
 
 ### 13.1 Tool Inventory
 
-| Tool            | URL/Install                                      | Auth                 | Notes                                                                         |
-| --------------- | ------------------------------------------------ | -------------------- | ----------------------------------------------------------------------------- |
-| **Osintgram**   | `git clone https://github.com/Datalux/Osintgram` | No (public profiles) | Interactive shell — followers, following, geo-tagged posts, comments, stories |
-| **instaloader** | `pip3 install instaloader`                       | No (public profiles) | Download posts, stories, highlights, metadata, profile pic. CLI tool          |
-| **toutatis**    | `pip3 install toutatis`                          | No                   | Extract email/phone from Instagram accounts via Instagram API                 |
-| **InstaHunt**   | https://instahunt.co/                            | No                   | Geo-search: find Instagram posts near a location                              |
+| Tool | URL/Install | Auth | Notes |
+|------|------------|------|-------|
+| **Osintgram** | `git clone https://github.com/Datalux/Osintgram` | No (public profiles) | Interactive shell — followers, following, geo-tagged posts, comments, stories |
+| **instaloader** | `pip3 install instaloader` | No (public profiles) | Download posts, stories, highlights, metadata, profile pic. CLI tool |
+| **toutatis** | `pip3 install toutatis` | No | Extract email/phone from Instagram accounts via Instagram API |
+| **InstaHunt** | https://instahunt.co/ | No | Geo-search: find Instagram posts near a location |
 
 ### 13.2 Investigation Workflow
 
@@ -438,11 +428,11 @@ cd Osintgram && python3 main.py <username>
 
 ### 14.1 Tool Inventory
 
-| Tool                 | URL/Install                                    | Auth | Notes                                                                      |
-| -------------------- | ---------------------------------------------- | ---- | -------------------------------------------------------------------------- |
-| **TikTok Timestamp** | https://bellingcat.github.io/tiktok-timestamp/ | No   | Extract exact upload timestamp from any TikTok video URL (Bellingcat tool) |
-| **TikTok Scraper**   | `npm i -g tiktok-scraper`                      | No   | Scrape user data, hashtags, trending, music. CLI tool                      |
-| **Tokcount**         | https://tokcount.com/                          | No   | TikTok analytics — follower counts, engagement metrics                     |
+| Tool | URL/Install | Auth | Notes |
+|------|------------|------|-------|
+| **TikTok Timestamp** | https://bellingcat.github.io/tiktok-timestamp/ | No | Extract exact upload timestamp from any TikTok video URL (Bellingcat tool) |
+| **TikTok Scraper** | `npm i -g tiktok-scraper` | No | Scrape user data, hashtags, trending, music. CLI tool |
+| **Tokcount** | https://tokcount.com/ | No | TikTok analytics — follower counts, engagement metrics |
 
 ### 14.2 Investigation Workflow
 
@@ -459,7 +449,7 @@ Step 3: Scrape user content (tiktok-scraper)
   └─ Gets: video URLs, descriptions, hashtags, music, stats
 
 Step 4: Share link analysis (ShareTrace — Section 9)
-  └─ TikTok short links (vm.tiktok.com) reveal: user ID, username,
+  └─ TikTok short links (vm.tiktok.com) reveal: user ID, username, 
      nickname, country, device, follower counts, DM status
 ```
 
@@ -478,12 +468,12 @@ Step 4: Share link analysis (ShareTrace — Section 9)
 
 ### 15.1 Search Tools
 
-| Tool                      | URL                                                              | Auth | Notes                                                                   |
-| ------------------------- | ---------------------------------------------------------------- | ---- | ----------------------------------------------------------------------- |
-| **TGStat**                | https://tgstat.com/search                                        | No   | Full Telegram post/channel/group search with analytics, growth tracking |
-| **TelegramDB**            | https://telegramdb.org/                                          | No   | Search channels, groups, and members by keyword                         |
-| **Telegago** (Google CSE) | https://cse.google.com/cse?&cx=006368593537057042503:efxu7xprihg | No   | Custom Google search engine indexed for Telegram content                |
-| **Lyzem**                 | https://lyzem.com/                                               | No   | Telegram post search engine                                             |
+| Tool | URL | Auth | Notes |
+|------|-----|------|-------|
+| **TGStat** | https://tgstat.com/search | No | Full Telegram post/channel/group search with analytics, growth tracking |
+| **TelegramDB** | https://telegramdb.org/ | No | Search channels, groups, and members by keyword |
+| **Telegago** (Google CSE) | https://cse.google.com/cse?&cx=006368593537057042503:efxu7xprihg | No | Custom Google search engine indexed for Telegram content |
+| **Lyzem** | https://lyzem.com/ | No | Telegram post search engine |
 
 ### 15.2 Investigation Workflow
 
@@ -520,5 +510,5 @@ Step 5: Join link analysis (ShareTrace — Section 9)
 
 ---
 
-_Social Media Platforms Module v1.0.0 — Updated with Reddit, Instagram, TikTok, Telegram_
-_Part of Free OSINT Expert Skill - Phase 5_
+*Social Media Platforms Module v1.0.0 — Updated with Reddit, Instagram, TikTok, Telegram*
+*Part of Free OSINT Expert Skill - Phase 5*

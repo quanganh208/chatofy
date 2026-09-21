@@ -21,7 +21,9 @@ describe('User Repository', () => {
   let pool: Pool;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer().withDatabase('testdb').start();
+    container = await new PostgreSqlContainer()
+      .withDatabase('testdb')
+      .start();
 
     pool = new Pool({ connectionString: container.getConnectionUri() });
     await runMigrations(pool);
@@ -101,21 +103,18 @@ import { test as base } from '@playwright/test';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 
 export const test = base.extend<{ db: Pool }>({
-  db: [
-    async ({}, use, testInfo) => {
-      const container = await new PostgreSqlContainer().start();
-      const pool = new Pool({ connectionString: container.getConnectionUri() });
+  db: [async ({}, use, testInfo) => {
+    const container = await new PostgreSqlContainer().start();
+    const pool = new Pool({ connectionString: container.getConnectionUri() });
 
-      // Seed per-worker data
-      await seedData(pool, testInfo.workerIndex);
+    // Seed per-worker data
+    await seedData(pool, testInfo.workerIndex);
 
-      await use(pool);
+    await use(pool);
 
-      await pool.end();
-      await container.stop();
-    },
-    { scope: 'worker' },
-  ],
+    await pool.end();
+    await container.stop();
+  }, { scope: 'worker' }]
 });
 ```
 

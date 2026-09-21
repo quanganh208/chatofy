@@ -1,15 +1,15 @@
 ---
 name: ak:retro
-description: 'Generate data-driven sprint retrospectives from any git history. Use for sprint reviews, commit analysis, code-health indicators, team-velocity reporting, and quarterly engineering reviews. Works on solo or team repos.'
+description: "Generate data-driven sprint retrospectives from any git history. Use for sprint reviews, commit analysis, code-health indicators, team-velocity reporting, and quarterly engineering reviews. Works on solo or team repos."
 user-invocable: true
-when_to_use: 'Invoke to summarize engineering history from git activity.'
+when_to_use: "Invoke to summarize engineering history from git activity."
 category: workflow
 keywords: [retrospective, sprint, metrics, review]
 license: MIT
-argument-hint: '[timeframe] [--compare] [--team] [--format html|md] [--no-antv|--no-diagram-design|--no-editorial-visuals]'
+argument-hint: "[timeframe] [--compare] [--team] [--format html|md] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 metadata:
   author: agentkit
-  version: '1.0.1'
+  version: "1.0.1"
 ---
 
 # Retro Skill
@@ -18,12 +18,12 @@ You are a data-driven Engineering Retrospective Analyst. Your job is to collect 
 
 ## Flags
 
-| Flag                | Default | Description                                                                        |
-| ------------------- | ------- | ---------------------------------------------------------------------------------- |
-| `timeframe`         | `7d`    | Period to analyze. Accepts: `7d`, `2w`, `1m`, `sprint`, or `YYYY-MM-DD:YYYY-MM-DD` |
-| `--compare`         | off     | Compare metrics against the preceding equal-length period                          |
-| `--team`            | off     | Break down metrics per author                                                      |
-| `--format html\|md` | `md`    | Output format. `html` generates a self-contained HTML report                       |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `timeframe` | `7d` | Period to analyze. Accepts: `7d`, `2w`, `1m`, `sprint`, or `YYYY-MM-DD:YYYY-MM-DD` |
+| `--compare` | off | Compare metrics against the preceding equal-length period |
+| `--team` | off | Break down metrics per author |
+| `--format html\|md` | `md` | Output format. `html` generates a self-contained HTML report |
 
 ## Step 1 — Parse Timeframe
 
@@ -63,13 +63,13 @@ and do not present the ratio as executed test coverage.
 
 Compute from the captured data and show formulas. Commit counts, LOC and author activity are descriptive signals, not individual productivity or code quality. Explain merge/shallow-history limitations; use N/A for missing evidence.
 
-| Metric             | Formula                                                                                                  |
-| ------------------ | -------------------------------------------------------------------------------------------------------- |
-| Commit frequency   | `total_commits / days_in_period`                                                                         |
-| Test-to-code ratio | `test_file_changes / total_file_changes * 100`                                                           |
-| Churn rate         | `(LOC_added + LOC_removed) / max(LOC_net, 1)`                                                            |
-| Active day ratio   | `days_with_commits / days_in_period * 100`                                                               |
-| Issue activity     | Optional opened/closed counts from GitHub, separate from file-backed plan completion; N/A if unavailable |
+| Metric | Formula |
+|--------|---------|
+| Commit frequency | `total_commits / days_in_period` |
+| Test-to-code ratio | `test_file_changes / total_file_changes * 100` |
+| Churn rate | `(LOC_added + LOC_removed) / max(LOC_net, 1)` |
+| Active day ratio | `days_with_commits / days_in_period * 100` |
+| Issue activity | Optional opened/closed counts from GitHub, separate from file-backed plan completion; N/A if unavailable |
 
 ## Step 4 — Check Plans Directory
 
@@ -97,7 +97,6 @@ Use the resolved local report date for `YYMMDD` and the timeframe for `slug`.
 ## Step 6 — HTML Format (optional)
 
 If `--format html` flag is set:
-
 - Follow the shared HTML composition contract in `../ak-preview/references/html-skill-composition.md`:
   1. Activate `ak:frontend-design` first for layout, typography, responsive shell, and design critique.
   2. Activate `ak:diagram` second (when installed) to compile typed JSON IR for timeline, process, or workflow visuals.
@@ -106,7 +105,7 @@ If `--format html` flag is set:
 - Use inline CSS for table styling (no external deps)
 - Save as `plans/reports/retro-{YYMMDD}-{slug}.html`
 - Output `[OK] Report saved: plans/reports/retro-{YYMMDD}-{slug}.html`
-  **Editorial visual layer (on by default, additive):** read `ak config prefs resolve --json | jq '.prefs.visual'` before rendering (nested keys spell camelCase — `diagram_design` returns as `diagramDesign`). Preferred vernacular per section:
+**Editorial visual layer (on by default, additive):** read `ak config prefs resolve --json | jq '.prefs.visual'` before rendering (nested keys spell camelCase — `diagram_design` returns as `diagramDesign`). Preferred vernacular per section:
 - **Timeline of commits/PRs** — `diagram-design Timeline` OR AntV Infographic `timeline-*` when `.prefs.visual.diagramDesign.enabled` / `.prefs.visual.antv.enabled` respectively
 - **Plan completion progress** — AntV Infographic `CircularProgress` when `.prefs.visual.antv.enabled`
 - **File hotspots** — hand-authored SVG bar (below the ≥3-panel AntV threshold), or `diagram-design Bar` when the artifact already carries editorial diagrams

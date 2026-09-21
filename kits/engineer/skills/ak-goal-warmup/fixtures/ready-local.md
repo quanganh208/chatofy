@@ -22,10 +22,10 @@ Risk estimate: local-only, no external deps.
 
 ## Expected preflight
 
-| Phase     | Requirement        | Status    | Blocking? |
-| --------- | ------------------ | --------- | --------- |
-| implement | language toolchain | available | no        |
-| test      | test runner        | available | no        |
+| Phase | Requirement | Status | Blocking? |
+|-------|-------------|--------|-----------|
+| implement | language toolchain | available | no |
+| test | test runner | available | no |
 
 ## Expected terminal state
 

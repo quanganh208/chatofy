@@ -1,7 +1,18 @@
 {
   "image": "4f7e7f95ec46254afbcb4ed0f2f3556a.jpg",
-  "style_cues": ["editorial", "integrated typography", "modern", "adventure"],
-  "palette_hexes": ["#1A3B2F", "#3F6E50", "#A4CCDF", "#FFFFFF", "#E07730"],
+  "style_cues": [
+    "editorial",
+    "integrated typography",
+    "modern",
+    "adventure"
+  ],
+  "palette_hexes": [
+    "#1A3B2F",
+    "#3F6E50",
+    "#A4CCDF",
+    "#FFFFFF",
+    "#E07730"
+  ],
   "layout": {
     "grid": "dynamic composition",
     "focal": "center",
@@ -11,12 +22,22 @@
     "material": "digital flat",
     "finish": "digital illustration"
   },
-  "mood": ["adventurous", "energetic", "modern", "exploratory"],
+  "mood": [
+    "adventurous",
+    "energetic",
+    "modern",
+    "exploratory"
+  ],
   "shape_primitives": [
     "bold letterforms",
     "diagonal lines",
     "vertical lines",
     "organic leaf shapes"
   ],
-  "typography": ["bold sans-serif", "all caps", "extreme size contrast", "custom letterforms"]
+  "typography": [
+    "bold sans-serif",
+    "all caps",
+    "extreme size contrast",
+    "custom letterforms"
+  ]
 }

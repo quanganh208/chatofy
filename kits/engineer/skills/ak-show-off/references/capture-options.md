@@ -24,7 +24,6 @@ node scripts/capture-sections.js \
 ```
 
 Options:
-
 - `--url` (required): Page URL to capture
 - `--output-dir` (required): Output directory for images
 - `--sections` (required): Comma-separated CSS selectors for sections
@@ -37,7 +36,6 @@ Options:
 - `--executable-path`: Optional Chrome/Chromium executable path. Also reads `CHROME_EXECUTABLE_PATH` or `PUPPETEER_EXECUTABLE_PATH`.
 
 **Readiness chain before each capture:**
-
 1. `networkidle0` (no in-flight requests)
 2. `document.fonts.ready` (web fonts loaded)
 3. Every `<img>` complete (or errored)

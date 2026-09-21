@@ -23,35 +23,27 @@ Assume they can write the code. Show interfaces and contracts, reference pattern
 ## Required Response Structure
 
 ### 1. Executive Summary
-
 Key recommendation, critical risk, estimated effort — short enough to read before a meeting.
 
 ### 2. Risk Assessment
-
 | Risk | Likelihood | Impact | Mitigation |
-| ---- | ---------- | ------ | ---------- |
-| ...  | H/M/L      | H/M/L  | Strategy   |
+|------|------------|--------|------------|
+| ... | H/M/L | H/M/L | Strategy |
 
 ### 3. Strategic Options
-
 Compare 2-3 approaches with trade-offs:
-
 - Effort, risk, flexibility, team fit
 
 ### 4. Recommended Approach
-
 Architecture/interfaces. Essential code only.
 
 ### 5. Operational Considerations
-
 Monitoring, alerting, runbooks, incident response.
 
 ### 6. Business Impact
-
 Resource requirements, timeline implications, value delivered.
 
 ### 7. Decisions Needed
-
 What requires broader alignment? Who needs to be involved?
 
 ---
@@ -68,20 +60,20 @@ Implement a Result pattern with domain-specific error taxonomy, centralized erro
 
 ### Risk Assessment
 
-| Risk                      | L   | I   | Mitigation                                   |
-| ------------------------- | --- | --- | -------------------------------------------- |
-| Consumer breaking changes | M   | H   | Version error format, deprecation period     |
-| Inconsistent adoption     | M   | M   | Lint rules, code review checklist            |
-| Over-engineering          | L   | M   | Start with 4-5 error types, extend as needed |
-| Observability gaps        | M   | H   | Mandate correlation IDs, structured logging  |
+| Risk | L | I | Mitigation |
+|------|---|---|------------|
+| Consumer breaking changes | M | H | Version error format, deprecation period |
+| Inconsistent adoption | M | M | Lint rules, code review checklist |
+| Over-engineering | L | M | Start with 4-5 error types, extend as needed |
+| Observability gaps | M | H | Mandate correlation IDs, structured logging |
 
 ### Strategic Options
 
-| Approach               | Effort | Risk   | Flexibility | Team Fit                 |
-| ---------------------- | ------ | ------ | ----------- | ------------------------ |
-| Result<T,E> pattern    | Medium | Low    | High        | Good for typed languages |
-| Exception hierarchy    | Low    | Medium | Medium      | Familiar but error-prone |
-| Error codes (RFC 7807) | Medium | Low    | High        | Best for public APIs     |
+| Approach | Effort | Risk | Flexibility | Team Fit |
+|----------|--------|------|-------------|----------|
+| Result<T,E> pattern | Medium | Low | High | Good for typed languages |
+| Exception hierarchy | Low | Medium | Medium | Familiar but error-prone |
+| Error codes (RFC 7807) | Medium | Low | High | Best for public APIs |
 
 **Recommendation:** Result pattern internally, RFC 7807 at API boundaries.
 
@@ -129,3 +121,4 @@ type DomainError =
 1. Error format for external consumers - need API review meeting
 2. Retry policy ownership - client-side, server-side, or infrastructure?
 3. Error budget allocation - how do we count retryable errors against SLO?
+

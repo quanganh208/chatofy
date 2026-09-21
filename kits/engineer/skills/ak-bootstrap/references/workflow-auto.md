@@ -8,7 +8,6 @@ explicit auto mode may proceed without a routine approval pause.
 ## Step 1: Research
 
 Spawn multiple `researcher` subagents in parallel:
-
 - Explore request, idea validation, challenges, best solutions
 - Keep every report ≤150 lines
 
@@ -39,7 +38,6 @@ Resolve material design gaps; reuse an accepted direction without another approv
 ## Step 4: Planning
 
 Activate **ak:plan** skill: `/ak:plan --auto <requirements>`
-
 - Planning skill auto-detects complexity and picks appropriate mode
 - Creates plan directory using `## Naming` pattern
 - Overview at `plan.md` (<80 lines) + `phase-XX-*.md` files
@@ -51,7 +49,6 @@ No user gate after planning in explicit auto mode — proceed to implementation.
 Load `references/shared-phases.md` for remaining phases.
 
 Activate **ak:cook** skill: `/ak:cook --auto <plan-path>`
-
 - Continues accepted scope through cook verification and review
 - Requires evidence that acceptance criteria hold and blocking findings are resolved
 - Continues through all phases unless an external blocker or material missing decision prevents progress

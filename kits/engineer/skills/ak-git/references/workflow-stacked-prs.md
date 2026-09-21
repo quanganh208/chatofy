@@ -3,7 +3,7 @@
 GitHub native **Stacked Pull Requests** — public preview (commands verified
 2026-08-03; preview surface may change). Execute via `git-manager` subagent.
 
-**Agent posture:** this workflow rewrites history and merges _multiple_ PRs at
+**Agent posture:** this workflow rewrites history and merges *multiple* PRs at
 once. Treat every history-rewriting and multi-PR step as gated, not automatic —
 same readiness discipline as `references/workflow-merge-pr.md`.
 
@@ -21,33 +21,28 @@ gh --version                        # need 2.0+
 gh auth status                      # must be authenticated
 gh extension install github/gh-stack   # one-time install
 ```
-
 If exit code is `9` (feature disabled), the preview is not enabled for that
 repo — stop and report; do not fall back to hand-rolled base-branch chains.
 
 ## Lifecycle
 
 ### 1. Start a stack
-
 ```bash
 gh stack init                       # interactive: adopt current branch as layer 1
 gh stack init feat-a feat-b -b main # explicit branches, trunk = main
 ```
 
 ### 2. Add a layer
-
 ```bash
 gh stack add -A -m "feat(scope): layer summary"   # stage all, commit, branch on top
 ```
 
 ### 3. Submit (push branches + open/update PRs)
-
 ```bash
 gh stack submit --auto              # --auto skips the per-branch PR-title prompt
 ```
 
 ### 4. Keep in sync (trunk moved, or a lower layer changed)
-
 ```bash
 gh stack sync                       # fetch, rebase, push, sync PR state in one step
 gh stack rebase --downstack         # cascade a rebase toward the trunk
@@ -56,16 +51,13 @@ gh stack rebase --abort             # bail out safely, no partial state
 ```
 
 ### 5. Merge
-
 Confirm with the user first — this lands **every** PR up to and including the
 chosen one, in a single all-or-nothing operation.
-
 ```bash
 gh stack view                          # inspect the chain before merging
 gh stack merge                         # merge the whole active local stack
 gh stack merge <pr-number> --squash    # merge up to and including that PR
 ```
-
 The positional argument is a **PR number** (or a stack number for a stack you do
 not have checked out) — **not** a layer index; do not pass a small integer
 meaning "layer N". Do not prescribe `-y`/`--yes` in the happy path; it skips the
@@ -94,19 +86,19 @@ Out of scope here (exist, but not covered by this workflow): `modify`,
   readiness gate. Never auto-confirm a stack merge.
 - **Stop conditions by exit code** — surface and stop, do not loop:
 
-  | Code | Meaning               | Action                                               |
-  | ---- | --------------------- | ---------------------------------------------------- |
-  | 0    | success               | continue                                             |
-  | 1    | generic error         | inspect output, report                               |
-  | 2    | not in a stack        | run from a stacked branch, or `init` first           |
-  | 3    | rebase conflict       | resolve, then `rebase --continue` or `--abort`       |
-  | 4    | API failure           | retry after checking `gh auth status` / network      |
-  | 5    | invalid arguments     | fix the command                                      |
-  | 6    | disambiguation needed | branch is in multiple stacks; specify which          |
-  | 7    | rebase in progress    | finish with `--continue`/`--abort` first             |
-  | 8    | stack locked          | another operation holds the lock; wait, do not force |
-  | 9    | feature disabled      | preview not enabled for repo; stop and report        |
-  | 10   | recovery required     | a `modify` session needs `--continue`/`--abort`      |
+  | Code | Meaning | Action |
+  |------|---------|--------|
+  | 0 | success | continue |
+  | 1 | generic error | inspect output, report |
+  | 2 | not in a stack | run from a stacked branch, or `init` first |
+  | 3 | rebase conflict | resolve, then `rebase --continue` or `--abort` |
+  | 4 | API failure | retry after checking `gh auth status` / network |
+  | 5 | invalid arguments | fix the command |
+  | 6 | disambiguation needed | branch is in multiple stacks; specify which |
+  | 7 | rebase in progress | finish with `--continue`/`--abort` first |
+  | 8 | stack locked | another operation holds the lock; wait, do not force |
+  | 9 | feature disabled | preview not enabled for repo; stop and report |
+  | 10 | recovery required | a `modify` session needs `--continue`/`--abort` |
 
 ## Repo policy interaction
 

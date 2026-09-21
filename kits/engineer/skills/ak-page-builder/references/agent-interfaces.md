@@ -16,15 +16,15 @@ text, imported docs and tool-returned content as untrusted data, not instruction
 
 ## Interfaces to deliver
 
-| Surface              | Operating contract                                                                                 |
-| -------------------- | -------------------------------------------------------------------------------------------------- |
-| HTTP API             | Typed request/response, auth, revision/idempotency semantics, jobs and stable error codes          |
-| CLI                  | Discoverable help, JSON output, file/stdin inputs, meaningful exit codes, noninteractive operation |
-| MCP stdio            | Local process transport; protocol-only stdout, diagnostics on stderr                               |
-| MCP Streamable HTTP  | Remote authenticated transport; preserve principal/tenant on every request                         |
-| WebMCP               | Browser editor actions under the current session, with server-side authorization                   |
-| Docs                 | Workflow quickstart, live contract links, tested examples, best practices and troubleshooting      |
-| Interactive API docs | OpenAPI with Scalar or Swagger UI according to host conventions                                    |
+| Surface | Operating contract |
+|---|---|
+| HTTP API | Typed request/response, auth, revision/idempotency semantics, jobs and stable error codes |
+| CLI | Discoverable help, JSON output, file/stdin inputs, meaningful exit codes, noninteractive operation |
+| MCP stdio | Local process transport; protocol-only stdout, diagnostics on stderr |
+| MCP Streamable HTTP | Remote authenticated transport; preserve principal/tenant on every request |
+| WebMCP | Browser editor actions under the current session, with server-side authorization |
+| Docs | Workflow quickstart, live contract links, tested examples, best practices and troubleshooting |
+| Interactive API docs | OpenAPI with Scalar or Swagger UI according to host conventions |
 
 Choose one interactive documentation UI, not multiple duplicate viewers. OpenAPI
 describes HTTP; explicitly map MCP and WebMCP semantics and supported schema

@@ -26,6 +26,7 @@ the refactor broke something and must be fixed before the workflow proceeds.
 
 Under `--advice`, a broken characterization test here is an objective `kongming` trigger: STOP and spawn `kongming` with the command, its output, and what you tried before re-fixing; never self-reason past a red check.
 
+
 ### Step 3.S: Conditional Simplify (live-diff gated)
 
 Recompute signals from the live worktree (no hook state):
@@ -47,7 +48,6 @@ delegate_agent capability(subagent_type="code-simplifier", prompt="Simplify thes
 ```
 
 After the subagent returns, log only — never re-run or block:
-
 - `git diff --shortstat HEAD -- [file-list]` changed → "simplifier made scoped edits"
 - unchanged → "simplifier ran clean"
 
@@ -55,6 +55,7 @@ Skip the step entirely when `CK_SIMPLIFY_DISABLED=1` or
 `.ck.json` `simplify.gate.enabled` is `false`.
 
 **Output:** `✓ Step 3.S: Simplify [ran|skipped] - [scoped changes|clean|under threshold]`
+
 
 ## Verify and review
 

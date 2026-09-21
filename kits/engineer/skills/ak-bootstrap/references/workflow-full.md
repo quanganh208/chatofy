@@ -7,7 +7,6 @@ The opening brainstorm contract in the parent skill is already satisfied.
 ## Step 1: Refine Requirements
 
 Resolve only material gaps discovered in the opening contract.
-
 - Ask 1 question at a time, wait for answer before next
 - Inspect before asking for facts available from the workspace
 - Challenge assumptions when evidence reveals a real trade-off
@@ -17,7 +16,6 @@ Resolve only material gaps discovered in the opening contract.
 ## Step 2: Research
 
 Spawn multiple `researcher` subagents in parallel:
-
 - Explore request validity, challenges, best solutions
 - Keep every report ≤150 lines
 
@@ -51,7 +49,6 @@ Reuse the accepted design direction; resolve any material outstanding design cho
 ## Step 5: Planning
 
 Activate **ak:plan** skill: `/ak:plan --hard <requirements>`
-
 - Planner creates directory using `## Naming` pattern
 - Overview at `plan.md` (<80 lines) + `phase-XX-*.md` files
 - Present pros/cons of plan

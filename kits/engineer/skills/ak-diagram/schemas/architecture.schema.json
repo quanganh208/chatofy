@@ -18,18 +18,7 @@
         "properties": {
           "id": { "$ref": "common.schema.json#/definitions/Identifier" },
           "label": { "$ref": "common.schema.json#/definitions/SafeText" },
-          "role": {
-            "type": "string",
-            "enum": [
-              "cloud",
-              "vpc",
-              "cluster",
-              "trust-boundary",
-              "private-network",
-              "external-zone"
-            ],
-            "default": "trust-boundary"
-          },
+          "role": { "type": "string", "enum": ["cloud", "vpc", "cluster", "trust-boundary", "private-network", "external-zone"], "default": "trust-boundary" },
           "components": {
             "type": "array",
             "items": { "$ref": "common.schema.json#/definitions/Identifier" }
@@ -49,26 +38,8 @@
           "id": { "$ref": "common.schema.json#/definitions/Identifier" },
           "label": { "$ref": "common.schema.json#/definitions/SafeText" },
           "description": { "$ref": "common.schema.json#/definitions/SafeText" },
-          "role": {
-            "type": "string",
-            "enum": [
-              "frontend",
-              "backend",
-              "database",
-              "cache",
-              "queue",
-              "storage",
-              "gateway",
-              "auth",
-              "external",
-              "worker"
-            ],
-            "default": "backend"
-          },
-          "tags": {
-            "type": "array",
-            "items": { "$ref": "common.schema.json#/definitions/SafeText" }
-          },
+          "role": { "type": "string", "enum": ["frontend", "backend", "database", "cache", "queue", "storage", "gateway", "auth", "external", "worker"], "default": "backend" },
+          "tags": { "type": "array", "items": { "$ref": "common.schema.json#/definitions/SafeText" } },
           "layer": { "type": "integer", "minimum": 0, "maximum": 10 }
         }
       }
@@ -86,11 +57,7 @@
           "to": { "$ref": "common.schema.json#/definitions/Identifier" },
           "label": { "$ref": "common.schema.json#/definitions/SafeText" },
           "protocol": { "$ref": "common.schema.json#/definitions/SafeText" },
-          "kind": {
-            "type": "string",
-            "enum": ["sync", "async", "stream", "fallback", "bi-directional"],
-            "default": "sync"
-          }
+          "kind": { "type": "string", "enum": ["sync", "async", "stream", "fallback", "bi-directional"], "default": "sync" }
         }
       }
     }

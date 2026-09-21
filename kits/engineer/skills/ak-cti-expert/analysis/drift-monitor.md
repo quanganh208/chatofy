@@ -19,16 +19,15 @@ drift_score = f(delta_1, delta_2, ..., delta_n, direction_consistency)
 
 ## 1. Monitoring Tiers
 
-| Tier   | Interval     | Scope                    | Use Case                         |
-| ------ | ------------ | ------------------------ | -------------------------------- |
-| HOURLY | Every 60 min | Profile fields only      | Active case, subject under watch |
-| DAILY  | Every 24h    | Profile + recent content | Standard case monitoring         |
-| WEEKLY | Every 7d     | Full state snapshot      | Background subject, low priority |
+| Tier | Interval | Scope | Use Case |
+|---|---|---|---|
+| HOURLY | Every 60 min | Profile fields only | Active case, subject under watch |
+| DAILY | Every 24h | Profile + recent content | Standard case monitoring |
+| WEEKLY | Every 7d | Full state snapshot | Background subject, low priority |
 
 Configure per subject:
-
 ```yaml
-subject: '@handle'
+subject: "@handle"
 tier: DAILY
 scope: [profile, content_last_100, follower_delta, connection_delta]
 retention_days: 365
@@ -39,10 +38,10 @@ alert_on: [DRIFT_WARNING, DRIFT_CRITICAL]
 
 ## 2. Alert Severity Levels
 
-| Level          | Meaning                       | Trigger Condition                                 |
-| -------------- | ----------------------------- | ------------------------------------------------- |
-| DRIFT_NOTICE   | Minor deviation, log only     | Single field changed, low significance            |
-| DRIFT_WARNING  | Notable shift, analyst review | 2+ significant fields, or 1 critical field        |
+| Level | Meaning | Trigger Condition |
+|---|---|---|
+| DRIFT_NOTICE | Minor deviation, log only | Single field changed, low significance |
+| DRIFT_WARNING | Notable shift, analyst review | 2+ significant fields, or 1 critical field |
 | DRIFT_CRITICAL | Major event, immediate action | Identity change, mass deletion, compromise signal |
 
 ---
@@ -67,27 +66,26 @@ def build_delta(snapshot_old, snapshot_new):
 
 ## 4. Field Significance Weights
 
-| Field                        | Change Significance | Alert Threshold                                |
-| ---------------------------- | ------------------- | ---------------------------------------------- |
-| Username                     | 95                  | DRIFT_CRITICAL                                 |
-| Account deleted/privatized   | 95                  | DRIFT_CRITICAL                                 |
-| Display name                 | 40                  | DRIFT_WARNING (if combined with other changes) |
-| Profile image                | 38                  | DRIFT_WARNING (if combined)                    |
-| Bio text                     | 30                  | DRIFT_NOTICE                                   |
-| Location field               | 50                  | DRIFT_WARNING                                  |
-| Website link                 | 22                  | DRIFT_NOTICE                                   |
-| Mass content deletion (>20%) | 82                  | DRIFT_CRITICAL                                 |
-| Selective deletion (themed)  | 68                  | DRIFT_WARNING                                  |
-| Single post deletion         | 18                  | DRIFT_NOTICE                                   |
-| Follower change >25%/week    | 55                  | DRIFT_WARNING                                  |
-| Following cleared to 0       | 60                  | DRIFT_CRITICAL                                 |
+| Field | Change Significance | Alert Threshold |
+|---|---|---|
+| Username | 95 | DRIFT_CRITICAL |
+| Account deleted/privatized | 95 | DRIFT_CRITICAL |
+| Display name | 40 | DRIFT_WARNING (if combined with other changes) |
+| Profile image | 38 | DRIFT_WARNING (if combined) |
+| Bio text | 30 | DRIFT_NOTICE |
+| Location field | 50 | DRIFT_WARNING |
+| Website link | 22 | DRIFT_NOTICE |
+| Mass content deletion (>20%) | 82 | DRIFT_CRITICAL |
+| Selective deletion (themed) | 68 | DRIFT_WARNING |
+| Single post deletion | 18 | DRIFT_NOTICE |
+| Follower change >25%/week | 55 | DRIFT_WARNING |
+| Following cleared to 0 | 60 | DRIFT_CRITICAL |
 
 ---
 
 ## 5. Drift Rules
 
 **DR-01: Username Replacement**
-
 ```
 WHEN delta.profile_deltas.username IS_NOT_EMPTY
 THEN alert = DRIFT_CRITICAL
@@ -95,7 +93,6 @@ action = log_identity_change + trigger_handle_reindex
 ```
 
 **DR-02: Mass Content Removal**
-
 ```
 removal_rate = content_removed / snapshot_old.post_count
 
@@ -113,7 +110,6 @@ action = log_partial_cleanup
 ```
 
 **DR-03: Selective Themed Deletion**
-
 ```
 WHEN content_removed.all_share_topic(threshold=0.65)
 THEN alert = DRIFT_WARNING
@@ -121,7 +117,6 @@ action = flag_reputation_management_event
 ```
 
 **DR-04: Account Unavailability**
-
 ```
 WHEN availability = "404" OR "suspended" OR "private"
 AND previous_availability = "public"
@@ -130,7 +125,6 @@ action = trigger_full_archive_recovery + note_suspension_timestamp
 ```
 
 **DR-05: Compound Profile Rewrite**
-
 ```
 WHEN delta.profile_deltas.field_count >= 4
 AND all_changes_within(72_hours)
@@ -168,12 +162,12 @@ def accumulation_score(deltas, window_days=30):
 
 DRIFT_CRITICAL automatically triggers archive recovery workflow:
 
-| Recovery Source          | Priority | Reliability            |
-| ------------------------ | -------- | ---------------------- |
-| Internet Archive Wayback | 1        | High                   |
-| Archive.today            | 2        | High                   |
-| Common Crawl index       | 3        | Medium (older content) |
-| Google cache             | 4        | Low (ephemeral)        |
+| Recovery Source | Priority | Reliability |
+|---|---|---|
+| Internet Archive Wayback | 1 | High |
+| Archive.today | 2 | High |
+| Common Crawl index | 3 | Medium (older content) |
+| Google cache | 4 | Low (ephemeral) |
 
 ---
 

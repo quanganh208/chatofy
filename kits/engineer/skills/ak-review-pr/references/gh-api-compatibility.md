@@ -20,7 +20,7 @@ _ak_lib=.claude/skills/ak-review-pr/references/gh-api-helpers.sh
 Functions the library exports (all safe to call many times per run):
 
 | Function                                | Purpose                                                                                     |
-| --------------------------------------- | ------------------------------------------------------------------------------------------- |
+|-----------------------------------------|---------------------------------------------------------------------------------------------|
 | `_ak_probe_gh_api`                      | One-shot GraphQL availability probe. Sets `AK_GH_REST=1` when GraphQL is blocked.           |
 | `_ak_split_pr <ref>`                    | Splits `123` / `#123` / full PR URL into `OWNER REPO NUMBER`. Uses `git remote`, no API.    |
 | `_ak_pr_meta OWNER REPO NUMBER`         | JSON metadata — mirrors `gh pr view --json …`. GraphQL native or REST fallback.             |

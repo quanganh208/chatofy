@@ -14,10 +14,10 @@ allowed-tools:
   - mcp__chrome-devtools__select_page
   - mcp__chrome-devtools__take_snapshot
   - mcp__chrome-devtools__evaluate_script
-argument-hint: '[url] [--profile <name>] [--tab <title|url>]'
+argument-hint: "[url] [--profile <name>] [--tab <title|url>]"
 metadata:
   author: agentkit
-  version: '1.0.1'
+  version: "1.0.1"
   compatibility: Requires Python 3.9+ and Google Chrome stable. Works on macOS, Linux, and Windows.
 ---
 
@@ -111,13 +111,13 @@ Treat `bind_selector` as the primary MCP tab selector. `profile_marker` is a CLI
 
 ## Limits
 
-| Limit                            | Handling                                                                                                   |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| SPAs may rewrite `location.hash` | Capture the page ID immediately after opening, then keep using that page ID.                               |
-| Missing profile key              | Run `chrome-profile setup` or edit the per-machine config.                                                 |
-| Unresolved key                   | The Google account is not signed into this Chrome profile on this machine. Sign in once through Chrome UI. |
-| No bridge                        | Run `chrome-profile doctor`, then the live MCP probe. Follow Option A or B only if both fail.              |
-| Non-Chrome browsers              | The shipped CLI targets Google Chrome stable only.                                                         |
+| Limit | Handling |
+|---|---|
+| SPAs may rewrite `location.hash` | Capture the page ID immediately after opening, then keep using that page ID. |
+| Missing profile key | Run `chrome-profile setup` or edit the per-machine config. |
+| Unresolved key | The Google account is not signed into this Chrome profile on this machine. Sign in once through Chrome UI. |
+| No bridge | Run `chrome-profile doctor`, then the live MCP probe. Follow Option A or B only if both fail. |
+| Non-Chrome browsers | The shipped CLI targets Google Chrome stable only. |
 
 ## Security Rules
 

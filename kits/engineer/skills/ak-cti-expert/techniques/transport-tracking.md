@@ -20,7 +20,6 @@ Transport tracking OSINT extracts real-time and historical movement intelligence
 ### Aviation
 
 #### ADS-B Exchange
-
 **URL:** https://globe.adsbexchange.com/
 
 The gold standard for unfiltered aircraft tracking. Unlike FlightRadar24, ADS-B Exchange does **not** censor military, government, or sensitive operator aircraft — it shows everything the community-fed ADS-B receiver network picks up.
@@ -30,7 +29,6 @@ The gold standard for unfiltered aircraft tracking. Unlike FlightRadar24, ADS-B 
 - **Data source:** Community-fed ADS-B ground receivers; no filtering contracts
 
 #### Flightradar24
-
 **URL:** https://www.flightradar24.com/
 
 Most widely used live flight tracker. Excellent UI, broad global ADS-B and MLAT coverage, and rich historical playback. Censors some military and government flights by agreement.
@@ -39,7 +37,6 @@ Most widely used live flight tracker. Excellent UI, broad global ADS-B and MLAT 
 - **Strength:** Best for commercial aviation, charter flights, and general aviation
 
 #### Icarus.flights
-
 **URL:** https://icarus.flights/
 
 Uncensored aircraft activity analysis and global tracking with pattern-of-life analysis focus.
@@ -47,7 +44,6 @@ Uncensored aircraft activity analysis and global tracking with pattern-of-life a
 - **Usage:** Search and analyze aircraft movement patterns, frequent routes, and operator behavior
 
 #### FlightAware
-
 **URL:** https://flightaware.com/
 
 Flight tracking with route history, delay data, and gate information. Strong on US domestic coverage.
@@ -55,7 +51,6 @@ Flight tracking with route history, delay data, and gate information. Strong on 
 - **Usage:** Search by flight number, tail number, or city-pair route
 
 #### LiveATC
-
 **URL:** https://www.liveatc.net/
 
 Live air traffic control audio feeds from airports worldwide. No account required.
@@ -65,7 +60,6 @@ Live air traffic control audio feeds from airports worldwide. No account require
 ### Maritime
 
 #### Marine Traffic
-
 **URL:** https://www.marinetraffic.com/
 
 Primary live vessel tracking via AIS (Automatic Identification System) data. Shows ship positions, routes, port call history, and vessel particulars.
@@ -73,7 +67,6 @@ Primary live vessel tracking via AIS (Automatic Identification System) data. Sho
 - **Usage:** Search by vessel name, MMSI number, or IMO number. Browse map for port activity. Filter by vessel type (tanker, container, bulk carrier, etc.)
 
 #### VesselFinder
-
 **URL:** https://www.vesselfinder.com/
 
 Free AIS ship tracker providing vessel positions, port arrivals/departures, and voyage data. Useful as a second source when Marine Traffic data appears stale.
@@ -83,7 +76,6 @@ Free AIS ship tracker providing vessel positions, port arrivals/departures, and 
 ### Vehicle
 
 #### VIN Decoder (VINDecoderZ)
-
 **URL:** http://www.vindecoderz.com/
 
 Decodes 17-character Vehicle Identification Numbers. Returns make, model, year, engine type, transmission, and manufacturing plant.
@@ -91,7 +83,6 @@ Decodes 17-character Vehicle Identification Numbers. Returns make, model, year, 
 - **Usage:** Enter 17-character VIN → full vehicle specification decode
 
 #### VINCheck — NICB
-
 **URL:** https://www.nicb.org/vincheck
 
 Official National Insurance Crime Bureau theft and salvage database. No account required. Up to 5 free searches per day.
@@ -99,7 +90,6 @@ Official National Insurance Crime Bureau theft and salvage database. No account 
 - **Usage:** Enter VIN → check if the vehicle has been reported stolen or declared salvage-titled
 
 #### FAXVIN
-
 **URL:** https://www.faxvin.com/
 
 Free vehicle history reports. Returns accident records, title history, odometer readings, and reported damage.
@@ -177,7 +167,6 @@ Step 4: Cross-reference with owner identity
 ## 4. CLI Commands & Expected Output
 
 ### FAA N-Number Registry Lookup (US Aircraft)
-
 ```bash
 # Retrieve FAA registration data for US aircraft
 # Replace N12345 with target tail number
@@ -186,7 +175,6 @@ curl -s "https://registry.faa.gov/AircraftInquiry/Search/NNumberInquiry?nNumber=
 ```
 
 ### ADS-B Exchange API (Historical Track)
-
 ```bash
 # Get recent track data for aircraft by ICAO hex code
 # Replace ABCDEF with target ICAO hex
@@ -195,7 +183,6 @@ curl -s "https://globe.adsbexchange.com/re-api/?find=ABCDEF" \
 ```
 
 **Expected output (abbreviated):**
-
 ```json
 {
   "icao": "ABCDEF",
@@ -211,7 +198,6 @@ curl -s "https://globe.adsbexchange.com/re-api/?find=ABCDEF" \
 ```
 
 ### Marine Traffic Vessel Search (Web)
-
 ```bash
 # No CLI — use browser or WebFetch
 # URL pattern for vessel by MMSI:
@@ -222,7 +208,6 @@ curl -s "https://globe.adsbexchange.com/re-api/?find=ABCDEF" \
 ```
 
 ### NICB VINCheck (Web)
-
 ```bash
 # Browser only — no API
 # URL: https://www.nicb.org/vincheck
@@ -231,7 +216,6 @@ curl -s "https://globe.adsbexchange.com/re-api/?find=ABCDEF" \
 ```
 
 ### VIN Position Reference
-
 ```bash
 # VIN structure decode (no tool needed):
 # Position 1-3: World Manufacturer Identifier (WMI)
@@ -328,17 +312,17 @@ Cross-border vehicle trafficking:
 
 ### Confidence Ratings
 
-| Finding Type                    | Confidence | Notes                           |
-| ------------------------------- | ---------- | ------------------------------- |
-| Aircraft live position (ADS-B)  | HIGH       | Real-time receiver data         |
-| Aircraft ICAO hex identity      | HIGH       | Hardcoded in transponder        |
-| Aircraft registered owner (FAA) | HIGH       | Official registry               |
-| Vessel live AIS position        | MEDIUM     | Can be spoofed or disabled      |
-| Vessel IMO identity             | HIGH       | Permanent identifier            |
-| Vessel beneficial owner         | LOW        | Often obscured via flags/shells |
-| VIN vehicle specification       | HIGH       | Manufacturer-encoded            |
-| VIN theft/salvage status        | HIGH       | NICB official database          |
-| VIN registered owner            | LOW-MEDIUM | Varies by jurisdiction          |
+| Finding Type | Confidence | Notes |
+|---|---|---|
+| Aircraft live position (ADS-B) | HIGH | Real-time receiver data |
+| Aircraft ICAO hex identity | HIGH | Hardcoded in transponder |
+| Aircraft registered owner (FAA) | HIGH | Official registry |
+| Vessel live AIS position | MEDIUM | Can be spoofed or disabled |
+| Vessel IMO identity | HIGH | Permanent identifier |
+| Vessel beneficial owner | LOW | Often obscured via flags/shells |
+| VIN vehicle specification | HIGH | Manufacturer-encoded |
+| VIN theft/salvage status | HIGH | NICB official database |
+| VIN registered owner | LOW-MEDIUM | Varies by jurisdiction |
 
 ---
 
@@ -356,14 +340,14 @@ Cross-border vehicle trafficking:
 
 ## 7. Command Reference
 
-| Command                        | Purpose                                  | Input                            |
-| ------------------------------ | ---------------------------------------- | -------------------------------- |
-| `/track-aircraft [identifier]` | Track aircraft by tail, hex, or callsign | N-number, ICAO hex, or callsign  |
-| `/track-vessel [identifier]`   | Track vessel by name, MMSI, or IMO       | Vessel name, MMSI, or IMO number |
-| `/decode-vin [vin]`            | Decode VIN and check theft/salvage       | 17-character VIN                 |
+| Command | Purpose | Input |
+|---|---|---|
+| `/track-aircraft [identifier]` | Track aircraft by tail, hex, or callsign | N-number, ICAO hex, or callsign |
+| `/track-vessel [identifier]` | Track vessel by name, MMSI, or IMO | Vessel name, MMSI, or IMO number |
+| `/decode-vin [vin]` | Decode VIN and check theft/salvage | 17-character VIN |
 
 ---
 
-_Transport Tracking Module v1.0.0_
-_Part of Free OSINT Expert Skill - Phase 5_
-_For authorized investigation and educational purposes only_
+*Transport Tracking Module v1.0.0*
+*Part of Free OSINT Expert Skill - Phase 5*
+*For authorized investigation and educational purposes only*

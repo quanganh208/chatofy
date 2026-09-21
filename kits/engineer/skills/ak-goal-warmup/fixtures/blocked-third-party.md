@@ -6,10 +6,10 @@ Goal: "Integrate sandbox payments and run a test charge in sandbox."
 
 ## Preflight
 
-| Phase       | Requirement                 | Status  | Unblock                          | Blocking? |
-| ----------- | --------------------------- | ------- | -------------------------------- | --------- |
-| integration | third-party sandbox account | missing | user creates sandbox + API key   | yes       |
-| integration | non-mutating connectivity   | unknown | user confirms network/API access | yes       |
+| Phase | Requirement | Status | Unblock | Blocking? |
+|-------|-------------|--------|---------|-----------|
+| integration | third-party sandbox account | missing | user creates sandbox + API key | yes |
+| integration | non-mutating connectivity | unknown | user confirms network/API access | yes |
 
 ## Expected terminal state
 

@@ -23,23 +23,18 @@ Leave out explanations of basic or intermediate concepts, pattern names they alr
 ## Required Response Structure
 
 ### 1. Trade-offs (Lead with this)
-
 Key decision points and their implications. Table format preferred.
 
 ### 2. Implementation
-
 Production-quality code. Minimal comments.
 
 ### 3. Operational Concerns
-
 Monitoring, logging, failure modes, debugging.
 
 ### 4. Security (if applicable)
-
 Auth, validation, injection risks.
 
 ### 5. Team Impact (if applicable)
-
 Documentation needs, breaking changes, migration.
 
 ---
@@ -52,11 +47,11 @@ Documentation needs, breaking changes, migration.
 
 ### Trade-offs
 
-| Approach          | Pros                | Cons                     | When to Use                                |
-| ----------------- | ------------------- | ------------------------ | ------------------------------------------ |
-| Result<T,E>       | Type-safe, explicit | Verbose, learning curve  | Service boundaries, complex error taxonomy |
-| Thrown exceptions | Familiar, less code | Silent failures, untyped | Simple apps, prototypes                    |
-| Error codes       | Interop-friendly    | Stringly-typed           | Public APIs, cross-language                |
+| Approach | Pros | Cons | When to Use |
+|----------|------|------|-------------|
+| Result<T,E> | Type-safe, explicit | Verbose, learning curve | Service boundaries, complex error taxonomy |
+| Thrown exceptions | Familiar, less code | Silent failures, untyped | Simple apps, prototypes |
+| Error codes | Interop-friendly | Stringly-typed | Public APIs, cross-language |
 
 **Recommendation:** Result pattern at service boundaries. Errors are expected, not exceptional, in I/O operations.
 
@@ -69,13 +64,15 @@ type ApiError =
   | { type: 'validation'; fields: Record<string, string> }
   | { type: 'notFound'; resource: string };
 
-type Result<T, E = ApiError> = { ok: true; data: T } | { ok: false; error: E };
+type Result<T, E = ApiError> =
+  | { ok: true; data: T }
+  | { ok: false; error: E };
 
 class UserService {
   constructor(
     private http: HttpClient,
     private logger: Logger,
-    private metrics: MetricsClient,
+    private metrics: MetricsClient
   ) {}
 
   async getUser(id: string): Promise<Result<User>> {
@@ -85,6 +82,7 @@ class UserService {
       const response = await this.http.get(`/users/${id}`);
       timer.success();
       return { ok: true, data: response.data };
+
     } catch (e) {
       const error = this.classifyError(e);
       this.logger.warn('user_fetch_failed', { userId: id, error });

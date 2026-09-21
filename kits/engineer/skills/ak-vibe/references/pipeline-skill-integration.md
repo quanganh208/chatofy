@@ -45,7 +45,6 @@ invariants, transitions, precedence, or real error paths that a plausible bug
 could break and existing coverage would miss.
 
 Choose the operation:
-
 - `create` — meaningful new behavior lacks covering tests.
 - `audit` — existing/added tests look weak, deceptive, or "pass-only".
 - `optimize` — the suite is slow/expensive and can be cut safely.
@@ -68,7 +67,6 @@ configuration, or an operating workflow that documentation must reflect.
 refactor with no contract change).
 
 **Mode-aware execution (prevent race with ship):**
-
 - **Official mode:** `/ak:ship official` already runs `/ak:docs update` as a
   background step. Vibe does NOT run `/ak:docs update` here (avoids two concurrent
   writers on the same worktree). Vibe only records the docs impact in the

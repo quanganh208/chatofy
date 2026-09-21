@@ -8,14 +8,14 @@ Load this reference **before generating anything** when the task names a real br
 
 Ranked by identifiability, not by design-spec convention:
 
-| Asset                  | Identifiability                                                     | When required     |
-| ---------------------- | ------------------------------------------------------------------- | ----------------- |
-| Logo                   | Highest — one glance identifies the brand                           | ALL brands        |
+| Asset | Identifiability | When required |
+| --- | --- | --- |
+| Logo | Highest — one glance identifies the brand | ALL brands |
 | Product image / render | Very high — for hardware/packaged goods, the product IS the subject | Physical products |
-| UI screenshot          | Very high — for digital products, the interface IS the subject      | Apps, sites, SaaS |
-| Color values           | Medium — helps but often collides between brands                    | Supporting        |
-| Fonts                  | Low — needs the above to establish identity                         | Supporting        |
-| Vibe keywords          | Low — self-check only                                               | Supporting        |
+| UI screenshot | Very high — for digital products, the interface IS the subject | Apps, sites, SaaS |
+| Color values | Medium — helps but often collides between brands | Supporting |
+| Fonts | Low — needs the above to establish identity | Supporting |
+| Vibe keywords | Low — self-check only | Supporting |
 
 Rule: extracting only colors + fonts and skipping the logo / product / UI is a protocol violation. Substituting a CSS silhouette or hand-drawn SVG for a real product photo is a protocol violation ("generic tech animation, brand-agnostic"). If assets cannot be located, **stop and ask the user** — do not fabricate.
 
@@ -43,13 +43,13 @@ Send what you have; I will search / fetch / (as last resort) generate the rest.
 
 ## Step 2 — Search official channels
 
-| Asset         | Search path                                                                                                               |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Logo          | `<brand>.com/brand` · `<brand>.com/press` · `<brand>.com/press-kit` · `brand.<brand>.com` · inline SVG in the site header |
-| Product image | `<brand>.com/<product>` hero + gallery · official launch video frame · official press release attachments                 |
-| UI screenshot | App Store / Google Play product page · official screenshots section · official demo video frames                          |
-| Colors        | Site inline CSS / Tailwind config / brand guidelines PDF                                                                  |
-| Fonts         | Site `<link rel="stylesheet">` refs · Google Fonts trace · brand guidelines                                               |
+| Asset | Search path |
+| --- | --- |
+| Logo | `<brand>.com/brand` · `<brand>.com/press` · `<brand>.com/press-kit` · `brand.<brand>.com` · inline SVG in the site header |
+| Product image | `<brand>.com/<product>` hero + gallery · official launch video frame · official press release attachments |
+| UI screenshot | App Store / Google Play product page · official screenshots section · official demo video frames |
+| Colors | Site inline CSS / Tailwind config / brand guidelines PDF |
+| Fonts | Site `<link rel="stylesheet">` refs · Google Fonts trace · brand guidelines |
 
 Web-search fallback keywords when direct paths fail:
 
@@ -107,12 +107,12 @@ Priority order:
 
 Logo is exempt (see below). Every other asset goes through this bar:
 
-| Dimension              | Standard                                                                                                                                              | Anti-pattern                   |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| **5 rounds of search** | Cross-source (site / press kit / social / video frame / Wikimedia / user screenshot), not "grab the first two on page 1"                              | First result wins              |
-| **10 candidates**      | Assemble at least 10 before shortlisting                                                                                                              | Grab 2, nothing to choose from |
-| **Pick the top 2**     | From the 10, select 2 as final. All of them = visual overload, taste dilution                                                                         | Ship everything found          |
-| **Every asset ≥ 8/10** | If it does not clear 8/10, **prefer to leave it out**. Use an honest placeholder (grey block + label) or AI-generate on top of an official reference. | 7/10 filler shipped            |
+| Dimension | Standard | Anti-pattern |
+| --- | --- | --- |
+| **5 rounds of search** | Cross-source (site / press kit / social / video frame / Wikimedia / user screenshot), not "grab the first two on page 1" | First result wins |
+| **10 candidates** | Assemble at least 10 before shortlisting | Grab 2, nothing to choose from |
+| **Pick the top 2** | From the 10, select 2 as final. All of them = visual overload, taste dilution | Ship everything found |
+| **Every asset ≥ 8/10** | If it does not clear 8/10, **prefer to leave it out**. Use an honest placeholder (grey block + label) or AI-generate on top of an official reference. | 7/10 filler shipped |
 
 Scoring dimensions (record in `brand-spec.md`):
 
@@ -126,12 +126,12 @@ Scoring dimensions (record in `brand-spec.md`):
 
 ## Step 4 — Verify and extract (not just grep for colors)
 
-| Asset         | Verification                                                                                                                           |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Logo          | File exists, opens as SVG/PNG, at least two variants (light-on-dark, dark-on-light), transparent background                            |
-| Product image | ≥ 2000px, cut-out or clean background, multiple angles (hero, detail, in-scene)                                                        |
-| UI screenshot | Real resolution (1× / 2×), current version, no personal / demo data leaked                                                             |
-| Colors        | `grep -hoE '#[0-9A-Fa-f]{6}' assets/<brand>-brand/*.{svg,html,css} \| sort \| uniq -c \| sort -rn \| head -20`, then discard grayscale |
+| Asset | Verification |
+| --- | --- |
+| Logo | File exists, opens as SVG/PNG, at least two variants (light-on-dark, dark-on-light), transparent background |
+| Product image | ≥ 2000px, cut-out or clean background, multiple angles (hero, detail, in-scene) |
+| UI screenshot | Real resolution (1× / 2×), current version, no personal / demo data leaked |
+| Colors | `grep -hoE '#[0-9A-Fa-f]{6}' assets/<brand>-brand/*.{svg,html,css} \| sort \| uniq -c \| sort -rn \| head -20`, then discard grayscale |
 
 Watch for **demo-brand contamination**: product screenshots often contain another brand's colors as demo content. When two strong colors appear, distinguish which belongs to the brand under study.
 
@@ -143,7 +143,6 @@ Once assets are collected, freeze them into a spec file. All subsequent HTML/CSS
 
 ```markdown
 # <Brand> · Brand Spec
-
 > Collected: YYYY-MM-DD
 > Sources: <list download origins>
 > Asset completeness: <complete / partial / inferred>
@@ -151,49 +150,41 @@ Once assets are collected, freeze them into a spec file. All subsequent HTML/CSS
 ## 🎯 Core assets (first-class)
 
 ### Logo
-
 - Primary: `assets/<brand>-brand/logo.svg`
 - Reversed (on light bg): `assets/<brand>-brand/logo-white.svg`
 - Usage contexts: <intro / outro / corner watermark / anywhere>
 - Do-not-modify rules: <no stretching / no recoloring / no stroke>
 
 ### Product image (physical products)
-
 - Hero: `assets/<brand>-brand/product-hero.png` (2000×1500)
 - Details: `assets/<brand>-brand/product-detail-1.png` / `product-detail-2.png`
 - In-scene: `assets/<brand>-brand/product-scene.png`
 
 ### UI screenshot (digital products)
-
 - Home: `assets/<brand>-brand/ui-home.png`
 - Core feature: `assets/<brand>-brand/ui-feature-<name>.png`
 
 ## 🎨 Supporting assets
 
 ### Palette
-
-- Primary: #XXXXXX <source>
+- Primary: #XXXXXX  <source>
 - Background: #XXXXXX
 - Ink: #XXXXXX
 - Accent: #XXXXXX
 - Never-use: <colors the brand explicitly avoids>
 
 ### Type
-
 - Display: <font stack>
 - Body: <font stack>
 - Mono (data HUD): <font stack>
 
 ### Signature details
-
 - <the details this brand invests 120% in>
 
 ### No-go zone
-
 - <hard bans (e.g. "Lovart avoids blue", "Stripe avoids low-saturation warm tones")>
 
 ### Vibe keywords
-
 - <3-5 adjectives>
 ```
 
@@ -207,12 +198,12 @@ Execution discipline once the spec exists:
 
 ## Full-flow fallback (per asset type)
 
-| Missing                          | Response                                                                                                                                                           |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Logo                             | **Stop and ask user.** The hard invariant.                                                                                                                         |
+| Missing | Response |
+| --- | --- |
+| Logo | **Stop and ask user.** The hard invariant. |
 | Product image (physical product) | AI-generate on top of an official reference (nano-banana-pro or equivalent) → ask user for material → honest placeholder (grey block + "product photo TBD" label). |
-| UI screenshot (digital product)  | Ask user for a screenshot from their own account → official demo video frame. Do NOT fill with a mockup generator.                                                 |
-| Colors                           | Switch to `design-workflow.md`'s "no-context fallback" — propose 3 directions with labeled assumptions.                                                            |
+| UI screenshot (digital product) | Ask user for a screenshot from their own account → official demo video frame. Do NOT fill with a mockup generator. |
+| Colors | Switch to `design-workflow.md`'s "no-context fallback" — propose 3 directions with labeled assumptions. |
 
 Forbidden: silently fill the gap with a generic gradient / CSS silhouette. **Prefer to pause and ask over filler.**
 
@@ -220,16 +211,16 @@ Forbidden: silently fill the gap with a generic gradient / CSS silhouette. **Pre
 
 These are attributed failures documented by the upstream project. Do not restate the brand's actual color as a remembered hex; the whole point of the protocol is that agents guess wrong.
 
-- **DJI Pocket 4 launch animation** — the agent ran an old "extract colors only" version of the protocol: no DJI logo pulled, no Pocket 4 product photo, product replaced with a CSS silhouette. Result: "generic black background + orange accent tech animation" with no DJI identity. Author: _"otherwise, what are we expressing?"_ — triggered the protocol upgrade to include product images and UI as first-class assets.
+- **DJI Pocket 4 launch animation** — the agent ran an old "extract colors only" version of the protocol: no DJI logo pulled, no Pocket 4 product photo, product replaced with a CSS silhouette. Result: "generic black background + orange accent tech animation" with no DJI identity. Author: *"otherwise, what are we expressing?"* — triggered the protocol upgrade to include product images and UI as first-class assets.
 - **Kimi animation** — the agent guessed Kimi's brand color from memory (assumed warm/orange). The actual color at the time was in the blue family. Full rework required.
 - **Lovart design** — a product screenshot contained a demo brand's red (Heytea). The agent adopted that red as Lovart's color, nearly ruining the whole design.
-- **Five-way coding-agent comparison deck** (Claude Code / Cursor / Codex / Copilot / Trae) — the agent classified the task as "PPT without style reference", jumped to the fallback direction advisor, and spawned three design paths — WITHOUT fetching any of the five product logos. Author: _"why did we not fetch these product logos?"_ → protocol updated so trigger includes "design that names or lists real products in parallel" AND the fallback path never exempts logo collection.
+- **Five-way coding-agent comparison deck** (Claude Code / Cursor / Codex / Copilot / Trae) — the agent classified the task as "PPT without style reference", jumped to the fallback direction advisor, and spawned three design paths — WITHOUT fetching any of the five product logos. Author: *"why did we not fetch these product logos?"* → protocol updated so trigger includes "design that names or lists real products in parallel" AND the fallback path never exempts logo collection.
 
 ## Cost of running the protocol vs. cost of skipping
 
-| Scenario                     | Time                                                                                      |
-| ---------------------------- | ----------------------------------------------------------------------------------------- |
-| Run the protocol             | Logo 5 min + 3–5 product/UI images 10 min + grep colors 5 min + spec 10 min = **~30 min** |
-| Skip and ship generic output | 1–2 hr rework, sometimes full rebuild                                                     |
+| Scenario | Time |
+| --- | --- |
+| Run the protocol | Logo 5 min + 3–5 product/UI images 10 min + grep colors 5 min + spec 10 min = **~30 min** |
+| Skip and ship generic output | 1–2 hr rework, sometimes full rebuild |
 
 Cheapest reliability investment available — especially for commissioned / launch / client-critical work.

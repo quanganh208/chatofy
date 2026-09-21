@@ -1,5 +1,4 @@
 # Writing Effective Instructions
-
 <!-- cruft-lint-allow: this file names the patterns the linter reports -->
 
 A skill provides practical instructions for the models and runtimes its users
@@ -69,22 +68,14 @@ Preserve prompt improvements only when actual outcomes support them.
 name: your-skill  # or namespace:your-skill
 description: [What it does] + [when to use it] + [what it does not cover]
 ---
-
 # Skill Name
-
 Purpose in two or three sentences, including the audience and quality bar.
-
 ## Workflow router
-
 Select the task-specific reference; state when to load it. For a single simple
 workflow, inline its instructions instead of creating an unnecessary reference.
-
 ## Completion and boundaries
-
 Outcome, constraints, authority and verification. Exact commands for fragile steps.
-
 ## Resources
-
 Point to common-path resources; branch references own their own details.
 ```
 

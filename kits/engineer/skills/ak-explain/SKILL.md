@@ -2,14 +2,14 @@
 name: ak:explain
 description: Explain concepts, code, systems, errors, and documents with grounded evidence. Use --eli5 for plain-language analogies or --html for a visual explanation.
 user-invocable: true
-when_to_use: 'Invoke when the user wants an explanation, walkthrough, mental model, ELI5 simplification, or visual HTML explanation of a concept, codebase, or system.'
+when_to_use: "Invoke when the user wants an explanation, walkthrough, mental model, ELI5 simplification, or visual HTML explanation of a concept, codebase, or system."
 category: reasoning
 keywords: [explain, walkthrough, mental-model, eli5, visual, html, code, concept, architecture]
-argument-hint: '[subject|path|URL] [--html] [--eli5]'
+argument-hint: "[subject|path|URL] [--html] [--eli5]"
 license: MIT
 metadata:
   author: agentkit
-  version: '1.0.1'
+  version: "1.0.1"
 ---
 
 # Explain (`ak:explain`)
@@ -18,7 +18,7 @@ Build a grounded mental model and clear explanation of any technical subject, co
 
 ## Routing Boundaries
 
-- **`ak:bro`**: use ONLY when the user asks to simplify or restate the assistant's _immediately preceding response_.
+- **`ak:bro`**: use ONLY when the user asks to simplify or restate the assistant's *immediately preceding response*.
 - **`ak:preview`**: use for generic file/artifact viewing, slide presentations, or visual diff comparisons.
 - **`ak:explain`**: use for explaining new topics, files, concepts, systems, code paths, errors, and `--eli5` / `--html` explanations.
 

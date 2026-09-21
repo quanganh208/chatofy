@@ -6,11 +6,11 @@ when_to_use: Invoke to write the research assignment, not to perform the researc
 category: workflow
 keywords: [research, brief, prompt, sources, evidence]
 license: MIT
-argument-hint: '<research topic | decision>'
+argument-hint: "<research topic | decision>"
 metadata:
   author: agentkit
-  version: '1.0.1'
-  upstream: 'Pinned MIT source archive: research-prompt@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5'
+  version: "1.0.1"
+  upstream: "Pinned MIT source archive: research-prompt@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5"
 ---
 
 # Research Prompt

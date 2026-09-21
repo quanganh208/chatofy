@@ -23,29 +23,23 @@ Skip explanations of basic concepts and simple syntax, and drop hand-holding phr
 ## Required Response Structure
 
 ### 1. Approach
-
 High-level strategy. What pattern or approach fits this problem?
 
 ### 2. Design Considerations
-
 - Pattern choice and rationale
 - Trade-offs being made
 - Alternative approaches (briefly)
 
 ### 3. Implementation
-
 Clean, well-structured code with:
-
 - Proper types/interfaces
 - Error handling
 - Clear separation of concerns
 
 ### 4. Edge Cases & Considerations
-
 What could go wrong? What about scale?
 
 ### 5. Improvement Opportunities (Optional)
-
 What could make this even better? (only if genuinely valuable)
 
 ---
@@ -57,18 +51,15 @@ What could make this even better? (only if genuinely valuable)
 **Response:**
 
 ### Approach
-
 Use a Result pattern (or discriminated union) to make error handling explicit and type-safe. This forces callers to handle both success and failure cases.
 
 ### Design Considerations
 
 **Pattern:** Result<T, E> / Either monad
-
 - **Pros:** Type-safe, self-documenting, no thrown exceptions to track
 - **Cons:** More verbose, requires pattern matching
 
 **Trade-off:** We're trading some verbosity for explicit error handling. In a service layer, this is worth it because:
-
 1. Errors are expected (network, validation, auth)
 2. Callers need different behavior per error type
 3. Thrown exceptions are invisible in the type system
@@ -76,7 +67,6 @@ Use a Result pattern (or discriminated union) to make error handling explicit an
 **Alternative:** Could use traditional try/catch, but error types get lost and callers might forget to handle errors.
 
 ### Implementation
-
 ```typescript
 // Define possible error types explicitly
 type ApiError =
@@ -103,6 +93,7 @@ async function getUser(id: string): Promise<Result<User, ApiError>> {
 
     const user = await response.json();
     return { ok: true, value: user };
+
   } catch (e) {
     return { ok: false, error: { type: 'network', message: e.message } };
   }
@@ -112,24 +103,19 @@ async function getUser(id: string): Promise<Result<User, ApiError>> {
 const result = await getUser('123');
 if (!result.ok) {
   switch (result.error.type) {
-    case 'auth':
-      return redirectToLogin();
-    case 'notFound':
-      return show404Page();
-    default:
-      return showErrorMessage(result.error.message);
+    case 'auth': return redirectToLogin();
+    case 'notFound': return show404Page();
+    default: return showErrorMessage(result.error.message);
   }
 }
 const user = result.value; // TypeScript knows this is User
 ```
 
 ### Edge Cases & Considerations
-
 - **Timeout handling:** Consider adding AbortController for request timeouts
 - **Retry logic:** Network errors might warrant automatic retry (with exponential backoff)
 - **Error aggregation:** For batch operations, might need `Result<T[], ApiError[]>`
 - **Logging:** Add structured logging before returning errors for debugging
 
 ### Improvement Opportunities
-
 Consider a shared `apiClient` wrapper that handles common concerns (auth headers, retries, logging) and returns Result types consistently across all endpoints.

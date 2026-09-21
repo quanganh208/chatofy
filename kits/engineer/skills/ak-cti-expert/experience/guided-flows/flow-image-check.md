@@ -6,13 +6,13 @@ Guided 5-step flow for assessing image authenticity and tracing origin.
 
 ## Flow Metadata
 
-| Field      | Value                                                          |
-| ---------- | -------------------------------------------------------------- |
-| Activation | `/flow image-check`                                            |
-| Skill tier | Novice                                                         |
-| Duration   | 5–10 min                                                       |
-| Output     | Authenticity verdict with confidence level                     |
-| Use cases  | Catfish detection, finding validation, AI-image identification |
+| Field | Value |
+|-------|-------|
+| Activation | `/flow image-check` |
+| Skill tier | Novice |
+| Duration | 5–10 min |
+| Output | Authenticity verdict with confidence level |
+| Use cases | Catfish detection, finding validation, AI-image identification |
 
 ---
 
@@ -65,12 +65,12 @@ Where did this image come from?
 (1–4):
 ```
 
-| Source        | Risk Baseline     | Analysis Priority            |
-| ------------- | ----------------- | ---------------------------- |
-| Sent directly | Higher            | Stock/catfish check first    |
-| Found online  | Medium            | Original source verification |
-| Documentation | Context-dependent | Tampering detection          |
-| Unknown       | Higher            | All checks equally           |
+| Source | Risk Baseline | Analysis Priority |
+|--------|--------------|------------------|
+| Sent directly | Higher | Stock/catfish check first |
+| Found online | Medium | Original source verification |
+| Documentation | Context-dependent | Tampering detection |
+| Unknown | Higher | All checks equally |
 
 ---
 
@@ -88,7 +88,6 @@ Extracting: camera data · timestamps · GPS · software history
 ### Results
 
 **Metadata present:**
-
 ```
 Camera:         iPhone 15 Pro
 Captured:       2026-01-15  14:34
@@ -98,7 +97,6 @@ Edit software:  None detected  ✓
 ```
 
 **Metadata absent:**
-
 ```
 No metadata found.
 
@@ -112,7 +110,6 @@ Neutral finding — absent metadata is normal for shared images.
 ```
 
 **Suspicious metadata:**
-
 ```
 ⚠ Metadata anomalies:
 
@@ -125,7 +122,6 @@ Ask for an unedited original.
 ```
 
 Claim consistency check:
-
 ```
 Does this metadata match what you were told? (yes / no / unsure)
 ```
@@ -144,7 +140,6 @@ Querying: Google · TinEye · Bing · Yandex
 ```
 
 **No matches:**
-
 ```
 Result: Image appears original.
 
@@ -158,7 +153,6 @@ Note: Uniqueness confirms the photo is not widely reused.
 ```
 
 **Matches found:**
-
 ```
 ⚠ Image found in 12 locations.
 
@@ -177,7 +171,6 @@ Recommended action: End communication. Report account.
 ```
 
 **Stolen from real person:**
-
 ```
 ⚠ Photo belongs to another individual.
 
@@ -204,7 +197,6 @@ Checking: AI generation · manipulation · lighting physics · compression
 ```
 
 **AI-generated:**
-
 ```
 !! AI generation detected.
 
@@ -221,7 +213,6 @@ Request: Video call, or a photo with a specific unusual action.
 ```
 
 **Editing detected:**
-
 ```
 ⚠ Manipulation detected.
 
@@ -235,7 +226,6 @@ Ask for the unedited original.
 ```
 
 **Appears authentic:**
-
 ```
 ✓ No manipulation detected.
 
@@ -246,7 +236,6 @@ Ask for the unedited original.
 ```
 
 **Verification suggestion:**
-
 ```
 To confirm live authenticity, ask for a photo with a specific
 unusual pose — something AI cannot generate from stock:
@@ -271,12 +260,12 @@ IMAGE CHECK RESULT
 
 ### Verdict Categories
 
-| Verdict            | Confidence      | Meaning                                       |
-| ------------------ | --------------- | --------------------------------------------- |
-| LIKELY AUTHENTIC   | High (85%+)     | No issues found, metadata consistent          |
+| Verdict | Confidence | Meaning |
+|---------|------------|---------|
+| LIKELY AUTHENTIC | High (85%+) | No issues found, metadata consistent |
 | REVIEW RECOMMENDED | Medium (50–84%) | Partial concerns, further verification needed |
-| LIKELY FRAUDULENT  | High (85%+)     | Stock photo or multiple fake profile use      |
-| AI-GENERATED       | High (80%+)     | Subject may not exist                         |
+| LIKELY FRAUDULENT | High (85%+) | Stock photo or multiple fake profile use |
+| AI-GENERATED | High (80%+) | Subject may not exist |
 
 ### Likely Authentic
 

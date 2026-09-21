@@ -5,7 +5,6 @@
 ## Core Activities
 
 ### Parallel Scout Agents
-
 - Use `/ak:scout ext` (preferred) or `/ak:scout` (fallback) skill invocation to search the codebase for files needed to complete the task
 - Each scout locates files needed for specific task aspects
 - Wait for all scout agents to report back before analysis
@@ -23,21 +22,18 @@ Do not assume a standard documentation corpus. Discover context by role:
 Documentation serves human and AI collaborators; current implementation evidence determines what is actually present.
 
 ### Environment Analysis
-
 - Review development environment setup
 - Analyze dotenv files and configuration
 - Identify required dependencies
 - Understand build and deployment processes
 
 ### Pattern Recognition
-
 - Study existing patterns in codebase
 - Identify conventions and architectural decisions
 - Note consistency in implementation approaches
 - Understand error handling patterns
 
 ### Integration Planning
-
 - Identify how new features integrate with existing architecture
 - Map dependencies between components
 - Understand data flow and state management

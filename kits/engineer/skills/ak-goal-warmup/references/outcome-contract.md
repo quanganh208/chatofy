@@ -7,15 +7,15 @@ and for the subsequent long-run handoff.
 
 ## Schema (required fields)
 
-| Field                 | Meaning                                                      |
-| --------------------- | ------------------------------------------------------------ |
-| Intended result       | Observable end state                                         |
-| In scope              | Must-have deliverables                                       |
-| Out of scope          | Explicit exclusions                                          |
-| Acceptance signals    | How the user judges success (commands, artifacts, behaviors) |
-| Constraints           | Budget, deadline, platforms, quality/security                |
-| Allowed substitutions | Only explicitly approved alternatives                        |
-| Decision owner        | Always `user`                                                |
+| Field | Meaning |
+|-------|---------|
+| Intended result | Observable end state |
+| In scope | Must-have deliverables |
+| Out of scope | Explicit exclusions |
+| Acceptance signals | How the user judges success (commands, artifacts, behaviors) |
+| Constraints | Budget, deadline, platforms, quality/security |
+| Allowed substitutions | Only explicitly approved alternatives |
+| Decision owner | Always `user` |
 
 ## Approval gate
 

@@ -85,20 +85,20 @@ test('with mocked data', async ({ mount }) => {
 
 ## When to Use CT vs E2E
 
-| Use CT When                     | Use E2E When             |
-| ------------------------------- | ------------------------ |
-| Testing isolated components     | Testing user flows       |
-| Visual regression on components | Navigation, routing      |
-| Component interactions          | Full page behavior       |
-| Fast feedback during dev        | Integration with backend |
+| Use CT When | Use E2E When |
+|-------------|--------------|
+| Testing isolated components | Testing user flows |
+| Visual regression on components | Navigation, routing |
+| Component interactions | Full page behavior |
+| Fast feedback during dev | Integration with backend |
 
 ## When to Use CT vs Vitest
 
-| Use CT When              | Use Vitest When     |
-| ------------------------ | ------------------- |
-| Real browser needed      | Speed is priority   |
-| Cross-browser testing    | Unit testing logic  |
-| CSS/layout verification  | Mocking is simpler  |
+| Use CT When | Use Vitest When |
+|-------------|-----------------|
+| Real browser needed | Speed is priority |
+| Cross-browser testing | Unit testing logic |
+| CSS/layout verification | Mocking is simpler |
 | Complex DOM interactions | jsdom is sufficient |
 
 ## Limitations

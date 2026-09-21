@@ -6,13 +6,13 @@ Guided 6-step flow for comprehensive domain intelligence collection and risk ass
 
 ## Flow Metadata
 
-| Field      | Value                                                  |
-| ---------- | ------------------------------------------------------ |
-| Activation | `/flow domain-sweep`                                   |
-| Skill tier | Novice to Practitioner                                 |
-| Duration   | 8–20 min depending on scope                            |
-| Output     | Risk score + prioritized action list                   |
-| Use cases  | Pre-purchase checks, routine monitoring, vendor review |
+| Field | Value |
+|-------|-------|
+| Activation | `/flow domain-sweep` |
+| Skill tier | Novice to Practitioner |
+| Duration | 8–20 min depending on scope |
+| Output | Risk score + prioritized action list |
+| Use cases | Pre-purchase checks, routine monitoring, vendor review |
 
 ---
 
@@ -28,7 +28,6 @@ Enter the target domain (e.g., example.com):
 ```
 
 Validation runs automatically:
-
 ```
 ✓ Format valid: example.com
 ✓ Resolves to IP: 203.0.113.45
@@ -48,11 +47,11 @@ Select sweep depth:
 Scope (1/2/3):
 ```
 
-| Scope    | Duration | Checks                                   |
-| -------- | -------- | ---------------------------------------- |
-| Surface  | 3 min    | Reg · SSL · headers                      |
-| Standard | 8 min    | + Subdomains · tech · common exposure    |
-| Full     | 20 min   | + Directory enum · dork suite · CVE scan |
+| Scope | Duration | Checks |
+|-------|----------|--------|
+| Surface | 3 min | Reg · SSL · headers |
+| Standard | 8 min | + Subdomains · tech · common exposure |
+| Full | 20 min | + Directory enum · dork suite · CVE scan |
 
 ### 1c — Authorization Confirmation
 
@@ -71,7 +70,6 @@ Do you have authorization? (yes / no)
 ```
 
 If no:
-
 ```
 Without authorization, active scanning may violate laws and ToS.
 Passive reconnaissance (WHOIS, public records) is still available.
@@ -114,7 +112,6 @@ Regions:   Multi-region  ✓
 ```
 
 Flags automatically raised:
-
 ```
 ⚠ Domain expires in 45 days — renew to prevent takeover risk.
 ```

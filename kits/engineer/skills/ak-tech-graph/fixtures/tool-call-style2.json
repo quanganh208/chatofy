@@ -140,62 +140,13 @@
     }
   ],
   "arrows": [
-    {
-      "source": "query",
-      "target": "planner",
-      "source_port": "right",
-      "target_port": "left",
-      "flow": "read"
-    },
-    {
-      "source": "planner",
-      "target": "answer",
-      "source_port": "right",
-      "target_port": "left",
-      "flow": "data"
-    },
-    {
-      "source": "planner",
-      "target": "kb",
-      "source_port": "right",
-      "target_port": "left",
-      "flow": "control",
-      "route_points": [
-        [520, 96],
-        [918, 96],
-        [918, 165]
-      ]
-    },
-    {
-      "source": "kb",
-      "target": "answer",
-      "source_port": "left",
-      "target_port": "right",
-      "flow": "control"
-    },
-    {
-      "source": "query",
-      "target": "agent",
-      "source_port": "bottom",
-      "target_port": "top",
-      "flow": "read"
-    },
-    {
-      "source": "agent",
-      "target": "terminal",
-      "source_port": "right",
-      "target_port": "left",
-      "flow": "read"
-    },
-    {
-      "source": "terminal",
-      "target": "docs",
-      "source_port": "right",
-      "target_port": "left",
-      "flow": "read",
-      "label": "pdfgrep / rga",
-      "label_dx": -8
-    },
+    { "source": "query", "target": "planner", "source_port": "right", "target_port": "left", "flow": "read" },
+    { "source": "planner", "target": "answer", "source_port": "right", "target_port": "left", "flow": "data" },
+    { "source": "planner", "target": "kb", "source_port": "right", "target_port": "left", "flow": "control", "route_points": [[520, 96], [918, 96], [918, 165]] },
+    { "source": "kb", "target": "answer", "source_port": "left", "target_port": "right", "flow": "control" },
+    { "source": "query", "target": "agent", "source_port": "bottom", "target_port": "top", "flow": "read" },
+    { "source": "agent", "target": "terminal", "source_port": "right", "target_port": "left", "flow": "read" },
+    { "source": "terminal", "target": "docs", "source_port": "right", "target_port": "left", "flow": "read", "label": "pdfgrep / rga", "label_dx": -8 },
     {
       "source": "docs",
       "target": "kb",
@@ -207,29 +158,14 @@
       "label_dx": 18,
       "label_dy": -12
     },
-    {
-      "source": "agent",
-      "target": "reply",
-      "source_port": "bottom",
-      "target_port": "top",
-      "flow": "read",
-      "route_points": [
-        [320, 544],
-        [320, 560]
-      ]
-    },
+    { "source": "agent", "target": "reply", "source_port": "bottom", "target_port": "top", "flow": "read", "route_points": [[320, 544], [320, 560]] },
     {
       "source": "terminal",
       "target": "agent",
       "source_port": "bottom",
       "target_port": "bottom",
       "flow": "control",
-      "route_points": [
-        [760, 464],
-        [760, 488],
-        [456, 488],
-        [456, 434]
-      ]
+      "route_points": [[760, 464], [760, 488], [456, 488], [456, 434]]
     }
   ],
   "legend": [

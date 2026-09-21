@@ -149,15 +149,15 @@ named, property lists checked, reduced-motion branch present in code.
 
 ## Evaluate before delivering (act-backed, per the Self-Review Gate)
 
-| Dimension                 | Passes when                                                  | Proven by        |
-| ------------------------- | ------------------------------------------------------------ | ---------------- |
-| Purpose                   | each motion has a named job; none decorative                 | motion inventory |
-| System                    | durations and easings from the scale                         | token audit      |
-| Continuity                | no teleports; shared elements travel; end state matches      | frame-step       |
-| Performance               | transform and opacity only; frame budget held under throttle | measurement      |
-| Accessibility             | reduced-motion path watched; no flashing                     | toggle test      |
-| Interruptibility          | cancel and reverse without a snap                            | interrupt test   |
-| Message (motion graphics) | every beat lands with and without sound                      | beat check       |
+| Dimension | Passes when | Proven by |
+|-----------|-------------|-----------|
+| Purpose | each motion has a named job; none decorative | motion inventory |
+| System | durations and easings from the scale | token audit |
+| Continuity | no teleports; shared elements travel; end state matches | frame-step |
+| Performance | transform and opacity only; frame budget held under throttle | measurement |
+| Accessibility | reduced-motion path watched; no flashing | toggle test |
+| Interruptibility | cancel and reverse without a snap | interrupt test |
+| Message (motion graphics) | every beat lands with and without sound | beat check |
 
 ## Motion spec template
 
@@ -174,13 +174,13 @@ Verified: <played 1x, 0.25x; frame-stepped; fps under throttle; reduced-motion t
 
 ## Do / Don't
 
-| Don't                                     | Instead                                                 |
-| ----------------------------------------- | ------------------------------------------------------- |
-| Animate because the element can move      | Name the job, or remove the motion                      |
-| Guess durations and default the easing    | Take both from the motion scale                         |
-| Move everything at once                   | One primary motion; keep a still ground                 |
-| Replace elements between states           | Let shared elements travel; exits faster than entrances |
-| Animate width, top, or shadow             | Animate transform and opacity; measure frames           |
-| Ship without a reduced-motion path        | Design it first-class; toggle it and watch              |
-| Judge motion from the keyframes           | Play it, frame-step it, slow it down, interrupt it      |
+| Don't | Instead |
+|-------|---------|
+| Animate because the element can move | Name the job, or remove the motion |
+| Guess durations and default the easing | Take both from the motion scale |
+| Move everything at once | One primary motion; keep a still ground |
+| Replace elements between states | Let shared elements travel; exits faster than entrances |
+| Animate width, top, or shadow | Animate transform and opacity; measure frames |
+| Ship without a reduced-motion path | Design it first-class; toggle it and watch |
+| Judge motion from the keyframes | Play it, frame-step it, slow it down, interrupt it |
 | Cut motion graphics as a chain of effects | Write the beat sheet; make every beat carry the message |

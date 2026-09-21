@@ -53,28 +53,28 @@ sequenceDiagram
 
 ## AI-tool integration matrix
 
-| Client                     | Configuration / Command                                                                                                    |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| **ChatGPT / OpenAI Codex** | Codex/ChatGPT Plugin manifest or `codex mcp add <name> --url https://mcp.example.com/mcp` then `codex mcp login <name>`    |
-| **Claude Code**            | `claude mcp add --transport http <name> https://mcp.example.com/mcp` — browser OAuth flow on first launch                  |
-| **Claude Desktop**         | Settings → Developer → Connectors → Add Custom Connector → MCP URL; completes browser OAuth 2.1                            |
-| **Cursor**                 | `.cursor/mcp.json`: `{ "mcpServers": { "name": { "url": "https://mcp.example.com/mcp" } } }` — triggers CIMD/browser OAuth |
-| **VS Code**                | Workspace / user settings with `"type": "http"`, `"url": "https://mcp.example.com/mcp"`                                    |
+| Client | Configuration / Command |
+| --- | --- |
+| **ChatGPT / OpenAI Codex** | Codex/ChatGPT Plugin manifest or `codex mcp add <name> --url https://mcp.example.com/mcp` then `codex mcp login <name>` |
+| **Claude Code** | `claude mcp add --transport http <name> https://mcp.example.com/mcp` — browser OAuth flow on first launch |
+| **Claude Desktop** | Settings → Developer → Connectors → Add Custom Connector → MCP URL; completes browser OAuth 2.1 |
+| **Cursor** | `.cursor/mcp.json`: `{ "mcpServers": { "name": { "url": "https://mcp.example.com/mcp" } } }` — triggers CIMD/browser OAuth |
+| **VS Code** | Workspace / user settings with `"type": "http"`, `"url": "https://mcp.example.com/mcp"` |
 
 ## Cloudflare Zero Trust + workers-oauth-provider
 
 Host the protected resource server on Cloudflare Workers with managed OAuth:
 
 ```ts
-import { OAuthProvider } from '@cloudflare/workers-oauth-provider';
+import { OAuthProvider } from "@cloudflare/workers-oauth-provider";
 
 export default new OAuthProvider({
-  apiRoute: '/mcp',
+  apiRoute: "/mcp",
   apiHandler: MyMcpWorker,
   defaultHandler: MyAuthUi,
-  authorizeEndpoint: '/oauth/authorize',
-  tokenEndpoint: '/oauth/token',
-  clientRegistrationEndpoint: '/oauth/register', // optional legacy DCR fallback only; CIMD preferred
+  authorizeEndpoint: "/oauth/authorize",
+  tokenEndpoint: "/oauth/token",
+  clientRegistrationEndpoint: "/oauth/register", // optional legacy DCR fallback only; CIMD preferred
 });
 ```
 

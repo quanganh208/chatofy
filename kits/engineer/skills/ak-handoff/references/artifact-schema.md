@@ -11,7 +11,7 @@ tolerating extra sections between required ones).
 handoff-version: 1
 generated: 2026-08-07T10:49:00Z
 generator: ak:handoff@2.0.0
-focus: 'continue the OAuth callback fix'
+focus: "continue the OAuth callback fix"
 workspace: /path/to/repo
 branch: feature/oauth-callback
 head: 26f9ff8
@@ -30,21 +30,13 @@ these exact headings:
 # HANDOFF: <short title>
 
 ## Mission and current status
-
 ## Scope and guardrails
-
 ## Current state
-
 ## Decisions and rationale
-
 ## Work performed
-
 ## Verification
-
 ## Open risks and blockers
-
 ## Exact next actions
-
 ## Source pointers
 ```
 
@@ -62,12 +54,12 @@ missing.
   operations disallowed, protected files, etc.).
 - **Current state** — `Branch:`, `HEAD:`, `Working tree:`, `Changed files:`
   (bounded list), `Untracked files:` (bounded list), `Intentional local
-modifications:` (`yes|no|not captured`).
+  modifications:` (`yes|no|not captured`).
 - **Decisions and rationale** — table or bulleted list of `Decision —
-Rationale — Alternative rejected — Reference` rows.
+  Rationale — Alternative rejected — Reference` rows.
 - **Work performed** — bulleted commands executed with observed outcome,
   and code/config changes described at file granularity. `N redactions
-applied.` line at the end.
+  applied.` line at the end.
 - **Verification** — table of `Check — Command — Outcome — When`. Include a
   `Not run:` sub-list for skipped checks with a reason each.
 - **Open risks and blockers** — bulleted, each with `Type:` (blocker,
@@ -87,7 +79,7 @@ For any section with no trustworthy information, write literally
 handoff-version: 1
 generated: 2026-08-07T10:49:00Z
 generator: ak:handoff@2.0.0
-focus: 'start OAuth callback fix'
+focus: "start OAuth callback fix"
 workspace: /home/user/agentkit
 branch: feature/oauth-callback
 head: 26f9ff8
@@ -96,14 +88,12 @@ head: 26f9ff8
 # HANDOFF: start OAuth callback fix
 
 ## Mission and current status
-
 Focus: "start OAuth callback fix".
 Done: none — new session.
 Remaining: reproduce the callback 500 in staging, then design the fix.
 Urgency: normal.
 
 ## Scope and guardrails
-
 Workspace: /home/user/agentkit
 In scope: `apps/api/auth/oauth-callback.ts` and its unit tests.
 Out of scope: session store schema, mobile deep-link handling.
@@ -111,7 +101,6 @@ Constraints: preserve public callback URL shape.
 Safety boundaries: no destructive migrations; no changes to production secrets.
 
 ## Current state
-
 Branch: feature/oauth-callback
 HEAD: 26f9ff8
 Working tree: clean
@@ -120,32 +109,26 @@ Untracked files: none
 Intentional local modifications: no
 
 ## Decisions and rationale
-
 Not captured in this session
 
 ## Work performed
-
 No commands executed yet.
 0 redactions applied.
 
 ## Verification
-
 Not captured in this session
 
 ## Open risks and blockers
-
 - Type: question. Owner: unknown. Impact: whether staging reproduction is
   possible without a real IdP credential.
 
 ## Exact next actions
-
 1. **First safe step** — read `apps/api/auth/oauth-callback.ts` and its
    test file.
 2. Reproduce the 500 in staging with the shared test IdP.
 3. Draft the fix in a new branch off `feature/oauth-callback`.
 
 ## Source pointers
-
 - `apps/api/auth/oauth-callback.ts`
 - `docs/auth/oauth-callback-spec.md`
 ```

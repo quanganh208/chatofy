@@ -2,13 +2,13 @@
 name: ak:gkg
 description: Semantic code analysis with GitLab Knowledge Graph. Use for go-to-definition, find-usages, impact analysis, architecture visualization. Supports Ruby, Java, Kotlin, Python, TypeScript/JavaScript.
 user-invocable: true
-when_to_use: 'Invoke for semantic code navigation and impact analysis.'
+when_to_use: "Invoke for semantic code navigation and impact analysis."
 category: engineering
 keywords: [code-analysis, knowledge-graph, gitlab]
-argument-hint: '[symbol or query]'
+argument-hint: "[symbol or query]"
 metadata:
   author: agentkit
-  version: '1.0.1'
+  version: "1.0.1"
 ---
 
 # GitLab Knowledge Graph (GKG)
@@ -56,7 +56,6 @@ irm https://gitlab.com/gitlab-org/rust/knowledge-graph/-/raw/main/install.ps1 | 
 ## Core Workflows
 
 ### Index and Query
-
 ```bash
 gkg index /path/to/project --stats
 gkg server start
@@ -64,27 +63,25 @@ gkg server start
 ```
 
 ### Find Symbol Usages
-
 1. Inspect the existing index and running server; query it when current.
 2. Reindex only missing/stale coverage; stop only a server this task owns. If another session owns it, use native search or obtain coordination.
 3. Query the live-supported reference/search surface. Empty results in an incompletely supported language do not prove there are no callers; cross-check native source search.
 
 ### Impact Analysis
-
 1. Query existing indexes for affected repos; rebuild only stale/missing coverage
 2. Query `get_references` for changed symbols
 3. Review all call sites before refactoring
 
 ## Language Support
 
-| Language   | Cross-file Refs |
-| ---------- | --------------- |
-| Ruby       | ✅ Full         |
-| Java       | ✅ Full         |
-| Kotlin     | ✅ Full         |
-| Python     | 🚧 In progress  |
-| TypeScript | 🚧 In progress  |
-| JavaScript | 🚧 In progress  |
+| Language | Cross-file Refs |
+|----------|-----------------|
+| Ruby | ✅ Full |
+| Java | ✅ Full |
+| Kotlin | ✅ Full |
+| Python | 🚧 In progress |
+| TypeScript | 🚧 In progress |
+| JavaScript | 🚧 In progress |
 
 ## References
 

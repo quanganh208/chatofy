@@ -3,14 +3,12 @@
 ## 🎨 Component Patterns
 
 **Modern React components use:**
-
 - `React.FC<Props>` for type safety
 - `React.lazy()` for code splitting
 - `SuspenseLoader` for loading states
 - Named const + default export pattern
 
 **Key Concepts:**
-
 - Lazy load heavy components (DataGrid, charts, editors)
 - Always wrap lazy components in Suspense
 - Use SuspenseLoader component (with fade animation)
@@ -23,14 +21,12 @@
 ## 📊 Data Fetching
 
 **PRIMARY PATTERN: useSuspenseQuery**
-
 - Use with Suspense boundaries
 - Cache-first strategy (check grid cache before API)
 - Replaces `isLoading` checks
 - Type-safe with generics
 
 **API Service Layer:**
-
 - Create `features/{feature}/api/{feature}Api.ts`
 - Use `apiClient` axios instance
 - Centralized methods per feature
@@ -43,12 +39,10 @@
 ## 📁 File Organization
 
 **features/ vs components/:**
-
 - `features/`: Domain-specific (posts, comments, auth)
 - `components/`: Truly reusable (SuspenseLoader, CustomAppBar)
 
 **Feature Subdirectories:**
-
 ```
 features/
   my-feature/
@@ -66,18 +60,15 @@ features/
 ## 🎨 Styling
 
 **Inline vs Separate:**
-
 - <100 lines: Inline `const styles: Record<string, SxProps<Theme>>`
-- > 100 lines: Separate `.styles.ts` file
+- >100 lines: Separate `.styles.ts` file
 
 **Primary Method:**
-
 - Use `sx` prop for MUI components
 - Type-safe with `SxProps<Theme>`
 - Theme access: `(theme) => theme.palette.primary.main`
 
 **MUI v7 Grid:**
-
 ```typescript
 <Grid size={{ xs: 12, md: 6 }}>  // ✅ v7 syntax
 <Grid xs={12} md={6}>             // ❌ Old syntax
@@ -90,14 +81,12 @@ features/
 ## 🛣️ Routing
 
 **TanStack Router - Folder-Based:**
-
 - Directory: `routes/my-route/index.tsx`
 - Lazy load components
 - Use `createFileRoute`
 - Breadcrumb data in loader
 
 **Example:**
-
 ```typescript
 import { createFileRoute } from '@tanstack/react-router';
 import { lazy } from 'react';
@@ -105,8 +94,8 @@ import { lazy } from 'react';
 const MyPage = lazy(() => import('@/features/my-feature/components/MyPage'));
 
 export const Route = createFileRoute('/my-route/')({
-  component: MyPage,
-  loader: () => ({ crumb: 'My Route' }),
+    component: MyPage,
+    loader: () => ({ crumb: 'My Route' }),
 });
 ```
 
@@ -133,7 +122,6 @@ if (isLoading) {
 **Why:** Prevents Cumulative Layout Shift (CLS), better UX
 
 **Error Handling:**
-
 - Use `useMuiSnackbar` for user feedback
 - Not `react-toastify`; the project standardizes on the MUI Snackbar
 - TanStack Query `onError` callbacks
@@ -145,7 +133,6 @@ if (isLoading) {
 ## ⚡ Performance
 
 **Optimization Patterns:**
-
 - `useMemo`: Expensive computations (filter, sort, map)
 - `useCallback`: Event handlers passed to children
 - `React.memo`: Expensive components
@@ -159,7 +146,6 @@ if (isLoading) {
 ## 📘 TypeScript
 
 **Standards:**
-
 - Strict mode, no `any` type
 - Explicit return types on functions
 - Type imports: `import type { User } from '~types/user'`
@@ -172,7 +158,6 @@ if (isLoading) {
 ## 🔧 Common Patterns
 
 **Covered Topics:**
-
 - React Hook Form with Zod validation
 - DataGrid wrapper contracts
 - Dialog component standards
@@ -186,7 +171,6 @@ if (isLoading) {
 ## 📚 Complete Examples
 
 **Full working examples:**
-
 - Modern component with all patterns
 - Complete feature structure
 - API service layer

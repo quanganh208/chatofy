@@ -6,11 +6,11 @@ when_to_use: Invoke to capture a session's continuation contract for a successor
 category: workflow
 keywords: [handoff, handover, dispatch, session, continuation, decisions, blockers, redaction]
 license: MIT
-argument-hint: '[task focus] [--output PATH] [--include-diff] [--include-status] [--force] [--dispatch --agent <id> [--handoff PATH] [--cwd PATH] [--model NAME] [--yes]]'
+argument-hint: "[task focus] [--output PATH] [--include-diff] [--include-status] [--force] [--dispatch --agent <id> [--handoff PATH] [--cwd PATH] [--model NAME] [--yes]]"
 metadata:
   author: agentkit
-  version: '2.1.0'
-  upstream: 'Pinned MIT source archive: handoff@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5 (rewritten for AgentKit v2 contract)'
+  version: "2.1.0"
+  upstream: "Pinned MIT source archive: handoff@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5 (rewritten for AgentKit v2 contract)"
 ---
 
 # Handoff
@@ -51,14 +51,14 @@ Accepted forms:
 
 Flags:
 
-| Flag               | Effect                                                                                                                                                                                                                                    |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| _(bare)_           | Capture the current session's continuation contract with an auto-derived slug.                                                                                                                                                            |
-| `[task focus]`     | Optional single-string focus for the successor agent. Included in the Mission section and the artifact filename slug.                                                                                                                     |
-| `--output PATH`    | Explicit artifact path. Must resolve inside the workspace root; parent directory is created if it does not exist; the auto-derived slug/timestamp is not applied; `--force` is still required to overwrite an existing file at that path. |
-| `--include-diff`   | Append a bounded diff summary (`git diff --stat` + first 200 lines of `git diff`, redacted, truncation explicitly marked).                                                                                                                |
-| `--include-status` | Append a `git status --short` snapshot, redacted.                                                                                                                                                                                         |
-| `--force`          | Allow overwriting an existing artifact at the target path. Refuse otherwise.                                                                                                                                                              |
+| Flag | Effect |
+| --- | --- |
+| _(bare)_ | Capture the current session's continuation contract with an auto-derived slug. |
+| `[task focus]` | Optional single-string focus for the successor agent. Included in the Mission section and the artifact filename slug. |
+| `--output PATH` | Explicit artifact path. Must resolve inside the workspace root; parent directory is created if it does not exist; the auto-derived slug/timestamp is not applied; `--force` is still required to overwrite an existing file at that path. |
+| `--include-diff` | Append a bounded diff summary (`git diff --stat` + first 200 lines of `git diff`, redacted, truncation explicitly marked). |
+| `--include-status` | Append a `git status --short` snapshot, redacted. |
+| `--force` | Allow overwriting an existing artifact at the target path. Refuse otherwise. |
 
 ## Output Location
 
@@ -220,14 +220,14 @@ this kit.
 /ak:handoff --dispatch --agent opencode --model anthropic/claude-sonnet-5 --yes
 ```
 
-| Flag             | Effect                                                                                                                                                                                             |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--agent <id>`   | **Required with `--dispatch`.** Selected coding runtime. Must match an ID in [references/dispatch-runtime-catalog.md](references/dispatch-runtime-catalog.md). No default; no silent substitution. |
-| `--task TEXT`    | Alternative form of the positional task focus. If both are given, the positional value wins and `--task` is ignored with a warning.                                                                |
-| `--cwd PATH`     | Workspace root for the dispatched job. Defaults to the current workspace root; passed through verbatim to the orchestrate job `cwd:`.                                                              |
-| `--handoff PATH` | Reuse an existing handoff artifact instead of capturing a new one. It must exist and pass the validation below.                                                                                    |
-| `--model NAME`   | Override the model for CLI-runtime jobs. **Rejected** for `--agent internal` (internal jobs never set `model`).                                                                                    |
-| `--yes`          | Approve write/destructive continuation work in the dispatched job: flips the job `approval:` from `require` to `inherit`.                                                                          |
+| Flag | Effect |
+| --- | --- |
+| `--agent <id>` | **Required with `--dispatch`.** Selected coding runtime. Must match an ID in [references/dispatch-runtime-catalog.md](references/dispatch-runtime-catalog.md). No default; no silent substitution. |
+| `--task TEXT` | Alternative form of the positional task focus. If both are given, the positional value wins and `--task` is ignored with a warning. |
+| `--cwd PATH` | Workspace root for the dispatched job. Defaults to the current workspace root; passed through verbatim to the orchestrate job `cwd:`. |
+| `--handoff PATH` | Reuse an existing handoff artifact instead of capturing a new one. It must exist and pass the validation below. |
+| `--model NAME` | Override the model for CLI-runtime jobs. **Rejected** for `--agent internal` (internal jobs never set `model`). |
+| `--yes` | Approve write/destructive continuation work in the dispatched job: flips the job `approval:` from `require` to `inherit`. |
 
 Not accepted: `--fallback-agent` (on preflight failure report the blocker and
 suggest another `--agent`; never substitute silently) and runtime bypass flags
@@ -253,7 +253,7 @@ performs, in order:
    [references/dispatch-job-spec-template.md](references/dispatch-job-spec-template.md).
    Field mapping: `prompt:` = handoff-consumption instruction + the task
    text; `task:` = routing enum (`implement | scout | review | audit | test |
-mechanical | architecture | docs | security`, default `implement`), never
+   mechanical | architecture | docs | security`, default `implement`), never
    the user's prose; `model:` only for CLI runtimes; `effect: scoped-write`
    and `approval: require` by default (`inherit` with `--yes` or a recorded
    caller authorization covering the exact action; destructive Scope
@@ -272,7 +272,6 @@ mechanical | architecture | docs | security`, default `implement`), never
 
 ```markdown
 **Handoff Dispatch Result**
-
 - Handoff artifact: <path>
 - Orchestrate run: <run-dir>
 - Runtime: <resolved-runtime>
@@ -283,7 +282,6 @@ mechanical | architecture | docs | security`, default `implement`), never
 - Next action: <what the successor agent completed / where to look>
 
 Unresolved:
-
 - <blockers if any, else "none">
 ```
 

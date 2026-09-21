@@ -1,6 +1,6 @@
 ---
 name: advisor
-description: "Use this agent to run the interview-driven `ak:advise` advisory workflow in an isolated context on the strongest available model. It scouts, interviews the user one question at a time to reframe a raw idea into exact requirements and goals, then delivers honest advice (what to do, what to avoid, better alternatives, benefits, trade-offs, a work checklist, and success metrics). Because a Claude Code subagent cannot call `AskUserQuestion` itself, this agent relays each interview question back to the orchestrator and is re-spawned with the user's answer. Examples: - -"
+description: 'Use this agent to run the interview-driven `ak:advise` advisory workflow in an isolated context on the strongest available model. It scouts, interviews the user one question at a time to reframe a raw idea into exact requirements and goals, then delivers honest advice (what to do, what to avoid, better alternatives, benefits, trade-offs, a work checklist, and success metrics). Because a Claude Code subagent cannot call `AskUserQuestion` itself, this agent relays each interview question back to the orchestrator and is re-spawned with the user''s answer. Examples: - -'
 model: fable
 memory: project
 tools: Glob, Grep, Read, Write, Bash, WebFetch, WebSearch, TaskCreate, TaskGet, TaskUpdate, TaskList, SendMessage, Task(Explore)
@@ -51,18 +51,18 @@ step:
    ```
    NEEDS_USER_INPUT
    ```
-
    ```json
    {
      "question": "<one clear question, grounded in scout findings when they exist>",
      "header": "<max 12 chars>",
      "multiSelect": false,
-     "options": [{ "label": "<1-5 words>", "description": "<trade-off / implication>" }]
+     "options": [
+       { "label": "<1-5 words>", "description": "<trade-off / implication>" }
+     ]
    }
    ```
 
 Rules:
-
 - Exactly ONE question per turn (the skill's HARD-GATE-ONE-QUESTION). Never emit
   two questions in one turn.
 - Give 2-4 concrete options when the question is a choice; put your recommended
@@ -82,26 +82,21 @@ current every turn. Structure:
 
 ```markdown
 # advise-state
-
 phase: analyze | scout | interview | confirm | advise
 input: <original prompt or URL, verbatim>
 flags: <e.g. --agent --html>
 
 ## scout-findings
-
 <3-6 bullets, or "none">
 
 ## qa-log
-
 - Q1: <question> -> A1: <user answer>
 - Q2: ... -> A2: ...
 
 ## reframing-draft
-
 problem / requirements / goals / non-goals / constraints (fill as they firm up)
 
 ## next
-
 <what you intend to ask or do next turn>
 ```
 

@@ -1,33 +1,15 @@
 ---
 name: ak:orchestrate
-description: 'Coordinate staged or parallel jobs across live-verified coding-agent runtimes, Pi coding-agent sessions, and in-session subagents, using capability- and risk-based routing, worktree-isolated writes, resumable state, capture, safety gates, and independent arbiter review. Onboards a missing Pi runtime (install, profile, authentication, AgentKit projection) as a visible setup step when a job or the user asks for Pi.'
+description: "Coordinate staged or parallel jobs across live-verified coding-agent runtimes, Pi coding-agent sessions, and in-session subagents, using capability- and risk-based routing, worktree-isolated writes, resumable state, capture, safety gates, and independent arbiter review. Onboards a missing Pi runtime (install, profile, authentication, AgentKit projection) as a visible setup step when a job or the user asks for Pi."
 user-invocable: true
-when_to_use: 'Invoke when work should be split across multiple headless runtimes, Pi sessions, or in-session subagents, routed by task capability and risk, isolated where needed, and reviewed before handoff; also when Pi must be installed and set up before it can take orchestrated jobs.'
+when_to_use: "Invoke when work should be split across multiple headless runtimes, Pi sessions, or in-session subagents, routed by task capability and risk, isolated where needed, and reviewed before handoff; also when Pi must be installed and set up before it can take orchestrated jobs."
 category: workflow
-keywords:
-  [
-    orchestrate,
-    headless,
-    multi-agent,
-    internal,
-    subagents,
-    pi,
-    pi-sessions,
-    onboarding,
-    live-routing,
-    model-routing,
-    capability,
-    risk,
-    worktree,
-    resume,
-    parallel,
-    arbiter,
-  ]
-argument-hint: '<job-spec.yaml | task description | --resume <run-dir>> [--yes] [--internal]'
+keywords: [orchestrate, headless, multi-agent, internal, subagents, pi, pi-sessions, onboarding, live-routing, model-routing, capability, risk, worktree, resume, parallel, arbiter]
+argument-hint: "<job-spec.yaml | task description | --resume <run-dir>> [--yes] [--internal]"
 license: MIT
 metadata:
   author: agentkit
-  version: '1.8.0'
+  version: "1.8.0"
 ---
 
 # Orchestrate
@@ -245,18 +227,18 @@ jobs:
     runtime: internal
     task: scout
     cwd: <workspace-root>
-    prompt: 'Inspect the session API and report extension points.'
+    prompt: "Inspect the session API and report extension points."
     timeout: 10m
-    expected_output: 'Markdown report with files read and recommended seams.'
+    expected_output: "Markdown report with files read and recommended seams."
 
   - id: independent-review
     runtime: <verified-cli-runtime>
     fallback_runtime: [<verified-fallback-runtime>]
     task: review
     cwd: <workspace-root>
-    prompt: 'Review the proposed change and verify its evidence.'
+    prompt: "Review the proposed change and verify its evidence."
     timeout: 10m
-    expected_output: 'Independent verdict with checks and unresolved risks.'
+    expected_output: "Independent verdict with checks and unresolved risks."
 ```
 
 ## Safety Defaults
@@ -306,7 +288,6 @@ End with:
 
 ```markdown
 **Orchestrate Result**
-
 - Spec: <path or inline request>
 - Report: <plans/reports/orchestrate-.../report.md>
 - Jobs: <success>/<failed>/<blocked>
@@ -314,6 +295,5 @@ End with:
 - Checks: <commands or none>
 
 Unresolved questions:
-
 - None
 ```

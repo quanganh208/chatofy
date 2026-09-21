@@ -7,7 +7,14 @@
     "nature-inspired",
     "mythological"
   ],
-  "palette_hexes": ["#344634", "#F2F2D9", "#D7524A", "#3F6352", "#7F4D3C", "#E0E8E7"],
+  "palette_hexes": [
+    "#344634",
+    "#F2F2D9",
+    "#D7524A",
+    "#3F6352",
+    "#7F4D3C",
+    "#E0E8E7"
+  ],
   "layout": {
     "grid": "centered organic flow",
     "focal": "center",
@@ -17,7 +24,12 @@
     "material": "digital painting",
     "finish": "painterly strokes"
   },
-  "mood": ["mysterious", "serene", "epic", "enchanting"],
+  "mood": [
+    "mysterious",
+    "serene",
+    "epic",
+    "enchanting"
+  ],
   "shape_primitives": [
     "organic curves",
     "rectangles",

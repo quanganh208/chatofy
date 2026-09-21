@@ -13,20 +13,17 @@ Each persona represents a distinct attacker mindset. When `--red-team` mode is a
 **Mindset:** "I'm a hacker trying to breach this system"
 
 **Threat Model:**
-
 - External attacker with no prior access
 - Goal: authentication bypass, data exfiltration, remote code execution
 - Assumes knowledge of the tech stack from public signals (headers, error messages, job listings)
 
 **Typical Attack Vectors:**
-
 - Auth bypass via JWT tampering, session fixation, missing CSRF
 - Injection: SQL, NoSQL, command, template (SSTI)
 - Privilege escalation: IDOR, broken access control, RBAC gaps
 - Information disclosure: verbose errors, debug endpoints, PII in responses
 
 **What to Probe:**
-
 - Trace every input from entry point to sink — find missing validation
 - Check every parameterized route for IDOR (`:id`, `:slug`, `:uuid`)
 - Test JWT: algorithm confusion (`none`/`HS256`→`RS256`), missing expiry, weak secret
@@ -39,13 +36,11 @@ Each persona represents a distinct attacker mindset. When `--red-team` mode is a
 **Mindset:** "I'm compromising dependencies or build pipeline"
 
 **Threat Model:**
-
 - Attacker who cannot breach the app directly but can poison an upstream artifact
 - Goal: introduce malicious code via a dependency, CI script, or build artifact
 - Assumes partial knowledge of the dependency tree (public package registries)
 
 **Typical Attack Vectors:**
-
 - Known CVEs in direct or transitive dependencies
 - Typosquatting / dependency confusion attacks
 - Malicious or unmaintained packages with hidden behavior
@@ -53,7 +48,6 @@ Each persona represents a distinct attacker mindset. When `--red-team` mode is a
 - Overly permissive CI/CD permissions (e.g., `write-all` on GitHub Actions)
 
 **What to Probe:**
-
 - Run `npm audit` / `pip audit` / `go vuln` — catalogue every CVE, triage by exploitability
 - Check `package.json` / `requirements.txt` for unmaintained packages (last publish > 2 years)
 - Review `.github/workflows/` for `permissions: write-all`, `pull_request_target` without trust gates
@@ -67,20 +61,17 @@ Each persona represents a distinct attacker mindset. When `--red-team` mode is a
 **Mindset:** "I'm a malicious employee or a compromised internal account"
 
 **Threat Model:**
-
 - Authenticated low-privilege user (e.g., viewer role, read-only API key)
 - Goal: escalate privileges, exfiltrate bulk data, cover tracks
 - Has legitimate credentials but exceeds authorized scope
 
 **Typical Attack Vectors:**
-
 - Horizontal privilege escalation: user A accessing user B's private resources
 - Vertical privilege escalation: viewer→admin via missing role checks
 - Bulk data export through legitimate endpoints (no pagination limits, no rate limiting)
 - Audit trail gaps: actions that leave no log entry
 
 **What to Probe:**
-
 - Check every admin/privileged endpoint — is authorization enforced server-side or only in UI?
 - Look for missing `WHERE user_id = current_user` guards in database queries
 - Find any endpoint that returns unbounded lists (no `LIMIT`, no cursor pagination)
@@ -94,13 +85,11 @@ Each persona represents a distinct attacker mindset. When `--red-team` mode is a
 **Mindset:** "I'm attacking the deployment, not the application code"
 
 **Threat Model:**
-
 - Attacker who has gained a foothold in the runtime environment (container, VM, CI runner)
 - Goal: escape container, pivot to adjacent services, harvest secrets from environment
 - May start from a compromised low-privilege container process
 
 **Typical Attack Vectors:**
-
 - Secrets hardcoded in source, committed `.env` files, or leaked via build logs
 - Overly permissive container configs: `--privileged`, mounted host paths, `CAP_SYS_ADMIN`
 - Exposed internal services (metadata endpoints, health endpoints with sensitive data)
@@ -108,7 +97,6 @@ Each persona represents a distinct attacker mindset. When `--red-team` mode is a
 - SSRF enabling access to cloud metadata APIs (AWS `169.254.169.254`, GCP `metadata.google.internal`)
 
 **What to Probe:**
-
 - Scan all config files: `Dockerfile`, `docker-compose.yml`, Kubernetes manifests, Helm charts
 - Search for secrets in environment variable handling — are they passed as build args (leaks in image layers)?
 - Check for SSRF vectors: any server-side URL fetch without allowlist validation
@@ -147,7 +135,6 @@ Phase 6: Finding Consolidation + Report
 ### Iteration Protocol per Persona Phase
 
 Each iteration within a persona phase:
-
 1. **Select** — pick next untested attack vector from persona's list
 2. **Assume persona mindset** — reason as that attacker, not as a defender
 3. **Probe** — read relevant code, trace data flows, find missing guards
@@ -188,6 +175,5 @@ Mask every secret value per the redaction rule in `SKILL.md` § Security Policy 
 ## Attribution
 
 Persona catalog and discovery loop pattern adapted from:
-
 - uditgoenka/autoresearch upstream security workflow, section "Red-Team Adversarial Lenses" (MIT License)
 - Strix AI-powered security testing platform patterns (via upstream attribution)

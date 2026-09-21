@@ -1,16 +1,16 @@
 # Optional capabilities by need
 
-| Need                              | Capability                                                        |
-| --------------------------------- | ----------------------------------------------------------------- |
-| Clear local failure               | Direct file reads, cause-aligned repair, relevant checker         |
-| Unclear causal path               | `ak:debug` and one discriminating test                            |
-| Repeated refuted hypotheses       | `ak:problem-solving` if reframing would help                      |
-| Difficult evidence comparison     | `ak:fable-thinking` (sequential mode) for a decision/evidence log |
-| Multiple viable fixes             | `ak:brainstorm` after diagnosis                                   |
-| Complex phases                    | Existing plan and optional live progress tracking                 |
-| Independent areas/issues          | Delegates with disjoint ownership when authorized and available   |
-| Cross-module/public-contract risk | Independent review where available or required                    |
-| Changed docs contract             | Smallest owning docs update                                       |
+| Need | Capability |
+|---|---|
+| Clear local failure | Direct file reads, cause-aligned repair, relevant checker |
+| Unclear causal path | `ak:debug` and one discriminating test |
+| Repeated refuted hypotheses | `ak:problem-solving` if reframing would help |
+| Difficult evidence comparison | `ak:fable-thinking` (sequential mode) for a decision/evidence log |
+| Multiple viable fixes | `ak:brainstorm` after diagnosis |
+| Complex phases | Existing plan and optional live progress tracking |
+| Independent areas/issues | Delegates with disjoint ownership when authorized and available |
+| Cross-module/public-contract risk | Independent review where available or required |
+| Changed docs contract | Smallest owning docs update |
 
 Quick does not automatically load any helper. Standard/deep add only the capabilities the
 failure needs. `--advice`, `--review` and `--ultra` retain their explicit contracts. Pass current

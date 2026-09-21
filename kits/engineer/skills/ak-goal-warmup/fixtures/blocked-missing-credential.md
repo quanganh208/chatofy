@@ -16,9 +16,9 @@ Goal: "Deploy the staging preview and verify health check."
 
 ## Preflight row
 
-| Phase  | Requirement       | Check             | Status  | Unblock                                  | Blocking? |
-| ------ | ----------------- | ----------------- | ------- | ---------------------------------------- | --------- |
-| deploy | cloud credentials | env name presence | missing | user sets credential in env/secret store | yes       |
+| Phase | Requirement | Check | Status | Unblock | Blocking? |
+|-------|-------------|-------|--------|---------|-----------|
+| deploy | cloud credentials | env name presence | missing | user sets credential in env/secret store | yes |
 
 ## Expected terminal state
 

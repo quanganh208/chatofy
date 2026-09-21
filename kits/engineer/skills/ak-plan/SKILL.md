@@ -2,14 +2,14 @@
 name: ak:plan
 description: Create, validate or review implementation plans with acceptance criteria and executable phases. Use for planning and roadmaps; implementation belongs to cook.
 user-invocable: true
-when_to_use: 'Invoke when work needs phases, architecture, or a roadmap.'
+when_to_use: "Invoke when work needs phases, architecture, or a roadmap."
 category: workflow
 keywords: [planning, architecture, phases, roadmap, html, github, wiki, agentwiki, publish]
-argument-hint: '[task] [--fast|--hard|--deep|--parallel|--two|--debate|--ultra] [--tdd|--no-tasks] [--html] [--github] [--wiki] [--advice] [--yagni] [--skip-journal] [--no-antv|--no-diagram-design|--no-editorial-visuals] OR [archive|red-team|validate]'
+argument-hint: "[task] [--fast|--hard|--deep|--parallel|--two|--debate|--ultra] [--tdd|--no-tasks] [--html] [--github] [--wiki] [--advice] [--yagni] [--skip-journal] [--no-antv|--no-diagram-design|--no-editorial-visuals] OR [archive|red-team|validate]"
 license: MIT
 metadata:
   author: agentkit
-  version: '2.2.2'
+  version: "2.2.2"
 ---
 
 # Plan (`ak:plan`)
@@ -25,19 +25,19 @@ Create structured, verifiable implementation plans with phased execution roadmap
 
 ## Mode & Subcommand Routing
 
-| Mode / Subcommand  | Flag / Argument   | Purpose                                                              | Reference                                            |
-| ------------------ | ----------------- | -------------------------------------------------------------------- | ---------------------------------------------------- |
-| **Auto-Detect**    | (none)            | Analyzes task complexity and chooses appropriate mode                | `references/workflow-modes.md`                       |
-| **Fast**           | `--fast`          | 0 research; direct analysis and rapid plan creation                  | `references/workflow-modes.md`                       |
-| **Hard**           | `--hard`          | Deep research, codebase scouting, red-team review, validation        | `references/workflow-modes.md`                       |
-| **Deep**           | `--deep`          | Multi-phase exploration for complex/large-scale migrations           | `references/workflow-modes.md`                       |
-| **Parallel**       | `--parallel`      | Generates parallel-executable phases with strict file ownership      | `references/workflow-modes.md`                       |
-| **Two Approaches** | `--two`           | Compares two distinct architectural approaches with trade-offs       | `references/workflow-modes.md`                       |
-| **Debate**         | `--debate`        | Persona debate before selecting the optimal strategy                 | `references/workflow-modes.md`                       |
-| **Ultra**          | `--ultra`         | Best-of-5 verifier pass; strongest-model selection                   | `../ak-brainstorm/references/ultra-verifier-mode.md` |
-| **Validate**       | `validate <path>` | Runs critical questions validation gate on a plan                    | `references/validate-workflow.md`                    |
-| **Red-Team**       | `red-team <path>` | 4-persona adversarial review (Assumptions, Failure, Scope, Security) | `references/red-team-workflow.md`                    |
-| **Archive**        | `archive [slug]`  | Finalizes and archives closed/completed plans                        | `references/archive-workflow.md`                     |
+| Mode / Subcommand | Flag / Argument | Purpose | Reference |
+|---|---|---|---|
+| **Auto-Detect** | (none) | Analyzes task complexity and chooses appropriate mode | `references/workflow-modes.md` |
+| **Fast** | `--fast` | 0 research; direct analysis and rapid plan creation | `references/workflow-modes.md` |
+| **Hard** | `--hard` | Deep research, codebase scouting, red-team review, validation | `references/workflow-modes.md` |
+| **Deep** | `--deep` | Multi-phase exploration for complex/large-scale migrations | `references/workflow-modes.md` |
+| **Parallel** | `--parallel` | Generates parallel-executable phases with strict file ownership | `references/workflow-modes.md` |
+| **Two Approaches** | `--two` | Compares two distinct architectural approaches with trade-offs | `references/workflow-modes.md` |
+| **Debate** | `--debate` | Persona debate before selecting the optimal strategy | `references/workflow-modes.md` |
+| **Ultra** | `--ultra` | Best-of-5 verifier pass; strongest-model selection | `../ak-brainstorm/references/ultra-verifier-mode.md` |
+| **Validate** | `validate <path>` | Runs critical questions validation gate on a plan | `references/validate-workflow.md` |
+| **Red-Team** | `red-team <path>` | 4-persona adversarial review (Assumptions, Failure, Scope, Security) | `references/red-team-workflow.md` |
+| **Archive** | `archive [slug]` | Finalizes and archives closed/completed plans | `references/archive-workflow.md` |
 
 ## Flag Modifiers
 
@@ -62,6 +62,7 @@ accepted outcome, constraints, non-goals and acceptance criteria. Load only the 
 route; fast plans do not automatically run debate, HTML or publishing. Plan files remain
 execution authority; HTML is the requested presentation, not a replacement for phase state.
 
+
 1. **Intake & Scope Challenge**: Inspect context, parse flags, evaluate scope (see `references/scope-challenge.md`).
 2. **Research & Scout (Hard/Deep/Two)**: Spawn researchers and scout codebase paths (see `references/research-phase.md`, `references/codebase-understanding.md`).
 3. **Plan Drafting**: Architect solutions and author phased roadmap files (see `references/solution-design.md`, `references/plan-organization.md`).
@@ -77,7 +78,6 @@ execution authority; HTML is the requested presentation, not a replacement for p
 ### Journal step — opt-out
 
 Skip the automatic `/ak:journal` step when either applies:
-
 - The invocation includes the `--skip-journal` flag, OR
 - `ak config prefs resolve --json | jq -r 'if .prefs.journal.auto == false then "false" else "true" end'` returns `false`. If the command errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt or missing config never suppresses the automatic journal.
 

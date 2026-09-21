@@ -43,15 +43,12 @@ def get_stage(id):
 
 ```markdown
 ## SUMMARY
-
 [Overview]
 
 ## KEY_FINDINGS
-
 - Finding 1
 
 ## SCORE
-
 [1-5]
 ```
 
@@ -73,11 +70,11 @@ and [evaluation](evaluation.md) for the four metrics and their denominator contr
 
 ## Single vs Multi-Agent
 
-| Factor  | Single         | Multi                               |
-| ------- | -------------- | ----------------------------------- |
-| Context | Fits window    | Exceeds                             |
-| Tasks   | Sequential     | Parallel                            |
-| Cost    | One trajectory | Include all workers and integration |
+| Factor | Single | Multi |
+|--------|--------|-------|
+| Context | Fits window | Exceeds |
+| Tasks | Sequential | Parallel |
+| Cost | One trajectory | Include all workers and integration |
 
 ## Guidelines
 

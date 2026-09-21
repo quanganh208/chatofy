@@ -125,14 +125,14 @@ team or orchestrate skill when present; this reference governs the judgment laye
 
 ## Evaluate before delivering (act-backed, per the Self-Review Gate)
 
-| Dimension      | Passes when                                          | Proven by        |
-| -------------- | ---------------------------------------------------- | ---------------- |
-| Justification  | each spawn has a one-line reason                     | spawn log        |
-| Contract       | all packet fields present                            | packet checklist |
-| Ownership      | no overlapping paths across concurrent delegates     | ownership map    |
-| Verification   | load-bearing claims re-observed                      | test runs, diffs |
-| Reconciliation | contradictions resolved; merged artifact re-verified | fan-in notes     |
-| Hygiene        | no orphan processes, worktrees, or temp files        | resource check   |
+| Dimension | Passes when | Proven by |
+|-----------|-------------|-----------|
+| Justification | each spawn has a one-line reason | spawn log |
+| Contract | all packet fields present | packet checklist |
+| Ownership | no overlapping paths across concurrent delegates | ownership map |
+| Verification | load-bearing claims re-observed | test runs, diffs |
+| Reconciliation | contradictions resolved; merged artifact re-verified | fan-in notes |
+| Hygiene | no orphan processes, worktrees, or temp files | resource check |
 
 ## Delegation packet template
 
@@ -153,12 +153,12 @@ Report: <file path or inline>; end with
 
 ## Do / Don't
 
-| Don't                                           | Instead                                                |
-| ----------------------------------------------- | ------------------------------------------------------ |
-| Spawn to feel productive                        | Justify each spawn; do one-file work yourself          |
-| Paste the conversation into the prompt          | Pass decisions, paths, criteria, environment           |
-| Let two delegates share a file                  | Freeze the contract; assign disjoint ownership         |
-| Relay "tests pass" as fact                      | Run the narrowest test; diff the changes               |
-| Merge and declare done                          | Reconcile contradictions; re-verify the whole artifact |
-| Resend the prompt after BLOCKED                 | Change context, scope, approach, or model              |
-| Let a delegate decide scope or talk to the user | Keep decisions and user contact in the controller      |
+| Don't | Instead |
+|-------|---------|
+| Spawn to feel productive | Justify each spawn; do one-file work yourself |
+| Paste the conversation into the prompt | Pass decisions, paths, criteria, environment |
+| Let two delegates share a file | Freeze the contract; assign disjoint ownership |
+| Relay "tests pass" as fact | Run the narrowest test; diff the changes |
+| Merge and declare done | Reconcile contradictions; re-verify the whole artifact |
+| Resend the prompt after BLOCKED | Change context, scope, approach, or model |
+| Let a delegate decide scope or talk to the user | Keep decisions and user contact in the controller |

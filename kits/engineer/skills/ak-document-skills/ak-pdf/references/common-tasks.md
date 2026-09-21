@@ -1,7 +1,6 @@
 # Common Tasks
 
 ## Extract Text from Scanned PDFs
-
 ```python
 # Requires: pip install pytesseract pdf2image
 import pytesseract
@@ -21,7 +20,6 @@ print(text)
 ```
 
 ## Add Watermark
-
 ```python
 from pypdf import PdfReader, PdfWriter
 
@@ -41,7 +39,6 @@ with open("watermarked.pdf", "wb") as output:
 ```
 
 ## Extract Images
-
 ```bash
 # Using pdfimages (poppler-utils)
 pdfimages -j input.pdf output_prefix
@@ -50,7 +47,6 @@ pdfimages -j input.pdf output_prefix
 ```
 
 ## Password Protection
-
 ```python
 from pypdf import PdfReader, PdfWriter
 

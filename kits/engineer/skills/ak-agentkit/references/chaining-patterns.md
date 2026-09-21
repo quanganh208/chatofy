@@ -16,13 +16,13 @@ Every chain is a subset of:
 understand → decide → execute → verify → deliver
 ```
 
-| Link       | Purpose                                           | Typical owners                              |
-| ---------- | ------------------------------------------------- | ------------------------------------------- |
-| understand | Gather the facts the next link needs              | scout/research skills, explorer roles       |
-| decide     | Turn facts into an approach the user would accept | brainstorm/plan skills                      |
-| execute    | Produce the artifact                              | domain skill under a workflow skill         |
-| verify     | Prove the artifact does what was decided          | test/review skills, tester + reviewer roles |
-| deliver    | Ship, publish, schedule, or report                | ship/publish skills, outcome-first report   |
+| Link | Purpose | Typical owners |
+|---|---|---|
+| understand | Gather the facts the next link needs | scout/research skills, explorer roles |
+| decide | Turn facts into an approach the user would accept | brainstorm/plan skills |
+| execute | Produce the artifact | domain skill under a workflow skill |
+| verify | Prove the artifact does what was decided | test/review skills, tester + reviewer roles |
+| deliver | Ship, publish, schedule, or report | ship/publish skills, outcome-first report |
 
 Chains run forward only. A discovered problem creates a detour, not a
 reshuffle.

@@ -19,33 +19,28 @@ Email OSINT maps an email address to platform registrations, breach exposure, pr
 ## 2. Tool Inventory
 
 ### Primary — Holehe (120+ sites)
-
 ```bash
 pip3 install holehe
 ```
 
 ### Secondary — h8mail (breach hunting + chasing)
-
 ```bash
 pip3 install h8mail
 ```
 
 ### Tertiary — GHunt (Gmail-specific intelligence)
-
 ```bash
 pip3 install ghunt
 ghunt login   # OAuth setup required (one-time)
 ```
 
 ### Domain-wide — theHarvester
-
 ```bash
 pip3 install theHarvester
 # or: already included in Kali Linux
 ```
 
 ### API Tools (no install)
-
 ```bash
 # EmailRep — free, no key required for basic tier
 curl https://emailrep.io/user@example.com
@@ -89,7 +84,6 @@ Step 7: Cross-reference breach-intel.md findings
 ## 4. CLI Commands & Expected Output
 
 ### Holehe
-
 ```bash
 # Standard account scan
 holehe user@example.com
@@ -102,7 +96,6 @@ holehe user@example.com -v
 ```
 
 **Expected output:**
-
 ```
 [+] adobe.com        - user@example.com - USED
 [+] twitter.com      - user@example.com - USED
@@ -114,7 +107,6 @@ holehe user@example.com -v
 ```
 
 **Holehe rate-limit handling:**
-
 ```bash
 # Add delay between requests
 holehe user@example.com --timeout 3
@@ -124,7 +116,6 @@ holehe user@example.com --timeout 3
 ```
 
 ### h8mail
-
 ```bash
 # Basic breach search
 h8mail -t user@example.com
@@ -140,7 +131,6 @@ h8mail -t targets.txt
 ```
 
 **Expected output:**
-
 ```
 [>] TARGET: user@example.com
 [>] SOURCE: HaveIBeenPwned
@@ -152,7 +142,6 @@ h8mail -t targets.txt
 ```
 
 ### GHunt (Gmail targets only)
-
 ```bash
 # One-time login
 ghunt login
@@ -165,7 +154,6 @@ ghunt gaia <GAIA_ID>
 ```
 
 **Expected output:**
-
 ```
 Name: John Doe
 Profile picture: https://lh3.googleusercontent.com/...
@@ -177,7 +165,6 @@ Hangouts: Active
 ```
 
 ### theHarvester (domain-wide)
-
 ```bash
 # Harvest all emails from a domain
 theHarvester -d example.com -b google,bing,duckduckgo
@@ -193,7 +180,6 @@ theHarvester -d example.com -b google -l 200
 ```
 
 ### EmailRep API
-
 ```bash
 # Basic reputation check (no key for 10 req/day)
 curl https://emailrep.io/user@example.com
@@ -203,7 +189,6 @@ curl -H "Key: YOUR_API_KEY" https://emailrep.io/user@example.com
 ```
 
 **Expected JSON response:**
-
 ```json
 {
   "email": "user@example.com",
@@ -266,7 +251,6 @@ EmailRep quota hit (10/day free)?
 ## 6. Output Interpretation
 
 ### Holehe Result Signals
-
 ```
 USED     → Email registered on that service (strong signal)
 NOT USED → No account or account uses different email
@@ -277,7 +261,6 @@ Verify top hits manually by attempting password reset flow
 ```
 
 ### EmailRep Tier Behavior
-
 ```
 Free (no key):  10 requests/day, basic fields only
 Basic key:      1000/month, full details including profiles[]
@@ -288,7 +271,6 @@ Risk signals: disposable=true, credentials_leaked_recent=true, spoofable=true
 ```
 
 ### h8mail Chase Feature
-
 ```
 --chase follows breach entries to discover:
   - Linked emails (same password used on breached service)
@@ -299,7 +281,6 @@ Use chase output to feed back into Holehe for new email addresses found
 ```
 
 ### Cross-Reference with breach-intel.md
-
 ```
 After h8mail run:
   1. Note breach names and dates
@@ -320,16 +301,16 @@ Cross-reference with email-forensics.md:
 
 ## 7. Confidence Ratings
 
-| Finding Type                      | Confidence | Notes                                 |
-| --------------------------------- | ---------- | ------------------------------------- |
-| Email deliverability              | HIGH       | MX record + SMTP verify               |
-| Holehe account hit                | MEDIUM     | Verify via password reset manually    |
-| EmailRep reputation score         | HIGH       | Aggregated from multiple feeds        |
-| Breach membership (HIBP)          | HIGH       | Cryptographic k-anonymity model       |
-| h8mail credential chain           | MEDIUM     | Depends on source database quality    |
-| GHunt Google profile              | HIGH       | Direct Google API data                |
-| theHarvester domain emails        | MEDIUM     | May include outdated/former employees |
-| Linked social profiles (EmailRep) | MEDIUM     | Feed freshness varies                 |
+| Finding Type | Confidence | Notes |
+|---|---|---|
+| Email deliverability | HIGH | MX record + SMTP verify |
+| Holehe account hit | MEDIUM | Verify via password reset manually |
+| EmailRep reputation score | HIGH | Aggregated from multiple feeds |
+| Breach membership (HIBP) | HIGH | Cryptographic k-anonymity model |
+| h8mail credential chain | MEDIUM | Depends on source database quality |
+| GHunt Google profile | HIGH | Direct Google API data |
+| theHarvester domain emails | MEDIUM | May include outdated/former employees |
+| Linked social profiles (EmailRep) | MEDIUM | Feed freshness varies |
 
 ---
 
@@ -353,12 +334,12 @@ curl -s "https://mail-api.proton.me/pks/lookup?op=get&search=username@proton.me"
 
 **What it reveals:**
 
-| Field                 | Forensic Value                                  | Confidence |
-| --------------------- | ----------------------------------------------- | ---------- |
-| Account creation date | When Proton account was created (UTC)           | HIGH       |
-| Key algorithm         | RSA vs ECC — technical sophistication indicator | LOW        |
-| Key size              | 2048 vs 4096 — security consciousness indicator | LOW        |
-| Associated emails     | If multiple UIDs on key, reveals alt addresses  | MEDIUM     |
+| Field | Forensic Value | Confidence |
+|---|---|---|
+| Account creation date | When Proton account was created (UTC) | HIGH |
+| Key algorithm | RSA vs ECC — technical sophistication indicator | LOW |
+| Key size | 2048 vs 4096 — security consciousness indicator | LOW |
+| Associated emails | If multiple UIDs on key, reveals alt addresses | MEDIUM |
 
 **Integration:** Feed creation date into `/timeline`. If Proton account was created shortly before suspicious activity, this is a strong temporal correlation signal.
 
@@ -381,12 +362,12 @@ curl -s "https://keys.openpgp.org/vks/v1/by-email/user@example.com"
 
 **What it reveals:**
 
-| Field                 | Forensic Value                                    | Confidence |
-| --------------------- | ------------------------------------------------- | ---------- |
-| Key creation date     | When key was generated (account origin timeline)  | HIGH       |
-| User IDs (UIDs)       | Names, emails, comments embedded in key           | HIGH       |
-| Key signatures        | Who signed their key = trust network / associates | MEDIUM     |
-| Keyserver upload date | When they published the key                       | MEDIUM     |
+| Field | Forensic Value | Confidence |
+|---|---|---|
+| Key creation date | When key was generated (account origin timeline) | HIGH |
+| User IDs (UIDs) | Names, emails, comments embedded in key | HIGH |
+| Key signatures | Who signed their key = trust network / associates | MEDIUM |
+| Keyserver upload date | When they published the key | MEDIUM |
 
 **When to use:** Target is a developer, security professional, journalist, or technically sophisticated individual. PGP keys are uncommon for general users but reveal rich identity data for technical targets.
 
@@ -414,7 +395,6 @@ Common patterns (test all with email verifier):
 ```
 
 **Verification:** After generating permutations, verify each using:
-
 1. Holehe (account check)
 2. EmailRep API (deliverability)
 3. Hunter.io email verifier (SMTP check)
@@ -422,7 +402,6 @@ Common patterns (test all with email verifier):
 **When to use:** When you know a person's name and their employer/domain but not their exact email format. Especially useful for corporate email discovery.
 
 **Web-based permutators (manual fallback):**
-
 - Thunderbit: https://thunderbit.com/tool/email-permutator
 - Mailmeteor: https://mailmeteor.com/email-permutator
 - Metric Sparrow: http://metricsparrow.com/toolkit/email-permutator
@@ -433,14 +412,13 @@ Common patterns (test all with email verifier):
 
 **Method:** Use password reset pages to confirm account existence. **Never complete the reset — observe response only.**
 
-| Platform      | Reset URL                                           | Positive Signal                        | Negative Signal         |
-| ------------- | --------------------------------------------------- | -------------------------------------- | ----------------------- |
-| **Facebook**  | https://www.facebook.com/login/identify             | Shows partial info / reset options     | "No account found"      |
-| **Instagram** | https://www.instagram.com/accounts/password/reset   | Sends reset link / shows partial email | "No user found"         |
-| **Google**    | https://accounts.google.com/signin/usernamerecovery | Shows recovery options                 | "Couldn't find account" |
+| Platform | Reset URL | Positive Signal | Negative Signal |
+|---|---|---|---|
+| **Facebook** | https://www.facebook.com/login/identify | Shows partial info / reset options | "No account found" |
+| **Instagram** | https://www.instagram.com/accounts/password/reset | Sends reset link / shows partial email | "No user found" |
+| **Google** | https://accounts.google.com/signin/usernamerecovery | Shows recovery options | "Couldn't find account" |
 
 **Reverse technique (phone → email):**
-
 ```
 Google Account Recovery: https://accounts.google.com/signin/usernamerecovery
 → Enter phone number → may reveal associated Gmail address and name
@@ -456,16 +434,16 @@ Google Account Recovery: https://accounts.google.com/signin/usernamerecovery
 
 These tools provide valuable intelligence but require manual browser interaction. Claude generates URLs with the target pre-filled where possible.
 
-| Tool                    | URL                                               | What It Reveals                                             | Automation     |
-| ----------------------- | ------------------------------------------------- | ----------------------------------------------------------- | -------------- |
-| **Epieos**              | https://epieos.com                                | Google ID, social links, breaches — multi-source aggregator | Manual (JS)    |
-| **IntelBase**           | https://intelbase.is                              | Registered accounts, breach data, profile metadata          | Manual (JS)    |
-| **Reverse Contact**     | https://app.reversecontact.com                    | Social media profiles from email                            | Manual (JS)    |
-| **Mailmeteor Reverse**  | https://mailmeteor.com/tools/reverse-email-lookup | Linked social accounts                                      | Manual (JS)    |
-| **Mailmeteor Verifier** | https://mailmeteor.com/email-checker              | Email deliverability check                                  | Manual (JS)    |
-| **Gmail OSINT Tool**    | https://gmail-osint.activetk.jp                   | Gravatar image, Google profile from username                | Manual (JS)    |
-| **Google Chat**         | https://chat.google.com                           | Profile picture from email (requires Google login)          | Manual (login) |
-| **Microsoft OneDrive**  | https://onedrive.live.com                         | Share file with email → reveals real name                   | Manual (login) |
+| Tool | URL | What It Reveals | Automation |
+|---|---|---|---|
+| **Epieos** | https://epieos.com | Google ID, social links, breaches — multi-source aggregator | Manual (JS) |
+| **IntelBase** | https://intelbase.is | Registered accounts, breach data, profile metadata | Manual (JS) |
+| **Reverse Contact** | https://app.reversecontact.com | Social media profiles from email | Manual (JS) |
+| **Mailmeteor Reverse** | https://mailmeteor.com/tools/reverse-email-lookup | Linked social accounts | Manual (JS) |
+| **Mailmeteor Verifier** | https://mailmeteor.com/email-checker | Email deliverability check | Manual (JS) |
+| **Gmail OSINT Tool** | https://gmail-osint.activetk.jp | Gravatar image, Google profile from username | Manual (JS) |
+| **Google Chat** | https://chat.google.com | Profile picture from email (requires Google login) | Manual (login) |
+| **Microsoft OneDrive** | https://onedrive.live.com | Share file with email → reveals real name | Manual (login) |
 
 **Workflow integration:** During `/email-deep`, Claude lists applicable manual URLs for the analyst to check in parallel while automated tools run.
 
@@ -486,19 +464,19 @@ These tools provide valuable intelligence but require manual browser interaction
 
 ## 14. Command Reference
 
-| Command                          | Purpose                                                           | Input           |
-| -------------------------------- | ----------------------------------------------------------------- | --------------- |
-| `/email-deep [email]`            | Full enumeration + breach + reputation + Proton/PGP + manual URLs | Email address   |
-| `/email-accounts [email]`        | Holehe account discovery only                                     | Email address   |
-| `/email-breach [email]`          | h8mail + HIBP breach history                                      | Email address   |
-| `/email-rep [email]`             | EmailRep reputation score                                         | Email address   |
-| `/email-harvest [domain]`        | theHarvester domain-wide email collection                         | Domain name     |
-| `/email-permute [name] [domain]` | Generate email permutations from name + domain                    | Name and domain |
-| `/proton-check [email]`          | Proton Mail account creation date via PGP key                     | Proton email    |
-| `/pgp-lookup [email]`            | PGP key search — creation date, UIDs, signatures                  | Any email       |
+| Command | Purpose | Input |
+|---|---|---|
+| `/email-deep [email]` | Full enumeration + breach + reputation + Proton/PGP + manual URLs | Email address |
+| `/email-accounts [email]` | Holehe account discovery only | Email address |
+| `/email-breach [email]` | h8mail + HIBP breach history | Email address |
+| `/email-rep [email]` | EmailRep reputation score | Email address |
+| `/email-harvest [domain]` | theHarvester domain-wide email collection | Domain name |
+| `/email-permute [name] [domain]` | Generate email permutations from name + domain | Name and domain |
+| `/proton-check [email]` | Proton Mail account creation date via PGP key | Proton email |
+| `/pgp-lookup [email]` | PGP key search — creation date, UIDs, signatures | Any email |
 
 ---
 
-_Email OSINT Module v1.1.0_
-_Part of CTI Expert Skill_
-_For authorized investigation and educational purposes only_
+*Email OSINT Module v1.1.0*
+*Part of CTI Expert Skill*
+*For authorized investigation and educational purposes only*

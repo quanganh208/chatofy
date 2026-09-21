@@ -8,7 +8,6 @@ This workflow allows you to plan comprehensive tracked changes using markdown be
 When implementing tracked changes, only mark text that actually changes. Repeating unchanged text makes edits harder to review and appears unprofessional. Break replacements into: [unchanged text] + [deletion] + [insertion] + [unchanged text]. Preserve the original run's RSID for unchanged text by extracting the `<w:r>` element from the original and reusing it.
 
 Example - Changing "30 days" to "60 days" in a sentence:
-
 ```python
 # BAD - Replaces entire sentence
 '<w:del><w:r><w:delText>The term is 30 days.</w:delText></w:r></w:del><w:ins><w:r><w:t>The term is 60 days.</w:t></w:r></w:ins>'
@@ -20,7 +19,6 @@ Example - Changing "30 days" to "60 days" in a sentence:
 ### Tracked changes workflow
 
 1. **Get markdown representation**: Convert document to markdown with tracked changes preserved:
-
    ```bash
    pandoc --track-changes=all path-to-file.docx -o current.md
    ```
@@ -64,7 +62,6 @@ Example - Changing "30 days" to "60 days" in a sentence:
    **Note**: Always grep `word/document.xml` immediately before writing a script to get current line numbers and verify text content. Line numbers change after each script run.
 
 5. **Pack the document**: After all batches are complete, convert the unpacked directory back to .docx:
-
    ```bash
    python ooxml/scripts/pack.py unpacked reviewed-document.docx
    ```

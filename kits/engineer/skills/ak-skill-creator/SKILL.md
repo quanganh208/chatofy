@@ -1,15 +1,15 @@
 ---
 name: ak:skill-creator
-description: 'Create, update, audit, validate, and package agent skills. Use when authoring SKILL.md resources or diagnosing skill routing and behavior. Not for implementing CLI or MCP servers.'
+description: "Create, update, audit, validate, and package agent skills. Use when authoring SKILL.md resources or diagnosing skill routing and behavior. Not for implementing CLI or MCP servers."
 user-invocable: true
-when_to_use: 'Use when creating or maintaining a skill, auditing its instructions, or evaluating its activation and outputs.'
+when_to_use: "Use when creating or maintaining a skill, auditing its instructions, or evaluating its activation and outputs."
 category: meta
 keywords: [skills, authoring, audit, routing, evaluation]
 license: Apache-2.0 and MIT; see LICENSE.txt and LICENSE-MIT.txt
-argument-hint: '<create|update|audit|optimize> [skill-name|path|kit|--all] [--kit <kit>|--project|--user] [--long-horizon] [--apply] [--from-audit <report>] [--advice]'
+argument-hint: "<create|update|audit|optimize> [skill-name|path|kit|--all] [--kit <kit>|--project|--user] [--long-horizon] [--apply] [--from-audit <report>] [--advice]"
 metadata:
   author: agentkit
-  version: '5.5.0'
+  version: "5.5.0"
 ---
 
 # Skill Creator
@@ -20,12 +20,12 @@ behavior and user-owned files. Load only the resources needed for the selected t
 
 ## Choose the workflow
 
-| Request                                                                          | Read and do                                                                                                                                                                                                | Writes                                   |
-| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| `create <name or description> [--kit <kit>\|--project\|--user] [--long-horizon]` | `references/skill-creation-workflow.md`: resolve target, capture intent, author and evaluate                                                                                                               | New skill                                |
-| `update <path> <change>`                                                         | Inspect the existing skill and affected resources; follow `references/writing-effective-instructions.md` and `references/testing-and-iteration.md`; preserve accepted behavior and bump `metadata.version` | Requested changes                        |
-| `audit [path\|kit\|--all] [--target-model <model>]`                              | `references/prompt-cruft-patterns.md`: inventory, provenance, lint and semantic review with proposed hunks                                                                                                 | Report only                              |
-| `optimize <path> [--apply] [--from-audit <report>]`                              | Same audit reference: classify findings, compare original and scratch candidate, preserve justified constraints                                                                                            | Proposed diff; apply only with `--apply` |
+| Request | Read and do | Writes |
+|---|---|---|
+| `create <name or description> [--kit <kit>\|--project\|--user] [--long-horizon]` | `references/skill-creation-workflow.md`: resolve target, capture intent, author and evaluate | New skill |
+| `update <path> <change>` | Inspect the existing skill and affected resources; follow `references/writing-effective-instructions.md` and `references/testing-and-iteration.md`; preserve accepted behavior and bump `metadata.version` | Requested changes |
+| `audit [path\|kit\|--all] [--target-model <model>]` | `references/prompt-cruft-patterns.md`: inventory, provenance, lint and semantic review with proposed hunks | Report only |
+| `optimize <path> [--apply] [--from-audit <report>]` | Same audit reference: classify findings, compare original and scratch candidate, preserve justified constraints | Proposed diff; apply only with `--apply` |
 
 Resolve scope through `references/agentkit-kit-skill-contract.md`: default to the
 current project, kit scope only inside AgentKit, user scope only on request.
@@ -59,13 +59,13 @@ For kit changes, add the validation and consumer contracts in the kit reference.
 Resolve High lint findings by rewriting obsolete text or documenting a scoped
 exemption for a real constraint; heuristic findings are not deletion instructions.
 
-| Changed behavior                         | Evidence needed before completion                                                                 |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Metadata/activation                      | Actual catalog routing traces, positives and adjacent negatives                                   |
-| Instructions, examples or scripts        | Matched original/candidate consumer artifacts; create also compares no skill                      |
-| Creator workflow                         | `references/creator-consumer-evaluation.md`: evaluate generated skills with independent consumers |
-| Packaging or target layout               | Inspect package contents and validate extracted resources                                         |
-| Spelling/format only, no semantic change | Structural checks and review; explain why consumer reruns are unnecessary                         |
+| Changed behavior | Evidence needed before completion |
+|---|---|
+| Metadata/activation | Actual catalog routing traces, positives and adjacent negatives |
+| Instructions, examples or scripts | Matched original/candidate consumer artifacts; create also compares no skill |
+| Creator workflow | `references/creator-consumer-evaluation.md`: evaluate generated skills with independent consumers |
+| Packaging or target layout | Inspect package contents and validate extracted resources |
+| Spelling/format only, no semantic change | Structural checks and review; explain why consumer reruns are unnecessary |
 
 `references/testing-and-iteration.md` owns comparisons, holdout and completion
 evidence; `references/evaluation-tools.md` owns executable records and observed cost.
@@ -88,15 +88,15 @@ configuration are protected by that mode's scope contract.
 
 ## Task-specific resources
 
-| Need                                        | Read                                                                                                                                  |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Body writing, examples and specificity      | `references/writing-effective-instructions.md`                                                                                        |
+| Need | Read |
+|---|---|
+| Body writing, examples and specificity | `references/writing-effective-instructions.md` |
 | Layout, metadata fields and context loading | `references/skill-anatomy-and-requirements.md`, `references/yaml-frontmatter-reference.md`, `references/token-efficiency-criteria.md` |
-| Reusable scripts and dependencies           | `references/script-quality-criteria.md`, `references/script-dependency-strategy.md`                                                   |
-| Design patterns or recurring failures       | `references/skill-design-patterns.md`, `references/troubleshooting-guide.md`                                                          |
-| MCP workflow or third-party portability     | `references/mcp-skills-integration.md`, `references/skill-ecosystem-portability-and-safety.md`                                        |
-| Packaging and marketplace delivery          | `references/distribution-guide.md`, `references/cross-marketplace-distribution.md`                                                    |
-| Skillmark listing                           | `references/benchmark-optimization-guide.md`                                                                                          |
+| Reusable scripts and dependencies | `references/script-quality-criteria.md`, `references/script-dependency-strategy.md` |
+| Design patterns or recurring failures | `references/skill-design-patterns.md`, `references/troubleshooting-guide.md` |
+| MCP workflow or third-party portability | `references/mcp-skills-integration.md`, `references/skill-ecosystem-portability-and-safety.md` |
+| Packaging and marketplace delivery | `references/distribution-guide.md`, `references/cross-marketplace-distribution.md` |
+| Skillmark listing | `references/benchmark-optimization-guide.md` |
 
 Use `scripts/init_skill.py <name> --path <dir> [--kit <kit>]` for a new skeleton.
 `scripts/eval_skill.py` validates cases, grades existing artifacts and summarizes

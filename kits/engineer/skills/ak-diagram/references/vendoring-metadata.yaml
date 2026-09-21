@@ -11,7 +11,7 @@ extra_vendors:
   - asset: assets/mermaid.min.js
     upstream: github.com/mermaid-js/mermaid
     license: MIT
-    version: '11.4.1'
+    version: "11.4.1"
     source_url: https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js
     sha256_12: a43bc1afd446
     vendored_at: 2026-08-16T07:00:00+00:00

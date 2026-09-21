@@ -19,12 +19,12 @@ an initial shortlist, not a guarantee for a different repository, language or wo
 
 ## Four core metrics
 
-| Metric                                      | Definition for the offline reducer                              | Interpretation                   |
-| ------------------------------------------- | --------------------------------------------------------------- | -------------------------------- |
-| Average cost per task                       | Total first-attempt cost / first-attempt count                  | Includes failures                |
-| Average task duration                       | Mean first-attempt duration, under the declared time definition | Retain p50/p95 too               |
-| Estimated cost per successful first attempt | All first-attempt costs / first-attempt successes               | Includes money spent on failures |
-| Average agent steps                         | Mean first-attempt steps under a declared step definition       | Diagnostic, not correctness      |
+| Metric | Definition for the offline reducer | Interpretation |
+|---|---|---|
+| Average cost per task | Total first-attempt cost / first-attempt count | Includes failures |
+| Average task duration | Mean first-attempt duration, under the declared time definition | Retain p50/p95 too |
+| Estimated cost per successful first attempt | All first-attempt costs / first-attempt successes | Includes money spent on failures |
+| Average agent steps | Mean first-attempt steps under a declared step definition | Diagnostic, not correctness |
 
 With complete observations and binary success, cost per first success equals mean cost
 per task divided by first-attempt success rate. It is **not** the mean cost only among

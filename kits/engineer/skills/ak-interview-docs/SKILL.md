@@ -6,11 +6,11 @@ when_to_use: Invoke when the user's answers, not AI proposals or code inspection
 category: workflow
 keywords: [interview, documentation, adr, strategy, vision]
 license: MIT
-argument-hint: '<vision | document-path | topic>'
+argument-hint: "<vision | document-path | topic>"
 metadata:
   author: agentkit
-  version: '1.0.1'
-  upstream: 'Pinned MIT source archive: brain-to-docs and interview-style-doc-building@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5'
+  version: "1.0.1"
+  upstream: "Pinned MIT source archive: brain-to-docs and interview-style-doc-building@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5"
 ---
 
 # Interview Docs

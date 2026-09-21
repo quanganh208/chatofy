@@ -23,7 +23,8 @@ if (!('modelContext' in document)) {
   console.warn('WebMCP unavailable: check HTTPS, origin isolation, flag/OT.');
 } else {
   // distrust memory — inspect the live surface
-  console.log(Object.getOwnPropertyNames(Object.getPrototypeOf(document.modelContext)));
+  console.log(Object.getOwnPropertyNames(
+    Object.getPrototypeOf(document.modelContext)));
   console.table(await document.modelContext.getTools());
 }
 ```
@@ -72,7 +73,9 @@ assert the expected call:
 ```json
 {
   "messages": [{ "role": "user", "content": "I'd like a small pizza." }],
-  "expectedCall": [{ "functionName": "set_pizza_size", "arguments": { "size": "Small" } }]
+  "expectedCall": [
+    { "functionName": "set_pizza_size", "arguments": { "size": "Small" } }
+  ]
 }
 ```
 
@@ -98,13 +101,13 @@ Use `expectedCall` sequences, allowing order-independent steps where valid.
 
 ## 5. Common failure modes and fixes
 
-| Failure                     | Likely cause / fix                                                                                                                      |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Agent calls the wrong tool  | Description unclear or schema too similar to another tool; sharpen names/descriptions; ensure the tool is exposed in the current state. |
-| Tools called in wrong order | Overlapping descriptions; preceding tool's output missing context the next needs; update UI state after completion.                     |
-| Wrong arguments             | `inputSchema` vague; add `enum`s and per-property `description`s; mark required params; explain how to map user input.                  |
-| Output wrong/incomplete     | Tool logic bug (catch with deterministic tests); UI state not updated; output too verbose or missing fields the model needs next.       |
-| Tool throws                 | Handle runtime errors; return a clear, structured error so the model can tell retryable from fatal.                                     |
+| Failure | Likely cause / fix |
+| --- | --- |
+| Agent calls the wrong tool | Description unclear or schema too similar to another tool; sharpen names/descriptions; ensure the tool is exposed in the current state. |
+| Tools called in wrong order | Overlapping descriptions; preceding tool's output missing context the next needs; update UI state after completion. |
+| Wrong arguments | `inputSchema` vague; add `enum`s and per-property `description`s; mark required params; explain how to map user input. |
+| Output wrong/incomplete | Tool logic bug (catch with deterministic tests); UI state not updated; output too verbose or missing fields the model needs next. |
+| Tool throws | Handle runtime errors; return a clear, structured error so the model can tell retryable from fatal. |
 
 ## 6. Automated browser runs
 

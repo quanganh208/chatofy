@@ -58,3 +58,4 @@ async function getUser(id: string): Promise<Result<User>> {
 ```
 
 Result pattern. Classify at the edge, pattern match at call sites.
+

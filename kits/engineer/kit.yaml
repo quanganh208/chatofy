@@ -1,379 +1,379 @@
-name: 'engineer'
-version: '0.2.0'
-description: 'Engineer-specialized kit. Extends core additively with engineer-unique agents, skills, hooks, schemas, scripts.'
-tier: 'paid'
+name: "engineer"
+version: "0.2.0"
+description: "Engineer-specialized kit. Extends core additively with engineer-unique agents, skills, hooks, schemas, scripts."
+tier: "paid"
 exports:
   agents:
-    - name: 'Explore'
-      path: 'agents/explore.md'
-    - name: 'debugger'
-      path: 'agents/debugger.md'
-    - name: 'docs-manager'
-      path: 'agents/docs-manager.md'
-    - name: 'fullstack-developer'
-      path: 'agents/fullstack-developer.md'
-    - name: 'journal-writer'
-      path: 'agents/journal-writer.md'
-    - name: 'kongming'
-      path: 'agents/kongming.md'
-    - name: 'planner'
-      path: 'agents/planner.md'
-    - name: 'project-manager'
-      path: 'agents/project-manager.md'
-    - name: 'researcher'
-      path: 'agents/researcher.md'
-    - name: 'tester'
-      path: 'agents/tester.md'
-    - name: 'advisor'
-      path: 'agents/advisor.md'
-    - name: 'brainstormer'
-      path: 'agents/brainstormer.md'
-    - name: 'code-simplifier'
-      path: 'agents/code-simplifier.md'
-    - name: 'code-reviewer'
-      path: 'agents/code-reviewer.md'
-    - name: 'git-manager'
-      path: 'agents/git-manager.md'
-    - name: 'ui-ux-designer'
-      path: 'agents/ui-ux-designer.md'
+    - name: "Explore"
+      path: "agents/explore.md"
+    - name: "debugger"
+      path: "agents/debugger.md"
+    - name: "docs-manager"
+      path: "agents/docs-manager.md"
+    - name: "fullstack-developer"
+      path: "agents/fullstack-developer.md"
+    - name: "journal-writer"
+      path: "agents/journal-writer.md"
+    - name: "kongming"
+      path: "agents/kongming.md"
+    - name: "planner"
+      path: "agents/planner.md"
+    - name: "project-manager"
+      path: "agents/project-manager.md"
+    - name: "researcher"
+      path: "agents/researcher.md"
+    - name: "tester"
+      path: "agents/tester.md"
+    - name: "advisor"
+      path: "agents/advisor.md"
+    - name: "brainstormer"
+      path: "agents/brainstormer.md"
+    - name: "code-simplifier"
+      path: "agents/code-simplifier.md"
+    - name: "code-reviewer"
+      path: "agents/code-reviewer.md"
+    - name: "git-manager"
+      path: "agents/git-manager.md"
+    - name: "ui-ux-designer"
+      path: "agents/ui-ux-designer.md"
   hooks:
-    - name: 'hooks.json'
-      path: 'hooks/hooks.json'
-    - name: 'descriptive-name'
-      path: 'hooks/descriptive-name.cjs'
-    - name: 'dev-rules-reminder'
-      path: 'hooks/dev-rules-reminder.cjs'
-    - name: 'privacy-block'
-      path: 'hooks/privacy-block.cjs'
-    - name: 'scout-block'
-      path: 'hooks/scout-block.cjs'
-    - name: 'secret-output-guardrail'
-      path: 'hooks/secret-output-guardrail.cjs'
-    - name: 'cook-after-plan-reminder'
-      path: 'hooks/cook-after-plan-reminder.cjs'
-    - name: 'plan-format-kanban'
-      path: 'hooks/plan-format-kanban.cjs'
-    - name: 'precompact-capture'
-      path: 'hooks/precompact-capture.cjs'
-    - name: 'session-state'
-      path: 'hooks/session-state.cjs'
-    - name: 'simplify-gate'
-      path: 'hooks/simplify-gate.cjs'
-    - name: 'team-context-inject'
-      path: 'hooks/team-context-inject.cjs'
-    - name: 'usage-quota-cache-refresh'
-      path: 'hooks/usage-quota-cache-refresh.cjs'
-    - name: 'session-init'
-      path: 'hooks/session-init.cjs'
-    - name: 'subagent-init'
-      path: 'hooks/subagent-init.cjs'
-    - name: 'lib/ck-config-utils'
-      path: 'hooks/lib/ck-config-utils.cjs'
-    - name: 'lib/bounded-json-file'
-      path: 'hooks/lib/bounded-json-file.cjs'
-    - name: 'lib/immutable-revision-journal'
-      path: 'hooks/lib/immutable-revision-journal.cjs'
-    - name: 'lib/private-json-store'
-      path: 'hooks/lib/private-json-store.cjs'
-    - name: 'lib/runtime-state-identity'
-      path: 'hooks/lib/runtime-state-identity.cjs'
-    - name: 'lib/session-state-renderer'
-      path: 'hooks/lib/session-state-renderer.cjs'
-    - name: 'lib/colors'
-      path: 'hooks/lib/colors.cjs'
-    - name: 'lib/config-counter'
-      path: 'hooks/lib/config-counter.cjs'
-    - name: 'lib/context-builder'
-      path: 'hooks/lib/context-builder.cjs'
-    - name: 'lib/git-info-cache'
-      path: 'hooks/lib/git-info-cache.cjs'
-    - name: 'lib/hook-logger'
-      path: 'hooks/lib/hook-logger.cjs'
-    - name: 'lib/privacy-checker'
-      path: 'hooks/lib/privacy-checker.cjs'
-    - name: 'lib/project-detector'
-      path: 'hooks/lib/project-detector.cjs'
-    - name: 'lib/scout-checker'
-      path: 'hooks/lib/scout-checker.cjs'
-    - name: 'lib/secret-keywords'
-      path: 'hooks/lib/secret-keywords.cjs'
-    - name: 'lib/transcript-parser'
-      path: 'hooks/lib/transcript-parser.cjs'
-    - name: 'scout-block/broad-pattern-detector'
-      path: 'hooks/scout-block/broad-pattern-detector.cjs'
-    - name: 'scout-block/error-formatter'
-      path: 'hooks/scout-block/error-formatter.cjs'
-    - name: 'scout-block/path-extractor'
-      path: 'hooks/scout-block/path-extractor.cjs'
-    - name: 'scout-block/pattern-matcher'
-      path: 'hooks/scout-block/pattern-matcher.cjs'
-    - name: 'scout-block/vendor/ignore'
-      path: 'hooks/scout-block/vendor/ignore.cjs'
-    - name: 'lib/session-state-manager'
-      path: 'hooks/lib/session-state-manager.cjs'
-    - name: 'lib/project-handoff-store'
-      path: 'hooks/lib/project-handoff-store.cjs'
-    - name: 'lib/statusline-activity-renderers'
-      path: 'hooks/lib/statusline-activity-renderers.cjs'
-    - name: 'lib/statusline-render-modes'
-      path: 'hooks/lib/statusline-render-modes.cjs'
-    - name: 'lib/statusline-section-registry'
-      path: 'hooks/lib/statusline-section-registry.cjs'
-    - name: 'lib/statusline-session-cache'
-      path: 'hooks/lib/statusline-session-cache.cjs'
-    - name: 'lib/statusline-string-utils'
-      path: 'hooks/lib/statusline-string-utils.cjs'
-    - name: 'lib/usage-limits-cache'
-      path: 'hooks/lib/usage-limits-cache.cjs'
+    - name: "hooks.json"
+      path: "hooks/hooks.json"
+    - name: "descriptive-name"
+      path: "hooks/descriptive-name.cjs"
+    - name: "dev-rules-reminder"
+      path: "hooks/dev-rules-reminder.cjs"
+    - name: "privacy-block"
+      path: "hooks/privacy-block.cjs"
+    - name: "scout-block"
+      path: "hooks/scout-block.cjs"
+    - name: "secret-output-guardrail"
+      path: "hooks/secret-output-guardrail.cjs"
+    - name: "cook-after-plan-reminder"
+      path: "hooks/cook-after-plan-reminder.cjs"
+    - name: "plan-format-kanban"
+      path: "hooks/plan-format-kanban.cjs"
+    - name: "precompact-capture"
+      path: "hooks/precompact-capture.cjs"
+    - name: "session-state"
+      path: "hooks/session-state.cjs"
+    - name: "simplify-gate"
+      path: "hooks/simplify-gate.cjs"
+    - name: "team-context-inject"
+      path: "hooks/team-context-inject.cjs"
+    - name: "usage-quota-cache-refresh"
+      path: "hooks/usage-quota-cache-refresh.cjs"
+    - name: "session-init"
+      path: "hooks/session-init.cjs"
+    - name: "subagent-init"
+      path: "hooks/subagent-init.cjs"
+    - name: "lib/ck-config-utils"
+      path: "hooks/lib/ck-config-utils.cjs"
+    - name: "lib/bounded-json-file"
+      path: "hooks/lib/bounded-json-file.cjs"
+    - name: "lib/immutable-revision-journal"
+      path: "hooks/lib/immutable-revision-journal.cjs"
+    - name: "lib/private-json-store"
+      path: "hooks/lib/private-json-store.cjs"
+    - name: "lib/runtime-state-identity"
+      path: "hooks/lib/runtime-state-identity.cjs"
+    - name: "lib/session-state-renderer"
+      path: "hooks/lib/session-state-renderer.cjs"
+    - name: "lib/colors"
+      path: "hooks/lib/colors.cjs"
+    - name: "lib/config-counter"
+      path: "hooks/lib/config-counter.cjs"
+    - name: "lib/context-builder"
+      path: "hooks/lib/context-builder.cjs"
+    - name: "lib/git-info-cache"
+      path: "hooks/lib/git-info-cache.cjs"
+    - name: "lib/hook-logger"
+      path: "hooks/lib/hook-logger.cjs"
+    - name: "lib/privacy-checker"
+      path: "hooks/lib/privacy-checker.cjs"
+    - name: "lib/project-detector"
+      path: "hooks/lib/project-detector.cjs"
+    - name: "lib/scout-checker"
+      path: "hooks/lib/scout-checker.cjs"
+    - name: "lib/secret-keywords"
+      path: "hooks/lib/secret-keywords.cjs"
+    - name: "lib/transcript-parser"
+      path: "hooks/lib/transcript-parser.cjs"
+    - name: "scout-block/broad-pattern-detector"
+      path: "hooks/scout-block/broad-pattern-detector.cjs"
+    - name: "scout-block/error-formatter"
+      path: "hooks/scout-block/error-formatter.cjs"
+    - name: "scout-block/path-extractor"
+      path: "hooks/scout-block/path-extractor.cjs"
+    - name: "scout-block/pattern-matcher"
+      path: "hooks/scout-block/pattern-matcher.cjs"
+    - name: "scout-block/vendor/ignore"
+      path: "hooks/scout-block/vendor/ignore.cjs"
+    - name: "lib/session-state-manager"
+      path: "hooks/lib/session-state-manager.cjs"
+    - name: "lib/project-handoff-store"
+      path: "hooks/lib/project-handoff-store.cjs"
+    - name: "lib/statusline-activity-renderers"
+      path: "hooks/lib/statusline-activity-renderers.cjs"
+    - name: "lib/statusline-render-modes"
+      path: "hooks/lib/statusline-render-modes.cjs"
+    - name: "lib/statusline-section-registry"
+      path: "hooks/lib/statusline-section-registry.cjs"
+    - name: "lib/statusline-session-cache"
+      path: "hooks/lib/statusline-session-cache.cjs"
+    - name: "lib/statusline-string-utils"
+      path: "hooks/lib/statusline-string-utils.cjs"
+    - name: "lib/usage-limits-cache"
+      path: "hooks/lib/usage-limits-cache.cjs"
   output-styles:
-    - name: 'coding-level-0-eli5'
-      path: 'output-styles/coding-level-0-eli5.md'
-    - name: 'coding-level-1-junior'
-      path: 'output-styles/coding-level-1-junior.md'
-    - name: 'coding-level-2-mid'
-      path: 'output-styles/coding-level-2-mid.md'
-    - name: 'coding-level-3-senior'
-      path: 'output-styles/coding-level-3-senior.md'
-    - name: 'coding-level-4-lead'
-      path: 'output-styles/coding-level-4-lead.md'
-    - name: 'coding-level-5-god'
-      path: 'output-styles/coding-level-5-god.md'
+    - name: "coding-level-0-eli5"
+      path: "output-styles/coding-level-0-eli5.md"
+    - name: "coding-level-1-junior"
+      path: "output-styles/coding-level-1-junior.md"
+    - name: "coding-level-2-mid"
+      path: "output-styles/coding-level-2-mid.md"
+    - name: "coding-level-3-senior"
+      path: "output-styles/coding-level-3-senior.md"
+    - name: "coding-level-4-lead"
+      path: "output-styles/coding-level-4-lead.md"
+    - name: "coding-level-5-god"
+      path: "output-styles/coding-level-5-god.md"
   rules:
-    - name: 'development-rules'
-      path: 'rules/development-rules.md'
-    - name: 'documentation-management'
-      path: 'rules/documentation-management.md'
-    - name: 'orchestration-protocol'
-      path: 'rules/orchestration-protocol.md'
-    - name: 'primary-workflow'
-      path: 'rules/primary-workflow.md'
-    - name: 'process-management'
-      path: 'rules/process-management.md'
-    - name: 'review-audit-self-decision'
-      path: 'rules/review-audit-self-decision.md'
-    - name: 'skill-domain-routing'
-      path: 'rules/skill-domain-routing.md'
-    - name: 'skill-workflow-routing'
-      path: 'rules/skill-workflow-routing.md'
+    - name: "development-rules"
+      path: "rules/development-rules.md"
+    - name: "documentation-management"
+      path: "rules/documentation-management.md"
+    - name: "orchestration-protocol"
+      path: "rules/orchestration-protocol.md"
+    - name: "primary-workflow"
+      path: "rules/primary-workflow.md"
+    - name: "process-management"
+      path: "rules/process-management.md"
+    - name: "review-audit-self-decision"
+      path: "rules/review-audit-self-decision.md"
+    - name: "skill-domain-routing"
+      path: "rules/skill-domain-routing.md"
+    - name: "skill-workflow-routing"
+      path: "rules/skill-workflow-routing.md"
   schemas:
-    - name: 'ck-config'
-      path: 'schemas/ck-config.schema.json'
+    - name: "ck-config"
+      path: "schemas/ck-config.schema.json"
   scripts:
-    - name: 'resolve_env'
-      path: 'scripts/resolve_env.py'
-    - name: 'set-active-plan'
-      path: 'scripts/set-active-plan.cjs'
-    - name: 'validate-skill-crossrefs'
-      path: 'scripts/validate-skill-crossrefs.py'
-    - name: 'worktree'
-      path: 'scripts/worktree.cjs'
-    - name: 'worktree.test'
-      path: 'scripts/worktree.test.cjs'
+    - name: "resolve_env"
+      path: "scripts/resolve_env.py"
+    - name: "set-active-plan"
+      path: "scripts/set-active-plan.cjs"
+    - name: "validate-skill-crossrefs"
+      path: "scripts/validate-skill-crossrefs.py"
+    - name: "worktree"
+      path: "scripts/worktree.cjs"
+    - name: "worktree.test"
+      path: "scripts/worktree.test.cjs"
   skills:
-    - name: 'ak-agent-browser'
-      path: 'skills/ak-agent-browser/'
-    - name: 'ak-agentkit'
-      path: 'skills/ak-agentkit/'
-    - name: 'ak-ai-multimodal'
-      path: 'skills/ak-ai-multimodal/'
-    - name: 'ak-ak'
-      path: 'skills/ak-ak/'
-    - name: 'ak-ask'
-      path: 'skills/ak-ask/'
-    - name: 'ak-brainstorm'
-      path: 'skills/ak-brainstorm/'
-    - name: 'ak-bro'
-      path: 'skills/ak-bro/'
-    - name: 'ak-codex-goal'
-      path: 'skills/ak-codex-goal/'
-    - name: 'ak-cook'
-      path: 'skills/ak-cook/'
-    - name: 'ak-copywriting'
-      path: 'skills/ak-copywriting/'
-    - name: 'ak-debug'
-      path: 'skills/ak-debug/'
-    - name: 'ak-design'
-      path: 'skills/ak-design/'
-    - name: 'ak-docs'
-      path: 'skills/ak-docs/'
-    - name: 'ak-docs-seeker'
-      path: 'skills/ak-docs-seeker/'
-    - name: 'ak-explain'
-      path: 'skills/ak-explain/'
-    - name: 'ak-fix'
-      path: 'skills/ak-fix/'
-    - name: 'ak-folder-context'
-      path: 'skills/ak-folder-context/'
-    - name: 'ak-frontend-design'
-      path: 'skills/ak-frontend-design/'
-    - name: 'ak-git'
-      path: 'skills/ak-git/'
-    - name: 'ak-google-adk-python'
-      path: 'skills/ak-google-adk-python/'
-    - name: 'ak-handoff'
-      path: 'skills/ak-handoff/'
-    - name: 'ak-interview-docs'
-      path: 'skills/ak-interview-docs/'
-    - name: 'ak-journal'
-      path: 'skills/ak-journal/'
-    - name: 'ak-mermaidjs-v11'
-      path: 'skills/ak-mermaidjs-v11/'
-    - name: 'ak-plan'
-      path: 'skills/ak-plan/'
-    - name: 'ak-preview'
-      path: 'skills/ak-preview/'
-    - name: 'ak-research-prompt'
-      path: 'skills/ak-research-prompt/'
-    - name: 'ak-scout'
-      path: 'skills/ak-scout/'
-    - name: 'ak-skill-creator'
-      path: 'skills/ak-skill-creator/'
-    - name: 'ak-sowat'
-      path: 'skills/ak-sowat/'
-    - name: 'ak-sumup'
-      path: 'skills/ak-sumup/'
-    - name: 'ak-tech-graph'
-      path: 'skills/ak-tech-graph/'
-    - name: 'ak-test'
-      path: 'skills/ak-test/'
-    - name: 'ak-ui-ux-pro-max'
-      path: 'skills/ak-ui-ux-pro-max/'
-    - name: 'ak-watzup'
-      path: 'skills/ak-watzup/'
-    - name: 'ak-worktree'
-      path: 'skills/ak-worktree/'
-    - name: 'ak-advise'
-      path: 'skills/ak-advise/'
-    - name: 'ak-agentize'
-      path: 'skills/ak-agentize/'
-    - name: 'ak-ai-artist'
-      path: 'skills/ak-ai-artist/'
-    - name: 'ak-autoresearch'
-      path: 'skills/ak-autoresearch/'
-    - name: 'ak-backend-development'
-      path: 'skills/ak-backend-development/'
-    - name: 'ak-better-auth'
-      path: 'skills/ak-better-auth/'
-    - name: 'ak-bootstrap'
-      path: 'skills/ak-bootstrap/'
-    - name: 'ak-chrome-profile'
-      path: 'skills/ak-chrome-profile/'
-    - name: 'ak-code-review'
-      path: 'skills/ak-code-review/'
-    - name: 'ak-coding-level'
-      path: 'skills/ak-coding-level/'
-    - name: 'ak-context-engineering'
-      path: 'skills/ak-context-engineering/'
-    - name: 'ak-cti-expert'
-      path: 'skills/ak-cti-expert/'
-    - name: 'ak-databases'
-      path: 'skills/ak-databases/'
-    - name: 'ak-deep-swe'
-      path: 'skills/ak-deep-swe/'
-    - name: 'ak-deploy'
-      path: 'skills/ak-deploy/'
-    - name: 'ak-devops'
-      path: 'skills/ak-devops/'
-    - name: 'ak-diagram'
-      path: 'skills/ak-diagram/'
-    - name: 'ak-document-skills'
-      path: 'skills/ak-document-skills/'
-    - name: 'ak-excalidraw'
-      path: 'skills/ak-excalidraw/'
-    - name: 'ak-fable-thinking'
-      path: 'skills/ak-fable-thinking/'
-    - name: 'ak-find-skills'
-      path: 'skills/ak-find-skills/'
-    - name: 'ak-frontend-development'
-      path: 'skills/ak-frontend-development/'
-    - name: 'ak-github'
-      path: 'skills/ak-github/'
-    - name: 'ak-gkg'
-      path: 'skills/ak-gkg/'
-    - name: 'ak-goal-warmup'
-      path: 'skills/ak-goal-warmup/'
-    - name: 'ak-graphify'
-      path: 'skills/ak-graphify/'
-    - name: 'ak-help'
-      path: 'skills/ak-help/'
-    - name: 'ak-hyperframes'
-      path: 'skills/ak-hyperframes/'
-    - name: 'ak-issue-to-plan'
-      path: 'skills/ak-issue-to-plan/'
-    - name: 'ak-llms'
-      path: 'skills/ak-llms/'
-    - name: 'ak-loop'
-      path: 'skills/ak-loop/'
-    - name: 'ak-markdown-novel-viewer'
-      path: 'skills/ak-markdown-novel-viewer/'
-    - name: 'ak-mcp-builder'
-      path: 'skills/ak-mcp-builder/'
-    - name: 'ak-media-processing'
-      path: 'skills/ak-media-processing/'
-    - name: 'ak-mintlify'
-      path: 'skills/ak-mintlify/'
-    - name: 'ak-mobile-development'
-      path: 'skills/ak-mobile-development/'
-    - name: 'ak-orchestrate'
-      path: 'skills/ak-orchestrate/'
-    - name: 'ak-page-builder'
-      path: 'skills/ak-page-builder/'
-    - name: 'ak-payment-integration'
-      path: 'skills/ak-payment-integration/'
-    - name: 'ak-plans-kanban'
-      path: 'skills/ak-plans-kanban/'
-    - name: 'ak-predict'
-      path: 'skills/ak-predict/'
-    - name: 'ak-problem-solving'
-      path: 'skills/ak-problem-solving/'
-    - name: 'ak-project-management'
-      path: 'skills/ak-project-management/'
-    - name: 'ak-project-organization'
-      path: 'skills/ak-project-organization/'
-    - name: 'ak-react-best-practices'
-      path: 'skills/ak-react-best-practices/'
-    - name: 'ak-remotion'
-      path: 'skills/ak-remotion/'
-    - name: 'ak-repomix'
-      path: 'skills/ak-repomix/'
-    - name: 'ak-research'
-      path: 'skills/ak-research/'
-    - name: 'ak-retro'
-      path: 'skills/ak-retro/'
-    - name: 'ak-review-pr'
-      path: 'skills/ak-review-pr/'
-    - name: 'ak-scenario'
-      path: 'skills/ak-scenario/'
-    - name: 'ak-security'
-      path: 'skills/ak-security/'
-    - name: 'ak-shader'
-      path: 'skills/ak-shader/'
-    - name: 'ak-ship'
-      path: 'skills/ak-ship/'
-    - name: 'ak-shopify'
-      path: 'skills/ak-shopify/'
-    - name: 'ak-show-off'
-      path: 'skills/ak-show-off/'
-    - name: 'ak-stitch'
-      path: 'skills/ak-stitch/'
-    - name: 'ak-tanstack'
-      path: 'skills/ak-tanstack/'
-    - name: 'ak-team'
-      path: 'skills/ak-team/'
-    - name: 'ak-threejs'
-      path: 'skills/ak-threejs/'
-    - name: 'ak-ui-styling'
-      path: 'skills/ak-ui-styling/'
-    - name: 'ak-vibe'
-      path: 'skills/ak-vibe/'
-    - name: 'ak-web-frameworks'
-      path: 'skills/ak-web-frameworks/'
-    - name: 'ak-web-testing'
-      path: 'skills/ak-web-testing/'
-    - name: 'ak-webmcp'
-      path: 'skills/ak-webmcp/'
-    - name: 'ak-xia'
-      path: 'skills/ak-xia/'
+    - name: "ak-agent-browser"
+      path: "skills/ak-agent-browser/"
+    - name: "ak-agentkit"
+      path: "skills/ak-agentkit/"
+    - name: "ak-ai-multimodal"
+      path: "skills/ak-ai-multimodal/"
+    - name: "ak-ak"
+      path: "skills/ak-ak/"
+    - name: "ak-ask"
+      path: "skills/ak-ask/"
+    - name: "ak-brainstorm"
+      path: "skills/ak-brainstorm/"
+    - name: "ak-bro"
+      path: "skills/ak-bro/"
+    - name: "ak-codex-goal"
+      path: "skills/ak-codex-goal/"
+    - name: "ak-cook"
+      path: "skills/ak-cook/"
+    - name: "ak-copywriting"
+      path: "skills/ak-copywriting/"
+    - name: "ak-debug"
+      path: "skills/ak-debug/"
+    - name: "ak-design"
+      path: "skills/ak-design/"
+    - name: "ak-docs"
+      path: "skills/ak-docs/"
+    - name: "ak-docs-seeker"
+      path: "skills/ak-docs-seeker/"
+    - name: "ak-explain"
+      path: "skills/ak-explain/"
+    - name: "ak-fix"
+      path: "skills/ak-fix/"
+    - name: "ak-folder-context"
+      path: "skills/ak-folder-context/"
+    - name: "ak-frontend-design"
+      path: "skills/ak-frontend-design/"
+    - name: "ak-git"
+      path: "skills/ak-git/"
+    - name: "ak-google-adk-python"
+      path: "skills/ak-google-adk-python/"
+    - name: "ak-handoff"
+      path: "skills/ak-handoff/"
+    - name: "ak-interview-docs"
+      path: "skills/ak-interview-docs/"
+    - name: "ak-journal"
+      path: "skills/ak-journal/"
+    - name: "ak-mermaidjs-v11"
+      path: "skills/ak-mermaidjs-v11/"
+    - name: "ak-plan"
+      path: "skills/ak-plan/"
+    - name: "ak-preview"
+      path: "skills/ak-preview/"
+    - name: "ak-research-prompt"
+      path: "skills/ak-research-prompt/"
+    - name: "ak-scout"
+      path: "skills/ak-scout/"
+    - name: "ak-skill-creator"
+      path: "skills/ak-skill-creator/"
+    - name: "ak-sowat"
+      path: "skills/ak-sowat/"
+    - name: "ak-sumup"
+      path: "skills/ak-sumup/"
+    - name: "ak-tech-graph"
+      path: "skills/ak-tech-graph/"
+    - name: "ak-test"
+      path: "skills/ak-test/"
+    - name: "ak-ui-ux-pro-max"
+      path: "skills/ak-ui-ux-pro-max/"
+    - name: "ak-watzup"
+      path: "skills/ak-watzup/"
+    - name: "ak-worktree"
+      path: "skills/ak-worktree/"
+    - name: "ak-advise"
+      path: "skills/ak-advise/"
+    - name: "ak-agentize"
+      path: "skills/ak-agentize/"
+    - name: "ak-ai-artist"
+      path: "skills/ak-ai-artist/"
+    - name: "ak-autoresearch"
+      path: "skills/ak-autoresearch/"
+    - name: "ak-backend-development"
+      path: "skills/ak-backend-development/"
+    - name: "ak-better-auth"
+      path: "skills/ak-better-auth/"
+    - name: "ak-bootstrap"
+      path: "skills/ak-bootstrap/"
+    - name: "ak-chrome-profile"
+      path: "skills/ak-chrome-profile/"
+    - name: "ak-code-review"
+      path: "skills/ak-code-review/"
+    - name: "ak-coding-level"
+      path: "skills/ak-coding-level/"
+    - name: "ak-context-engineering"
+      path: "skills/ak-context-engineering/"
+    - name: "ak-cti-expert"
+      path: "skills/ak-cti-expert/"
+    - name: "ak-databases"
+      path: "skills/ak-databases/"
+    - name: "ak-deep-swe"
+      path: "skills/ak-deep-swe/"
+    - name: "ak-deploy"
+      path: "skills/ak-deploy/"
+    - name: "ak-devops"
+      path: "skills/ak-devops/"
+    - name: "ak-diagram"
+      path: "skills/ak-diagram/"
+    - name: "ak-document-skills"
+      path: "skills/ak-document-skills/"
+    - name: "ak-excalidraw"
+      path: "skills/ak-excalidraw/"
+    - name: "ak-fable-thinking"
+      path: "skills/ak-fable-thinking/"
+    - name: "ak-find-skills"
+      path: "skills/ak-find-skills/"
+    - name: "ak-frontend-development"
+      path: "skills/ak-frontend-development/"
+    - name: "ak-github"
+      path: "skills/ak-github/"
+    - name: "ak-gkg"
+      path: "skills/ak-gkg/"
+    - name: "ak-goal-warmup"
+      path: "skills/ak-goal-warmup/"
+    - name: "ak-graphify"
+      path: "skills/ak-graphify/"
+    - name: "ak-help"
+      path: "skills/ak-help/"
+    - name: "ak-hyperframes"
+      path: "skills/ak-hyperframes/"
+    - name: "ak-issue-to-plan"
+      path: "skills/ak-issue-to-plan/"
+    - name: "ak-llms"
+      path: "skills/ak-llms/"
+    - name: "ak-loop"
+      path: "skills/ak-loop/"
+    - name: "ak-markdown-novel-viewer"
+      path: "skills/ak-markdown-novel-viewer/"
+    - name: "ak-mcp-builder"
+      path: "skills/ak-mcp-builder/"
+    - name: "ak-media-processing"
+      path: "skills/ak-media-processing/"
+    - name: "ak-mintlify"
+      path: "skills/ak-mintlify/"
+    - name: "ak-mobile-development"
+      path: "skills/ak-mobile-development/"
+    - name: "ak-orchestrate"
+      path: "skills/ak-orchestrate/"
+    - name: "ak-page-builder"
+      path: "skills/ak-page-builder/"
+    - name: "ak-payment-integration"
+      path: "skills/ak-payment-integration/"
+    - name: "ak-plans-kanban"
+      path: "skills/ak-plans-kanban/"
+    - name: "ak-predict"
+      path: "skills/ak-predict/"
+    - name: "ak-problem-solving"
+      path: "skills/ak-problem-solving/"
+    - name: "ak-project-management"
+      path: "skills/ak-project-management/"
+    - name: "ak-project-organization"
+      path: "skills/ak-project-organization/"
+    - name: "ak-react-best-practices"
+      path: "skills/ak-react-best-practices/"
+    - name: "ak-remotion"
+      path: "skills/ak-remotion/"
+    - name: "ak-repomix"
+      path: "skills/ak-repomix/"
+    - name: "ak-research"
+      path: "skills/ak-research/"
+    - name: "ak-retro"
+      path: "skills/ak-retro/"
+    - name: "ak-review-pr"
+      path: "skills/ak-review-pr/"
+    - name: "ak-scenario"
+      path: "skills/ak-scenario/"
+    - name: "ak-security"
+      path: "skills/ak-security/"
+    - name: "ak-shader"
+      path: "skills/ak-shader/"
+    - name: "ak-ship"
+      path: "skills/ak-ship/"
+    - name: "ak-shopify"
+      path: "skills/ak-shopify/"
+    - name: "ak-show-off"
+      path: "skills/ak-show-off/"
+    - name: "ak-stitch"
+      path: "skills/ak-stitch/"
+    - name: "ak-tanstack"
+      path: "skills/ak-tanstack/"
+    - name: "ak-team"
+      path: "skills/ak-team/"
+    - name: "ak-threejs"
+      path: "skills/ak-threejs/"
+    - name: "ak-ui-styling"
+      path: "skills/ak-ui-styling/"
+    - name: "ak-vibe"
+      path: "skills/ak-vibe/"
+    - name: "ak-web-frameworks"
+      path: "skills/ak-web-frameworks/"
+    - name: "ak-web-testing"
+      path: "skills/ak-web-testing/"
+    - name: "ak-webmcp"
+      path: "skills/ak-webmcp/"
+    - name: "ak-xia"
+      path: "skills/ak-xia/"
   statusline:
-    - name: 'statusline'
-      path: '.config/statusline.cjs'
+    - name: "statusline"
+      path: ".config/statusline.cjs"

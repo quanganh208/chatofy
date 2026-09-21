@@ -79,7 +79,6 @@ When collecting data from a URL:
 5. Tag finding: `[scrapling-static]` / `[scrapling-stealth]` / `[scrapling-dynamic]`
 
 **JS-heavy detection heuristic:**
-
 - Response body contains `<div id="root"></div>` or `<div id="app"></div>` with no content
 - Response body < 1KB but Content-Length header suggests larger page
 - Known JS-heavy domains: social media, modern OSINT tools, dashboards
@@ -90,12 +89,12 @@ When collecting data from a URL:
 
 DEFAULT BEHAVIOR when a URL is fetched during investigation:
 
-| Condition                       | Fetcher Used               | Browser?               |
-| ------------------------------- | -------------------------- | ---------------------- |
-| Static content (HTML with data) | Fetcher                    | No                     |
-| 403/bot-block response          | StealthyFetcher            | Headless (stealth)     |
-| JS-heavy/SPA detected           | DynamicFetcher             | Headless (full render) |
-| Screenshot needed               | agent-browser (Playwright) | Full browser           |
+| Condition | Fetcher Used | Browser? |
+|-----------|-------------|----------|
+| Static content (HTML with data) | Fetcher | No |
+| 403/bot-block response | StealthyFetcher | Headless (stealth) |
+| JS-heavy/SPA detected | DynamicFetcher | Headless (full render) |
+| Screenshot needed | agent-browser (Playwright) | Full browser |
 
 ---
 
@@ -134,14 +133,14 @@ name = page.css('#profile-name').text  # Scrapling memorizes context
 
 Scrapling enhances these investigation modules:
 
-| Technique                    | Enhancement                                  |
-| ---------------------------- | -------------------------------------------- |
-| `scam-check.md`              | Steps 2-7: PhishTank, CheckPhish scraping    |
-| `phone-osint.md`             | USPhoneBook scraping (replaces cloudscraper) |
-| `fx-visitor-intelligence.md` | SimilarWeb data extraction                   |
-| `image-forensics`            | FaceCheck.id result scraping                 |
-| `social-media-platforms.md`  | Profile data extraction                      |
-| `whois-universal.md`         | who.is web scrape fallback (Layer 4)         |
+| Technique | Enhancement |
+|-----------|-------------|
+| `scam-check.md` | Steps 2-7: PhishTank, CheckPhish scraping |
+| `phone-osint.md` | USPhoneBook scraping (replaces cloudscraper) |
+| `fx-visitor-intelligence.md` | SimilarWeb data extraction |
+| `image-forensics` | FaceCheck.id result scraping |
+| `social-media-platforms.md` | Profile data extraction |
+| `whois-universal.md` | who.is web scrape fallback (Layer 4) |
 
 ---
 
@@ -155,11 +154,11 @@ agent-browser (Playwright) → DynamicFetcher → StealthyFetcher → Fetcher �
 
 ## 9. Confidence Ratings
 
-| Collection Method         | Tag                 | Confidence |
-| ------------------------- | ------------------- | ---------- |
-| Scrapling Fetcher         | [scrapling-static]  | HIGH       |
-| Scrapling StealthyFetcher | [scrapling-stealth] | HIGH       |
-| Scrapling DynamicFetcher  | [scrapling-dynamic] | HIGH       |
-| WebFetch                  | [fetch]             | MEDIUM     |
-| WebSearch                 | [search]            | MEDIUM     |
-| curl                      | [manual]            | MEDIUM     |
+| Collection Method | Tag | Confidence |
+|-------------------|-----|-----------|
+| Scrapling Fetcher | [scrapling-static] | HIGH |
+| Scrapling StealthyFetcher | [scrapling-stealth] | HIGH |
+| Scrapling DynamicFetcher | [scrapling-dynamic] | HIGH |
+| WebFetch | [fetch] | MEDIUM |
+| WebSearch | [search] | MEDIUM |
+| curl | [manual] | MEDIUM |

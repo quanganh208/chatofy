@@ -2,11 +2,17 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ak:diagram architecture spec",
   "type": "object",
-  "required": ["layers"],
+  "required": [
+    "layers"
+  ],
   "properties": {
     "variant": {
       "type": "string",
-      "enum": ["light", "dark", "full"],
+      "enum": [
+        "light",
+        "dark",
+        "full"
+      ],
       "default": "light"
     },
     "title": {
@@ -23,7 +29,10 @@
       "minItems": 2,
       "items": {
         "type": "object",
-        "required": ["label", "components"],
+        "required": [
+          "label",
+          "components"
+        ],
         "properties": {
           "label": {
             "type": "string"

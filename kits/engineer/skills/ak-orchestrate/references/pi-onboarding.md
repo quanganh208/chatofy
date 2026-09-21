@@ -140,26 +140,26 @@ blocked on the user with the exact remaining action.
 
 ## Portable setup: copy or leave
 
-| Item                                                | Carry    | Reason                                                     |
-| --------------------------------------------------- | -------- | ---------------------------------------------------------- |
-| `settings.json`                                     | yes      | packages manifest, model and TUI defaults                  |
-| system-prompt append file, prompt templates, themes | yes      | plain setup files                                          |
-| locally written extensions and their config         | yes      | not on npm, cannot be reinstalled                          |
-| model catalog cache                                 | optional | saves a refresh wait, harmless if stale                    |
-| `auth.json`                                         | no       | API keys and OAuth tokens; log in on the new machine       |
-| `sessions/`, `missions/`, `memory/`                 | no       | history and state, may hold internal data                  |
-| `npm/`, `git/` package caches                       | no       | reinstalled from the manifest                              |
-| `trust.json`                                        | no       | contains the old machine's paths                           |
-| generated `extensions/agentkit-*`                   | no       | `ak kit init` regenerates them with correct absolute paths |
-| configs holding tokens (notifications, webhooks)    | no       | credentials; reconfigure by hand                           |
+| Item | Carry | Reason |
+| --- | --- | --- |
+| `settings.json` | yes | packages manifest, model and TUI defaults |
+| system-prompt append file, prompt templates, themes | yes | plain setup files |
+| locally written extensions and their config | yes | not on npm, cannot be reinstalled |
+| model catalog cache | optional | saves a refresh wait, harmless if stale |
+| `auth.json` | no | API keys and OAuth tokens; log in on the new machine |
+| `sessions/`, `missions/`, `memory/` | no | history and state, may hold internal data |
+| `npm/`, `git/` package caches | no | reinstalled from the manifest |
+| `trust.json` | no | contains the old machine's paths |
+| generated `extensions/agentkit-*` | no | `ak kit init` regenerates them with correct absolute paths |
+| configs holding tokens (notifications, webhooks) | no | credentials; reconfigure by hand |
 
 ## Troubleshooting
 
-| Symptom                                     | Cause                                                     | Fix                                                                               |
-| ------------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `pi: command not found` right after install | version-manager shell has not activated that Node version | activate the version, or call the resolved binary path                            |
-| Probe reason `help-probe-timeout`           | extensions load before help prints                        | raise the probe `--timeout`; dispatch with `--no-extensions` when the job allows  |
-| First run stalls for minutes                | packages manifest installing                              | wait once interactively or run `pi list` afterwards; dispatch with `PI_OFFLINE=1` |
-| `EACCES` from npm                           | global prefix not writable                                | user-writable prefix or version manager, not elevated install                     |
-| Setup scripts fail on Windows               | run from PowerShell or cmd                                | use Git Bash or WSL                                                               |
-| Project skills ignored in a headless run    | project not trusted                                       | `--skill <path>` or `--approve` for a trusted repository                          |
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `pi: command not found` right after install | version-manager shell has not activated that Node version | activate the version, or call the resolved binary path |
+| Probe reason `help-probe-timeout` | extensions load before help prints | raise the probe `--timeout`; dispatch with `--no-extensions` when the job allows |
+| First run stalls for minutes | packages manifest installing | wait once interactively or run `pi list` afterwards; dispatch with `PI_OFFLINE=1` |
+| `EACCES` from npm | global prefix not writable | user-writable prefix or version manager, not elevated install |
+| Setup scripts fail on Windows | run from PowerShell or cmd | use Git Bash or WSL |
+| Project skills ignored in a headless run | project not trusted | `--skill <path>` or `--approve` for a trusted repository |

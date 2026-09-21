@@ -6,13 +6,13 @@ Guided 5-step flow for locating and verifying publicly available information on 
 
 ## Flow Metadata
 
-| Field      | Value                                                                   |
-| ---------- | ----------------------------------------------------------------------- |
-| Activation | `/flow person-lookup`                                                   |
-| Skill tier | Novice to Practitioner                                                  |
-| Duration   | 15–30 min                                                               |
-| Output     | Verification report with confidence rating                              |
-| Use cases  | Dating verification, professional screening, reconnecting with contacts |
+| Field | Value |
+|-------|-------|
+| Activation | `/flow person-lookup` |
+| Skill tier | Novice to Practitioner |
+| Duration | 15–30 min |
+| Output | Verification report with confidence rating |
+| Use cases | Dating verification, professional screening, reconnecting with contacts |
 
 ---
 
@@ -55,13 +55,13 @@ Purpose (1–6 or describe):
 
 Purpose shapes the flow's focus areas:
 
-| Purpose           | Primary Focus                   | Special Handling             |
-| ----------------- | ------------------------------- | ---------------------------- |
-| Online connection | Identity, photo, consistency    | Scam pattern detection first |
-| Professional      | Career history, credentials     | LinkedIn-anchored            |
-| Reconnecting      | Contact information, location   | Privacy-first collection     |
-| Business          | Affiliations, reputation        | Corporate context            |
-| Safety            | Risk flags, behavioral patterns | Immediate risk assessment    |
+| Purpose | Primary Focus | Special Handling |
+|---------|--------------|------------------|
+| Online connection | Identity, photo, consistency | Scam pattern detection first |
+| Professional | Career history, credentials | LinkedIn-anchored |
+| Reconnecting | Contact information, location | Privacy-first collection |
+| Business | Affiliations, reputation | Corporate context |
+| Safety | Risk flags, behavioral patterns | Immediate risk assessment |
 
 ### 1b — Subject Information
 
@@ -256,7 +256,6 @@ Ongoing:
 ### Alternative Outcomes
 
 **Requires further verification:**
-
 ```
 Confidence: MEDIUM (45%)
 Concerns:
@@ -268,7 +267,6 @@ Action: Request video call. Ask verifiable questions.
 ```
 
 **Likely fabricated identity:**
-
 ```
 Confidence: LOW (15%)
   !! Photos are stock images

@@ -15,15 +15,15 @@ pie title Traffic Sources
 
 ## Supported Diagram Types
 
-| Type      | Syntax               | Use Case                        |
-| --------- | -------------------- | ------------------------------- |
-| Flowchart | `flowchart LR/TB/TD` | Process flows, decision trees   |
-| Sequence  | `sequenceDiagram`    | API interactions, message flows |
-| Pie       | `pie title "..."`    | Distribution data               |
-| Gantt     | `gantt`              | Project timelines               |
-| XY Chart  | `xychart-beta`       | Bar/line charts                 |
-| Mindmap   | `mindmap`            | Idea hierarchies                |
-| Quadrant  | `quadrantChart`      | 2x2 matrices                    |
+| Type | Syntax | Use Case |
+|------|--------|----------|
+| Flowchart | `flowchart LR/TB/TD` | Process flows, decision trees |
+| Sequence | `sequenceDiagram` | API interactions, message flows |
+| Pie | `pie title "..."` | Distribution data |
+| Gantt | `gantt` | Project timelines |
+| XY Chart | `xychart-beta` | Bar/line charts |
+| Mindmap | `mindmap` | Idea hierarchies |
+| Quadrant | `quadrantChart` | 2x2 matrices |
 
 ## Validating Mermaid Snippets
 
@@ -31,17 +31,16 @@ pie title Traffic Sources
 
 **Common errors and fixes**:
 
-| Error                  | Cause                    | Fix                                     |
-| ---------------------- | ------------------------ | --------------------------------------- |
-| `Parse error`          | Invalid syntax           | Check diagram type declaration          |
-| `Unknown diagram type` | Typo in declaration      | Use exact type: `flowchart`, not `flow` |
-| `Expecting token`      | Missing quotes/brackets  | Ensure balanced delimiters              |
-| `UnknownDiagramError`  | Empty or malformed block | Add valid diagram content               |
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Parse error` | Invalid syntax | Check diagram type declaration |
+| `Unknown diagram type` | Typo in declaration | Use exact type: `flowchart`, not `flow` |
+| `Expecting token` | Missing quotes/brackets | Ensure balanced delimiters |
+| `UnknownDiagramError` | Empty or malformed block | Add valid diagram content |
 
 ## Fixing Common Issues
 
 **1. Flowchart arrows**
-
 ```mermaid
 %% Wrong: A -> B
 %% Correct:
@@ -50,7 +49,6 @@ flowchart LR
 ```
 
 **2. Pie chart values**
-
 ```mermaid
 %% Wrong: "Label": 50%
 %% Correct:
@@ -60,7 +58,6 @@ pie title Sales
 ```
 
 **3. XY Chart data format**
-
 ```mermaid
 xychart-beta
     title "Monthly Sales"
@@ -70,7 +67,6 @@ xychart-beta
 ```
 
 **4. Sequence diagram participants**
-
 ```mermaid
 sequenceDiagram
     participant A as Client
@@ -82,7 +78,6 @@ sequenceDiagram
 ## Debug Mode
 
 When a diagram fails to render, the viewer shows:
-
 - Error message
 - Expandable source code preview
 - Line number where parsing failed (when available)

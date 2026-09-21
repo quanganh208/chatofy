@@ -17,15 +17,12 @@
  */
 
 const path = require('path');
-const {
-  createSessionStateContext,
-  updateSessionState,
-} = require('../hooks/lib/ck-config-utils.cjs');
+const { createSessionStateContext, updateSessionState } = require('../hooks/lib/ck-config-utils.cjs');
 
 const sessionContext = createSessionStateContext({
   sessionId: process['env'].CK_SESSION_ID,
   cwd: process['env'].CK_PROJECT_ROOT || process.cwd(),
-  requireBinding: true,
+  requireBinding: true
 });
 const newPlan = process.argv[2];
 
@@ -46,10 +43,10 @@ if (!sessionContext) {
   process.exit(0);
 }
 
-const success = updateSessionState(sessionContext, (current) => ({
+const success = updateSessionState(sessionContext, current => ({
   ...current,
   activePlan: absolutePlan,
-  timestamp: Date.now(),
+  timestamp: Date.now()
 }));
 
 if (success) {

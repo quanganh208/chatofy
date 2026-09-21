@@ -49,13 +49,11 @@ Missing required evidence sections or unsupported claims in the PR body →
 **Important** findings. Do not encourage content padding; prefer honest gaps.
 
 ### 1. Understand the PR
-
 - Read the PR title, description, and linked issues
 - Understand the intent and scope of the changes
 - Compare stated scope vs `additions`/`deletions`/`changedFiles` — a wide gap is itself a signal (see anti-slop reference)
 
 ### 2. Analyze the diff
-
 - Read every changed file carefully
 - For modified files, read the full file (not just the diff) to understand surrounding context
 - Check if the changes align with the stated PR purpose
@@ -65,7 +63,6 @@ Missing required evidence sections or unsupported claims in the PR body →
 Load `review-checklist.md` and work through it: correctness, security,
 performance, breaking changes, code quality, and testing. Also apply
 `anti-ai-slop.md`.
-
 ### 4. Summarize findings
 
 Present your review as:
@@ -75,15 +72,13 @@ Present your review as:
 **Risk level**: Low / Medium / High — based on scope, complexity, and breakage potential.
 
 **Findings**: List issues found, categorized by severity:
-
 - **Critical**: Must fix before merge (bugs, security, data loss)
-- **Important**: Should fix (logic issues, missing validation, _structural_ AI slop)
-- **Suggestion**: Nice to have (style, minor improvements, _micro_ AI slop)
+- **Important**: Should fix (logic issues, missing validation, *structural* AI slop)
+- **Suggestion**: Nice to have (style, minor improvements, *micro* AI slop)
 
 > Anti-slop severity rule: **structural** slop (new dumping-ground file, parallel reimpl, abstraction with one caller, schema change without migration, large file growth) → **Important**. **Micro** slop (over-comments, defensive paranoia, one-line wrappers) → **Suggestion**. This keeps `--fix` from churning the diff with cosmetic rewrites the original author won't recognize.
 
 **Verdict**: One of:
-
 - **Approve** — No critical or important issues found
 - **Request changes** — Critical or important issues need addressing
 - **Comment** — Minor suggestions only, safe to merge as-is

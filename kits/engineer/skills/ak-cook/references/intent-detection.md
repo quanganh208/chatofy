@@ -53,17 +53,16 @@ Detect multiple features from natural language:
 
 ## Mode Behaviors
 
-| Mode        | Skip Research | Skip Test | Review Gates           | Auto-Approve            | Parallel Exec    |
-| ----------- | ------------- | --------- | ---------------------- | ----------------------- | ---------------- |
-| interactive | ✗             | ✗         | Explicit checkpoints   | ✗                       | ✗                |
-| auto        | ✗             | ✗         | No routine human stops | Within authorized scope | When independent |
-| fast        | ✓             | ✗         | No routine stops       | ✗                       | ✗                |
-| parallel    | Optional      | ✗         | No routine stops       | ✗                       | ✓                |
-| no-test     | ✗             | ✓         | No routine stops       | ✗                       | ✗                |
-| code        | ✓             | ✗         | No routine stops       | Per plan                | Per plan         |
+| Mode | Skip Research | Skip Test | Review Gates | Auto-Approve | Parallel Exec |
+|------|---------------|-----------|--------------|--------------|---------------|
+| interactive | ✗ | ✗ | Explicit checkpoints | ✗ | ✗ |
+| auto | ✗ | ✗ | No routine human stops | Within authorized scope | When independent |
+| fast | ✓ | ✗ | No routine stops | ✗ | ✗ |
+| parallel | Optional | ✗ | No routine stops | ✗ | ✓ |
+| no-test | ✗ | ✓ | No routine stops | ✗ | ✗ |
+| code | ✓ | ✗ | No routine stops | Per plan | Per plan |
 
 **Review Gates:** Human approval checkpoints between major steps (see `workflow-steps.md`).
-
 - Only explicit `--interactive` stops at review gates for human approval.
 - Other modes continue within the authorized scope.
 
@@ -103,7 +102,6 @@ Detect multiple features from natural language:
 ## Conflict Resolution
 
 When multiple signals detected, priority order:
-
 1. Explicit flags (`--fast`, `--auto`, etc.)
 2. Path detection (plan files)
 3. Keywords in text

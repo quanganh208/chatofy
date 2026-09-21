@@ -1,7 +1,18 @@
 {
   "image": "7a3e1681626bc52e3888dba109a072ba.jpg",
-  "style_cues": ["comic book", "editorial collage", "high-contrast", "gritty", "layered"],
-  "palette_hexes": ["#DCD7C7", "#1A1A1A", "#B3120E", "#634B46"],
+  "style_cues": [
+    "comic book",
+    "editorial collage",
+    "high-contrast",
+    "gritty",
+    "layered"
+  ],
+  "palette_hexes": [
+    "#DCD7C7",
+    "#1A1A1A",
+    "#B3120E",
+    "#634B46"
+  ],
   "layout": {
     "grid": "broken grid",
     "focal": "center",
@@ -11,7 +22,12 @@
     "material": "newsprint",
     "finish": "halftone dots"
   },
-  "mood": ["serious", "dark", "mysterious", "gritty"],
+  "mood": [
+    "serious",
+    "dark",
+    "mysterious",
+    "gritty"
+  ],
   "shape_primitives": [
     "rectangular panels",
     "rotated text block",
@@ -19,5 +35,10 @@
     "question mark",
     "diagonal lines"
   ],
-  "typography": ["all caps", "extreme size contrast", "serif body text", "handwritten effect"]
+  "typography": [
+    "all caps",
+    "extreme size contrast",
+    "serif body text",
+    "handwritten effect"
+  ]
 }

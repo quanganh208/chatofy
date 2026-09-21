@@ -1,31 +1,11 @@
 ---
 name: ak:github
-description: 'Operate and manage GitHub projects fluently with the gh CLI — create/update/close issues with evidence-backed dedup checks, manage labels, PRs (create, review, rebase, auto-merge), GitHub Projects, Actions CI/CD, and org/repo/environment/secret administration. Use whenever the user asks to file an issue, triage issues, manage a PR lifecycle, inspect CI runs, or administer repositories via gh.'
+description: "Operate and manage GitHub projects fluently with the gh CLI — create/update/close issues with evidence-backed dedup checks, manage labels, PRs (create, review, rebase, auto-merge), GitHub Projects, Actions CI/CD, and org/repo/environment/secret administration. Use whenever the user asks to file an issue, triage issues, manage a PR lifecycle, inspect CI runs, or administer repositories via gh."
 user-invocable: true
-when_to_use: 'Invoke for any gh CLI operation: issue lifecycle (create/update/close with dedup + evidence checks), label management, PR lifecycle, GitHub Projects, Actions runs, or org/repo/environment/secret administration.'
+when_to_use: "Invoke for any gh CLI operation: issue lifecycle (create/update/close with dedup + evidence checks), label management, PR lifecycle, GitHub Projects, Actions runs, or org/repo/environment/secret administration."
 category: workflow
-keywords:
-  [
-    github,
-    gh,
-    issue,
-    label,
-    pr,
-    pull request,
-    projects,
-    actions,
-    ci,
-    cd,
-    workflow,
-    org,
-    repo,
-    environment,
-    secrets,
-    auto-merge,
-    rebase,
-    triage,
-  ]
-argument-hint: '<task description or issue/PR ref> [--interactive] [--advice]'
+keywords: [github, gh, issue, label, pr, pull request, projects, actions, ci, cd, workflow, org, repo, environment, secrets, auto-merge, rebase, triage]
+argument-hint: "<task description or issue/PR ref> [--interactive] [--advice]"
 allowed-tools:
   - Bash(gh auth status *)
   - Bash(gh repo view *)
@@ -56,7 +36,7 @@ allowed-tools:
   - WebFetch
 metadata:
   author: agentkit
-  version: '1.0.1'
+  version: "1.0.1"
 ---
 
 # GitHub Operations
@@ -102,15 +82,14 @@ Flags compose (`--interactive --advice` is valid). Strip flags from
    keywords (`Closes #123`) stay intact. If the resolver is unavailable,
    fall back to `en` and read `.agentkit/config.yaml` (`language` /
    `locale.response_language`) or `.claude/.ck.json` directly.
-
 3. **Route the task** and load exactly the reference that owns it:
 
-   | Task                                                    | Reference                        |
-   | ------------------------------------------------------- | -------------------------------- |
-   | Create / update / close issues, labels, triage          | `references/issue-workflows.md`  |
-   | Create / review / merge / rebase PRs, auto-merge        | `references/pr-workflows.md`     |
+   | Task | Reference |
+   |------|-----------|
+   | Create / update / close issues, labels, triage | `references/issue-workflows.md` |
+   | Create / review / merge / rebase PRs, auto-merge | `references/pr-workflows.md` |
    | GitHub Projects boards, Actions runs, workflow dispatch | `references/projects-actions.md` |
-   | Org, repo settings, environments, secrets, variables    | `references/admin-operations.md` |
+   | Org, repo settings, environments, secrets, variables | `references/admin-operations.md` |
 
 ## Evidence policy (non-negotiable)
 

@@ -2,45 +2,13 @@
 name: ak:fable-thinking
 description: Reasoning protocol distilled from Claude Fable 5.1 — evidence-grounded claims, multi-hypothesis diagnosis, adversarial self-review, calibrated outcome-first delivery. Its Floor check catches simple-looking trick questions models answer confidently wrong; its Constraint Loop mechanically verifies banned letters, exact counts, and strict formats.
 user-invocable: true
-when_to_use: 'Invoke when being right matters more than being fast — diagnosis, review, root-cause analysis, architecture or strategy decisions, contested claims, or output that must satisfy a mechanically checkable constraint.'
+when_to_use: "Invoke when being right matters more than being fast — diagnosis, review, root-cause analysis, architecture or strategy decisions, contested claims, or output that must satisfy a mechanically checkable constraint."
 category: reasoning
-keywords:
-  [
-    reasoning,
-    calibration,
-    hypotheses,
-    verification,
-    rigor,
-    evidence,
-    fable-5,
-    fable-5-1,
-    constrained-writing,
-    agentic,
-    orchestration,
-    subagents,
-    runtimes,
-    coding,
-    research,
-    security,
-    vision,
-    token-efficiency,
-    skills,
-    motion,
-    animation,
-    engineering-prose,
-    engineering-standards,
-    system-design,
-    debugging,
-    root-cause,
-    solution-design,
-    first-principles,
-    sequential,
-    creative,
-  ]
-argument-hint: '[task or question to reason through]'
+keywords: [reasoning, calibration, hypotheses, verification, rigor, evidence, fable-5, fable-5-1, constrained-writing, agentic, orchestration, subagents, runtimes, coding, research, security, vision, token-efficiency, skills, motion, animation, engineering-prose, engineering-standards, system-design, debugging, root-cause, solution-design, first-principles, sequential, creative]
+argument-hint: "[task or question to reason through]"
 metadata:
   author: agentkit
-  version: '1.6.1'
+  version: "1.6.1"
 ---
 
 # Evidence and constraint checks
@@ -92,12 +60,12 @@ avoidable kind.
 
 Type every load-bearing statement — mentally in Standard mode, in writing in Full mode:
 
-| Type         | Meaning                                                   | Allowed grammar                                            |
-| ------------ | --------------------------------------------------------- | ---------------------------------------------------------- |
-| **OBSERVED** | You saw it this session: ran it, read it, measured it     | "X is / does / returns …"                                  |
-| **DERIVED**  | Follows from OBSERVED facts via a mechanism you can state | "X should / will / implies …" plus the why                 |
-| **PRIOR**    | Training knowledge; may be stale                          | "X is typically … / was, as of …" — verify if load-bearing |
-| **ASSUMED**  | Unverified and required by the conclusion                 | "I am assuming X — if wrong, then …"                       |
+| Type | Meaning | Allowed grammar |
+|------|---------|-----------------|
+| **OBSERVED** | You saw it this session: ran it, read it, measured it | "X is / does / returns …" |
+| **DERIVED** | Follows from OBSERVED facts via a mechanism you can state | "X should / will / implies …" plus the why |
+| **PRIOR** | Training knowledge; may be stale | "X is typically … / was, as of …" — verify if load-bearing |
+| **ASSUMED** | Unverified and required by the conclusion | "I am assuming X — if wrong, then …" |
 
 Rules:
 
@@ -107,29 +75,30 @@ Rules:
 - Downgrade honestly: when the environment changes, an earlier OBSERVED becomes PRIOR.
 - "I don't know", followed by what would settle it, is a first-class answer.
 
+
 ## Domain Playbooks (load by deliverable type)
 
 Each reference applies this protocol to one domain: its failure modes, the moves in domain
 order, evaluable quality criteria, a slop catalog, habitually missed details, a verify
 loop, and a Do / Don't table. Load a matching playbook only when that task needs additional guidance; do not run the full catalog.
 
-| Load                                   | When                                                                                                                                                                                                                           |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `references/worked-examples.md`        | Before first use in Full mode, or to see the moves applied end to end: trick question, bug diagnosis, code review, metrics analysis, root cause with prevention, solution exploration, delegate verification.                  |
-| `references/agentic-long-horizon.md`   | Any task spanning many steps, tool calls, or sessions: autonomous runs, migrations, multi-file features, delegated or parallel work.                                                                                           |
-| `references/subagent-orchestration.md` | Before spawning any sub-agent or worker: delegate-or-not, the delegation packet, disjoint ownership, fan-in, verifying delegate reports.                                                                                       |
-| `references/runtime-orchestration.md`  | Work spanning more than one agent runtime or vendor: capability inventory, portable instructions, handoff receipts, mutation isolation, routing by fit and cost.                                                               |
-| `references/coding-taste.md`           | Before changing, reviewing, or debugging code beyond a rename: root cause, invariant ledger, surgical edits, discriminating tests.                                                                                             |
-| `references/engineering-standards.md`  | Writing or reviewing non-trivial code; any module, service, schema, API, or infrastructure design; design reviews: principles, code standards, system design standards, review checklist.                                      |
-| `references/debugging-root-cause.md`   | Any failure, flaky behavior, regression, incident, or recurring bug: reproduce, differential diagnosis, causal chain to the root, fix at the cause's altitude, prove both ways, prevent recurrence.                            |
-| `references/solution-exploration.md`   | Before committing to an approach: criteria first, a real option set, cheapest kill-tests, timeboxed spikes, simplest sufficient choice, legible decision record.                                                               |
-| `references/research-taste.md`         | Investigations, comparisons, literature or market scans, "what is the state of X", any synthesis from many sources.                                                                                                            |
-| `references/design-taste.md`           | Before writing markup, styles, or component code for anything a human looks at; UX flows, forms, states, accessibility; UI reviews.                                                                                            |
-| `references/motion-taste.md`           | Anything that moves: UI transitions and micro-interactions, loading states, animated charts, motion graphics and video sequences, slide builds, code-driven animation; reviews of motion.                                      |
-| `references/content-taste.md`          | Before drafting, editing, reviewing, or translating prose a human reads, in English or Vietnamese: docs, posts, copy, emails, reports, microcopy.                                                                              |
-| `references/engineering-prose.md`      | Commit messages, PR descriptions, issue reports, review comments, changelogs, READMEs and docs pages, decision records, runbooks, and instructions written for a model (prompts, skills, harness files, packets).              |
-| `references/document-vision.md`        | Any input that is an image, PDF, scan, screenshot, slide, chart, diagram, or a table inside a picture.                                                                                                                         |
-| `references/security-taste.md`         | Code or reviews touching auth, sessions, input parsing, files, payments, secrets, crypto, outbound requests, LLM tool integrations, CI/CD.                                                                                     |
-| `references/thinking-modes.md`         | The conventional answer violates a constraint (first principles); a long dependent chain needs visible revision (sequential); every option fails (creative).                                                                   |
-| `references/token-economy.md`          | Constrained budgets, many-tool-call tasks, sub-agent effort settings, or a similar run that felt slow or verbose.                                                                                                              |
-| `references/skill-usage.md`            | Routing a task to a skill, a user naming a skill or slash command, a skill script failing, first use of a third-party skill: live-catalog discovery, progressive loading, precedence, script inspection, outcome verification. |
+| Load | When |
+|------|------|
+| `references/worked-examples.md` | Before first use in Full mode, or to see the moves applied end to end: trick question, bug diagnosis, code review, metrics analysis, root cause with prevention, solution exploration, delegate verification. |
+| `references/agentic-long-horizon.md` | Any task spanning many steps, tool calls, or sessions: autonomous runs, migrations, multi-file features, delegated or parallel work. |
+| `references/subagent-orchestration.md` | Before spawning any sub-agent or worker: delegate-or-not, the delegation packet, disjoint ownership, fan-in, verifying delegate reports. |
+| `references/runtime-orchestration.md` | Work spanning more than one agent runtime or vendor: capability inventory, portable instructions, handoff receipts, mutation isolation, routing by fit and cost. |
+| `references/coding-taste.md` | Before changing, reviewing, or debugging code beyond a rename: root cause, invariant ledger, surgical edits, discriminating tests. |
+| `references/engineering-standards.md` | Writing or reviewing non-trivial code; any module, service, schema, API, or infrastructure design; design reviews: principles, code standards, system design standards, review checklist. |
+| `references/debugging-root-cause.md` | Any failure, flaky behavior, regression, incident, or recurring bug: reproduce, differential diagnosis, causal chain to the root, fix at the cause's altitude, prove both ways, prevent recurrence. |
+| `references/solution-exploration.md` | Before committing to an approach: criteria first, a real option set, cheapest kill-tests, timeboxed spikes, simplest sufficient choice, legible decision record. |
+| `references/research-taste.md` | Investigations, comparisons, literature or market scans, "what is the state of X", any synthesis from many sources. |
+| `references/design-taste.md` | Before writing markup, styles, or component code for anything a human looks at; UX flows, forms, states, accessibility; UI reviews. |
+| `references/motion-taste.md` | Anything that moves: UI transitions and micro-interactions, loading states, animated charts, motion graphics and video sequences, slide builds, code-driven animation; reviews of motion. |
+| `references/content-taste.md` | Before drafting, editing, reviewing, or translating prose a human reads, in English or Vietnamese: docs, posts, copy, emails, reports, microcopy. |
+| `references/engineering-prose.md` | Commit messages, PR descriptions, issue reports, review comments, changelogs, READMEs and docs pages, decision records, runbooks, and instructions written for a model (prompts, skills, harness files, packets). |
+| `references/document-vision.md` | Any input that is an image, PDF, scan, screenshot, slide, chart, diagram, or a table inside a picture. |
+| `references/security-taste.md` | Code or reviews touching auth, sessions, input parsing, files, payments, secrets, crypto, outbound requests, LLM tool integrations, CI/CD. |
+| `references/thinking-modes.md` | The conventional answer violates a constraint (first principles); a long dependent chain needs visible revision (sequential); every option fails (creative). |
+| `references/token-economy.md` | Constrained budgets, many-tool-call tasks, sub-agent effort settings, or a similar run that felt slow or verbose. |
+| `references/skill-usage.md` | Routing a task to a skill, a user naming a skill or slash command, a skill script failing, first use of a third-party skill: live-catalog discovery, progressive loading, precedence, script inspection, outcome verification. |

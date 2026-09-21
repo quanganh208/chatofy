@@ -32,7 +32,6 @@ they are hints, not enforcement.
   confirmation before running.
 
 Rules of thumb:
-
 - Any tool that returns UGC or third-party content → `untrustedContentHint`.
 - Any write/irreversible action → `consequentialHint`.
 - Pure lookups → `readOnlyHint`.

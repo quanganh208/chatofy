@@ -209,29 +209,29 @@ A service that routes traffic through an intermediary server, masking the user's
 
 ## Acronym Reference
 
-| Acronym | Full Term                                 |
-| ------- | ----------------------------------------- |
-| API     | Application Programming Interface         |
-| CDN     | Content Delivery Network                  |
-| CVE     | Common Vulnerabilities and Exposures      |
-| DNS     | Domain Name System                        |
-| DNSSEC  | DNS Security Extensions                   |
-| EXIF    | Exchangeable Image File Format            |
-| FCRA    | Fair Credit Reporting Act                 |
-| FTP     | File Transfer Protocol                    |
-| HSTS    | HTTP Strict Transport Security            |
-| HTTP/S  | HyperText Transfer Protocol (Secure)      |
-| IOC     | Indicator of Compromise                   |
-| IP      | Internet Protocol                         |
-| JSON    | JavaScript Object Notation                |
-| OSINT   | Open Source Intelligence                  |
-| PII     | Personally Identifiable Information       |
-| SIEM    | Security Information and Event Management |
-| TLS     | Transport Layer Security                  |
-| TTP     | Tactics, Techniques, and Procedures       |
-| URL     | Uniform Resource Locator                  |
-| VPN     | Virtual Private Network                   |
-| XSS     | Cross-Site Scripting                      |
+| Acronym | Full Term |
+|---------|-----------|
+| API | Application Programming Interface |
+| CDN | Content Delivery Network |
+| CVE | Common Vulnerabilities and Exposures |
+| DNS | Domain Name System |
+| DNSSEC | DNS Security Extensions |
+| EXIF | Exchangeable Image File Format |
+| FCRA | Fair Credit Reporting Act |
+| FTP | File Transfer Protocol |
+| HSTS | HTTP Strict Transport Security |
+| HTTP/S | HyperText Transfer Protocol (Secure) |
+| IOC | Indicator of Compromise |
+| IP | Internet Protocol |
+| JSON | JavaScript Object Notation |
+| OSINT | Open Source Intelligence |
+| PII | Personally Identifiable Information |
+| SIEM | Security Information and Event Management |
+| TLS | Transport Layer Security |
+| TTP | Tactics, Techniques, and Procedures |
+| URL | Uniform Resource Locator |
+| VPN | Virtual Private Network |
+| XSS | Cross-Site Scripting |
 
 ---
 

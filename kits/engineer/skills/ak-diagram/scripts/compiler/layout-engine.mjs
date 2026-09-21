@@ -76,9 +76,7 @@ function placeColumns(layers, nodes) {
 /** Stack a column's nodes vertically, centred on the tallest column. */
 function stackColumns(layers, nodes, columns, top) {
   const byId = new Map(nodes.map((n) => [n.id, n]));
-  const heights = layers.map(
-    (layer) => layer.reduce((sum, id) => sum + byId.get(id).h, 0) + GAP_Y * (layer.length - 1),
-  );
+  const heights = layers.map((layer) => layer.reduce((sum, id) => sum + byId.get(id).h, 0) + GAP_Y * (layer.length - 1));
   const tallest = Math.max(...heights);
   layers.forEach((layer, rank) => {
     let y = top + (tallest - heights[rank]) / 2;
@@ -153,39 +151,23 @@ export function layoutArchitecture(data) {
   const rank = assignRanks(ids, edges, back, fixed);
   const cohesion = new Map();
   for (const boundary of data.boundaries || []) {
-    for (const member of boundary.components || [])
-      if (!cohesion.has(member)) cohesion.set(member, boundary.id);
+    for (const member of boundary.components || []) if (!cohesion.has(member)) cohesion.set(member, boundary.id);
   }
   const layers = orderLayers(buildLayers(ids, rank), edges, rank, { cohesion });
   const columns = placeColumns(layers, nodes);
   const top = MARGIN_Y + HEADER_H + ((data.boundaries || []).length ? 30 : 0);
   const tallest = stackColumns(layers, nodes, columns, top);
   const byId = new Map(nodes.map((n) => [n.id, n]));
-  const frames = (data.boundaries || [])
-    .map((boundary) => {
-      const members = (boundary.components || []).map((id) => byId.get(id)).filter(Boolean);
-      if (!members.length) return null;
-      const x = Math.min(...members.map((n) => n.x)) - 16;
-      const y = Math.min(...members.map((n) => n.y)) - 30;
-      const right = Math.max(...members.map((n) => n.x + n.w)) + 16;
-      const bottom = Math.max(...members.map((n) => n.y + n.h)) + 14;
-      return {
-        kind: 'boundary',
-        id: boundary.id,
-        label: boundary.label,
-        role: boundary.role || '',
-        x,
-        y,
-        w: right - x,
-        h: bottom - y,
-      };
-    })
-    .filter(Boolean);
-  return finishScene(
-    'architecture',
-    { nodes, edges, columns, frames, header: headerFor(data.meta) },
-    top + tallest + MARGIN_Y,
-  );
+  const frames = (data.boundaries || []).map((boundary) => {
+    const members = (boundary.components || []).map((id) => byId.get(id)).filter(Boolean);
+    if (!members.length) return null;
+    const x = Math.min(...members.map((n) => n.x)) - 16;
+    const y = Math.min(...members.map((n) => n.y)) - 30;
+    const right = Math.max(...members.map((n) => n.x + n.w)) + 16;
+    const bottom = Math.max(...members.map((n) => n.y + n.h)) + 14;
+    return { kind: 'boundary', id: boundary.id, label: boundary.label, role: boundary.role || '', x, y, w: right - x, h: bottom - y };
+  }).filter(Boolean);
+  return finishScene('architecture', { nodes, edges, columns, frames, header: headerFor(data.meta) }, top + tallest + MARGIN_Y);
 }
 
 export function layoutWorkflow(data) {
@@ -199,8 +181,7 @@ export function layoutWorkflow(data) {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const laneOf = new Map(data.steps.map((s) => [s.id, s.lane]));
   const lanes = [...data.lanes];
-  if (data.steps.some((s) => !lanes.some((l) => l.id === s.lane)))
-    lanes.push({ id: '__unassigned', label: 'Unassigned', role: '' });
+  if (data.steps.some((s) => !lanes.some((l) => l.id === s.lane))) lanes.push({ id: '__unassigned', label: 'Unassigned', role: '' });
   const laneHeader = 34;
   let y = MARGIN_Y + HEADER_H;
   const laneLeft = MARGIN_X - 22;
@@ -214,9 +195,7 @@ export function layoutWorkflow(data) {
       if (!cells.has(r)) cells.set(r, []);
       cells.get(r).push(id);
     }
-    const stackHeights = [...cells.values()].map(
-      (cell) => cell.reduce((s, id) => s + byId.get(id).h, 0) + GAP_Y * (cell.length - 1),
-    );
+    const stackHeights = [...cells.values()].map((cell) => cell.reduce((s, id) => s + byId.get(id).h, 0) + GAP_Y * (cell.length - 1));
     const inner = Math.max(NODE_H, ...stackHeights);
     const h = laneHeader + inner + 22;
     for (const [r, cell] of cells) {
@@ -231,24 +210,11 @@ export function layoutWorkflow(data) {
         cy += node.h + GAP_Y;
       }
     }
-    const frame = {
-      kind: 'lane',
-      id: lane.id,
-      label: lane.label,
-      role: lane.role || '',
-      x: laneLeft,
-      y,
-      w: laneRight - laneLeft,
-      h,
-    };
+    const frame = { kind: 'lane', id: lane.id, label: lane.label, role: lane.role || '', x: laneLeft, y, w: laneRight - laneLeft, h };
     y += h + 10;
     return frame;
   });
-  return finishScene(
-    'workflow',
-    { nodes, edges, columns, frames, header: headerFor(data.meta) },
-    y + MARGIN_Y / 2,
-  );
+  return finishScene('workflow', { nodes, edges, columns, frames, header: headerFor(data.meta) }, y + MARGIN_Y / 2);
 }
 
 export function layoutDataflow(data) {
@@ -261,9 +227,7 @@ export function layoutDataflow(data) {
   const nodes = data.nodes.map((n) => makeNode('dataflow', n, n.role));
   const ids = nodes.map((n) => n.id);
   const edges = makeEdges('dataflow', data.flows, 'from', 'to', 'label');
-  const fixed = new Map(
-    data.nodes.map((n) => [n.id, stageIndex.get(n.stage) ?? stageIndex.get('__processing')]),
-  );
+  const fixed = new Map(data.nodes.map((n) => [n.id, stageIndex.get(n.stage) ?? stageIndex.get('__processing')]));
   const back = findBackEdges(ids, edges);
   const rank = assignRanks(ids, edges, back, fixed);
   // keep every stage column even when it is empty so frames line up with authoring
@@ -271,48 +235,26 @@ export function layoutDataflow(data) {
   for (const id of ids) layers[fixed.get(id)].push(id);
   for (const id of ids) rank.set(id, fixed.get(id));
   orderLayers(layers, edges, rank);
-  const widths = layers.map((layer) =>
-    layer.length ? Math.max(...layer.map((id) => nodes.find((n) => n.id === id).w)) : 150,
-  );
+  const widths = layers.map((layer) => (layer.length ? Math.max(...layer.map((id) => nodes.find((n) => n.id === id).w)) : 150));
   let x = MARGIN_X + 12;
-  const columns = widths.map((w) => {
-    const c = { x, w };
-    x += w + GAP_X;
-    return c;
-  });
+  const columns = widths.map((w) => { const c = { x, w }; x += w + GAP_X; return c; });
   const top = MARGIN_Y + HEADER_H + 34;
   const byId = new Map(nodes.map((n) => [n.id, n]));
-  const heights = layers.map(
-    (layer) =>
-      layer.reduce((s, id) => s + byId.get(id).h, 0) + GAP_Y * Math.max(layer.length - 1, 0),
-  );
+  const heights = layers.map((layer) => layer.reduce((s, id) => s + byId.get(id).h, 0) + GAP_Y * Math.max(layer.length - 1, 0));
   const tallest = Math.max(...heights, NODE_H);
   layers.forEach((layer, r) => {
     let y = top + (tallest - heights[r]) / 2;
     for (const id of layer) {
       const node = byId.get(id);
-      node.x = columns[r].x;
-      node.w = columns[r].w;
-      node.y = y;
-      node.rank = r;
+      node.x = columns[r].x; node.w = columns[r].w; node.y = y; node.rank = r;
       y += node.h + GAP_Y;
     }
   });
   const frames = stages.map((stage, i) => ({
-    kind: 'stage',
-    id: stage.id,
-    label: stage.label,
-    role: '',
-    x: columns[i].x - 20,
-    y: top - 38,
-    w: columns[i].w + 40,
-    h: tallest + 56,
+    kind: 'stage', id: stage.id, label: stage.label, role: '',
+    x: columns[i].x - 20, y: top - 38, w: columns[i].w + 40, h: tallest + 56,
   }));
-  return finishScene(
-    'dataflow',
-    { nodes, edges, columns, frames, header: headerFor(data.meta) },
-    top + tallest + MARGIN_Y,
-  );
+  return finishScene('dataflow', { nodes, edges, columns, frames, header: headerFor(data.meta) }, top + tallest + MARGIN_Y);
 }
 
 export function layoutLifecycle(data) {
@@ -327,11 +269,7 @@ export function layoutLifecycle(data) {
   const columns = placeColumns(layers, nodes);
   const top = MARGIN_Y + HEADER_H;
   const tallest = stackColumns(layers, nodes, columns, top);
-  return finishScene(
-    'lifecycle',
-    { nodes, edges, columns, frames: [], header: headerFor(data.meta) },
-    top + tallest + MARGIN_Y,
-  );
+  return finishScene('lifecycle', { nodes, edges, columns, frames: [], header: headerFor(data.meta) }, top + tallest + MARGIN_Y);
 }
 
 /* ------------------------------------------------------------------ */
@@ -349,11 +287,7 @@ export function layoutSequence(data) {
   });
   let x = MARGIN_X;
   const top = MARGIN_Y + HEADER_H;
-  for (const node of nodes) {
-    node.x = x;
-    node.y = top;
-    x += node.w + SEQ_GAP;
-  }
+  for (const node of nodes) { node.x = x; node.y = top; x += node.w + SEQ_GAP; }
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const cx = (id) => byId.get(id).x + byId.get(id).w / 2;
   const firstY = top + 46 + SEQ_TOP_PAD;
@@ -381,17 +315,9 @@ export function layoutSequence(data) {
     const x1 = to - (activeDepth(m.to) ? dir * 4 : 0);
     let points;
     if (m.kind === 'self-call' || m.from === m.to) {
-      points = [
-        { x: from + 4, y: y - 6 },
-        { x: from + 40, y: y - 6 },
-        { x: from + 40, y: y + 14 },
-        { x: from + 4, y: y + 14 },
-      ];
+      points = [{ x: from + 4, y: y - 6 }, { x: from + 40, y: y - 6 }, { x: from + 40, y: y + 14 }, { x: from + 4, y: y + 14 }];
     } else {
-      points = [
-        { x: x0, y },
-        { x: x1, y },
-      ];
+      points = [{ x: x0, y }, { x: x1, y }];
     }
     const labelW = textWidth(m.label, 10.5, 500) + 14;
     const mid = m.kind === 'self-call' || m.from === m.to ? from + 48 + labelW / 2 : (x0 + x1) / 2;
@@ -405,16 +331,7 @@ export function layoutSequence(data) {
       open: !!style.open,
       tone: style.tone || '',
       points,
-      labelBox: m.label
-        ? {
-            x: mid,
-            y: y - 10,
-            w: labelW,
-            h: 18,
-            anchor: 'middle',
-            rect: { x: mid - labelW / 2, y: y - 19 },
-          }
-        : null,
+      labelBox: m.label ? { x: mid, y: y - 10, w: labelW, h: 18, anchor: 'middle', rect: { x: mid - labelW / 2, y: y - 19 } } : null,
       step: Math.min(i + 1, MAX_STEP),
     };
   });
@@ -422,9 +339,7 @@ export function layoutSequence(data) {
   const lifelineEnd = lastY + SEQ_ROW;
   for (const bar of activations) if (bar.y1 === null) bar.y1 = lifelineEnd - 12;
   const legendY = lifelineEnd + 20;
-  const width = nodes.length
-    ? nodes[nodes.length - 1].x + nodes[nodes.length - 1].w + MARGIN_X
-    : 400;
+  const width = nodes.length ? nodes[nodes.length - 1].x + nodes[nodes.length - 1].w + MARGIN_X : 400;
   for (const node of nodes) node.step = 0;
   return {
     kind: 'sequence',
@@ -432,11 +347,7 @@ export function layoutSequence(data) {
     viewBox: { x: 0, y: 0, w: width, h: legendY + LEGEND_H + MARGIN_Y / 2 },
     nodes,
     frames: [],
-    edges: messages.map((m) => ({
-      ...m,
-      path: m.points.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' '),
-      route: m.points.map((p) => `${p.x},${p.y}`).join(' '),
-    })),
+    edges: messages.map((m) => ({ ...m, path: m.points.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' '), route: m.points.map((p) => `${p.x},${p.y}`).join(' ') })),
     lifelines: nodes.map((n) => ({ id: n.id, x: n.x + n.w / 2, y0: n.y + n.h, y1: lifelineEnd })),
     activations: activations.map((bar) => ({ ...bar, x: cx(bar.participant) - 5 + bar.depth * 4 })),
     legend: legendFor(nodes.map((n) => n.family)),
@@ -447,17 +358,11 @@ export function layoutSequence(data) {
 
 export function layoutScene(type, data) {
   switch (type) {
-    case 'architecture':
-      return layoutArchitecture(data);
-    case 'workflow':
-      return layoutWorkflow(data);
-    case 'dataflow':
-      return layoutDataflow(data);
-    case 'lifecycle':
-      return layoutLifecycle(data);
-    case 'sequence':
-      return layoutSequence(data);
-    default:
-      throw new Error(`Unsupported diagram type: ${type}`);
+    case 'architecture': return layoutArchitecture(data);
+    case 'workflow': return layoutWorkflow(data);
+    case 'dataflow': return layoutDataflow(data);
+    case 'lifecycle': return layoutLifecycle(data);
+    case 'sequence': return layoutSequence(data);
+    default: throw new Error(`Unsupported diagram type: ${type}`);
   }
 }

@@ -32,12 +32,12 @@ Creating a feature? Set up this structure:
 
 ## Import Aliases Quick Reference
 
-| Alias         | Resolves To      | Example                                                       |
-| ------------- | ---------------- | ------------------------------------------------------------- |
-| `@/`          | `src/`           | `import { apiClient } from '@/lib/apiClient'`                 |
-| `~types`      | `src/types`      | `import type { User } from '~types/user'`                     |
+| Alias | Resolves To | Example |
+|-------|-------------|---------|
+| `@/` | `src/` | `import { apiClient } from '@/lib/apiClient'` |
+| `~types` | `src/types` | `import type { User } from '~types/user'` |
 | `~components` | `src/components` | `import { SuspenseLoader } from '~components/SuspenseLoader'` |
-| `~features`   | `src/features`   | `import { authApi } from '~features/auth'`                    |
+| `~features` | `src/features` | `import { authApi } from '~features/auth'` |
 
 Defined in: `vite.config.ts` lines 180-185
 

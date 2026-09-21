@@ -3,14 +3,12 @@
 For each tool in the plan:
 
 **Define Input Schema:**
-
 - Use Pydantic (Python) or Zod (TypeScript) for validation
 - Include proper constraints (min/max length, regex patterns, min/max values, ranges)
 - Provide clear, descriptive field descriptions
 - Include diverse examples in field descriptions
 
 **Write Comprehensive Docstrings/Descriptions:**
-
 - One-line summary of what the tool does
 - Detailed explanation of purpose and functionality
 - Explicit parameter types with examples
@@ -19,7 +17,6 @@ For each tool in the plan:
 - Error handling documentation, which outlines how to proceed given specific errors
 
 **Implement Tool Logic:**
-
 - Use shared utilities to avoid code duplication
 - Follow async/await patterns for all I/O
 - Implement proper error handling
@@ -28,7 +25,6 @@ For each tool in the plan:
 - Check character limits and truncate appropriately
 
 **Add Tool Annotations:**
-
 - `readOnlyHint`: true (for read-only operations)
 - `destructiveHint`: false (for non-destructive operations)
 - `idempotentHint`: true (if repeated calls have same effect)
@@ -39,7 +35,6 @@ For each tool in the plan:
 **At this point, load the appropriate language guide:**
 
 **For Python: Load [🐍 Python Implementation Guide](../reference/python-mcp-server.md) and ensure the following:**
-
 - Using MCP Python SDK with proper tool registration
 - Pydantic v2 models with `model_config`
 - Type hints throughout
@@ -48,7 +43,6 @@ For each tool in the plan:
 - Module-level constants (CHARACTER_LIMIT, API_BASE_URL)
 
 **For Node/TypeScript: Load [⚡ TypeScript Implementation Guide](../reference/node-mcp-server.md) and ensure the following:**
-
 - Using `server.registerTool` properly
 - Zod schemas with `.strict()`
 - TypeScript strict mode enabled

@@ -1,14 +1,14 @@
 ---
 name: ak:journal
-description: 'Write chronological technical journals for session reflection and change analysis. Journals preserve work history; they do not replace current docs or ADRs.'
+description: "Write chronological technical journals for session reflection and change analysis. Journals preserve work history; they do not replace current docs or ADRs."
 user-invocable: true
-when_to_use: 'Invoke for technical session reflection or chronological work records.'
+when_to_use: "Invoke for technical session reflection or chronological work records."
 category: workflow
 keywords: [journal, reflection, changes, session]
-argument-hint: '[topic or reflection]'
+argument-hint: "[topic or reflection]"
 metadata:
   author: agentkit
-  version: '1.3.1'
+  version: "1.3.1"
 ---
 
 # Journal
@@ -69,7 +69,6 @@ unaffected by any preference or flag.
 
 The **automatic** journal step at the end of the `ak:plan`, `/ak:cook`,
 `/ak:fix`, `ak:ship`, and `ak:bootstrap` skills honors:
-
 - The `--skip-journal` flag on the invoking skill.
 - The `journal.auto` config preference (default: `true`).
   Set with: `ak config prefs set journal.auto false` (or `true` to re-enable).
@@ -77,7 +76,6 @@ The **automatic** journal step at the end of the `ak:plan`, `/ak:cook`,
 Precedence when a workflow decides whether to run the automatic step: flag >
 project config > user config > default (`true`). When the automatic step is
 skipped, workflows print one line so the intent stays visible in output:
-
 - `journal skipped by --skip-journal` (flag), or
 - `journal skipped by preference` (config).
 

@@ -29,9 +29,7 @@ async function readStdin() {
     }
 
     process.stdin.setEncoding('utf8');
-    process.stdin.on('data', (chunk) => {
-      data += chunk;
-    });
+    process.stdin.on('data', chunk => { data += chunk; });
     process.stdin.on('end', () => {
       if (!data.trim()) {
         resolve({});
@@ -44,7 +42,7 @@ async function readStdin() {
         resolve({});
       }
     });
-    process.stdin.on('error', (err) => {
+    process.stdin.on('error', err => {
       console.error(`[notify] Stdin error: ${err.message}`);
       resolve({});
     });
@@ -64,7 +62,7 @@ async function readStdin() {
  * @returns {boolean}
  */
 function hasProviderEnv(prefix, env) {
-  return Object.keys(env).some((key) => key.startsWith(prefix + '_'));
+  return Object.keys(env).some(key => key.startsWith(prefix + '_'));
 }
 
 /**
@@ -143,9 +141,10 @@ async function main() {
 
     // Log summary if any providers ran
     if (results.length > 0) {
-      const successful = results.filter((r) => r.success).length;
+      const successful = results.filter(r => r.success).length;
       console.error(`[notify] Summary: ${successful}/${results.length} succeeded`);
     }
+
   } catch (err) {
     console.error(`[notify] Fatal error: ${err.message}`);
   }

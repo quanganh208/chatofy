@@ -2,14 +2,14 @@
 name: ak:web-frameworks
 description: Build with Next.js (App Router, RSC, SSR, ISR), Turborepo monorepos. Use for React apps, server rendering, build optimization, caching strategies, shared dependencies.
 user-invocable: true
-when_to_use: 'Invoke for Next.js, RSC, SSR, ISR, Turborepo, or caching.'
+when_to_use: "Invoke for Next.js, RSC, SSR, ISR, Turborepo, or caching."
 category: engineering
 keywords: [nextjs, turborepo, ssr, isr, rsc]
 license: MIT
-argument-hint: '[framework] [feature]'
+argument-hint: "[framework] [feature]"
 metadata:
   author: agentkit
-  version: '1.1.1'
+  version: "1.1.1"
 ---
 
 # Web Frameworks Skill Group
@@ -41,20 +41,17 @@ Read manifests and framework/workspace configuration. Route Next.js rendering/da
 ## Reference Navigation
 
 **Next.js References:**
-
 - [App Router Architecture](./references/nextjs-app-router.md) - Routing, layouts, pages, parallel routes
 - [Server Components](./references/nextjs-server-components.md) - RSC patterns, client vs server, streaming
 - [Data Fetching](./references/nextjs-data-fetching.md) - fetch API, caching, revalidation, loading states
 - [Optimization](./references/nextjs-optimization.md) - Images, fonts, scripts, bundle analysis, PPR
 
 **Turborepo References:**
-
 - [Setup & Configuration](./references/turborepo-setup.md) - Installation, workspace config, package structure
 - [Task Pipelines](./references/turborepo-pipelines.md) - Dependencies, parallel execution, task ordering
 - [Caching Strategies](./references/turborepo-caching.md) - Local cache, remote cache, cache invalidation
 
 **RemixIcon References:**
-
 - [Integration Guide](./references/remix-icon-integration.md) - Installation, usage, customization, accessibility
 
 ## Common Patterns & Workflows
@@ -71,7 +68,6 @@ Python utilities in `scripts/` directory:
 **turborepo_migrate.py** - Convert existing monorepo to Turborepo
 
 Usage examples:
-
 ```bash
 # Initialize new Next.js app with TypeScript and recommended setup
 python scripts/nextjs_init.py --name my-app --typescript --app-router
@@ -87,7 +83,6 @@ pytest
 ## Best Practices
 
 **Next.js:**
-
 - Default to Server Components, use Client Components only when needed
 - Implement proper loading and error states
 - Use Image component for automatic optimization
@@ -96,7 +91,6 @@ pytest
 - Track stable Next.js security releases separately from canary framework drift. Production apps should stay on a patched stable release line and avoid canary-only pins unless testing a specific upstream issue.
 
 **Turborepo:**
-
 - Structure monorepo with clear separation (apps/, packages/)
 - Define task dependencies correctly (^build for topological)
 - Configure outputs for proper caching
@@ -104,7 +98,6 @@ pytest
 - Use filters to run tasks on changed packages only
 
 **RemixIcon:**
-
 - Use line style for minimal interfaces, fill for emphasis
 - Maintain 24x24 grid alignment for crisp rendering
 - Provide aria-labels for accessibility

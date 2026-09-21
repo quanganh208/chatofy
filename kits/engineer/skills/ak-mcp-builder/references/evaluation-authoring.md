@@ -20,7 +20,6 @@ To create effective evaluations, follow the process outlined in the evaluation g
 ## 4.3 Evaluation Requirements
 
 Each question must be:
-
 - **Independent**: Not dependent on other questions
 - **Read-only**: Only non-destructive operations required
 - **Complex**: Requiring multiple tool calls and deep exploration

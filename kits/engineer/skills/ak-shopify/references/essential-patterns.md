@@ -32,12 +32,7 @@ query GetProducts($first: Int!) {
 ## Checkout Extension (React)
 
 ```javascript
-import {
-  reactExtension,
-  BlockStack,
-  TextField,
-  Checkbox,
-} from '@shopify/ui-extensions-react/checkout';
+import { reactExtension, BlockStack, TextField, Checkbox } from '@shopify/ui-extensions-react/checkout';
 
 export default reactExtension('purchase.checkout.block.render', () => <Extension />);
 

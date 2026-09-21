@@ -7,7 +7,13 @@
     "integrated photography",
     "graphic overlay"
   ],
-  "palette_hexes": ["#C20A17", "#FFFFFF", "#000000", "#3F3F3F", "#D4B4A9"],
+  "palette_hexes": [
+    "#C20A17",
+    "#FFFFFF",
+    "#000000",
+    "#3F3F3F",
+    "#D4B4A9"
+  ],
   "layout": {
     "grid": "broken grid",
     "focal": "center",
@@ -17,7 +23,22 @@
     "material": "digital flat",
     "finish": "photo collage"
   },
-  "mood": ["bold", "edgy", "energetic", "modern"],
-  "shape_primitives": ["thick rule", "large letterforms", "rectangle", "human figure"],
-  "typography": ["geometric sans", "all caps", "extreme size contrast", "script accent"]
+  "mood": [
+    "bold",
+    "edgy",
+    "energetic",
+    "modern"
+  ],
+  "shape_primitives": [
+    "thick rule",
+    "large letterforms",
+    "rectangle",
+    "human figure"
+  ],
+  "typography": [
+    "geometric sans",
+    "all caps",
+    "extreme size contrast",
+    "script accent"
+  ]
 }

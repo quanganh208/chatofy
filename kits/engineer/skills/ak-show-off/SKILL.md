@@ -1,25 +1,23 @@
 ---
 name: ak:show-off
-description: 'Create preference-aware self-contained HTML pages to showcase work. Use for demos, visual presentations, interactive showcases.'
+description: "Create preference-aware self-contained HTML pages to showcase work. Use for demos, visual presentations, interactive showcases."
 user-invocable: true
-when_to_use: 'Invoke to create a self-contained showcase or demo page.'
+when_to_use: "Invoke to create a self-contained showcase or demo page."
 category: media
 keywords: [HTML, showcase, demo, presentation]
-argument-hint: '[markdown-or-prompt] [--no-antv|--no-diagram-design|--no-editorial-visuals]'
+argument-hint: "[markdown-or-prompt] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 license: Complete terms in LICENSE.txt
 metadata:
   author: agentkit
-  version: '1.0.3'
+  version: "1.0.3"
 ---
 
 Activate `ak:frontend-design` to build the showcase page. Run its Decision Procedure (one-line Design Read) and Self-Review Gate, because a demo page converges on the same generic layout as product UI when they are skipped.
 
 ## REQUEST / MISSION:
-
 $ARGUMENTS
 
 ## PURPOSE:
-
 Showcase, social media posting, and optional output images for articles.
 
 ## PERSISTED PREFERENCES
@@ -48,7 +46,6 @@ The helper stores preferences at `$AGENTKIT_HOME/show-off/preferences.json`, or
 `SHOW_OFF_PREFS_PATH` may override the path for tests or one-off advanced use.
 
 Recognize workflow-control intent before registering optional outputs:
-
 - Screenshot capture: phrases like "no screenshots", "skip screenshots", "turn off screenshots", or `--no-screenshots`.
 - Publishing: phrases like "no publish", "skip publishing", "local only", "do not publish", or `--no-publish`.
 - Language mode: phrases like "English only", "Vietnamese only", "disable dual language", "no bilingual", or `--languages en`.
@@ -74,7 +71,6 @@ wins over stored preferences. Do not ask the user to repeat a persisted opt-out.
 After resolving preferences, inspect the mission and output scope. A small local showcase may proceed directly with a concise checklist and the existing asset path. For multi-artifact or publication work, reuse or create a plan through the installed project-management capability. That owner handles plan/task lifecycle.
 
 Purpose:
-
 - Create a dated plan directory under `plans/` (naming from hook injection: `{date}-{issue}-{slug}`).
 - Register the resolved checklist below as trackable tasks:
   - Always: request-analysis, content, HTML, local open/review.
@@ -86,9 +82,7 @@ Purpose:
 A missing live task surface does not block local HTML creation: keep the checklist in the plan or session. Resolve genuine missing content, target or permission decisions before dependent work.
 
 ## DETAILED INSTRUCTIONS
-
 Follow these steps strictly in order, one by one:
-
 - Read and analyze the request carefully, split into topics/sections (minimum 2, maximum 6, including hero section).
 - Update the active checklist as meaningful work completes; use plan tracking only when a plan is needed.
 - Search the internet for supporting evidence or fact-checking information in the request/mission.
@@ -96,10 +90,10 @@ Follow these steps strictly in order, one by one:
   **NOTE:**
   - Check if one of these files existed:
     [
-    `/Volumes/GOON/www/assets/writing-styles/`,
-    `~/www/writing-styles/`,
-    `~/.claude/writing-styles/`,
-    `~/writing-styles/`
+      `/Volumes/GOON/www/assets/writing-styles/`,
+      `~/www/writing-styles/`,
+      `~/.claude/writing-styles/`,
+      `~/writing-styles/`
     ]
     -> Read it to use writing style (if none of them exists, just skip).
   - Attach citation URLs in references/footnotes at end of file.
@@ -124,7 +118,6 @@ Follow these steps strictly in order, one by one:
 - If `screenshots=true`, capture each section as images (JPG/PNG) at `assets/showoff/<mission-name>/images/` with ratio-based prefix (`horizontal`, `vertical`, `square`).
   **NOTE:** The capture script now auto-waits for fonts, `<img>` completion, and CSS background-image loading before each shot. `--settle-delay` adds an extra cushion for animations / lazy reveals.
   Use the parallel capture script; it shoots the sections concurrently:
-
   ```bash
   node scripts/capture-sections.js \
     --url "file:///path/to/index.html" \
@@ -133,17 +126,14 @@ Follow these steps strictly in order, one by one:
     --ratios "horizontal,vertical,square" \
     --settle-delay 1500
   ```
-
   **FALLBACK - `rws` CLI**: if `publishing=true` and the local script fails (puppeteer missing, headless Chrome unavailable, sandbox error, script exit non-zero) AND the `rws` command is on PATH AND `$RWEB_API_KEY` is set, fall back to the ReviewWeb screenshot API. The HTML must be publicly reachable (publish via `agentwiki` first, then use the public URL + `#section-id` anchors).
 
   Detection:
-
   ```bash
   command -v rws >/dev/null && [ -n "$RWEB_API_KEY" ] && echo "rws fallback available"
   ```
 
   Per (section, ratio) capture loop:
-
   ```bash
   # Viewports: horizontal=1920x1080, vertical=1080x1920, square=1080x1080
   rws screenshot \
@@ -162,13 +152,11 @@ Follow these steps strictly in order, one by one:
   - Skip `rws` fallback if the HTML is only reachable via `file://` and cannot be published yet — in that case, surface the local script error to the user and stop.
   - Never pass `$RWEB_API_KEY` on the command line; rely on the env var resolution (`rws` reads it automatically).
   - On `rws` exit code 2 (auth error) or missing `$RWEB_API_KEY`, stop and report — do not silently skip capture.
-
 - If `publishing=true`, use `agentwiki` CLI to publish/update this static site when complete.
   If `publishing=false`, do not publish and report the local artifact path instead.
 - Use `open` CLI (or equivalent) to open the resulting HTML page.
 
 ## OUTPUT REQUIREMENTS
-
 - Each section's components fit within the browser viewport
 - Support responsive layout, especially good display for ratios 16:9, 9:16 and 1:1
 - Font must support Vietnamese characters well when Vietnamese is enabled
@@ -204,7 +192,6 @@ node scripts/preferences.js reset
 ```
 
 Options for `set`:
-
 - `--screenshots on|off`, `--no-screenshots`
 - `--publishing on|off`, `--publish on|off`, `--no-publishing`, `--no-publish`
 - `--languages en|vi|en,vi`, `--language en|vi`
@@ -215,7 +202,6 @@ Options for `set`:
 Load `references/capture-options.md` only when screenshots are enabled.
 
 ## SECURITY POLICY
-
-This skill handles HTML generation and screenshot capture only.
+This skill handles HTML generation and screenshot capture only. 
 Publishing uses the selected existing capability within the authorized target; this skill does not implement authentication, databases, or general server deployment.
 Never include API keys or credentials in generated HTML files.

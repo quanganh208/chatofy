@@ -13,7 +13,7 @@ const { createHookTimer, logHookCrash } = require('./lib/hook-logger.cjs');
 const {
   getCacheAgeMs,
   refreshUsageCache,
-  readUsageCache,
+  readUsageCache
 } = require('./lib/usage-limits-cache.cjs');
 
 const FETCH_INTERVAL_MS = 300000; // 5 minutes for PostToolUse
@@ -30,8 +30,7 @@ function getUsageQuotaRefreshContext(input = {}) {
   const source = input.source === 'startup' || input.source === 'resume' ? input.source : '';
   const tool = typeof input.tool_name === 'string' ? input.tool_name : '';
   const isSessionStart = source !== '' || eventName === 'SessionStart';
-  const isPromptLike =
-    typeof input.prompt === 'string' || eventName === 'UserPromptSubmit' || isSessionStart;
+  const isPromptLike = typeof input.prompt === 'string' || eventName === 'UserPromptSubmit' || isSessionStart;
   const event = isSessionStart
     ? 'SessionStart'
     : eventName || (typeof input.prompt === 'string' ? 'UserPromptSubmit' : 'PostToolUse');
@@ -41,7 +40,7 @@ function getUsageQuotaRefreshContext(input = {}) {
 
 async function runUsageQuotaCacheRefreshHook({
   hookName = 'usage-quota-cache-refresh',
-  userAgent = 'claudekit-engineer/usage-quota-cache-refresh',
+  userAgent = 'claudekit-engineer/usage-quota-cache-refresh'
 } = {}) {
   let lastHookEvent = 'PostToolUse';
   let lastToolName = '';
@@ -62,14 +61,14 @@ async function runUsageQuotaCacheRefreshHook({
     if (shouldFetch(context.isPromptLike)) {
       const fetchResult = await refreshUsageCache({
         fetchTimeoutMs: 5000,
-        userAgent,
+        userAgent
       });
       timer.end({
         event: context.event,
         tool: context.tool,
         status: fetchResult.ok ? 'ok' : 'warn',
         exit: 0,
-        note: fetchResult.note,
+        note: fetchResult.note
       });
     } else {
       timer.end({
@@ -77,7 +76,7 @@ async function runUsageQuotaCacheRefreshHook({
         tool: context.tool,
         status: 'skip',
         exit: 0,
-        note: 'throttled',
+        note: 'throttled'
       });
     }
   } catch (error) {
@@ -97,5 +96,5 @@ if (require.main === module) {
 
 module.exports = {
   runUsageQuotaCacheRefreshHook,
-  getUsageQuotaRefreshContext,
+  getUsageQuotaRefreshContext
 };

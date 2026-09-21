@@ -14,13 +14,13 @@ draft ──► active ──► paused ──► archived
   └──► (discard, no save)
 ```
 
-| State      | Description                                             |
-| ---------- | ------------------------------------------------------- |
-| `draft`    | Newly created, not yet saved to disk                    |
-| `active`   | Open and accepting changes; auto-save running           |
-| `paused`   | Saved to disk; auto-save suspended                      |
-| `archived` | Read-only; excluded from active workspace list          |
-| `locked`   | Write-protected while another process has exclusive use |
+| State      | Description                                          |
+|------------|------------------------------------------------------|
+| `draft`    | Newly created, not yet saved to disk                 |
+| `active`   | Open and accepting changes; auto-save running        |
+| `paused`   | Saved to disk; auto-save suspended                   |
+| `archived` | Read-only; excluded from active workspace list       |
+| `locked`   | Write-protected while another process has exclusive use|
 
 ---
 
@@ -582,14 +582,14 @@ FINDINGS
 
 ## Command Reference
 
-| Command                     | Description                               |
-| --------------------------- | ----------------------------------------- |
-| `/workspace save`           | Save active case to disk                  |
-| `/workspace open`           | Open a saved workspace                    |
-| `/workspace list`           | List all workspaces (filterable by state) |
-| `/workspace archive`        | Move workspace to archived state          |
-| `/workspace lock`           | Acquire write lock on workspace           |
-| `/workspace unlock`         | Release write lock                        |
-| `/workspace stats`          | Show active workspace statistics          |
-| `/workspace diff`           | Compare two snapshots or saves            |
-| `/workspace diff <n1> <n2>` | Cross-workspace session comparison        |
+| Command                        | Description                                   |
+|--------------------------------|-----------------------------------------------|
+| `/workspace save`              | Save active case to disk                      |
+| `/workspace open`              | Open a saved workspace                        |
+| `/workspace list`              | List all workspaces (filterable by state)     |
+| `/workspace archive`           | Move workspace to archived state              |
+| `/workspace lock`              | Acquire write lock on workspace               |
+| `/workspace unlock`            | Release write lock                            |
+| `/workspace stats`             | Show active workspace statistics              |
+| `/workspace diff`              | Compare two snapshots or saves                |
+| `/workspace diff <n1> <n2>`    | Cross-workspace session comparison            |

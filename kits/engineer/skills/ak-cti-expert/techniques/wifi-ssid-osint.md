@@ -19,7 +19,6 @@ WiFi/SSID OSINT maps wireless networks to physical locations using the Wigle.net
 ## 2. Tool Inventory
 
 ### Primary — Wigle.net API v2 (free tier: 50 queries/day)
-
 ```bash
 # Register free account at https://wigle.net/account
 # Get API name + token from https://wigle.net/account
@@ -38,14 +37,12 @@ curl -s -H "Authorization: Basic $(echo -n 'API_NAME:API_TOKEN' | base64)" \
 ```
 
 ### Secondary — Wigle Web UI (no API key needed for basic search)
-
 ```
 https://wigle.net/search
 Manual browser search — limited results without account
 ```
 
 ### Tertiary — Google Geolocation API Fallback
-
 ```bash
 # If BSSIDs known, Google can geolocate from WiFi access points
 curl -s -X POST "https://www.googleapis.com/geolocation/v1/geolocate?key=API_KEY" \
@@ -54,7 +51,6 @@ curl -s -X POST "https://www.googleapis.com/geolocation/v1/geolocate?key=API_KEY
 ```
 
 ### Web Fallback — Search Engine Dorks
-
 ```
 "TARGET_SSID" site:wigle.net
 "TARGET_SSID" wifi location OR coordinates
@@ -101,20 +97,20 @@ Step 6: Assess confidence and document
 
 ```json
 {
-  "trilat": 37.7749, // GPS latitude
-  "trilong": -122.4194, // GPS longitude
-  "ssid": "TargetNetwork", // Network name
-  "netid": "AA:BB:CC:DD:EE:FF", // MAC/BSSID
-  "encryption": "wpa2", // Security type
-  "channel": 6, // WiFi channel
+  "trilat": 37.7749,        // GPS latitude
+  "trilong": -122.4194,     // GPS longitude
+  "ssid": "TargetNetwork",  // Network name
+  "netid": "AA:BB:CC:DD:EE:FF",  // MAC/BSSID
+  "encryption": "wpa2",     // Security type
+  "channel": 6,             // WiFi channel
   "country": "US",
   "region": "California",
   "city": "San Francisco",
   "road": "Market St",
   "housenumber": "100",
   "postalcode": "94105",
-  "firsttime": "2023-01-15T10:30:00", // First observed
-  "lasttime": "2024-06-20T14:15:00" // Last observed
+  "firsttime": "2023-01-15T10:30:00",  // First observed
+  "lasttime": "2024-06-20T14:15:00"    // Last observed
 }
 ```
 
@@ -147,7 +143,6 @@ No results found?
 ## 6. Output Interpretation
 
 ### Encryption Significance
-
 ```
 open      → No password; public hotspot or misconfigured AP
 wep       → Deprecated encryption; trivially broken; likely legacy device
@@ -158,7 +153,6 @@ wpa2-ent  → Enterprise with RADIUS auth; corporate environment
 ```
 
 ### SSID Pattern Analysis
-
 ```
 Corporate naming:     "ACME-Corp-5G", "Guest-ACME" → organizational affiliation
 Personal naming:      "John's iPhone", "SmithFamily" → identity leakage
@@ -168,7 +162,6 @@ Mobile hotspot:       Same SSID at multiple distant locations → device travels
 ```
 
 ### Temporal Analysis
-
 ```
 firsttime + lasttime close together → temporary deployment or brief observation
 firsttime old + lasttime recent → persistent installation
@@ -180,15 +173,15 @@ Multiple entries, different locations → mobile AP (phone hotspot, vehicle)
 
 ## 7. Confidence Ratings
 
-| Finding Type                       | Confidence | Notes                                       |
-| ---------------------------------- | ---------- | ------------------------------------------- |
-| BSSID-matched location             | HIGH       | MAC address is unique per device            |
-| Unique SSID location               | MEDIUM     | Unique names likely match one network       |
-| Common SSID location               | LOW        | "linksys", "default" match thousands        |
-| Encryption type                    | HIGH       | Directly reported by scanner                |
-| Owner identity from SSID           | MEDIUM     | SSID may contain names but could be spoofed |
-| Travel pattern from multi-location | MEDIUM     | Requires BSSID match, not just SSID         |
-| Vendor from OUI                    | HIGH       | First 3 MAC octets = manufacturer           |
+| Finding Type | Confidence | Notes |
+|---|---|---|
+| BSSID-matched location | HIGH | MAC address is unique per device |
+| Unique SSID location | MEDIUM | Unique names likely match one network |
+| Common SSID location | LOW | "linksys", "default" match thousands |
+| Encryption type | HIGH | Directly reported by scanner |
+| Owner identity from SSID | MEDIUM | SSID may contain names but could be spoofed |
+| Travel pattern from multi-location | MEDIUM | Requires BSSID match, not just SSID |
+| Vendor from OUI | HIGH | First 3 MAC octets = manufacturer |
 
 ---
 
@@ -215,14 +208,14 @@ Multiple entries, different locations → mobile AP (phone hotspot, vehicle)
 
 ## 10. Command Reference
 
-| Command                          | Purpose                            | Input                |
-| -------------------------------- | ---------------------------------- | -------------------- |
-| `/wifi [ssid]`                   | Search Wigle for SSID geolocation  | Network name         |
-| `/wifi --bssid [mac]`            | Search by exact MAC address        | AA:BB:CC:DD:EE:FF    |
+| Command | Purpose | Input |
+|---|---|---|
+| `/wifi [ssid]` | Search Wigle for SSID geolocation | Network name |
+| `/wifi --bssid [mac]` | Search by exact MAC address | AA:BB:CC:DD:EE:FF |
 | `/wifi --area [lat,long,radius]` | Search networks in geographic area | Coordinates + radius |
 
 ---
 
-_WiFi/SSID OSINT Module v1.0.0_
-_Part of CTI Expert Skill — adapted from illwill/osint (gitlab.com/illwill/osint)_
-_For authorized investigation and educational purposes only_
+*WiFi/SSID OSINT Module v1.0.0*
+*Part of CTI Expert Skill — adapted from illwill/osint (gitlab.com/illwill/osint)*
+*For authorized investigation and educational purposes only*

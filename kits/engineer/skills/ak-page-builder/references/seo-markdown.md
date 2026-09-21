@@ -21,13 +21,13 @@ meaningful text, links, images/alt text and tables. Define behavior for interact
 or nontext blocks and live bindings. Do not execute arbitrary MDX from page data.
 Authorize private representations identically to the corresponding HTML page.
 
-| Surface         | Validation                                                                     |
-| --------------- | ------------------------------------------------------------------------------ |
-| robots.txt      | Existing crawler policy preserved; not used as access control                  |
-| sitemap.xml     | Only canonical, published, eligible URLs; correct escaping and dates           |
-| llms.txt        | Compact, useful index with resolvable links to public content/docs             |
-| llms-full.txt   | Published public content only; deterministic regeneration and bounded delivery |
-| Markdown routes | Correct route/content type, revision/locale parity and auth                    |
+| Surface | Validation |
+|---|---|
+| robots.txt | Existing crawler policy preserved; not used as access control |
+| sitemap.xml | Only canonical, published, eligible URLs; correct escaping and dates |
+| llms.txt | Compact, useful index with resolvable links to public content/docs |
+| llms-full.txt | Published public content only; deterministic regeneration and bounded delivery |
+| Markdown routes | Correct route/content type, revision/locale parity and auth |
 
 Keep draft, preview, tenant-private and admin data out of public exports, search
 indexes and caches. For large sites, stream/cache or partition full exports with

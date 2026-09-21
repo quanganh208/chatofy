@@ -43,10 +43,7 @@ test('generate-image: --image <glob> returns array of resolved paths', () => {
     fs.writeFileSync(path.join(fixturesDir, 'b.png'), 'b');
     fs.writeFileSync(path.join(fixturesDir, 'c.txt'), 'c');
 
-    const result = generateImages({
-      imageArgs: [path.join(fixturesDir, '*.png')],
-      cwd: fixturesDir,
-    });
+    const result = generateImages({ imageArgs: [path.join(fixturesDir, '*.png')], cwd: fixturesDir });
     assert.equal(result.paths.length, 2);
     assert.ok(result.paths.every((p) => p.endsWith('.png')));
   } finally {
@@ -78,10 +75,7 @@ test('generate-image: model resolution — journal.ai.image_model flows into mul
   const projectRoot = makeProject();
   const fixturesDir = makeTmpDir('ak-journal-generate-image-fixtures-');
   try {
-    fs.writeFileSync(
-      path.join(projectRoot, '.agentkit', 'config.yaml'),
-      'journal:\n  ai:\n    image_model: custom-model\n',
-    );
+    fs.writeFileSync(path.join(projectRoot, '.agentkit', 'config.yaml'), 'journal:\n  ai:\n    image_model: custom-model\n');
     const mockOutput = writeMockSource(fixturesDir);
     const argvPath = path.join(fixturesDir, 'multix-argv.json');
 
@@ -89,12 +83,7 @@ test('generate-image: model resolution — journal.ai.image_model flows into mul
       imageAiPrompt: 'a test prompt',
       projectRoot,
       cwd: projectRoot,
-      env: {
-        ...process.env,
-        MOCK_MULTIX_OUTPUT: mockOutput,
-        MOCK_MULTIX_ARGV: '1',
-        MOCK_MULTIX_ARGV_PATH: argvPath,
-      },
+      env: { ...process.env, MOCK_MULTIX_OUTPUT: mockOutput, MOCK_MULTIX_ARGV: '1', MOCK_MULTIX_ARGV_PATH: argvPath },
     });
 
     const argv = JSON.parse(fs.readFileSync(argvPath, 'utf8'));
@@ -115,24 +104,12 @@ test('generate-image: cache hit — same journal body + model returns same path 
     const mockOutput = writeMockSource(fixturesDir);
     const env = { ...process.env, MOCK_MULTIX_OUTPUT: mockOutput };
 
-    const first = generateImages({
-      imageAiPrompt: 'p',
-      journalFile,
-      projectRoot,
-      cwd: projectRoot,
-      env,
-    });
+    const first = generateImages({ imageAiPrompt: 'p', journalFile, projectRoot, cwd: projectRoot, env });
     assert.equal(first.cached, false);
 
     // Delete the mock source: if a second call re-invoked multix, copyFileSync would throw ENOENT.
     fs.rmSync(mockOutput);
-    const second = generateImages({
-      imageAiPrompt: 'p',
-      journalFile,
-      projectRoot,
-      cwd: projectRoot,
-      env,
-    });
+    const second = generateImages({ imageAiPrompt: 'p', journalFile, projectRoot, cwd: projectRoot, env });
     assert.equal(second.paths[0], first.paths[0]);
     assert.equal(second.cached, true);
   } finally {
@@ -150,18 +127,8 @@ test('generate-image: cache miss — changing only the journal body changes the 
     fs.writeFileSync(journalFileA, '---\ntitle: t\n---\nBody A.\n');
     fs.writeFileSync(journalFileB, '---\ntitle: t\n---\nBody B (different).\n');
 
-    const keyA = buildCacheKey({
-      journalBody: 'Body A.',
-      writingStyle: null,
-      language: 'English',
-      model: 'm',
-    });
-    const keyB = buildCacheKey({
-      journalBody: 'Body B (different).',
-      writingStyle: null,
-      language: 'English',
-      model: 'm',
-    });
+    const keyA = buildCacheKey({ journalBody: 'Body A.', writingStyle: null, language: 'English', model: 'm' });
+    const keyB = buildCacheKey({ journalBody: 'Body B (different).', writingStyle: null, language: 'English', model: 'm' });
     assert.notEqual(keyA, keyB);
     assert.ok(TEMPLATE_VERSION);
   } finally {
@@ -171,20 +138,8 @@ test('generate-image: cache miss — changing only the journal body changes the 
 });
 
 test('generate-image: buildCacheKey — different --image-ai prompts for the same journal body produce different keys', () => {
-  const keyA = buildCacheKey({
-    journalBody: 'Body.',
-    imageAiPrompt: 'a sunset',
-    writingStyle: null,
-    language: 'English',
-    model: 'm',
-  });
-  const keyB = buildCacheKey({
-    journalBody: 'Body.',
-    imageAiPrompt: 'a sunrise',
-    writingStyle: null,
-    language: 'English',
-    model: 'm',
-  });
+  const keyA = buildCacheKey({ journalBody: 'Body.', imageAiPrompt: 'a sunset', writingStyle: null, language: 'English', model: 'm' });
+  const keyB = buildCacheKey({ journalBody: 'Body.', imageAiPrompt: 'a sunrise', writingStyle: null, language: 'English', model: 'm' });
   assert.notEqual(keyA, keyB);
 });
 

@@ -125,24 +125,24 @@ judged against are `references/engineering-standards.md`; choosing between desig
 
 ## Evaluate before delivering (act-backed, per the Self-Review Gate)
 
-| Dimension    | Passes when                                              | Proven by             |
-| ------------ | -------------------------------------------------------- | --------------------- |
-| Cause        | mechanism chain stated; repro fails before, passes after | repro run             |
-| Minimality   | diff holds only fix, tests, docs                         | diff review           |
-| Locality     | change in the owning module                              | owner trace           |
-| Coverage     | a discriminating test exists and runs                    | test run              |
-| Verification | checks ran on the final tree                             | command log           |
-| Contract     | callers, docs, schemas, fixtures consistent              | search for the symbol |
+| Dimension | Passes when | Proven by |
+|-----------|-------------|-----------|
+| Cause | mechanism chain stated; repro fails before, passes after | repro run |
+| Minimality | diff holds only fix, tests, docs | diff review |
+| Locality | change in the owning module | owner trace |
+| Coverage | a discriminating test exists and runs | test run |
+| Verification | checks ran on the final tree | command log |
+| Contract | callers, docs, schemas, fixtures consistent | search for the symbol |
 
 ## Do / Don't
 
-| Don't                                      | Instead                                                              |
-| ------------------------------------------ | -------------------------------------------------------------------- |
-| Fix where the error appears                | Trace to the module that owns the invariant                          |
-| Regenerate the file                        | Make targeted edits; keep unrelated lines untouched                  |
-| Add a try/except to make it stop failing   | Name the cause; fix it; let real errors surface                      |
-| Write tests after, matching current output | Write the test that fails for the right reason first                 |
-| Weaken the failing test                    | Diagnose why it fails; fix code or fix an invalid test with a reason |
-| Mix renames and formatting into a fix      | Separate change, or none                                             |
-| Claim green from the last partial run      | Re-run on the final tree; report commands and results                |
-| Change a public contract quietly           | Version it; update callers, docs, schemas, fixtures together         |
+| Don't | Instead |
+|-------|---------|
+| Fix where the error appears | Trace to the module that owns the invariant |
+| Regenerate the file | Make targeted edits; keep unrelated lines untouched |
+| Add a try/except to make it stop failing | Name the cause; fix it; let real errors surface |
+| Write tests after, matching current output | Write the test that fails for the right reason first |
+| Weaken the failing test | Diagnose why it fails; fix code or fix an invalid test with a reason |
+| Mix renames and formatting into a fix | Separate change, or none |
+| Claim green from the last partial run | Re-run on the final tree; report commands and results |
+| Change a public contract quietly | Version it; update callers, docs, schemas, fixtures together |

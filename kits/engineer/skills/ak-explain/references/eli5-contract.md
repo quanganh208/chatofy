@@ -19,16 +19,16 @@
 
 4. **Define Essential Technical Terms on First Use**
    - When precision requires retaining a technical term or code identifier, introduce it immediately with a simple definition:
-     - _Format:_ `SpecificTerm (plain English meaning)`
+     - *Format:* `SpecificTerm (plain English meaning)`
    - Spell out every acronym on first use.
 
 5. **State Where the Analogy Stops Matching Reality**
    - When an analogy could lead to incorrect operational assumptions (e.g., assuming network calls are instantaneous or queues never fill up), explicitly state the boundary:
-     - _"Where this analogy stops: unlike a real kitchen, computers can handle thousands of tickets simultaneously, but if the database crashes, all pending tickets are lost."_
+     - *"Where this analogy stops: unlike a real kitchen, computers can handle thousands of tickets simultaneously, but if the database crashes, all pending tickets are lost."*
 
 6. **Preserve All Warnings, Invariants & Uncertainty**
    - **Never dilute safety warnings:** Security vulnerabilities, data-loss risks, financial/legal impacts, and irreversible commands must remain prominent and unambiguous.
-   - Explain the _consequence_ of the warning in plain terms (e.g., "If you delete this key, all users will be logged out immediately and their unsaved work will disappear").
+   - Explain the *consequence* of the warning in plain terms (e.g., "If you delete this key, all users will be logged out immediately and their unsaved work will disappear").
    - Retain exact commands, error codes, and identifiers where changing them would make the advice unusable.
 
 7. **Tone & Style Standards**
@@ -40,24 +40,19 @@
 
 ```markdown
 ### In a Nutshell
-
 [1-2 sentence direct explanation]
 
 ### The Analogy: [Everyday Concept]
-
 [Describe the everyday scenario]
-
 - **[Real Component 1]** is like the **[Analogy Part 1]** because...
 - **[Real Component 2]** is like the **[Analogy Part 2]** because...
 
 ### How It Works (Step by Step)
-
 1. **[Step 1]**: [Action]
 2. **[Step 2]**: [Action]
 3. **[Step 3]**: [Action]
 
 ### Important Caveats & Where the Metaphor Ends
-
 - ⚠️ **Warning**: [Retained technical warning and exact consequence]
 - **Boundary**: [Where the analogy diverges from physical reality]
 ```

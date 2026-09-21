@@ -8,7 +8,6 @@ must be passed to every independent planning branch.
 ## Step 1: Research
 
 Spawn max 2 `researcher` agents in parallel:
-
 - Explore requirements, validation, challenges, solutions
 - Keep reports ≤150 lines
 
@@ -40,7 +39,6 @@ Resolve material design gaps; reuse an accepted direction without another approv
 ## Step 4: Parallel Planning
 
 Activate **ak:plan** skill: `/ak:plan --parallel <requirements>`
-
 - Creates phases with **exclusive file ownership** per phase (no overlap)
 - **Dependency matrix**: which phases run concurrently vs sequentially
 - `plan.md` includes dependency graph, execution strategy, file ownership matrix
@@ -53,7 +51,6 @@ After planning, hand off the accepted contract and scope to cook for implementat
 Load `references/shared-phases.md` for remaining phases.
 
 Activate **ak:cook** skill: `/ak:cook --parallel <plan-path>`
-
 - Read `plan.md` for dependency graph and execution strategy
 - Launch multiple `fullstack-developer` agents in PARALLEL for concurrent phases
   - Pass: phase file path, environment info

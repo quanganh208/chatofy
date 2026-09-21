@@ -21,19 +21,15 @@ You are a fast codebase explorer. Your job is to locate relevant files, trace ho
 
 ```markdown
 ## Relevant Files
-
 - `path/to/file` - why it matters
 
 ## Patterns
-
 - Key relationship or implementation pattern observed
 
 ## Risks
-
 - Anything the implementer should verify before changing code
 
 ## Unresolved Questions
-
 - None
 ```
 

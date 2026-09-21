@@ -6,18 +6,18 @@ This document owns the canonical HTML generation, visual styling, and diagram or
 
 The unified HTML composition protocol activates whenever a skill produces an HTML artifact:
 
-| Logical Skill         | Physical File                                    | HTML Activation Trigger                                                 |
-| --------------------- | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| `ak:explain`          | `kits/core/skills/ak-explain/SKILL.md`           | `--html`                                                                |
-| `ak:brainstorm`       | `kits/core/skills/ak-brainstorm/SKILL.md`        | `--html`                                                                |
-| `ak:plan` (Engineer)  | `kits/engineer/skills/ak-plan/SKILL.md`          | `--html`                                                                |
-| `ak:plan` (Marketing) | `kits/marketing/skills/ak-plan/SKILL.md`         | `--html`                                                                |
-| `ak:preview`          | `kits/core/skills/ak-preview/SKILL.md`           | `--html`, and implied HTML modes (`--diff`, `--plan-review`, `--recap`) |
-| `ak:advise`           | `kits/engineer/skills/ak-advise/SKILL.md`        | `--html`                                                                |
-| `ak:show-off`         | `kits/engineer/skills/ak-show-off/SKILL.md`      | Every invocation (inherently HTML output)                               |
-| `ak:retro`            | `kits/engineer/skills/ak-retro/SKILL.md`         | `--format html`                                                         |
-| `ak:cti-expert`       | `kits/engineer/skills/ak-cti-expert/SKILL.md`    | `--format html`                                                         |
-| `ak:issue-to-plan`    | `kits/engineer/skills/ak-issue-to-plan/SKILL.md` | Mandatory downstream `ak:plan --html` delegation                        |
+| Logical Skill | Physical File | HTML Activation Trigger |
+|---|---|---|
+| `ak:explain` | `kits/core/skills/ak-explain/SKILL.md` | `--html` |
+| `ak:brainstorm` | `kits/core/skills/ak-brainstorm/SKILL.md` | `--html` |
+| `ak:plan` (Engineer) | `kits/engineer/skills/ak-plan/SKILL.md` | `--html` |
+| `ak:plan` (Marketing) | `kits/marketing/skills/ak-plan/SKILL.md` | `--html` |
+| `ak:preview` | `kits/core/skills/ak-preview/SKILL.md` | `--html`, and implied HTML modes (`--diff`, `--plan-review`, `--recap`) |
+| `ak:advise` | `kits/engineer/skills/ak-advise/SKILL.md` | `--html` |
+| `ak:show-off` | `kits/engineer/skills/ak-show-off/SKILL.md` | Every invocation (inherently HTML output) |
+| `ak:retro` | `kits/engineer/skills/ak-retro/SKILL.md` | `--format html` |
+| `ak:cti-expert` | `kits/engineer/skills/ak-cti-expert/SKILL.md` | `--format html` |
+| `ak:issue-to-plan` | `kits/engineer/skills/ak-issue-to-plan/SKILL.md` | Mandatory downstream `ak:plan --html` delegation |
 
 Non-HTML modes (Markdown, terminal CLI) do NOT activate visual capabilities or load this protocol.
 
@@ -56,13 +56,13 @@ operations never activate this sequence:
 
 ## Fallback Matrix
 
-| Collaborator State                                 | Fallback Behavior                                                                                                                                                                                       |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Both Installed (`frontend-design` + `diagram`)** | Full interactive visual HTML document with embedded interactive diagram reader.                                                                                                                         |
+| Collaborator State | Fallback Behavior |
+|---|---|
+| **Both Installed (`frontend-design` + `diagram`)** | Full interactive visual HTML document with embedded interactive diagram reader. |
 | **Diagram Absent (e.g. Core-only, Marketing kit)** | Render a clean, semantic inline SVG/CSS diagram directly in the HTML document with `<title>`, `<desc>`, clear node labels, and directional arrows. Disclose reduced interaction capability in metadata. |
-| **Diagram Present but Rejects Invalid IR**         | Diagnose and repair the typed IR. If repair fails, use the labeled non-interactive semantic fallback. Never silently fall back to raw HTML or Mermaid.                                                  |
-| **Frontend Design Absent (custom catalog)**        | Use the built-in restrained accessible CSS tokens; do not fail or attempt network downloads.                                                                                                            |
-| **No Factual Graph Topology**                      | Activation occurs normally, but if content is non-relational, use structured cards/timelines rather than inventing artificial nodes and edges.                                                          |
+| **Diagram Present but Rejects Invalid IR** | Diagnose and repair the typed IR. If repair fails, use the labeled non-interactive semantic fallback. Never silently fall back to raw HTML or Mermaid. |
+| **Frontend Design Absent (custom catalog)** | Use the built-in restrained accessible CSS tokens; do not fail or attempt network downloads. |
+| **No Factual Graph Topology** | Activation occurs normally, but if content is non-relational, use structured cards/timelines rather than inventing artificial nodes and edges. |
 
 ## Verification Checklist
 

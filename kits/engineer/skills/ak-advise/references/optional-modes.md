@@ -5,7 +5,6 @@
 Write the canonical advice report first (needed as subagent input), using the naming pattern from the `## Naming` section in the injected context with type `advise`. Then spawn flag subagents — subagents that don't depend on each other run in parallel. Each subagent prompt must include: the task, the report path to read, files it may write, acceptance criteria, and "DO NOT COMMIT OR PUSH".
 
 **`--html`** — spawn `ui-ux-designer`:
-
 - Input: the advice report. Output: a self-contained HTML file beside it (inline CSS/JS, no network assets, responsive, reduced-motion handling).
 - Follow the shared HTML composition contract in `../../ak-preview/references/html-skill-composition.md`:
   1. Activate `ak:frontend-design` first for layout, typography, responsive shell, and tokens.
@@ -13,17 +12,15 @@ Write the canonical advice report first (needed as subagent input), using the na
   3. If `ak:diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
 - Must visualize: verdict, requirements/goals, do vs don't columns, alternatives comparison, benefits/trade-offs.
 - **Editorial visual layer (on by default, additive):** the Do vs Don't panel and alternatives-comparison panel are strong candidates for the **diagram-design Quadrant** vernacular (2×2 layout with wine-red accent) when `.prefs.visual.diagramDesign.enabled` (read via `ak config prefs resolve --json | jq '.prefs.visual'`; nested keys spell camelCase — `diagram_design` returns as `diagramDesign`). KPI-shaped verdict tiles (confidence, effort, blast-radius) can use **AntV Infographic** `CandyCardLite` / `CircularProgress` when `.prefs.visual.antv.enabled`. Kill switches on this invocation: `--no-antv`, `--no-diagram-design`, `--no-editorial-visuals`. See the sibling `ak-preview` skill's `../../ak-preview/references/html-diagram-design.md` and `../../ak-preview/references/html-antv-infographic.md` for exact template usage.
-  **`--md`** — spawn `docs-manager`:
+**`--md`** — spawn `docs-manager`:
 - Produce a polished standalone markdown report from the advice content (audience: someone who did not see the conversation). Skip if the canonical report already meets this bar; then `--md` just reports its path.
 
 **`--wiki`** — spawn `docs-manager` (after `--html`/`--md` artifacts exist, when combined):
-
 - Availability check first: `command -v agentwiki && agentwiki whoami`, else AgentWiki MCP tools, else report "AgentWiki publish skipped: <missing capability>" without blocking.
 - Private-first: `agentwiki doc upload <report> --title "<title>" --category "advise" --tags "ak-advise,<repo-slug>" --json` then `agentwiki doc share <id> --json`. Public `doc publish` / `sites upload` only on explicit user request.
 - Include the returned share URL in the final response.
 
 **`--github`** — spawn `git-manager`:
-
 - If the input was a GitHub issue/PR: post the advice as a comment on it (`gh issue comment <number> --body-file <body.md>`), leading with the reframed problem and verdict, linking the wiki URL when `--wiki` produced one.
 - Otherwise: create a new issue in the current repo (`gh issue create --title "<reframed title>" --body-file <body.md>`) containing the reframing, requirements, goals, and advice summary.
 - If `gh` fails (auth, permissions), report the exact error; do not fake success.
@@ -39,7 +36,6 @@ caller's context. This mode is Claude Code only; on other runtimes fall back to
 running the skill inline.
 
 <!-- capability-lint-allow: --agent relay is Claude Code-only; naming the native AskUserQuestion tool is intentional here -->
-
 A Claude Code subagent cannot call `AskUserQuestion`, so the advisor relays each
 question back to you and is re-spawned with the answer. Loop:
 

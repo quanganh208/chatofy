@@ -36,19 +36,16 @@ other's changes.
 ## AgentKit Stack Conventions
 
 ### Report Output
-
 - Save reports to `{CK_REPORTS_PATH}` (injected via hook, fallback: `plans/reports/`)
 - Naming: `{type}-{date}-{slug}.md` where type = your role (researcher, reviewer, debugger)
 - Lead with the outcome and write complete sentences; keep it short by selecting content. List unresolved questions at the end.
 
 ### Commit Messages
-
 - Use conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
 - No AI authorship attribution in commit messages; product/runtime names are valid
 - Keep commits focused on actual code changes
 
 ### Docs Sync (Implementation Teams Only)
-
 - After implementation tasks complete, the lead evaluates docs impact
 - State explicitly: `Docs impact: [none|minor|major]`
 - If impact: update `docs/` directory or note in completion message
@@ -63,7 +60,6 @@ other's changes.
 ## Plan Approval Flow
 
 When plan approval is required:
-
 1. Research and plan your approach (read-only — no file edits)
 2. Submit the plan through the discovered approval surface
 3. Wait for the lead's response

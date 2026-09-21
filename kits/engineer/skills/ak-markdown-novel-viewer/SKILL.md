@@ -2,13 +2,13 @@
 name: ak:markdown-novel-viewer
 description: View markdown files in a calm, book-like reader served via HTTP. Use for long-form content review — RFCs, runbooks, design docs, reports, specs, novels — anywhere you want a distraction-free reading mode in the browser.
 user-invocable: true
-when_to_use: 'Invoke to read long markdown comfortably in the browser.'
+when_to_use: "Invoke to read long markdown comfortably in the browser."
 category: media
 keywords: [markdown, viewer, reading, preview]
-argument-hint: '[file-or-directory]'
+argument-hint: "[file-or-directory]"
 metadata:
   author: agentkit
-  version: '1.1.1'
+  version: "1.1.1"
 ---
 
 # Markdown novel viewer

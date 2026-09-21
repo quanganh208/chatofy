@@ -12,28 +12,28 @@ Use for architecture, semantic patterns, ordered process, timeline, quadrant, ra
 
 Load a per-type file lazily only when the skill routes to that type. Each per-type file gives viewBox spec, connector patterns, and one minimal SVG example. Ship-critical types have local copies under `html-diagram-design-types/`; the rest follow upstream at the pinned SHA.
 
-| Type                 | Local | Upstream reference path                                                          |
-| -------------------- | :---: | -------------------------------------------------------------------------------- |
-| architecture         |   ✓   | `skills/diagram-design/references/type-architecture.md`                          |
-| quadrant             |   ✓   | `skills/diagram-design/references/type-quadrant.md`                              |
-| timeline (gantt)     |   ✓   | `skills/diagram-design/references/type-gantt.md`                                 |
-| flowchart            |       | `.../type-flowchart.md`                                                          |
-| sequence             |       | `.../type-sequence.md`                                                           |
-| dp-security-matrix   |       | `.../type-dp-security-matrix.md`                                                 |
-| dp-integration       |       | `.../type-dp-integration.md`                                                     |
-| medallion            |       | `.../type-medallion.md`                                                          |
-| high-level           |       | `.../type-high-level.md`                                                         |
-| process              |       | `.../type-process.md`                                                            |
-| data-flow            |       | `.../type-data-flow.md`                                                          |
-| radar                |       | `.../type-radar.md`                                                              |
-| loop                 |       | `.../type-loop.md`                                                               |
-| nested               |       | `.../type-nested.md`                                                             |
-| org-chart            |       | `.../type-org-chart.md`                                                          |
-| layers               |       | `.../type-layers.md`                                                             |
-| pyramid              |       | `.../type-pyramid.md`                                                            |
-| er                   |       | `.../type-er.md`                                                                 |
-| bar / line / scatter |       | `.../type-bar.md`, `type-line.md`, `type-scatter.md` (prefer Chart.js for these) |
-| it-state             |       | `.../type-it-state.md`                                                           |
+| Type | Local | Upstream reference path |
+|---|:---:|---|
+| architecture | ✓ | `skills/diagram-design/references/type-architecture.md` |
+| quadrant | ✓ | `skills/diagram-design/references/type-quadrant.md` |
+| timeline (gantt) | ✓ | `skills/diagram-design/references/type-gantt.md` |
+| flowchart | | `.../type-flowchart.md` |
+| sequence | | `.../type-sequence.md` |
+| dp-security-matrix | | `.../type-dp-security-matrix.md` |
+| dp-integration | | `.../type-dp-integration.md` |
+| medallion | | `.../type-medallion.md` |
+| high-level | | `.../type-high-level.md` |
+| process | | `.../type-process.md` |
+| data-flow | | `.../type-data-flow.md` |
+| radar | | `.../type-radar.md` |
+| loop | | `.../type-loop.md` |
+| nested | | `.../type-nested.md` |
+| org-chart | | `.../type-org-chart.md` |
+| layers | | `.../type-layers.md` |
+| pyramid | | `.../type-pyramid.md` |
+| er | | `.../type-er.md` |
+| bar / line / scatter | | `.../type-bar.md`, `type-line.md`, `type-scatter.md` (prefer Chart.js for these) |
+| it-state | | `.../type-it-state.md` |
 
 Primitives (`primitive-annotation.md`, `primitive-icons.md`, `primitive-sketchy.md`, `primitive-terminal.md`) apply across types and are always upstream-only.
 
@@ -43,34 +43,27 @@ Upstream defaults ship atomic-tangerine `#eb6c36` as accent. AgentKit overrides 
 
 ```css
 :root {
-  --paper: #faf7f2; /* warm cream */
-  --ink: #0f0e0d; /* near-black */
-  --accent: #b8232c; /* wine-red — override, was #eb6c36 */
-  --taupe: #8a7f74; /* secondary text */
-  --rule: #d8d1c4; /* hairline dividers */
-  --moss: #4a6b3f; /* success/complete */
-  --ochre: #c89a3c; /* warning/P1 */
-  --font-serif:
-    'Instrument Serif', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
-  --font-sans: Geist, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'Geist Mono', 'SF Mono', Menlo, Consolas, monospace;
+  --paper:  #faf7f2;                                            /* warm cream */
+  --ink:    #0f0e0d;                                            /* near-black */
+  --accent: #b8232c;                                            /* wine-red — override, was #eb6c36 */
+  --taupe:  #8a7f74;                                            /* secondary text */
+  --rule:   #d8d1c4;                                            /* hairline dividers */
+  --moss:   #4a6b3f;                                            /* success/complete */
+  --ochre:  #c89a3c;                                            /* warning/P1 */
+  --font-serif: "Instrument Serif", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-sans:  Geist, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:  "Geist Mono", "SF Mono", Menlo, Consolas, monospace;
 }
 
-:root:not([data-theme='light']) {
+:root:not([data-theme="light"]) {
   @media (prefers-color-scheme: dark) {
-    --paper: #12100e;
-    --ink: #f2ece0;
-    --accent: #e14a53;
-    --taupe: #a89e94;
-    --rule: #2f2a24;
+    --paper: #12100e; --ink: #f2ece0; --accent: #e14a53;
+    --taupe: #a89e94; --rule: #2f2a24;
   }
 }
-:root[data-theme='dark'] {
-  --paper: #12100e;
-  --ink: #f2ece0;
-  --accent: #e14a53;
-  --taupe: #a89e94;
-  --rule: #2f2a24;
+:root[data-theme="dark"] {
+  --paper: #12100e; --ink: #f2ece0; --accent: #e14a53;
+  --taupe: #a89e94; --rule: #2f2a24;
 }
 ```
 
@@ -103,66 +96,30 @@ Three motion tiers (default is `none`); set via `visual.diagram_design.motion` i
 ```html
 <!doctype html>
 <html lang="en" data-diagram-type="architecture" data-motion="none">
-  <head>
-    <meta charset="utf-8" />
-    <title>[Diagram title]</title>
-    <style>
-      :root {
-        /* tokens from section above */
-      }
-      body {
-        margin: 0;
-        background: var(--paper);
-        color: var(--ink);
-        font-family: var(--font-sans);
-      }
-      .frame {
-        padding: 32px;
-      }
-      .frame svg {
-        display: block;
-        width: 100%;
-        max-width: 1080px;
-        margin: 0 auto;
-      }
-      text.dd-label {
-        font-size: 12px;
-        fill: var(--ink);
-      }
-      text.dd-caption {
-        font-family: var(--font-mono);
-        font-size: 10px;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        fill: var(--taupe);
-      }
-      .dd-ink {
-        stroke: var(--ink);
-        fill: none;
-        stroke-width: 1.4;
-      }
-      .dd-accent {
-        stroke: var(--accent);
-        fill: none;
-        stroke-width: 1.6;
-      }
-      .dd-paper2 {
-        fill: color-mix(in oklab, var(--paper) 88%, var(--ink) 12%);
-      }
-      @media (prefers-reduced-motion: reduce) {
-        * {
-          animation: none !important;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="frame">
-      <svg viewBox="0 0 1080 600" role="img" aria-label="[Alt text]">
-        <!-- Per-type content per html-diagram-design-types/type-<name>.md -->
-      </svg>
-    </div>
-  </body>
+<head>
+<meta charset="utf-8">
+<title>[Diagram title]</title>
+<style>
+  :root { /* tokens from section above */ }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-sans); }
+  .frame { padding: 32px; }
+  .frame svg { display: block; width: 100%; max-width: 1080px; margin: 0 auto; }
+  text.dd-label { font-size: 12px; fill: var(--ink); }
+  text.dd-caption { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+                    text-transform: uppercase; fill: var(--taupe); }
+  .dd-ink    { stroke: var(--ink);    fill: none; stroke-width: 1.4; }
+  .dd-accent { stroke: var(--accent); fill: none; stroke-width: 1.6; }
+  .dd-paper2 { fill: color-mix(in oklab, var(--paper) 88%, var(--ink) 12%); }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="frame">
+  <svg viewBox="0 0 1080 600" role="img" aria-label="[Alt text]">
+    <!-- Per-type content per html-diagram-design-types/type-<name>.md -->
+  </svg>
+</div>
+</body>
 </html>
 ```
 

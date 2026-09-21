@@ -88,12 +88,12 @@ internal candidate does not meet that risk tier.
 Internal jobs have no subprocess surface. Map the normal capture contract as
 follows:
 
-| CLI capture   | Internal equivalent                                               |
-| ------------- | ----------------------------------------------------------------- |
-| `stdout.txt`  | `result.md`, containing the subagent's final text                 |
-| `stderr.txt`  | none; harness errors go in `status.json.error`                    |
-| `command.txt` | none; `status.json.agent` records dispatch identity               |
-| exit code     | `null`; `status` records success, failed, blocked, or interrupted |
+| CLI capture | Internal equivalent |
+| --- | --- |
+| `stdout.txt` | `result.md`, containing the subagent's final text |
+| `stderr.txt` | none; harness errors go in `status.json.error` |
+| `command.txt` | none; `status.json.agent` records dispatch identity |
+| exit code | `null`; `status` records success, failed, blocked, or interrupted |
 
 Example `status.json`:
 

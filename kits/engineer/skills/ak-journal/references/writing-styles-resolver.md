@@ -4,7 +4,7 @@ Journal bodies posted via `--social` should read consistently with a
 project's established voice. `resolve-config.cjs` discovers and selects a
 writing-style file from the project; the calling agent reads that file's
 content and applies its guidance when drafting per-channel bodies (the
-resolver only picks _which_ file — it never rewrites text itself, per the
+resolver only picks *which* file — it never rewrites text itself, per the
 layering rule in `references/zernio-integration.md`).
 
 ## Source of truth

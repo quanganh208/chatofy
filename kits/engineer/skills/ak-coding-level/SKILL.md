@@ -1,15 +1,15 @@
 ---
 name: ak:coding-level
-description: 'Set coding experience level for tailored output. Use for adjusting explanation depth, code complexity, and response format to user expertise.'
+description: "Set coding experience level for tailored output. Use for adjusting explanation depth, code complexity, and response format to user expertise."
 user-invocable: true
 disable-model-invocation: true
-when_to_use: 'Invoke when response depth should match user expertise.'
+when_to_use: "Invoke when response depth should match user expertise."
 category: meta
 keywords: [experience, level, explanation, format]
-argument-hint: '[0-5]'
+argument-hint: "[0-5]"
 metadata:
   author: agentkit
-  version: '1.1.1'
+  version: "1.1.1"
 ---
 
 # Coding Level
@@ -22,14 +22,14 @@ Set your coding experience level for tailored explanations and output format.
 
 ## Levels
 
-| Level | Name      | Description                                                 |
-| ----- | --------- | ----------------------------------------------------------- |
-| 0     | ELI5      | Zero coding experience - analogies, no jargon, step-by-step |
-| 1     | Junior    | 0-2 years - concepts explained, WHY not just HOW            |
-| 2     | Mid-Level | 3-5 years - design patterns, system thinking                |
-| 3     | Senior    | 5-8 years - trade-offs, business context, architecture      |
-| 4     | Tech Lead | 8-10 years - risk assessment, business impact, strategy     |
-| 5     | God Mode  | Expert - default behavior, maximum efficiency (default)     |
+| Level | Name | Description |
+|-------|------|-------------|
+| 0 | ELI5 | Zero coding experience - analogies, no jargon, step-by-step |
+| 1 | Junior | 0-2 years - concepts explained, WHY not just HOW |
+| 2 | Mid-Level | 3-5 years - design patterns, system thinking |
+| 3 | Senior | 5-8 years - trade-offs, business context, architecture |
+| 4 | Tech Lead | 8-10 years - risk assessment, business impact, strategy |
+| 5 | God Mode | Expert - default behavior, maximum efficiency (default) |
 
 ## Apply and persist the level
 
@@ -52,7 +52,6 @@ terms; it still delivers complete production behavior and relevant verification.
 
 For finer control, select one of these styles through Claude Code's `/config`
 Output style setting:
-
 - `coding-level-0-eli5`
 - `coding-level-1-junior`
 - `coding-level-2-mid`

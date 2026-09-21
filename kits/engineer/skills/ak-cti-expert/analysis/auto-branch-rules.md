@@ -13,7 +13,6 @@ All rules follow: WHEN [condition] THEN [action] BECAUSE [rationale]
 ## 1. Identity Branch Rules
 
 **IBR-01: Leet-Encoded Handle**
-
 ```
 WHEN subject.handle CONTAINS leet_substitution (0,1,3,4,5,7,@,$)
 AND normalized_handle EXISTS on >=1 additional platform
@@ -24,7 +23,6 @@ confidence = 83%
 ```
 
 **IBR-02: Sequential Handle Suffix**
-
 ```
 WHEN subject.handle MATCHES regex [a-z]+\d{1,3}$
 AND handle_minus_suffix EXISTS on same or other platform
@@ -35,7 +33,6 @@ confidence = 60%
 ```
 
 **IBR-03: Platform Gap**
-
 ```
 WHEN subject ACTIVE on platform_A
 AND similar_handle INACTIVE on platform_A
@@ -50,7 +47,6 @@ confidence = 68%
 ## 2. Credential Branch Rules
 
 **CBR-01: Display Name / Email Mismatch**
-
 ```
 WHEN subject.display_name = "Name_A"
 AND subject.email CONTAINS name_token NOT IN known_aliases
@@ -61,7 +57,6 @@ confidence = 74%
 ```
 
 **CBR-02: Disposable Email on Verified Platform**
-
 ```
 WHEN subject.email_domain IN disposable_provider_list
 AND platform.verification_tier = "professional"
@@ -72,7 +67,6 @@ confidence = 79%
 ```
 
 **CBR-03: Domain Affiliation Mismatch**
-
 ```
 WHEN subject.email_domain != subject.stated_employer_domain
 AND subject.email_domain NOT IN personal_provider_list
@@ -87,7 +81,6 @@ confidence = 67%
 ## 3. Social Graph Branch Rules
 
 **SBR-01: High Co-mention Frequency**
-
 ```
 WHEN subject_A mentions subject_B >= 6 times
 AND subject_B mentions subject_A >= 3 times
@@ -99,7 +92,6 @@ confidence = 73%
 ```
 
 **SBR-02: Photo Tag Cluster**
-
 ```
 WHEN subject_A tagged_with subject_B in images >= 3 times
 THEN branch(type=PHYSICAL_CO_PRESENCE, target=subject_B, priority=HIGH)
@@ -109,7 +101,6 @@ confidence = 84%
 ```
 
 **SBR-03: Coordinated Follower Overlap**
-
 ```
 WHEN follower_set_A ∩ follower_set_B >= 50 accounts
 AND quality_score(intersection) < 35
@@ -120,7 +111,6 @@ confidence = 78%
 ```
 
 **SBR-04: Shared Niche Community Membership**
-
 ```
 WHEN subject_A.communities ∩ subject_B.communities >= 3
 AND all_communities.specificity = "niche"
@@ -135,7 +125,6 @@ confidence = 58%
 ## 4. Geographic Branch Rules
 
 **GBR-01: Location Impossibility**
-
 ```
 WHEN two_posts FROM same_subject
 AND location_distance > 500km
@@ -150,17 +139,17 @@ confidence = 89%
 
 ## 5. Branch Priority Matrix
 
-| Branch Type                         | Confidence Threshold | Priority | Max Expansion Per Session |
-| ----------------------------------- | -------------------- | -------- | ------------------------- |
-| Handle exact match (other platform) | ≥95%                 | CRITICAL | Unlimited                 |
-| Email exact match                   | ≥95%                 | CRITICAL | Unlimited                 |
-| Profile image match                 | ≥90%                 | HIGH     | 5                         |
-| Handle variant (leet/series)        | ≥83%                 | HIGH     | 5                         |
-| Geographic impossibility            | ≥89%                 | HIGH     | 3                         |
-| Coordinated follower overlap        | ≥78%                 | HIGH     | 3                         |
-| Co-mention bidirectional            | ≥73%                 | MEDIUM   | 5                         |
-| Domain mismatch                     | ≥67%                 | MEDIUM   | 3                         |
-| Niche community overlap             | ≥58%                 | LOW      | 2                         |
+| Branch Type | Confidence Threshold | Priority | Max Expansion Per Session |
+|---|---|---|---|
+| Handle exact match (other platform) | ≥95% | CRITICAL | Unlimited |
+| Email exact match | ≥95% | CRITICAL | Unlimited |
+| Profile image match | ≥90% | HIGH | 5 |
+| Handle variant (leet/series) | ≥83% | HIGH | 5 |
+| Geographic impossibility | ≥89% | HIGH | 3 |
+| Coordinated follower overlap | ≥78% | HIGH | 3 |
+| Co-mention bidirectional | ≥73% | MEDIUM | 5 |
+| Domain mismatch | ≥67% | MEDIUM | 3 |
+| Niche community overlap | ≥58% | LOW | 2 |
 
 ---
 

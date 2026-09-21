@@ -6,24 +6,24 @@ Output reveals information in four layers, from summary to raw. Users control de
 
 ## The Four Layers
 
-| Layer | Name      | Contents                               | Default For         |
-| ----- | --------- | -------------------------------------- | ------------------- |
-| 1     | Summary   | Single finding, confidence indicator   | Novice              |
-| 2     | Context   | Finding + source count + related items | Practitioner        |
-| 3     | Technical | Full analysis, timestamps, all sources | Specialist          |
-| 4     | Raw       | Unprocessed data + full metadata       | Specialist (`/raw`) |
+| Layer | Name | Contents | Default For |
+|-------|------|----------|-------------|
+| 1 | Summary | Single finding, confidence indicator | Novice |
+| 2 | Context | Finding + source count + related items | Practitioner |
+| 3 | Technical | Full analysis, timestamps, all sources | Specialist |
+| 4 | Raw | Unprocessed data + full metadata | Specialist (`/raw`) |
 
 ---
 
 ## Navigation Commands
 
-| From      | Command        | Result            |
-| --------- | -------------- | ----------------- |
-| Summary   | `/context`     | Layer 2           |
-| Context   | `/technical`   | Layer 3           |
-| Technical | `/raw`         | Layer 4           |
-| Any layer | `/summary`     | Return to Layer 1 |
-| Any layer | `/layer [1-4]` | Jump directly     |
+| From | Command | Result |
+|------|---------|--------|
+| Summary | `/context` | Layer 2 |
+| Context | `/technical` | Layer 3 |
+| Technical | `/raw` | Layer 4 |
+| Any layer | `/summary` | Return to Layer 1 |
+| Any layer | `/layer [1-4]` | Jump directly |
 
 ---
 
@@ -85,12 +85,12 @@ Linked:  2 phones · 1 address · 4 social profiles
 
 Detail layers surface automatically when conditions are met.
 
-| Condition            | Layer Revealed                |
-| -------------------- | ----------------------------- |
-| Risk score ≥ 8       | Technical (Layer 3) forced    |
-| Conflicting sources  | Context (Layer 2) auto-shown  |
-| User types `/why`    | Context for that finding      |
-| Export requested     | Technical minimum enforced    |
+| Condition | Layer Revealed |
+|-----------|---------------|
+| Risk score ≥ 8 | Technical (Layer 3) forced |
+| Conflicting sources | Context (Layer 2) auto-shown |
+| User types `/why` | Context for that finding |
+| Export requested | Technical minimum enforced |
 | Case template active | Layer set per template config |
 
 ---
@@ -99,22 +99,21 @@ Detail layers surface automatically when conditions are met.
 
 Specialist terms are rendered in plain language in Novice tier.
 
-| Specialist Term | Novice Rendering          |
-| --------------- | ------------------------- |
-| Reconnaissance  | Subject information sweep |
-| Pivot           | Follow a connection       |
-| Dork            | Targeted search query     |
-| EXIF            | Photo origin data         |
-| WHOIS           | Domain ownership record   |
-| Subdomain       | Sub-section of a site     |
-| Geolocation     | Physical location data    |
-| Sock puppet     | Fabricated identity       |
-| PII             | Personal identifiers      |
-| IOC             | Threat indicator          |
-| TTPs            | Behavioral signatures     |
+| Specialist Term | Novice Rendering |
+|-----------------|-----------------|
+| Reconnaissance | Subject information sweep |
+| Pivot | Follow a connection |
+| Dork | Targeted search query |
+| EXIF | Photo origin data |
+| WHOIS | Domain ownership record |
+| Subdomain | Sub-section of a site |
+| Geolocation | Physical location data |
+| Sock puppet | Fabricated identity |
+| PII | Personal identifiers |
+| IOC | Threat indicator |
+| TTPs | Behavioral signatures |
 
 Translation format in output:
-
 ```
 We found EXIF data (photo origin information) embedded in the file.
 ```
@@ -125,11 +124,11 @@ We found EXIF data (photo origin information) embedded in the file.
 
 The system tracks per-command layer preferences across a session.
 
-| Tracked Signal                         | Adaptation                  |
-| -------------------------------------- | --------------------------- |
+| Tracked Signal | Adaptation |
+|----------------|------------|
 | User reached Layer 3 on `/sweep` twice | Default `/sweep` to Layer 2 |
-| User declined `/context` 3 times       | Default stays Layer 1       |
-| User always types `/raw` after `/scan` | Pre-fetch Layer 4           |
+| User declined `/context` 3 times | Default stays Layer 1 |
+| User always types `/raw` after `/scan` | Pre-fetch Layer 4 |
 
 ---
 
@@ -153,7 +152,6 @@ Decomposes a single finding into plain language at Layer 1 depth, regardless of 
 ### Output Templates
 
 **Novice — full template with glossary:**
-
 ```
 [What]:       We found [desc].
 [Where]:      From [source_label] (reliability: [A-F grade]).
@@ -164,28 +162,26 @@ Glossary: [any specialist terms used, translated per terminology table]
 ```
 
 **Practitioner — 2 sentences:**
-
 ```
 [desc] — sourced from [source_label] (reliability: [A-F]), confidence [label].
 Next: [next step].
 ```
 
 **Specialist — one-liner:**
-
 ```
 [F-id] [type]: [desc] | [source_label] [A-F] | [score]/5 | [next step]
 ```
 
 ### Source Reliability Grades
 
-| Grade | Meaning                   |
-| ----- | ------------------------- |
-| A     | Primary / official record |
-| B     | Verified third-party      |
-| C     | Credible but unverified   |
-| D     | Single unconfirmed source |
-| E     | Known unreliable source   |
-| F     | Fabricated or disputed    |
+| Grade | Meaning                                |
+|-------|----------------------------------------|
+| A     | Primary / official record              |
+| B     | Verified third-party                   |
+| C     | Credible but unverified                |
+| D     | Single unconfirmed source              |
+| E     | Known unreliable source                |
+| F     | Fabricated or disputed                 |
 
 ### Example (Novice)
 

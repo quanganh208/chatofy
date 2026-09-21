@@ -6,43 +6,45 @@
  * Agents and todos are handled separately (multi-line, see statusline-activity-renderers.cjs).
  */
 
-const { green, yellow, red, coloredBar, resolveColor } = require('./colors.cjs');
+const {
+  green, yellow, red, coloredBar, resolveColor
+} = require('./colors.cjs');
 
 // Default section config (order matches visual left-to-right / top-to-bottom)
 const DEFAULT_SECTIONS = [
-  { id: 'model', enabled: true, order: 0, icon: '🤖' },
-  { id: 'context', enabled: true, order: 1 },
-  { id: 'quota', enabled: true, order: 2, icon: '⌛' },
+  { id: 'model',     enabled: true, order: 0, icon: '🤖' },
+  { id: 'context',   enabled: true, order: 1 },
+  { id: 'quota',     enabled: true, order: 2, icon: '⌛' },
   { id: 'directory', enabled: true, order: 3, icon: '📁' },
-  { id: 'git', enabled: true, order: 4, icon: '🌿' },
-  { id: 'plan', enabled: true, order: 5, icon: '📋' },
-  { id: 'cost', enabled: false, order: 6, icon: '💰' },
-  { id: 'changes', enabled: true, order: 7, icon: '📝' },
-  { id: 'agents', enabled: true, order: 8, icon: '🔄' },
-  { id: 'todos', enabled: true, order: 9, icon: '✅' },
+  { id: 'git',       enabled: true, order: 4, icon: '🌿' },
+  { id: 'plan',      enabled: true, order: 5, icon: '📋' },
+  { id: 'cost',      enabled: false, order: 6, icon: '💰' },
+  { id: 'changes',   enabled: true, order: 7, icon: '📝' },
+  { id: 'agents',    enabled: true, order: 8, icon: '🔄' },
+  { id: 'todos',     enabled: true, order: 9, icon: '✅' },
 ];
 
 const DEFAULT_THEME = {
-  contextLow: 'green',
-  contextMid: 'yellow',
+  contextLow:  'green',
+  contextMid:  'yellow',
   contextHigh: 'red',
-  quotaLow: 'green',
-  quotaHigh: 'red',
-  accent: 'cyan',
-  muted: 'dim',
-  separator: 'dim',
+  quotaLow:    'green',
+  quotaHigh:   'red',
+  accent:      'cyan',
+  muted:       'dim',
+  separator:   'dim',
 };
 
 // Default per-section colors — applied when sectionConfig[id].color is not set.
 // Matches UI DEFAULT_SECTION_COLORS (statusline-types.ts) for consistent behavior.
 const DEFAULT_SECTION_COLORS = {
-  model: 'cyan',
+  model:     'cyan',
   directory: 'blue',
-  git: 'magenta',
-  cost: 'dim',
-  changes: 'brightYellow',
-  agents: 'brightCyan',
-  todos: 'brightGreen',
+  git:       'magenta',
+  cost:      'dim',
+  changes:   'brightYellow',
+  agents:    'brightCyan',
+  todos:     'brightGreen',
 };
 
 function getContextColorName(percent, theme) {
@@ -54,15 +56,15 @@ function getContextColorName(percent, theme) {
 function getQuotaColorName(usageWindows, theme) {
   const percents = Array.isArray(usageWindows)
     ? usageWindows
-        .map((windowText) => {
-          const match = String(windowText).match(/(\d+)%/);
-          return match ? Number(match[1]) : null;
-        })
-        .filter((percent) => Number.isFinite(percent))
+      .map((windowText) => {
+        const match = String(windowText).match(/(\d+)%/);
+        return match ? Number(match[1]) : null;
+      })
+      .filter((percent) => Number.isFinite(percent))
     : [];
   return percents.some((percent) => percent >= 85)
-    ? theme.quotaHigh || theme.muted
-    : theme.quotaLow || theme.muted;
+    ? (theme.quotaHigh || theme.muted)
+    : (theme.quotaLow || theme.muted);
 }
 
 // SECTION RENDERERS
@@ -99,9 +101,9 @@ function renderGitSection(ctx, sectionConfig, theme) {
   let part = `${sectionConfig.icon || '🌿'} ${gitColorFn(ctx.gitBranch)}`;
   const indicators = [];
   if (ctx.gitUnstaged > 0) indicators.push(`${ctx.gitUnstaged}`);
-  if (ctx.gitStaged > 0) indicators.push(`+${ctx.gitStaged}`);
-  if (ctx.gitAhead > 0) indicators.push(`${ctx.gitAhead}↑`);
-  if (ctx.gitBehind > 0) indicators.push(`${ctx.gitBehind}↓`);
+  if (ctx.gitStaged > 0)   indicators.push(`+${ctx.gitStaged}`);
+  if (ctx.gitAhead > 0)    indicators.push(`${ctx.gitAhead}↑`);
+  if (ctx.gitBehind > 0)   indicators.push(`${ctx.gitBehind}↓`);
   if (indicators.length > 0) part += ` ${yellow(`(${indicators.join(', ')})`)}`;
   return part;
 }
@@ -130,14 +132,14 @@ function renderChangesSection(ctx, sectionConfig, theme) {
 }
 
 const SECTION_RENDERERS = {
-  model: renderModelSection,
-  context: renderContextSection,
-  quota: renderQuotaSection,
+  model:     renderModelSection,
+  context:   renderContextSection,
+  quota:     renderQuotaSection,
   directory: renderDirectorySection,
-  git: renderGitSection,
-  plan: renderPlanSection,
-  cost: renderCostSection,
-  changes: renderChangesSection,
+  git:       renderGitSection,
+  plan:      renderPlanSection,
+  cost:      renderCostSection,
+  changes:   renderChangesSection,
 };
 
 function getSectionRenderer(id) {
@@ -164,10 +166,8 @@ function resolveLayout(statuslineLayout) {
 
   const defaultById = {};
   for (const s of DEFAULT_SECTIONS) defaultById[s.id] = s;
-  const sectionConfig =
-    statuslineLayout.sectionConfig && typeof statuslineLayout.sectionConfig === 'object'
-      ? statuslineLayout.sectionConfig
-      : {};
+  const sectionConfig = (statuslineLayout.sectionConfig && typeof statuslineLayout.sectionConfig === 'object')
+    ? statuslineLayout.sectionConfig : {};
 
   let sections;
 
@@ -183,7 +183,7 @@ function resolveLayout(statuslineLayout) {
         // Apply default section color when no explicit color is set
         // Priority: sectionConfig[id].color > DEFAULT_SECTION_COLORS[id] > renderer's theme.accent fallback
         const defaultColor = DEFAULT_SECTION_COLORS[id];
-        const mergedCfg = defaultColor && !cfg.color ? { ...cfg, color: defaultColor } : cfg;
+        const mergedCfg = (defaultColor && !cfg.color) ? { ...cfg, color: defaultColor } : cfg;
         sections.push({ ...base, ...mergedCfg, id, enabled: true, order: order++ });
       }
     }
@@ -195,14 +195,10 @@ function resolveLayout(statuslineLayout) {
         // Apply default section color when no explicit color is set
         // Priority: sectionConfig[id].color > DEFAULT_SECTION_COLORS[id] > renderer's theme.accent fallback
         const defaultColor = DEFAULT_SECTION_COLORS[cs.id];
-        const mergedCfg = defaultColor && !cfg.color ? { ...cfg, color: defaultColor } : cfg;
-        return {
-          ...(defaultById[cs.id] || { id: cs.id, enabled: true, order: 99 }),
-          ...mergedCfg,
-          ...cs,
-        };
+        const mergedCfg = (defaultColor && !cfg.color) ? { ...cfg, color: defaultColor } : cfg;
+        return { ...(defaultById[cs.id] || { id: cs.id, enabled: true, order: 99 }), ...mergedCfg, ...cs };
       })
-      .filter((s) => s.id)
+      .filter(s => s.id)
       .sort((a, b) => (a.order || 0) - (b.order || 0));
   } else {
     sections = DEFAULT_SECTIONS.slice();
@@ -210,8 +206,7 @@ function resolveLayout(statuslineLayout) {
 
   // Guard: if theme is a string (e.g. "dark"), spread produces garbage {0:"d",1:"a",...}
   const themeInput = statuslineLayout.theme;
-  const themeOverride =
-    themeInput && typeof themeInput === 'object' && !Array.isArray(themeInput) ? themeInput : {};
+  const themeOverride = (themeInput && typeof themeInput === 'object' && !Array.isArray(themeInput)) ? themeInput : {};
   // Pass through the original lines config for the render modes to use
   const configLines = Array.isArray(statuslineLayout.lines) ? statuslineLayout.lines : null;
 
@@ -220,14 +215,12 @@ function resolveLayout(statuslineLayout) {
     configLines,
     theme: { ...DEFAULT_THEME, ...themeOverride },
     themeOverrides: { ...themeOverride },
-    responsiveBreakpoint:
-      typeof statuslineLayout.responsiveBreakpoint === 'number'
-        ? Math.max(0.5, Math.min(1.0, statuslineLayout.responsiveBreakpoint))
-        : 0.85,
-    maxAgentRows:
-      typeof statuslineLayout.maxAgentRows === 'number' ? statuslineLayout.maxAgentRows : 4,
-    todoTruncation:
-      typeof statuslineLayout.todoTruncation === 'number' ? statuslineLayout.todoTruncation : 50,
+    responsiveBreakpoint: typeof statuslineLayout.responsiveBreakpoint === 'number'
+      ? Math.max(0.5, Math.min(1.0, statuslineLayout.responsiveBreakpoint)) : 0.85,
+    maxAgentRows: typeof statuslineLayout.maxAgentRows === 'number'
+      ? statuslineLayout.maxAgentRows : 4,
+    todoTruncation: typeof statuslineLayout.todoTruncation === 'number'
+      ? statuslineLayout.todoTruncation : 50,
   };
 }
 

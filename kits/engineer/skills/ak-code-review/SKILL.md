@@ -1,14 +1,14 @@
 ---
 name: ak:code-review
-description: 'Review code quality with evidence-based rigor. Supports input modes: pending changes, PR number, commit hash, and codebase scan. Focuses on bugs, regressions, maintainability, reliability, and verification gaps.'
+description: "Review code quality with evidence-based rigor. Supports input modes: pending changes, PR number, commit hash, and codebase scan. Focuses on bugs, regressions, maintainability, reliability, and verification gaps."
 user-invocable: true
-when_to_use: 'Invoke to review diffs, PRs, commits, or full codebases.'
+when_to_use: "Invoke to review diffs, PRs, commits, or full codebases."
 category: workflow
 keywords: [review, quality, verification, reliability]
-argument-hint: '[#PR | COMMIT | --pending | codebase [parallel]] [--ultra] [--advice] [--yagni]'
+argument-hint: "[#PR | COMMIT | --pending | codebase [parallel]] [--ultra] [--advice] [--yagni]"
 metadata:
   author: agentkit
-  version: '2.0.3'
+  version: "2.0.3"
   workflow:
     follows: [ak-test]
     precedes: [ak-ship]
@@ -24,14 +24,14 @@ current source/revision and use evidence; scores never substitute for checks or 
 
 Auto-detect from arguments. If ambiguous or no arguments, prompt via `ask_user capability`.
 
-| Input                       | Mode          | What Gets Reviewed                       |
-| --------------------------- | ------------- | ---------------------------------------- |
-| `#123` or PR URL            | **PR**        | Full PR diff fetched via `gh pr diff`    |
-| `abc1234` (7+ hex chars)    | **Commit**    | Single commit diff via `git show`        |
-| `--pending`                 | **Pending**   | Staged + unstaged changes via `git diff` |
-| _(no args, recent changes)_ | **Default**   | Recent changes in context                |
-| `codebase`                  | **Codebase**  | Full codebase scan                       |
-| `codebase parallel`         | **Codebase+** | Parallel multi-reviewer audit            |
+| Input | Mode | What Gets Reviewed |
+|-------|------|--------------------|
+| `#123` or PR URL | **PR** | Full PR diff fetched via `gh pr diff` |
+| `abc1234` (7+ hex chars) | **Commit** | Single commit diff via `git show` |
+| `--pending` | **Pending** | Staged + unstaged changes via `git diff` |
+| *(no args, recent changes)* | **Default** | Recent changes in context |
+| `codebase` | **Codebase** | Full codebase scan |
+| `codebase parallel` | **Codebase+** | Parallel multi-reviewer audit |
 
 **Resolution details:** `references/input-mode-resolution.md`
 
@@ -39,13 +39,14 @@ Auto-detect from arguments. If ambiguous or no arguments, prompt via `ask_user c
 
 If invoked WITHOUT arguments and no recent changes in context, use `ask_user capability` with header "Review Target", question "What would you like to review?":
 
-| Option                  | Description                     |
-| ----------------------- | ------------------------------- |
-| Pending changes         | Review staged/unstaged git diff |
-| Enter PR number         | Fetch and review a specific PR  |
-| Enter commit hash       | Review a specific commit        |
-| Full codebase scan      | Deep codebase analysis          |
-| Parallel codebase audit | Multi-reviewer codebase scan    |
+| Option | Description |
+|--------|-------------|
+| Pending changes | Review staged/unstaged git diff |
+| Enter PR number | Fetch and review a specific PR |
+| Enter commit hash | Review a specific commit |
+| Full codebase scan | Deep codebase analysis |
+| Parallel codebase audit | Multi-reviewer codebase scan |
+
 
 ## Select the operation
 

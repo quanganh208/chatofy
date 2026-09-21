@@ -2,14 +2,14 @@
 name: ak:copywriting
 description: Conversion copywriting formulas, headline templates, email copy patterns, landing page structures, CTA optimization, and writing style extraction. Activate for writing high-converting copy, crafting headlines, email campaigns, landing pages, or applying custom writing styles from assets/writing-styles/ directory.
 user-invocable: true
-when_to_use: 'Invoke for conversion copy, headlines, emails, or style transfer.'
+when_to_use: "Invoke for conversion copy, headlines, emails, or style transfer."
 category: marketing
 keywords: [copy, headlines, email, landing-page]
 license: MIT
-argument-hint: '[copy-type] [context]'
+argument-hint: "[copy-type] [context]"
 metadata:
   author: agentkit
-  version: '1.0.2'
+  version: "1.0.2"
 ---
 
 # Copywriting
@@ -27,15 +27,15 @@ Use existing output conventions; no Engineer-only organization skill is required
 
 ## References
 
-| File                                | Purpose                                |
-| ----------------------------------- | -------------------------------------- |
-| `references/writing-styles.md`      | 30 writing styles quick reference      |
-| `references/copy-formulas.md`       | AIDA, PAS, BAB, 4Ps, FAB formulas      |
-| `references/headline-templates.md`  | Headline patterns & templates          |
-| `references/email-copy.md`          | Email copy patterns                    |
-| `references/landing-page-copy.md`   | Landing page structure                 |
-| `references/cta-patterns.md`        | CTA optimization                       |
-| `references/power-words.md`         | Power words by emotion                 |
-| `references/social-media-copy.md`   | Platform-specific copy                 |
+| File | Purpose |
+|------|---------|
+| `references/writing-styles.md` | 30 writing styles quick reference |
+| `references/copy-formulas.md` | AIDA, PAS, BAB, 4Ps, FAB formulas |
+| `references/headline-templates.md` | Headline patterns & templates |
+| `references/email-copy.md` | Email copy patterns |
+| `references/landing-page-copy.md` | Landing page structure |
+| `references/cta-patterns.md` | CTA optimization |
+| `references/power-words.md` | Power words by emotion |
+| `references/social-media-copy.md` | Platform-specific copy |
 | `scripts/extract-writing-styles.py` | Extract styles from multi-format files |
-| `templates/copy-brief.md`           | Creative brief template                |
+| `templates/copy-brief.md` | Creative brief template |

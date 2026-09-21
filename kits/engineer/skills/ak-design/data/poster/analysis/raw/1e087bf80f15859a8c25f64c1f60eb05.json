@@ -1,7 +1,20 @@
 {
   "image": "1e087bf80f15859a8c25f64c1f60eb05.jpg",
-  "style_cues": ["editorial", "anime-inspired", "layered", "graphic design", "high-contrast"],
-  "palette_hexes": ["#C0BFBC", "#CB453E", "#1C1D1F", "#83D4E7", "#4B8CC0", "#F6DED6"],
+  "style_cues": [
+    "editorial",
+    "anime-inspired",
+    "layered",
+    "graphic design",
+    "high-contrast"
+  ],
+  "palette_hexes": [
+    "#C0BFBC",
+    "#CB453E",
+    "#1C1D1F",
+    "#83D4E7",
+    "#4B8CC0",
+    "#F6DED6"
+  ],
   "layout": {
     "grid": "asymmetric with image bleed",
     "focal": "upper-right",
@@ -11,7 +24,12 @@
     "material": "digital flat",
     "finish": "subtle grain overlay"
   },
-  "mood": ["energetic", "inspirational", "youthful", "cool"],
+  "mood": [
+    "energetic",
+    "inspirational",
+    "youthful",
+    "cool"
+  ],
   "shape_primitives": [
     "rectangular text blocks",
     "curved lines",
@@ -19,5 +37,10 @@
     "floral patterns",
     "diagonal cuts"
   ],
-  "typography": ["geometric sans", "all caps", "extreme size contrast", "layered text"]
+  "typography": [
+    "geometric sans",
+    "all caps",
+    "extreme size contrast",
+    "layered text"
+  ]
 }

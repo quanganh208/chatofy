@@ -13,7 +13,6 @@ Use AI multimodal vision to analyze generated assets and verify design standards
 ## Quick Start
 
 ### Comprehensive Analysis
-
 ```bash
 npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
   --files docs/assets/generated-hero.png \
@@ -23,7 +22,6 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
 ```
 
 ### Compare Multiple Variations
-
 ```bash
 npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
   --files docs/assets/option-1.png docs/assets/option-2.png docs/assets/option-3.png \
@@ -33,7 +31,6 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
 ```
 
 ### Extract Color Palette
-
 ```bash
 npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
   --files docs/assets/final-asset.png \
@@ -70,19 +67,19 @@ silently.
 /* Extracted Color Palette */
 :root {
   /* Primary Colors */
-  --color-primary-600: #2c5f7d; /* Dark teal - headers, CTAs */
-  --color-primary-400: #4a90b8; /* Medium teal - links, accents */
+  --color-primary-600: #2C5F7D;  /* Dark teal - headers, CTAs */
+  --color-primary-400: #4A90B8;  /* Medium teal - links, accents */
 
   /* Accent Colors */
-  --color-accent-500: #e8b44f; /* Warm gold - highlights */
+  --color-accent-500: #E8B44F;   /* Warm gold - highlights */
 
   /* Neutral Colors */
-  --color-neutral-900: #1a1a1a; /* Near black - body text */
-  --color-neutral-100: #f5f5f5; /* Light gray - backgrounds */
+  --color-neutral-900: #1A1A1A;  /* Near black - body text */
+  --color-neutral-100: #F5F5F5;  /* Light gray - backgrounds */
 
   /* Semantic Usage */
   --color-text-primary: var(--color-neutral-900);
-  --color-text-on-primary: #ffffff;
+  --color-text-on-primary: #FFFFFF;
   --color-background: var(--color-neutral-100);
   --color-cta: var(--color-primary-600);
 }

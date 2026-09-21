@@ -10,24 +10,22 @@ Skills use progressive disclosure to minimize context window usage.
 
 ## Size Limits
 
-| Resource            | Limit       | Notes                                          |
-| ------------------- | ----------- | ---------------------------------------------- |
-| Description         | ≤1024 chars | Precise activation boundary; no minimum length |
-| SKILL.md            | <300 lines  | Core instructions only                         |
-| Each reference file | <300 lines  | Split if larger                                |
-| Scripts             | No limit    | Executed, not loaded into context              |
+| Resource | Limit | Notes |
+|----------|-------|-------|
+| Description | ≤1024 chars | Precise activation boundary; no minimum length |
+| SKILL.md | <300 lines | Core instructions only |
+| Each reference file | <300 lines | Split if larger |
+| Scripts | No limit | Executed, not loaded into context |
 
 ## SKILL.md Content Strategy
 
 **Include in SKILL.md:**
-
 - Outcome, scope and completion criteria
 - A minimal router for multiple workflows, with conditions for loading each resource
 - Safety and authorization boundaries needed across workflows
 - Exact common commands where their placement prevents mistakes
 
 **Move to references/:**
-
 - Detailed documentation
 - Database schemas
 - API specs
@@ -48,7 +46,6 @@ owns observed evidence. Keep changing timestamps and metrics out of static guida
 ## No Duplication Rule
 
 Information lives in ONE place:
-
 - Either in SKILL.md
 - Or in references/
 
@@ -70,7 +67,6 @@ Include grep patterns in SKILL.md for discoverability:
 
 ```markdown
 ## API Documentation
-
 - Auth: `references/api-endpoints-auth.md` <!-- resource-link-example: illustrative API -->
 - Users: `references/api-endpoints-users.md` <!-- resource-link-example: illustrative API -->
 - Payments: `references/api-endpoints-payments.md` <!-- resource-link-example: illustrative API -->
@@ -81,7 +77,6 @@ Include grep patterns in SKILL.md for discoverability:
 Scripts execute without loading into context.
 
 **When to use scripts:**
-
 - Repetitive code patterns
 - Deterministic operations
 - Complex transformations

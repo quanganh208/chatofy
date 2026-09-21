@@ -1,28 +1,25 @@
 # Review checklist
 
 **Correctness**
-
 - Logic errors, off-by-one, nil/null dereference
 - Missing error handling or swallowed errors
 - Race conditions in concurrent code
 - Edge cases not handled
 
 **Security**
-
 - Injection (SQL, XSS, command, SSRF, path traversal)
 - Hardcoded secrets or credentials
 - Missing input validation at system boundaries
 - Authentication/authorization gaps
 
 **Breaking changes**
-
 - API contract changes (request/response shapes, status codes)
 - Database schema changes without migrations
 - Config format changes without backwards compatibility
 - Removed or renamed exports/public interfaces
 
 **Code quality (anti-slop — terse checklist)**
-LLM-assisted PRs commonly introduce code that _runs fine_ but pollutes the codebase. Scan the diff for these high-signal patterns:
+LLM-assisted PRs commonly introduce code that *runs fine* but pollutes the codebase. Scan the diff for these high-signal patterns:
 
 - New file in dumping-ground dirs (`utils/`, `helpers/`, `lib/common/`, `*manager.ts`) without a clear domain anchor
 - Parallel reimplementation of a utility that already exists in the repo (grep for prior art)
@@ -42,7 +39,6 @@ LLM-assisted PRs commonly introduce code that _runs fine_ but pollutes the codeb
 - Commit messages with generic LLM phrasing ("improve code quality and enhance maintainability")
 
 **Load the full taxonomy** in `references/anti-ai-slop.md` when ANY of:
-
 - diff adds >300 lines, OR
 - ≥2 inline anti-slop flags above fire, OR
 - PR creates >2 new files in `utils/`/`helpers/`/`lib/common/`, OR
@@ -51,14 +47,12 @@ LLM-assisted PRs commonly introduce code that _runs fine_ but pollutes the codeb
 The reference covers: structural slop, micro slop, process slop, how to phrase the finding without becoming an AI-witch-hunt, when NOT to flag, and stack-specific appendix (Go, React/TS, Tailwind).
 
 **Project-specific compliance**
-
 - Read the project's loaded instruction surfaces and follow its documentation navigation to locate current architecture, coding, data, UI, and review standards
 - Verify every cited rule against the current path, source, tests, or configuration that owns it
 - Check the diff against project conventions for: architecture patterns, ID scoping, SQL store rules, i18n catalogs, UI/CSS conventions, package manager, file-size limits
 - See `references/project-rules-example.md` for a worked example of project-specific compliance rules (Go gateway, React/Tailwind UI)
 
 **Testing**
-
 - Are new code paths covered by tests?
 - Do existing tests still pass with these changes?
 - Are edge cases tested?

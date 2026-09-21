@@ -1,7 +1,19 @@
 {
   "image": "352817058d62df6c2a2187529ebc0811.jpg",
-  "style_cues": ["traditional chinese art", "digital painting", "fantasy", "cultural theme"],
-  "palette_hexes": ["#FFF7E6", "#F2B100", "#2B5A8F", "#D93F3F", "#F0EFEB", "#A06F00"],
+  "style_cues": [
+    "traditional chinese art",
+    "digital painting",
+    "fantasy",
+    "cultural theme"
+  ],
+  "palette_hexes": [
+    "#FFF7E6",
+    "#F2B100",
+    "#2B5A8F",
+    "#D93F3F",
+    "#F0EFEB",
+    "#A06F00"
+  ],
   "layout": {
     "grid": "centered stack",
     "focal": "center",
@@ -11,7 +23,12 @@
     "material": "digital illustration",
     "finish": "painterly brushstrokes"
   },
-  "mood": ["majestic", "ethereal", "celebratory", "dynamic"],
+  "mood": [
+    "majestic",
+    "ethereal",
+    "celebratory",
+    "dynamic"
+  ],
   "shape_primitives": [
     "flowing curvilinear forms",
     "lotus flower shape",

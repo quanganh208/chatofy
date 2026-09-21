@@ -2,14 +2,14 @@
 name: ak:deploy
 description: Deploy projects to any platform with auto-detection. Use when user says "deploy", "publish", "ship", "go live", "push to production", "host this app", or mentions any hosting platform (Vercel, Netlify, Cloudflare, Railway, Fly.io, Render, Heroku, TOSE, Github Pages, AWS, GCP, Digital Ocean, Vultr, Coolify, Dokploy). Auto-detects the deployment target from config files and documents or updates the project's existing deployment guide.
 user-invocable: true
-when_to_use: 'Invoke when the goal is hosting or publishing an app.'
+when_to_use: "Invoke when the goal is hosting or publishing an app."
 category: engineering
 keywords: [deploy, hosting, Vercel, Netlify, Cloudflare]
 license: MIT
-argument-hint: '[platform] [environment]'
+argument-hint: "[platform] [environment]"
 metadata:
   author: agentkit
-  version: '1.0.2'
+  version: "1.0.2"
 ---
 
 # Deploy Skill
@@ -35,34 +35,34 @@ question is not deployment intent.
 
 ### 2. Detection Signals
 
-| File/Pattern                         | Platform      |
-| ------------------------------------ | ------------- |
-| `vercel.json`, `.vercel/`            | Vercel        |
-| `netlify.toml`, `_redirects`         | Netlify       |
-| `wrangler.toml`, `wrangler.json`     | Cloudflare    |
-| `fly.toml`                           | Fly.io        |
-| `railway.json`, `railway.toml`       | Railway       |
-| `render.yaml`                        | Render        |
-| `Procfile` + `app.json`              | Heroku        |
-| `tose.yaml`, `tose.json`             | TOSE.sh       |
-| `docker-compose.yml` + `coolify` ref | Coolify       |
-| `dokploy.yml`                        | Dokploy       |
-| `.github/workflows/*pages*`          | Github Pages  |
-| `app.yaml` (GAE format)              | GCP           |
-| `amplify.yml`, `buildspec.yml`       | AWS           |
-| `.do/app.yaml`                       | Digital Ocean |
+| File/Pattern | Platform |
+|---|---|
+| `vercel.json`, `.vercel/` | Vercel |
+| `netlify.toml`, `_redirects` | Netlify |
+| `wrangler.toml`, `wrangler.json` | Cloudflare |
+| `fly.toml` | Fly.io |
+| `railway.json`, `railway.toml` | Railway |
+| `render.yaml` | Render |
+| `Procfile` + `app.json` | Heroku |
+| `tose.yaml`, `tose.json` | TOSE.sh |
+| `docker-compose.yml` + `coolify` ref | Coolify |
+| `dokploy.yml` | Dokploy |
+| `.github/workflows/*pages*` | Github Pages |
+| `app.yaml` (GAE format) | GCP |
+| `amplify.yml`, `buildspec.yml` | AWS |
+| `.do/app.yaml` | Digital Ocean |
 
 ### 3. Project Type → Candidate Platforms
 
-| Project Type               | Detection                         | Candidate examples (verify fit and current cost) |
-| -------------------------- | --------------------------------- | ------------------------------------------------ |
-| Static site (HTML/CSS/JS)  | No server files                   | Github Pages → Cloudflare Pages                  |
-| SPA (React/Vue/Svelte)     | Framework config, no SSR          | Vercel → Netlify → Cloudflare Pages              |
-| SSR/Full-stack (Next/Nuxt) | `next.config.*`, `nuxt.config.*`  | Vercel → Netlify → Cloudflare                    |
-| Node.js API                | `server.js/ts`, Express/Fastify   | Railway → Render → Fly.io → TOSE.sh              |
-| Python API                 | `requirements.txt` + Flask/Django | Railway → Render → Fly.io                        |
-| Docker app                 | `Dockerfile`                      | Fly.io → Railway → TOSE.sh → Coolify             |
-| Monorepo                   | `turbo.json`, workspaces          | Vercel → Netlify                                 |
+| Project Type | Detection | Candidate examples (verify fit and current cost) |
+|---|---|---|
+| Static site (HTML/CSS/JS) | No server files | Github Pages → Cloudflare Pages |
+| SPA (React/Vue/Svelte) | Framework config, no SSR | Vercel → Netlify → Cloudflare Pages |
+| SSR/Full-stack (Next/Nuxt) | `next.config.*`, `nuxt.config.*` | Vercel → Netlify → Cloudflare |
+| Node.js API | `server.js/ts`, Express/Fastify | Railway → Render → Fly.io → TOSE.sh |
+| Python API | `requirements.txt` + Flask/Django | Railway → Render → Fly.io |
+| Docker app | `Dockerfile` | Fly.io → Railway → TOSE.sh → Coolify |
+| Monorepo | `turbo.json`, workspaces | Vercel → Netlify |
 
 ### 4. Compare viable targets
 
@@ -99,7 +99,6 @@ verified deployment completion.
 ## ask_user capability Template
 
 When no target detected, present options based on project type analysis:
-
 - Compare against the user’s target, runtime, budget, and operations constraints
 - Include pricing/limits only with current source evidence
 - Max 4 options (top recommendations + "Other")
@@ -108,23 +107,23 @@ When no target detected, present options based on project type analysis:
 
 Load ONLY the platform reference needed — do NOT load all files:
 
-| Platform      | Reference File                         |
-| ------------- | -------------------------------------- |
-| Vercel        | `references/platforms/vercel.md`       |
-| Netlify       | `references/platforms/netlify.md`      |
-| Cloudflare    | `references/platforms/cloudflare.md`   |
-| Railway       | `references/platforms/railway.md`      |
-| Fly.io        | `references/platforms/flyio.md`        |
-| Render        | `references/platforms/render.md`       |
-| Heroku        | `references/platforms/heroku.md`       |
-| TOSE.sh       | `references/platforms/tose.md`         |
-| Github Pages  | `references/platforms/github-pages.md` |
-| Coolify       | `references/platforms/coolify.md`      |
-| Dokploy       | `references/platforms/dokploy.md`      |
-| GCP Cloud Run | `references/platforms/gcp.md`          |
-| AWS           | `references/platforms/aws.md`          |
+| Platform | Reference File |
+|---|---|
+| Vercel | `references/platforms/vercel.md` |
+| Netlify | `references/platforms/netlify.md` |
+| Cloudflare | `references/platforms/cloudflare.md` |
+| Railway | `references/platforms/railway.md` |
+| Fly.io | `references/platforms/flyio.md` |
+| Render | `references/platforms/render.md` |
+| Heroku | `references/platforms/heroku.md` |
+| TOSE.sh | `references/platforms/tose.md` |
+| Github Pages | `references/platforms/github-pages.md` |
+| Coolify | `references/platforms/coolify.md` |
+| Dokploy | `references/platforms/dokploy.md` |
+| GCP Cloud Run | `references/platforms/gcp.md` |
+| AWS | `references/platforms/aws.md` |
 | Digital Ocean | `references/platforms/digitalocean.md` |
-| Vultr         | `references/platforms/vultr.md`        |
+| Vultr | `references/platforms/vultr.md` |
 
 - `references/platform-config-templates.md` — conditional template that updates the owning deployment document
 

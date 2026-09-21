@@ -18,7 +18,6 @@ Blockchain and cryptocurrency investigation for OSINT. Covers transaction tracin
 ## 2. Tool Inventory
 
 ### 2.1 Blockchair — Multi-Chain Explorer
-
 **URL:** https://blockchair.com/
 
 Supports Bitcoin, Ethereum, Litecoin, Bitcoin Cash, Ripple, Stellar, Monero, Dogecoin, and 10+ others. Privacy-focused explorer with SQL-like query interface.
@@ -28,7 +27,6 @@ Supports Bitcoin, Ethereum, Litecoin, Bitcoin Cash, Ripple, Stellar, Monero, Dog
 - **Limitation:** API rate limits on free tier; Monero tracing is fundamentally limited by protocol privacy
 
 ### 2.2 Etherscan — Ethereum Explorer
-
 **URL:** https://etherscan.io/
 
 The canonical Ethereum blockchain explorer. Shows transactions, ERC-20/ERC-721 token transfers, internal transactions, contract source code, and gas usage.
@@ -38,7 +36,6 @@ The canonical Ethereum blockchain explorer. Shows transactions, ERC-20/ERC-721 t
 - **Limitation:** Ethereum only; requires API key for programmatic access beyond basic queries
 
 ### 2.3 WalletExplorer — Bitcoin Wallet Clustering
-
 **URL:** https://www.walletexplorer.com/
 
 Groups Bitcoin addresses by common ownership using change address heuristics. Identifies if an address belongs to a known exchange, service, or wallet cluster.
@@ -48,7 +45,6 @@ Groups Bitcoin addresses by common ownership using change address heuristics. Id
 - **Limitation:** Heuristics can be defeated by CoinJoin and careful UTXO management
 
 ### 2.4 OXT.me — Bitcoin Visual Analysis
-
 **URL:** https://oxt.me/
 
 Bitcoin blockchain visualization and analysis platform. Provides transaction flow graphs, wallet clustering, and path-finding between addresses.
@@ -58,7 +54,6 @@ Bitcoin blockchain visualization and analysis platform. Provides transaction flo
 - **Limitation:** Bitcoin only; graph rendering slow for high-volume addresses
 
 ### 2.5 Chainabuse — Scam Address Database
-
 **URL:** https://www.chainabuse.com/
 
 Community-driven database of cryptocurrency addresses flagged for fraud, scams, ransomware, and theft. Multi-chain. Submit reports and search existing ones.
@@ -68,7 +63,6 @@ Community-driven database of cryptocurrency addresses flagged for fraud, scams, 
 - **Limitation:** Only covers reported addresses; new or unreported scam addresses return no results
 
 ### 2.6 Breadcrumbs — Multi-Chain Investigation Platform
-
 **URL:** https://www.breadcrumbs.app/
 
 Multi-chain visual investigation tool with entity labels and transaction graph mapping. Free tier supports basic tracing.
@@ -81,17 +75,17 @@ Multi-chain visual investigation tool with entity labels and transaction graph m
 
 ## 3. Chain-Specific Explorers
 
-| Chain           | Explorer       | URL                                 |
-| --------------- | -------------- | ----------------------------------- |
-| Ethereum        | Etherscan      | https://etherscan.io/               |
-| Bitcoin         | Blockchain.com | https://www.blockchain.com/explorer |
-| Solana          | Solscan        | https://solscan.io/                 |
-| BNB Chain       | BSCScan        | https://bscscan.com/                |
-| Polygon         | Polygonscan    | https://polygonscan.com/            |
-| Avalanche       | Snowtrace      | https://snowtrace.io/               |
-| Tron            | Tronscan       | https://tronscan.org/               |
-| Multi-chain     | Blockchair     | https://blockchair.com/             |
-| Multi-chain EVM | Breadcrumbs    | https://www.breadcrumbs.app/        |
+| Chain | Explorer | URL |
+|-------|---------|-----|
+| Ethereum | Etherscan | https://etherscan.io/ |
+| Bitcoin | Blockchain.com | https://www.blockchain.com/explorer |
+| Solana | Solscan | https://solscan.io/ |
+| BNB Chain | BSCScan | https://bscscan.com/ |
+| Polygon | Polygonscan | https://polygonscan.com/ |
+| Avalanche | Snowtrace | https://snowtrace.io/ |
+| Tron | Tronscan | https://tronscan.org/ |
+| Multi-chain | Blockchair | https://blockchair.com/ |
+| Multi-chain EVM | Breadcrumbs | https://www.breadcrumbs.app/ |
 
 ---
 
@@ -187,26 +181,26 @@ curl -s "https://api.ransomwhe.re/export" \
 
 ### Address Format Quick Reference
 
-| Format  | Chain                | Example Prefix | Length      |
-| ------- | -------------------- | -------------- | ----------- |
-| P2PKH   | Bitcoin              | `1`            | 26–34 chars |
-| P2SH    | Bitcoin              | `3`            | 34 chars    |
-| Bech32  | Bitcoin SegWit       | `bc1q`         | 42 chars    |
-| Taproot | Bitcoin              | `bc1p`         | 62 chars    |
-| EVM     | Ethereum/BSC/Polygon | `0x`           | 42 chars    |
-| Base58  | Solana               | varies         | 32–44 chars |
-| Base58  | Ripple XRP           | `r`            | ~34 chars   |
+| Format | Chain | Example Prefix | Length |
+|--------|-------|---------------|--------|
+| P2PKH | Bitcoin | `1` | 26–34 chars |
+| P2SH | Bitcoin | `3` | 34 chars |
+| Bech32 | Bitcoin SegWit | `bc1q` | 42 chars |
+| Taproot | Bitcoin | `bc1p` | 62 chars |
+| EVM | Ethereum/BSC/Polygon | `0x` | 42 chars |
+| Base58 | Solana | varies | 32–44 chars |
+| Base58 | Ripple XRP | `r` | ~34 chars |
 
 ### Transaction Pattern Recognition
 
-| Pattern          | Description                                                               | Significance                                                 |
-| ---------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Peel chain       | Long chain of single-output transactions, each peeling off a small amount | Layering; funds moving through intermediary wallets          |
-| Fan-out          | One address sending to many addresses simultaneously                      | Distribution to victims (airdrop scam) or layering           |
-| Consolidation    | Many addresses sending to one                                             | Aggregating funds before exchange deposit                    |
-| Round numbers    | Transactions in exactly 1.0 BTC, 10 ETH, etc.                             | Often OTC trades or structured payments                      |
-| Mixer usage      | Funds enter/exit CoinJoin or Tornado Cash                                 | Deliberate obfuscation; note entry and exit addresses        |
-| Exchange deposit | Outbound tx to known exchange cluster                                     | Off-ramp attempt; document exchange name and deposit address |
+| Pattern | Description | Significance |
+|---------|-------------|-------------|
+| Peel chain | Long chain of single-output transactions, each peeling off a small amount | Layering; funds moving through intermediary wallets |
+| Fan-out | One address sending to many addresses simultaneously | Distribution to victims (airdrop scam) or layering |
+| Consolidation | Many addresses sending to one | Aggregating funds before exchange deposit |
+| Round numbers | Transactions in exactly 1.0 BTC, 10 ETH, etc. | Often OTC trades or structured payments |
+| Mixer usage | Funds enter/exit CoinJoin or Tornado Cash | Deliberate obfuscation; note entry and exit addresses |
+| Exchange deposit | Outbound tx to known exchange cluster | Off-ramp attempt; document exchange name and deposit address |
 
 ### Exchange Identification
 
@@ -218,26 +212,26 @@ Deposits to centralized exchanges (Binance, Coinbase, Kraken, etc.) represent th
 
 ### Mixer & Privacy Tool Detection
 
-| Tool           | Chain | Detection                                                      |
-| -------------- | ----- | -------------------------------------------------------------- |
-| CoinJoin       | BTC   | Many equal-value inputs and outputs in one tx                  |
-| Wasabi Wallet  | BTC   | Characteristic CoinJoin structure with 0.1 BTC outputs         |
-| Tornado Cash   | ETH   | Transactions to/from known Tornado Cash contract addresses     |
-| Monero         | XMR   | All transactions are private by protocol; tracing not feasible |
-| Zcash shielded | ZEC   | Transactions to/from shielded pool (z-addresses)               |
+| Tool | Chain | Detection |
+|------|-------|-----------|
+| CoinJoin | BTC | Many equal-value inputs and outputs in one tx |
+| Wasabi Wallet | BTC | Characteristic CoinJoin structure with 0.1 BTC outputs |
+| Tornado Cash | ETH | Transactions to/from known Tornado Cash contract addresses |
+| Monero | XMR | All transactions are private by protocol; tracing not feasible |
+| Zcash shielded | ZEC | Transactions to/from shielded pool (z-addresses) |
 
 ---
 
 ## 7. Confidence Ratings
 
-| Finding                                  | Confidence  | Notes                                              |
-| ---------------------------------------- | ----------- | -------------------------------------------------- |
-| Address balance and transaction count    | HIGH        | On-chain, immutable data                           |
-| Exchange deposit address label           | HIGH        | Confirmed by cluster analysis                      |
-| Chainabuse scam report                   | MEDIUM-HIGH | Community-sourced; verify report quality           |
-| Wallet cluster attribution               | MEDIUM      | Heuristics can fail with CoinJoin/careful UTXO use |
-| Ransomwhe.re family attribution          | MEDIUM-HIGH | Researcher-verified submissions                    |
-| AI geolocation of entity from chain data | LOW         | Indirect inference only                            |
+| Finding | Confidence | Notes |
+|---------|-----------|-------|
+| Address balance and transaction count | HIGH | On-chain, immutable data |
+| Exchange deposit address label | HIGH | Confirmed by cluster analysis |
+| Chainabuse scam report | MEDIUM-HIGH | Community-sourced; verify report quality |
+| Wallet cluster attribution | MEDIUM | Heuristics can fail with CoinJoin/careful UTXO use |
+| Ransomwhe.re family attribution | MEDIUM-HIGH | Researcher-verified submissions |
+| AI geolocation of entity from chain data | LOW | Indirect inference only |
 
 ---
 
@@ -249,5 +243,5 @@ Deposits to centralized exchanges (Binance, Coinbase, Kraken, etc.) represent th
 
 ---
 
-_Blockchain Investigation Module v1.0.0_
-_Part of CTI Expert Skill - Phase 5 Enhancement Modules_
+*Blockchain Investigation Module v1.0.0*
+*Part of CTI Expert Skill - Phase 5 Enhancement Modules*

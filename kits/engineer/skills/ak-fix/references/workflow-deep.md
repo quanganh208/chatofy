@@ -27,7 +27,6 @@ runtime permits the needed delegation.
 ## Steps
 
 ### Step 1: Scout Codebase (parallel with Steps 2+3)
-
 Record the scout phase as active.
 
 **Mandatory:** Activate `ak:scout` skill or, when delegation is permitted,
@@ -43,11 +42,9 @@ Record the scout phase as completed after its evidence is captured.
 **Output:** `✓ Step 1: Scouted - [N] files, system impact: [scope]`
 
 ### Step 2: Diagnose Root Cause (parallel with Steps 1+3)
-
 Record the diagnose phase as active.
 
 **Mandatory skill chain:**
-
 1. **Capture pre-fix state:** Record ALL error messages, failing tests, stack traces, logs.
 2. Activate `ak:debug` skill (systematic-debugging + root-cause-tracing).
 3. Use `ak:fable-thinking` (sequential mode) only when a decision/evidence log would help — structured hypothesis formation.
@@ -61,7 +58,6 @@ Record the diagnose phase as completed after the root cause is proven.
 **Output:** `✓ Step 2: Diagnosed - Root cause: [summary], Evidence: [chain]`
 
 ### Step 3: Research (parallel with Steps 1+2)
-
 Record the research phase as active.
 Use `researcher` through `delegate_agent` only when delegation is explicitly requested/permitted.
 
@@ -73,7 +69,6 @@ Record the research phase as completed after relevant evidence is retained.
 **Output:** `✓ Step 3: Research complete - [key findings]`
 
 ### Step 4: Brainstorm
-
 Record brainstorming as active after scout, diagnosis, and research are complete.
 Activate `ak:brainstorm` skill.
 
@@ -88,7 +83,6 @@ Record brainstorming as completed after the direction is resolved.
 **Output:** `✓ Step 4: Approach selected - [chosen approach]`
 
 ### Step 5: Plan
-
 Record planning as active.
 Use delegated `planner` only when delegation is explicitly requested/permitted;
 otherwise write the plan locally.
@@ -102,7 +96,6 @@ Record planning as completed after the durable plan is written.
 **Output:** `✓ Step 5: Plan created - [N] phases`
 
 ### Step 6: Implement
-
 Record implementation as active.
 Implement the cause-aligned plan. Use context or reasoning aids only when their specific capability is needed.
 
@@ -114,11 +107,9 @@ Record implementation as completed.
 **Output:** `✓ Step 6: Implemented - [N] files, [M] phases`
 
 ### Step 7: Verify + Prevent
-
 Record verification as active.
 
 **Mandatory skill chain:**
-
 1. **Iron-law verify:** Re-run EXACT commands from pre-fix state. Compare before/after.
 2. **Regression test:** Add comprehensive tests. Tests MUST fail without fix, pass with fix.
 3. **Side-effect sweep (HARD-GATE-NO-SIDE-EFFECTS):** Walk each dependent caller of changed functions from Step 1 blast-radius. Run tests in modules that share files/contracts. Confirm public contracts (signatures, schemas, APIs, env vars) unchanged. See SKILL.md HARD-GATE-NO-SIDE-EFFECTS.
@@ -138,7 +129,6 @@ Record verification as completed only after fresh evidence passes.
 **Output:** `✓ Step 7: Verified + Prevented - [before/after], [N] tests, [M] guards`
 
 ### Step 8: Code Review
-
 Record review as active.
 Use delegated `code-reviewer` only when delegation is explicitly requested/permitted; otherwise review locally.
 
@@ -148,9 +138,7 @@ Record review as completed after accepted findings are resolved.
 **Output:** `✓ Step 8: Review [score]/10 - [status]`
 
 ### Step 9: Finalize
-
 Record finalization as active.
-
 - Report summary: root cause, evidence chain, changes, prevention measures, confidence score
 - Activate `ak:project-management` for task sync-back, plan status updates, and progress tracking
 - Evaluate docs impact; use delegated docs-manager only for affected authority
@@ -162,17 +150,17 @@ Record finalization as completed in the live surface when available and in the a
 
 ## Skills/Subagents Activated
 
-| Step | Skills/Subagents                                                                                                                       |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | `ak:scout` OR parallel `Explore` subagents when delegation is permitted                                                                |
-| 2    | `ak:debug`, `ak:fable-thinking` (sequential mode), optional delegated Explore when permitted, optional `ak:problem-solving` when stuck |
-| 3    | `researcher` via `delegate_agent` when permitted                                                                                       |
-| 4    | `ak:brainstorm`                                                                                                                        |
-| 5    | `planner`                                                                                                                              |
-| 6    | `ak:problem-solving`, `ak:fable-thinking` (sequential mode), `ak:context-engineering`                                                  |
-| 7    | `run_shell` verification; optional delegated tester when permitted                                                                     |
-| 8    | `code-reviewer` via `delegate_agent` when permitted, otherwise local review                                                            |
-| 9    | `ak:project-management`; docs/git delegation only when permitted                                                                       |
+| Step | Skills/Subagents |
+|------|------------------|
+| 1 | `ak:scout` OR parallel `Explore` subagents when delegation is permitted |
+| 2 | `ak:debug`, `ak:fable-thinking` (sequential mode), optional delegated Explore when permitted, optional `ak:problem-solving` when stuck |
+| 3 | `researcher` via `delegate_agent` when permitted |
+| 4 | `ak:brainstorm` |
+| 5 | `planner` |
+| 6 | `ak:problem-solving`, `ak:fable-thinking` (sequential mode), `ak:context-engineering` |
+| 7 | `run_shell` verification; optional delegated tester when permitted |
+| 8 | `code-reviewer` via `delegate_agent` when permitted, otherwise local review |
+| 9 | `ak:project-management`; docs/git delegation only when permitted |
 
 **Rules:** Don't skip steps. Validate before proceeding. One phase at a time.
 **Frontend:** Use `ak:agent-browser`, Chrome MCP / `chrome-devtools-mcp`, or any relevant project-native browser tests to verify.

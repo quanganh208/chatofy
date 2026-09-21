@@ -8,7 +8,11 @@
     "editorial",
     "experimental"
   ],
-  "palette_hexes": ["#f5f0e1", "#0a0a0a", "#d32d43"],
+  "palette_hexes": [
+    "#f5f0e1",
+    "#0a0a0a",
+    "#d32d43"
+  ],
   "layout": {
     "grid": "broken grid",
     "focal": "full-bleed",
@@ -18,7 +22,23 @@
     "material": "newsprint",
     "finish": "halftone dots"
   },
-  "mood": ["energetic", "intense", "experimental", "chaotic"],
-  "shape_primitives": ["rectangles", "thick rules", "grid lines", "organic curves", "text blocks"],
-  "typography": ["geometric sans", "stylized script", "all caps", "extreme size contrast"]
+  "mood": [
+    "energetic",
+    "intense",
+    "experimental",
+    "chaotic"
+  ],
+  "shape_primitives": [
+    "rectangles",
+    "thick rules",
+    "grid lines",
+    "organic curves",
+    "text blocks"
+  ],
+  "typography": [
+    "geometric sans",
+    "stylized script",
+    "all caps",
+    "extreme size contrast"
+  ]
 }

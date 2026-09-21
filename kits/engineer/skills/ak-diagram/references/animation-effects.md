@@ -13,116 +13,108 @@ under `@media (prefers-reduced-motion: reduce)`.
 ## Effect reference
 
 ### marching-ants — `data-fx="marching-ants"`
-
 Dashed stroke slides continuously along the path. Classic "flowing"
 connector.
 
-| CSS var         | Default | Meaning               |
-| --------------- | ------- | --------------------- |
-| `--ak-fx-dash`  | `10 8`  | dasharray length pair |
-| `--ak-fx-speed` | `2.4s`  | full cycle duration   |
+| CSS var | Default | Meaning |
+|---------|---------|---------|
+| `--ak-fx-dash` | `10 8` | dasharray length pair |
+| `--ak-fx-speed` | `2.4s` | full cycle duration |
 
 Best on: architecture connectors, data-flow arrows.
 
 ---
 
 ### comet — `data-fx="comet"`
-
 A single bright dash-segment travels the length of the path, leaving
 a faint trail (opacity-tapered stroke).
 
-| CSS var          | Default                 | Meaning                     |
-| ---------------- | ----------------------- | --------------------------- |
-| `--ak-fx-length` | `28`                    | segment length (path units) |
-| `--ak-fx-speed`  | `3.2s`                  | traversal duration          |
-| `--ak-fx-color`  | `var(--ak-diag-accent)` | comet head color            |
+| CSS var | Default | Meaning |
+|---------|---------|---------|
+| `--ak-fx-length` | `28` | segment length (path units) |
+| `--ak-fx-speed` | `3.2s` | traversal duration |
+| `--ak-fx-color` | `var(--ak-diag-accent)` | comet head color |
 
 Best on: focal-point flows, "this is the important edge".
 
 ---
 
 ### wave — `data-fx="wave"`
-
 Stroke width breathes with a sine wave; effect stays in place, only
 thickness modulates.
 
-| CSS var         | Default | Meaning              |
-| --------------- | ------- | -------------------- |
-| `--ak-fx-min`   | `1.2px` | minimum stroke width |
-| `--ak-fx-max`   | `3.4px` | maximum stroke width |
-| `--ak-fx-speed` | `2.0s`  | full wave cycle      |
+| CSS var | Default | Meaning |
+|---------|---------|---------|
+| `--ak-fx-min` | `1.2px` | minimum stroke width |
+| `--ak-fx-max` | `3.4px` | maximum stroke width |
+| `--ak-fx-speed` | `2.0s` | full wave cycle |
 
 Best on: async / event-driven links.
 
 ---
 
 ### morse — `data-fx="morse"`
-
 Long-short dot/dash pattern travels along the path.
 
-| CSS var         | Default    | Meaning         |
-| --------------- | ---------- | --------------- |
-| `--ak-fx-dash`  | `12 6 3 6` | Morse dasharray |
-| `--ak-fx-speed` | `3.0s`     | cycle           |
+| CSS var | Default | Meaning |
+|---------|---------|---------|
+| `--ak-fx-dash` | `12 6 3 6` | Morse dasharray |
+| `--ak-fx-speed` | `3.0s` | cycle |
 
 Best on: intermittent / batched flows.
 
 ---
 
 ### glow — `data-fx="glow"`
-
 Drop-shadow pulses on the stroke. No geometric motion — purely a
 soft halo.
 
-| CSS var            | Default                 | Meaning          |
-| ------------------ | ----------------------- | ---------------- |
-| `--ak-fx-glow`     | `var(--ak-diag-accent)` | glow color       |
-| `--ak-fx-blur-max` | `10px`                  | peak blur radius |
-| `--ak-fx-speed`    | `2.4s`                  | pulse cycle      |
+| CSS var | Default | Meaning |
+|---------|---------|---------|
+| `--ak-fx-glow` | `var(--ak-diag-accent)` | glow color |
+| `--ak-fx-blur-max` | `10px` | peak blur radius |
+| `--ak-fx-speed` | `2.4s` | pulse cycle |
 
 Best on: alert / anomaly connectors.
 
 ---
 
 ### silhouette — `data-fx="silhouette"`
-
 A tiny SVG shape (default: filled circle sibling) rides the path
 via `offset-path: path(...)`. Requires the shape to declare
 `--ak-fx-path` matching the parent stroke's `d`.
 
-| CSS var              | Default      | Meaning                   |
-| -------------------- | ------------ | ------------------------- |
-| `--ak-fx-speed`      | `3.6s`       | traversal cycle           |
-| `--ak-fx-shape-size` | `10px`       | rider dimensions          |
-| `--ak-fx-path`       | _(required)_ | path spec for offset-path |
+| CSS var | Default | Meaning |
+|---------|---------|---------|
+| `--ak-fx-speed` | `3.6s` | traversal cycle |
+| `--ak-fx-shape-size` | `10px` | rider dimensions |
+| `--ak-fx-path` | *(required)* | path spec for offset-path |
 
 Best on: "packet in transit" visuals.
 
 ---
 
 ### pulse — `data-fx="pulse"`
-
 Stroke width + opacity breathe together. Combines wave + glow into a
 single subtle beat.
 
-| CSS var          | Default | Meaning         |
-| ---------------- | ------- | --------------- |
-| `--ak-fx-speed`  | `1.8s`  | cycle           |
-| `--ak-fx-min-op` | `0.55`  | minimum opacity |
+| CSS var | Default | Meaning |
+|---------|---------|---------|
+| `--ak-fx-speed` | `1.8s` | cycle |
+| `--ak-fx-min-op` | `0.55` | minimum opacity |
 
 Best on: heartbeat / health indicators.
 
 ---
 
 ### dashed-flow — `data-fx="dashed-flow"`
-
 Slow ambient dash-drift for background structure. Lower contrast,
 longer cycle than marching-ants.
 
-| CSS var         | Default | Meaning   |
-| --------------- | ------- | --------- |
-| `--ak-fx-dash`  | `4 8`   | dasharray |
-| `--ak-fx-speed` | `6.0s`  | cycle     |
+| CSS var | Default | Meaning |
+|---------|---------|---------|
+| `--ak-fx-dash` | `4 8` | dasharray |
+| `--ak-fx-speed` | `6.0s` | cycle |
 
 Best on: secondary connectors that should feel alive but not compete.
 

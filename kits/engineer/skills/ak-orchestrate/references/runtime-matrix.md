@@ -76,12 +76,12 @@ Google Antigravity CLI (`agy`), and Grok Build (`grok`) independently.
    invocation against installed help. Reuse an active dispatcher only when it
    exposes the controls the job needs; otherwise qualify a direct CLI route.
 
-| Requested candidate     | Upstream reference                                                                                                                                                                                        | Probe focus                                                                                                                                                                  |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pi agent (`pi`)         | Installed package `docs/` and upstream GitHub repository `earendil-works/pi-mono`; session, dispatch and onboarding contract in [pi-sessions.md](pi-sessions.md) and [pi-onboarding.md](pi-onboarding.md) | Print/JSON versus RPC mode, provider/model resolution, tool and extension controls, explicit skill loading, project trust, run-scoped session directory and session identity |
-| Oh My Pi (`omp`)        | Oh My Pi README, upstream GitHub repository `can1357/oh-my-pi`                                                                                                                                            | Print/JSON versus RPC/ACP mode, provider/model roles, cwd, approval, extensions, nested task agents, native time limit                                                       |
-| Antigravity CLI (`agy`) | Google Antigravity headless documentation at `www.agy.dev/docs/cli/headless/`                                                                                                                             | Print input/output, model/agent discovery, sandbox on this OS, print timeout, conversation identity, instruction discovery                                                   |
-| Grok Build (`grok`)     | Grok Build CLI reference at `docs.x.ai/build/cli/reference`                                                                                                                                               | Single-turn/prompt-file input, structured terminal result, model discovery, permission/sandbox controls, nested agents, session identity                                     |
+| Requested candidate | Upstream reference | Probe focus |
+| --- | --- | --- |
+| Pi agent (`pi`) | Installed package `docs/` and upstream GitHub repository `earendil-works/pi-mono`; session, dispatch and onboarding contract in [pi-sessions.md](pi-sessions.md) and [pi-onboarding.md](pi-onboarding.md) | Print/JSON versus RPC mode, provider/model resolution, tool and extension controls, explicit skill loading, project trust, run-scoped session directory and session identity |
+| Oh My Pi (`omp`) | Oh My Pi README, upstream GitHub repository `can1357/oh-my-pi` | Print/JSON versus RPC/ACP mode, provider/model roles, cwd, approval, extensions, nested task agents, native time limit |
+| Antigravity CLI (`agy`) | Google Antigravity headless documentation at `www.agy.dev/docs/cli/headless/` | Print input/output, model/agent discovery, sandbox on this OS, print timeout, conversation identity, instruction discovery |
+| Grok Build (`grok`) | Grok Build CLI reference at `docs.x.ai/build/cli/reference` | Single-turn/prompt-file input, structured terminal result, model discovery, permission/sandbox controls, nested agents, session identity |
 
 Do not copy Pi flags into OMP, equate an `agy` kit export with CLI execution
 support, or equate a Grok model available inside Pi with the Grok Build runtime.
@@ -220,12 +220,12 @@ is not an OS sandbox.
 
 The live matrix uses evidence states rather than a permanent support tier:
 
-| State         | Required evidence                                            | Allowed use                                    |
-| ------------- | ------------------------------------------------------------ | ---------------------------------------------- |
-| `available`   | Command, auth, required controls, and capture verified live  | Eligible for routing                           |
+| State | Required evidence | Allowed use |
+| --- | --- | --- |
+| `available` | Command, auth, required controls, and capture verified live | Eligible for routing |
 | `constrained` | Dispatch verified, but controls or capture have known limits | Eligible only when policy accepts those limits |
-| `unverified`  | Candidate exists, but required behavior was not proven       | Advisory/non-load-bearing work only            |
-| `unavailable` | Missing, unauthenticated, incompatible, or failed probe      | Do not dispatch                                |
+| `unverified` | Candidate exists, but required behavior was not proven | Advisory/non-load-bearing work only |
+| `unavailable` | Missing, unauthenticated, incompatible, or failed probe | Do not dispatch |
 
 Runtime selection, capability floors, risk floors, and fallback acceptance are
 defined only in [model-routing.md](model-routing.md).

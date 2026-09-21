@@ -2,11 +2,19 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ak:diagram quadrant spec",
   "type": "object",
-  "required": ["x_axis", "y_axis", "items"],
+  "required": [
+    "x_axis",
+    "y_axis",
+    "items"
+  ],
   "properties": {
     "variant": {
       "type": "string",
-      "enum": ["light", "dark", "full"],
+      "enum": [
+        "light",
+        "dark",
+        "full"
+      ],
       "default": "light"
     },
     "title": {
@@ -44,7 +52,11 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["label", "x", "y"],
+        "required": [
+          "label",
+          "x",
+          "y"
+        ],
         "properties": {
           "label": {
             "type": "string"

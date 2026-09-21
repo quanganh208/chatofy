@@ -1,5 +1,5 @@
 name: web-testing
-version: '1.0.0'
+version: "1.0.0"
 description: Web E2E and unit testing with Playwright, Vitest, k6 — bootstrap configs, fixtures, runners.
 
 # Declarative runtime block interpreted by the `ak` skill-env manager.
@@ -9,9 +9,9 @@ description: Web E2E and unit testing with Playwright, Vitest, k6 — bootstrap 
 # project tree.
 runtime:
   node:
-    version: '>=20'
+    version: ">=20"
     packages:
-      - '@playwright/test@1.48.0'
+      - "@playwright/test@1.48.0"
 
 entrypoint:
   node: scripts/init-playwright.js

@@ -12,7 +12,6 @@ Evaluate success, duration, cost and steps on the same tasks before changing the
 ## Description Engineering
 
 Answer four questions:
-
 1. **What** does the tool do?
 2. **When** should it be used?
 3. **What inputs** does it accept?
@@ -25,8 +24,8 @@ Answer four questions:
   "name": "get_customer",
   "description": "Retrieve customer profile by ID. Use for order processing, support. Returns 404 if not found.",
   "parameters": {
-    "customer_id": { "type": "string", "pattern": "^CUST-[0-9]{6}$" },
-    "format": { "enum": ["concise", "detailed"] }
+    "customer_id": {"type": "string", "pattern": "^CUST-[0-9]{6}$"},
+    "format": {"enum": ["concise", "detailed"]}
   }
 }
 ```
@@ -34,7 +33,7 @@ Answer four questions:
 ### Poor Example
 
 ```json
-{ "name": "search", "description": "Search for things", "parameters": { "q": {} } }
+{"name": "search", "description": "Search for things", "parameters": {"q": {}}}
 ```
 
 ## Error Messages

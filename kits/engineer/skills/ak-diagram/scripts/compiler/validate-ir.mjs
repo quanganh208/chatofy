@@ -26,9 +26,7 @@ function validateIR(data) {
   const type = data.diagram_type || data.type;
   const validTypes = ['architecture', 'workflow', 'sequence', 'dataflow', 'lifecycle'];
   if (!validTypes.includes(type)) {
-    throw new Error(
-      `Invalid IR: unknown diagram_type "${type}". Must be one of ${validTypes.join(', ')}`,
-    );
+    throw new Error(`Invalid IR: unknown diagram_type "${type}". Must be one of ${validTypes.join(', ')}`);
   }
   if (!data.meta || typeof data.meta !== 'object') {
     throw new Error('Invalid IR: meta object is required');
@@ -42,15 +40,11 @@ function validateIR(data) {
 
   const validPresets = ['classic', 'signal-flow', 'blueprint', 'editorial'];
   if (data.meta.visual_preset && !validPresets.includes(data.meta.visual_preset)) {
-    throw new Error(
-      `Invalid IR: unknown visual_preset "${data.meta.visual_preset}". Must be one of ${validPresets.join(', ')}`,
-    );
+    throw new Error(`Invalid IR: unknown visual_preset "${data.meta.visual_preset}". Must be one of ${validPresets.join(', ')}`);
   }
   const validThemes = ['light', 'dark'];
   if (data.meta.theme && !validThemes.includes(data.meta.theme)) {
-    throw new Error(
-      `Invalid IR: unknown theme "${data.meta.theme}". Must be one of ${validThemes.join(', ')}`,
-    );
+    throw new Error(`Invalid IR: unknown theme "${data.meta.theme}". Must be one of ${validThemes.join(', ')}`);
   }
 
   const nodeIds = new Set();
@@ -69,9 +63,7 @@ function validateIR(data) {
 
   const checkLabel = (item, kind) => {
     if (!item.label || typeof item.label !== 'string') {
-      throw new Error(
-        `Invalid IR: ${kind} "${item.id || 'unnamed'}" missing required string "label"`,
-      );
+      throw new Error(`Invalid IR: ${kind} "${item.id || 'unnamed'}" missing required string "label"`);
     }
     checkSafeText(item.label, `${kind}.label`);
     checkSafeText(item.description, `${kind}.description`);
@@ -85,25 +77,12 @@ function validateIR(data) {
     if (components.length > 250) {
       throw new Error('Invalid IR: architecture components exceed limit of 250');
     }
-    const validRoles = [
-      'frontend',
-      'backend',
-      'database',
-      'cache',
-      'queue',
-      'storage',
-      'gateway',
-      'auth',
-      'external',
-      'worker',
-    ];
-    components.forEach((c) => {
+    const validRoles = ['frontend', 'backend', 'database', 'cache', 'queue', 'storage', 'gateway', 'auth', 'external', 'worker'];
+    components.forEach(c => {
       checkId(c.id, 'component');
       checkLabel(c, 'component');
       if (c.role && !validRoles.includes(c.role)) {
-        throw new Error(
-          `Invalid IR: component "${c.id}" has invalid role "${c.role}". Must be one of ${validRoles.join(', ')}`,
-        );
+        throw new Error(`Invalid IR: component "${c.id}" has invalid role "${c.role}". Must be one of ${validRoles.join(', ')}`);
       }
     });
 
@@ -116,14 +95,10 @@ function validateIR(data) {
       checkSafeText(conn.label, `connections[${idx}].label`);
       checkSafeText(conn.protocol, `connections[${idx}].protocol`);
       if (!conn.from || !nodeIds.has(conn.from)) {
-        throw new Error(
-          `Invalid IR: dangling connection "from" endpoint "${conn.from}" at index ${idx}`,
-        );
+        throw new Error(`Invalid IR: dangling connection "from" endpoint "${conn.from}" at index ${idx}`);
       }
       if (!conn.to || !nodeIds.has(conn.to)) {
-        throw new Error(
-          `Invalid IR: dangling connection "to" endpoint "${conn.to}" at index ${idx}`,
-        );
+        throw new Error(`Invalid IR: dangling connection "to" endpoint "${conn.to}" at index ${idx}`);
       }
     });
   } else if (type === 'workflow') {
@@ -134,22 +109,12 @@ function validateIR(data) {
     if (steps.length > 250) {
       throw new Error('Invalid IR: workflow steps exceed limit of 250');
     }
-    const validKinds = [
-      'start',
-      'action',
-      'decision',
-      'wait',
-      'subprocess',
-      'terminal-success',
-      'terminal-failure',
-    ];
-    steps.forEach((s) => {
+    const validKinds = ['start', 'action', 'decision', 'wait', 'subprocess', 'terminal-success', 'terminal-failure'];
+    steps.forEach(s => {
       checkId(s.id, 'step');
       checkLabel(s, 'step');
       if (s.kind && !validKinds.includes(s.kind)) {
-        throw new Error(
-          `Invalid IR: step "${s.id}" has invalid kind "${s.kind}". Must be one of ${validKinds.join(', ')}`,
-        );
+        throw new Error(`Invalid IR: step "${s.id}" has invalid kind "${s.kind}". Must be one of ${validKinds.join(', ')}`);
       }
     });
 
@@ -162,9 +127,7 @@ function validateIR(data) {
       checkSafeText(t.label, `transitions[${idx}].label`);
       checkSafeText(t.condition, `transitions[${idx}].condition`);
       if (!t.from || !nodeIds.has(t.from)) {
-        throw new Error(
-          `Invalid IR: dangling transition "from" endpoint "${t.from}" at index ${idx}`,
-        );
+        throw new Error(`Invalid IR: dangling transition "from" endpoint "${t.from}" at index ${idx}`);
       }
       if (!t.to || !nodeIds.has(t.to)) {
         throw new Error(`Invalid IR: dangling transition "to" endpoint "${t.to}" at index ${idx}`);
@@ -178,7 +141,7 @@ function validateIR(data) {
     if (participants.length > 50) {
       throw new Error('Invalid IR: sequence participants exceed limit of 50');
     }
-    participants.forEach((p) => {
+    participants.forEach(p => {
       checkId(p.id, 'participant');
       checkLabel(p, 'participant');
     });
@@ -212,7 +175,7 @@ function validateIR(data) {
       throw new Error('Invalid IR: dataflow nodes exceed limit of 250');
     }
     const validRoles = ['source', 'transform', 'store', 'sink', 'consumer', 'filter', 'governance'];
-    nodes.forEach((n) => {
+    nodes.forEach(n => {
       checkId(n.id, 'dataflow node');
       checkLabel(n, 'dataflow node');
       if (n.role && !validRoles.includes(n.role)) {
@@ -242,16 +205,8 @@ function validateIR(data) {
     if (states.length > 250) {
       throw new Error('Invalid IR: lifecycle states exceed limit of 250');
     }
-    const validKinds = [
-      'initial',
-      'active',
-      'waiting',
-      'failure-recoverable',
-      'failure-fatal',
-      'terminal-success',
-      'terminal-cancelled',
-    ];
-    states.forEach((s) => {
+    const validKinds = ['initial', 'active', 'waiting', 'failure-recoverable', 'failure-fatal', 'terminal-success', 'terminal-cancelled'];
+    states.forEach(s => {
       checkId(s.id, 'state');
       checkLabel(s, 'state');
       if (s.kind && !validKinds.includes(s.kind)) {
@@ -267,14 +222,10 @@ function validateIR(data) {
       checkSafeText(t.event, `transitions[${idx}].event`);
       checkSafeText(t.action, `transitions[${idx}].action`);
       if (!t.from || !nodeIds.has(t.from)) {
-        throw new Error(
-          `Invalid IR: dangling lifecycle transition "from" endpoint "${t.from}" at index ${idx}`,
-        );
+        throw new Error(`Invalid IR: dangling lifecycle transition "from" endpoint "${t.from}" at index ${idx}`);
       }
       if (!t.to || !nodeIds.has(t.to)) {
-        throw new Error(
-          `Invalid IR: dangling lifecycle transition "to" endpoint "${t.to}" at index ${idx}`,
-        );
+        throw new Error(`Invalid IR: dangling lifecycle transition "to" endpoint "${t.to}" at index ${idx}`);
       }
     });
   }
@@ -287,20 +238,16 @@ function validateIR(data) {
       checkSafeText(v.title, `views[${vIdx}].title`);
       checkSafeText(v.narrative, `views[${vIdx}].narrative`);
       if (v.focus_nodes && Array.isArray(v.focus_nodes)) {
-        v.focus_nodes.forEach((fn) => {
+        v.focus_nodes.forEach(fn => {
           if (!nodeIds.has(fn)) {
-            throw new Error(
-              `Invalid IR: view "${v.id || vIdx}" references non-existent focus node "${fn}"`,
-            );
+            throw new Error(`Invalid IR: view "${v.id || vIdx}" references non-existent focus node "${fn}"`);
           }
         });
       }
       if (v.highlight_route && Array.isArray(v.highlight_route)) {
-        v.highlight_route.forEach((rn) => {
+        v.highlight_route.forEach(rn => {
           if (!nodeIds.has(rn)) {
-            throw new Error(
-              `Invalid IR: view "${v.id || vIdx}" references non-existent route node "${rn}"`,
-            );
+            throw new Error(`Invalid IR: view "${v.id || vIdx}" references non-existent route node "${rn}"`);
           }
         });
       }

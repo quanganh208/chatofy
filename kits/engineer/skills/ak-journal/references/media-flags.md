@@ -6,12 +6,12 @@ text-only exactly as before.
 
 ## Flags
 
-| Flag                     | Router script                | Input                                                                                  |
-| ------------------------ | ---------------------------- | -------------------------------------------------------------------------------------- |
+| Flag | Router script | Input |
+|------|----------------|-------|
 | `--image <path-or-glob>` | `scripts/generate-image.cjs` | User-provided file(s); a plain path or a `dir/*.ext` glob. Multiple `--image` allowed. |
-| `--image-ai <prompt>`    | `scripts/generate-image.cjs` | AI-generated image via `multix`, model from `journal.ai.image_model`.                  |
-| `--video <path-or-glob>` | `scripts/generate-video.cjs` | User-provided file(s); same glob rules as `--image`.                                   |
-| `--video-ai <prompt>`    | `scripts/generate-video.cjs` | AI-generated video via `multix`, model from `journal.ai.video_model`.                  |
+| `--image-ai <prompt>` | `scripts/generate-image.cjs` | AI-generated image via `multix`, model from `journal.ai.image_model`. |
+| `--video <path-or-glob>` | `scripts/generate-video.cjs` | User-provided file(s); same glob rules as `--image`. |
+| `--video-ai <prompt>` | `scripts/generate-video.cjs` | AI-generated video via `multix`, model from `journal.ai.video_model`. |
 
 **No other input modes.** There is no "generate a template image with no
 prompt" branch inside these scripts. If you want an auto-generated OG-style
@@ -53,9 +53,9 @@ value, plus the CLI override.
 ## Cache keys (retry-safe, avoids re-generating on every retry)
 
 - Image: sha256 of `journal_body + writing_style + language + model +
-TEMPLATE_VERSION`.
+  TEMPLATE_VERSION`.
 - Video: sha256 of `journal_body + engine + model + TEMPLATE_VERSION +
-duration + resolution`.
+  duration + resolution`.
 
 `TEMPLATE_VERSION` is a constant at the top of each script — bump it when
 the generation prompt/template shape changes to deliberately invalidate all
@@ -96,20 +96,20 @@ returned URL, and appends `--media <url>` (repeatable) to each channel's
 Every log/error path that touches a `multix` or `zernio` child-process
 output runs through a redaction pass before printing: known secret-value
 shapes (`sk-`/`sk_`, `ghp_`/`github_pat_`, `xoxb-`, `AKIA`, JWTs) are
-replaced with `[redacted]`, and any sensitive env var's _value_ (a key
+replaced with `[redacted]`, and any sensitive env var's *value* (a key
 containing `KEY`/`TOKEN`/`SECRET`/`PASSWORD`) is stripped from any string
 before it reaches stdout/stderr. Env values are never echoed.
 
 ## Platform size limits (best-effort — not enforced by this skill)
 
-| Platform | Image                                    | Video                            |
-| -------- | ---------------------------------------- | -------------------------------- |
-| X        | ~5MB (JPG/PNG/GIF/WEBP)                  | ~512MB, up to 2:20               |
-| Threads  | ~8MB                                     | up to 5 min                      |
-| LinkedIn | ~5MB                                     | ~5GB, up to 10 min               |
-| Facebook | ~4MB (post attach limits vary)           | ~4GB                             |
-| Bluesky  | ~1MB per image (max 4 images)            | video support platform-dependent |
-| Mastodon | instance-configurable (commonly ~8-16MB) | instance-configurable            |
+| Platform | Image | Video |
+|----------|-------|-------|
+| X | ~5MB (JPG/PNG/GIF/WEBP) | ~512MB, up to 2:20 |
+| Threads | ~8MB | up to 5 min |
+| LinkedIn | ~5MB | ~5GB, up to 10 min |
+| Facebook | ~4MB (post attach limits vary) | ~4GB |
+| Bluesky | ~1MB per image (max 4 images) | video support platform-dependent |
+| Mastodon | instance-configurable (commonly ~8-16MB) | instance-configurable |
 
 These are the platforms' own limits, not something `generate-image.cjs` /
 `generate-video.cjs` / `post-social.cjs` check locally — they're listed so

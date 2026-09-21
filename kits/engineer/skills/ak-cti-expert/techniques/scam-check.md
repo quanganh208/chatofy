@@ -21,20 +21,17 @@ Determine whether a domain or URL is associated with phishing, scams, malware, o
 Free threat intelligence API with 770K+ malicious domains. Syncs hourly.
 
 **Single domain check:**
-
 ```bash
 curl -s "https://api.destroy.tools/v1/check?domain=[DOMAIN]"
 ```
 
 **Response fields:**
-
 - `threat` (boolean) — is the domain flagged as malicious
 - `risk_score` (0-100) — numerical risk rating
 - `severity` — critical / high / medium / low
 - DNS status and matched threat keywords
 
 **Bulk check (up to 500 domains):**
-
 ```bash
 curl -s -X POST "https://api.destroy.tools/v1/check/bulk" \
   -H "Content-Type: application/json" \
@@ -46,7 +43,6 @@ curl -s -X POST "https://api.destroy.tools/v1/check/bulk" \
 Web-based lookup — no API key needed.
 
 **Method:** WebSearch or WebFetch on:
-
 ```
 https://transparencyreport.google.com/safe-browsing/search?url=[DOMAIN]
 ```
@@ -58,7 +54,6 @@ https://transparencyreport.google.com/safe-browsing/search?url=[DOMAIN]
 Free public search — no API key needed for viewing existing scans.
 
 **Method:** WebSearch for `site:urlscan.io "[DOMAIN]"` or WebFetch:
-
 ```
 https://urlscan.io/search/#page.domain:[DOMAIN]
 ```
@@ -70,7 +65,6 @@ https://urlscan.io/search/#page.domain:[DOMAIN]
 Free public lookup — no API key needed for basic results.
 
 **Method:** WebSearch for `site:virustotal.com "[DOMAIN]"` or fetch via `agent-browser`:
-
 ```
 https://www.virustotal.com/gui/domain/[DOMAIN]
 ```
@@ -82,7 +76,6 @@ https://www.virustotal.com/gui/domain/[DOMAIN]
 Free web-based trust score.
 
 **Method:** WebSearch for `site:scamadviser.com "[DOMAIN]"` or WebFetch:
-
 ```
 https://www.scamadviser.com/check-website/[DOMAIN]
 ```
@@ -94,7 +87,6 @@ https://www.scamadviser.com/check-website/[DOMAIN]
 Free — no API key required for basic lookups.
 
 **Method:** WebSearch for `site:phishtank.org "[DOMAIN]"` or WebFetch:
-
 ```
 https://phishtank.org/target_search.php?target=[DOMAIN]
 ```
@@ -116,7 +108,6 @@ whois [DOMAIN]
 ```
 
 **Red flags to check:**
-
 - Domain age < 30 days — high risk for phishing/scam
 - Domain age < 90 days — elevated risk
 - Privacy-protected WHOIS on a site claiming to be a known brand
@@ -130,7 +121,6 @@ echo | openssl s_client -connect [DOMAIN]:443 -servername [DOMAIN] 2>/dev/null |
 ```
 
 **Red flags:**
-
 - Self-signed certificate on a commercial site
 - Let's Encrypt cert on a site impersonating a major brand (not inherently bad, but combined with other signals)
 - Certificate issued to a different domain than the one being visited
@@ -192,17 +182,16 @@ RECOMMENDATION
 
 ## Composite Risk Score Calculation
 
-| Factor                  | Weight | Scoring                             |
-| ----------------------- | ------ | ----------------------------------- |
-| PhishDestroy risk_score | 25%    | Direct score (0-100)                |
-| VirusTotal detections   | 25%    | (detections/total_engines) * 100    |
-| Scamadviser trust       | 15%    | 100 - trust_score                   |
-| Domain age              | 15%    | <30d=100, <90d=70, <1yr=40, >1yr=10 |
-| DNS blocklist hits      | 10%    | (hits/3) * 100                      |
-| PhishTank/GSB flags     | 10%    | Hit=100, Clean=0                    |
+| Factor | Weight | Scoring |
+|--------|--------|---------|
+| PhishDestroy risk_score | 25% | Direct score (0-100) |
+| VirusTotal detections | 25% | (detections/total_engines) * 100 |
+| Scamadviser trust | 15% | 100 - trust_score |
+| Domain age | 15% | <30d=100, <90d=70, <1yr=40, >1yr=10 |
+| DNS blocklist hits | 10% | (hits/3) * 100 |
+| PhishTank/GSB flags | 10% | Hit=100, Clean=0 |
 
 **Verdict thresholds:**
-
 - 0-20: SAFE
 - 21-45: LOW RISK
 - 46-70: SUSPICIOUS

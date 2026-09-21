@@ -116,8 +116,7 @@ function splitByWord(text, platform, limit) {
  */
 function splitThread(text, options = {}) {
   const platform = options.platform === 'threads' ? 'threads' : 'x';
-  const maxPosts =
-    Number.isInteger(options.maxPosts) && options.maxPosts > 0 ? options.maxPosts : 6;
+  const maxPosts = Number.isInteger(options.maxPosts) && options.maxPosts > 0 ? options.maxPosts : 6;
   const limit = LIMITS[platform];
   const totalInputChars = typeof text === 'string' ? text.length : 0;
 
@@ -167,9 +166,7 @@ function splitThread(text, options = {}) {
     const last = posts[maxPosts - 1];
     const ellipsisBudget = limit - 1; // reserve 1 char for the trailing ellipsis
     const truncatedLast =
-      effectiveLength(last, platform) <= ellipsisBudget
-        ? last
-        : truncateToLimit(last, platform, ellipsisBudget);
+      effectiveLength(last, platform) <= ellipsisBudget ? last : truncateToLimit(last, platform, ellipsisBudget);
     posts[maxPosts - 1] = `${truncatedLast}…`;
   }
 
@@ -180,8 +177,7 @@ function splitThread(text, options = {}) {
     posts = posts.map((post, index) => {
       const suffix = ` (${index + 1}/${total})`;
       const budget = limit - effectiveLength(suffix, platform);
-      const fitted =
-        effectiveLength(post, platform) <= budget ? post : truncateToLimit(post, platform, budget);
+      const fitted = effectiveLength(post, platform) <= budget ? post : truncateToLimit(post, platform, budget);
       return `${fitted}${suffix}`;
     });
   }
@@ -211,7 +207,7 @@ function printTruncationWarning(result) {
   if (!result.truncated) return;
   const last = result.posts[result.posts.length - 1] || '';
   console.error(
-    `warning: input exceeds ${result.posts.length} posts; last post ends with "${last.slice(-1)}"; consider shortening`,
+    `warning: input exceeds ${result.posts.length} posts; last post ends with "${last.slice(-1)}"; consider shortening`
   );
 }
 

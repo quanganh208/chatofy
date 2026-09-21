@@ -6,12 +6,12 @@ active change — verify against the provenance block before relying on any memb
 
 ## Provenance (verify before trusting)
 
-| Source                                      | Version / date                                                                                                        |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Spec `webmachinelearning/webmcp` `index.bs` | CG-DRAFT, `main` (Bikeshed build 2026-08-21)                                                                          |
-| Chrome overview / imperative / secure-tools | last updated 2026-08-07 / 2026-09-01 / 2026-09-01                                                                     |
-| Chrome declarative / best-practices / evals | last updated 2026-05-18 / 2026-05-18 / 2026-05-28                                                                     |
-| Milestones                                  | Chrome 149 origin trial; `navigator.modelContext` deprecated in Chromium 150; Chrome 153 changes unregister semantics |
+| Source | Version / date |
+| --- | --- |
+| Spec `webmachinelearning/webmcp` `index.bs` | CG-DRAFT, `main` (Bikeshed build 2026-08-21) |
+| Chrome overview / imperative / secure-tools | last updated 2026-08-07 / 2026-09-01 / 2026-09-01 |
+| Chrome declarative / best-practices / evals | last updated 2026-05-18 / 2026-05-18 / 2026-05-28 |
+| Milestones | Chrome 149 origin trial; `navigator.modelContext` deprecated in Chromium 150; Chrome 153 changes unregister semantics |
 
 Stability tiers used below: **[Spec]** normative in `index.bs`; **[Chrome]**
 shipped/documented by Chrome, may diverge from spec; **[Proposed]** open issue,
@@ -19,17 +19,17 @@ not reliably shipped — verify in a live browser before documenting as fact.
 
 ## WebMCP vs Anthropic MCP (read this first)
 
-WebMCP is **not** an MCP server. A WebMCP page can be thought of _as if_ it were
+WebMCP is **not** an MCP server. A WebMCP page can be thought of *as if* it were
 an MCP server whose tools run in client-side script, but they are different
 things with different runtimes, transports, and audiences.
 
-|            | WebMCP                                    | Anthropic MCP                    |
-| ---------- | ----------------------------------------- | -------------------------------- |
-| Runs       | In the browser, client-side JS            | Server-side (stdio / HTTP)       |
-| Tool logic | Page `execute` callback                   | Backend server handler           |
-| Context    | Live page state, user session             | Server/service state             |
-| Audience   | Site owner making a page agent-actionable | Author of a reusable tool server |
-| Sandbox    | Browser origin + permissions              | Process/host controls            |
+| | WebMCP | Anthropic MCP |
+| --- | --- | --- |
+| Runs | In the browser, client-side JS | Server-side (stdio / HTTP) |
+| Tool logic | Page `execute` callback | Backend server handler |
+| Context | Live page state, user session | Server/service state |
+| Audience | Site owner making a page agent-actionable | Author of a reusable tool server |
+| Sandbox | Browser origin + permissions | Process/host controls |
 
 - Building an in-browser page tool via `document.modelContext` → this skill.
 - Building a stdio/HTTP MCP server → `ak:mcp-builder`.
@@ -68,7 +68,7 @@ interface ModelContext : EventTarget {
 };
 ```
 
-There is **no `unregisterTool` method.** Unregistration is done _only_ by passing
+There is **no `unregisterTool` method.** Unregistration is done *only* by passing
 an `AbortSignal` in `registerTool` options and calling `abort()`.
 
 ### executeTool argument shape — spec vs Chrome (divergence)
@@ -95,11 +95,11 @@ The `execute` result is JSON-serialized (spec "imperative execute steps", via
 Two failure modes are easy to hit and both collapse to an opaque `UnknownError`
 at the caller, destroying your message:
 
-- **Rejection.** If `execute` throws or rejects, the spec only _optionally
-  reports the reason to the console_ — the caller's `executeTool` promise
+- **Rejection.** If `execute` throws or rejects, the spec only *optionally
+  reports the reason to the console* — the caller's `executeTool` promise
   rejects with `UnknownError`. So **do not `throw new Error('SKU not found')`**;
   instead **resolve** with an error string (e.g. `return 'error: SKU not
-found';`) so the agent can read and self-correct.
+  found';`) so the agent can read and self-correct.
 - **Returning `undefined`.** A handler with no `return` fails serialization →
   same opaque error. Always return a serializable value (string for navigations
   is fine; return an empty string, not nothing).
@@ -185,12 +185,12 @@ bundled validator flags duplicates statically.
 
 See `declarative-api.md` for full detail.
 
-| Attribute              | On       | Meaning                                 |
-| ---------------------- | -------- | --------------------------------------- |
-| `toolname`             | `<form>` | Tool identifier (required to register)  |
-| `tooldescription`      | `<form>` | Tool description (required to register) |
-| `toolparamdescription` | field    | Per-parameter description override      |
-| `toolautosubmit`       | `<form>` | Agent invocation submits + navigates    |
+| Attribute | On | Meaning |
+| --- | --- | --- |
+| `toolname` | `<form>` | Tool identifier (required to register) |
+| `tooldescription` | `<form>` | Tool description (required to register) |
+| `toolparamdescription` | field | Per-parameter description override |
+| `toolautosubmit` | `<form>` | Agent invocation submits + navigates |
 
 - `SubmitEvent.agentInvoked` (boolean) and `SubmitEvent.respondWith(Promise)`
   (call after `preventDefault()`).
@@ -210,17 +210,17 @@ See `declarative-api.md` for full detail.
 - Permissions Policy `tools` (default `self`); delegate with `allow="tools"` on
   a cross-origin iframe.
 - `exposedTo` (register) + `fromOrigins` (getTools) form a **two-key lock**: the
-  registrant must expose to the caller's origin _and_ the caller must list the
+  registrant must expose to the caller's origin *and* the caller must list the
   registrant's origin. Secure origins only. See `security.md`.
 
 ## Character budgets [Chrome recommendation, not spec-enforced]
 
-| Item                       | Limit      |
-| -------------------------- | ---------- |
-| Tool description           | 500 chars  |
-| Parameter description      | 150 chars  |
-| Tool name / parameter name | 30 chars   |
-| Individual tool output     | 1.5K chars |
+| Item | Limit |
+| --- | --- |
+| Tool description | 500 chars |
+| Parameter description | 150 chars |
+| Tool name / parameter name | 30 chars |
+| Individual tool output | 1.5K chars |
 
 The charset/length rule for `name` (1–128, `[A-Za-z0-9_.-]`) **is** spec-enforced
 (`InvalidStateError` otherwise). The budgets above are Chrome guardrail-avoidance

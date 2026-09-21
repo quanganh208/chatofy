@@ -21,7 +21,6 @@ The locked vs varied split is the whole point: locked axes preserve style identi
 `--lock-axis style,texture` (CLI flag) is for series generation. When passed, you can call `generate.py` repeatedly with different `--seed` values and the locked axes stay fixed while the unlocked axes randomize.
 
 Use cases:
-
 - **Brand series**: lock `style,palette,texture` → vary only layout. All 5 posters feel like one campaign.
 - **Texture study**: lock `texture` only → explore many styles with the same material.
 - **Free exploration**: lock nothing.
@@ -56,12 +55,12 @@ Position randomization draws from a 9-cell grid (3×3). Density picks from `spar
 
 ## Failure Modes & Fixes
 
-| Symptom                                 | Likely cause                       | Fix                                                                                                |
-| --------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
 | Outputs in a series look near-identical | Shape Pool too thin for that style | Re-run `cluster.py` after adding more reference images, or widen variation by sampling more shapes |
-| Style drifts between calls in a series  | Style description too generic      | Curate the Style Name + Description rows manually in `poster-styles.csv`                           |
-| Texture not preserved                   | Model ignored TEXTURE block        | Repeat texture material/finish in COPY block or pre-pend to the prompt                             |
-| Color palette ignored                   | Model deprioritized hex codes      | Convert hex to named colors in palette CSV (e.g. "deep navy #0a1f4a")                              |
+| Style drifts between calls in a series | Style description too generic | Curate the Style Name + Description rows manually in `poster-styles.csv` |
+| Texture not preserved | Model ignored TEXTURE block | Repeat texture material/finish in COPY block or pre-pend to the prompt |
+| Color palette ignored | Model deprioritized hex codes | Convert hex to named colors in palette CSV (e.g. "deep navy #0a1f4a") |
 
 ## Editing CSVs Manually
 

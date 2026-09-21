@@ -5,29 +5,27 @@ JavaScript API integration, HTML embedding, and platform-specific usage.
 ## HTML/Browser Integration
 
 **Basic CDN Setup:**
-
 ```html
 <!DOCTYPE html>
 <html>
-  <head>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.min.js"></script>
-  </head>
-  <body>
-    <pre class="mermaid">
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <pre class="mermaid">
     flowchart TD
       A[Client] --> B[Load Balancer]
       B --> C[Server 1]
       B --> D[Server 2]
   </pre>
-    <script>
-      mermaid.initialize({ startOnLoad: true });
-    </script>
-  </body>
+  <script>
+    mermaid.initialize({ startOnLoad: true });
+  </script>
+</body>
 </html>
 ```
 
 **ES Module (Modern):**
-
 ```html
 <script type="module">
   import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.esm.min.mjs';
@@ -38,7 +36,6 @@ JavaScript API integration, HTML embedding, and platform-specific usage.
 ## NPM/Node.js Integration
 
 **Installation:**
-
 ```bash
 npm install mermaid
 # or
@@ -46,19 +43,17 @@ yarn add mermaid
 ```
 
 **Import and Initialize:**
-
 ```javascript
 import mermaid from 'mermaid';
 
 mermaid.initialize({
   startOnLoad: true,
   theme: 'dark',
-  securityLevel: 'strict',
+  securityLevel: 'strict'
 });
 ```
 
 **Manual Rendering:**
-
 ```javascript
 import mermaid from 'mermaid';
 
@@ -75,7 +70,6 @@ document.getElementById('container').innerHTML = svg;
 ## React Integration
 
 **Component Wrapper:**
-
 ```jsx
 import { useEffect, useRef } from 'react';
 import mermaid from 'mermaid';
@@ -96,17 +90,16 @@ function MermaidDiagram({ chart }) {
 }
 
 // Usage
-<MermaidDiagram chart="graph TD\nA-->B" />;
+<MermaidDiagram chart="graph TD\nA-->B" />
 ```
 
 **Next.js (App Router):**
-
 ```jsx
 'use client';
 import dynamic from 'next/dynamic';
 
 const Mermaid = dynamic(() => import('./MermaidDiagram'), {
-  ssr: false,
+  ssr: false
 });
 
 export default function Page() {
@@ -117,7 +110,6 @@ export default function Page() {
 ## Vue Integration
 
 **Component:**
-
 ```vue
 <template>
   <div ref="container"></div>
@@ -147,7 +139,6 @@ async function renderDiagram() {
 ## Markdown Integration
 
 **GitHub/GitLab:**
-
 ````markdown
 ```mermaid
 graph TD
@@ -156,71 +147,65 @@ graph TD
 ````
 
 **MDX (Next.js/Gatsby):**
-
 ```mdx
 import Mermaid from './Mermaid';
 
 # Architecture
 
-<Mermaid
-  chart={`
+<Mermaid chart={`
   flowchart LR
     Client --> API
     API --> Database
-`}
-/>
+`} />
 ```
 
 ## API Reference
 
 **mermaid.initialize(config)**
 Configure global settings.
-
 ```javascript
 mermaid.initialize({
   startOnLoad: true,
   theme: 'dark',
   logLevel: 3,
   securityLevel: 'strict',
-  fontFamily: 'Arial',
+  fontFamily: 'Arial'
 });
 ```
 
 **mermaid.render(id, graphDefinition, config)**
 Programmatically render diagram.
-
 ```javascript
-const { svg, bindFunctions } = await mermaid.render('uniqueId', 'graph TD\nA-->B', {
-  theme: 'forest',
-});
+const { svg, bindFunctions } = await mermaid.render(
+  'uniqueId',
+  'graph TD\nA-->B',
+  { theme: 'forest' }
+);
 ```
 
 **mermaid.parse(text)**
 Validate syntax without rendering.
-
 ```javascript
 try {
   await mermaid.parse('graph TD\nA-->B');
   console.log('Valid');
-} catch (e) {
+} catch(e) {
   console.error('Invalid:', e);
 }
 ```
 
 **mermaid.run(config)**
 Render all diagrams in page.
-
 ```javascript
 await mermaid.run({
   querySelector: '.mermaid',
-  suppressErrors: false,
+  suppressErrors: false
 });
 ```
 
 ## Event Handling
 
 **Click Events:**
-
 ```javascript
 const graphDefinition = `
   flowchart TD
@@ -228,7 +213,7 @@ const graphDefinition = `
     click A callback "Tooltip text"
 `;
 
-window.callback = function () {
+window.callback = function() {
   alert('Node clicked!');
 };
 
@@ -236,7 +221,6 @@ await mermaid.render('graph', graphDefinition);
 ```
 
 **Interactive URLs:**
-
 ```
 flowchart TD
   A[GitHub] --> B[Docs]
@@ -247,12 +231,11 @@ flowchart TD
 ## Advanced Patterns
 
 **Dynamic Theme Switching:**
-
 ```javascript
 function updateTheme(isDark) {
   mermaid.initialize({
     theme: isDark ? 'dark' : 'default',
-    startOnLoad: false,
+    startOnLoad: false
   });
 
   // Re-render all diagrams
@@ -265,7 +248,6 @@ function updateTheme(isDark) {
 ```
 
 **Lazy Loading:**
-
 ```javascript
 const observer = new IntersectionObserver((entries) => {
   entries.forEach(async (entry) => {
@@ -278,11 +260,10 @@ const observer = new IntersectionObserver((entries) => {
   });
 });
 
-document.querySelectorAll('.mermaid').forEach((el) => observer.observe(el));
+document.querySelectorAll('.mermaid').forEach(el => observer.observe(el));
 ```
 
 **Server-Side Rendering (SSR):**
-
 ```javascript
 import { chromium } from 'playwright';
 
@@ -306,7 +287,6 @@ async function renderServerSide(code) {
 
 **Jupyter/Python:**
 Use mermaid.ink API:
-
 ```python
 from IPython.display import Image
 diagram = "graph TD\nA-->B"
@@ -319,7 +299,6 @@ Install "Markdown Preview Mermaid Support" extension.
 
 **Obsidian:**
 Native support in code blocks:
-
 ````markdown
 ```mermaid
 graph TD

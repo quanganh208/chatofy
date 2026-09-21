@@ -19,18 +19,18 @@ Audits project dependencies, frameworks, language runtimes, and dev tools for kn
 
 ## 2. Tool Inventory
 
-| Priority  | Tool                               | Ecosystem                | Install                                               |
-| --------- | ---------------------------------- | ------------------------ | ----------------------------------------------------- |
-| Primary   | `npm audit`                        | Node.js/JS               | Built-in with npm                                     |
-| Primary   | `pip-audit`                        | Python                   | `pip3 install pip-audit`                              |
-| Primary   | `bundle audit`                     | Ruby                     | `gem install bundler-audit`                           |
-| Primary   | `govulncheck`                      | Go                       | `go install golang.org/x/vuln/cmd/govulncheck@latest` |
-| Primary   | `cargo audit`                      | Rust                     | `cargo install cargo-audit`                           |
-| Secondary | `composer audit`                   | PHP                      | Built-in with Composer                                |
-| Secondary | `dotnet list package --vulnerable` | .NET                     | Built-in with dotnet                                  |
-| Secondary | Trivy                              | Multi-ecosystem + Docker | `apt install -y trivy`                                |
-| Secondary | Docker Scout                       | Container images         | `docker scout cves <image>`                           |
-| Tertiary  | WPScan                             | WordPress                | `gem install wpscan`                                  |
+| Priority | Tool | Ecosystem | Install |
+|----------|------|-----------|---------|
+| Primary | `npm audit` | Node.js/JS | Built-in with npm |
+| Primary | `pip-audit` | Python | `pip3 install pip-audit` |
+| Primary | `bundle audit` | Ruby | `gem install bundler-audit` |
+| Primary | `govulncheck` | Go | `go install golang.org/x/vuln/cmd/govulncheck@latest` |
+| Primary | `cargo audit` | Rust | `cargo install cargo-audit` |
+| Secondary | `composer audit` | PHP | Built-in with Composer |
+| Secondary | `dotnet list package --vulnerable` | .NET | Built-in with dotnet |
+| Secondary | Trivy | Multi-ecosystem + Docker | `apt install -y trivy` |
+| Secondary | Docker Scout | Container images | `docker scout cves <image>` |
+| Tertiary | WPScan | WordPress | `gem install wpscan` |
 
 ---
 
@@ -100,7 +100,6 @@ trivy fs .
 ## 6. Framework-Specific Vulnerability Patterns
 
 ### Next.js / React
-
 - Server Actions exposing internal endpoints (CVE-2025-29927 middleware bypass)
 - `dangerouslySetInnerHTML` without sanitization
 - SSRF through `next/image` with unrestricted domains
@@ -109,7 +108,6 @@ trivy fs .
 - Server Component / Client Component boundary leaking server-only data
 
 ### Django
-
 - `DEBUG=True` in production
 - `ALLOWED_HOSTS` wildcard `*`
 - Missing CSRF middleware or `@csrf_exempt` on state-changing views
@@ -118,7 +116,6 @@ trivy fs .
 - Secret key committed to source control
 
 ### Rails
-
 - Mass assignment without strong parameters
 - SQL injection via `where("column = '#{input}'")`
 - Unpatched Action Pack, Action View, Active Record CVEs
@@ -126,7 +123,6 @@ trivy fs .
 - CSRF token bypass in API-only mode
 
 ### Express / Node.js
-
 - Prototype pollution through `Object.assign`, `lodash.merge`, `deep-extend`
 - ReDoS in validation patterns
 - Path traversal through `req.params` in file serving routes
@@ -135,7 +131,6 @@ trivy fs .
 - Event loop blocking with synchronous operations
 
 ### Spring / Java
-
 - Spring4Shell and related RCE vulnerabilities
 - Deserialization attacks (Java native serialization, Jackson polymorphic types)
 - SpEL injection in Spring Expression Language
@@ -143,7 +138,6 @@ trivy fs .
 - Actuator endpoints exposed without authentication
 
 ### Laravel / PHP
-
 - `APP_DEBUG=true` in production (leaks env vars in error pages)
 - SQL injection via raw DB queries without bindings
 - Mass assignment without `$fillable` / `$guarded`
@@ -151,7 +145,6 @@ trivy fs .
 - Insecure deserialization in queued jobs
 
 ### WordPress
-
 - Outdated core, theme, or plugin versions (most common attack vector)
 - File editor enabled in wp-admin (code injection if admin compromised)
 - XML-RPC enabled (brute force amplification, SSRF)
@@ -163,31 +156,26 @@ trivy fs .
 ## 7. Supply Chain Risk Indicators
 
 ### Dependency Confusion / Substitution
-
 - Private package names claimable on public registries
 - Missing `.npmrc` or `pip.conf` scoping to private registry
 - No lockfile integrity verification
 
 ### Typosquatting
-
 - Package names close to popular package misspellings
 - Recently published packages with very few downloads
 - Packages that changed ownership recently
 
 ### Malicious Packages
-
 - Postinstall scripts making network requests or executing code
 - Packages with obfuscated code
 - Excessive permission requests relative to functionality
 
 ### Maintenance Risk
-
 - Unmaintained packages (no commits in 2+ years, archived repos)
 - Single-maintainer packages for critical functionality
 - Packages with known but unpatched vulnerabilities
 
 ### Lockfile Integrity
-
 - Lockfile committed to source control?
 - CI installs from lockfile (`npm ci`, `pip3 install --require-hashes`)?
 - Integrity hashes present and verified?
@@ -197,21 +185,18 @@ trivy fs .
 ## 8. Dev Tool & CI/CD Security Patterns
 
 ### GitHub Actions
-
 - `pull_request_target` trigger with checkout of PR code (code injection risk)
 - Secrets accessible in forked PR workflows
 - Unpinned action versions (`@main` vs `@v4.1.0` or SHA pin)
 - Script injection via `${{ github.event.issue.title }}` in `run:` blocks
 
 ### Docker
-
 - Running as root (missing `USER` directive)
 - Base image with known CVEs
 - Secrets baked into image layers (visible via `docker history`)
 - `latest` tag instead of pinned version
 
 ### Terraform / IaC
-
 - Hardcoded secrets in `.tf` files
 - Unpinned provider versions
 - Missing state file encryption
@@ -223,44 +208,34 @@ trivy fs .
 
 ```markdown
 # Dependency & Stack Security Audit
-
 ## Project: [name]
-
 ## Stack: [language, framework, key tools]
-
 ## Date: [date]
 
 ### Stack Inventory
-
 | Component | Version | Latest | Status |
-| --------- | ------- | ------ | ------ |
+|-----------|---------|--------|--------|
 
 ### Known Vulnerabilities (CVEs)
-
 | Package | Installed | Vuln | Severity | CVE | Fix Version |
-| ------- | --------- | ---- | -------- | --- | ----------- |
+|---------|-----------|------|----------|-----|-------------|
 
 ### Framework-Specific Issues
-
 #### [SEVERITY] [Title]
-
 **Component:** [framework/tool name and version]
 **Issue:** [description]
 **Evidence:** [code or config snippet]
 **Remediation:** [specific fix]
 
 ### Supply Chain Risks
-
 | Risk | Package/Component | Details | Remediation |
-| ---- | ----------------- | ------- | ----------- |
+|------|-------------------|---------|-------------|
 
 ### Dev Tool / CI Security
-
 | Tool | Issue | Severity | Remediation |
-| ---- | ----- | -------- | ----------- |
+|------|-------|----------|-------------|
 
 ### Prioritized Action Plan
-
 1. [Critical — actively exploited CVEs, RCE vulnerabilities]
 2. [High — known CVEs with public exploits, supply chain risks]
 3. [Medium — framework misconfigs, outdated dependencies]

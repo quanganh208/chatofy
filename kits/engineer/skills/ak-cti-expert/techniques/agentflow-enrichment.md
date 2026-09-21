@@ -71,19 +71,16 @@ subjects = [
 ## 5. Integration with /case Command
 
 **Current /case flow (sequential):**
-
 ```
 Acquire → Enrich (one-by-one) → Assess → Deliver
 ```
 
 **Enhanced /case flow (parallel enrichment):**
-
 ```
 Acquire → [AgentFlow fanout enrichment] → Assess → Deliver
 ```
 
 **Trigger conditions:**
-
 - Auto-enable when Acquire phase discovers 3+ unique subjects
 - Skip for single-subject investigations (overhead > benefit)
 - User can force with `/case --parallel` or disable with `/case --sequential`
@@ -92,14 +89,14 @@ Acquire → [AgentFlow fanout enrichment] → Assess → Deliver
 
 ## 6. Enrichment Command Mapping
 
-| Subject Type | Enrichment Commands                                 | Parallelizable    |
-| ------------ | --------------------------------------------------- | ----------------- |
-| Email        | /email-deep, /breach-deep, /proton-check            | Yes (independent) |
-| Domain       | /subdomain, /dns-history, /cert-history, /techstack | Yes               |
-| Username     | /username (maigret/sherlock)                        | Yes (I/O bound)   |
-| Phone        | /phone                                              | Yes               |
-| IP           | /threat-check                                       | Yes               |
-| Person       | /query (Google dorks)                               | Yes               |
+| Subject Type | Enrichment Commands | Parallelizable |
+|-------------|-------------------|----------------|
+| Email | /email-deep, /breach-deep, /proton-check | Yes (independent) |
+| Domain | /subdomain, /dns-history, /cert-history, /techstack | Yes |
+| Username | /username (maigret/sherlock) | Yes (I/O bound) |
+| Phone | /phone | Yes |
+| IP | /threat-check | Yes |
+| Person | /query (Google dorks) | Yes |
 
 ---
 
@@ -116,22 +113,22 @@ After parallel enrichment completes:
 
 ## 8. Concurrency Limits
 
-| Environment        | Max Concurrent | Rationale                          |
-| ------------------ | -------------- | ---------------------------------- |
-| Local (default)    | 4              | Avoid rate limiting on free APIs   |
-| With rate limiting | 8              | If per-API rate limits handled     |
-| EC2 (future)       | 16             | Remote execution, higher bandwidth |
+| Environment | Max Concurrent | Rationale |
+|-------------|---------------|-----------|
+| Local (default) | 4 | Avoid rate limiting on free APIs |
+| With rate limiting | 8 | If per-API rate limits handled |
+| EC2 (future) | 16 | Remote execution, higher bandwidth |
 
 ---
 
 ## 9. Where AgentFlow Fits (and Doesn't)
 
-| AEAD Phase  | AgentFlow? | Reason                                                    |
-| ----------- | ---------- | --------------------------------------------------------- |
-| **Acquire** | NO         | Sequential user-driven collection; no parallelism benefit |
-| **Enrich**  | **YES**    | Multiple independent pivot expansions can run in parallel |
-| **Assess**  | NO         | Findings are mutable during scoring; merge logic fragile  |
-| **Deliver** | NO         | Sequential report generation; no parallelism benefit      |
+| AEAD Phase | AgentFlow? | Reason |
+|------------|-----------|--------|
+| **Acquire** | NO | Sequential user-driven collection; no parallelism benefit |
+| **Enrich** | **YES** | Multiple independent pivot expansions can run in parallel |
+| **Assess** | NO | Findings are mutable during scoring; merge logic fragile |
+| **Deliver** | NO | Sequential report generation; no parallelism benefit |
 
 ---
 
@@ -148,7 +145,6 @@ After parallel enrichment completes:
 ## 11. Fallback
 
 If AgentFlow unavailable or errors:
-
 - Fall back to sequential enrichment (current behavior)
 - Log: `[enrichment-sequential-fallback]` in collection method
 - No investigation impact — just slower

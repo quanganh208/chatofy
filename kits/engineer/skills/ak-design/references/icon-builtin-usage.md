@@ -24,14 +24,14 @@ python3 scripts/icon/generate.py --prompt "user profile" --sizes "16,24,32,48" -
 
 ## Icon: Top Styles
 
-| Style    | Best For                      |
-| -------- | ----------------------------- |
-| outlined | UI interfaces, web apps       |
-| filled   | Mobile apps, nav bars         |
-| duotone  | Marketing, landing pages      |
-| rounded  | Friendly apps, health         |
-| sharp    | Tech, fintech, enterprise     |
-| flat     | Material design, Google-style |
-| gradient | Modern brands, SaaS           |
+| Style | Best For |
+|-------|----------|
+| outlined | UI interfaces, web apps |
+| filled | Mobile apps, nav bars |
+| duotone | Marketing, landing pages |
+| rounded | Friendly apps, health |
+| sharp | Tech, fintech, enterprise |
+| flat | Material design, Google-style |
+| gradient | Modern brands, SaaS |
 
 **Model:** `gemini-3.1-pro-preview` — text-only output (SVG is XML text). No image generation API needed.

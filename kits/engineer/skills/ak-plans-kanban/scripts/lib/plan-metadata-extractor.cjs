@@ -68,7 +68,7 @@ function extractFromFrontmatter(content) {
       tags: Array.isArray(data.tags) ? data.tags : [],
       createdDate: data.created ? new Date(data.created) : null,
       completedDate: data.completed ? new Date(data.completed) : null,
-      assignee: data.assignee || null,
+      assignee: data.assignee || null
     };
   } catch (e) {
     // YAML parse error - fall back to regex
@@ -140,7 +140,7 @@ function extractHeaderMetadata(content) {
     issue: null,
     branch: null,
     planId: null,
-    headerStatus: null,
+    headerStatus: null
   };
 
   // Only look at first ~50 lines for header metadata
@@ -227,14 +227,13 @@ function parseEffortToHours(effortStr) {
 function extractEffortFromTable(content) {
   const result = {
     totalEffort: 0,
-    phaseEfforts: [],
+    phaseEfforts: []
   };
 
   // Match table rows with effort column
   // Pattern: | Phase | Description | Status | Effort |
   // Or: | [Phase 1](path) | Description | Status | 4h |
-  const tableRowRegex =
-    /\|[^|]*\|[^|]*\|[^|]*\|\s*(\d+(?:\.\d+)?\s*(?:h|m|d|hours?|min|days?)?)\s*\|/gi;
+  const tableRowRegex = /\|[^|]*\|[^|]*\|[^|]*\|\s*(\d+(?:\.\d+)?\s*(?:h|m|d|hours?|min|days?)?)\s*\|/gi;
 
   let match;
   let phaseNum = 1;
@@ -245,7 +244,7 @@ function extractEffortFromTable(content) {
       result.phaseEfforts.push({
         phase: phaseNum,
         effort,
-        effortStr,
+        effortStr
       });
       result.totalEffort += effort;
       phaseNum++;
@@ -343,7 +342,9 @@ function extractPlanMetadata(planFilePath) {
 
     // Effort
     totalEffortHours: totalEffort,
-    totalEffortFormatted: totalEffort > 0 ? `${totalEffort.toFixed(1)}h` : null,
+    totalEffortFormatted: totalEffort > 0
+      ? `${totalEffort.toFixed(1)}h`
+      : null,
     phaseEfforts: effortData.phaseEfforts,
 
     // Metadata (merged from frontmatter + regex)
@@ -359,7 +360,7 @@ function extractPlanMetadata(planFilePath) {
     headerStatus: frontmatter?.status || headerMeta.headerStatus,
 
     // Source indicator for debugging
-    hasFrontmatter: !!frontmatter,
+    hasFrontmatter: !!frontmatter
   };
 }
 
@@ -380,7 +381,7 @@ function generateTimelineStats(plans) {
     totalEffortHours: 0,
     completedEffortHours: 0,
     thisWeekCompleted: 0,
-    thisMonthCompleted: 0,
+    thisMonthCompleted: 0
   };
 
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -421,7 +422,9 @@ function generateTimelineStats(plans) {
     }
   }
 
-  stats.avgDurationDays = durationCount > 0 ? Math.round(totalDuration / durationCount) : 0;
+  stats.avgDurationDays = durationCount > 0
+    ? Math.round(totalDuration / durationCount)
+    : 0;
 
   return stats;
 }
@@ -460,7 +463,7 @@ function generateActivityHeatmap(plans) {
       weekStart: weekStart.toISOString(),
       weekLabel: weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       activity,
-      level: activity === 0 ? 0 : activity === 1 ? 1 : activity <= 3 ? 2 : 3,
+      level: activity === 0 ? 0 : activity === 1 ? 1 : activity <= 3 ? 2 : 3
     });
   }
 
@@ -487,5 +490,5 @@ module.exports = {
 
   // Statistics generators
   generateTimelineStats,
-  generateActivityHeatmap,
+  generateActivityHeatmap
 };

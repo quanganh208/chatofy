@@ -36,8 +36,8 @@ Models fail at reasoning in predictable ways. Naming them is the first counterme
 Select these checks when the request or proposed answer may miss the intended outcome. Reuse an already-clear contract.
 
 1. **Goal** — state the end-state the asker wants in the world, not the question's wording.
-   Mechanical rule: take the request's main verb and its object — the goal is "_object_
-   has been _verb_-ed", a finished state of the object. It is never "reach the place
+   Mechanical rule: take the request's main verb and its object — the goal is "*object*
+   has been *verb*-ed", a finished state of the object. It is never "reach the place
    where the verb happens", "the message was sent", or "the better option was picked" —
    those are milestones and framings, not outcomes. Hard test: the goal sentence must
    not mention any of the offered options. If it does ("get there", "send it"), you have
@@ -76,11 +76,11 @@ Choose depth from the unresolved task and evidence. A useful heuristic is
 stakes × irreversibility × novelty. Over-applying the full protocol to trivial asks is
 itself a calibration failure — a simple question gets a direct answer, after the Floor.
 
-| Mode         | When                                                                                                                     | What runs                                                                                   |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| **Direct**   | Trivial, reversible, familiar (fact lookup, rename, small edit)                                                          | Answer directly with supported claims.                                                      |
-| **Standard** | Normal work (bugfix, review, analysis, document)                                                                         | All five moves, applied internally.                                                         |
-| **Full**     | High stakes, irreversible, unfamiliar, or contested (production incident, architecture, security, money, data migration) | Check relevant failure modes independently; report evidence, alternatives and the decision. |
+| Mode | When | What runs |
+|------|------|-----------|
+| **Direct** | Trivial, reversible, familiar (fact lookup, rename, small edit) | Answer directly with supported claims. |
+| **Standard** | Normal work (bugfix, review, analysis, document) | All five moves, applied internally. |
+| **Full** | High stakes, irreversible, unfamiliar, or contested (production incident, architecture, security, money, data migration) | Check relevant failure modes independently; report evidence, alternatives and the decision. |
 
 Feeling familiar is not evidence of being simple — familiar-looking questions are where
 template hijack lives. A tripped Floor check reclassifies the question out of Direct on

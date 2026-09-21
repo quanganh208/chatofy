@@ -18,13 +18,11 @@ Requires: Python >=3.11, uv package manager.
 ## Workflow
 
 ### Step 1: Design (see SKILL.md + design-methodology.md)
-
 Assess depth, map concepts to patterns, plan layout.
 
 ### Step 2: Generate JSON
 
 Create `.excalidraw` file with this structure:
-
 ```json
 {
   "type": "excalidraw",
@@ -61,7 +59,6 @@ cd ${CLAUDE_PLUGIN_ROOT}/skills/ak-excalidraw/references && uv run python render
 ```
 
 Options:
-
 - `--output path.png` — custom output path (default: same name .png)
 - `--scale 2` — device scale factor (default: 2)
 - `--width 1920` — max viewport width (default: 1920)
@@ -76,7 +73,6 @@ Use the **Read tool** on the PNG to view it. Then audit:
 4. **Re-render**: Repeat until clean (typically 2-4 iterations)
 
 ### When to Stop
-
 - Rendered diagram matches conceptual design
 - No clipped, overlapping, or unreadable text
 - Arrows route cleanly to correct elements
@@ -87,7 +83,6 @@ Use the **Read tool** on the PNG to view it. Then audit:
 ## Text Rules
 
 The JSON `text` property contains ONLY readable words:
-
 ```json
 {
   "id": "myElement1",

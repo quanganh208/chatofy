@@ -2,11 +2,18 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ak:diagram line spec",
   "type": "object",
-  "required": ["x", "series"],
+  "required": [
+    "x",
+    "series"
+  ],
   "properties": {
     "variant": {
       "type": "string",
-      "enum": ["light", "dark", "full"],
+      "enum": [
+        "light",
+        "dark",
+        "full"
+      ],
       "default": "light"
     },
     "title": {
@@ -21,14 +28,20 @@
     "x": {
       "type": "array",
       "items": {
-        "type": ["string", "number"]
+        "type": [
+          "string",
+          "number"
+        ]
       }
     },
     "series": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "y"],
+        "required": [
+          "name",
+          "y"
+        ],
         "properties": {
           "name": {
             "type": "string"

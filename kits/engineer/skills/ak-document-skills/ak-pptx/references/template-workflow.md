@@ -1,41 +1,38 @@
 # Creating a new PowerPoint presentation using a template
 
 ## Workflow
-
 1. **Extract template text AND create visual thumbnail grid**:
-   - Extract text: `python -m markitdown template.pptx > template-content.md`
-   - Read `template-content.md` in full, without a range limit, to understand the contents of the template presentation.
-   - Create thumbnail grids: `python scripts/thumbnail.py template.pptx`
-   - See [Creating Thumbnail Grids](../SKILL.md#creating-thumbnail-grids) section in `SKILL.md` for more details
+   * Extract text: `python -m markitdown template.pptx > template-content.md`
+   * Read `template-content.md` in full, without a range limit, to understand the contents of the template presentation.
+   * Create thumbnail grids: `python scripts/thumbnail.py template.pptx`
+   * See [Creating Thumbnail Grids](../SKILL.md#creating-thumbnail-grids) section in `SKILL.md` for more details
 
 2. **Analyze template and save inventory to a file**:
-   - **Visual Analysis**: Review thumbnail grid(s) to understand slide layouts, design patterns, and visual structure
-   - Create and save a template inventory file at `template-inventory.md` containing:
+   * **Visual Analysis**: Review thumbnail grid(s) to understand slide layouts, design patterns, and visual structure
+   * Create and save a template inventory file at `template-inventory.md` containing:
      ```markdown
      # Template Inventory Analysis
-
      **Total Slides: [count]**
      **Slides are 0-indexed (first slide = 0, last slide = count-1)**
 
      ## [Category Name]
-
      - Slide 0: [Layout code if available] - Description/purpose
      - Slide 1: [Layout code] - Description/purpose
      - Slide 2: [Layout code] - Description/purpose
-       [... EVERY slide must be listed individually with its index ...]
+     [... EVERY slide must be listed individually with its index ...]
      ```
-   - **Using the thumbnail grid**: Reference the visual thumbnails to identify:
+   * **Using the thumbnail grid**: Reference the visual thumbnails to identify:
      - Layout patterns (title slides, content layouts, section dividers)
      - Image placeholder locations and counts
      - Design consistency across slide groups
      - Visual hierarchy and structure
-   - This inventory file is REQUIRED for selecting appropriate templates in the next step
+   * This inventory file is REQUIRED for selecting appropriate templates in the next step
 
 3. **Create presentation outline based on template inventory**:
-   - Review available templates from step 2.
-   - Choose an intro or title template for the first slide. This should be one of the first templates.
-   - Choose safe, text-based layouts for the other slides.
-   - **Match layout structure to the actual content**:
+   * Review available templates from step 2.
+   * Choose an intro or title template for the first slide. This should be one of the first templates.
+   * Choose safe, text-based layouts for the other slides.
+   * **Match layout structure to the actual content**:
      - Single-column layouts: Use for unified narrative or single topic
      - Two-column layouts: Use ONLY when you have exactly 2 distinct items/concepts
      - Three-column layouts: Use ONLY when you have exactly 3 distinct items/concepts
@@ -44,75 +41,74 @@
      - Never use layouts with more placeholders than you have content
      - If you have 2 items, don't force them into a 3-column layout
      - If you have 4+ items, consider breaking into multiple slides or using a list format
-   - Count your actual content pieces BEFORE selecting the layout
-   - Verify each placeholder in the chosen layout will be filled with meaningful content
-   - Select one option representing the **best** layout for each content section.
-   - Save `outline.md` with content AND template mapping that leverages available designs
-   - Example template mapping:
-     ```
-     # Template slides to use (0-based indexing)
-     # WARNING: Verify indices are within range! Template with 73 slides has indices 0-72
-     # Mapping: slide numbers from outline -> template slide indices
-     template_mapping = [
-         0,   # Use slide 0 (Title/Cover)
-         34,  # Use slide 34 (B1: Title and body)
-         34,  # Use slide 34 again (duplicate for second B1)
-         50,  # Use slide 50 (E1: Quote)
-         54,  # Use slide 54 (F2: Closing + Text)
-     ]
-     ```
+   * Count your actual content pieces BEFORE selecting the layout
+   * Verify each placeholder in the chosen layout will be filled with meaningful content
+   * Select one option representing the **best** layout for each content section.
+   * Save `outline.md` with content AND template mapping that leverages available designs
+   * Example template mapping:
+      ```
+      # Template slides to use (0-based indexing)
+      # WARNING: Verify indices are within range! Template with 73 slides has indices 0-72
+      # Mapping: slide numbers from outline -> template slide indices
+      template_mapping = [
+          0,   # Use slide 0 (Title/Cover)
+          34,  # Use slide 34 (B1: Title and body)
+          34,  # Use slide 34 again (duplicate for second B1)
+          50,  # Use slide 50 (E1: Quote)
+          54,  # Use slide 54 (F2: Closing + Text)
+      ]
+      ```
 
 4. **Duplicate, reorder, and delete slides using `rearrange.py`**:
-   - Use the `scripts/rearrange.py` script to create a new presentation with slides in the desired order:
+   * Use the `scripts/rearrange.py` script to create a new presentation with slides in the desired order:
      ```bash
      python scripts/rearrange.py template.pptx working.pptx 0,34,34,50,52
      ```
-   - The script handles duplicating repeated slides, deleting unused slides, and reordering automatically
-   - Slide indices are 0-based (first slide is 0, second is 1, etc.)
-   - The same slide index can appear multiple times to duplicate that slide
+   * The script handles duplicating repeated slides, deleting unused slides, and reordering automatically
+   * Slide indices are 0-based (first slide is 0, second is 1, etc.)
+   * The same slide index can appear multiple times to duplicate that slide
 
 5. **Extract ALL text using the `inventory.py` script**:
-   - **Run inventory extraction**:
+   * **Run inventory extraction**:
      ```bash
      python scripts/inventory.py working.pptx text-inventory.json
      ```
-   - **Read text-inventory.json** in full, without a range limit, to understand all shapes and their properties.
+   * **Read text-inventory.json** in full, without a range limit, to understand all shapes and their properties.
 
-   - The inventory JSON structure:
+   * The inventory JSON structure:
+      ```json
+        {
+          "slide-0": {
+            "shape-0": {
+              "placeholder_type": "TITLE",  // or null for non-placeholders
+              "left": 1.5,                  // position in inches
+              "top": 2.0,
+              "width": 7.5,
+              "height": 1.2,
+              "paragraphs": [
+                {
+                  "text": "Paragraph text",
+                  // Optional properties (only included when non-default):
+                  "bullet": true,           // explicit bullet detected
+                  "level": 0,               // only included when bullet is true
+                  "alignment": "CENTER",    // CENTER, RIGHT (not LEFT)
+                  "space_before": 10.0,     // space before paragraph in points
+                  "space_after": 6.0,       // space after paragraph in points
+                  "line_spacing": 22.4,     // line spacing in points
+                  "font_name": "Arial",     // from first run
+                  "font_size": 14.0,        // in points
+                  "bold": true,
+                  "italic": false,
+                  "underline": false,
+                  "color": "FF0000"         // RGB color
+                }
+              ]
+            }
+          }
+        }
+      ```
 
-     ```json
-     {
-       "slide-0": {
-         "shape-0": {
-           "placeholder_type": "TITLE", // or null for non-placeholders
-           "left": 1.5, // position in inches
-           "top": 2.0,
-           "width": 7.5,
-           "height": 1.2,
-           "paragraphs": [
-             {
-               "text": "Paragraph text",
-               // Optional properties (only included when non-default):
-               "bullet": true, // explicit bullet detected
-               "level": 0, // only included when bullet is true
-               "alignment": "CENTER", // CENTER, RIGHT (not LEFT)
-               "space_before": 10.0, // space before paragraph in points
-               "space_after": 6.0, // space after paragraph in points
-               "line_spacing": 22.4, // line spacing in points
-               "font_name": "Arial", // from first run
-               "font_size": 14.0, // in points
-               "bold": true,
-               "italic": false,
-               "underline": false,
-               "color": "FF0000" // RGB color
-             }
-           ]
-         }
-       }
-     }
-     ```
-
-   - Key features:
+   * Key features:
      - **Slides**: Named as "slide-0", "slide-1", etc.
      - **Shapes**: Ordered by visual position (top-to-bottom, left-to-right) as "shape-0", "shape-1", etc.
      - **Placeholder types**: TITLE, CENTER_TITLE, SUBTITLE, BODY, OBJECT, or null
@@ -151,7 +147,6 @@
    - **WARNING**: Different template layouts have different shape counts - always check the actual inventory before creating replacements
 
    Example paragraphs field showing proper formatting:
-
    ```json
    "paragraphs": [
      {
@@ -183,7 +178,6 @@
    ```
 
    **Shapes not listed in the replacement JSON are automatically cleared**:
-
    ```json
    {
      "slide-0": {
@@ -203,7 +197,6 @@
    - Quotes: May have special alignment or font properties
 
 7. **Apply replacements using the `replace.py` script**
-
    ```bash
    python scripts/replace.py working.pptx replacement-text.json output.pptx
    ```
@@ -218,7 +211,6 @@
    - Save the updated presentation
 
    Example validation errors:
-
    ```
    ERROR: Invalid shapes in replacement JSON:
      - Shape 'shape-99' not found on 'slide-0'. Available shapes: shape-0, shape-1, shape-4

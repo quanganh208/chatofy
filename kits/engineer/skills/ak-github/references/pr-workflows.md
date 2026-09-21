@@ -80,10 +80,10 @@ check is not a pass — rerun it (`gh run rerun <id> --failed`).
 
 ## PR state debugging
 
-| Symptom                   | Check                                | Fix                                                                       |
-| ------------------------- | ------------------------------------ | ------------------------------------------------------------------------- |
-| Merge button blocked      | `gh pr view --json mergeStateStatus` | `BLOCKED`=missing review/check; `BEHIND`=update branch; `DIRTY`=conflicts |
-| Checks not starting       | `gh run list --branch <head>`        | Workflow path filters, or `gh workflow enable`                            |
-| Auto-merge silently off   | `gh pr view --json autoMergeRequest` | Re-enable after force-push; verify repo allows auto-merge                 |
-| Approval reset after push | repo setting "dismiss stale reviews" | Expected cost; re-request review, never hold a fix to keep approval       |
-| Draft cannot merge        | `gh pr view --json isDraft`          | `gh pr ready <n>`                                                         |
+| Symptom | Check | Fix |
+|---------|-------|-----|
+| Merge button blocked | `gh pr view --json mergeStateStatus` | `BLOCKED`=missing review/check; `BEHIND`=update branch; `DIRTY`=conflicts |
+| Checks not starting | `gh run list --branch <head>` | Workflow path filters, or `gh workflow enable` |
+| Auto-merge silently off | `gh pr view --json autoMergeRequest` | Re-enable after force-push; verify repo allows auto-merge |
+| Approval reset after push | repo setting "dismiss stale reviews" | Expected cost; re-request review, never hold a fix to keep approval |
+| Draft cannot merge | `gh pr view --json isDraft` | `gh pr ready <n>` |

@@ -71,17 +71,7 @@ function buildCacheKey({ journalBody, imageAiPrompt, writingStyle, language, mod
  */
 function invokeMultixImage({ prompt, model, outputPath, env }) {
   if (env.MOCK_MULTIX_OUTPUT) {
-    const argv = [
-      '-y',
-      'multix',
-      'image',
-      '--model',
-      model,
-      '--prompt',
-      prompt,
-      '--output',
-      outputPath,
-    ];
+    const argv = ['-y', 'multix', 'image', '--model', model, '--prompt', prompt, '--output', outputPath];
     if (env.MOCK_MULTIX_ARGV === '1') {
       const argvPath = env.MOCK_MULTIX_ARGV_PATH || path.join(os.tmpdir(), 'multix-argv.json');
       fs.writeFileSync(argvPath, JSON.stringify(argv));
@@ -91,17 +81,7 @@ function invokeMultixImage({ prompt, model, outputPath, env }) {
     return;
   }
 
-  const argv = [
-    '-y',
-    'multix',
-    'image',
-    '--model',
-    model,
-    '--prompt',
-    prompt,
-    '--output',
-    outputPath,
-  ];
+  const argv = ['-y', 'multix', 'image', '--model', model, '--prompt', prompt, '--output', outputPath];
   const { command, args } = npxCommand(argv);
   const result = spawnSync(command, args, { encoding: 'utf8', env });
   if (result.status !== 0) {
@@ -136,8 +116,7 @@ function generateImages({
 
   const config = resolveConfig({ projectRoot, cwd: startDir });
   const model = (config.ai && config.ai.image_model) || DEFAULT_IMAGE_MODEL;
-  const journalBody =
-    journalFile && fs.existsSync(journalFile) ? readJournalBodyRaw(journalFile) : '';
+  const journalBody = journalFile && fs.existsSync(journalFile) ? readJournalBodyRaw(journalFile) : '';
   const slug = journalFile ? slugForJournalFile(journalFile) : 'ad-hoc';
   const cacheKey = buildCacheKey({
     journalBody,
@@ -174,7 +153,7 @@ function main() {
 
   if (values.help) {
     console.error(
-      'Usage: node generate-image.cjs --image <path-or-glob>... | --image-ai <prompt> [--journal-file <path>] [--project-root <path>] [--dry-run] [--json]',
+      'Usage: node generate-image.cjs --image <path-or-glob>... | --image-ai <prompt> [--journal-file <path>] [--project-root <path>] [--dry-run] [--json]'
     );
     return;
   }

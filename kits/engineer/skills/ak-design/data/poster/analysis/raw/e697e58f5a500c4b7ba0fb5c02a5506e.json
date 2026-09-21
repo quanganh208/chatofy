@@ -8,7 +8,13 @@
     "chromatic-aberration",
     "minimalist"
   ],
-  "palette_hexes": ["#000000", "#E0E0E0", "#4D85F3", "#8C49E6", "#F4D03F"],
+  "palette_hexes": [
+    "#000000",
+    "#E0E0E0",
+    "#4D85F3",
+    "#8C49E6",
+    "#F4D03F"
+  ],
   "layout": {
     "grid": "vertical stack, left-aligned text blocks",
     "focal": "center",
@@ -18,7 +24,12 @@
     "material": "digital flat",
     "finish": "glassy reflection, chromatic aberration, flat vector"
   },
-  "mood": ["modern", "futuristic", "experimental", "sleek"],
+  "mood": [
+    "modern",
+    "futuristic",
+    "experimental",
+    "sleek"
+  ],
   "shape_primitives": [
     "S-curve",
     "horizontal rule",
@@ -26,5 +37,9 @@
     "smiley face",
     "rectangular text blocks"
   ],
-  "typography": ["bold geometric sans", "all caps", "extreme size contrast"]
+  "typography": [
+    "bold geometric sans",
+    "all caps",
+    "extreme size contrast"
+  ]
 }

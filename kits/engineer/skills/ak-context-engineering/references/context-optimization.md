@@ -3,13 +3,13 @@
 Measure cost per completed task, duration, success and agent steps before choosing an
 optimization. Token reduction alone is not proof of better economics or task quality.
 
-| Dominant cost                    | Candidate action                                     | Check                                       |
-| -------------------------------- | ---------------------------------------------------- | ------------------------------------------- |
-| Verbose tool results             | Filter before emission; retain full evidence pointer | Exit status and relevant failures survive   |
-| Irrelevant retrieved material    | Search and read logical ranges                       | Contract/caller context remains sufficient  |
-| Replayed old history             | Checkpoint and supported compaction                  | Constraints and continuation survive        |
-| Repeated stable input            | Provider-supported prompt caching                    | Actual cache billing and unchanged outcomes |
-| Independent large investigations | Bounded delegation                                   | Total worker plus coordinator spend         |
+| Dominant cost | Candidate action | Check |
+|---|---|---|
+| Verbose tool results | Filter before emission; retain full evidence pointer | Exit status and relevant failures survive |
+| Irrelevant retrieved material | Search and read logical ranges | Contract/caller context remains sufficient |
+| Replayed old history | Checkpoint and supported compaction | Constraints and continuation survive |
+| Repeated stable input | Provider-supported prompt caching | Actual cache billing and unchanged outcomes |
+| Independent large investigations | Bounded delegation | Total worker plus coordinator spend |
 
 Prefer the least disruptive effective action. Filtering at the source may avoid the
 need for compaction. Summarization costs tokens and can force re-fetching; do not compact

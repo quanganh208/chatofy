@@ -124,14 +124,14 @@ Proportionality Gate says Direct. Structured group ideation with verifier passes
 
 ## Evaluate before delivering (act-backed, per the Self-Review Gate)
 
-| Dimension  | Passes when                                       | Proven by           |
-| ---------- | ------------------------------------------------- | ------------------- |
-| Criteria   | written before options; abandon condition present | option sheet header |
-| Breadth    | three or more distinct mechanisms, no strawmen    | option list         |
-| Evidence   | each reject killed by an observation              | kill results        |
-| Discipline | spikes timeboxed and answered                     | spike log           |
-| Simplicity | least complex passing option, or justified        | decision note       |
-| Legibility | decision record with rejects and revisit trigger  | record exists       |
+| Dimension | Passes when | Proven by |
+|-----------|-------------|-----------|
+| Criteria | written before options; abandon condition present | option sheet header |
+| Breadth | three or more distinct mechanisms, no strawmen | option list |
+| Evidence | each reject killed by an observation | kill results |
+| Discipline | spikes timeboxed and answered | spike log |
+| Simplicity | least complex passing option, or justified | decision note |
+| Legibility | decision record with rejects and revisit trigger | record exists |
 
 ## Option sheet template
 
@@ -149,11 +149,11 @@ Decision: <option>, because <criteria>; rejected: ...; assumptions: ...; revisit
 
 ## Do / Don't
 
-| Don't                                  | Instead                                                  |
-| -------------------------------------- | -------------------------------------------------------- |
-| Plan around the first workable idea    | Fill the option quota before judging any                 |
-| Write criteria after choosing          | Write must, should, cost of error first                  |
-| Test an option by building it          | Find its cheapest kill-test; spike only survivors        |
-| Keep a dead option alive for sunk cost | Record what killed it and move on                        |
-| Choose the clever option on excitement | Same evidence bar; simplest sufficient wins              |
-| Deliver only the choice                | Deliver the choice, the rejects, and the revisit trigger |
+| Don't | Instead |
+|-------|---------|
+| Plan around the first workable idea | Fill the option quota before judging any |
+| Write criteria after choosing | Write must, should, cost of error first |
+| Test an option by building it | Find its cheapest kill-test; spike only survivors |
+| Keep a dead option alive for sunk cost | Record what killed it and move on |
+| Choose the clever option on excitement | Same evidence bar; simplest sufficient wins |
+| Deliver only the choice | Deliver the choice, the rejects, and the revisit trigger |

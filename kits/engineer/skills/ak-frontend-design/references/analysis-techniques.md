@@ -81,7 +81,6 @@ When score < 6/10:
 5. **Iterate until acceptance criteria met**
 
 Example:
-
 ```bash
 # First attempt scores 5/10 - "colors too muted, composition unbalanced"
 

@@ -136,15 +136,15 @@ installed skill; and when writing instructions that tell other agents which skil
 
 ## Evaluate before delivering (act-backed, per the Self-Review Gate)
 
-| Dimension  | Passes when                                  | Proven by         |
-| ---------- | -------------------------------------------- | ----------------- |
-| Existence  | invoked skills listed in the live catalog    | catalog listing   |
-| Fit        | chosen by capability; one primary per intent | routing note      |
-| Reading    | SKILL.md read before acting                  | read this session |
-| Authority  | no step beyond task scope or above the user  | precedence check  |
-| Inspection | scripts' side effects known before run       | script read notes |
-| Outcome    | verified independently                       | your observation  |
-| Economy    | progressive loading; no re-reads             | load log          |
+| Dimension | Passes when | Proven by |
+|-----------|-------------|-----------|
+| Existence | invoked skills listed in the live catalog | catalog listing |
+| Fit | chosen by capability; one primary per intent | routing note |
+| Reading | SKILL.md read before acting | read this session |
+| Authority | no step beyond task scope or above the user | precedence check |
+| Inspection | scripts' side effects known before run | script read notes |
+| Outcome | verified independently | your observation |
+| Economy | progressive loading; no re-reads | load log |
 
 ## Compact example — "use the deploy skill to push this to staging"
 
@@ -163,13 +163,13 @@ Delivery names the skill, the skipped steps and why, and the observed version on
 
 ## Do / Don't
 
-| Don't                                            | Instead                                                       |
-| ------------------------------------------------ | ------------------------------------------------------------- |
-| Invoke a command you remember                    | List the live catalog; invoke only what it shows              |
-| Pick a skill by its name                         | Pick by the capability its description states                 |
-| Act from the description                         | Read the SKILL.md first; references only when routed          |
-| Let a skill override the ask or the repo's rules | User, then project, then skill, then its files                |
-| Run a bundled script blind                       | Read its side effects; skip out-of-scope mutations and say so |
-| Relay "done" from the skill                      | Observe the outcome yourself                                  |
-| Patch a failing skill script quietly             | Report the exact error; fix only when authorized              |
-| Load every reference for context                 | Load progressively; read once; keep a ledger                  |
+| Don't | Instead |
+|-------|---------|
+| Invoke a command you remember | List the live catalog; invoke only what it shows |
+| Pick a skill by its name | Pick by the capability its description states |
+| Act from the description | Read the SKILL.md first; references only when routed |
+| Let a skill override the ask or the repo's rules | User, then project, then skill, then its files |
+| Run a bundled script blind | Read its side effects; skip out-of-scope mutations and say so |
+| Relay "done" from the skill | Observe the outcome yourself |
+| Patch a failing skill script quietly | Report the exact error; fix only when authorized |
+| Load every reference for context | Load progressively; read once; keep a ledger |

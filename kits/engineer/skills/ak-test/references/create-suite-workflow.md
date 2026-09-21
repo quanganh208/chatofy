@@ -20,7 +20,7 @@ Output: a scout report listing features, workflows, and their owning files.
 Map every discovered feature/workflow to its intended coverage:
 
 | Feature / workflow | Owner files | Level (unit/integration/e2e) | Exists? | Priority |
-| ------------------ | ----------- | ---------------------------- | ------- | -------- |
+| --- | --- | --- | --- | --- |
 
 Rules:
 

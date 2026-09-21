@@ -11,28 +11,15 @@ when_to_use: >-
   ak:excalidraw for whiteboard sketches, ak:tech-graph for static publication charts, or
   ak:mermaidjs-v11 for inline markdown diagrams.
 category: engineering
-keywords:
-  [
-    diagram,
-    archify,
-    architecture,
-    workflow,
-    sequence,
-    dataflow,
-    lifecycle,
-    interactive-map,
-    system-map,
-    visual-map,
-    reader-runtime,
-  ]
-argument-hint: '[input-file] [--format <svg|fragment|html>] [--preset <classic|signal-flow|blueprint|editorial>] [--theme <light|dark>] [--out <path>]'
+keywords: [diagram, archify, architecture, workflow, sequence, dataflow, lifecycle, interactive-map, system-map, visual-map, reader-runtime]
+argument-hint: "[input-file] [--format <svg|fragment|html>] [--preset <classic|signal-flow|blueprint|editorial>] [--theme <light|dark>] [--out <path>]"
 license: MIT
 metadata:
   author: agentkit
-  version: '3.0.0'
+  version: "3.0.0"
   upstream_templates: cathrynlavery/diagram-design (MIT)
   design_reference: tt-a1i/archify (MIT; IR archetypes, presets and reader concepts only, no code vendored)
-  vendored_mermaid_version: '11.4.1'
+  vendored_mermaid_version: "11.4.1"
 ---
 
 # ak:diagram - Unified System Map & Interactive Diagram Surface
@@ -41,13 +28,13 @@ Compile typed JSON IR specifications into deterministic SVGs, embeddable fragmen
 
 ## Archetype Decision Matrix
 
-| User Intent                                    | Archetype      | Primary Entities                          | Key Fields                        |
-| ---------------------------------------------- | -------------- | ----------------------------------------- | --------------------------------- |
-| System topology, microservices, boundaries     | `architecture` | `components`, `boundaries`, `connections` | `role`, `layer` (0–10), `kind`    |
-| Multi-step execution, lane handoffs, decisions | `workflow`     | `lanes`, `steps`, `transitions`           | `kind`, `lane`, `condition`       |
-| Ordered API calls, request/response timing     | `sequence`     | `participants`, `messages`                | `kind: sync-call \| return`       |
-| ETL pipelines, stream processing, data lineage | `dataflow`     | `stages`, `nodes`, `flows`                | `stage`, `role`, `classification` |
-| Finite state machines, status transitions      | `lifecycle`    | `states`, `transitions`, `lanes`          | `kind: initial \| active \| ...`  |
+| User Intent | Archetype | Primary Entities | Key Fields |
+|---|---|---|---|
+| System topology, microservices, boundaries | `architecture` | `components`, `boundaries`, `connections` | `role`, `layer` (0–10), `kind` |
+| Multi-step execution, lane handoffs, decisions | `workflow` | `lanes`, `steps`, `transitions` | `kind`, `lane`, `condition` |
+| Ordered API calls, request/response timing | `sequence` | `participants`, `messages` | `kind: sync-call \| return` |
+| ETL pipelines, stream processing, data lineage | `dataflow` | `stages`, `nodes`, `flows` | `stage`, `role`, `classification` |
+| Finite state machines, status transitions | `lifecycle` | `states`, `transitions`, `lanes` | `kind: initial \| active \| ...` |
 
 ## 5-Step Execution Playbook
 

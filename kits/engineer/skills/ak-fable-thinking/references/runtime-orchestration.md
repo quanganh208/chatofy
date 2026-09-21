@@ -121,14 +121,14 @@ inside one runtime is `references/subagent-orchestration.md`.
 
 ## Evaluate before delivering (act-backed, per the Self-Review Gate)
 
-| Dimension       | Passes when                                           | Proven by                |
-| --------------- | ----------------------------------------------------- | ------------------------ |
-| Inventory       | capabilities observed per runtime                     | probe log or matrix read |
-| Portability     | zero runtime-specific tokens in shared instructions   | lint pass                |
-| Handoff         | artifact complete; fresh-session dry run passes       | receipt review           |
-| Isolation       | one writer per path; no cross-home writes             | mutation audit           |
-| Routing         | each subtask placed with a stated fit and cost reason | routing note             |
-| Re-verification | receipt re-run after each crossing                    | recorded results         |
+| Dimension | Passes when | Proven by |
+|-----------|-------------|-----------|
+| Inventory | capabilities observed per runtime | probe log or matrix read |
+| Portability | zero runtime-specific tokens in shared instructions | lint pass |
+| Handoff | artifact complete; fresh-session dry run passes | receipt review |
+| Isolation | one writer per path; no cross-home writes | mutation audit |
+| Routing | each subtask placed with a stated fit and cost reason | routing note |
+| Re-verification | receipt re-run after each crossing | recorded results |
 
 ## Handoff receipt template
 
@@ -145,12 +145,12 @@ Next action: ...
 
 ## Do / Don't
 
-| Don't                                                   | Instead                                                |
-| ------------------------------------------------------- | ------------------------------------------------------ |
-| Assume the next runtime has the same tools              | Inventory capabilities; probe what the plan depends on |
-| Write one runtime's tool names into shared instructions | Use capability wording; degrade gracefully             |
-| Maintain two harness files by hand                      | One canonical file; symlink or generate the rest       |
-| Continue from memory after a switch                     | Hand off through a receipt; re-run it on arrival       |
-| Route everything to the strongest runtime               | Route by fit and cost; verify cheap routes more        |
-| Let a setup script touch another runtime's home         | Each runtime mutates only what it owns                 |
-| Treat a differing result as noise                       | Record it as a finding about the environment           |
+| Don't | Instead |
+|-------|---------|
+| Assume the next runtime has the same tools | Inventory capabilities; probe what the plan depends on |
+| Write one runtime's tool names into shared instructions | Use capability wording; degrade gracefully |
+| Maintain two harness files by hand | One canonical file; symlink or generate the rest |
+| Continue from memory after a switch | Hand off through a receipt; re-run it on arrival |
+| Route everything to the strongest runtime | Route by fit and cost; verify cheap routes more |
+| Let a setup script touch another runtime's home | Each runtime mutates only what it owns |
+| Treat a differing result as noise | Record it as a finding about the environment |

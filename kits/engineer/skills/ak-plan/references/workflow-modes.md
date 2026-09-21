@@ -4,20 +4,19 @@
 
 When no flag specified, analyze task and pick mode:
 
-| Signal                                       | Mode     | Rationale                |
-| -------------------------------------------- | -------- | ------------------------ |
-| Simple task, clear scope, no unknowns        | fast     | Skip research overhead   |
-| Complex task, unfamiliar domain, new tech    | hard     | Research needed          |
-| Major refactor, 5+ areas, architectural debt | deep     | Need per-phase scouting  |
-| 3+ independent features/layers/modules       | parallel | Enable concurrent agents |
-| Ambiguous approach, multiple valid paths     | two      | Compare alternatives     |
+| Signal | Mode | Rationale |
+|--------|------|-----------|
+| Simple task, clear scope, no unknowns | fast | Skip research overhead |
+| Complex task, unfamiliar domain, new tech | hard | Research needed |
+| Major refactor, 5+ areas, architectural debt | deep | Need per-phase scouting |
+| 3+ independent features/layers/modules | parallel | Enable concurrent agents |
+| Ambiguous approach, multiple valid paths | two | Compare alternatives |
 
 Use `ask_user capability` if detection is uncertain. `debate` and `ultra` are never detection outcomes — each is explicit opt-in only (`--debate`, `--ultra`), never chosen by this heuristic table.
 
 ## Scope Challenge Integration
 
 Step 0 (Scope Challenge, see `scope-challenge.md`) runs before mode detection and can influence it. Without `--yagni`, it records HOLD SCOPE without presenting a scope-reduction fork:
-
 - If user selects **EXPANSION** → auto-suggest `--hard` or `--two`
 - If user selects **REDUCTION** → auto-suggest `--fast`
 - If user selects **HOLD** → proceed with auto-detected mode

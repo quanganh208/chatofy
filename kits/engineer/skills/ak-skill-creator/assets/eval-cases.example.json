@@ -7,21 +7,7 @@
       "prompt": "Normalize these fictional records into result.json: [{\"id\":\" a1 \",\"amount\":\"12.50\"},{\"id\":\"b2\",\"amount\":\"3\"}]. Preserve order, trim ids and express amounts as integer cents. Output only records and errors arrays.",
       "expected_output": "Both records normalized without errors.",
       "files": [],
-      "assertions": [
-        {
-          "id": "exact-result",
-          "text": "Records have trimmed ids and exact integer cents.",
-          "kind": "json-equals",
-          "path": "result.json",
-          "expected": {
-            "records": [
-              { "id": "a1", "cents": 1250 },
-              { "id": "b2", "cents": 300 }
-            ],
-            "errors": []
-          }
-        }
-      ]
+      "assertions": [{"id":"exact-result","text":"Records have trimmed ids and exact integer cents.","kind":"json-equals","path":"result.json","expected":{"records":[{"id":"a1","cents":1250},{"id":"b2","cents":300}],"errors":[]}}]
     },
     {
       "id": "reject-invalid",
@@ -29,18 +15,7 @@
       "prompt": "Normalize [{\"id\":\"ok\",\"amount\":\"1.23\"},{\"id\":\"bad\",\"amount\":\"oops\"}] into result.json. Preserve valid records; report invalid amounts as {index, code}, using zero-based indexes and code invalid_amount. Output only records and errors arrays.",
       "expected_output": "The valid row is retained; the malformed row has an error instead of an invented amount.",
       "files": [],
-      "assertions": [
-        {
-          "id": "no-invention",
-          "text": "Invalid values are reported and valid values preserved.",
-          "kind": "json-equals",
-          "path": "result.json",
-          "expected": {
-            "records": [{ "id": "ok", "cents": 123 }],
-            "errors": [{ "index": 1, "code": "invalid_amount" }]
-          }
-        }
-      ]
+      "assertions": [{"id":"no-invention","text":"Invalid values are reported and valid values preserved.","kind":"json-equals","path":"result.json","expected":{"records":[{"id":"ok","cents":123}],"errors":[{"index":1,"code":"invalid_amount"}]}}]
     }
   ]
 }

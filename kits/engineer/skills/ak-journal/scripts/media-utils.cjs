@@ -79,13 +79,7 @@ function readJournalBodyRaw(journalFile) {
 
 /** Path to npm's npx-cli.js next to the running Node binary, or null if absent. */
 function resolveWindowsNpxEntry() {
-  const candidate = path.join(
-    path.dirname(process.execPath),
-    'node_modules',
-    'npm',
-    'bin',
-    'npx-cli.js',
-  );
+  const candidate = path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npx-cli.js');
   return fs.existsSync(candidate) ? candidate : null;
 }
 
@@ -109,7 +103,7 @@ function npxCommand(argv) {
   const npxCliEntry = resolveWindowsNpxEntry();
   if (!npxCliEntry) {
     throw new Error(
-      `could not locate npm's npx-cli.js next to the running Node binary (${process.execPath}) — reinstall Node or ensure npm ships alongside it.`,
+      `could not locate npm's npx-cli.js next to the running Node binary (${process.execPath}) — reinstall Node or ensure npm ships alongside it.`
     );
   }
   return { command: process.execPath, args: [npxCliEntry, ...argv] };

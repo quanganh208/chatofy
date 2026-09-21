@@ -6,13 +6,13 @@ Techniques for recovering subject history from web archives. Primary tool: **way
 
 ## Source Priority
 
-| Source                        | Coverage                         | Reliability | Best For                        |
-| ----------------------------- | -------------------------------- | ----------- | ------------------------------- |
-| Common Crawl                  | Broad web, frequent crawls       | Medium-High | Domain content, public pages    |
-| Internet Archive Wayback      | Deep historical, social profiles | High        | Timeline reconstruction         |
-| Archive.today                 | Snapshot-on-demand, JS-rendered  | High        | Current snapshots, social posts |
-| Google cache                  | Last crawl only                  | Low         | Recent content, quick check     |
-| Cached APIs (Twitter, Reddit) | Platform-specific                | Medium      | Social content before deletion  |
+| Source | Coverage | Reliability | Best For |
+|---|---|---|---|
+| Common Crawl | Broad web, frequent crawls | Medium-High | Domain content, public pages |
+| Internet Archive Wayback | Deep historical, social profiles | High | Timeline reconstruction |
+| Archive.today | Snapshot-on-demand, JS-rendered | High | Current snapshots, social posts |
+| Google cache | Last crawl only | Low | Recent content, quick check |
+| Cached APIs (Twitter, Reddit) | Platform-specific | Medium | Social content before deletion |
 
 ---
 
@@ -23,7 +23,6 @@ Techniques for recovering subject history from web archives. Primary tool: **way
 **Install:** `pip3 install waymore`
 
 **Sources queried (all 7):**
-
 1. Wayback Machine (web.archive.org)
 2. Common Crawl (106+ index collections)
 3. AlienVault OTX (otx.alienvault.com)
@@ -33,7 +32,6 @@ Techniques for recovering subject history from web archives. Primary tool: **way
 7. Intelligence X (intelx.io — paid tiers)
 
 **Key CLI patterns:**
-
 ```bash
 # Get all archived URLs for a domain (including subdomains):
 waymore -i <domain> -mode U -oU waymore-urls.txt
@@ -61,7 +59,6 @@ waymore -i <domain> -mode U -lcc 5 -oU waymore-urls.txt
 ```
 
 **Why waymore over GAU:**
-
 - Queries 7 sources vs GAU's 4 (Wayback, OTX, Common Crawl, URLScan)
 - Downloads actual response bodies, not just URL listings
 - Handles rate limiting with retries and backoff
@@ -77,7 +74,6 @@ waymore -i <domain> -mode U -lcc 5 -oU waymore-urls.txt
 Common Crawl provides petabyte-scale raw web data and an index API. Prefer over Wayback for breadth; use Wayback for depth on specific URLs.
 
 **CDX Index API (Common Crawl):**
-
 ```
 https://index.commoncrawl.org/CC-MAIN-{YYYY-MM}/cdx?url={domain}&output=json
 ```
@@ -109,42 +105,39 @@ def fetch_warc_record(filename, offset, length):
 The CDX API returns structured capture metadata. More granular than the Wayback UI.
 
 **All captures for a URL:**
-
 ```
 https://web.archive.org/cdx/search/cdx?url={url}&output=json&limit=500
 ```
 
 **Date-bounded capture list:**
-
 ```
 https://web.archive.org/cdx/search/cdx?url={url}&from={YYYYMMDD}&to={YYYYMMDD}&output=json
 ```
 
 **Filter by HTTP status:**
-
 ```
 https://web.archive.org/cdx/search/cdx?url={url}&filter=statuscode:200&output=json
 ```
 
 **Snapshot URL formats:**
 
-| Format       | URL Pattern         | Purpose                          |
-| ------------ | ------------------- | -------------------------------- |
-| Standard     | `web/{ts}/{url}`    | As captured with Wayback toolbar |
-| Clean        | `web/{ts}if_/{url}` | No injected Wayback JS           |
-| Text extract | `web/{ts}id_/{url}` | Raw text, no assets              |
+| Format | URL Pattern | Purpose |
+|---|---|---|
+| Standard | `web/{ts}/{url}` | As captured with Wayback toolbar |
+| Clean | `web/{ts}if_/{url}` | No injected Wayback JS |
+| Text extract | `web/{ts}id_/{url}` | Raw text, no assets |
 
 ---
 
 ## 3. Social Platform Archive Patterns
 
-| Platform    | Wayback Pattern                                                  |
-| ----------- | ---------------------------------------------------------------- |
-| Twitter / X | `web/*/https://twitter.com/{handle}` or `/status/{id}`           |
-| Instagram   | `web/*/https://www.instagram.com/{handle}/` or `/p/{shortcode}/` |
-| Reddit      | `web/*/https://www.reddit.com/user/{username}/`                  |
-| LinkedIn    | `web/*/https://www.linkedin.com/in/{slug}/`                      |
-| Facebook    | `web/*/https://www.facebook.com/{username}`                      |
+| Platform | Wayback Pattern |
+|---|---|
+| Twitter / X | `web/*/https://twitter.com/{handle}` or `/status/{id}` |
+| Instagram | `web/*/https://www.instagram.com/{handle}/` or `/p/{shortcode}/` |
+| Reddit | `web/*/https://www.reddit.com/user/{username}/` |
+| LinkedIn | `web/*/https://www.linkedin.com/in/{slug}/` |
+| Facebook | `web/*/https://www.facebook.com/{username}` |
 
 ---
 
@@ -153,7 +146,6 @@ https://web.archive.org/cdx/search/cdx?url={url}&filter=statuscode:200&output=js
 Build a chronological event log from archive captures.
 
 **Phase 1 — Capture inventory:**
-
 ```python
 def collect_captures(url):
     captures = query_wayback_cdx(url)
@@ -162,7 +154,6 @@ def collect_captures(url):
 ```
 
 **Phase 2 — Event classification:**
-
 ```python
 EVENT_TYPES = {
     "first_seen":        lambda c: c.is_earliest,
@@ -176,13 +167,11 @@ EVENT_TYPES = {
 ```
 
 **Phase 3 — Timeline format:**
-
 ```
 {YYYY-MM-DD} [EVENT_TYPE] description — confidence X%
 ```
 
 Example:
-
 ```
 2019-02-14 [FIRST_SEEN]     Account created (earliest capture)
 2019-08-03 [CONTENT_ADDED]  Campaign posts begin (12 posts in 1 week)
@@ -197,21 +186,18 @@ Example:
 ## 5. Domain Archive Exploration
 
 **Registration history:**
-
 ```
 site:web.archive.org {domain} whois
 site:domaintools.com/research/whois-history/search/ (manual)
 ```
 
 **DNS record history:**
-
 ```
 site:securitytrails.com/domain/{domain}/history/a
 site:viewdns.info/iphistory/?domain={domain}
 ```
 
 **Subdomain discovery via archives:**
-
 ```python
 def find_subdomains_in_archive(domain):
     cdx_url = f"https://web.archive.org/cdx/search/cdx?url=*.{domain}&output=json&fl=original"
@@ -225,12 +211,12 @@ def find_subdomains_in_archive(domain):
 
 Before citing archive content as a finding:
 
-| Check                     | Method                                                    |
-| ------------------------- | --------------------------------------------------------- |
-| Timestamp integrity       | Verify timestamp in URL matches page date references      |
-| Wayback injection         | Look for Wayback toolbar HTML; use `if_` variant to strip |
-| Cross-archive consistency | Same content in Archive.today and Common Crawl            |
-| Image hash validation     | Compare archived images to other sources                  |
+| Check | Method |
+|---|---|
+| Timestamp integrity | Verify timestamp in URL matches page date references |
+| Wayback injection | Look for Wayback toolbar HTML; use `if_` variant to strip |
+| Cross-archive consistency | Same content in Archive.today and Common Crawl |
+| Image hash validation | Compare archived images to other sources |
 
 Source confidence: Wayback 88%, Archive.today 83%, Common Crawl 76%, Google cache 58% (ephemeral).
 
@@ -273,11 +259,11 @@ Lists all available Wayback Machine snapshots for a URL with timestamps and HTTP
 
 **Options:**
 
-| Option        | Default            | Description                 |
-| ------------- | ------------------ | --------------------------- |
-| `[url]`       | required           | Full URL or domain to query |
-| `--from YYYY` | earliest available | Start year filter           |
-| `--to YYYY`   | current year       | End year filter             |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `[url]` | required | Full URL or domain to query |
+| `--from YYYY` | earliest available | Start year filter |
+| `--to YYYY` | current year | End year filter |
 
 **Implementation — Wayback CDX API:**
 
@@ -323,11 +309,11 @@ Fetches two archived versions of a URL and computes a text diff, highlighting si
 
 **Options:**
 
-| Option          | Default           | Description                                                 |
-| --------------- | ----------------- | ----------------------------------------------------------- |
-| `[url]`         | required          | URL to compare                                              |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `[url]` | required | URL to compare |
 | `--from <date>` | earliest snapshot | Date of the "before" version (YYYY-MM-DD or YYYYMMDDHHMMSS) |
-| `--to <date>`   | latest snapshot   | Date of the "after" version                                 |
+| `--to <date>` | latest snapshot | Date of the "after" version |
 
 If exact timestamps are not provided, the nearest available snapshot to each date is used.
 
@@ -379,7 +365,6 @@ FULL DIFF (unified format):
 **Significance heuristic** — flags lines containing: email patterns, IP addresses, domain names, dates, phone numbers, monetary values, credential keywords (`password`, `token`, `key`, `secret`).
 
 **Cross-references:**
-
 - `/snapshots` — use first to identify candidate timestamps before running `/diff`
 - `analysis/drift-monitor.md` — automated diff triggers on DRIFT_CRITICAL
 - `engine/finding-framework.md` — significant diff changes create findings with type `infrastructure`

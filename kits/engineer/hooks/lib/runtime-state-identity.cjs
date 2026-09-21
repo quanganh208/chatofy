@@ -50,17 +50,18 @@ function gitEnvironment(environment = process.env) {
 function resolveCanonicalProjectRoot(cwd, dependencies = {}) {
   const platform = dependencies.platform || process.platform;
   const realpath = dependencies.realpath || fs.realpathSync.native;
-  const runGit =
-    dependencies.runGit ||
-    ((workingDirectory) =>
-      execFileSync('git', ['rev-parse', '--show-toplevel'], {
-        cwd: workingDirectory,
-        env: gitEnvironment(),
-        encoding: 'utf8',
-        timeout: 3000,
-        stdio: ['ignore', 'pipe', 'ignore'],
-        windowsHide: true,
-      }).trim());
+  const runGit = dependencies.runGit || ((workingDirectory) => execFileSync(
+    'git',
+    ['rev-parse', '--show-toplevel'],
+    {
+      cwd: workingDirectory,
+      env: gitEnvironment(),
+      encoding: 'utf8',
+      timeout: 3000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true
+    }
+  ).trim());
 
   try {
     const canonicalCwd = realpath(path.resolve(cwd));
@@ -71,9 +72,7 @@ function resolveCanonicalProjectRoot(cwd, dependencies = {}) {
         const canonicalGitRoot = realpath(path.resolve(gitRoot));
         if (pathContains(canonicalGitRoot, canonicalCwd, platform)) candidate = canonicalGitRoot;
       }
-    } catch {
-      /* non-Git or redirected root: use cwd */
-    }
+    } catch { /* non-Git or redirected root: use cwd */ }
     return normalizeProjectPath(candidate, platform);
   } catch {
     return null;
@@ -87,8 +86,7 @@ function defaultRuntimeMarkerPath(moduleDirectory = __dirname) {
 function readRuntimeMarker(markerPath = defaultRuntimeMarkerPath()) {
   try {
     const info = fs.lstatSync(markerPath);
-    if (!info.isFile() || info.isSymbolicLink() || info.size > RUNTIME_MARKER_MAX_BYTES)
-      return null;
+    if (!info.isFile() || info.isSymbolicLink() || info.size > RUNTIME_MARKER_MAX_BYTES) return null;
     const data = fs.readFileSync(markerPath, 'utf8');
     if (Buffer.byteLength(data, 'utf8') > RUNTIME_MARKER_MAX_BYTES) return null;
     const parsed = JSON.parse(data);
@@ -116,23 +114,14 @@ function createCandidateSessionStateContext(options = {}) {
     const realpath = options.dependencies?.realpath || fs.realpathSync.native;
     sessionLaunchRoot = normalizeProjectPath(
       realpath(path.resolve(options.cwd || process.cwd())),
-      options.dependencies?.platform,
+      options.dependencies?.platform
     );
-  } catch {
-    /* invalid launch directory */
-  }
+  } catch { /* invalid launch directory */ }
   const canonicalProjectRoot = sessionLaunchRoot
     ? resolveCanonicalProjectRoot(sessionLaunchRoot, options.dependencies)
     : null;
   const userKey = options.userKey || currentUserKey();
-  if (
-    !sessionId ||
-    !SUPPORTED_RUNTIMES.has(runtime) ||
-    !canonicalProjectRoot ||
-    !sessionLaunchRoot ||
-    !userKey
-  )
-    return null;
+  if (!sessionId || !SUPPORTED_RUNTIMES.has(runtime) || !canonicalProjectRoot || !sessionLaunchRoot || !userKey) return null;
 
   return Object.freeze({
     schemaVersion: 2,
@@ -143,22 +132,20 @@ function createCandidateSessionStateContext(options = {}) {
     normalizedSessionId: sessionId,
     sessionKey: stableHash(sessionId),
     userKey,
-    storageRoot: options.storageRoot ? path.resolve(options.storageRoot) : null,
+    storageRoot: options.storageRoot ? path.resolve(options.storageRoot) : null
   });
 }
 
 function isSessionStateContext(value) {
   return Boolean(
-    value &&
-    value.schemaVersion === 2 &&
-    SUPPORTED_RUNTIMES.has(value.runtime) &&
+    value && value.schemaVersion === 2 && SUPPORTED_RUNTIMES.has(value.runtime) &&
     typeof value.canonicalProjectRoot === 'string' &&
     typeof value.sessionLaunchRoot === 'string' &&
     pathContains(value.canonicalProjectRoot, value.sessionLaunchRoot) &&
     value.projectKey === stableHash(value.canonicalProjectRoot) &&
     normalizeSessionId(value.normalizedSessionId) === value.normalizedSessionId &&
     value.sessionKey === stableHash(value.normalizedSessionId) &&
-    /^[A-Za-z0-9_-]{1,64}$/.test(value.userKey || ''),
+    /^[A-Za-z0-9_-]{1,64}$/.test(value.userKey || '')
   );
 }
 
@@ -174,5 +161,5 @@ module.exports = {
   pathContains,
   readRuntimeMarker,
   resolveCanonicalProjectRoot,
-  stableHash,
+  stableHash
 };

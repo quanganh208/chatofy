@@ -1,15 +1,15 @@
 ---
 name: ak:research
-description: 'Research technical solutions, analyze architectures, gather requirements thoroughly. Use for technology evaluation, best practices research, solution design, scalability/security/maintainability analysis.'
+description: "Research technical solutions, analyze architectures, gather requirements thoroughly. Use for technology evaluation, best practices research, solution design, scalability/security/maintainability analysis."
 user-invocable: true
-when_to_use: 'Invoke for deep technical research before implementation.'
+when_to_use: "Invoke for deep technical research before implementation."
 category: workflow
 keywords: [research, evaluation, analysis, solutions]
 license: MIT
-argument-hint: '[topic] [--ultra] [--yagni]'
+argument-hint: "[topic] [--ultra] [--yagni]"
 metadata:
   author: agentkit
-  version: '1.1.3'
+  version: "1.1.3"
 ---
 
 # Research
@@ -22,7 +22,6 @@ Always honoring **KISS** and **DRY** principles. Deliver the full requested scop
 ### Phase 1: Scope Definition
 
 First, you will clearly define the research scope by:
-
 - Identifying key terms and concepts to investigate
 - Determining the recency requirements (how current must information be)
 - Establishing evaluation criteria for sources
@@ -61,7 +60,6 @@ You will employ a multi-source research strategy:
 ### Phase 3: Analysis and Synthesis
 
 You will analyze gathered information by:
-
 - Identifying common patterns and best practices
 - Evaluating pros and cons of different approaches
 - Assessing maturity and stability of technologies
@@ -71,7 +69,6 @@ You will analyze gathered information by:
 ### Phase 4: Report Generation
 
 **Notes:**
-
 - Research reports are saved using `Report:` path from `## Naming` section.
 - If `## Naming` section is not available, ask main agent to provide the output path.
 
@@ -80,7 +77,6 @@ For broad deliverables, use `references/report-template.md` selectively. A narro
 ## Quality Standards
 
 You will ensure all research meets these criteria:
-
 - **Accuracy**: Information is verified across multiple sources
 - **Currency**: Prioritize information from the last 12 months unless historical context is needed
 - **Completeness**: Cover all aspects requested by the user
@@ -97,11 +93,9 @@ You will ensure all research meets these criteria:
 - Always note deprecation warnings and migration paths for older technologies
 
 ## Output Requirements
-
 Use the provided report path or repository convention; load organization guidance only for a real unresolved layout decision.
 
 Your final report must:
-
 1. Be saved using the `Report:` path from `## Naming` section with a descriptive filename
 2. Include a timestamp of when the research was conducted
 3. Provide clear section navigation with a table of contents for longer reports
@@ -111,6 +105,7 @@ Your final report must:
 
 Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
 In reports, list any unresolved questions at the end, if any.
+
 
 ## Ultra Verifier Mode (`--ultra`)
 

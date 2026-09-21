@@ -21,7 +21,6 @@ Reverse-engineer design principles from existing images or videos to establish d
 ## Quick Workflows
 
 ### Single Image Analysis
-
 ```bash
 npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
   --files docs/inspiration/reference-design.png \
@@ -31,7 +30,6 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
 ```
 
 ### Multi-Screen System Extraction
-
 ```bash
 npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
   --files docs/inspiration/home.png docs/inspiration/about.png \
@@ -41,7 +39,6 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
 ```
 
 ### Video Motion Analysis
-
 ```bash
 npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
   --files docs/inspiration/interaction-demo.mp4 \
@@ -51,7 +48,6 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
 ```
 
 ### Competitive Analysis
-
 ```bash
 npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
   --files competitor-a.png competitor-b.png competitor-c.png \

@@ -14,12 +14,12 @@ Comprehensive poster design intelligence for AI agents. Built from vision-cluste
 
 Four CSVs in `data/poster/`:
 
-| File                  | Rows  | Purpose                                              |
-| --------------------- | ----- | ---------------------------------------------------- |
-| `poster-styles.csv`   | 20-30 | Curated style clusters with shape pools, mood, era   |
-| `poster-palettes.csv` | 15-20 | Color systems with mood + contrast level             |
-| `poster-layouts.csv`  | 10-14 | Grid + focal + whitespace patterns                   |
-| `poster-textures.csv` | 8-12  | Material + finish (paper, riso, gradient mesh, etc.) |
+| File | Rows | Purpose |
+|------|------|---------|
+| `poster-styles.csv` | 20-30 | Curated style clusters with shape pools, mood, era |
+| `poster-palettes.csv` | 15-20 | Color systems with mood + contrast level |
+| `poster-layouts.csv` | 10-14 | Grid + focal + whitespace patterns |
+| `poster-textures.csv` | 8-12 | Material + finish (paper, riso, gradient mesh, etc.) |
 
 Cross-axis `Pairs With Styles` columns let palette/texture filters scope to compatible options for a chosen style.
 
@@ -29,7 +29,6 @@ Three axes are **locked** per call (style, palette, texture) — these define th
 One axis (layout) and a **variation seed** are randomized per call — these create variety.
 
 Variation seed contributes:
-
 - focal position shuffle
 - secondary element positions
 - 2-4 shapes sampled from the style's Shape Pool

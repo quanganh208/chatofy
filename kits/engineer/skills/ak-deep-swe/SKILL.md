@@ -6,11 +6,11 @@ when_to_use: Invoke for a costed external coding-agent evaluation, not repositor
 category: workflow
 keywords: [benchmark, deepswe, pier, openrouter, evaluation]
 license: MIT
-argument-hint: '<OpenRouter model slug>'
+argument-hint: "<OpenRouter model slug>"
 metadata:
   author: agentkit
-  version: '1.0.1'
-  upstream: 'Pinned MIT source archive: run-deep-swe@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5'
+  version: "1.0.1"
+  upstream: "Pinned MIT source archive: run-deep-swe@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5"
 ---
 
 # DeepSWE Benchmark
@@ -59,7 +59,6 @@ https://deepswe.datacurve.ai/
 
        pier run -p deep-swe/tasks --agent mini-swe-agent \
          --model openrouter/<vendor/model> --n-tasks 10 --sample-seed 0
-
 4. Use a separate model-class route only when the installed Pier help explicitly
    documents it; do not guess a version-specific flag.
 5. Before a full corpus run, present the exact command, expected cost exposure,

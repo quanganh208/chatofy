@@ -6,15 +6,15 @@ Report formats for case output. Select by audience and purpose.
 
 ## Format Index
 
-| ID  | Format                | Pages    | Audience           | Purpose                 |
-| --- | --------------------- | -------- | ------------------ | ----------------------- |
-| F1  | leadership-brief      | 1        | Exec / sponsor     | Decision trigger        |
-| F2  | full-analysis         | 5–15     | Analyst team       | Complete record         |
-| F3  | plain-summary         | 1–2      | Non-technical      | Plain-language findings |
-| F4  | evidentiary           | variable | Legal / compliance | Court/audit ready       |
-| F5  | press-ready           | 1–3      | Journalist         | Publication-safe        |
-| F6  | threat-brief          | 2–4      | Security ops       | Actionable IOCs         |
-| F7  | comprehensive-profile | 10–30    | Senior analyst     | Full subject record     |
+| ID | Format | Pages | Audience | Purpose |
+|----|--------|-------|----------|---------|
+| F1 | leadership-brief | 1 | Exec / sponsor | Decision trigger |
+| F2 | full-analysis | 5–15 | Analyst team | Complete record |
+| F3 | plain-summary | 1–2 | Non-technical | Plain-language findings |
+| F4 | evidentiary | variable | Legal / compliance | Court/audit ready |
+| F5 | press-ready | 1–3 | Journalist | Publication-safe |
+| F6 | threat-brief | 2–4 | Security ops | Actionable IOCs |
+| F7 | comprehensive-profile | 10–30 | Senior analyst | Full subject record |
 
 ---
 
@@ -46,7 +46,6 @@ Report formats for case output. Select by audience and purpose.
 **When:** Internal record for analyst team. Complete findings with sourcing.
 
 **Sections (required order):**
-
 1. Case metadata (ID, analyst, dates, scope)
 2. Executive summary (≤150 words)
 3. Subject registry (all subjects with confidence)
@@ -63,14 +62,12 @@ Report formats for case output. Select by audience and purpose.
 **When:** Client or stakeholder with no technical background.
 
 **Rules:**
-
 - No jargon without inline definition
 - Lead with bottom line
 - Use analogies for technical concepts
 - Confidence labels: "we confirmed / we believe / we suspect"
 
 **Structure:**
-
 ```
 ## Bottom Line
 [1–3 sentences max]
@@ -94,7 +91,6 @@ Report formats for case output. Select by audience and purpose.
 **When:** Legal proceedings, HR actions, compliance audits.
 
 **Requirements:**
-
 - Each finding: source URL + archive URL + access timestamp
 - Chain-of-custody notation for screenshots
 - Analyst name + license/credential on cover
@@ -108,7 +104,6 @@ Report formats for case output. Select by audience and purpose.
 **When:** Journalist publishing case findings publicly.
 
 **Requirements:**
-
 - Subjects anonymized unless public figures
 - No unpublished PII
 - All claims sourced to public record only
@@ -122,7 +117,6 @@ Report formats for case output. Select by audience and purpose.
 **When:** Security operations, incident response.
 
 **Sections:**
-
 ```
 INDICATORS:  [IP, domain, hash, email — table format]
 TTPS:        [MITRE ATT&CK IDs if applicable]
@@ -138,7 +132,6 @@ ACTIONS:     [block / monitor / escalate — prioritized]
 **When:** Deep case record on a high-priority subject.
 
 **Includes all F2 sections plus:**
-
 - Timeline (events sorted chronologically)
 - Behavioral patterns
 - Associate network diagram
@@ -165,4 +158,4 @@ See [`export-specs.md`](./export-specs.md) for DOCX generation details.
 
 ---
 
-_See also: [`output/reports/citation-guide.md`](./citation-guide.md) | [`output/reports/export-specs.md`](./export-specs.md)_
+*See also: [`output/reports/citation-guide.md`](./citation-guide.md) | [`output/reports/export-specs.md`](./export-specs.md)*

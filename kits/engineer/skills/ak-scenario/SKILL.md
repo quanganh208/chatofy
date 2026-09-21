@@ -1,16 +1,16 @@
 ---
 name: ak:scenario
-description: 'Generate comprehensive edge cases and test scenarios by decomposing features across 12 dimensions. Use for pre-implementation risk discovery, QA planning, regression design, and bounded iterative exploration of coverage gaps.'
+description: "Generate comprehensive edge cases and test scenarios by decomposing features across 12 dimensions. Use for pre-implementation risk discovery, QA planning, regression design, and bounded iterative exploration of coverage gaps."
 user-invocable: true
-when_to_use: 'Invoke to expand requirements into edge cases and QA scenarios.'
+when_to_use: "Invoke to expand requirements into edge cases and QA scenarios."
 category: workflow
 keywords: [edge-cases, test-scenarios, dimensions, saturation, iterations]
-argument-hint: '<file path or feature description> [--iterations N] [--saturation]'
+argument-hint: "<file path or feature description> [--iterations N] [--saturation]"
 metadata:
   author: agentkit
-  attribution: 'Scenario exploration pattern adapted from autoresearch by Udit Goenka (MIT)'
+  attribution: "Scenario exploration pattern adapted from autoresearch by Udit Goenka (MIT)"
   license: MIT
-  version: '1.2.1'
+  version: "1.2.1"
 ---
 
 # ak:scenario — Edge Case & Scenario Explorer
@@ -18,7 +18,6 @@ metadata:
 Decompose any feature or code path across 12 dimensions to surface edge cases, risks, and test targets before implementation begins.
 
 Supports two modes:
-
 - **One-shot** (default): single pass of concrete scenarios per relevant dimension; 3–5 is a starting heuristic, not a quota.
 - **Iterative** (`--iterations N` or `--saturation`): loop until bounded count or novelty exhausted.
 
@@ -40,13 +39,13 @@ Supports two modes:
 
 ## Flags
 
-| Flag              | Default | Purpose                                                                                   |
-| ----------------- | ------- | ----------------------------------------------------------------------------------------- |
-| `--iterations N`  | —       | Bounded loop: run exactly N iterations, then stop with summary                            |
-| `--saturation`    | off     | Saturation loop: keep iterating until 2 consecutive iterations produce no novel scenarios |
-| `--domain <type>` | auto    | Domain hint: `software`, `product`, `business`, `security`, `marketing`                   |
-| `--focus <dim>`   | auto    | Prioritize dimension: `edge-cases`, `failures`, `security`, `scale`                       |
-| `--format <type>` | table   | Output format: `table`, `use-cases`, `test-scenarios`, `threat-scenarios`                 |
+| Flag | Default | Purpose |
+|------|---------|---------|
+| `--iterations N` | — | Bounded loop: run exactly N iterations, then stop with summary |
+| `--saturation` | off | Saturation loop: keep iterating until 2 consecutive iterations produce no novel scenarios |
+| `--domain <type>` | auto | Domain hint: `software`, `product`, `business`, `security`, `marketing` |
+| `--focus <dim>` | auto | Prioritize dimension: `edge-cases`, `failures`, `security`, `scale` |
+| `--format <type>` | table | Output format: `table`, `use-cases`, `test-scenarios`, `threat-scenarios` |
 
 When neither `--iterations` nor `--saturation` is set: one-shot mode (original behavior, default).
 
@@ -56,20 +55,20 @@ When neither `--iterations` nor `--saturation` is set: one-shot mode (original b
 
 Not all 12 apply to every feature. Identify relevant dimensions first, then generate scenarios only for those.
 
-| #   | Dimension             | What to Look For                                                                               |
-| --- | --------------------- | ---------------------------------------------------------------------------------------------- |
-| 1   | **User Types**        | admin, guest, banned, new user, power user, bot/scraper                                        |
-| 2   | **Input Extremes**    | empty, null, max length, unicode, special chars, SQL/script injection                          |
-| 3   | **Timing**            | concurrent access, race conditions, timeout, slow network, retry storms                        |
-| 4   | **Scale**             | 0 items, 1 item, 1M items, pagination boundary, cursor wrap                                    |
-| 5   | **State Transitions** | first use, mid-flow abort, resume after crash, partial completion                              |
-| 6   | **Environment**       | mobile/low-end CPU, no JS, screen reader, proxy/VPN, different timezone/locale                 |
-| 7   | **Error Cascades**    | DB down, API timeout, disk full, OOM, network partition, partial write                         |
-| 8   | **Authorization**     | expired token, wrong role, shared/public link, CORS, CSRF, privilege escalation                |
-| 9   | **Data Integrity**    | duplicate entries, orphan references, encoding mismatch, concurrent schema migration           |
-| 10  | **Integration**       | webhook replay, API version mismatch, third-party outage, contract drift                       |
-| 11  | **Compliance**        | GDPR deletion request, audit logging gap, data retention, accidental PII exposure              |
-| 12  | **Business Logic**    | edge pricing (zero/negative), coupon stacking, refund after partial delivery, free tier limits |
+| # | Dimension | What to Look For |
+|---|-----------|------------------|
+| 1 | **User Types** | admin, guest, banned, new user, power user, bot/scraper |
+| 2 | **Input Extremes** | empty, null, max length, unicode, special chars, SQL/script injection |
+| 3 | **Timing** | concurrent access, race conditions, timeout, slow network, retry storms |
+| 4 | **Scale** | 0 items, 1 item, 1M items, pagination boundary, cursor wrap |
+| 5 | **State Transitions** | first use, mid-flow abort, resume after crash, partial completion |
+| 6 | **Environment** | mobile/low-end CPU, no JS, screen reader, proxy/VPN, different timezone/locale |
+| 7 | **Error Cascades** | DB down, API timeout, disk full, OOM, network partition, partial write |
+| 8 | **Authorization** | expired token, wrong role, shared/public link, CORS, CSRF, privilege escalation |
+| 9 | **Data Integrity** | duplicate entries, orphan references, encoding mismatch, concurrent schema migration |
+| 10 | **Integration** | webhook replay, API version mismatch, third-party outage, contract drift |
+| 11 | **Compliance** | GDPR deletion request, audit logging gap, data retention, accidental PII exposure |
+| 12 | **Business Logic** | edge pricing (zero/negative), coupon stacking, refund after partial delivery, free tier limits |
 
 ---
 
@@ -94,13 +93,13 @@ Novelty is a stopping heuristic, not proof that all cases exist in the report. K
    a. Pick highest-priority unexplored dimension or combination
    b. Generate **one** concrete situation (specific trigger, flow, expected outcome)
    c. **Classify** against all previously kept situations:
-   - **New**: different dimension AND different trigger/precondition → KEEP
-   - **Variant**: same dimension but different actor, data, or outcome → KEEP
-   - **Duplicate**: same dimension + same trigger + same outcome → DISCARD
-   - **Out of scope / Low value** → DISCARD, log reason
-     d. If kept: expand edge cases (what-if, boundary, interruption, ordering, missing data, stale data)
-     e. Log row to `scenario-results.tsv`
-     f. Every 5 iterations: print progress summary (see format below)
+      - **New**: different dimension AND different trigger/precondition → KEEP
+      - **Variant**: same dimension but different actor, data, or outcome → KEEP
+      - **Duplicate**: same dimension + same trigger + same outcome → DISCARD
+      - **Out of scope / Low value** → DISCARD, log reason
+   d. If kept: expand edge cases (what-if, boundary, interruption, ordering, missing data, stale data)
+   e. Log row to `scenario-results.tsv`
+   f. Every 5 iterations: print progress summary (see format below)
 4. **Halt**:
    - `--iterations N`: stop after N iterations
    - `--saturation`: stop when 2 consecutive iterations produce zero `New` classifications
@@ -111,12 +110,12 @@ Dimension walk → Combination → Negation → Amplification → Persona shift 
 
 ### Severity Criteria
 
-| Level        | Meaning                                                    |
-| ------------ | ---------------------------------------------------------- |
+| Level | Meaning |
+|-------|---------|
 | **Critical** | Data loss, security breach, auth bypass, silent corruption |
-| **High**     | Feature broken for a subset of users, data inconsistency   |
-| **Medium**   | Degraded UX, recoverable error not surfaced to user        |
-| **Low**      | Minor visual glitch, non-blocking warning                  |
+| **High** | Feature broken for a subset of users, data inconsistency |
+| **Medium** | Degraded UX, recoverable error not surfaced to user |
+| **Low** | Minor visual glitch, non-blocking warning |
 
 ---
 
@@ -190,11 +189,11 @@ Halted: [after N iterations — bounded] | [saturation — 2 consecutive iterati
 
 ## Integration with Other Skills
 
-| Next Step                          | Skill        | How                                            |
-| ---------------------------------- | ------------ | ---------------------------------------------- |
-| Generate test cases from scenarios | `ak:test`    | Pass scenario table as input context           |
-| Inform implementation plan risks   | `ak:plan`    | Paste Critical/High rows into risk assessment  |
-| Deep persona debate on top risks   | `ak:predict` | Feed Critical scenarios as the change proposal |
+| Next Step | Skill | How |
+|-----------|-------|-----|
+| Generate test cases from scenarios | `ak:test` | Pass scenario table as input context |
+| Inform implementation plan risks | `ak:plan` | Paste Critical/High rows into risk assessment |
+| Deep persona debate on top risks | `ak:predict` | Feed Critical scenarios as the change proposal |
 
 ---
 

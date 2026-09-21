@@ -44,12 +44,12 @@ Never emit `model: <value>` on an internal job "in case it helps".
 The user-facing "safe permission defaults, `--yes` to override" contract
 maps to orchestrate's fields:
 
-| User contract                                               | `effect:`              | `approval:`                       |
-| ----------------------------------------------------------- | ---------------------- | --------------------------------- |
-| No matching recorded authorization                          | `scoped-write`         | `require`                         |
-| Recorded caller authorization covers this action            | `scoped-write`         | `inherit`                         |
-| `--yes` passed                                              | `scoped-write`         | `inherit`                         |
-| Handoff Scope section marks the change destructive          | `high-impact-write`    | `require` (regardless of `--yes`) |
+| User contract | `effect:` | `approval:` |
+|---|---|---|
+| No matching recorded authorization | `scoped-write` | `require` |
+| Recorded caller authorization covers this action | `scoped-write` | `inherit` |
+| `--yes` passed | `scoped-write` | `inherit` |
+| Handoff Scope section marks the change destructive | `high-impact-write` | `require` (regardless of `--yes`) |
 | Handoff Scope section marks the change external-destructive | `external-destructive` | `require` (regardless of `--yes`) |
 
 Do **not** invent a parallel confirmation mechanism. Orchestrate's
@@ -67,9 +67,9 @@ defaults:
   capture: true
 jobs:
   - id: handoff-continuation
-    runtime: '<resolved from --agent>'
-    task: implement # routing enum; see Trap 1
-    cwd: '<resolved from --cwd or workspace root>'
+    runtime: "<resolved from --agent>"
+    task: implement                          # routing enum; see Trap 1
+    cwd: "<resolved from --cwd or workspace root>"
     prompt: |
       You are the successor agent for an in-progress session.
 
@@ -89,13 +89,13 @@ jobs:
       blockers apply to your first action, stop and report them
       instead of proceeding.
     # model: "<resolved from --model>"     # UNCOMMENT for CLI runtimes; omit for runtime: internal
-    effect: scoped-write # or high-impact-write, external-destructive per Trap 3
-    approval: require # inherit with --yes or matching recorded authority
-    isolation: worktree # or none when caller explicitly ran --cwd . on a clean tree
+    effect: scoped-write                    # or high-impact-write, external-destructive per Trap 3
+    approval: require                       # inherit with --yes or matching recorded authority
+    isolation: worktree                     # or none when caller explicitly ran --cwd . on a clean tree
     timeout: 10m
     expected_output: "<one-line success criterion cited from handoff's Exact next actions>"
     checks:
-      - 'Handoff artifact was read (agent quotes at least one section back).'
+      - "Handoff artifact was read (agent quotes at least one section back)."
       - "Any writes are scoped to files listed in the handoff's Scope section."
 ```
 

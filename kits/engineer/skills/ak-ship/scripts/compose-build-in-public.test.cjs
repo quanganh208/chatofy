@@ -28,9 +28,7 @@ test('compose-build-in-public: summary redacts a secret that straddles the 140-c
 test('compose-build-in-public: linked issue body feeds "Why this?" before the PR body', () => {
   const draft = composeBuildInPublic({
     pr: { title: 'Fix flaky test', body: 'PR body paragraph — should not be used for Why.' },
-    issue: {
-      body: 'Users report intermittent CI failures on the auth suite.\n\nMore detail below.',
-    },
+    issue: { body: 'Users report intermittent CI failures on the auth suite.\n\nMore detail below.' },
   });
   assert.match(draft.body, /Users report intermittent CI failures on the auth suite\./);
   assert.doesNotMatch(draft.body.split('## What changed')[0], /should not be used for Why/);
@@ -39,9 +37,7 @@ test('compose-build-in-public: linked issue body feeds "Why this?" before the PR
 test('compose-build-in-public: journal-entry blockers render "The tricky bit" section', () => {
   const draft = composeBuildInPublic({
     pr: { title: 'Ship feature X' },
-    journalEntries: [
-      { blockers: 'The webhook retried indefinitely until we added a backoff cap.' },
-    ],
+    journalEntries: [{ blockers: 'The webhook retried indefinitely until we added a backoff cap.' }],
   });
   assert.match(draft.body, /## The tricky bit/);
   assert.match(draft.body, /backoff cap/);
@@ -78,8 +74,7 @@ test('compose-build-in-public: pure function — same inputs produce identical o
 });
 
 test('compose-build-in-public: redacts a JWT from the draft body', () => {
-  const jwt =
-    'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dQw4w9WgXcQrZ8xJ4v3f1lQwZ8Z3v3f1lQwZ8Z3v3f1';
+  const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dQw4w9WgXcQrZ8xJ4v3f1lQwZ8Z3v3f1lQwZ8Z3v3f1';
   const draft = composeBuildInPublic({ pr: { title: 'T', body: `Leaked token: ${jwt}` } });
   assert.doesNotMatch(draft.body, new RegExp(jwt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(draft.body, /\[redacted\]/);
@@ -102,9 +97,7 @@ test('compose-build-in-public: redacts a Slack bot token (xoxb-...)', () => {
 test('compose-build-in-public: redacts GitHub PATs (ghp_ and github_pat_)', () => {
   const classic = `ghp_${'a'.repeat(36)}`;
   const fineGrained = `github_pat_${'B'.repeat(22)}_${'c'.repeat(59)}`;
-  const draft = composeBuildInPublic({
-    pr: { title: 'T', body: `Classic: ${classic}\nFine: ${fineGrained}` },
-  });
+  const draft = composeBuildInPublic({ pr: { title: 'T', body: `Classic: ${classic}\nFine: ${fineGrained}` } });
   assert.doesNotMatch(draft.body, new RegExp(classic));
   assert.doesNotMatch(draft.body, new RegExp(fineGrained));
 });

@@ -12,10 +12,10 @@ Spec for tracking exposure score changes over time and detecting drift direction
 
 **Options:**
 
-| Option            | Default      | Description                                        |
-| ----------------- | ------------ | -------------------------------------------------- |
-| `[subject]`       | all subjects | Subject ID (`SUB-NNN`) or label to scope the trend |
-| `--window <days>` | 30           | Number of days to include in trend window          |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `[subject]` | all subjects | Subject ID (`SUB-NNN`) or label to scope the trend |
+| `--window <days>` | 30 | Number of days to include in trend window |
 
 ---
 
@@ -95,13 +95,13 @@ def compute_velocity(points):
 
 Velocity interpretation:
 
-| Velocity (pts/day) | Label            |
-| ------------------ | ---------------- |
-| > +2.0             | RAPID_INCREASE   |
+| Velocity (pts/day) | Label         |
+|--------------------|---------------|
+| > +2.0             | RAPID_INCREASE |
 | +0.5 to +2.0       | GRADUAL_INCREASE |
-| -0.5 to +0.5       | STABLE           |
+| -0.5 to +0.5       | STABLE         |
 | -0.5 to -2.0       | GRADUAL_DECREASE |
-| < -2.0             | RAPID_DECREASE   |
+| < -2.0             | RAPID_DECREASE |
 
 ---
 
@@ -151,12 +151,12 @@ Chart renders using fixed 60-column width. Y-axis spans 0–100. Each data point
 
 Drift alerts fire when:
 
-| Condition                                      | Alert                  |
-| ---------------------------------------------- | ---------------------- |
-| Score crosses grade boundary (e.g., C→D)       | `GRADE_ESCALATION`     |
-| Velocity > +2.0 pts/day over 7d                | `RAPID_INCREASE`       |
-| Score reaches 80+ from below                   | `HIGH_EXPOSURE_BREACH` |
-| Any dimension score increases by 20+ in window | `DIMENSION_SPIKE`      |
+| Condition | Alert |
+|-----------|-------|
+| Score crosses grade boundary (e.g., C→D) | `GRADE_ESCALATION` |
+| Velocity > +2.0 pts/day over 7d | `RAPID_INCREASE` |
+| Score reaches 80+ from below | `HIGH_EXPOSURE_BREACH` |
+| Any dimension score increases by 20+ in window | `DIMENSION_SPIKE` |
 
 Alerts are surfaced as findings with weight `HIGH` and type `behavioral`.
 

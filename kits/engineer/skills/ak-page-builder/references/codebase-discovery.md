@@ -14,14 +14,14 @@ ambiguous. Record source paths for conclusions instead of guessing from filename
 
 Produce a compact integration map in the project's configured plan/report area:
 
-| Evidence                                     | Decision to settle                                        |
-| -------------------------------------------- | --------------------------------------------------------- |
-| Framework, router, SSR/SSG/CSR and hydration | Renderer, route ownership and content delivery            |
-| Components, stories, tokens, layouts         | Reusable blocks, variants and missing wrappers            |
-| Props, slots, providers, server dependencies | Serializable contract and adapter boundaries              |
-| CMS/database/auth/assets                     | Existing owners to extend, identity and tenant boundaries |
-| Build, deploy, cache and domains             | Draft preview, publication and invalidation               |
-| Existing CLI/API/MCP and docs                | Operations to reuse and missing interfaces                |
+| Evidence | Decision to settle |
+|---|---|
+| Framework, router, SSR/SSG/CSR and hydration | Renderer, route ownership and content delivery |
+| Components, stories, tokens, layouts | Reusable blocks, variants and missing wrappers |
+| Props, slots, providers, server dependencies | Serializable contract and adapter boundaries |
+| CMS/database/auth/assets | Existing owners to extend, identity and tenant boundaries |
+| Build, deploy, cache and domains | Draft preview, publication and invalidation |
+| Existing CLI/API/MCP and docs | Operations to reuse and missing interfaces |
 
 Mark each capability as verified, needs implementation, or blocked with a reason.
 Resolve dependencies from manifests and installed versions. Read current official

@@ -5,7 +5,7 @@ s
 
 ```
 Background:     #f8f6f3  (warm cream)
-Box fill:
+Box fill:       
   - Blue tint:   #a8c5e6  (alert/input nodes)
   - Green tint:  #9dd4c7  (agent nodes)
   - Beige:       #f4e4c1  (infrastructure/bus)
@@ -21,18 +21,16 @@ Semanode colors:
   Agent/Process:   #9dd4c7  (soft teal-green)
   Infrastructure:  #f4e4c1  (warm beige)
   Storage/State:   #e8e6e3  (light gray)
-
+  
 Arrow color:     #5a5a5a  (consistent dark gray)
 `ypography
 
 ```
-
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue',
-Arial, 'PingFang SC', 'Microsoft YaHei', 'Microsoft JhengHei', 'SimHei', sans-serif
-font-size: 16px node labels, 14px descriptions, 13px arrow labels
+             Arial, 'PingFang SC', 'Microsoft YaHei', 'Microsoft JhengHei', 'SimHei', sans-serif
+font-size:   16px node labels, 14px descriptions, 13px arrow labels
 font-weight: 600 for node labels, 400 for descriptions, 700 for titles
-
-````
+```
 
 ## Box Shapes
 
@@ -48,7 +46,7 @@ font-weight: 600 for node labels, 400 for descriptions, 700 for titles
 
 <!-- Storage/State node (light gray) -->
 <rect rx="12" ry="12" fill="#e8e6e3" stroke="#4a4a4a" stroke-width="2.5"/>
-````
+```
 
 ## Arrows
 
@@ -71,12 +69,12 @@ font-weight: 600 for node labels, 400 for descriptions, 700 for titles
 
 Use different arrow styles to convey meaning:
 
-| Flow Type         | Color   | Stroke    | Dash  | Usage                      |
-| ----------------- | ------- | --------- | ----- | -------------------------- |
-| Primary data flow | #5a5a5a | 2px solid | none  | Main request/response path |
-| Memory write      | #5a5a5a | 2px       | `5,3` | Write/store operations     |
-| Memory read       | #5a5a5a | 2px solid | none  | Retrieval from store       |
-| Control/trigger   | #5a5a5a | 1.5px     | `3,2` | Event triggers             |
+| Flow Type | Color | Stroke | Dash | Usage |
+|-----------|-------|--------|------|-------|
+| Primary data flow | #5a5a5a | 2px solid | none | Main request/response path |
+| Memory write | #5a5a5a | 2px | `5,3` | Write/store operations |
+| Memory read | #5a5a5a | 2px solid | none | Retrieval from store |
+| Control/trigger | #5a5a5a | 1.5px | `3,2` | Event triggers |
 
 ```xml
 <!-- Solid arrow for reads -->
@@ -104,19 +102,16 @@ Avoid vague labels: "Process", "Send", "Get"
 Node content should include **technical details**, not just concepts:
 
 **Good examples:**
-
 - "Vector Store" → "Vector Sne)" + "• 768-dim embeddings" + "• Cosine s"
 - "LLM" → "GPT-4" + "• 8K context" + "• Temperature: 0.7"
 - "Memory" → "Redis Cache" + "• TTL: 5min" + "• Max: 4K tokens"
 
 **Avoid vague descriptions:**
-
 - "Process data" → specify what processing
 - "Store information" → specify storage type and format
 - "Handle requests" → specify request type and method
 
 Use 2-3 lines per node:
-
 1. Component name (bold, 16px)
 2. Technical detail or implementation (14px)
 3. Key parameter or constraint (14px, optional)
@@ -137,7 +132,7 @@ Position at the vertical center of each layer.
 
 When using 2+ arrow types or colors, include a legend in the bottom-right corner:
 
-```Legend box -->="720" y="520" width="220" height="8" ry="8"
+```Legend box -->="720" y="520" width="220" height="8" ry="8" 
       fill="#ffffff" stroke="#4a4a4a" stroke-width="1.5"/>
 <text x="735" y="540" fill="#1a1a1a" font-size="13" font-weight="600">Legend</text>
 
@@ -160,7 +155,7 @@ Position: bottom-right, 20px margin from edges.
 - **Clean lines**: Orthogonal rotical then horizontal, or vice# SVG Template
 
 ```xml
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 600" 
      width="960" height="600">
   <style>
     text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI',
@@ -176,24 +171,24 @@ Position: bottom-right, 20px margin from edges.
       <feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#00000008"/>
     </filter>
   </defs>
-
+  
   <!-- Warm cream background -->
   <rect width="960" height="600" fill="#f8f6f3"/>
-
+  
   <!-- Title (optional) -->
-  <text x="480" y="40" text-anchor="middle" fill="#1a1a1a"
+  <text x="480" y="40" text-anchor="middle" fill="#1a1a1a" 
         font-size="20" font-weight="700">Diagram Title</text>
-
+  
   <!-- Nodes -->
   <!-- Agent node example -->
   <rect x="100" y=" width="180" height="80" rx="12" ry="12"
-        fill="#9dd4c7" stroke="#4a4a4a" stroke-width="2.5"
+        fill="#9dd4c7" stroke="#4a4a4a" stroke-width="2.5" 
         filter="url(#shadow-soft)"/>
-  <text x="190" y="145" text-anchor="middle" fill="#1a1a1a"
+  <text x="190" y="145" text-anchor="middle" fill="#1a1a1a" 
         16" font-weight="600">Agent name</text>
-
+  
   <!-- Edges -->
-  <line x1="190" y1="180" x2="190" y2="240"
+  <line x1="190" y1="180" x2="190" y2="240" 
         stroke="#5a5a5a" stroke-width="2" marker-end="url(#arrow-claude)"/>
   <text x="210" y="215" fill="#5a5a5a" font-size="13">Publish</text>
 </svg>
@@ -202,14 +197,12 @@ Position: bottom-right, 20px margin from edges.
 ## Design Philosophy
 
 Claude's official style emphasizes:
-
 - **Warmth**: Cream background, ls
 - ty**: High contrast text, generous spacing
 - **Professionalism**: Consistent stroke weights, aligned elements
 - **Approachability**: Rounded corners, friendly colors
 
 Avoid:
-
 - Harsh shadows or gradients
 - Overly saturated colors
 - Thin stroke weights (< 2px)

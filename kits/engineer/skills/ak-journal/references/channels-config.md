@@ -8,36 +8,36 @@ publishes to.
 
 ```yaml
 channels:
-  - id: <string, unique> # referenced by --channels and posted.json
-    platform: <string> # x | threads | linkedin | facebook | bluesky | mastodon | ...
-    account_id: <string> # zernio account id (see `zernio accounts:list`)
-    language: <string, optional> # per-channel override of journal.language
-    build_in_public: <bool, optional> # tag for ak-ship --social targeting
+  - id: <string, unique>            # referenced by --channels and posted.json
+    platform: <string>              # x | threads | linkedin | facebook | bluesky | mastodon | ...
+    account_id: <string>            # zernio account id (see `zernio accounts:list`)
+    language: <string, optional>    # per-channel override of journal.language
+    build_in_public: <bool, optional>  # tag for ak-ship --social targeting
 
 groups:
-  build_in_public: [<channel-id>, ...] # optional named group, e.g. used by ak-ship --social
+  build_in_public: [<channel-id>, ...]  # optional named group, e.g. used by ak-ship --social
 ```
 
 ### Field reference
 
-| Field             | Required | Notes                                                                                                  |
-| ----------------- | -------- | ------------------------------------------------------------------------------------------------------ |
-| `id`              | yes      | Stable identifier, used by `--channels <ids>` and recorded in `posted.json` for retry-skip tracking.   |
-| `platform`        | yes      | Determines char limit + thread behavior (`x` and `threads` get auto-split; others post as one call).   |
-| `account_id`      | yes      | The zernio-side account id — run `zernio accounts:list --pretty` after `zernio auth:login` to find it. |
-| `language`        | no       | Falls back to `journal.language` (see `references/config-schema.md`) when unset.                       |
-| `build_in_public` | no       | Informational tag; `groups.build_in_public` is what `ak-ship --social` actually reads.                 |
+| Field | Required | Notes |
+|-------|----------|-------|
+| `id` | yes | Stable identifier, used by `--channels <ids>` and recorded in `posted.json` for retry-skip tracking. |
+| `platform` | yes | Determines char limit + thread behavior (`x` and `threads` get auto-split; others post as one call). |
+| `account_id` | yes | The zernio-side account id — run `zernio accounts:list --pretty` after `zernio auth:login` to find it. |
+| `language` | no | Falls back to `journal.language` (see `references/config-schema.md`) when unset. |
+| `build_in_public` | no | Informational tag; `groups.build_in_public` is what `ak-ship --social` actually reads. |
 
 ## Character limits by platform
 
-| Platform   | Limit                                                  | Counting                                          | Auto-thread split  |
-| ---------- | ------------------------------------------------------ | ------------------------------------------------- | ------------------ |
-| `x`        | 280                                                    | URL-weighted (t.co: every URL counts as 23 chars) | yes, up to 6 posts |
-| `threads`  | 500                                                    | plain `.length`                                   | yes, up to 6 posts |
-| `linkedin` | ~3000 (platform-enforced, not checked by this skill)   | plain `.length`                                   | no                 |
-| `facebook` | ~63,206 (platform-enforced)                            | plain `.length`                                   | no                 |
-| `bluesky`  | 300 (platform-enforced)                                | plain `.length`                                   | no                 |
-| `mastodon` | 500 (instance-configurable, not checked by this skill) | plain `.length`                                   | no                 |
+| Platform | Limit | Counting | Auto-thread split |
+|----------|-------|----------|--------------------|
+| `x` | 280 | URL-weighted (t.co: every URL counts as 23 chars) | yes, up to 6 posts |
+| `threads` | 500 | plain `.length` | yes, up to 6 posts |
+| `linkedin` | ~3000 (platform-enforced, not checked by this skill) | plain `.length` | no |
+| `facebook` | ~63,206 (platform-enforced) | plain `.length` | no |
+| `bluesky` | 300 (platform-enforced) | plain `.length` | no |
+| `mastodon` | 500 (instance-configurable, not checked by this skill) | plain `.length` | no |
 
 Only `x` and `threads` get auto-split via `scripts/split-thread.cjs` in this
 release; other platforms post the body as a single call and rely on the

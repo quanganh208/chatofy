@@ -31,7 +31,7 @@ divergent copy in another skill; link here instead.
   commit). Because `close` is index-only, closing an unmerged or abandoned plan
   whose file still reads `in-progress` will reindex as active on another machine
   or after a rebuild — pair such a close with `ak plan update <id> --status
-cancelled` so the terminal state lives in the files.
+  cancelled` so the terminal state lives in the files.
 
 ## Current-plan resolution
 
@@ -68,7 +68,7 @@ safe, idempotent, and recoverable. Run `ak plan --help` and each subcommand's
 
 1. **Gate every publish, not just the first.** Visibility can flip and new phase
    evidence appears, so on each write confirm the target repo/issue visibility is
-   acceptable for the content, then run a secret scan over the _rendered_
+   acceptable for the content, then run a secret scan over the *rendered*
    projection text after composing it. Never project raw logs, env values,
    tokens, credentials, or local absolute paths. If the rendered body would
    exceed GitHub's comment limit (65,536 chars), truncate to a repo-relative
@@ -79,10 +79,10 @@ safe, idempotent, and recoverable. Run `ak plan --help` and each subcommand's
    - `ak plan update --issue <n> --root-comment-id <id>` for the plan's issue and
      root tracking comment;
    - `ak plan phase update --comment-id <id>` for a per-phase tracking comment.
-     Persist the ids **immediately** after creating the comment, before any further
-     writes; if the persist fails, print the ids in the report for manual recovery.
-     A human-readable `Tracking: #<n>` line in the plan _body_ is a fine
-     non-authoritative breadcrumb.
+   Persist the ids **immediately** after creating the comment, before any further
+   writes; if the persist fails, print the ids in the report for manual recovery.
+   A human-readable `Tracking: #<n>` line in the plan *body* is a fine
+   non-authoritative breadcrumb.
 3. **Adopt before you create (bootstrap).** The index is per-machine and
    rebuildable, so a fresh clone, a teammate's machine, or a lost `plans.db` has
    no recorded ids even when the issue already carries the projection. Embed a
@@ -127,8 +127,8 @@ because the CLI splits them:
    below, warrants a warning plus the exact plan-dir path.
 2. Verify the phase checkboxes reflect reality (`ak plan status` prints the
    progress summary). If the diff proves a phase's boxes done, `ak plan check
-<phase-file>` them. If the work is genuinely partial, `ak plan update <id>
---status in-progress` and stop — never blind-complete a half-done plan.
+   <phase-file>` them. If the work is genuinely partial, `ak plan update <id>
+   --status in-progress` and stop — never blind-complete a half-done plan.
 3. When the plan is actually complete, `ak plan update <id> --status completed`.
    `--status` is file-owned: it rewrites the `plan.md` front-matter `status:`
    (the canonical state) and updates the index in one operation. Inspect the

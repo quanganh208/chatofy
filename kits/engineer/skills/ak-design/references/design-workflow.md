@@ -4,7 +4,7 @@
 
 You are the user's junior designer. They are the manager. Following this flow — ask up front, work in passes, show early — dramatically raises the odds of a good outcome. The alternative (silent dive → 90-minute delivery → wrong direction → full rebuild) is not humility, it is expensive.
 
-For HTML/CSS craft numerics (spacing, contrast, whitespace %, palette rules), defer to `ak-frontend-design`. This file owns the _sequence_: brief → confirm → generate → critique → deliver.
+For HTML/CSS craft numerics (spacing, contrast, whitespace %, palette rules), defer to `ak-frontend-design`. This file owns the *sequence*: brief → confirm → generate → critique → deliver.
 
 ## When to run the full workflow — and when to skip
 
@@ -32,21 +32,27 @@ Adapt the wording; the five buckets stay:
 Before I start, a batched checklist — answer inline, one pass:
 
 **Design context (most important)**
-
 1. Existing design system / UI kit / brand guidelines? Where do they live?
 2. Reference product or competitor screenshots I should study?
 3. Codebase to read (repo path, main entry)?
 
-**Variations** 4. How many variations do you want (default: 3)? What axes should they vary on — visual / interaction / color / layout / copy / motion? 5. Should the variations cluster near "the answer", or span from conservative to bold (a map)?
+**Variations**
+4. How many variations do you want (default: 3)? What axes should they vary on — visual / interaction / color / layout / copy / motion?
+5. Should the variations cluster near "the answer", or span from conservative to bold (a map)?
 
-**Fidelity & scope** 6. Fidelity: wireframe / mid-fi / full hi-fi with real data? 7. Scope: one screen / one flow / full product?
+**Fidelity & scope**
+6. Fidelity: wireframe / mid-fi / full hi-fi with real data?
+7. Scope: one screen / one flow / full product?
 
-**Tweaks** 8. Which parameters should the delivered design let you tune live (color, typography, spacing, density, feature-flag)?
+**Tweaks**
+8. Which parameters should the delivered design let you tune live (color, typography, spacing, density, feature-flag)?
 
-**Task-specific (fill 2+ per task type)** 9. [logo → symbol vs. wordmark? Application surfaces (favicon / storefront / billboard)? Existing brand palette?] 10. [banner → placement (hero / social / ad)? Aspect ratios? CTA copy / brand voice?]
-[slides → deck length? Audience? Talk vs. self-read?]
-[poster → surface (print / screen)? Physical size / bleed?]
-[social photos → platform? Series or one-off? Text overlay allowed?]
+**Task-specific (fill 2+ per task type)**
+9. [logo → symbol vs. wordmark? Application surfaces (favicon / storefront / billboard)? Existing brand palette?]
+10. [banner → placement (hero / social / ad)? Aspect ratios? CTA copy / brand voice?]
+   [slides → deck length? Audience? Talk vs. self-read?]
+   [poster → surface (print / screen)? Physical size / bleed?]
+   [social photos → platform? Series or one-off? Text overlay allowed?]
 ```
 
 If the user answers "no design system, no references, no codebase":
@@ -121,7 +127,6 @@ Delivery summary template:
 ✅ [what was delivered], with [tweak dimensions] configurable.
 
 Caveats:
-
 - [what is placeholder / mock / needs your input]
 - [any technical trade-off worth flagging]
 
@@ -156,24 +161,21 @@ When the user has zero brand context, zero references, zero codebase — and ask
 No brand context available. I propose three directions; pick one (or mix), and I'll expand:
 
 **Direction A — Editorial (safe)**
-
 - Assumption: your audience skews professional / long-read.
 - Feel: newspaper-ish, high-contrast type, generous whitespace, single accent color.
 - Risk: reads as "serious" — may feel cold for a consumer product.
 
 **Direction B — Product-forward (middle)**
-
 - Assumption: your audience is a product buyer, benefit-driven.
 - Feel: hero image or motion leads, benefits laddered underneath, warm accent.
 - Risk: relies on strong hero visual — a placeholder will look weak.
 
 **Direction C — Statement (bold)**
-
 - Assumption: you want to stand out over blending in.
 - Feel: oversized type, unexpected palette, one visual gimmick as the memorable hook.
 - Risk: harder to pivot later; identity is loud from turn one.
 
-Each labeled with an _assumption_ so you can reject the assumption instead of the design.
+Each labeled with an *assumption* so you can reject the assumption instead of the design.
 ```
 
 If the task names a real brand or product and the user cannot provide assets, do NOT run this fallback — the branch belongs to `brand-asset-protocol.md`, and that protocol says stop and ask for the logo. Fallback silent-fill is worse than pausing.
@@ -187,6 +189,6 @@ If the task names a real brand or product and the user cannot provide assets, do
 
 ## Cross-references
 
-- Real brand named in the task → `brand-asset-protocol.md` runs _before_ Pass 1. Assets first, then brief.
+- Real brand named in the task → `brand-asset-protocol.md` runs *before* Pass 1. Assets first, then brief.
 - Self-critique at Pass 4 → `design-critique-guide.md`.
 - HTML/CSS numeric standards (spacing, type ratio, contrast, palette rules, whitespace) → `ak-frontend-design`. This file describes the sequence, not the numbers.

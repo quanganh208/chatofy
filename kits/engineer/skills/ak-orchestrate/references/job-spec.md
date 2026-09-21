@@ -43,7 +43,7 @@ jobs:
     expected_output: string
     depends_on: [job-id]
     destructive: false
-    checks: [string] # descriptive acceptance requirements
+    checks: [string]                 # descriptive acceptance requirements
     authority: <existing-user-authorization-reference>
     owned_paths: [<relative-owned-path>]
     inputs:
@@ -54,10 +54,10 @@ jobs:
         from_path: <declared-dependency-output>
     outputs:
       - path: <relative-artifact>
-    invocation: # resolved CLI jobs only
+    invocation:                     # resolved CLI jobs only
       command: <verified-executable>
       args: [<verified-argument>]
-    verification: # executable acceptance checks
+    verification:                   # executable acceptance checks
       - command: <verified-check-executable>
         args: [<check-argument>]
     retry:
@@ -237,30 +237,30 @@ version: 1
 concurrency: 2
 jobs:
   - id: scout-contract
-    runtime: '<verified-read-runtime>'
+    runtime: "<verified-read-runtime>"
     task: scout
-    cwd: '<workspace-root>'
-    prompt: 'Map the contract owners and cite source evidence.'
+    cwd: "<workspace-root>"
+    prompt: "Map the contract owners and cite source evidence."
     timeout: 8m
-    expected_output: 'Source-backed contract map.'
+    expected_output: "Source-backed contract map."
 
   - id: inspect-tests
-    runtime: '<verified-read-runtime>'
-    fallback_runtime: ['<verified-fallback-runtime>']
+    runtime: "<verified-read-runtime>"
+    fallback_runtime: ["<verified-fallback-runtime>"]
     task: test
-    cwd: '<workspace-root>'
-    prompt: 'Identify copied inventories and propose source-derived gates.'
+    cwd: "<workspace-root>"
+    prompt: "Identify copied inventories and propose source-derived gates."
     timeout: 8m
-    expected_output: 'Test-coupling report with file evidence.'
+    expected_output: "Test-coupling report with file evidence."
 
   - id: arbiter
-    runtime: '<verified-judgment-runtime>'
+    runtime: "<verified-judgment-runtime>"
     task: review
-    cwd: '<workspace-root>'
-    prompt: 'Reconcile both reports and reject unsupported claims.'
+    cwd: "<workspace-root>"
+    prompt: "Reconcile both reports and reject unsupported claims."
     depends_on: [scout-contract, inspect-tests]
     timeout: 8m
-    expected_output: 'Verified arbiter verdict.'
+    expected_output: "Verified arbiter verdict."
 ```
 
 The execution schema is versioned independently of live routing. Update the owning routing or

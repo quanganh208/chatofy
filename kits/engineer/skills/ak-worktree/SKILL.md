@@ -1,14 +1,14 @@
 ---
 name: ak:worktree
-description: 'Create, inspect, and clean isolated git worktrees. Use for feature isolation, worktree health audits, stale cleanup, and monorepo or submodule workflows.'
+description: "Create, inspect, and clean isolated git worktrees. Use for feature isolation, worktree health audits, stale cleanup, and monorepo or submodule workflows."
 user-invocable: true
-when_to_use: 'Invoke for isolated worktrees, stale cleanup, or worktree audits.'
+when_to_use: "Invoke for isolated worktrees, stale cleanup, or worktree audits."
 category: workflow
 keywords: [worktree, parallel, monorepo, isolation]
-argument-hint: '[feature-description] OR [project] [feature]'
+argument-hint: "[feature-description] OR [project] [feature]"
 metadata:
   author: agentkit
-  version: '1.1.1'
+  version: "1.1.1"
 ---
 
 # Git Worktree
@@ -34,12 +34,10 @@ Parse JSON response for: `repoType`, `baseBranch`, `projects`, `worktreeRoot`,
 If caller provides a pre-formed branch name (contains uppercase letters, issue tracker keys like `ABC-1234`, forward slashes for multi-segment conventions like `user/type/feature`, or explicitly says "use this exact branch name"):
 → Use `--no-prefix` flag — skip Step 3, pass name directly as slug.
 Examples:
-
 - `"ND-1377-cleanup-docs"` → `--no-prefix` → branch `ND-1377-cleanup-docs`
 - `"kai/feat/604-startup-option"` → `--no-prefix` → branch `kai/feat/604-startup-option`
 
 **Otherwise, detect prefix from description:**
-
 - "fix", "bug", "error", "issue" → `fix`
 - "refactor", "restructure", "rewrite" → `refactor`
 - "docs", "documentation", "readme" → `docs`
@@ -59,7 +57,6 @@ Max 50 chars, kebab-case.
 ### Step 4: Handle Monorepo
 
 If `repoType === "monorepo"` and project not specified, use ask_user capability:
-
 ```javascript
 ask_user capability({
   questions: [{
@@ -74,19 +71,16 @@ ask_user capability({
 ### Step 5: Execute
 
 **Monorepo:**
-
 ```bash
 node scripts/worktree.cjs create "<PROJECT>" "<SLUG>" --prefix <TYPE>
 ```
 
 **Standalone:**
-
 ```bash
 node scripts/worktree.cjs create "<SLUG>" --prefix <TYPE>
 ```
 
 **Options:**
-
 - `--prefix` - Branch type: feat|fix|refactor|docs|test|chore|perf
 - `--base <branch>` - Override auto-detected base branch (default: dev→develop→main→master)
 - `--checkout-submodules` - Run `git submodule update --init --checkout --recursive` in the new worktree after create
@@ -98,7 +92,6 @@ node scripts/worktree.cjs create "<SLUG>" --prefix <TYPE>
 ### Step 6: Install Dependencies
 
 Install only when the requested work needs dependencies and the worktree lacks a usable environment. Use the repository's package manager and lockfile-preserving command. These are manager examples, not a mandatory setup checklist:
-
 - `bun.lock` → `bun install`
 - `pnpm-lock.yaml` → `pnpm install`
 - `yarn.lock` → `yarn install`
@@ -112,30 +105,30 @@ Track commands/PIDs/ports for any background processes started in the worktree a
 
 ## Commands
 
-| Command  | Usage                        | Description                                                           |
-| -------- | ---------------------------- | --------------------------------------------------------------------- |
-| `create` | `create [project] <feature>` | Create worktree                                                       |
-| `remove` | `remove <name-or-path>`      | Remove worktree                                                       |
-| `info`   | `info`                       | Repo info with worktree location                                      |
-| `list`   | `list`                       | List worktrees                                                        |
-| `status` | `status`                     | Inspect worktree health, normalized paths, and base-branch divergence |
-| `prune`  | `prune`                      | Clean stale worktree metadata (`--dry-run` supported)                 |
+| Command | Usage | Description |
+|---------|-------|-------------|
+| `create` | `create [project] <feature>` | Create worktree |
+| `remove` | `remove <name-or-path>` | Remove worktree |
+| `info` | `info` | Repo info with worktree location |
+| `list` | `list` | List worktrees |
+| `status` | `status` | Inspect worktree health, normalized paths, and base-branch divergence |
+| `prune` | `prune` | Clean stale worktree metadata (`--dry-run` supported) |
 
 ## JSON Output Fields
 
 When using `--json`, the command surfaces these high-signal fields:
 
-| Field                | Description                                                                                                                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `baseBranch`         | Branch the worktree is based on                                                                                                                                                                   |
-| `baseBranchSource`   | `"explicit"` (from `--base`) or `"auto-detected"`                                                                                                                                                 |
-| `checkoutSubmodules` | Whether create will initialize submodules after checkout                                                                                                                                          |
-| `currentWorktree`    | Current worktree health record from `status --json`                                                                                                                                               |
-| `worktrees`          | Normalized worktree records from `list --json` or `status --json`                                                                                                                                 |
-| `entries`            | Prune output lines from `prune --json`                                                                                                                                                            |
-| `worktreePath`       | Absolute path to the created worktree                                                                                                                                                             |
+| Field | Description |
+|-------|-------------|
+| `baseBranch` | Branch the worktree is based on |
+| `baseBranchSource` | `"explicit"` (from `--base`) or `"auto-detected"` |
+| `checkoutSubmodules` | Whether create will initialize submodules after checkout |
+| `currentWorktree` | Current worktree health record from `status --json` |
+| `worktrees` | Normalized worktree records from `list --json` or `status --json` |
+| `entries` | Prune output lines from `prune --json` |
+| `worktreePath` | Absolute path to the created worktree |
 | `worktreeRootSource` | How location was determined: `--worktree-root flag`, `agentkit project config`, `agentkit user config`, `WORKTREE_ROOT env`, `superproject (<name>)`, `monorepo internal`, or `sibling directory` |
-| `warnings`           | Non-fatal notices, e.g. an absolute `worktree.root` in project config being skipped                                                                                                               |
+| `warnings` | Non-fatal notices, e.g. an absolute `worktree.root` in project config being skipped |
 
 ## Notes
 

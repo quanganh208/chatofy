@@ -6,38 +6,34 @@ Multi-format text rendering for case output. Produces terminal-safe visuals usin
 
 ## Format Matrix
 
-| Format            | Use                     | Width    |
-| ----------------- | ----------------------- | -------- |
+| Format | Use | Width |
+|--------|-----|-------|
 | Single-border box | Standard finding blocks | 78 chars |
-| Double-border box | Critical exposures      | 78 chars |
-| Compact row       | Table data, lists       | 78 chars |
-| Progress bar      | Coverage meters, scores | 40 chars |
-| Tree branch       | Hierarchy, connections  | variable |
+| Double-border box | Critical exposures | 78 chars |
+| Compact row | Table data, lists | 78 chars |
+| Progress bar | Coverage meters, scores | 40 chars |
+| Tree branch | Hierarchy, connections | variable |
 
 ---
 
 ## Character Reference
 
 **Box Drawing — Single**
-
 ```
 ┌ ─ ┐   ├ ┤   └ ─ ┘   │
 ```
 
 **Box Drawing — Double**
-
 ```
 ╔ ═ ╗   ╠ ╣   ╚ ═ ╝   ║
 ```
 
 **Block Elements**
-
 ```
 █ ▓ ▒ ░   ▀ ▄   ▌ ▐
 ```
 
 **Status Glyphs**
-
 ```
 ● confirmed   ○ unverified   ◐ partial
 ✓ pass        ✗ fail         ⚠ flag
@@ -49,7 +45,6 @@ Multi-format text rendering for case output. Produces terminal-safe visuals usin
 ## Standard Templates
 
 ### Finding Block
-
 ```
 ┌─[ FINDING ]──────────────────────────────────────────────────┐
 │ ID:     F-001                                                 │
@@ -61,7 +56,6 @@ Multi-format text rendering for case output. Produces terminal-safe visuals usin
 ```
 
 ### Subject Block
-
 ```
 ┌─[ SUBJECT ]───────────────────────────────────────────────────┐
 │ Label:       [name or handle]                                 │
@@ -72,7 +66,6 @@ Multi-format text rendering for case output. Produces terminal-safe visuals usin
 ```
 
 ### Critical Exposure Block
-
 ```
 ╔═[ CRITICAL EXPOSURE ]═════════════════════════════════════════╗
 ║ [description — one sentence]                                  ║
@@ -81,14 +74,12 @@ Multi-format text rendering for case output. Produces terminal-safe visuals usin
 ```
 
 ### Progress Bar
-
 ```
 Coverage: [████████░░░░░░░░░░░░] 42%
 Exposure: [████████████████░░░░] 78%
 ```
 
 ### Connection Tree
-
 ```
 Subject: target-name
 ├── domain: target.com
@@ -114,13 +105,13 @@ Subject: target-name
 
 ## Severity → Border Mapping
 
-| Score    | Border style | Glyph |
-| -------- | ------------ | ----- |
-| CRITICAL | Double `╔═╗` | ⚠     |
-| HIGH     | Double `╔═╗` | ●     |
-| MEDIUM   | Single `┌─┐` | ◐     |
-| LOW      | Single `┌─┐` | ○     |
-| INFO     | Single `┌─┐` | →     |
+| Score | Border style | Glyph |
+|-------|-------------|-------|
+| CRITICAL | Double `╔═╗` | ⚠ |
+| HIGH | Double `╔═╗` | ● |
+| MEDIUM | Single `┌─┐` | ◐ |
+| LOW | Single `┌─┐` | ○ |
+| INFO | Single `┌─┐` | → |
 
 ---
 
@@ -131,7 +122,6 @@ Subject: target-name
 All 6 connection types rendered as ASCII with box-drawing characters. Use these exact patterns for `/show-connections` and `/graph` output.
 
 ### owns (double-line — ownership, registration)
-
 ```
 ┌───────────────────────┐         ┌───────────────────────┐
 │ 👤 John Doe    [4/5] │═══owns══▶│ 🌐 example.com [4/5] │
@@ -139,7 +129,6 @@ All 6 connection types rendered as ASCII with box-drawing characters. Use these 
 ```
 
 ### uses (solid — platform account, tool usage)
-
 ```
 ┌───────────────────────┐         ┌───────────────────────┐
 │ 👤 John Doe    [4/5] │───uses──▶│ @ twitter.com  [3/5] │
@@ -147,7 +136,6 @@ All 6 connection types rendered as ASCII with box-drawing characters. Use these 
 ```
 
 ### works_at (dashed — employment, affiliation)
-
 ```
 ┌───────────────────────┐         ┌───────────────────────┐
 │ 👤 John Doe    [4/5] │╌╌works╌╌▶│ 🏢 Acme Corp  [4/5] │
@@ -155,7 +143,6 @@ All 6 connection types rendered as ASCII with box-drawing characters. Use these 
 ```
 
 ### linked_to (dotted — inferred, general association)
-
 ```
 ┌───────────────────────┐         ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
 │ 👤 John Doe    [4/5] │···linked·▶│ 👤 Jane Doe   [2/5] │
@@ -163,7 +150,6 @@ All 6 connection types rendered as ASCII with box-drawing characters. Use these 
 ```
 
 ### alias (dash-dot — same identity, different handle)
-
 ```
 ┌───────────────────────┐         ┌───────────────────────┐
 │ @ johndoe99    [4/5] │─·alias·─▶│ @ jd_official  [3/5] │
@@ -171,7 +157,6 @@ All 6 connection types rendered as ASCII with box-drawing characters. Use these 
 ```
 
 ### communicated_with (bidirectional — observed contact)
-
 ```
 ┌───────────────────────┐         ┌───────────────────────┐
 │ 👤 John Doe    [4/5] │◄──comms──▶│ 👤 Bob Smith  [3/5] │
@@ -179,7 +164,6 @@ All 6 connection types rendered as ASCII with box-drawing characters. Use these 
 ```
 
 ### Multi-Connection Example (Combined)
-
 ```
 ┌─────────────────────────────┐
 │ 🎯 TARGET: John Doe  [5/5] │
@@ -201,4 +185,4 @@ All 6 connection types rendered as ASCII with box-drawing characters. Use these 
 
 ---
 
-_See also: [`output/visuals/case-dashboard.md`](./case-dashboard.md)_
+*See also: [`output/visuals/case-dashboard.md`](./case-dashboard.md)*

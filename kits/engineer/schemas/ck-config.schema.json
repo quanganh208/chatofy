@@ -67,9 +67,16 @@
               "type": "array",
               "items": {
                 "type": "string",
-                "enum": ["session", "branch", "directory"]
+                "enum": [
+                  "session",
+                  "branch",
+                  "directory"
+                ]
               },
-              "default": ["session", "branch"],
+              "default": [
+                "session",
+                "branch"
+              ],
               "description": "Order of resolution strategies for plan context"
             },
             "branchPattern": {
@@ -86,7 +93,12 @@
           "properties": {
             "mode": {
               "type": "string",
-              "enum": ["prompt", "auto", "strict", "none"],
+              "enum": [
+                "prompt",
+                "auto",
+                "strict",
+                "none"
+              ],
               "default": "prompt",
               "description": "Validation mode: prompt=ask questions, auto=auto-validate, strict=require all, none=skip"
             },
@@ -119,7 +131,12 @@
                   "dependencies"
                 ]
               },
-              "default": ["assumptions", "risks", "tradeoffs", "architecture"],
+              "default": [
+                "assumptions",
+                "risks",
+                "tradeoffs",
+                "architecture"
+              ],
               "description": "Focus areas for validation questions"
             }
           },
@@ -150,12 +167,18 @@
       "description": "Language and locale settings",
       "properties": {
         "thinkingLanguage": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "default": null,
           "description": "Language for Claude's thinking (null=English)"
         },
         "responseLanguage": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "default": null,
           "description": "Language for Claude's responses (null=match user)"
         }
@@ -167,7 +190,10 @@
       "description": "Trust mode settings for auto-approval",
       "properties": {
         "passphrase": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "default": null,
           "description": "Passphrase to enable trust mode (null=disabled)"
         },
@@ -185,13 +211,28 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["auto", "library", "application", "monorepo", "cli", "api", "web", "mobile"],
+          "enum": [
+            "auto",
+            "library",
+            "application",
+            "monorepo",
+            "cli",
+            "api",
+            "web",
+            "mobile"
+          ],
           "default": "auto",
           "description": "Project type (auto=detect from package.json)"
         },
         "packageManager": {
           "type": "string",
-          "enum": ["auto", "npm", "yarn", "pnpm", "bun"],
+          "enum": [
+            "auto",
+            "npm",
+            "yarn",
+            "pnpm",
+            "bun"
+          ],
           "default": "auto",
           "description": "Package manager (auto=detect from lockfile)"
         },
@@ -331,21 +372,9 @@
           "type": "object",
           "description": "Timeout settings for each phase",
           "properties": {
-            "brainstormSec": {
-              "type": "number",
-              "default": 300,
-              "description": "Brainstorm phase timeout (seconds)"
-            },
-            "planSec": {
-              "type": "number",
-              "default": 600,
-              "description": "Planning phase timeout (seconds)"
-            },
-            "implementSec": {
-              "type": "number",
-              "default": 18000,
-              "description": "Implementation phase timeout (seconds, default 5h)"
-            }
+            "brainstormSec": { "type": "number", "default": 300, "description": "Brainstorm phase timeout (seconds)" },
+            "planSec": { "type": "number", "default": 600, "description": "Planning phase timeout (seconds)" },
+            "implementSec": { "type": "number", "default": 18000, "description": "Implementation phase timeout (seconds, default 5h)" }
           },
           "additionalProperties": false
         }
@@ -373,38 +402,18 @@
             "x": {
               "type": "object",
               "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "default": false,
-                  "description": "Enable X/Twitter publishing"
-                },
-                "maxPostsPerDay": {
-                  "type": "integer",
-                  "default": 5,
-                  "description": "Max posts per day on X"
-                },
-                "threadMaxParts": {
-                  "type": "integer",
-                  "default": 6,
-                  "description": "Max parts in a thread"
-                }
+                "enabled": { "type": "boolean", "default": false, "description": "Enable X/Twitter publishing" },
+                "maxPostsPerDay": { "type": "integer", "default": 5, "description": "Max posts per day on X" },
+                "threadMaxParts": { "type": "integer", "default": 6, "description": "Max parts in a thread" }
               },
               "additionalProperties": false
             },
             "facebook": {
               "type": "object",
               "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "default": false,
-                  "description": "Enable Facebook publishing"
-                },
+                "enabled": { "type": "boolean", "default": false, "description": "Enable Facebook publishing" },
                 "pageId": { "type": "string", "default": "", "description": "Facebook Page ID" },
-                "maxPostsPerDay": {
-                  "type": "integer",
-                  "default": 3,
-                  "description": "Max posts per day on Facebook"
-                }
+                "maxPostsPerDay": { "type": "integer", "default": 3, "description": "Max posts per day on Facebook" }
               },
               "additionalProperties": false
             }
@@ -420,42 +429,18 @@
         "schedule": {
           "type": "object",
           "properties": {
-            "timezone": {
-              "type": "string",
-              "default": "UTC",
-              "description": "IANA timezone for scheduling"
-            },
-            "quietHoursStart": {
-              "type": "string",
-              "default": "23:00",
-              "description": "Quiet hours start (HH:MM)"
-            },
-            "quietHoursEnd": {
-              "type": "string",
-              "default": "06:00",
-              "description": "Quiet hours end (HH:MM)"
-            }
+            "timezone": { "type": "string", "default": "UTC", "description": "IANA timezone for scheduling" },
+            "quietHoursStart": { "type": "string", "default": "23:00", "description": "Quiet hours start (HH:MM)" },
+            "quietHoursEnd": { "type": "string", "default": "06:00", "description": "Quiet hours end (HH:MM)" }
           },
           "additionalProperties": false
         },
         "selfImprovement": {
           "type": "object",
           "properties": {
-            "enabled": {
-              "type": "boolean",
-              "default": true,
-              "description": "Enable engagement tracking and self-improvement"
-            },
-            "engagementCheckIntervalHours": {
-              "type": "number",
-              "default": 6,
-              "description": "Hours between engagement checks"
-            },
-            "topPerformingCount": {
-              "type": "integer",
-              "default": 10,
-              "description": "Number of top posts to analyze"
-            }
+            "enabled": { "type": "boolean", "default": true, "description": "Enable engagement tracking and self-improvement" },
+            "engagementCheckIntervalHours": { "type": "number", "default": 6, "description": "Hours between engagement checks" },
+            "topPerformingCount": { "type": "integer", "default": 10, "description": "Number of top posts to analyze" }
           },
           "additionalProperties": false
         },

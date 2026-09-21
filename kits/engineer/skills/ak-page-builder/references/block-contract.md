@@ -11,19 +11,19 @@ the project's primitives when the requested page needs them.
 
 For every exposed block, define:
 
-| Contract                | Required behavior                                                                      |
-| ----------------------- | -------------------------------------------------------------------------------------- |
-| Stable type and version | Survive file moves; identify breaking prop changes                                     |
-| Purpose and examples    | Explain suitable uses and valid combinations                                           |
-| Props schema            | Validate types, required fields, enums, bounds and defaults                            |
-| Slots                   | Name insertion regions; constrain child types and cardinality                          |
-| Variants and tokens     | Use existing design choices and responsive conventions                                 |
-| Widget sizing           | Supported small/medium/large presentations, geometry, fit rules and resize constraints |
-| Editor fields           | Map serializable props to accessible controls and help                                 |
-| Render requirements     | Declare providers, server/client boundaries and dependencies                           |
-| Bindings and actions    | Reference authorized registered data sources/actions                                   |
-| Markdown serializer     | Preserve meaningful published content and links                                        |
-| Migration               | Upgrade older stored instances without silent field loss                               |
+| Contract | Required behavior |
+|---|---|
+| Stable type and version | Survive file moves; identify breaking prop changes |
+| Purpose and examples | Explain suitable uses and valid combinations |
+| Props schema | Validate types, required fields, enums, bounds and defaults |
+| Slots | Name insertion regions; constrain child types and cardinality |
+| Variants and tokens | Use existing design choices and responsive conventions |
+| Widget sizing | Supported small/medium/large presentations, geometry, fit rules and resize constraints |
+| Editor fields | Map serializable props to accessible controls and help |
+| Render requirements | Declare providers, server/client boundaries and dependencies |
+| Bindings and actions | Reference authorized registered data sources/actions |
+| Markdown serializer | Preserve meaningful published content and links |
+| Migration | Upgrade older stored instances without silent field loss |
 
 Derive candidates from actual exports and stories, then verify their behavior.
 Static prop extraction cannot establish business rules, callback semantics,

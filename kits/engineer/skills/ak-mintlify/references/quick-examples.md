@@ -5,7 +5,6 @@ Check the installed version and project schema before using these examples.
 ## Common Patterns
 
 **Basic docs.json:**
-
 ```json
 {
   "theme": "mint",
@@ -23,11 +22,10 @@ Check the installed version and project schema before using these examples.
 ```
 
 **MDX page with components:**
-
-````mdx
+```mdx
 ---
-title: 'Getting Started'
-description: 'Quick introduction'
+title: "Getting Started"
+description: "Quick introduction"
 ---
 
 <Note>Important information</Note>
@@ -35,12 +33,11 @@ description: 'Quick introduction'
 <CodeGroup>
 ```bash
 npm install
-````
+```
 
 ```python
 pip install
 ```
-
 </CodeGroup>
 
 <Steps>

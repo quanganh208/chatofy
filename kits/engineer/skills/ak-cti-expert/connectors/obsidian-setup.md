@@ -78,10 +78,10 @@ OSINT-Vault/
 
 ### Investigation Overview Template
 
-````markdown
+```markdown
 ---
-created: { { date:YYYY-MM-DD } }
-updated: { { date:YYYY-MM-DD } }
+created: {{date:YYYY-MM-DD}}
+updated: {{date:YYYY-MM-DD}}
 investigation_id: INV-{{date:YYYYMM}}-001
 type: investigation
 status: active
@@ -91,57 +91,47 @@ priority: high
 # Investigation: {{title}}
 
 ## Overview
-
-**Subject:**
+**Subject:** 
 **Type:** [Person/Domain/Organization/Event]
-**Objective:**
+**Objective:** 
 **Status:** #status/active
 
 ## Summary
-
 <!-- Brief summary of what this investigation covers -->
 
 ## Key Findings
-
 - Finding 1
 - Finding 2
 - Finding 3
 
 ## Confidence Levels
-
-- 🟢 High:
-- 🟡 Medium:
-- 🔴 Low:
+- 🟢 High: 
+- 🟡 Medium: 
+- 🔴 Low: 
 
 ## Entity Map
-
 ```mermaid
 graph TD
     A[Subject] --> B[Entity 1]
     A --> C[Entity 2]
     B --> D[Sub-entity]
 ```
-````
 
 ## Quick Links
-
 - [[Timeline]]
 - [[Entities]]
 - [[Evidence]]
 - [[Analysis]]
 
 ## Related
-
 - [[Related Investigation]]
 - [[Related Person]]
 
 ## Tasks
-
 - [ ] Task 1
 - [ ] Task 2
 - [ ] Task 3
-
-````
+```
 
 ### Person Entity Template
 
@@ -157,42 +147,42 @@ status: active
 # {{title}}
 
 ## Basic Information
-**Full Name:**
-**Aliases:**
-**Date of Birth:**
-**Age:**
-**Gender:**
-**Nationality:**
+**Full Name:** 
+**Aliases:** 
+**Date of Birth:** 
+**Age:** 
+**Gender:** 
+**Nationality:** 
 
 ## Contact Information
-**Email:**
-**Phone:**
-**Website:**
+**Email:** 
+**Phone:** 
+**Website:** 
 
 ## Professional
-**Current Employer:**
-**Position:**
-**Industry:**
-**LinkedIn:**
+**Current Employer:** 
+**Position:** 
+**Industry:** 
+**LinkedIn:** 
 
 ## Digital Presence
-**Usernames:**
+**Usernames:** 
 **Social Media:**
-- Twitter:
-- Facebook:
-- Instagram:
-- LinkedIn:
-- Other:
+- Twitter: 
+- Facebook: 
+- Instagram: 
+- LinkedIn: 
+- Other: 
 
 ## Relationships
 **Family:**
--
+- 
 
 **Associates:**
--
+- 
 
 **Organizations:**
--
+- 
 
 ## Timeline
 | Date | Event | Source |
@@ -207,17 +197,17 @@ status: active
 - Location: 🟢 High / 🟡 Medium / 🔴 Low
 
 ## Sources
-1.
+1. 
 
 ## Related
 - [[Investigation]]
-````
+```
 
 ### Domain Template
 
 ```markdown
 ---
-created: { { date:YYYY-MM-DD } }
+created: {{date:YYYY-MM-DD}}
 entity_type: domain
 confidence: high
 status: active
@@ -226,52 +216,45 @@ status: active
 # {{title}}
 
 ## Basic Information
-
 **Domain:** {{title}}
-**Registration Date:**
-**Expiration Date:**
-**Registrar:**
-**Status:**
+**Registration Date:** 
+**Expiration Date:** 
+**Registrar:** 
+**Status:** 
 
 ## DNS Information
-
-**IP Address:**
-**Nameservers:**
-**MX Records:**
-**Subdomains:**
+**IP Address:** 
+**Nameservers:** 
+**MX Records:** 
+**Subdomains:** 
 
 ## Ownership
-
-**Registrant:**
-**Organization:**
-**Email:**
-**Phone:**
-**Address:**
+**Registrant:** 
+**Organization:** 
+**Email:** 
+**Phone:** 
+**Address:** 
 
 ## Web Presence
-
-**Web Server:**
-**Technologies:**
-**CMS:**
-**SSL Certificate:**
+**Web Server:** 
+**Technologies:** 
+**CMS:** 
+**SSL Certificate:** 
 
 ## Security
-
-**Threat Intelligence:**
-**Blacklist Status:**
-**Vulnerabilities:**
+**Threat Intelligence:** 
+**Blacklist Status:** 
+**Vulnerabilities:** 
 
 ## Timeline
-
-| Date | Event        | Details |
-| ---- | ------------ | ------- |
-|      | Registration |         |
-|      | DNS Change   |         |
+| Date | Event | Details |
+|------|-------|---------|
+| | Registration | |
+| | DNS Change | |
 
 ## Notes
 
 ## Related
-
 - [[Person]]
 - [[Organization]]
 - [[Investigation]]
@@ -279,11 +262,11 @@ status: active
 
 ### Timeline Template
 
-````markdown
+```markdown
 ---
-created: { { date:YYYY-MM-DD } }
+created: {{date:YYYY-MM-DD}}
 type: timeline
-investigation:
+investigation: 
 ---
 
 # Timeline: {{title}}
@@ -291,22 +274,17 @@ investigation:
 ## Chronology
 
 ### {{date:YYYY}}
-
 **Month:**
-
 - **Day:** Event description
-  - Source:
+  - Source: 
   - Confidence: 🟢/🟡/🔴
   - Related: [[Entity]]
 
 ### {{date:YYYY}}
-
 **Month:**
-
-- **Day:**
+- **Day:** 
 
 ## Visual Timeline
-
 ```mermaid
 timeline
     title Investigation Timeline
@@ -316,21 +294,17 @@ timeline
     section Phase 2
         Event 3 : Description
 ```
-````
 
 ## Analysis
-
 **Patterns Observed:**
--
+- 
 
 **Gaps in Timeline:**
--
+- 
 
 ## Related
-
 - [[Investigation]]
-
-````
+```
 
 ### Evidence Template
 
@@ -340,17 +314,17 @@ created: {{date:YYYY-MM-DD}}
 type: evidence
 format: [image/document/audio/video/webpage]
 confidence: medium
-source:
+source: 
 ---
 
 # Evidence: {{title}}
 
 ## Metadata
-**Source:**
-**Date Obtained:**
+**Source:** 
+**Date Obtained:** 
 **Date Created:** (from metadata)
-**Hash (SHA256):**
-**Filename:**
+**Hash (SHA256):** 
+**Filename:** 
 
 ## Description
 <!-- What is this evidence? -->
@@ -368,29 +342,29 @@ source:
 | | Analyzed | |
 
 ## Storage
-**Location:**
-**Backup:**
+**Location:** 
+**Backup:** 
 
 ## Related
 - [[Investigation]]
 - [[Entity]]
-````
+```
 
 ### Report Template
 
 ```markdown
 ---
-created: { { date:YYYY-MM-DD } }
+created: {{date:YYYY-MM-DD}}
 type: report
-investigation:
+investigation: 
 classification: confidential
 ---
 
 # Investigation Report: {{title}}
 
 **Date:** {{date:YYYY-MM-DD}}
-**Investigation ID:**
-**Analyst:**
+**Investigation ID:** 
+**Analyst:** 
 **Classification:** Confidential
 
 ## Executive Summary
@@ -417,7 +391,6 @@ classification: confidential
 ### Internal Links
 
 **Basic Links:**
-
 ```markdown
 [[Person Name]]
 [[Domain Name]]
@@ -425,21 +398,18 @@ classification: confidential
 ```
 
 **Aliased Links:**
-
 ```markdown
 [[Person Name|the subject]]
 [[Domain Name|primary website]]
 ```
 
 **Embedded Links:**
-
 ```markdown
 ![[Person Name]]  <!-- Embeds the note content -->
 ![[screenshot.png]]  <!-- Embeds the image -->
 ```
 
 **Block Links:**
-
 ```markdown
 [[Person Name#Contact Information]]
 [[Investigation#Key Findings]]
@@ -450,10 +420,10 @@ classification: confidential
 ```markdown
 ---
 entity_type: person
-investigation: '[[Investigation Name]]'
+investigation: "[[Investigation Name]]"
 associated_with:
-  - '[[Person 2]]'
-  - '[[Organization]]'
+  - "[[Person 2]]"
+  - "[[Organization]]"
 ---
 ```
 
@@ -465,7 +435,6 @@ associated_with:
 
 **1. Consistent Frontmatter:**
 All notes should have:
-
 ```yaml
 ---
 entity_type: [person|organization|domain|investigation|evidence]
@@ -475,7 +444,6 @@ confidence: [high|medium|low]
 ```
 
 **2. Use Tags for Filtering:**
-
 ```markdown
 #person #target #high-priority
 #domain #suspicious
@@ -484,14 +452,12 @@ confidence: [high|medium|low]
 
 **3. Group by Entity Type:**
 Configure graph view:
-
 - Color: entity_type
 - Size: link count
 - Group: investigation
 
 **4. Link Liberally:**
 Every entity should link to:
-
 - Parent investigation
 - Related entities
 - Source evidence
@@ -500,7 +466,6 @@ Every entity should link to:
 ### Graph View Settings
 
 **Recommended Configuration:**
-
 ```json
 {
   "collapse-filter": false,
@@ -530,14 +495,12 @@ Every entity should link to:
 ### Standard Tags
 
 **Investigation Status:**
-
 - `#status/active`
 - `#status/archived`
 - `#status/closed`
 - `#status/priority`
 
 **Entity Types:**
-
 - `#person`
 - `#organization`
 - `#domain`
@@ -547,14 +510,12 @@ Every entity should link to:
 - `#asset`
 
 **Confidence Levels:**
-
 - `#confidence/high`
 - `#confidence/medium`
 - `#confidence/low`
 - `#confidence/speculative`
 
 **Evidence Types:**
-
 - `#evidence/document`
 - `#evidence/screenshot`
 - `#evidence/audio`
@@ -562,7 +523,6 @@ Every entity should link to:
 - `#evidence/web-archive`
 
 **Priority Flags:**
-
 - `#priority/critical`
 - `#priority/high`
 - `#priority/medium`
@@ -574,16 +534,16 @@ Every entity should link to:
 #investigation
   #investigation/active
   #investigation/archived
-
+  
 #entity
   #entity/person
   #entity/organization
   #entity/domain
-
+  
 #evidence
   #evidence/verified
   #evidence/unverified
-
+  
 #analysis
   #analysis/patterns
   #analysis/detect
@@ -596,37 +556,31 @@ Every entity should link to:
 ### Core Investigation Plugins
 
 **1. Dataview**
-
 - Query your vault like a database
 - Create dynamic tables and lists
 - Essential for entity tracking
 
 **2. Graph Analysis**
-
 - Advanced graph metrics
 - Path finding between notes
 - Community detection
 
 **3. Breadcrumbs**
-
 - Visualize note hierarchies
 - Parent/child relationships
 - Matrix views
 
 **4. Kanban**
-
 - Track investigation tasks
 - Visual workflow management
 - Case status boards
 
 **5. Templater**
-
 - Advanced templates
 - Automatic date insertion
 - Dynamic content
 
 **6. QuickAdd**
-
 - Quick note creation
 - Capture templates
 - Command palette shortcuts
@@ -635,7 +589,6 @@ Every entity should link to:
 
 ```markdown
 Install via Community Plugins:
-
 1. Settings → Community Plugins → Browse
 2. Search and install each plugin
 3. Enable and configure
@@ -647,20 +600,17 @@ Install via Community Plugins:
 
 ### Main Dashboard
 
-````markdown
+```markdown
 # OSINT Investigation Dashboard
 
 ## Active Investigations
-
 ```dataview
 TABLE investigation_id, type, status, priority
 FROM #investigation/active
 SORT priority DESC, created DESC
 ```
-````
 
 ## Recent Entities
-
 ```dataview
 LIST
 FROM #entity
@@ -669,7 +619,6 @@ LIMIT 10
 ```
 
 ## High Priority Items
-
 ```dataview
 TASK
 FROM #priority/critical OR #priority/high
@@ -678,19 +627,16 @@ SORT due ASC
 ```
 
 ## Quick Stats
-
 - **Active Investigations:** `=length(this.file.inlinks)`
 - **Total Entities:** `=length([#entity])`
 - **Pending Tasks:** `=length([#task])`
 
 ## Quick Links
-
 - [[00-Inbox]]
 - [[01-Active-Investigations]]
 - [[02-Entity-Database]]
 - [[04-Resources]]
-
-````
+```
 
 ### Investigation Dashboard
 
@@ -704,29 +650,24 @@ SORT due ASC
 ```dataview
 LIST
 FROM "01-Active-Investigations/{{investigation_name}}/02-Entities"
-````
+```
 
 ## Timeline
-
 [[01-Timeline|View Timeline]]
 
 ## Evidence
-
 ```dataview
 TABLE source, confidence
 FROM "01-Active-Investigations/{{investigation_name}}/03-Evidence"
 ```
 
 ## Tasks
-
 - [ ] Task 1
 - [ ] Task 2
 
 ## Notes
-
 Quick notes area...
-
-````
+```
 
 ---
 
@@ -752,10 +693,9 @@ Quick notes area...
 LIST
 FROM #person
 WHERE investigation = [[Current Investigation]]
-````
+```
 
 ### Table of Domains with IPs
-
 ```dataview
 TABLE ip_address, registrar, confidence
 FROM #domain
@@ -763,7 +703,6 @@ SORT confidence DESC
 ```
 
 ### Timeline of Events
-
 ```dataview
 TABLE event_date, description, source
 FROM "01-Active-Investigations"
@@ -772,7 +711,6 @@ FLATTEN events
 ```
 
 ### Unverified Evidence
-
 ```dataview
 LIST
 FROM #evidence

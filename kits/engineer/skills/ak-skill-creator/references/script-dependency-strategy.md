@@ -17,7 +17,7 @@ Follow in order; drop out at the first match.
 2. **A maintained CLI exists.** Invoke via a pinned ephemeral runner:
    - Node: `npx -y pkg@1.2.3 …` or `pnpm dlx pkg@1.2.3 …`
    - Python: `pipx run pkg==1.2.3 …` or `uvx --from 'pkg==1.2.3' cmd …`
-     Never re-wrap a CLI in your own script.
+   Never re-wrap a CLI in your own script.
 3. **Python library, no CLI.** Use PEP 723 inline metadata + `uv run`:
    ```python
    #!/usr/bin/env -S uv run --script
@@ -39,19 +39,19 @@ Follow in order; drop out at the first match.
    - offline / air-gapped user environments,
    - native or binary deps that ephemeral runners handle poorly,
    - org policy mandates vendored, auditable installs.
-     Keep it minimal (≤2 deps), pinned exactly, and never auto-install silently.
+   Keep it minimal (≤2 deps), pinned exactly, and never auto-install silently.
 
 ## 2. Pinning & Fail-Fast Rules
 
 **Exact pins are mandatory.** Floating tags drift and open a typosquat /
-hijack surface at the _user's_ runtime, not yours.
+hijack surface at the *user's* runtime, not yours.
 
-| Runner | Correct                       | Wrong                       |
-| ------ | ----------------------------- | --------------------------- |
-| `npx`  | `npx -y pkg@1.2.3`            | `npx pkg`, `npx pkg@latest` |
-| `pipx` | `pipx run pkg==1.2.3`         | `pipx run pkg`              |
-| `uvx`  | `uvx --from 'pkg==1.2.3' cmd` | `uvx cmd`                   |
-| `pnpm` | `pnpm dlx pkg@1.2.3`          | `pnpm dlx pkg`              |
+| Runner | Correct | Wrong |
+|--------|---------|-------|
+| `npx` | `npx -y pkg@1.2.3` | `npx pkg`, `npx pkg@latest` |
+| `pipx` | `pipx run pkg==1.2.3` | `pipx run pkg` |
+| `uvx` | `uvx --from 'pkg==1.2.3' cmd` | `uvx cmd` |
+| `pnpm` | `pnpm dlx pkg@1.2.3` | `pnpm dlx pkg` |
 
 **Non-interactive by default.** `npx` without `-y` will hang forever waiting
 for a "install this package? (y/n)" prompt in an agent context. Always pass
@@ -67,8 +67,8 @@ if shutil.which("uv") is None:
 ```
 
 **Network note in SKILL.md.** When a skill relies on ephemeral runners, add
-one line to its `SKILL.md`: _"Requires network on first invocation to fetch
-`<pkg>`; cached thereafter."_
+one line to its `SKILL.md`: *"Requires network on first invocation to fetch
+`<pkg>`; cached thereafter."*
 
 **Pick one primary runner per ecosystem.** Not a fallback ladder — a single
 runner. Suggested defaults:

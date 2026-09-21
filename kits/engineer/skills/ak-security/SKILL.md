@@ -2,27 +2,15 @@
 name: ak:security
 description: "Scan codebase for security vulnerabilities, hardcoded secrets, dependency issues, and OWASP patterns, with optional STRIDE threat modeling, red-team persona discovery, and auto-fix. Use when asked to 'security scan', 'check for secrets', 'audit security', or before major releases."
 user-invocable: true
-when_to_use: 'Invoke for security scan, secret detection, dependency audit, STRIDE/OWASP threat audit, or auto-fix loops.'
+when_to_use: "Invoke for security scan, secret detection, dependency audit, STRIDE/OWASP threat audit, or auto-fix loops."
 category: workflow
-keywords:
-  [
-    security,
-    secrets,
-    vulnerabilities,
-    dependencies,
-    STRIDE,
-    OWASP,
-    audit,
-    red-team,
-    penetration-testing,
-    vulnerability-discovery,
-  ]
-argument-hint: '[scope] [--secrets-only] [--deps-only] [--fix] [--red-team] [--iterations N]'
+keywords: [security, secrets, vulnerabilities, dependencies, STRIDE, OWASP, audit, red-team, penetration-testing, vulnerability-discovery]
+argument-hint: "[scope] [--secrets-only] [--deps-only] [--fix] [--red-team] [--iterations N]"
 metadata:
   author: agentkit
-  attribution: 'Security audit pattern adapted from autoresearch by Udit Goenka (MIT)'
+  attribution: "Security audit pattern adapted from autoresearch by Udit Goenka (MIT)"
   license: MIT
-  version: '2.0.2'
+  version: "2.0.2"
 ---
 
 # ak:security — Security Scan & Threat Audit
@@ -45,19 +33,18 @@ Comprehensive security scanner and threat audit framework. Combines fast targete
 
 ## Modes
 
-| Mode                          | Invocation                                       | Behavior                                                                                   |
-| ----------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| Fast secret scan              | `/ak:security [scope] --secrets-only`            | Scan secrets and credentials; skip deps/code/STRIDE                                        |
-| Fast dependency audit         | `/ak:security [scope] --deps-only`               | Audit package dependencies for CVEs; skip code/STRIDE                                      |
-| Comprehensive audit (default) | `/ak:security [scope]`                           | Stack detection → `.env` check → secrets → deps → code patterns → STRIDE + OWASP           |
-| Red-team discovery            | `/ak:security [scope] --red-team`                | Iterate 4 attacker personas (Adversary, Supply Chain, Insider, Infra) → STRIDE/OWASP sweep |
-| Bounded red-team              | `/ak:security [scope] --red-team --iterations N` | Cap red-team persona discovery to N iterations total                                       |
-| Audit + Fix                   | `/ak:security [scope] --fix`                     | Comprehensive audit → fix confirmed findings iteratively                                   |
-| Red-team + Fix                | `/ak:security [scope] --red-team --fix`          | Full persona discovery → fix confirmed Critical/High                                       |
-| Fast scan + Fix               | `/ak:security [scope] --secrets-only --fix`      | Scan secrets → remediate confirmed leaks via env vars                                      |
+| Mode | Invocation | Behavior |
+|------|-----------|----------|
+| Fast secret scan | `/ak:security [scope] --secrets-only` | Scan secrets and credentials; skip deps/code/STRIDE |
+| Fast dependency audit | `/ak:security [scope] --deps-only` | Audit package dependencies for CVEs; skip code/STRIDE |
+| Comprehensive audit (default) | `/ak:security [scope]` | Stack detection → `.env` check → secrets → deps → code patterns → STRIDE + OWASP |
+| Red-team discovery | `/ak:security [scope] --red-team` | Iterate 4 attacker personas (Adversary, Supply Chain, Insider, Infra) → STRIDE/OWASP sweep |
+| Bounded red-team | `/ak:security [scope] --red-team --iterations N` | Cap red-team persona discovery to N iterations total |
+| Audit + Fix | `/ak:security [scope] --fix` | Comprehensive audit → fix confirmed findings iteratively |
+| Red-team + Fix | `/ak:security [scope] --red-team --fix` | Full persona discovery → fix confirmed Critical/High |
+| Fast scan + Fix | `/ak:security [scope] --secrets-only --fix` | Scan secrets → remediate confirmed leaks via env vars |
 
 ### Flag Precedence & Scope Defaults
-
 - **Scope default:** when `[scope]` is omitted, scans the entire project root (`.`). Exclude `.git/`, `node_modules/`, `dist/`, `vendor/`, `__pycache__/`. For large repos in default mode, fast layers run across all files, while deep STRIDE/OWASP focuses on high-risk surfaces (`auth/`, `api/`, `config/`, database layers).
 - **Fast flags short-circuit:** `--secrets-only` and `--deps-only` take precedence over `--red-team`. If combined, fast flags win and skip red-team with a note.
 - **Combined fast flags:** `--secrets-only --deps-only` runs both secret detection and dependency audit while skipping code patterns and STRIDE.
@@ -76,32 +63,25 @@ ak:security-scan <dir>          → /ak:security <dir>
 ## Audit & Scan Methodology
 
 ### 1. Scope Resolution, Assets & Stack Detection
-
 - Identify protected assets, actors, trust boundaries and exposure before assigning severity. A risky API name alone is not an exploit; verify reachable failure paths and current controls. Load only relevant checklists.
 - Check for manifest: `package.json` (Node.js), `requirements.txt`/`pyproject.toml` (Python), `go.mod` (Go), `Cargo.toml` (Rust), `pom.xml`/`build.gradle` (Java).
 - Resolve scope (defaults to project root). Exclude `.env.example`, test fixtures, documentation (`*.md`), `node_modules/`, `dist/`.
 
 ### 2. .env Exposure Check
-
 Check whether `.env` files are accidentally tracked or unignored in git:
-
 ```bash
 git ls-files --error-unmatch .env .env.local .env.production 2>/dev/null
 grep -n "\.env" .gitignore 2>/dev/null
 ```
 
 ### 3. Secret & Credential Scanning
-
 Scan source files for hardcoded API keys, passwords, tokens, and private keys.
-
 - Reference: `references/secret-patterns.md` (high and medium confidence patterns).
 - False-positive exclusion: skip placeholders (`YOUR_API_KEY`, `TODO`, `placeholder`, env reads).
 - Rate severity: CRITICAL (exposed prod key), HIGH (real credential), MEDIUM (possible credential). <!-- cruft-lint-allow — severity rating scale, not instruction emphasis -->
 
 ### 4. Dependency Audit
-
 Run the stack's dependency audit tool and categorize findings by severity:
-
 - Node.js: `npm audit --json 2>/dev/null`
 - Python: `pip-audit --format json 2>/dev/null`
 - Go: `govulncheck ./...`
@@ -110,9 +90,7 @@ Run the stack's dependency audit tool and categorize findings by severity:
 - Java: `mvn dependency-check:check`
 
 ### 5. Vulnerability Code Pattern Analysis
-
 Search for dangerous patterns using search_files capability:
-
 - SQL injection (string concatenation / template literals in queries)
 - XSS (`innerHTML`, `dangerouslySetInnerHTML`, unescaped template tags)
 - Command injection (`exec`/`spawn`/`os.system` with dynamic input)
@@ -122,9 +100,7 @@ Search for dangerous patterns using search_files capability:
 - Reference: `references/vulnerability-patterns.md`.
 
 ### 6. STRIDE Analysis (Skipped in --secrets-only / --deps-only)
-
 Evaluate threats systematically:
-
 - **S**poofing — auth weaknesses, session flaws
 - **T**ampering — input validation, integrity controls
 - **R**epudiation — audit logging gaps
@@ -133,11 +109,9 @@ Evaluate threats systematically:
 - **E**levation of Privilege — broken access control, IDOR
 
 ### 7. OWASP Top 10 Check (Skipped in --secrets-only / --deps-only)
-
 Map findings to OWASP categories (A01–A10). See `references/stride-owasp-checklist.md`.
 
 ### 8. Finding Categorization
-
 Deduplicate by root cause across code patterns, STRIDE, OWASP and personas. Attach path, reproducible evidence, impact, assumptions and mitigation to each finding. Record disproven concerns as non-issues with their verification source. Assign severity using the definitions below.
 
 ---
@@ -153,20 +127,19 @@ Deduplicate by root cause across code patterns, STRIDE, OWASP and personas. Atta
 **Files checked:** {count}
 
 ## Summary
-
 | Category | Critical | High | Medium | Low | Info |
-| -------- | -------- | ---- | ------ | --- | ---- |
-| Secrets  | X        | X    | X      | -   | -    |
-| Deps     | X        | X    | X      | X   | -    |
-| Code     | X        | X    | X      | X   | -    |
-| STRIDE   | X        | X    | X      | X   | X    |
+|----------|----------|------|--------|-----|------|
+| Secrets  | X | X | X | - | - |
+| Deps     | X | X | X | X | - |
+| Code     | X | X | X | X | - |
+| STRIDE   | X | X | X | X | X |
 
 ## Findings
 
-| #   | Severity | Category | File:Line        | Description              | Fix Recommendation             |
-| --- | -------- | -------- | ---------------- | ------------------------ | ------------------------------ |
-| 1   | Critical | Secret   | src/config.js:42 | Hardcoded AWS key        | Move to env var and rotate key |
-| 2   | High     | A03 Inj  | api/users.ts:45  | SQL string concatenation | Use parameterized queries      |
+| # | Severity | Category | File:Line | Description | Fix Recommendation |
+|---|----------|----------|-----------|-------------|-------------------|
+| 1 | Critical | Secret   | src/config.js:42 | Hardcoded AWS key | Move to env var and rotate key |
+| 2 | High     | A03 Inj  | api/users.ts:45 | SQL string concatenation | Use parameterized queries |
 ```
 
 If `--auto` mode is active in the cook workflow, save the report to `{CK_REPORTS_PATH}` or `plans/reports/security-{date}.md`.
@@ -178,7 +151,6 @@ If `--auto` mode is active in the cook workflow, save the report to `{CK_REPORTS
 When `--red-team` is provided, the audit runs a **multi-persona iterative discovery loop** before the standard STRIDE/OWASP sweep.
 
 ### Persona Execution Order
-
 1. **Security Adversary** — external attacker; auth bypass, injection, IDOR, privilege escalation
 2. **Supply Chain Attacker** — dependency/CI poisoning; CVEs, unsigned artifacts, loose CI permissions
 3. **Insider Threat** — authenticated low-privilege user; horizontal/vertical escalation, bulk export
@@ -204,13 +176,13 @@ When `--fix` is provided, apply fixes iteratively after the audit:
 
 ## Severity Definitions
 
-| Severity | Description                                          | Fix Priority              |
-| -------- | ---------------------------------------------------- | ------------------------- |
-| Critical | Exploitable now, data breach or RCE risk             | Immediate — block release |
-| High     | Exploitable with moderate effort, significant impact | This sprint               |
-| Medium   | Limited exploitability or impact                     | Next sprint               |
-| Low      | Theoretical risk, defense-in-depth improvement       | Backlog                   |
-| Info     | Best practice suggestion, no direct risk             | Optional                  |
+| Severity | Description | Fix Priority |
+|----------|-------------|-------------|
+| Critical | Exploitable now, data breach or RCE risk | Immediate — block release |
+| High | Exploitable with moderate effort, significant impact | This sprint |
+| Medium | Limited exploitability or impact | Next sprint |
+| Low | Theoretical risk, defense-in-depth improvement | Backlog |
+| Info | Best practice suggestion, no direct risk | Optional |
 
 ---
 

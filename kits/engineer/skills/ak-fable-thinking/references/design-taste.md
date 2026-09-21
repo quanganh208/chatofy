@@ -196,14 +196,14 @@ and hand-tracing the layout with concrete content lengths.
 
 Each verdict must point to the act that proved it:
 
-| Dimension       | Passes when                                | Proven by           |
-| --------------- | ------------------------------------------ | ------------------- |
-| Hierarchy       | #1 element wins the squint test            | rendered inspection |
-| Consistency     | all values on the token scales             | token audit / grep  |
-| Readability     | contrast, measure, line height in range    | computation         |
-| States          | interaction + data states designed         | state walk          |
-| Robustness      | survives longest/empty/overflow content    | stress render       |
-| Distinctiveness | zero slop-catalog matches; fits this brief | checklist scan      |
+| Dimension | Passes when | Proven by |
+|-----------|-------------|-----------|
+| Hierarchy | #1 element wins the squint test | rendered inspection |
+| Consistency | all values on the token scales | token audit / grep |
+| Readability | contrast, measure, line height in range | computation |
+| States | interaction + data states designed | state walk |
+| Robustness | survives longest/empty/overflow content | stress render |
+| Distinctiveness | zero slop-catalog matches; fits this brief | checklist scan |
 
 Deliver with Claim Discipline: "verified at three widths with stressed content" is a
 different — and honest — claim than "this should look good". If a dimension was not
@@ -211,18 +211,18 @@ verified, name it as the weakest link instead of letting fluent delivery imply i
 
 ## Do / Don't
 
-| Don't                                            | Instead                                                        |
-| ------------------------------------------------ | -------------------------------------------------------------- |
-| Start typing markup from the prompt              | FRAME the job, rank the elements, fix the tokens first         |
-| Judge the design from its source code            | Render it and look, or downgrade the claim honestly            |
-| Add decoration when a section feels weak         | Subtract noise; strengthen hierarchy or content                |
-| Emphasize everything that seems important        | Pick what loses; one accent voice                              |
-| Design with lorem ipsum and medium-length data   | Use real longest/shortest/empty content from the start         |
-| Eyeball contrast, measure, and spacing           | Compute them — they are arithmetic                             |
-| Ship the first error-free render                 | Run the stress + states + slop passes, then loop repairs       |
-| Restyle what the brief did not ask about         | Scope line from Move 1: flag adjacent issues, one sentence     |
-| Guard a destructive action with a confirm dialog | Make it reversible; offer undo; confirm only the irreversible  |
-| Label a field with its placeholder               | Give it a visible label; use the placeholder for an example    |
-| Show every option and setting at once            | Ship defaults; disclose the rest progressively                 |
-| Encode state or meaning in color alone           | Pair color with text, icon, or position                        |
-| Design the happy path and ship                   | Design empty, loading, error, offline, and recovery states too |
+| Don't | Instead |
+|-------|---------|
+| Start typing markup from the prompt | FRAME the job, rank the elements, fix the tokens first |
+| Judge the design from its source code | Render it and look, or downgrade the claim honestly |
+| Add decoration when a section feels weak | Subtract noise; strengthen hierarchy or content |
+| Emphasize everything that seems important | Pick what loses; one accent voice |
+| Design with lorem ipsum and medium-length data | Use real longest/shortest/empty content from the start |
+| Eyeball contrast, measure, and spacing | Compute them — they are arithmetic |
+| Ship the first error-free render | Run the stress + states + slop passes, then loop repairs |
+| Restyle what the brief did not ask about | Scope line from Move 1: flag adjacent issues, one sentence |
+| Guard a destructive action with a confirm dialog | Make it reversible; offer undo; confirm only the irreversible |
+| Label a field with its placeholder | Give it a visible label; use the placeholder for an example |
+| Show every option and setting at once | Ship defaults; disclose the rest progressively |
+| Encode state or meaning in color alone | Pair color with text, icon, or position |
+| Design the happy path and ship | Design empty, loading, error, offline, and recovery states too |

@@ -102,7 +102,7 @@ it('handles server error', async () => {
   server.use(
     http.get('/api/users/:id', () => {
       return HttpResponse.json({ error: 'Not found' }, { status: 404 });
-    }),
+    })
   );
 
   await expect(userClient.getUser('123')).rejects.toThrow();

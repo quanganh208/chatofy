@@ -4,29 +4,14 @@ description: Automate tool-managed browsers with agent-browser for snapshots, cl
 user-invocable: true
 when_to_use: "Invoke for browser/app automation that needs snapshots or clicks and does not require the user's real Chrome profile state."
 category: engineering
-keywords:
-  [
-    browser,
-    automation,
-    playwright,
-    testing,
-    e2e,
-    browserbase,
-    autonomous,
-    headless,
-    electron,
-    slack,
-    dogfood,
-    agentcore,
-    vercel-sandbox,
-  ]
+keywords: [browser, automation, playwright, testing, e2e, browserbase, autonomous, headless, electron, slack, dogfood, agentcore, vercel-sandbox]
 license: Apache-2.0
 allowed-tools: Bash(agent-browser:*), Bash(npx agent-browser:*)
-argument-hint: '[url or task]'
+argument-hint: "[url or task]"
 metadata:
   author: agentkit
-  version: '2.0.2'
-  upstream: 'vercel-labs/agent-browser'
+  version: "2.0.2"
+  upstream: "vercel-labs/agent-browser"
 ---
 
 # agent-browser Skill
@@ -97,14 +82,14 @@ Agent Browser exposes an observability dashboard independently of browser sessio
 
 ## Troubleshooting
 
-| Issue                          | Solution                                                                   |
-| ------------------------------ | -------------------------------------------------------------------------- |
-| Command not found              | `npm install -g agent-browser`                                             |
-| Chromium missing               | `agent-browser install`                                                    |
-| Linux deps missing             | `agent-browser install --with-deps`                                        |
+| Issue | Solution |
+|-------|----------|
+| Command not found | `npm install -g agent-browser` |
+| Chromium missing | `agent-browser install` |
+| Linux deps missing | `agent-browser install --with-deps` |
 | Stale commands / missing flags | `npm install -g agent-browser` then `agent-browser skills get core --full` |
-| Session stale                  | `agent-browser close`                                                      |
-| Element not found              | Re-run `agent-browser snapshot -i` after page changes                      |
+| Session stale | `agent-browser close` |
+| Element not found | Re-run `agent-browser snapshot -i` after page changes |
 
 ## Resources
 

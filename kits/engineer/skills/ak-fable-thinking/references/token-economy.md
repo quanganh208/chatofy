@@ -23,11 +23,11 @@ Rule: spend thinking on load-bearing facts, reading on the owner, output on the 
 
 ## Proportionality, made operational
 
-| Mode     | Reading                                                             | Thinking                               | Output                                     |
-| -------- | ------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------ |
-| Direct   | at most one targeted check if a load-bearing fact is tool-checkable | the Floor plus claim typing            | a few sentences                            |
-| Standard | owner plus adjacent tests and contract                              | five moves internally; one verify-loop | outcome, evidence, caveats                 |
-| Full     | owner, callers, contracts; parallel independent checks              | moves written; Attack pass             | outcome, evidence table, risks, open items |
+| Mode | Reading | Thinking | Output |
+|------|---------|----------|--------|
+| Direct | at most one targeted check if a load-bearing fact is tool-checkable | the Floor plus claim typing | a few sentences |
+| Standard | owner plus adjacent tests and contract | five moves internally; one verify-loop | outcome, evidence, caveats |
+| Full | owner, callers, contracts; parallel independent checks | moves written; Attack pass | outcome, evidence table, risks, open items |
 
 Escalate on a tripped Floor check or a hard output constraint; de-escalate once evidence
 converges. Spending Full on a Direct ask is a calibration failure and a cost.
@@ -100,21 +100,21 @@ measured on real requests, rather than one global setting. Judge cost per comple
 
 ## Self-check (act-backed)
 
-| Question                                  | Evidence                                 |
-| ----------------------------------------- | ---------------------------------------- |
-| Did I read only what the owner required?  | the list of reads                        |
-| Did I batch independent calls?            | the turn structure                       |
-| Any identical retry?                      | the attempt log                          |
-| Did I stop when the decision was made?    | reasoning length against evidence gained |
-| Is the output outcome-first with no echo? | the first sentence                       |
+| Question | Evidence |
+|----------|----------|
+| Did I read only what the owner required? | the list of reads |
+| Did I batch independent calls? | the turn structure |
+| Any identical retry? | the attempt log |
+| Did I stop when the decision was made? | reasoning length against evidence gained |
+| Is the output outcome-first with no echo? | the first sentence |
 
 ## Do / Don't
 
-| Don't                                 | Instead                                                           |
-| ------------------------------------- | ----------------------------------------------------------------- |
-| Open files to remember what they said | Keep a ledger; read once                                          |
-| Serialize independent checks          | Batch them in one turn                                            |
-| Blindly retry failures                | Classify; back off for transient errors, fix deterministic causes |
-| Think until the budget ends           | Stop at convergence; name the residual risk                       |
-| Narrate the process                   | Deliver the outcome and the evidence                              |
-| Spend Full effort on a lookup         | Match depth to stakes, irreversibility, novelty                   |
+| Don't | Instead |
+|-------|---------|
+| Open files to remember what they said | Keep a ledger; read once |
+| Serialize independent checks | Batch them in one turn |
+| Blindly retry failures | Classify; back off for transient errors, fix deterministic causes |
+| Think until the budget ends | Stop at convergence; name the residual risk |
+| Narrate the process | Deliver the outcome and the evidence |
+| Spend Full effort on a lookup | Match depth to stakes, irreversibility, novelty |

@@ -17,12 +17,12 @@ Core is internal composition input, not an installable user kit.
 
 ## Distinct quantities
 
-| Quantity          | Unit / source                            | Purpose                 |
-| ----------------- | ---------------------------------------- | ----------------------- |
+| Quantity | Unit / source | Purpose |
+|---|---|---|
 | Context occupancy | Current request tokens / verified window | Capacity and compaction |
-| Task consumption  | Sum across calls, agents, retries        | Overall allocation      |
-| Cost              | Actual invoice or dated pricing estimate | Economic selection      |
-| Provider quota    | Provider-specific rolling limit          | Scheduling/pacing       |
+| Task consumption | Sum across calls, agents, retries | Overall allocation |
+| Cost | Actual invoice or dated pricing estimate | Economic selection |
+| Provider quota | Provider-specific rolling limit | Scheduling/pacing |
 
 Cached input still occupies context; cache billing is a different calculation. A
 statusline may already include reserved capacity. Record that basis, and do not count

@@ -6,11 +6,11 @@ when_to_use: Invoke for subfolder-scoped agent context, not root project instruc
 category: workflow
 keywords: [claude-md, agents-md, context, folder, conventions]
 license: MIT
-argument-hint: '<target-folder>'
+argument-hint: "<target-folder>"
 metadata:
   author: agentkit
-  version: '1.0.3'
-  upstream: 'Pinned MIT source archive: folder-specific-claude-and-agents-md@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5'
+  version: "1.0.3"
+  upstream: "Pinned MIT source archive: folder-specific-claude-and-agents-md@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5"
 ---
 
 # Folder Context

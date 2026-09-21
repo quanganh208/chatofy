@@ -6,12 +6,12 @@ Load this when the task involves scroll animation, page-load choreography, GSAP,
 
 The 100/300/500 rule — duration is set by what the animation does, never by taste:
 
-| Class            | Duration  | Examples                                                   |
-| ---------------- | --------- | ---------------------------------------------------------- |
-| Instant feedback | 100-150ms | button press, toggle, checkbox, tab switch                 |
-| State change     | 200-300ms | hover, menu open, tooltip, dropdown                        |
-| Layout change    | 300-500ms | accordion, modal, drawer, expand/collapse                  |
-| Entrance         | 500-800ms | hero reveal, page-load orchestration (brand surfaces ONLY) |
+| Class | Duration | Examples |
+|-------|----------|----------|
+| Instant feedback | 100-150ms | button press, toggle, checkbox, tab switch |
+| State change | 200-300ms | hover, menu open, tooltip, dropdown |
+| Layout change | 300-500ms | accordion, modal, drawer, expand/collapse |
+| Entrance | 500-800ms | hero reveal, page-load orchestration (brand surfaces ONLY) |
 
 - Exits run at ~75% of the entrance duration — leaving is faster than arriving.
 - Interactions under ~80ms feel instant; don't animate below that threshold.
@@ -25,9 +25,9 @@ Define once, use everywhere:
 
 ```css
 :root {
-  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1); /* default UI ease */
-  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1); /* slightly snappier */
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1); /* reveals, entrances */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);   /* default UI ease */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);  /* slightly snappier */
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);   /* reveals, entrances */
 }
 ```
 
@@ -46,12 +46,12 @@ Define once, use everywhere:
 
 ## 4. Tech selection
 
-| Need                                                         | Tool                                                       |
-| ------------------------------------------------------------ | ---------------------------------------------------------- |
-| Hover/press/focus states, simple entrances                   | CSS transitions + `animation-delay` stagger                |
-| React reveals, springs, gestures, layout animation           | Motion (`motion/react`): `whileInView`, `useMotionValue`   |
-| Pinning, scrubbing, horizontal pan, card stacking, timelines | GSAP + ScrollTrigger                                       |
-| Scroll-linked without JS                                     | CSS `animation-timeline: view()` (progressive enhancement) |
+| Need | Tool |
+|------|------|
+| Hover/press/focus states, simple entrances | CSS transitions + `animation-delay` stagger |
+| React reveals, springs, gestures, layout animation | Motion (`motion/react`): `whileInView`, `useMotionValue` |
+| Pinning, scrubbing, horizontal pan, card stacking, timelines | GSAP + ScrollTrigger |
+| Scroll-linked without JS | CSS `animation-timeline: view()` (progressive enhancement) |
 
 - Never mix GSAP and Motion in one component tree — one owner per subtree.
 - **Banned scroll tech**: raw `window.addEventListener('scroll')`, `window.scrollY` in React state, rAF loops writing state, `useState` for any continuous value (scroll, mouse, magnetic pull). Use `useScroll`/`useMotionValue`/`useTransform`, ScrollTrigger, or IntersectionObserver — they bypass the React render loop.
@@ -64,12 +64,11 @@ Register once: `gsap.registerPlugin(ScrollTrigger)`. Pins MUST use `start: "top 
 
 ```js
 cards.forEach((card, i) => {
-  ScrollTrigger.create({ trigger: card, start: 'top top', pin: true, pinSpacing: false });
+  ScrollTrigger.create({ trigger: card, start: "top top", pin: true, pinSpacing: false });
   if (i < cards.length - 1) {
     gsap.to(card, {
-      scale: 0.92,
-      opacity: 0.55,
-      scrollTrigger: { trigger: cards[i + 1], start: 'top bottom', end: 'top top', scrub: true },
+      scale: 0.92, opacity: 0.55,
+      scrollTrigger: { trigger: cards[i + 1], start: "top bottom", end: "top top", scrub: true },
     });
   }
 });
@@ -80,13 +79,10 @@ cards.forEach((card, i) => {
 ```js
 gsap.to(track, {
   x: () => -(track.scrollWidth - window.innerWidth),
-  ease: 'none',
+  ease: "none",
   scrollTrigger: {
-    trigger: section,
-    start: 'top top',
-    pin: true,
-    scrub: 1,
-    end: () => '+=' + (track.scrollWidth - window.innerWidth),
+    trigger: section, start: "top top", pin: true, scrub: 1,
+    end: () => "+=" + (track.scrollWidth - window.innerWidth),
     invalidateOnRefresh: true,
   },
 });
@@ -118,12 +114,11 @@ Limits: max 1 marquee per page; `invalidateOnRefresh: true` on anything measurin
 **Magnetic button** — continuous values live in motion values, never state:
 
 ```jsx
-const x = useMotionValue(0),
-  y = useMotionValue(0);
+const x = useMotionValue(0), y = useMotionValue(0);
 const sx = useSpring(x, { stiffness: 150, damping: 15 });
 const sy = useSpring(y, { stiffness: 150, damping: 15 });
 // onPointerMove: x.set((e.clientX - rect.x - rect.width / 2) * 0.3); onPointerLeave: x.set(0)
-<motion.button style={{ x: sx, y: sy }} />;
+<motion.button style={{ x: sx, y: sy }} />
 ```
 
 ## 7. Micro-interactions
@@ -140,9 +135,7 @@ const sy = useSpring(y, { stiffness: 150, damping: 15 });
 
 ```css
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -151,8 +144,7 @@ const sy = useSpring(y, { stiffness: 150, damping: 15 });
 }
 ```
 
-For scroll narratives, provide a crossfade or static alternative, not just disabled motion.
-
+  For scroll narratives, provide a crossfade or static alternative, not just disabled motion.
 - Animate `transform` / `opacity` / `color` / `box-shadow` only. Expansion: `grid-template-rows: 0fr → 1fr` or FLIP — never animate `width/height/top/left/margin`. Blur, `backdrop-filter`, `clip-path`, and mask are allowed as premium materials when bounded to small areas and verified smooth in-browser.
 - `will-change` on demand (set before, remove after) — never page-wide.
 - Off-screen animation causes horizontal scrollbars: wrap the page in `overflow-x: hidden` on the outermost container AND verify at 375px.

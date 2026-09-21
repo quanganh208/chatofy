@@ -63,12 +63,12 @@ Add `.agentkit/.env` to your project's `.gitignore` — never commit
 
 ## `posts:create` flags used by this skill
 
-| Flag                                   | Used for                                                                                                                                                        |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--text <body>`                        | The post body (already localized/styled by the calling agent — see Layering below).                                                                             |
-| `--accounts <accountId>`               | The channel's `account_id` from `.agentkit/journal.yaml`.                                                                                                       |
+| Flag | Used for |
+|------|----------|
+| `--text <body>` | The post body (already localized/styled by the calling agent — see Layering below). |
+| `--accounts <accountId>` | The channel's `account_id` from `.agentkit/journal.yaml`. |
 | `--threadJson '["post1","post2",...]'` | Native thread mode for `platform: x` / `platform: threads` when the body needed splitting — see `references/channels-config.md` and `scripts/split-thread.cjs`. |
-| `--media <url>` (repeatable)           | The public URL(s) returned by `zernio media:upload`, for `--image`/`--image-ai`/`--video`/`--video-ai` — see `references/media-flags.md`.                       |
+| `--media <url>` (repeatable) | The public URL(s) returned by `zernio media:upload`, for `--image`/`--image-ai`/`--video`/`--video-ai` — see `references/media-flags.md`. |
 
 Full upstream flag set (for reference; not all used by this skill yet):
 `--scheduledAt`, `--quoteTweetId`, `--replyToTweetId`, `--replySettings`,

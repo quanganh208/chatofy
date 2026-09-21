@@ -23,11 +23,11 @@ Prompt injection is **#1 vulnerability** in LLM-integrated applications (OWASP T
 
 ### Three Attack Classes
 
-| Class                         | Vector                                        | Example                                                |
-| ----------------------------- | --------------------------------------------- | ------------------------------------------------------ |
-| **Direct injection**          | Attacker input directly to LLM                | Chat input, form field processed by AI                 |
-| **Indirect injection**        | Malicious instructions in consumed data       | Web pages, emails, documents, RAG chunks, tool outputs |
-| **Cross-privilege injection** | Lower-priv user plants payload in shared data | Comment with injection read by admin's AI session      |
+| Class | Vector | Example |
+|-------|--------|---------|
+| **Direct injection** | Attacker input directly to LLM | Chat input, form field processed by AI |
+| **Indirect injection** | Malicious instructions in consumed data | Web pages, emails, documents, RAG chunks, tool outputs |
+| **Cross-privilege injection** | Lower-priv user plants payload in shared data | Comment with injection read by admin's AI session |
 
 ---
 
@@ -57,7 +57,6 @@ langchain, llamaindex, autogen, crewai
 ```
 
 ### AI Features to Identify
-
 - AI-powered search or recommendations
 - AI content generation (summaries, descriptions, emails)
 - AI chatbots or copilots embedded in app
@@ -67,7 +66,6 @@ langchain, llamaindex, autogen, crewai
 - MCP server connections and tool registrations
 
 ### Document for Each Integration
-
 1. What is the system prompt? (read fully)
 2. What user input reaches the prompt?
 3. What external data reaches the prompt? (RAG, tools, web, DB, files)
@@ -80,21 +78,18 @@ langchain, llamaindex, autogen, crewai
 ## 5. Prompt Construction Vulnerabilities
 
 ### Unsanitized Interpolation (VULNERABLE)
-
 ```python
 prompt = f"Summarize this: {user_input}"
 prompt = f"Answer based on this context: {rag_results}"
 ```
 
 ### Missing Boundaries (VULNERABLE)
-
 ```python
 # No delimiter between instructions and data
 prompt = "Summarize: " + user_input
 ```
 
 ### Proper Delimiting (BETTER)
-
 ```python
 prompt = f"""Summarize the text between the <document> tags.
 <document>
@@ -103,7 +98,6 @@ prompt = f"""Summarize the text between the <document> tags.
 ```
 
 ### Secrets in System Prompts (VULNERABLE)
-
 ```python
 system = f"You are a helper. Use API key {API_KEY} to call..."
 ```
@@ -112,19 +106,18 @@ system = f"You are a helper. Use API key {API_KEY} to call..."
 
 ## 6. Output Handling Vulnerabilities
 
-| Output Use            | Risk              | Example                                             |
-| --------------------- | ----------------- | --------------------------------------------------- |
-| Rendered as HTML      | XSS via LLM       | `dangerouslySetInnerHTML={{ __html: llmResponse }}` |
-| Executed as code      | RCE               | `exec(llm_response)`                                |
-| Used in DB queries    | SQLi              | `cursor.execute(f"SELECT * FROM {llm_response}")`   |
-| Passed to another LLM | Chained injection | LLM A output becomes LLM B input                    |
+| Output Use | Risk | Example |
+|------------|------|---------|
+| Rendered as HTML | XSS via LLM | `dangerouslySetInnerHTML={{ __html: llmResponse }}` |
+| Executed as code | RCE | `exec(llm_response)` |
+| Used in DB queries | SQLi | `cursor.execute(f"SELECT * FROM {llm_response}")` |
+| Passed to another LLM | Chained injection | LLM A output becomes LLM B input |
 
 ---
 
 ## 7. Tool/Function Calling & Agent Security
 
 ### Tool Call Validation
-
 ```python
 # VULNERABLE — no validation
 result = execute_tool(tool_name=llm_choice, args=llm_args)
@@ -139,66 +132,63 @@ if tool_name in DESTRUCTIVE_TOOLS:
 
 ### Agent-Specific Risks
 
-| Risk                   | Description                                                |
-| ---------------------- | ---------------------------------------------------------- |
-| Unbounded loops        | Missing iteration limits, token budgets, timeouts          |
-| Memory poisoning       | Untrusted data writing to persistent memory/vector store   |
-| Multi-agent delegation | Agent-to-agent messages treated as trusted                 |
-| Self-modification      | Agent can modify own instructions, tools, or system prompt |
-| MCP server injection   | Malicious MCP server registration, unscoped tools          |
-| Code execution         | Missing sandbox, filesystem/network restrictions           |
+| Risk | Description |
+|------|------------|
+| Unbounded loops | Missing iteration limits, token budgets, timeouts |
+| Memory poisoning | Untrusted data writing to persistent memory/vector store |
+| Multi-agent delegation | Agent-to-agent messages treated as trusted |
+| Self-modification | Agent can modify own instructions, tools, or system prompt |
+| MCP server injection | Malicious MCP server registration, unscoped tools |
+| Code execution | Missing sandbox, filesystem/network restrictions |
 
 ---
 
 ## 8. Permission Boundary Audit
 
 ### Confused Deputy Check
-
 - Does AI use service account with broad permissions? (bypasses row-level security)
 - Does AI execute under requesting user's permissions? (correct approach)
 
 ### Privilege Escalation Vectors
-
 - Read-only user triggers AI write operations
 - User queries other users' records through AI
 - AI-generated tool calls bypass permission checks
 - User input causes AI to call admin-only endpoints
 
 ### Multi-Tenant Data Leakage
-
 - RAG retrieval filtered by tenant?
 - AI-generated queries tenant-scoped?
 - Shared AI features isolate tenant data?
 
 ### Permission Check Checklist
 
-| Check                                                         | Status |
-| ------------------------------------------------------------- | ------ |
-| AI tool calls go through same auth middleware as user actions |        |
-| AI database queries scoped to requesting user's permissions   |        |
-| RAG retrieval filtered by tenant/user access level            |        |
-| AI cannot access admin APIs on behalf of non-admin users      |        |
-| Shared data consumed by AI treated as untrusted input         |        |
-| AI feature access gated by user role                          |        |
+| Check | Status |
+|-------|--------|
+| AI tool calls go through same auth middleware as user actions | |
+| AI database queries scoped to requesting user's permissions | |
+| RAG retrieval filtered by tenant/user access level | |
+| AI cannot access admin APIs on behalf of non-admin users | |
+| Shared data consumed by AI treated as untrusted input | |
+| AI feature access gated by user role | |
 
 ---
 
 ## 9. Defense Layer Assessment
 
-| Defense                       | Present? | Notes |
-| ----------------------------- | -------- | ----- |
-| Input validation/sanitization |          |       |
-| Prompt delimiters             |          |       |
-| Output validation             |          |       |
-| Tool call validation          |          |       |
-| Privilege separation          |          |       |
-| User-scoped AI queries        |          |       |
-| Agent loop limits             |          |       |
-| Agent memory isolation        |          |       |
-| MCP server auth               |          |       |
-| Rate limiting                 |          |       |
-| Monitoring/logging            |          |       |
-| Human-in-the-loop             |          |       |
+| Defense | Present? | Notes |
+|---------|----------|-------|
+| Input validation/sanitization | | |
+| Prompt delimiters | | |
+| Output validation | | |
+| Tool call validation | | |
+| Privilege separation | | |
+| User-scoped AI queries | | |
+| Agent loop limits | | |
+| Agent memory isolation | | |
+| MCP server auth | | |
+| Rate limiting | | |
+| Monitoring/logging | | |
+| Human-in-the-loop | | |
 
 ---
 
@@ -206,20 +196,15 @@ if tool_name in DESTRUCTIVE_TOOLS:
 
 ```markdown
 # Prompt Injection Audit Report
-
 ## Application: [name]
-
 ## Date: [date]
 
 ### LLM Integration Map
-
 | Integration | Model | User Input? | External Data? | Tools? | Output Usage |
-| ----------- | ----- | ----------- | -------------- | ------ | ------------ |
+|-------------|-------|-------------|----------------|--------|-------------|
 
 ### Findings
-
 #### [SEVERITY] [Title]
-
 **File:** `path/to/file:line`
 **Category:** Direct/Indirect/Cross-Privilege/Prompt Leaking/Insecure Output/Tool Abuse/Agent Security/Permission Bypass
 **Description:** [vulnerability]
@@ -228,12 +213,10 @@ if tool_name in DESTRUCTIVE_TOOLS:
 **Remediation:** [fix with explanation]
 
 ### Defense Assessment
-
 | Defense Layer | Status | Recommendation |
-| ------------- | ------ | -------------- |
+|--------------|--------|----------------|
 
 ### Prioritized Remediation
-
 1. [Critical — permission bypass, privilege escalation, multi-tenant leakage]
 2. [Critical — exploitable injection with tool/agent access]
 3. [High — unsanitized input in prompts, agent memory poisoning]

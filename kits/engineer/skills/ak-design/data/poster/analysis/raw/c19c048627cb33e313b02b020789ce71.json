@@ -8,7 +8,13 @@
     "scientific illustration",
     "data visualization"
   ],
-  "palette_hexes": ["#2637B4", "#D4353C", "#FFFFFF", "#D5E0E0", "#9C1F23"],
+  "palette_hexes": [
+    "#2637B4",
+    "#D4353C",
+    "#FFFFFF",
+    "#D5E0E0",
+    "#9C1F23"
+  ],
   "layout": {
     "grid": "centered object, infographic",
     "focal": "center",
@@ -18,7 +24,12 @@
     "material": "matte paper",
     "finish": "intricate illustration, subtle grain"
   },
-  "mood": ["conceptual", "scientific", "intricate", "futuristic"],
+  "mood": [
+    "conceptual",
+    "scientific",
+    "intricate",
+    "futuristic"
+  ],
   "shape_primitives": [
     "organic shape",
     "thin rule",
@@ -26,5 +37,10 @@
     "stylized curve",
     "implied rectangle"
   ],
-  "typography": ["ornamental serif display", "geometric sans", "extreme size contrast", "all caps"]
+  "typography": [
+    "ornamental serif display",
+    "geometric sans",
+    "extreme size contrast",
+    "all caps"
+  ]
 }

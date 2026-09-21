@@ -46,7 +46,6 @@
 Find or create related GitHub issues for traceability.
 
 1. Search for related open issues by keywords from branch name and commit messages:
-
    ```bash
    # Extract keywords from branch name
    BRANCH=$(git branch --show-current)
@@ -57,7 +56,6 @@ Find or create related GitHub issues for traceability.
    ```
 
 2. Also check if any issues are referenced in commit messages:
-
    ```bash
    git log <target>..HEAD --oneline | grep -oE '#[0-9]+' | sort -u
    ```
@@ -65,7 +63,6 @@ Find or create related GitHub issues for traceability.
 3. **If related issues found:** Note issue numbers for PR linking.
 
 4. **If NO related issues found:** Create a new issue with structured format:
-
    ```bash
    gh issue create --title "<type>: <summary from commits>" --body "$(cat <<'EOF'
    ## Problem Statement
@@ -79,7 +76,6 @@ Find or create related GitHub issues for traceability.
 
    ### Architecture
    ```
-
    <ASCII diagram of component interactions>
    ```
 
@@ -96,11 +92,8 @@ Find or create related GitHub issues for traceability.
    - [ ] Verify business logic correctness
    - [ ] Check for edge cases not covered by tests
    - [ ] Validate UX/API contract changes (if any)
-         EOF
-         )"
-
-   ```
-
+   EOF
+   )"
    ```
 
 5. Store issue numbers for Step 12 (PR creation).
@@ -139,7 +132,6 @@ git fetch origin <target> && git merge origin/<target> --no-edit
    - **Pass 2 (INFORMATIONAL):** Dead code, magic numbers, test gaps, style
 
 4. **Output findings:**
-
    ```
    Pre-Landing Review: N issues (X critical, Y informational)
    ```
@@ -149,7 +141,6 @@ git fetch origin <target> && git merge origin/<target> --no-edit
 6. **After fixes:** Re-run affected tests (Step 4) before continuing.
 7. **If only informational:** Include in PR body, continue.
 8. **If no issues:** Output "No issues found." and continue.
-
 ## Mandatory advice checkpoint after Steps 4-5
 
 If `--advice`, run the mandatory post-tests/local-review Kongming checkpoint
@@ -187,7 +178,7 @@ section of the shared files-first plan-state reference
    step silently** (most ships carry no plan).
 2. Verify checkboxes with `ak plan status`; if the diff proves a phase done,
    `ak plan check <phase-file>` it. If the work is genuinely partial, `ak plan
-update <id> --status in-progress` and skip the completion below.
+   update <id> --status in-progress` and skip the completion below.
 3. `ak plan update <id> --status completed` — rewrites `plan.md` front-matter
    `status:` (canonical) and the index in one op. Step 10's scoped staging then
    commits the finalized plan files with the ship, so `status: completed` reaches
@@ -230,7 +221,6 @@ git push -u origin $(git branch --show-current)
 ## Step 12: Create PR
 
 Check if `gh` CLI is available:
-
 ```bash
 which gh 2>/dev/null || echo "MISSING"
 ```
@@ -238,15 +228,12 @@ which gh 2>/dev/null || echo "MISSING"
 If missing: output "Install GitHub CLI (gh) to auto-create PRs" and stop after push.
 
 **Resolve writing language** before rendering the body:
-
 ```bash
 WL_BIN=.claude/hooks/lib/writing-language.cjs
 test -f "$WL_BIN" || WL_BIN=kits/core/hooks/lib/writing-language.cjs
 node "$WL_BIN" --json
 ```
-
 Load `references/pr-template.md` and the shared contracts:
-
 - `kits/engineer/skills/ak-review-pr/references/writing-language.md`
 - `kits/engineer/skills/ak-review-pr/references/pr-body-contract.md`
 
@@ -258,7 +245,6 @@ Record language `source` / `fallbackReason` under Ship Mode.
 keywords inside the Linked Issues section.
 
 Create PR targeting the correct branch:
-
 ```bash
 gh pr create --base <target-branch> --title "<type(scope): summary>" --body "$(cat <<'EOF'
 <localized evidence-rich body from pr-template.md>
@@ -267,7 +253,6 @@ EOF
 ```
 
 Validate before finishing:
-
 ```bash
 PR_BIN=.claude/hooks/lib/pr-body-contract.cjs
 test -f "$PR_BIN" || PR_BIN=kits/core/hooks/lib/pr-body-contract.cjs
@@ -277,7 +262,6 @@ gh pr view --json body -q .body | node "$PR_BIN"
 **Output the PR URL** — this is the final output the user sees.
 
 If PR already exists for this branch, update it instead (same contract):
-
 ```bash
 gh pr edit --title "<type(scope): summary>" --body "$(cat <<'EOF'
 <localized evidence-rich body>
@@ -289,11 +273,9 @@ EOF
 
 If Step 9b finalized a plan, record the PR number on it so the merge flow can
 match plan to PR and close the index unambiguously:
-
 ```bash
 ak plan update <plan-id> --linked-pr <pr-number>
 ```
-
 `--linked-pr` is index-only (it does not touch files). Skip silently when no
 plan was finalized. Do not close the plan here — the index `close` happens only
 after the PR merges (see the shared reference's "Delivery finalization" section).

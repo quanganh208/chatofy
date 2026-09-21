@@ -4,13 +4,13 @@ Look for behavioral failures: lost constraints, repeated investigation, stale co
 wrong task identity, and decisions that contradict current source. These can occur before
 capacity is exhausted; onset and severity are model/task-specific.
 
-| Signal                        | Discriminating check                               | Recovery                                          |
-| ----------------------------- | -------------------------------------------------- | ------------------------------------------------- |
-| Forgotten constraint          | Compare output with original acceptance criteria   | Re-anchor the constraint                          |
-| Stale fact                    | Check source revision/current state                | Replace superseded ledger entry                   |
-| Repeated investigation        | Consult prior evidence and invalidation conditions | Reuse valid result                                |
-| Conflicting source claims     | Check authority, date and scope                    | Preserve uncertainty until resolved               |
-| Persistent unsupported belief | Ask for evidence; check actual source              | Checkpoint verified state, use supported recovery |
+| Signal | Discriminating check | Recovery |
+|---|---|---|
+| Forgotten constraint | Compare output with original acceptance criteria | Re-anchor the constraint |
+| Stale fact | Check source revision/current state | Replace superseded ledger entry |
+| Repeated investigation | Consult prior evidence and invalidation conditions | Reuse valid result |
+| Conflicting source claims | Check authority, date and scope | Preserve uncertainty until resolved |
+| Persistent unsupported belief | Ask for evidence; check actual source | Checkpoint verified state, use supported recovery |
 
 Error words can describe fixed bugs, expected failures, quoted logs or tests. They do not
 measure poisoning. Keyword position does not measure attention weights. The analyzer emits

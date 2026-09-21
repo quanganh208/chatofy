@@ -1,14 +1,14 @@
 ---
 name: ak:fix
-description: 'Fix bugs, errors, test failures, and CI/CD issues with intelligent routing. Use for type errors, lint issues, log errors, UI bugs, code problems.'
+description: "Fix bugs, errors, test failures, and CI/CD issues with intelligent routing. Use for type errors, lint issues, log errors, UI bugs, code problems."
 user-invocable: true
-when_to_use: 'Invoke when there is a concrete bug, error, or CI failure.'
+when_to_use: "Invoke when there is a concrete bug, error, or CI failure."
 category: workflow
 keywords: [bugfix, error, test-failure, CI, lint]
-argument-hint: '[issue] --auto|--review|--quick|--parallel [--ultra] [--advice] [--skip-journal]'
+argument-hint: "[issue] --auto|--review|--quick|--parallel [--ultra] [--advice] [--skip-journal]"
 metadata:
   author: agentkit
-  version: '2.5.1'
+  version: "2.5.1"
   workflow:
     precedes: [ak-test]
 ---
@@ -37,6 +37,7 @@ model routing, the spawn checkpoints (after each step, when stuck, on any failed
 verification, before a high-stakes decision), when to treat `--advice` as active,
 and how supervision persists through a PR.
 
+
 ## Diagnose, repair and finish
 
 Choose quick for a clear local cause, standard for multi-file work, and deep for architecture
@@ -61,17 +62,16 @@ Engineer-only skill blocks a local fix. Commit or publish only when already auth
 ### Journal step — opt-out
 
 Skip the automatic `/ak:journal` step when either applies:
-
 - The invocation includes the `--skip-journal` flag, OR
 - `ak config prefs resolve --json | jq -r 'if .prefs.journal.auto == false then "false" else "true" end'` returns `false`. If the command errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt or missing config never suppresses the automatic journal.
 
 Precedence: flag > project config > user config > default (`true`).
 When skipped, print one line:
-
 - `journal skipped by --skip-journal` (flag), or
 - `journal skipped by preference` (config).
 
 Explicit `/ak:journal` and `ak journal create` are unaffected. The opt-out covers the journal step only; the rest of the Finalize block still runs.
+
 
 ## Ultra Verifier Mode (`--ultra`)
 
@@ -83,10 +83,10 @@ fix plan. It hard-conflicts with `--quick` and `--parallel`. Load
 `references/ultra-verifier-mode-fix.md` for the evidence packet, candidate task,
 rubric, finalizer, and conflict handling.
 
+
 ## References
 
 Load as needed:
-
 - `references/mode-selection.md` - ask_user capability format for mode
 - `references/complexity-assessment.md` - Classification criteria
 - `references/workflow-quick.md` - Quick: scout → diagnose → fix → verify+prevent → review
@@ -102,7 +102,6 @@ Load as needed:
 - `references/ultra-verifier-mode-fix.md` - `--ultra` best-of-5 fix-plan selection
 
 **Specialized Workflows:**
-
 - `references/workflow-ci.md` - GitHub Actions/CI failures
 - `references/workflow-logs.md` - Application log analysis
 - `references/workflow-test.md` - Test suite failures

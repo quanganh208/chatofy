@@ -26,11 +26,11 @@ The bundled tracker reads a local file rather than querying the service. Verify 
 
 ## Warning Thresholds
 
-| Remaining | Action                                          |
-| --------- | ----------------------------------------------- |
-| > 20%     | Normal operation                                |
-| < 20%     | `[!] Low quota` warning printed                 |
-| 0         | `[X] Exhausted` — exit code 2, suggest fallback |
+| Remaining | Action |
+|-----------|--------|
+| > 20% | Normal operation |
+| < 20% | `[!] Low quota` warning printed |
+| 0 | `[X] Exhausted` — exit code 2, suggest fallback |
 
 ## Conservation Tips
 

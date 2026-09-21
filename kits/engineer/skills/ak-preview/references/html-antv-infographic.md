@@ -26,16 +26,15 @@ The bundle's global is `window.AntVInfographic` (NOT `Infographic`). The distrib
   src="https://cdn.jsdelivr.net/npm/@antv/infographic@0.2.19/dist/infographic.min.js"
   integrity="sha384-yIMmVGR7iq/lwiw1nxM0HBFtQop+F1gGc+5CyobDbz6P7sp+SJSSblD7rLkCj0Sd"
   crossorigin="anonymous"
-  referrerpolicy="no-referrer"
-></script>
+  referrerpolicy="no-referrer"></script>
 ```
 
 Sizes (verified 2026-08-16 against the tarball at `registry.npmjs.org/@antv/infographic/-/infographic-0.2.19.tgz`):
 
-| Metric       | Value  | Plan target                                        |
-| ------------ | ------ | -------------------------------------------------- |
+| Metric | Value | Plan target |
+|--------|-------|-------------|
 | Uncompressed | 874 KB | ≤ 500 KB (**exceeded** — surface in each artifact) |
-| Gzipped      | 288 KB | ≤ 150 KB (**exceeded**)                            |
+| Gzipped | 288 KB | ≤ 150 KB (**exceeded**) |
 
 Because the bundle is larger than target, include AntV only when the artifact really uses ≥3 panels; below that threshold, hand-author SVG.
 
@@ -51,11 +50,9 @@ Verified in headless Chromium 1194: `window.AntVInfographic` is present after sc
   // Guards against Node-only globals the bundle references defensively.
   window.process = window.process || { env: {}, browser: true };
 </script>
-<script
-  src="https://cdn.jsdelivr.net/npm/@antv/infographic@0.2.19/dist/infographic.min.js"
-  integrity="sha384-yIMmVGR7iq/lwiw1nxM0HBFtQop+F1gGc+5CyobDbz6P7sp+SJSSblD7rLkCj0Sd"
-  crossorigin="anonymous"
-></script>
+<script src="https://cdn.jsdelivr.net/npm/@antv/infographic@0.2.19/dist/infographic.min.js"
+        integrity="sha384-yIMmVGR7iq/lwiw1nxM0HBFtQop+F1gGc+5CyobDbz6P7sp+SJSSblD7rLkCj0Sd"
+        crossorigin="anonymous"></script>
 <script>
   const { Infographic } = window.AntVInfographic;
   const infographic = new Infographic({
@@ -82,20 +79,20 @@ Verified in headless Chromium 1194: `window.AntVInfographic` is present after sc
 
 Restrict generated code to these named exports on `window.AntVInfographic`. Unfamiliar names risk runtime `undefined` when the LLM improvises.
 
-| Panel intent  | Template name                | Notes                                                                            |
-| ------------- | ---------------------------- | -------------------------------------------------------------------------------- |
-| KPI dial      | `CircularProgress`           | Single ring; `min/max/value` fields                                              |
-| KPI card      | `CompactCard`, `BadgeCard`   | Number + label; badge variant for status                                         |
-| KPI callout   | `CandyCardLite`              | Big serif number over caption                                                    |
-| Ranked list   | `CompareBinaryHorizontal`    | Two-column bar compare                                                           |
-| Distribution  | `ChartPie`                   | Prefer over Chart.js when tiled next to other AntV panels for visual consistency |
-| Bar / column  | `ChartBar`, `ChartColumn`    | Horizontal / vertical                                                            |
-| Trend         | `ChartLine`                  | Line + area fill                                                                 |
-| Composition   | `ChartWordCloud`             | Terms + weights                                                                  |
-| Comparison    | `CompareHierarchyLeftRight`  | Two hierarchies mirrored                                                         |
-| Node / entity | `CircleNode`, `CapsuleItem`  | Building blocks for custom compositions                                          |
-| Container     | `BtnsGroup`, `BadgeCard`     | Chrome around panels                                                             |
-| Interaction   | `BrushSelect`, `ClickSelect` | Selection controls (rarely needed in static plans)                               |
+| Panel intent | Template name | Notes |
+|---|---|---|
+| KPI dial | `CircularProgress` | Single ring; `min/max/value` fields |
+| KPI card | `CompactCard`, `BadgeCard` | Number + label; badge variant for status |
+| KPI callout | `CandyCardLite` | Big serif number over caption |
+| Ranked list | `CompareBinaryHorizontal` | Two-column bar compare |
+| Distribution | `ChartPie` | Prefer over Chart.js when tiled next to other AntV panels for visual consistency |
+| Bar / column | `ChartBar`, `ChartColumn` | Horizontal / vertical |
+| Trend | `ChartLine` | Line + area fill |
+| Composition | `ChartWordCloud` | Terms + weights |
+| Comparison | `CompareHierarchyLeftRight` | Two hierarchies mirrored |
+| Node / entity | `CircleNode`, `CapsuleItem` | Building blocks for custom compositions |
+| Container | `BtnsGroup`, `BadgeCard` | Chrome around panels |
+| Interaction | `BrushSelect`, `ClickSelect` | Selection controls (rarely needed in static plans) |
 
 For the full ~200 template list, inspect `Object.keys(window.AntVInfographic)` in a browser once and record which names actually landed in this pin — the upstream API surface is not versioned semver.
 

@@ -7,7 +7,7 @@ file use `/ak:folder-context`; for human `docs/` use `init` or `update`.
 ## Artifact class
 
 A root agent context file is **process memory**: imperative rules that steer
-agent _behavior_. It is not `docs/`, which own WHY and WHERE. It exists to
+agent *behavior*. It is not `docs/`, which own WHY and WHERE. It exists to
 prevent specific costly actions. Its single-source-of-truth
 spine is the deletion test and drift-resistance rules in `doc-content-rules.md`;
 apply those, do not restate them here.
@@ -35,16 +35,16 @@ Run every candidate line through four questions:
 
 ## Write / don't-write
 
-| Write — prevents a costly action                                           | Don't write — cost with no payoff                                                             |
-| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Exact build / test / lint / single-test commands                           | Project overview, "what this project is"                                                      |
-| Mandatory tooling (`pnpm` not `npm`, `uv` not `pip`)                       | Directory tree, module inventory                                                              |
-| Expensive steps + how to avoid ("full suite is slow, use `-k`")            | Style rules a linter/formatter already enforces                                               |
-| Deny-list: files not to touch, commands not to run, migrations not to edit | Anything duplicating the README                                                               |
-| Non-derivable gotchas (required env var, service that must run first)      | Project history, changelog                                                                    |
-| Out-of-code conventions (commit / PR / branch naming)                      | "Always write clean, readable code"                                                           |
-| A one-line pointer to the owning operational guide                         | Credential values, tokenized URLs, account or project ids, dashboard locators, customer names |
-| Definition of done (what to run before reporting complete)                 | Architecture prose the agent can read from code                                               |
+| Write — prevents a costly action | Don't write — cost with no payoff |
+|---|---|
+| Exact build / test / lint / single-test commands | Project overview, "what this project is" |
+| Mandatory tooling (`pnpm` not `npm`, `uv` not `pip`) | Directory tree, module inventory |
+| Expensive steps + how to avoid ("full suite is slow, use `-k`") | Style rules a linter/formatter already enforces |
+| Deny-list: files not to touch, commands not to run, migrations not to edit | Anything duplicating the README |
+| Non-derivable gotchas (required env var, service that must run first) | Project history, changelog |
+| Out-of-code conventions (commit / PR / branch naming) | "Always write clean, readable code" |
+| A one-line pointer to the owning operational guide | Credential values, tokenized URLs, account or project ids, dashboard locators, customer names |
+| Definition of done (what to run before reporting complete) | Architecture prose the agent can read from code |
 
 ## Audit procedure
 
@@ -66,7 +66,7 @@ a second confirmation for a routine change.
 
 ## Enforcement is recommend-only
 
-Markdown is guidance the model _may_ follow; client settings and hooks are
+Markdown is guidance the model *may* follow; client settings and hooks are
 enforced regardless of what the model decides. For an absolute rule ("never push
 to `main`", "never touch `infra/prod/**`"), **recommend** the deterministic
 control and show a snippet — do **not** edit `settings.json` or hook files
@@ -84,7 +84,7 @@ option. Uppercase markdown ("NEVER PUSH") is not enforcement.
 
 ## Activation scope
 
-Keep any single file lean; split by _when it must load_, not by compressing text:
+Keep any single file lean; split by *when it must load*, not by compressing text:
 
 - root file → always-loaded process rules (commands, tooling, deny-list, DoD);
 - path-scoped rules → conventions that apply only to matching files;

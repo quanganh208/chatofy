@@ -2,13 +2,13 @@
 name: ak:repomix
 description: Pack repositories into AI-friendly files with Repomix (XML, Markdown, plain text). Use for new-project onboarding, codebase snapshots, LLM context preparation, security audits, third-party library analysis.
 user-invocable: true
-when_to_use: 'Invoke to pack repositories for LLM context or audits.'
+when_to_use: "Invoke to pack repositories for LLM context or audits."
 category: engineering
 keywords: [codebase, pack, snapshot, llm-context]
-argument-hint: '[path] [--style xml|markdown|plain|json]'
+argument-hint: "[path] [--style xml|markdown|plain|json]"
 metadata:
   author: agentkit
-  version: '1.0.1'
+  version: "1.0.1"
 ---
 
 # Repository packing

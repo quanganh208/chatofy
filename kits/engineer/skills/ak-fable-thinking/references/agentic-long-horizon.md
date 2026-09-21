@@ -116,14 +116,14 @@ agent runtimes are `references/runtime-orchestration.md`.
 
 ## Evaluate before delivering (act-backed, per the Self-Review Gate)
 
-| Dimension  | Passes when                                              | Proven by                       |
-| ---------- | -------------------------------------------------------- | ------------------------------- |
-| Anchoring  | result matches the original ask and contract             | re-read plus criteria checklist |
-| Milestones | every milestone check OBSERVED green                     | check log in the note           |
-| Scope      | diff limited to owned files; adjacent flagged, not fixed | diff review                     |
-| Recovery   | no identical failed probe repeated; attempts recorded    | attempt log                     |
-| Handoff    | a fresh agent could resume from plan plus note           | note review                     |
-| Honesty    | blocked, skipped, unverified named                       | delivery text                   |
+| Dimension | Passes when | Proven by |
+|-----------|-------------|-----------|
+| Anchoring | result matches the original ask and contract | re-read plus criteria checklist |
+| Milestones | every milestone check OBSERVED green | check log in the note |
+| Scope | diff limited to owned files; adjacent flagged, not fixed | diff review |
+| Recovery | no identical failed probe repeated; attempts recorded | attempt log |
+| Handoff | a fresh agent could resume from plan plus note | note review |
+| Honesty | blocked, skipped, unverified named | delivery text |
 
 ## Progress update template
 
@@ -135,13 +135,13 @@ Open: <blocker or question>; continuing under assumption: <x>.
 
 ## Do / Don't
 
-| Don't                                | Instead                                                              |
-| ------------------------------------ | -------------------------------------------------------------------- |
-| Start with the first tool call       | Write the contract: outcome, criteria, stop condition, reversibility |
-| Keep state in your head              | One running note; update at every milestone                          |
-| Count tool calls as progress         | Count OBSERVED-green milestones                                      |
-| Re-run the failed command            | Classify the failure; change one thing; record the attempt           |
-| Declare done at the last green check | Walk the acceptance list; re-verify the whole artifact               |
-| Fix the adjacent bug you noticed     | One sentence in the delivery; stay in scope                          |
-| Ask before every reversible step     | Proceed on reversible work; confirm destructive or scope changes     |
-| Report what you did                  | Report what is now true, verified by what, and what is open          |
+| Don't | Instead |
+|-------|---------|
+| Start with the first tool call | Write the contract: outcome, criteria, stop condition, reversibility |
+| Keep state in your head | One running note; update at every milestone |
+| Count tool calls as progress | Count OBSERVED-green milestones |
+| Re-run the failed command | Classify the failure; change one thing; record the attempt |
+| Declare done at the last green check | Walk the acceptance list; re-verify the whole artifact |
+| Fix the adjacent bug you noticed | One sentence in the delivery; stay in scope |
+| Ask before every reversible step | Proceed on reversible work; confirm destructive or scope changes |
+| Report what you did | Report what is now true, verified by what, and what is open |

@@ -1,7 +1,6 @@
 # Output Format
 
 Unified step markers:
-
 ```
 ✓ Step 0: Intent framed; [Mode] selected
 ✓ Step 1: Scouted - [N] files, [M] deps

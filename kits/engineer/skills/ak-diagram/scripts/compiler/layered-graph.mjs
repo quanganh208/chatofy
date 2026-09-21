@@ -85,11 +85,7 @@ export function orderLayers(layers, edges, rank, options = {}) {
   const cohesion = options.cohesion || new Map();
   const preds = new Map();
   const succs = new Map();
-  for (const layer of layers)
-    for (const id of layer) {
-      preds.set(id, []);
-      succs.set(id, []);
-    }
+  for (const layer of layers) for (const id of layer) { preds.set(id, []); succs.set(id, []); }
   for (const edge of edges) {
     if (!preds.has(edge.from) || !preds.has(edge.to) || edge.from === edge.to) continue;
     if (rank.get(edge.from) < rank.get(edge.to)) {
@@ -141,15 +137,9 @@ export function orderLayers(layers, edges, rank, options = {}) {
   };
   for (let sweep = 0; sweep < sweeps; sweep += 1) {
     if (sweep % 2 === 0) {
-      for (let i = 1; i < layers.length; i += 1) {
-        sortLayer(layers[i], preds);
-        refresh();
-      }
+      for (let i = 1; i < layers.length; i += 1) { sortLayer(layers[i], preds); refresh(); }
     } else {
-      for (let i = layers.length - 2; i >= 0; i -= 1) {
-        sortLayer(layers[i], succs);
-        refresh();
-      }
+      for (let i = layers.length - 2; i >= 0; i -= 1) { sortLayer(layers[i], succs); refresh(); }
     }
   }
   return layers;
@@ -161,15 +151,10 @@ export function countCrossings(layers, edges, rank) {
   layers.forEach((layer) => layer.forEach((id, i) => index.set(id, i)));
   let crossings = 0;
   const spans = edges
-    .filter(
-      (e) =>
-        index.has(e.from) && index.has(e.to) && Math.abs(rank.get(e.from) - rank.get(e.to)) === 1,
-    )
-    .map((e) =>
-      rank.get(e.from) < rank.get(e.to)
-        ? { layer: rank.get(e.from), a: index.get(e.from), b: index.get(e.to) }
-        : { layer: rank.get(e.to), a: index.get(e.to), b: index.get(e.from) },
-    );
+    .filter((e) => index.has(e.from) && index.has(e.to) && Math.abs(rank.get(e.from) - rank.get(e.to)) === 1)
+    .map((e) => (rank.get(e.from) < rank.get(e.to)
+      ? { layer: rank.get(e.from), a: index.get(e.from), b: index.get(e.to) }
+      : { layer: rank.get(e.to), a: index.get(e.to), b: index.get(e.from) }));
   for (let i = 0; i < spans.length; i += 1) {
     for (let j = i + 1; j < spans.length; j += 1) {
       const p = spans[i];

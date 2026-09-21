@@ -24,7 +24,7 @@ let allowedBaseDirs = [];
  * @param {string[]} dirs - Array of allowed directory paths
  */
 function setAllowedDirs(dirs) {
-  allowedBaseDirs = dirs.map((d) => path.resolve(d));
+  allowedBaseDirs = dirs.map(d => path.resolve(d));
 }
 
 /**
@@ -47,7 +47,7 @@ function isPathSafe(filePath, allowedDirs = allowedBaseDirs) {
   }
 
   // Must be within one of the allowed directories
-  return allowedDirs.some((dir) => resolved.startsWith(dir));
+  return allowedDirs.some(dir => resolved.startsWith(dir));
 }
 
 /**
@@ -72,7 +72,7 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon',
   '.md': 'text/markdown',
   '.txt': 'text/plain',
-  '.pdf': 'application/pdf',
+  '.pdf': 'application/pdf'
 };
 
 /**
@@ -96,11 +96,7 @@ function sendResponse(res, statusCode, contentType, content) {
  */
 function sendError(res, statusCode, message) {
   const safeMessage = sanitizeErrorMessage(message);
-  sendResponse(
-    res,
-    statusCode,
-    'text/html',
-    `
+  sendResponse(res, statusCode, 'text/html', `
     <!DOCTYPE html>
     <html>
     <head><title>Error ${statusCode}</title></head>
@@ -109,8 +105,7 @@ function sendError(res, statusCode, message) {
       <p>${safeMessage}</p>
     </body>
     </html>
-  `,
-  );
+  `);
 }
 
 /**
@@ -158,7 +153,7 @@ function getFileIcon(filename) {
     '.toml': '⚙️',
     '.env': '🔐',
     '.sh': '💻',
-    '.bash': '💻',
+    '.bash': '💻'
   };
   return iconMap[ext] || '📄';
 }
@@ -388,11 +383,7 @@ function createHttpServer(options) {
 
     // Route: / - show welcome/usage page
     if (pathname === '/') {
-      sendResponse(
-        res,
-        200,
-        'text/html',
-        `
+      sendResponse(res, 200, 'text/html', `
         <!DOCTYPE html>
         <html>
         <head>
@@ -417,8 +408,7 @@ function createHttpServer(options) {
           <p>Use the <code>/ak:preview</code> skill invocation to start viewing files.</p>
         </body>
         </html>
-      `,
-      );
+      `);
       return;
     }
 
@@ -440,5 +430,5 @@ module.exports = {
   sanitizeErrorMessage,
   MIME_TYPES,
   renderDirectoryBrowser,
-  getFileIcon,
+  getFileIcon
 };

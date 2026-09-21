@@ -1,15 +1,15 @@
 ---
 name: ak:brainstorm
-description: 'Turn unclear intent into an accepted outcome and compare viable approaches before delivery.'
+description: "Turn unclear intent into an accepted outcome and compare viable approaches before delivery."
 user-invocable: true
-when_to_use: 'Use at the opening of multi-step delivery or when a diagnosed problem has meaningful solution choices.'
+when_to_use: "Use at the opening of multi-step delivery or when a diagnosed problem has meaningful solution choices."
 category: workflow
 keywords: [ideation, tradeoffs, decisions, intent, acceptance]
 license: MIT
-argument-hint: '[topic or problem] [--ask] [--advice] [--html] [--report] [--ultra] [--yagni] [--no-antv|--no-diagram-design|--no-editorial-visuals]'
+argument-hint: "[topic or problem] [--ask] [--advice] [--html] [--report] [--ultra] [--yagni] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 metadata:
   author: agentkit
-  version: '2.8.2'
+  version: "2.8.2"
   workflow:
     precedes: [ak-plan, ak-cook]
 ---
@@ -39,14 +39,12 @@ In addition to the four required fields, capture these conditional fields when t
 - **Better approaches:** required when inspection surfaced an approach superior to the one the user proposed or implied. State concrete evidence, operational delta, and cost of switching.
 
 **Conditional rendering rules:**
-
 - Omit the heading entirely when the condition does not hold. Never emit `Trade-offs: N/A` or empty placeholder bullets.
 - When option exploration ran and no better approach was found, record: `Better approaches: none — recommended direction is the requested one (<evidence>)`. Silence otherwise cannot be distinguished from failing to evaluate alternatives.
 
 An accepted design or plan satisfies the opening gate when it already contains
 these fields. Reuse it and identify only material gaps; do not make the user
 repeat settled decisions.
-
 ## Proportional behavior
 
 - For a concrete request, summarize the four fields briefly and continue.
@@ -99,17 +97,19 @@ invent extra components, migrations, or governance to make a design look
 complete. With `--yagni`, additionally challenge and cut any scope not needed for
 the stated outcome.
 
+
+
 ## Flags (parse once before loading)
 
-| Flag                                                         | Selective reference / behavior                                           |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| `--ask`                                                      | `references/interview-mode.md`; interview once, never forward this flag  |
-| `--html`                                                     | `references/html-output-mode.md`; additional HTML brief                  |
-| `--report`                                                   | `references/report-output-mode.md`; durable Markdown, composes with HTML |
-| `--advice`                                                   | `references/advice-mode.md`; explicit supervisor checkpoints             |
-| `--ultra`                                                    | `references/brainstorm-ultra-mode.md`; five candidates and verifier      |
-| `--yagni`                                                    | Scope-cutting opt-in; forward downstream                                 |
-| `--no-antv`, `--no-diagram-design`, `--no-editorial-visuals` | HTML visual-layer switches; retain in HTML route                         |
+| Flag | Selective reference / behavior |
+|---|---|
+| `--ask` | `references/interview-mode.md`; interview once, never forward this flag |
+| `--html` | `references/html-output-mode.md`; additional HTML brief |
+| `--report` | `references/report-output-mode.md`; durable Markdown, composes with HTML |
+| `--advice` | `references/advice-mode.md`; explicit supervisor checkpoints |
+| `--ultra` | `references/brainstorm-ultra-mode.md`; five candidates and verifier |
+| `--yagni` | Scope-cutting opt-in; forward downstream |
+| `--no-antv`, `--no-diagram-design`, `--no-editorial-visuals` | HTML visual-layer switches; retain in HTML route |
 
 All flags compose as their selected reference specifies. Reuse settled contract fields.
 
@@ -139,7 +139,6 @@ flowchart TD
 ```
 
 When `--ask` is present and unsettled material decisions remain after evidence inspection, the clarification round runs before the brainstorm contract is finalized, aligning user intent with discovered repository reality. If an accepted contract already settles requirements, reuse it directly without redundant questioning.
-
 ## Handoff
 
 Pass the contract fields, including Trade-offs and Better approaches when present, chosen direction, evidence, and unresolved risks
@@ -156,6 +155,14 @@ Unlike `--yagni`, do not carry `--ask` forward into downstream workflows; interv
 Write a durable summary only when the decision must survive the session or feed
 a plan. Use the repository's configured report location and naming convention;
 do not create a report merely to satisfy the gate.
+
+
+
+
+
+
+
+
 
 ## Boundaries
 

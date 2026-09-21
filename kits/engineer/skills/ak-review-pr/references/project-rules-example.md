@@ -4,7 +4,7 @@ The "Project-specific compliance" section in SKILL.md is intentionally generic �
 
 This reference is a **worked example** from a real production project (Go gateway service + React/Tailwind admin UI) showing how to encode project-specific reviewer rules. Adapt the pattern in your repository's existing instruction or standards authority, then reference that authority from the SKILL.md "Project-specific compliance" section.
 
-The reviewer should adapt these rules to _your_ project — do not flag PRs in unrelated codebases for not following these specific conventions.
+The reviewer should adapt these rules to *your* project — do not flag PRs in unrelated codebases for not following these specific conventions.
 
 ---
 
@@ -30,14 +30,12 @@ Do NOT thread direct references to cache structs (e.g. `*ContextFileInterceptor`
 ## Example: ID scoping
 
 `store.UserIDFromContext(ctx)` returns DIFFERENT values depending on context:
-
 - **In DM**: individual user ID (e.g. `"123456"`)
 - **In group chat**: group-scoped compound ID (e.g. `"group:telegram:-1002541239372"`), composed in `gateway_consumer.go`
 
 The individual sender is available separately via `store.SenderIDFromContext(ctx)`.
 
 When reviewing code that uses UserID, verify:
-
 1. Uses the correct ID type for its purpose — `UserID` for scoping/isolation, `SenderID` for identifying the actual person
 2. Group chat behavior is correct — all group members share the same UserID
 3. Code that filters/stores by `user_id` works correctly with the `"group:channel:chatID"` format

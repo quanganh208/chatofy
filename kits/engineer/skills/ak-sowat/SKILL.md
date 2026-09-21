@@ -1,14 +1,14 @@
 ---
 name: ak:sowat
-description: 'Analyze recently implemented work and related issues like a product owner. Use to identify high-impact next steps, challenge weak priorities, and explain what matters now.'
+description: "Analyze recently implemented work and related issues like a product owner. Use to identify high-impact next steps, challenge weak priorities, and explain what matters now."
 user-invocable: true
-when_to_use: 'Invoke after implementation or when the user asks what matters, what to prioritize, what to do next, or whether the team focused on the wrong thing.'
+when_to_use: "Invoke after implementation or when the user asks what matters, what to prioritize, what to do next, or whether the team focused on the wrong thing."
 category: workflow
 keywords: [product, impact, priorities, next-steps, issues, strategy, outcome]
-argument-hint: '[recent-changes|issue|PR]'
+argument-hint: "[recent-changes|issue|PR]"
 metadata:
   author: agentkit
-  version: '1.0.1'
+  version: "1.0.1"
 ---
 
 # So What

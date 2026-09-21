@@ -10,3 +10,4 @@ pnpm-lock.yaml
 # Vendor-managed agent kit content — reformatting breaks AK drift detection
 .claude
 .agentkit
+kits

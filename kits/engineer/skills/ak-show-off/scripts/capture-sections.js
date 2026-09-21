@@ -20,18 +20,14 @@ import puppeteer from 'puppeteer';
 
 // Viewport presets per ratio name
 const VIEWPORTS = {
-  horizontal: { width: 1920, height: 1080, label: 'horizontal' }, // 16:9
-  vertical: { width: 1080, height: 1920, label: 'vertical' }, // 9:16
-  square: { width: 1080, height: 1080, label: 'square' }, // 1:1
+  horizontal: { width: 1920, height: 1080, label: 'horizontal' },  // 16:9
+  vertical:   { width: 1080, height: 1920, label: 'vertical' },    // 9:16
+  square:     { width: 1080, height: 1080, label: 'square' },      // 1:1
 };
 
 // Optional Sharp compression for large captures.
 let sharp = null;
-try {
-  sharp = (await import('sharp')).default;
-} catch {
-  /* noop */
-}
+try { sharp = (await import('sharp')).default; } catch { /* noop */ }
 
 function parseArgs(argv) {
   const args = {};
@@ -56,21 +52,12 @@ function parseArgs(argv) {
 function resolveHeadless(value) {
   if (value === false || value === 'false') return false;
   if (value === true || value === 'true') return true;
-  if (
-    process.env.CI ||
-    process.env.GITHUB_ACTIONS ||
-    process.env.GITLAB_CI ||
-    process.env.JENKINS_URL
-  )
-    return true;
+  if (process.env.CI || process.env.GITHUB_ACTIONS || process.env.GITLAB_CI || process.env.JENKINS_URL) return true;
   return process.platform === 'linux';
 }
 
 async function getBrowser(options = {}) {
-  const executablePath =
-    options.executablePath ||
-    process.env.PUPPETEER_EXECUTABLE_PATH ||
-    process.env.CHROME_EXECUTABLE_PATH;
+  const executablePath = options.executablePath || process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_EXECUTABLE_PATH;
   return puppeteer.launch({
     headless: resolveHeadless(options.headless),
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
@@ -89,17 +76,11 @@ function outputJSON(data) {
 }
 
 function outputError(error) {
-  console.error(
-    JSON.stringify(
-      {
-        success: false,
-        error: error.message,
-        stack: error.stack,
-      },
-      null,
-      2,
-    ),
-  );
+  console.error(JSON.stringify({
+    success: false,
+    error: error.message,
+    stack: error.stack,
+  }, null, 2));
 }
 
 /**
@@ -202,9 +183,7 @@ async function captureOne(page, selector, ratio, outputDir, format, quality, max
   const el = await page.$(selector);
   if (!el) throw new Error(`Section not found: ${selector}`);
   await el.scrollIntoView();
-  await page.evaluate(
-    () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
-  );
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
 
   // Build filename: {ratio}-{sectionName}.{format}
   const sectionName = selector.replace(/^[#.]/, '').replace(/[^a-zA-Z0-9-_]/g, '_');
@@ -240,8 +219,8 @@ async function main() {
 
   const url = args.url;
   const outputDir = path.resolve(args['output-dir']);
-  const sections = args.sections.split(',').map((s) => s.trim());
-  const ratios = (args.ratios || 'horizontal,vertical,square').split(',').map((s) => s.trim());
+  const sections = args.sections.split(',').map(s => s.trim());
+  const ratios = (args.ratios || 'horizontal,vertical,square').split(',').map(s => s.trim());
   // `--delay` is the post-ready settle delay (kept for back-compat).
   // `--settle-delay` is a preferred alias. `--render-timeout` bounds each readiness check.
   const settleDelay = parseInt(args['settle-delay'] || args.delay || '1500', 10);
@@ -252,10 +231,7 @@ async function main() {
 
   await fs.mkdir(outputDir, { recursive: true });
 
-  const browser = await getBrowser({
-    headless: args.headless,
-    executablePath: args['executable-path'],
-  });
+  const browser = await getBrowser({ headless: args.headless, executablePath: args['executable-path'] });
   const page = await getPage(browser);
 
   // Navigate and wait for full network+asset+font readiness before any capture.
@@ -285,10 +261,7 @@ async function main() {
         }
         await el.scrollIntoView();
         // Let scroll-linked animations / IntersectionObserver reveals trigger, then repaint.
-        await waitForRender(ratioPage, {
-          settleDelay: Math.min(settleDelay, 400),
-          timeout: renderTimeout,
-        });
+        await waitForRender(ratioPage, { settleDelay: Math.min(settleDelay, 400), timeout: renderTimeout });
 
         const sectionName = selector.replace(/^[#.]/, '').replace(/[^a-zA-Z0-9-_]/g, '_');
         const fileName = `${vp.label}-${sectionName}.${format}`;
@@ -331,7 +304,7 @@ async function main() {
   process.exit(errors.length > 0 ? 1 : 0);
 }
 
-main().catch((err) => {
+main().catch(err => {
   outputError(err);
   process.exit(1);
 });

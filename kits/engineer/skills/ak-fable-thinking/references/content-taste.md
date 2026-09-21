@@ -207,16 +207,16 @@ as a loop, until a full pass over the final text is clean.
 
 ## Evaluate before delivering (act-backed, per the Self-Review Gate)
 
-| Dimension                 | Passes when                                                 | Proven by                          |
-| ------------------------- | ----------------------------------------------------------- | ---------------------------------- |
-| Core claim                | one sentence states why the piece exists, and it leads      | FRAME artifact + front-load check  |
-| Concreteness              | every paragraph has a marked anchor                         | concreteness audit                 |
-| Voice                     | register chosen and stable; VI pronoun pair constant        | register check (pronoun-only read) |
-| Economy                   | deletion test leaves nothing removable                      | deletion pass                      |
-| Slop-free                 | zero catalog matches in either language                     | itemized scan                      |
-| Facts                     | claims typed; checkable ones verified                       | fact check acts                    |
-| Fit                       | length/format/platform constraints met                      | constraint loop on final text      |
-| Fidelity (edit/translate) | voice preserved; numbers, names, links, code byte-identical | diff review + byte check           |
+| Dimension | Passes when | Proven by |
+|-----------|-------------|-----------|
+| Core claim | one sentence states why the piece exists, and it leads | FRAME artifact + front-load check |
+| Concreteness | every paragraph has a marked anchor | concreteness audit |
+| Voice | register chosen and stable; VI pronoun pair constant | register check (pronoun-only read) |
+| Economy | deletion test leaves nothing removable | deletion pass |
+| Slop-free | zero catalog matches in either language | itemized scan |
+| Facts | claims typed; checkable ones verified | fact check acts |
+| Fit | length/format/platform constraints met | constraint loop on final text |
+| Fidelity (edit/translate) | voice preserved; numbers, names, links, code byte-identical | diff review + byte check |
 
 Deliver with Claim Discipline: "scanned against both catalogs and fact-checked the three
 figures" is a different — and honest — claim than "polished the draft". Name the weakest
@@ -224,17 +224,17 @@ link (an unverified quote, an assumed audience) in the delivery.
 
 ## Do / Don't
 
-| Don't                                         | Instead                                                            |
-| --------------------------------------------- | ------------------------------------------------------------------ |
-| Start drafting from the prompt's wording      | FRAME the reader, fix the register, find the core claim first      |
-| Open with a sentence that fits any topic      | Open with this piece's most specific true sentence                 |
-| Pad with the LLM lexicon and triads           | Spend concretes: numbers, names, steps, consequences               |
-| Trust your own re-read of your own prose      | Run the itemized scans — your fluency always passes itself         |
-| Write Vietnamese through English templates    | Choose the pronoun pair first; build sentences Vietnamese-first    |
-| Summarize what the reader just read           | End where the content ends — or with the next action               |
-| Ship facts on fluency                         | Type and verify them like any load-bearing claim                   |
-| Answer at the length you generated            | Answer at the length the question deserved                         |
-| Bullet and header everything                  | Prose by default; lists for parallel items, tables for comparisons |
-| Rewrite someone's text in your voice          | Minimal diff; separate defects from taste; keep their register     |
-| Translate word by word                        | Meaning first; one glossary; identifiers and numbers untouched     |
-| Regenerate the whole draft to fix a paragraph | Targeted edits, then re-scan the whole text                        |
+| Don't | Instead |
+|-------|---------|
+| Start drafting from the prompt's wording | FRAME the reader, fix the register, find the core claim first |
+| Open with a sentence that fits any topic | Open with this piece's most specific true sentence |
+| Pad with the LLM lexicon and triads | Spend concretes: numbers, names, steps, consequences |
+| Trust your own re-read of your own prose | Run the itemized scans — your fluency always passes itself |
+| Write Vietnamese through English templates | Choose the pronoun pair first; build sentences Vietnamese-first |
+| Summarize what the reader just read | End where the content ends — or with the next action |
+| Ship facts on fluency | Type and verify them like any load-bearing claim |
+| Answer at the length you generated | Answer at the length the question deserved |
+| Bullet and header everything | Prose by default; lists for parallel items, tables for comparisons |
+| Rewrite someone's text in your voice | Minimal diff; separate defects from taste; keep their register |
+| Translate word by word | Meaning first; one glossary; identifiers and numbers untouched |
+| Regenerate the whole draft to fix a paragraph | Targeted edits, then re-scan the whole text |

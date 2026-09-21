@@ -1,31 +1,26 @@
 ## Auth Method Selection Guide
 
 **Choose Email/Password when:**
-
 - Building standard web app with traditional auth
 - Need full control over user credentials
 - Targeting users who prefer email-based accounts
 
 **Choose OAuth when:**
-
 - Want quick signup with minimal friction
 - Users already have social accounts
 - Need access to social profile data
 
 **Choose Passkeys when:**
-
 - Want passwordless experience
 - Targeting modern browsers/devices
 - Security is top priority
 
 **Choose Magic Link when:**
-
 - Want passwordless without WebAuthn complexity
 - Targeting email-first users
 - Need temporary access links
 
 **Combine Multiple Methods when:**
-
 - Want flexibility for different user preferences
 - Building enterprise apps with various auth requirements
 - Need progressive enhancement (start simple, add more options)
@@ -33,7 +28,6 @@
 ## Core Architecture
 
 Better Auth uses client-server architecture:
-
 1. **Server** (`better-auth`): Handles auth logic, database ops, API routes
 2. **Client** (`better-auth/client`): Provides hooks/methods for frontend
 3. **Plugins**: Extend both server/client functionality

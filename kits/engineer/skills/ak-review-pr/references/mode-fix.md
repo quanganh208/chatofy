@@ -17,7 +17,6 @@ ak:fix --auto "Fix all actionable findings from review-pr <PR_REF>: <finding sum
 ```
 
 Pass the exact evidence:
-
 - PR reference, base branch, head branch
 - changed files
 - each finding: severity, file path, line/function, expected behavior, actual behavior, why it matters
@@ -42,14 +41,12 @@ After the push succeeds, activate `review-pr <PR_REF> --fix` again (carrying `--
 When `--advice` is originally set and the loop stalls (same finding survives 3 attempts, `ak:fix` blocked, CI unresolvable), spawn `kongming` at the "loop is stuck" checkpoint before declaring the stop condition — see Advisory supervision.
 
 Stop only when one of:
-
 - the re-review finds no actionable findings
 - `ak:fix` is blocked by a missing user/business decision
 - the same finding survives 3 consecutive fix attempts (loop not converging)
 - CI or local verification fails in a way `ak:fix` cannot resolve without user input
 
 Final output for `--fix` mode is captured per-PR in the Final output table:
-
 - iteration count
 - final verdict
 - commits pushed

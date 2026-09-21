@@ -1,7 +1,19 @@
 {
   "image": "1327e16933d7c1a9f29e0b7427088724.jpg",
-  "style_cues": ["abstract surreal", "futuristic", "high-contrast", "digital art", "typographic"],
-  "palette_hexes": ["#000000", "#4A00E0", "#FF8C00", "#FFFFFF", "#8E2DE2"],
+  "style_cues": [
+    "abstract surreal",
+    "futuristic",
+    "high-contrast",
+    "digital art",
+    "typographic"
+  ],
+  "palette_hexes": [
+    "#000000",
+    "#4A00E0",
+    "#FF8C00",
+    "#FFFFFF",
+    "#8E2DE2"
+  ],
   "layout": {
     "grid": "vertical emphasis, centered focal",
     "focal": "center",
@@ -11,7 +23,12 @@
     "material": "glossy",
     "finish": "liquid marbling, gradient mesh"
   },
-  "mood": ["energetic", "mysterious", "futuristic", "surreal"],
+  "mood": [
+    "energetic",
+    "mysterious",
+    "futuristic",
+    "surreal"
+  ],
   "shape_primitives": [
     "thick rule",
     "rounded rectangle",
@@ -19,5 +36,10 @@
     "diagonal line",
     "all caps typography"
   ],
-  "typography": ["geometric sans", "all caps", "extreme size contrast", "reflective 3D text"]
+  "typography": [
+    "geometric sans",
+    "all caps",
+    "extreme size contrast",
+    "reflective 3D text"
+  ]
 }

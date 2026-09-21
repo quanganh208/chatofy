@@ -5,12 +5,12 @@ No description needed — read the code, figure out what to draw.
 
 ## Context Budget (Hard Limits)
 
-| Operation                | Limit                       |
-| ------------------------ | --------------------------- |
+| Operation | Limit |
+|---|---|
 | Grep results per pattern | 20 matches (use head_limit) |
-| Files read per component | 5 files                     |
-| Tool calls in Phase 2    | 15                          |
-| Tool calls in Phase 3    | 10                          |
+| Files read per component | 5 files |
+| Tool calls in Phase 2 | 15 |
+| Tool calls in Phase 3 | 10 |
 
 If limits exceeded, proceed with partial results and note gaps.
 
@@ -43,7 +43,6 @@ If limits exceeded, proceed with partial results and note gaps.
 ## Phase 2: Component Discovery (max 15 tool calls)
 
 ### Web Applications
-
 1. **Frontend**: Glob `*.tsx`, `*.jsx`, `*.vue`, `*.svelte` in `src/`, `app/`, `pages/`
 2. **API routes**: Grep `router\.(get|post|put|delete)`, `@(Get|Post|Put|Delete)`, `@app\.route`, `HandleFunc`
 3. **Database**: Look for `prisma/schema.prisma`, `models.py`, `*.entity.ts`, `migrations/`, `@Entity`
@@ -53,13 +52,11 @@ If limits exceeded, proceed with partial results and note gaps.
 7. **Auth**: Grep `passport`, `jwt`, `oauth`, `@Auth`, `middleware.*auth`
 
 ### Infrastructure
-
 1. Read `docker-compose.yml` service definitions
 2. Grep `*.tf` for `resource "` blocks
 3. Glob `**/k8s/*.yaml` or `**/manifests/*.yaml`
 
 ### Libraries/CLIs
-
 1. Find `main`, `bin`, `exports` in package config
 2. Map public API surface
 3. Read dependency list
@@ -95,12 +92,12 @@ material unresolved choice; record inferred or missing relationships honestly.
 
 ## Phase 5: Layout Selection
 
-| Pattern                          | Layout                | Trigger                          |
-| -------------------------------- | --------------------- | -------------------------------- |
-| Request/response (most web apps) | Vertical flow         | Frontend + API + DB detected     |
-| Data pipeline / ETL              | Horizontal pipeline   | Linear transform chain           |
-| Event-driven / microservices     | Hub and spoke         | Message broker detected          |
-| Monolith with modules            | Vertical flow + zones | Single service, multiple modules |
+| Pattern | Layout | Trigger |
+|---|---|---|
+| Request/response (most web apps) | Vertical flow | Frontend + API + DB detected |
+| Data pipeline / ETL | Horizontal pipeline | Linear transform chain |
+| Event-driven / microservices | Hub and spoke | Message broker detected |
+| Monolith with modules | Vertical flow + zones | Single service, multiple modules |
 
 Default: vertical flow. Hybrid: vertical with event bus in middle layer.
 
@@ -112,7 +109,6 @@ Use the active rendering mode (MCP or file-based).
 Follow sizing rules and color palette from SKILL.md.
 
 **Label format** per box:
-
 ```
 ComponentName
 tech-stack
@@ -137,11 +133,11 @@ tech-stack
 
 ## Edge Cases
 
-| Situation                | Action                                      |
-| ------------------------ | ------------------------------------------- |
-| Empty repo (<5 files)    | Simple module diagram                       |
-| Monorepo                 | Package-level view, offer drill-down        |
-| No clear architecture    | File dependency graph                       |
-| Can't detect connections | Components without arrows, note to user     |
-| Subdirectory specified   | Scope analysis to that dir only             |
-| Context budget exceeded  | Partial results, tell user what was skipped |
+| Situation | Action |
+|---|---|
+| Empty repo (<5 files) | Simple module diagram |
+| Monorepo | Package-level view, offer drill-down |
+| No clear architecture | File dependency graph |
+| Can't detect connections | Components without arrows, note to user |
+| Subdirectory specified | Scope analysis to that dir only |
+| Context budget exceeded | Partial results, tell user what was skipped |

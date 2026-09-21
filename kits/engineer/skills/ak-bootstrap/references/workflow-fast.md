@@ -10,7 +10,6 @@ mode reduces research overhead, not intent quality.
 All research happens in parallel, then feeds into planning:
 
 **Parallel research batch** (spawn these simultaneously):
-
 - 2 `researcher` subagents (max 5 sources each): explore request, validate idea, find solutions
 - 2 `researcher` subagents (max 5 sources each): find best-fit tech stack
 - 2 `researcher` subagents (max 5 sources each): research design style, trends, fonts, colors, spacing, positions
@@ -34,7 +33,6 @@ No design gate in fast mode — proceed directly to planning.
 ## Step 3: Planning
 
 Activate **ak:plan** skill: `/ak:plan --fast <requirements>`
-
 - Skip research (already done above)
 - Read codebase docs → create plan directly
 - Plan directory using `## Naming` pattern
@@ -47,7 +45,6 @@ Hand off the accepted plan to cook; reuse its decisions and authorization.
 Load `references/shared-phases.md` for remaining phases.
 
 Activate **ak:cook** skill: `/ak:cook <plan-path>`
-
 - Skips redundant research because planning already happened
 - Keeps verification and safety gates; continue within accepted scope
 - Continues according to normal cook mode

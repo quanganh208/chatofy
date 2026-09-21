@@ -1,7 +1,6 @@
 ### pdfplumber - Text and Table Extraction
 
 #### Extract Text with Layout
-
 ```python
 import pdfplumber
 
@@ -12,7 +11,6 @@ with pdfplumber.open("document.pdf") as pdf:
 ```
 
 #### Extract Tables
-
 ```python
 with pdfplumber.open("document.pdf") as pdf:
     for i, page in enumerate(pdf.pages):
@@ -24,7 +22,6 @@ with pdfplumber.open("document.pdf") as pdf:
 ```
 
 #### Advanced Table Extraction
-
 ```python
 import pandas as pd
 

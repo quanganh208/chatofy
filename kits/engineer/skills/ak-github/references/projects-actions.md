@@ -82,11 +82,11 @@ see `admin-operations.md`.
 
 ### Failure triage table
 
-| Symptom                     | Check                                 | Likely cause                                             |
-| --------------------------- | ------------------------------------- | -------------------------------------------------------- |
-| Run not triggered           | `gh workflow list`; `on:` filters     | Disabled workflow, path/branch filter                    |
-| `startup_failure`           | `gh run view <id>`                    | Workflow YAML syntax error                               |
-| Job queued forever          | runner labels in YAML                 | No matching runner online                                |
-| Secret empty in run         | `gh secret list` at repo + env level  | Secret set at wrong scope, or fork PR (secrets withheld) |
-| Works locally, fails in CI  | runner OS/env in job logs             | Env/OS mismatch, missing setup step                      |
-| Fails only on merge to base | compare `gh run list --branch <base>` | Semantic conflict with newer base commits                |
+| Symptom | Check | Likely cause |
+|---------|-------|--------------|
+| Run not triggered | `gh workflow list`; `on:` filters | Disabled workflow, path/branch filter |
+| `startup_failure` | `gh run view <id>` | Workflow YAML syntax error |
+| Job queued forever | runner labels in YAML | No matching runner online |
+| Secret empty in run | `gh secret list` at repo + env level | Secret set at wrong scope, or fork PR (secrets withheld) |
+| Works locally, fails in CI | runner OS/env in job logs | Env/OS mismatch, missing setup step |
+| Fails only on merge to base | compare `gh run list --branch <base>` | Semantic conflict with newer base commits |

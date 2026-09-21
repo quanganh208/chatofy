@@ -6,12 +6,12 @@ when_to_use: Invoke when work should improve a measurable result through repeate
 category: workflow
 keywords: [autoresearch, autonomous, iteration, framework, router]
 related: [ak-loop, ak-predict, ak-scenario, ak-security]
-argument-hint: '<goal or hypothesis> [--iterations N] [--metric <metric>]'
+argument-hint: "<goal or hypothesis> [--iterations N] [--metric <metric>]"
 metadata:
   author: agentkit
   attribution: "Concept anchor for the autoresearch family by Udit Goenka (MIT), inspired by Karpathy's autoresearch pattern."
   license: MIT
-  version: '2.0.1'
+  version: "2.0.1"
 ---
 
 # Autoresearch router
@@ -25,13 +25,13 @@ workflows.
 
 Discover the live skill catalog first. Common routes are:
 
-| Intent                                                             | Route                                                                      |
-| ------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| Improve a measurable engineering result through bounded iterations | `/ak:loop`                                                                 |
-| Compare expert perspectives before a risky decision                | `/ak:predict`                                                              |
-| Expand edge-case coverage and test hypotheses                      | `/ak:scenario`                                                             |
-| Run a threat-led security review                                   | `/ak:security`                                                             |
-| Improve a skill against routing and task-quality cases             | Installed skill-creation/evaluation capability, such as `ak:skill-creator` |
+| Intent | Route |
+|---|---|
+| Improve a measurable engineering result through bounded iterations | `/ak:loop` |
+| Compare expert perspectives before a risky decision | `/ak:predict` |
+| Expand edge-case coverage and test hypotheses | `/ak:scenario` |
+| Run a threat-led security review | `/ak:security` |
+| Improve a skill against routing and task-quality cases | Installed skill-creation/evaluation capability, such as `ak:skill-creator` |
 
 If no route owns the requested outcome, do not invent an alias. For a request like ‘make this clearer’ with no metric, identify an observable quality check or continue with the installed ordinary editing workflow. Do not start an unbounded loop. Skill optimization needs routing, quality, safety and completion guards; reducing prompt tokens alone is not a success criterion.
 

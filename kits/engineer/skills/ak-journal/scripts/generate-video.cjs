@@ -89,15 +89,7 @@ function resolveEngine({ cliEngine, configuredEngine, env = process.env } = {}) 
 
 /** sha256 cache key per AMENDMENTS.md R6. */
 function buildCacheKey({ journalBody, videoAiPrompt, engine, model, duration, resolution }) {
-  return hashFields([
-    journalBody,
-    videoAiPrompt,
-    engine,
-    model,
-    TEMPLATE_VERSION,
-    duration,
-    resolution,
-  ]);
+  return hashFields([journalBody, videoAiPrompt, engine, model, TEMPLATE_VERSION, duration, resolution]);
 }
 
 /**
@@ -161,10 +153,7 @@ function invokeMultixVideo({ prompt, model, duration, resolution, outputPath, en
     child.on('error', reject);
     child.on('close', (code) => {
       if (code !== 0) {
-        const message = redactSecrets(
-          (stderrBuf + stdoutBuf).trim().slice(0, 300) || `exit ${code}`,
-          env,
-        );
+        const message = redactSecrets((stderrBuf + stdoutBuf).trim().slice(0, 300) || `exit ${code}`, env);
         reject(new Error(`multix video generation failed: ${message}`));
         return;
       }
@@ -210,8 +199,7 @@ async function generateVideos({
   });
   const dur = duration || DEFAULT_DURATION_SECONDS;
   const res = resolution || DEFAULT_RESOLUTION;
-  const journalBody =
-    journalFile && fs.existsSync(journalFile) ? readJournalBodyRaw(journalFile) : '';
+  const journalBody = journalFile && fs.existsSync(journalFile) ? readJournalBodyRaw(journalFile) : '';
   const slug = journalFile ? slugForJournalFile(journalFile) : 'ad-hoc';
   const cacheKey = buildCacheKey({
     journalBody,
@@ -233,14 +221,7 @@ async function generateVideos({
   }
 
   fs.mkdirSync(dir, { recursive: true });
-  await invokeMultixVideo({
-    prompt: videoAiPrompt,
-    model,
-    duration: dur,
-    resolution: res,
-    outputPath,
-    env,
-  });
+  await invokeMultixVideo({ prompt: videoAiPrompt, model, duration: dur, resolution: res, outputPath, env });
   return { paths: [outputPath], engine: resolvedEngine, cached: false };
 }
 
@@ -256,7 +237,7 @@ async function main() {
 
   if (values.help) {
     console.error(
-      'Usage: node generate-video.cjs --video <path-or-glob>... | --video-ai <prompt> [--engine <name>] [--duration <seconds>] [--resolution <WxH>] [--journal-file <path>] [--project-root <path>] [--dry-run] [--json]',
+      'Usage: node generate-video.cjs --video <path-or-glob>... | --video-ai <prompt> [--engine <name>] [--duration <seconds>] [--resolution <WxH>] [--journal-file <path>] [--project-root <path>] [--dry-run] [--json]'
     );
     return;
   }

@@ -54,43 +54,22 @@ const FAMILY_ORDER = Object.keys(SIGILS);
 
 const ROLE_FAMILY = {
   architecture: {
-    frontend: 'client',
-    backend: 'service',
-    database: 'data',
-    cache: 'cache',
-    queue: 'queue',
-    storage: 'data',
-    gateway: 'gateway',
-    auth: 'security',
-    external: 'external',
-    worker: 'worker',
+    frontend: 'client', backend: 'service', database: 'data', cache: 'cache',
+    queue: 'queue', storage: 'data', gateway: 'gateway', auth: 'security',
+    external: 'external', worker: 'worker',
   },
   workflow: {
-    start: 'start',
-    action: 'process',
-    decision: 'decision',
-    wait: 'waiting',
-    subprocess: 'service',
-    'terminal-success': 'success',
-    'terminal-failure': 'failure',
+    start: 'start', action: 'process', decision: 'decision', wait: 'waiting',
+    subprocess: 'service', 'terminal-success': 'success', 'terminal-failure': 'failure',
   },
   dataflow: {
-    source: 'external',
-    transform: 'transform',
-    store: 'data',
-    sink: 'queue',
-    consumer: 'client',
-    filter: 'filter',
-    governance: 'governance',
+    source: 'external', transform: 'transform', store: 'data', sink: 'queue',
+    consumer: 'client', filter: 'filter', governance: 'governance',
   },
   lifecycle: {
-    initial: 'start',
-    active: 'process',
-    waiting: 'waiting',
-    'failure-recoverable': 'failure',
-    'failure-fatal': 'failure',
-    'terminal-success': 'success',
-    'terminal-cancelled': 'failure',
+    initial: 'start', active: 'process', waiting: 'waiting',
+    'failure-recoverable': 'failure', 'failure-fatal': 'failure',
+    'terminal-success': 'success', 'terminal-cancelled': 'failure',
   },
   sequence: {},
 };
@@ -144,8 +123,7 @@ export function edgeStyleFor(type, edge) {
     if (edge.kind === 'error') return { dashed: false, open: false, tone: 'failure' };
     return { dashed: false, open: false };
   }
-  if (type === 'workflow' && edge.condition)
-    return { dashed: false, open: false, tone: 'decision' };
+  if (type === 'workflow' && edge.condition) return { dashed: false, open: false, tone: 'decision' };
   if (type === 'lifecycle' && /fail|error|timeout|reject/i.test(edge.event || '')) {
     return { dashed: true, open: false, tone: 'failure' };
   }

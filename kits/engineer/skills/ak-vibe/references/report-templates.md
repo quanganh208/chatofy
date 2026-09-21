@@ -6,19 +6,16 @@ Templates for GitHub issues and completion reports used by the vibe pipeline.
 
 Use this body when creating a new issue or updating an execution tracking section:
 
-````markdown
+~~~markdown
 ## Outcome
-
 <user-visible outcome>
 
 ## How It Works
-
 - <operational bullet 1: core mechanism and entry point>
 - <operational bullet 2: key components and data flow>
 - <operational bullet 3: integration boundaries and safeguards>
 
 ## Architecture / Flow
-
 ```mermaid
 flowchart TD
     Input[Issue / Request] --> PrePlan[Investigation: Debug / Research]
@@ -29,12 +26,10 @@ flowchart TD
 ```
 
 ## Advisor Scope Lock (only when --advice)
-
 - Locked Scope: `<boundaries confirmed by kongming advisory review>`
 - Explicit Non-Goals: `<rejected scope creep or out-of-scope items>`
 
 ## Implementation
-
 - Branch: `<branch-name>`
 - Plan: `<relative/path/to/plan.md>`
 - Mode: `<official|beta|both>`
@@ -43,11 +38,9 @@ flowchart TD
 - Stable PR: `<url once created, only when --both>`
 
 ## Acceptance Criteria
-
 - [ ] <criterion from plan>
 
 ## Pipeline State
-
 - [x] Worktree and branch created or reused
 - [x] Pre-plan investigation (debug/research if applicable)
 - [x] TDD plan created or existing plan reused
@@ -61,15 +54,14 @@ flowchart TD
 - [ ] Merged and CI green (only when --ship)
 - [ ] Beta merged and beta CI green (only when --both)
 - [ ] Stable merged and stable CI green (only when --both)
-````
+~~~
 
 ## Completion Report
 
 Emit this report at the end of the vibe pipeline run:
 
-````markdown
+~~~markdown
 **Vibe Result**
-
 - Source: <issue/request>
 - Branch/worktree: <branch> | <path>
 - Plan: <relative path>
@@ -87,7 +79,6 @@ Emit this report at the end of the vibe pipeline run:
 - Docs: updated in-repo | external issue filed (<url>) | skipped (<reason>)
 
 ### Journey Diagram
-
 ```mermaid
 flowchart LR
     A[Intake] --> B[Investigate]
@@ -99,24 +90,19 @@ flowchart LR
 ```
 
 ### Implementation Summary
-
 - <concrete summary of changes shipped across components>
 
 ### Plan Deviations
-
 - <deviations from initial plan with rationale, or "None">
 
 ### Subagent Quality Assessment
-
 - Review Verdict: <Approved | Changes Applied>
 - Findings Breakdown: <0 Critical / 0 Important / N Minor — resolved X/Y>
 - Evaluator Notes: <summary of independent review / verifier findings>
 
 ### Human Next Steps
-
 - [ ] <concrete follow-up verification, deployment canary check, or next roadmap task>
 
 Unresolved questions:
-
 - None
-````
+~~~

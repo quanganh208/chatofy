@@ -14,38 +14,38 @@ installed, authenticated, safe, or capable.
 Record these fields for every candidate named by the job spec, fallback chain,
 or current internal harness:
 
-| Evidence                            | What to record                                                                                                         |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Identity                            | Runtime id, executable or internal mechanism, live version when exposed                                                |
-| Availability                        | Resolved path or live agent-list evidence; available, constrained, unavailable, or unverified                          |
-| Authentication                      | Non-interactive readiness only; never credentials, tokens, or raw environment values                                   |
-| Headless entry                      | Verified command shape or internal dispatch mechanism                                                                  |
-| Working directory                   | Whether cwd can be pinned and how it is enforced                                                                       |
-| Model or agent discovery            | Live listing mechanism and resolved choices; no copied catalog                                                         |
-| Provider identity                   | Resolved provider and model family when exposed; different harnesses may use the same model                            |
+| Evidence | What to record |
+| --- | --- |
+| Identity | Runtime id, executable or internal mechanism, live version when exposed |
+| Availability | Resolved path or live agent-list evidence; available, constrained, unavailable, or unverified |
+| Authentication | Non-interactive readiness only; never credentials, tokens, or raw environment values |
+| Headless entry | Verified command shape or internal dispatch mechanism |
+| Working directory | Whether cwd can be pinned and how it is enforced |
+| Model or agent discovery | Live listing mechanism and resolved choices; no copied catalog |
+| Provider identity | Resolved provider and model family when exposed; different harnesses may use the same model |
 | Extension and nested-agent controls | Enabled extensions and child-agent tools, enforcement and limits; include nested work in concurrency/budget accounting |
-| Permissions                         | Approval modes, tool allow/deny controls, and whether headless mode auto-approves                                      |
-| Isolation                           | OS sandbox, container, worktree, prompt-only boundary, or none                                                         |
-| Budgets                             | Native turn/tool/time controls plus coordinator-owned external timeout                                                 |
-| Capture                             | Structured output, final-result capture, stderr, exit status, artifacts, and usage data                                |
-| Resume                              | Supported session or job-state behavior, if verified                                                                   |
-| Observation                         | Durable handle, incremental cursor, event fidelity, last real progress, gaps and truncation                            |
-| Intervention                        | Native follow-up, interrupt, cancel confirmation, reconnect and per-job model selection; verify each separately        |
-| Enablement                          | Instruction files and skill locations actually loaded for this run                                                     |
-| Host limits                         | OS, shell, quoting, path, or sandbox limitations that change the risk posture                                          |
-| Evidence source                     | Live help/probe and current official documentation consulted for ambiguous behavior                                    |
+| Permissions | Approval modes, tool allow/deny controls, and whether headless mode auto-approves |
+| Isolation | OS sandbox, container, worktree, prompt-only boundary, or none |
+| Budgets | Native turn/tool/time controls plus coordinator-owned external timeout |
+| Capture | Structured output, final-result capture, stderr, exit status, artifacts, and usage data |
+| Resume | Supported session or job-state behavior, if verified |
+| Observation | Durable handle, incremental cursor, event fidelity, last real progress, gaps and truncation |
+| Intervention | Native follow-up, interrupt, cancel confirmation, reconnect and per-job model selection; verify each separately |
+| Enablement | Instruction files and skill locations actually loaded for this run |
+| Host limits | OS, shell, quoting, path, or sandbox limitations that change the risk posture |
+| Evidence source | Live help/probe and current official documentation consulted for ambiguous behavior |
 
 Use `null` or `unverified` for unknowns. Do not turn absence of evidence into a
 positive capability.
 
 ## Confidence States
 
-| State           | Meaning                                                                                     | Dispatch consequence                                        |
-| --------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| **available**   | Required headless path and controls were proven live                                        | Eligible for policy evaluation                              |
-| **constrained** | Dispatch works, but one or more controls are weaker than requested                          | Eligible only when the job's risk tier permits those limits |
-| **unverified**  | Installed or documented, but the required command, auth, model, or controls were not proven | Advisory work only; never load-bearing                      |
-| **unavailable** | Missing, unauthenticated, incompatible, or failed probe                                     | Remove from candidate set                                   |
+| State | Meaning | Dispatch consequence |
+| --- | --- | --- |
+| **available** | Required headless path and controls were proven live | Eligible for policy evaluation |
+| **constrained** | Dispatch works, but one or more controls are weaker than requested | Eligible only when the job's risk tier permits those limits |
+| **unverified** | Installed or documented, but the required command, auth, model, or controls were not proven | Advisory work only; never load-bearing |
+| **unavailable** | Missing, unauthenticated, incompatible, or failed probe | Remove from candidate set |
 
 These states are evidence inputs. Capability and risk tier selection remains in
 [model-routing.md](model-routing.md).

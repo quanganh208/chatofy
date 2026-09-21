@@ -1,7 +1,6 @@
 ## Features
 
 ### Novel Theme
-
 - Warm cream background (light mode)
 - Dark mode with warm gold accents
 - Libre Baskerville serif headings
@@ -9,14 +8,12 @@
 - Maximum 720px content width
 
 ### Mermaid.js Diagrams
-
 - Auto-renders `mermaid` code blocks as diagrams
 - Theme-aware (light/dark mode support)
 - Full-width toggle: Click diagram to expand/collapse
 - Error display with source preview for debugging
 
 ### Directory Browser
-
 - Clean file listing with emoji icons
 - Markdown files link to viewer
 - Folders link to sub-directories
@@ -24,14 +21,12 @@
 - Light/dark mode support
 
 ### Focused Reader Mode
-
 - **Auto-hide header**: Header hides on scroll down, shows on scroll up
 - **Progress bar**: Always-visible horizontal progress bar tracks reading position
 - **Distraction-free**: Minimal UI that gets out of the way while reading
 - **Smooth transitions**: Gentle animations for header show/hide
 
 ### Plan Navigation
-
 - Auto-detects plan directory structure
 - Accordion sidebar with status badges (✓ complete, ⏳ in progress)
 - Previous/Next navigation buttons
@@ -44,7 +39,6 @@
 **First-time toast**: Shows "Press ? for keyboard shortcuts" on first visit (auto-dismisses after 5s)
 
 **Available shortcuts:**
-
 - `?` - Show keyboard shortcuts cheatsheet (full-screen overlay)
 - `T` - Toggle theme (light/dark)
 - `S` - Toggle sidebar (desktop)
@@ -54,7 +48,6 @@
 **Cheatsheet modal**: Press `?` to see all shortcuts in a full-screen overlay with backdrop blur. Close with `Esc`, `×` button, or backdrop click.
 
 ### Mobile Optimization
-
 - **FAB (Floating Action Button)**: Fixed bottom-right button for navigation on mobile
 - **Bottom sheet**: Slide-up sidebar with touch gestures
 - **Touch-friendly**: Larger tap targets, swipe gestures
@@ -62,15 +55,15 @@
 
 ## CLI Options
 
-| Option            | Description                         | Default   |
-| ----------------- | ----------------------------------- | --------- |
-| `--file <path>`   | Markdown file to view               | -         |
-| `--dir <path>`    | Directory to browse                 | -         |
-| `--port <number>` | Server port                         | 3456      |
-| `--host <addr>`   | Host to bind (`0.0.0.0` for remote) | localhost |
-| `--open`          | Auto-open browser                   | false     |
-| `--background`    | Run in background                   | false     |
-| `--stop`          | Stop all servers                    | -         |
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--file <path>` | Markdown file to view | - |
+| `--dir <path>` | Directory to browse | - |
+| `--port <number>` | Server port | 3456 |
+| `--host <addr>` | Host to bind (`0.0.0.0` for remote) | localhost |
+| `--open` | Auto-open browser | false |
+| `--background` | Run in background | false |
+| `--stop` | Stop all servers | - |
 
 ## Architecture
 
@@ -103,12 +96,12 @@ assets/
 
 ## HTTP Routes
 
-| Route                | Description                 |
-| -------------------- | --------------------------- |
-| `/view?file=<path>`  | Markdown file viewer        |
-| `/browse?dir=<path>` | Directory browser           |
-| `/assets/*`          | Static assets               |
-| `/file/*`            | Local file serving (images) |
+| Route | Description |
+|-------|-------------|
+| `/view?file=<path>` | Markdown file viewer |
+| `/browse?dir=<path>` | Directory browser |
+| `/assets/*` | Static assets |
+| `/file/*` | Local file serving (images) |
 
 ## Dependencies
 
@@ -120,21 +113,18 @@ assets/
 ### Theme Colors (CSS Variables)
 
 Light mode variables in `assets/styles/novel-theme-variables.css`:
-
 ```css
---bg-primary: #faf8f3; /* Warm cream */
---accent: #8b4513; /* Saddle brown */
+--bg-primary: #faf8f3;      /* Warm cream */
+--accent: #8b4513;          /* Saddle brown */
 ```
 
 Dark mode:
-
 ```css
---bg-primary: #1a1a1a; /* Near black */
---accent: #d4a574; /* Warm gold */
+--bg-primary: #1a1a1a;      /* Near black */
+--accent: #d4a574;          /* Warm gold */
 ```
 
 ### Content Width
-
 ```css
 --content-width: 720px;
 ```

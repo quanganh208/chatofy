@@ -2,11 +2,17 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ak:diagram timeline spec",
   "type": "object",
-  "required": ["events"],
+  "required": [
+    "events"
+  ],
   "properties": {
     "variant": {
       "type": "string",
-      "enum": ["light", "dark", "full"],
+      "enum": [
+        "light",
+        "dark",
+        "full"
+      ],
       "default": "light"
     },
     "title": {
@@ -23,7 +29,10 @@
       "minItems": 2,
       "items": {
         "type": "object",
-        "required": ["date", "label"],
+        "required": [
+          "date",
+          "label"
+        ],
         "properties": {
           "date": {
             "type": "string"

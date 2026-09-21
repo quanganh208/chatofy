@@ -21,7 +21,7 @@ Claude Code skills directory/
 
 ```yaml
 ---
-name: skill-name # optional namespace: namespace:skill-name
+name: skill-name  # optional namespace: namespace:skill-name
 description: At most 1024 chars; specific triggers and not-for cases
 license: Optional
 version: Optional
@@ -31,7 +31,6 @@ version: Optional
 ## Resource Directories
 
 ### scripts/
-
 Executable code for deterministic tasks.
 
 ```
@@ -45,7 +44,6 @@ scripts/
 ```
 
 ### references/
-
 Documentation loaded into context as needed.
 
 ```
@@ -56,7 +54,6 @@ references/
 ```
 
 ### assets/
-
 Files used in output, not loaded into context.
 
 ```
@@ -71,13 +68,11 @@ assets/
 **Format:** kebab-case, descriptive
 
 **Good:**
-
 - `api-endpoints-authentication.md`
 - `database-schema-users.md`
 - `rotate-pdf-script.py`
 
 **Bad:**
-
 - `docs.md` - not descriptive
 - `apiEndpoints.md` - wrong case
 - `1.md` - meaningless
@@ -92,12 +87,10 @@ during drafting and did not reference from SKILL.md.
 Related topics should be combined into single skill:
 
 **Consolidate:**
-
 - `cloudflare` + `cloudflare-r2` + `cloudflare-workers` → `devops`
 - `mongodb` + `postgresql` → `databases`
 
 **Keep separate:**
-
 - Unrelated domains
 - Different tech stacks with no overlap
 
@@ -110,7 +103,6 @@ scripts/package_skill.py <skill-path>
 ```
 
 Checks:
-
 - SKILL.md exists
 - Valid frontmatter
 - Proper directory structure
