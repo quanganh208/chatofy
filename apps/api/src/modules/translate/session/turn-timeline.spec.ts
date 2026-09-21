@@ -34,7 +34,7 @@ describe('TurnTimeline', () => {
     clock.advance(400);
     timeline.markSpeculationReused(false);
     timeline.markTranslated('hello there');
-    timeline.markClauses(2);
+    timeline.markClauses(2, 'clauses');
     // One call with the span the audio path measured, which is how the service
     // uses it — the first clause started at +550ms and the last ended at +600ms.
     timeline.markAudio({ firstAudioAt: 1_000_550, lastAudioAt: 1_000_600 });
@@ -46,6 +46,7 @@ describe('TurnTimeline', () => {
     expect(metrics.lastAudioAtMs).toBe(600);
     expect(metrics.targetChars).toBe('hello there'.length);
     expect(metrics.clauses).toBe(2);
+    expect(metrics.ttsDelivery).toBe('clauses');
     expect(metrics.completed).toBe(true);
   });
 
@@ -66,6 +67,7 @@ describe('TurnTimeline', () => {
     expect(metrics.completed).toBe(false);
     expect(metrics.targetChars).toBe(0);
     expect(metrics.clauses).toBe(0);
+    expect(metrics).not.toHaveProperty('ttsDelivery');
   });
 
   it('falls back to the translation time when only the audio never came', () => {

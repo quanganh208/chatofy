@@ -5,10 +5,14 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import {
+  ProviderBusyError,
   ProviderConnectionError,
   ProviderResponseError,
 } from '@chatofy/ai-providers';
-import { PipelineTranslatorService } from './pipeline-translator.service';
+import {
+  PipelineTranslatorService,
+  SpeechEngineBusyException,
+} from './pipeline-translator.service';
 import type {
   AiProvidersFactory,
   PipelineProviders,
@@ -286,6 +290,31 @@ describe('PipelineTranslatorService', () => {
     await expect(serviceWith(trio).translateTurn(input)).rejects.toBeInstanceOf(
       ServiceUnavailableException,
     );
+  });
+
+  it('maps a busy speech engine to its own 503, on every synthesis path', async () => {
+    const busy = new ProviderBusyError('vi engine busy for more than 15s');
+    const trio = fakeTrio({
+      tts: {
+        name: 'fake-local',
+        outputMimeType: 'audio/wav',
+        synthesize: vi.fn().mockRejectedValue(busy),
+        synthesizeStream: vi.fn().mockRejectedValue(busy),
+      },
+    });
+    const service = serviceWith(trio);
+    const req = { text: 'xin chào', language: 'vi' as const };
+
+    await expect(service.synthesize(req)).rejects.toBeInstanceOf(
+      SpeechEngineBusyException,
+    );
+    await expect(
+      service.synthesizeStream(req, new AbortController().signal),
+    ).rejects.toBeInstanceOf(SpeechEngineBusyException);
+    // REST keeps the 503 and the message it has always had.
+    const rest = service.translateTurn(input);
+    await expect(rest).rejects.toBeInstanceOf(ServiceUnavailableException);
+    await expect(rest).rejects.toThrow('Translation provider request failed');
   });
 
   it('takes the response MIME type from the TTS provider, not a language map', async () => {

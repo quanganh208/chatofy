@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   LocalSpeechSttProvider,
   LocalSpeechTtsProvider,
+  ProviderBusyError,
+  type TtsAudioStream,
 } from '@chatofy/ai-providers';
 
 /**
@@ -80,6 +82,72 @@ function expectWav(bytes: Uint8Array): void {
     },
     30_000,
   );
+});
+
+async function drain(stream: TtsAudioStream): Promise<number> {
+  let bytes = 0;
+  for await (const chunk of stream.chunks) bytes += chunk.byteLength;
+  return bytes;
+}
+
+/**
+ * `POST /synthesize/stream` through the real provider: real chunked encoding,
+ * real format headers, and the busy marker a queued turn is answered with. The
+ * WS e2e drives the same path with a fake provider; this is the half of it only
+ * a running sidecar can prove.
+ */
+(run ? describe : describe.skip)('local TTS sidecar stream (real e2e)', () => {
+  const provider = new LocalSpeechTtsProvider({ baseUrl });
+
+  it.each([
+    ['vi', 'Xin chào, hôm nay trời đẹp quá. Bạn có muốn đi dạo không?'],
+    ['en', 'Hello, how much does this cost? I would like two of them.'],
+  ] as const)(
+    'streams %s speech as whole pcm16 samples at the announced rate',
+    async (language, text) => {
+      const stream = await provider.synthesizeStream(
+        { text, language, audioFormat },
+        new AbortController().signal,
+      );
+
+      expect(stream).toMatchObject({ encoding: 'pcm16' });
+      expect(stream!.sampleRate).toBeGreaterThanOrEqual(16_000);
+      const bytes = await drain(stream!);
+      expect(bytes % 2).toBe(0);
+      // More than half a second of speech for a whole sentence.
+      expect(bytes / 2 / stream!.sampleRate).toBeGreaterThan(0.5);
+    },
+    60_000,
+  );
+
+  it('answers a turn queued past the wait as busy, not as a broken sidecar', async () => {
+    const holder = new AbortController();
+    const long = await provider.synthesizeStream(
+      {
+        text: Array(12)
+          .fill(
+            'Xin chào, hôm nay trời đẹp quá. Bạn có muốn đi dạo công viên không?',
+          )
+          .join(' '),
+        language: 'vi',
+        audioFormat,
+      },
+      holder.signal,
+    );
+    // Read in the background so the first stream keeps the engine for its turn.
+    const reading = drain(long!).catch(() => 0);
+    try {
+      await expect(
+        provider.synthesizeStream(
+          { text: 'Xin chào.', language: 'vi', audioFormat },
+          new AbortController().signal,
+        ),
+      ).rejects.toBeInstanceOf(ProviderBusyError);
+    } finally {
+      holder.abort();
+      await reading;
+    }
+  }, 90_000);
 });
 
 /**

@@ -1092,6 +1092,9 @@ function outcomeFor(reason: string, wasHeard: boolean): TurnOutcome {
   // The listener heard less than the whole turn, or left before it arrived.
   // Delivery failed; the turn itself did not.
   if (reason === 'unsupported_audio' || reason === 'client_gone') return 'dropped';
+  // The speech engine was busy with another turn past this one's wait: the
+  // transcript arrived and the audio never came. Same shape as the two above.
+  if (reason === 'engine_busy') return 'dropped';
   if (reason === 'no_audio') return 'no_audio';
   // `voice_off` is a SUCCESSFUL turn that was never meant to be spoken
   // (`turn-timeline.ts` states it in those words), so it shares `completed`'s

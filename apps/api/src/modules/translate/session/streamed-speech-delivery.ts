@@ -1,5 +1,6 @@
 import {
   ProviderAbortedError,
+  ProviderResponseError,
   type TtsAudioStream,
 } from '@chatofy/ai-providers';
 import { pushTranslatedPcm } from './outbound-audio-framer';
@@ -82,6 +83,13 @@ export async function deliverStreamedSpeech(
       return { firstAudioAt, lastAudioAt, stoppedBy: 'client_gone' };
     }
     deps.fail(err);
+  }
+
+  // A body that ends between the two bytes of a sample was cut short, whatever
+  // the transport said: reported as the failure it is rather than filed as a
+  // complete turn with its last half-sample quietly dropped.
+  if (carry) {
+    deps.fail(new ProviderResponseError('TTS stream ended mid-sample'));
   }
 
   return { firstAudioAt, lastAudioAt };

@@ -57,6 +57,16 @@ describe('deliverStreamedSpeech', () => {
     expect(Buffer.concat(frames.map((f) => f.payload))).toEqual(audio);
   });
 
+  it('fails a stream that ends between the two bytes of a sample', async () => {
+    const { frames, run } = harness([Buffer.from([1, 2, 3])]);
+
+    await expect(run()).rejects.toThrow(/mid-sample/);
+    // The whole sample before the cut still went out; only the half did not.
+    expect(Buffer.concat(frames.map((f) => f.payload))).toEqual(
+      Buffer.from([1, 2]),
+    );
+  });
+
   it('sends each chunk at once in frames of at most 200ms', async () => {
     const { frames, run } = harness([Buffer.alloc(bytesFor(320), 1)]);
 

@@ -18,6 +18,8 @@ import {
 } from '@chatofy/ai-providers';
 import {
   PipelineTranslatorService,
+  SpeechEngineBusyException,
+  type SynthesizedSpeech,
   type TranslatedTurnText,
 } from './pipeline-translator.service';
 import { ConfigService } from '@nestjs/config';
@@ -714,17 +716,21 @@ export class TranslationSessionService implements OnModuleDestroy {
         if (err instanceof ProviderAbortedError) {
           return { stoppedBy: 'client_gone' };
         }
+        if (err instanceof SpeechEngineBusyException) {
+          timeline.markClauses(1, 'stream');
+          return this.engineBusy(session);
+        }
         throw err;
       }
     }
 
     if (!stream) {
       const clauses = splitIntoClauses(translated.targetText);
-      timeline.markClauses(clauses.length);
+      timeline.markClauses(clauses.length, 'clauses');
       return this.streamClauses(socket, session, clauses, language);
     }
 
-    timeline.markClauses(1);
+    timeline.markClauses(1, 'stream');
     const channel = this.channelFor(socket, session);
     return deliverStreamedSpeech({
       stream,
@@ -778,13 +784,21 @@ export class TranslationSessionService implements OnModuleDestroy {
         return { firstAudioAt, lastAudioAt, stoppedBy: 'client_gone' };
       }
 
-      const speech = await this.pipeline.synthesize({
-        text: clause,
-        language,
-        voiceGender: session.voiceGender,
-        speed: session.speed,
-        voice: session.voice,
-      });
+      let speech: SynthesizedSpeech;
+      try {
+        speech = await this.pipeline.synthesize({
+          text: clause,
+          language,
+          voiceGender: session.voiceGender,
+          speed: session.speed,
+          voice: session.voice,
+        });
+      } catch (err) {
+        if (err instanceof SpeechEngineBusyException) {
+          return { firstAudioAt, lastAudioAt, ...this.engineBusy(session) };
+        }
+        throw err;
+      }
       const pushed = pushSynthesizedWav(
         this.channelFor(socket, session),
         session,
@@ -807,6 +821,19 @@ export class TranslationSessionService implements OnModuleDestroy {
     }
 
     return { firstAudioAt, lastAudioAt };
+  }
+
+  /**
+   * The speech engine was serving another turn in this language for longer than
+   * this one could wait (a Vietnamese stream holds it for a whole turn). The
+   * transcript has already gone out, so the turn ends without audio instead of
+   * failing: losing the queue on a shared engine is not a fault of this turn.
+   */
+  private engineBusy(session: TurnSession): ClauseDelivery {
+    this.logger.warn(
+      `turn ${session.sessionId}: speech engine busy, ending without audio`,
+    );
+    return { stoppedBy: 'engine_busy' };
   }
 
   /**

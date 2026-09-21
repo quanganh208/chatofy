@@ -9,10 +9,11 @@ import {
   TranslationSessionService,
   type StreamSocket,
 } from './translation-session.service';
-import type {
-  PipelineTranslatorService,
-  SynthesizeRequest,
-  TranslateTurnInput,
+import {
+  SpeechEngineBusyException,
+  type PipelineTranslatorService,
+  type SynthesizeRequest,
+  type TranslateTurnInput,
 } from './pipeline-translator.service';
 import type { ClientTurnMetrics } from '@chatofy/types';
 import type { TurnMetrics, TurnMetricsRecorder } from './turn-metrics.recorder';
@@ -2394,11 +2395,76 @@ describe('streamed speech', () => {
     ).toEqual(Buffer.concat([speech(320), speech(100)]));
 
     expect(socket.ofType('server.session.ended')[0]?.reason).toBe('completed');
-    expect(recorded[0]).toMatchObject({ completed: true, clauses: 1 });
+    expect(recorded[0]).toMatchObject({
+      completed: true,
+      clauses: 1,
+      ttsDelivery: 'stream',
+    });
+  });
+
+  it('ends a turn that lost the engine queue without audio instead of failing it', async () => {
+    const { service, synthesize, recorded } = makeService({
+      transcribeAndTranslate: twoClauses,
+      synthesizeStream: vi
+        .fn()
+        .mockRejectedValue(new SpeechEngineBusyException()),
+    });
+    const socket = new FakeSocket();
+    const sessionId = open(service, socket);
+    service.pushFrame(socket, frame({ sessionId }));
+
+    await service.end(socket);
+
+    // The transcript went out; no error event, no clause retry on the same
+    // engine, and the reason says exactly why nothing was heard.
+    expect(socket.ofType('server.transcript.final')).toHaveLength(1);
+    expect(socket.ofType('server.error')).toEqual([]);
+    expect(synthesize).not.toHaveBeenCalled();
+    expect(socket.ofType('server.audio.frame')).toEqual([]);
+    expect(socket.ofType('server.session.ended')[0]?.reason).toBe(
+      'engine_busy',
+    );
+    expect(recorded[0]).toMatchObject({
+      completed: false,
+      reason: 'engine_busy',
+      ttsDelivery: 'stream',
+    });
+  });
+
+  it('ends a clause-path turn without further audio when the engine is busy', async () => {
+    const synthesize = vi
+      .fn()
+      .mockResolvedValueOnce({
+        bytes: ttsWav(100),
+        mimeType: 'audio/wav',
+      })
+      .mockRejectedValueOnce(new SpeechEngineBusyException());
+    const { service, recorded } = makeService({
+      transcribeAndTranslate: twoClauses,
+      synthesizeStream: vi.fn().mockResolvedValue(null),
+      synthesize,
+    });
+    const socket = new FakeSocket();
+    const sessionId = open(service, socket);
+    service.pushFrame(socket, frame({ sessionId }));
+
+    await service.end(socket);
+
+    expect(synthesize).toHaveBeenCalledTimes(2);
+    expect(socket.ofType('server.error')).toEqual([]);
+    expect(socket.ofType('server.audio.frame').length).toBeGreaterThan(0);
+    expect(socket.ofType('server.session.ended')[0]?.reason).toBe(
+      'engine_busy',
+    );
+    expect(recorded[0]).toMatchObject({
+      completed: false,
+      reason: 'engine_busy',
+      ttsDelivery: 'clauses',
+    });
   });
 
   it('falls back to clauses when the backend has no stream', async () => {
-    const { service, synthesize, synthesized } = makeService({
+    const { service, synthesize, synthesized, recorded } = makeService({
       transcribeAndTranslate: twoClauses,
       synthesizeStream: vi.fn().mockResolvedValue(null),
     });
@@ -2411,6 +2477,7 @@ describe('streamed speech', () => {
     expect(synthesize).toHaveBeenCalledTimes(2);
     expect(synthesized).toEqual(['Hello,', 'how are you?']);
     expect(socket.ofType('server.session.ended')[0]?.reason).toBe('completed');
+    expect(recorded[0]).toMatchObject({ clauses: 2, ttsDelivery: 'clauses' });
   });
 
   it('records a failure part-way through the stream as an error, not a completed turn', async () => {
