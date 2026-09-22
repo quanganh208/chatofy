@@ -51,11 +51,14 @@ export function AppSidebar() {
 
             The wordmark is dropped on the rail. Nothing in `SidebarHeader` clips its
             children, so a 60px rail was rendering "Chatofy" straight out past its own
-            edge and over the page. The square mark stays — it is icon-sized and lines
+            edge and over the page. The lotus mark stays — it is icon-sized and lines
             up with the icons below, which is what the rail is. The child selector
             matches `SidebarMenuButton`'s own `[&>span:last-child]` idiom rather than
             adding a prop to `Brand` for one caller. */}
-        <Brand className="group-data-[collapsible=icon]:[&>span:last-child]:hidden px-2 py-2" />
+        <Brand
+          size={20}
+          className="group-data-[collapsible=icon]:[&>span:last-child]:hidden px-2 py-2"
+        />
       </SidebarHeader>
 
       <SidebarContent>
