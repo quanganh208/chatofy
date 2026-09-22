@@ -217,6 +217,23 @@ services:
       # server listens on a port nothing is mapped to.
       PORT: 3001
       HOSTNAME: 0.0.0.0
+      # Auth.js's canonical origin, derived rather than written again.
+      #
+      # It is the same value as WEB_BASE_URL — both mean "the public origin of
+      # this app" — and prod.env used to carry it as a second hand-edited key.
+      # One value in two places is one domain change away from disagreeing, and
+      # the halves fail differently: a stale WEB_BASE_URL mails dead links, a
+      # stale AUTH_URL fails Google sign-in with a 400 the Cloud Console gives
+      # no hint about. Auth.js reads this NAME from the environment and offers
+      # no config for it, so the name still has to arrive — it just no longer
+      # has to be typed.
+      #
+      # Required, unlike R2_PUBLIC_BASE_URL above, and for the opposite reason:
+      # that one is defaulted so an unset optional feature cannot abort the
+      # whole pipeline at `compose config`. Nothing about this deployment works
+      # without an origin — the api refuses to boot on the default — so failing
+      # here, before four images are built, is the earlier of two failures.
+      AUTH_URL: ${WEB_BASE_URL:?set WEB_BASE_URL in prod.env}
     dns: *upstream-dns
     ports:
       - '127.0.0.1:4001:3001'
