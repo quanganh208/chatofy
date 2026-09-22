@@ -99,10 +99,17 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
  * it. Full-dawn because the overlay is permanently dark: ink side petals would
  * vanish into it. The ids only have to be unique inside this shadow root, which
  * holds exactly one mark.
+ *
+ * The gap is widened for small sizes rather than taken as a constant. `gapWidth`
+ * is in the mark's 64-unit space, so at the pill's 16px it lands on 3/64 × 16 =
+ * 0.75 device px at 1x — under one pixel, which rounds away and fuses the three
+ * petals into one shape. `viewBox / size` is whatever buys a full pixel back, and
+ * `max` keeps it a no-op at every size big enough not to need it.
  */
 function lotusMark(size: number): SVGSVGElement {
   const m = brandMark;
   const [bx, by] = m.base;
+  const gap = Math.max(m.gapWidth, m.viewBox / size);
   const node = <K extends keyof SVGElementTagNameMap>(
     tag: K,
     attrs: Record<string, string | number>,
@@ -172,7 +179,7 @@ function lotusMark(size: number): SVGSVGElement {
               d: m.midPath,
               fill: 'none',
               stroke: '#000',
-              'stroke-width': m.gapWidth,
+              'stroke-width': gap,
             }),
           ],
         ),

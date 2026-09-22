@@ -15,7 +15,8 @@
  *
  * Variants, and when each is used (`docs/brand-mark.md`):
  * - `ink` — all three petals in one colour. Below 32px, and anywhere one colour
- *   is all there is. The gap is wider (`gapWidthInk`) so it survives 16px.
+ *   is all there is. The gap is wider (`gapWidthInk`) to hold up as the mark
+ *   shrinks — but see the note on `gapWidth`: widening it does not reach 16px.
  * - `dawn` — ink side petals, centre petal in the dawn gradient. 32px and up.
  * - `full` — every petal in a gradient. On a night tile and in the meeting
  *   overlay, where ink side petals would disappear.
@@ -29,7 +30,16 @@ export const brandMark = {
   sideAngle: 42,
   /** The point the three petals share. */
   base: [32, 52],
-  /** Width of the stroke cut from the side petals around the centre petal. */
+  /**
+   * Width of the stroke cut from the side petals around the centre petal, in the
+   * 64-unit space above — so what a reader sees is `gap / 64 × size` device px.
+   *
+   * Neither value reaches a whole pixel at 16: 0.75 and 0.875. The cut rounds
+   * away and the three petals fuse, which the committed `icon/16.png` shows at
+   * its four widest rows while 32 and 48 separate cleanly. A live renderer can
+   * scale the gap by size — the overlay pill does — but a raster cannot, so the
+   * 16px icon needs a re-export with a size-aware gap, or a hand-tuned one.
+   */
   gapWidth: 3,
   gapWidthInk: 3.5,
   /** Ink in each scheme — the side petals of `dawn`, every petal of `ink`. */

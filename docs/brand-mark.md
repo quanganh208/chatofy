@@ -16,6 +16,15 @@ along the centre petal's outline from all three petals. A stroke in the page col
 would look identical on one ground and draw a visible outline on every other,
 including a transparent PNG.
 
+**The gap does not survive 16px, and the committed raster shows it.** The band is in
+the mark's 64-unit space, so it reaches the eye as `gap / 64 × size`: at 16 that is
+0.75 device px, and 0.875 even on the ink variant. Both round away. `icon/16.png` is
+one solid mass across its four widest rows where 32 and 48 show three clean petals.
+A live renderer can widen the gap as the mark shrinks — `lotusMark` in the overlay
+does, which is what keeps the idle pill readable — but a raster is fixed at export.
+The 16px icon needs a re-export with a size-aware gap, or a hand-tuned one; until
+then the toolbar icon reads as a blob on a non-HiDPI display.
+
 | Variant | Petals                                | Where                                                                |
 | ------- | ------------------------------------- | -------------------------------------------------------------------- |
 | `ink`   | all three in `currentColor`           | below 32px: app sidebar (20), auth frame and popup (20–24), favicon  |

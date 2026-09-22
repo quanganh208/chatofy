@@ -58,4 +58,22 @@ describe('overlay pill', () => {
     expect(root.querySelector<HTMLElement>('.pill-mark')?.hidden).toBe(false);
     expect(root.querySelector<HTMLElement>('.pill-dot')?.hidden).toBe(true);
   });
+
+  /**
+   * The petal gap has to survive the size the pill actually draws at.
+   *
+   * `gapWidth` is in the mark's 64-unit space, so a constant 3 lands on 0.75
+   * device px at 16 — under one pixel, which rounds away and fuses the petals.
+   * The committed 16px raster shows exactly that, and it is why this is asserted
+   * in device pixels rather than against the constant.
+   */
+  it('cuts a gap at least one device pixel wide at the pill size', () => {
+    const { root } = mount();
+    const svg = root.querySelector<SVGSVGElement>('.pill-mark svg');
+    const size = Number(svg?.getAttribute('width'));
+    const viewBox = Number(svg?.getAttribute('viewBox')?.split(' ')[2]);
+    const stroke = Number(svg?.querySelector('mask path')?.getAttribute('stroke-width'));
+    expect(size).toBeGreaterThan(0);
+    expect(stroke * (size / viewBox)).toBeGreaterThanOrEqual(1);
+  });
 });
