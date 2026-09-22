@@ -581,6 +581,14 @@ export const en = {
   'web.landing.ctaTitle': 'Try one conversation',
   'web.landing.ctaBody': 'Needs a microphone and an account. No card.',
   'web.landing.navMenu': 'Menu',
+  // Short forms for the header nav, which has to fit one line beside the brand at
+  // 1024px. The section headings stay as written; these only point at them.
+  'web.landing.navHow': 'How it works',
+  'web.landing.navLocal': 'Privacy',
+  'web.landing.navSurfaces': 'Where it runs',
+  // The part of `heroTitle` set in italic. Must appear verbatim inside it; the hero
+  // falls back to an upright headline when it does not.
+  'web.landing.heroTitleEmphasis': 'Be heard',
 } as const;
 
 /** Every key any locale must carry. Derived, so a locale cannot drift from it. */

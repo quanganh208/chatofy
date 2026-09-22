@@ -34,12 +34,12 @@ export async function FooterCta() {
   return (
     <Section className="border-hairline mt-8 border-t text-center">
       <div className="flex flex-col items-center gap-4">
-        <h2 className="text-title font-semibold tracking-tight text-balance">
+        <h2 className="text-title font-display font-light tracking-tight text-balance">
           {t('web.landing.ctaTitle')}
         </h2>
         <p className="text-prose text-body max-w-prose">{t('web.landing.ctaBody')}</p>
         {signedIn ? null : (
-          <Button asChild size="lg" className="mt-2">
+          <Button asChild size="lg" className="mt-2 rounded-full">
             <Link href="/translate">{t('web.translate.startTranslating')}</Link>
           </Button>
         )}

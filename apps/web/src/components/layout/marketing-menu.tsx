@@ -80,8 +80,9 @@ export function MarketingMenu({
                   <Link href="/login">{actions.signIn}</Link>
                 </Button>
               </SheetClose>
-              {/* The one filled control in this sheet, matching the header it stands in
-                  for. */}
+              {/* The one filled control in this sheet. The header shows the same
+                  action quietly because the hero's button shares its viewport; the
+                  open sheet covers the hero, so here it is the action. */}
               <SheetClose asChild>
                 <Button asChild>
                   <Link href="/register">{actions.getStarted}</Link>

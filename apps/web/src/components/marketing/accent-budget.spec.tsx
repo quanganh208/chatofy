@@ -37,6 +37,13 @@ vi.mock('@/i18n/server', async () => {
 // session would quietly count a DIFFERENT page and still pass.
 vi.mock('@/../auth', () => ({ auth: () => Promise.resolve(null) }));
 
+// The header's language switcher and theme toggle are client components that reach
+// for the router and the session; neither decides anything this spec counts.
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock('next-auth/react', () => ({ useSession: () => ({ status: 'unauthenticated' }) }));
+
+const { MarketingHeader } = await import('@/components/layout/marketing-header');
+const { LocaleProvider } = await import('@/i18n/provider');
 const { Hero } = await import('./hero');
 const { HowItWorks } = await import('./how-it-works');
 const { LocalSpeech } = await import('./local-speech');
@@ -44,6 +51,10 @@ const { Surfaces } = await import('./surfaces');
 const { FooterCta } = await import('./footer-cta');
 
 const SECTIONS = [
+  // Zero, and it is the row that makes the hero's one mean something: the header
+  // shares the first viewport with the hero, so a filled "Get started" up here is a
+  // second filled control on the screen people see first.
+  { name: 'MarketingHeader', render: MarketingHeader, filled: 0 },
   { name: 'Hero', render: Hero, filled: 1 },
   { name: 'HowItWorks', render: HowItWorks, filled: 0 },
   { name: 'LocalSpeech', render: LocalSpeech, filled: 0 },
@@ -70,7 +81,7 @@ describe('the landing page accent budget', () => {
     const element = await render();
     await act(async () => {
       root = createRoot(container);
-      root.render(element);
+      root.render(<LocaleProvider>{element}</LocaleProvider>);
       await Promise.resolve();
     });
 

@@ -415,4 +415,8 @@ export const vi: Messages = {
   'web.landing.ctaTitle': 'Thử một cuộc hội thoại',
   'web.landing.ctaBody': 'Cần một micro và một tài khoản. Không cần thẻ.',
   'web.landing.navMenu': 'Danh mục',
+  'web.landing.navHow': 'Cách hoạt động',
+  'web.landing.navLocal': 'Riêng tư',
+  'web.landing.navSurfaces': 'Nơi dùng',
+  'web.landing.heroTitleEmphasis': 'Được nghe',
 };
