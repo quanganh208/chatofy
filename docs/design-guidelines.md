@@ -5,7 +5,12 @@ themselves live in `packages/ui/src/tokens.ts` and are consumed by web, the
 extension and mobile; this document is where the reasoning is kept, because a
 hex in a TypeScript file cannot say what it is for.
 
-## Direction: two grounds, one restrained accent
+## Direction: editorial, ink for action, dawn for the mark
+
+Direction A, chosen over four review rounds: an editorial page — a light serif for
+headings, generous space, warm stone neutrals — where **ink is the single action
+colour** and the only colour with any saturation is the **dawn** of the lotus mark
+and the landing illustration. Colour marks the brand; it never marks a control.
 
 The theme is the reader's choice — light, dark, or whatever the machine asks for.
 Web, the popup and mobile all offer the three; **the overlay does not, and that is the
@@ -14,43 +19,21 @@ one exception worth understanding.**
 The overlay renders on top of someone else's video, and inside a content script
 `prefers-color-scheme` answers for the operating system rather than for the page it is
 standing on. Following it would drop a white panel onto a dark call. So the overlay is
-permanently dark.
+permanently dark, and it reads the dark palette (`color`) directly.
 
-That constraint used to be applied to everything: if the overlay must be dark, the
-reasoning went, a light web could never read as the same product, so web was dark too.
-The constraint is real and the extension of it was not. Separating them is what made
-two themes possible without the failure the original decision was guarding against.
+The accent appears **once per screen-state**. Hierarchy is carried by size, weight and
+space; the ink fill is reserved for the single action a surface exists to offer, and
+the state colours for the states that mean something. Both rules are gated — see
+[State inventory](#state-inventory) and the accent-budget specs.
 
-The accent appears **once per screen**. Hierarchy is carried by size, weight and
-space; colour is reserved for the single action a surface exists to offer, and for the
-states that mean something. That is why the palette below looks thin — a second
-accent-filled control is the thing this direction is built to prevent.
+**Surfaces are separated by depth, not by rules.** White cards on a near-white ground,
+divided by hairlines, read as a line drawing rather than as a product; the owner chose
+depth after seeing both. What that direction was protecting is kept: the translation is
+still the largest thing on a translate surface, elevation is a scale of three, and no
+shadow competes with text. See [Elevation](#elevation).
 
-The rule was formally released when elevation arrived, and then not used. Depth
-answered the complaint it was released for, and a permission is not an instruction.
-Recorded so the next person finds a decision rather than an omission.
-
-**Surfaces are separated by depth, not by rules.** This reverses the previous
-direction, which held that "this direction separates surfaces with rules instead of
-luminance steps". That was applied faithfully and rejected on sight: white cards on a
-near-white ground, divided by hairlines, read as a line drawing rather than as a
-product. The reversal was the owner's call after seeing both drawn side by side.
-
-What the old direction was protecting is kept. The translation is still the largest
-thing on a translate surface, elevation is a scale of three rather than a free
-parameter, and no shadow competes with text for attention. See
-[Elevation](#elevation).
-
-Every value here is measured. `apps/web/src/design/contrast-floors.spec.ts` holds the
-pairs and the floors and fails when one slips.
-
-It used to be a script under `plans/`, cited from here and from `tokens.ts` as the
-enforcement authority. It could not be one: `plans/` is a record of work rather than
-part of the product, nothing ran the script, and a single `git rm` of the plan tree
-took the cited authority with it — which is exactly what happened. The spec also reads
-the palettes from `tokens.ts` instead of restating them, so a hex changed there is
-measured here; the script carried its own copy and could only check what it had last
-been told.
+Every value here is measured. `apps/web/src/design/contrast-floors.spec.ts` reads the
+palettes from `tokens.ts`, holds the pairs and the floors, and fails when one slips.
 
 ## Palette
 
@@ -60,37 +43,71 @@ half, and `palettes` is the pair for the surfaces that let someone choose.
 
 ### Neutrals
 
-| Token           | Light     | Dark      | Where                                                      |
-| --------------- | --------- | --------- | ---------------------------------------------------------- |
-| `bg`            | `#FCFCFB` | `#111214` | the page itself                                            |
-| `surface`       | `#FFFFFF` | `#191B1E` | cards and panels                                           |
-| `surfaceRaised` | `#F4F4F1` | `#212429` | something sitting on a surface — a control, a selected row |
+Warm stone, hue about 30°.
+
+| Token           | Light     | Dark      | Where                                                   |
+| --------------- | --------- | --------- | ------------------------------------------------------- |
+| `bg`            | `#F5F5F4` | `#0C0A09` | the page itself — stone, and night                      |
+| `surface`       | `#FFFFFF` | `#1C1917` | cards and panels                                        |
+| `surfaceRaised` | `#EDEBE9` | `#252220` | a well (field, track) or a control resting on a surface |
+
+Light `surfaceRaised` is **darker** than `bg` on purpose: the C1 wells — a field, the
+segmented track, the slider track — are cut into the page, not lifted off it. In dark,
+`bg` → `surface` → `surfaceRaised` step upward and stay distinct from `border`.
 
 ### Borders
 
 | Token           | Light     | Dark      | Where                             |
 | --------------- | --------- | --------- | --------------------------------- |
-| `border`        | `#E4E4E0` | `#292C31` | the hairline between two surfaces |
-| `borderStrong`  | `#B5B5AB` | `#43484E` | an emphasised divider             |
-| `borderControl` | `#8D8D85` | `#696E76` | the edge of a control             |
+| `border`        | `#DDDAD7` | `#2E2A27` | the hairline between two surfaces |
+| `borderStrong`  | `#A8A29E` | `#57534E` | an emphasised divider             |
+| `borderControl` | `#8A837E` | `#7C756F` | a boundary that must be found     |
 
 ### Text
 
 | Token           | Light     | Dark      | On light bg | On dark bg | Where                             |
 | --------------- | --------- | --------- | ----------- | ---------- | --------------------------------- |
-| `text`          | `#131313` | `#F0F0EE` | 18.10       | 16.43      | headings and the translation      |
-| `textSecondary` | `#4A4A46` | `#B4B6B2` | 8.67        | 9.17       | supporting prose, the source line |
-| `textMuted`     | `#6F6F6A` | `#8A8D8A` | 4.92        | 5.58       | hints and field labels            |
+| `text`          | `#1C1917` | `#F5F5F4` | 16.03       | 18.11      | headings and the translation      |
+| `textSecondary` | `#57534E` | `#C4BFBA` | 6.99        | 10.83      | supporting prose, the source line |
+| `textMuted`     | `#6B6560` | `#A8A29E` | 5.27        | 7.83       | hints and field labels            |
 
 ### Accent
 
+The accent is **ink**: the same hex as `text` in each scheme.
+
 | Token          | Light     | Dark      | Where                                       |
 | -------------- | --------- | --------- | ------------------------------------------- |
-| `accent`       | `#2F4CE0` | `#7A90F5` | the one filled action on a screen           |
-| `accentHover`  | `#2439C4` | `#93A5F8` | that action, hovered                        |
-| `accentText`   | `#2740CC` | `#A3B4F9` | the accent read as text, and the focus ring |
-| `accentSubtle` | `#ECEFFD` | `#1B2140` | its own tint, behind accent text            |
-| `onAccent`     | `#FFFFFF` | `#0B1030` | the label on the filled action              |
+| `accent`       | `#1C1917` | `#F5F5F4` | the one filled action on a screen           |
+| `accentHover`  | `#44403C` | `#FFFFFF` | that action, hovered                        |
+| `accentText`   | `#1C1917` | `#F5F5F4` | the accent read as text, and the focus ring |
+| `accentSubtle` | `#E6E1DB` | `#35302C` | a selected state's tint                     |
+| `onAccent`     | `#FFFFFF` | `#0C0A09` | the label on the filled action              |
+
+Two consequences follow from an accent that is the colour of text:
+
+- **Colour no longer marks a link** (WCAG 1.4.1). The `link` variants of `Button` and
+  `Badge` are underlined at rest, and hover thickens the line rather than revealing
+  it. `packages/ui/src/react/skin-guard.spec.ts` asserts the underline.
+- **The hover step is capped in dark.** Light lifts ink toward stone, 1.70:1 from the
+  fill. Dark can only go lighter — `token-contrast.spec.ts` forbids a hover that loses
+  contrast with its label — and `#FFFFFF` is as far as lighter goes from `#F5F5F4`:
+  1.09:1. So the primary button also lifts 1px with a deeper shadow on hover, the same
+  C1 gesture as the quiet button; under reduced motion the shadow change remains.
+
+### Dawn
+
+| Token      | Value     |
+| ---------- | --------- |
+| `peach`    | `#F4C5A8` |
+| `lavender` | `#C8B8E0` |
+| `mint`     | `#A7E5D3` |
+
+`dawn` in `tokens.ts`. **Decorative only**: the lotus mark's centre petal, the landing
+illustration, the surfaces tiles' band. They measure 1.44, 1.69 and 1.30:1 on stone, so
+a dawn value is **never behind text, never on a control, and never carries a state**.
+It is not a palette key, and the contrast table never sees it. The illustration's two
+extra stops, sky `#A8C8E8` and rose `#E8B8C4`, are local to the lotus mark data and the
+landing component; nothing else reaches for them.
 
 ### State
 
@@ -104,51 +121,54 @@ half, and `palettes` is the pair for the surfaces that let someone choose.
 | `warning`       | `#7A4E00` | `#E9A23B` | a step the reader still has    |
 | `warningSubtle` | `#FBF0D8` | `#3A2A0C` | the ground of a warning notice |
 
+Unchanged by the rollout: every floor still clears on the stone and night grounds.
+
 ### Overlay-only
 
-| Token            | Value                       | Why it is separate                                                                                 |
-| ---------------- | --------------------------- | -------------------------------------------------------------------------------------------------- |
-| `overlay.bg`     | `rgba(17, 17, 19, 0.94)`    | translucent, so a bright video frame still reads through the panel rather than being blocked by it |
-| `overlay.border` | `rgba(255, 255, 255, 0.12)` | the panel's edge against arbitrary video behind it                                                 |
+| Token            | Value                       | Why it is separate                                                                                  |
+| ---------------- | --------------------------- | --------------------------------------------------------------------------------------------------- |
+| `overlay.bg`     | `rgba(12, 10, 9, 0.94)`     | night, translucent, so a bright video frame still reads through the panel rather than being blocked |
+| `overlay.border` | `rgba(255, 255, 255, 0.12)` | the panel's edge against arbitrary video behind it                                                  |
 
 One value each, deliberately. These belong to the surface that has no second ground.
 
 ### What the measurements say
 
-Body text reads **18.10:1** on the light ground and
-**16.43:1** on the dark one. Supporting prose —
-`textSecondary`, the step whose absence once made web read flatter than the extension —
-reads 8.67 and
-9.17. The quietest tier, `textMuted`, still clears
-4.5 at 4.92 and 5.58.
+Read from the spec run, not recomputed by hand.
 
-`borderControl` is solved against `surfaceRaised` rather than `surface`, because that is
-the ground a control actually sits on and it is the tighter of the two: it reads
-3.03 and
-3.03, both clearing WCAG 1.4.11's 3:1
-for the visual boundary of a user interface component. **It does not recede under the
-elevation direction.** Surfaces separate by shadow now, but a control's own boundary is
-not a surface separation, and 1.4.11 still reaches it — this is the one border that a
-depth pass must leave alone.
+Body text reads **16.03:1** on stone and **18.11:1** on night. `textSecondary` reads
+6.99 and 10.83; `textMuted`, the quietest tier, 5.27 and 7.83. The label on the primary
+button reads 17.49 and 18.11.
 
-`borderStrong` is a divider and not a boundary, so 1.4.11 does not reach it. It carried
-a floor of 2.01 and 2.03 because
-the old direction made an invisible rule cost the whole separation mechanism. Shadow
-does that work now, and the hairline is free to recede to `surfaceEdge.hairline` on an
-elevated surface. The floor stays anyway: nothing has replaced what it measures on the
-surfaces still drawn with a border, and lowering a floor is a decision rather than a
-consequence of one.
+`borderControl` is solved against `surfaceRaised`, the tighter of its two grounds: 3.14
+light and 3.49 dark, clearing WCAG 1.4.11's 3:1. Under direction C1 it is no longer the
+edge of every control — see [Control depth](#control-depth) — but where a real boundary
+is still required it holds.
 
-**The accent-versus-speaking problem is fixed rather than tolerated.** This document used
-to record that `speaking` against the old cyan accent was "green against cyan rather than
-green against purple", tolerable only because the labelling rule held everywhere. Measured,
-that gap was 40.1°. It is now
-79.5° on light and
-80.8° on dark. The labelling rule still holds — it
-just is not the only thing holding.
+`borderStrong` is a divider, not a boundary: 2.31 and 2.59 against a floor of 2.0.
+`border` is a hairline: 1.28 and 1.39 against 1.2. The focus ring, `ring-ring/50` with
+no offset, measures 3.21:1 worst-case in light (ink at 50% on `surfaceRaised`) and 4.71
+in dark.
+
+**The achromatic-accent exemption.** The table used to require 60° of hue between the
+accent and `live`/`speaking`, so the primary action could never be mistaken for a state
+beside it. Ink has no hue a reader can see — `#1C1917` measures 24° and `#F5F5F4` 60°,
+which is rounding noise — and holding those rows would have meant tinting the approved
+ink until the arithmetic passed. So while the accent's chroma (max − min channel) is
+under 8%, those rows are replaced by a **lightness** row: accent against each state
+colour at 2.0:1 or more, the table's own floor for "visible, not a boundary". Measured:
+2.71 (`live`) and 2.66 (`speaking`) in light, 3.01 and 2.27 in dark. An accent that
+regains a hue gets its hue rows back automatically, and `live`/`speaking`/`warning`
+never leave the hue table.
 
 `destructive` keeps its own name although it carries the same value as `live`. They mean
 different things, and merging them would turn a future divergence into a rename.
+
+## Brand mark
+
+The lotus mark, its variants, the size rule and the asset export are in
+[brand-mark.md](./brand-mark.md). In short: ink below 32px, dawn from 32px, full-dawn on
+a night tile and in the idle overlay pill — and never in place of the recording dot.
 
 ## Type
 
@@ -170,9 +190,9 @@ has no landing, so `apps/web/src/design/token-parity.spec.ts` lists it in `SURFA
 rather than demanding the extension declare a size it never sets. It exists because a
 marketing page needs one size above every product screen's largest, and a hero is exactly
 where someone reaches for `text-5xl` — which `app-skin-guard.spec.ts` refuses along with
-the rest of the size-name family. Its line height is 1.05 rather than the 1.2 the rest of
-the scale uses: a 44px line wraps at most twice, and 1.2 opens a visible gap between the
-two halves of a headline.
+the rest of the size-name family. Its line height is 1.2, like `--text-title`'s: 1.05
+clipped the stacked diacritics of a Vietnamese headline (`Ế`, `Ộ`) against the line above,
+and Newsreader at this size was checked in both languages at 1.2.
 
 Its step key is `display`, not a number — the only one in the table that is not part of
 the `xs…xl` run, because it is not a step above `xl` so much as a different job. And it is
@@ -214,18 +234,29 @@ the parity test either: it checks declarations, not usages.
 Weights: `400` body, `500` emphasis and the translation, `600` labels and
 buttons. Nothing heavier.
 
-Web uses a self-hosted display face through `next/font`. The overlay keeps its
-own explicit system stack, for the reason above.
+### Two families
 
-**The popup keeps the system stack too, and is deliberately not unified with
-web.** The overlay cannot take a bundled face — it renders inside someone else's
-page and every byte is injected there — so unifying the popup with web would not
-give the product one typeface, it would give the extension two. Between matching
-the other extension surface and matching the website, the popup is a 320px panel
-hanging off the browser's own toolbar; reading as part of the browser is the more
-useful of the two. Recorded here because it is a real divergence between surfaces
-rather than an oversight, and the next person to notice it should find the reason
-instead of the bug.
+**Be Vietnam Pro** is the body face everywhere — body, controls, labels and every
+translation line. Web self-hosts it through `next/font`; the popup ships the same family
+as pinned woff2 subsets (`apps/extension/scripts/build-fonts.mjs`), and
+`token-parity.spec.ts` holds the two to one family name.
+
+**Newsreader** is the display face, **on web only**: `--text-display` and `--text-title`
+at weight 300, `--text-heading` at 400, and the wordmark at 500 — applied with the
+`font-display` utility beside the role size. It is a variable face loaded with its
+optical-size axis (`opsz`), which is what makes a 44px headline and a 22px heading each
+look drawn for their size, plus italic for the hero's "Be heard". Self-hosted through
+`next/font`, so the landing makes no third-party request.
+
+Where the serif is **not** used, and why:
+
+- Body, controls and translation lines — they are read, not looked at, and Be Vietnam
+  Pro is the face built for Vietnamese at text sizes.
+- The popup — its font pipeline ships one family; the wordmark reaches it as an
+  outlined SVG path instead of a second pinned subset.
+- The overlay — it loads no font at all and keeps an explicit system stack, because it
+  renders inside someone else's page and every byte is injected there.
+- Mobile — out of scope for the brand rollout.
 
 ## Elevation
 
@@ -237,7 +268,7 @@ Three steps, each carrying both themes, and the two halves are **not the same sh
 | `md` | 5% at 4px plus 7.5% at 16px         | 42% at 14px, plus the inset highlight | a card or panel: the resting height of a surface          |
 | `lg` | 5% at 8px plus 10% at 34px          | 50% at 30px, plus the inset highlight | something over the page — a dropdown, the overlay's panel |
 
-**Dark does not use shadow for depth, because it cannot.** Black on `#111214` is very
+**Dark does not use shadow for depth, because it cannot.** Black on `#0C0A09` is very
 nearly invisible. Depth there comes from the luminance steps the palette already
 owns — `bg` → `surface` → `surfaceRaised` — with the shadow reduced to an anchor and a
 one-pixel `inset 0 1px 0` highlight standing in for the light a raised edge would
@@ -321,12 +352,12 @@ assume an oversight.
 
 Two facts bound the cost, and neither is a rationalisation after the fact:
 
-- **The focus ring is untouched.** `--ring` measures **6.70:1** at worst across
-  every ground a control sits on — `card`, `background`, `surfaceRaised`,
+- **The focus ring is untouched.** `--ring`, drawn at the 50% it renders at, measures
+  **3.21:1** at worst (light, on `surfaceRaised`) across every ground a control sits on — `card`, `background`, `surfaceRaised`,
   `warningSubtle`, `liveSubtle` — in both themes. 1.4.11's state-indication half
   is satisfied in full; only the at-rest boundary was traded.
-- **No softer token could have cleared it.** `borderStrong` measures 2.07/1.87
-  and `border` 1.27/1.23. Reaching 3:1 means `borderControl` or nothing, so this
+- **No softer token could have cleared it.** `borderStrong` measures 2.52/2.29
+  and `border` 1.39/1.23 on a card. Reaching 3:1 means `borderControl` or nothing, so this
   was a choice between the C1 language and an outline, not a value to tune.
 
 ### Where a real boundary is still required
@@ -578,6 +609,15 @@ transitioning or animating on `/translate`. When checking this yourself, read
 `transition-property: none` and leaves the duration declared but inert, so a
 duration-based check reports every correctly guarded element as still moving.
 
+**One entrance, on the landing only: the lotus opening.** The hero's five petals start
+upright and turn out to their resting angles once on load — 1000ms on `easing.enter`
+(`--animate-lotus-bloom` in `globals.css`) — and then stay still. No loop, nothing
+reacts to the pointer, and it is marketing-only: no product screen carries it, and it
+never runs beside a translation. Every petal pairs it with `motion-reduce:animate-none`,
+which leaves the resting angle (an inline transform) in place from the first frame;
+`lotus-illustration.spec.tsx` asserts the pairing, and the Chromium check above finds
+zero animating elements on `/` under reduced motion.
+
 ## Copy register
 
 What the product may say out loud. The rule: **name the wait, the outcome, or the
@@ -718,38 +758,38 @@ is typed `Messages`, so a key present in `en` and missing in `vi` fails `tsc` by
 That guarantee is exactly as strong as the number of strings living outside the
 dictionary, which is the argument for keeping that number at zero.
 
-| State                                      | Renders at                                                                                                                                              |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/` signed out                             | `layout/marketing-header.tsx:76` — the ghost/accent pair                                                                                                |
-| `/` signed in                              | same line, the other branch: one "Open Chatofy" at `/translate`                                                                                         |
-| landing, mobile nav closed / open          | `layout/marketing-menu.tsx:35` — the sheet; the desktop nav is hidden below `md`                                                                        |
-| `/translate` mic refused                   | `translate/readiness-banner.tsx` `microphoneFault` — the banner speaks, otherwise silent                                                                |
-| `/translate` mic not asked / unknown       | same function — and neither is a fault, so neither renders anything                                                                                     |
-| `/translate` mic absent                    | same function — no `audioinput` device; a refused permission still wins over it                                                                         |
-| `/translate` service reachable             | nothing renders; a probe still in flight is not a problem to report                                                                                     |
-| `/translate` service unreachable           | `translate/readiness-banner.tsx` — a failed `GET /health`, and a hung one after 5s                                                                      |
-| sidebar expanded / rail                    | `layout/app-chrome.tsx:51` `opensExpanded` — the route decides, not a cookie                                                                            |
-| sidebar mobile sheet                       | `packages/ui/src/react/sidebar.tsx:171` — the primitive swaps to a `Sheet` below `md`                                                                   |
-| session menu loading                       | `layout/session-menu.tsx` — a `Skeleton` at the avatar's size, never `null`                                                                             |
-| `/translate` idle                          | `translate/cascade-panel.tsx:52` `STATUS_KEY.idle`                                                                                                      |
-| connecting                                 | `STATUS_KEY.connecting`                                                                                                                                 |
-| listening / hearing speech                 | `STATUS_KEY.listening`, `'hearing-speech'`                                                                                                              |
-| translating                                | `STATUS_KEY.translating`                                                                                                                                |
-| playing                                    | `STATUS_KEY.playing`                                                                                                                                    |
-| display popover closed / open              | `translate/display-settings-popover.tsx` — the gear at the end of the dock; non-modal, so the transcript stays readable                                 |
-| voice popover closed / open                | `translate/voice-settings-popover.tsx` — the speaker in the panel header, glyph swapped on `voiceOutput`; also non-modal                                |
-| `/translate` panel headers, idle / running | `translate/panel-headers.tsx` — the direction, named permanently; the swap goes dead mid-conversation                                                   |
-| voice popover open mid-conversation        | `translate/voice-settings-panel.tsx:87` `disabled={running}` — everything but volume is frozen; direction with it, at `translate/panel-headers.tsx:181` |
-| transcript empty                           | `translate/conversation-transcript.tsx:66` — copy differs on `running`                                                                                  |
-| running with turns                         | same component, the turn list                                                                                                                           |
-| error notice                               | `translate/cascade-panel.tsx:148` (`role="alert"`)                                                                                                      |
-| `/preferences` defaults section            | `preferences/conversation-defaults-section.tsx` — the same panel, `running={false}`, and the screen's one elevated surface                              |
-| `/preferences` interface section           | `preferences/interface-preferences-section.tsx` — language and theme, on the page ground                                                                |
-| `/account` identity loading                | `account/account-identity.tsx` — the header paints at once; only the join date holds a place                                                            |
-| `/account` identity loaded                 | same component; name and email paint from the session before the profile lands                                                                          |
-| `/account` profile lookup failed           | `account/account-screen.tsx` — reported on the join-date line, and nobody is signed out for it                                                          |
-| any route, error boundary                  | `app/(app)/error.tsx`, `app/(auth)/error.tsx`, `app/(marketing)/error.tsx`                                                                              |
-| any address that is not a route            | `app/not-found.tsx`                                                                                                                                     |
+| State                                      | Renders at                                                                                                                                                                                                    |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/` signed out                             | `layout/marketing-header.tsx` — "Sign in" ghost, "Get started" quiet (outline); the header spends no accent, gated at 0 by `accent-budget.spec.tsx`, because the hero's one filled button shares its viewport |
+| `/` signed in                              | same line, the other branch: one "Open Chatofy" at `/translate`                                                                                                                                               |
+| landing, mobile nav closed / open          | `layout/marketing-menu.tsx:35` — the sheet; the desktop nav is hidden below `md`                                                                                                                              |
+| `/translate` mic refused                   | `translate/readiness-banner.tsx` `microphoneFault` — the banner speaks, otherwise silent                                                                                                                      |
+| `/translate` mic not asked / unknown       | same function — and neither is a fault, so neither renders anything                                                                                                                                           |
+| `/translate` mic absent                    | same function — no `audioinput` device; a refused permission still wins over it                                                                                                                               |
+| `/translate` service reachable             | nothing renders; a probe still in flight is not a problem to report                                                                                                                                           |
+| `/translate` service unreachable           | `translate/readiness-banner.tsx` — a failed `GET /health`, and a hung one after 5s                                                                                                                            |
+| sidebar expanded / rail                    | `layout/app-chrome.tsx:51` `opensExpanded` — the route decides, not a cookie                                                                                                                                  |
+| sidebar mobile sheet                       | `packages/ui/src/react/sidebar.tsx:171` — the primitive swaps to a `Sheet` below `md`                                                                                                                         |
+| session menu loading                       | `layout/session-menu.tsx` — a `Skeleton` at the avatar's size, never `null`                                                                                                                                   |
+| `/translate` idle                          | `translate/cascade-panel.tsx:52` `STATUS_KEY.idle`                                                                                                                                                            |
+| connecting                                 | `STATUS_KEY.connecting`                                                                                                                                                                                       |
+| listening / hearing speech                 | `STATUS_KEY.listening`, `'hearing-speech'`                                                                                                                                                                    |
+| translating                                | `STATUS_KEY.translating`                                                                                                                                                                                      |
+| playing                                    | `STATUS_KEY.playing`                                                                                                                                                                                          |
+| display popover closed / open              | `translate/display-settings-popover.tsx` — the gear at the end of the dock; non-modal, so the transcript stays readable                                                                                       |
+| voice popover closed / open                | `translate/voice-settings-popover.tsx` — the speaker in the panel header, glyph swapped on `voiceOutput`; also non-modal                                                                                      |
+| `/translate` panel headers, idle / running | `translate/panel-headers.tsx` — the direction, named permanently; the swap goes dead mid-conversation                                                                                                         |
+| voice popover open mid-conversation        | `translate/voice-settings-panel.tsx:87` `disabled={running}` — everything but volume is frozen; direction with it, at `translate/panel-headers.tsx:181`                                                       |
+| transcript empty                           | `translate/conversation-transcript.tsx:66` — copy differs on `running`                                                                                                                                        |
+| running with turns                         | same component, the turn list                                                                                                                                                                                 |
+| error notice                               | `translate/cascade-panel.tsx:148` (`role="alert"`)                                                                                                                                                            |
+| `/preferences` defaults section            | `preferences/conversation-defaults-section.tsx` — the same panel, `running={false}`, and the screen's one elevated surface                                                                                    |
+| `/preferences` interface section           | `preferences/interface-preferences-section.tsx` — language and theme, on the page ground                                                                                                                      |
+| `/account` identity loading                | `account/account-identity.tsx` — the header paints at once; only the join date holds a place                                                                                                                  |
+| `/account` identity loaded                 | same component; name and email paint from the session before the profile lands                                                                                                                                |
+| `/account` profile lookup failed           | `account/account-screen.tsx` — reported on the join-date line, and nobody is signed out for it                                                                                                                |
+| any route, error boundary                  | `app/(app)/error.tsx`, `app/(auth)/error.tsx`, `app/(marketing)/error.tsx`                                                                                                                                    |
+| any address that is not a route            | `app/not-found.tsx`                                                                                                                                                                                           |
 
 Not reachable without a backend or a forced value: `live.error`,
 `languageMismatch`, `connecting`, `translating`, and the readiness card's
