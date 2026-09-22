@@ -14,6 +14,10 @@ import { Section } from './section';
  * The three hops are the proof, and they are the honest shape of it: two of them are
  * local and the middle one is not. A privacy claim that quietly omitted the network hop
  * would be the kind of claim this section exists to be better than.
+ *
+ * Each hop is labelled in small capitals rather than a pill. At the size a pill needed
+ * to be legible it outweighed the sentence beside it, and the label is the lesser of
+ * the two: where it happens, then what happens.
  */
 export async function LocalSpeech() {
   const t = await getT();
@@ -28,7 +32,7 @@ export async function LocalSpeech() {
     <Section id="on-your-machine">
       <div className="grid items-center gap-10 lg:grid-cols-2">
         <div className="flex flex-col gap-4">
-          <h2 className="text-title font-semibold tracking-tight text-balance">
+          <h2 className="text-title font-display font-light tracking-tight text-balance">
             {t('web.landing.localTitle')}
           </h2>
           <p className="text-prose text-body max-w-prose">{t('web.landing.localBody')}</p>
@@ -40,7 +44,7 @@ export async function LocalSpeech() {
               <div key={index} className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 <span
                   className={cn(
-                    'text-label border-hairline shrink-0 rounded-full border px-2.5 py-1 font-semibold tracking-wide uppercase',
+                    'text-label w-32 shrink-0 font-semibold tracking-wide uppercase',
                     hop.local ? 'text-foreground' : 'text-muted-foreground',
                   )}
                 >

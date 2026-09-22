@@ -55,19 +55,22 @@ export async function MarketingHeader() {
   const t = await getT();
 
   const links: readonly MarketingMenuLink[] = [
-    { href: '#how-it-works', label: t('web.landing.howTitle') },
-    { href: '#on-your-machine', label: t('web.landing.localTitle') },
-    { href: '#where-it-runs', label: t('web.landing.surfacesTitle') },
+    { href: '#how-it-works', label: t('web.landing.navHow') },
+    { href: '#on-your-machine', label: t('web.landing.navLocal') },
+    { href: '#where-it-runs', label: t('web.landing.navSurfaces') },
   ];
 
   return (
     <header className="border-hairline bg-background sticky top-0 z-40 border-b">
       <div className={cn('mx-auto flex w-full items-center gap-4 px-6 py-4', MEASURE.marketing)}>
-        <Brand />
+        <Brand size={32} />
 
         {/* Hidden below `md`, where the sheet carries the same three. Not duplicated
             markup with a media query each — one list, rendered twice. */}
-        <nav aria-label={t('web.landing.navMenu')} className="hidden items-center gap-5 md:flex">
+        <nav
+          aria-label={t('web.landing.navMenu')}
+          className="hidden items-center gap-5 whitespace-nowrap md:flex"
+        >
           {links.map((link) => (
             <a
               key={link.href}
@@ -83,7 +86,12 @@ export async function MarketingHeader() {
           <LocaleSwitcher />
           <ConnectedThemeToggle />
           {signedIn ? (
-            <Button asChild size="sm" className="hidden md:inline-flex">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="hidden rounded-full md:inline-flex"
+            >
               <Link href="/translate">{t('web.chrome.openApp')}</Link>
             </Button>
           ) : (
@@ -91,10 +99,16 @@ export async function MarketingHeader() {
               <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
                 <Link href="/login">{t('web.auth.signIn')}</Link>
               </Button>
-              {/* The one accent-filled control on this screen. Everything else in the
-                  header is ghost or a plain link, which is what makes this one read as
-                  the action rather than as decoration. */}
-              <Button asChild size="sm" className="hidden md:inline-flex">
+              {/* Quiet, not filled. The hero's "Start translating" is the one filled
+                  control in the first viewport, and a filled button here would be a
+                  second one a hand's width above it — two actions that look like the
+                  same offer. `accent-budget.spec.tsx` holds this header at zero. */}
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="hidden rounded-full md:inline-flex"
+              >
                 <Link href="/register">{t('web.chrome.getStarted')}</Link>
               </Button>
             </>

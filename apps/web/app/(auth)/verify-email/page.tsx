@@ -29,7 +29,7 @@ export default async function VerifyEmailPage() {
   return (
     <>
       <div className="flex flex-col gap-2">
-        <h1 className="text-title font-semibold tracking-tight">
+        <h1 className="text-title font-display font-light tracking-tight">
           {t('web.auth.verifyEmailHeading')}
         </h1>
       </div>

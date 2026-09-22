@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
-import { Be_Vietnam_Pro } from 'next/font/google';
+import { Be_Vietnam_Pro, Newsreader } from 'next/font/google';
 import { AppSessionProvider } from '@/components/session-provider';
 import { LocaleProvider } from '@/i18n/provider';
 import { getLocale, getT } from '@/i18n/server';
+import { serverEnv } from '@/config/server-env';
 import { THEME_STORAGE_KEY } from '@/lib/theme';
 import './globals.css';
 
@@ -32,6 +33,28 @@ const sans = Be_Vietnam_Pro({
 });
 
 /**
+ * The display face: page and section titles, the landing headline, the wordmark.
+ * Nothing else — body, controls and every translation line stay in Be Vietnam Pro,
+ * and the popup and overlay load no serif at all (the popup draws an outlined
+ * wordmark instead).
+ *
+ * Declared AFTER `sans`, and the order matters: `token-parity.spec.ts` ties the
+ * body family to the FIRST `next/font` call in this file.
+ *
+ * Variable, with the optical-size axis. Newsreader's `opsz` is what makes a 44px
+ * headline and a 22px heading look drawn for their sizes; without it the display
+ * sizes render with text-size spacing and look loose. Italic is loaded because the
+ * hero's "Be heard" is set in it.
+ */
+const display = Newsreader({
+  subsets: ['latin', 'vietnamese'],
+  axes: ['opsz'],
+  style: ['normal', 'italic'],
+  variable: '--font-newsreader',
+  display: 'swap',
+});
+
+/**
  * The tab, in the reader's language.
  *
  * `generateMetadata` rather than a static object, for the same reason every visible
@@ -41,7 +64,13 @@ const sans = Be_Vietnam_Pro({
  */
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getT();
-  return { title: t('web.meta.home'), description: t('web.meta.homeDescription') };
+  return {
+    // What `opengraph-image.png` and the icons resolve against. Unset, Next falls
+    // back to localhost and warns — see `WEB_BASE_URL` in `server-env.ts`.
+    metadataBase: new URL(serverEnv.WEB_BASE_URL),
+    title: t('web.meta.home'),
+    description: t('web.meta.homeDescription'),
+  };
 }
 
 export default async function RootLayout({
@@ -70,7 +99,7 @@ export default async function RootLayout({
     //
     // `lang` DOES come from the server, for the reason above — and it has to be
     // right: it is what a screen reader picks a voice from.
-    <html lang={locale} className={sans.variable} suppressHydrationWarning>
+    <html lang={locale} className={`${sans.variable} ${display.variable}`} suppressHydrationWarning>
       <head>
         {/*
           Runs before the first paint, which is the whole point.

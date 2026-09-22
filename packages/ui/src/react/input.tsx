@@ -30,10 +30,10 @@ import { cn } from '../lib/utils.js';
  * The inset edge composites to 1.13:1 (light) and 1.17:1 (dark), under WCAG
  * 1.4.11's 3:1 for the boundary of a control at rest. Nothing softer than
  * `--border-control` reaches that floor in this palette — `border-strong` is
- * 2.07/1.87, `border` is 1.27/1.23 — so it is a property of the ramp, not a value
+ * 2.52/2.29, `border` is 1.39/1.23 on a card — so it is a property of the ramp, not a value
  * to tune. It was accepted deliberately, against a measured alternative that
  * cleared the floor. The focus ring is untouched and still carries state
- * indication at 6.70:1 worst-case, so it is the AT-REST boundary alone that was
+ * indication at 3.21:1 worst-case at the 50% it is drawn at, so it is the AT-REST boundary alone that was
  * traded. `docs/design-guidelines.md` holds the full record.
  *
  * ## Composition, not replacement

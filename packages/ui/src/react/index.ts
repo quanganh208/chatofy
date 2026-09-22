@@ -131,6 +131,8 @@ export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tool
 // Compositions this product owns. They live here rather than in an app because
 // both DOM surfaces render them, which is the criterion — not whether they are
 // primitive.
+export { BrandMark } from './brand-mark.js';
+export { BrandWordmark } from './brand-wordmark.js';
 export { DirectionToggle, type DirectionToggleLabels } from './direction-toggle.js';
 export { SegmentedControl, type SegmentedOption } from './segmented-control.js';
 export { StatusIndicator, type StatusTone } from './status-indicator.js';

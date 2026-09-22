@@ -44,20 +44,20 @@
  * check what it had last been told.
  */
 export const color = {
-  bg: '#111214',
-  surface: '#191B1E',
-  surfaceRaised: '#212429',
-  border: '#292C31',
-  borderStrong: '#43484E',
-  borderControl: '#696E76',
-  text: '#F0F0EE',
-  textSecondary: '#B4B6B2',
-  textMuted: '#8A8D8A',
-  accent: '#7A90F5',
-  accentHover: '#93A5F8',
-  accentText: '#A3B4F9',
-  accentSubtle: '#1B2140',
-  onAccent: '#0B1030',
+  bg: '#0C0A09',
+  surface: '#1C1917',
+  surfaceRaised: '#252220',
+  border: '#2E2A27',
+  borderStrong: '#57534E',
+  borderControl: '#7C756F',
+  text: '#F5F5F4',
+  textSecondary: '#C4BFBA',
+  textMuted: '#A8A29E',
+  accent: '#F5F5F4',
+  accentHover: '#FFFFFF',
+  accentText: '#F5F5F4',
+  accentSubtle: '#35302C',
+  onAccent: '#0C0A09',
   onLiveFill: '#FFFFFF',
   live: '#E9635A',
   liveFill: '#C9433A',
@@ -71,10 +71,20 @@ export const color = {
  * The light palette. Same keys, different values — never a formula applied to the
  * dark ones.
  *
- * Three keys resist inversion and are set by hand. `accent` is darker here because
- * white has to sit on it; `accentText` is darker again because it is read as text
- * on a pale ground. `borderControl` is solved against `surfaceRaised` rather than
- * `surface`, since that is the tighter of the two grounds it is used on.
+ * The accent is ink in both — `#1C1917` here, `#F5F5F4` in dark — so `accent`,
+ * `accentText` and `text` share a hex. Colour therefore marks nothing on its own:
+ * a link carries an underline at rest (WCAG 1.4.1), and the accent is the single
+ * filled action rather than a hue. `surfaceRaised` is darker than `bg` on purpose —
+ * the C1 wells (field, slider track, segmented track) are cut INTO the page.
+ * `borderControl` is solved against `surfaceRaised` rather than `surface`, since
+ * that is the tighter of the two grounds it is used on.
+ *
+ * The hover step goes the other way in each theme and is capped differently.
+ * Light lifts ink toward stone (`#44403C`, 1.70:1 from the fill) because white on
+ * it only has to stay above 4.5. Dark can only go lighter — `token-contrast.spec.ts`
+ * forbids a hover that loses contrast with its label — and `#FFFFFF` is as far as
+ * lighter goes from `#F5F5F4`: 1.09:1, a quiet cue the button's own elevation
+ * change has to help carry.
  *
  * That reasoning used to end "since that is the ground a control actually sits
  * on", which is no longer true of controls generally: under direction C1 the
@@ -84,19 +94,19 @@ export const color = {
  * field. `docs/design-guidelines.md` carries the decision and its cost.
  */
 export const colorLight: Record<keyof typeof color, string> = {
-  bg: '#FCFCFB',
+  bg: '#F5F5F4',
   surface: '#FFFFFF',
-  surfaceRaised: '#F4F4F1',
-  border: '#E4E4E0',
-  borderStrong: '#B5B5AB',
-  borderControl: '#8D8D85',
-  text: '#131313',
-  textSecondary: '#4A4A46',
-  textMuted: '#6F6F6A',
-  accent: '#2F4CE0',
-  accentHover: '#2439C4',
-  accentText: '#2740CC',
-  accentSubtle: '#ECEFFD',
+  surfaceRaised: '#EDEBE9',
+  border: '#DDDAD7',
+  borderStrong: '#A8A29E',
+  borderControl: '#8A837E',
+  text: '#1C1917',
+  textSecondary: '#57534E',
+  textMuted: '#6B6560',
+  accent: '#1C1917',
+  accentHover: '#44403C',
+  accentText: '#1C1917',
+  accentSubtle: '#E6E1DB',
   onAccent: '#FFFFFF',
   onLiveFill: '#FFFFFF',
   live: '#B3291D',
@@ -121,6 +131,22 @@ export const palettes = {
 export type ColorScheme = keyof typeof palettes;
 
 /**
+ * The dawn trio: the lotus mark's centre petal and the landing illustration, and
+ * nothing else.
+ *
+ * Decorative only. Measured 1.3–1.7:1 on stone, so a dawn value is never behind
+ * text, never on a control, and never carries a state — it is not a palette key for
+ * the same reason, and the contrast table never sees it. The illustration's two
+ * extra stops (sky, rose) stay local to the landing component rather than joining
+ * this trio.
+ */
+export const dawn = {
+  peach: '#F4C5A8',
+  lavender: '#C8B8E0',
+  mint: '#A7E5D3',
+} as const;
+
+/**
  * Values only the meeting overlay uses.
  *
  * Apart from `color` because the overlay is translucent over arbitrary video and
@@ -133,7 +159,7 @@ export type ColorScheme = keyof typeof palettes;
  * injection surface it does not need.
  */
 export const overlay = {
-  bg: 'rgba(17, 17, 19, 0.94)',
+  bg: 'rgba(12, 10, 9, 0.94)',
   border: 'rgba(255, 255, 255, 0.12)',
 } as const;
 
@@ -195,7 +221,7 @@ export const fontWeight = {
 /**
  * Depth, as two halves per step — and the two halves are not the same shape.
  *
- * Light carries elevation in shadow. Dark cannot: a black shadow on `bg` (#111214)
+ * Light carries elevation in shadow. Dark cannot: a black shadow on `bg` (#0C0A09)
  * is very nearly invisible, so depth there comes from the luminance steps this
  * palette already owns — `bg` → `surface` → `surfaceRaised` — with the shadow
  * reduced to an anchor and a one-pixel top highlight standing in for the light
@@ -297,7 +323,7 @@ export const surfaceEdge = {
  *
  * Unlike an elevation step, NOTHING here collapses to `transparent` — both themes
  * paint both layers, and dark carries a heavier recess because a shadow on
- * `#111214` has less room to work in.
+ * `#0C0A09` has less room to work in.
  */
 export const insetField = {
   light: 'inset 0 1px 2px rgba(19, 19, 19, 0.07), inset 0 0 0 1px rgba(19, 19, 19, 0.045)',

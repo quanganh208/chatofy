@@ -229,7 +229,9 @@ describe('prod.env.example', () => {
     'STT_MODELS_DIR',
     'TTS_MODELS_DIR',
     'AUTH_SECRET',
-    'AUTH_URL',
+    // AUTH_URL is deliberately absent: docker-compose.prod.yml derives it from
+    // WEB_BASE_URL, so setting it here would be a second copy of one value.
+    // Leaving it off this list is what makes the template fail if it comes back.
     'AUTH_GOOGLE_ID',
     'AUTH_GOOGLE_SECRET',
     'NEXT_PUBLIC_API_BASE_URL',

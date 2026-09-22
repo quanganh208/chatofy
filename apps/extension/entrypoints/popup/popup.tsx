@@ -1,4 +1,4 @@
-import { Button, StatusIndicator } from '@chatofy/ui/react';
+import { BrandMark, BrandWordmark, Button, StatusIndicator } from '@chatofy/ui/react';
 import { SettingsPane } from './settings-pane';
 import { SignInPane } from './sign-in-pane';
 import { usePopup } from './use-popup';
@@ -31,7 +31,12 @@ export function Popup() {
         className="border-hairline flex flex-none items-center gap-2 border-b px-4 py-3"
       >
         <div className="flex min-w-0 flex-1 flex-col gap-px">
-          <strong className="text-body font-semibold tracking-tight">Chatofy</strong>
+          {/* The outlined wordmark: the popup ships Be Vietnam Pro only, so the
+              serif reaches it as a path rather than as a second font pipeline. */}
+          <strong className="flex items-center gap-1.5">
+            <BrandMark size={20} />
+            <BrandWordmark height={22} />
+          </strong>
           {/* The tab this popup is about, truncated rather than wrapped: a long
               meeting URL is not worth a second line in a header. */}
           <p className="text-muted-foreground text-hint truncate">{popup.host}</p>

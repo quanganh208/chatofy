@@ -63,7 +63,7 @@ const FORBIDDEN: ReadonlyArray<{ pattern: RegExp; rule: string }> = [
   {
     // Bare `bg-accent`, not the product's `bg-accent-hover`/`-subtle`/`-text`.
     pattern: /\bbg-accent(?![-\w])/,
-    rule: 'shadcn\'s --accent is a pale grey hover surface; here "accent" is the brand blue, and there is no bare --accent token. Use bg-secondary',
+    rule: 'shadcn\'s --accent is a pale grey hover surface; here "accent" is the ink action colour, and there is no bare --accent token. Use bg-secondary',
   },
   {
     pattern: /\btext-accent-foreground\b/,
@@ -164,6 +164,23 @@ describe('generated components carry what the palette cannot', () => {
       `the filled ${variant} Alert must set the WIDTH of that border itself — ` +
         'the C1 button no longer supplies one, so a colour alone renders nothing',
     ).toContain('[&_[data-slot=button]]:border-[1px]');
+  });
+
+  /**
+   * WCAG 1.4.1: a link must not be told from prose by colour alone.
+   *
+   * The accent is ink, the same hex as body text in both schemes, so a link
+   * variant that underlines only on hover is a link nobody can find without
+   * pointing at it. `contrast-floors.spec.ts` cannot see this — it measures
+   * colours, and the failure is that two colours are the same on purpose.
+   */
+  it.each(['button.tsx', 'badge.tsx'])('underlines the link variant of %s at rest', (name) => {
+    const file = SOURCES.find((entry) => entry.name === name);
+    expect(file, `${name} is not in the entry`).toBeDefined();
+    const link = /link:\s*'([^']*)'/.exec(file?.source ?? '')?.[1] ?? '';
+    expect(link.split(/\s+/), `${name}'s link variant must carry a bare underline`).toContain(
+      'underline',
+    );
   });
 
   /**

@@ -28,7 +28,9 @@ export function Section({
     <section id={id} className={cn('scroll-mt-24 py-16', className)}>
       {title ? (
         <div className="mb-10 flex flex-col gap-3">
-          <h2 className="text-title font-semibold tracking-tight text-balance">{title}</h2>
+          <h2 className="text-title font-display font-light tracking-tight text-balance">
+            {title}
+          </h2>
           {description ? <p className="text-prose text-body max-w-prose">{description}</p> : null}
         </div>
       ) : null}

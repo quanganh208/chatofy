@@ -239,26 +239,26 @@
   --radius: 14px;
 
   /* neutrals */
-  --background: light-dark(#fcfcfb, #111214);
-  --foreground: light-dark(#131313, #f0f0ee);
-  --card: light-dark(#ffffff, #191b1e);
-  --card-foreground: light-dark(#131313, #f0f0ee);
-  --muted: light-dark(#f4f4f1, #212429);
-  --muted-foreground: light-dark(#6f6f6a, #8a8d8a);
-  --secondary: light-dark(#f4f4f1, #212429);
-  --secondary-foreground: light-dark(#131313, #f0f0ee);
-  --prose: light-dark(#4a4a46, #b4b6b2);
+  --background: light-dark(#f5f5f4, #0c0a09);
+  --foreground: light-dark(#1c1917, #f5f5f4);
+  --card: light-dark(#ffffff, #1c1917);
+  --card-foreground: light-dark(#1c1917, #f5f5f4);
+  --muted: light-dark(#edebe9, #252220);
+  --muted-foreground: light-dark(#6b6560, #a8a29e);
+  --secondary: light-dark(#edebe9, #252220);
+  --secondary-foreground: light-dark(#1c1917, #f5f5f4);
+  --prose: light-dark(#57534e, #c4bfba);
 
-  /* accent — one hue, and it appears once per screen */
-  --primary: light-dark(#2f4ce0, #7a90f5);
-  --primary-foreground: light-dark(#ffffff, #0b1030);
-  --accent-hover: light-dark(#2439c4, #93a5f8);
-  --accent-text: light-dark(#2740cc, #a3b4f9);
-  --accent-subtle: light-dark(#eceffd, #1b2140);
+  /* accent — ink, the one filled action per screen */
+  --primary: light-dark(#1c1917, #f5f5f4);
+  --primary-foreground: light-dark(#ffffff, #0c0a09);
+  --accent-hover: light-dark(#44403c, #ffffff);
+  --accent-text: light-dark(#1c1917, #f5f5f4);
+  --accent-subtle: light-dark(#e6e1db, #35302c);
 
   /* state */
   --destructive: light-dark(#b3291d, #e9635a);
-  --destructive-foreground: light-dark(#ffffff, #0b1030);
+  --destructive-foreground: light-dark(#ffffff, #0c0a09);
   --live: light-dark(#b3291d, #e9635a);
   --live-fill: light-dark(#b32e23, #c9433a);
   --on-live-fill: light-dark(#ffffff, #ffffff);
@@ -269,11 +269,11 @@
 
   /* borders — this direction separates surfaces with rules rather than luminance
      steps, so these carry weight the neutrals above do not */
-  --border: light-dark(#e4e4e0, #292c31);
-  --border-strong: light-dark(#b5b5ab, #43484e);
-  --border-control: light-dark(#8d8d85, #696e76);
-  --input: light-dark(#8d8d85, #696e76);
-  --ring: light-dark(#2740cc, #a3b4f9);
+  --border: light-dark(#dddad7, #2e2a27);
+  --border-strong: light-dark(#a8a29e, #57534e);
+  --border-control: light-dark(#8a837e, #7c756f);
+  --input: light-dark(#8a837e, #7c756f);
+  --ring: light-dark(#1c1917, #f5f5f4);
 
   /* elevation — one declaration carrying both themes, layer by layer
    *
@@ -283,7 +283,7 @@
    * Tailwind compiling it and no test able to see it from the text alone.
    * Measured in Chromium before this was written.
    *
-   * Light separates surfaces with shadow; dark cannot, because black on #111214
+   * Light separates surfaces with shadow; dark cannot, because black on #0C0A09
    * is nearly invisible, so dark leans on the luminance steps the palette already
    * owns and adds an anchor plus the inset highlight a raised edge would catch.
    * No palette value is introduced, so the contrast floors are untouched. */
@@ -310,7 +310,7 @@
      Same `light-dark()` discipline as the elevation steps above, and for the same
      reason: the function wraps each COLOUR, never the list. Unlike those steps
      nothing here collapses to `transparent` — both themes paint both layers, and
-     dark carries the heavier recess because a shadow on #111214 has less room to
+     dark carries the heavier recess because a shadow on #0C0A09 has less room to
      work in.
      
      Measured cost, recorded so nobody re-derives it: the edge composites to

@@ -19,7 +19,9 @@ const badgeVariants = cva(
           'bg-destructive text-white focus-visible:ring-destructive/20 [a&]:hover:bg-destructive/90',
         outline: 'border-border text-foreground [a&]:hover:bg-secondary [a&]:hover:text-foreground',
         ghost: '[a&]:hover:bg-secondary [a&]:hover:text-foreground',
-        link: 'text-primary underline-offset-4 [a&]:hover:underline',
+        // Underlined at rest: `text-primary` is ink, the colour of every other
+        // word, so without the line nothing says this is a link.
+        link: 'text-primary underline underline-offset-4 [a&]:hover:decoration-2',
       },
     },
     defaultVariants: {

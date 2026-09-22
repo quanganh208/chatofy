@@ -1,4 +1,3 @@
-import { Card, CardContent } from '@chatofy/ui/react';
 import { getT } from '@/i18n/server';
 import { Section } from './section';
 
@@ -15,6 +14,10 @@ import { Section } from './section';
  * The one number on this page is here: about a second between the end of a sentence and
  * the start of playback. It is the measured ~0.9 s in `docs/development-journey.md`,
  * rounded in the direction that cannot flatter it.
+ *
+ * Three columns divided by hairlines, not three cards. Three identical white cards in a
+ * row read as three products; a sequence on the page ground reads as one explanation,
+ * and it leaves the hero card as the one elevated thing on this stretch of the page.
  */
 export async function HowItWorks() {
   const t = await getT();
@@ -31,23 +34,24 @@ export async function HowItWorks() {
       title={t('web.landing.howTitle')}
       description={t('web.landing.howBody')}
     >
-      <div className="grid gap-6 md:grid-cols-3">
+      <ol className="border-hairline grid border-t md:grid-cols-3">
         {steps.map((step, index) => (
-          <Card key={step.title}>
-            <CardContent className="flex flex-col gap-3">
-              {/* Ordinal, not a count of anything — the sequence is the content. */}
-              <span
-                aria-hidden
-                className="text-muted-foreground text-label font-semibold tracking-widest"
-              >
-                {String(index + 1).padStart(2, '0')}
-              </span>
-              <h3 className="text-body font-semibold tracking-tight">{step.title}</h3>
-              <p className="text-prose text-hint">{step.body}</p>
-            </CardContent>
-          </Card>
+          <li
+            key={step.title}
+            className="border-hairline flex flex-col gap-3 py-6 md:px-6 md:first:pl-0 md:[&+&]:border-l max-md:[&+&]:border-t"
+          >
+            {/* Ordinal, not a count of anything — the sequence is the content. */}
+            <span
+              aria-hidden
+              className="font-display text-muted-foreground text-display font-light leading-none"
+            >
+              {String(index + 1).padStart(2, '0')}
+            </span>
+            <h3 className="text-body mt-2 font-medium tracking-tight">{step.title}</h3>
+            <p className="text-prose text-hint">{step.body}</p>
+          </li>
         ))}
-      </div>
+      </ol>
     </Section>
   );
 }

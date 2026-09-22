@@ -1,6 +1,7 @@
 import type { TranslationDirection, VoiceGender } from '@chatofy/types';
 import type { OverlayState } from '../../src/messages';
 import { visibleOverlayPart } from '../../src/site-enablement';
+import { brandMark } from '@chatofy/ui';
 import { OVERLAY_STYLE } from './overlay-styles';
 
 /**
@@ -88,10 +89,116 @@ function select(
   return node;
 }
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/**
+ * The full-dawn lotus, built node by node from `brandMark`.
+ *
+ * `createElementNS`, because this file never parses a string into markup — the
+ * same rule that keeps transcript text out of `innerHTML` keeps the mark out of
+ * it. Full-dawn because the overlay is permanently dark: ink side petals would
+ * vanish into it. The ids only have to be unique inside this shadow root, which
+ * holds exactly one mark.
+ *
+ * The gap is widened for small sizes rather than taken as a constant. `gapWidth`
+ * is in the mark's 64-unit space, so at the pill's 16px it lands on 3/64 × 16 =
+ * 0.75 device px at 1x — under one pixel, which rounds away and fuses the three
+ * petals into one shape. `viewBox / size` is whatever buys a full pixel back, and
+ * `max` keeps it a no-op at every size big enough not to need it.
+ */
+function lotusMark(size: number): SVGSVGElement {
+  const m = brandMark;
+  const [bx, by] = m.base;
+  const gap = Math.max(m.gapWidth, m.viewBox / size);
+  const node = <K extends keyof SVGElementTagNameMap>(
+    tag: K,
+    attrs: Record<string, string | number>,
+    children: Element[] = [],
+  ): SVGElementTagNameMap[K] => {
+    const element = document.createElementNS(SVG_NS, tag);
+    for (const [name, value] of Object.entries(attrs)) element.setAttribute(name, String(value));
+    element.append(...children);
+    return element;
+  };
+  const gradient = (
+    id: string,
+    [x1, y1, x2, y2]: [number, number, number, number],
+    stops: [number, string][],
+  ) =>
+    node(
+      'linearGradient',
+      { id, x1, y1, x2, y2 },
+      stops.map(([offset, color]) => node('stop', { offset, 'stop-color': color })),
+    );
+  const side = (angle: number, fill: string) =>
+    node('path', { d: m.sidePath, transform: `rotate(${angle} ${bx} ${by})`, fill });
+
+  return node(
+    'svg',
+    { width: size, height: size, viewBox: `0 0 ${m.viewBox} ${m.viewBox}`, 'aria-hidden': 'true' },
+    [
+      node('defs', {}, [
+        gradient(
+          'lotus-d',
+          [0, 0, 0, 1],
+          [
+            [0, m.stops.tip],
+            [0.5, m.stops.body],
+            [1, m.stops.root],
+          ],
+        ),
+        gradient(
+          'lotus-l',
+          [0, 0, 1, 1],
+          [
+            [0, m.sideStops.left.from],
+            [1, m.sideStops.left.to],
+          ],
+        ),
+        gradient(
+          'lotus-r',
+          [1, 0, 0, 1],
+          [
+            [0, m.sideStops.right.from],
+            [1, m.sideStops.right.to],
+          ],
+        ),
+        node(
+          'mask',
+          {
+            id: 'lotus-g',
+            maskUnits: 'userSpaceOnUse',
+            x: 0,
+            y: 0,
+            width: m.viewBox,
+            height: m.viewBox,
+          },
+          [
+            node('rect', { width: m.viewBox, height: m.viewBox, fill: '#fff' }),
+            node('path', {
+              d: m.midPath,
+              fill: 'none',
+              stroke: '#000',
+              'stroke-width': gap,
+            }),
+          ],
+        ),
+      ]),
+      node('g', { mask: 'url(#lotus-g)' }, [
+        side(-m.sideAngle, 'url(#lotus-l)'),
+        side(m.sideAngle, 'url(#lotus-r)'),
+        node('path', { d: m.midPath, fill: 'url(#lotus-d)' }),
+      ]),
+    ],
+  );
+}
+
 export class Overlay {
   private readonly root: ShadowRoot;
   private readonly container: HTMLDivElement;
   private readonly pill: HTMLButtonElement;
+  private readonly pillMark: HTMLSpanElement;
+  private readonly pillDot: HTMLSpanElement;
   private readonly pillLabel: HTMLSpanElement;
   private readonly chevron: HTMLSpanElement;
   private readonly indicator: HTMLDivElement;
@@ -137,13 +244,18 @@ export class Overlay {
     this.pill = document.createElement('button');
     this.pill.className = 'pill';
     this.pill.type = 'button';
-    const pillDot = document.createElement('span');
-    pillDot.className = 'pill-dot';
+    // Idle, the pill leads with the lotus. Live, the mark gives way to the pulsing
+    // dot — the recording indicator is never traded for a logo.
+    this.pillMark = document.createElement('span');
+    this.pillMark.className = 'pill-mark';
+    this.pillMark.append(lotusMark(16));
+    this.pillDot = document.createElement('span');
+    this.pillDot.className = 'pill-dot';
     this.pillLabel = document.createElement('span');
     this.chevron = document.createElement('span');
     this.chevron.className = 'chevron';
     this.chevron.textContent = '▲';
-    this.pill.append(pillDot, this.pillLabel, this.chevron);
+    this.pill.append(this.pillMark, this.pillDot, this.pillLabel, this.chevron);
     this.pill.addEventListener('click', () => this.setExpanded(true));
 
     this.panel = document.createElement('div');
@@ -295,6 +407,8 @@ export class Overlay {
     // A neutral "Chatofy" pill over a call that is being recorded would be the
     // dismissible indicator this overlay is not allowed to have.
     this.pill.classList.toggle('live', capturing);
+    this.pillMark.hidden = capturing;
+    this.pillDot.hidden = !capturing;
     this.pillLabel.textContent = capturing ? 'Recording' : 'Chatofy';
     this.pill.title = capturing
       ? 'Chatofy is capturing this meeting’s audio — open to stop'

@@ -54,7 +54,11 @@ export function MarketingMenu({
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
         </SheetHeader>
-        <nav className="flex flex-col gap-1 px-4">
+        {/* Named, like the header's own nav. Two navigation landmarks on one page
+            and only one of them answering "which navigation?" is the case a
+            landmark list is least useful in. `title` is the sheet's heading, so
+            the two cannot drift. */}
+        <nav aria-label={title} className="flex flex-col gap-1 px-4">
           {links.map((link) => (
             <SheetClose asChild key={link.href}>
               <a
@@ -80,8 +84,9 @@ export function MarketingMenu({
                   <Link href="/login">{actions.signIn}</Link>
                 </Button>
               </SheetClose>
-              {/* The one filled control in this sheet, matching the header it stands in
-                  for. */}
+              {/* The one filled control in this sheet. The header shows the same
+                  action quietly because the hero's button shares its viewport; the
+                  open sheet covers the hero, so here it is the action. */}
               <SheetClose asChild>
                 <Button asChild>
                   <Link href="/register">{actions.getStarted}</Link>

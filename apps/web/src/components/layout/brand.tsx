@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BrandMark } from '@chatofy/ui/react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -10,9 +11,17 @@ import { cn } from '@/lib/utils';
  * mark itself moved here rather than being retyped four times with four slightly
  * different focus rings.
  *
- * Deliberately body-sized. On a translate surface the translation is what someone is
- * here to read, and a product name set at heading size competes with it. It is a way
- * home, not a headline — the same judgement the old shell recorded, kept.
+ * Deliberately small in the app: the wordmark there is no larger than a translation
+ * line (`text-translation`), because on a translate surface the translation is what
+ * someone is here to read and a product name set at heading size competes with it. It
+ * is a way home, not a headline. Only the marketing header, at the 32px mark, sets it
+ * at `text-heading`.
+ *
+ * That size rides on the LINK and the wordmark inherits it, so a caller passing its
+ * own `text-*` still wins — `cn` resolves the two in the same font-size group. Putting
+ * it on the span instead would beat inheritance unconditionally and silently ignore
+ * the caller: the marketing footer asks for `text-hint`, and got 17px for as long as
+ * the class sat on the child.
  *
  * `href` is a prop, and every one of the four call sites passes nothing. It was added
  * for a hub that the app chrome would point at instead of the landing page; the hub is
@@ -20,24 +29,38 @@ import { cn } from '@/lib/utils';
  * hard-coded because it borrows `Link`'s own type, so typed routes still reject an
  * address this app does not have — but if a second address never appears, this should
  * become a plain constant.
+ *
+ * The lotus mark sits before the wordmark, sized by the caller and coloured by the
+ * size rule in `docs/brand-mark.md`: below 32px it is the one-colour ink
+ * mark, because the dawn centre petal disappears when small; from 32px the centre
+ * petal carries the dawn gradient. The wordmark is live Newsreader text, lowercase
+ * as drawn, and the link's accessible name stays "Chatofy".
+ *
+ * The mark is the FIRST child and the wordmark the LAST, and the collapsed sidebar
+ * relies on that: it hides the last child and keeps the mark.
  */
 export function Brand({
   href = '/',
+  size = 24,
   className,
 }: {
   href?: React.ComponentProps<typeof Link>['href'];
+  /** The mark's edge in px. 32 and up draws the dawn variant. */
+  size?: number;
   className?: string;
 }) {
   return (
     <Link
       href={href}
+      aria-label="Chatofy"
       className={cn(
-        'text-body focus-visible:ring-ring/50 flex items-center gap-2 rounded-sm font-semibold tracking-tight focus-visible:ring-[3px] focus-visible:outline-none',
+        'focus-visible:ring-ring/50 flex items-center gap-2 rounded-sm focus-visible:ring-[3px] focus-visible:outline-none',
+        size >= 32 ? 'text-heading' : 'text-translation',
         className,
       )}
     >
-      <span aria-hidden className="bg-primary size-2.5 shrink-0 rounded-sm" />
-      <span>Chatofy</span>
+      <BrandMark variant={size >= 32 ? 'dawn' : 'ink'} size={size} />
+      <span className="font-display leading-none font-medium tracking-tight">chatofy</span>
     </Link>
   );
 }

@@ -52,6 +52,10 @@
 @theme inline {
   /* Overrides Tailwind's own `--font-sans` rather than racing it — see layout.tsx. */
   --font-sans: var(--font-be-vietnam), ui-sans-serif, system-ui, sans-serif;
+  /* Headings and the wordmark only — `font-display` at the call site, alongside
+     the role size. Georgia is the fallback because it shares the serif's
+     proportions closely enough that a late load does not reflow a title. */
+  --font-display: var(--font-newsreader), Georgia, serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -124,6 +128,14 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-enter: cubic-bezier(0, 0, 0, 1);
   --ease-exit: cubic-bezier(0.3, 0, 1, 1);
+
+  /* The landing lotus opening, once, on load — the only entrance animation on the
+     site, and marketing-only. Every element that uses it pairs it with
+     `motion-reduce:animate-none`, which leaves the petals at their resting angles
+     with nothing moving. The `to` state is each petal's own inline transform, so
+     one keyframe serves all five. Easing is `--ease-enter`, written out because a
+     theme value here cannot reference another. */
+  --animate-lotus-bloom: lotus-bloom 1000ms cubic-bezier(0, 0, 0, 1) both;
 
   /* The type scale, by role rather than by size name.
    *
@@ -218,26 +230,26 @@
   --radius: 14px;
 
   /* neutrals */
-  --background: light-dark(#fcfcfb, #111214);
-  --foreground: light-dark(#131313, #f0f0ee);
-  --card: light-dark(#ffffff, #191b1e);
-  --card-foreground: light-dark(#131313, #f0f0ee);
-  --muted: light-dark(#f4f4f1, #212429);
-  --muted-foreground: light-dark(#6f6f6a, #8a8d8a);
-  --secondary: light-dark(#f4f4f1, #212429);
-  --secondary-foreground: light-dark(#131313, #f0f0ee);
-  --prose: light-dark(#4a4a46, #b4b6b2);
+  --background: light-dark(#f5f5f4, #0c0a09);
+  --foreground: light-dark(#1c1917, #f5f5f4);
+  --card: light-dark(#ffffff, #1c1917);
+  --card-foreground: light-dark(#1c1917, #f5f5f4);
+  --muted: light-dark(#edebe9, #252220);
+  --muted-foreground: light-dark(#6b6560, #a8a29e);
+  --secondary: light-dark(#edebe9, #252220);
+  --secondary-foreground: light-dark(#1c1917, #f5f5f4);
+  --prose: light-dark(#57534e, #c4bfba);
 
-  /* accent — one hue, and it appears once per screen */
-  --primary: light-dark(#2f4ce0, #7a90f5);
-  --primary-foreground: light-dark(#ffffff, #0b1030);
-  --accent-hover: light-dark(#2439c4, #93a5f8);
-  --accent-text: light-dark(#2740cc, #a3b4f9);
-  --accent-subtle: light-dark(#eceffd, #1b2140);
+  /* accent — ink, the one filled action per screen */
+  --primary: light-dark(#1c1917, #f5f5f4);
+  --primary-foreground: light-dark(#ffffff, #0c0a09);
+  --accent-hover: light-dark(#44403c, #ffffff);
+  --accent-text: light-dark(#1c1917, #f5f5f4);
+  --accent-subtle: light-dark(#e6e1db, #35302c);
 
   /* state */
   --destructive: light-dark(#b3291d, #e9635a);
-  --destructive-foreground: light-dark(#ffffff, #0b1030);
+  --destructive-foreground: light-dark(#ffffff, #0c0a09);
   --live: light-dark(#b3291d, #e9635a);
   --live-fill: light-dark(#b32e23, #c9433a);
   --on-live-fill: light-dark(#ffffff, #ffffff);
@@ -248,11 +260,11 @@
 
   /* borders — this direction separates surfaces with rules rather than luminance
      steps, so these carry weight the neutrals above do not */
-  --border: light-dark(#e4e4e0, #292c31);
-  --border-strong: light-dark(#b5b5ab, #43484e);
-  --border-control: light-dark(#8d8d85, #696e76);
-  --input: light-dark(#8d8d85, #696e76);
-  --ring: light-dark(#2740cc, #a3b4f9);
+  --border: light-dark(#dddad7, #2e2a27);
+  --border-strong: light-dark(#a8a29e, #57534e);
+  --border-control: light-dark(#8a837e, #7c756f);
+  --input: light-dark(#8a837e, #7c756f);
+  --ring: light-dark(#1c1917, #f5f5f4);
 
   /* elevation — both themes in one declaration, and the shape differs per theme
    *
@@ -267,7 +279,7 @@
    * It has to be one declaration because there is no per-theme block to split it
    * across: the classes below move `color-scheme` and nothing else.
    *
-   * Light separates surfaces with shadow. Dark cannot — black on #111214 is
+   * Light separates surfaces with shadow. Dark cannot — black on #0C0A09 is
    * nearly invisible — so dark leans on the luminance steps the palette already
    * has (bg → card → muted) and adds only an anchor plus the inset highlight a
    * raised edge would catch. No palette value is introduced by any of this, which
@@ -295,7 +307,7 @@
      Same `light-dark()` discipline as the elevation steps above, and for the same
      reason: the function wraps each COLOUR, never the list. Unlike those steps
      nothing here collapses to `transparent` — both themes paint both layers, and
-     dark carries the heavier recess because a shadow on #111214 has less room to
+     dark carries the heavier recess because a shadow on #0C0A09 has less room to
      work in.
      
      Measured cost, recorded so nobody re-derives it: the edge composites to
@@ -324,7 +336,7 @@
      the record, the numbers and the rejected option.
 
      Nothing softer than `--border-control` could have cleared it in this palette:
-     `--border-strong` is 2.07/1.87 and `--border` is 1.27/1.23. It is a property
+     `--border-strong` is 2.52/2.29 and `--border` is 1.39/1.23 on a card. It is a property
      of the ramp, not a value to tune.
 
      `--border-control` is therefore NOT dead. It is the token for a boundary that
@@ -457,5 +469,14 @@
     color: var(--color-foreground);
     -webkit-font-smoothing: antialiased;
     font-family: var(--font-sans);
+  }
+}
+
+/* See `--animate-lotus-bloom`. A closed bud: every petal upright, slightly small,
+   not yet visible. */
+@keyframes lotus-bloom {
+  from {
+    transform: rotate(0deg) scale(0.86);
+    opacity: 0;
   }
 }
