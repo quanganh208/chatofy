@@ -23,7 +23,7 @@ export default async function ForgotPasswordPage() {
   return (
     <>
       <div className="flex flex-col gap-2">
-        <h1 className="text-title font-semibold tracking-tight">
+        <h1 className="text-title font-display font-light tracking-tight">
           {t('web.auth.forgotPasswordLink')}
         </h1>
         <p className="text-muted-foreground text-prose">{t('web.auth.forgotPasswordBody')}</p>

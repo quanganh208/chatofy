@@ -21,7 +21,9 @@ export default async function NotFound() {
   return (
     <PlainFrame>
       <div className="flex flex-col items-start gap-4">
-        <h1 className="text-heading font-semibold tracking-tight">{t('web.error.notFound')}</h1>
+        <h1 className="text-heading font-display font-normal tracking-tight">
+          {t('web.error.notFound')}
+        </h1>
         <p className="text-prose text-body max-w-prose">{t('web.error.notFoundBody')}</p>
         <Button asChild>
           <Link href="/">{t('web.error.goToStart')}</Link>

@@ -142,7 +142,7 @@ export function AccountIdentity({
         <div className="flex min-w-0 flex-col gap-0.5">
           {/* The name IS the page title. The topbar says "Account", which names the
               route; this names the account. */}
-          <h2 className="text-heading font-semibold tracking-tight">
+          <h2 className="text-heading font-display font-normal tracking-tight">
             {name || t('web.account.nameUnset')}
           </h2>
           <p className="text-prose text-body break-all">{email ?? ''}</p>
