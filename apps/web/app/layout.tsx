@@ -3,6 +3,7 @@ import { Be_Vietnam_Pro } from 'next/font/google';
 import { AppSessionProvider } from '@/components/session-provider';
 import { LocaleProvider } from '@/i18n/provider';
 import { getLocale, getT } from '@/i18n/server';
+import { serverEnv } from '@/config/server-env';
 import { THEME_STORAGE_KEY } from '@/lib/theme';
 import './globals.css';
 
@@ -41,7 +42,13 @@ const sans = Be_Vietnam_Pro({
  */
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getT();
-  return { title: t('web.meta.home'), description: t('web.meta.homeDescription') };
+  return {
+    // What `opengraph-image.png` and the icons resolve against. Unset, Next falls
+    // back to localhost and warns — see `WEB_BASE_URL` in `server-env.ts`.
+    metadataBase: new URL(serverEnv.WEB_BASE_URL),
+    title: t('web.meta.home'),
+    description: t('web.meta.homeDescription'),
+  };
 }
 
 export default async function RootLayout({
