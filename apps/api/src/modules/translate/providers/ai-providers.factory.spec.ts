@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 // Verifies the factory memoizes the provider trio per backend selection so the
 // GoogleGenAI client + its connection pool persist across requests (no
@@ -173,6 +173,105 @@ describe('AiProvidersFactory (memoization)', () => {
       makeFactory().makeProviders();
 
       expect(constructedKeys()).toEqual(['gemini-key']);
+    });
+  });
+  // What each OpenAI-compatible host is worth is decided by three constants that
+  // no environment variable carries: the base URL, the flag that turns off a
+  // reasoning pass the host enables by default, and which field name the host
+  // will accept for the output ceiling. Wrong values do not look wrong — the
+  // translator keeps working, just slower than the recorded numbers or failing
+  // every turn — so the table that holds them is asserted here rather than
+  // trusted.
+  describe('the OpenAI-compatible host table', () => {
+    const REAL_FETCH = globalThis.fetch;
+    afterEach(() => {
+      globalThis.fetch = REAL_FETCH;
+    });
+
+    /** The request body one translation through `name` actually puts on the wire. */
+    async function bodySentBy(
+      name: string,
+      env: Record<string, unknown>,
+    ): Promise<{ url: string; body: Record<string, unknown> }> {
+      let sent: { url: string; body: Record<string, unknown> } | undefined;
+      globalThis.fetch = vi.fn(async (url: unknown, request: unknown) => {
+        const { body } = request as { body: string };
+        sent = {
+          url: String(url),
+          body: JSON.parse(body) as Record<string, unknown>,
+        };
+        const encoder = new TextEncoder();
+        return {
+          ok: true,
+          status: 200,
+          body: new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ choices: [{ delta: { content: 'ok' } }] })}\n`,
+                ),
+              );
+              controller.close();
+            },
+          }),
+          text: async () => '',
+        } as unknown as Response;
+      });
+
+      const factory = makeFactory({
+        ...env,
+        AI_TRANSLATION_PROVIDER: name,
+      });
+      await factory.makeProviders().translation.translate({
+        text: 'xin chào',
+        sourceLanguage: 'vi',
+        targetLanguage: 'en',
+      });
+      if (!sent) throw new Error(`${name} sent no request`);
+      return sent;
+    }
+
+    it('reaches DeepSeek with thinking switched off', async () => {
+      const sent = await bodySentBy('deepseek', {
+        OPENAI_COMPATIBLE_API_KEY: 'ds-key',
+      });
+
+      expect(sent.url).toBe('https://api.deepseek.com/chat/completions');
+      expect(sent.body.model).toBe('deepseek-flash');
+      expect(sent.body.thinking).toEqual({ type: 'disabled' });
+      expect(sent.body.max_tokens).toBe(512);
+    });
+
+    it('reaches OpenAI with the ceiling field that line accepts', async () => {
+      const sent = await bodySentBy('openai', {
+        OPENAI_COMPATIBLE_API_KEY: 'oa-key',
+      });
+
+      expect(sent.url).toBe('https://api.openai.com/v1/chat/completions');
+      expect(sent.body.model).toBe('gpt-5-nano');
+      expect(sent.body.reasoning_effort).toBe('minimal');
+      // The point of the whole option: this line answers 400 on `max_tokens`,
+      // so the older name must be absent rather than merely accompanied.
+      expect(sent.body.max_completion_tokens).toBe(512);
+      expect(sent.body).not.toHaveProperty('max_tokens');
+    });
+
+    it("takes each host's endpoint and model from the same row", async () => {
+      // The pairing is the invariant. One key selects a host and the host
+      // brings both halves, so no setting can send one host's model id to
+      // another host's endpoint — a combination that used to be expressible and
+      // answered 400 on every turn.
+      const deepseek = await bodySentBy('deepseek', {
+        OPENAI_COMPATIBLE_API_KEY: 'shared-key',
+      });
+      const openai = await bodySentBy('openai', {
+        OPENAI_COMPATIBLE_API_KEY: 'shared-key',
+      });
+
+      expect(deepseek.url).toContain('api.deepseek.com');
+      expect(deepseek.body.model).toBe('deepseek-flash');
+      expect(openai.url).toContain('api.openai.com');
+      expect(openai.body.model).toBe('gpt-5-nano');
     });
   });
 });

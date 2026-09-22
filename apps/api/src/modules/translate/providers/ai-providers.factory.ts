@@ -70,6 +70,9 @@ export class AiProvidersFactory {
       // variable, and splitting it is the provider's job — it owns what counts
       // as a usable key.
       geminiApiKey: this.config.get('GEMINI_API_KEY', { infer: true }),
+      openAiCompatibleApiKey: this.config.get('OPENAI_COMPATIBLE_API_KEY', {
+        infer: true,
+      }),
       elevenLabsTtsVoiceId: this.config.get('ELEVENLABS_TTS_VOICE_ID', {
         infer: true,
       }),

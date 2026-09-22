@@ -155,6 +155,22 @@ export const envSchema = z.object({
   // ceiling when they come from different Google Cloud projects — see
   // apps/api/.env.example.
   GEMINI_API_KEY: emptyStringAsUndefined(z.string().min(1).optional()),
+  // The credential for whichever OpenAI-compatible host `AI_TRANSLATION_PROVIDER`
+  // names — `deepseek`, `openai`, or any later row of the table in
+  // `register-default-providers.ts`.
+  //
+  // ONE variable for the whole family rather than one per host, because exactly
+  // one translation provider is ever selected: a per-host variable would mean
+  // every deployment carrying a column of blanks for the hosts it did not
+  // choose, and the env growing by a line each time the table does.
+  //
+  // GEMINI_API_KEY above is NOT the same kind of thing and deliberately stays
+  // separate: it is not a translation key. It also authenticates the realtime
+  // and summarization providers, which are selected independently of this one,
+  // so folding it in here would tie three unrelated choices to one line.
+  OPENAI_COMPATIBLE_API_KEY: emptyStringAsUndefined(
+    z.string().min(1).optional(),
+  ),
   // Which ElevenLabs voice speaks the translation. Unset on purpose: the
   // provider owns its own default, for the same reason the sidecars below own
   // theirs — what a voice id means is the backend's vocabulary, not this
