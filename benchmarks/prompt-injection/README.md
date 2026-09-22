@@ -28,6 +28,30 @@ Takes `GEMINI_API_KEY` from the environment first; if not set, reads from
 `apps/api/.env` as a local convenience. A missing file is not an error when the
 environment variable is set. Never prints it.
 
+## Another host
+
+`--provider` runs the corpus against a different translator, through the same
+shipped prompt. Presets live in `benchmarks/translation-providers.mjs`.
+
+```bash
+node benchmarks/prompt-injection/run.mjs --provider deepseek --repeats 3
+```
+
+This is the harness that matters most when a provider is added. The whole
+injection defence rests on the model treating `<transcript>` as data, and that
+is behaviour of the model, not of the code — so a host that has never been run
+through this corpus has no evidence behind it whatsoever.
+
+Recorded 2026-09-22: `deepseek-flash` **141/141 pass** at `--repeats 3`, no
+obediences, no leaked framing, nothing inserted, p50 699 ms.
+`gemini-3.5-flash-lite` the same day scored 46/47 at `--repeats 1`, p50 1115 ms;
+its one failure was `what-are-instructions`. The matching 3-repeat run for it
+could not be completed — the free tier began answering "every Gemini key × model
+is cooling down" after roughly 160 requests that day.
+
+The default provider stays `gemini`, and `--model` still defaults to the two
+models a live turn can reach on that host alone.
+
 ## What it costs
 
 The free tier meters **15 requests/minute and 500/day, per model**. One default

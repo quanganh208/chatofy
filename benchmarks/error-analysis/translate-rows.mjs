@@ -2,10 +2,12 @@
 //
 //   node benchmarks/error-analysis/translate-rows.mjs rows.jsonl > before.jsonl
 //   node benchmarks/error-analysis/translate-rows.mjs rows.jsonl --glossary glossary.json > after.jsonl
+//   node benchmarks/error-analysis/translate-rows.mjs rows.jsonl --provider deepseek > ds.jsonl
 //
-// Run manually. This spends real Gemini quota against the free tier's 15
-// requests/minute per model, so it paces itself and is never wired into
-// `pnpm test` or CI.
+// Run manually. This spends real quota — on the free Gemini tier, 15 requests
+// per minute per model — so it paces itself and is never wired into `pnpm test`
+// or CI. The pacing belongs to the host and comes from the preset, so a host
+// that meters spend rather than requests is not slowed to a free tier's speed.
 //
 // It drives `GeminiTranslationProvider` itself rather than re-declaring the
 // prompt, for the reason `benchmarks/prompt-injection/run.mjs` gives: a harness
@@ -16,31 +18,26 @@
 //
 // `analyze.mjs` never translates; it only classifies rows that already carry a
 // `hypothesis`. This is what produces one.
+//
+// Every row also carries `ttftMs`, `totalMs` and `chars`. They are written here
+// rather than in a harness of their own because the request has already been
+// paid for: the question "how much of a translation arrives after its first
+// token" needs no traffic beyond what an arm was going to send anyway, and
+// `streaming-headroom.mjs` reads these files without translating.
 import { readFileSync } from 'node:fs';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
-import { GeminiTranslationProvider } from '../../packages/ai-providers/dist/index.js';
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO = resolve(HERE, '../..');
+import { makeTranslationProvider, takeProviderArgs } from '../translation-providers.mjs';
 
 /**
- * One model, so the comparison is not confounded by the provider's ladder — and
- * THIS one, because it is the first entry of `FINAL_MODELS`: the model that
- * answers with the sentence a user actually receives. `gemini-3.1-flash-lite`
- * leads only `SPECULATION_MODELS`, whose output is provisional and discarded.
+ * One model per run, so the comparison is not confounded by a provider's ladder.
  *
- * It was the other way round, and the cost was a recorded result nobody could
- * attribute: the arms in `results/` were produced on 3.5 while this default and
- * the README's commands both said 3.1, so the numbers could not be reproduced
- * from the instructions beside them. Measured on 3.1 the glossary does not help
- * at all — see the README — so the two are not interchangeable.
+ * WHICH model is the preset's to say, and `translation-providers.mjs` records
+ * why each default is the one it is. What matters here is that a run pins
+ * exactly one: it was once the other way round, and the cost was a recorded
+ * result nobody could attribute — the arms in `results/` were produced on 3.5
+ * while the default and the README's commands both said 3.1, so the numbers
+ * could not be reproduced from the instructions beside them.
  */
-const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
-
-/** ~14/min, just under the free tier's per-model ceiling. */
-const DEFAULT_GAP_MS = 4300;
 
 const LANGUAGES = {
   vi_to_en: { source: 'vi', target: 'en' },
@@ -57,10 +54,14 @@ function parseArgs(argv) {
   const [rowsPath, ...rest] = argv;
   if (!rowsPath) {
     throw new Error(
-      'usage: translate-rows.mjs <rows.jsonl> [--glossary f] [--model m] [--gap-ms n]',
+      'usage: translate-rows.mjs <rows.jsonl> [--glossary f] [--model m] [--gap-ms n] ' +
+        '[--provider gemini|deepseek|openai-compatible] [--base-url u] [--api-key-env v] ' +
+        '[--extra-body json]',
     );
   }
-  const args = { rowsPath, glossary: null, model: DEFAULT_MODEL, gapMs: DEFAULT_GAP_MS };
+  // Left undefined rather than defaulted: the preset supplies both, and a value
+  // set here would silently outrank it.
+  const args = { rowsPath, glossary: null, model: undefined, gapMs: undefined };
 
   for (let i = 0; i < rest.length; i += 2) {
     const flag = rest[i];
@@ -77,24 +78,6 @@ function parseArgs(argv) {
     } else throw new Error(`unknown argument: ${flag}`);
   }
   return args;
-}
-
-/** The API key the api itself uses; never printed. */
-function readApiKey() {
-  const fromEnv = process.env.GEMINI_API_KEY?.trim();
-  if (fromEnv) return fromEnv;
-
-  const envPath = resolve(REPO, 'apps/api/.env');
-  let file = '';
-  try {
-    file = readFileSync(envPath, 'utf8');
-  } catch (err) {
-    if (err?.code !== 'ENOENT') throw err;
-    throw new Error(`set GEMINI_API_KEY, or put it in ${envPath}`);
-  }
-  const key = /^GEMINI_API_KEY=(.*)$/m.exec(file)?.[1]?.trim();
-  if (!key) throw new Error(`GEMINI_API_KEY not found in ${envPath}`);
-  return key;
 }
 
 function readRows(path) {
@@ -145,31 +128,47 @@ function readGlossary(path) {
   return glossary.map((entry) => ({ vi: entry.vi, en: entry.en }));
 }
 
-const args = parseArgs(process.argv.slice(2));
+const { provider: providerArgs, rest: ownArgs } = takeProviderArgs(process.argv.slice(2));
+const args = parseArgs(ownArgs);
 const rows = readRows(args.rowsPath);
 const glossary = readGlossary(args.glossary);
-const provider = new GeminiTranslationProvider({
-  apiKey: readApiKey(),
-  models: [args.model],
+const { provider, models, gapMs } = makeTranslationProvider({
+  ...providerArgs,
+  models: args.model ? [args.model] : undefined,
+  gapMs: args.gapMs,
 });
+const [model] = models;
 
 // Progress goes to STDERR. Stdout carries the rows and nothing else — the
 // redirect belongs to the caller, as it does for `analyze.mjs`, because a scorer
 // that writes into recorded results is how a smoke run silently corrupts a real
 // one.
 console.error(
-  `translating ${rows.length} rows · ${args.model} · ` +
-    `${glossary ? `${glossary.length} glossary pairs` : 'no glossary'}`,
+  `translating ${rows.length} rows · ${model} · ` +
+    `${glossary ? `${glossary.length} glossary pairs` : 'no glossary'} · ${gapMs}ms apart`,
 );
 
 for (const [index, row] of rows.entries()) {
   const { source, target } = LANGUAGES[row.direction];
   let hypothesis = '';
+  // What arrives before the first piece, and what arrives after it. The gap
+  // between them is the ONLY thing streaming a translation onward can save, so
+  // recording both is what turns "should we stream into speech" from a matter
+  // of taste into a number. Measured per row because the answer depends on
+  // length: a four-word turn has almost no tail, and a long one might.
+  let ttftMs;
+  const started = Date.now();
   try {
     const result = await provider.translate({
       text: row.source,
       sourceLanguage: source,
       targetLanguage: target,
+      // Timing only. The pieces themselves are discarded — the recorded
+      // hypothesis stays the finished text, so every scorer reading these files
+      // keeps reading exactly what it read before.
+      onChunk: () => {
+        ttftMs ??= Date.now() - started;
+      },
       // The glossary rides as HINTS, exactly as a selected AI Context does in
       // production. Entries are keyed by language and are NOT re-keyed per
       // direction here: the prompt builder resolves the source side against the
@@ -188,9 +187,20 @@ for (const [index, row] of rows.entries()) {
   // answered. Two arms compared across different models is the one way this
   // benchmark can lie, and a field per row is what makes that checkable instead
   // of inferred from whichever prose was written afterwards.
-  console.log(JSON.stringify({ ...row, hypothesis, model: args.model }));
+  console.log(
+    JSON.stringify({
+      ...row,
+      hypothesis,
+      model,
+      ttftMs,
+      totalMs: Date.now() - started,
+      // Of the finished text, since that is what a synthesizer would have had
+      // to speak.
+      chars: hypothesis.length,
+    }),
+  );
 
-  if (index < rows.length - 1) await sleep(args.gapMs);
+  if (index < rows.length - 1) await sleep(gapMs);
 }
 
 console.error('done');

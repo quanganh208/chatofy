@@ -136,6 +136,113 @@ each syllable as its own word, so the `vi` side of this glossary averages 3.04
 words against the `en` side's 2.04, and seven of the 23 entries sit at exactly
 the cap with no headroom. See the docblock on `MAX_GLOSSARY_TERM_WORDS`.
 
+### Another host
+
+`--provider` points the same corpus at a different translator. The presets live
+in `benchmarks/translation-providers.mjs` and carry the base URL, the key's
+environment variable, the default model and the pacing that host needs:
+
+```bash
+node benchmarks/error-analysis/translate-rows.mjs rows.jsonl \
+  --provider deepseek > results/deepseek-before.jsonl
+```
+
+A host with no preset is still reachable — `--provider openai-compatible
+--base-url ... --api-key-env ... --extra-body '{...}'` drives the same provider.
+Writing a preset for it afterwards is how a verified host gets recorded.
+
+Recorded here: `deepseek-before.*` and `deepseek-after.*`, the same two arms on
+`deepseek-flash`.
+
+| Arm            | 3.5-flash-lite | deepseek-flash |
+| -------------- | -------------- | -------------- |
+| before (exact) | 4              | 4              |
+| after (exact)  | 7              | 3              |
+
+**Read that table with the next section, and then stop using it for this
+question.** The exact count cannot answer it — see `glossary-adherence.mjs`
+below, which can. Re-running the _unchanged_ before arm — same
+prompt, same corpus, nothing altered — gives a different number: 4 → 6 on
+`gemini-3.5-flash-lite` with 28 of 40 rows rewritten, and 4 → 2 on
+`deepseek-flash` with 20 of 40 rewritten. The noise floor of the exact count on
+forty rows is therefore **at least ±2**, which is the size of the glossary
+effect this benchmark was built to detect.
+
+So neither the 4→7 above nor the 4→3 beside it is separable from run-to-run
+variance at one repeat. What IS separable is the category table: across both of
+its runs `deepseek-flash` produced no `number-mismatch` and no `invention` at
+all, the two the report marks `high`, while `gemini-3.5-flash-lite` invented an
+ending in both of its own.
+
+`deepseek-flash` pins `temperature` to 1.0 in non-thinking mode and ignores what
+is sent, so it cannot be made deterministic. Neither model was stable here, and
+the Gemini arm moved more.
+
+### Scoring the glossary itself
+
+```bash
+node benchmarks/error-analysis/glossary-adherence.mjs glossary.json \
+  results/before.jsonl results/after.jsonl \
+  results/deepseek-before.jsonl results/deepseek-after.jsonl
+```
+
+`analyze.mjs` says what kind of wrong a row is. This says something narrower it
+cannot: when the source contained a glossary term, did the output carry its
+counterpart. It reads arms `translate-rows.mjs` already wrote and never
+translates.
+
+It exists because the exact count is the wrong instrument for the glossary
+question and this corpus proves it. Recorded 2026-09-22:
+
+| Arm                 | Model                   | Term adherence          | exact     |
+| ------------------- | ----------------------- | ----------------------- | --------- |
+| before              | `gemini-3.5-flash-lite` | 62.8%                   | 4         |
+| after               | `gemini-3.5-flash-lite` | **95.3%**               | 7         |
+| deepseek-before, ×3 | `deepseek-flash`        | 60.5 / 60.5 / 58.1%     | 3 / 1 / 2 |
+| deepseek-after, ×3  | `deepseek-flash`        | **97.7 / 97.7 / 97.7%** | 4 / 4 / 0 |
+
+Three repeats of the same arm move the exact count by 4 and the adherence rate
+by 0. The glossary arm on `deepseek-flash` scored 42/43 three times running,
+which is the same 42 rows each time — so the metric that appears to be noisy is
+the metric, not the model. Note the third glossary repeat: 0 exact and 97.7%
+adherence, in the same file.
+
+The one term missed in **every** arm, `v14 → prescription`, is the tool's own
+limit rather than a model's: the source `kê đơn thuốc` uses the idea as a verb
+and "prescribed medication" is a correct answer that cannot contain the noun.
+A miss that appears in every arm is how that case is told apart from a model
+getting a term wrong.
+
+### Scoring the streaming headroom
+
+```bash
+node benchmarks/error-analysis/streaming-headroom.mjs results/deepseek-after.jsonl
+```
+
+Every arm now records `ttftMs`, `totalMs` and `chars` per row, because the
+request was being paid for anyway. This reads them and reports how much of each
+translation arrived AFTER its first token — the one quantity that bounds what
+forwarding pieces onward to the next stage could save.
+
+It exists because that question was about to be answered from a single figure
+taken on ten short turns. Recorded 2026-09-22 on `deepseek-flash`:
+
+| Corpus                                                        | p50 tail | p95 tail | Single-clause outputs |
+| ------------------------------------------------------------- | -------- | -------- | --------------------- |
+| `rows.jsonl` (40 short rows)                                  | 124ms    | 178ms    | 95%                   |
+| two- and three-sentence turns built from it                   | 189ms    | 324ms    | 0%                    |
+| the 30 real utterances in `live-translate/data/manifest.json` | 204ms    | 669ms    | 63%                   |
+
+The tail is a CEILING, not a saving. A synthesizer cannot start on half a
+clause, so what a streamed hand-off actually collects is the part arriving after
+the first clause is complete — and on the real utterances that is **0ms at the
+median**, because 63% of them produce one clause and there is nothing to hand
+over early. The p95 turn would gain 292ms against a `firstAudioAfterSpeechEndMs`
+that `live-translate` records at 1.9–3.7s.
+
+Read that before adding streaming anywhere: the number that matters is not the
+tail, it is the tail that survives a clause boundary.
+
 ### What forty rows are worth
 
 **Forty chosen rows is weak evidence, and saying so is better than reporting it

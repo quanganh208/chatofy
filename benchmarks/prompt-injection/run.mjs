@@ -1,28 +1,32 @@
 // Does the shipped translator still refuse to be talked to?
 //
-// Run manually. This spends real Gemini quota against the free tier's 15
-// requests/minute per model, so it paces itself and is never wired into
-// `pnpm test` or CI.
+// Run manually. This spends real quota — on the free Gemini tier, 15 requests
+// per minute per model — so it paces itself and is never wired into `pnpm test`
+// or CI. How fast it may ask belongs to the host and comes from the preset in
+// `../translation-providers.mjs`.
 //
-// It drives `GeminiTranslationProvider` itself rather than re-declaring the
-// prompt. That is the whole point: a harness carrying its own copy of the
-// instruction keeps passing after the real one has drifted, and would have
-// nothing to say about production.
-import { readFileSync } from 'node:fs';
+// It drives the shipped provider itself rather than re-declaring the prompt.
+// That is the whole point: a harness carrying its own copy of the instruction
+// keeps passing after the real one has drifted, and would have nothing to say
+// about production. It is ALSO why this file matters more than usual when a new
+// provider arrives: the whole injection defence rests on how a model treats the
+// `<transcript>` block, which is behaviour of the model rather than of the code,
+// so a host that has never been run through this corpus has no evidence behind
+// it at all.
 import { setTimeout as sleep } from 'node:timers/promises';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
-import { GeminiTranslationProvider } from '../../packages/ai-providers/dist/index.js';
+import { makeTranslationProvider, takeProviderArgs } from '../translation-providers.mjs';
 import { CASES } from './corpus.mjs';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO = resolve(HERE, '../..');
-
-/** Models a live turn can actually reach. */
-const DEFAULT_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
-
-/** ~14/min, just under the free tier's per-model ceiling. */
-const DEFAULT_GAP_MS = 4300;
+/**
+ * Models a live turn can actually reach, for the host this corpus was built
+ * against.
+ *
+ * Only meaningful for `--provider gemini`, which is why it is no longer the
+ * bare default: every other host names its own models, and a ladder from one
+ * vendor handed to another fails at the first request with a message about a
+ * model rather than about the mistake.
+ */
+const GEMINI_LIVE_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
 
 /**
  * Arguments, validated rather than coerced.
@@ -32,7 +36,9 @@ const DEFAULT_GAP_MS = 4300;
  * run instead.
  */
 function parseArgs(argv) {
-  const args = { models: DEFAULT_MODELS, repeats: 1, gapMs: DEFAULT_GAP_MS };
+  // `models` and `gapMs` start undefined so the preset's own defaults win; a
+  // value set here would silently outrank the host that knows better.
+  const args = { models: undefined, repeats: 1, gapMs: undefined };
 
   const positive = (flag, raw) => {
     const value = Number(raw);
@@ -54,34 +60,6 @@ function parseArgs(argv) {
     else throw new Error(`unknown argument: ${flag}`);
   }
   return args;
-}
-
-/**
- * The API key the api itself uses; never printed.
- *
- * The environment wins, so this runs anywhere the key is exported. Reading
- * `apps/api/.env` is only a local convenience — it is where the key already
- * lives on a dev machine — and a missing file is not an error while the
- * variable is set.
- */
-function readApiKey() {
-  const fromEnv = process.env.GEMINI_API_KEY?.trim();
-  if (fromEnv) return fromEnv;
-
-  const envPath = resolve(REPO, 'apps/api/.env');
-  let file = '';
-  try {
-    file = readFileSync(envPath, 'utf8');
-  } catch (err) {
-    // Only "the file isn't there" means "the key lives somewhere else". A
-    // permission or encoding failure is a real problem, and reporting it as a
-    // missing key would send someone looking in the wrong place.
-    if (err?.code !== 'ENOENT') throw err;
-    throw new Error(`set GEMINI_API_KEY, or put it in ${envPath}`);
-  }
-  const key = /^GEMINI_API_KEY=(.*)$/m.exec(file)?.[1]?.trim();
-  if (!key) throw new Error(`GEMINI_API_KEY not found in ${envPath}`);
-  return key;
 }
 
 /**
@@ -196,8 +174,16 @@ async function runModel(provider, model, repeats, gapMs, cases) {
   return rows;
 }
 
-const args = parseArgs(process.argv.slice(2));
-const provider = new GeminiTranslationProvider({ apiKey: readApiKey() });
+const { provider: providerArgs, rest: ownArgs } = takeProviderArgs(process.argv.slice(2));
+const args = parseArgs(ownArgs);
+const preset = providerArgs.preset ?? 'gemini';
+const { provider, models, gapMs } = makeTranslationProvider({
+  ...providerArgs,
+  // The Gemini ladder is this corpus's historical baseline and stays the
+  // default for that host alone; every other one falls through to its preset.
+  models: args.models ?? (preset === 'gemini' ? GEMINI_LIVE_MODELS : undefined),
+  gapMs: args.gapMs,
+});
 const all = [];
 
 const summarize = (label, rows) => {
@@ -214,9 +200,9 @@ const summarize = (label, rows) => {
   );
 };
 
-for (const model of args.models) {
+for (const model of models) {
   console.log(`\n===== translate · ${model} (${args.repeats} repeat(s)) =====`);
-  const rows = await runModel(provider, model, args.repeats, args.gapMs, CASES);
+  const rows = await runModel(provider, model, args.repeats, gapMs, CASES);
   all.push(...rows);
   summarize(model, rows);
 }
