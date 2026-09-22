@@ -20,7 +20,7 @@ import { cn } from '../lib/utils.js';
  * for exactly this.
  *
  * `hover:bg-accent`. shadcn's `--accent` is a pale grey hover surface; this
- * project's "accent" is the brand blue, and there is no bare `--accent` token. The
+ * project's "accent" is the ink action colour, and there is no bare `--accent` token. The
  * mechanical substitution is `bg-secondary`, which already resolves to
  * `surfaceRaised` — the same role shadcn's accent plays.
  *
@@ -54,7 +54,7 @@ import { cn } from '../lib/utils.js';
  *
  * What C1 gives up is the at-rest 3:1 boundary of WCAG 1.4.11, deliberately and
  * against measurement. `docs/design-guidelines.md` carries the record. The focus
- * ring is untouched at 6.70:1 worst-case, and a control inside a filled notice
+ * ring is untouched at 3.21:1 worst-case, and a control inside a filled notice
  * keeps a real hue border — see `alert.tsx`.
  */
 const buttonVariants = cva(
@@ -104,7 +104,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-accent-hover',
+        // The fill step alone is quiet on dark — ink `#F5F5F4` can only step to
+        // white, 1.09:1, because a hover must not lose contrast with its label
+        // (`token-contrast.spec.ts`). So the primary also lifts, the same C1
+        // gesture as `outline`, and the lift is the cue reduced motion keeps as
+        // a shadow change.
+        default: [
+          'bg-primary text-primary-foreground',
+          'hover:bg-accent-hover hover:shadow-elev-md hover:-translate-y-px',
+          'active:translate-y-px active:shadow-none',
+        ].join(' '),
         // `live-fill`, not `live`. White on `live` is 3.91 and fails AA; on this
         // it is 4.93. These are the buttons that stop a recording, so they are
         // the last place to accept text you have to squint at.
@@ -126,7 +135,10 @@ const buttonVariants = cva(
         ].join(' '),
         secondary: 'bg-secondary text-secondary-foreground hover:bg-border',
         ghost: 'text-muted-foreground hover:bg-secondary hover:text-foreground',
-        link: 'text-accent-text underline-offset-4 hover:underline',
+        // Underlined at rest. The accent is ink, the same value as body text, so
+        // colour no longer tells a link from prose (WCAG 1.4.1); the line does.
+        // Hover thickens it rather than revealing it.
+        link: 'text-accent-text underline underline-offset-4 hover:decoration-2',
       },
       size: {
         default: 'h-10 px-4 py-2 has-[>svg]:px-3',

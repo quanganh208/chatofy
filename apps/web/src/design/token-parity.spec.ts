@@ -182,15 +182,15 @@ const sourceOf = (path: string): string =>
 /**
  * Variables an alias may reference that this file does not declare.
  *
- * `--font-be-vietnam` is set by `next/font` on the `<html>` element at render
- * time, so it is genuinely absent here. Every other name must be declared in
+ * `--font-be-vietnam` and `--font-newsreader` are set by `next/font` on the
+ * `<html>` element at render time, so they are genuinely absent here. Every other name must be declared in
  * `:root`, or the utility built on it resolves to nothing.
  *
  * The popup has no equivalent: it declares the family literally, because there is
  * no Next there to inject anything. That asymmetry is what the typeface block at
  * the bottom of this file exists to check.
  */
-const DECLARED_ELSEWHERE = new Set(['--font-be-vietnam']);
+const DECLARED_ELSEWHERE = new Set(['--font-be-vietnam', '--font-newsreader']);
 
 function declarationsIn(source: string): Map<string, string> {
   const found = new Map<string, string>();
@@ -769,6 +769,27 @@ describe('both surfaces resolve one typeface', () => {
     expect(weights.map((m) => m[1])).toEqual(FONT_WEIGHTS);
   });
 
+  /**
+   * The display serif is web-only and reached the same way: through the variable
+   * its own `next/font` call sets, first in `--font-display`, with a serif tail
+   * so a failed load lands on a serif rather than on the body face.
+   */
+  it('web reaches the display serif through next/font', () => {
+    const layout = sourceOf(LAYOUT).replace(/^\s*\/\/.*$/gm, '');
+    expect(layout).toMatch(/Newsreader\(\{[\s\S]*?variable:\s*'--font-newsreader'/);
+    const block = blockIn(
+      sourceOf(SURFACES[0].path),
+      /@theme inline\s*\{([\s\S]*?)\n\}/,
+      '@theme inline',
+      SURFACES[0].label,
+    );
+    const stack = (declarationsIn(block).get('--font-display') ?? '')
+      .split(',')
+      .map((s) => s.trim());
+    expect(stack[0]).toBe('var(--font-newsreader)');
+    expect(stack.at(-1)).toBe('serif');
+  });
+
   it('the popup ships the family itself', () => {
     const popup = SURFACES[1];
     const source = sourceOf(popup.path);
@@ -801,5 +822,35 @@ describe('both surfaces resolve one typeface', () => {
         (url) => !existsSync(fileURLToPath(new URL(`${POPUP_FONT_DIR}${url}`, import.meta.url))),
       );
     expect(missing, 'these @font-face files are not in apps/extension/public').toEqual([]);
+  });
+});
+
+/**
+ * The popup's pre-paint ground, which lives outside every stylesheet above.
+ *
+ * `popup/index.html` inlines `background` and `color` so the popup does not flash
+ * white before `theme.css` arrives — and because it is the page's own ground, those
+ * two declarations ARE the popup's page colour. Nothing else here reads that file,
+ * so a palette change once left the popup on the previous grey while its cards moved.
+ */
+describe('the popup pre-paint ground', () => {
+  const html = readFileSync(
+    fileURLToPath(new URL('../../../extension/entrypoints/popup/index.html', import.meta.url)),
+    'utf8',
+  );
+  const pair = (property: string) =>
+    new RegExp(`\\n\\s*${property}:\\s*light-dark\\((#[0-9a-f]{6}),\\s*(#[0-9a-f]{6})\\)`, 'i')
+      .exec(html)
+      ?.slice(1)
+      .map((hex) => hex.toUpperCase());
+
+  it.each([
+    ['background', 'bg'],
+    ['color', 'text'],
+  ] as const)('paints %s from the %s token in both schemes', (property, token) => {
+    expect(pair(property)).toEqual([
+      palettes.light[token].toUpperCase(),
+      color[token].toUpperCase(),
+    ]);
   });
 });

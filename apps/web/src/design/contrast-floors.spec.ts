@@ -132,6 +132,33 @@ const HUES: ReadonlyArray<readonly [Token, Token, number]> = [
   ['warning', 'live', 25],
 ];
 
+/**
+ * The achromatic-accent exemption — the one row this table has ever replaced
+ * rather than kept.
+ *
+ * The hue rows above assume the accent HAS a hue. Direction A made it ink:
+ * `#1C1917` in light, `#F5F5F4` in dark. The hue of a colour that close to grey is
+ * whatever the rounding of its last few units says — `#1C1917` measures 24° and
+ * `#F5F5F4` 60° — and no reader can see either, so a hue floor on it measures
+ * noise. Keeping those rows would have meant tinting the ink until the arithmetic
+ * passed, which is changing the approved colour to satisfy a test that no longer
+ * describes it.
+ *
+ * What still has to hold is the reason the rows existed: the primary action and a
+ * state colour, side by side, must not be mistaken for each other. For an
+ * achromatic accent that separation is lightness, so the replacement row measures
+ * it as a luminance ratio. 2.0 is this table's own floor for "visible, not a
+ * boundary" (`borderStrong` on `bg`) — the two are never read as text against each
+ * other, they are told apart at a glance.
+ *
+ * The exemption is narrow on purpose. It applies only while the accent's chroma
+ * (max − min channel) is under `ACHROMATIC_CHROMA`; an accent that regains a hue
+ * gets its hue rows back automatically, and `live`/`speaking`/`warning` never
+ * leave the hue table.
+ */
+const ACHROMATIC_CHROMA = 0.08;
+const ACCENT_SEPARATION = 2.0;
+
 function channels(hex: string): [number, number, number] {
   const h = hex.replace('#', '');
   return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255) as [number, number, number];
@@ -160,6 +187,12 @@ function hue(hex: string): number {
   return (h * 60 + 360) % 360;
 }
 
+/** Max minus min channel, 0–1: how far a colour is from grey at all. */
+function chroma(hex: string): number {
+  const c = channels(hex);
+  return Math.max(...c) - Math.min(...c);
+}
+
 /** The shorter way round the wheel — 350° and 10° are 20° apart, not 340°. */
 function hueDistance(a: string, b: string): number {
   const raw = Math.abs(hue(a) - hue(b));
@@ -177,11 +210,71 @@ describe.each(SCHEMES)('%s palette clears its floors', (scheme) => {
     ).toBeGreaterThanOrEqual(floor);
   });
 
-  it.each(HUES)('%s and %s stay at least %s° apart', (a, b, floor) => {
+  const achromaticAccent = chroma(palette.accent) < ACHROMATIC_CHROMA;
+  const hueRows = HUES.filter(
+    ([a, b]) => !(achromaticAccent && (a === 'accent' || b === 'accent')),
+  );
+  const separationRows = HUES.filter(
+    ([a, b]) => achromaticAccent && (a === 'accent' || b === 'accent'),
+  ).map(([a, b]) => (a === 'accent' ? b : a));
+
+  it.each(hueRows)('%s and %s stay at least %s° apart', (a, b, floor) => {
     const degrees = hueDistance(palette[a], palette[b]);
     expect(
       degrees,
       `${a} (${palette[a]}) and ${b} (${palette[b]}) are ${degrees.toFixed(1)}° apart`,
     ).toBeGreaterThanOrEqual(floor);
+  });
+
+  // `it.each` refuses an empty table, and a chromatic accent leaves this one empty.
+  if (separationRows.length > 0) {
+    it.each(separationRows)('the achromatic accent and %s stay apart in lightness', (state) => {
+      const ratio = contrast(palette.accent, palette[state]);
+      expect(
+        ratio,
+        `accent (${palette.accent}) and ${state} (${palette[state]}) measured ${ratio.toFixed(2)}:1`,
+      ).toBeGreaterThanOrEqual(ACCENT_SEPARATION);
+    });
+  }
+});
+
+/**
+ * The focus ring as it is DRAWN, not as the token reads.
+ *
+ * Every component draws `ring-ring/50` — `accentText` at half opacity, with no
+ * offset — so the colour a reader sees is that ink composited over the ground the
+ * control stands on. With an ink accent the full-strength token clears 3:1 by a mile
+ * while the drawn ring clears it by a fraction, which is exactly the margin a
+ * token-only row cannot see. 1.4.11's 3:1 is the floor, on every ground a focusable
+ * control stands on, notices included.
+ */
+const RING_GROUNDS: readonly Token[] = [
+  'bg',
+  'surface',
+  'surfaceRaised',
+  'warningSubtle',
+  'liveSubtle',
+];
+
+function over(ink: string, ground: string, alpha: number): string {
+  const [a, b] = [channels(ink), channels(ground)];
+  return (
+    '#' +
+    a
+      .map((value, i) => Math.round((value * alpha + b[i]! * (1 - alpha)) * 255))
+      .map((value) => value.toString(16).padStart(2, '0'))
+      .join('')
+  );
+}
+
+describe.each(SCHEMES)('%s focus ring, as drawn', (scheme) => {
+  const palette = palettes[scheme];
+  it.each(RING_GROUNDS)('clears 3:1 on %s at 50%%', (ground) => {
+    const drawn = over(palette.accentText, palette[ground], 0.5);
+    const ratio = contrast(drawn, palette[ground]);
+    expect(
+      ratio,
+      `ring ${drawn} on ${ground} measured ${ratio.toFixed(2)}:1`,
+    ).toBeGreaterThanOrEqual(3);
   });
 });

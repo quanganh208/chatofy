@@ -2,6 +2,7 @@ export {
   color,
   colorLight,
   palettes,
+  dawn,
   overlay,
   space,
   radius,
