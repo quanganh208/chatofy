@@ -25,3 +25,6 @@ export {
   // library tsconfig resolves as nodenext, and `@chatofy/types` already proves
   // Metro follows it.
 } from './tokens.js';
+
+export { brandMark, type BrandMarkVariant } from './brand-mark.js';
+export { brandWordmark } from './brand-wordmark.js';
