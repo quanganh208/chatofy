@@ -241,12 +241,28 @@ describe.each(SCHEMES)('%s palette clears its floors', (scheme) => {
 /**
  * The focus ring as it is DRAWN, not as the token reads.
  *
- * Every component draws `ring-ring/50` — `accentText` at half opacity, with no
- * offset — so the colour a reader sees is that ink composited over the ground the
- * control stands on. With an ink accent the full-strength token clears 3:1 by a mile
- * while the drawn ring clears it by a fraction, which is exactly the margin a
- * token-only row cannot see. 1.4.11's 3:1 is the floor, on every ground a focusable
- * control stands on, notices included.
+ * The default ring is `ring-ring/50` — `accentText` at half opacity, with no offset —
+ * so the colour a reader sees is that ink composited over the ground the control
+ * stands on. With an ink accent the full-strength token clears 3:1 by a mile while
+ * the drawn ring clears it by a fraction, which is exactly the margin a token-only
+ * row cannot see.
+ *
+ * ## What this does NOT cover
+ *
+ * `--ring` only. A control that is `aria-invalid` REPLACES this ring rather than
+ * adding to it — `input.tsx` draws `aria-invalid:focus-visible:ring-destructive/50`,
+ * and the same override is in `select`, `textarea`, `checkbox`, `radio-group`,
+ * `toggle`, `badge` and `button`. A ring is one box-shadow slot, so for an invalid
+ * AND focused control that destructive ring is the only state indicator there is,
+ * and it measures 2.18–2.45:1 on `bg`/`surface`/`surfaceRaised` in both schemes —
+ * under 1.4.11's 3:1.
+ *
+ * That state is older than this table and unchanged by the repalette; the
+ * destructive hexes never moved. It is recorded here rather than asserted because
+ * closing it is a palette decision (raise the alpha, or move `live`), not a
+ * measurement. `docs/design-guidelines.md` carries the same note. Do not read the
+ * rows below as proof that every focusable control clears the floor — they prove it
+ * for the default ring, which is the one the ink accent put at risk.
  */
 const RING_GROUNDS: readonly Token[] = [
   'bg',

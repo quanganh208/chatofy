@@ -147,8 +147,8 @@ is still required it holds.
 
 `borderStrong` is a divider, not a boundary: 2.31 and 2.59 against a floor of 2.0.
 `border` is a hairline: 1.28 and 1.39 against 1.2. The focus ring, `ring-ring/50` with
-no offset, measures 3.21:1 worst-case in light (ink at 50% on `surfaceRaised`) and 4.71
-in dark.
+no offset, measures 3.21:1 worst-case in light (ink at 50% on `surfaceRaised`) and
+4.38 worst-case in dark (on `warningSubtle`; `surfaceRaised` is 4.71 there).
 
 **The achromatic-accent exemption.** The table used to require 60° of hue between the
 accent and `live`/`speaking`, so the primary action could never be mistaken for a state
@@ -355,7 +355,19 @@ Two facts bound the cost, and neither is a rationalisation after the fact:
 - **The focus ring is untouched.** `--ring`, drawn at the 50% it renders at, measures
   **3.21:1** at worst (light, on `surfaceRaised`) across every ground a control sits on — `card`, `background`, `surfaceRaised`,
   `warningSubtle`, `liveSubtle` — in both themes. 1.4.11's state-indication half
-  is satisfied in full; only the at-rest boundary was traded.
+  is satisfied **for that ring**; only the at-rest boundary was traded.
+
+  One control state falls outside it, and outside the spec that measures it. A control
+  that is `aria-invalid` REPLACES the ring rather than adding to it —
+  `aria-invalid:focus-visible:ring-destructive/50`, in `input`, `select`, `textarea`,
+  `checkbox`, `radio-group`, `toggle`, `badge` and `button`. A ring is one box-shadow
+  slot, so on an invalid AND focused control that is the only state indicator drawn,
+  and it measures **2.18–2.45:1** — under the floor. The state predates this direction
+  and the repalette did not move it: the destructive hexes are unchanged. Closing it
+  means raising the alpha or moving `live`, which is a palette decision nobody has
+  taken yet, so it is recorded here and in `contrast-floors.spec.ts` rather than
+  asserted green.
+
 - **No softer token could have cleared it.** `borderStrong` measures 2.52/2.29
   and `border` 1.39/1.23 on a card. Reaching 3:1 means `borderControl` or nothing, so this
   was a choice between the C1 language and an outline, not a value to tune.
