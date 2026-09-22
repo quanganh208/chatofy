@@ -17,6 +17,12 @@ import { cn } from '@/lib/utils';
  * is a way home, not a headline. Only the marketing header, at the 32px mark, sets it
  * at `text-heading`.
  *
+ * That size rides on the LINK and the wordmark inherits it, so a caller passing its
+ * own `text-*` still wins — `cn` resolves the two in the same font-size group. Putting
+ * it on the span instead would beat inheritance unconditionally and silently ignore
+ * the caller: the marketing footer asks for `text-hint`, and got 17px for as long as
+ * the class sat on the child.
+ *
  * `href` is a prop, and every one of the four call sites passes nothing. It was added
  * for a hub that the app chrome would point at instead of the landing page; the hub is
  * gone and "home" turned out to be one address after all. Kept as a prop rather than
@@ -49,18 +55,12 @@ export function Brand({
       aria-label="Chatofy"
       className={cn(
         'focus-visible:ring-ring/50 flex items-center gap-2 rounded-sm focus-visible:ring-[3px] focus-visible:outline-none',
+        size >= 32 ? 'text-heading' : 'text-translation',
         className,
       )}
     >
       <BrandMark variant={size >= 32 ? 'dawn' : 'ink'} size={size} />
-      <span
-        className={cn(
-          'font-display leading-none font-medium tracking-tight',
-          size >= 32 ? 'text-heading' : 'text-translation',
-        )}
-      >
-        chatofy
-      </span>
+      <span className="font-display leading-none font-medium tracking-tight">chatofy</span>
     </Link>
   );
 }

@@ -66,4 +66,30 @@ describe('Brand', () => {
     expect(mark?.getAttribute('data-variant')).toBe(variant);
     expect(mark?.getAttribute('width')).toBe(String(size));
   });
+
+  /**
+   * The wordmark inherits its size from the link, so a caller can still set it.
+   *
+   * The marketing footer asks for `text-hint` beside a 12px language line. While
+   * the size class sat on the wordmark span it beat inheritance unconditionally,
+   * the footer's class became dead markup, and the wordmark rendered at 17px.
+   * Asserted on the link, because that is the element the override has to reach.
+   */
+  it.each([
+    [24, 'text-translation'],
+    [32, 'text-heading'],
+  ])('sizes the %spx wordmark with %s by default', (size, role) => {
+    const link = render(<Brand size={size} />);
+    expect(link.className.split(/\s+/)).toContain(role);
+    expect(link.lastElementChild?.className).not.toMatch(/\btext-(translation|heading)\b/);
+  });
+
+  it('lets a caller override the wordmark size', () => {
+    const link = render(<Brand className="text-hint" />);
+    const classes = link.className.split(/\s+/);
+    expect(classes).toContain('text-hint');
+    expect(classes).not.toContain('text-translation');
+    // The half that actually failed: a size on the span ignores the line above.
+    expect(link.lastElementChild?.className).not.toMatch(/\btext-[a-z]+\b/);
+  });
 });
