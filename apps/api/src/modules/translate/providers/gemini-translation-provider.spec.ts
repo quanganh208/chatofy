@@ -379,7 +379,7 @@ describe('GeminiTranslationProvider', () => {
       // exhaustion reveals the real list without exporting it.
       //
       // The assertion is INVERTED from what it used to be, deliberately. A deep
-      // reserve (`gemma-4-31b-it`, 6884ms against flash's ~553ms) once sat at
+      // reserve (`gemma-4-31b-it`, 6884ms against flash's sub-second) once sat at
       // the end of this ladder to absorb display repairs on a separately metered
       // bucket. Nothing repairs a display any more, so the only thing it could
       // still do is answer this endpoint — the REST measurement baseline —

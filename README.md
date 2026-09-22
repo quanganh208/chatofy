@@ -4,8 +4,8 @@ Real-time voice translation app. Turborepo + pnpm workspace. Directions: vi→en
 and en→vi.
 
 Speech runs **locally on CPU by default** — speech-to-text and text-to-speech
-need no API key and make no cloud call. Machine translation is still cloud
-Gemini, so the app is not fully offline. See
+need no API key and make no cloud call. Machine translation is still a cloud
+call, so the app is not fully offline. See
 [Local speech stack](#local-speech-stack).
 
 ## Quick Start
@@ -249,16 +249,39 @@ The API picks the backend from `AI_STT_PROVIDER` / `AI_TTS_PROVIDER`, both
 defaulting to `local`. There is no per-language exception: the language travels
 with each call and the sidecar resolves the engine.
 
-**Translation is still cloud Gemini** — a Gemini key is required and is the
-only remaining network dependency in a translation turn.
+**Translation is still cloud** — it is the only remaining network dependency in
+a translation turn. `AI_TRANSLATION_PROVIDER` chooses the backend: `gemini` by
+default, or one of the OpenAI-compatible hosts named in
+`apps/api/src/modules/translate/providers/register-default-providers.ts`, which
+reach the same prompt through the same interface for the thesis comparison.
+
+**The deployment runs `deepseek`, not the default.** It was switched on
+2026-09-22 because deepseek-flash answered at p50 720ms against 1114ms for
+`gemini-3.5-flash-lite` on the same corpus and the same prompt, and because the
+sovereignty corpus found no refusal, no softening and no hedging across 84
+translations. The cost is not latency: conversation content now reaches servers
+operated in China, which is a data-governance decision and belongs in the thesis
+separately from the quality numbers. A Gemini key is still required either way —
+it also authenticates the realtime and summarization providers. Commenting out
+the one line in `prod.env` returns the deployment to Gemini.
 
 > The free tier meters requests **per project per model**, both per minute and
 > per day, so the translate path walks an ordered list of models, moving down
 > only when the current one is out of quota under every key:
 > `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` — 15/min and 500/day each,
-> and measured p50 553ms and 557ms per short sentence. There is no slower
-> last-resort entry: the one that used to sit here existed to absorb display
-> repairs, and the display is now typeset in process by a pure function.
+> and a tie in speed, which is why the order is a quality choice. There is no
+> slower last-resort entry: the one that used to sit here existed to absorb
+> display repairs, and the display is now typeset in process by a pure function.
+>
+> **The latency this section used to quote has expired.** It read p50 553ms and
+> 557ms per short sentence. Re-measured 2026-09-22 on
+> `benchmarks/error-analysis/rows.jsonl`, `gemini-3.5-flash-lite` answered at
+> p50 **1114ms** (n=39, 905ms to the first token), and
+> `benchmarks/prompt-injection` recorded 1115ms the same day on a different
+> corpus. On that same run `deepseek-flash` answered at p50 **720ms** — so the
+> cloud alternative is now the faster one, not the slower one the older notes
+> here assumed. `gemini-3.1-flash-lite` has not been re-measured. What changed
+> is unknown; no code on this path did.
 >
 > Because the meter counts the **project** and not the key, `GEMINI_API_KEY`
 > also accepts several keys separated by commas, and the provider rotates
@@ -267,10 +290,18 @@ only remaining network dependency in a translation turn.
 > `apps/api/.env.example` for the conditions that make extra keys worth having.
 >
 > The request is **streamed** (`generateContentStream`). Not for incremental
-> delivery — a one-sentence turn arrives in a single chunk — but for the
-> round-trip: 553ms streamed against 820ms blocking on `gemini-3.5-flash-lite`.
-> It is also what makes the two flash models a tie, so the leader is a quality
-> choice rather than a latency one.
+> delivery — a one-sentence turn arrives in very few chunks — but for the
+> round-trip: 553ms streamed against 820ms blocking on `gemini-3.5-flash-lite`,
+> a 267ms gap measured when the absolute figures above still held and not
+> re-measured since. It is also what makes the two flash models a tie, so the
+> leader is a quality choice rather than a latency one.
+>
+> How much incremental delivery is worth was measured on 2026-09-22 and the
+> answer is: less than it looks. Of a translation's wall time, the part arriving
+> after the first token is p50 200ms on Gemini and 124ms on DeepSeek — and on
+> real utterances 63% of outputs are a single clause, so a consumer that
+> forwards pieces to speech saves **0ms at the median**. See
+> `benchmarks/error-analysis/streaming-headroom.mjs`.
 >
 > The **per-minute** ceiling is the one a live conversation hits. A 429 carries
 > a `retryDelay`, and the provider remembers it: a throttled model is skipped

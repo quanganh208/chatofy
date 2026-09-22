@@ -153,10 +153,11 @@ Every template uses two line forms. `KEY=` means unset, which each schema reads 
   outage worse than the 503 it already answers with. `pnpm --filter api test:e2e` DOES need
   one running, because six of those suites log in for real and login mints a family
 - `AI_STT_PROVIDER` (default: `local`) — STT implementation selector
-- `AI_TRANSLATION_PROVIDER` (default: `gemini`) — Translation implementation selector
+- `AI_TRANSLATION_PROVIDER` (default: `gemini`) — Translation implementation selector. Production runs `deepseek` since 2026-09-22; any name other than `gemini` selects a row of the OpenAI-compatible host table in `register-default-providers.ts`
 - `AI_TTS_PROVIDER` (default: `local`) — TTS implementation selector
 - `ELEVENLABS_API_KEY` — ElevenLabs API key (lazy validation; only needed when a provider above is set to `elevenlabs`)
-- `GEMINI_API_KEY` — Google Gemini API key, or several comma-separated to rotate across (lazy validation; required to call `/translate`). Several keys only raise the quota ceiling when they come from different Google Cloud projects
+- `GEMINI_API_KEY` — Google Gemini API key, or several comma-separated to rotate across (lazy validation). Required to call `/translate` only while `AI_TRANSLATION_PROVIDER` is `gemini`; it authenticates the realtime and summarization providers regardless, so it stays required in production even though translation moved off it. Several keys only raise the quota ceiling when they come from different Google Cloud projects
+- `OPENAI_COMPATIBLE_API_KEY` — the credential for whichever OpenAI-compatible host `AI_TRANSLATION_PROVIDER` names (lazy validation). One variable for the whole family: the endpoint, model and per-host flags live beside the host name in the table, not in env, because a model id only means anything against the endpoint serving it
 - `ELEVENLABS_TTS_VOICE_ID` — Voice ID for ElevenLabs TTS synthesis; unset takes the provider's own default (`Rachel`)
 - `LOCAL_STT_URL` / `LOCAL_TTS_URL` — local speech sidecars (`services/local-stt` :8002, `services/local-tts` :8003)
 

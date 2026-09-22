@@ -62,12 +62,20 @@ import {
 import { StreamForwarder } from './stream-forwarder.js';
 import { normalizeTranscript } from '../../text/vietnamese.js';
 
-// Order leads with the newest flash model. Measured p50 per short
-// conversational sentence, streamed: 3.5-flash-lite 553ms, 3.1-flash-lite
-// 557ms. The two are a tie on the streamed path, so leading with the newer one
-// costs no latency — on the blocking path 3.5 was 208ms slower, which is the
+// Order leads with the newest flash model, because the two were measured a tie
+// on the streamed path while 3.5 was 208ms slower blocking — which is the
 // reason this provider streams. Quota is metered per model, so the order buys
 // the others nothing either way.
+//
+// **The absolute numbers that tie has been quoted with no longer hold.** The
+// pair was recorded at p50 553ms and 557ms per short sentence; re-measured
+// 2026-09-22 on `benchmarks/error-analysis/rows.jsonl`, `gemini-3.5-flash-lite`
+// answered at p50 **1114ms** (n=39, 905ms to the first token). Two corpora
+// agree: `benchmarks/prompt-injection` recorded 1115ms the same day. What
+// changed is not known — this code did not — so treat any 553ms downstream of
+// here as expired rather than as a target, and re-measure before quoting one.
+// The ORDER survives it: the tie and the blocking gap were properties of the
+// two models relative to each other, and nothing has re-measured those.
 //
 // **There is deliberately no last-resort reserve any more.** A third entry
 // (`gemma-4-31b-it`, measured at 6884ms) used to sit here to absorb display
@@ -75,7 +83,7 @@ import { normalizeTranscript } from '../../text/vietnamese.js';
 // display now, so the reserve existed only to answer `POST /translate` slowly
 // once both flash models were exhausted — and this endpoint is the REST
 // measurement baseline, not the product path. A baseline that fails clearly
-// beats one whose numbers were quietly produced by a 6.9s model where a 553ms
+// beats one whose numbers were quietly produced by a 6.9s model where a fast
 // one was assumed. If exhaustion becomes operationally painful the answer is a
 // separate key or a scheduled window, not a slower model back on the ladder.
 const DEFAULT_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
@@ -286,8 +294,10 @@ export class GeminiTranslationProvider implements TranslationProvider {
   /**
    * One streamed round-trip; SDK failures propagate unwrapped.
    *
-   * Streaming buys the round-trip — measured p50 553ms streamed against 820ms
-   * blocking on `gemini-3.5-flash-lite` — and, when `onChunk` is given, also
+   * Streaming buys the round-trip — measured 553ms streamed against 820ms
+   * blocking on `gemini-3.5-flash-lite`, a 267ms gap that has NOT been
+   * re-measured since the absolute figures moved (see the ladder above) — and,
+   * when `onChunk` is given, also
    * hands the text over as it arrives. The two are independent: the round-trip
    * saving applies to every caller, the incremental delivery only to one that
    * asked for it.
