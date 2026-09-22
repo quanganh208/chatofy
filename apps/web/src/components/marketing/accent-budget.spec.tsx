@@ -77,7 +77,7 @@ afterEach(() => {
 });
 
 describe('the landing page accent budget', () => {
-  it.each(SECTIONS)('$name renders $filled filled controls', async ({ render, filled }) => {
+  it.each(SECTIONS)('$name renders $filled filled controls', async ({ name, render, filled }) => {
     const element = await render();
     await act(async () => {
       root = createRoot(container);
@@ -90,7 +90,14 @@ describe('the landing page accent budget', () => {
     // Button spends the same budget. The counting itself is shared with the
     // screen-level app spec — two gates for one rule must not drift into two
     // definitions of "accent-filled".
-    expect(accentFilledControls(container).length).toBe(filled);
+    const actual = accentFilledControls(container).length;
+    expect(actual).toBe(filled);
+    // The RULE, asserted separately from the number the row declares — the same
+    // pairing the app gate carries, and for the same reason: a table alone goes
+    // green when someone edits `filled` from 1 to 2, which is one token and no
+    // other signal. One accent-filled control per section is the ceiling whatever
+    // the row says.
+    expect(actual, `${name} draws ${actual} accent-filled controls`).toBeLessThanOrEqual(1);
     expect(container.textContent?.length ?? 0, 'the section rendered nothing').toBeGreaterThan(20);
   });
 });
