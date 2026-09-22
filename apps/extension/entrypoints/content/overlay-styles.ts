@@ -111,11 +111,14 @@ export const OVERLAY_STYLE = `
     border-color: ${color.liveFill};
     color: ${color.onLiveFill};
   }
+  /* Idle only: overlay.ts hides it while capturing, and the pulsing dot below
+     takes its place. */
+  .pill-mark { display: flex; flex: none; }
   .pill-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: ${color.accentText};
+    background: ${color.onLiveFill};
     flex: none;
   }
   .pill.live .pill-dot {
