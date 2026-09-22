@@ -54,7 +54,11 @@ export function MarketingMenu({
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
         </SheetHeader>
-        <nav className="flex flex-col gap-1 px-4">
+        {/* Named, like the header's own nav. Two navigation landmarks on one page
+            and only one of them answering "which navigation?" is the case a
+            landmark list is least useful in. `title` is the sheet's heading, so
+            the two cannot drift. */}
+        <nav aria-label={title} className="flex flex-col gap-1 px-4">
           {links.map((link) => (
             <SheetClose asChild key={link.href}>
               <a

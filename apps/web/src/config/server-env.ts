@@ -25,8 +25,14 @@ export const serverEnvSchema = z.object({
   // This app's own public origin, for `metadataBase` — without it Next resolves
   // `og:image` against localhost and every shared link previews a dead image.
   // The api's OWN variable (it builds email links from it), shared rather than
-  // mirrored, and read per request: every route is dynamic, so a deploy picks it
-  // up from `prod.env` without a rebuild.
+  // mirrored. Read once per process, at the parse below — but nothing bakes it
+  // into the bundle, so a deploy picks it up from `prod.env` on restart without
+  // a rebuild, which is the property that matters.
+  //
+  // Defaulted rather than required, and that is a real cost: the api refuses to
+  // boot in production while this is still the default, web has no such gate, so
+  // a missing value here ships a green deploy whose every shared link previews
+  // an image on localhost. Nothing asserts the served `og:image` yet.
   WEB_BASE_URL: z.string().url().default('http://localhost:3001'),
 });
 
