@@ -105,14 +105,35 @@ describe('SpeechGate', () => {
     });
 
     // A hard cut mid-word is the fallback, not the intent.
-    it('prefers a quiet block inside the lookahead over cutting mid-word', () => {
+    it('prefers a pause inside the lookahead over cutting mid-word', () => {
       const { handlers, feed } = harness(CEILING);
 
-      // Reaches the arm mark at 7500ms, then goes quiet briefly and carries on.
+      // Reaches the arm mark at 7500ms, then pauses briefly.
       feed(LOUD, 7600);
-      feed(QUIET, BLOCK_MS);
+      feed(QUIET, 100);
 
       expect(handlers.onSpeechEnd).toHaveBeenCalledTimes(1);
+      expect(handlers.onSpeechEnd).toHaveBeenCalledWith('forced');
+    });
+
+    // Connected speech dips under the threshold between syllables. A cut on the
+    // first quiet block split "I | love" and "differ | ent" in production.
+    it('does not cut on a dip too short to be a pause', () => {
+      const { handlers, feed } = harness(CEILING);
+
+      feed(LOUD, 7600);
+      feed(QUIET, BLOCK_MS * 2);
+      feed(LOUD, 200);
+
+      expect(handlers.onSpeechEnd).not.toHaveBeenCalled();
+    });
+
+    it('looks for a pause from 1500ms before the ceiling by default', () => {
+      const { handlers, feed } = harness({ maxUtteranceMs: 8000 });
+
+      feed(LOUD, 6700);
+      feed(QUIET, 100);
+
       expect(handlers.onSpeechEnd).toHaveBeenCalledWith('forced');
     });
 
@@ -176,6 +197,52 @@ describe('SpeechGate', () => {
 
       expect(handlers.onSpeechEnd).toHaveBeenCalledTimes(1);
       expect(handlers.onSpeechEnd).toHaveBeenCalledWith('hangover');
+    });
+
+    describe('resuming after a cut', () => {
+      const RESUME: SpeechGateOptions = { ...CEILING, resumeAfterCut: true };
+
+      // Syllables run shorter than the 120ms confirmation. Waiting for one after
+      // a cut dropped "comic book" from a replayed recording.
+      it('reopens on the first speech block, without re-confirming', () => {
+        const { events, feed } = harness(RESUME);
+
+        feed(LOUD, 7600);
+        feed(QUIET, 100);
+        feed(LOUD, BLOCK_MS);
+
+        expect(events.slice(-2)).toEqual(['end:forced', 'start']);
+      });
+
+      it('reopens straight away after a cut at the ceiling itself', () => {
+        const { handlers, feed } = harness(RESUME);
+
+        feed(LOUD, 8100);
+        feed(LOUD, BLOCK_MS);
+
+        expect(handlers.onSpeechEnd).toHaveBeenCalledWith('forced');
+        expect(handlers.onSpeechStart).toHaveBeenCalledTimes(2);
+      });
+
+      it('goes back to confirming once the speaker has really stopped', () => {
+        const { handlers, feed } = harness(RESUME);
+
+        feed(LOUD, 7600);
+        feed(QUIET, 600);
+        feed(LOUD, 60);
+
+        expect(handlers.onSpeechStart).toHaveBeenCalledTimes(1);
+      });
+
+      it('is off unless asked for', () => {
+        const { handlers, feed } = harness(CEILING);
+
+        feed(LOUD, 7600);
+        feed(QUIET, 100);
+        feed(LOUD, 60);
+
+        expect(handlers.onSpeechStart).toHaveBeenCalledTimes(1);
+      });
     });
 
     it('forgets the ceiling progress when reset mid-turn', () => {

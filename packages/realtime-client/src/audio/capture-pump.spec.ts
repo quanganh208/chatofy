@@ -434,11 +434,52 @@ describe('CapturePump', () => {
 
       push(pump, speech, 7600); // reaches the arm mark
       const afterCut = nextTag + 1;
-      push(pump, silence, 60); // the quiet block the lookahead was waiting for
+      push(pump, silence, 100); // the pause the lookahead was waiting for
 
       expect(handlers.onTurnClose).toHaveBeenCalledTimes(1);
       const strays = [...turnOf.entries()].filter(([tag, turn]) => tag < afterCut && turn > 1);
       expect(strays).toEqual([]);
+    });
+
+    // The pause a cut lands in can still carry the last word's weak final
+    // consonant; dropping it clipped words at every cut.
+    it('sends the pause a cut lands in with the turn being cut', () => {
+      const { pump, turnOf } = harness(CONTINUOUS);
+
+      push(pump, speech, 7600);
+      const pauseStart = nextTag + 1;
+      push(pump, silence, 100);
+      const pauseEnd = nextTag;
+      push(pump, speech, 200);
+
+      // The block that completes the pause is the one the cut happens on, and it
+      // opens the next turn's pre-roll; everything held before it is the turn's.
+      for (let tag = pauseStart; tag < pauseEnd; tag += 1) expect(turnOf.get(tag)).toBe(1);
+      expect(turnOf.get(pauseEnd)).toBe(2);
+    });
+
+    // Real speech is syllables with dips between them, each run shorter than the
+    // 120ms a fresh turn needs to confirm. Square-wave speech never exercised
+    // this, which is how "comic book" went missing after a cut in production.
+    it('loses no audio across a cut in speech that dips between syllables', () => {
+      const { pump, audio, handlers } = harness(CONTINUOUS);
+
+      push(pump, speech, 7000);
+      const firstTag = nextTag + 1;
+      for (let i = 0; i < 40; i += 1) {
+        push(pump, speech, 80);
+        push(pump, silence, 40);
+      }
+      const lastTag = nextTag;
+
+      expect(handlers.onTurnClose).toHaveBeenCalledWith('forced');
+      const delivered = new Set(audio.map(tagOf));
+      const speechTags: number[] = [];
+      for (let tag = firstTag; tag <= lastTag; tag += 1) {
+        // Every fourth-of-six block pattern: 4 speech, then 2 silence.
+        if ((tag - firstTag) % 6 < 4) speechTags.push(tag);
+      }
+      expect(speechTags.filter((tag) => !delivered.has(tag))).toEqual([]);
     });
 
     // Which kind of ending it was has to reach the caller: a cut turn ends

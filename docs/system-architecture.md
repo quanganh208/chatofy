@@ -1608,10 +1608,15 @@ permanently true and the meeting would stay ducked for the whole call.
 
 **Turn segmentation.** Nobody in a meeting leaves 500ms of silence for tens of
 seconds, so silence alone cannot end a turn. `SpeechGate` takes a length ceiling and
-cuts by looking forward — it arms `cutLookaheadMs` before the ceiling and ends the
-turn at the first quiet block, falling back to a hard cut. Arming is also when
+cuts by looking forward — it arms `cutLookaheadMs` (1500ms by default) before the
+ceiling and ends the turn at the first pause of at least 100ms, falling back to a hard
+cut. A single quiet block is not enough: connected speech dips below the threshold
+between syllables, and cutting there split words in production. Arming is also when
 `onProbableEnd` fires, because a forced cut never reaches the silence that would
-otherwise buy the head start.
+otherwise buy the head start. In continuous mode the pause a cut lands in goes with
+the turn being cut, and the next turn opens on the next speech block without the
+usual 120ms confirmation — the speaker is still talking, and waiting for an unbroken
+120ms of syllables dropped audio after the cut.
 
 **Starting it where there is no toolbar.** Facebook opens a call in a `type: "popup"`
 window: no tab strip, no extension icon, so the popup cannot be the way capture starts

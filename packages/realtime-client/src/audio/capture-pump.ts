@@ -292,6 +292,9 @@ export class CapturePump {
       {
         maxUtteranceMs: options.maxUtteranceMs,
         cutLookaheadMs: options.cutLookaheadMs,
+        // Only continuous mode is back in `idle` when a cut lands, which is the
+        // one state that can take the turn the gate reopens.
+        resumeAfterCut: this.continuous,
       },
     );
 
@@ -305,20 +308,21 @@ export class CapturePump {
   }
 
   /**
-   * The turn is over. Drop what is held and close it.
+   * The turn is over. Close it, sending what is held first if it was cut.
    *
-   * Nothing is flushed here, and that is worth stating because the opposite looks
-   * necessary. A forced cut lands while the speaker is still going, so held audio
-   * would belong to the turn being closed rather than to the silence that ended
-   * it — except that a cut cannot be reached while anything is held. Arming fires
-   * `onProbableEnd`, which flushes; and the cut can only happen at or after the
-   * arm. So by the time this runs, `held` is either empty or pure trailing
-   * silence, and dropping it is right in both cases.
+   * A hangover ends on silence past the probable end, whose flush already sent
+   * the tail of the last word; what is held after it is trailing silence, and
+   * dropping it keeps the byte count the server's early work was checked against.
    *
-   * A flush here was written first and then removed: no test could distinguish it
-   * from a no-op, because there is no sequence that reaches it with audio held.
+   * A forced cut is different. It waits for a quiet run of its own
+   * (`CUT_MIN_QUIET_MS`), so it lands holding that run — and a run measured by
+   * level still carries the weak final consonant of the word before it. The
+   * speaker is still talking, so the run is a gap between words of the turn
+   * being closed, and it goes with that turn rather than being lost at the
+   * boundary.
    */
   private closeTurn(reason: TurnCloseReason): void {
+    if (reason === 'forced') this.flushHeld();
     // Stop listening here, not at speech start: everything between those two
     // points is the utterance being translated. In continuous mode there is
     // nothing to wait for and nobody to re-arm us, so the pump goes straight back
