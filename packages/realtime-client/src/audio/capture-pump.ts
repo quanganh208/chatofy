@@ -159,7 +159,7 @@ export interface CapturePumpOptions {
   continuous?: boolean;
   /** Longest a turn may run before it is cut. 0, the default, never cuts. */
   maxUtteranceMs?: number;
-  /** How far before the ceiling to start looking for a quiet block. */
+  /** How far before the ceiling to start looking for a pause to cut at. */
   cutLookaheadMs?: number;
   /**
    * Whether our own translated audio is sounding RIGHT NOW.
@@ -202,8 +202,10 @@ export class CapturePump {
    * that follows an utterance moves that count for audio carrying nothing, so
    * the check could never pass and the early work was always thrown away.
    *
-   * Held instead: flushed intact the moment speech resumes, dropped when the
-   * turn ends — at which point it is by definition nothing but silence.
+   * Held instead: flushed intact the moment speech resumes. When the turn ends it
+   * is dropped if the speaker stopped, since it is then trailing silence, and sent
+   * if the turn was cut, since it is then a pause inside speech — see
+   * {@link closeTurn}.
    *
    * Bounded by the gate: it is emptied on speech and on end of turn, so it
    * never holds more than one hangover's worth.
