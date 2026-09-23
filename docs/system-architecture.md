@@ -1614,9 +1614,11 @@ cut. A single quiet block is not enough: connected speech dips below the thresho
 between syllables, and cutting there split words in production. Arming is also when
 `onProbableEnd` fires, because a forced cut never reaches the silence that would
 otherwise buy the head start. In continuous mode the pause a cut lands in goes with
-the turn being cut, and the next turn opens on the next speech block without the
-usual 120ms confirmation — the speaker is still talking, and waiting for an unbroken
-120ms of syllables dropped audio after the cut.
+the turn being cut, and the next turn opens on 40ms of speech instead of the usual
+120ms confirmation — the speaker is still talking, and waiting for an unbroken 120ms
+of syllables dropped audio after the cut. 40ms rather than one block, because once
+the lookahead is armed a speaker who really stops is cut too, and a click right after
+that must not open a turn.
 
 **Starting it where there is no toolbar.** Facebook opens a call in a `type: "popup"`
 window: no tab strip, no extension icon, so the popup cannot be the way capture starts
