@@ -204,12 +204,12 @@ describe('SpeechGate', () => {
 
       // Syllables run shorter than the 120ms confirmation. Waiting for one after
       // a cut dropped "comic book" from a replayed recording.
-      it('reopens on the first speech block, without re-confirming', () => {
+      it('reopens on two speech blocks, without the full confirmation', () => {
         const { events, feed } = harness(RESUME);
 
         feed(LOUD, 7600);
         feed(QUIET, 100);
-        feed(LOUD, BLOCK_MS);
+        feed(LOUD, BLOCK_MS * 2);
 
         expect(events.slice(-2)).toEqual(['end:forced', 'start']);
       });
@@ -218,10 +218,24 @@ describe('SpeechGate', () => {
         const { handlers, feed } = harness(RESUME);
 
         feed(LOUD, 8100);
-        feed(LOUD, BLOCK_MS);
+        feed(LOUD, BLOCK_MS * 2);
 
         expect(handlers.onSpeechEnd).toHaveBeenCalledWith('forced');
         expect(handlers.onSpeechStart).toHaveBeenCalledTimes(2);
+      });
+
+      // Once armed, a speaker who really stops is cut too, so the resume window
+      // also opens after an ending; a click inside it must not become a turn.
+      it('does not reopen on a single loud block', () => {
+        const { handlers, feed } = harness(RESUME);
+
+        feed(LOUD, 7600);
+        feed(QUIET, 100);
+        feed(LOUD, BLOCK_MS);
+        feed(QUIET, 200);
+
+        expect(handlers.onSpeechEnd).toHaveBeenCalledWith('forced');
+        expect(handlers.onSpeechStart).toHaveBeenCalledTimes(1);
       });
 
       it('goes back to confirming once the speaker has really stopped', () => {

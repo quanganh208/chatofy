@@ -83,6 +83,16 @@ const CUT_LOOKAHEAD_MS = 1500;
  */
 const CUT_MIN_QUIET_MS = 100;
 
+/**
+ * Speech that reopens a turn after a forced cut, in place of {@link MIN_SPEECH_MS}.
+ *
+ * Two capture blocks (~21ms each): enough that a single loud block — a click, a
+ * keypress — does not open a turn, and still well inside the shortest syllable
+ * run (80ms), so a speaker carrying on is not held up. Nothing is lost while it
+ * accumulates, because the caller keeps those blocks in its pre-roll.
+ */
+const RESUME_MIN_SPEECH_MS = 40;
+
 /** Why a turn ended. */
 export type SpeechEndReason =
   /** Silence outlasted {@link SPEECH_HANGOVER_MS}: the speaker stopped. */
@@ -115,7 +125,7 @@ export interface SpeechGateOptions {
    */
   maxUtteranceMs?: number;
   /**
-   * How far before the ceiling to start looking for a quiet block to cut at.
+   * How far before the ceiling to start looking for a pause to cut at.
    *
    * The cut looks FORWARD, never back. An earlier design picked the quietest
    * block in the last ~500ms and reassigned everything after it to the next turn,
@@ -127,8 +137,8 @@ export interface SpeechGateOptions {
    */
   cutLookaheadMs?: number;
   /**
-   * After a forced cut, open the next turn on the first speech block instead of
-   * waiting for {@link MIN_SPEECH_MS} of it.
+   * After a forced cut, open the next turn on {@link RESUME_MIN_SPEECH_MS} of
+   * speech instead of waiting for {@link MIN_SPEECH_MS} of it.
    *
    * A forced cut means the speaker is still talking, so there is nothing to
    * confirm. Waiting for 120ms of UNBROKEN speech is what lost audio: syllables
@@ -137,6 +147,13 @@ export interface SpeechGateOptions {
    * "comic book" vanished from a replayed recording that way. The resume window
    * closes on {@link SPEECH_HANGOVER_MS} of silence, after which the next turn
    * must be confirmed as usual.
+   *
+   * A forced cut is not proof the speaker carried on. Once the lookahead is armed,
+   * a speaker who really stops is also cut, at the first {@link CUT_MIN_QUIET_MS}
+   * of their silence — the gate cannot tell a pause from an ending that early —
+   * so that turn is reported `forced` and the resume window opens after it too.
+   * Anything loud within the next {@link SPEECH_HANGOVER_MS} then opens a turn on
+   * {@link RESUME_MIN_SPEECH_MS} rather than {@link MIN_SPEECH_MS}.
    *
    * Opt-in, because only a caller that returns to listening on a cut can open a
    * turn from it: one waiting to be re-armed would be handed a turn start it has
@@ -167,9 +184,9 @@ export class SpeechGate {
    * the listener exactly as much as speech does.
    */
   private utteranceMs = 0;
-  /** Past the lookahead mark: the next quiet block is the cut. */
+  /** Past the lookahead mark: the next pause of {@link CUT_MIN_QUIET_MS} is the cut. */
   private armed = false;
-  /** A forced cut just closed a turn; the next speech block reopens one. */
+  /** A forced cut just closed a turn; {@link RESUME_MIN_SPEECH_MS} of speech reopens one. */
   private resuming = false;
 
   private readonly maxUtteranceMs: number;
@@ -208,7 +225,8 @@ export class SpeechGate {
       this.silenceMs = 0;
       this.probableEndFired = false;
       this.speechMs += durationMs;
-      if (!this.speaking && (this.resuming || this.speechMs >= MIN_SPEECH_MS)) {
+      const minSpeechMs = this.resuming ? RESUME_MIN_SPEECH_MS : MIN_SPEECH_MS;
+      if (!this.speaking && this.speechMs >= minSpeechMs) {
         this.speaking = true;
         this.resuming = false;
         this.handlers.onSpeechStart?.();
@@ -270,7 +288,7 @@ export class SpeechGate {
   }
 
   /**
-   * Enter the window where the next quiet block ends the turn.
+   * Enter the window where the next pause of {@link CUT_MIN_QUIET_MS} ends the turn.
    *
    * Arming is also where the head start is bought. `onProbableEnd` is what tells
    * the server to begin transcribing early, and it otherwise fires only after

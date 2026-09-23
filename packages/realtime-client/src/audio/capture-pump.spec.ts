@@ -476,7 +476,7 @@ describe('CapturePump', () => {
       const delivered = new Set(audio.map(tagOf));
       const speechTags: number[] = [];
       for (let tag = firstTag; tag <= lastTag; tag += 1) {
-        // Every fourth-of-six block pattern: 4 speech, then 2 silence.
+        // Each 120ms syllable is 4 speech blocks, then 2 silence blocks.
         if ((tag - firstTag) % 6 < 4) speechTags.push(tag);
       }
       expect(speechTags.filter((tag) => !delivered.has(tag))).toEqual([]);
