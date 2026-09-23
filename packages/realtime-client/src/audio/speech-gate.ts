@@ -61,8 +61,27 @@ const FLOOR_FALL = 0.05;
 /**
  * Default distance ahead of {@link SpeechGateOptions.maxUtteranceMs} at which the
  * gate starts looking for somewhere quiet to cut.
+ *
+ * Sized for {@link CUT_MIN_QUIET_MS}: a real pause is rarer than a dip, so the
+ * window has to be wide enough to find one before the ceiling forces a cut in the
+ * middle of a word. Replaying two production recordings (a Vietnamese monologue
+ * and an English two-person podcast), a 100ms quiet requirement inside a 500ms
+ * window fell back to the ceiling once; inside 1500ms, never.
  */
-const CUT_LOOKAHEAD_MS = 500;
+const CUT_LOOKAHEAD_MS = 1500;
+
+/**
+ * Quiet a lookahead cut waits for, so it lands in a pause rather than inside a
+ * word.
+ *
+ * Connected speech drops below the speech threshold between syllables and on
+ * weak consonants, for one or two blocks at a time. Cutting on the first quiet
+ * block split words in production: the English recording above lost "I | love"
+ * and "differ | ent" to cuts that sat in a 20–40ms dip with speech on both sides.
+ * Kept below {@link PROBABLE_END_MS} and {@link SPEECH_HANGOVER_MS} so an armed
+ * cut is still the first thing a pause reaches.
+ */
+const CUT_MIN_QUIET_MS = 100;
 
 /** Why a turn ended. */
 export type SpeechEndReason =
@@ -107,6 +126,23 @@ export interface SpeechGateOptions {
    * even see the blocks — it is handed a level and a duration.
    */
   cutLookaheadMs?: number;
+  /**
+   * After a forced cut, open the next turn on the first speech block instead of
+   * waiting for {@link MIN_SPEECH_MS} of it.
+   *
+   * A forced cut means the speaker is still talking, so there is nothing to
+   * confirm. Waiting for 120ms of UNBROKEN speech is what lost audio: syllables
+   * run 80–110ms between dips, so after a cut the gate could go half a second
+   * without confirming while the caller's pre-roll rolled older speech away —
+   * "comic book" vanished from a replayed recording that way. The resume window
+   * closes on {@link SPEECH_HANGOVER_MS} of silence, after which the next turn
+   * must be confirmed as usual.
+   *
+   * Opt-in, because only a caller that returns to listening on a cut can open a
+   * turn from it: one waiting to be re-armed would be handed a turn start it has
+   * no state for.
+   */
+  resumeAfterCut?: boolean;
 }
 
 /**
@@ -133,9 +169,12 @@ export class SpeechGate {
   private utteranceMs = 0;
   /** Past the lookahead mark: the next quiet block is the cut. */
   private armed = false;
+  /** A forced cut just closed a turn; the next speech block reopens one. */
+  private resuming = false;
 
   private readonly maxUtteranceMs: number;
   private readonly cutLookaheadMs: number;
+  private readonly resumeAfterCut: boolean;
 
   constructor(
     private readonly handlers: SpeechGateHandlers = {},
@@ -143,6 +182,7 @@ export class SpeechGate {
   ) {
     this.maxUtteranceMs = options.maxUtteranceMs ?? 0;
     this.cutLookaheadMs = options.cutLookaheadMs ?? CUT_LOOKAHEAD_MS;
+    this.resumeAfterCut = options.resumeAfterCut ?? false;
   }
 
   /**
@@ -168,8 +208,9 @@ export class SpeechGate {
       this.silenceMs = 0;
       this.probableEndFired = false;
       this.speechMs += durationMs;
-      if (!this.speaking && this.speechMs >= MIN_SPEECH_MS) {
+      if (!this.speaking && (this.resuming || this.speechMs >= MIN_SPEECH_MS)) {
         this.speaking = true;
+        this.resuming = false;
         this.handlers.onSpeechStart?.();
       }
       if (this.speaking) {
@@ -188,6 +229,14 @@ export class SpeechGate {
     // Silence that never became a turn is just room tone; forget it.
     if (!this.speaking) {
       this.speechMs = 0;
+      // A cut followed by a real stop: the next turn is an ordinary one again.
+      if (this.resuming) {
+        this.silenceMs += durationMs;
+        if (this.silenceMs >= SPEECH_HANGOVER_MS) {
+          this.resuming = false;
+          this.silenceMs = 0;
+        }
+      }
       return false;
     }
 
@@ -200,11 +249,10 @@ export class SpeechGate {
       this.handlers.onProbableEnd?.();
     }
 
-    // Armed, and this block is quiet: this is the gap the lookahead was for.
-    // Taken before the hangover check because it is always the earlier of the
-    // two — the lookahead opens well before any silence run could reach the
-    // hangover.
-    if (this.armed) {
+    // Armed, and the quiet has lasted long enough to be a pause rather than a dip
+    // inside a word: this is the gap the lookahead was for. Taken before the
+    // hangover check because it is always the earlier of the two.
+    if (this.armed && this.silenceMs >= CUT_MIN_QUIET_MS) {
       this.cut();
       return false;
     }
@@ -249,6 +297,7 @@ export class SpeechGate {
 
   private cut(): void {
     this.reset();
+    this.resuming = this.resumeAfterCut;
     this.handlers.onSpeechEnd?.('forced');
   }
 
@@ -266,5 +315,6 @@ export class SpeechGate {
     this.probableEndFired = false;
     this.utteranceMs = 0;
     this.armed = false;
+    this.resuming = false;
   }
 }
