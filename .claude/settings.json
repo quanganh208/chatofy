@@ -33,6 +33,10 @@
           {
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/usage-quota-cache-refresh.cjs\"",
             "type": "command"
+          },
+          {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/agent-behavior-linter.cjs\"",
+            "type": "command"
           }
         ],
         "matcher": "*"
@@ -43,6 +47,10 @@
         "hooks": [
           {
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/precompact-capture.cjs\"",
+            "type": "command"
+          },
+          {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/agent-behavior-linter.cjs\"",
             "type": "command"
           }
         ],
@@ -76,6 +84,15 @@
           }
         ],
         "matcher": "Bash|Read"
+      },
+      {
+        "hooks": [
+          {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/context-firewall.cjs\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash|Read|Grep|Glob"
       }
     ],
     "SessionStart": [
@@ -102,6 +119,10 @@
           },
           {
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/usage-quota-cache-refresh.cjs\"",
+            "type": "command"
+          },
+          {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/agent-behavior-linter.cjs\"",
             "type": "command"
           }
         ],

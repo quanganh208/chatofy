@@ -106,6 +106,24 @@ function resolveSkillsVenv(configDirName = ".claude") {
 }
 
 /**
+ * Resolve a configured path against a base directory without doubling it.
+ *
+ * Both the plans/docs config values and the reports path derived from them may
+ * already be absolute. path.join concatenates rather than resolves, so an
+ * absolute input would come back as base + input.
+ *
+ * @param {string|null} baseDir - Base directory, or null to keep the input as-is
+ * @param {string} targetPath - Configured or derived path
+ * @returns {string} Display-normalized path
+ */
+function resolveAgainstBase(baseDir, targetPath) {
+	if (!baseDir) return targetPath;
+	// toDisplayPath after the join: path.join renders native separators, and
+	// these land in the injected prompt for the model to read back.
+	return toDisplayPath(path.isAbsolute(targetPath) ? targetPath : path.join(baseDir, targetPath));
+}
+
+/**
  * Build plan context from config and git info
  * @param {Object|null} sessionContext - Explicit session state context
  * @param {Object} config - Loaded config
@@ -658,13 +676,13 @@ function buildReminderContext({ sessionContext, config, staticEnv, configDirName
 		responseLanguage: cfg.locale?.responseLanguage,
 		devRulesPath,
 		skillsVenv,
-		// toDisplayPath after the join: path.join renders native separators, and
-		// these three land in the injected prompt for the model to read back.
-		reportsPath: effectiveBaseDir
-			? toDisplayPath(path.join(effectiveBaseDir, planCtx.reportsPath))
-			: planCtx.reportsPath,
-		plansPath: effectiveBaseDir ? toDisplayPath(path.join(effectiveBaseDir, plansPathRel)) : plansPathRel,
-		docsPath: effectiveBaseDir ? toDisplayPath(path.join(effectiveBaseDir, docsPathRel)) : docsPathRel,
+		// resolveAgainstBase, not path.join: a configured plans/docs path may
+		// already be absolute, and joining a base onto it concatenates the two
+		// into one nonexistent ABS/ABS path. These three land in the injected
+		// prompt, so every subagent that trusts them would write there.
+		reportsPath: resolveAgainstBase(effectiveBaseDir, planCtx.reportsPath),
+		plansPath: resolveAgainstBase(effectiveBaseDir, plansPathRel),
+		docsPath: resolveAgainstBase(effectiveBaseDir, docsPathRel),
 		docsMaxLoc: Math.max(1, parseInt(cfg.docs?.maxLoc, 10) || 800),
 		planLine: planCtx.planLine,
 		gitBranch: planCtx.gitBranch,

@@ -10,7 +10,7 @@ const path = require('path');
 const os = require('os');
 const { execFileSync } = require('child_process');
 const {
-  createCandidateSessionStateContext,
+  describeCandidateSessionStateContext,
   gitEnvironment,
   normalizeSessionId
 } = require('./runtime-state-identity.cjs');
@@ -61,6 +61,14 @@ const DEFAULT_CONFIG = {
       useGemini: false  // Legacy compatibility input; active workflows ignore this retired CLI toggle
     }
   },
+  contextFirewall: {
+    readWarnBytes: 262144,
+    readBlockBytes: 2097152,
+    shellDumpWarnBytes: 131072,
+    shellDumpBlockBytes: 524288,
+    searchHeadLimit: 100,
+    repeatBlockCount: 3
+  },
   assertions: [],
   statusline: 'full',
   statuslineColors: true,
@@ -72,6 +80,7 @@ const DEFAULT_CONFIG = {
     'usage-context-awareness': true,
     'context-tracking': true,
     'scout-block': true,
+    'context-firewall': true,
     'privacy-block': true,
     'secret-output-guardrail': true,
     'final-subagent-reminder': false,
@@ -123,12 +132,25 @@ function deepMerge(target, source) {
   return result;
 }
 
+/**
+ * Resolve the session state context and, when it cannot be resolved, name the
+ * cause. Identity failures come from the candidate builder, binding failures
+ * from the session store, so a caller can tell "this runtime has no marker"
+ * from "this session was never bound".
+ *
+ * @param {object} [options]
+ * @returns {{ context: object|null, reason: string|null }}
+ */
+function describeSessionStateContext(options = {}) {
+  const described = describeCandidateSessionStateContext(options);
+  if (!described.context) return described;
+  if (options.bindSession === true) return sessionStore.describeBindSessionStateContext(described.context);
+  if (options.requireBinding === true) return sessionStore.describeBoundSessionContext(described.context);
+  return described;
+}
+
 function createSessionStateContext(options = {}) {
-  const candidate = createCandidateSessionStateContext(options);
-  if (!candidate) return null;
-  if (options.bindSession === true) return sessionStore.bindSessionStateContext(candidate);
-  if (options.requireBinding === true) return sessionStore.resolveBoundSessionContext(candidate);
-  return candidate;
+  return describeSessionStateContext(options).context;
 }
 
 const getSessionTempPath = sessionStore.getSessionTempPath;
@@ -535,6 +557,8 @@ function loadConfig(options = {}) {
     result.skills = merged.skills || DEFAULT_CONFIG.skills;
     // Hooks configuration
     result.hooks = merged.hooks || DEFAULT_CONFIG.hooks;
+    // Context firewall thresholds
+    result.contextFirewall = merged.contextFirewall || DEFAULT_CONFIG.contextFirewall;
     // Statusline mode
     result.statusline = merged.statusline || 'full';
     result.statuslineColors = merged.statuslineColors ?? true;
@@ -558,6 +582,7 @@ function getDefaultConfig(includeProject = true, includeAssertions = true, inclu
     codingLevel: -1,  // Default: disabled (no injection, saves tokens)
     skills: { ...DEFAULT_CONFIG.skills },
     hooks: { ...DEFAULT_CONFIG.hooks },
+    contextFirewall: { ...DEFAULT_CONFIG.contextFirewall },
     statusline: 'full',
     statuslineColors: true,
     statuslineQuota: true
@@ -842,6 +867,7 @@ module.exports = {
   writeEnv,
   normalizeSessionId,
   createSessionStateContext,
+  describeSessionStateContext,
   getSessionTempPath,
   getContextTempPath,
   readContextState,

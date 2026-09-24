@@ -106,7 +106,16 @@ function currentUserKey() {
   }
 }
 
-function createCandidateSessionStateContext(options = {}) {
+/**
+ * Build the candidate context and, when it cannot be built, name the first
+ * missing input. Callers that only need the context use
+ * createCandidateSessionStateContext; hooks that must report why a session
+ * could not be identified read the reason instead of guessing.
+ *
+ * @param {object} [options]
+ * @returns {{ context: object|null, reason: string|null }}
+ */
+function describeCandidateSessionStateContext(options = {}) {
   const sessionId = normalizeSessionId(options.sessionId);
   const runtime = options.runtime || readRuntimeMarker(options.markerPath);
   let sessionLaunchRoot = null;
@@ -121,19 +130,37 @@ function createCandidateSessionStateContext(options = {}) {
     ? resolveCanonicalProjectRoot(sessionLaunchRoot, options.dependencies)
     : null;
   const userKey = options.userKey || currentUserKey();
-  if (!sessionId || !SUPPORTED_RUNTIMES.has(runtime) || !canonicalProjectRoot || !sessionLaunchRoot || !userKey) return null;
+  // Same order as the single guard this replaced, so the returned context is
+  // identical for every input that previously produced one.
+  if (!sessionId) return { context: null, reason: 'session-id-invalid' };
+  if (!SUPPORTED_RUNTIMES.has(runtime)) {
+    // readRuntimeMarker returns null for an absent marker and for one this
+    // build cannot accept, so branch on what came back rather than on who
+    // supplied it: "missing" is only honest when there is no value at all.
+    return { context: null, reason: runtime ? 'runtime-unsupported' : 'runtime-marker-missing' };
+  }
+  if (!sessionLaunchRoot) return { context: null, reason: 'launch-root-unresolvable' };
+  if (!canonicalProjectRoot) return { context: null, reason: 'project-root-unresolvable' };
+  if (!userKey) return { context: null, reason: 'user-key-unresolvable' };
 
-  return Object.freeze({
-    schemaVersion: 2,
-    runtime,
-    canonicalProjectRoot,
-    sessionLaunchRoot,
-    projectKey: stableHash(canonicalProjectRoot),
-    normalizedSessionId: sessionId,
-    sessionKey: stableHash(sessionId),
-    userKey,
-    storageRoot: options.storageRoot ? path.resolve(options.storageRoot) : null
-  });
+  return {
+    context: Object.freeze({
+      schemaVersion: 2,
+      runtime,
+      canonicalProjectRoot,
+      sessionLaunchRoot,
+      projectKey: stableHash(canonicalProjectRoot),
+      normalizedSessionId: sessionId,
+      sessionKey: stableHash(sessionId),
+      userKey,
+      storageRoot: options.storageRoot ? path.resolve(options.storageRoot) : null
+    }),
+    reason: null
+  };
+}
+
+function createCandidateSessionStateContext(options = {}) {
+  return describeCandidateSessionStateContext(options).context;
 }
 
 function isSessionStateContext(value) {
@@ -153,6 +180,7 @@ module.exports = {
   RUNTIME_MARKER_FILE,
   SUPPORTED_RUNTIMES,
   createCandidateSessionStateContext,
+  describeCandidateSessionStateContext,
   defaultRuntimeMarkerPath,
   gitEnvironment,
   isSessionStateContext,

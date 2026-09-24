@@ -91,24 +91,52 @@ function contextFromBinding(candidate, binding) {
   return isSessionStateContext(bound) ? bound : null;
 }
 
-function bindSessionStateContext(candidate) {
-  if (!isSessionStateContext(candidate)) return null;
+function describeContextFromBinding(candidate, binding, missingReason) {
+  if (!binding) return { context: null, reason: missingReason };
+  const context = contextFromBinding(candidate, binding);
+  return context ? { context, reason: null } : { context: null, reason: 'session-binding-mismatch' };
+}
+
+/**
+ * Bind the candidate to this session and, on failure, name the cause.
+ * @returns {{ context: object|null, reason: string|null }}
+ */
+function describeBindSessionStateContext(candidate) {
+  if (!isSessionStateContext(candidate)) return { context: null, reason: 'candidate-invalid' };
   const filePath = getSessionBindingPath(candidate);
   const root = privateRoot(candidate);
-  if (!filePath || !root) return null;
+  if (!filePath || !root) return { context: null, reason: 'private-root-unresolvable' };
   const existing = readJsonFile(filePath, root);
-  if (existing) return contextFromBinding(candidate, existing);
+  // `existing` is truthy here, so the missing-binding reason is unreachable and
+  // only a mismatch can come back.
+  if (existing) return describeContextFromBinding(candidate, existing, null);
   if (!writeJsonFileExclusive({ root, filePath, value: bindingValue(candidate) })) {
+    // Lost the create race, or the write itself failed: whoever won owns the
+    // binding, so re-read rather than assuming this candidate is authoritative.
     const winner = readJsonFile(filePath, root);
-    return contextFromBinding(candidate, winner);
+    return describeContextFromBinding(candidate, winner, 'session-binding-write-failed');
   }
-  return candidate;
+  return { context: candidate, reason: null };
+}
+
+/**
+ * Resolve the binding recorded for this session and, on failure, name the cause.
+ * @returns {{ context: object|null, reason: string|null }}
+ */
+function describeBoundSessionContext(candidate) {
+  if (!isSessionStateContext(candidate)) return { context: null, reason: 'candidate-invalid' };
+  const root = privateRoot(candidate);
+  if (!root) return { context: null, reason: 'private-root-unresolvable' };
+  const binding = readJsonFile(getSessionBindingPath(candidate), root);
+  return describeContextFromBinding(candidate, binding, 'session-binding-missing');
+}
+
+function bindSessionStateContext(candidate) {
+  return describeBindSessionStateContext(candidate).context;
 }
 
 function resolveBoundSessionContext(candidate) {
-  if (!isSessionStateContext(candidate)) return null;
-  const root = privateRoot(candidate);
-  return root ? contextFromBinding(candidate, readJsonFile(getSessionBindingPath(candidate), root)) : null;
+  return describeBoundSessionContext(candidate).context;
 }
 
 function writeJsonFile(context, filePath, value, verify = null) {
@@ -230,6 +258,8 @@ function writeContextState(context, value) {
 module.exports = {
   MAX_JSON_BYTES,
   bindSessionStateContext,
+  describeBindSessionStateContext,
+  describeBoundSessionContext,
   getContextTempPath,
   getSessionBindingPath,
   getSessionTempPath,

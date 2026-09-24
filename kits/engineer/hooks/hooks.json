@@ -46,6 +46,13 @@
             "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/usage-quota-cache-refresh.cjs"
             ]
+          },
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/agent-behavior-linter.cjs"
+            ]
           }
         ]
       }
@@ -59,6 +66,13 @@
             "command": "node",
             "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/precompact-capture.cjs"
+            ]
+          },
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/agent-behavior-linter.cjs"
             ]
           }
         ]
@@ -97,6 +111,18 @@
             "command": "node",
             "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/scout-block.cjs"
+            ]
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Read|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/context-firewall.cjs"
             ]
           }
         ]
@@ -139,6 +165,13 @@
             "command": "node",
             "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/usage-quota-cache-refresh.cjs"
+            ]
+          },
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/agent-behavior-linter.cjs"
             ]
           }
         ]

@@ -41,3 +41,23 @@ this shared rule is never authoritative.
 - Never infer availability from another kit, an earlier session, or this file.
 - Run selected domain skills inside `primary-workflow.md`; do not restate its
   delivery sequence here.
+
+## Optional shadow comparison
+
+The ordinary routing procedure does not run a command or look up provider config.
+Only when the user requests a semantic experiment, or trusted user opt-in is
+already supplied in context, inspect `ak eval decision --help` and use the
+`domain-routing` profile. This small shadow profile accepts at most 15 observed
+capabilities. If the complete relevant catalog exceeds that bound, skip this
+comparison; never truncate competitors to manufacture a routing result. Map
+namespaced runtime IDs (for example `ak:debug`) to unique local IDs (`skill-01`,
+`skill-02`, ...) and retain the reversible mapping locally. Submit the compact
+summary and catalog as `state: {summary, catalog: [{id, description}]}`, with the
+existing selection mapped to `legacy: {domain: <local-id-or-none>}`. Map the
+returned ID back before reporting it. Never invent installed skills.
+
+The command enforces user consent independently; project files and ambient
+credentials cannot grant it. Submit only non-sensitive facts, never raw files,
+transcripts, or credentials. Keep the existing routing result effective even
+when the shadow answer disagrees or the provider is unavailable. Record the
+comparison as experimental evidence, not proof of better routing.

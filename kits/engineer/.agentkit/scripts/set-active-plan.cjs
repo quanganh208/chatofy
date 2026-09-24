@@ -2,7 +2,12 @@
 /**
  * Update session state with new active plan
  *
- * Usage: node .agentkit/scripts/set-active-plan.cjs <plan-path>
+ * Usage: node .claude/scripts/set-active-plan.cjs <plan-path>
+ *
+ * The runnable copy lives beside the emitted hook tree (`.claude/scripts/` for a
+ * native project install, `~/.claude/scripts/` for a native global install, and
+ * `<plugin>/scripts/` under an explicit plugin install) so the require below
+ * resolves. The `.agentkit/scripts/` sidecar leaf is a forwarder to it.
  *
  * This script updates the session temp file with the new active plan path,
  * allowing subagents to receive the latest plan context via SubagentStart hook.
@@ -16,8 +21,14 @@
  * pointer", for why both mechanisms exist.
  */
 
+const fs = require('fs');
 const path = require('path');
-const { createSessionStateContext, updateSessionState } = require('../hooks/lib/ck-config-utils.cjs');
+const {
+  createSessionStateContext,
+  updateSessionState,
+  loadConfig,
+  getReportsPath
+} = require('../hooks/lib/ck-config-utils.cjs');
 
 const sessionContext = createSessionStateContext({
   sessionId: process['env'].CK_SESSION_ID,
@@ -28,8 +39,8 @@ const newPlan = process.argv[2];
 
 if (!newPlan) {
   console.error('Error: Plan path required');
-  console.log('Usage: node .agentkit/scripts/set-active-plan.cjs <plan-path>');
-  console.log('Example: node .agentkit/scripts/set-active-plan.cjs plans/<timestamp>-feature-name');
+  console.log('Usage: node .claude/scripts/set-active-plan.cjs <plan-path>');
+  console.log('Example: node .claude/scripts/set-active-plan.cjs plans/<timestamp>-feature-name');
   process.exit(1);
 }
 
@@ -49,9 +60,21 @@ const success = updateSessionState(sessionContext, current => ({
   timestamp: Date.now()
 }));
 
-if (success) {
-  console.log(`Active plan set to: ${absolutePlan}`);
-} else {
+if (!success) {
   console.error('Failed to update session state');
   process.exit(1);
+}
+
+console.log(`Active plan set to: ${absolutePlan}`);
+
+// Activation is the moment the plan-scoped reports directory starts being
+// advertised to every subagent, so create it here. A subagent that trusts the
+// injected Reports path otherwise writes into a directory nothing made.
+// A failure here does not undo a successful activation.
+try {
+  const config = loadConfig({ includeProject: false, includeAssertions: false });
+  const reportsPath = getReportsPath(absolutePlan, 'session', config.plan, config.paths);
+  fs.mkdirSync(reportsPath, { recursive: true });
+} catch (e) {
+  console.warn(`Warning: could not create the plan reports directory: ${e.message}`);
 }

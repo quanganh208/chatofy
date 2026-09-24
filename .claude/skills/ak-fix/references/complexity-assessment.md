@@ -71,3 +71,18 @@ Classify issue complexity before routing to workflow. Assessment happens AFTER S
 - "Fix type errors AND update UI styling"
 - "Auth bug + payment integration issue"
 - "3 different test failures in unrelated modules"
+
+## Optional shadow comparison
+
+Complete the existing assessment first. Do not add a CLI/config lookup to the
+default workflow. Only for a user-requested semantic experiment or trusted
+user opt-in already present in context, inspect `ak eval decision --help` and
+use consumer `fix-complexity` with `state: {summary, changed_files,
+root_cause_confirmed, architecture_decision, security_sensitive}` and
+`legacy: {complexity: simple|moderate|complex}`. Summarize non-sensitive facts;
+do not send source files, logs, transcripts, or credentials.
+
+This is shadow-only: follow the existing complexity workflow, preserve explicit
+`--parallel`, and retain its result on disagreement, timeout, or unavailable
+provider. The command independently checks user-scope consent. A comparison is
+experimental evidence, not a measured improvement.
