@@ -158,6 +158,7 @@ function logHookCrash(hookName, error, data = {}) {
 }
 
 module.exports = {
+  LOG_FILE,
   logHook,
   createHookTimer,
   logHookCrash

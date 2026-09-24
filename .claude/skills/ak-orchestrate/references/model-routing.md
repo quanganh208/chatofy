@@ -204,3 +204,20 @@ run; this document does not preselect them.
   R3 action and external isolation makes the residual risk acceptable.
 - Fallbacks meet the same floors as their primary route.
 - The arbiter is C3 and its independence or same-family limitation is stated.
+
+## Optional shadow comparison
+
+Apply all capability/risk floors and user pins first. The default routing path
+does not invoke a semantic command or read provider configuration. Only for a
+user-requested experiment or trusted user opt-in already in context, inspect
+`ak eval decision --help` and use consumer `orchestration-risk`. Supply
+`state: {task, effect, importance, parallel}` and the existing
+`legacy: {risk: R0|R1|R2|R3, capability: C1|C2|C3}`. The effect values are
+`read-only`, `scoped-write`, `high-impact-write`, `external`, or `destructive`.
+Supply only these compact facts, never job prompts, logs, or credentials.
+
+The command checks consent and produces a shadow comparison; it cannot change
+the selected runtime/model, lower R3 controls or capability floors, grant
+approval, or unblock an unavailable route. Follow the legacy result on every
+disagreement or provider failure. Keep measured quality separate from latency
+and cost before proposing any later control mode.

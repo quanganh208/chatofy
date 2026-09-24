@@ -151,6 +151,7 @@ call.
 | `ak data status` | `read-only` | Show default retention posture for derived classes |
 | `ak diagnostics export` | `read-only` | Export a redacted diagnostics bundle |
 | `ak doctor` | `read-only` | Run health checks on the AgentKit installation |
+| `ak eval decision` | `mutating` | Compare an explicitly enabled semantic judgment with a legacy decision |
 | `ak eval run` | `mutating` | Execute repeated isolated evaluation trials |
 | `ak feedback` | `diagnostic` | Send or export product feedback |
 | `ak insights agents` | `read-only` | Inspect agents effectiveness |
@@ -165,6 +166,11 @@ call.
 | `ak insights improvements` | `read-only` | Find evidence-backed improvement opportunities |
 | `ak insights record` | `mutating` | Import versioned execution observations |
 | `ak insights skills` | `read-only` | Inspect skills effectiveness |
+| `ak policy adopt` | `mutating` | Promote proposed rules into the active policy |
+| `ak policy check` | `read-only` | Ask the policy what it says about one operation |
+| `ak policy compile` | `mutating` | Propose policy rules from the project's instruction files |
+| `ak policy status` | `read-only` | Show what the project policy currently enforces |
+| `ak policy validate` | `read-only` | Check that the policy document is coherent |
 | `ak recover` | `mutating` | Recover AgentKit state from a snapshot |
 | `ak sessions list` | `read-only` | List Claude Code sessions for registered projects |
 | `ak sessions redact` | `mutating` | Dry-run credential redaction for Claude Code session JSONL files |
@@ -187,8 +193,8 @@ call.
 | `ak api stop` | `mutating` | Stop the running API server daemon |
 | `ak config` | `read-only` | Open the local AgentKit dashboard |
 | `ak config prefs resolve` | `read-only` | Print the resolved preference values |
-| `ak config prefs set` | `mutating` | Set a hook, journal.auto, or worktree.root preference in config.yaml |
-| `ak config prefs unset` | `mutating` | Remove a hook, journal.auto, or worktree.root soft-preference so it returns to default |
+| `ak config prefs set` | `mutating` | Set a supported preference in config.yaml |
+| `ak config prefs unset` | `mutating` | Remove a supported preference so it returns to default |
 | `ak config prefs validate` | `read-only` | Check config.yaml against the AgentKit schema |
 | `ak config start` | `diagnostic` | Start the local dashboard server |
 | `ak config status` | `read-only` | Show the running state of the dashboard server |

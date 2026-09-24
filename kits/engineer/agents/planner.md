@@ -96,9 +96,10 @@ Use the naming pattern from the `## Naming` section injected by hooks. The patte
 **STEP 4: Update session state after creating plan.**
 
 After creating the plan folder, update session state so subagents receive the latest context. The
-installed location of `set-active-plan.cjs` differs per runtime (Claude Code/Cursor/Codex:
-`.agentkit/adapters/<target>/<kit>/scripts/`; Pi: `.pi/extensions/agentkit-hooks-<kit>/sidecars/scripts/`),
-so locate it instead of hardcoding one path:
+script is installed beside the runtime's hook tree, at a location that differs per runtime and
+install mode (Claude Code native project: `.claude/scripts/`; Claude Code native global:
+`~/.claude/scripts/`; Claude Code plugin: `<plugin-dir>/scripts/`; Pi:
+`.pi/extensions/agentkit-hooks-<kit>/scripts/`), so locate it instead of hardcoding one path:
 ```bash
 node "$(find . -path '*/node_modules' -prune -o -path '*/.git' -prune -o -path '*/backups' -prune -o -name set-active-plan.cjs -print 2>/dev/null | head -1)" {plan-dir}
 ```
@@ -108,7 +109,13 @@ Example:
 node "$(find . -path '*/node_modules' -prune -o -path '*/.git' -prune -o -path '*/backups' -prune -o -name set-active-plan.cjs -print 2>/dev/null | head -1)" ai_docs/feature/GH-88-add-authentication
 ```
 
-This updates the session temp file so all subsequent subagents receive the correct plan context.
+This updates the session temp file so all subsequent subagents receive the correct plan context, and
+creates the plan's reports directory that the injected `Reports:` path names.
+
+On Claude Code and Pi the copy under `.agentkit/scripts/` (Pi: `sidecars/scripts/`) is a forwarder to
+the runnable script, so either hit from the search above works. Runtimes that do not emit the kit
+hook tree have no working copy; on those, activation is unavailable and the plan path is passed to
+subagents by hand.
 
 ---
 

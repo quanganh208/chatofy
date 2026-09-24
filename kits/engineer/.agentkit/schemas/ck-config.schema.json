@@ -476,6 +476,11 @@
           "default": true,
           "description": "SubagentStart hook - injects context to subagents"
         },
+        "agent-behavior-linter": {
+          "type": "boolean",
+          "default": true,
+          "description": "PostToolUse/PreCompact/Stop hook - reports session anti-patterns at Stop"
+        },
         "descriptive-name": {
           "type": "boolean",
           "default": true,

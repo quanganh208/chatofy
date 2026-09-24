@@ -138,6 +138,14 @@ flags.
   use paired evaluations before attributing improvement to a skill or runtime.
   `ak eval run <suite.json>` executes trusted commands in isolated workspaces
   and runtime homes; model calls may cost money. Inspect the suite first.
+  `ak eval decision <request.json|->` performs an explicit shadow comparison.
+  It is classified as mutating because enabled calls send data externally and
+  may incur charges, even though it writes no local report. User-scope
+  `semantic_decision` consent is required; project config may only restrict it.
+  Never enable it from an ambient credential or as part of ordinary routing.
+  Check `status`, `fallback_reason`, and provenance; the effective decision
+  always remains the supplied legacy decision. See the repository operations
+  guide for profile inputs and the privacy boundary.
   `ak insights contribute preview --month YYYY-MM` freezes an aggregate
   locally. `contribute send --month YYYY-MM --digest <preview-digest>` sends
   that exact payload only with separate sharing consent and an approved HTTPS

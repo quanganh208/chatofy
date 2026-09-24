@@ -16,19 +16,42 @@
  * that instant. This hook therefore records what it can derive deterministically;
  * session-init.cjs surfaces it and reminds the agent to re-establish the rest.
  *
- * Exit code: always 0 (non-blocking; never obstruct compaction).
+ * Exit code: always 0 (non-blocking; never obstruct compaction). Fail-open is
+ * not fail-silent: every path that does not persist anchors writes one hook-log
+ * entry naming the reason, so a skipped capture is distinguishable from "no
+ * compaction happened". Reasons are closed-vocabulary codes - never a session
+ * id, a path, a branch name, or any payload content.
  */
+
+const HOOK_NAME = 'precompact-capture';
+
+// The runtimes name the compaction cause differently and the field is theirs,
+// not ours: Claude Code sends manual/auto, the Pi bridge forwards its own
+// event.reason verbatim. Map the known values and collapse everything else, the
+// same way bridge.ts closes the SessionStart vocabulary, so the logged value is
+// ours rather than whatever the payload happened to carry.
+const TRIGGERS = Object.freeze({
+  manual: 'manual',
+  auto: 'auto',
+  threshold: 'threshold'
+});
 
 try {
   const fs = require('fs');
   const { execFileSync } = require('child_process');
   const {
-    createSessionStateContext,
+    describeSessionStateContext,
     updateSessionState,
     isHookEnabled
   } = require('./lib/ck-config-utils.cjs');
+  const { createHookTimer } = require('./lib/hook-logger.cjs');
 
-  if (!isHookEnabled('precompact-capture')) process.exit(0);
+  const timer = createHookTimer(HOOK_NAME, { event: 'PreCompact' });
+
+  if (!isHookEnabled(HOOK_NAME)) {
+    timer.end({ status: 'skip', note: 'disabled' });
+    process.exit(0);
+  }
 
   function cleanGitEnvironment() {
     const environment = { ...process.env };
@@ -37,6 +60,20 @@ try {
       if (normalized === 'GIT_CONFIG_COUNT' || normalized.startsWith('GIT_')) delete environment[key];
     }
     return environment;
+  }
+
+  // First failure class seen by git(), so "capture ran and produced nulls" can
+  // be told apart from "capture never ran" once it reaches the recovery block.
+  let gitFailure = null;
+
+  function classifyGitFailure(error) {
+    if (error?.code === 'ENOENT') return 'git-not-found';
+    if (error?.killed || error?.code === 'ETIMEDOUT') return 'git-timeout';
+    // Git uses 128 for every fatal, not just a missing repository: dubious
+    // ownership on a shared or cross-UID checkout lands here too. Name what is
+    // observable - git ran and refused - instead of guessing which fatal it was.
+    if (error?.status === 128) return 'git-rejected';
+    return 'git-failed';
   }
 
   function git(args, cwd) {
@@ -48,7 +85,8 @@ try {
         timeout: 2000,
         stdio: ['ignore', 'pipe', 'ignore']
       }).trim() || null;
-    } catch {
+    } catch (error) {
+      if (!gitFailure) gitFailure = classifyGitFailure(error);
       return null;
     }
   }
@@ -68,18 +106,45 @@ try {
   }
 
   const stdin = readBoundedStdin();
-  if (stdin === null) process.exit(0);
-  const data = stdin ? JSON.parse(stdin) : {};
+  if (stdin === null) {
+    timer.end({ status: 'skip', note: 'stdin-oversize' });
+    process.exit(0);
+  }
+
+  let data;
+  try {
+    data = stdin ? JSON.parse(stdin) : {};
+  } catch {
+    // Distinguishable from a genuine crash: the payload arrived but was not
+    // JSON. The parser's message quotes the offending source text, and this
+    // entry is read back by `ak doctor`, the desktop System view, and the
+    // dashboard handler, so the note alone identifies the path.
+    timer.end({ status: 'warn', note: 'json-parse-failed' });
+    process.exit(0);
+  }
+
   const piRuntime = data.runtime === 'pi';
   const cwd = (piRuntime ? data.cwd : process.env.CK_PROJECT_ROOT || data.cwd) || process.cwd();
-  const context = createSessionStateContext({
+  // Logged, so it has to be one of ours: bounding an untrusted string is not
+  // the same as closing it, and this field reaches the same diagnostics
+  // surfaces as the note. The raw value still reaches session state below,
+  // where nothing renders it.
+  const trigger = typeof data.trigger !== 'string'
+    ? ''
+    : Object.prototype.hasOwnProperty.call(TRIGGERS, data.trigger)
+      ? TRIGGERS[data.trigger]
+      : 'other';
+  const { context, reason } = describeSessionStateContext({
     sessionId: data.session_id,
     cwd,
     ...(piRuntime
       ? { runtime: 'pi', bindSession: true }
       : { requireBinding: true })
   });
-  if (!context) process.exit(0);
+  if (!context) {
+    timer.end({ status: 'warn', note: reason || 'context-null', target: trigger });
+    process.exit(0);
+  }
 
   const worktree = git(['rev-parse', '--show-toplevel'], cwd);
   // For a linked worktree, --git-common-dir points at the main repo's .git;
@@ -87,18 +152,23 @@ try {
   const commonDir = git(['rev-parse', '--path-format=absolute', '--git-common-dir'], cwd);
   const mainRoot = commonDir ? commonDir.replace(/[\\/]\.git\/?$/, '') : null;
   const dirty = git(['status', '--porcelain'], cwd);
+  const branch = git(['branch', '--show-current'], cwd);
+  const head = git(['rev-parse', '--short', 'HEAD'], cwd);
 
   const compactRecovery = {
     capturedAt: new Date().toISOString(),
     trigger: data.trigger || null,
     worktree,
     mainRoot: mainRoot && mainRoot !== worktree ? mainRoot : null,
-    branch: git(['branch', '--show-current'], cwd),
-    head: git(['rev-parse', '--short', 'HEAD'], cwd),
-    dirtyCount: dirty ? dirty.split('\n').filter(Boolean).length : 0
+    branch,
+    head,
+    dirtyCount: dirty ? dirty.split('\n').filter(Boolean).length : 0,
+    // Non-null only when the capture ran but derived nothing, so the recovery
+    // block can name the cause instead of silently printing generic prose.
+    anchorsUnavailable: worktree || branch || head ? null : gitFailure || 'no-anchors'
   };
 
-  updateSessionState(context, (state) => ({
+  const persisted = updateSessionState(context, (state) => ({
     ...state,
     compactRecovery: {
       ...compactRecovery,
@@ -107,7 +177,21 @@ try {
     }
   }));
 
+  if (!persisted) {
+    timer.end({ status: 'warn', note: 'state-write-failed', target: trigger });
+    process.exit(0);
+  }
+
+  timer.end({
+    status: 'ok',
+    note: compactRecovery.anchorsUnavailable ? 'anchors-unavailable' : 'captured',
+    target: trigger
+  });
   process.exit(0);
-} catch {
+} catch (error) {
+  try {
+    const { logHookCrash } = require('./lib/hook-logger.cjs');
+    logHookCrash(HOOK_NAME, error, { event: 'PreCompact' });
+  } catch { /* logger unavailable: still never block compaction */ }
   process.exit(0);
 }

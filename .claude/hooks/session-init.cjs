@@ -29,7 +29,7 @@ try {
     extractTaskListId,
     isHookEnabled
   } = require('./lib/ck-config-utils.cjs');
-  const { createHookTimer, logHook, logHookCrash } = require('./lib/hook-logger.cjs');
+  const { LOG_FILE: HOOK_LOG_FILE, createHookTimer, logHook, logHookCrash } = require('./lib/hook-logger.cjs');
   const { loadProjectCheckpoint, refreshStatuslineSnapshot } = require('./lib/session-state-manager.cjs');
   const { createEmptyActivitySnapshot } = require('./lib/statusline-session-cache.cjs');
   const { renderSessionState, safeDisplayValue } = require('./lib/session-state-renderer.cjs');
@@ -568,11 +568,27 @@ async function main() {
       // work, and the reasoning behind in-flight decisions).
       const recovery = readSessionState(sessionContext)?.compactRecovery;
       console.log(`\n🧭 CONTEXT RECOVERY:`);
+      // Only the machine-derived Git anchors count here. The active plan comes
+      // from the checkpoint pipeline, not from the capture, so it must not mask
+      // a capture that derived no location.
+      let gitAnchorsShown = false;
       if (recovery) {
-        if (recovery.worktree) console.log(`  Worktree: ${safeDisplayValue(recovery.worktree)}`);
-        if (recovery.mainRoot) console.log(`  Root project: ${safeDisplayValue(recovery.mainRoot)}`);
-        if (recovery.branch) console.log(`  Branch: ${safeDisplayValue(recovery.branch)}${recovery.head ? ` @ ${safeDisplayValue(recovery.head)}` : ''}${recovery.dirtyCount ? ` (${recovery.dirtyCount} uncommitted)` : ''}`);
+        if (recovery.worktree) { console.log(`  Worktree: ${safeDisplayValue(recovery.worktree)}`); gitAnchorsShown = true; }
+        if (recovery.mainRoot) { console.log(`  Root project: ${safeDisplayValue(recovery.mainRoot)}`); gitAnchorsShown = true; }
+        if (recovery.branch || recovery.head) {
+          const location = recovery.branch ? safeDisplayValue(recovery.branch) : 'detached HEAD';
+          console.log(`  Branch: ${location}${recovery.head ? ` @ ${safeDisplayValue(recovery.head)}` : ''}${recovery.dirtyCount ? ` (${recovery.dirtyCount} uncommitted)` : ''}`);
+          gitAnchorsShown = true;
+        }
         if (recovery.activePlan) console.log(`  Active plan: ${safeDisplayValue(recovery.activePlan)}`);
+      }
+      // A capture that skipped or derived nothing used to fall through to the
+      // generic prose below, which reads exactly like a normal compaction. Name
+      // the gap instead, so the missing anchors are attributable.
+      if (!recovery) {
+        console.log(`  Orientation anchors unavailable (precompact-capture persisted nothing for this session; see ${safeDisplayValue(HOOK_LOG_FILE)}).`);
+      } else if (recovery.anchorsUnavailable || !gitAnchorsShown) {
+        console.log(`  Orientation anchors unavailable (precompact-capture: ${safeDisplayValue(recovery.anchorsUnavailable || 'unknown')}).`);
       }
       console.log(`Re-establish before continuing: the issues/PRs in flight, the active plan and`);
       console.log(`current phase, what is done vs. still pending, any failures and their cause, and`);
