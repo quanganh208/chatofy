@@ -618,6 +618,11 @@ describe('TranslationSessionService', () => {
       await settle();
 
       expect(transcribe).toHaveBeenCalledTimes(1);
+      // The cheap recognizer: a re-read every 300ms cannot afford the one that
+      // answers the settled transcript.
+      expect(transcribe).toHaveBeenCalledWith(
+        expect.objectContaining({ pass: 'partial' }),
+      );
       expect(socket.ofType('server.transcript.partial')[0]).toMatchObject({
         text: 'xin chào tôi muốn',
         speaker: 'speaker_a',

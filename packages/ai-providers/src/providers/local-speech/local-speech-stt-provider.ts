@@ -55,6 +55,9 @@ export class LocalSpeechSttProvider implements SttProvider {
     for (const term of options?.hotwords ?? []) {
       if (term.trim()) form.append('hotwords', term);
     }
+    // Only a partial is named. The sidecar treats a missing field as final, so a
+    // final request looks exactly as it did before the field existed.
+    if (options?.pass === 'partial') form.append('pass', 'partial');
     // Copy into a fresh ArrayBuffer-backed view so the bytes satisfy BlobPart
     // regardless of the caller's backing buffer (TS typed-array generics).
     const fileBlob = new Blob([new Uint8Array(audio)], { type: mimeType });

@@ -12,6 +12,7 @@ import {
   ProviderNotImplementedError,
   ProviderResponseError,
   type SpeakerEmbeddingResult,
+  type SttPass,
   type TranslationHints,
   type TtsAudioStream,
   type TtsProvider,
@@ -86,6 +87,12 @@ export interface TranslateTurnInput {
    * much of it a prompt can afford.
    */
   context?: string[];
+  /**
+   * `partial` for the live transcript's re-read of a turn still being spoken;
+   * omitted (final) for everything that becomes the turn's text, speculation
+   * included, since a speculation's result is reused as the final one.
+   */
+  pass?: SttPass;
 }
 
 /** The text half of a turn — everything decided before speech is synthesized. */
@@ -260,7 +267,7 @@ export class PipelineTranslatorService {
         // RECOGNIZER mishears it, so spending the list here first is what the
         // field was always for; the translator still receives it, for the term
         // that biasing does not recover.
-        { hotwords: input.hints?.hotwords },
+        { hotwords: input.hints?.hotwords, pass: input.pass },
       );
       this.logger.log(`stt(${trio.stt.name}) ${Date.now() - sttStart}ms`);
       return text;

@@ -12,6 +12,7 @@ export type {
 export type {
   SttProviderConfig,
   SttTranscribeOptions,
+  SttPass,
   SttTranscriptResult,
   SttTranscriptEvent,
   SttProvider,
