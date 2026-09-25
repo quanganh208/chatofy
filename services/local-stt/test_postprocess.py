@@ -1,5 +1,5 @@
 """Unit tests for engine text post-processing. No model weights required."""
-from engines.moonshine_en import MoonshineEn
+from engines.parakeet_en import ParakeetEn
 from engines.zipformer_vi import ZipformerVi
 
 
@@ -24,6 +24,6 @@ def test_vi_empty_transcript_stays_empty():
 
 
 def test_en_output_is_left_alone():
-    # Moonshine already emits sentence case with punctuation.
+    # Parakeet already emits sentence case with punctuation.
     raw = "The rector did not ask for a catechism."
-    assert MoonshineEn().postprocess(raw) == raw
+    assert ParakeetEn().postprocess(raw) == raw

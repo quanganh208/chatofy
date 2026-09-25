@@ -116,7 +116,7 @@ const DEFAULT_WINDOW_SECONDS = 9;
  * Measured against the running sidecar on this machine: the Vietnamese
  * Zipformer refuses everything at or below 82ms — HTTP 500 out of its first
  * convolution, `Invalid input shape: {2,80}` — and accepts from 85ms up. The
- * English Moonshine model takes 10ms happily, so this is a floor one engine
+ * English Parakeet model takes 10ms happily, so this is a floor one engine
  * needs and the other does not; the scheduler applies it to both because the
  * engine is chosen downstream by direction, out of sight from here.
  *

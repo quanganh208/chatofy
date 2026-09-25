@@ -93,27 +93,6 @@ describe('LocalSpeechSttProvider', () => {
     ).toEqual([]);
   });
 
-  it('names a partial pass and leaves a final one looking as it always did', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ text: 'hi', language: 'en' }),
-    });
-    global.fetch = fetchMock;
-
-    const provider = new LocalSpeechSttProvider({
-      baseUrl: 'http://localhost:8002',
-    });
-    await provider.transcribe(audio, 'audio/wav', 'en', { pass: 'partial' });
-    await provider.transcribe(audio, 'audio/wav', 'en', { pass: 'final' });
-    await provider.transcribe(audio, 'audio/wav', 'en');
-
-    const passes = fetchMock.mock.calls.map((call) =>
-      (call[1] as RequestInit & { body: FormData }).body.getAll('pass'),
-    );
-    // The sidecar reads a missing field as final, so only a partial is named.
-    expect(passes).toEqual([['partial'], [], []]);
-  });
-
   it('trims a trailing slash on the baseUrl', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

@@ -37,18 +37,7 @@ export interface SttTranscribeOptions {
    * silent pass-through as the terms having been applied.
    */
   hotwords?: string[];
-  /**
-   * Whether this is a live re-read of a turn still being spoken (`partial`) or
-   * the settled transcript of a finished one (`final`, the default).
-   *
-   * A backend may answer the two with different models: the best final model
-   * can cost too much per decode for a re-read every 300ms. One that has a
-   * single model ignores this.
-   */
-  pass?: SttPass;
 }
-
-export type SttPass = 'final' | 'partial';
 
 export interface SttProvider {
   readonly name: string;

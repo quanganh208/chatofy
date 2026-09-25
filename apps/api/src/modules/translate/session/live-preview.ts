@@ -60,9 +60,6 @@ export class LivePreview {
         // proper noun differently from the settled transcript would correct
         // itself on screen for no reason the reader can see.
         hints: session.hints,
-        // A re-read every 300ms needs the cheap recognizer; the settled
-        // transcript at turn end is what gets the best one.
-        pass: 'partial',
       })
       .then((text) => {
         // Checked here, not only before starting: the turn may have ended, or

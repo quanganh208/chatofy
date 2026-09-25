@@ -1,18 +1,11 @@
-"""English STT for FINAL transcripts — NVIDIA Parakeet-TDT-0.6b-v2 (INT8 ONNX) via sherpa-onnx.
+"""English STT — NVIDIA Parakeet-TDT-0.6b-v2 (INT8 ONNX) via sherpa-onnx.
 
 CC-BY-4.0 (attribution), packaged for sherpa-onnx by the k2-fsa project. Emits
-punctuation and casing, the same display style as Moonshine, so a turn reads
-the same whichever engine answered it.
+punctuation and casing, so its output is displayed as-is.
 
-Only the settled transcript comes from here. Live partials re-decode the growing
-turn every 300ms, and this model costs ~1.5x Moonshine per decode (final p95
-~315ms vs ~205ms on an 8s turn, 4 threads), which the partial cadence cannot
-absorb — so partials stay on Moonshine. See engines/registry.py.
-
-Measured on real prod turns (6 recordings replayed through the client's own
-CapturePump): English WER 3.4 vs Moonshine 7.4, paired per-turn bootstrap
--4.0 points, 95% CI [-7.3, -0.9]. Peak RSS +~1.1GB.
-See docs/development-journey.md.
+Replaced Moonshine base. Measured on real prod turns (6 recordings replayed
+through the client's own CapturePump): English WER 3.4 vs 7.4, paired per-turn
+bootstrap -4.0 points, 95% CI [-7.3, -0.9]. See docs/development-journey.md.
 """
 from .base import MODELS_DIR, SttEngine
 

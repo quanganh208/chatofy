@@ -296,9 +296,6 @@ services:
       # requests decode through it at once. Measured on prod: a single lane
       # (the old lock) left ~72% of the cores idle while requests queued.
       LOCAL_STT_CONCURRENCY: ${PROD_LOCAL_STT_CONCURRENCY:-4}
-      # Which model answers English FINAL transcripts. `moonshine` is the
-      # rollback: Parakeet stays unloaded and live partials are unaffected.
-      LOCAL_STT_EN_FINAL: ${PROD_LOCAL_STT_EN_FINAL:-parakeet}
     mem_limit: 4g
     healthcheck:
       test:

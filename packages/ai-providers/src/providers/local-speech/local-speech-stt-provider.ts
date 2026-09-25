@@ -3,7 +3,7 @@
 // returns the transcript. Uses global fetch/FormData/Blob (Node 18+/22), no
 // SDK dependency.
 //
-// The sidecar picks the engine from `language` (Zipformer for vi, Moonshine for
+// The sidecar picks the engine from `language` (Zipformer for vi, Parakeet for
 // en), so this provider serves both directions through one backend name.
 import type { LanguageCode } from '../../interfaces/provider-types.js';
 import type {
@@ -55,9 +55,6 @@ export class LocalSpeechSttProvider implements SttProvider {
     for (const term of options?.hotwords ?? []) {
       if (term.trim()) form.append('hotwords', term);
     }
-    // Only a partial is named. The sidecar treats a missing field as final, so a
-    // final request looks exactly as it did before the field existed.
-    if (options?.pass === 'partial') form.append('pass', 'partial');
     // Copy into a fresh ArrayBuffer-backed view so the bytes satisfy BlobPart
     // regardless of the caller's backing buffer (TS typed-array generics).
     const fileBlob = new Blob([new Uint8Array(audio)], { type: mimeType });

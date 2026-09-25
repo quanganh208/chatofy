@@ -17,7 +17,6 @@ export type {
   SttProviderConfig,
   SttTranscriptResult,
   SttTranscriptEvent,
-  SttPass,
   SttProvider,
   SummarizationProviderConfig,
   SummarizationRequest,

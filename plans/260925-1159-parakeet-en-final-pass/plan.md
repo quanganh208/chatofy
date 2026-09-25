@@ -44,3 +44,7 @@ Set `LOCAL_STT_EN_FINAL=moonshine` and restart the sidecar. No data or schema ch
 
 - A second en reference (ElevenLabs on the 2 en recordings) is not yet approved. The gain is significant against Whisper only.
 - Deploying to prod needs the maintainer's go-ahead.
+
+## Update 25/09 13:45 — single English engine
+
+The maintainer asked for only the best model and no rollback flag. Moonshine, the `pass` field and `LOCAL_STT_EN_FINAL` were removed; Parakeet answers every English request. Re-measured under the same two-direction load (4 threads, 4 lanes): partial p95 284ms (below the 300ms cadence), final p95 327ms, 0 503s, peak RSS 1363MB. Rollback is now a revert of the commit.

@@ -1938,21 +1938,21 @@ và viết hoa, license CC-BY-4.0. Nó sửa đúng những lỗi đã thấy tr
 learners" (prod ghi "Star Nuggets") và "walking to school or washing". Parakeet-unified
 streaming bị loại vì RTF 1,7 trên CPU này.
 
-Parakeet tốn khoảng 1,5× Moonshine mỗi lần decode, mà live partial đọc lại cửa sổ mỗi
-300 ms. Vì vậy **hai lượt đi hai model**: partial dùng Moonshine, câu chốt dùng Parakeet
-(`SttTranscribeOptions.pass`, chỉ `live-preview.ts` gửi `partial`). Đo tải trên sidecar
-thật, hai chiều cùng lúc, partial mỗi 300 ms:
+Parakeet thay hẳn Moonshine, cho cả live partial (đọc lại cửa sổ mỗi 300 ms) lẫn câu
+chốt. Lúc đầu định chia hai model theo lượt, vì Parakeet tốn khoảng 1,5× Moonshine mỗi
+lần decode. Đo thật thì không cần: một model duy nhất vẫn nằm trong nhịp 300 ms. Đo tải
+trên sidecar thật (4 thread, 4 lane như prod), hai chiều cùng lúc, bắn partial mỗi 300 ms
+không chờ lượt trước xong (nặng hơn scheduler thật):
 
-|                | Moonshine (rollback) | Parakeet |
-| -------------- | -------------------: | -------: |
-| en final p95   |               215 ms |   351 ms |
-| en partial p95 |               191 ms |   191 ms |
-| vi final p95   |               103 ms |   115 ms |
-| 503            |                    0 |        0 |
-| RSS đỉnh       |               721 MB | 1 476 MB |
+|                | Moonshine | Parakeet |
+| -------------- | --------: | -------: |
+| en final p95   |    215 ms |   327 ms |
+| en partial p95 |    191 ms |   284 ms |
+| 503            |         0 |        0 |
+| RSS đỉnh       |    721 MB | 1 363 MB |
 
-Rollback: đặt `PROD_LOCAL_STT_EN_FINAL=moonshine` và restart sidecar. Khi đó Parakeet
-không được nạp.
+Parakeet nhận cả đoạn audio 10 ms, nên `MIN_AUDIO_MS` vẫn chỉ vì Zipformer. Không có cờ
+rollback: muốn quay lại Moonshine thì revert commit.
 
 Còn mở: tiếng Anh mới chỉ có một đáp án (Whisper). Đáp án thứ hai, ElevenLabs cho 2 bản
 ghi en, chưa được duyệt.
