@@ -242,6 +242,9 @@ describe('prod.env.example', () => {
     'PROD_LOCAL_STT_THREADS',
     'PROD_LOCAL_TTS_THREADS',
     'PROD_LOCAL_STT_CONCURRENCY',
+    // Which model answers English finals in the STT sidecar; `moonshine` is
+    // the rollback. Read by docker-compose.prod.yml the same way.
+    'PROD_LOCAL_STT_EN_FINAL',
   ];
 
   // Supplied by docker-compose.prod.yml's per-service `environment:`, composed
