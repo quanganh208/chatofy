@@ -1885,3 +1885,74 @@ trọn mệnh đề đầu tiên.
   stream, cùng deadline tổng của API. Test tích hợp cũ đã "pass" vì nó vô tình ngắt
   kết nối: `next(res.iter_raw())` bỏ generator, và httpx đóng response khi
   generator bị thu hồi.
+
+## STT trên audio thật: streaming không phải lời giải, Parakeet cho câu chốt tiếng Anh (25/09/2026)
+
+Bối cảnh: người dùng thấy STT "chưa thực sự làm tốt" và đề nghị chuyển sang một model
+streaming. Trước khi chọn model, tôi đo trên **cả 6 cuộc hội thoại prod có ghi âm**
+(4 vi, khoảng 9,2 phút; 2 en, khoảng 3,1 phút), thay vì trên VIVOS/LibriSpeech. Báo cáo
+đầy đủ nằm ở `plans/reports/brainstorm-260925-1152-streaming-stt-prod-audio-evaluation.md`,
+script ở `benchmarks/stt/scripts/prod-audio-arms/`.
+
+### Đáp án cũng phải được kiểm
+
+Whisper large-v3 **không dùng được làm đáp án tiếng Việt**: nó nghe "fan cứng" thành
+"vang cứng", "anh Hoa Lang Thang" thành "tính hoài liên thang". Đáp án tiếng Việt vì
+thế là ElevenLabs Scribe v2 (được maintainer duyệt), có PhoWhisper-large đối chiếu. Hai
+đáp án này lệch nhau **20,4% WER**, nên chênh lệch tiếng Việt dưới khoảng 3 điểm là nhiễu.
+
+### Hai bảng xếp hạng ngược nhau
+
+Trên VIVOS, Zipformer-30M đang chạy đạt 5,4% còn pcs (Zipformer streaming đa ngữ
+PengChengStarling) 13,4%. Trên audio prod thì ngược lại: pcs 19,0% còn prod 22,1%.
+**Bộ test sạch không đại diện cho sản phẩm này.**
+
+### Streaming chỉ thắng khi được nuôi liên tục
+
+Kết quả pcs 19,0% là khi đút cả bản ghi liên tục. Khi phát lại qua đúng
+`CapturePump` của client, cùng option như prod (khớp log prod: 17 lượt, 8 lần cắt
+cưỡng bức cho bcf4d748), mỗi lượt lại mở một stream mới:
+
+| vi, so với ElevenLabs         |   liên tục | theo lượt | theo lượt, mồi 6 s |
+| ----------------------------- | ---------: | --------: | -----------------: |
+| Zipformer-30M (đang chạy)     |          — |      22,3 |                  — |
+| pcs (streaming, đa ngữ)       |       19,0 |  **35,8** |               31,6 |
+| hyntS (bản streaming của 30M) |       22,3 |    28,4\* |                  — |
+| Zipformer 70k giờ (offline)   |          — |      21,9 |                  — |
+| Nemotron-3.5 / Moonshine-vi   | 44–47 / 37 |         — |                  — |
+
+\* hyntS và cột mồi được đo trên đoạn cắt lý tưởng (khoảng lặng ≥ 0,3 s trong đáp án), không phải lượt phát lại.
+
+Bootstrap ghép cặp theo lượt (mỗi từ đáp án gán vào lượt chứa trung điểm của nó, nên số tuyệt đối cao hơn cách chấm cả bài): pcs kém hơn đang chạy **+13,7 điểm, 95% CI [+8,9; +18,8]**;
+Zipformer 70k giờ chênh −0,3 [−1,9; +1,3], không có ý nghĩa. Muốn pcs thắng thì phải đổi
+kiến trúc sang một bộ nhận dạng liên tục cho mỗi chiều. Việc đó đụng tới gán người nói
+và ranh giới lượt, để đổi lấy 3 điểm nằm trong vùng nhiễu. **Tiếng Việt giữ nguyên.**
+Cũng thấy rằng cắt lượt không phải lỗi chính của tiếng Việt: prod 22,1 so với cắt lý
+tưởng 23,4.
+
+### Tiếng Anh: model batch, không phải streaming
+
+Trên lượt phát lại thật, Parakeet-TDT-0.6b-v2 int8 đạt **3,4 so với 7,4** WER của
+Moonshine-base. Bootstrap theo lượt: −4,0 điểm, 95% CI [−7,3; −0,9]. Model có dấu câu
+và viết hoa, license CC-BY-4.0. Nó sửa đúng những lỗi đã thấy trong prod, như "English
+learners" (prod ghi "Star Nuggets") và "walking to school or washing". Parakeet-unified
+streaming bị loại vì RTF 1,7 trên CPU này.
+
+Parakeet tốn khoảng 1,5× Moonshine mỗi lần decode, mà live partial đọc lại cửa sổ mỗi
+300 ms. Vì vậy **hai lượt đi hai model**: partial dùng Moonshine, câu chốt dùng Parakeet
+(`SttTranscribeOptions.pass`, chỉ `live-preview.ts` gửi `partial`). Đo tải trên sidecar
+thật, hai chiều cùng lúc, partial mỗi 300 ms:
+
+|                | Moonshine (rollback) | Parakeet |
+| -------------- | -------------------: | -------: |
+| en final p95   |               215 ms |   351 ms |
+| en partial p95 |               191 ms |   191 ms |
+| vi final p95   |               103 ms |   115 ms |
+| 503            |                    0 |        0 |
+| RSS đỉnh       |               721 MB | 1 476 MB |
+
+Rollback: đặt `PROD_LOCAL_STT_EN_FINAL=moonshine` và restart sidecar. Khi đó Parakeet
+không được nạp.
+
+Còn mở: tiếng Anh mới chỉ có một đáp án (Whisper). Đáp án thứ hai, ElevenLabs cho 2 bản
+ghi en, chưa được duyệt.

@@ -9,10 +9,11 @@ by the app (standalone `uv` project, like the benchmark harnesses).
 
 ## Models
 
-| Language | Model                                      | WER   | RTF   | p95   | RAM   | License             |
-| -------- | ------------------------------------------ | ----- | ----- | ----- | ----- | ------------------- |
-| vi       | [hynt/Zipformer-30M-RNNT-6000h][zipformer] | 5.38% | 0.017 | 0.09s | 223MB | **CC-BY-NC-ND-4.0** |
-| en       | [Moonshine base][moonshine] (INT8)         | 3.86% | 0.040 | 0.34s | 418MB | MIT                 |
+| Language   | Model                                      | WER   | RTF   | p95   | RAM    | License             |
+| ---------- | ------------------------------------------ | ----- | ----- | ----- | ------ | ------------------- |
+| vi         | [hynt/Zipformer-30M-RNNT-6000h][zipformer] | 5.38% | 0.017 | 0.09s | 223MB  | **CC-BY-NC-ND-4.0** |
+| en final   | [Parakeet-TDT-0.6b-v2][parakeet] (INT8)    | —     | 0.05  | 0.35s | +1.1GB | CC-BY-4.0           |
+| en partial | [Moonshine base][moonshine] (INT8)         | 3.86% | 0.040 | 0.34s | 418MB  | MIT                 |
 
 Numbers measured on this machine — see
 `docs/development-journey.md` for the method and
@@ -23,6 +24,15 @@ the alternatives that lost.
 > engine measured **13.4%** against an independent reference transcript. Both
 > numbers are true of the same model; quote whichever matches the condition you
 > are describing.
+
+> **English finals and English partials are different models.** A turn's live
+> transcript is re-read every 300ms, and only Moonshine is cheap enough for that.
+> The settled transcript at turn end comes from Parakeet-TDT. On six prod
+> recordings replayed through the client's own speech gate, Parakeet scored
+> **3.4% vs 7.4%** WER. Measured on this host under two directions of load, its
+> final p95 was 351ms against 215ms. The request says which it is with `pass`.
+> `LOCAL_STT_EN_FINAL=moonshine` is the rollback. See
+> `docs/development-journey.md`.
 
 > **License obligation.** Zipformer-30M is CC-BY-NC-ND-4.0: **academic / thesis
 > use only**, no commercial use, no distribution of derivatives. If this project
@@ -60,23 +70,23 @@ links libonnxruntime by versioned symbol and its wheel does not bundle the
 library, so the two are one ABI pair. sherpa-onnx 1.13.5 and 1.13.6 both need
 onnxruntime 1.27.1, which PyPI has never published — neither is installable here.
 
-Both models load eagerly at startup (<3s), so `/healthz` returning 200 means
+All engines load eagerly at startup (<5s), so `/healthz` returning 200 means
 the service is genuinely ready.
 
 ## API
 
-| Route              | Request                                                                                             | Response                                                                |
-| ------------------ | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `GET /healthz`     | —                                                                                                   | `200 {"status":"ok"}` when loaded, `503 {"status":"loading"}` otherwise |
-| `POST /transcribe` | `multipart/form-data`: `file` (audio), `language` (`vi` or `en`), `hotwords` (repeatable, optional) | `200 {"text":"…","language":"vi"}`                                      |
-| `POST /embed`      | `multipart/form-data`: `file` (audio)                                                               | `200 {"vector":[…],"dim":192,"speechMs":1480}`                          |
+| Route              | Request                                                                                                                                     | Response                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `GET /healthz`     | —                                                                                                                                           | `200 {"status":"ok"}` when loaded, `503 {"status":"loading"}` otherwise |
+| `POST /transcribe` | `multipart/form-data`: `file` (audio), `language` (`vi` or `en`), `hotwords` (repeatable, optional), `pass` (`final` default, or `partial`) | `200 {"text":"…","language":"vi"}`                                      |
+| `POST /embed`      | `multipart/form-data`: `file` (audio)                                                                                                       | `200 {"vector":[…],"dim":192,"speechMs":1480}`                          |
 
 `speechMs` is how much of the clip is speech, not how long the clip is — the
 caller is sent a capture buffer with pre-roll and hangover on it, and the
 difference is what tells it whether the vector was built on enough voice to mean
 anything. See `audio/speech_duration.py`.
 
-`POST /transcribe` returns `400` for an unsupported language or undecodable
+`POST /transcribe` returns `400` for an unsupported language or pass, or undecodable
 audio, `413` for audio longer than `LOCAL_STT_MAX_AUDIO_SECONDS`, and `503`
 before the models finish loading.
 
@@ -105,7 +115,7 @@ measured: 28 common English words moved WER on that conversation from 0.137 to
 0.148, because biasing towards a word nobody said costs real Vietnamese. Terms
 come from the conversation (`TranslationHints.hotwords`), or not at all.
 
-English is unaffected: Moonshine is not a transducer, takes no hotwords, and is
+English is unaffected: neither English engine is set up for biasing, so they are
 handed none rather than handed them and left to ignore them.
 
 Audio is decoded with PyAV, which bundles its own ffmpeg libraries — **no ffmpeg
@@ -115,10 +125,11 @@ resampled to mono 16 kHz because both models are trained at that rate.
 
 ## Configuration
 
-| Env                           | Default | Purpose                                                                       |
-| ----------------------------- | ------- | ----------------------------------------------------------------------------- |
-| `LOCAL_STT_THREADS`           | `8`     | Threads per engine. 8 (physical cores) beat 16 (hyperthreads) on this machine |
-| `LOCAL_STT_MAX_AUDIO_SECONDS` | `300`   | Longest utterance accepted; longer audio returns `413` instead of decoding it |
+| Env                           | Default    | Purpose                                                                        |
+| ----------------------------- | ---------- | ------------------------------------------------------------------------------ |
+| `LOCAL_STT_THREADS`           | `8`        | Threads per engine. 8 (physical cores) beat 16 (hyperthreads) on this machine  |
+| `LOCAL_STT_MAX_AUDIO_SECONDS` | `300`      | Longest utterance accepted; longer audio returns `413` instead of decoding it  |
+| `LOCAL_STT_EN_FINAL`          | `parakeet` | Engine for English finals. `moonshine` rolls back and leaves Parakeet unloaded |
 
 ## Test
 
@@ -132,3 +143,4 @@ skip it with `LOCAL_STT_SKIP_MODEL_TESTS=1`.
 [sherpa]: https://github.com/k2-fsa/sherpa-onnx
 [zipformer]: https://huggingface.co/hynt/Zipformer-30M-RNNT-6000h
 [moonshine]: https://github.com/usefulsensors/moonshine
+[parakeet]: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2
