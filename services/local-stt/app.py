@@ -25,7 +25,11 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from audio.decode import AudioTooLongError, DecodeError, decode_to_16k_mono  # noqa: E402
 from audio.speech_duration import speech_duration_ms  # noqa: E402
 from engines.base import SttBusyError  # noqa: E402
-from engines.registry import EngineRegistry, UnsupportedLanguageError  # noqa: E402
+from engines.registry import (  # noqa: E402
+    EngineRegistry,
+    UnsupportedLanguageError,
+    UnsupportedPassError,
+)
 from hotwords import build_hotwords  # noqa: E402
 from speaker.embedder import SpeakerEmbedder  # noqa: E402
 
@@ -68,14 +72,18 @@ def transcribe(
     # separates hotwords with "/", and a caller's term containing one would
     # silently become two terms instead of being rejected or escaped.
     hotwords: list[str] = Form(default=[]),
+    # "partial" for a live re-read of a turn still being spoken, "final" for
+    # the settled transcript. Defaults to final so a caller that predates the
+    # field keeps getting the best transcript rather than the cheapest one.
+    pass_: str = Form(default="final", alias="pass"),
 ) -> dict:
     if not registry.ready:
         raise HTTPException(status_code=503, detail="models not loaded")
 
-    # Reject an unusable language before spending time on decoding.
+    # Reject an unusable language or pass before spending time on decoding.
     try:
-        engine = registry.get(language)
-    except UnsupportedLanguageError as err:
+        engine = registry.get(language, pass_)
+    except (UnsupportedLanguageError, UnsupportedPassError) as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
 
     try:

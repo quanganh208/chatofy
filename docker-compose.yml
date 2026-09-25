@@ -96,6 +96,8 @@ services:
       # Decodes served concurrently per engine, through the one recognizer —
       # see services/local-stt/engines/base.py for the measurement.
       LOCAL_STT_CONCURRENCY: ${LOCAL_STT_CONCURRENCY:-4}
+      # English finals: `parakeet` (default) or `moonshine` (rollback).
+      LOCAL_STT_EN_FINAL: ${LOCAL_STT_EN_FINAL:-parakeet}
     healthcheck:
       # /healthz answers 503 until both engines AND the speaker extractor are
       # loaded, so `--wait` really does mean the sidecar can serve a request.

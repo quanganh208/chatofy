@@ -3,7 +3,8 @@
 - Zipformer-30M vi: encoder/decoder/joiner INT8 ONNX + bpe.model from HF, then
   generates tokens.txt from bpe.model (the repo does not ship one; sherpa-onnx
   requires the "SYMBOL ID" token table).
-- Moonshine base en INT8: k2-fsa release tarball, extracted.
+- Moonshine base en INT8 (live partials) and Parakeet-TDT-0.6b-v2 en INT8
+  (finals): k2-fsa release tarballs, extracted.
 - CAM++ speaker embedding: one ONNX file from the k2-fsa speaker release. fp32,
   because that release publishes no int8 variant of any speaker model.
 
@@ -29,10 +30,7 @@ ZIPFORMER_FILES = [
     "bpe.model",
 ]
 
-MOONSHINE_URL = (
-    "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/"
-    "sherpa-onnx-moonshine-base-en-int8.tar.bz2"
-)
+K2_ASR_RELEASE = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models"
 
 # The release tag is misspelled upstream ("recongition"). Copied verbatim: the
 # corrected spelling 404s.
@@ -67,28 +65,45 @@ def fetch_zipformer_vi() -> None:
     print("[zipformer-vi] ready")
 
 
-def fetch_moonshine_en() -> None:
-    out_dir = MODELS_DIR / "sherpa-onnx-moonshine-base-en-int8"
+def fetch_k2_asr_tarball(name: str, label: str) -> None:
+    """One k2-fsa `asr-models` release tarball, extracted into models/<name>/.
+
+    tokens.txt is the readiness marker: every sherpa-onnx package ships one,
+    and it is the file the engine fails on first when a download was cut short.
+    """
+    out_dir = MODELS_DIR / name
     if (out_dir / "tokens.txt").exists():
-        print("[moonshine-en] ready (cached)")
+        print(f"[{label}] ready (cached)")
         return
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    tar_path = MODELS_DIR / "sherpa-onnx-moonshine-base-en-int8.tar.bz2"
+    url = f"{K2_ASR_RELEASE}/{name}.tar.bz2"
+    tar_path = MODELS_DIR / f"{name}.tar.bz2"
     if not tar_path.exists():
-        print(f"[moonshine-en] downloading {MOONSHINE_URL}")
+        print(f"[{label}] downloading {url}")
         tmp = tar_path.with_suffix(".part")
-        with urllib.request.urlopen(MOONSHINE_URL, timeout=60) as response, open(
+        with urllib.request.urlopen(url, timeout=60) as response, open(
             tmp, "wb"
         ) as out:
             shutil.copyfileobj(response, out, length=1024 * 1024)
         tmp.rename(tar_path)
-    print("[moonshine-en] extracting")
+    print(f"[{label}] extracting")
     with tarfile.open(tar_path, "r:bz2") as tar:
         tar.extractall(MODELS_DIR, filter="data")
     if not (out_dir / "tokens.txt").exists():
         raise RuntimeError(f"unexpected tarball layout; {out_dir} incomplete")
     tar_path.unlink()
-    print("[moonshine-en] ready")
+    print(f"[{label}] ready")
+
+
+def fetch_moonshine_en() -> None:
+    fetch_k2_asr_tarball("sherpa-onnx-moonshine-base-en-int8", "moonshine-en")
+
+
+def fetch_parakeet_en() -> None:
+    """English finals. ~630MB extracted; skipped nowhere, because an engine the
+    registry routes to must exist even while LOCAL_STT_EN_FINAL rolls it back —
+    flipping the flag forward again should not need a download."""
+    fetch_k2_asr_tarball("sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8", "parakeet-en")
 
 
 def fetch_campplus_speaker() -> None:
@@ -113,7 +128,12 @@ def fetch_campplus_speaker() -> None:
 
 
 def main() -> int:
-    for fetch in (fetch_zipformer_vi, fetch_moonshine_en, fetch_campplus_speaker):
+    for fetch in (
+        fetch_zipformer_vi,
+        fetch_moonshine_en,
+        fetch_parakeet_en,
+        fetch_campplus_speaker,
+    ):
         fetch()
     print("[done] models cached in models/")
     return 0

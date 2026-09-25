@@ -128,6 +128,94 @@ def test_unsupported_language_400(client, webm_audio):
     assert res.status_code == 400
 
 
+def test_unsupported_pass_400(client, webm_audio):
+    res = client.post(
+        "/transcribe",
+        files={"file": ("audio.webm", webm_audio, "audio/webm")},
+        data={"language": "en", "pass": "draft"},
+    )
+    assert res.status_code == 400
+
+
+# ── Passes ───────────────────────────────────────────────────────────────────
+# English finals and English live partials are answered by different models:
+# the best final model costs too much per decode for the 300ms re-read cadence.
+
+
+def test_english_passes_route_to_their_engines(client):
+    from app import registry
+    from engines.moonshine_en import MoonshineEn
+    from engines.parakeet_en import ParakeetEn
+
+    assert isinstance(registry.get("en", "final"), ParakeetEn)
+    assert isinstance(registry.get("en", "partial"), MoonshineEn)
+    # A request that predates the field is a final one.
+    assert registry.get("en") is registry.get("en", "final")
+    # Vietnamese has one engine for both, and it is ONE instance: two would
+    # double the weights and split the decode lanes.
+    assert registry.get("vi", "final") is registry.get("vi", "partial")
+
+
+@pytest.mark.parametrize(
+    ("form_pass", "answered_by"), [(None, "final"), ("final", "final"), ("partial", "partial")]
+)
+def test_the_pass_field_picks_the_engine(
+    client, webm_audio, monkeypatch, form_pass, answered_by
+):
+    from app import registry
+
+    calls = []
+    for name in ("final", "partial"):
+        engine = registry.get("en", name)
+        monkeypatch.setattr(
+            engine, "transcribe", lambda samples, hotwords="", n=name: calls.append(n) or n
+        )
+    data = {"language": "en"} | ({"pass": form_pass} if form_pass else {})
+    res = client.post(
+        "/transcribe", files={"file": ("audio.webm", webm_audio, "audio/webm")}, data=data
+    )
+
+    assert res.status_code == 200
+    assert calls == [answered_by]
+
+
+def test_rollback_flag_keeps_parakeet_unloaded(monkeypatch):
+    """LOCAL_STT_EN_FINAL=moonshine sends English finals back to Moonshine
+    without ever constructing Parakeet — the rollback must not need its weights."""
+    from engines import registry as registry_module
+    from engines.moonshine_en import MoonshineEn
+    from engines.parakeet_en import ParakeetEn
+    from engines.zipformer_vi import ZipformerVi
+
+    def fake_load(self):
+        # Both attributes: the vi engine counts as loaded only with its biased
+        # recognizer too.
+        self._recognizer = self._biased_recognizer = object()
+
+    def forbidden(self):
+        raise AssertionError("Parakeet loaded while rolled back")
+
+    monkeypatch.setenv("LOCAL_STT_EN_FINAL", "moonshine")
+    monkeypatch.setattr(MoonshineEn, "load", fake_load)
+    monkeypatch.setattr(ZipformerVi, "load", fake_load)
+    monkeypatch.setattr(ParakeetEn, "load", forbidden)
+
+    reg = registry_module.EngineRegistry()
+    reg.load_all()
+
+    assert reg.ready
+    assert reg.get("en", "final") is reg.get("en", "partial")
+    assert isinstance(reg.get("en", "final"), MoonshineEn)
+
+
+def test_unknown_rollback_value_refuses_to_start(monkeypatch):
+    from engines import registry as registry_module
+
+    monkeypatch.setenv("LOCAL_STT_EN_FINAL", "whisper")
+    with pytest.raises(ValueError, match="LOCAL_STT_EN_FINAL"):
+        registry_module.EngineRegistry().load_all()
+
+
 def test_undecodable_audio_400(client):
     res = client.post(
         "/transcribe",
@@ -229,7 +317,7 @@ def test_saturated_engine_refuses_with_503(monkeypatch, webm_audio):
         "registry",
         SimpleNamespace(
             ready=True,
-            get=lambda lang: _BusyEngine(),
+            get=lambda lang, pass_="final": _BusyEngine(),
             # Lifespan calls these; no models are involved in this test.
             load_all=lambda: None,
             unload_all=lambda: None,
