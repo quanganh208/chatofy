@@ -1,6 +1,6 @@
 import sys, json, csv, glob, os
 from pathlib import Path
-sys.path.insert(0, "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/stt")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from stt_bench.metrics import corpus_wer, corpus_cer
 D = Path(sys.argv[1]); arms = sys.argv[2].split(","); REF = sys.argv[3] if len(sys.argv) > 3 else "ref"; LANGF = sys.argv[4] if len(sys.argv) > 4 else None
 agg = {}

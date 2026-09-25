@@ -2,12 +2,12 @@
 import sys, json, time
 from pathlib import Path
 import numpy as np, soundfile as sf
-sys.path.insert(0, "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/stt/scripts/streaming-arms")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "streaming-arms"))
 sys.path.insert(0, str(Path(__file__).parent))
 from stream_metrics import stream_stats
 
 
-BENCH = Path("/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/stt")
+BENCH = Path(__file__).resolve().parents[2]
 import sherpa_onnx
 M = BENCH / "models"
 def build(arm):

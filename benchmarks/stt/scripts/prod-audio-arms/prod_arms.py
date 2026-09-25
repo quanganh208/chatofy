@@ -4,7 +4,7 @@ Streaming arms consume the whole recording continuously (no turn cuts at all).""
 import sys, json, os, time, tempfile
 from pathlib import Path
 import numpy as np, soundfile as sf
-BENCH = Path("/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/stt")
+BENCH = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(BENCH))
 D = Path(sys.argv[1]); arms = sys.argv[2].split(",")
 os.environ.setdefault("STT_BENCH_THREADS", "4")
