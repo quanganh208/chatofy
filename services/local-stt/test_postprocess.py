@@ -27,3 +27,14 @@ def test_en_output_is_left_alone():
     # Parakeet already emits sentence case with punctuation.
     raw = "The rector did not ask for a catechism."
     assert ParakeetEn().postprocess(raw) == raw
+
+
+def test_en_filler_only_transcript_is_no_speech():
+    # What Parakeet returns for a cough, a knock, or digital silence — see FILLERS.
+    for raw in ("Uh", "Mm.", "Mm-hmm.", "Hmm?", "Uh, um."):
+        assert ParakeetEn().postprocess(raw) == "", raw
+
+
+def test_en_fillers_inside_speech_are_kept():
+    for raw in ("Uh, I think so.", "Yeah.", "Okay.", "Mm, maybe tomorrow."):
+        assert ParakeetEn().postprocess(raw) == raw

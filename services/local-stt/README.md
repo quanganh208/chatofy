@@ -29,6 +29,10 @@ the alternatives that lost.
 > WER. It answers both the live re-read every 300ms and the settled transcript.
 > Under two directions of load on this host: re-read p95 284ms, final p95 327ms,
 > no 503s, peak RSS 1.36GB. See `docs/development-journey.md`.
+>
+> Parakeet answers a cough or knock with a filler ("Uh", "Mm.") where Moonshine
+> answered with nothing, so a transcript made only of fillers is returned empty
+> and the API rejects the turn as no speech (`FILLERS` in `engines/parakeet_en.py`).
 
 > **License obligation.** Zipformer-30M is CC-BY-NC-ND-4.0: **academic / thesis
 > use only**, no commercial use, no distribution of derivatives. If this project

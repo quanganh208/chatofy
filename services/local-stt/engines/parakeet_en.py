@@ -12,6 +12,16 @@ from .base import MODELS_DIR, SttEngine
 # Extracted from the k2-fsa release tarball by scripts/download_models.py.
 MODEL_DIR = MODELS_DIR / "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"
 
+#: Non-lexical fillers. Parakeet answers audio that carries no words with one of
+#: these, where Moonshine answered with nothing: a 150ms cough or knock inside
+#: the shape the client sends (320ms pre-roll, the burst, a 150ms tail) came back
+#: "Uh" or "Mm." in 5 of 9 cases, Moonshine 0 of 9. The API drops a turn only on
+#: an empty transcript, and a reused speculation IS the final, so without this a
+#: cough becomes a translated, spoken turn. A real turn that is nothing but a
+#: filler is lost too, which costs nothing worth translating. Lexical answers
+#: ("Yeah.", "Okay.") are kept even though very short noise can produce them.
+FILLERS = frozenset({"uh", "um", "er", "erm", "ah", "mm", "hmm", "mhm", "mm-hmm"})
+
 
 class ParakeetEn(SttEngine):
     lang = "en"
@@ -27,3 +37,10 @@ class ParakeetEn(SttEngine):
             num_threads=self._threads,
             model_type="nemo_transducer",
         )
+
+    def postprocess(self, text: str) -> str:
+        """Empty when the transcript is only fillers, see `FILLERS`; else as-is."""
+        words = [word.strip(".,!?…").lower() for word in text.split()]
+        if words and all(word in FILLERS for word in words):
+            return ""
+        return text
