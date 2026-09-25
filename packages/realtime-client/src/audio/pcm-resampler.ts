@@ -9,7 +9,7 @@
  * goes over the socket to a third.
  */
 
-/** Rate both Zipformer-vi and Moonshine-en are trained at. */
+/** Rate both Zipformer-vi and Parakeet-en are trained at. */
 export const TARGET_SAMPLE_RATE = 16000;
 
 /**

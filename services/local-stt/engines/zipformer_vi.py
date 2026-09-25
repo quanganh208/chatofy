@@ -142,7 +142,7 @@ class ZipformerVi(SttEngine):
 
         This model emits "XIN CHÀO HÔM NAY TRỜI RẤT ĐẸP" — all caps, no
         punctuation. The transcript is shown to the user next to the English
-        one from Moonshine, which is already sentence-cased and punctuated, so
+        one from Parakeet, which is already sentence-cased and punctuated, so
         leaving it shouting looks broken.
 
         Proper nouns stay lowercased ("tôi đi hà nội") — recovering them needs

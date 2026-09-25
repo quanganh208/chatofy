@@ -1,19 +1,24 @@
 """Language to engine resolution.
 
-Both engines load eagerly at startup (~640MB, under 2.5s total) so /healthz is
-honest about readiness and the first request has no load spike.
+Both engines load eagerly at startup (~1.5GB resident) so /healthz is honest
+about readiness and the first request has no load spike.
+
+One engine per language answers both the live re-reads and the settled
+transcript. English is Parakeet-TDT: on real prod turns it halved Moonshine's
+WER, and it keeps up with the 300ms re-read cadence under two-speaker load
+(see docs/development-journey.md).
 
 The language set is closed on purpose: `@chatofy/types` defines
 `languageCodeSchema = z.enum(['vi', 'en'])`, so anything else is a caller bug,
 not a missing feature.
 """
 from .base import SttEngine, preload_onnxruntime_dll
-from .moonshine_en import MoonshineEn
+from .parakeet_en import ParakeetEn
 from .zipformer_vi import ZipformerVi
 
 _ENGINE_TYPES: dict[str, type[SttEngine]] = {
     "vi": ZipformerVi,
-    "en": MoonshineEn,
+    "en": ParakeetEn,
 }
 
 SUPPORTED_LANGUAGES = tuple(_ENGINE_TYPES)

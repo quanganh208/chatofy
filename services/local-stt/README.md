@@ -9,10 +9,10 @@ by the app (standalone `uv` project, like the benchmark harnesses).
 
 ## Models
 
-| Language | Model                                      | WER   | RTF   | p95   | RAM   | License             |
-| -------- | ------------------------------------------ | ----- | ----- | ----- | ----- | ------------------- |
-| vi       | [hynt/Zipformer-30M-RNNT-6000h][zipformer] | 5.38% | 0.017 | 0.09s | 223MB | **CC-BY-NC-ND-4.0** |
-| en       | [Moonshine base][moonshine] (INT8)         | 3.86% | 0.040 | 0.34s | 418MB | MIT                 |
+| Language | Model                                      | WER   | RTF   | p95   | RAM    | License             |
+| -------- | ------------------------------------------ | ----- | ----- | ----- | ------ | ------------------- |
+| vi       | [hynt/Zipformer-30M-RNNT-6000h][zipformer] | 5.38% | 0.017 | 0.09s | 223MB  | **CC-BY-NC-ND-4.0** |
+| en       | [Parakeet-TDT-0.6b-v2][parakeet] (INT8)    | —     | —     | 0.33s | ~1.1GB | CC-BY-4.0           |
 
 Numbers measured on this machine — see
 `docs/development-journey.md` for the method and
@@ -23,6 +23,16 @@ the alternatives that lost.
 > engine measured **13.4%** against an independent reference transcript. Both
 > numbers are true of the same model; quote whichever matches the condition you
 > are describing.
+
+> **English is Parakeet-TDT, not Moonshine base.** On six prod recordings
+> replayed through the client's own speech gate, Parakeet scored **3.4% vs 7.4%**
+> WER. It answers both the live re-read every 300ms and the settled transcript.
+> Under two directions of load on this host: re-read p95 284ms, final p95 327ms,
+> no 503s, peak RSS 1.36GB. See `docs/development-journey.md`.
+>
+> Parakeet answers a cough or knock with a filler ("Uh", "Mm.") where Moonshine
+> answered with nothing, so a transcript made only of fillers is returned empty
+> and the API rejects the turn as no speech (`FILLERS` in `engines/parakeet_en.py`).
 
 > **License obligation.** Zipformer-30M is CC-BY-NC-ND-4.0: **academic / thesis
 > use only**, no commercial use, no distribution of derivatives. If this project
@@ -60,7 +70,7 @@ links libonnxruntime by versioned symbol and its wheel does not bundle the
 library, so the two are one ABI pair. sherpa-onnx 1.13.5 and 1.13.6 both need
 onnxruntime 1.27.1, which PyPI has never published — neither is installable here.
 
-Both models load eagerly at startup (<3s), so `/healthz` returning 200 means
+Both models load eagerly at startup (~6s), so `/healthz` returning 200 means
 the service is genuinely ready.
 
 ## API
@@ -105,7 +115,7 @@ measured: 28 common English words moved WER on that conversation from 0.137 to
 0.148, because biasing towards a word nobody said costs real Vietnamese. Terms
 come from the conversation (`TranslationHints.hotwords`), or not at all.
 
-English is unaffected: Moonshine is not a transducer, takes no hotwords, and is
+English is unaffected: the Parakeet engine is not set up for biasing, and is
 handed none rather than handed them and left to ignore them.
 
 Audio is decoded with PyAV, which bundles its own ffmpeg libraries — **no ffmpeg
@@ -131,4 +141,4 @@ skip it with `LOCAL_STT_SKIP_MODEL_TESTS=1`.
 
 [sherpa]: https://github.com/k2-fsa/sherpa-onnx
 [zipformer]: https://huggingface.co/hynt/Zipformer-30M-RNNT-6000h
-[moonshine]: https://github.com/usefulsensors/moonshine
+[parakeet]: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2

@@ -161,7 +161,7 @@ def test_concurrent_decodes_overlap(webm_audio, monkeypatch):
     prod probe asserts, because CI hardware varies; anything at or near 1.0
     means the serialization is back.
 
-    Moonshine, not Zipformer: its per-decode cost is several times higher, so
+    Parakeet, not Zipformer: its per-decode cost is several times higher, so
     the serial/concurrent ratio separates cleanly from timer noise on a loaded
     runner — with the fast Vietnamese model a partially-loaded CI box can
     legitimately land near the old serialized ratio.
@@ -175,14 +175,14 @@ def test_concurrent_decodes_overlap(webm_audio, monkeypatch):
     import time
 
     from audio.decode import decode_to_16k_mono
-    from engines.moonshine_en import MoonshineEn
+    from engines.parakeet_en import ParakeetEn
 
     # 3s of audio: long enough that per-decode timing is not dominated by
     # fixture noise.
     samples = decode_to_16k_mono(make_webm_opus(3.0))
 
     monkeypatch.setenv("LOCAL_STT_THREADS", "2")
-    engine = MoonshineEn()
+    engine = ParakeetEn()
     engine.load()
     engine.transcribe(samples)  # warm the graph
 

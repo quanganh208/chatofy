@@ -3,7 +3,7 @@
 - Zipformer-30M vi: encoder/decoder/joiner INT8 ONNX + bpe.model from HF, then
   generates tokens.txt from bpe.model (the repo does not ship one; sherpa-onnx
   requires the "SYMBOL ID" token table).
-- Moonshine base en INT8: k2-fsa release tarball, extracted.
+- Parakeet-TDT-0.6b-v2 en INT8 (~630MB): k2-fsa release tarball, extracted.
 - CAM++ speaker embedding: one ONNX file from the k2-fsa speaker release. fp32,
   because that release publishes no int8 variant of any speaker model.
 
@@ -29,9 +29,9 @@ ZIPFORMER_FILES = [
     "bpe.model",
 ]
 
-MOONSHINE_URL = (
+PARAKEET_URL = (
     "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/"
-    "sherpa-onnx-moonshine-base-en-int8.tar.bz2"
+    "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2"
 )
 
 # The release tag is misspelled upstream ("recongition"). Copied verbatim: the
@@ -67,28 +67,28 @@ def fetch_zipformer_vi() -> None:
     print("[zipformer-vi] ready")
 
 
-def fetch_moonshine_en() -> None:
-    out_dir = MODELS_DIR / "sherpa-onnx-moonshine-base-en-int8"
+def fetch_parakeet_en() -> None:
+    out_dir = MODELS_DIR / "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"
     if (out_dir / "tokens.txt").exists():
-        print("[moonshine-en] ready (cached)")
+        print("[parakeet-en] ready (cached)")
         return
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    tar_path = MODELS_DIR / "sherpa-onnx-moonshine-base-en-int8.tar.bz2"
+    tar_path = MODELS_DIR / "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2"
     if not tar_path.exists():
-        print(f"[moonshine-en] downloading {MOONSHINE_URL}")
+        print(f"[parakeet-en] downloading {PARAKEET_URL}")
         tmp = tar_path.with_suffix(".part")
-        with urllib.request.urlopen(MOONSHINE_URL, timeout=60) as response, open(
+        with urllib.request.urlopen(PARAKEET_URL, timeout=60) as response, open(
             tmp, "wb"
         ) as out:
             shutil.copyfileobj(response, out, length=1024 * 1024)
         tmp.rename(tar_path)
-    print("[moonshine-en] extracting")
+    print("[parakeet-en] extracting")
     with tarfile.open(tar_path, "r:bz2") as tar:
         tar.extractall(MODELS_DIR, filter="data")
     if not (out_dir / "tokens.txt").exists():
         raise RuntimeError(f"unexpected tarball layout; {out_dir} incomplete")
     tar_path.unlink()
-    print("[moonshine-en] ready")
+    print("[parakeet-en] ready")
 
 
 def fetch_campplus_speaker() -> None:
@@ -113,7 +113,7 @@ def fetch_campplus_speaker() -> None:
 
 
 def main() -> int:
-    for fetch in (fetch_zipformer_vi, fetch_moonshine_en, fetch_campplus_speaker):
+    for fetch in (fetch_zipformer_vi, fetch_parakeet_en, fetch_campplus_speaker):
         fetch()
     print("[done] models cached in models/")
     return 0

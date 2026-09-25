@@ -1,5 +1,5 @@
 """Unit tests for engine text post-processing. No model weights required."""
-from engines.moonshine_en import MoonshineEn
+from engines.parakeet_en import ParakeetEn
 from engines.zipformer_vi import ZipformerVi
 
 
@@ -24,6 +24,17 @@ def test_vi_empty_transcript_stays_empty():
 
 
 def test_en_output_is_left_alone():
-    # Moonshine already emits sentence case with punctuation.
+    # Parakeet already emits sentence case with punctuation.
     raw = "The rector did not ask for a catechism."
-    assert MoonshineEn().postprocess(raw) == raw
+    assert ParakeetEn().postprocess(raw) == raw
+
+
+def test_en_filler_only_transcript_is_no_speech():
+    # What Parakeet returns for a cough, a knock, or digital silence — see FILLERS.
+    for raw in ("Uh", "Mm.", "Mm-hmm.", "Hmm?", "Uh, um."):
+        assert ParakeetEn().postprocess(raw) == "", raw
+
+
+def test_en_fillers_inside_speech_are_kept():
+    for raw in ("Uh, I think so.", "Yeah.", "Okay.", "Mm, maybe tomorrow."):
+        assert ParakeetEn().postprocess(raw) == raw

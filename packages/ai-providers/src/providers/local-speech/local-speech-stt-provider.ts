@@ -3,7 +3,7 @@
 // returns the transcript. Uses global fetch/FormData/Blob (Node 18+/22), no
 // SDK dependency.
 //
-// The sidecar picks the engine from `language` (Zipformer for vi, Moonshine for
+// The sidecar picks the engine from `language` (Zipformer for vi, Parakeet for
 // en), so this provider serves both directions through one backend name.
 import type { LanguageCode } from '../../interfaces/provider-types.js';
 import type {

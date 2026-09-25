@@ -15,7 +15,7 @@ import av
 import numpy as np
 from av.audio.resampler import AudioResampler
 
-#: Sample rate both Zipformer-vi and Moonshine-en are trained at.
+#: Sample rate both Zipformer-vi and Parakeet-en are trained at.
 TARGET_RATE = 16000
 
 #: Longest utterance we will decode. A translation turn is one utterance, but a

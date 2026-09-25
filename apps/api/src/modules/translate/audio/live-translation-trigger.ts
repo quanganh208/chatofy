@@ -77,7 +77,7 @@ export class LiveTranslationTrigger {
    * lowercases it. `splitIntoClauses` matches on `,;:.!?…`, so on Vietnamese it
    * never matches and the clause rule never fires. For `vi_to_en`, the main
    * direction, counting characters is the only mechanism there is. English from
-   * Moonshine does carry punctuation, so `en_to_vi` gets both.
+   * Parakeet does carry punctuation, so `en_to_vi` gets both.
    */
   shouldTranslate(committed: string, reanchors: number): boolean {
     if (this.inFlight) return false;

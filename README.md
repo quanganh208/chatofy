@@ -240,10 +240,10 @@ Speech-to-text and text-to-speech run on the CPU of the machine hosting the API.
 Two sidecars, split by function — each serves both languages and picks its
 engine from the language it is given:
 
-| Service                                                | Port | Job | Models                                  |
-| ------------------------------------------------------ | ---- | --- | --------------------------------------- |
-| [`services/local-stt`](./services/local-stt/README.md) | 8002 | STT | Zipformer-30M (vi), Moonshine base (en) |
-| [`services/local-tts`](./services/local-tts/README.md) | 8003 | TTS | VieNeu v3 Turbo (vi), Kokoro-82M (en)   |
+| Service                                                | Port | Job | Models                                |
+| ------------------------------------------------------ | ---- | --- | ------------------------------------- |
+| [`services/local-stt`](./services/local-stt/README.md) | 8002 | STT | Zipformer-30M (vi), Parakeet-TDT (en) |
+| [`services/local-tts`](./services/local-tts/README.md) | 8003 | TTS | VieNeu v3 Turbo (vi), Kokoro-82M (en) |
 
 The API picks the backend from `AI_STT_PROVIDER` / `AI_TTS_PROVIDER`, both
 defaulting to `local`. There is no per-language exception: the language travels
@@ -354,7 +354,7 @@ two paths can be compared.
 | Model              | Licence             | Note                                                                              |
 | ------------------ | ------------------- | --------------------------------------------------------------------------------- |
 | Zipformer-30M vi   | **CC-BY-NC-ND-4.0** | **Academic / thesis use only.** No commercial use, no distribution of derivatives |
-| Moonshine base en  | MIT                 | —                                                                                 |
+| Parakeet-TDT en    | CC-BY-4.0           | Attribution required; commercial use permitted                                    |
 | Kokoro-82M en      | Apache-2.0          | —                                                                                 |
 | VieNeu-TTS v3 (vi) | **Apache-2.0**      | Weights too. The model card permits commercial use of preset-voice audio          |
 

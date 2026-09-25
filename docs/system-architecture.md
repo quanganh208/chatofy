@@ -207,7 +207,7 @@ Dual-build (CommonJS + ESM via tsup) for NestJS (CJS require) + frontend (ESM im
   - `ElevenLabsSttProvider` — STT via ElevenLabs Scribe v2 API (raw fetch)
   - `GeminiTranslationProvider` — Translation via Google Gemini API (@google/genai SDK)
   - `ElevenLabsTtsProvider` — TTS via ElevenLabs TTS API (raw fetch, `audio/mpeg`)
-  - `LocalSpeechSttProvider` — STT via the local sidecar (`services/local-stt`, HTTP multipart); one backend serves both languages, the sidecar picks Zipformer-30M for `vi` and Moonshine base for `en`
+  - `LocalSpeechSttProvider` — STT via the local sidecar (`services/local-stt`, HTTP multipart); one backend serves both languages, the sidecar picks Zipformer-30M for `vi` and Parakeet-TDT-0.6b-v2 for `en`
   - `LocalSpeechEmbeddingProvider` — speaker vectors via the local sidecar (`services/local-stt`, `POST /embed`). A **separate endpoint from `/transcribe`, deliberately**: translation cannot start until it has the transcript text, so an embedding returned in that same response would land its cost before the translation instead of beside it. A second localhost upload of a few-second clip costs single-digit ms
   - `LocalSpeechTtsProvider` — TTS via the local sidecar (`services/local-tts`, HTTP, `audio/wav`); one backend serves both languages, the sidecar picks VieNeu for `vi` and Kokoro-82M for `en`. Carries no default voice: a voice is a speaker id for one engine and a preset name for the other, so only the engine can default it
 - Each provider owns its own model default — there is no model-selection layer above them. Gemini holds the ordered quota-fallback list; the ElevenLabs providers default to `scribe_v2` / `eleven_flash_v2_5`; the local sidecars pick their engine from the language and take no model argument at all
@@ -223,7 +223,7 @@ Lazy config validation: API boots without keys; missing config only errors when 
 | Stage       | Language | Default backend           | Where it runs              |
 | ----------- | -------- | ------------------------- | -------------------------- |
 | STT         | vi       | `local` → Zipformer-30M   | `services/local-stt` :8002 |
-| STT         | en       | `local` → Moonshine base  | `services/local-stt` :8002 |
+| STT         | en       | `local` → Parakeet-TDT    | `services/local-stt` :8002 |
 | TTS         | vi       | `local` → VieNeu v3 Turbo | `services/local-tts` :8003 |
 | TTS         | en       | `local` → Kokoro-82M      | `services/local-tts` :8003 |
 | Translation | both     | `gemini`                  | **Google Cloud**           |
@@ -460,8 +460,8 @@ the guard does not depend on which recognizer produced the text, a cloud
 drives the real provider and is run by hand because it spends metered quota.
 
 Vietnamese transcripts are sentence-cased inside the STT sidecar: the Zipformer
-decoder emits bare uppercase with no punctuation, while Moonshine emits
-sentence-cased prose, and `sourceText` is user-visible.
+decoder emits bare uppercase with no punctuation, while Parakeet emits
+sentence-cased, punctuated prose, and `sourceText` is user-visible.
 
 ### Meeting minutes (LLM)
 

@@ -1,4 +1,4 @@
-# Downloaded model weights (Zipformer-vi + Moonshine-en, ~500MB)
+# Downloaded model weights (Zipformer-vi + Parakeet-en + CAM++, ~690MB)
 models/
 # Python
 .venv/
