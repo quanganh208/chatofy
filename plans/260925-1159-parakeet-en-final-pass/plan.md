@@ -1,6 +1,8 @@
 # Plan — Parakeet-TDT for English finals, Moonshine kept for live partials
 
-Status: in progress · Branch: `feat/parakeet-en-final-pass`
+> **Superseded by the 25/09 13:45 update at the end:** Parakeet answers every English request; the `pass` field, `LOCAL_STT_EN_FINAL` and Moonshine were removed. The Changes, Acceptance and Rollback sections below describe the abandoned two-pass design.
+
+Status: implemented (single English engine), PR #172 · Branch: `feat/parakeet-en-final-pass`
 Decision record: `plans/reports/brainstorm-260925-1152-streaming-stt-prod-audio-evaluation.md` (winner E, step 2 "Ship A"). The maintainer accepted it on 2026-09-25.
 
 ## Outcome

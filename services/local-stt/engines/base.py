@@ -52,8 +52,9 @@ def stt_concurrency() -> int:
       6 workers, num_threads=1) — the callers provide the parallelism, the
       session's intra-op pool does not serialize them.
     The zero-memory property is the point: a pool of recognizer copies would
-    multiply the weights (~223MB vi / ~418MB en per instance) against a 4GB
-    container limit shared with a TTS sidecar that already holds ~2GB.
+    multiply the weights (~223MB vi / ~1.1GB en per instance) against the
+    sidecar's own 4GB container limit, which four concurrent 60s English
+    decodes already take to ~3GB peak RSS.
     """
     # Clamped rather than validated with an error: a semaphore of 0 or fewer
     # refuses every request (all 503), which is a confusing way to learn about

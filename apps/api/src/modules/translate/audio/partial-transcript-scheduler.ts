@@ -65,7 +65,8 @@ const DEFAULT_CADENCE_MS = 300;
  * A sliding decode window with overlap stitching was the other candidate, and
  * it was killed by measurement before any production code was written for it.
  * Both of its gate conditions failed. Shrinking the window does not bring
- * English inside the budget, because Moonshine has a FIXED cost floor: 5.0s down
+ * English inside the budget, because Moonshine (the English engine when this was
+ * measured; Parakeet since) has a FIXED cost floor: 5.0s down
  * to 2.0s bought only 30% and still ran over. And stitching two windows on their
  * shared text is unreliable at any setting — no cell of a 24-cell grid met both
  * conditions, at best 15% wrong joins on Vietnamese and 37% missed joins on
