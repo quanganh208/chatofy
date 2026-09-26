@@ -264,6 +264,25 @@ class OnlineAttributor:
 
         return Assignment(label=None, created=False, score=best_score)
 
+    def promote_provisional(self) -> list[int]:
+        """Session end: provisional clusters become speakers while the cap has room.
+
+        Most-corroborated first; ties keep the order they were opened in. None of
+        their turns was ever labelled, so this adds speakers and relabels no turn
+        — the same reason the client may do it after a conversation has been on
+        screen. Returns the new labels, in order. The client's
+        `promoteProvisional` is held to this by the parity test.
+        """
+        order = sorted(range(len(self._provisional)), key=lambda i: -self._provisional[i].turns)
+        moved: list[int] = []
+        for index in order:
+            if self.cap_bound:
+                break
+            self._clusters.append(self._provisional[index])
+            moved.append(index)
+        self._provisional = [c for i, c in enumerate(self._provisional) if i not in set(moved)]
+        return list(range(len(self._clusters) - len(moved), len(self._clusters)))
+
     def _assign(self, index: int, vector: np.ndarray) -> None:
         self._clusters[index].fold(
             vector, cap=self.centroid_cap, window=self.centroid_window

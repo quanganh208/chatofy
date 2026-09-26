@@ -21,7 +21,8 @@ import {
   EMPTY_AUTO_ATTRIBUTION,
   isUsableConfig,
   observeVoice,
-  SPEECH_FLOOR_MS,
+  promoteProvisional,
+  type AutoAttributionConfig,
 } from './auto-attribution.js';
 import { attributionFor, MAX_SPEAKERS } from './speaker-roster.js';
 import {
@@ -75,13 +76,7 @@ const final = (sessionId: string): ServerEvent => ({
 });
 
 /**
- * One turn's vector, with enough speech behind it to be believed.
- *
- * **The default clears `SPEECH_FLOOR_MS` on purpose and it is load-bearing.**
- * Almost every test in this file is about what the clusterer does with a vector
- * it is allowed to use; a default under the floor would withhold every one of
- * them, and the suite would stay green while testing the suppression path
- * exclusively. The tests that mean to be short say so, in `SHORT_MS`.
+ * One turn's vector.
  *
  * `audioMs` is derived rather than passed: nothing here reads it, and the two
  * are not free of each other — pre-roll and hangover mean a buffer is always
@@ -96,8 +91,22 @@ const embedding = (sessionId: string, vector: number[], speechMs = 2000): Server
   speechMs,
 });
 
-/** Under the floor: a filler word, a "vâng", a cough with a vowel in it. */
-const SHORT_MS = SPEECH_FLOOR_MS - 1;
+/** A filler word, a "vâng", a cough with a vowel in it. */
+const SHORT_MS = 400;
+
+/**
+ * The clusterer as it was before deferral: a voice is minted on its first turn.
+ *
+ * The bar tests use it because they are about the bars — which branch a cosine
+ * lands in — and deferral would put a provisional step in front of every one of
+ * them. Deferral itself is tested with the shipped config, below.
+ */
+const MINT_ON_FIRST: AutoAttributionConfig = { ...DEFAULT_AUTO_ATTRIBUTION, mintConfirmations: 1 };
+const observe = (
+  state: typeof EMPTY_AUTO_ATTRIBUTION,
+  vector: number[],
+  config: AutoAttributionConfig = MINT_ON_FIRST,
+) => observeVoice(state, vector, config);
 
 const settled = (): TurnKeyedAction => ({ type: 'transcript.settled' });
 
@@ -115,28 +124,38 @@ const from = (start: TurnKeyedTranscript, ...actions: TurnKeyedAction[]): TurnKe
 const play = (...actions: TurnKeyedAction[]): TurnKeyedTranscript =>
   from(initialTurnKeyedTranscript, ...actions);
 
-/** One turn each from two clearly different voices, auto-attributed. */
+/**
+ * Two turns each from two clearly different voices, auto-attributed.
+ *
+ * Two, because a voice is named by the turn that corroborates it: `a2` and `b2`
+ * carry names live, while `a1` and `b1` wait for settling like any turn that
+ * opened a voice.
+ */
 const twoVoices = () =>
   play(
-    final('turn-1'),
-    embedding('turn-1', axis(0)),
-    final('turn-2'),
-    embedding('turn-2', axis(1)),
+    final('a1'),
+    embedding('a1', axis(0)),
+    final('a2'),
+    embedding('a2', axis(0)),
+    final('b1'),
+    embedding('b1', axis(1)),
+    final('b2'),
+    embedding('b2', axis(1)),
   );
 
 // --- the clusterer -------------------------------------------------------
 
 describe('placing a voice', () => {
   it('mints the first speaker from the first turn, with nothing to compare against', () => {
-    const { state, assignment } = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0));
+    const { state, assignment } = observe(EMPTY_AUTO_ATTRIBUTION, axis(0));
 
     expect(assignment).toMatchObject({ index: 0, created: true });
     expect(state.clusters).toHaveLength(1);
   });
 
   it('joins a voice it has heard before rather than minting a second one', () => {
-    const first = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0));
-    const second = observeVoice(first.state, axis(0));
+    const first = observe(EMPTY_AUTO_ATTRIBUTION, axis(0));
+    const second = observe(first.state, axis(0));
 
     expect(second.assignment).toMatchObject({ index: 0, created: false });
     expect(second.state.clusters).toHaveLength(1);
@@ -146,16 +165,16 @@ describe('placing a voice', () => {
   });
 
   it('mints a second speaker for a voice that is far from the first', () => {
-    const first = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0));
-    const second = observeVoice(first.state, axis(1));
+    const first = observe(EMPTY_AUTO_ATTRIBUTION, axis(0));
+    const second = observe(first.state, axis(1));
 
     expect(second.assignment).toMatchObject({ index: 1, created: true });
   });
 
   it('places nothing in the dead zone, and still says which voice was nearest', () => {
     // Between the two bars: not close enough to join, not far enough to be new.
-    const first = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0));
-    const { assignment } = observeVoice(first.state, cosines(0.35, 0));
+    const first = observe(EMPTY_AUTO_ATTRIBUTION, axis(0));
+    const { assignment } = observe(first.state, cosines(0.35, 0));
 
     expect(assignment.score).toBeGreaterThan(DEFAULT_AUTO_ATTRIBUTION.tauNew);
     expect(assignment.score).toBeLessThan(DEFAULT_AUTO_ATTRIBUTION.tauAssign);
@@ -166,8 +185,8 @@ describe('placing a voice', () => {
   });
 
   it('leaves the state untouched when it places nothing', () => {
-    const first = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0));
-    const second = observeVoice(first.state, cosines(0.35, 0));
+    const first = observe(EMPTY_AUTO_ATTRIBUTION, axis(0));
+    const second = observe(first.state, cosines(0.35, 0));
 
     // A dead-zone turn must not move a centroid. Folding it in would let the
     // profile drift toward exactly the voices the bar refused to accept.
@@ -176,12 +195,12 @@ describe('placing a voice', () => {
 
   it('assigns a third voice to its nearest neighbour rather than minting past the cap', () => {
     const state = [axis(0), axis(1)].reduce(
-      (carried, vector) => observeVoice(carried, vector).state,
+      (carried, vector) => observe(carried, vector).state,
       EMPTY_AUTO_ATTRIBUTION,
     );
     // Nearer to voice 1 than to voice 0, and far enough from both to have been
     // a new speaker if the cap allowed one.
-    const { assignment, state: next } = observeVoice(state, STRANGER);
+    const { assignment, state: next } = observe(state, STRANGER);
 
     expect(next.clusters).toHaveLength(DEFAULT_AUTO_ATTRIBUTION.kMax);
     expect(assignment.created).toBe(false);
@@ -191,14 +210,13 @@ describe('placing a voice', () => {
   it('joins at exactly tauAssign, and holds one hair below it', () => {
     // The bar is `>=`. Nothing else in this file sits on it, so relaxing it to
     // `>` would leave every other test green — the mutation this exists to kill.
-    const first = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0));
+    const first = observe(EMPTY_AUTO_ATTRIBUTION, axis(0));
 
     expect(
-      observeVoice(first.state, cosines(DEFAULT_AUTO_ATTRIBUTION.tauAssign, 0)).assignment.index,
+      observe(first.state, cosines(DEFAULT_AUTO_ATTRIBUTION.tauAssign, 0)).assignment.index,
     ).toBe(0);
     expect(
-      observeVoice(first.state, cosines(DEFAULT_AUTO_ATTRIBUTION.tauAssign - 1e-6, 0)).assignment
-        .index,
+      observe(first.state, cosines(DEFAULT_AUTO_ATTRIBUTION.tauAssign - 1e-6, 0)).assignment.index,
     ).toBeNull();
   });
 
@@ -206,41 +224,129 @@ describe('placing a voice', () => {
     // The other bar is `<`, so a turn sitting exactly on `tauNew` is in the dead
     // zone, not a new speaker. Relaxing it to `<=` moves that turn from held to
     // minted, which is a speaker appearing out of a rounding difference.
-    const first = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0));
+    const first = observe(EMPTY_AUTO_ATTRIBUTION, axis(0));
 
     expect(
-      observeVoice(first.state, cosines(DEFAULT_AUTO_ATTRIBUTION.tauNew, 0)).assignment.index,
+      observe(first.state, cosines(DEFAULT_AUTO_ATTRIBUTION.tauNew, 0)).assignment.index,
     ).toBeNull();
     expect(
-      observeVoice(first.state, cosines(DEFAULT_AUTO_ATTRIBUTION.tauNew - 1e-6, 0)).assignment,
+      observe(first.state, cosines(DEFAULT_AUTO_ATTRIBUTION.tauNew - 1e-6, 0)).assignment,
     ).toMatchObject({ index: 1, created: true });
   });
 
   it('still lets a known voice join once the cap is full', () => {
     // The asymmetry the cap is built around: it blocks creation, never joining.
     const state = [axis(0), axis(1)].reduce(
-      (carried, vector) => observeVoice(carried, vector).state,
+      (carried, vector) => observe(carried, vector).state,
       EMPTY_AUTO_ATTRIBUTION,
     );
-    const { assignment } = observeVoice(state, axis(0));
+    const { assignment } = observe(state, axis(0));
 
     expect(assignment).toMatchObject({ index: 0, created: false });
   });
 
   it('refuses an inverted dead zone rather than minting a speaker per turn', () => {
-    const inverted = { tauAssign: 0.3, tauNew: 0.6, kMax: 2 };
+    const inverted = { tauAssign: 0.3, tauNew: 0.6, kMax: 2, mintConfirmations: 1 };
 
     expect(isUsableConfig(inverted)).toBe(false);
     // Places nothing instead of throwing: a misconfiguration must not take the
     // conversation down, and "everything pending" is a state the rest handles.
-    expect(observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0), inverted).assignment.index).toBeNull();
+    expect(observe(EMPTY_AUTO_ATTRIBUTION, axis(0), inverted).assignment.index).toBeNull();
   });
 
   it('ignores a vector of the wrong width rather than scoring it', () => {
-    const first = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0, 4));
-    const { assignment } = observeVoice(first.state, axis(0, 8));
+    const first = observe(EMPTY_AUTO_ATTRIBUTION, axis(0, 4));
+    const { assignment } = observe(first.state, axis(0, 8));
 
     expect(assignment.index).toBeNull();
+  });
+});
+
+describe('a voice heard only once', () => {
+  it('names nobody on the first turn of a conversation', () => {
+    const { state, assignment } = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0));
+
+    expect(assignment.index).toBeNull();
+    expect(state.clusters).toHaveLength(0);
+    expect(state.provisional).toHaveLength(1);
+  });
+
+  it('becomes a speaker on the turn that corroborates it', () => {
+    const first = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0));
+    const second = observeVoice(first.state, axis(0));
+
+    expect(second.assignment).toMatchObject({ index: 0, created: true });
+    expect(second.state.clusters[0]!.turns).toBe(2);
+    expect(second.state.provisional).toHaveLength(0);
+  });
+
+  it('opens a second provisional voice for a turn that matches neither', () => {
+    const first = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0));
+    const second = observeVoice(first.state, axis(1));
+
+    expect(second.assignment.index).toBeNull();
+    expect(second.state.provisional).toHaveLength(2);
+  });
+
+  it('corroborates at tauAssign, the bar a known voice is joined at', () => {
+    const first = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0));
+    const { tauAssign } = DEFAULT_AUTO_ATTRIBUTION;
+
+    expect(observeVoice(first.state, cosines(tauAssign, 0)).assignment.index).toBe(0);
+    expect(observeVoice(first.state, cosines(tauAssign - 1e-6, 0)).state.provisional).toHaveLength(
+      2,
+    );
+  });
+
+  it('keeps a filler that opened the conversation from naming everybody else', () => {
+    // The production failure deferral answers: a short odd turn first, then the
+    // person who speaks the rest. Minting on the filler made the filler
+    // Speaker 1 and the real speaker Speaker 2 for the whole conversation.
+    const filler = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(2));
+    const speaker = [axis(0), axis(0)].reduce(
+      (carried, vector) => observeVoice(carried.state, vector),
+      filler,
+    );
+
+    expect(speaker.assignment).toMatchObject({ index: 0, created: true });
+    expect(speaker.state.clusters[0]!.sum).toEqual([2, 0, 0, 0]);
+  });
+
+  it('is promoted at session end while the cap has room, and not past it', () => {
+    const once = [axis(0), axis(0), axis(1)].reduce(
+      (carried, vector) => observeVoice(carried, vector).state,
+      EMPTY_AUTO_ATTRIBUTION,
+    );
+    // axis(0) was corroborated live; axis(1) was heard once.
+    const promoted = promoteProvisional(once);
+    expect(promoted.promoted).toBe(1);
+    expect(promoted.state.clusters.map((cluster) => cluster.sum)).toEqual([[2, 0, 0, 0], axis(1)]);
+
+    const full = [axis(0), axis(0), axis(1), axis(1), axis(2)].reduce(
+      (carried, vector) => observeVoice(carried, vector).state,
+      EMPTY_AUTO_ATTRIBUTION,
+    );
+    expect(promoteProvisional(full).promoted).toBe(0);
+  });
+
+  it('promotes the larger provisional voices first, ties in the order heard', () => {
+    const state = [axis(0), axis(0), axis(1), axis(2), axis(2)].reduce(
+      (carried, vector) =>
+        observeVoice(carried, vector, { ...DEFAULT_AUTO_ATTRIBUTION, mintConfirmations: 3 }).state,
+      EMPTY_AUTO_ATTRIBUTION,
+    );
+    // Nothing reached three turns: three provisional voices, sizes 2, 1, 2.
+    expect(state.clusters).toHaveLength(0);
+
+    const { state: promoted, promoted: count } = promoteProvisional(state);
+
+    expect(count).toBe(2);
+    // Sizes tie at 2, so the order they were heard in decides: axis(0) first.
+    expect(promoted.clusters.map((cluster) => cluster.sum)).toEqual([
+      [2, 0, 0, 0],
+      [0, 0, 2, 0],
+    ]);
+    expect(promoted.provisional.map((cluster) => cluster.sum)).toEqual([axis(1)]);
   });
 });
 
@@ -251,14 +357,17 @@ describe('labelling a conversation nobody tapped', () => {
     const state = twoVoices();
 
     expect(state.speakers).toHaveLength(2);
-    expect(attributionFor(state.attributions, 'turn-1')).toMatchObject({
+    expect(attributionFor(state.attributions, 'a2')).toMatchObject({
       speakerId: state.speakers[0]!.id,
       origin: 'suggested',
     });
-    expect(attributionFor(state.attributions, 'turn-2')).toMatchObject({
+    expect(attributionFor(state.attributions, 'b2')).toMatchObject({
       speakerId: state.speakers[1]!.id,
       origin: 'suggested',
     });
+    // The turn that opened each voice waits: it named nobody when it arrived.
+    expect(attributionFor(state.attributions, 'a1').origin).toBe('pending');
+    expect(attributionFor(state.attributions, 'b1').origin).toBe('pending');
   });
 
   it('gives a returning voice the ordinal it had the first time', () => {
@@ -295,10 +404,16 @@ describe('when the roster cannot hold another name', () => {
     const full = play(
       ...Array.from({ length: MAX_SPEAKERS }, () => ({ type: 'transcript.speakerAdded' }) as const),
     );
-    const state = from(full, final('turn-1'), embedding('turn-1', axis(0)));
+    const state = from(
+      full,
+      final('turn-1'),
+      embedding('turn-1', axis(0)),
+      final('turn-2'),
+      embedding('turn-2', axis(0)),
+    );
 
     expect(state.speakers).toHaveLength(MAX_SPEAKERS);
-    expect(attributionFor(state.attributions, 'turn-1').origin).toBe('pending');
+    expect(attributionFor(state.attributions, 'turn-2').origin).toBe('pending');
     // The cluster was NOT minted, so the roster and the voices stay in lockstep.
     expect(state.autoAttribution.clusters).toHaveLength(state.autoSpeakerIds.length);
   });
@@ -307,7 +422,12 @@ describe('when the roster cannot hold another name', () => {
     // Two taps get here: unattribute the turn, then remove the speaker it named.
     // Attributing to somebody off the roster renders as nothing at all, and does
     // it with no error to notice — so the turn waits instead.
-    const one = play(final('turn-1'), embedding('turn-1', axis(0)));
+    const one = play(
+      final('turn-0'),
+      embedding('turn-0', axis(0)),
+      final('turn-1'),
+      embedding('turn-1', axis(0)),
+    );
     const removed = from(
       one,
       { type: 'transcript.turnUnattributed', sessionId: 'turn-1' },
@@ -324,23 +444,25 @@ describe('when the roster cannot hold another name', () => {
 describe('a name already on screen', () => {
   it('is never changed by a later, better-informed turn', () => {
     const first = twoVoices();
-    const firstSpeaker = attributionFor(first.attributions, 'turn-1').speakerId;
+    const firstSpeaker = attributionFor(first.attributions, 'a2').speakerId;
     // Same turn, a vector that would now place it with the other voice.
-    const state = turnKeyedTranscriptReducer(first, embedding('turn-1', axis(1)));
+    const state = turnKeyedTranscriptReducer(first, embedding('a2', axis(1)));
 
-    expect(attributionFor(state.attributions, 'turn-1').speakerId).toBe(firstSpeaker);
+    expect(attributionFor(state.attributions, 'a2').speakerId).toBe(firstSpeaker);
   });
 
   it('is never overruled when a person put it there', () => {
-    const confirmed = play(final('turn-1'), embedding('turn-1', axis(0)), {
+    const voices = twoVoices();
+    const chosen = voices.speakers[1]!.id;
+    const confirmed = turnKeyedTranscriptReducer(voices, {
       type: 'transcript.turnAttributed',
-      sessionId: 'turn-1',
-      speakerId: 'speaker-1',
+      sessionId: 'a2',
+      speakerId: chosen,
     });
-    const state = turnKeyedTranscriptReducer(confirmed, embedding('turn-1', axis(1)));
+    const state = turnKeyedTranscriptReducer(confirmed, embedding('a2', axis(0)));
 
-    expect(attributionFor(state.attributions, 'turn-1')).toMatchObject({
-      speakerId: 'speaker-1',
+    expect(attributionFor(state.attributions, 'a2')).toMatchObject({
+      speakerId: chosen,
       origin: 'confirmed',
     });
   });
@@ -372,65 +494,44 @@ describe('hearing the same turn twice', () => {
       embedding('turn-1', axis(0)),
     );
 
-    expect(state.autoAttribution.clusters[0]!.turns).toBe(1);
+    // A double fold would have corroborated the voice with its own turn.
+    expect(state.autoAttribution.clusters).toHaveLength(0);
+    expect(state.autoAttribution.provisional[0]!.turns).toBe(1);
   });
 });
 
-describe('a turn with too little speech to identify anybody', () => {
-  it('does not mint a speaker, even as the first turn of the conversation', () => {
-    // The exit nobody was watching: with no cluster to compare against,
-    // `observeVoice` creates one and consults no threshold at all, so the first
-    // vector of a conversation used to become Speaker 1 whatever it contained.
+describe('a turn with little speech behind it', () => {
+  it('is observed like any other turn', () => {
+    // A 1250ms floor used to withhold these. Deferral took over its job — one
+    // odd turn opens a provisional voice and names nobody — and the floor was
+    // measured to cost more than it saved.
+    const state = from(twoVoices(), final('turn-3'), embedding('turn-3', axis(0), SHORT_MS));
+
+    expect(attributionFor(state.attributions, 'turn-3')).toMatchObject({
+      speakerId: state.speakers[0]!.id,
+      origin: 'suggested',
+    });
+  });
+
+  it('opening a conversation does not become Speaker 1', () => {
     // Two production conversations opened on a two-word filler and named the
     // person who spoke the rest of the conversation second, for its whole
-    // length. The floor sits in front of the call, so that exit is unreachable
-    // for a turn this short rather than separately guarded.
-    const state = play(final('turn-1'), embedding('turn-1', axis(0), SHORT_MS));
+    // length.
+    const state = play(
+      final('turn-1'),
+      embedding('turn-1', axis(2), SHORT_MS),
+      final('turn-2'),
+      embedding('turn-2', axis(0)),
+      final('turn-3'),
+      embedding('turn-3', axis(0)),
+    );
 
-    expect(state.speakers).toHaveLength(0);
-    expect(state.autoAttribution.clusters).toHaveLength(0);
-    expect(attributionFor(state.attributions, 'turn-1')).toEqual({
-      speakerId: null,
-      origin: 'pending',
+    expect(state.speakers).toHaveLength(1);
+    expect(attributionFor(state.attributions, 'turn-3')).toMatchObject({
+      speakerId: state.speakers[0]!.id,
+      origin: 'suggested',
     });
-  });
-
-  it('does not join a voice it already knows either', () => {
-    // `axis(0)` scores 1.0 against the first voice, so this is not a turn the
-    // clusterer was unsure about — it is one it was certain about, refused on
-    // the grounds that a vector built on this little speech does not carry the
-    // certainty it reports. Blocking creation alone was measured and leaves a
-    // coin flip on every short turn of a real two-speaker conversation.
-    const state = from(twoVoices(), final('turn-3'), embedding('turn-3', axis(0), SHORT_MS));
-
-    expect(attributionFor(state.attributions, 'turn-3')).toEqual({
-      speakerId: null,
-      origin: 'pending',
-    });
-  });
-
-  it('does not move the centroid it was refused against', () => {
-    // The damage a fold does is invisible: the turn renders the same and the
-    // profile the NEXT turn is compared against has moved towards noise.
-    const state = from(twoVoices(), final('turn-3'), embedding('turn-3', axis(0), SHORT_MS));
-
-    expect(state.autoAttribution.clusters[0]!.turns).toBe(1);
-    expect(state.autoAttribution.clusters[0]!.sum).toEqual(axis(0));
-  });
-
-  it('keeps the vector, which is what tells settling the layer ran at all', () => {
-    const state = play(final('turn-1'), embedding('turn-1', axis(0), SHORT_MS));
-
-    expect(state.embeddings['turn-1']).toBeDefined();
-  });
-
-  it('believes a turn that reaches the floor exactly', () => {
-    // The bar is "at least this much speech". A turn measured at exactly the
-    // floor is one the sweep says is safe, and excluding it would quietly make
-    // the shipped floor a millisecond higher than the measured one.
-    const state = play(final('turn-1'), embedding('turn-1', axis(0), SPEECH_FLOOR_MS));
-
-    expect(attributionFor(state.attributions, 'turn-1').origin).toBe('suggested');
+    expect(attributionFor(state.attributions, 'turn-1').origin).toBe('pending');
   });
 });
 
@@ -481,77 +582,58 @@ describe('settling up when the conversation ends', () => {
     expect(attributionFor(state.attributions, 'turn-5').speakerId).toBe(third);
   });
 
-  it('carries a name forward to a turn that was too short to place', () => {
-    // The short turn's own vector points squarely at the FIRST voice, and it is
-    // not consulted: a vector built on this little speech scores 0.51 against a
-    // chance level of 0.50, so filling from it is a coin flip wearing the
-    // clothes of evidence. The turn inherits from the turn before it — the
-    // second voice — which is a bet about a conversation instead.
+  it('names the turn that opened each voice', () => {
+    const state = from(twoVoices(), settled());
+
+    expect(attributionFor(state.attributions, 'a1').speakerId).toBe(state.speakers[0]!.id);
+    expect(attributionFor(state.attributions, 'b1').speakerId).toBe(state.speakers[1]!.id);
+  });
+
+  it('promotes a voice that was heard only once, and names its turn', () => {
+    // The second person said one thing all conversation. Deferral kept it off
+    // the screen live; settling is where it is owed a name, and the cap has room.
     const state = from(
-      twoVoices(),
-      final('turn-3'),
-      embedding('turn-3', axis(0), SHORT_MS),
+      play(final('a1'), embedding('a1', axis(0)), final('a2'), embedding('a2', axis(0))),
+      final('b1'),
+      embedding('b1', axis(1)),
       settled(),
     );
 
-    expect(attributionFor(state.attributions, 'turn-3').speakerId).toBe(state.speakers[1]!.id);
+    expect(state.speakers).toHaveLength(2);
+    expect(state.autoSpeakerIds).toHaveLength(state.autoAttribution.clusters.length);
+    expect(attributionFor(state.attributions, 'b1')).toMatchObject({
+      speakerId: state.speakers[1]!.id,
+      origin: 'suggested',
+    });
+    expect(attributionFor(state.attributions, 'a1').speakerId).toBe(state.speakers[0]!.id);
   });
 
-  it('resolves every chip when every turn was too short to place', () => {
-    // The whole conversation is fillers, so the layer ran, heard everything and
-    // discovered nobody. This used to be unreachable — a cluster was minted from
-    // the first vector unconditionally — and the settle pass still tests the
-    // cluster list, so without the vectors as its discriminator it returns here
-    // and leaves every one of these turns `pending`: a chip promising an answer
-    // that is never coming, which is the one outcome this design calls a
-    // failure. There is no roster to point at, so the promise is closed by
-    // taking it back rather than by inventing somebody.
+  it('names both people when neither ever said two things alike', () => {
     const state = play(
       final('turn-1'),
-      embedding('turn-1', axis(0), SHORT_MS),
+      embedding('turn-1', axis(0)),
       final('turn-2'),
-      embedding('turn-2', axis(1), SHORT_MS),
+      embedding('turn-2', axis(1)),
       settled(),
     );
 
-    expect(state.speakers).toHaveLength(0);
-    for (const sessionId of ['turn-1', 'turn-2']) {
-      expect(attributionFor(state.attributions, sessionId), sessionId).toEqual({
-        speakerId: null,
-        origin: 'fallback',
-      });
-    }
-    // What is taken back is the PROMISE, never the row. Settling drops
-    // attribution rows and touches `turns` not at all — a turn nobody could be
-    // named for is still a turn somebody spoke, and losing it would be the same
-    // defect this plan exists to fix arriving through a different door.
-    expect(state.turns.map((turn) => turn.sessionId)).toEqual(['turn-1', 'turn-2']);
+    expect(state.speakers).toHaveLength(2);
+    expect(attributionFor(state.attributions, 'turn-1').speakerId).toBe(state.speakers[0]!.id);
+    expect(attributionFor(state.attributions, 'turn-2').speakerId).toBe(state.speakers[1]!.id);
   });
 
-  it('resolves a chip on a turn that opened the conversation too short to place', () => {
-    // The shape two production conversations have: a two-word filler first, then
-    // the person who speaks the rest. The opener has no vector worth spending
-    // and nothing before it to inherit from, so the carry-forward cannot reach
-    // it — it is the one turn in a conversation that never can. Left `pending`
-    // it is a chip that waits forever; it resolves to nobody instead, while the
-    // turns after it are named normally.
-    const state = play(
-      final('turn-1'),
-      embedding('turn-1', axis(0), SHORT_MS),
-      final('turn-2'),
-      embedding('turn-2', axis(0)),
-      settled(),
+  it('does not promote past a roster that is full', () => {
+    const full = play(
+      ...Array.from({ length: MAX_SPEAKERS }, () => ({ type: 'transcript.speakerAdded' }) as const),
     );
+    const state = from(full, final('turn-1'), embedding('turn-1', axis(0)), settled());
 
+    expect(state.speakers).toHaveLength(MAX_SPEAKERS);
+    expect(state.autoAttribution.clusters).toHaveLength(state.autoSpeakerIds.length);
     expect(attributionFor(state.attributions, 'turn-1')).toEqual({
       speakerId: null,
       origin: 'fallback',
     });
-    expect(attributionFor(state.attributions, 'turn-2')).toMatchObject({
-      speakerId: state.speakers[0]!.id,
-      origin: 'suggested',
-    });
-    expect(state.turns.map((turn) => turn.sessionId)).toEqual(['turn-1', 'turn-2']);
   });
 
   it('settles as a suggestion, never as something a person said', () => {

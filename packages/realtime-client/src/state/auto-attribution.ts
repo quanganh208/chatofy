@@ -32,12 +32,25 @@
  *   fills it later. It is never left blank: a chip that never resolves is the
  *   one outcome the design treats as a failure.
  *
+ * **A new voice is not believed on one turn.** A turn that would mint somebody
+ * opens a *provisional* voice instead, which names nobody; the second turn that
+ * matches it is what makes it a speaker (`mintConfirmations`). The first vector
+ * of a conversation is no exception. One odd turn — a filler, a cough, a burst
+ * of noise — used to become a permanent ordinal, and the ordinal it took decided
+ * who everybody else was called. At session end a provisional voice that never
+ * found its second turn is promoted if the cap has room: its turns never showed
+ * a name, so promoting it renumbers nothing anybody saw.
+ *
  * **What the bench says about how well this works, stated here rather than in a
- * report nobody opens.** On simulated meetings at the product's measured turn
- * length, prefix-locked accuracy is **0.78 on clean audio and 0.59 on far-field**,
- * against a 0.85 target, and roughly **a third of turns land in the dead zone**.
- * The feature ships behind an off-by-default flag for that reason. It is built to
- * be measured on real audio, not because the bench says it is ready.
+ * report nobody opens.** On 100 real two-person Vietnamese dialogues (ViYT-Diar,
+ * held-out half), run through this whole client pipeline, all-turn accuracy is
+ * **0.84 clean and 0.80 far-field** with the right speaker count in about 0.9 of
+ * sessions — against 0.79 / 0.77, and about 0.7, for the single-turn mint behind a
+ * 1250ms speech floor that shipped before it. On eight production recordings it
+ * is 0.89 against 0.86. One failure it does not fix, measured on the browser
+ * channel: two voices whose turns score above `tauAssign` against each other are
+ * merged into one speaker. See
+ * `plans/260926-1444-viyt-diar-attribution-ruler/adaptive-threshold-findings.md`.
  */
 
 /** Two bars, a dead zone between them, and a ceiling on how many voices exist. */
@@ -48,6 +61,11 @@ export interface AutoAttributionConfig {
   tauNew: number;
   /** Most voices that may ever be minted in one conversation. */
   kMax: number;
+  /**
+   * Turns that must agree before a new voice becomes a speaker. 1 mints on the
+   * first turn, which is what `online.py` calls `mint_confirmations == 1`.
+   */
+  mintConfirmations: number;
 }
 
 /**
@@ -76,51 +94,10 @@ export const DEFAULT_AUTO_ATTRIBUTION: AutoAttributionConfig = {
   // voice under this cap lands on whichever chip is closer — a real failure,
   // named rather than hidden, and one that reads rather than corrupts.
   kMax: 2,
+  // Measured against 1 on real dialogue: see the module header. 3 was no better
+  // and delays every new voice by one more turn.
+  mintConfirmations: 2,
 };
-
-/**
- * Speech a turn must carry before it is allowed to say anything about who spoke.
- *
- * **Enforced by the caller, before `observeVoice` is reached**, and that
- * placement is the whole of it: this function has four exits that place a turn
- * and one of them — the first-vector mint below — consults no threshold at all.
- * A floor inside here would have to be repeated at each; a floor in front of the
- * call covers all four at once.
- *
- * **1250ms, and it is a measurement rather than a round number.** Two of them,
- * taken independently and agreeing:
- *
- * - a length sweep over windows cut from one speaker's long turns, scored
- *   against a centroid built from held-out turns of that same speaker: the share
- *   of clips scoring below {@link AutoAttributionConfig.tauNew} — which is to
- *   say, the share that would declare their own speaker a stranger — is 6.2% at
- *   1000ms and first reaches 0/80 at 1250ms;
- * - a replay of this clusterer over all 55 turns of a real conversation, which
- *   reproduced production's labels exactly, phantom speaker included. The
- *   phantom survives a 1000ms floor and disappears at 1250ms.
- *
- * At 1000ms the sweep's MEAN looks healthy at 0.603 while a sixteenth of clips
- * are still under the bar. The tail is what mints a speaker, so the tail is what
- * this is set from.
- *
- * **Both decisions, not just creation.** Letting a sub-floor turn join its
- * nearest voice instead was tested and is a coin flip: {@link AutoAssignment
- * .nearest} records these scoring 0.51–0.53 against a chance level of 0.50 at
- * two speakers. The caller holds the turn `pending` and settles it by
- * carry-forward, which at least bets on conversational continuity.
- *
- * **What it costs, stated rather than buried.** A second speaker who only ever
- * interjects — never once speaking above the floor — is no longer discovered as
- * a second speaker at all. That is a real conversation shape and this is the
- * strongest argument against the floor; it was weighed against a phantom
- * speaker that no later turn can ever undo, and lost.
- *
- * Measured in SPEECH, which is why `server.turn.embedding` carries `speechMs`
- * separately from `audioMs`. The same floor expressed in buffer time would be a
- * conversion from this measurement rather than the measurement, and would move
- * whenever the pre-roll or the hangover did.
- */
-export const SPEECH_FLOOR_MS = 1250;
 
 /**
  * One discovered voice.
@@ -148,9 +125,14 @@ export interface VoiceCluster {
  */
 export interface AutoAttributionState {
   readonly clusters: readonly VoiceCluster[];
+  /**
+   * Voices heard once but not yet corroborated, in the order they were opened.
+   * They carry no ordinal and render nothing; see `mintConfirmations`.
+   */
+  readonly provisional: readonly VoiceCluster[];
 }
 
-export const EMPTY_AUTO_ATTRIBUTION: AutoAttributionState = { clusters: [] };
+export const EMPTY_AUTO_ATTRIBUTION: AutoAttributionState = { clusters: [], provisional: [] };
 
 /** What the clusterer decided about one turn. */
 export interface AutoAssignment {
@@ -216,7 +198,7 @@ function fold(cluster: VoiceCluster, vector: readonly number[]): VoiceCluster {
  * like it is working.
  */
 export function isUsableConfig(config: AutoAttributionConfig): boolean {
-  return config.tauNew <= config.tauAssign && config.kMax >= 1;
+  return config.tauNew <= config.tauAssign && config.kMax >= 1 && config.mintConfirmations >= 1;
 }
 
 /**
@@ -245,12 +227,7 @@ export function observeVoice(
     };
   }
 
-  if (state.clusters.length === 0) {
-    return {
-      state: { clusters: [{ sum: [...vector], turns: 1 }] },
-      assignment: { index: 0, created: true, score: -Infinity, nearest: 0 },
-    };
-  }
+  if (state.clusters.length === 0) return open(state, vector, config, -Infinity, null);
 
   let best = 0;
   let bestScore = -Infinity;
@@ -272,6 +249,7 @@ export function observeVoice(
 
   const joined = (index: number): { state: AutoAttributionState; assignment: AutoAssignment } => ({
     state: {
+      ...state,
       clusters: state.clusters.map((cluster, at) =>
         at === index ? fold(cluster, vector) : cluster,
       ),
@@ -283,17 +261,7 @@ export function observeVoice(
 
   const capBound = state.clusters.length >= config.kMax;
   if (bestScore < config.tauNew) {
-    if (!capBound) {
-      return {
-        state: { clusters: [...state.clusters, { sum: [...vector], turns: 1 }] },
-        assignment: {
-          index: state.clusters.length,
-          created: true,
-          score: bestScore,
-          nearest: best,
-        },
-      };
-    }
+    if (!capBound) return open(state, vector, config, bestScore, best);
     // The cap forbids a new voice but not a wrong one. Chosen over falling
     // silent because a chip that never resolves is the design's one named
     // failure, and measured before it was chosen.
@@ -303,4 +271,100 @@ export function observeVoice(
   // The dead zone. Not placed, not lost — the caller holds it pending and fills
   // it later, and `nearest` is what it fills it with.
   return { state, assignment: { index: null, created: false, score: bestScore, nearest: best } };
+}
+
+/**
+ * Start a voice, or take a step towards one.
+ *
+ * With `mintConfirmations` at 1 this is a plain mint. Above it, the vector either
+ * corroborates the provisional voice it scores best against — at `tauAssign`,
+ * the same bar a known voice is joined at — or opens a provisional voice of its
+ * own. Either way the turn names nobody until a provisional voice holds enough
+ * turns, and the turn that completes it is the one that mints it. A port of
+ * `OnlineAttributor._open` in `online.py`, which the parity test holds it to.
+ */
+function open(
+  state: AutoAttributionState,
+  vector: readonly number[],
+  config: AutoAttributionConfig,
+  score: number,
+  nearest: number | null,
+): { state: AutoAttributionState; assignment: AutoAssignment } {
+  if (config.mintConfirmations <= 1) {
+    return {
+      state: { ...state, clusters: [...state.clusters, { sum: [...vector], turns: 1 }] },
+      assignment: {
+        index: state.clusters.length,
+        created: true,
+        score,
+        nearest: nearest ?? state.clusters.length,
+      },
+    };
+  }
+
+  let best = -1;
+  let bestScore = -Infinity;
+  for (let index = 0; index < state.provisional.length; index += 1) {
+    const centroid = centroidOf(state.provisional[index]!);
+    if (centroid.length !== vector.length) continue;
+    const candidate = dot(centroid, vector);
+    if (candidate > bestScore) {
+      bestScore = candidate;
+      best = index;
+    }
+  }
+
+  if (best >= 0 && bestScore >= config.tauAssign) {
+    const grown = fold(state.provisional[best]!, vector);
+    if (grown.turns >= config.mintConfirmations && state.clusters.length < config.kMax) {
+      return {
+        state: {
+          clusters: [...state.clusters, grown],
+          provisional: state.provisional.filter((_, at) => at !== best),
+        },
+        assignment: { index: state.clusters.length, created: true, score, nearest },
+      };
+    }
+    return {
+      state: {
+        ...state,
+        provisional: state.provisional.map((cluster, at) => (at === best ? grown : cluster)),
+      },
+      assignment: { index: null, created: false, score, nearest },
+    };
+  }
+
+  return {
+    state: { ...state, provisional: [...state.provisional, { sum: [...vector], turns: 1 }] },
+    assignment: { index: null, created: false, score, nearest },
+  };
+}
+
+/**
+ * Session end: provisional voices become speakers, most-corroborated first,
+ * while the cap has room. Ties keep the order the voices were heard in.
+ *
+ * Safe against the display contract because a provisional voice never named a
+ * turn — every turn it holds is still `pending` — so this adds ordinals and
+ * moves none. `promoted` is how many were added, in order, after the existing
+ * voices. The same rule as `OnlineAttributor.promote_provisional` in `online.py`.
+ */
+export function promoteProvisional(
+  state: AutoAttributionState,
+  config: AutoAttributionConfig = DEFAULT_AUTO_ATTRIBUTION,
+): { state: AutoAttributionState; promoted: number } {
+  const room = Math.max(0, config.kMax - state.clusters.length);
+  if (room === 0 || state.provisional.length === 0) return { state, promoted: 0 };
+  const order = state.provisional
+    .map((cluster, at) => ({ cluster, at }))
+    .sort((left, right) => right.cluster.turns - left.cluster.turns || left.at - right.at);
+  const moving = order.slice(0, room);
+  const moved = new Set(moving.map((entry) => entry.at));
+  return {
+    state: {
+      clusters: [...state.clusters, ...moving.map((entry) => entry.cluster)],
+      provisional: state.provisional.filter((_, at) => !moved.has(at)),
+    },
+    promoted: moving.length,
+  };
 }
