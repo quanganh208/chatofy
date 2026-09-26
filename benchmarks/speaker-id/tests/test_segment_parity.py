@@ -72,7 +72,7 @@ def _fixtures() -> list[Path]:
     return sorted(FIXTURES.glob("*.wav"))
 
 
-def _reference(path: Path, max_utterance_ms: float = 0.0) -> dict:
+def _reference(path: Path, max_utterance_ms: float = 0.0, resume_after_cut: bool = False) -> dict:
     """Run the real gate over a fixture, or skip if the toolchain is absent."""
     if shutil.which("pnpm") is None:
         _unavailable("pnpm not on PATH; cannot transpile the real SpeechGate")
@@ -84,6 +84,8 @@ def _reference(path: Path, max_utterance_ms: float = 0.0) -> dict:
     command = ["node", str(GATE_REFERENCE), str(path)]
     if max_utterance_ms:
         command += ["--max-utterance-ms", str(int(max_utterance_ms))]
+    if resume_after_cut:
+        command += ["--resume-after-cut"]
     result = subprocess.run(
         command,
         capture_output=True,
@@ -118,15 +120,24 @@ def test_fixtures_exist_when_parity_is_required() -> None:
 #: mis-ordered the arm relative to the ceiling check would pass a default-only
 #: suite and cut every long turn in the wrong place — and Phase 4 runs with a
 #: ceiling set.
-GATE_CONFIGS = [0.0, 1500.0]
+#: The resume variant is what the web app runs (`continuous: true` sets
+#: `resumeAfterCut`), and it only differs from the plain one after a forced cut.
+GATE_CONFIGS = [(0.0, False), (1500.0, False), (1500.0, True)]
 
 
-@pytest.mark.parametrize("max_utterance_ms", GATE_CONFIGS, ids=lambda v: f"ceiling{int(v)}")
+@pytest.mark.parametrize(
+    ("max_utterance_ms", "resume_after_cut"),
+    GATE_CONFIGS,
+    ids=lambda v: f"ceiling{int(v)}" if not isinstance(v, bool) else ("resume" if v else "plain"),
+)
 @pytest.mark.parametrize("fixture", _fixtures(), ids=lambda p: p.stem)
-def test_port_matches_real_speech_gate(fixture: Path, max_utterance_ms: float) -> None:
-    expected = _reference(fixture, max_utterance_ms)
+def test_port_matches_real_speech_gate(
+    fixture: Path, max_utterance_ms: float, resume_after_cut: bool
+) -> None:
+    expected = _reference(fixture, max_utterance_ms, resume_after_cut)
     audio = load_audio(fixture)
-    actual = run_gate(audio.samples, audio.sample_rate, max_utterance_ms=max_utterance_ms)
+    actual = run_gate(audio.samples, audio.sample_rate, max_utterance_ms=max_utterance_ms,
+                      resume_after_cut=resume_after_cut)
 
     # Block framing must match first: if the two disagree about how the audio is
     # chopped, comparing event indices is meaningless and the mismatch below
@@ -196,8 +207,15 @@ def test_forced_cut_path_is_modelled() -> None:
         f"{longest.name}: a 1500ms ceiling produced no forced cut — "
         "the ceiling path is not wired up"
     )
-    assert len(bounded.events) > len(unbounded.events), (
-        "a ceiling should produce more turn boundaries, not fewer"
+    # Turn boundaries are the `end` events, and a ceiling may not remove any.
+    # "More" held while a cut took the first quiet block; since the cut waits for
+    # a 100ms pause, a ceiling can land on exactly the pauses a hangover would
+    # have ended on — the longest fixture ends in the same 4 places either way,
+    # all of them `forced`. Counting every event was a worse proxy still: arming
+    # as a turn opens folds away the probableEnd events.
+    ends = lambda gate_pass: sum(event.type == "end" for event in gate_pass.events)  # noqa: E731
+    assert ends(bounded) >= ends(unbounded), (
+        "a ceiling should never produce fewer turn boundaries"
     )
 
 

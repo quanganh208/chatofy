@@ -42,7 +42,11 @@ MIN_NOISE_FLOOR = 0.004
 FLOOR_RISE = 0.002
 FLOOR_FALL = 0.05
 #: Default distance ahead of ``max_utterance_ms`` to start looking for a cut.
-CUT_LOOKAHEAD_MS = 500.0
+CUT_LOOKAHEAD_MS = 1500.0
+#: Quiet an armed cut waits for, so it lands in a pause rather than a dip in a word.
+CUT_MIN_QUIET_MS = 100.0
+#: Speech that reopens a turn after a forced cut, in place of MIN_SPEECH_MS.
+RESUME_MIN_SPEECH_MS = 40.0
 
 # --- Constant from capture-pump.ts -----------------------------------------
 
@@ -103,12 +107,14 @@ class SpeechGate:
         *,
         max_utterance_ms: float = 0.0,
         cut_lookahead_ms: float = CUT_LOOKAHEAD_MS,
+        resume_after_cut: bool = False,
     ) -> None:
         self._on_speech_start = on_speech_start
         self._on_probable_end = on_probable_end
         self._on_speech_end = on_speech_end
         self._max_utterance_ms = max_utterance_ms
         self._cut_lookahead_ms = cut_lookahead_ms
+        self._resume_after_cut = resume_after_cut
 
         self._noise_floor = MIN_NOISE_FLOOR
         self._speaking = False
@@ -117,6 +123,8 @@ class SpeechGate:
         self._probable_end_fired = False
         self._utterance_ms = 0.0
         self._armed = False
+        #: A forced cut just closed a turn; RESUME_MIN_SPEECH_MS reopens one.
+        self._resuming = False
 
     @property
     def _has_ceiling(self) -> bool:
@@ -142,8 +150,10 @@ class SpeechGate:
             self._silence_ms = 0.0
             self._probable_end_fired = False
             self._speech_ms += duration_ms
-            if not self._speaking and self._speech_ms >= MIN_SPEECH_MS:
+            min_speech_ms = RESUME_MIN_SPEECH_MS if self._resuming else MIN_SPEECH_MS
+            if not self._speaking and self._speech_ms >= min_speech_ms:
                 self._speaking = True
+                self._resuming = False
                 if self._on_speech_start:
                     self._on_speech_start()
             if self._speaking:
@@ -158,6 +168,12 @@ class SpeechGate:
         # Silence that never became a turn is just room tone; forget it.
         if not self._speaking:
             self._speech_ms = 0.0
+            # A cut followed by a real stop: the next turn is an ordinary one again.
+            if self._resuming:
+                self._silence_ms += duration_ms
+                if self._silence_ms >= SPEECH_HANGOVER_MS:
+                    self._resuming = False
+                    self._silence_ms = 0.0
             return False
 
         self._utterance_ms += duration_ms
@@ -169,9 +185,9 @@ class SpeechGate:
             if self._on_probable_end:
                 self._on_probable_end()
 
-        # Armed, and this block is quiet: the gap the lookahead was for. Checked
-        # before the hangover because it is always the earlier of the two.
-        if self._armed:
+        # Armed, and the quiet has lasted long enough to be a pause rather than a
+        # dip inside a word. Checked before the hangover: always the earlier.
+        if self._armed and self._silence_ms >= CUT_MIN_QUIET_MS:
             self._cut()
             return False
 
@@ -197,6 +213,7 @@ class SpeechGate:
 
     def _cut(self) -> None:
         self.reset()
+        self._resuming = self._resume_after_cut
         if self._on_speech_end:
             self._on_speech_end("forced")
 
@@ -211,6 +228,7 @@ class SpeechGate:
         self._probable_end_fired = False
         self._utterance_ms = 0.0
         self._armed = False
+        self._resuming = False
 
 
 #: Trailing silence a clip needs for its final turn to close at all.
@@ -333,6 +351,7 @@ def run_gate(
     block_samples: int = WORKLET_BLOCK_SAMPLES,
     max_utterance_ms: float = 0.0,
     cut_lookahead_ms: float = CUT_LOOKAHEAD_MS,
+    resume_after_cut: bool = False,
 ) -> GatePass:
     """Run the gate over float mono samples at their own rate.
 
@@ -373,6 +392,7 @@ def run_gate(
         on_end,
         max_utterance_ms=max_utterance_ms,
         cut_lookahead_ms=cut_lookahead_ms,
+        resume_after_cut=resume_after_cut,
     )
 
     for index, block in enumerate(iter_blocks(samples, block_samples)):
@@ -425,18 +445,22 @@ def segment(
     block_samples: int = WORKLET_BLOCK_SAMPLES,
     max_utterance_ms: float = 0.0,
     cut_lookahead_ms: float = CUT_LOOKAHEAD_MS,
+    continuous: bool = True,
 ) -> Segmentation:
     """Segment source-rate float audio into the turns production would send.
 
     Three things here follow `capture-pump.ts` rather than the gate, because the
     gate decides WHEN a turn ends while the pump decides WHAT AUDIO it contains:
 
-    1. **A turn's audio stops at the last ``probableEnd``, not at the end event.**
-       The pump holds silent blocks instead of forwarding them (`:429-434`),
-       flushes them when `onProbableEnd` fires (`:280`), and `closeTurn` DROPS
-       whatever is still held (`:321`) — "by definition nothing but silence".
-       So roughly the last 350ms of a hangover-ended turn never reaches the
-       server, and must not reach the embedder here either.
+    1. **A hangover-ended turn's audio stops at the last ``probableEnd``.**
+       The pump holds silent blocks instead of forwarding them, flushes them when
+       `onProbableEnd` fires, and `closeTurn` DROPS whatever is still held on a
+       hangover — trailing silence. So roughly the last 350ms of such a turn
+       never reaches the server, and must not reach the embedder here either.
+       **A forced cut keeps it:** `closeTurn('forced')` flushes the held pause,
+       which is a gap between words of a speaker still talking, so that turn
+       runs to the block before the cut (the cut block itself lands in the next
+       turn's pre-roll).
 
     2. **Pre-roll cannot reach back past the previous turn's close.**
        `closeTurn` clears `preRoll` (`:320`), so a new turn's pre-roll can only
@@ -448,6 +472,10 @@ def segment(
     3. **A turn still open when the audio ends is dropped**, because the gate
        never declared it over and production never sent it. See
        :class:`Segmentation` — the drop is counted, not silent.
+
+    ``continuous`` mirrors `CapturePump`'s option of the same name, which the web
+    app sets: the pump is back in `idle` when a cut lands, so the gate resumes
+    after a forced cut on RESUME_MIN_SPEECH_MS of speech (`resumeAfterCut`).
     """
     result = run_gate(
         samples,
@@ -455,6 +483,7 @@ def segment(
         block_samples=block_samples,
         max_utterance_ms=max_utterance_ms,
         cut_lookahead_ms=cut_lookahead_ms,
+        resume_after_cut=continuous,
     )
     block_ms = result.block_ms
     pre_roll_blocks = max(1, round(PRE_ROLL_MS / block_ms))
@@ -478,7 +507,10 @@ def segment(
             # flushing — not reachable via either ending (the hangover passes
             # PROBABLE_END_MS on the way, and a forced cut is preceded by
             # `armIfDue` firing one) but falling back keeps this total.
-            content_end = last_probable if last_probable is not None else event.block_index
+            if event.reason == "forced":
+                content_end = event.block_index - 1
+            else:
+                content_end = last_probable if last_probable is not None else event.block_index
 
             # Net speech counts only blocks the gate itself called speech, and
             # only within the content window: the pre-roll is audio kept from
