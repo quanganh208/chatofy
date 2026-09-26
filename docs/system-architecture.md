@@ -276,10 +276,21 @@ computed on read. One turn:
 
 1. cosine against every existing centroid, best one kept;
 2. at or above `tauAssign` (0.375) — join that voice and fold the vector in;
-3. below `tauNew` (0.325) — mint a voice, unless `kMax` (2) is already reached,
-   in which case join the nearest one instead;
+3. below `tauNew` (0.325) — a voice nobody has heard, unless `kMax` (2) is
+   already reached, in which case join the nearest one instead. **A new voice is
+   not believed on one turn** (`mintConfirmations`, 2): the turn opens a
+   _provisional_ voice that names nobody, and the next turn matching it at
+   `tauAssign` is the one that mints the ordinal. The first turn of a
+   conversation goes through the same step;
 4. between the two — decide nothing. The turn is held `pending`, and
    `transcript.settled` fills it when the conversation ends.
+
+At `transcript.settled` a provisional voice that never found its second turn is
+promoted, most-corroborated first, while the cap has room. Its turns were all
+`pending`, so this adds ordinals without moving any. Every vector is observed,
+however short the turn: a 1250ms speech floor used to withhold short turns and
+settle them by carry-forward, and deferred minting replaced it (measurements
+below).
 
 **In the literature this is TTSAS, and the resemblance is structural rather than
 sourced.** A two-threshold sequential scheme with an undecided band and a later
@@ -343,10 +354,22 @@ the vectors all leave with the conversation. Nothing is persisted on either side
 and no name is ever stored beside a voice.
 
 **What the measurements say about how well it works, since the flag decision
-rests on it.** On simulated meetings at the product's real turn length,
-prefix-locked accuracy is **0.78 on clean audio and 0.59 on far-field** against a
-0.85 target, and about **a third of turns land in the dead zone** and are filled
-at session end. A separate control established that the bench itself is sound —
+rests on it.** On 100 real two-person Vietnamese dialogues (ViYT-Diar, manually
+annotated; held-out half), run through the whole client pipeline, all-turn
+accuracy is **0.84 on clean audio and 0.80 far-field**, with the right number of
+speakers in about 0.9 of conversations. The single-turn mint behind a speech
+floor that shipped before it scored 0.79 / 0.77, with the right count in about
+0.7. On the eight production recordings, labelled by agreement between
+ElevenLabs Scribe and Sortformer, it scores 0.89 against 0.86.
+
+**One failure is measured and not fixed.** On the browser channel two voices can
+score above `tauAssign` against each other: CAM++ puts two podcast hosts at 0.37–0.41
+across speakers, 0.62–0.72 within one. The second voice is then joined to the
+first and never minted. Neither higher fixed thresholds nor session-adaptive
+scores fixed it without breaking the corpus rulers, and the real-channel evidence
+is one speaker pair.
+`plans/260926-1444-viyt-diar-attribution-ruler/adaptive-threshold-findings.md`
+has the sweep. A separate control established that the bench itself is sound —
 it reproduces this model's published 1.16% EER on VoxCeleb1-O to within 0.19
 points — and that **turn length, not language, is the dominant error term**: one
 second of English studio audio costs 15.65% EER against 1.35% at full length.

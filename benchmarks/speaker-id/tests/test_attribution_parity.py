@@ -41,6 +41,7 @@ REFERENCE = BENCH_ROOT / "scripts" / "attribution-reference.mjs"
 TAU_ASSIGN = 0.375
 TAU_NEW = 0.325
 K_MAX = 2
+MINT_CONFIRMATIONS = 2
 
 #: CAM++ embedding width, so the vectors exercise the real arithmetic length.
 DIM = 192
@@ -108,11 +109,16 @@ def _session(seed: int, speakers: int, turns: int, spread: float) -> list[list[f
     ]
 
 
-def _python(vectors: list[list[float]]) -> list[dict]:
-    """What the oracle does with the same input."""
-    attributor = OnlineAttributor(
-        tau_assign=TAU_ASSIGN, tau_new=TAU_NEW, k_max=K_MAX, above_cap="assign"
+def _attributor(mint_confirmations: int = MINT_CONFIRMATIONS) -> OnlineAttributor:
+    return OnlineAttributor(
+        tau_assign=TAU_ASSIGN, tau_new=TAU_NEW, k_max=K_MAX, above_cap="assign",
+        mint_confirmations=mint_confirmations,
     )
+
+
+def _python(vectors: list[list[float]], mint_confirmations: int = MINT_CONFIRMATIONS) -> list[dict]:
+    """What the oracle does with the same input."""
+    attributor = _attributor(mint_confirmations)
     out = []
     for vector in vectors:
         assignment = attributor.observe(np.asarray(vector, dtype=np.float32))
@@ -121,7 +127,7 @@ def _python(vectors: list[list[float]]) -> list[dict]:
     return out
 
 
-def _typescript(vectors: list[list[float]]) -> dict:
+def _typescript(vectors: list[list[float]], mint_confirmations: int = MINT_CONFIRMATIONS) -> dict:
     """Drive the shipped clusterer, or skip if the toolchain is absent."""
     if shutil.which("pnpm") is None:
         _unavailable("pnpm not on PATH; cannot transpile the shipped clusterer")
@@ -130,7 +136,8 @@ def _typescript(vectors: list[list[float]]) -> dict:
 
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
         json.dump(
-            {"tauAssign": TAU_ASSIGN, "tauNew": TAU_NEW, "kMax": K_MAX, "vectors": vectors},
+            {"tauAssign": TAU_ASSIGN, "tauNew": TAU_NEW, "kMax": K_MAX,
+             "mintConfirmations": mint_confirmations, "vectors": vectors},
             handle,
         )
         path = handle.name
@@ -156,6 +163,7 @@ def _score(raw: object) -> float:
     return float(raw) if not isinstance(raw, str) else float(raw)
 
 
+@pytest.mark.parametrize("mint_confirmations", [MINT_CONFIRMATIONS, 1])
 @pytest.mark.parametrize(
     ("name", "speakers", "turns", "spread"),
     [
@@ -174,12 +182,12 @@ def _score(raw: object) -> float:
     ],
 )
 def test_port_matches_the_python_attributor(
-    name: str, speakers: int, turns: int, spread: float
+    name: str, speakers: int, turns: int, spread: float, mint_confirmations: int
 ) -> None:
     vectors = _session(seed=abs(hash(name)) % (2**32), speakers=speakers, turns=turns,
                        spread=spread)
-    oracle = _python(vectors)
-    actual = _typescript(vectors)
+    oracle = _python(vectors, mint_confirmations)
+    actual = _typescript(vectors, mint_confirmations)
 
     assert len(actual["assignments"]) == len(oracle), f"{name}: turn count differs"
 
@@ -224,9 +232,7 @@ def test_the_two_agree_on_how_many_speakers_exist() -> None:
     cap branch is exactly where that happens.
     """
     vectors = _session(seed=20260901, speakers=3, turns=60, spread=0.9)
-    attributor = OnlineAttributor(
-        tau_assign=TAU_ASSIGN, tau_new=TAU_NEW, k_max=K_MAX, above_cap="assign"
-    )
+    attributor = _attributor()
     for vector in vectors:
         attributor.observe(np.asarray(vector, dtype=np.float32))
 
@@ -244,9 +250,7 @@ def test_the_two_fold_the_same_turns_into_each_centroid() -> None:
     profile it compares the NEXT turn against is no longer the same one.
     """
     vectors = _session(seed=20260902, speakers=2, turns=50, spread=1.6)
-    attributor = OnlineAttributor(
-        tau_assign=TAU_ASSIGN, tau_new=TAU_NEW, k_max=K_MAX, above_cap="assign"
-    )
+    attributor = _attributor()
     for vector in vectors:
         attributor.observe(np.asarray(vector, dtype=np.float32))
 
@@ -256,3 +260,22 @@ def test_the_two_fold_the_same_turns_into_each_centroid() -> None:
     # public accessor, and inventing one on the module under test so a test
     # could read it would be the test shaping the code it checks.
     assert actual["turns"] == [cluster.turns for cluster in attributor._clusters]
+
+
+@pytest.mark.parametrize(("seed", "speakers", "turns", "spread"),
+                         [(20260926, 2, 12, 1.2), (20260927, 3, 9, 1.4), (20260928, 2, 3, 0.5)])
+def test_the_two_promote_the_same_voices_at_session_end(
+    seed: int, speakers: int, turns: int, spread: float
+) -> None:
+    """Settling promotes uncorroborated voices; which ones, and in what order,
+    decides every ordinal minted at the end of a conversation.
+    """
+    vectors = _session(seed=seed, speakers=speakers, turns=turns, spread=spread)
+    attributor = _attributor()
+    for vector in vectors:
+        attributor.observe(np.asarray(vector, dtype=np.float32))
+    attributor.promote_provisional()
+
+    actual = _typescript(vectors)
+
+    assert actual["promotedTurns"] == [cluster.turns for cluster in attributor._clusters]

@@ -17,7 +17,7 @@ import {
   DEFAULT_AUTO_ATTRIBUTION,
   EMPTY_AUTO_ATTRIBUTION,
   observeVoice,
-  SPEECH_FLOOR_MS,
+  promoteProvisional,
   type AutoAttributionState,
 } from './auto-attribution.js';
 
@@ -670,7 +670,8 @@ export function turnKeyedTranscriptReducer(
       if (state.embeddings[event.sessionId]) return { ...state, embeddings };
 
       // Held, not lost: the turn is owed an ordinal and `transcript.settled` is
-      // what pays it. Reached from the dead zone, and from every refusal below.
+      // what pays it. Reached from the dead zone, from a turn that opened or grew
+      // a provisional voice, and from every refusal below.
       const held = (autoAttribution: AutoAttributionState): TurnKeyedTranscript => ({
         ...state,
         embeddings,
@@ -678,23 +679,15 @@ export function turnKeyedTranscriptReducer(
         attributions: markPending(state.attributions, event.sessionId),
       });
 
-      // Too little voice to say anything about who spoke, so nothing is said —
-      // and it is said HERE, in front of the call, rather than inside
-      // `observeVoice`. That function has four exits that place a turn and the
-      // first of them mints a cluster with no threshold consulted at all, so a
-      // floor applied at the decision would have to be applied four times and
-      // would be a fifth thing to keep in step. Refusing to observe covers every
-      // exit by construction: the vector is kept — settling still wants it, and
-      // its presence is what tells settling the layer ran — but no cluster is
-      // created, none is joined, and no centroid moves.
-      //
-      // See `SPEECH_FLOOR_MS` for the two measurements behind the number and for
-      // what this costs. The short version is that a vector built on less voice
-      // than this is noise, noise resembles other noise far more than it
-      // resembles a voice, and a clusterer fed two of them discovers a speaker
-      // who was never in the room.
-      if (event.speechMs < SPEECH_FLOOR_MS) return held(state.autoAttribution);
-
+      // Every vector is observed, however little speech is behind it. A floor of
+      // 1250ms used to stand here, because two short noisy vectors resemble each
+      // other more than either resembles a voice and a clusterer that minted on
+      // one turn found a speaker who was never in the room. Deferred minting
+      // answers that at the decision instead: one odd turn only opens a
+      // provisional voice, which names nobody. Measured on real dialogue, the
+      // floor withheld 44% of turns and settled them by carry-forward, and
+      // removing it together with deferral raised accuracy on every ruler — see
+      // the header of `auto-attribution.ts`.
       const observed = observeVoice(state.autoAttribution, event.vector, DEFAULT_AUTO_ATTRIBUTION);
 
       if (observed.assignment.index === null) return held(observed.state);
@@ -760,6 +753,35 @@ export function turnKeyedTranscriptReducer(
       // switched off. A turn nobody attributed must never render as a person.
       if (Object.keys(state.embeddings).length === 0) return state;
 
+      // Voices heard but never corroborated become speakers now, if the cap has
+      // room. None of their turns showed a name, so this adds ordinals and moves
+      // none. Each needs a roster entry before a turn can point at it; a roster
+      // that is full keeps the voice unnamed, and its turns fall to the
+      // carry-forward below.
+      let autoAttribution = state.autoAttribution;
+      let speakers = state.speakers;
+      let nextSpeakerNumber = state.nextSpeakerNumber;
+      let autoSpeakerIds = state.autoSpeakerIds;
+      const promotion = promoteProvisional(autoAttribution, DEFAULT_AUTO_ATTRIBUTION);
+      if (promotion.promoted > 0) {
+        let named = autoSpeakerIds.length;
+        const room = autoAttribution.clusters.length + promotion.promoted;
+        while (named < room) {
+          const added = addSpeaker(speakers, nextSpeakerNumber);
+          if (added.speakers.length === speakers.length) break;
+          speakers = added.speakers;
+          nextSpeakerNumber = added.nextNumber;
+          autoSpeakerIds = [...autoSpeakerIds, speakers[speakers.length - 1]!.id];
+          named += 1;
+        }
+        // Commit only the voices that got a roster entry, so clusters and ids
+        // stay index-aligned — the same lockstep the live mint keeps.
+        autoAttribution =
+          named === room
+            ? promotion.state
+            : { ...autoAttribution, clusters: promotion.state.clusters.slice(0, named) };
+      }
+
       // The promise `pending` makes, kept. Every turn still waiting takes the
       // nearest voice its own vector points at; a turn whose vector never
       // arrived — the last few of every session, lost when the socket closed
@@ -772,23 +794,16 @@ export function turnKeyedTranscriptReducer(
       const filled = fillPendingTurns(state.attributions, order, (sessionId) => {
         const embedding = state.embeddings[sessionId];
         if (!embedding) return null;
-        // Withheld when it arrived and withheld again here, for the same
-        // reason. `nearest` on a vector this short scores 0.51 against a chance
-        // level of 0.50, so filling from it is a coin flip wearing the clothes
-        // of evidence. Answering null hands the turn to the carry-forward, which
-        // bets on the same person having spoken twice — a bet about a
-        // conversation rather than about a vector that says nothing.
-        if (embedding.speechMs < SPEECH_FLOOR_MS) return null;
         const { assignment } = observeVoice(
-          state.autoAttribution,
+          autoAttribution,
           embedding.vector,
           DEFAULT_AUTO_ATTRIBUTION,
         );
         if (assignment.nearest === null) return null;
-        const speakerId = state.autoSpeakerIds[assignment.nearest];
+        const speakerId = autoSpeakerIds[assignment.nearest];
         // A voice whose roster entry was removed cannot be pointed at, so this
         // turn falls through to the carry-forward instead.
-        if (!speakerId || !state.speakers.some((speaker) => speaker.id === speakerId)) return null;
+        if (!speakerId || !speakers.some((speaker) => speaker.id === speakerId)) return null;
         return speakerId;
       });
       // A turn still waiting after all that had no usable vector of its own AND
@@ -808,8 +823,17 @@ export function turnKeyedTranscriptReducer(
       const attributions = withoutPending(filled);
       // Idempotent by identity, not just by value: a second stop must not
       // re-render the whole transcript for no change.
-      if (attributions === state.attributions) return state;
-      return { ...state, attributions };
+      if (attributions === state.attributions && autoAttribution === state.autoAttribution) {
+        return state;
+      }
+      return {
+        ...state,
+        attributions,
+        autoAttribution,
+        autoSpeakerIds,
+        speakers,
+        nextSpeakerNumber,
+      };
     }
 
     case 'server.transcript.final': {

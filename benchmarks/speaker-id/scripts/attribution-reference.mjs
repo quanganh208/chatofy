@@ -23,9 +23,9 @@
 // Usage:
 //   node scripts/attribution-reference.mjs <vectors.json>
 //
-// Input JSON: { tauAssign, tauNew, kMax, vectors: number[][] }
+// Input JSON: { tauAssign, tauNew, kMax, mintConfirmations, vectors: number[][] }
 // Emits JSON to stdout:
-//   { assignments: [{ index, created, score, nearest }], clusters, turns }
+//   { assignments: [{ index, created, score, nearest }], clusters, turns, promotedTurns }
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, existsSync } from 'node:fs';
@@ -89,9 +89,11 @@ async function main() {
     process.exit(2);
   }
 
-  const { observeVoice, EMPTY_AUTO_ATTRIBUTION } = await loadClusterer();
-  const { tauAssign, tauNew, kMax, vectors } = JSON.parse(readFileSync(inputPath, 'utf8'));
-  const config = { tauAssign, tauNew, kMax };
+  const { observeVoice, promoteProvisional, EMPTY_AUTO_ATTRIBUTION } = await loadClusterer();
+  const { tauAssign, tauNew, kMax, mintConfirmations, vectors } = JSON.parse(
+    readFileSync(inputPath, 'utf8'),
+  );
+  const config = { tauAssign, tauNew, kMax, mintConfirmations };
 
   let state = EMPTY_AUTO_ATTRIBUTION;
   const assignments = [];
@@ -109,6 +111,10 @@ async function main() {
         // Turns per cluster, so a port that places every turn correctly while
         // folding the wrong ones into a centroid still fails.
         turns: state.clusters.map((cluster) => cluster.turns),
+        // The same, after the session-end promotion settling runs.
+        promotedTurns: promoteProvisional(state, config).state.clusters.map(
+          (cluster) => cluster.turns,
+        ),
       },
       // `JSON.stringify` turns ±Infinity into `null`, and the first turn of every
       // conversation scores -Infinity — the sentinel for "nothing to compare
