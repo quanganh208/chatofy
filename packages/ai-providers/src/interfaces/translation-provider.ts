@@ -133,8 +133,6 @@ export interface TranslationRequest {
 
 export interface TranslationResult {
   text: string;
-  /** Populated if the provider auto-detected the source language. */
-  detectedSource?: LanguageCode;
   /**
    * The model that actually produced the text. Providers that can switch model
    * mid-request (e.g. on a quota rejection) report it so callers log the model
