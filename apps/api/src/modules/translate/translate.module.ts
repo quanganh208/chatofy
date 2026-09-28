@@ -3,6 +3,7 @@ import { AuthModule } from '../auth/auth.module';
 import { ProviderRegistry } from '@chatofy/ai-providers';
 import { AiProvidersFactory } from './providers/ai-providers.factory';
 import { registerDefaultProviders } from './providers/register-default-providers';
+import { SpeechLanguageSupport } from './providers/speech-language-support';
 import { PipelineTranslatorService } from './services/pipeline-translator.service';
 import { TranslationSessionService } from './services/translation-session.service';
 import { TurnMetricsRecorder } from './services/turn-metrics.recorder';
@@ -46,6 +47,7 @@ import { TranslateGateway } from './translate.gateway';
       useFactory: () => registerDefaultProviders(new ProviderRegistry()),
     },
     AiProvidersFactory,
+    SpeechLanguageSupport,
     PipelineTranslatorService,
     TranslationSessionService,
     TurnMetricsRecorder,

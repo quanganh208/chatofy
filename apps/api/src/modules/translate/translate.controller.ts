@@ -12,7 +12,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import type { TtsVoice } from '@chatofy/ai-providers';
+import type { TtsVoiceCatalog } from '@chatofy/ai-providers';
 import {
   DEFAULT_TRANSLATION_DIRECTION,
   LANGUAGE_CODES,
@@ -25,6 +25,7 @@ import { ApiErrorResponses } from '../../common/swagger/api-error-response.helpe
 import { TranslateRequestDto, TranslateResponseDto } from './dto/translate.dto';
 import { VoicesResponseDto } from './dto/voices.dto';
 import { PipelineTranslatorService } from './services/pipeline-translator.service';
+import { SpeechLanguageSupport } from './providers/speech-language-support';
 
 /**
  * The language `voices` answers for when the caller names none.
@@ -53,7 +54,10 @@ const DEFAULT_VOICES_LANGUAGE = directionLanguages(
 @ApiTags('translate')
 @Controller('translate')
 export class TranslateController {
-  constructor(private readonly pipeline: PipelineTranslatorService) {}
+  constructor(
+    private readonly pipeline: PipelineTranslatorService,
+    private readonly languageSupport: SpeechLanguageSupport,
+  ) {}
 
   /**
    * `@ApiBearerAuth()` is written per route here, not on the class, for the same
@@ -79,6 +83,21 @@ export class TranslateController {
       throw new BadRequestException(
         'audioBase64 did not decode to any audio bytes',
       );
+    }
+    // Same check the WS path makes in `TranslationSessionService.start`, before
+    // any provider call is spent on a language no configured engine serves.
+    // REST always returns synthesized audio, so `voiceOutput` is unconditionally
+    // true here.
+    const { source, target } = directionLanguages(
+      body.direction ?? DEFAULT_TRANSLATION_DIRECTION,
+    );
+    const languageRefusal = this.languageSupport.refusal({
+      recognition: source,
+      spoken: target,
+      voiceOutput: true,
+    });
+    if (languageRefusal) {
+      throw new BadRequestException(languageRefusal);
     }
     return this.pipeline.translateTurn({
       audio: new Uint8Array(audio),
@@ -118,9 +137,7 @@ export class TranslateController {
   })
   @ApiEnvelopeResponse(VoicesResponseDto)
   @ApiErrorResponses(400, 401)
-  async voices(
-    @Query('language') language?: string,
-  ): Promise<{ voices: TtsVoice[] }> {
+  async voices(@Query('language') language?: string): Promise<TtsVoiceCatalog> {
     const parsed = languageCodeSchema.safeParse(
       language ?? DEFAULT_VOICES_LANGUAGE,
     );
@@ -129,6 +146,6 @@ export class TranslateController {
         `language must be one of: ${LANGUAGE_CODES.join(', ')}`,
       );
     }
-    return { voices: await this.pipeline.listVoices(parsed.data) };
+    return this.pipeline.listVoices(parsed.data);
   }
 }

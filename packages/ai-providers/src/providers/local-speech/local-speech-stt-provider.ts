@@ -11,8 +11,19 @@ import type {
   SttTranscribeOptions,
   SttTranscriptResult,
 } from '../../interfaces/stt-provider.js';
-import { ProviderConfigError, ProviderResponseError } from '../../errors/provider-errors.js';
-import { extFromMime, fetchWithDeadline, LOCAL_STT_TIMEOUT_MS, truncate } from '../http-util.js';
+import {
+  ProviderConfigError,
+  ProviderConnectionError,
+  ProviderResponseError,
+} from '../../errors/provider-errors.js';
+import {
+  extFromMime,
+  fetchWithDeadline,
+  LOCAL_HEALTHZ_TIMEOUT_MS,
+  LOCAL_STT_TIMEOUT_MS,
+  truncate,
+} from '../http-util.js';
+import { readServedLanguages } from './served-languages.js';
 
 export interface LocalSpeechSttConfig {
   /** Base URL of the sidecar, e.g. `http://localhost:8002`. */
@@ -82,5 +93,22 @@ export class LocalSpeechSttProvider implements SttProvider {
     // An empty transcript is a legitimate result (silence); the pipeline turns
     // it into a "no speech detected" error, so it is not this layer's concern.
     return { text: json.text, language };
+  }
+
+  /**
+   * The registry languages `/healthz` reports this sidecar recognising.
+   *
+   * Rejects rather than resolving `[]` when the sidecar cannot be reached or
+   * has not said — an empty *resolved* list would read as "recognises
+   * nothing", which is never true of a running sidecar. The caller
+   * (`SpeechLanguageSupport`) treats a rejection as "not known right now" and
+   * refuses no turn on account of it.
+   */
+  async supportedLanguages(): Promise<readonly LanguageCode[]> {
+    const served = await readServedLanguages(this.baseUrl, LOCAL_HEALTHZ_TIMEOUT_MS);
+    if (!served) {
+      throw new ProviderConnectionError('Local STT did not report which languages it serves');
+    }
+    return served;
   }
 }

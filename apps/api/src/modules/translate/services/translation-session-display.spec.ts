@@ -13,6 +13,7 @@ import {
 import type { PipelineTranslatorService } from './pipeline-translator.service';
 import type { TurnMetrics, TurnMetricsRecorder } from './turn-metrics.recorder';
 import { encodePcm16Wav } from '../audio/wav-codec';
+import type { SpeechLanguageSupport } from '../providers/speech-language-support';
 
 /**
  * Display typesetting on a finished turn.
@@ -134,17 +135,26 @@ function makeService(sourceText: string): Harness {
     recordClient: () => {},
   } as unknown as TurnMetricsRecorder;
 
+  const languageSupport = {
+    refusal: () => null,
+  } as unknown as SpeechLanguageSupport;
+
   return {
-    service: new TranslationSessionService(pipeline, metrics, {
-      // Key-aware: the service reads the live-translation ceiling here too, and
-      // a ceiling of `false` builds a budget that refuses every request.
-      get: (key: string) =>
-        key === 'LIVE_TRANSLATION_RPM'
-          ? 66
-          : key === 'LIVE_TRANSLATION_COMMIT_CHARS'
-            ? 15
-            : false,
-    } as unknown as ConfigService<Env, true>),
+    service: new TranslationSessionService(
+      pipeline,
+      metrics,
+      {
+        // Key-aware: the service reads the live-translation ceiling here too, and
+        // a ceiling of `false` builds a budget that refuses every request.
+        get: (key: string) =>
+          key === 'LIVE_TRANSLATION_RPM'
+            ? 66
+            : key === 'LIVE_TRANSLATION_COMMIT_CHARS'
+              ? 15
+              : false,
+      } as unknown as ConfigService<Env, true>,
+      languageSupport,
+    ),
     turns,
   };
 }

@@ -34,6 +34,7 @@ export type {
   TtsSynthesizeRequest,
   TtsProvider,
   TtsVoice,
+  TtsVoiceCatalog,
   TtsAudioStream,
 } from './interfaces/index.js';
 

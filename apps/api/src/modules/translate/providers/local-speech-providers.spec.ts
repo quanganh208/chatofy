@@ -181,6 +181,63 @@ describe('LocalSpeechSttProvider', () => {
     expect(err).toBeInstanceOf(ProviderConnectionError);
     expect((err as ProviderConnectionError).cause).toBe(netErr);
   });
+
+  describe('supportedLanguages', () => {
+    it('returns the registry codes /healthz reports', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: 'ok', languages: ['vi', 'en'] }),
+      });
+
+      const provider = new LocalSpeechSttProvider({
+        baseUrl: 'http://localhost:8002',
+      });
+      await expect(provider.supportedLanguages()).resolves.toEqual([
+        'vi',
+        'en',
+      ]);
+    });
+
+    it('logs and drops a sidecar code the registry does not know', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: 'ok', languages: ['vi', 'xx'] }),
+      });
+
+      const provider = new LocalSpeechSttProvider({
+        baseUrl: 'http://localhost:8002',
+      });
+      await expect(provider.supportedLanguages()).resolves.toEqual(['vi']);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("'xx'"));
+      warn.mockRestore();
+    });
+
+    it('rejects rather than reporting no languages when the sidecar cannot be reached', async () => {
+      global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+
+      const provider = new LocalSpeechSttProvider({
+        baseUrl: 'http://localhost:8002',
+      });
+      await expect(provider.supportedLanguages()).rejects.toBeInstanceOf(
+        ProviderConnectionError,
+      );
+    });
+
+    it('rejects for an older sidecar with no `languages` field', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: 'ok' }),
+      });
+
+      const provider = new LocalSpeechSttProvider({
+        baseUrl: 'http://localhost:8002',
+      });
+      await expect(provider.supportedLanguages()).rejects.toBeInstanceOf(
+        ProviderConnectionError,
+      );
+    });
+  });
 });
 
 describe('LocalSpeechTtsProvider', () => {
@@ -294,5 +351,65 @@ describe('LocalSpeechTtsProvider', () => {
     const err = await provider.synthesize(ttsReq).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ProviderConnectionError);
     expect((err as ProviderConnectionError).cause).toBe(netErr);
+  });
+
+  describe('listVoices', () => {
+    it('relays the catalog and the speedAdjustable flag', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          voices: [{ token: '9', label: 'Sarah', gender: 'female' }],
+          speedAdjustable: true,
+        }),
+      });
+
+      const provider = new LocalSpeechTtsProvider({
+        baseUrl: 'http://localhost:8003',
+      });
+      await expect(provider.listVoices('en')).resolves.toEqual({
+        voices: [{ token: '9', label: 'Sarah', gender: 'female' }],
+        speedAdjustable: true,
+      });
+    });
+
+    it('defaults speedAdjustable to false for a sidecar that predates the field', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ voices: [] }),
+      });
+
+      const provider = new LocalSpeechTtsProvider({
+        baseUrl: 'http://localhost:8003',
+      });
+      await expect(provider.listVoices('vi')).resolves.toEqual({
+        voices: [],
+        speedAdjustable: false,
+      });
+    });
+  });
+
+  describe('supportedLanguages', () => {
+    it('returns the registry codes /healthz reports', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ status: 'ok', languages: ['en'] }),
+      });
+
+      const provider = new LocalSpeechTtsProvider({
+        baseUrl: 'http://localhost:8003',
+      });
+      await expect(provider.supportedLanguages()).resolves.toEqual(['en']);
+    });
+
+    it('rejects rather than reporting no languages when the sidecar cannot be reached', async () => {
+      global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+
+      const provider = new LocalSpeechTtsProvider({
+        baseUrl: 'http://localhost:8003',
+      });
+      await expect(provider.supportedLanguages()).rejects.toBeInstanceOf(
+        ProviderConnectionError,
+      );
+    });
   });
 });

@@ -16,7 +16,7 @@ import {
   type TtsAudioStream,
   type TtsProvider,
   type TtsSynthesizeRequest,
-  type TtsVoice,
+  type TtsVoiceCatalog,
 } from '@chatofy/ai-providers';
 import {
   DEFAULT_TRANSLATION_DIRECTION,
@@ -169,7 +169,7 @@ export class PipelineTranslatorService {
   /** Per-language voice catalog, with the wall-clock time it goes stale. */
   private readonly voiceCache = new Map<
     LanguageCode,
-    { voices: TtsVoice[]; expiresAt: number }
+    TtsVoiceCatalog & { expiresAt: number }
   >();
 
   constructor(private readonly providers: AiProvidersFactory) {}
@@ -389,19 +389,19 @@ export class PipelineTranslatorService {
    * out to a sidecar that is busy synthesizing speech. Short enough that a
    * restarted backend is picked up without anyone restarting the api.
    */
-  async listVoices(language: LanguageCode): Promise<TtsVoice[]> {
+  async listVoices(language: LanguageCode): Promise<TtsVoiceCatalog> {
     const cached = this.voiceCache.get(language);
-    if (cached && Date.now() < cached.expiresAt) return cached.voices;
+    if (cached && Date.now() < cached.expiresAt) return cached;
 
     const trio = this.providers.makeProviders();
-    if (!trio.tts.listVoices) return [];
+    if (!trio.tts.listVoices) return { voices: [], speedAdjustable: false };
 
-    const voices = await trio.tts.listVoices(language);
+    const catalog = await trio.tts.listVoices(language);
     this.voiceCache.set(language, {
-      voices,
+      ...catalog,
       expiresAt: Date.now() + VOICE_CACHE_TTL_MS,
     });
-    return voices;
+    return catalog;
   }
 
   async synthesize(req: SynthesizeRequest): Promise<SynthesizedSpeech> {

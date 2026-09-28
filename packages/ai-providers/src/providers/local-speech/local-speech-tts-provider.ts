@@ -12,11 +12,17 @@ import type {
   TtsProvider,
   TtsSynthesizeRequest,
   TtsVoice,
+  TtsVoiceCatalog,
 } from '../../interfaces/tts-provider.js';
 import type { LanguageCode } from '@chatofy/types';
-import { ProviderConfigError, ProviderResponseError } from '../../errors/provider-errors.js';
+import {
+  ProviderConfigError,
+  ProviderConnectionError,
+  ProviderResponseError,
+} from '../../errors/provider-errors.js';
 import {
   fetchWithDeadline,
+  LOCAL_HEALTHZ_TIMEOUT_MS,
   LOCAL_TTS_TIMEOUT_MS,
   LOCAL_TTS_VOICES_TIMEOUT_MS,
   truncate,
@@ -27,6 +33,7 @@ import {
   synthesisBody,
   type LocalSpeechSynthesizeRequest,
 } from './local-speech-tts-stream.js';
+import { readServedLanguages } from './served-languages.js';
 
 export interface LocalSpeechTtsConfig {
   /** Base URL of the sidecar, e.g. `http://localhost:8003`. */
@@ -54,7 +61,7 @@ export class LocalSpeechTtsProvider implements TtsProvider {
    * A failure is reported rather than swallowed — the caller decides whether an
    * unreachable catalog means "no choice available" or something worth showing.
    */
-  async listVoices(language: LanguageCode): Promise<TtsVoice[]> {
+  async listVoices(language: LanguageCode): Promise<TtsVoiceCatalog> {
     const res = await fetchWithDeadline(
       `${this.baseUrl}/voices?language=${encodeURIComponent(language)}`,
       {},
@@ -70,8 +77,26 @@ export class LocalSpeechTtsProvider implements TtsProvider {
       );
     }
 
-    const payload = (await res.json()) as { voices?: TtsVoice[] };
-    return payload.voices ?? [];
+    const payload = (await res.json()) as { voices?: TtsVoice[]; speedAdjustable?: boolean };
+    return {
+      voices: payload.voices ?? [],
+      // Absent on a sidecar deployed before this field existed — the same
+      // conservative default the web schema falls back to.
+      speedAdjustable: payload.speedAdjustable ?? false,
+    };
+  }
+
+  /**
+   * The registry languages `/healthz` reports this sidecar speaking. See
+   * `LocalSpeechSttProvider.supportedLanguages` for why a call this cannot
+   * answer REJECTS rather than resolving an empty list.
+   */
+  async supportedLanguages(): Promise<readonly LanguageCode[]> {
+    const served = await readServedLanguages(this.baseUrl, LOCAL_HEALTHZ_TIMEOUT_MS);
+    if (!served) {
+      throw new ProviderConnectionError('Local TTS did not report which languages it serves');
+    }
+    return served;
   }
 
   async synthesize(req: LocalSpeechSynthesizeRequest): Promise<Uint8Array> {

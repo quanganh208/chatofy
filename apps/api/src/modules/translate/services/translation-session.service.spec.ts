@@ -19,6 +19,7 @@ import type { ClientTurnMetrics } from '@chatofy/types';
 import type { TurnMetrics, TurnMetricsRecorder } from './turn-metrics.recorder';
 import { encodePcm16Wav } from '../audio/wav-codec';
 import { ProviderAbortedError } from '@chatofy/ai-providers';
+import type { SpeechLanguageSupport } from '../providers/speech-language-support';
 
 const SAMPLE_RATE = 16000;
 const TTS_SAMPLE_RATE = 24000;
@@ -72,6 +73,11 @@ interface Harness {
   recorded: TurnMetrics[];
   /** Rows the client filed, which the server only relays. */
   recordedClient: ClientTurnMetrics[];
+  /**
+   * The reason `start()` should refuse a turn on language grounds, or `null` —
+   * the shipped default and what every test above this feature assumes.
+   */
+  languageRefusal: string | null;
 }
 
 function makeService(
@@ -126,22 +132,31 @@ function makeService(
     record: (m: TurnMetrics) => recorded.push(m),
     recordClient: (m: ClientTurnMetrics) => recordedClient.push(m),
   } as unknown as TurnMetricsRecorder;
+  const languageRefusal = overrides.languageRefusal ?? null;
+  const languageSupport = {
+    refusal: () => languageRefusal,
+  } as unknown as SpeechLanguageSupport;
 
   return {
     // Speaker embedding off, which is the shipped default. The turns these
     // tests drive must behave exactly as they did before the flag existed.
-    service: new TranslationSessionService(pipeline, metrics, {
-      // Key-aware, because the service now reads numbers as well as the flag.
-      // A mock that answers every key with a boolean gave the budget a ceiling
-      // of `false`, and a budget with a ceiling of `false` refuses everything —
-      // silently, since refusing is a legitimate answer.
-      get: (key: string) =>
-        key === 'LIVE_TRANSLATION_RPM'
-          ? 66
-          : key === 'LIVE_TRANSLATION_COMMIT_CHARS'
-            ? 15
-            : speakerEmbeddingEnabled,
-    } as unknown as ConfigService<Env, true>),
+    service: new TranslationSessionService(
+      pipeline,
+      metrics,
+      {
+        // Key-aware, because the service now reads numbers as well as the flag.
+        // A mock that answers every key with a boolean gave the budget a ceiling
+        // of `false`, and a budget with a ceiling of `false` refuses everything —
+        // silently, since refusing is a legitimate answer.
+        get: (key: string) =>
+          key === 'LIVE_TRANSLATION_RPM'
+            ? 66
+            : key === 'LIVE_TRANSLATION_COMMIT_CHARS'
+              ? 15
+              : speakerEmbeddingEnabled,
+      } as unknown as ConfigService<Env, true>,
+      languageSupport,
+    ),
     transcribe,
     translate,
     transcribeAndTranslate,
@@ -151,6 +166,7 @@ function makeService(
     synthesized,
     recorded,
     recordedClient,
+    languageRefusal,
   };
 }
 
@@ -1396,6 +1412,44 @@ describe('TranslationSessionService', () => {
 
       open(service, socket, 'turn-4');
       expect(socket.ofType('server.error')).toHaveLength(0);
+    });
+  });
+
+  describe('language support', () => {
+    it('refuses a turn before any session id exists, with a readable reason', () => {
+      const { service } = makeService({
+        languageRefusal: 'This server cannot speak en right now',
+      });
+      const socket = new FakeSocket();
+
+      service.start(
+        socket,
+        { direction: 'vi_to_en', voiceGender: 'female' },
+        'turn-1',
+      );
+
+      expect(socket.ofType('server.session.ready')).toHaveLength(0);
+      const error = socket.ofType('server.error')[0];
+      expect(error).toMatchObject({
+        code: 'language_unavailable',
+        message: 'This server cannot speak en right now',
+        turnId: 'turn-1',
+      });
+      expect(error?.sessionId).toBeUndefined();
+    });
+
+    it('starts the turn normally once no language is refused', () => {
+      const { service } = makeService({ languageRefusal: null });
+      const socket = new FakeSocket();
+
+      service.start(
+        socket,
+        { direction: 'vi_to_en', voiceGender: 'female' },
+        'turn-1',
+      );
+
+      expect(socket.ofType('server.error')).toHaveLength(0);
+      expect(socket.ofType('server.session.ready')).toHaveLength(1);
     });
   });
 

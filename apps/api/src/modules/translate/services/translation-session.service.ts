@@ -45,6 +45,7 @@ import {
 import { TranslationBudget } from '../audio/translation-budget';
 import { SessionRegistry } from '../session/session-registry';
 import { ConversationContext } from '../session/conversation-context';
+import { SpeechLanguageSupport } from '../providers/speech-language-support';
 import { TurnTimeline, type ClauseDelivery } from '../session/turn-timeline';
 import type { StreamSocket } from '../session/stream-socket';
 import { LivePreview } from '../session/live-preview';
@@ -118,6 +119,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     private readonly pipeline: PipelineTranslatorService,
     private readonly metrics: TurnMetricsRecorder,
     private readonly config: ConfigService<Env, true>,
+    private readonly languageSupport: SpeechLanguageSupport,
   ) {
     // Built in the constructor body, not as a field initializer. Under
     // `target: ES2022` field initializers run before the parameter properties
@@ -181,6 +183,27 @@ export class TranslationSessionService implements OnModuleDestroy {
       this.channelFor(socket, { turnId }).fail(
         'too_many_turns',
         'The translator is at capacity; try again in a moment',
+      );
+      return;
+    }
+
+    // Checked before a turn slot is spent on it: a language no configured
+    // engine serves cannot be answered whatever else this turn holds. `null`
+    // from either sidecar means "not known right now" and refuses nothing —
+    // see `SpeechLanguageSupport`.
+    const { source, target } = directionLanguages(options.direction);
+    const languageRefusal = this.languageSupport.refusal({
+      recognition: source,
+      spoken: target,
+      // Matches the default `TurnSession` applies below when the field is
+      // omitted; the refusal has to agree with the turn it would otherwise
+      // create, or an omitted `voiceOutput` would be checked as if it were off.
+      voiceOutput: options.voiceOutput ?? true,
+    });
+    if (languageRefusal) {
+      this.channelFor(socket, { turnId }).fail(
+        'language_unavailable',
+        languageRefusal,
       );
       return;
     }
