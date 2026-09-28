@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { authErrorMessage } from './auth-error-message';
 import { AUTH_LIMITS } from '@chatofy/types';
 import { Button } from '@chatofy/ui/react';
 import { AuthAlert } from '@/components/auth/auth-alert';
 import { AuthField } from '@/components/auth/auth-field';
 import { register } from '@/clients/api-client';
+import { useSubmittedNotice } from '@/hooks/use-submitted-notice';
 import { useLocale, useTranslate } from '@/i18n/provider';
 
 /**
@@ -32,16 +33,7 @@ export function RegisterForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-
-  // The form goes when the confirmation arrives, and the submit button that was
-  // pressed goes with it — so focus fell to `<body>`, at the top of the page,
-  // away from the one sentence that says what happened. It moves to that
-  // sentence instead.
-  const notice = useRef<HTMLParagraphElement>(null);
-  useEffect(() => {
-    if (submitted) notice.current?.focus();
-  }, [submitted]);
+  const { submitted, setSubmitted, notice } = useSubmittedNotice();
 
   return (
     <>
