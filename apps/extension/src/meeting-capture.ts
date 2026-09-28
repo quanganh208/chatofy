@@ -1,4 +1,4 @@
-import type { TranslationDirection, TranslationHints } from '@chatofy/types';
+import { reverseDirection, type TranslationDirection, type TranslationHints } from '@chatofy/types';
 import type { PlaybackSink } from '@chatofy/realtime-client';
 import type { DirectionSessionDeps } from './direction-session';
 import { DuckController } from './duck-controller';
@@ -7,7 +7,6 @@ import { MeetingTranscript } from './meeting-transcript';
 import type { GatedMicrophone } from './outbound-mic';
 import type { VoiceHold } from './outbound-voice-lease';
 import type { TabAudioSource } from './tab-audio-source';
-import { reverseDirection } from './translation-direction';
 import type { CaptureSettings, CaptureStatus, OutboundState, TranscriptLine } from './messages';
 
 /**

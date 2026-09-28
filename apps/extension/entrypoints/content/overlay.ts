@@ -1,4 +1,10 @@
-import type { TranslationDirection, VoiceGender } from '@chatofy/types';
+import {
+  LANGUAGES,
+  TRANSLATION_DIRECTIONS,
+  directionLanguages,
+  type TranslationDirection,
+  type VoiceGender,
+} from '@chatofy/types';
 import type { OverlayState } from '../../src/messages';
 import { visibleOverlayPart } from '../../src/site-enablement';
 import { brandMark } from '@chatofy/ui';
@@ -319,10 +325,19 @@ export class Overlay {
     // call and has already had to fight for the vertical space its Stop row needs;
     // a second stacked row would take that back. A select states both languages in
     // one line and stays reachable from a keyboard.
-    this.direction = select('Translate', [
-      ['en_to_vi', 'English into Vietnamese'],
-      ['vi_to_en', 'Vietnamese into English'],
-    ]);
+    this.direction = select(
+      'Translate',
+      // Reversed from the registry's own vi-first order: this extension's
+      // default is `en_to_vi` (`settings.ts`), and the option a fresh capture
+      // already runs is the one a reader expects to see first.
+      [...TRANSLATION_DIRECTIONS].reverse().map((direction) => {
+        const { source, target } = directionLanguages(direction);
+        return [
+          direction,
+          `${LANGUAGES[source].englishName} into ${LANGUAGES[target].englishName}`,
+        ] as const;
+      }),
+    );
     this.voice = select('Voice', [
       ['female', 'Female voice'],
       ['male', 'Male voice'],

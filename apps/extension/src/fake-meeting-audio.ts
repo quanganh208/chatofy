@@ -226,7 +226,7 @@ export function harness(): Harness {
       return echo;
     },
     createSession: (sessionDeps) => {
-      events.push(`session:${sessionDeps.direction === 'vi_to_en' ? 'vi_to_en' : 'en_to_vi'}`);
+      events.push(`session:${sessionDeps.direction}`);
       const session = new FakeSession(sessionDeps);
       // Identified by input rather than by a flag: the outbound direction is the
       // one listening to the microphone, and asserting on that is what proves the
