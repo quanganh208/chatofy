@@ -8,9 +8,11 @@ import { ApiErrorResponseDto } from './envelope.dto';
  * caller's side: the status, the `error.code` it carries, and what to do about
  * it. Keyed by status because that is what a caller branches on first.
  *
- * The codes here are the ones `AllExceptionsFilter.codeForStatus` actually
- * emits — this table is documentation OF that mapping, not a second opinion on
- * it, so a status added here must exist there too.
+ * The codes here are the ones `AllExceptionsFilter` actually emits for the
+ * status — usually via `codeForStatus`, and for 503 also via the one class it
+ * special-cases ahead of that mapping (`LanguageUnavailableException`) — this
+ * table is documentation OF that behaviour, not a second opinion on it, so a
+ * status added here must exist there too.
  */
 const ERROR_RESPONSES: Record<
   number,
@@ -53,7 +55,7 @@ const ERROR_RESPONSES: Record<
   503: {
     code: 'INTERNAL_ERROR',
     description:
-      'A dependency this route needs is unreachable — the request was never decided, so RESEND it rather than treating it as an answer. Notably NOT 401: a client that signs a user out on this has turned an outage into a forced logout it cannot recover from. `error.message` is generic like every 5xx; correlate with `meta.requestId`.',
+      'Two different facts share this status, told apart by `error.code`. `INTERNAL_ERROR` is a dependency this route needs being unreachable — the request was never decided, so RESEND it rather than treating it as an answer, and `error.message` is generic like every 5xx; correlate with `meta.requestId`. `SERVICE_UNAVAILABLE` is a capability this deployment genuinely does not have right now (e.g. no engine configured serves the requested language) — the request was decided and refused, `error.message` names what to change, and resending the SAME body will not help. Neither is 401: a client that signs a user out on either has turned this into a forced logout it cannot recover from.',
   },
   500: {
     code: 'INTERNAL_ERROR',

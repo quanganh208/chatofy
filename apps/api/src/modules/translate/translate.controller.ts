@@ -24,6 +24,7 @@ import {
 } from '@chatofy/types';
 import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
 import { ApiErrorResponses } from '../../common/swagger/api-error-response.helper';
+import { LanguageUnavailableException } from '../../common/exceptions/language-unavailable.exception';
 import { TranslateRequestDto, TranslateResponseDto } from './dto/translate.dto';
 import { VoicesResponseDto } from './dto/voices.dto';
 import { PipelineTranslatorService } from './services/pipeline-translator.service';
@@ -83,7 +84,7 @@ export class TranslateController {
       'Send a complete utterance as base64 audio plus a direction (`vi_to_en` or `en_to_vi`). Answers with the transcript, the translation, and synthesized speech in the target language. This is a ONE-turn, ONE-audio surface: the turn is still translated into every language the conversation language plan calls for, but only the first target (`plan.spoken`) is synthesized and returned — the same budget the streaming path applies to its own preview. The body carries audio, so it is large — the JSON body limit is 12 MB, and anything longer than a short utterance belongs on the WebSocket surface instead.',
   })
   @ApiEnvelopeResponse(TranslateResponseDto)
-  @ApiErrorResponses(400, 401)
+  @ApiErrorResponses(400, 401, 503)
   async translate(
     @Body() body: TranslateRequestDto,
   ): Promise<TranslateResponse> {
@@ -111,7 +112,11 @@ export class TranslateController {
       voiceOutput: true,
     });
     if (languageRefusal) {
-      throw new BadRequestException(languageRefusal);
+      // 503, not 400: the caller asked for nothing malformed, this server
+      // simply cannot serve the language right now — the identical fact the
+      // WS path reports as its own `language_unavailable` event, in the
+      // identical words.
+      throw new LanguageUnavailableException(languageRefusal);
     }
     return this.pipeline.translateTurn(
       {
