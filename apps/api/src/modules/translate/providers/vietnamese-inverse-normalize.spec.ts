@@ -383,6 +383,18 @@ describe('inverseNormalizeTranscript (vi)', () => {
       expect(itn('khoảng năm trăm tấn hàng')).toBe('khoảng 500 tấn hàng');
     });
 
+    it('reads a lone digit after the scale as the next place down, as prices are spoken', () => {
+      // The empty place is said when it is meant (`linh`, `lẻ`), so the bare
+      // form is not 203. Read digit for digit it put 1.000.002 on a price.
+      expect(itn('hai trăm ba người')).toBe('230 người');
+      expect(itn('một triệu hai đồng')).toBe('1.200.000 đồng');
+      expect(itn('một trăm tư người')).toBe('140 người');
+      expect(itn('một trăm linh ba người')).toBe('103 người');
+      // Not a year, not a clock, and not a trailing `năm` that means "year".
+      expect(itn('sinh năm hai nghìn hai')).toBe('sinh năm 2002');
+      expect(itn('hai nghìn năm lịch sử')).toBe('2.000 năm lịch sử');
+    });
+
     it('keeps the digit reading after a zero filler, the one shape that forces it', () => {
       // `một trăm linh năm` can only be 105 — `linh` fills an empty tens place
       // and there is no noun reading of what follows it.
