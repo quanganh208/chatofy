@@ -1,10 +1,51 @@
 // Backend-agnostic store for a user's conversation history, mirroring the
 // MINUTES_STORE seam: the interface is what lets a test substitute an in-memory
 // double without a Postgres, and what keeps the service free of Prisma types.
-import type { Conversation, ConversationSummary } from '@chatofy/types';
+import type {
+  Conversation,
+  ConversationSummary,
+  LanguageCode,
+  SpeakerRole,
+} from '@chatofy/types';
 
 /** DI injection token for the conversation store. */
 export const CONVERSATION_STORE = Symbol('CONVERSATION_STORE');
+
+/**
+ * One turn as the store WRITES it — always the language-keyed shape, never the
+ * legacy `targetText`.
+ *
+ * `SaveConversationTurn` (`@chatofy/types`) cannot serve this job unchanged:
+ * `sourceLanguages`/`translations` are OPTIONAL there, because a body from the
+ * current client never sends them and `targetText` alone has to keep
+ * type-checking against that schema (see its own docblock). By the time a turn
+ * reaches the store, `ConversationsService`'s write conversion has already
+ * derived them from `targetText` when a body omitted them — so here they are
+ * simply REQUIRED, and there is no `targetText` at all: Postgres has no column
+ * for it, so nothing downstream of the conversion should still be reaching for it.
+ */
+export interface ConversationTurnWrite {
+  position: number;
+  speakerRole: SpeakerRole;
+  speakerLabel: string | null;
+  sourceText: string;
+  displayText: string | null;
+  sourceLanguages: LanguageCode[];
+  translations: Partial<Record<LanguageCode, string>>;
+  offsetMs: number | null;
+}
+
+/**
+ * A conversation as the store WRITES it — see {@link ConversationTurnWrite} for
+ * why this is not `SaveConversationRequest` itself.
+ */
+export interface ConversationWrite {
+  languages: LanguageCode[];
+  startedAt: string;
+  endedAt: string;
+  turns: ConversationTurnWrite[];
+  audioOffsetMs: number | null;
+}
 
 /** One page of the caller's history, newest first. */
 export interface ConversationPage {
@@ -43,9 +84,20 @@ export interface ConversationStore {
   /**
    * Create or fully replace the caller's conversation under this client id.
    *
-   * The derived fields are not the caller's to supply: `turnCount` and `preview`
-   * are computed from the turns, and `hasMinutes` is read from the relation — a
-   * caller-supplied value there could disagree with what is stored.
+   * The parameter is {@link ConversationWrite}, not `SaveConversationRequest`
+   * (`@chatofy/types`) and not `Conversation`. `SaveConversationRequest` is the
+   * HTTP contract's shape — `languages`/`sourceLanguages`/`translations`
+   * OPTIONAL there, because the current client never sends them — and
+   * `ConversationsService.save` is where that gets resolved into a fully
+   * language-keyed write, deriving them from `direction`/`targetText` when a
+   * body omitted them. `Conversation` keeps BOTH the new fields and the legacy
+   * `direction`/`targetText` for a READER's sake (see its own docblock); a
+   * write has no column for the legacy pair at all, so deriving them here would
+   * be make-work with nowhere to put it.
+   *
+   * `turnCount`, `preview` and `hasMinutes` are not part of this type for the
+   * same reason they were excluded before: they are computed from the turns or
+   * read from the relation, never supplied.
    *
    * `hasRecording` and `audioDurationMs` are excluded for a different reason.
    * They say a playable object exists, which only {@link ConversationStore.setAudio}
@@ -62,15 +114,7 @@ export interface ConversationStore {
   save(
     ownerId: string,
     conversationId: string,
-    conversation: Omit<
-      Conversation,
-      | 'conversationId'
-      | 'turnCount'
-      | 'preview'
-      | 'hasMinutes'
-      | 'hasRecording'
-      | 'audioDurationMs'
-    >,
+    conversation: ConversationWrite,
   ): Promise<ConversationSummary>;
   /** One conversation with its turns, or null when the caller has no such row. */
   get(ownerId: string, conversationId: string): Promise<Conversation | null>;

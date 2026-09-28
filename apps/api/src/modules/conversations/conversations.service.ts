@@ -6,11 +6,16 @@ import {
   NotFoundException,
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
-import type {
-  Conversation,
-  ConversationListResponse,
-  ConversationSummary,
-  SaveConversationRequest,
+import {
+  conversationLanguagesOf,
+  speakerRoleFor,
+  translationTargets,
+  type Conversation,
+  type ConversationListResponse,
+  type ConversationSummary,
+  type LanguageCode,
+  type SaveConversationRequest,
+  type SaveConversationTurn,
 } from '@chatofy/types';
 import {
   CONVERSATION_AUDIO_STORAGE,
@@ -25,6 +30,8 @@ import {
 import {
   CONVERSATION_STORE,
   type ConversationStore,
+  type ConversationTurnWrite,
+  type ConversationWrite,
   type ListConversationsQuery,
 } from './interfaces/conversation-store.interface';
 
@@ -68,17 +75,13 @@ export class ConversationsService {
     conversationId: string,
     body: SaveConversationRequest,
   ): Promise<ConversationSummary> {
-    return this.store.save(ownerId, conversationId, {
-      direction: body.direction,
-      startedAt: body.startedAt,
-      endedAt: body.endedAt,
-      turns: body.turns,
-      // Carried on the transcript save, unlike the rest of the recording
-      // fields: it is the shift every stored timestamp is read through, and a
-      // conversation whose audio is refused — no storage configured, a body over
-      // the cap — still has to read the way it read while it was being spoken.
-      audioOffsetMs: body.audioOffsetMs,
-    });
+    // `audioOffsetMs` is carried through untouched: it is the shift every
+    // stored timestamp is read through, and a conversation whose audio is
+    // refused — no storage configured, a body over the cap — still has to
+    // read the way it read while it was being spoken. Everything else goes
+    // through `toConversationWrite`, since Postgres has no `direction` or
+    // `targetText` column for the store to write.
+    return this.store.save(ownerId, conversationId, toConversationWrite(body));
   }
 
   async get(ownerId: string, conversationId: string): Promise<Conversation> {
@@ -323,4 +326,70 @@ function asConflict(err: unknown): Error {
  */
 function notFound(conversationId: string): NotFoundException {
   return new NotFoundException(`no conversation ${conversationId}`);
+}
+
+/**
+ * The store's write shape, from the HTTP contract's — the one place a body in
+ * the current client's shape (`direction`, turn `targetText`) is turned into
+ * what Postgres actually has columns for.
+ *
+ * `body.languages` and a turn's `sourceLanguages`/`translations` are used AS
+ * SENT when a caller already provides them, and derived only when absent —
+ * never overwritten, so a caller ahead of today's client is trusted over a
+ * value this function would otherwise have to guess.
+ */
+function toConversationWrite(body: SaveConversationRequest): ConversationWrite {
+  const languages = body.languages ?? conversationLanguagesOf(body.direction);
+  return {
+    languages,
+    startedAt: body.startedAt,
+    endedAt: body.endedAt,
+    audioOffsetMs: body.audioOffsetMs,
+    turns: body.turns.map((turn) => toTurnWrite(turn, languages)),
+  };
+}
+
+/**
+ * One turn's write shape. A turn that already carries `sourceLanguages`/
+ * `translations` passes them through unchanged; one that does not derives them
+ * from `speakerRole` and `targetText` — the same rule the migration's backfill
+ * used, so a row saved through either path reads back identically.
+ */
+function toTurnWrite(
+  turn: SaveConversationTurn,
+  languages: readonly LanguageCode[],
+): ConversationTurnWrite {
+  if (turn.sourceLanguages && turn.translations) {
+    return {
+      ...turn,
+      sourceLanguages: turn.sourceLanguages,
+      translations: turn.translations,
+    };
+  }
+  // The conversation's languages are declared source-first for the WHOLE
+  // conversation, not per turn, so recovering which one THIS turn was spoken in
+  // needs `speakerRoleFor`'s mapping run backwards — exactly what
+  // `fillTurnLanguages` (`@chatofy/types`) does for a raw wire object; this is
+  // its typed equivalent over an already-parsed `SaveConversationTurn`.
+  const source = languages.find(
+    (code) => speakerRoleFor(code, languages) === turn.speakerRole,
+  );
+  if (source === undefined) {
+    // Unreachable in practice: `speakerRoleSchema` only ever validates
+    // 'speaker_a' | 'speaker_b', and `speakerRoleFor` maps every registry
+    // language to one of exactly those two roles. Thrown rather than silently
+    // defaulted, so a future registry change that breaks that mapping fails
+    // loudly here instead of writing a row with no source language at all.
+    throw new Error(
+      `no conversation language maps to speakerRole ${turn.speakerRole}`,
+    );
+  }
+  const targets = translationTargets(languages, [source]);
+  return {
+    ...turn,
+    sourceLanguages: [source],
+    translations: Object.fromEntries(
+      targets.map((target) => [target, turn.targetText]),
+    ),
+  };
 }

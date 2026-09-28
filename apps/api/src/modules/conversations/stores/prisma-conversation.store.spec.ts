@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import type { Conversation } from '@chatofy/types';
 import type { PrismaService } from '../../../prisma/prisma.service';
 import { PrismaConversationStore } from './prisma-conversation.store';
+import type { ConversationWrite } from '../interfaces/conversation-store.interface';
 
 /**
  * The per-owner lock the replace takes, and the bounded retry around it.
@@ -16,16 +16,8 @@ import { PrismaConversationStore } from './prisma-conversation.store';
  */
 
 /** A save body shaped as the store's own parameter type asks for it. */
-const conversation: Omit<
-  Conversation,
-  | 'conversationId'
-  | 'turnCount'
-  | 'preview'
-  | 'hasMinutes'
-  | 'hasRecording'
-  | 'audioDurationMs'
-> = {
-  direction: 'vi_to_en',
+const conversation: ConversationWrite = {
+  languages: ['vi', 'en'],
   startedAt: '2026-09-17T00:00:00.000Z',
   endedAt: '2026-09-17T00:01:00.000Z',
   audioOffsetMs: null,
@@ -36,7 +28,8 @@ const conversation: Omit<
       speakerLabel: null,
       sourceText: 'xin chào',
       displayText: null,
-      targetText: 'hello',
+      sourceLanguages: ['vi'],
+      translations: { en: 'hello' },
       offsetMs: 0,
     },
   ],
@@ -162,6 +155,7 @@ describe('PrismaConversationStore', () => {
     expect(saved).toEqual({
       conversationId: 'conv-1',
       direction: 'vi_to_en',
+      languages: ['vi', 'en'],
       startedAt: '2026-09-17T00:00:00.000Z',
       endedAt: '2026-09-17T00:01:00.000Z',
       turnCount: 1,
