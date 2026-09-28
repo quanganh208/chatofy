@@ -27,8 +27,9 @@ export interface TurnEmbedding {
    * different questions and only one of them is a weight: `audioMs` is the
    * capture buffer, pre-roll and hangover included, and this is the voice inside
    * it. A vector built on too little speech carries no speaker information at
-   * all — see `SPEECH_FLOOR_MS` in `auto-attribution.ts`, which is the one
-   * consumer.
+   * all by itself — which is why `auto-attribution.ts` never mints a voice on
+   * one turn. Nothing reads this at the moment; it is kept for the measurement
+   * that would bring a speech floor back.
    */
   speechMs: number;
 }
