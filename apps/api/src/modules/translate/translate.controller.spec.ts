@@ -19,7 +19,7 @@ const REQUEST: TranslateRequestDto = {
   direction: 'vi_to_en',
   voiceGender: 'female',
   speed: 1,
-} as TranslateRequestDto;
+};
 
 function controllerWith(refusal: string | null): TranslateController {
   const pipeline = {
