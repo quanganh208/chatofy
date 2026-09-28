@@ -289,8 +289,20 @@ describe('PrismaTranslationContextStore', () => {
 
       await store.save('owner-1', 'ctx-1', body, MAX);
 
-      const data = createMany.mock.calls[0]?.[0]?.data as unknown[];
-      expect(data).toHaveLength(2);
+      expect(createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            contextId: 'cuid-1',
+            position: 0,
+            terms: { vi: 'hội đồng phản biện', en: 'thesis defense committee' },
+          },
+          {
+            contextId: 'cuid-1',
+            position: 1,
+            terms: { vi: 'luận văn', en: 'thesis' },
+          },
+        ],
+      });
     });
   });
 
