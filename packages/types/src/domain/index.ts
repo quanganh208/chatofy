@@ -46,6 +46,7 @@ export type { ConversationTurn, ConversationSummary, Conversation } from './conv
 
 export {
   fillConversationLanguages,
+  fillLegacyConversationFields,
   fillTurnLanguages,
   legacyDirectionOf,
 } from './language-fields-compat.js';

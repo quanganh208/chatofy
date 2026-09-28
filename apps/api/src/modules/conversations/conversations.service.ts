@@ -6,16 +6,12 @@ import {
   NotFoundException,
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
-import {
-  conversationLanguagesOf,
-  speakerRoleFor,
-  translationTargets,
-  type Conversation,
-  type ConversationListResponse,
-  type ConversationSummary,
-  type LanguageCode,
-  type SaveConversationRequest,
-  type SaveConversationTurn,
+import type {
+  Conversation,
+  ConversationListResponse,
+  ConversationSummary,
+  SaveConversationRequest,
+  SaveConversationTurn,
 } from '@chatofy/types';
 import {
   CONVERSATION_AUDIO_STORAGE,
@@ -329,67 +325,37 @@ function notFound(conversationId: string): NotFoundException {
 }
 
 /**
- * The store's write shape, from the HTTP contract's — the one place a body in
- * the current client's shape (`direction`, turn `targetText`) is turned into
- * what Postgres actually has columns for.
+ * The store's write shape, from the HTTP contract's — the one place a body's
+ * `SaveConversationRequest` fields are narrowed to what Postgres actually has
+ * columns for (no `direction`, no turn `targetText`).
  *
- * `body.languages` and a turn's `sourceLanguages`/`translations` are used AS
- * SENT when a caller already provides them, and derived only when absent —
- * never overwritten, so a caller ahead of today's client is trusted over a
- * value this function would otherwise have to guess.
+ * `body.languages` and a turn's `sourceLanguages`/`translations` are read AS
+ * SENT and never re-derived here: `saveConversationRequestSchema`'s preprocess
+ * (`@chatofy/types`) already filled them from `direction`/`speakerRole`/
+ * `targetText` when a legacy tab's body omitted them, so every `body` this
+ * function sees — validated against that schema before it can reach the
+ * service — already carries both.
  */
 function toConversationWrite(body: SaveConversationRequest): ConversationWrite {
-  const languages = body.languages ?? conversationLanguagesOf(body.direction);
   return {
-    languages,
+    languages: body.languages,
     startedAt: body.startedAt,
     endedAt: body.endedAt,
     audioOffsetMs: body.audioOffsetMs,
-    turns: body.turns.map((turn) => toTurnWrite(turn, languages)),
+    turns: body.turns.map(toTurnWrite),
   };
 }
 
-/**
- * One turn's write shape. A turn that already carries `sourceLanguages`/
- * `translations` passes them through unchanged; one that does not derives them
- * from `speakerRole` and `targetText` — the same rule the migration's backfill
- * used, so a row saved through either path reads back identically.
- */
-function toTurnWrite(
-  turn: SaveConversationTurn,
-  languages: readonly LanguageCode[],
-): ConversationTurnWrite {
-  if (turn.sourceLanguages && turn.translations) {
-    return {
-      ...turn,
-      sourceLanguages: turn.sourceLanguages,
-      translations: turn.translations,
-    };
-  }
-  // The conversation's languages are declared source-first for the WHOLE
-  // conversation, not per turn, so recovering which one THIS turn was spoken in
-  // needs `speakerRoleFor`'s mapping run backwards — exactly what
-  // `fillTurnLanguages` (`@chatofy/types`) does for a raw wire object; this is
-  // its typed equivalent over an already-parsed `SaveConversationTurn`.
-  const source = languages.find(
-    (code) => speakerRoleFor(code, languages) === turn.speakerRole,
-  );
-  if (source === undefined) {
-    // Unreachable in practice: `speakerRoleSchema` only ever validates
-    // 'speaker_a' | 'speaker_b', and `speakerRoleFor` maps every registry
-    // language to one of exactly those two roles. Thrown rather than silently
-    // defaulted, so a future registry change that breaks that mapping fails
-    // loudly here instead of writing a row with no source language at all.
-    throw new Error(
-      `no conversation language maps to speakerRole ${turn.speakerRole}`,
-    );
-  }
-  const targets = translationTargets(languages, [source]);
+/** One turn's write shape, dropping the legacy `targetText` Postgres has no column for. */
+function toTurnWrite(turn: SaveConversationTurn): ConversationTurnWrite {
   return {
-    ...turn,
-    sourceLanguages: [source],
-    translations: Object.fromEntries(
-      targets.map((target) => [target, turn.targetText]),
-    ),
+    position: turn.position,
+    speakerRole: turn.speakerRole,
+    speakerLabel: turn.speakerLabel,
+    sourceText: turn.sourceText,
+    displayText: turn.displayText,
+    sourceLanguages: turn.sourceLanguages,
+    translations: turn.translations,
+    offsetMs: turn.offsetMs,
   };
 }

@@ -48,17 +48,15 @@ import {
  * {@link primaryTranslation} on every read — so a caller reading this type from
  * an API response can treat `sourceLanguages`/`translations` as present.
  *
- * They are declared OPTIONAL here rather than required, though, because this is
- * also the type `packages/realtime-client`'s `toConversationTurns` builds when
- * it projects a live conversation into the rows a save request sends —
- * `apps/web`'s `use-conversation-save.ts` passes that array straight through as
- * `SaveConversationRequest.turns`. That projection has no per-turn language plan
- * to fill these from yet (the reader that would give it one lands in a later
- * phase), and it still has to type-check unchanged: making the new pair
- * required here would fail every existing build of this object, not only a
- * response. `saveConversationRequestSchema` derives the definitive values
- * server-side when a body omits them (see `ConversationsService`'s write
- * conversion), so no caller of `POST`/`PUT` needs to send them at all yet.
+ * STRICT: `sourceLanguages`/`translations` are REQUIRED, no preprocessing.
+ * `packages/realtime-client`'s `toConversationTurns` and `apps/web`'s
+ * `use-conversation-save.ts` build every field of this shape directly — there is
+ * no client left that constructs one without them — so a caller that forgot to
+ * fill a new one fails to typecheck rather than being quietly patched here.
+ * Backward-compatible PARSING of a turn that predates these two fields is a
+ * separate concern that belongs only to a RESPONSE a rolled-back API sent, and
+ * lives in `http/conversations.ts`'s wire schemas via `fillTurnLanguages`
+ * (`language-fields-compat.ts`).
  */
 export const conversationTurnSchema = z.object({
   /** Display-block order, 0-based. Not a spoken-turn index. */
@@ -68,9 +66,9 @@ export const conversationTurnSchema = z.object({
   sourceText: z.string(),
   displayText: z.string().nullable(),
   /** The language(s) this block was spoken in. One, except for a mixed block. */
-  sourceLanguages: sourceLanguagesSchema.optional(),
+  sourceLanguages: sourceLanguagesSchema,
   /** A translation per destination language; only the targets this block needed. */
-  translations: translationMapSchema(z.string()).optional(),
+  translations: translationMapSchema(z.string()),
   targetText: z.string(),
   /**
    * Milliseconds from the conversation's `startedAt` to the moment capture
@@ -106,21 +104,20 @@ export type ConversationTurn = z.infer<typeof conversationTurnSchema>;
  * The target is the conversation's first declared language the turn was NOT
  * spoken in — `languages` is declared-source-first (see `conversationLanguagesOf`),
  * so for an ordinary single-source turn this is simply "the other one". A mixed
- * turn (several `sourceLanguages`, a seam this phase does not exercise) would
- * have no single right answer either way; picking the conversation's first
- * uncovered language keeps the choice deterministic rather than undefined.
+ * turn (several `sourceLanguages`) has no single right answer either way;
+ * picking the conversation's first uncovered language keeps the choice
+ * deterministic rather than undefined.
  *
  * Shared by two callers that must agree byte-for-byte: `PrismaConversationStore`
  * uses it to fill the DROPPED `targetText` column's replacement on every read,
- * and the history UI reads the same field to render a block — see the phase
- * that wires the reader for why one function has to serve both.
+ * and the history UI (`HistoryTranscript`) reads the same field to render a
+ * block, so a reader watching a live conversation and the same conversation read
+ * back from history sees the identical translation picked out of the map.
  *
- * Takes its own inline shape rather than `Pick<ConversationTurn, ...>`: that
- * type's `sourceLanguages`/`translations` are OPTIONAL, for a reason that has
- * nothing to do with this function (see the schema's own docblock) — every
- * caller of `primaryTranslation` already has both fully populated, and a
- * signature that let them be `undefined` would push a needless null-check onto
- * every one of them.
+ * Takes its own inline shape rather than `Pick<ConversationTurn, ...>` for
+ * clarity at the call site: both fields are required on `ConversationTurn`
+ * already, but spelling out exactly the two this function reads keeps its
+ * signature legible without following the import.
  */
 export function primaryTranslation(
   turn: {
@@ -146,21 +143,22 @@ export function primaryTranslation(
  * `languages` is the stored column — declared source first, so `direction` is
  * `legacyDirectionOf(languages)` and not a second fact about the row.
  * `direction` is KEPT rather than replaced, for the same reason
- * `ConversationTurn.targetText` is: no client reads `languages` yet, and
- * `apps/api` does not deploy atomically with one that does.
+ * `ConversationTurn.targetText` is: `apps/api` does not deploy atomically with
+ * every open client tab, so a reader ahead of a rollback still needs the field
+ * it has always read.
  *
- * OPTIONAL rather than required, for the same reason `ConversationTurn`'s new
- * fields are: this is also the type `apps/web` builds by hand in its own test
- * fixtures (a `ConversationSummary` predating this migration, with only
- * `direction`), and those still have to type-check unchanged. A real response
- * from this server always includes it — `PrismaConversationStore.toSummary`
- * fills it on every read — so a caller reading a live response can treat it as
- * present; only a hand-built value of this TYPE may omit it.
+ * STRICT, mirroring `ConversationTurn.sourceLanguages`/`translations`:
+ * `apps/web` reads `languages` directly now (`DirectionLabel`'s `from`/`to`) and
+ * sends it on every save, and `PrismaConversationStore.toSummary` fills it on
+ * every read — so a hand-built value missing it fails to typecheck. Backward-
+ * compatible parsing of a rolled-back API's response, which predates this
+ * column, lives in `http/conversations.ts`'s wire schemas via
+ * `fillConversationLanguages`.
  */
 export const conversationSummarySchema = z.object({
   conversationId: z.string(),
   direction: translationDirectionSchema,
-  languages: conversationLanguagesSchema.optional(),
+  languages: conversationLanguagesSchema,
   startedAt: z.string(),
   endedAt: z.string(),
   turnCount: z.number().int().min(0),

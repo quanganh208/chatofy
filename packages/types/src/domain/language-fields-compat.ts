@@ -14,12 +14,14 @@
 //   - a RESPONSE from an API build rolled back to before this migration is the
 //     same gap read by a client instead of a server — the identical two
 //     functions fill it there too (see `http/conversations.ts`'s response wire
-//     schemas).
+//     schemas). `fillLegacyConversationFields` is the one preprocess that walks
+//     a whole conversation body (top-level plus every turn) and is what both
+//     directions actually wire into their schema.
 //   - deriving the OLD field from the NEW one — what a response actually does
 //     on the happy path, since the database no longer stores `direction` or
 //     `targetText` at all — runs the other way, and is `legacyDirectionOf`
 //     here plus `primaryTranslation` in `domain/conversation.ts` (kept there
-//     because the history UI reads it too, in a later phase).
+//     because `HistoryTranscript` reads it too, to render a stored block).
 //
 // This is a compatibility shim, not a permanent second contract: remove it
 // together with the legacy `direction`/`targetText` wire fields once no
@@ -77,6 +79,35 @@ export function fillTurnLanguages(
     ...raw,
     sourceLanguages: [source],
     translations: Object.fromEntries(targets.map((target) => [target, targetText])),
+  };
+}
+
+/**
+ * Fills the whole conversation shape a legacy caller is missing — `languages`
+ * at the top level, `sourceLanguages`/`translations` on every turn — by running
+ * {@link fillConversationLanguages} and then {@link fillTurnLanguages} over each
+ * element of `turns`. A no-op wherever the caller already sent the new fields.
+ *
+ * The ONE preprocess both directions of a legacy CONVERSATION body share: a
+ * SAVE REQUEST from a browser tab that predates `languages` (only `direction`
+ * and turn `targetText`) and a RESPONSE from an API build rolled back to before
+ * this migration are the identical shape read by opposite ends of the same
+ * wire, so one function fills both — wired into `saveConversationRequestSchema`
+ * for the first and the response wire schemas for the second (both in
+ * `http/conversations.ts`).
+ */
+export function fillLegacyConversationFields(raw: unknown): unknown {
+  if (typeof raw !== 'object' || raw === null) return raw;
+  const body = fillConversationLanguages(raw as Record<string, unknown>);
+  const { languages, turns } = body;
+  if (!Array.isArray(languages) || !Array.isArray(turns)) return body;
+  return {
+    ...body,
+    turns: turns.map((turn) =>
+      typeof turn === 'object' && turn !== null
+        ? fillTurnLanguages(turn as Record<string, unknown>, languages as LanguageCode[])
+        : turn,
+    ),
   };
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   fillConversationLanguages,
+  fillLegacyConversationFields,
   fillTurnLanguages,
   legacyDirectionOf,
 } from './language-fields-compat.js';
@@ -74,6 +75,55 @@ describe('fillTurnLanguages', () => {
   it('leaves a turn whose speakerRole matches no conversation language alone', () => {
     const raw = { speakerRole: 'not-a-role', targetText: 'x' };
     expect(fillTurnLanguages(raw, languages)).toBe(raw);
+  });
+});
+
+describe('fillLegacyConversationFields', () => {
+  it('fills languages and every turn from a fully legacy conversation body', () => {
+    const raw = {
+      direction: 'vi_to_en',
+      turns: [
+        { speakerRole: 'speaker_a', targetText: 'hello' },
+        { speakerRole: 'speaker_b', targetText: 'chào bạn' },
+      ],
+    };
+    expect(fillLegacyConversationFields(raw)).toEqual({
+      direction: 'vi_to_en',
+      languages: ['vi', 'en'],
+      turns: [
+        {
+          speakerRole: 'speaker_a',
+          targetText: 'hello',
+          sourceLanguages: ['vi'],
+          translations: { en: 'hello' },
+        },
+        {
+          speakerRole: 'speaker_b',
+          targetText: 'chào bạn',
+          sourceLanguages: ['en'],
+          translations: { vi: 'chào bạn' },
+        },
+      ],
+    });
+  });
+
+  it('leaves a body already carrying languages and per-turn translations untouched', () => {
+    const raw = {
+      direction: 'vi_to_en',
+      languages: ['vi', 'en'],
+      turns: [{ speakerRole: 'speaker_a', translations: { en: 'hello' } }],
+    };
+    expect(fillLegacyConversationFields(raw)).toEqual(raw);
+  });
+
+  it('passes through a non-object body for the schema to reject', () => {
+    expect(fillLegacyConversationFields(null)).toBeNull();
+    expect(fillLegacyConversationFields('nope')).toBe('nope');
+  });
+
+  it('leaves turns untouched when languages could not be derived at all', () => {
+    const raw = { turns: [{ speakerRole: 'speaker_a', targetText: 'hello' }] };
+    expect(fillLegacyConversationFields(raw)).toBe(raw);
   });
 });
 

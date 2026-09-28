@@ -15,14 +15,14 @@ export const CONVERSATION_STORE = Symbol('CONVERSATION_STORE');
  * One turn as the store WRITES it — always the language-keyed shape, never the
  * legacy `targetText`.
  *
- * `SaveConversationTurn` (`@chatofy/types`) cannot serve this job unchanged:
- * `sourceLanguages`/`translations` are OPTIONAL there, because a body from the
- * current client never sends them and `targetText` alone has to keep
- * type-checking against that schema (see its own docblock). By the time a turn
- * reaches the store, `ConversationsService`'s write conversion has already
- * derived them from `targetText` when a body omitted them — so here they are
- * simply REQUIRED, and there is no `targetText` at all: Postgres has no column
- * for it, so nothing downstream of the conversion should still be reaching for it.
+ * `SaveConversationTurn` (`@chatofy/types`) cannot serve this job unchanged: it
+ * still carries the legacy `targetText`, which Postgres has no column for.
+ * `sourceLanguages`/`translations` are REQUIRED on both types today — a body's
+ * `saveConversationRequestSchema` preprocess already fills them from
+ * `speakerRole`/`targetText` before the service ever sees it — so the only
+ * narrowing left for `ConversationsService`'s write conversion to do is
+ * dropping `targetText` itself, which nothing downstream of it should still be
+ * reaching for.
  */
 export interface ConversationTurnWrite {
   position: number;
@@ -86,14 +86,13 @@ export interface ConversationStore {
    *
    * The parameter is {@link ConversationWrite}, not `SaveConversationRequest`
    * (`@chatofy/types`) and not `Conversation`. `SaveConversationRequest` is the
-   * HTTP contract's shape — `languages`/`sourceLanguages`/`translations`
-   * OPTIONAL there, because the current client never sends them — and
-   * `ConversationsService.save` is where that gets resolved into a fully
-   * language-keyed write, deriving them from `direction`/`targetText` when a
-   * body omitted them. `Conversation` keeps BOTH the new fields and the legacy
-   * `direction`/`targetText` for a READER's sake (see its own docblock); a
-   * write has no column for the legacy pair at all, so deriving them here would
-   * be make-work with nowhere to put it.
+   * HTTP contract's shape and still carries the legacy `direction`/turn
+   * `targetText` pair a caller may send instead of (or alongside) the
+   * language-keyed fields; `ConversationsService.save` is where that resolves
+   * into a write with no legacy pair left in it at all. `Conversation` keeps
+   * BOTH the new fields and the legacy `direction`/`targetText` for a READER's
+   * sake (see its own docblock); a write has no column for the legacy pair at
+   * all, so carrying it here would be make-work with nowhere to put it.
    *
    * `turnCount`, `preview` and `hasMinutes` are not part of this type for the
    * same reason they were excluded before: they are computed from the turns or
