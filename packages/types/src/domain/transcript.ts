@@ -3,7 +3,12 @@
 import { z } from 'zod';
 import { speakerRoleSchema } from './session.js';
 // Language codes and directions are owned by the registry (`languages.ts`).
-import { translationDirectionSchema } from './languages.js';
+import {
+  directionLanguages,
+  sourceLanguagesSchema,
+  translationDirectionSchema,
+  translationMapSchema,
+} from './languages.js';
 
 /**
  * Which voice speaks the translation.
@@ -26,14 +31,69 @@ export type VoiceGender = z.infer<typeof voiceGenderSchema>;
 /** Applied wherever the caller may leave the voice unstated. */
 export const DEFAULT_VOICE_GENDER: VoiceGender = 'female';
 
+/**
+ * The canonical, server-side shape of one turn's record.
+ *
+ * `direction` and `targetText` are the pre-fan-out fields, KEPT rather than
+ * replaced: no client reads them off this record today (`git grep` from the
+ * caller's side finds only server code writing them), but the client-side
+ * schema still requires them, and `apps/api`/`apps/web` do not deploy
+ * atomically. `sourceLanguages` and `translations` are additive — a turn with
+ * one source and one target still fills both, `targetText` mirroring
+ * `translations[spoken]`.
+ *
+ * STRICT: no preprocessing. A caller building a segment (only `TurnSession`
+ * does) must supply every field, so a server that forgot to fill a new one
+ * fails to typecheck rather than being quietly patched here. Backward-
+ * compatible PARSING of a segment that predates these two fields is a
+ * separate concern — see {@link transcriptSegmentWireSchema} — and belongs
+ * only to a client, never to the server that builds this record.
+ */
 export const transcriptSegmentSchema = z.object({
   id: z.string(),
   sessionId: z.string(),
   speakerRole: speakerRoleSchema,
   direction: translationDirectionSchema,
+  sourceLanguages: sourceLanguagesSchema,
+  translations: translationMapSchema(z.string()),
   sourceText: z.string(),
   targetText: z.string(),
   audioUrl: z.string().nullable(),
   createdAt: z.string(),
 });
 export type TranscriptSegment = z.infer<typeof transcriptSegmentSchema>;
+
+/**
+ * `transcriptSegmentSchema`, tolerant of a segment sent before `sourceLanguages`
+ * and `translations` existed.
+ *
+ * The ONE place this fallback lives, and it is wired into exactly the schema a
+ * CLIENT parses an incoming segment with (`ws-events.ts`'s
+ * `server.transcript.final`) — never into what the server itself builds or
+ * validates. `apps/api` and `apps/web` do not deploy atomically
+ * (`ws-events.ts` says so for the same reason elsewhere), so a web tab loaded
+ * before this phase shipped can still hold an API that has since rolled
+ * forward, and the reverse: a rolled-back API can still be talking to a
+ * fresh tab. Either pairing can put a segment with only `direction` and
+ * `targetText` in front of a client parser that now requires more, and this
+ * preprocessing is what keeps that parse from failing outright.
+ *
+ * Remove this once every client in the wild sends the new fields itself (see
+ * the plan's validation log for the retirement window) — it is a compatibility
+ * shim, not a permanent second schema.
+ */
+export const transcriptSegmentWireSchema = z.preprocess((raw) => {
+  if (typeof raw !== 'object' || raw === null) return raw;
+  const segment = raw as Record<string, unknown>;
+  if (segment.sourceLanguages !== undefined || segment.translations !== undefined) {
+    return segment;
+  }
+  const { direction } = segment;
+  if (typeof direction !== 'string') return segment;
+  const { source, target } = directionLanguages(direction);
+  return {
+    ...segment,
+    sourceLanguages: [source],
+    translations: { [target]: segment.targetText },
+  };
+}, transcriptSegmentSchema);

@@ -4,7 +4,7 @@ import { audioFrameSchema } from './audio-frame.js';
 import { speakerRoleSchema } from '../domain/session.js';
 import { translationDirectionSchema, translationMapSchema } from '../domain/languages.js';
 import {
-  transcriptSegmentSchema,
+  transcriptSegmentWireSchema,
   voiceGenderSchema,
   DEFAULT_VOICE_GENDER,
 } from '../domain/transcript.js';
@@ -592,8 +592,17 @@ const serverTranscriptFinalSchema = z.object({
    * the same way, which is what lets a reducer key on one field.
    */
   sessionId: z.string(),
-  /** Full TranscriptSegment record persisted to DB — canonical domain schema. */
-  segment: transcriptSegmentSchema,
+  /**
+   * Full TranscriptSegment record persisted to DB — canonical domain schema.
+   *
+   * Parsed here through the WIRE variant, not the strict one: this event
+   * reaches `realtime-client` (and through it, web and the extension), and a
+   * segment sent before `sourceLanguages`/`translations` existed — an old API
+   * behind a rolled-forward tab, or the reverse — must still parse. See
+   * `transcriptSegmentWireSchema` for why the server that BUILDS this record
+   * does not get the same leniency.
+   */
+  segment: transcriptSegmentWireSchema,
   /**
    * A readable rendering of `segment.sourceText`, present only when it differs.
    *
