@@ -1,7 +1,7 @@
 // What a local speech sidecar's own `/healthz` says it can serve — the runtime
 // source of truth `SpeechLanguageSupport` (apps/api) checks the TS registry
 // against, rather than trusting a generated list that could drift from what
-// the sidecar actually loaded (D7). Shared between the STT and TTS local
+// the sidecar actually loaded. Shared between the STT and TTS local
 // providers because both sidecars publish the same `{languages: string[]}`
 // shape on `/healthz`.
 import { toLanguageCode, type LanguageCode } from '@chatofy/types';

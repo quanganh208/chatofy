@@ -21,7 +21,7 @@ export interface LanguagePlan {
 }
 
 /**
- * TS↔Python parity, checked at RUNTIME rather than generated at build time (D7).
+ * TS↔Python parity, checked at RUNTIME rather than generated at build time.
  *
  * Reads each configured provider's `supportedLanguages()` — which, for the
  * local sidecars, is a read of their own `/healthz` — and keeps the answer
