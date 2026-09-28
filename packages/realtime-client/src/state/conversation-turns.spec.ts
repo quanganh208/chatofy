@@ -30,13 +30,40 @@ const segment = (
   sourceText: string,
   targetText = 'en',
   speakerRole: 'speaker_a' | 'speaker_b' = 'speaker_a',
+): TranscriptSegment => {
+  // speaker_a is the Vietnamese side of this conversation's declared
+  // direction, whatever order it names — see `speakerRoleFor`.
+  const [source, target] =
+    speakerRole === 'speaker_a' ? (['vi', 'en'] as const) : (['en', 'vi'] as const);
+  return {
+    id: `seg-${sessionId}`,
+    sessionId,
+    speakerRole,
+    direction: 'vi_to_en',
+    sourceLanguages: [source],
+    translations: { [target]: targetText },
+    sourceText,
+    targetText,
+    audioUrl: null,
+    createdAt: '2026-09-03T00:00:00.000Z',
+  };
+};
+
+/** A turn spoken in `source`, with its own explicit translation map. */
+const languageSegment = (
+  sessionId: string,
+  source: 'vi' | 'en',
+  sourceText: string,
+  translations: Partial<Record<'vi' | 'en', string>>,
 ): TranscriptSegment => ({
   id: `seg-${sessionId}`,
   sessionId,
-  speakerRole,
+  speakerRole: source === 'vi' ? 'speaker_a' : 'speaker_b',
   direction: 'vi_to_en',
+  sourceLanguages: [source],
+  translations,
   sourceText,
-  targetText,
+  targetText: Object.values(translations)[0] ?? '',
   audioUrl: null,
   createdAt: '2026-09-03T00:00:00.000Z',
 });
@@ -288,6 +315,99 @@ describe('toConversationTurns', () => {
       captures: captures(['later', 9_000, false, 11_000], ['earlier', 1_000, false, 3_000]),
     });
     expect(rows.map((row) => row.sourceText)).toEqual(['first', 'second']);
+  });
+
+  describe('sourceLanguages and translations', () => {
+    it('carries a real vi turn and a real en turn as two distinct rows', () => {
+      const rows = toConversationTurns({
+        ...base,
+        turns: [
+          languageSegment('a', 'vi', 'xin chào', { en: 'hello' }),
+          languageSegment('b', 'en', 'good morning', { vi: 'chào buổi sáng' }),
+        ],
+        captures: captures(['a', 1_000, false, 3_000], ['b', 20_000, false, 22_000]),
+      });
+
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toMatchObject({
+        sourceLanguages: ['vi'],
+        translations: { en: 'hello' },
+      });
+      expect(rows[1]).toMatchObject({
+        sourceLanguages: ['en'],
+        translations: { vi: 'chào buổi sáng' },
+      });
+    });
+
+    it('translates a mixed turn into every conversation language', () => {
+      // Several `sourceLanguages` on one turn go to the WHOLE conversation
+      // (`translationTargets`, domain/languages.ts) — both keys land on the one
+      // stored row.
+      const mixed = languageSegment('a', 'vi', 'ship it giờ này', {
+        vi: 'ship it giờ này',
+        en: 'ship it now',
+      });
+      const rows = toConversationTurns({
+        ...base,
+        turns: [{ ...mixed, sourceLanguages: ['vi', 'en'] }],
+        captures: captures(['a', 1_000, false, 3_000]),
+      });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        sourceLanguages: ['vi', 'en'],
+        translations: { vi: 'ship it giờ này', en: 'ship it now' },
+      });
+    });
+
+    // The risk this covers: a mixed turn (several `sourceLanguages`) targets
+    // the WHOLE conversation, and its several translations are unrelated
+    // strings — nothing says they are the same length. Each target language
+    // must be capped against its OWN length, independently, or one running
+    // long could corrupt or truncate the other rather than merely needing more
+    // rows itself.
+    it('caps each target language independently on a mixed turn that passes the storage cap', () => {
+      const long = wordsOfLength(HISTORY_LIMITS.MAX_TURN_CHARS + 600);
+      const short = wordsOfLength(HISTORY_LIMITS.MAX_TURN_CHARS - 100);
+      const mixed: TranscriptSegment = {
+        id: 'seg-a',
+        sessionId: 'a',
+        speakerRole: 'speaker_a',
+        direction: 'vi_to_en',
+        sourceLanguages: ['vi', 'en'],
+        translations: { en: long, vi: short },
+        sourceText: 'a real mixed sentence',
+        targetText: long,
+        audioUrl: null,
+        createdAt: '2026-09-03T00:00:00.000Z',
+      };
+      const rows = toConversationTurns({
+        ...base,
+        turns: [mixed],
+        captures: captures(['a', 1_000, false, 3_000]),
+      });
+
+      expect(rows.length).toBeGreaterThan(1);
+      for (const row of rows) {
+        expect(row.sourceLanguages).toEqual(['vi', 'en']);
+        expect((row.translations.en ?? '').length).toBeLessThanOrEqual(
+          HISTORY_LIMITS.MAX_TURN_CHARS,
+        );
+        expect((row.translations.vi ?? '').length).toBeLessThanOrEqual(
+          HISTORY_LIMITS.MAX_TURN_CHARS,
+        );
+      }
+      // Read as the screen and the minutes prompt read it: each language's
+      // text, once, concatenated in row order.
+      expect(rows.map((row) => row.translations.en ?? row.translations.vi ?? '').length).toBe(
+        rows.length,
+      );
+      expect(
+        rows
+          .map((row) => row.translations.vi)
+          .filter((text): text is string => Boolean(text))
+          .join(' '),
+      ).toBe(short);
+    });
   });
 
   describe('offsetMs', () => {

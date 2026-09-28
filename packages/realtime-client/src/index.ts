@@ -83,7 +83,7 @@ export {
   groupIsRepaired,
   groupRawSourceText,
   groupSourceText,
-  groupTargetText,
+  groupTranslation,
   groupTurnsForDisplay,
 } from './state/display-groups.js';
 export type { DisplayGroup } from './state/display-groups.js';

@@ -1,4 +1,4 @@
-import type { TranscriptSegment } from '@chatofy/types';
+import type { LanguageCode, TranscriptSegment } from '@chatofy/types';
 import { attributionFor, isRendered, type AttributionsBySession } from './speaker-roster.js';
 import type { CapturesBySession } from './turn-keyed-transcript.js';
 
@@ -211,7 +211,17 @@ export function groupIsRepaired(group: DisplayGroup, displays: Record<string, st
   return group.turns.some((turn) => displays[turn.sessionId] !== undefined);
 }
 
-/** One block's translated text, in speaking order. */
-export function groupTargetText(group: DisplayGroup): string {
-  return group.turns.map((turn) => turn.targetText).join(' ');
+/**
+ * One block's translation INTO `language`, in speaking order.
+ *
+ * Reads each member's `translations` map rather than its pre-fan-out
+ * `targetText`, so a pane can ask for whichever language it is showing rather
+ * than always getting the one language a turn happened to speak aloud. Falls
+ * back to `''` for a member whose plan never translated into `language` at all
+ * — unreachable in an ordinary two-language conversation, where every turn's
+ * targets are exactly the languages it was not spoken in, but not a type this
+ * function can assume away for a caller.
+ */
+export function groupTranslation(group: DisplayGroup, language: LanguageCode): string {
+  return group.turns.map((turn) => turn.translations[language] ?? '').join(' ');
 }

@@ -4,7 +4,7 @@ import {
   groupIsRepaired,
   groupRawSourceText,
   groupSourceText,
-  groupTargetText,
+  groupTranslation,
   groupTurnsForDisplay,
   type DisplayGroup,
 } from './display-groups.js';
@@ -16,6 +16,26 @@ const segment = (sessionId: string, sourceText: string, targetText = 'en'): Tran
   sessionId,
   speakerRole: 'speaker_a',
   direction: 'vi_to_en',
+  sourceLanguages: ['vi'],
+  translations: { en: targetText },
+  sourceText,
+  targetText,
+  audioUrl: null,
+  createdAt: '2026-08-27T00:00:00.000Z',
+});
+
+/** A turn spoken in English, for a mixed-source block. */
+const enSegment = (
+  sessionId: string,
+  sourceText: string,
+  targetText: string,
+): TranscriptSegment => ({
+  id: `seg-${sessionId}`,
+  sessionId,
+  speakerRole: 'speaker_b',
+  direction: 'vi_to_en',
+  sourceLanguages: ['en'],
+  translations: { vi: targetText },
   sourceText,
   targetText,
   audioUrl: null,
@@ -269,7 +289,37 @@ describe('group text', () => {
   it('joins source and target in speaking order', () => {
     const [group] = groups();
     expect(groupSourceText(group!, {})).toBe('mười bảy giờ trời mưa');
-    expect(groupTargetText(group!)).toBe('at 5pm it rained');
+    expect(groupTranslation(group!, 'en')).toBe('at 5pm it rained');
+  });
+
+  // A mixed turn — several `sourceLanguages` — is translated into the WHOLE
+  // conversation (`translationTargets`, domain/languages.ts), so its map holds
+  // more than one key. `groupTranslation` has to read the requested language's
+  // entry out of that map rather than assuming one member ever has only one.
+  it('picks the requested language out of a mixed turn translated into both', () => {
+    const mixed: TranscriptSegment = {
+      ...segment('a', 'ship it giờ này', 'ship it now'),
+      sourceLanguages: ['vi', 'en'],
+      translations: { vi: 'ship it giờ này', en: 'ship it now' },
+    };
+    const [group] = groupTurnsForDisplay([mixed], captures(['a', 1_000, false, 9_000]), {});
+    expect(groupTranslation(group!, 'vi')).toBe('ship it giờ này');
+    expect(groupTranslation(group!, 'en')).toBe('ship it now');
+  });
+
+  // A real Vietnamese-source turn and a real English-source turn, kept as
+  // separate blocks (no forced cut between them). Each contributes only to the
+  // language its OWN plan actually translated into — a block never invents a
+  // self-translation for a member already spoken in the requested language.
+  it('reads each block out of its own translations map, not a shared field', () => {
+    const groups = groupTurnsForDisplay(
+      [segment('a', 'chắc rồi', 'sure'), enSegment('b', 'ready to ship?', 'sẵn sàng ra mắt chưa?')],
+      captures(['a', 1_000, false, 9_000], ['b', 20_000, false, 28_000]),
+      {},
+    );
+    const [first, second] = groups;
+    expect(groupTranslation(first!, 'en')).toBe('sure');
+    expect(groupTranslation(second!, 'vi')).toBe('sẵn sàng ra mắt chưa?');
   });
 
   // The display-repair phase writes `displays`; this proves a repair landing for
