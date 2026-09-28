@@ -207,7 +207,11 @@ export const sessionOptionsSchema = z.object({
    * accepting an unrecognised gender rather than 422-ing a turn that could still
    * have been spoken.
    *
-   * Honoured for English output only; the Vietnamese engine has no rate control.
+   * Whether it does anything is a property of the ENGINE speaking the output
+   * language, not of the language itself — reported per language by the speech
+   * backend's own voice catalog (`speedAdjustable` on `GET /translate/voices`),
+   * not fixed here. Today's local backends: honoured for English (Kokoro),
+   * ignored for Vietnamese (VieNeu).
    */
   speed: z
     .number()
