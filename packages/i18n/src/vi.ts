@@ -344,8 +344,6 @@ export const vi: Messages = {
     'Cách bạn muốn một từ cụ thể được dịch ra. Hãy viết từ đó bằng cả hai thứ tiếng; trình dịch dùng cặp này theo chiều nào cũng được, và chỉ khi từ đó thực sự được nói ra.',
   'web.preferences.aiContext.glossaryTooLong':
     'Cách dịch chỉ nên là một từ hoặc một cụm ngắn — tối đa {max} chữ. Hãy rút gọn cặp này, hoặc xoá nó đi.',
-  'web.preferences.aiContext.glossaryVi': 'Tiếng Việt',
-  'web.preferences.aiContext.glossaryEn': 'Tiếng Anh',
   'web.preferences.aiContext.glossaryAdd': 'Thêm một cặp',
   'web.preferences.aiContext.glossaryRemove': 'Xoá cặp này',
   'web.preferences.aiContext.register': 'Văn phong',

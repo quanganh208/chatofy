@@ -84,10 +84,10 @@ export function resolveContext(
  * Mirrors the web app's own helper of the same name (`translate-settings`
  * plumbing): `undefined`, never `{}`, when nothing is selected, so a capture
  * with no context produces a session byte-identical to one from before this
- * feature existed. `glossary` is passed through as the stored `{vi, en}` pairs
- * untouched — which side is the source is resolved server-side, in the prompt
- * builder, because only the session (and here, only `MeetingCapture`, which
- * starts one session per direction) knows it.
+ * feature existed. `glossary` is passed through as the stored language-keyed
+ * maps untouched — which side is the source is resolved server-side, in the
+ * prompt builder, because only the session (and here, only `MeetingCapture`,
+ * which starts one session per direction) knows it.
  */
 export function toHints(context: TranslationContext | null): TranslationHints | undefined {
   if (context === null) return undefined;

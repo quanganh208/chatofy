@@ -458,8 +458,6 @@ export const en = {
     'How a particular term should come out. Write each term in both languages; the translator uses the pair whichever way the conversation runs, and only when the term is actually said.',
   'web.preferences.aiContext.glossaryTooLong':
     'A rendering is a word or a short phrase — at most {max} words. Shorten this pair, or remove it.',
-  'web.preferences.aiContext.glossaryVi': 'Vietnamese',
-  'web.preferences.aiContext.glossaryEn': 'English',
   'web.preferences.aiContext.glossaryAdd': 'Add a pair',
   'web.preferences.aiContext.glossaryRemove': 'Remove this pair',
   'web.preferences.aiContext.register': 'Register',
