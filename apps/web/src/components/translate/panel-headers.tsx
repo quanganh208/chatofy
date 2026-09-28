@@ -4,7 +4,7 @@ import { ArrowLeftRight } from 'lucide-react';
 import { Button } from '@chatofy/ui/react';
 import { directionLanguages, type TranslationDirection } from '@chatofy/types';
 import { useTranslate } from '@/i18n/provider';
-import { makeLanguageName } from '@/i18n/direction-labels';
+import { nativeLanguageName } from '@/i18n/direction-labels';
 import { cn } from '@/lib/utils';
 
 interface PanelHeadersProps {
@@ -75,7 +75,6 @@ interface PanelHeadersProps {
  */
 export function PanelHeaders({ direction, running, onSwap, voiceControl }: PanelHeadersProps) {
   const t = useTranslate();
-  const nameLanguage = makeLanguageName(t);
   const { source, target } = directionLanguages(direction);
 
   return (
@@ -84,12 +83,12 @@ export function PanelHeaders({ direction, running, onSwap, voiceControl }: Panel
     <div className="border-hairline relative border-b px-8">
       <Side
         role={t('web.translate.directionSource')}
-        language={nameLanguage(source)}
+        language={nativeLanguageName(source)}
         className="border-hairline border-b"
       />
       <Side
         role={t('web.translate.directionTarget')}
-        language={nameLanguage(target)}
+        language={nativeLanguageName(target)}
         end={voiceControl}
       />
 
@@ -159,7 +158,6 @@ export function DirectionSwap({
   className?: string;
 }) {
   const t = useTranslate();
-  const nameLanguage = makeLanguageName(t);
   const { source, target } = directionLanguages(direction);
 
   return (
@@ -169,8 +167,8 @@ export function DirectionSwap({
       disabled={running}
       onClick={onSwap}
       aria-label={t('web.translate.directionSwap', {
-        from: nameLanguage(target),
-        to: nameLanguage(source),
+        from: nativeLanguageName(target),
+        to: nativeLanguageName(source),
       })}
       className={cn(
         'text-prose hover:text-foreground disabled:hover:text-inherit',

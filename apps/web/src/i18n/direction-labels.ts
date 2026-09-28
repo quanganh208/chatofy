@@ -15,16 +15,13 @@ import type { Translate } from '@chatofy/i18n';
  *
  * ## Language names
  *
- * The toggle names a language with its OWN name for itself — `LANGUAGES[code].nativeName`
- * reads "Tiếng Việt" regardless of which locale the interface is in, which is why this
- * takes `t` but never calls it: the parameter stays so the four existing call sites keep
- * compiling, and a locale-dependent name (`web.languageName.<code>`, used for history rows
- * and glossary columns, which DO vary by interface locale) lives in `direction-label.tsx`
- * instead.
+ * The toggle names a language with its OWN name for itself — "Tiếng Việt" regardless of
+ * which locale the interface is in, so it needs no dictionary. A locale-dependent name
+ * (`web.languageName.<code>`, used for history rows and glossary columns, which DO vary
+ * by interface locale) lives in `direction-label.tsx` instead.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for call-site compatibility, see above
-export function makeLanguageName(t: Translate): (code: LanguageCode) => string {
-  return (code) => LANGUAGES[code].nativeName;
+export function nativeLanguageName(code: LanguageCode): string {
+  return LANGUAGES[code].nativeName;
 }
 
 export function directionLabels(t: Translate): DirectionToggleLabels {

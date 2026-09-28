@@ -5,7 +5,7 @@ import { directionLanguages } from '@chatofy/types';
 import { cn } from '@/lib/utils';
 
 import { useTranslate } from '@/i18n/provider';
-import { makeLanguageName } from '@/i18n/direction-labels';
+import { nativeLanguageName } from '@/i18n/direction-labels';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
 import { DirectionSwap, PanelHeader, PanelHeaders } from '@/components/translate/panel-headers';
 import { TranscriptScroller } from '@/components/translate/transcript-scroller';
@@ -93,7 +93,6 @@ export function TranscriptPanes({
   stream,
 }: TranscriptPanesProps) {
   const t = useTranslate();
-  const nameLanguage = makeLanguageName(t);
   const { source: from, target: to } = directionLanguages(settings.direction);
 
   const split = settings.displayMode === 'split' && !settings.translationOnly;
@@ -120,7 +119,7 @@ export function TranscriptPanes({
       <div className="flex min-h-0 flex-1 flex-col">
         <PanelHeader
           role={t('web.translate.directionSource')}
-          language={nameLanguage(from)}
+          language={nativeLanguageName(from)}
           end={<DirectionSwap direction={settings.direction} running={running} onSwap={onSwap} />}
         />
         {pane('source', true, t('web.translate.paneSource'))}
@@ -130,7 +129,7 @@ export function TranscriptPanes({
       <div className="flex min-h-0 flex-1 flex-col">
         <PanelHeader
           role={t('web.translate.directionTarget')}
-          language={nameLanguage(to)}
+          language={nativeLanguageName(to)}
           end={voiceControl}
         />
         {pane('target', false, t('web.translate.paneTarget'))}
