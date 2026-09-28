@@ -106,6 +106,17 @@ export class LiveSession {
       this.listeners.onError?.(err instanceof Error ? err.message : 'Cannot reach the translator');
       return;
     }
+    // `dispose()` (or a second `start()`) may have run while the await above
+    // was pending — a disposed caller does not wait for this promise before
+    // moving on. Sending `start` here regardless would open an upstream Gemini
+    // Live session nobody is left to consume, and `onEvent` below would go on
+    // to fire `onReady` for a session the owner already tore down. `this.socket`
+    // is also re-checked: `dispose()` nulls it, and a stale local `socket`
+    // reference must never be mistaken for the one currently in play.
+    if (this.status !== 'connecting' || this.socket !== socket) {
+      socket.close();
+      return;
+    }
     socket.start(direction);
   }
 

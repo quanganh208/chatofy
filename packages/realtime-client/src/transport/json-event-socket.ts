@@ -34,6 +34,25 @@ export interface JsonSocketHandlers<TEvent> {
 export type NotifyJsonSocketClosed = (socket: WebSocket, code: number, reason: string) => void;
 
 /**
+ * What {@link connectJsonSocket} hands back: the socket ITSELF, synchronously,
+ * plus a promise for the handshake.
+ *
+ * Splitting these is the whole point. A caller that only got the promise had no
+ * way to record the socket until the handshake resolved, and a `close()` — or a
+ * second overlapping `connect()` — arriving before then found nothing to close:
+ * the pending socket went on to open, installed itself with live handlers, and
+ * for `LiveTranslateSocket` specifically it could go on to `start()` a Gemini
+ * Live session nobody would ever consume. Handing back the socket up front lets
+ * the owner assign its own field before awaiting anything, exactly as it did
+ * when `new WebSocket(...)` was called inline.
+ */
+export interface JsonSocketConnection {
+  socket: WebSocket;
+  /** Resolves once the handshake completes; rejects if it fails. */
+  ready: Promise<void>;
+}
+
+/**
  * Open a `WS_SUBPROTOCOL` websocket and wire its message/close/handshake
  * handlers, shared by `TranslateSocket` and `LiveTranslateSocket`.
  *
@@ -45,9 +64,10 @@ export type NotifyJsonSocketClosed = (socket: WebSocket, code: number, reason: s
  * {@link detachJsonSocket}) never reaches it, exactly as before this was
  * shared.
  *
- * Resolves once the handshake completes. The handshake's own `onopen`/`onerror`
- * must not stay attached afterwards: `onerror` is still the promise's `reject`,
- * which is inert once settled, so a transport failure mid-conversation would be
+ * Returns synchronously — see {@link JsonSocketConnection}. `ready` resolves
+ * once the handshake completes. The handshake's own `onopen`/`onerror` must not
+ * stay attached afterwards: `onerror` is still `ready`'s `reject`, which is
+ * inert once settled, so a transport failure mid-conversation would be
  * swallowed instead of reported — the `.then` below is what swaps it for the
  * live error handler.
  */
@@ -57,7 +77,7 @@ export function connectJsonSocket<TEvent>(
   schema: JsonEventSchema<TEvent>,
   handlers: JsonSocketHandlers<TEvent>,
   notifyClosed: NotifyJsonSocketClosed,
-): Promise<WebSocket> {
+): JsonSocketConnection {
   const socket = new WebSocket(url, [WS_SUBPROTOCOL, accessToken]);
 
   socket.onmessage = (message) => {
@@ -84,14 +104,15 @@ export function connectJsonSocket<TEvent>(
     handlers.onClosed?.(event.code, event.reason);
   };
 
-  return new Promise<void>((resolve, reject) => {
+  const ready = new Promise<void>((resolve, reject) => {
     socket.onopen = () => resolve();
     socket.onerror = () => reject(new Error('Cannot reach the translator'));
   }).then(() => {
     socket.onopen = null;
     socket.onerror = () => handlers.onError?.('Connection error');
-    return socket;
   });
+
+  return { socket, ready };
 }
 
 /**

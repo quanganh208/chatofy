@@ -8,9 +8,23 @@ import { pcm16ToBase64 } from '../audio/pcm-resampler.js';
 class FakeSocket {
   readonly sent: LiveClientEvent[] = [];
   closed = 0;
-  constructor(readonly handlers: LiveTranslateSocketHandlers) {}
+  private releaseConnect: (() => void) | null = null;
+  constructor(
+    readonly handlers: LiveTranslateSocketHandlers,
+    /**
+     * Set by a test that needs the handshake to stay pending, so it can act
+     * (dispose, restart) BEFORE `connect()` resolves — the window the
+     * synchronous-socket-ownership fix exists for.
+     */
+    private readonly deferConnect = false,
+  ) {}
   connect(): Promise<void> {
+    if (this.deferConnect) return new Promise((resolve) => (this.releaseConnect = resolve));
     return Promise.resolve();
+  }
+  /** Let a deferred `connect()` resolve, once the test has acted on the window. */
+  finishConnect(): void {
+    this.releaseConnect?.();
   }
   send(event: LiveClientEvent): void {
     this.sent.push(event);
@@ -42,7 +56,7 @@ class FakeSocket {
   }
 }
 
-function harness() {
+function harness(options: { deferConnect?: boolean } = {}) {
   let socket: FakeSocket | null = null;
   const played: { length: number; rate: number }[] = [];
   const seen = {
@@ -54,7 +68,7 @@ function harness() {
   const session = new LiveSession(
     {
       createSocket: (handlers) => {
-        socket = new FakeSocket(handlers);
+        socket = new FakeSocket(handlers, options.deferConnect);
         return socket as unknown as never;
       },
       play: (samples, rate) => played.push({ length: samples.length, rate }),
@@ -285,6 +299,23 @@ describe('LiveSession', () => {
 
       expect(h.socket.sent.filter((e) => e.type === 'client.live.audio')).toHaveLength(0);
       expect(h.socket.sent.filter((e) => e.type === 'client.live.stop')).toHaveLength(0);
+    });
+
+    it('never sends start when disposed while the handshake is still pending', async () => {
+      // The exact race the synchronous-socket-ownership fix targets: `dispose()`
+      // lands in the window between `socket.connect()` being called and its
+      // promise settling, where a stale check has to stop `start()` from going
+      // out to an upstream nobody is left to consume.
+      const h = harness({ deferConnect: true });
+      const starting = h.session.start('vi_to_en');
+
+      h.session.dispose();
+      h.socket.finishConnect();
+      await starting;
+
+      expect(h.socket.sent.filter((e) => e.type === 'client.live.start')).toHaveLength(0);
+      expect(h.socket.closed).toBeGreaterThanOrEqual(1);
+      expect(h.session.state).toBe('stopped');
     });
 
     it('closes a session disposed while it was still connecting', async () => {

@@ -70,15 +70,21 @@ export class LiveTranslateSocket {
   async connect(): Promise<void> {
     this.close();
 
-    this.socket = await connectJsonSocket(
+    // Assigned BEFORE the await, synchronously with the `WebSocket` itself —
+    // see `connectJsonSocket`'s doc. A `close()` arriving while the handshake is
+    // still pending must find this socket in `this.socket`, or it closes
+    // nothing and the pending connection goes on to open unattended.
+    const { socket, ready } = connectJsonSocket(
       this.url,
       this.accessToken,
       liveServerEventSchema,
       this.handlers,
-      (socket) => {
-        if (this.socket === socket) this.socket = null;
+      (closed) => {
+        if (this.socket === closed) this.socket = null;
       },
     );
+    this.socket = socket;
+    await ready;
   }
 
   send(event: LiveClientEvent): void {

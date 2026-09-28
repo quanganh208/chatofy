@@ -134,6 +134,77 @@ describe('LiveTranslateSocket', () => {
    * is exactly the event that used to reach a listener now belonging to a
    * DIFFERENT conversation.
    */
+  /**
+   * The synchronous-socket-ownership fix. Before it, `this.socket` was only
+   * assigned once the handshake's promise resolved, so a `close()` landing
+   * during CONNECTING found `this.socket === null` and closed nothing — the
+   * pending socket went on to open and started delivering to live handlers
+   * belonging to a conversation the caller had already torn down.
+   */
+  it('closes the underlying socket even when close() runs before onopen', async () => {
+    const seen: Recorded = { events: [], errors: [], closes: 0, closeCodes: [] };
+    const socket = new LiveTranslateSocket(
+      'ws://api.test/ws/translate',
+      {
+        onEvent: (event) => seen.events.push(event),
+        onError: (message) => seen.errors.push(message),
+        onClosed: () => (seen.closes += 1),
+      },
+      ACCESS_TOKEN,
+    );
+
+    // Not awaited: this is the CONNECTING window the fix targets.
+    const connecting = socket.connect();
+    const wire = FakeWebSocket.last!;
+    expect(wire.closed).toBe(0);
+
+    socket.close();
+    expect(wire.closed).toBe(1);
+
+    // The handshake finishing late, as a real socket's TCP connect can, must
+    // reach no handler at all — the close above already said this socket is
+    // done.
+    wire.onopen?.();
+    wire.deliver(READY);
+    wire.hangUp();
+    expect(seen.events).toEqual([]);
+    expect(seen.closes).toBe(0);
+
+    // `connect()`'s own promise is left to settle on its own; nothing here
+    // awaits it, so unlike a real socket that never opens once closed, this
+    // fake's `onopen` above resolves it and the assertions above are what
+    // matter.
+    await connecting;
+  });
+
+  /**
+   * The other half of the same fix: a second `connect()` overlapping the
+   * first must not leak the first socket. `connect()` calls `close()` on
+   * entry, which only works if the FIRST call already installed its socket
+   * synchronously.
+   */
+  it('closes the first socket when a second connect() overlaps it', async () => {
+    const socket = new LiveTranslateSocket(
+      'ws://api.test/ws/translate',
+      { onEvent: () => {} },
+      ACCESS_TOKEN,
+    );
+
+    const first = socket.connect();
+    const firstWire = FakeWebSocket.last!;
+    expect(firstWire.closed).toBe(0);
+
+    const second = socket.connect();
+    expect(firstWire.closed, 'the first socket must not leak').toBe(1);
+
+    FakeWebSocket.last!.onopen?.();
+    await second;
+    // `first`'s own handshake promise is deliberately left unsettled: closing a
+    // CONNECTING socket detaches `onerror` along with everything else (see
+    // `detachJsonSocket`), so nothing here ever resolves or rejects it — which
+    // is fine, since nothing awaits it in real use either.
+  });
+
   it('delivers nothing after close, however late the server is', async () => {
     const { socket, wire, seen } = await connected();
 
