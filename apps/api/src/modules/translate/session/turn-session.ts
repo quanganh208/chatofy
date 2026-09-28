@@ -1,11 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import type {
-  AudioFrame,
-  SessionOptions,
-  TranscriptSegment,
-  TranslationDirection,
-  TranslationHints,
-  VoiceGender,
+import {
+  conversationLanguagesOf,
+  directionLanguages,
+  speakerRoleFor,
+  type AudioFrame,
+  type SessionOptions,
+  type SpeakerRole,
+  type TranscriptSegment,
+  type TranslationDirection,
+  type TranslationHints,
+  type VoiceGender,
 } from '@chatofy/types';
 import { PartialTranscriptScheduler } from '../audio/partial-transcript-scheduler';
 import { LiveTranslationTrigger } from '../audio/live-translation-trigger';
@@ -208,10 +212,16 @@ export class TurnSession {
    * Which side of the conversation is speaking.
    *
    * A turn is only ever spoken by the side whose language it translates away
-   * from, so the direction says who it is.
+   * from, so the direction says who it is. Delegates to the registry rather than
+   * comparing the direction to a literal: `speakerRoleFor` is what fixes
+   * `speaker_a` to the conversation's registry-first language regardless of
+   * which side of the pair this turn's direction actually runs.
    */
-  get speakerRole(): 'speaker_a' | 'speaker_b' {
-    return this.direction === 'vi_to_en' ? 'speaker_a' : 'speaker_b';
+  get speakerRole(): SpeakerRole {
+    return speakerRoleFor(
+      directionLanguages(this.direction).source,
+      conversationLanguagesOf(this.direction),
+    );
   }
 
   /**

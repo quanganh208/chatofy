@@ -3,13 +3,19 @@
 // A separate file from the engine because the engine must not import the
 // language modules that import IT — the tier tables are built at module load, so
 // a cycle would evaluate one of them before its vocabulary existed.
+import type { LanguageTable } from '@chatofy/types';
 import type { LanguageCode } from '../interfaces/provider-types.js';
 import { inverseNormalize, type LanguageItn } from './inverse-normalize.js';
 import { VIETNAMESE_ITN } from './vietnamese-inverse-normalize.js';
 import { ENGLISH_ITN } from './english-inverse-normalize.js';
 
-/** `vi` is the fallback, matching {@link VOCABULARY}'s own default. */
-const BY_LANGUAGE: Record<LanguageCode, LanguageItn> = {
+/**
+ * Every language's ITN, with no fallback: `language` arrives through
+ * `languageCodeSchema` at the socket/HTTP boundary, so a value this table has no
+ * entry for cannot reach here, and a silent default would only hide the day that
+ * stops being true.
+ */
+const BY_LANGUAGE: LanguageTable<LanguageItn> = {
   vi: VIETNAMESE_ITN,
   en: ENGLISH_ITN,
 };
@@ -28,5 +34,5 @@ const BY_LANGUAGE: Record<LanguageCode, LanguageItn> = {
  * and the display-fidelity scorer are allowed to see.
  */
 export function inverseNormalizeTranscript(text: string, language: LanguageCode): string {
-  return inverseNormalize(text, BY_LANGUAGE[language] ?? VIETNAMESE_ITN);
+  return inverseNormalize(text, BY_LANGUAGE[language]);
 }

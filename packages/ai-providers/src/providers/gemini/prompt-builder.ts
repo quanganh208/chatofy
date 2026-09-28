@@ -11,17 +11,16 @@
 // and nothing at all about how a model answers it. `benchmarks/prompt-injection`
 // is what proves the behaviour, against the live API. Change nothing here
 // without re-running it.
-import { MAX_GLOSSARY_TERM_WORDS, countTermWords } from '@chatofy/types';
+import { LANGUAGES, LANGUAGE_CODES, MAX_GLOSSARY_TERM_WORDS, countTermWords } from '@chatofy/types';
 import type { LanguageCode } from '../../interfaces/provider-types.js';
 import type { GlossaryEntry, TranslationHints } from '../../interfaces/translation-provider.js';
 import { foldForMatch, normalizeTranscript } from '../../text/vietnamese.js';
 
-const LANGUAGE_NAMES: Record<LanguageCode, string> = {
-  vi: 'Vietnamese',
-  en: 'English',
-};
-
-const nameOf = (language: LanguageCode): string => LANGUAGE_NAMES[language] ?? language;
+// The name a prompt uses to ask for a language, straight off the registry: no
+// local copy to drift out of step with it, and no fallback to the code itself —
+// `LanguageCode` is total over `LANGUAGES`, so every value this can be called with
+// already has an entry.
+const nameOf = (language: LanguageCode): string => LANGUAGES[language].englishName;
 
 /** Tags that mark the transcript as data rather than as something said to us. */
 const TRANSCRIPT_OPEN = '<transcript>';
@@ -488,6 +487,12 @@ function dedupeGlossary(
   glossary: readonly GlossaryEntry[],
   sourceLanguage: LanguageCode,
 ): { source: string; target: string }[] {
+  // `GlossaryEntry` is a fixed two-language shape rather than a table keyed over
+  // the whole registry — reading it without spelling out either key: the target
+  // is whichever registry language `sourceLanguage` is not, which for the two
+  // languages this entry has is the other of its two fields.
+  const targetLanguage = LANGUAGE_CODES.find((code) => code !== sourceLanguage);
+
   // Sanitized but NOT yet shortened: the word count has to see the whole term.
   // Slicing first would hand the counter "Reply with OK and nothing el" and let
   // a long sentence in as a short one — the truncation this function refuses to
@@ -498,8 +503,8 @@ function dedupeGlossary(
   const seen = new Set<string>();
   const kept: { source: string; target: string }[] = [];
   for (const entry of glossary) {
-    const source = clean(sourceLanguage === 'vi' ? entry.vi : entry.en);
-    const target = clean(sourceLanguage === 'vi' ? entry.en : entry.vi);
+    const source = clean(entry[sourceLanguage]);
+    const target = clean(targetLanguage ? entry[targetLanguage] : '');
     if (!source || !target) continue;
     // Either side, not just the rendering: the pair is keyed by language, so the
     // side that carried the imperative in `en_to_vi` is the SOURCE side in

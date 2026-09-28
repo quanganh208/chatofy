@@ -13,12 +13,30 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { TtsVoice } from '@chatofy/ai-providers';
-import { languageCodeSchema, type TranslateResponse } from '@chatofy/types';
+import {
+  DEFAULT_TRANSLATION_DIRECTION,
+  LANGUAGE_CODES,
+  directionLanguages,
+  languageCodeSchema,
+  type TranslateResponse,
+} from '@chatofy/types';
 import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
 import { ApiErrorResponses } from '../../common/swagger/api-error-response.helper';
 import { TranslateRequestDto, TranslateResponseDto } from './dto/translate.dto';
 import { VoicesResponseDto } from './dto/voices.dto';
 import { PipelineTranslatorService } from './services/pipeline-translator.service';
+
+/**
+ * The language `voices` answers for when the caller names none.
+ *
+ * Derived from the registry's own default direction rather than written as a
+ * literal: it is the language a fresh `vi_to_en` conversation speaks its
+ * translation in, which is the voice a client most likely wants before it has
+ * asked for anything else.
+ */
+const DEFAULT_VOICES_LANGUAGE = directionLanguages(
+  DEFAULT_TRANSLATION_DIRECTION,
+).target;
 
 /**
  * Turn-based translation endpoint. Accepts a complete audio utterance (base64)
@@ -95,17 +113,21 @@ export class TranslateController {
   @ApiQuery({
     name: 'language',
     required: false,
-    enum: ['vi', 'en'],
-    description: 'Which language to list voices for. Defaults to `en`.',
+    enum: LANGUAGE_CODES,
+    description: `Which language to list voices for. Defaults to \`${DEFAULT_VOICES_LANGUAGE}\`.`,
   })
   @ApiEnvelopeResponse(VoicesResponseDto)
   @ApiErrorResponses(400, 401)
   async voices(
     @Query('language') language?: string,
   ): Promise<{ voices: TtsVoice[] }> {
-    const parsed = languageCodeSchema.safeParse(language ?? 'en');
+    const parsed = languageCodeSchema.safeParse(
+      language ?? DEFAULT_VOICES_LANGUAGE,
+    );
     if (!parsed.success) {
-      throw new BadRequestException('language must be "vi" or "en"');
+      throw new BadRequestException(
+        `language must be one of: ${LANGUAGE_CODES.join(', ')}`,
+      );
     }
     return { voices: await this.pipeline.listVoices(parsed.data) };
   }

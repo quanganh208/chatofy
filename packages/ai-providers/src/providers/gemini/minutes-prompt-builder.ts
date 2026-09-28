@@ -10,16 +10,12 @@
 // instruction pins the shape and the provider parses it. A model that ignores
 // the shape fails loudly at the parse rather than returning prose nobody asked
 // for.
+import { LANGUAGES } from '@chatofy/types';
 import type { LanguageCode } from '../../interfaces/provider-types.js';
 import { wrapTranscript } from './prompt-builder.js';
 
-const LANGUAGE_NAMES: Record<LanguageCode, string> = {
-  vi: 'Vietnamese',
-  en: 'English',
-};
-
 const nameOf = (language: LanguageCode | undefined): string =>
-  language ? (LANGUAGE_NAMES[language] ?? language) : 'the same language as the conversation';
+  language ? LANGUAGES[language].englishName : 'the same language as the conversation';
 
 /**
  * The system instruction for a minutes pass, identical for every model.

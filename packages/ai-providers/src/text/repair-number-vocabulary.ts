@@ -20,8 +20,6 @@
 // So the ITN derives its own mapping over this data and the data stays as it is
 // — which is the arrangement this split was for. Do not "fix" the tiers here to
 // suit a generator; that would break the record of what was measured.
-import type { LanguageCode } from '../interfaces/provider-types.js';
-
 /**
  * The words a spoken number is made of, in four tiers by how much each one can
  * be trusted, and where.
@@ -127,7 +125,7 @@ export interface NumberVocabulary {
  * here too — `giờ`, `phút`, `mét` — because a repair routinely absorbs them into
  * the numeral it writes (`không phẩy bốn mét` → `0,4 m`).
  */
-const VI: NumberVocabulary = {
+export const VI_NUMBER_VOCABULARY: NumberVocabulary = {
   counting: new Set([
     'mốt',
     'hai',
@@ -229,7 +227,7 @@ const VI: NumberVocabulary = {
  * same reason `không` is: each is a far more common ordinary word than it is
  * part of a number.
  */
-const EN: NumberVocabulary = {
+export const EN_NUMBER_VOCABULARY: NumberVocabulary = {
   counting: new Set([
     'zero',
     'two',
@@ -354,6 +352,3 @@ const EN: NumberVocabulary = {
     ['may', '5'],
   ]),
 };
-
-/** Vocabulary per transcript language. `vi` is the fallback for an unknown one. */
-export const VOCABULARY: Record<LanguageCode, NumberVocabulary> = { vi: VI, en: EN };

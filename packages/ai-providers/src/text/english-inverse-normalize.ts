@@ -16,7 +16,7 @@
 // instead of `phẩy` — and the separators invert, because English writes `0.4`
 // and `2,500` where Vietnamese writes `0,4` and `2.500`. Emitting the Vietnamese
 // convention into an English line would be a defect, not a house style.
-import { VOCABULARY } from './repair-number-vocabulary.js';
+import { EN_NUMBER_VOCABULARY } from './repair-number-vocabulary.js';
 import {
   groupThousands,
   hasNumericNeighbour,
@@ -172,7 +172,7 @@ const NEVER_VOUCHES = new Set(['and']);
 const WEAK_VOUCHERS = new Set(['a', 'point', 'half', 'quarter', 'may', 'march', 'p', 'm']);
 
 function englishTiers(): NumberTiers {
-  const en = VOCABULARY.en;
+  const en = EN_NUMBER_VOCABULARY;
 
   // Only the words that are genuinely numbers. `a`, `second`, `march` and `may`
   // are never consumed at all: English has an unambiguous word for each of those

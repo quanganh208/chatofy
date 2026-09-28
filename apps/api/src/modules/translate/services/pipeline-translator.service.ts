@@ -19,6 +19,7 @@ import {
   type TtsVoice,
 } from '@chatofy/ai-providers';
 import {
+  DEFAULT_TRANSLATION_DIRECTION,
   directionLanguages,
   type LanguageCode,
   type TranslateResponse,
@@ -246,7 +247,8 @@ export class PipelineTranslatorService {
    * whole turn, and lives one level up in {@link transcribeAndTranslate}.
    */
   async transcribe(input: TranslateTurnInput): Promise<string> {
-    const direction: TranslationDirection = input.direction ?? 'vi_to_en';
+    const direction: TranslationDirection =
+      input.direction ?? DEFAULT_TRANSLATION_DIRECTION;
     const { source } = directionLanguages(direction);
 
     try {
@@ -293,7 +295,9 @@ export class PipelineTranslatorService {
      */
     onChunk?: (delta: string, restart: boolean) => void;
   }): Promise<string> {
-    const { source, target } = directionLanguages(req.direction ?? 'vi_to_en');
+    const { source, target } = directionLanguages(
+      req.direction ?? DEFAULT_TRANSLATION_DIRECTION,
+    );
 
     try {
       const trio = this.providers.makeProviders();
@@ -326,7 +330,8 @@ export class PipelineTranslatorService {
   async transcribeAndTranslate(
     input: TranslateTurnInput,
   ): Promise<TranslatedTurnText> {
-    const direction: TranslationDirection = input.direction ?? 'vi_to_en';
+    const direction: TranslationDirection =
+      input.direction ?? DEFAULT_TRANSLATION_DIRECTION;
     const { source, target } = directionLanguages(direction);
 
     try {
