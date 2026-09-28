@@ -120,9 +120,9 @@ What that means operationally:
   from the local migrations directory" and changes nothing, which is the safe
   outcome, not a failure to work around.
 
-The rest of this section is the procedure for when a destructive migration is
-next added. It is kept because it is how one is run here, not because one is
-pending.
+The rest of this section is the procedure for running one. It is no longer
+hypothetical: two destructive migrations are committed and pending release —
+see _Pending: the two language-registry migrations_ below.
 
 A destructive migration is run inside a window, since the roll-out is not atomic:
 
@@ -156,6 +156,88 @@ docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate \
 
 Restoring the pre-deploy dump instead also clears it, since `_prisma_migrations`
 is in the dump. Deal with the rows the guard found first, either way.
+
+### Pending: the two language-registry migrations
+
+Two destructive migrations, both from the pluggable-languages work, are
+committed and sort in the order they must deploy in:
+
+1. `20260928114332_glossary_terms_by_language` — drops `GlossaryTerm.vi`/`.en`,
+   replaces them with one `terms` JSONB column (a language-keyed map).
+2. `20260928125252_conversation_languages` — drops `Conversation.direction`
+   and `ConversationTurn.targetText`, replaces them with `Conversation.languages` (`text[]`) and `ConversationTurn.sourceLanguages` (`text[]`) /
+   `translations` (JSONB).
+
+Both were rehearsed against a restore of the actual production dump (not a
+synthetic fixture) before being written up here — see `plans/260928-1026-pluggable-languages-multilingual-ready-and-cleanup/reports/phase-04-implementation-report.md` and `phase-06-implementation-report.md` for the
+full rehearsal evidence (row counts, before/after snapshots, and the exact
+`pg_restore`/`prisma migrate deploy` commands run).
+
+**Release both together, in one window, in this order** — per the plan's own
+merge rule (`plan.md`, "Dependencies": migration folder order must match merge
+order, and both migrations may only reach `main` while an operator is at the
+keyboard for the window below, since the deploy pipeline itself does not
+pause for one):
+
+```bash
+docker compose -f docker-compose.prod.yml stop api web
+docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate
+docker compose -f docker-compose.prod.yml up -d --wait
+```
+
+`pg_dump` runs before this regardless (the pipeline's own backup step); take a
+second, ad-hoc snapshot of `GlossaryTerm`/`Conversation`/`ConversationTurn`
+immediately before stopping `api`/`web`, to diff against after `up -d --wait`
+returns. Then check CI on `main` after the merge, not only the PR — a race
+between this merge and another can leave the PR's own run green while `main`
+is not (see the project memory on this).
+
+**Down-SQL, applied in REVERSE order (06's migration first, then 04's) if a
+rollback is needed without restoring the dump:**
+
+`20260928125252_conversation_languages` (apply first):
+
+```sql
+ALTER TABLE "Conversation" ADD COLUMN "direction" TEXT;
+UPDATE "Conversation" SET "direction" = "languages"[1] || '_to_' || "languages"[2];
+ALTER TABLE "ConversationTurn" ADD COLUMN "targetText" TEXT;
+UPDATE "ConversationTurn" SET "targetText" = coalesce("translations" ->> (CASE WHEN "sourceLanguages"[1] = 'vi' THEN 'en' ELSE 'vi' END), '');
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM "Conversation" WHERE array_length("languages",1) <> 2)
+  THEN RAISE EXCEPTION 'conversations with other than two languages exist; restore the dump instead'; END IF; END $$;
+ALTER TABLE "Conversation" ALTER COLUMN "direction" SET NOT NULL, DROP COLUMN "languages";
+ALTER TABLE "ConversationTurn" ALTER COLUMN "targetText" SET NOT NULL, DROP COLUMN "sourceLanguages", DROP COLUMN "translations";
+```
+
+`20260928114332_glossary_terms_by_language` (apply second):
+
+```sql
+ALTER TABLE "GlossaryTerm" ADD COLUMN "vi" TEXT, ADD COLUMN "en" TEXT;
+UPDATE "GlossaryTerm" SET "vi" = "terms"->>'vi', "en" = "terms"->>'en';
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM "GlossaryTerm" WHERE "vi" IS NULL OR "en" IS NULL)
+  THEN RAISE EXCEPTION 'entries without vi/en exist; restore the dump instead'; END IF; END $$;
+ALTER TABLE "GlossaryTerm" ALTER COLUMN "vi" SET NOT NULL, ALTER COLUMN "en" SET NOT NULL, DROP COLUMN "terms";
+```
+
+After running either, if the row is kept (not restored from a dump), resolve
+the corresponding migration per the P3009 recovery procedure above —
+`prisma migrate resolve --rolled-back <name>` — for BOTH migrations, in the
+same reverse order, before deploying forward again.
+
+**Two rollback paths exist, and they must never be mixed within one
+incident:**
+
+- **Down-SQL + `migrate resolve --rolled-back` + `workflow_dispatch` to the
+  pre-merge ref** — rolls back schema and code by hand, keeping whatever rows
+  were written after the window.
+- **`pg_restore` of the dump taken immediately before the window** — rolls
+  back schema, code AND data together, since `_prisma_migrations` is itself
+  part of the dump.
+
+Picking one BAKES IN a `_prisma_migrations` state that disagrees with the
+other path's expectation: after a `pg_restore`, the ledger already reads as
+"these two migrations never ran," so a subsequent `migrate resolve --rolled-back` against the same database is a no-op at best and a confusing
+error at worst — the two paths are read differently, not just achieved
+differently. Choose one for the whole incident.
 
 ## Redis, and the one volume you must not lose
 
