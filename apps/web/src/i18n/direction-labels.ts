@@ -1,11 +1,12 @@
 'use client';
 
-import { languageName, type DirectionToggleLabels } from '@chatofy/ui/react';
+import { LANGUAGES, type LanguageCode } from '@chatofy/types';
+import type { DirectionToggleLabels } from '@chatofy/ui/react';
 import type { Translate } from '@chatofy/i18n';
 
 /**
  * The words `DirectionToggle` says, in the reader's language — written once for the
- * four surfaces that render it.
+ * surfaces that render it.
  *
  * The component itself defaults to English, on purpose: the extension popup renders
  * shared components and has no dictionary, so a composition that reached for a
@@ -14,22 +15,16 @@ import type { Translate } from '@chatofy/i18n';
  *
  * ## Language names
  *
- * `languageName` in `@chatofy/ui` pins Vietnamese and English to their ENGLISH names,
- * which is right for a package with no locale and wrong on a Vietnamese page. So the
- * two this product is about come from the dictionary, and anything else falls through
- * to that helper — which handles a code the model returned that neither locale pins.
- *
- * That fallback is English in both locales, and it is a known gap rather than an
- * oversight: it is reached only by `live.detectedLanguage` on the unlinked experiment
- * route, for a language that is neither of the two being translated.
+ * The toggle names a language with its OWN name for itself — `LANGUAGES[code].nativeName`
+ * reads "Tiếng Việt" regardless of which locale the interface is in, which is why this
+ * takes `t` but never calls it: the parameter stays so the four existing call sites keep
+ * compiling, and a locale-dependent name (`web.languageName.<code>`, used for history rows
+ * and glossary columns, which DO vary by interface locale) lives in `direction-label.tsx`
+ * instead.
  */
-export function makeLanguageName(t: Translate): (code: string | null | undefined) => string {
-  return (code) => {
-    const base = code?.trim().toLowerCase().split(/[-_]/)[0];
-    if (base === 'vi') return t('common.language.vietnamese');
-    if (base === 'en') return t('common.language.english');
-    return languageName(code);
-  };
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for call-site compatibility, see above
+export function makeLanguageName(t: Translate): (code: LanguageCode) => string {
+  return (code) => LANGUAGES[code].nativeName;
 }
 
 export function directionLabels(t: Translate): DirectionToggleLabels {

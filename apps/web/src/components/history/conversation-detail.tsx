@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, FileX2, Pause, Play } from 'lucide-react';
-import type { Conversation } from '@chatofy/types';
+import { directionLanguages, type Conversation } from '@chatofy/types';
 import { Button, Card, CardContent, Skeleton, Slider } from '@chatofy/ui/react';
 import { HistoryTranscript } from '@/components/history/history-transcript';
 import { ConfirmDeleteButton } from '@/components/layout/confirm-delete-button';
@@ -129,7 +129,10 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
             <Dot />
             {formatTime(conversation.startedAt, locale)}
             <Dot />
-            <DirectionLabel direction={conversation.direction} />
+            <DirectionLabel
+              from={directionLanguages(conversation.direction).source}
+              to={directionLanguages(conversation.direction).target}
+            />
             <Dot />
             {t('web.history.turnCount', { count: conversation.turnCount })}
             <Dot />

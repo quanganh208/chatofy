@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Volume2, Volume1 } from 'lucide-react';
 import { SegmentedControl, Slider, Switch } from '@chatofy/ui/react';
-import { directionLanguages } from '@chatofy/types';
+import { directionLanguages, type LanguageTable } from '@chatofy/types';
 import { SPEED_PRESETS, type TranslateSettings } from '@/lib/translate-settings';
 import { VoiceScopeToggle, type VoiceScope } from '@/components/translate/voice-scope-toggle';
 import { VoicePicker } from '@/components/translate/voice-picker';
@@ -46,6 +46,16 @@ interface VoiceSettingsPanelProps {
   onVolumeChange: (volume: number) => void;
 }
 
+/**
+ * Whether the engine speaking a language honours a playback rate.
+ *
+ * True only for English today — the Vietnamese engine ignores `speed` entirely.
+ * Not a fact `LANGUAGES` records: the registry describes what a language IS,
+ * not what the currently configured engine can do with it, so this stays local
+ * until a sidecar reports rate support per voice.
+ */
+const RATE_ADJUSTABLE: LanguageTable<boolean> = { vi: false, en: true };
+
 export function VoiceSettingsPanel({
   settings,
   running,
@@ -53,13 +63,12 @@ export function VoiceSettingsPanel({
   onVolumeChange,
 }: VoiceSettingsPanelProps) {
   const t = useTranslate();
-  // Rate is applied by the engine that speaks the OUTPUT language, and only the
-  // English one has it. Derived from direction rather than stored, so it can never
-  // disagree with the direction actually in force.
-  const speedApplies = settings.direction === 'vi_to_en';
-
   const catalog = useVoiceCatalog(settings.direction);
   const outputLanguage = directionLanguages(settings.direction).target;
+  // Rate is applied by the engine that speaks the OUTPUT language. Derived from
+  // direction rather than stored, so it can never disagree with the direction
+  // actually in force.
+  const speedApplies = RATE_ADJUSTABLE[outputLanguage];
   // Reconciled HERE rather than when settings were loaded: the catalog arrives
   // over HTTP, so a synchronous read of storage cannot know whether a saved token
   // still exists. A token the running backend no longer lists falls back to the

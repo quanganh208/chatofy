@@ -356,7 +356,7 @@ export type TtsVoice = z.infer<typeof ttsVoiceSchema>;
  * treats any failure as "no voices" would then hide the picker forever while
  * every test still passed.
  */
-export function listVoices(language: 'vi' | 'en') {
+export function listVoices(language: LanguageCode) {
   return authedFetch(`/translate/voices?language=${language}`, ttsVoicesResponseSchema);
 }
 

@@ -16,7 +16,7 @@ import { ElapsedClock } from '@/components/translate/elapsed-clock';
 import { Button } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
 import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
-import { directionLanguages } from '@chatofy/types';
+import { directionLanguages, reverseDirection } from '@chatofy/types';
 import { toConversationTurns } from '@chatofy/realtime-client';
 import type { TranslateSettings } from '@/lib/translate-settings';
 import { recordingOffsetMs } from '@/lib/transcript-time';
@@ -333,9 +333,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
         <TranscriptPanes
           settings={settings}
           running={running}
-          onSwap={() =>
-            onChange({ direction: settings.direction === 'vi_to_en' ? 'en_to_vi' : 'vi_to_en' })
-          }
+          onSwap={() => onChange({ direction: reverseDirection(settings.direction) })}
           // The voice belongs beside the panel it speaks for, not behind the gear
           // at the far end of the dock beside the page settings.
           voiceControl={
