@@ -344,7 +344,13 @@ const ttsVoiceSchema = z.object({
   label: z.string(),
   gender: voiceGenderSchema,
 });
-const ttsVoicesResponseSchema = z.object({ voices: z.array(ttsVoiceSchema) });
+const ttsVoicesResponseSchema = z.object({
+  voices: z.array(ttsVoiceSchema),
+  // Absent on an API build that predates this field — `.default(false)` reads
+  // that the same way as an engine that does not honour the rate: hide the
+  // control rather than offer one an old server cannot have acted on.
+  speedAdjustable: z.boolean().default(false),
+});
 export type TtsVoice = z.infer<typeof ttsVoiceSchema>;
 
 /**

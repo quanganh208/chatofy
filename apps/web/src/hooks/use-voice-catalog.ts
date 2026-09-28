@@ -14,10 +14,22 @@ import { directionLanguages, type LanguageCode, type TranslationDirection } from
  * sidecar looks exactly like a feature working correctly — permanently, with every
  * test still green.
  */
+/** The voice list plus the engine fact that governs the rate control. */
+interface VoiceCatalogPayload {
+  voices: TtsVoice[];
+  /**
+   * Whether the engine speaking this language honours `speed` at all — an
+   * ENGINE capability, not a language one, reported by the backend rather than
+   * assumed from direction. False (including on an API that predates this
+   * field) hides the rate control instead of offering one that does nothing.
+   */
+  speedAdjustable: boolean;
+}
+
 export type VoiceCatalogState =
-  | { status: 'loading'; voices: TtsVoice[] }
-  | { status: 'ready'; voices: TtsVoice[] }
-  | { status: 'failed'; voices: TtsVoice[] };
+  | ({ status: 'loading' } & VoiceCatalogPayload)
+  | ({ status: 'ready' } & VoiceCatalogPayload)
+  | ({ status: 'failed' } & VoiceCatalogPayload);
 
 /**
  * Lists already fetched in this tab, keyed by the language they list.
@@ -33,22 +45,29 @@ export type VoiceCatalogState =
  * the value is the same for every component in the tab; a context would add a tree
  * to hold one map.
  */
-const cachedVoices = new Map<LanguageCode, TtsVoice[]>();
+const cachedVoices = new Map<LanguageCode, VoiceCatalogPayload>();
 
 /**
  * Requests still in the air, so two panels mounting in the same tick share one GET
  * instead of racing.
  */
-const pendingVoices = new Map<LanguageCode, Promise<TtsVoice[]>>();
+const pendingVoices = new Map<LanguageCode, Promise<VoiceCatalogPayload>>();
 
-function loadVoices(language: LanguageCode): Promise<TtsVoice[]> {
+function loadVoices(language: LanguageCode): Promise<VoiceCatalogPayload> {
   const pending = pendingVoices.get(language);
   if (pending) return pending;
 
   const request = listVoices(language)
     .then((result) => {
-      cachedVoices.set(language, result.voices);
-      return result.voices;
+      const payload: VoiceCatalogPayload = {
+        voices: result.voices,
+        // The schema already defaults this; falling back again here is what
+        // keeps the hook honest against a caller that mocks `listVoices`
+        // directly rather than through the schema.
+        speedAdjustable: result.speedAdjustable ?? false,
+      };
+      cachedVoices.set(language, payload);
+      return payload;
     })
     .finally(() => {
       // Only the SUCCESS is remembered. Dropping the in-flight entry on failure
@@ -62,10 +81,12 @@ function loadVoices(language: LanguageCode): Promise<TtsVoice[]> {
 }
 
 function cachedState(language: LanguageCode): VoiceCatalogState {
-  const voices = cachedVoices.get(language);
+  const cached = cachedVoices.get(language);
   // Straight to `ready` on a reopen, so a cached list does not flash "loading" for
   // a frame before showing the same options it showed a moment ago.
-  return voices ? { status: 'ready', voices } : { status: 'loading', voices: [] };
+  return cached
+    ? { status: 'ready', ...cached }
+    : { status: 'loading', voices: [], speedAdjustable: false };
 }
 
 /**
@@ -94,13 +115,13 @@ export function useVoiceCatalog(direction: TranslationDirection): VoiceCatalogSt
     let cancelled = false;
 
     loadVoices(outputLanguage)
-      .then((voices) => {
-        if (!cancelled) setState({ status: 'ready', voices });
+      .then((payload) => {
+        if (!cancelled) setState({ status: 'ready', ...payload });
       })
       .catch(() => {
         // Deliberately not rethrown and deliberately not silent: the caller shows
         // this state rather than pretending the backend has no voices.
-        if (!cancelled) setState({ status: 'failed', voices: [] });
+        if (!cancelled) setState({ status: 'failed', voices: [], speedAdjustable: false });
       });
 
     return () => {

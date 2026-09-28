@@ -161,7 +161,11 @@ export interface TranslateSettings {
   voiceGender: z.infer<typeof voiceGenderSchema>;
   /** Whether the translation is spoken at all. */
   voiceOutput: boolean;
-  /** Speaking rate. Honoured for English output; the Vietnamese engine has none. */
+  /**
+   * Speaking rate. Whether it does anything is a property of the running TTS
+   * engine, not of the output language — see `VoiceSettingsPanel`'s
+   * `catalog.speedAdjustable`, read from the voice catalog rather than assumed.
+   */
   speed: number;
   /** Empty until a catalog exists to choose from. */
   voice: VoiceSelection;

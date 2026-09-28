@@ -258,6 +258,18 @@ describe('turnKeyedTranscriptReducer', () => {
       expect(after.live.a?.text).toBe('một');
       expect(after.live.b?.text).toBe('hai');
     });
+
+    it('clears the line of a turn refused as language_unavailable, same as any other turn-scoped error', () => {
+      const state = play(partial('a', 'lỗi'), partial('b', 'ổn'), {
+        type: 'server.error',
+        code: 'language_unavailable',
+        message: 'This server cannot speak en right now',
+        sessionId: 'a',
+      });
+
+      expect(state.live.a).toBeUndefined();
+      expect(state.live.b?.text).toBe('ổn');
+    });
   });
 
   it('resets the whole conversation', () => {

@@ -206,6 +206,18 @@ describe('OverlayPublisher', () => {
       expect(h.last()!.errors.capture).toBe('capture failed');
       expect(h.last()!.errors.outbound).toBe('relay failed');
     });
+
+    it('carries a server refusal message verbatim, not the wire code behind it', () => {
+      // `language_unavailable` reaches this class as whatever sentence the API
+      // wrote for `SpeechLanguageSupport.refusal` — never as its code, and never
+      // rewritten into something generic like "upstream error".
+      const h = harness();
+      h.publisher.setTarget(1);
+
+      h.publisher.publishError('outbound', 'This server cannot speak en right now');
+
+      expect(h.last()!.errors.outbound).toBe('This server cannot speak en right now');
+    });
   });
 
   describe('while it does not know whether a capture is running', () => {

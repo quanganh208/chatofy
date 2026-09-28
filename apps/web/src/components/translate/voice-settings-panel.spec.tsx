@@ -67,6 +67,60 @@ describe('VoiceSettingsPanel', () => {
 });
 
 /**
+ * `speedAdjustable` is an ENGINE fact from the catalog, not a fact derived from
+ * direction — a lesson this component's own history already paid for once (see
+ * the removed `RATE_ADJUSTABLE` table this replaced).
+ *
+ * Each case mocks `useVoiceCatalog` directly and imports a fresh copy of the
+ * component, rather than driving it through `listVoices` like the rest of this
+ * file: the hook caches its answer by output language for the whole tab (see
+ * `use-voice-catalog.ts`), and both cases here want the SAME language with a
+ * different answer — a plain `listVoices` mock would only ever exercise
+ * whichever value happened to be cached first.
+ */
+describe('the rate control', () => {
+  async function textWithCatalog(speedAdjustable: boolean): Promise<string | null> {
+    vi.resetModules();
+    vi.doMock('@/hooks/use-voice-catalog', () => ({
+      useVoiceCatalog: () => ({ status: 'ready', voices: [], speedAdjustable }),
+    }));
+    const { VoiceSettingsPanel: FreshPanel } = await import('./voice-settings-panel');
+    const { LocaleProvider: FreshLocaleProvider } = await import('@/i18n/provider');
+    const { DEFAULT_TRANSLATE_SETTINGS: freshDefaults } = await import('@/lib/translate-settings');
+
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    const freshRoot = createRoot(el);
+    await act(async () => {
+      freshRoot.render(
+        <FreshLocaleProvider>
+          <FreshPanel
+            settings={{ ...freshDefaults, voiceOutput: true }}
+            running={false}
+            onChange={vi.fn()}
+            onVolumeChange={vi.fn()}
+          />
+        </FreshLocaleProvider>,
+      );
+      for (let i = 0; i < 5; i += 1) await Promise.resolve();
+    });
+    const text = el.textContent;
+    act(() => freshRoot.unmount());
+    el.remove();
+    vi.doUnmock('@/hooks/use-voice-catalog');
+    return text;
+  }
+
+  it('shows once the catalog says this engine honours speed', async () => {
+    expect(await textWithCatalog(true)).toContain(en['web.translate.speed']);
+  });
+
+  it('is absent while the catalog says this engine ignores speed', async () => {
+    expect(await textWithCatalog(false)).not.toContain(en['web.translate.speed']);
+  });
+});
+
+/**
  * The rule the arrangement got wrong for a release: volume is the loudness of
  * something being spoken, so with nothing spoken there is nothing to set.
  *

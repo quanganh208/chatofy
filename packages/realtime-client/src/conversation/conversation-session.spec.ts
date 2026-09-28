@@ -1402,6 +1402,23 @@ describe('ConversationSession', () => {
 
       expect(h.errors).toContain('No speech detected');
     });
+
+    it('surfaces a language_unavailable refusal as the server wrote it, not as a code', async () => {
+      // The listener gets exactly `event.message`, never `${code}: ${message}` —
+      // a reader must not see "language_unavailable: ..." on screen for a
+      // sentence the server already wrote to be read on its own.
+      const h = harness();
+      await h.session.start(startOptions);
+
+      h.socket().emit({
+        type: 'server.error',
+        code: 'language_unavailable',
+        message: 'This server cannot speak en right now',
+      });
+
+      expect(h.errors).toContain('This server cannot speak en right now');
+      expect(h.errors.some((message) => message?.includes('language_unavailable'))).toBe(false);
+    });
   });
 
   describe('an injected playback sink', () => {
