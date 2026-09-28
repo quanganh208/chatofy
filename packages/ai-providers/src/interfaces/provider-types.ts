@@ -2,7 +2,12 @@
 
 // Type-only re-export of the canonical language code from @chatofy/types —
 // single source of truth without pulling zod into this package's runtime.
-export type { LanguageCode, VoiceGender } from '@chatofy/types';
+//
+// `GlossaryEntry` travels the same way: a map per language, present in at least
+// two, keyed by LANGUAGE rather than by role — see `translation-provider.ts` for
+// why the pair is not named `{source, target}` — with the socket's own
+// `glossaryEntrySchema` as the one place that enforces the shape.
+export type { GlossaryEntry, LanguageCode, VoiceGender } from '@chatofy/types';
 
 export interface AudioFormat {
   encoding: 'pcm16' | 'opus' | 'mulaw';

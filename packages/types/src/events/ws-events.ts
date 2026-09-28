@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { audioFrameSchema } from './audio-frame.js';
 import { speakerRoleSchema } from '../domain/session.js';
-import { translationDirectionSchema } from '../domain/languages.js';
+import { translationDirectionSchema, translationMapSchema } from '../domain/languages.js';
 import {
   transcriptSegmentSchema,
   voiceGenderSchema,
@@ -105,7 +105,7 @@ const glossaryTermSchema = z
   });
 
 /**
- * One dictionary entry: a term in each language.
+ * One dictionary entry: a term per language, present in at least two.
  *
  * Keyed BY LANGUAGE, not by role, and that is the load-bearing choice. The
  * extension translates one meeting in BOTH directions at once from ONE settings
@@ -116,14 +116,21 @@ const glossaryTermSchema = z
  * of no session; the prompt builder resolves it against the direction it is
  * given.
  *
- * Both sides bounded at the hotword ceiling, because an entry IS two hotwords by
- * cost. `min(1)` on each: a pair with an empty side names a rendering of
+ * A MAP over the registry (`translationMapSchema`), not a record over every
+ * registry code: `z.record(languageCodeSchema, ...)` demands a value for EVERY
+ * language, so a third registry language would reject every entry a writer
+ * authored before it existed — the `{vi, en}` shape every stored row and every
+ * `{vi,en}` client already sends. `.refine` below is what still refuses a
+ * one-sided entry: a rendering in only one language names a rendering of
  * nothing, or nothing as a rendering, and neither is a thing the prompt can say.
+ *
+ * Every present side bounded at the hotword ceiling, because an entry IS two
+ * hotwords by cost.
  */
-export const glossaryEntrySchema = z.object({
-  vi: glossaryTermSchema,
-  en: glossaryTermSchema,
-});
+export const glossaryEntrySchema = translationMapSchema(glossaryTermSchema).refine(
+  (entry) => Object.values(entry).filter((term) => term !== undefined).length >= 2,
+  { message: 'An entry needs a rendering in at least two languages.' },
+);
 export type GlossaryEntry = z.infer<typeof glossaryEntrySchema>;
 
 /**

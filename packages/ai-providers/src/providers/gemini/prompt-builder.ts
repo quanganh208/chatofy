@@ -487,10 +487,11 @@ function dedupeGlossary(
   glossary: readonly GlossaryEntry[],
   sourceLanguage: LanguageCode,
 ): { source: string; target: string }[] {
-  // `GlossaryEntry` is a fixed two-language shape rather than a table keyed over
-  // the whole registry — reading it without spelling out either key: the target
-  // is whichever registry language `sourceLanguage` is not, which for the two
-  // languages this entry has is the other of its two fields.
+  // `GlossaryEntry` is a MAP over the whole registry (any subset may be present,
+  // per `glossaryEntrySchema`), read here for the one pair a binary turn actually
+  // needs: the target is whichever registry language `sourceLanguage` is not.
+  // Multi-language turns are a later phase's concern — this request still names
+  // exactly one source and one target, the way `translate()`'s caller does.
   const targetLanguage = LANGUAGE_CODES.find((code) => code !== sourceLanguage);
 
   // Sanitized but NOT yet shortened: the word count has to see the whole term.
@@ -503,8 +504,12 @@ function dedupeGlossary(
   const seen = new Set<string>();
   const kept: { source: string; target: string }[] = [];
   for (const entry of glossary) {
-    const source = clean(entry[sourceLanguage]);
-    const target = clean(targetLanguage ? entry[targetLanguage] : '');
+    // Either side may be absent — the schema only requires TWO languages
+    // filled, not these two — and an absent side is a missing rendering for
+    // THIS pair exactly as an empty one is, so it takes the same empty-side
+    // drop below.
+    const source = clean(entry[sourceLanguage] ?? '');
+    const target = clean((targetLanguage && entry[targetLanguage]) || '');
     if (!source || !target) continue;
     // Either side, not just the rendering: the pair is keyed by language, so the
     // side that carried the imperative in `en_to_vi` is the SOURCE side in

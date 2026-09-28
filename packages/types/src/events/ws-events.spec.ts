@@ -93,6 +93,16 @@ describe('glossaryEntrySchema', () => {
     expect(glossaryEntrySchema.safeParse({ vi: 'hội đồng' }).success).toBe(false);
     expect(glossaryEntrySchema.safeParse({ en: 'committee' }).success).toBe(false);
   });
+
+  it('is a MAP over the registry, not a fixed two-field object — a stray key is refused', () => {
+    // `translationMapSchema` is `z.partialRecord(languageCodeSchema, ...)`, so a
+    // key outside the registry is refused the same way an unknown enum value is;
+    // it is not silently dropped the way an excess property on a plain object
+    // schema sometimes is.
+    expect(
+      glossaryEntrySchema.safeParse({ vi: 'hội đồng', en: 'committee', fr: 'comité' }).success,
+    ).toBe(false);
+  });
 });
 
 describe('translationHintsSchema.glossary', () => {
