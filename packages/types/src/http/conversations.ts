@@ -30,8 +30,14 @@ import {
  * be summarized.
  *
  * 400,000 characters is ~520–640 KB of Vietnamese UTF-8, which is what sets the
- * 1 MB express parser limit registered for `/conversations` in `main.ts` — the
- * two are one decision and move together.
+ * `/conversations` JSON parser limit registered in
+ * `apps/api/src/common/middleware/narrow-body-limits.ts` — the two are one
+ * decision and move together. That limit currently sits at 1.5 MB rather than
+ * the ~1 MB a single copy of the text would need, because the client sends
+ * every translation TWICE right now: once keyed by language in each turn's
+ * `translations`, and once more as the legacy `targetText` this schema keeps
+ * for a rolled-back reader — see `saveConversationTurnSchema` below. The
+ * parser limit can come back down once `targetText` is removed from the wire.
  */
 export const HISTORY_LIMITS = {
   MAX_TURNS: 4_000,
