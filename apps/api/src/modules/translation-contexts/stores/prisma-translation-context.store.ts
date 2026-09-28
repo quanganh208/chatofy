@@ -5,6 +5,7 @@ import {
   type SaveTranslationContextRequest,
   type TranslationContext,
 } from '@chatofy/types';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   isRetryableConflict,
@@ -227,6 +228,29 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
               if (owned >= maxPerOwner) return null;
             }
 
+            // Rows the CURRENT schema cannot read, read BEFORE the replace below
+            // touches anything. `toContext`/`list` already drop a row like this
+            // from what the editor can show — a stricter word-count cap landed
+            // after some rows were written, or a registry language was added and
+            // later rolled back — so the operator never sees it and the body
+            // this save is about to write never re-sends it either. Without this,
+            // the full-replace two lines down reads that silence as "the
+            // operator deleted it" and does so for real. `held === null` is a
+            // CREATE: there is no existing context yet, so nothing to preserve.
+            const unreadable =
+              held === null
+                ? []
+                : (
+                    await tx.glossaryTerm.findMany({
+                      where: { contextId: held.id },
+                      select: { terms: true },
+                    })
+                  )
+                    .map((entry) => entry.terms)
+                    .filter(
+                      (terms) => !glossaryEntrySchema.safeParse(terms).success,
+                    );
+
             const row = await tx.translationContext.upsert({
               where: { ownerId_clientId: { ownerId, clientId: contextId } },
               create: { ownerId, clientId: contextId, ...parent },
@@ -239,14 +263,25 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
             // pairs the operator removed.
             await tx.glossaryTerm.deleteMany({ where: { contextId: row.id } });
             await tx.glossaryTerm.createMany({
-              data: body.glossary.map((entry, index) => ({
-                contextId: row.id,
-                position: index,
-                // Stored as the validated map itself — `entry` already satisfies
-                // `glossaryEntrySchema`, which is what the request body was
-                // parsed against before reaching this store.
-                terms: entry,
-              })),
+              data: [
+                ...body.glossary.map((entry, index) => ({
+                  contextId: row.id,
+                  position: index,
+                  // Stored as the validated map itself — `entry` already
+                  // satisfies `glossaryEntrySchema`, which is what the request
+                  // body was parsed against before reaching this store.
+                  terms: entry,
+                })),
+                // Appended after the operator's own entries, never interleaved:
+                // `position` is the order the operator authored, and a row
+                // nobody could see to edit must not shift it. Carried through
+                // byte-for-byte — re-validating would just drop it again.
+                ...unreadable.map((terms, index) => ({
+                  contextId: row.id,
+                  position: body.glossary.length + index,
+                  terms: terms as Prisma.InputJsonValue,
+                })),
+              ],
             });
 
             const saved = await tx.translationContext.findUniqueOrThrow({

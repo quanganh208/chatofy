@@ -63,6 +63,13 @@ function fakePrisma(
     exists?: boolean;
     /** Rows `list()` reads back. Defaults to one valid row. */
     listedGlossary?: { terms: unknown }[];
+    /**
+     * Rows already in the database for the context being saved, read by the
+     * preserve-on-replace check BEFORE the delete. Defaults to none, so the
+     * existing "takes positions from the array index" case keeps seeing
+     * exactly the two rows `body` sends and nothing appended after them.
+     */
+    existingGlossary?: { terms: unknown }[];
   } = {},
 ) {
   const calls: string[] = [];
@@ -98,12 +105,16 @@ function fakePrisma(
   const findMany = vi.fn(async () => [
     row(options.listedGlossary ? { glossary: options.listedGlossary } : {}),
   ]);
+  const glossaryFindMany = vi.fn(async () => {
+    calls.push('glossary.findMany');
+    return options.existingGlossary ?? [];
+  });
   const contextDeleteMany = vi.fn(async () => ({ count: 1 }));
 
   const tx = {
     $executeRaw: executeRaw,
     translationContext: { findUnique, count, upsert, findUniqueOrThrow },
-    glossaryTerm: { deleteMany, createMany },
+    glossaryTerm: { deleteMany, createMany, findMany: glossaryFindMany },
   };
 
   const prisma = {
@@ -124,6 +135,7 @@ function fakePrisma(
     deleteMany,
     createMany,
     findMany,
+    glossaryFindMany,
     contextDeleteMany,
     transaction: (prisma as unknown as { $transaction: Mock }).$transaction,
   };
@@ -206,6 +218,79 @@ describe('PrismaTranslationContextStore', () => {
           terms: { vi: 'luận văn', en: 'thesis' },
         },
       ],
+    });
+  });
+
+  describe('a replace and a row the current schema cannot read', () => {
+    it('carries an unreadable row through the replace instead of deleting it', async () => {
+      // One-sided: `glossaryEntrySchema` refuses an entry present in fewer than
+      // two languages. A row like this is exactly what `list()` already drops
+      // from what the operator can see — and what its next Save, sending back
+      // only what it could see, would otherwise take as "delete this".
+      const unreadable = { vi: 'một bên' };
+      const { store, createMany } = fakePrisma({
+        existingGlossary: [{ terms: unreadable }],
+      });
+
+      await store.save('owner-1', 'ctx-1', body, MAX);
+
+      expect(createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            contextId: 'cuid-1',
+            position: 0,
+            terms: { vi: 'hội đồng phản biện', en: 'thesis defense committee' },
+          },
+          {
+            contextId: 'cuid-1',
+            position: 1,
+            terms: { vi: 'luận văn', en: 'thesis' },
+          },
+          // Appended after the operator's own two, at the next position —
+          // never interleaved, and carried byte-for-byte rather than
+          // re-validated, which would just drop it again.
+          { contextId: 'cuid-1', position: 2, terms: unreadable },
+        ],
+      });
+    });
+
+    it('does not look for anything to preserve on a create — there is no prior row', async () => {
+      const { store, glossaryFindMany } = fakePrisma({
+        exists: false,
+        held: 0,
+      });
+
+      await store.save('owner-1', 'ctx-new', body, MAX);
+
+      expect(glossaryFindMany).not.toHaveBeenCalled();
+    });
+
+    it('reads what to preserve before the replace deletes it', async () => {
+      const { store, calls } = fakePrisma({
+        existingGlossary: [{ terms: { vi: 'một bên' } }],
+      });
+
+      await store.save('owner-1', 'ctx-1', body, MAX);
+
+      expect(calls.indexOf('glossary.findMany')).toBeGreaterThanOrEqual(0);
+      expect(calls.indexOf('glossary.findMany')).toBeLessThan(
+        calls.indexOf('glossary.deleteMany'),
+      );
+    });
+
+    it('preserves nothing when every existing row is already readable', async () => {
+      const { store, createMany } = fakePrisma({
+        existingGlossary: [
+          {
+            terms: { vi: 'hội đồng phản biện', en: 'thesis defense committee' },
+          },
+        ],
+      });
+
+      await store.save('owner-1', 'ctx-1', body, MAX);
+
+      const data = createMany.mock.calls[0]?.[0]?.data as unknown[];
+      expect(data).toHaveLength(2);
     });
   });
 
