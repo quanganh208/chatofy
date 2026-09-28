@@ -336,7 +336,7 @@ const quantity: Rule = (context, start) => {
   // (rejected above), and growth only crosses one mid-span when a scale word
   // follows — so the only `không` that can reach this is a genuine empty place
   // in a compound, as in 2026.
-  const value = parseCardinal(words, true) ?? asDigitString(words, single, ambiguousHead);
+  const value = parseCardinal(words, true, true) ?? asDigitString(words, single, ambiguousHead);
   if (value === null) return null;
 
   const identifier = start > 0 && wordAt(context, start - 1) === IDENTIFIER_MARKER;

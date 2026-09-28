@@ -177,16 +177,31 @@ export const VIETNAMESE_TIERS = vietnameseTiers();
  * Returns null rather than a best effort, which is the whole discipline: the
  * previous prototype's `2.000 500` came from emitting what it had understood so
  * far when the rest would not attach.
+ *
+ * `elidedTail` reads a lone digit straight after the number's only hundreds-or-
+ * larger scale as the NEXT place down, the way a price is spoken: `hai trăm ba`
+ * is 230 and `một triệu hai` is 1.200.000. The empty place is said out loud
+ * when it is meant — `hai trăm linh ba` is 203 — so the bare form is not 203.
+ * Off by default: a year or a clock is read digit for digit, and `năm hai nghìn
+ * hai` is far likelier 2002 than 2200.
  */
-export function parseCardinal(words: string[], allowZero = false): number | null {
+export function parseCardinal(
+  words: string[],
+  allowZero = false,
+  elidedTail = false,
+): number | null {
   let total = 0;
   let section = 0;
   let pending: number | null = null;
   let digitCount = 0;
+  // The last hundreds-or-larger scale, while nothing but one digit follows it.
+  let tailScale: number | null = null;
+  let largeScales = 0;
 
   for (const word of words) {
     if (ZERO_FILLERS.has(word)) {
       if (pending !== null) return null;
+      tailScale = null;
       continue;
     }
 
@@ -207,6 +222,8 @@ export function parseCardinal(words: string[], allowZero = false): number | null
 
     const scale = SCALES.get(word);
     if (!scale) return null;
+    tailScale = scale.value >= 100 ? scale.value : null;
+    if (scale.value >= 100) largeScales += 1;
 
     if (scale.value >= 1000) {
       const head = section + (pending ?? 0);
@@ -237,6 +254,9 @@ export function parseCardinal(words: string[], allowZero = false): number | null
   }
 
   if (digitCount === 0) return null;
+  if (elidedTail && tailScale !== null && largeScales === 1 && pending !== null && pending > 0) {
+    return total + section + pending * (tailScale / 10);
+  }
   return total + section + (pending ?? 0);
 }
 
