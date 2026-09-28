@@ -47,9 +47,9 @@ export const MINUTES_LIMITS = {
  * in them. `text` is the settled source-language line; the model is given the
  * conversation in the language it happened in, not the translation.
  *
- * No longer part of any request body. It survives as the shape the projection on
- * each client produces — the extension's `minutes-source.ts` imports this type —
- * and as what the API builds from the turns it loaded.
+ * No longer part of any request body. It survives as what the API builds from
+ * the stored turns it loaded (`minutes.service.ts`), the one place left that
+ * still projects a turn onto this shape.
  */
 export const minutesSourceTurnSchema = z.object({
   speakerLabel: z.string().min(1).max(MINUTES_LIMITS.MAX_SPEAKER_LABEL_CHARS),
