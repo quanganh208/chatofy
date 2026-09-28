@@ -96,6 +96,16 @@ const AMBIGUOUS = new Set(['không', 'một', 'ba', 'tư', 'năm']);
 export const BOUND_DIGITS = new Set(['tư', 'mốt', 'lăm']);
 
 /**
+ * One, and the indefinite article: `một cái gì đấy` is "something", `trong một
+ * cái hoàn cảnh` is "in a situation". A classifier follows it in both readings,
+ * so no neighbour can tell them apart, and in production speech the article is
+ * the commoner of the two — typesetting it put `đi chơi 1 cái gì đấy` on screen.
+ * Standing alone it stays a word; inside a number (`một trăm`, `hai mươi mốt`)
+ * it is unaffected.
+ */
+export const INDEFINITE_ONE = 'một';
+
+/**
  * Nouns of place and position, which vouch for a number far more weakly than a
  * classifier does.
  *

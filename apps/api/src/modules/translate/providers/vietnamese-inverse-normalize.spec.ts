@@ -112,6 +112,16 @@ describe('inverseNormalizeTranscript (vi)', () => {
       ['chú tư người miền tây', '`chú Tư` before a classifier'],
       ['hẹn ngày mốt nhé', '`ngày mốt` = the day after tomorrow'],
       ['kiểu áo này đang là mốt', '`mốt` = fashion'],
+      [
+        'bây giờ mà bảo là đi chơi một cái gì đấy thì',
+        '`một cái gì` = something',
+      ],
+      [
+        'trừ khi là trong một cái hoàn cảnh cực kỳ ngặt nghèo',
+        '`một` = "a", before a classifier',
+      ],
+      ['đèn đỏ lên một cái là sẽ bắt đầu', '`một cái` = "suddenly"'],
+      ['một cái bánh', '`một` alone, even before a true classifier'],
     ])('writes no digit in %j', (text) => {
       expect(digitsIn(itn(text))).toEqual([]);
     });
@@ -149,7 +159,6 @@ describe('inverseNormalizeTranscript (vi)', () => {
   describe('needs evidence before a lone number word becomes a digit', () => {
     it('accepts a true classifier', () => {
       expect(itn('có ba người ở đây')).toBe('có 3 người ở đây');
-      expect(itn('một cái bánh')).toBe('1 cái bánh');
       expect(itn('nó năm tuổi rồi')).toBe('nó 5 tuổi rồi');
     });
 
