@@ -346,10 +346,12 @@ const ttsVoiceSchema = z.object({
 });
 const ttsVoicesResponseSchema = z.object({
   voices: z.array(ttsVoiceSchema),
-  // Absent on an API build that predates this field — `.default(false)` reads
-  // that the same way as an engine that does not honour the rate: hide the
-  // control rather than offer one an old server cannot have acted on.
-  speedAdjustable: z.boolean().default(false),
+  // OPTIONAL, not defaulted. Absent means an API build that predates this
+  // field, which this client cannot read as either `true` or `false` — that
+  // would be asserting a capability nobody reported. `useVoiceCatalog` turns
+  // an absent value into `'unknown'`, which keeps the rate control visible
+  // rather than hiding one on an engine that has honoured it the whole time.
+  speedAdjustable: z.boolean().optional(),
 });
 export type TtsVoice = z.infer<typeof ttsVoiceSchema>;
 

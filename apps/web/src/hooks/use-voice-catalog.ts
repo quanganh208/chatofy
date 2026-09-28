@@ -14,16 +14,28 @@ import { directionLanguages, type LanguageCode, type TranslationDirection } from
  * sidecar looks exactly like a feature working correctly — permanently, with every
  * test still green.
  */
+/**
+ * Whether the running engine honours `speed` at all — an ENGINE capability,
+ * not a language one, reported by the backend rather than assumed from
+ * direction.
+ *
+ * Tri-state, deliberately. `false` is an answer the backend actually gave:
+ * this engine ignores the rate. `'unknown'` is every case where nobody has
+ * — a request still in flight, one that failed, or a response from an API
+ * build too old to carry the field at all. Main showed the rate control
+ * unconditionally before any of this existed, and collapsing `'unknown'`
+ * into `false` silently changed that default: the control would disappear
+ * for the length of every popover open, on a lookup failure, or for the
+ * whole of a rolling deploy where the API rolls forward before the field
+ * does — on an engine that has honoured the rate the entire time. Only an
+ * explicit `false` hides it now.
+ */
+export type SpeedAdjustable = boolean | 'unknown';
+
 /** The voice list plus the engine fact that governs the rate control. */
 interface VoiceCatalogPayload {
   voices: TtsVoice[];
-  /**
-   * Whether the engine speaking this language honours `speed` at all — an
-   * ENGINE capability, not a language one, reported by the backend rather than
-   * assumed from direction. False (including on an API that predates this
-   * field) hides the rate control instead of offering one that does nothing.
-   */
-  speedAdjustable: boolean;
+  speedAdjustable: SpeedAdjustable;
 }
 
 export type VoiceCatalogState =
@@ -61,10 +73,11 @@ function loadVoices(language: LanguageCode): Promise<VoiceCatalogPayload> {
     .then((result) => {
       const payload: VoiceCatalogPayload = {
         voices: result.voices,
-        // The schema already defaults this; falling back again here is what
-        // keeps the hook honest against a caller that mocks `listVoices`
-        // directly rather than through the schema.
-        speedAdjustable: result.speedAdjustable ?? false,
+        // Absent means an API build that predates this field, which is a fact
+        // this client does not have — not the same as a backend that answered
+        // `false`. See `SpeedAdjustable`'s doc for why that distinction is the
+        // whole point.
+        speedAdjustable: result.speedAdjustable ?? 'unknown',
       };
       cachedVoices.set(language, payload);
       return payload;
@@ -86,7 +99,7 @@ function cachedState(language: LanguageCode): VoiceCatalogState {
   // a frame before showing the same options it showed a moment ago.
   return cached
     ? { status: 'ready', ...cached }
-    : { status: 'loading', voices: [], speedAdjustable: false };
+    : { status: 'loading', voices: [], speedAdjustable: 'unknown' };
 }
 
 /**
@@ -120,8 +133,11 @@ export function useVoiceCatalog(direction: TranslationDirection): VoiceCatalogSt
       })
       .catch(() => {
         // Deliberately not rethrown and deliberately not silent: the caller shows
-        // this state rather than pretending the backend has no voices.
-        if (!cancelled) setState({ status: 'failed', voices: [], speedAdjustable: false });
+        // this state rather than pretending the backend has no voices. Speed is
+        // `'unknown'`, not `false` — a failed lookup says nothing about whether
+        // the engine honours the rate, and defaulting to `false` hid a working
+        // control for the length of every retry.
+        if (!cancelled) setState({ status: 'failed', voices: [], speedAdjustable: 'unknown' });
       });
 
     return () => {

@@ -79,10 +79,13 @@ describe('VoiceSettingsPanel', () => {
  * whichever value happened to be cached first.
  */
 describe('the rate control', () => {
-  async function textWithCatalog(speedAdjustable: boolean): Promise<string | null> {
+  async function textWithCatalog(
+    speedAdjustable: boolean | 'unknown',
+    status: 'ready' | 'loading' | 'failed' = 'ready',
+  ): Promise<string | null> {
     vi.resetModules();
     vi.doMock('@/hooks/use-voice-catalog', () => ({
-      useVoiceCatalog: () => ({ status: 'ready', voices: [], speedAdjustable }),
+      useVoiceCatalog: () => ({ status, voices: [], speedAdjustable }),
     }));
     const { VoiceSettingsPanel: FreshPanel } = await import('./voice-settings-panel');
     const { LocaleProvider: FreshLocaleProvider } = await import('@/i18n/provider');
@@ -117,6 +120,25 @@ describe('the rate control', () => {
 
   it('is absent while the catalog says this engine ignores speed', async () => {
     expect(await textWithCatalog(false)).not.toContain(en['web.translate.speed']);
+  });
+
+  /**
+   * The regression this tri-state exists to close: before it, `'unknown'` did
+   * not exist and every one of these three cases answered `speedAdjustable:
+   * false` — hiding a working control for the length of a request, a failed
+   * lookup, or a whole rolling deploy against an engine that honoured the
+   * rate throughout.
+   */
+  it('stays visible while the catalog is still loading', async () => {
+    expect(await textWithCatalog('unknown', 'loading')).toContain(en['web.translate.speed']);
+  });
+
+  it('stays visible after a failed catalog lookup', async () => {
+    expect(await textWithCatalog('unknown', 'failed')).toContain(en['web.translate.speed']);
+  });
+
+  it('stays visible against an API build too old to report the field', async () => {
+    expect(await textWithCatalog('unknown')).toContain(en['web.translate.speed']);
   });
 });
 

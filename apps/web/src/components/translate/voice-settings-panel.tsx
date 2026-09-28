@@ -55,10 +55,13 @@ export function VoiceSettingsPanel({
   const t = useTranslate();
   const catalog = useVoiceCatalog(settings.direction);
   const outputLanguage = directionLanguages(settings.direction).target;
-  // An ENGINE capability, reported by the backend rather than assumed from
-  // direction — the running TTS engine, not the language, decides whether
-  // `speed` does anything (see `catalog.speedAdjustable`'s doc).
-  const speedApplies = catalog.speedAdjustable;
+  // Shown unless the running engine has explicitly said it ignores `speed`.
+  // `catalog.speedAdjustable` is tri-state (`SpeedAdjustable`'s doc): `'unknown'`
+  // — the catalog is still loading, the lookup failed, or the API predates the
+  // field — must keep the control visible rather than hiding a working slider
+  // for the length of a request or a stale deploy. Only an explicit `false`
+  // hides it.
+  const speedApplies = catalog.speedAdjustable !== false;
   // Reconciled HERE rather than when settings were loaded: the catalog arrives
   // over HTTP, so a synchronous read of storage cannot know whether a saved token
   // still exists. A token the running backend no longer lists falls back to the

@@ -101,7 +101,9 @@ describe('useVoiceCatalog', () => {
     const Probe = probeFor(await loadHook());
 
     await render(<Probe direction="vi_to_en" />);
-    expect(latest).toEqual({ status: 'failed', voices: [], speedAdjustable: false });
+    // Not `false`: a failed lookup says nothing about whether the engine
+    // honours the rate, and answering `false` would hide a working control.
+    expect(latest).toEqual({ status: 'failed', voices: [], speedAdjustable: 'unknown' });
 
     await render(<></>);
     await render(<Probe direction="vi_to_en" />);
@@ -124,12 +126,30 @@ describe('useVoiceCatalog', () => {
     expect(listVoices).toHaveBeenCalledTimes(1);
   });
 
-  it('defaults speedAdjustable to false for a backend that predates the field', async () => {
+  it('reads speedAdjustable as unknown, not false, for a backend that predates the field', async () => {
+    // `false` would assert a capability nobody reported — an old API build
+    // that never learned to send this field says nothing about whether the
+    // engine honours the rate, which is exactly what `'unknown'` means.
     listVoices.mockResolvedValue({ voices: [voice('en-a')] });
     const Probe = probeFor(await loadHook());
 
     await render(<Probe direction="vi_to_en" />);
 
-    expect(latest).toEqual({ status: 'ready', voices: [voice('en-a')], speedAdjustable: false });
+    expect(latest).toEqual({
+      status: 'ready',
+      voices: [voice('en-a')],
+      speedAdjustable: 'unknown',
+    });
+  });
+
+  it('starts loading with speedAdjustable unknown rather than false', async () => {
+    // Read before the request settles: `cachedState` for a language nothing
+    // has cached yet, which is what a first-ever open sees while it waits.
+    listVoices.mockReturnValue(new Promise(() => {}));
+    const Probe = probeFor(await loadHook());
+
+    await render(<Probe direction="vi_to_en" />);
+
+    expect(latest).toEqual({ status: 'loading', voices: [], speedAdjustable: 'unknown' });
   });
 });
