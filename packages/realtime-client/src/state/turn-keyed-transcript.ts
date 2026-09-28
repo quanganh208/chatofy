@@ -238,7 +238,7 @@ export interface TurnSplit {
   endMs: number;
 }
 
-export type SplitsBySession = Record<string, TurnSplit>;
+type SplitsBySession = Record<string, TurnSplit>;
 
 /**
  * A piece's capture record, from its parent's.

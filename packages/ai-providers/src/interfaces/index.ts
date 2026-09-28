@@ -11,7 +11,6 @@ export type {
 } from './speaker-embedding-provider.js';
 export type {
   SttProviderConfig,
-  SttTranscribeOptions,
   SttTranscriptResult,
   SttTranscriptEvent,
   SttProvider,
