@@ -47,10 +47,10 @@
  * **0.84 clean and 0.80 far-field** with the right speaker count in about 0.9 of
  * sessions — against 0.79 / 0.77, and about 0.7, for the single-turn mint behind a
  * 1250ms speech floor that shipped before it. On eight production recordings it
- * is 0.89 against 0.86. One failure it does not fix, measured on the browser
- * channel: two voices whose turns score above `tauAssign` against each other are
- * merged into one speaker. See
- * `plans/260926-1444-viyt-diar-attribution-ruler/adaptive-threshold-findings.md`.
+ * is 0.89 against 0.86, though the exact speaker count there fell from 0.75 to
+ * 0.62. One failure it does not fix, measured on the browser channel: two voices
+ * whose turns score above `tauAssign` against each other are merged into one
+ * speaker. `docs/system-architecture.md` has the rest.
  */
 
 /** Two bars, a dead zone between them, and a ceiling on how many voices exist. */

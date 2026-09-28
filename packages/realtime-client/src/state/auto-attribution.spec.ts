@@ -634,6 +634,34 @@ describe('settling up when the conversation ends', () => {
       speakerId: null,
       origin: 'fallback',
     });
+    // A second stop changes nothing, down to identity.
+    expect(from(state, settled())).toBe(state);
+  });
+
+  it('promotes only as many voices as the roster has room for', () => {
+    // The cap allows two, the roster one. A voice that got a name is a speaker
+    // and nothing else: left behind as provisional too, a later turn could
+    // corroborate it into a second cluster for the same person.
+    const oneLeft = play(
+      ...Array.from(
+        { length: MAX_SPEAKERS - 1 },
+        () => ({ type: 'transcript.speakerAdded' }) as const,
+      ),
+    );
+    const state = from(
+      oneLeft,
+      final('turn-1'),
+      embedding('turn-1', axis(0)),
+      final('turn-2'),
+      embedding('turn-2', axis(1)),
+      settled(),
+    );
+
+    expect(state.speakers).toHaveLength(MAX_SPEAKERS);
+    expect(state.autoAttribution.clusters.map((cluster) => cluster.sum)).toEqual([axis(0)]);
+    expect(state.autoAttribution.provisional.map((cluster) => cluster.sum)).toEqual([axis(1)]);
+    expect(state.autoSpeakerIds).toHaveLength(1);
+    expect(from(state, settled())).toBe(state);
   });
 
   it('settles as a suggestion, never as something a person said', () => {

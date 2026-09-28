@@ -6,6 +6,7 @@ import {
   fillPendingTurns,
   isHumanTouched,
   markPending,
+  MAX_SPEAKERS,
   removeSpeaker,
   renameSpeaker,
   unattributeTurn,
@@ -738,11 +739,11 @@ export function turnKeyedTranscriptReducer(
       //
       // This asks about the VECTORS, and it used to ask about the clusters. The
       // old test was `clusters.length === 0`, on the premise that `observeVoice`
-      // mints a cluster from the very first vector it is given — which was true
-      // until the speech floor above could withhold one. An empty cluster list
-      // now has two meanings and only one of them is "nothing was heard": a
-      // conversation of nothing but short turns delivers every vector and places
-      // none of them.
+      // mints a cluster from the very first vector it is given — which stopped
+      // being true once a new voice needed a second turn to be believed. An
+      // empty cluster list now has two meanings and only one of them is "nothing
+      // was heard": a conversation whose voices were each heard once delivers
+      // every vector and places none of them until the promotion below.
       //
       // `embeddings` still separates the cases exactly, and it is the case that
       // has to be got right: empty means no vector ever arrived, which is the
@@ -755,32 +756,29 @@ export function turnKeyedTranscriptReducer(
 
       // Voices heard but never corroborated become speakers now, if the cap has
       // room. None of their turns showed a name, so this adds ordinals and moves
-      // none. Each needs a roster entry before a turn can point at it; a roster
-      // that is full keeps the voice unnamed, and its turns fall to the
-      // carry-forward below.
+      // none. Each needs a roster entry before a turn can point at it, so the
+      // cap is lowered to what the roster can still hold: a voice that cannot be
+      // named stays provisional, and its turns fall to the carry-forward below.
+      // Promoting first and naming after would have to undo a promotion the
+      // roster refused, and keep clusters and ids index-aligned while doing it.
       let autoAttribution = state.autoAttribution;
       let speakers = state.speakers;
       let nextSpeakerNumber = state.nextSpeakerNumber;
       let autoSpeakerIds = state.autoSpeakerIds;
-      const promotion = promoteProvisional(autoAttribution, DEFAULT_AUTO_ATTRIBUTION);
-      if (promotion.promoted > 0) {
-        let named = autoSpeakerIds.length;
-        const room = autoAttribution.clusters.length + promotion.promoted;
-        while (named < room) {
-          const added = addSpeaker(speakers, nextSpeakerNumber);
-          if (added.speakers.length === speakers.length) break;
-          speakers = added.speakers;
-          nextSpeakerNumber = added.nextNumber;
-          autoSpeakerIds = [...autoSpeakerIds, speakers[speakers.length - 1]!.id];
-          named += 1;
-        }
-        // Commit only the voices that got a roster entry, so clusters and ids
-        // stay index-aligned — the same lockstep the live mint keeps.
-        autoAttribution =
-          named === room
-            ? promotion.state
-            : { ...autoAttribution, clusters: promotion.state.clusters.slice(0, named) };
+      const promotion = promoteProvisional(autoAttribution, {
+        ...DEFAULT_AUTO_ATTRIBUTION,
+        kMax: Math.min(
+          DEFAULT_AUTO_ATTRIBUTION.kMax,
+          autoAttribution.clusters.length + Math.max(0, MAX_SPEAKERS - speakers.length),
+        ),
+      });
+      for (let count = 0; count < promotion.promoted; count += 1) {
+        const added = addSpeaker(speakers, nextSpeakerNumber);
+        speakers = added.speakers;
+        nextSpeakerNumber = added.nextNumber;
+        autoSpeakerIds = [...autoSpeakerIds, speakers[speakers.length - 1]!.id];
       }
+      autoAttribution = promotion.state;
 
       // The promise `pending` makes, kept. Every turn still waiting takes the
       // nearest voice its own vector points at; a turn whose vector never

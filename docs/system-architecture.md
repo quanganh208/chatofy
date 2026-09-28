@@ -360,16 +360,16 @@ accuracy is **0.84 on clean audio and 0.80 far-field**, with the right number of
 speakers in about 0.9 of conversations. The single-turn mint behind a speech
 floor that shipped before it scored 0.79 / 0.77, with the right count in about
 0.7. On the eight production recordings, labelled by agreement between
-ElevenLabs Scribe and Sortformer, it scores 0.89 against 0.86.
+ElevenLabs Scribe and Sortformer, it scores 0.89 against 0.86 — but gets the
+speaker count exactly right on 0.62 of them against 0.75, the one number on any
+ruler that went down.
 
 **One failure is measured and not fixed.** On the browser channel two voices can
 score above `tauAssign` against each other: CAM++ puts two podcast hosts at 0.37–0.41
 across speakers, 0.62–0.72 within one. The second voice is then joined to the
 first and never minted. Neither higher fixed thresholds nor session-adaptive
 scores fixed it without breaking the corpus rulers, and the real-channel evidence
-is one speaker pair.
-`plans/260926-1444-viyt-diar-attribution-ruler/adaptive-threshold-findings.md`
-has the sweep. A separate control established that the bench itself is sound —
+is one speaker pair. A separate control established that the bench itself is sound —
 it reproduces this model's published 1.16% EER on VoxCeleb1-O to within 0.19
 points — and that **turn length, not language, is the dominant error term**: one
 second of English studio audio costs 15.65% EER against 1.35% at full length.
