@@ -253,6 +253,21 @@ export const sessionOptionsSchema = z.object({
    */
   embedSpeaker: z.boolean().optional(),
   /**
+   * Split a turn that holds two voices at the pause between them.
+   *
+   * Fast turn-taking — a podcast, an interview — hands over in less time than the
+   * gate waits before ending a turn, so one turn can carry both people and be
+   * labelled as one. With this on, the server looks for a pause inside the turn
+   * with a different voice on each side, and sends each side as its own final
+   * (see `split` on `server.transcript.final`).
+   *
+   * Opt-in for the version-coupling reason given on {@link embedSpeaker}: a
+   * client that cannot join a piece to its parent turn must never be sent one.
+   * Only honoured together with `embedSpeaker`, since the decision is made from
+   * the same vectors.
+   */
+  splitSpeakers: z.boolean().optional(),
+  /**
    * Ask for a punctuated, cased, digit-bearing rendering of this turn's SOURCE
    * text, for display only.
    *
@@ -598,6 +613,27 @@ const serverTranscriptFinalSchema = z.object({
    * open across the deploy sees no "Unexpected event shape".
    */
   display: z.string().optional(),
+  /**
+   * Present when one captured turn held two voices and the server split it at
+   * the pause between them. Each piece arrives as its own final, with its own
+   * `sessionId` (`<parent>#<index>`) and its own `server.turn.embedding`.
+   *
+   * The client needs the parent to join the pieces to what it measured about the
+   * turn: capture times, and whether its audio was heard, are keyed by the id the
+   * client opened the turn under. `startMs`/`endMs` place the piece inside that
+   * turn's audio, from the first byte the server received.
+   *
+   * Sent only to a client that opted in with `splitSpeakers`.
+   */
+  split: z
+    .object({
+      parentSessionId: z.string(),
+      index: z.number().int().nonnegative(),
+      count: z.number().int().min(2),
+      startMs: z.number().int().nonnegative(),
+      endMs: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 
 /**

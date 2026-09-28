@@ -118,6 +118,13 @@ export class TurnSession {
    * union parse once per repaired turn.
    */
   readonly repairDisplay: boolean;
+  /**
+   * Whether this client can take a turn split where the voice changes.
+   *
+   * Only meaningful beside {@link embedSpeaker}: the split is decided from the
+   * same vectors, and a client that does not attribute turns has no use for one.
+   */
+  readonly splitSpeakers: boolean;
   /** Whether this client asked to be sent settled transcript text. */
   readonly streamCommitted: boolean;
 
@@ -154,6 +161,7 @@ export class TurnSession {
     this.voice = options.voice;
     this.embedSpeaker = options.embedSpeaker ?? false;
     this.repairDisplay = options.repairDisplay ?? false;
+    this.splitSpeakers = this.embedSpeaker && (options.splitSpeakers ?? false);
     this.streamCommitted = options.streamCommitted ?? false;
     this.liveTranslation = new LiveTranslationTrigger({
       budget:
@@ -331,10 +339,14 @@ export class TurnSession {
     return this.speculation.usable(this.audio.byteLength);
   }
 
-  toSegment(sourceText: string, targetText: string): TranscriptSegment {
+  toSegment(
+    sourceText: string,
+    targetText: string,
+    sessionId: string = this.sessionId,
+  ): TranscriptSegment {
     return {
       id: randomUUID(),
-      sessionId: this.sessionId,
+      sessionId,
       speakerRole: this.speakerRole,
       direction: this.direction,
       sourceText,
