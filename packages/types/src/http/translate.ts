@@ -1,24 +1,9 @@
 // Translate HTTP contracts — schema-first. Turn-based (record full utterance →
 // POST → response) voice translation. Audio travels as base64 inside the standard
-// ApiResponse<T> envelope. Directions: vi→en and en→vi.
+// ApiResponse<T> envelope. Directions come from the language registry.
 import { z } from 'zod';
-// Reuse the CANONICAL direction enum (vi_to_en | en_to_vi) from the domain layer
-// instead of redeclaring it here.
-import {
-  translationDirectionSchema,
-  voiceGenderSchema,
-  DEFAULT_VOICE_GENDER,
-  type LanguageCode,
-  type TranslationDirection,
-} from '../domain/transcript.js';
-
-/** Source/target language codes for a translation direction. */
-export function directionLanguages(direction: TranslationDirection): {
-  source: LanguageCode;
-  target: LanguageCode;
-} {
-  return direction === 'en_to_vi' ? { source: 'en', target: 'vi' } : { source: 'vi', target: 'en' };
-}
+import { translationDirectionSchema } from '../domain/languages.js';
+import { voiceGenderSchema, DEFAULT_VOICE_GENDER } from '../domain/transcript.js';
 
 /** POST /translate request body. */
 export const translateRequestSchema = z.object({

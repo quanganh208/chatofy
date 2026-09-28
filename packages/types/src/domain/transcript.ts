@@ -2,14 +2,8 @@
 // shape; events/ws-events.ts imports it instead of redeclaring inline.
 import { z } from 'zod';
 import { speakerRoleSchema } from './session.js';
-
-// CANONICAL language-code enum — every 'vi' | 'en' in the monorepo derives from
-// this schema; do not inline the literals elsewhere.
-export const languageCodeSchema = z.enum(['vi', 'en']);
-export type LanguageCode = z.infer<typeof languageCodeSchema>;
-
-export const translationDirectionSchema = z.enum(['vi_to_en', 'en_to_vi']);
-export type TranslationDirection = z.infer<typeof translationDirectionSchema>;
+// Language codes and directions are owned by the registry (`languages.ts`).
+import { translationDirectionSchema } from './languages.js';
 
 /**
  * Which voice speaks the translation.

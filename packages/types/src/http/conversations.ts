@@ -8,7 +8,7 @@
 import { z } from 'zod';
 import { conversationSchema, conversationSummarySchema } from '../domain/conversation.js';
 import { speakerRoleSchema } from '../domain/session.js';
-import { translationDirectionSchema } from '../domain/transcript.js';
+import { translationDirectionSchema } from '../domain/languages.js';
 
 /**
  * Ceilings on a stored conversation.

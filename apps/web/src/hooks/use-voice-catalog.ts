@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { listVoices, type TtsVoice } from '@/clients/api-client';
-import { directionLanguages, type TranslationDirection } from '@chatofy/types';
+import { directionLanguages, type LanguageCode, type TranslationDirection } from '@chatofy/types';
 
 /**
  * What the catalog request produced.
@@ -19,8 +19,6 @@ export type VoiceCatalogState =
   | { status: 'ready'; voices: TtsVoice[] }
   | { status: 'failed'; voices: TtsVoice[] };
 
-type OutputLanguage = ReturnType<typeof directionLanguages>['target'];
-
 /**
  * Lists already fetched in this tab, keyed by the language they list.
  *
@@ -35,15 +33,15 @@ type OutputLanguage = ReturnType<typeof directionLanguages>['target'];
  * the value is the same for every component in the tab; a context would add a tree
  * to hold one map.
  */
-const cachedVoices = new Map<OutputLanguage, TtsVoice[]>();
+const cachedVoices = new Map<LanguageCode, TtsVoice[]>();
 
 /**
  * Requests still in the air, so two panels mounting in the same tick share one GET
  * instead of racing.
  */
-const pendingVoices = new Map<OutputLanguage, Promise<TtsVoice[]>>();
+const pendingVoices = new Map<LanguageCode, Promise<TtsVoice[]>>();
 
-function loadVoices(language: OutputLanguage): Promise<TtsVoice[]> {
+function loadVoices(language: LanguageCode): Promise<TtsVoice[]> {
   const pending = pendingVoices.get(language);
   if (pending) return pending;
 
@@ -63,7 +61,7 @@ function loadVoices(language: OutputLanguage): Promise<TtsVoice[]> {
   return request;
 }
 
-function cachedState(language: OutputLanguage): VoiceCatalogState {
+function cachedState(language: LanguageCode): VoiceCatalogState {
   const voices = cachedVoices.get(language);
   // Straight to `ready` on a reopen, so a cached list does not flash "loading" for
   // a frame before showing the same options it showed a moment ago.

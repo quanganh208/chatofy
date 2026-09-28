@@ -67,11 +67,7 @@ export type { ServiceDescriptor } from './meta.js';
 
 // Translate contracts. (translationDirectionSchema/TranslationDirection are owned
 // by the domain barrel — not re-exported here to avoid a duplicate-name conflict.)
-export {
-  translateRequestSchema,
-  translateResponseSchema,
-  directionLanguages,
-} from './translate.js';
+export { translateRequestSchema, translateResponseSchema } from './translate.js';
 export type { TranslateRequest, TranslateResponse } from './translate.js';
 
 // Meeting-minutes contracts. (meetingMinutesSchema/MeetingMinutes and the

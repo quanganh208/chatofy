@@ -17,7 +17,7 @@
 // timestamp gutter reads.
 import { z } from 'zod';
 import { speakerRoleSchema } from './session.js';
-import { translationDirectionSchema } from './transcript.js';
+import { translationDirectionSchema } from './languages.js';
 
 /**
  * One displayed block of a stored conversation.

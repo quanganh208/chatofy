@@ -12,7 +12,7 @@
 // not exist.
 import { z } from 'zod';
 import { meetingMinutesSchema } from '../domain/minutes.js';
-import { languageCodeSchema } from '../domain/transcript.js';
+import { languageCodeSchema } from '../domain/languages.js';
 
 /**
  * Ceilings on a generate pass.

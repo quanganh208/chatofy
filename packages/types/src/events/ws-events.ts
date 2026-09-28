@@ -2,8 +2,8 @@
 import { z } from 'zod';
 import { audioFrameSchema } from './audio-frame.js';
 import { speakerRoleSchema } from '../domain/session.js';
+import { translationDirectionSchema } from '../domain/languages.js';
 import {
-  translationDirectionSchema,
   transcriptSegmentSchema,
   voiceGenderSchema,
   DEFAULT_VOICE_GENDER,
