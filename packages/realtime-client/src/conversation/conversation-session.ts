@@ -1,4 +1,5 @@
 import {
+  DEFAULT_TRANSLATION_DIRECTION,
   DEFAULT_VOICE_GENDER,
   type ServerEvent,
   type SessionOptions,
@@ -264,7 +265,7 @@ export class ConversationSession {
    * of them must be spoken by the same voice in the same direction.
    */
   private options: SessionOptions = {
-    direction: 'vi_to_en',
+    direction: DEFAULT_TRANSLATION_DIRECTION,
     voiceGender: DEFAULT_VOICE_GENDER,
   };
   /**
