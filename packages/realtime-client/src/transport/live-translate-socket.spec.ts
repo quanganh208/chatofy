@@ -190,7 +190,10 @@ describe('LiveTranslateSocket', () => {
       ACCESS_TOKEN,
     );
 
-    const first = socket.connect();
+    // Not awaited, and not kept: its own handshake promise is left to settle
+    // (or not) on its own — see the note below about why nothing here can
+    // observe that.
+    void socket.connect();
     const firstWire = FakeWebSocket.last!;
     expect(firstWire.closed).toBe(0);
 
