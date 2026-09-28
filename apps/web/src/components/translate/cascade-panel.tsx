@@ -536,6 +536,9 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
                     // parse — which is the whole reason the opt-in is per client
                     // rather than server-side alone.
                     embedSpeaker: true,
+                    // Same opt-in again: a tab that cannot join a piece of a
+                    // split turn back to the turn it opened is never sent one.
+                    splitSpeakers: true,
                     // Same opt-in, same reason: a tab loaded before the display
                     // rendering existed never asks, so it is never sent something
                     // its copy of the contract would reject. The name is a

@@ -2344,6 +2344,283 @@ describe('speaker embedding', () => {
   });
 });
 
+describe('splitting a turn where the voice changes', () => {
+  // Two voices told apart by loudness, because the fakes below have to decide
+  // "who" from nothing but the audio they are handed — which is also all the
+  // server has.
+  const QUIET = 6000;
+  const LOUD = 16000;
+  const stretch = (amplitude: number, ms: number): number[] =>
+    Array.from({ length: (SAMPLE_RATE * ms) / 1000 }, (_, i) =>
+      amplitude === 0 ? (i % 3) - 1 : Math.round(amplitude * Math.sin(i / 5)),
+    );
+  const pcmOf = (...samples: number[][]): string => {
+    const all = samples.flat();
+    const buffer = Buffer.alloc(all.length * 2);
+    all.forEach((v, i) => buffer.writeInt16LE(v, i * 2));
+    return buffer.toString('base64');
+  };
+  /** The loudest sample in a WAV the pipeline was handed: which voice it holds. */
+  const peakOf = (wav: Uint8Array): number => {
+    const body = Buffer.from(wav).subarray(44);
+    let peak = 0;
+    for (let i = 0; i + 1 < body.length; i += 2)
+      peak = Math.max(peak, Math.abs(body.readInt16LE(i)));
+    return peak;
+  };
+  const twoVoices = pcmOf(
+    stretch(QUIET, 1000),
+    stretch(0, 400),
+    stretch(LOUD, 1000),
+  );
+  const oneVoice = pcmOf(
+    stretch(QUIET, 1000),
+    stretch(0, 400),
+    stretch(QUIET, 1000),
+  );
+
+  const fakes = () => ({
+    embedSpeaker: vi.fn(async ({ audio }: TranslateTurnInput) => ({
+      vector: peakOf(audio) > 10000 ? [0, 1] : [1, 0],
+      dim: 2,
+      speechMs: 900,
+    })),
+    transcribe: vi.fn(async ({ audio }: TranslateTurnInput) =>
+      peakOf(audio) > 10000 ? 'second voice' : 'first voice',
+    ),
+    translate: vi.fn(async ({ text }: { text: string }) => `<${text}>`),
+  });
+
+  const run = async (
+    payload: string,
+    overrides: Partial<Harness> = {},
+    {
+      splitSpeakers = true,
+      flag = true,
+      speculate = false,
+      socket = new FakeSocket(),
+    }: {
+      splitSpeakers?: boolean;
+      flag?: boolean;
+      speculate?: boolean;
+      socket?: FakeSocket;
+    } = {},
+  ) => {
+    const harness = makeService({ ...fakes(), ...overrides }, flag);
+    harness.service.start(socket, {
+      direction: 'vi_to_en',
+      voiceGender: 'female',
+      embedSpeaker: true,
+      splitSpeakers,
+    });
+    const sessionId = socket.ofType('server.session.ready').at(-1)!.sessionId;
+    harness.service.pushFrame(socket, frame({ sessionId, payload }));
+    if (speculate) harness.service.speculate(socket);
+    await harness.service.end(socket);
+    return { ...harness, socket, sessionId };
+  };
+  /** Longer than either piece: the whole turn's audio, as the recognizer is handed it. */
+  const isWholeTurn = (audio: Uint8Array) =>
+    audio.byteLength > SAMPLE_RATE * 2 * 2;
+
+  it('sends each voice as its own final, joined to the turn it came from', async () => {
+    const { socket, sessionId } = await run(twoVoices);
+
+    const finals = socket.ofType('server.transcript.final');
+    expect(finals.map((f) => f.sessionId)).toEqual([
+      `${sessionId}#0`,
+      `${sessionId}#1`,
+    ]);
+    expect(finals.map((f) => f.segment.sourceText)).toEqual([
+      'first voice',
+      'second voice',
+    ]);
+    expect(finals.map((f) => f.segment.sessionId)).toEqual([
+      `${sessionId}#0`,
+      `${sessionId}#1`,
+    ]);
+    expect(finals[0]!.split).toMatchObject({
+      parentSessionId: sessionId,
+      index: 0,
+      count: 2,
+      startMs: 0,
+    });
+    expect(finals[1]!.split).toMatchObject({
+      parentSessionId: sessionId,
+      index: 1,
+      count: 2,
+      endMs: 2400,
+    });
+    // The cut lands inside the pause, and the two pieces meet there.
+    expect(finals[0]!.split!.endMs).toBe(finals[1]!.split!.startMs);
+    expect(finals[0]!.split!.endMs).toBeGreaterThan(1000);
+    expect(finals[0]!.split!.endMs).toBeLessThan(1400);
+  });
+
+  it('gives each piece its own vector, after all the lines are out', async () => {
+    const { socket, sessionId } = await run(twoVoices);
+
+    const vectors = socket.ofType('server.turn.embedding');
+    expect(vectors.map((v) => [v.sessionId, v.vector])).toEqual([
+      [`${sessionId}#0`, [1, 0]],
+      [`${sessionId}#1`, [0, 1]],
+    ]);
+    const types = socket.events.map((e) => e.type);
+    expect(types.lastIndexOf('server.transcript.final')).toBeLessThan(
+      types.indexOf('server.turn.embedding'),
+    );
+  });
+
+  it('translates each piece with the one before it as context', async () => {
+    const { translate } = await run(twoVoices);
+
+    const calls = translate.mock.calls as [
+      { text: string; context?: string[] },
+    ][];
+    const second = calls.find(([req]) => req.text === 'second voice')![0];
+    expect(second.context).toEqual(['first voice']);
+  });
+
+  it('speaks the turn once, under its own id', async () => {
+    const { socket, sessionId, synthesized } = await run(twoVoices);
+
+    expect(synthesized.join(' ')).toBe('<first voice> <second voice>');
+    expect(
+      new Set(
+        socket.ofType('server.audio.frame').map((f) => f.frame.sessionId),
+      ),
+    ).toEqual(new Set([sessionId]));
+    expect(socket.ofType('server.session.ended')).toHaveLength(1);
+  });
+
+  it('leaves one voice whole, paying for one translation', async () => {
+    const { socket, sessionId, translate, transcribeAndTranslate } =
+      await run(oneVoice);
+
+    const finals = socket.ofType('server.transcript.final');
+    expect(finals).toHaveLength(1);
+    expect(finals[0]!.sessionId).toBe(sessionId);
+    expect(finals[0]!.split).toBeUndefined();
+    expect(finals[0]!.segment.sourceText).toBe('first voice');
+    expect(translate).toHaveBeenCalledTimes(1);
+    expect(transcribeAndTranslate).not.toHaveBeenCalled();
+  });
+
+  it('never pays for a whole-turn translation it would throw away', async () => {
+    const { translate, transcribeAndTranslate } = await run(twoVoices);
+
+    // One per piece, and none for the whole turn.
+    expect(translate).toHaveBeenCalledTimes(2);
+    expect(transcribeAndTranslate).not.toHaveBeenCalled();
+  });
+
+  it('survives the whole-turn transcript failing while the split goes ahead', async () => {
+    const transcribe = vi.fn(async ({ audio }: TranslateTurnInput) => {
+      if (isWholeTurn(audio)) throw new Error('sidecar hiccup');
+      return peakOf(audio) > 10000 ? 'second voice' : 'first voice';
+    });
+    const { socket } = await run(twoVoices, { transcribe });
+
+    expect(socket.ofType('server.transcript.final')).toHaveLength(2);
+    expect(socket.ofType('server.session.ended')).toHaveLength(1);
+  });
+
+  it('records a split turn whose client left as abandoned, and sends it nothing', async () => {
+    const socket = new FakeSocket();
+    // Filled once the service exists; the fake translator reaches it lazily.
+    const holder: { service?: TranslationSessionService } = {};
+    const translate = vi.fn(async ({ text }: { text: string }) => {
+      holder.service!.disconnect(socket);
+      return `<${text}>`;
+    });
+    const harness = makeService({ ...fakes(), translate }, true);
+    const { service } = harness;
+    holder.service = service;
+    service.start(socket, {
+      direction: 'vi_to_en',
+      voiceGender: 'female',
+      embedSpeaker: true,
+      splitSpeakers: true,
+    });
+    const sessionId = socket.ofType('server.session.ready').at(-1)!.sessionId;
+    service.pushFrame(socket, frame({ sessionId, payload: twoVoices }));
+    await service.end(socket);
+
+    expect(socket.ofType('server.transcript.final')).toHaveLength(0);
+    expect(harness.recorded[0]).toMatchObject({
+      completed: false,
+      reason: 'abandoned',
+    });
+  });
+
+  it('does not credit a split turn to the speculation it set aside', async () => {
+    const { socket, recorded } = await run(twoVoices, {}, { speculate: true });
+
+    expect(socket.ofType('server.transcript.final')).toHaveLength(2);
+    expect(recorded[0]?.speculationUsed).toBe(false);
+  });
+
+  it('uses the speculation when the turn turns out to be one voice', async () => {
+    const { socket, recorded, translate } = await run(
+      oneVoice,
+      {},
+      { speculate: true },
+    );
+
+    expect(
+      socket.ofType('server.transcript.final')[0]!.segment.sourceText,
+    ).toBe('xin chào');
+    expect(recorded[0]?.speculationUsed).toBe(true);
+    expect(translate).not.toHaveBeenCalled();
+  });
+
+  it('makes no plan while the server flag is off', async () => {
+    const { socket, embedSpeaker } = await run(twoVoices, {}, { flag: false });
+
+    expect(socket.ofType('server.transcript.final')).toHaveLength(1);
+    expect(embedSpeaker).not.toHaveBeenCalled();
+  });
+
+  it('never splits for a client that did not ask', async () => {
+    const { socket, embedSpeaker } = await run(
+      twoVoices,
+      {},
+      { splitSpeakers: false },
+    );
+
+    expect(socket.ofType('server.transcript.final')).toHaveLength(1);
+    // Only the whole turn's vector: the plan was never made.
+    expect(embedSpeaker).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to the whole turn when a piece is heard as nothing', async () => {
+    const transcribe = vi.fn(async ({ audio }: TranslateTurnInput) =>
+      peakOf(audio) > 10000 ? '' : 'first voice',
+    );
+    const { socket, sessionId } = await run(twoVoices, { transcribe });
+
+    const finals = socket.ofType('server.transcript.final');
+    expect(finals).toHaveLength(1);
+    expect(finals[0]!.sessionId).toBe(sessionId);
+    expect(finals[0]!.segment.sourceText).toBe('xin chào');
+  });
+
+  it('falls back to the whole turn when a piece fails to translate', async () => {
+    // Pieces carry the turn's earlier pieces as context; the whole turn does not.
+    const translate = vi.fn(
+      async ({ text, context }: { text: string; context?: string[] }) => {
+        if (context?.includes('first voice')) throw new Error('quota');
+        return `<${text}>`;
+      },
+    );
+    const { socket, sessionId } = await run(twoVoices, { translate });
+
+    const finals = socket.ofType('server.transcript.final');
+    expect(finals.map((f) => f.sessionId)).toEqual([sessionId]);
+    expect(socket.ofType('server.session.ended')).toHaveLength(1);
+  });
+});
+
 describe('streamed speech', () => {
   /** A backend stream yielding these chunks, then ending — or throwing. */
   const pcmStream = (chunks: Buffer[], failAfter?: Error) => ({

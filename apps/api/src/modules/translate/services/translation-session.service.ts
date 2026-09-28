@@ -8,6 +8,7 @@ import {
   directionLanguages,
   type AudioFrame,
   type ClientTurnMetrics,
+  type LanguageCode,
   type SessionOptions,
 } from '@chatofy/types';
 import {
@@ -30,6 +31,17 @@ import { EventChannel, type TurnRef } from '../session/event-channel';
 import { pushSynthesizedWav } from '../session/outbound-audio-framer';
 import { deliverStreamedSpeech } from '../session/streamed-speech-delivery';
 import { TurnSession } from '../session/turn-session';
+import type { TurnAudio } from '../session/turn-audio';
+import {
+  findSplitCandidate,
+  planSpeakerSplit,
+  type SplitCandidate,
+} from '../session/speaker-change-split';
+import {
+  translateSplitTurn,
+  type SplitTurn,
+  type TranslatedPiece,
+} from './speaker-split-turn';
 import { TranslationBudget } from '../audio/translation-budget';
 import { SessionRegistry } from '../session/session-registry';
 import { ConversationContext } from '../session/conversation-context';
@@ -358,21 +370,42 @@ export class TranslationSessionService implements OnModuleDestroy {
     try {
       const reusable = session.usableSpeculation();
       timeline.markSpeculationReused(reusable !== null);
-      const translated = reusable
-        ? await reusable
-        : await this.pipeline.transcribeAndTranslate({
-            audio: audio.toWav(),
-            mimeType: 'audio/wav',
-            direction: session.direction,
-            models: FINAL_MODELS,
-            hints: session.hints,
-            // Whatever has FINISHED on this socket, read at the moment the
-            // request is built. Never the turn before this one by position:
-            // several turns run at once and that one may still be in flight,
-            // and waiting for it would make a fragment's latency hostage to the
-            // turn that left it without context in the first place.
-            context: this.context.recall(socket),
-          });
+      // Whatever has FINISHED on this socket, read at the moment the request is
+      // built. Never the turn before this one by position: several turns run at
+      // once and that one may still be in flight, and waiting for it would make
+      // a fragment's latency hostage to the turn that left it without context in
+      // the first place.
+      const context = this.context.recall(socket);
+      // Whether this turn could hold a change of voice — decided from the audio
+      // alone, synchronously, before anything is spent. A turn that could not
+      // takes exactly the path it always took.
+      const candidate =
+        embedding && session.splitSpeakers
+          ? findSplitCandidate(audio.pcm(), audio.sampleRate)
+          : null;
+      const { translated, split } = candidate
+        ? await this.translateMaybeSplit(
+            session,
+            audio,
+            candidate,
+            reusable,
+            context,
+          )
+        : {
+            translated: await (reusable ??
+              this.pipeline.transcribeAndTranslate({
+                audio: audio.toWav(),
+                mimeType: 'audio/wav',
+                direction: session.direction,
+                models: FINAL_MODELS,
+                hints: session.hints,
+                context,
+              })),
+            split: null,
+          };
+      // A split turn's text came from its pieces, not from the speculation that
+      // was sitting there.
+      if (split) timeline.markSpeculationReused(false);
       timeline.markTranslated(translated.targetText);
       // Recorded HERE, at the first point the turn has a final source text —
       // before the emit, the embedding, and the clause-by-clause delivery, any
@@ -380,7 +413,9 @@ export class TranslationSessionService implements OnModuleDestroy {
       // translated. A turn whose text exists but whose audio is still playing
       // has finished saying its sentence, which is the only sense of "finished"
       // this list is about.
-      this.context.remember(socket, translated.sourceText);
+      for (const piece of split?.pieces ?? [translated]) {
+        this.context.remember(socket, piece.sourceText);
+      }
 
       // The client may have gone while the pipeline was working; finishing the
       // turn for nobody costs real quota and writes to a closed socket.
@@ -396,39 +431,43 @@ export class TranslationSessionService implements OnModuleDestroy {
         return;
       }
 
-      // Computed BEFORE the emit so the finished line arrives already typeset.
-      // Reached only from this point — after a FINAL transcript, on the turn's
-      // real text — which is what keeps "never for a speculation" true by
-      // construction rather than by a check: `speculate()` has no path here.
-      const display = this.displayFor(session, translated.sourceText);
+      if (split) {
+        await this.emitPieces(socket, session, split);
+      } else {
+        // Computed BEFORE the emit so the finished line arrives already typeset.
+        // Reached only from this point — after a FINAL transcript, on the turn's
+        // real text — which is what keeps "never for a speculation" true by
+        // construction rather than by a check: `speculate()` has no path here.
+        const display = this.displayFor(session, translated.sourceText);
 
-      this.channelFor(socket, session).emit({
-        type: 'server.transcript.final',
-        sessionId: session.sessionId,
-        segment: session.toSegment(
-          translated.sourceText,
-          translated.targetText,
-        ),
-        ...(display === undefined ? {} : { display }),
-      });
-
-      // After the transcript is out, so a slow sidecar delays a label and never
-      // the sentence. A failed embedding resolves null and the turn simply
-      // carries no vector.
-      const heard = await embedding;
-      if (heard && this.registry.holds(socket, session)) {
         this.channelFor(socket, session).emit({
-          type: 'server.turn.embedding',
+          type: 'server.transcript.final',
           sessionId: session.sessionId,
-          vector: heard.vector,
-          dim: heard.vector.length,
-          audioMs: Math.round(audio.secondsAt(audio.byteLength) * 1000),
-          // Buffer time and speech time, both, because they are different
-          // quantities: `audioMs` counts the pre-roll and the hangover, and one
-          // measured turn held 720ms of speech inside a 1540ms buffer. The
-          // client's floor is measured in the second one.
-          speechMs: heard.speechMs,
+          segment: session.toSegment(
+            translated.sourceText,
+            translated.targetText,
+          ),
+          ...(display === undefined ? {} : { display }),
         });
+
+        // After the transcript is out, so a slow sidecar delays a label and never
+        // the sentence. A failed embedding resolves null and the turn simply
+        // carries no vector.
+        const heard = await embedding;
+        if (heard && this.registry.holds(socket, session)) {
+          this.channelFor(socket, session).emit({
+            type: 'server.turn.embedding',
+            sessionId: session.sessionId,
+            vector: heard.vector,
+            dim: heard.vector.length,
+            audioMs: Math.round(audio.secondsAt(audio.byteLength) * 1000),
+            // Buffer time and speech time, both, because they are different
+            // quantities: `audioMs` counts the pre-roll and the hangover, and one
+            // measured turn held 720ms of speech inside a 1540ms buffer. The
+            // client's floor is measured in the second one.
+            speechMs: heard.speechMs,
+          });
+        }
       }
 
       const delivery = await this.speak(socket, session, translated, timeline);
@@ -464,6 +503,181 @@ export class TranslationSessionService implements OnModuleDestroy {
       this.reportTurnFailure(socket, session, err);
       this.close(socket, session, 'error');
     }
+  }
+
+  /**
+   * Translate a turn that could hold two voices: split between them if the
+   * plan finds a change, whole otherwise — and whole again on any failure.
+   * Splitting is an enhancement on a translator; it may cost a label, never a
+   * sentence.
+   *
+   * **Nothing is paid twice.** The whole turn's transcript runs beside the plan
+   * (the recognizer is local and fast), but the translation — the metered,
+   * laddered model — waits for the plan's answer, so a split turn never buys a
+   * whole-turn translation it throws away. A reusable speculation was already
+   * paid for and is simply dropped if the turn splits.
+   *
+   * The plan is bounded by {@link SPLIT_PLAN_DEADLINE_MS}: a sidecar that is
+   * slow to embed costs this turn its split, not its latency.
+   */
+  private async translateMaybeSplit(
+    session: TurnSession,
+    audio: TurnAudio,
+    candidate: SplitCandidate,
+    reusable: Promise<TranslatedTurnText> | null,
+    context: string[],
+  ): Promise<{ translated: TranslatedTurnText; split: SplitTurn | null }> {
+    const { direction, hints } = session;
+    const wholeSource = reusable
+      ? null
+      : this.pipeline.transcribe({
+          audio: audio.toWav(),
+          mimeType: 'audio/wav',
+          direction,
+          hints,
+        });
+    // Both may settle while the plan is still out; an unhandled rejection takes
+    // the process down. The awaits below still see the failure.
+    void reusable?.catch(() => undefined);
+    void wholeSource?.catch(() => undefined);
+
+    const started = Date.now();
+    const spans = await withDeadline(
+      planSpeakerSplit(candidate, async (span) => {
+        const piece = await this.pipeline.embedSpeaker({
+          audio: audio.toWav(
+            audio.byteAtMs(span.startMs),
+            audio.byteAtMs(span.endMs),
+          ),
+          mimeType: 'audio/wav',
+        });
+        return piece?.vector ?? null;
+      }).catch(() => null),
+      SPLIT_PLAN_DEADLINE_MS,
+    );
+    const planMs = Date.now() - started;
+
+    let split: SplitTurn | null = null;
+    if (spans) {
+      try {
+        split = await translateSplitTurn(this.pipeline, audio, spans, {
+          direction,
+          hints,
+          models: FINAL_MODELS,
+          context,
+        });
+      } catch (err) {
+        this.logger.warn(
+          `speaker split failed, turn translated whole: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+    this.logger.log(
+      `speaker split: session=${session.sessionId} plan=${planMs}ms ` +
+        (split
+          ? `pieces=${split.pieces.length} cuts=${spans!
+              .slice(1)
+              .map((s) => s.startMs)
+              .join(',')}ms`
+          : 'whole'),
+    );
+    if (split) {
+      return {
+        translated: joinPieces(
+          split.pieces,
+          directionLanguages(direction).target,
+        ),
+        split,
+      };
+    }
+
+    if (reusable) return { translated: await reusable, split: null };
+    const sourceText = await wholeSource!;
+    // Heard as nothing: the ordinary path owns what that means for a turn —
+    // the warning, and the rejection the caller reports.
+    if (!sourceText.trim()) {
+      return {
+        translated: await this.pipeline.transcribeAndTranslate({
+          audio: audio.toWav(),
+          mimeType: 'audio/wav',
+          direction,
+          models: FINAL_MODELS,
+          hints,
+          context,
+        }),
+        split: null,
+      };
+    }
+    const targetText = await this.pipeline.translate({
+      text: sourceText,
+      direction,
+      models: FINAL_MODELS,
+      hints,
+      context,
+    });
+    return {
+      translated: {
+        sourceText,
+        targetText,
+        targetLanguage: directionLanguages(direction).target,
+      },
+      split: null,
+    };
+  }
+
+  /**
+   * Send each voice's piece as a turn of its own: every final, then every vector.
+   *
+   * Each piece is `<turn>#<index>`, so the client keys it apart from the turn it
+   * opened and joins it back through `split.parentSessionId` for what only the
+   * client measured — capture times, and whether the audio was heard. The audio
+   * itself stays one stream under the turn's own id: playback is ordered by turn,
+   * and one turn is still one thing said into the microphone.
+   */
+  private async emitPieces(
+    socket: StreamSocket,
+    session: TurnSession,
+    { pieces, vectors }: SplitTurn,
+  ): Promise<void> {
+    const channel = this.channelFor(socket, session);
+    const ids = pieces.map((_, index) => `${session.sessionId}#${index}`);
+    pieces.forEach((piece, index) => {
+      const display = this.displayFor(session, piece.sourceText);
+      channel.emit({
+        type: 'server.transcript.final',
+        sessionId: ids[index]!,
+        segment: session.toSegment(
+          piece.sourceText,
+          piece.targetText,
+          ids[index],
+        ),
+        ...(display === undefined ? {} : { display }),
+        split: {
+          parentSessionId: session.sessionId,
+          index,
+          count: pieces.length,
+          startMs: piece.startMs,
+          endMs: piece.endMs,
+        },
+      });
+    });
+    // After every line is out, as for a whole turn: a label may wait on the
+    // sidecar, a sentence never does.
+    const heard = await vectors;
+    if (!this.registry.holds(socket, session)) return;
+    heard.forEach((vector, index) => {
+      if (!vector) return;
+      channel.emit({
+        type: 'server.turn.embedding',
+        sessionId: ids[index]!,
+        vector: vector.vector,
+        dim: vector.vector.length,
+        audioMs: pieces[index]!.endMs - pieces[index]!.startMs,
+        speechMs: vector.speechMs,
+      });
+    });
   }
 
   /**
@@ -886,4 +1100,40 @@ export class TranslationSessionService implements OnModuleDestroy {
   private channelFor(socket: StreamSocket, turn?: TurnRef): EventChannel {
     return new EventChannel(socket, this.logger, turn ?? null);
   }
+}
+
+/**
+ * A split turn read as one, for what still treats it as one: the spoken
+ * translation, the metrics row, and the fallback's shape.
+ */
+function joinPieces(
+  pieces: TranslatedPiece[],
+  targetLanguage: LanguageCode,
+): TranslatedTurnText {
+  return {
+    sourceText: pieces.map((piece) => piece.sourceText).join(' '),
+    targetText: pieces.map((piece) => piece.targetText).join(' '),
+    targetLanguage,
+  };
+}
+
+/**
+ * Longest a turn waits for its split plan before being translated whole.
+ *
+ * The plan is a handful of parallel embeddings, measured at 40–170ms each on the
+ * CPU sidecar. This only bites when the sidecar is queued behind other turns,
+ * and then losing a label beats holding a sentence.
+ */
+const SPLIT_PLAN_DEADLINE_MS = 600;
+
+/** `promise`, or null if it has not settled within `ms`. */
+function withDeadline<T>(
+  promise: Promise<T | null>,
+  ms: number,
+): Promise<T | null> {
+  let timer: NodeJS.Timeout | undefined;
+  const expired = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), ms);
+  });
+  return Promise.race([promise, expired]).finally(() => clearTimeout(timer));
 }

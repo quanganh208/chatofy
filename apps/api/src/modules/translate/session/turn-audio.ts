@@ -41,6 +41,8 @@ export const MAX_TURN_BYTES =
 export class TurnAudio {
   private readonly chunks: Buffer[] = [];
   private bytes = 0;
+  /** The chunks joined, kept until the next append — a split turn reads it many times. */
+  private joined: Buffer | null = null;
 
   constructor(readonly sampleRate: number) {}
 
@@ -62,6 +64,12 @@ export class TurnAudio {
     return byteOffset / this.bytesPerSecond;
   }
 
+  /** The byte offset of a time in the turn, on a sample boundary and inside it. */
+  byteAtMs(ms: number): number {
+    const sample = Math.round((ms * this.sampleRate) / 1000);
+    return Math.min(this.bytes, Math.max(0, sample * INBOUND_CHANNELS * 2));
+  }
+
   /**
    * Whether accepting `incoming` more bytes would pass the turn's ceiling.
    *
@@ -75,22 +83,33 @@ export class TurnAudio {
   append(chunk: Buffer): void {
     this.chunks.push(chunk);
     this.bytes += chunk.length;
+    this.joined = null;
   }
 
   /**
    * Concatenate the turn's frames into the container the STT sidecar needs.
    *
    * `fromByte` lets the live transcript read only the newest stretch of a long
-   * turn; the final decode always passes 0 and reads the whole thing.
+   * turn; the final decode always passes 0 and reads the whole thing. `toByte`
+   * bounds one piece of a turn that is being split between two voices.
    */
-  toWav(fromByte = 0): Buffer {
-    const samples = Buffer.concat(this.chunks);
+  toWav(fromByte = 0, toByte = this.bytes): Buffer {
+    const samples = this.pcm();
     // PyAV opens a container, so the raw frames need a header before the
     // sidecar will decode them.
     return encodePcm16Wav({
-      samples: fromByte > 0 ? samples.subarray(fromByte) : samples,
+      samples:
+        fromByte > 0 || toByte < this.bytes
+          ? samples.subarray(fromByte, toByte)
+          : samples,
       sampleRate: this.sampleRate,
       channels: INBOUND_CHANNELS,
     });
+  }
+
+  /** The turn's raw little-endian PCM16, frames concatenated in arrival order. */
+  pcm(): Buffer {
+    this.joined ??= Buffer.concat(this.chunks);
+    return this.joined;
   }
 }

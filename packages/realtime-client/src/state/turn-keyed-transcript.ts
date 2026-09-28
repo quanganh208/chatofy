@@ -169,6 +169,18 @@ export interface TurnKeyedTranscript {
    */
   unheard: UnheardBySession;
   /**
+   * Turns the server split where the voice changed, keyed by each piece's own
+   * `sessionId` (`<turn>#<index>`).
+   *
+   * The pieces arrive under ids this client never opened, so what it measured
+   * about the turn — `captures` and `unheard`, both keyed by the id it did open —
+   * would never reach them. This is the join: whichever of a piece and its
+   * parent's record arrives second copies the record across (see
+   * {@link pieceCapture}). Capture normally lands after the final, so both
+   * orders happen.
+   */
+  splits: SplitsBySession;
+  /**
    * Typeset display text per turn, keyed by the server's `sessionId`.
    *
    * Read as `displays[sessionId] ?? segment.sourceText`. Written from
@@ -216,6 +228,58 @@ export interface TurnCapture {
 
 export type CapturesBySession = Record<string, TurnCapture>;
 
+/** Where a piece of a split turn sits inside the turn it came from. */
+export interface TurnSplit {
+  parentSessionId: string;
+  index: number;
+  count: number;
+  /** From the first byte of the parent turn's audio — which includes its pre-roll. */
+  startMs: number;
+  endMs: number;
+}
+
+export type SplitsBySession = Record<string, TurnSplit>;
+
+/**
+ * A piece's capture record, from its parent's.
+ *
+ * The first piece keeps the parent's opening, so its timestamp still points at
+ * the first syllable exactly as an unsplit turn's would. Later pieces open where
+ * they start in the parent's audio, which begins `preRollMs` before `openedAt`.
+ *
+ * Only the last piece can continue into the next turn: the cuts between pieces
+ * are a change of voice, never the length ceiling, so they must not merge back
+ * into one block while their names are still pending.
+ */
+export function pieceCapture(parent: TurnCapture, split: TurnSplit): TurnCapture {
+  const audioStart = parent.openedAt - (parent.preRollMs ?? 0);
+  const first = split.index === 0;
+  const last = split.index === split.count - 1;
+  return {
+    cutForced: last ? parent.cutForced : false,
+    openedAt: first ? parent.openedAt : audioStart + split.startMs,
+    closedAt: last ? parent.closedAt : audioStart + split.endMs,
+    preRollMs: first ? parent.preRollMs : 0,
+  };
+}
+
+/** Copy a parent turn's capture and unheard mark onto every piece already known. */
+function joinPieces(state: TurnKeyedTranscript, parentSessionId: string): TurnKeyedTranscript {
+  const pieces = Object.entries(state.splits).filter(
+    ([, split]) => split.parentSessionId === parentSessionId,
+  );
+  if (pieces.length === 0) return state;
+  const parentCapture = state.captures[parentSessionId];
+  const parentUnheard = state.unheard[parentSessionId];
+  const captures = { ...state.captures };
+  const unheard = { ...state.unheard };
+  for (const [pieceId, split] of pieces) {
+    if (parentCapture) captures[pieceId] = pieceCapture(parentCapture, split);
+    if (parentUnheard) unheard[pieceId] = parentUnheard;
+  }
+  return { ...state, captures, unheard };
+}
+
 /**
  * Why a turn's audio was never heard.
  *
@@ -248,6 +312,7 @@ export const initialTurnKeyedTranscript: TurnKeyedTranscript = {
   autoSpeakerIds: [],
   captures: {},
   unheard: {},
+  splits: {},
   displays: {},
 };
 
@@ -479,25 +544,31 @@ export function turnKeyedTranscriptReducer(
       // playback queue drops a turn its text has usually already landed in
       // `turns`, which is precisely the row this marks.
       if (!event.sessionId || !event.reason || !UNHEARD_REASONS.has(event.reason)) return cleared;
-      return {
-        ...cleared,
-        unheard: { ...cleared.unheard, [event.sessionId]: event.reason as UnheardReason },
-      };
+      return joinPieces(
+        {
+          ...cleared,
+          unheard: { ...cleared.unheard, [event.sessionId]: event.reason as UnheardReason },
+        },
+        event.sessionId,
+      );
     }
 
     case 'transcript.turnCaptureRecorded':
-      return {
-        ...state,
-        captures: {
-          ...state.captures,
-          [event.sessionId]: {
-            cutForced: event.cutForced,
-            openedAt: event.openedAt,
-            closedAt: event.closedAt,
-            preRollMs: event.preRollMs,
+      return joinPieces(
+        {
+          ...state,
+          captures: {
+            ...state.captures,
+            [event.sessionId]: {
+              cutForced: event.cutForced,
+              openedAt: event.openedAt,
+              closedAt: event.closedAt,
+              preRollMs: event.preRollMs,
+            },
           },
         },
-      };
+        event.sessionId,
+      );
 
     case 'server.transcript.display':
       // LEGACY. The server no longer emits this — the rendering rides on
@@ -860,7 +931,13 @@ export function turnKeyedTranscriptReducer(
       // both would show it twice. Only THIS turn's lines go — the crucial
       // difference from the single-turn reducer, which clears the conversation's
       // one live line and so wipes a sentence someone is still speaking.
-      const cleared = withoutLive(state, event.sessionId);
+      //
+      // A piece of a split turn clears its parent's lines too: they were the
+      // whole turn being spoken, which the pieces now show between them.
+      const cleared = withoutLive(
+        withoutLive(state, event.sessionId),
+        event.split?.parentSessionId,
+      );
       // The typeset rendering rides on this event, so the turn and its display
       // land in ONE state update and therefore one render. Arriving as a second
       // event meant a frame in which the words-form was on screen.
@@ -868,7 +945,19 @@ export function turnKeyedTranscriptReducer(
         event.display === undefined
           ? cleared.displays
           : { ...cleared.displays, [event.sessionId]: event.display };
-      return { ...cleared, turns: [...cleared.turns, event.segment], displays };
+      const appended = { ...cleared, turns: [...cleared.turns, event.segment], displays };
+      if (!event.split) return appended;
+      const { parentSessionId, index, count, startMs, endMs } = event.split;
+      return joinPieces(
+        {
+          ...appended,
+          splits: {
+            ...appended.splits,
+            [event.sessionId]: { parentSessionId, index, count, startMs, endMs },
+          },
+        },
+        parentSessionId,
+      );
     }
 
     case 'server.session.ended':
