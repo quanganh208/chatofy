@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type {
-  SaveTranslationContextRequest,
-  TranslationContext,
+import {
+  glossaryEntrySchema,
+  type GlossaryEntry,
+  type SaveTranslationContextRequest,
+  type TranslationContext,
 } from '@chatofy/types';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
@@ -13,6 +15,14 @@ import type { TranslationContextStore } from '../interfaces/translation-context-
 
 /** How many times a transient conflict is re-attempted before it surfaces. */
 const MAX_SAVE_ATTEMPTS = 5;
+
+/**
+ * Module-scoped rather than a class instance field, because {@link asGlossaryEntry}
+ * runs as a free function passed to `Array.map` and has no `this` to read one
+ * from — an instance logger would mean threading it through the callback for the
+ * sake of one warning line.
+ */
+const logger = new Logger('PrismaTranslationContextStore');
 
 /**
  * Namespaces the advisory locks this store takes.
@@ -44,7 +54,15 @@ const OWNER_LOCK_CLASS = 8154;
  */
 const MAX_BACKOFF_MS = 25;
 
-/** The columns a read selects, and the shape {@link toContext} maps. */
+/**
+ * The columns a read selects, and the shape {@link toContext} maps.
+ *
+ * `terms` is `unknown` rather than `GlossaryEntry`, deliberately: it is a JSONB
+ * column, so Prisma hands back whatever bytes are actually stored, and a row a
+ * past code path wrote in a shape this version no longer accepts must be
+ * something {@link toContext} can catch rather than something the type checker
+ * has been told to trust.
+ */
 interface ContextRow {
   clientId: string;
   name: string;
@@ -52,7 +70,7 @@ interface ContextRow {
   hotwords: string[];
   style: string | null;
   updatedAt: Date;
-  glossary: { vi: string; en: string }[];
+  glossary: { terms: unknown }[];
 }
 
 /**
@@ -79,8 +97,6 @@ interface ContextRow {
  */
 @Injectable()
 export class PrismaTranslationContextStore implements TranslationContextStore {
-  private readonly logger = new Logger(PrismaTranslationContextStore.name);
-
   constructor(private readonly prisma: PrismaService) {}
 
   async list(ownerId: string): Promise<TranslationContext[]> {
@@ -226,8 +242,10 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
               data: body.glossary.map((entry, index) => ({
                 contextId: row.id,
                 position: index,
-                vi: entry.vi,
-                en: entry.en,
+                // Stored as the validated map itself — `entry` already satisfies
+                // `glossaryEntrySchema`, which is what the request body was
+                // parsed against before reaching this store.
+                terms: entry,
               })),
             });
 
@@ -259,7 +277,7 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
         if (attempt >= MAX_SAVE_ATTEMPTS || !isRetryableConflict(err)) {
           throw err;
         }
-        this.logger.warn(
+        logger.warn(
           `retrying translation-context save after a transient conflict ` +
             `(attempt ${attempt} of ${MAX_SAVE_ATTEMPTS}): ${String(err)}`,
         );
@@ -296,7 +314,7 @@ const CONTEXT_SELECT = {
   updatedAt: true,
   glossary: {
     orderBy: { position: 'asc' },
-    select: { vi: true, en: true },
+    select: { terms: true },
   },
 } as const;
 
@@ -310,9 +328,37 @@ function toContext(row: ContextRow): TranslationContext {
     // rather than trusted, because the column admits anything a past write put
     // there and the contract admits three values.
     style: asStyle(row.style),
-    glossary: row.glossary.map((entry) => ({ vi: entry.vi, en: entry.en })),
+    glossary: row.glossary
+      .map((entry) => entry.terms)
+      .map(asGlossaryEntry)
+      .filter(isNotNull),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+/**
+ * One stored glossary row, validated against the same schema the request body
+ * was — or `null` for a row a past code path corrupted.
+ *
+ * A read has to be defensive here in a way a Prisma-typed column never needs to
+ * be, precisely because `terms` is JSONB: Postgres accepts any JSON value, so
+ * `glossaryEntrySchema` is the only thing standing between a row this version
+ * cannot make sense of and a `TranslationContext` that silently carries garbage
+ * into a translation prompt. Logged and dropped rather than thrown, so one bad
+ * row costs its own entry and not the rest of the context the operator is
+ * trying to read.
+ */
+function asGlossaryEntry(terms: unknown): GlossaryEntry | null {
+  const parsed = glossaryEntrySchema.safeParse(terms);
+  if (parsed.success) return parsed.data;
+  logger.warn(
+    `dropping a GlossaryTerm row that failed glossaryEntrySchema: ${parsed.error.message}`,
+  );
+  return null;
+}
+
+function isNotNull<T>(value: T | null): value is T {
+  return value !== null;
 }
 
 /**

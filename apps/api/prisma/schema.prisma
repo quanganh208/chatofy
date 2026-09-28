@@ -396,21 +396,25 @@ model TranslationContext {
   @@unique([ownerId, clientId])
 }
 
-// One dictionary entry: a term in each language.
+// One dictionary entry: a term per language, in at least two.
 //
-// A child table rather than two parallel `String[]` columns, and the distinction
-// from `keyPoints` is the reason: a keyPoint is ONE string, while an entry is TWO
-// correlated strings, and parallel arrays make a desynchronized pair
+// A child table rather than parallel `String[]` columns, and the distinction
+// from `keyPoints` is the reason: a keyPoint is ONE string, while an entry is
+// several correlated strings, and parallel arrays make a desynchronized set
 // REPRESENTABLE. The precedent is `ConversationTurn` — an ordered list of
 // multi-field rows written as a unit by a transactional replace — not
 // `MinutesActionItem`, whose justification was a stable id the client addresses.
 // Nothing addresses one entry: the whole context is PUT.
 //
-// Keyed by LANGUAGE, not by role. There is no fold column and no uniqueness on
-// the terms, deliberately: which side is the SOURCE depends on the direction the
-// session runs in, the prompt builder folds that side, and a row knows of no
-// session. A unique index here would have to pick a direction and would be wrong
-// half the time.
+// `terms` is a JSONB map keyed by registry language code (`glossaryEntrySchema`
+// validates it at the application boundary, on every read as well as every
+// write — a row a past code path corrupted must not fail the whole context) —
+// not one column per language: a fixed-column table needs a migration to add a
+// language, and this one already carries the registry's own openness. There is
+// no fold column and no uniqueness on the terms, deliberately: which side is the
+// SOURCE depends on the direction the session runs in, the prompt builder folds
+// that side, and a row knows of no session. A unique index here would have to
+// pick a direction and would be wrong half the time.
 model GlossaryTerm {
   id        String             @id @default(cuid())
   contextId String
@@ -419,8 +423,7 @@ model GlossaryTerm {
   // what makes the pair order the operator authored the order the prompt sees —
   // and the order that decides which pairs survive the provider's cap.
   position  Int
-  vi        String
-  en        String
+  terms     Json
 
   // Unique, not merely indexed: two entries at one position is a corrupt
   // dictionary, and with contextId leading this IS the read index.

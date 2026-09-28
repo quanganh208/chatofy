@@ -31,7 +31,9 @@ const row = (over: Record<string, unknown> = {}) => ({
   hotwords: ['VinFast'],
   style: 'formal',
   updatedAt: new Date('2026-09-17T00:00:00.000Z'),
-  glossary: [{ vi: 'hội đồng phản biện', en: 'thesis defense committee' }],
+  glossary: [
+    { terms: { vi: 'hội đồng phản biện', en: 'thesis defense committee' } },
+  ],
   ...over,
 });
 
@@ -55,7 +57,13 @@ const body: SaveTranslationContextRequest = {
  * is the id being saved.
  */
 function fakePrisma(
-  options: { transaction?: Mock; held?: number; exists?: boolean } = {},
+  options: {
+    transaction?: Mock;
+    held?: number;
+    exists?: boolean;
+    /** Rows `list()` reads back. Defaults to one valid row. */
+    listedGlossary?: { terms: unknown }[];
+  } = {},
 ) {
   const calls: string[] = [];
   const findUnique = vi.fn(async () => {
@@ -87,7 +95,9 @@ function fakePrisma(
       return 1;
     },
   );
-  const findMany = vi.fn(async () => [row()]);
+  const findMany = vi.fn(async () => [
+    row(options.listedGlossary ? { glossary: options.listedGlossary } : {}),
+  ]);
   const contextDeleteMany = vi.fn(async () => ({ count: 1 }));
 
   const tx = {
@@ -138,6 +148,31 @@ describe('PrismaTranslationContextStore', () => {
     );
   });
 
+  describe('reading a stored glossary', () => {
+    it('validates each row against glossaryEntrySchema on the way out', async () => {
+      const { store } = fakePrisma({
+        listedGlossary: [{ terms: { vi: 'hội đồng', en: 'committee' } }],
+      });
+      const [context] = await store.list('owner-1');
+      expect(context?.glossary).toEqual([{ vi: 'hội đồng', en: 'committee' }]);
+    });
+
+    it('drops a row a past write corrupted, logging it, without failing the whole context', async () => {
+      // One side only: valid JSONB, but no longer a shape `glossaryEntrySchema`
+      // accepts. A read has no way to repair it, so the contract this store
+      // keeps is that ONE bad row costs its own entry, not the whole context —
+      // the library stays readable for everything that was never touched.
+      const { store } = fakePrisma({
+        listedGlossary: [
+          { terms: { vi: 'chỉ một bên' } },
+          { terms: { vi: 'hội đồng', en: 'committee' } },
+        ],
+      });
+      const [context] = await store.list('owner-1');
+      expect(context?.glossary).toEqual([{ vi: 'hội đồng', en: 'committee' }]);
+    });
+  });
+
   it('addresses the row by ownerId and clientId on delete', async () => {
     const { store, contextDeleteMany } = fakePrisma();
     await store.remove('owner-1', 'ctx-1');
@@ -163,10 +198,13 @@ describe('PrismaTranslationContextStore', () => {
         {
           contextId: 'cuid-1',
           position: 0,
-          vi: 'hội đồng phản biện',
-          en: 'thesis defense committee',
+          terms: { vi: 'hội đồng phản biện', en: 'thesis defense committee' },
         },
-        { contextId: 'cuid-1', position: 1, vi: 'luận văn', en: 'thesis' },
+        {
+          contextId: 'cuid-1',
+          position: 1,
+          terms: { vi: 'luận văn', en: 'thesis' },
+        },
       ],
     });
   });

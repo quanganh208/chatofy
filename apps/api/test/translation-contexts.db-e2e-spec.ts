@@ -232,7 +232,7 @@ describe('AI Context library (db-e2e)', () => {
 
       const stored = await glossaryRowsFor(alice, id);
       expect(stored.map((term) => term.position)).toEqual([0, 1, 2]);
-      expect(stored.map((term) => term.en)).toEqual([
+      expect(stored.map((term) => (term.terms as { en: string }).en)).toEqual([
         'blood pressure',
         'prescription',
         'heart rate',
@@ -273,7 +273,10 @@ describe('AI Context library (db-e2e)', () => {
       // `@@unique([contextId, position])` refuses it.
       const stored = await glossaryRowsFor(alice, id);
       expect(stored).toHaveLength(1);
-      expect(stored[0]).toMatchObject({ position: 0, en: 'blood pressure' });
+      expect(stored[0]).toMatchObject({
+        position: 0,
+        terms: { en: 'blood pressure' },
+      });
 
       // Counted against the cuid the FIRST save wrote, which is also the check
       // that the replace updated the parent rather than replacing it: a save
@@ -456,7 +459,7 @@ describe('AI Context library (db-e2e)', () => {
     return prisma.glossaryTerm.findMany({
       where: { contextId: parent!.id },
       orderBy: { position: 'asc' },
-      select: { position: true, vi: true, en: true },
+      select: { position: true, terms: true },
     });
   }
 
