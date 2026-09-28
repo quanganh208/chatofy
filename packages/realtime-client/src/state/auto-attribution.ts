@@ -34,7 +34,8 @@
  *
  * **A new voice is not believed on one turn.** A turn that would mint somebody
  * opens a *provisional* voice instead, which names nobody; the second turn that
- * matches it is what makes it a speaker (`mintConfirmations`). The first vector
+ * matches it is what makes it a speaker (`mintConfirmations`), and the turns it
+ * was built from take that name at the same moment. The first vector
  * of a conversation is no exception. One odd turn — a filler, a cough, a burst
  * of noise — used to become a permanent ordinal, and the ordinal it took decided
  * who everybody else was called. At session end a provisional voice that never
@@ -113,6 +114,17 @@ export interface VoiceCluster {
   readonly sum: readonly number[];
   /** How many turns are in that sum. */
   readonly turns: number;
+  /**
+   * The caller's tags for the turns that opened and corroborated this voice
+   * while it was provisional, in the order heard. Absent when no tag was given.
+   *
+   * Carried so the caller can name those turns the moment the voice mints: they
+   * waited as `pending` only because one turn is not believed, and the turn that
+   * corroborates them is the evidence they were waiting for. Joins into a voice
+   * that is already a speaker are not recorded — those turns were named when
+   * they arrived.
+   */
+  readonly members?: readonly string[];
 }
 
 /**
@@ -189,6 +201,17 @@ function fold(cluster: VoiceCluster, vector: readonly number[]): VoiceCluster {
   return { sum, turns: cluster.turns + 1 };
 }
 
+/** {@link fold} for a provisional voice, which also remembers whose turn it was. */
+function foldProvisional(
+  cluster: VoiceCluster,
+  vector: readonly number[],
+  tag: string | undefined,
+): VoiceCluster {
+  const folded = fold(cluster, vector);
+  if (tag === undefined && cluster.members === undefined) return folded;
+  return { ...folded, members: [...(cluster.members ?? []), ...(tag === undefined ? [] : [tag])] };
+}
+
 /**
  * Whether the config would invert the dead zone rather than describe one.
  *
@@ -214,11 +237,14 @@ export function isUsableConfig(config: AutoAttributionConfig): boolean {
  * An unusable config places nothing. Refusing here rather than throwing keeps a
  * misconfiguration from taking the conversation down with it: the turns simply
  * stay pending, which is a state the rest of the system already handles.
+ *
+ * `tag` names the turn for {@link VoiceCluster.members} and changes no decision.
  */
 export function observeVoice(
   state: AutoAttributionState,
   vector: readonly number[],
   config: AutoAttributionConfig = DEFAULT_AUTO_ATTRIBUTION,
+  tag?: string,
 ): { state: AutoAttributionState; assignment: AutoAssignment } {
   if (!isUsableConfig(config) || vector.length === 0) {
     return {
@@ -227,7 +253,7 @@ export function observeVoice(
     };
   }
 
-  if (state.clusters.length === 0) return open(state, vector, config, -Infinity, null);
+  if (state.clusters.length === 0) return open(state, vector, config, -Infinity, null, tag);
 
   let best = 0;
   let bestScore = -Infinity;
@@ -261,7 +287,7 @@ export function observeVoice(
 
   const capBound = state.clusters.length >= config.kMax;
   if (bestScore < config.tauNew) {
-    if (!capBound) return open(state, vector, config, bestScore, best);
+    if (!capBound) return open(state, vector, config, bestScore, best, tag);
     // The cap forbids a new voice but not a wrong one. Chosen over falling
     // silent because a chip that never resolves is the design's one named
     // failure, and measured before it was chosen.
@@ -280,7 +306,8 @@ export function observeVoice(
  * corroborates the provisional voice it scores best against — at `tauAssign`,
  * the same bar a known voice is joined at — or opens a provisional voice of its
  * own. Either way the turn names nobody until a provisional voice holds enough
- * turns, and the turn that completes it is the one that mints it. A port of
+ * turns, and the turn that completes it is the one that mints it — carrying the
+ * tags of the earlier turns it was built from in `members`. A port of
  * `OnlineAttributor._open` in `online.py`, which the parity test holds it to.
  */
 function open(
@@ -289,6 +316,7 @@ function open(
   config: AutoAttributionConfig,
   score: number,
   nearest: number | null,
+  tag: string | undefined,
 ): { state: AutoAttributionState; assignment: AutoAssignment } {
   if (config.mintConfirmations <= 1) {
     return {
@@ -315,7 +343,7 @@ function open(
   }
 
   if (best >= 0 && bestScore >= config.tauAssign) {
-    const grown = fold(state.provisional[best]!, vector);
+    const grown = foldProvisional(state.provisional[best]!, vector, tag);
     if (grown.turns >= config.mintConfirmations && state.clusters.length < config.kMax) {
       return {
         state: {
@@ -335,7 +363,13 @@ function open(
   }
 
   return {
-    state: { ...state, provisional: [...state.provisional, { sum: [...vector], turns: 1 }] },
+    state: {
+      ...state,
+      provisional: [
+        ...state.provisional,
+        { sum: [...vector], turns: 1, ...(tag === undefined ? {} : { members: [tag] }) },
+      ],
+    },
     assignment: { index: null, created: false, score, nearest },
   };
 }
