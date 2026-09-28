@@ -323,7 +323,56 @@ decision with no counterpart in the scheme.
 **Not diarization, and the word is worth keeping straight.** Diarization also
 segments the audio: who spoke from when until when, overlaps included. Turn
 boundaries arrive here already cut by the turn pipeline, so this layer only
-labels segments it is handed. Diarization from the waveform stays out of scope.
+labels segments it is handed. General diarization from the waveform stays out
+of scope. One narrow exception is described next.
+
+**A turn that holds two voices is split at the pause between them.** Fast
+turn-taking, such as a podcast or an interview, hands over in 300–560ms, which
+is shorter than the gate's 500ms hangover. A turn then ends only at the length
+ceiling and carries both people. On a two-host podcast checked against
+ElevenLabs Scribe, 14 of 26 turns held both voices, and the whole conversation
+came out as one speaker. With turns cut at Scribe's boundaries, this layer
+labelled 27/27 correctly, so the fault was the segmentation, not the
+clustering.
+
+Shortening the hangover fixed the labels but cost 1–6 chrF++ points of
+translation, because every mid-sentence pause became a cut. So the turn keeps
+its length, and the server looks inside it instead
+(`apps/api/.../session/speaker-change-split.ts`):
+
+1. Find pauses of at least 300ms. The pump flushes held silence when speech
+   resumes, so the pauses are in the server's buffer.
+2. Embed each piece of at least 500ms once.
+3. Start a new run where the next piece scores below 0.35 against the
+   duration-weighted voice of the current run.
+
+With two or more runs, each piece is transcribed and translated with the pieces
+before it as context. Each is sent as its own `server.transcript.final`
+(`<turn>#<k>`, with `split.parentSessionId`) with its own vector, and the audio
+stays one stream under the turn's id. The client joins each piece to its parent's
+capture record and `unheard` mark in the reducer (`splits`, `pieceCapture`). Any
+failure, or a piece in which the recognizer hears nothing, falls back to the
+whole turn.
+
+Gated like embedding, on the server flag plus the client opt-ins `embedSpeaker`
+and `splitSpeakers`. Measured end to end through the real pump, the local API
+and the reducer, against Scribe:
+
+| Recording                    | Before | After                             |
+| ---------------------------- | ------ | --------------------------------- |
+| Two-host podcast             | 0.741  | 0.972                             |
+| Second two-speaker recording | 0.846  | 0.998                             |
+| One-speaker monologue        | 0.990  | 0.990 (1 wrong split in 38 turns) |
+
+**Cost, and when it is paid.** The server decides from the audio alone,
+synchronously, whether a turn could split at all. Most turns cannot, and they
+take the old path untouched. A candidate turn's whole-turn transcript runs beside
+the plan, but its translation waits for the plan's answer, so a split turn never
+buys a translation it throws away. The plan is capped at 600ms.
+
+Measured: plan p50 99ms and max 155ms. A split turn is about 140ms slower at
+p50, and a candidate turn that stays whole is about 100ms slower. Interjections
+shorter than 500ms still ride with the piece before them.
 
 Four rules hold the replacement up:
 
