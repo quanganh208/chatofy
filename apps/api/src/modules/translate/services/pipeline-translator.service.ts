@@ -437,7 +437,13 @@ export class PipelineTranslatorService {
    */
   async listVoices(language: LanguageCode): Promise<TtsVoiceCatalog> {
     const cached = this.voiceCache.get(language);
-    if (cached && Date.now() < cached.expiresAt) return cached;
+    // Reshaped rather than returned by reference: the cache entry carries
+    // `expiresAt` alongside the catalog, and a cache hit answering that field
+    // made the response shape depend on whether this happened to be a cold or
+    // a warm call — the controller serialises whatever this returns.
+    if (cached && Date.now() < cached.expiresAt) {
+      return { voices: cached.voices, speedAdjustable: cached.speedAdjustable };
+    }
 
     const trio = this.providers.makeProviders();
     if (!trio.tts.listVoices) return { voices: [], speedAdjustable: false };

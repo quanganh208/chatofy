@@ -406,4 +406,36 @@ describe('PipelineTranslatorService', () => {
       expect(translations).toEqual({ vi: '<vi>', en: '<en>' });
     });
   });
+
+  describe('listVoices', () => {
+    it('never leaks the cache entry expiresAt, cold or warm', async () => {
+      const catalog = {
+        voices: [{ token: 'a', label: 'A', gender: 'female' as const }],
+        speedAdjustable: true,
+      };
+      const listVoices = vi.fn().mockResolvedValue(catalog);
+      const trio = fakeTrio({
+        tts: {
+          name: 'fake-tts',
+          outputMimeType: 'audio/mpeg',
+          synthesize: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
+          listVoices,
+        },
+      });
+      const service = serviceWith(trio);
+
+      // Cold: built straight from the provider's own answer.
+      const cold = await service.listVoices('en');
+      expect(cold).toEqual(catalog);
+      expect(cold).not.toHaveProperty('expiresAt');
+
+      // Warm: the SAME entry this service just cached, and the whole point of
+      // this test — a naive `return cached` answers with `expiresAt` still on
+      // it, so the response shape would depend on which call this was.
+      const warm = await service.listVoices('en');
+      expect(listVoices).toHaveBeenCalledTimes(1);
+      expect(warm).toEqual(catalog);
+      expect(warm).not.toHaveProperty('expiresAt');
+    });
+  });
 });
