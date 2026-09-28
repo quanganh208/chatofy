@@ -16,21 +16,13 @@ import math
 import os
 
 import pytest
-from fastapi.testclient import TestClient
 
-from app import app
 from conftest import make_webm_opus
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("LOCAL_STT_SKIP_MODEL_TESTS") == "1",
     reason="model tests skipped via LOCAL_STT_SKIP_MODEL_TESTS",
 )
-
-
-@pytest.fixture(scope="module")
-def client():
-    with TestClient(app) as c:
-        yield c
 
 
 @pytest.fixture(scope="module")

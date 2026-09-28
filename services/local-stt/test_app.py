@@ -22,13 +22,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.fixture(scope="module")
-def client():
-    # `with` triggers lifespan → loads both models once for the whole module.
-    with TestClient(app) as c:
-        yield c
-
-
 def test_healthz_ok(client):
     res = client.get("/healthz")
     assert res.status_code == 200
