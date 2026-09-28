@@ -28,7 +28,7 @@ import {
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
-import { ThrottlerStorage } from '@nestjs/throttler';
+import { ThrottlerStorage, ThrottlerStorageService } from '@nestjs/throttler';
 import request from 'supertest';
 import { randomUUID } from 'node:crypto';
 import {
@@ -105,9 +105,12 @@ describe('Prisma-backed minutes (db-e2e)', () => {
     // The generate route carries its own ten-per-minute throttle, counted per
     // address — and every case here calls from the same one, so across a run
     // the suite spends that budget on cases that have nothing to do with rate
-    // limiting and the last ones answer 429. Clearing the counter makes the
-    // budget per-case; the guard itself stays in the graph.
-    app.get(ThrottlerStorage).storage.clear();
+    // limiting and the last ones answer 429. Resetting the store makes the
+    // budget per-case; the guard itself stays in the graph. The reset goes
+    // through the store's shutdown hook because clearing `storage` alone no
+    // longer resets it: the in-memory store rebuilds each count from a separate
+    // per-hit expiry list on every request.
+    app.get<ThrottlerStorageService>(ThrottlerStorage).onApplicationShutdown();
   });
 
   it('generates minutes from the stored turns with no turns in the request body', async () => {

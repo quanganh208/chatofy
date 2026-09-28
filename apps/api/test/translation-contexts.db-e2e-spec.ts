@@ -32,7 +32,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
-import { ThrottlerStorage } from '@nestjs/throttler';
+import { ThrottlerStorage, ThrottlerStorageService } from '@nestjs/throttler';
 import request from 'supertest';
 import { randomUUID } from 'node:crypto';
 import {
@@ -94,9 +94,11 @@ describe('AI Context library (db-e2e)', () => {
     // per address — and every case here calls from the same one. Filling a
     // library to the ceiling spends twenty of those on its own, so without this
     // the suite would assert rate limiting by accident and the later cases would
-    // answer 429. Clearing the counter makes the budget per-case; the guard
-    // itself is untouched.
-    app.get(ThrottlerStorage).storage.clear();
+    // answer 429. Resetting the store makes the budget per-case; the guard
+    // itself is untouched. The reset goes through the store's shutdown hook
+    // because clearing `storage` alone no longer resets it: the in-memory store
+    // rebuilds each count from a separate per-hit expiry list on every request.
+    app.get<ThrottlerStorageService>(ThrottlerStorage).onApplicationShutdown();
   });
 
   it('creates, lists, replaces and deletes one context', async () => {
