@@ -26,6 +26,8 @@ class KokoroEn(TtsEngine):
     #: one clause to the lock the previous one held. Locking per clause lets a
     #: second English turn wait one clause behind this one instead of all of it.
     HOLDS_LOCK_FOR_TURN = False
+    #: `generate(..., speed=)` below is honoured by this runtime, unlike VieNeu's.
+    SPEED_ADJUSTABLE = True
     #: Kokoro speaker ids. The v1.0 package ships 53 voices ordered by voice
     #: name, which renumbered the two auditioned in v0_19: `af_sarah` moved
     #: from 3 to 9, `am_adam` from 5 to 11.

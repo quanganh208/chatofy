@@ -25,7 +25,11 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from audio.decode import AudioTooLongError, DecodeError, decode_to_16k_mono  # noqa: E402
 from audio.speech_duration import speech_duration_ms  # noqa: E402
 from engines.base import SttBusyError  # noqa: E402
-from engines.registry import EngineRegistry, UnsupportedLanguageError  # noqa: E402
+from engines.registry import (  # noqa: E402
+    SUPPORTED_LANGUAGES,
+    EngineRegistry,
+    UnsupportedLanguageError,
+)
 from hotwords import build_hotwords  # noqa: E402
 from speaker.embedder import SpeakerEmbedder  # noqa: E402
 
@@ -56,7 +60,16 @@ def healthz() -> JSONResponse:
     # cannot embed would have callers discovering that one turn at a time.
     ready = registry.ready and embedder.loaded
     return JSONResponse(
-        {"status": "ok" if ready else "loading"}, status_code=200 if ready else 503
+        {
+            "status": "ok" if ready else "loading",
+            # Static from `SUPPORTED_LANGUAGES`, not from load state: the API's
+            # `SpeechLanguageSupport` reads this to decide which turns it can
+            # serve, and a caller doing that has to get the same answer whether
+            # or not the models have finished loading — the body is read
+            # regardless of the 503 above for exactly that reason.
+            "languages": list(SUPPORTED_LANGUAGES),
+        },
+        status_code=200 if ready else 503,
     )
 
 

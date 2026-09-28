@@ -35,6 +35,13 @@ def test_healthz_ok(client):
     assert res.json()["status"] == "ok"
 
 
+def test_healthz_reports_supported_languages(client):
+    from engines.registry import SUPPORTED_LANGUAGES
+
+    res = client.get("/healthz")
+    assert res.json()["languages"] == list(SUPPORTED_LANGUAGES)
+
+
 @pytest.mark.parametrize("language", ["vi", "en"])
 def test_transcribe_returns_text_field(client, webm_audio, language):
     res = client.post(

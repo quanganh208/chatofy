@@ -5,9 +5,13 @@ eagerly at startup so /healthz is honest about readiness and the first request
 has no load spike — VieNeu's ~8s cold start in particular must not land on a
 user's first turn.
 
-The language set is closed on purpose: `@chatofy/types` defines
-`languageCodeSchema = z.enum(['vi', 'en'])`, so anything else is a caller bug,
-not a missing feature.
+`SUPPORTED_LANGUAGES` need not equal every code `@chatofy/types` registers — it
+is a SUBSET of the TS registry, and parity between the two is checked at
+RUNTIME by the API's `SpeechLanguageSupport`, which reads `/healthz`'s
+`languages` field rather than trusting a generated list that could drift from
+what actually loaded. A code outside `SUPPORTED_LANGUAGES` is still a 400 from
+`EngineRegistry.get`, same as before; a registry code this sidecar does not
+serve is the API's refusal to make, before the audio ever reaches here.
 """
 from .base import TtsEngine
 from .kokoro_en import KokoroEn

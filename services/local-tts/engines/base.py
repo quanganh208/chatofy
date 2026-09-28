@@ -127,6 +127,13 @@ class TtsEngine(ABC):
     #: with it would make both unreproducible. An engine without that constraint
     #: sets this False and lets concurrent turns take turns chunk by chunk.
     HOLDS_LOCK_FOR_TURN: ClassVar[bool] = True
+    #: Whether THIS engine's runtime honours `speed` at all — a property of
+    #: which library is loaded, not of the language it happens to speak.
+    #: Reported on `GET /voices` so a client can hide the rate control rather
+    #: than offer one that silently does nothing (VieNeu ignores `speed`
+    #: entirely; see `vieneu_vi.py`). Base classes default False, the
+    #: conservative answer for an engine nobody has checked yet.
+    SPEED_ADJUSTABLE: ClassVar[bool] = False
 
     def __init__(self) -> None:
         self._engine = None
