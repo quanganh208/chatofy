@@ -86,6 +86,28 @@ describe('SpeechLanguageSupport', () => {
     ).toBeNull();
   });
 
+  it('a backend that cannot be built leaves nothing refused and no rejection unhandled', async () => {
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      const support = new SpeechLanguageSupport({
+        makeProviders: () => {
+          throw new Error('Provider "stt:local" is not implemented');
+        },
+      } as unknown as AiProvidersFactory);
+      support.onApplicationBootstrap();
+      await flush();
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(unhandled).not.toHaveBeenCalled();
+      expect(
+        support.refusal({ recognition: 'vi', spoken: 'en', voiceOutput: true }),
+      ).toBeNull();
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
+  });
+
   it('imposes no restriction for a provider with no supportedLanguages at all (cloud)', async () => {
     // Neither fake declares `supportedLanguages`, matching a cloud provider —
     // parity is ⊆, so an unrestricted backend never causes a refusal.

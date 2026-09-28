@@ -88,12 +88,23 @@ export class SpeechLanguageSupport implements OnApplicationBootstrap {
    *
    * Coalesced into one in-flight promise: a burst of turns each finding the
    * answer stale must not each start their own probe of both providers.
+   *
+   * Never rejects: every caller fires it with `void`, so a rejection here would
+   * be an unhandled one — which takes the process down. Building the providers
+   * can throw (a backend name with no implementation), and that is the same
+   * "not known" state as a probe that failed.
    */
   private refresh(): Promise<void> {
-    this.inFlight ??= this.doRefresh().finally(() => {
-      this.inFlight = null;
-      this.refreshedAt = Date.now();
-    });
+    this.inFlight ??= this.doRefresh()
+      .catch((error: unknown) => {
+        this.logger.warn(
+          `Could not read which languages the speech engines serve: ${String(error)}`,
+        );
+      })
+      .finally(() => {
+        this.inFlight = null;
+        this.refreshedAt = Date.now();
+      });
     return this.inFlight;
   }
 
