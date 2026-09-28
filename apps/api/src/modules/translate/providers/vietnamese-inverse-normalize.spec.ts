@@ -104,6 +104,14 @@ describe('inverseNormalizeTranscript (vi)', () => {
       ['số phận đã an bài', '`số phận` = fate'],
       ['giờ thì tôi hiểu rồi', '`giờ` = now, no hour before it'],
       ['anh ấy đứng thứ tư', 'an ordinal, not a count'],
+      [
+        'người ta vận hành không được nhà đầu tư người ta rút vốn',
+        '`đầu tư` then the pronoun `người ta`, from a production turn',
+      ],
+      ['đầu tư lần này thì lỗ', '`đầu tư` before a classifier'],
+      ['chú tư người miền tây', '`chú Tư` before a classifier'],
+      ['hẹn ngày mốt nhé', '`ngày mốt` = the day after tomorrow'],
+      ['kiểu áo này đang là mốt', '`mốt` = fashion'],
     ])('writes no digit in %j', (text) => {
       expect(digitsIn(itn(text))).toEqual([]);
     });
@@ -143,6 +151,14 @@ describe('inverseNormalizeTranscript (vi)', () => {
       expect(itn('có ba người ở đây')).toBe('có 3 người ở đây');
       expect(itn('một cái bánh')).toBe('1 cái bánh');
       expect(itn('nó năm tuổi rồi')).toBe('nó 5 tuổi rồi');
+    });
+
+    it('still reads a bound digit form inside the number it belongs to', () => {
+      // `tư`, `mốt` and `lăm` may not BEGIN a number; after a tens word they are
+      // ordinary digits and must stay reachable.
+      expect(itn('hai mươi tư người')).toBe('24 người');
+      expect(itn('hai mươi mốt tuổi')).toBe('21 tuổi');
+      expect(itn('mười lăm cái')).toBe('15 cái');
     });
 
     it('accepts an identifier marker', () => {

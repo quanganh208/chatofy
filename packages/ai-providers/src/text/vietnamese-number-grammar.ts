@@ -83,6 +83,19 @@ export const IDENTIFIER_MARKER = 'số';
 const AMBIGUOUS = new Set(['không', 'một', 'ba', 'tư', 'năm']);
 
 /**
+ * Forms of a digit that only exist after another number word.
+ *
+ * `tư` is four only in `hai mươi tư`, `thứ tư` or `một phần tư` — a count of
+ * four is `bốn người`, never `tư người`. `mốt` and `lăm` are the forms `một` and
+ * `năm` take after a tens word, and on their own they are other words: `ngày
+ * mốt` is the day after tomorrow, `mốt` is fashion. So none of them may BEGIN a
+ * number. Reading one as a head typeset `nhà đầu tư người ta` as `nhà đầu 4
+ * người ta` and `ngày mốt` as `ngày 1`, because the classifier or marker beside
+ * it vouched for a numeral that was never there.
+ */
+export const BOUND_DIGITS = new Set(['tư', 'mốt', 'lăm']);
+
+/**
  * Nouns of place and position, which vouch for a number far more weakly than a
  * classifier does.
  *

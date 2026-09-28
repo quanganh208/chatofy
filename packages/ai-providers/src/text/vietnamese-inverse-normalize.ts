@@ -18,6 +18,7 @@ import {
   type Rule,
 } from './inverse-normalize.js';
 import {
+  BOUND_DIGITS,
   CLOCK_MARKERS,
   DAY_MARKERS,
   DECIMAL_MARKER,
@@ -303,6 +304,9 @@ const quantity: Rule = (context, start) => {
   // digit readout stays as words is the cost this design accepted on purpose,
   // and it is recoverable by a reader in a way a reversed sentence is not.
   if (context.tiers.neverAlone.has(head)) return null;
+  // Nor with a digit form that only follows another number word. See
+  // {@link BOUND_DIGITS}: `đầu tư người ta` is "investors", not "4 people".
+  if (BOUND_DIGITS.has(head)) return null;
 
   // A lone number word resting on nothing is not a quantity. Measured on
   // held-out speech, every one of these was a name or an idiom rather than a
