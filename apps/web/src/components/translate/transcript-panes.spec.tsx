@@ -32,6 +32,8 @@ const TURNS: TranscriptSegment[] = [
     sessionId: 'a',
     speakerRole: 'speaker_a',
     direction: 'vi_to_en',
+    sourceLanguages: ['vi'],
+    translations: { en: 'Hello' },
     sourceText: 'Xin chào',
     targetText: 'Hello',
     audioUrl: null,

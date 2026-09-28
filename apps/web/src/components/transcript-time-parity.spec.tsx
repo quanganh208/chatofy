@@ -65,6 +65,8 @@ const segment = (sessionId: string, sourceText: string, targetText: string): Tra
   sessionId,
   speakerRole: 'speaker_a',
   direction: 'vi_to_en',
+  sourceLanguages: ['vi'],
+  translations: { en: targetText },
   sourceText,
   targetText,
   audioUrl: null,

@@ -131,6 +131,8 @@ const oneTurn: UseStreamingTranslate['turns'] = [
     sessionId: 'a',
     speakerRole: 'speaker_a',
     direction: 'vi_to_en',
+    sourceLanguages: ['vi'],
+    translations: { en: 'hello' },
     sourceText: 'xin chào',
     targetText: 'hello',
     audioUrl: null,
