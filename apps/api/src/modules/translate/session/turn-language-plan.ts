@@ -40,10 +40,9 @@ export interface TurnLanguagePlan {
   /**
    * The language this turn's translation is SPOKEN in.
    *
-   * The first of `targets`, in the conversation's own order — TTS for every
-   * target at once is a non-goal this plan defers (see
-   * `docs/system-architecture.md`), so exactly one of the fan-out's results is
-   * ever synthesized.
+   * The first of `targets`, in the conversation's own order — only one of the
+   * fan-out's results is ever synthesized; TTS for every target at once is
+   * not supported (see `docs/system-architecture.md`).
    */
   readonly spoken: LanguageCode;
 }

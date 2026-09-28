@@ -14,8 +14,8 @@ export const LANGUAGE_IDENTIFIER = Symbol('LANGUAGE_IDENTIFIER');
  * seam is here so that replacement can add fields (a sample rate, a byte
  * buffer) without another interface change.
  *
- * Returns MORE than one code for a turn that mixed languages — the seam this
- * plan builds for, deferred until a real identifier exists (see
+ * Returns MORE than one code for a turn that mixed languages — a shape
+ * nothing produces until a real, audio-based identifier exists (see
  * `docs/system-architecture.md`, "LID and audio-based detection").
  */
 export interface LanguageIdentifier {

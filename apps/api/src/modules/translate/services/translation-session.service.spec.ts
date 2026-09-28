@@ -2988,7 +2988,7 @@ describe('streamed speech', () => {
 });
 
 /**
- * The durable fan-out proof this plan exists for.
+ * A durable proof that the fan-out actually reaches the provider.
  *
  * Every test above replaces `transcribeAndTranslate`/`translate` wholesale, so
  * none of them can see what happens INSIDE the pipeline when a turn has more
