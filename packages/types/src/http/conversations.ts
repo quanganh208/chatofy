@@ -8,7 +8,14 @@
 import { z } from 'zod';
 import { conversationSchema, conversationSummarySchema } from '../domain/conversation.js';
 import { speakerRoleSchema } from '../domain/session.js';
-import { translationDirectionSchema } from '../domain/languages.js';
+import {
+  type LanguageCode,
+  conversationLanguagesSchema,
+  sourceLanguagesSchema,
+  translationDirectionSchema,
+  translationMapSchema,
+} from '../domain/languages.js';
+import { fillConversationLanguages, fillTurnLanguages } from '../domain/language-fields-compat.js';
 
 /**
  * Ceilings on a stored conversation.
@@ -70,13 +77,33 @@ export const HISTORY_LIMITS = {
   AUDIO_RECORDER_BITS_PER_SECOND: 24_000,
 } as const;
 
-/** One displayed block as the client submits it. */
+/**
+ * One displayed block as the client submits it.
+ *
+ * `targetText` is KEPT, required exactly as before this migration:
+ * `packages/realtime-client`'s `toConversationTurns` builds this same shape to
+ * project a finished conversation into a save body, and `apps/web` passes that
+ * straight through — neither is updated by this change, so the field this route
+ * has always required has to keep being enough on its own.
+ *
+ * `sourceLanguages`/`translations` are the language-keyed record `targetText`
+ * is being replaced by, but OPTIONAL here rather than a second required field:
+ * a body from the current client never carries them, and
+ * `ConversationsService`'s write conversion derives them from `targetText` and
+ * the turn's `speakerRole` when they are absent. A future client MAY start
+ * sending them once the reader that uses them ships; when it does, they are
+ * used as sent rather than re-derived.
+ */
 export const saveConversationTurnSchema = z.object({
   position: z.number().int().min(0),
   speakerRole: speakerRoleSchema,
   speakerLabel: z.string().min(1).max(HISTORY_LIMITS.MAX_SPEAKER_LABEL_CHARS).nullable(),
   sourceText: z.string().max(HISTORY_LIMITS.MAX_TURN_CHARS),
   displayText: z.string().max(HISTORY_LIMITS.MAX_TURN_CHARS).nullable(),
+  /** The language(s) this block was spoken in — see `domain/conversation.ts`. */
+  sourceLanguages: sourceLanguagesSchema.optional(),
+  /** A translation per destination language this block needed. */
+  translations: translationMapSchema(z.string().max(HISTORY_LIMITS.MAX_TURN_CHARS)).optional(),
   targetText: z.string().max(HISTORY_LIMITS.MAX_TURN_CHARS),
   /**
    * When this block was spoken, in milliseconds from the conversation's
@@ -127,15 +154,32 @@ export type UploadConversationAudioQuery = z.infer<typeof uploadConversationAudi
 /**
  * PUT /conversations/:conversationId body.
  *
+ * `direction` is KEPT, required exactly as before — the current client always
+ * sends it, and this schema's job is to accept what it actually sends, not
+ * what a future one might. `languages` is the new, OPTIONAL field a caller MAY
+ * additionally send once it derives its own; when it is absent,
+ * `ConversationsService`'s write conversion derives it from `direction`. The
+ * two are never both wrong at once in a way that matters here: nothing on this
+ * boundary reconciles a body that disagrees with itself (sends both, and they
+ * name different languages) — a caller doing that is malformed in a way no
+ * refine here is positioned to catch, and the derived `languages` wins because
+ * it is what the store actually persists.
+ *
  * The first refine below is the only bound on the WHOLE payload that runs in
  * the application: the per-field caps each pass while a thousand of them
  * together do not. It still runs downstream of the parser, which is why
  * `main.ts` registers a byte limit for this path as well — a zod `max` cannot
  * refuse a body that has already been read and parsed.
  */
-export const saveConversationRequestSchema = z
+const saveConversationRequestShape = z
   .object({
     direction: translationDirectionSchema,
+    /**
+     * The language pair a caller has already derived, or absent when it has
+     * not — see this schema's own docblock for why both this field and
+     * `direction` are accepted rather than one replacing the other.
+     */
+    languages: conversationLanguagesSchema.optional(),
     /** ISO-8601, client clock. */
     startedAt: z.iso.datetime(),
     endedAt: z.iso.datetime(),
@@ -175,7 +219,17 @@ export const saveConversationRequestSchema = z
           (t.speakerLabel?.length ?? 0) +
           t.sourceText.length +
           (t.displayText?.length ?? 0) +
-          t.targetText.length,
+          // Every destination this block translated to, when the caller sent
+          // them — a mixed turn or a conversation with more than two languages
+          // writes more than one entry, and the cap has to see all of them or a
+          // body that fans out wide could store far past
+          // HISTORY_LIMITS.MAX_TOTAL_CHARS while looking small turn by turn.
+          // `targetText` is the accurate fallback for a body that has not sent
+          // `translations` at all: it is exactly what the write conversion
+          // turns into that turn's single translation entry.
+          (t.translations
+            ? Object.values(t.translations).reduce((n, text) => n + text.length, 0)
+            : t.targetText.length),
         0,
       ) <= HISTORY_LIMITS.MAX_TOTAL_CHARS,
     {
@@ -218,6 +272,8 @@ export const saveConversationRequestSchema = z
       message: 'the reported timestamps are too far from the server clock',
     },
   );
+
+export const saveConversationRequestSchema = saveConversationRequestShape;
 export type SaveConversationRequest = z.infer<typeof saveConversationRequestSchema>;
 
 /**
@@ -294,6 +350,49 @@ export function escapeLikePattern(term: string): string {
 }
 
 /**
+ * Fills the shape a RESPONSE from an API build rolled back to before
+ * `languages` existed is missing — `direction` at the top level, `speakerRole`/
+ * `targetText` on each turn — for a caller ahead of that rollback (see
+ * `language-fields-compat.ts`'s own docblock for the three directions of
+ * staleness this file's functions cover; this is the "response" one).
+ * `apps/api` and a caller do not deploy atomically, so this has to keep parsing
+ * what a rolled-back API sends back even once a client stops needing it for
+ * anything else. A no-op on a response already in the new shape.
+ */
+function fillLegacyLanguageFields(raw: unknown): unknown {
+  if (typeof raw !== 'object' || raw === null) return raw;
+  const body = fillConversationLanguages(raw as Record<string, unknown>);
+  const { languages, turns } = body;
+  if (!Array.isArray(languages) || !Array.isArray(turns)) return body;
+  return {
+    ...body,
+    turns: turns.map((turn) =>
+      typeof turn === 'object' && turn !== null
+        ? fillTurnLanguages(turn as Record<string, unknown>, languages as LanguageCode[])
+        : turn,
+    ),
+  };
+}
+
+/**
+ * `conversationSummarySchema`, tolerant of a summary sent by an API build
+ * rolled back to before `languages` existed — only `direction`. A summary
+ * carries no turns, so `fillConversationLanguages` alone is enough — unlike the
+ * full conversation below, there is nothing nested to walk.
+ */
+const conversationSummaryWireSchema = z.preprocess((raw) => {
+  if (typeof raw !== 'object' || raw === null) return raw;
+  return fillConversationLanguages(raw as Record<string, unknown>);
+}, conversationSummarySchema);
+
+/**
+ * `conversationSchema`, tolerant of the same rolled-back-API gap as
+ * {@link conversationSummaryWireSchema}, extended to the nested turns via
+ * {@link fillLegacyLanguageFields}.
+ */
+const conversationWireSchema = z.preprocess(fillLegacyLanguageFields, conversationSchema);
+
+/**
  * Cursor paging lives in `data`, not `meta.pagination`.
  *
  * `TransformInterceptor` emits only `{requestId, timestamp}` and never populates
@@ -302,19 +401,19 @@ export function escapeLikePattern(term: string): string {
  * query nothing needs.
  */
 export const conversationListResponseSchema = z.object({
-  conversations: z.array(conversationSummarySchema),
+  conversations: z.array(conversationSummaryWireSchema),
   /** Pass back as `?cursor=` for the next page; null when this is the last. */
   nextCursor: z.string().nullable(),
 });
 export type ConversationListResponse = z.infer<typeof conversationListResponseSchema>;
 
 export const conversationResponseSchema = z.object({
-  conversation: conversationSchema,
+  conversation: conversationWireSchema,
 });
 export type ConversationResponse = z.infer<typeof conversationResponseSchema>;
 
 /** PUT answers with the summary it stored — the list card's shape, no turns. */
 export const conversationSummaryResponseSchema = z.object({
-  conversation: conversationSummarySchema,
+  conversation: conversationSummaryWireSchema,
 });
 export type ConversationSummaryResponse = z.infer<typeof conversationSummaryResponseSchema>;

@@ -40,5 +40,12 @@ export {
   conversationTurnSchema,
   conversationSummarySchema,
   conversationSchema,
+  primaryTranslation,
 } from './conversation.js';
 export type { ConversationTurn, ConversationSummary, Conversation } from './conversation.js';
+
+export {
+  fillConversationLanguages,
+  fillTurnLanguages,
+  legacyDirectionOf,
+} from './language-fields-compat.js';
