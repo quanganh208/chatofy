@@ -15,6 +15,7 @@ import numpy as np
 import pytest
 
 from speaker_bench.segment import (
+    CUT_MIN_QUIET_MS,
     MIN_TRAILING_SILENCE_MS,
     PRE_ROLL_MS,
     SPEECH_HANGOVER_MS,
@@ -219,3 +220,41 @@ def test_forced_cut_produces_multiple_turns_without_overlap() -> None:
         assert later.start_block >= earlier.end_block, (
             f"forced-cut turns overlap: {later.start_block} < {earlier.end_block}"
         )
+
+
+def test_forced_cut_keeps_the_held_pause_in_the_turn_it_closes() -> None:
+    """A forced cut flushes the pause it lands in; it does not drop it.
+
+    `closeTurn('forced')` sends what is held, because the speaker is still going,
+    so the cut turn runs to the block before the cut and the next turn's pre-roll
+    starts at the cut block itself — nothing between them is lost. A hangover-style
+    close (ending at the last probableEnd) would stop this turn at the arm point,
+    which a 1500ms ceiling reaches as soon as the turn opens.
+    """
+    lead, first, pause = 300, 1000, 150
+    result = segment(
+        build(
+            silence(lead),
+            speech(first),
+            silence(pause),
+            speech(1000, seed=1),
+            silence(MIN_TRAILING_SILENCE_MS),
+        ),
+        RATE,
+        max_utterance_ms=1500,
+    )
+    turns = result.require_terminated()
+    assert len(turns) == 2, f"expected the cut to split the clip in two, got {len(turns)}"
+    cut, rest = turns
+    assert cut.reason == "forced"
+
+    # The pause reached CUT_MIN_QUIET_MS before the cut, and all of it is kept.
+    speech_end_ms = lead + first
+    assert cut.end_ms >= speech_end_ms + CUT_MIN_QUIET_MS - BLOCK_MS, (
+        f"forced turn ends at {cut.end_ms:.0f}ms, before the held pause "
+        f"({speech_end_ms}ms + {CUT_MIN_QUIET_MS:.0f}ms)"
+    )
+    assert cut.end_ms < speech_end_ms + pause
+    assert rest.start_block == cut.end_block + 1, (
+        f"audio lost between turns: {cut.end_block} -> {rest.start_block}"
+    )

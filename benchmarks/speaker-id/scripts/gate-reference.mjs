@@ -178,10 +178,11 @@ function numeric(flag, raw) {
 
 function parseArgs(argv) {
   const positional = [];
-  const options = { maxUtteranceMs: 0, blockSamples: WORKLET_BLOCK_SAMPLES };
+  const options = { maxUtteranceMs: 0, blockSamples: WORKLET_BLOCK_SAMPLES, resumeAfterCut: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--max-utterance-ms') options.maxUtteranceMs = numeric(argv[i], argv[++i]);
     else if (argv[i] === '--block-samples') options.blockSamples = numeric(argv[i], argv[++i]);
+    else if (argv[i] === '--resume-after-cut') options.resumeAfterCut = true;
     else positional.push(argv[i]);
   }
   return { positional, options };
@@ -191,7 +192,7 @@ async function main() {
   const { positional, options } = parseArgs(process.argv.slice(2));
   if (positional.length !== 1) {
     process.stderr.write(
-      'usage: node scripts/gate-reference.mjs <file.wav> [--max-utterance-ms N] [--block-samples N]\n',
+      'usage: node scripts/gate-reference.mjs <file.wav> [--max-utterance-ms N] [--block-samples N] [--resume-after-cut]\n',
     );
     process.exit(2);
   }
@@ -199,7 +200,7 @@ async function main() {
   const { SpeechGate, downsampleToPcm16, pcm16Rms, TARGET_SAMPLE_RATE } =
     await loadRealtimeModules();
   const { samples, sampleRate } = readWavPcm16(positional[0]);
-  const { blockSamples, maxUtteranceMs } = options;
+  const { blockSamples, maxUtteranceMs, resumeAfterCut } = options;
   // Derived from the DOWNSAMPLED length, exactly as `CapturePump` does.
   const blockMs =
     (Math.floor(blockSamples / (sampleRate / TARGET_SAMPLE_RATE)) / TARGET_SAMPLE_RATE) * 1000;
@@ -223,7 +224,7 @@ async function main() {
       onProbableEnd: () => at('probableEnd'),
       onSpeechEnd: (reason) => at('end', reason),
     },
-    maxUtteranceMs > 0 ? { maxUtteranceMs } : {},
+    maxUtteranceMs > 0 ? { maxUtteranceMs, resumeAfterCut } : { resumeAfterCut },
   );
 
   // Drop the short tail rather than padding it: production never sees a short
