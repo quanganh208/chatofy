@@ -13,6 +13,7 @@ import {
   sourceLanguagesSchema,
   translationDirectionSchema,
   translationMapSchema,
+  translationTargets,
 } from '../domain/languages.js';
 import {
   fillConversationLanguages,
@@ -276,7 +277,63 @@ const saveConversationRequestShape = z
       path: ['startedAt'],
       message: 'the reported timestamps are too far from the server clock',
     },
-  );
+  )
+  /**
+   * Ties each turn's language fields to the conversation's and to each other.
+   * The per-field schemas above only check `sourceLanguages`/`translations`
+   * against the REGISTRY, so a turn naming a language its own conversation
+   * never declared, a translation keyed by the language it was SPOKEN in, or a
+   * turn carrying spoken text (`targetText`) with no translation recorded for
+   * it at all, were every one silently accepted and stored — the last of those
+   * then reads back as an empty translation forever, with nothing left on the
+   * wire to say why.
+   *
+   * Deliberately NOT folded into the legacy-fill preprocess: a body that sends
+   * an EMPTY `translations` alongside a non-empty `targetText` is not the
+   * "field absent" case that preprocess exists to backfill — a client sending
+   * that shape is malformed in a way no fill can safely guess at, and this
+   * refine is what turns it into a 400 instead of a turn that quietly loses
+   * its translation.
+   */
+  .superRefine((body, ctx) => {
+    const languages = new Set<string>(body.languages);
+    body.turns.forEach((turn, index) => {
+      const outsideConversation = turn.sourceLanguages.filter((code) => !languages.has(code));
+      if (outsideConversation.length > 0) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['turns', index, 'sourceLanguages'],
+          message: `sourceLanguages must be a subset of languages (got ${outsideConversation.join(', ')})`,
+        });
+      }
+
+      // The valid target SET, not simply `languages` minus the sources: a mixed
+      // turn (more than one source) is translated into the WHOLE conversation,
+      // sources included — every listener needs the turn in their own language,
+      // even the part said in it — so `translationTargets` is the one place
+      // that already knows the difference (`domain/languages.ts`). Reusing it
+      // here is what keeps this refine from rejecting exactly the mixed-turn
+      // shape the server itself builds.
+      const targets = new Set<string>(translationTargets(body.languages, turn.sourceLanguages));
+      const translationKeys = Object.keys(turn.translations);
+      const misplaced = translationKeys.filter((code) => !targets.has(code));
+      if (misplaced.length > 0) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['turns', index, 'translations'],
+          message: `translations must be keyed by a language this turn should be translated into (got ${misplaced.join(', ')})`,
+        });
+      }
+
+      if (turn.targetText !== '' && translationKeys.length === 0) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['turns', index, 'translations'],
+          message: 'translations must not be empty when targetText is non-empty',
+        });
+      }
+    });
+  });
 
 /**
  * `saveConversationRequestShape`, tolerant of a body sent by a browser tab

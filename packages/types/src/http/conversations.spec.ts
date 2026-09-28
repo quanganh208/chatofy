@@ -185,6 +185,79 @@ describe('saveConversationRequestSchema', () => {
         .success,
     ).toBe(false);
   });
+
+  describe("cross-field checks on a turn's language fields", () => {
+    it('refuses sourceLanguages outside the conversation', () => {
+      expect(
+        saveConversationRequestSchema.safeParse(
+          body([turn({ sourceLanguages: ['fr'], translations: { en: 'hello' } })]),
+        ).success,
+      ).toBe(false);
+    });
+
+    it('refuses a translation keyed by the language the turn was spoken in', () => {
+      // A single-source turn's only valid target is the OTHER conversation
+      // language — see `translationTargets`. Keying the translation by its own
+      // source is a shape the server never builds and never reads back.
+      expect(
+        saveConversationRequestSchema.safeParse(
+          body([turn({ sourceLanguages: ['vi'], translations: { vi: 'xin chào' } })]),
+        ).success,
+      ).toBe(false);
+    });
+
+    it('accepts a mixed turn translated into every conversation language, sources included', () => {
+      // The one case where a translation key legitimately NAMES a source: a
+      // turn spoken partly in each language goes to the whole conversation set
+      // (`translationTargets`), because every listener needs the whole turn in
+      // their own language, including the part already in it.
+      expect(
+        saveConversationRequestSchema.safeParse(
+          body([turn({ sourceLanguages: ['vi', 'en'], translations: { vi: 'ok', en: 'ok' } })]),
+        ).success,
+      ).toBe(true);
+    });
+
+    it('refuses a turn with spoken text and no translation for it at all', () => {
+      expect(
+        saveConversationRequestSchema.safeParse(
+          body([turn({ translations: {}, targetText: 'xin chào' })]),
+        ).success,
+      ).toBe(false);
+    });
+
+    it('accepts a turn with no translation when targetText is genuinely empty', () => {
+      // Not every turn has something to translate — the empty case must stay
+      // reachable rather than being folded into the refusal above.
+      expect(
+        saveConversationRequestSchema.safeParse(body([turn({ translations: {}, targetText: '' })]))
+          .success,
+      ).toBe(true);
+    });
+
+    it('does not silently fill an EMPTY translations sent alongside a non-empty targetText', () => {
+      // The legacy-fill preprocess only backfills a MISSING field; `translations`
+      // present-but-empty is not that case, and reaching the refine above (a
+      // 400) rather than a silently accepted, permanently empty translation is
+      // the point of this whole check.
+      const parsed = saveConversationRequestSchema.safeParse(
+        body([turn({ translations: {}, targetText: 'xin chào' })]),
+      );
+      expect(parsed.success).toBe(false);
+    });
+
+    it('still accepts a legacy payload carrying only direction/targetText', () => {
+      // The preprocess derives sourceLanguages/translations from
+      // speakerRole/targetText for a tab that predates the language-keyed
+      // fields — this must keep working under the new cross-field refine.
+      const { languages: _l, ...legacyBody } = body([legacyTurn()]);
+      expect(saveConversationRequestSchema.safeParse(legacyBody).success).toBe(true);
+    });
+
+    it('still accepts what apps/web sends today: languages plus every turn field', () => {
+      expect(saveConversationRequestSchema.safeParse(body([turn()])).success).toBe(true);
+    });
+  });
 });
 
 describe('response wire schemas (API-rollback tolerance)', () => {
