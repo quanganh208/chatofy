@@ -170,6 +170,7 @@ function conversation(over: Partial<UseStreamingTranslate> = {}): UseStreamingTr
     level: 0,
     conversationId: 'c-1',
     startedAt: '2026-09-03T00:00:00.000Z',
+    direction: 'vi_to_en',
     recording: null,
     recordingStartedAtMs: null,
     start: vi.fn(),

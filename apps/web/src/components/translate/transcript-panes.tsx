@@ -1,7 +1,7 @@
 'use client';
 
 import type { ComponentProps } from 'react';
-import { directionLanguages } from '@chatofy/types';
+import { directionLanguages, type TranslationDirection } from '@chatofy/types';
 import { cn } from '@/lib/utils';
 
 import { useTranslate } from '@/i18n/provider';
@@ -28,6 +28,18 @@ interface TranscriptPanesProps {
   /** The voice, for the target header's end slot — see `panel-headers.tsx`. */
   voiceControl: React.ReactNode;
   stream: StreamProps;
+  /**
+   * Which language the finished turns on screen were actually translated into.
+   *
+   * NOT `settings.direction` re-derived: the direction toggle stays live between
+   * conversations (it is only disabled while `running`), so swapping it after a
+   * conversation ends must not change which key `groupTranslation` reads for
+   * turns that were never translated into the new target — see `use-streaming
+   * -translate.ts`'s `direction`, which is captured once at `start` for exactly
+   * this. Defaults to `settings.direction` so a caller with no conversation yet
+   * (nothing captured, nothing to show) still gets the ordinary pane.
+   */
+  conversationDirection?: TranslationDirection;
 }
 
 /**
@@ -95,9 +107,15 @@ export function TranscriptPanes({
   onSwap,
   voiceControl,
   stream,
+  conversationDirection,
 }: TranscriptPanesProps) {
   const t = useTranslate();
   const { source: from, target: to } = directionLanguages(settings.direction);
+  // The language a FINISHED turn's translation line reads — see the prop doc.
+  // Headers above keep reading `settings.direction`: which language is going
+  // IN or coming OUT is a fact about the upcoming conversation, and only the
+  // already-spoken text must stay pinned to what it was captured for.
+  const { target: liveTarget } = directionLanguages(conversationDirection ?? settings.direction);
 
   const split = settings.displayMode === 'split' && !settings.translationOnly;
   const column = split && settings.paneLayout === 'column';
@@ -114,7 +132,12 @@ export function TranscriptPanes({
 
   const pane = (side: 'both' | 'source' | 'target', interactive: boolean, label: string) => (
     <TranscriptScroller label={label} freeScroll={settings.freeScroll}>
-      <ConversationTranscript {...shared} side={side} interactive={interactive} target={to} />
+      <ConversationTranscript
+        {...shared}
+        side={side}
+        interactive={interactive}
+        target={liveTarget}
+      />
     </TranscriptScroller>
   );
 

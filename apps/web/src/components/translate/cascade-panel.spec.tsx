@@ -110,6 +110,7 @@ const conversation: UseStreamingTranslate = {
   level: 0,
   conversationId: 'c-1',
   startedAt: '2026-09-03T00:00:00.000Z',
+  direction: 'vi_to_en',
   // No recording by default: happy-dom has no `MediaRecorder`, so this is also
   // the state a browser without one produces — the transcript half unaffected.
   recording: null,
@@ -233,6 +234,41 @@ describe('CascadePanel', () => {
     // Not yet stored, so there is nothing to summarize from until the retry
     // lands — the panel says so rather than disappearing.
     expect(generateButton()?.disabled).toBe(true);
+  });
+
+  it('saves the direction the conversation was captured with, not a later swap', () => {
+    // The direction toggle stays live once `running` is false, so a reader can
+    // swap it between End and pressing Start again for the NEXT conversation.
+    // The already-finished one on screen must still be stored under the
+    // language it was actually spoken in.
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    useStreamingTranslate.mockReturnValue({ ...conversation, direction: 'vi_to_en' });
+    useConversationSave.mockReturnValue({
+      saved: true,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+    act(() => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            settings={{ ...DEFAULT_TRANSLATE_SETTINGS, direction: 'en_to_vi' }}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+    });
+
+    expect(useConversationSave).toHaveBeenCalledWith(
+      expect.objectContaining({ direction: 'vi_to_en' }),
+    );
   });
 });
 
