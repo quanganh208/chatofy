@@ -195,27 +195,40 @@ is not (see the project memory on this).
 **Down-SQL, applied in REVERSE order (06's migration first, then 04's) if a
 rollback is needed without restoring the dump:**
 
-`20260928125252_conversation_languages` (apply first):
+`20260928125252_conversation_languages` (apply first). The guard runs FIRST,
+before any destructive step, and the whole block is one transaction — a guard
+placed after the `ALTER`/`UPDATE` statements below it still ran on already-
+mutated state, and a mid-script failure without `BEGIN`/`COMMIT` left the
+table half-migrated with no way back but a restore:
 
 ```sql
+BEGIN;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM "Conversation" WHERE array_length("languages",1) <> 2)
+  THEN RAISE EXCEPTION 'conversations with other than two languages exist; restore the dump instead'; END IF; END $$;
 ALTER TABLE "Conversation" ADD COLUMN "direction" TEXT;
 UPDATE "Conversation" SET "direction" = "languages"[1] || '_to_' || "languages"[2];
 ALTER TABLE "ConversationTurn" ADD COLUMN "targetText" TEXT;
 UPDATE "ConversationTurn" SET "targetText" = coalesce("translations" ->> (CASE WHEN "sourceLanguages"[1] = 'vi' THEN 'en' ELSE 'vi' END), '');
-DO $$ BEGIN IF EXISTS (SELECT 1 FROM "Conversation" WHERE array_length("languages",1) <> 2)
-  THEN RAISE EXCEPTION 'conversations with other than two languages exist; restore the dump instead'; END IF; END $$;
 ALTER TABLE "Conversation" ALTER COLUMN "direction" SET NOT NULL, DROP COLUMN "languages";
 ALTER TABLE "ConversationTurn" ALTER COLUMN "targetText" SET NOT NULL, DROP COLUMN "sourceLanguages", DROP COLUMN "translations";
+COMMIT;
 ```
 
-`20260928114332_glossary_terms_by_language` (apply second):
+`20260928114332_glossary_terms_by_language` (apply second). Same rule, and
+the check itself has to change shape to keep it: it used to read the NEW
+`vi`/`en` columns for `NULL` after the `UPDATE` populated them, which is
+exactly the ordering being fixed here — restored to run first, it instead
+reads the JSONB `terms` column directly, checking for the KEYS `UPDATE` is
+about to read from rather than the columns it is about to write:
 
 ```sql
+BEGIN;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM "GlossaryTerm" WHERE NOT ("terms" ? 'vi' AND "terms" ? 'en'))
+  THEN RAISE EXCEPTION 'entries without vi/en exist; restore the dump instead'; END IF; END $$;
 ALTER TABLE "GlossaryTerm" ADD COLUMN "vi" TEXT, ADD COLUMN "en" TEXT;
 UPDATE "GlossaryTerm" SET "vi" = "terms"->>'vi', "en" = "terms"->>'en';
-DO $$ BEGIN IF EXISTS (SELECT 1 FROM "GlossaryTerm" WHERE "vi" IS NULL OR "en" IS NULL)
-  THEN RAISE EXCEPTION 'entries without vi/en exist; restore the dump instead'; END IF; END $$;
 ALTER TABLE "GlossaryTerm" ALTER COLUMN "vi" SET NOT NULL, ALTER COLUMN "en" SET NOT NULL, DROP COLUMN "terms";
+COMMIT;
 ```
 
 After running either, if the row is kept (not restored from a dump), resolve
