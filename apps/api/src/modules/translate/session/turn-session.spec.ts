@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   MAX_SAMPLE_RATE,
+  transcriptSegmentSchema,
   type AudioFrame,
   type TranslationDirection,
 } from '@chatofy/types';
@@ -30,8 +31,7 @@ const frame = (
 const translated = () =>
   Promise.resolve({
     sourceText: 'xin chào',
-    targetText: 'hello',
-    targetLanguage: 'en' as const,
+    translations: { en: 'hello' },
   });
 
 describe('TurnSession', () => {
@@ -48,6 +48,34 @@ describe('TurnSession', () => {
   it('names the speaker from the direction it translates away from', () => {
     expect(openSession().speakerRole).toBe('speaker_a');
     expect(openSession('en_to_vi').speakerRole).toBe('speaker_b');
+  });
+
+  describe('languages', () => {
+    it('plans a single source and target from the declared direction by default', () => {
+      const session = openSession('vi_to_en');
+
+      expect(session.languages).toMatchObject({
+        conversation: ['vi', 'en'],
+        sourceLanguages: ['vi'],
+        targets: ['en'],
+        recognition: 'vi',
+        spoken: 'en',
+      });
+    });
+
+    // `TurnSessionDeps.identifier` is a real policy every turn runs, not a
+    // test-only branch — this is what proves the seam is actually wired, not
+    // merely declared on the interface.
+    it('plans a fan-out turn when the identifier reports several sources', () => {
+      const session = new TurnSession(
+        { direction: 'vi_to_en', voiceGender: 'female' },
+        undefined,
+        { identifier: { identify: () => ['vi', 'en'] } },
+      );
+
+      expect(session.languages.targets).toEqual(['vi', 'en']);
+      expect(session.languages.spoken).toBe('vi');
+    });
   });
 
   describe('acceptFrame', () => {
@@ -278,7 +306,7 @@ describe('TurnSession', () => {
     it('carries the turn identity and leaves audio off the record', () => {
       const session = openSession('en_to_vi');
 
-      const segment = session.toSegment('hello', 'xin chào');
+      const segment = session.toSegment('hello', { vi: 'xin chào' });
 
       expect(segment).toMatchObject({
         sessionId: session.sessionId,
@@ -291,6 +319,33 @@ describe('TurnSession', () => {
       });
       expect(segment.id).not.toBe(session.sessionId);
       expect(() => new Date(segment.createdAt).toISOString()).not.toThrow();
+    });
+
+    // The two fields fan-out added, additive to the record above: the strict
+    // domain schema (no client-parse leniency) is what a server-built segment
+    // must satisfy, since nothing else validates `toSegment`'s output.
+    it('fills sourceLanguages and translations, and lets the strict schema parse it', () => {
+      const session = openSession('vi_to_en');
+
+      const segment = session.toSegment('xin chào', { en: 'hello' });
+
+      expect(segment.sourceLanguages).toEqual(['vi']);
+      expect(segment.translations).toEqual({ en: 'hello' });
+      expect(() => transcriptSegmentSchema.parse(segment)).not.toThrow();
+    });
+
+    // `targetText` mirrors whichever language this turn is SPOKEN as, not
+    // merely "whatever key came back" — a fan-out translation map may hold
+    // more than one.
+    it('derives targetText from the spoken language of a fan-out translation', () => {
+      const session = openSession('vi_to_en');
+
+      const segment = session.toSegment('xin chào', {
+        vi: 'xin chào',
+        en: 'hello',
+      });
+
+      expect(segment.targetText).toBe('hello');
     });
   });
 });

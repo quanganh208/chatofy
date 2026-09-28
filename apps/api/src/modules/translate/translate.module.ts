@@ -9,6 +9,10 @@ import { TranslationSessionService } from './services/translation-session.servic
 import { TurnMetricsRecorder } from './services/turn-metrics.recorder';
 import { LiveSessionMetricsRecorder } from './services/live-session-metrics.recorder';
 import { LiveTranslateSessionService } from './services/live-translate-session.service';
+import {
+  DeclaredLanguageIdentifier,
+  LANGUAGE_IDENTIFIER,
+} from './session/language-identifier';
 import { TranslateController } from './translate.controller';
 import { TranslateGateway } from './translate.gateway';
 
@@ -51,6 +55,10 @@ import { TranslateGateway } from './translate.gateway';
     PipelineTranslatorService,
     TranslationSessionService,
     TurnMetricsRecorder,
+    // The real policy every turn runs today: trust the client's declared
+    // language outright. Swapping in an audio-based identifier later is a
+    // one-line change here, not a rewire of the callers that use the token.
+    { provide: LANGUAGE_IDENTIFIER, useClass: DeclaredLanguageIdentifier },
   ],
 })
 export class TranslateModule {}
