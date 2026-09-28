@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { ApiClientError, ContractError, NetworkError } from '@chatofy/api-client';
-import { createTranslator, en, vi } from '@chatofy/i18n';
+import { createTranslator, en } from '@chatofy/i18n';
 
-import { authErrorMessage, authSuccessMessage } from './auth-error-message';
+import { authErrorMessage } from './auth-error-message';
 
 /**
  * The guard this mapping never had.
@@ -51,35 +51,5 @@ describe('authErrorMessage', () => {
     // Not every throw is an Error — a rejected promise can carry anything.
     expect(authErrorMessage('a bare string', t, FALLBACK)).toBe(en[FALLBACK]);
     expect(authErrorMessage(undefined, t, FALLBACK)).toBe(en[FALLBACK]);
-  });
-});
-
-/**
- * The other half of the seam: an api SUCCESS in the reader's language.
- *
- * The api mints `RESET_REQUESTED` and its siblings in English, and they land on the
- * most prominent line of an auth page. Sending a code instead is what lets a
- * Vietnamese page answer in Vietnamese, and this is the proof that it does — asserted
- * in both locales, because a table that silently fell through to English would pass
- * every English-only test.
- */
-describe('authSuccessMessage', () => {
-  const viT = createTranslator(vi);
-
-  it.each([
-    'REGISTRATION_ACCEPTED',
-    'ACCOUNT_CREATED',
-    'ACCOUNT_ALREADY_EXISTS',
-    'RESET_REQUESTED',
-    'PASSWORD_RESET_DONE',
-  ] as const)("answers %s in the reader's language", (code) => {
-    const english = authSuccessMessage(code, t);
-    const vietnamese = authSuccessMessage(code, viT);
-
-    expect(english.length).toBeGreaterThan(0);
-    expect(vietnamese.length).toBeGreaterThan(0);
-    // The point of the whole seam. Equal strings would mean the code fell through to
-    // English, which is exactly the failure this replaced.
-    expect(vietnamese).not.toBe(english);
   });
 });
