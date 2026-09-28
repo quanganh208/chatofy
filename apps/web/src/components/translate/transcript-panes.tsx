@@ -11,10 +11,14 @@ import { DirectionSwap, PanelHeader, PanelHeaders } from '@/components/translate
 import { TranscriptScroller } from '@/components/translate/transcript-scroller';
 import { textSizeScale, type TranslateSettings } from '@/lib/translate-settings';
 
-/** Everything a stream needs except which half of a turn it is showing. */
+/**
+ * Everything a stream needs except which half of a turn it is showing, and
+ * `target` — this file already derives that from `settings.direction` for its
+ * own pane headers, so a caller has no second language to supply.
+ */
 type StreamProps = Omit<
   ComponentProps<typeof ConversationTranscript>,
-  'side' | 'speakerLabels' | 'interactive' | 'running'
+  'side' | 'speakerLabels' | 'interactive' | 'running' | 'target'
 >;
 
 interface TranscriptPanesProps {
@@ -110,7 +114,7 @@ export function TranscriptPanes({
 
   const pane = (side: 'both' | 'source' | 'target', interactive: boolean, label: string) => (
     <TranscriptScroller label={label} freeScroll={settings.freeScroll}>
-      <ConversationTranscript {...shared} side={side} interactive={interactive} />
+      <ConversationTranscript {...shared} side={side} interactive={interactive} target={to} />
     </TranscriptScroller>
   );
 

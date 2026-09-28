@@ -18,19 +18,27 @@ import { LocaleProvider } from '@/i18n/provider';
 let container: HTMLDivElement;
 let root: Root;
 
-const turn = (overrides: Partial<ConversationTurn> = {}): ConversationTurn => ({
-  position: 0,
-  speakerRole: 'speaker_a',
-  speakerLabel: 'An',
-  sourceText: 'xin chao',
-  displayText: null,
-  targetText: 'hello',
-  // Null by default: a row stored before timestamps existed is the case the
-  // gutter has to render without breaking, so it is the one the fixtures default
-  // to.
-  offsetMs: null,
-  ...overrides,
-});
+const turn = (overrides: Partial<ConversationTurn> = {}): ConversationTurn => {
+  const targetText = overrides.targetText ?? 'hello';
+  return {
+    position: 0,
+    speakerRole: 'speaker_a',
+    speakerLabel: 'An',
+    sourceText: 'xin chao',
+    displayText: null,
+    sourceLanguages: ['vi'],
+    // Defaults to a plain mirror of `targetText`, since `HistoryTranscript`
+    // reads `primaryTranslation`, not the pre-fan-out field, and a case that
+    // only overrides `targetText` must still see its own text rendered.
+    translations: { en: targetText },
+    targetText,
+    // Null by default: a row stored before timestamps existed is the case the
+    // gutter has to render without breaking, so it is the one the fixtures
+    // default to.
+    offsetMs: null,
+    ...overrides,
+  };
+};
 
 beforeEach(() => {
   container = document.createElement('div');
@@ -53,6 +61,7 @@ function render(
       <LocaleProvider locale={locale}>
         <HistoryTranscript
           turns={turns}
+          languages={['vi', 'en']}
           audioOffsetMs={recording?.audioOffsetMs ?? null}
           onSeek={recording?.onSeek}
         />

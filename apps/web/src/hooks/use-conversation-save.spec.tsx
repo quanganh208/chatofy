@@ -32,6 +32,8 @@ const turn = (text: string, speakerLabel: string | null = null): ConversationTur
   speakerLabel,
   sourceText: text,
   displayText: null,
+  sourceLanguages: ['vi'],
+  translations: { en: 'translated' },
   targetText: 'translated',
   offsetMs: null,
 });
@@ -108,7 +110,13 @@ describe('useConversationSave', () => {
     expect(saveConversation).toHaveBeenCalledTimes(1);
     expect(saveConversation).toHaveBeenCalledWith(
       'c-1',
-      expect.objectContaining({ direction: 'vi_to_en', startedAt: baseInput.startedAt }),
+      expect.objectContaining({
+        direction: 'vi_to_en',
+        // Derived from `direction`, not left to the server to fill in — the
+        // client always knows its own conversation's languages.
+        languages: ['vi', 'en'],
+        startedAt: baseInput.startedAt,
+      }),
     );
     expect(latest.saved).toBe(true);
     expect(latest.failure).toBeNull();

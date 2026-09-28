@@ -85,6 +85,7 @@ const render = (props: Partial<Parameters<typeof ConversationTranscript>[0]> = {
           running
           speakers={SPEAKERS}
           attributions={{}}
+          target="en"
           {...handlers}
           {...props}
         />

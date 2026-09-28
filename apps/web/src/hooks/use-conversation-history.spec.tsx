@@ -23,6 +23,7 @@ let latest: UseConversationHistory;
 const summary = (id: string): ConversationSummary => ({
   conversationId: id,
   direction: 'vi_to_en',
+  languages: ['vi', 'en'],
   startedAt: '2026-09-03T10:00:00.000Z',
   endedAt: '2026-09-03T10:10:00.000Z',
   turnCount: 4,

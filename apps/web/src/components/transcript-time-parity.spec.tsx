@@ -131,6 +131,7 @@ function renderLive(audioOffsetMs: number | null) {
           onAddSpeaker={vi.fn()}
           onRenameSpeaker={vi.fn()}
           onRemoveSpeaker={vi.fn()}
+          target="en"
         />
       </LocaleProvider>,
     );
@@ -148,7 +149,7 @@ function renderStored(audioOffsetMs: number | null) {
   act(() => {
     root.render(
       <LocaleProvider>
-        <HistoryTranscript turns={stored} audioOffsetMs={audioOffsetMs} />
+        <HistoryTranscript turns={stored} languages={['vi', 'en']} audioOffsetMs={audioOffsetMs} />
       </LocaleProvider>,
     );
   });
@@ -213,6 +214,7 @@ describe('a turn reads the same live and in history', () => {
               onAddSpeaker={vi.fn()}
               onRenameSpeaker={vi.fn()}
               onRemoveSpeaker={vi.fn()}
+              target="en"
             />
           </LocaleProvider>,
         );
@@ -230,7 +232,7 @@ describe('a turn reads the same live and in history', () => {
       act(() => {
         root.render(
           <LocaleProvider>
-            <HistoryTranscript turns={rows} audioOffsetMs={1_400} />
+            <HistoryTranscript turns={rows} languages={['vi', 'en']} audioOffsetMs={1_400} />
           </LocaleProvider>,
         );
       });
@@ -273,6 +275,7 @@ describe('a turn reads the same live and in history', () => {
             onAddSpeaker={vi.fn()}
             onRenameSpeaker={vi.fn()}
             onRemoveSpeaker={vi.fn()}
+            target="en"
           />
         </LocaleProvider>,
       );
@@ -302,6 +305,7 @@ describe('a turn reads the same live and in history', () => {
             onAddSpeaker={vi.fn()}
             onRenameSpeaker={vi.fn()}
             onRemoveSpeaker={vi.fn()}
+            target="en"
           />
         </LocaleProvider>,
       );
@@ -329,6 +333,7 @@ describe('a turn reads the same live and in history', () => {
             onAddSpeaker={vi.fn()}
             onRenameSpeaker={vi.fn()}
             onRemoveSpeaker={vi.fn()}
+            target="en"
           />
         </LocaleProvider>,
       );
@@ -355,7 +360,7 @@ describe('a turn reads the same live and in history', () => {
     act(() => {
       root.render(
         <LocaleProvider>
-          <HistoryTranscript turns={stored} audioOffsetMs={1_400} />
+          <HistoryTranscript turns={stored} languages={['vi', 'en']} audioOffsetMs={1_400} />
         </LocaleProvider>,
       );
     });

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, FileX2, Pause, Play } from 'lucide-react';
-import { directionLanguages, type Conversation } from '@chatofy/types';
+import type { Conversation, LanguageCode } from '@chatofy/types';
 import { Button, Card, CardContent, Skeleton, Slider } from '@chatofy/ui/react';
 import { HistoryTranscript } from '@/components/history/history-transcript';
 import { ConfirmDeleteButton } from '@/components/layout/confirm-delete-button';
@@ -129,9 +129,12 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
             <Dot />
             {formatTime(conversation.startedAt, locale)}
             <Dot />
+            {/* `conversationLanguagesSchema` guarantees at least two, declared
+                source first — the same guarantee `legacyDirectionOf` relies on
+                server-side. */}
             <DirectionLabel
-              from={directionLanguages(conversation.direction).source}
-              to={directionLanguages(conversation.direction).target}
+              from={conversation.languages[0] as LanguageCode}
+              to={conversation.languages[1] as LanguageCode}
             />
             <Dot />
             {t('web.history.turnCount', { count: conversation.turnCount })}
@@ -217,6 +220,7 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
 
           <HistoryTranscript
             turns={conversation.turns}
+            languages={conversation.languages}
             audioOffsetMs={conversation.audioOffsetMs}
             // Only when there is something to seek. Without a recording the gutter
             // renders as plain text rather than as a button that would do nothing.

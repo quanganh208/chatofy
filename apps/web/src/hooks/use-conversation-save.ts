@@ -1,7 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ConversationTurn, TranslationDirection } from '@chatofy/types';
+import {
+  conversationLanguagesOf,
+  type ConversationTurn,
+  type TranslationDirection,
+} from '@chatofy/types';
 import { saveConversation } from '@/clients/api-client';
 import { classifyApiFailure } from '@/lib/api-failure';
 
@@ -173,6 +177,7 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
       try {
         await saveConversation(id, {
           direction: dir,
+          languages: conversationLanguagesOf(dir),
           startedAt: began,
           endedAt: ended,
           turns: rows,

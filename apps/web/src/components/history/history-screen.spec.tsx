@@ -77,6 +77,7 @@ function type(value: string): void {
 const ONE = {
   conversationId: 'c-1',
   direction: 'vi_to_en',
+  languages: ['vi', 'en'],
   startedAt: '2026-09-03T12:00:00.000Z',
   endedAt: '2026-09-03T12:10:00.000Z',
   turnCount: 4,
