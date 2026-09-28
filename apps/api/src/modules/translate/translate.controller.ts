@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Inject,
   Post,
   Query,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import type { TtsVoiceCatalog } from '@chatofy/ai-providers';
 import {
   DEFAULT_TRANSLATION_DIRECTION,
   LANGUAGE_CODES,
+  conversationLanguagesOf,
   directionLanguages,
   languageCodeSchema,
   type TranslateResponse,
@@ -26,6 +28,11 @@ import { TranslateRequestDto, TranslateResponseDto } from './dto/translate.dto';
 import { VoicesResponseDto } from './dto/voices.dto';
 import { PipelineTranslatorService } from './services/pipeline-translator.service';
 import { SpeechLanguageSupport } from './providers/speech-language-support';
+import {
+  LANGUAGE_IDENTIFIER,
+  type LanguageIdentifier,
+} from './session/language-identifier';
+import { planTurnLanguages } from './session/turn-language-plan';
 
 /**
  * The language `voices` answers for when the caller names none.
@@ -57,6 +64,8 @@ export class TranslateController {
   constructor(
     private readonly pipeline: PipelineTranslatorService,
     private readonly languageSupport: SpeechLanguageSupport,
+    @Inject(LANGUAGE_IDENTIFIER)
+    private readonly identifier: LanguageIdentifier,
   ) {}
 
   /**
@@ -71,7 +80,7 @@ export class TranslateController {
   @ApiOperation({
     summary: 'Translate an audio utterance to speech in the target language',
     description:
-      'Send a complete utterance as base64 audio plus a direction (`vi_to_en` or `en_to_vi`). Answers with the transcript, the translation, and synthesized speech in the target language. The body carries audio, so it is large — the JSON body limit is 12 MB, and anything longer than a short utterance belongs on the WebSocket surface instead.',
+      'Send a complete utterance as base64 audio plus a direction (`vi_to_en` or `en_to_vi`). Answers with the transcript, the translation, and synthesized speech in the target language. This is a ONE-turn, ONE-audio surface: the turn is still translated into every language the conversation language plan calls for, but only the first target (`plan.spoken`) is synthesized and returned — the same budget the streaming path applies to its own preview. The body carries audio, so it is large — the JSON body limit is 12 MB, and anything longer than a short utterance belongs on the WebSocket surface instead.',
   })
   @ApiEnvelopeResponse(TranslateResponseDto)
   @ApiErrorResponses(400, 401)
@@ -84,28 +93,35 @@ export class TranslateController {
         'audioBase64 did not decode to any audio bytes',
       );
     }
-    // Same check the WS path makes in `TranslationSessionService.start`, before
-    // any provider call is spent on a language no configured engine serves.
-    // REST always returns synthesized audio, so `voiceOutput` is unconditionally
-    // true here.
-    const { source, target } = directionLanguages(
-      body.direction ?? DEFAULT_TRANSLATION_DIRECTION,
+    // Same identifier and plan the WS path builds in
+    // `TranslationSessionService.start`, so the two transports never disagree
+    // about what a given direction is decided to mean.
+    const direction = body.direction ?? DEFAULT_TRANSLATION_DIRECTION;
+    const conversation = conversationLanguagesOf(direction);
+    const plan = planTurnLanguages(
+      conversation,
+      this.identifier.identify({ declared: conversation[0] }),
     );
+    // Checked before any provider call is spent on a language no configured
+    // engine serves. REST always returns synthesized audio, so `voiceOutput`
+    // is unconditionally true here.
     const languageRefusal = this.languageSupport.refusal({
-      recognition: source,
-      spoken: target,
+      recognition: plan.recognition,
+      spoken: plan.spoken,
       voiceOutput: true,
     });
     if (languageRefusal) {
       throw new BadRequestException(languageRefusal);
     }
-    return this.pipeline.translateTurn({
-      audio: new Uint8Array(audio),
-      mimeType: body.audioMimeType,
-      direction: body.direction,
-      voiceGender: body.voiceGender,
-      speed: body.speed,
-    });
+    return this.pipeline.translateTurn(
+      {
+        audio: new Uint8Array(audio),
+        mimeType: body.audioMimeType,
+        voiceGender: body.voiceGender,
+        speed: body.speed,
+      },
+      plan,
+    );
   }
 
   /**

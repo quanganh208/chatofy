@@ -54,7 +54,7 @@ export class LivePreview {
           session.partials.windowStart(atBytes, audio.bytesPerSecond),
         ),
         mimeType: 'audio/wav',
-        direction: session.direction,
+        language: session.languages.recognition,
         // Passed for the recognizer's sake, the same way this call already
         // passes them for the translator's further down: a preview that heard a
         // proper noun differently from the settled transcript would correct
@@ -203,7 +203,11 @@ export class LivePreview {
     void this.pipeline
       .translate({
         text: committed,
-        direction: session.direction,
+        source: session.languages.recognition,
+        // Preview is budgeted for exactly one target — the one this turn
+        // speaks aloud — never every target a fan-out turn eventually
+        // translates into (see `docs/system-architecture.md`).
+        target: session.languages.spoken,
         models: LIVE_TRANSLATION_MODELS,
         onChunk: (delta, restart) => {
           // Behind the same opt-in as the settled transcript, and for the same

@@ -2,15 +2,18 @@ import type {
   SpeakerEmbeddingResult,
   TranslationHints,
 } from '@chatofy/ai-providers';
-import type { TranslationDirection } from '@chatofy/types';
 import type { TurnAudio } from '../session/turn-audio';
 import type { Span } from '../session/speaker-change-split';
 import type { PipelineTranslatorService } from './pipeline-translator.service';
+import type {
+  TurnLanguagePlan,
+  TranslationMap,
+} from '../session/turn-language-plan';
 
 /** One voice's share of a split turn, ready to be sent as its own final. */
 export interface TranslatedPiece extends Span {
   sourceText: string;
-  targetText: string;
+  translations: TranslationMap;
 }
 
 export interface SplitTurn {
@@ -40,12 +43,12 @@ export interface SplitTurn {
 export async function translateSplitTurn(
   pipeline: Pick<
     PipelineTranslatorService,
-    'transcribe' | 'translate' | 'embedSpeaker'
+    'transcribe' | 'translateAll' | 'embedSpeaker'
   >,
   audio: TurnAudio,
   spans: Span[],
   options: {
-    direction: TranslationDirection;
+    plan: TurnLanguagePlan;
     hints?: TranslationHints;
     models?: string[];
     /** Finished utterances from earlier turns on this connection, oldest first. */
@@ -60,7 +63,7 @@ export async function translateSplitTurn(
       pipeline.transcribe({
         audio: wav,
         mimeType: 'audio/wav',
-        direction: options.direction,
+        language: options.plan.recognition,
         hints: options.hints,
       }),
     ),
@@ -74,11 +77,15 @@ export async function translateSplitTurn(
       pipeline.embedSpeaker({ audio: wav, mimeType: 'audio/wav' }),
     ),
   );
-  const targets = await Promise.all(
+  // Each piece is fanned out to every one of the turn's targets, same as the
+  // whole-turn path — a split turn must not lose the languages a listener
+  // needs just because it also carried two voices.
+  const translations = await Promise.all(
     sources.map((text, k) =>
-      pipeline.translate({
+      pipeline.translateAll({
         text,
-        direction: options.direction,
+        source: options.plan.recognition,
+        targets: options.plan.targets,
         models: options.models,
         hints: options.hints,
         context: [...options.context, ...sources.slice(0, k)],
@@ -90,7 +97,7 @@ export async function translateSplitTurn(
     pieces: spans.map((span, k) => ({
       ...span,
       sourceText: sources[k]!,
-      targetText: targets[k]!,
+      translations: translations[k]!,
     })),
     vectors,
   };

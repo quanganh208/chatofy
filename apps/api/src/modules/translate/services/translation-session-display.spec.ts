@@ -14,6 +14,7 @@ import type { PipelineTranslatorService } from './pipeline-translator.service';
 import type { TurnMetrics, TurnMetricsRecorder } from './turn-metrics.recorder';
 import { encodePcm16Wav } from '../audio/wav-codec';
 import type { SpeechLanguageSupport } from '../providers/speech-language-support';
+import { DeclaredLanguageIdentifier } from '../session/language-identifier';
 
 /**
  * Display typesetting on a finished turn.
@@ -115,8 +116,7 @@ function makeService(sourceText: string): Harness {
     transcribeAndTranslate: vi.fn().mockResolvedValue({
       // Lowercase and unpunctuated, as the Vietnamese recognizer actually emits.
       sourceText,
-      targetText: 'hello',
-      targetLanguage: 'en',
+      translations: { en: 'hello' },
     }),
     synthesize: vi
       .fn()
@@ -154,6 +154,7 @@ function makeService(sourceText: string): Harness {
               : false,
       } as unknown as ConfigService<Env, true>,
       languageSupport,
+      new DeclaredLanguageIdentifier(),
     ),
     turns,
   };
