@@ -1,11 +1,12 @@
 import {
-  WS_SUBPROTOCOL,
   serverEventSchema,
   type ClientEvent,
   type ClientTurnMetrics,
   type ServerEvent,
   type SessionOptions,
 } from '@chatofy/types';
+
+import { connectJsonSocket, detachJsonSocket, sendJsonEvent } from './json-event-socket.js';
 
 /**
  * Typed client for `/ws/translate`.
@@ -83,51 +84,19 @@ export class TranslateSocket {
     private readonly accessToken: string,
   ) {}
 
-  private get isOpen(): boolean {
-    return this.socket?.readyState === WebSocket.OPEN;
-  }
-
   /** Connect and resolve once the socket is usable. */
   async connect(): Promise<void> {
     this.close();
 
-    const socket = new WebSocket(this.url, [WS_SUBPROTOCOL, this.accessToken]);
-    this.socket = socket;
-
-    socket.onmessage = (message) => {
-      // A frame that is not JSON at all would throw out of the event handler,
-      // which the schema check below cannot help with.
-      let body: unknown;
-      try {
-        body = JSON.parse(String(message.data));
-      } catch {
-        this.handlers.onError?.('Unreadable frame from the server');
-        return;
-      }
-
-      const parsed = serverEventSchema.safeParse(body);
-      if (!parsed.success) {
-        this.handlers.onError?.('Unexpected event shape from the server');
-        return;
-      }
-      this.handlers.onEvent(parsed.data);
-    };
-
-    socket.onclose = (event) => {
-      if (this.socket === socket) this.socket = null;
-      this.handlers.onClosed?.(event.code, event.reason);
-    };
-
-    await new Promise<void>((resolve, reject) => {
-      socket.onopen = () => resolve();
-      socket.onerror = () => reject(new Error('Cannot reach the translator'));
-    });
-
-    // The handshake's own handlers must not stay attached: `onerror` is still
-    // the promise's `reject`, which is inert once settled, so a transport
-    // failure mid-conversation would be swallowed instead of reported.
-    socket.onopen = null;
-    socket.onerror = () => this.handlers.onError?.('Connection error');
+    this.socket = await connectJsonSocket(
+      this.url,
+      this.accessToken,
+      serverEventSchema,
+      this.handlers,
+      (socket) => {
+        if (this.socket === socket) this.socket = null;
+      },
+    );
   }
 
   /**
@@ -141,9 +110,7 @@ export class TranslateSocket {
    * sent and so reported captured audio the socket never carried.
    */
   send(event: ClientEvent): boolean {
-    if (!this.isOpen) return false;
-    this.socket?.send(JSON.stringify({ event: event.type, data: event }));
-    return true;
+    return sendJsonEvent(this.socket, event);
   }
 
   /**
@@ -213,11 +180,6 @@ export class TranslateSocket {
     const socket = this.socket;
     if (!socket) return;
     this.socket = null;
-    // Detach first: a close handler firing during teardown would be reported as
-    // a dropped connection.
-    socket.onclose = null;
-    socket.onerror = null;
-    socket.onmessage = null;
-    socket.close();
+    detachJsonSocket(socket);
   }
 }

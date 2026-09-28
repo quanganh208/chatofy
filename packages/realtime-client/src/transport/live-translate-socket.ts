@@ -1,10 +1,11 @@
 import {
-  WS_SUBPROTOCOL,
   liveServerEventSchema,
   type LiveClientEvent,
   type LiveServerEvent,
   type TranslationDirection,
 } from '@chatofy/types';
+
+import { connectJsonSocket, detachJsonSocket, sendJsonEvent } from './json-event-socket.js';
 
 /**
  * Typed client for the continuous mode of `/ws/translate`.
@@ -66,52 +67,24 @@ export class LiveTranslateSocket {
     private readonly accessToken: string,
   ) {}
 
-  private get isOpen(): boolean {
-    return this.socket?.readyState === WebSocket.OPEN;
-  }
-
   async connect(): Promise<void> {
     this.close();
 
-    const socket = new WebSocket(this.url, [WS_SUBPROTOCOL, this.accessToken]);
-    this.socket = socket;
-
-    socket.onmessage = (message) => {
-      let body: unknown;
-      try {
-        body = JSON.parse(String(message.data));
-      } catch {
-        this.handlers.onError?.('Unreadable frame from the server');
-        return;
-      }
-      const parsed = liveServerEventSchema.safeParse(body);
-      if (!parsed.success) {
-        this.handlers.onError?.('Unexpected event shape from the server');
-        return;
-      }
-      this.handlers.onEvent(parsed.data);
-    };
-
-    socket.onclose = (event) => {
-      if (this.socket === socket) this.socket = null;
-      this.handlers.onClosed?.(event.code, event.reason);
-    };
-
-    await new Promise<void>((resolve, reject) => {
-      socket.onopen = () => resolve();
-      socket.onerror = () => reject(new Error('Cannot reach the translator'));
-    });
-
-    // The handshake's own handlers must not stay attached: `onerror` is still
-    // the promise's `reject`, which is inert once settled, so a transport
-    // failure mid-conversation would be swallowed instead of reported.
-    socket.onopen = null;
-    socket.onerror = () => this.handlers.onError?.('Connection error');
+    this.socket = await connectJsonSocket(
+      this.url,
+      this.accessToken,
+      liveServerEventSchema,
+      this.handlers,
+      (socket) => {
+        if (this.socket === socket) this.socket = null;
+      },
+    );
   }
 
   send(event: LiveClientEvent): void {
-    if (!this.isOpen) return;
-    this.socket?.send(JSON.stringify({ event: event.type, data: event }));
+    // The turn socket's caller needs to tell "sent" from "dropped"; this one
+    // has no such caller, so the boolean `sendJsonEvent` returns is discarded.
+    sendJsonEvent(this.socket, event);
   }
 
   start(direction: TranslationDirection): void {
@@ -147,9 +120,6 @@ export class LiveTranslateSocket {
     const socket = this.socket;
     if (!socket) return;
     this.socket = null;
-    socket.onclose = null;
-    socket.onerror = null;
-    socket.onmessage = null;
-    socket.close();
+    detachJsonSocket(socket);
   }
 }
