@@ -6,6 +6,7 @@ import { AUTH_LIMITS } from '@chatofy/types';
 import { Button } from '@chatofy/ui/react';
 import { AuthAlert } from '@/components/auth/auth-alert';
 import { AuthField } from '@/components/auth/auth-field';
+import { SubmittedNotice } from '@/components/auth/submitted-notice';
 import { register } from '@/clients/api-client';
 import { useSubmittedNotice } from '@/hooks/use-submitted-notice';
 import { useLocale, useTranslate } from '@/i18n/provider';
@@ -37,26 +38,12 @@ export function RegisterForm() {
 
   return (
     <>
-      {/* Mounted from the start and never unmounted, for the reason
-          `auth-alert.tsx` sets out for the failure path: a live region has to
-          exist BEFORE its content changes for assistive technology to report the
-          change, and one created in the same commit as its text is a coin flip
-          across implementations. This branch used to do exactly that.
-
-          `sr-only` rather than absent while empty, so the region is in the
-          accessibility tree the whole time without spending a row of the card's
-          column above the form. `hidden` would collapse it and undo the point. */}
-      <p
+      <SubmittedNotice
         id="register-success"
-        role="status"
+        submitted={submitted}
+        message={t('web.auth.checkYourEmail')}
         ref={notice}
-        // Focusable only as a destination — never in the tab order, where an
-        // empty paragraph would be a stop that says nothing.
-        tabIndex={-1}
-        className={submitted ? 'text-prose' : 'sr-only'}
-      >
-        {submitted ? t('web.auth.checkYourEmail') : null}
-      </p>
+      />
 
       {submitted ? null : (
         <form
