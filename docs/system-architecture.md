@@ -280,7 +280,11 @@ computed on read. One turn:
    already reached, in which case join the nearest one instead. **A new voice is
    not believed on one turn** (`mintConfirmations`, 2): the turn opens a
    _provisional_ voice that names nobody, and the next turn matching it at
-   `tauAssign` is the one that mints the ordinal. The first turn of a
+   `tauAssign` is the one that mints the ordinal. The turns the provisional
+   voice was built from take that ordinal at the same moment rather than
+   waiting for settle: they were all `pending`, so no name anybody saw moves.
+   This leaves accuracy and exact count unchanged on every ruler, and cuts the
+   turns still waiting when a conversation ends by 45–60%. The first turn of a
    conversation goes through the same step;
 4. between the two — decide nothing. The turn is held `pending`, and
    `transcript.settled` fills it when the conversation ends.

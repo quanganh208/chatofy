@@ -127,9 +127,8 @@ const play = (...actions: TurnKeyedAction[]): TurnKeyedTranscript =>
 /**
  * Two turns each from two clearly different voices, auto-attributed.
  *
- * Two, because a voice is named by the turn that corroborates it: `a2` and `b2`
- * carry names live, while `a1` and `b1` wait for settling like any turn that
- * opened a voice.
+ * Two, because a voice is minted by the turn that corroborates it: `a2` and `b2`
+ * mint, and `a1` and `b1` take the name at that moment.
  */
 const twoVoices = () =>
   play(
@@ -280,6 +279,18 @@ describe('a voice heard only once', () => {
     expect(second.state.provisional).toHaveLength(0);
   });
 
+  it('remembers which turns it was built from, when told', () => {
+    const first = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0), DEFAULT_AUTO_ATTRIBUTION, 't1');
+    const second = observeVoice(first.state, axis(0), DEFAULT_AUTO_ATTRIBUTION, 't2');
+
+    expect(first.state.provisional[0]!.members).toEqual(['t1']);
+    expect(second.state.clusters[0]!.members).toEqual(['t1', 't2']);
+    // Untagged, the state is exactly what it was before tags existed — the
+    // shape the parity oracle compares against `online.py`.
+    const untagged = observeVoice(observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0)).state, axis(0));
+    expect(untagged.state.clusters[0]).toEqual({ sum: [2, 0, 0, 0], turns: 2 });
+  });
+
   it('opens a second provisional voice for a turn that matches neither', () => {
     const first = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0));
     const second = observeVoice(first.state, axis(1));
@@ -365,9 +376,50 @@ describe('labelling a conversation nobody tapped', () => {
       speakerId: state.speakers[1]!.id,
       origin: 'suggested',
     });
-    // The turn that opened each voice waits: it named nobody when it arrived.
-    expect(attributionFor(state.attributions, 'a1').origin).toBe('pending');
-    expect(attributionFor(state.attributions, 'b1').origin).toBe('pending');
+    // The turn that opened each voice named nobody when it arrived, and takes
+    // its voice's name the moment the second turn corroborates it.
+    expect(attributionFor(state.attributions, 'a1')).toMatchObject({
+      speakerId: state.speakers[0]!.id,
+      origin: 'suggested',
+    });
+    expect(attributionFor(state.attributions, 'b1')).toMatchObject({
+      speakerId: state.speakers[1]!.id,
+      origin: 'suggested',
+    });
+  });
+
+  it('names only the turns that built the voice, not another that is waiting', () => {
+    // The production shape: the opening turn waits, a one-word turn unlike it
+    // opens a provisional voice of its own, and the next real turn corroborates
+    // the first. The opener takes the name; the one-word turn keeps waiting.
+    const state = play(
+      final('turn-1'),
+      embedding('turn-1', axis(0)),
+      final('turn-2'),
+      embedding('turn-2', axis(2), SHORT_MS),
+      final('turn-3'),
+      embedding('turn-3', axis(0)),
+    );
+
+    expect(state.speakers).toHaveLength(1);
+    expect(attributionFor(state.attributions, 'turn-1').speakerId).toBe(state.speakers[0]!.id);
+    expect(attributionFor(state.attributions, 'turn-2').origin).toBe('pending');
+  });
+
+  it('leaves a waiting turn alone once a person has decided it', () => {
+    const state = play(
+      final('turn-1'),
+      embedding('turn-1', axis(0)),
+      { type: 'transcript.turnUnattributed', sessionId: 'turn-1' },
+      final('turn-2'),
+      embedding('turn-2', axis(0)),
+    );
+
+    expect(attributionFor(state.attributions, 'turn-2').speakerId).toBe(state.speakers[0]!.id);
+    expect(attributionFor(state.attributions, 'turn-1')).toEqual({
+      speakerId: null,
+      origin: 'fallback',
+    });
   });
 
   it('gives a returning voice the ordinal it had the first time', () => {
@@ -419,9 +471,9 @@ describe('when the roster cannot hold another name', () => {
   });
 
   it('holds a turn whose discovered speaker was removed from the roster', () => {
-    // Two taps get here: unattribute the turn, then remove the speaker it named.
-    // Attributing to somebody off the roster renders as nothing at all, and does
-    // it with no error to notice — so the turn waits instead.
+    // Three taps get here: unattribute both turns the voice named, then remove
+    // the speaker. Attributing to somebody off the roster renders as nothing at
+    // all, and does it with no error to notice — so the turn waits instead.
     const one = play(
       final('turn-0'),
       embedding('turn-0', axis(0)),
@@ -430,6 +482,7 @@ describe('when the roster cannot hold another name', () => {
     );
     const removed = from(
       one,
+      { type: 'transcript.turnUnattributed', sessionId: 'turn-0' },
       { type: 'transcript.turnUnattributed', sessionId: 'turn-1' },
       { type: 'transcript.speakerRemoved', speakerId: one.speakers[0]!.id },
     );

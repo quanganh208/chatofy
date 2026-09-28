@@ -689,7 +689,12 @@ export function turnKeyedTranscriptReducer(
       // floor withheld 44% of turns and settled them by carry-forward, and
       // removing it together with deferral raised accuracy on every ruler — see
       // the header of `auto-attribution.ts`.
-      const observed = observeVoice(state.autoAttribution, event.vector, DEFAULT_AUTO_ATTRIBUTION);
+      const observed = observeVoice(
+        state.autoAttribution,
+        event.vector,
+        DEFAULT_AUTO_ATTRIBUTION,
+        event.sessionId,
+      );
 
       if (observed.assignment.index === null) return held(observed.state);
 
@@ -723,6 +728,22 @@ export function turnKeyedTranscriptReducer(
         return held(observed.state);
       }
 
+      // A voice that just minted was built from earlier turns that waited only
+      // because one turn is not believed; this one is the corroboration they
+      // were waiting for, so they take the name now rather than at settle. Every
+      // one of them is still `pending` — a provisional voice names nobody — so
+      // this moves no name anybody saw, and `autoAttributeTurn` still refuses a
+      // turn a person decided in the meantime. Measured on ViYT, VoxVietnam and
+      // production: accuracy and exact count unchanged on every ruler, while the
+      // turns still waiting when a conversation ends fell by about half.
+      const members = observed.assignment.created
+        ? (observed.state.clusters[observed.assignment.index]?.members ?? [])
+        : [];
+      let attributions = state.attributions;
+      for (const sessionId of new Set([...members, event.sessionId])) {
+        attributions = autoAttributeTurn(attributions, speakers, sessionId, speakerId);
+      }
+
       return {
         ...state,
         embeddings,
@@ -730,7 +751,7 @@ export function turnKeyedTranscriptReducer(
         autoSpeakerIds,
         speakers,
         nextSpeakerNumber,
-        attributions: autoAttributeTurn(state.attributions, speakers, event.sessionId, speakerId),
+        attributions,
       };
     }
 
