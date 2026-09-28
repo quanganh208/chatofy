@@ -71,16 +71,14 @@ export type TranscriptSegment = z.infer<typeof transcriptSegmentSchema>;
  * CLIENT parses an incoming segment with (`ws-events.ts`'s
  * `server.transcript.final`) — never into what the server itself builds or
  * validates. `apps/api` and `apps/web` do not deploy atomically
- * (`ws-events.ts` says so for the same reason elsewhere), so a web tab loaded
- * before this phase shipped can still hold an API that has since rolled
- * forward, and the reverse: a rolled-back API can still be talking to a
- * fresh tab. Either pairing can put a segment with only `direction` and
- * `targetText` in front of a client parser that now requires more, and this
- * preprocessing is what keeps that parse from failing outright.
+ * (`ws-events.ts` says so for the same reason elsewhere), so a fresh tab can
+ * be talking to an API that was rolled back to before these two fields
+ * existed. That segment carries only `direction` and `targetText`, and this
+ * preprocessing is what keeps the client's parse of it from failing outright.
  *
- * Remove this once every client in the wild sends the new fields itself (see
- * the plan's validation log for the retirement window) — it is a compatibility
- * shim, not a permanent second schema.
+ * A compatibility shim, not a permanent second schema: remove it together
+ * with the legacy `direction`/`targetText` wire fields, once no deployed API
+ * can predate the new ones.
  */
 export const transcriptSegmentWireSchema = z.preprocess((raw) => {
   if (typeof raw !== 'object' || raw === null) return raw;
