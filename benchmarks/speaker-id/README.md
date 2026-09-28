@@ -106,13 +106,15 @@ measured.
 So `segment.py` copies every constant from
 `packages/realtime-client/src/audio/speech-gate.ts` (plus `PRE_ROLL_MS` from
 `capture-pump.ts`), and `tests/test_segment_parity.py` checks the port against
-the genuine article on all 35 realtime fixtures **at two ceiling configurations**
+the genuine article on all 35 realtime fixtures **at three gate configurations**
 plus a synthetic clip — comparing both the event stream and the per-block speech
 mask. Agreement is currently exact, not merely within the one-block tolerance.
 
-Two configurations rather than one because with no ceiling `hasCeiling` is false
-and three of the subtlest branches in `speech-gate.ts` never run: `armIfDue`, its
-`probableEndFired` suppression, and the armed-cut-before-hangover ordering. The
+No ceiling, a 1500ms ceiling, and a 1500ms ceiling with `resumeAfterCut` (what the
+web app runs, via `CapturePump`'s `continuous`). With no ceiling `hasCeiling` is
+false and three of the subtlest branches in `speech-gate.ts` never run: `armIfDue`,
+its `probableEndFired` suppression, and the armed-cut-before-hangover ordering; the
+resume path only diverges after a forced cut. The
 speech mask is compared directly because it drives net-speech and therefore
 duration buckets, and a noise-floor drift can flip borderline blocks without
 moving any event.
@@ -120,8 +122,9 @@ moving any event.
 `segment()` — what audio a turn actually CONTAINS — is a separate layer with its
 own tests in `test_segment_turns.py`, on synthesised signals so they run with no
 fixtures and no toolchain. That layer follows `capture-pump.ts` rather than the
-gate: held silence is dropped at close, pre-roll cannot reach back past the
-previous turn, and an unterminated turn is dropped but counted.
+gate: held silence is dropped when a turn ends on the hangover but kept when it is
+cut, pre-roll cannot reach back past the previous turn, and an unterminated turn is
+dropped but counted.
 
 **The oracle is `scripts/gate-reference.mjs`, never
 `benchmarks/realtime/vad-reference.mjs`.** That file is not a second copy of the

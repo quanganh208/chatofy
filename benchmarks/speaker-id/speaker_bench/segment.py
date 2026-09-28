@@ -463,11 +463,11 @@ def segment(
        turn's pre-roll).
 
     2. **Pre-roll cannot reach back past the previous turn's close.**
-       `closeTurn` clears `preRoll` (`:320`), so a new turn's pre-roll can only
-       contain blocks from that close onward. The clamp is INCLUSIVE of the
-       closing block: `gate.push` runs before the state check (`:426-445`), so on
-       the block that closes a turn the state is already `idle` and line 443
-       pushes that same block into the fresh pre-roll.
+       `closeTurn` clears `preRoll`, so a new turn's pre-roll can only contain
+       blocks from that close onward. The clamp is INCLUSIVE of the closing
+       block: `CapturePump.push` calls `gate.push` before its state check, so on
+       the block that closes a turn the state is already `idle` and that same
+       block goes into the fresh pre-roll.
 
     3. **A turn still open when the audio ends is dropped**, because the gate
        never declared it over and production never sent it. See
@@ -503,10 +503,10 @@ def segment(
             # before the turn closes is where its audio actually stops.
             last_probable = event.block_index
         elif event.type == "end" and open_start is not None:
-            # No probableEnd inside the turn would mean it closed without ever
-            # flushing — not reachable via either ending (the hangover passes
-            # PROBABLE_END_MS on the way, and a forced cut is preceded by
-            # `armIfDue` firing one) but falling back keeps this total.
+            # A forced cut flushes what is held, so the turn runs to the block
+            # before the cut. A hangover drops it, so the turn stops at the last
+            # probableEnd; none inside the turn is not reachable (the hangover
+            # passes PROBABLE_END_MS on the way) but falling back keeps this total.
             if event.reason == "forced":
                 content_end = event.block_index - 1
             else:
