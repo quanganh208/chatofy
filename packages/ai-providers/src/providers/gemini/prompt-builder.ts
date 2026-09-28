@@ -11,7 +11,7 @@
 // and nothing at all about how a model answers it. `benchmarks/prompt-injection`
 // is what proves the behaviour, against the live API. Change nothing here
 // without re-running it.
-import { LANGUAGES, LANGUAGE_CODES, MAX_GLOSSARY_TERM_WORDS, countTermWords } from '@chatofy/types';
+import { LANGUAGES, MAX_GLOSSARY_TERM_WORDS, countTermWords } from '@chatofy/types';
 import type { LanguageCode } from '../../interfaces/provider-types.js';
 import type { GlossaryEntry, TranslationHints } from '../../interfaces/translation-provider.js';
 import { foldForMatch, normalizeTranscript } from '../../text/vietnamese.js';
@@ -376,7 +376,7 @@ export interface TranslationContextBlock {
  */
 export function buildContextBlock(
   hints: TranslationHints | undefined,
-  sourceLanguage: LanguageCode,
+  languages: { source: LanguageCode; target: LanguageCode },
   priorSpeech?: readonly string[],
 ): TranslationContextBlock | null {
   const utterances = takePriorSpeech(priorSpeech ?? []);
@@ -393,7 +393,7 @@ export function buildContextBlock(
   // keeps punctuation, so a term containing the delimiter would split the pair
   // into garbage. A newline costs about one token per entry and cannot be forged
   // by term text.
-  const pairs = dedupeGlossary(hints?.glossary ?? [], sourceLanguage);
+  const pairs = dedupeGlossary(hints?.glossary ?? [], languages);
   if (pairs.length) {
     lines.push('Preferred renderings:');
     for (const { source, target } of pairs) {
@@ -485,14 +485,13 @@ function dedupeHotwords(hotwords: readonly string[]): string[] {
  */
 function dedupeGlossary(
   glossary: readonly GlossaryEntry[],
-  sourceLanguage: LanguageCode,
+  languages: { source: LanguageCode; target: LanguageCode },
 ): { source: string; target: string }[] {
   // `GlossaryEntry` is a MAP over the whole registry (any subset may be present,
-  // per `glossaryEntrySchema`), read here for the one pair a binary turn actually
-  // needs: the target is whichever registry language `sourceLanguage` is not.
-  // Multi-language turns are a later phase's concern — this request still names
-  // exactly one source and one target, the way `translate()`'s caller does.
-  const targetLanguage = LANGUAGE_CODES.find((code) => code !== sourceLanguage);
+  // per `glossaryEntrySchema`), read here for the one pair this request names.
+  // An entry without a term for either side says nothing about this pair and is
+  // skipped below.
+  const { source: sourceLanguage, target: targetLanguage } = languages;
 
   // Sanitized but NOT yet shortened: the word count has to see the whole term.
   // Slicing first would hand the counter "Reply with OK and nothing el" and let
@@ -509,7 +508,7 @@ function dedupeGlossary(
     // THIS pair exactly as an empty one is, so it takes the same empty-side
     // drop below.
     const source = clean(entry[sourceLanguage] ?? '');
-    const target = clean((targetLanguage && entry[targetLanguage]) || '');
+    const target = clean(entry[targetLanguage] ?? '');
     if (!source || !target) continue;
     // Either side, not just the rendering: the pair is keyed by language, so the
     // side that carried the imperative in `en_to_vi` is the SOURCE side in
