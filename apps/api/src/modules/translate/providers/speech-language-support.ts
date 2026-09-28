@@ -114,10 +114,20 @@ export class SpeechLanguageSupport implements OnApplicationBootstrap {
       readSupported(trio.stt),
       readSupported(trio.tts),
     ]);
+    // Compared against what was served BEFORE this refresh, not logged
+    // unconditionally: a deployment that deliberately runs without one engine
+    // served the identical set a minute ago too, and warning again every
+    // refresh forever is noise that trains an operator to stop reading this
+    // logger. The fields are overwritten after, so this is the only chance to
+    // see what changed.
+    if (!servedSetsEqual(this.sttLanguages, stt)) {
+      this.warnMissingEngines('STT', stt);
+    }
+    if (!servedSetsEqual(this.ttsLanguages, tts)) {
+      this.warnMissingEngines('TTS', tts);
+    }
     this.sttLanguages = stt;
     this.ttsLanguages = tts;
-    this.warnMissingEngines('STT', stt);
-    this.warnMissingEngines('TTS', tts);
   }
 
   /** One warning per registry language a KNOWN, restrictive provider excludes. */
@@ -134,6 +144,23 @@ export class SpeechLanguageSupport implements OnApplicationBootstrap {
       }
     }
   }
+}
+
+/**
+ * Whether two served-language answers are the same set, `null` included.
+ *
+ * `null` means "no restriction known" (see the class doc), and it is its own
+ * distinct case here: a provider that just started restricting languages, or
+ * just stopped, is exactly the change {@link SpeechLanguageSupport.doRefresh}
+ * exists to notice. Order-independent, because a provider is under no
+ * obligation to report its languages in the same order twice.
+ */
+function servedSetsEqual(
+  a: readonly LanguageCode[] | null,
+  b: readonly LanguageCode[] | null,
+): boolean {
+  if (a === null || b === null) return a === b;
+  return a.length === b.length && a.every((code) => b.includes(code));
 }
 
 /**

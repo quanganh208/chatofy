@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { LanguageCode } from '@chatofy/types';
 import type { SttProvider, TtsProvider } from '@chatofy/ai-providers';
 import type { AiProvidersFactory } from './ai-providers.factory';
 import { SpeechLanguageSupport } from './speech-language-support';
@@ -143,6 +144,73 @@ describe('SpeechLanguageSupport', () => {
     );
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining("TTS engine reported for registry language 'vi'"),
+    );
+  });
+
+  it('does not repeat the warning on a later refresh when the served set has not changed', async () => {
+    // A deployment that deliberately runs without one engine serves the
+    // identical set every 60s. Warning again every refresh forever is exactly
+    // the noise this behaviour exists to stop.
+    //
+    // Calls the private `refresh()` directly, fully awaited, rather than
+    // going through `onApplicationBootstrap()` + a fixed-tick `flush()`: the
+    // method's own `.finally()` is what clears `inFlight` between refreshes,
+    // and only awaiting the method itself is guaranteed to wait for it.
+    const support = new SpeechLanguageSupport(
+      fakeFactory(
+        { supportedLanguages: async () => ['en'] },
+        { supportedLanguages: async () => ['en'] },
+      ),
+    );
+    const logger = (
+      support as unknown as { logger: { warn: (msg: string) => void } }
+    ).logger;
+    const warn = vi.spyOn(logger, 'warn');
+    const refresh = () =>
+      (support as unknown as { refresh: () => Promise<void> }).refresh();
+
+    await refresh();
+    expect(warn).toHaveBeenCalled();
+
+    warn.mockClear();
+    await refresh();
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('warns again once the served set actually changes, and stops once the gap closes', async () => {
+    let sttServed: LanguageCode[] = ['en'];
+    const support = new SpeechLanguageSupport(
+      fakeFactory(
+        { supportedLanguages: async () => sttServed },
+        { supportedLanguages: async () => ['vi', 'en'] },
+      ),
+    );
+    const logger = (
+      support as unknown as { logger: { warn: (msg: string) => void } }
+    ).logger;
+    const warn = vi.spyOn(logger, 'warn');
+    const refresh = () =>
+      (support as unknown as { refresh: () => Promise<void> }).refresh();
+
+    await refresh();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("STT engine reported for registry language 'vi'"),
+    );
+
+    // The gap closes: a set that now includes everything is a CHANGE too, and
+    // there is nothing left to warn about.
+    warn.mockClear();
+    sttServed = ['vi', 'en'];
+    await refresh();
+    expect(warn).not.toHaveBeenCalled();
+
+    // The gap reopens: a real change back, not a repeat of the first warning.
+    warn.mockClear();
+    sttServed = ['en'];
+    await refresh();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("STT engine reported for registry language 'vi'"),
     );
   });
 });
