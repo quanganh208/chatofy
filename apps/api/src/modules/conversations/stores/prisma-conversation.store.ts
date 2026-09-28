@@ -414,9 +414,30 @@ export class PrismaConversationStore implements ConversationStore {
 
     const page = rows.slice(0, query.limit);
     return {
-      conversations: page.map((row) =>
-        toSummary(row, row._count.turns, previewOf(row.turns), row.minutes),
-      ),
+      // Per-row, not a bare `.map`: `toSummary` throws on a `languages` column
+      // with fewer than two codes (`legacyDirectionOf`'s own contract), and the
+      // write side never stores one — reaching this is a corrupt row, not a
+      // request problem. Letting ONE such row throw out of `.map` would 500 the
+      // whole list for every other conversation this owner has; skipping it
+      // here costs that one card, and `get` still answers for it on its own
+      // route if a caller asks by id directly.
+      conversations: page
+        .map((row) => {
+          try {
+            return toSummary(
+              row,
+              row._count.turns,
+              previewOf(row.turns),
+              row.minutes,
+            );
+          } catch (err) {
+            this.logger.warn(
+              `dropping conversation ${row.id} from the list: ${String(err)}`,
+            );
+            return null;
+          }
+        })
+        .filter((summary): summary is ConversationSummary => summary !== null),
       // The cursor IS the row's server cuid, deliberately: it is the value
       // `orderBy: [{createdAt}, {id}]` breaks ties on, so nothing else
       // identifies the page boundary. It is safe to hand out because it is only

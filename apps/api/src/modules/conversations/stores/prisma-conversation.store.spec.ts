@@ -297,4 +297,58 @@ describe('PrismaConversationStore', () => {
       expect(transaction).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('list', () => {
+    /** A row shaped the way `list`'s own `select` asks for it. */
+    const row = (over: Record<string, unknown> = {}) => ({
+      id: 'cuid-1',
+      clientId: 'conv-1',
+      languages: ['vi', 'en'],
+      startedAt: new Date('2026-09-17T00:00:00.000Z'),
+      endedAt: new Date('2026-09-17T00:01:00.000Z'),
+      minutes: null,
+      _count: { turns: 1 },
+      turns: [{ sourceText: 'xin chào', displayText: null }],
+      ...over,
+    });
+
+    function storeListing(rows: unknown[]) {
+      const findMany = vi.fn().mockResolvedValue(rows);
+      const prisma = {
+        conversation: { findMany },
+      } as unknown as PrismaService;
+      return new PrismaConversationStore(prisma);
+    }
+
+    it('drops a row whose languages column cannot yield a direction, keeping the rest', async () => {
+      // `legacyDirectionOf` throws on fewer than two codes — a shape the write
+      // side never stores, so reaching it here means the row is corrupt, not
+      // that the request is wrong. One such row must cost its own card, not
+      // the whole list.
+      const store = storeListing([
+        row({
+          id: 'cuid-corrupt',
+          clientId: 'conv-corrupt',
+          languages: ['vi'],
+        }),
+        row(),
+      ]);
+
+      const page = await store.list('owner-1', { limit: 30 });
+
+      expect(page.conversations).toHaveLength(1);
+      expect(page.conversations[0]?.conversationId).toBe('conv-1');
+    });
+
+    it('lists every row when none are corrupt', async () => {
+      const store = storeListing([
+        row(),
+        row({ id: 'cuid-2', clientId: 'conv-2' }),
+      ]);
+
+      const page = await store.list('owner-1', { limit: 30 });
+
+      expect(page.conversations).toHaveLength(2);
+    });
+  });
 });
