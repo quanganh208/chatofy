@@ -118,9 +118,11 @@ describe('glossaryEntrySchema', () => {
     // `translationMapSchema` is `z.partialRecord(languageCodeSchema, ...)`, so a
     // key outside the registry is refused the same way an unknown enum value is;
     // it is not silently dropped the way an excess property on a plain object
-    // schema sometimes is.
+    // schema sometimes is. `xx` rather than a real code such as `fr`: a real
+    // language joining the registry would flip this test's premise without
+    // anyone touching it.
     expect(
-      glossaryEntrySchema.safeParse({ vi: 'hội đồng', en: 'committee', fr: 'comité' }).success,
+      glossaryEntrySchema.safeParse({ vi: 'hội đồng', en: 'committee', xx: 'unknown' }).success,
     ).toBe(false);
   });
 });

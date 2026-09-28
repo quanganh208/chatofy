@@ -187,13 +187,17 @@ describe('saveConversationRequestSchema', () => {
   });
 
   describe("cross-field checks on a turn's language fields", () => {
-    it('refuses sourceLanguages outside the conversation', () => {
-      expect(
-        saveConversationRequestSchema.safeParse(
-          body([turn({ sourceLanguages: ['fr'], translations: { en: 'hello' } })]),
-        ).success,
-      ).toBe(false);
-    });
+    // The `sourceLanguages ⊆ languages` arm has no test here on purpose: with
+    // today's two-language registry, `languageCodeSchema` already accepts
+    // only `vi`/`en`, and `conversationLanguagesSchema.min(2)` forces
+    // `languages` to BE exactly that pair whenever it validates at all — so
+    // every value that can pass the per-field registry check is already a
+    // subset of `languages`, by construction, and no code exists that is
+    // "in the registry but outside this conversation" to send. A test
+    // reaching for one (a code like `fr`, or a placeholder like `xx`) would
+    // only prove the pre-existing per-field enum check runs before this
+    // refine does — it can never reach the refine itself. This stops being
+    // vacuous the day a third language joins the registry.
 
     it('refuses a translation keyed by the language the turn was spoken in', () => {
       // A single-source turn's only valid target is the OTHER conversation

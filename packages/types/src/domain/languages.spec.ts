@@ -115,6 +115,8 @@ describe('language set schemas', () => {
     const schema = translationMapSchema(z.string());
     expect(schema.safeParse({ en: 'hello' }).success).toBe(true);
     expect(schema.safeParse({}).success).toBe(true);
-    expect(schema.safeParse({ ja: 'こんにちは' }).success).toBe(false);
+    // 'xx', never a real BCP-47 primary subtag, so this stays a code outside
+    // the registry even after a real language joins it — 'ja' would not.
+    expect(schema.safeParse({ xx: 'unknown' }).success).toBe(false);
   });
 });
