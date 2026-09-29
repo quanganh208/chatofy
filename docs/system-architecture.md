@@ -506,8 +506,8 @@ unset (`0`), a request decodes exactly as it always did: no VAD call, no
 under the floor returns `{"text":""}` without ever reaching the decoder, and a
 clip at or above it decodes normally with `speechMs` alongside the text.
 
-The API always asks, at `STT_MIN_SPEECH_MS` (`env.schema.ts`: integer, `0`–
-`2000`, default `300`) — one number for both "there is no text to translate"
+The API always asks, at `STT_MIN_SPEECH_MS` (300, a constant in
+`session/turn-tuning.ts`, not an env key) — one number for both "there is no text to translate"
 and "the speaker-attribution layer should not observe this turn." It is
 threaded to every `/transcribe` call a turn makes: the final, every
 speculative pass, the whole-turn fallback, and each split piece. The sidecar
@@ -521,8 +521,8 @@ rather than merely whether a floor was requested, so an empty decode raises
 decode with no `speechMs` at all (ElevenLabs, which cannot gate on speech, or
 a local sidecar that predates the field) and an empty decode whose `speechMs`
 cleared the floor (the decoder lost the utterance the gate let through) both
-still surface the ordinary banner, which is what makes `STT_MIN_SPEECH_MS=0` a
-real rollback rather than a partial one. A gated split piece is dropped before
+still surface the ordinary banner. Rolling the gate back is a revert of that
+constant. A gated split piece is dropped before
 its embed starts on its own empty text (its index and duration are logged,
 never its text); a turn left with exactly one surviving piece ships as an
 unsplit final carrying that piece's own vector and duration, and a turn left
@@ -536,12 +536,11 @@ gated; above it, `apps/api/.../session/live-preview.ts` is left untouched by
 design: hallucinated live text over non-speech may still show transiently, but
 it is never a final, never enters history, and is never labelled.
 
-**Rollout is staged**, because CI never runs `services/local-stt` and the
-Silero lifespan first runs in production. `prod.env.example` ships
-`STT_MIN_SPEECH_MS=0` for the first deploy after this change — the 0.50/0.45
-bars, the re-swept `SPLIT_COSINE` and the vi ASR translation note all go live
-with the gate off — and the floor is raised to `300` by hand after one or two
-real sessions confirm the sidecar started cleanly.
+**Rollout was staged**, because CI never runs `services/local-stt` and the
+Silero lifespan first runs in production: the first deploy went out with the
+gate off and the floor was raised to `300` after real sessions confirmed the
+sidecar started cleanly. It is now a constant, so there is no per-deployment
+setting left to stage.
 
 ### Per-turn speaker attribution
 
@@ -759,20 +758,16 @@ plan tree they were produced under has been retired; the runners that produced
 them live on under `benchmarks/speaker-id/`, and each carries its own bars as
 constants rather than as prose.
 
-**Two switches, and production currently has both on.**
-`SPEAKER_EMBEDDING_ENABLED` is the server's master switch and a client's
-`embedSpeaker` on `client.session.start` is the other half; both must be on
-before any embedding is requested or any `server.turn.embedding` sent. The
-per-client opt-in exists separately because `apps/api` and `apps/web` do not
+**The server always computes the vector for a client that asks.** A client's
+`embedSpeaker` on `client.session.start` is the only switch; there is no
+server-side flag (`SPEAKER_EMBEDDING_ENABLED` was removed once production had
+run with it on for weeks). An embedding failure resolves to no vector and the
+turn carries on, so a stack without the sidecar loses a label, not a
+translation. The per-client opt-in exists because `apps/api` and `apps/web` do not
 deploy atomically — a tab loaded before the event existed never asks for it, so
 it is never sent something its copy of the contract cannot parse.
 
-**The schema default is off; the deployment is not, and the difference is the
-thing to read carefully.** `env.schema.ts` defaults the flag to `false`, so any
-deployment that does not set it runs without the acoustic layer. The production
-host sets it to `true`, and has since 2026-08-31.
-
-That is what the flag is FOR — the thresholds were calibrated on corpus audio
+**The acoustic layer has run in production since 2026-08-31.** The thresholds were calibrated on corpus audio
 that never passed through the browser's `noiseSuppression` or `autoGainControl`,
 both of which reshape the timbre an embedding reads, so the only way to learn
 what the real channel does is to run on it. **It is on to be measured, not
@@ -1686,7 +1681,7 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      `abandoned`
    - `server.session.ended`
    - One `TurnMetrics` line per turn via `services/turn-metrics.recorder.ts`,
-     written only when `TURN_METRICS_PATH` is set. Alongside the stage timings it
+     logged (there is no file sink). Alongside the stage timings it
      carries which path spoke it (`ttsDelivery`: `stream` or `clauses`, beside
      `clauses`, which is 1 for a streamed turn) and what the turn spent:
      `speculations` and `liveTranslations`. Both are
@@ -1840,7 +1835,7 @@ lets the recorded injection baseline keep describing the default path.
     - `services/pipeline-translator.service.ts` — `transcribeAndTranslate()` + `synthesize()`; `translateTurn()` composes them for REST
     - `services/translation-session.service.ts` — Per-connection entrypoint for the WS path: opens, feeds, ends and abandons turns
     - `session/` — the objects that entrypoint drives. `turn-session.ts` holds one turn's state and the rules that can refuse a frame, `turn-audio.ts` owns its buffer and everything derived from the sample rate, `event-channel.ts` is the only place an outbound event is serialized. Also `session-registry`, `turn-speculation`, `turn-timeline`, `live-preview`, `outbound-audio-framer`, `translation-model-policy`, `stream-socket`
-    - `services/turn-metrics.recorder.ts` — One JSONL row of stage timings per streamed turn; opt-in via `TURN_METRICS_PATH`. Rows written from 2026-07 carry `liveTranslations`; earlier ones do not, so a reader must tolerate the key being absent rather than read it as zero
+    - `services/turn-metrics.recorder.ts` — One log line of stage timings per streamed turn (the JSONL file sink, formerly opt-in via `TURN_METRICS_PATH`, was removed)
     - `audio/wav-codec.ts` — PCM16 ↔ WAV, needed at both ends of the WS path (see Data Flow)
     - `audio/clause-splitter.ts` — Splits a translation into clause-level synthesis units
     - `providers/ai-providers.factory.ts` — Resolves provider trio from registry by kind, memoized per backend selection

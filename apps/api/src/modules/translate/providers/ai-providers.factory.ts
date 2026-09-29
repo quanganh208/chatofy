@@ -73,9 +73,6 @@ export class AiProvidersFactory {
       openAiCompatibleApiKey: this.config.get('OPENAI_COMPATIBLE_API_KEY', {
         infer: true,
       }),
-      elevenLabsTtsVoiceId: this.config.get('ELEVENLABS_TTS_VOICE_ID', {
-        infer: true,
-      }),
       localSttUrl: this.config.get('LOCAL_STT_URL', { infer: true }),
       localTtsUrl: this.config.get('LOCAL_TTS_URL', { infer: true }),
     };

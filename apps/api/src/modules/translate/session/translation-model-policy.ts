@@ -84,7 +84,7 @@ export const SPECULATION_MODELS: string[] = [
  * holds more than one key. Left as is deliberately — the measurements below
  * were taken against a single key, where the ceiling was 15/min in total
  * rather than 15/min per project, so the contention they found may simply not
- * arise at the wider ceiling. Worth re-measuring with `TURN_METRICS_PATH`
+ * arise at the wider ceiling. Worth re-measuring from the turn metrics log lines
  * before adding machinery to restore it.
  *
  * Which model is the interesting part, and it follows from where the load

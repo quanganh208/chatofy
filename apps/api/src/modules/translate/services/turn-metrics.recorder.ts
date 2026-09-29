@@ -1,8 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import type { ClientTurnMetrics } from '@chatofy/types';
-import type { Env } from '../../../config/env.schema';
-import { MetricsJsonlSink } from './metrics-jsonl-sink';
 
 /**
  * One streamed turn, timed stage by stage. Every duration is milliseconds from
@@ -110,14 +107,13 @@ export interface TurnMetrics {
 }
 
 /**
- * The two turn sources — `server` and `client` — land in one file because the
- * halves are useless separately: the server knows what a turn cost and the
+ * The two turn sources — `server` and `client` — are logged side by side because
+ * the halves are useless separately: the server knows what a turn cost and the
  * client knows what the listener experienced, and the interesting numbers are
  * ratios across the join. They are joined on `sessionId` and never by timestamp
- * — see {@link ClientTurnMetricsRow}. A third source, `live`, shares the file
- * but joins with neither: it describes a whole session on the continuous path,
- * which is not the same unit as a turn. The enum itself lives with the sink, in
- * `metrics-jsonl-sink.ts`.
+ * — see {@link ClientTurnMetricsRow}. A third source, `live`, is logged the same
+ * way but joins with neither: it describes a whole session on the continuous
+ * path, which is not the same unit as a turn.
  */
 
 /** One turn as the client experienced it, ready to be written. */
@@ -138,31 +134,13 @@ export interface ClientTurnMetricsRow extends ClientTurnMetrics {
 }
 
 /**
- * Appends one JSON line per streamed turn, from either side.
- *
- * Off unless `TURN_METRICS_PATH` is set: a latency table is something you go
- * and collect, not a file the API grows on every deployment. Writes are
- * fire-and-forget — a metrics sink must never add latency to, or fail, the turn
- * it is measuring.
+ * Logs one line per streamed turn, from either side. The log is the only sink:
+ * a latency table is read off these lines, and a metrics write must never add
+ * latency to, or fail, the turn it is measuring.
  */
 @Injectable()
 export class TurnMetricsRecorder {
   private readonly logger = new Logger(TurnMetricsRecorder.name);
-  /**
-   * The shared append machinery. The continuous path builds its own instance
-   * over the same file rather than borrowing this one — two appenders on one
-   * path, which is safe because each row is a single small `appendFile` and the
-   * `source` field is what a reader filters on. A turn and a session are not
-   * the same unit and must never be compared without that filter.
-   */
-  private readonly sink: MetricsJsonlSink;
-
-  constructor(config: ConfigService<Env, true>) {
-    this.sink = new MetricsJsonlSink(
-      config.get('TURN_METRICS_PATH', { infer: true }),
-      this.logger,
-    );
-  }
 
   record(metrics: TurnMetrics): void {
     this.logger.log(
@@ -173,7 +151,6 @@ export class TurnMetricsRecorder {
         `speculation=${metrics.speculationUsed ? 'hit' : 'miss'}/${metrics.speculations} ` +
         `live=${metrics.liveTranslations}`,
     );
-    this.sink.append('server', metrics);
   }
 
   /**
@@ -191,6 +168,5 @@ export class TurnMetricsRecorder {
         `captured=${metrics.capturedMs}ms held=${metrics.heldMs}ms ` +
         `cut=${metrics.cutForced ? 'forced' : 'hangover'} echo=${metrics.echoEvents}`,
     );
-    this.sink.append('client', metrics);
   }
 }

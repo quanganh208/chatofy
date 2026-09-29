@@ -875,8 +875,8 @@ export function turnKeyedTranscriptReducer(
       //
       // `embeddings` still separates the cases exactly, and it is the case that
       // has to be got right: empty means no vector ever arrived, which is the
-      // DEFAULT — `SPEAKER_EMBEDDING_ENABLED` is off, the server sends nothing,
-      // and no turn ever reaches `pending`. Settling anyway sent every
+      // a client that never asked (`embedSpeaker` off) or a
+      // sidecar that failed — the server sends nothing, and no turn ever reaches `pending`. Settling anyway sent every
       // human-untouched turn through the carry-forward below, so one confirmed
       // turn put that person's name on every turn after it with the feature
       // switched off. A turn nobody attributed must never render as a person.

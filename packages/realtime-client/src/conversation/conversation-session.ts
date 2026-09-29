@@ -146,12 +146,10 @@ export interface ConversationRuntimeOptions {
    */
   ownsEchoMeasurement?: boolean;
   /**
-   * Report per-turn timings to the server, which appends them to its JSONL sink.
+   * Report per-turn timings to the server, which logs them.
    *
-   * Off by default, and both halves of that matter. The numbers are only useful
-   * while someone is collecting them, and this is the only data a client writes to
-   * the server's disk — so it is opt-in on the client as well as gated by
-   * `TURN_METRICS_PATH` on the server.
+   * Off by default: the numbers are only useful while someone is collecting
+   * them, so a client opts in rather than sending a row per turn everywhere.
    */
   reportMetrics?: boolean;
 }
