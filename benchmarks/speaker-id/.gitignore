@@ -90,3 +90,13 @@ results/channel-delta-turns.csv
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Attribution rulers: the ViYT-Diar/old-prod ruler tree and the five real
+# conversations behind the clusterer, gate and cut measurements. Private voices
+# (speaker embeddings of real people count as private) and a ViYT-Diar licence
+# nobody has confirmed, so the data stays local. Only the README that says how to
+# restore it and the checksums that say whether a restore is the same data are
+# tracked. `rulers/*`, not `rulers/`, so the two negations stay reachable.
+rulers/*
+!rulers/README.md
+!rulers/SHA256SUMS
