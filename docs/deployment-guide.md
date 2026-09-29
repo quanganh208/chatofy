@@ -173,11 +173,9 @@ synthetic fixture) before being written up here — see `plans/260928-1026-plugg
 full rehearsal evidence (row counts, before/after snapshots, and the exact
 `pg_restore`/`prisma migrate deploy` commands run).
 
-**Release both together, in one window, in this order** — per the plan's own
-merge rule (`plan.md`, "Dependencies": migration folder order must match merge
-order, and both migrations may only reach `main` while an operator is at the
-keyboard for the window below, since the deploy pipeline itself does not
-pause for one):
+**Release both together, in one window, in this order.** Merge them in the
+order their folders sort, and only while an operator is at the keyboard for the
+window below — the deploy pipeline fires on the merge and does not pause for one:
 
 ```bash
 docker compose -f docker-compose.prod.yml stop api web
@@ -192,8 +190,22 @@ returns. Then check CI on `main` after the merge, not only the PR — a race
 between this merge and another can leave the PR's own run green while `main`
 is not (see the project memory on this).
 
-**Down-SQL, applied in REVERSE order (06's migration first, then 04's) if a
-rollback is needed without restoring the dump:**
+**Down-SQL, applied in REVERSE order (`conversation_languages` first, then
+`glossary_terms_by_language`) if a rollback is needed without restoring the
+dump:**
+
+Each block ends by deleting its migration's row from `_prisma_migrations`,
+inside the same transaction. That ledger edit is the step that makes the
+rollback complete, and it cannot be done with Prisma's CLI:
+`prisma migrate resolve --rolled-back` only accepts a migration recorded as
+FAILED, and against one that applied cleanly it exits with **P3012** ("cannot be
+rolled back because it is not in a failed state") and leaves the ledger alone.
+A ledger that still lists both names after the schema is reverted breaks both
+directions: `migrate deploy` from the pre-merge ref stops on names missing from
+its migrations directory, and `migrate deploy` from head later SKIPS both as
+already applied, booting the new API against the old columns. Deleting the row
+in the same transaction as the DDL means the ledger and the schema cannot
+disagree — either both change or neither does.
 
 `20260928125252_conversation_languages` (apply first). The guard runs FIRST,
 before any destructive step, and the whole block is one transaction — a guard
@@ -211,6 +223,7 @@ ALTER TABLE "ConversationTurn" ADD COLUMN "targetText" TEXT;
 UPDATE "ConversationTurn" SET "targetText" = coalesce("translations" ->> (CASE WHEN "sourceLanguages"[1] = 'vi' THEN 'en' ELSE 'vi' END), '');
 ALTER TABLE "Conversation" ALTER COLUMN "direction" SET NOT NULL, DROP COLUMN "languages";
 ALTER TABLE "ConversationTurn" ALTER COLUMN "targetText" SET NOT NULL, DROP COLUMN "sourceLanguages", DROP COLUMN "translations";
+DELETE FROM "_prisma_migrations" WHERE "migration_name" = '20260928125252_conversation_languages';
 COMMIT;
 ```
 
@@ -228,29 +241,40 @@ DO $$ BEGIN IF EXISTS (SELECT 1 FROM "GlossaryTerm" WHERE NOT ("terms" ? 'vi' AN
 ALTER TABLE "GlossaryTerm" ADD COLUMN "vi" TEXT, ADD COLUMN "en" TEXT;
 UPDATE "GlossaryTerm" SET "vi" = "terms"->>'vi', "en" = "terms"->>'en';
 ALTER TABLE "GlossaryTerm" ALTER COLUMN "vi" SET NOT NULL, ALTER COLUMN "en" SET NOT NULL, DROP COLUMN "terms";
+DELETE FROM "_prisma_migrations" WHERE "migration_name" = '20260928114332_glossary_terms_by_language';
 COMMIT;
 ```
 
-After running either, if the row is kept (not restored from a dump), resolve
-the corresponding migration per the P3009 recovery procedure above —
-`prisma migrate resolve --rolled-back <name>` — for BOTH migrations, in the
-same reverse order, before deploying forward again.
+Run each block in one `psql` session with `-v ON_ERROR_STOP=1`, so a failed
+guard stops the script at the `RAISE` instead of carrying on to the `COMMIT`
+(which then only rolls back). Afterwards
+`SELECT migration_name FROM "_prisma_migrations"` must list neither name. Do not
+also run `migrate resolve` for either migration: there is no failed row for it
+to act on.
+
+Rolling forward again later needs nothing extra — with both rows gone,
+`migrate deploy` from head sees both migrations as pending and applies them in
+folder order, guards included. That whole round trip (deploy at head → both
+blocks → deploy from a migrations directory without the two → deploy from head)
+was rehearsed on a throwaway Postgres 16 container on 2026-09-29; the
+`resolve --rolled-back` step it replaces was confirmed to fail with P3012 in the
+same run.
 
 **Two rollback paths exist, and they must never be mixed within one
 incident:**
 
-- **Down-SQL + `migrate resolve --rolled-back` + `workflow_dispatch` to the
-  pre-merge ref** — rolls back schema and code by hand, keeping whatever rows
-  were written after the window.
+- **Down-SQL (with its ledger deletes) + `workflow_dispatch` to the pre-merge
+  ref** — rolls back schema and code by hand, keeping whatever rows were
+  written after the window.
 - **`pg_restore` of the dump taken immediately before the window** — rolls
   back schema, code AND data together, since `_prisma_migrations` is itself
   part of the dump.
 
-Picking one BAKES IN a `_prisma_migrations` state that disagrees with the
-other path's expectation: after a `pg_restore`, the ledger already reads as
-"these two migrations never ran," so a subsequent `migrate resolve --rolled-back` against the same database is a no-op at best and a confusing
-error at worst — the two paths are read differently, not just achieved
-differently. Choose one for the whole incident.
+Both leave the ledger reading "these two migrations never ran", but by
+different routes, and they do not compose: running the down-SQL after a
+`pg_restore` hits columns that are already gone and aborts, and restoring the
+dump after the down-SQL throws away the rows the down-SQL was chosen to keep.
+Choose one for the whole incident.
 
 ## Redis, and the one volume you must not lose
 
