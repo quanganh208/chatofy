@@ -429,7 +429,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         embedding && session.splitSpeakers
           ? findSplitCandidate(audio.pcm(), audio.sampleRate)
           : null;
-      const { translated, split, vector } = candidate
+      const { translated, split, vector, pieceAudioMs } = candidate
         ? await this.translateMaybeSplit(
             session,
             audio,
@@ -453,6 +453,7 @@ export class TranslationSessionService implements OnModuleDestroy {
               )),
             split: null,
             vector: undefined,
+            pieceAudioMs: undefined,
           };
       // A split turn's text came from its pieces, not from the speculation that
       // was sitting there — true whether every piece survived or the split
@@ -521,7 +522,13 @@ export class TranslationSessionService implements OnModuleDestroy {
             sessionId: session.sessionId,
             vector: heard.vector,
             dim: heard.vector.length,
-            audioMs: Math.round(audio.secondsAt(audio.byteLength) * 1000),
+            // The SURVIVOR's own duration when `vector` is a one-survivor
+            // split's piece vector — the whole turn's byte length would still
+            // count the non-speech the other piece was dropped for, which is
+            // exactly what this vector does NOT carry.
+            audioMs:
+              pieceAudioMs ??
+              Math.round(audio.secondsAt(audio.byteLength) * 1000),
             // Buffer time and speech time, both, because they are different
             // quantities: `audioMs` counts the pre-roll and the hangover, and one
             // measured turn held 720ms of speech inside a 1540ms buffer. The
@@ -608,6 +615,13 @@ export class TranslationSessionService implements OnModuleDestroy {
      * path — the ordinary whole-turn `embedding` applies there.
      */
     vector?: Promise<SpeakerEmbeddingResult | null>;
+    /**
+     * Set together with {@link vector}: the surviving piece's own duration, in
+     * ms, to report as `server.turn.embedding`'s `audioMs` instead of the whole
+     * turn's — the whole turn still counts the non-speech the other piece was
+     * dropped for. Undefined on every other path.
+     */
+    pieceAudioMs?: number;
   }> {
     const { hints } = session;
     const plan = session.languages;
@@ -683,6 +697,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           },
           split: null,
           vector: split.vectors.then((vectors) => vectors[0] ?? null),
+          pieceAudioMs: piece.endMs - piece.startMs,
         };
       }
       return {
@@ -692,7 +707,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     }
 
     if (reusable) return { translated: await reusable, split: null };
-    const sourceText = await wholeSource!;
+    const { text: sourceText } = await wholeSource!;
     // Heard as nothing: the ordinary path owns what that means for a turn —
     // the warning, and the rejection the caller reports.
     if (!sourceText.trim()) {
@@ -758,6 +773,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           count: pieces.length,
           startMs: piece.startMs,
           endMs: piece.endMs,
+          reachesEnd: piece.reachesEnd,
         },
       });
     });

@@ -15,6 +15,16 @@ import type {
 export interface TranslatedPiece extends Span {
   sourceText: string;
   translations: TranslationMap;
+  /**
+   * Whether this piece's span was the LAST one `planSpeakerSplit` cut — the
+   * one whose `endMs` reaches the turn's own `durationMs`, not merely the
+   * highest `endMs` among the pieces that survived being dropped.
+   *
+   * Carried through to the wire as `split.reachesEnd` so the client can place
+   * the piece exactly, without guessing from wall-clock timestamps — see
+   * `pieceCapture` in `packages/realtime-client/src/state/turn-keyed-transcript.ts`.
+   */
+  reachesEnd: boolean;
 }
 
 export interface SplitTurn {
@@ -79,10 +89,25 @@ export async function translateSplitTurn(
     ),
   );
 
+  // The span whose `endMs` reaches the turn's `durationMs` — always the last
+  // one `planSpeakerSplit` produced, by construction. Read off the ORIGINAL
+  // plan, before any piece is dropped, so a dropped trailing piece cannot
+  // move which survivor is credited with reaching the end.
+  const lastSpanEndMs = spans[spans.length - 1]!.endMs;
+
   const survivors = spans
-    .map((span, index) => ({ span, wav: wavs[index]!, text: sources[index]! }))
-    .filter(({ span, text }, index) => {
-      if (text.trim()) return true;
+    .map((span, index) => ({
+      span,
+      wav: wavs[index]!,
+      source: sources[index]!,
+    }))
+    // A piece the recognizer heard nothing in is dropped on its TEXT alone —
+    // the same rule as before `speechMs` existed. `speechMs` decides the
+    // WHOLE-TURN fallback's banner (see `pipeline-translator.service.ts`);
+    // here every dropped piece already logs why, so there is no separate
+    // "gated vs empty" distinction worth making per piece.
+    .filter(({ span, source }, index) => {
+      if (source.text.trim()) return true;
       options.logger.warn(
         `speaker split: dropped piece ${index} (${span.endMs - span.startMs}ms), no speech heard`,
       );
@@ -102,7 +127,7 @@ export async function translateSplitTurn(
   // needs just because it also carried two voices. Context is the SURVIVING
   // pieces before this one, in order — a dropped piece said nothing, so it
   // cannot be context for the one after it.
-  const survivorTexts = survivors.map(({ text }) => text);
+  const survivorTexts = survivors.map(({ source }) => source.text);
   const translations = await Promise.all(
     survivorTexts.map((text, k) =>
       pipeline.translateAll({
@@ -121,6 +146,7 @@ export async function translateSplitTurn(
       ...span,
       sourceText: survivorTexts[k]!,
       translations: translations[k]!,
+      reachesEnd: span.endMs === lastSpanEndMs,
     })),
     vectors,
   };
