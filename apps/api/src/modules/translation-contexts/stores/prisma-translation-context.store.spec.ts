@@ -1,6 +1,10 @@
+import { Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import type { SaveTranslationContextRequest } from '@chatofy/types';
+import {
+  CONTEXT_LIMITS,
+  type SaveTranslationContextRequest,
+} from '@chatofy/types';
 import type { PrismaService } from '../../../prisma/prisma.service';
 import { PrismaTranslationContextStore } from './prisma-translation-context.store';
 
@@ -169,7 +173,7 @@ describe('PrismaTranslationContextStore', () => {
       expect(context?.glossary).toEqual([{ vi: 'hội đồng', en: 'committee' }]);
     });
 
-    it('drops a row a past write corrupted, logging it, without failing the whole context', async () => {
+    it('drops a row a past write corrupted without failing the whole context, and without a warning per read', async () => {
       // One side only: valid JSONB, but no longer a shape `glossaryEntrySchema`
       // accepts. A read has no way to repair it, so the contract this store
       // keeps is that ONE bad row costs its own entry, not the whole context —
@@ -180,8 +184,14 @@ describe('PrismaTranslationContextStore', () => {
           { terms: { vi: 'hội đồng', en: 'committee' } },
         ],
       });
+      const warn = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => {});
       const [context] = await store.list('owner-1');
       expect(context?.glossary).toEqual([{ vi: 'hội đồng', en: 'committee' }]);
+      // The row is still stored; the save that decides its fate reports it.
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
     });
   });
 
@@ -276,6 +286,134 @@ describe('PrismaTranslationContextStore', () => {
       expect(calls.indexOf('glossary.findMany')).toBeLessThan(
         calls.indexOf('glossary.deleteMany'),
       );
+    });
+
+    it('reads the stored rows in position order', async () => {
+      const { store, glossaryFindMany } = fakePrisma({
+        existingGlossary: [{ terms: { vi: 'một bên' } }],
+      });
+
+      await store.save('owner-1', 'ctx-1', body, MAX);
+
+      expect(glossaryFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { position: 'asc' } }),
+      );
+    });
+
+    it('lets go of a row whose terms is not an object instead of re-inserting it', async () => {
+      // JSON `null`, an array, a scalar: no rendering in any language to keep,
+      // and a `null` re-inserted into the required column would fail every
+      // later save of this context.
+      const kept = { vi: 'một bên' };
+      const { store, createMany } = fakePrisma({
+        existingGlossary: [
+          { terms: null },
+          { terms: ['vi', 'en'] },
+          { terms: 'hello' },
+          { terms: kept },
+        ],
+      });
+
+      await store.save('owner-1', 'ctx-1', body, MAX);
+
+      expect(createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({ position: 0 }),
+          expect.objectContaining({ position: 1 }),
+          { contextId: 'cuid-1', position: 2, terms: kept },
+        ],
+      });
+    });
+
+    it('keeps preserved rows within the glossary cap, dropping the tail', async () => {
+      // One slot left under the cap: the earliest unreadable row by position
+      // takes it, and the later two are dropped rather than pushing the table
+      // past the number of entries the contract admits.
+      const nearlyFull: SaveTranslationContextRequest = {
+        ...body,
+        glossary: Array.from(
+          { length: CONTEXT_LIMITS.MAX_GLOSSARY - 1 },
+          (_, i) => ({ vi: `từ ${i}`, en: `word ${i}` }),
+        ),
+      };
+      const first = { vi: 'thứ nhất' };
+      const { store, createMany } = fakePrisma({
+        existingGlossary: [
+          { terms: first },
+          { terms: { vi: 'thứ hai' } },
+          { terms: { vi: 'thứ ba' } },
+        ],
+      });
+
+      await store.save('owner-1', 'ctx-1', nearlyFull, MAX);
+
+      const [[{ data }]] = createMany.mock.calls as unknown as [
+        [{ data: { position: number; terms: unknown }[] }],
+      ];
+      expect(data).toHaveLength(CONTEXT_LIMITS.MAX_GLOSSARY);
+      expect(data.at(-1)).toEqual({
+        contextId: 'cuid-1',
+        position: CONTEXT_LIMITS.MAX_GLOSSARY - 1,
+        terms: first,
+      });
+    });
+
+    it('preserves nothing once the body alone fills the cap', async () => {
+      const full: SaveTranslationContextRequest = {
+        ...body,
+        glossary: Array.from(
+          { length: CONTEXT_LIMITS.MAX_GLOSSARY },
+          (_, i) => ({
+            vi: `từ ${i}`,
+            en: `word ${i}`,
+          }),
+        ),
+      };
+      const { store, createMany } = fakePrisma({
+        existingGlossary: [{ terms: { vi: 'một bên' } }],
+      });
+
+      await store.save('owner-1', 'ctx-1', full, MAX);
+
+      const [[{ data }]] = createMany.mock.calls as unknown as [
+        [{ data: unknown[] }],
+      ];
+      expect(data).toHaveLength(CONTEXT_LIMITS.MAX_GLOSSARY);
+    });
+
+    it('warns once per save with what was kept and what was dropped', async () => {
+      const warn = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => {});
+      const { store } = fakePrisma({
+        existingGlossary: [
+          { terms: null },
+          { terms: { vi: 'một bên' } },
+          { terms: { en: 'one side' } },
+        ],
+      });
+
+      await store.save('owner-1', 'ctx-1', body, MAX);
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toMatch(
+        /carrying 2 unreadable .*discarding 1 with no term map and 0 past/,
+      );
+      warn.mockRestore();
+    });
+
+    it('does not warn when every stored row is readable', async () => {
+      const warn = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => {});
+      const { store } = fakePrisma({
+        existingGlossary: [{ terms: { vi: 'luận văn', en: 'thesis' } }],
+      });
+
+      await store.save('owner-1', 'ctx-1', body, MAX);
+
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
     });
 
     it('preserves nothing when every existing row is already readable', async () => {
