@@ -670,7 +670,12 @@ export class ConversationSession {
             // Every path ends here, so the ordering layer can never be left
             // waiting on a turn that will not arrive.
             ordered.finish(turnId);
-            if (!isServerReason(reason)) this.abandonTurn(turnId, reason);
+            // A turn the server never named closes with no
+            // `server.session.ended` behind it whatever the reason — a start-time
+            // refusal such as `language_unavailable` is server-sent, yet refused
+            // before any session existed — so it is reported from here too.
+            const neverNamed = !pipeline.metricsFor(turnId)?.sessionId;
+            if (neverNamed || !isServerReason(reason)) this.abandonTurn(turnId, reason);
             if (singleTurn) {
               this.turnEnded = true;
               this.armIfTurnComplete();
@@ -1059,6 +1064,12 @@ export class ConversationSession {
  * abandoned marker and no saved row, while the recorder — which taps the
  * microphone independently — kept the audio. The transcript and the recording
  * then disagreed about whether the speaker had said anything at all.
+ *
+ * A reason the server really did send can still leave no close behind it: a
+ * start-time refusal (`language_unavailable`) fails the turn before the server
+ * opens a session. That case is covered at the call site by the turn never
+ * having been given a session id, not by listing codes here, so the next such
+ * refusal is covered without anyone remembering this list.
  */
 function isServerReason(reason: string): boolean {
   return (
@@ -1086,7 +1097,8 @@ function isServerReason(reason: string): boolean {
  * `ClauseDelivery.stoppedBy`; adding one there means adding it here.
  */
 function outcomeFor(reason: string, wasHeard: boolean): TurnOutcome {
-  if (reason === 'too_many_turns') return 'rejected';
+  // Both are refused at the server's `start()`, before a turn exists.
+  if (reason === 'too_many_turns' || reason === 'language_unavailable') return 'rejected';
   if (reason === 'dropped_pending' || reason === 'backlog' || reason === 'stalled') {
     return 'dropped';
   }

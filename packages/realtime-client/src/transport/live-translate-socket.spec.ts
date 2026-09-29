@@ -1,6 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it } from 'vitest';
 import { WS_SUBPROTOCOL, type LiveServerEvent } from '@chatofy/types';
 import { LiveTranslateSocket, liveTranslateSocketUrl } from './live-translate-socket.js';
+import { JsonSocketAbortedError } from './json-event-socket.js';
 
 /**
  * What `close()` has to guarantee, and why anything depends on it.
@@ -170,11 +171,10 @@ describe('LiveTranslateSocket', () => {
     expect(seen.events).toEqual([]);
     expect(seen.closes).toBe(0);
 
-    // `connect()`'s own promise is left to settle on its own; nothing here
-    // awaits it, so unlike a real socket that never opens once closed, this
-    // fake's `onopen` above resolves it and the assertions above are what
-    // matter.
-    await connecting;
+    // The close settled the handshake the caller abandoned, as the aborted
+    // sentinel rather than as a failure — the late `onopen` above could not
+    // resolve it afterwards.
+    await expect(connecting).rejects.toBeInstanceOf(JsonSocketAbortedError);
   });
 
   /**
@@ -190,10 +190,7 @@ describe('LiveTranslateSocket', () => {
       ACCESS_TOKEN,
     );
 
-    // Not awaited, and not kept: its own handshake promise is left to settle
-    // (or not) on its own — see the note below about why nothing here can
-    // observe that.
-    void socket.connect();
+    const first = socket.connect();
     const firstWire = FakeWebSocket.last!;
     expect(firstWire.closed).toBe(0);
 
@@ -202,10 +199,29 @@ describe('LiveTranslateSocket', () => {
 
     FakeWebSocket.last!.onopen?.();
     await second;
-    // `first`'s own handshake promise is deliberately left unsettled: closing a
-    // CONNECTING socket detaches `onerror` along with everything else (see
-    // `detachJsonSocket`), so nothing here ever resolves or rejects it — which
-    // is fine, since nothing awaits it in real use either.
+    // The superseded handshake settles instead of dangling, as the aborted
+    // sentinel an owner treats as a quiet return.
+    await expect(first).rejects.toBeInstanceOf(JsonSocketAbortedError);
+  });
+
+  /**
+   * Only a close the caller asked for is the quiet sentinel. A handshake the
+   * network refused is still a failure the owner has to report.
+   */
+  it('rejects a failed handshake with an error, not the aborted sentinel', async () => {
+    const socket = new LiveTranslateSocket(
+      'ws://api.test/ws/translate',
+      { onEvent: () => {} },
+      ACCESS_TOKEN,
+    );
+
+    const connecting = socket.connect();
+    FakeWebSocket.last!.onerror?.();
+
+    const failure = await connecting.catch((err: unknown) => err);
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure).not.toBeInstanceOf(JsonSocketAbortedError);
+    expect((failure as Error).message).toBe('Cannot reach the translator');
   });
 
   it('delivers nothing after close, however late the server is', async () => {

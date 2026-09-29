@@ -67,6 +67,14 @@ export class LiveTranslateSocket {
     private readonly accessToken: string,
   ) {}
 
+  /**
+   * Open the socket and wait for its handshake.
+   *
+   * Rejects with `JsonSocketAbortedError` when {@link close} — or an
+   * overlapping `connect()`, which closes first — lands before the handshake
+   * finishes, so an awaiting owner can return quietly instead of waiting on a
+   * socket that will never open.
+   */
   async connect(): Promise<void> {
     this.close();
 

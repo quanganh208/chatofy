@@ -53,6 +53,35 @@ export interface JsonSocketConnection {
 }
 
 /**
+ * How `ready` rejects when the CALLER closed the socket before its handshake
+ * finished — a `dispose()`, a teardown, or an overlapping `connect()`.
+ *
+ * Distinct from a failed handshake on purpose: nothing went wrong, the caller
+ * simply stopped wanting the connection, so an owner awaiting `ready` should
+ * return quietly rather than report an error. Without it `ready` never settled
+ * at all — a socket closed while CONNECTING never fires `onopen`, and
+ * {@link detachJsonSocket} has already removed the `onerror` that was `ready`'s
+ * only other way out — so the owner's `await` dangled forever.
+ */
+export class JsonSocketAbortedError extends Error {
+  constructor() {
+    super('Connection closed before the handshake completed');
+    this.name = 'JsonSocketAbortedError';
+  }
+}
+
+export function isJsonSocketAborted(err: unknown): err is JsonSocketAbortedError {
+  return err instanceof JsonSocketAbortedError;
+}
+
+/**
+ * How {@link detachJsonSocket} settles a handshake still in flight. Keyed by the
+ * socket so `detachJsonSocket` keeps taking only the socket, and weak so a
+ * socket nobody holds any more takes its entry with it.
+ */
+const pendingHandshakes = new WeakMap<WebSocket, () => void>();
+
+/**
  * Open a `WS_SUBPROTOCOL` websocket and wire its message/close/handshake
  * handlers, shared by `TranslateSocket` and `LiveTranslateSocket`.
  *
@@ -65,7 +94,8 @@ export interface JsonSocketConnection {
  * shared.
  *
  * Returns synchronously — see {@link JsonSocketConnection}. `ready` resolves
- * once the handshake completes. The handshake's own `onopen`/`onerror` must not
+ * once the handshake completes, and rejects with {@link JsonSocketAbortedError}
+ * if the caller detaches the socket first. The handshake's own `onopen`/`onerror` must not
  * stay attached afterwards: `onerror` is still `ready`'s `reject`, which is
  * inert once settled, so a transport failure mid-conversation would be
  * swallowed instead of reported — the `.then` below is what swaps it for the
@@ -105,8 +135,19 @@ export function connectJsonSocket<TEvent>(
   };
 
   const ready = new Promise<void>((resolve, reject) => {
-    socket.onopen = () => resolve();
-    socket.onerror = () => reject(new Error('Cannot reach the translator'));
+    const settled = () => pendingHandshakes.delete(socket);
+    socket.onopen = () => {
+      settled();
+      resolve();
+    };
+    socket.onerror = () => {
+      settled();
+      reject(new Error('Cannot reach the translator'));
+    };
+    pendingHandshakes.set(socket, () => {
+      settled();
+      reject(new JsonSocketAbortedError());
+    });
   }).then(() => {
     socket.onopen = null;
     socket.onerror = () => handlers.onError?.('Connection error');
@@ -134,8 +175,13 @@ export function sendJsonEvent(socket: WebSocket | null, event: { type: string })
 /**
  * Detach a socket's own handlers before closing it, so a close firing during
  * teardown is never reported as a dropped connection, then close it.
+ *
+ * A handshake still in flight is settled here, with {@link JsonSocketAbortedError}:
+ * once its handlers are gone nothing else ever could settle it.
  */
 export function detachJsonSocket(socket: WebSocket): void {
+  pendingHandshakes.get(socket)?.();
+  socket.onopen = null;
   socket.onclose = null;
   socket.onerror = null;
   socket.onmessage = null;

@@ -389,6 +389,36 @@ describe('ConversationSession', () => {
     });
   });
 
+  describe('a turn refused because its language cannot be served', () => {
+    /**
+     * Refused inside the server's `start()`, like `too_many_turns`, so no
+     * session id and no `server.session.ended` ever exist for it. Keyed on the
+     * missing id rather than on the code, so the log line and the marker are
+     * filed the moment the refusal lands.
+     */
+    it('is reported as abandoned and logged as rejected', async () => {
+      const h = harness();
+      await h.session.start(startOptions);
+
+      h.talk();
+      const turnId = h.socket().sent.find((e) => e.type === 'client.session.start')?.turnId;
+      expect(turnId).toBeDefined();
+
+      h.socket().emit({
+        type: 'server.error',
+        code: 'language_unavailable',
+        message: 'No speech engine serves this language right now',
+        turnId,
+      });
+
+      expect(h.listeners.onTurnAbandoned).toHaveBeenCalledWith(null, 'language_unavailable');
+      const lines = h.listeners.onLog.mock.calls.map(([line]) => line as string);
+      expect(lines.filter((line) => line.includes('abandoned'))).toEqual([
+        expect.stringContaining('language_unavailable -> rejected'),
+      ]);
+    });
+  });
+
   describe('audio captured before the handshake lands', () => {
     it('holds it, then sends it in order once the session id arrives', async () => {
       const h = harness();

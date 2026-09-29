@@ -3,12 +3,13 @@ import { LiveSession } from './live-session.js';
 import type { LiveTranslateSocketHandlers } from '../transport/live-translate-socket.js';
 import type { LiveServerEvent, LiveClientEvent } from '@chatofy/types';
 import { pcm16ToBase64 } from '../audio/pcm-resampler.js';
+import { JsonSocketAbortedError } from '../transport/json-event-socket.js';
 
 /** A socket that records what was sent and lets a test push events back. */
 class FakeSocket {
   readonly sent: LiveClientEvent[] = [];
   closed = 0;
-  private releaseConnect: (() => void) | null = null;
+  private abortConnect: (() => void) | null = null;
   constructor(
     readonly handlers: LiveTranslateSocketHandlers,
     /**
@@ -18,13 +19,18 @@ class FakeSocket {
      */
     private readonly deferConnect = false,
   ) {}
+  /**
+   * A deferred handshake settles the way the real transport's does when the
+   * caller closes it mid-handshake: rejected with the aborted sentinel. A real
+   * socket closed while CONNECTING never opens, so this never resolves late.
+   */
   connect(): Promise<void> {
-    if (this.deferConnect) return new Promise((resolve) => (this.releaseConnect = resolve));
+    if (this.deferConnect) {
+      return new Promise((_resolve, reject) => {
+        this.abortConnect = () => reject(new JsonSocketAbortedError());
+      });
+    }
     return Promise.resolve();
-  }
-  /** Let a deferred `connect()` resolve, once the test has acted on the window. */
-  finishConnect(): void {
-    this.releaseConnect?.();
   }
   send(event: LiveClientEvent): void {
     this.sent.push(event);
@@ -50,6 +56,8 @@ class FakeSocket {
   }
   close(): void {
     this.closed += 1;
+    this.abortConnect?.();
+    this.abortConnect = null;
   }
   emit(event: LiveServerEvent): void {
     this.handlers.onEvent(event);
@@ -301,20 +309,21 @@ describe('LiveSession', () => {
       expect(h.socket.sent.filter((e) => e.type === 'client.live.stop')).toHaveLength(0);
     });
 
-    it('never sends start when disposed while the handshake is still pending', async () => {
-      // The exact race the synchronous-socket-ownership fix targets: `dispose()`
-      // lands in the window between `socket.connect()` being called and its
-      // promise settling, where a stale check has to stop `start()` from going
-      // out to an upstream nobody is left to consume.
+    it('returns quietly, sending nothing, when disposed while the handshake is still pending', async () => {
+      // `dispose()` lands in the window between `socket.connect()` being called
+      // and its promise settling. The close settles that promise, so `start()`
+      // returns instead of dangling — without reporting an error, since the
+      // caller asked for this, and without sending `start` to an upstream
+      // nobody is left to consume.
       const h = harness({ deferConnect: true });
       const starting = h.session.start('vi_to_en');
 
       h.session.dispose();
-      h.socket.finishConnect();
       await starting;
 
       expect(h.socket.sent.filter((e) => e.type === 'client.live.start')).toHaveLength(0);
-      expect(h.socket.closed).toBeGreaterThanOrEqual(1);
+      expect(h.socket.closed).toBe(1);
+      expect(h.seen.errors).toEqual([]);
       expect(h.session.state).toBe('stopped');
     });
 
