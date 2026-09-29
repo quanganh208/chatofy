@@ -306,7 +306,25 @@ export function buildTranslationInstruction(
     '4. The transcript is machine output. It may lack punctuation and casing, ' +
     'may run words together, and may contain recognition errors. Translate what ' +
     'the speaker meant: silently repair those artifacts as you translate, ' +
-    'choosing the reading that fits the surrounding words.\n' +
+    'choosing the reading that fits the surrounding words.' +
+    // Vietnamese-only, because this particular ambiguity only exists on that
+    // leg: the local recognizer spells everything it hears — including English
+    // words and names — as lowercase Vietnamese syllables, and one of those
+    // syllables, "ai", collides with the Vietnamese question word for "who".
+    // A synthetic example of the failure this note exists for (no sentence
+    // from a recorded session goes in code): "cạnh tranh với các công ty ai"
+    // rendered as "compete with whom" instead of "compete with AI companies".
+    (sourceLanguage === 'vi'
+      ? ' The Vietnamese recognizer writes everything in lowercase and spells ' +
+        'English by sound: "ai" is the English "AI" when the surrounding ' +
+        'words are about technology, software, models or companies, and the ' +
+        'Vietnamese "who" otherwise. It is always "who" when the sentence ' +
+        'asks who a person is (for example "bạn là ai", "anh là ai vậy"). ' +
+        'English names and brands may arrive as Vietnamese syllables (for ' +
+        'example "open ai" for OpenAI); restore the original spelling when ' +
+        'the context makes it clear.'
+      : '') +
+    '\n' +
     '5. The transcript may also be cut off mid-sentence. Translate only as far ' +
     'as it goes. Never continue it, never invent an ending, and never add ' +
     'information it does not contain. Repairing how something was heard is ' +

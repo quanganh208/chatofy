@@ -1,0 +1,15 @@
+{"id":"who-01-ban-la-ai","direction":"vi_to_en","source":"bạn là ai","reference":"who","mustMatch":"\\b(?:[Ww]ho|[Ww]hose)\\b"}
+{"id":"who-02-anh-la-ai","direction":"vi_to_en","source":"anh là ai","reference":"who","mustMatch":"\\b(?:[Ww]ho|[Ww]hose)\\b"}
+{"id":"who-03-chi-la-ai-vay","direction":"vi_to_en","source":"chị là ai vậy","reference":"who","mustMatch":"\\b(?:[Ww]ho|[Ww]hose)\\b"}
+{"id":"who-04-cai-do-cua-ai","direction":"vi_to_en","source":"cái đó của ai","reference":"who","mustMatch":"\\b(?:[Ww]ho|[Ww]hose)\\b","context":["Tôi vừa nhặt được một cái túi trên bàn"]}
+{"id":"who-05-ai-goi-toi","direction":"vi_to_en","source":"ai gọi tôi vậy","reference":"who","mustMatch":"\\b(?:[Ww]ho|[Ww]hose)\\b"}
+{"id":"who-06-ai-dang-o-do","direction":"vi_to_en","source":"ai đang ở đó","reference":"who","mustMatch":"\\b(?:[Ww]ho|[Ww]hose)\\b"}
+{"id":"who-07-ai-lam-viec-nay","direction":"vi_to_en","source":"ai làm việc này","reference":"who","mustMatch":"\\b(?:[Ww]ho|[Ww]hose)\\b","context":["Cái bàn trong phòng họp bị xước hết cả rồi"]}
+{"id":"who-08-day-la-cua-ai","direction":"vi_to_en","source":"đây là của ai","reference":"who","mustMatch":"\\b(?:[Ww]ho|[Ww]hose)\\b"}
+{"id":"who-09-ai-day","direction":"vi_to_en","source":"ai đấy","reference":"who","mustMatch":"\\b(?:[Ww]ho|[Ww]hose)\\b"}
+{"id":"who-10-con-cua-ai-vay","direction":"vi_to_en","source":"con của ai vậy","reference":"who","mustMatch":"\\b(?:[Ww]ho|[Ww]hose)\\b","context":["Có một đứa trẻ đang khóc ở sân trước nhà"]}
+{"id":"ai-01-dau-tu-manh-vao-ai","direction":"vi_to_en","source":"công ty đó đang đầu tư mạnh vào ai","reference":"AI","mustMatch":"\\bAI\\b","context":["Ngành công nghệ đang phát triển rất nhanh","Nhiều startup gọi vốn để xây dựng mô hình ai"]}
+{"id":"ai-02-san-pham-dung-ai","direction":"vi_to_en","source":"sản phẩm mới nhất của họ dùng ai","reference":"AI","mustMatch":"\\bAI\\b","context":["Họ vừa ra mắt một nền tảng phần mềm mới","Đội ngũ kỹ sư tập trung vào trí tuệ nhân tạo"]}
+{"id":"ai-03-mo-hinh-ai-manh","direction":"vi_to_en","source":"mô hình ai này rất mạnh","reference":"AI","mustMatch":"\\bAI\\b","context":["Các nhà nghiên cứu đang huấn luyện mô hình lớn","Ngân sách nghiên cứu ai tăng gấp đôi năm nay"]}
+{"id":"ai-04-hop-dong-ve-ai","direction":"vi_to_en","source":"họ vừa ký hợp đồng về ai","reference":"AI","mustMatch":"\\bAI\\b","context":["Công ty công nghệ này chuyên về phần mềm","Ban lãnh đạo phê duyệt ngân sách cho dự án ai"]}
+{"id":"ai-05-goi-von-nho-ai","direction":"vi_to_en","source":"startup này gọi vốn nhờ ai","reference":"AI","mustMatch":"\\bAI\\b","context":["Ngành công nghệ tăng trưởng nhờ ai","Nhà đầu tư quan tâm đến các sản phẩm ai"]}
