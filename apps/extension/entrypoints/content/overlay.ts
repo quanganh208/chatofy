@@ -6,6 +6,7 @@ import {
   type VoiceGender,
 } from '@chatofy/types';
 import type { OverlayState } from '../../src/messages';
+import { DEFAULT_CAPTURE_DIRECTION } from '../../src/settings';
 import { visibleOverlayPart } from '../../src/site-enablement';
 import { brandMark } from '@chatofy/ui';
 import { OVERLAY_STYLE } from './overlay-styles';
@@ -327,10 +328,15 @@ export class Overlay {
     // one line and stays reachable from a keyboard.
     this.direction = select(
       'Translate',
-      // Reversed from the registry's own vi-first order: this extension's
-      // default is `en_to_vi` (`settings.ts`), and the option a fresh capture
-      // already runs is the one a reader expects to see first.
-      [...TRANSLATION_DIRECTIONS].reverse().map((direction) => {
+      // The default first, then the registry's order for the rest: the option
+      // a fresh capture already runs (`DEFAULT_CAPTURE_DIRECTION`, `en_to_vi`)
+      // is the one a reader expects to see first. Named rather than got by
+      // reversing the registry, which only puts it first while there are two
+      // languages.
+      [
+        DEFAULT_CAPTURE_DIRECTION,
+        ...TRANSLATION_DIRECTIONS.filter((direction) => direction !== DEFAULT_CAPTURE_DIRECTION),
+      ].map((direction) => {
         const { source, target } = directionLanguages(direction);
         return [
           direction,
