@@ -17,9 +17,14 @@ quietly drifted.
 decode per request through an engine's own lane semaphore
 (`engines/base.py`); serializing every request through a single VAD instance
 in front of that would make Silero the new bottleneck. Sized to
-`stt_concurrency()` so the gate never queues behind itself while a decode
-lane is still free, and a caller who cannot get a detector within the lane
-wait budget gets `SttBusyError` — the same 503 an engine at capacity returns.
+`stt_concurrency() * len(SUPPORTED_LANGUAGES)` — one lane's worth of
+detectors per language engine, since vi and en each run their own
+`stt_concurrency()` decode lanes and a turn on either may gate. Sizing the
+pool to a single engine's lane count would let the busier engine queue behind
+the other's gated requests, which is exactly the invisible serialization this
+pool exists to avoid. A caller who still cannot get a detector within the
+lane wait budget gets `SttBusyError` — the same 503 an engine at capacity
+returns.
 """
 import hashlib
 import queue
@@ -28,6 +33,7 @@ from pathlib import Path
 import numpy as np
 
 from engines.base import MODELS_DIR, SAMPLE_RATE, SttBusyError, stt_concurrency, stt_lane_wait_ms
+from engines.registry import SUPPORTED_LANGUAGES
 
 MODEL_FILENAME = "silero_vad.onnx"
 
@@ -109,7 +115,7 @@ class SileroSpeechGate:
         if not config.validate():
             raise RuntimeError(f"invalid Silero VAD config for {self._model_path}")
 
-        size = stt_concurrency()
+        size = stt_concurrency() * len(SUPPORTED_LANGUAGES)
         pool: "queue.Queue" = queue.Queue(maxsize=size)
         for _ in range(size):
             pool.put(sherpa_onnx.VoiceActivityDetector(config, buffer_size_in_seconds=60))
@@ -124,10 +130,16 @@ class SileroSpeechGate:
         Raises `SttBusyError` if every detector is busy past the lane wait
         budget, mapped to 503 by the caller, same as a saturated engine.
         """
-        if self._pool is None:
+        # Captured once, rather than read again from `self._pool` inside
+        # `finally`: `unload()` can run concurrently on another request and
+        # sets `self._pool = None`, and `finally` still has to give this
+        # detector back to the SAME queue it came from, whether or not the
+        # gate is still considered loaded by the time this call finishes.
+        pool = self._pool
+        if pool is None:
             raise RuntimeError("Silero VAD not loaded")
         try:
-            detector = self._pool.get(timeout=self._lane_wait_ms / 1000)
+            detector = pool.get(timeout=self._lane_wait_ms / 1000)
         except queue.Empty:
             raise SttBusyError(
                 f"silero VAD saturated: no detector within {self._lane_wait_ms:.0f}ms"
@@ -136,7 +148,7 @@ class SileroSpeechGate:
             detector.reset()
             total_samples = _feed(detector, samples)
         finally:
-            self._pool.put(detector)
+            pool.put(detector)
         return round(total_samples / SAMPLE_RATE * 1000)
 
 

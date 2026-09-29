@@ -15,6 +15,7 @@ from audio.decode import decode_to_16k_mono
 from audio.silero_speech import ModelHashMismatchError, SileroSpeechGate
 from conftest import make_webm_opus
 from engines.base import MODELS_DIR, SttBusyError
+from engines.registry import SUPPORTED_LANGUAGES
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("LOCAL_STT_SKIP_MODEL_TESTS") == "1",
@@ -65,16 +66,44 @@ def test_the_extra_caller_past_the_pool_gets_busy(monkeypatch):
     """More concurrent callers than the pool holds: the extra one refuses.
 
     Same property `test_lane_wait_times_out_instead_of_queueing` pins for an
-    engine — a saturated gate should not queue invisibly either.
+    engine — a saturated gate should not queue invisibly either. The pool
+    holds `stt_concurrency() * len(SUPPORTED_LANGUAGES)` detectors — one
+    engine's worth of lanes each — so exhausting it here means holding all of
+    them, not just one.
     """
     monkeypatch.setenv("LOCAL_STT_CONCURRENCY", "1")
     monkeypatch.setenv("LOCAL_STT_LANE_WAIT_MS", "50")
     gate = SileroSpeechGate()
     gate.load()
     try:
-        detector = gate._pool.get()  # hold the only detector in the pool
+        held = [gate._pool.get() for _ in range(len(SUPPORTED_LANGUAGES))]
         with pytest.raises(SttBusyError):
             gate.speech_ms(np.zeros(1600, dtype=np.float32))
     finally:
-        gate._pool.put(detector)
+        for detector in held:
+            gate._pool.put(detector)
         gate.unload()
+
+
+def test_unload_during_a_call_does_not_raise_from_the_finally(monkeypatch, gate):
+    """`unload()` racing an in-flight `speech_ms()` must not throw from `finally`.
+
+    A real deployment can reload the gate while a request is mid-decode. The
+    `pool` reference `speech_ms` captures before its `.get()` is what lets
+    `finally: pool.put(...)` still succeed once `self._pool` has already gone
+    to `None` out from under it.
+    """
+    import audio.silero_speech as silero_speech_module
+
+    original_feed = silero_speech_module._feed
+
+    def unload_mid_decode(detector, samples):
+        gate.unload()
+        return original_feed(detector, samples)
+
+    monkeypatch.setattr(silero_speech_module, "_feed", unload_mid_decode)
+    try:
+        gate.speech_ms(np.zeros(1600, dtype=np.float32))  # must not raise
+    finally:
+        # Restore the module-scoped fixture for tests that run after this one.
+        gate.load()
