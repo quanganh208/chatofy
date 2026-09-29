@@ -92,6 +92,36 @@ describe('LocalSpeechSttProvider', () => {
     expect(form.get('min_speech_ms')).toBe('300');
   });
 
+  it('maps the sidecar-reported speechMs onto the result', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ text: '', language: 'vi', speechMs: 120 }),
+    });
+    global.fetch = fetchMock;
+
+    const provider = new LocalSpeechSttProvider({
+      baseUrl: 'http://localhost:8002',
+    });
+    await expect(
+      provider.transcribe(audio, 'audio/webm', 'vi', { minSpeechMs: 300 }),
+    ).resolves.toEqual({ text: '', language: 'vi', speechMs: 120 });
+  });
+
+  it('omits speechMs, rather than answering undefined explicitly, when the sidecar did not report it', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ text: 'hi', language: 'en' }),
+    });
+    global.fetch = fetchMock;
+
+    const provider = new LocalSpeechSttProvider({
+      baseUrl: 'http://localhost:8002',
+    });
+    const result = await provider.transcribe(audio, 'audio/wav', 'en');
+    expect(result).toEqual({ text: 'hi', language: 'en' });
+    expect('speechMs' in result).toBe(false);
+  });
+
   it('sends no min_speech_ms field when the caller named none or zero', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

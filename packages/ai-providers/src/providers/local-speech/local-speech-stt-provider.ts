@@ -34,6 +34,7 @@ export interface LocalSpeechSttConfig {
 interface TranscribeResponse {
   text?: string;
   language?: string;
+  speechMs?: number;
 }
 
 export class LocalSpeechSttProvider implements SttProvider {
@@ -98,7 +99,16 @@ export class LocalSpeechSttProvider implements SttProvider {
     }
     // An empty transcript is a legitimate result (silence); the pipeline turns
     // it into a "no speech detected" error, so it is not this layer's concern.
-    return { text: json.text, language };
+    //
+    // `speechMs` rides along only when the sidecar measured it (`min_speech_ms`
+    // was sent and > 0); an older sidecar or an ungated request simply omits
+    // the field, and `typeof` keeps a stray non-number in the JSON from being
+    // passed on as if it were the sidecar's own answer.
+    return {
+      text: json.text,
+      language,
+      ...(typeof json.speechMs === 'number' ? { speechMs: json.speechMs } : {}),
+    };
   }
 
   /**

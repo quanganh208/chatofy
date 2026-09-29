@@ -493,9 +493,12 @@ The sidecar can refuse to decode a clip that is mostly not speech, and the API
 asks it to on every turn. **Silero VAD** (the k2-fsa `sherpa-onnx` export,
 pinned by sha256 in `services/local-stt/scripts/download_models.py`) loads in
 the sidecar's lifespan alongside the STT and embedding engines, as a pool of
-`stt_concurrency()` detectors so a gated `/transcribe` and a concurrent
-`/embed` never contend for the same VAD instance. `/embed` never calls it —
-speaker embedding stays exactly as costly as before this change.
+`stt_concurrency() * len(SUPPORTED_LANGUAGES)` detectors — one lane's worth
+per language engine, since vi and en each run their own `stt_concurrency()`
+decode lanes and a turn on either may gate — so a gated `/transcribe` never
+queues behind itself and never contends with a concurrent `/embed` for the
+same VAD instance. `/embed` never calls it — speaker embedding stays exactly
+as costly as before this change.
 
 Gating is **opt-in per request**, via `min_speech_ms` on `/transcribe`. Left
 unset (`0`), a request decodes exactly as it always did: no VAD call, no
@@ -507,17 +510,23 @@ The API always asks, at `STT_MIN_SPEECH_MS` (`env.schema.ts`: integer, `0`–
 `2000`, default `300`) — one number for both "there is no text to translate"
 and "the speaker-attribution layer should not observe this turn." It is
 threaded to every `/transcribe` call a turn makes: the final, every
-speculative pass, the whole-turn fallback, and each split piece. A gated empty
-decode raises `NoSpeechDetectedException`; the session ends the turn quietly —
-`record(false, 'no_speech')`, `close(..., 'no_speech')` — with no
-`server.transcript.final`, no `server.turn.embedding`, and no `turn_failed`
-banner, and the client maps that outcome to `no_audio`. An ungated empty
-decode (the floor at `0`, or a non-local STT backend) still surfaces the
-banner as before, which is what makes `STT_MIN_SPEECH_MS=0` a real rollback
-rather than a partial one. A gated split piece is dropped before its embed
-starts (its index and duration are logged, never its text); a turn left with
-exactly one surviving piece ships as an unsplit final carrying that piece's
-vector, and a turn left with zero falls back to the whole-turn path.
+speculative pass, the whole-turn fallback, and each split piece. The sidecar
+answers `speechMs` alongside an empty `text` whenever it measured (the local
+backend, with the floor set); `transcribeAndTranslate` reads that verdict
+rather than merely whether a floor was requested, so an empty decode raises
+`NoSpeechDetectedException` — and ends the turn quietly, `record(false,
+'no_speech')`, `close(..., 'no_speech')`, no `server.transcript.final`, no
+`server.turn.embedding`, no `turn_failed` banner, mapped by the client to
+`no_audio` — only when `speechMs` itself came back below the floor. An empty
+decode with no `speechMs` at all (ElevenLabs, which cannot gate on speech, or
+a local sidecar that predates the field) and an empty decode whose `speechMs`
+cleared the floor (the decoder lost the utterance the gate let through) both
+still surface the ordinary banner, which is what makes `STT_MIN_SPEECH_MS=0` a
+real rollback rather than a partial one. A gated split piece is dropped before
+its embed starts on its own empty text (its index and duration are logged,
+never its text); a turn left with exactly one surviving piece ships as an
+unsplit final carrying that piece's own vector and duration, and a turn left
+with zero falls back to the whole-turn path.
 
 **Live partials stay ungated.** Re-reading a growing turn every 300ms for the
 live preview was measured against a ≤10ms p95 cost bar; three of four window

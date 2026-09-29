@@ -62,8 +62,12 @@ export class SpeechEngineBusyException extends ServiceUnavailableException {
  * the session service can tell "the gate refused this turn" from "the
  * recognizer heard nothing for some other reason" and end the two differently:
  * the gated case ends quietly (no banner, counted as `no_speech`); every other
- * empty decode keeps today's `turn_failed` banner. Thrown only when the caller
- * asked for a floor (`minSpeechMs > 0`) — see `transcribeAndTranslate`.
+ * empty decode keeps today's `turn_failed` banner. Thrown only when the
+ * SIDECAR'S OWN VERDICT says the gate refused the turn — a floor was asked for
+ * AND the backend reported `speechMs` below it — see `transcribeAndTranslate`.
+ * A floor asked for but never answered (ElevenLabs, or a sidecar that predates
+ * `speechMs`) and a floor cleared but the decoder still returned nothing both
+ * keep the plain exception, because neither is the gate's doing.
  */
 export class NoSpeechDetectedException extends BadRequestException {
   constructor(message = 'No speech detected in the audio') {
@@ -137,6 +141,18 @@ export interface TranslateTurnInput {
 export interface TranslatedTurnText {
   sourceText: string;
   translations: TranslationMap;
+}
+
+/**
+ * What one `transcribe` call answered: the text, and — when the backend ran a
+ * speech detector for it — how much of the audio it measured as speech.
+ *
+ * `speechMs` is what tells an empty `text` apart from a gate's own refusal;
+ * see {@link NoSpeechDetectedException}.
+ */
+export interface TranscribedAudio {
+  text: string;
+  speechMs?: number;
 }
 
 /** One synthesis request. */
@@ -298,14 +314,18 @@ export class PipelineTranslatorService {
    * routinely come back empty — which is the recogniser working, not failing.
    * The "no speech detected" rejection therefore belongs to whoever asked for a
    * whole turn, and lives one level up in {@link transcribeAndTranslate}.
+   *
+   * Returns `speechMs` beside the text rather than text alone, so a caller can
+   * tell the gate's own verdict from a decoder that simply heard nothing — see
+   * {@link NoSpeechDetectedException}.
    */
   async transcribe(
     input: TranslateTurnInput & { language: LanguageCode },
-  ): Promise<string> {
+  ): Promise<TranscribedAudio> {
     try {
       const trio = this.providers.makeProviders();
       const sttStart = Date.now();
-      const { text } = await trio.stt.transcribe(
+      const { text, speechMs } = await trio.stt.transcribe(
         input.audio,
         input.mimeType,
         input.language,
@@ -316,7 +336,7 @@ export class PipelineTranslatorService {
         { hotwords: input.hints?.hotwords, minSpeechMs: input.minSpeechMs },
       );
       this.logger.log(`stt(${trio.stt.name}) ${Date.now() - sttStart}ms`);
-      return text;
+      return { text, speechMs };
     } catch (err) {
       return this.handlePipelineError(err);
     }
@@ -416,7 +436,7 @@ export class PipelineTranslatorService {
     plan: TurnLanguagePlan,
   ): Promise<TranslatedTurnText> {
     try {
-      const sourceText = await this.transcribe({
+      const { text: sourceText, speechMs } = await this.transcribe({
         ...input,
         language: plan.recognition,
       });
@@ -428,13 +448,25 @@ export class PipelineTranslatorService {
         // that holds, this branch is rare and the losses are elsewhere; if it
         // does not, this line is what will say so. Bytes rather than a duration:
         // decoding happened inside the provider and the length is not back here.
-        const gated = (input.minSpeechMs ?? 0) > 0;
+        //
+        // `gated` reads the sidecar's OWN VERDICT, not merely whether a floor
+        // was asked for. A floor was requested on every one of these three
+        // shapes, and only the first is the gate's doing:
+        //   - `speechMs` came back below the floor — Silero measured too little
+        //     speech, the decoder never ran, `text` is empty by construction;
+        //   - `speechMs` is undefined — the backend cannot gate on speech
+        //     (ElevenLabs) or predates the field, so the floor was silently
+        //     ignored and this empty decode means something else entirely;
+        //   - `speechMs` came back AT OR ABOVE the floor — Silero heard enough
+        //     speech, the decoder ran anyway, and still answered nothing. That
+        //     is the exact "lost utterance" case the warning above exists to
+        //     catch, and swallowing it here would be losing it a second time.
+        // Only the first keeps quiet; the other two keep today's banner.
+        const floor = input.minSpeechMs ?? 0;
+        const gated = floor > 0 && speechMs !== undefined && speechMs < floor;
         this.logger.warn(
-          `No speech detected: ${plan.recognition} ${input.audio.byteLength}B ${input.mimeType} gated=${gated}`,
+          `No speech detected: ${plan.recognition} ${input.audio.byteLength}B ${input.mimeType} gated=${gated} speechMs=${speechMs ?? 'n/a'}`,
         );
-        // Only a decode the caller actually asked the sidecar to gate ends
-        // quietly. Everything else — the gate off, a backend that ignores
-        // `minSpeechMs` — keeps today's plain exception and its banner.
         throw gated
           ? new NoSpeechDetectedException()
           : new BadRequestException('No speech detected in the audio');

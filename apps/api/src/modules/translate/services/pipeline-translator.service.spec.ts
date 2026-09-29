@@ -191,11 +191,13 @@ describe('PipelineTranslatorService', () => {
   });
 
   describe('a recognizer that heard nothing', () => {
-    it('throws the gated exception when the caller asked for a speech floor', async () => {
+    it('throws the gated exception when the sidecar verdict says speech was below the floor', async () => {
       const trio = fakeTrio({
         stt: {
           name: 'fake-stt',
-          transcribe: vi.fn().mockResolvedValue({ text: '', language: 'vi' }),
+          transcribe: vi
+            .fn()
+            .mockResolvedValue({ text: '', language: 'vi', speechMs: 120 }),
         },
       });
 
@@ -226,12 +228,55 @@ describe('PipelineTranslatorService', () => {
       const trio = fakeTrio({
         stt: {
           name: 'fake-stt',
-          transcribe: vi.fn().mockResolvedValue({ text: '', language: 'vi' }),
+          transcribe: vi
+            .fn()
+            .mockResolvedValue({ text: '', language: 'vi', speechMs: 120 }),
         },
       });
 
       const err = await serviceWith(trio)
         .transcribeAndTranslate({ ...input, minSpeechMs: 0 }, VI_TO_EN)
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err).not.toBeInstanceOf(NoSpeechDetectedException);
+    });
+
+    // H1: a floor was asked for and the decoder came back empty, but the
+    // sidecar's OWN measurement says it heard enough speech to clear the
+    // floor. The decoder simply lost the utterance — the exact case the "No
+    // speech detected" warning exists to catch — so this must keep the banner,
+    // not swallow it as if the gate had refused the turn.
+    it('throws the plain exception when the sidecar verdict says speech was at or above the floor', async () => {
+      const trio = fakeTrio({
+        stt: {
+          name: 'fake-stt',
+          transcribe: vi
+            .fn()
+            .mockResolvedValue({ text: '', language: 'vi', speechMs: 300 }),
+        },
+      });
+
+      const err = await serviceWith(trio)
+        .transcribeAndTranslate({ ...input, minSpeechMs: 300 }, VI_TO_EN)
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err).not.toBeInstanceOf(NoSpeechDetectedException);
+    });
+
+    // H1: a floor was asked for, but the backend never answered `speechMs` at
+    // all — ElevenLabs, which cannot gate on speech, or a local sidecar that
+    // predates the field. The floor was silently ignored, so this empty decode
+    // is not the gate's doing and must keep the banner.
+    it('throws the plain exception when the backend reported no speechMs at all', async () => {
+      const trio = fakeTrio({
+        stt: {
+          name: 'fake-stt',
+          transcribe: vi.fn().mockResolvedValue({ text: '', language: 'vi' }),
+        },
+      });
+
+      const err = await serviceWith(trio)
+        .transcribeAndTranslate({ ...input, minSpeechMs: 300 }, VI_TO_EN)
         .catch((e: unknown) => e);
       expect(err).toBeInstanceOf(BadRequestException);
       expect(err).not.toBeInstanceOf(NoSpeechDetectedException);
