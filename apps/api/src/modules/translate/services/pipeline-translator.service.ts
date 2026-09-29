@@ -53,6 +53,25 @@ export class SpeechEngineBusyException extends ServiceUnavailableException {
 }
 
 /**
+ * The recognizer heard less speech than the caller's floor asked for.
+ *
+ * A subclass of the plain `BadRequestException` {@link PipelineTranslatorService.transcribeAndTranslate}
+ * has always thrown on an empty transcript, so `handlePipelineError`'s
+ * unconditional `if (err instanceof BadRequestException) throw err;` already
+ * lets it through unchanged — no mapping to add there. Its own class exists so
+ * the session service can tell "the gate refused this turn" from "the
+ * recognizer heard nothing for some other reason" and end the two differently:
+ * the gated case ends quietly (no banner, counted as `no_speech`); every other
+ * empty decode keeps today's `turn_failed` banner. Thrown only when the caller
+ * asked for a floor (`minSpeechMs > 0`) — see `transcribeAndTranslate`.
+ */
+export class NoSpeechDetectedException extends BadRequestException {
+  constructor(message = 'No speech detected in the audio') {
+    super(message);
+  }
+}
+
+/**
  * Decoded input for one translation turn.
  *
  * Carries no language of its own: which language(s) to recognise, and which to
@@ -95,6 +114,16 @@ export interface TranslateTurnInput {
    * much of it a prompt can afford.
    */
   context?: string[];
+  /**
+   * Silero speech floor, in ms, the local sidecar should apply before a decode
+   * counts as containing anything.
+   *
+   * Rides along to `stt.transcribe` beside `hotwords`, exactly like it: a
+   * backend that cannot gate on speech ignores it rather than failing. `0` or
+   * absent both mean "no floor" — see `NoSpeechDetectedException` for the one
+   * place its presence changes behaviour on this side of the provider call.
+   */
+  minSpeechMs?: number;
 }
 
 /**
@@ -284,7 +313,7 @@ export class PipelineTranslatorService {
         // RECOGNIZER mishears it, so spending the list here first is what the
         // field was always for; the translator still receives it, for the term
         // that biasing does not recover.
-        { hotwords: input.hints?.hotwords },
+        { hotwords: input.hints?.hotwords, minSpeechMs: input.minSpeechMs },
       );
       this.logger.log(`stt(${trio.stt.name}) ${Date.now() - sttStart}ms`);
       return text;
@@ -399,10 +428,16 @@ export class PipelineTranslatorService {
         // that holds, this branch is rare and the losses are elsewhere; if it
         // does not, this line is what will say so. Bytes rather than a duration:
         // decoding happened inside the provider and the length is not back here.
+        const gated = (input.minSpeechMs ?? 0) > 0;
         this.logger.warn(
-          `No speech detected: ${plan.recognition} ${input.audio.byteLength}B ${input.mimeType}`,
+          `No speech detected: ${plan.recognition} ${input.audio.byteLength}B ${input.mimeType} gated=${gated}`,
         );
-        throw new BadRequestException('No speech detected in the audio');
+        // Only a decode the caller actually asked the sidecar to gate ends
+        // quietly. Everything else — the gate off, a backend that ignores
+        // `minSpeechMs` — keeps today's plain exception and its banner.
+        throw gated
+          ? new NoSpeechDetectedException()
+          : new BadRequestException('No speech detected in the audio');
       }
 
       // Each target logs its own model and timing inside `translate`; nothing

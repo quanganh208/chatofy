@@ -197,6 +197,24 @@ export const envSchema = z.object({
   SPEAKER_EMBEDDING_ENABLED: booleanFromEnv(false),
   LOCAL_STT_URL: z.string().url().default('http://localhost:8002'),
   LOCAL_TTS_URL: z.string().url().default('http://localhost:8003'),
+  /**
+   * Silero speech floor, in ms, the API asks the local sidecar to apply on
+   * every recognition whose text can end up in a saved turn: the final, the
+   * speculation, the whole-turn source beside a split, and each split piece.
+   * Below it `/transcribe` answers an empty transcript without decoding, and
+   * the turn ends quietly as `no_speech` instead of the ordinary
+   * "no speech detected" banner — see `pipeline-translator.service.ts`'s
+   * `NoSpeechDetectedException`.
+   *
+   * `0` is a real rollback: it disables the gate outright (no field is sent to
+   * the sidecar) and an empty decode goes back to today's banner. The live
+   * partial path does not read this — `live-preview.ts`'s re-reads stay
+   * ungated regardless of this value (see `docs/system-architecture.md`).
+   *
+   * The upper bound stops a typo such as `7500` from gating nearly every turn
+   * under the 8s turn ceiling.
+   */
+  STT_MIN_SPEECH_MS: z.coerce.number().int().min(0).max(2000).default(300),
   // Where to append one JSON line per streamed turn, timed stage by stage.
   // Unset means no file is written — a latency table is something you collect
   // deliberately, not a file the API grows on every deployment.

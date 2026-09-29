@@ -10,6 +10,7 @@ import {
   type StreamSocket,
 } from './translation-session.service';
 import {
+  NoSpeechDetectedException,
   PipelineTranslatorService as RealPipelineTranslatorService,
   SpeechEngineBusyException,
   type PipelineTranslatorService,
@@ -100,6 +101,12 @@ function makeService(
   // Off is the shipped default and what every test above assumes: those turns
   // must behave exactly as they did before the flag existed.
   speakerEmbeddingEnabled = false,
+  // The schema's own default. `pipeline` is a full mock in this harness, so
+  // this value never itself decides a mocked test's outcome — it exists so a
+  // call site reading `STT_MIN_SPEECH_MS` gets the number the type promises,
+  // not the `speakerEmbeddingEnabled` boolean the fallback below would
+  // otherwise hand it.
+  minSpeechMs = 300,
 ): Harness {
   const synthesized: string[] = [];
   const recorded: TurnMetrics[] = [];
@@ -174,7 +181,9 @@ function makeService(
             ? 66
             : key === 'LIVE_TRANSLATION_COMMIT_CHARS'
               ? 15
-              : speakerEmbeddingEnabled,
+              : key === 'STT_MIN_SPEECH_MS'
+                ? minSpeechMs
+                : speakerEmbeddingEnabled,
       } as unknown as ConfigService<Env, true>,
       languageSupport,
       identifier,
@@ -1269,6 +1278,61 @@ describe('TranslationSessionService', () => {
         message: 'No speech detected',
       });
       expect(socket.ofType('server.session.ended')[0]?.reason).toBe('error');
+    });
+
+    /**
+     * `STT_MIN_SPEECH_MS=0` has to be a real rollback: an empty decode the gate
+     * did NOT cause must keep today's banner, not quietly start disappearing
+     * the moment `NoSpeechDetectedException` exists as a class.
+     */
+    it('keeps the turn_failed banner for an empty decode the gate did not cause', async () => {
+      const { service, recorded } = makeService({
+        transcribeAndTranslate: vi
+          .fn()
+          .mockRejectedValue(new BadRequestException('No speech detected')),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      await service.end(socket);
+
+      expect(socket.ofType('server.error')[0]).toMatchObject({
+        code: 'turn_failed',
+      });
+      expect(socket.ofType('server.transcript.final')).toHaveLength(0);
+      expect(socket.ofType('server.turn.embedding')).toHaveLength(0);
+      expect(socket.ofType('server.session.ended')[0]?.reason).toBe('error');
+      expect(recorded[0]).toMatchObject({ completed: false, reason: 'error' });
+    });
+
+    /**
+     * A turn the sidecar refused for having too little speech ends quietly:
+     * no error banner, no final, no vector — just a `no_speech` close reason
+     * and a metrics row, so the rate stays countable without alarming anybody.
+     */
+    it('ends a gated turn quietly as no_speech, with no banner', async () => {
+      const { service, recorded } = makeService({
+        transcribeAndTranslate: vi
+          .fn()
+          .mockRejectedValue(new NoSpeechDetectedException()),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      await service.end(socket);
+
+      expect(socket.ofType('server.error')).toHaveLength(0);
+      expect(socket.ofType('server.transcript.final')).toHaveLength(0);
+      expect(socket.ofType('server.turn.embedding')).toHaveLength(0);
+      expect(socket.ofType('server.session.ended')[0]?.reason).toBe(
+        'no_speech',
+      );
+      expect(recorded[0]).toMatchObject({
+        completed: false,
+        reason: 'no_speech',
+      });
     });
 
     // The ElevenLabs backend returns audio/mpeg, which cannot be framed as raw
@@ -2701,15 +2765,91 @@ describe('splitting a turn where the voice changes', () => {
     expect(embedSpeaker).toHaveBeenCalledTimes(1);
   });
 
-  it('falls back to the whole turn when a piece is heard as nothing', async () => {
+  it('ships the surviving piece unsplit, under the parent id, when the other piece is heard as nothing', async () => {
     const transcribe = vi.fn(async ({ audio }: TranslateTurnInput) =>
       peakOf(audio) > 10000 ? '' : 'first voice',
     );
+    const { socket, sessionId, transcribeAndTranslate } = await run(twoVoices, {
+      transcribe,
+    });
+
+    // `count: 1` is not a shape the wire schema accepts, so the one survivor
+    // ships as an ordinary, unsplit final — not `${sessionId}#0`.
+    const finals = socket.ofType('server.transcript.final');
+    expect(finals).toHaveLength(1);
+    expect(finals[0]!.sessionId).toBe(sessionId);
+    expect(finals[0]!.split).toBeUndefined();
+    expect(finals[0]!.segment.sourceText).toBe('first voice');
+    // Never the whole-turn path: the survivor already carries the turn's text,
+    // so paying for a second transcript of the whole turn would be wasted.
+    expect(transcribeAndTranslate).not.toHaveBeenCalled();
+
+    // And the survivor's OWN vector, not the whole turn's — which still holds
+    // the loud piece this turn dropped.
+    const vectors = socket.ofType('server.turn.embedding');
+    expect(vectors).toHaveLength(1);
+    expect(vectors[0]).toMatchObject({ sessionId, vector: [1, 0] });
+  });
+
+  it('drops a middle piece heard as nothing, keeping the survivors at their true position in the turn', async () => {
+    // Three runs — quiet, loud, quiet — so the middle one groups as its own
+    // voice and can be dropped without merging the two quiet survivors back
+    // into one piece.
+    const threeVoices = pcmOf(
+      stretch(QUIET, 1000),
+      stretch(0, 400),
+      stretch(LOUD, 1000),
+      stretch(0, 400),
+      stretch(QUIET, 1000),
+    );
+    const transcribe = vi.fn(async ({ audio }: TranslateTurnInput) =>
+      peakOf(audio) > 10000 ? '' : 'first voice',
+    );
+    const { socket, sessionId, translateAll, transcribeAndTranslate } =
+      await run(threeVoices, { transcribe });
+
+    const finals = socket.ofType('server.transcript.final');
+    expect(finals.map((f) => f.sessionId)).toEqual([
+      `${sessionId}#0`,
+      `${sessionId}#1`,
+    ]);
+    expect(finals.map((f) => f.segment.sourceText)).toEqual([
+      'first voice',
+      'first voice',
+    ]);
+    expect(finals[0]!.split).toMatchObject({ index: 0, count: 2, startMs: 0 });
+    expect(finals[1]!.split).toMatchObject({ index: 1, count: 2 });
+    // The dropped middle piece leaves a real gap between the survivors' own
+    // spans — they are NOT renumbered into two adjacent pieces.
+    expect(finals[1]!.split!.startMs).toBeGreaterThan(
+      finals[0]!.split!.endMs + 500,
+    );
+
+    const vectors = socket.ofType('server.turn.embedding');
+    expect(vectors.map((v) => [v.sessionId, v.vector])).toEqual([
+      [`${sessionId}#0`, [1, 0]],
+      [`${sessionId}#1`, [1, 0]],
+    ]);
+
+    // Context is the SURVIVING pieces before this one — the dropped middle
+    // piece said nothing and cannot be context for the piece after it.
+    expect(translateAll).toHaveBeenCalledTimes(2);
+    const contexts = (
+      translateAll.mock.calls as [{ context?: string[] }][]
+    ).map(([req]) => req.context);
+    expect(contexts[0]).toEqual([]);
+    expect(contexts[1]).toEqual(['first voice']);
+    expect(transcribeAndTranslate).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the whole turn when every piece is heard as nothing', async () => {
+    const transcribe = vi.fn().mockResolvedValue('');
     const { socket, sessionId } = await run(twoVoices, { transcribe });
 
     const finals = socket.ofType('server.transcript.final');
     expect(finals).toHaveLength(1);
     expect(finals[0]!.sessionId).toBe(sessionId);
+    expect(finals[0]!.split).toBeUndefined();
     expect(finals[0]!.segment.sourceText).toBe('xin chào');
   });
 

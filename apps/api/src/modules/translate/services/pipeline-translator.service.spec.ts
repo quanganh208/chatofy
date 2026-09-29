@@ -11,6 +11,7 @@ import {
   ProviderResponseError,
 } from '@chatofy/ai-providers';
 import {
+  NoSpeechDetectedException,
   PipelineTranslatorService,
   SpeechEngineBusyException,
 } from './pipeline-translator.service';
@@ -155,6 +156,85 @@ describe('PipelineTranslatorService', () => {
     );
     expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'vi', {
       hotwords: undefined,
+    });
+  });
+
+  it('forwards minSpeechMs to the recognizer, beside hotwords', async () => {
+    const transcribe = vi
+      .fn()
+      .mockResolvedValue({ text: 'xin chào', language: 'vi' });
+    const trio = fakeTrio({ stt: { name: 'fake-stt', transcribe } });
+
+    await serviceWith(trio).transcribeAndTranslate(
+      { ...input, minSpeechMs: 300 },
+      VI_TO_EN,
+    );
+
+    expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'vi', {
+      hotwords: undefined,
+      minSpeechMs: 300,
+    });
+  });
+
+  it('sends minSpeechMs undefined when the caller named none', async () => {
+    const transcribe = vi
+      .fn()
+      .mockResolvedValue({ text: 'xin chào', language: 'vi' });
+    const trio = fakeTrio({ stt: { name: 'fake-stt', transcribe } });
+
+    await serviceWith(trio).transcribeAndTranslate(input, VI_TO_EN);
+
+    expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'vi', {
+      hotwords: undefined,
+      minSpeechMs: undefined,
+    });
+  });
+
+  describe('a recognizer that heard nothing', () => {
+    it('throws the gated exception when the caller asked for a speech floor', async () => {
+      const trio = fakeTrio({
+        stt: {
+          name: 'fake-stt',
+          transcribe: vi.fn().mockResolvedValue({ text: '', language: 'vi' }),
+        },
+      });
+
+      await expect(
+        serviceWith(trio).transcribeAndTranslate(
+          { ...input, minSpeechMs: 300 },
+          VI_TO_EN,
+        ),
+      ).rejects.toBeInstanceOf(NoSpeechDetectedException);
+    });
+
+    it('throws the plain exception when no floor was asked for', async () => {
+      const trio = fakeTrio({
+        stt: {
+          name: 'fake-stt',
+          transcribe: vi.fn().mockResolvedValue({ text: '', language: 'vi' }),
+        },
+      });
+
+      const err = await serviceWith(trio)
+        .transcribeAndTranslate(input, VI_TO_EN)
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err).not.toBeInstanceOf(NoSpeechDetectedException);
+    });
+
+    it('throws the plain exception when the floor was explicitly zero', async () => {
+      const trio = fakeTrio({
+        stt: {
+          name: 'fake-stt',
+          transcribe: vi.fn().mockResolvedValue({ text: '', language: 'vi' }),
+        },
+      });
+
+      const err = await serviceWith(trio)
+        .transcribeAndTranslate({ ...input, minSpeechMs: 0 }, VI_TO_EN)
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(BadRequestException);
+      expect(err).not.toBeInstanceOf(NoSpeechDetectedException);
     });
   });
 
