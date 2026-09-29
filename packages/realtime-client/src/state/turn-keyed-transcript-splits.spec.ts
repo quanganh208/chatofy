@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ServerEvent, TranscriptSegment } from '@chatofy/types';
+import { serverEventSchema } from '@chatofy/types';
 import {
   initialTurnKeyedTranscript,
   pieceCapture,
@@ -139,5 +140,82 @@ describe('pieceCapture', () => {
     expect(
       pieceCapture(parent, { parentSessionId: 'p', index: 1, count: 3, startMs: 800, endMs: 1600 }),
     ).toEqual({ cutForced: false, openedAt: 900, closedAt: 1700, preRollMs: 0 });
+  });
+
+  /** A piece of a parent whose server-dropped sibling(s) shift where it sits. */
+  const droppedSiblingPiece = (
+    parent: string,
+    index: 0 | 1,
+    startMs: number,
+    endMs: number,
+    sourceText: string,
+  ): ServerEvent => ({
+    type: 'server.transcript.final',
+    sessionId: `${parent}#${index}`,
+    segment: segment(`${parent}#${index}`, sourceText),
+    split: { parentSessionId: parent, index, count: 2, startMs, endMs },
+  });
+
+  /** Parsed through the wire schema first, per the spec this covers. */
+  const parsed = (event: ServerEvent): TurnKeyedAction => {
+    const result = serverEventSchema.safeParse(event);
+    if (!result.success) throw new Error(result.error.message);
+    return result.data;
+  };
+
+  it('gives the surviving first piece its own start time when the server dropped the piece before it', () => {
+    // A 2400ms turn whose original leading piece (0-800ms) carried no speech
+    // and was dropped server-side; these two survivors were renumbered 0/1 but
+    // still carry their TRUE position in the parent's audio.
+    const parentId = 'lead-drop';
+    const state = play(
+      parsed(droppedSiblingPiece(parentId, 0, 800, 1600, 'first survivor')),
+      parsed(droppedSiblingPiece(parentId, 1, 1600, 2400, 'second survivor')),
+      captured(parentId, true),
+    );
+
+    // Not `first` — its true start (800ms) is not the parent's own opening.
+    expect(state.captures[`${parentId}#0`]).toEqual({
+      cutForced: false,
+      openedAt: STARTED + 5000 + 800,
+      closedAt: STARTED + 5000 + 1600,
+      preRollMs: 0,
+    });
+    // Its true end (2400ms) reaches the parent's close, so it — and only it —
+    // inherits `cutForced` and can run into the next turn.
+    expect(state.captures[`${parentId}#1`]).toEqual({
+      cutForced: true,
+      openedAt: STARTED + 5000 + 1600,
+      closedAt: STARTED + 7400,
+      preRollMs: 0,
+    });
+  });
+
+  it('does not let the surviving last piece inherit the closing capture when the server dropped the piece after it', () => {
+    // The same 2400ms turn, dropped from the other end: the trailing piece
+    // (1600-2400ms) carried no speech, leaving these two survivors.
+    const parentId = 'trail-drop';
+    const state = play(
+      parsed(droppedSiblingPiece(parentId, 0, 0, 800, 'first survivor')),
+      parsed(droppedSiblingPiece(parentId, 1, 800, 1600, 'second survivor')),
+      captured(parentId, true),
+    );
+
+    // Still opens at the parent's own opening — its true start is 0.
+    expect(state.captures[`${parentId}#0`]).toEqual({
+      cutForced: false,
+      openedAt: STARTED + 5320,
+      closedAt: STARTED + 5000 + 800,
+      preRollMs: 320,
+    });
+    // Its true end (1600ms) stops well short of the parent's close (2400ms),
+    // so it does NOT inherit `cutForced` — the turn was cut on the length
+    // ceiling after this piece, not on a change of voice.
+    expect(state.captures[`${parentId}#1`]).toEqual({
+      cutForced: false,
+      openedAt: STARTED + 5000 + 800,
+      closedAt: STARTED + 5000 + 1600,
+      preRollMs: 0,
+    });
   });
 });

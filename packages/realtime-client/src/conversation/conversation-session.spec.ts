@@ -1050,6 +1050,27 @@ describe('ConversationSession', () => {
     });
 
     /**
+     * The server's own speech gate refused this turn quietly — no final, no
+     * vector, no error banner, just this close reason. Reported the same as
+     * `no_audio`: nothing was heard either way.
+     */
+    it('reports a gated no-speech turn as no_audio', async () => {
+      const h = harness({ runtime: { reportMetrics: true } });
+      await h.session.start(startOptions);
+      h.talk();
+      h.hush();
+      h.socket().emit(readyEvent('s1'));
+
+      h.socket().emit({
+        type: 'server.session.ended',
+        reason: 'no_speech',
+        sessionId: 's1',
+      });
+
+      expect(metricsOf(h)[0]).toMatchObject({ outcome: 'no_audio' });
+    });
+
+    /**
      * `voice_off` is the server's word for a turn that SUCCEEDED and was never
      * meant to be spoken — `turn-timeline.ts` says so in those terms. It reached
      * `outcomeFor`'s unknown-reason fall-through and was filed as `error`, so

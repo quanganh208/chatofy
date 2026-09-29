@@ -241,20 +241,41 @@ export interface TurnSplit {
 type SplitsBySession = Record<string, TurnSplit>;
 
 /**
+ * How close a piece's own end must land to the parent's capture end to count as
+ * the LAST piece — see {@link pieceCapture}. `audioStart + split.endMs` and
+ * `parent.closedAt` are two readings of the same instant (the server's audio
+ * buffer, converted to wall time through the same `openedAt`/`preRollMs`), so
+ * they should agree exactly; this absorbs float-rounding and event-loop drift
+ * between the two derivations rather than describing a real gap. Chosen, not
+ * measured against a recorded split turn — worth confirming against one.
+ */
+const PIECE_CAPTURE_END_TOLERANCE_MS = 50;
+
+/**
  * A piece's capture record, from its parent's.
  *
- * The first piece keeps the parent's opening, so its timestamp still points at
- * the first syllable exactly as an unsplit turn's would. Later pieces open where
- * they start in the parent's audio, which begins `preRollMs` before `openedAt`.
+ * `first`/`last` come from where the piece SITS in the parent's audio —
+ * `startMs === 0`, and its own end landing within
+ * {@link PIECE_CAPTURE_END_TOLERANCE_MS} of the parent's `closedAt` — rather
+ * than from `index`/`count`. The server may drop a piece that carried no
+ * speech (see `speaker-split-turn.ts`), so a surviving piece's position in the
+ * renumbered array no longer says where it sits in the turn: the first
+ * surviving piece after a dropped leading one does not open at the parent's
+ * `openedAt`, and the last surviving piece before a dropped trailing one does
+ * not run to the parent's `closedAt`.
  *
- * Only the last piece can continue into the next turn: the cuts between pieces
- * are a change of voice, never the length ceiling, so they must not merge back
- * into one block while their names are still pending.
+ * The piece that keeps the parent's opening has its timestamp point at the
+ * first syllable exactly as an unsplit turn's would. A piece that reaches the
+ * parent's end is the only one that can continue into the next turn — the
+ * cuts between pieces are a change of voice, never the length ceiling, so a
+ * piece that stopped short of that end must not inherit `cutForced` or merge
+ * back into the next block while its own name is still pending.
  */
 export function pieceCapture(parent: TurnCapture, split: TurnSplit): TurnCapture {
   const audioStart = parent.openedAt - (parent.preRollMs ?? 0);
-  const first = split.index === 0;
-  const last = split.index === split.count - 1;
+  const first = split.startMs === 0;
+  const last =
+    Math.abs(audioStart + split.endMs - parent.closedAt) <= PIECE_CAPTURE_END_TOLERANCE_MS;
   return {
     cutForced: last ? parent.cutForced : false,
     openedAt: first ? parent.openedAt : audioStart + split.startMs,
