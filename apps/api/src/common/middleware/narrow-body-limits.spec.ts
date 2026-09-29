@@ -1,7 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { NextFunction, Request, Response } from 'express';
 import {
+  HISTORY_LIMITS,
+  saveConversationRequestSchema,
+  speakerRoleFor,
+  type LanguageCode,
+} from '@chatofy/types';
+import {
   AUDIO_UPLOAD_STALL_TIMEOUT_MS,
+  CONVERSATIONS_JSON_BODY_LIMIT_BYTES,
   MAX_CONCURRENT_AUDIO_UPLOADS,
   limitConcurrentAudioUploads,
   requireBearerBeforeAudioUpload,
@@ -325,4 +332,73 @@ describe('limitConcurrentAudioUploads', () => {
       expect(next).toHaveBeenCalledTimes(1);
     }
   });
+});
+
+describe('CONVERSATIONS_JSON_BODY_LIMIT_BYTES', () => {
+  const vi =
+    'Tôi nghĩ rằng chúng ta nên bắt đầu cuộc họp ngay bây giờ được không nhỉ bạn';
+  const en =
+    'I think we should start the meeting right now, shall we, my friend, okay?';
+
+  /**
+   * A save body at both caps at once: every one of the 4,000 turns, with the
+   * 400,000 counted characters spread evenly across them, realistic prose, and
+   * the translation sent twice — keyed in `translations` and again as the
+   * uncounted legacy `targetText`. Spreading over the most turns is what makes
+   * it the worst case: the per-turn JSON overhead is paid 4,000 times.
+   */
+  function worstCaseBody(source: LanguageCode, target: LanguageCode): string {
+    const label = 'Người nói 12';
+    const perTurn =
+      HISTORY_LIMITS.MAX_TOTAL_CHARS / HISTORY_LIMITS.MAX_TURNS - label.length;
+    const half = Math.floor(perTurn / 2);
+    const text = (prose: string, length: number) =>
+      prose.repeat(Math.ceil(length / prose.length)).slice(0, length);
+    const sourceText = text(source === 'vi' ? vi : en, half);
+    const translation = text(target === 'vi' ? vi : en, perTurn - half);
+    const languages: LanguageCode[] = ['vi', 'en'];
+    const now = Date.now();
+    return JSON.stringify({
+      direction: 'vi_to_en',
+      languages,
+      startedAt: new Date(now - 3_600_000).toISOString(),
+      endedAt: new Date(now).toISOString(),
+      audioOffsetMs: null,
+      turns: Array.from(
+        { length: HISTORY_LIMITS.MAX_TURNS },
+        (_, position) => ({
+          position,
+          speakerRole: speakerRoleFor(source, languages),
+          speakerLabel: label,
+          sourceText,
+          displayText: null,
+          sourceLanguages: [source],
+          translations: { [target]: translation },
+          targetText: translation,
+          offsetMs: 3_000_000 + position,
+        }),
+      ),
+    });
+  }
+
+  it.each([
+    ['vi', 'en'],
+    ['en', 'vi'],
+  ] as const)(
+    'keeps a quarter of headroom over the largest legitimate %s→%s save',
+    (source, target) => {
+      const body = worstCaseBody(source, target);
+      // Legitimate by the schema's own rules, so the parser limit is measured
+      // against a body the API would actually accept.
+      expect(
+        saveConversationRequestSchema.safeParse(JSON.parse(body)).success,
+      ).toBe(true);
+
+      // The headroom is for the wire shape growing a field per turn; without
+      // it, a near-cap save 413s after an unrelated contract change.
+      expect(Buffer.byteLength(body) * 1.25).toBeLessThanOrEqual(
+        CONVERSATIONS_JSON_BODY_LIMIT_BYTES,
+      );
+    },
+  );
 });

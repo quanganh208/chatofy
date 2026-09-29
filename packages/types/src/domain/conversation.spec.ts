@@ -17,10 +17,28 @@ describe('primaryTranslation', () => {
     ).toBe('chào bạn');
   });
 
-  it('answers empty when every conversation language is a source', () => {
+  it('answers empty when every conversation language is a source and nothing was translated', () => {
     expect(
       primaryTranslation({ sourceLanguages: ['vi', 'en'], translations: {} }, ['vi', 'en']),
     ).toBe('');
+  });
+
+  it('shows a mixed turn covering every language in the first declared language rendered', () => {
+    expect(
+      primaryTranslation(
+        { sourceLanguages: ['vi', 'en'], translations: { vi: 'xin chào bạn', en: 'hello friend' } },
+        ['vi', 'en'],
+      ),
+    ).toBe('xin chào bạn');
+  });
+
+  it('skips an empty rendering when falling back for a mixed turn', () => {
+    expect(
+      primaryTranslation(
+        { sourceLanguages: ['en', 'vi'], translations: { vi: '', en: 'hello friend' } },
+        ['vi', 'en'],
+      ),
+    ).toBe('hello friend');
   });
 
   it('answers empty when the target has no translation entry', () => {

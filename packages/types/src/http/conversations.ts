@@ -11,6 +11,7 @@ import { speakerRoleSchema } from '../domain/session.js';
 import {
   conversationLanguagesSchema,
   sourceLanguagesSchema,
+  speakerRoleFor,
   translationDirectionSchema,
   translationMapSchema,
   translationTargets,
@@ -33,7 +34,7 @@ import {
  * 400,000 characters is ~520–640 KB of Vietnamese UTF-8, which is what sets the
  * `/conversations` JSON parser limit registered in
  * `apps/api/src/common/middleware/narrow-body-limits.ts` — the two are one
- * decision and move together. That limit currently sits at 1.5 MB rather than
+ * decision and move together. That limit currently sits at 2 MiB rather than
  * the ~1 MB a single copy of the text would need, because the client sends
  * every translation TWICE right now: once keyed by language in each turn's
  * `translations`, and once more as the legacy `targetText` this schema keeps
@@ -60,7 +61,7 @@ export const HISTORY_LIMITS = {
    * Ceiling on ONE conversation's recording, in bytes.
    *
    * This and `AUDIO_RECORDER_BITS_PER_SECOND` below are ONE decision, the way
-   * `MAX_TOTAL_CHARS` and the 1 MB express limit above already are. 24 kbps is
+   * `MAX_TOTAL_CHARS` and the `/conversations` body limit already are. 24 kbps is
    * 3,000 bytes/s, so 32 MiB is reached at 11,185 seconds — about 3h06m, past
    * any conversation this product is for, and well under the 24-hour
    * `MAX_DURATION_MS` a lying clock could claim. Raising one without the other is wrong in both directions:
@@ -279,7 +280,8 @@ const saveConversationRequestShape = z
     },
   )
   /**
-   * Ties each turn's language fields to the conversation's and to each other.
+   * Ties each turn's language fields to the conversation's, to each other, and
+   * to its speaker role.
    * The per-field schemas above only check `sourceLanguages`/`translations`
    * against the REGISTRY, so a turn naming a language its own conversation
    * never declared, a translation keyed by the language it was SPOKEN in, or a
@@ -322,6 +324,26 @@ const saveConversationRequestShape = z
           code: 'custom',
           path: ['turns', index, 'translations'],
           message: `translations must be keyed by a language this turn should be translated into (got ${misplaced.join(', ')})`,
+        });
+      }
+
+      // A single-source turn's role is a function of its language
+      // (`speakerRoleFor`), and readers follow each separately — speaker labels
+      // and minutes attribution read `speakerRole`, the translation pick and the
+      // rollback SQL read `sourceLanguages` — so a row where they disagree
+      // renders one way forward and another after a rollback. A mixed turn has
+      // no single language to derive a role from, so it is not checked.
+      const [onlySource, ...otherSources] = turn.sourceLanguages;
+      if (
+        onlySource !== undefined &&
+        otherSources.length === 0 &&
+        outsideConversation.length === 0 &&
+        speakerRoleFor(onlySource, body.languages) !== turn.speakerRole
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['turns', index, 'speakerRole'],
+          message: `speakerRole ${turn.speakerRole} does not match sourceLanguages ${onlySource} in this conversation`,
         });
       }
 

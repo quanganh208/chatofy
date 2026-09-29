@@ -206,6 +206,43 @@ export function limitConcurrentAudioUploads(
 }
 
 /**
+ * The `/conversations` JSON parser limit, in bytes.
+ *
+ * Derived from HISTORY_LIMITS.MAX_TOTAL_CHARS and MAX_TURNS, and the margin is
+ * thinner than a character count suggests. UTF-8 Vietnamese runs ~1.2-1.36
+ * bytes/char on this repo's prose, and the JSON around each turn — keys,
+ * quotes, commas, the language arrays — is paid PER TURN, so the worst
+ * legitimate body is the one that spreads the 400,000-character ceiling over
+ * the full 4,000 turns.
+ *
+ * That text is also sent TWICE per turn right now: `saveConversationTurnSchema`
+ * keeps the legacy `targetText` alongside the language-keyed `translations`
+ * map it is being replaced by, for a browser tab that has not reloaded past
+ * the migration, and `targetText` is not counted by the character ceiling.
+ * Measured on a synthetic body at the caps — 4,000 turns, 400,000 counted
+ * characters, realistic prose, `targetText` duplicated — the worst case is
+ * ~1.32 MiB for vi→en and ~1.37 MiB for en→vi (2,000 turns ≈ 1.0 MiB). The
+ * previous 1.5 MB limit left ~9% over that; 2 MiB leaves ~45%, room for a
+ * small addition to the per-turn wire shape without 413-ing a legitimate
+ * near-cap save. It can come back down once `targetText` is removed from the
+ * wire (see the `HISTORY_LIMITS.MAX_TOTAL_CHARS` doc in `@chatofy/types`, which
+ * names this same pairing from the schema side).
+ *
+ * A transcript never gets close — a ten-minute conversation is a few hundred
+ * turns — but a constructed one can exceed even this: precomposed Vietnamese
+ * vowels (U+1EA0-U+1EF9) cost 3 bytes each, so 400,000 characters of nothing
+ * else, doubled by `targetText`, takes a 413 here rather than the schema's
+ * 400. Refusing that at the parser is the point; it is not a body any client
+ * sends.
+ *
+ * The two numbers — this and HISTORY_LIMITS.MAX_TOTAL_CHARS — are ONE
+ * decision. Raising either without the other either 413s legitimate saves or
+ * re-opens the gap this limit exists to close, which is admitting the
+ * audio-sized bodies the global limit is sized for.
+ */
+export const CONVERSATIONS_JSON_BODY_LIMIT_BYTES = 2 * 1024 * 1024;
+
+/**
  * Per-path JSON body ceilings, registered BEFORE the app-wide 12mb parser.
  *
  * body-parser marks a request it has already read and every later parser skips
@@ -226,35 +263,10 @@ export function registerNarrowBodyLimits(app: INestApplication): void {
   // storage module enforces after decoding.
   app.use('/auth/me/avatar', json({ limit: '512kb' }));
 
-  // Derived from HISTORY_LIMITS.MAX_TOTAL_CHARS and MAX_TURNS, and the margin is
-  // thinner than a character count suggests. Measured on this repo's Vietnamese
-  // prose, UTF-8 runs ~1.2-1.36 bytes/char, so the 400,000-character ceiling is
-  // ~480-545KB of text; the JSON around it adds ~110 bytes of keys, quotes and
-  // commas PER TURN, which is another ~440KB at the 4,000-turn maximum.
-  //
-  // That text is now sent TWICE per turn, not once: `saveConversationTurnSchema`
-  // keeps the legacy `targetText` alongside the language-keyed `translations`
-  // map it is being replaced by, for a browser tab that has not reloaded past
-  // the migration. A synthetic 400,000-character body measured both ways — 400
-  // turns at 0.50 MiB before `targetText` was duplicated, 0.78 MiB after; 800
-  // turns 0.56 MiB before, 0.85 MiB after — so the ceiling below carries real
-  // margin above the ~0.85 MiB worst case observed rather than the ~1 MiB a
-  // single copy would need. It comes back down to something nearer that
-  // original figure once `targetText` is removed from the wire (see the
-  // `HISTORY_LIMITS.MAX_TOTAL_CHARS` doc in `@chatofy/types`, which names this
-  // same pairing from the schema side).
-  //
-  // A transcript never gets close — a ten-minute conversation is a few hundred
-  // turns — but a constructed one can exceed even this: precomposed Vietnamese
-  // vowels (U+1EA0-U+1EF9) cost 3 bytes each, so 400,000 characters of nothing
-  // else is ~1.6MB and takes a 413 here rather than the schema's 400. Refusing
-  // that at the parser is the point; it is not a body any client sends.
-  //
-  // The two numbers — this and HISTORY_LIMITS.MAX_TOTAL_CHARS — are ONE
-  // decision. Raising either without the other either 413s legitimate saves or
-  // re-opens the gap this limit exists to close, which is admitting the
-  // audio-sized bodies the global limit is sized for.
-  app.use('/conversations', json({ limit: '1.5mb' }));
+  app.use(
+    '/conversations',
+    json({ limit: CONVERSATIONS_JSON_BODY_LIMIT_BYTES }),
+  );
 
   // The recording upload, and it does NOT widen the ceiling above.
   //

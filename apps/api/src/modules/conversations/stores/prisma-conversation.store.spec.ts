@@ -340,6 +340,26 @@ describe('PrismaConversationStore', () => {
       expect(page.conversations[0]?.conversationId).toBe('conv-1');
     });
 
+    it('drops a row naming a language this registry does not know, keeping the rest', async () => {
+      // A code added, written under, then rolled back: two codes, so the
+      // direction would concatenate happily, but the client's page schema
+      // rejects the whole page over one unknown enum value.
+      const store = storeListing([
+        row({
+          id: 'cuid-orphan',
+          clientId: 'conv-orphan',
+          languages: ['ja', 'en'],
+        }),
+        row(),
+      ]);
+
+      const page = await store.list('owner-1', { limit: 30 });
+
+      expect(page.conversations.map((c) => c.conversationId)).toEqual([
+        'conv-1',
+      ]);
+    });
+
     it('lists every row when none are corrupt', async () => {
       const store = storeListing([
         row(),
@@ -349,6 +369,92 @@ describe('PrismaConversationStore', () => {
       const page = await store.list('owner-1', { limit: 30 });
 
       expect(page.conversations).toHaveLength(2);
+    });
+  });
+
+  describe('get', () => {
+    /** A turn row shaped the way `get`'s own `select` asks for it. */
+    const turn = (over: Record<string, unknown> = {}) => ({
+      position: 0,
+      speakerRole: 'speaker_a',
+      speakerLabel: null,
+      sourceText: 'xin chào',
+      displayText: null,
+      sourceLanguages: ['vi'],
+      translations: { en: 'hello' },
+      offsetMs: 0,
+      ...over,
+    });
+
+    const row = (over: Record<string, unknown> = {}) => ({
+      clientId: 'conv-1',
+      languages: ['vi', 'en'],
+      startedAt: new Date('2026-09-17T00:00:00.000Z'),
+      endedAt: new Date('2026-09-17T00:01:00.000Z'),
+      audioOffsetMs: null,
+      audioDurationMs: null,
+      minutes: null,
+      turns: [turn()],
+      ...over,
+    });
+
+    function storeGetting(found: unknown) {
+      const findUnique = vi.fn().mockResolvedValue(found);
+      const prisma = {
+        conversation: { findUnique },
+      } as unknown as PrismaService;
+      return new PrismaConversationStore(prisma);
+    }
+
+    it('answers not-found for a languages column the list would drop', async () => {
+      // The same corrupt row must not be a dropped card on one route and a
+      // 500 on the other.
+      await expect(
+        storeGetting(row({ languages: ['vi'] })).get('owner-1', 'conv-1'),
+      ).resolves.toBeNull();
+    });
+
+    it('answers not-found for a conversation naming an unknown language', async () => {
+      await expect(
+        storeGetting(row({ languages: ['ja', 'en'] })).get('owner-1', 'conv-1'),
+      ).resolves.toBeNull();
+    });
+
+    it('drops translation keys this registry does not know, keeping the rest', async () => {
+      const conversation = await storeGetting(
+        row({
+          turns: [turn({ translations: { en: 'hello', ja: 'こんにちは' } })],
+        }),
+      ).get('owner-1', 'conv-1');
+
+      expect(conversation?.turns[0]?.translations).toEqual({ en: 'hello' });
+      expect(conversation?.turns[0]?.targetText).toBe('hello');
+    });
+
+    it('drops only the turn whose source language cannot be read', async () => {
+      const conversation = await storeGetting(
+        row({
+          turns: [
+            turn({ position: 0, sourceLanguages: ['ja'], translations: {} }),
+            turn({ position: 1 }),
+          ],
+        }),
+      ).get('owner-1', 'conv-1');
+
+      expect(conversation?.turns.map((t) => t.position)).toEqual([1]);
+      expect(conversation?.turnCount).toBe(1);
+    });
+
+    it('reads a well-formed conversation through unchanged', async () => {
+      const conversation = await storeGetting(row()).get('owner-1', 'conv-1');
+
+      expect(conversation?.languages).toEqual(['vi', 'en']);
+      expect(conversation?.direction).toBe('vi_to_en');
+      expect(conversation?.turns[0]).toMatchObject({
+        sourceLanguages: ['vi'],
+        translations: { en: 'hello' },
+        targetText: 'hello',
+      });
     });
   });
 });

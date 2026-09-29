@@ -1,9 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+  conversationLanguagesSchema,
   escapeLikePattern,
+  languageCodeSchema,
   legacyDirectionOf,
   normalizeForSearch,
   primaryTranslation,
+  sourceLanguagesSchema,
   type Conversation,
   type ConversationSummary,
   type ConversationTurn,
@@ -364,8 +367,22 @@ export class PrismaConversationStore implements ConversationStore {
     });
     if (!row) return null;
 
-    const languages = row.languages as LanguageCode[];
-    const turns = row.turns.map((turn) => toTurn(turn, languages));
+    // Degrades exactly as `list` does for the same row: a `languages` column
+    // this registry cannot read — a code added and later rolled back, or a
+    // shape the write side never stores — is a corrupt row, not a request
+    // problem, so it answers "not found" with the same warn rather than a
+    // masked 500, and the two routes never disagree about whether it exists.
+    const languages = conversationLanguagesSchema.safeParse(row.languages);
+    if (!languages.success) {
+      this.logger.warn(
+        `answering not-found for conversation ${row.clientId}: ` +
+          unreadableLanguages(row.languages, languages.error.issues),
+      );
+      return null;
+    }
+    const turns = row.turns
+      .map((turn) => toTurn(turn, languages.data))
+      .filter((turn): turn is ConversationTurn => turn !== null);
     return {
       ...toSummary(row, turns.length, previewOf(turns), row.minutes),
       turns,
@@ -415,12 +432,14 @@ export class PrismaConversationStore implements ConversationStore {
     const page = rows.slice(0, query.limit);
     return {
       // Per-row, not a bare `.map`: `toSummary` throws on a `languages` column
-      // with fewer than two codes (`legacyDirectionOf`'s own contract), and the
-      // write side never stores one — reaching this is a corrupt row, not a
-      // request problem. Letting ONE such row throw out of `.map` would 500 the
-      // whole list for every other conversation this owner has; skipping it
-      // here costs that one card, and `get` still answers for it on its own
-      // route if a caller asks by id directly.
+      // the registry schema rejects — fewer than two codes, a repeat, or a code
+      // this build does not know (added, written under, then rolled back). The
+      // write side never stores the first two, so reaching this is a corrupt or
+      // orphaned row, not a request problem. Letting ONE such row through would
+      // fail the client's parse of the whole page for every other conversation
+      // this owner has, and letting it throw out of `.map` would 500 it;
+      // skipping it here costs that one card. `get` answers not-found for the
+      // same row, so the two routes agree.
       conversations: page
         .map((row) => {
           try {
@@ -545,11 +564,21 @@ export class PrismaConversationStore implements ConversationStore {
 function toTurn(
   row: TurnRow,
   languages: readonly LanguageCode[],
-): ConversationTurn {
-  const sourceLanguages = row.sourceLanguages as LanguageCode[];
-  const translations = row.translations as Partial<
-    Record<LanguageCode, string>
-  >;
+): ConversationTurn | null {
+  // Validated here rather than cast: a registry code added, written under and
+  // later rolled back would otherwise reach the client, whose detail schema
+  // rejects the WHOLE conversation over one unknown key. Unknown codes are
+  // dropped; a turn left with no readable source language at all cannot be
+  // attributed or translated, so it costs that one turn, logged.
+  const sourceLanguages = row.sourceLanguages.filter(isLanguageCode);
+  if (!sourceLanguagesSchema.safeParse(sourceLanguages).success) {
+    logger.warn(
+      `dropping turn ${row.position} from a conversation read: unreadable ` +
+        `sourceLanguages ${JSON.stringify(row.sourceLanguages)}`,
+    );
+    return null;
+  }
+  const translations = readableTranslations(row.translations, row.position);
   return {
     position: row.position,
     speakerRole: row.speakerRole as SpeakerRole,
@@ -612,7 +641,13 @@ function toSummary(
   preview: string,
   minutes: MinutesPresence,
 ): ConversationSummary {
-  const languages = row.languages as LanguageCode[];
+  // Throws rather than casts, so `list`'s per-row catch drops the one card the
+  // client could not parse instead of the client rejecting the whole page.
+  const parsed = conversationLanguagesSchema.safeParse(row.languages);
+  if (!parsed.success) {
+    throw new Error(unreadableLanguages(row.languages, parsed.error.issues));
+  }
+  const languages = parsed.data;
   return {
     conversationId: row.clientId,
     // Derived, never stored — see `legacyDirectionOf`'s own docblock for why
@@ -625,6 +660,63 @@ function toSummary(
     preview,
     hasMinutes: minutes !== null,
   };
+}
+
+/**
+ * Logs the read-side drops made by the module-level mappers below; the class
+ * keeps its own instance for the paths it handles itself.
+ */
+const logger = new Logger(PrismaConversationStore.name);
+
+function isLanguageCode(code: string): code is LanguageCode {
+  return languageCodeSchema.safeParse(code).success;
+}
+
+/** Why a stored `languages` column was refused, for the warn that drops it. */
+function unreadableLanguages(
+  languages: unknown,
+  issues: readonly { path: PropertyKey[]; message: string }[],
+): string {
+  const reason = issues
+    .map(
+      (issue) =>
+        `${issue.path.map(String).join('.') || '(root)'} ${issue.message}`,
+    )
+    .join('; ');
+  return `unreadable languages ${JSON.stringify(languages)}: ${reason}`;
+}
+
+/**
+ * A stored `translations` JSONB value, narrowed to the entries this registry
+ * can name. Postgres accepts any JSON here, so an entry keyed by an unknown
+ * (rolled-back) code, or whose value is not a string, is dropped with a warn
+ * rather than carried to a client whose schema would reject the whole turn.
+ */
+function readableTranslations(
+  raw: Prisma.JsonValue,
+  position: number,
+): Partial<Record<LanguageCode, string>> {
+  const translations: Partial<Record<LanguageCode, string>> = {};
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    logger.warn(
+      `turn ${position}: translations is not an object, reading it as empty`,
+    );
+    return translations;
+  }
+  const dropped: string[] = [];
+  for (const [code, text] of Object.entries(raw)) {
+    if (isLanguageCode(code) && typeof text === 'string') {
+      translations[code] = text;
+    } else {
+      dropped.push(code);
+    }
+  }
+  if (dropped.length > 0) {
+    logger.warn(
+      `turn ${position}: dropping unreadable translations ${dropped.join(', ')}`,
+    );
+  }
+  return translations;
 }
 
 /** The first block's text, as the user read it. */

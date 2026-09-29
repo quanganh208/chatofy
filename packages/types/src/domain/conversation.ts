@@ -106,7 +106,10 @@ export type ConversationTurn = z.infer<typeof conversationTurnSchema>;
  * so for an ordinary single-source turn this is simply "the other one". A mixed
  * turn (several `sourceLanguages`) has no single right answer either way;
  * picking the conversation's first uncovered language keeps the choice
- * deterministic rather than undefined.
+ * deterministic rather than undefined. When the turn covers EVERY declared
+ * language (always the case for a mixed turn in a two-language conversation),
+ * the pick falls back to the first declared language with a non-empty
+ * translation.
  *
  * Shared by two callers that must agree byte-for-byte: `PrismaConversationStore`
  * uses it to fill the DROPPED `targetText` column's replacement on every read,
@@ -127,7 +130,14 @@ export function primaryTranslation(
   languages: readonly LanguageCode[],
 ): string {
   const target = languages.find((code) => !turn.sourceLanguages.includes(code));
-  return target === undefined ? '' : (turn.translations[target] ?? '');
+  if (target !== undefined) return turn.translations[target] ?? '';
+  // Every declared language was spoken in this turn, so there is no uncovered
+  // one — but a mixed turn is translated into the whole set, sources included,
+  // so the map normally holds a rendering for each. Showing nothing would read
+  // as a lost translation; the first declared language that has one is the
+  // same deterministic pick, made among what was actually stored.
+  const rendered = languages.find((code) => (turn.translations[code] ?? '') !== '');
+  return rendered === undefined ? '' : (turn.translations[rendered] ?? '');
 }
 
 /**

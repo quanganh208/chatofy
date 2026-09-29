@@ -258,6 +258,64 @@ describe('saveConversationRequestSchema', () => {
       expect(saveConversationRequestSchema.safeParse(legacyBody).success).toBe(true);
     });
 
+    it('refuses a single-source turn whose speaker role contradicts its language', () => {
+      // `speaker_a` is the registry-first language's side, so an English turn
+      // labelled `speaker_a` would read one way through `speakerRole` and
+      // another through `sourceLanguages`.
+      const parsed = saveConversationRequestSchema.safeParse(
+        body([
+          turn({
+            speakerRole: 'speaker_a',
+            sourceLanguages: ['en'],
+            translations: { vi: 'xin chào' },
+            targetText: 'xin chào',
+          }),
+        ]),
+      );
+      expect(parsed.success).toBe(false);
+      expect(parsed.error?.issues.map((issue) => issue.path)).toContainEqual([
+        'turns',
+        0,
+        'speakerRole',
+      ]);
+    });
+
+    it('ties the role to the registry order, not the order the conversation declared', () => {
+      // An en-first conversation still has Vietnamese as `speaker_a`.
+      const enFirst = { ...body([]), direction: 'en_to_vi', languages: ['en', 'vi'] };
+      const english = turn({
+        speakerRole: 'speaker_b',
+        sourceLanguages: ['en'],
+        translations: { vi: 'xin chào' },
+        targetText: 'xin chào',
+      });
+      expect(
+        saveConversationRequestSchema.safeParse({ ...enFirst, turns: [english] }).success,
+      ).toBe(true);
+      expect(
+        saveConversationRequestSchema.safeParse({
+          ...enFirst,
+          turns: [{ ...english, speakerRole: 'speaker_a' }],
+        }).success,
+      ).toBe(false);
+    });
+
+    it('does not tie a mixed turn to either role', () => {
+      for (const speakerRole of ['speaker_a', 'speaker_b']) {
+        expect(
+          saveConversationRequestSchema.safeParse(
+            body([
+              turn({
+                speakerRole,
+                sourceLanguages: ['vi', 'en'],
+                translations: { vi: 'ok', en: 'ok' },
+              }),
+            ]),
+          ).success,
+        ).toBe(true);
+      }
+    });
+
     it('still accepts what apps/web sends today: languages plus every turn field', () => {
       expect(saveConversationRequestSchema.safeParse(body([turn()])).success).toBe(true);
     });
