@@ -6,6 +6,7 @@ import {
   type TranslationDirection,
 } from '@chatofy/types';
 import { TurnSession } from './turn-session';
+import { planForDirection } from './turn-language-plan';
 import { MAX_TURN_SECONDS } from './turn-audio';
 
 const SAMPLE_RATE = 16000;
@@ -63,16 +64,20 @@ describe('TurnSession', () => {
       });
     });
 
-    // `TurnSessionDeps.identifier` is a real policy every turn runs, not a
-    // test-only branch — this is what proves the seam is actually wired, not
-    // merely declared on the interface.
-    it('plans a fan-out turn when the identifier reports several sources', () => {
+    // The turn runs the plan its caller decided rather than deriving its own:
+    // that is what keeps the service's refusal check and the running turn
+    // reading the same plan.
+    it('runs the plan it was handed instead of re-deriving one', () => {
+      const languages = planForDirection('vi_to_en', {
+        identify: () => ['vi', 'en'],
+      });
       const session = new TurnSession(
         { direction: 'vi_to_en', voiceGender: 'female' },
         undefined,
-        { identifier: { identify: () => ['vi', 'en'] } },
+        { languages },
       );
 
+      expect(session.languages).toBe(languages);
       expect(session.languages.targets).toEqual(['vi', 'en']);
       expect(session.languages.spoken).toBe('vi');
     });

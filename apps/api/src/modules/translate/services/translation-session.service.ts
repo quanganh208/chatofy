@@ -6,7 +6,6 @@ import {
   type OnModuleDestroy,
 } from '@nestjs/common';
 import {
-  conversationLanguagesOf,
   type AudioFrame,
   type ClientTurnMetrics,
   type LanguageCode,
@@ -51,7 +50,7 @@ import {
   LANGUAGE_IDENTIFIER,
   type LanguageIdentifier,
 } from '../session/language-identifier';
-import { planTurnLanguages } from '../session/turn-language-plan';
+import { planForDirection } from '../session/turn-language-plan';
 import { TurnTimeline, type ClauseDelivery } from '../session/turn-timeline';
 import type { StreamSocket } from '../session/stream-socket';
 import { LivePreview } from '../session/live-preview';
@@ -198,16 +197,13 @@ export class TranslationSessionService implements OnModuleDestroy {
     // Checked before a turn slot is spent on it: a language no configured
     // engine serves cannot be answered whatever else this turn holds. `null`
     // from either sidecar means "not known right now" and refuses nothing —
-    // see `SpeechLanguageSupport`. Computed the same way `TurnSession` computes
-    // its own `languages` below, from the same identifier — a pure,
-    // deterministic derivation, so doing it twice costs nothing but is what
-    // lets this refusal happen before a turn (and its budget, its live-
-    // translation trigger) is even built.
-    const conversation = conversationLanguagesOf(options.direction);
-    const plan = planTurnLanguages(
-      conversation,
-      this.identifier.identify({ declared: conversation[0] }),
-    );
+    // see `SpeechLanguageSupport`. The plan is decided exactly once, here, and
+    // handed to the `TurnSession` below, so the turn that runs is the turn this
+    // check approved — even once the identifier stops being a pure function of
+    // the declared language. Deciding it before the turn exists is what lets
+    // this refusal happen before a turn (and its budget, its live-translation
+    // trigger) is even built.
+    const plan = planForDirection(options.direction, this.identifier);
     const languageRefusal = this.languageSupport.refusal({
       recognition: plan.recognition,
       spoken: plan.spoken,
@@ -230,7 +226,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         infer: true,
       }),
       userId,
-      identifier: this.identifier,
+      languages: plan,
     });
     this.registry.open(socket, session);
     const sessionId = session.sessionId;

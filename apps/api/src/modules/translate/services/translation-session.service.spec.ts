@@ -3084,6 +3084,27 @@ describe('language fan-out (through the real pipeline)', () => {
     });
   });
 
+  it('asks the identifier once per turn, and runs the plan the language check saw', async () => {
+    const translate = vi.fn(({ targetLanguage }: { targetLanguage: string }) =>
+      Promise.resolve({ text: `<${targetLanguage}>` }),
+    );
+    // Answers differently on a second call, so a turn that re-derived its own
+    // plan would translate into one target rather than the two approved.
+    const identify = vi
+      .fn<LanguageIdentifier['identify']>()
+      .mockReturnValueOnce(['vi', 'en'])
+      .mockReturnValue(['vi']);
+    const { service } = realPipelineService({ identify }, translate);
+    const socket = new FakeSocket();
+    const sessionId = open(service, socket);
+    service.pushFrame(socket, frame({ sessionId }));
+
+    await service.end(socket);
+
+    expect(identify).toHaveBeenCalledTimes(1);
+    expect(translate).toHaveBeenCalledTimes(2);
+  });
+
   it('makes exactly one translation request for the default, single-target turn', async () => {
     const translate = vi.fn().mockResolvedValue({ text: 'hello' });
     const { service } = realPipelineService(

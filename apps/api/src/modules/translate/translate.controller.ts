@@ -17,7 +17,6 @@ import type { TtsVoiceCatalog } from '@chatofy/ai-providers';
 import {
   DEFAULT_TRANSLATION_DIRECTION,
   LANGUAGE_CODES,
-  conversationLanguagesOf,
   directionLanguages,
   languageCodeSchema,
   type TranslateResponse,
@@ -33,7 +32,7 @@ import {
   LANGUAGE_IDENTIFIER,
   type LanguageIdentifier,
 } from './session/language-identifier';
-import { planTurnLanguages } from './session/turn-language-plan';
+import { planForDirection } from './session/turn-language-plan';
 
 /**
  * The language `voices` answers for when the caller names none.
@@ -94,14 +93,12 @@ export class TranslateController {
         'audioBase64 did not decode to any audio bytes',
       );
     }
-    // Same identifier and plan the WS path builds in
+    // Same helper and identifier the WS path uses in
     // `TranslationSessionService.start`, so the two transports never disagree
     // about what a given direction is decided to mean.
-    const direction = body.direction ?? DEFAULT_TRANSLATION_DIRECTION;
-    const conversation = conversationLanguagesOf(direction);
-    const plan = planTurnLanguages(
-      conversation,
-      this.identifier.identify({ declared: conversation[0] }),
+    const plan = planForDirection(
+      body.direction ?? DEFAULT_TRANSLATION_DIRECTION,
+      this.identifier,
     );
     // Checked before any provider call is spent on a language no configured
     // engine serves. REST always returns synthesized audio, so `voiceOutput`

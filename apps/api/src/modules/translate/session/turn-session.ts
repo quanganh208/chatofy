@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import {
-  conversationLanguagesOf,
   speakerRoleFor,
   type AudioFrame,
   type SessionOptions,
@@ -18,18 +17,15 @@ import { StreamingCommitter } from '../audio/streaming-committer';
 import type { TranslatedTurnText } from '../services/pipeline-translator.service';
 import { MAX_TURN_SECONDS, TurnAudio } from './turn-audio';
 import { TurnSpeculation } from './turn-speculation';
+import { DeclaredLanguageIdentifier } from './language-identifier';
 import {
-  DeclaredLanguageIdentifier,
-  type LanguageIdentifier,
-} from './language-identifier';
-import {
-  planTurnLanguages,
+  planForDirection,
   type TurnLanguagePlan,
   type TranslationMap,
 } from './turn-language-plan';
 
 /**
- * `TurnSessionDeps.identifier`'s default when nobody supplies one.
+ * The identifier behind `TurnSessionDeps.languages`'s default plan.
  *
  * One shared instance rather than one per turn: `DeclaredLanguageIdentifier`
  * holds no state, so there is nothing a fresh instance would buy.
@@ -70,14 +66,16 @@ export interface TurnSessionDeps {
   commitChars?: number;
   userId?: string;
   /**
-   * Decides which language(s) this turn was actually spoken in.
+   * The language plan this turn runs, already decided by the caller.
    *
-   * Defaults to {@link DeclaredLanguageIdentifier} — a real policy every turn
-   * runs, not a branch only a test takes, in the same spirit as `budget`
-   * above: a turn built without one still goes through the identifier
-   * interface, just with the trivial implementation.
+   * `TranslationSessionService.start` builds it once — the same plan its
+   * `language_unavailable` check read — and hands it here, so the turn can
+   * never run a plan the refusal check did not see. Defaults to
+   * `planForDirection` with {@link DeclaredLanguageIdentifier}, in the same
+   * spirit as `budget` above: a turn built without one still runs the real
+   * derivation, just with the trivial identifier.
    */
-  identifier?: LanguageIdentifier;
+  languages?: TurnLanguagePlan;
 }
 
 /** One turn of speech: what has been heard, and what may still be done to it. */
@@ -111,8 +109,8 @@ export class TurnSession {
   /**
    * What this turn is decided to do, language-wise: which language(s) it was
    * spoken in, every language it must be translated into, and which of those
-   * is recognised from / spoken back as. Built once, in the constructor, from
-   * `direction` and the identifier this turn was given.
+   * is recognised from / spoken back as. Decided by the caller before the
+   * turn exists (see `TurnSessionDeps.languages`), never re-derived here.
    */
   readonly languages: TurnLanguagePlan;
   /** Which voice speaks this turn's translation, for every clause of it. */
@@ -190,12 +188,8 @@ export class TurnSession {
     deps: TurnSessionDeps = {},
   ) {
     this.direction = options.direction;
-    const conversation = conversationLanguagesOf(options.direction);
-    const identifier = deps.identifier ?? DEFAULT_IDENTIFIER;
-    this.languages = planTurnLanguages(
-      conversation,
-      identifier.identify({ declared: conversation[0] }),
-    );
+    this.languages =
+      deps.languages ?? planForDirection(options.direction, DEFAULT_IDENTIFIER);
     this.voiceGender = options.voiceGender;
     this.hints = options.hints;
     this.voiceOutput = options.voiceOutput ?? true;

@@ -6,7 +6,8 @@ export const LANGUAGE_IDENTIFIER = Symbol('LANGUAGE_IDENTIFIER');
 /**
  * Decides which language(s) a turn was actually spoken in.
  *
- * Called once per turn — every WS turn (`TurnSession`) and every REST call
+ * Called once per turn — every WS turn (`TranslationSessionService.start`,
+ * which hands the resulting plan to `TurnSession`) and every REST call
  * (`TranslateController`) — with the language the CLIENT declared for the
  * conversation, not with audio. Today's only implementation trusts that
  * declaration outright; a real identifier would read the turn's audio instead,
@@ -25,9 +26,9 @@ export interface LanguageIdentifier {
 /**
  * Trusts the client's declared language outright.
  *
- * The only implementation today, and the DEFAULT `TurnSessionDeps.identifier`
- * (see `turn-session.ts`) — a real policy every turn runs, not a branch only a
- * test takes. A turn is never reported as mixed-language until a real
+ * The only implementation today, and the fallback `TurnSession` plans with
+ * when no plan is handed in (see `turn-session.ts`) — a real policy every turn
+ * runs, not a branch only a test takes. A turn is never reported as mixed-language until a real
  * identifier replaces this one.
  */
 export class DeclaredLanguageIdentifier implements LanguageIdentifier {

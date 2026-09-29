@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { planTurnLanguages } from './turn-language-plan';
+import { describe, expect, it, vi } from 'vitest';
+import { planForDirection, planTurnLanguages } from './turn-language-plan';
 
 describe('planTurnLanguages', () => {
   it('vi_to_en: recognises vi, targets en, speaks en', () => {
@@ -30,5 +30,16 @@ describe('planTurnLanguages', () => {
     expect(plan.targets).toEqual(['vi', 'en']);
     expect(plan.recognition).toBe('vi');
     expect(plan.spoken).toBe('vi');
+  });
+});
+
+describe('planForDirection', () => {
+  it('asks the identifier about the declared source and plans from its answer', () => {
+    const identify = vi.fn(() => ['en', 'vi'] as const);
+
+    const plan = planForDirection('en_to_vi', { identify });
+
+    expect(identify).toHaveBeenCalledExactlyOnceWith({ declared: 'en' });
+    expect(plan).toEqual(planTurnLanguages(['en', 'vi'], ['en', 'vi']));
   });
 });

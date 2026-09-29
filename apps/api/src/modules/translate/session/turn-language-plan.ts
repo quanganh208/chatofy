@@ -1,4 +1,10 @@
-import { translationTargets, type LanguageCode } from '@chatofy/types';
+import {
+  conversationLanguagesOf,
+  translationTargets,
+  type LanguageCode,
+  type TranslationDirection,
+} from '@chatofy/types';
+import type { LanguageIdentifier } from './language-identifier';
 
 /**
  * A value per target language, for whatever the pipeline produced against
@@ -73,4 +79,25 @@ export function planTurnLanguages(
     // non-empty subset of it — `translationTargets` cannot empty it out.
     spoken: targets[0]!,
   };
+}
+
+/**
+ * Decide a turn's language plan from the direction the client declared.
+ *
+ * The ONE place a transport turns a direction into a plan: the WS path calls
+ * it once per turn in `TranslationSessionService.start` (and hands the result
+ * to `TurnSession`), the REST path once per request. Keeping the derivation
+ * here is what keeps the refusal check and the turn that actually runs reading
+ * the same plan once an identifier is no longer a pure function of the
+ * declared language.
+ */
+export function planForDirection(
+  direction: TranslationDirection,
+  identifier: LanguageIdentifier,
+): TurnLanguagePlan {
+  const conversation = conversationLanguagesOf(direction);
+  return planTurnLanguages(
+    conversation,
+    identifier.identify({ declared: conversation[0] }),
+  );
 }
