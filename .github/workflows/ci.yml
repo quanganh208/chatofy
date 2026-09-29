@@ -94,7 +94,7 @@ jobs:
 
       # Root scripts have no package of their own for turbo to find.
       - name: Test root scripts
-        run: node --test scripts/
+        run: node --test scripts/*.test.mjs
 
   # The api's e2e suites are NOT covered by the job above: `pnpm turbo run test`
   # reaches api's `test` script, whose jest rootDir is `src`, so nothing under
