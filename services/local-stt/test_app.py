@@ -119,6 +119,91 @@ def test_an_engine_that_cannot_bias_is_handed_nothing(
     assert seen["hotwords"] == ""
 
 
+# ── Speech gate ──────────────────────────────────────────────────────────────
+# `min_speech_ms` is opt-in per request: absent, the engine runs exactly as it
+# always did; set, speech is measured first and a clip under the floor never
+# reaches the engine at all.
+
+
+def test_min_speech_ms_absent_skips_the_gate(client, webm_audio, monkeypatch):
+    from app import registry, speech_gate
+
+    engine = registry.get("vi")
+    gate_called = {"count": 0}
+    engine_called = {"count": 0}
+
+    original_speech_ms = speech_gate.speech_ms
+
+    def spy_speech_ms(samples):
+        gate_called["count"] += 1
+        return original_speech_ms(samples)
+
+    def capture(samples, hotwords=""):
+        engine_called["count"] += 1
+        return "ok"
+
+    monkeypatch.setattr(speech_gate, "speech_ms", spy_speech_ms)
+    monkeypatch.setattr(engine, "transcribe", capture)
+
+    res = client.post(
+        "/transcribe",
+        files={"file": ("audio.webm", webm_audio, "audio/webm")},
+        data={"language": "vi"},
+    )
+
+    assert res.status_code == 200
+    assert gate_called["count"] == 0
+    assert engine_called["count"] == 1
+    assert "speechMs" not in res.json()
+
+
+def test_min_speech_ms_gates_a_non_speech_clip(client, webm_audio, monkeypatch):
+    # The fixture is a synthetic sweep, not speech — Silero scores it well
+    # under the floor (see test_silero_speech.py), which is what this test
+    # needs: a clip the gate refuses without ever reaching the engine.
+    from app import registry
+
+    engine = registry.get("vi")
+    engine_called = {"count": 0}
+
+    def capture(samples, hotwords=""):
+        engine_called["count"] += 1
+        return "should not be reached"
+
+    monkeypatch.setattr(engine, "transcribe", capture)
+
+    res = client.post(
+        "/transcribe",
+        files={"file": ("audio.webm", webm_audio, "audio/webm")},
+        data={"language": "vi", "min_speech_ms": "300"},
+    )
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["text"] == ""
+    assert engine_called["count"] == 0
+    assert isinstance(body["speechMs"], int)
+    assert body["speechMs"] < 300
+
+
+def test_vad_busy_gives_503(client, monkeypatch):
+    from app import speech_gate
+    from engines.base import SttBusyError
+
+    def busy(samples):
+        raise SttBusyError("silero VAD saturated: no detector within 2000ms")
+
+    monkeypatch.setattr(speech_gate, "speech_ms", busy)
+
+    res = client.post(
+        "/transcribe",
+        files={"file": ("audio.webm", make_webm_opus(1.0), "audio/webm")},
+        data={"language": "vi", "min_speech_ms": "300"},
+    )
+
+    assert res.status_code == 503
+
+
 def test_unsupported_language_400(client, webm_audio):
     res = client.post(
         "/transcribe",
