@@ -13,16 +13,21 @@ import psutil
 from .text_normalize import normalize_text
 
 
-def corpus_wer(references: list[str], hypotheses: list[str]) -> float:
-    """Corpus-level WER over normalized ref/hyp pairs (0.0–1.0+)."""
+def corpus_wer(references: list[str], hypotheses: list[str], language: str | None = None) -> float:
+    """Corpus-level WER over normalized ref/hyp pairs (0.0–1.0+).
+
+    `language="vi"` applies spoken-form number normalization to both sides
+    before comparing (see `text_normalize.normalize_text`); default `None`
+    leaves numbers as written, unchanged from before.
+    """
     if len(references) != len(hypotheses):
         raise ValueError(f"ref/hyp count mismatch: {len(references)} vs {len(hypotheses)}")
-    refs = [normalize_text(r) for r in references]
-    hyps = [normalize_text(h) for h in hypotheses]
+    refs = [normalize_text(r, language=language) for r in references]
+    hyps = [normalize_text(h, language=language) for h in hypotheses]
     return jiwer.wer(refs, hyps)
 
 
-def corpus_cer(references: list[str], hypotheses: list[str]) -> float:
+def corpus_cer(references: list[str], hypotheses: list[str], language: str | None = None) -> float:
     """Corpus-level CER over normalized ref/hyp pairs (0.0–1.0+).
 
     Shares `normalize_text` with `corpus_wer`, so the two metrics describe the
@@ -38,8 +43,8 @@ def corpus_cer(references: list[str], hypotheses: list[str]) -> float:
     """
     if len(references) != len(hypotheses):
         raise ValueError(f"ref/hyp count mismatch: {len(references)} vs {len(hypotheses)}")
-    refs = [normalize_text(r) for r in references]
-    hyps = [normalize_text(h) for h in hypotheses]
+    refs = [normalize_text(r, language=language) for r in references]
+    hyps = [normalize_text(h, language=language) for h in hypotheses]
     return jiwer.cer(refs, hyps)
 
 

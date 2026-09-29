@@ -23,3 +23,15 @@ def test_collapses_whitespace_and_underscores():
 
 def test_keeps_digits():
     assert normalize_text("Phòng 302!") == "phòng 302"
+
+
+def test_language_none_default_is_unaffected_by_vi_number_normalization():
+    # `language` defaults to None; a caller that never passes it keeps the
+    # exact historical behavior, so no recorded WER shifts silently.
+    assert normalize_text("Phòng 302!") == normalize_text("Phòng 302!", language=None)
+
+
+def test_language_vi_normalizes_spoken_number_variants_to_the_same_form():
+    assert normalize_text("hai mươi lăm", language="vi") == normalize_text(
+        "hai mươi năm", language="vi"
+    )

@@ -236,25 +236,61 @@ export interface TurnSplit {
   /** From the first byte of the parent turn's audio — which includes its pre-roll. */
   startMs: number;
   endMs: number;
+  /**
+   * Whether the SERVER says this piece's span reaches the turn's own end —
+   * see {@link pieceCapture}. Undefined from a server that predates the
+   * field, which is the one case {@link pieceCapture} still falls back to a
+   * timestamp guess for.
+   */
+  reachesEnd?: boolean;
 }
 
 type SplitsBySession = Record<string, TurnSplit>;
 
 /**
+ * Fallback only, for a server too old to send `split.reachesEnd` — see
+ * {@link pieceCapture}. How close a piece's own end must land to the parent's
+ * capture end to count as the LAST piece. `audioStart + split.endMs` and
+ * `parent.closedAt` are two readings of the same instant (the server's audio
+ * buffer, converted to wall time through the same `openedAt`/`preRollMs`), so
+ * they should agree exactly; this absorbs float-rounding and event-loop drift
+ * between the two derivations rather than describing a real gap — and that
+ * drift can exceed this on an ordinary turn if the main thread stalls between
+ * the piece opening and closing, which is why a current server settles the
+ * question exactly instead.
+ */
+const PIECE_CAPTURE_END_TOLERANCE_MS = 50;
+
+/**
  * A piece's capture record, from its parent's.
  *
- * The first piece keeps the parent's opening, so its timestamp still points at
- * the first syllable exactly as an unsplit turn's would. Later pieces open where
- * they start in the parent's audio, which begins `preRollMs` before `openedAt`.
+ * `first` comes from where the piece SITS in the parent's audio — `startMs
+ * === 0` — which is exact: the server never renumbers a span's own start.
+ * `last` prefers the SERVER'S OWN ANSWER, `split.reachesEnd`, over guessing
+ * from wall-clock timestamps: the server knows exactly which span reached the
+ * turn's duration, while `audioStart + split.endMs` and `parent.closedAt` are
+ * two independent client-side derivations of the same instant that can drift
+ * apart by more than a frame. Falls back to the timestamp tolerance only for a
+ * server that predates the field. Neither reads `index`/`count` — the server
+ * may drop a piece that carried no speech (see `speaker-split-turn.ts`), so a
+ * surviving piece's position in the renumbered array no longer says where it
+ * sits in the turn: the first surviving piece after a dropped leading one
+ * does not open at the parent's `openedAt`, and the last surviving piece
+ * before a dropped trailing one does not run to the parent's `closedAt`.
  *
- * Only the last piece can continue into the next turn: the cuts between pieces
- * are a change of voice, never the length ceiling, so they must not merge back
- * into one block while their names are still pending.
+ * The piece that keeps the parent's opening has its timestamp point at the
+ * first syllable exactly as an unsplit turn's would. A piece that reaches the
+ * parent's end is the only one that can continue into the next turn — the
+ * cuts between pieces are a change of voice, never the length ceiling, so a
+ * piece that stopped short of that end must not inherit `cutForced` or merge
+ * back into the next block while its own name is still pending.
  */
 export function pieceCapture(parent: TurnCapture, split: TurnSplit): TurnCapture {
   const audioStart = parent.openedAt - (parent.preRollMs ?? 0);
-  const first = split.index === 0;
-  const last = split.index === split.count - 1;
+  const first = split.startMs === 0;
+  const last =
+    split.reachesEnd ??
+    Math.abs(audioStart + split.endMs - parent.closedAt) <= PIECE_CAPTURE_END_TOLERANCE_MS;
   return {
     cutForced: last ? parent.cutForced : false,
     openedAt: first ? parent.openedAt : audioStart + split.startMs,
@@ -947,13 +983,13 @@ export function turnKeyedTranscriptReducer(
           : { ...cleared.displays, [event.sessionId]: event.display };
       const appended = { ...cleared, turns: [...cleared.turns, event.segment], displays };
       if (!event.split) return appended;
-      const { parentSessionId, index, count, startMs, endMs } = event.split;
+      const { parentSessionId, index, count, startMs, endMs, reachesEnd } = event.split;
       return joinPieces(
         {
           ...appended,
           splits: {
             ...appended.splits,
-            [event.sessionId]: { parentSessionId, index, count, startMs, endMs },
+            [event.sessionId]: { parentSessionId, index, count, startMs, endMs, reachesEnd },
           },
         },
         parentSessionId,

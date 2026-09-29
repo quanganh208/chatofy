@@ -174,6 +174,12 @@ for (const [index, row] of rows.entries()) {
       // direction here: the prompt builder resolves the source side against the
       // direction it is given, which is the whole point of the keying.
       ...(glossary ? { hints: { glossary } } : {}),
+      // A row's own preceding utterances, exactly as `TranslationSession`
+      // carries them: the SAME provider that applies `needsPriorSpeech` to a
+      // live turn applies it here, so a row longer than the fragment gate is
+      // measured with no context regardless of what it carries — matching
+      // production rather than a harness-only shortcut around it.
+      ...(row.context ? { context: row.context } : {}),
     });
     hypothesis = result.text ?? '';
   } catch (err) {

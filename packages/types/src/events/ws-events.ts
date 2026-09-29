@@ -652,6 +652,20 @@ const serverTranscriptFinalSchema = z.object({
       count: z.number().int().min(2),
       startMs: z.number().int().nonnegative(),
       endMs: z.number().int().nonnegative(),
+      /**
+       * Whether this piece's span was the LAST one the server's plan cut — its
+       * `endMs` reaches the turn's own duration, not merely the highest `endMs`
+       * among the pieces that survived a drop.
+       *
+       * `index`/`count` cannot answer this: both are renumbered over the
+       * SURVIVING pieces, so a dropped trailing piece would otherwise leave the
+       * client guessing from wall-clock capture timestamps, which can drift by
+       * more than a frame under a stalled main thread. Optional so a server
+       * that predates this field (or a client reading an event a newer server
+       * sent before a rolling deploy finished) still parses; a client without
+       * it falls back to the timestamp guess.
+       */
+      reachesEnd: z.boolean().optional(),
     })
     .optional(),
 });

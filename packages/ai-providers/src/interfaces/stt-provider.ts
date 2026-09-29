@@ -12,6 +12,19 @@ export interface SttProviderConfig extends ProviderConfig {
 export interface SttTranscriptResult {
   text: string;
   language: LanguageCode;
+  /**
+   * How much of the audio the backend's own speech detector measured as
+   * speech, in ms — set only by a backend that ran one (the local sidecar,
+   * when `minSpeechMs` was passed). Undefined from a backend that has no such
+   * detector (ElevenLabs) or from a local sidecar that predates the field.
+   *
+   * This is what lets a caller tell "the gate refused this turn" from "the
+   * recognizer decoded and simply heard nothing": both produce an empty
+   * `text`, and only this field says which. See `NoSpeechDetectedException`
+   * in `apps/api/.../pipeline-translator.service.ts` for the one place the
+   * distinction changes behaviour.
+   */
+  speechMs?: number;
 }
 
 /** Streaming partial/final transcript event (future realtime path). */
@@ -37,6 +50,17 @@ export interface SttTranscribeOptions {
    * silent pass-through as the terms having been applied.
    */
   hotwords?: string[];
+  /**
+   * Silero speech floor, in ms, below which the backend should answer an empty
+   * transcript without decoding.
+   *
+   * Optional for the backend, exactly like {@link hotwords}: a provider that
+   * cannot gate on speech (ElevenLabs) ignores it rather than failing, and a
+   * caller must not read the silent pass-through as the floor having been
+   * applied. `0` or absent both mean "no floor" — the caller decides which of
+   * the two it sends.
+   */
+  minSpeechMs?: number;
 }
 
 /**

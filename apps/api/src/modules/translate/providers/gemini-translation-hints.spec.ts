@@ -208,6 +208,41 @@ describe('GeminiTranslationProvider — instruction rules', () => {
   });
 });
 
+// The Vietnamese-only ASR note lives inside rule 4, which sits AFTER the hints
+// paragraph in the instruction. Grading in `benchmarks/prompt-injection` keys
+// on that paragraph's wording, so a source-conditioned rule must not have
+// touched it — this proves the paragraph is unchanged whichever leg it rides.
+describe('GeminiTranslationProvider — hints paragraph unaffected by the vi ASR note', () => {
+  beforeEach(() => mockGenerateContentStream.mockReset());
+
+  const hintsParagraphFor = async (sourceLanguage: 'vi' | 'en') => {
+    mockGenerateContentStream.mockResolvedValue(oneChunk('hello'));
+    await new GeminiTranslationProvider({
+      apiKey: 'k',
+      models: ['m'],
+    }).translate({
+      text: sourceLanguage === 'vi' ? 'xin chào' : 'hello there',
+      sourceLanguage,
+      targetLanguage: sourceLanguage === 'vi' ? 'en' : 'vi',
+      hints: { topic: 'hotel check-in' },
+    });
+    const call = mockGenerateContentStream.mock.calls[0] as [
+      { config?: { systemInstruction?: string } },
+    ];
+    const instruction = call[0].config?.systemInstruction ?? '';
+    const start = instruction.indexOf('The message may also open with a');
+    const end = instruction.indexOf('Rules, in priority order:');
+    return instruction.slice(start, end);
+  };
+
+  it('is byte-identical with and without the vi-source note', async () => {
+    const withNote = await hintsParagraphFor('vi');
+    const withoutNote = await hintsParagraphFor('en');
+    expect(withNote).not.toBe('');
+    expect(withNote).toBe(withoutNote);
+  });
+});
+
 // What a language-keyed glossary does to the block, and to whom.
 //
 // The pairs are stored once and read from BOTH sides: the extension runs two

@@ -1,3 +1,4 @@
+import type { Logger } from '@nestjs/common';
 import type {
   SpeakerEmbeddingResult,
   TranslationHints,
@@ -14,6 +15,16 @@ import type {
 export interface TranslatedPiece extends Span {
   sourceText: string;
   translations: TranslationMap;
+  /**
+   * Whether this piece's span was the LAST one `planSpeakerSplit` cut — the
+   * one whose `endMs` reaches the turn's own `durationMs`, not merely the
+   * highest `endMs` among the pieces that survived being dropped.
+   *
+   * Carried through to the wire as `split.reachesEnd` so the client can place
+   * the piece exactly, without guessing from wall-clock timestamps — see
+   * `pieceCapture` in `packages/realtime-client/src/state/turn-keyed-transcript.ts`.
+   */
+  reachesEnd: boolean;
 }
 
 export interface SplitTurn {
@@ -28,17 +39,21 @@ export interface SplitTurn {
 
 /**
  * Transcribe, translate and embed each piece of a turn that was split between
- * two voices, or return null to fall back to the turn translated whole.
+ * two voices, or return null when nothing in it survives.
  *
  * Every piece is transcribed at once, then translated at once, so a split turn
  * costs about one extra round trip rather than one per piece. Each piece is
- * translated with the pieces before it as context, which is what the whole-turn
- * translation would have read them as.
+ * translated with the SURVIVING pieces before it as context, which is what the
+ * whole-turn translation would have read them as.
  *
- * A piece the recognizer hears nothing in means the cut went wrong somewhere —
- * it would leave a speaker with an empty line — so the split is abandoned rather
- * than shipped with a hole in it, before any translation is paid for. Errors
- * propagate; the caller falls back.
+ * A piece the recognizer hears nothing in — silence, or a music bed under the
+ * caller's speech floor — is dropped, along with its span and its wav, before
+ * anything past that point is paid for: no vector, no translation. This is a
+ * gate finding correctly that a piece holds nothing to attribute, not a hole in
+ * the split, so the survivors ship rather than the whole turn being abandoned
+ * on their account. Only when EVERY piece comes back empty is there nothing
+ * left to ship, and the caller falls back to the whole turn. Every other error
+ * still propagates for the caller to fall back on.
  */
 export async function translateSplitTurn(
   pipeline: Pick<
@@ -53,6 +68,10 @@ export async function translateSplitTurn(
     models?: string[];
     /** Finished utterances from earlier turns on this connection, oldest first. */
     context: string[];
+    /** Silero speech floor passed to each piece's own transcription. */
+    minSpeechMs?: number;
+    /** Logs which piece was dropped and how long it was — never its text. */
+    logger: Pick<Logger, 'warn'>;
   },
 ): Promise<SplitTurn | null> {
   const wavs = spans.map((span) =>
@@ -65,39 +84,69 @@ export async function translateSplitTurn(
         mimeType: 'audio/wav',
         language: options.plan.recognition,
         hints: options.hints,
+        minSpeechMs: options.minSpeechMs,
       }),
     ),
   );
-  if (sources.some((text) => !text.trim())) return null;
+
+  // The span whose `endMs` reaches the turn's `durationMs` — always the last
+  // one `planSpeakerSplit` produced, by construction. Read off the ORIGINAL
+  // plan, before any piece is dropped, so a dropped trailing piece cannot
+  // move which survivor is credited with reaching the end.
+  const lastSpanEndMs = spans[spans.length - 1]!.endMs;
+
+  const survivors = spans
+    .map((span, index) => ({
+      span,
+      wav: wavs[index]!,
+      source: sources[index]!,
+    }))
+    // A piece the recognizer heard nothing in is dropped on its TEXT alone —
+    // the same rule as before `speechMs` existed. `speechMs` decides the
+    // WHOLE-TURN fallback's banner (see `pipeline-translator.service.ts`);
+    // here every dropped piece already logs why, so there is no separate
+    // "gated vs empty" distinction worth making per piece.
+    .filter(({ span, source }, index) => {
+      if (source.text.trim()) return true;
+      options.logger.warn(
+        `speaker split: dropped piece ${index} (${span.endMs - span.startMs}ms), no speech heard`,
+      );
+      return false;
+    });
+  if (survivors.length === 0) return null;
 
   // Started once the split is certain, beside the translations. `embedSpeaker`
   // never rejects, so this cannot surface as an unhandled rejection.
   const vectors = Promise.all(
-    wavs.map((wav) =>
+    survivors.map(({ wav }) =>
       pipeline.embedSpeaker({ audio: wav, mimeType: 'audio/wav' }),
     ),
   );
   // Each piece is fanned out to every one of the turn's targets, same as the
   // whole-turn path — a split turn must not lose the languages a listener
-  // needs just because it also carried two voices.
+  // needs just because it also carried two voices. Context is the SURVIVING
+  // pieces before this one, in order — a dropped piece said nothing, so it
+  // cannot be context for the one after it.
+  const survivorTexts = survivors.map(({ source }) => source.text);
   const translations = await Promise.all(
-    sources.map((text, k) =>
+    survivorTexts.map((text, k) =>
       pipeline.translateAll({
         text,
         source: options.plan.recognition,
         targets: options.plan.targets,
         models: options.models,
         hints: options.hints,
-        context: [...options.context, ...sources.slice(0, k)],
+        context: [...options.context, ...survivorTexts.slice(0, k)],
       }),
     ),
   );
 
   return {
-    pieces: spans.map((span, k) => ({
+    pieces: survivors.map(({ span }, k) => ({
       ...span,
-      sourceText: sources[k]!,
+      sourceText: survivorTexts[k]!,
       translations: translations[k]!,
+      reachesEnd: span.endMs === lastSpanEndMs,
     })),
     vectors,
   };

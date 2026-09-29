@@ -23,6 +23,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
 from audio.decode import AudioTooLongError, DecodeError, decode_to_16k_mono  # noqa: E402
+from audio.silero_speech import SileroSpeechGate  # noqa: E402
 from audio.speech_duration import speech_duration_ms  # noqa: E402
 from engines.base import SttBusyError  # noqa: E402
 from engines.registry import (  # noqa: E402
@@ -35,18 +36,22 @@ from speaker.embedder import SpeakerEmbedder  # noqa: E402
 
 registry = EngineRegistry()
 embedder = SpeakerEmbedder()
+speech_gate = SileroSpeechGate()
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # Order matters and is not cosmetic: `load_all` runs the onnxruntime preload
-    # that must precede any `import sherpa_onnx`, and the extractor's load does
-    # import it. Reversed, the process aborts with no Python traceback.
+    # that must precede any `import sherpa_onnx`, and the extractor's and the
+    # gate's load both import it. Reversed, the process aborts with no Python
+    # traceback.
     registry.load_all()
     embedder.load()
+    speech_gate.load()
     try:
         yield
     finally:
+        speech_gate.unload()
         embedder.unload()
         registry.unload_all()
 
@@ -56,9 +61,11 @@ app = FastAPI(title="local-stt-sidecar", lifespan=lifespan)
 
 @app.get("/healthz")
 def healthz() -> JSONResponse:
-    # The extractor counts towards readiness. A sidecar reporting ok while it
-    # cannot embed would have callers discovering that one turn at a time.
-    ready = registry.ready and embedder.loaded
+    # The extractor and the speech gate both count towards readiness. A
+    # sidecar reporting ok while it cannot embed, or while `min_speech_ms`
+    # would 503 on the gate never having loaded, would have callers
+    # discovering that one turn at a time.
+    ready = registry.ready and embedder.loaded and speech_gate.loaded
     return JSONResponse(
         {
             "status": "ok" if ready else "loading",
@@ -81,6 +88,12 @@ def transcribe(
     # separates hotwords with "/", and a caller's term containing one would
     # silently become two terms instead of being rejected or escaped.
     hotwords: list[str] = Form(default=[]),
+    # 0 (the default) is today's path: no VAD call, no `speechMs` in the
+    # response, engine cost unchanged. Above 0, speech is measured FIRST and a
+    # clip under the floor returns empty text without ever reaching the
+    # engine — the caller decided the turn is not worth decoding, and paying
+    # for the decode anyway would defeat the point of asking.
+    min_speech_ms: int = Form(default=0),
 ) -> dict:
     if not registry.ready:
         raise HTTPException(status_code=503, detail="models not loaded")
@@ -98,6 +111,18 @@ def transcribe(
     except DecodeError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
 
+    speech_ms: int | None = None
+    if min_speech_ms > 0:
+        try:
+            speech_ms = speech_gate.speech_ms(samples)
+        except SttBusyError as err:
+            raise HTTPException(status_code=503, detail=str(err)) from err
+        if speech_ms < min_speech_ms:
+            # Gated quietly: no engine call, no hotword build. The caller
+            # (PipelineTranslator) turns this into a quiet turn end rather
+            # than the `turn_failed` banner an ungated empty decode gets.
+            return {"text": "", "language": language, "speechMs": speech_ms}
+
     # Sync endpoint runs in FastAPI's threadpool; the engine's lanes bound how
     # many decodes overlap. Saturation is a refusal, not a queue: a caller
     # waiting on a turn would rather hear 503 now than an answer too late to
@@ -111,7 +136,10 @@ def transcribe(
         text = engine.transcribe(samples, terms)
     except SttBusyError as err:
         raise HTTPException(status_code=503, detail=str(err)) from err
-    return {"text": text, "language": language}
+    result = {"text": text, "language": language}
+    if speech_ms is not None:
+        result["speechMs"] = speech_ms
+    return result
 
 
 @app.post("/embed")

@@ -15,9 +15,11 @@ import {
   inverseNormalizeTranscript,
   normalizeTranscript,
   ProviderAbortedError,
+  type SpeakerEmbeddingResult,
   type TtsAudioStream,
 } from '@chatofy/ai-providers';
 import {
+  NoSpeechDetectedException,
   PipelineTranslatorService,
   SpeechEngineBusyException,
   type SynthesizedSpeech,
@@ -333,8 +335,10 @@ export class TranslationSessionService implements OnModuleDestroy {
           hints: session.hints,
           // And the same conversational context, for the same reason: a reused
           // speculation IS the answer, so one built without it would be the
-          // version the listener hears.
+          // version the listener hears. Same for the speech floor: a reused
+          // guess must have been asked for the gate exactly as the final would.
           context: this.context.recall(socket),
+          minSpeechMs: this.config.get('STT_MIN_SPEECH_MS', { infer: true }),
         },
         session.languages,
       ),
@@ -388,6 +392,10 @@ export class TranslationSessionService implements OnModuleDestroy {
       this.metrics.record(
         timeline.toMetrics(session, audio, completed, reason),
       );
+    // Read once for the whole turn: every recognition below whose text can end
+    // up in a saved turn — the final, the whole-turn source beside a split, and
+    // each split piece — asks the sidecar for the same floor.
+    const minSpeechMs = this.config.get('STT_MIN_SPEECH_MS', { infer: true });
 
     // Started HERE, beside the translation rather than after it. The sidecar
     // exposes a second endpoint precisely so this cost overlaps work that was
@@ -421,13 +429,14 @@ export class TranslationSessionService implements OnModuleDestroy {
         embedding && session.splitSpeakers
           ? findSplitCandidate(audio.pcm(), audio.sampleRate)
           : null;
-      const { translated, split } = candidate
+      const { translated, split, vector, pieceAudioMs } = candidate
         ? await this.translateMaybeSplit(
             session,
             audio,
             candidate,
             reusable,
             context,
+            minSpeechMs,
           )
         : {
             translated: await (reusable ??
@@ -438,14 +447,18 @@ export class TranslationSessionService implements OnModuleDestroy {
                   models: FINAL_MODELS,
                   hints: session.hints,
                   context,
+                  minSpeechMs,
                 },
                 session.languages,
               )),
             split: null,
+            vector: undefined,
+            pieceAudioMs: undefined,
           };
       // A split turn's text came from its pieces, not from the speculation that
-      // was sitting there.
-      if (split) timeline.markSpeculationReused(false);
+      // was sitting there — true whether every piece survived or the split
+      // collapsed to one survivor (`vector` set, `split` null either way).
+      if (split || vector) timeline.markSpeculationReused(false);
       // The SPOKEN translation's length, not the sum of every target: this
       // number feeds a latency table built around what the listener actually
       // hears.
@@ -498,14 +511,24 @@ export class TranslationSessionService implements OnModuleDestroy {
         // After the transcript is out, so a slow sidecar delays a label and never
         // the sentence. A failed embedding resolves null and the turn simply
         // carries no vector.
-        const heard = await embedding;
+        //
+        // `vector`, when set, is a one-survivor split's own piece vector — it
+        // must win over `embedding`, the WHOLE turn's vector, because the whole
+        // turn includes the dropped non-speech the survivor does not.
+        const heard = await (vector ?? embedding);
         if (heard && this.registry.holds(socket, session)) {
           this.channelFor(socket, session).emit({
             type: 'server.turn.embedding',
             sessionId: session.sessionId,
             vector: heard.vector,
             dim: heard.vector.length,
-            audioMs: Math.round(audio.secondsAt(audio.byteLength) * 1000),
+            // The SURVIVOR's own duration when `vector` is a one-survivor
+            // split's piece vector — the whole turn's byte length would still
+            // count the non-speech the other piece was dropped for, which is
+            // exactly what this vector does NOT carry.
+            audioMs:
+              pieceAudioMs ??
+              Math.round(audio.secondsAt(audio.byteLength) * 1000),
             // Buffer time and speech time, both, because they are different
             // quantities: `audioMs` counts the pre-roll and the hangover, and one
             // measured turn held 720ms of speech inside a 1540ms buffer. The
@@ -541,6 +564,16 @@ export class TranslationSessionService implements OnModuleDestroy {
       record(wanted, delivery.stoppedBy);
       this.close(socket, session, delivery.stoppedBy ?? 'completed');
     } catch (err) {
+      // A turn the caller itself asked the sidecar to refuse on speech grounds
+      // ends quietly: no error banner, no final, no vector — just a metrics row
+      // so the rate is countable. An empty decode the gate did NOT cause still
+      // falls through to the ordinary failure path below and keeps its banner,
+      // which is what makes `STT_MIN_SPEECH_MS=0` a real rollback.
+      if (err instanceof NoSpeechDetectedException) {
+        record(false, 'no_speech');
+        this.close(socket, session, 'no_speech');
+        return;
+      }
       // Recorded on the way out too, so a latency table cannot mistake an
       // unwritten failure for the absence of failures. First statement in the
       // handler: if reporting the failure threw, the row would otherwise be lost.
@@ -571,7 +604,25 @@ export class TranslationSessionService implements OnModuleDestroy {
     candidate: SplitCandidate,
     reusable: Promise<TranslatedTurnText> | null,
     context: string[],
-  ): Promise<{ translated: TranslatedTurnText; split: SplitTurn | null }> {
+    minSpeechMs: number,
+  ): Promise<{
+    translated: TranslatedTurnText;
+    split: SplitTurn | null;
+    /**
+     * Set only when a split collapsed to one surviving piece: that piece's own
+     * vector, to emit instead of the whole turn's (which still includes the
+     * non-speech the other piece was dropped for). Undefined on every other
+     * path — the ordinary whole-turn `embedding` applies there.
+     */
+    vector?: Promise<SpeakerEmbeddingResult | null>;
+    /**
+     * Set together with {@link vector}: the surviving piece's own duration, in
+     * ms, to report as `server.turn.embedding`'s `audioMs` instead of the whole
+     * turn's — the whole turn still counts the non-speech the other piece was
+     * dropped for. Undefined on every other path.
+     */
+    pieceAudioMs?: number;
+  }> {
     const { hints } = session;
     const plan = session.languages;
     const wholeSource = reusable
@@ -581,6 +632,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           mimeType: 'audio/wav',
           language: plan.recognition,
           hints,
+          minSpeechMs,
         });
     // Both may settle while the plan is still out; an unhandled rejection takes
     // the process down. The awaits below still see the failure.
@@ -611,6 +663,8 @@ export class TranslationSessionService implements OnModuleDestroy {
           hints,
           models: FINAL_MODELS,
           context,
+          minSpeechMs,
+          logger: this.logger,
         });
       } catch (err) {
         this.logger.warn(
@@ -630,6 +684,22 @@ export class TranslationSessionService implements OnModuleDestroy {
           : 'whole'),
     );
     if (split) {
+      // One surviving piece ships unsplit: `count: 1` is not a shape the wire
+      // schema accepts (`split.count` is `min(2)`), and a turn with one voice
+      // in it is simply a whole turn whose vector happens to come from a
+      // narrower stretch of the audio than usual.
+      if (split.pieces.length === 1) {
+        const piece = split.pieces[0]!;
+        return {
+          translated: {
+            sourceText: piece.sourceText,
+            translations: piece.translations,
+          },
+          split: null,
+          vector: split.vectors.then((vectors) => vectors[0] ?? null),
+          pieceAudioMs: piece.endMs - piece.startMs,
+        };
+      }
       return {
         translated: joinPieces(split.pieces, plan.targets),
         split,
@@ -637,7 +707,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     }
 
     if (reusable) return { translated: await reusable, split: null };
-    const sourceText = await wholeSource!;
+    const { text: sourceText } = await wholeSource!;
     // Heard as nothing: the ordinary path owns what that means for a turn —
     // the warning, and the rejection the caller reports.
     if (!sourceText.trim()) {
@@ -649,6 +719,7 @@ export class TranslationSessionService implements OnModuleDestroy {
             models: FINAL_MODELS,
             hints,
             context,
+            minSpeechMs,
           },
           plan,
         ),
@@ -702,6 +773,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           count: pieces.length,
           startMs: piece.startMs,
           endMs: piece.endMs,
+          reachesEnd: piece.reachesEnd,
         },
       });
     });

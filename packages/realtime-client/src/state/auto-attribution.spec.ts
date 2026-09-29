@@ -51,12 +51,50 @@ const cosines = (toFirst: number, toSecond: number): number[] => {
   return [toFirst, toSecond, Math.sqrt(remainder), 0];
 };
 
+/**
+ * Fixtures derived from the shipped bars rather than stated as literals: a
+ * literal drifts silently the moment `DEFAULT_AUTO_ATTRIBUTION` changes, and
+ * would keep testing whatever branch the old bars happened to put it in.
+ */
+const { tauAssign, tauNew } = DEFAULT_AUTO_ATTRIBUTION;
+/** Midpoint of the dead zone, so a fixture 0.05 either side of it stays inside. */
+const MID = (tauNew + tauAssign) / 2;
+
 /** Between both bars, so the clusterer must hold the turn rather than place it. */
-const DEAD_ZONE = cosines(0.35, 0.3);
+const DEAD_ZONE = cosines(MID, MID - 0.05);
 /** Same, but leaning at the second voice — so the settle pass has a right answer. */
-const DEAD_ZONE_TOWARD_SECOND = cosines(0.3, 0.35);
-/** Under `tauNew` against both, so it would mint a speaker if the cap allowed one. */
-const STRANGER = cosines(0.2, 0.3);
+const DEAD_ZONE_TOWARD_SECOND = cosines(MID - 0.05, MID);
+/**
+ * Under `tauNew` against both, so it would mint a speaker if the cap allowed
+ * one — and nearer to the second voice, so the cap branch has a right answer.
+ */
+const STRANGER = cosines(tauNew - 0.15, tauNew - 0.1);
+
+describe('the derived fixtures', () => {
+  it('sit in the band each is supposed to test', () => {
+    // A fixture built from the wrong arithmetic would still compile and could
+    // still pass every test below by accident, landing in a band nobody
+    // intended. Pinning the bands themselves is what would catch that.
+    expect(DEAD_ZONE[0]).toBeGreaterThan(tauNew);
+    expect(DEAD_ZONE[0]).toBeLessThan(tauAssign);
+    expect(DEAD_ZONE_TOWARD_SECOND[1]).toBeGreaterThan(tauNew);
+    expect(DEAD_ZONE_TOWARD_SECOND[1]).toBeLessThan(tauAssign);
+    expect(STRANGER[0]).toBeLessThan(tauNew);
+    expect(STRANGER[1]).toBeLessThan(tauNew);
+  });
+
+  it('keeps DEFAULT_AUTO_ATTRIBUTION at the shipped bars, so a silent edit here fails', () => {
+    // TS/Python drift is otherwise silent: `test_attribution_parity.py`
+    // hardcodes its own copy of these numbers for the same reason, and nothing
+    // short of a pinned value on each side would notice the two moving apart.
+    expect(DEFAULT_AUTO_ATTRIBUTION).toEqual({
+      tauAssign: 0.5,
+      tauNew: 0.45,
+      kMax: 2,
+      mintConfirmations: 2,
+    });
+  });
+});
 
 const segment = (sessionId: string) => ({
   id: sessionId,
@@ -175,7 +213,7 @@ describe('placing a voice', () => {
   it('places nothing in the dead zone, and still says which voice was nearest', () => {
     // Between the two bars: not close enough to join, not far enough to be new.
     const first = observe(EMPTY_AUTO_ATTRIBUTION, axis(0));
-    const { assignment } = observe(first.state, cosines(0.35, 0));
+    const { assignment } = observe(first.state, cosines(MID, 0));
 
     expect(assignment.score).toBeGreaterThan(DEFAULT_AUTO_ATTRIBUTION.tauNew);
     expect(assignment.score).toBeLessThan(DEFAULT_AUTO_ATTRIBUTION.tauAssign);
@@ -187,7 +225,7 @@ describe('placing a voice', () => {
 
   it('leaves the state untouched when it places nothing', () => {
     const first = observe(EMPTY_AUTO_ATTRIBUTION, axis(0));
-    const second = observe(first.state, cosines(0.35, 0));
+    const second = observe(first.state, cosines(MID, 0));
 
     // A dead-zone turn must not move a centroid. Folding it in would let the
     // profile drift toward exactly the voices the bar refused to accept.

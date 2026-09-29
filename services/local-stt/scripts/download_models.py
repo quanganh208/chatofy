@@ -6,10 +6,13 @@
 - Parakeet-TDT-0.6b-v2 en INT8 (~630MB): k2-fsa release tarball, extracted.
 - CAM++ speaker embedding: one ONNX file from the k2-fsa speaker release. fp32,
   because that release publishes no int8 variant of any speaker model.
+- Silero VAD: one ONNX file, pinned by sha256 (see below) rather than trusted
+  on whatever the URL currently serves — see `audio/silero_speech.py`.
 
 Idempotent; safe to re-run.
 Run: uv run --directory services/local-stt python scripts/download_models.py
 """
+import hashlib
 import shutil
 import sys
 import tarfile
@@ -20,6 +23,13 @@ from huggingface_hub import hf_hub_download
 
 SERVICE_ROOT = Path(__file__).resolve().parent.parent
 MODELS_DIR = SERVICE_ROOT / "models"
+
+# Duplicated from `audio.silero_speech` rather than imported: this script's
+# `sys.path[0]` is `scripts/`, not the service root, so the package import
+# that works from `app.py` does not work here. `test_silero_speech.py`
+# asserts the two stay equal.
+SILERO_VAD_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx"
+SILERO_VAD_SHA256 = "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
 
 ZIPFORMER_REPO = "hynt/Zipformer-30M-RNNT-6000h"
 ZIPFORMER_FILES = [
@@ -112,8 +122,49 @@ def fetch_campplus_speaker() -> None:
     print("[campplus-speaker] ready")
 
 
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def fetch_silero_vad() -> None:
+    """The speech gate behind `/transcribe`'s `min_speech_ms`.
+
+    Hash-verified before the `.part` rename AND on a cached hit: upstream
+    replacing the asset under the same URL, or a partial file left by an
+    interrupted run, both fail closed here instead of silently moving the
+    gate's floor.
+    """
+    target = MODELS_DIR / "silero_vad.onnx"
+    if target.exists():
+        if _sha256(target) == SILERO_VAD_SHA256:
+            print("[silero-vad] ready (cached)")
+            return
+        print("[silero-vad] cached file failed the pinned hash; refetching")
+        target.unlink()
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"[silero-vad] downloading {SILERO_VAD_URL}")
+    tmp = target.with_suffix(".part")
+    with urllib.request.urlopen(SILERO_VAD_URL, timeout=60) as response, open(tmp, "wb") as out:
+        shutil.copyfileobj(response, out, length=1024 * 1024)
+    actual = _sha256(tmp)
+    if actual != SILERO_VAD_SHA256:
+        tmp.unlink()
+        raise RuntimeError(f"silero_vad.onnx sha256 {actual} != pinned {SILERO_VAD_SHA256}")
+    tmp.rename(target)
+    print("[silero-vad] ready")
+
+
 def main() -> int:
-    for fetch in (fetch_zipformer_vi, fetch_parakeet_en, fetch_campplus_speaker):
+    for fetch in (
+        fetch_zipformer_vi,
+        fetch_parakeet_en,
+        fetch_campplus_speaker,
+        fetch_silero_vad,
+    ):
         fetch()
     print("[done] models cached in models/")
     return 0

@@ -1,0 +1,4 @@
+# Rows built from recorded sessions, and every model output over them. The
+# tracked results/*.jsonl convention is for synthetic rows only; anything that
+# carries a sentence somebody actually spoke goes here and stays local.
+private/

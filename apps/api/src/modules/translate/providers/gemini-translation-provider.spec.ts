@@ -218,6 +218,47 @@ describe('GeminiTranslationProvider', () => {
     });
   });
 
+  // The recognizer only spells English by sound on the Vietnamese leg, so the
+  // note the translator gets about "ai" is Vietnamese-source-only. Measured
+  // against real broadcast transcripts: without it, "cạnh tranh với ai" — the
+  // US and China racing for the top AI position — came back "compete with
+  // whom".
+  describe('the Vietnamese ASR note', () => {
+    const instructionFor = async (
+      sourceLanguage: 'vi' | 'en',
+      targetLanguage: 'vi' | 'en',
+    ) => {
+      mockGenerateContentStream.mockResolvedValue(oneChunk('hello'));
+      await new GeminiTranslationProvider({ apiKey: 'k' }).translate({
+        text: sourceLanguage === 'vi' ? 'xin chào' : 'hello',
+        sourceLanguage,
+        targetLanguage,
+      });
+      return callArgs(0).config?.systemInstruction ?? '';
+    };
+
+    it('rides a vi-source instruction once and is absent from an en-source one', async () => {
+      const vi = await instructionFor('vi', 'en');
+      expect(vi).toContain('"ai" is the English "AI"');
+      expect(vi).toContain('bạn là ai');
+      expect(vi).toContain('open ai');
+      expect(vi.match(/"ai" is the English "AI"/g)).toHaveLength(1);
+
+      mockGenerateContentStream.mockReset();
+      const en = await instructionFor('en', 'vi');
+      expect(en).not.toContain('"ai" is the English "AI"');
+      expect(en).not.toContain('bạn là ai');
+    });
+
+    it('keeps rule numbering 1-7 unchanged', async () => {
+      const instruction = await instructionFor('vi', 'en');
+      for (const rule of [1, 2, 3, 4, 5, 6, 7]) {
+        expect(instruction).toContain(`${rule}. `);
+      }
+      expect(instruction).not.toContain('8. ');
+    });
+  });
+
   // A model on this path was observed echoing the wrapper back. The streaming path splits a
   // translation into clauses and synthesizes each one, so a surviving tag is
   // spoken aloud into the meeting.

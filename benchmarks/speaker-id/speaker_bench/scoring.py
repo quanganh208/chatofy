@@ -28,7 +28,9 @@ and reports the exact-count rate, which has no such hole.
 
 from __future__ import annotations
 
+import collections
 from dataclasses import dataclass
+from typing import Sequence
 
 import numpy as np
 
@@ -144,3 +146,66 @@ def count_metrics(scores: list[SessionScore]) -> CountMetrics:
         signed_mean=float(errors.mean()),
         abs_mean=float(np.abs(errors).mean()),
     )
+
+
+def speech_weighted_score(
+    truth: Sequence[str],
+    labels: Sequence[int | None],
+    speech_s: Sequence[float],
+) -> tuple[float, bool, int, int]:
+    """Speech-time weighted accuracy, greedy one-to-one, noise excluded.
+
+    A line-for-line equivalent of `sim.py::score`
+    (`plans/260929-1038-conversation-quality-harness/sim.py:33-40`) — the metric
+    behind every acceptance number in the attribution rulers plan, kept
+    alongside `score_prefix_locked` above rather than replacing it: that one is
+    turn-weighted with a Hungarian mapping, this one is speech-weighted with a
+    causal greedy mapping, and they answer different questions on purpose.
+
+    Sorted by joint speech time descending and matched greedily, each label and
+    each true speaker used at most once — the same discipline `sim.py` applies.
+    ``truth == "noise"`` turns are excluded from both the greedy match and the
+    denominator, so a gated turn's carried-forward guess over a noise window
+    never earns or costs credit for either.
+    """
+    if len(truth) != len(labels) or len(truth) != len(speech_s):
+        raise ValueError(
+            f"{len(truth)} truth labels, {len(labels)} predicted labels, "
+            f"{len(speech_s)} speech durations must agree"
+        )
+
+    joint: dict[tuple[int | None, str], float] = collections.Counter()
+    total = 0.0
+    for label, name, seconds in zip(labels, truth, speech_s):
+        if name == "noise":
+            continue
+        joint[(label, name)] += seconds
+        total += seconds
+
+    accuracy = 0.0
+    used_labels: set[int | None] = set()
+    used_truth: set[str] = set()
+    for (label, name), weight in sorted(joint.items(), key=lambda item: -item[1]):
+        if label in used_labels or name in used_truth:
+            continue
+        used_labels.add(label)
+        used_truth.add(name)
+        accuracy += weight
+
+    predicted = len({label for label in labels if label is not None})
+    true_speakers = len({name for name in truth if name != "noise"})
+    return (accuracy / total if total else 0.0, predicted == true_speakers, predicted, true_speakers)
+
+
+def gate_loss(speech_ms: Sequence[float], min_speech_ms: float) -> tuple[int, int, float, float]:
+    """How many turns, and how much speech, the gate proxy removes from a meeting.
+
+    A turn with ``speech_ms < min_speech_ms`` is never observed by the
+    clusterer (`client_pipeline.run_client_pipeline`'s gate substitution). This
+    is the pair of numbers plan.md's A1 blocks the merge on: ``lost_turns /
+    turns`` at most 5% and ``lost_speech_s / speech_s`` at most 1%, on every
+    ruler, before the gate ships at 300 ms.
+    """
+    lost_turns = sum(1 for ms in speech_ms if ms < min_speech_ms)
+    lost_speech_s = sum(ms for ms in speech_ms if ms < min_speech_ms) / 1000.0
+    return (lost_turns, len(speech_ms), lost_speech_s, sum(speech_ms) / 1000.0)

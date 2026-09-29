@@ -75,25 +75,45 @@ the service is genuinely ready.
 
 ## API
 
-| Route              | Request                                                                                             | Response                                                                |
-| ------------------ | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `GET /healthz`     | —                                                                                                   | `200 {"status":"ok"}` when loaded, `503 {"status":"loading"}` otherwise |
-| `POST /transcribe` | `multipart/form-data`: `file` (audio), `language` (`vi` or `en`), `hotwords` (repeatable, optional) | `200 {"text":"…","language":"vi"}`                                      |
-| `POST /embed`      | `multipart/form-data`: `file` (audio)                                                               | `200 {"vector":[…],"dim":192,"speechMs":1480}`                          |
+| Route              | Request                                                                                                                         | Response                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `GET /healthz`     | —                                                                                                                               | `200 {"status":"ok"}` when loaded, `503 {"status":"loading"}` otherwise |
+| `POST /transcribe` | `multipart/form-data`: `file` (audio), `language` (`vi` or `en`), `hotwords` (repeatable, optional), `min_speech_ms` (optional) | `200 {"text":"…","language":"vi"}`                                      |
+| `POST /embed`      | `multipart/form-data`: `file` (audio)                                                                                           | `200 {"vector":[…],"dim":192,"speechMs":1480}`                          |
 
-`speechMs` is how much of the clip is speech, not how long the clip is — the
-caller is sent a capture buffer with pre-roll and hangover on it, and the
-difference is what tells it whether the vector was built on enough voice to mean
-anything. See `audio/speech_duration.py`.
+`speechMs` on `/embed` is how much of the clip is speech, not how long the clip
+is — the caller is sent a capture buffer with pre-roll and hangover on it, and
+the difference is what tells it whether the vector was built on enough voice to
+mean anything. Energy-based; see `audio/speech_duration.py`.
 
 `POST /transcribe` returns `400` for an unsupported language or undecodable
 audio, `413` for audio longer than `LOCAL_STT_MAX_AUDIO_SECONDS`, and `503`
-before the models finish loading.
+before the models finish loading, or when every decode lane (or every VAD
+detector — see below) is busy past `LOCAL_STT_LANE_WAIT_MS`.
 
 ```bash
 curl -F file=@sample.webm -F language=vi http://localhost:8002/transcribe
 # biased towards terms this conversation is known to use
 curl -F file=@sample.webm -F language=vi -F hotwords=poker -F hotwords=Target \
+     http://localhost:8002/transcribe
+```
+
+### Speech gate
+
+`min_speech_ms` is opt-in and off by default (`0`): a request that does not set
+it decodes exactly as it always did, no VAD call, no `speechMs` field. Set it
+and the sidecar measures speech with a pinned Silero VAD **first**; a clip
+under the floor returns `{"text":"","language":"vi","speechMs":180}` without
+the engine ever running, and one at or above it decodes normally and returns
+`speechMs` alongside `text`. `/embed` is unaffected — nothing asks it for
+Silero, so it runs none. See `audio/silero_speech.py` for the pinned model, its
+sha256, and why a request that cannot get a VAD detector within the lane wait
+budget gets `503` rather than a queue.
+
+```bash
+# below 300ms of Silero-detected speech, text comes back empty and the engine
+# never runs
+curl -F file=@sample.webm -F language=vi -F min_speech_ms=300 \
      http://localhost:8002/transcribe
 ```
 
@@ -136,8 +156,9 @@ resampled to mono 16 kHz because both models are trained at that rate.
 uv run --directory services/local-stt pytest
 ```
 
-`test_decode.py` needs no model weights. `test_app.py` loads the real models;
-skip it with `LOCAL_STT_SKIP_MODEL_TESTS=1`.
+`test_decode.py` needs no model weights. `test_app.py`, `test_embed.py` and
+`test_silero_speech.py` load the real models; skip them with
+`LOCAL_STT_SKIP_MODEL_TESTS=1`.
 
 [sherpa]: https://github.com/k2-fsa/sherpa-onnx
 [zipformer]: https://huggingface.co/hynt/Zipformer-30M-RNNT-6000h

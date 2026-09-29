@@ -38,8 +38,8 @@ REFERENCE = BENCH_ROOT / "scripts" / "attribution-reference.mjs"
 #: The configuration the client actually ships, from `auto-attribution.ts`.
 #: Hardcoded rather than parsed out of the TypeScript: a test that read the
 #: constants from the file under test would pass no matter what they became.
-TAU_ASSIGN = 0.375
-TAU_NEW = 0.325
+TAU_ASSIGN = 0.50
+TAU_NEW = 0.45
 K_MAX = 2
 MINT_CONFIRMATIONS = 2
 

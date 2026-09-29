@@ -10,6 +10,7 @@ import {
   type StreamSocket,
 } from './translation-session.service';
 import {
+  NoSpeechDetectedException,
   PipelineTranslatorService as RealPipelineTranslatorService,
   SpeechEngineBusyException,
   type PipelineTranslatorService,
@@ -100,6 +101,12 @@ function makeService(
   // Off is the shipped default and what every test above assumes: those turns
   // must behave exactly as they did before the flag existed.
   speakerEmbeddingEnabled = false,
+  // The schema's own default. `pipeline` is a full mock in this harness, so
+  // this value never itself decides a mocked test's outcome — it exists so a
+  // call site reading `STT_MIN_SPEECH_MS` gets the number the type promises,
+  // not the `speakerEmbeddingEnabled` boolean the fallback below would
+  // otherwise hand it.
+  minSpeechMs = 300,
 ): Harness {
   const synthesized: string[] = [];
   const recorded: TurnMetrics[] = [];
@@ -127,7 +134,8 @@ function makeService(
     overrides.embedSpeaker ??
     vi.fn().mockResolvedValue({ vector: [0.6, 0.8], dim: 2, speechMs: 1480 });
 
-  const transcribe = overrides.transcribe ?? vi.fn().mockResolvedValue('xin');
+  const transcribe =
+    overrides.transcribe ?? vi.fn().mockResolvedValue({ text: 'xin' });
   const translate = overrides.translate ?? vi.fn().mockResolvedValue('hi');
   const translateAll =
     overrides.translateAll ??
@@ -174,7 +182,9 @@ function makeService(
             ? 66
             : key === 'LIVE_TRANSLATION_COMMIT_CHARS'
               ? 15
-              : speakerEmbeddingEnabled,
+              : key === 'STT_MIN_SPEECH_MS'
+                ? minSpeechMs
+                : speakerEmbeddingEnabled,
       } as unknown as ConfigService<Env, true>,
       languageSupport,
       identifier,
@@ -678,7 +688,7 @@ describe('TranslationSessionService', () => {
 
     it('shows what has been said so far, while the turn is still open', async () => {
       const { service, transcribe } = makeService({
-        transcribe: vi.fn().mockResolvedValue('xin chào tôi muốn'),
+        transcribe: vi.fn().mockResolvedValue({ text: 'xin chào tôi muốn' }),
       });
       const socket = new FakeSocket();
       const sessionId = open(service, socket);
@@ -697,9 +707,9 @@ describe('TranslationSessionService', () => {
     // A read that lands after the turn has been answered would put a half
     // sentence back on screen underneath the finished translation.
     it('says nothing once the turn has moved on', async () => {
-      let release!: (text: string) => void;
+      let release!: (result: { text: string }) => void;
       const transcribe = vi.fn(
-        () => new Promise<string>((resolve) => (release = resolve)),
+        () => new Promise<{ text: string }>((resolve) => (release = resolve)),
       );
       const { service } = makeService({ transcribe });
       const socket = new FakeSocket();
@@ -707,7 +717,7 @@ describe('TranslationSessionService', () => {
 
       service.pushFrame(socket, frame({ sessionId }));
       await service.end(socket);
-      release('xin chào');
+      release({ text: 'xin chào' });
       await settle();
 
       expect(socket.ofType('server.transcript.partial')).toHaveLength(0);
@@ -731,7 +741,7 @@ describe('TranslationSessionService', () => {
 
     it('stays quiet when the recogniser heard nothing yet', async () => {
       const { service } = makeService({
-        transcribe: vi.fn().mockResolvedValue('   '),
+        transcribe: vi.fn().mockResolvedValue({ text: '   ' }),
       });
       const socket = new FakeSocket();
       const sessionId = open(service, socket);
@@ -750,7 +760,7 @@ describe('TranslationSessionService', () => {
     // corrects them. Sending both cost exactly one mis-coloured frame per turn.
     it('sends a client that asked for settled text the delta instead of the partial', async () => {
       const { service } = makeService({
-        transcribe: vi.fn().mockResolvedValue('xin chào tôi muốn'),
+        transcribe: vi.fn().mockResolvedValue({ text: 'xin chào tôi muốn' }),
       });
       const socket = new FakeSocket();
       const sessionId = open(service, socket, undefined, true);
@@ -773,7 +783,7 @@ describe('TranslationSessionService', () => {
     // `partial` and never see an event type their union cannot parse.
     it('still sends the partial to a client that did not ask', async () => {
       const { service } = makeService({
-        transcribe: vi.fn().mockResolvedValue('xin chào tôi muốn'),
+        transcribe: vi.fn().mockResolvedValue({ text: 'xin chào tôi muốn' }),
       });
       const socket = new FakeSocket();
       const sessionId = open(service, socket);
@@ -817,7 +827,9 @@ describe('TranslationSessionService', () => {
       });
 
     it('translates a turn that has run long enough to be worth guessing at', async () => {
-      const transcribe = vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng');
+      const transcribe = vi
+        .fn()
+        .mockResolvedValue({ text: 'hôm qua tôi có đặt phòng' });
       const { service, translate } = makeService({
         transcribe,
         translate: vi.fn().mockResolvedValue('yesterday I booked a room'),
@@ -838,7 +850,9 @@ describe('TranslationSessionService', () => {
     // a client may ignore them and still see the whole translation.
     it('sends the translation in pieces as it is written', async () => {
       const { service } = makeService({
-        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        transcribe: vi
+          .fn()
+          .mockResolvedValue({ text: 'hôm qua tôi có đặt phòng' }),
         translate: vi
           .fn()
           .mockImplementation(
@@ -875,7 +889,9 @@ describe('TranslationSessionService', () => {
     // client to drop it instead of appending to it.
     it('relabels the pieces when the provider starts an attempt over', async () => {
       const { service } = makeService({
-        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        transcribe: vi
+          .fn()
+          .mockResolvedValue({ text: 'hôm qua tôi có đặt phòng' }),
         translate: vi
           .fn()
           .mockImplementation(
@@ -917,7 +933,9 @@ describe('TranslationSessionService', () => {
       ];
       let read = 0;
       const { service, translate } = makeService({
-        transcribe: vi.fn(() => Promise.resolve(readings[read++] ?? '')),
+        transcribe: vi.fn(() =>
+          Promise.resolve({ text: readings[read++] ?? '' }),
+        ),
         translate: vi
           .fn()
           .mockImplementation(
@@ -973,7 +991,9 @@ describe('TranslationSessionService', () => {
     // them.
     it('sends no pieces to a client that did not ask for them', async () => {
       const { service } = makeService({
-        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        transcribe: vi
+          .fn()
+          .mockResolvedValue({ text: 'hôm qua tôi có đặt phòng' }),
         translate: vi
           .fn()
           .mockImplementation(
@@ -996,7 +1016,7 @@ describe('TranslationSessionService', () => {
 
     it('leaves a short turn to its own ending', async () => {
       const { service, translate } = makeService({
-        transcribe: vi.fn().mockResolvedValue('xin chào'),
+        transcribe: vi.fn().mockResolvedValue({ text: 'xin chào' }),
       });
       const socket = new FakeSocket();
       const sessionId = open(service, socket);
@@ -1013,7 +1033,9 @@ describe('TranslationSessionService', () => {
     // replaced silently; wrong speech cannot be taken back.
     it('never speaks a guess aloud', async () => {
       const { service, synthesize } = makeService({
-        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        transcribe: vi
+          .fn()
+          .mockResolvedValue({ text: 'hôm qua tôi có đặt phòng' }),
         translate: vi.fn().mockResolvedValue('yesterday I booked a room'),
       });
       const socket = new FakeSocket();
@@ -1031,7 +1053,9 @@ describe('TranslationSessionService', () => {
     // guess, never the answer the speaker is waiting for.
     it('says nothing when its model is unavailable', async () => {
       const { service } = makeService({
-        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        transcribe: vi
+          .fn()
+          .mockResolvedValue({ text: 'hôm qua tôi có đặt phòng' }),
         translate: vi.fn().mockRejectedValue(new Error('rate limited')),
       });
       const socket = new FakeSocket();
@@ -1047,7 +1071,9 @@ describe('TranslationSessionService', () => {
 
     it('keeps guesses off the model the ending depends on', async () => {
       const { service, translate } = makeService({
-        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        transcribe: vi
+          .fn()
+          .mockResolvedValue({ text: 'hôm qua tôi có đặt phòng' }),
         translate: vi.fn().mockResolvedValue('yesterday'),
       });
       const socket = new FakeSocket();
@@ -1123,7 +1149,9 @@ describe('TranslationSessionService', () => {
     // number a latency table must not print.
     it('bills the turn for the live translations it spent', async () => {
       const { service, recorded, translate } = makeService({
-        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        transcribe: vi
+          .fn()
+          .mockResolvedValue({ text: 'hôm qua tôi có đặt phòng' }),
         translate: vi.fn().mockResolvedValue('yesterday I booked a room'),
       });
       const socket = new FakeSocket();
@@ -1269,6 +1297,61 @@ describe('TranslationSessionService', () => {
         message: 'No speech detected',
       });
       expect(socket.ofType('server.session.ended')[0]?.reason).toBe('error');
+    });
+
+    /**
+     * `STT_MIN_SPEECH_MS=0` has to be a real rollback: an empty decode the gate
+     * did NOT cause must keep today's banner, not quietly start disappearing
+     * the moment `NoSpeechDetectedException` exists as a class.
+     */
+    it('keeps the turn_failed banner for an empty decode the gate did not cause', async () => {
+      const { service, recorded } = makeService({
+        transcribeAndTranslate: vi
+          .fn()
+          .mockRejectedValue(new BadRequestException('No speech detected')),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      await service.end(socket);
+
+      expect(socket.ofType('server.error')[0]).toMatchObject({
+        code: 'turn_failed',
+      });
+      expect(socket.ofType('server.transcript.final')).toHaveLength(0);
+      expect(socket.ofType('server.turn.embedding')).toHaveLength(0);
+      expect(socket.ofType('server.session.ended')[0]?.reason).toBe('error');
+      expect(recorded[0]).toMatchObject({ completed: false, reason: 'error' });
+    });
+
+    /**
+     * A turn the sidecar refused for having too little speech ends quietly:
+     * no error banner, no final, no vector — just a `no_speech` close reason
+     * and a metrics row, so the rate stays countable without alarming anybody.
+     */
+    it('ends a gated turn quietly as no_speech, with no banner', async () => {
+      const { service, recorded } = makeService({
+        transcribeAndTranslate: vi
+          .fn()
+          .mockRejectedValue(new NoSpeechDetectedException()),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      await service.end(socket);
+
+      expect(socket.ofType('server.error')).toHaveLength(0);
+      expect(socket.ofType('server.transcript.final')).toHaveLength(0);
+      expect(socket.ofType('server.turn.embedding')).toHaveLength(0);
+      expect(socket.ofType('server.session.ended')[0]?.reason).toBe(
+        'no_speech',
+      );
+      expect(recorded[0]).toMatchObject({
+        completed: false,
+        reason: 'no_speech',
+      });
     });
 
     // The ElevenLabs backend returns audio/mpeg, which cannot be framed as raw
@@ -2087,9 +2170,9 @@ describe('TranslationSessionService', () => {
     // `says nothing once the turn has moved on` covers the first; nothing
     // covered the second, and the two are caught by different guards.
     it('emits no partial transcript for a client that left mid-decode', async () => {
-      let release!: (text: string) => void;
+      let release!: (result: { text: string }) => void;
       const transcribe = vi.fn(
-        () => new Promise<string>((resolve) => (release = resolve)),
+        () => new Promise<{ text: string }>((resolve) => (release = resolve)),
       );
       const { service } = makeService({ transcribe });
       const socket = new FakeSocket();
@@ -2099,7 +2182,7 @@ describe('TranslationSessionService', () => {
       expect(transcribe).toHaveBeenCalledTimes(1);
 
       service.disconnect(socket);
-      release('xin chào');
+      release({ text: 'xin chào' });
       await settle();
 
       expect(socket.ofType('server.transcript.partial')).toHaveLength(0);
@@ -2108,7 +2191,9 @@ describe('TranslationSessionService', () => {
     it('emits no live translation for a client that left mid-request', async () => {
       let release!: (text: string) => void;
       const { service, translate } = makeService({
-        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        transcribe: vi
+          .fn()
+          .mockResolvedValue({ text: 'hôm qua tôi có đặt phòng' }),
         translate: vi.fn(
           () => new Promise<string>((resolve) => (release = resolve)),
         ),
@@ -2480,9 +2565,9 @@ describe('splitting a turn where the voice changes', () => {
       dim: 2,
       speechMs: 900,
     })),
-    transcribe: vi.fn(async ({ audio }: TranslateTurnInput) =>
-      peakOf(audio) > 10000 ? 'second voice' : 'first voice',
-    ),
+    transcribe: vi.fn(async ({ audio }: TranslateTurnInput) => ({
+      text: peakOf(audio) > 10000 ? 'second voice' : 'first voice',
+    })),
     translateAll: vi.fn(
       async ({ text, targets }: { text: string; targets: readonly string[] }) =>
         Object.fromEntries(targets.map((target) => [target, `<${text}>`])),
@@ -2615,7 +2700,7 @@ describe('splitting a turn where the voice changes', () => {
   it('survives the whole-turn transcript failing while the split goes ahead', async () => {
     const transcribe = vi.fn(async ({ audio }: TranslateTurnInput) => {
       if (isWholeTurn(audio)) throw new Error('sidecar hiccup');
-      return peakOf(audio) > 10000 ? 'second voice' : 'first voice';
+      return { text: peakOf(audio) > 10000 ? 'second voice' : 'first voice' };
     });
     const { socket } = await run(twoVoices, { transcribe });
 
@@ -2701,15 +2786,96 @@ describe('splitting a turn where the voice changes', () => {
     expect(embedSpeaker).toHaveBeenCalledTimes(1);
   });
 
-  it('falls back to the whole turn when a piece is heard as nothing', async () => {
-    const transcribe = vi.fn(async ({ audio }: TranslateTurnInput) =>
-      peakOf(audio) > 10000 ? '' : 'first voice',
+  it('ships the surviving piece unsplit, under the parent id, when the other piece is heard as nothing', async () => {
+    const transcribe = vi.fn(async ({ audio }: TranslateTurnInput) => ({
+      text: peakOf(audio) > 10000 ? '' : 'first voice',
+    }));
+    const { socket, sessionId, transcribeAndTranslate } = await run(twoVoices, {
+      transcribe,
+    });
+
+    // `count: 1` is not a shape the wire schema accepts, so the one survivor
+    // ships as an ordinary, unsplit final — not `${sessionId}#0`.
+    const finals = socket.ofType('server.transcript.final');
+    expect(finals).toHaveLength(1);
+    expect(finals[0]!.sessionId).toBe(sessionId);
+    expect(finals[0]!.split).toBeUndefined();
+    expect(finals[0]!.segment.sourceText).toBe('first voice');
+    // Never the whole-turn path: the survivor already carries the turn's text,
+    // so paying for a second transcript of the whole turn would be wasted.
+    expect(transcribeAndTranslate).not.toHaveBeenCalled();
+
+    // And the survivor's OWN vector, not the whole turn's — which still holds
+    // the loud piece this turn dropped.
+    const vectors = socket.ofType('server.turn.embedding');
+    expect(vectors).toHaveLength(1);
+    expect(vectors[0]).toMatchObject({ sessionId, vector: [1, 0] });
+    // The SURVIVOR's own duration (the quiet run, roughly 1000-1400ms), not
+    // the whole 2400ms turn — which still counts the loud piece this turn
+    // dropped.
+    expect(vectors[0]!.audioMs).toBeGreaterThan(900);
+    expect(vectors[0]!.audioMs).toBeLessThan(1500);
+  });
+
+  it('drops a middle piece heard as nothing, keeping the survivors at their true position in the turn', async () => {
+    // Three runs — quiet, loud, quiet — so the middle one groups as its own
+    // voice and can be dropped without merging the two quiet survivors back
+    // into one piece.
+    const threeVoices = pcmOf(
+      stretch(QUIET, 1000),
+      stretch(0, 400),
+      stretch(LOUD, 1000),
+      stretch(0, 400),
+      stretch(QUIET, 1000),
     );
+    const transcribe = vi.fn(async ({ audio }: TranslateTurnInput) => ({
+      text: peakOf(audio) > 10000 ? '' : 'first voice',
+    }));
+    const { socket, sessionId, translateAll, transcribeAndTranslate } =
+      await run(threeVoices, { transcribe });
+
+    const finals = socket.ofType('server.transcript.final');
+    expect(finals.map((f) => f.sessionId)).toEqual([
+      `${sessionId}#0`,
+      `${sessionId}#1`,
+    ]);
+    expect(finals.map((f) => f.segment.sourceText)).toEqual([
+      'first voice',
+      'first voice',
+    ]);
+    expect(finals[0]!.split).toMatchObject({ index: 0, count: 2, startMs: 0 });
+    expect(finals[1]!.split).toMatchObject({ index: 1, count: 2 });
+    // The dropped middle piece leaves a real gap between the survivors' own
+    // spans — they are NOT renumbered into two adjacent pieces.
+    expect(finals[1]!.split!.startMs).toBeGreaterThan(
+      finals[0]!.split!.endMs + 500,
+    );
+
+    const vectors = socket.ofType('server.turn.embedding');
+    expect(vectors.map((v) => [v.sessionId, v.vector])).toEqual([
+      [`${sessionId}#0`, [1, 0]],
+      [`${sessionId}#1`, [1, 0]],
+    ]);
+
+    // Context is the SURVIVING pieces before this one — the dropped middle
+    // piece said nothing and cannot be context for the piece after it.
+    expect(translateAll).toHaveBeenCalledTimes(2);
+    const contexts = (
+      translateAll.mock.calls as [{ context?: string[] }][]
+    ).map(([req]) => req.context);
+    expect(contexts[0]).toEqual([]);
+    expect(contexts[1]).toEqual(['first voice']);
+    expect(transcribeAndTranslate).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the whole turn when every piece is heard as nothing', async () => {
+    const transcribe = vi.fn().mockResolvedValue({ text: '' });
     const { socket, sessionId } = await run(twoVoices, { transcribe });
 
     const finals = socket.ofType('server.transcript.final');
     expect(finals).toHaveLength(1);
     expect(finals[0]!.sessionId).toBe(sessionId);
+    expect(finals[0]!.split).toBeUndefined();
     expect(finals[0]!.segment.sourceText).toBe('xin chào');
   });
 

@@ -136,3 +136,28 @@ def test_healthz_covers_the_extractor(client):
     # A sidecar reporting ok while it cannot embed would have callers finding out
     # one turn at a time.
     assert client.get("/healthz").json()["status"] == "ok"
+
+
+def test_embed_never_calls_the_speech_gate(client, webm_audio, monkeypatch):
+    """Regression guard for split-plan latency.
+
+    `/embed` sits on the split-plan hot path (up to 12 parallel calls under a
+    600ms deadline); no caller asks it for Silero, and it must stay that way —
+    a VAD call nobody reads the result of would compete with that deadline for
+    nothing.
+    """
+    import app as app_module
+
+    called = {"count": 0}
+    original = app_module.speech_gate.speech_ms
+
+    def spy(samples):
+        called["count"] += 1
+        return original(samples)
+
+    monkeypatch.setattr(app_module.speech_gate, "speech_ms", spy)
+
+    res = post_embed(client, webm_audio)
+
+    assert res.status_code == 200
+    assert called["count"] == 0

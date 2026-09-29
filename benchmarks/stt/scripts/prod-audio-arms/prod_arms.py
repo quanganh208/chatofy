@@ -6,18 +6,9 @@ from pathlib import Path
 import numpy as np, soundfile as sf
 BENCH = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(BENCH))
+from stt_bench.oracle_segments import segments
 D = Path(sys.argv[1]); arms = sys.argv[2].split(",")
 os.environ.setdefault("STT_BENCH_THREADS", "4")
-
-def segments(ref, max_s=8.0, gap=0.3):
-    W = [w for s in ref for w in s["words"]]
-    segs, cur = [], None
-    for st, en, _ in W:
-        if cur and (st - cur[1] >= gap or en - cur[0] > max_s):
-            segs.append(cur); cur = None
-        cur = [st, en] if cur is None else [cur[0], en]
-    if cur: segs.append(cur)
-    return [(max(0, a - 0.15), b + 0.25) for a, b in segs]
 
 engines = {}
 def batch(lang):
