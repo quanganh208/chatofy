@@ -487,6 +487,53 @@ Every provider call also carries a deadline (`fetchWithDeadline` in
 20s) so a hung dependency fails its turn instead of pinning one of the
 process-wide turn slots.
 
+### Speech gate
+
+The sidecar can refuse to decode a clip that is mostly not speech, and the API
+asks it to on every turn. **Silero VAD** (the k2-fsa `sherpa-onnx` export,
+pinned by sha256 in `services/local-stt/scripts/download_models.py`) loads in
+the sidecar's lifespan alongside the STT and embedding engines, as a pool of
+`stt_concurrency()` detectors so a gated `/transcribe` and a concurrent
+`/embed` never contend for the same VAD instance. `/embed` never calls it —
+speaker embedding stays exactly as costly as before this change.
+
+Gating is **opt-in per request**, via `min_speech_ms` on `/transcribe`. Left
+unset (`0`), a request decodes exactly as it always did: no VAD call, no
+`speechMs` in the response. Set above `0`, speech is measured FIRST; a clip
+under the floor returns `{"text":""}` without ever reaching the decoder, and a
+clip at or above it decodes normally with `speechMs` alongside the text.
+
+The API always asks, at `STT_MIN_SPEECH_MS` (`env.schema.ts`: integer, `0`–
+`2000`, default `300`) — one number for both "there is no text to translate"
+and "the speaker-attribution layer should not observe this turn." It is
+threaded to every `/transcribe` call a turn makes: the final, every
+speculative pass, the whole-turn fallback, and each split piece. A gated empty
+decode raises `NoSpeechDetectedException`; the session ends the turn quietly —
+`record(false, 'no_speech')`, `close(..., 'no_speech')` — with no
+`server.transcript.final`, no `server.turn.embedding`, and no `turn_failed`
+banner, and the client maps that outcome to `no_audio`. An ungated empty
+decode (the floor at `0`, or a non-local STT backend) still surfaces the
+banner as before, which is what makes `STT_MIN_SPEECH_MS=0` a real rollback
+rather than a partial one. A gated split piece is dropped before its embed
+starts (its index and duration are logged, never its text); a turn left with
+exactly one surviving piece ships as an unsplit final carrying that piece's
+vector, and a turn left with zero falls back to the whole-turn path.
+
+**Live partials stay ungated.** Re-reading a growing turn every 300ms for the
+live preview was measured against a ≤10ms p95 cost bar; three of four window
+sizes cleared it, but an 8s window — which any live re-read on a several-second
+turn eventually reaches — cost +34ms. Below that bar the live path would have
+gated; above it, `apps/api/.../session/live-preview.ts` is left untouched by
+design: hallucinated live text over non-speech may still show transiently, but
+it is never a final, never enters history, and is never labelled.
+
+**Rollout is staged**, because CI never runs `services/local-stt` and the
+Silero lifespan first runs in production. `prod.env.example` ships
+`STT_MIN_SPEECH_MS=0` for the first deploy after this change — the 0.50/0.45
+bars, the re-swept `SPLIT_COSINE` and the vi ASR translation note all go live
+with the gate off — and the floor is raised to `300` by hand after one or two
+real sessions confirm the sidecar started cleanly.
+
 ### Per-turn speaker attribution
 
 The `/translate` transcript can carry who said each turn, **with nobody being
@@ -514,8 +561,8 @@ a running sum of the vectors folded into it; the centroid is that sum normalised
 computed on read. One turn:
 
 1. cosine against every existing centroid, best one kept;
-2. at or above `tauAssign` (0.375) — join that voice and fold the vector in;
-3. below `tauNew` (0.325) — a voice nobody has heard, unless `kMax` (2) is
+2. at or above `tauAssign` (0.50) — join that voice and fold the vector in;
+3. below `tauNew` (0.45) — a voice nobody has heard, unless `kMax` (2) is
    already reached, in which case join the nearest one instead. **A new voice is
    not believed on one turn** (`mintConfirmations`, 2): the turn opens a
    _provisional_ voice that names nobody, and the next turn matching it at
@@ -530,10 +577,13 @@ computed on read. One turn:
 
 At `transcript.settled` a provisional voice that never found its second turn is
 promoted, most-corroborated first, while the cap has room. Its turns were all
-`pending`, so this adds ordinals without moving any. Every vector is observed,
-however short the turn: a 1250ms speech floor used to withhold short turns and
-settle them by carry-forward, and deferred minting replaced it (measurements
-below).
+`pending`, so this adds ordinals without moving any. Every vector the layer is
+handed is observed, however short the turn: a 1250ms speech floor used to
+withhold short turns and settle them by carry-forward, and deferred minting
+replaced it (measurements below). What now decides whether it is handed a
+vector at all is the sidecar's speech gate (below): a turn the gate did not
+observe is never folded in and simply carries the previous turn's label,
+exactly like a turn the socket lost before the server could emit one.
 
 **In the literature this is TTSAS, and the resemblance is structural rather than
 sourced.** A two-threshold sequential scheme with an undecided band and a later
@@ -582,8 +632,20 @@ its length, and the server looks inside it instead
 1. Find pauses of at least 300ms. The pump flushes held silence when speech
    resumes, so the pauses are in the server's buffer.
 2. Embed each piece of at least 500ms once.
-3. Start a new run where the next piece scores below 0.35 against the
-   duration-weighted voice of the current run.
+3. Start a new run where the next piece scores below `SPLIT_COSINE` (0.35)
+   against the duration-weighted voice of the current run.
+
+`SPLIT_COSINE` is decoupled from the clusterer's `tauAssign`/`tauNew`, not
+tuned to sit between them — a value that once fell in their dead zone was a
+coincidence, since the two decisions run over different evidence (whole turns
+behind the 300ms speech gate, versus sub-turn pieces with no gate of their
+own). Re-swept at 0.35/0.40/0.45 against every saved turn of five real
+recordings once the clusterer bars moved to 0.50/0.45
+(`benchmarks/speaker-id/scripts/split_cosine_sweep.py`): on the multi-speaker
+sessions, summed wrong-cuts plus missed changes was 3 at
+0.35, 3 at 0.40, 1 at 0.45 — but 0.45 also cuts once inside a single-voice
+recording's own turn, which neither 0.35 nor 0.40 does. Nothing beat 0.35 on
+both counts at once, so it stayed.
 
 With two or more runs, each piece is transcribed and translated with the pieces
 before it as context. Each is sent as its own `server.transcript.final`
@@ -646,15 +708,32 @@ the vectors all leave with the conversation. Nothing is persisted on either side
 and no name is ever stored beside a voice.
 
 **What the measurements say about how well it works, since the flag decision
-rests on it.** On 100 real two-person Vietnamese dialogues (ViYT-Diar, manually
-annotated; held-out half), run through the whole client pipeline, all-turn
-accuracy is **0.84 on clean audio and 0.80 far-field**, with the right number of
-speakers in about 0.9 of conversations. The single-turn mint behind a speech
-floor that shipped before it scored 0.79 / 0.77, with the right count in about
-0.7. On the eight production recordings, labelled by agreement between
-ElevenLabs Scribe and Sortformer, it scores 0.89 against 0.86 — but gets the
-speaker count exactly right on 0.62 of them against 0.75, the one number on any
-ruler that went down.
+rests on it.** Scored by `benchmarks/speaker-id/run_attribution_rulers.py`
+through this module's own `observeVoice`/`promoteProvisional` — the shipped
+reducer, not a re-implementation — behind the sidecar's speech gate (see
+above), on 100 real two-person Vietnamese dialogues (ViYT-Diar, manually
+annotated; held-out half), all-turn accuracy is **0.945 on clean audio and
+0.910 far-field**, with the exact speaker count in 96/100 and 95/100
+conversations. At the bars this replaced (`tauAssign`/`tauNew` 0.375/0.325),
+same gate, it was 0.910 / 0.873, exact in 90/100 and 89/100. On the eight
+production recordings it is 0.921 (7 of 8 exact) against 0.827 (5 of 8) at the
+old bars — the one ruler where raising the bars also fixed the exact count,
+not just accuracy. A minimum of 96 clean and 94 far-field exact holds over 20
+order-perturbed arrival seeds.
+
+**A different failure surfaces at the gate, and raising the bars neither
+causes nor fixes it.** A window too brief to carry a real word — a few hundred
+milliseconds of cross-talk or a backchannel a transcript never attributed a
+word to — can still clear the 300ms floor and still gets treated as a second
+voice by a purely acoustic decision, because "brief and real" and "brief and
+someone else's" look identical to it. Measured on one of the five real
+conversation rulers: a single 670ms window with no attributed word, 66% of it
+Silero-detected speech, opens a provisional voice nothing else in the session
+corroborates, and `promoteProvisional` gives it its own ordinal at session end
+because `kMax` still has room — reproduces identically at the old bars, so
+this is not a threshold regression. `run_attribution_rulers.py` reports it
+rather than hiding it; it is the one conversation-level exact-count cell that
+does not pass.
 
 **One failure is measured and not fixed.** On the browser channel two voices can
 score above `tauAssign` against each other: CAM++ puts two podcast hosts at 0.37–0.41
@@ -1689,6 +1768,25 @@ sentence that lacked it. The trusted system instruction says so, and
 `benchmarks/prompt-injection` grades it by name against the live API —
 `hint-glossary-not-inserted` is the case, and the harness needed a
 containment-based `INSERTED` verdict to be able to see that failure at all.
+
+**One rule in that instruction is Vietnamese-only.**
+`buildTranslationInstruction` appends a note, only when `sourceLanguage ===
+'vi'`, that the local recognizer writes everything in lowercase and spells
+English by sound — including names and brands, as Vietnamese syllables — and
+that the syllable "ai" collides with the Vietnamese question word for "who":
+it renders "AI" when the surrounding words are about technology, software,
+models or companies, and "who" when the sentence asks who a person is. This
+exists because the recognizer's lowercase ASR output is a real, measured
+source of mistranslation on that leg and on no other. Graded against the
+production provider (`deepseek-flash`) with 4 turns of prior context: flagged
+AI-context rows from two real sessions render `AI` 21/21 across 3 runs (the
+note did not regress this pair — they already rendered correctly), 30/30
+synthetic who-context observations keep a who-form with 0 flips, and the new
+`là ai` prompt-injection attack cases pass 156/156 behavioural checks with 0
+regressions against a same-day baseline. `"có phải là ai không"` — a yes/no
+question frame, not the "who are you" frame — correctly keeps rendering "are
+you an AI?" in an AI-topic conversation; that is the grammatically correct
+reading of that shape and not a case the note is meant to flip.
 
 **Two models hold it** (`apps/api/prisma/schema.prisma`).
 `TranslationContext` is addressed by `@@unique([ownerId, clientId])` — the only

@@ -1956,3 +1956,149 @@ rollback: muốn quay lại Moonshine thì revert commit.
 
 Còn mở: tiếng Anh mới chỉ có một đáp án (Whisper). Đáp án thứ hai, ElevenLabs cho 2 bản
 ghi en, chưa được duyệt.
+
+## Nâng ngưỡng gán người nói lên 0.50/0.45, gate im lặng 300 ms, và ghi lại quyết định không đưa luật cắt tương đối vào sản phẩm (29/09/2026)
+
+Bối cảnh: 5 cuộc hội thoại vi→en thật cho thấy bốn lỗi — `tauAssign` 0.375 gộp hai
+giọng có cosine khác giọng 0.38–0.58; đoạn không lời (nhạc, jingle) sinh chữ ảo và
+đúc một giọng ma; lượt trên audio phát sóng chạm trần 8 s vì nền nhạc không bao giờ
+xuống dưới sàn tuyệt đối; chữ "ai" viết thường bị dịch thành "who". Kế hoạch:
+`plans/260929-0353-two-speaker-attribution-segmentation-keywords`.
+
+### Bảng ruler: cũ so với 0.50/0.45, đều chấm sau gate 300 ms
+
+Chạy qua `run_attribution_rulers.py --config 0.50/0.45 --min-speech-ms 300`, qua đúng
+reducer TS đã ship (`attribution-reference.mjs --pipeline`), không phải bản dựng lại:
+
+| Ruler       | Ngưỡng cũ 0.375/0.325 (acc / exact) | Ngưỡng mới 0.50/0.45 (acc / exact) |
+| ----------- | ----------------------------------: | ---------------------------------: |
+| ViYT sạch   |                      0,910 / 90/100 |                 **0,945 / 96/100** |
+| ViYT xa     |                      0,873 / 89/100 |                 **0,910 / 95/100** |
+| Prod cũ (8) |                         0,827 / 5/8 |                    **0,921 / 7/8** |
+
+Perturbation 20 seed (đảo thứ tự đến, p=0,2): exact tối thiểu ViYT sạch 96, ViYT xa
+94 — cả hai đều vượt mốc ≥ 90/89. Trên 5 cuộc hội thoại thật (`rulers/conversations`):
+2499c493 (2 giọng) đạt exact 1/1 (so với 0,725 khi chấm ở ngưỡng cũ — đây là ca merge
+gốc mà việc nâng ngưỡng sửa được), 2bed5c89 (1 giọng) exact 1/1. **1cd04a39 (1 giọng)
+vẫn dự đoán 2 giọng** ở cả ngưỡng cũ lẫn mới — xem mục "khoảng lặng phantom" bên dưới.
+Test `test_attribution_rulers.py::test_single_voice_conversation_predicts_one_label
+[conversations/1cd04a39-…]` để nguyên trạng thái fail, không nới lỏng.
+
+### Ngưỡng lost-turn 300 ms: maintainer chấp nhận
+
+| Ruler                                               |    Lượt mất | % lượt |      Giây mất | % giây |
+| --------------------------------------------------- | ----------: | -----: | ------------: | -----: |
+| ViYT sạch                                           |     92/2337 |   3,9% | 23,6/5006,2 s |   0,5% |
+| ViYT xa                                             |     92/2337 |   3,9% | 23,6/5006,2 s |   0,5% |
+| Prod cũ (8 bản ghi)                                 |      17/221 |   7,7% |   3,2/497,5 s |   0,6% |
+| 5 cuộc hội thoại thật (83 cửa sổ, ruler cấp cửa sổ) | 0/78 speech |     0% |           0 s |     0% |
+
+Prod cũ vượt mốc 5% số lượt (nhưng dưới 1% thời lượng); ViYT và 5 cuộc hội thoại thật
+đều dưới cả hai mốc. **Maintainer chấp nhận sàn 300 ms (29/09/2026)** với các số trên —
+lượt mất ở prod cũ là lượt cực ngắn (dưới 300 ms lời nói thật), không phải lượt có nội
+dung; 0 cửa sổ có lời nói nào trong 5 cuộc hội thoại thật bị gate mất.
+
+### `SPLIT_COSINE` re-sweep, giữ nguyên 0,35
+
+`split_cosine_sweep.py` chạy qua real `groupByVoice`/`findInternalPauses` (esbuild từ
+`speaker-change-split.ts`) trên toàn bộ lượt đã lưu của 5 bản ghi, ở 0,50/0,45 clusterer
+bars:
+
+| Ngưỡng | Cắt sai + đổi giọng bỏ sót (2 phiên nhiều giọng) | Cắt sai trong phiên 1 giọng |
+| ------ | -----------------------------------------------: | --------------------------: |
+| 0,35   |                                                3 |                           0 |
+| 0,40   |                                                3 |                           0 |
+| 0,45   |                                                1 |                           1 |
+
+0,45 thắng ở cột đầu nhưng cắt sai một lần trong chính phiên 1 giọng — bị loại theo
+đúng luật đã đặt ra (không được thêm cắt sai ở phiên 1 giọng). Không ứng viên nào thắng
+cả hai cột, `SPLIT_COSINE` giữ 0,35 — tách khỏi `tauAssign`/`tauNew`, không còn nằm
+"giữa hai ngưỡng clusterer" như comment cũ nói (đó là trùng hợp, không phải ràng buộc
+thiết kế).
+
+### Luật cắt ở khoảng lặng tương đối: đo được, **không đưa vào sản phẩm**
+
+Ý tưởng (kế hoạch phase 07): trong 1,5 s lookahead, khi luật tạm dừng tuyệt đối bị mù
+(nền nhạc không bao giờ xuống sàn), cắt thêm ở chỗ thấp hơn 40% RMS trung vị của lượt,
+kéo dài ≥ 60 ms. Cài đúng đặc tả, parity TS/Python xanh, nhưng thay lại đúng bằng số
+đo trên 5 bản ghi thật: **luật không kích hoạt lần nào** — replay giống hệt gate hiện
+tại byte-for-byte. Nguyên nhân: 13/14 lượt của phiên nặng nhất có một khoảng lặng dưới
+sàn tuyệt đối chỉ 20–1000 ms sau khi lượt mở, tức là một hơi thở bình thường, không
+phải ca hiếm — và vì cờ "đã thấy khoảng lặng" (`sawQuiet`) khóa cho _cả lượt_ kể từ đó,
+luật tương đối bị vô hiệu hoá trước khi kịp arm ở 1,5 s cuối cùng, trên gần như mọi
+lượt.
+
+Thử một biến thể (chỉ khóa từ lúc arm trở đi, theo tư vấn `kongming`): số cắt trần của
+phiên nặng nhất giảm 12 → 7 (mốc ≤ 3, vẫn chưa đạt), cắt trong-từ giảm 25 → 21 (mốc
+< 5, vẫn chưa đạt) — nhưng làm hỏng đúng hai phiên "sạch" mà luật không được đụng vào:
+2bed5c89 đổi thành phần cắt (luật tương đối kích hoạt), 1cd04a39 giảm số cắt an-toàn-cụm-từ
+15 → 14. Biến thể này bị loại; bản literal-theo-đặc-tả (an toàn, nhưng gần như trơ trên
+bằng chứng thật) là bản được giữ.
+
+**Quyết định: không ship.** Mã trong `speech-gate.ts` giữ nguyên như `origin/main`;
+chỉ công cụ replay `scripts/cut_placement.py` cùng test và override fixture parity được
+commit. Số cắt trên gate hiện hành (không đổi), 5 bản ghi:
+
+| Phiên    | Tổng cưỡng bức |   Trần | Lookahead | Trong-từ | An toàn cụm từ |
+| -------- | -------------: | -----: | --------: | -------: | -------------: |
+| 1cd04a39 |             18 |      3 |        15 |        3 |             15 |
+| 2499c493 |             10 |      4 |         6 |        6 |              3 |
+| 2bed5c89 |              3 |      2 |         1 |        2 |              1 |
+| 5b679761 |             13 |     12 |         1 |       10 |              3 |
+| 74410b70 |              7 |      5 |         2 |        4 |              3 |
+| **Tổng** |         **51** | **26** |    **25** |   **25** |         **25** |
+
+Mốc A3 (trần 5b679761 ≤ 3, trong-từ toàn cục < 5) không đạt trên bằng chứng này, không
+phải vì thiếu tinh chỉnh — cờ giữ luật an toàn trên phiên sạch chính là cờ vô hiệu hoá nó
+trên phiên có nền nhạc. Cần một cơ chế khác (ví dụ trung vị cục bộ theo cửa sổ thay vì
+một lần tại thời điểm arm, hoặc đánh giá từng đoạn của lượt riêng biệt) — một câu hỏi
+thiết kế mở cho lần sau, không phải lỗi cài đặt.
+
+### "ai" → AI: không hồi quy, không lộ điểm riêng tư
+
+Graded qua `deepseek-flash` (nhà cung cấp production), 4 lượt ngữ cảnh trước:
+
+- 21/21 (100%) dòng gắn cờ AI-context từ 2 phiên thật, 3 lần chạy — trước và sau khi
+  thêm ghi chú đều 21/21 (cặp phiên này vốn đã dịch đúng, ghi chú không làm hỏng gì).
+- Who-control: 30/30 quan sát (10 câu tổng hợp × 3 lần lặp), 0 lật, vượt mốc ≥ 29/30.
+- Prompt-injection: trước-ghi-chú 152/156 (4 lỗi hành vi), sau-ghi-chú **156/156, 0 lỗi
+  hành vi** — 3 ca tấn công "là ai" thật và ca control mới đều 3/3.
+- Glossary-adherence không hồi quy quá mốc: 41/43 (95,3%) so với 42/43 (97,7%) trước —
+  đạt đúng mốc "≥ trước trừ 1".
+- Một trong bốn ca tấn công của đặc tả hoá ra là gán nhãn sai, không phải lỗi ghi chú:
+  câu dùng khung hỏi-đáp có/không ("có phải là X không") — khung này không thể nhận "ai"
+  nghĩa là "who" và vẫn có nghĩa "bạn là ai", nên dịch "are you an AI?" là đúng ngữ pháp
+  trong ngữ cảnh AI, không phải lỗi cần sửa. Ca này được xếp lại thành control.
+
+### Gate không lọc được vài cửa sổ ngắn: chấp nhận là khoảng trống tham chiếu
+
+Đo trên ≥ 20 đoạn không-từ-Scribe ≥ 1,5 s từ 5 bản ghi webm thật:
+
+- 14/22 (63,6%) được gate lọc, dưới mốc ≥ 95%.
+- 3/5 cửa sổ "noise" của ruler cấp-cửa-sổ được gate lọc, dưới mốc ≥ 4/5.
+- Lệch trung vị `|sileroMs − vad harness × 1000|`: 162 ms, trên mốc ≤ 150 ms 12 ms.
+- Một cửa sổ 670 ms không có từ Scribe nào nhưng mang 442 ms tiếng nói theo Silero
+  (66% cửa sổ) và bản dịch ngắn không rỗng — đúc thành giọng ma trong ruler 1cd04a39,
+  giống nhau ở cả ngưỡng cũ lẫn mới.
+
+Kiểm tra trực tiếp từng cửa sổ/đoạn chưa lọc: mỗi cái đều có tiếng nói Silero phát hiện
+được _và_ bộ giải mã ra chữ ngắn, hợp lý — không phải rác. **Maintainer chấp nhận đây là
+khoảng trống tham chiếu (rất có thể là lời nói thật, ngắn, mà Scribe không gán từ nào
+cho — chen ngang hoặc backchannel), không phải lỗi của gate.** Test đỏ
+`test_single_voice_conversation_predicts_one_label[1cd04a39]` giữ nguyên như một ô còn
+mở đã ghi lại, không nới lỏng.
+
+### Rollout theo giai đoạn — kế hoạch, chưa thực hiện
+
+Merge kích hoạt deploy tự động. Giai đoạn 1: `prod.env` đặt `STT_MIN_SPEECH_MS=0` trước
+merge — ngưỡng 0,50/0,45, `SPLIT_COSINE` giữ nguyên và ghi chú dịch đi live với gate tắt.
+Sau 1–2 phiên thật xác nhận sidecar khởi động sạch (hash Silero đúng, `/healthz` ok,
+`printenv STT_MIN_SPEECH_MS` in ra 0), giai đoạn 2: đặt lại 300 và tái tạo API. Bước 5–8
+của phase 09 (sửa `prod.env`, merge, deploy, chạy phiên thật) thuộc về maintainer, chưa
+chạy trong phiên làm việc này.
+
+### Số đo lại trên máy chủ, tách khỏi tải các agent song song
+
+Độ trễ `/transcribe` với vs không `min_speech_ms=300` trên một đoạn ~7,4 s, 50 lượt gọi
+2 đồng thời, đo lại khi máy rảnh hơn: Δp95 hai lần đo lần lượt **+10,2 ms** và **+20,6 ms**
+— trong ngân sách +25 ms (số đo trước đó, dưới tải các phase song song, là +28,3 ms).
