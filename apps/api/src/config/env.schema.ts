@@ -116,7 +116,7 @@ export const envSchema = z.object({
   R2_SECRET_ACCESS_KEY: emptyStringAsUndefined(z.string().min(1).optional()),
   R2_BUCKET: emptyStringAsUndefined(z.string().min(1).optional()),
 
-  // ── Turn-based translate pipeline (vi↔en) ──────────────────────────────
+  // ── Turn-based translate pipeline ───────────────────────────────────────
   // Provider selections for the REST /translate flow. Speech runs locally by
   // default (sherpa-onnx sidecars, no cloud call, no API key); translation is
   // still cloud Gemini. Set these to `elevenlabs` to compare against the cloud.

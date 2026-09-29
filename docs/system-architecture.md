@@ -1829,7 +1829,7 @@ lets the recorded injection baseline keep describing the default path.
 
 - `common/` — shared interceptors, filters, pipes, middleware, Swagger setup, types
 - `modules/` — feature modules:
-  - `translate/` — `POST /translate` and `/ws/translate` (vi↔en voice translation, no auth)
+  - `translate/` — `POST /translate` and `/ws/translate` (voice translation between registered languages; REST behind the global `JwtAuthGuard`, WS checked at upgrade by `ws-auth.ts`)
     - `translate.controller.ts` — HTTP handler
     - `translate.gateway.ts` — WebSocket transport: validates against the shared contract, delegates
     - `services/pipeline-translator.service.ts` — `transcribeAndTranslate()` + `synthesize()`; `translateTurn()` composes them for REST
@@ -2076,7 +2076,7 @@ two contexts took to agree. Both halves are pure functions in
 
 Not in scope: injecting the translated voice into the outgoing microphone stream,
 Zoom's desktop app (not a tab, so not capturable — the popup says so), diarization,
-and languages beyond vi↔en.
+and any language the registry does not hold yet (today it holds vi and en).
 
 ---
 

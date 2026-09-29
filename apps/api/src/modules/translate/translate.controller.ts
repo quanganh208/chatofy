@@ -51,7 +51,8 @@ const DEFAULT_VOICES_LANGUAGE = directionLanguages(
  * plus a direction, returns the transcript, the translation, and synthesized
  * speech in the target language.
  *
- * Directions: vi→en and en→vi. The raw payload is wrapped by
+ * Directions are the ones `TRANSLATION_DIRECTIONS` derives from the language
+ * registry in `@chatofy/types`. The raw payload is wrapped by
  * TransformInterceptor.
  *
  * Authenticated, despite what this comment used to say: `JwtAuthGuard` is
