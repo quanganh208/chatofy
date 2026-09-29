@@ -22,9 +22,10 @@
  * principle and did not appear at the lengths this product produces.
  *
  * **The mechanism is a port, not an invention.** `benchmarks/speaker-id/
- * speaker_bench/online.py` is the reference implementation and every threshold
- * here comes from calibrating it on held-out speakers. Two bars with a dead zone
- * between them:
+ * speaker_bench/online.py` is the reference implementation, driven end to end
+ * through this very module by `benchmarks/speaker-id/run_attribution_rulers.py`
+ * — the committed runner every bar below is calibrated against, not a scratch
+ * script. Two bars with a dead zone between them:
  *
  * - at or above {@link AutoAttributionConfig.tauAssign} — join that speaker;
  * - below {@link AutoAttributionConfig.tauNew} — this is somebody new;
@@ -43,15 +44,24 @@
  * a name, so promoting it renumbers nothing anybody saw.
  *
  * **What the bench says about how well this works, stated here rather than in a
- * report nobody opens.** On 100 real two-person Vietnamese dialogues (ViYT-Diar,
- * held-out half), run through this whole client pipeline, all-turn accuracy is
- * **0.84 clean and 0.80 far-field** with the right speaker count in about 0.9 of
- * sessions — against 0.79 / 0.77, and about 0.7, for the single-turn mint behind a
- * 1250ms speech floor that shipped before it. On eight production recordings it
- * is 0.89 against 0.86, though the exact speaker count there fell from 0.75 to
- * 0.62. One failure it does not fix, measured on the browser channel: two voices
- * whose turns score above `tauAssign` against each other are merged into one
- * speaker. `docs/system-architecture.md` has the rest.
+ * report nobody opens.** `run_attribution_rulers.py` scores this module through
+ * `attribution-reference.mjs --pipeline` — the reducer, not a re-implementation
+ * — behind the sidecar's 300ms Silero speech gate: a turn the gate did not
+ * observe is never folded in and carries the previous turn's label. At these
+ * bars, on 100 real two-person Vietnamese dialogues (ViYT-Diar, held-out half),
+ * all-turn accuracy is **0.945 clean and 0.910 far-field**, exact speaker count
+ * in 96/100 and 95/100 sessions — against 0.910 / 0.873 and 90/100 / 89/100 at
+ * the bars this replaced (0.375/0.325), both scored under the same gate. On
+ * eight production recordings it is 0.921 (7/8 exact), against 0.827 (5/8) at
+ * the old bars. The failure the old bars had, measured on the browser channel —
+ * two voices whose turns score above `tauAssign` against each other merging
+ * into one speaker — is what raising the bar fixes: the merge happened at a
+ * measured across-speaker cosine of 0.38–0.58, all of it now below `tauAssign`.
+ * A different failure remains at the 300ms gate: a window too brief to carry a
+ * real word, if Silero and the decoder still find something in it, can mint a
+ * phantom second voice that a purely acoustic decision has no way to rule
+ * out — named, not hidden, in the runner's own output. `docs/system-architecture.md`
+ * has the rest.
  */
 
 /** Two bars, a dead zone between them, and a ceiling on how many voices exist. */
@@ -70,24 +80,35 @@ export interface AutoAttributionConfig {
 }
 
 /**
- * Calibrated on held-out speakers, clean channel, at the product's real turn
- * length — `benchmarks/speaker-id/results/1s-m9-k2-assign.csv`, campplus, cold.
+ * Scored by `benchmarks/speaker-id/run_attribution_rulers.py` against real,
+ * held-out two-person conversations, behind the sidecar's 300ms Silero speech
+ * gate — the same gate production runs — on both the clean and far-field ViYT-
+ * Diar splits and eight old production recordings, all through this module's
+ * own `observeVoice`/`promoteProvisional`, not a re-implementation.
  *
- * **Clean, not far-field, and that is a choice with a reason.** The far-field arm
- * calibrated to 0.575, 0.700 and 0.750 across its three splits — a 0.175 spread,
- * which is a range rather than a number, and shipping an unstable threshold is
- * worse than shipping a stable one from an adjacent channel. Production audio is
- * a phone or laptop microphone at conversational distance with browser DSP on
- * it, which is nearer to the clean cell than to a simulated 2m reverberant room.
+ * **Raised from 0.375/0.325.** The old bars merged two voices whenever a turn
+ * scored above `tauAssign` against the wrong speaker — measured on the browser
+ * channel at an across-speaker cosine of 0.38–0.58, entirely above the old bar
+ * and entirely below this one. `run_attribution_rulers.py --config 0.50/0.45`:
+ * clean 0.945 acc / 96 of 100 exact, far-field 0.910 / 95 of 100, production
+ * 0.921 / 7 of 8 — against 0.910 / 90, 0.873 / 89, 0.827 / 5 of 8 at the old
+ * bars, same gate. A minimum of 90 clean and 89 far-field exact over 20
+ * order-perturbed arrival seeds holds at the new bars too.
  *
- * **Neither cell is production's channel.** Nothing in the calibration passed
- * through browser noise suppression or automatic gain control, both of which
- * reshape exactly the timbre an embedding reads. These are the best available
- * numbers and they are not yet the right ones.
+ * **What raising the bar does not fix.** A window too brief to carry a real
+ * word can still pass the 300ms gate — Silero and the decoder can find
+ * something in a few hundred milliseconds of cross-talk or a backchannel a
+ * transcript never attributed a word to — and an acoustic-only decision mints
+ * it as a second voice exactly as it would a real one. Neither bar can tell
+ * "brief and real" from "brief and someone else's"; `run_attribution_rulers.py`
+ * reports it rather than hiding it. Production audio is a phone or laptop
+ * microphone at conversational distance with browser DSP on it, which the
+ * gated conversation ruler measures more directly than the ViYT-Diar splits
+ * — neither of those carries real audio through the gate.
  */
 export const DEFAULT_AUTO_ATTRIBUTION: AutoAttributionConfig = {
-  tauAssign: 0.375,
-  tauNew: 0.325,
+  tauAssign: 0.5,
+  tauNew: 0.45,
   // Two, because this product is one device between two people, and the
   // measured cost of raising it is severe in exactly the case that always
   // happens: at k=3 the clusterer splits a two-person conversation into three

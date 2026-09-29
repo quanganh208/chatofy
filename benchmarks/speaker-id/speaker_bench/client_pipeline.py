@@ -31,9 +31,8 @@ REPO_ROOT = BENCH_ROOT.parent.parent
 REFERENCE = BENCH_ROOT / "scripts" / "attribution-reference.mjs"
 
 #: The configuration the client actually ships, from `auto-attribution.ts`'s
-#: `DEFAULT_AUTO_ATTRIBUTION`. Phase 06 flips this once the new bars are
-#: accepted; until then it names the config every published number describes.
-SHIPPED = {"tau_assign": 0.375, "tau_new": 0.325, "k_max": 2, "mint_confirmations": 2}
+#: `DEFAULT_AUTO_ATTRIBUTION`.
+SHIPPED = {"tau_assign": 0.50, "tau_new": 0.45, "k_max": 2, "mint_confirmations": 2}
 
 
 def run_client_pipeline(
