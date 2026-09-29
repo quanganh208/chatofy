@@ -54,9 +54,18 @@ const MIN_PIECE_MS = 500;
 /**
  * Below this cosine, the next piece is someone else.
  *
- * Swept at 0.35/0.40/0.45 over three real recordings: 0.35 made the fewest wrong
- * cuts (4 on the podcast, 0 and 1 on the other two) at no cost in accuracy. It
- * sits between the clusterer's `tauNew` (0.325) and `tauAssign` (0.375).
+ * Decoupled from the clusterer's bars, not between them. Re-swept at
+ * 0.35/0.40/0.45 (`benchmarks/speaker-id/scripts/split_cosine_sweep.py`) over
+ * every saved turn of the same five real recordings the attribution rulers
+ * use, once `tauAssign`/`tauNew` moved to 0.50/0.45: on the three sessions with
+ * more than one real speaker, summed wrong-cuts + missed-changes was 3 at 0.35,
+ * 3 at 0.40, 1 at 0.45 — but 0.45 also cuts once inside a single-voice
+ * recording's own turn, which neither 0.35 nor 0.40 does. Nothing beat 0.35 on
+ * both counts at once, so it stayed. A value here that happened to fall inside
+ * the clusterer's dead zone was always a coincidence, not a design constraint —
+ * the two decisions run over different evidence (whole turns with a 300ms
+ * speech gate, versus sub-turn pieces with no gate of their own) and have no
+ * reason to share a number.
  */
 const SPLIT_COSINE = 0.35;
 
