@@ -383,6 +383,7 @@ export class MeetingCapture {
       if (settings.outbound) {
         await this.startOutbound(context, settings, accessToken, duck, stale, hints);
       }
+      if (stale()) throw new Error('capture was stopped while starting');
 
       await echo.start();
       this.reportStatus();
