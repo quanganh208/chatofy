@@ -67,6 +67,11 @@ export class LocalSpeechSttProvider implements SttProvider {
     for (const term of options?.hotwords ?? []) {
       if (term.trim()) form.append('hotwords', term);
     }
+    // Only when > 0: the sidecar's own field default is 0 (no gate), so an
+    // absent or zero floor sends nothing rather than a redundant `0`.
+    if (options?.minSpeechMs && options.minSpeechMs > 0) {
+      form.append('min_speech_ms', String(options.minSpeechMs));
+    }
     // Copy into a fresh ArrayBuffer-backed view so the bytes satisfy BlobPart
     // regardless of the caller's backing buffer (TS typed-array generics).
     const fileBlob = new Blob([new Uint8Array(audio)], { type: mimeType });

@@ -76,6 +76,43 @@ describe('LocalSpeechSttProvider', () => {
     expect(form.getAll('hotwords')).toEqual(['poker', 'Target']);
   });
 
+  it('sends min_speech_ms when the caller asks for a speech floor', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ text: '', language: 'vi' }),
+    });
+    global.fetch = fetchMock;
+
+    const provider = new LocalSpeechSttProvider({
+      baseUrl: 'http://localhost:8002',
+    });
+    await provider.transcribe(audio, 'audio/webm', 'vi', { minSpeechMs: 300 });
+
+    const form = callArgs(fetchMock)[1].body as FormData;
+    expect(form.get('min_speech_ms')).toBe('300');
+  });
+
+  it('sends no min_speech_ms field when the caller named none or zero', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ text: 'hi', language: 'en' }),
+    });
+    global.fetch = fetchMock;
+
+    const provider = new LocalSpeechSttProvider({
+      baseUrl: 'http://localhost:8002',
+    });
+    await provider.transcribe(audio, 'audio/wav', 'en');
+    expect(
+      (callArgs(fetchMock)[1].body as FormData).get('min_speech_ms'),
+    ).toBeNull();
+
+    await provider.transcribe(audio, 'audio/wav', 'en', { minSpeechMs: 0 });
+    expect(
+      (callArgs(fetchMock, 1)[1].body as FormData).get('min_speech_ms'),
+    ).toBeNull();
+  });
+
   it('sends no hotword field when the caller named none', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

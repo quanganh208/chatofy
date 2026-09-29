@@ -37,6 +37,17 @@ export interface SttTranscribeOptions {
    * silent pass-through as the terms having been applied.
    */
   hotwords?: string[];
+  /**
+   * Silero speech floor, in ms, below which the backend should answer an empty
+   * transcript without decoding.
+   *
+   * Optional for the backend, exactly like {@link hotwords}: a provider that
+   * cannot gate on speech (ElevenLabs) ignores it rather than failing, and a
+   * caller must not read the silent pass-through as the floor having been
+   * applied. `0` or absent both mean "no floor" — the caller decides which of
+   * the two it sends.
+   */
+  minSpeechMs?: number;
 }
 
 /**
