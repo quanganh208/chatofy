@@ -43,9 +43,10 @@ _NUMBER_TOKEN_RE = re.compile(r"\d(?:[\d.,]*\d)?%?")
 def _digit_word(digit: int, tens_context: bool) -> str:
     """Spoken word for a single digit 0-9.
 
-    tens_context: this digit is the last digit of a two-digit reading (after
-    "mười" or "X mươi"), where 1, 4 and 5 take the irregular forms "mốt",
-    "tư", "lăm" instead of the plain digit word.
+    tens_context: this digit is the last digit of an "X mươi" reading (20-99),
+    where 1, 4 and 5 take the irregular forms "mốt", "tư", "lăm" instead of
+    the plain digit word. After "mười" (10-19) only 5 is irregular ("mười
+    lăm"): 11 is "mười một", never "mười mốt", and 14 is "mười bốn".
     """
     if tens_context:
         if digit == 1:
@@ -79,7 +80,7 @@ def _read_three_digit_group(n: int, force_hundreds: bool) -> list[str]:
     elif tens == 1:
         words.append("mười")
         if units > 0:
-            words.append(_digit_word(units, tens_context=True))
+            words.append("lăm" if units == 5 else _ONES[units])
     else:
         words += [_ONES[tens], "mươi"]
         if units > 0:
@@ -100,7 +101,9 @@ def _read_number(n: int) -> str:
     started = False
     for i in range(len(groups) - 1, -1, -1):
         group = groups[i]
-        if not started and group == 0:
+        # A zero group is silent whether it leads or not: 1000 is "một nghìn",
+        # not "một nghìn không trăm".
+        if group == 0:
             continue
         words = _read_three_digit_group(group, force_hundreds=started)
         name = _GROUP_NAMES[i] if i < len(_GROUP_NAMES) else ""
@@ -109,10 +112,26 @@ def _read_number(n: int) -> str:
     return " ".join(parts)
 
 
+def _read_fraction(digits: str) -> str:
+    """Digits after "phẩy", keeping leading zeros: 2,05 is "hai phẩy không năm",
+    never the same words as 2,5."""
+    stripped = digits.lstrip("0")
+    words = ["không"] * (len(digits) - len(stripped))
+    if stripped:
+        words.append(_read_number(int(stripped)))
+    return " ".join(words)
+
+
 def _verbalize_token(token: str) -> str:
     percent = token.endswith("%")
     if percent:
         token = token[:-1]
+    # More than one comma, or a "." after the comma, is not one decimal number
+    # ("1,2,3" is a list): read each digit run as its own number rather than
+    # letting int() raise and abort a whole scoring run.
+    if token.count(",") > 1 or "." in token.partition(",")[2]:
+        words = " ".join(_read_number(int(run)) for run in re.findall(r"\d+", token))
+        return words + (" phần trăm" if percent else "")
     if "," in token:
         integer_part, _, decimal_part = token.partition(",")
     else:
@@ -121,7 +140,7 @@ def _verbalize_token(token: str) -> str:
 
     words = _read_number(int(integer_part)) if integer_part else ""
     if decimal_part:
-        words += " phẩy " + _read_number(int(decimal_part))
+        words += " phẩy " + _read_fraction(decimal_part)
     if percent:
         words += " phần trăm"
     return words
@@ -147,8 +166,8 @@ def canonicalize_vi_number_words(text: str) -> str:
     `lẻ` (the Southern zero-tens filler) becomes `linh` (Northern)
     everywhere. After `mươi`, the irregular tens-context digit words `mốt`,
     `tư`, `lăm`/`nhăm` collapse to the plain digit words `một`, `bốn`,
-    `năm`. `lăm` after `mười` (fifteen) also collapses to `năm`, the same
-    target as the `mươi`-context case.
+    `năm`. After `mười`, `lăm` (fifteen) and the colloquial `tư` (fourteen)
+    collapse the same way.
     """
     tokens = text.split(" ")
     bare = [_WORD_RE.search(t) for t in tokens]
@@ -161,6 +180,6 @@ def canonicalize_vi_number_words(text: str) -> str:
             out[i] = "linh"
         elif prev == "mươi" and word in ("mốt", "tư", "lăm", "nhăm"):
             out[i] = _CANON_TARGET[word]
-        elif prev == "mười" and word == "lăm":
-            out[i] = "năm"
+        elif prev == "mười" and word in ("lăm", "tư"):
+            out[i] = _CANON_TARGET[word]
     return " ".join(out)
