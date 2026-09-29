@@ -2,17 +2,21 @@
 
 ## Product
 
-Realtime Vietnamese ↔ English voice interpreter. User speaks VI, counterpart hears EN (and vice versa), sub-2-second latency.
+Realtime multilingual voice interpreter. Each person speaks their own language and
+hears the other's translated, at sub-2-second latency. Languages are entries in one
+registry, so a new language is a data change plus its speech engines, not a
+redesign. Shipped today: Vietnamese and English.
 
 ## Target Users
 
-- Vietnamese professionals + travelers talking with English speakers in real time
+- People who need a live conversation across a language barrier; the first users are
+  Vietnamese professionals and travelers talking with English speakers
 - Eventually: tourists, creators, enterprise use cases (post-MVP)
 
 ## MVP Scope (6–8 weeks)
 
 - Mobile app (React Native + Expo) only
-- Realtime 2-way VI↔EN conversation
+- Realtime 2-way conversation between any two registered languages (VI↔EN today)
 - Account (email / OAuth). **Translation history is built** (web only), which is
   milestone 6 below. Five models in the schema: `User`, `Conversation`,
   `ConversationTurn`, `MeetingMinutes`, `MinutesActionItem`. A finished conversation
@@ -43,7 +47,9 @@ Realtime Vietnamese ↔ English voice interpreter. User speaks VI, counterpart h
   entry page still said "coming soon", so the placeholder was describing a product
   that no longer existed.
 - Voice cloning
-- Multi-language beyond VI↔EN
+- Shipping a third language. The architecture is ready for one — see
+  [adding a language](./system-architecture.md#checklist-adding-a-language-to-the-registry)
+  — but each language needs its own measured STT and TTS engines first
 - Payment / subscription tiering
 - Analytics / metering (beyond basic rate limits)
 - Offline mode
@@ -91,7 +97,7 @@ Realtime Vietnamese ↔ English voice interpreter. User speaks VI, counterpart h
 
 1. **Scaffold** (✅ done) — monorepo + interfaces + empty screens
 2. **V1 Translation Pipeline** (✅ done) — STT → Gemini translation → TTS, web test UI, no auth
-3. **AI pipeline expansion** (planned) — Realtime API VI↔EN quality spike for mobile WS streaming
+3. **AI pipeline expansion** (planned) — Realtime API quality spike for mobile WS streaming
 4. **Auth + account** — pick provider, wire AuthAdapter
 5. **Mobile audio capture + WS streaming** — end-to-end audio roundtrip via `/ws/translate` gateway
 6. **Translation history + polish** — storage, history screen and search delivered

@@ -1,7 +1,10 @@
 # Chatofy — Voice Translator Monorepo
 
-Real-time voice translation app. Turborepo + pnpm workspace. Directions: vi→en
-and en→vi.
+Real-time multilingual voice translation app. Turborepo + pnpm workspace.
+Languages are entries in one registry (`packages/types/src/domain/languages.ts`),
+and every direction between them is derived from it. Today it holds Vietnamese
+and English, so the live directions are vi→en and en→vi. Adding a language:
+[checklist](./docs/system-architecture.md#checklist-adding-a-language-to-the-registry).
 
 Speech runs **locally on CPU by default** — speech-to-text and text-to-speech
 need no API key and make no cloud call. Machine translation is still a cloud

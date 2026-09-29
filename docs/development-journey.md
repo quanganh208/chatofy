@@ -1,32 +1,33 @@
-# Hành trình thực hiện — Chatofy
+# Development journey — Chatofy
 
-Dự án: **Chatofy** — ứng dụng dịch giọng nói hai chiều vi↔en (đồ án tốt nghiệp).
-Máy đích mọi phép đo: **i7-11700K, 8 nhân vật lý / 16 luồng, 32 GB RAM, Windows
-11, CPU-only, không GPU**.
+Project: **Chatofy** — a two-way vi↔en speech translation app (thesis).
+Target machine for every measurement: **i7-11700K, 8 physical cores / 16 threads, 32 GB
+RAM, Windows 11, CPU-only, no GPU**.
 
-Tài liệu này là **bản ghi hợp nhất** của toàn bộ nghiên cứu, benchmark, quyết
-định thiết kế và số đo — gộp từ 12 report rời (brainstorm, benchmark, advisory,
-delivery, phase, báo cáo tuần) đã dọn sau khi gộp. Mọi con số dưới đây là **đo
-thật**, không ước lượng, trừ chỗ ghi rõ là ước lượng.
+This document is the **consolidated record** of all research, benchmarks, design
+decisions and measurements — merged from 12 separate reports (brainstorm, benchmark,
+advisory, delivery, phase, weekly report) that were removed after the merge. Every
+number below is **measured**, not estimated, except where it is explicitly marked as an
+estimate.
 
-Mục đích: nguồn duy nhất để viết báo cáo đồ án — chương phương pháp, chương thực
-nghiệm, chương kết quả, và phần bài học.
+Purpose: the single source for writing the thesis report — the methodology chapter, the
+experiments chapter, the results chapter, and the lessons-learned section.
 
 ---
 
-## 1. Bài toán và kiến trúc
+## 1. Problem and architecture
 
-**Bài toán.** Dịch hội thoại nói vi↔en với độ trễ đủ thấp để cảm thấy tự nhiên,
-chạy được trên máy phổ thông không GPU.
+**Problem.** Translate spoken vi↔en conversation with latency low enough to feel
+natural, running on an ordinary machine without a GPU.
 
-**Điểm xuất phát (trước 18/07/2026).** Dịch theo lượt qua REST: bấm nút ghi âm →
-gửi file → chờ → nghe kết quả. STT và TTS đều gọi cloud ElevenLabs. Chỉ TTS tiếng
-Việt là local (sidecar VieNeu).
+**Starting point (before 18/07/2026).** Turn-based translation over REST: press the
+record button → send the file → wait → listen to the result. STT and TTS both called
+the ElevenLabs cloud. Only Vietnamese TTS was local (the VieNeu sidecar).
 
-**Điểm kết thúc (26/07/2026).** Hội thoại rảnh tay qua WebSocket: nói tự nhiên,
-không nút; chữ nguồn chạy trong lúc nói; chữ dịch tạm chạy theo sau; audio dịch
-phát ~0,9 s sau khi dứt lời. Toàn bộ nhận dạng + tổng hợp giọng nói chạy local
-trên CPU, không API key.
+**End point (26/07/2026).** Hands-free conversation over WebSocket: speak naturally, no
+buttons; the source text streams while you speak; a provisional translation follows
+behind it; the translated audio plays ~0.9 s after you stop speaking. All speech
+recognition + speech synthesis runs locally on CPU, with no API key.
 
 ```
 apps/web (Next.js)  ──WebSocket /ws/translate──> apps/api (NestJS)
@@ -34,104 +35,110 @@ apps/web (Next.js)  ──WebSocket /ws/translate──> apps/api (NestJS)
                              ┌──────────────────────┼───────────────────────┐
                              │                      │                       │
                     services/local-stt :8002   services/local-tts :8003   Gemini (cloud)
-                    Zipformer-30M (vi)         Kokoro-82M (en)           dịch máy
+                    Zipformer-30M (vi)         Kokoro-82M (en)           machine translation
                     Moonshine base (en)        VieNeu v3 (vi)
                     sherpa-onnx + PyAV         sherpa-onnx + VieNeu
 ```
 
-`POST /translate` (REST, đồng bộ) **giữ nguyên hành vi** — là **đối chứng đo đạc
-cho luận văn**, không được sửa. Trang `/translate/baseline` từng là chỗ bấm tay
-để chạy đối chứng đó; trang đã bị xoá cùng `/translate/live` khi dọn web, còn
-endpoint thì không đụng tới. Số liệu độ trễ trong tài liệu này đo bằng
-`benchmarks/realtime`, không đo qua trình duyệt.
+`POST /translate` (REST, synchronous) **keeps its behavior unchanged** — it is the
+**measurement control for the thesis** and must not be modified. The
+`/translate/baseline` page used to be where that control was run by hand; the page was
+deleted together with `/translate/live` during the web cleanup, while the endpoint was
+left untouched. Latency figures in this document are measured with
+`benchmarks/realtime`, not through the browser.
 
-**Hệ thống chưa offline hoàn toàn:** dịch máy vẫn là Gemini cloud. Chỉ speech là
-local.
-
----
-
-## 2. Dòng thời gian
-
-| Mốc | Ngày     | Nội dung                                          | Kết quả                                                       |
-| --- | -------- | ------------------------------------------------- | ------------------------------------------------------------- |
-| 1   | 18/07    | Nghiên cứu + benchmark model STT/TTS chạy CPU     | Chốt Zipformer-30M (vi), Moonshine base (en), Kokoro-82M (en) |
-| 2   | 23–24/07 | Tích hợp speech local vào pipeline thật           | 2 sidecar, 2 provider, `local` thành mặc định                 |
-| 3   | 24/07    | Chọn model Gemini theo quota thay vì theo "tier"  | Hết chết cả phiên demo khi 1 model cạn quota                  |
-| 4   | 25/07    | Spike đo độ trễ + dựng luồng WebSocket realtime   | Ngân sách trễ đo thật ≈1,13 s                                 |
-| 5   | 25–26/07 | Sửa bug head-start, chữ nguồn live, chữ dịch live | p50 907 ms · p95 1582 ms                                      |
+**The system is not fully offline yet:** machine translation is still Gemini cloud.
+Only speech is local.
 
 ---
 
-## 3. Giai đoạn 1 — Chọn model speech bằng benchmark (18/07)
+## 2. Timeline
 
-### 3.1 Ràng buộc đặt trước khi nghiên cứu
+| Milestone | Date     | Content                                                       | Result                                                              |
+| --------- | -------- | ------------------------------------------------------------- | ------------------------------------------------------------------- |
+| 1         | 18/07    | Research + benchmark STT/TTS models running on CPU            | Settled on Zipformer-30M (vi), Moonshine base (en), Kokoro-82M (en) |
+| 2         | 23–24/07 | Integrate local speech into the real pipeline                 | 2 sidecars, 2 providers, `local` became the default                 |
+| 3         | 24/07    | Pick the Gemini model by quota instead of by "tier"           | No more whole demo session dying when 1 model runs out of quota     |
+| 4         | 25/07    | Latency-measurement spike + build the realtime WebSocket flow | Measured latency budget ≈1.13 s                                     |
+| 5         | 25–26/07 | Fix the head-start bug, live source text, live translation    | p50 907 ms · p95 1582 ms                                            |
 
-- Phần cứng: Windows, 8 nhân vật lý, 32 GB RAM, **CPU-only**.
-- Độ trễ: ≤2 s cho câu 5–10 s ⇒ **RTF ≤ 0,3**; batch (turn-based), chưa cần streaming.
-- 2 model chuyên biệt (vi riêng, en riêng) — registry đã route theo ngôn ngữ.
-- Tích hợp theo pattern sidecar Python FastAPI + uv (như `services/vieneu-tts`).
-- License dùng được cho đồ án học thuật; ghi rõ nếu non-commercial.
+---
 
-### 3.2 Phương pháp — research → benchmark → quyết định
+## 3. Phase 1 — Choosing speech models by benchmark (18/07)
 
-Không chọn model theo số công bố. Quy trình 3 bước, lặp 2 vòng trong ngày
-(một vòng cho STT, một vòng cho TTS):
+### 3.1 Constraints set before the research
 
-1. Khảo sát ứng viên qua paper / model card / benchmark cộng đồng (2025–2026).
-2. Xây benchmark harness **tái lập được**, đo trên **đúng máy đích**.
-3. Quyết định theo ngưỡng định lượng đặt trước; TTS thêm bước nghe A/B chủ quan.
+- Hardware: Windows, 8 physical cores, 32 GB RAM, **CPU-only**.
+- Latency: ≤2 s for a 5–10 s sentence ⇒ **RTF ≤ 0.3**; batch (turn-based), streaming
+  not needed yet.
+- 2 specialised models (one for vi, one for en) — the registry already routes by
+  language.
+- Integrate following the Python FastAPI + uv sidecar pattern (like
+  `services/vieneu-tts`).
+- License must be usable for an academic thesis; state it clearly if non-commercial.
 
-Harness: 2 project Python độc lập `benchmarks/stt/`, `benchmarks/tts/`. Mỗi engine
-chạy trong **subprocess riêng** (cách ly RAM, không tranh CPU), 1 lượt warm-up
-không tính giờ, chạy 2 lần để kiểm variance, tham số decode + số luồng ghi vào
-kết quả để tái lập. Harness là measurement-only — README ghi rõ "never imported
-by the app".
+### 3.2 Method — research → benchmark → decide
 
-Bộ test: **VIVOS test** (vi, CC BY-NC-SA 4.0) và **LibriSpeech test-clean** (en,
-CC BY 4.0), 50 câu mỗi ngôn ngữ, seed 42. Chuẩn hoá WER: NFC, hạ chữ thường, bỏ
-dấu câu, **giữ dấu tiếng Việt**; số viết như đọc.
+Models are not chosen by published numbers. A 3-step process, repeated in 2 rounds
+within the day (one round for STT, one round for TTS):
 
-### 3.3 Ứng viên STT đã khảo sát (số công bố / ước lượng, trước khi đo)
+1. Survey candidates through papers / model cards / community benchmarks (2025–2026).
+2. Build a **reproducible** benchmark harness, measured on **the actual target
+   machine**.
+3. Decide by quantitative thresholds set in advance; TTS adds a subjective A/B
+   listening step.
 
-| Model                           | Lang | Params  | WER công bố           | RTF                  | RAM        | License       | Engine                |
-| ------------------------------- | ---- | ------- | --------------------- | -------------------- | ---------- | ------------- | --------------------- |
-| Zipformer-30M-RNNT-6000h (hynt) | vi   | 30M     | 7,97% VLSP2025        | 0,025                | ~150MB     | CC-BY-NC-ND ✗ | sherpa-onnx           |
-| PhoWhisper-small (VinAI)        | vi   | 244M    | 11,08% VIVOS          | ~0,15–0,3 (ước)      | ~600MB     | BSD-3 ✓       | faster-whisper INT8   |
-| PhoWhisper-base                 | vi   | 74M     | 16,19%                | ~0,1–0,2 (ước)       | ~300MB     | BSD-3 ✓       | faster-whisper        |
-| wav2vec2-base-vi-250h           | vi   | 95M     | 6,15% (cần 4-gram LM) | 0,165                | ~250MB     | CC-BY-NC ✗    | transformers/ONNX     |
-| Whisper-small multilingual      | vi   | 244M    | kém PhoWhisper        | ~0,78 → **trượt**    | ~600MB     | MIT ✓         | faster-whisper        |
-| Moonshine tiny/base             | en   | 27M/61M | ~7,8% avg             | ~0,07–0,27           | ~200–800MB | MIT ✓         | ONNX RT / sherpa-onnx |
-| whisper.cpp small.en Q4/Q5      | en   | 244M    | 3,05% LibriSpeech     | ~0,1–0,2 (ngoại suy) | ~150–400MB | MIT ✓         | whisper.cpp           |
-| Zipformer-en transducer         | en   | ~273M   | ~8%                   | ~0,167               | ~270MB     | Apache-2.0 ✓  | sherpa-onnx           |
-| Parakeet TDT 0.6B               | en   | 600M    | top leaderboard       | ~1,38 → **trượt**    | —          | CC-BY-4.0     | NeMo/ONNX             |
-| Vosk en                         | en   | nhỏ     | 12–14% — kém          | ~0,3                 | thấp       | Apache-2.0    | vosk                  |
+Harness: 2 independent Python projects, `benchmarks/stt/` and `benchmarks/tts/`. Each
+engine runs in **its own subprocess** (RAM isolation, no CPU contention), with 1
+untimed warm-up pass, run twice to check variance, and decode parameters + thread count
+written into the results for reproducibility. The harness is measurement-only — the
+README states "never imported by the app".
 
-**Model đa ngữ một-cho-tất-cả: không khả thi.** Whisper large-v3/turbo quá chậm
-trên CPU; Parakeet v3 không có tiếng Việt; Moonshine chỉ có en. Quyết định "2
-model chuyên biệt" được nghiên cứu xác nhận là đúng.
+Test sets: **VIVOS test** (vi, CC BY-NC-SA 4.0) and **LibriSpeech test-clean** (en,
+CC BY 4.0), 50 utterances per language, seed 42. WER normalisation: NFC, lowercase,
+strip punctuation, **keep Vietnamese diacritics**; numbers written as spoken.
 
-Ba phương án đã cân nhắc: **A** — sherpa-onnx 1 runtime 2 model (khuyến nghị);
-**B** — faster-whisper 1 runtime, license sạch 100% nhưng RTF chưa chứng minh;
-**C** — best-of-breed 2 runtime khác nhau (loại: vi phạm KISS khi A đã đủ).
-User chốt: **benchmark cả A và B trước, chưa implement gì vào app.**
+### 3.3 STT candidates surveyed (published / estimated numbers, before measuring)
 
-### 3.5 Kết quả benchmark STT (50 câu/ngôn ngữ)
+| Model                           | Lang | Params  | Published WER           | RTF                     | RAM        | License       | Engine                |
+| ------------------------------- | ---- | ------- | ----------------------- | ----------------------- | ---------- | ------------- | --------------------- |
+| Zipformer-30M-RNNT-6000h (hynt) | vi   | 30M     | 7.97% VLSP2025          | 0.025                   | ~150MB     | CC-BY-NC-ND ✗ | sherpa-onnx           |
+| PhoWhisper-small (VinAI)        | vi   | 244M    | 11.08% VIVOS            | ~0.15–0.3 (est.)        | ~600MB     | BSD-3 ✓       | faster-whisper INT8   |
+| PhoWhisper-base                 | vi   | 74M     | 16.19%                  | ~0.1–0.2 (est.)         | ~300MB     | BSD-3 ✓       | faster-whisper        |
+| wav2vec2-base-vi-250h           | vi   | 95M     | 6.15% (needs 4-gram LM) | 0.165                   | ~250MB     | CC-BY-NC ✗    | transformers/ONNX     |
+| Whisper-small multilingual      | vi   | 244M    | worse than PhoWhisper   | ~0.78 → **fails**       | ~600MB     | MIT ✓         | faster-whisper        |
+| Moonshine tiny/base             | en   | 27M/61M | ~7.8% avg               | ~0.07–0.27              | ~200–800MB | MIT ✓         | ONNX RT / sherpa-onnx |
+| whisper.cpp small.en Q4/Q5      | en   | 244M    | 3.05% LibriSpeech       | ~0.1–0.2 (extrapolated) | ~150–400MB | MIT ✓         | whisper.cpp           |
+| Zipformer-en transducer         | en   | ~273M   | ~8%                     | ~0.167                  | ~270MB     | Apache-2.0 ✓  | sherpa-onnx           |
+| Parakeet TDT 0.6B               | en   | 600M    | top of leaderboard      | ~1.38 → **fails**       | —          | CC-BY-4.0     | NeMo/ONNX             |
+| Vosk en                         | en   | small   | 12–14% — poor           | ~0.3                    | low        | Apache-2.0    | vosk                  |
 
-Tiếng Việt:
+**A single one-for-all multilingual model: not feasible.** Whisper large-v3/turbo is too
+slow on CPU; Parakeet v3 has no Vietnamese; Moonshine only has en. The research
+confirmed that the "2 specialised models" decision was correct.
 
-| Engine                  | WER %    | RTF (pooled) | p50 s | p95 s | RAM đỉnh | Load s |
+Three options were considered: **A** — sherpa-onnx, 1 runtime, 2 models (recommended);
+**B** — faster-whisper, 1 runtime, 100% clean licenses but RTF unproven; **C** —
+best-of-breed, 2 different runtimes (rejected: violates KISS when A is enough).
+The user decided: **benchmark both A and B first, implement nothing in the app yet.**
+
+### 3.5 STT benchmark results (50 utterances/language)
+
+Vietnamese:
+
+| Engine                  | WER %    | RTF (pooled) | p50 s | p95 s | Peak RAM | Load s |
 | ----------------------- | -------- | ------------ | ----- | ----- | -------- | ------ |
-| **sherpa-zipformer-vi** | **5,38** | **0,017**    | 0,07  | 0,09  | 223 MB   | 0,95   |
-| fw-phowhisper-vi        | 7,71     | 0,332        | 1,33  | 1,40  | 972 MB   | 1,35   |
+| **sherpa-zipformer-vi** | **5.38** | **0.017**    | 0.07  | 0.09  | 223 MB   | 0.95   |
+| fw-phowhisper-vi        | 7.71     | 0.332        | 1.33  | 1.40  | 972 MB   | 1.35   |
 
-Tiếng Anh:
+English:
 
-| Engine                  | WER %    | RTF (pooled) | p50 s | p95 s | RAM đỉnh | Load s |
+| Engine                  | WER %    | RTF (pooled) | p50 s | p95 s | Peak RAM | Load s |
 | ----------------------- | -------- | ------------ | ----- | ----- | -------- | ------ |
-| **sherpa-moonshine-en** | 3,86     | **0,040**    | 0,22  | 0,34  | 418 MB   | 1,25   |
-| fw-whisper-small-en     | **3,74** | 0,228        | 1,28  | 1,47  | 552 MB   | 0,85   |
+| **sherpa-moonshine-en** | 3.86     | **0.040**    | 0.22  | 0.34  | 418 MB   | 1.25   |
+| fw-whisper-small-en     | **3.74** | 0.228        | 1.28  | 1.47  | 552 MB   | 0.85   |
 
-Ma trận quyết định (ngưỡng: RTF ≤ 0,3 · p95 ≤ 2 s):
+Decision matrix (thresholds: RTF ≤ 0.3 · p95 ≤ 2 s):
 
 | Engine              | Lang | RTF      | p95  | License                         |
 | ------------------- | ---- | -------- | ---- | ------------------------------- |
@@ -140,639 +147,664 @@ Ma trận quyết định (ngưỡng: RTF ≤ 0,3 · p95 ≤ 2 s):
 | sherpa-zipformer-vi | vi   | PASS     | PASS | CC-BY-NC-ND-4.0 (academic only) |
 | fw-phowhisper-vi    | vi   | **FAIL** | PASS | BSD-3-Clause                    |
 
-Variance giữa 2 lần chạy (RTF pooled): zipformer-vi 5,0% · moonshine-en 0,6% ·
-whisper-small-en 0,0% · phowhisper-vi 0,4%.
+Variance between the 2 runs (pooled RTF): zipformer-vi 5.0% · moonshine-en 0.6% ·
+whisper-small-en 0.0% · phowhisper-vi 0.4%.
 
-Tham số decode (để tái lập): tất cả `num_threads: 8`, `greedy_search`, INT8.
+Decode parameters (for reproducibility): all `num_threads: 8`, `greedy_search`, INT8.
 Zipformer = `hynt/Zipformer-30M-RNNT-6000h` (encoder/decoder/joiner
 epoch-20-avg-10 int8). Moonshine = `sherpa-onnx-moonshine-base-en-int8`.
 PhoWhisper = `diepho/PhoWhisper-small-ct2` (`beam_size: 1`). Whisper =
 `Systran/faster-whisper-small.en`.
 
-**Quyết định:** Stack A thắng dứt khoát. Tiếng Việt: Zipformer thắng PhoWhisper
-**cả hai trục** — WER 5,38% vs 7,71% **và** RTF 0,017 vs 0,332 (nhanh ~20×, RAM
-1/4). PhoWhisper-small INT8 **trượt** ngưỡng RTF trên máy này. Tiếng Anh:
-Moonshine ngang whisper small.en về WER (chênh 0,12 điểm, trong nhiễu) nhưng
-**nhanh 5,7×**; chọn Moonshine để có dư địa và để cùng một runtime với slot vi.
+**Decision:** Stack A wins decisively. Vietnamese: Zipformer beats PhoWhisper **on both
+axes** — WER 5.38% vs 7.71% **and** RTF 0.017 vs 0.332 (~20× faster, 1/4 the RAM).
+PhoWhisper-small INT8 **fails** the RTF threshold on this machine. English: Moonshine
+matches whisper small.en on WER (0.12 points apart, within noise) but is **5.7×
+faster**; Moonshine was chosen for the headroom and to share one runtime with the vi
+slot.
 
-Cloud baseline (ElevenLabs Scribe v2) bỏ qua trong lần này vì thiếu API key trong
-shell benchmark — không ảnh hưởng quyết định (ngưỡng là tuyệt đối). Số so sánh
-cloud↔local được đo sau, ở giai đoạn 2 (mục 4.4).
+The cloud baseline (ElevenLabs Scribe v2) was skipped this time because the benchmark
+shell had no API key — this does not affect the decision (the thresholds are absolute).
+The cloud↔local comparison was measured later, in phase 2 (section 4.4).
 
-### 3.6 Kết quả benchmark TTS tiếng Anh (30 câu, 5–20 từ)
+### 3.6 English TTS benchmark results (30 sentences, 5–20 words)
 
-| Engine               | mean s | p50 s | p95 s    | RTF   | audio TB | RAM đỉnh | Load s |
-| -------------------- | ------ | ----- | -------- | ----- | -------- | -------- | ------ |
-| sherpa-piper-en      | 0,45   | 0,45  | **0,57** | 0,154 | 2,9 s    | 323 MB   | 1,61   |
-| **sherpa-kokoro-en** | 0,97   | 0,99  | 1,18     | 0,323 | 3,0 s    | 619 MB   | 1,07   |
+| Engine               | mean s | p50 s | p95 s    | RTF   | avg audio | Peak RAM | Load s |
+| -------------------- | ------ | ----- | -------- | ----- | --------- | -------- | ------ |
+| sherpa-piper-en      | 0.45   | 0.45  | **0.57** | 0.154 | 2.9 s     | 323 MB   | 1.61   |
+| **sherpa-kokoro-en** | 0.97   | 0.99  | 1.18     | 0.323 | 3.0 s     | 619 MB   | 1.07   |
 
-Variance: kokoro 1,1% · piper 0,5%. Cả hai PASS ngưỡng p95 ≤ 2 s.
-Kokoro = `kokoro-en-v0_19` (sid 0, speed 1.0, 8 luồng), Apache-2.0.
+Variance: kokoro 1.1% · piper 0.5%. Both PASS the p95 ≤ 2 s threshold.
+Kokoro = `kokoro-en-v0_19` (sid 0, speed 1.0, 8 threads), Apache-2.0.
 Piper = `vits-piper-en_US-lessac-high`, MIT.
 
-**Phán quyết A/B chủ quan (user, 18/07):** nghe 4 cặp WAV (s001/s003/s015/s027)
-và chọn **Kokoro-82M** — khoảng cách chất lượng đáng để đổi lấy thêm độ trễ.
-Đây là phán quyết một người nghe; mini-MOS nhiều người là hướng nâng độ chặt chẽ
-cho luận văn.
+**Subjective A/B verdict (user, 18/07):** listened to 4 WAV pairs (s001/s003/s015/s027)
+and chose **Kokoro-82M** — the quality gap is worth the extra latency. This is a
+single-listener verdict; a multi-listener mini-MOS is the way to make it more rigorous
+for the thesis.
 
-**Quyết định:** Kokoro-82M là model TTS tiếng Anh. Apache-2.0 (sạch cho cả
-thương mại). Piper ghi nhận là **phương án dự phòng latency-first** (p95 0,57 s,
-MIT) nếu sau này độ trễ quan trọng hơn chất lượng.
+**Decision:** Kokoro-82M is the English TTS model. Apache-2.0 (clean even for commercial
+use). Piper is recorded as the **latency-first fallback** (p95 0.57 s, MIT) should
+latency later matter more than quality.
 
-### 3.7 Phát hiện phương pháp luận (giá trị cho chương thực nghiệm)
+### 3.7 Methodological findings (valuable for the experiments chapter)
 
-**Số liệu công bố sai lệch ở cả hai chiều, trong cùng một ngày:**
+**Published numbers were off in both directions, on the same day:**
 
-- PhoWhisper-small được ước là đạt RTF, **đo thật thì trượt** (0,332 > 0,3).
-- Zipformer đo được **0,017**, nhanh hơn cả con số 0,025 được trích dẫn.
-- Kokoro đo trên máy 8 nhân **nhanh hơn hẳn** số công bố (đo trên 4 nhân EPYC) —
-  vượt qua ngưỡng 2 s mà nghiên cứu ban đầu lo sẽ trượt.
+- PhoWhisper-small was estimated to meet the RTF threshold; **measured, it fails**
+  (0.332 > 0.3).
+- Zipformer measured **0.017**, faster even than the cited 0.025.
+- Kokoro measured on the 8-core machine was **much faster** than the published figure
+  (measured on 4 EPYC cores) — it cleared the 2 s threshold that the initial research
+  feared it would miss.
 
-Kết luận: với bài toán chọn model chạy CPU, **benchmark trên đúng phần cứng đích
-là bắt buộc**; số ước lượng không dùng để quyết định được.
+Conclusion: when choosing models to run on CPU, **benchmarking on the actual target
+hardware is mandatory**; estimated numbers cannot be used to decide.
 
-### 3.8 Sự cố kỹ thuật đã xử lý
+### 3.8 Technical incidents resolved
 
-- **Segfault không traceback trên Windows.** Wheel sherpa-onnx không kèm
-  `onnxruntime.dll`; Windows load nhầm ORT 1.17.1 trong System32 (Windows ML) →
-  abort cứng do lệch C-API, không có traceback Python. Truy nguyên bằng logging
-  không đệm + rà DLL; **fix: preload DLL của venv qua ctypes trước mọi import
-  onnxruntime**. Cơ chế này được port sang cả 2 sidecar sau đó.
-- Repo HF của Zipformer thiếu `tokens.txt` → tự sinh từ `bpe.model`
+- **Segfault with no traceback on Windows.** The sherpa-onnx wheel does not ship
+  `onnxruntime.dll`; Windows loaded the wrong ORT 1.17.1 from System32 (Windows ML) →
+  a hard abort from a C-API mismatch, with no Python traceback. Traced with unbuffered
+  logging + a DLL sweep; **fix: preload the venv's DLL via ctypes before any
+  onnxruntime import**. This mechanism was later ported to both sidecars.
+- The Zipformer HF repo lacks `tokens.txt` → generated it from `bpe.model`
   (sentencepiece).
-- VIVOS đổi đường dẫn tarball trên HF (root 404), mirror gốc AILAB chết → cập
-  nhật URL + fallback, cache local, URL ghim trong manifest.
+- VIVOS moved its tarball path on HF (root 404) and the original AILAB mirror is dead →
+  updated the URL + fallback, local cache, URL pinned in the manifest.
 
-### 3.9 Nghĩa vụ license (phải ghi trong luận văn + README)
+### 3.9 License obligations (must be stated in the thesis + README)
 
-| Model                       | License             | Ghi chú                                                                                                                                        |
-| --------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Zipformer-30M-RNNT (vi STT) | **CC-BY-NC-ND-4.0** | **Chỉ học thuật**, cấm thương mại. Đường thay thế nếu thương mại hoá: PhoWhisper (BSD-3) qua cùng contract `SttProvider`, chấp nhận ~1,3 s/câu |
-| Moonshine base (en STT)     | MIT                 | sạch                                                                                                                                           |
-| Kokoro-82M (en TTS)         | Apache-2.0          | sạch                                                                                                                                           |
-| Piper lessac-high           | MIT                 | dự phòng                                                                                                                                       |
-| VIVOS (bộ test)             | CC BY-NC-SA 4.0     | chỉ dùng để đo                                                                                                                                 |
-| LibriSpeech (bộ test)       | CC BY 4.0           | chỉ dùng để đo                                                                                                                                 |
+| Model                       | License             | Notes                                                                                                                                                                   |
+| --------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Zipformer-30M-RNNT (vi STT) | **CC-BY-NC-ND-4.0** | **Academic only**, commercial use prohibited. Replacement path if commercialised: PhoWhisper (BSD-3) through the same `SttProvider` contract, accepting ~1.3 s/sentence |
+| Moonshine base (en STT)     | MIT                 | clean                                                                                                                                                                   |
+| Kokoro-82M (en TTS)         | Apache-2.0          | clean                                                                                                                                                                   |
+| Piper lessac-high           | MIT                 | fallback                                                                                                                                                                |
+| VIVOS (test set)            | CC BY-NC-SA 4.0     | measurement only                                                                                                                                                        |
+| LibriSpeech (test set)      | CC BY 4.0           | measurement only                                                                                                                                                        |
 
-### 3.10 So sánh decoder trên tiếng Việt (28/08)
+### 3.10 Comparing decoders on Vietnamese (28/08)
 
-Engine tiếng Việt đang ship giải mã `greedy_search`, không có biasing ngữ cảnh.
-Câu hỏi để mở từ 18/07: beam search và hotword biasing mua được gì? Đo trên đúng
-bộ 50 câu VIVOS cũ, cùng một phiên, chỉ thay decoder — model, INT8 và
-`num_threads: 8` giữ nguyên.
+The Vietnamese engine ships with `greedy_search` decoding and no contextual biasing.
+The question open since 18/07: what do beam search and hotword biasing buy? Measured
+on the same old 50-utterance VIVOS set, in one session, changing only the decoder —
+the model, INT8 and `num_threads: 8` stay fixed.
 
-| Nhánh                             | WER %    | CER %    | RTF (pooled) | p50 s | p95 s | RAM đỉnh |
-| --------------------------------- | -------- | -------- | ------------ | ----- | ----- | -------- |
-| `...-vi-greedy` (đối chứng)       | 5,38     | 2,90     | **0,0158**   | 0,065 | 0,088 | 211 MB   |
-| `...-vi-beam`                     | 5,38     | 2,94     | 0,0207       | 0,079 | 0,117 | 212 MB   |
-| `...-vi-beam-hotwords` (**trần**) | **4,66** | **2,73** | 0,0211       | 0,084 | 0,117 | 211 MB   |
+| Arm                                  | WER %    | CER %    | RTF (pooled) | p50 s | p95 s | Peak RAM |
+| ------------------------------------ | -------- | -------- | ------------ | ----- | ----- | -------- |
+| `...-vi-greedy` (control)            | 5.38     | 2.90     | **0.0158**   | 0.065 | 0.088 | 211 MB   |
+| `...-vi-beam`                        | 5.38     | 2.94     | 0.0207       | 0.079 | 0.117 | 212 MB   |
+| `...-vi-beam-hotwords` (**ceiling**) | **4.66** | **2.73** | 0.0211       | 0.084 | 0.117 | 211 MB   |
 
-**Beam search không mua được gì.** WER đứng yên đúng 5,38; CER **xấu đi** 0,04
-điểm; giá phải trả là RTF 1,31×. Beam đổi 3/50 câu: 1 tốt lên, 1 xấu đi, 1 đổi lỗi
-này lấy lỗi khác — đúng hình dạng của một kết quả rỗng, không phải một cải thiện nhỏ.
+**Beam search buys nothing.** WER stays at exactly 5.38; CER gets **worse** by 0.04
+points; the price is 1.31× the RTF. Beam changes 3/50 utterances: 1 gets better, 1
+gets worse, 1 trades one error for another — exactly the shape of a null result, not
+a small improvement.
 
-**Hotwords mua 0,72 điểm WER — nhưng không phải con số sẽ gặp khi chạy thật.** Đo
-riêng so với nhánh beam (giữ nguyên decoder): 3 câu đổi, **3 tốt lên, 0 xấu đi**, và
-mọi cải thiện đều truy được về một cụm có trong danh sách. Danh sách 48 cụm ấy
-**sinh ra từ chính câu tham chiếu của bộ test** — nó mã hoá thứ kiến thức mà hội
-thoại trực tiếp không có.
+**Hotwords buy 0.72 points of WER — but that is not the number you will see in real
+use.** Measured against the beam arm alone (decoder held fixed): 3 utterances change,
+**3 get better, 0 get worse**, and every improvement traces back to a phrase in the
+list. That 48-phrase list **was generated from the test set's own reference
+sentences** — it encodes knowledge that a live conversation does not have.
 
-Nhưng nó cũng **không phải trần**, và nhánh này không đo được trần: có 81 cụm đủ
-điều kiện, mức chặn 48 giữ lại 48 cụm đầu **theo thứ tự file**. Kết quả đo: 24/50
-câu thực sự có cụm trong danh sách, 16/50 câu sẽ được bias nếu bỏ mức chặn, 10/50
-câu không đủ điều kiện dù chặn hay không. Tức **16 câu nằm ngay trong nhánh "trần"
-với tư cách đối chứng không bias**. Vậy −0,72 điểm là **cận dưới** của thứ một danh
-sách oracle có thể mua, không phải cận trên. Chỉ được trích kèm đúng nhãn: "nhiều
-nhất mà **danh sách 48 cụm này** mua được".
+But it is **not a ceiling** either, and this arm cannot measure the ceiling: 81
+phrases qualify, and the cap of 48 keeps the first 48 **in file order**. Measured: 24/50
+utterances actually have a phrase in the list, 16/50 would be biased if the cap were
+removed, and 10/50 do not qualify with or without the cap. So **16 utterances sit inside
+the "ceiling" arm as unbiased controls**. The −0.72 points is therefore a **lower
+bound** on what an oracle list can buy, not an upper bound. It may only be cited with
+exactly this label: "the most that **this 48-phrase list** buys".
 
-Mức chặn 48 vẫn là lựa chọn đúng cho một danh sách **có thể ship** — nó khớp
-`MAX_HOTWORDS = 48` của khối context phía MT, nên một danh sách từ vựng có thể nuôi
-cả hai đầu. Đo trần thật thì cần cả 81 cụm, và đó là một lần chạy khác.
+The cap of 48 is still the right choice for a **shippable** list — it matches
+`MAX_HOTWORDS = 48` in the MT-side context block, so one vocabulary list can feed
+both ends. Measuring the true ceiling needs all 81 phrases, and that is a separate run.
 
-Cả ba nhánh vẫn cách ngưỡng RTF 0,3 khoảng **14×**. Chi phí chưa bao giờ là lý do
-để ở lại greedy — và giờ cũng không phải lý do để rời khỏi nó. **Không đổi mặc định
-nào**: `services/local-stt/engines/zipformer_vi.py` vẫn greedy. Quyết định ở lại
-greedy nay có số làm chứng thay vì là mặc định chưa ai hỏi tới.
+All three arms are still about **14×** under the RTF threshold of 0.3. Cost was never
+a reason to stay on greedy — and it is not a reason to leave it now either. **No
+default changes**: `services/local-stt/engines/zipformer_vi.py` stays greedy. The
+decision to stay on greedy now has numbers behind it instead of being a default nobody
+had questioned.
 
-Nhánh đối chứng dựng lại **số tổng hợp** của r1 (WER 5,38 · CER 2,90) nhưng **không**
-dựng lại r1 theo từng câu: 2/50 giả thuyết khác nhau, lệch ngược chiều nhau nên WER
-toàn tập rơi đúng vào cùng một số. Cùng `decode_params`, nhưng r1 ghi 0,952 s load /
-223,3 MB so với 0,531 s / 211,4 MB lần này, và r1 với r2 giống nhau y hệt cả 50 câu —
-nên đây là **trôi giữa hai phiên đo, không phải bất định từng lần chạy**, và 2 câu đổi
-là cùng bậc với 3 câu mà nhánh beam làm đổi. RTF cũng trôi: 0,0158 so với 0,0169
-(6,9%, so với mức 5,0% đã ghi giữa r1 và r2). Cả hai chính là lý do các nhánh được so
-với một đối chứng **cùng phiên** thay vì so với r1. r1/r2 và engine id đang ship không
-bị ghi đè.
+The control arm reproduces r1's **aggregate numbers** (WER 5.38 · CER 2.90) but does
+**not** reproduce r1 per utterance: 2/50 hypotheses differ, in opposite directions,
+so the corpus WER lands on exactly the same number. Same `decode_params`, but r1
+recorded 0.952 s load / 223.3 MB versus 0.531 s / 211.4 MB this time, and r1 and r2
+are identical on all 50 utterances — so this is **drift between two measurement
+sessions, not run-to-run nondeterminism**, and the 2 changed utterances are the same
+order as the 3 that the beam arm changes. RTF drifted too: 0.0158 versus 0.0169
+(6.9%, against the 5.0% recorded between r1 and r2). Both are exactly why the arms are
+compared against a **same-session** control rather than against r1. r1/r2 and the
+shipped engine id are not overwritten.
 
-Mục này đo ngày 28/08, đặt trong chương benchmark của giai đoạn 1 vì cùng một bộ
-test và cùng một câu hỏi chọn model, không phải vì cùng ngày.
+This section was measured on 28/08 and sits in the phase-1 benchmark chapter because
+it uses the same test set and answers the same model-choice question, not because of
+the date.
 
-Cỡ mẫu: 50 câu / 558 từ tham chiếu. 0,72 điểm WER = **4 từ**. Hướng thì sạch (3/3
-cải thiện, 0 hồi quy), nhưng độ lớn thì không chính xác — bộ này quá nhỏ để phân
-biệt −0,7 với −0,4.
+Sample size: 50 utterances / 558 reference words. 0.72 WER points = **4 words**. The
+direction is clean (3/3 improvements, 0 regressions), but the magnitude is imprecise —
+this set is too small to tell −0.7 from −0.4.
 
-Bản ghi từng câu đổi đã gỡ khỏi repo cùng cây `plans/`. Chạy lại được:
-`benchmarks/stt/` — `uv run python run_benchmark.py --decoder-arms`.
+The per-utterance diff record was removed from the repo along with the `plans/` tree.
+It can be re-run: `benchmarks/stt/` — `uv run python run_benchmark.py --decoder-arms`.
 
-### 3.11 Giọng thật: đường thu quyết định, không phải model (28/08)
+### 3.11 Real voice: the capture path decides, not the model (28/08)
 
-Cùng một câu, cùng một người nói, cùng model và cùng cấu hình đang ship — chỉ
-khác đường thu âm.
+Same sentence, same speaker, same model and same shipped configuration — only the
+recording path differs.
 
-| Bản thu  | Đường thu           | WER (ref nói) % | CER % | WER (ref viết) % | chữ số | dấu câu | hoa danh từ riêng |
-| -------- | ------------------- | --------------- | ----- | ---------------- | ------ | ------- | ----------------- |
-| `take-a` | app nhắn tin (Opus) | 14,9            | 9,0   | 31,7             | 0      | 0       | 0                 |
-| `take-b` | app nhắn tin (Opus) | 17,0            | 11,9  | 39,0             | 0      | 0       | 0                 |
-| `take-c` | ghi âm iPhone       | **4,3**         | 2,4   | 26,8             | 0      | 0       | 0                 |
+| Recording | Capture path          | WER (spoken ref) % | CER % | WER (written ref) % | digits | punctuation | proper-noun caps |
+| --------- | --------------------- | ------------------ | ----- | ------------------- | ------ | ----------- | ---------------- |
+| `take-a`  | messaging app (Opus)  | 14.9               | 9.0   | 31.7                | 0      | 0           | 0                |
+| `take-b`  | messaging app (Opus)  | 17.0               | 11.9  | 39.0                | 0      | 0           | 0                |
+| `take-c`  | iPhone voice recorder | **4.3**            | 2.4   | 26.8                | 0      | 0           | 0                |
 
-Ba kết luận, và cả ba đều đáng đưa vào chương thực nghiệm:
+Three conclusions, and all three belong in the experiments chapter:
 
-**1. Đường thu đáng giá gấp ~4 lần sai số của chính model.** 17,0% so với 4,3%
-trên cùng một câu, model không đổi. Không đòn bẩy nào trong ngân sách decoder mua
-được khoảng chênh 12,7 điểm đó — §3.10 đo đòn bẩy tốt nhất hiện có ở **0,72
-điểm, mà còn phải dưới một danh sách hotword biết trước đáp án**. `take-c` ở
-4,3% còn **thấp hơn cả số headline 5,38% của VIVOS**, trên giọng thật chưa từng
-thấy và có danh từ riêng. Model không phải chỗ nghẽn.
+**1. The capture path is worth ~4× the model's own error.** 17.0% versus 4.3% on the
+same sentence, with the model unchanged. No lever in the decoder budget buys that 12.7
+point gap — §3.10 measured the best available lever at **0.72 points, and only with a
+hotword list that knows the answer in advance**. `take-c` at 4.3% is **even lower than
+the 5.38% VIVOS headline number**, on a real, never-seen voice with proper nouns. The
+model is not the bottleneck.
 
-**2. Lỗi rơi vào chỗ tín hiệu kém, không phải chỗ từ vựng khó.** `Hồ Chí Minh`,
-`Ba Đình`, `Cộng hòa xã hội chủ nghĩa Việt Nam` đúng ở cả ba bản. Cái mất là hư
-từ không trọng âm và động từ `đọc` (`đọc Tuyên ngôn` → `lập thành` / `độc quy
-mô`). Đây đúng là kiểu lỗi mà hotword ít giúp được nhất, vì từ bị mất là từ phổ
-thông, không danh sách thiên lệch nào chứa.
+**2. Errors land where the signal is poor, not where the vocabulary is hard.** `Hồ Chí
+Minh`, `Ba Đình`, `Cộng hòa xã hội chủ nghĩa Việt Nam` are correct in all three takes.
+What gets lost is unstressed function words and the verb `đọc` (read) (`đọc Tuyên
+ngôn` → `lập thành` / `độc quy mô`). This is exactly the kind of error hotwords help
+least with, because the lost words are common words that no biasing list contains.
 
-**3. Riêng dạng chữ số tốn 9 lỗi từ trong một câu.** `take-c` sai 2 từ so với ref
-nói và 11 từ so với ref viết; toàn bộ 9 lỗi chênh là cái ngày tháng: `2 9 1945`
-(3 token) so với `mùng hai tháng chín năm một chín bốn lăm` (9 token). Chấm điểm
-ref nói **nguyên văn** so với ref viết — tức một bộ nhận dạng không sai gì cả —
-tách được phần chi phí chữ số ra khỏi 2 lỗi của riêng `take-c`:
+**3. Digit form alone costs 9 word errors in one sentence.** `take-c` gets 2 words
+wrong against the spoken ref and 11 against the written ref; all 9 extra errors are the
+date: `2 9 1945` (3 tokens) versus `mùng hai tháng chín năm một chín bốn lăm` (9
+tokens). Scoring the spoken ref **verbatim** against the written ref — that is, a
+recognizer that makes no mistakes at all — separates the digit cost from `take-c`'s
+own 2 errors:
 
-| giả thuyết, chấm với ref viết   | S   | D   | I   | tổng | WER       |
-| ------------------------------- | --- | --- | --- | ---- | --------- |
-| `take-c` (4,3% so với ref nói)  | 5   | 0   | 6   | 11   | **26,8%** |
-| bộ nhận dạng hoàn hảo (ref nói) | 3   | 0   | 6   | 9    | **22,0%** |
+| hypothesis, scored against written ref | S   | D   | I   | total | WER       |
+| -------------------------------------- | --- | --- | --- | ----- | --------- |
+| `take-c` (4.3% against spoken ref)     | 5   | 0   | 6   | 11    | **26.8%** |
+| perfect recognizer (spoken ref)        | 3   | 0   | 6   | 9     | **22.0%** |
 
-Nói cách khác: **một bộ nhận dạng đạt 4,3% WER trên ref nói vẫn bị 26,8% trên
-tiếng Việt viết, và một bộ hoàn hảo vẫn bị 22,0%** — 22 điểm đó là cái ngày
-tháng, không phải gì khác.
+In other words: **a recognizer at 4.3% WER on the spoken ref still scores 26.8% on
+written Vietnamese, and a perfect one still scores 22.0%** — those 22 points are the
+date and nothing else.
 
-Chữ số, dấu câu và chữ hoa danh từ riêng đều bằng **0 ở cả ba bản**, độc lập với
-chất lượng audio. Lỗi hiển thị không phải lỗi âm thanh; micro tốt hơn không sửa
-được nó. Đây là lý do phải có thước đo riêng
-(`benchmarks/stt/stt_bench/display_fidelity.py`) thay vì tin vào bảng WER.
+Digits, punctuation and proper-noun capitalization are all **0 in all three takes**,
+regardless of audio quality. A display error is not an audio error; a better
+microphone cannot fix it. This is why a separate ruler is needed
+(`benchmarks/stt/stt_bench/display_fidelity.py`) rather than trusting the WER table.
 
-Cỡ mẫu: 1 câu, 3 bản thu, 1 người nói. 47 từ nên **1 từ sai ≈ 2,1 điểm WER**.
-Hướng thì sạch; độ lớn thì không. Và hai đường thu khác nhau ở nhiều biến cùng
-lúc (codec, bitrate, xử lý riêng của app) — đủ để xếp hạng đòn bẩy, không đủ để
-chỉ ra nút nào.
+Sample size: 1 sentence, 3 takes, 1 speaker. 47 words, so **1 wrong word ≈ 2.1 WER
+points**. The direction is clean; the magnitude is not. And the two capture paths
+differ in several variables at once (codec, bitrate, the app's own processing) —
+enough to rank levers, not enough to identify which knob.
 
-**Chưa trả lời:** đường thu của trình duyệt — cái thực sự ship — nằm gần bản
-iPhone hay gần bản app nhắn tin? Không bản thu nào ở đây đi qua trình duyệt.
+**Unanswered:** is the browser's capture path — the one that actually ships — closer to
+the iPhone take or to the messaging-app takes? None of the recordings here went through
+a browser.
 
-Bản ghi chi tiết đã gỡ khỏi repo cùng cây `plans/`. Audio là dữ liệu cá nhân nên
-không commit, vì vậy phép đo này không tái lập độc lập được — con số ở trên là
-tất cả những gì còn lại của nó.
+The detailed record was removed from the repo along with the `plans/` tree. The audio
+is personal data and is not committed, so this measurement cannot be independently
+reproduced — the numbers above are all that remains of it.
 
-### 3.12 Baseline hiển thị: nhận dạng hoàn hảo, hiển thị bằng 0 (28/08)
+### 3.12 Display baseline: perfect recognition, zero display (28/08)
 
-Bộ đo riêng cho thứ WER không nhìn thấy. 22 câu tiếng Việt, giọng người dùng, thu
-qua **đúng đường thu của trình duyệt** mà sản phẩm dùng (cùng AGC / khử ồn /
-khoảng cách micro), tham chiếu viết bằng chính tả thật. 115,2 giây, 311 từ.
+A dedicated set for what WER cannot see. 22 Vietnamese utterances in the user's voice,
+recorded through **the same browser capture path** the product uses (same AGC / noise
+suppression / microphone distance), with references written in real orthography.
+115.2 seconds, 311 words.
 
-Chấm với đầu ra **đang ship** (Zipformer INT8, greedy, `postprocess()` nguyên văn):
+Scored against the **shipped** output (Zipformer INT8, greedy, `postprocess()` verbatim):
 
-| Chỉ số               | Baseline   | Mẫu số                   |
-| -------------------- | ---------- | ------------------------ |
-| recall chữ số        | **0,0000** | 0 / 42 chữ số            |
-| chữ số bịa ra        | **0**      | —                        |
-| F1 dấu câu           | **0,0000** | ref 39 dấu, giả thuyết 0 |
-| hoa danh từ riêng    | **0,0000** | 0 / 22 nhận ra           |
-| độ phủ danh từ riêng | 0,8800     | 22 / 25 khai báo         |
+| Metric               | Baseline   | Denominator                |
+| -------------------- | ---------- | -------------------------- |
+| digit recall         | **0.0000** | 0 / 42 digits              |
+| hallucinated digits  | **0**      | —                          |
+| punctuation F1       | **0.0000** | ref 39 marks, hypothesis 0 |
+| proper-noun caps     | **0.0000** | 0 / 22 recognized          |
+| proper-noun coverage | 0.8800     | 22 / 25 declared           |
 
-Không một chữ số, dấu câu hay chữ hoa nào sống sót tới màn hình. Số 0 ở đây là
-**cấu trúc**, không phải sát ngưỡng — không có điểm lẻ nào để bào mòn.
+Not a single digit, punctuation mark or capital letter survives to the screen. The
+zeros here are **structural**, not near a threshold — there is no fractional score to
+erode.
 
-**Kết quả đáng giá nhất đến từ phép tách rất rẻ.** Chia bộ theo việc câu tham
-chiếu có chữ số hay không thì tách được chi phí hiển thị khỏi lỗi nhận dạng, mà
-không cần viết tay tham chiếu dạng nói:
+**The most valuable result came from a very cheap split.** Splitting the set by
+whether the reference contains digits separates the display cost from recognition
+errors, without having to hand-write spoken-form references:
 
-| Tập con         | Số câu | WER so với tham chiếu viết |
-| --------------- | ------ | -------------------------- |
-| có chữ số       | 20     | 54,84%                     |
-| không có chữ số | 2      | **0,00%**                  |
+| Subset         | Utterances | WER against written reference |
+| -------------- | ---------- | ----------------------------- |
+| with digits    | 20         | 54.84%                        |
+| without digits | 2          | **0.00%**                     |
 
-Hai câu không chữ số được nhận dạng **đúng từng từ** — và vẫn đạt **0 trên cả ba
-chỉ số hiển thị**: `hà nội`, `đà nẵng`, `trường sa`, `hoàng sa`, `việt nam` đều
-thường, không dấu phẩy, không dấu chấm cuối.
+The two digit-free utterances are recognized **word for word** — and still score **0
+on all three display metrics**: `hà nội`, `đà nẵng`, `trường sa`, `hoàng sa`, `việt
+nam` are all lowercase, with no commas and no final period.
 
-Đó là luận điểm của cả chương gói trong hai câu: **nhận dạng hoàn hảo, hiển thị
-bằng không.** Hai thuộc tính trực giao nhau, nên không phần việc nào về bộ nhận
-dạng — decoder, đổi model, hay micro tốt hơn — dịch chuyển được con số này.
+That is the whole chapter's argument in two sentences: **perfect recognition, zero
+display.** The two properties are orthogonal, so no work on the recognizer — decoder,
+model swap, or a better microphone — can move this number.
 
-Vì vậy con số 50,75% WER toàn tập gần như hoàn toàn là **dạng chữ số**, không
-phải lỗi. Trích nó thì phải kèm phép tách ở trên; đứng một mình nó đọc như một
-bộ nhận dạng hỏng, trong khi bộ nhận dạng không hỏng.
+So the 50.75% corpus WER is almost entirely **digit form**, not errors. Citing it
+requires the split above; on its own it reads like a broken recognizer, when the
+recognizer is not broken.
 
-Hạn chế phải ghi kèm: 1 người nói, 22 câu — nêu cỡ mẫu cạnh mọi con số. Trang ghi
-âm có hiển thị `track.getSettings()` nhưng **không ghi vào manifest**, nên sau
-này không chứng minh lại được là trình duyệt có thật sự bật đủ ba ràng buộc hay
-không; cái dữ liệu chứng minh được là audio tốt (hai câu 0,00% WER).
+Limitations that must be stated alongside: 1 speaker, 22 utterances — give the sample
+size next to every number. The recording page does display `track.getSettings()` but
+**does not write it to the manifest**, so it can no longer be proven whether the
+browser actually enabled all three constraints; what the data does prove is that the
+audio is good (two utterances at 0.00% WER).
 
-Tái lập: `benchmarks/stt/` — `uv run python scripts/run_display_baseline.py`.
-Audio là dữ liệu cá nhân, **không commit**, nên số liệu không tái lập độc lập được.
+Reproduce: `benchmarks/stt/` — `uv run python scripts/run_display_baseline.py`.
+The audio is personal data and is **not committed**, so the numbers cannot be
+independently reproduced.
 
-### 3.13 Sửa hiển thị: ba số 0 đã dịch chuyển, và giá của phép đo (28/08)
+### 3.13 Display repair: the three zeros moved, and the price of measuring (28/08)
 
-Mỗi lượt nói xong phát **một** request riêng trên `gemma-4-31b-it`, hoàn toàn
-ngoài đường audio. Nó viết lại **câu gốc** bằng chính ngôn ngữ đó — dấu câu, chữ
-hoa, chữ số — **không đổi một từ nào**, và bị từ chối thẳng nếu đổi.
+Each finished turn fires **one** separate request on `gemma-4-31b-it`, entirely off the
+audio path. It rewrites the **source sentence** in that same language — punctuation,
+capitalization, digits — **without changing a single word**, and is rejected outright
+if it does.
 
-| Chỉ số            | Baseline | Sau sửa    | Ngưỡng |
-| ----------------- | -------- | ---------- | ------ |
-| recall chữ số     | 0,0000   | **0,8810** | ≥0,85  |
-| F1 dấu câu        | 0,0000   | **0,7222** | ≥0,70  |
-| hoa danh từ riêng | 0,0000   | **0,8636** | ≥0,80  |
-| chữ số bịa ra     | 0        | **0**      | —      |
+| Metric              | Baseline | After repair | Threshold |
+| ------------------- | -------- | ------------ | --------- |
+| digit recall        | 0.0000   | **0.8810**   | ≥0.85     |
+| punctuation F1      | 0.0000   | **0.7222**   | ≥0.70     |
+| proper-noun caps    | 0.0000   | **0.8636**   | ≥0.80     |
+| hallucinated digits | 0        | **0**        | —         |
 
-Chấm trên cái **người đọc thật sự thấy**: 2/22 bản sửa bị bộ chặn từ chối và rơi
-về văn bản thô, nên hoa danh từ riêng là 0,8636 chứ không phải 1,0000 mà model
-tự đạt được. Đó là cái giá của bộ chặn, ghi đúng giá.
+Scored on what **the reader actually sees**: 2/22 repairs were rejected by the guard
+and fell back to the raw text, so proper-noun caps is 0.8636 rather than the 1.0000 the
+model achieved on its own. That is the price of the guard, recorded at its true price.
 
-#### Phát hiện đáng mang vào luận văn
+#### A finding worth carrying into the thesis
 
-Lần chấm **đầu tiên** ra recall 0,6429 với **26 chữ số bịa ra**. Nhưng toàn bộ 15
-chỗ thiếu và 26 chỗ thừa đều là **quy ước định dạng**, không phải số bịa:
+The **first** scoring run gave recall 0.6429 with **26 hallucinated digits**. But all 15
+misses and 26 extras were **formatting conventions**, not invented numbers:
 
-| tham chiếu | bản sửa đầu                    |
+| reference  | first repair                   |
 | ---------- | ------------------------------ |
 | `17:00`    | `17 giờ`                       |
 | `6:45`     | `6 giờ 45 phút`                |
 | `2/9/1945` | `ngày mùng 2 tháng 9 năm 1945` |
 
-Đều là tiếng Việt viết đúng. **Không một con số nào bị bịa.** Prompt bảo "viết số
-như khi viết" mà không nói sản phẩm này dùng quy ước nào trong nhiều quy ước hợp
-lệ — nên model chọn quy ước khác, và thước đo tính sai hai lần: một lần thiếu,
-một lần thừa. Đúng cái bẫy `README` của benchmark đã cảnh báo, và ở đây nó là
-toàn bộ tín hiệu.
+All of them are correct written Vietnamese. **Not a single number was invented.** The
+prompt said "write numbers as you would when writing" without saying which of several
+valid conventions this product uses — so the model picked a different convention, and
+the ruler counted it wrong twice: once as a miss, once as an extra. It is exactly the
+trap the benchmark `README` warned about, and here it was the entire signal.
 
-Nói rõ quy ước trong prompt: recall **0,64 → 0,88**, số bịa **26 → 0**.
+Stating the convention in the prompt: recall **0.64 → 0.88**, hallucinated digits
+**26 → 0**.
 
-**Một quy ước mà chỉ một bên biết thì không phải quy ước.**
+**A convention only one side knows is not a convention.**
 
-#### Bộ chặn diễn giải sai (`repair-divergence.ts`)
+#### The guard that misread (`repair-divergence.ts`)
 
-Ngưỡng là **0**, và đó là số đo chứ không phải lập trường: cả 22 bản sửa đều có
-residual đúng bằng 0,0000 sau khi miễn trừ phần chuyển chữ-sang-số, nên không có
-dung sai nào để mua. Ba lỗi câm phải sửa trước khi nó chạy đúng:
+The threshold is **0**, and that is a measurement, not a stance: all 22 repairs have a
+residual of exactly 0.0000 after exempting the word-to-digit conversion, so there is no
+tolerance to buy. Three silent bugs had to be fixed before it worked correctly:
 
-1. `[^\W\d_]` trong JavaScript **chỉ nhận ASCII** (khác Python). Nó loại mọi chữ
-   cái có dấu, cắt `tôi` thành `t` + `i` — khiến `má` và `mà` **bằng nhau**, tức
-   mù đúng loại lỗi mà bộ chặn sinh ra để bắt.
-2. `không` vừa là "số 0" vừa là từ phủ định thông dụng nhất. Với một danh sách
-   phẳng, `không phải` → `0 phải` — đúng ca hallucination mà README lấy làm ví dụ
-   — chấm sạch **0,0000**.
-3. Bản vá cho (2) lại từ chối 3 bản sửa hợp lệ. Sửa tiếp bằng cách cho một cụm
-   được "bảo lãnh" bởi từ số nằm ngay cạnh nó.
-4. **Chính phép bảo lãnh đó lại mở lại lỗ (2)** — code review tìm ra. Từ bảo lãnh
-   được phép là từ "đệm", nên `tôi không đồng ý` → `Tôi 0 đồng ý.` được chấp nhận
-   ở residual **đúng bằng 0**: phủ định biến thành chữ số, hiện trên màn hình như
-   lời người nói, đảo ngược ý.
+1. `[^\W\d_]` in JavaScript **matches ASCII only** (unlike Python). It drops every
+   accented letter, splitting `tôi` into `t` + `i` — which makes `má` and `mà`
+   **equal**, i.e. blind to exactly the kind of error the guard exists to catch.
+2. `không` is both "the number 0" and the most common negation word. With a flat list,
+   `không phải` (is not) → `0 phải` — exactly the hallucination case the README uses
+   as its example — scores a clean **0.0000**.
+3. The patch for (2) then rejected 3 valid repairs. Fixed further by letting a phrase
+   be "vouched for" by an adjacent number word.
+4. **That vouching itself reopened hole (2)** — found by code review. The vouching words
+   allowed were "filler" words, so `tôi không đồng ý` (I don't agree) → `Tôi 0 đồng
+ý.` was accepted at a residual of **exactly 0**: the negation becomes a digit and
+   appears on screen as the speaker's words, reversing the meaning.
 
-   **Test của tôi vẫn xanh suốt.** Tôi chỉ viết đúng một ca `không`, và ca đó
-   tình cờ chọn từ đứng cạnh (`phải`) nằm ngoài từ điển — nó đậu nhờ may, không
-   nhờ luật. Giờ chạy `it.each` qua bốn từ đứng cạnh khác nhau, vì chính từ đứng
-   cạnh mới là thứ quyết định.
+   **My tests stayed green the whole time.** I had written exactly one `không` case,
+   and that case happened to pick a neighbouring word (`phải`) outside the dictionary —
+   it passed by luck, not by rule. It now runs `it.each` over four different
+   neighbouring words, because the neighbouring word is what decides.
 
-5. **Bản vá cho (4) vẫn chưa đủ** — tôi tự tìm ra bằng cách viết 27 ca tấn công
-   rồi _chạy_, thay vì suy luận. Hai câu tiếng Việt bình thường vẫn lọt ở
-   residual 0: `hai mươi không đủ` → `20 0 đủ.` và `lúc mười giờ không phải mười
-một giờ` → `Lúc 10:00 0 phải 11:00.` Ở đây `không` không được từ bên cạnh bảo
-   lãnh — nó bị _gộp vào_ một cụm đã có sẵn từ đếm (`mươi`) và đi ké.
+5. **The patch for (4) was still not enough** — I found this myself by writing 27
+   attack cases and _running_ them, instead of reasoning. Two ordinary Vietnamese
+   sentences still got through at residual 0: `hai mươi không đủ` (twenty is not
+   enough) → `20 0 đủ.` and `lúc mười giờ không phải mười
+một giờ` (at ten o'clock, not eleven) → `Lúc 10:00 0 phải 11:00.` Here `không` is not
+   vouched for by a neighbour — it gets _absorbed into_ a phrase that already has a
+   counting word (`mươi`) and rides along.
 
-   Luật thật sự phân biệt được là **từ đứng SAU**: số 0 nói ra chỉ bao giờ đứng
-   đầu một số dài hơn (`không phẩy bốn`, `không tám tám ba`), nên sau nó là số
-   nữa; còn phủ định thì theo sau là thứ bị phủ định (`đủ`, `phải`, `đúng`) hoặc
-   không có gì.
+   The rule that actually discriminates is **the word AFTER**: a spoken zero only ever
+   leads a longer number (`không phẩy bốn`, `không tám tám ba`), so another number
+   follows it; a negation is followed by what it negates (`đủ`, `phải`, `đúng`) or by
+   nothing.
 
-6. **Và lỗ thứ ba giết luôn mọi luật dựa vào ngữ cảnh** — review tìm ra. `nó
-không trăm phần trăm đúng` → `Nó 0 100 phần trăm đúng.` Thứ _bị phủ định_
-   chính nó là một con số, nên `không` đứng sát một numeral mà bản sửa đang viết
-   lại. Về mặt từ vựng, `không trăm` ("không phải một trăm") và một số 0 đứng đầu
-   numeral là **giống hệt nhau**. Không luật ngữ cảnh nào tách được — mà tôi đã
-   viết hai luật như vậy.
+6. **And a third hole kills every context-based rule** — found by review. `nó
+không trăm phần trăm đúng` (it is not a hundred percent right) → `Nó 0 100 phần trăm
+đúng.` The thing _being negated_ is itself a number, so `không` sits right next to
+   a numeral the repair is rewriting. Lexically, `không trăm` ("not a hundred") and a
+   zero leading a numeral are **identical**. No context rule can separate them — and I
+   had written two such rules.
 
-   Thứ tách được là **HÌNH DẠNG**: số 0 nói ra luôn _bị hút vào_ numeral của nó
-   (`không phẩy bốn` → `0,4`) và không bao giờ đứng một mình; phủ định bị số hóa
-   thì luôn đứng một mình, vì không có số nào để nhập vào. Một dòng, thay cả hai
-   luật trước (xóa hẳn, không chồng lên), và áp được sang tiếng Anh.
+   What does separate them is **SHAPE**: a spoken zero is always _absorbed into_ its
+   numeral (`không phẩy bốn` → `0,4`) and never stands alone; a digitized negation
+   always stands alone, because there is no number for it to join. One line, replacing
+   both earlier rules (deleted outright, not layered on top), and it carries over to
+   English.
 
-Bài học: **một ca test cho một luật phụ thuộc ngữ cảnh thì không phải là test cho
-luật đó** — nó là test cho một ngữ cảnh. Và **ba lần sửa cho một lớp lỗi, mỗi lần
-bị ca tiếp theo đánh bại**: hai lần tôi _suy luận_ về bản vá thay vì _tấn công_
-nó, cả hai lần suy luận đúng còn code thì sai.
+Lesson: **one test case for a context-dependent rule is not a test of that rule** — it
+is a test of one context. And **three fixes for one class of bug, each defeated by the
+next case**: twice I _reasoned_ about the patch instead of _attacking_ it, and both
+times the reasoning was right and the code was wrong.
 
-Mutation test: 12 đột biến, giết cả 12.
+Mutation test: 12 mutants, all 12 killed.
 
-#### Ba giả định của kế hoạch bị số đo bác bỏ
+#### Three plan assumptions refuted by measurement
 
-| Kế hoạch nói                | Đo được                                     |
-| --------------------------- | ------------------------------------------- |
-| ~6,9s, "vài giây sau"       | trung vị **25,1s**, tối đa **92,6s**        |
-| không cần trần đồng thời    | phải có — bản sửa sống lâu hơn lượt ~25 lần |
-| phải quyết version coupling | `embedSpeaker` đã giải xong trong cùng file |
+| The plan said                    | Measured                                          |
+| -------------------------------- | ------------------------------------------------- |
+| ~6.9s, "a few seconds later"     | median **25.1s**, max **92.6s**                   |
+| no concurrency cap needed        | one is needed — a repair outlives its turn ~25×   |
+| version coupling must be decided | `embedSpeaker` already solved it in the same file |
 
-Con số latency ảnh hưởng câu chữ luận văn: "hiển thị được đánh bóng N ms sau lượt
-nói, không tốn gì cho audio đầu tiên" vẫn đúng, nhưng N là **hàng chục giây**, nên
-nó cải thiện phần đọc lại chứ không phải phần nghe trực tiếp.
+The latency number affects the thesis wording: "the display is polished N ms after the
+turn, at no cost to the first audio" is still true, but N is **tens of seconds**, so it
+improves re-reading, not live listening.
 
-#### Hạn chế phải ghi kèm
+#### Limitations that must be stated alongside
 
-- **Một phần là in-sample.** Prompt được sửa **hai lần** dựa trên chính 22 câu
-  này. Đây là số khớp bộ dữ liệu, không phải số held-out — trích phải nói vậy.
-- WER so tham chiếu **viết** giảm 50,75% → 12,54%. Chiều giảm này là **hệ quả của
-  tham chiếu viết**, không phải bằng chứng nhận dạng tốt lên; so với tham chiếu
-  **nói** thì cùng bản sửa đó đẩy WER theo chiều ngược lại — chính là lý do phải
-  đo hiển thị riêng.
+- **Partly in-sample.** The prompt was revised **twice** based on these same 22
+  utterances. These are fitted-to-the-dataset numbers, not held-out numbers — a
+  citation must say so.
+- WER against the **written** reference drops 50.75% → 12.54%. That drop is **a
+  consequence of the written reference**, not evidence that recognition improved;
+  against the **spoken** reference the same repair pushes WER the other way — which is
+  exactly why display has to be measured separately.
 
-Tái lập: `benchmarks/stt/` — `dump_display_hypotheses.py` → `repair_display_hypotheses.mjs`
-→ `score_display_repair.py`. Audio là dữ liệu cá nhân, **không commit**.
+Reproduce: `benchmarks/stt/` — `dump_display_hypotheses.py` → `repair_display_hypotheses.mjs`
+→ `score_display_repair.py`. The audio is personal data and is **not committed**.
 
 ---
 
-### 3.14 Bỏ model khỏi đường hiển thị: ITN tất định trong tiến trình (29/08)
+### 3.14 Taking the model off the display path: deterministic in-process ITN (29/08)
 
-§3.13 đo được một bản sửa **chạy đúng** nhưng bị bác bỏ, và lý do không phải
-độ chính xác mà là **thời điểm**: trên 22 câu, trung vị **25,1 s**, tối đa
-**92,6 s**, và **tối thiểu 10,0 s** — không một lần nào kịp trong 10 giây. Người
-đọc đã đi qua dòng đó từ lâu. Câu hỏi đặt ra ban đầu là _"Không thể nào nói phát
-text hiển thị đúng luôn mà không cần phải sửa sao?"_, và câu trả lời hóa ra là:
-**bộ nhận dạng thì không bao giờ, nhưng phần hiển thị thì được — mà không cần
-model nào cả.**
+§3.13 measured a repair that **worked correctly** but was rejected, and the reason was
+not accuracy but **timing**: over 22 utterances, median **25.1 s**, max **92.6 s**, and
+**minimum 10.0 s** — not once did it arrive within 10 seconds. The reader had long
+since moved past that line. The question originally asked was _"Isn't there a way to
+display the text correctly straight away, without needing a repair?"_, and the answer
+turned out to be: **never from the recognizer, but yes for the display — and without
+any model at all.**
 
-Chữ số được sinh **tất định, trong tiến trình, trước khi dòng chữ được vẽ ra**.
-Không mạng, không API key, không sự kiện thứ hai.
+Digits are produced **deterministically, in-process, before the line is drawn**. No
+network, no API key, no second event.
 
-| Chỉ số            | Baseline | LLM (§3.13)         | **ITN**            |
-| ----------------- | -------- | ------------------- | ------------------ |
-| recall chữ số     | 0,0000   | 0,8810              | **1,0000** (42/42) |
-| chữ số bịa ra     | 0        | 0                   | **0**              |
-| F1 dấu câu        | 0,0000   | 0,7222              | **0,0000**         |
-| hoa danh từ riêng | 0,0000   | 0,8636              | **0,0000**         |
-| độ trễ mỗi lượt   | —        | 25,1 s (max 92,6 s) | **0,21 ms** p95    |
+| Metric              | Baseline | LLM (§3.13)         | **ITN**            |
+| ------------------- | -------- | ------------------- | ------------------ |
+| digit recall        | 0.0000   | 0.8810              | **1.0000** (42/42) |
+| hallucinated digits | 0        | 0                   | **0**              |
+| punctuation F1      | 0.0000   | 0.7222              | **0.0000**         |
+| proper-noun caps    | 0.0000   | 0.8636              | **0.0000**         |
+| latency per turn    | —        | 25.1 s (max 92.6 s) | **0.21 ms** p95    |
 
-**Hai chỉ số tệ đi, và chúng nằm trong bảng vì đúng là chúng tệ đi.** Dấu câu và
-hoa danh từ riêng về 0: `Phạm Văn Bạch` hiển thị thành `phạm văn bạch`. ITN chỉ
-sắp chữ số và không đụng gì khác. Đó là cái giá đã chấp nhận trước khi làm, không
-phải sơ suất phát hiện sau.
+**Two metrics got worse, and they are in the table because they really did get
+worse.** Punctuation and proper-noun caps drop back to 0: `Phạm Văn Bạch` displays as
+`phạm văn bạch`. ITN only typesets digits and touches nothing else. That was a price
+accepted before the work began, not an oversight discovered afterwards.
 
-**Ba tầng bằng chứng, không được gộp** — viết "đã kiểm chứng trên dữ liệu
-held-out" là nói quá tầng yếu nhất:
+**Three tiers of evidence, not to be merged** — writing "verified on held-out data"
+overstates the weakest tier:
 
-| tầng                                         | chứng minh được gì            | giới hạn                                                      |
-| -------------------------------------------- | ----------------------------- | ------------------------------------------------------------- |
-| in-sample (22 câu)                           | recall đạt được               | một giọng; ITN được viết khi đang đọc chính bộ này            |
-| held-out âm tính (50 VIVOS + 50 LibriSpeech) | **không bịa chữ số**          | cả hai tham chiếu 0 chữ số ⇒ không chấm được recall           |
-| held-out round-trip (59 vi + 26 en, văn bản) | recall trên dữ liệu chưa thấy | **không chứa lỗi nhận dạng** — đo ngữ pháp, không đo pipeline |
+| tier                                          | what it proves             | limit                                                               |
+| --------------------------------------------- | -------------------------- | ------------------------------------------------------------------- |
+| in-sample (22 utterances)                     | achieved recall            | one voice; the ITN was written while reading this very set          |
+| negative held-out (50 VIVOS + 50 LibriSpeech) | **no hallucinated digits** | both references have 0 digits ⇒ recall cannot be scored             |
+| round-trip held-out (59 vi + 26 en, text)     | recall on unseen data      | **contains no recognition errors** — measures grammar, not pipeline |
 
-Held-out recall: **vi 1,0000 (59/59), en 1,0000 (23/23), 0 chữ số bịa.**
+Held-out recall: **vi 1.0000 (59/59), en 1.0000 (23/23), 0 hallucinated digits.**
 
-Chín câu trong đó cố ý không mang chữ số nào. Một dòng có tham chiếu 0 chữ số thì
-không chấm được recall và chỉ có thể trượt — đúng là thứ cần để canh một cách đọc
-đã từng sai: `mười năm` thành 15, `open twenty four seven` thành 2047, `no one
-came` thành `no 1 came`, `a hundred and twenty` thành `a hundred and 20`, `năm hai`
-thành 52.
+Nine of those sentences deliberately carry no digits. A line whose reference has 0
+digits cannot score recall and can only fail — exactly what is needed to guard a
+reading that was once wrong: `mười năm` (ten years) as 15, `open twenty four seven` as
+2047, `no one came` as `no 1 came`, `a hundred and twenty` as `a hundred and 20`, `năm
+hai` as 52.
 
-**Tiếng Anh không có số in-sample nào cả.** Không tồn tại bộ tham chiếu hiển thị
-tiếng Anh, và 50 câu moonshine held-out chứa 0 chữ số — chấm được hallucination
-nhưng không chấm được recall. Recall tiếng Anh chỉ dựa trên bộ round-trip văn
-bản. Đây là chỗ yếu nhất của toàn bộ phần này; trích phải nói rõ.
+**English has no in-sample numbers at all.** No English display reference set exists,
+and the 50 held-out moonshine utterances contain 0 digits — they can score
+hallucination but not recall. English recall rests only on the text round-trip set.
+This is the weakest point of this whole section; a citation must say so plainly.
 
-WER VIVOS **không đổi: 5,38%** (CER 2,90%), chạy lại sau khi sửa. Bắt buộc phải
-vậy — ITN không bao giờ chạm vào `sourceText`, thứ duy nhất WER đọc.
+VIVOS WER is **unchanged: 5.38%** (CER 2.90%), re-run after the change. It has to be —
+ITN never touches `sourceText`, the only thing WER reads.
 
-#### Ba tầng đo bắt được ba loại lỗi khác nhau
+#### Three tiers of measurement catch three different kinds of bug
 
-Đây là lập luận cho việc xây cả ba, chứ không phải một:
+This is the argument for building all three, not just one:
 
-- **In-sample** bắt lỗi ngữ pháp: `tháng chín năm một chín bốn năm` bị đọc thành
-  tháng 951945, và `mười` đứng một mình không phân tích được nên mọi `mười giờ`
-  mất đồng hồ.
-- **Held-out âm tính** bắt **4 lỗi bịa số**, không lỗi nào với tới được từ 22 câu
-  in-sample: `MƯỜI MỘT MƯỜI HAI MƯỜI BA` → `43` (ba số nhập thành một số thứ tư
-  không ai nói), `PHÒNG BA LE HAI` → `PHÒNG 3 LE 2` (tên riêng), `CHỊ HAI` →
-  `CHỊ 2` (cách xưng hô theo thứ tự sinh), `HAI CHA CON` → `2 CHA CON` (thành ngữ).
-- **Held-out round-trip** bắt thêm **4 lỗi nữa** mà hai tầng kia không thấy:
-  `850.000 đồng một đêm` → `đồng 1 đêm` (đơn vị của số TRƯỚC lại bảo lãnh cho số
-  SAU), `hai nghìn không trăm hai mươi sáu` → `2000` cụt đuôi (hai lần: trong năm
-  và trong ngày tháng), và `nineteen ninety eight` không bao giờ ra 1998.
+- **In-sample** catches grammar bugs: `tháng chín năm một chín bốn năm` was read as
+  month 951945, and a lone `mười` could not be parsed, so every `mười giờ` (ten
+  o'clock) lost its clock.
+- **Negative held-out** catches **4 invented-number bugs**, none of them reachable from
+  the 22 in-sample utterances: `MƯỜI MỘT MƯỜI HAI MƯỜI BA` → `43` (three numbers merged
+  into a fourth number nobody said), `PHÒNG BA LE HAI` → `PHÒNG 3 LE 2` (a proper name),
+  `CHỊ HAI` → `CHỊ 2` (a birth-order form of address), `HAI CHA CON` → `2 CHA CON` (an
+  idiom).
+- **Round-trip held-out** catches **4 more bugs** that the other two tiers cannot see:
+  `850.000 đồng một đêm` → `đồng 1 đêm` (the unit of the PRECEDING number vouched for
+  the FOLLOWING one), `hai nghìn không trăm hai mươi sáu` → a truncated `2000` (twice:
+  in a year and in a date), and `nineteen ninety eight` never came out as 1998.
 
-Mỗi luật sửa đều phát biểu được bằng một sự thật về ngôn ngữ, không phải bằng một
-dòng dữ liệu: `mười` không nhận số nhân (`hai mười` không phải tiếng Việt);
-một số đơn độc cần bằng chứng bên cạnh, và số **nhập nhằng** cần loại từ thật chứ
-không phải danh từ vị trí (`phòng`, `tầng`) — vì tiếng Việt đặt tên phòng và tên
-người theo thứ tự sinh; bằng chứng đọc từ **bên phải** vì loại từ đứng sau số;
-`không` chỉ nằm trong số khi có từ bậc theo sau (`không trăm` là hàng trăm rỗng
-của mọi năm 2001–2099, còn `không đủ` là phủ định).
+Every fix rule can be stated as a fact about the language, not as a line of data:
+`mười` takes no multiplier (`hai mười` is not Vietnamese); a lone number needs evidence
+beside it, and an **ambiguous** number needs a real classifier rather than a location
+noun (`phòng`, `tầng`) — because Vietnamese names rooms and people by birth order;
+evidence is read from the **right**, because the classifier follows the number;
+`không` is only part of a number when a place-value word follows it (`không trăm` is
+the empty hundreds place of every year 2001–2099, while `không đủ` is a negation).
 
-#### Cái đắt nhất không phải là recall
+#### The most expensive thing is not recall
 
-`không` vừa là **số 0** vừa là **phủ định** thông dụng nhất. Số hóa nó không làm
-sai một câu — nó **đảo ngược** câu đó, trên màn hình, bằng chính lời người nói,
-và không có gì đánh dấu. Vì vậy toàn bộ thiết kế chạy theo một luật:
+`không` is both **the number 0** and the most common **negation**. Digitizing it does
+not make a sentence wrong — it **reverses** the sentence, on screen, in the speaker's
+own words, with nothing to flag it. So the whole design runs on one rule:
 
-> **Một vùng ứng viên sinh ra đúng một chữ số, hoặc không sinh gì. Không bao giờ
-> sinh một mảnh.**
+> **A candidate span produces exactly one number, or nothing. Never a
+> fragment.**
 
-Nhập nhằng biến thành **mất recall**, không bao giờ thành chữ số sai. Bản mẫu
-trước đó ra `2.000 500` cho `hai nghìn năm trăm` chính vì đã in ra phần nó hiểu
-được khi phần còn lại không ghép vào.
+Ambiguity turns into **lost recall**, never into a wrong digit. The earlier prototype
+produced `2.000 500` for `hai nghìn năm trăm` (two thousand five hundred) precisely
+because it printed the part it understood when the rest did not fit.
 
-#### Hệ quả kèm theo
+#### Side effects
 
-- **`gemma-4-31b-it` rời khỏi hệ thống hoàn toàn** — mọi danh sách model, prompt,
-  benchmark và tài liệu. Đường hội thoại vốn đã không có nó; nó chỉ còn tồn tại
-  để đỡ request sửa hiển thị. `POST /translate` nay chỉ còn hai model flash và
-  **báo lỗi rõ ràng** khi hết quota, thay vì trả lời chậm bằng model 6,9 s trong
-  khi bảng số giả định 553 ms.
-- **Bỏ đi một bề mặt tấn công, không phải giảm độ phủ.** 9 case prompt-injection
-  "viết lại cùng ngôn ngữ" bị xóa vì bề mặt đó không còn: không còn prompt nào
-  trên đường hiển thị. Câu trả lời bị tiêm vào một bản _dịch_ lộ ra vì sai ngôn
-  ngữ; bị tiêm vào một bản _sửa_ thì không — nó là câu trôi chảy, đúng ngôn ngữ,
-  nằm đúng chỗ lời người nói. Đặt model trở lại đường đó thì phải đặt lại 9 case.
-- **Phép đo hiển thị lần đầu chạy được trong CI.** Bước 2 cũ tốn quota thật nên
-  không bao giờ chạy tự động được; bước 2 mới tốn 0,21 ms và không cần key, nên
-  các cổng held-out nay chạy mỗi lần push.
+- **`gemma-4-31b-it` leaves the system entirely** — every model list, prompt,
+  benchmark and doc. The conversation path never had it; it only survived to serve the
+  display-repair request. `POST /translate` now has only the two flash models and
+  **fails explicitly** when quota runs out, instead of answering slowly with a 6.9 s
+  model while the numbers table assumes 553 ms.
+- **An attack surface removed, not coverage reduced.** 9 "rewrite in the same
+  language" prompt-injection cases were deleted because that surface no longer exists:
+  there is no prompt left on the display path. An injected answer in a _translation_
+  shows up because it is in the wrong language; in a _repair_ it does not — it is a
+  fluent sentence, in the right language, sitting exactly where the speaker's words go.
+  Putting a model back on that path means putting the 9 cases back.
+- **The display measurement runs in CI for the first time.** The old step 2 spent real
+  quota, so it could never run automatically; the new step 2 costs 0.21 ms and needs
+  no key, so the held-out gates now run on every push.
 
-Tái lập: `benchmarks/stt/` — `dump_display_hypotheses.py` →
+Reproduce: `benchmarks/stt/` — `dump_display_hypotheses.py` →
 `node scripts/itn_display_hypotheses.mjs` →
 `score_display_repair.py --input data/display-itn.jsonl --field itn --no-guard`;
-cổng held-out: `itn_holdout_check.mjs`, `itn_roundtrip_recall.mjs`. Không cần API
-key. Audio là dữ liệu cá nhân, **không commit**; hai bộ held-out **có commit**.
+held-out gates: `itn_holdout_check.mjs`, `itn_roundtrip_recall.mjs`. No API
+key needed. The audio is personal data and is **not committed**; the two held-out sets
+**are committed**.
 
-### 3.15 Sửa mất nội dung trên đường lượt: chẩn đoán bằng số đo prod (12–13/09)
+### 3.15 Fixing content loss on the turn path: diagnosis from prod measurements (12–13/09)
 
-**Triệu chứng.** Trên bản deploy prod (`ssh.quanganh208.dev`), người dùng một
-mình / một tab báo STT "quá chậm, mất từ mất nội dung rất nặng" trong khi CPU
-và RAM gần như rảnh.
+**Symptom.** On the prod deployment (`ssh.quanganh208.dev`), a single user in a
+single tab reported STT as "far too slow, losing words and content badly" while CPU
+and RAM were almost idle.
 
-**Chẩn đoán — mọi con số đo read-only trên prod.** STT đơn lượt không chậm: clip
-6–8 s decode trong 70–200 ms (RTF ≈ 0,012–0,025). Cái chậm là **chuỗi nhân quả
-của lượt đơn người dùng**, không phải lock:
+**Diagnosis — every number measured read-only on prod.** Single-turn STT is not slow:
+a 6–8 s clip decodes in 70–200 ms (RTF ≈ 0.012–0.025). What is slow is the **causal
+chain of a single user's turns**, not the lock:
 
-1. Gemini không có timeout nào (p50 723 ms, **max 8943 ms** đo trong repo).
-2. Lượt chậm giữ slot; `MAX_IN_FLIGHT = 3` đầy; server từ chối `too_many_turns`.
-3. Client retry 4 × 750 ms rồi **vứt cả buffer đang chờ** — một `console.warn`,
-   màn hình không có gì.
-4. Đến 4 speculation không hủy được mỗi lượt, mỗi cái một decode full-turn cộng
-   một request Gemini đúng hạn mức — vừa đẩy queue vừa đốt quota làm bước 1 tệ
-   thêm.
+1. Gemini had no timeout at all (p50 723 ms, **max 8943 ms** measured in the repo).
+2. A slow turn holds its slot; `MAX_IN_FLIGHT = 3` fills up; the server rejects with `too_many_turns`.
+3. The client retries 4 × 750 ms and then **throws away the whole pending buffer** — one
+   `console.warn`, nothing on screen.
+4. Up to 4 uncancellable speculations per turn, each a full-turn decode plus a
+   Gemini request charged against the quota — both pushing the queue and burning
+   quota, which makes step 1 worse.
 
-Bên cạnh đó, sidecar **tuần tự hóa mọi decode sau một `threading.Lock` mỗi
-engine** — 6 request đồng thời mất đúng wall time của 6 lượt nối tiếp (bậc thang
-FIFO 6×), máy 72% rảnh, CPU đỉnh 447% một nhân. Đây là trần cho đa người dùng,
-không phải nguyên nhân triệu chứng một người. Cloudflare tunnel được miễn tội:
-steady-state trên connection tái dùng là 55–64 ms; con số 207/978 ms ban đầu là
-bắt tay TLS/QUIC mỗi connection.
+Alongside that, the sidecar **serialised every decode behind one `threading.Lock` per
+engine** — 6 concurrent requests took exactly the wall time of 6 sequential turns (a 6×
+FIFO staircase), with the machine 72% idle and CPU peaking at 447% on one core. This is
+the ceiling for multiple users, not the cause of a single user's symptom. The Cloudflare
+tunnel was cleared: steady state on a reused connection is 55–64 ms; the initial
+207/978 ms figures were the per-connection TLS/QUIC handshake.
 
-**Vật mang theo (PR #132, 5 commit).**
+**What shipped (PR #132, 5 commits).**
 
-- **Deadline cho mọi call outbound**: 6 fetch provider qua `fetchWithDeadline`
+- **A deadline on every outbound call**: 6 provider fetches go through `fetchWithDeadline`
   (STT/embed/voices 5 s, TTS 15 s, ElevenLabs 30 s) + Gemini
-  `httpOptions.timeout` 20 s. Một dependency kẹt hỏng một lượt thay vì ghim 1/6
-  slot toàn cục.
-- **Kế toán trung thực phía client**: `sentMs`/`sequence` chỉ tăng khi frame
-  thật rời socket; frame bị từ chối giữ lại và gửi lại đúng thứ tự; audio mồ côi
-  có counter + log; lượt rơi ở pending ceiling hiện marker "unheard".
-- **Lane semaphore cho sidecar**: lock → `Semaphore(4)` qua **một** recognizer
-  duy nhất. Thí nghiệm 120 decode đồng thời qua một recognizer cho transcript
-  **giống hệt byte** ở cả hai engine — pool bản sao recognizer (223/418 MB mỗi
-  bản) không cần, rủi ro OOM triệt tiêu. Bão hòa trả 503 sau 2 s chờ, không
-  xếp hàng vô hình.
-- **Cadence partial giãn theo chi phí decode**: `max(300 ms, 3 × lastDecodeMs)`
-  — kết luận repo tự đo từ trước nhưng chưa từng implement.
+  `httpOptions.timeout` 20 s. A stuck dependency fails one turn instead of pinning 1/6
+  of the global slots.
+- **Honest accounting on the client**: `sentMs`/`sequence` only advance when a frame
+  actually leaves the socket; rejected frames are kept and resent in order; orphaned audio
+  has a counter + log; turns dropped at the pending ceiling show an "unheard" marker.
+- **Lane semaphore for the sidecar**: lock → `Semaphore(4)` over **one** single
+  recognizer. An experiment with 120 concurrent decodes through one recognizer produced
+  **byte-identical** transcripts on both engines — a pool of recognizer copies (223/418 MB
+  each) is not needed, and the OOM risk disappears. Saturation returns 503 after a 2 s
+  wait, with no invisible queueing.
+- **Partial cadence stretched by decode cost**: `max(300 ms, 3 × lastDecodeMs)`
+  — a conclusion the repo had measured itself earlier but never implemented.
 
-**Hai giả định bị số đo bác bỏ.** Cap speculation 1-in-flight làm 4 spec hỏng —
-blocking renewal giết đúng guess tái dùng được (đo 870 ms head start); revert.
-Nâng `LOCAL_STT_THREADS` 4→8: chậm hơn ~25%, đốt 3× CPU (1325%) —
-oversubscription intra-op ONNX; sweep 1/2/3/4/8 xác nhận 4 tối ưu, revert.
+**Two assumptions refuted by measurement.** Capping speculation at 1-in-flight broke 4
+specs — blocking renewal killed exactly the reusable guess (measured 870 ms head start);
+reverted. Raising `LOCAL_STT_THREADS` 4→8: ~25% slower, burning 3× the CPU (1325%) —
+ONNX intra-op oversubscription; a 1/2/3/4/8 sweep confirmed 4 is optimal, reverted.
 
-**Trước / sau — cùng điều kiện** (en→vi, một người / một tab, đầu ra tắt tiếng,
-session thật trên prod; baseline 29 lượt 13/09 09:35, sau fix 104 lượt 13/09
-10:06, cùng sink `TURN_METRICS_PATH`):
+**Before / after — same conditions** (en→vi, one person / one tab, output muted,
+real session on prod; baseline 29 turns 13/09 09:35, after the fix 104 turns 13/09
+10:06, same `TURN_METRICS_PATH` sink):
 
-| Chỉ số                          | Trước              | Sau                                 | Mục tiêu |
-| ------------------------------- | ------------------ | ----------------------------------- | -------- |
-| Dứt lời → chữ dịch đầu, **p50** | 1180 ms            | **953 ms**                          | —        |
-| **p95**                         | 4264 ms            | **1448 ms** ✅                      | ≤3500 ms |
-| max                             | 4702 ms            | **3969 ms**                         | —        |
-| Lượt `rejected` + `dropped`     | 0 + 0              | **0 + 0** ✅                        | 0        |
-| `heldMs`                        | 0                  | **0** ✅                            | ≤2%      |
-| Lượt bị cắt ở ceiling           | 48% (14/29)        | **21%** (22/104)                    | —        |
-| Probe sidecar 6-deep, CPU đỉnh  | 1,03× serial, 447% | 0,66–0,90× serial, **940–1513%** ✅ | ≥550%    |
+| Metric                                         | Before             | After                               | Target   |
+| ---------------------------------------------- | ------------------ | ----------------------------------- | -------- |
+| End of speech → first translated text, **p50** | 1180 ms            | **953 ms**                          | —        |
+| **p95**                                        | 4264 ms            | **1448 ms** ✅                      | ≤3500 ms |
+| max                                            | 4702 ms            | **3969 ms**                         | —        |
+| `rejected` + `dropped` turns                   | 0 + 0              | **0 + 0** ✅                        | 0        |
+| `heldMs`                                       | 0                  | **0** ✅                            | ≤2%      |
+| Turns cut at the ceiling                       | 48% (14/29)        | **21%** (22/104)                    | —        |
+| 6-deep sidecar probe, peak CPU                 | 1.03× serial, 447% | 0.66–0.90× serial, **940–1513%** ✅ | ≥550%    |
 
-Lưu ý đọc bảng: (1) ratio probe 6-deep chưa đạt mục ≤0,60× — một session ONNX
-duy nhất có pool 4 thread intra-op, 4 decode đồng thời chia sẻ đúng pool đó;
-sweep threads 1/2 cho ratio 0,61–0,70× nhưng wall tuyệt đối tệ hơn, nên **giữ
-threads=4**: đúng tải thật (một người ≤2 decode chồng lấn) thì gain là thật, tường
-thứ 5+ là tranh chấp pool intra-op, không phải lock. (2) 5 lượt `error` sau fix
-đều là "No speech detected" (gate mở do tiếng ồn, captured ~500 ms) — lành tính,
-cùng loại 2 lượt lỗi của baseline. (3) Capture ratio không tính được vì không có
-bản ghi âm session làm mẫu số; mọi kênh mất có đo được đều = 0. (4) Rate mỗi
-model sau fix 22,6 / 33,5 req/min so với trước 21,7 / 28,8 — nhu cầu Gemini
-**không bị cắt ngầm**, đúng chiều mong muốn.
+Notes on reading the table: (1) the 6-deep probe ratio has not reached the ≤0.60× target —
+a single ONNX session has a pool of 4 intra-op threads, and 4 concurrent decodes share
+exactly that pool; a threads 1/2 sweep gave a 0.61–0.70× ratio but worse absolute wall
+time, so we **keep threads=4**: under the real load (one person, ≤2 overlapping decodes)
+the gain is real, and the wall at the 5th+ decode is intra-op pool contention, not the
+lock. (2) The 5 `error` turns after the fix were all "No speech detected" (gate opened by
+noise, ~500 ms captured) — benign, the same kind as the baseline's 2 error turns. (3) The
+capture ratio cannot be computed because there is no session recording to serve as the
+denominator; every measurable loss channel = 0. (4) Per-model rate after the fix was
+22.6 / 33.5 req/min versus 21.7 / 28.8 before — Gemini demand was **not silently cut**,
+which is the desired direction.
 
-Ghi chú vận hành: CD không truyền `-f` override nên bind mount turn-metrics phải
-gắn lại tay sau mỗi deploy (`~/.config/chatofy/turn-metrics.override.yml` từ
-checkout runner `~/actions-runner/_work/chatofy/chatofy`).
+Operations note: CD does not pass the `-f` override, so the turn-metrics bind mount has
+to be re-attached by hand after every deploy (`~/.config/chatofy/turn-metrics.override.yml`
+from the runner checkout `~/actions-runner/_work/chatofy/chatofy`).
 
-Tái lập: `benchmarks/realtime/analyze-continuous.mjs` trên hai file
-`~/chatofy-metrics/turn-metrics-prefix-baseline-20260913.jsonl` và
-`turn-metrics.jsonl` trên prod; probe concurrency:
-`python3 /tmp/stt-concurrency-probe.py clip.wav en 6 3` trên prod (script đọc
-`cpu.stat` cgroup v2 lấy mẫu CPU trong lúc burst).
+To reproduce: `benchmarks/realtime/analyze-continuous.mjs` on the two files
+`~/chatofy-metrics/turn-metrics-prefix-baseline-20260913.jsonl` and
+`turn-metrics.jsonl` on prod; concurrency probe:
+`python3 /tmp/stt-concurrency-probe.py clip.wav en 6 3` on prod (the script reads the
+cgroup v2 `cpu.stat` to sample CPU during the burst).
 
 ---
 
-## 4. Giai đoạn 2 — Tích hợp speech local vào pipeline (23–24/07)
+## 4. Phase 2 — Integrating local speech into the pipeline (23–24/07)
 
-### 4.1 Hợp đồng công việc
+### 4.1 Work contract
 
-**Outcome:** với `AI_STT_PROVIDER=local` + `AI_TTS_PROVIDER=local` (mặc định
-mới), `POST /translate` chạy cả 2 chiều mà không gọi ElevenLabs, không cần
-`ELEVENLABS_API_KEY`.
+**Outcome:** with `AI_STT_PROVIDER=local` + `AI_TTS_PROVIDER=local` (the new
+default), `POST /translate` runs both directions without calling ElevenLabs and without
+needing `ELEVENLABS_API_KEY`.
 
-**Non-goals (ghi rõ để không trượt phạm vi):** dịch máy local · streaming STT ·
-ghi âm mobile · toggle local/cloud trên UI · **xoá provider ElevenLabs** (giữ để
-so sánh cloud↔local cho luận văn) · gộp VieNeu vào sidecar mới.
+**Non-goals (stated explicitly to prevent scope creep):** local machine translation ·
+streaming STT · mobile recording · a local/cloud toggle in the UI · **removing the
+ElevenLabs provider** (kept for the cloud↔local comparison in the thesis) · merging
+VieNeu into the new sidecar.
 
-### 4.2 Quyết định thiết kế đã chốt
+### 4.2 Settled design decisions
 
-Chốt bởi user: **2 sidecar tách hẳn** (`local-stt` :8002, `local-tts` :8003) ·
-decode audio **server-side bằng PyAV** (client không đổi một dòng) · chọn provider
-**chỉ qua env**, đổi default trong `env.schema.ts` thành `local`.
+Settled by the user: **2 fully separate sidecars** (`local-stt` :8002, `local-tts` :8003) ·
+audio decoded **server-side with PyAV** (the client does not change a line) · provider
+chosen **only via env**, with the default in `env.schema.ts` changed to `local`.
 
-Chốt tự quyết (user uỷ quyền), 9 quyết định kèm lý do:
+Settled autonomously (delegated by the user), 9 decisions with rationale:
 
-| #   | Quyết định                                                                                        | Lý do                                                                                      |
-| --- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| D1  | Load model **eager** lúc startup; `/healthz` trả 503 `loading` cho tới khi sẵn sàng               | 1,3 GB / 32 GB không đáng kể; tránh vách latency ở request đầu                             |
-| D2  | Sidecar chỉ nhận `vi`/`en`, còn lại 400                                                           | `languageCodeSchema` đã khoá ở tầng contract — đây là phòng vệ tầng sâu                    |
-| D3  | Đo latency end-to-end **một lần** lúc nghiệm thu, không dựng harness mới                          | Harness benchmark là measurement-only, không kéo vào runtime                               |
-| D4  | `LOCAL_*_THREADS` mặc định **8**; set `OMP_NUM_THREADS`/`MKL_NUM_THREADS` trước khi import engine | 8 nhân vật lý thắng 16 luồng hyperthread (spike cũ); pipeline tuần tự nên không tranh core |
-| D5  | `POST /transcribe` multipart · `POST /synthesize` JSON → `audio/wav`                              | Multipart khiến provider mới gần như bản sao của ElevenLabs provider — nhất quán call-site |
-| D6  | `audio/decode.py` resample **tường minh** về 16 kHz mono float32                                  | Mic web là 48 kHz, model train ở 16 kHz — không để resample ngầm quyết định chất lượng     |
-| D7  | Mỗi sidecar tự có `models/` + `scripts/download_models.py`                                        | Giữ ranh giới harness↔app                                                                  |
-| D8  | `LOCAL_TTS_VOICE_ID` mặc định 0; voice không hợp lệ → **fallback default**, không lỗi             | API là public nên phải chịu được input lạ                                                  |
-| D9  | `pnpm dev:all` chạy đủ process                                                                    | Default đã là local ⇒ `pnpm dev` không còn đủ                                              |
+| #   | Decision                                                                                              | Rationale                                                                                                 |
+| --- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| D1  | Load models **eagerly** at startup; `/healthz` returns 503 `loading` until ready                      | 1.3 GB / 32 GB is negligible; avoids a latency cliff on the first request                                 |
+| D2  | Sidecars accept only `vi`/`en`, everything else gets 400                                              | `languageCodeSchema` already locks this at the contract layer — this is defence in depth                  |
+| D3  | Measure end-to-end latency **once** at acceptance, without building a new harness                     | The benchmark harness is measurement-only and is not pulled into the runtime                              |
+| D4  | `LOCAL_*_THREADS` defaults to **8**; set `OMP_NUM_THREADS`/`MKL_NUM_THREADS` before importing engines | 8 physical cores beat 16 hyperthreads (earlier spike); the pipeline is sequential so no core contention   |
+| D5  | `POST /transcribe` multipart · `POST /synthesize` JSON → `audio/wav`                                  | Multipart makes the new provider almost a copy of the ElevenLabs provider — consistent call sites         |
+| D6  | `audio/decode.py` resamples **explicitly** to 16 kHz mono float32                                     | The web mic is 48 kHz and the models were trained at 16 kHz — implicit resampling must not decide quality |
+| D7  | Each sidecar has its own `models/` + `scripts/download_models.py`                                     | Keeps the harness↔app boundary                                                                            |
+| D8  | `LOCAL_TTS_VOICE_ID` defaults to 0; an invalid voice → **fall back to default**, not an error         | The API is public, so it must tolerate unexpected input                                                   |
+| D9  | `pnpm dev:all` runs every process                                                                     | The default is now local ⇒ `pnpm dev` is no longer enough                                                 |
 
-Đánh đổi chấp nhận: 3 sidecar khi dev; lặp ~30 dòng helper giữa 2 service.
-**Không** tạo package Python chung — YAGNI.
+Accepted trade-offs: 3 sidecars in dev; ~30 lines of helper code duplicated between the
+2 services. **No** shared Python package — YAGNI.
 
-### 4.3 Kết quả đo end-to-end (6 lượt/chiều, qua `POST /translate`, 0 lỗi)
+### 4.3 End-to-end results (6 turns/direction, through `POST /translate`, 0 errors)
 
-| Chiều | p50         | p95     | min     |
-| ----- | ----------- | ------- | ------- |
-| vi→en | **1663 ms** | 1976 ms | 1418 ms |
-| en→vi | **2337 ms** | 2662 ms | 2059 ms |
+| Direction | p50         | p95     | min     |
+| --------- | ----------- | ------- | ------- |
+| vi→en     | **1663 ms** | 1976 ms | 1418 ms |
+| en→vi     | **2337 ms** | 2662 ms | 2059 ms |
 
-Tách theo khâu (p50 cùng lần chạy):
+Breakdown by stage (p50 from the same run):
 
-| Khâu                    | vi→en             | en→vi              |
-| ----------------------- | ----------------- | ------------------ |
-| STT (local)             | 53 ms — Zipformer | 186 ms — Moonshine |
-| **Dịch (cloud Gemini)** | **916 ms**        | **921 ms**         |
-| TTS (local)             | 748 ms — Kokoro   | 1402 ms — VieNeu   |
+| Stage                          | vi→en             | en→vi              |
+| ------------------------------ | ----------------- | ------------------ |
+| STT (local)                    | 53 ms — Zipformer | 186 ms — Moonshine |
+| **Translation (cloud Gemini)** | **916 ms**        | **921 ms**         |
+| TTS (local)                    | 748 ms — Kokoro   | 1402 ms — VieNeu   |
 
-**Kết luận định hướng cả phần còn lại của dự án:** sau khi speech về local,
-**khâu dịch cloud trở thành thành phần tốn thời gian nhất** của một lượt vi→en
-(~55%). Mọi tối ưu độ trễ tiếp theo phải nhắm vào đó, không phải vào speech.
+**The conclusion that steered the rest of the project:** once speech moved local,
+**cloud translation became the most time-consuming stage** of a vi→en turn (~55%).
+Every further latency optimisation has to target it, not speech.
 
-Đối chiếu benchmark ↔ chạy thật:
+Benchmark ↔ real run comparison:
 
-| Thành phần   | Benchmark (cô lập)     | Trong service           |
+| Component    | Benchmark (isolated)   | In the service          |
 | ------------ | ---------------------- | ----------------------- |
-| Zipformer vi | p95 0,09 s             | ~53 ms p50              |
-| Moonshine en | p95 0,34 s             | ~186 ms p50             |
-| Kokoro en    | p95 1,18 s · RTF 0,323 | ~748 ms p50 · RTF ≈0,42 |
+| Zipformer vi | p95 0.09 s             | ~53 ms p50              |
+| Moonshine en | p95 0.34 s             | ~186 ms p50             |
+| Kokoro en    | p95 1.18 s · RTF 0.323 | ~748 ms p50 · RTF ≈0.42 |
 
-STT nằm trong dải benchmark. RTF của Kokoro tệ hơn ~28% khi chạy trong service —
-đúng như kỳ vọng, vì benchmark đo engine trong subprocess riêng, không có tầng
-HTTP. Vẫn thoải mái dưới ngưỡng p95 ≤ 2 s.
+STT sits within the benchmark range. Kokoro's RTF is ~28% worse inside the service —
+as expected, because the benchmark measures the engine in its own subprocess, without
+the HTTP layer. It is still comfortably below the p95 ≤ 2 s threshold.
 
-### 4.4 So sánh local ↔ cloud từng khâu
+### 4.4 Local ↔ cloud comparison per stage
 
-Đo qua **đúng các lớp provider thật**, 3 lần mỗi bên, cùng audio và cùng câu.
-Cố ý **không** đi qua `POST /translate`: dịch máy không đổi bởi công việc này và
-free tier chỉ 20 request/ngày, nên đi qua đó là đo sai thứ và chết vì quota.
+Measured through **the real provider classes**, 3 runs per side, same audio and same
+sentence. Deliberately **not** through `POST /translate`: machine translation is not
+changed by this work and the free tier allows only 20 requests/day, so going through it
+would measure the wrong thing and die on quota.
 
-| Khâu   | Local p50  | Cloud p50 (ElevenLabs) | Kết luận              |
-| ------ | ---------- | ---------------------- | --------------------- |
-| STT vi | **84 ms**  | 1117 ms                | local nhanh **13,3×** |
-| STT en | **178 ms** | 1285 ms                | local nhanh **7,2×**  |
-| TTS vi | 1235 ms    | **348 ms**             | cloud nhanh 3,5×      |
-| TTS en | 1126 ms    | **255 ms**             | cloud nhanh 4,4×      |
+| Stage  | Local p50  | Cloud p50 (ElevenLabs) | Conclusion             |
+| ------ | ---------- | ---------------------- | ---------------------- |
+| STT vi | **84 ms**  | 1117 ms                | local **13.3×** faster |
+| STT en | **178 ms** | 1285 ms                | local **7.2×** faster  |
+| TTS vi | 1235 ms    | **348 ms**             | cloud 3.5× faster      |
+| TTS en | 1126 ms    | **255 ms**             | cloud 4.4× faster      |
 
-Độ chính xác transcript trên cùng audio — **cùng từ ở cả hai bên**, cloud thêm
-dấu câu:
+Transcript accuracy on the same audio — **the same words on both sides**, cloud adds
+punctuation:
 
 ```
 vi/local  "Xin chào hôm nay trời rất đẹp"
@@ -781,171 +813,177 @@ en/local  "The weather is beautiful today and I would like to walk in the park."
 en/cloud  "The weather is beautiful today, and I would like to walk in the park"
 ```
 
-**Bản nháp đầu của kết luận này đã sai và đã bị lật.** Nó so **một** lượt cloud
-(5216 ms vi→en) với p50 local rồi kết luận local nhanh hơn ~3× toàn cục. Mẫu n=1
-đó mang theo chi phí khởi động nguội của client cloud. Bức tranh trung thực là
-**một sự đánh đổi, không phải một chiến thắng**: nhận dạng local nhanh hơn hẳn ở
-cùng độ chính xác từ, nhưng **tổng hợp giọng nói local chậm hơn hẳn**. Lý do chọn
-local là **chi phí, quyền riêng tư, khả năng chạy offline** — không phải tốc độ
-thô.
+**The first draft of this conclusion was wrong and has been reversed.** It compared
+**one** cloud turn (5216 ms vi→en) with the local p50 and concluded local was ~3× faster
+overall. That n=1 sample carried the cloud client's cold-start cost. The honest picture
+is **a trade-off, not a win**: local recognition is much faster at the same word
+accuracy, but **local speech synthesis is much slower**. The reasons to choose local are
+**cost, privacy, and the ability to run offline** — not raw speed.
 
-(Lưu ý khi trích: TTS latency tỉ lệ với độ dài đầu ra, nên câu cố định 13 từ dùng
-ở bảng này chạy lâu hơn các bản dịch ngắn ở bảng end-to-end.)
+(Note when citing: TTS latency scales with output length, so the fixed 13-word sentence
+used in this table runs longer than the short translations in the end-to-end table.)
 
-### 4.5 Phát hiện trong quá trình tích hợp
+### 4.5 Findings during integration
 
-1. **Transcript tiếng Việt ra TOÀN CHỮ HOA, không dấu câu.** Zipformer emit
-   `NGỌN LỬA BẠO ĐỘNG…`. Chuẩn hoá WER của benchmark **hạ chữ thường và bỏ dấu
-   câu**, nên lỗi này **không hề xuất hiện trong bảng số** — chỉ lộ ra khi hiển
-   thị cho người dùng. Xử lý bằng hook `postprocess()` trên `SttEngine`, override
-   cho tiếng Việt để sentence-case. **Danh từ riêng vẫn viết thường** ("tôi đi hà
-   nội"); sửa đúng cần mô hình khôi phục hoa/dấu câu.
-2. **Lỗi Gemini "chập chờn" thực ra là hết quota ngày.** Provider bọc lỗi SDK
-   nhưng **không bao giờ log `cause`**, nên nguyên nhân thật bị che. Thêm đúng
-   một dòng log là ra ngay: `RESOURCE_EXHAUSTED`,
-   `GenerateRequestsPerDayPerProjectPerModel-FreeTier`, **quotaValue 20**. Không
-   phải bug, không phải lỗi mạng. Speech vẫn chạy sau khi cạn; chỉ `/translate` lỗi.
-3. **Không giới hạn độ dài audio đầu vào cho STT.** Vài MB Opus ≈ gần một giờ
-   tiếng nói, giữ lock engine suốt quá trình decode, không có supervisor restart
-   sau OOM. Chặn bằng `LOCAL_STT_MAX_AUDIO_SECONDS` (mặc định 300) → 413.
-4. **Dòng log STT ghi sai provider.** `PipelineTranslatorService` log
-   `profile.sttModel` (hard-code `scribe_v2`), nên transcript local bị ghi là
-   `stt(scribe_v2)`. Nếu không sửa, **mọi con số trong báo cáo này đã bị gán sai
-   provider**.
-5. **`.env` sẵn có âm thầm giữ đường cloud.** Đổi default chỉ ảnh hưởng biến chưa
-   set. Lượt end-to-end đầu tiên vẫn đi ElevenLabs; chỉ phát hiện vì response trả
-   `audio/mpeg` thay vì `audio/wav`.
-6. **PyAV chạy tốt trên Windows/Python 3.11** — giả định chưa kiểm duy nhất của
-   plan. `av` 18.0.0 cài từ wheel, decode webm/opus 48 kHz stereo → 16 kHz mono
-   float32 chính xác. Không cần fallback ffmpeg subprocess.
+1. **Vietnamese transcripts came out in ALL CAPS, without punctuation.** Zipformer emits
+   `NGỌN LỬA BẠO ĐỘNG…`. The benchmark's WER normalisation **lowercases and strips
+   punctuation**, so this defect **never showed up in the numbers** — it only surfaced
+   when displayed to the user. Handled with a `postprocess()` hook on `SttEngine`,
+   overridden for Vietnamese to apply sentence case. **Proper nouns stay lowercase**
+   ("tôi đi hà nội" (I go to Hanoi)); a real fix needs a capitalisation/punctuation
+   restoration model.
+2. **The "flaky" Gemini errors were actually the daily quota running out.** The provider
+   wrapped SDK errors but **never logged `cause`**, so the real reason was hidden. Adding
+   a single log line revealed it at once: `RESOURCE_EXHAUSTED`,
+   `GenerateRequestsPerDayPerProjectPerModel-FreeTier`, **quotaValue 20**. Not a bug,
+   not a network error. Speech still works after it runs out; only `/translate` fails.
+3. **No limit on input audio length for STT.** A few MB of Opus ≈ nearly an hour of
+   speech, holding the engine lock for the whole decode, with no supervisor restart
+   after an OOM. Capped with `LOCAL_STT_MAX_AUDIO_SECONDS` (default 300) → 413.
+4. **The STT log line recorded the wrong provider.** `PipelineTranslatorService` logged
+   `profile.sttModel` (hard-coded `scribe_v2`), so local transcripts were logged as
+   `stt(scribe_v2)`. Left unfixed, **every number in this report would have been
+   attributed to the wrong provider**.
+5. **An existing `.env` silently kept the cloud path.** Changing the default only affects
+   unset variables. The first end-to-end turn still went to ElevenLabs; it was caught
+   only because the response returned `audio/mpeg` instead of `audio/wav`.
+6. **PyAV works fine on Windows/Python 3.11** — the plan's only unverified assumption.
+   `av` 18.0.0 installs from a wheel and decodes 48 kHz stereo webm/opus → 16 kHz mono
+   float32 correctly. No ffmpeg subprocess fallback needed.
 
-### 4.6 Kết quả code review (24/07)
+### 4.6 Code review results (24/07)
 
-Phạm vi: 8 commit, 63 file, +4777/−2075. Kết luận: **không deadlock, không race,
-không lỗi shared-state** giữa hai engine dùng chung tiến trình; **lock per-engine
-đúng** (không lồng nhau, không giữ lock qua await); **PyAV decode đúng**
-(resample, flush, thứ tự lỗi; input hỏng không treo, không 500).
+Scope: 8 commits, 63 files, +4777/−2075. Conclusion: **no deadlocks, no races, no
+shared-state bugs** between the two engines sharing a process; **per-engine locking is
+correct** (not nested, no lock held across an await); **PyAV decoding is correct**
+(resampling, flush, error ordering; corrupt input neither hangs nor returns 500).
 
-Ba defect xác nhận, đã sửa:
+Three confirmed defects, fixed:
 
-1. **Suite e2e không còn biên dịch được** — một spec vẫn import
-   `VieNeuTtsProvider` đã xoá. **Vô hình với `pnpm typecheck`** vì tsconfig của
-   `apps/api` loại trừ `test/` và `rootDir` của jest là `src`. Chỉ `test:e2e`
-   biên dịch nó, và suite không compile được thì hỏng cả lần chạy.
-2. **Chuyển sang ElevenLabs làm hỏng en→vi** — web gửi tên preset tiếng Việt làm
-   `voice`, provider nội suy thẳng vào request path → 404 → 503 mọi lượt tiếng
-   Việt. Ngoại lệ routing per-language vừa gỡ đã che lỗi này. Sửa bằng đúng luật
-   sidecar local đang dùng: voice không hiểu được thì fallback default.
-3. **Không chặn độ dài input STT** (mục 4.5.3).
+1. **The e2e suite no longer compiled** — one spec still imported the deleted
+   `VieNeuTtsProvider`. **Invisible to `pnpm typecheck`** because the `apps/api`
+   tsconfig excludes `test/` and jest's `rootDir` is `src`. Only `test:e2e`
+   compiles it, and a suite that does not compile breaks the whole run.
+2. **Switching to ElevenLabs broke en→vi** — the web client sends the Vietnamese preset
+   name as `voice`, and the provider interpolated it straight into the request path →
+   404 → 503 on every Vietnamese turn. The per-language routing exception that had just
+   been removed had been masking this. Fixed with the same rule the local sidecar
+   already uses: an unrecognised voice falls back to the default.
+3. **No cap on STT input length** (item 4.5.3).
 
-Hai phát hiện kèm theo: `translate` e2e có **hai assertion không bao giờ pass
-được** (fake TTS provider không khai `outputMimeType`) — tồn tại sẵn trên `main`;
-và **không có gì chứng minh sidecar STT nhận dạng được tiếng nói** — test cũ nạp
-tone tổng hợp, mà với tone thì transcript rỗng là đáp án đúng. Bổ sung test
-round-trip: tổng hợp một câu → nhận dạng lại → khẳng định từ ngữ sống sót, cả 2
-ngôn ngữ.
+Two side findings: the `translate` e2e has **two assertions that can never pass**
+(the fake TTS provider does not declare `outputMimeType`) — pre-existing on `main`;
+and **nothing proved the STT sidecar can recognise speech** — the old test fed a
+synthetic tone, and for a tone an empty transcript is the correct answer. Added a
+round-trip test: synthesise a sentence → recognise it again → assert the words
+survive, in both languages.
 
-### 4.7 Việc còn nợ từ giai đoạn này
+### 4.7 Debt carried forward from this phase
 
-- **TTS local giờ là khâu chậm nhất** (1,1–1,2 s vs 0,25–0,35 s của ElevenLabs).
-  Piper là phương án latency-first đã đo cho tiếng Anh; **chưa có gì tương đương
-  được benchmark cho tiếng Việt**.
-- Khôi phục hoa/dấu câu tiếng Việt — cần model hoặc đổi contract Gemini.
-- `GeminiTranslationProvider` phân loại 429 thành lỗi **transport** trong khi nó
-  là lỗi **response**.
-- **Không provider nào có request timeout** — sidecar treo sẽ treo cả lượt theo
-  mặc định ~300 s của undici.
-- **Oversubscription luồng ONNX khi có nhiều người dùng**: lock per-engine cố ý
-  cho vi và en chạy chồng ⇒ 2×8 luồng trên 8 nhân. Mọi số trong tài liệu này là
-  **single-concurrency**; hành vi đa người dùng chưa đo.
-
----
-
-## 5. Giai đoạn 3 — Chọn model Gemini theo quota (24/07)
-
-**Trước:** mỗi mức chất lượng ánh xạ cứng sang một model. Vì free tier tính quota
-**theo từng model**, một model cạn hạn mức là chết cả phiên demo.
-
-**Sau:** provider nhận **danh sách model có thứ tự**, chỉ tụt xuống model kế tiếp
-khi bị từ chối vì quota, và trả về **tên model đã thực sự trả lời** để pipeline
-ghi log. Đồng thời gỡ "núm chỉnh tốc độ/chất lượng" vốn đã mất tác dụng thật.
-
-Hạn mức thật trên tài khoản (từ dashboard, 25/07):
-
-| Model                 | RPM | TPM  | RPD             |
-| --------------------- | --- | ---- | --------------- |
-| Gemini 2.5 Flash      | 5   | 250K | **20 — đã cạn** |
-| Gemini 3.5 Flash Lite | 15  | 250K | 500             |
-| Gemini 3.1 Flash Lite | 15  | 250K | 500             |
-| Gemma 4 31B           | 30  | 16K  | 14 400          |
-| Gemma 4 26B           | 30  | 16K  | 14 400          |
-
-Hai hệ quả quan trọng cho phần realtime: **hai flash-lite cộng lại = 30 lượt/phút**
-trước khi phải chạm gemma; và gemma tuy RPM gấp đôi nhưng **6,4 s/câu** nên chỉ
-là phao cứu sinh, không dùng cho hội thoại.
+- **Local TTS is now the slowest stage** (1.1–1.2 s vs 0.25–0.35 s for ElevenLabs).
+  Piper is the latency-first option measured for English; **nothing equivalent has been
+  benchmarked for Vietnamese yet**.
+- Restoring Vietnamese capitalisation/punctuation — needs a model or a change to the
+  Gemini contract.
+- `GeminiTranslationProvider` classifies 429 as a **transport** error when it is a
+  **response** error.
+- **No provider has a request timeout** — a hung sidecar will hang the whole turn up to
+  undici's default ~300 s.
+- **ONNX thread oversubscription under multiple users**: per-engine locking deliberately
+  lets vi and en run concurrently ⇒ 2×8 threads on 8 cores. Every number in this document
+  is **single-concurrency**; multi-user behaviour has not been measured.
 
 ---
 
-## 6. Giai đoạn 4 — Luồng hội thoại thời gian thực (25–26/07)
+## 5. Phase 3 — Choosing the Gemini model by quota (24/07)
 
-### 6.1 Chẩn đoán ban đầu — và cú lật quan trọng nhất của dự án
+**Before:** each quality level mapped hard to one model. Because the free tier counts
+quota **per model**, one model running out of quota killed the whole demo session.
 
-Yêu cầu ban đầu: "realtime như Gemini Live". Phân tích cho ra kết luận ngược với
-trực giác:
+**After:** the provider takes an **ordered list of models**, only falls through to the
+next model when rejected for quota, and returns **the name of the model that actually
+answered** so the pipeline can log it. At the same time, the "speed/quality knob", which
+had already stopped having any real effect, was removed.
 
-> **"Đứt quãng" là bài toán phản hồi giao diện, không phải bài toán độ trễ.**
+Actual limits on the account (from the dashboard, 25/07):
 
-Audio của hệ thống lúc đó p50 ~1,5 s sau khi dứt lời — **nhanh hơn** Gemini Live
-Translate. Gemini Live cảm thấy liền mạch vì **màn hình không bao giờ đứng yên**:
-chữ chạy suốt trong lúc người dùng nói. Chatofy thì màn hình **chết hoàn toàn**
-trong toàn bộ thời gian nói rồi mọi thứ đổ ra một lúc. Cùng một độ trễ vật lý,
-hai cảm giác khác hẳn.
+| Model                 | RPM | TPM  | RPD                |
+| --------------------- | --- | ---- | ------------------ |
+| Gemini 2.5 Flash      | 5   | 250K | **20 — exhausted** |
+| Gemini 3.5 Flash Lite | 15  | 250K | 500                |
+| Gemini 3.1 Flash Lite | 15  | 250K | 500                |
+| Gemma 4 31B           | 30  | 16K  | 14,400             |
+| Gemma 4 26B           | 30  | 16K  | 14,400             |
 
-Hệ quả: chữ chạy live **không phải phần "làm cho đẹp"** — nó chính là thứ đang đi
-tìm. Và có một hệ quả thứ hai bất ngờ hơn: **chữ dịch live cũng là đòn giảm độ
-trễ mạnh nhất còn lại**, vì mỗi bản dịch tạm chính là một head start, và bản cuối
-cùng có thể dùng thẳng làm bản chính thức khi không có audio mới sau nó — tức
-rút hẳn ~550 ms dịch máy khỏi đường tới hạn.
+Two consequences that matter for the realtime part: **the two flash-lite models together
+= 30 turns/minute** before gemma has to be touched; and although gemma has double the
+RPM, it takes **6.4 s/sentence**, so it is only a lifeline, not something to use for
+conversation.
 
-Một giới hạn được nói thẳng từ đầu: **"nghe bản dịch trong khi đang nói" trên 1
-máy + loa ngoài là bất khả thi về vật lý nếu không có AEC.** Không có mẹo phần
-mềm nào vòng qua được.
+---
 
-### 6.2 Phase 0 — spike đo trước khi thiết kế
+## 6. Phase 4 — Real-time conversation flow (25–26/07)
 
-**(a) Callback streaming của sherpa-onnx `OfflineTts`: có API, nhưng vô dụng.**
+### 6.1 Initial diagnosis — and the most important reversal of the project
 
-| Văn bản          | TTFC    | Tổng    | Số chunk |
-| ---------------- | ------- | ------- | -------- |
-| 1 câu, 25 ký tự  | 0,469 s | 0,469 s | **1**    |
-| 1 câu, 71 ký tự  | 1,104 s | 1,104 s | **1**    |
-| 2 câu, 145 ký tự | 1,034 s | 2,076 s | 2        |
+The initial requirement: "realtime like Gemini Live". The analysis produced a
+counter-intuitive conclusion:
 
-sherpa-onnx **chỉ cắt chunk ở ranh giới câu**. Lượt hội thoại điển hình là 1 câu
-⇒ streaming TTS qua callback tiết kiệm **0 ms**.
+> **"Choppiness" is a UI feedback problem, not a latency problem.**
 
-**(b) Cắt theo mệnh đề ở tầng ứng dụng — đòn thật sự.** Tự tách ở dấu phẩy rồi
-gọi `generate()` từng phần:
+The system's audio at that time was p50 ~1.5 s after the end of speech — **faster**
+than Gemini Live Translate. Gemini Live feels seamless because **the screen never stands
+still**: text keeps flowing the whole time the user is speaking. Chatofy's screen was
+**completely dead** for the entire time someone spoke, and then everything poured out at
+once. The same physical latency, two completely different feelings.
 
-| Câu (Kokoro, en)                                                | 1 khối  | Cắt mệnh đề | Giảm |
-| --------------------------------------------------------------- | ------- | ----------- | ---- |
-| "Hello, how much does this cost?"                               | 0,648 s | **0,340 s** | −48% |
-| "I would like to book a table for two people at seven tonight." | 0,931 s | **0,689 s** | −26% |
-| "Excuse me, could you tell me where the train station is?"      | 0,907 s | **0,393 s** | −57% |
+Consequence: live flowing text is **not the "make it pretty" part** — it is exactly the
+thing being sought. And there is a second, more surprising consequence: **live
+translated text is also the strongest latency lever left**, because each provisional
+translation is a head start, and the last one can be used directly as the official
+version when no new audio follows it — which takes the ~550 ms of machine translation
+off the critical path entirely.
 
-| Câu (VieNeu, vi — lần đầu được đo)                    | 1 khối  | Cắt mệnh đề | Giảm |
-| ----------------------------------------------------- | ------- | ----------- | ---- |
-| "Xin chào, cái này giá bao nhiêu?"                    | 0,899 s | **0,373 s** | −59% |
-| "Tôi muốn đặt một bàn hai người lúc bảy giờ tối nay." | 1,061 s | **0,813 s** | −23% |
-| "Xin lỗi, cho hỏi ga tàu ở đâu ạ?"                    | 0,856 s | **0,449 s** | −48% |
+One limitation was stated plainly from the start: **"hearing the translation while you
+are still speaking" on 1 device + an external speaker is physically impossible without
+AEC.** No software trick gets around it.
 
-**Mọi lần cắt đều gapless** — audio phần 1 luôn dài hơn thời gian sinh phần 2 nên
-phát liên tục không giật. Tổng thời gian tăng ~20–30% do overhead mỗi lần gọi,
-nhưng không ảnh hưởng trải nghiệm vì người dùng đã nghe từ mốc TTFA. VieNeu
-phương sai đáng kể (câu 3: median 0,449 s nhưng có lần 0,873 s) — cần mẫu lớn hơn
-trước khi công bố p95.
+### 6.2 Phase 0 — spikes measured before designing
 
-**(c) Benchmark 3 model trong chuỗi fallback** (6 mẫu/model, API thật):
+**(a) sherpa-onnx `OfflineTts` streaming callback: the API exists, but it is useless.**
+
+| Text                   | TTFC    | Total   | Chunks |
+| ---------------------- | ------- | ------- | ------ |
+| 1 sentence, 25 chars   | 0.469 s | 0.469 s | **1**  |
+| 1 sentence, 71 chars   | 1.104 s | 1.104 s | **1**  |
+| 2 sentences, 145 chars | 1.034 s | 2.076 s | 2      |
+
+sherpa-onnx **only cuts chunks at sentence boundaries**. A typical conversation turn is
+1 sentence ⇒ streaming TTS via the callback saves **0 ms**.
+
+**(b) Clause splitting at the application layer — the real lever.** Split at commas
+ourselves, then call `generate()` on each part:
+
+| Sentence (Kokoro, en)                                           | 1 block | Clause split | Reduction |
+| --------------------------------------------------------------- | ------- | ------------ | --------- |
+| "Hello, how much does this cost?"                               | 0.648 s | **0.340 s**  | −48%      |
+| "I would like to book a table for two people at seven tonight." | 0.931 s | **0.689 s**  | −26%      |
+| "Excuse me, could you tell me where the train station is?"      | 0.907 s | **0.393 s**  | −57%      |
+
+| Sentence (VieNeu, vi — measured for the first time)                                                | 1 block | Clause split | Reduction |
+| -------------------------------------------------------------------------------------------------- | ------- | ------------ | --------- |
+| "Xin chào, cái này giá bao nhiêu?" (Hello, how much does this cost?)                               | 0.899 s | **0.373 s**  | −59%      |
+| "Tôi muốn đặt một bàn hai người lúc bảy giờ tối nay." (I'd like a table for two at seven tonight.) | 1.061 s | **0.813 s**  | −23%      |
+| "Xin lỗi, cho hỏi ga tàu ở đâu ạ?" (Excuse me, where is the train station?)                        | 0.856 s | **0.449 s**  | −48%      |
+
+**Every split was gapless** — the audio of part 1 is always longer than the time to
+generate part 2, so playback is continuous without stutter. Total time rises ~20–30%
+from per-call overhead, but that does not affect the experience because the user is
+already hearing audio from the TTFA mark. VieNeu has considerable variance (sentence 3:
+median 0.449 s but one run at 0.873 s) — a larger sample is needed before publishing a
+p95.
+
+**(c) Benchmark of the 3 models in the fallback chain** (6 samples/model, real API):
 
 | Model                 | blocking p50 | streaming p50 | chunks p50 |
 | --------------------- | ------------ | ------------- | ---------- |
@@ -953,176 +991,187 @@ trước khi công bố p95.
 | gemini-3.1-flash-lite | 612 ms       | 557 ms        | 1          |
 | gemma-4-31b-it        | 6354 ms      | 6884 ms       | 1          |
 
-Đọc theo cột: chênh lệch giữa 3.5 và 3.1 **chỉ tồn tại ở cột blocking**; ở cột
-streaming hai model **hoà nhau (553 vs 557 ms)**. Tức 208 ms tưởng là "giá của
-model" thực ra là **chi phí của lời gọi blocking**. ⇒ Dùng
-`generateContentStream` (được ~270 ms); thứ tự hai model flash là quyết định về
-**chất lượng**, không phải độ trễ. Nhưng **chunks p50 = 1** — cả bản dịch về
-trong một chunk ⇒ **không xây pipeline đẩy từng cụm từ MT sang TTS**, không có
-cụm nào để đẩy.
+Reading by column: the gap between 3.5 and 3.1 **exists only in the blocking column**; in
+the streaming column the two models **tie (553 vs 557 ms)**. So the 208 ms that looked
+like "the model's price" is actually **the cost of the blocking call**. ⇒ Use
+`generateContentStream` (gains ~270 ms); the order of the two flash models is a decision
+about **quality**, not latency. But **chunks p50 = 1** — the whole translation arrives in
+one chunk ⇒ **do not build a pipeline that pushes MT phrase by phrase into TTS**; there
+are no phrases to push.
 
-**(d) Rủi ro mới: free tier giới hạn 15 request/PHÚT**, không chỉ 500/ngày. Đo
-trực tiếp: **429 sau đúng 15 request trong 10,7 s**, `retryDelay: 52s`. Hạn mức
-phút mới là thứ bóp nghẹt hội thoại realtime — 15 lượt/phút = 1 lượt mỗi 4 giây.
+**(d) A new risk: the free tier is limited to 15 requests per MINUTE**, not just 500/day.
+Measured directly: **429 after exactly 15 requests in 10.7 s**, `retryDelay: 52s`. The
+per-minute limit is what actually strangles realtime conversation — 15 turns/minute = 1
+turn every 4 seconds.
 
-Kèm theo, một defect trong code lúc đó: `isQuotaExhaustedError()` coi **mọi** 429
-là "hết quota ngày" và tụt model, **bỏ qua hoàn toàn `retryDelay`** ⇒ đốt sạch
-chuỗi fallback trong một phút rồi trả 503, trong khi chỉ cần đợi 4 giây. Càng
-dùng realtime càng nhanh rơi xuống gemma 6,9 s — **đúng lúc cần nhanh nhất thì hệ
-thống chậm nhất**. Đã thay bằng `quotaCooldownMs()` đọc `retryDelay`, nhớ cooldown
-từng model và **bỏ qua không gọi** model đang bị chặn.
+Along with it, a defect in the code at the time: `isQuotaExhaustedError()` treated
+**every** 429 as "daily quota exhausted" and fell through to the next model, **completely
+ignoring `retryDelay`** ⇒ it burned through the whole fallback chain in one minute and
+returned 503, when waiting 4 seconds would have been enough. The more realtime was used,
+the faster it dropped to gemma at 6.9 s — **the system was slowest exactly when speed
+mattered most**. Replaced with `quotaCooldownMs()`, which reads `retryDelay`, remembers a
+cooldown per model, and **skips calling** a model that is currently blocked.
 
-**(e) Partial transcript bằng re-decode — đúng cho vi, có trần cho en**
-(median 3 lần, ngân sách nhịp 300 ms):
+**(e) Partial transcripts by re-decoding — right for vi, capped for en**
+(median of 3 runs, 300 ms cadence budget):
 
-| Buffer          | vi (Zipformer-30M) | en (Moonshine base) |
-| --------------- | ------------------ | ------------------- |
-| 0,5 s           | 14 ms              | 15 ms               |
-| 1 s             | 22 ms              | 118 ms              |
-| 3 s             | 49 ms              | 159 ms              |
-| 5 s             | 88 ms              | 236 ms              |
-| 8 s             | 114 ms             | 277 ms              |
-| 12 s            | 161 ms             | **456 ms — vỡ**     |
-| 15 s            | 214 ms             | **582 ms — vỡ**     |
-| duty cycle @3 s | **14%** một core   | **40%** một core    |
+| Buffer          | vi (Zipformer-30M)  | en (Moonshine base) |
+| --------------- | ------------------- | ------------------- |
+| 0.5 s           | 14 ms               | 15 ms               |
+| 1 s             | 22 ms               | 118 ms              |
+| 3 s             | 49 ms               | 159 ms              |
+| 5 s             | 88 ms               | 236 ms              |
+| 8 s             | 114 ms              | 277 ms              |
+| 12 s            | 161 ms              | **456 ms — broken** |
+| 15 s            | 214 ms              | **582 ms — broken** |
+| duty cycle @3 s | **14%** of one core | **40%** of one core |
 
-Moonshine đắt gấp ~3× Zipformer và vỡ ngân sách 300 ms từ buffer ~10 s ⇒ nhịp
-re-decode phải **giãn theo độ dài buffer**, không cố định.
+Moonshine costs ~3× Zipformer and breaks the 300 ms budget from a ~10 s buffer ⇒ the
+re-decode cadence has to **stretch with buffer length**, not stay fixed.
 
-**Kết luận trên đã bị thay — 2026-09-16.** Nó đúng với thiết kế lúc đó, và cổng
-duty (`interval = max(300ms, decode × 2)`) là hiện thực của nó. Một phiên nói
-thật cho thấy cái giá: nhịp chữ rơi từ 3,3 xuống 1,7 lần/giây **trong lòng một
-câu** khi người ta nói dài, vì mỗi lần đọc partial giải mã lại toàn bộ cửa sổ nên
-chi phí tăng theo độ dài câu, rồi phép nhân đôi nó lên.
+**The conclusion above has been superseded — 2026-09-16.** It was right for the design
+at the time, and the duty gate (`interval = max(300ms, decode × 2)`) was its
+implementation. A real speaking session showed the cost: the text cadence fell from 3.3
+to 1.7 updates/second **within a single sentence** when someone spoke at length, because
+each partial read re-decodes the whole window, so the cost grows with sentence length,
+and then the multiplication doubles it.
 
-Đo lại trên lời nói **dày** — bảng cũ dùng clip lẻ, không chạm tới buffer 8–9 s:
+Re-measured on **dense** speech — the old table used isolated clips and never reached an
+8–9 s buffer:
 
-| Buffer | vi p50 | en p50 | gate ×2 | nhịp | gate ×1 | nhịp |
-| ------ | ------ | ------ | ------- | ---- | ------- | ---- |
-| 1 s    | 55 ms  | 102 ms | 300 ms  | 3,33 | 300 ms  | 3,33 |
-| 5 s    | 107 ms | 210 ms | 420 ms  | 2,38 | 300 ms  | 3,33 |
-| 9 s    | 152 ms | 289 ms | 579 ms  | 1,73 | 300 ms  | 3,33 |
+| Buffer | vi p50 | en p50 | gate ×2 | cadence | gate ×1 | cadence |
+| ------ | ------ | ------ | ------- | ------- | ------- | ------- |
+| 1 s    | 55 ms  | 102 ms | 300 ms  | 3.33    | 300 ms  | 3.33    |
+| 5 s    | 107 ms | 210 ms | 420 ms  | 2.38    | 300 ms  | 3.33    |
+| 9 s    | 152 ms | 289 ms | 579 ms  | 1.73    | 300 ms  | 3.33    |
 
-Tiếng Anh đạt đỉnh **289 ms ở buffer 9 s** — lượt dài nhất client gửi — vẫn dưới
-sàn 300 ms. Thứ tạo ra sự chậm dần là **phép nhân**, không phải chi phí giải mã.
-`PARTIAL_DUTY_DIVISOR` về **1**; nhịp phẳng ở mọi độ dài câu.
+English peaks at **289 ms at a 9 s buffer** — the longest turn the client sends — still
+below the 300 ms floor. What caused the gradual slowdown was **the multiplication**, not
+the decode cost. `PARTIAL_DUTY_DIVISOR` back to **1**; the cadence is flat at every
+sentence length.
 
-Đánh đổi, nói thẳng: ở divisor 1 trần duty **biến mất** (khoảng cách tính từ lúc
-bắt đầu, nên `d × 1` đã trả xong khi lần đọc kết thúc). Đo áp lực lane với hai
-người nói cùng lúc + lượt cuối + TTS liên tục: 388 request, **503 = 0**.
+The trade-off, stated plainly: at divisor 1 the duty ceiling **disappears** (the interval
+is measured from the start, so `d × 1` has already been paid by the time the read
+finishes). Lane pressure measured with two people speaking at once + final turns +
+continuous TTS: 388 requests, **503 = 0**.
 
-Một thiết kế **cửa sổ trượt + khâu theo chồng lấp chữ** đã được cân nhắc và bị
-cổng đo bác trước khi viết dòng code sản phẩm nào: Moonshine có sàn chi phí cố
-định nên thu nhỏ cửa sổ không cứu được, và khâu sai 15% (vi) / không nối 37%
-(en), vì cửa sổ mở giữa chừng một từ thì bộ nhận dạng trả về một từ **khác** chứ
-không phải một từ cụt. Bản ghi chi tiết đã gỡ khỏi repo cùng cây `plans/`;
-probe sinh ra các số này vẫn còn ở
-`benchmarks/stt/scripts/streaming-arms/overlap_probe.py`, kết quả thô ở
+A **sliding window + stitch-by-text-overlap** design was considered and rejected by the
+measurement gate before any line of product code was written: Moonshine has a fixed cost
+floor so shrinking the window does not help, and stitching was wrong 15% of the time (vi)
+/ failed to join 37% (en), because a window that opens mid-word makes the recogniser
+return a **different** word rather than a truncated one. The detailed record was removed
+from the repo together with the `plans/` tree; the probe that produced these numbers is
+still at `benchmarks/stt/scripts/streaming-arms/overlap_probe.py`, with raw results in
 `benchmarks/stt/results/r8-overlap/`.
 
-**(f) Ngân sách trễ sau khi đo (vi→en):**
+**(f) Latency budget after measurement (vi→en):**
 
 ```
-t=0      dứt lời
-t=150ms  VAD nghi hết câu → STT final (90ms)
-t=240ms  bắn gemini-3.5-flash-lite (streamed)
-t=793ms  Gemini trả cả bản dịch (553ms, một chunk)
-t=1133ms Kokoro mệnh đề đầu ra loa (340ms)
+t=0      speech ends
+t=150ms  VAD suspects end of sentence → STT final (90ms)
+t=240ms  fire gemini-3.5-flash-lite (streamed)
+t=793ms  Gemini returns the whole translation (553ms, one chunk)
+t=1133ms Kokoro's first clause reaches the speaker (340ms)
 ```
 
-**≈ 1,13 s p50.** Nhờ **VAD-overlap + cắt mệnh đề + gọi streaming**, không nhờ
-pipeline cụm-từ hay callback TTS. Bỏ từng đòn: bỏ VAD-overlap +350 ms · quay lại
-blocking +267 ms · bỏ cắt mệnh đề +300…500 ms.
+**≈ 1.13 s p50.** Thanks to **VAD overlap + clause splitting + streaming calls**, not a
+phrase pipeline or a TTS callback. Removing each lever: drop VAD overlap +350 ms ·
+back to blocking +267 ms · drop clause splitting +300…500 ms.
 
-### 6.3 Bug đáng giá nhất của dự án: cơ chế tăng tốc đã ship nhưng chưa từng chạy
+### 6.3 The project's most valuable bug: a speed-up that shipped but never ran
 
-Cơ chế `speculate()` — dịch trước phần đầu câu ở mốc im lặng — **đã ship, có test
-xanh, và có hẳn một mục trong báo cáo bàn giao tuyên bố "tiết kiệm 350 ms"**.
+The `speculate()` mechanism — translating the start of a sentence ahead of time at the
+silence mark — **had shipped, had green tests, and even had its own entry in the
+handoff report claiming "saves 350 ms"**.
 
-Chuỗi nguyên nhân:
+The causal chain:
 
 ```
-speech-gate.ts:119-129   silenceMs cộng dồn, speaking vẫn true
-capture-pump.ts:110-112  if (state === 'in-turn') onAudio(block)   ← block im lặng VẪN gửi
-                         state chỉ đổi ở onSpeechEnd = CUỐI hangover
+speech-gate.ts:119-129   silenceMs accumulates, speaking stays true
+capture-pump.ts:110-112  if (state === 'in-turn') onAudio(block)   ← silent blocks are STILL sent
+                         state only changes at onSpeechEnd = END of hangover
 translation-session.service.ts:197   bufferedBytes += audio.length
-translation-session.service.ts:273   atBytes === bufferedBytes      ← không bao giờ khớp
+translation-session.service.ts:273   atBytes === bufferedBytes      ← never matches
 ```
 
-Client gửi audio suốt 500 ms hangover ⇒ `bufferedBytes` luôn tăng sau mốc
-speculate ⇒ phép so luôn sai ⇒ **bản dịch sớm luôn bị vứt**. Không gì "fail":
-công việc chỉ đơn giản bị làm lại, và khoản độ trễ nó sinh ra để tiết kiệm thì
-không bao giờ được tiết kiệm.
+The client keeps sending audio throughout the 500 ms hangover ⇒ `bufferedBytes` always
+grows after the speculate mark ⇒ the comparison is always false ⇒ **the early
+translation is always thrown away**. Nothing "fails": the work is simply redone, and the
+latency it was built to save is never saved.
 
-**Vì sao lọt qua mọi cổng.** Hai test "chứng minh" nó **dựng một chuỗi sự kiện mà
-production không thể tạo ra**: gọi `speculate()` rồi `end()` không frame nào ở
-giữa; e2e chỉ gửi đúng 1 frame. Typecheck, lint, build, unit, e2e — tất cả xanh.
-Đây là **lần thứ hai** một lỗi thoát ra `main` theo đúng cách này (lần trước:
-cờ half-duplex đặt ở đầu lời nói thay vì cuối).
+**Why it slipped past every gate.** The two tests that "prove" it **build a sequence of
+events that production cannot produce**: they call `speculate()` and then `end()` with
+no frame in between; the e2e test sends exactly 1 frame. Typecheck, lint, build, unit,
+e2e — all green. This is the **second time** a bug escaped to `main` in exactly this way
+(the previous one: the half-duplex flag was set at the start of speech instead of the
+end).
 
-**Cách sửa.** Client **giữ lại** block im lặng thay vì gửi; nói tiếp → flush
-nguyên vẹn đúng thứ tự; hết lượt → bỏ. `SpeechGate.push()` trả về block có phải
-speech không, để `CapturePump` không tự suy lại ngưỡng (hai bản sao sẽ trôi lệch).
+**The fix.** The client **holds back** silent blocks instead of sending them; if speech
+resumes → flush them intact and in order; if the turn ends → drop them.
+`SpeechGate.push()` returns whether the block is speech, so that `CapturePump` does not
+re-derive the threshold itself (two copies would drift apart).
 
-**Code review bắt một lỗi trong chính bản sửa:** bản đầu vứt `held` ở
-`onSpeechEnd`, nên **phần đuôi từ dưới ngưỡng RMS không bao giờ tới recognizer** —
-phụ âm cuối vô thanh thấp hơn nguyên âm 10–20 dB, mà tiếng Việt có /t/, /k/, /p/
-cuối không bật hơi. `SPEECH_MARGIN` bị biến từ nút chỉnh _thời điểm_ thành nút
-chỉnh _nội dung nhận dạng_, và **không test nào thấy** vì chúng đếm callback chứ
-không so transcript. Sửa: flush `held` ngay trước khi bắn `onProbableEnd`.
+**Code review caught a bug in the fix itself:** the first version discarded `held` at
+`onSpeechEnd`, so **the tail of a word below the RMS threshold never reached the
+recognizer** — voiceless final consonants are 10–20 dB quieter than vowels, and
+Vietnamese has unaspirated final /t/, /k/, /p/. `SPEECH_MARGIN` was turned from a knob
+for _timing_ into a knob for _recognised content_, and **no test saw it** because they
+count callbacks rather than compare transcripts. Fix: flush `held` right before firing
+`onProbableEnd`.
 
-### 6.4 Số đo đầu tiên và hai vòng sửa dựa trên số
+### 6.4 The first measurements and two rounds of fixes driven by numbers
 
-Sau khi sửa, lần đầu tiên dự án có số end-to-end đo thật (32 fixture, bỏ 3 lượt
-làm nóng; i7-11700K, **STT+TTS+API+driver chạy cùng một máy** = cận trên của
-tranh chấp CPU):
+After the fix, the project had real end-to-end measurements for the first time (32
+fixtures, 3 warm-up turns discarded; i7-11700K, **STT+TTS+API+driver running on the same
+machine** = upper bound on CPU contention):
 
-|                                     | p50         | p95     |
-| ----------------------------------- | ----------- | ------- |
-| Tổng, 32 lượt                       | **1163 ms** | 2983 ms |
-| Khi speculation dùng được (19 lượt) | 870 ms      | 2171 ms |
-| Khi speculation mất (13 lượt)       | 1760 ms     | 3727 ms |
+|                                        | p50         | p95     |
+| -------------------------------------- | ----------- | ------- |
+| Overall, 32 turns                      | **1163 ms** | 2983 ms |
+| When speculation was usable (19 turns) | 870 ms      | 2171 ms |
+| When speculation was lost (13 turns)   | 1760 ms     | 3727 ms |
 
-Từng khâu (log API, n=45): STT p50 **58 ms** (p95 84, max 102) · Gemini translate
-p50 **723 ms** (p95 1947, max 8943) · TTS mỗi mệnh đề p50 **527 ms** (p95 1125).
-⇒ STT không phải nút cổ chai; **Gemini là khâu tốn nhất và biến động nhất**, và
-là lý do p95 vỡ mục tiêu — nó phụ thuộc mạng, không phụ thuộc máy.
+Per stage (API logs, n=45): STT p50 **58 ms** (p95 84, max 102) · Gemini translate
+p50 **723 ms** (p95 1947, max 8943) · TTS per clause p50 **527 ms** (p95 1125).
+⇒ STT is not the bottleneck; **Gemini is the most expensive and most variable stage**,
+and it is the reason p95 misses the target — it depends on the network, not the machine.
 
-Tỉ lệ head-start dùng được hội tụ quanh **59%** qua 3 phương pháp độc lập (server
-thật 19/32 · replay offline 7/12 · dự đoán). Chi phí: 45 request cho 35 lượt =
-**22% overhead** vì speculation hỏng.
+The usable head-start rate converges around **59%** across 3 independent methods (real
+server 19/32 · offline replay 7/12 · prediction). Cost: 45 requests for 35 turns =
+**22% overhead** from failed speculation.
 
-**"1,13 s hay 1,5 s" — đã trả lời.** Con số 1,13 s dự đoán ở Phase 0 **đúng**
-(đo 1163 ms, lệch 3%), nhưng **hệ thống chưa từng đạt nó** cho tới khi bug
-head-start được sửa. Con số 1,5 s là ước lượng cho trường hợp không overlap; đo
-thật cho trường hợp đó là **1760 ms**, nên 1,5 s là lạc quan.
+**"1.13 s or 1.5 s" — answered.** The 1.13 s figure predicted in Phase 0 was **right**
+(measured 1163 ms, off by 3%), but **the system never reached it** until the head-start
+bug was fixed. The 1.5 s figure was an estimate for the no-overlap case; the real
+measurement for that case is **1760 ms**, so 1.5 s was optimistic.
 
-Hai thay đổi tiếp theo, **phải đi cùng nhau**:
+The next two changes **must go together**:
 
-1. **Đoán lại ở mỗi lần ngắt, thay vì đoán một lần.** Lý do one-shot tồn tại là
-   quota, và lý do đó **sai chiều**: một guess chỉ sống khi không có audio theo
-   sau, nên lượt có ngắt giữa chừng tiêu guess ở lần ngắt đầu rồi **vẫn** phải
-   dịch lại ở cuối — tốn 2 request mà không được gì.
-2. **Tách ladder model.** Đo sau khi chỉ đổi (1): p50 991 ms nhưng **p95 nhảy lên
-   10112 ms** — request thêm đẩy `3.5-flash-lite` vượt trần 15/phút, ladder dùng
-   chung rơi xuống gemma, 2 lượt mất 10081 ms và 18537 ms. Sửa: guess đi
-   `[3.1, 3.5]`, final đi `[3.5, 3.1]`, **cả hai loại bỏ gemma** (model 6,9 s là
-   dự phòng hợp lý cho REST nhưng với hội thoại thì người nói đã bỏ đi rồi). REST
-   giữ nguyên ladder đầy đủ.
+1. **Re-guess at every pause instead of guessing once.** The reason for one-shot was
+   quota, and that reasoning **points the wrong way**: a guess survives only when no
+   audio follows it, so a turn with a mid-sentence pause spends its guess at the first
+   pause and then **still** has to translate again at the end — 2 requests spent for
+   nothing.
+2. **Split the model ladder.** Measured after changing only (1): p50 991 ms but **p95
+   jumped to 10112 ms** — the extra requests pushed `3.5-flash-lite` past its 15/minute
+   cap, the shared ladder fell through to gemma, and 2 turns took 10081 ms and 18537 ms.
+   Fix: guesses go `[3.1, 3.5]`, finals go `[3.5, 3.1]`, **both drop gemma** (a 6.9 s
+   model is a reasonable fallback for REST, but in a conversation the speaker has
+   already walked away). REST keeps the full ladder.
 
-|                | One-shot, ladder chung | Đoán lại, ladder chung | **Đoán lại + tách ladder** |
-| -------------- | ---------------------- | ---------------------- | -------------------------- |
-| p50            | 1163 ms                | 991 ms                 | **859 ms**                 |
-| p95            | 2983 ms                | 10112 ms               | **1849 ms**                |
-| max            | 3727 ms                | 19003 ms               | **1911 ms**                |
-| Tỉ lệ reuse    | 59%                    | 75%                    | **75%**                    |
-| Gọi gemma      | 0                      | 2 (10 s, 18 s)         | **0**                      |
-| Dịch chậm nhất | 8943 ms                | 18537 ms               | **1055 ms**                |
+|                     | One-shot, shared ladder | Re-guess, shared ladder | **Re-guess + split ladder** |
+| ------------------- | ----------------------- | ----------------------- | --------------------------- |
+| p50                 | 1163 ms                 | 991 ms                  | **859 ms**                  |
+| p95                 | 2983 ms                 | 10112 ms                | **1849 ms**                 |
+| max                 | 3727 ms                 | 19003 ms                | **1911 ms**                 |
+| Reuse rate          | 59%                     | 75%                     | **75%**                     |
+| Gemma calls         | 0                       | 2 (10 s, 18 s)          | **0**                       |
+| Slowest translation | 8943 ms                 | 18537 ms                | **1055 ms**                 |
 
-### 6.5 Chữ nguồn live và chữ dịch live
+### 6.5 Live source text and live translated text
 
-Chữ nguồn: server re-decode buffer đang lớn dần trong pha `listening` và phát
-`server.transcript.partial`. Đo trên trình duyệt thật, câu 6,9 giây:
+Source text: the server re-decodes the growing buffer during the `listening` phase and
+emits `server.transcript.partial`. Measured in a real browser, on a 6.9-second sentence:
 
 ```
  633ms  Hôm qua
@@ -1134,991 +1183,1050 @@ Chữ nguồn: server re-decode buffer đang lớn dần trong pha `listening` v
 5893ms  … không biết còn phòng không
 ```
 
-**17 lần cập nhật** trong một lượt. Sau đó lượt chốt bình thường, dòng live biến
-mất, bản dịch chính thức hiện.
+**17 updates** within one turn. After that the turn is finalised as usual, the live line
+disappears, and the official translation appears.
 
-Chữ dịch live, cùng câu:
+Live translated text, same sentence:
 
 ```
 4049ms  I booked a room online yesterday but have not received a confirmation yet.
-        ← tiếng Anh hiện khi người nói VẪN đang nói
+        ← English appears while the speaker is STILL talking
 6406ms  … so I would like to check if there is still a room available.
-        ← bản chính thức
+        ← official translation
 ```
 
-Sớm hơn bản chính thức **2,4 giây**.
+**2.4 seconds** earlier than the official translation.
 
-Hai quyết định thiết kế có chủ ý:
+Two deliberate design decisions:
 
-- **Chỉ lượt dài mới dịch tạm** — ngưỡng ≥3 s tiếng nói, cách nhau ≥2,5 s hoặc
-  ≥12 từ mới, tối đa 3 lần/lượt. Câu 2 giây đã có bản dịch thật sau ~900 ms; đoán
-  trước nó là tốn một request metered để đổi lấy không gì.
-- **Không bao giờ phát bản đoán thành tiếng.** Câu chưa xong nên bản dịch là
-  phỏng đoán mà lời nói sau có thể lật ngược — **chữ thì thay lặng lẽ được, tiếng
-  đã nói thì không.**
+- **Only long turns get a provisional translation** — threshold ≥3 s of speech, spaced
+  ≥2.5 s or ≥12 new words apart, at most 3 times per turn. A 2-second sentence already
+  has its real translation after ~900 ms; guessing ahead of it spends a metered request
+  in exchange for nothing.
+- **A guess is never spoken aloud.** The sentence is not finished, so the translation is
+  a guess that later speech can overturn — **text can be replaced quietly, speech
+  already spoken cannot.**
 
-**Suýt hỏng lần thứ hai vì quota — và lần này số bắt được ngay.** Bản đầu cho
-bản dịch tạm dùng `3.1-flash-lite`, cùng model mà speculation dẫn đầu:
+**Nearly broken a second time by quota — and this time the numbers caught it
+immediately.** The first version used `3.1-flash-lite` for provisional translations, the
+same model that leads speculation:
 
-|                | Dịch tạm trên `3.1` | Dịch tạm trên `3.5` |
-| -------------- | ------------------- | ------------------- |
-| p95            | **2787 ms**         | **1582 ms**         |
-| Rate limit     | **7**               | **0**               |
-| Dịch chậm nhất | **15764 ms**        | 938 ms              |
+|                     | Provisional on `3.1` | Provisional on `3.5` |
+| ------------------- | -------------------- | -------------------- |
+| p95                 | **2787 ms**          | **1582 ms**          |
+| Rate limits         | **7**                | **0**                |
+| Slowest translation | **15764 ms**         | 938 ms               |
 
-Tổng request chỉ tăng 50→56 ⇒ **vấn đề không phải tổng mà là dồn cục**: bản dịch
-tạm xảy ra _trong lúc_ lượt đang chạy, cùng thời điểm với speculation, trên cùng
-một model. Trong khi đó `3.5` đang nhàn — vì 75% lượt dùng lại speculation nên
-đường final hiếm khi gọi. Chuyển sang model đang rảnh là xong.
+Total requests rose only 50→56 ⇒ **the problem is not the total but the bunching**:
+provisional translations happen _while_ the turn is in progress, at the same time as
+speculation, on the same model. Meanwhile `3.5` sits idle — because 75% of turns reuse
+speculation, the final path is rarely called. Moving to the idle model was all it took.
 
-### 6.6 Một phase bị bỏ, có số làm chứng
+### 6.6 A phase dropped, with numbers as witness
 
-Kế hoạch yêu cầu **cấp recognizer riêng cho vòng partial**, vì lo lock per-engine
-chặn đường giải mã chính. Đã làm bản dùng chung engine trước rồi đo: **422 lần
-đọc partial trên 32 lượt, STT p50 vẫn 58 ms** (nền: 58 ms), max 136 ms (nền
-102 ms). Đường final **không chậm đi**. Vấn đề không tồn tại ⇒ bỏ cả phase, tránh
-sửa sidecar Python và đổi `SttProvider` (interface có 2 implementer, 7+ consumer)
-để chống một vấn đề chưa từng quan sát được.
+The plan called for **a dedicated recognizer for the partial loop**, out of concern that
+the per-engine lock would block the main decode path. The shared-engine version was
+built first and measured: **422 partial reads over 32 turns, STT p50 still 58 ms**
+(baseline: 58 ms), max 136 ms (baseline 102 ms). The final path **did not slow down**.
+The problem does not exist ⇒ the whole phase was dropped, avoiding changes to the Python
+sidecar and to `SttProvider` (an interface with 2 implementers and 7+ consumers) to
+guard against a problem that had never been observed.
 
-### 6.7 Kiểm chứng trên trình duyệt thật — lần đầu của dự án
+### 6.7 Verification in a real browser — a first for the project
 
-Playwright + Chromium, bản **production** (`next start`, không HMR). Thay đúng
-một thứ: `navigator.mediaDevices.getUserMedia` trả `MediaStream` dựng từ fixture
-WAV. Mọi thứ dưới nó là thật — AudioWorklet, đồng hồ Web Audio, resampler,
-socket, UI.
+Playwright + Chromium, a **production** build (`next start`, no HMR). Exactly one thing
+replaced: `navigator.mediaDevices.getUserMedia` returns a `MediaStream` built from a WAV
+fixture. Everything below it is real — AudioWorklet, the Web Audio clock, the resampler,
+the socket, the UI.
 
-| Lượt           | Ngắt giữa câu | Speculation | Audio đầu |
-| -------------- | ------------- | ----------- | --------- |
-| plain-01       | không         | USED        | 1021 ms   |
-| plain-01 (lặp) | không         | USED        | 873 ms    |
-| pause-03       | 2 lần         | lost        | 1749 ms   |
+| Turn              | Mid-sentence pause | Speculation | First audio |
+| ----------------- | ------------------ | ----------- | ----------- |
+| plain-01          | no                 | USED        | 1021 ms     |
+| plain-01 (repeat) | no                 | USED        | 873 ms      |
+| pause-03          | 2 times            | lost        | 1749 ms     |
 
-Harness offline dự đoán `plain-*` reuse được và `pause-03` mất — trình duyệt cho
-đúng vậy; khoảng cách 873↔1749 ms khớp 870↔1760 ms đo qua driver. **Ba phương
-pháp đo độc lập hội tụ.**
+The offline harness predicted that `plain-*` would be reused and `pause-03` lost — the
+browser gave exactly that; the 873↔1749 ms gap matches the 870↔1760 ms measured through
+the driver. **Three independent measurement methods converge.**
 
-Sau khi áp dụng đoán-lại + tách ladder, chạy lại trên trình duyệt: `plain-01`
-702 ms · **`pause-03` 949 ms** (trước là 1749 ms) — nhanh hơn **800 ms** đúng ở
-loại lượt mà thiết kế cũ không bao giờ thắng được.
+After applying re-guess + split ladder, rerunning in the browser: `plain-01`
+702 ms · **`pause-03` 949 ms** (previously 1749 ms) — **800 ms** faster, precisely on the
+type of turn the old design could never win.
 
-Đây cũng chính là chỗ 3 lỗi Critical của đợt trước nằm (mic treo sau 1 block,
-half-duplex mở lại sai thời điểm) — giờ có bằng chứng chúng không tái diễn.
+This is also exactly where the 3 Critical bugs of the previous round lived (mic hanging
+after 1 block, half-duplex reopening at the wrong time) — now there is evidence they do
+not recur.
 
-### 6.8 Số cuối cùng
+### 6.8 The final numbers
 
-Bảng đầy đủ ở mục 7. Tóm tắt: p50 **907 ms**, p95 **1582 ms**, max 1757 ms,
-**0/32 lượt vượt 1800 ms**, reuse 75%, 0 rate limit.
+Full table in section 7. Summary: p50 **907 ms**, p95 **1582 ms**, max 1757 ms,
+**0/32 turns above 1800 ms**, 75% reuse, 0 rate limits.
 
-Hai chỉ tiêu giao diện chưa đạt (chữ nguồn 633 ms, UI đứng yên 753 ms) trượt
-133–253 ms, và phần lớn khoảng 753 ms là do **recognizer chưa nghe thêm từ mới**
-chứ không phải hệ thống đứng — nhịp partial vẫn về đều 300 ms. Hạ nhịp xuống
-200 ms sẽ tốn CPU mà không sửa được nguyên nhân.
-
----
-
-## 7. Bảng tổng hợp trước / sau (dùng cho chương kết quả)
-
-Điều kiện đo: 32 lượt, fixture giọng tiếng Việt sinh bằng VieNeu, i7-11700K
-8 nhân, STT + TTS + API + driver **chạy cùng một máy** (cận trên của tranh chấp
-CPU).
-
-| Chỉ số                       | Đầu tuần (19/07) | Cuối tuần (26/07)  | Mục tiêu |
-| ---------------------------- | ---------------- | ------------------ | -------- |
-| Dứt lời → audio đầu, **p50** | 1663 ms (REST)   | **907 ms** ✅      | ≤1200 ms |
-| **p95**                      | 1976 ms          | **1582 ms** ✅     | ≤1800 ms |
-| Số lượt vượt 1800 ms         | —                | **0/32** ✅        | —        |
-| Tỉ lệ tái dùng head-start    | 0% (cơ chế chết) | **75%** ✅         | ≥70%     |
-| Số lần bị rate limit         | thường xuyên     | **0** ✅           | 0        |
-| Chữ nguồn hiện lần đầu       | không có         | 633 ms ❌          | ≤500 ms  |
-| Khoảng UI đứng yên dài nhất  | cả lượt          | 753 ms ❌          | ≤500 ms  |
-| STT vi                       | 1117 ms (cloud)  | **84 ms** (local)  | —        |
-| STT en                       | 1285 ms (cloud)  | **178 ms** (local) | —        |
-| Phụ thuộc API key speech     | bắt buộc         | **không cần**      | —        |
-
-Cổng chất lượng, cuối kỳ: `jest` api **173 pass** · e2e 26 pass / 7 skip ·
-`vitest` web **32 pass** / 1 skip · `pnpm build` + `typecheck` xanh 10/10 ·
-`pnpm lint` **6 workspace** 0 error · `knip` exit 0 · `turbo test` 6/6 ·
-trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mic mở lại, 0 lỗi.
-
-Đầu kỳ: 82 test api, **không có test cho `apps/web`**, **không có lint cho
-`apps/web`**, CI chỉ chạy lint/typecheck/build.
+The two interface targets not met (source text 633 ms, UI idle 753 ms) miss by
+133–253 ms, and most of the 753 ms gap is because **the recognizer has not heard any new
+words yet**, not because the system is stalled — partials still arrive steadily every
+300 ms. Lowering the cadence to 200 ms would cost CPU without fixing the cause.
 
 ---
 
-## 8. Bài học phương pháp (phần đáng đưa vào luận văn)
+## 7. Before / after summary table (for the results chapter)
 
-1. **Benchmark trên đúng phần cứng đích là bắt buộc.** Cùng một ngày, số công bố
-   sai lệch ở **cả hai chiều**: PhoWhisper trượt ngưỡng dù được ước là đạt;
-   Zipformer và Kokoro đều nhanh hơn công bố.
+Measurement conditions: 32 turns, Vietnamese voice fixtures generated with VieNeu,
+i7-11700K 8 cores, STT + TTS + API + driver **running on the same machine** (upper bound
+on CPU contention).
 
-2. **Đo lại sau khi sửa, không tin vào lý lẽ.** Hai lần trong một tuần, thay đổi
-   trông như cải thiện lại làm p95 tệ đi vì quota (10112 ms và 2787 ms), **cả hai
-   lần chỉ lộ ra khi đo lại**. Nguyên nhân không phải tổng số request (50→56) mà
-   là **dồn cục theo thời gian trên cùng một model**.
+| Metric                               | Start of week (19/07) | End of week (26/07) | Target   |
+| ------------------------------------ | --------------------- | ------------------- | -------- |
+| End of speech → first audio, **p50** | 1663 ms (REST)        | **907 ms** ✅       | ≤1200 ms |
+| **p95**                              | 1976 ms               | **1582 ms** ✅      | ≤1800 ms |
+| Turns above 1800 ms                  | —                     | **0/32** ✅         | —        |
+| Head-start reuse rate                | 0% (dead mechanism)   | **75%** ✅          | ≥70%     |
+| Rate-limit hits                      | frequent              | **0** ✅            | 0        |
+| First source text shown              | none                  | 633 ms ❌           | ≤500 ms  |
+| Longest idle UI gap                  | whole turn            | 753 ms ❌           | ≤500 ms  |
+| STT vi                               | 1117 ms (cloud)       | **84 ms** (local)   | —        |
+| STT en                               | 1285 ms (cloud)       | **178 ms** (local)  | —        |
+| Speech API key dependency            | required              | **not needed**      | —        |
 
-3. **Test có thể "chứng minh" thứ production không tạo ra được.** Bug head-start
-   sống sót qua typecheck, lint, build, unit, e2e vì hai test dựng chuỗi sự kiện
-   không thể xảy ra thật. Test đếm callback không bắt được lỗi về _nội dung_;
-   test khẳng định cận dưới không bắt được trùng lặp/đảo thứ tự.
+Quality gates, end of term: `jest` api **173 pass** · e2e 26 pass / 7 skip ·
+`vitest` web **32 pass** / 1 skip · `pnpm build` + `typecheck` green 10/10 ·
+`pnpm lint` **6 workspaces** 0 errors · `knip` exit 0 · `turbo test` 6/6 ·
+real browser: live source text, live translated text, turn finalisation, mic reopens,
+0 errors.
 
-4. **Một assertion chết che được hai lỗi.** `expect(...).not.toHaveBeenCalled`
-   thiếu `()` là truy cập thuộc tính, không kiểm gì; thêm `()` vào thì test hỏng
-   thật vì bản thân test cũng sai (thiếu `mockClear()`).
-
-5. **Chuẩn hoá của phép đo có thể giấu lỗi sản phẩm.** Chuẩn hoá WER hạ chữ
-   thường + bỏ dấu câu ⇒ lỗi "transcript TOÀN CHỮ HOA" không xuất hiện trong bảng
-   benchmark, chỉ lộ khi hiển thị cho người dùng.
-
-6. **Lỗi bị bọc mà không log `cause` thì không chẩn đoán được.** "Gemini chập
-   chờn" thực ra là quota ngày; một dòng log là ra ngay.
-
-7. **Ba lỗi Critical của đợt trước đều nằm trong code client không có test**,
-   trong khi typecheck/lint/build đều xanh ⇒ thêm vitest + eslint cho `apps/web`,
-   tách chính sách turn-taking ra module thuần để test được thứ tự sự kiện.
-
-8. **Nhiều phương pháp đo độc lập hội tụ mới đáng tin** — replay offline, harness
-   qua driver, trình duyệt thật cho cùng kết luận (873↔1749 vs 870↔1760 ms).
-
-9. **Chẩn đúng bài toán quan trọng hơn tối ưu đúng cách.** "Đứt quãng" là phản
-   hồi giao diện, không phải độ trễ audio.
-
-10. **Bỏ một phase cũng cần bằng chứng** — 422 lần đọc partial chứng minh đường
-    final không chậm đi.
+Start of term: 82 api tests, **no tests for `apps/web`**, **no lint for
+`apps/web`**, CI ran only lint/typecheck/build.
 
 ---
 
-## 9. Ràng buộc và đánh đổi đã chấp nhận
+## 8. Methodological lessons (the part worth putting in the thesis)
 
-- **License CC-BY-NC-ND của Zipformer-30M**: chỉ học thuật, phải ghi trong luận
-  văn + README. Thay thế nếu thương mại hoá: PhoWhisper (BSD-3), ~1,3 s/câu.
-- **Quota Gemini là ràng buộc chặt nhất.** 59 request cho 32 lượt trong ~190 s;
-  0 rate limit ở lần đo cuối nhưng **biên rất mỏng**, phụ thuộc việc 75% lượt tái
-  dùng speculation. ~1000 req/ngày ≈ 35–40 phút hội thoại — đủ demo, **không đủ
-  sản phẩm**.
-- **Bản dịch tạm sẽ sai và tự sửa trước mặt hội đồng** — chấp nhận có chủ ý, chỉ
-  cho phần chữ. Chuẩn bị sẵn câu trả lời.
-- **Lượt đầu qua stack nguội mất ~9 giây** (8995 ms, rồi 650, 829 ms) ⇒ phải chạy
-  vài lượt làm nóng trước khi demo.
-- **TTS local chậm hơn cloud** (mục 4.4) — đổi lấy chi phí, riêng tư, offline.
-- **Fixture là giọng TTS** ngắt đúng chỗ có dấu câu ⇒ 75% là **trần**, không phải
-  ước lượng cho giọng người thật.
-- **Mọi số đều single-concurrency**, đo trên máy chạy chung client + server.
+1. **Benchmarking on the actual target hardware is mandatory.** On the same day,
+   published numbers were off in **both directions**: PhoWhisper missed the threshold
+   even though it was estimated to pass; Zipformer and Kokoro were both faster than
+   published.
+
+2. **Re-measure after a fix; do not trust the reasoning.** Twice in one week, a change
+   that looked like an improvement made p95 worse because of quota (10112 ms and
+   2787 ms), **and both times it only showed up on re-measurement**. The cause was not
+   the total number of requests (50→56) but **bunching in time on the same model**.
+
+3. **Tests can "prove" things production cannot produce.** The head-start bug survived
+   typecheck, lint, build, unit and e2e because two tests built an event sequence that
+   cannot happen for real. Tests that count callbacks cannot catch bugs in _content_;
+   tests that assert a lower bound cannot catch duplication or reordering.
+
+4. **One dead assertion can hide two bugs.** `expect(...).not.toHaveBeenCalled`
+   without `()` is a property access and checks nothing; adding `()` makes the test fail
+   for real because the test itself was also wrong (missing `mockClear()`).
+
+5. **A measurement's normalisation can hide product bugs.** WER normalisation lowercases
+   and strips punctuation ⇒ the "transcript IN ALL CAPS" bug never appeared in the
+   benchmark table and only surfaced when shown to users.
+
+6. **A wrapped error without its `cause` logged cannot be diagnosed.** "Gemini being
+   flaky" was in fact the daily quota; one log line revealed it immediately.
+
+7. **All three Critical bugs of the previous round lived in untested client code**,
+   while typecheck/lint/build were all green ⇒ added vitest + eslint for `apps/web`, and
+   extracted the turn-taking policy into a pure module so event ordering can be tested.
+
+8. **Only convergence of several independent measurement methods is trustworthy** —
+   offline replay, the driver harness and the real browser gave the same conclusion
+   (873↔1749 vs 870↔1760 ms).
+
+9. **Diagnosing the right problem matters more than optimising the right way.** "Choppy"
+   was about interface feedback, not audio latency.
+
+10. **Dropping a phase also needs evidence** — 422 partial reads proved the final path
+    did not slow down.
 
 ---
 
-## 10. Việc còn nợ
+## 9. Accepted constraints and trade-offs
 
-1. **Full duplex đã bật trên web — cấp phép bằng kiểm chứng thiết bị, không bằng
-   quy trình 40 lượt (19/08).** Mic giờ được honor xuyên suốt lúc bản dịch đang
-   phát: `fullDuplex: true` đặt thẳng trong `apps/web/src/hooks/use-streaming-translate.ts`,
-   không còn cờ env nào chắn trước nó.
+- **Zipformer-30M's CC-BY-NC-ND license**: academic use only, must be stated in the
+  thesis + README. Replacement if commercialised: PhoWhisper (BSD-3), ~1.3 s/sentence.
+- **Gemini quota is the tightest constraint.** 59 requests for 32 turns in ~190 s;
+  0 rate limits in the final run but **the margin is very thin**, depending on 75% of
+  turns reusing speculation. ~1000 req/day ≈ 35–40 minutes of conversation — enough for
+  a demo, **not enough for a product**.
+- **Provisional translations will be wrong and correct themselves in front of the
+  committee** — accepted deliberately, and for the text only. Have an answer ready.
+- **The first turn through a cold stack takes ~9 seconds** (8995 ms, then 650, 829 ms)
+  ⇒ a few warm-up turns must be run before the demo.
+- **Local TTS is slower than cloud** (section 4.4) — traded for cost, privacy, offline.
+- **The fixtures are TTS voices** that pause exactly at punctuation ⇒ 75% is a
+  **ceiling**, not an estimate for real human voices.
+- **Every number is single-concurrency**, measured on a machine running both client and
+  server.
 
-   **Căn cứ, và đúng phạm vi của nó.** Máy demo là MacBook; đã kiểm trực tiếp rằng
-   luồng loa không bao giờ đè vào mic đang thu — AEC phần cứng của máy cộng với
-   `echoCancellation: true` mà `getUserMedia` đã bật sẵn là đủ. Phải nói thẳng đây
-   **không phải** quy trình 40 lượt thiết kế bên dưới: không có nhánh đối chứng
-   half-duplex, không có bảng số, không ghi n. Nó là kiểm chứng trên đúng một thiết
-   bị, và kết luận chỉ áp cho thiết bị đó. Rig i7 (loa rời + mic desktop, chỉ AEC
-   phần mềm) **chưa đo** — nếu bảo vệ trên máy đó thì dùng tai nghe, và phiên dịch
-   song song chuyên nghiệp vốn làm bằng tai nghe.
+---
 
-   **Thứ thay cho cái rào.** Bộ đếm hiện lên cạnh vạch mức **ngay khi nó khác 0**
-   (`cascade-panel.tsx`), và ở 0 thì không chiếm chỗ. Đó là dấu vết duy nhất một
-   vòng âm học để lại. Đọc một con số khác 0 thì xác nhận bằng transcript — vòng
-   lặp viết chính bản dịch của app vào đó, không thể nhầm.
+## 10. Outstanding work
 
-   **Nhãn trên màn hình là `heard during playback`, cố ý không phải "echo".** Đây là
-   chỗ dễ nói quá nhất trong cả mục này, nên nói cho đúng: full duplex bật lên
-   **chính là để** người ta nói đè lên bản dịch và vẫn được nghe, mà mic được honor
-   suốt cửa sổ đó — nên một cú barge-in xác nhận `SpeechGate` y hệt như loa dội về.
-   Ở tầng này không có gì tách được hai thứ. Gọi nó là "echo" thì mỗi lần tính năng
-   chạy đúng lại báo động một lần, và một cái báo động như thế thì người ta ngừng
-   đọc — đúng cái giá phải trả khi nó là thứ duy nhất thay cho cái rào build-time.
+1. **Full duplex is on for the web — licensed by device verification, not by the
+   40-turn procedure (19/08).** The mic is now honored throughout while a translation is
+   playing: `fullDuplex: true` is set directly in `apps/web/src/hooks/use-streaming-translate.ts`,
+   with no env flag gating it any more.
 
-   Ba điều phải ghi khi báo cáo con số đó: (a) ở nhánh single-turn, cửa sổ đếm bắt
-   đầu từ lúc dứt lời chứ không phải lúc loa kêu, nên có lẫn ~900 ms tiếng phòng;
-   (b) nó là "tiếng nghe được trong lúc audio của ta có thể tới mic", không phải
-   "vọng âm" theo nghĩa hẹp — trên web giờ không còn nhánh đối chứng half-duplex để
-   trừ đi số hạng đó; (c) trên web nó cộng cả **barge-in** lẫn tiếng phòng, nên khi
-   chạy quy trình đo thì **không được nói đè lên lúc bản dịch đang phát** — nói đè
-   một lượt là hỏng cả con số của lượt đó.
+   **The basis, and its exact scope.** The demo machine is a MacBook; it was checked
+   directly that the speaker stream never bleeds into the mic being captured — the
+   machine's hardware AEC plus the `echoCancellation: true` that `getUserMedia` already
+   enables is enough. It must be said plainly that this is **not** the 40-turn procedure
+   designed below: no half-duplex control arm, no table of numbers, no recorded n. It is
+   a check on exactly one device, and the conclusion applies only to that device. The i7
+   rig (separate speakers + desktop mic, software AEC only) is **not measured** — if the
+   defence is on that machine, use headphones, and professional simultaneous
+   interpreting is done with headphones anyway.
 
-   **Quy trình 40 lượt vẫn còn giá trị, cho thiết bị khác.** Viết ở
-   `benchmarks/realtime/README.md` (chỗ tracked). Tóm tắt: 20 lượt ở đúng âm lượng
-   và khoảng cách sẽ dùng thật, câu khác nhau mỗi lượt vì tự kích hoạt phụ thuộc
-   nội dung phát; ghi kèm âm lượng, khoảng cách mic–loa, thiết bị, và số
-   `session_busy` quan sát được (guard phía server có thể tạo ra 0 **giả**). **Đọc
-   một chiều**: trượt trên rig khó không kết luận được gì về máy dễ hơn, và không
-   được viết thành "đóng hướng full-duplex".
+   **What replaces the fence.** A counter appears next to the level meter **as soon as
+   it is non-zero** (`cascade-panel.tsx`), and at 0 it takes no space. It is the only
+   trace an acoustic loop leaves. A non-zero reading is confirmed through the transcript
+   — the loop writes the app's own translation into it, which cannot be mistaken.
 
-   **Cờ đo đã bỏ theo.** `NEXT_PUBLIC_MEASUREMENT_MODE` không còn: client luôn gửi
-   `client.turn.metrics`, và `TURN_METRICS_PATH` phía server là công tắc duy nhất
-   quyết định dòng đó có được ghi xuống đĩa hay không.
+   **The on-screen label is `heard during playback`, deliberately not "echo".** This is
+   the easiest place in this whole section to overclaim, so say it precisely: full
+   duplex is turned on **precisely so that** people can talk over the translation and
+   still be heard, and the mic is honored throughout that window — so a barge-in
+   confirms `SpeechGate` exactly like speaker bleed does. Nothing at this layer can tell
+   the two apart. Calling it "echo" would raise an alarm every time the feature works
+   correctly, and people stop reading an alarm like that — exactly the price paid when it
+   is the only thing replacing the build-time fence.
 
-   **Nhánh half-duplex vẫn còn trong thư viện** (`fullDuplex: false` là mặc định của
-   `CapturePump`) — extension và đường single-turn vẫn dùng, và một client trên
-   thiết bị chưa kiểm vẫn tắt được. Chỉ có web là bật cứng.
+   Three things to state when reporting that number: (a) on the single-turn path, the
+   counting window starts at end of speech, not when the speaker sounds, so it includes
+   ~900 ms of room sound; (b) it is "sound heard while our audio could reach the mic",
+   not "echo" in the narrow sense — on the web there is no longer a half-duplex control
+   arm to subtract that term; (c) on the web it counts both **barge-in** and room sound,
+   so when running the measurement procedure **do not talk over the translation while it
+   is playing** — talking over it once ruins the number for that turn.
 
-   **Cập nhật (extension):** phần _đếm_ vọng âm ở đó có công cụ riêng —
-   `apps/extension/src/echo-monitor.ts` mở một luồng mic riêng và đếm số block vượt
-   ngưỡng **trong lúc bản dịch đang phát**, ngưỡng cố định thay vì sàn thích nghi
-   (sàn thích nghi sẽ học loa thành nền và ngừng đếm). Con số vào JSONL qua
-   `client.turn.metrics` và in ra bởi `benchmarks/realtime/analyze-continuous.mjs`.
-   Trong extension vòng vọng âm _digital_ không tồn tại theo cấu trúc nên
-   `fullDuplex: true` bật sẵn từ đầu; cái còn lại là vòng **âm học** qua mic của
-   chính người dùng, thứ extension không kiểm soát được và chỉ đo được.
+   **The 40-turn procedure still has value, for other devices.** Written up in
+   `benchmarks/realtime/README.md` (the tracked location). Summary: 20 turns at the exact
+   volume and distance that will be used for real, a different sentence each turn
+   because self-triggering depends on the content played; record the volume, the
+   mic–speaker distance, the device, and the number of `session_busy` observed (the
+   server-side guard can produce a **false** 0). **Read it one way only**: failing on a
+   hard rig says nothing about an easier machine, and must not be written up as
+   "closing the full-duplex direction".
 
-2. **Giá của việc commit sớm — đã đo lần đầu (18/08).** Câu hỏi chặn hướng
-   cắt-theo-mệnh-đề: dịch từng khúc _trong lúc người ta còn đang nói_ thì chất lượng
-   tụt bao nhiêu? Thí nghiệm thuần văn bản, cùng model, cùng prompt, 12 utterance
-   (6 mỗi chiều) từ `benchmarks/live-translate/data/manifest.json`, chấm chrF++:
+   **The measurement flag went with it.** `NEXT_PUBLIC_MEASUREMENT_MODE` is gone: the
+   client always sends `client.turn.metrics`, and the server-side `TURN_METRICS_PATH` is
+   the only switch deciding whether that line gets written to disk.
 
-   | Nhánh                                 | vi→en         | en→vi         | chung             |
-   | ------------------------------------- | ------------- | ------------- | ----------------- |
-   | cả câu (hôm nay)                      | 71,85         | 53,91         | 62,71             |
-   | cắt tại dấu câu (**cận lạc quan**)    | 69,47 (−2,38) | 53,64 (−0,28) | 61,49 (**−1,22**) |
-   | cắt theo tỉ lệ ~3 s (**cận bi quan**) | 67,50 (−4,35) | 51,20 (−2,71) | 59,25 (**−3,46**) |
+   **The half-duplex path still exists in the library** (`fullDuplex: false` is the
+   `CapturePump` default) — the extension and the single-turn path still use it, and a
+   client on an unverified device can still turn it off. Only the web has it hard-on.
 
-   Đọc thành **một khoảng −1,2 … −3,5 điểm chrF++**, không phải một con số: luật
-   thật sẽ cắt theo im lặng, nằm giữa hai nhát cắt này. Cắt tại dấu câu **mù** đúng
-   với giả thuyết cần kiểm — tiểu từ cuối câu tiếng Việt nằm ngay _trước_ dấu câu
-   nên không bao giờ bị tách khỏi mệnh đề — nên nó là cận dưới của thiệt hại.
+   **Update (extension):** echo _counting_ there has its own tool —
+   `apps/extension/src/echo-monitor.ts` opens a separate mic stream and counts blocks
+   above a threshold **while the translation is playing**, with a fixed threshold instead
+   of an adaptive floor (an adaptive floor would learn the speaker as background and stop
+   counting). The number goes into JSONL via `client.turn.metrics` and is printed by
+   `benchmarks/realtime/analyze-continuous.mjs`. In the extension the _digital_ echo loop
+   does not exist by construction, so `fullDuplex: true` has been on from the start; what
+   remains is the **acoustic** loop through the user's own mic, which the extension cannot
+   control and can only measure.
 
-   **vi→en thiệt gấp ~1,6–8× en→vi**, đúng hướng đã lo: transcript tiếng Việt không
-   có dấu câu nên tiểu từ là tín hiệu phân cực duy nhất. Bắt được một ca cụ thể ở
-   `vi-001`, nhát cắt tỉ lệ: _"security against attacks, **no** can be merged by
-   tricks"_ — từ **"không"** rơi vào ranh giới chunk và ra một phủ định què.
+2. **The cost of committing early — measured for the first time (18/08).** The question
+   blocking the clause-cutting direction: how much does quality drop when translating
+   piece by piece _while the person is still speaking_? A text-only experiment, same
+   model, same prompt, 12 utterances (6 per direction) from
+   `benchmarks/live-translate/data/manifest.json`, scored with chrF++:
 
-   Cảnh báo khi trích: n=12 (nhỏ), reference là **pseudo-reference chưa post-edit**
-   (`manifest.referenceProvenance`), và điểm tuyệt đối không so được với số công bố
-   — chỉ **hiệu số** giữa các nhánh mới là kết quả. Sinh lại:
-   `node benchmarks/live-translate/segment-vs-whole.mjs --limit 12 --run` rồi
+   | Arm                                           | vi→en         | en→vi         | overall           |
+   | --------------------------------------------- | ------------- | ------------- | ----------------- |
+   | whole sentence (today)                        | 71.85         | 53.91         | 62.71             |
+   | cut at punctuation (**optimistic bound**)     | 69.47 (−2.38) | 53.64 (−0.28) | 61.49 (**−1.22**) |
+   | proportional cut ~3 s (**pessimistic bound**) | 67.50 (−4.35) | 51.20 (−2.71) | 59.25 (**−3.46**) |
+
+   Read it as **a range of −1.2 … −3.5 chrF++ points**, not a single number: the real
+   rule will cut on silence, which falls between these two cuts. Cutting at punctuation
+   is **blind** to exactly the hypothesis under test — Vietnamese sentence-final
+   particles sit right _before_ the punctuation mark, so they are never split from their
+   clause — so it is a lower bound on the damage.
+
+   **vi→en loses ~1.6–8× as much as en→vi**, in exactly the direction feared: Vietnamese
+   transcripts have no punctuation, so the particle is the only polarity signal. A
+   concrete case was caught in `vi-001`, proportional cut: _"security against attacks,
+   **no** can be merged by tricks"_ — the word **"không"** (not) fell on a chunk boundary
+   and produced a crippled negation.
+
+   Caveats when citing: n=12 (small), the reference is a **pseudo-reference that has not
+   been post-edited** (`manifest.referenceProvenance`), and absolute scores are not
+   comparable with published numbers — only the **differences** between arms are the
+   result. To regenerate:
+   `node benchmarks/live-translate/segment-vs-whole.mjs --limit 12 --run` then
    `uv run python benchmarks/live-translate/score-segments.py <rows>`.
 
-3. ~~**Chưa có kênh metrics phía client**~~ — **đã trả.** `client.turn.metrics`
-   (`packages/types/src/events/ws-events.ts`) gửi mốc bắt đầu/kết thúc nói, thời
-   lượng thu, mốc phát, tồn đọng, `cutForced`, `outcome` và số vọng âm; server ghi
-   cùng file JSONL với dòng của nó, phân biệt bằng `source`. Ghép theo `sessionId`,
-   **không bao giờ theo timestamp** — hai bên giữ đồng hồ riêng. Dòng được gửi lúc
-   lượt **đóng**, không lúc phát xong: lượt bị từ chối / bỏ / lỗi không bao giờ
-   phát, nên chờ playback sẽ bỏ đúng những lượt đó và coverage biến thành "tỉ lệ
-   phát thành công", đẹp lên đúng lúc pipeline hỏng.
-4. **Chưa đo trên giọng người thật** (mục 9).
-5. **Chưa đo hành vi đa người dùng** — oversubscription luồng ONNX. Công cụ đã có
-   (trần global `MAX_CONCURRENT_TURNS_GLOBAL`, script phân tích đọc req/phút **theo
-   từng model**); phép đo RTF với 1/2/3 **socket** vẫn chưa chạy.
-6. `apps/api` lint vẫn chỉ quét `src/`, nên `test/` không được lint.
-7. ~~**CI không chạy test nào**~~ — **đã trả.** CI hiện có bốn job: Lint, Type
-   check, Build **và Test**.
-8. Ngưỡng chữ dịch live (3 s / 2,5 s / 12 từ / 3 lần) suy từ ràng buộc quota,
-   **chưa từ đo cảm nhận người dùng**.
-9. Khôi phục hoa/dấu câu tiếng Việt; timeout cho provider; phân loại 429 thành
-   lỗi response (mục 4.7).
+3. ~~**No client-side metrics channel yet**~~ — **paid off.** `client.turn.metrics`
+   (`packages/types/src/events/ws-events.ts`) sends the speech start/end marks, capture
+   duration, playback marks, backlog, `cutForced`, `outcome` and the echo count; the
+   server writes it into the same JSONL file as its own line, distinguished by `source`.
+   Join on `sessionId`, **never on timestamp** — the two sides keep their own clocks. The
+   line is sent when the turn **closes**, not when playback finishes: rejected / dropped
+   / failed turns never play, so waiting for playback would drop exactly those turns and
+   coverage would turn into a "playback success rate" that looks better precisely when
+   the pipeline breaks.
+4. **Not yet measured on real human voices** (section 9).
+5. **Multi-user behaviour not yet measured** — ONNX thread oversubscription. The tooling
+   exists (the global cap `MAX_CONCURRENT_TURNS_GLOBAL`, an analysis script that reads
+   req/minute **per model**); the RTF measurement with 1/2/3 **sockets** has not been run
+   yet.
+6. `apps/api` lint still scans only `src/`, so `test/` is not linted.
+7. ~~**CI runs no tests**~~ — **paid off.** CI now has four jobs: Lint, Type
+   check, Build **and Test**.
+8. The live translated text thresholds (3 s / 2.5 s / 12 words / 3 times) were derived
+   from the quota constraint, **not from measuring user perception**.
+9. Vietnamese capitalisation/punctuation restoration; provider timeouts; classifying 429
+   as a response error (section 4.7).
 
 ---
 
-## 11. Câu hỏi cần ý kiến giảng viên hướng dẫn
+## 11. Questions for the supervisor
 
-1. **Có nên tiếp tục theo đuổi phần p95 còn lại không?** Cách duy nhất còn lại là
-   giảm phụ thuộc Gemini — dịch máy local, cache, hoặc chấp nhận con số hiện tại.
-   Phần trễ còn lại là biến động mạng, không hằng số phía client nào chạm tới được.
-2. **Luận văn có cần bảng A/B đầy đủ cloud vs local cho cả ba khâu không?** Hiện
-   đã có cho STT và TTS; làm cho khâu dịch sẽ tốn quota đáng kể.
-3. **Mức chấp nhận cho bản dịch tạm tự sửa trước mặt người dùng?** Có thể làm một
-   khảo sát nhỏ nếu cần.
-4. **Có cần khôi phục hoa/dấu câu cho tiếng Việt không?** Hiện danh từ riêng vẫn
-   viết thường ("tôi đi hà nội"). Sửa đúng cần thêm một mô hình.
-5. **License CC-BY-NC-ND cho model STT tiếng Việt** — cần xác nhận chính thức là
-   chấp nhận được cho đồ án.
-6. Chất lượng TTS chấm bằng **một người nghe A/B**; có cần mini-MOS nhiều người
-   nghe để đủ chặt chẽ không?
-
----
-
-## 12. Nguồn dữ liệu gốc (để tái lập số liệu)
-
-| Số liệu                                 | Sinh lại bằng                                                                                                                                                                           |
-| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| WER/RTF/RAM của STT                     | `benchmarks/stt/` — `uv run python run_benchmark.py --run-tag rN`; kết quả thô ở `benchmarks/stt/results/`                                                                              |
-| So sánh decoder tiếng Việt (3 nhánh)    | `benchmarks/stt/` — `uv run python scripts/build_hotwords_vi.py` rồi `uv run python run_benchmark.py --decoder-arms --run-tag r3-decoder-arms`                                          |
-| Thước đo hiển thị (chữ số/dấu câu/hoa)  | `benchmarks/stt/stt_bench/display_fidelity.py` — `uv run pytest tests/test_display_fidelity.py`; **không** đi qua `normalize_text`. Baseline: `scripts/run_display_baseline.py` (§3.12) |
-| Giọng thật, 3 đường thu (§3.11)         | Audio là dữ liệu cá nhân, **không commit** — số liệu không tái lập độc lập được. Bản ghi cách đo đã gỡ cùng cây `plans/`; §3.11 giữ lại con số và kết luận                              |
-| Sửa hiển thị, trước/sau (§3.13)         | `benchmarks/stt/` — `dump_display_hypotheses.py` → `node scripts/repair_display_hypotheses.mjs` → `score_display_repair.py`; tốn quota Gemma thật, audio không commit                   |
-| Bộ chặn diễn giải sai (ngưỡng = 0)      | `apps/api/.../providers/repair-divergence.spec.ts`; hiệu chuẩn nằm trong đầu ra của `repair_display_hypotheses.mjs` (22/22 = 0,0000)                                                    |
-| Chống prompt injection cho bản sửa      | `benchmarks/prompt-injection/` — `node run.mjs`; nhánh `repair` chạy riêng trên model đang ship, **không** dùng lại corpus dịch                                                         |
-| Latency/RTF của TTS + WAV để nghe A/B   | `benchmarks/tts/` — cùng cách; `benchmarks/tts/data/sentences-en.txt` đã commit                                                                                                         |
-| Latency từng model Gemini               | `bench-gemini-models.mjs` (API thật, tốn quota)                                                                                                                                         |
-| Fixture hội thoại tiếng Việt            | `benchmarks/realtime/generate-fixtures.mjs` (VieNeu; WAV không commit)                                                                                                                  |
-| Tỉ lệ head-start dùng được (offline)    | `packages/realtime-client/src/audio/capture-pump.replay.spec.ts`                                                                                                                        |
-| p50/p95 end-to-end                      | `packages/realtime-client/src/audio/pipeline-latency.measure.spec.ts`, opt-in `MEASURE_PIPELINE=1` (tốn quota thật)                                                                     |
-| Metrics mỗi lượt                        | `services/turn-metrics.recorder.ts` — 1 dòng JSONL/lượt, opt-in qua `TURN_METRICS_PATH`; ghi **mọi** đường kết thúc kèm `reason`, và cả dòng client (`source: 'client'`)                |
-| Thời lượng speech (mẫu số coverage)     | `benchmarks/realtime/vad-reference.mjs <wav>` — VAD offline, **không** dùng `SpeechGate`; xem ghi chú dưới                                                                              |
-| Coverage / độ trôi / req-phút-mỗi-model | `benchmarks/realtime/analyze-continuous.mjs <turns.jsonl> --speech-ms N`                                                                                                                |
-| Thứ tự phát khi lượt về sai thứ tự      | `packages/realtime-client/src/audio/ordered-playback.replay.spec.ts` (kèm test đối chứng phải **fail**)                                                                                 |
-| Kiểm chứng trình duyệt                  | Playwright + Chromium trên bản `next start`, thay `getUserMedia` bằng `MediaStream` dựng từ WAV                                                                                         |
-| Extension trên cuộc gọi thật            | `pnpm --filter extension build` → load unpacked `.output/chrome-mv3`                                                                                                                    |
-
-**Mẫu số của coverage phải độc lập với gate.** `vad-reference.mjs` dùng ngưỡng suy
-từ phân bố năng lượng của **cả file** cộng hysteresis và luật thời lượng tối thiểu —
-không phải sàn thích nghi kiểu streaming của `SpeechGate`. Lấy mẫu số từ chính gate
-sẽ khiến tiếng mà gate bỏ sót rời khỏi **cả** tử số lẫn mẫu số, và một gate không
-nghe được gì sẽ đạt 100%.
-
-Nhật ký kỹ thuật chi tiết của hai ngày benchmark: `docs/journals/`.
-Kiến trúc hiện hành: `docs/system-architecture.md` · `docs/codebase-summary.md`.
-
-**Lưu ý khi trích số vào luận văn:** mọi số benchmark cô lập (RTF 0,017 · Kokoro
-p95 1,18 s) đo trên máy này lúc rảnh. Vòng partial chạy nền đã đổi điều kiện đo —
-không trộn số benchmark cô lập với số của luồng realtime trong cùng một bảng mà
-không ghi rõ điều kiện.
+1. **Is it worth pursuing the remaining p95?** The only remaining route is to reduce the
+   dependency on Gemini — local machine translation, caching, or accepting the current
+   number. The remaining latency is network variability, which no client-side constant
+   can reach.
+2. **Does the thesis need a full cloud vs local A/B table for all three stages?** It
+   already exists for STT and TTS; doing it for translation would cost significant quota.
+3. **What is the acceptable level for provisional translations correcting themselves in
+   front of the user?** A small survey could be run if needed.
+4. **Is Vietnamese capitalisation/punctuation restoration needed?** Proper nouns are
+   currently still lowercase ("tôi đi hà nội" (I am going to Hanoi)). Fixing it properly
+   needs one more model.
+5. **CC-BY-NC-ND license for the Vietnamese STT model** — needs official confirmation
+   that it is acceptable for the thesis.
+6. TTS quality was scored by **a single A/B listener**; is a multi-listener mini-MOS
+   needed to be rigorous enough?
 
 ---
 
-## ZeroTTS vs VieNeu v3 Turbo — benchmark TTS tiếng Việt (14/09/2026)
+## 12. Original data sources (for reproducing the numbers)
 
-> **Phần này đã bị phần 15/09 bên dưới thay thế ở các mục tốc độ, TTFA và độ tái
-> lập.** Lần đo 14/09 so hai engine trên điều kiện không cân: ZeroTTS có seed và
-> đo streaming, VieNeu không seed và bị đo TTFA bằng cách cắt mệnh đề trong khi
-> engine có sẵn API streaming. Giữ lại nguyên văn vì đó là lịch sử của phép đo.
+| Figure                                        | Regenerate with                                                                                                                                                                                                         |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| STT WER/RTF/RAM                               | `benchmarks/stt/` — `uv run python run_benchmark.py --run-tag rN`; raw results in `benchmarks/stt/results/`                                                                                                             |
+| Vietnamese decoder comparison (3 arms)        | `benchmarks/stt/` — `uv run python scripts/build_hotwords_vi.py` then `uv run python run_benchmark.py --decoder-arms --run-tag r3-decoder-arms`                                                                         |
+| Display ruler (digits/punctuation/case)       | `benchmarks/stt/stt_bench/display_fidelity.py` — `uv run pytest tests/test_display_fidelity.py`; does **not** go through `normalize_text`. Baseline: `scripts/run_display_baseline.py` (§3.12)                          |
+| Real voices, 3 capture paths (§3.11)          | The audio is personal data, **not committed** — the numbers cannot be reproduced independently. The record of how it was measured was removed along with the `plans/` tree; §3.11 keeps the numbers and the conclusions |
+| Display repair, before/after (§3.13)          | `benchmarks/stt/` — `dump_display_hypotheses.py` → `node scripts/repair_display_hypotheses.mjs` → `score_display_repair.py`; spends real Gemma quota, audio not committed                                               |
+| Misinterpretation guard (threshold = 0)       | `apps/api/.../providers/repair-divergence.spec.ts`; the calibration is in the output of `repair_display_hypotheses.mjs` (22/22 = 0.0000)                                                                                |
+| Prompt-injection defence for repair           | `benchmarks/prompt-injection/` — `node run.mjs`; the `repair` arm runs separately on the shipped model and does **not** reuse the translation corpus                                                                    |
+| TTS latency/RTF + WAVs for A/B listening      | `benchmarks/tts/` — same approach; `benchmarks/tts/data/sentences-en.txt` is committed                                                                                                                                  |
+| Per-model Gemini latency                      | `bench-gemini-models.mjs` (real API, spends quota)                                                                                                                                                                      |
+| Vietnamese conversation fixtures              | `benchmarks/realtime/generate-fixtures.mjs` (VieNeu; WAVs not committed)                                                                                                                                                |
+| Usable head-start rate (offline)              | `packages/realtime-client/src/audio/capture-pump.replay.spec.ts`                                                                                                                                                        |
+| End-to-end p50/p95                            | `packages/realtime-client/src/audio/pipeline-latency.measure.spec.ts`, opt-in `MEASURE_PIPELINE=1` (spends real quota)                                                                                                  |
+| Per-turn metrics                              | `services/turn-metrics.recorder.ts` — 1 JSONL line/turn, opt-in via `TURN_METRICS_PATH`; records **every** ending path with a `reason`, plus the client line (`source: 'client'`)                                       |
+| Speech duration (coverage denominator)        | `benchmarks/realtime/vad-reference.mjs <wav>` — offline VAD, does **not** use `SpeechGate`; see the note below                                                                                                          |
+| Coverage / drift / req-per-minute-per-model   | `benchmarks/realtime/analyze-continuous.mjs <turns.jsonl> --speech-ms N`                                                                                                                                                |
+| Playback order when turns arrive out of order | `packages/realtime-client/src/audio/ordered-playback.replay.spec.ts` (with a control test that must **fail**)                                                                                                           |
+| Browser verification                          | Playwright + Chromium on the `next start` build, replacing `getUserMedia` with a `MediaStream` built from WAV                                                                                                           |
+| Extension on a real call                      | `pnpm --filter extension build` → load unpacked `.output/chrome-mv3`                                                                                                                                                    |
 
-**Điều kiện đo khác mọi số ở trên: máy này giờ chạy Ubuntu**, không còn Windows 11
-như phần đầu tài liệu ghi. Cùng CPU i7-11700K, 8 luồng, `onnxruntime` 1.27.0 ghim
-cứng cho cả hai engine. Đừng trộn số dưới đây vào bảng cũ mà không ghi rõ điều này.
+**The coverage denominator must be independent of the gate.** `vad-reference.mjs` uses a
+threshold derived from the energy distribution of **the whole file** plus hysteresis and
+a minimum-duration rule — not the streaming-style adaptive floor of `SpeechGate`. Taking
+the denominator from the gate itself would make speech the gate misses leave **both** the
+numerator and the denominator, and a gate that hears nothing would score 100%.
 
-Harness: `benchmarks/tts-vi/`. Báo cáo đầy đủ: `benchmarks/tts-vi/results/report.md`.
+Detailed engineering journals for the two benchmark days: `docs/journals/`.
+Current architecture: `docs/system-architecture.md` · `docs/codebase-summary.md`.
 
-### Phát hiện quan trọng nhất không nằm trong bảng so sánh
-
-**Cả hai engine đều dao động rất mạnh giữa các lần chạy với cùng đầu vào.** Việc
-này không nằm trong kế hoạch và có ý nghĩa sản phẩm lớn hơn cả câu hỏi ban đầu.
-
-| Engine / giọng      |   n | trung vị | trung bình | thấp nhất | cao nhất | **dao động** |
-| ------------------- | --: | -------: | ---------: | --------: | -------: | -----------: |
-| zerotts / baotrang  |   8 |     9,55 |      14,12 |      6,98 |    36,34 |   **29,4pp** |
-| zerotts / quangminh |   8 |     7,19 |       8,24 |      4,31 |    17,04 |   **12,7pp** |
-| vieneu / Mai Anh    |   6 |    20,02 |      22,28 |     16,43 |    36,96 |   **20,5pp** |
-| vieneu / Thanh Bình |   6 |    16,32 |      17,93 |     12,73 |    30,39 |   **17,7pp** |
-
-WER corpus %, bộ hội thoại 41 câu, thước đo PhoWhisper-small. Các lần của ZeroTTS
-khác nhau ở seed; các lần của VieNeu chỉ là lặp lại, vì nó không có seed để chỉnh
-mà vẫn khác nhau.
-
-**VieNeu là engine đang chạy production**, và WER của nó trượt từ 16,4% tới 37,0%
-trên cùng 41 câu mà đầu vào không đổi. Đây là thuộc tính độ tin cậy của hệ thống
-đang chạy, chưa từng được ghi lại ở đâu trong repo này.
-
-Nguyên nhân hai bên khác nhau. ZeroTTS lấy mẫu từ `np.random` toàn cục mỗi frame,
-nên biến thiên đến từ bộ lấy mẫu; seed ghim lại được hoàn toàn (41/41 byte giống
-hệt). VieNeu không có bộ lấy mẫu nào mà vẫn cho output khác nhau từng byte (0/41).
-Chưa giải thích được.
-
-### Độ rõ tiếng — ZeroTTS thắng, xét theo phân phối
-
-| So sánh                       | lệch trung vị |          95% CI | tách bạch | P(một lần ZeroTTS thắng một lần VieNeu) |
-| ----------------------------- | ------------: | --------------: | --------- | --------------------------------------: |
-| nữ — baotrang vs Mai Anh      |  **−10,47pp** | [−20,33; −0,21] | có        |                               **83,3%** |
-| nam — quangminh vs Thanh Bình |   **−9,14pp** | [−16,94; −4,83] | có        |                               **90,6%** |
-
-Số âm nghĩa là ZeroTTS tốt hơn. Cả hai khoảng tin cậy đều không chứa 0.
-
-**Nhưng hai phân phối chồng lên nhau:** lần tệ nhất của ZeroTTS (36,34%) còn tệ
-hơn lần tốt nhất của VieNeu (16,43%). "ZeroTTS dễ nghe hơn" là phát biểu về trung
-vị, không phải bảo đảm cho từng câu.
-
-**Bài học phương pháp.** Lần chạy chính chỉ đo mỗi arm một lần, ra −9,03pp và
-−8,42pp — chênh chưa tới một điểm so với −10,47 và −9,14 của phân phối đầy đủ.
-Con số tình cờ đúng, nhưng **không có cơ sở để tin nó**: seed đã dùng cho ra 6,98%
-và 6,78% trong khi trung vị là 9,55% và 7,19%, tức rơi vào phía thuận lợi của cả
-hai phân phối. Seed làm phép đo _tái lập được_, không làm nó _đại diện_.
-
-### Tốc độ — VieNeu thắng, hai dải không giao nhau
-
-|                       |           VieNeu |           ZeroTTS |
-| --------------------- | ---------------: | ----------------: |
-| RTF                   |  **0,507–0,726** |       0,782–0,799 |
-| p50 mỗi câu           |  **1,42–1,84 s** |       1,94–2,11 s |
-| Thời gian nạp         |  **1,73–1,98 s** |       3,98–4,14 s |
-| RAM đỉnh              | **1425–1542 MB** |      1670–1690 MB |
-| Tốc độ nói (audio/từ) |    0,231–0,255 s | **0,207–0,222 s** |
-
-ZeroTTS nói nhanh hơn, mà RTF thì chuẩn hóa theo thời lượng, nên sinh audio ngắn
-hơn cho cùng số từ lại bị tính là bất lợi.
-
-### TTFA — chỗ dễ kết luận sai nhất
-
-| Arm                                     |      chunk đầu |                    hụt tiếng | **tới âm liền mạch** |
-| --------------------------------------- | -------------: | ---------------------------: | -------------------: |
-| ZeroTTS streaming                       | **138–140 ms** | +766…+798 ms (tệ nhất +1235) |       **910–938 ms** |
-| **VieNeu cắt mệnh đề** (đang chạy thật) |              — |                            — |      **842–1256 ms** |
-| VieNeu cả câu (chỉ tham chiếu)          |   1423–1842 ms |                            — |                    — |
-
-ZeroTTS ra âm đầu sau ~140 ms — quảng cáo 70 ms đúng về hướng. Nhưng chunk đầu chỉ
-dài 80 ms audio, engine chưa sinh kịp thời gian thực ở đầu luồng, nên người nghe
-hụt tiếng. Tới lúc phát liền mạch là **~911 ms**, nằm trong dải VieNeu cắt mệnh đề
-— **không tách bạch**. **9/164 luồng** có tổng thời gian sinh vượt thời lượng audio.
-
-Nếu chỉ báo cáo chunk đầu, kết luận sẽ là "nhanh gấp 7 lần". Sai.
-
-**Phải so với arm cắt mệnh đề**, vì app đã cắt mệnh đề trước khi đưa vào engine;
-lấy số cả câu làm mốc sẽ thổi phồng incumbent khoảng 1,7 lần.
-
-### Đối chiếu số nhà cung cấp
-
-| Công bố           | Đo được                                        | Kết luận                                                                  |
-| ----------------- | ---------------------------------------------- | ------------------------------------------------------------------------- |
-| 70 ms tới mẫu đầu | 138–140 ms chunk đầu; **911 ms tới liền mạch** | Đúng một nửa                                                              |
-| RTF 0,50×         | **0,78–0,80**                                  | Không tái lập được                                                        |
-| WER 1,03%         | trung vị 7,2–9,6%                              | **Không so được** (họ dùng PhoWhisper-large + whisper-large-v3 lấy `min`) |
-| UTMOSv2 2,91      | cố ý không đo                                  | —                                                                         |
-
-### Giấy phép — đã tra ra, và **không** phân định được ai hơn
-
-VieNeu v3 Turbo là **Apache-2.0** cả code lẫn weights, model card cho phép dùng
-thương mại audio từ giọng preset. ZeroTTS là MIT. Dòng "see upstream" trong
-`README.md` chỉ lỗi thời, không phải rủi ro — đã sửa.
-
-### Kết luận: **HOÃN** — chưa thay, chờ panel MOS
-
-ZeroTTS dễ nghe hơn (trung vị thấp hơn 9–10pp, thắng 83–91% số cặp so ngẫu nhiên)
-nhưng chậm hơn rõ. Thứ còn thiếu là **độ tự nhiên**, chưa từng đo cho engine nào.
-Câu hỏi quyết định: trong panel mù của `benchmarks/mos` trên chính các WAV đã giữ,
-ZeroTTS có nghe tự nhiên ít nhất bằng VieNeu không?
-
-Câu hỏi đáng theo đuổi hơn cả việc thay engine: **vì sao VieNeu dao động 16,4–37,0%
-WER giữa các lần chạy** dù không có bộ lấy mẫu nào? Đó là hệ thống đang chạy thật.
+**Note when citing numbers in the thesis:** every isolated benchmark number (RTF 0.017 ·
+Kokoro p95 1.18 s) was measured on this machine while idle. The partial loop running in
+the background changed the measurement conditions — do not mix isolated benchmark numbers
+with realtime-pipeline numbers in the same table without stating the conditions clearly.
 
 ---
 
-## Đo lại trên điều kiện cân bằng — cả hai engine cùng seed, cùng streaming (15/09/2026)
+## ZeroTTS vs VieNeu v3 Turbo — Vietnamese TTS benchmark (14/09/2026)
 
-Lần đo 14/09 có hai lỗi harness, cả hai đều bất lợi cho engine đang chạy. Bản
-`vieneu` 3.3.0 **có bộ lấy mẫu** (`temperature=0.8, top_k=25, top_p=0.95,
-repetition_penalty=1.2` — đúng mặc định ZeroTTS dùng) và **có `infer_stream`**.
-Adapter cũ ghi `"seed": None, "stochastic": False`, `supports_streaming = False`.
+> **This section has been superseded by the 15/09 section below for speed, TTFA and
+> reproducibility.** The 14/09 run compared the two engines under unequal conditions:
+> ZeroTTS was seeded and measured streaming, while VieNeu was unseeded and had its TTFA
+> measured by clause splitting even though the engine has a streaming API. It is kept
+> verbatim because it is the history of the measurement.
 
-Đã sửa harness rồi chạy lại toàn bộ: seed chung `measure.SEED` cho cả hai engine,
-cả hai cùng đo streaming, và hâm nóng luôn đường streaming trước khi bấm giờ
-(trước đây chỉ hâm `synthesize`, nên chi phí gọi lần đầu của bộ giải mã streaming
-rơi vào chính con số `stream_ttfa_s`). Số cũ giữ ở
+**The measurement conditions differ from every number above: this machine now runs
+Ubuntu**, no longer Windows 11 as the start of this document records. Same CPU
+i7-11700K, 8 threads, `onnxruntime` 1.27.0 pinned for both engines. Do not mix the
+numbers below into the older tables without stating this.
+
+Harness: `benchmarks/tts-vi/`. Full report: `benchmarks/tts-vi/results/report.md`.
+
+### The most important finding is not in the comparison table
+
+**Both engines vary heavily between runs on the same input.** This was not part of the
+plan, and it matters more for the product than the original question did.
+
+| Engine / voice      |   n | median |  mean | lowest | highest | **spread** |
+| ------------------- | --: | -----: | ----: | -----: | ------: | ---------: |
+| zerotts / baotrang  |   8 |   9.55 | 14.12 |   6.98 |   36.34 | **29.4pp** |
+| zerotts / quangminh |   8 |   7.19 |  8.24 |   4.31 |   17.04 | **12.7pp** |
+| vieneu / Mai Anh    |   6 |  20.02 | 22.28 |  16.43 |   36.96 | **20.5pp** |
+| vieneu / Thanh Bình |   6 |  16.32 | 17.93 |  12.73 |   30.39 | **17.7pp** |
+
+Corpus WER %, 41-sentence dialogue set, PhoWhisper-small as the ruler. The ZeroTTS runs
+differ by seed; the VieNeu runs are plain repeats, because it has no seed to set and
+still differs.
+
+**VieNeu is the engine running in production**, and its WER slides from 16.4% to 37.0%
+on the same 41 sentences with unchanged input. This is a reliability property of the
+running system that had never been recorded anywhere in this repo.
+
+The two sides have different causes. ZeroTTS samples from the global `np.random` every
+frame, so the variation comes from the sampler; a seed pins it completely (41/41
+byte-identical). VieNeu has no sampler at all and still produces output that differs
+byte for byte (0/41). Not yet explained.
+
+### Intelligibility — ZeroTTS wins, judged by distribution
+
+| Comparison                     |  median diff |          95% CI | separated | P(one ZeroTTS run beats one VieNeu run) |
+| ------------------------------ | -----------: | --------------: | --------- | --------------------------------------: |
+| female — baotrang vs Mai Anh   | **−10.47pp** | [−20.33, −0.21] | yes       |                               **83.3%** |
+| male — quangminh vs Thanh Bình |  **−9.14pp** | [−16.94, −4.83] | yes       |                               **90.6%** |
+
+Negative means ZeroTTS is better. Neither confidence interval contains 0.
+
+**But the two distributions overlap:** ZeroTTS's worst run (36.34%) is worse than
+VieNeu's best run (16.43%). "ZeroTTS is easier to understand" is a statement about the
+median, not a guarantee for each sentence.
+
+**Methodology lesson.** The main run measured each arm only once and got −9.03pp and
+−8.42pp — less than a point off the −10.47 and −9.14 of the full distribution. The
+numbers happened to be right, but **there was no basis for trusting them**: the seed
+used gave 6.98% and 6.78% while the medians are 9.55% and 7.19%, i.e. it landed on the
+favourable side of both distributions. A seed makes a measurement _reproducible_, not
+_representative_.
+
+### Speed — VieNeu wins, the two ranges do not overlap
+
+|                            |           VieNeu |           ZeroTTS |
+| -------------------------- | ---------------: | ----------------: |
+| RTF                        |  **0.507–0.726** |       0.782–0.799 |
+| p50 per sentence           |  **1.42–1.84 s** |       1.94–2.11 s |
+| Load time                  |  **1.73–1.98 s** |       3.98–4.14 s |
+| Peak RAM                   | **1425–1542 MB** |      1670–1690 MB |
+| Speaking rate (audio/word) |    0.231–0.255 s | **0.207–0.222 s** |
+
+ZeroTTS speaks faster, and RTF is normalised by duration, so producing shorter audio for
+the same number of words counts against it.
+
+### TTFA — the easiest place to draw the wrong conclusion
+
+| Arm                                     |    first chunk |                   underrun | **to gapless audio** |
+| --------------------------------------- | -------------: | -------------------------: | -------------------: |
+| ZeroTTS streaming                       | **138–140 ms** | +766…+798 ms (worst +1235) |       **910–938 ms** |
+| **VieNeu clause splitting** (live path) |              — |                          — |      **842–1256 ms** |
+| VieNeu whole sentence (reference only)  |   1423–1842 ms |                          — |                    — |
+
+ZeroTTS produces its first audio after ~140 ms — the advertised 70 ms is right in
+direction. But the first chunk holds only 80 ms of audio, and the engine cannot yet
+generate in real time at the start of the stream, so the listener hears gaps. Time to
+gapless playback is **~911 ms**, inside the VieNeu clause-splitting range — **not
+separated**. **9/164 streams** take longer to generate in total than the audio lasts.
+
+Reporting only the first chunk would conclude "7 times faster". Wrong.
+
+**The comparison must be against the clause-splitting arm**, because the app already
+splits clauses before feeding the engine; using the whole-sentence number as the
+baseline would inflate the incumbent by about 1.7 times.
+
+### Checking the vendor's numbers
+
+| Claim                 | Measured                                      | Verdict                                                                              |
+| --------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 70 ms to first sample | 138–140 ms first chunk; **911 ms to gapless** | Half right                                                                           |
+| RTF 0.50×             | **0.78–0.80**                                 | Not reproducible                                                                     |
+| WER 1.03%             | median 7.2–9.6%                               | **Not comparable** (they use PhoWhisper-large + whisper-large-v3 and take the `min`) |
+| UTMOSv2 2.91          | deliberately not measured                     | —                                                                                    |
+
+### Licensing — looked up, and it does **not** separate the two
+
+VieNeu v3 Turbo is **Apache-2.0** for both code and weights, and the model card permits
+commercial use of audio from the preset voices. ZeroTTS is MIT. The "see upstream" line
+in `README.md` was only stale, not a risk — fixed.
+
+### Verdict: **DEFERRED** — no swap yet, waiting on a MOS panel
+
+ZeroTTS is easier to understand (median 9–10pp lower, wins 83–91% of randomly drawn
+pairs) but clearly slower. What is missing is **naturalness**, never measured for either
+engine. The deciding question: in a blind `benchmarks/mos` panel on the WAVs already
+kept, does ZeroTTS sound at least as natural as VieNeu?
+
+A question more worth pursuing than the engine swap: **why does VieNeu swing between
+16.4–37.0% WER across runs** with no sampler at all? That is the system actually running.
+
+---
+
+## Re-measured under equal conditions — both engines seeded, both streaming (15/09/2026)
+
+The 14/09 run had two harness bugs, both against the incumbent engine. `vieneu` 3.3.0
+**has a sampler** (`temperature=0.8, top_k=25, top_p=0.95,
+repetition_penalty=1.2` — exactly the defaults ZeroTTS uses) and **has `infer_stream`**.
+The old adapter declared `"seed": None, "stochastic": False`, `supports_streaming = False`.
+
+The harness was fixed and everything rerun: a shared seed `measure.SEED` for both
+engines, both measured streaming, and the streaming path warmed up before timing too
+(previously only `synthesize` was warmed, so the first-call cost of the streaming decoder
+landed in the `stream_ttfa_s` number itself). The old numbers are kept in
 `benchmarks/tts-vi/results/unseeded-baseline/`.
 
-### TTFA — chỗ đảo ngược kết luận
+### TTFA — where the conclusion flips
 
-Bộ hội thoại 41 câu, trung vị, ms. "Liền mạch" = chunk đầu cộng mức tụt hậu tệ
-nhất sau đó, tức thời gian player phải đệm trước khi chạy hết câu mà không khựng.
+41-sentence dialogue set, medians, ms. "Gapless" = first chunk plus the worst lag after
+it, i.e. how long the player must buffer to play the whole sentence without stalling.
 
-| Arm                                 |   chunk đầu | tụt hậu trung vị | **tới âm liền mạch** | số luồng bị hụt tiếng |
-| ----------------------------------- | ----------: | ---------------: | -------------------: | --------------------: |
-| **VieNeu streaming**                |     221–257 |         −119…−92 |          **221–257** |                20/164 |
-| VieNeu cắt mệnh đề (đang chạy thật) |           — |                — |             781–1193 |                     — |
-| ZeroTTS streaming                   | **144–153** |   **+796…+1134** |             937–1281 |           **164/164** |
-| ZeroTTS cắt mệnh đề                 |           — |                — |            1232–1476 |                     — |
+| Arm                                 | first chunk |     median lag | **to gapless audio** | streams with underrun |
+| ----------------------------------- | ----------: | -------------: | -------------------: | --------------------: |
+| **VieNeu streaming**                |     221–257 |       −119…−92 |          **221–257** |                20/164 |
+| VieNeu clause splitting (live path) |           — |              — |             781–1193 |                     — |
+| ZeroTTS streaming                   | **144–153** | **+796…+1134** |             937–1281 |           **164/164** |
+| ZeroTTS clause splitting            |           — |              — |            1232–1476 |                     — |
 
-ZeroTTS ra mẫu đầu sớm hơn ~100 ms rồi **hụt tiếng ở cả 164/164 luồng**, trung vị
-tụt 0,8–1,1 giây. VieNeu chạy _trước_ người nghe khoảng 100 ms và tới âm liền mạch
-nhanh hơn 4–5 lần.
+ZeroTTS emits its first sample ~100 ms earlier and then **underruns in all 164/164
+streams**, with a median lag of 0.8–1.1 seconds. VieNeu runs about 100 ms _ahead_ of
+the listener and reaches gapless audio 4–5 times faster.
 
-**Con số đáng giá nhất cho sản phẩm không phải chuyện đổi engine:** chính VieNeu
-đang chạy, nếu gọi `infer_stream` thay vì cắt mệnh đề, rút thời gian chờ từ
-781–1193 ms xuống 221–257 ms — nhanh gấp 3–5 lần, không đổi engine.
+**The most valuable number for the product is not about swapping engines:** the VieNeu
+already running, if it calls `infer_stream` instead of clause splitting, cuts the wait
+from 781–1193 ms to 221–257 ms — 3–5 times faster, with no engine change.
 
-### Tốc độ và độ tái lập
+### Speed and reproducibility
 
-|               |           VieNeu |      ZeroTTS |
-| ------------- | ---------------: | -----------: |
-| RTF           |  **0,497–0,641** |  0,865–0,977 |
-| p50 mỗi câu   |  **1,26–1,86 s** |  2,09–2,41 s |
-| Thời gian nạp |  **1,72–1,83 s** |  4,09–4,54 s |
-| RAM đỉnh      | **1544–1622 MB** | 1647–1702 MB |
+|                  |           VieNeu |      ZeroTTS |
+| ---------------- | ---------------: | -----------: |
+| RTF              |  **0.497–0.641** |  0.865–0.977 |
+| p50 per sentence |  **1.26–1.86 s** |  2.09–2.41 s |
+| Load time        |  **1.72–1.83 s** |  4.09–4.54 s |
+| Peak RAM         | **1544–1622 MB** | 1647–1702 MB |
 
-**Độ tái lập giờ là hòa.** Cùng seed, r1 và r2 giống nhau từng byte: 41/41 bộ hội
-thoại, 50/50 bộ VIVOS, chạy ở hai tiến trình khác nhau. Kết luận cũ "ZeroTTS
-41/41, VieNeu 0/41" là thuộc tính của harness, không phải của engine.
+**Reproducibility is now a tie.** With the same seed, r1 and r2 are byte-identical: 41/41
+on the dialogue set, 50/50 on the VIVOS set, run in two separate processes. The old
+conclusion "ZeroTTS 41/41, VieNeu 0/41" was a property of the harness, not the engine.
 
-Hai chi tiết giữ lại: đầu ra streaming của VieNeu không giống nhau từng byte dù
-cùng seed, nhưng lệch tối đa **1,5e-06** (dưới 1 LSB của 16-bit) vì `infer_stream`
-chia chunk theo `time.perf_counter()`; và với WAV giống hệt nhau, WER vẫn xê dịch
-**0,2pp** giữa hai lần chấm — đó là nhiễu của chính bộ chấm ASR.
+Two details worth keeping: VieNeu's streaming output is not byte-identical even with the
+same seed, but it differs by at most **1.5e-06** (below 1 LSB of 16-bit) because
+`infer_stream` chunks by `time.perf_counter()`; and with identical WAVs, WER still moves
+**0.2pp** between two scoring runs — that is noise in the ASR scorer itself.
 
-### Độ rõ tiếng — ZeroTTS vẫn thắng, nhưng đừng trích số của một seed
+### Intelligibility — ZeroTTS still wins, but do not quote a single seed's number
 
-| Arm                 | WER seeded r1 | WER seeded r2 | trung vị theo phân phối seed |
-| ------------------- | ------------: | ------------: | ---------------------------: |
-| ZeroTTS / baotrang  |         6,78% |         6,98% |                       10,27% |
-| ZeroTTS / quangminh |         6,78% |         6,78% |                        7,60% |
-| VieNeu / Mai Anh    |        29,16% |        29,16% |                       21,97% |
-| VieNeu / Thanh Bình |        14,78% |        14,99% |                       16,63% |
+| Arm                 | WER seeded r1 | WER seeded r2 | median over seed distribution |
+| ------------------- | ------------: | ------------: | ----------------------------: |
+| ZeroTTS / baotrang  |         6.78% |         6.98% |                        10.27% |
+| ZeroTTS / quangminh |         6.78% |         6.78% |                         7.60% |
+| VieNeu / Mai Anh    |        29.16% |        29.16% |                        21.97% |
+| VieNeu / Thanh Bình |        14.78% |        14.99% |                        16.63% |
 
-Seed chung 20260914 rơi đúng vào lần rút **tốt nhất trong 8** của `baotrang` và
-vào đuôi xấu của `Mai Anh`. Vì vậy khoảng cách 22pp ở giọng nữ trong bảng trên là
-ảo; **khoảng cách theo trung vị vẫn là ~10pp (nữ) và ~9pp (nam)** như báo cáo cũ.
-Seed làm phép đo _tái lập được_, không làm nó _đại diện_.
+The shared seed 20260914 happens to be the **best of 8** draws for `baotrang` and falls
+in the bad tail for `Mai Anh`. So the 22pp gap for the female voice in the table above is
+illusory; **the median gap is still ~10pp (female) and ~9pp (male)** as the earlier report
+said. A seed makes a measurement _reproducible_, not _representative_.
 
-### Kết luận: **GIỮ VieNeu, và chuyển sang streaming**
+### Verdict: **KEEP VieNeu, and move to streaming**
 
-Với mục tiêu realtime không độ trễ, chiều quyết định là thời gian tới âm liền
-mạch, và chiều đó không ủng hộ ZeroTTS: trên CPU này nó không stream tiếng Việt
-được mà không khựng, không phải thỉnh thoảng mà là mọi luồng. ZeroTTS chỉ còn
-thắng ở độ rõ tiếng.
+For a zero-latency realtime goal, the deciding dimension is time to gapless audio, and
+that dimension does not favour ZeroTTS: on this CPU it cannot stream Vietnamese without
+stalling, not occasionally but on every stream. ZeroTTS only still wins on
+intelligibility.
 
-Việc nên làm tiếp trong sản phẩm, không phụ thuộc chuyện đổi engine: cho
-`services/local-tts` gọi `infer_stream`, seed lời gọi đó, và xem lại bộ cắt mệnh
-đề ở `apps/api/src/modules/translate/audio/clause-splitter.ts` — nó sinh ra để né
-đúng cái API streaming mà engine vốn có.
+The next step in the product, independent of any engine swap: have
+`services/local-tts` call `infer_stream`, seed that call, and revisit the clause
+splitter in `apps/api/src/modules/translate/audio/clause-splitter.ts` — it exists to
+work around exactly the streaming API the engine already has.
 
-Báo cáo đầy đủ đã gỡ khỏi repo cùng cây `plans/`. Kết luận và các con số
-quyết định nằm ngay trên đây; harness và kết quả thô chạy lại được ở
-`benchmarks/tts-vi/`.
+The full report was removed from the repo together with the `plans/` tree. The
+conclusions and deciding numbers are right here; the harness and raw results can be
+rerun from `benchmarks/tts-vi/`.
 
-## Biasing ngữ cảnh: mở lại câu hỏi decoder bằng một cuộc hội thoại thật (18/09/2026)
+## Context biasing: reopening the decoder question with a real conversation (18/09/2026)
 
-Mục 3.10 đã đóng câu hỏi decoder ngày 28/08 với kết luận **ở lại greedy**, đo trên
-50 câu VIVOS. Mục này không lật kết luận đó — nó chỉ ra thứ bộ test ấy **không thể**
-nhìn thấy, và thêm một nhánh chỉ chạy khi người dùng tự khai từ.
+Section 3.10 closed the decoder question on 28/08 with the verdict **stay on greedy**,
+measured on 50 VIVOS sentences. This section does not overturn that verdict — it shows
+what that test set **cannot** see, and adds a branch that runs only when the user
+declares their own terms.
 
-### Lỗi không nằm trong bộ test nào
+### The error that is in no test set
 
-Phân tích một cuộc hội thoại production có đủ file ghi âm (`f35c2816`, 4:30, 53
-lượt, vi→en) bằng một bản transcript đối chứng độc lập: **mọi lỗi nghiêm trọng đều
-là chuyển ngữ**. Engine tiếng Việt không có đường ra cho từ tiếng Anh, nên nó sinh
-âm tiết Việt nghe gần nhất, rồi khâu dịch coi đó là tiếng Việt thật và "sửa" thành
-tiếng Anh trôi chảy nhưng sai nghĩa:
+Analysing a production conversation with full recordings (`f35c2816`, 4:30, 53 turns,
+vi→en) against an independent reference transcript: **every serious error is
+code-switching**. The Vietnamese engine has no output path for English words, so it
+produces the nearest-sounding Vietnamese syllables, and translation then treats them as
+real Vietnamese and "corrects" them into fluent English with the wrong meaning:
 
-| Nói thật                         | Ghi được                                    | Người đọc thấy                  |
-| -------------------------------- | ------------------------------------------- | ------------------------------- |
-| "một cái giải **poker**"         | "một cái giải **quốc cơ**"                  | "a national championship"       |
-| "thực tập ở siêu thị **Target**" | "siêu thị **ta ghép** … search **ta ghét**" | recovered by chance             |
-| "tôi đi học ngành **retail**"    | "tôi đi học ngành **vì theo**"              | "I studied this major because…" |
-| "Yo what's up baby"              | "Dấu sắp bệnh tật"                          | "Signs of impending illness"    |
+| Actually said                                          | Recognised as                               | What the reader sees            |
+| ------------------------------------------------------ | ------------------------------------------- | ------------------------------- |
+| "một cái giải **poker**" (a poker tournament)          | "một cái giải **quốc cơ**"                  | "a national championship"       |
+| "thực tập ở siêu thị **Target**" (interning at Target) | "siêu thị **ta ghép** … search **ta ghét**" | recovered by chance             |
+| "tôi đi học ngành **retail**" (I studied retail)       | "tôi đi học ngành **vì theo**"              | "I studied this major because…" |
+| "Yo what's up baby"                                    | "Dấu sắp bệnh tật"                          | "Signs of impending illness"    |
 
-VIVOS là giọng đọc, không chuyển ngữ — 0/50 câu có thể chứa lỗi này. Đó là lý do
-nhánh beam-hotwords ngày 28/08 chỉ mua được 0,72 điểm WER: nó đang đo sai loại lỗi.
-WER cũng gần như không thấy lớp lỗi này: "poker" là **một** từ trong 867, nhưng mất
-nó thì cả câu đổi nghĩa.
+VIVOS is read speech with no code-switching — 0/50 sentences can contain this error.
+That is why the beam-hotwords branch of 28/08 bought only 0.72 WER points: it was
+measuring the wrong kind of error. WER barely sees this class of error either: "poker" is
+**one** word out of 867, but losing it changes the meaning of the whole sentence.
 
-### Đo lại, hai harness, cùng một hướng
+### Re-measured, two harnesses, same direction
 
-Trên 53 cửa sổ lượt của chính cuộc hội thoại đó, so với transcript đối chứng. Hai
-harness không so chéo được với nhau (một bên nạp mẫu float trực tiếp, một bên đi qua
-HTTP + PyAV), nên mỗi bảng chỉ so trong nội bộ nó.
+On the 53 turn windows of that same conversation, against the reference transcript. The
+two harnesses cannot be compared with each other (one feeds float samples directly, the
+other goes through HTTP + PyAV), so each table compares only within itself.
 
-Harness trong tiến trình:
+In-process harness:
 
-| Nhánh                                 | WER   | RTF    |
-| ------------------------------------- | ----- | ------ |
-| greedy (đang ship)                    | 0,150 | 0,0171 |
-| beam, không hotword                   | 0,137 | 0,0248 |
-| beam + 13 cụm hợp với cuộc này @1,5   | 0,136 | 0,0233 |
-| beam + **28 từ tiếng Anh thông dụng** | 0,148 | —      |
-| beam + **20 từ dài, dễ phân biệt**    | 0,150 | —      |
+| Arm                                                | WER   | RTF    |
+| -------------------------------------------------- | ----- | ------ |
+| greedy (shipping)                                  | 0.150 | 0.0171 |
+| beam, no hotwords                                  | 0.137 | 0.0248 |
+| beam + 13 phrases fitted to this conversation @1.5 | 0.136 | 0.0233 |
+| beam + **28 common English words**                 | 0.148 | —      |
+| beam + **20 long, distinctive words**              | 0.150 | —      |
 
-Harness qua endpoint, đúng đường code sẽ ship:
+Endpoint harness, the exact code path that will ship:
 
-| Nhánh                        | WER   | RTF            |
-| ---------------------------- | ----- | -------------- |
-| không bias (greedy)          | 0,159 | 0,0225         |
-| bias bằng 4 cụm của cuộc này | 0,142 | 0,0306 (1,36×) |
+| Arm                                       | WER   | RTF            |
+| ----------------------------------------- | ----- | -------------- |
+| no bias (greedy)                          | 0.159 | 0.0225         |
+| biased with this conversation's 4 phrases | 0.142 | 0.0306 (1.36×) |
 
-**Danh sách nền cố định là lỗ.** Đây là kết quả đáng ghi nhất: bias về phía một từ
-không ai nói thì phải trả bằng tiếng Việt thật — "giải quốc cơ" thành "giải ok", "nó
-là" thành "đó là", "tai nghe nào" thành "tai nghe là". 10/53 câu bị đổi, phần lớn xấu
-đi, và không cứu được gì vì tiếng Anh người này dùng là vốn từ riêng của anh ta chứ
-không phải từ thông dụng của ai.
+**A fixed background list is a loss.** This is the result most worth recording: biasing
+toward a word nobody says is paid for in real Vietnamese — "giải quốc cơ" becomes "giải
+ok", "nó là" (it is) becomes "đó là" (that is), "tai nghe nào" (which headphones) becomes
+"tai nghe là". 10/53 sentences change, most of them for the worse, and nothing is
+rescued, because the English this speaker uses is his own vocabulary, not anyone's common
+words.
 
-**Danh sách do người dùng khai thì lãi.** Cùng 4 cụm: "giải poker" và "siêu thị
-target … search target" về đúng, và WER toàn tập giảm 1,7 điểm trong cùng harness.
+**A user-declared list is a gain.** With the same 4 phrases, "giải poker" and "siêu thị
+target … search target" come out right, and whole-set WER drops 1.7 points in the same
+harness.
 
-### Quyết định
+### Decision
 
-`greedy_search` **vẫn là mặc định** — một lượt không khai cụm nào giải mã y hệt hôm
-qua, nên mọi con số đã công bố cho engine này vẫn mô tả đúng nó. Cạnh nó dựng thêm
-một recognizer `modified_beam_search` có `hotwords_score=1,5`, **chỉ** được chọn khi
-lượt đó mang theo cụm. Giá: **+59 MB RSS** (đo riêng: recognizer thứ nhất +91 MB,
-thứ hai +59 MB) và RTF 1,36× cho riêng lượt có bias.
+`greedy_search` **remains the default** — a turn that declares no phrases decodes exactly
+as it did yesterday, so every number already published for this engine still describes
+it. Alongside it sits a second `modified_beam_search` recognizer with
+`hotwords_score=1.5`, selected **only** when the turn carries phrases. Cost: **+59 MB
+RSS** (measured separately: first recognizer +91 MB, second +59 MB) and 1.36× RTF for the
+biased turns only.
 
-Nguồn cụm là `TranslationHints.hotwords` — trường đã tồn tại, client đã thu thập, và
-xưa nay chỉ đi tới prompt dịch. Chính doc comment của nó viết "một hotword có chỗ
-đứng chính vì recognizer nghe sai từ đó", trong khi recognizer chưa bao giờ nhận
-được. Nay nó tới recognizer trước, rồi vẫn tới khâu dịch như cũ.
+The phrase source is `TranslationHints.hotwords` — a field that already existed, that the
+client already collected, and that until now only reached the translation prompt. Its own
+doc comment says "a hotword earns its place precisely because the recognizer mishears
+that word", yet the recognizer never received it. Now it reaches the recognizer first,
+and still reaches translation as before.
 
-Ngưỡng 1,5 là dải đo được: ở 3,0 lực kéo làm hỏng chữ bên cạnh (cụm nhiều từ "FIRST
-IN FIRST OUT" cắt cụt mệnh đề chứa nó). Lực kéo cũng lan sang chữ kề: danh sách có
-"TARGET" mà thiếu "SEARCH" đứng cạnh thì chữ sau vỡ thành "SH" — nên một glossary tốt
-nên phủ cả vùng tiếng Anh quanh cụm, chứ không chỉ riêng cụm.
+The 1.5 threshold is a measured range: at 3.0 the pull damages neighbouring words (the
+multi-word phrase "FIRST IN FIRST OUT" truncated the clause containing it). The pull also
+spreads to adjacent words: a list with "TARGET" but without the neighbouring "SEARCH"
+breaks the latter into "SH" — so a good glossary should cover the English region around a
+phrase, not only the phrase itself.
 
-Bản ghi chi tiết đã gỡ khỏi repo cùng cây `plans/`. Dải 1,5–2,0 và cả hai cảnh báo
-trên nằm trong `services/local-stt/engines/zipformer_vi.py` (`HOTWORDS_SCORE`).
-Arm hotword chạy lại được bằng `benchmarks/stt/` — `uv run python run_benchmark.py
---decoder-arms --run-tag r3-decoder-arms` — nhưng nó là trần lấy từ chính test set,
-không phải phép sweep theo glossary đã cho ra dải này.
+The detailed record was removed from the repo together with the `plans/` tree. The
+1.5–2.0 range and both warnings above live in
+`services/local-stt/engines/zipformer_vi.py` (`HOTWORDS_SCORE`). The hotword arm can be
+rerun with `benchmarks/stt/` — `uv run python run_benchmark.py
+--decoder-arms --run-tag r3-decoder-arms` — but that is a ceiling taken from the test set
+itself, not the glossary-driven sweep that produced this range.
 
-## Hai đầu cuộc hội thoại: chỗ lời nói lọt ra ngoài phiên (18/09/2026)
+## Both ends of the conversation: where speech leaks out of the session (18/09/2026)
 
-Cùng cuộc hội thoại production ở mục trên, nhưng lần này so **bản ghi âm với
-transcript** thay vì so transcript với tai người. Hai đầu băng đều có tiếng nói
-không nằm trong một lượt nào, và hai đầu có hai nguyên nhân hoàn toàn khác nhau.
+The same production conversation as the section above, but this time comparing **the
+recording against the transcript** instead of the transcript against a human ear. Both
+ends of the tape have speech that belongs to no turn, and the two ends have entirely
+different causes.
 
-### Đầu băng — thứ tự khởi động
+### Start of the tape — startup order
 
-`ConversationSession.start()` chạy `openMicrophone()` trước, rồi mới nạp worklet
-và kết nối socket. `apps/web` gắn `MediaRecorder` ngay trong `openMicrophone`, nên
-**ghi âm** bắt đầu ở await đầu tiên còn **thu để dịch** bắt đầu sau await cuối
-cùng. Đo được trên cuộc này: `audioOffsetMs = 171`, cụm tiếng nói đầu ở media
-0,00–1,70 s (RMS đỉnh 0,17, "Alo anh em"), lượt đầu tiên được lưu ở media 2,672 s.
-Ít nhất 1,70 giây lời nói nằm trong file mà không nằm trong transcript.
+`ConversationSession.start()` runs `openMicrophone()` first, and only then loads the
+worklet and connects the socket. `apps/web` attaches `MediaRecorder` inside
+`openMicrophone`, so **recording** starts at the first await while **capture for
+translation** starts after the last one. Measured on this conversation:
+`audioOffsetMs = 171`, the first speech burst at media 0.00–1.70 s (peak RMS 0.17,
+"Alo anh em" (hey guys)), the first saved turn at media 2.672 s. At least 1.70 seconds
+of speech is in the file but not in the transcript.
 
-Không phải lỗi speech gate: gate khởi tạo `noiseFloor = MIN_NOISE_FLOOR` (0,004) và
-chỉ thích nghi khi im lặng, nên một cụm 0,17 RMS đã mở lượt ngay nếu có mẫu chảy tới.
+Not a speech gate bug: the gate initialises `noiseFloor = MIN_NOISE_FLOOR` (0.004) and
+only adapts during silence, so a 0.17 RMS burst would open a turn immediately if samples
+reached it.
 
-Sửa hai nhịp, vì nhịp đầu đóng một khe thì mở ra một khe nhỏ hơn. Nhịp đầu dời
-micro xuống cuối: hết cảnh ghi-mà-không-thu, nhưng lời nói trong lúc bắt tay socket
-thì mất ở **cả hai** nơi. Nhịp hai nối worklet vào micro ngay khi micro mở — trước
-cả khi socket tồn tại — và đệm các block vào một bộ đệm có trần (`MAX_PREBUFFER_MS`
-20 s, bỏ cũ trước, cùng cỡ và cùng lý lẽ với `MAX_PENDING_MS` của pipeline). Khi
-pipeline dựng xong thì phát lại bộ đệm theo đúng thứ tự rồi mới đổi sang handler
-live, cả hai trong một mạch đồng bộ để không block nào lọt vào giữa.
+Fixed in two steps, because the first step closed one gap and opened a smaller one. The
+first step moves the microphone to the end: no more recorded-but-not-captured audio, but
+speech during the socket handshake is lost in **both** places. The second step connects
+the worklet to the microphone as soon as the microphone opens — before the socket even
+exists — and buffers blocks into a capped buffer (`MAX_PREBUFFER_MS` 20 s, oldest
+dropped first, same size and same reasoning as the pipeline's `MAX_PENDING_MS`). Once the
+pipeline is up, the buffer is replayed in order before switching to the live handler,
+both in one synchronous run so no block slips in between.
 
-### Đuôi băng — một lý do đóng lượt bị đọc nhầm là của server
+### End of the tape — a turn-close reason misread as the server's
 
-`TurnPipeline` thử lại `too_many_turns` rồi tự bịa lý do đóng `'too_many_turns'`
-cho một lượt chưa bao giờ có session id. `isServerReason()` chỉ loại trừ ba lý do
-tự bịa — `never_started`, `dropped_pending`, `stopped` — nên lý do thứ tư bị đọc là
-server xác nhận, `abandonTurn()` không chạy, và lượt biến mất không để lại dấu vết
-nào: không dòng live, không nhãn abandoned, không hàng lưu. Trong khi recorder,
-vốn trích micro độc lập, vẫn giữ nguyên tiếng nói đó.
+`TurnPipeline` retries `too_many_turns` and then invents the close reason
+`'too_many_turns'` for a turn that never had a session id. `isServerReason()` excluded
+only three invented reasons — `never_started`, `dropped_pending`, `stopped` — so the
+fourth was read as server-confirmed, `abandonTurn()` did not run, and the turn vanished
+without a trace: no live line, no abandoned label, no saved row. Meanwhile the recorder,
+which taps the microphone independently, still kept that speech.
 
-Bằng chứng thời gian loại trừ giả thuyết drain 20 giây: `endedAt - startedAt` =
-270,807 s so với `audioOffsetMs + audioDurationMs` = 270,817 s, lệch ~10 ms, tức
-`stop()` chạy cùng nhịp với `finish()`.
+The timing evidence rules out the 20-second drain hypothesis: `endedAt - startedAt` =
+270.807 s versus `audioOffsetMs + audioDurationMs` = 270.817 s, a ~10 ms difference,
+meaning `stop()` ran in the same tick as `finish()`.
 
-Sửa hai phần. Một, thêm lý do đó vào danh sách loại trừ. Hai — vì báo cáo mất mát
-không phải là không mất — nới hạn thử lại: trước đây `MAX_PENDING_MS` giữ audio 20
-giây trong khi `MAX_REFUSAL_RETRIES` (4 lần × 750 ms) ngừng gửi ở giây thứ 3, tức
-17 giây ôm thứ đã bỏ cuộc. Nay chỉ còn một hạn, đọc từ chính hằng số đang quản thời
-gian sống của audio.
+Fixed in two parts. One, add that reason to the exclusion list. Two — because reporting a
+loss is not the same as not losing — relax the retry limit: previously `MAX_PENDING_MS`
+held 20 seconds of audio while `MAX_REFUSAL_RETRIES` (4 attempts × 750 ms) stopped
+sending at second 3, i.e. 17 seconds holding something already given up on. Now there is
+a single limit, read from the same constant that governs how long audio lives.
 
-Điều **không** chứng minh được: vì sao có refusal ngay từ đầu. API giữ phiên trong
-bộ nhớ và container đã restart, nên log đêm 16/09 không còn. Cơ chế mất thì không
-phụ thuộc vào câu trả lời đó — bất kỳ lần cạn ngân sách nào cũng mất lượt lặng lẽ —
-nhưng nguyên nhân kích hoạt vẫn để ngỏ.
+What could **not** be proven: why there was a refusal in the first place. The API keeps
+sessions in memory and the container had restarted, so the logs from the night of 16/09
+are gone. The loss mechanism does not depend on that answer — any exhausted budget
+silently loses a turn — but the trigger remains open.
 
-### Vá lại hàng dữ liệu
+### Patching the data rows
 
-Mọi bản sửa trên chỉ có tác dụng từ sau. Hai lượt thiếu của cuộc `f35c2816` được
-cắt từ chính file ghi âm rồi cho chạy qua đúng pipeline của sản phẩm — sidecar
-tiếng Việt cho `sourceText`, `gemini-3.5-flash-lite` cho `targetText` — và chèn vào
-vị trí 0 và 54. Có `pg_dump` trước khi ghi, chèn trong một transaction, dịch vị trí
-qua số âm vì unique index `(conversationId, position)`.
+All of the fixes above apply only going forward. The two missing turns of conversation
+`f35c2816` were cut from the recording itself and run through the product's exact
+pipeline — the Vietnamese sidecar for `sourceText`, `gemini-3.5-flash-lite` for
+`targetText` — and inserted at positions 0 and 54. A `pg_dump` was taken before writing,
+the insert ran in one transaction, and positions were shifted through negative values
+because of the unique index `(conversationId, position)`.
 
-## TTS stream thật: VieNeu `infer_stream` vào đường live (21/09/2026)
+## Real TTS streaming: VieNeu `infer_stream` on the live path (21/09/2026)
 
-Kết luận ngày 15/09 ("giữ VieNeu, và chuyển sang streaming") nay đã được làm. Trước
-đây, API cắt bản dịch thành từng mệnh đề và chờ WAV nguyên của mỗi mệnh đề rồi mới
-gửi byte đầu tiên. Giờ cả lượt được gửi một lần tới `POST /synthesize/stream`, và
-PCM được đẩy ra WebSocket ngay khi engine sinh ra.
+The 15/09 verdict ("keep VieNeu, and move to streaming") has now been carried out.
+Previously, the API split the translation into clauses and waited for each clause's
+complete WAV before sending the first byte. Now the whole turn is sent once to
+`POST /synthesize/stream`, and PCM is pushed to the WebSocket as soon as the engine
+produces it.
 
-Mỗi model được xử lý như sau:
+Each model is handled as follows:
 
-- **VieNeu:** stream theo frame qua `infer_stream`, có seed theo từng giọng.
-- **Kokoro:** vẫn cắt mệnh đề, nhưng việc cắt nay nằm trong sidecar.
-  sherpa-onnx chỉ ra audio ở ranh giới câu. Callback của nó trên 1.13.4 cũng
-  ngược với docstring: trả về 0 là DỪNG. Vì vậy không dùng callback.
-- **STT local:** không stream được. Cả hai bản export đều là non-streaming
-  (`'non-streaming zipformer2'`, Moonshine encode cả đoạn).
-- **Gemini dịch và Gemini Live:** đã stream sẵn.
-- **Tóm tắt:** không cần stream.
-- **ElevenLabs:** để ngoài phạm vi vì sắp bị gỡ.
+- **VieNeu:** streams frame by frame via `infer_stream`, with a per-voice seed.
+- **Kokoro:** still clause-split, but the splitting now lives in the sidecar.
+  sherpa-onnx only emits audio at sentence boundaries. Its callback on 1.13.4 also
+  contradicts the docstring: returning 0 means STOP. So the callback is not used.
+- **Local STT:** cannot stream. Both exports are non-streaming
+  (`'non-streaming zipformer2'`, Moonshine encodes the whole segment).
+- **Gemini translation and Gemini Live:** already stream.
+- **Summary:** does not need streaming.
+- **ElevenLabs:** out of scope because it is about to be removed.
 
-### Seed theo giọng
+### Per-voice seed
 
-Mỗi giọng quét 8 seed trên bộ 41 câu hội thoại (vieneu 3.8.1, PhoWhisper-small).
-Seed được chọn chỉ giữ lại nếu thắng seed trung vị trên VIVOS, là tập giữ riêng.
+Each voice swept 8 seeds on the 41-sentence dialogue set (vieneu 3.8.1, PhoWhisper-small).
+The chosen seed is kept only if it beats the median seed on VIVOS, the held-out set.
 
-| Giọng      | WER hội thoại (8 seed) |   Seed chọn | VIVOS: seed chọn / seed trung vị |
+| Voice      | Dialogue WER (8 seeds) | Chosen seed | VIVOS: chosen seed / median seed |
 | ---------- | ---------------------: | ----------: | -------------------------------: |
-| Mai Anh    |            6,37–13,35% |  11 (6,37%) |                  13,08% / 15,59% |
-| Thanh Bình |           13,76–24,85% | 44 (14,78%) |                  13,44% / 18,82% |
+| Mai Anh    |            6.37–13.35% |  11 (6.37%) |                  13.08% / 15.59% |
+| Thanh Bình |           13.76–24.85% | 44 (14.78%) |                  13.44% / 18.82% |
 
-Seed tốt nhất của Thanh Bình trên tập hội thoại là 11. Seed này thua seed trung vị
-trên VIVOS 0,18 điểm (19,00% so với 18,82%). Theo đúng quy tắc đã đặt, lấy seed
-xếp thứ hai là 44, và seed này thắng seed trung vị 5 điểm.
+Thanh Bình's best seed on the dialogue set is 11. That seed loses to the median seed on
+VIVOS by 0.18 points (19.00% versus 18.82%). Following the rule as set, the second-ranked
+seed, 44, was taken, and it beats the median seed by 5 points.
 
-### Đo trên sidecar đang chạy, qua HTTP
+### Measured on the running sidecar, over HTTP
 
-Chạy `benchmarks/tts-vi/scripts/measure_sidecar_stream.py`, lấy trung vị (ms):
+Running `benchmarks/tts-vi/scripts/measure_sidecar_stream.py`, medians (ms):
 
-| Giọng          | chunk đầu | tới âm liền mạch | luồng hụt tiếng | mệnh đề đầu (đường cũ) |
-| -------------- | --------: | ---------------: | --------------: | ---------------------: |
-| Mai Anh        |       192 |          **192** |            0/41 |                    616 |
-| Thanh Bình     |       179 |          **179** |            0/41 |                    584 |
-| Kokoro (en, 9) |       660 |              660 |            0/30 |                    674 |
+| Voice          | first chunk | to gapless audio | streams with underrun | first clause (old path) |
+| -------------- | ----------: | ---------------: | --------------------: | ----------------------: |
+| Mai Anh        |         192 |          **192** |                  0/41 |                     616 |
+| Thanh Bình     |         179 |          **179** |                  0/41 |                     584 |
+| Kokoro (en, 9) |         660 |              660 |                  0/30 |                     674 |
 
-Với tiếng Việt, stream nhanh hơn đường cũ 3,2 lần và không có luồng nào hụt tiếng.
-Tiếng Anh không nhanh hơn, đúng như dự đoán, và cũng không chậm đi.
+For Vietnamese, streaming is 3.2 times faster than the old path and no stream underruns.
+English is not faster, as expected, and not slower either.
 
-Sau khi client ngắt giữa chừng, request kế tiếp nhận byte đầu sau 0,42 s. Hai request
-tiếng Việt gửi đồng thời thì request sau xếp hàng khoảng 4,5 s rồi vẫn trả 200.
+After a client disconnects midway, the next request receives its first byte after
+0.42 s. When two Vietnamese requests are sent concurrently, the second queues for about
+4.5 s and still returns 200.
 
-### Đo trên lượt thật, cùng fixture, `main` so với branch
+### Measured on real turns, same fixture, `main` versus the branch
 
-Chạy 15 câu LibriSpeech tiếng Anh, dịch ra tiếng Việt, chỉ nhánh cascade. Chỉ số là
-đoạn TTS, `firstAudioAt − translatedAt` lấy từ turn metrics, để loại độ trễ dịch
-máy khỏi phép so.
+15 English LibriSpeech sentences, translated into Vietnamese, cascade path only. The
+metric is the TTS segment, `firstAudioAt − translatedAt` from the turn metrics, to keep
+machine-translation latency out of the comparison.
 
-|                      | trung vị |  tệ nhất | lỗi |
-| -------------------- | -------: | -------: | --: |
-| `main` (cắt mệnh đề) |   586 ms | 1 634 ms |   0 |
-| branch (stream)      |   231 ms |   443 ms |   0 |
+|                           | median |    worst | errors |
+| ------------------------- | -----: | -------: | -----: |
+| `main` (clause splitting) | 586 ms | 1,634 ms |      0 |
+| branch (stream)           | 231 ms |   443 ms |      0 |
 
-**Mục tiêu "giảm ≥ 400 ms" không đạt: chỉ giảm 355 ms.** Mốc của `main` đo trên máy
-này là 586 ms, thấp hơn 781–1193 ms của benchmark mà mục tiêu dựa vào. Đuôi phân
-phối giảm mạnh nhất (1,6 s còn 0,44 s), vì lượt nhiều mệnh đề trước đây phải chờ
-trọn mệnh đề đầu tiên.
+**The "cut ≥ 400 ms" target was not met: the cut is only 355 ms.** The `main` baseline
+measured on this machine is 586 ms, lower than the 781–1193 ms from the benchmark the
+target was based on. The tail of the distribution dropped the most (1.6 s to 0.44 s),
+because multi-clause turns previously had to wait for the entire first clause.
 
-### Hai điều red-team và test bắt được
+### Two things red-teaming and tests caught
 
-- **Lock giữ cả lượt là lựa chọn có chủ đích.** Nhờ vậy seed tái lập được và ngữ
-  điệu liền mạch. Cái giá là lượt thứ hai cùng ngôn ngữ phải chờ, tối đa 15 s.
-- **"Client ngừng đọc thì nhả lock sau 5 s" không đúng qua TCP.** Buffer socket của
-  kernel nuốt vài MB, nên sidecar không bao giờ thấy backpressure. Trên localhost,
-  một client đứng im giữ lock tới hết lượt 50 s. Giới hạn thực tế là trần 60 s mỗi
-  stream, cùng deadline tổng của API. Test tích hợp cũ đã "pass" vì nó vô tình ngắt
-  kết nối: `next(res.iter_raw())` bỏ generator, và httpx đóng response khi
-  generator bị thu hồi.
+- **Holding the lock for the whole turn is a deliberate choice.** It keeps the seed
+  reproducible and the prosody continuous. The cost is that a second turn in the same
+  language must wait, up to 15 s.
+- **"If the client stops reading, the lock is released after 5 s" is not true over TCP.**
+  The kernel's socket buffer swallows several MB, so the sidecar never sees
+  backpressure. On localhost, an idle client holds the lock until the end of a 50 s
+  turn. The practical limit is the 60 s cap per stream, together with the API's overall
+  deadline. The old integration test "passed" because it disconnected by accident:
+  `next(res.iter_raw())` drops the generator, and httpx closes the response when the
+  generator is collected.
 
-## STT trên audio thật: streaming không phải lời giải, Parakeet cho câu chốt tiếng Anh (25/09/2026)
+## STT on real audio: streaming is not the answer, Parakeet for English finals (25/09/2026)
 
-Bối cảnh: người dùng thấy STT "chưa thực sự làm tốt" và đề nghị chuyển sang một model
-streaming. Trước khi chọn model, tôi đo trên **cả 6 cuộc hội thoại prod có ghi âm**
-(4 vi, khoảng 9,2 phút; 2 en, khoảng 3,1 phút), thay vì trên VIVOS/LibriSpeech. Báo cáo
-đầy đủ nằm ở `plans/reports/brainstorm-260925-1152-streaming-stt-prod-audio-evaluation.md`,
-script ở `benchmarks/stt/scripts/prod-audio-arms/`.
+Context: the user felt STT was "not really doing well yet" and suggested moving to a
+streaming model. Before choosing a model, I measured on **all 6 recorded prod
+conversations** (4 vi, about 9.2 minutes; 2 en, about 3.1 minutes) instead of on
+VIVOS/LibriSpeech. The full report is at
+`plans/reports/brainstorm-260925-1152-streaming-stt-prod-audio-evaluation.md`, and the
+scripts are in `benchmarks/stt/scripts/prod-audio-arms/`.
 
-### Đáp án cũng phải được kiểm
+### The reference has to be checked too
 
-Whisper large-v3 **không dùng được làm đáp án tiếng Việt**: nó nghe "fan cứng" thành
-"vang cứng", "anh Hoa Lang Thang" thành "tính hoài liên thang". Đáp án tiếng Việt vì
-thế là ElevenLabs Scribe v2 (được maintainer duyệt), có PhoWhisper-large đối chiếu. Hai
-đáp án này lệch nhau **20,4% WER**, nên chênh lệch tiếng Việt dưới khoảng 3 điểm là nhiễu.
+Whisper large-v3 **cannot be used as the Vietnamese reference**: it hears "fan cứng"
+(die-hard fan) as "vang cứng", and "anh Hoa Lang Thang" (a name) as "tính hoài liên
+thang". The Vietnamese reference is therefore ElevenLabs Scribe v2 (approved by the
+maintainer), cross-checked against PhoWhisper-large. These two references disagree by
+**20.4% WER**, so Vietnamese differences below about 3 points are noise.
 
-### Hai bảng xếp hạng ngược nhau
+### Two rankings that point in opposite directions
 
-Trên VIVOS, Zipformer-30M đang chạy đạt 5,4% còn pcs (Zipformer streaming đa ngữ
-PengChengStarling) 13,4%. Trên audio prod thì ngược lại: pcs 19,0% còn prod 22,1%.
-**Bộ test sạch không đại diện cho sản phẩm này.**
+On VIVOS, the running Zipformer-30M scores 5.4% while pcs (PengChengStarling's
+multilingual streaming Zipformer) scores 13.4%. On prod audio it is the reverse: pcs
+19.0% and prod 22.1%. **A clean test set does not represent this product.**
 
-### Streaming chỉ thắng khi được nuôi liên tục
+### Streaming only wins when fed continuously
 
-Kết quả pcs 19,0% là khi đút cả bản ghi liên tục. Khi phát lại qua đúng
-`CapturePump` của client, cùng option như prod (khớp log prod: 17 lượt, 8 lần cắt
-cưỡng bức cho bcf4d748), mỗi lượt lại mở một stream mới:
+The pcs result of 19.0% is from feeding the whole recording continuously. When replayed
+through the client's actual `CapturePump`, with the same options as prod (matching the
+prod log: 17 turns, 8 forced cuts for bcf4d748), each turn opens a new stream:
 
-| vi, so với ElevenLabs         |   liên tục | theo lượt | theo lượt, mồi 6 s |
-| ----------------------------- | ---------: | --------: | -----------------: |
-| Zipformer-30M (đang chạy)     |          — |      22,3 |                  — |
-| pcs (streaming, đa ngữ)       |       19,0 |  **35,8** |               31,6 |
-| hyntS (bản streaming của 30M) |       22,3 |    28,4\* |                  — |
-| Zipformer 70k giờ (offline)   |          — |      21,9 |                  — |
-| Nemotron-3.5 / Moonshine-vi   | 44–47 / 37 |         — |                  — |
+| vi, vs ElevenLabs             | continuous | per turn | per turn, 6 s primer |
+| ----------------------------- | ---------: | -------: | -------------------: |
+| Zipformer-30M (running)       |          — |     22.3 |                    — |
+| pcs (streaming, multilingual) |       19.0 | **35.8** |                 31.6 |
+| hyntS (streaming 30M variant) |       22.3 |   28.4\* |                    — |
+| Zipformer 70k hours (offline) |          — |     21.9 |                    — |
+| Nemotron-3.5 / Moonshine-vi   | 44–47 / 37 |        — |                    — |
 
-\* hyntS và cột mồi được đo trên đoạn cắt lý tưởng (khoảng lặng ≥ 0,3 s trong đáp án), không phải lượt phát lại.
+\* hyntS and the primer column were measured on ideal cuts (silences ≥ 0.3 s in the reference), not on replayed turns.
 
-Bootstrap ghép cặp theo lượt (mỗi từ đáp án gán vào lượt chứa trung điểm của nó, nên số tuyệt đối cao hơn cách chấm cả bài): pcs kém hơn đang chạy **+13,7 điểm, 95% CI [+8,9; +18,8]**;
-Zipformer 70k giờ chênh −0,3 [−1,9; +1,3], không có ý nghĩa. Muốn pcs thắng thì phải đổi
-kiến trúc sang một bộ nhận dạng liên tục cho mỗi chiều. Việc đó đụng tới gán người nói
-và ranh giới lượt, để đổi lấy 3 điểm nằm trong vùng nhiễu. **Tiếng Việt giữ nguyên.**
-Cũng thấy rằng cắt lượt không phải lỗi chính của tiếng Việt: prod 22,1 so với cắt lý
-tưởng 23,4.
+Paired bootstrap by turn (each reference word is assigned to the turn containing its midpoint, so absolute numbers are higher than whole-recording scoring): pcs is worse than the running model by **+13.7 points, 95% CI [+8.9, +18.8]**;
+Zipformer 70k hours differs by −0.3 [−1.9, +1.3], not significant. Making pcs win would
+require changing the architecture to one continuous recogniser per direction. That
+touches speaker attribution and turn boundaries, in exchange for 3 points that sit inside
+the noise band. **Vietnamese stays as it is.** It also turns out that turn cutting is
+not the main source of Vietnamese errors: prod 22.1 vs ideal cuts 23.4.
 
-### Tiếng Anh: model batch, không phải streaming
+### English: a batch model, not streaming
 
-Trên lượt phát lại thật, Parakeet-TDT-0.6b-v2 int8 đạt **3,4 so với 7,4** WER của
-Moonshine-base. Bootstrap theo lượt: −4,0 điểm, 95% CI [−7,3; −0,9]. Model có dấu câu
-và viết hoa, license CC-BY-4.0. Nó sửa đúng những lỗi đã thấy trong prod, như "English
-learners" (prod ghi "Star Nuggets") và "walking to school or washing". Parakeet-unified
-streaming bị loại vì RTF 1,7 trên CPU này.
+On real replayed turns, Parakeet-TDT-0.6b-v2 int8 scores **3.4 vs 7.4** WER for
+Moonshine-base. Bootstrap by turn: −4.0 points, 95% CI [−7.3, −0.9]. The model outputs
+punctuation and casing, and is licensed CC-BY-4.0. It fixes exactly the errors seen in
+prod, such as "English learners" (prod wrote "Star Nuggets") and "walking to school or
+washing". Parakeet-unified streaming was ruled out because of RTF 1.7 on this CPU.
 
-Parakeet thay hẳn Moonshine, cho cả live partial (đọc lại cửa sổ mỗi 300 ms) lẫn câu
-chốt. Lúc đầu định chia hai model theo lượt, vì Parakeet tốn khoảng 1,5× Moonshine mỗi
-lần decode. Đo thật thì không cần: một model duy nhất vẫn nằm trong nhịp 300 ms. Đo tải
-trên sidecar thật (4 thread, 4 lane như prod), hai chiều cùng lúc, bắn partial mỗi 300 ms
-không chờ lượt trước xong (nặng hơn scheduler thật):
+Parakeet fully replaces Moonshine, for both live partials (re-reading the window every
+300 ms) and finals. The initial plan was to split into two models per turn, because
+Parakeet costs about 1.5× Moonshine per decode. Measurement showed that was unnecessary:
+a single model still fits within the 300 ms cadence. Load was measured on the real
+sidecar (4 threads, 4 lanes as in prod), both directions at once, firing partials every
+300 ms without waiting for the previous one to finish (heavier than the real scheduler):
 
 |                | Moonshine | Parakeet |
 | -------------- | --------: | -------: |
 | en final p95   |    215 ms |   327 ms |
 | en partial p95 |    191 ms |   284 ms |
 | 503            |         0 |        0 |
-| RSS đỉnh       |    721 MB | 1 363 MB |
+| Peak RSS       |    721 MB | 1,363 MB |
 
-Parakeet nhận cả đoạn audio 10 ms, nên `MIN_AUDIO_MS` vẫn chỉ vì Zipformer. Không có cờ
-rollback: muốn quay lại Moonshine thì revert commit.
+Parakeet accepts 10 ms audio segments, so `MIN_AUDIO_MS` remains only because of
+Zipformer. There is no rollback flag: returning to Moonshine means reverting the commit.
 
-Còn mở: tiếng Anh mới chỉ có một đáp án (Whisper). Đáp án thứ hai, ElevenLabs cho 2 bản
-ghi en, chưa được duyệt.
+Still open: English has only one reference so far (Whisper). A second reference,
+ElevenLabs for the 2 en recordings, has not been approved yet.
 
-## Nâng ngưỡng gán người nói lên 0.50/0.45, gate im lặng 300 ms, và ghi lại quyết định không đưa luật cắt tương đối vào sản phẩm (29/09/2026)
+## Raising the speaker-attribution thresholds to 0.50/0.45, a 300 ms silence gate, and recording the decision not to ship the relative cut rule (29/09/2026)
 
-Bối cảnh: 5 cuộc hội thoại vi→en thật cho thấy bốn lỗi — `tauAssign` 0.375 gộp hai
-giọng có cosine khác giọng 0.38–0.58; đoạn không lời (nhạc, jingle) sinh chữ ảo và
-đúc một giọng ma; lượt trên audio phát sóng chạm trần 8 s vì nền nhạc không bao giờ
-xuống dưới sàn tuyệt đối; chữ "ai" viết thường bị dịch thành "who". Kế hoạch:
+Context: 5 real vi→en conversations showed four faults — `tauAssign` 0.375 merged two
+voices whose cross-voice cosine was 0.38–0.58; non-speech segments (music, jingles)
+produced phantom text and minted a phantom voice; turns on broadcast audio hit the 8 s
+ceiling because the music bed never dropped below the absolute floor; and lowercase "ai"
+was translated as "who". Plan:
 `plans/260929-0353-two-speaker-attribution-segmentation-keywords`.
 
-### Bảng ruler: cũ so với 0.50/0.45, đều chấm sau gate 300 ms
+### Ruler table: old vs 0.50/0.45, both scored after the 300 ms gate
 
-Chạy qua `run_attribution_rulers.py --config 0.50/0.45 --min-speech-ms 300`, qua đúng
-reducer TS đã ship (`attribution-reference.mjs --pipeline`), không phải bản dựng lại:
+Run through `run_attribution_rulers.py --config 0.50/0.45 --min-speech-ms 300`, via the
+shipped TS reducer itself (`attribution-reference.mjs --pipeline`), not a reimplementation:
 
-| Ruler       | Ngưỡng cũ 0.375/0.325 (acc / exact) | Ngưỡng mới 0.50/0.45 (acc / exact) |
-| ----------- | ----------------------------------: | ---------------------------------: |
-| ViYT sạch   |                      0,910 / 90/100 |                 **0,945 / 96/100** |
-| ViYT xa     |                      0,873 / 89/100 |                 **0,910 / 95/100** |
-| Prod cũ (8) |                         0,827 / 5/8 |                    **0,921 / 7/8** |
+| Ruler        | Old thresholds 0.375/0.325 (acc / exact) | New thresholds 0.50/0.45 (acc / exact) |
+| ------------ | ---------------------------------------: | -------------------------------------: |
+| ViYT clean   |                           0.910 / 90/100 |                     **0.945 / 96/100** |
+| ViYT far     |                           0.873 / 89/100 |                     **0.910 / 95/100** |
+| Old prod (8) |                              0.827 / 5/8 |                        **0.921 / 7/8** |
 
-Perturbation 20 seed (đảo thứ tự đến, p=0,2): exact tối thiểu ViYT sạch 96, ViYT xa
-94 — cả hai đều vượt mốc ≥ 90/89. Trên 5 cuộc hội thoại thật (`rulers/conversations`):
-2499c493 (2 giọng) đạt exact 1/1 (so với 0,725 khi chấm ở ngưỡng cũ — đây là ca merge
-gốc mà việc nâng ngưỡng sửa được), 2bed5c89 (1 giọng) exact 1/1. **1cd04a39 (1 giọng)
-vẫn dự đoán 2 giọng** ở cả ngưỡng cũ lẫn mới — xem mục "khoảng lặng phantom" bên dưới.
-Test `test_attribution_rulers.py::test_single_voice_conversation_predicts_one_label
-[conversations/1cd04a39-…]` để nguyên trạng thái fail, không nới lỏng.
+Perturbation over 20 seeds (arrival order shuffled, p=0.2): minimum exact on ViYT clean
+96, ViYT far 94 — both clear the ≥ 90/89 bar. On the 5 real conversations
+(`rulers/conversations`): 2499c493 (2 voices) reaches exact 1/1 (vs 0.725 when scored at
+the old thresholds — this is the original merge case that raising the thresholds fixes),
+2bed5c89 (1 voice) exact 1/1. **1cd04a39 (1 voice) still predicts 2 voices** at both
+the old and new thresholds — see the "phantom silence" item below.
+The test `test_attribution_rulers.py::test_single_voice_conversation_predicts_one_label
+[conversations/1cd04a39-…]` is left failing, not loosened.
 
-### Ngưỡng lost-turn 300 ms: maintainer chấp nhận
+### 300 ms lost-turn threshold: accepted by the maintainer
 
-| Ruler                                               |    Lượt mất | % lượt |      Giây mất | % giây |
-| --------------------------------------------------- | ----------: | -----: | ------------: | -----: |
-| ViYT sạch                                           |     92/2337 |   3,9% | 23,6/5006,2 s |   0,5% |
-| ViYT xa                                             |     92/2337 |   3,9% | 23,6/5006,2 s |   0,5% |
-| Prod cũ (8 bản ghi)                                 |      17/221 |   7,7% |   3,2/497,5 s |   0,6% |
-| 5 cuộc hội thoại thật (83 cửa sổ, ruler cấp cửa sổ) | 0/78 speech |     0% |           0 s |     0% |
+| Ruler                                                 |  Turns lost | % turns |  Seconds lost | % seconds |
+| ----------------------------------------------------- | ----------: | ------: | ------------: | --------: |
+| ViYT clean                                            |     92/2337 |    3.9% | 23.6/5006.2 s |      0.5% |
+| ViYT far                                              |     92/2337 |    3.9% | 23.6/5006.2 s |      0.5% |
+| Old prod (8 recordings)                               |      17/221 |    7.7% |   3.2/497.5 s |      0.6% |
+| 5 real conversations (83 windows, window-level ruler) | 0/78 speech |      0% |           0 s |        0% |
 
-Prod cũ vượt mốc 5% số lượt (nhưng dưới 1% thời lượng); ViYT và 5 cuộc hội thoại thật
-đều dưới cả hai mốc. **Maintainer chấp nhận sàn 300 ms (29/09/2026)** với các số trên —
-lượt mất ở prod cũ là lượt cực ngắn (dưới 300 ms lời nói thật), không phải lượt có nội
-dung; 0 cửa sổ có lời nói nào trong 5 cuộc hội thoại thật bị gate mất.
+Old prod exceeds the 5% bar on turn count (but is under 1% of duration); ViYT and the 5
+real conversations are under both bars. **The maintainer accepted the 300 ms floor
+(29/09/2026)** on the numbers above — the turns lost in old prod are extremely short
+turns (under 300 ms of actual speech), not turns with content; 0 speech windows across
+the 5 real conversations were lost to the gate.
 
-### `SPLIT_COSINE` re-sweep, giữ nguyên 0,35
+### `SPLIT_COSINE` re-sweep, kept at 0.35
 
-`split_cosine_sweep.py` chạy qua real `groupByVoice`/`findInternalPauses` (esbuild từ
-`speaker-change-split.ts`) trên toàn bộ lượt đã lưu của 5 bản ghi, ở 0,50/0,45 clusterer
-bars:
+`split_cosine_sweep.py` runs through the real `groupByVoice`/`findInternalPauses` (esbuilt
+from `speaker-change-split.ts`) over all stored turns of the 5 recordings, at the
+0.50/0.45 clusterer bars:
 
-| Ngưỡng | Cắt sai + đổi giọng bỏ sót (2 phiên nhiều giọng) | Cắt sai trong phiên 1 giọng |
-| ------ | -----------------------------------------------: | --------------------------: |
-| 0,35   |                                                3 |                           0 |
-| 0,40   |                                                3 |                           0 |
-| 0,45   |                                                1 |                           1 |
+| Threshold | False cuts + missed voice changes (2 multi-voice sessions) | False cuts in 1-voice sessions |
+| --------- | ---------------------------------------------------------: | -----------------------------: |
+| 0.35      |                                                          3 |                              0 |
+| 0.40      |                                                          3 |                              0 |
+| 0.45      |                                                          1 |                              1 |
 
-0,45 thắng ở cột đầu nhưng cắt sai một lần trong chính phiên 1 giọng — bị loại theo
-đúng luật đã đặt ra (không được thêm cắt sai ở phiên 1 giọng). Không ứng viên nào thắng
-cả hai cột, `SPLIT_COSINE` giữ 0,35 — tách khỏi `tauAssign`/`tauNew`, không còn nằm
-"giữa hai ngưỡng clusterer" như comment cũ nói (đó là trùng hợp, không phải ràng buộc
-thiết kế).
+0.45 wins on the first column but makes one false cut in a 1-voice session itself — it is
+rejected by the rule set in advance (no added false cuts in 1-voice sessions). No
+candidate wins both columns, so `SPLIT_COSINE` stays at 0.35 — decoupled from
+`tauAssign`/`tauNew`, no longer sitting "between the two clusterer thresholds" as the
+old comment said (that was a coincidence, not a design constraint).
 
-### Luật cắt ở khoảng lặng tương đối: đo được, **không đưa vào sản phẩm**
+### Cutting at relative silence: measured, **not shipped**
 
-Ý tưởng (kế hoạch phase 07): trong 1,5 s lookahead, khi luật tạm dừng tuyệt đối bị mù
-(nền nhạc không bao giờ xuống sàn), cắt thêm ở chỗ thấp hơn 40% RMS trung vị của lượt,
-kéo dài ≥ 60 ms. Cài đúng đặc tả, parity TS/Python xanh, nhưng thay lại đúng bằng số
-đo trên 5 bản ghi thật: **luật không kích hoạt lần nào** — replay giống hệt gate hiện
-tại byte-for-byte. Nguyên nhân: 13/14 lượt của phiên nặng nhất có một khoảng lặng dưới
-sàn tuyệt đối chỉ 20–1000 ms sau khi lượt mở, tức là một hơi thở bình thường, không
-phải ca hiếm — và vì cờ "đã thấy khoảng lặng" (`sawQuiet`) khóa cho _cả lượt_ kể từ đó,
-luật tương đối bị vô hiệu hoá trước khi kịp arm ở 1,5 s cuối cùng, trên gần như mọi
-lượt.
+The idea (plan phase 07): within the 1.5 s lookahead, when the absolute pause rule is
+blind (the music bed never reaches the floor), add a cut where the level falls below 40%
+of the turn's median RMS for ≥ 60 ms. It was implemented to spec with TS/Python parity
+green, but the numbers measured on the 5 real recordings say otherwise: **the rule never
+fired once** — the replay is byte-for-byte identical to the current gate. Cause: 13/14
+turns of the heaviest session have a silence below the absolute floor just 20–1000 ms
+after the turn opens, i.e. an ordinary breath, not a rare case — and because the
+"quiet seen" flag (`sawQuiet`) latches for _the whole turn_ from then on, the relative
+rule is disabled before it can arm in the final 1.5 s, on almost every turn.
 
-Thử một biến thể (chỉ khóa từ lúc arm trở đi, theo tư vấn `kongming`): số cắt trần của
-phiên nặng nhất giảm 12 → 7 (mốc ≤ 3, vẫn chưa đạt), cắt trong-từ giảm 25 → 21 (mốc
-< 5, vẫn chưa đạt) — nhưng làm hỏng đúng hai phiên "sạch" mà luật không được đụng vào:
-2bed5c89 đổi thành phần cắt (luật tương đối kích hoạt), 1cd04a39 giảm số cắt an-toàn-cụm-từ
-15 → 14. Biến thể này bị loại; bản literal-theo-đặc-tả (an toàn, nhưng gần như trơ trên
-bằng chứng thật) là bản được giữ.
+A variant was tried (latching only from arming onward, on `kongming`'s advice): ceiling
+cuts in the heaviest session dropped 12 → 7 (bar ≤ 3, still not met), in-word cuts
+dropped 25 → 21 (bar < 5, still not met) — but it broke exactly the two "clean" sessions
+the rule must not touch: 2bed5c89 changed its cut mix (the relative rule fired), and
+1cd04a39's phrase-safe cuts dropped 15 → 14. This variant was rejected; the
+literal-to-spec version (safe, but nearly inert on real evidence) is the one kept.
 
-**Quyết định: không ship.** Mã trong `speech-gate.ts` giữ nguyên như `origin/main`;
-chỉ công cụ replay `scripts/cut_placement.py` cùng test và override fixture parity được
-commit. Số cắt trên gate hiện hành (không đổi), 5 bản ghi:
+**Decision: do not ship.** The code in `speech-gate.ts` stays as in `origin/main`;
+only the replay tool `scripts/cut_placement.py`, with its test and the parity fixture
+override, was committed. Cut counts on the current gate (unchanged), 5 recordings:
 
-| Phiên    | Tổng cưỡng bức |   Trần | Lookahead | Trong-từ | An toàn cụm từ |
-| -------- | -------------: | -----: | --------: | -------: | -------------: |
-| 1cd04a39 |             18 |      3 |        15 |        3 |             15 |
-| 2499c493 |             10 |      4 |         6 |        6 |              3 |
-| 2bed5c89 |              3 |      2 |         1 |        2 |              1 |
-| 5b679761 |             13 |     12 |         1 |       10 |              3 |
-| 74410b70 |              7 |      5 |         2 |        4 |              3 |
-| **Tổng** |         **51** | **26** |    **25** |   **25** |         **25** |
+| Session   | Total forced | Ceiling | Lookahead | In-word | Phrase-safe |
+| --------- | -----------: | ------: | --------: | ------: | ----------: |
+| 1cd04a39  |           18 |       3 |        15 |       3 |          15 |
+| 2499c493  |           10 |       4 |         6 |       6 |           3 |
+| 2bed5c89  |            3 |       2 |         1 |       2 |           1 |
+| 5b679761  |           13 |      12 |         1 |      10 |           3 |
+| 74410b70  |            7 |       5 |         2 |       4 |           3 |
+| **Total** |       **51** |  **26** |    **25** |  **25** |      **25** |
 
-Mốc A3 (trần 5b679761 ≤ 3, trong-từ toàn cục < 5) không đạt trên bằng chứng này, không
-phải vì thiếu tinh chỉnh — cờ giữ luật an toàn trên phiên sạch chính là cờ vô hiệu hoá nó
-trên phiên có nền nhạc. Cần một cơ chế khác (ví dụ trung vị cục bộ theo cửa sổ thay vì
-một lần tại thời điểm arm, hoặc đánh giá từng đoạn của lượt riêng biệt) — một câu hỏi
-thiết kế mở cho lần sau, không phải lỗi cài đặt.
+Bar A3 (5b679761 ceiling ≤ 3, global in-word < 5) is not met on this evidence, and not
+for lack of tuning — the flag that keeps the rule safe on clean sessions is the very flag
+that disables it on sessions with a music bed. A different mechanism is needed (for
+example a local windowed median instead of a single one taken at arming time, or
+evaluating each segment of the turn separately) — an open design question for later,
+not an implementation bug.
 
-### "ai" → AI: không hồi quy, không lộ điểm riêng tư
+### "ai" → AI: no regression, no privacy leak
 
-Graded qua `deepseek-flash` (nhà cung cấp production), 4 lượt ngữ cảnh trước:
+Graded via `deepseek-flash` (the production provider), with 4 turns of prior context:
 
-- 21/21 (100%) dòng gắn cờ AI-context từ 2 phiên thật, 3 lần chạy — trước và sau khi
-  thêm ghi chú đều 21/21 (cặp phiên này vốn đã dịch đúng, ghi chú không làm hỏng gì).
-- Who-control: 30/30 quan sát (10 câu tổng hợp × 3 lần lặp), 0 lật, vượt mốc ≥ 29/30.
-- Prompt-injection: trước-ghi-chú 152/156 (4 lỗi hành vi), sau-ghi-chú **156/156, 0 lỗi
-  hành vi** — 3 ca tấn công "là ai" thật và ca control mới đều 3/3.
-- Glossary-adherence không hồi quy quá mốc: 41/43 (95,3%) so với 42/43 (97,7%) trước —
-  đạt đúng mốc "≥ trước trừ 1".
-- Một trong bốn ca tấn công của đặc tả hoá ra là gán nhãn sai, không phải lỗi ghi chú:
-  câu dùng khung hỏi-đáp có/không ("có phải là X không") — khung này không thể nhận "ai"
-  nghĩa là "who" và vẫn có nghĩa "bạn là ai", nên dịch "are you an AI?" là đúng ngữ pháp
-  trong ngữ cảnh AI, không phải lỗi cần sửa. Ca này được xếp lại thành control.
+- 21/21 (100%) lines flagged AI-context from 2 real sessions, 3 runs — 21/21 both before
+  and after adding the note (this session pair was already translated correctly; the note
+  broke nothing).
+- Who-control: 30/30 observations (10 synthetic sentences × 3 repeats), 0 flips, clearing
+  the ≥ 29/30 bar.
+- Prompt-injection: before the note 152/156 (4 behavioural failures), after the note
+  **156/156, 0 behavioural failures** — the 3 real "là ai" (who is) attack cases and the
+  new control case are all 3/3.
+- Glossary adherence did not regress past the bar: 41/43 (95.3%) vs 42/43 (97.7%) before
+  — exactly meeting the "≥ before minus 1" bar.
+- One of the spec's four attack cases turned out to be mislabelled, not a failure of the
+  note: the sentence uses a yes/no question frame ("có phải là X không" (is it X)) — this
+  frame cannot take "ai" to mean "who" and still mean "bạn là ai" (who are you), so
+  translating it as "are you an AI?" is grammatically correct in an AI context, not an
+  error to fix. This case was reclassified as a control.
 
-### Gate không lọc được vài cửa sổ ngắn: chấp nhận là khoảng trống tham chiếu
+### The gate does not filter a few short windows: accepted as a reference gap
 
-Đo trên ≥ 20 đoạn không-từ-Scribe ≥ 1,5 s từ 5 bản ghi webm thật:
+Measured on ≥ 20 segments without Scribe words, ≥ 1.5 s long, from 5 real webm recordings:
 
-- 14/22 (63,6%) được gate lọc, dưới mốc ≥ 95%.
-- 3/5 cửa sổ "noise" của ruler cấp-cửa-sổ được gate lọc, dưới mốc ≥ 4/5.
-- Lệch trung vị `|sileroMs − vad harness × 1000|`: 162 ms, trên mốc ≤ 150 ms 12 ms.
-- Một cửa sổ 670 ms không có từ Scribe nào nhưng mang 442 ms tiếng nói theo Silero
-  (66% cửa sổ) và bản dịch ngắn không rỗng — đúc thành giọng ma trong ruler 1cd04a39,
-  giống nhau ở cả ngưỡng cũ lẫn mới.
+- 14/22 (63.6%) are filtered by the gate, below the ≥ 95% bar.
+- 3/5 "noise" windows of the window-level ruler are filtered by the gate, below the ≥ 4/5 bar.
+- Median deviation `|sileroMs − vad harness × 1000|`: 162 ms, 12 ms over the ≤ 150 ms bar.
+- One 670 ms window has no Scribe words but carries 442 ms of speech according to Silero
+  (66% of the window) and a short non-empty translation — it mints a phantom voice in
+  the 1cd04a39 ruler, identically at both the old and new thresholds.
 
-Kiểm tra trực tiếp từng cửa sổ/đoạn chưa lọc: mỗi cái đều có tiếng nói Silero phát hiện
-được _và_ bộ giải mã ra chữ ngắn, hợp lý — không phải rác. **Maintainer chấp nhận đây là
-khoảng trống tham chiếu (rất có thể là lời nói thật, ngắn, mà Scribe không gán từ nào
-cho — chen ngang hoặc backchannel), không phải lỗi của gate.** Test đỏ
-`test_single_voice_conversation_predicts_one_label[1cd04a39]` giữ nguyên như một ô còn
-mở đã ghi lại, không nới lỏng.
+Direct inspection of each unfiltered window/segment: every one has Silero-detected speech
+_and_ the decoder produces short, plausible text — not garbage. **The maintainer accepted
+this as a reference gap (most likely real, short speech that Scribe assigned no words to
+— interjections or backchannels), not a gate fault.** The red test
+`test_single_voice_conversation_predicts_one_label[1cd04a39]` stays as a recorded open
+item, not loosened.
 
-### Rollout theo giai đoạn — đã thực hiện (29/09/2026)
+### Staged rollout — carried out (29/09/2026)
 
-Merge kích hoạt deploy tự động, với `prod.env` đặt `STT_MIN_SPEECH_MS=0` trước merge. Sau
-deploy: CI và Deploy trên `main` xanh, hash Silero trong container khớp hash ghim,
-`/healthz` trả `ok` kèm `languages`, `printenv STT_MIN_SPEECH_MS` in ra 0.
+The merge triggers an automatic deploy, with `prod.env` set to `STT_MIN_SPEECH_MS=0`
+before merging. After deploy: CI and Deploy on `main` are green, the Silero hash in the
+container matches the pinned hash, `/healthz` returns `ok` with `languages`, and
+`printenv STT_MIN_SPEECH_MS` prints 0.
 
-Thay cho phiên nói thật, cả hai giai đoạn được kiểm tra bằng cách **phát lại năm bản ghi**
-qua đúng mã client (`ConversationSession`, capture pump, bộ gán người nói) vào WebSocket
-production, dưới tài khoản của maintainer, theo thời gian thực, lần lượt từng phiên.
+Instead of live spoken sessions, both stages were checked by **replaying the five
+recordings** through the actual client code (`ConversationSession`, capture pump, speaker
+attributor) into the production WebSocket, under the maintainer's account, in real time,
+one session after another.
 
-|                            | 2499c493 | 1cd04a39 | 2bed5c89 | 74410b70 | 5b679761 |
-| -------------------------- | -------- | -------- | -------- | -------- | -------- |
-| Người nói (Scribe)         | 2        | 1        | 1        | 3        | 2        |
-| Nhãn client, gate tắt      | 2        | 2        | 1        | 2        | 2        |
-| Nhãn client, gate 300 ms   | 2        | 2        | 1        | 2        | 2        |
-| Final, gate tắt → bật      | 14 → 14  | 26 → 25  | 19 → 19  | 11 → 11  | 16 → 16  |
-| Banner lỗi, gate tắt → bật | 0 → 0    | 1 → 0    | 0 → 0    | 0 → 0    | 0 → 0    |
+|                              | 2499c493 | 1cd04a39 | 2bed5c89 | 74410b70 | 5b679761 |
+| ---------------------------- | -------- | -------- | -------- | -------- | -------- |
+| Speakers (Scribe)            | 2        | 1        | 1        | 3        | 2        |
+| Client labels, gate off      | 2        | 2        | 1        | 2        | 2        |
+| Client labels, gate 300 ms   | 2        | 2        | 1        | 2        | 2        |
+| Finals, gate off → on        | 14 → 14  | 26 → 25  | 19 → 19  | 11 → 11  | 16 → 16  |
+| Error banners, gate off → on | 0 → 0    | 1 → 0    | 0 → 0    | 0 → 0    | 0 → 0    |
 
-- Giai đoạn 1 (gate tắt): không crash; banner duy nhất là lượt mở đầu của 1cd04a39, trước
-  từ đầu tiên, STT trả rỗng (`gated=false`), đúng hành vi khi gate tắt.
-- Giai đoạn 2 (đặt 300, tái tạo riêng container API): lượt đó thành một kết thúc im lặng
-  `no_speech`, không banner; đó là kết thúc `no_speech` duy nhất. Final mất đi duy nhất là
-  một mảnh tách 660 ms không có lời, bị gate bỏ; số lượt hoàn tất giữ nguyên ở mọi phiên.
-- "ai" trong nguồn: 2499c493 10/10 dịch ra "AI"; 74410b70 6/7 ra "AI", 1 khác, 0 ra "who".
-- Còn mở như đã chấp nhận: nhãn ma của 1cd04a39 vẫn còn (giảm từ 2 lượt xuống 1);
-  74410b70 ra 2 nhãn cho 3 giọng, đúng giới hạn `kMax` = 2.
+- Stage 1 (gate off): no crash; the only banner is the opening turn of 1cd04a39, before
+  the first word, where STT returned empty (`gated=false`), the expected behaviour with
+  the gate off.
+- Stage 2 (set to 300, recreating only the API container): that turn becomes a silent
+  `no_speech` ending, with no banner; it is the only `no_speech` ending. The only final
+  lost is a 660 ms split fragment with no speech, dropped by the gate; the number of
+  completed turns is unchanged in every session.
+- "ai" in the source: 2499c493 10/10 translated as "AI"; 74410b70 6/7 as "AI", 1 other,
+  0 as "who".
+- Still open, as accepted: the phantom label in 1cd04a39 remains (down from 2 turns to
+  1); 74410b70 yields 2 labels for 3 voices, exactly the `kMax` = 2 limit.
 
-Rollback vẫn là đặt `STT_MIN_SPEECH_MS=0` trong `prod.env` rồi tái tạo container API.
+Rollback is still setting `STT_MIN_SPEECH_MS=0` in `prod.env` and recreating the API
+container.
 
-### Số đo lại trên máy chủ, tách khỏi tải các agent song song
+### Server numbers re-measured, separated from parallel-agent load
 
-Độ trễ `/transcribe` với vs không `min_speech_ms=300` trên một đoạn ~7,4 s, 50 lượt gọi
-2 đồng thời, đo lại khi máy rảnh hơn: Δp95 hai lần đo lần lượt **+10,2 ms** và **+20,6 ms**
-— trong ngân sách +25 ms (số đo trước đó, dưới tải các phase song song, là +28,3 ms).
+`/transcribe` latency with vs without `min_speech_ms=300` on a ~7.4 s clip, 50 calls at
+concurrency 2, re-measured when the machine was less busy: Δp95 across two runs was
+**+10.2 ms** and **+20.6 ms** respectively — within the +25 ms budget (the earlier
+measurement, under load from parallel phases, was +28.3 ms).

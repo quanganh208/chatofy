@@ -1,6 +1,8 @@
 # Codebase Summary
 
-Monorepo for **Chatofy** — realtime Vietnamese ↔ English voice translator.
+Monorepo for **Chatofy** — realtime multilingual voice translator. The supported
+languages live in one registry (`packages/types/src/domain/languages.ts`); today
+they are Vietnamese and English.
 
 ## Stack
 
@@ -105,7 +107,7 @@ the root layout, and it is the accepted price of one URL serving two languages �
 
 **API Endpoints (V1):**
 
-- `POST /translate` — Turn-based vi↔en audio translation (request: `{ audioBase64, audioMimeType, direction?, voiceGender? }`, response: `{ sourceText, targetText, audioBase64, audioMimeType }`)
+- `POST /translate` — Turn-based audio translation between registered languages (request: `{ audioBase64, audioMimeType, direction?, voiceGender? }`, response: `{ sourceText, targetText, audioBase64, audioMimeType }`)
 - `WS /ws/translate` — One path, two modes, chosen by the first message the client sends and fixed for that connection:
   - `client.session.start` → turn-based cascade (STT → translate → TTS), contract `clientEventSchema` / `serverEventSchema`
   - `client.live.start` → continuous speech-to-speech, contract `liveClientEventSchema` / `liveServerEventSchema`
@@ -311,7 +313,7 @@ This documents the response as the standard success envelope with the given data
 ## Status
 
 - **V1 Translation Pipeline (V1 COMPLETE):**
-  - `POST /translate` endpoint: vi↔en turn-based audio translation
+  - `POST /translate` endpoint: turn-based audio translation between registered languages
   - STT + TTS run on the local sidecars by default; Gemini translation is the only cloud call
   - Web is a full surface: marketing landing, post-login hub, the translator, preferences
     and account, in English and Vietnamese
