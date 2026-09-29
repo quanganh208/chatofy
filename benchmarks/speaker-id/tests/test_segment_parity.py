@@ -31,8 +31,21 @@ from speaker_bench.segment import run_gate
 
 BENCH_ROOT = Path(__file__).resolve().parent.parent
 REPO_ROOT = BENCH_ROOT.parent.parent
+
+#: Overridable so a run can point parity at the preserved conversation
+#: recordings (`rulers/conversations`, gitignored — see `rulers/README.md`) instead of
+#: `benchmarks/realtime/fixtures`, which is empty on a fresh checkout. Same
+#: `.wav` glob either way.
+FIXTURES = Path(
+    os.environ.get("SPEAKER_BENCH_GATE_FIXTURES")
+    or (REPO_ROOT / "benchmarks" / "realtime" / "fixtures")
+)
+if not FIXTURES.is_absolute():
+    # Relative to BENCH_ROOT, matching how the override is documented and run:
+    # `cd benchmarks/speaker-id && SPEAKER_BENCH_GATE_FIXTURES=rulers/conversations ...`
+    FIXTURES = (BENCH_ROOT / FIXTURES).resolve()
+
 GATE_REFERENCE = BENCH_ROOT / "scripts" / "gate-reference.mjs"
-FIXTURES = REPO_ROOT / "benchmarks" / "realtime" / "fixtures"
 
 #: Blocks of disagreement tolerated on any single event.
 #:
