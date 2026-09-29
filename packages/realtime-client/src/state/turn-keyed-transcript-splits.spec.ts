@@ -218,4 +218,58 @@ describe('pieceCapture', () => {
       preRollMs: 0,
     });
   });
+
+  /** Same shape as `droppedSiblingPiece`, but carrying the server's own `reachesEnd` verdict. */
+  const pieceWithReachesEnd = (
+    parent: string,
+    index: 0 | 1,
+    startMs: number,
+    endMs: number,
+    reachesEnd: boolean,
+    sourceText: string,
+  ): ServerEvent => ({
+    type: 'server.transcript.final',
+    sessionId: `${parent}#${index}`,
+    segment: segment(`${parent}#${index}`, sourceText),
+    split: { parentSessionId: parent, index, count: 2, startMs, endMs, reachesEnd },
+  });
+
+  it('trusts `reachesEnd: true` over a wall-clock gap the timestamp tolerance alone would call short of the parent', () => {
+    // endMs (1600) sits 800ms short of the parent's close (2400ms) — the
+    // timestamp tolerance alone would call this piece NOT the last one, same
+    // as the trailing-drop case above. Here the server itself says this piece
+    // DOES reach the end, so its verdict must win.
+    const parentId = 'trusts-reaches-end-true';
+    const state = play(
+      parsed(pieceWithReachesEnd(parentId, 0, 0, 800, false, 'first survivor')),
+      parsed(pieceWithReachesEnd(parentId, 1, 800, 1600, true, 'second survivor')),
+      captured(parentId, true),
+    );
+
+    expect(state.captures[`${parentId}#1`]).toEqual({
+      cutForced: true,
+      openedAt: STARTED + 5000 + 800,
+      closedAt: STARTED + 7400,
+      preRollMs: 0,
+    });
+  });
+
+  it('trusts `reachesEnd: false` even where the timestamp tolerance alone would call the piece the last one', () => {
+    // endMs (2400) lands exactly on the parent's close — the timestamp
+    // tolerance alone would call this piece the last one. The server says
+    // otherwise (its own true tail belongs to a sibling this ruler does not
+    // report), so its verdict must win even though the clocks agree.
+    const parentId = 'trusts-reaches-end-false';
+    const state = play(
+      parsed(pieceWithReachesEnd(parentId, 0, 0, 2400, false, 'reported survivor')),
+      captured(parentId, true),
+    );
+
+    expect(state.captures[`${parentId}#0`]).toEqual({
+      cutForced: false,
+      openedAt: STARTED + 5320,
+      closedAt: STARTED + 7400,
+      preRollMs: 320,
+    });
+  });
 });
