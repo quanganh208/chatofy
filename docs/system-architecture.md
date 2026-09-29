@@ -326,8 +326,7 @@ implementation reports under `plans/260928-1026-pluggable-languages-multilingual
 fields may be dropped once every extension build on the Chrome/Firefox store
 is at or above the version that writes the language-keyed shape for at least
 14 days, AND no open web tab from before that version can still be sending the
-old shape. Removing them is explicitly a SEPARATE change from this one (see
-`plan.md`'s Validation Log, item 2) — it touches the wire contracts, the two
+old shape. Removing them is explicitly a SEPARATE change from this one — it touches the wire contracts, the two
 DB columns the migrations already dropped stay dropped either way, and it is
 not scheduled here.
 
@@ -335,8 +334,8 @@ not scheduled here.
 
 These are seams the plan's design deliberately did NOT build, because nothing
 in the live vi↔en traffic exercises them yet and a seam with no real caller and
-no test touching it is dead code by this repo's own rule (see
-`plan.md`'s "Giải quyết mâu thuẫn" section). Each is a specific, small change
+no test touching it is dead code by this repo's own rule: build a seam only
+where the real vi↔en flow passes through it and a test touches it. Each is a specific, small change
 when it is actually needed — not a redesign:
 
 1. **Audio-based language identification.** `LanguageIdentifier.identify`
