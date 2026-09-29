@@ -1,6 +1,11 @@
-import type { TranslationDirection } from '@chatofy/types';
+import {
+  LANGUAGES,
+  directionLanguages,
+  reverseDirection,
+  type LanguageCode,
+  type TranslationDirection,
+} from '@chatofy/types';
 import { ArrowLeftRight } from 'lucide-react';
-import { languageName } from './lib/language-name.js';
 import { cn } from '../lib/utils.js';
 import { Button } from './button.js';
 
@@ -36,19 +41,8 @@ interface DirectionToggleProps {
   onChange: (direction: TranslationDirection) => void;
   labels?: DirectionToggleLabels;
   /** Names the languages. Defaults to English names; web passes the reader's locale. */
-  nameLanguage?: (code: string) => string;
+  nameLanguage?: (code: LanguageCode) => string;
 }
-
-/** Which language each side of a direction is. The codes never reach the screen. */
-const SIDES: Record<TranslationDirection, { source: string; target: string }> = {
-  vi_to_en: { source: 'vi', target: 'en' },
-  en_to_vi: { source: 'en', target: 'vi' },
-};
-
-const OPPOSITE: Record<TranslationDirection, TranslationDirection> = {
-  vi_to_en: 'en_to_vi',
-  en_to_vi: 'vi_to_en',
-};
 
 /**
  * The direction, as two named sides rather than one arrowed string.
@@ -68,9 +62,9 @@ export function DirectionToggle({
   disabled,
   onChange,
   labels = DEFAULT_LABELS,
-  nameLanguage = languageName,
+  nameLanguage = (code) => LANGUAGES[code].englishName,
 }: DirectionToggleProps) {
-  const { source, target } = SIDES[value];
+  const { source, target } = directionLanguages(value);
 
   return (
     <div className="flex flex-col gap-2">
@@ -88,7 +82,7 @@ export function DirectionToggle({
           variant="outline"
           size="icon"
           disabled={disabled}
-          onClick={() => onChange(OPPOSITE[value])}
+          onClick={() => onChange(reverseDirection(value))}
           aria-label={labels.swap(nameLanguage(target), nameLanguage(source))}
           className={cn(
             // `hover:border-muted-foreground` used to live here and went inert

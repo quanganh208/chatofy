@@ -1,5 +1,12 @@
-import type { TranslationDirection, VoiceGender } from '@chatofy/types';
+import {
+  LANGUAGES,
+  TRANSLATION_DIRECTIONS,
+  directionLanguages,
+  type TranslationDirection,
+  type VoiceGender,
+} from '@chatofy/types';
 import type { OverlayState } from '../../src/messages';
+import { DEFAULT_CAPTURE_DIRECTION } from '../../src/settings';
 import { visibleOverlayPart } from '../../src/site-enablement';
 import { brandMark } from '@chatofy/ui';
 import { OVERLAY_STYLE } from './overlay-styles';
@@ -319,10 +326,24 @@ export class Overlay {
     // call and has already had to fight for the vertical space its Stop row needs;
     // a second stacked row would take that back. A select states both languages in
     // one line and stays reachable from a keyboard.
-    this.direction = select('Translate', [
-      ['en_to_vi', 'English into Vietnamese'],
-      ['vi_to_en', 'Vietnamese into English'],
-    ]);
+    this.direction = select(
+      'Translate',
+      // The default first, then the registry's order for the rest: the option
+      // a fresh capture already runs (`DEFAULT_CAPTURE_DIRECTION`, `en_to_vi`)
+      // is the one a reader expects to see first. Named rather than got by
+      // reversing the registry, which only puts it first while there are two
+      // languages.
+      [
+        DEFAULT_CAPTURE_DIRECTION,
+        ...TRANSLATION_DIRECTIONS.filter((direction) => direction !== DEFAULT_CAPTURE_DIRECTION),
+      ].map((direction) => {
+        const { source, target } = directionLanguages(direction);
+        return [
+          direction,
+          `${LANGUAGES[source].englishName} into ${LANGUAGES[target].englishName}`,
+        ] as const;
+      }),
+    );
     this.voice = select('Voice', [
       ['female', 'Female voice'],
       ['male', 'Male voice'],

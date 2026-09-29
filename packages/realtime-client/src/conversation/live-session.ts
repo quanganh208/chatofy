@@ -1,5 +1,6 @@
 import { base64ToPcm16, pcm16ToBase64, TARGET_SAMPLE_RATE } from '../audio/pcm-resampler.js';
 import type { LiveTranslateSocket } from '../transport/live-translate-socket.js';
+import { isJsonSocketAborted } from '../transport/json-event-socket.js';
 import type { LiveTranslateSocketHandlers } from '../transport/live-translate-socket.js';
 import type { LiveServerEvent, TranslationDirection } from '@chatofy/types';
 
@@ -101,9 +102,24 @@ export class LiveSession {
     try {
       await socket.connect();
     } catch (err) {
+      // `dispose()` closed the socket mid-handshake: the session is already torn
+      // down, so there is nothing to report and no state left to reset.
+      if (isJsonSocketAborted(err)) return;
       this.status = 'idle';
       this.socket = null;
       this.listeners.onError?.(err instanceof Error ? err.message : 'Cannot reach the translator');
+      return;
+    }
+    // A `dispose()` during the handshake lands in the catch above — the real
+    // transport rejects `connect()` when its socket is closed while CONNECTING.
+    // This re-check is the second layer, for a socket implementation that
+    // resolves anyway: sending `start` regardless would open an upstream Gemini
+    // Live session nobody is left to consume, and `onEvent` below would go on
+    // to fire `onReady` for a session the owner already tore down. `this.socket`
+    // is also re-checked: `dispose()` nulls it, and a stale local `socket`
+    // reference must never be mistaken for the one currently in play.
+    if (this.status !== 'connecting' || this.socket !== socket) {
+      socket.close();
       return;
     }
     socket.start(direction);

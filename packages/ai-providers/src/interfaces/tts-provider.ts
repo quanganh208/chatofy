@@ -1,5 +1,6 @@
 // TtsProvider contract — text-to-speech synthesis (e.g. ElevenLabs, OpenAI TTS)
 import type { AudioFormat, LanguageCode, ProviderConfig, VoiceGender } from './provider-types.js';
+import type { ServedLanguages } from './stt-provider.js';
 
 export interface TtsProviderConfig extends ProviderConfig {
   apiKey?: string;
@@ -40,6 +41,26 @@ export interface TtsVoice {
   gender: VoiceGender;
 }
 
+/**
+ * The voices a backend offers for one language, and whether that language's
+ * ENGINE honours `speed` at all.
+ *
+ * `speedAdjustable` travels beside the voice list rather than as a fact about
+ * the language itself: it is a property of whichever runtime is loaded for
+ * this language (Kokoro applies `speed`; VieNeu ignores it, even though both
+ * speak registry languages), so a client hides the rate control rather than
+ * offering one that silently does nothing.
+ *
+ * OPTIONAL, and absent means UNKNOWN — never `false`. A backend deployed before
+ * it reported this cannot say, and hiding a rate control the engine may well
+ * honour is the worse fault, so a consumer keeps the control visible. Only a
+ * backend that KNOWS its engine ignores `speed` answers an explicit `false`.
+ */
+export interface TtsVoiceCatalog {
+  voices: TtsVoice[];
+  speedAdjustable?: boolean;
+}
+
 export interface TtsProvider {
   readonly name: string;
   /**
@@ -65,7 +86,15 @@ export interface TtsProvider {
    * type, and must treat an unrecognised one as absent rather than pass it
    * onward.
    */
-  listVoices?(language: LanguageCode): Promise<TtsVoice[]>;
+  listVoices?(language: LanguageCode): Promise<TtsVoiceCatalog>;
+  /**
+   * Which registry languages this backend can actually speak right now.
+   *
+   * Same contract as `SttProvider.supportedLanguages` — optional, ⊆ the
+   * registry, and a rejected call means "not known right now", never "serves
+   * nothing". See that interface's doc for the full reasoning.
+   */
+  supportedLanguages?(): Promise<ServedLanguages>;
   /** Synthesize the full text and return the audio bytes. */
   synthesize(req: TtsSynthesizeRequest): Promise<Uint8Array>;
   /**

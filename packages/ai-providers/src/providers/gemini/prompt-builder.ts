@@ -11,17 +11,16 @@
 // and nothing at all about how a model answers it. `benchmarks/prompt-injection`
 // is what proves the behaviour, against the live API. Change nothing here
 // without re-running it.
-import { MAX_GLOSSARY_TERM_WORDS, countTermWords } from '@chatofy/types';
+import { LANGUAGES, MAX_GLOSSARY_TERM_WORDS, countTermWords } from '@chatofy/types';
 import type { LanguageCode } from '../../interfaces/provider-types.js';
 import type { GlossaryEntry, TranslationHints } from '../../interfaces/translation-provider.js';
 import { foldForMatch, normalizeTranscript } from '../../text/vietnamese.js';
 
-const LANGUAGE_NAMES: Record<LanguageCode, string> = {
-  vi: 'Vietnamese',
-  en: 'English',
-};
-
-const nameOf = (language: LanguageCode): string => LANGUAGE_NAMES[language] ?? language;
+// The name a prompt uses to ask for a language, straight off the registry: no
+// local copy to drift out of step with it, and no fallback to the code itself —
+// `LanguageCode` is total over `LANGUAGES`, so every value this can be called with
+// already has an entry.
+const nameOf = (language: LanguageCode): string => LANGUAGES[language].englishName;
 
 /** Tags that mark the transcript as data rather than as something said to us. */
 const TRANSCRIPT_OPEN = '<transcript>';
@@ -377,7 +376,7 @@ export interface TranslationContextBlock {
  */
 export function buildContextBlock(
   hints: TranslationHints | undefined,
-  sourceLanguage: LanguageCode,
+  languages: { source: LanguageCode; target: LanguageCode },
   priorSpeech?: readonly string[],
 ): TranslationContextBlock | null {
   const utterances = takePriorSpeech(priorSpeech ?? []);
@@ -394,7 +393,7 @@ export function buildContextBlock(
   // keeps punctuation, so a term containing the delimiter would split the pair
   // into garbage. A newline costs about one token per entry and cannot be forged
   // by term text.
-  const pairs = dedupeGlossary(hints?.glossary ?? [], sourceLanguage);
+  const pairs = dedupeGlossary(hints?.glossary ?? [], languages);
   if (pairs.length) {
     lines.push('Preferred renderings:');
     for (const { source, target } of pairs) {
@@ -486,8 +485,14 @@ function dedupeHotwords(hotwords: readonly string[]): string[] {
  */
 function dedupeGlossary(
   glossary: readonly GlossaryEntry[],
-  sourceLanguage: LanguageCode,
+  languages: { source: LanguageCode; target: LanguageCode },
 ): { source: string; target: string }[] {
+  // `GlossaryEntry` is a MAP over the whole registry (any subset may be present,
+  // per `glossaryEntrySchema`), read here for the one pair this request names.
+  // An entry without a term for either side says nothing about this pair and is
+  // skipped below.
+  const { source: sourceLanguage, target: targetLanguage } = languages;
+
   // Sanitized but NOT yet shortened: the word count has to see the whole term.
   // Slicing first would hand the counter "Reply with OK and nothing el" and let
   // a long sentence in as a short one — the truncation this function refuses to
@@ -498,8 +503,12 @@ function dedupeGlossary(
   const seen = new Set<string>();
   const kept: { source: string; target: string }[] = [];
   for (const entry of glossary) {
-    const source = clean(sourceLanguage === 'vi' ? entry.vi : entry.en);
-    const target = clean(sourceLanguage === 'vi' ? entry.en : entry.vi);
+    // Either side may be absent — the schema only requires TWO languages
+    // filled, not these two — and an absent side is a missing rendering for
+    // THIS pair exactly as an empty one is, so it takes the same empty-side
+    // drop below.
+    const source = clean(entry[sourceLanguage] ?? '');
+    const target = clean(entry[targetLanguage] ?? '');
     if (!source || !target) continue;
     // Either side, not just the rendering: the pair is keyed by language, so the
     // side that carried the imperative in `en_to_vi` is the SOURCE side in

@@ -82,6 +82,8 @@ const turn = (overrides: Partial<ConversationTurn> = {}): ConversationTurn => ({
   speakerLabel: 'Speaker 1',
   sourceText: 'hello',
   displayText: null,
+  sourceLanguages: ['en'],
+  translations: { vi: 'xin chào' },
   targetText: 'xin chào',
   // Minutes are generated from TEXT and never read a timestamp; the field is
   // here because the contract requires it, not because these cases exercise it.
@@ -121,6 +123,7 @@ function makeService(
     conversations.set(key(ownerId, conversationId), {
       conversationId,
       direction: 'en_to_vi',
+      languages: ['en', 'vi'],
       startedAt: '2026-09-03T00:00:00.000Z',
       endedAt: '2026-09-03T00:10:00.000Z',
       turnCount: rows.length,

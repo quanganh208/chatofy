@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { Route } from 'next';
 import { ChevronRight, MessagesSquare, SearchX } from 'lucide-react';
-import type { ConversationSummary } from '@chatofy/types';
+import type { ConversationSummary, LanguageCode } from '@chatofy/types';
 import { Badge, Button, Skeleton } from '@chatofy/ui/react';
 import { useLocale, useTranslate } from '@/i18n/provider';
 import { durationMinutes, formatTime, groupByDay } from './conversation-formatting';
@@ -178,6 +178,9 @@ export function HistoryList({
 function Row({ conversation }: { conversation: ConversationSummary }) {
   const t = useTranslate();
   const locale = useLocale();
+  // `conversationLanguagesSchema` guarantees at least two, declared source
+  // first — the same guarantee `legacyDirectionOf` relies on server-side.
+  const [source, target] = conversation.languages as [LanguageCode, LanguageCode];
 
   return (
     <Link
@@ -198,7 +201,7 @@ function Row({ conversation }: { conversation: ConversationSummary }) {
         <p className="text-body truncate">{conversation.preview}</p>
         <p className="text-hint text-muted-foreground mt-0.5 flex flex-wrap items-center gap-1.5">
           <span className="text-foreground font-medium">
-            <DirectionLabel direction={conversation.direction} />
+            <DirectionLabel from={source} to={target} />
           </span>
           <Dot />
           {t('web.history.turnCount', { count: conversation.turnCount })}

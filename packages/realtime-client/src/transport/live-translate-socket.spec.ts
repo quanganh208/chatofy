@@ -1,6 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it } from 'vitest';
 import { WS_SUBPROTOCOL, type LiveServerEvent } from '@chatofy/types';
 import { LiveTranslateSocket, liveTranslateSocketUrl } from './live-translate-socket.js';
+import { JsonSocketAbortedError } from './json-event-socket.js';
 
 /**
  * What `close()` has to guarantee, and why anything depends on it.
@@ -134,6 +135,95 @@ describe('LiveTranslateSocket', () => {
    * is exactly the event that used to reach a listener now belonging to a
    * DIFFERENT conversation.
    */
+  /**
+   * The synchronous-socket-ownership fix. Before it, `this.socket` was only
+   * assigned once the handshake's promise resolved, so a `close()` landing
+   * during CONNECTING found `this.socket === null` and closed nothing — the
+   * pending socket went on to open and started delivering to live handlers
+   * belonging to a conversation the caller had already torn down.
+   */
+  it('closes the underlying socket even when close() runs before onopen', async () => {
+    const seen: Recorded = { events: [], errors: [], closes: 0, closeCodes: [] };
+    const socket = new LiveTranslateSocket(
+      'ws://api.test/ws/translate',
+      {
+        onEvent: (event) => seen.events.push(event),
+        onError: (message) => seen.errors.push(message),
+        onClosed: () => (seen.closes += 1),
+      },
+      ACCESS_TOKEN,
+    );
+
+    // Not awaited: this is the CONNECTING window the fix targets.
+    const connecting = socket.connect();
+    const wire = FakeWebSocket.last!;
+    expect(wire.closed).toBe(0);
+
+    socket.close();
+    expect(wire.closed).toBe(1);
+
+    // The handshake finishing late, as a real socket's TCP connect can, must
+    // reach no handler at all — the close above already said this socket is
+    // done.
+    wire.onopen?.();
+    wire.deliver(READY);
+    wire.hangUp();
+    expect(seen.events).toEqual([]);
+    expect(seen.closes).toBe(0);
+
+    // The close settled the handshake the caller abandoned, as the aborted
+    // sentinel rather than as a failure — the late `onopen` above could not
+    // resolve it afterwards.
+    await expect(connecting).rejects.toBeInstanceOf(JsonSocketAbortedError);
+  });
+
+  /**
+   * The other half of the same fix: a second `connect()` overlapping the
+   * first must not leak the first socket. `connect()` calls `close()` on
+   * entry, which only works if the FIRST call already installed its socket
+   * synchronously.
+   */
+  it('closes the first socket when a second connect() overlaps it', async () => {
+    const socket = new LiveTranslateSocket(
+      'ws://api.test/ws/translate',
+      { onEvent: () => {} },
+      ACCESS_TOKEN,
+    );
+
+    const first = socket.connect();
+    const firstWire = FakeWebSocket.last!;
+    expect(firstWire.closed).toBe(0);
+
+    const second = socket.connect();
+    expect(firstWire.closed, 'the first socket must not leak').toBe(1);
+
+    FakeWebSocket.last!.onopen?.();
+    await second;
+    // The superseded handshake settles instead of dangling, as the aborted
+    // sentinel an owner treats as a quiet return.
+    await expect(first).rejects.toBeInstanceOf(JsonSocketAbortedError);
+  });
+
+  /**
+   * Only a close the caller asked for is the quiet sentinel. A handshake the
+   * network refused is still a failure the owner has to report.
+   */
+  it('rejects a failed handshake with an error, not the aborted sentinel', async () => {
+    const socket = new LiveTranslateSocket(
+      'ws://api.test/ws/translate',
+      { onEvent: () => {} },
+      ACCESS_TOKEN,
+    );
+
+    const connecting = socket.connect();
+    FakeWebSocket.last!.onerror?.();
+
+    const failure = await connecting.catch((err: unknown) => err);
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure).not.toBeInstanceOf(JsonSocketAbortedError);
+    expect((failure as Error).message).toBe('Cannot reach the translator');
+  });
+
   it('delivers nothing after close, however late the server is', async () => {
     const { socket, wire, seen } = await connected();
 

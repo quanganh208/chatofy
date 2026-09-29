@@ -18,6 +18,7 @@ export type {
   SttTranscriptResult,
   SttTranscriptEvent,
   SttProvider,
+  ServedLanguages,
   SummarizationProviderConfig,
   SummarizationRequest,
   MeetingMinutesDraft,
@@ -34,6 +35,7 @@ export type {
   TtsSynthesizeRequest,
   TtsProvider,
   TtsVoice,
+  TtsVoiceCatalog,
   TtsAudioStream,
 } from './interfaces/index.js';
 

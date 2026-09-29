@@ -154,4 +154,29 @@ describe('useStreamingTranslate conversation identity', () => {
     });
     expect(latest.conversationId).toBe(during);
   });
+
+  it('captures the direction a conversation started with, and keeps it after it ends', async () => {
+    // The one thing a caller must NOT be able to do by re-reading its own
+    // settings after `stop`: the direction toggle stays live once the
+    // conversation is idle, so a page holding `settings.direction` instead of
+    // this captured value would report the wrong language for turns already on
+    // screen the moment somebody swapped it.
+    expect(latest.direction).toBeNull();
+
+    await act(async () => {
+      await latest.start(options);
+    });
+    expect(latest.direction).toBe('vi_to_en');
+
+    await act(async () => {
+      latest.stop();
+      await Promise.resolve();
+    });
+    expect(latest.direction).toBe('vi_to_en');
+
+    await act(async () => {
+      await latest.start({ ...options, direction: 'en_to_vi' });
+    });
+    expect(latest.direction).toBe('en_to_vi');
+  });
 });

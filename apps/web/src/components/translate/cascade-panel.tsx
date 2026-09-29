@@ -16,7 +16,7 @@ import { ElapsedClock } from '@/components/translate/elapsed-clock';
 import { Button } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
 import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
-import { directionLanguages } from '@chatofy/types';
+import { directionLanguages, reverseDirection } from '@chatofy/types';
 import { toConversationTurns } from '@chatofy/realtime-client';
 import type { TranslateSettings } from '@/lib/translate-settings';
 import { recordingOffsetMs } from '@/lib/transcript-time';
@@ -244,7 +244,12 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   const save = useConversationSave({
     conversationId: conversation.conversationId,
     startedAt: conversation.startedAt,
-    direction: settings.direction,
+    // Captured at `start`, not read live from `settings`: the direction toggle
+    // is only disabled while running, so a swap between End and the next Start
+    // must not flip what an already-finished conversation is stored as. Falls
+    // back to `settings.direction` only before the first `start`, when nothing
+    // has been captured yet and `turns` is empty so the fallback never saves.
+    direction: conversation.direction ?? settings.direction,
     running,
     turns: conversationTurns,
     // Stored by the TRANSCRIPT save, not only by the recording upload, because
@@ -333,9 +338,11 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
         <TranscriptPanes
           settings={settings}
           running={running}
-          onSwap={() =>
-            onChange({ direction: settings.direction === 'vi_to_en' ? 'en_to_vi' : 'vi_to_en' })
-          }
+          // Same capture as the save above, and for the same reason: a stop-then
+          // -swap must not flip which language a finished turn's translation
+          // line reads from.
+          conversationDirection={conversation.direction ?? settings.direction}
+          onSwap={() => onChange({ direction: reverseDirection(settings.direction) })}
           // The voice belongs beside the panel it speaks for, not behind the gear
           // at the far end of the dock beside the page settings.
           voiceControl={

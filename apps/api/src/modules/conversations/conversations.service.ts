@@ -11,6 +11,7 @@ import type {
   ConversationListResponse,
   ConversationSummary,
   SaveConversationRequest,
+  SaveConversationTurn,
 } from '@chatofy/types';
 import {
   CONVERSATION_AUDIO_STORAGE,
@@ -25,6 +26,8 @@ import {
 import {
   CONVERSATION_STORE,
   type ConversationStore,
+  type ConversationTurnWrite,
+  type ConversationWrite,
   type ListConversationsQuery,
 } from './interfaces/conversation-store.interface';
 
@@ -68,17 +71,13 @@ export class ConversationsService {
     conversationId: string,
     body: SaveConversationRequest,
   ): Promise<ConversationSummary> {
-    return this.store.save(ownerId, conversationId, {
-      direction: body.direction,
-      startedAt: body.startedAt,
-      endedAt: body.endedAt,
-      turns: body.turns,
-      // Carried on the transcript save, unlike the rest of the recording
-      // fields: it is the shift every stored timestamp is read through, and a
-      // conversation whose audio is refused — no storage configured, a body over
-      // the cap — still has to read the way it read while it was being spoken.
-      audioOffsetMs: body.audioOffsetMs,
-    });
+    // `audioOffsetMs` is carried through untouched: it is the shift every
+    // stored timestamp is read through, and a conversation whose audio is
+    // refused — no storage configured, a body over the cap — still has to
+    // read the way it read while it was being spoken. Everything else goes
+    // through `toConversationWrite`, since Postgres has no `direction` or
+    // `targetText` column for the store to write.
+    return this.store.save(ownerId, conversationId, toConversationWrite(body));
   }
 
   async get(ownerId: string, conversationId: string): Promise<Conversation> {
@@ -323,4 +322,40 @@ function asConflict(err: unknown): Error {
  */
 function notFound(conversationId: string): NotFoundException {
   return new NotFoundException(`no conversation ${conversationId}`);
+}
+
+/**
+ * The store's write shape, from the HTTP contract's — the one place a body's
+ * `SaveConversationRequest` fields are narrowed to what Postgres actually has
+ * columns for (no `direction`, no turn `targetText`).
+ *
+ * `body.languages` and a turn's `sourceLanguages`/`translations` are read AS
+ * SENT and never re-derived here: `saveConversationRequestSchema`'s preprocess
+ * (`@chatofy/types`) already filled them from `direction`/`speakerRole`/
+ * `targetText` when a legacy tab's body omitted them, so every `body` this
+ * function sees — validated against that schema before it can reach the
+ * service — already carries both.
+ */
+function toConversationWrite(body: SaveConversationRequest): ConversationWrite {
+  return {
+    languages: body.languages,
+    startedAt: body.startedAt,
+    endedAt: body.endedAt,
+    audioOffsetMs: body.audioOffsetMs,
+    turns: body.turns.map(toTurnWrite),
+  };
+}
+
+/** One turn's write shape, dropping the legacy `targetText` Postgres has no column for. */
+function toTurnWrite(turn: SaveConversationTurn): ConversationTurnWrite {
+  return {
+    position: turn.position,
+    speakerRole: turn.speakerRole,
+    speakerLabel: turn.speakerLabel,
+    sourceText: turn.sourceText,
+    displayText: turn.displayText,
+    sourceLanguages: turn.sourceLanguages,
+    translations: turn.translations,
+    offsetMs: turn.offsetMs,
+  };
 }

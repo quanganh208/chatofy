@@ -184,11 +184,21 @@ model Conversation {
   // uniqueness is scoped to the owner and a guessed id resolves to nothing
   // rather than to a unique violation that would reveal the row exists.
   clientId        String
-  // 'vi_to_en' | 'en_to_vi', validated as TranslationDirection at the boundary.
-  // Per CONVERSATION, not per turn: the settings popover is disabled while
-  // running and speakerRole is derived from direction, so a turn-level column
-  // would be one value repeated. Read by the history list card.
-  direction       String
+  // The languages this conversation is held in, declared-source-first —
+  // `['vi','en']` for what used to be stored as the direction `'vi_to_en'`, and
+  // the registry codes only (`LanguageCode`), validated as
+  // `conversationLanguagesSchema` at the boundary. Per CONVERSATION, not per
+  // turn: the settings popover is disabled while running and a turn's
+  // `speakerRole` is derived from it, so a turn-level column would be one value
+  // repeated.
+  //
+  // Replaces the single `direction` column ('vi_to_en' | 'en_to_vi'): a
+  // direction only ever named two languages in a fixed order, and an array
+  // says the same thing without hard-coding the count at two. The legacy field
+  // is derived back from this on every read (`legacyDirectionOf`,
+  // `@chatofy/types`) rather than stored twice, and read by the history list
+  // card either way.
+  languages       String[]
   // Reported by the client and DISPLAYED: endedAt - startedAt is the duration on
   // a history card. Not the sort key — a browser clock can lie — and both are
   // bounded at the boundary so a lying clock cannot render an absurd duration.
@@ -282,12 +292,35 @@ model ConversationTurn {
   // sourceText, exactly as `displays` works today. Read as
   // `displayText ?? sourceText`, which is also what search must match.
   displayText    String?
-  targetText     String
-  // Everything above, folded to the form search matches on: no diacritics, lower
-  // case. Written by the store through the shared `normalizeForSearch`, never by
-  // a client — it is derived, so it appears in no HTTP contract.
+  // The language(s) this block was spoken in — one, except for a mixed block
+  // that switched languages mid-turn. Registry codes only (`LanguageCode`),
+  // validated as `sourceLanguagesSchema` at the boundary; derived server-side
+  // from `speakerRole` for a row backfilled before this column existed
+  // (`speaker_a` → the conversation's Vietnamese side).
+  sourceLanguages String[]
+  // A translation per destination language this block needed — a single key
+  // for an ordinary turn, every OTHER conversation language for a mixed one.
+  // Validated as `translationMapSchema` at the boundary; server-written only,
+  // after zod has already checked every value's length, so no client ever puts
+  // an arbitrary key or an oversized value in this JSON.
+  translations   Json
+  // The legacy `targetText` this replaces: a SINGLE translation, chosen by
+  // `primaryTranslation` (`@chatofy/types`) from `translations` on every read,
+  // never stored — a column that duplicated one of `translations`' own values
+  // could disagree with it the moment either changed. The dropped column's
+  // last stored values ARE what `translations` and `sourceLanguages` were
+  // backfilled from (see the migration).
   //
-  // A stored column rather than an expression index over the three columns above,
+  // `sourceText`, `displayText` and every value of `translations`, folded to the
+  // form search matches on: no diacritics, lower case. Written by the store
+  // through the shared `normalizeForSearch`, never by a client — it is derived,
+  // so it appears in no HTTP contract. A row BACKFILLED by the migration keeps
+  // whatever it already held — the backfill touches `sourceLanguages` and
+  // `translations` only — so this still reflects only the single legacy
+  // `targetText` for a row saved before this column existed, and every
+  // translation for one saved after.
+  //
+  // A stored column rather than an expression index over the columns above,
   // and the reason is a Prisma limitation worth recording. An expression index IS
   // invisible to Prisma (verified: `migrate diff` reports no drift for one), so it
   // would survive — but Prisma could not then QUERY through it, which would push
@@ -396,21 +429,25 @@ model TranslationContext {
   @@unique([ownerId, clientId])
 }
 
-// One dictionary entry: a term in each language.
+// One dictionary entry: a term per language, in at least two.
 //
-// A child table rather than two parallel `String[]` columns, and the distinction
-// from `keyPoints` is the reason: a keyPoint is ONE string, while an entry is TWO
-// correlated strings, and parallel arrays make a desynchronized pair
+// A child table rather than parallel `String[]` columns, and the distinction
+// from `keyPoints` is the reason: a keyPoint is ONE string, while an entry is
+// several correlated strings, and parallel arrays make a desynchronized set
 // REPRESENTABLE. The precedent is `ConversationTurn` — an ordered list of
 // multi-field rows written as a unit by a transactional replace — not
 // `MinutesActionItem`, whose justification was a stable id the client addresses.
 // Nothing addresses one entry: the whole context is PUT.
 //
-// Keyed by LANGUAGE, not by role. There is no fold column and no uniqueness on
-// the terms, deliberately: which side is the SOURCE depends on the direction the
-// session runs in, the prompt builder folds that side, and a row knows of no
-// session. A unique index here would have to pick a direction and would be wrong
-// half the time.
+// `terms` is a JSONB map keyed by registry language code (`glossaryEntrySchema`
+// validates it at the application boundary, on every read as well as every
+// write — a row a past code path corrupted must not fail the whole context) —
+// not one column per language: a fixed-column table needs a migration to add a
+// language, and this one already carries the registry's own openness. There is
+// no fold column and no uniqueness on the terms, deliberately: which side is the
+// SOURCE depends on the direction the session runs in, the prompt builder folds
+// that side, and a row knows of no session. A unique index here would have to
+// pick a direction and would be wrong half the time.
 model GlossaryTerm {
   id        String             @id @default(cuid())
   contextId String
@@ -419,8 +456,7 @@ model GlossaryTerm {
   // what makes the pair order the operator authored the order the prompt sees —
   // and the order that decides which pairs survive the provider's cap.
   position  Int
-  vi        String
-  en        String
+  terms     Json
 
   // Unique, not merely indexed: two entries at one position is a corrupt
   // dictionary, and with contextId leading this IS the read index.

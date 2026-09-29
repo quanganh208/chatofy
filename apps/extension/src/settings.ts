@@ -1,4 +1,4 @@
-import { DEFAULT_TRANSLATE_MODE, DEFAULT_VOICE_GENDER } from '@chatofy/types';
+import { DEFAULT_TRANSLATE_MODE, DEFAULT_VOICE_GENDER, directionOf } from '@chatofy/types';
 import type { CaptureSettings } from './messages';
 
 /**
@@ -32,8 +32,18 @@ export const DEFAULT_API_BASE_URL = 'http://localhost:3000';
 const API_BASE_URL: string =
   (import.meta.env.WXT_API_BASE_URL as string | undefined) ?? DEFAULT_API_BASE_URL;
 
+/**
+ * The direction a fresh capture opens with, the opposite of web's `vi_to_en`.
+ *
+ * This is a meeting-capture default, not the web app's own: a meeting is
+ * usually a call with someone speaking English while the user speaks
+ * Vietnamese, so what needs translating first is the OTHER side speaking
+ * English, into Vietnamese for the user to read.
+ */
+export const DEFAULT_CAPTURE_DIRECTION = directionOf('en', 'vi');
+
 const DEFAULT_SETTINGS: CaptureSettings = {
-  direction: 'en_to_vi',
+  direction: DEFAULT_CAPTURE_DIRECTION,
   mode: DEFAULT_TRANSLATE_MODE,
   voiceGender: DEFAULT_VOICE_GENDER,
   apiBaseUrl: API_BASE_URL,

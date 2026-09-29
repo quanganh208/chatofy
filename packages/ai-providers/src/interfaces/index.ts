@@ -11,10 +11,10 @@ export type {
 } from './speaker-embedding-provider.js';
 export type {
   SttProviderConfig,
-  SttTranscribeOptions,
   SttTranscriptResult,
   SttTranscriptEvent,
   SttProvider,
+  ServedLanguages,
 } from './stt-provider.js';
 export type {
   SummarizationProviderConfig,
@@ -37,5 +37,6 @@ export type {
   TtsSynthesizeRequest,
   TtsProvider,
   TtsVoice,
+  TtsVoiceCatalog,
   TtsAudioStream,
 } from './tts-provider.js';

@@ -16,6 +16,7 @@ import {
   ThemeToggle,
 } from '@chatofy/ui/react';
 import type { VoiceGender } from '@chatofy/types';
+import { DEFAULT_CAPTURE_DIRECTION } from '../../src/settings';
 
 /**
  * Stands for "no context" in the picker's own value space.
@@ -86,7 +87,7 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
       )}
 
       <DirectionToggle
-        value={settings?.direction ?? 'en_to_vi'}
+        value={settings?.direction ?? DEFAULT_CAPTURE_DIRECTION}
         disabled={!settings}
         onChange={(direction) => actions.change({ direction })}
       />

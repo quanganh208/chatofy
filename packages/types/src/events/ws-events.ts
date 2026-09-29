@@ -2,9 +2,9 @@
 import { z } from 'zod';
 import { audioFrameSchema } from './audio-frame.js';
 import { speakerRoleSchema } from '../domain/session.js';
+import { translationDirectionSchema, translationMapSchema } from '../domain/languages.js';
 import {
-  translationDirectionSchema,
-  transcriptSegmentSchema,
+  transcriptSegmentWireSchema,
   voiceGenderSchema,
   DEFAULT_VOICE_GENDER,
 } from '../domain/transcript.js';
@@ -105,7 +105,7 @@ const glossaryTermSchema = z
   });
 
 /**
- * One dictionary entry: a term in each language.
+ * One dictionary entry: a term per language, present in at least two.
  *
  * Keyed BY LANGUAGE, not by role, and that is the load-bearing choice. The
  * extension translates one meeting in BOTH directions at once from ONE settings
@@ -116,14 +116,21 @@ const glossaryTermSchema = z
  * of no session; the prompt builder resolves it against the direction it is
  * given.
  *
- * Both sides bounded at the hotword ceiling, because an entry IS two hotwords by
- * cost. `min(1)` on each: a pair with an empty side names a rendering of
+ * A MAP over the registry (`translationMapSchema`), not a record over every
+ * registry code: `z.record(languageCodeSchema, ...)` demands a value for EVERY
+ * language, so a third registry language would reject every entry a writer
+ * authored before it existed — the `{vi, en}` shape every stored row and every
+ * `{vi,en}` client already sends. `.refine` below is what still refuses a
+ * one-sided entry: a rendering in only one language names a rendering of
  * nothing, or nothing as a rendering, and neither is a thing the prompt can say.
+ *
+ * Every present side bounded at the hotword ceiling, because an entry IS two
+ * hotwords by cost.
  */
-export const glossaryEntrySchema = z.object({
-  vi: glossaryTermSchema,
-  en: glossaryTermSchema,
-});
+export const glossaryEntrySchema = translationMapSchema(glossaryTermSchema).refine(
+  (entry) => Object.values(entry).filter((term) => term !== undefined).length >= 2,
+  { message: 'An entry needs a rendering in at least two languages.' },
+);
 export type GlossaryEntry = z.infer<typeof glossaryEntrySchema>;
 
 /**
@@ -207,7 +214,11 @@ export const sessionOptionsSchema = z.object({
    * accepting an unrecognised gender rather than 422-ing a turn that could still
    * have been spoken.
    *
-   * Honoured for English output only; the Vietnamese engine has no rate control.
+   * Whether it does anything is a property of the ENGINE speaking the output
+   * language, not of the language itself — reported per language by the speech
+   * backend's own voice catalog (`speedAdjustable` on `GET /translate/voices`),
+   * not fixed here. Today's local backends: honoured for English (Kokoro),
+   * ignored for Vietnamese (VieNeu).
    */
   speed: z
     .number()
@@ -581,8 +592,17 @@ const serverTranscriptFinalSchema = z.object({
    * the same way, which is what lets a reducer key on one field.
    */
   sessionId: z.string(),
-  /** Full TranscriptSegment record persisted to DB — canonical domain schema. */
-  segment: transcriptSegmentSchema,
+  /**
+   * Full TranscriptSegment record persisted to DB — canonical domain schema.
+   *
+   * Parsed here through the WIRE variant, not the strict one: this event
+   * reaches `realtime-client` (and through it, web and the extension), and a
+   * segment sent before `sourceLanguages`/`translations` existed — an old API
+   * behind a rolled-forward tab, or the reverse — must still parse. See
+   * `transcriptSegmentWireSchema` for why the server that BUILDS this record
+   * does not get the same leniency.
+   */
+  segment: transcriptSegmentWireSchema,
   /**
    * A readable rendering of `segment.sourceText`, present only when it differs.
    *

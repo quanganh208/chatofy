@@ -22,17 +22,17 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.fixture(scope="module")
-def client():
-    # `with` triggers lifespan → loads both models once for the whole module.
-    with TestClient(app) as c:
-        yield c
-
-
 def test_healthz_ok(client):
     res = client.get("/healthz")
     assert res.status_code == 200
     assert res.json()["status"] == "ok"
+
+
+def test_healthz_reports_supported_languages(client):
+    from engines.registry import SUPPORTED_LANGUAGES
+
+    res = client.get("/healthz")
+    assert res.json()["languages"] == list(SUPPORTED_LANGUAGES)
 
 
 @pytest.mark.parametrize("language", ["vi", "en"])

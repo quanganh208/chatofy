@@ -122,8 +122,7 @@ describe('TurnTimeline', () => {
       const work = () =>
         Promise.resolve({
           sourceText: 'a',
-          targetText: 'b',
-          targetLanguage: 'en' as const,
+          translations: { en: 'b' },
         });
 
       session.startSpeculation(100, work());

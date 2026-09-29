@@ -3,7 +3,7 @@
 // `repair-number-vocabulary.ts` is kept apart from the scorer that consumes it:
 // these change when the language turns out to say something the tables had not
 // heard, the rules change when a reading is wrong.
-import { VOCABULARY } from './repair-number-vocabulary.js';
+import { VI_NUMBER_VOCABULARY } from './repair-number-vocabulary.js';
 import type { NumberTiers } from './inverse-normalize.js';
 
 /** Digit words, including the positional variants a word list would forget. */
@@ -124,7 +124,7 @@ const POSITIONAL_NOUNS = new Set(['phòng', 'tầng', 'trang', 'chỗ', 'điểm
  * The data file itself is not edited — this is a reading of it.
  */
 function vietnameseTiers(): NumberTiers {
-  const vi = VOCABULARY.vi;
+  const vi = VI_NUMBER_VOCABULARY;
 
   // `counting`, minus the markers and units that sit BESIDE a numeral rather
   // than in it, plus the ambiguous digits the guard had to file as `filler`.

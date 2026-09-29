@@ -147,7 +147,7 @@ export class GeminiTranslationProvider implements TranslationProvider {
     // one in a sentence that already settles it makes the answer worse.
     const context = buildContextBlock(
       req.hints,
-      req.sourceLanguage,
+      { source: req.sourceLanguage, target: req.targetLanguage },
       needsPriorSpeech(text) ? req.context : undefined,
     );
     const instruction = buildTranslationInstruction(

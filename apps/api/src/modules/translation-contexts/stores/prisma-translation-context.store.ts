@@ -1,8 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type {
-  SaveTranslationContextRequest,
-  TranslationContext,
+import {
+  CONTEXT_LIMITS,
+  glossaryEntrySchema,
+  type GlossaryEntry,
+  type SaveTranslationContextRequest,
+  type TranslationContext,
 } from '@chatofy/types';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   isRetryableConflict,
@@ -13,6 +17,9 @@ import type { TranslationContextStore } from '../interfaces/translation-context-
 
 /** How many times a transient conflict is re-attempted before it surfaces. */
 const MAX_SAVE_ATTEMPTS = 5;
+
+/** Module-scoped: one logger for the whole store, with no instance to hold. */
+const logger = new Logger('PrismaTranslationContextStore');
 
 /**
  * Namespaces the advisory locks this store takes.
@@ -44,7 +51,15 @@ const OWNER_LOCK_CLASS = 8154;
  */
 const MAX_BACKOFF_MS = 25;
 
-/** The columns a read selects, and the shape {@link toContext} maps. */
+/**
+ * The columns a read selects, and the shape {@link toContext} maps.
+ *
+ * `terms` is `unknown` rather than `GlossaryEntry`, deliberately: it is a JSONB
+ * column, so Prisma hands back whatever bytes are actually stored, and a row a
+ * past code path wrote in a shape this version no longer accepts must be
+ * something {@link toContext} can catch rather than something the type checker
+ * has been told to trust.
+ */
 interface ContextRow {
   clientId: string;
   name: string;
@@ -52,7 +67,7 @@ interface ContextRow {
   hotwords: string[];
   style: string | null;
   updatedAt: Date;
-  glossary: { vi: string; en: string }[];
+  glossary: { terms: unknown }[];
 }
 
 /**
@@ -79,8 +94,6 @@ interface ContextRow {
  */
 @Injectable()
 export class PrismaTranslationContextStore implements TranslationContextStore {
-  private readonly logger = new Logger(PrismaTranslationContextStore.name);
-
   constructor(private readonly prisma: PrismaService) {}
 
   async list(ownerId: string): Promise<TranslationContext[]> {
@@ -211,6 +224,47 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
               if (owned >= maxPerOwner) return null;
             }
 
+            // Rows the CURRENT schema cannot read, read BEFORE the replace below
+            // touches anything. `toContext`/`list` already drop a row like this
+            // from what the editor can show — a stricter word-count cap landed
+            // after some rows were written, or a registry language was added and
+            // later rolled back — so the operator never sees it and the body
+            // this save is about to write never re-sends it either. Without this,
+            // the full-replace two lines down reads that silence as "the
+            // operator deleted it" and does so for real. `held === null` is a
+            // CREATE: there is no existing context yet, so nothing to preserve.
+            // Ordered by `position`, so what survives the cap, and the order the
+            // survivors are renumbered in, is the authored order and not
+            // whatever order Postgres happens to return. The cap is read from
+            // the contract here, unlike the per-owner ceiling the caller passes
+            // in, because it is not a new decision: the request body was already
+            // held to it, and only this store knows how many rows it is adding
+            // on top of the body.
+            const { preserved, discardedEmpty, discardedOverCap } =
+              held === null
+                ? { preserved: [], discardedEmpty: 0, discardedOverCap: 0 }
+                : partitionStoredGlossary(
+                    (
+                      await tx.glossaryTerm.findMany({
+                        where: { contextId: held.id },
+                        orderBy: { position: 'asc' },
+                        select: { terms: true },
+                      })
+                    ).map((entry) => entry.terms),
+                    CONTEXT_LIMITS.MAX_GLOSSARY - body.glossary.length,
+                  );
+            // Once per save, not once per read: a save is the moment these rows
+            // are either carried forward or lost, and a read that warned on
+            // every fetch of the same context would bury that in repetition.
+            if (preserved.length + discardedEmpty + discardedOverCap > 0) {
+              logger.warn(
+                `context ${contextId}: carrying ${preserved.length} unreadable ` +
+                  `glossary row(s) through the replace; discarding ` +
+                  `${discardedEmpty} with no term map and ${discardedOverCap} ` +
+                  `past the ${CONTEXT_LIMITS.MAX_GLOSSARY}-entry cap`,
+              );
+            }
+
             const row = await tx.translationContext.upsert({
               where: { ownerId_clientId: { ownerId, clientId: contextId } },
               create: { ownerId, clientId: contextId, ...parent },
@@ -223,12 +277,25 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
             // pairs the operator removed.
             await tx.glossaryTerm.deleteMany({ where: { contextId: row.id } });
             await tx.glossaryTerm.createMany({
-              data: body.glossary.map((entry, index) => ({
-                contextId: row.id,
-                position: index,
-                vi: entry.vi,
-                en: entry.en,
-              })),
+              data: [
+                ...body.glossary.map((entry, index) => ({
+                  contextId: row.id,
+                  position: index,
+                  // Stored as the validated map itself — `entry` already
+                  // satisfies `glossaryEntrySchema`, which is what the request
+                  // body was parsed against before reaching this store.
+                  terms: entry,
+                })),
+                // Appended after the operator's own entries, never interleaved:
+                // `position` is the order the operator authored, and a row
+                // nobody could see to edit must not shift it. Carried through
+                // byte-for-byte — re-validating would just drop it again.
+                ...preserved.map((terms, index) => ({
+                  contextId: row.id,
+                  position: body.glossary.length + index,
+                  terms,
+                })),
+              ],
             });
 
             const saved = await tx.translationContext.findUniqueOrThrow({
@@ -259,7 +326,7 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
         if (attempt >= MAX_SAVE_ATTEMPTS || !isRetryableConflict(err)) {
           throw err;
         }
-        this.logger.warn(
+        logger.warn(
           `retrying translation-context save after a transient conflict ` +
             `(attempt ${attempt} of ${MAX_SAVE_ATTEMPTS}): ${String(err)}`,
         );
@@ -296,7 +363,7 @@ const CONTEXT_SELECT = {
   updatedAt: true,
   glossary: {
     orderBy: { position: 'asc' },
-    select: { vi: true, en: true },
+    select: { terms: true },
   },
 } as const;
 
@@ -310,9 +377,88 @@ function toContext(row: ContextRow): TranslationContext {
     // rather than trusted, because the column admits anything a past write put
     // there and the contract admits three values.
     style: asStyle(row.style),
-    glossary: row.glossary.map((entry) => ({ vi: entry.vi, en: entry.en })),
+    glossary: row.glossary
+      .map((entry) => entry.terms)
+      .map(asGlossaryEntry)
+      .filter(isNotNull),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+/**
+ * One stored glossary row, validated against the same schema the request body
+ * was — or `null` for a row a past code path corrupted.
+ *
+ * A read has to be defensive here in a way a Prisma-typed column never needs to
+ * be, precisely because `terms` is JSONB: Postgres accepts any JSON value, so
+ * `glossaryEntrySchema` is the only thing standing between a row this version
+ * cannot make sense of and a `TranslationContext` that silently carries garbage
+ * into a translation prompt. Dropped rather than thrown, so one bad row costs
+ * its own entry and not the rest of the context the operator is trying to read.
+ *
+ * Not logged here: every read of the same context would repeat the same line
+ * forever. The row is still in the table, and {@link partitionStoredGlossary}
+ * reports it once, on the save that decides whether it is kept.
+ */
+function asGlossaryEntry(terms: unknown): GlossaryEntry | null {
+  const parsed = glossaryEntrySchema.safeParse(terms);
+  return parsed.success ? parsed.data : null;
+}
+
+/** What a replace does with the rows already stored for the context. */
+interface StoredGlossaryPartition {
+  /** Unreadable rows to append after the body's entries, in position order. */
+  preserved: Prisma.InputJsonObject[];
+  /** Rows whose `terms` is JSON `null` or not an object: nothing to preserve. */
+  discardedEmpty: number;
+  /** Unreadable rows past the glossary cap, dropped from the tail. */
+  discardedOverCap: number;
+}
+
+/**
+ * Split the stored rows (already in `position` order) into the unreadable ones a
+ * replace carries forward and the ones it lets go.
+ *
+ * - A row the current schema reads is never preserved: the editor showed it, so
+ *   the body either re-sent it or the operator deleted it on purpose.
+ * - A row whose `terms` is not a JSON object — `null`, an array, a scalar — is
+ *   discarded. It holds no rendering in any language, so there is nothing to
+ *   keep, and re-inserting a JSON `null` into the required column would fail
+ *   every later save of this context.
+ * - The rest count against the same cap the body is held to, and `room` is
+ *   what the body left of it. When they do not fit, the EARLIEST by position
+ *   are kept and the tail is dropped — the rule this store applies everywhere,
+ *   where position order decides what survives a cap. Without this, a context
+ *   whose body is already at the cap would grow past it on every save that
+ *   preserved something, and those rows cannot be removed from the editor,
+ *   which never sees them; deleting the whole context is the only other exit.
+ */
+function partitionStoredGlossary(
+  stored: unknown[],
+  room: number,
+): StoredGlossaryPartition {
+  let discardedEmpty = 0;
+  const unreadable: Prisma.InputJsonObject[] = [];
+  for (const terms of stored) {
+    if (glossaryEntrySchema.safeParse(terms).success) continue;
+    if (typeof terms !== 'object' || terms === null || Array.isArray(terms)) {
+      discardedEmpty += 1;
+      continue;
+    }
+    // A non-null, non-array JSONB value read back by Prisma is a JSON object;
+    // carried through byte-for-byte, since re-validating would drop it again.
+    unreadable.push(terms);
+  }
+  const kept = unreadable.slice(0, Math.max(0, room));
+  return {
+    preserved: kept,
+    discardedEmpty,
+    discardedOverCap: unreadable.length - kept.length,
+  };
+}
+
+function isNotNull<T>(value: T | null): value is T {
+  return value !== null;
 }
 
 /**

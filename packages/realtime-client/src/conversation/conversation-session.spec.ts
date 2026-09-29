@@ -389,6 +389,36 @@ describe('ConversationSession', () => {
     });
   });
 
+  describe('a turn refused because its language cannot be served', () => {
+    /**
+     * Refused inside the server's `start()`, like `too_many_turns`, so no
+     * session id and no `server.session.ended` ever exist for it. Keyed on the
+     * missing id rather than on the code, so the log line and the marker are
+     * filed the moment the refusal lands.
+     */
+    it('is reported as abandoned and logged as rejected', async () => {
+      const h = harness();
+      await h.session.start(startOptions);
+
+      h.talk();
+      const turnId = h.socket().sent.find((e) => e.type === 'client.session.start')?.turnId;
+      expect(turnId).toBeDefined();
+
+      h.socket().emit({
+        type: 'server.error',
+        code: 'language_unavailable',
+        message: 'No speech engine serves this language right now',
+        turnId,
+      });
+
+      expect(h.listeners.onTurnAbandoned).toHaveBeenCalledWith(null, 'language_unavailable');
+      const lines = h.listeners.onLog.mock.calls.map(([line]) => line as string);
+      expect(lines.filter((line) => line.includes('abandoned'))).toEqual([
+        expect.stringContaining('language_unavailable -> rejected'),
+      ]);
+    });
+  });
+
   describe('audio captured before the handshake lands', () => {
     it('holds it, then sends it in order once the session id arrives', async () => {
       const h = harness();
@@ -1375,6 +1405,8 @@ describe('ConversationSession', () => {
         sessionId: 's1',
         speakerRole: 'speaker_a',
         direction: 'vi_to_en',
+        sourceLanguages: ['vi'],
+        translations: { en: 'hello' },
         sourceText: 'xin chào',
         targetText: 'hello',
         audioUrl: null,
@@ -1401,6 +1433,23 @@ describe('ConversationSession', () => {
       });
 
       expect(h.errors).toContain('No speech detected');
+    });
+
+    it('surfaces a language_unavailable refusal as the server wrote it, not as a code', async () => {
+      // The listener gets exactly `event.message`, never `${code}: ${message}` —
+      // a reader must not see "language_unavailable: ..." on screen for a
+      // sentence the server already wrote to be read on its own.
+      const h = harness();
+      await h.session.start(startOptions);
+
+      h.socket().emit({
+        type: 'server.error',
+        code: 'language_unavailable',
+        message: 'This server cannot speak en right now',
+      });
+
+      expect(h.errors).toContain('This server cannot speak en right now');
+      expect(h.errors.some((message) => message?.includes('language_unavailable'))).toBe(false);
     });
   });
 

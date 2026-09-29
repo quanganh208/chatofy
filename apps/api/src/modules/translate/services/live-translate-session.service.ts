@@ -3,14 +3,15 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import {
   ProviderRegistry,
-  type LanguageCode,
   type RealtimeProvider,
   type RealtimeStreamEvents,
   type StreamHandle,
 } from '@chatofy/ai-providers';
 import {
   MAX_LIVE_ERROR_MESSAGE_CHARS,
+  directionLanguages,
   type AudioFrame,
+  type LanguageCode,
   type LiveServerEvent,
   type TranslationDirection,
 } from '@chatofy/types';
@@ -31,16 +32,6 @@ import {
 
 /** Rate the backend takes. Anything else is refused rather than resampled here. */
 const REQUIRED_INPUT_RATE = 16000;
-
-/** Language pair for a direction, both of which the session needs. */
-function languagesFor(direction: TranslationDirection): {
-  source: LanguageCode;
-  target: LanguageCode;
-} {
-  return direction === 'vi_to_en'
-    ? { source: 'vi', target: 'en' }
-    : { source: 'en', target: 'vi' };
-}
 
 /**
  * Per-connection state machine for the continuous mode of `/ws/translate`.
@@ -163,7 +154,7 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
       return;
     }
 
-    const { source, target } = languagesFor(direction);
+    const { source, target } = directionLanguages(direction);
     const sessionId = randomUUID();
     const connectStartedAt = Date.now();
 

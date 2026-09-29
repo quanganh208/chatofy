@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   BadRequestException,
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import {
+  LocalSpeechTtsProvider,
   ProviderBusyError,
   ProviderConnectionError,
   ProviderResponseError,
@@ -17,6 +18,11 @@ import type {
   AiProvidersFactory,
   PipelineProviders,
 } from '../providers/ai-providers.factory';
+import { planTurnLanguages } from '../session/turn-language-plan';
+
+/** The plan every default-direction test in this file drives the pipeline with. */
+const VI_TO_EN = planTurnLanguages(['vi', 'en'], ['vi']);
+const EN_TO_VI = planTurnLanguages(['en', 'vi'], ['en']);
 
 /** Build a fake provider trio with overridable behavior per test. */
 function fakeTrio(
@@ -77,7 +83,7 @@ describe('PipelineTranslatorService', () => {
     });
 
     await expect(
-      serviceWith(trio).transcribeAndTranslate(input),
+      serviceWith(trio).transcribeAndTranslate(input, VI_TO_EN),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     const line = warn.mock.calls.map(([message]) => String(message)).join('\n');
@@ -105,7 +111,10 @@ describe('PipelineTranslatorService', () => {
     } as unknown as PipelineProviders;
     const hints = { hotwords: ['poker', 'Target'] };
 
-    await serviceWith(trio).transcribeAndTranslate({ ...input, hints });
+    await serviceWith(trio).transcribeAndTranslate(
+      { ...input, hints },
+      VI_TO_EN,
+    );
 
     // The recognizer is where a hotword was always meant to be spent: the field
     // exists because the recognizer mishears these words.
@@ -136,7 +145,10 @@ describe('PipelineTranslatorService', () => {
     } as unknown as PipelineProviders;
     const context = ['Nhưng mà cái mục tiêu mà tôi muốn làm thì'];
 
-    await serviceWith(trio).transcribeAndTranslate({ ...input, context });
+    await serviceWith(trio).transcribeAndTranslate(
+      { ...input, context },
+      VI_TO_EN,
+    );
 
     expect(translate).toHaveBeenCalledWith(
       expect.objectContaining({ context }),
@@ -155,7 +167,12 @@ describe('PipelineTranslatorService', () => {
     });
     const context = ['Nhưng mà cái mục tiêu mà tôi muốn làm thì'];
 
-    await serviceWith(trio).translate({ text: 'Thì nó', context });
+    await serviceWith(trio).translate({
+      text: 'Thì nó',
+      source: 'vi',
+      target: 'en',
+      context,
+    });
 
     expect(translate).toHaveBeenCalledWith(
       expect.objectContaining({ context }),
@@ -176,7 +193,7 @@ describe('PipelineTranslatorService', () => {
       tts: { name: 'fake-tts', outputMimeType: 'audio/mpeg', synthesize },
     } as PipelineProviders;
 
-    const result = await serviceWith(trio).translateTurn(input);
+    const result = await serviceWith(trio).translateTurn(input, VI_TO_EN);
 
     expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'vi', {
       hotwords: undefined,
@@ -209,11 +226,10 @@ describe('PipelineTranslatorService', () => {
     const factory = { makeProviders } as unknown as AiProvidersFactory;
     const service = new PipelineTranslatorService(factory);
 
-    const result = await service.translateTurn({
-      ...input,
-      direction: 'en_to_vi',
-      voiceGender: 'male',
-    });
+    const result = await service.translateTurn(
+      { ...input, voiceGender: 'male' },
+      EN_TO_VI,
+    );
 
     // The trio no longer depends on direction — the language travels with each
     // provider call instead.
@@ -243,6 +259,7 @@ describe('PipelineTranslatorService', () => {
     const factory = { makeProviders } as unknown as AiProvidersFactory;
     const result = await new PipelineTranslatorService(factory).translateTurn(
       input,
+      VI_TO_EN,
     );
     expect(makeProviders).toHaveBeenCalledWith();
     // Direction reaches the provider as an argument, not via the trio it built.
@@ -259,9 +276,9 @@ describe('PipelineTranslatorService', () => {
         transcribe: vi.fn().mockResolvedValue({ text: '   ', language: 'vi' }),
       },
     });
-    await expect(serviceWith(trio).translateTurn(input)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      serviceWith(trio).translateTurn(input, VI_TO_EN),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('maps provider connection failures to ServiceUnavailable', async () => {
@@ -273,9 +290,9 @@ describe('PipelineTranslatorService', () => {
           .mockRejectedValue(new ProviderConnectionError('upstream down')),
       },
     });
-    await expect(serviceWith(trio).translateTurn(input)).rejects.toBeInstanceOf(
-      ServiceUnavailableException,
-    );
+    await expect(
+      serviceWith(trio).translateTurn(input, VI_TO_EN),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
   it('maps provider response failures to ServiceUnavailable', async () => {
@@ -287,9 +304,9 @@ describe('PipelineTranslatorService', () => {
           .mockRejectedValue(new ProviderResponseError('bad key', 401)),
       },
     });
-    await expect(serviceWith(trio).translateTurn(input)).rejects.toBeInstanceOf(
-      ServiceUnavailableException,
-    );
+    await expect(
+      serviceWith(trio).translateTurn(input, VI_TO_EN),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
   it('maps a busy speech engine to its own 503, on every synthesis path', async () => {
@@ -312,7 +329,7 @@ describe('PipelineTranslatorService', () => {
       service.synthesizeStream(req, new AbortController().signal),
     ).rejects.toBeInstanceOf(SpeechEngineBusyException);
     // REST keeps the 503 and the message it has always had.
-    const rest = service.translateTurn(input);
+    const rest = service.translateTurn(input, VI_TO_EN);
     await expect(rest).rejects.toBeInstanceOf(ServiceUnavailableException);
     await expect(rest).rejects.toThrow('Translation provider request failed');
   });
@@ -325,7 +342,148 @@ describe('PipelineTranslatorService', () => {
         synthesize: vi.fn().mockResolvedValue(new Uint8Array([1])),
       },
     });
-    const result = await serviceWith(trio).translateTurn(input);
+    const result = await serviceWith(trio).translateTurn(input, VI_TO_EN);
     expect(result.audioMimeType).toBe('audio/x-test');
+  });
+
+  describe('translateAll', () => {
+    it('fans out one provider request per target, in parallel', async () => {
+      const translate = vi
+        .fn()
+        .mockImplementation(({ targetLanguage }: { targetLanguage: string }) =>
+          Promise.resolve({ text: `<${targetLanguage}>` }),
+        );
+      const trio = fakeTrio({
+        translation: { name: 'fake-translation', translate },
+      });
+
+      const translations = await serviceWith(trio).translateAll({
+        text: 'xin chào',
+        source: 'vi',
+        targets: ['vi', 'en'],
+      });
+
+      expect(translate).toHaveBeenCalledTimes(2);
+      expect(translations).toEqual({ vi: '<vi>', en: '<en>' });
+    });
+
+    it('costs exactly one request for one target — the shape every call before fan-out took', async () => {
+      const translate = vi.fn().mockResolvedValue({ text: 'hello' });
+      const trio = fakeTrio({
+        translation: { name: 'fake-translation', translate },
+      });
+
+      const translations = await serviceWith(trio).translateAll({
+        text: 'xin chào',
+        source: 'vi',
+        targets: ['en'],
+      });
+
+      expect(translate).toHaveBeenCalledTimes(1);
+      expect(translations).toEqual({ en: 'hello' });
+    });
+  });
+
+  describe('transcribeAndTranslate — fan-out', () => {
+    it('translates into every target the plan names, keyed by language', async () => {
+      const translate = vi
+        .fn()
+        .mockImplementation(({ targetLanguage }: { targetLanguage: string }) =>
+          Promise.resolve({ text: `<${targetLanguage}>` }),
+        );
+      const trio = fakeTrio({
+        translation: { name: 'fake-translation', translate },
+      });
+      // A mixed turn: both conversation languages are sources, so both are
+      // targets too — see `translationTargets` in `@chatofy/types`.
+      const mixed = planTurnLanguages(['vi', 'en'], ['vi', 'en']);
+
+      const { translations } = await serviceWith(trio).transcribeAndTranslate(
+        input,
+        mixed,
+      );
+
+      expect(translate).toHaveBeenCalledTimes(2);
+      expect(translations).toEqual({ vi: '<vi>', en: '<en>' });
+    });
+  });
+
+  describe('listVoices', () => {
+    it('never leaks the cache entry expiresAt, cold or warm', async () => {
+      const catalog = {
+        voices: [{ token: 'a', label: 'A', gender: 'female' as const }],
+        speedAdjustable: true,
+      };
+      const listVoices = vi.fn().mockResolvedValue(catalog);
+      const trio = fakeTrio({
+        tts: {
+          name: 'fake-tts',
+          outputMimeType: 'audio/mpeg',
+          synthesize: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
+          listVoices,
+        },
+      });
+      const service = serviceWith(trio);
+
+      // Cold: built straight from the provider's own answer.
+      const cold = await service.listVoices('en');
+      expect(cold).toEqual(catalog);
+      expect(cold).not.toHaveProperty('expiresAt');
+
+      // Warm: the SAME entry this service just cached, and the whole point of
+      // this test — a naive `return cached` answers with `expiresAt` still on
+      // it, so the response shape would depend on which call this was.
+      const warm = await service.listVoices('en');
+      expect(listVoices).toHaveBeenCalledTimes(1);
+      expect(warm).toEqual(catalog);
+      expect(warm).not.toHaveProperty('expiresAt');
+    });
+
+    describe('a sidecar /voices that predates speedAdjustable', () => {
+      const realFetch = global.fetch;
+      afterEach(() => {
+        global.fetch = realFetch;
+      });
+
+      it('answers with speedAdjustable absent, not false, cold or warm', async () => {
+        // The real local provider over a mocked sidecar: the flag must survive
+        // provider → cache → response as ABSENT, which the web reads as
+        // "unknown" and keeps the rate control visible for.
+        const fetchMock = vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            voices: [{ token: '9', label: 'Sarah', gender: 'female' }],
+          }),
+        });
+        global.fetch = fetchMock;
+        const service = serviceWith(
+          fakeTrio({
+            tts: new LocalSpeechTtsProvider({
+              baseUrl: 'http://localhost:8003',
+            }),
+          }),
+        );
+
+        for (const answer of [
+          await service.listVoices('en'),
+          await service.listVoices('en'),
+        ]) {
+          expect(answer).not.toHaveProperty('speedAdjustable');
+          expect(JSON.parse(JSON.stringify(answer))).toStrictEqual({
+            voices: [{ token: '9', label: 'Sarah', gender: 'female' }],
+          });
+        }
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('answers an explicit false for a backend with no catalog, which ignores speed', async () => {
+      const service = serviceWith(fakeTrio());
+
+      await expect(service.listVoices('en')).resolves.toStrictEqual({
+        voices: [],
+        speedAdjustable: false,
+      });
+    });
   });
 });

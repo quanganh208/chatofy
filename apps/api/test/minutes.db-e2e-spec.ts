@@ -35,7 +35,7 @@ import {
   ProviderConnectionError,
   ProviderRegistry,
 } from '@chatofy/ai-providers';
-import { MINUTES_LIMITS, type SaveConversationRequest } from '@chatofy/types';
+import { MINUTES_LIMITS } from '@chatofy/types';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
@@ -43,6 +43,32 @@ import { registerAndLogin, type Identity } from './utils/auth-fixture';
 
 /** Namespaced per run so a reused database does not collide with itself. */
 const run = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+
+/**
+ * A save body as a LEGACY client tab still sends it — `direction` and turn
+ * `targetText`, not `SaveConversationRequest`'s language-keyed shape.
+ *
+ * Every `seed` call in this file drives the save route with exactly this
+ * shape, exercising `saveConversationRequestSchema`'s preprocess the same way
+ * `conversations.db-e2e-spec.ts`'s own `SaveConversationBody` does — this suite
+ * is about minutes, not about the save contract itself, so it keeps sending the
+ * shape a real, un-upgraded tab sends rather than switching to the stricter one.
+ */
+interface SaveConversationBody {
+  direction: 'vi_to_en' | 'en_to_vi';
+  startedAt: string;
+  endedAt: string;
+  turns: Array<{
+    position: number;
+    speakerRole: 'speaker_a' | 'speaker_b';
+    speakerLabel: string | null;
+    sourceText: string;
+    displayText: string | null;
+    targetText: string;
+    offsetMs?: number | null;
+  }>;
+  audioOffsetMs?: number | null;
+}
 
 describe('Prisma-backed minutes (db-e2e)', () => {
   let app: INestApplication;
@@ -380,7 +406,7 @@ describe('Prisma-backed minutes (db-e2e)', () => {
   /** Stores a conversation for `who` and returns its client-minted id. */
   async function seed(
     who: Identity,
-    overrides: Partial<SaveConversationRequest> = {},
+    overrides: Partial<SaveConversationBody> = {},
   ): Promise<string> {
     const id = randomUUID();
     await request(app.getHttpServer())

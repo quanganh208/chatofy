@@ -10,7 +10,7 @@
 // in either direction — see `audioFrameSchema`.
 import { z } from 'zod';
 import { audioFrameSchema } from './audio-frame.js';
-import { languageCodeSchema, translationDirectionSchema } from '../domain/transcript.js';
+import { languageCodeSchema, translationDirectionSchema } from '../domain/languages.js';
 
 /**
  * Every string here is bounded, for the same reason the turn contract bounds

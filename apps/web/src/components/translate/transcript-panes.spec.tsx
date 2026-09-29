@@ -32,6 +32,8 @@ const TURNS: TranscriptSegment[] = [
     sessionId: 'a',
     speakerRole: 'speaker_a',
     direction: 'vi_to_en',
+    sourceLanguages: ['vi'],
+    translations: { en: 'Hello' },
     sourceText: 'Xin chào',
     targetText: 'Hello',
     audioUrl: null,
@@ -172,6 +174,48 @@ describe('TranscriptPanes arrangements', () => {
     root = createRoot(container);
     render({ displayMode: 'list' });
     expect(container.querySelectorAll('[aria-hidden].bg-hairline').length).toBe(0);
+  });
+});
+
+describe('TranscriptPanes and the conversation-captured direction', () => {
+  it('keeps a finished turn readable after stop, swap', () => {
+    // TURNS was captured vi_to_en: `translations: { en: 'Hello' }`. Swapping
+    // `settings.direction` afterwards (the toggle stays live once `running` is
+    // false) must not make the target pane look for `translations.vi`, which
+    // that turn never had.
+    act(() => {
+      root.render(
+        <LocaleProvider>
+          <TranscriptPanes
+            settings={{
+              ...DEFAULT_TRANSLATE_SETTINGS,
+              displayMode: 'split',
+              direction: 'en_to_vi',
+            }}
+            running={false}
+            onSwap={vi.fn()}
+            voiceControl={<button type="button">voice slot</button>}
+            conversationDirection="vi_to_en"
+            stream={{
+              turns: TURNS,
+              liveTurns: [],
+              captures: CAPTURES,
+              displays: {},
+              startedAtMs: null,
+              audioOffsetMs: null,
+              speakers: SPEAKERS,
+              attributions: {},
+              onAttribute: vi.fn(),
+              onUnattribute: vi.fn(),
+              onAddSpeaker: vi.fn(),
+              onRenameSpeaker: vi.fn(),
+              onRemoveSpeaker: vi.fn(),
+            }}
+          />
+        </LocaleProvider>,
+      );
+    });
+    expect(container.textContent).toContain('Hello');
   });
 });
 

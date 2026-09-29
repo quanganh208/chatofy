@@ -19,11 +19,11 @@
 // fallback, because a database string is invisible to the compiler-enforced i18n
 // parity and an English name written into a Vietnamese user's rows is unfixable
 // without a data migration.
-import { HISTORY_LIMITS, type ConversationTurn } from '@chatofy/types';
+import { HISTORY_LIMITS, type ConversationTurn, type LanguageCode } from '@chatofy/types';
 import {
   groupRawSourceText,
   groupSourceText,
-  groupTargetText,
+  groupTranslation,
   groupTurnsForDisplay,
   type DisplayGroup,
 } from './display-groups.js';
@@ -41,10 +41,16 @@ import type { CapturesBySession, TurnKeyedTranscript } from './turn-keyed-transc
  *   never attributed the block.
  * - `speakerRole` is always present; it is the localizable primitive a screen
  *   builds its fallback name from.
+ * - `sourceLanguages` is every language ANY member of the block was spoken in
+ *   — ordinarily one, except for a block a forced cut merged across a language
+ *   switch. `translations` holds every language any member was translated
+ *   into, each read out of that member's own map via {@link groupTranslation}.
  * - A block the recognizer produced nothing for is dropped, and `position` is
  *   assigned after that, so stored positions are contiguous from zero.
  * - A block over the per-field storage cap becomes several rows rather than one
- *   refused save — see {@link splitAtCap}.
+ *   refused save — see {@link splitAtCap}. Each target language is split
+ *   AGAINST ITS OWN LENGTH, same as `sourceText`/`displayText` — one language
+ *   translating to more rows than another is ordinary, not an error.
  *
  * - `offsetMs` is when the block was spoken, relative to `startedAtMs` — see
  *   below for why it is the block's FIRST member and why it clamps.
@@ -87,18 +93,48 @@ export function toConversationTurns(
 
     const offsetMs = displayGroupOffsetMs(group, state.captures, startedAtMs);
 
+    // Block-level facts, constant across every piece the block is split into —
+    // the same reason `speakerRole` and `offsetMs` are read once, above.
+    const sourceLanguages = groupSourceLanguages(group);
+    const translationLanguages = groupTranslationLanguages(group);
+    // `targetText` is the pre-fan-out field: each member's OWN spoken text,
+    // joined the same way `sourceText` is. Kept for a reader that has not
+    // picked up `translations` yet — see `domain/conversation.ts`.
+    const legacyTargetText = group.turns.map((turn) => turn.targetText).join(' ');
+
     // One row count for the whole block, with every field cut into that many
     // pieces — see {@link spreadOver} for why a field that needed fewer is cut
-    // again rather than left short.
+    // again rather than left short. Each translation LANGUAGE is capped
+    // against its own length rather than sharing one language's piece count:
+    // a mixed block's Vietnamese and English translations are unrelated
+    // strings and one running longer than the other is ordinary.
     const source = splitAtCap(sourceText);
     const display = rendered === sourceText ? [] : splitAtCap(rendered);
-    const target = splitAtCap(groupTargetText(group));
-    const pieces = Math.max(source.length, display.length, target.length);
+    const legacyTarget = splitAtCap(legacyTargetText);
+    const translationPieces = new Map(
+      translationLanguages.map((language) => [
+        language,
+        splitAtCap(groupTranslation(group, language)),
+      ]),
+    );
+    const pieces = Math.max(
+      source.length,
+      display.length,
+      legacyTarget.length,
+      ...Array.from(translationPieces.values(), (piece) => piece.length),
+    );
     const sourceRows = spreadOver(source, pieces);
     const displayRows = spreadOver(display, pieces);
-    const targetRows = spreadOver(target, pieces);
+    const legacyTargetRows = spreadOver(legacyTarget, pieces);
+    const translationRows = new Map(
+      Array.from(translationPieces, ([language, piece]) => [language, spreadOver(piece, pieces)]),
+    );
 
     for (let piece = 0; piece < pieces; piece += 1) {
+      const translations: Partial<Record<LanguageCode, string>> = {};
+      for (const language of translationLanguages) {
+        translations[language] = translationRows.get(language)?.[piece] ?? '';
+      }
       rows.push({
         position: rows.length,
         speakerRole: head.speakerRole,
@@ -108,7 +144,9 @@ export function toConversationTurns(
         // read `displayText ?? sourceText`, so an empty string would claim the
         // block was repaired into nothing and hide the recognizer's line.
         displayText: displayRows[piece] || null,
-        targetText: targetRows[piece] ?? '',
+        sourceLanguages,
+        translations,
+        targetText: legacyTargetRows[piece] ?? '',
         // Every piece of a split block carries the BLOCK's offset. A split is
         // one utterance shown as several rows because a field outgrew its
         // column — the pieces were all said at one moment, and giving the tail
@@ -182,6 +220,38 @@ export function displayGroupOffsetMs(
   // The turn's audio starts at its pre-roll, not at `openedAt` — see above.
   const spokenAt = capture.openedAt - (capture.preRollMs ?? 0);
   return Math.min(Math.max(0, spokenAt - startedAtMs), HISTORY_LIMITS.MAX_DURATION_MS);
+}
+
+/**
+ * Every language any member of a block was spoken in, in first-seen order.
+ *
+ * Ordinarily one: grouping's own `continues()` check never looks at language,
+ * so a forced cut across a language switch — rare, but not structurally
+ * excluded — is the one way a block ends up with more than one.
+ */
+function groupSourceLanguages(group: DisplayGroup): LanguageCode[] {
+  const languages: LanguageCode[] = [];
+  for (const turn of group.turns) {
+    for (const code of turn.sourceLanguages) {
+      if (!languages.includes(code)) languages.push(code);
+    }
+  }
+  return languages;
+}
+
+/**
+ * Every language any member of a block was translated into, in first-seen
+ * order — the set {@link groupTranslation} is called once per, to fill the
+ * stored row's `translations`.
+ */
+function groupTranslationLanguages(group: DisplayGroup): LanguageCode[] {
+  const languages: LanguageCode[] = [];
+  for (const turn of group.turns) {
+    for (const code of Object.keys(turn.translations) as LanguageCode[]) {
+      if (!languages.includes(code)) languages.push(code);
+    }
+  }
+  return languages;
 }
 
 /**

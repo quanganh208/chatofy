@@ -11,6 +11,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { AllExceptionsFilter } from './all-exceptions.filter';
+import { LanguageUnavailableException } from '../exceptions/language-unavailable.exception';
 
 interface MockResponse {
   headersSent: boolean;
@@ -114,6 +115,33 @@ describe('AllExceptionsFilter', () => {
     // throttled caller to fix a request that was never malformed.
     expect(body.error.code).toBe('RATE_LIMITED');
     expect(body.error.message).toBe('Too many requests — try again shortly');
+  });
+
+  it('answers a missing language engine with 503, a distinct code, and the real message', () => {
+    // The one 5xx whose message must NOT be masked: it is a deliberate,
+    // safe-to-show refusal naming what to change, not an unexpected fault —
+    // see the exception class's own doc. Every other 5xx below still masks.
+    const res = mockResponse();
+    filter.catch(
+      new LanguageUnavailableException('This server cannot speak fr right now'),
+      httpHost(res),
+    );
+    expect(res.statusCode).toBe(503);
+    const body = res.body as { error: { code: string; message: string } };
+    expect(body.error.code).toBe('SERVICE_UNAVAILABLE');
+    expect(body.error.message).toBe('This server cannot speak fr right now');
+  });
+
+  it('still masks an ordinary 503 — a dependency being down is not the same fact', () => {
+    const res = mockResponse();
+    filter.catch(
+      new HttpException('upstream connection reset', 503),
+      httpHost(res),
+    );
+    expect(res.statusCode).toBe(503);
+    const body = res.body as { error: { code: string; message: string } };
+    expect(body.error.code).toBe('INTERNAL_ERROR');
+    expect(body.error.message).toBe('Internal server error');
   });
 
   it('puts requestId + timestamp into meta', () => {

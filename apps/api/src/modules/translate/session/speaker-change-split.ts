@@ -39,7 +39,7 @@ const FLOOR_PERCENTILE = 0.1;
  * silences are mostly inside one speaker's phrasing, and each extra candidate is
  * another sidecar call.
  */
-export const MIN_SPLIT_PAUSE_MS = 300;
+const MIN_SPLIT_PAUSE_MS = 300;
 
 /**
  * Shortest piece whose voice is judged at all.
@@ -49,7 +49,7 @@ export const MIN_SPLIT_PAUSE_MS = 300;
  * the interjections, which are a small share of the time, in exchange for not
  * cutting a sentence on a vector that means nothing.
  */
-export const MIN_PIECE_MS = 500;
+const MIN_PIECE_MS = 500;
 
 /**
  * Below this cosine, the next piece is someone else.
@@ -58,7 +58,7 @@ export const MIN_PIECE_MS = 500;
  * cuts (4 on the podcast, 0 and 1 on the other two) at no cost in accuracy. It
  * sits between the clusterer's `tauNew` (0.325) and `tauAssign` (0.375).
  */
-export const SPLIT_COSINE = 0.35;
+const SPLIT_COSINE = 0.35;
 
 /**
  * More pieces than this and the turn is left whole. Bounds the sidecar calls one

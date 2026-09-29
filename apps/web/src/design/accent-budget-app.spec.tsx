@@ -2,6 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { conversationLanguagesOf, type TranslationDirection } from '@chatofy/types';
 import type { UseStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { accentFilledControls } from './accent-count';
 import { elevatedSurfaces } from './surface-count';
@@ -131,6 +132,8 @@ const oneTurn: UseStreamingTranslate['turns'] = [
     sessionId: 'a',
     speakerRole: 'speaker_a',
     direction: 'vi_to_en',
+    sourceLanguages: ['vi'],
+    translations: { en: 'hello' },
     sourceText: 'xin chào',
     targetText: 'hello',
     audioUrl: null,
@@ -167,6 +170,7 @@ function conversation(over: Partial<UseStreamingTranslate> = {}): UseStreamingTr
     level: 0,
     conversationId: 'c-1',
     startedAt: '2026-09-03T00:00:00.000Z',
+    direction: 'vi_to_en',
     recording: null,
     recordingStartedAtMs: null,
     start: vi.fn(),
@@ -203,9 +207,11 @@ function idle() {
 
 /** A stored conversation, at the shape `/history/[conversationId]` reads. */
 function stored(over: Record<string, unknown> = {}) {
+  const direction: TranslationDirection = 'vi_to_en';
   return {
     conversationId: 'c-1',
-    direction: 'vi_to_en',
+    direction,
+    languages: conversationLanguagesOf(direction),
     startedAt: '2026-09-03T12:00:00.000Z',
     endedAt: '2026-09-03T12:10:00.000Z',
     turnCount: 4,
@@ -218,6 +224,8 @@ function stored(over: Record<string, unknown> = {}) {
         speakerLabel: null,
         sourceText: 'xin chào',
         displayText: null,
+        sourceLanguages: ['vi'],
+        translations: { en: 'hello' },
         targetText: 'hello',
         offsetMs: 6_200,
       },
@@ -244,6 +252,7 @@ const STORED_CONVERSATIONS = [
     ...stored(),
     conversationId: 'c-2',
     direction: 'en_to_vi',
+    languages: conversationLanguagesOf('en_to_vi'),
     startedAt: '2026-09-03T09:30:00.000Z',
     endedAt: '2026-09-03T09:35:00.000Z',
     turnCount: 2,

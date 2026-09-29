@@ -1,6 +1,5 @@
 import { ApiClientError, ContractError, NetworkError } from '@chatofy/api-client';
 import type { MessageKey, Translate } from '@chatofy/i18n';
-import type { AuthMessageCode } from '@chatofy/types';
 
 /**
  * What to show the user when an auth request fails.
@@ -33,9 +32,7 @@ import type { AuthMessageCode } from '@chatofy/types';
  * it is a change to the api's error contract rather than to this file.
  *
  * Everything the WEB decides — the contract mismatch, the two transport failures, and
- * each form's fallback — comes from the dictionary. So does every SUCCESS, which is
- * what {@link authSuccessMessage} is for: those had a fixed set of outcomes, so the
- * api now sends a code and each surface supplies its own words.
+ * each form's fallback — comes from the dictionary.
  */
 export function authErrorMessage(err: unknown, t: Translate, fallback: MessageKey): string {
   // The API answered, and its message is written for a person — a validation
@@ -51,28 +48,4 @@ export function authErrorMessage(err: unknown, t: Translate, fallback: MessageKe
   }
 
   return t(fallback);
-}
-
-/**
- * The words for an api success, chosen by its code.
- *
- * `RESET_REQUESTED` and its siblings are English minted by the api, and the most
- * prominent line on a Vietnamese auth page would have stayed English. The wire now
- * carries a code — `authMessageCodeSchema` in `@chatofy/types` — and this is the
- * table that turns it into prose the reader can actually read.
- *
- * Registration has exactly one code on purpose: a fresh address and an already
- * registered one answer identically, and two codes would be that oracle in
- * machine-readable form.
- */
-const SUCCESS_KEY = {
-  REGISTRATION_ACCEPTED: 'web.auth.checkYourEmail',
-  ACCOUNT_CREATED: 'web.auth.noticeVerified',
-  ACCOUNT_ALREADY_EXISTS: 'web.auth.accountExists',
-  RESET_REQUESTED: 'web.auth.resetLinkSent',
-  PASSWORD_RESET_DONE: 'web.auth.noticeReset',
-} as const satisfies Record<AuthMessageCode, MessageKey>;
-
-export function authSuccessMessage(code: AuthMessageCode, t: Translate): string {
-  return t(SUCCESS_KEY[code]);
 }

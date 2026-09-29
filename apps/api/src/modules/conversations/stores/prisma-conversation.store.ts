@@ -1,13 +1,19 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+  conversationLanguagesSchema,
   escapeLikePattern,
+  languageCodeSchema,
+  legacyDirectionOf,
   normalizeForSearch,
+  primaryTranslation,
+  sourceLanguagesSchema,
   type Conversation,
   type ConversationSummary,
   type ConversationTurn,
+  type LanguageCode,
   type SpeakerRole,
-  type TranslationDirection,
 } from '@chatofy/types';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   isRetryableConflict,
@@ -17,6 +23,7 @@ import {
 import type {
   ConversationPage,
   ConversationStore,
+  ConversationWrite,
   ListConversationsQuery,
 } from '../interfaces/conversation-store.interface';
 
@@ -77,14 +84,15 @@ interface TurnRow {
   speakerLabel: string | null;
   sourceText: string;
   displayText: string | null;
-  targetText: string;
+  sourceLanguages: string[];
+  translations: Prisma.JsonValue;
   offsetMs: number | null;
 }
 
 /** The parent columns a read selects. */
 interface ConversationRow {
   clientId: string;
-  direction: string;
+  languages: string[];
   startedAt: Date;
   endedAt: Date;
 }
@@ -203,23 +211,10 @@ export class PrismaConversationStore implements ConversationStore {
   async save(
     ownerId: string,
     conversationId: string,
-    conversation: Omit<
-      Conversation,
-      | 'conversationId'
-      | 'turnCount'
-      | 'preview'
-      | 'hasMinutes'
-      // Whether an object exists is written by the audio route, never by the
-      // transcript save. A save is a full replacement that re-fires on every
-      // rename, so letting it carry these would clear a stored recording the
-      // moment someone edited a speaker label. `audioOffsetMs` is not in that
-      // category — see below, and see the store interface for why.
-      | 'hasRecording'
-      | 'audioDurationMs'
-    >,
+    conversation: ConversationWrite,
   ): Promise<ConversationSummary> {
     const parent = {
-      direction: conversation.direction,
+      languages: conversation.languages,
       startedAt: new Date(conversation.startedAt),
       endedAt: new Date(conversation.endedAt),
     };
@@ -255,7 +250,7 @@ export class PrismaConversationStore implements ConversationStore {
                 ...parent,
                 ...recordingOrigin,
               },
-              // `parent` is direction/startedAt/endedAt and MUST stay exactly
+              // `parent` is languages/startedAt/endedAt and MUST stay exactly
               // those three. This is load-bearing and invisible from the line:
               // the save re-fires on every post-end transcript edit, so anything
               // listed here is rewritten on a rename. `audioKey` and
@@ -282,7 +277,8 @@ export class PrismaConversationStore implements ConversationStore {
                 speakerLabel: turn.speakerLabel,
                 sourceText: turn.sourceText,
                 displayText: turn.displayText,
-                targetText: turn.targetText,
+                sourceLanguages: turn.sourceLanguages,
+                translations: turn.translations,
                 searchText: searchTextFor(turn),
                 offsetMs: turn.offsetMs,
               })),
@@ -348,7 +344,7 @@ export class PrismaConversationStore implements ConversationStore {
       where: { ownerId_clientId: { ownerId, clientId: conversationId } },
       select: {
         clientId: true,
-        direction: true,
+        languages: true,
         startedAt: true,
         endedAt: true,
         audioOffsetMs: true,
@@ -362,7 +358,8 @@ export class PrismaConversationStore implements ConversationStore {
             speakerLabel: true,
             sourceText: true,
             displayText: true,
-            targetText: true,
+            sourceLanguages: true,
+            translations: true,
             offsetMs: true,
           },
         },
@@ -370,7 +367,22 @@ export class PrismaConversationStore implements ConversationStore {
     });
     if (!row) return null;
 
-    const turns = row.turns.map(toTurn);
+    // Degrades exactly as `list` does for the same row: a `languages` column
+    // this registry cannot read — a code added and later rolled back, or a
+    // shape the write side never stores — is a corrupt row, not a request
+    // problem, so it answers "not found" with the same warn rather than a
+    // masked 500, and the two routes never disagree about whether it exists.
+    const languages = conversationLanguagesSchema.safeParse(row.languages);
+    if (!languages.success) {
+      this.logger.warn(
+        `answering not-found for conversation ${row.clientId}: ` +
+          unreadableLanguages(row.languages, languages.error.issues),
+      );
+      return null;
+    }
+    const turns = row.turns
+      .map((turn) => toTurn(turn, languages.data))
+      .filter((turn): turn is ConversationTurn => turn !== null);
     return {
       ...toSummary(row, turns.length, previewOf(turns), row.minutes),
       turns,
@@ -402,7 +414,7 @@ export class PrismaConversationStore implements ConversationStore {
       select: {
         id: true,
         clientId: true,
-        direction: true,
+        languages: true,
         startedAt: true,
         endedAt: true,
         minutes: { select: { id: true } },
@@ -419,9 +431,32 @@ export class PrismaConversationStore implements ConversationStore {
 
     const page = rows.slice(0, query.limit);
     return {
-      conversations: page.map((row) =>
-        toSummary(row, row._count.turns, previewOf(row.turns), row.minutes),
-      ),
+      // Per-row, not a bare `.map`: `toSummary` throws on a `languages` column
+      // the registry schema rejects — fewer than two codes, a repeat, or a code
+      // this build does not know (added, written under, then rolled back). The
+      // write side never stores the first two, so reaching this is a corrupt or
+      // orphaned row, not a request problem. Letting ONE such row through would
+      // fail the client's parse of the whole page for every other conversation
+      // this owner has, and letting it throw out of `.map` would 500 it;
+      // skipping it here costs that one card. `get` answers not-found for the
+      // same row, so the two routes agree.
+      conversations: page
+        .map((row) => {
+          try {
+            return toSummary(
+              row,
+              row._count.turns,
+              previewOf(row.turns),
+              row.minutes,
+            );
+          } catch (err) {
+            this.logger.warn(
+              `dropping conversation ${row.id} from the list: ${String(err)}`,
+            );
+            return null;
+          }
+        })
+        .filter((summary): summary is ConversationSummary => summary !== null),
       // The cursor IS the row's server cuid, deliberately: it is the value
       // `orderBy: [{createdAt}, {id}]` breaks ties on, so nothing else
       // identifies the page boundary. It is safe to hand out because it is only
@@ -518,14 +553,44 @@ export class PrismaConversationStore implements ConversationStore {
   }
 }
 
-function toTurn(row: TurnRow): ConversationTurn {
+/**
+ * `targetText` is not a column anymore — it is derived, per row, from
+ * `translations` and the PARENT conversation's `languages` (which language a
+ * legacy reader shows depends on which the conversation declared, not only on
+ * what this one turn was spoken in). `primaryTranslation` is the same function
+ * a later reader uses to render a block, so the two can never disagree about
+ * which translation is "the" one.
+ */
+function toTurn(
+  row: TurnRow,
+  languages: readonly LanguageCode[],
+): ConversationTurn | null {
+  // Validated here rather than cast: a registry code added, written under and
+  // later rolled back would otherwise reach the client, whose detail schema
+  // rejects the WHOLE conversation over one unknown key. Unknown codes are
+  // dropped; a turn left with no readable source language at all cannot be
+  // attributed or translated, so it costs that one turn, logged.
+  const sourceLanguages = row.sourceLanguages.filter(isLanguageCode);
+  if (!sourceLanguagesSchema.safeParse(sourceLanguages).success) {
+    logger.warn(
+      `dropping turn ${row.position} from a conversation read: unreadable ` +
+        `sourceLanguages ${JSON.stringify(row.sourceLanguages)}`,
+    );
+    return null;
+  }
+  const translations = readableTranslations(row.translations, row.position);
   return {
     position: row.position,
     speakerRole: row.speakerRole as SpeakerRole,
     speakerLabel: row.speakerLabel,
     sourceText: row.sourceText,
     displayText: row.displayText,
-    targetText: row.targetText,
+    sourceLanguages,
+    translations,
+    targetText: primaryTranslation(
+      { sourceLanguages, translations },
+      languages,
+    ),
     offsetMs: row.offsetMs,
   };
 }
@@ -576,15 +641,82 @@ function toSummary(
   preview: string,
   minutes: MinutesPresence,
 ): ConversationSummary {
+  // Throws rather than casts, so `list`'s per-row catch drops the one card the
+  // client could not parse instead of the client rejecting the whole page.
+  const parsed = conversationLanguagesSchema.safeParse(row.languages);
+  if (!parsed.success) {
+    throw new Error(unreadableLanguages(row.languages, parsed.error.issues));
+  }
+  const languages = parsed.data;
   return {
     conversationId: row.clientId,
-    direction: row.direction as TranslationDirection,
+    // Derived, never stored — see `legacyDirectionOf`'s own docblock for why
+    // Postgres no longer has a `direction` column to read this from.
+    direction: legacyDirectionOf(languages),
+    languages,
     startedAt: row.startedAt.toISOString(),
     endedAt: row.endedAt.toISOString(),
     turnCount,
     preview,
     hasMinutes: minutes !== null,
   };
+}
+
+/**
+ * Logs the read-side drops made by the module-level mappers below; the class
+ * keeps its own instance for the paths it handles itself.
+ */
+const logger = new Logger(PrismaConversationStore.name);
+
+function isLanguageCode(code: string): code is LanguageCode {
+  return languageCodeSchema.safeParse(code).success;
+}
+
+/** Why a stored `languages` column was refused, for the warn that drops it. */
+function unreadableLanguages(
+  languages: unknown,
+  issues: readonly { path: PropertyKey[]; message: string }[],
+): string {
+  const reason = issues
+    .map(
+      (issue) =>
+        `${issue.path.map(String).join('.') || '(root)'} ${issue.message}`,
+    )
+    .join('; ');
+  return `unreadable languages ${JSON.stringify(languages)}: ${reason}`;
+}
+
+/**
+ * A stored `translations` JSONB value, narrowed to the entries this registry
+ * can name. Postgres accepts any JSON here, so an entry keyed by an unknown
+ * (rolled-back) code, or whose value is not a string, is dropped with a warn
+ * rather than carried to a client whose schema would reject the whole turn.
+ */
+function readableTranslations(
+  raw: Prisma.JsonValue,
+  position: number,
+): Partial<Record<LanguageCode, string>> {
+  const translations: Partial<Record<LanguageCode, string>> = {};
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    logger.warn(
+      `turn ${position}: translations is not an object, reading it as empty`,
+    );
+    return translations;
+  }
+  const dropped: string[] = [];
+  for (const [code, text] of Object.entries(raw)) {
+    if (isLanguageCode(code) && typeof text === 'string') {
+      translations[code] = text;
+    } else {
+      dropped.push(code);
+    }
+  }
+  if (dropped.length > 0) {
+    logger.warn(
+      `turn ${position}: dropping unreadable translations ${dropped.join(', ')}`,
+    );
+  }
+  return translations;
 }
 
 /** The first block's text, as the user read it. */
@@ -598,14 +730,23 @@ function previewOf(
 /**
  * The searchable form of one turn: everything a reader could look for, folded.
  *
- * All three texts, because a search must match what the reader SAW —
- * `displayText` carries the repaired rendering, so folding `sourceText` alone
- * would miss any phrase repaired before it reached the screen — and also what the
- * recognizer produced, so the raw line stays findable too.
+ * `displayText` and every value of `translations`, because a search must match
+ * what the reader SAW — `displayText` carries the repaired rendering, so
+ * folding `sourceText` alone would miss any phrase repaired before it reached
+ * the screen — and every translation, not only one, so a mixed turn or a
+ * conversation with more than two languages stays findable in each of them.
  */
-function searchTextFor(turn: ConversationTurn): string {
+function searchTextFor(turn: {
+  displayText: string | null;
+  sourceText: string;
+  translations: Partial<Record<LanguageCode, string>>;
+}): string {
   return normalizeForSearch(
-    [turn.displayText ?? '', turn.sourceText, turn.targetText].join(' '),
+    [
+      turn.displayText ?? '',
+      turn.sourceText,
+      ...Object.values(turn.translations),
+    ].join(' '),
   );
 }
 

@@ -5,6 +5,7 @@
 // it does with `localStorage`, including when the browser refuses it.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { en, vi as viMessages } from '@chatofy/i18n';
+import { LANGUAGE_CODES } from '@chatofy/types';
 import {
   DEFAULT_TRANSLATE_SETTINGS,
   SPEED_PRESETS,
@@ -90,6 +91,21 @@ describe('loadTranslateSettings', () => {
     const { voice } = loadTranslateSettings();
     expect(voice.en).toBeUndefined();
     expect(voice.vi).toBe('Mai Anh');
+  });
+
+  it('generates one independent catch per registry language, not a shared one', () => {
+    // The voice schema is built from `LANGUAGE_CODES` with one reused schema
+    // instance rather than one written out per language — this is what proves
+    // that reuse still catches each field on its own, so an over-long token in
+    // one language cannot wipe a good token in another.
+    for (const code of LANGUAGE_CODES) {
+      const other = LANGUAGE_CODES.find((candidate) => candidate !== code);
+      if (!other) continue;
+      store({ voice: { [code]: 'x'.repeat(65), [other]: 'Mai Anh' } });
+      const { voice } = loadTranslateSettings();
+      expect(voice[code]).toBeUndefined();
+      expect(voice[other]).toBe('Mai Anh');
+    }
   });
 
   it('keeps a voice token it cannot verify', () => {

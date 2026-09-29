@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Inject,
   Post,
   Query,
 } from '@nestjs/common';
@@ -12,13 +13,38 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import type { TtsVoice } from '@chatofy/ai-providers';
-import { languageCodeSchema, type TranslateResponse } from '@chatofy/types';
+import type { TtsVoiceCatalog } from '@chatofy/ai-providers';
+import {
+  DEFAULT_TRANSLATION_DIRECTION,
+  LANGUAGE_CODES,
+  directionLanguages,
+  languageCodeSchema,
+  type TranslateResponse,
+} from '@chatofy/types';
 import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
 import { ApiErrorResponses } from '../../common/swagger/api-error-response.helper';
+import { LanguageUnavailableException } from '../../common/exceptions/language-unavailable.exception';
 import { TranslateRequestDto, TranslateResponseDto } from './dto/translate.dto';
 import { VoicesResponseDto } from './dto/voices.dto';
 import { PipelineTranslatorService } from './services/pipeline-translator.service';
+import { SpeechLanguageSupport } from './providers/speech-language-support';
+import {
+  LANGUAGE_IDENTIFIER,
+  type LanguageIdentifier,
+} from './session/language-identifier';
+import { planForDirection } from './session/turn-language-plan';
+
+/**
+ * The language `voices` answers for when the caller names none.
+ *
+ * Derived from the registry's own default direction rather than written as a
+ * literal: it is the language a fresh `vi_to_en` conversation speaks its
+ * translation in, which is the voice a client most likely wants before it has
+ * asked for anything else.
+ */
+const DEFAULT_VOICES_LANGUAGE = directionLanguages(
+  DEFAULT_TRANSLATION_DIRECTION,
+).target;
 
 /**
  * Turn-based translation endpoint. Accepts a complete audio utterance (base64)
@@ -35,7 +61,12 @@ import { PipelineTranslatorService } from './services/pipeline-translator.servic
 @ApiTags('translate')
 @Controller('translate')
 export class TranslateController {
-  constructor(private readonly pipeline: PipelineTranslatorService) {}
+  constructor(
+    private readonly pipeline: PipelineTranslatorService,
+    private readonly languageSupport: SpeechLanguageSupport,
+    @Inject(LANGUAGE_IDENTIFIER)
+    private readonly identifier: LanguageIdentifier,
+  ) {}
 
   /**
    * `@ApiBearerAuth()` is written per route here, not on the class, for the same
@@ -49,10 +80,10 @@ export class TranslateController {
   @ApiOperation({
     summary: 'Translate an audio utterance to speech in the target language',
     description:
-      'Send a complete utterance as base64 audio plus a direction (`vi_to_en` or `en_to_vi`). Answers with the transcript, the translation, and synthesized speech in the target language. The body carries audio, so it is large — the JSON body limit is 12 MB, and anything longer than a short utterance belongs on the WebSocket surface instead.',
+      'Send a complete utterance as base64 audio plus a direction (`vi_to_en` or `en_to_vi`). Answers with the transcript, the translation, and synthesized speech in the target language. This is a ONE-turn, ONE-audio surface: the turn is still translated into every language the conversation language plan calls for, but only the first target (`plan.spoken`) is synthesized and returned — the same budget the streaming path applies to its own preview. The body carries audio, so it is large — the JSON body limit is 12 MB, and anything longer than a short utterance belongs on the WebSocket surface instead.',
   })
   @ApiEnvelopeResponse(TranslateResponseDto)
-  @ApiErrorResponses(400, 401)
+  @ApiErrorResponses(400, 401, 503)
   async translate(
     @Body() body: TranslateRequestDto,
   ): Promise<TranslateResponse> {
@@ -62,13 +93,37 @@ export class TranslateController {
         'audioBase64 did not decode to any audio bytes',
       );
     }
-    return this.pipeline.translateTurn({
-      audio: new Uint8Array(audio),
-      mimeType: body.audioMimeType,
-      direction: body.direction,
-      voiceGender: body.voiceGender,
-      speed: body.speed,
+    // Same helper and identifier the WS path uses in
+    // `TranslationSessionService.start`, so the two transports never disagree
+    // about what a given direction is decided to mean.
+    const plan = planForDirection(
+      body.direction ?? DEFAULT_TRANSLATION_DIRECTION,
+      this.identifier,
+    );
+    // Checked before any provider call is spent on a language no configured
+    // engine serves. REST always returns synthesized audio, so `voiceOutput`
+    // is unconditionally true here.
+    const languageRefusal = this.languageSupport.refusal({
+      recognition: plan.recognition,
+      spoken: plan.spoken,
+      voiceOutput: true,
     });
+    if (languageRefusal) {
+      // 503, not 400: the caller asked for nothing malformed, this server
+      // simply cannot serve the language right now — the identical fact the
+      // WS path reports as its own `language_unavailable` event, in the
+      // identical words.
+      throw new LanguageUnavailableException(languageRefusal);
+    }
+    return this.pipeline.translateTurn(
+      {
+        audio: new Uint8Array(audio),
+        mimeType: body.audioMimeType,
+        voiceGender: body.voiceGender,
+        speed: body.speed,
+      },
+      plan,
+    );
   }
 
   /**
@@ -95,18 +150,20 @@ export class TranslateController {
   @ApiQuery({
     name: 'language',
     required: false,
-    enum: ['vi', 'en'],
-    description: 'Which language to list voices for. Defaults to `en`.',
+    enum: LANGUAGE_CODES,
+    description: `Which language to list voices for. Defaults to \`${DEFAULT_VOICES_LANGUAGE}\`.`,
   })
   @ApiEnvelopeResponse(VoicesResponseDto)
   @ApiErrorResponses(400, 401)
-  async voices(
-    @Query('language') language?: string,
-  ): Promise<{ voices: TtsVoice[] }> {
-    const parsed = languageCodeSchema.safeParse(language ?? 'en');
+  async voices(@Query('language') language?: string): Promise<TtsVoiceCatalog> {
+    const parsed = languageCodeSchema.safeParse(
+      language ?? DEFAULT_VOICES_LANGUAGE,
+    );
     if (!parsed.success) {
-      throw new BadRequestException('language must be "vi" or "en"');
+      throw new BadRequestException(
+        `language must be one of: ${LANGUAGE_CODES.join(', ')}`,
+      );
     }
-    return { voices: await this.pipeline.listVoices(parsed.data) };
+    return this.pipeline.listVoices(parsed.data);
   }
 }

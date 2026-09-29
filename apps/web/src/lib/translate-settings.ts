@@ -18,9 +18,12 @@
  */
 import { z } from 'zod';
 import {
+  DEFAULT_TRANSLATION_DIRECTION,
   DEFAULT_VOICE_GENDER,
+  LANGUAGE_CODES,
   translationDirectionSchema,
   voiceGenderSchema,
+  type LanguageTable,
 } from '@chatofy/types';
 
 export const TRANSLATE_SETTINGS_STORAGE_KEY = 'chatofy.translate-settings';
@@ -141,10 +144,16 @@ export function textSizeScale(step: number): number {
  * It is not declared here, because a schema nothing validates with yet is
  * indistinguishable from one that has been orphaned.
  */
-const storedVoiceSelectionSchema = z.object({
-  en: z.string().max(VOICE_TOKEN_MAX).optional().catch(undefined),
-  vi: z.string().max(VOICE_TOKEN_MAX).optional().catch(undefined),
-});
+// Built from the registry rather than written out one language at a time: every
+// field gets the SAME schema instance, so each still catches independently — a
+// shared, stateless schema parses every key on its own, which is what a single
+// over-long token must not be able to wipe its neighbours by failing.
+const voiceTokenSchema = z.string().max(VOICE_TOKEN_MAX).optional().catch(undefined);
+const storedVoiceSelectionSchema = z.object(
+  Object.fromEntries(LANGUAGE_CODES.map((code) => [code, voiceTokenSchema])) as LanguageTable<
+    typeof voiceTokenSchema
+  >,
+);
 type VoiceSelection = z.infer<typeof storedVoiceSelectionSchema>;
 
 export interface TranslateSettings {
@@ -152,7 +161,11 @@ export interface TranslateSettings {
   voiceGender: z.infer<typeof voiceGenderSchema>;
   /** Whether the translation is spoken at all. */
   voiceOutput: boolean;
-  /** Speaking rate. Honoured for English output; the Vietnamese engine has none. */
+  /**
+   * Speaking rate. Whether it does anything is a property of the running TTS
+   * engine, not of the output language — see `VoiceSettingsPanel`'s
+   * `catalog.speedAdjustable`, read from the voice catalog rather than assumed.
+   */
   speed: number;
   /** Empty until a catalog exists to choose from. */
   voice: VoiceSelection;
@@ -200,7 +213,7 @@ export interface TranslateSettings {
  * moment it is made, instead of being absorbed silently.
  */
 export const DEFAULT_TRANSLATE_SETTINGS: TranslateSettings = Object.freeze({
-  direction: 'vi_to_en',
+  direction: DEFAULT_TRANSLATION_DIRECTION,
   voiceGender: DEFAULT_VOICE_GENDER,
   voiceOutput: true,
   speed: 1,

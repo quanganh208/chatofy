@@ -63,6 +63,7 @@ describe('VoicePicker', () => {
   const catalog: VoiceCatalogState = {
     status: 'ready',
     voices: [voice('9', 'Sarah', 'female'), voice('11', 'Adam', 'male')],
+    speedAdjustable: false,
   };
 
   it('shows the saved voice by name', () => {
@@ -84,7 +85,11 @@ describe('VoicePicker', () => {
     // The list is scoped by the gender toggle above, so a backend with male
     // voices only leaves nothing to choose between on "female" — and a Select
     // whose one option is the state it is already in is not a choice.
-    render({ status: 'ready', voices: [voice('11', 'Adam', 'male')] }, '', 'female');
+    render(
+      { status: 'ready', voices: [voice('11', 'Adam', 'male')], speedAdjustable: false },
+      '',
+      'female',
+    );
     expect(container.textContent).toBe('');
   });
 
@@ -97,20 +102,20 @@ describe('VoicePicker', () => {
 
   it('offers nothing when the backend offers no choice', () => {
     // A real answer: gender above is then the only voice control there is.
-    render({ status: 'ready', voices: [] });
+    render({ status: 'ready', voices: [], speedAdjustable: false });
     expect(container.textContent).toBe('');
   });
 
   it('holds its place while the list is still being fetched', () => {
     // `loading` carries an empty list too. Read as "no voices", the whole control
     // vanished for the length of the request and then appeared under the pointer.
-    render({ status: 'loading', voices: [] });
+    render({ status: 'loading', voices: [], speedAdjustable: false });
     expect(container.querySelector('[data-slot="skeleton"]')).not.toBeNull();
     expect(trigger()).toBeNull();
   });
 
   it('says so when the list could not be loaded', () => {
-    render({ status: 'failed', voices: [] });
+    render({ status: 'failed', voices: [], speedAdjustable: false });
     expect(container.textContent).toContain(en['web.translate.voiceListFailed']);
     expect(trigger()).toBeNull();
   });

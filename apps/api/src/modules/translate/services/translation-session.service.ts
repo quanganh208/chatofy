@@ -1,11 +1,11 @@
 import {
   HttpException,
+  Inject,
   Injectable,
   Logger,
   type OnModuleDestroy,
 } from '@nestjs/common';
 import {
-  directionLanguages,
   type AudioFrame,
   type ClientTurnMetrics,
   type LanguageCode,
@@ -45,6 +45,12 @@ import {
 import { TranslationBudget } from '../audio/translation-budget';
 import { SessionRegistry } from '../session/session-registry';
 import { ConversationContext } from '../session/conversation-context';
+import { SpeechLanguageSupport } from '../providers/speech-language-support';
+import {
+  LANGUAGE_IDENTIFIER,
+  type LanguageIdentifier,
+} from '../session/language-identifier';
+import { planForDirection } from '../session/turn-language-plan';
 import { TurnTimeline, type ClauseDelivery } from '../session/turn-timeline';
 import type { StreamSocket } from '../session/stream-socket';
 import { LivePreview } from '../session/live-preview';
@@ -118,6 +124,9 @@ export class TranslationSessionService implements OnModuleDestroy {
     private readonly pipeline: PipelineTranslatorService,
     private readonly metrics: TurnMetricsRecorder,
     private readonly config: ConfigService<Env, true>,
+    private readonly languageSupport: SpeechLanguageSupport,
+    @Inject(LANGUAGE_IDENTIFIER)
+    private readonly identifier: LanguageIdentifier,
   ) {
     // Built in the constructor body, not as a field initializer. Under
     // `target: ES2022` field initializers run before the parameter properties
@@ -185,12 +194,39 @@ export class TranslationSessionService implements OnModuleDestroy {
       return;
     }
 
+    // Checked before a turn slot is spent on it: a language no configured
+    // engine serves cannot be answered whatever else this turn holds. `null`
+    // from either sidecar means "not known right now" and refuses nothing —
+    // see `SpeechLanguageSupport`. The plan is decided exactly once, here, and
+    // handed to the `TurnSession` below, so the turn that runs is the turn this
+    // check approved — even once the identifier stops being a pure function of
+    // the declared language. Deciding it before the turn exists is what lets
+    // this refusal happen before a turn (and its budget, its live-translation
+    // trigger) is even built.
+    const plan = planForDirection(options.direction, this.identifier);
+    const languageRefusal = this.languageSupport.refusal({
+      recognition: plan.recognition,
+      spoken: plan.spoken,
+      // Matches the default `TurnSession` applies below when the field is
+      // omitted; the refusal has to agree with the turn it would otherwise
+      // create, or an omitted `voiceOutput` would be checked as if it were off.
+      voiceOutput: options.voiceOutput ?? true,
+    });
+    if (languageRefusal) {
+      this.channelFor(socket, { turnId }).fail(
+        'language_unavailable',
+        languageRefusal,
+      );
+      return;
+    }
+
     const session = new TurnSession(options, turnId, {
       budget: this.budget,
       commitChars: this.config.get('LIVE_TRANSLATION_COMMIT_CHARS', {
         infer: true,
       }),
       userId,
+      languages: plan,
     });
     this.registry.open(socket, session);
     const sessionId = session.sessionId;
@@ -284,22 +320,24 @@ export class TranslationSessionService implements OnModuleDestroy {
 
     session.startSpeculation(
       audio.byteLength,
-      this.pipeline.transcribeAndTranslate({
-        audio: audio.toWav(),
-        mimeType: 'audio/wav',
-        direction: session.direction,
-        models: SPECULATION_MODELS,
-        // The speculative pass must carry the same hints as the final one.
-        // `usableSpeculation()` reuses this result verbatim when the audio has
-        // not grown, so a speculation translated without the session's context
-        // would be the version the listener actually hears — the hints would
-        // then apply only to the turns that happened to speculate badly.
-        hints: session.hints,
-        // And the same conversational context, for the same reason: a reused
-        // speculation IS the answer, so one built without it would be the
-        // version the listener hears.
-        context: this.context.recall(socket),
-      }),
+      this.pipeline.transcribeAndTranslate(
+        {
+          audio: audio.toWav(),
+          mimeType: 'audio/wav',
+          models: SPECULATION_MODELS,
+          // The speculative pass must carry the same hints as the final one.
+          // `usableSpeculation()` reuses this result verbatim when the audio has
+          // not grown, so a speculation translated without the session's context
+          // would be the version the listener actually hears — the hints would
+          // then apply only to the turns that happened to speculate badly.
+          hints: session.hints,
+          // And the same conversational context, for the same reason: a reused
+          // speculation IS the answer, so one built without it would be the
+          // version the listener hears.
+          context: this.context.recall(socket),
+        },
+        session.languages,
+      ),
     );
   }
 
@@ -393,20 +431,27 @@ export class TranslationSessionService implements OnModuleDestroy {
           )
         : {
             translated: await (reusable ??
-              this.pipeline.transcribeAndTranslate({
-                audio: audio.toWav(),
-                mimeType: 'audio/wav',
-                direction: session.direction,
-                models: FINAL_MODELS,
-                hints: session.hints,
-                context,
-              })),
+              this.pipeline.transcribeAndTranslate(
+                {
+                  audio: audio.toWav(),
+                  mimeType: 'audio/wav',
+                  models: FINAL_MODELS,
+                  hints: session.hints,
+                  context,
+                },
+                session.languages,
+              )),
             split: null,
           };
       // A split turn's text came from its pieces, not from the speculation that
       // was sitting there.
       if (split) timeline.markSpeculationReused(false);
-      timeline.markTranslated(translated.targetText);
+      // The SPOKEN translation's length, not the sum of every target: this
+      // number feeds a latency table built around what the listener actually
+      // hears.
+      timeline.markTranslated(
+        translated.translations[session.languages.spoken] ?? '',
+      );
       // Recorded HERE, at the first point the turn has a final source text —
       // before the emit, the embedding, and the clause-by-clause delivery, any
       // of which can take seconds while the next turn is already being
@@ -445,7 +490,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           sessionId: session.sessionId,
           segment: session.toSegment(
             translated.sourceText,
-            translated.targetText,
+            translated.translations,
           ),
           ...(display === undefined ? {} : { display }),
         });
@@ -527,13 +572,14 @@ export class TranslationSessionService implements OnModuleDestroy {
     reusable: Promise<TranslatedTurnText> | null,
     context: string[],
   ): Promise<{ translated: TranslatedTurnText; split: SplitTurn | null }> {
-    const { direction, hints } = session;
+    const { hints } = session;
+    const plan = session.languages;
     const wholeSource = reusable
       ? null
       : this.pipeline.transcribe({
           audio: audio.toWav(),
           mimeType: 'audio/wav',
-          direction,
+          language: plan.recognition,
           hints,
         });
     // Both may settle while the plan is still out; an unhandled rejection takes
@@ -561,7 +607,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     if (spans) {
       try {
         split = await translateSplitTurn(this.pipeline, audio, spans, {
-          direction,
+          plan,
           hints,
           models: FINAL_MODELS,
           context,
@@ -585,10 +631,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     );
     if (split) {
       return {
-        translated: joinPieces(
-          split.pieces,
-          directionLanguages(direction).target,
-        ),
+        translated: joinPieces(split.pieces, plan.targets),
         split,
       };
     }
@@ -599,30 +642,29 @@ export class TranslationSessionService implements OnModuleDestroy {
     // the warning, and the rejection the caller reports.
     if (!sourceText.trim()) {
       return {
-        translated: await this.pipeline.transcribeAndTranslate({
-          audio: audio.toWav(),
-          mimeType: 'audio/wav',
-          direction,
-          models: FINAL_MODELS,
-          hints,
-          context,
-        }),
+        translated: await this.pipeline.transcribeAndTranslate(
+          {
+            audio: audio.toWav(),
+            mimeType: 'audio/wav',
+            models: FINAL_MODELS,
+            hints,
+            context,
+          },
+          plan,
+        ),
         split: null,
       };
     }
-    const targetText = await this.pipeline.translate({
+    const translations = await this.pipeline.translateAll({
       text: sourceText,
-      direction,
+      source: plan.recognition,
+      targets: plan.targets,
       models: FINAL_MODELS,
       hints,
       context,
     });
     return {
-      translated: {
-        sourceText,
-        targetText,
-        targetLanguage: directionLanguages(direction).target,
-      },
+      translated: { sourceText, translations },
       split: null,
     };
   }
@@ -650,7 +692,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         sessionId: ids[index]!,
         segment: session.toSegment(
           piece.sourceText,
-          piece.targetText,
+          piece.translations,
           ids[index],
         ),
         ...(display === undefined ? {} : { display }),
@@ -708,11 +750,11 @@ export class TranslationSessionService implements OnModuleDestroy {
     let typeset: string;
     let canonical: string;
     try {
-      // `direction` SELECTS the module rather than gating the feature: on
+      // `recognition` SELECTS the module rather than gating the feature: on
       // `en_to_vi` the transcript being typeset is the English one, so both
       // directions have an ITN and `ws-events.ts`'s bidirectional contract stays
       // true.
-      const { source } = directionLanguages(session.direction);
+      const source = session.languages.recognition;
       // The ITN canonicalizes its input before it does anything else, so the
       // string to COMPARE against is the canonical one, not the raw one. Against
       // the raw text a transcript that merely arrived with a trailing space or
@@ -904,11 +946,15 @@ export class TranslationSessionService implements OnModuleDestroy {
     translated: TranslatedTurnText,
     timeline: TurnTimeline,
   ): Promise<ClauseDelivery> {
-    const language = translated.targetLanguage;
+    // Speech is a budget of exactly one target — `plan.spoken` — never every
+    // target a fan-out turn was translated into (TTS for all of them is a
+    // deferred seam; see `docs/system-architecture.md`).
+    const language = session.languages.spoken;
+    const spokenText = translated.translations[language] ?? '';
     let stream: TtsAudioStream | null = null;
     // Blank text has nothing to stream, and the sidecar refuses it: it takes the
     // clause path, which speaks zero clauses and completes, as it always has.
-    const speakable = translated.targetText.trim() !== '';
+    const speakable = spokenText.trim() !== '';
     if (
       speakable &&
       session.voiceOutput &&
@@ -917,7 +963,7 @@ export class TranslationSessionService implements OnModuleDestroy {
       try {
         stream = await this.pipeline.synthesizeStream(
           {
-            text: translated.targetText,
+            text: spokenText,
             language,
             voiceGender: session.voiceGender,
             speed: session.speed,
@@ -939,7 +985,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     }
 
     if (!stream) {
-      const clauses = splitIntoClauses(translated.targetText);
+      const clauses = splitIntoClauses(spokenText);
       timeline.markClauses(clauses.length, 'clauses');
       return this.streamClauses(socket, session, clauses, language);
     }
@@ -968,7 +1014,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     socket: StreamSocket,
     session: TurnSession,
     clauses: string[],
-    language: TranslatedTurnText['targetLanguage'],
+    language: LanguageCode,
   ): Promise<ClauseDelivery> {
     let firstAudioAt: number | undefined;
     let lastAudioAt: number | undefined;
@@ -1105,15 +1151,23 @@ export class TranslationSessionService implements OnModuleDestroy {
 /**
  * A split turn read as one, for what still treats it as one: the spoken
  * translation, the metrics row, and the fallback's shape.
+ *
+ * Merges PER LANGUAGE: each target's joined text is that target's pieces, in
+ * order, never one piece's rendering in one language beside another's in a
+ * different one.
  */
 function joinPieces(
   pieces: TranslatedPiece[],
-  targetLanguage: LanguageCode,
+  targets: readonly LanguageCode[],
 ): TranslatedTurnText {
   return {
     sourceText: pieces.map((piece) => piece.sourceText).join(' '),
-    targetText: pieces.map((piece) => piece.targetText).join(' '),
-    targetLanguage,
+    translations: Object.fromEntries(
+      targets.map((target) => [
+        target,
+        pieces.map((piece) => piece.translations[target] ?? '').join(' '),
+      ]),
+    ),
   };
 }
 

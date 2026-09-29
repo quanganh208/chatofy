@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import type {
-  AudioFrame,
-  SessionOptions,
-  TranscriptSegment,
-  TranslationDirection,
-  TranslationHints,
-  VoiceGender,
+import {
+  speakerRoleFor,
+  type AudioFrame,
+  type SessionOptions,
+  type SpeakerRole,
+  type TranscriptSegment,
+  type TranslationDirection,
+  type TranslationHints,
+  type VoiceGender,
 } from '@chatofy/types';
 import { PartialTranscriptScheduler } from '../audio/partial-transcript-scheduler';
 import { LiveTranslationTrigger } from '../audio/live-translation-trigger';
@@ -15,6 +17,20 @@ import { StreamingCommitter } from '../audio/streaming-committer';
 import type { TranslatedTurnText } from '../services/pipeline-translator.service';
 import { MAX_TURN_SECONDS, TurnAudio } from './turn-audio';
 import { TurnSpeculation } from './turn-speculation';
+import { DeclaredLanguageIdentifier } from './language-identifier';
+import {
+  planForDirection,
+  type TurnLanguagePlan,
+  type TranslationMap,
+} from './turn-language-plan';
+
+/**
+ * The identifier behind `TurnSessionDeps.languages`'s default plan.
+ *
+ * One shared instance rather than one per turn: `DeclaredLanguageIdentifier`
+ * holds no state, so there is nothing a fresh instance would buy.
+ */
+const DEFAULT_IDENTIFIER = new DeclaredLanguageIdentifier();
 
 /** Where a connection is in the turn it is currently taking. */
 type TurnPhase = 'listening' | 'translating';
@@ -49,6 +65,17 @@ export interface TurnSessionDeps {
   budget?: TranslationBudget;
   commitChars?: number;
   userId?: string;
+  /**
+   * The language plan this turn runs, already decided by the caller.
+   *
+   * `TranslationSessionService.start` builds it once — the same plan its
+   * `language_unavailable` check read — and hands it here, so the turn can
+   * never run a plan the refusal check did not see. Defaults to
+   * `planForDirection` with {@link DeclaredLanguageIdentifier}, in the same
+   * spirit as `budget` above: a turn built without one still runs the real
+   * derivation, just with the trivial identifier.
+   */
+  languages?: TurnLanguagePlan;
 }
 
 /** One turn of speech: what has been heard, and what may still be done to it. */
@@ -79,6 +106,13 @@ export class TurnSession {
   private readonly speculation = new TurnSpeculation();
 
   readonly direction: TranslationDirection;
+  /**
+   * What this turn is decided to do, language-wise: which language(s) it was
+   * spoken in, every language it must be translated into, and which of those
+   * is recognised from / spoken back as. Decided by the caller before the
+   * turn exists (see `TurnSessionDeps.languages`), never re-derived here.
+   */
+  readonly languages: TurnLanguagePlan;
   /** Which voice speaks this turn's translation, for every clause of it. */
   readonly voiceGender: VoiceGender;
   /**
@@ -154,6 +188,8 @@ export class TurnSession {
     deps: TurnSessionDeps = {},
   ) {
     this.direction = options.direction;
+    this.languages =
+      deps.languages ?? planForDirection(options.direction, DEFAULT_IDENTIFIER);
     this.voiceGender = options.voiceGender;
     this.hints = options.hints;
     this.voiceOutput = options.voiceOutput ?? true;
@@ -207,11 +243,19 @@ export class TurnSession {
   /**
    * Which side of the conversation is speaking.
    *
-   * A turn is only ever spoken by the side whose language it translates away
-   * from, so the direction says who it is.
+   * Reads `this.languages` rather than the direction directly: `recognition` is
+   * the language this turn is actually taken to be spoken in — today always the
+   * direction's declared source, but the field to read once a real identifier
+   * can disagree with it. Delegates to the registry rather than comparing a
+   * language to a literal: `speakerRoleFor` is what fixes `speaker_a` to the
+   * conversation's registry-first language regardless of which side of the
+   * pair this turn runs.
    */
-  get speakerRole(): 'speaker_a' | 'speaker_b' {
-    return this.direction === 'vi_to_en' ? 'speaker_a' : 'speaker_b';
+  get speakerRole(): SpeakerRole {
+    return speakerRoleFor(
+      this.languages.recognition,
+      this.languages.conversation,
+    );
   }
 
   /**
@@ -339,9 +383,19 @@ export class TurnSession {
     return this.speculation.usable(this.audio.byteLength);
   }
 
+  /**
+   * Build this turn's persisted record.
+   *
+   * `direction` and `targetText` are computed rather than dropped, even though
+   * `translations` and `sourceLanguages` now carry the same information more
+   * generally: no client reads them today, but the client-side schema still
+   * requires them, and `apps/api`/`apps/web` do not deploy atomically. See
+   * `TranscriptSegment` in `@chatofy/types` for the fuller version of this
+   * note.
+   */
   toSegment(
     sourceText: string,
-    targetText: string,
+    translations: TranslationMap,
     sessionId: string = this.sessionId,
   ): TranscriptSegment {
     return {
@@ -349,8 +403,10 @@ export class TurnSession {
       sessionId,
       speakerRole: this.speakerRole,
       direction: this.direction,
+      sourceLanguages: [...this.languages.sourceLanguages],
+      translations,
       sourceText,
-      targetText,
+      targetText: translations[this.languages.spoken] ?? '',
       // Audio travels over this socket rather than being stored.
       audioUrl: null,
       createdAt: new Date().toISOString(),

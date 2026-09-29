@@ -1,6 +1,10 @@
+import { Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import type { SaveTranslationContextRequest } from '@chatofy/types';
+import {
+  CONTEXT_LIMITS,
+  type SaveTranslationContextRequest,
+} from '@chatofy/types';
 import type { PrismaService } from '../../../prisma/prisma.service';
 import { PrismaTranslationContextStore } from './prisma-translation-context.store';
 
@@ -31,7 +35,9 @@ const row = (over: Record<string, unknown> = {}) => ({
   hotwords: ['VinFast'],
   style: 'formal',
   updatedAt: new Date('2026-09-17T00:00:00.000Z'),
-  glossary: [{ vi: 'hội đồng phản biện', en: 'thesis defense committee' }],
+  glossary: [
+    { terms: { vi: 'hội đồng phản biện', en: 'thesis defense committee' } },
+  ],
   ...over,
 });
 
@@ -55,7 +61,20 @@ const body: SaveTranslationContextRequest = {
  * is the id being saved.
  */
 function fakePrisma(
-  options: { transaction?: Mock; held?: number; exists?: boolean } = {},
+  options: {
+    transaction?: Mock;
+    held?: number;
+    exists?: boolean;
+    /** Rows `list()` reads back. Defaults to one valid row. */
+    listedGlossary?: { terms: unknown }[];
+    /**
+     * Rows already in the database for the context being saved, read by the
+     * preserve-on-replace check BEFORE the delete. Defaults to none, so the
+     * existing "takes positions from the array index" case keeps seeing
+     * exactly the two rows `body` sends and nothing appended after them.
+     */
+    existingGlossary?: { terms: unknown }[];
+  } = {},
 ) {
   const calls: string[] = [];
   const findUnique = vi.fn(async () => {
@@ -87,13 +106,19 @@ function fakePrisma(
       return 1;
     },
   );
-  const findMany = vi.fn(async () => [row()]);
+  const findMany = vi.fn(async () => [
+    row(options.listedGlossary ? { glossary: options.listedGlossary } : {}),
+  ]);
+  const glossaryFindMany = vi.fn(async () => {
+    calls.push('glossary.findMany');
+    return options.existingGlossary ?? [];
+  });
   const contextDeleteMany = vi.fn(async () => ({ count: 1 }));
 
   const tx = {
     $executeRaw: executeRaw,
     translationContext: { findUnique, count, upsert, findUniqueOrThrow },
-    glossaryTerm: { deleteMany, createMany },
+    glossaryTerm: { deleteMany, createMany, findMany: glossaryFindMany },
   };
 
   const prisma = {
@@ -114,6 +139,7 @@ function fakePrisma(
     deleteMany,
     createMany,
     findMany,
+    glossaryFindMany,
     contextDeleteMany,
     transaction: (prisma as unknown as { $transaction: Mock }).$transaction,
   };
@@ -136,6 +162,37 @@ describe('PrismaTranslationContextStore', () => {
         where: { ownerId_clientId: { ownerId: 'owner-1', clientId: 'ctx-1' } },
       }),
     );
+  });
+
+  describe('reading a stored glossary', () => {
+    it('validates each row against glossaryEntrySchema on the way out', async () => {
+      const { store } = fakePrisma({
+        listedGlossary: [{ terms: { vi: 'hội đồng', en: 'committee' } }],
+      });
+      const [context] = await store.list('owner-1');
+      expect(context?.glossary).toEqual([{ vi: 'hội đồng', en: 'committee' }]);
+    });
+
+    it('drops a row a past write corrupted without failing the whole context, and without a warning per read', async () => {
+      // One side only: valid JSONB, but no longer a shape `glossaryEntrySchema`
+      // accepts. A read has no way to repair it, so the contract this store
+      // keeps is that ONE bad row costs its own entry, not the whole context —
+      // the library stays readable for everything that was never touched.
+      const { store } = fakePrisma({
+        listedGlossary: [
+          { terms: { vi: 'chỉ một bên' } },
+          { terms: { vi: 'hội đồng', en: 'committee' } },
+        ],
+      });
+      const warn = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => {});
+      const [context] = await store.list('owner-1');
+      expect(context?.glossary).toEqual([{ vi: 'hội đồng', en: 'committee' }]);
+      // The row is still stored; the save that decides its fate reports it.
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
   });
 
   it('addresses the row by ownerId and clientId on delete', async () => {
@@ -163,11 +220,227 @@ describe('PrismaTranslationContextStore', () => {
         {
           contextId: 'cuid-1',
           position: 0,
-          vi: 'hội đồng phản biện',
-          en: 'thesis defense committee',
+          terms: { vi: 'hội đồng phản biện', en: 'thesis defense committee' },
         },
-        { contextId: 'cuid-1', position: 1, vi: 'luận văn', en: 'thesis' },
+        {
+          contextId: 'cuid-1',
+          position: 1,
+          terms: { vi: 'luận văn', en: 'thesis' },
+        },
       ],
+    });
+  });
+
+  describe('a replace and a row the current schema cannot read', () => {
+    it('carries an unreadable row through the replace instead of deleting it', async () => {
+      // One-sided: `glossaryEntrySchema` refuses an entry present in fewer than
+      // two languages. A row like this is exactly what `list()` already drops
+      // from what the operator can see — and what its next Save, sending back
+      // only what it could see, would otherwise take as "delete this".
+      const unreadable = { vi: 'một bên' };
+      const { store, createMany } = fakePrisma({
+        existingGlossary: [{ terms: unreadable }],
+      });
+
+      await store.save('owner-1', 'ctx-1', body, MAX);
+
+      expect(createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            contextId: 'cuid-1',
+            position: 0,
+            terms: { vi: 'hội đồng phản biện', en: 'thesis defense committee' },
+          },
+          {
+            contextId: 'cuid-1',
+            position: 1,
+            terms: { vi: 'luận văn', en: 'thesis' },
+          },
+          // Appended after the operator's own two, at the next position —
+          // never interleaved, and carried byte-for-byte rather than
+          // re-validated, which would just drop it again.
+          { contextId: 'cuid-1', position: 2, terms: unreadable },
+        ],
+      });
+    });
+
+    it('does not look for anything to preserve on a create — there is no prior row', async () => {
+      const { store, glossaryFindMany } = fakePrisma({
+        exists: false,
+        held: 0,
+      });
+
+      await store.save('owner-1', 'ctx-new', body, MAX);
+
+      expect(glossaryFindMany).not.toHaveBeenCalled();
+    });
+
+    it('reads what to preserve before the replace deletes it', async () => {
+      const { store, calls } = fakePrisma({
+        existingGlossary: [{ terms: { vi: 'một bên' } }],
+      });
+
+      await store.save('owner-1', 'ctx-1', body, MAX);
+
+      expect(calls.indexOf('glossary.findMany')).toBeGreaterThanOrEqual(0);
+      expect(calls.indexOf('glossary.findMany')).toBeLessThan(
+        calls.indexOf('glossary.deleteMany'),
+      );
+    });
+
+    it('reads the stored rows in position order', async () => {
+      const { store, glossaryFindMany } = fakePrisma({
+        existingGlossary: [{ terms: { vi: 'một bên' } }],
+      });
+
+      await store.save('owner-1', 'ctx-1', body, MAX);
+
+      expect(glossaryFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { position: 'asc' } }),
+      );
+    });
+
+    it('lets go of a row whose terms is not an object instead of re-inserting it', async () => {
+      // JSON `null`, an array, a scalar: no rendering in any language to keep,
+      // and a `null` re-inserted into the required column would fail every
+      // later save of this context.
+      const kept = { vi: 'một bên' };
+      const { store, createMany } = fakePrisma({
+        existingGlossary: [
+          { terms: null },
+          { terms: ['vi', 'en'] },
+          { terms: 'hello' },
+          { terms: kept },
+        ],
+      });
+
+      await store.save('owner-1', 'ctx-1', body, MAX);
+
+      expect(createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({ position: 0 }),
+          expect.objectContaining({ position: 1 }),
+          { contextId: 'cuid-1', position: 2, terms: kept },
+        ],
+      });
+    });
+
+    it('keeps preserved rows within the glossary cap, dropping the tail', async () => {
+      // One slot left under the cap: the earliest unreadable row by position
+      // takes it, and the later two are dropped rather than pushing the table
+      // past the number of entries the contract admits.
+      const nearlyFull: SaveTranslationContextRequest = {
+        ...body,
+        glossary: Array.from(
+          { length: CONTEXT_LIMITS.MAX_GLOSSARY - 1 },
+          (_, i) => ({ vi: `từ ${i}`, en: `word ${i}` }),
+        ),
+      };
+      const first = { vi: 'thứ nhất' };
+      const { store, createMany } = fakePrisma({
+        existingGlossary: [
+          { terms: first },
+          { terms: { vi: 'thứ hai' } },
+          { terms: { vi: 'thứ ba' } },
+        ],
+      });
+
+      await store.save('owner-1', 'ctx-1', nearlyFull, MAX);
+
+      const [[{ data }]] = createMany.mock.calls as unknown as [
+        [{ data: { position: number; terms: unknown }[] }],
+      ];
+      expect(data).toHaveLength(CONTEXT_LIMITS.MAX_GLOSSARY);
+      expect(data.at(-1)).toEqual({
+        contextId: 'cuid-1',
+        position: CONTEXT_LIMITS.MAX_GLOSSARY - 1,
+        terms: first,
+      });
+    });
+
+    it('preserves nothing once the body alone fills the cap', async () => {
+      const full: SaveTranslationContextRequest = {
+        ...body,
+        glossary: Array.from(
+          { length: CONTEXT_LIMITS.MAX_GLOSSARY },
+          (_, i) => ({
+            vi: `từ ${i}`,
+            en: `word ${i}`,
+          }),
+        ),
+      };
+      const { store, createMany } = fakePrisma({
+        existingGlossary: [{ terms: { vi: 'một bên' } }],
+      });
+
+      await store.save('owner-1', 'ctx-1', full, MAX);
+
+      const [[{ data }]] = createMany.mock.calls as unknown as [
+        [{ data: unknown[] }],
+      ];
+      expect(data).toHaveLength(CONTEXT_LIMITS.MAX_GLOSSARY);
+    });
+
+    it('warns once per save with what was kept and what was dropped', async () => {
+      const warn = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => {});
+      const { store } = fakePrisma({
+        existingGlossary: [
+          { terms: null },
+          { terms: { vi: 'một bên' } },
+          { terms: { en: 'one side' } },
+        ],
+      });
+
+      await store.save('owner-1', 'ctx-1', body, MAX);
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toMatch(
+        /carrying 2 unreadable .*discarding 1 with no term map and 0 past/,
+      );
+      warn.mockRestore();
+    });
+
+    it('does not warn when every stored row is readable', async () => {
+      const warn = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => {});
+      const { store } = fakePrisma({
+        existingGlossary: [{ terms: { vi: 'luận văn', en: 'thesis' } }],
+      });
+
+      await store.save('owner-1', 'ctx-1', body, MAX);
+
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    it('preserves nothing when every existing row is already readable', async () => {
+      const { store, createMany } = fakePrisma({
+        existingGlossary: [
+          {
+            terms: { vi: 'hội đồng phản biện', en: 'thesis defense committee' },
+          },
+        ],
+      });
+
+      await store.save('owner-1', 'ctx-1', body, MAX);
+
+      expect(createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            contextId: 'cuid-1',
+            position: 0,
+            terms: { vi: 'hội đồng phản biện', en: 'thesis defense committee' },
+          },
+          {
+            contextId: 'cuid-1',
+            position: 1,
+            terms: { vi: 'luận văn', en: 'thesis' },
+          },
+        ],
+      });
     });
   });
 

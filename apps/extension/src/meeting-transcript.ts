@@ -4,6 +4,7 @@ import {
   type TurnKeyedAction,
   type TurnKeyedTranscript,
 } from '@chatofy/realtime-client';
+import { directionLanguages } from '@chatofy/types';
 import type { TranscriptLine } from './messages';
 
 /**
@@ -79,10 +80,18 @@ export class MeetingTranscript {
       // both would drop whichever side had been quiet longest, so a talkative
       // user would slowly erase the meeting.
       for (const segment of transcript.turns.slice(-RETAINED_TURNS)) {
+        // Read out of the language-keyed map rather than the pre-fan-out
+        // `targetText`: a mixed turn's map can carry more than one entry, and
+        // this overlay shows exactly one side's translation — the language the
+        // segment's own declared direction names as the target. Falls back to
+        // `targetText` for a segment a rolled-back server sent (the wire schema
+        // that parses it already fills this key from that same field, so the
+        // fallback is unreachable in practice, not a second source of truth).
+        const target = directionLanguages(segment.direction).target;
         lines.push({
           sessionId: segment.sessionId,
           sourceText: segment.sourceText,
-          targetText: segment.targetText,
+          targetText: segment.translations[target] ?? segment.targetText,
           final: true,
           origin,
         });

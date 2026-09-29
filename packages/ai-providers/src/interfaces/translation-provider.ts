@@ -1,5 +1,7 @@
 // TranslationProvider contract — text-to-text translation (e.g. GPT-4o, DeepL)
-import type { LanguageCode, ProviderConfig } from './provider-types.js';
+import type { GlossaryEntry, LanguageCode, ProviderConfig } from './provider-types.js';
+
+export type { GlossaryEntry };
 
 export interface TranslationProviderConfig extends ProviderConfig {
   apiKey?: string;
@@ -15,20 +17,6 @@ export interface TranslationProviderConfig extends ProviderConfig {
  * change how the model writes, which is indistinguishable from an instruction.
  */
 export type TranslationStyle = 'neutral' | 'formal' | 'casual';
-
-/**
- * One dictionary entry: a term in each language.
- *
- * Keyed by LANGUAGE rather than by role, because one stored dictionary serves
- * BOTH directions of a bidirectional meeting — the extension runs two sessions
- * with opposite directions off one settings object. Which side is the source is
- * therefore a property of the request, not of the entry, and
- * `buildContextBlock` resolves it against `TranslationRequest.sourceLanguage`.
- */
-export interface GlossaryEntry {
-  vi: string;
-  en: string;
-}
 
 /**
  * What the translator is told about the conversation before it sees a word of it.
@@ -57,14 +45,20 @@ export interface TranslationHints {
    */
   hotwords?: string[];
   /**
-   * Preferred renderings for particular terms, as language-keyed pairs.
+   * Preferred renderings for particular terms, as language-keyed maps.
    *
-   * What this must NOT be read as: a pair is a rendering the model may CHOOSE
+   * Keyed BY LANGUAGE rather than by role, because one stored dictionary serves
+   * BOTH directions of a bidirectional meeting — the extension runs two sessions
+   * with opposite directions off one settings object. Which side is the source
+   * is therefore a property of the REQUEST, not of the entry, and
+   * `buildContextBlock` resolves it against `TranslationRequest.sourceLanguage`.
+   *
+   * What this must NOT be read as: an entry is a rendering the model may CHOOSE
    * when the transcript actually contains the term on the source side. It is not
    * a substitution the provider performs on the text, and it is not a licence to
-   * put either side into a sentence that did not contain it. A correct
-   * translation with a glossary target bolted onto it is the failure this field
-   * is most likely to produce, and the injection corpus grades for it by name.
+   * put any side into a sentence that did not contain it. A correct translation
+   * with a glossary target bolted onto it is the failure this field is most
+   * likely to produce, and the injection corpus grades for it by name.
    *
    * Like `hotwords`, entries are NOT filtered against the transcript before
    * being sent: a rendering earns its place precisely when the model would
@@ -139,8 +133,6 @@ export interface TranslationRequest {
 
 export interface TranslationResult {
   text: string;
-  /** Populated if the provider auto-detected the source language. */
-  detectedSource?: LanguageCode;
   /**
    * The model that actually produced the text. Providers that can switch model
    * mid-request (e.g. on a quota rejection) report it so callers log the model

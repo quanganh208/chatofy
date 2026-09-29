@@ -12,6 +12,15 @@ export const errorCodeSchema = z.enum([
   'CONFLICT',
   'RATE_LIMITED',
   'INTERNAL_ERROR',
+  /**
+   * A capability this deployment genuinely does not have right now — not a
+   * malformed request (`VALIDATION_FAILED` would say "fix your request",
+   * which the caller did not do) and not an unexpected fault (`INTERNAL_ERROR`
+   * carries a generic message on purpose; this one is a deliberate, safe-to-
+   * show refusal, and masking it would throw away the one thing that tells a
+   * caller what to change).
+   */
+  'SERVICE_UNAVAILABLE',
 ]);
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 

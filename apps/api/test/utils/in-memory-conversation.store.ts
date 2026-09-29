@@ -1,11 +1,14 @@
 import {
+  legacyDirectionOf,
   normalizeForSearch,
+  primaryTranslation,
   type Conversation,
   type ConversationSummary,
 } from '@chatofy/types';
 import type {
   ConversationPage,
   ConversationStore,
+  ConversationWrite,
   ListConversationsQuery,
 } from '../../src/modules/conversations/interfaces/conversation-store.interface';
 
@@ -37,15 +40,7 @@ export class InMemoryConversationStore implements ConversationStore {
   save(
     ownerId: string,
     conversationId: string,
-    conversation: Omit<
-      Conversation,
-      | 'conversationId'
-      | 'turnCount'
-      | 'preview'
-      | 'hasMinutes'
-      | 'hasRecording'
-      | 'audioDurationMs'
-    >,
+    conversation: ConversationWrite,
   ): Promise<ConversationSummary> {
     // A save carries no fields that say an OBJECT exists — it is a full
     // replacement that re-fires on every speaker rename, so carrying them would
@@ -55,15 +50,23 @@ export class InMemoryConversationStore implements ConversationStore {
     // body measured one and inherited when it did not, which is what the durable
     // store does by writing that column only when it is present.
     const previous = this.byOwnerClient.get(key(ownerId, conversationId));
+    const { languages } = conversation;
+    const turns = conversation.turns.map((turn) => ({
+      ...turn,
+      // Derived on READ here too, mirroring `PrismaConversationStore.toTurn`:
+      // a Postgres row has no `targetText` column to store this in either.
+      targetText: primaryTranslation(turn, languages),
+    }));
     const stored: Conversation = {
       conversationId,
-      direction: conversation.direction,
+      direction: legacyDirectionOf(languages),
+      languages,
       startedAt: conversation.startedAt,
       endedAt: conversation.endedAt,
-      turnCount: conversation.turns.length,
-      preview: previewOf(conversation.turns),
+      turnCount: turns.length,
+      preview: previewOf(turns),
       hasMinutes: previous?.hasMinutes ?? false,
-      turns: conversation.turns,
+      turns,
       hasRecording: previous?.hasRecording ?? false,
       audioOffsetMs:
         conversation.audioOffsetMs ?? previous?.audioOffsetMs ?? null,
@@ -188,6 +191,7 @@ function summaryOf(stored: Conversation): ConversationSummary {
   return {
     conversationId: stored.conversationId,
     direction: stored.direction,
+    languages: stored.languages,
     startedAt: stored.startedAt,
     endedAt: stored.endedAt,
     turnCount: stored.turnCount,

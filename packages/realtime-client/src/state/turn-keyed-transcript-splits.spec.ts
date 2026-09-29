@@ -15,6 +15,8 @@ const segment = (sessionId: string, sourceText: string): TranscriptSegment => ({
   sessionId,
   speakerRole: 'speaker_a',
   direction: 'en_to_vi',
+  sourceLanguages: ['en'],
+  translations: { vi: `<${sourceText}>` },
   sourceText,
   targetText: `<${sourceText}>`,
   audioUrl: null,

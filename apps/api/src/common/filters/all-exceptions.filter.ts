@@ -9,6 +9,7 @@ import {
 import type { ApiError, ApiErrorResponse, ErrorCode } from '@chatofy/types';
 import type { Request, Response } from 'express';
 import { ZodValidationException } from 'nestjs-zod';
+import { LanguageUnavailableException } from '../exceptions/language-unavailable.exception';
 
 /**
  * Maps an HTTP status to a stable, client-facing error code.
@@ -107,7 +108,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let statusCode: number;
     const error: ApiError = { code: 'INTERNAL_ERROR', message: '' };
 
-    if (exception instanceof ZodValidationException) {
+    if (exception instanceof LanguageUnavailableException) {
+      // Recognised by CLASS, ahead of the generic `HttpException` branch below:
+      // every other 5xx that branch sees is masked to a generic message on
+      // purpose, and this is the one deliberate exception to that rule — see
+      // the class's own doc for why masking it would throw away the useful
+      // part.
+      statusCode = exception.getStatus();
+      error.code = 'SERVICE_UNAVAILABLE';
+      error.message = messageFromHttpException(exception);
+    } else if (exception instanceof ZodValidationException) {
       statusCode = exception.getStatus();
       error.code = 'VALIDATION_FAILED';
       error.message = 'Validation failed';

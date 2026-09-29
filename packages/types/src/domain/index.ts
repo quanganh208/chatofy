@@ -7,18 +7,28 @@ export { speakerRoleSchema } from './session.js';
 export type { SpeakerRole } from './session.js';
 
 export {
+  LANGUAGES,
+  LANGUAGE_CODES,
   languageCodeSchema,
+  allDirections,
+  directionOf,
+  directionLanguages,
+  reverseDirection,
+  TRANSLATION_DIRECTIONS,
   translationDirectionSchema,
-  transcriptSegmentSchema,
-  voiceGenderSchema,
-  DEFAULT_VOICE_GENDER,
-} from './transcript.js';
-export type {
-  LanguageCode,
-  TranslationDirection,
-  TranscriptSegment,
-  VoiceGender,
-} from './transcript.js';
+  DEFAULT_TRANSLATION_DIRECTION,
+  conversationLanguagesOf,
+  translationTargets,
+  speakerRoleFor,
+  toLanguageCode,
+  conversationLanguagesSchema,
+  sourceLanguagesSchema,
+  translationMapSchema,
+} from './languages.js';
+export type { LanguageCode, LanguageTable, Direction, TranslationDirection } from './languages.js';
+
+export { transcriptSegmentSchema, voiceGenderSchema, DEFAULT_VOICE_GENDER } from './transcript.js';
+export type { TranscriptSegment, VoiceGender } from './transcript.js';
 
 export { translateModeSchema, DEFAULT_TRANSLATE_MODE } from './translate-mode.js';
 export type { TranslateMode } from './translate-mode.js';
@@ -30,5 +40,13 @@ export {
   conversationTurnSchema,
   conversationSummarySchema,
   conversationSchema,
+  primaryTranslation,
 } from './conversation.js';
 export type { ConversationTurn, ConversationSummary, Conversation } from './conversation.js';
+
+export {
+  fillConversationLanguages,
+  fillLegacyConversationFields,
+  fillTurnLanguages,
+  legacyDirectionOf,
+} from './language-fields-compat.js';

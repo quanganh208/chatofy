@@ -272,6 +272,12 @@ export const vi: Messages = {
   'web.error.notFoundBody': 'Có thể địa chỉ đã đổi, hoặc liên kết dẫn bạn tới đây đã cũ.',
   'web.error.goToStart': 'Về trang đầu',
 
+  // ---- web.languageName / web.languageShort ----
+  'web.languageName.vi': 'Tiếng Việt',
+  'web.languageName.en': 'Tiếng Anh',
+  'web.languageShort.vi': 'Việt',
+  'web.languageShort.en': 'Anh',
+
   // ---- web.history ----
   'web.history.empty': 'Chưa có cuộc hội thoại nào',
   'web.history.emptyBody':
@@ -283,10 +289,8 @@ export const vi: Messages = {
   'web.history.back': 'Quay lại lịch sử',
   'web.history.turnCount': '{count} dòng',
   'web.history.duration': '{minutes} phút',
-  'web.history.directionViToEn': 'Tiếng Việt → Tiếng Anh',
-  'web.history.directionEnToVi': 'Tiếng Anh → Tiếng Việt',
-  'web.history.directionShortViToEn': 'Việt → Anh',
-  'web.history.directionShortEnToVi': 'Anh → Việt',
+  'web.history.direction': '{from} → {to}',
+  'web.history.directionShort': '{from} → {to}',
   'web.history.minutesReady': 'Có biên bản',
   'web.history.cancel': 'Huỷ',
   'web.history.delete': 'Xoá',
@@ -340,8 +344,6 @@ export const vi: Messages = {
     'Cách bạn muốn một từ cụ thể được dịch ra. Hãy viết từ đó bằng cả hai thứ tiếng; trình dịch dùng cặp này theo chiều nào cũng được, và chỉ khi từ đó thực sự được nói ra.',
   'web.preferences.aiContext.glossaryTooLong':
     'Cách dịch chỉ nên là một từ hoặc một cụm ngắn — tối đa {max} chữ. Hãy rút gọn cặp này, hoặc xoá nó đi.',
-  'web.preferences.aiContext.glossaryVi': 'Tiếng Việt',
-  'web.preferences.aiContext.glossaryEn': 'Tiếng Anh',
   'web.preferences.aiContext.glossaryAdd': 'Thêm một cặp',
   'web.preferences.aiContext.glossaryRemove': 'Xoá cặp này',
   'web.preferences.aiContext.register': 'Văn phong',

@@ -14,7 +14,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { ServerEvent } from '@chatofy/types';
+import type { LanguageCode, ServerEvent } from '@chatofy/types';
 
 import {
   DEFAULT_AUTO_ATTRIBUTION,
@@ -63,6 +63,8 @@ const segment = (sessionId: string) => ({
   sessionId,
   speakerRole: 'speaker_a' as const,
   direction: 'vi_to_en' as const,
+  sourceLanguages: ['vi'] as LanguageCode[],
+  translations: { en: 'hello' },
   sourceText: 'xin chào',
   targetText: 'hello',
   audioUrl: null,

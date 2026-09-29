@@ -10,6 +10,9 @@ import math
 import av
 import numpy as np
 import pytest
+from fastapi.testclient import TestClient
+
+from app import app
 
 SRC_RATE = 48000  # what a browser mic capture actually delivers
 OPUS_FRAME = 960  # 20ms @ 48 kHz; Opus requires fixed frame sizes
@@ -47,3 +50,10 @@ def make_webm_opus(duration_s: float = 1.0) -> bytes:
 @pytest.fixture(scope="session")
 def webm_audio() -> bytes:
     return make_webm_opus()
+
+
+@pytest.fixture(scope="module")
+def client():
+    # `with` triggers lifespan → loads both models once for the whole module.
+    with TestClient(app) as c:
+        yield c

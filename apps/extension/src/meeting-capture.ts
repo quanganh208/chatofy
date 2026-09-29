@@ -1,4 +1,4 @@
-import type { TranslationDirection, TranslationHints } from '@chatofy/types';
+import { reverseDirection, type TranslationDirection, type TranslationHints } from '@chatofy/types';
 import type { PlaybackSink } from '@chatofy/realtime-client';
 import type { DirectionSessionDeps } from './direction-session';
 import { DuckController } from './duck-controller';
@@ -7,7 +7,6 @@ import { MeetingTranscript } from './meeting-transcript';
 import type { GatedMicrophone } from './outbound-mic';
 import type { VoiceHold } from './outbound-voice-lease';
 import type { TabAudioSource } from './tab-audio-source';
-import { reverseDirection } from './translation-direction';
 import type { CaptureSettings, CaptureStatus, OutboundState, TranscriptLine } from './messages';
 
 /**
@@ -384,6 +383,7 @@ export class MeetingCapture {
       if (settings.outbound) {
         await this.startOutbound(context, settings, accessToken, duck, stale, hints);
       }
+      if (stale()) throw new Error('capture was stopped while starting');
 
       await echo.start();
       this.reportStatus();

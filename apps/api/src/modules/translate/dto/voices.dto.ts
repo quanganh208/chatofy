@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import type { TtsVoice } from '@chatofy/ai-providers';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import type { TtsVoice, TtsVoiceCatalog } from '@chatofy/ai-providers';
 import type { VoiceGender } from '@chatofy/types';
 
 /**
@@ -40,7 +40,14 @@ export class TtsVoiceDto implements TtsVoice {
  * call failing — collapsing the two makes a stopped sidecar indistinguishable
  * from a backend that simply has one voice.
  */
-export class VoicesResponseDto {
+export class VoicesResponseDto implements TtsVoiceCatalog {
   @ApiProperty({ type: [TtsVoiceDto] })
   voices!: TtsVoiceDto[];
+
+  @ApiPropertyOptional({
+    description:
+      "Whether the running backend's engine for this language honours a playback rate at all. FALSE means the client should hide the rate control rather than offer one that silently does nothing — the Vietnamese engine ignores `speed` entirely, unlike the English one, even though both speak registry languages. Absent means UNKNOWN (a speech sidecar deployed before this field existed): a client should keep the rate control visible rather than read it as false.",
+    example: true,
+  })
+  speedAdjustable?: boolean;
 }

@@ -36,6 +36,13 @@ def test_healthz_ok(client):
     assert res.json()["status"] == "ok"
 
 
+def test_healthz_reports_supported_languages(client):
+    from engines.registry import SUPPORTED_LANGUAGES
+
+    res = client.get("/healthz")
+    assert res.json()["languages"] == list(SUPPORTED_LANGUAGES)
+
+
 def test_synthesize_english(client):
     res = client.post("/synthesize", json={"text": "Hello, this is a test."})
     assert res.status_code == 200
@@ -111,6 +118,13 @@ def test_voices_lists_the_catalog(client, language):
 
 def test_voices_unsupported_language_400(client):
     assert client.get("/voices?language=fr").status_code == 400
+
+
+@pytest.mark.parametrize("language,expected", [("en", True), ("vi", False)])
+def test_voices_reports_speed_adjustable(client, language, expected):
+    # An ENGINE capability, not a language one: Kokoro (en) honours `speed`,
+    # VieNeu (vi) ignores it — see engines/base.py and engines/vieneu_vi.py.
+    assert client.get(f"/voices?language={language}").json()["speedAdjustable"] is expected
 
 
 @pytest.mark.parametrize("language", ["en", "vi"])

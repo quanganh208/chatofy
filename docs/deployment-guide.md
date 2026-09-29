@@ -120,9 +120,9 @@ What that means operationally:
   from the local migrations directory" and changes nothing, which is the safe
   outcome, not a failure to work around.
 
-The rest of this section is the procedure for when a destructive migration is
-next added. It is kept because it is how one is run here, not because one is
-pending.
+The rest of this section is the procedure for running one. It is no longer
+hypothetical: two destructive migrations are committed and pending release —
+see _Pending: the two language-registry migrations_ below.
 
 A destructive migration is run inside a window, since the roll-out is not atomic:
 
@@ -156,6 +156,125 @@ docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate \
 
 Restoring the pre-deploy dump instead also clears it, since `_prisma_migrations`
 is in the dump. Deal with the rows the guard found first, either way.
+
+### Pending: the two language-registry migrations
+
+Two destructive migrations, both from the pluggable-languages work, are
+committed and sort in the order they must deploy in:
+
+1. `20260928114332_glossary_terms_by_language` — drops `GlossaryTerm.vi`/`.en`,
+   replaces them with one `terms` JSONB column (a language-keyed map).
+2. `20260928125252_conversation_languages` — drops `Conversation.direction`
+   and `ConversationTurn.targetText`, replaces them with `Conversation.languages` (`text[]`) and `ConversationTurn.sourceLanguages` (`text[]`) /
+   `translations` (JSONB).
+
+Both were rehearsed against a restore of the actual production dump (not a
+synthetic fixture) before being written up here — see `plans/260928-1026-pluggable-languages-multilingual-ready-and-cleanup/reports/phase-04-implementation-report.md` and `phase-06-implementation-report.md` for the
+full rehearsal evidence (row counts, before/after snapshots, and the exact
+`pg_restore`/`prisma migrate deploy` commands run).
+
+**Release both together, in one window, in this order.** Merge them in the
+order their folders sort, and only while an operator is at the keyboard for the
+window below — the deploy pipeline fires on the merge and does not pause for one:
+
+```bash
+docker compose -f docker-compose.prod.yml stop api web
+docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate
+docker compose -f docker-compose.prod.yml up -d --wait
+```
+
+`pg_dump` runs before this regardless (the pipeline's own backup step); take a
+second, ad-hoc snapshot of `GlossaryTerm`/`Conversation`/`ConversationTurn`
+immediately before stopping `api`/`web`, to diff against after `up -d --wait`
+returns. Then check CI on `main` after the merge, not only the PR — a race
+between this merge and another can leave the PR's own run green while `main`
+is not (see the project memory on this).
+
+**Down-SQL, applied in REVERSE order (`conversation_languages` first, then
+`glossary_terms_by_language`) if a rollback is needed without restoring the
+dump:**
+
+Each block ends by deleting its migration's row from `_prisma_migrations`,
+inside the same transaction. That ledger edit is the step that makes the
+rollback complete, and it cannot be done with Prisma's CLI:
+`prisma migrate resolve --rolled-back` only accepts a migration recorded as
+FAILED, and against one that applied cleanly it exits with **P3012** ("cannot be
+rolled back because it is not in a failed state") and leaves the ledger alone.
+A ledger that still lists both names after the schema is reverted breaks both
+directions: `migrate deploy` from the pre-merge ref stops on names missing from
+its migrations directory, and `migrate deploy` from head later SKIPS both as
+already applied, booting the new API against the old columns. Deleting the row
+in the same transaction as the DDL means the ledger and the schema cannot
+disagree — either both change or neither does.
+
+`20260928125252_conversation_languages` (apply first). The guard runs FIRST,
+before any destructive step, and the whole block is one transaction — a guard
+placed after the `ALTER`/`UPDATE` statements below it still ran on already-
+mutated state, and a mid-script failure without `BEGIN`/`COMMIT` left the
+table half-migrated with no way back but a restore:
+
+```sql
+BEGIN;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM "Conversation" WHERE array_length("languages",1) <> 2)
+  THEN RAISE EXCEPTION 'conversations with other than two languages exist; restore the dump instead'; END IF; END $$;
+ALTER TABLE "Conversation" ADD COLUMN "direction" TEXT;
+UPDATE "Conversation" SET "direction" = "languages"[1] || '_to_' || "languages"[2];
+ALTER TABLE "ConversationTurn" ADD COLUMN "targetText" TEXT;
+UPDATE "ConversationTurn" SET "targetText" = coalesce("translations" ->> (CASE WHEN "sourceLanguages"[1] = 'vi' THEN 'en' ELSE 'vi' END), '');
+ALTER TABLE "Conversation" ALTER COLUMN "direction" SET NOT NULL, DROP COLUMN "languages";
+ALTER TABLE "ConversationTurn" ALTER COLUMN "targetText" SET NOT NULL, DROP COLUMN "sourceLanguages", DROP COLUMN "translations";
+DELETE FROM "_prisma_migrations" WHERE "migration_name" = '20260928125252_conversation_languages';
+COMMIT;
+```
+
+`20260928114332_glossary_terms_by_language` (apply second). Same rule, and
+the check itself has to change shape to keep it: it used to read the NEW
+`vi`/`en` columns for `NULL` after the `UPDATE` populated them, which is
+exactly the ordering being fixed here — restored to run first, it instead
+reads the JSONB `terms` column directly, checking for the KEYS `UPDATE` is
+about to read from rather than the columns it is about to write:
+
+```sql
+BEGIN;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM "GlossaryTerm" WHERE NOT ("terms" ? 'vi' AND "terms" ? 'en'))
+  THEN RAISE EXCEPTION 'entries without vi/en exist; restore the dump instead'; END IF; END $$;
+ALTER TABLE "GlossaryTerm" ADD COLUMN "vi" TEXT, ADD COLUMN "en" TEXT;
+UPDATE "GlossaryTerm" SET "vi" = "terms"->>'vi', "en" = "terms"->>'en';
+ALTER TABLE "GlossaryTerm" ALTER COLUMN "vi" SET NOT NULL, ALTER COLUMN "en" SET NOT NULL, DROP COLUMN "terms";
+DELETE FROM "_prisma_migrations" WHERE "migration_name" = '20260928114332_glossary_terms_by_language';
+COMMIT;
+```
+
+Run each block in one `psql` session with `-v ON_ERROR_STOP=1`, so a failed
+guard stops the script at the `RAISE` instead of carrying on to the `COMMIT`
+(which then only rolls back). Afterwards
+`SELECT migration_name FROM "_prisma_migrations"` must list neither name. Do not
+also run `migrate resolve` for either migration: there is no failed row for it
+to act on.
+
+Rolling forward again later needs nothing extra — with both rows gone,
+`migrate deploy` from head sees both migrations as pending and applies them in
+folder order, guards included. That whole round trip (deploy at head → both
+blocks → deploy from a migrations directory without the two → deploy from head)
+was rehearsed on a throwaway Postgres 16 container on 2026-09-29; the
+`resolve --rolled-back` step it replaces was confirmed to fail with P3012 in the
+same run.
+
+**Two rollback paths exist, and they must never be mixed within one
+incident:**
+
+- **Down-SQL (with its ledger deletes) + `workflow_dispatch` to the pre-merge
+  ref** — rolls back schema and code by hand, keeping whatever rows were
+  written after the window.
+- **`pg_restore` of the dump taken immediately before the window** — rolls
+  back schema, code AND data together, since `_prisma_migrations` is itself
+  part of the dump.
+
+Both leave the ledger reading "these two migrations never ran", but by
+different routes, and they do not compose: running the down-SQL after a
+`pg_restore` hits columns that are already gone and aborts, and restoring the
+dump after the down-SQL throws away the rows the down-SQL was chosen to keep.
+Choose one for the whole incident.
 
 ## Redis, and the one volume you must not lose
 

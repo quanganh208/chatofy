@@ -13,6 +13,8 @@ const segment = (sessionId: string, sourceText: string, targetText: string): Tra
   sessionId,
   speakerRole: 'speaker_a',
   direction: 'vi_to_en',
+  sourceLanguages: ['vi'],
+  translations: { en: targetText },
   sourceText,
   targetText,
   audioUrl: null,
@@ -257,6 +259,18 @@ describe('turnKeyedTranscriptReducer', () => {
       expect(after).toBe(before);
       expect(after.live.a?.text).toBe('một');
       expect(after.live.b?.text).toBe('hai');
+    });
+
+    it('clears the line of a turn refused as language_unavailable, same as any other turn-scoped error', () => {
+      const state = play(partial('a', 'lỗi'), partial('b', 'ổn'), {
+        type: 'server.error',
+        code: 'language_unavailable',
+        message: 'This server cannot speak en right now',
+        sessionId: 'a',
+      });
+
+      expect(state.live.a).toBeUndefined();
+      expect(state.live.b?.text).toBe('ổn');
     });
   });
 

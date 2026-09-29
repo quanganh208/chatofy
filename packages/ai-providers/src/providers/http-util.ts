@@ -64,6 +64,13 @@ export const LOCAL_TTS_STREAM_TOTAL_MS = 90_000;
 export const LOCAL_TTS_VOICES_TIMEOUT_MS = 5_000;
 
 /**
+ * `GET /healthz`, read for the `languages` field rather than for readiness.
+ * Off the turn path — `SpeechLanguageSupport` calls this on a 60s refresh, not
+ * per turn — so it can afford the same budget as the voice catalog read.
+ */
+export const LOCAL_HEALTHZ_TIMEOUT_MS = 5_000;
+
+/**
  * ElevenLabs cloud calls (STT and TTS). Not the production backend —
  * `AI_STT_PROVIDER`/`AI_TTS_PROVIDER` default to `local` — but selectable, and
  * a hung cloud call pins a turn slot exactly like a hung local one. Cloud

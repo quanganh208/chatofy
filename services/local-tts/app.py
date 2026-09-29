@@ -29,7 +29,11 @@ from fastapi.responses import JSONResponse, Response  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
 from engines.base import ENGINE_LOCK_WAIT_S, EngineBusyError, TtsEngine  # noqa: E402
-from engines.registry import EngineRegistry, UnsupportedLanguageError  # noqa: E402
+from engines.registry import (  # noqa: E402
+    SUPPORTED_LANGUAGES,
+    EngineRegistry,
+    UnsupportedLanguageError,
+)
 from stream_response import PcmStreamResponse, first_item  # noqa: E402
 from stream_worker import StreamWorker  # noqa: E402
 
@@ -97,7 +101,12 @@ def voices(language: str = "en") -> JSONResponse:
             "voices": [
                 {"token": entry.token, "label": entry.label, "gender": entry.gender}
                 for entry in engine.CATALOG
-            ]
+            ],
+            # An ENGINE capability, not a language one: it says whether THIS
+            # loaded runtime honours `speed`, which is why it rides the
+            # per-language `/voices` response rather than a fact `/healthz`
+            # could state once for the whole sidecar.
+            "speedAdjustable": engine.SPEED_ADJUSTABLE,
         }
     )
 
@@ -106,7 +115,13 @@ def voices(language: str = "en") -> JSONResponse:
 def healthz() -> JSONResponse:
     ready = registry.ready
     return JSONResponse(
-        {"status": "ok" if ready else "loading"}, status_code=200 if ready else 503
+        {
+            "status": "ok" if ready else "loading",
+            # Static from `SUPPORTED_LANGUAGES`; see the STT sidecar's `/healthz`
+            # for why this is read regardless of the status code.
+            "languages": list(SUPPORTED_LANGUAGES),
+        },
+        status_code=200 if ready else 503,
     )
 
 

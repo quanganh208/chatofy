@@ -3,7 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TranslationContext } from '@chatofy/types';
-import { CONTEXT_LIMITS } from '@chatofy/types';
+import { CONTEXT_LIMITS, LANGUAGE_CODES } from '@chatofy/types';
 import { en } from '@chatofy/i18n';
 import { LocaleProvider } from '@/i18n/provider';
 import { AiContextSection } from './ai-context-section';
@@ -173,6 +173,18 @@ describe('AiContextSection', () => {
     ];
     expect(body.name).toBe('Thesis defense');
     expect(body.glossary).toEqual([{ vi: 'hội đồng phản biện', en: 'thesis defense committee' }]);
+  });
+
+  it('gives a newly added row one input per registry language', async () => {
+    // Generated from `LANGUAGE_CODES` rather than named per language, so the
+    // markup does not have to change the day a language joins the registry.
+    await mount();
+    await click(buttonSaying(en['web.preferences.aiContext.new']));
+    await click(buttonSaying(en['web.preferences.aiContext.glossaryAdd']));
+
+    for (const code of LANGUAGE_CODES) {
+      expect(container.querySelector(`#ai-context-glossary-${code}-1`)).not.toBeNull();
+    }
   });
 
   it('splits keywords one per line and drops the blanks', async () => {

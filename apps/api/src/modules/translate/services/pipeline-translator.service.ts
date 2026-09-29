@@ -16,16 +16,18 @@ import {
   type TtsAudioStream,
   type TtsProvider,
   type TtsSynthesizeRequest,
-  type TtsVoice,
+  type TtsVoiceCatalog,
 } from '@chatofy/ai-providers';
 import {
-  directionLanguages,
   type LanguageCode,
   type TranslateResponse,
-  type TranslationDirection,
   type VoiceGender,
 } from '@chatofy/types';
 import { AiProvidersFactory } from '../providers/ai-providers.factory';
+import type {
+  TurnLanguagePlan,
+  TranslationMap,
+} from '../session/turn-language-plan';
 
 /**
  * How long a fetched voice catalog is reused.
@@ -50,12 +52,19 @@ export class SpeechEngineBusyException extends ServiceUnavailableException {
   }
 }
 
-/** Decoded input for one translation turn. */
+/**
+ * Decoded input for one translation turn.
+ *
+ * Carries no language of its own: which language(s) to recognise, and which to
+ * translate into, are the caller's `TurnLanguagePlan`, passed as its own
+ * argument to every method that needs one below. Keeping the plan out of this
+ * object is what lets `transcribe`/`translate` take a single language directly
+ * while `transcribeAndTranslate`/`translateTurn` take the whole plan, without
+ * the type lying about which fields either path actually reads.
+ */
 export interface TranslateTurnInput {
   audio: Uint8Array;
   mimeType: string;
-  /** Translation direction; defaults to vi→en for backward compatibility. */
-  direction?: TranslationDirection;
   /** Which voice speaks the translation; the TTS backend defaults an omitted one. */
   voiceGender?: VoiceGender;
   /** Speaking rate; ignored by backends that have no rate control. */
@@ -88,12 +97,17 @@ export interface TranslateTurnInput {
   context?: string[];
 }
 
-/** The text half of a turn — everything decided before speech is synthesized. */
+/**
+ * The text half of a turn — everything decided before speech is synthesized.
+ *
+ * `translations` replaces the single `targetText`/`targetLanguage` this used to
+ * carry: a turn is translated into every one of its plan's `targets`, not only
+ * the one that gets spoken. A caller that wants the spoken text reads
+ * `translations[plan.spoken]`.
+ */
 export interface TranslatedTurnText {
   sourceText: string;
-  targetText: string;
-  /** Language the target text must be spoken in. */
-  targetLanguage: LanguageCode;
+  translations: TranslationMap;
 }
 
 /** One synthesis request. */
@@ -168,7 +182,7 @@ export class PipelineTranslatorService {
   /** Per-language voice catalog, with the wall-clock time it goes stale. */
   private readonly voiceCache = new Map<
     LanguageCode,
-    { voices: TtsVoice[]; expiresAt: number }
+    TtsVoiceCatalog & { expiresAt: number }
   >();
 
   constructor(private readonly providers: AiProvidersFactory) {}
@@ -180,14 +194,25 @@ export class PipelineTranslatorService {
    * compared against, so the audio must keep coming from ONE `synthesize` call:
    * the streaming path splits the text into clauses, which changes prosody at
    * the seams and would stop this being a like-for-like comparison.
+   *
+   * REST answers ONE audio, for `plan.spoken` — the same budget the streaming
+   * path applies to its preview, made explicit here in the swagger docs on
+   * `TranslateController`. A fan-out turn still translates into every one of
+   * `plan.targets`; only the synthesized side is singular.
    */
-  async translateTurn(input: TranslateTurnInput): Promise<TranslateResponse> {
-    const { sourceText, targetText, targetLanguage } =
-      await this.transcribeAndTranslate(input);
+  async translateTurn(
+    input: TranslateTurnInput,
+    plan: TurnLanguagePlan,
+  ): Promise<TranslateResponse> {
+    const { sourceText, translations } = await this.transcribeAndTranslate(
+      input,
+      plan,
+    );
+    const targetText = translations[plan.spoken] ?? '';
 
     const speech = await this.synthesize({
       text: targetText,
-      language: targetLanguage,
+      language: plan.spoken,
       voiceGender: input.voiceGender,
       speed: input.speed,
     });
@@ -245,17 +270,16 @@ export class PipelineTranslatorService {
    * The "no speech detected" rejection therefore belongs to whoever asked for a
    * whole turn, and lives one level up in {@link transcribeAndTranslate}.
    */
-  async transcribe(input: TranslateTurnInput): Promise<string> {
-    const direction: TranslationDirection = input.direction ?? 'vi_to_en';
-    const { source } = directionLanguages(direction);
-
+  async transcribe(
+    input: TranslateTurnInput & { language: LanguageCode },
+  ): Promise<string> {
     try {
       const trio = this.providers.makeProviders();
       const sttStart = Date.now();
       const { text } = await trio.stt.transcribe(
         input.audio,
         input.mimeType,
-        source,
+        input.language,
         // The same hints the translator gets. A hotword is named because the
         // RECOGNIZER mishears it, so spending the list here first is what the
         // field was always for; the translator still receives it, for the term
@@ -278,7 +302,8 @@ export class PipelineTranslatorService {
    */
   async translate(req: {
     text: string;
-    direction?: TranslationDirection;
+    source: LanguageCode;
+    target: LanguageCode;
     models?: string[];
     hints?: TranslationHints;
     /** Finished source utterances from earlier in this conversation, oldest first. */
@@ -293,15 +318,13 @@ export class PipelineTranslatorService {
      */
     onChunk?: (delta: string, restart: boolean) => void;
   }): Promise<string> {
-    const { source, target } = directionLanguages(req.direction ?? 'vi_to_en');
-
     try {
       const trio = this.providers.makeProviders();
       const start = Date.now();
       const { text, model } = await trio.translation.translate({
         text: req.text,
-        sourceLanguage: source,
-        targetLanguage: target,
+        sourceLanguage: req.source,
+        targetLanguage: req.target,
         models: req.models,
         hints: req.hints,
         context: req.context,
@@ -317,6 +340,42 @@ export class PipelineTranslatorService {
   }
 
   /**
+   * `translate`, fanned out over every target — the shape a turn's FINAL
+   * translation always takes, whether that turn has one target or several.
+   *
+   * `Promise.all`, not a sequential loop: each target is an independent
+   * request against (today) the same model ladder, and a turn with several
+   * targets must not wait on them one at a time. One target costs exactly what
+   * a single `translate` call always cost.
+   */
+  async translateAll(req: {
+    text: string;
+    source: LanguageCode;
+    targets: readonly LanguageCode[];
+    models?: string[];
+    hints?: TranslationHints;
+    context?: string[];
+  }): Promise<TranslationMap> {
+    const entries = await Promise.all(
+      req.targets.map(
+        async (target) =>
+          [
+            target,
+            await this.translate({
+              text: req.text,
+              source: req.source,
+              target,
+              models: req.models,
+              hints: req.hints,
+              context: req.context,
+            }),
+          ] as const,
+      ),
+    );
+    return Object.fromEntries(entries);
+  }
+
+  /**
    * Transcribe and translate, stopping before synthesis.
    *
    * Split out for the streaming path, which needs the text on its own twice
@@ -325,14 +384,13 @@ export class PipelineTranslatorService {
    */
   async transcribeAndTranslate(
     input: TranslateTurnInput,
+    plan: TurnLanguagePlan,
   ): Promise<TranslatedTurnText> {
-    const direction: TranslationDirection = input.direction ?? 'vi_to_en';
-    const { source, target } = directionLanguages(direction);
-
     try {
-      const trio = this.providers.makeProviders();
-
-      const sourceText = await this.transcribe(input);
+      const sourceText = await this.transcribe({
+        ...input,
+        language: plan.recognition,
+      });
       if (!sourceText.trim()) {
         // Logged, not merely thrown, because how often this fires is itself the
         // open question. Two production recordings each lost one utterance and
@@ -342,30 +400,23 @@ export class PipelineTranslatorService {
         // does not, this line is what will say so. Bytes rather than a duration:
         // decoding happened inside the provider and the length is not back here.
         this.logger.warn(
-          `No speech detected: ${source} ${input.audio.byteLength}B ${input.mimeType}`,
+          `No speech detected: ${plan.recognition} ${input.audio.byteLength}B ${input.mimeType}`,
         );
         throw new BadRequestException('No speech detected in the audio');
       }
 
-      const trStart = Date.now();
-      const { text: targetText, model: translationModel } =
-        await trio.translation.translate({
-          text: sourceText,
-          sourceLanguage: source,
-          targetLanguage: target,
-          models: input.models,
-          hints: input.hints,
-          context: input.context,
-        });
-      // Report the model that answered: the provider walks down its own model
-      // list as each one's daily quota runs out, so only the result can say
-      // which model actually ran. Backends that do not report one fall back to
-      // the provider name.
-      this.logger.log(
-        `translate(${translationModel ?? trio.translation.name}) ${Date.now() - trStart}ms`,
-      );
+      // Each target logs its own model and timing inside `translate`; nothing
+      // further to add here.
+      const translations = await this.translateAll({
+        text: sourceText,
+        source: plan.recognition,
+        targets: plan.targets,
+        models: input.models,
+        hints: input.hints,
+        context: input.context,
+      });
 
-      return { sourceText, targetText, targetLanguage: target };
+      return { sourceText, translations };
     } catch (err) {
       return this.handlePipelineError(err);
     }
@@ -384,19 +435,32 @@ export class PipelineTranslatorService {
    * out to a sidecar that is busy synthesizing speech. Short enough that a
    * restarted backend is picked up without anyone restarting the api.
    */
-  async listVoices(language: LanguageCode): Promise<TtsVoice[]> {
+  async listVoices(language: LanguageCode): Promise<TtsVoiceCatalog> {
     const cached = this.voiceCache.get(language);
-    if (cached && Date.now() < cached.expiresAt) return cached.voices;
+    // Reshaped rather than returned by reference: the cache entry carries
+    // `expiresAt` alongside the catalog, and a cache hit answering that field
+    // made the response shape depend on whether this happened to be a cold or
+    // a warm call — the controller serialises whatever this returns.
+    // `speedAdjustable` is copied only when present: absent means "unknown"
+    // (see `TtsVoiceCatalog`), and a warm call must answer the same shape as
+    // the cold one it cached.
+    if (cached && Date.now() < cached.expiresAt) {
+      const { expiresAt: _expiresAt, ...catalog } = cached;
+      return catalog;
+    }
 
     const trio = this.providers.makeProviders();
-    if (!trio.tts.listVoices) return [];
+    // An explicit `false`, not "unknown": the only backend without a catalog
+    // (ElevenLabs) sends no rate parameter at all, so the rate control would
+    // silently do nothing and the client should hide it.
+    if (!trio.tts.listVoices) return { voices: [], speedAdjustable: false };
 
-    const voices = await trio.tts.listVoices(language);
+    const catalog = await trio.tts.listVoices(language);
     this.voiceCache.set(language, {
-      voices,
+      ...catalog,
       expiresAt: Date.now() + VOICE_CACHE_TTL_MS,
     });
-    return voices;
+    return catalog;
   }
 
   async synthesize(req: SynthesizeRequest): Promise<SynthesizedSpeech> {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { listVoices, type TtsVoice } from '@/clients/api-client';
-import { directionLanguages, type TranslationDirection } from '@chatofy/types';
+import { directionLanguages, type LanguageCode, type TranslationDirection } from '@chatofy/types';
 
 /**
  * What the catalog request produced.
@@ -14,12 +14,34 @@ import { directionLanguages, type TranslationDirection } from '@chatofy/types';
  * sidecar looks exactly like a feature working correctly — permanently, with every
  * test still green.
  */
-export type VoiceCatalogState =
-  | { status: 'loading'; voices: TtsVoice[] }
-  | { status: 'ready'; voices: TtsVoice[] }
-  | { status: 'failed'; voices: TtsVoice[] };
+/**
+ * Whether the running engine honours `speed` at all — an ENGINE capability,
+ * not a language one, reported by the backend rather than assumed from
+ * direction.
+ *
+ * Tri-state, deliberately. `false` is an answer the backend actually gave:
+ * this engine ignores the rate. `'unknown'` is every case where nobody has
+ * — a request still in flight, one that failed, or a response from an API
+ * build too old to carry the field at all. Main showed the rate control
+ * unconditionally before any of this existed, and collapsing `'unknown'`
+ * into `false` silently changed that default: the control would disappear
+ * for the length of every popover open, on a lookup failure, or for the
+ * whole of a rolling deploy where the API rolls forward before the field
+ * does — on an engine that has honoured the rate the entire time. Only an
+ * explicit `false` hides it now.
+ */
+export type SpeedAdjustable = boolean | 'unknown';
 
-type OutputLanguage = ReturnType<typeof directionLanguages>['target'];
+/** The voice list plus the engine fact that governs the rate control. */
+interface VoiceCatalogPayload {
+  voices: TtsVoice[];
+  speedAdjustable: SpeedAdjustable;
+}
+
+export type VoiceCatalogState =
+  | ({ status: 'loading' } & VoiceCatalogPayload)
+  | ({ status: 'ready' } & VoiceCatalogPayload)
+  | ({ status: 'failed' } & VoiceCatalogPayload);
 
 /**
  * Lists already fetched in this tab, keyed by the language they list.
@@ -35,22 +57,30 @@ type OutputLanguage = ReturnType<typeof directionLanguages>['target'];
  * the value is the same for every component in the tab; a context would add a tree
  * to hold one map.
  */
-const cachedVoices = new Map<OutputLanguage, TtsVoice[]>();
+const cachedVoices = new Map<LanguageCode, VoiceCatalogPayload>();
 
 /**
  * Requests still in the air, so two panels mounting in the same tick share one GET
  * instead of racing.
  */
-const pendingVoices = new Map<OutputLanguage, Promise<TtsVoice[]>>();
+const pendingVoices = new Map<LanguageCode, Promise<VoiceCatalogPayload>>();
 
-function loadVoices(language: OutputLanguage): Promise<TtsVoice[]> {
+function loadVoices(language: LanguageCode): Promise<VoiceCatalogPayload> {
   const pending = pendingVoices.get(language);
   if (pending) return pending;
 
   const request = listVoices(language)
     .then((result) => {
-      cachedVoices.set(language, result.voices);
-      return result.voices;
+      const payload: VoiceCatalogPayload = {
+        voices: result.voices,
+        // Absent means an API build that predates this field, which is a fact
+        // this client does not have — not the same as a backend that answered
+        // `false`. See `SpeedAdjustable`'s doc for why that distinction is the
+        // whole point.
+        speedAdjustable: result.speedAdjustable ?? 'unknown',
+      };
+      cachedVoices.set(language, payload);
+      return payload;
     })
     .finally(() => {
       // Only the SUCCESS is remembered. Dropping the in-flight entry on failure
@@ -63,11 +93,13 @@ function loadVoices(language: OutputLanguage): Promise<TtsVoice[]> {
   return request;
 }
 
-function cachedState(language: OutputLanguage): VoiceCatalogState {
-  const voices = cachedVoices.get(language);
+function cachedState(language: LanguageCode): VoiceCatalogState {
+  const cached = cachedVoices.get(language);
   // Straight to `ready` on a reopen, so a cached list does not flash "loading" for
   // a frame before showing the same options it showed a moment ago.
-  return voices ? { status: 'ready', voices } : { status: 'loading', voices: [] };
+  return cached
+    ? { status: 'ready', ...cached }
+    : { status: 'loading', voices: [], speedAdjustable: 'unknown' };
 }
 
 /**
@@ -96,13 +128,16 @@ export function useVoiceCatalog(direction: TranslationDirection): VoiceCatalogSt
     let cancelled = false;
 
     loadVoices(outputLanguage)
-      .then((voices) => {
-        if (!cancelled) setState({ status: 'ready', voices });
+      .then((payload) => {
+        if (!cancelled) setState({ status: 'ready', ...payload });
       })
       .catch(() => {
         // Deliberately not rethrown and deliberately not silent: the caller shows
-        // this state rather than pretending the backend has no voices.
-        if (!cancelled) setState({ status: 'failed', voices: [] });
+        // this state rather than pretending the backend has no voices. Speed is
+        // `'unknown'`, not `false` — a failed lookup says nothing about whether
+        // the engine honours the rate, and defaulting to `false` hid a working
+        // control for the length of every retry.
+        if (!cancelled) setState({ status: 'failed', voices: [], speedAdjustable: 'unknown' });
       });
 
     return () => {

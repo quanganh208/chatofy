@@ -342,6 +342,20 @@ export const en = {
     'The address may have changed, or the link that brought you here may be out of date.',
   'web.error.goToStart': 'Go to the start',
 
+  // ---- web.languageName / web.languageShort: a registry language's name in
+  // THIS locale ----
+  //
+  // Keyed by code rather than by direction, unlike `web.history.direction*`
+  // below: a history row or a glossary column names one language at a time, and
+  // keying by code is what makes adding a language a data change here rather
+  // than a new pair of keys. Distinct from `common.language.*`, which names the
+  // INTERFACE locale and reads identically regardless of which two languages a
+  // conversation is between.
+  'web.languageName.vi': 'Vietnamese',
+  'web.languageName.en': 'English',
+  'web.languageShort.vi': 'VI',
+  'web.languageShort.en': 'EN',
+
   // ---- web.history: conversations this account has finished and kept ----
   //
   // `speakerA`/`speakerB` are here rather than in a database column on purpose.
@@ -361,13 +375,14 @@ export const en = {
   'web.history.back': 'Back to history',
   'web.history.turnCount': '{count} lines',
   'web.history.duration': '{minutes} min',
-  // The long pair is the ACCESSIBLE name; the short pair is what is drawn on a
+  // `direction` is the ACCESSIBLE name; `directionShort` is what is drawn on a
   // row. "Vietnamese → English" is 21 characters printed once per row, which at
   // eight rows is the loudest thing on a screen whose subject is the previews.
-  'web.history.directionViToEn': 'Vietnamese → English',
-  'web.history.directionEnToVi': 'English → Vietnamese',
-  'web.history.directionShortViToEn': 'VI → EN',
-  'web.history.directionShortEnToVi': 'EN → VI',
+  // Both take the language names as `{from}`/`{to}` — see `web.languageName.*`
+  // and `web.languageShort.*` above — rather than naming a direction, which is
+  // what lets a third language reuse the same two templates.
+  'web.history.direction': '{from} → {to}',
+  'web.history.directionShort': '{from} → {to}',
   'web.history.minutesReady': 'Minutes',
   'web.history.cancel': 'Cancel',
   'web.history.delete': 'Delete',
@@ -443,8 +458,6 @@ export const en = {
     'How a particular term should come out. Write each term in both languages; the translator uses the pair whichever way the conversation runs, and only when the term is actually said.',
   'web.preferences.aiContext.glossaryTooLong':
     'A rendering is a word or a short phrase — at most {max} words. Shorten this pair, or remove it.',
-  'web.preferences.aiContext.glossaryVi': 'Vietnamese',
-  'web.preferences.aiContext.glossaryEn': 'English',
   'web.preferences.aiContext.glossaryAdd': 'Add a pair',
   'web.preferences.aiContext.glossaryRemove': 'Remove this pair',
   'web.preferences.aiContext.register': 'Register',

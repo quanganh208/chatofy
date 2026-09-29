@@ -6,7 +6,8 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { randomUUID } from 'node:crypto';
 import { ProviderRegistry } from '@chatofy/ai-providers';
-import { MINUTES_LIMITS, type ConversationTurn } from '@chatofy/types';
+import { MINUTES_LIMITS } from '@chatofy/types';
+import type { ConversationTurnWrite } from '../src/modules/conversations/interfaces/conversation-store.interface';
 import { AppModule } from '../src/app.module';
 import { USER_REPOSITORY } from '../src/modules/users/interfaces/user-repository.interface';
 import { CONVERSATION_STORE } from '../src/modules/conversations/interfaces/conversation-store.interface';
@@ -89,7 +90,7 @@ describe('Meeting minutes (e2e)', () => {
     bob = await registerAndLogin(app, { email: 'bob-minutes@example.com' });
 
     await conversations.save(alice.userId, conversationId, {
-      direction: 'en_to_vi',
+      languages: ['en', 'vi'],
       startedAt: '2026-09-03T00:00:00.000Z',
       endedAt: '2026-09-03T00:10:00.000Z',
       turns: [turn(0, 'ready to ship?')],
@@ -100,7 +101,7 @@ describe('Meeting minutes (e2e)', () => {
     // Under the storage ceiling, over the prompt one — saved and readable, and
     // deliberately not summarizable.
     await conversations.save(alice.userId, oversizedId, {
-      direction: 'en_to_vi',
+      languages: ['en', 'vi'],
       startedAt: '2026-09-03T00:00:00.000Z',
       endedAt: '2026-09-03T00:10:00.000Z',
       turns: Array.from(
@@ -167,7 +168,7 @@ describe('Meeting minutes (e2e)', () => {
   it('404s when the caller has no minutes for the conversation', async () => {
     const empty = randomUUID();
     await conversations.save(alice.userId, empty, {
-      direction: 'en_to_vi',
+      languages: ['en', 'vi'],
       startedAt: '2026-09-03T00:00:00.000Z',
       endedAt: '2026-09-03T00:10:00.000Z',
       turns: [turn(0, 'never summarized')],
@@ -221,14 +222,19 @@ describe('Meeting minutes (e2e)', () => {
   });
 });
 
-function turn(position: number, sourceText: string): ConversationTurn {
+function turn(position: number, sourceText: string): ConversationTurnWrite {
   return {
     position,
+    // The conversation here is en_to_vi (`languages: ['en','vi']`); speaker_a is
+    // always the Vietnamese side (`speakerRoleFor`, `@chatofy/types`), so this
+    // block's source is 'vi' and its one destination is 'en' — the pair
+    // `translationTargets(['en','vi'], ['vi'])` gives.
     speakerRole: 'speaker_a',
     speakerLabel: 'Alice',
     sourceText,
     displayText: null,
-    targetText: 'translated',
+    sourceLanguages: ['vi'],
+    translations: { en: 'translated' },
     // Null because nothing timed these turns, not as a placeholder: minutes are
     // built from TEXT and the module never reads a turn timestamp, so a
     // fabricated offset here would suggest a dimension these cases exercise.

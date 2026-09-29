@@ -344,7 +344,15 @@ const ttsVoiceSchema = z.object({
   label: z.string(),
   gender: voiceGenderSchema,
 });
-const ttsVoicesResponseSchema = z.object({ voices: z.array(ttsVoiceSchema) });
+const ttsVoicesResponseSchema = z.object({
+  voices: z.array(ttsVoiceSchema),
+  // OPTIONAL, not defaulted. Absent means an API build that predates this
+  // field, which this client cannot read as either `true` or `false` — that
+  // would be asserting a capability nobody reported. `useVoiceCatalog` turns
+  // an absent value into `'unknown'`, which keeps the rate control visible
+  // rather than hiding one on an engine that has honoured it the whole time.
+  speedAdjustable: z.boolean().optional(),
+});
 export type TtsVoice = z.infer<typeof ttsVoiceSchema>;
 
 /**
@@ -356,7 +364,7 @@ export type TtsVoice = z.infer<typeof ttsVoiceSchema>;
  * treats any failure as "no voices" would then hide the picker forever while
  * every test still passed.
  */
-export function listVoices(language: 'vi' | 'en') {
+export function listVoices(language: LanguageCode) {
   return authedFetch(`/translate/voices?language=${language}`, ttsVoicesResponseSchema);
 }
 

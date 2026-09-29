@@ -40,7 +40,11 @@ overrides:
   # confusion via percent-encoded scheme normalization. 44 paths deep under
   # ajv (commitlint, @nestjs/cli, prisma dev) — nothing imports it directly,
   # so a floor is the only way to raise it everywhere at once.
-  fast-uri: '>=3.1.6'
+  # GHSA-qw65-cvwx-89v3, GHSA-58mr-gqgx-xq4g — high, <3.1.7: authority injection
+  # via an unvalidated port, and host confusion via an unclosed bracket. Capped
+  # below 4: every consumer is ajv, which asks for ^3, and an open floor would
+  # hand it the 4.x line.
+  fast-uri: '>=3.1.7 <4'
   # GHSA-w2rr-34g9-rvrj and seven siblings — high, <=0.8.14: prototype pollution
   # and several parser confusions. Transitive only, under the Expo and Prisma
   # trees; nothing here imports an XML parser directly.

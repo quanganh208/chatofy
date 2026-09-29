@@ -44,6 +44,7 @@ const NOW = new Date('2026-09-04T12:00:00.000Z');
 const summary = (overrides: Partial<ConversationSummary> = {}): ConversationSummary => ({
   conversationId: '11111111-1111-4111-8111-111111111111',
   direction: 'vi_to_en',
+  languages: ['vi', 'en'],
   startedAt: '2026-09-03T10:00:00.000Z',
   endedAt: '2026-09-03T10:10:00.000Z',
   turnCount: 12,

@@ -7,13 +7,13 @@ import {
   groupIsRepaired,
   groupRawSourceText,
   groupSourceText,
-  groupTargetText,
+  groupTranslation,
   groupTurnsForDisplay,
   speakerFor,
   type AttributionsBySession,
   type SessionSpeaker,
 } from '@chatofy/realtime-client';
-import type { TranscriptSegment } from '@chatofy/types';
+import type { LanguageCode, TranscriptSegment } from '@chatofy/types';
 import { cn } from '@/lib/utils';
 import { formatOffset, isoDuration, mediaOffset } from '@/lib/transcript-time';
 import { useTranslate } from '@/i18n/provider';
@@ -102,6 +102,14 @@ interface ConversationTranscriptProps {
    */
   onRenameSpeaker: (speakerId: string, label: string) => void;
   onRemoveSpeaker: (speakerId: string) => void;
+  /**
+   * Which language a finished block's translation line reads — the
+   * conversation's declared target, read once by the caller rather than
+   * re-derived per turn. Every segment's own `translations` map is keyed by
+   * language, not by "the" target, because a mixed turn can carry more than
+   * one; this is which key the target pane shows.
+   */
+  target: LanguageCode;
 }
 
 /**
@@ -165,6 +173,7 @@ export function ConversationTranscript({
   onAddSpeaker,
   onRenameSpeaker,
   onRemoveSpeaker,
+  target,
 }: ConversationTranscriptProps) {
   const t = useTranslate();
   const showsSource = side !== 'target';
@@ -346,7 +355,7 @@ export function ConversationTranscript({
                   />
                 ) : null}
                 {showsTarget ? (
-                  <p className="text-target font-medium">{groupTargetText(group)}</p>
+                  <p className="text-target font-medium">{groupTranslation(group, target)}</p>
                 ) : null}
                 {/* Said on the turn it happened to, because that is the only
                     place it means anything: this text is on screen and was never

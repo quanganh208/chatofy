@@ -6,6 +6,7 @@
 // truncated translation.
 import { randomUUID } from 'node:crypto';
 import { GoogleGenAI, Modality } from '@google/genai';
+import { toLanguageCode as registryLanguageCode } from '@chatofy/types';
 import type {
   RealtimeProvider,
   RealtimeStartParams,
@@ -81,10 +82,15 @@ function rateFromMimeType(mimeType: string | undefined): number | null {
   return Number.isFinite(rate) && rate > 0 ? rate : null;
 }
 
-/** Narrow a BCP-47 tag the model reports onto this monorepo's language enum. */
+/**
+ * Narrow a BCP-47 tag the model reports onto this monorepo's language enum, or
+ * `null` when the tag names a language outside the registry — never handing an
+ * unrecognised code further down the pipeline. The registry's own
+ * {@link registryLanguageCode} takes it from here; this only adapts its `string`
+ * parameter to the `string | undefined` this model actually reports.
+ */
 function toLanguageCode(tag: string | undefined): LanguageCode | null {
-  const primary = tag?.split('-')[0]?.toLowerCase();
-  return primary === 'vi' || primary === 'en' ? primary : null;
+  return tag ? registryLanguageCode(tag) : null;
 }
 
 export class GeminiLiveTranslateProvider implements RealtimeProvider {

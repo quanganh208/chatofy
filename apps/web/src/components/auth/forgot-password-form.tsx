@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { authErrorMessage } from './auth-error-message';
 import { AUTH_LIMITS } from '@chatofy/types';
 import { Button } from '@chatofy/ui/react';
 import { AuthAlert } from '@/components/auth/auth-alert';
 import { AuthField } from '@/components/auth/auth-field';
+import { SubmittedNotice } from '@/components/auth/submitted-notice';
 import { forgotPassword } from '@/clients/api-client';
+import { useSubmittedNotice } from '@/hooks/use-submitted-notice';
 import { useLocale, useTranslate } from '@/i18n/provider';
 
 /**
@@ -28,39 +30,16 @@ export function ForgotPasswordForm() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-
-  // The form goes when the confirmation arrives, and the submit button that was
-  // pressed goes with it — so focus fell to `<body>`, at the top of the page,
-  // away from the one sentence that says what happened. It moves to that
-  // sentence instead.
-  const notice = useRef<HTMLParagraphElement>(null);
-  useEffect(() => {
-    if (submitted) notice.current?.focus();
-  }, [submitted]);
+  const { submitted, setSubmitted, notice } = useSubmittedNotice();
 
   return (
     <>
-      {/* Mounted from the start and never unmounted, for the reason
-          `auth-alert.tsx` sets out for the failure path: a live region has to
-          exist BEFORE its content changes for assistive technology to report the
-          change, and one created in the same commit as its text is a coin flip
-          across implementations. This branch used to do exactly that.
-
-          `sr-only` rather than absent while empty, so the region is in the
-          accessibility tree the whole time without spending a row of the card's
-          column above the form. `hidden` would collapse it and undo the point. */}
-      <p
+      <SubmittedNotice
         id="forgot-success"
-        role="status"
+        submitted={submitted}
+        message={t('web.auth.resetLinkSent')}
         ref={notice}
-        // Focusable only as a destination — never in the tab order, where an
-        // empty paragraph would be a stop that says nothing.
-        tabIndex={-1}
-        className={submitted ? 'text-prose' : 'sr-only'}
-      >
-        {submitted ? t('web.auth.resetLinkSent') : null}
-      </p>
+      />
 
       {submitted ? null : (
         <form

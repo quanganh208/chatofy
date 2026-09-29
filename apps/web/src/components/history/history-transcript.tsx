@@ -1,12 +1,18 @@
 'use client';
 
-import type { ConversationTurn } from '@chatofy/types';
+import { primaryTranslation, type ConversationTurn, type LanguageCode } from '@chatofy/types';
 import { Card, CardContent } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 import { formatOffset, isoDuration, mediaOffset } from '@/lib/transcript-time';
 
 interface HistoryTranscriptProps {
   turns: ConversationTurn[];
+  /**
+   * The conversation's declared languages, source first — what
+   * {@link primaryTranslation} resolves each turn's single legacy translation
+   * from, the same way `PrismaConversationStore` resolves it server-side.
+   */
+  languages: readonly LanguageCode[];
   /**
    * Where the recording began, relative to the conversation — see
    * `mediaOffset`. Null when there is no recording. The gutter still renders in
@@ -45,7 +51,12 @@ interface HistoryTranscriptProps {
  * a stored turn that were set differently would say the two are different
  * products.
  */
-export function HistoryTranscript({ turns, audioOffsetMs = null, onSeek }: HistoryTranscriptProps) {
+export function HistoryTranscript({
+  turns,
+  languages,
+  audioOffsetMs = null,
+  onSeek,
+}: HistoryTranscriptProps) {
   const t = useTranslate();
 
   return (
@@ -101,7 +112,9 @@ export function HistoryTranscript({ turns, audioOffsetMs = null, onSeek }: Histo
                       )}
                   </p>
                   <p className="text-prose text-body">{turn.displayText ?? turn.sourceText}</p>
-                  <p className="text-translation font-medium">{turn.targetText}</p>
+                  <p className="text-translation font-medium">
+                    {primaryTranslation(turn, languages)}
+                  </p>
                 </div>
               </li>
             );

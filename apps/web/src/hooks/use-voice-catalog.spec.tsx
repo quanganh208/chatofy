@@ -64,11 +64,11 @@ afterEach(() => {
 
 describe('useVoiceCatalog', () => {
   it('asks once however many times the popover is opened', async () => {
-    listVoices.mockResolvedValue({ voices: [voice('en-a')] });
+    listVoices.mockResolvedValue({ voices: [voice('en-a')], speedAdjustable: true });
     const Probe = probeFor(await loadHook());
 
     await render(<Probe direction="vi_to_en" />);
-    expect(latest).toEqual({ status: 'ready', voices: [voice('en-a')] });
+    expect(latest).toEqual({ status: 'ready', voices: [voice('en-a')], speedAdjustable: true });
 
     // Closing and reopening the popover, which is a full unmount and remount.
     await render(<></>);
@@ -76,12 +76,12 @@ describe('useVoiceCatalog', () => {
 
     expect(listVoices).toHaveBeenCalledTimes(1);
     // And straight to the list, with no "loading" frame in between.
-    expect(latest).toEqual({ status: 'ready', voices: [voice('en-a')] });
+    expect(latest).toEqual({ status: 'ready', voices: [voice('en-a')], speedAdjustable: true });
   });
 
   it('asks again for a language it has not listed yet', async () => {
     listVoices.mockImplementation((language: 'vi' | 'en') =>
-      Promise.resolve({ voices: [voice(`${language}-a`)] }),
+      Promise.resolve({ voices: [voice(`${language}-a`)], speedAdjustable: language === 'en' }),
     );
     const Probe = probeFor(await loadHook());
 
@@ -90,28 +90,30 @@ describe('useVoiceCatalog', () => {
 
     expect(listVoices).toHaveBeenCalledTimes(2);
     expect(listVoices).toHaveBeenLastCalledWith('vi');
-    expect(latest).toEqual({ status: 'ready', voices: [voice('vi-a')] });
+    expect(latest).toEqual({ status: 'ready', voices: [voice('vi-a')], speedAdjustable: false });
   });
 
   it('retries after a failure rather than pinning it for the life of the tab', async () => {
     // A stopped sidecar or an expired session is the usual cause, and both get
     // fixed while the tab stays open — so only a success is worth remembering.
     listVoices.mockRejectedValueOnce(new Error('sidecar down'));
-    listVoices.mockResolvedValue({ voices: [voice('en-a')] });
+    listVoices.mockResolvedValue({ voices: [voice('en-a')], speedAdjustable: true });
     const Probe = probeFor(await loadHook());
 
     await render(<Probe direction="vi_to_en" />);
-    expect(latest).toEqual({ status: 'failed', voices: [] });
+    // Not `false`: a failed lookup says nothing about whether the engine
+    // honours the rate, and answering `false` would hide a working control.
+    expect(latest).toEqual({ status: 'failed', voices: [], speedAdjustable: 'unknown' });
 
     await render(<></>);
     await render(<Probe direction="vi_to_en" />);
 
     expect(listVoices).toHaveBeenCalledTimes(2);
-    expect(latest).toEqual({ status: 'ready', voices: [voice('en-a')] });
+    expect(latest).toEqual({ status: 'ready', voices: [voice('en-a')], speedAdjustable: true });
   });
 
   it('shares one request between panels mounting together', async () => {
-    listVoices.mockResolvedValue({ voices: [voice('en-a')] });
+    listVoices.mockResolvedValue({ voices: [voice('en-a')], speedAdjustable: true });
     const Probe = probeFor(await loadHook());
 
     await render(
@@ -122,5 +124,32 @@ describe('useVoiceCatalog', () => {
     );
 
     expect(listVoices).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads speedAdjustable as unknown, not false, for a backend that predates the field', async () => {
+    // `false` would assert a capability nobody reported — an old API build
+    // that never learned to send this field says nothing about whether the
+    // engine honours the rate, which is exactly what `'unknown'` means.
+    listVoices.mockResolvedValue({ voices: [voice('en-a')] });
+    const Probe = probeFor(await loadHook());
+
+    await render(<Probe direction="vi_to_en" />);
+
+    expect(latest).toEqual({
+      status: 'ready',
+      voices: [voice('en-a')],
+      speedAdjustable: 'unknown',
+    });
+  });
+
+  it('starts loading with speedAdjustable unknown rather than false', async () => {
+    // Read before the request settles: `cachedState` for a language nothing
+    // has cached yet, which is what a first-ever open sees while it waits.
+    listVoices.mockReturnValue(new Promise(() => {}));
+    const Probe = probeFor(await loadHook());
+
+    await render(<Probe direction="vi_to_en" />);
+
+    expect(latest).toEqual({ status: 'loading', voices: [], speedAdjustable: 'unknown' });
   });
 });
