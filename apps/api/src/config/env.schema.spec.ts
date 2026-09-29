@@ -152,6 +152,35 @@ const requiredKeys = schemaKeys.filter(
       .success,
 );
 
+/**
+ * The two templates and the schema must agree on what a deployment has to
+ * supply. Every key with no default is required to boot, so it has to be
+ * visible in the dev template and the prod one — `DATABASE_URL` in prod is the
+ * one exception, composed by docker-compose.prod.yml from the compose network.
+ */
+describe('required keys', () => {
+  const namesIn = (text: string) =>
+    [...collect(text, LIVE_LINE), ...collect(text, COMMENTED_LINE)].map(
+      (line) => line.key,
+    );
+
+  it('are all listed in apps/api/.env.example', () => {
+    const present = namesIn(read('.env.example'));
+    expect(requiredKeys.filter((key) => !present.includes(key))).toStrictEqual(
+      [],
+    );
+  });
+
+  it('are all listed in prod.env.example, apart from the compose-composed one', () => {
+    const present = namesIn(read('../../prod.env.example'));
+    expect(
+      requiredKeys.filter(
+        (key) => !present.includes(key) && key !== 'DATABASE_URL',
+      ),
+    ).toStrictEqual([]);
+  });
+});
+
 describe('apps/api/.env.example', () => {
   const text = read('.env.example');
   const live = collect(text, LIVE_LINE);
