@@ -2088,14 +2088,34 @@ cho — chen ngang hoặc backchannel), không phải lỗi của gate.** Test �
 `test_single_voice_conversation_predicts_one_label[1cd04a39]` giữ nguyên như một ô còn
 mở đã ghi lại, không nới lỏng.
 
-### Rollout theo giai đoạn — kế hoạch, chưa thực hiện
+### Rollout theo giai đoạn — đã thực hiện (29/09/2026)
 
-Merge kích hoạt deploy tự động. Giai đoạn 1: `prod.env` đặt `STT_MIN_SPEECH_MS=0` trước
-merge — ngưỡng 0,50/0,45, `SPLIT_COSINE` giữ nguyên và ghi chú dịch đi live với gate tắt.
-Sau 1–2 phiên thật xác nhận sidecar khởi động sạch (hash Silero đúng, `/healthz` ok,
-`printenv STT_MIN_SPEECH_MS` in ra 0), giai đoạn 2: đặt lại 300 và tái tạo API. Bước 5–8
-của phase 09 (sửa `prod.env`, merge, deploy, chạy phiên thật) thuộc về maintainer, chưa
-chạy trong phiên làm việc này.
+Merge kích hoạt deploy tự động, với `prod.env` đặt `STT_MIN_SPEECH_MS=0` trước merge. Sau
+deploy: CI và Deploy trên `main` xanh, hash Silero trong container khớp hash ghim,
+`/healthz` trả `ok` kèm `languages`, `printenv STT_MIN_SPEECH_MS` in ra 0.
+
+Thay cho phiên nói thật, cả hai giai đoạn được kiểm tra bằng cách **phát lại năm bản ghi**
+qua đúng mã client (`ConversationSession`, capture pump, bộ gán người nói) vào WebSocket
+production, dưới tài khoản của maintainer, theo thời gian thực, lần lượt từng phiên.
+
+|                            | 2499c493 | 1cd04a39 | 2bed5c89 | 74410b70 | 5b679761 |
+| -------------------------- | -------- | -------- | -------- | -------- | -------- |
+| Người nói (Scribe)         | 2        | 1        | 1        | 3        | 2        |
+| Nhãn client, gate tắt      | 2        | 2        | 1        | 2        | 2        |
+| Nhãn client, gate 300 ms   | 2        | 2        | 1        | 2        | 2        |
+| Final, gate tắt → bật      | 14 → 14  | 26 → 25  | 19 → 19  | 11 → 11  | 16 → 16  |
+| Banner lỗi, gate tắt → bật | 0 → 0    | 1 → 0    | 0 → 0    | 0 → 0    | 0 → 0    |
+
+- Giai đoạn 1 (gate tắt): không crash; banner duy nhất là lượt mở đầu của 1cd04a39, trước
+  từ đầu tiên, STT trả rỗng (`gated=false`), đúng hành vi khi gate tắt.
+- Giai đoạn 2 (đặt 300, tái tạo riêng container API): lượt đó thành một kết thúc im lặng
+  `no_speech`, không banner; đó là kết thúc `no_speech` duy nhất. Final mất đi duy nhất là
+  một mảnh tách 660 ms không có lời, bị gate bỏ; số lượt hoàn tất giữ nguyên ở mọi phiên.
+- "ai" trong nguồn: 2499c493 10/10 dịch ra "AI"; 74410b70 6/7 ra "AI", 1 khác, 0 ra "who".
+- Còn mở như đã chấp nhận: nhãn ma của 1cd04a39 vẫn còn (giảm từ 2 lượt xuống 1);
+  74410b70 ra 2 nhãn cho 3 giọng, đúng giới hạn `kMax` = 2.
+
+Rollback vẫn là đặt `STT_MIN_SPEECH_MS=0` trong `prod.env` rồi tái tạo container API.
 
 ### Số đo lại trên máy chủ, tách khỏi tải các agent song song
 
