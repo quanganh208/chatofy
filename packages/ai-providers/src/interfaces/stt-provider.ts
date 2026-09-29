@@ -39,6 +39,20 @@ export interface SttTranscribeOptions {
   hotwords?: string[];
 }
 
+/**
+ * What a backend reports serving, split by whether the registry names it.
+ *
+ * `unknown` carries the tags the backend sent that name NO registry language —
+ * raw, for the caller to report. The provider does not log them itself: it is
+ * asked on a timer, and only the caller can remember what it already said.
+ */
+export interface ServedLanguages {
+  /** Registry languages served, de-duplicated. Never empty on a resolved call. */
+  known: readonly LanguageCode[];
+  /** Tags the backend reported that the registry does not know, de-duplicated. */
+  unknown: readonly string[];
+}
+
 export interface SttProvider {
   readonly name: string;
   /** Batch transcription of a complete utterance — the turn-based core. */
@@ -59,7 +73,7 @@ export interface SttProvider {
    * deployed before this existed); a caller must treat that the same as "no
    * restriction known" rather than as "serves nothing".
    */
-  supportedLanguages?(): Promise<readonly LanguageCode[]>;
+  supportedLanguages?(): Promise<ServedLanguages>;
   /** Optional streaming variant — partials delivered via callback. */
   startStream?(
     language: LanguageCode,

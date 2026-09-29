@@ -7,6 +7,7 @@
 // en), so this provider serves both directions through one backend name.
 import type { LanguageCode } from '../../interfaces/provider-types.js';
 import type {
+  ServedLanguages,
   SttProvider,
   SttTranscribeOptions,
   SttTranscriptResult,
@@ -104,7 +105,7 @@ export class LocalSpeechSttProvider implements SttProvider {
    * (`SpeechLanguageSupport`) treats a rejection as "not known right now" and
    * refuses no turn on account of it.
    */
-  async supportedLanguages(): Promise<readonly LanguageCode[]> {
+  async supportedLanguages(): Promise<ServedLanguages> {
     const served = await readServedLanguages(this.baseUrl, LOCAL_HEALTHZ_TIMEOUT_MS);
     if (!served) {
       throw new ProviderConnectionError('Local STT did not report which languages it serves');

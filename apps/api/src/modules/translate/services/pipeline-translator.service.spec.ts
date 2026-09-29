@@ -1,10 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   BadRequestException,
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import {
+  LocalSpeechTtsProvider,
   ProviderBusyError,
   ProviderConnectionError,
   ProviderResponseError,
@@ -436,6 +437,53 @@ describe('PipelineTranslatorService', () => {
       expect(listVoices).toHaveBeenCalledTimes(1);
       expect(warm).toEqual(catalog);
       expect(warm).not.toHaveProperty('expiresAt');
+    });
+
+    describe('a sidecar /voices that predates speedAdjustable', () => {
+      const realFetch = global.fetch;
+      afterEach(() => {
+        global.fetch = realFetch;
+      });
+
+      it('answers with speedAdjustable absent, not false, cold or warm', async () => {
+        // The real local provider over a mocked sidecar: the flag must survive
+        // provider → cache → response as ABSENT, which the web reads as
+        // "unknown" and keeps the rate control visible for.
+        const fetchMock = vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            voices: [{ token: '9', label: 'Sarah', gender: 'female' }],
+          }),
+        });
+        global.fetch = fetchMock;
+        const service = serviceWith(
+          fakeTrio({
+            tts: new LocalSpeechTtsProvider({
+              baseUrl: 'http://localhost:8003',
+            }),
+          }),
+        );
+
+        for (const answer of [
+          await service.listVoices('en'),
+          await service.listVoices('en'),
+        ]) {
+          expect(answer).not.toHaveProperty('speedAdjustable');
+          expect(JSON.parse(JSON.stringify(answer))).toStrictEqual({
+            voices: [{ token: '9', label: 'Sarah', gender: 'female' }],
+          });
+        }
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('answers an explicit false for a backend with no catalog, which ignores speed', async () => {
+      const service = serviceWith(fakeTrio());
+
+      await expect(service.listVoices('en')).resolves.toStrictEqual({
+        voices: [],
+        speedAdjustable: false,
+      });
     });
   });
 });

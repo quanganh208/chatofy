@@ -441,11 +441,18 @@ export class PipelineTranslatorService {
     // `expiresAt` alongside the catalog, and a cache hit answering that field
     // made the response shape depend on whether this happened to be a cold or
     // a warm call — the controller serialises whatever this returns.
+    // `speedAdjustable` is copied only when present: absent means "unknown"
+    // (see `TtsVoiceCatalog`), and a warm call must answer the same shape as
+    // the cold one it cached.
     if (cached && Date.now() < cached.expiresAt) {
-      return { voices: cached.voices, speedAdjustable: cached.speedAdjustable };
+      const { expiresAt: _expiresAt, ...catalog } = cached;
+      return catalog;
     }
 
     const trio = this.providers.makeProviders();
+    // An explicit `false`, not "unknown": the only backend without a catalog
+    // (ElevenLabs) sends no rate parameter at all, so the rate control would
+    // silently do nothing and the client should hide it.
     if (!trio.tts.listVoices) return { voices: [], speedAdjustable: false };
 
     const catalog = await trio.tts.listVoices(language);

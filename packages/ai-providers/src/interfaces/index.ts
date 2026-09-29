@@ -14,6 +14,7 @@ export type {
   SttTranscriptResult,
   SttTranscriptEvent,
   SttProvider,
+  ServedLanguages,
 } from './stt-provider.js';
 export type {
   SummarizationProviderConfig,

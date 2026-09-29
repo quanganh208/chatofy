@@ -4,7 +4,11 @@ import {
   type OnApplicationBootstrap,
 } from '@nestjs/common';
 import { LANGUAGE_CODES, type LanguageCode } from '@chatofy/types';
-import type { SttProvider, TtsProvider } from '@chatofy/ai-providers';
+import type {
+  ServedLanguages,
+  SttProvider,
+  TtsProvider,
+} from '@chatofy/ai-providers';
 import { AiProvidersFactory } from './ai-providers.factory';
 
 /** How long a served-language answer is trusted before it is asked again. */
@@ -48,6 +52,13 @@ export class SpeechLanguageSupport implements OnApplicationBootstrap {
   private readonly logger = new Logger(SpeechLanguageSupport.name);
   private sttLanguages: readonly LanguageCode[] | null = null;
   private ttsLanguages: readonly LanguageCode[] | null = null;
+  /**
+   * Tags each engine last reported that the registry does not know. Kept
+   * across a failed probe rather than cleared: a sidecar that blinks out and
+   * comes back reporting the same stray tag has not told us anything new.
+   */
+  private sttUnknown: readonly string[] = [];
+  private ttsUnknown: readonly string[] = [];
   private refreshedAt = 0;
   private inFlight: Promise<void> | null = null;
 
@@ -110,10 +121,12 @@ export class SpeechLanguageSupport implements OnApplicationBootstrap {
 
   private async doRefresh(): Promise<void> {
     const trio = this.providers.makeProviders();
-    const [stt, tts] = await Promise.all([
+    const [sttServed, ttsServed] = await Promise.all([
       readSupported(trio.stt),
       readSupported(trio.tts),
     ]);
+    const stt = sttServed?.known ?? null;
+    const tts = ttsServed?.known ?? null;
     // Compared against what was served BEFORE this refresh, not logged
     // unconditionally: a deployment that deliberately runs without one engine
     // served the identical set a minute ago too, and warning again every
@@ -128,6 +141,39 @@ export class SpeechLanguageSupport implements OnApplicationBootstrap {
     }
     this.sttLanguages = stt;
     this.ttsLanguages = tts;
+    // Same once-per-change rule for tags the registry does not know: the
+    // sidecar reports them on every refresh, forever, until the registry
+    // catches up.
+    if (sttServed)
+      this.sttUnknown = this.warnUnknownTags(
+        'STT',
+        this.sttUnknown,
+        sttServed.unknown,
+      );
+    if (ttsServed)
+      this.ttsUnknown = this.warnUnknownTags(
+        'TTS',
+        this.ttsUnknown,
+        ttsServed.unknown,
+      );
+  }
+
+  /**
+   * Warns about the tags an engine reported that name no registry language,
+   * only when that set differs from what it reported last time. Returns the
+   * set to remember.
+   */
+  private warnUnknownTags(
+    kind: string,
+    previous: readonly string[],
+    current: readonly string[],
+  ): readonly string[] {
+    if (!sameTags(previous, current) && current.length > 0) {
+      this.logger.warn(
+        `${kind} engine reported languages the registry does not know: ${current.map((tag) => `'${tag}'`).join(', ')}`,
+      );
+    }
+    return current;
   }
 
   /** One warning per registry language a KNOWN, restrictive provider excludes. */
@@ -160,7 +206,12 @@ function servedSetsEqual(
   b: readonly LanguageCode[] | null,
 ): boolean {
   if (a === null || b === null) return a === b;
-  return a.length === b.length && a.every((code) => b.includes(code));
+  return sameTags(a, b);
+}
+
+/** Order-independent equality of two de-duplicated tag lists. */
+function sameTags(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((tag) => b.includes(tag));
 }
 
 /**
@@ -172,11 +223,11 @@ function servedSetsEqual(
  */
 async function readSupported(
   provider: SttProvider | TtsProvider,
-): Promise<readonly LanguageCode[] | null> {
+): Promise<ServedLanguages | null> {
   if (!provider.supportedLanguages) return null;
   try {
     const served = await provider.supportedLanguages();
-    return served.length > 0 ? served : null;
+    return served.known.length > 0 ? served : null;
   } catch {
     return null;
   }

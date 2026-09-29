@@ -14,6 +14,7 @@ import type {
   TtsVoice,
   TtsVoiceCatalog,
 } from '../../interfaces/tts-provider.js';
+import type { ServedLanguages } from '../../interfaces/stt-provider.js';
 import type { LanguageCode } from '@chatofy/types';
 import {
   ProviderConfigError,
@@ -77,13 +78,16 @@ export class LocalSpeechTtsProvider implements TtsProvider {
       );
     }
 
-    const payload = (await res.json()) as { voices?: TtsVoice[]; speedAdjustable?: boolean };
-    return {
-      voices: payload.voices ?? [],
-      // Absent on a sidecar deployed before this field existed — the same
-      // conservative default the web schema falls back to.
-      speedAdjustable: payload.speedAdjustable ?? false,
-    };
+    const payload = (await res.json()) as { voices?: TtsVoice[]; speedAdjustable?: unknown };
+    const voices = payload.voices ?? [];
+    // Absent on a sidecar deployed before this field existed, and passed on
+    // absent rather than defaulted: `TtsVoiceCatalog.speedAdjustable` reads a
+    // missing value as UNKNOWN, which the web keeps the rate control visible
+    // for. Defaulting to `false` here would hide it on an engine that honours
+    // `speed`. A non-boolean is treated as absent for the same reason.
+    return typeof payload.speedAdjustable === 'boolean'
+      ? { voices, speedAdjustable: payload.speedAdjustable }
+      : { voices };
   }
 
   /**
@@ -91,7 +95,7 @@ export class LocalSpeechTtsProvider implements TtsProvider {
    * `LocalSpeechSttProvider.supportedLanguages` for why a call this cannot
    * answer REJECTS rather than resolving an empty list.
    */
-  async supportedLanguages(): Promise<readonly LanguageCode[]> {
+  async supportedLanguages(): Promise<ServedLanguages> {
     const served = await readServedLanguages(this.baseUrl, LOCAL_HEALTHZ_TIMEOUT_MS);
     if (!served) {
       throw new ProviderConnectionError('Local TTS did not report which languages it serves');

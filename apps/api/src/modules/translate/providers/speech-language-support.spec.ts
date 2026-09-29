@@ -1,8 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { LanguageCode } from '@chatofy/types';
-import type { SttProvider, TtsProvider } from '@chatofy/ai-providers';
+import type {
+  ServedLanguages,
+  SttProvider,
+  TtsProvider,
+} from '@chatofy/ai-providers';
 import type { AiProvidersFactory } from './ai-providers.factory';
 import { SpeechLanguageSupport } from './speech-language-support';
+
+/** A served-languages answer naming only registry languages. */
+function served(
+  known: LanguageCode[],
+  unknown: string[] = [],
+): ServedLanguages {
+  return { known, unknown };
+}
 
 /** A minimal trio the service reads through `AiProvidersFactory.makeProviders()`. */
 function fakeFactory(
@@ -36,8 +48,8 @@ describe('SpeechLanguageSupport', () => {
   it('refuses TTS for a language the sidecar does not serve, only when voice output is wanted', async () => {
     const support = new SpeechLanguageSupport(
       fakeFactory(
-        { supportedLanguages: async () => ['vi', 'en'] },
-        { supportedLanguages: async () => ['vi'] },
+        { supportedLanguages: async () => served(['vi', 'en']) },
+        { supportedLanguages: async () => served(['vi']) },
       ),
     );
     support.onApplicationBootstrap();
@@ -54,8 +66,8 @@ describe('SpeechLanguageSupport', () => {
   it('refuses recognition for a language the STT sidecar does not serve', async () => {
     const support = new SpeechLanguageSupport(
       fakeFactory(
-        { supportedLanguages: async () => ['en'] },
-        { supportedLanguages: async () => ['vi', 'en'] },
+        { supportedLanguages: async () => served(['en']) },
+        { supportedLanguages: async () => served(['vi', 'en']) },
       ),
     );
     support.onApplicationBootstrap();
@@ -124,8 +136,8 @@ describe('SpeechLanguageSupport', () => {
   it('logs a warning for a registry language no engine reported, once refreshed', async () => {
     const support = new SpeechLanguageSupport(
       fakeFactory(
-        { supportedLanguages: async () => ['en'] },
-        { supportedLanguages: async () => ['en'] },
+        { supportedLanguages: async () => served(['en']) },
+        { supportedLanguages: async () => served(['en']) },
       ),
     );
     // Access the private logger through its public surface: Nest's Logger
@@ -158,8 +170,8 @@ describe('SpeechLanguageSupport', () => {
     // and only awaiting the method itself is guaranteed to wait for it.
     const support = new SpeechLanguageSupport(
       fakeFactory(
-        { supportedLanguages: async () => ['en'] },
-        { supportedLanguages: async () => ['en'] },
+        { supportedLanguages: async () => served(['en']) },
+        { supportedLanguages: async () => served(['en']) },
       ),
     );
     const logger = (
@@ -182,8 +194,8 @@ describe('SpeechLanguageSupport', () => {
     let sttServed: LanguageCode[] = ['en'];
     const support = new SpeechLanguageSupport(
       fakeFactory(
-        { supportedLanguages: async () => sttServed },
-        { supportedLanguages: async () => ['vi', 'en'] },
+        { supportedLanguages: async () => served(sttServed) },
+        { supportedLanguages: async () => served(['vi', 'en']) },
       ),
     );
     const logger = (
@@ -213,7 +225,80 @@ describe('SpeechLanguageSupport', () => {
       expect.stringContaining("STT engine reported for registry language 'vi'"),
     );
   });
+
+  it('warns once about a language the registry does not know, not on every refresh', async () => {
+    let sttTags: string[] = ['ja'];
+    const support = new SpeechLanguageSupport(
+      fakeFactory(
+        { supportedLanguages: async () => served(['vi', 'en'], sttTags) },
+        { supportedLanguages: async () => served(['vi', 'en']) },
+      ),
+    );
+    const logger = (
+      support as unknown as { logger: { warn: (msg: string) => void } }
+    ).logger;
+    const warn = vi.spyOn(logger, 'warn');
+    const refresh = () =>
+      (support as unknown as { refresh: () => Promise<void> }).refresh();
+
+    await refresh();
+    await refresh();
+    await refresh();
+    expect(unknownTagWarnings(warn)).toEqual([
+      "STT engine reported languages the registry does not know: 'ja'",
+    ]);
+
+    // A new stray tag is a change worth one more line.
+    warn.mockClear();
+    sttTags = ['ja', 'ko'];
+    await refresh();
+    await refresh();
+    expect(unknownTagWarnings(warn)).toEqual([
+      "STT engine reported languages the registry does not know: 'ja', 'ko'",
+    ]);
+  });
+
+  it('does not re-warn about an unknown language after a failed probe in between', async () => {
+    let up = true;
+    const support = new SpeechLanguageSupport(
+      fakeFactory(
+        {
+          supportedLanguages: async () =>
+            up
+              ? served(['vi', 'en'], ['ja'])
+              : Promise.reject(new Error('ECONNREFUSED')),
+        },
+        { supportedLanguages: async () => served(['vi', 'en']) },
+      ),
+    );
+    const logger = (
+      support as unknown as { logger: { warn: (msg: string) => void } }
+    ).logger;
+    const warn = vi.spyOn(logger, 'warn');
+    const refresh = () =>
+      (support as unknown as { refresh: () => Promise<void> }).refresh();
+
+    await refresh();
+    expect(unknownTagWarnings(warn)).toHaveLength(1);
+
+    warn.mockClear();
+    up = false;
+    await refresh();
+    up = true;
+    await refresh();
+    expect(unknownTagWarnings(warn)).toEqual([]);
+  });
 });
+
+/**
+ * Only the unknown-tag warnings a spy saw — so these assertions do not depend
+ * on how many registry languages a fake engine leaves uncovered.
+ */
+function unknownTagWarnings(warn: { mock: { calls: unknown[][] } }): string[] {
+  return warn.mock.calls
+    .map(([message]) => String(message))
+    .filter((message) => message.includes('registry does not know'));
+}
 
 /** Settles the microtask queue the async refresh chains through. */
 async function flush(): Promise<void> {

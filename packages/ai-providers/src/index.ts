@@ -18,6 +18,7 @@ export type {
   SttTranscriptResult,
   SttTranscriptEvent,
   SttProvider,
+  ServedLanguages,
   SummarizationProviderConfig,
   SummarizationRequest,
   MeetingMinutesDraft,
