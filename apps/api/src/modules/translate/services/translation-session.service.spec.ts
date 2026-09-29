@@ -1,14 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { BadRequestException, Logger } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
-import type { Env } from '../../../config/env.schema';
 import type { AudioFrame, ServerEvent } from '@chatofy/types';
 import { MAX_SAMPLE_RATE } from '@chatofy/types';
 import {
   TranslationSessionService,
   type StreamSocket,
 } from './translation-session.service';
+import { STT_MIN_SPEECH_MS } from '../session/turn-tuning';
 import {
   NoSpeechDetectedException,
   PipelineTranslatorService as RealPipelineTranslatorService,
@@ -96,18 +95,7 @@ interface Harness {
   identifier: LanguageIdentifier;
 }
 
-function makeService(
-  overrides: Partial<Harness> = {},
-  // Off is the shipped default and what every test above assumes: those turns
-  // must behave exactly as they did before the flag existed.
-  speakerEmbeddingEnabled = false,
-  // The schema's own default. `pipeline` is a full mock in this harness, so
-  // this value never itself decides a mocked test's outcome — it exists so a
-  // call site reading `STT_MIN_SPEECH_MS` gets the number the type promises,
-  // not the `speakerEmbeddingEnabled` boolean the fallback below would
-  // otherwise hand it.
-  minSpeechMs = 300,
-): Harness {
+function makeService(overrides: Partial<Harness> = {}): Harness {
   const synthesized: string[] = [];
   const recorded: TurnMetrics[] = [];
   const recordedClient: ClientTurnMetrics[] = [];
@@ -167,25 +155,9 @@ function makeService(
   const identifier = overrides.identifier ?? new DeclaredLanguageIdentifier();
 
   return {
-    // Speaker embedding off, which is the shipped default. The turns these
-    // tests drive must behave exactly as they did before the flag existed.
     service: new TranslationSessionService(
       pipeline,
       metrics,
-      {
-        // Key-aware, because the service now reads numbers as well as the flag.
-        // A mock that answers every key with a boolean gave the budget a ceiling
-        // of `false`, and a budget with a ceiling of `false` refuses everything —
-        // silently, since refusing is a legitimate answer.
-        get: (key: string) =>
-          key === 'LIVE_TRANSLATION_RPM'
-            ? 66
-            : key === 'LIVE_TRANSLATION_COMMIT_CHARS'
-              ? 15
-              : key === 'STT_MIN_SPEECH_MS'
-                ? minSpeechMs
-                : speakerEmbeddingEnabled,
-      } as unknown as ConfigService<Env, true>,
       languageSupport,
       identifier,
     ),
@@ -1300,9 +1272,9 @@ describe('TranslationSessionService', () => {
     });
 
     /**
-     * `STT_MIN_SPEECH_MS=0` has to be a real rollback: an empty decode the gate
-     * did NOT cause must keep today's banner, not quietly start disappearing
-     * the moment `NoSpeechDetectedException` exists as a class.
+     * An empty decode the gate did NOT cause must keep the banner, not quietly
+     * start disappearing the moment `NoSpeechDetectedException` exists as a
+     * class.
      */
     it('keeps the turn_failed banner for an empty decode the gate did not cause', async () => {
       const { service, recorded } = makeService({
@@ -1352,6 +1324,20 @@ describe('TranslationSessionService', () => {
         completed: false,
         reason: 'no_speech',
       });
+    });
+
+    it('asks the sidecar for the speech floor on the final recognition', async () => {
+      const { service, transcribeAndTranslate } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      await service.end(socket);
+
+      expect(transcribeAndTranslate).toHaveBeenCalledWith(
+        expect.objectContaining({ minSpeechMs: STT_MIN_SPEECH_MS }),
+        expect.anything(),
+      );
     });
 
     // The ElevenLabs backend returns audio/mpeg, which cannot be framed as raw
@@ -2429,20 +2415,10 @@ describe('speaker embedding', () => {
     await service.end(socket);
   };
 
-  it('is not requested at all while the flag is off', async () => {
-    const { service, embedSpeaker } = makeService();
-    const socket = new FakeSocket();
-
-    await speak(service, socket, openAsking(service, socket));
-
-    expect(embedSpeaker).not.toHaveBeenCalled();
-    expect(socket.ofType('server.turn.embedding')).toHaveLength(0);
-  });
-
   it('is not requested for a client that did not ask', async () => {
     // The half that protects a tab loaded before this event existed: it never
     // asks, so it is never sent something its contract cannot parse.
-    const { service, embedSpeaker } = makeService({}, true);
+    const { service, embedSpeaker } = makeService();
     const socket = new FakeSocket();
     const sessionId = open(service, socket);
 
@@ -2474,10 +2450,7 @@ describe('speaker embedding', () => {
       return [0.6, 0.8];
     });
 
-    const { service } = makeService(
-      { transcribeAndTranslate, embedSpeaker },
-      true,
-    );
+    const { service } = makeService({ transcribeAndTranslate, embedSpeaker });
     const socket = new FakeSocket();
     const sessionId = openAsking(service, socket);
     service.pushFrame(socket, frame({ sessionId, sequence: 0 }));
@@ -2491,7 +2464,7 @@ describe('speaker embedding', () => {
   });
 
   it('sends the vector after the transcript, never before it', async () => {
-    const { service } = makeService({}, true);
+    const { service } = makeService();
     const socket = new FakeSocket();
 
     await speak(service, socket, openAsking(service, socket));
@@ -2513,7 +2486,7 @@ describe('speaker embedding', () => {
     // Attribution is an enhancement on a translator. A sidecar that is down
     // costs a label, not a translation.
     const embedSpeaker = vi.fn().mockResolvedValue(null);
-    const { service } = makeService({ embedSpeaker }, true);
+    const { service } = makeService({ embedSpeaker });
     const socket = new FakeSocket();
 
     await speak(service, socket, openAsking(service, socket));
@@ -2579,17 +2552,15 @@ describe('splitting a turn where the voice changes', () => {
     overrides: Partial<Harness> = {},
     {
       splitSpeakers = true,
-      flag = true,
       speculate = false,
       socket = new FakeSocket(),
     }: {
       splitSpeakers?: boolean;
-      flag?: boolean;
       speculate?: boolean;
       socket?: FakeSocket;
     } = {},
   ) => {
-    const harness = makeService({ ...fakes(), ...overrides }, flag);
+    const harness = makeService({ ...fakes(), ...overrides });
     harness.service.start(socket, {
       direction: 'vi_to_en',
       voiceGender: 'female',
@@ -2726,7 +2697,7 @@ describe('splitting a turn where the voice changes', () => {
         );
       },
     );
-    const harness = makeService({ ...fakes(), translateAll }, true);
+    const harness = makeService({ ...fakes(), translateAll });
     const { service } = harness;
     holder.service = service;
     service.start(socket, {
@@ -2765,13 +2736,6 @@ describe('splitting a turn where the voice changes', () => {
     ).toBe('xin chào');
     expect(recorded[0]?.speculationUsed).toBe(true);
     expect(translateAll).not.toHaveBeenCalled();
-  });
-
-  it('makes no plan while the server flag is off', async () => {
-    const { socket, embedSpeaker } = await run(twoVoices, {}, { flag: false });
-
-    expect(socket.ofType('server.transcript.final')).toHaveLength(1);
-    expect(embedSpeaker).not.toHaveBeenCalled();
   });
 
   it('never splits for a client that did not ask', async () => {
@@ -3200,14 +3164,6 @@ describe('language fan-out (through the real pipeline)', () => {
     const service = new TranslationSessionService(
       pipeline,
       metrics,
-      {
-        get: (key: string) =>
-          key === 'LIVE_TRANSLATION_RPM'
-            ? 66
-            : key === 'LIVE_TRANSLATION_COMMIT_CHARS'
-              ? 15
-              : false,
-      } as unknown as ConfigService<Env, true>,
       languageSupport,
       identifier,
     );

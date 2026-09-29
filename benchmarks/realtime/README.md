@@ -40,10 +40,10 @@ node benchmarks/realtime/generate-fixtures.mjs
 node benchmarks/realtime/vad-reference.mjs path/to/meeting-3min.wav
 node benchmarks/realtime/vad-reference.mjs --manifest        # every fixture
 
-# The run. Needs TURN_METRICS_PATH set on the api. From the extension it also
-# needs "Report timings for measurement" ticked in the popup — either one missing
-# and half of every row is absent. From the web client there is nothing to tick:
-# it always sends the rows, and the api decides whether they land.
+# The run. The api no longer writes the JSONL file (the TURN_METRICS_PATH sink was
+# removed; TurnMetricsRecorder logs one line per turn instead), so this reads a
+# file recorded by an earlier build. From the extension the popup's "Report timings
+# for measurement" must have been ticked — otherwise half of every row is absent.
 node benchmarks/realtime/analyze-continuous.mjs turns.jsonl --speech-ms 174300
 ```
 
@@ -67,13 +67,8 @@ machine — so it is checked per device, and it cannot be automated: it needs a 
 loudspeaker, and a person talking.
 
 Nothing to switch on in the client. The `heard during playback` counter appears next
-to the level meter the moment it leaves zero, and per-turn rows are always sent; where
-they land is the server's decision:
-
-```bash
-# apps/api/.env
-TURN_METRICS_PATH=benchmarks/realtime/turns.jsonl
-```
+to the level meter the moment it leaves zero, and per-turn rows are always sent; the
+api logs them.
 
 Twenty turns at the volume and distance the device will actually be used at,
 different sentences each time — self-triggering depends on what is being played, so

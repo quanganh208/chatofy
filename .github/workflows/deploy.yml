@@ -75,6 +75,18 @@ jobs:
           echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
           echo "Deploying $(git rev-parse HEAD)"
 
+      # Refuse to deploy while prod.env disagrees with prod.env.example.
+      #
+      # prod.env lives on this host, not in the repository, so nothing else
+      # notices when a key the code needs is missing from it or a retired one is
+      # still there. A missing key does not fail: it surfaces only as a runtime
+      # default, and a stale one as a setting that silently does nothing. This
+      # runs before any image is built, container recreated or model seeded, so
+      # a drifted file stops the deploy while production is still untouched.
+      # Key names are printed, never values.
+      - name: Check prod.env against prod.env.example
+        run: node scripts/check-prod-env.mjs "${{ steps.ctx.outputs.env_file }}"
+
       # Every compose call passes --env-file. Without it ${STT_MODELS_DIR} and
       # friends expand to EMPTY, and the sidecars silently bind-mount the wrong
       # path — the failure the absolute-path decision exists to prevent.

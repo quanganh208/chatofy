@@ -1,6 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ConfigService } from '@nestjs/config';
-import type { Env } from '../../../config/env.schema';
 import type {
   AudioFrame,
   ServerEvent,
@@ -143,16 +141,6 @@ function makeService(sourceText: string): Harness {
     service: new TranslationSessionService(
       pipeline,
       metrics,
-      {
-        // Key-aware: the service reads the live-translation ceiling here too, and
-        // a ceiling of `false` builds a budget that refuses every request.
-        get: (key: string) =>
-          key === 'LIVE_TRANSLATION_RPM'
-            ? 66
-            : key === 'LIVE_TRANSLATION_COMMIT_CHARS'
-              ? 15
-              : false,
-      } as unknown as ConfigService<Env, true>,
       languageSupport,
       new DeclaredLanguageIdentifier(),
     ),

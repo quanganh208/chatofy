@@ -809,8 +809,8 @@ describe('settling up when the conversation ends', () => {
   });
 
   it('names nobody when the acoustic layer never ran', () => {
-    // The flag-off case, which is the DEFAULT: `SPEAKER_EMBEDDING_ENABLED` is
-    // off, so no vector ever arrives and no turn is ever `pending`. Settling
+    // The case where the client never asked for embeddings (or the sidecar
+    // failed), so no vector ever arrives and no turn is ever `pending`. Settling
     // still fires — `onStopped` and `pagehide` dispatch it unconditionally —
     // and the carry-forward treated every row-less turn as one owed an answer.
     // One confirmed turn then put that person's name on every turn after it,

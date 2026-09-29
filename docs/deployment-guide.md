@@ -37,6 +37,13 @@ exposure and buy nothing. `prod.env.example` in the repo root documents every
 key; read it before changing anything, as several values are forced rather than
 chosen.
 
+`prod.env.example` is also the canonical key list: the deploy workflow runs
+`scripts/check-prod-env.mjs` first and refuses to continue if `prod.env` lacks a
+key the example sets, or sets one the example does not list (a commented
+`# KEY=` line counts as listed but optional). The output names keys, never
+values. Run it by hand with
+`node scripts/check-prod-env.mjs ~/.config/chatofy/prod.env`.
+
 **Every** compose invocation must pass it:
 
 ```bash

@@ -25,8 +25,6 @@ import {
   type SynthesizedSpeech,
   type TranslatedTurnText,
 } from './pipeline-translator.service';
-import { ConfigService } from '@nestjs/config';
-import { Env } from '../../../config/env.schema';
 import { TurnMetricsRecorder } from './turn-metrics.recorder';
 import { splitIntoClauses } from '../audio/clause-splitter';
 import { EventChannel, type TurnRef } from '../session/event-channel';
@@ -54,6 +52,11 @@ import {
 } from '../session/language-identifier';
 import { planForDirection } from '../session/turn-language-plan';
 import { TurnTimeline, type ClauseDelivery } from '../session/turn-timeline';
+import {
+  LIVE_TRANSLATION_COMMIT_CHARS,
+  LIVE_TRANSLATION_RPM,
+  STT_MIN_SPEECH_MS,
+} from '../session/turn-tuning';
 import type { StreamSocket } from '../session/stream-socket';
 import { LivePreview } from '../session/live-preview';
 import {
@@ -125,7 +128,6 @@ export class TranslationSessionService implements OnModuleDestroy {
   constructor(
     private readonly pipeline: PipelineTranslatorService,
     private readonly metrics: TurnMetricsRecorder,
-    private readonly config: ConfigService<Env, true>,
     private readonly languageSupport: SpeechLanguageSupport,
     @Inject(LANGUAGE_IDENTIFIER)
     private readonly identifier: LanguageIdentifier,
@@ -139,7 +141,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     // turn would be no ceiling at all: the quota it guards belongs to the API
     // key pool, and every turn on this process draws from that pool at once.
     this.budget = new TranslationBudget({
-      perUserRpm: this.config.get('LIVE_TRANSLATION_RPM', { infer: true }),
+      perUserRpm: LIVE_TRANSLATION_RPM,
     });
 
     // `unref` so this interval cannot be the reason a process refuses to exit — it is
@@ -224,9 +226,7 @@ export class TranslationSessionService implements OnModuleDestroy {
 
     const session = new TurnSession(options, turnId, {
       budget: this.budget,
-      commitChars: this.config.get('LIVE_TRANSLATION_COMMIT_CHARS', {
-        infer: true,
-      }),
+      commitChars: LIVE_TRANSLATION_COMMIT_CHARS,
       userId,
       languages: plan,
     });
@@ -338,7 +338,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           // version the listener hears. Same for the speech floor: a reused
           // guess must have been asked for the gate exactly as the final would.
           context: this.context.recall(socket),
-          minSpeechMs: this.config.get('STT_MIN_SPEECH_MS', { infer: true }),
+          minSpeechMs: STT_MIN_SPEECH_MS,
         },
         session.languages,
       ),
@@ -395,7 +395,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     // Read once for the whole turn: every recognition below whose text can end
     // up in a saved turn — the final, the whole-turn source beside a split, and
     // each split piece — asks the sidecar for the same floor.
-    const minSpeechMs = this.config.get('STT_MIN_SPEECH_MS', { infer: true });
+    const minSpeechMs = STT_MIN_SPEECH_MS;
 
     // Started HERE, beside the translation rather than after it. The sidecar
     // exposes a second endpoint precisely so this cost overlaps work that was
@@ -404,14 +404,12 @@ export class TranslationSessionService implements OnModuleDestroy {
     //
     // Independent of the speculation branch: an embedding needs the audio, not
     // the transcript, so a reused guess does not remove the need for one.
-    const embedding =
-      this.config.get('SPEAKER_EMBEDDING_ENABLED', { infer: true }) &&
-      session.embedSpeaker
-        ? this.pipeline.embedSpeaker({
-            audio: audio.toWav(),
-            mimeType: 'audio/wav',
-          })
-        : null;
+    const embedding = session.embedSpeaker
+      ? this.pipeline.embedSpeaker({
+          audio: audio.toWav(),
+          mimeType: 'audio/wav',
+        })
+      : null;
 
     try {
       const reusable = session.usableSpeculation();
@@ -567,8 +565,7 @@ export class TranslationSessionService implements OnModuleDestroy {
       // A turn the caller itself asked the sidecar to refuse on speech grounds
       // ends quietly: no error banner, no final, no vector — just a metrics row
       // so the rate is countable. An empty decode the gate did NOT cause still
-      // falls through to the ordinary failure path below and keeps its banner,
-      // which is what makes `STT_MIN_SPEECH_MS=0` a real rollback.
+      // falls through to the ordinary failure path below and keeps its banner.
       if (err instanceof NoSpeechDetectedException) {
         record(false, 'no_speech');
         this.close(socket, session, 'no_speech');

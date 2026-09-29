@@ -1,7 +1,9 @@
-// Turns the JSONL metrics sink into the numbers continuous capture is judged on.
+// Turns a JSONL metrics file into the numbers continuous capture is judged on.
 //
-// The file is written by `TurnMetricsRecorder` when `TURN_METRICS_PATH` is set. It
-// interleaves two kinds of row, told apart by `source`:
+// The api no longer writes this file: the `TURN_METRICS_PATH` sink was removed and
+// `TurnMetricsRecorder` only logs. The script still reads files an earlier build
+// wrote, and it can read a new one if the `turn ...` / `live ...` log lines are
+// converted to the same row shape. The file interleaves two kinds of row, told apart by `source`:
 //
 //   server — what a turn cost: requests spent, stage timings from the endpoint on
 //   client — what the listener experienced: when speech began, when sound came out

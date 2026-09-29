@@ -9,7 +9,7 @@
  *
  *   pnpm dev:all                                   # api + stt + tts
  *   node benchmarks/realtime/generate-fixtures.mjs  # once
- *   MEASURE_PIPELINE=1 TURN_METRICS_PATH=... pnpm --filter web exec vitest run
+ *   MEASURE_PIPELINE=1 pnpm --filter web exec vitest run
  *
  * Frames are paced in real time rather than pushed as fast as the socket will
  * take them. That is the whole point: the early transcription is supposed to
@@ -260,7 +260,7 @@ describe.skipIf(!enabled)('pipeline latency over real speech', () => {
         '',
         ...rows,
         '',
-        'Reuse rate and per-stage timings: JSONL at TURN_METRICS_PATH and the API log.',
+        'Reuse rate and per-stage timings: the `TurnMetricsRecorder` lines in the API log.',
         '',
       ].join('\n'),
     );

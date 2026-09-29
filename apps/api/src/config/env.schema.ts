@@ -9,29 +9,6 @@ const emptyStringAsUndefined = <T extends z.ZodTypeAny>(schema: T) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema);
 
 /**
- * An env var read as an on/off switch.
- *
- * NOT `z.coerce.boolean()`. That is `Boolean(value)`, and every non-empty string
- * is truthy — so `KEY=false` reads as ON, which is the exact opposite of what
- * the line says, and the failure is silent: a switch shipped in the off position
- * turns the feature on. Only the four words below are accepted, and anything
- * else fails validation at boot rather than being quietly guessed at.
- *
- * An empty value (`KEY=`) means unset and takes the default, matching
- * {@link emptyStringAsUndefined} and the `.env.example` placeholder convention.
- */
-const booleanFromEnv = (fallback: boolean) =>
-  z.preprocess(
-    (value) => (value === '' || value === undefined ? fallback : value),
-    z.union([
-      z.boolean(),
-      z
-        .enum(['true', 'false', '1', '0'])
-        .transform((value) => value === 'true' || value === '1'),
-    ]),
-  );
-
-/**
  * The port `apps/web` actually runs on in dev. Exported so main.ts's
  * production boot check compares WEB_BASE_URL against the exact same string
  * this schema defaults it to, rather than repeating the literal.
@@ -171,91 +148,12 @@ export const envSchema = z.object({
   OPENAI_COMPATIBLE_API_KEY: emptyStringAsUndefined(
     z.string().min(1).optional(),
   ),
-  // Which ElevenLabs voice speaks the translation. Unset on purpose: the
-  // provider owns its own default, for the same reason the sidecars below own
-  // theirs — what a voice id means is the backend's vocabulary, not this
-  // schema's, and duplicating the value here only creates two places to change.
-  ELEVENLABS_TTS_VOICE_ID: emptyStringAsUndefined(z.string().min(1).optional()),
   // Local speech sidecars (services/local-stt, services/local-tts). Each serves
   // both vi and en and picks its engine from the language it is given, so there
   // is no per-language URL. Default voices belong to the sidecars, since the
   // meaning of a voice differs per engine.
-  /**
-   * Master switch for per-turn speaker embeddings.
-   *
-   * Off until the browser's audio processing has been measured: every threshold
-   * the client scores against was calibrated on corpus audio that never passed
-   * through `noiseSuppression` or `autoGainControl`, both of which reshape the
-   * timbre an embedding reads. With it off no embedding is requested and no
-   * event is sent, whatever a client asks for.
-   *
-   * The client's own `embedSpeaker` is the other half; both must be on.
-   *
-   * Read with {@link booleanFromEnv}, so the `SPEAKER_EMBEDDING_ENABLED=false`
-   * that `prod.env.example` ships actually means off.
-   */
-  SPEAKER_EMBEDDING_ENABLED: booleanFromEnv(false),
   LOCAL_STT_URL: z.string().url().default('http://localhost:8002'),
   LOCAL_TTS_URL: z.string().url().default('http://localhost:8003'),
-  /**
-   * Silero speech floor, in ms, the API asks the local sidecar to apply on
-   * every recognition whose text can end up in a saved turn: the final, the
-   * speculation, the whole-turn source beside a split, and each split piece.
-   * Below it `/transcribe` answers an empty transcript without decoding, and
-   * the turn ends quietly as `no_speech` instead of the ordinary
-   * "no speech detected" banner — see `pipeline-translator.service.ts`'s
-   * `NoSpeechDetectedException`.
-   *
-   * `0` is a real rollback: it disables the gate outright (no field is sent to
-   * the sidecar) and an empty decode goes back to today's banner. The live
-   * partial path does not read this — `live-preview.ts`'s re-reads stay
-   * ungated regardless of this value (see `docs/system-architecture.md`).
-   *
-   * The upper bound stops a typo such as `7500` from gating nearly every turn
-   * under the 8s turn ceiling.
-   */
-  STT_MIN_SPEECH_MS: z.coerce.number().int().min(0).max(2000).default(300),
-  // Where to append one JSON line per streamed turn, timed stage by stage.
-  // Unset means no file is written — a latency table is something you collect
-  // deliberately, not a file the API grows on every deployment.
-  TURN_METRICS_PATH: emptyStringAsUndefined(z.string().min(1).optional()),
-
-  /**
-   * How many newly settled characters are worth a mid-sentence translation.
-   *
-   * The trigger fires on speech PROGRESS rather than on elapsed time, so this is
-   * the unit that decides how finely a translation follows a sentence. Smaller
-   * is more responsive and costs proportionally more requests.
-   *
-   * 15 is a phrase, roughly three Vietnamese syllables, and it is a deliberate
-   * choice rather than a default nobody examined. At the measured settling rate
-   * of 11.5 characters per second of speech it works out near 28 requests per
-   * minute at conversational density — comfortably inside the per-minute
-   * ceiling, and around a hundred minutes of conversation against the daily one.
-   *
-   * The floor of 12 is hard. Below it a request lands every couple of syllables
-   * and the 500-per-day-per-model allowance is gone in minutes. Per-word output
-   * is reachable by raising quota — more projects, more keys — not by lowering
-   * this number.
-   */
-  LIVE_TRANSLATION_COMMIT_CHARS: z.coerce.number().int().min(12).default(15),
-
-  /**
-   * Ceiling on MID-SENTENCE translation requests per minute, per user.
-   *
-   * Derived, not picked. Google meters per project per model, and the six keys
-   * in rotation draw on six separate buckets, so `gemini-3.5-flash-lite` affords
-   * 6 x 15 = 90 per minute. The end-of-turn translation starts on that same
-   * model, so roughly 7 per minute of that is already spoken for at the measured
-   * turn rate, leaving about 83; this default keeps 80% of what is left.
-   *
-   * There is deliberately NO daily ceiling here. The 500-per-day-per-model
-   * allowance is real, but an in-process counter loses its count on restart and
-   * keys its "day" to this machine's clock rather than Google's reset — it would
-   * report safe while unsafe, which is worse than not checking. Daily spend is
-   * measured at acceptance and decided on real numbers instead.
-   */
-  LIVE_TRANSLATION_RPM: z.coerce.number().int().positive().default(66),
 });
 
 export type Env = z.infer<typeof envSchema>;

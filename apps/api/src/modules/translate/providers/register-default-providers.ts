@@ -55,7 +55,6 @@ export interface AiProviderResolveConfig extends ProviderConfig {
    * 400 on every turn.
    */
   openAiCompatibleApiKey?: string;
-  elevenLabsTtsVoiceId?: string;
   localSttUrl?: string;
   localTtsUrl?: string;
 }
@@ -224,10 +223,9 @@ export function registerDefaultProviders(
     name: 'elevenlabs',
     create: (cfg: ProviderConfig) => {
       const c = cfg as AiProviderResolveConfig;
-      return new ElevenLabsTtsProvider({
-        apiKey: c.elevenLabsApiKey,
-        voice: c.elevenLabsTtsVoiceId,
-      });
+      // No voice is passed: the provider owns its default (`Rachel`), and a
+      // second copy of that id here would be two places to change.
+      return new ElevenLabsTtsProvider({ apiKey: c.elevenLabsApiKey });
     },
   });
 

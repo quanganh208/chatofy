@@ -1,7 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import type { Env } from '../../../config/env.schema';
-import { MetricsJsonlSink } from './metrics-jsonl-sink';
 
 /**
  * One continuous session, start to finish.
@@ -49,24 +46,12 @@ export interface LiveSessionMetrics {
 }
 
 /**
- * Appends one JSON line per continuous session.
- *
- * Shares `TURN_METRICS_PATH` and the sink with the turn recorder: one file, and
- * rows told apart by `source`. A reader must filter on it before comparing
- * anything, because a `live` row describes a session and a `server` row
- * describes a turn.
+ * Logs one line per continuous session. A `live` line describes a session and
+ * a turn recorder line describes a turn; they must not be compared.
  */
 @Injectable()
 export class LiveSessionMetricsRecorder {
   private readonly logger = new Logger(LiveSessionMetricsRecorder.name);
-  private readonly sink: MetricsJsonlSink;
-
-  constructor(config: ConfigService<Env, true>) {
-    this.sink = new MetricsJsonlSink(
-      config.get('TURN_METRICS_PATH', { infer: true }),
-      this.logger,
-    );
-  }
 
   record(metrics: LiveSessionMetrics): void {
     this.logger.log(
@@ -76,6 +61,5 @@ export class LiveSessionMetricsRecorder {
         `firstByte=${metrics.firstUpstreamByteMs ?? '-'}ms ` +
         `langMismatch=${metrics.languageMismatches}`,
     );
-    this.sink.append('live', metrics);
   }
 }

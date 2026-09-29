@@ -414,11 +414,10 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // only earns `too_many_turns`.
       maxInFlight: MAX_IN_FLIGHT,
       maxUtteranceMs: MAX_UTTERANCE_MS,
-      // Per-turn rows for the JSONL sink. The turn-length distribution and the
+      // Per-turn rows for the server's metrics log. The turn-length distribution and the
       // request-per-model rate are computed from these, and both are client
       // facts: the server cannot know when someone began speaking, nor when a
-      // loudspeaker produced sound. Always sent; where they land is the server's
-      // decision, and with no `TURN_METRICS_PATH` set it drops them.
+      // loudspeaker produced sound. Always sent; the server only logs them.
       reportMetrics: true,
     }),
   );

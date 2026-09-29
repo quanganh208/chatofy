@@ -27,7 +27,6 @@ const DEFAULT_ENV: Record<string, unknown> = {
   AI_TRANSLATION_PROVIDER: 'gemini',
   ELEVENLABS_API_KEY: 'eleven-key',
   GEMINI_API_KEY: 'gemini-key',
-  ELEVENLABS_TTS_VOICE_ID: 'voice-id',
   LOCAL_STT_URL: 'http://localhost:8002',
   LOCAL_TTS_URL: 'http://localhost:8003',
 };
