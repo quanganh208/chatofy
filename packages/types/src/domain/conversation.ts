@@ -134,9 +134,14 @@ export function primaryTranslation(
   // Every declared language was spoken in this turn, so there is no uncovered
   // one — but a mixed turn is translated into the whole set, sources included,
   // so the map normally holds a rendering for each. Showing nothing would read
-  // as a lost translation; the first declared language that has one is the
-  // same deterministic pick, made among what was actually stored.
-  const rendered = languages.find((code) => (turn.translations[code] ?? '') !== '');
+  // as a lost translation. Prefer a rendering away from the FIRST source
+  // language, which is the pick the deployment guide's down-SQL makes when it
+  // rebuilds `targetText`, so a turn reads the same before and after a
+  // rollback; then any stored rendering.
+  const hasRendering = (code: LanguageCode) => (turn.translations[code] ?? '') !== '';
+  const rendered =
+    languages.find((code) => code !== turn.sourceLanguages[0] && hasRendering(code)) ??
+    languages.find(hasRendering);
   return rendered === undefined ? '' : (turn.translations[rendered] ?? '');
 }
 

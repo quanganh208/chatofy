@@ -23,10 +23,18 @@ describe('primaryTranslation', () => {
     ).toBe('');
   });
 
-  it('shows a mixed turn covering every language in the first declared language rendered', () => {
+  it('shows a mixed turn covering every language in a rendering away from its first source', () => {
+    // The same pick the rollback down-SQL makes for `targetText`, so the turn
+    // reads identically before and after a rollback.
     expect(
       primaryTranslation(
         { sourceLanguages: ['vi', 'en'], translations: { vi: 'xin chào bạn', en: 'hello friend' } },
+        ['vi', 'en'],
+      ),
+    ).toBe('hello friend');
+    expect(
+      primaryTranslation(
+        { sourceLanguages: ['en', 'vi'], translations: { vi: 'xin chào bạn', en: 'hello friend' } },
         ['vi', 'en'],
       ),
     ).toBe('xin chào bạn');
