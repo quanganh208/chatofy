@@ -22,7 +22,7 @@ import psutil
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 RESULTS = ROOT / "results"
-RULERS = ("prod", "aiwho", "fleurs", "vicappunc")
+RULERS = ("prod", "aiwho", "fleurs", "vicappunc", "title-open", "greet")
 
 # id -> how to start it. `group` is the uv dependency group the arm needs;
 # `command` replaces the default `uv run python -m <module>` for an arm that
@@ -37,6 +37,9 @@ ARMS: dict[str, dict] = {
     "dw-prod+title": {"module": "arms.post_rule_arm", "variant": "title"},
     "dw-prod+comma-common": {"module": "arms.post_rule_arm", "variant": "comma-common"},
     "dw-prod+comma-common+title": {"module": "arms.post_rule_arm", "variant": "comma-common+title"},
+    "shipped+greet-comma": {"module": "arms.post_rule_arm", "variant": "comma-common+title+greet-comma"},
+    "shipped+title-comma": {"module": "arms.post_rule_arm", "variant": "comma-common+title+title-comma"},
+    "shipped+both-commas": {"module": "arms.post_rule_arm", "variant": "comma-common+title+greet-comma+title-comma"},
     "dw-prod+comma+title": {"module": "arms.post_rule_arm", "variant": "comma+title"},
     "vibert-capu-int8": {"module": "arms.vibert_capu_arm", "variant": "int8"},
     "vibert-capu-fp32": {"module": "arms.vibert_capu_arm", "variant": "fp32"},
