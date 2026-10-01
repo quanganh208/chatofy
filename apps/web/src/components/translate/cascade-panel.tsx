@@ -224,6 +224,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
               attributions: conversation.attributions,
               captures: conversation.captures,
               displays: conversation.displays,
+              blockTranslations: conversation.blockTranslations,
             },
             // The origin every stored `offsetMs` is measured from — the capture
             // timestamps are also `Date.now()`, also this tab, so this subtracts
@@ -237,6 +238,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
       conversation.attributions,
       conversation.captures,
       conversation.displays,
+      conversation.blockTranslations,
       conversation.startedAt,
     ],
   );
@@ -362,6 +364,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             // a fact about the run, not about the conversation.
             unheard: conversation.unheard,
             displays: conversation.displays,
+            blockTranslations: conversation.blockTranslations,
             // The two origins a turn's timestamp is measured from. The first is
             // what `toConversationTurns` above measures the STORED offset from,
             // and the second is what history shifts that offset by — so the

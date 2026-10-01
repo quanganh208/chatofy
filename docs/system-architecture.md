@@ -898,6 +898,18 @@ live screen merges them back (`display-groups.ts`); that merge runs on the clien
 BEFORE the upload, and the repaired rendering travels in `displayText`. So what
 is stored, read back, summarized and searched is what the reader actually saw.
 
+For a Vietnamese recognition, that rendering also carries punctuation and case.
+The local-stt sidecar's `POST /restore` runs a token tagger (Dewpoint mmBERT)
+that can change marks and case but never a word. The API starts it beside the
+translation and gives it `RESTORE_BUDGET_MS` (300 ms) from its own start, then
+runs the numeral ITN over the result. A turn that continues a forced cut sends
+the turn opened just before it on the same socket as `context` (waiting for that
+turn's text if it is still in flight), so the seam is not opened with a capital.
+The sidecar refuses with 429 rather than queue when busy; a 404/503 pauses
+restores for a minute. A result whose words differ from the transcript is
+dropped. Any failure leaves the numerals-only display. The client offers "show original" only when
+the words differ, not when only marks and case do.
+
 `PrismaMinutesStore` binds unconditionally (`useClass`). Which backend stores
 minutes was previously an env switch that defaulted to in-memory, which meant the
 feature quietly kept nothing; the token and the interface survive because that is
@@ -1701,6 +1713,40 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      nowhere, exactly like one that left before synthesis began. A row for it
      would be a turn whose last audio timestamp was cut short by the departure,
      which reads as an unusually fast turn
+
+6. **Forced cuts** → the 8 s ceiling cuts continuous speech mid-clause, and
+   each piece is translated before the next exists:
+   - A turn opened within `MAX_CAPTURE_GAP_MS` (1200 ms) of a forced cut sends
+     `continuesCut: true`. Its translation then carries the earlier speech
+     whatever its length, with the cut turn last; the ≤ 4-word
+     `needsPriorSpeech` gate still applies to every other turn. The server names
+     the cut turn as the one opened just before it on the socket, and waits up
+     to 1.5 s for that turn's text.
+   - Live translation cannot repair a clause that completes the sentence already
+     spoken, because the prompt forbids re-translating earlier speech. So the
+     web client sends `client.block.retranslate { segmentIds }` for every
+     display group of two or more pieces, and again each time it grows. The
+     server joins the transcripts it produced itself for that socket
+     (`session/finished-segments.ts`, last 24 segments; no client text reaches
+     the model), translates them once with `FINAL_MODELS`, and answers
+     `server.block.translated`. Every request is answered; a refusal (unknown
+     segment, mixed plans, failed call, or its own budget of 12 per user per
+     minute spent) is answered with empty `translations`. One request runs per
+     socket, and behind it one waits per block, keyed by its first segment, so a
+     grown block supersedes its shorter self without displacing another block.
+   - Answers are kept per block shape (`blockKey`). `groupTranslation` uses the
+     longest answered shape that is a prefix of the group, so a block that
+     shrinks when a speaker is named reads the answer for its new shape, and
+     `toConversationTurns` saves it. When the run ends, a drain that is
+     otherwise complete waits up to 3 s for unanswered blocks before the socket
+     closes. A block that never gets an answer keeps the joined pieces, which is
+     what was saved before. Only translations are replaced; `sourceText` stays
+     the recognizer's.
+7. **Client metrics** → `client.turn.metrics` is sent once the turn has closed
+   AND ordered playback has retired it, whichever comes later, and is flushed on
+   `stop()` while the socket is still open. Filed at close, a turn whose audio
+   was queued behind an earlier turn's had not sounded yet and was reported
+   `no_audio`: 9 of 18 spoken turns in production on 2026-10-01.
 
 REST is therefore **not** the same call: `translateTurn()` composes
 `transcribeAndTranslate()` with a **single** `synthesize()` for the whole

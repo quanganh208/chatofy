@@ -5,6 +5,7 @@ export type {
   RealtimeStreamEvents,
   RealtimeProvider,
 } from './realtime-provider.js';
+export type { DisplayRestoreOptions, DisplayRestorer } from './display-restorer.js';
 export type {
   SpeakerEmbeddingProvider,
   SpeakerEmbeddingResult,

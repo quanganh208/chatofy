@@ -175,6 +175,11 @@ export class TranslateSocket {
     this.send({ type: 'client.turn.metrics', ...metrics });
   }
 
+  /** Ask for a run of finished segments translated again as one text. */
+  retranslateBlock(segmentIds: string[]): void {
+    this.send({ type: 'client.block.retranslate', segmentIds });
+  }
+
   endSession(sessionId: string | null): void {
     this.send({
       type: 'client.session.end',

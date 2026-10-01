@@ -709,6 +709,38 @@ describe('ConversationSession', () => {
       expect(h.listeners.onStopped).toHaveBeenCalledTimes(1);
     });
 
+    // The last block is asked for as its last piece lands, just before the
+    // drain completes, and its answer is what the saved record keeps.
+    it('holds a finished drain open for a block answer still on its way', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      h.session.retranslateBlock(['x', 'y']);
+      expect(h.socket().sent.filter((e) => e.type === 'client.block.retranslate')).toHaveLength(1);
+
+      h.session.finish();
+      expect(h.listeners.onStopped).not.toHaveBeenCalled();
+
+      h.socket().emit({
+        type: 'server.block.translated',
+        segmentIds: ['x', 'y'],
+        translations: { en: 'whole' },
+      });
+      expect(h.listeners.onStopped).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops waiting for a block answer that never comes', async () => {
+      vi.useFakeTimers();
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      h.session.retranslateBlock(['x', 'y']);
+
+      h.session.finish();
+      // A server from before block retranslation never answers.
+      await vi.advanceTimersByTimeAsync(3_000);
+
+      expect(h.listeners.onStopped).toHaveBeenCalledTimes(1);
+    });
+
     it('gives up on a drain that never completes', async () => {
       vi.useFakeTimers();
       const h = harness(continuous);
@@ -989,12 +1021,15 @@ describe('ConversationSession', () => {
       expect(metricsOf(h)).toHaveLength(0);
     });
 
-    it('files a row when the turn closes', async () => {
+    it('files a row once the closed turn has played out', async () => {
       const h = harness({ runtime: { reportMetrics: true } });
       await h.session.start(startOptions);
       openTurnAndPlay(h);
 
       h.socket().emit(endedEvent());
+      // Still sounding: whether it was heard is not final yet.
+      expect(metricsOf(h)).toHaveLength(0);
+      await drainPlayback(h.context);
 
       const rows = metricsOf(h);
       expect(rows).toHaveLength(1);
@@ -1002,6 +1037,66 @@ describe('ConversationSession', () => {
       expect(rows[0]!.capturedMs).toBeGreaterThan(0);
       expect(rows[0]!.speechStartedAt).toBeGreaterThan(0);
       expect(rows[0]!.firstAudioPlayedAt).toBeGreaterThan(0);
+    });
+
+    /**
+     * Filed at close, a turn whose audio was queued behind an earlier turn's had
+     * not sounded yet and was reported `no_audio` — 9 of 18 spoken turns in
+     * production on 2026-10-01, every one of which the server had completed
+     * with audio.
+     */
+    it('reports a turn queued behind another as played once it sounds', async () => {
+      let sink: RecordingSink | undefined;
+      const h = harness({
+        runtime: { reportMetrics: true, continuous: true, maxInFlight: 3 },
+        sink: (s) => {
+          sink = s;
+        },
+      });
+      await h.session.start(startOptions);
+      h.talk();
+      h.hush();
+      h.talk();
+      h.hush();
+      const [t1, t2] = h
+        .socket()
+        .sent.filter((e) => e.type === 'client.session.start')
+        .map((e) => e.turnId);
+      h.socket().emit({ ...readyEvent('s1'), turnId: t1 } as ServerEvent);
+      h.socket().emit({ ...readyEvent('s2'), turnId: t2 } as ServerEvent);
+      h.socket().emit(audioFrameEvent('s1'));
+      h.socket().emit(audioFrameEvent('s2'));
+
+      // The second turn closes while the first is still speaking.
+      h.socket().emit(endedEvent('s2'));
+      expect(metricsOf(h)).toHaveLength(0);
+
+      h.socket().emit(endedEvent('s1'));
+      sink!.drain(sink!.enqueued[0]!.turnKey);
+      // Held until now, and only now does the second turn sound.
+      expect(metricsOf(h).map((r) => r.sessionId)).toEqual(['s1']);
+      sink!.drain(sink!.enqueued[1]!.turnKey);
+
+      const rows = metricsOf(h);
+      expect(rows.map((r) => [r.sessionId, r.outcome])).toEqual([
+        ['s1', 'played'],
+        ['s2', 'played'],
+      ]);
+      expect(rows[1]!.firstAudioPlayedAt).toBeGreaterThan(0);
+    });
+
+    it('still files a row for a turn sounding when the session stops', async () => {
+      const h = harness({ runtime: { reportMetrics: true } });
+      await h.session.start(startOptions);
+      openTurnAndPlay(h);
+      h.socket().emit(endedEvent());
+      const socket = h.socket();
+
+      h.session.stop();
+
+      const rows = socket.sent.filter((e) => e.type === 'client.turn.metrics');
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.metrics).toMatchObject({ sessionId: 's1', outcome: 'played' });
     });
 
     /**

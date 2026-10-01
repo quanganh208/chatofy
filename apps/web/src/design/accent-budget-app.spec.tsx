@@ -151,6 +151,7 @@ function conversation(over: Partial<UseStreamingTranslate> = {}): UseStreamingTr
     captures: {},
     unheard: {},
     displays: {},
+    blockTranslations: {},
     stats: {
       totalTurns: 0,
       confirmed: 0,

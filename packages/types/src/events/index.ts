@@ -12,6 +12,7 @@ export {
   clientEventSchema,
   countTermWords,
   glossaryEntrySchema,
+  MAX_BLOCK_SEGMENTS,
   MAX_GLOSSARY_TERM_WORDS,
   serverEventSchema,
   sessionOptionsSchema,

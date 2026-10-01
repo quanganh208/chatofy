@@ -1,5 +1,6 @@
 // ProviderRegistry — register and resolve AI providers by kind + name
 import type { ProviderConfig } from '../interfaces/provider-types.js';
+import type { DisplayRestorer } from '../interfaces/display-restorer.js';
 import type { RealtimeProvider } from '../interfaces/realtime-provider.js';
 import type { SpeakerEmbeddingProvider } from '../interfaces/speaker-embedding-provider.js';
 import type { SttProvider } from '../interfaces/stt-provider.js';
@@ -13,6 +14,7 @@ import { ProviderNotImplementedError } from '../errors/provider-errors.js';
  * is derived from the kind, so a caller cannot assert a mismatched interface.
  */
 export interface ProviderKindMap {
+  displayRestorer: DisplayRestorer;
   realtime: RealtimeProvider;
   speakerEmbedding: SpeakerEmbeddingProvider;
   stt: SttProvider;

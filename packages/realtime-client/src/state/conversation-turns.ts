@@ -70,7 +70,13 @@ import type { CapturesBySession, TurnKeyedTranscript } from './turn-keyed-transc
  * 400s outright rather than one row losing its timestamp.
  */
 export function toConversationTurns(
-  state: Pick<TurnKeyedTranscript, 'turns' | 'speakers' | 'attributions' | 'captures' | 'displays'>,
+  state: Pick<
+    TurnKeyedTranscript,
+    'turns' | 'speakers' | 'attributions' | 'captures' | 'displays'
+  > &
+    // Optional for a caller from before block retranslation: it saves the
+    // pieces' joined translations, which is what was saved before.
+    Partial<Pick<TurnKeyedTranscript, 'blockTranslations'>>,
   startedAtMs: number = 0,
 ): ConversationTurn[] {
   const groups = groupTurnsForDisplay(state.turns, state.captures, state.attributions);
@@ -114,7 +120,7 @@ export function toConversationTurns(
     const translationPieces = new Map(
       translationLanguages.map((language) => [
         language,
-        splitAtCap(groupTranslation(group, language)),
+        splitAtCap(groupTranslation(group, language, state.blockTranslations)),
       ]),
     );
     const pieces = Math.max(

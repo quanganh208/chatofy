@@ -111,6 +111,24 @@ describe('OpenAiCompatibleTranslationProvider', () => {
     );
   });
 
+  it('carries earlier speech to a long turn only when it continues a forced cut', async () => {
+    // Long enough to clear the fragment gate, and it starts mid-clause.
+    const piece = {
+      ...request,
+      text: 'bắt đầu có hiệu lực liên quan trực tiếp đến việc sử dụng tài khoản',
+      context: ['một số quy định mới về định danh và xác thực điện tử'],
+    };
+    const userTurn = async (continuesCut: boolean) => {
+      const calls = answering(sse(delta('ok'), 'data: [DONE]\n'));
+      await provider().translate({ ...piece, continuesCut });
+      const messages = at(calls, 0).body.messages as { content: string }[];
+      return at(messages, 1).content;
+    };
+
+    expect(await userTurn(true)).toContain('xác thực điện tử');
+    expect(await userTurn(false)).not.toContain('xác thực điện tử');
+  });
+
   it('merges vendor flags into the body without letting them replace the fields it needs', async () => {
     const calls = answering(sse(delta('ok'), 'data: [DONE]\n'));
 

@@ -161,6 +161,12 @@ export class TurnSession {
   readonly splitSpeakers: boolean;
   /** Whether this client asked to be sent settled transcript text. */
   readonly streamCommitted: boolean;
+  /**
+   * Whether this turn picks up an utterance the client's length ceiling cut, so
+   * its translation needs the earlier speech it continues. Per turn; see
+   * `SessionOptions.continuesCut`.
+   */
+  readonly continuesCut: boolean;
 
   // Takes the whole options object so the caller has one thing to pass, but
   // keeps the settings flat internally — everything below reads `this.direction`
@@ -199,6 +205,7 @@ export class TurnSession {
     this.repairDisplay = options.repairDisplay ?? false;
     this.splitSpeakers = this.embedSpeaker && (options.splitSpeakers ?? false);
     this.streamCommitted = options.streamCommitted ?? false;
+    this.continuesCut = options.continuesCut ?? false;
     this.liveTranslation = new LiveTranslationTrigger({
       budget:
         deps.budget ?? new TranslationBudget({ perUserRpm: UNMETERED_RPM }),

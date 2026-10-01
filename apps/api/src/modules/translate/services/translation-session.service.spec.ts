@@ -71,6 +71,8 @@ interface Harness {
   translateAll: Mock;
   transcribeAndTranslate: Mock;
   embedSpeaker: Mock;
+  /** Display restore; resolves undefined (nothing restored) by default. */
+  restoreDisplay: Mock;
   synthesize: Mock;
   /**
    * The streamed synthesis. Resolves null by default — a backend that cannot
@@ -131,12 +133,16 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
       Object.fromEntries(targets.map((target) => [target, 'hi'])),
     );
 
+  const restoreDisplay =
+    overrides.restoreDisplay ?? vi.fn().mockResolvedValue(undefined);
+
   const pipeline = {
     transcribe,
     translate,
     translateAll,
     transcribeAndTranslate,
     embedSpeaker,
+    restoreDisplay,
     synthesize,
     synthesizeStream,
     // The real mapping is the pipeline's; a spec only needs it to throw.
@@ -166,6 +172,7 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
     translateAll,
     transcribeAndTranslate,
     embedSpeaker,
+    restoreDisplay,
     synthesize,
     synthesizeStream,
     synthesized,
@@ -2381,6 +2388,132 @@ describe('TranslationSessionService', () => {
         'Nhưng mà cái mục tiêu mà tôi muốn làm thì',
       ]);
     });
+
+    /** Open a turn on `socket` and return its id. */
+    const openTurn = (
+      service: TranslationSessionService,
+      socket: FakeSocket,
+      continuesCut = false,
+    ) => {
+      service.start(socket, {
+        direction: 'vi_to_en',
+        voiceGender: 'female',
+        ...(continuesCut ? { continuesCut } : {}),
+      });
+      const sessionId = socket.ofType('server.session.ready').at(-1)!.sessionId;
+      service.pushFrame(socket, frame({ sessionId }));
+      return sessionId;
+    };
+
+    it('tells the translator a turn continues a forced cut, on speculation and final alike', async () => {
+      // Only the client knows its ceiling cut the previous turn; without this
+      // the provider withholds context from any piece longer than a fragment.
+      const { seen, transcribeAndTranslate } = recording([
+        'một số quy định mới về định danh và xác thực điện tử',
+        'bắt đầu có hiệu lực liên quan trực tiếp đến việc sử dụng tài khoản',
+        'bắt đầu có hiệu lực liên quan trực tiếp đến việc sử dụng tài khoản',
+      ]);
+      const { service } = makeService({ transcribeAndTranslate });
+      const socket = new FakeSocket();
+      await service.end(socket, openTurn(service, socket));
+      const second = openTurn(service, socket, true);
+      service.speculate(socket, second);
+      await service.end(socket, second);
+
+      const continuation = seen.slice(1);
+      expect(continuation.length).toBeGreaterThan(0);
+      for (const input of continuation) {
+        expect(input.continuesCut).toBe(true);
+        expect(input.context?.at(-1)).toBe(
+          'một số quy định mới về định danh và xác thực điện tử',
+        );
+      }
+    });
+
+    it('waits for the cut turn when it is still being translated', async () => {
+      // The web client runs three turns at once: the continuation can end
+      // while the turn it continues is still in its translation.
+      const seen: TranslateTurnInput[] = [];
+      let finishFirst!: () => void;
+      const transcribeAndTranslate = vi.fn((input: TranslateTurnInput) => {
+        seen.push(input);
+        const sourceText =
+          seen.length === 1 ? 'xác thực điện tử' : 'bắt đầu có hiệu lực';
+        const answer = { sourceText, translations: { en: 'x' } };
+        return seen.length === 1
+          ? new Promise((resolve) => (finishFirst = () => resolve(answer)))
+          : Promise.resolve(answer);
+      });
+      const { service } = makeService({ transcribeAndTranslate });
+      const socket = new FakeSocket();
+      const first = openTurn(service, socket);
+      const firstDone = service.end(socket, first);
+      const second = openTurn(service, socket, true);
+      const secondDone = service.end(socket, second);
+      await vi.waitFor(() =>
+        expect(transcribeAndTranslate).toHaveBeenCalledTimes(1),
+      );
+
+      finishFirst();
+      await Promise.all([firstDone, secondDone]);
+
+      expect(seen[1]?.continuesCut).toBe(true);
+      expect(seen[1]?.context?.at(-1)).toBe('xác thực điện tử');
+    });
+
+    it('continues the cut turn, not whichever turn finished last', async () => {
+      const seen: TranslateTurnInput[] = [];
+      const finish: Array<() => void> = [];
+      const transcribeAndTranslate = vi.fn((input: TranslateTurnInput) => {
+        seen.push(input);
+        const sourceText = ['câu trước đó', 'xác thực điện tử', 'bắt đầu'][
+          seen.length - 1
+        ]!;
+        return new Promise((resolve) =>
+          finish.push(() => resolve({ sourceText, translations: { en: 'x' } })),
+        );
+      });
+      const { service } = makeService({ transcribeAndTranslate });
+      const socket = new FakeSocket();
+      const older = service.end(socket, openTurn(service, socket));
+      const cut = service.end(socket, openTurn(service, socket));
+      const continuation = service.end(socket, openTurn(service, socket, true));
+      await vi.waitFor(() => expect(finish).toHaveLength(2));
+
+      // The cut turn finishes FIRST, then the older one: the latest to finish
+      // is no longer the turn that was cut.
+      finish[1]!();
+      await vi.waitFor(() =>
+        expect(transcribeAndTranslate).toHaveBeenCalledTimes(3),
+      );
+      finish[0]!();
+      finish[2]!();
+      await Promise.all([older, cut, continuation]);
+
+      expect(seen[2]?.continuesCut).toBe(true);
+      expect(seen[2]?.context?.at(-1)).toBe('xác thực điện tử');
+    });
+
+    it('stands alone when the cut turn heard nothing', async () => {
+      const { seen, transcribeAndTranslate } = recording([
+        '',
+        'bắt đầu có hiệu lực',
+      ]);
+      const { service } = makeService({ transcribeAndTranslate });
+      const socket = new FakeSocket();
+      await service.end(socket, openTurn(service, socket));
+      await service.end(socket, openTurn(service, socket, true));
+
+      expect(seen[1]?.continuesCut).toBe(false);
+    });
+
+    it('says nothing of a cut for a turn the client did not flag', async () => {
+      const { seen, transcribeAndTranslate } = recording(['Tôi đề ra']);
+      const { service } = makeService({ transcribeAndTranslate });
+      await runTurn(service, new FakeSocket());
+
+      expect(seen[0]?.continuesCut).toBe(false);
+    });
   });
 });
 
@@ -2545,6 +2678,9 @@ describe('splitting a turn where the voice changes', () => {
       async ({ text, targets }: { text: string; targets: readonly string[] }) =>
         Object.fromEntries(targets.map((target) => [target, `<${text}>`])),
     ),
+    restoreDisplay: vi.fn(
+      async (text: string) => `${text[0]!.toUpperCase()}${text.slice(1)}.`,
+    ),
   });
 
   const run = async (
@@ -2554,23 +2690,41 @@ describe('splitting a turn where the voice changes', () => {
       splitSpeakers = true,
       speculate = false,
       socket = new FakeSocket(),
+      continuesCut,
+      repairDisplay,
+      afterATurn = false,
     }: {
       splitSpeakers?: boolean;
       speculate?: boolean;
       socket?: FakeSocket;
+      continuesCut?: boolean;
+      repairDisplay?: boolean;
+      /** Run one ordinary turn on the same socket first, for a continuation to continue. */
+      afterATurn?: boolean;
     } = {},
   ) => {
     const harness = makeService({ ...fakes(), ...overrides });
+    if (afterATurn) {
+      harness.service.start(socket, {
+        direction: 'vi_to_en',
+        voiceGender: 'female',
+      });
+      const first = socket.ofType('server.session.ready').at(-1)!.sessionId;
+      harness.service.pushFrame(socket, frame({ sessionId: first }));
+      await harness.service.end(socket, first);
+    }
     harness.service.start(socket, {
       direction: 'vi_to_en',
       voiceGender: 'female',
       embedSpeaker: true,
       splitSpeakers,
+      continuesCut,
+      repairDisplay,
     });
     const sessionId = socket.ofType('server.session.ready').at(-1)!.sessionId;
     harness.service.pushFrame(socket, frame({ sessionId, payload }));
-    if (speculate) harness.service.speculate(socket);
-    await harness.service.end(socket);
+    if (speculate) harness.service.speculate(socket, sessionId);
+    await harness.service.end(socket, sessionId);
     return { ...harness, socket, sessionId };
   };
   /** Longer than either piece: the whole turn's audio, as the recognizer is handed it. */
@@ -2625,6 +2779,143 @@ describe('splitting a turn where the voice changes', () => {
     );
   });
 
+  describe('retranslating a block', () => {
+    const finalIds = (socket: FakeSocket) =>
+      socket.ofType('server.transcript.final').map((f) => f.sessionId);
+
+    it('translates finished segments again as one text', async () => {
+      const { service, socket, translateAll } = await run(
+        oneVoice,
+        {},
+        {
+          afterATurn: true,
+          splitSpeakers: false,
+        },
+      );
+      const ids = finalIds(socket);
+      const sources = socket
+        .ofType('server.transcript.final')
+        .map((f) => f.segment.sourceText);
+      translateAll.mockClear();
+
+      await service.retranslateBlock(socket, ids);
+
+      expect(translateAll).toHaveBeenCalledTimes(1);
+      expect(translateAll.mock.calls[0]![0]).toMatchObject({
+        text: sources.join(' '),
+        source: 'vi',
+        targets: ['en'],
+      });
+      expect(socket.ofType('server.block.translated')).toEqual([
+        {
+          type: 'server.block.translated',
+          segmentIds: ids,
+          translations: { en: `<${sources.join(' ')}>` },
+        },
+      ]);
+    });
+
+    it('accepts the pieces of a split turn by their own ids', async () => {
+      const { service, socket, sessionId } = await run(twoVoices);
+
+      await service.retranslateBlock(socket, [
+        `${sessionId}#0`,
+        `${sessionId}#1`,
+      ]);
+
+      expect(socket.ofType('server.block.translated')[0]!.translations).toEqual(
+        { en: '<first voice second voice>' },
+      );
+    });
+
+    it('answers empty for segments this connection did not produce', async () => {
+      const { service, socket, translateAll } = await run(
+        oneVoice,
+        {},
+        {
+          afterATurn: true,
+          splitSpeakers: false,
+        },
+      );
+      const ids = finalIds(socket);
+      const stranger = new FakeSocket();
+      translateAll.mockClear();
+
+      await service.retranslateBlock(stranger, ids);
+      await service.retranslateBlock(socket, [ids[0]!, 'not-a-segment']);
+
+      // Answered, so the client stops waiting; empty, so it keeps its pieces.
+      expect(translateAll).not.toHaveBeenCalled();
+      expect(
+        stranger.ofType('server.block.translated').map((e) => e.translations),
+      ).toEqual([{}]);
+      expect(
+        socket.ofType('server.block.translated').map((e) => e.translations),
+      ).toEqual([{}]);
+    });
+
+    it('lets a grown block supersede itself without displacing another', async () => {
+      const { service, socket, translateAll } = await run(
+        oneVoice,
+        {},
+        {
+          afterATurn: true,
+          splitSpeakers: false,
+        },
+      );
+      const [a, b] = finalIds(socket) as [string, string];
+      let release!: () => void;
+      translateAll.mockReset();
+      translateAll.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = () => resolve({ en: 'first' });
+          }),
+      );
+      translateAll.mockImplementation(async () => ({ en: 'later' }));
+
+      const first = service.retranslateBlock(socket, [a, b]);
+      void service.retranslateBlock(socket, [a, b]);
+      void service.retranslateBlock(socket, [b, a]);
+      void service.retranslateBlock(socket, [a, b]);
+      expect(translateAll).toHaveBeenCalledTimes(1);
+      release();
+      await first;
+
+      // The running one, then one per waiting block: the later `[a, b]` replaced
+      // the earlier, and `[b, a]` was displaced by neither.
+      expect(
+        socket.ofType('server.block.translated').map((e) => e.segmentIds),
+      ).toEqual([
+        [a, b],
+        [a, b],
+        [b, a],
+      ]);
+    });
+
+    it('stops spending once its own budget is used up', async () => {
+      const { service, socket, translateAll } = await run(
+        oneVoice,
+        {},
+        {
+          afterATurn: true,
+          splitSpeakers: false,
+        },
+      );
+      const ids = finalIds(socket);
+      translateAll.mockClear();
+
+      for (let i = 0; i < 13; i += 1) {
+        await service.retranslateBlock(socket, ids, 'user-1');
+      }
+
+      expect(translateAll).toHaveBeenCalledTimes(12);
+      expect(
+        socket.ofType('server.block.translated').at(-1)!.translations,
+      ).toEqual({});
+    });
+  });
+
   it('translates each piece with the one before it as context', async () => {
     const { translateAll } = await run(twoVoices);
 
@@ -2633,6 +2924,76 @@ describe('splitting a turn where the voice changes', () => {
     ][];
     const second = calls.find(([req]) => req.text === 'second voice')![0];
     expect(second.context).toEqual(['first voice']);
+  });
+
+  it('restores each piece for its own display', async () => {
+    const { socket } = await run(twoVoices, {}, { repairDisplay: true });
+
+    const finals = socket.ofType('server.transcript.final');
+    expect(finals.map((f) => [f.segment.sourceText, f.display])).toEqual([
+      ['first voice', 'First voice.'],
+      ['second voice', 'Second voice.'],
+    ]);
+  });
+
+  it('keeps the restore of a split that collapsed to one piece', async () => {
+    const { socket } = await run(
+      twoVoices,
+      {
+        transcribe: vi.fn(async ({ audio }: TranslateTurnInput) => ({
+          text: peakOf(audio) > 10000 ? 'second voice' : '',
+        })),
+      },
+      { repairDisplay: true },
+    );
+
+    const finals = socket.ofType('server.transcript.final');
+    expect(finals.map((f) => f.display)).toEqual(['Second voice.']);
+  });
+
+  it('does not treat a new speaker as the continuation when the opening piece heard nothing', async () => {
+    const { translateAll, restoreDisplay } = await run(
+      twoVoices,
+      {
+        transcribe: vi.fn(async ({ audio }: TranslateTurnInput) => ({
+          text: peakOf(audio) > 10000 ? 'second voice' : '',
+        })),
+      },
+      { continuesCut: true, afterATurn: true, repairDisplay: true },
+    );
+
+    const calls = translateAll.mock.calls as [
+      { text: string; continuesCut?: boolean },
+    ][];
+    expect(
+      calls.find(([req]) => req.text === 'second voice')?.[0].continuesCut,
+    ).toBe(false);
+    const restoreCalls = restoreDisplay.mock.calls as [
+      string,
+      string,
+      { context?: string },
+    ][];
+    expect(
+      restoreCalls.find(([text]) => text === 'second voice')?.[2].context,
+    ).toBeUndefined();
+  });
+
+  it('marks only the first piece as continuing a forced cut', async () => {
+    // The piece after the voice change is a new speaker, not the rest of the
+    // sentence the ceiling cut.
+    const { translateAll } = await run(
+      twoVoices,
+      {},
+      { continuesCut: true, afterATurn: true },
+    );
+
+    const calls = translateAll.mock.calls as [
+      { text: string; continuesCut?: boolean },
+    ][];
+    const byText = Object.fromEntries(
+      calls.map(([req]) => [req.text, req.continuesCut]),
+    );
+    expect(byText).toEqual({ 'first voice': true, 'second voice': false });
   });
 
   it('speaks the turn once, under its own id', async () => {

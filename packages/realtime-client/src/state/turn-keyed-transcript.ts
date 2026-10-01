@@ -1,4 +1,4 @@
-import type { ServerEvent, TranscriptSegment } from '@chatofy/types';
+import type { LanguageCode, ServerEvent, TranscriptSegment } from '@chatofy/types';
 import {
   addSpeaker,
   attributeTurn,
@@ -199,6 +199,29 @@ export interface TurnKeyedTranscript {
    * load-bearing rather than defensive.
    */
   displays: Record<string, string>;
+  /**
+   * One translation per block shape, keyed by its segment ids joined with a
+   * space (`blockKey`) — see `server.block.translated` and
+   * {@link groupTranslation}. Every shape is kept, not just the longest: a block
+   * that shrinks when a speaker is named reads the answer for its new shape.
+   *
+   * Kept beside the pieces' own `translations`, never written over them: the
+   * block is a run the display grouping decided on, and a regrouping (a speaker
+   * named, a capture record landing late) must be able to fall back to the
+   * pieces without having lost them.
+   */
+  blockTranslations: Record<string, BlockTranslation>;
+}
+
+/** The key a block shape is stored and asked for under. */
+export function blockKey(segmentIds: readonly string[]): string {
+  return segmentIds.join(' ');
+}
+
+/** A run of segments translated again as one text. */
+export interface BlockTranslation {
+  segmentIds: string[];
+  translations: Partial<Record<LanguageCode, string>>;
 }
 
 /** What capture measured about one finished turn. */
@@ -350,6 +373,7 @@ export const initialTurnKeyedTranscript: TurnKeyedTranscript = {
   unheard: {},
   splits: {},
   displays: {},
+  blockTranslations: {},
 };
 
 /**
@@ -624,6 +648,19 @@ export function turnKeyedTranscriptReducer(
       // so an orphan entry is simply never looked at. Refusing it here would instead
       // lose a repair to any ordering the transport does not actually guarantee.
       return { ...state, displays: { ...state.displays, [event.sessionId]: event.text } };
+
+    case 'server.block.translated':
+      // Answers land in any order, and each is for exactly one shape of a block.
+      return {
+        ...state,
+        blockTranslations: {
+          ...state.blockTranslations,
+          [blockKey(event.segmentIds)]: {
+            segmentIds: event.segmentIds,
+            translations: event.translations,
+          },
+        },
+      };
 
     case 'transcript.speakerAdded': {
       const { speakers, nextNumber } = addSpeaker(

@@ -91,6 +91,7 @@ const conversation: UseStreamingTranslate = {
   captures: { a: { openedAt: 1_000, cutForced: false, closedAt: 3_000 } },
   unheard: {},
   displays: {},
+  blockTranslations: {},
   stats: {
     totalTurns: 1,
     confirmed: 0,

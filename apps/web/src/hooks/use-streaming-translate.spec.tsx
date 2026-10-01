@@ -3,7 +3,7 @@ import * as React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SessionOptions } from '@chatofy/types';
+import type { ServerEvent, SessionOptions } from '@chatofy/types';
 import type { ConversationSessionListeners } from '@chatofy/realtime-client';
 import { useStreamingTranslate, type UseStreamingTranslate } from './use-streaming-translate';
 
@@ -41,6 +41,8 @@ const FakeConversationSession = vi.hoisted(() => {
       this.listeners.onStatus('idle');
       this.listeners.onStopped?.();
     };
+
+    retranslateBlock = vi.fn();
   }
   return Fake;
 });
@@ -178,5 +180,65 @@ describe('useStreamingTranslate conversation identity', () => {
       await latest.start({ ...options, direction: 'en_to_vi' });
     });
     expect(latest.direction).toBe('en_to_vi');
+  });
+});
+
+describe('useStreamingTranslate block retranslation', () => {
+  const final = (sessionId: string, sourceText: string, en: string): ServerEvent => ({
+    type: 'server.transcript.final',
+    sessionId,
+    segment: {
+      id: `seg-${sessionId}`,
+      sessionId,
+      speakerRole: 'speaker_a',
+      direction: 'vi_to_en',
+      sourceLanguages: ['vi'],
+      translations: { en },
+      sourceText,
+      targetText: en,
+      audioUrl: null,
+      createdAt: '2026-10-01T00:00:00.000Z',
+    },
+  });
+
+  it('asks once for a block the ceiling cut, and shows the answer', async () => {
+    await act(async () => {
+      await latest.start(options);
+    });
+    const session = FakeConversationSession.last!;
+    await act(async () => {
+      session.listeners.onTurnCaptured?.({
+        sessionId: 'a',
+        cutForced: true,
+        openedAt: 1_000,
+        closedAt: 9_000,
+        preRollMs: 0,
+      });
+      session.listeners.onTurnCaptured?.({
+        sessionId: 'b',
+        cutForced: false,
+        openedAt: 9_130,
+        closedAt: 12_000,
+        preRollMs: 0,
+      });
+      session.listeners.onServerEvent(final('a', 'xác thực điện tử', 'authentication'));
+      session.listeners.onServerEvent(final('b', 'bắt đầu có hiệu lực', 'It begins'));
+      await Promise.resolve();
+    });
+
+    expect(session.retranslateBlock).toHaveBeenCalledTimes(1);
+    expect(session.retranslateBlock).toHaveBeenCalledWith(['a', 'b']);
+
+    await act(async () => {
+      session.listeners.onServerEvent({
+        type: 'server.block.translated',
+        segmentIds: ['a', 'b'],
+        translations: { en: 'authentication takes effect' },
+      });
+      await Promise.resolve();
+    });
+
+    expect(latest.blockTranslations['a b']?.translations.en).toBe('authentication takes effect');
+    expect(session.retranslateBlock).toHaveBeenCalledTimes(1);
   });
 });

@@ -135,6 +135,8 @@ export interface SentEvent {
   sequence?: number;
   payload?: string;
   direction?: TranslationDirection;
+  /** The segments a block retranslation names. */
+  segmentIds?: string[];
   /** The whole row, for the one event that carries measurements. */
   metrics?: ClientTurnMetrics;
 }
@@ -185,6 +187,10 @@ export class FakeTranslateSocket {
 
   sendTurnMetrics(metrics: ClientTurnMetrics): void {
     this.sent.push({ type: 'client.turn.metrics', sessionId: metrics.sessionId, metrics });
+  }
+
+  retranslateBlock(segmentIds: string[]): void {
+    this.sent.push({ type: 'client.block.retranslate', segmentIds });
   }
 
   close(): void {

@@ -23,6 +23,14 @@ export const LOCAL_STT_TIMEOUT_MS = 5_000;
 /** `POST /embed`. Same sidecar and a smaller model than transcription. */
 export const LOCAL_EMBED_TIMEOUT_MS = 5_000;
 
+/**
+ * `POST /restore`. Measured p95 ~110ms. The caller stops waiting 300ms after
+ * the restore started (`RESTORE_BUDGET_MS` in the API), so the request is
+ * aborted at the same point rather than left holding a socket and sidecar
+ * work nobody will read.
+ */
+export const LOCAL_RESTORE_TIMEOUT_MS = 300;
+
 /** `POST /synthesize`. Measured p95 1125ms per clause. */
 export const LOCAL_TTS_TIMEOUT_MS = 15_000;
 

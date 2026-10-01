@@ -13,6 +13,7 @@ import {
 import {
   NoSpeechDetectedException,
   PipelineTranslatorService,
+  RESTORE_BUDGET_MS,
   SpeechEngineBusyException,
 } from './pipeline-translator.service';
 import type {
@@ -49,9 +50,16 @@ function fakeTrio(
   };
 }
 
-function serviceWith(trio: PipelineProviders): PipelineTranslatorService {
+function serviceWith(
+  trio: PipelineProviders,
+  restore?: (text: string, options: unknown) => Promise<string>,
+): PipelineTranslatorService {
   const factory = {
     makeProviders: vi.fn().mockReturnValue(trio),
+    makeDisplayRestorer: vi.fn().mockReturnValue({
+      name: 'fake-restorer',
+      restore: restore ?? vi.fn().mockRejectedValue(new Error('no restorer')),
+    }),
   } as unknown as AiProvidersFactory;
   return new PipelineTranslatorService(factory);
 }
@@ -506,6 +514,150 @@ describe('PipelineTranslatorService', () => {
 
       expect(translate).toHaveBeenCalledTimes(1);
       expect(translations).toEqual({ en: 'hello' });
+    });
+  });
+
+  describe('transcribeAndTranslate — display restore', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('restores the transcript beside the translation when asked', async () => {
+      const restore = vi.fn().mockResolvedValue('Xin chào.');
+      const result = await serviceWith(
+        fakeTrio(),
+        restore,
+      ).transcribeAndTranslate(
+        { ...input, restoreDisplay: { context: 'trước đó', terms: ['VNeID'] } },
+        VI_TO_EN,
+      );
+
+      expect(result).toEqual({
+        sourceText: 'xin chào',
+        translations: { en: 'hello' },
+        restored: 'Xin chào.',
+      });
+      expect(restore).toHaveBeenCalledWith('xin chào', {
+        language: 'vi',
+        context: 'trước đó',
+        terms: ['VNeID'],
+      });
+    });
+
+    it('starts the restore before the translation finishes, not after', async () => {
+      // The whole latency argument: the restore's cost must sit beside the
+      // translation. Asserted by order, not the clock.
+      const order: string[] = [];
+      let finishTranslation!: (value: { text: string }) => void;
+      const trio = fakeTrio({
+        translation: {
+          name: 'fake-translation',
+          translate: vi.fn(
+            () =>
+              new Promise<{ text: string }>((resolve) => {
+                order.push('translate started');
+                finishTranslation = resolve;
+              }),
+          ),
+        },
+      });
+      const restore = vi.fn(async () => {
+        order.push('restore started');
+        return 'Xin chào.';
+      });
+      const pending = serviceWith(trio, restore).transcribeAndTranslate(
+        { ...input, restoreDisplay: {} },
+        VI_TO_EN,
+      );
+      await vi.waitFor(() => expect(order).toHaveLength(2));
+      finishTranslation({ text: 'hello' });
+
+      await expect(pending).resolves.toMatchObject({ restored: 'Xin chào.' });
+      expect(order).toContain('restore started');
+    });
+
+    it('keeps the turn when the restorer fails, with no restored text', async () => {
+      vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const restore = vi.fn().mockRejectedValue(new Error('503 not loaded'));
+
+      const result = await serviceWith(
+        fakeTrio(),
+        restore,
+      ).transcribeAndTranslate({ ...input, restoreDisplay: {} }, VI_TO_EN);
+
+      expect(result).toEqual({
+        sourceText: 'xin chào',
+        translations: { en: 'hello' },
+      });
+    });
+
+    it('gives up on a restorer that runs past its budget, counted from its start', async () => {
+      vi.useFakeTimers();
+      const restore = vi.fn(() => new Promise<string>(() => undefined));
+      let settled = false;
+      const pending = serviceWith(fakeTrio(), restore)
+        .transcribeAndTranslate({ ...input, restoreDisplay: {} }, VI_TO_EN)
+        .finally(() => (settled = true));
+
+      await vi.advanceTimersByTimeAsync(RESTORE_BUDGET_MS - 1);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+
+      await expect(pending).resolves.toEqual({
+        sourceText: 'xin chào',
+        translations: { en: 'hello' },
+      });
+    });
+
+    it('stops asking a restorer that reported itself absent, and logs it once', async () => {
+      const warn = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => undefined);
+      const restore = vi
+        .fn()
+        .mockRejectedValue(new ProviderResponseError('not loaded', 503));
+      const service = serviceWith(fakeTrio(), restore);
+
+      await service.transcribeAndTranslate(
+        { ...input, restoreDisplay: {} },
+        VI_TO_EN,
+      );
+      await service.transcribeAndTranslate(
+        { ...input, restoreDisplay: {} },
+        VI_TO_EN,
+      );
+
+      expect(restore).toHaveBeenCalledTimes(1);
+      expect(
+        warn.mock.calls.filter(([m]) => String(m).includes('restore')),
+      ).toHaveLength(1);
+    });
+
+    it('keeps asking a restorer that was only busy', async () => {
+      const restore = vi
+        .fn()
+        .mockRejectedValue(new ProviderResponseError('busy', 429));
+      const service = serviceWith(fakeTrio(), restore);
+
+      await service.transcribeAndTranslate(
+        { ...input, restoreDisplay: {} },
+        VI_TO_EN,
+      );
+      await service.transcribeAndTranslate(
+        { ...input, restoreDisplay: {} },
+        VI_TO_EN,
+      );
+
+      expect(restore).toHaveBeenCalledTimes(2);
+    });
+
+    it('never calls the restorer for a turn that did not ask', async () => {
+      const restore = vi.fn().mockResolvedValue('Xin chào.');
+
+      await serviceWith(fakeTrio(), restore).transcribeAndTranslate(
+        input,
+        VI_TO_EN,
+      );
+
+      expect(restore).not.toHaveBeenCalled();
     });
   });
 

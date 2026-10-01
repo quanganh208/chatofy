@@ -339,6 +339,31 @@ describe('turnKeyedTranscriptReducer', () => {
     });
   });
 
+  describe('block translations', () => {
+    const block = (segmentIds: string[], en: string): ServerEvent => ({
+      type: 'server.block.translated',
+      segmentIds,
+      translations: { en },
+    });
+
+    it('keeps every shape a block was answered for, whatever order they land in', () => {
+      const state = play(block(['a', 'b', 'c'], 'whole'), block(['a', 'b'], 'shorter'));
+
+      expect(state.blockTranslations['a b c']?.translations).toEqual({ en: 'whole' });
+      expect(state.blockTranslations['a b']?.translations).toEqual({ en: 'shorter' });
+    });
+
+    it('never touches the pieces it translates', () => {
+      const state = play(
+        final('a', 'một', 'one'),
+        final('b', 'hai', 'two'),
+        block(['a', 'b'], 'x'),
+      );
+
+      expect(state.turns.map((turn) => turn.translations.en)).toEqual(['one', 'two']);
+    });
+  });
+
   describe('typeset display text', () => {
     it('lands with its turn in ONE update, so the line never visibly changes', () => {
       // The whole reason the rendering rides on `transcript.final`. As its own

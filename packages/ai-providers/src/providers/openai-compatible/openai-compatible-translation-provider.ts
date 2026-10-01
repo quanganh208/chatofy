@@ -189,7 +189,7 @@ export class OpenAiCompatibleTranslationProvider implements TranslationProvider 
     const context = buildContextBlock(
       req.hints,
       { source: req.sourceLanguage, target: req.targetLanguage },
-      needsPriorSpeech(text) ? req.context : undefined,
+      needsPriorSpeech(text, req.continuesCut) ? req.context : undefined,
     );
     const instruction = buildTranslationInstruction(
       req.sourceLanguage,

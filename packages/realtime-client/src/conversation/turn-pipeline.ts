@@ -1,5 +1,6 @@
 import type { SessionOptions } from '@chatofy/types';
 import { pcm16ToBase64, TARGET_SAMPLE_RATE } from '../audio/pcm-resampler.js';
+import { MAX_CAPTURE_GAP_MS } from '../state/display-groups.js';
 import { newTurnId } from '../transport/translate-socket.js';
 
 /**
@@ -145,6 +146,12 @@ interface Turn {
   discardedMs: number;
   /** True when the length ceiling cut the turn rather than the speaker stopping. */
   cutForced: boolean;
+  /**
+   * This turn opened straight after a forced cut — within
+   * {@link MAX_CAPTURE_GAP_MS} of it — so it is the rest of that utterance.
+   * Sent on `client.session.start`, the only moment the server could use it.
+   */
+  continuesCut: boolean;
   /** `onEchoHeard` events counted while this turn was being captured. */
   echoEvents: number;
   /** Times the server has refused to open this turn. */
@@ -192,6 +199,8 @@ export class TurnPipeline {
   private readonly closedMetrics = new Map<string, CapturedTurnMetrics>();
   /** The turn capture is currently feeding. Only ever one — one gate, one turn. */
   private capturing: string | null = null;
+  /** How the most recent captured turn ended, for the turn that opens after it. */
+  private lastCapture: { closedAt: number; cutForced: boolean } | null = null;
   private options: SessionOptions | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   /**
@@ -256,6 +265,8 @@ export class TurnPipeline {
    */
   openTurn(preRoll: Int16Array[]): string {
     const turnId = newTurnId();
+    const openedAt = this.now();
+    const previous = this.lastCapture;
     const turn: Turn = {
       turnId,
       phase: 'waiting',
@@ -264,11 +275,15 @@ export class TurnPipeline {
       pending: [],
       pendingMs: 0,
       captureFinished: false,
-      openedAt: this.now(),
+      openedAt,
       closedAt: 0,
       sentMs: 0,
       discardedMs: 0,
       cutForced: false,
+      continuesCut:
+        previous !== null &&
+        previous.cutForced &&
+        openedAt - previous.closedAt <= MAX_CAPTURE_GAP_MS,
       echoEvents: 0,
       refusals: 0,
       preRollMs: preRoll.reduce((ms, block) => ms + (block.length / TARGET_SAMPLE_RATE) * 1000, 0),
@@ -417,6 +432,7 @@ export class TurnPipeline {
     turn.captureFinished = true;
     turn.closedAt = this.now();
     turn.cutForced = cutForced;
+    this.lastCapture = { closedAt: turn.closedAt, cutForced };
 
     if (turn.phase === 'waiting') {
       // Held back by the ceiling and now fully captured. Kept, not discarded: its
@@ -513,6 +529,8 @@ export class TurnPipeline {
     for (const turn of [...this.turns.values()]) this.forget(turn, 'stopped');
     this.turns.clear();
     this.capturing = null;
+    // A conversation stopped mid-sentence does not continue into the next one.
+    this.lastCapture = null;
   }
 
   private hold(turn: Turn, block: Int16Array): void {
@@ -571,7 +589,9 @@ export class TurnPipeline {
     if (atServer >= this.maxInFlight) return;
 
     turn.phase = 'handshaking';
-    this.transport.startSession(this.options, turn.turnId);
+    // Added only when true, so every other turn's start is the message it always was.
+    const options = turn.continuesCut ? { ...this.options, continuesCut: true } : this.options;
+    this.transport.startSession(options, turn.turnId);
   }
 
   /**

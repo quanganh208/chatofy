@@ -344,16 +344,27 @@ export function buildTranslationInstruction(
 }
 
 /**
- * Whether this transcript is short enough to need the sentence it is inside.
+ * Whether this transcript needs the sentence it is inside.
  *
  * A predicate rather than a branch inside {@link buildContextBlock}, because it
  * is the one part of this feature that decides whether a turn pays for it at
  * all, and it is answered from the transcript — which the block knows nothing
  * about. See {@link MAX_FRAGMENT_WORDS} for what was measured.
+ *
+ * Two populations need it. A short transcript, which is the hesitation the
+ * length gate was drawn around. And a turn that `continuesCut` — the remainder
+ * of an utterance the client's length ceiling split, which runs 20–30 words and
+ * so always cleared the gate, yet starts mid-clause. MEASURED on a recorded
+ * vi→en broadcast, three repeats each: without earlier speech the seams came
+ * out wrong 0/3 ("bắt đầu có hiệu lực" as "It starts to take effect…", "giá trị
+ * như giấy tờ trực tiếp" as "For example, directly…"); with it, 3/3 right. The
+ * word-sense hazard that drew the gate was measured on complete sentences, and a
+ * piece that starts mid-clause is not one.
  */
-export function needsPriorSpeech(transcript: string): boolean {
+export function needsPriorSpeech(transcript: string, continuesCut = false): boolean {
   const words = countTermWords(transcript);
-  return words > 0 && words <= MAX_FRAGMENT_WORDS;
+  if (words === 0) return false;
+  return continuesCut || words <= MAX_FRAGMENT_WORDS;
 }
 
 /**

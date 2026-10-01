@@ -1,6 +1,10 @@
-import type { LanguageCode, TranscriptSegment } from '@chatofy/types';
+import { MAX_BLOCK_SEGMENTS, type LanguageCode, type TranscriptSegment } from '@chatofy/types';
 import { attributionFor, isRendered, type AttributionsBySession } from './speaker-roster.js';
-import type { CapturesBySession } from './turn-keyed-transcript.js';
+import {
+  blockKey,
+  type BlockTranslation,
+  type CapturesBySession,
+} from './turn-keyed-transcript.js';
 
 /**
  * How a run of turns is shown when one utterance became several of them.
@@ -43,8 +47,13 @@ import type { CapturesBySession } from './turn-keyed-transcript.js';
  * Widening it is safe because it is not what keeps separate utterances apart:
  * `cutForced` is. A turn that ended on the hangover is a complete utterance and
  * never reaches this check, so no pause — however short — can merge across it.
+ *
+ * Exported because `TurnPipeline` asks the same question at the other end: a
+ * turn opening within this gap of a forced cut is the rest of that utterance,
+ * and is translated with the speech it continues. One number, so the turns the
+ * translator treats as a continuation are the turns the screen merges.
  */
-const MAX_CAPTURE_GAP_MS = 1200;
+export const MAX_CAPTURE_GAP_MS = 1200;
 
 /** One rendered block: a run of turns that were one utterance. */
 export interface DisplayGroup {
@@ -176,13 +185,48 @@ export function groupTurnsForDisplay(
 /**
  * One block's source text, repaired where a repair exists.
  *
- * Joined with a space and nothing cleverer. A forced cut lands mid-word, so the
- * seam can read badly — repairing it would mean guessing at a word neither half
- * contains, which is the one thing the translation prompt is also forbidden to
- * do. The roughness is accepted and visible rather than papered over.
+ * Joined with a space, and the one seam repair that needs no guessing: a
+ * piece's closing full stop is dropped when the next piece opens in
+ * lowercase. Each piece is punctuated as it arrives, so one cut by the ceiling
+ * gets a full stop at the cut; the piece after it was punctuated reading that
+ * one as context, and a lowercase opening is its verdict that no sentence ended
+ * there. Words are never touched — a forced cut can land mid-word, and
+ * repairing THAT would mean guessing at a word neither half contains.
  */
 export function groupSourceText(group: DisplayGroup, displays: Record<string, string>): string {
-  return group.turns.map((turn) => displays[turn.sessionId] ?? turn.sourceText).join(' ');
+  const pieces = group.turns.map((turn) => displays[turn.sessionId] ?? turn.sourceText);
+  return pieces
+    .map((piece, index) => {
+      const next = pieces[index + 1];
+      return next !== undefined && piece.endsWith('.') && opensLowercase(next)
+        ? piece.slice(0, -1)
+        : piece;
+    })
+    .join(' ');
+}
+
+/**
+ * Whether a line opens on a lowercase letter — a continuation, not a sentence.
+ *
+ * A line that opens on a numeral says nothing either way: the ITN turned a
+ * capitalised "Bảy" into "7", and reading past it to the next word would mistake
+ * a new sentence for the rest of the last one.
+ */
+function opensLowercase(text: string): boolean {
+  const first = text.match(/[\p{L}\p{N}]/u)?.[0];
+  return first !== undefined && /\p{L}/u.test(first) && first !== first.toUpperCase();
+}
+
+/** A line's words, case and punctuation aside: what a reader would call its text. */
+function wordsOf(text: string): string {
+  // NFC first: the display arrives composed and a raw transcript may not, and
+  // the same word in two encodings must not read as a repair.
+  return (
+    text
+      .normalize('NFC')
+      .toLowerCase()
+      .match(/[\p{L}\p{N}]+/gu) ?? []
+  ).join(' ');
 }
 
 /**
@@ -199,16 +243,25 @@ export function groupRawSourceText(group: DisplayGroup): string {
 }
 
 /**
- * Whether any member of this block has been repaired.
+ * Whether any member of this block has been repaired in its WORDS.
  *
  * Any, not all: a block is one utterance the ceiling split, its halves are
- * repaired by separate requests, and one can land while the other is still in
- * flight or has failed outright. The line on screen is then part repaired and
- * part raw, which is honest — and it still differs from the recognizer's own
- * text, so the original stays worth offering.
+ * repaired separately, and one can land while the other is still in flight or
+ * has failed outright. The line on screen is then part repaired and part raw,
+ * which is honest — and it still differs from the recognizer's own text, so
+ * the original stays worth offering.
+ *
+ * Words, not characters: punctuation and case are restored on nearly every
+ * Vietnamese line, by a tagger that cannot change a word. Offering the
+ * "original" for those would put the disclosure under every line to show the
+ * same words in lowercase, and teach readers to ignore it on the lines where a
+ * numeral really was rewritten.
  */
 export function groupIsRepaired(group: DisplayGroup, displays: Record<string, string>): boolean {
-  return group.turns.some((turn) => displays[turn.sessionId] !== undefined);
+  return group.turns.some((turn) => {
+    const display = displays[turn.sessionId];
+    return display !== undefined && wordsOf(display) !== wordsOf(turn.sourceText);
+  });
 }
 
 /**
@@ -222,6 +275,53 @@ export function groupIsRepaired(group: DisplayGroup, displays: Record<string, st
  * targets are exactly the languages it was not spoken in, but not a type this
  * function can assume away for a caller.
  */
-export function groupTranslation(group: DisplayGroup, language: LanguageCode): string {
-  return group.turns.map((turn) => turn.translations[language] ?? '').join(' ');
+export function groupTranslation(
+  group: DisplayGroup,
+  language: LanguageCode,
+  blocks: Record<string, BlockTranslation> = {},
+): string {
+  const block = coveringBlock(group, language, blocks);
+  const rest = group.turns
+    .slice(block?.length ?? 0)
+    .map((turn) => turn.translations[language] ?? '');
+  return (block ? [block.text, ...rest] : rest).join(' ');
+}
+
+/**
+ * The longest block translation into `language` that covers this group's
+ * opening run.
+ *
+ * A prefix, not only an exact match: a block is asked for each time it grows,
+ * so while the newest request is in flight the answer for its shorter self
+ * covers the first pieces and the last one still reads as its own translation.
+ * An answer with no text in `language` — a refusal is answered empty — covers
+ * nothing, and a shorter shape is tried instead.
+ */
+function coveringBlock(
+  group: DisplayGroup,
+  language: LanguageCode,
+  blocks: Record<string, BlockTranslation>,
+): { length: number; text: string } | undefined {
+  for (let length = group.sessionIds.length; length >= 2; length -= 1) {
+    const text = blocks[blockKey(group.sessionIds.slice(0, length))]?.translations[language];
+    if (text !== undefined) return { length, text };
+  }
+  return undefined;
+}
+
+/**
+ * The runs worth translating again as one text: every block of two or more
+ * pieces whose exact shape has not been answered yet.
+ *
+ * Capped at the first `MAX_BLOCK_SEGMENTS` pieces, which the server will accept;
+ * the rest of a longer block keeps its pieces' own translations.
+ */
+export function blocksToRetranslate(
+  groups: readonly DisplayGroup[],
+  blocks: Record<string, BlockTranslation>,
+): string[][] {
+  return groups
+    .filter((group) => group.sessionIds.length >= 2)
+    .map((group) => group.sessionIds.slice(0, MAX_BLOCK_SEGMENTS))
+    .filter((ids) => !(blockKey(ids) in blocks));
 }

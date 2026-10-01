@@ -8,7 +8,10 @@ import {
   TranslationSessionService,
   type StreamSocket,
 } from './translation-session.service';
-import type { PipelineTranslatorService } from './pipeline-translator.service';
+import type {
+  PipelineTranslatorService,
+  TranslateTurnInput,
+} from './pipeline-translator.service';
 import type { TurnMetrics, TurnMetricsRecorder } from './turn-metrics.recorder';
 import { encodePcm16Wav } from '../audio/wav-codec';
 import type { SpeechLanguageSupport } from '../providers/speech-language-support';
@@ -105,16 +108,23 @@ const ttsWav = (): Uint8Array =>
 interface Harness {
   service: TranslationSessionService;
   turns: TurnMetrics[];
+  /** Every input the turn handed the pipeline, in call order. */
+  inputs: TranslateTurnInput[];
 }
 
-function makeService(sourceText: string): Harness {
+function makeService(sourceText: string, restored?: string): Harness {
   const turns: TurnMetrics[] = [];
+  const inputs: TranslateTurnInput[] = [];
 
   const pipeline = {
-    transcribeAndTranslate: vi.fn().mockResolvedValue({
-      // Lowercase and unpunctuated, as the Vietnamese recognizer actually emits.
-      sourceText,
-      translations: { en: 'hello' },
+    transcribeAndTranslate: vi.fn((input: TranslateTurnInput) => {
+      inputs.push(input);
+      return Promise.resolve({
+        // Lowercase and unpunctuated, as the Vietnamese recognizer actually emits.
+        sourceText,
+        translations: { en: 'hello' },
+        ...(restored === undefined ? {} : { restored }),
+      });
     }),
     synthesize: vi
       .fn()
@@ -145,6 +155,7 @@ function makeService(sourceText: string): Harness {
       new DeclaredLanguageIdentifier(),
     ),
     turns,
+    inputs,
   };
 }
 
@@ -154,12 +165,21 @@ async function runTurn(
   {
     wantsDisplay = true,
     direction = 'vi_to_en',
-  }: { wantsDisplay?: boolean; direction?: TranslationDirection } = {},
+    continuesCut,
+    hotwords,
+  }: {
+    wantsDisplay?: boolean;
+    direction?: TranslationDirection;
+    continuesCut?: boolean;
+    hotwords?: string[];
+  } = {},
 ): Promise<string> {
   service.start(socket, {
     direction,
     voiceGender: 'female',
     ...(wantsDisplay ? { repairDisplay: true } : {}),
+    ...(continuesCut ? { continuesCut } : {}),
+    ...(hotwords ? { hints: { hotwords } } : {}),
   });
   const sessionId = socket.ofType('server.session.ready').at(-1)!.sessionId;
   service.pushFrame(socket, frame(sessionId));
@@ -211,6 +231,80 @@ describe('the finished line carries its digits when it first paints', () => {
     expect(mockItnCalls.map((call) => call.text)).toEqual([
       'cuộc họp lúc mười bốn giờ ba mươi phút',
     ]);
+  });
+});
+
+describe('restored punctuation and case', () => {
+  it('typesets the restored line, so marks, case and digits arrive together', async () => {
+    const { service } = makeService(
+      'cuộc họp lúc mười bốn giờ ba mươi phút',
+      'Cuộc họp lúc mười bốn giờ ba mươi phút.',
+    );
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+
+    const final = socket.ofType('server.transcript.final').at(-1)!;
+    expect(final.display).toBe('Cuộc họp lúc 14:30.');
+    expect(final.segment.sourceText).toBe(
+      'cuộc họp lúc mười bốn giờ ba mươi phút',
+    );
+  });
+
+  it('discards a restore that changed the words, keeping the recognizer\u2019s', async () => {
+    // The restorer promises marks and case only. A line that broke that promise
+    // would put words on screen the speaker never said.
+    const { service } = makeService(
+      'mô hình ai của openai',
+      'Mô hình AI của Google.',
+    );
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+
+    expect(
+      socket.ofType('server.transcript.final').at(-1)!.display,
+    ).toBeUndefined();
+  });
+
+  it('asks for a restore on a Vietnamese turn, with the session hotwords as terms', async () => {
+    const { service, inputs } = makeService('mô hình ai của openai');
+    await runTurn(service, new FakeSocket(), { hotwords: ['VNeID'] });
+
+    expect(inputs.at(-1)?.restoreDisplay).toEqual({ terms: ['VNeID'] });
+  });
+
+  it('reads the utterance a forced cut split off as the context of the rest', async () => {
+    const { service, inputs } = makeService('xác thực điện tử');
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+    await runTurn(service, socket, { continuesCut: true });
+
+    expect(inputs.at(-1)?.restoreDisplay).toEqual({
+      context: 'xác thực điện tử',
+      terms: [],
+    });
+  });
+
+  it('gives a turn that starts its own utterance no context', async () => {
+    const { service, inputs } = makeService('xác thực điện tử');
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+    await runTurn(service, socket);
+
+    expect(inputs.at(-1)?.restoreDisplay).toEqual({ terms: [] });
+  });
+
+  it('asks for nothing on an English recognition, which is already cased', async () => {
+    const { service, inputs } = makeService('meet at three');
+    await runTurn(service, new FakeSocket(), { direction: 'en_to_vi' });
+
+    expect(inputs.at(-1)?.restoreDisplay).toBeUndefined();
+  });
+
+  it('asks for nothing from a client that renders the raw line', async () => {
+    const { service, inputs } = makeService('mô hình ai của openai');
+    await runTurn(service, new FakeSocket(), { wantsDisplay: false });
+
+    expect(inputs.at(-1)?.restoreDisplay).toBeUndefined();
   });
 });
 

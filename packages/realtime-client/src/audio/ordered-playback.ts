@@ -125,6 +125,12 @@ export interface OrderedPlaybackHandlers {
   onPlayingChanged?: (playing: boolean) => void;
   /** Diagnostics that must never be silent. */
   onLog?: (message: string) => void;
+  /**
+   * A turn left the queue for good — played out, or dropped — and its playback
+   * times are final. The moment a turn's metrics row can say whether it was
+   * heard; at close, a turn queued behind another has not sounded yet.
+   */
+  onRetired?: (turnKey: string) => void;
 }
 
 export class OrderedPlayback {
@@ -140,8 +146,8 @@ export class OrderedPlayback {
   /**
    * What each turn's playback looked like, kept after the turn itself is retired.
    *
-   * Retained because the row is filed when the turn CLOSES, and a turn is retired
-   * from `turns` the moment its audio finishes — which is often the same tick. Held
+   * Retained because the row is filed when the turn closes or retires, whichever
+   * is LATER, and a turn that drops before it closes is gone by then. Held
    * for a bounded number of turns; this is a measurement buffer, not a history.
    */
   private readonly played = new Map<string, PlayedTurnMetrics>();
@@ -226,6 +232,7 @@ export class OrderedPlayback {
     this.handlers.onLog?.(
       `dropped turn ${turnKey} (${reason}): ${Math.round(turn.bufferedMs)}ms of audio discarded`,
     );
+    this.handlers.onRetired?.(turnKey);
     this.pump();
   }
 
@@ -262,6 +269,11 @@ export class OrderedPlayback {
   /** True while anything is sounding or waiting. Drives ducking and status. */
   get isBusy(): boolean {
     return this.queue.isPlaying || this.turns.size > 0;
+  }
+
+  /** Whether this turn is still queued or sounding — not yet retired. */
+  holds(turnKey: string): boolean {
+    return this.turns.has(turnKey);
   }
 
   /** Turns known but not yet finished playing. */
@@ -322,6 +334,7 @@ export class OrderedPlayback {
 
       this.retain(head);
       this.turns.delete(head.key);
+      this.handlers.onRetired?.(head.key);
     }
 
     this.clearStallTimer();

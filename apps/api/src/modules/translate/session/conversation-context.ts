@@ -37,8 +37,27 @@ import type { StreamSocket } from './stream-socket';
  */
 const REMEMBERED_UTTERANCES = 4;
 
+/** One finished utterance, and the turn that said it when one is named. */
+interface Utterance {
+  sessionId?: string;
+  text: string;
+}
+
+/** A turn somebody is waiting on, and who. */
+type Waiters = Map<string, Array<(text: string | undefined) => void>>;
+
 export class ConversationContext {
-  private readonly recent = new WeakMap<StreamSocket, string[]>();
+  private readonly recent = new WeakMap<StreamSocket, Utterance[]>();
+  /**
+   * The last turn OPENED on each connection, for naming a continuation's
+   * predecessor. A client opens turns in the order it captured them — the
+   * pipeline starts the oldest waiting turn first — so the turn opened just
+   * before a continuation is the one the ceiling cut.
+   */
+  private readonly lastOpened = new WeakMap<StreamSocket, string>();
+  private readonly waiters = new WeakMap<StreamSocket, Waiters>();
+  /** Turns that closed without a transcript, so a late waiter is answered at once. */
+  private readonly silent = new WeakMap<StreamSocket, Set<string>>();
 
   /**
    * The finished utterances a turn starting now should be translated against.
@@ -48,7 +67,19 @@ export class ConversationContext {
    * finishes mid-flight change what an in-flight prompt was built from.
    */
   recall(socket: StreamSocket): string[] {
-    return [...(this.recent.get(socket) ?? [])];
+    return (this.recent.get(socket) ?? []).map((utterance) => utterance.text);
+  }
+
+  /**
+   * Note that a turn opened, and return the turn opened before it.
+   *
+   * Called for every accepted turn, continuation or not, so the answer is
+   * always the immediate predecessor and never an older one.
+   */
+  opened(socket: StreamSocket, sessionId: string): string | undefined {
+    const previous = this.lastOpened.get(socket);
+    this.lastOpened.set(socket, sessionId);
+    return previous;
   }
 
   /**
@@ -59,22 +90,117 @@ export class ConversationContext {
    * COMPLETION order: turns run concurrently and one can overtake another, and
    * the alternative — holding a slot for a turn still in flight — would mean a
    * fragment waiting on the very turn whose slowness left it without context.
+   * The one exception is {@link textOf}, which waits on purpose, and only for
+   * the single turn a continuation is the rest of.
    *
    * An empty or blank text is not recorded. A turn the recognizer returned
    * nothing for has no sentence to contribute, and a blank line of "earlier
    * speech" tells the model something was said and declines to say what.
+   *
+   * A turn split into several pieces calls this once per piece under its own
+   * id, so {@link textOf} answers with the LAST piece — the one that reaches
+   * the cut.
    */
-  remember(socket: StreamSocket, sourceText: string): void {
+  remember(socket: StreamSocket, sourceText: string, sessionId?: string): void {
     const text = sourceText.trim();
     if (!text) return;
     const kept = this.recent.get(socket) ?? [];
-    kept.push(text);
+    kept.push(sessionId === undefined ? { text } : { sessionId, text });
     while (kept.length > REMEMBERED_UTTERANCES) kept.shift();
     this.recent.set(socket, kept);
+    if (sessionId !== undefined) this.answer(socket, sessionId, text);
+  }
+
+  /**
+   * A turn closed. If it never produced a transcript, whoever waits on it is
+   * told now rather than at their deadline.
+   */
+  closed(socket: StreamSocket, sessionId: string): void {
+    if (this.textNow(socket, sessionId) !== undefined) return;
+    const silent = this.silent.get(socket) ?? new Set<string>();
+    silent.add(sessionId);
+    // Bounded like the ring: only the most recent turns can still be waited on.
+    if (silent.size > REMEMBERED_UTTERANCES) {
+      silent.delete(silent.values().next().value as string);
+    }
+    this.silent.set(socket, silent);
+    this.answer(socket, sessionId, undefined);
+  }
+
+  /**
+   * The transcript of one named turn, waiting up to `waitMs` for it to finish.
+   *
+   * `undefined` when the turn produced nothing, has aged out of the ring, or is
+   * still unfinished at the deadline. A continuation asks this instead of
+   * reading "the latest utterance": with several turns in flight the latest one
+   * to FINISH is often not the one that was cut, and the wrong sentence as
+   * context is worse than none.
+   */
+  textOf(
+    socket: StreamSocket,
+    sessionId: string,
+    waitMs: number,
+  ): Promise<string | undefined> {
+    const settled = this.settledText(socket, sessionId);
+    if (settled !== null) return Promise.resolve(settled.text);
+    return new Promise((resolve) => {
+      const waiters = this.waiters.get(socket) ?? new Map();
+      this.waiters.set(socket, waiters);
+      const list = waiters.get(sessionId) ?? [];
+      waiters.set(sessionId, list);
+      const timer = setTimeout(() => settle(undefined), waitMs);
+      const settle = (text: string | undefined) => {
+        clearTimeout(timer);
+        const index = list.indexOf(settle);
+        if (index >= 0) list.splice(index, 1);
+        if (list.length === 0) waiters.delete(sessionId);
+        resolve(text);
+      };
+      list.push(settle);
+    });
+  }
+
+  /**
+   * The named turn's outcome if it is already known — its text, or `undefined`
+   * for a turn that closed silent — and `null` while it is still in flight.
+   *
+   * Lets a caller with nothing to wait for stay synchronous.
+   */
+  settledText(
+    socket: StreamSocket,
+    sessionId: string,
+  ): { text: string | undefined } | null {
+    const text = this.textNow(socket, sessionId);
+    if (text !== undefined) return { text };
+    return this.silent.get(socket)?.has(sessionId) ? { text: undefined } : null;
   }
 
   /** Drop a connection's history, for a socket that went away. */
   forget(socket: StreamSocket): void {
     this.recent.delete(socket);
+    this.lastOpened.delete(socket);
+    this.silent.delete(socket);
+    const waiters = this.waiters.get(socket);
+    this.waiters.delete(socket);
+    for (const list of waiters?.values() ?? []) {
+      for (const settle of [...list]) settle(undefined);
+    }
+  }
+
+  private textNow(socket: StreamSocket, sessionId: string): string | undefined {
+    const kept = this.recent.get(socket) ?? [];
+    for (let i = kept.length - 1; i >= 0; i -= 1) {
+      if (kept[i]!.sessionId === sessionId) return kept[i]!.text;
+    }
+    return undefined;
+  }
+
+  private answer(
+    socket: StreamSocket,
+    sessionId: string,
+    text: string | undefined,
+  ): void {
+    const list = this.waiters.get(socket)?.get(sessionId);
+    for (const settle of [...(list ?? [])]) settle(text);
   }
 }

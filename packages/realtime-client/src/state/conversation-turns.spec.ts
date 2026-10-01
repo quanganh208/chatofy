@@ -106,6 +106,22 @@ describe('toConversationTurns', () => {
     });
   });
 
+  it('saves the whole-block translation of a split utterance, keeping its source', () => {
+    const rows = toConversationTurns({
+      ...base,
+      turns: [segment('a', 'first half', 'one'), segment('b', 'second half', 'two')],
+      captures: captures(['a', 1_000, true, 9_000], ['b', 9_130, false, 12_000]),
+      blockTranslations: {
+        'a b': { segmentIds: ['a', 'b'], translations: { en: 'One sentence.' } },
+      },
+    });
+
+    expect(rows[0]).toMatchObject({
+      sourceText: 'first half second half',
+      translations: { en: 'One sentence.' },
+    });
+  });
+
   it('leaves displayText null when the rendering matches the recognizer', () => {
     const rows = toConversationTurns({
       ...base,

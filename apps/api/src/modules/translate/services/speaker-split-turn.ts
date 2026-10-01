@@ -5,7 +5,10 @@ import type {
 } from '@chatofy/ai-providers';
 import type { TurnAudio } from '../session/turn-audio';
 import type { Span } from '../session/speaker-change-split';
-import type { PipelineTranslatorService } from './pipeline-translator.service';
+import type {
+  DisplayRestoreRequest,
+  PipelineTranslatorService,
+} from './pipeline-translator.service';
 import type {
   TurnLanguagePlan,
   TranslationMap,
@@ -15,6 +18,8 @@ import type {
 export interface TranslatedPiece extends Span {
   sourceText: string;
   translations: TranslationMap;
+  /** `sourceText` restored for display, when that was asked for and ran in time. */
+  restored?: string;
   /**
    * Whether this piece's span was the LAST one `planSpeakerSplit` cut — the
    * one whose `endMs` reaches the turn's own `durationMs`, not merely the
@@ -58,7 +63,7 @@ export interface SplitTurn {
 export async function translateSplitTurn(
   pipeline: Pick<
     PipelineTranslatorService,
-    'transcribe' | 'translateAll' | 'embedSpeaker'
+    'transcribe' | 'translateAll' | 'embedSpeaker' | 'restoreDisplay'
   >,
   audio: TurnAudio,
   spans: Span[],
@@ -68,6 +73,17 @@ export async function translateSplitTurn(
     models?: string[];
     /** Finished utterances from earlier turns on this connection, oldest first. */
     context: string[];
+    /**
+     * The turn picks up an utterance the client's length ceiling cut. Only the
+     * FIRST surviving piece continues it: a later piece starts where the voice
+     * changed, which is a new speaker rather than the rest of a sentence.
+     */
+    continuesCut?: boolean;
+    /**
+     * Restore each piece for display beside its translation. Its `context`
+     * applies to the first piece only, for the reason `continuesCut` does.
+     */
+    restoreDisplay?: DisplayRestoreRequest;
     /** Silero speech floor passed to each piece's own transcription. */
     minSpeechMs?: number;
     /** Logs which piece was dropped and how long it was — never its text. */
@@ -127,7 +143,22 @@ export async function translateSplitTurn(
   // needs just because it also carried two voices. Context is the SURVIVING
   // pieces before this one, in order — a dropped piece said nothing, so it
   // cannot be context for the one after it.
+  // Only a survivor that IS the turn's first span continues the cut. When that
+  // span heard nothing, the first survivor starts at the voice change — a new
+  // speaker, not the rest of the sentence the ceiling cut.
+  const firstIsOpening = survivors[0]?.span === spans[0];
   const survivorTexts = survivors.map(({ source }) => source.text);
+  const display = options.restoreDisplay;
+  const restoring = display
+    ? survivorTexts.map((text, k) =>
+        pipeline.restoreDisplay(text, options.plan.recognition, {
+          terms: display.terms,
+          ...(k === 0 && firstIsOpening && display.context !== undefined
+            ? { context: display.context }
+            : {}),
+        }),
+      )
+    : null;
   const translations = await Promise.all(
     survivorTexts.map((text, k) =>
       pipeline.translateAll({
@@ -137,15 +168,20 @@ export async function translateSplitTurn(
         models: options.models,
         hints: options.hints,
         context: [...options.context, ...survivorTexts.slice(0, k)],
+        continuesCut:
+          k === 0 && firstIsOpening && (options.continuesCut ?? false),
       }),
     ),
   );
+
+  const restored = restoring ? await Promise.all(restoring) : null;
 
   return {
     pieces: survivors.map(({ span }, k) => ({
       ...span,
       sourceText: survivorTexts[k]!,
       translations: translations[k]!,
+      ...(restored?.[k] === undefined ? {} : { restored: restored[k] }),
       reachesEnd: span.endMs === lastSpanEndMs,
     })),
     vectors,

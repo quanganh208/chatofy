@@ -141,14 +141,15 @@ export class GeminiTranslationProvider implements TranslationProvider {
     // across several models and keys, and rebuilding would spend the work again
     // on the latency-critical path for a result that cannot differ.
     //
-    // A turn long enough to stand on its own is sent NO earlier speech, however
+    // A turn long enough to stand on its own — one that does not pick up a
+    // forced cut — is sent NO earlier speech, however
     // much the caller offered. That is not thrift — `needsPriorSpeech` records
     // the measurement — it is that context anchors a word sense, and anchoring
     // one in a sentence that already settles it makes the answer worse.
     const context = buildContextBlock(
       req.hints,
       { source: req.sourceLanguage, target: req.targetLanguage },
-      needsPriorSpeech(text) ? req.context : undefined,
+      needsPriorSpeech(text, req.continuesCut) ? req.context : undefined,
     );
     const instruction = buildTranslationInstruction(
       req.sourceLanguage,
