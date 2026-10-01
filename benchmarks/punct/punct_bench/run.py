@@ -22,7 +22,20 @@ import psutil
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 RESULTS = ROOT / "results"
-RULERS = ("prod", "aiwho", "fleurs", "vicappunc", "title-open", "greet")
+RULERS = (
+    "prod",
+    "aiwho",
+    "fleurs",
+    "vicappunc",
+    "title-open",
+    "greet",
+    # Audio rulers: built by scripts/build_audio_rulers.py, with per-word pauses.
+    "fleurs-audio",
+    "fleurs-audio-dev",
+    "prod-audio",
+)
+
+SIDECAR = ["uv", "run", "--quiet", "--project", "../../services/local-stt", "python", "-m", "arms.sidecar_arm"]
 
 # id -> how to start it. `group` is the uv dependency group the arm needs;
 # `command` replaces the default `uv run python -m <module>` for an arm that
@@ -40,6 +53,15 @@ ARMS: dict[str, dict] = {
     "shipped+greet-comma": {"module": "arms.post_rule_arm", "variant": "comma-common+title+greet-comma"},
     "shipped+title-comma": {"module": "arms.post_rule_arm", "variant": "comma-common+title+title-comma"},
     "shipped+both-commas": {"module": "arms.post_rule_arm", "variant": "comma-common+title+greet-comma+title-comma"},
+    # The sidecar's own restorer, every shipped rule included; `gate-<ms>-<mark>`
+    # adds the pause gate. Runs in the sidecar's environment.
+    "sidecar": {"module": "arms.sidecar_arm", "variant": "shipped", "command": SIDECAR},
+    "sidecar+gate-120-none": {"module": "arms.sidecar_arm", "variant": "gate-120-none", "command": SIDECAR},
+    "sidecar+gate-120-comma": {"module": "arms.sidecar_arm", "variant": "gate-120-comma", "command": SIDECAR},
+    "sidecar+gate-200-none": {"module": "arms.sidecar_arm", "variant": "gate-200-none", "command": SIDECAR},
+    "sidecar+gate-200-comma": {"module": "arms.sidecar_arm", "variant": "gate-200-comma", "command": SIDECAR},
+    "sidecar+gate-300-none": {"module": "arms.sidecar_arm", "variant": "gate-300-none", "command": SIDECAR},
+    "sidecar+gate-300-comma": {"module": "arms.sidecar_arm", "variant": "gate-300-comma", "command": SIDECAR},
     "dw-prod+comma+title": {"module": "arms.post_rule_arm", "variant": "comma+title"},
     "vibert-capu-int8": {"module": "arms.vibert_capu_arm", "variant": "int8"},
     "vibert-capu-fp32": {"module": "arms.vibert_capu_arm", "variant": "fp32"},
@@ -79,7 +101,7 @@ def run_arm(arm_id: str, threads: int, smoke: int) -> dict:
     arm = ARMS[arm_id]
     out_dir = (RESULTS / "smoke" if smoke else RESULTS) / arm_id
     out_dir.mkdir(parents=True, exist_ok=True)
-    rows = [str(DATA / f"rows-{name}.jsonl") for name in RULERS]
+    rows = [str(path) for name in RULERS if (path := DATA / f"rows-{name}.jsonl").exists()]
     command = [
         *_command(arm),
         "--variant", arm.get("variant", ""),

@@ -1,0 +1,10 @@
+{
+  "arm": "sidecar+gate-120-comma",
+  "threads": 4,
+  "smoke_rows_per_ruler": 0,
+  "exit": 0,
+  "wall_s": 133.8,
+  "peak_rss_mb": 1057,
+  "load_s": 2.77,
+  "rows": 2038
+}

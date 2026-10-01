@@ -1,6 +1,7 @@
 """What an arm is: a module with `load(variant, threads) -> restore`.
 
-`restore(text) -> str` gets `model_input` text (lowercase words, single spaces,
+`restore(text) -> str` — or `restore(text, pauses)` for an arm that reads
+pauses, given the row's per-word silences in ms (None on a text-only ruler) — gets `model_input` text (lowercase words, single spaces,
 no marks) and returns the same words cased and punctuated. Everything else —
 reading rows, timing each call, writing predictions — lives here, so no arm can
 measure itself differently from another.
@@ -13,6 +14,7 @@ An arm module ends with:
 and is run by `punct_bench.run` as its own process, so peak RSS is the arm's.
 """
 import argparse
+import inspect
 import json
 import sys
 import time
@@ -39,8 +41,9 @@ def main(load: Load) -> None:
     started = time.perf_counter()
     restore = load(args.variant, args.threads)
     load_s = time.perf_counter() - started
+    reads_pauses = len(inspect.signature(restore).parameters) >= 2
     for text in WARMUP:
-        restore(text)
+        restore(text, None) if reads_pauses else restore(text)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     count = 0
@@ -52,7 +55,11 @@ def main(load: Load) -> None:
             for row in rows:
                 t0 = time.perf_counter()
                 try:
-                    pred, error = restore(row["input"]), None
+                    if reads_pauses:
+                        pred = restore(row["input"], row.get("pauses"))
+                    else:
+                        pred = restore(row["input"])
+                    error = None
                 except Exception as err:  # recorded per row, never hidden
                     pred, error = "", f"{type(err).__name__}: {err}"
                 ms = (time.perf_counter() - t0) * 1000
