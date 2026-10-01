@@ -484,10 +484,31 @@ describe('group text', () => {
     );
   });
 
-  it('keeps a question mark at the seam, which is never a guess about the cut', () => {
+  // A finished piece is forced to end on the likeliest of . ? ! — so a mid-clause
+  // cut can close on a question mark or an exclamation as readily as a full stop,
+  // and the lowercase opening after it is the same verdict either way.
+  it('drops a forced question mark or exclamation when the next piece continues', () => {
     const [group] = groups();
-    expect(groupSourceText(group!, { a: 'Mấy giờ rồi?', b: 'trời mưa.' })).toBe(
-      'Mấy giờ rồi? trời mưa.',
+    expect(groupSourceText(group!, { a: 'Mười bảy giờ?', b: 'trời mưa.' })).toBe(
+      'Mười bảy giờ trời mưa.',
+    );
+    expect(groupSourceText(group!, { a: 'Mười bảy giờ!', b: 'trời mưa.' })).toBe(
+      'Mười bảy giờ trời mưa.',
+    );
+  });
+
+  it('keeps a question mark or exclamation when the next piece starts a sentence', () => {
+    const [group] = groups();
+    expect(groupSourceText(group!, { a: 'Mấy giờ rồi?', b: 'Trời mưa.' })).toBe(
+      'Mấy giờ rồi? Trời mưa.',
+    );
+    expect(groupSourceText(group!, { a: 'Mưa rồi!', b: 'Trời tối.' })).toBe('Mưa rồi! Trời tối.');
+  });
+
+  it('leaves the last piece\u2019s closing mark alone', () => {
+    const [group] = groups();
+    expect(groupSourceText(group!, { a: 'Mười bảy giờ,', b: 'trời mưa?' })).toBe(
+      'Mười bảy giờ, trời mưa?',
     );
   });
 });

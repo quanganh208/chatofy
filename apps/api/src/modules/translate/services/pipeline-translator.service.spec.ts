@@ -53,9 +53,11 @@ function fakeTrio(
 function serviceWith(
   trio: PipelineProviders,
   restore?: (text: string, options: unknown) => Promise<string>,
+  { localStt = true }: { localStt?: boolean } = {},
 ): PipelineTranslatorService {
   const factory = {
     makeProviders: vi.fn().mockReturnValue(trio),
+    sttWritesBareText: vi.fn().mockReturnValue(localStt),
     makeDisplayRestorer: vi.fn().mockReturnValue({
       name: 'fake-restorer',
       restore: restore ?? vi.fn().mockRejectedValue(new Error('no restorer')),
@@ -635,6 +637,72 @@ describe('PipelineTranslatorService', () => {
       const restore = vi
         .fn()
         .mockRejectedValue(new ProviderResponseError('busy', 429));
+      const service = serviceWith(fakeTrio(), restore);
+
+      await service.transcribeAndTranslate(
+        { ...input, restoreDisplay: {} },
+        VI_TO_EN,
+      );
+      await service.transcribeAndTranslate(
+        { ...input, restoreDisplay: {} },
+        VI_TO_EN,
+      );
+
+      expect(restore).toHaveBeenCalledTimes(2);
+    });
+
+    it('leaves a cloud recognizer’s own punctuation alone', async () => {
+      // Only the local recognizer writes bare text; restoring a cased,
+      // punctuated transcript would replace it with a weaker reading.
+      const restore = vi.fn().mockResolvedValue('xin chào.');
+
+      const result = await serviceWith(fakeTrio(), restore, {
+        localStt: false,
+      }).transcribeAndTranslate({ ...input, restoreDisplay: {} }, VI_TO_EN);
+
+      expect(restore).not.toHaveBeenCalled();
+      expect(result).not.toHaveProperty('restored');
+    });
+
+    it('stops asking a restorer nobody is listening for, and logs it once', async () => {
+      const warn = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => undefined);
+      const refused = Object.assign(new Error('connect ECONNREFUSED'), {
+        name: 'TypeError',
+      });
+      const restore = vi
+        .fn()
+        .mockRejectedValue(
+          new ProviderConnectionError('local restore failed', refused),
+        );
+      const service = serviceWith(fakeTrio(), restore);
+
+      await service.transcribeAndTranslate(
+        { ...input, restoreDisplay: {} },
+        VI_TO_EN,
+      );
+      await service.transcribeAndTranslate(
+        { ...input, restoreDisplay: {} },
+        VI_TO_EN,
+      );
+
+      expect(restore).toHaveBeenCalledTimes(1);
+      expect(
+        warn.mock.calls.filter(([m]) => String(m).includes('restore')),
+      ).toHaveLength(1);
+    });
+
+    it('keeps asking a restorer that only timed out', async () => {
+      vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const timedOut = Object.assign(new Error('aborted'), {
+        name: 'TimeoutError',
+      });
+      const restore = vi
+        .fn()
+        .mockRejectedValue(
+          new ProviderConnectionError('local restore timed out', timedOut),
+        );
       const service = serviceWith(fakeTrio(), restore);
 
       await service.transcribeAndTranslate(

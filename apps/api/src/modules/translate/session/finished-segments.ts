@@ -9,8 +9,9 @@ import type { StreamSocket } from './stream-socket';
  * keeping it here rather than taking it from the client: a block retranslation
  * names segments, and nothing a client types can reach the model through it.
  *
- * Keyed by socket in a `WeakMap`, like {@link ConversationContext}: the endpoint
- * takes no authentication, so a connection's memory is released structurally.
+ * Keyed by socket in a `WeakMap`, like {@link ConversationContext}: this is
+ * per-connection state, released with the socket itself rather than only when
+ * a disconnect handler happens to run.
  */
 
 /**

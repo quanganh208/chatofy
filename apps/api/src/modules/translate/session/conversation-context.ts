@@ -99,7 +99,11 @@ export class ConversationContext {
    *
    * A turn split into several pieces calls this once per piece under its own
    * id, so {@link textOf} answers with the LAST piece — the one that reaches
-   * the cut.
+   * the cut. That holds for a waiter too: the answer goes out one microtask
+   * later, after the caller's synchronous loop over the pieces has finished,
+   * and carries the latest text recorded under the id. Answering on the first
+   * call would hand a continuation the OTHER speaker's piece as the sentence
+   * it completes.
    */
   remember(socket: StreamSocket, sourceText: string, sessionId?: string): void {
     const text = sourceText.trim();
@@ -108,7 +112,10 @@ export class ConversationContext {
     kept.push(sessionId === undefined ? { text } : { sessionId, text });
     while (kept.length > REMEMBERED_UTTERANCES) kept.shift();
     this.recent.set(socket, kept);
-    if (sessionId !== undefined) this.answer(socket, sessionId, text);
+    if (sessionId === undefined) return;
+    queueMicrotask(() =>
+      this.answer(socket, sessionId, this.textNow(socket, sessionId) ?? text),
+    );
   }
 
   /**

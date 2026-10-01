@@ -2854,16 +2854,13 @@ describe('splitting a turn where the voice changes', () => {
       ).toEqual([{}]);
     });
 
-    it('lets a grown block supersede itself without displacing another', async () => {
+    it('lets a grown block supersede itself without displacing another, answering every block', async () => {
       const { service, socket, translateAll } = await run(
-        oneVoice,
+        twoVoices,
         {},
-        {
-          afterATurn: true,
-          splitSpeakers: false,
-        },
+        { afterATurn: true },
       );
-      const [a, b] = finalIds(socket) as [string, string];
+      const [a, b, c] = finalIds(socket) as [string, string, string];
       let release!: () => void;
       translateAll.mockReset();
       translateAll.mockImplementationOnce(
@@ -2876,21 +2873,33 @@ describe('splitting a turn where the voice changes', () => {
 
       const first = service.retranslateBlock(socket, [a, b]);
       void service.retranslateBlock(socket, [a, b]);
-      void service.retranslateBlock(socket, [b, a]);
-      void service.retranslateBlock(socket, [a, b]);
+      void service.retranslateBlock(socket, [b, c]);
+      void service.retranslateBlock(socket, [a, b, c]);
+      void service.retranslateBlock(socket, [a, b, c]);
       expect(translateAll).toHaveBeenCalledTimes(1);
+      // The waiting `[a, b]` was replaced by its grown self and told so at once,
+      // so the client stops waiting for a shape it will never get.
+      expect(socket.ofType('server.block.translated')).toEqual([
+        {
+          type: 'server.block.translated',
+          segmentIds: [a, b],
+          translations: {},
+        },
+      ]);
       release();
       await first;
 
-      // The running one, then one per waiting block: the later `[a, b]` replaced
-      // the earlier, and `[b, a]` was displaced by neither.
-      expect(
-        socket.ofType('server.block.translated').map((e) => e.segmentIds),
-      ).toEqual([
-        [a, b],
-        [a, b],
-        [b, a],
+      // Then the running one, and one per waiting block: `[a, b, c]` took the
+      // place of `[a, b]` (the identical re-ask merged into it), and `[b, c]`
+      // was displaced by neither.
+      const answers = socket.ofType('server.block.translated');
+      expect(answers.map((e) => [e.segmentIds, e.translations])).toEqual([
+        [[a, b], {}],
+        [[a, b], { en: 'first' }],
+        [[a, b, c], { en: 'later' }],
+        [[b, c], { en: 'later' }],
       ]);
+      expect(translateAll).toHaveBeenCalledTimes(3);
     });
 
     it('stops spending once its own budget is used up', async () => {
@@ -2934,6 +2943,31 @@ describe('splitting a turn where the voice changes', () => {
       ['first voice', 'First voice.'],
       ['second voice', 'Second voice.'],
     ]);
+  });
+
+  it('restores the pieces one at a time, so they cannot refuse each other', async () => {
+    // The sidecar runs one restore at a time and refuses one it cannot start
+    // promptly; asked together, the second piece would lose its typesetting.
+    let active = 0;
+    let peak = 0;
+    const restoreDisplay = vi.fn(async (text: string) => {
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      active -= 1;
+      return `${text[0]!.toUpperCase()}${text.slice(1)}.`;
+    });
+    const { socket } = await run(
+      twoVoices,
+      { restoreDisplay },
+      { repairDisplay: true },
+    );
+
+    expect(restoreDisplay).toHaveBeenCalledTimes(2);
+    expect(peak).toBe(1);
+    expect(
+      socket.ofType('server.transcript.final').map((f) => f.display),
+    ).toEqual(['First voice.', 'Second voice.']);
   });
 
   it('keeps the restore of a split that collapsed to one piece', async () => {

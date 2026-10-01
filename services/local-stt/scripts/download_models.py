@@ -16,6 +16,7 @@ Idempotent; safe to re-run.
 Run: uv run --directory services/local-stt python scripts/download_models.py
 """
 import hashlib
+import os
 import shutil
 import sys
 import tarfile
@@ -174,6 +175,18 @@ def fetch_silero_vad() -> None:
     print("[silero-vad] ready")
 
 
+def _writable(path: Path) -> bool:
+    """Whether `path` can be written, or created under its nearest existing parent.
+
+    `os.access` reports a read-only mount as unwritable even for root.
+    """
+    while not path.exists():
+        if path.parent == path:
+            return False
+        path = path.parent
+    return os.access(path, os.W_OK)
+
+
 def fetch_dewpoint() -> None:
     """The display restorer, which is OPTIONAL: any failure here is a warning.
 
@@ -198,16 +211,26 @@ def _fetch_dewpoint() -> None:
     """
     out_dir = MODELS_DIR / "dewpoint-mmbert-base"
     target = out_dir / DEWPOINT_ONNX
-    for filename in DEWPOINT_FILES:
+    missing = [filename for filename in DEWPOINT_FILES if not (out_dir / filename).exists()]
+    if target.exists() and not missing:
+        print("[dewpoint] ready (cached)")
+        return
+    # Decided before anything is fetched: the runtime mounts models read-only
+    # and runs this before uvicorn on every start, so a seed killed during the
+    # graph step would otherwise re-download 1.2 GB and re-quantize it on each
+    # restart, only to fail writing the result.
+    if not _writable(out_dir):
+        print(f"[dewpoint] skipped, {out_dir} is not writable; display stays plain")
+        return
+    for filename in missing:
         path = out_dir / filename
-        if not path.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            cached = hf_hub_download(DEWPOINT_REPO, filename, revision=DEWPOINT_REVISION)
-            # Through a .part and a rename, like the graph: a run killed halfway
-            # must not leave a truncated tokenizer that `load()` then trips on.
-            part = path.with_name(path.name + ".part")
-            shutil.copyfile(cached, part)
-            part.rename(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        cached = hf_hub_download(DEWPOINT_REPO, filename, revision=DEWPOINT_REVISION)
+        # Through a .part and a rename, like the graph: a run killed halfway
+        # must not leave a truncated tokenizer that `load()` then trips on.
+        part = path.with_name(path.name + ".part")
+        shutil.copyfile(cached, part)
+        part.rename(path)
     if target.exists():
         print("[dewpoint] ready (cached)")
         return

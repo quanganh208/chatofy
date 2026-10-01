@@ -186,9 +186,11 @@ export function groupTurnsForDisplay(
  * One block's source text, repaired where a repair exists.
  *
  * Joined with a space, and the one seam repair that needs no guessing: a
- * piece's closing full stop is dropped when the next piece opens in
- * lowercase. Each piece is punctuated as it arrives, so one cut by the ceiling
- * gets a full stop at the cut; the piece after it was punctuated reading that
+ * piece's closing sentence mark (. ? or !) is dropped when the next piece opens
+ * in lowercase. Each piece is punctuated as it arrives as a complete text, so one
+ * cut by the ceiling is forced to end on whichever of the three the model finds
+ * likeliest — a question mark as readily as a full stop. The piece after it was
+ * punctuated reading that
  * one as context, and a lowercase opening is its verdict that no sentence ended
  * there. Words are never touched — a forced cut can land mid-word, and
  * repairing THAT would mean guessing at a word neither half contains.
@@ -198,7 +200,7 @@ export function groupSourceText(group: DisplayGroup, displays: Record<string, st
   return pieces
     .map((piece, index) => {
       const next = pieces[index + 1];
-      return next !== undefined && piece.endsWith('.') && opensLowercase(next)
+      return next !== undefined && /[.?!]$/.test(piece) && opensLowercase(next)
         ? piece.slice(0, -1)
         : piece;
     })

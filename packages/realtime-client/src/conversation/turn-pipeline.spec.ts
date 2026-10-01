@@ -375,6 +375,32 @@ describe('TurnPipeline', () => {
         continuesCut: true,
       });
     });
+
+    // The server names a continuation's predecessor by the order turns opened on the
+    // socket. A refused cut turn waits for a retry with slots still free, so a
+    // continuation started at once would open first and be anchored to whatever
+    // sentence opened before the cut.
+    it('does not open a continuation before the refused turn whose cut it continues', () => {
+      vi.useFakeTimers();
+      const h = clocked(3);
+      const a = h.pipeline.openTurn([]);
+      h.pipeline.onError('too_many_turns', { turnId: a });
+      h.pipeline.closeCapturedTurn(true);
+      h.advance(200);
+      const b = h.pipeline.openTurn([]);
+
+      expect(h.pipeline.phaseOf(b)).toBe('waiting');
+      expect(h.transport.ofType('start').map((s) => s.turnId)).toEqual([a]);
+
+      vi.advanceTimersByTime(750);
+
+      // The retry sends the cut turn first and its continuation right behind it.
+      expect(h.transport.ofType('start')).toEqual([
+        { type: 'start', turnId: a },
+        { type: 'start', turnId: a },
+        { type: 'start', turnId: b, continuesCut: true },
+      ]);
+    });
   });
 
   describe('the in-flight ceiling', () => {

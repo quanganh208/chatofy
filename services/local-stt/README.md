@@ -96,10 +96,17 @@ is — the caller is sent a capture buffer with pre-roll and hangover on it, and
 the difference is what tells it whether the vector was built on enough voice to
 mean anything. Energy-based; see `audio/speech_duration.py`.
 
-`POST /restore` returns `400` for any language but `vi`, and `503` when the
-Dewpoint weights were never seeded. A sidecar without them still transcribes;
-`/healthz` reports `"restore": false` without failing readiness, and the API
-falls back to the numerals-only display.
+`POST /restore` returns `400` for any language but `vi`, `503` when the
+Dewpoint weights were never seeded, and `429` when another restore holds the
+model for longer than 150 ms (`LOCK_WAIT_S` in `punctuation/restorer.py`). The
+two refusals mean different things to the API: `503` makes it stop asking for a
+while, `429` is a momentary queue and only that one line falls back. The wait is
+sized so a request behind one other restore (~110 ms p95) still finishes inside
+the API's 300 ms budget; it refuses rather than queues further, because a longer
+wait only holds a worker thread for an answer the caller stopped waiting for.
+A sidecar without the weights still transcribes; `/healthz` reports
+`"restore": false` without failing readiness, and the API falls back to the
+numerals-only display.
 
 `POST /transcribe` returns `400` for an unsupported language or undecodable
 audio, `413` for audio longer than `LOCAL_STT_MAX_AUDIO_SECONDS`, and `503`

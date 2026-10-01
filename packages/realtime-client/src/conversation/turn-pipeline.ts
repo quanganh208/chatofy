@@ -587,6 +587,13 @@ export class TurnPipeline {
     // them.
     const atServer = [...this.turns.values()].filter((t) => t.phase !== 'waiting').length;
     if (atServer >= this.maxInFlight) return;
+    // A continuation must reach the server after the turn whose cut it continues:
+    // the server names a continuation's predecessor by the order turns opened on
+    // the socket. An older turn still waiting — refused by a ceiling and held for a
+    // retry — would otherwise open after its own continuation, which the server then
+    // anchors to whatever sentence opened before it. Held here, it starts in order
+    // from `startNextWaiting` once every older turn has gone out (or been dropped).
+    if (turn.continuesCut && this.hasOlderWaiting(turn)) return;
 
     turn.phase = 'handshaking';
     // Added only when true, so every other turn's start is the message it always was.
@@ -613,14 +620,28 @@ export class TurnPipeline {
     }, REFUSAL_RETRY_MS);
   }
 
-  /** A slot may have freed: start the oldest turn still waiting for one. */
+  /**
+   * A slot may have freed: start waiting turns, oldest first, while slots last.
+   *
+   * Keeps going after a start rather than stopping at the first, because a
+   * continuation held behind an older waiting turn is free to go the moment that
+   * turn's start is sent — `tryStart` re-checks the ceiling, so this never opens
+   * more than the slots allow.
+   */
   private startNextWaiting(): void {
     for (const turn of this.turns.values()) {
-      if (turn.phase === 'waiting') {
-        this.tryStart(turn);
-        if (turn.phase !== 'waiting') return;
-      }
+      if (turn.phase === 'waiting') this.tryStart(turn);
     }
+  }
+
+  /** Whether a turn opened before this one is still waiting for its start to go out. */
+  private hasOlderWaiting(turn: Turn): boolean {
+    // The map keeps insertion order, and turns are inserted as they open.
+    for (const other of this.turns.values()) {
+      if (other === turn) return false;
+      if (other.phase === 'waiting') return true;
+    }
+    return false;
   }
 
   private forget(turn: Turn, reason: string): void {

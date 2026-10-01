@@ -465,8 +465,10 @@ export const MAX_BLOCK_SEGMENTS = 12;
  *
  * Names segments, never text: the server joins the transcripts it produced
  * itself for this socket, so nothing a client sends here reaches the model.
- * Answered with `server.block.translated`, or not at all — the client keeps the
- * joined pieces either way.
+ * Every request is answered with `server.block.translated` while the socket is
+ * open — a refusal (unknown segment, mixed plans, a full queue, a request
+ * superseded by a grown copy of the same block, a spent budget, a failed call)
+ * with empty `translations`, after which the client keeps the joined pieces.
  */
 const clientBlockRetranslateSchema = z.object({
   type: z.literal('client.block.retranslate'),

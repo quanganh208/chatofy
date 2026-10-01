@@ -1729,11 +1729,19 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      server joins the transcripts it produced itself for that socket
      (`session/finished-segments.ts`, last 24 segments; no client text reaches
      the model), translates them once with `FINAL_MODELS`, and answers
-     `server.block.translated`. Every request is answered; a refusal (unknown
-     segment, mixed plans, failed call, or its own budget of 12 per user per
-     minute spent) is answered with empty `translations`. One request runs per
-     socket, and behind it one waits per block, keyed by its first segment, so a
-     grown block supersedes its shorter self without displacing another block.
+     `server.block.translated` (`session/block-retranslator.ts`). Every request
+     is answered while the socket is open; a refusal (unknown segment, mixed
+     plans, full queue, superseded, spent budget, failed call) is answered with
+     empty `translations`. The budget has two tiers: 12 per user per minute, and
+     48 per minute for the whole process (four users' worth, guarding the shared
+     key pool); past the process tier every user's block requests are refused
+     until the minute rolls over, while live translation keeps its own budget.
+     One request runs per socket, and behind it one waits per block, keyed by
+     its first segment, at most 4 blocks. Segments are checked before a request
+     is queued, so unknown ids are answered at once. A grown block supersedes
+     its shorter self without displacing another block, and the superseded
+     request is answered empty; an identical re-ask merges with the waiting copy,
+     since the client keys blocks by their ids.
    - Answers are kept per block shape (`blockKey`). `groupTranslation` uses the
      longest answered shape that is a prefix of the group, so a block that
      shrinks when a speaker is named reads the answer for its new shape, and

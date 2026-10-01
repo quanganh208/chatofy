@@ -149,15 +149,27 @@ export async function translateSplitTurn(
   const firstIsOpening = survivors[0]?.span === spans[0];
   const survivorTexts = survivors.map(({ source }) => source.text);
   const display = options.restoreDisplay;
+  // One piece after another, never all at once. The sidecar's restorer runs one
+  // inference at a time and refuses (429) a request it cannot start within a
+  // few tens of ms, so pieces asked together would refuse each other and leave
+  // every piece but the first unpunctuated. Still started here, beside the
+  // translations, so the chain overlaps them rather than following them; each
+  // restore keeps its own budget and never rejects.
   const restoring = display
-    ? survivorTexts.map((text, k) =>
-        pipeline.restoreDisplay(text, options.plan.recognition, {
-          terms: display.terms,
-          ...(k === 0 && firstIsOpening && display.context !== undefined
-            ? { context: display.context }
-            : {}),
-        }),
-      )
+    ? (async () => {
+        const restored: (string | undefined)[] = [];
+        for (const [k, text] of survivorTexts.entries()) {
+          restored.push(
+            await pipeline.restoreDisplay(text, options.plan.recognition, {
+              terms: display.terms,
+              ...(k === 0 && firstIsOpening && display.context !== undefined
+                ? { context: display.context }
+                : {}),
+            }),
+          );
+        }
+        return restored;
+      })()
     : null;
   const translations = await Promise.all(
     survivorTexts.map((text, k) =>
@@ -174,7 +186,7 @@ export async function translateSplitTurn(
     ),
   );
 
-  const restored = restoring ? await Promise.all(restoring) : null;
+  const restored = restoring ? await restoring : null;
 
   return {
     pieces: survivors.map(({ span }, k) => ({

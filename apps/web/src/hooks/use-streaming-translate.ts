@@ -102,7 +102,7 @@ export interface UseStreamingTranslate {
   unheard: UnheardBySession;
   /** Repaired source text per turn, where a repair exists. Falls back to raw. */
   displays: Record<string, string>;
-  /** Whole-block translations of merged forced-cut pieces, by first segment id. */
+  /** Whole-block translations of merged forced-cut pieces, keyed by `blockKey` — every segment id of the shape, joined. */
   blockTranslations: Record<string, BlockTranslation>;
   /** How the labelling went, for reading back after a conversation. */
   stats: AttributionStats;

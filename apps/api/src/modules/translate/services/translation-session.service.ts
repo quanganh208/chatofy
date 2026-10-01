@@ -50,15 +50,13 @@ import { TranslationBudget } from '../audio/translation-budget';
 import { SessionRegistry } from '../session/session-registry';
 import { ConversationContext } from '../session/conversation-context';
 import { FinishedSegments } from '../session/finished-segments';
+import { BlockRetranslator } from '../session/block-retranslator';
 import { SpeechLanguageSupport } from '../providers/speech-language-support';
 import {
   LANGUAGE_IDENTIFIER,
   type LanguageIdentifier,
 } from '../session/language-identifier';
-import {
-  planForDirection,
-  type TranslationMap,
-} from '../session/turn-language-plan';
+import { planForDirection } from '../session/turn-language-plan';
 import { TurnTimeline, type ClauseDelivery } from '../session/turn-timeline';
 import {
   LIVE_TRANSLATION_COMMIT_CHARS,
@@ -117,19 +115,8 @@ export class TranslationSessionService implements OnModuleDestroy {
   private readonly context = new ConversationContext();
   /** What each connection's finished segments said, for a block retranslation. */
   private readonly finished = new FinishedSegments();
-  /**
-   * Per connection while a block retranslation runs: the newest request waiting
-   * for each other block, by first segment. See `retranslateBlock`.
-   */
-  private readonly blockQueue = new WeakMap<
-    StreamSocket,
-    Map<string, string[]>
-  >();
-  /** Block retranslations' own ceiling; see `retranslateBlock`. */
-  private readonly blockBudget = new TranslationBudget({
-    perUserRpm: BLOCK_RETRANSLATION_RPM,
-    globalRpm: BLOCK_RETRANSLATION_RPM * 4,
-  });
+  /** Answers `client.block.retranslate`; see {@link BlockRetranslator}. */
+  private readonly blocks: BlockRetranslator;
   /**
    * The turn a continuation is the rest of, for continuations only. Keyed by
    * the session object so it goes when the session does.
@@ -164,6 +151,12 @@ export class TranslationSessionService implements OnModuleDestroy {
     // `target: ES2022` field initializers run before the parameter properties
     // are assigned, so `this.pipeline` would still be undefined up there.
     this.preview = new LivePreview(this.pipeline, this.logger);
+    this.blocks = new BlockRetranslator(
+      this.finished,
+      this.pipeline,
+      this.logger,
+      (socket) => this.gone.has(socket),
+    );
 
     // ONE budget for the process, built here rather than per turn. A bucket per
     // turn would be no ceiling at all: the quota it guards belongs to the API
@@ -354,8 +347,18 @@ export class TranslationSessionService implements OnModuleDestroy {
     const audio = session?.buffered;
     if (!session || !audio || !session.canSpeculate()) return;
 
-    const launch = (continuation: Continuation) =>
-      this.pipeline.transcribeAndTranslate(
+    const launch = (continuation: Continuation) => {
+      // A launch deferred behind the predecessor's wait can find the client
+      // gone or the turn closed. Nobody would read the answer, and it would
+      // still spend a recognition, a translation per target and a restore.
+      // Rejected rather than resolved: `startSpeculation` swallows it, and a
+      // guess that never ran must not look like one that heard nothing.
+      if (this.gone.has(socket) || !this.registry.holds(socket, session)) {
+        return Promise.reject(
+          new Error('turn closed before its speculation launched'),
+        );
+      }
+      return this.pipeline.transcribeAndTranslate(
         {
           audio: audio.toWav(),
           mimeType: 'audio/wav',
@@ -370,6 +373,9 @@ export class TranslationSessionService implements OnModuleDestroy {
           // speculation IS the answer, so one built without it would be the
           // version the listener hears. Same for the speech floor: a reused
           // guess must have been asked for the gate exactly as the final would.
+          // The one gap is a continuation whose cut turn was still unfinished
+          // at PREDECESSOR_WAIT_MS: the guess went out standalone and `end()`
+          // reuses it as it is rather than wait on that turn a second time.
           context: continuation.context,
           continuesCut: continuation.continuesCut,
           minSpeechMs: STT_MIN_SPEECH_MS,
@@ -379,10 +385,10 @@ export class TranslationSessionService implements OnModuleDestroy {
         },
         session.languages,
       );
-    const pending = this.continuationFor(socket, session);
+    };
     session.startSpeculation(
       audio.byteLength,
-      pending instanceof Promise ? pending.then(launch) : launch(pending),
+      afterContinuation(this.continuationFor(socket, session), launch),
     );
   }
 
@@ -504,14 +510,6 @@ export class TranslationSessionService implements OnModuleDestroy {
     try {
       const reusable = session.usableSpeculation();
       timeline.markSpeculationReused(reusable !== null);
-      // Whatever has FINISHED on this socket, read at the moment the request is
-      // built. Never the turn before this one by position: several turns run at
-      // once and that one may still be in flight, and waiting for it would make
-      // a fragment's latency hostage to the turn that left it without context in
-      // the first place.
-      const pending = this.continuationFor(socket, session);
-      const continuation = pending instanceof Promise ? await pending : pending;
-      const { context } = continuation;
       // Whether this turn could hold a change of voice — decided from the audio
       // alone, synchronously, before anything is spent. A turn that could not
       // takes exactly the path it always took.
@@ -519,32 +517,50 @@ export class TranslationSessionService implements OnModuleDestroy {
         embedding && session.splitSpeakers
           ? findSplitCandidate(audio.pcm(), audio.sampleRate)
           : null;
+      // The earlier speech this turn is translated against, resolved only by
+      // the paths that send a request. For a continuation that may mean waiting
+      // up to PREDECESSOR_WAIT_MS on the cut turn by name (`continuationFor`);
+      // any other turn reads whatever has FINISHED on this socket, at once.
+      //
+      // A reused speculation that will not be split sends nothing, so it waits
+      // on nothing. Its request went out with the context there was when it
+      // launched; if the cut turn was late then, it went out standalone, and
+      // waiting for that turn now would hold this one for context no request
+      // reads.
+      const withContinuation = <T>(
+        use: (continuation: Continuation) => Promise<T>,
+      ): Promise<T> =>
+        afterContinuation(this.continuationFor(socket, session), use);
       const { translated, split, vector, pieceAudioMs } = candidate
-        ? await this.translateMaybeSplit(
-            session,
-            audio,
-            candidate,
-            reusable,
-            continuation,
-            minSpeechMs,
+        ? await withContinuation((continuation) =>
+            this.translateMaybeSplit(
+              session,
+              audio,
+              candidate,
+              reusable,
+              continuation,
+              minSpeechMs,
+            ),
           )
         : {
             translated: await (reusable ??
-              this.pipeline.transcribeAndTranslate(
-                {
-                  audio: audio.toWav(),
-                  mimeType: 'audio/wav',
-                  models: FINAL_MODELS,
-                  hints: session.hints,
-                  context,
-                  continuesCut: continuation.continuesCut,
-                  minSpeechMs,
-                  restoreDisplay: restoreRequestFor(
-                    session,
-                    continuation.continued,
-                  ),
-                },
-                session.languages,
+              withContinuation((continuation) =>
+                this.pipeline.transcribeAndTranslate(
+                  {
+                    audio: audio.toWav(),
+                    mimeType: 'audio/wav',
+                    models: FINAL_MODELS,
+                    hints: session.hints,
+                    context: continuation.context,
+                    continuesCut: continuation.continuesCut,
+                    minSpeechMs,
+                    restoreDisplay: restoreRequestFor(
+                      session,
+                      continuation.continued,
+                    ),
+                  },
+                  session.languages,
+                ),
               )),
             split: null,
             vector: undefined,
@@ -1057,95 +1073,16 @@ export class TranslationSessionService implements OnModuleDestroy {
 
   /**
    * Translate a run of this connection's finished segments again, as one text,
-   * and answer with `server.block.translated`.
-   *
-   * The ceiling cuts continuous speech mid-clause and each piece was translated
-   * before the next existed, so the pieces' joined translations break at every
-   * cut. Replayed on two recorded sessions, one translation of the whole block
-   * repaired the seams the live path could not: a clause that completes the
-   * sentence already spoken ("…barriers | To carry out this attack") cannot be
-   * folded back in live, because the prompt forbids re-translating earlier speech.
-   *
-   * Every request is answered, a refusal with an empty `translations`: an
-   * unknown segment, a block mixing two plans, an exhausted budget or a failed
-   * call all leave the client with the joined pieces, and the client stops
-   * waiting for this block before it closes the socket. The answer is the same
-   * for a foreign id and an evicted one, so it says nothing about other sockets.
-   *
-   * One runs per connection at a time. Behind it, one request waits PER BLOCK —
-   * keyed by its first segment — so a block that grew supersedes its shorter
-   * self without displacing a different block. Spending is bounded by its own
-   * `TranslationBudget`, apart from the live-translation one, because a client
-   * names what to translate here and a connection must not be able to turn that
-   * into unbounded model calls.
+   * and answer with `server.block.translated`. Every request is answered — a
+   * refusal with an empty `translations` — except on a socket that has gone;
+   * see {@link BlockRetranslator} for the queueing and the budget.
    */
-  async retranslateBlock(
+  retranslateBlock(
     socket: StreamSocket,
     segmentIds: string[],
     userId?: string,
   ): Promise<void> {
-    const running = this.blockQueue.get(socket);
-    if (running) {
-      running.set(segmentIds[0]!, segmentIds);
-      return;
-    }
-    const waiting = new Map<string, string[]>();
-    this.blockQueue.set(socket, waiting);
-    try {
-      let next: string[] | undefined = segmentIds;
-      while (next && !this.gone.has(socket)) {
-        await this.translateBlock(socket, next, userId ?? 'anonymous');
-        const [key, ids] = waiting.entries().next().value ?? [];
-        if (key !== undefined) waiting.delete(key);
-        next = ids;
-      }
-    } finally {
-      this.blockQueue.delete(socket);
-    }
-  }
-
-  private async translateBlock(
-    socket: StreamSocket,
-    segmentIds: string[],
-    userId: string,
-  ): Promise<void> {
-    const answer = (translations: TranslationMap) =>
-      this.channelFor(socket).emit({
-        type: 'server.block.translated',
-        segmentIds,
-        translations,
-      });
-    const block = this.finished.block(socket, segmentIds);
-    if (!block) {
-      this.logger.warn(
-        `block retranslation refused: ${segmentIds.length} segments not all known here`,
-      );
-      return answer({});
-    }
-    const model = FINAL_MODELS[0] ?? '';
-    if (!this.blockBudget.canSpend(userId, model)) {
-      this.logger.warn('block retranslation refused: budget spent');
-      return answer({});
-    }
-    this.blockBudget.spend(userId, model);
-    try {
-      answer(
-        await this.pipeline.translateAll({
-          text: block.sourceText,
-          source: block.recognition,
-          targets: block.targets,
-          models: FINAL_MODELS,
-          hints: block.hints,
-        }),
-      );
-    } catch (err) {
-      this.logger.warn(
-        `block retranslation failed (${segmentIds.length} segments): ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-      answer({});
-    }
+    return this.blocks.retranslate(socket, segmentIds, userId);
   }
 
   private rememberSegment(
@@ -1480,13 +1417,6 @@ export class TranslationSessionService implements OnModuleDestroy {
  */
 const PREDECESSOR_WAIT_MS = 1_500;
 
-/**
- * Block retranslations per user per minute. A forced cut lands about every 8 s
- * and each one asks once, so continuous speech spends ~7.5; this leaves room for
- * a regrouping without letting a connection replay requests at line rate.
- */
-const BLOCK_RETRANSLATION_RPM = 12;
-
 /** The earlier speech one turn is translated against. */
 interface Continuation {
   /** Finished utterances, oldest first; the continued one last when there is one. */
@@ -1495,6 +1425,19 @@ interface Continuation {
   continuesCut: boolean;
   /** The cut turn's transcript, for the display restore's seam. */
   continued?: string;
+}
+
+/**
+ * `use` applied to a continuation, synchronously when it is already known.
+ *
+ * Almost every turn's continuation is in hand at once, and going through `then`
+ * for those would push the request out by a tick for nothing.
+ */
+function afterContinuation<T>(
+  pending: Continuation | Promise<Continuation>,
+  use: (continuation: Continuation) => Promise<T>,
+): Promise<T> {
+  return pending instanceof Promise ? pending.then(use) : use(pending);
 }
 
 /**

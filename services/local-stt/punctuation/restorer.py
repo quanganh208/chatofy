@@ -63,11 +63,28 @@ NUMBER_WORDS = frozenset(
     "nghìn ngàn triệu tỷ tỉ lẻ linh phẩy rưỡi".split()
 )
 
-#: How long a request waits for the model before it is refused as busy. The
-#: caller waits a few hundred milliseconds in all, so queueing behind another
-#: restore would only hold a worker thread for an answer nobody will read —
-#: refuse instead, as `/transcribe` does when its lanes are full.
-LOCK_WAIT_S = 0.05
+#: Number words that are just as often ordinary words: "không" is "not" and the
+#: question particle, "một" is "a", "ba" is "father", "năm" is "year", "tư" is
+#: "private", "mốt" is "fashion". A run made only of these is not evidence of a
+#: spoken number — "có khỏe không? Một tuần nữa" is two sentences — so the guard
+#: needs at least one word outside this set before it clears anything.
+AMBIGUOUS_NUMBER_WORDS = frozenset("không một mốt ba năm tư lẻ linh".split())
+
+#: Marks the guard never clears. A question or an exclamation inside a spoken
+#: number is not something the tagger was measured producing; at a real boundary
+#: ("có không? Hai tuần nữa") it is the sentence, and the ITN does not need it gone.
+KEPT_MARKS = frozenset({"QUESTION", "EXCLAM"})
+
+#: How long a request waits for the model before it is refused as busy. Sized
+#: against the API caller, which stops waiting 300 ms after the restore started
+#: (`RESTORE_BUDGET_MS`; see `http-util.ts` in ai-providers): one inference is
+#: ~110 ms at p95, so a wait of 150 ms still lets a request queued behind ONE
+#: other restore (the two pieces of a split turn, a final behind a speculation)
+#: finish inside the budget. Anything longer only holds a worker thread for an
+#: answer nobody will read — refuse instead, as `/transcribe` does when its lanes
+#: are full. 50 ms was shorter than one inference, so concurrent restores
+#: refused each other.
+LOCK_WAIT_S = 0.15
 
 log = logging.getLogger(__name__)
 
@@ -99,6 +116,33 @@ def mixed_case_terms(terms: list[str]) -> dict[str, str]:
         if any(ch.isupper() for ch in term[1:]) and term.upper() != term:
             out[term.lower()] = term
     return out
+
+
+def _join_spoken_numbers(words: list[str], punct: list[str], case: list[str]) -> None:
+    """Inside a spoken number: no mark between its words, no capital on any but
+    its first. Edits `punct` and `case` in place. See NUMBER_WORDS.
+
+    A run is a maximal stretch of number words; it is treated as a number only
+    when it holds a word outside AMBIGUOUS_NUMBER_WORDS, and even then a
+    question or exclamation mark inside it is kept as the boundary it is.
+    """
+    i = 0
+    while i < len(words):
+        if words[i] not in NUMBER_WORDS:
+            i += 1
+            continue
+        end = i
+        while end + 1 < len(words) and words[end + 1] in NUMBER_WORDS:
+            end += 1
+        run = words[i : end + 1]
+        if any(w not in AMBIGUOUS_NUMBER_WORDS for w in run):
+            for j in range(i, end):
+                if punct[j] in KEPT_MARKS:
+                    continue
+                punct[j] = "O"
+                if case[j + 1] == "CAP":
+                    case[j + 1] = "LOWER"
+        i = end + 1
 
 
 class DisplayRestorer:
@@ -165,13 +209,7 @@ class DisplayRestorer:
         n = len(lead)
         punct = p._close(r["punct"][n:], r["punct_scores"][n:])
         case = list(r["case"][n:])
-        # Inside a spoken number: no mark between its words, no capital on any
-        # but its first. See NUMBER_WORDS.
-        for i in range(len(words) - 1):
-            if words[i] in NUMBER_WORDS and words[i + 1] in NUMBER_WORDS:
-                punct[i] = "O"
-                if case[i + 1] == "CAP":
-                    case[i + 1] = "LOWER"
+        _join_spoken_numbers(words, punct, case)
 
         forms = {**p.gazetteer.get(LANGUAGE, {}), **BRAND_FORMS, **mixed_case_terms(terms or [])}
         # A sentence starts here when there is no context, or when the context's

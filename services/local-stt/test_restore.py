@@ -13,7 +13,8 @@ import re
 import pytest
 
 import app as sidecar
-from punctuation.restorer import mixed_case_terms
+from punctuation.dewpoint import Punctuator
+from punctuation.restorer import LOCK_WAIT_S, DisplayRestorer, mixed_case_terms
 
 model_tests = pytest.mark.skipif(
     os.environ.get("LOCAL_STT_SKIP_MODEL_TESTS") == "1",
@@ -36,6 +37,70 @@ def test_only_mixed_case_single_words_become_forms():
         "vneid": "VNeID",
         "iphone": "iPhone",
     }
+
+
+class TaggedPunctuator:
+    """Stands in for the model with fixed labels, so the code AROUND the model —
+    the spoken-number guard — is pinned exactly, whatever a model swap predicts."""
+
+    gazetteer: dict = {}
+    _close = staticmethod(Punctuator._close)
+
+    def __init__(self, labels: list[tuple[str, str]]) -> None:
+        self.labels = labels
+
+    def predict(self, words: list[str], lang: str) -> dict:
+        assert len(words) == len(self.labels)
+        return {
+            "punct": [p for p, _ in self.labels],
+            "punct_scores": [[1.0, 0, 0, 0, 0]] * len(words),
+            "case": [c for _, c in self.labels],
+        }
+
+
+def tagged(text: str, labels: list[tuple[str, str]]) -> str:
+    restorer = DisplayRestorer()
+    restorer._punctuator = TaggedPunctuator(labels)
+    return restorer.restore(text)
+
+
+def test_a_question_before_an_ambiguous_number_word_stays_a_boundary():
+    # "không" is the question particle and "một" is "a": nothing here is a number.
+    text = "có khỏe không một tuần nữa gặp"
+    labels = [("O", "CAP"), ("O", "LOWER"), ("QUESTION", "LOWER"), ("O", "CAP"),
+              ("O", "LOWER"), ("O", "LOWER"), ("PERIOD", "LOWER")]
+
+    assert tagged(text, labels) == "Có khỏe không? Một tuần nữa gặp."
+
+
+def test_a_full_stop_between_ambiguous_number_words_stays_a_boundary():
+    text = "anh có đi không không em bận"
+    labels = [("O", "CAP"), ("O", "LOWER"), ("O", "LOWER"), ("PERIOD", "LOWER"),
+              ("COMMA", "CAP"), ("O", "LOWER"), ("PERIOD", "LOWER")]
+
+    assert tagged(text, labels) == "Anh có đi không. Không, em bận."
+
+
+def test_a_question_mark_survives_inside_an_unambiguous_run():
+    text = "có không hai tuần nữa"
+    labels = [("O", "CAP"), ("QUESTION", "LOWER"), ("O", "CAP"), ("O", "LOWER"),
+              ("PERIOD", "LOWER")]
+
+    assert tagged(text, labels) == "Có không? Hai tuần nữa."
+
+
+def test_clears_marks_inside_a_spoken_number_the_tagger_split():
+    text = "giá là một trăm hai mươi nghìn đồng"
+    labels = [("O", "CAP"), ("O", "LOWER"), ("O", "LOWER"), ("COMMA", "LOWER"),
+              ("O", "LOWER"), ("PERIOD", "LOWER"), ("O", "CAP"), ("PERIOD", "LOWER")]
+
+    assert tagged(text, labels) == "Giá là một trăm hai mươi nghìn đồng."
+
+
+def test_waits_long_enough_for_one_restore_ahead_but_inside_the_callers_budget():
+    # One inference is ~110 ms at p95 and the API stops waiting at 300 ms: a
+    # request behind one other restore must be served, not refused.
+    assert 0.11 <= LOCK_WAIT_S <= 0.2
 
 
 @model_tests
@@ -128,6 +193,49 @@ def test_a_failed_dewpoint_fetch_does_not_stop_the_seed(monkeypatch, capsys):
     seed.fetch_dewpoint()
 
     assert "skipped" in capsys.readouterr().out
+
+
+def _seed_partially(seed, root):
+    out_dir = root / "dewpoint-mmbert-base"
+    for filename in seed.DEWPOINT_FILES:
+        (out_dir / filename).parent.mkdir(parents=True, exist_ok=True)
+        (out_dir / filename).write_text("{}")
+    return out_dir
+
+
+def _no_download(*args, **kwargs):
+    raise AssertionError(f"downloaded {args}")
+
+
+def test_a_partial_seed_on_a_read_only_mount_downloads_nothing(monkeypatch, tmp_path, capsys):
+    # The seed was killed during the graph step; the runtime mounts the models
+    # read-only and runs the seed on every start. It must not fetch 1.2 GB to
+    # find out it cannot write the result.
+    import scripts.download_models as seed
+
+    monkeypatch.setattr(seed, "MODELS_DIR", tmp_path)
+    monkeypatch.setattr(seed, "hf_hub_download", _no_download)
+    out_dir = _seed_partially(seed, tmp_path)
+    monkeypatch.setattr(seed.os, "access", lambda path, mode: False)
+
+    seed.fetch_dewpoint()
+
+    assert "not writable" in capsys.readouterr().out
+    assert not (out_dir / seed.DEWPOINT_ONNX).exists()
+
+
+def test_a_complete_seed_fetches_nothing(monkeypatch, tmp_path, capsys):
+    import scripts.download_models as seed
+
+    monkeypatch.setattr(seed, "MODELS_DIR", tmp_path)
+    monkeypatch.setattr(seed, "hf_hub_download", _no_download)
+    out_dir = _seed_partially(seed, tmp_path)
+    (out_dir / seed.DEWPOINT_ONNX).parent.mkdir(parents=True, exist_ok=True)
+    (out_dir / seed.DEWPOINT_ONNX).write_bytes(b"")
+
+    seed.fetch_dewpoint()
+
+    assert "ready (cached)" in capsys.readouterr().out
 
 
 def test_refuses_a_language_it_does_not_serve(client):

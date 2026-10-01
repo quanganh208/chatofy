@@ -157,10 +157,22 @@ export const RESTORE_BUDGET_MS = 300;
 
 /**
  * After a restorer reports itself absent (404 from an older sidecar, 503 before
- * its model is seeded), how long to stop asking. A permanent condition answered
- * on every speculation and every turn is one warning, not five per turn.
+ * its model is seeded, or no sidecar listening at all), how long to stop asking.
+ * A permanent condition answered on every speculation and every turn is one
+ * warning, not five per turn.
  */
 const RESTORE_UNAVAILABLE_COOLDOWN_MS = 60_000;
+
+/**
+ * A request that never reached a restorer — refused, unreachable — as opposed
+ * to one that reached it and ran out of time. A timeout is a slow sidecar and
+ * the next turn may well be answered; a refused connection is an absent one.
+ */
+function isRefusedConnection(err: unknown): boolean {
+  if (!(err instanceof ProviderConnectionError)) return false;
+  const cause = err.cause instanceof Error ? err.cause.name : '';
+  return cause !== 'TimeoutError' && cause !== 'AbortError';
+}
 
 /**
  * The text half of a turn — everything decided before speech is synthesized.
@@ -310,19 +322,6 @@ export class PipelineTranslatorService {
   }
 
   /**
-   * A voice vector for one turn, or `null` if anything went wrong.
-   *
-   * **Never throws, and that is the contract.** Attribution is an enhancement on
-   * a translator: a sidecar that is down, slow or upset must cost a label, not a
-   * translation. Every other failure in this file routes through
-   * `handlePipelineError` and ends the turn; this one is logged and swallowed.
-   *
-   * The caller must start this BESIDE transcription rather than after it. The
-   * whole reason the sidecar exposes a second endpoint is so this cost lands in
-   * parallel with work that was happening anyway; awaited at the call site it
-   * becomes serial and buys nothing.
-   */
-  /**
    * Punctuation and case for a finished transcript, or `undefined`.
    *
    * Never rejects. The display is an enhancement on a transcript that is
@@ -340,6 +339,11 @@ export class PipelineTranslatorService {
       timer = setTimeout(() => resolve(undefined), RESTORE_BUDGET_MS);
     });
     try {
+      // Only a transcript from the local recognizer arrives bare. A cloud one
+      // already punctuates and cases its own output, and the restorer — which
+      // lowercases every word before tagging — would replace that with its
+      // own, weaker reading.
+      if (!this.providers.sttWritesBareText()) return undefined;
       const restorer = this.providers.makeDisplayRestorer();
       const start = Date.now();
       const restored = await Promise.race([
@@ -355,13 +359,17 @@ export class PipelineTranslatorService {
         err instanceof ProviderResponseError ? err.status : undefined;
       if (status === 429) {
         // Momentarily busy: the sidecar refused rather than queued. Expected
-        // under load, and the turn simply keeps its plain display.
-        this.logger.debug(
+        // under load, and the turn simply keeps its plain display — but at
+        // info, not debug, because a busy restorer is exactly what makes the
+        // measured display quality fail to reproduce, and it must be countable
+        // from the ordinary log. At most one line per restore asked for, which
+        // is bounded by the turns themselves.
+        this.logger.log(
           'display restore busy, the turn keeps its plain display',
         );
         return undefined;
       }
-      if (status === 404 || status === 503) {
+      if (status === 404 || status === 503 || isRefusedConnection(err)) {
         this.restoreUnavailableUntil =
           Date.now() + RESTORE_UNAVAILABLE_COOLDOWN_MS;
       }
@@ -376,6 +384,19 @@ export class PipelineTranslatorService {
     }
   }
 
+  /**
+   * A voice vector for one turn, or `null` if anything went wrong.
+   *
+   * **Never throws, and that is the contract.** Attribution is an enhancement on
+   * a translator: a sidecar that is down, slow or upset must cost a label, not a
+   * translation. Every other failure in this file routes through
+   * `handlePipelineError` and ends the turn; this one is logged and swallowed.
+   *
+   * The caller must start this BESIDE transcription rather than after it. The
+   * whole reason the sidecar exposes a second endpoint is so this cost lands in
+   * parallel with work that was happening anyway; awaited at the call site it
+   * becomes serial and buys nothing.
+   */
   async embedSpeaker(
     input: TranslateTurnInput,
   ): Promise<SpeakerEmbeddingResult | null> {
