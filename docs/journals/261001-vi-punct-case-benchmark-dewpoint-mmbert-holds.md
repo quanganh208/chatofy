@@ -71,3 +71,31 @@ This makes the remaining fix a measurable post-rule, not a model swap: for examp
 - ViCapPunc's gold has quirks of its own, for example "Lan thân mến, Trường hợp…" with a capital after a comma, where the source had a line break.
 - Latency was measured on the dev box while prod containers were running, so the p95 values are noisy. The ranking does not depend on them.
 - capu-vi ran on fairseq 0.12 with CPU patches, and its repository has no license. It is reported for completeness only.
+
+## Follow-up: post-rules for "Anh, Xin"
+
+Two rules were measured on top of the prod model, under ship criteria fixed in the plan before the run:
+
+1. Primary Δ ≥ 0, with the CI lower bound ≥ −0.005.
+2. Proper nouns drop by ≤ 1 point on prod and FLEURS.
+3. Mid-sentence capitals go down on prod and FLEURS.
+
+| arm                        | primary Δ [95% CI]          | prod mid caps /1k | FLEURS mid caps /1k | FLEURS proper nouns | ships?                                |
+| -------------------------- | --------------------------- | ----------------- | ------------------- | ------------------- | ------------------------------------- |
+| prod                       | –                           | 12.0              | 7.9                 | 596/714             | –                                     |
+| + comma                    | −0.000 [−0.003, +0.003]     | 9.3               | 7.4                 | 580/714             | no: lowers Berlin, Arizona, Paraguay… |
+| + title                    | +0.000 [+0.000, +0.001]     | 11.6              | 7.9                 | 596/714             | no: FLEURS unchanged                  |
+| + comma-common             | +0.001 [−0.001, +0.004]     | 9.3               | 7.5                 | 593/714             | yes                                   |
+| **+ comma-common + title** | **+0.002 [+0.000, +0.004]** | **8.9**           | **7.5**             | **593/714**         | **yes**                               |
+
+The rules:
+
+- `comma-common` lowers a capital right after a comma when the word is one Vietnamese writes in lowercase and the next word is not capitalized.
+  - "Lowercase words" are those lowercase in ≥ 80% of ≥ 50 mid-sentence occurrences in ViCapPunc **train**: 2,263 words, data-derived, not hand-kept.
+  - It turns "Anh, Xin kính chào" into "Anh, xin kính chào".
+- `title` lowers a kinship word capitalized mid-sentence before a name: "chào Anh Tuấn" becomes "chào anh Tuấn".
+
+The proper-noun drop on FLEURS (3) and ViCapPunc (52) is not names.
+
+- The lowered words are "Tuy", "Các", "Em", "Cháu", "Tôi": capitals where the reference starts a new sentence or, on ViCapPunc, follows a line break in the source.
+- On prod, nothing that was a name got lowered.

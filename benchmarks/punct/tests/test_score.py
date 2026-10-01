@@ -46,3 +46,20 @@ def test_a_word_changing_row_is_scored_as_the_fallback_prod_shows():
     assert {k: v for k, v in changed.items() if k != "word_changed"} == {
         k: v for k, v in fallback.items() if k != "word_changed"
     }
+
+
+def test_post_rules_lower_the_greeting_and_keep_the_names():
+    from punct_bench.post_rules import apply
+
+    text = "Vâng, xin chào Anh Tuấn. Anh, Xin kính chào quý vị ở Hoàng Anh Tuấn, Hà Nội và AI."
+    assert apply(text, {"comma", "title"}) == (
+        "Vâng, xin chào anh Tuấn. Anh, xin kính chào quý vị ở Hoàng Anh Tuấn, Hà Nội và AI."
+    )
+
+
+def test_comma_common_lowers_a_common_word_but_not_a_foreign_name():
+    from punct_bench.post_rules import apply
+
+    assert apply("Anh, Xin kính chào ở Đức, Berlin rất đẹp.", {"comma-common"}) == (
+        "Anh, xin kính chào ở Đức, Berlin rất đẹp."
+    )

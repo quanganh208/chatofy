@@ -1,0 +1,10 @@
+{
+  "arm": "dw-prod+comma",
+  "threads": 4,
+  "smoke_rows_per_ruler": 0,
+  "exit": 0,
+  "wall_s": 37.3,
+  "peak_rss_mb": 1244,
+  "load_s": 2.8,
+  "rows": 900
+}
