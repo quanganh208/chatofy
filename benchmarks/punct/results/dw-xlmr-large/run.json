@@ -1,0 +1,10 @@
+{
+  "arm": "dw-xlmr-large",
+  "threads": 4,
+  "smoke_rows_per_ruler": 0,
+  "exit": 0,
+  "wall_s": 79.5,
+  "peak_rss_mb": 1884,
+  "load_s": 3.99,
+  "rows": 900
+}

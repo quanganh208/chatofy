@@ -1,0 +1,10 @@
+{
+  "arm": "capu-vi-vlsp",
+  "threads": 4,
+  "smoke_rows_per_ruler": 0,
+  "exit": 0,
+  "wall_s": 129.7,
+  "peak_rss_mb": 1883,
+  "load_s": 10.03,
+  "rows": 900
+}

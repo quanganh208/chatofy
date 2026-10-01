@@ -1,0 +1,10 @@
+{
+  "arm": "vibert-capu-int8",
+  "threads": 4,
+  "smoke_rows_per_ruler": 0,
+  "exit": 0,
+  "wall_s": 29.5,
+  "peak_rss_mb": 299,
+  "load_s": 0.47,
+  "rows": 900
+}
