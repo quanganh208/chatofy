@@ -11,7 +11,10 @@ import {
   liveTurnsInOrder,
   turnKeyedTranscriptReducer,
   attributionStats,
+  blocksToRetranslate,
+  groupTurnsForDisplay,
   type AttributionsBySession,
+  type BlockTranslation,
   type AttributionStats,
   type CapturesBySession,
   type UnheardBySession,
@@ -99,6 +102,8 @@ export interface UseStreamingTranslate {
   unheard: UnheardBySession;
   /** Repaired source text per turn, where a repair exists. Falls back to raw. */
   displays: Record<string, string>;
+  /** Whole-block translations of merged forced-cut pieces, keyed by `blockKey` — every segment id of the shape, joined. */
+  blockTranslations: Record<string, BlockTranslation>;
   /** How the labelling went, for reading back after a conversation. */
   stats: AttributionStats;
   /** Add a participant. Without a label they get a numbered one in the reader's language. */
@@ -282,6 +287,9 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     finish: finishRecording,
   } = useConversationRecording();
 
+  // Block shapes already asked to be translated whole; see the effect below.
+  const askedBlocks = useRef(new Set<string>());
+
   const sessionRef = useRef<ConversationSession | null>(null);
   sessionRef.current ??= new ConversationSession(
     {
@@ -460,6 +468,7 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // microphone can take seconds to open behind a permission prompt.
       setFinishedRecording(null);
       resetRecording();
+      askedBlocks.current.clear();
       // Asked for here rather than defaulted on the server, because the client
       // union is strict: a build that predates the event would report a parse
       // failure once per round instead of ignoring it. Only a client that knows
@@ -486,6 +495,10 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   const pause = useCallback(() => session.pause(), [session]);
   const resume = useCallback(() => session.resume(), [session]);
   const end = useCallback(() => session.finish(), [session]);
+  const retranslateBlock = useCallback(
+    (segmentIds: string[]) => session.retranslateBlock(segmentIds),
+    [session],
+  );
 
   const setVolume = useCallback((volume: number) => {
     const gain = gainRef.current;
@@ -533,6 +546,35 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     [],
   );
 
+  // Ask for one translation of each block the length ceiling cut, once per shape
+  // of the block. Pieces are translated as they arrive, before the rest of the
+  // sentence exists, so their joined translations break at every cut; one
+  // translation of the whole block reads as what was said, on screen and in the
+  // saved record. Asked again each time the block grows. A run that has stopped
+  // cannot be asked for — the server knows segments by the connection that
+  // produced them — and keeps the joined pieces.
+  useEffect(() => {
+    if (status === 'idle') return;
+    const groups = groupTurnsForDisplay(
+      conversation.turns,
+      conversation.captures,
+      conversation.attributions,
+    );
+    for (const segmentIds of blocksToRetranslate(groups, conversation.blockTranslations)) {
+      const key = segmentIds.join(' ');
+      if (askedBlocks.current.has(key)) continue;
+      askedBlocks.current.add(key);
+      retranslateBlock(segmentIds);
+    }
+  }, [
+    status,
+    retranslateBlock,
+    conversation.turns,
+    conversation.captures,
+    conversation.attributions,
+    conversation.blockTranslations,
+  ]);
+
   // Release the microphone and the socket if the page goes away mid-conversation.
   useEffect(() => stop, [stop]);
 
@@ -561,6 +603,7 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     captures: conversation.captures,
     unheard: conversation.unheard,
     displays: conversation.displays,
+    blockTranslations: conversation.blockTranslations,
     speakers: conversation.speakers,
     attributions: conversation.attributions,
     stats: attributionStats(conversation),

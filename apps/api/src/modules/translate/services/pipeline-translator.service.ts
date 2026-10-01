@@ -118,6 +118,8 @@ export interface TranslateTurnInput {
    * much of it a prompt can afford.
    */
   context?: string[];
+  /** The turn picks up an utterance the client's length ceiling cut. */
+  continuesCut?: boolean;
   /**
    * Silero speech floor, in ms, the local sidecar should apply before a decode
    * counts as containing anything.
@@ -128,7 +130,65 @@ export interface TranslateTurnInput {
    * place its presence changes behaviour on this side of the provider call.
    */
   minSpeechMs?: number;
+  /**
+   * Also restore punctuation and case on the transcript, for display, beside
+   * the translation. Absent means the turn did not ask for a display.
+   */
+  restoreDisplay?: DisplayRestoreRequest;
 }
+
+/** What a display restore reads besides the transcript. */
+export interface DisplayRestoreRequest {
+  /** The utterance this turn continues, for a turn opened on a forced cut. */
+  context?: string;
+  /** The session's hotwords; the restorer uses the mixed-case ones as forms. */
+  terms?: string[];
+}
+
+/**
+ * How long a display restore may run, measured from when it STARTED.
+ *
+ * It starts beside the translation (restore p95 ~110 ms, translation ~700 ms),
+ * so on an ordinary turn it is done before anything waits for it. Measured from
+ * its own start rather than from the translation's end, so a stuck restorer
+ * costs a fast turn at most this, and a slow translation nothing at all.
+ */
+export const RESTORE_BUDGET_MS = 300;
+
+/**
+ * After a restorer reports itself absent (404 from an older sidecar, 503 before
+ * its model is seeded, or no sidecar listening at all), how long to stop asking.
+ * A permanent condition answered on every speculation and every turn is one
+ * warning, not five per turn.
+ */
+const RESTORE_UNAVAILABLE_COOLDOWN_MS = 60_000;
+
+/**
+ * A request that found no restorer at all — nothing listening, no such host —
+ * as opposed to a timeout (a slow sidecar) or a reset mid-request (a transient
+ * hiccup). Only the first is an absent sidecar worth a process-wide pause; the
+ * others may well be answered on the next turn.
+ */
+function isRefusedConnection(err: unknown): boolean {
+  if (!(err instanceof ProviderConnectionError)) return false;
+  // fetch wraps the socket error: ProviderConnectionError → TypeError('fetch
+  // failed') → the system error carrying the code.
+  for (let cause: unknown = err.cause, depth = 0; depth < 3; depth += 1) {
+    if (!(cause instanceof Error)) return false;
+    const code = (cause as Error & { code?: unknown }).code;
+    if (typeof code === 'string') return ABSENT_RESTORER_CODES.has(code);
+    cause = cause.cause;
+  }
+  return false;
+}
+
+/** Socket error codes that mean no restorer is there to answer. */
+const ABSENT_RESTORER_CODES = new Set([
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'EHOSTUNREACH',
+  'EAI_AGAIN',
+]);
 
 /**
  * The text half of a turn — everything decided before speech is synthesized.
@@ -141,6 +201,11 @@ export interface TranslateTurnInput {
 export interface TranslatedTurnText {
   sourceText: string;
   translations: TranslationMap;
+  /**
+   * `sourceText` with punctuation and case restored, for display only. Absent
+   * when the turn did not ask, or the restorer failed or ran late.
+   */
+  restored?: string;
 }
 
 /**
@@ -224,6 +289,8 @@ function ttsRequestFor(
 @Injectable()
 export class PipelineTranslatorService {
   private readonly logger = new Logger(PipelineTranslatorService.name);
+  /** See {@link RESTORE_UNAVAILABLE_COOLDOWN_MS}. */
+  private restoreUnavailableUntil = 0;
   /** Per-language voice catalog, with the wall-clock time it goes stale. */
   private readonly voiceCache = new Map<
     LanguageCode,
@@ -268,6 +335,69 @@ export class PipelineTranslatorService {
       audioBase64: Buffer.from(speech.bytes).toString('base64'),
       audioMimeType: speech.mimeType,
     };
+  }
+
+  /**
+   * Punctuation and case for a finished transcript, or `undefined`.
+   *
+   * Never rejects. The display is an enhancement on a transcript that is
+   * already right; a restorer that is down, unseeded or slow costs the turn its
+   * typesetting, never its text.
+   */
+  async restoreDisplay(
+    text: string,
+    language: LanguageCode,
+    request: DisplayRestoreRequest,
+  ): Promise<string | undefined> {
+    if (Date.now() < this.restoreUnavailableUntil) return undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const outOfTime = new Promise<undefined>((resolve) => {
+      timer = setTimeout(() => resolve(undefined), RESTORE_BUDGET_MS);
+    });
+    try {
+      // Only a transcript from the local recognizer arrives bare. A cloud one
+      // already punctuates and cases its own output, and the restorer — which
+      // lowercases every word before tagging — would replace that with its
+      // own, weaker reading.
+      if (!this.providers.sttWritesBareText()) return undefined;
+      const restorer = this.providers.makeDisplayRestorer();
+      const start = Date.now();
+      const restored = await Promise.race([
+        restorer.restore(text, { language, ...request }).then((value) => {
+          this.logger.log(`restore(${restorer.name}) ${Date.now() - start}ms`);
+          return value;
+        }),
+        outOfTime,
+      ]);
+      return restored;
+    } catch (err) {
+      const status =
+        err instanceof ProviderResponseError ? err.status : undefined;
+      if (status === 429) {
+        // Momentarily busy: the sidecar refused rather than queued. Expected
+        // under load, and the turn simply keeps its plain display — but at
+        // info, not debug, because a busy restorer is exactly what makes the
+        // measured display quality fail to reproduce, and it must be countable
+        // from the ordinary log. At most one line per restore asked for, which
+        // is bounded by the turns themselves.
+        this.logger.log(
+          'display restore busy, the turn keeps its plain display',
+        );
+        return undefined;
+      }
+      if (status === 404 || status === 503 || isRefusedConnection(err)) {
+        this.restoreUnavailableUntil =
+          Date.now() + RESTORE_UNAVAILABLE_COOLDOWN_MS;
+      }
+      this.logger.warn(
+        `display restore failed, the turn keeps its plain display: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return undefined;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /**
@@ -357,6 +487,8 @@ export class PipelineTranslatorService {
     hints?: TranslationHints;
     /** Finished source utterances from earlier in this conversation, oldest first. */
     context?: string[];
+    /** The turn picks up an utterance the client's length ceiling cut. */
+    continuesCut?: boolean;
     /**
      * Called with each piece of the translation as it is written.
      *
@@ -377,6 +509,7 @@ export class PipelineTranslatorService {
         models: req.models,
         hints: req.hints,
         context: req.context,
+        continuesCut: req.continuesCut,
         onChunk: req.onChunk,
       });
       this.logger.log(
@@ -404,6 +537,7 @@ export class PipelineTranslatorService {
     models?: string[];
     hints?: TranslationHints;
     context?: string[];
+    continuesCut?: boolean;
   }): Promise<TranslationMap> {
     const entries = await Promise.all(
       req.targets.map(
@@ -417,6 +551,7 @@ export class PipelineTranslatorService {
               models: req.models,
               hints: req.hints,
               context: req.context,
+              continuesCut: req.continuesCut,
             }),
           ] as const,
       ),
@@ -474,6 +609,15 @@ export class PipelineTranslatorService {
 
       // Each target logs its own model and timing inside `translate`; nothing
       // further to add here.
+      // Started before the translation and awaited after it, so its cost sits
+      // beside the translation rather than in front of the speech.
+      const restoring = input.restoreDisplay
+        ? this.restoreDisplay(
+            sourceText,
+            plan.recognition,
+            input.restoreDisplay,
+          )
+        : undefined;
       const translations = await this.translateAll({
         text: sourceText,
         source: plan.recognition,
@@ -481,9 +625,13 @@ export class PipelineTranslatorService {
         models: input.models,
         hints: input.hints,
         context: input.context,
+        continuesCut: input.continuesCut,
       });
+      const restored = await restoring;
 
-      return { sourceText, translations };
+      return restored === undefined
+        ? { sourceText, translations }
+        : { sourceText, translations, restored };
     } catch (err) {
       return this.handlePipelineError(err);
     }

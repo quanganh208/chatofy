@@ -94,6 +94,16 @@ export interface TranslationRequest {
    */
   context?: string[];
   /**
+   * The transcript picks up mid-sentence where the previous turn was cut by the
+   * client's length ceiling, rather than starting an utterance of its own.
+   *
+   * Lets {@link context} through regardless of the transcript's length. The
+   * length gate exists because earlier speech mis-anchored word sense on
+   * COMPLETE sentences; a forced-cut piece is not one, and without the sentence
+   * it continues it was measured mistranslating every seam of a real session.
+   */
+  continuesCut?: boolean;
+  /**
    * Conversation-level guidance carried into the prompt as fenced data.
    *
    * Providers that cannot use it ignore it; none may pass it through as

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   ProviderRegistry,
+  type DisplayRestorer,
   type SpeakerEmbeddingProvider,
   type SttProvider,
   type TranslationProvider,
@@ -42,6 +43,7 @@ export class AiProvidersFactory {
    * whether or not anybody asked.
    */
   private speakerEmbedding: SpeakerEmbeddingProvider | null = null;
+  private displayRestorer: DisplayRestorer | null = null;
 
   constructor(
     private readonly config: ConfigService<Env, true>,
@@ -102,5 +104,23 @@ export class AiProvidersFactory {
       localSttUrl: this.config.get('LOCAL_STT_URL', { infer: true }),
     } satisfies AiProviderResolveConfig);
     return this.speakerEmbedding;
+  }
+
+  /**
+   * Whether the selected recognizer returns bare text — no punctuation, no
+   * case — which is what the display restorer exists for.
+   *
+   * Only the local sidecar does. Read from config on every call, like the trio,
+   * so a changed selection is never answered from a stale flag.
+   */
+  sttWritesBareText(): boolean {
+    return this.config.get('AI_STT_PROVIDER', { infer: true }) === 'local';
+  }
+
+  makeDisplayRestorer(): DisplayRestorer {
+    this.displayRestorer ??= this.registry.resolveOnly('displayRestorer', {
+      localSttUrl: this.config.get('LOCAL_STT_URL', { infer: true }),
+    } satisfies AiProviderResolveConfig);
+    return this.displayRestorer;
   }
 }

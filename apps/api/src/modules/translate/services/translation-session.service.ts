@@ -26,6 +26,10 @@ import {
   type TranslatedTurnText,
 } from './pipeline-translator.service';
 import { TurnMetricsRecorder } from './turn-metrics.recorder';
+import {
+  restoreKeepsWords,
+  restoreRequestFor,
+} from './display-restore-request';
 import { splitIntoClauses } from '../audio/clause-splitter';
 import { EventChannel, type TurnRef } from '../session/event-channel';
 import { pushSynthesizedWav } from '../session/outbound-audio-framer';
@@ -45,6 +49,8 @@ import {
 import { TranslationBudget } from '../audio/translation-budget';
 import { SessionRegistry } from '../session/session-registry';
 import { ConversationContext } from '../session/conversation-context';
+import { FinishedSegments } from '../session/finished-segments';
+import { BlockRetranslator } from '../session/block-retranslator';
 import { SpeechLanguageSupport } from '../providers/speech-language-support';
 import {
   LANGUAGE_IDENTIFIER,
@@ -107,6 +113,15 @@ export class TranslationSessionService implements OnModuleDestroy {
    * still the turn I started on", and this survives every turn of a connection.
    */
   private readonly context = new ConversationContext();
+  /** What each connection's finished segments said, for a block retranslation. */
+  private readonly finished = new FinishedSegments();
+  /** Answers `client.block.retranslate`; see {@link BlockRetranslator}. */
+  private readonly blocks: BlockRetranslator;
+  /**
+   * The turn a continuation is the rest of, for continuations only. Keyed by
+   * the session object so it goes when the session does.
+   */
+  private readonly predecessors = new WeakMap<TurnSession, string>();
   private readonly preview: LivePreview;
   private idleSweep: ReturnType<typeof setInterval> | null = null;
   /** What every turn on this process spends mid-sentence translations against. */
@@ -136,6 +151,12 @@ export class TranslationSessionService implements OnModuleDestroy {
     // `target: ES2022` field initializers run before the parameter properties
     // are assigned, so `this.pipeline` would still be undefined up there.
     this.preview = new LivePreview(this.pipeline, this.logger);
+    this.blocks = new BlockRetranslator(
+      this.finished,
+      this.pipeline,
+      this.logger,
+      (socket) => this.gone.has(socket),
+    );
 
     // ONE budget for the process, built here rather than per turn. A bucket per
     // turn would be no ceiling at all: the quota it guards belongs to the API
@@ -232,6 +253,12 @@ export class TranslationSessionService implements OnModuleDestroy {
     });
     this.registry.open(socket, session);
     const sessionId = session.sessionId;
+    // Every accepted turn is noted, so the predecessor is always the turn
+    // opened immediately before this one.
+    const predecessor = this.context.opened(socket, sessionId);
+    if (session.continuesCut && predecessor !== undefined) {
+      this.predecessors.set(session, predecessor);
+    }
     this.logger.log(
       `session.start ${sessionId} direction=${options.direction} voice=${options.voiceGender}`,
     );
@@ -320,9 +347,18 @@ export class TranslationSessionService implements OnModuleDestroy {
     const audio = session?.buffered;
     if (!session || !audio || !session.canSpeculate()) return;
 
-    session.startSpeculation(
-      audio.byteLength,
-      this.pipeline.transcribeAndTranslate(
+    const launch = (continuation: Continuation) => {
+      // A launch deferred behind the predecessor's wait can find the client
+      // gone or the turn closed. Nobody would read the answer, and it would
+      // still spend a recognition, a translation per target and a restore.
+      // Rejected rather than resolved: `startSpeculation` swallows it, and a
+      // guess that never ran must not look like one that heard nothing. Its own
+      // class, because `end()` may already hold this promise as the reusable
+      // guess, and there it is a client that left, not a failed turn.
+      if (this.gone.has(socket) || !this.registry.holds(socket, session)) {
+        return Promise.reject(new SpeculationNotLaunchedError());
+      }
+      return this.pipeline.transcribeAndTranslate(
         {
           audio: audio.toWav(),
           mimeType: 'audio/wav',
@@ -337,12 +373,72 @@ export class TranslationSessionService implements OnModuleDestroy {
           // speculation IS the answer, so one built without it would be the
           // version the listener hears. Same for the speech floor: a reused
           // guess must have been asked for the gate exactly as the final would.
-          context: this.context.recall(socket),
+          // The one gap is a continuation whose cut turn was still unfinished
+          // at PREDECESSOR_WAIT_MS: the guess went out standalone and `end()`
+          // reuses it as it is rather than wait on that turn a second time.
+          context: continuation.context,
+          continuesCut: continuation.continuesCut,
           minSpeechMs: STT_MIN_SPEECH_MS,
+          // And the same display request: a reused speculation is the turn's
+          // text, so one restored without it would leave the turn plain.
+          restoreDisplay: restoreRequestFor(session, continuation.continued),
         },
         session.languages,
-      ),
+      );
+    };
+    session.startSpeculation(
+      audio.byteLength,
+      afterContinuation(this.continuationFor(socket, session), launch),
     );
+  }
+
+  /**
+   * The earlier speech a turn is translated and typeset against.
+   *
+   * For a turn that continues a forced cut, the cut turn itself is waited for
+   * by name and put last, because it is the half of the sentence this one
+   * completes. The latest turn to FINISH is not it often enough to matter:
+   * the web client runs several turns at once, and the cut turn is usually
+   * still being translated when its continuation's first speculation goes out.
+   *
+   * When the cut turn has nothing to offer in time — it heard nothing, aged
+   * out, or is still unfinished at {@link PREDECESSOR_WAIT_MS} — the turn is
+   * treated as standing alone. Context from the wrong sentence is worse than
+   * none: for a 30-word piece it is exactly what the length gate withholds.
+   *
+   * The wait is not paid by the listener. A continuation's audio plays after
+   * its predecessor's, and the predecessor's transcript exists well before
+   * its own audio has finished.
+   */
+  private continuationFor(
+    socket: StreamSocket,
+    session: TurnSession,
+  ): Continuation | Promise<Continuation> {
+    const predecessor = this.predecessors.get(session);
+    if (predecessor === undefined) {
+      return { context: this.context.recall(socket), continuesCut: false };
+    }
+    // Synchronous whenever there is nothing to wait for — which is almost
+    // always — so a turn's request goes out in the same tick it always did.
+    const settled = this.context.settledText(socket, predecessor);
+    if (settled !== null) return this.continuing(socket, settled.text);
+    return this.context
+      .textOf(socket, predecessor, PREDECESSOR_WAIT_MS)
+      .then((text) => this.continuing(socket, text));
+  }
+
+  /** The context for a continuation whose predecessor said `continued`, if anything. */
+  private continuing(
+    socket: StreamSocket,
+    continued: string | undefined,
+  ): Continuation {
+    const finished = this.context.recall(socket);
+    if (continued === undefined) {
+      return { context: finished, continuesCut: false };
+    }
+    const at = finished.lastIndexOf(continued);
+    const others = at >= 0 ? finished.filter((_, i) => i !== at) : finished;
+    return { context: [...others, continued], continuesCut: true, continued };
   }
 
   /** Close the turn: transcribe, translate, synthesize, stream the result. */
@@ -414,12 +510,6 @@ export class TranslationSessionService implements OnModuleDestroy {
     try {
       const reusable = session.usableSpeculation();
       timeline.markSpeculationReused(reusable !== null);
-      // Whatever has FINISHED on this socket, read at the moment the request is
-      // built. Never the turn before this one by position: several turns run at
-      // once and that one may still be in flight, and waiting for it would make
-      // a fragment's latency hostage to the turn that left it without context in
-      // the first place.
-      const context = this.context.recall(socket);
       // Whether this turn could hold a change of voice — decided from the audio
       // alone, synchronously, before anything is spent. A turn that could not
       // takes exactly the path it always took.
@@ -427,27 +517,50 @@ export class TranslationSessionService implements OnModuleDestroy {
         embedding && session.splitSpeakers
           ? findSplitCandidate(audio.pcm(), audio.sampleRate)
           : null;
+      // The earlier speech this turn is translated against, resolved only by
+      // the paths that send a request. For a continuation that may mean waiting
+      // up to PREDECESSOR_WAIT_MS on the cut turn by name (`continuationFor`);
+      // any other turn reads whatever has FINISHED on this socket, at once.
+      //
+      // A reused speculation that will not be split sends nothing, so it waits
+      // on nothing. Its request went out with the context there was when it
+      // launched; if the cut turn was late then, it went out standalone, and
+      // waiting for that turn now would hold this one for context no request
+      // reads.
+      const withContinuation = <T>(
+        use: (continuation: Continuation) => Promise<T>,
+      ): Promise<T> =>
+        afterContinuation(this.continuationFor(socket, session), use);
       const { translated, split, vector, pieceAudioMs } = candidate
-        ? await this.translateMaybeSplit(
-            session,
-            audio,
-            candidate,
-            reusable,
-            context,
-            minSpeechMs,
+        ? await withContinuation((continuation) =>
+            this.translateMaybeSplit(
+              session,
+              audio,
+              candidate,
+              reusable,
+              continuation,
+              minSpeechMs,
+            ),
           )
         : {
             translated: await (reusable ??
-              this.pipeline.transcribeAndTranslate(
-                {
-                  audio: audio.toWav(),
-                  mimeType: 'audio/wav',
-                  models: FINAL_MODELS,
-                  hints: session.hints,
-                  context,
-                  minSpeechMs,
-                },
-                session.languages,
+              withContinuation((continuation) =>
+                this.pipeline.transcribeAndTranslate(
+                  {
+                    audio: audio.toWav(),
+                    mimeType: 'audio/wav',
+                    models: FINAL_MODELS,
+                    hints: session.hints,
+                    context: continuation.context,
+                    continuesCut: continuation.continuesCut,
+                    minSpeechMs,
+                    restoreDisplay: restoreRequestFor(
+                      session,
+                      continuation.continued,
+                    ),
+                  },
+                  session.languages,
+                ),
               )),
             split: null,
             vector: undefined,
@@ -470,7 +583,7 @@ export class TranslationSessionService implements OnModuleDestroy {
       // has finished saying its sentence, which is the only sense of "finished"
       // this list is about.
       for (const piece of split?.pieces ?? [translated]) {
-        this.context.remember(socket, piece.sourceText);
+        this.context.remember(socket, piece.sourceText, session.sessionId);
       }
 
       // The client may have gone while the pipeline was working; finishing the
@@ -494,7 +607,11 @@ export class TranslationSessionService implements OnModuleDestroy {
         // Reached only from this point — after a FINAL transcript, on the turn's
         // real text — which is what keeps "never for a speculation" true by
         // construction rather than by a check: `speculate()` has no path here.
-        const display = this.displayFor(session, translated.sourceText);
+        const display = this.displayFor(
+          session,
+          translated.sourceText,
+          translated.restored,
+        );
 
         this.channelFor(socket, session).emit({
           type: 'server.transcript.final',
@@ -505,6 +622,12 @@ export class TranslationSessionService implements OnModuleDestroy {
           ),
           ...(display === undefined ? {} : { display }),
         });
+        this.rememberSegment(
+          socket,
+          session,
+          session.sessionId,
+          translated.sourceText,
+        );
 
         // After the transcript is out, so a slow sidecar delays a label and never
         // the sentence. A failed embedding resolves null and the turn simply
@@ -562,6 +685,13 @@ export class TranslationSessionService implements OnModuleDestroy {
       record(wanted, delivery.stoppedBy);
       this.close(socket, session, delivery.stoppedBy ?? 'completed');
     } catch (err) {
+      // The reused guess never launched because the client left or the turn
+      // closed while it waited on its cut turn: the same case as a client gone
+      // after the request, filed the same way.
+      if (err instanceof SpeculationNotLaunchedError) {
+        record(false, 'abandoned');
+        return;
+      }
       // A turn the caller itself asked the sidecar to refuse on speech grounds
       // ends quietly: no error banner, no final, no vector — just a metrics row
       // so the rate is countable. An empty decode the gate did NOT cause still
@@ -600,7 +730,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     audio: TurnAudio,
     candidate: SplitCandidate,
     reusable: Promise<TranslatedTurnText> | null,
-    context: string[],
+    continuation: Continuation,
     minSpeechMs: number,
   ): Promise<{
     translated: TranslatedTurnText;
@@ -659,7 +789,9 @@ export class TranslationSessionService implements OnModuleDestroy {
           plan,
           hints,
           models: FINAL_MODELS,
-          context,
+          context: continuation.context,
+          continuesCut: continuation.continuesCut,
+          restoreDisplay: restoreRequestFor(session, continuation.continued),
           minSpeechMs,
           logger: this.logger,
         });
@@ -691,6 +823,9 @@ export class TranslationSessionService implements OnModuleDestroy {
           translated: {
             sourceText: piece.sourceText,
             translations: piece.translations,
+            ...(piece.restored === undefined
+              ? {}
+              : { restored: piece.restored }),
           },
           split: null,
           vector: split.vectors.then((vectors) => vectors[0] ?? null),
@@ -715,24 +850,35 @@ export class TranslationSessionService implements OnModuleDestroy {
             mimeType: 'audio/wav',
             models: FINAL_MODELS,
             hints,
-            context,
+            context: continuation.context,
+            continuesCut: continuation.continuesCut,
             minSpeechMs,
+            restoreDisplay: restoreRequestFor(session, continuation.continued),
           },
           plan,
         ),
         split: null,
       };
     }
+    const display = restoreRequestFor(session, continuation.continued);
+    const restoring = display
+      ? this.pipeline.restoreDisplay(sourceText, plan.recognition, display)
+      : undefined;
     const translations = await this.pipeline.translateAll({
       text: sourceText,
       source: plan.recognition,
       targets: plan.targets,
       models: FINAL_MODELS,
       hints,
-      context,
+      context: continuation.context,
+      continuesCut: continuation.continuesCut,
     });
+    const restored = await restoring;
     return {
-      translated: { sourceText, translations },
+      translated:
+        restored === undefined
+          ? { sourceText, translations }
+          : { sourceText, translations, restored },
       split: null,
     };
   }
@@ -754,7 +900,11 @@ export class TranslationSessionService implements OnModuleDestroy {
     const channel = this.channelFor(socket, session);
     const ids = pieces.map((_, index) => `${session.sessionId}#${index}`);
     pieces.forEach((piece, index) => {
-      const display = this.displayFor(session, piece.sourceText);
+      const display = this.displayFor(
+        session,
+        piece.sourceText,
+        piece.restored,
+      );
       channel.emit({
         type: 'server.transcript.final',
         sessionId: ids[index]!,
@@ -773,6 +923,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           reachesEnd: piece.reachesEnd,
         },
       });
+      this.rememberSegment(socket, session, ids[index]!, piece.sourceText);
     });
     // After every line is out, as for a whole turn: a label may wait on the
     // sidecar, a sentence never does.
@@ -807,6 +958,12 @@ export class TranslationSessionService implements OnModuleDestroy {
   private displayFor(
     session: TurnSession,
     sourceText: string,
+    /**
+     * `sourceText` with punctuation and case restored, when the restorer ran in
+     * time. Typeset in its place: the ITN reads numerals case-insensitively and
+     * leaves marks alone, so the two compose.
+     */
+    restored?: string,
   ): string | undefined {
     // The client's opt-in. Its name is now a misnomer — nothing repairs anything
     // — but renaming it is a breaking contract change, taken separately or not
@@ -815,6 +972,13 @@ export class TranslationSessionService implements OnModuleDestroy {
     // A wordless turn has nothing to typeset. The ITN cannot invent words the
     // way a model could, but an event for an empty turn is still noise.
     if (!sourceText.trim()) return undefined;
+
+    if (restored !== undefined && !restoreKeepsWords(sourceText, restored)) {
+      this.logger.warn(
+        'display restore changed the words, the turn keeps its plain display',
+      );
+      restored = undefined;
+    }
 
     let typeset: string;
     let canonical: string;
@@ -831,7 +995,10 @@ export class TranslationSessionService implements OnModuleDestroy {
       // turn would carry a display — putting a "show original" disclosure under
       // a line whose original is identical to it.
       canonical = normalizeTranscript(sourceText);
-      typeset = inverseNormalizeTranscript(canonical, source);
+      typeset = inverseNormalizeTranscript(
+        restored === undefined ? canonical : normalizeTranscript(restored),
+        source,
+      );
     } catch (err: unknown) {
       // The ITN is documented as total on a string, and this does not trust it —
       // the same refusal the old `.catch()` here made, for a much sharper
@@ -909,6 +1076,34 @@ export class TranslationSessionService implements OnModuleDestroy {
   onModuleDestroy(): void {
     if (this.idleSweep) clearInterval(this.idleSweep);
     this.idleSweep = null;
+  }
+
+  /**
+   * Translate a run of this connection's finished segments again, as one text,
+   * and answer with `server.block.translated`. Every request is answered — a
+   * refusal with an empty `translations` — except on a socket that has gone;
+   * see {@link BlockRetranslator} for the queueing and the budget.
+   */
+  retranslateBlock(
+    socket: StreamSocket,
+    segmentIds: string[],
+    userId?: string,
+  ): Promise<void> {
+    return this.blocks.retranslate(socket, segmentIds, userId);
+  }
+
+  private rememberSegment(
+    socket: StreamSocket,
+    session: TurnSession,
+    segmentId: string,
+    sourceText: string,
+  ): void {
+    this.finished.record(socket, segmentId, {
+      sourceText,
+      recognition: session.languages.recognition,
+      targets: session.languages.targets,
+      ...(session.hints ? { hints: session.hints } : {}),
+    });
   }
 
   /**
@@ -1200,6 +1395,8 @@ export class TranslationSessionService implements OnModuleDestroy {
     // This turn only. Closing the socket's other turns here would end
     // conversations the client is still in the middle of.
     this.registry.close(socket, session.sessionId);
+    // A turn that ended without a transcript answers whoever waits on it now.
+    this.context.closed(socket, session.sessionId);
     // Bound to the session on purpose, and taken as an argument rather than
     // re-read from the registry: the eviction above has to happen first, so by
     // this point the registry can no longer name the turn that just ended.
@@ -1215,6 +1412,47 @@ export class TranslationSessionService implements OnModuleDestroy {
   private channelFor(socket: StreamSocket, turn?: TurnRef): EventChannel {
     return new EventChannel(socket, this.logger, turn ?? null);
   }
+}
+
+/**
+ * How long a continuation waits for the turn it continues to have a transcript.
+ *
+ * That turn's transcript is recorded once its translation is done — about a
+ * second after the cut on the measured sessions — and a continuation shorter
+ * than that is the only kind that can be kept waiting. Past this, it stands
+ * alone rather than hold its own translation any longer.
+ */
+const PREDECESSOR_WAIT_MS = 1_500;
+
+/** A speculation that was never sent: its turn closed while it waited to launch. */
+class SpeculationNotLaunchedError extends Error {
+  constructor() {
+    super('turn closed before its speculation launched');
+    this.name = 'SpeculationNotLaunchedError';
+  }
+}
+
+/** The earlier speech one turn is translated against. */
+interface Continuation {
+  /** Finished utterances, oldest first; the continued one last when there is one. */
+  context: string[];
+  /** Whether the turn continues a forced cut AND the cut turn's text is known. */
+  continuesCut: boolean;
+  /** The cut turn's transcript, for the display restore's seam. */
+  continued?: string;
+}
+
+/**
+ * `use` applied to a continuation, synchronously when it is already known.
+ *
+ * Almost every turn's continuation is in hand at once, and going through `then`
+ * for those would push the request out by a tick for nothing.
+ */
+function afterContinuation<T>(
+  pending: Continuation | Promise<Continuation>,
+  use: (continuation: Continuation) => Promise<T>,
+): Promise<T> {
+  return pending instanceof Promise ? pending.then(use) : use(pending);
 }
 
 /**

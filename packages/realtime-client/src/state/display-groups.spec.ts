@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TranscriptSegment } from '@chatofy/types';
 import {
+  blocksToRetranslate,
   groupIsRepaired,
   groupRawSourceText,
   groupSourceText,
@@ -8,7 +9,11 @@ import {
   groupTurnsForDisplay,
   type DisplayGroup,
 } from './display-groups.js';
-import type { CapturesBySession } from './turn-keyed-transcript.js';
+import {
+  blockKey,
+  type BlockTranslation,
+  type CapturesBySession,
+} from './turn-keyed-transcript.js';
 import type { AttributionsBySession } from './speaker-roster.js';
 
 const segment = (sessionId: string, sourceText: string, targetText = 'en'): TranscriptSegment => ({
@@ -292,6 +297,93 @@ describe('group text', () => {
     expect(groupTranslation(group!, 'en')).toBe('at 5pm it rained');
   });
 
+  // The ceiling cut "điện tử | bắt đầu có hiệu lực" in a recorded news clip, and
+  // the two halves translated alone read "…authentication It begins to have
+  // direct effect". One translation of the whole block is what the block shows.
+  describe('with a block translation', () => {
+    const three = () =>
+      groupTurnsForDisplay(
+        [segment('a', 'một', 'one'), segment('b', 'hai', 'two'), segment('c', 'ba', 'three')],
+        captures(
+          ['a', 1_000, true, 9_000],
+          ['b', 9_130, true, 17_000],
+          ['c', 17_200, false, 20_000],
+        ),
+        {},
+      );
+
+    // Stored the way the reducer stores them: one entry per shape.
+    const answered = (
+      ...rows: [string[], Partial<Record<'en' | 'vi', string>>][]
+    ): Record<string, BlockTranslation> =>
+      Object.fromEntries(
+        rows.map(([segmentIds, translations]) => [
+          blockKey(segmentIds),
+          { segmentIds, translations },
+        ]),
+      );
+
+    it('replaces the joined pieces it covers', () => {
+      const [group] = three();
+      const blocks = answered([['a', 'b', 'c'], { en: 'One, two, three.' }]);
+      expect(groupTranslation(group!, 'en', blocks)).toBe('One, two, three.');
+    });
+
+    it('covers the opening run while the grown block is still being asked for', () => {
+      const [group] = three();
+      const blocks = answered([['a', 'b'], { en: 'One and two' }]);
+      expect(groupTranslation(group!, 'en', blocks)).toBe('One and two three');
+    });
+
+    it('prefers the longest answered shape, whatever order the answers landed in', () => {
+      const [group] = three();
+      const blocks = answered([['a', 'b', 'c'], { en: 'whole' }], [['a', 'b'], { en: 'shorter' }]);
+      expect(groupTranslation(group!, 'en', blocks)).toBe('whole');
+    });
+
+    // Naming the last piece's speaker splits it off: the block is now `a b`,
+    // and the answer for `a b c` no longer describes it.
+    it('reads the answer for its new shape when the block shrinks', () => {
+      const [group] = groupTurnsForDisplay(
+        [segment('a', 'một', 'one'), segment('b', 'hai', 'two')],
+        captures(['a', 1_000, true, 9_000], ['b', 9_130, false, 17_000]),
+        {},
+      );
+      const blocks = answered(
+        [['a', 'b', 'c'], { en: 'whole' }],
+        [['a', 'b'], { en: 'One and two' }],
+      );
+      expect(groupTranslation(group!, 'en', blocks)).toBe('One and two');
+    });
+
+    it('is ignored once the grouping no longer starts with its run', () => {
+      const [group] = three();
+      const blocks = answered([['a', 'x'], { en: 'stale' }]);
+      expect(groupTranslation(group!, 'en', blocks)).toBe('one two three');
+    });
+
+    it('falls back to the pieces when the answer has no text in that language', () => {
+      const [group] = three();
+      // A refusal is answered empty.
+      const blocks = answered([['a', 'b', 'c'], {}], [['a', 'b'], { vi: 'một hai' }]);
+      expect(groupTranslation(group!, 'en', blocks)).toBe('one two three');
+    });
+
+    it('asks only for multi-piece blocks whose exact shape is unanswered', () => {
+      const groups = [
+        ...three(),
+        ...groupTurnsForDisplay(
+          [segment('d', 'bốn', 'four')],
+          captures(['d', 40_000, false, 42_000]),
+          {},
+        ),
+      ];
+      expect(blocksToRetranslate(groups, {})).toEqual([['a', 'b', 'c']]);
+      expect(blocksToRetranslate(groups, answered([['a', 'b'], {}]))).toEqual([['a', 'b', 'c']]);
+      expect(blocksToRetranslate(groups, answered([['a', 'b', 'c'], {}]))).toEqual([]);
+    });
+  });
+
   // A mixed turn — several `sourceLanguages` — is translated into the WHOLE
   // conversation (`translationTargets`, domain/languages.ts), so its map holds
   // more than one key. `groupTranslation` has to read the requested language's
@@ -356,5 +448,67 @@ describe('group text', () => {
     expect(groupIsRepaired(group!, {})).toBe(false);
     expect(groupIsRepaired(group!, { a: '17:00' })).toBe(true);
     expect(groupIsRepaired(group!, { z: 'another turn entirely' })).toBe(false);
+  });
+
+  // Restored punctuation and case change nearly every Vietnamese line and
+  // never a word. Offering the "original" under every line would show the same
+  // words in lowercase and teach readers to skip the disclosure.
+  it('does not call a line repaired when only its marks and case changed', () => {
+    const [group] = groups();
+    expect(groupIsRepaired(group!, { a: 'Mười bảy giờ,', b: 'trời mưa.' })).toBe(false);
+    expect(groupIsRepaired(group!, { a: '17 giờ,' })).toBe(true);
+  });
+
+  it('drops a cut piece\u2019s full stop when the next piece continues the sentence', () => {
+    const [group] = groups();
+    // The second piece was punctuated reading the first as context, and opened
+    // lowercase: no sentence ended at the cut.
+    expect(groupSourceText(group!, { a: 'Mười bảy giờ.', b: 'trời mưa.' })).toBe(
+      'Mười bảy giờ trời mưa.',
+    );
+  });
+
+  it('keeps the full stop when the next piece starts a sentence of its own', () => {
+    const [group] = groups();
+    expect(groupSourceText(group!, { a: 'Mười bảy giờ.', b: 'Trời mưa.' })).toBe(
+      'Mười bảy giờ. Trời mưa.',
+    );
+  });
+
+  it('keeps the full stop when the next piece opens on a numeral', () => {
+    // "Bảy ngày…" was capitalised, then typeset to "7 ngày…": the case that
+    // said "new sentence" is gone, so the seam is left as punctuated.
+    const [group] = groups();
+    expect(groupSourceText(group!, { a: 'Mười bảy giờ.', b: '7 ngày sau.' })).toBe(
+      'Mười bảy giờ. 7 ngày sau.',
+    );
+  });
+
+  // A finished piece is forced to end on the likeliest of . ? ! — so a mid-clause
+  // cut can close on a question mark or an exclamation as readily as a full stop,
+  // and the lowercase opening after it is the same verdict either way.
+  it('drops a forced question mark or exclamation when the next piece continues', () => {
+    const [group] = groups();
+    expect(groupSourceText(group!, { a: 'Mười bảy giờ?', b: 'trời mưa.' })).toBe(
+      'Mười bảy giờ trời mưa.',
+    );
+    expect(groupSourceText(group!, { a: 'Mười bảy giờ!', b: 'trời mưa.' })).toBe(
+      'Mười bảy giờ trời mưa.',
+    );
+  });
+
+  it('keeps a question mark or exclamation when the next piece starts a sentence', () => {
+    const [group] = groups();
+    expect(groupSourceText(group!, { a: 'Mấy giờ rồi?', b: 'Trời mưa.' })).toBe(
+      'Mấy giờ rồi? Trời mưa.',
+    );
+    expect(groupSourceText(group!, { a: 'Mưa rồi!', b: 'Trời tối.' })).toBe('Mưa rồi! Trời tối.');
+  });
+
+  it('leaves the last piece\u2019s closing mark alone', () => {
+    const [group] = groups();
+    expect(groupSourceText(group!, { a: 'Mười bảy giờ,', b: 'trời mưa?' })).toBe(
+      'Mười bảy giờ, trời mưa?',
+    );
   });
 });

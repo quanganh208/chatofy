@@ -8,6 +8,8 @@ export type {
   AudioFormat,
   StreamHandle,
   ProviderConfig,
+  DisplayRestoreOptions,
+  DisplayRestorer,
   RealtimeProviderConfig,
   RealtimeStartParams,
   RealtimeStreamEvents,
@@ -77,6 +79,8 @@ export {
   INPUT_SAMPLE_RATE as GEMINI_LIVE_INPUT_SAMPLE_RATE,
 } from './providers/gemini-live/gemini-live-translate-provider.js';
 export type { GeminiLiveTranslateConfig } from './providers/gemini-live/gemini-live-translate-provider.js';
+export { LocalSpeechDisplayRestorer } from './providers/local-speech/local-speech-display-restorer.js';
+export type { LocalSpeechDisplayRestorerConfig } from './providers/local-speech/local-speech-display-restorer.js';
 export { LocalSpeechEmbeddingProvider } from './providers/local-speech/local-speech-embedding-provider.js';
 export type { LocalSpeechEmbeddingConfig } from './providers/local-speech/local-speech-embedding-provider.js';
 export { LocalSpeechSttProvider } from './providers/local-speech/local-speech-stt-provider.js';

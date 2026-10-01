@@ -10,7 +10,8 @@ import { CapturePump } from '../audio/capture-pump.js';
 import { OrderedPlayback, type PlaybackSink } from '../audio/ordered-playback.js';
 import { PcmPlaybackQueue } from '../audio/pcm-playback-queue.js';
 import { base64ToPcm16, downsampleToPcm16, TARGET_SAMPLE_RATE } from '../audio/pcm-resampler.js';
-import { DEFAULT_MAX_IN_FLIGHT, TurnPipeline } from './turn-pipeline.js';
+import { DEFAULT_MAX_IN_FLIGHT, TurnPipeline, type CapturedTurnMetrics } from './turn-pipeline.js';
+import { blockKey } from '../state/turn-keyed-transcript.js';
 import type { ConversationStatus } from './conversation-status.js';
 
 /** Samples the worklet posts per block, at the audio context's own rate. */
@@ -47,6 +48,12 @@ const RETAINED_PLAYBACK_DROPS = 32;
  */
 const DRAIN_TIMEOUT_MS = 20_000;
 
+/**
+ * How long a finished drain waits for block retranslations still in flight. A
+ * block answer is one translation call — ~0.6–1.1 s on the measured sessions.
+ */
+const BLOCK_ANSWER_GRACE_MS = 3_000;
+
 /** Everything one run of the conversation owns and must give back. */
 interface LiveResources {
   socket?: TranslateSocket;
@@ -59,6 +66,14 @@ interface LiveResources {
   ordered?: OrderedPlayback;
   pipeline?: TurnPipeline;
   pump?: CapturePump;
+  /**
+   * Metrics rows for turns the server has closed whose audio is still queued or
+   * sounding, filed when playback retires the turn. Flushed by `stop()` while
+   * the socket is still open, so a teardown mid-playback still files them.
+   */
+  pendingMetrics?: Map<string, () => void>;
+  /** Block retranslations asked for and not yet answered, by `blockKey`. */
+  pendingBlocks?: Set<string>;
 }
 
 export interface ConversationSessionDeps {
@@ -292,6 +307,8 @@ export class ConversationSession {
   private finishing = false;
   /** Backstop for a drain that never completes. Cleared by `stop`. */
   private drainTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Holds a finished drain open for block answers; see `completeDrainIfDone`. */
+  private blockGraceTimer: ReturnType<typeof setTimeout> | null = null;
   private lastLevelAt = 0;
   /**
    * Turns the playback layer gave up on, and why.
@@ -479,6 +496,14 @@ export class ConversationSession {
     // `isBusy` counts turns still queued, not only samples sounding — a turn
     // waiting on the server has not been spoken yet and must hold the drain.
     if (this.live.ordered?.isBusy) return;
+    // The last block is asked for when its last piece lands, which is usually
+    // just before the drain completes — and the answer is what the saved record
+    // keeps. Bounded, because a server from before block retranslation never
+    // answers at all.
+    if (this.live.pendingBlocks?.size) {
+      this.blockGraceTimer ??= setTimeout(() => this.stop(), BLOCK_ANSWER_GRACE_MS);
+      return;
+    }
     this.stop();
   }
 
@@ -636,7 +661,15 @@ export class ConversationSession {
         new PcmPlaybackQueue(context, onTurnDrained);
       local.playback = playback;
 
+      const pendingMetrics = new Map<string, () => void>();
+      local.pendingMetrics = pendingMetrics;
+      local.pendingBlocks = new Set();
       const ordered = new OrderedPlayback(playback, {
+        onRetired: (turnKey) => {
+          const file = pendingMetrics.get(turnKey);
+          pendingMetrics.delete(turnKey);
+          file?.();
+        },
         onDropped: (turnKey, reason) => {
           this.rememberPlaybackDrop(turnKey, reason);
           this.abandonTurn(turnKey, reason);
@@ -656,10 +689,18 @@ export class ConversationSession {
         {
           onTurnOpened: (turnId) => ordered.open(turnId),
           onTurnClosed: (turnId, reason) => {
-            // Filed BEFORE the ordering layer retires the turn, and before the
-            // pipeline forgets it — both hold half the row.
-            if (runtime.reportMetrics) {
-              this.reportTurnMetrics(socket, pipeline, ordered, turnId, reason);
+            // Capture's half of the row is read now, before the pipeline
+            // forgets the turn. Playback's half is only final once the turn
+            // RETIRES: a turn queued behind another one's audio has not sounded
+            // at close, and filing then called it `no_audio` — 9 of 18 spoken
+            // turns in production on 2026-10-01.
+            const captured = pipeline.metricsFor(turnId);
+            const sessionId = captured?.sessionId;
+            if (runtime.reportMetrics && captured && sessionId) {
+              const row = { ...captured, sessionId };
+              const file = () => this.reportTurnMetrics(socket, row, ordered, turnId, reason);
+              if (ordered.holds(turnId)) pendingMetrics.set(turnId, file);
+              else file();
             }
             // Read here for the same reason, and independently of
             // `reportMetrics`: grouping the transcript is a display concern that
@@ -794,6 +835,19 @@ export class ConversationSession {
   }
 
   /**
+   * Ask for a block of finished segments to be translated again as one text.
+   * The answer arrives as `server.block.translated` through `onServerEvent`.
+   * A no-op once the run has stopped: the server only knows segments by the
+   * connection that produced them, and that connection is gone.
+   */
+  retranslateBlock(segmentIds: string[]): void {
+    const live = this.live;
+    if (!live?.socket) return;
+    live.pendingBlocks?.add(blockKey(segmentIds));
+    live.socket.retranslateBlock(segmentIds);
+  }
+
+  /**
    * End the run: give back its resources AND clear the state a new run would
    * otherwise inherit.
    *
@@ -805,6 +859,11 @@ export class ConversationSession {
     this.generation += 1;
     const live = this.live;
     this.live = null;
+    // Before the socket closes: a turn still sounding was heard or not by now,
+    // and this is the last moment its row can be sent.
+    const pending = [...(live?.pendingMetrics?.values() ?? [])];
+    live?.pendingMetrics?.clear();
+    for (const file of pending) file();
     this.releaseResources(live ?? {});
 
     this.turnEnded = false;
@@ -816,6 +875,8 @@ export class ConversationSession {
     this.finishing = false;
     if (this.drainTimer) clearTimeout(this.drainTimer);
     this.drainTimer = null;
+    if (this.blockGraceTimer) clearTimeout(this.blockGraceTimer);
+    this.blockGraceTimer = null;
 
     this.listeners.onStatus('idle');
     this.listeners.onLevel(0);
@@ -924,11 +985,12 @@ export class ConversationSession {
   /**
    * File one turn's measurements, joining what capture saw to what playback did.
    *
-   * Sent when the turn CLOSES, not when it finishes playing. A turn refused at the
-   * ceiling, dropped at a backlog ceiling, or failed never plays at all — so
-   * waiting for playback would silently omit exactly those turns, and the coverage
-   * figure would then be measuring the success rate of playback rather than the
-   * coverage of capture. It would look best at the moment the pipeline was worst.
+   * Sent when the turn has closed AND playback has retired it, whichever is later.
+   * A turn refused at the ceiling, dropped at a backlog ceiling, or failed never
+   * plays at all, and retires the moment it closes — so those turns are still
+   * filed, and coverage keeps measuring capture rather than playback's success
+   * rate. Waiting for the retirement, not just the close, is what lets a turn
+   * queued behind another one's audio be reported as heard.
    *
    * A turn with no server id is not reported: the server keys rows by its own id
    * and validates ownership against it, so there is nothing to attribute a row to.
@@ -955,13 +1017,11 @@ export class ConversationSession {
 
   private reportTurnMetrics(
     socket: TranslateSocket,
-    pipeline: TurnPipeline,
+    captured: CapturedTurnMetrics & { sessionId: string },
     ordered: OrderedPlayback,
     turnId: string,
     reason: string,
   ): void {
-    const captured = pipeline.metricsFor(turnId);
-    if (!captured?.sessionId) return;
     const play = ordered.metricsFor(turnId);
     // A playback drop outranks whatever the pipeline calls the close. The server may
     // have completed the turn perfectly; the listener still never heard it.
@@ -1004,6 +1064,11 @@ export class ConversationSession {
     switch (event.type) {
       case 'server.session.ready':
         pipeline?.onReady(event.turnId, event.sessionId);
+        break;
+
+      case 'server.block.translated':
+        this.live?.pendingBlocks?.delete(blockKey(event.segmentIds));
+        this.completeDrainIfDone();
         break;
 
       case 'server.audio.frame': {

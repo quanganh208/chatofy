@@ -274,3 +274,21 @@ describe('AiProvidersFactory (memoization)', () => {
     });
   });
 });
+
+describe('AiProvidersFactory.sttWritesBareText', () => {
+  it('is true only for the local recognizer, read on every call', () => {
+    const env: Record<string, unknown> = {
+      ...DEFAULT_ENV,
+      AI_STT_PROVIDER: 'local',
+    };
+    const factory = new AiProvidersFactory(
+      configFrom(env),
+      registerDefaultProviders(new ProviderRegistry()),
+    );
+    expect(factory.sttWritesBareText()).toBe(true);
+
+    // A cloud recognizer punctuates and cases its own transcript.
+    env.AI_STT_PROVIDER = 'elevenlabs';
+    expect(factory.sttWritesBareText()).toBe(false);
+  });
+});

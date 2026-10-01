@@ -106,6 +106,42 @@ describe('toConversationTurns', () => {
     });
   });
 
+  it('saves the whole-block translation of a split utterance, keeping its source', () => {
+    const rows = toConversationTurns({
+      ...base,
+      turns: [segment('a', 'first half', 'one'), segment('b', 'second half', 'two')],
+      captures: captures(['a', 1_000, true, 9_000], ['b', 9_130, false, 12_000]),
+      blockTranslations: {
+        'a b': { segmentIds: ['a', 'b'], translations: { en: 'One sentence.' } },
+      },
+    });
+
+    expect(rows[0]).toMatchObject({
+      sourceText: 'first half second half',
+      translations: { en: 'One sentence.' },
+      // The legacy field reads the same block answer, so the row agrees with itself.
+      targetText: 'One sentence.',
+    });
+  });
+
+  it('keeps the legacy text of a block whose members spoke different languages', () => {
+    // A cut across a language switch: no one language mirrors every member's
+    // `targetText`, so there is nothing to read the block through.
+    const rows = toConversationTurns({
+      ...base,
+      turns: [
+        languageSegment('a', 'vi', 'nửa đầu', { en: 'first half' }),
+        languageSegment('b', 'en', 'second half', { vi: 'nửa sau' }),
+      ],
+      captures: captures(['a', 1_000, true, 9_000], ['b', 9_130, false, 12_000]),
+      blockTranslations: {
+        'a b': { segmentIds: ['a', 'b'], translations: { en: 'One sentence.' } },
+      },
+    });
+
+    expect(rows[0]?.targetText).toBe('first half nửa sau');
+  });
+
   it('leaves displayText null when the rendering matches the recognizer', () => {
     const rows = toConversationTurns({
       ...base,

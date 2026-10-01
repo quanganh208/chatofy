@@ -62,11 +62,13 @@ export {
 // The transcript, keyed by turn so several can be spoken at once. Every client
 // uses it; see the note at the top of this file for the one it replaced.
 export {
+  blockKey,
   initialTurnKeyedTranscript,
   liveTurnsInOrder,
   turnKeyedTranscriptReducer,
 } from './state/turn-keyed-transcript.js';
 export type {
+  BlockTranslation,
   CapturesBySession,
   LiveTurn,
   TurnCapture,
@@ -80,6 +82,7 @@ export type {
 // Display only: the turns, their translations, and every measurement stay as
 // they were.
 export {
+  blocksToRetranslate,
   groupIsRepaired,
   groupRawSourceText,
   groupSourceText,

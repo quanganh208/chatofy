@@ -319,6 +319,23 @@ export class TranslateGateway
     this.sessions.recordClientMetrics(client, metrics);
   }
 
+  /**
+   * Translate a run of this connection's finished segments again as one text.
+   * Fire-and-forget: the answer, if any, is `server.block.translated`.
+   */
+  @SubscribeMessage('client.block.retranslate')
+  handleBlockRetranslate(
+    @MessageBody() payload: unknown,
+    @ConnectedSocket() client: StreamSocket,
+  ): void {
+    const { segmentIds } = this.parseEvent(payload, 'client.block.retranslate');
+    void this.sessions.retranslateBlock(
+      client,
+      segmentIds,
+      this.userBySocket.get(client),
+    );
+  }
+
   // ── Continuous speech-to-speech ───────────────────────────────────────────
   // A separate union and a separate state machine, sharing only this path.
 

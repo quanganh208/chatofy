@@ -466,6 +466,7 @@ describe('GeminiTranslationProvider — carried-over speech', () => {
     // The measured fragment of stored row 17, three words, which is what the
     // feature is for. Overridden by the rows that test the length gate.
     text = 'Tôi đề ra',
+    continuesCut?: boolean,
   ) => {
     mockGenerateContentStream.mockResolvedValue(oneChunk('I set out'));
     await new GeminiTranslationProvider({
@@ -477,6 +478,7 @@ describe('GeminiTranslationProvider — carried-over speech', () => {
       targetLanguage: 'en',
       context,
       hints,
+      continuesCut,
     });
     const call = mockGenerateContentStream.mock.calls[0] as [
       {
@@ -601,6 +603,33 @@ describe('GeminiTranslationProvider — carried-over speech', () => {
     );
     expect(turn.block).toContain('Subject: travel plans');
     expect(turn.block).not.toContain(HEADING);
+    expect(turn.instruction).not.toContain('earlier speech');
+  });
+
+  // A piece the client's length ceiling cut off the front of: long enough to
+  // clear the gate, and it starts mid-clause. Its earlier speech is the half of
+  // the sentence the listener already heard.
+  const AFTER_CUT =
+    'Bắt đầu có hiệu lực liên quan trực tiếp đến việc sử dụng tài khoản vneid';
+  const BEFORE_CUT =
+    'Thưa quý vị từ ngày mai một số quy định mới về định danh và xác thực điện tử';
+
+  it('carries earlier speech to a long turn that continues a forced cut', async () => {
+    const turn = await turnFor([BEFORE_CUT], undefined, AFTER_CUT, true);
+    expect(turn.block).toContain(HEADING);
+    expect(turn.block).toContain('xác thực điện tử');
+    expect(turn.instruction).toContain('earlier speech');
+  });
+
+  it('withholds it from the same turn when it does not continue a cut', async () => {
+    const turn = await turnFor([BEFORE_CUT], undefined, AFTER_CUT, false);
+    expect(turn.parts).toHaveLength(2);
+    expect(turn.instruction).not.toContain('earlier speech');
+  });
+
+  it('opens no block for a continuation with nothing finished before it', async () => {
+    const turn = await turnFor([], undefined, AFTER_CUT, true);
+    expect(turn.parts).toHaveLength(2);
     expect(turn.instruction).not.toContain('earlier speech');
   });
 

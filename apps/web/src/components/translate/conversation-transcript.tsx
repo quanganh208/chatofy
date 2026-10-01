@@ -11,6 +11,7 @@ import {
   groupTurnsForDisplay,
   speakerFor,
   type AttributionsBySession,
+  type BlockTranslation,
   type SessionSpeaker,
 } from '@chatofy/realtime-client';
 import type { LanguageCode, TranscriptSegment } from '@chatofy/types';
@@ -58,6 +59,11 @@ interface ConversationTranscriptProps {
    * the recognizer actually produced.
    */
   displays: Record<string, string>;
+  /**
+   * One translation per merged block, where one has come back — see
+   * `groupTranslation`. A block without one reads as its pieces joined.
+   */
+  blockTranslations?: Record<string, BlockTranslation>;
   /**
    * When this conversation started, as epoch ms. Null before the first one.
    *
@@ -160,6 +166,7 @@ export function ConversationTranscript({
   captures,
   unheard = {},
   displays,
+  blockTranslations = {},
   startedAtMs,
   audioOffsetMs,
   running,
@@ -355,7 +362,9 @@ export function ConversationTranscript({
                   />
                 ) : null}
                 {showsTarget ? (
-                  <p className="text-target font-medium">{groupTranslation(group, target)}</p>
+                  <p className="text-target font-medium">
+                    {groupTranslation(group, target, blockTranslations)}
+                  </p>
                 ) : null}
                 {/* Said on the turn it happened to, because that is the only
                     place it means anything: this text is on screen and was never

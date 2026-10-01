@@ -11,13 +11,19 @@ interface Sent {
   sequence?: number;
   /** Tag from sample 0, so a test can name the block. */
   tag?: number;
+  /** What a start told the server about continuing a forced cut. */
+  continuesCut?: boolean;
 }
 
 class RecordingTransport implements TurnPipelineTransport {
   readonly sent: Sent[] = [];
 
-  startSession(_options: SessionOptions, turnId: string): void {
-    this.sent.push({ type: 'start', turnId });
+  startSession(options: SessionOptions, turnId: string): void {
+    this.sent.push(
+      'continuesCut' in options
+        ? { type: 'start', turnId, continuesCut: options.continuesCut }
+        : { type: 'start', turnId },
+    );
   }
 
   /**
@@ -67,7 +73,7 @@ const block = (tag: number): Int16Array => {
   return samples;
 };
 
-function harness(maxInFlight = 1) {
+function harness(maxInFlight = 1, now: () => number = Date.now) {
   const transport = new RecordingTransport();
   const opened: string[] = [];
   const ready: { turnId: string; sessionId: string }[] = [];
@@ -82,6 +88,7 @@ function harness(maxInFlight = 1) {
       onLog: (message) => logs.push(message),
     },
     maxInFlight,
+    now,
   );
   pipeline.configure(options);
   return { pipeline, transport, opened, ready, closed, logs };
@@ -288,6 +295,111 @@ describe('TurnPipeline', () => {
 
       expect(h.closed).toEqual([{ turnId: a, reason: 'completed' }]);
       expect(h.transport.audio.at(-1)).toMatchObject({ sessionId: 'sb', tag: 1 });
+    });
+  });
+
+  describe('a turn that continues a forced cut', () => {
+    /** A pipeline on a clock the test moves by hand. */
+    const clocked = (maxInFlight = 3) => {
+      let t = 1_000;
+      const h = harness(maxInFlight, () => t);
+      return { ...h, advance: (ms: number) => (t += ms) };
+    };
+
+    it('tells the server when it opens straight after a forced cut', () => {
+      const h = clocked();
+      const a = h.pipeline.openTurn([]);
+      h.pipeline.onReady(a, 'sa');
+      h.advance(8_000);
+      h.pipeline.closeCapturedTurn(true);
+      h.advance(200);
+      const b = h.pipeline.openTurn([]);
+
+      expect(h.transport.ofType('start')).toEqual([
+        { type: 'start', turnId: a },
+        { type: 'start', turnId: b, continuesCut: true },
+      ]);
+    });
+
+    it('sends the start it always sent after a turn the speaker ended', () => {
+      const h = clocked();
+      const a = h.pipeline.openTurn([]);
+      h.pipeline.onReady(a, 'sa');
+      h.pipeline.closeCapturedTurn(false);
+      h.advance(200);
+      const b = h.pipeline.openTurn([]);
+
+      expect(h.transport.ofType('start').at(-1)).toEqual({ type: 'start', turnId: b });
+    });
+
+    it('treats a turn opening past the merge gap as a new utterance', () => {
+      const h = clocked();
+      const a = h.pipeline.openTurn([]);
+      h.pipeline.onReady(a, 'sa');
+      h.pipeline.closeCapturedTurn(true);
+      h.advance(1_201);
+      const b = h.pipeline.openTurn([]);
+
+      expect(h.transport.ofType('start').at(-1)).toEqual({ type: 'start', turnId: b });
+    });
+
+    it('does not carry a cut across a reset', () => {
+      const h = clocked();
+      const a = h.pipeline.openTurn([]);
+      h.pipeline.onReady(a, 'sa');
+      h.pipeline.closeCapturedTurn(true);
+      h.pipeline.reset();
+      h.advance(100);
+      const b = h.pipeline.openTurn([]);
+
+      expect(h.transport.ofType('start').at(-1)).toEqual({ type: 'start', turnId: b });
+    });
+
+    it('keeps the flag on a continuation the ceiling held back', () => {
+      // With a ceiling of one, the continuation is opened while the cut turn is
+      // still at the server and only starts once it closes.
+      const h = clocked(1);
+      const a = h.pipeline.openTurn([]);
+      h.pipeline.onReady(a, 'sa');
+      h.pipeline.closeCapturedTurn(true);
+      h.advance(150);
+      const b = h.pipeline.openTurn([]);
+      expect(h.pipeline.phaseOf(b)).toBe('waiting');
+
+      h.advance(3_000);
+      h.pipeline.onServerClosed('completed', { sessionId: 'sa' });
+
+      expect(h.transport.ofType('start').at(-1)).toEqual({
+        type: 'start',
+        turnId: b,
+        continuesCut: true,
+      });
+    });
+
+    // The server names a continuation's predecessor by the order turns opened on the
+    // socket. A refused cut turn waits for a retry with slots still free, so a
+    // continuation started at once would open first and be anchored to whatever
+    // sentence opened before the cut.
+    it('does not open a continuation before the refused turn whose cut it continues', () => {
+      vi.useFakeTimers();
+      const h = clocked(3);
+      const a = h.pipeline.openTurn([]);
+      h.pipeline.onError('too_many_turns', { turnId: a });
+      h.pipeline.closeCapturedTurn(true);
+      h.advance(200);
+      const b = h.pipeline.openTurn([]);
+
+      expect(h.pipeline.phaseOf(b)).toBe('waiting');
+      expect(h.transport.ofType('start').map((s) => s.turnId)).toEqual([a]);
+
+      vi.advanceTimersByTime(750);
+
+      // The retry sends the cut turn first and its continuation right behind it.
+      expect(h.transport.ofType('start')).toEqual([
+        { type: 'start', turnId: a },
+        { type: 'start', turnId: a },
+        { type: 'start', turnId: b, continuesCut: true },
+      ]);
     });
   });
 

@@ -70,7 +70,13 @@ import type { CapturesBySession, TurnKeyedTranscript } from './turn-keyed-transc
  * 400s outright rather than one row losing its timestamp.
  */
 export function toConversationTurns(
-  state: Pick<TurnKeyedTranscript, 'turns' | 'speakers' | 'attributions' | 'captures' | 'displays'>,
+  state: Pick<
+    TurnKeyedTranscript,
+    'turns' | 'speakers' | 'attributions' | 'captures' | 'displays'
+  > &
+    // Optional for a caller from before block retranslation: it saves the
+    // pieces' joined translations, which is what was saved before.
+    Partial<Pick<TurnKeyedTranscript, 'blockTranslations'>>,
   startedAtMs: number = 0,
 ): ConversationTurn[] {
   const groups = groupTurnsForDisplay(state.turns, state.captures, state.attributions);
@@ -99,8 +105,13 @@ export function toConversationTurns(
     const translationLanguages = groupTranslationLanguages(group);
     // `targetText` is the pre-fan-out field: each member's OWN spoken text,
     // joined the same way `sourceText` is. Kept for a reader that has not
-    // picked up `translations` yet — see `domain/conversation.ts`.
-    const legacyTargetText = group.turns.map((turn) => turn.targetText).join(' ');
+    // picked up `translations` yet — see `domain/conversation.ts`. Read through
+    // the block translation when there is one, so the row's two fields agree.
+    const legacyTargetText = groupLegacyTargetText(
+      group,
+      translationLanguages,
+      state.blockTranslations,
+    );
 
     // One row count for the whole block, with every field cut into that many
     // pieces — see {@link spreadOver} for why a field that needed fewer is cut
@@ -114,7 +125,7 @@ export function toConversationTurns(
     const translationPieces = new Map(
       translationLanguages.map((language) => [
         language,
-        splitAtCap(groupTranslation(group, language)),
+        splitAtCap(groupTranslation(group, language, state.blockTranslations)),
       ]),
     );
     const pieces = Math.max(
@@ -237,6 +248,31 @@ function groupSourceLanguages(group: DisplayGroup): LanguageCode[] {
     }
   }
   return languages;
+}
+
+/**
+ * The block's legacy `targetText`: what a reader that predates `translations`
+ * shows.
+ *
+ * A member's `targetText` mirrors `translations[spoken]`, so when one language
+ * is that mirror for EVERY member the block's legacy text is
+ * {@link groupTranslation} into it — the same text `translations` stores, block
+ * answer included. Without a block answer that is byte-for-byte the members'
+ * own `targetText` joined. A block whose members spoke different languages (a
+ * forced cut across a language switch) has no one language to read through,
+ * and keeps the plain join.
+ */
+function groupLegacyTargetText(
+  group: DisplayGroup,
+  languages: readonly LanguageCode[],
+  blocks: TurnKeyedTranscript['blockTranslations'] | undefined,
+): string {
+  const spoken = languages.find((language) =>
+    group.turns.every((turn) => (turn.translations[language] ?? '') === turn.targetText),
+  );
+  return spoken === undefined
+    ? group.turns.map((turn) => turn.targetText).join(' ')
+    : groupTranslation(group, spoken, blocks);
 }
 
 /**

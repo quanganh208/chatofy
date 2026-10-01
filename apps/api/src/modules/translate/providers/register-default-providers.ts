@@ -8,6 +8,7 @@ import {
   GeminiLiveTranslateProvider,
   GeminiSummarizationProvider,
   GeminiTranslationProvider,
+  LocalSpeechDisplayRestorer,
   LocalSpeechEmbeddingProvider,
   OpenAiCompatibleTranslationProvider,
   LocalSpeechSttProvider,
@@ -89,6 +90,16 @@ export function registerDefaultProviders(
     create: (cfg: ProviderConfig) => {
       const c = cfg as AiProviderResolveConfig;
       return new LocalSpeechEmbeddingProvider({ baseUrl: c.localSttUrl });
+    },
+  });
+
+  // Punctuation and case for the Vietnamese display, from the same sidecar.
+  // One name only, for the reason `speakerEmbedding` gives above.
+  registry.register('displayRestorer', {
+    name: 'local',
+    create: (cfg: ProviderConfig) => {
+      const c = cfg as AiProviderResolveConfig;
+      return new LocalSpeechDisplayRestorer({ baseUrl: c.localSttUrl });
     },
   });
 

@@ -321,6 +321,19 @@ export const sessionOptionsSchema = z.object({
    * Absent means no, which is what keeps the extension and mobile untouched.
    */
   streamCommitted: z.boolean().optional(),
+
+  /**
+   * Whether this turn picks up an utterance the client's length ceiling cut.
+   *
+   * Per turn, unlike every other field here: it is true only for the turn that
+   * opens straight after a forced cut, while the speaker is still mid-sentence.
+   * The server cannot see that itself — `cutForced` reaches it only in
+   * `client.turn.metrics`, after playback — and without it a 30-word piece that
+   * starts mid-clause is translated as if it were a sentence of its own.
+   *
+   * Absent means no, which is what every turn was before this field existed.
+   */
+  continuesCut: z.boolean().optional(),
 });
 export type SessionOptions = z.infer<typeof sessionOptionsSchema>;
 
@@ -436,12 +449,40 @@ const clientTurnMetricsSchema = z.object({
   echoEvents: z.number().int().min(0).max(100_000),
 });
 
+/**
+ * Most finished segments one block retranslation may join. A forced cut lands
+ * every ~8 s, so this is well over a minute and a half of one unbroken utterance.
+ */
+export const MAX_BLOCK_SEGMENTS = 12;
+
+/**
+ * Translate a run of finished segments again, as ONE text.
+ *
+ * The length ceiling cuts continuous speech mid-clause, and each piece is
+ * translated before the next exists — so the joined translations break at every
+ * cut, and the record kept them broken. Once the run is known, one translation
+ * of the whole of it reads as the sentence that was spoken.
+ *
+ * Names segments, never text: the server joins the transcripts it produced
+ * itself for this socket, so nothing a client sends here reaches the model.
+ * Every request is answered with `server.block.translated` while the socket is
+ * open — a refusal (unknown segment, mixed plans, a full queue, a request
+ * superseded by a grown copy of the same block, a spent budget, a failed call)
+ * with empty `translations`, after which the client keeps the joined pieces.
+ */
+const clientBlockRetranslateSchema = z.object({
+  type: z.literal('client.block.retranslate'),
+  /** `segment.sessionId` of each piece, in speaking order. */
+  segmentIds: z.array(z.string().min(1).max(80)).min(2).max(MAX_BLOCK_SEGMENTS),
+});
+
 export const clientEventSchema = z.discriminatedUnion('type', [
   clientSessionStartSchema,
   clientAudioFrameSchema,
   clientTurnSpeculateSchema,
   clientSessionEndSchema,
   clientTurnMetricsSchema,
+  clientBlockRetranslateSchema,
 ]);
 
 /** The client-reported half of one turn's measurements. */
@@ -746,6 +787,19 @@ const serverTranscriptDisplaySchema = z.object({
   text: z.string(),
 });
 
+/**
+ * One translation of a whole block, answering `client.block.retranslate`.
+ *
+ * Sent only to a client that asked, so a tab from before this event existed is
+ * never sent one. Replaces, for display and for the saved record, the joined
+ * translations of exactly these segments — never their `sourceText`.
+ */
+const serverBlockTranslatedSchema = z.object({
+  type: z.literal('server.block.translated'),
+  segmentIds: z.array(z.string()).min(2),
+  translations: translationMapSchema(z.string()),
+});
+
 const serverAudioFrameSchema = z.object({
   type: z.literal('server.audio.frame'),
   frame: audioFrameSchema,
@@ -790,6 +844,7 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   serverTranslationDeltaSchema,
   serverTranscriptFinalSchema,
   serverTranscriptDisplaySchema,
+  serverBlockTranslatedSchema,
   serverTurnEmbeddingSchema,
   serverAudioFrameSchema,
   serverSessionEndedSchema,

@@ -68,6 +68,23 @@ describe('ConversationContext', () => {
     expect(inFlight).toEqual(['Thì thì tôi nghĩ là thì']);
   });
 
+  it('answers a waiter for a split turn with the piece that reaches the cut', async () => {
+    // A split turn records each piece under the turn's own id, in order, and
+    // only the last one reaches the cut. A continuation already waiting on
+    // that turn must get that piece, not the other speaker's opening one —
+    // the same answer it would have read had it asked a moment later.
+    const context = new ConversationContext();
+    const client = socket();
+    const waiting = context.textOf(client, 'turn-a', 1_500);
+    context.remember(client, 'first piece other speaker', 'turn-a');
+    context.remember(client, 'last piece reaching the cut', 'turn-a');
+
+    await expect(waiting).resolves.toBe('last piece reaching the cut');
+    expect(context.settledText(client, 'turn-a')).toEqual({
+      text: 'last piece reaching the cut',
+    });
+  });
+
   it('drops a connection’s history when it goes away', () => {
     const context = new ConversationContext();
     const client = socket();
