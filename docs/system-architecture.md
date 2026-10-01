@@ -930,8 +930,11 @@ between "chào" and a kinship word goes the same way ("xin chào, anh Tuấn Anh
 A sentence boundary the text cannot settle is read from the audio. For
 Vietnamese, `/transcribe` returns `pauses`: the silence after each word in ms,
 from the recognizer's word onsets and frame energy (`engines/word_pauses.py`).
-The API keeps them on the turn (`TranslatedTurnText.pauses`, joined piece by
-piece for a block) and passes them to `/restore`. There a full stop after less
+The API keeps them on the turn (`TranslatedTurnText.pauses`) and passes them to
+`/restore`. A block joins its pieces' pauses, and at each seam it adds the next
+piece's `leadPause` (the quiet before its first word) to the last pause before
+the cut. A forced cut lands ~100 ms into a pause, so either half alone reads
+under the gate. There a full stop after less
 than 120 ms of silence is dropped, so "xin chào anh Tuấn. Anh, xin…", said in
 one breath, reads "xin chào anh Tuấn Anh, xin…". Pauses that do not line up
 word for word are dropped at every hop, and the restore runs as before.

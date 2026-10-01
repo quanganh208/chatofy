@@ -51,7 +51,8 @@ the alternatives that lost.
 > word only before a capitalized name. The model and the rules were chosen by
 > `benchmarks/punct` against every usable vi tagger.
 > For Vietnamese, `/transcribe` also returns `pauses`, the silence after each
-> word in ms (`engines/word_pauses.py`). `/restore` takes them back and drops a
+> word in ms (`engines/word_pauses.py`), and `leadPause`, the silence before the
+> first word. `/restore` takes the pauses back and drops a
 > full stop the speaker did not pause at (under 120 ms, chosen on FLEURS dev in
 > `benchmarks/punct`).
 
