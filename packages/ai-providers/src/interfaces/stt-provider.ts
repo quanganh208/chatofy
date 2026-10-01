@@ -32,6 +32,13 @@ export interface SttTranscriptResult {
    * stop where the speaker never paused.
    */
   pauses?: number[];
+  /**
+   * Silence before the first word, in ms — set with `pauses` and only with it.
+   * Where a turn was cut out of continuous speech, the pause at the cut is
+   * split between the end of one piece and the start of the next, so a caller
+   * joining the pieces adds this to the previous piece's last pause.
+   */
+  leadPause?: number;
 }
 
 /** Streaming partial/final transcript event (future realtime path). */

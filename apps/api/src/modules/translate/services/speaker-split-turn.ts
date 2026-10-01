@@ -22,6 +22,8 @@ export interface TranslatedPiece extends Span {
   restored?: string;
   /** Silence after each word of `sourceText` in ms, when the recognizer measured it. */
   pauses?: number[];
+  /** Silence before the first word in ms, measured with `pauses`. */
+  leadPause?: number;
   /**
    * Whether this piece's span was the LAST one `planSpeakerSplit` cut — the
    * one whose `endMs` reaches the turn's own `durationMs`, not merely the
@@ -151,6 +153,7 @@ export async function translateSplitTurn(
   const firstIsOpening = survivors[0]?.span === spans[0];
   const survivorTexts = survivors.map(({ source }) => source.text);
   const survivorPauses = survivors.map(({ source }) => source.pauses);
+  const survivorLeads = survivors.map(({ source }) => source.leadPause);
   const display = options.restoreDisplay;
   // One piece after another, never all at once. The sidecar's restorer runs one
   // inference at a time and refuses (429) a request it cannot start within a
@@ -201,6 +204,9 @@ export async function translateSplitTurn(
       translations: translations[k]!,
       ...(restored?.[k] === undefined ? {} : { restored: restored[k] }),
       ...(survivorPauses[k] === undefined ? {} : { pauses: survivorPauses[k] }),
+      ...(survivorLeads[k] === undefined
+        ? {}
+        : { leadPause: survivorLeads[k] }),
       reachesEnd: span.endMs === lastSpanEndMs,
     })),
     vectors,

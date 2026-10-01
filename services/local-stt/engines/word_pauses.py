@@ -48,11 +48,15 @@ def word_starts(tokens: list[str], timestamps: list[float]) -> list[float]:
     return starts
 
 
-def pauses_after(samples: np.ndarray, sample_rate: int, starts: list[float]) -> list[int]:
-    """Milliseconds of silence after each word; the last word's runs to the end."""
+def _quiet_frames(samples: np.ndarray, sample_rate: int) -> np.ndarray:
     db = _frame_db(samples, sample_rate)
     floor, speech = np.percentile(db, 10), np.percentile(db, 90)
-    quiet = db < floor + QUIET_POINT * (speech - floor)
+    return db < floor + QUIET_POINT * (speech - floor)
+
+
+def pauses_after(samples: np.ndarray, sample_rate: int, starts: list[float]) -> list[int]:
+    """Milliseconds of silence after each word; the last word's runs to the end."""
+    quiet = _quiet_frames(samples, sample_rate)
     ends = [*starts[1:], len(samples) / sample_rate]
     out = []
     for start, end in zip(starts, ends):
@@ -63,3 +67,18 @@ def pauses_after(samples: np.ndarray, sample_rate: int, starts: list[float]) -> 
             best = max(best, run)
         out.append(int(best * FRAME_S * 1000))
     return out
+
+
+def lead_pause(samples: np.ndarray, sample_rate: int) -> int:
+    """Milliseconds of silence before the first word, read from the energy alone.
+
+    Not from the onsets: the recognizer stamps an utterance's first token at or
+    near zero however late the speech starts. A piece cut out of continuous
+    speech splits the pause it was cut in — the end of one piece holds the
+    quiet that triggered the cut, the start of the next holds the rest — so
+    the pause at the seam is the two added together.
+    """
+    quiet = _quiet_frames(samples, sample_rate)
+    loud = np.flatnonzero(~quiet)
+    run = int(loud[0]) if loud.size else len(quiet)
+    return int(run * FRAME_S * 1000)

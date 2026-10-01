@@ -26,12 +26,13 @@ from pydantic import BaseModel, Field  # noqa: E402
 from audio.decode import AudioTooLongError, DecodeError, decode_to_16k_mono  # noqa: E402
 from audio.silero_speech import SileroSpeechGate  # noqa: E402
 from audio.speech_duration import speech_duration_ms  # noqa: E402
-from engines.base import SttBusyError  # noqa: E402
+from engines.base import SAMPLE_RATE, SttBusyError  # noqa: E402
 from engines.registry import (  # noqa: E402
     SUPPORTED_LANGUAGES,
     EngineRegistry,
     UnsupportedLanguageError,
 )
+from engines.word_pauses import lead_pause  # noqa: E402
 from hotwords import build_hotwords  # noqa: E402
 from punctuation.restorer import LANGUAGE as RESTORE_LANGUAGE  # noqa: E402
 from punctuation.restorer import DisplayRestorer, RestorerBusyError  # noqa: E402
@@ -158,6 +159,11 @@ def transcribe(
         result["speechMs"] = speech_ms
     if pauses is not None:
         result["pauses"] = pauses
+        # The silence before the first word: where a piece was cut out of
+        # continuous speech, the pause at the cut is split between the end of
+        # one piece and the start of the next, and a caller joining them adds
+        # the two.
+        result["leadPause"] = lead_pause(samples, SAMPLE_RATE)
     return result
 
 

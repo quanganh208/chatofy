@@ -36,13 +36,17 @@ interface TranscribeResponse {
   language?: string;
   speechMs?: number;
   pauses?: unknown;
+  leadPause?: unknown;
 }
+
+const isPause = (ms: unknown): ms is number =>
+  typeof ms === 'number' && Number.isFinite(ms) && ms >= 0;
 
 /** The sidecar's pauses, only when they are one non-negative number per word. */
 function pausesFor(text: string, pauses: unknown): number[] | undefined {
   if (!Array.isArray(pauses)) return undefined;
   const words = text.split(/\s+/).filter(Boolean).length;
-  const valid = pauses.every((ms) => typeof ms === 'number' && Number.isFinite(ms) && ms >= 0);
+  const valid = pauses.every(isPause);
   return valid && pauses.length === words ? (pauses as number[]) : undefined;
 }
 
@@ -119,6 +123,7 @@ export class LocalSpeechSttProvider implements SttProvider {
       language,
       ...(typeof json.speechMs === 'number' ? { speechMs: json.speechMs } : {}),
       ...(pauses === undefined ? {} : { pauses }),
+      ...(pauses !== undefined && isPause(json.leadPause) ? { leadPause: json.leadPause } : {}),
     };
   }
 

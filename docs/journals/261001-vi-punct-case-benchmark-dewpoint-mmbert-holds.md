@@ -145,3 +145,20 @@ The restorer reads text only. A full stop it writes where the speaker did not pa
 All four pre-set criteria hold. The recorded greeting, with the words prod heard and pauses measured from the recording, reads "Vâng, xin chào anh Tuấn Anh, xin kính chào quý vị khán giả."
 
 Caveat: the gain rests on 31 changed test rows, and dev showed none. The gate only removes boundaries. A long pause the model left unpunctuated ("…xảy ra vụ việc này", 310 ms after "ra") is not added.
+
+## Follow-up 4: a full stop at a long pause — measured, not shipped
+
+On the recorded news read (dc04 turn 0), the gate dropped two full stops the model had placed where the speaker did not pause ("tấn công mạng. Trong quá trình…", "đáng chú ý. Dù…"). Those drops were correct. The real boundaries, after "thử nghiệm" (550 ms) and "vụ tấn công mạng" (370 ms), carried no mark at all. A first reading blamed the block seams for the dropped stops, and that reading was wrong: without pauses, the model never puts a mark at either real boundary.
+
+**Seam fix (shipped).** A forced cut lands ~100 ms into a pause, so the last word of a piece always read under the 120 ms gate. On dc04, cut the way the capture gate cuts, the seams read 80 and 100 ms, against 550 and 370 ms in the continuous audio. A full stop at a cut was therefore always dropped. The sidecar now returns `leadPause`, the quiet before the first word measured by energy (the recognizer stamps the first token at ~0 s), and a block adds it to the previous piece's last pause. The pre-roll caps a seam reading at ~400 ms.
+
+**Rule measured:** a full stop after a word with no mark or a comma, followed by ≥ T ms of silence. T was picked on FLEURS dev and scored once on test against the shipped gate.
+
+| T (ms)       | dev primary Δ | test primary Δ [95% CI] | full-stop F1 FLEURS | full-stop F1 prod |
+| ------------ | ------------- | ----------------------- | ------------------- | ----------------- |
+| shipped gate | –             | –                       | 0.940               | 0.686             |
+| 300          | −0.354        | −0.199                  | 0.390               | 0.654             |
+| 500          | −0.246        | −0.130                  | 0.506               | 0.699             |
+| 1000 (pick)  | −0.090        | −0.042 [−0.048, −0.037] | 0.760               | 0.686             |
+
+It fails every criterion. Read speech pauses inside sentences for 300–900 ms (breath, emphasis), so pause length alone cannot mark a boundary. Only prod at 500 ms nudged up (+0.013 full-stop F1, 42 chunks), and that came with FLEURS collapsing. The code was not kept. Whatever closes the dc04 boundaries has to read both the text and the pause: a model trained with pause features, not a threshold on top of a text-only one.

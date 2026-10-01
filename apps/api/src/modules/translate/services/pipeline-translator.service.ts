@@ -226,6 +226,11 @@ export interface TranslatedTurnText {
    * measured it. Kept so a block joining this turn can restore with it.
    */
   pauses?: number[];
+  /**
+   * Silence before the first word in ms, measured with `pauses`. A block that
+   * joins this turn after another adds it to that one's last pause.
+   */
+  leadPause?: number;
 }
 
 /**
@@ -240,6 +245,8 @@ export interface TranscribedAudio {
   speechMs?: number;
   /** Silence after each word of `text` in ms; see `SttTranscriptResult`. */
   pauses?: number[];
+  /** Silence before the first word in ms; see `SttTranscriptResult`. */
+  leadPause?: number;
 }
 
 /** One synthesis request. */
@@ -478,7 +485,7 @@ export class PipelineTranslatorService {
     try {
       const trio = this.providers.makeProviders();
       const sttStart = Date.now();
-      const { text, speechMs, pauses } = await trio.stt.transcribe(
+      const { text, speechMs, pauses, leadPause } = await trio.stt.transcribe(
         input.audio,
         input.mimeType,
         input.language,
@@ -493,6 +500,7 @@ export class PipelineTranslatorService {
         text,
         speechMs,
         ...(pauses === undefined ? {} : { pauses }),
+        ...(leadPause === undefined ? {} : { leadPause }),
       };
     } catch (err) {
       return this.handlePipelineError(err);
@@ -602,6 +610,7 @@ export class PipelineTranslatorService {
         text: sourceText,
         speechMs,
         pauses,
+        leadPause,
       } = await this.transcribe({
         ...input,
         language: plan.recognition,
@@ -664,6 +673,7 @@ export class PipelineTranslatorService {
         translations,
         ...(restored === undefined ? {} : { restored }),
         ...(pauses === undefined ? {} : { pauses }),
+        ...(leadPause === undefined ? {} : { leadPause }),
       };
     } catch (err) {
       return this.handlePipelineError(err);

@@ -353,6 +353,7 @@ def test_transcribe_returns_one_pause_per_word_for_vietnamese(client, webm_audio
     if body["text"]:
         assert len(body["pauses"]) == len(body["text"].split())
         assert all(isinstance(p, int) and p >= 0 for p in body["pauses"])
+        assert isinstance(body["leadPause"], int) and body["leadPause"] >= 0
 
 
 @model_tests

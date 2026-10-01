@@ -637,7 +637,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           session,
           session.sessionId,
           translated.sourceText,
-          translated.pauses,
+          translated,
         );
 
         // After the transcript is out, so a slow sidecar delays a label and never
@@ -850,7 +850,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     }
 
     if (reusable) return { translated: await reusable, split: null };
-    const { text: sourceText, pauses } = await wholeSource!;
+    const { text: sourceText, pauses, leadPause } = await wholeSource!;
     // Heard as nothing: the ordinary path owns what that means for a turn —
     // the warning, and the rejection the caller reports.
     if (!sourceText.trim()) {
@@ -894,6 +894,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         translations,
         ...(restored === undefined ? {} : { restored }),
         ...(pauses === undefined ? {} : { pauses }),
+        ...(leadPause === undefined ? {} : { leadPause }),
       },
       split: null,
     };
@@ -945,7 +946,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         session,
         ids[index]!,
         piece.sourceText,
-        piece.pauses,
+        piece,
       );
     });
     // After every line is out, as for a whole turn: a label may wait on the
@@ -1114,7 +1115,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     session: TurnSession,
     segmentId: string,
     sourceText: string,
-    pauses: number[] | undefined,
+    { pauses, leadPause }: { pauses?: number[]; leadPause?: number },
   ): void {
     const restore = restoreRequestFor(session, undefined);
     this.finished.record(socket, segmentId, {
@@ -1130,6 +1131,7 @@ export class TranslationSessionService implements OnModuleDestroy {
             },
           }
         : {}),
+      ...(leadPause === undefined ? {} : { leadPause }),
     });
   }
 
