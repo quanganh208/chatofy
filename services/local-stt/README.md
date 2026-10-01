@@ -45,6 +45,11 @@ the alternatives that lost.
 > names ("OpenAI") are beyond a per-word lower/Capital/UPPER tagger: the sidecar
 > applies only the model's own gazetteer and the caller's mixed-case `terms`, and
 > the API takes the rest from the turn's translation.
+> Two measured post-rules lower the model's mid-sentence capitals ("Anh, Xin kính
+> chào", "chào Anh Tuấn"): after a comma only for words in
+> `punctuation/lowercase_words.json` (counted from ViCapPunc train), and a title
+> word only before a capitalized name. The model and the rules were chosen by
+> `benchmarks/punct` against every usable vi tagger.
 
 > **License obligation.** Zipformer-30M is CC-BY-NC-ND-4.0: **academic / thesis
 > use only**, no commercial use, no distribution of derivatives. If this project

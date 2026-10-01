@@ -14,7 +14,12 @@ import pytest
 
 import app as sidecar
 from punctuation.dewpoint import Punctuator
-from punctuation.restorer import LOCK_WAIT_S, DisplayRestorer, mixed_case_terms
+from punctuation.restorer import (
+    LOCK_WAIT_S,
+    DisplayRestorer,
+    _lower_mid_sentence_capitals,
+    mixed_case_terms,
+)
 
 model_tests = pytest.mark.skipif(
     os.environ.get("LOCAL_STT_SKIP_MODEL_TESTS") == "1",
@@ -101,6 +106,44 @@ def test_waits_long_enough_for_one_restore_ahead_but_inside_the_callers_budget()
     # One inference is ~110 ms at p95 and the API stops waiting at 300 ms: a
     # request behind one other restore must be served, not refused.
     assert 0.11 <= LOCK_WAIT_S <= 0.2
+
+
+SENTENCE_END = {"PERIOD", "QUESTION", "EXCLAM"}
+
+
+def lowered(words: list[str], punct: list[str], fixed: frozenset[int] = frozenset()) -> list[str]:
+    out = list(words)
+    _lower_mid_sentence_capitals(out, punct, set(fixed), SENTENCE_END)
+    return out
+
+
+def test_lowers_a_common_word_after_a_comma_but_not_a_name():
+    assert lowered(["Anh", "Xin", "kính"], ["COMMA", "O", "O"]) == ["Anh", "xin", "kính"]
+    # "Berlin" is no common word, and "Hà" is followed by the rest of its name.
+    assert lowered(["Đức", "Berlin", "đẹp"], ["COMMA", "O", "O"]) == ["Đức", "Berlin", "đẹp"]
+    assert lowered(["ở", "Hà", "Nội"], ["COMMA", "O", "O"]) == ["ở", "Hà", "Nội"]
+
+
+def test_lowers_a_title_before_a_name_unless_it_is_part_of_one():
+    assert lowered(["chào", "Anh", "Tuấn"], ["O", "O", "O"]) == ["chào", "anh", "Tuấn"]
+    assert lowered(["ông", "Hoàng", "Anh", "Tuấn"], ["O", "O", "O", "O"]) == ["ông", "Hoàng", "Anh", "Tuấn"]
+
+
+def test_leaves_sentence_starts_capitals_and_spelled_terms_alone():
+    assert lowered(["xong", "Xin", "chào"], ["PERIOD", "O", "O"]) == ["xong", "Xin", "chào"]
+    assert lowered(["vâng", "AI", "nói"], ["COMMA", "O", "O"]) == ["vâng", "AI", "nói"]
+    assert lowered(["vâng", "Xin", "chào"], ["COMMA", "O", "O"], fixed=frozenset({1})) == ["vâng", "Xin", "chào"]
+
+
+@model_tests
+def test_greets_without_a_capital_mid_sentence(client):
+    # Recorded on prod: the model wrote "Anh Tuấn. Anh, Xin kính chào".
+    text = "vâng xin chào anh tuấn anh xin kính chào quý vị khán giả"
+    restored = restore(client, text).json()["text"]
+
+    assert "Xin kính" not in restored
+    assert "anh Tuấn" in restored
+    assert words(restored) == words(text)
 
 
 @model_tests

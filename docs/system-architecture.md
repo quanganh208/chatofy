@@ -919,6 +919,13 @@ its first letter, and not in all capitals, is spelled that way in the display.
 caller's mixed-case hotwords still reach the sidecar as forms. A misheard name
 ("opena" for "OpenAI") is a recognition error and stays as heard.
 
+The opposite error, a capital the tagger writes mid-sentence ("Anh, Xin kính
+chào", "chào Anh Tuấn"), is undone in the sidecar by two rules measured in
+`benchmarks/punct` before they shipped: a capital after a comma is lowered only
+on a word Vietnamese writes in lowercase (a list counted from ViCapPunc train,
+so "Berlin" keeps its capital), and a kinship word is lowered before a
+capitalized name unless it is part of one ("Hoàng Anh Tuấn").
+
 `PrismaMinutesStore` binds unconditionally (`useClass`). Which backend stores
 minutes was previously an env switch that defaulted to in-memory, which meant the
 feature quietly kept nothing; the token and the interface survive because that is
