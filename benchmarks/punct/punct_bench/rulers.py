@@ -115,12 +115,48 @@ def vicappunc_rows() -> list[dict]:
     return [_row("vicappunc", str(start), ref, ref) for start, ref in sorted(picked)]
 
 
+# Kinship words a targeted ruler is built around; see `targeted_rows`.
+_TITLES = frozenset("anh chị em ông bà cô chú bác cậu thầy dì".split())
+TARGETED_WINDOWS = 300
+
+
+def targeted_rows() -> dict[str, list[dict]]:
+    """Two rulers aimed at single comma decisions, from ViCapPunc TRAIN.
+
+    The general rulers hold almost none of these cases (one each on prod), so a
+    rule touching them cannot be measured there. Train is the larger gold set,
+    and nothing scored here was fitted to it: the comma rules are not learned.
+
+    - title-open: windows opening with a kinship word ("Em chào bác sĩ…",
+      "Anh, em xin lỗi…") — whether a comma follows it.
+    - greet: windows holding "chào" before a kinship word — whether a comma
+      separates them.
+    """
+    path = _fetch(VICAPPUNC_URL.format(rev=VICAPPUNC_REV).replace("test.txt", "train.txt"), EXTERNAL / "vicappunc-train.txt")
+    words = _vicappunc_words(path)
+    opens = {0} | {i + 1 for i, (_, _, label) in enumerate(words[:-1]) if label in ("PERIOD", "QMARK")}
+    title_starts = [i for i in sorted(opens) if i < len(words) and words[i][0] in _TITLES]
+    greet_at = [i for i in range(len(words) - 1) if words[i][0] == "chào" and words[i + 1][0] in _TITLES]
+    rng = random.Random(SEED)
+    out: dict[str, list[dict]] = {}
+    for name, anchors, lead in (("title-open", title_starts, 0), ("greet", greet_at, 8)):
+        rows = []
+        for anchor in sorted(rng.sample(anchors, TARGETED_WINDOWS)):
+            start = max(0, anchor - lead)
+            span = words[start : start + 25]
+            ref = " ".join(_surface(*w) for w in span)
+            rows.append(_row(name, str(start), ref, ref))
+        out[name] = rows
+    return out
+
+
 def build() -> dict[str, int]:
     rulers = {
         "prod": prod_rows("prod", DATA / "prod-sessions-scribe.jsonl"),
         "aiwho": prod_rows("aiwho", DATA / "ai-who-guard.jsonl"),
         "fleurs": fleurs_rows(),
         "vicappunc": vicappunc_rows(),
+        **targeted_rows(),
     }
     for name, rows in rulers.items():
         with (DATA / f"rows-{name}.jsonl").open("w", encoding="utf-8") as f:

@@ -99,3 +99,22 @@ The proper-noun drop on FLEURS (3) and ViCapPunc (52) is not names.
 
 - The lowered words are "Tuy", "Các", "Em", "Cháu", "Tôi": capitals where the reference starts a new sentence or, on ViCapPunc, follows a line break in the source.
 - On prod, nothing that was a name got lowered.
+
+## Follow-up 2: greeting commas
+
+"Vâng, xin chào, anh Tuấn. Anh, xin kính chào" kept two commas after the capitals were fixed. The general rulers hold one case of each, and the prod one was misheard by Scribe, so two targeted rulers were built from ViCapPunc **train** (300 windows each; nothing scored there is fitted to it):
+
+- `title-open`: windows opening with a kinship word.
+- `greet`: windows with "chào" before a kinship word.
+
+Comma F1, against the shipped prod (`+ comma-common + title`):
+
+| arm           | prod      | FLEURS | greet     | title-open | primary Δ [95% CI]   |
+| ------------- | --------- | ------ | --------- | ---------- | -------------------- |
+| shipped       | 0.560     | 0.704  | 0.353     | 0.460      | –                    |
+| + greet-comma | **0.564** | 0.704  | **0.363** | **0.464**  | +0.0004 [0, +0.0016] |
+| + title-comma | 0.560     | 0.704  | 0.353     | 0.460      | +0.0000 [0, 0]       |
+
+Both pass the criteria fixed in the plan, and both shipped. Case F1 is unchanged everywhere.
+
+`title-comma` changed nothing in the 300 windows that open with a kinship word: the model almost never writes "Anh, xin". Its only measured effect is the recorded greeting. The cost it could have, removing a correct comma after a spoken vocative ("Anh, em xin lỗi"), is not in any ruler.

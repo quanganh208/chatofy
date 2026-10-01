@@ -142,7 +142,7 @@ def load_rows() -> dict[tuple[str, str], dict]:
     return rows
 
 
-def score(results: Path) -> dict:
+def score(results: Path, base: str = INCUMBENT) -> dict:
     rows = load_rows()
     arms: dict[str, dict] = {}
     per_row: dict[str, dict[tuple[str, str], Counter]] = {}
@@ -170,10 +170,10 @@ def score(results: Path) -> dict:
             "peak_rss_mb": run.get("peak_rss_mb"),
             "load_s": run.get("load_s"),
         }
-    if INCUMBENT in per_row:
+    if base in per_row:
         for arm in arms:
-            if arm != INCUMBENT:
-                arms[arm]["vs_incumbent"] = paired_bootstrap(per_row[arm], per_row[INCUMBENT])
+            if arm != base:
+                arms[arm]["vs_incumbent"] = paired_bootstrap(per_row[arm], per_row[base])
     return arms
 
 
@@ -208,9 +208,17 @@ def paired_bootstrap(arm: dict, base: dict) -> dict | None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--smoke", action="store_true")
+    parser.add_argument("--base", default=INCUMBENT, help="arm the bootstrap compares against")
     args = parser.parse_args()
     results = RESULTS / "smoke" if args.smoke else RESULTS
-    summary = score(results)
+    summary = score(results, args.base)
+    if args.base != INCUMBENT:
+        # A comparison against another base is a reading, not the record.
+        for arm, s in sorted(summary.items()):
+            vs = s.get("vs_incumbent")
+            if vs:
+                print(f"{arm:28s} {s['primary']:.4f} vs {args.base}: {vs['delta']:+.4f} {vs['ci95']}")
+        return
     (results / "summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     header = f"{'arm':22s} {'primary':>7s} {'Δ vs inc [95% CI]':>24s} {'rss':>6s}"
     print(header)

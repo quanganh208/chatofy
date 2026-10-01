@@ -17,6 +17,7 @@ from punctuation.dewpoint import Punctuator
 from punctuation.restorer import (
     LOCK_WAIT_S,
     DisplayRestorer,
+    _drop_greeting_commas,
     _lower_mid_sentence_capitals,
     mixed_case_terms,
 )
@@ -135,6 +136,20 @@ def test_leaves_sentence_starts_capitals_and_spelled_terms_alone():
     assert lowered(["vâng", "Xin", "chào"], ["COMMA", "O", "O"], fixed=frozenset({1})) == ["vâng", "Xin", "chào"]
 
 
+def test_drops_the_greeting_commas_and_keeps_the_others():
+    words = ["vâng", "xin", "chào", "anh", "tuấn", "anh", "xin", "kính", "chào", "hôm", "nay", "anh", "đến"]
+    punct = ["COMMA", "O", "COMMA", "O", "PERIOD", "COMMA", "O", "O", "PERIOD", "COMMA", "O", "O", "PERIOD"]
+    _drop_greeting_commas(words, punct, True, SENTENCE_END)
+    # "Vâng," and "Hôm nay," keep theirs; "chào," and the opening "Anh," do not.
+    assert punct == ["COMMA", "O", "O", "O", "PERIOD", "O", "O", "O", "PERIOD", "COMMA", "O", "O", "PERIOD"]
+
+
+def test_a_continuation_opening_with_a_kinship_word_keeps_its_comma():
+    punct = ["COMMA", "O"]
+    _drop_greeting_commas(["anh", "nói"], punct, False, SENTENCE_END)
+    assert punct == ["COMMA", "O"]
+
+
 @model_tests
 def test_greets_without_a_capital_mid_sentence(client):
     # Recorded on prod: the model wrote "Anh Tuấn. Anh, Xin kính chào".
@@ -142,7 +157,8 @@ def test_greets_without_a_capital_mid_sentence(client):
     restored = restore(client, text).json()["text"]
 
     assert "Xin kính" not in restored
-    assert "anh Tuấn" in restored
+    assert "chào anh Tuấn" in restored
+    assert "Anh xin kính chào" in restored
     assert words(restored) == words(text)
 
 

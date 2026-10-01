@@ -63,3 +63,12 @@ def test_comma_common_lowers_a_common_word_but_not_a_foreign_name():
     assert apply("Anh, Xin kính chào ở Đức, Berlin rất đẹp.", {"comma-common"}) == (
         "Anh, xin kính chào ở Đức, Berlin rất đẹp."
     )
+
+
+def test_comma_rules_drop_the_greeting_and_opening_title_commas_only():
+    from punct_bench.post_rules import apply
+
+    text = "Vâng, xin chào, anh Tuấn. Anh, xin kính chào. Hôm nay, anh đến."
+    assert apply(text, {"greet-comma", "title-comma"}) == (
+        "Vâng, xin chào anh Tuấn. Anh xin kính chào. Hôm nay, anh đến."
+    )
