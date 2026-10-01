@@ -136,18 +136,12 @@ def test_leaves_sentence_starts_capitals_and_spelled_terms_alone():
     assert lowered(["vâng", "Xin", "chào"], ["COMMA", "O", "O"], fixed=frozenset({1})) == ["vâng", "Xin", "chào"]
 
 
-def test_drops_the_greeting_commas_and_keeps_the_others():
-    words = ["vâng", "xin", "chào", "anh", "tuấn", "anh", "xin", "kính", "chào", "hôm", "nay", "anh", "đến"]
-    punct = ["COMMA", "O", "COMMA", "O", "PERIOD", "COMMA", "O", "O", "PERIOD", "COMMA", "O", "O", "PERIOD"]
-    _drop_greeting_commas(words, punct, True, SENTENCE_END)
-    # "Vâng," and "Hôm nay," keep theirs; "chào," and the opening "Anh," do not.
-    assert punct == ["COMMA", "O", "O", "O", "PERIOD", "O", "O", "O", "PERIOD", "COMMA", "O", "O", "PERIOD"]
-
-
-def test_a_continuation_opening_with_a_kinship_word_keeps_its_comma():
-    punct = ["COMMA", "O"]
-    _drop_greeting_commas(["anh", "nói"], punct, False, SENTENCE_END)
-    assert punct == ["COMMA", "O"]
+def test_drops_only_the_comma_between_a_greeting_and_a_name():
+    words = ["vâng", "xin", "chào", "anh", "tuấn", "anh", "xin", "kính", "chào"]
+    punct = ["COMMA", "O", "COMMA", "O", "O", "COMMA", "O", "O", "PERIOD"]
+    _drop_greeting_commas(words, punct)
+    # "Vâng," stays, and so does the comma closing the name "Tuấn Anh".
+    assert punct == ["COMMA", "O", "O", "O", "O", "COMMA", "O", "O", "PERIOD"]
 
 
 @model_tests
@@ -158,7 +152,10 @@ def test_greets_without_a_capital_mid_sentence(client):
 
     assert "Xin kính" not in restored
     assert "chào anh Tuấn" in restored
-    assert "Anh xin kính chào" in restored
+    # The comma after "Anh" closes the name "Tuấn Anh" and stays. The full
+    # stop the model puts after "Tuấn" splits the name; the speaker does not
+    # pause there, which only the audio can tell.
+    assert "Anh, xin kính chào" in restored
     assert words(restored) == words(text)
 
 

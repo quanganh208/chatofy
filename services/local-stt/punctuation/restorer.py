@@ -137,29 +137,20 @@ def _lower_mid_sentence_capitals(
             out[i] = word[:1].lower() + word[1:]
 
 
-def _drop_greeting_commas(words: list[str], punct: list[str], starts: bool, sentence_end: set[str]) -> None:
-    """Remove two commas the tagger adds around greetings. Edits `punct` in place.
+def _drop_greeting_commas(words: list[str], punct: list[str]) -> None:
+    """No comma between "chào" and a kinship word: "xin chào, anh Tuấn Anh".
 
-    - between "chào" and a kinship word: "xin chào, anh Tuấn". Written
-      Vietnamese puts a comma there in 5 of 18,525 cases (ViCapPunc train), and
-      dropping it raised comma F1 on recorded sessions and on 300 greeting
-      windows, with FLEURS unchanged.
-    - after a kinship word that opens a sentence: "Anh, xin kính chào", where
-      "Anh" is the speaker. Written Vietnamese has that comma in 12 of 24,634
-      cases. Measured, the tagger almost never writes it — not once in 300
-      windows opening with a kinship word — so this changes little beyond the
-      recorded greeting; a spoken vocative ("Anh, em xin lỗi") would lose a
-      correct comma, and none was in the rulers to measure that.
+    Edits `punct` in place. Written Vietnamese puts a comma there in 5 of
+    18,525 cases (ViCapPunc train), and dropping it raised comma F1 on recorded
+    sessions and on 300 greeting windows, with FLEURS unchanged.
 
-    `starts` says whether the first word opens a sentence (no context, or the
-    context ended one).
+    The comma after an opening kinship word ("…Tuấn. Anh, xin kính chào") is
+    left alone on purpose. A rule dropping it shipped on the reading that "Anh"
+    was the speaker; it was the end of the name "Tuấn Anh", and that comma was
+    the right one.
     """
     for i in range(len(words) - 1):
-        if punct[i] != "COMMA":
-            continue
-        opens = starts if i == 0 else punct[i - 1] in sentence_end
-        greeting = words[i] == "chào" and words[i + 1] in TITLE_WORDS
-        if greeting or (opens and words[i] in TITLE_WORDS):
+        if punct[i] == "COMMA" and words[i] == "chào" and words[i + 1] in TITLE_WORDS:
             punct[i] = "O"
 
 
@@ -289,6 +280,6 @@ class DisplayRestorer:
             label = "CAP" if sentence_start and case[i] == "LOWER" else case[i]
             out.append(apply_case(word, label))
         _lower_mid_sentence_capitals(out, punct, fixed, _SENT_END)
-        _drop_greeting_commas(words, punct, starts, _SENT_END)
+        _drop_greeting_commas(words, punct)
         surface = surface_for(LANGUAGE)
         return " ".join(w + surface.get(m, "") for w, m in zip(out, punct))

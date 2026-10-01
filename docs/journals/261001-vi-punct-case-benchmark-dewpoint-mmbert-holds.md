@@ -118,3 +118,9 @@ Comma F1, against the shipped prod (`+ comma-common + title`):
 Both pass the criteria fixed in the plan, and both shipped. Case F1 is unchanged everywhere.
 
 `title-comma` changed nothing in the 300 windows that open with a kinship word: the model almost never writes "Anh, xin". Its only measured effect is the recorded greeting. The cost it could have, removing a correct comma after a spoken vocative ("Anh, em xin lỗi"), is not in any ruler.
+
+### Correction: the opening comma was right
+
+`title-comma` was reverted the same day. The greeting is "Vâng, xin chào anh **Tuấn Anh**, xin kính chào quý vị khán giả": a correspondent greeting the anchor Tuấn Anh, not "Anh" the speaker. That reading was assumed rather than checked, and on the one sentence the rule ever changed, it removed the correct comma.
+
+The audio settles it: no pause anywhere between "xin chào" and "khán giả" (Tuấn→Anh 0.16 s, Anh→xin 0.20 s, no energy dip). The only pause is ~0.7 s after "giả". The model's full stop after "Tuấn" therefore sits where the speaker did not stop. A text-only tagger cannot tell "anh Tuấn. Anh xin" from "anh Tuấn Anh, xin", and pauses can, which is the next thing to measure.
