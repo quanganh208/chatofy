@@ -544,6 +544,31 @@ describe('PipelineTranslatorService', () => {
       });
     });
 
+    it("hands the recognizer's pauses to the restore and keeps them on the turn", async () => {
+      const restore = vi.fn().mockResolvedValue('Xin chào.');
+      const trio = fakeTrio({
+        stt: {
+          name: 'fake-stt',
+          transcribe: vi.fn().mockResolvedValue({
+            text: 'xin chào',
+            language: 'vi',
+            pauses: [0, 420],
+          }),
+        },
+      });
+      const result = await serviceWith(trio, restore).transcribeAndTranslate(
+        { ...input, restoreDisplay: { terms: [] } },
+        VI_TO_EN,
+      );
+
+      expect(restore).toHaveBeenCalledWith('xin chào', {
+        language: 'vi',
+        terms: [],
+        pauses: [0, 420],
+      });
+      expect(result.pauses).toEqual([0, 420]);
+    });
+
     it('starts the restore before the translation finishes, not after', async () => {
       // The whole latency argument: the restore's cost must sit beside the
       // translation. Asserted by order, not the clock.

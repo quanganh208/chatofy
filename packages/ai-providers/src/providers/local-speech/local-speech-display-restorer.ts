@@ -35,6 +35,7 @@ export class LocalSpeechDisplayRestorer implements DisplayRestorer {
           language: options.language,
           context: options.context ?? '',
           terms: options.terms ?? [],
+          ...(options.pauses === undefined ? {} : { pauses: options.pauses }),
         }),
       },
       LOCAL_RESTORE_TIMEOUT_MS,

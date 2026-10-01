@@ -637,6 +637,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           session,
           session.sessionId,
           translated.sourceText,
+          translated.pauses,
         );
 
         // After the transcript is out, so a slow sidecar delays a label and never
@@ -849,7 +850,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     }
 
     if (reusable) return { translated: await reusable, split: null };
-    const { text: sourceText } = await wholeSource!;
+    const { text: sourceText, pauses } = await wholeSource!;
     // Heard as nothing: the ordinary path owns what that means for a turn —
     // the warning, and the rejection the caller reports.
     if (!sourceText.trim()) {
@@ -872,7 +873,10 @@ export class TranslationSessionService implements OnModuleDestroy {
     }
     const display = restoreRequestFor(session, continuation.continued);
     const restoring = display
-      ? this.pipeline.restoreDisplay(sourceText, plan.recognition, display)
+      ? this.pipeline.restoreDisplay(sourceText, plan.recognition, {
+          ...display,
+          ...(pauses === undefined ? {} : { pauses }),
+        })
       : undefined;
     const translations = await this.pipeline.translateAll({
       text: sourceText,
@@ -885,10 +889,12 @@ export class TranslationSessionService implements OnModuleDestroy {
     });
     const restored = await restoring;
     return {
-      translated:
-        restored === undefined
-          ? { sourceText, translations }
-          : { sourceText, translations, restored },
+      translated: {
+        sourceText,
+        translations,
+        ...(restored === undefined ? {} : { restored }),
+        ...(pauses === undefined ? {} : { pauses }),
+      },
       split: null,
     };
   }
@@ -934,7 +940,13 @@ export class TranslationSessionService implements OnModuleDestroy {
           reachesEnd: piece.reachesEnd,
         },
       });
-      this.rememberSegment(socket, session, ids[index]!, piece.sourceText);
+      this.rememberSegment(
+        socket,
+        session,
+        ids[index]!,
+        piece.sourceText,
+        piece.pauses,
+      );
     });
     // After every line is out, as for a whole turn: a label may wait on the
     // sidecar, a sentence never does.
@@ -1102,13 +1114,22 @@ export class TranslationSessionService implements OnModuleDestroy {
     session: TurnSession,
     segmentId: string,
     sourceText: string,
+    pauses: number[] | undefined,
   ): void {
+    const restore = restoreRequestFor(session, undefined);
     this.finished.record(socket, segmentId, {
       sourceText,
       recognition: session.languages.recognition,
       targets: session.languages.targets,
       ...(session.hints ? { hints: session.hints } : {}),
-      restore: restoreRequestFor(session, undefined),
+      ...(restore
+        ? {
+            restore: {
+              ...restore,
+              ...(pauses === undefined ? {} : { pauses }),
+            },
+          }
+        : {}),
     });
   }
 

@@ -50,6 +50,10 @@ the alternatives that lost.
 > `punctuation/lowercase_words.json` (counted from ViCapPunc train), and a title
 > word only before a capitalized name. The model and the rules were chosen by
 > `benchmarks/punct` against every usable vi tagger.
+> For Vietnamese, `/transcribe` also returns `pauses`, the silence after each
+> word in ms (`engines/word_pauses.py`). `/restore` takes them back and drops a
+> full stop the speaker did not pause at (under 120 ms, chosen on FLEURS dev in
+> `benchmarks/punct`).
 
 > **License obligation.** Zipformer-30M is CC-BY-NC-ND-4.0: **academic / thesis
 > use only**, no commercial use, no distribution of derivatives. If this project

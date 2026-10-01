@@ -124,3 +124,24 @@ Both pass the criteria fixed in the plan, and both shipped. Case F1 is unchanged
 `title-comma` was reverted the same day. The greeting is "Vâng, xin chào anh **Tuấn Anh**, xin kính chào quý vị khán giả": a correspondent greeting the anchor Tuấn Anh, not "Anh" the speaker. That reading was assumed rather than checked, and on the one sentence the rule ever changed, it removed the correct comma.
 
 The audio settles it: no pause anywhere between "xin chào" and "khán giả" (Tuấn→Anh 0.16 s, Anh→xin 0.20 s, no energy dip). The only pause is ~0.7 s after "giả". The model's full stop after "Tuấn" therefore sits where the speaker did not stop. A text-only tagger cannot tell "anh Tuấn. Anh xin" from "anh Tuấn Anh, xin", and pauses can, which is the next thing to measure.
+
+## Follow-up 3: pause-aware sentence boundaries
+
+The restorer reads text only. A full stop it writes where the speaker did not pause is now dropped when the sidecar can measure pauses (`engines/word_pauses.py`: the recognizer's word onsets plus frame energy).
+
+**Rulers.** FLEURS vi dev (149 clips) for selection; FLEURS vi test (347) and 42 chunks of 5 recorded sessions (Scribe reference) for the single scored run.
+
+**Pause measure.** The first definition, 25 dB under the speech level, read no pause in half the FLEURS clips. On dev only, it was replaced by "below the midpoint between the clip's floor and its speech level": AUC 0.856 vs 0.723 for separating punctuated gaps from unpunctuated ones.
+
+**Selection on dev.** Every gate variant (120/200/300 ms × drop/comma) was flat to slightly negative: 4 dev rows changed, and the best was `120-drop` at −0.0005.
+
+**Scored once on test, against the shipped sidecar:**
+
+|                     | full-stop F1 FLEURS | full-stop F1 prod | case F1 FLEURS | case F1 prod | primary Δ [95% CI]         |
+| ------------------- | ------------------- | ----------------- | -------------- | ------------ | -------------------------- |
+| shipped             | 0.927               | 0.671             | 0.872          | 0.820        | –                          |
+| + gate 120 ms, drop | **0.940**           | **0.686**         | 0.874          | **0.836**    | +0.0086 [−0.0029, +0.0199] |
+
+All four pre-set criteria hold. The recorded greeting, with the words prod heard and pauses measured from the recording, reads "Vâng, xin chào anh Tuấn Anh, xin kính chào quý vị khán giả."
+
+Caveat: the gain rests on 31 changed test rows, and dev showed none. The gate only removes boundaries. A long pause the model left unpunctuated ("…xảy ra vụ việc này", 310 ms after "ra") is not added.

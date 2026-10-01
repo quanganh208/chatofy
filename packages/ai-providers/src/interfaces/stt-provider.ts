@@ -25,6 +25,13 @@ export interface SttTranscriptResult {
    * distinction changes behaviour.
    */
   speechMs?: number;
+  /**
+   * Silence after each word of `text`, in ms — set only by a backend that
+   * measured it from the audio (the local sidecar, for Vietnamese). One entry
+   * per whitespace-separated word. A display restorer reads it to drop a full
+   * stop where the speaker never paused.
+   */
+  pauses?: number[];
 }
 
 /** Streaming partial/final transcript event (future realtime path). */

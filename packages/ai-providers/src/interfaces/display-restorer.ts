@@ -10,6 +10,11 @@ export interface DisplayRestoreOptions {
   context?: string;
   /** The session's hotwords; a restorer may use the mixed-case ones as forms. */
   terms?: string[];
+  /**
+   * Silence after each word of the transcript in ms, as the recognizer
+   * measured it. A full stop where the speaker never paused is dropped.
+   */
+  pauses?: number[];
 }
 
 /**
