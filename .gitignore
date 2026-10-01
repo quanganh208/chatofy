@@ -116,3 +116,6 @@ worktrees/
 # and a real credential on whatever API the harness was pointed at.
 **/benchmarks/live-translate/.harness-account.json
 **/benchmarks/live-translate/.venv/
+# Punctuation benchmark: downloaded public rulers (fetched by punct_bench.rulers)
+**/benchmarks/punct/data/external/
+**/benchmarks/punct/results/smoke/

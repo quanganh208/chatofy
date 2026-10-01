@@ -1,0 +1,33 @@
+[project]
+name = "punct-bench"
+version = "0.1.0"
+description = "Vietnamese punctuation and case restorer benchmark (CPU, non-generative taggers)"
+requires-python = ">=3.11.4,<3.12"
+dependencies = [
+    "numpy>=1.26",
+    "onnxruntime==1.27.0",
+    "tokenizers>=0.21",
+    "huggingface-hub>=1.24.0",
+    "psutil>=5.9",
+    "sentencepiece>=0.2.2",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+# Arms whose reference code is PyTorch. Kept out of the base set so the ONNX
+# arms are measured in an environment that has no torch loaded at all.
+torch = ["torch>=2.4", "transformers>=4.44", "safetensors>=0.4"]
+# The punctuators wrapper (badcode arm) imports torch only for its DataLoader.
+punctuators = ["punctuators==0.0.7", "torch>=2.4"]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

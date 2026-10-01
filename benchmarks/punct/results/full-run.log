@@ -1,0 +1,10 @@
+{"arm": "floor", "exit": 0, "wall_s": 0.1, "peak_rss_mb": 30, "load_s": 0.0, "rows": 900}
+{"arm": "dw-mmbert-int8emb", "exit": 0, "wall_s": 37.8, "peak_rss_mb": 1230, "load_s": 3.04, "rows": 900}
+{"arm": "dw-mmbert-fp32", "exit": 0, "wall_s": 38.9, "peak_rss_mb": 2283, "load_s": 4.44, "rows": 900}
+{"arm": "dw-xlmr-large", "exit": 0, "wall_s": 79.5, "peak_rss_mb": 1884, "load_s": 3.99, "rows": 900}
+{"arm": "dw-ensemble", "exit": 0, "wall_s": 119.0, "peak_rss_mb": 3170, "load_s": 3.37, "rows": 900}
+{"arm": "vibert-capu-int8", "exit": 0, "wall_s": 29.5, "peak_rss_mb": 299, "load_s": 0.47, "rows": 900}
+{"arm": "vibert-capu-fp32", "exit": 0, "wall_s": 83.9, "peak_rss_mb": 609, "load_s": 1.48, "rows": 900}
+{"arm": "xlmr-capu", "exit": 0, "wall_s": 123.6, "peak_rss_mb": 1283, "load_s": 3.47, "rows": 900}
+{"arm": "badcode-xlmr", "exit": 0, "wall_s": 249.8, "peak_rss_mb": 2022, "load_s": 4.31, "rows": 900}
+{"arm": "capu-vi-vlsp", "exit": 0, "wall_s": 129.7, "peak_rss_mb": 1883, "load_s": 10.03, "rows": 900}

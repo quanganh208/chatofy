@@ -1,0 +1,25 @@
+[project]
+name = "capu-vi-env"
+version = "0.0.0"
+description = "Environment for the capu-vi arm: fairseq is unmaintained and needs an older Python than the rest of the benchmark"
+requires-python = ">=3.9,<3.11"
+dependencies = [
+    "fairseq==0.12.2",
+    "torch>=2.0,<2.6",
+    "numpy<2",
+    "sentencepiece",
+    "pytorch-crf",
+    "huggingface-hub",
+    "psutil",
+]
+
+[tool.uv]
+package = false
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
