@@ -2,7 +2,7 @@ import type { Logger } from '@nestjs/common';
 import type { LanguageCode, TranslationHints } from '@chatofy/types';
 import { TranslationBudget } from '../audio/translation-budget';
 import { EventChannel } from './event-channel';
-import type { FinishedSegments } from './finished-segments';
+import type { FinishedSegments, SegmentBlock } from './finished-segments';
 import type { StreamSocket } from './stream-socket';
 import { FINAL_MODELS } from './translation-model-policy';
 import type { TranslationMap } from './turn-language-plan';
@@ -61,6 +61,23 @@ const BLOCK_RETRANSLATION_GLOBAL_RPM = BLOCK_RETRANSLATION_RPM * 4;
  */
 export const MAX_WAITING_BLOCKS = BLOCK_RETRANSLATION_RPM - 1;
 
+/** How a block's display is made: a restore beside the translation, then typesetting. */
+export interface BlockDisplay {
+  /** The block restored as one text, or undefined. Must not reject. */
+  restore(block: SegmentBlock): Promise<string | undefined>;
+  /** The display to send for a restore and the block's translations, or undefined. */
+  typeset(
+    block: SegmentBlock,
+    restored: string | undefined,
+    translations: TranslationMap,
+  ): string | undefined;
+}
+
+const NO_DISPLAY: BlockDisplay = {
+  restore: async () => undefined,
+  typeset: () => undefined,
+};
+
 /** What a block translation needs from the translator. */
 export interface BlockTranslator {
   translateAll(req: {
@@ -98,6 +115,8 @@ export class BlockRetranslator {
     private readonly logger: Logger,
     /** Whether the client on this socket has gone; nothing is answered then. */
     private readonly isGone: (socket: StreamSocket) => boolean,
+    /** How a block's display is made; without one, blocks carry none. */
+    private readonly display: BlockDisplay = NO_DISPLAY,
   ) {}
 
   /**
@@ -175,17 +194,24 @@ export class BlockRetranslator {
       return this.refuse(socket, segmentIds, 'budget spent');
     }
     this.budget.spend(userId, model);
+    // Beside the translation, on the same budget: a restore is local and a few
+    // hundred milliseconds, and the reader gets both in the one answer.
+    const restoring = this.display.restore(block);
     try {
+      const translations = await this.translator.translateAll({
+        text: block.sourceText,
+        source: block.recognition,
+        targets: block.targets,
+        models: FINAL_MODELS,
+        hints: block.hints,
+      });
       this.answer(
         socket,
         segmentIds,
-        await this.translator.translateAll({
-          text: block.sourceText,
-          source: block.recognition,
-          targets: block.targets,
-          models: FINAL_MODELS,
-          hints: block.hints,
-        }),
+        translations,
+        // After the translation, because it spells the names the restorer
+        // cannot ("OpenAI"); the restore itself ran beside it.
+        this.display.typeset(block, await restoring, translations),
       );
     } catch (err) {
       // Warn, unlike the refusals: a failed call is bounded by the budget, and
@@ -232,11 +258,13 @@ export class BlockRetranslator {
     socket: StreamSocket,
     segmentIds: string[],
     translations: TranslationMap,
+    display?: string,
   ): void {
     new EventChannel(socket, this.logger).emit({
       type: 'server.block.translated',
       segmentIds,
       translations,
+      ...(display === undefined ? {} : { display }),
     });
   }
 }

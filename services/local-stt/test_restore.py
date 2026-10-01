@@ -3,7 +3,7 @@
 The accuracy claims in `punctuation/restorer.py` come from a ruler of real
 sessions scored against Scribe, not from these tests. What these pin is the
 contract around the model — that it never changes the words, that the context
-is read and not returned, that brand forms and the caller's terms apply — and a
+is read and not returned, that the caller's mixed-case terms apply — and a
 handful of the exact cases that motivated it, so a model or revision swap that
 loses them fails here.
 """
@@ -117,7 +117,9 @@ def test_reads_ai_as_the_technology_and_as_who(client):
     tech = restore(client, "mô hình ai của openai đã hoạt động bất thường").json()["text"]
     who = restore(client, "em không biết ai là người đã để quên cái ví này").json()["text"]
 
-    assert "AI của OpenAI" in tech
+    # The model tags a word lower, Capital or UPPER, so the mixed-case "OpenAI"
+    # is not its to produce: the API takes it from the turn's translation.
+    assert "AI của Openai" in tech
     assert " ai " in who
 
 

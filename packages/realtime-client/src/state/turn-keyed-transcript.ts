@@ -222,6 +222,8 @@ export function blockKey(segmentIds: readonly string[]): string {
 export interface BlockTranslation {
   segmentIds: string[];
   translations: Partial<Record<LanguageCode, string>>;
+  /** The block's source text typeset as one text, when the server sent one. */
+  display?: string;
 }
 
 /** What capture measured about one finished turn. */
@@ -658,6 +660,7 @@ export function turnKeyedTranscriptReducer(
           [blockKey(event.segmentIds)]: {
             segmentIds: event.segmentIds,
             translations: event.translations,
+            ...(event.display === undefined ? {} : { display: event.display }),
           },
         },
       };

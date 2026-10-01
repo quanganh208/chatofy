@@ -798,6 +798,15 @@ const serverBlockTranslatedSchema = z.object({
   type: z.literal('server.block.translated'),
   segmentIds: z.array(z.string()).min(2),
   translations: translationMapSchema(z.string()),
+  /**
+   * The block's source text typeset as ONE text — punctuation and case restored
+   * over the whole block, then the ITN — for a client that asked for a display
+   * (`repairDisplay`). Each piece was typeset alone, as a complete sentence with
+   * nothing after it, so the pieces' joined displays close sentences at the cuts
+   * and misplace marks a following clause would have settled. Absent when the
+   * restorer did not answer: the client then keeps the pieces' own displays.
+   */
+  display: z.string().min(1).optional(),
 });
 
 const serverAudioFrameSchema = z.object({

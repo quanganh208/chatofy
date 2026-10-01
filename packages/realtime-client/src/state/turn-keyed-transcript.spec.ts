@@ -353,6 +353,21 @@ describe('turnKeyedTranscriptReducer', () => {
       expect(state.blockTranslations['a b']?.translations).toEqual({ en: 'shorter' });
     });
 
+    it('keeps the block\u2019s typeset display beside its translation', () => {
+      const state = play({
+        type: 'server.block.translated',
+        segmentIds: ['a', 'b'],
+        translations: { en: 'One, two.' },
+        display: 'Một, hai.',
+      });
+
+      expect(state.blockTranslations['a b']).toEqual({
+        segmentIds: ['a', 'b'],
+        translations: { en: 'One, two.' },
+        display: 'Một, hai.',
+      });
+    });
+
     it('never touches the pieces it translates', () => {
       const state = play(
         final('a', 'một', 'one'),

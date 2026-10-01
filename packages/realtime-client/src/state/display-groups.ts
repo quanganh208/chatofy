@@ -195,8 +195,21 @@ export function groupTurnsForDisplay(
  * there. Words are never touched — a forced cut can land mid-word, and
  * repairing THAT would mean guessing at a word neither half contains.
  */
-export function groupSourceText(group: DisplayGroup, displays: Record<string, string>): string {
-  const pieces = group.turns.map((turn) => displays[turn.sessionId] ?? turn.sourceText);
+export function groupSourceText(
+  group: DisplayGroup,
+  displays: Record<string, string>,
+  blocks: Record<string, BlockTranslation> = {},
+): string {
+  // A block typeset as ONE text replaces the pieces it covers, the way its
+  // translation does: each piece was punctuated as a complete sentence with
+  // nothing after it, so the joined pieces close sentences at the cuts and put
+  // marks where the following clause would have said otherwise. The seam rule
+  // below still joins whatever pieces the block does not cover yet.
+  const block = coveringDisplay(group, blocks);
+  const rest = group.turns
+    .slice(block?.length ?? 0)
+    .map((turn) => displays[turn.sessionId] ?? turn.sourceText);
+  const pieces = block ? [block.text, ...rest] : rest;
   return pieces
     .map((piece, index) => {
       const next = pieces[index + 1];
@@ -259,11 +272,12 @@ export function groupRawSourceText(group: DisplayGroup): string {
  * same words in lowercase, and teach readers to ignore it on the lines where a
  * numeral really was rewritten.
  */
-export function groupIsRepaired(group: DisplayGroup, displays: Record<string, string>): boolean {
-  return group.turns.some((turn) => {
-    const display = displays[turn.sessionId];
-    return display !== undefined && wordsOf(display) !== wordsOf(turn.sourceText);
-  });
+export function groupIsRepaired(
+  group: DisplayGroup,
+  displays: Record<string, string>,
+  blocks: Record<string, BlockTranslation> = {},
+): boolean {
+  return wordsOf(groupSourceText(group, displays, blocks)) !== wordsOf(groupRawSourceText(group));
 }
 
 /**
@@ -306,6 +320,18 @@ function coveringBlock(
 ): { length: number; text: string } | undefined {
   for (let length = group.sessionIds.length; length >= 2; length -= 1) {
     const text = blocks[blockKey(group.sessionIds.slice(0, length))]?.translations[language];
+    if (text !== undefined) return { length, text };
+  }
+  return undefined;
+}
+
+/** The longest typeset block display that covers this group's opening run. */
+function coveringDisplay(
+  group: DisplayGroup,
+  blocks: Record<string, BlockTranslation>,
+): { length: number; text: string } | undefined {
+  for (let length = group.sessionIds.length; length >= 2; length -= 1) {
+    const text = blocks[blockKey(group.sessionIds.slice(0, length))]?.display;
     if (text !== undefined) return { length, text };
   }
   return undefined;

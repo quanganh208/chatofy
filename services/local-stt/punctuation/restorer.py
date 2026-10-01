@@ -48,10 +48,6 @@ CONTEXT_WORDS = 40
 #: beside a ~700 ms translation, so it has the time and should not take the CPU.
 RESTORE_THREADS = int(os.environ.get("LOCAL_STT_RESTORE_THREADS", "2"))
 
-#: Mixed-case brand forms the model cannot produce: it predicts lower, Capital
-#: or UPPER per word, and "OpenAI" is none of the three. Only words that are
-#: never ordinary Vietnamese belong here — "AI" does NOT, because "ai" is also
-#: the word for "who", and that choice is the model's to make from context.
 #: Spoken Vietnamese number words. The tagger puts commas and full stops inside
 #: a spoken number ("một trăm, hai mươi nghìn"), and the ITN downstream reads a
 #: mark as the end of a number — measured turning 120.000 into "100, 20.000"
@@ -92,12 +88,6 @@ log = logging.getLogger(__name__)
 class RestorerBusyError(Exception):
     """Another restore holds the model past `LOCK_WAIT_S`."""
 
-
-BRAND_FORMS = {
-    "openai": "OpenAI",
-    "chatgpt": "ChatGPT",
-    "vneid": "VNeID",
-}
 
 
 def mixed_case_terms(terms: list[str]) -> dict[str, str]:
@@ -211,7 +201,7 @@ class DisplayRestorer:
         case = list(r["case"][n:])
         _join_spoken_numbers(words, punct, case)
 
-        forms = {**p.gazetteer.get(LANGUAGE, {}), **BRAND_FORMS, **mixed_case_terms(terms or [])}
+        forms = {**p.gazetteer.get(LANGUAGE, {}), **mixed_case_terms(terms or [])}
         # A sentence starts here when there is no context, or when the context's
         # last word was tagged as ending one.
         starts = not lead or r["punct"][n - 1] in _SENT_END

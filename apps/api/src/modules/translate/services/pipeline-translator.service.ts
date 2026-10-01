@@ -156,6 +156,16 @@ export interface DisplayRestoreRequest {
 export const RESTORE_BUDGET_MS = 300;
 
 /**
+ * How long a WHOLE block's display restore may run.
+ *
+ * Longer than a turn's, because nothing waits on it: the block's own
+ * retranslation runs beside it for ~700 ms, and the line it replaces is already
+ * on screen. Measured on the sidecar at ~1.2 ms a word (210 words, 250 ms); a
+ * block is at most `MAX_BLOCK_SEGMENTS` forced pieces of ~8 s.
+ */
+export const BLOCK_RESTORE_BUDGET_MS = 1_500;
+
+/**
  * After a restorer reports itself absent (404 from an older sidecar, 503 before
  * its model is seeded, or no sidecar listening at all), how long to stop asking.
  * A permanent condition answered on every speculation and every turn is one
@@ -348,11 +358,12 @@ export class PipelineTranslatorService {
     text: string,
     language: LanguageCode,
     request: DisplayRestoreRequest,
+    budgetMs = RESTORE_BUDGET_MS,
   ): Promise<string | undefined> {
     if (Date.now() < this.restoreUnavailableUntil) return undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const outOfTime = new Promise<undefined>((resolve) => {
-      timer = setTimeout(() => resolve(undefined), RESTORE_BUDGET_MS);
+      timer = setTimeout(() => resolve(undefined), budgetMs);
     });
     try {
       // Only a transcript from the local recognizer arrives bare. A cloud one
