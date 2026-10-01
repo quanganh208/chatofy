@@ -164,15 +164,31 @@ export const RESTORE_BUDGET_MS = 300;
 const RESTORE_UNAVAILABLE_COOLDOWN_MS = 60_000;
 
 /**
- * A request that never reached a restorer — refused, unreachable — as opposed
- * to one that reached it and ran out of time. A timeout is a slow sidecar and
- * the next turn may well be answered; a refused connection is an absent one.
+ * A request that found no restorer at all — nothing listening, no such host —
+ * as opposed to a timeout (a slow sidecar) or a reset mid-request (a transient
+ * hiccup). Only the first is an absent sidecar worth a process-wide pause; the
+ * others may well be answered on the next turn.
  */
 function isRefusedConnection(err: unknown): boolean {
   if (!(err instanceof ProviderConnectionError)) return false;
-  const cause = err.cause instanceof Error ? err.cause.name : '';
-  return cause !== 'TimeoutError' && cause !== 'AbortError';
+  // fetch wraps the socket error: ProviderConnectionError → TypeError('fetch
+  // failed') → the system error carrying the code.
+  for (let cause: unknown = err.cause, depth = 0; depth < 3; depth += 1) {
+    if (!(cause instanceof Error)) return false;
+    const code = (cause as Error & { code?: unknown }).code;
+    if (typeof code === 'string') return ABSENT_RESTORER_CODES.has(code);
+    cause = cause.cause;
+  }
+  return false;
 }
+
+/** Socket error codes that mean no restorer is there to answer. */
+const ABSENT_RESTORER_CODES = new Set([
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'EHOSTUNREACH',
+  'EAI_AGAIN',
+]);
 
 /**
  * The text half of a turn — everything decided before speech is synthesized.

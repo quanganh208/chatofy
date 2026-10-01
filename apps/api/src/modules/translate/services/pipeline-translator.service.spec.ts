@@ -668,8 +668,11 @@ describe('PipelineTranslatorService', () => {
       const warn = vi
         .spyOn(Logger.prototype, 'warn')
         .mockImplementation(() => undefined);
-      const refused = Object.assign(new Error('connect ECONNREFUSED'), {
-        name: 'TypeError',
+      // The shape fetch throws: TypeError('fetch failed') over the system error.
+      const refused = new TypeError('fetch failed', {
+        cause: Object.assign(new Error('connect ECONNREFUSED'), {
+          code: 'ECONNREFUSED',
+        }),
       });
       const restore = vi
         .fn()
@@ -702,6 +705,32 @@ describe('PipelineTranslatorService', () => {
         .fn()
         .mockRejectedValue(
           new ProviderConnectionError('local restore timed out', timedOut),
+        );
+      const service = serviceWith(fakeTrio(), restore);
+
+      await service.transcribeAndTranslate(
+        { ...input, restoreDisplay: {} },
+        VI_TO_EN,
+      );
+      await service.transcribeAndTranslate(
+        { ...input, restoreDisplay: {} },
+        VI_TO_EN,
+      );
+
+      expect(restore).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps asking a restorer whose connection was reset once', async () => {
+      vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const reset = new TypeError('fetch failed', {
+        cause: Object.assign(new Error('socket hang up'), {
+          code: 'ECONNRESET',
+        }),
+      });
+      const restore = vi
+        .fn()
+        .mockRejectedValue(
+          new ProviderConnectionError('local restore failed', reset),
         );
       const service = serviceWith(fakeTrio(), restore);
 

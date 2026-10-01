@@ -120,7 +120,9 @@ describe('BlockRetranslator', () => {
   });
 
   it('caps the blocks waiting per connection and answers the rest empty', async () => {
-    const { socket, retranslator, translateAll, release } = harness(12);
+    const { socket, retranslator, translateAll, release } = harness(
+      MAX_WAITING_BLOCKS + 4,
+    );
 
     const running = retranslator.retranslate(socket, ['s0', 's1']);
     const queued = Array.from({ length: MAX_WAITING_BLOCKS + 2 }, (_, i) => [
@@ -142,7 +144,7 @@ describe('BlockRetranslator', () => {
   });
 
   it('still lets a waiting block grow when the queue is full', async () => {
-    const { socket, retranslator, release } = harness(12);
+    const { socket, retranslator, release } = harness(MAX_WAITING_BLOCKS + 4);
 
     const running = retranslator.retranslate(socket, ['s0', 's1']);
     for (let i = 1; i <= MAX_WAITING_BLOCKS; i += 1) {

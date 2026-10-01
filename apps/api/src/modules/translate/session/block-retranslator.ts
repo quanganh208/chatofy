@@ -52,12 +52,14 @@ const BLOCK_RETRANSLATION_GLOBAL_RPM = BLOCK_RETRANSLATION_RPM * 4;
 /**
  * How many blocks may wait per connection behind the one being translated.
  *
- * A display shows a handful of growing blocks at once, and each grown block
- * replaces its shorter self in place, so a well-behaved client stays well under
- * this. Past it the request is answered empty at once: the queue is keyed by a
- * client-chosen id and must not grow with how fast a client can send.
+ * Exactly what the per-user budget could still translate in a minute after the
+ * running one, so the budget stays the limit a legitimate burst meets — a
+ * regroup after attribution can re-ask many blocks in one render, and a block
+ * refused here is not asked again. The cap only stops the queue, which is keyed
+ * by a client-chosen id, from growing with how fast a client can send; past it
+ * the request is answered empty at once.
  */
-export const MAX_WAITING_BLOCKS = 4;
+export const MAX_WAITING_BLOCKS = BLOCK_RETRANSLATION_RPM - 1;
 
 /** What a block translation needs from the translator. */
 export interface BlockTranslator {
@@ -85,6 +87,9 @@ export class BlockRetranslator {
     perUserRpm: BLOCK_RETRANSLATION_RPM,
     globalRpm: BLOCK_RETRANSLATION_GLOBAL_RPM,
   });
+
+  /** When the spent budget was last reported at warn; see `warnBudgetSpent`. */
+  private budgetWarnedAt = Number.NEGATIVE_INFINITY;
 
   constructor(
     private readonly finished: FinishedSegments,
@@ -166,6 +171,7 @@ export class BlockRetranslator {
     }
     const model = FINAL_MODELS[0] ?? '';
     if (!this.budget.canSpend(userId, model)) {
+      this.warnBudgetSpent();
       return this.refuse(socket, segmentIds, 'budget spent');
     }
     this.budget.spend(userId, model);
@@ -191,6 +197,20 @@ export class BlockRetranslator {
       );
       this.answer(socket, segmentIds, {});
     }
+  }
+
+  /**
+   * Say at warn that the budget is spent, at most once a minute. Unlike the
+   * other refusals this one can be the process tier, which refuses every user
+   * at once, and an operator must be able to see that without debug logs.
+   */
+  private warnBudgetSpent(): void {
+    const now = Date.now();
+    if (now - this.budgetWarnedAt < 60_000) return;
+    this.budgetWarnedAt = now;
+    this.logger.warn(
+      'block retranslation refused: budget spent (further refusals this minute at debug)',
+    );
   }
 
   /**

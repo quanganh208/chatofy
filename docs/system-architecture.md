@@ -1737,7 +1737,8 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      key pool); past the process tier every user's block requests are refused
      until the minute rolls over, while live translation keeps its own budget.
      One request runs per socket, and behind it one waits per block, keyed by
-     its first segment, at most 4 blocks. Segments are checked before a request
+     its first segment, at most 11 blocks (what the per-user budget could still
+     translate that minute). Segments are checked before a request
      is queued, so unknown ids are answered at once. A grown block supersedes
      its shorter self without displacing another block, and the superseded
      request is answered empty; an identical re-ask merges with the waiting copy,

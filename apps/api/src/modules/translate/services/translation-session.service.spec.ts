@@ -2461,6 +2461,73 @@ describe('TranslationSessionService', () => {
       expect(seen[1]?.context?.at(-1)).toBe('xác thực điện tử');
     });
 
+    /** A translator whose first call hangs until released; later calls answer at once. */
+    const firstHangs = () => {
+      const seen: TranslateTurnInput[] = [];
+      let finishFirst!: () => void;
+      const transcribeAndTranslate = vi.fn((input: TranslateTurnInput) => {
+        seen.push(input);
+        const answer = {
+          sourceText:
+            seen.length === 1 ? 'xác thực điện tử' : 'bắt đầu có hiệu lực',
+          translations: { en: 'x' },
+        };
+        return seen.length === 1
+          ? new Promise((resolve) => (finishFirst = () => resolve(answer)))
+          : Promise.resolve(answer);
+      });
+      return { seen, transcribeAndTranslate, finish: () => finishFirst() };
+    };
+
+    it('reuses a speculation that went out standalone without waiting on the cut turn again', async () => {
+      // The speculation already waited PREDECESSOR_WAIT_MS for the cut turn and
+      // went out without it. Reusing it sends nothing, so waiting on that turn a
+      // second time would only hold this one.
+      const { seen, transcribeAndTranslate, finish } = firstHangs();
+      const { service } = makeService({ transcribeAndTranslate });
+      const socket = new FakeSocket();
+      const firstDone = service.end(socket, openTurn(service, socket));
+      const second = openTurn(service, socket, true);
+      service.speculate(socket, second);
+      await vi.waitFor(
+        () => expect(transcribeAndTranslate).toHaveBeenCalledTimes(2),
+        { timeout: 3_000 },
+      );
+
+      let ended = false;
+      const secondDone = service.end(socket, second).then(() => {
+        ended = true;
+      });
+      await vi.waitFor(() => expect(ended).toBe(true), { timeout: 500 });
+
+      expect(transcribeAndTranslate).toHaveBeenCalledTimes(2);
+      expect(seen[1]?.continuesCut).toBe(false);
+      finish();
+      await Promise.all([firstDone, secondDone]);
+    }, 10_000);
+
+    it('files a continuation whose client left during the wait as abandoned, and never sends it', async () => {
+      const { transcribeAndTranslate, finish } = firstHangs();
+      const { service, recorded } = makeService({ transcribeAndTranslate });
+      const socket = new FakeSocket();
+      const firstDone = service.end(socket, openTurn(service, socket));
+      const second = openTurn(service, socket, true);
+      // Deferred behind the cut turn, then taken by `end()` as the reusable guess.
+      service.speculate(socket, second);
+      const secondDone = service.end(socket, second);
+      await vi.waitFor(() =>
+        expect(transcribeAndTranslate).toHaveBeenCalledTimes(1),
+      );
+
+      service.disconnect(socket);
+      await secondDone;
+
+      expect(transcribeAndTranslate).toHaveBeenCalledTimes(1);
+      expect(recorded.map((row) => row.reason)).toEqual(['abandoned']);
+      finish();
+      await firstDone;
+    });
+
     it('continues the cut turn, not whichever turn finished last', async () => {
       const seen: TranslateTurnInput[] = [];
       const finish: Array<() => void> = [];

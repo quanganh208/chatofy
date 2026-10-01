@@ -352,11 +352,11 @@ export class TranslationSessionService implements OnModuleDestroy {
       // gone or the turn closed. Nobody would read the answer, and it would
       // still spend a recognition, a translation per target and a restore.
       // Rejected rather than resolved: `startSpeculation` swallows it, and a
-      // guess that never ran must not look like one that heard nothing.
+      // guess that never ran must not look like one that heard nothing. Its own
+      // class, because `end()` may already hold this promise as the reusable
+      // guess, and there it is a client that left, not a failed turn.
       if (this.gone.has(socket) || !this.registry.holds(socket, session)) {
-        return Promise.reject(
-          new Error('turn closed before its speculation launched'),
-        );
+        return Promise.reject(new SpeculationNotLaunchedError());
       }
       return this.pipeline.transcribeAndTranslate(
         {
@@ -685,6 +685,13 @@ export class TranslationSessionService implements OnModuleDestroy {
       record(wanted, delivery.stoppedBy);
       this.close(socket, session, delivery.stoppedBy ?? 'completed');
     } catch (err) {
+      // The reused guess never launched because the client left or the turn
+      // closed while it waited on its cut turn: the same case as a client gone
+      // after the request, filed the same way.
+      if (err instanceof SpeculationNotLaunchedError) {
+        record(false, 'abandoned');
+        return;
+      }
       // A turn the caller itself asked the sidecar to refuse on speech grounds
       // ends quietly: no error banner, no final, no vector — just a metrics row
       // so the rate is countable. An empty decode the gate did NOT cause still
@@ -1416,6 +1423,14 @@ export class TranslationSessionService implements OnModuleDestroy {
  * alone rather than hold its own translation any longer.
  */
 const PREDECESSOR_WAIT_MS = 1_500;
+
+/** A speculation that was never sent: its turn closed while it waited to launch. */
+class SpeculationNotLaunchedError extends Error {
+  constructor() {
+    super('turn closed before its speculation launched');
+    this.name = 'SpeculationNotLaunchedError';
+  }
+}
 
 /** The earlier speech one turn is translated against. */
 interface Continuation {
