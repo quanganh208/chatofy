@@ -1756,7 +1756,10 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      longest answered shape that is a prefix of the group, so a block that
      shrinks when a speaker is named reads the answer for its new shape, and
      `toConversationTurns` saves it. When the run ends, a drain that is
-     otherwise complete waits up to 3 s for unanswered blocks before the socket
+     otherwise complete first calls `onDrained`, where the web client settles
+     the transcript and asks for any block the settling formed (a voice placed
+     only at the end can join turns into a new block), and the session waits for
+     it. It then waits up to 3 s for unanswered blocks before the socket
      closes. A block that never gets an answer keeps the joined pieces, which is
      what was saved before. `sourceText` stays the recognizer's.
    - The display is repaired the same way. Each piece was restored as a

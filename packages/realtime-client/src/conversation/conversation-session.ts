@@ -238,6 +238,17 @@ export interface ConversationSessionListeners {
    * with a microphone open and a UI claiming to be running.
    */
   onStopped?: () => void;
+  /**
+   * A finishing run has nothing left to play, and its socket is still open.
+   *
+   * The last moment anything can be asked of the server: the server knows
+   * segments only by this connection. A caller that settles its transcript when
+   * the conversation ends does it here, so a block the settling reshapes is
+   * asked for while it can still be answered. The run waits for the returned
+   * promise before it decides whether to stop, so a block asked in the meantime
+   * holds it open like any other — bounded by the drain deadline either way.
+   */
+  onDrained?: () => Promise<void> | void;
   /** Diagnostics that must never be silent — dropped turns above all. */
   onLog?: (message: string) => void;
 }
@@ -309,6 +320,8 @@ export class ConversationSession {
   private drainTimer: ReturnType<typeof setTimeout> | null = null;
   /** Holds a finished drain open for block answers; see `completeDrainIfDone`. */
   private blockGraceTimer: ReturnType<typeof setTimeout> | null = null;
+  /** `onDrained` has been offered for this finish; see `completeDrainIfDone`. */
+  private drainOffered = false;
   private lastLevelAt = 0;
   /**
    * Turns the playback layer gave up on, and why.
@@ -450,6 +463,7 @@ export class ConversationSession {
     }
 
     this.finishing = true;
+    this.drainOffered = false;
     // Ending outranks a pause, and the flags must not both be set: `stop` clears
     // them together, but the status latch reads them independently.
     this.paused = false;
@@ -496,6 +510,24 @@ export class ConversationSession {
     // `isBusy` counts turns still queued, not only samples sounding — a turn
     // waiting on the server has not been spoken yet and must hold the drain.
     if (this.live.ordered?.isBusy) return;
+    // Once per finish, before the last look at the blocks below: whatever the
+    // caller asks while settling lands in `pendingBlocks` first. A run stopped
+    // or restarted while it settles has nothing left here to complete.
+    if (!this.drainOffered) {
+      this.drainOffered = true;
+      const generation = this.generation;
+      // A caller that fails here still gets its run ended now, not at the
+      // drain deadline.
+      void Promise.resolve()
+        .then(() => this.listeners.onDrained?.())
+        .catch((err: unknown) =>
+          this.listeners.onLog?.(`settling before stop failed: ${String(err)}`),
+        )
+        .then(() => {
+          if (generation === this.generation) this.completeDrainIfDone();
+        });
+      return;
+    }
     // The last block is asked for when its last piece lands, which is usually
     // just before the drain completes — and the answer is what the saved record
     // keeps. Bounded, because a server from before block retranslation never

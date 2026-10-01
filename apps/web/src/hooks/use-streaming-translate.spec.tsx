@@ -241,4 +241,52 @@ describe('useStreamingTranslate block retranslation', () => {
     expect(latest.blockTranslations['a b']?.translations.en).toBe('authentication takes effect');
     expect(session.retranslateBlock).toHaveBeenCalledTimes(1);
   });
+  // The finishing session waits on this before it closes the socket, so every
+  // block the settled transcript holds must already be asked when it resolves.
+  it('lets a draining session go only once its blocks are asked', async () => {
+    await act(async () => {
+      await latest.start(options);
+    });
+    const session = FakeConversationSession.last!;
+    let askedAtRelease: unknown[][] | null = null;
+    await act(async () => {
+      session.listeners.onTurnCaptured?.({
+        sessionId: 'a',
+        cutForced: true,
+        openedAt: 1_000,
+        closedAt: 9_000,
+        preRollMs: 0,
+      });
+      session.listeners.onTurnCaptured?.({
+        sessionId: 'b',
+        cutForced: false,
+        openedAt: 9_130,
+        closedAt: 12_000,
+        preRollMs: 0,
+      });
+      session.listeners.onServerEvent(final('a', 'xác thực điện tử', 'authentication'));
+      session.listeners.onServerEvent(final('b', 'bắt đầu có hiệu lực', 'It begins'));
+      void Promise.resolve(session.listeners.onDrained?.()).then(() => {
+        askedAtRelease = [...session.retranslateBlock.mock.calls];
+      });
+      await Promise.resolve();
+    });
+
+    expect(askedAtRelease).toEqual([[['a', 'b']]]);
+  });
+
+  it('lets a draining session go when settling changes nothing', async () => {
+    await act(async () => {
+      await latest.start(options);
+    });
+    const session = FakeConversationSession.last!;
+    let released = false;
+    await act(async () => {
+      void Promise.resolve(session.listeners.onDrained?.()).then(() => (released = true));
+      await Promise.resolve();
+    });
+
+    expect(released).toBe(true);
+    expect(session.retranslateBlock).not.toHaveBeenCalled();
+  });
 });

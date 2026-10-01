@@ -150,6 +150,7 @@ function harness(options: HarnessOptions = {}) {
     onServerEvent: vi.fn(),
     onReset: vi.fn(),
     onStopped: vi.fn(),
+    onDrained: vi.fn<() => Promise<void> | void>(),
     onTurnCaptured: vi.fn(),
     onTurnAbandoned: vi.fn(),
     onLog: vi.fn(),
@@ -665,6 +666,7 @@ describe('ConversationSession', () => {
 
       h.socket().emit(endedEvent('s1')); // the server finished translating
       sink.drain(sink.onlyTurnKey); // and the loudspeaker finished with it
+      await flushMicrotasks();
 
       expect(h.statuses.at(-1)).toBe('idle');
       expect(h.listeners.onStopped).toHaveBeenCalledTimes(1);
@@ -676,9 +678,86 @@ describe('ConversationSession', () => {
       await h.session.start(startOptions);
 
       h.session.finish();
+      await flushMicrotasks();
 
       expect(h.statuses.at(-1)).toBe('idle');
       expect(h.listeners.onStopped).toHaveBeenCalledTimes(1);
+    });
+
+    // Settling the transcript can join turns into a block that did not exist a
+    // moment ago, and the server can only answer it over this socket.
+    it('offers the drain to the caller before the socket closes', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      let release!: () => void;
+      h.listeners.onDrained.mockImplementation(() => {
+        expect(h.socket().closed).toBe(0);
+        return new Promise<void>((resolve) => (release = resolve));
+      });
+
+      h.session.finish();
+      await flushMicrotasks();
+      expect(h.listeners.onDrained).toHaveBeenCalledTimes(1);
+      expect(h.listeners.onStopped).not.toHaveBeenCalled();
+
+      release();
+      await flushMicrotasks();
+      expect(h.listeners.onStopped).toHaveBeenCalledTimes(1);
+      expect(h.socket().closed).toBe(1);
+    });
+
+    it('holds the run open for a block asked while settling', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      h.listeners.onDrained.mockImplementation(() => h.session.retranslateBlock(['x', 'y']));
+
+      h.session.finish();
+      await flushMicrotasks();
+      expect(h.socket().sent).toContainEqual({
+        type: 'client.block.retranslate',
+        segmentIds: ['x', 'y'],
+      });
+      expect(h.listeners.onStopped).not.toHaveBeenCalled();
+
+      h.socket().emit({
+        type: 'server.block.translated',
+        segmentIds: ['x', 'y'],
+        translations: { en: 'whole' },
+      });
+      expect(h.listeners.onStopped).toHaveBeenCalledTimes(1);
+    });
+
+    it('ends the run when settling fails, and says why', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      h.listeners.onDrained.mockRejectedValue(new Error('boom'));
+
+      h.session.finish();
+      await flushMicrotasks();
+
+      expect(h.listeners.onStopped).toHaveBeenCalledTimes(1);
+      expect(h.listeners.onLog).toHaveBeenCalledWith(expect.stringContaining('boom'));
+    });
+
+    it('does not end a run that was cut while it settled', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      let release!: () => void;
+      h.listeners.onDrained.mockImplementation(
+        () => new Promise<void>((resolve) => (release = resolve)),
+      );
+
+      h.session.finish();
+      await flushMicrotasks();
+      h.session.finish(); // the second press cuts it
+      expect(h.listeners.onStopped).toHaveBeenCalledTimes(1);
+
+      await h.session.start(startOptions);
+      release();
+      await flushMicrotasks();
+
+      expect(h.listeners.onStopped).toHaveBeenCalledTimes(1);
+      expect(h.session.isRunning).toBe(true);
     });
 
     it('holds the finishing status against the tail still playing', async () => {

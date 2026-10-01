@@ -289,6 +289,11 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
 
   // Block shapes already asked to be translated whole; see the effect below.
   const askedBlocks = useRef(new Set<string>());
+  // The session waiting in `onDrained` for the settled transcript's blocks to
+  // be asked, and a count that renders once per settling even when settling
+  // changes nothing; see the effect after the one that asks.
+  const drained = useRef<(() => void) | null>(null);
+  const [settlings, setSettlings] = useState(0);
 
   const sessionRef = useRef<ConversationSession | null>(null);
   sessionRef.current ??= new ConversationSession(
@@ -367,6 +372,16 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
         // most needs settling.
         dispatch({ type: 'transcript.settled' });
       },
+      // The same settling, while the socket is still open. Settling can join
+      // turns into a block that did not exist a moment ago — a voice placed only
+      // now — and that block can only be asked for over this connection. The
+      // one in `onStopped` stays for the run a dropped socket ends.
+      onDrained: () =>
+        new Promise<void>((resolve) => {
+          drained.current = resolve;
+          dispatch({ type: 'transcript.settled' });
+          setSettlings((count) => count + 1);
+        }),
       onServerEvent: dispatch,
       onReset: () => dispatch({ type: 'transcript.reset' }),
       // Not optional once turns run concurrently. A turn refused at a ceiling,
@@ -574,6 +589,14 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     conversation.attributions,
     conversation.blockTranslations,
   ]);
+
+  // Let a finishing session go once the settled transcript has been asked for.
+  // After the effect above in the same commit, so its blocks are already in
+  // flight — and they hold the session open until they are answered.
+  useEffect(() => {
+    drained.current?.();
+    drained.current = null;
+  }, [settlings]);
 
   // Release the microphone and the socket if the page goes away mid-conversation.
   useEffect(() => stop, [stop]);
