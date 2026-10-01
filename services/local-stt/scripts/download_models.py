@@ -9,8 +9,9 @@
 - Silero VAD: one ONNX file, pinned by sha256 (see below) rather than trusted
   on whatever the URL currently serves — see `audio/silero_speech.py`.
 - Dewpoint mmBERT punctuation/case tagger for the vi display: pinned HF
-  revision, then its embedding matrix quantized to int8 here — see
-  `punctuation/restorer.py` for why only the embedding.
+  revision, then its embedding matrix quantized to 8 bits here by
+  `quantize_embedding.py` — see `punctuation/restorer.py` for why only the
+  embedding.
 
 Idempotent; safe to re-run.
 Run: uv run --directory services/local-stt python scripts/download_models.py
@@ -18,6 +19,7 @@ Run: uv run --directory services/local-stt python scripts/download_models.py
 import hashlib
 import os
 import shutil
+import subprocess
 import sys
 import tarfile
 import urllib.request
@@ -234,19 +236,19 @@ def _fetch_dewpoint() -> None:
     if target.exists():
         print("[dewpoint] ready (cached)")
         return
-    from onnxruntime.quantization import QuantType, quantize_dynamic
-
     print(f"[dewpoint] downloading {DEWPOINT_ONNX} @ {DEWPOINT_REVISION[:8]}")
     source = hf_hub_download(DEWPOINT_REPO, DEWPOINT_ONNX, revision=DEWPOINT_REVISION)
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_suffix(".part")
-    quantize_dynamic(
-        source,
-        str(tmp),
-        weight_type=QuantType.QInt8,
-        per_channel=True,
-        op_types_to_quantize=["Gather"],
-    )
+    # In a child process: the quantization is the one step here that needs
+    # gigabytes, and an OOM kill is a SIGKILL no `except` sees. Out of process
+    # it costs only the restorer, as the docstring of `fetch_dewpoint` promises,
+    # instead of failing the whole seed and with it the deploy.
+    quantizer = Path(__file__).with_name("quantize_embedding.py")
+    done = subprocess.run([sys.executable, str(quantizer), source, str(tmp)], check=False)
+    if done.returncode != 0:
+        tmp.unlink(missing_ok=True)
+        raise RuntimeError(f"quantizing {DEWPOINT_ONNX} exited with {done.returncode}")
     tmp.rename(target)
     print("[dewpoint] ready")
 

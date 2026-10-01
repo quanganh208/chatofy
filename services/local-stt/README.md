@@ -36,8 +36,8 @@ the alternatives that lost.
 
 > **Display punctuation and case (vi).** `POST /restore` runs
 > [valkayuh/dewpoint][dewpoint] (MIT), mmBERT member, pinned revision, with only
-> its token embedding quantized to int8 by `download_models.py` (641 MB, ~1 GB
-> RSS). It is a tagger and cannot add, drop or reorder a word. On 36 rows from 7
+> its token embedding quantized to 8 bits by `scripts/quantize_embedding.py` at
+> seed time (641 MB, ~1 GB RSS). It is a tagger and cannot add, drop or reorder a word. On 36 rows from 7
 > recorded sessions against Scribe v2 it took punctuation F1 from 0 to 0.62, case
 > F1 from 0.29 to 0.86 and "AI" from 0/26 to 26/26. Quantizing the MatMuls as
 > well lost "AI" on 7 of 26 calls, so they stay fp32. The result is display only;
