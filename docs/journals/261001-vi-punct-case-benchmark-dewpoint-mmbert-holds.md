@@ -162,3 +162,34 @@ On the recorded news read (dc04 turn 0), the gate dropped two full stops the mod
 | 1000 (pick)  | −0.090        | −0.042 [−0.048, −0.037] | 0.760               | 0.686             |
 
 It fails every criterion. Read speech pauses inside sentences for 300–900 ms (breath, emphasis), so pause length alone cannot mark a boundary. Only prod at 500 ms nudged up (+0.013 full-stop F1, 42 chunks), and that came with FLEURS collapsing. The code was not kept. Whatever closes the dc04 boundaries has to read both the text and the pause: a model trained with pause features, not a threshold on top of a text-only one.
+
+## Follow-up 5: a model that reads the text and the pause together — measured twice, not shipped
+
+**Design** (chosen by a best-of-5 brainstorm, `plans/reports/brainstorm-261001-2205-pause-aware-boundary-fusion.md`):
+
+- A logistic model at each word gap reads Dewpoint's posteriors (log P(end), log P(comma), log P(none)) and the pause (its own, the next one, and its offset from the text's median).
+- It decides every sentence end in place of the 120 ms gate. Without pauses, the output is identical; this was checked on all six text rulers.
+- Each fit had a kill gate first, and test was scored once per fit.
+
+| fit on                                                    | gate: P(end) AUC, gaps ≥ 300 ms | gate: CV AUC joint vs pause | test primary Δ [95% CI]  | full-stop F1 FLEURS | full-stop F1 prod | comma F1 prod | prod internal ends P / R |
+| --------------------------------------------------------- | ------------------------------- | --------------------------- | ------------------------ | ------------------- | ----------------- | ------------- | ------------------------ |
+| shipped gate                                              | –                               | –                           | –                        | 0.940               | 0.686             | 0.528         | 0.83 / 0.62              |
+| FLEURS train (310 boundaries)                             | 0.971                           | 0.969 vs 0.894              | −0.0069 [−0.019, +0.005] | 0.944               | 0.667             | 0.507         | 0.73 / 0.60              |
+| + 40 podcast episodes, Scribe-labelled (1,090 boundaries) | 0.892                           | 0.956 vs 0.835              | −0.0128 [−0.026, +0.000] | 0.928               | 0.691             | 0.455         | 0.63 / **0.80**          |
+
+**FLEURS fit.** The text separates read-speech boundaries almost perfectly, so the fit leaned on it: 2.77 on log P(end), 0.24 on log pause. At dc04's "thử nghiệm" (640 ms, P(end) 0.35) it scored 0.02. It did not transfer to recorded sessions.
+
+**Conversational fit.** The training data was the Vietcetera podcast part of VietSuperSpeech, 40 episodes × 20 segments, labelled by Scribe v2 and decoded by the live zipformer.
+
+- It found the missing boundaries: internal-end recall on prod went 0.62 → 0.80.
+- It paid for them with false ones: precision 0.83 → 0.63, and commas turned into stops (comma F1 0.528 → 0.455). FLEURS full stops fell as well.
+- Its pause weight is still small (0.14): in conversation, speakers often end a sentence without pausing and pause without ending one.
+- On dc04 it put back the two full stops the gate had rightly removed ("tấn công mạng. Trong…", 50 ms) and still missed the real ones.
+
+**Conclusion.** Neither fit meets the criteria. The plan made the conversational fit the last scored look at the test rulers for this direction.
+
+- Dewpoint's posterior and a pause length do not jointly separate sentence ends in conversation better than the model plus the 120 ms gate.
+- Recall can be bought, but only at a precision and comma cost that loses overall.
+- What remains is a stronger _text_ signal at those boundaries (a model that reads more context, or a different tagger), or prosody beyond pause length. Both are separate decisions.
+
+The code and both fits are kept on branch `feat/punct-pause-fusion`, so the result can be reproduced. Nothing changed in the sidecar on main.
