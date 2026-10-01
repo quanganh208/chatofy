@@ -1,4 +1,5 @@
 import type { LanguageCode, TranslationHints } from '@chatofy/types';
+import type { DisplayRestoreRequest } from '../services/pipeline-translator.service';
 import type { StreamSocket } from './stream-socket';
 
 /**
@@ -26,6 +27,8 @@ export interface FinishedSegment {
   recognition: LanguageCode;
   targets: readonly LanguageCode[];
   hints?: TranslationHints;
+  /** What the turn asked the display restorer for; absent when it asked nothing. */
+  restore?: DisplayRestoreRequest;
 }
 
 /** A run of segments that can be translated as one text. */
@@ -34,6 +37,8 @@ export interface SegmentBlock {
   recognition: LanguageCode;
   targets: LanguageCode[];
   hints?: TranslationHints;
+  /** The block's display restore, as its first piece asked for one. */
+  restore?: DisplayRestoreRequest;
 }
 
 export class FinishedSegments {
@@ -90,6 +95,11 @@ export class FinishedSegments {
       recognition: first.recognition,
       targets: [...first.targets],
       ...(first.hints ? { hints: first.hints } : {}),
+      // Terms only: a block starts a display group, so it continues nothing and
+      // the first piece's seam context does not apply to it.
+      ...(first.restore
+        ? { restore: { terms: first.restore.terms ?? [] } }
+        : {}),
     };
   }
 }

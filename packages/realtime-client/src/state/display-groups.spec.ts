@@ -329,6 +329,44 @@ describe('group text', () => {
       expect(groupTranslation(group!, 'en', blocks)).toBe('One, two, three.');
     });
 
+    // Each piece was punctuated as a complete sentence with nothing after it;
+    // on a recorded news clip that read "của ngành. AI khi mà…" where the
+    // whole block, restored once, read "của ngành AI khi mà…".
+    describe('and a display for the block', () => {
+      const withDisplay = (segmentIds: string[], display: string) => ({
+        [blockKey(segmentIds)]: { segmentIds, translations: { en: 'x' }, display },
+      });
+      const pieces = { a: 'Một.', b: 'Hai.', c: 'Ba.' };
+
+      it('shows the block typeset as one text instead of its pieces', () => {
+        const [group] = three();
+        expect(groupSourceText(group!, pieces, withDisplay(['a', 'b', 'c'], 'Một, hai, ba.'))).toBe(
+          'Một, hai, ba.',
+        );
+      });
+
+      it('keeps the pieces a shorter block does not cover yet', () => {
+        const [group] = three();
+        expect(groupSourceText(group!, pieces, withDisplay(['a', 'b'], 'Một, hai'))).toBe(
+          'Một, hai Ba.',
+        );
+      });
+
+      it('keeps the pieces when the block came back with no display', () => {
+        const [group] = three();
+        const blocks = answered([['a', 'b', 'c'], { en: 'One, two, three.' }]);
+        expect(groupSourceText(group!, pieces, blocks)).toBe('Một. Hai. Ba.');
+      });
+
+      it('reads a block display that changed a numeral as repaired', () => {
+        const [group] = three();
+        expect(groupIsRepaired(group!, {}, withDisplay(['a', 'b', 'c'], 'Một, 2, ba.'))).toBe(true);
+        expect(groupIsRepaired(group!, {}, withDisplay(['a', 'b', 'c'], 'Một, hai, ba.'))).toBe(
+          false,
+        );
+      });
+    });
+
     it('covers the opening run while the grown block is still being asked for', () => {
       const [group] = three();
       const blocks = answered([['a', 'b'], { en: 'One and two' }]);

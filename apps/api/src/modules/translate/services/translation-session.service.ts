@@ -12,14 +12,13 @@ import {
   type SessionOptions,
 } from '@chatofy/types';
 import {
-  inverseNormalizeTranscript,
-  normalizeTranscript,
   ProviderAbortedError,
   type SpeakerEmbeddingResult,
   type TtsAudioStream,
 } from '@chatofy/ai-providers';
 import {
   NoSpeechDetectedException,
+  BLOCK_RESTORE_BUDGET_MS,
   PipelineTranslatorService,
   SpeechEngineBusyException,
   type SynthesizedSpeech,
@@ -27,8 +26,10 @@ import {
 } from './pipeline-translator.service';
 import { TurnMetricsRecorder } from './turn-metrics.recorder';
 import {
+  adoptTranslatedCasing,
   restoreKeepsWords,
   restoreRequestFor,
+  typesetTranscript,
 } from './display-restore-request';
 import { splitIntoClauses } from '../audio/clause-splitter';
 import { EventChannel, type TurnRef } from '../session/event-channel';
@@ -49,7 +50,10 @@ import {
 import { TranslationBudget } from '../audio/translation-budget';
 import { SessionRegistry } from '../session/session-registry';
 import { ConversationContext } from '../session/conversation-context';
-import { FinishedSegments } from '../session/finished-segments';
+import {
+  FinishedSegments,
+  type SegmentBlock,
+} from '../session/finished-segments';
 import { BlockRetranslator } from '../session/block-retranslator';
 import { SpeechLanguageSupport } from '../providers/speech-language-support';
 import {
@@ -156,6 +160,11 @@ export class TranslationSessionService implements OnModuleDestroy {
       this.pipeline,
       this.logger,
       (socket) => this.gone.has(socket),
+      {
+        restore: (block) => this.restoreBlock(block),
+        typeset: (block, restored, translations) =>
+          this.typesetBlock(block, restored, translations),
+      },
     );
 
     // ONE budget for the process, built here rather than per turn. A bucket per
@@ -611,6 +620,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           session,
           translated.sourceText,
           translated.restored,
+          translated.translations,
         );
 
         this.channelFor(socket, session).emit({
@@ -904,6 +914,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         session,
         piece.sourceText,
         piece.restored,
+        piece.translations,
       );
       channel.emit({
         type: 'server.transcript.final',
@@ -963,72 +974,22 @@ export class TranslationSessionService implements OnModuleDestroy {
      * time. Typeset in its place: the ITN reads numerals case-insensitively and
      * leaves marks alone, so the two compose.
      */
-    restored?: string,
+    restored: string | undefined,
+    /** The turn's translations, which spell the names the restorer cannot. */
+    translations: Partial<Record<LanguageCode, string>>,
   ): string | undefined {
     // The client's opt-in. Its name is now a misnomer — nothing repairs anything
     // — but renaming it is a breaking contract change, taken separately or not
     // at all. A client that did not ask still must not receive this.
     if (!session.repairDisplay) return undefined;
-    // A wordless turn has nothing to typeset. The ITN cannot invent words the
-    // way a model could, but an event for an empty turn is still noise.
-    if (!sourceText.trim()) return undefined;
-
-    if (restored !== undefined && !restoreKeepsWords(sourceText, restored)) {
-      this.logger.warn(
-        'display restore changed the words, the turn keeps its plain display',
-      );
-      restored = undefined;
-    }
-
-    let typeset: string;
-    let canonical: string;
-    try {
-      // `recognition` SELECTS the module rather than gating the feature: on
-      // `en_to_vi` the transcript being typeset is the English one, so both
-      // directions have an ITN and `ws-events.ts`'s bidirectional contract stays
-      // true.
-      const source = session.languages.recognition;
-      // The ITN canonicalizes its input before it does anything else, so the
-      // string to COMPARE against is the canonical one, not the raw one. Against
-      // the raw text a transcript that merely arrived with a trailing space or
-      // in NFD would "differ" with no numeral in it anywhere, and every such
-      // turn would carry a display — putting a "show original" disclosure under
-      // a line whose original is identical to it.
-      canonical = normalizeTranscript(sourceText);
-      typeset = inverseNormalizeTranscript(
-        restored === undefined ? canonical : normalizeTranscript(restored),
-        source,
-      );
-    } catch (err: unknown) {
-      // The ITN is documented as total on a string, and this does not trust it —
-      // the same refusal the old `.catch()` here made, for a much sharper
-      // reason. This call now sits inside the turn's own `try`, BEFORE the
-      // transcript is emitted, and that `catch` runs `record(false, 'error')`,
-      // `reportTurnFailure` and `close(..., 'error')`. An unguarded throw would
-      // therefore let a cosmetic display feature silence the product — no
-      // transcript, no audio — reproducibly, on every turn containing whatever
-      // token triggered it.
-      this.logger.warn(
-        `display typesetting failed, the turn keeps its raw transcript: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
-      return undefined;
-    }
-
-    // Never a blank line. The client falls back with `display ?? sourceText`,
-    // and `??` does not catch an empty string — so an ITN that "succeeded" into
-    // nothing would erase the turn's words on screen rather than leave them
-    // alone. Cheap to rule out here, and it makes "a display value is never
-    // empty" true for every reader of this field.
-    if (!typeset.trim()) return undefined;
-
-    // Absent when nothing changed. The client reads presence as "this line
-    // differs from what the recognizer produced" and shows a "show original"
-    // disclosure on it; most turns hold no numerals, so emitting always would
-    // put that disclosure under every line with the original identical to the
-    // text above it.
-    return typeset === canonical ? undefined : typeset;
+    return typesetTranscript(
+      sourceText,
+      restored === undefined
+        ? undefined
+        : adoptTranslatedCasing(restored, translations),
+      session.languages.recognition,
+      this.logger,
+    );
   }
 
   /**
@@ -1092,6 +1053,50 @@ export class TranslationSessionService implements OnModuleDestroy {
     return this.blocks.retranslate(socket, segmentIds, userId);
   }
 
+  /**
+   * The block's source text, restored as one text by the sidecar.
+   *
+   * Asked beside the block's translation; {@link typesetBlock} finishes it once
+   * both are in.
+   */
+  private restoreBlock(block: SegmentBlock): Promise<string | undefined> {
+    if (!block.restore) return Promise.resolve(undefined);
+    return this.pipeline.restoreDisplay(
+      block.sourceText,
+      block.recognition,
+      block.restore,
+      BLOCK_RESTORE_BUDGET_MS,
+    );
+  }
+
+  /**
+   * A block's display: its restore with the translation's spelling of names,
+   * typeset, or undefined to send none.
+   *
+   * Only a block the restorer answered is worth a display: each piece already
+   * carries its own marks and numerals, so a block typeset without the restore
+   * would be the ITN alone — fewer marks than the pieces it replaces.
+   */
+  private typesetBlock(
+    block: SegmentBlock,
+    restored: string | undefined,
+    translations: Partial<Record<LanguageCode, string>>,
+  ): string | undefined {
+    if (restored === undefined) return undefined;
+    if (!restoreKeepsWords(block.sourceText, restored)) {
+      this.logger.warn(
+        'block display restore changed the words, the block keeps its pieces',
+      );
+      return undefined;
+    }
+    return typesetTranscript(
+      block.sourceText,
+      adoptTranslatedCasing(restored, translations),
+      block.recognition,
+      this.logger,
+    );
+  }
+
   private rememberSegment(
     socket: StreamSocket,
     session: TurnSession,
@@ -1103,6 +1108,7 @@ export class TranslationSessionService implements OnModuleDestroy {
       recognition: session.languages.recognition,
       targets: session.languages.targets,
       ...(session.hints ? { hints: session.hints } : {}),
+      restore: restoreRequestFor(session, undefined),
     });
   }
 

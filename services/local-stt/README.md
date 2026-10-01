@@ -41,7 +41,10 @@ the alternatives that lost.
 > recorded sessions against Scribe v2 it took punctuation F1 from 0 to 0.62, case
 > F1 from 0.29 to 0.86 and "AI" from 0/26 to 26/26. Quantizing the MatMuls as
 > well lost "AI" on 7 of 26 calls, so they stay fp32. The result is display only;
-> the raw transcript stays canonical. See `punctuation/restorer.py`.
+> the raw transcript stays canonical. See `punctuation/restorer.py`. Mixed-case
+> names ("OpenAI") are beyond a per-word lower/Capital/UPPER tagger: the sidecar
+> applies only the model's own gazetteer and the caller's mixed-case `terms`, and
+> the API takes the rest from the turn's translation.
 
 > **License obligation.** Zipformer-30M is CC-BY-NC-ND-4.0: **academic / thesis
 > use only**, no commercial use, no distribution of derivatives. If this project

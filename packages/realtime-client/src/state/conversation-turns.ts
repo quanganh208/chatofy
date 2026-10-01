@@ -87,7 +87,7 @@ export function toConversationTurns(
     if (!head) continue;
 
     const sourceText = groupRawSourceText(group);
-    const rendered = groupSourceText(group, state.displays);
+    const rendered = groupSourceText(group, state.displays, state.blockTranslations);
     if (!sourceText.trim() && !rendered.trim()) continue;
 
     // The block's speaker, read from its first member: grouping already refuses

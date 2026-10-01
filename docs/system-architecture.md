@@ -910,6 +910,15 @@ restores for a minute. A result whose words differ from the transcript is
 dropped. Any failure leaves the numerals-only display. The client offers "show original" only when
 the words differ, not when only marks and case do.
 
+The tagger writes each word lower, Capital or UPPER, so a mixed-case name
+("OpenAI", "iPhone") is beyond it, and no list of such names could be complete.
+The API takes them from the turn's own translation instead
+(`adoptTranslatedCasing`): a word the translation spells with a capital after
+its first letter, and not in all capitals, is spelled that way in the display.
+"ai"/"AI" is left to the tagger, since "ai" is also Vietnamese for "who". A
+caller's mixed-case hotwords still reach the sidecar as forms. A misheard name
+("opena" for "OpenAI") is a recognition error and stays as heard.
+
 `PrismaMinutesStore` binds unconditionally (`useClass`). Which backend stores
 minutes was previously an env switch that defaulted to in-memory, which meant the
 feature quietly kept nothing; the token and the interface survive because that is
@@ -1749,8 +1758,18 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      `toConversationTurns` saves it. When the run ends, a drain that is
      otherwise complete waits up to 3 s for unanswered blocks before the socket
      closes. A block that never gets an answer keeps the joined pieces, which is
-     what was saved before. Only translations are replaced; `sourceText` stays
-     the recognizer's.
+     what was saved before. `sourceText` stays the recognizer's.
+   - The display is repaired the same way. Each piece was restored as a
+     complete sentence with nothing after it, so the joined pieces closed
+     sentences at the cuts and misplaced marks a following clause would have
+     settled ("của ngành. AI khi mà" for "của ngành AI khi mà" on a recorded
+     news clip). The block's joined transcript is restored once beside its
+     translation (`BLOCK_RESTORE_BUDGET_MS`, 1.5 s), given the translation's
+     names, typeset by the same `typesetTranscript` a turn uses, and sent as
+     `display` when the client asked for displays. `groupSourceText` shows the
+     longest covering block display, and the save stores it as `displayText`.
+     No restore answer, or one that changed a word, sends no `display`, and the
+     pieces' own displays stay.
 7. **Client metrics** → `client.turn.metrics` is sent once the turn has closed
    AND ordered playback has retired it, whichever comes later, and is flushed on
    `stop()` while the socket is still open. Filed at close, a turn whose audio

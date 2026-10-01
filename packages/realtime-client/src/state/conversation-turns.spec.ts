@@ -124,6 +124,29 @@ describe('toConversationTurns', () => {
     });
   });
 
+  it('saves the block typeset as one text as the display of a split utterance', () => {
+    // Each piece was punctuated as a sentence with nothing after it: "của ngành."
+    // closed a clause the next piece went on with.
+    const rows = toConversationTurns({
+      ...base,
+      turns: [segment('a', 'của ngành ai', 'one'), segment('b', 'khi mà', 'two')],
+      captures: captures(['a', 1_000, true, 9_000], ['b', 9_130, false, 12_000]),
+      displays: { a: 'Của ngành. AI.', b: 'Khi mà.' },
+      blockTranslations: {
+        'a b': {
+          segmentIds: ['a', 'b'],
+          translations: { en: 'Of the AI industry, when.' },
+          display: 'Của ngành AI khi mà.',
+        },
+      },
+    });
+
+    expect(rows[0]).toMatchObject({
+      sourceText: 'của ngành ai khi mà',
+      displayText: 'Của ngành AI khi mà.',
+    });
+  });
+
   it('keeps the legacy text of a block whose members spoke different languages', () => {
     // A cut across a language switch: no one language mirrors every member's
     // `targetText`, so there is nothing to read the block through.

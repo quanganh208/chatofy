@@ -112,7 +112,18 @@ interface Harness {
   inputs: TranslateTurnInput[];
 }
 
-function makeService(sourceText: string, restored?: string): Harness {
+function makeService(
+  sourceText: string,
+  restored?: string,
+  {
+    translation = 'hello',
+    blockRestored,
+  }: {
+    translation?: string;
+    /** What the sidecar answers for a whole block; undefined is no answer. */
+    blockRestored?: (text: string) => string | undefined;
+  } = {},
+): Harness {
   const turns: TurnMetrics[] = [];
   const inputs: TranslateTurnInput[] = [];
 
@@ -122,10 +133,14 @@ function makeService(sourceText: string, restored?: string): Harness {
       return Promise.resolve({
         // Lowercase and unpunctuated, as the Vietnamese recognizer actually emits.
         sourceText,
-        translations: { en: 'hello' },
+        translations: { en: translation },
         ...(restored === undefined ? {} : { restored }),
       });
     }),
+    translateAll: vi.fn().mockResolvedValue({ en: translation }),
+    restoreDisplay: vi.fn((text: string) =>
+      Promise.resolve(blockRestored?.(text)),
+    ),
     synthesize: vi
       .fn()
       .mockResolvedValue({ bytes: ttsWav(), mimeType: 'audio/wav' }),
@@ -457,5 +472,106 @@ describe('A15 — a throwing ITN cannot fail the turn', () => {
     const final = socket.ofType('server.transcript.final').at(-1)!;
     expect(final.display ?? final.segment.sourceText).not.toBe('');
     expect(turns.at(-1)?.completed).toBe(true);
+  });
+});
+
+describe('names the restorer cannot case', () => {
+  it('takes a mixed-case name from the turn\u2019s own translation', async () => {
+    // The tagger writes each word lower, Capital or UPPER; "OpenAI" is none of
+    // the three, and no list of such names could be complete.
+    const { service } = makeService(
+      'mô hình ai của openai',
+      'Mô hình AI của Openai.',
+      { translation: "OpenAI's AI model" },
+    );
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+
+    expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(
+      'Mô hình AI của OpenAI.',
+    );
+  });
+
+  it('leaves "ai" to the restorer, since it is also Vietnamese for "who"', async () => {
+    const { service } = makeService(
+      'em không biết ai đã gọi',
+      'Em không biết ai đã gọi.',
+      { translation: 'I do not know who called. AI' },
+    );
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+
+    expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(
+      'Em không biết ai đã gọi.',
+    );
+  });
+});
+
+describe('a block typeset as one text', () => {
+  /** Two finished turns on one socket, then a request for their block. */
+  async function runBlock(harness: Harness): Promise<FakeSocket> {
+    const socket = new FakeSocket();
+    const first = await runTurn(harness.service, socket);
+    const second = await runTurn(harness.service, socket, {
+      continuesCut: true,
+    });
+    await harness.service.retranslateBlock(socket, [first, second], 'user-1');
+    return socket;
+  }
+
+  it('restores the joined transcripts once and sends them typeset with the translation\u2019s names', async () => {
+    const pieces = makeService('mô hình ai của openai', 'Mô hình AI.', {
+      translation: "OpenAI's AI model",
+      blockRestored: (text) =>
+        text === 'mô hình ai của openai mô hình ai của openai'
+          ? 'Mô hình AI của openai, mô hình AI của openai.'
+          : undefined,
+    });
+    const socket = await runBlock(pieces);
+
+    const answer = socket.ofType('server.block.translated').at(-1)!;
+    expect(answer.display).toBe(
+      'Mô hình AI của OpenAI, mô hình AI của OpenAI.',
+    );
+  });
+
+  it('sends no display when the sidecar did not restore the block', async () => {
+    const socket = await runBlock(
+      makeService('mô hình ai của openai', 'Mô hình AI.'),
+    );
+
+    expect(socket.ofType('server.block.translated').at(-1)).not.toHaveProperty(
+      'display',
+    );
+  });
+
+  it('sends no display when the block restore changed the words', async () => {
+    const socket = await runBlock(
+      makeService('mô hình ai của openai', 'Mô hình AI.', {
+        blockRestored: () => 'Mô hình AI của Google.',
+      }),
+    );
+
+    expect(socket.ofType('server.block.translated').at(-1)).not.toHaveProperty(
+      'display',
+    );
+  });
+
+  it('sends no display to a client that renders the raw line', async () => {
+    const harness = makeService('mô hình ai của openai', undefined, {
+      blockRestored: (text) => `${text}.`,
+    });
+    const socket = new FakeSocket();
+    const first = await runTurn(harness.service, socket, {
+      wantsDisplay: false,
+    });
+    const second = await runTurn(harness.service, socket, {
+      wantsDisplay: false,
+    });
+    await harness.service.retranslateBlock(socket, [first, second], 'user-1');
+
+    expect(socket.ofType('server.block.translated').at(-1)).not.toHaveProperty(
+      'display',
+    );
   });
 });

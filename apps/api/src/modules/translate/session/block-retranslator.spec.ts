@@ -176,3 +176,96 @@ describe('BlockRetranslator', () => {
     expect(idsOf(socket)).toEqual([['s0', 's1']]);
   });
 });
+
+/**
+ * The block's display: restored as one text beside the translation, finished
+ * once the translation is in, and absent whenever the restore did not answer.
+ */
+describe('BlockRetranslator display', () => {
+  const displayHarness = (opts: {
+    asksDisplay: boolean;
+    restored?: string;
+    translate?: () => Promise<TranslationMap>;
+  }) => {
+    const socket = new FakeSocket();
+    const finished = new FinishedSegments();
+    ['một tác nhân ai của openai', 'đã hoạt động'].forEach((sourceText, i) =>
+      finished.record(socket, `s${i}`, {
+        sourceText,
+        recognition: 'vi',
+        targets: ['en'],
+        ...(opts.asksDisplay ? { restore: { terms: [] } } : {}),
+      }),
+    );
+    const restore = vi.fn(async () => opts.restored);
+    const typeset = vi.fn(
+      (_block, restored: string | undefined, translations: TranslationMap) =>
+        restored === undefined ? undefined : `${restored} | ${translations.en}`,
+    );
+    const retranslator = new BlockRetranslator(
+      finished,
+      {
+        translateAll:
+          opts.translate ?? (async () => ({ en: 'an OpenAI agent acted' })),
+      },
+      silentLogger(),
+      () => false,
+      { restore, typeset },
+    );
+    return { socket, retranslator, restore, typeset };
+  };
+
+  it('sends the block typeset as one text, with the translation it was finished against', async () => {
+    const { socket, retranslator, restore } = displayHarness({
+      asksDisplay: true,
+      restored: 'Một tác nhân AI của Openai đã hoạt động.',
+    });
+
+    await retranslator.retranslate(socket, ['s0', 's1']);
+
+    expect(restore).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceText: 'một tác nhân ai của openai đã hoạt động',
+      }),
+    );
+    expect(socket.answers).toEqual([
+      {
+        type: 'server.block.translated',
+        segmentIds: ['s0', 's1'],
+        translations: { en: 'an OpenAI agent acted' },
+        display:
+          'Một tác nhân AI của Openai đã hoạt động. | an OpenAI agent acted',
+      },
+    ]);
+  });
+
+  it('sends no display when the restore did not answer', async () => {
+    const { socket, retranslator } = displayHarness({ asksDisplay: true });
+
+    await retranslator.retranslate(socket, ['s0', 's1']);
+
+    expect(socket.answers[0]).not.toHaveProperty('display');
+    expect(socket.answers[0]?.translations).toEqual({
+      en: 'an OpenAI agent acted',
+    });
+  });
+
+  it('sends no display for a failed translation, whatever the restore said', async () => {
+    const { socket, retranslator, typeset } = displayHarness({
+      asksDisplay: true,
+      restored: 'Một tác nhân AI.',
+      translate: () => Promise.reject(new Error('upstream down')),
+    });
+
+    await retranslator.retranslate(socket, ['s0', 's1']);
+
+    expect(socket.answers).toEqual([
+      {
+        type: 'server.block.translated',
+        segmentIds: ['s0', 's1'],
+        translations: {},
+      },
+    ]);
+    expect(typeset).not.toHaveBeenCalled();
+  });
+});

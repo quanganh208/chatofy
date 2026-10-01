@@ -356,9 +356,9 @@ export function ConversationTranscript({
                 ) : null}
                 {showsSource ? (
                   <TranscriptSourceLine
-                    text={groupSourceText(group, displays)}
+                    text={groupSourceText(group, displays, blockTranslations)}
                     raw={groupRawSourceText(group)}
-                    repaired={groupIsRepaired(group, displays)}
+                    repaired={groupIsRepaired(group, displays, blockTranslations)}
                   />
                 ) : null}
                 {showsTarget ? (
