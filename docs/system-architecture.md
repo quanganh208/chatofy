@@ -924,8 +924,8 @@ chào", "chào Anh Tuấn"), is undone in the sidecar by two rules measured in
 `benchmarks/punct` before they shipped: a capital after a comma is lowered only
 on a word Vietnamese writes in lowercase (a list counted from ViCapPunc train,
 so "Berlin" keeps its capital), and a kinship word is lowered before a
-capitalized name unless it is part of one ("Hoàng Anh Tuấn"). Two greeting commas
-go the same way: "xin chào, anh Tuấn" and an opening "Anh, xin kính chào".
+capitalized name unless it is part of one ("Hoàng Anh Tuấn"). The comma
+between "chào" and a kinship word goes the same way ("xin chào, anh Tuấn Anh").
 
 `PrismaMinutesStore` binds unconditionally (`useClass`). Which backend stores
 minutes was previously an env switch that defaulted to in-memory, which meant the
