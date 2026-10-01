@@ -8,6 +8,9 @@
   because that release publishes no int8 variant of any speaker model.
 - Silero VAD: one ONNX file, pinned by sha256 (see below) rather than trusted
   on whatever the URL currently serves — see `audio/silero_speech.py`.
+- Dewpoint mmBERT punctuation/case tagger for the vi display: pinned HF
+  revision, then its embedding matrix quantized to int8 here — see
+  `punctuation/restorer.py` for why only the embedding.
 
 Idempotent; safe to re-run.
 Run: uv run --directory services/local-stt python scripts/download_models.py
@@ -51,6 +54,19 @@ CAMPPLUS_URL = (
     "speaker-recongition-models/"
     "3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx"
 )
+
+
+DEWPOINT_REPO = "valkayuh/dewpoint"
+#: Pinned: the repo is new and single-author, and the accuracy numbers in
+#: `punctuation/restorer.py` were measured on exactly this revision.
+DEWPOINT_REVISION = "4c45df7c148d096df50c8fbf47a9b0e34f08da68"
+DEWPOINT_FILES = [
+    "gazetteer.json",
+    "mmbert-base/vpunct_config.json",
+    "mmbert-base/tokenizer.json",
+    "mmbert-base/tokenizer_config.json",
+]
+DEWPOINT_ONNX = "onnx/mmbert-base/model.onnx"
 
 
 def fetch_zipformer_vi() -> None:
@@ -158,12 +174,67 @@ def fetch_silero_vad() -> None:
     print("[silero-vad] ready")
 
 
+def fetch_dewpoint() -> None:
+    """The display restorer, which is OPTIONAL: any failure here is a warning.
+
+    The sidecar transcribes without it and the API falls back to the plain
+    display, so neither a Hugging Face outage nor a read-only models mount may
+    keep `/transcribe` from starting — the runtime container runs this script
+    before uvicorn, on the same `&&`.
+    """
+    try:
+        _fetch_dewpoint()
+    except Exception as err:  # noqa: BLE001 — see the docstring
+        print(f"[dewpoint] skipped, display stays plain: {err}")
+
+
+def _fetch_dewpoint() -> None:
+    """The display restorer: four small files as published, one graph re-quantized.
+
+    Only the token-embedding Gather is quantized (per channel, int8). That
+    matrix is 256k rows × 768 — about two thirds of the 1.2 GB graph — and
+    quantizing it alone measured identical to fp32 on the vi ruler, at half the
+    resident memory. Quantizing the MatMuls as well lost "AI" on 7 of 26 calls.
+    """
+    out_dir = MODELS_DIR / "dewpoint-mmbert-base"
+    target = out_dir / DEWPOINT_ONNX
+    for filename in DEWPOINT_FILES:
+        path = out_dir / filename
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            cached = hf_hub_download(DEWPOINT_REPO, filename, revision=DEWPOINT_REVISION)
+            # Through a .part and a rename, like the graph: a run killed halfway
+            # must not leave a truncated tokenizer that `load()` then trips on.
+            part = path.with_name(path.name + ".part")
+            shutil.copyfile(cached, part)
+            part.rename(path)
+    if target.exists():
+        print("[dewpoint] ready (cached)")
+        return
+    from onnxruntime.quantization import QuantType, quantize_dynamic
+
+    print(f"[dewpoint] downloading {DEWPOINT_ONNX} @ {DEWPOINT_REVISION[:8]}")
+    source = hf_hub_download(DEWPOINT_REPO, DEWPOINT_ONNX, revision=DEWPOINT_REVISION)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp = target.with_suffix(".part")
+    quantize_dynamic(
+        source,
+        str(tmp),
+        weight_type=QuantType.QInt8,
+        per_channel=True,
+        op_types_to_quantize=["Gather"],
+    )
+    tmp.rename(target)
+    print("[dewpoint] ready")
+
+
 def main() -> int:
     for fetch in (
         fetch_zipformer_vi,
         fetch_parakeet_en,
         fetch_campplus_speaker,
         fetch_silero_vad,
+        fetch_dewpoint,
     ):
         fetch()
     print("[done] models cached in models/")

@@ -34,6 +34,15 @@ the alternatives that lost.
 > answered with nothing, so a transcript made only of fillers is returned empty
 > and the API rejects the turn as no speech (`FILLERS` in `engines/parakeet_en.py`).
 
+> **Display punctuation and case (vi).** `POST /restore` runs
+> [valkayuh/dewpoint][dewpoint] (MIT), mmBERT member, pinned revision, with only
+> its token embedding quantized to int8 by `download_models.py` (641 MB, ~1 GB
+> RSS). It is a tagger and cannot add, drop or reorder a word. On 36 rows from 7
+> recorded sessions against Scribe v2 it took punctuation F1 from 0 to 0.62, case
+> F1 from 0.29 to 0.86 and "AI" from 0/26 to 26/26. Quantizing the MatMuls as
+> well lost "AI" on 7 of 26 calls, so they stay fp32. The result is display only;
+> the raw transcript stays canonical. See `punctuation/restorer.py`.
+
 > **License obligation.** Zipformer-30M is CC-BY-NC-ND-4.0: **academic / thesis
 > use only**, no commercial use, no distribution of derivatives. If this project
 > is ever commercialized, swap in PhoWhisper behind the same `SttProvider`
@@ -61,7 +70,7 @@ uv sync
 # host venv needs it again after every `uv sync` that recreates .venv.
 ln -sf "$(uv run python -c 'import onnxruntime,pathlib;print(next((pathlib.Path(onnxruntime.__file__).parent/"capi").glob("libonnxruntime.so.*")))')" \
        "$(uv run python -c 'import onnxruntime,pathlib;print(pathlib.Path(onnxruntime.__file__).parent.parent/"sherpa_onnx.libs"/"libonnxruntime.so")')"
-uv run python scripts/download_models.py   # ~1.3GB, one time, idempotent
+uv run python scripts/download_models.py   # ~2.5GB, one time, idempotent
 uv run uvicorn app:app --port 8002
 ```
 
@@ -80,11 +89,17 @@ the service is genuinely ready.
 | `GET /healthz`     | —                                                                                                                               | `200 {"status":"ok"}` when loaded, `503 {"status":"loading"}` otherwise |
 | `POST /transcribe` | `multipart/form-data`: `file` (audio), `language` (`vi` or `en`), `hotwords` (repeatable, optional), `min_speech_ms` (optional) | `200 {"text":"…","language":"vi"}`                                      |
 | `POST /embed`      | `multipart/form-data`: `file` (audio)                                                                                           | `200 {"vector":[…],"dim":192,"speechMs":1480}`                          |
+| `POST /restore`    | JSON: `text`, `language` (`vi` only), `context` (optional, the piece this one continues), `terms` (optional, session hotwords)  | `200 {"text":"Mô hình AI của OpenAI."}`                                 |
 
 `speechMs` on `/embed` is how much of the clip is speech, not how long the clip
 is — the caller is sent a capture buffer with pre-roll and hangover on it, and
 the difference is what tells it whether the vector was built on enough voice to
 mean anything. Energy-based; see `audio/speech_duration.py`.
+
+`POST /restore` returns `400` for any language but `vi`, and `503` when the
+Dewpoint weights were never seeded. A sidecar without them still transcribes;
+`/healthz` reports `"restore": false` without failing readiness, and the API
+falls back to the numerals-only display.
 
 `POST /transcribe` returns `400` for an unsupported language or undecodable
 audio, `413` for audio longer than `LOCAL_STT_MAX_AUDIO_SECONDS`, and `503`
@@ -163,3 +178,4 @@ uv run --directory services/local-stt pytest
 [sherpa]: https://github.com/k2-fsa/sherpa-onnx
 [zipformer]: https://huggingface.co/hynt/Zipformer-30M-RNNT-6000h
 [parakeet]: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2
+[dewpoint]: https://huggingface.co/valkayuh/dewpoint

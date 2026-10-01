@@ -21,6 +21,7 @@ from contextlib import asynccontextmanager  # noqa: E402
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
 
 from audio.decode import AudioTooLongError, DecodeError, decode_to_16k_mono  # noqa: E402
 from audio.silero_speech import SileroSpeechGate  # noqa: E402
@@ -32,11 +33,14 @@ from engines.registry import (  # noqa: E402
     UnsupportedLanguageError,
 )
 from hotwords import build_hotwords  # noqa: E402
+from punctuation.restorer import LANGUAGE as RESTORE_LANGUAGE  # noqa: E402
+from punctuation.restorer import DisplayRestorer, RestorerBusyError  # noqa: E402
 from speaker.embedder import SpeakerEmbedder  # noqa: E402
 
 registry = EngineRegistry()
 embedder = SpeakerEmbedder()
 speech_gate = SileroSpeechGate()
+restorer = DisplayRestorer()
 
 
 @asynccontextmanager
@@ -48,9 +52,12 @@ async def lifespan(_app: FastAPI):
     registry.load_all()
     embedder.load()
     speech_gate.load()
+    # Last, and allowed to stay unloaded: see `DisplayRestorer.load`.
+    restorer.load()
     try:
         yield
     finally:
+        restorer.unload()
         speech_gate.unload()
         embedder.unload()
         registry.unload_all()
@@ -75,6 +82,9 @@ def healthz() -> JSONResponse:
             # or not the models have finished loading — the body is read
             # regardless of the 503 above for exactly that reason.
             "languages": list(SUPPORTED_LANGUAGES),
+            # Reported, never gating: a sidecar that cannot restore still
+            # transcribes, and the API falls back to the numerals-only display.
+            "restore": restorer.loaded,
         },
         status_code=200 if ready else 503,
     )
@@ -183,3 +193,40 @@ def embed(file: UploadFile = File(...)) -> dict:
         "dim": len(vector),
         "speechMs": speech_duration_ms(samples),
     }
+
+
+class RestoreRequest(BaseModel):
+    """One finished transcript to typeset for display.
+
+    Bounded like every other input here: the API sends one turn, which the
+    gate caps at a few seconds of speech, so these limits only ever refuse a
+    caller that is not that API.
+    """
+
+    text: str = Field(max_length=4000)
+    language: str
+    #: The piece this one continues, for a turn that opened on a forced cut.
+    context: str = Field(default="", max_length=4000)
+    #: The session's hotwords; only mixed-case single words are used.
+    terms: list[str] = Field(default=[], max_length=48)
+
+
+@app.post("/restore")
+def restore(body: RestoreRequest) -> dict:
+    """Punctuation and case for a Vietnamese transcript, for display only.
+
+    Its own endpoint rather than part of `/transcribe` for the reason `/embed`
+    is: the caller starts it beside the translation, which cannot begin until
+    the transcript exists, so riding in that response would put its cost in
+    front of the translation instead of next to it.
+    """
+    if body.language != RESTORE_LANGUAGE:
+        raise HTTPException(status_code=400, detail=f"restore serves {RESTORE_LANGUAGE} only")
+    if not restorer.loaded:
+        raise HTTPException(status_code=503, detail="display restorer not loaded")
+    try:
+        return {"text": restorer.restore(body.text, body.context, body.terms)}
+    except RestorerBusyError as err:
+        # 429, not 503: the API reads 503 as "not loaded" and stops asking for a
+        # while, which a momentary queue must not trigger.
+        raise HTTPException(status_code=429, detail=str(err)) from err
