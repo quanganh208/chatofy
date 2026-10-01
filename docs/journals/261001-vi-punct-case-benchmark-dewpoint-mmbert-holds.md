@@ -192,4 +192,4 @@ It fails every criterion. Read speech pauses inside sentences for 300–900 ms (
 - Recall can be bought, but only at a precision and comma cost that loses overall.
 - What remains is a stronger _text_ signal at those boundaries (a model that reads more context, or a different tagger), or prosody beyond pause length. Both are separate decisions.
 
-The code and both fits are kept on branch `feat/punct-pause-fusion`, so the result can be reproduced. Nothing changed in the sidecar on main.
+The code and the fits were not kept. Nothing changed in the sidecar.
