@@ -29,6 +29,8 @@ export interface FinishedSegment {
   hints?: TranslationHints;
   /** What the turn asked the display restorer for; absent when it asked nothing. */
   restore?: DisplayRestoreRequest;
+  /** Silence before the first word in ms, measured with `restore.pauses`. */
+  leadPause?: number;
 }
 
 /** A run of segments that can be translated as one text. */
@@ -41,12 +43,26 @@ export interface SegmentBlock {
   restore?: DisplayRestoreRequest;
 }
 
-/** The pieces' pauses end to end, or nothing when any piece has none. */
+/**
+ * The pieces' pauses end to end, or nothing when any piece has none.
+ *
+ * At each seam the pause is the two halves added: the end of a piece holds the
+ * quiet that let the capture gate cut it (~100ms), and the start of the next
+ * holds the rest, up to its pre-roll. Read alone, the first half sits under the
+ * restorer's gate at every cut, so a full stop at a cut was always dropped.
+ */
 function blockPauses(found: FinishedSegment[]): { pauses?: number[] } {
-  const each = found.map((segment) => segment.restore?.pauses);
-  return each.every((pauses) => pauses !== undefined)
-    ? { pauses: each.flatMap((pauses) => pauses) }
-    : {};
+  const pauses: number[] = [];
+  for (const [index, segment] of found.entries()) {
+    const own = segment.restore?.pauses;
+    if (!own) return {};
+    if (index > 0) {
+      if (segment.leadPause === undefined || pauses.length === 0) return {};
+      pauses[pauses.length - 1]! += segment.leadPause;
+    }
+    pauses.push(...own);
+  }
+  return { pauses };
 }
 
 export class FinishedSegments {
@@ -105,9 +121,8 @@ export class FinishedSegments {
       ...(first.hints ? { hints: first.hints } : {}),
       // Terms, and pauses when every piece has them: a block starts a display
       // group, so it continues nothing and the first piece's seam context does
-      // not apply to it. The pauses join piece after piece, so a piece's last
-      // word keeps the silence measured at the end of its own audio — at a
-      // forced cut, the speaker had not stopped.
+      // not apply to it. The pauses join piece after piece, each seam's
+      // split in two and added back together.
       ...(first.restore
         ? {
             restore: {

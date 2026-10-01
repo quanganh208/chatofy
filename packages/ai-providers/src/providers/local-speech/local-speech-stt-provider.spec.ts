@@ -40,6 +40,18 @@ describe('LocalSpeechSttProvider pauses', () => {
     expect(await transcribe()).not.toHaveProperty('pauses');
   });
 
+  it('passes on the silence before the first word with the pauses', async () => {
+    answering({ text: 'Xin chào', language: 'vi', pauses: [0, 90], leadPause: 280 });
+    await expect(transcribe()).resolves.toMatchObject({ pauses: [0, 90], leadPause: 280 });
+  });
+
+  it('drops the silence before the first word without pauses, or when it is not sane', async () => {
+    answering({ text: 'Xin chào', language: 'vi', pauses: [0], leadPause: 280 });
+    expect(await transcribe()).not.toHaveProperty('leadPause');
+    answering({ text: 'Xin chào', language: 'vi', pauses: [0, 90], leadPause: -1 });
+    expect(await transcribe()).not.toHaveProperty('leadPause');
+  });
+
   it('has none from a sidecar that does not send them', async () => {
     answering({ text: 'Xin chào', language: 'vi' });
     expect(await transcribe()).not.toHaveProperty('pauses');
