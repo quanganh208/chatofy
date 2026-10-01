@@ -143,12 +143,21 @@ def transcribe(
     terms = build_hotwords(hotwords) if engine.supports_hotwords else ""
 
     try:
-        text = engine.transcribe(samples, terms)
+        # The language the display restorer serves also gets the silence after
+        # each word: the restorer reads text only, and a full stop where the
+        # speaker never paused ("anh Tuấn. Anh…" for the name "Tuấn Anh") is
+        # only visible in the audio. Absent when the tokens did not line up.
+        if language == RESTORE_LANGUAGE:
+            text, pauses = engine.transcribe_with_pauses(samples, terms)
+        else:
+            text, pauses = engine.transcribe(samples, terms), None
     except SttBusyError as err:
         raise HTTPException(status_code=503, detail=str(err)) from err
     result = {"text": text, "language": language}
     if speech_ms is not None:
         result["speechMs"] = speech_ms
+    if pauses is not None:
+        result["pauses"] = pauses
     return result
 
 
@@ -209,6 +218,10 @@ class RestoreRequest(BaseModel):
     context: str = Field(default="", max_length=4000)
     #: The session's hotwords; only mixed-case single words are used.
     terms: list[str] = Field(default=[], max_length=48)
+    #: Silence after each word of `text` in ms, as `/transcribe` returned it.
+    #: A full stop where the speaker did not pause is dropped; a list that does
+    #: not match the words is ignored.
+    pauses: list[int] | None = Field(default=None, max_length=2000)
 
 
 @app.post("/restore")
@@ -225,7 +238,7 @@ def restore(body: RestoreRequest) -> dict:
     if not restorer.loaded:
         raise HTTPException(status_code=503, detail="display restorer not loaded")
     try:
-        return {"text": restorer.restore(body.text, body.context, body.terms)}
+        return {"text": restorer.restore(body.text, body.context, body.terms, body.pauses)}
     except RestorerBusyError as err:
         # 429, not 503: the API reads 503 as "not loaded" and stops asking for a
         # while, which a momentary queue must not trigger.

@@ -1,0 +1,10 @@
+{
+  "arm": "sidecar",
+  "threads": 4,
+  "smoke_rows_per_ruler": 0,
+  "exit": 0,
+  "wall_s": 78.9,
+  "peak_rss_mb": 1043,
+  "load_s": 2.3,
+  "rows": 2038
+}

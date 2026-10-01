@@ -58,7 +58,10 @@ def test_hotwords_reach_the_vietnamese_engine(client, webm_audio, monkeypatch):
         seen["hotwords"] = hotwords
         return "ok"
 
-    monkeypatch.setattr(engine, "transcribe", capture)
+    # Vietnamese goes through the pause-measuring decode.
+    monkeypatch.setattr(
+        engine, "transcribe_with_pauses", lambda s, h="": (capture(s, h), None)
+    )
     res = client.post(
         "/transcribe",
         files={"file": ("audio.webm", webm_audio, "audio/webm")},
@@ -81,7 +84,10 @@ def test_a_turn_naming_no_term_decodes_unbiased(client, webm_audio, monkeypatch)
         seen["hotwords"] = hotwords
         return "ok"
 
-    monkeypatch.setattr(engine, "transcribe", capture)
+    # Vietnamese goes through the pause-measuring decode.
+    monkeypatch.setattr(
+        engine, "transcribe_with_pauses", lambda s, h="": (capture(s, h), None)
+    )
     client.post(
         "/transcribe",
         files={"file": ("audio.webm", webm_audio, "audio/webm")},
@@ -143,7 +149,10 @@ def test_min_speech_ms_absent_skips_the_gate(client, webm_audio, monkeypatch):
         return "ok"
 
     monkeypatch.setattr(speech_gate, "speech_ms", spy_speech_ms)
-    monkeypatch.setattr(engine, "transcribe", capture)
+    # Vietnamese goes through the pause-measuring decode.
+    monkeypatch.setattr(
+        engine, "transcribe_with_pauses", lambda s, h="": (capture(s, h), None)
+    )
 
     res = client.post(
         "/transcribe",
@@ -170,7 +179,10 @@ def test_min_speech_ms_gates_a_non_speech_clip(client, webm_audio, monkeypatch):
         engine_called["count"] += 1
         return "should not be reached"
 
-    monkeypatch.setattr(engine, "transcribe", capture)
+    # Vietnamese goes through the pause-measuring decode.
+    monkeypatch.setattr(
+        engine, "transcribe_with_pauses", lambda s, h="": (capture(s, h), None)
+    )
 
     res = client.post(
         "/transcribe",
@@ -307,6 +319,9 @@ def test_saturated_engine_refuses_with_503(monkeypatch, webm_audio):
         supports_hotwords = True
 
         def transcribe(self, samples, hotwords=""):
+            raise SttBusyError("vi engine saturated: no lane within 2000ms")
+
+        def transcribe_with_pauses(self, samples, hotwords=""):
             raise SttBusyError("vi engine saturated: no lane within 2000ms")
 
     monkeypatch.setattr(

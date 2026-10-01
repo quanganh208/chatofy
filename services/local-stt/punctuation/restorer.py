@@ -137,6 +137,28 @@ def _lower_mid_sentence_capitals(
             out[i] = word[:1].lower() + word[1:]
 
 
+#: A sentence end the model writes after a word the speaker did not pause after
+#: is dropped: "xin chào anh Tuấn. Anh, xin…" said in one breath is the name
+#: "Tuấn Anh". Milliseconds of silence, measured by `engines.word_pauses`.
+#: Chosen on FLEURS dev among 120/200/300 ms × drop/demote-to-comma, then scored
+#: once on FLEURS test and recorded sessions: full-stop F1 0.927 → 0.940 and
+#: 0.671 → 0.686, case F1 not lower (benchmarks/punct).
+PAUSE_GATE_MS = 120
+#: What a dropped sentence end becomes: "O" (nothing) or "COMMA".
+PAUSE_GATE_MARK = "O"
+
+
+def _gate_sentence_ends(punct: list[str], pauses: list[int], sentence_end: set[str]) -> set[int]:
+    """Drop sentence ends where the speaker did not pause. Returns the indices
+    of the words that, as a result, no longer open a sentence."""
+    reopened: set[int] = set()
+    for i in range(len(punct) - 1):
+        if punct[i] in sentence_end and pauses[i] < PAUSE_GATE_MS:
+            punct[i] = PAUSE_GATE_MARK
+            reopened.add(i + 1)
+    return reopened
+
+
 def _drop_greeting_commas(words: list[str], punct: list[str]) -> None:
     """No comma between "chào" and a kinship word: "xin chào, anh Tuấn Anh".
 
@@ -237,13 +259,19 @@ class DisplayRestorer:
     def unload(self) -> None:
         self._punctuator = None
 
-    def restore(self, text: str, context: str = "", terms: list[str] | None = None) -> str:
+    def restore(
+        self, text: str, context: str = "", terms: list[str] | None = None, pauses: list[int] | None = None
+    ) -> str:
         """Punctuated, truecased `text`, read after `context` when there is one.
 
         `context` is the piece this one continues. It is tagged together with
         `text` and its labels are thrown away, so the seam is decided with both
         sides in view: a continuation that is mid-sentence does not open with a
         capital, and one that really starts a sentence still does.
+
+        `pauses`, when given, holds the silence after each word of `text` in
+        ms; a sentence end where the speaker did not pause is dropped. A list
+        that does not match the words is ignored, never guessed at.
         """
         p = self._punctuator
         if p is None:
@@ -264,6 +292,9 @@ class DisplayRestorer:
         punct = p._close(r["punct"][n:], r["punct_scores"][n:])
         case = list(r["case"][n:])
         _join_spoken_numbers(words, punct, case)
+        reopened: set[int] = set()
+        if pauses is not None and len(pauses) == len(words):
+            reopened = _gate_sentence_ends(punct, pauses, _SENT_END)
 
         forms = {**p.gazetteer.get(LANGUAGE, {}), **mixed_case_terms(terms or [])}
         # A sentence starts here when there is no context, or when the context's
@@ -279,6 +310,12 @@ class DisplayRestorer:
             sentence_start = starts if i == 0 else punct[i - 1] in _SENT_END
             label = "CAP" if sentence_start and case[i] == "LOWER" else case[i]
             out.append(apply_case(word, label))
+        # A word that opened a sentence only because of a dropped boundary
+        # keeps its capital when the word before it has one — the name goes on,
+        # "Tuấn Anh" — and loses it otherwise.
+        for j in reopened:
+            if j not in fixed and out[j][:1].isupper() and not out[j].isupper() and not out[j - 1][:1].isupper():
+                out[j] = out[j][:1].lower() + out[j][1:]
         _lower_mid_sentence_capitals(out, punct, fixed, _SENT_END)
         _drop_greeting_commas(words, punct)
         surface = surface_for(LANGUAGE)

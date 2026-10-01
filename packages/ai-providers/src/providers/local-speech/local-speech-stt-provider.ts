@@ -35,6 +35,15 @@ interface TranscribeResponse {
   text?: string;
   language?: string;
   speechMs?: number;
+  pauses?: unknown;
+}
+
+/** The sidecar's pauses, only when they are one non-negative number per word. */
+function pausesFor(text: string, pauses: unknown): number[] | undefined {
+  if (!Array.isArray(pauses)) return undefined;
+  const words = text.split(/\s+/).filter(Boolean).length;
+  const valid = pauses.every((ms) => typeof ms === 'number' && Number.isFinite(ms) && ms >= 0);
+  return valid && pauses.length === words ? (pauses as number[]) : undefined;
 }
 
 export class LocalSpeechSttProvider implements SttProvider {
@@ -104,10 +113,12 @@ export class LocalSpeechSttProvider implements SttProvider {
     // was sent and > 0); an older sidecar or an ungated request simply omits
     // the field, and `typeof` keeps a stray non-number in the JSON from being
     // passed on as if it were the sidecar's own answer.
+    const pauses = pausesFor(json.text, json.pauses);
     return {
       text: json.text,
       language,
       ...(typeof json.speechMs === 'number' ? { speechMs: json.speechMs } : {}),
+      ...(pauses === undefined ? {} : { pauses }),
     };
   }
 

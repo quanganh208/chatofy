@@ -18,6 +18,7 @@ from punctuation.restorer import (
     LOCK_WAIT_S,
     DisplayRestorer,
     _drop_greeting_commas,
+    _gate_sentence_ends,
     _lower_mid_sentence_capitals,
     mixed_case_terms,
 )
@@ -142,6 +143,37 @@ def test_drops_only_the_comma_between_a_greeting_and_a_name():
     _drop_greeting_commas(words, punct)
     # "Vâng," stays, and so does the comma closing the name "Tuấn Anh".
     assert punct == ["COMMA", "O", "O", "O", "O", "COMMA", "O", "O", "PERIOD"]
+
+
+def test_drops_a_sentence_end_the_speaker_did_not_pause_at():
+    punct = ["O", "PERIOD", "COMMA", "PERIOD", "O"]
+    reopened = _gate_sentence_ends(punct, [0, 40, 0, 600, 0], SENTENCE_END)
+    # The full stop after a 40 ms gap goes; the one after 600 ms stays.
+    assert punct == ["O", "O", "COMMA", "PERIOD", "O"]
+    assert reopened == {2}
+
+
+@model_tests
+def test_reads_a_name_said_in_one_breath(client, monkeypatch):
+    # Recorded on prod and measured from the audio: no pause from "chào" to
+    # "giả", ~500 ms after it. Without pauses the model splits the name.
+    from punctuation import restorer
+
+    monkeypatch.setattr(restorer, "PAUSE_GATE_MARK", "O")
+    text = "vâng xin chào anh tuấn anh xin kính chào quý vị khán giả"
+    pauses = [20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 510]
+    assert len(pauses) == len(text.split())
+    restored = sidecar.restorer.restore(text, pauses=pauses)
+
+    assert restored.startswith("Vâng, xin chào anh Tuấn Anh, xin kính chào quý vị khán giả")
+    assert words(restored) == words(text)
+
+
+def test_ignores_pauses_that_do_not_match_the_words(client):
+    if not sidecar.restorer.loaded:
+        pytest.skip("restorer not loaded")
+    text = "vâng xin chào anh tuấn"
+    assert sidecar.restorer.restore(text, pauses=[0, 0]) == sidecar.restorer.restore(text)
 
 
 @model_tests
@@ -307,3 +339,26 @@ def test_reports_restore_readiness_without_gating_on_it(client):
     body = client.get("/healthz").json()
 
     assert body["restore"] is True
+
+
+@model_tests
+def test_transcribe_returns_one_pause_per_word_for_vietnamese(client, webm_audio):
+    res = client.post(
+        "/transcribe",
+        files={"file": ("a.webm", webm_audio, "audio/webm")},
+        data={"language": "vi"},
+    )
+    body = res.json()
+    assert res.status_code == 200
+    if body["text"]:
+        assert len(body["pauses"]) == len(body["text"].split())
+        assert all(isinstance(p, int) and p >= 0 for p in body["pauses"])
+
+
+@model_tests
+def test_restore_endpoint_reads_pauses(client):
+    text = "vâng xin chào anh tuấn anh xin kính chào quý vị khán giả"
+    pauses = [310, 0, 0, 0, 0, 0, 40, 30, 30, 0, 30, 20, 510]
+    res = restore(client, text, pauses=pauses)
+    assert res.status_code == 200
+    assert "anh Tuấn Anh, xin kính chào" in res.json()["text"]

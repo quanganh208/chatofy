@@ -15,6 +15,8 @@ from pathlib import Path
 
 import numpy as np
 
+from engines.word_pauses import pauses_after, word_starts
+
 SERVICE_ROOT = Path(__file__).resolve().parent.parent
 MODELS_DIR = SERVICE_ROOT / "models"
 
@@ -155,7 +157,14 @@ class SttEngine(ABC):
         return self._recognizer
 
     def transcribe(self, samples: np.ndarray, hotwords: str = "") -> str:
-        """Transcribe one utterance of mono float32 samples at SAMPLE_RATE.
+        return self.transcribe_with_pauses(samples, hotwords, pauses=False)[0]
+
+    def transcribe_with_pauses(
+        self, samples: np.ndarray, hotwords: str = "", pauses: bool = True
+    ) -> tuple[str, list[int] | None]:
+        """Transcribe one utterance of mono float32 samples at SAMPLE_RATE,
+        with the silence after each word in ms (see `engines.word_pauses`) when
+        `pauses` is set and the recognizer's tokens line up with the text.
 
         `hotwords` is the `/`-separated list to bias decoding towards, and is per
         UTTERANCE rather than per engine: the terms belong to the conversation
@@ -189,7 +198,18 @@ class SttEngine(ABC):
             )
             stream.accept_waveform(SAMPLE_RATE, samples)
             recognizer.decode_stream(stream)
-            raw = stream.result.text
+            result = stream.result
+            raw = result.text
+            tokens, timestamps = list(result.tokens), list(result.timestamps)
         finally:
             self._lanes.release()
-        return self.postprocess(raw)
+        text = self.postprocess(raw)
+        if not pauses:
+            return text, None
+        # Measured outside the lane: it reads the samples, not the model. Only
+        # when it lines up word for word with the text — a list that does not
+        # is worse than none, since the restorer would gate the wrong words.
+        starts = word_starts(tokens, timestamps)
+        if not starts or len(starts) != len(text.split()):
+            return text, None
+        return text, pauses_after(samples, SAMPLE_RATE, starts)

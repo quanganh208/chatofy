@@ -20,6 +20,8 @@ export interface TranslatedPiece extends Span {
   translations: TranslationMap;
   /** `sourceText` restored for display, when that was asked for and ran in time. */
   restored?: string;
+  /** Silence after each word of `sourceText` in ms, when the recognizer measured it. */
+  pauses?: number[];
   /**
    * Whether this piece's span was the LAST one `planSpeakerSplit` cut — the
    * one whose `endMs` reaches the turn's own `durationMs`, not merely the
@@ -148,6 +150,7 @@ export async function translateSplitTurn(
   // speaker, not the rest of the sentence the ceiling cut.
   const firstIsOpening = survivors[0]?.span === spans[0];
   const survivorTexts = survivors.map(({ source }) => source.text);
+  const survivorPauses = survivors.map(({ source }) => source.pauses);
   const display = options.restoreDisplay;
   // One piece after another, never all at once. The sidecar's restorer runs one
   // inference at a time and refuses (429) a request it cannot start within a
@@ -162,6 +165,9 @@ export async function translateSplitTurn(
           restored.push(
             await pipeline.restoreDisplay(text, options.plan.recognition, {
               terms: display.terms,
+              ...(survivorPauses[k] === undefined
+                ? {}
+                : { pauses: survivorPauses[k] }),
               ...(k === 0 && firstIsOpening && display.context !== undefined
                 ? { context: display.context }
                 : {}),
@@ -194,6 +200,7 @@ export async function translateSplitTurn(
       sourceText: survivorTexts[k]!,
       translations: translations[k]!,
       ...(restored?.[k] === undefined ? {} : { restored: restored[k] }),
+      ...(survivorPauses[k] === undefined ? {} : { pauses: survivorPauses[k] }),
       reachesEnd: span.endMs === lastSpanEndMs,
     })),
     vectors,

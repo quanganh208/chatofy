@@ -143,6 +143,11 @@ export interface DisplayRestoreRequest {
   context?: string;
   /** The session's hotwords; the restorer uses the mixed-case ones as forms. */
   terms?: string[];
+  /**
+   * Silence after each word of the transcript in ms, as the recognizer
+   * measured it; a full stop where the speaker never paused is dropped.
+   */
+  pauses?: number[];
 }
 
 /**
@@ -216,6 +221,11 @@ export interface TranslatedTurnText {
    * when the turn did not ask, or the restorer failed or ran late.
    */
   restored?: string;
+  /**
+   * Silence after each word of `sourceText` in ms, when the recognizer
+   * measured it. Kept so a block joining this turn can restore with it.
+   */
+  pauses?: number[];
 }
 
 /**
@@ -228,6 +238,8 @@ export interface TranslatedTurnText {
 export interface TranscribedAudio {
   text: string;
   speechMs?: number;
+  /** Silence after each word of `text` in ms; see `SttTranscriptResult`. */
+  pauses?: number[];
 }
 
 /** One synthesis request. */
@@ -466,7 +478,7 @@ export class PipelineTranslatorService {
     try {
       const trio = this.providers.makeProviders();
       const sttStart = Date.now();
-      const { text, speechMs } = await trio.stt.transcribe(
+      const { text, speechMs, pauses } = await trio.stt.transcribe(
         input.audio,
         input.mimeType,
         input.language,
@@ -477,7 +489,11 @@ export class PipelineTranslatorService {
         { hotwords: input.hints?.hotwords, minSpeechMs: input.minSpeechMs },
       );
       this.logger.log(`stt(${trio.stt.name}) ${Date.now() - sttStart}ms`);
-      return { text, speechMs };
+      return {
+        text,
+        speechMs,
+        ...(pauses === undefined ? {} : { pauses }),
+      };
     } catch (err) {
       return this.handlePipelineError(err);
     }
@@ -582,7 +598,11 @@ export class PipelineTranslatorService {
     plan: TurnLanguagePlan,
   ): Promise<TranslatedTurnText> {
     try {
-      const { text: sourceText, speechMs } = await this.transcribe({
+      const {
+        text: sourceText,
+        speechMs,
+        pauses,
+      } = await this.transcribe({
         ...input,
         language: plan.recognition,
       });
@@ -623,11 +643,10 @@ export class PipelineTranslatorService {
       // Started before the translation and awaited after it, so its cost sits
       // beside the translation rather than in front of the speech.
       const restoring = input.restoreDisplay
-        ? this.restoreDisplay(
-            sourceText,
-            plan.recognition,
-            input.restoreDisplay,
-          )
+        ? this.restoreDisplay(sourceText, plan.recognition, {
+            ...input.restoreDisplay,
+            ...(pauses === undefined ? {} : { pauses }),
+          })
         : undefined;
       const translations = await this.translateAll({
         text: sourceText,
@@ -640,9 +659,12 @@ export class PipelineTranslatorService {
       });
       const restored = await restoring;
 
-      return restored === undefined
-        ? { sourceText, translations }
-        : { sourceText, translations, restored };
+      return {
+        sourceText,
+        translations,
+        ...(restored === undefined ? {} : { restored }),
+        ...(pauses === undefined ? {} : { pauses }),
+      };
     } catch (err) {
       return this.handlePipelineError(err);
     }

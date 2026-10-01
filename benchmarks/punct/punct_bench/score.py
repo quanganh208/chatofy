@@ -118,10 +118,10 @@ def metrics(c: Counter) -> dict:
     return {k: round(v, 4) if isinstance(v, float) else v for k, v in out.items()}
 
 
-def primary(per_ruler: dict[str, Counter]) -> float:
+def primary(per_ruler: dict[str, Counter], rulers: tuple[str, ...] = PRIMARY_RULERS) -> float:
     """The decision score: mean of case F1 and punct F1 over the speech rulers."""
     values = []
-    for name in PRIMARY_RULERS:
+    for name in rulers:
         m = metrics(per_ruler[name])
         values += [m["case_f1"], m["punct_f1"]]
     return sum(values) / len(values)
@@ -142,7 +142,7 @@ def load_rows() -> dict[tuple[str, str], dict]:
     return rows
 
 
-def score(results: Path, base: str = INCUMBENT) -> dict:
+def score(results: Path, base: str = INCUMBENT, rulers: tuple[str, ...] = PRIMARY_RULERS) -> dict:
     rows = load_rows()
     arms: dict[str, dict] = {}
     per_row: dict[str, dict[tuple[str, str], Counter]] = {}
@@ -165,7 +165,7 @@ def score(results: Path, base: str = INCUMBENT) -> dict:
         run = json.loads((preds_path.parent / "run.json").read_text()) if (preds_path.parent / "run.json").exists() else {}
         arms[arm] = {
             "rulers": {name: {**metrics(c), **_latency(latency[name])} for name, c in sorted(by_ruler.items())},
-            "primary": round(primary(by_ruler), 4) if all(n in by_ruler for n in PRIMARY_RULERS) else None,
+            "primary": round(primary(by_ruler, rulers), 4) if all(n in by_ruler for n in rulers) else None,
             "errors": errors,
             "peak_rss_mb": run.get("peak_rss_mb"),
             "load_s": run.get("load_s"),
@@ -173,13 +173,13 @@ def score(results: Path, base: str = INCUMBENT) -> dict:
     if base in per_row:
         for arm in arms:
             if arm != base:
-                arms[arm]["vs_incumbent"] = paired_bootstrap(per_row[arm], per_row[base])
+                arms[arm]["vs_incumbent"] = paired_bootstrap(per_row[arm], per_row[base], rulers)
     return arms
 
 
-def paired_bootstrap(arm: dict, base: dict) -> dict | None:
-    """95% interval of (arm primary − incumbent primary), rows resampled per ruler."""
-    keys = {name: sorted(k for k in arm if k[0] == name and k in base) for name in PRIMARY_RULERS}
+def paired_bootstrap(arm: dict, base: dict, rulers: tuple[str, ...] = PRIMARY_RULERS) -> dict | None:
+    """95% interval of (arm primary − base primary), rows resampled per ruler."""
+    keys = {name: sorted(k for k in arm if k[0] == name and k in base) for name in rulers}
     if not all(keys.values()):
         return None
     rng = random.Random(7)
@@ -193,11 +193,11 @@ def paired_bootstrap(arm: dict, base: dict) -> dict | None:
             out[name] = c
         return out
 
-    point = primary(total(arm, keys)) - primary(total(base, keys))
+    point = primary(total(arm, keys), rulers) - primary(total(base, keys), rulers)
     diffs = []
     for _ in range(BOOTSTRAP):
         picks = {name: [ks[rng.randrange(len(ks))] for _ in ks] for name, ks in keys.items()}
-        diffs.append(primary(total(arm, picks)) - primary(total(base, picks)))
+        diffs.append(primary(total(arm, picks), rulers) - primary(total(base, picks), rulers))
     diffs.sort()
     return {
         "delta": round(point, 4),
@@ -209,15 +209,17 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--smoke", action="store_true")
     parser.add_argument("--base", default=INCUMBENT, help="arm the bootstrap compares against")
+    parser.add_argument("--primary", nargs="+", default=list(PRIMARY_RULERS), help="rulers the decision score reads")
     args = parser.parse_args()
     results = RESULTS / "smoke" if args.smoke else RESULTS
-    summary = score(results, args.base)
-    if args.base != INCUMBENT:
+    rulers = tuple(args.primary)
+    summary = score(results, args.base, rulers)
+    if args.base != INCUMBENT or rulers != PRIMARY_RULERS:
         # A comparison against another base is a reading, not the record.
         for arm, s in sorted(summary.items()):
             vs = s.get("vs_incumbent")
             if vs:
-                print(f"{arm:28s} {s['primary']:.4f} vs {args.base}: {vs['delta']:+.4f} {vs['ci95']}")
+                print(f"{arm:28s} {s['primary'] or 0:.4f} vs {args.base}: {vs['delta']:+.4f} {vs['ci95']}")
         return
     (results / "summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     header = f"{'arm':22s} {'primary':>7s} {'Δ vs inc [95% CI]':>24s} {'rss':>6s}"

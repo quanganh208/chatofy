@@ -41,6 +41,14 @@ export interface SegmentBlock {
   restore?: DisplayRestoreRequest;
 }
 
+/** The pieces' pauses end to end, or nothing when any piece has none. */
+function blockPauses(found: FinishedSegment[]): { pauses?: number[] } {
+  const each = found.map((segment) => segment.restore?.pauses);
+  return each.every((pauses) => pauses !== undefined)
+    ? { pauses: each.flatMap((pauses) => pauses) }
+    : {};
+}
+
 export class FinishedSegments {
   private readonly bySocket = new WeakMap<
     StreamSocket,
@@ -95,10 +103,18 @@ export class FinishedSegments {
       recognition: first.recognition,
       targets: [...first.targets],
       ...(first.hints ? { hints: first.hints } : {}),
-      // Terms only: a block starts a display group, so it continues nothing and
-      // the first piece's seam context does not apply to it.
+      // Terms, and pauses when every piece has them: a block starts a display
+      // group, so it continues nothing and the first piece's seam context does
+      // not apply to it. The pauses join piece after piece, so a piece's last
+      // word keeps the silence measured at the end of its own audio — at a
+      // forced cut, the speaker had not stopped.
       ...(first.restore
-        ? { restore: { terms: first.restore.terms ?? [] } }
+        ? {
+            restore: {
+              terms: first.restore.terms ?? [],
+              ...blockPauses(found as FinishedSegment[]),
+            },
+          }
         : {}),
     };
   }

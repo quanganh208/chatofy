@@ -47,6 +47,20 @@ describe('LocalSpeechDisplayRestorer', () => {
     });
   });
 
+  it('sends the pauses only when the caller has them', async () => {
+    const fetch = answering({ text: 'Xin chào anh Tuấn Anh.' });
+
+    await restorer().restore('xin chào anh tuấn anh', {
+      language: 'vi',
+      pauses: [0, 0, 0, 0, 400],
+    });
+    await restorer().restore('xin chào', { language: 'vi' });
+
+    const bodies = fetch.mock.calls.map(([, r]) => JSON.parse((r as { body: string }).body));
+    expect(bodies[0].pauses).toEqual([0, 0, 0, 0, 400]);
+    expect(bodies[1]).not.toHaveProperty('pauses');
+  });
+
   it('sends empty context and terms when the caller has none', async () => {
     const fetch = answering({ text: 'Xin chào.' });
 
