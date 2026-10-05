@@ -286,6 +286,29 @@ export class ConferenceGateway
     };
   }
 
+  @SubscribeMessage('conference.translation.broadcast')
+  handleTranslationBroadcast(
+    @ConnectedSocket() ws: ConferenceSocket,
+    @MessageBody() body: { subtitle?: unknown; audio?: unknown },
+  ): void {
+    const resolved = this.resolvePeer(ws);
+    if ('error' in resolved) return;
+    // Fan out subtitle and audio sub-objects as separate events so listeners
+    // can handle each independently without parsing the combined envelope.
+    if (body.subtitle) {
+      this.broadcast(resolved.room, ws, {
+        event: 'conference.translation.subtitle',
+        data: body.subtitle,
+      });
+    }
+    if (body.audio) {
+      this.broadcast(resolved.room, ws, {
+        event: 'conference.translation.audio',
+        data: body.audio,
+      });
+    }
+  }
+
   @SubscribeMessage('conference.consumer.resume')
   async handleConsumerResume(
     @ConnectedSocket() ws: ConferenceSocket,
