@@ -78,6 +78,14 @@ workflow (`branches: [main]`, gated on `conclusion == 'success'`), plus
 which reads like a gate and is not one. `pull_request` is deliberately absent and
 must stay absent — this executes on a self-hosted runner on a personal machine.
 
+Being a `workflow_run` is not by itself enough, either: that event is reachable
+from a pull request, and GitHub's guidance is to avoid it with untrusted code
+"including from pull request forks", since the triggered workflow is privileged.
+The job therefore also requires the triggering run to have come from a push to
+this repository's `main`, and skips the job entirely otherwise — a job-level
+`if:`, so that a refused run never even allocates the runner. See the security
+notes under _Known gaps_ for what that does and does not cover.
+
 Step order, and why:
 
 ```
@@ -567,4 +575,8 @@ deletion, which requires a second API token and is out of scope.
 ## Known gaps
 
 - **No WebSocket keepalive.** Cloudflare drops idle sockets after roughly 100 seconds, and a user pausing mid-conversation is ordinary. Localhost development never exercises this. The minimal fix is server-side (`ws.ping()` in the gateway); client reconnect is a larger follow-up.
-- **The runner is root-equivalent** through the Docker daemon. Bounded by a private repository, the custom label, and the absent `pull_request` trigger. If this repository is ever made public, that last rule stops being belt-and-braces and becomes the only thing holding.
+- **The runner is root-equivalent** through the Docker daemon. **The repository is public**, so the three rules that used to bound this no longer all hold equally, and what is left is worth stating plainly because two of them moved:
+  - _The custom label_ still holds: bare `self-hosted` matches any runner, so no workflow lands here by accident.
+  - _The absent `pull_request` trigger_ still holds, but it was never the whole guard. `workflow_run` is itself reachable from a pull request, and this job's `if:` now requires the triggering run to have come from a push to this repository's `main` (`head_repository.full_name` and `head_branch`), not merely to have succeeded. Before that test the job only checked `conclusion == 'success'`.
+  - _The private repository_ **no longer holds at all** — it is public, which is what the previous wording anticipated: "if this repository is ever made public, that last rule stops being belt-and-braces and becomes the only thing holding."
+- **A pull request can still edit workflow files.** For `pull_request`, the workflow that runs is the one _"in the context of the merge commit"_, so a fork PR could point a job at the `chatofy` label and reach this host. The guard above does not cover that path, because it is not a `workflow_run`. The control that does is the repository's fork-PR approval policy, now `all_external_contributors`: no fork PR workflow runs until a maintainer approves it. Reviewing a PR that touches `.github/workflows/**` is therefore a security review, not a style review.
