@@ -2,7 +2,7 @@ import { Inject, Logger } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
-  OnGatewayAfterInit,
+  OnGatewayInit,
   OnGatewayConnection,
   OnGatewayDisconnect,
   SubscribeMessage,
@@ -76,7 +76,7 @@ async function makeWebRtcTransport(
 
 @WebSocketGateway({ path: '/ws/conference' })
 export class ConferenceGateway
-  implements OnGatewayAfterInit, OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   @WebSocketServer() private readonly server!: any;
