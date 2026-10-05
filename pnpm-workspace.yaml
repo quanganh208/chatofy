@@ -129,3 +129,32 @@ minimumReleaseAgeExclude:
   - '@vitejs/plugin-react@6.1.0'
 patchedDependencies:
   metro@0.83.6: patches/metro@0.83.6.patch
+
+# Advisories that have no patched version in existence, so no floor and no
+# `--audit-level` can answer them: the newest published release is itself the
+# vulnerable range. Without this list `pnpm audit --audit-level=high` fails on
+# every branch, including main, and the gate stops meaning anything. Each entry
+# names what would clear it — delete the entry when that happens.
+#
+# `pnpm audit --ignore-unfixable` would generate this list for us, but the flag
+# also silences every FUTURE advisory that happens to have no patch yet, so a
+# new unpatchable high would pass CI without anyone deciding. Committing the
+# list keeps each suppression a reviewed line. It is not self-pruning: an entry
+# whose advisory stops applying is silently kept, which is why each carries the
+# condition that clears it.
+auditConfig:
+  ignoreGhsas:
+    # GHSA-86w9-cpqp-85rv — node-forge <=1.4.0, and 1.4.0 is the newest release.
+    # Reached only by apps/mobile, through @expo/cli and its
+    # code-signing-certificates; the api, web and extension runtimes never load
+    # it, and neither does any other workspace package. Clears when Expo ships a
+    # CLI on a patched node-forge.
+    - GHSA-86w9-cpqp-85rv
+    # GHSA-vfj7-8cjw-p6xm — braces <=3.0.3, and 3.0.3 is the newest release.
+    # Stack exhaustion from a deeply nested pattern. One direct parent,
+    # micromatch@4.0.8, reached from two workspace packages: apps/mobile via
+    # metro-file-map and babel-jest, and packages/config via
+    # eslint-config-next's fast-glob. Both routes are build- and lint-time over
+    # this repo's own file tree, never over anything a user sends. Clears when
+    # micromatch moves to a patched braces.
+    - GHSA-vfj7-8cjw-p6xm
