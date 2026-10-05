@@ -1,8 +1,10 @@
 # Chatofy: Video Conferencing + Real-time Translation Architecture
 
-> **Status: Proposal — not implemented.** No conferencing code exists on `main` as of
-> 2026-10-05. Progress is tracked in [project-roadmap.md](./project-roadmap.md); the
-> choices that must be made before building are in [Open decisions](#open-decisions).
+> **Status: Proposal — PoC landed.** A minimal mediasoup SFU PoC
+> (`apps/api/src/modules/conference/`, `apps/web/app/(app)/conference-poc/`) was committed
+> to `feat/207-mediasoup-poc` by Issue #207. Open Decision 1 is now resolved (see below).
+> Production conferencing code is not on `main`. Other open decisions remain.
+> Progress is tracked in [project-roadmap.md](./project-roadmap.md).
 
 **Date:** 2026-09-29  
 **Scope:** Proposed evolution from standalone translation → unified video conferencing platform
@@ -663,31 +665,49 @@ Detailed analysis is in [technical-risks-mitigation.md](./technical-risks-mitiga
 Nothing below is settled. Each item changes what the phases above contain, and the
 other two video documents link here.
 
-### 1. Media server (SFU) — undecided
+### 1. Media server (SFU) — **Resolved: mediasoup 3.28.0** (Issue #207, 2026-10-05)
 
-The text above names Pion (§3.1, §7 Phase 3, §9, Appendix). That is an assumption made
-while writing, not a decision. Three candidates:
+**Decision:** mediasoup  
+**Rejected:** LiveKit, Pion  
+**Evidence:** PoC on `feat/207-mediasoup-poc` — two browser tabs exchanged audio + video
+through a mediasoup Worker running inside the NestJS API process (`ConferenceWorkerService`,
+`ConferenceRoomRegistry`, `ConferenceGateway`).
 
-| Criterion                              | LiveKit                                                                                                  | mediasoup                                                                                        | Pion                                                                     |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| What it is                             | Self-hosted SFU server (Go) with JS, React and React Native SDKs                                         | Node.js library (C++ media workers); SFU primitives only                                         | Go WebRTC library; the SFU is ours to write                              |
-| Fit with the NestJS stack              | NestJS only mints access tokens and stores room metadata; media and signaling stay in the LiveKit server | Runs in or beside the Node API; signaling is ours (could ride the existing `ws` gateway pattern) | A separate Go service beside NestJS, plus a control channel between them |
-| Ops on the prod VM (~3.4 GiB headroom) | One more container; recording (Egress) is a separate, heavier service. Footprint unmeasured              | Worker processes in or beside the API container. Footprint unmeasured                            | One more service; footprint depends on our code. Unmeasured              |
-| Mobile (Expo)                          | React Native SDK; native WebRTC module, so an Expo development build rather than Expo Go                 | `mediasoup-client` over `react-native-webrtc`; development build                                 | Plain WebRTC client over `react-native-webrtc`; development build        |
-| Effort                                 | Lowest: rooms, simulcast, reconnection and recording come with it                                        | Medium: signaling, room state and simulcast layer selection are ours                             | Highest: SFU logic is ours (the Appendix's 40h assumes this)             |
+#### Comparison table
 
-Common to all three: production is published through a Cloudflare Tunnel (see
-[deployment-guide.md](./deployment-guide.md)), which serves the web and API hostnames.
-How media packets reach the SFU — an open UDP port on the host or a TURN relay — is
-unresolved for every option. Any footprint figure must be measured under a
-`docker --memory` cap before it is trusted against the VM's headroom.
+Every cell cites a source or a PoC measurement. "PoC" means observed on
+`feat/207-mediasoup-poc` during local testing.
 
-### 2. Pion implies a Go service beside NestJS
+| Criterion                 | LiveKit                                                                                                                                                                                         | mediasoup                                                                                                                                                                                                   | Pion                                                                                                                                                                 |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **What it is**            | Standalone SFU **server** (Go binary / Docker image) + client SDKs ([livekit/livekit](https://github.com/livekit/livekit), Apache-2.0)                                                          | **Node.js library** — SFU primitives only; C++ Worker child process handles media ([mediasoup.org — Architecture](https://mediasoup.org/documentation/v3/mediasoup/design/))                                | **Go library** — WebRTC primitives; the SFU logic is entirely ours to write ([pion/webrtc](https://github.com/pion/webrtc), MIT)                                     |
+| **Fits NestJS stack**     | NestJS mints access tokens only; all media + signaling live inside the LiveKit container ([LiveKit self-hosting](https://docs.livekit.io/home/self-hosting/))                                   | Runs **in-process** with NestJS; Worker is a C++ child process ([mediasoup API — Worker](https://mediasoup.org/documentation/v3/mediasoup/api/#Worker)); PoC confirmed                                      | Needs a Go service + a control channel beside NestJS; no Go toolchain, Dockerfile, or CI job exists in this repo today (verified: `Glob("**/*.go")` returns nothing) |
+| **Additional containers** | **1 extra** (livekit-server); recording needs a **second** Egress container ([LiveKit Egress](https://docs.livekit.io/egress/))                                                                 | **0 extra** — Worker spawns as a child process of the API; coturn only needed for non-localhost TURN ([mediasoup Workers](https://mediasoup.org/documentation/v3/mediasoup/design/#Workers)); PoC confirmed | **1 extra** (Go SFU service); footprint depends on our code, unmeasured                                                                                              |
+| **License**               | Apache-2.0 ([livekit/livekit LICENSE](https://github.com/livekit/livekit/blob/main/LICENSE))                                                                                                    | ISC ([mediasoup npm](https://www.npmjs.com/package/mediasoup))                                                                                                                                              | MIT ([pion/webrtc LICENSE](https://github.com/pion/webrtc/blob/master/LICENSE))                                                                                      |
+| **Mobile (Expo)**         | React Native SDK (`@livekit/react-native`); needs dev build because it depends on `react-native-webrtc` ([livekit/client-sdk-react-native](https://github.com/livekit/client-sdk-react-native)) | `mediasoup-client@3.7.18` + `react-native-webrtc`; also needs dev build ([mediasoup — React Native](https://mediasoup.org/documentation/v3/mediasoup-client/installation/))                                 | Plain `react-native-webrtc`; dev build still needed; no higher-level SDK                                                                                             |
+| **Signaling**             | Built in to livekit-server (gRPC + WebSocket); signaling is NOT ours ([LiveKit protocol](https://github.com/livekit/protocol))                                                                  | **Entirely ours** — mediasoup is transport-only; PoC reused the existing `@WebSocketGateway` pattern from `TranslateGateway`                                                                                | Entirely ours; same cost as mediasoup but in Go                                                                                                                      |
+| **Implementation effort** | **Lowest** — rooms, simulcast, reconnection, and recording (Egress) come with the server                                                                                                        | **Medium** — signaling, room state, and simulcast layer selection are ours; PoC took ~1 day                                                                                                                 | **Highest** — full SFU logic is ours in Go; the Appendix's 40 h estimate assumed Pion                                                                                |
+| **TURN / NAT**            | Needs an open port or TURN relay for media; same as mediasoup ([LiveKit deployment](https://docs.livekit.io/home/self-hosting/deployment/))                                                     | coturn added to `docker-compose.yml` with `--use-auth-secret`; PoC confirmed loopback works without TURN                                                                                                    | Same requirement; same coturn approach                                                                                                                               |
 
-Every Pion reference assumes a Go process the repo does not have: no Go toolchain, CI
-job, Dockerfile or deploy step exists for one today. Choosing Pion adds a language and a
-service to build, test and deploy. The references are kept, flagged as assumptions,
-until item 1 is decided.
+**Why LiveKit was rejected:** it runs as a separate Go server (container), and recording requires a
+second Egress container — two extra services for a graduation thesis VM with ~3.4 GiB headroom.
+Its built-in signaling also cannot be absorbed into the existing `ws` gateway patterns.
+
+**Why Pion was rejected:** it is a Go library that would add a language, a Dockerfile, and a CI
+pipeline the repo has none of today. Effort is higher than mediasoup for no gain relevant to this
+project's scope.
+
+**Remaining note:** The Cloudflare Tunnel serving the web and API hostnames blocks UDP media
+(TCP only). coturn in `docker-compose.yml` provides a TURN relay for non-localhost testing.
+Any footprint figure must be measured under a `docker --memory` cap before trusting it against
+the VM's headroom.
+
+### 2. Pion implies a Go service beside NestJS — **Superseded by Decision 1**
+
+Resolved: mediasoup was chosen (see above). All Pion references in §3.1, §7 Phase 3,
+§9, and the Appendix are now incorrect assumptions; they are left in place to show the
+proposal's original intent but should be replaced when the production implementation plan
+is written.
 
 ### 3. Billing vs a non-commercial thesis
 
@@ -759,5 +779,5 @@ TOTAL                          164h   = 4-5 weeks (1 eng)
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** 2026-09-29 (reconciled with the current system 2026-10-05)
+**Document Version:** 1.1  
+**Last Updated:** 2026-10-05 (Open Decision 1 resolved: mediasoup chosen, Issue #207)
