@@ -116,6 +116,18 @@
         ]
       },
       {
+        "matcher": "Bash|WebFetch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/secrets-inject.cjs"
+            ]
+          }
+        ]
+      },
+      {
         "matcher": "Bash|Read|Grep|Glob",
         "hooks": [
           {
@@ -123,6 +135,20 @@
             "command": "node",
             "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/context-firewall.cjs"
+            ]
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/session-heartbeat.cjs"
             ]
           }
         ]
@@ -136,13 +162,44 @@
             "type": "command",
             "command": "node",
             "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/session-heartbeat.cjs"
+            ]
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/session-init.cjs"
+            ]
+          },
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/session-heartbeat.cjs"
             ]
           }
         ]
       }
     ],
     "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/session-heartbeat.cjs"
+            ]
+          }
+        ]
+      },
       {
         "matcher": "*",
         "hooks": [
@@ -172,6 +229,13 @@
             "command": "node",
             "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/agent-behavior-linter.cjs"
+            ]
+          },
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/session-heartbeat.cjs"
             ]
           }
         ]
@@ -229,6 +293,13 @@
             "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/simplify-gate.cjs"
             ]
+          },
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/session-heartbeat.cjs"
+            ]
           }
         ]
       },
@@ -261,6 +332,13 @@
             "command": "node",
             "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/usage-quota-cache-refresh.cjs"
+            ]
+          },
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/session-heartbeat.cjs"
             ]
           }
         ]

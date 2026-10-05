@@ -88,6 +88,15 @@
       {
         "hooks": [
           {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/secrets-inject.cjs\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash|WebFetch"
+      },
+      {
+        "hooks": [
+          {
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/context-firewall.cjs\"",
             "type": "command"
           }
@@ -95,11 +104,35 @@
         "matcher": "Bash|Read|Grep|Glob"
       }
     ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-heartbeat.cjs\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
           {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-heartbeat.cjs\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "hooks": [
+          {
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-init.cjs\"",
+            "type": "command"
+          },
+          {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-heartbeat.cjs\"",
             "type": "command"
           }
         ],
@@ -107,6 +140,15 @@
       }
     ],
     "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-heartbeat.cjs\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      },
       {
         "hooks": [
           {
@@ -123,6 +165,10 @@
           },
           {
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/agent-behavior-linter.cjs\"",
+            "type": "command"
+          },
+          {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-heartbeat.cjs\"",
             "type": "command"
           }
         ],
@@ -165,6 +211,10 @@
           {
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/simplify-gate.cjs\"",
             "type": "command"
+          },
+          {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-heartbeat.cjs\"",
+            "type": "command"
           }
         ],
         "matcher": "*"
@@ -185,6 +235,10 @@
           },
           {
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/usage-quota-cache-refresh.cjs\"",
+            "type": "command"
+          },
+          {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-heartbeat.cjs\"",
             "type": "command"
           }
         ],

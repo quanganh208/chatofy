@@ -1,87 +1,36 @@
-# Design Description Workflow
+# Design description workflow
 
-Create detailed design documentation from screenshot/video for developer implementation.
+Produce implementation-ready documentation from a screenshot or video, without coding.
 
-## Prerequisites
-- Activate `ak:ui-ux-pro-max` skill first
-- Have `ak:ai-multimodal` skill ready
-
-## Workflow Steps
-
-### 1. Comprehensive Visual Analysis
-Use `ak:ai-multimodal` skill to describe exhaustively:
-
-**Layout & Structure**
-- Element positions (absolute coords or relative)
-- Container hierarchy
-- Grid/flexbox patterns
-- Responsive breakpoints visible
-
-**Visual Properties**
-- Design style and aesthetic trend
-- Every color with hex codes
-- Every border (width, style, radius)
-- Every icon (describe or identify)
-- Font names (predict Google Fonts), sizes, weights
-- Line heights, letter spacing
-
-**Spacing System**
-- Padding values
-- Margin values
-- Gap between elements
-- Section spacing
-
-**Visual Effects**
-- Shapes and geometry
-- Textures and materials
-- Lighting direction
-- Shadows (offset, blur, spread, color)
-- Reflections and refractions
-- Blur effects (backdrop, gaussian)
-- Glow effects
-- Background transparency
-- Image treatments
-
-**Interactions (if video)**
-- Animation sequences
-- Transition types and timing
-- Hover/focus states
-- Scroll behaviors
-
-**Font Prediction**: Match actual fonts, avoid Inter/Poppins defaults.
-
-### 2. Create Implementation Plan
-Use `ui-ux-designer` subagent:
-- Create plan directory (use `## Naming` pattern)
-- Write `plan.md` overview (<80 lines)
-- Add detailed `phase-XX-name.md` files
-
-### 3. Report to User
-Provide implementation-ready documentation:
-- Summary of design system
-- Component breakdown
-- Technical specifications
-- Suggested implementation approach
-
-## Output Format
+1. **Analyze** with `visual-analysis.md`. Describe layout and hierarchy, grid,
+   breakpoints visible, every color with its value and role, borders and radii, icons,
+   fonts (match what is visible; do not default to Inter or Poppins), sizes, weights,
+   line heights, letter spacing, spacing values, shadows, effects and, for video,
+   interactions with timing and easing.
+2. **Write the brief** lines from `../SKILL.md` for the analyzed design, so an
+   implementer inherits its intent, not only its values.
+3. **Report** in this shape:
 
 ```markdown
-# Design Analysis: [Name]
+# Design analysis: <name>
 
-## Design System
-- **Style**: [aesthetic direction]
-- **Colors**: [palette with hex]
-- **Typography**: [fonts, sizes, weights]
-- **Spacing Scale**: [values]
+## Brief
+Register / Scene / Direction / Color / Type / Signature / Dials
 
-## Component Breakdown
-1. [Component] - [specs]
-2. [Component] - [specs]
+## Tokens
+(CSS variables: color roles, type scale, spacing, radii, shadows, motion)
 
-## Implementation Notes
-- [Technical considerations]
+## Layout
+(grid, section order, breakpoints and how the layout re-composes)
+
+## Components
+1. <component>: sizes, spacing, states, behavior
+
+## Motion
+(what animates, trigger, duration, easing)
+
+## Implementation notes
+(stack suggestions, asset needs, accessibility gaps observed, unknowns)
 ```
 
-## Related
-- `extraction-prompts.md` - Detailed prompts
-- `extraction-output-templates.md` - Output formats
+Mark any value you could not determine as `Unknown` rather than guessing.

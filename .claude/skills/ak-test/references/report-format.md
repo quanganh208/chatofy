@@ -56,3 +56,18 @@ Structured QA report template. Write complete sentences; keep it short by select
 - Recommendations: prioritize by impact (critical > high > medium > low)
 - Keep report under 200 lines — split into sections if larger scope needed
 - Save report using naming pattern from `## Naming` section injected by hooks
+
+## Impact-selection receipts
+
+For `optimize`, include source/manifest/policy fingerprints, provider provenance,
+selected and skipped group reasons, required checks, broadening, observed exit
+status, retries, and elapsed time. Report unobserved cost as unknown, never zero.
+For comparisons, separate baseline validity and missed known regressions from
+wall-time differences. Synthetic corpus savings are not production savings.
+
+Semantic reports keep baseline, effective and hypothetical plans separate. Include
+consumer status, profile/threshold revisions, attempted/completed/abstained counts,
+source-bound invocation batches and original capture kind. Report integration
+success separately from model-quality eligibility. E2E label accuracy/confusion
+is separate from regression recall; unknown provider cost/billed minutes stay
+null. No live-provider or beta claim follows from synthetic replay success.

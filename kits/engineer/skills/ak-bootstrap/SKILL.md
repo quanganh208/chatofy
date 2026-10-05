@@ -1,15 +1,15 @@
 ---
 name: ak:bootstrap
-description: "Bootstrap new projects with research, tech stack, design, planning, and implementation. Modes: full (default thorough), auto (explicit autonomous), fast (skip research), parallel (multi-agent)."
+description: "Bootstrap new projects (web, mobile, CLI, API, MCP, WebMCP, libraries) from a locked scope straight to implementation via ak:cook, then ak:code-review, ak:enhance-ux-ax --auto for web surfaces, and optional release with live verification; no separate planning phase. Modes: auto (default, agent decides), full (interactive thorough), fast (skip research), parallel (multi-agent); --ask interviews the user via ak:advise until scope is locked."
 user-invocable: true
 when_to_use: "Invoke to start a new project or full-stack setup from scratch."
 category: workflow
 keywords: [scaffold, project, setup, boilerplate]
 license: MIT
-argument-hint: "[requirements] [--full|--auto|--fast|--parallel] [--ultra] [--yagni] [--skip-journal]"
+argument-hint: "[requirements] [--auto|--full|--fast|--parallel] [--ask] [--ultra] [--yagni] [--skip-journal]"
 metadata:
   author: agentkit
-  version: "1.1.3"
+  version: "1.2.0"
 ---
 
 # Bootstrap - New Project Scaffolding
@@ -24,57 +24,90 @@ End-to-end project bootstrapping from idea to running code.
 /ak:bootstrap <user-requirements>
 ```
 
-**Flags** (optional, default `--full`):
+**Flags** (optional, default `--auto`):
 
-| Flag | Mode | User Gates | Planning Skill | Cook Skill |
-|------|------|------------|----------------|------------|
-| `--full` | Full workflow | Missing material decisions | `--hard` | default continuation |
-| `--auto` | Automatic explicit opt-in | Missing material decisions | `--auto` | `--auto` |
-| `--fast` | Quick | Missing material decisions | `--fast` | default continuation |
-| `--parallel` | Multi-agent | Missing material decisions | `--parallel` | `--parallel` |
+| Flag | Mode | User Gates | Cook Skill |
+|------|------|------------|------------|
+| `--auto` | Automatic (default) | Authorization boundaries only | `--auto` |
+| `--full` | Full interactive workflow | Missing material decisions | default continuation |
+| `--fast` | Quick | Missing material decisions | `--fast` |
+| `--parallel` | Multi-agent | Missing material decisions | `--parallel` |
 
 **Composable flags** (combine with any mode):
 
 | Flag | Effect |
 |------|--------|
-| `--yagni` | Opt into YAGNI: challenge and cut scope not needed for the stated outcome (default: scaffold the full requested scope). Passed through to `ak:plan` and `ak:cook` |
-| `--ultra` | Planning uses the best-of-5 verifier mode: the planning phase runs `/ak:plan --ultra` instead of the mode-mapped plan flag (see Ultra Verifier Mode). Hard-conflicts with `--parallel` |
+| `--ask` | Run the opening brainstorm gate as an `ak:advise` interview until the implementation scope is locked and confirmed, then continue in the selected mode (see Opening brainstorm gate) |
+| `--yagni` | Opt into YAGNI: challenge and cut scope not needed for the stated outcome (default: scaffold the full requested scope). Passed through to `ak:cook` and `ak:code-review` |
+| `--ultra` | Code review uses the best-of-5 verifier mode: the review phase runs `/ak:code-review codebase --ultra` (see Ultra Verifier Mode) |
 
 **Example:**
 ```
 /ak:bootstrap "Build a SaaS dashboard with auth" --fast
 /ak:bootstrap "E-commerce platform with Stripe" --parallel
+/ak:bootstrap "Redesign our marketing site" --ask
+/ak:bootstrap "MCP server and CLI for our billing API"
 ```
 
 ## Opening brainstorm gate (all modes)
 
-Before Git initialization, research, design, planning, or scaffolding, capture:
+Before Git initialization, research, design, or scaffolding, capture:
 
 - the intended product outcome;
 - technology, safety, compatibility, and delivery constraints;
 - explicit non-goals for this bootstrap;
 - observable acceptance criteria for the running project.
 
-Reuse an accepted brief or plan when it already contains these fields. Ask only
-about a missing decision that would materially change the product or safety.
-`--fast`, `--parallel`, and explicit `--auto` do not skip this gate; they only
-change execution and approval behavior after the contract is concrete.
+Reuse an accepted brief or plan when it already contains these fields. How the
+remaining gaps close depends on the flags:
+
+- **Default (`--auto`, no `--ask`):** decide each gap yourself from the user's
+  prompt, project instructions, the existing workspace, and remembered user
+  preferences and prior decisions. Choose the option that best serves the stated
+  outcome, record each choice as an assumption in the contract, and continue
+  without an interview. Stop only at an authorization boundary: a missing
+  secret, a destructive or outward-facing action the brief does not authorize,
+  or spending the brief does not cover.
+- **`--ask`:** activate `ak:advise` with the prompt and the evidence gathered so
+  far. Let it interview the user one question at a time until outcome, scope,
+  constraints, non-goals, acceptance criteria and definition of done are locked
+  and the user confirms them. Use the confirmed result as the contract; skip
+  advise's report delivery flags. If the runtime blocks invoking `ak:advise`
+  from another skill, read its SKILL.md and run its interview steps directly.
+- **`--full`, `--fast`, `--parallel` without `--ask`:** ask only about a missing
+  decision that would materially change the product or safety.
+
+No mode skips this gate; modes change execution and approval behavior only
+after the contract is concrete.
+
+Load `references/project-brief-checklist.md` and check the contract against
+its core sections and the sections for each surface the project has (website
+or web app, mobile app, CLI, API or service, MCP server, WebMCP, library or
+SDK). A project can have several surfaces.
+
+Record the brief's definition of done. When it names a live target
+(production, a store, a registry), the project is done only after it is
+released there and verified the way a real user or client reaches it; see
+"Release and Live Verification" in `references/shared-phases.md`.
 
 ## Workflow Overview
 
 ```
-[Brainstorm Contract] → [Git Init] → [Research?] → [Tech Stack?] → [Design?] → [Planning] → [Implementation] → [Test] → [Review] → [Docs] → [Onboard] → [Final]
+[Brainstorm Contract (ak:advise with --ask)] → [Git Init] → [Research?] → [Tech Stack?] → [Design?] → [ak:cook: implement + test] → [ak:code-review] → [ak:enhance-ux-ax --auto (web)] → [Release & Live Verify?] → [Docs] → [Onboard] → [Done]
 ```
 
-Each mode loads a specific workflow reference + shared phases.
+There is no separate planning phase: the locked brainstorm contract goes
+straight to cook, which sizes its own implementation plan. Each mode loads a
+specific workflow reference + shared phases.
 
 ## Mode Detection
 
-If no flag provided, default to `--full`.
+If no mode flag is provided, default to `--auto`. `--ask` is not a mode; it
+changes only how the opening gate closes.
 
 Load the appropriate workflow reference:
+- `--auto` (default): Load `references/workflow-auto.md`
 - `--full`: Load `references/workflow-full.md`
-- `--auto`: Load `references/workflow-auto.md` only when explicitly requested
 - `--fast`: Load `references/workflow-fast.md`
 - `--parallel`: Load `references/workflow-parallel.md`
 
@@ -85,32 +118,55 @@ All mode references inherit the opening brainstorm contract. Load
 
 Inspect the actual destination, existing files, manifests and Git state first. Reuse an existing project and its branch conventions; never re-scaffold or reset it. Initialize Git only for a new project when included in the requested setup, using the repository’s requested/default branch. Preserve unrelated files.
 
+When the brief asks for a remote repository, create it through `ak:github` with the requested owner, name and visibility, and push the default and environment branches. Apply branch protection in the release phase, after CI exists, so it cannot block the first CI setup commit. For a redesign, read the old project as a source and build the new one in its requested location; do not overwrite the old project unless the brief says so.
+
 ## Downstream ownership
 
 After early phases (research, tech stack, design), trigger downstream skills:
 
-### Planning Phase
-Activate **ak:plan** skill with mode-appropriate flag:
-- `--full` → `/ak:plan --hard <requirements>` (thorough research + validation)
-- `--auto` → `/ak:plan --auto <requirements>` (auto-detect complexity)
-- `--fast` → `/ak:plan --fast <requirements>` (skip research)
-- `--parallel` → `/ak:plan --parallel <requirements>` (file ownership + dependency graph)
+### Surface Skills
+Route each surface to its owning skill during tech stack, design and
+implementation: `ak:web-frameworks` or `ak:frontend-development` for web,
+`ak:mobile-development` for mobile, `ak:backend-development` for APIs,
+`ak:mcp-builder` for MCP servers, `ak:webmcp` for WebMCP, `ak:agentize` for
+agent-facing CLIs. The checklist names the rest.
 
-Under `--ultra`, substitute `/ak:plan --ultra <requirements>` for the mode-mapped
-flag above (see Ultra Verifier Mode); this override also applies inside the
-loaded workflow references. With `--parallel`, the combination is a hard-stop.
+### Design Phase
+A project without a visual interface (for example a CLI, API, MCP server or
+library) skips the wireframe and visual design steps in the workflow
+references and designs its interface contract (commands, routes, tool
+schemas, public API) as part of the brainstorm contract instead.
 
-Pass the brainstorm contract with the requirements so planning preserves the
-accepted outcome, constraints, non-goals, and acceptance criteria.
-
-Planning skill outputs a plan path. Pass this to cook.
+When the project has a visual interface and visual quality or art direction is
+a primary requirement, the design step activates **ak:frontend-design** with
+the accepted brand, keep and rebuild lists, and requested design contract files (for example `DESIGN.md`,
+`REVIEW.md`, `AGENTS.md`). It owns art direction and polish; bootstrap does not
+restate its guidance. When it is active, the `ui-ux-designer` wireframes in the
+workflow references are produced under that direction, not as a second design.
 
 ### Implementation Phase
-Activate **ak:cook** skill with the plan path and mode-appropriate flag:
-- `--full` → `/ak:cook <plan-path>` (continue within accepted scope)
-- `--auto` → `/ak:cook --auto <plan-path>` (explicit autonomous implementation)
-- `--fast` → `/ak:cook <plan-path>` (skip extra research, continue within accepted scope)
-- `--parallel` → `/ak:cook --parallel <plan-path>` (multi-agent execution)
+Bootstrap does not run `ak:plan`. Activate **ak:cook** directly with the
+brainstorm contract (outcome, constraints, non-goals, acceptance criteria,
+definition of done, recorded assumptions) plus the research, stack and design
+outputs, and the mode-appropriate flag:
+- `--full` → `/ak:cook <brainstorm contract>` (continue within accepted scope)
+- `--auto` → `/ak:cook --auto <brainstorm contract>` (autonomous implementation)
+- `--fast` → `/ak:cook --fast <brainstorm contract>` (skip extra research)
+- `--parallel` → `/ak:cook --parallel <brainstorm contract>` (multi-agent execution)
+
+Cook sizes its own implementation plan from the contract and runs the tests.
+
+### Code Review Phase
+After cook, activate **ak:code-review** on the new project (`codebase`; for
+work added to an existing project, `--pending` while uncommitted, otherwise the
+PR or each commit hash); add `--ultra` when bootstrap received it. Send
+blocking findings back through cook with the same mode flag, then review again
+with the same flags. Details and stop limits are in `references/shared-phases.md`.
+
+### UX and AX Enhancement Phase
+When the project has a website or web app, activate **ak:enhance-ux-ax
+--auto** after code review passes, then continue to release. Skip it for
+projects without a web surface. Details are in `references/shared-phases.md`.
 
 ## Role
 
@@ -121,8 +177,7 @@ Elite software engineering expert specializing in system architecture and techni
 - Activate relevant skills from catalog during the process
 - Keep all research reports ≤150 lines
 - Resolve documentation paths from repository instructions and navigation
-- Plans written to `./plans` directory using naming from `## Naming` section
-- DO NOT implement code directly — delegate through planning + cook skills
+- DO NOT implement code directly — delegate through cook; do not add a separate `ak:plan` phase
 - Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
 - List unresolved questions at end of reports
 - Follow the installed journal owner and its opt-out preference to write a concise technical journal entry upon completion — unless the shared "Journal step — opt-out" below applies.
@@ -143,23 +198,22 @@ Explicit `/ak:journal` and `ak journal create` are unaffected.
 ## References
 
 - `references/workflow-full.md` - Full interactive workflow
-- `references/workflow-auto.md` - Explicit auto workflow
+- `references/workflow-auto.md` - Auto workflow (default)
 - `references/workflow-fast.md` - Fast workflow
 - `references/workflow-parallel.md` - Parallel workflow
-- `references/shared-phases.md` - Common phases (implementation → final report)
+- `references/shared-phases.md` - Common phases (implementation → code review → UX/AX enhancement → release and live verification → final report)
+- `references/project-brief-checklist.md` - Brief coverage checklist: core sections plus web, mobile, CLI, API, MCP, WebMCP and library surfaces
 
 ## Ultra Verifier Mode (`--ultra`)
 
-Bootstrap does not fan itself. When `--ultra` is present, the planning phase
-runs `/ak:plan --ultra` instead of the mode-mapped plan flag (`--hard`,
-`--auto`, `--fast`) — plan's `--ultra` is exclusive with those mode flags, and
-the plan skill owns the best-of-5 candidate dispatch, verification, and
-winner-selection finalizer. Cook still runs with the mode-appropriate flag.
-
-`--ultra` hard-conflicts with `--parallel`: plan `--parallel` produces the
-file-ownership and dependency-graph structure that cook `--parallel` consumes,
-and a single winning ultra plan does not carry it. On that combination,
-hard-stop and ask the user to drop one flag; never resolve it silently.
+Bootstrap does not fan itself. When `--ultra` is present, the code review
+phase runs `/ak:code-review codebase --ultra` (for work added to an existing
+project, `--pending --ultra` or the PR or commit with `--ultra`), including the
+re-review after UX/AX enhancement, and the code-review skill owns the best-of-5
+candidate dispatch, verification, and its evidence-validated union finalizer.
+Cook and enhance-ux-ax still run with their mode-appropriate flags, so
+`--ultra` combines with every mode, including `--parallel`. Never pair it with
+code-review's `codebase parallel`, which that skill treats as a hard-stop.
 
 Full mechanics live in `../ak-brainstorm/references/ultra-verifier-mode.md`. It
 is a best-of-5 verifier mode inspired by LLM-as-a-Verifier, not the full

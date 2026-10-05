@@ -143,3 +143,8 @@ After every PR has completed its flow, report to the chat:
 - Advisory summary if `--advice` ran: number of `kongming` checkpoints that fired across all PRs, whether each PR's MANDATORY post-CI-green comment was posted / skipped (with reason), and any advice-flagged risks that shaped verdicts or fix scope
 - Remaining findings or blockers per PR
 - Unresolved questions, if any
+
+## Optional finding-triage experiment
+
+After candidate discovery, explicitly opted-in experiments may follow
+[semantic triage](references/semantic-triage.md). Ordinary review remains unchanged.

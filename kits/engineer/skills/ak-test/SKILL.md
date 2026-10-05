@@ -8,7 +8,7 @@ keywords: [test, unit, integration, e2e, coverage]
 argument-hint: "[context] OR ui [url] OR create|optimize|audit [scope] [--advice] [--ultra] [--interview]"
 metadata:
   author: agentkit
-  version: "1.2.0"
+  version: "1.2.1"
   workflow:
     precedes: [ak-git]
 ---
@@ -80,7 +80,12 @@ covers them.
 `optimize`: multiple parallel `ak:scout` subagents analyze CI/CD workflows, git
 history, codebase, and docs, then restructure tests for speed at equal safety —
 parallel lanes, change-based test selection, docs-only skips. Goal: lower CI
-cost, faster ships, no lost coverage.
+cost, faster ships, no lost coverage. For repository-owned manifests, the same
+workflow uses `ak test optimize` for deterministic ranked selection and optional
+execution; external uncertainty broadens and mandatory policy checks remain.
+Explicitly consented semantic shadow/advisory modes can add observations or
+checks; they never remove the deterministic baseline. Never infer that consent
+from a key, and never change E2E scheduling from classification advice.
 
 **Load when:** `optimize` argument — CI too slow/expensive, suite growth pains
 

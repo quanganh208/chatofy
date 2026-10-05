@@ -71,8 +71,14 @@ class DockerfileAnalyzer:
         for i, line in enumerate(self.lines, 1):
             line = line.strip()
             if line.startswith('FROM'):
-                # Check for 'latest' tag
-                if ':latest' in line or (': ' not in line and 'AS' not in line and '@' not in line):
+                # Check for 'latest' tag or a missing tag. Resolve the image
+                # reference itself (drop the "AS <alias>" suffix) so a tag
+                # like "node:20-alpine" isn't misread as untagged just
+                # because there is no space after the colon.
+                image_ref = line[len('FROM'):].strip().split()[0]
+                has_tag = ':' in image_ref
+                has_digest = '@' in image_ref
+                if ':latest' in image_ref or (not has_tag and not has_digest):
                     self.issues.append({
                         'line': i,
                         'severity': 'warning',
@@ -195,6 +201,17 @@ class DockerfileAnalyzer:
                         'suggestion': 'Combine related RUN commands with && to reduce layers'
                     })
                 consecutive_runs = 0
+
+        # A run of consecutive RUN commands at the very end of the file
+        # never hits a non-RUN line to trigger the flush above, so flush it
+        # here once the loop finishes.
+        if consecutive_runs > 1:
+            self.suggestions.append({
+                'line': first_run_line,
+                'category': 'layers',
+                'message': f'{consecutive_runs} consecutive RUN commands',
+                'suggestion': 'Combine related RUN commands with && to reduce layers'
+            })
 
     def analyze_workdir(self) -> None:
         """Check for WORKDIR usage."""

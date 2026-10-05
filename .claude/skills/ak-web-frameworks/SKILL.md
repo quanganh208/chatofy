@@ -1,15 +1,15 @@
 ---
 name: ak:web-frameworks
-description: Build with Next.js (App Router, RSC, SSR, ISR), Turborepo monorepos. Use for React apps, server rendering, build optimization, caching strategies, shared dependencies.
+description: Build with Next.js (App Router, RSC, SSR, ISR), Turborepo monorepos. Use for React apps, server rendering, build optimization, caching, shared dependencies, and SEO/GEO surfaces (sitemap, robots, llms.txt, .md page variants, social cards, JSON-LD, copy/share/open-in-AI actions).
 user-invocable: true
-when_to_use: "Invoke for Next.js, RSC, SSR, ISR, Turborepo, or caching."
+when_to_use: "Invoke for Next.js, RSC, SSR, ISR, Turborepo, caching, or Next.js SEO/GEO implementation."
 category: engineering
-keywords: [nextjs, turborepo, ssr, isr, rsc]
+keywords: [nextjs, turborepo, ssr, isr, rsc, seo, llms-txt, open-graph]
 license: MIT
 argument-hint: "[framework] [feature]"
 metadata:
   author: agentkit
-  version: "1.1.1"
+  version: "1.2.0"
 ---
 
 # Web Frameworks Skill Group
@@ -45,6 +45,7 @@ Read manifests and framework/workspace configuration. Route Next.js rendering/da
 - [Server Components](./references/nextjs-server-components.md) - RSC patterns, client vs server, streaming
 - [Data Fetching](./references/nextjs-data-fetching.md) - fetch API, caching, revalidation, loading states
 - [Optimization](./references/nextjs-optimization.md) - Images, fonts, scripts, bundle analysis, PPR
+- [SEO and GEO Surfaces](./references/nextjs-seo-geo.md) - sitemap.xml, robots.txt, llms.txt, llms-full.txt, `.md` page variants, canonical/social metadata, OG images, JSON-LD, Copy/Open-in-AI/Share actions
 
 **Turborepo References:**
 - [Setup & Configuration](./references/turborepo-setup.md) - Installation, workspace config, package structure
@@ -86,7 +87,7 @@ pytest
 - Default to Server Components, use Client Components only when needed
 - Implement proper loading and error states
 - Use Image component for automatic optimization
-- Set proper metadata for SEO
+- Ship SEO/GEO surfaces from one content source (`references/nextjs-seo-geo.md`)
 - Leverage caching strategies (force-cache, revalidate, no-store)
 - Track stable Next.js security releases separately from canary framework drift. Production apps should stay on a patched stable release line and avoid canary-only pins unless testing a specific upstream issue.
 
@@ -125,6 +126,7 @@ Building with this stack:
 - [ ] Set up data fetching patterns
 - [ ] Configure caching strategies
 - [ ] Add API routes as needed
+- [ ] Add SEO/GEO surfaces for public content (sitemap, robots, llms.txt, `.md` variants, metadata, social cards, page actions)
 - [ ] Implement shared component library (if monorepo)
 - [ ] Configure remote caching (if monorepo)
 - [ ] Set up CI/CD pipeline

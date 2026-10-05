@@ -4,6 +4,23 @@ Make the test suite and its CI cheaper and faster while keeping every safety
 case covered. Optimize execution, never assertions: dropping real coverage to
 save minutes is failure.
 
+## Runtime impact selection
+
+For a repository with a trusted test-impact manifest, use `ak test optimize
+--base <ref> --json` to inspect ranked groups and selected/skipped reasons.
+Add `--run` to execute them, or `--output <new-file>` to keep a local result.
+Planning is read-only; execution runs repository-owned argv and is not a sandbox.
+Do not infer a manifest from external scores or treat missing mappings as safe.
+Use the [operating procedure](../../../../../docs/operations/test-impact.md)
+for setup, evidence exchange, and comparative measurements.
+
+Native changed-path and dependency evidence establishes the conservative floor.
+External evidence can add or rank checks; uncertainty broadens to the declared
+full suite. Mandatory groups and active policy checks remain required; unresolved
+policy mappings block execution. A narrow failure stays a failure after broader
+checks. These receipts never replace repository preflight or CI admission gates.
+No semantic provider is contacted by this path.
+
 ## 1. Parallel scout pass
 
 Dispatch multiple parallel `ak:scout` subagents (one per area, disjoint scopes):
@@ -59,3 +76,16 @@ mapping, and safety-critical groups that must always run.
   (or a dry-run estimate per job) before/after.
 - Report: levers applied, measured savings, safety groups preserved, fallback
   behavior, unresolved questions last.
+
+## Optional semantic evidence
+
+Default `ak test optimize` stays offline. An explicitly granted `test-impact`
+consumer may use `--semantic shadow` (effective baseline unchanged) or `advisory`
+(additions/conservative broadening only). Off, missing key or denied consent
+preserves deterministic behavior; attempted failures/uncertainty broaden advisory
+selection. `ak test classify-e2e` uses a separate explicit grant and never changes
+the class manifest or harness. Unknown effects prevent hermetic recommendations.
+Use frozen `ak test benchmark --semantic-replay` records for offline regression
+and holdout comparison. Keep independent labels outside input and report
+prediction coverage/abstentions alongside oracle-confirmed misses. Synthetic
+contract fixtures cannot prove live model quality or justify selective skipping.

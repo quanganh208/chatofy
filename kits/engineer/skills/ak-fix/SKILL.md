@@ -8,7 +8,7 @@ keywords: [bugfix, error, test-failure, CI, lint]
 argument-hint: "[issue] --auto|--review|--quick|--parallel [--ultra] [--advice] [--skip-journal]"
 metadata:
   author: agentkit
-  version: "2.5.1"
+  version: "2.6.0"
   workflow:
     precedes: [ak-test]
 ---
@@ -107,3 +107,23 @@ Load as needed:
 - `references/workflow-test.md` - Test suite failures
 - `references/workflow-types.md` - TypeScript type errors
 - `references/workflow-ui.md` - Visual/UI issues (requires design skills)
+
+## Optional workflow shadow experiment
+
+Only when explicitly requested, inspect `ak eval workflow --help` and prepare
+its bounded, reviewed request with workflow `fix`. Default `off`
+validates locally. `--mode shadow` additionally requires user-scope master and
+provider configuration, explicit `workflow-controller: true` consumer consent,
+and the provider credential; never enable or infer consent from an ambient key.
+The optional command may send sanitized facts externally and incur charges.
+
+Supply the existing domain decision and complete policy facts first. Keep all
+`effective_*` decisions unchanged; record accepted `hypothetical_*` suggestions
+only for comparison. Errors, low confidence and unavailable provider evidence
+use the existing workflow. Never execute a recommendation or treat it as
+permission. Existing caps, user stops, three-failure human checkpoints and
+approval/R3 controls remain authoritative. Ordinary skill startup makes no call.
+
+This is a shadow prototype for retry/replan/escalation decisions, not a new loop
+or executor. At three failed repairs retain the required human architecture
+checkpoint; never reset counters or rename a retry to evade a cap.

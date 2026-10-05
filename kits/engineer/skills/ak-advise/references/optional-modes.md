@@ -10,7 +10,7 @@ Write the canonical advice report first (needed as subagent input), using the na
   1. Activate `ak:frontend-design` first for layout, typography, responsive shell, and tokens.
   2. Activate `ak:diagram` second (when installed) to compile typed JSON IR for decision flow/alternatives.
   3. If `ak:diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
-- Must visualize: verdict, requirements/goals, do vs don't columns, alternatives comparison, benefits/trade-offs.
+- Must visualize: needs from you (when present), verdict, requirements/goals, do vs don't columns, alternatives comparison, benefits/trade-offs, unverified claims (when present), and the handoff brief as a verbatim copyable block.
 - **Editorial visual layer (on by default, additive):** the Do vs Don't panel and alternatives-comparison panel are strong candidates for the **diagram-design Quadrant** vernacular (2×2 layout with wine-red accent) when `.prefs.visual.diagramDesign.enabled` (read via `ak config prefs resolve --json | jq '.prefs.visual'`; nested keys spell camelCase — `diagram_design` returns as `diagramDesign`). KPI-shaped verdict tiles (confidence, effort, blast-radius) can use **AntV Infographic** `CandyCardLite` / `CircularProgress` when `.prefs.visual.antv.enabled`. Kill switches on this invocation: `--no-antv`, `--no-diagram-design`, `--no-editorial-visuals`. See the sibling `ak-preview` skill's `../../ak-preview/references/html-diagram-design.md` and `../../ak-preview/references/html-antv-infographic.md` for exact template usage.
 **`--md`** — spawn `docs-manager`:
 - Produce a polished standalone markdown report from the advice content (audience: someone who did not see the conversation). Skip if the canonical report already meets this bar; then `--md` just reports its path.
@@ -21,8 +21,8 @@ Write the canonical advice report first (needed as subagent input), using the na
 - Include the returned share URL in the final response.
 
 **`--github`** — spawn `git-manager`:
-- If the input was a GitHub issue/PR: post the advice as a comment on it (`gh issue comment <number> --body-file <body.md>`), leading with the reframed problem and verdict, linking the wiki URL when `--wiki` produced one.
-- Otherwise: create a new issue in the current repo (`gh issue create --title "<reframed title>" --body-file <body.md>`) containing the reframing, requirements, goals, and advice summary.
+- If the input was a GitHub issue/PR: post the advice as a comment on it (`gh issue comment <number> --body-file <body.md>`), leading with Needs from you (when present), then the reframed problem and verdict, linking the wiki URL when `--wiki` produced one.
+- Otherwise: create a new issue in the current repo (`gh issue create --title "<reframed title>" --body-file <body.md>`) containing the reframing, requirements, goals, done means, advice summary, and the handoff brief verbatim.
 - If `gh` fails (auth, permissions), report the exact error; do not fake success.
 
 Report every artifact path and URL in the final response.
@@ -50,12 +50,34 @@ question back to you and is re-spawned with the answer. Loop:
      pass it VERBATIM as the single question to `AskUserQuestion`. Then go to
      step 2 and re-spawn the advisor with the user's answer. Do not reword the
      question or invent options.
+   - Starts with `NEEDS_PREVIEW`: parse the fenced `json` block that follows. It
+     holds `reframing` (the full draft the user is confirming), `brief` (what to draw, taken from the reframing, with assumptions
+     marked), `kind` (`diagram` or `explain`), `preview_path`, and `question`.
+     Render the preview yourself, because the advisor cannot invoke skills: use
+     `ak:diagram --out <preview_path>` for `diagram` and `ak:explain --html` for
+     `explain` (which writes to its own visuals location); fall back to an inline
+     Mermaid diagram plus text mockup when the skill is unavailable. Rendering
+     here costs orchestrator context, so prefer `diagram` unless the outcome is
+     about behaviour. Show the user `reframing` verbatim and the preview (path or
+     inline), then
+     pass `question` VERBATIM as the single question to the `ask_user`
+     capability. Re-spawn the advisor with
+     `ANSWER to Q<n>: <text> (preview: <actual path or "inline">)`.
    - Starts with `ADVICE_READY: <path>`: read that report, present the advice to
      the user, then run step 6 (Emit outputs per flags) against it. Done.
    - Starts with `ADVISE_SKILL_NOT_FOUND` or any other error: surface it and stop;
      do not fake advice.
-4. Cap the loop at 12 relay rounds. If it is not `ADVICE_READY` by then, stop and
-   report the partial state file path rather than looping forever.
+4. There is no fixed round cap: every round waits on a real answer from the
+   user, so the user controls how long the interview runs. When the user ends the
+   interview, re-spawn the advisor with `ANSWER to Q<n>: user ended the
+   interview`; it moves to the reframing with open gaps marked as assumptions,
+   as the inline flow does. Stop when the advisor returns `ADVICE_READY`, when
+   the user aborts the session (then report the state file path so it can
+   resume), or on an error. If a `NEEDS_USER_INPUT` question repeats one the
+   state file already answers, re-spawn once with a note naming the earlier
+   answer; if it repeats again, stop and report the state file path.
+   `NEEDS_PREVIEW` rounds are never treated as repeats, because each one follows
+   a user correction.
 
 The advisor never spawns the flag subagents (`--html` / `--md` / `--wiki` /
 `--github`); you own step 6 after `ADVICE_READY`, using the advisor's report as
@@ -68,12 +90,13 @@ instead of a single draft. Crucially, **the interview and reframing run once**
 and **only the advice generation is fanned** — the user is never grilled five
 times.
 
-1. Run steps 1-4 (analyze, scout, interview one question at a time, confirm the
-   reframing) exactly as normal, once.
+1. Run steps 1-4 (analyze, scout, interview one question at a time, preview and
+   confirm the reframing) exactly as normal, once.
 2. Build the immutable evidence packet: the **original input + scout
    findings/refs + the confirmed reframing** (problem, requirements, goals,
-   non-goals, constraints), plus `--yagni` when set. This packet is passed
-   identically into all five candidate prompts.
+   done means, non-goals, constraints, with preview feedback already folded in),
+   plus the confirmed preview path when one exists and `--yagni` when set.
+   This packet is passed identically into all five candidate prompts.
 3. Dispatch **exactly five independent read-only candidates** in one parallel
    wave, each generating the full step-5 advice from the shared packet.
    Candidates are read-only and do not call `ask_user` or re-interview, because
@@ -83,12 +106,14 @@ times.
 5. The controller emits the winning advice unchanged via step 6 (flag outputs)
    with a short ranking appendix. On reject-all, hard-stop and report why.
 
-- **Candidate task:** the complete step-5 advice — verdict, do/don't, better
-  alternatives, recommended path, benefits, trade-offs, and the work
-  checklist + success metrics — grounded in the confirmed reframing.
+- **Candidate task:** the complete step-5 advice — needs from you (when any),
+  verdict, do/don't, better alternatives, recommended path, benefits,
+  trade-offs, unverified claims, and the work checklist + success metrics +
+  handoff brief — grounded in the confirmed reframing.
 - **Rubric:** faithfulness to the confirmed requirements/non-goals, evidence
   grounding (scout/URL over assertion), honesty of trade-offs (names real costs,
-  no praise-padding), and actionability of the checklist and success metrics.
+  no praise-padding), and actionability of the checklist, success metrics, and
+  handoff brief (observable Done-means end states, narrow stop conditions).
 
 `--ultra` **hard-conflicts with `--agent`**: both own how the advice is
 produced. Passing both is a hard-stop naming both flags, never a silent

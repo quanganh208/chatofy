@@ -116,27 +116,37 @@ through a rewrite or scoped documented exemption, not by weakening CI gates.
    which failure it blocked, on which model, and whether the failure still
    reproduces. `git log -S"<phrase>"` and `git blame` usually answer the first
    two; a short probe on the current model answers the third.
-3. **Run the linter.** `uv run --with PyYAML==6.0.3 scripts/lint_cruft.py <path> --routing --json`
+3. **Measure real sessions.** Run `scripts/session_usage.py` for each audited
+   skill and follow `references/session-usage-analysis.md` to turn its signals
+   into speed, determinism, token, delegation and quality findings. With `--all`
+   or a kit scope, measure the most-invoked skills first and state which were
+   left unmeasured.
+4. **Run the linter.** `uv run --with PyYAML==6.0.3 scripts/lint_cruft.py <path> --routing --json`
    gives rule ids, levels, and `file:line` anchors. Routing checks parse YAML;
    missing PyYAML exits 3 explicitly. Body-only mode stays standard-library-only.
-4. **Review semantics and classify findings.** Check contradictory obligations,
+5. **Review semantics and classify findings.** Check contradictory obligations,
    stale examples, overbroad activation and premature stopping against actual task
-   context and relevant loaded references. Regex cannot establish these.
-   Classify each finding against the pattern table and the keep list.
-   Assign confidence: High when the text is a known pattern and no keep-list
-   reason applies; Medium when it needs a rewrite rather than a deletion; Low
-   when it is a flag for the author.
-5. **Write the report** to `plans/reports/skill-audit-{YYMMDD-HHmm}-{slug}.md`:
-   stated assumptions (scope, target model), inventory, findings with
-   `file:line`, pattern, reason, and confidence, then a proposed diff with one
-   hunk per High or Medium finding. Audit never edits skill files.
+   context, relevant loaded references and the session evidence. Regex cannot
+   establish these. Classify each finding against the pattern table and the keep list.
+   Assign confidence: High when the text is a known pattern or a session-proven cost
+   and no keep-list reason applies; Medium when it needs a rewrite rather than a
+   deletion; Low when it is a flag for the author.
+6. **Write the report** to `plans/reports/skill-audit-{YYMMDD-HHmm}-{slug}.md`:
+   stated assumptions (scope, target model), inventory, session evidence, findings
+   with `file:line`, pattern or signal, reason, and confidence, then a proposed diff
+   with one hunk per High or Medium finding. Audit never edits skill files.
 
 ## Optimize procedure
 
 1. Take the High and Medium findings from an audit report, or run the audit
-   inline on the given skill.
+   inline on the given skill, including its session evidence.
 2. Rewrite rather than delete when the instruction still has a purpose:
    attach the reason, lower the volume, move it to the one place it belongs.
+   For session findings, apply the matching improvement from
+   `references/session-usage-analysis.md`: fix failing commands, script repeated
+   procedures, tighten reference routing, parallelize independent steps, or delegate
+   bounded mechanical execution to a lower-cost subagent tier while the main model
+   keeps judgment and final review.
 3. Merge or split references so each fact lives in exactly one file. Leave
    `description` and `when_to_use` alone unless the audit named them.
 4. Verify: linter clean at High, `quick_validate.py` clean, kit validation and
@@ -146,4 +156,4 @@ through a rewrite or scoped documented exemption, not by weakening CI gates.
    Select checks by changed contract and record missing coverage. Asking the model
    whether a line is needed is not evidence of improved consumer behavior.
 6. Emit a diff by default, or apply it with `--apply`, and record the probe
-   result in `plans/reports/`.
+   result and the session baseline in `plans/reports/`.

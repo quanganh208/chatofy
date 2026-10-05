@@ -1,13 +1,13 @@
 # Fast Workflow (`--fast`)
 
-**Continuation:** Fast pre-planning path, then cook through verification within accepted scope.
+**Continuation:** Fast research and design path, then cook through verification within accepted scope.
 
 The opening brainstorm contract in the parent skill is already satisfied; fast
 mode reduces research overhead, not intent quality.
 
-## Step 1: Combined Research & Planning
+## Step 1: Combined Research
 
-All research happens in parallel, then feeds into planning:
+All research happens in parallel, then feeds into design and implementation:
 
 **Parallel research batch** (spawn these simultaneously):
 - 2 `researcher` subagents (max 5 sources each): explore request, validate idea, find solutions
@@ -28,24 +28,15 @@ Keep all reports ≤150 lines.
 
 **Image tools:** `ak:ai-multimodal` for generation/analysis, `imagemagick` for crop/resize, background removal tool as needed.
 
-No design gate in fast mode — proceed directly to planning.
+No design gate in fast mode — proceed directly to implementation.
 
-## Step 3: Planning
-
-Activate **ak:plan** skill: `/ak:plan --fast <requirements>`
-- Skip research (already done above)
-- Read codebase docs → create plan directly
-- Plan directory using `## Naming` pattern
-- Overview at `plan.md` (<80 lines) + `phase-XX-*.md` files
-
-Hand off the accepted plan to cook; reuse its decisions and authorization.
-
-## Step 4: Implementation → Final Report
+## Step 3: Implementation → Done
 
 Load `references/shared-phases.md` for remaining phases.
 
-Activate **ak:cook** skill: `/ak:cook <plan-path>`
-- Skips redundant research because planning already happened
+Activate **ak:cook** skill: `/ak:cook --fast <brainstorm contract>`
+- No separate planning phase; cook writes a concise plan from the contract and the research above
+- Skips redundant research because Step 1 already happened
 - Keeps verification and safety gates; continue within accepted scope
 - Continues according to normal cook mode
 

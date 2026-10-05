@@ -1,112 +1,59 @@
-"""Lightweight connection handling for MCP servers."""
+"""Lightweight connection handling for MCP servers (mcp Python SDK v2)."""
 
-from abc import ABC, abstractmethod
-from contextlib import AsyncExitStack
 from typing import Any
 
-from mcp import ClientSession, StdioServerParameters
+from mcp import Client, StdioServerParameters
 from mcp.client.sse import sse_client
-from mcp.client.stdio import stdio_client
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
 
 
-class MCPConnection(ABC):
-    """Base class for MCP server connections."""
+class MCPConnection:
+    """Async context manager that wraps an `mcp.Client` for the evaluation harness.
 
-    def __init__(self):
-        self.session = None
-        self._stack = None
+    `mcp.Client` negotiates the protocol era itself: 2026-07-28 servers are served
+    statelessly, 2025-era servers through the legacy initialize handshake.
+    """
 
-    @abstractmethod
-    def _create_context(self):
-        """Create the connection context based on connection type."""
+    def __init__(self, target: Any, http_client: Any = None):
+        self._target = target
+        self._http_client = http_client  # owned here; the transport does not close a passed-in client
+        self._client: Client | None = None
 
     async def __aenter__(self):
-        """Initialize MCP server connection."""
-        self._stack = AsyncExitStack()
-        await self._stack.__aenter__()
-
-        try:
-            ctx = self._create_context()
-            result = await self._stack.enter_async_context(ctx)
-
-            if len(result) == 2:
-                read, write = result
-            elif len(result) == 3:
-                read, write, _ = result
-            else:
-                raise ValueError(f"Unexpected context result: {result}")
-
-            session_ctx = ClientSession(read, write)
-            self.session = await self._stack.enter_async_context(session_ctx)
-            await self.session.initialize()
-            return self
-        except BaseException:
-            await self._stack.__aexit__(None, None, None)
-            raise
+        self._client = Client(self._target)
+        await self._client.__aenter__()
+        return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Clean up MCP server connection resources."""
-        if self._stack:
-            await self._stack.__aexit__(exc_type, exc_val, exc_tb)
-        self.session = None
-        self._stack = None
+        if self._client is not None:
+            await self._client.__aexit__(exc_type, exc_val, exc_tb)
+        self._client = None
+        if self._http_client is not None:
+            await self._http_client.aclose()
 
     async def list_tools(self) -> list[dict[str, Any]]:
         """Retrieve available tools from the MCP server."""
-        response = await self.session.list_tools()
-        return [
-            {
-                "name": tool.name,
-                "description": tool.description,
-                "input_schema": tool.inputSchema,
-            }
-            for tool in response.tools
-        ]
+        tools: list[dict[str, Any]] = []
+        cursor: str | None = None
+        while True:
+            response = await self._client.list_tools(cursor=cursor)
+            tools.extend(
+                {"name": tool.name, "description": tool.description or "", "input_schema": tool.input_schema}
+                for tool in response.tools
+            )
+            cursor = response.next_cursor
+            if not cursor:
+                return tools
 
     async def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> Any:
-        """Call a tool on the MCP server with provided arguments."""
-        result = await self.session.call_tool(tool_name, arguments=arguments)
-        return result.content
-
-
-class MCPConnectionStdio(MCPConnection):
-    """MCP connection using standard input/output."""
-
-    def __init__(self, command: str, args: list[str] = None, env: dict[str, str] = None):
-        super().__init__()
-        self.command = command
-        self.args = args or []
-        self.env = env
-
-    def _create_context(self):
-        return stdio_client(
-            StdioServerParameters(command=self.command, args=self.args, env=self.env)
-        )
-
-
-class MCPConnectionSSE(MCPConnection):
-    """MCP connection using Server-Sent Events."""
-
-    def __init__(self, url: str, headers: dict[str, str] = None):
-        super().__init__()
-        self.url = url
-        self.headers = headers or {}
-
-    def _create_context(self):
-        return sse_client(url=self.url, headers=self.headers)
-
-
-class MCPConnectionHTTP(MCPConnection):
-    """MCP connection using Streamable HTTP."""
-
-    def __init__(self, url: str, headers: dict[str, str] = None):
-        super().__init__()
-        self.url = url
-        self.headers = headers or {}
-
-    def _create_context(self):
-        return streamablehttp_client(url=self.url, headers=self.headers)
+        """Call a tool and return its content blocks plus structured output when present."""
+        result = await self._client.call_tool(tool_name, arguments)
+        content: list[Any] = [block.model_dump(mode="json", exclude_none=True) for block in result.content]
+        if result.structured_content is not None:
+            content.append({"structured_content": result.structured_content})
+        if result.is_error:
+            content.insert(0, {"is_error": True})
+        return content
 
 
 def create_connection(
@@ -117,35 +64,24 @@ def create_connection(
     url: str = None,
     headers: dict[str, str] = None,
 ) -> MCPConnection:
-    """Factory function to create the appropriate MCP connection.
-
-    Args:
-        transport: Connection type ("stdio", "sse", or "http")
-        command: Command to run (stdio only)
-        args: Command arguments (stdio only)
-        env: Environment variables (stdio only)
-        url: Server URL (sse and http only)
-        headers: HTTP headers (sse and http only)
-
-    Returns:
-        MCPConnection instance
-    """
+    """Create a connection for "stdio", "http" (Streamable HTTP) or legacy "sse" servers."""
     transport = transport.lower()
 
     if transport == "stdio":
         if not command:
             raise ValueError("Command is required for stdio transport")
-        return MCPConnectionStdio(command=command, args=args, env=env)
+        return MCPConnection(StdioServerParameters(command=command, args=args or [], env=env))
 
-    elif transport == "sse":
-        if not url:
-            raise ValueError("URL is required for sse transport")
-        return MCPConnectionSSE(url=url, headers=headers)
-
-    elif transport in ["http", "streamable_http", "streamable-http"]:
+    if transport in ("http", "streamable_http", "streamable-http"):
         if not url:
             raise ValueError("URL is required for http transport")
-        return MCPConnectionHTTP(url=url, headers=headers)
+        http_client = create_mcp_http_client(headers=headers or None)
+        return MCPConnection(streamable_http_client(url, http_client=http_client), http_client=http_client)
 
-    else:
-        raise ValueError(f"Unsupported transport type: {transport}. Use 'stdio', 'sse', or 'http'")
+    if transport == "sse":
+        # Deprecated HTTP+SSE transport; only for servers that have not migrated.
+        if not url:
+            raise ValueError("URL is required for sse transport")
+        return MCPConnection(sse_client(url=url, headers=headers or None))
+
+    raise ValueError(f"Unsupported transport type: {transport}. Use 'stdio', 'http', or 'sse'")

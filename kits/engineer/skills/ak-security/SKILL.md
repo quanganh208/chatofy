@@ -252,3 +252,8 @@ See `references/red-team-personas.md` for the full persona catalog and TSV schem
 Faithful absorption of upstream `/autoresearch:security` ([uditgoenka/autoresearch](https://github.com/uditgoenka/autoresearch), MIT) merged with AgentKit fast secret/dependency/vulnerability scanning.
 
 See `/ak:autoresearch` for the full family map.
+
+## Optional finding-triage experiment
+
+After candidate discovery, explicitly opted-in experiments may follow
+[semantic triage](references/semantic-triage.md). Ordinary review remains unchanged.

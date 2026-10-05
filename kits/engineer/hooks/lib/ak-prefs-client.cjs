@@ -25,10 +25,17 @@ const SUPPORTED_SCHEMA_VERSION = 1;
 // cannot stall the tool invocation the hook is gating.
 const RESOLVE_TIMEOUT_MS = 2000;
 
+// The auto-update acknowledgement runs from SessionStart, whose whole hook has
+// the resolve budget above; leaving headroom keeps the hook itself inside it.
+const ACK_TIMEOUT_MS = 1500;
+
 // Argument vectors are frozen here and chosen by key, so no caller can shape a
 // command line. Adding an entry is the only way to add a call.
 const AK_OPERATIONS = Object.freeze({
-  'prefs-resolve': Object.freeze(['config', 'prefs', 'resolve', '--json'])
+  'prefs-resolve': Object.freeze(['config', 'prefs', 'resolve', '--json']),
+  // `--json` also keeps the call out of the auto-update trigger, so a hook can
+  // never be the invocation that spawns a background update.
+  'update-status-ack': Object.freeze(['update', '--status', '--ack', '--json'])
 });
 
 let cachedBinary;
@@ -191,6 +198,63 @@ function resolvePrefsSection(name, options) {
   return section && typeof section === 'object' && !Array.isArray(section) ? section : {};
 }
 
+/**
+ * Acknowledge the last background auto-update result and return its summary.
+ *
+ * The binary owns the state file and is its only writer, so the hook never
+ * marks a result seen itself. The summary is returned only when the binary
+ * confirms that this call recorded the acknowledgement: showing a notice that
+ * was not recorded as seen would repeat it on every session, and showing one
+ * another session already acknowledged would print it twice. Every failure
+ * returns null.
+ *
+ * @returns {string|null} The one-line summary, or null.
+ */
+function acknowledgeAutoUpdate() {
+  const binary = resolveAkBinary();
+  if (!binary) return null;
+
+  let stdout;
+  try {
+    stdout = execFileSync(binary, AK_OPERATIONS['update-status-ack'], {
+      encoding: 'utf8',
+      timeout: ACK_TIMEOUT_MS,
+      // AGENTKIT_HOME decides which state file the binary acknowledges.
+      env: process.env,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+  } catch (e) {
+    debugOnce(`could not acknowledge the auto-update result (${e && e.code ? e.code : 'failed'}).`);
+    return null;
+  }
+
+  let envelope;
+  try {
+    envelope = JSON.parse(stdout);
+  } catch (e) {
+    debugOnce('auto-update status came back unreadable.');
+    return null;
+  }
+
+  if (
+    !envelope ||
+    envelope.schema_version !== SUPPORTED_SCHEMA_VERSION ||
+    envelope.kind !== 'update.status' ||
+    !envelope.data ||
+    typeof envelope.data !== 'object'
+  ) {
+    debugOnce('auto-update status uses an unsupported format.');
+    return null;
+  }
+
+  // acknowledged_now is true only for the call that flipped the flag, so of
+  // several sessions starting together exactly one shows the result.
+  const { summary, acknowledged_now: acknowledgedNow } = envelope.data;
+  if (acknowledgedNow !== true || typeof summary !== 'string' || summary.trim() === '') return null;
+  return summary;
+}
+
 /** Clear the memoised binary and payloads. Exposed for tests. */
 function resetPrefsCache() {
   cachedBinary = undefined;
@@ -199,8 +263,11 @@ function resetPrefsCache() {
 }
 
 module.exports = {
+  AK_OPERATIONS,
+  ACK_TIMEOUT_MS,
   SUPPORTED_SCHEMA_VERSION,
   RESOLVE_TIMEOUT_MS,
+  acknowledgeAutoUpdate,
   resolveAkBinary,
   resolvePrefs,
   resolvePrefsSection,

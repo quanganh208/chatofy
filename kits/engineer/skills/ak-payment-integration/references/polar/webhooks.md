@@ -4,154 +4,188 @@ Event handling, signature verification, and monitoring.
 
 ## Setup
 
-1. Org Settings → Webhooks
-2. Enter endpoint URL (publicly accessible)
-3. Receive webhook secret (base64 encoded)
-4. Select event types
-5. Save configuration
+1. Organization Settings → Webhooks → **Add Endpoint**
+2. Enter a publicly reachable HTTPS URL (Polar does not follow redirects; 3xx = failure)
+3. Format: **Raw** for custom integrations (Discord/Slack formats also available)
+4. Set a secret: generate one (recommended) or provide your own
+5. Select events; optionally pin `api_version` (API: `POST /v1/webhooks/endpoints`)
 
-**Requirements:**
-- HTTPS endpoint
-- Respond within 20 seconds
-- Return 2xx status code
+**Delivery rules:**
+- Timeout: **10 seconds** (aim to respond within 2 seconds; queue work)
+- Any non-2xx is a failure; retried up to **10 times** with exponential backoff
+- Endpoint auto-disabled after **10 consecutive failed deliveries** (re-enable in settings)
+- Redeliver from the dashboard or `POST /v1/webhooks/events/{id}/redeliver`
+
+**Local development:** `polar listen http://localhost:3000/` (Polar CLI, `curl -fsSL https://polar.sh/install.sh | bash`) or a tunnel such as ngrok.
 
 ## Signature Verification
 
 ### Headers
 ```
-webhook-id: msg_xxx
-webhook-signature: v1,signature_xxx
-webhook-timestamp: 1642000000
+webhook-id: <message id>
+webhook-timestamp: <unix seconds>
+webhook-signature: v1,<base64 HMAC-SHA256>
+webhook-api-version: 2026-04
 ```
 
-### TypeScript Verification
+Signed content: `${webhook-id}.${webhook-timestamp}.${rawBody}`. The signature header is a space-separated list of `v1,<sig>` entries. Reject timestamps more than 5 minutes off.
+
+### Signing keys (two schemes)
+
+| Secret generated | Scheme | HMAC key |
+|------------------|--------|----------|
+| By Polar on/after 2026-09-08 00:00 UTC | Standard Webhooks | base64-decoded secret after `whsec_` prefix (pass the secret as-is to a Standard Webhooks library) |
+| Before that, or user-provided | Polar HMAC (legacy) | UTF-8 bytes of the full secret string (base64-encode it before giving it to a Standard Webhooks library) |
+
+Regenerating an endpoint secret moves it to Standard Webhooks. No migration deadline for legacy secrets.
+
+**SDK support:**
+- Polar SDK 1.0.0-alpha.19+ (TS/Python preview) tries both keys; pass the dashboard secret as-is
+- Stable `@polar-sh/sdk` 0.49 / `polar-sdk` 0.32 `validateEvent` only derive the legacy key (source-verified), so secrets generated after the cutoff need the 1.0 preview, a Standard Webhooks library, or `scripts/polar-webhook-verify.js`
+- Stable 0.49 also throws `SDKValidationError` (after a valid signature) for event types it doesn't know: `subscription.cycled`, `subscription.paused`, `subscription.resumed`, `subscription.migrated`, `discount.*`
+
+### TypeScript Verification (stable SDK)
 ```typescript
+import express from 'express';
 import { validateEvent, WebhookVerificationError } from '@polar-sh/sdk/webhooks';
 
-app.post('/webhook/polar', (req, res) => {
+app.post('/webhook/polar', express.raw({ type: 'application/json' }), async (req, res) => {
+  let event;
   try {
-    const event = validateEvent(
-      req.body,
-      req.headers,
-      process.env.POLAR_WEBHOOK_SECRET
-    );
-
-    // Event is valid, process it
-    await handleEvent(event);
-
-    res.json({ received: true });
+    event = validateEvent(req.body, req.headers, process.env.POLAR_WEBHOOK_SECRET ?? '');
   } catch (error) {
     if (error instanceof WebhookVerificationError) {
-      console.error('Invalid webhook signature');
-      return res.status(400).json({ error: 'Invalid signature' });
+      return res.status(403).send('');
     }
-    throw error;
+    // SDKValidationError: signature was valid but the SDK can't parse this event type.
+    // Acknowledge it; 5xx makes Polar retry and disables the endpoint after 10 failures.
+    console.warn('Unparsed Polar event', req.headers['webhook-id'], error);
+    return res.status(202).send('');
   }
+
+  await enqueue(event); // process asynchronously
+  res.status(202).send('');
 });
 ```
 
-### Python Verification
+### TypeScript Verification (SDK 1.0 preview)
+```typescript
+import { webhooks } from "@polar-sh/sdk/2026-04";
+
+// Async; tries both signing keys
+const event = await webhooks.validateEvent(rawBody, headers, process.env.POLAR_WEBHOOK_SECRET!);
+// Errors: webhooks.PolarWebhookVerificationError, webhooks.PolarWebhookUnknownTypeError
+```
+
+### Python Verification (stable SDK)
 ```python
+import os
+from flask import Flask, request
 from polar_sdk.webhooks import validate_event, WebhookVerificationError
+
+app = Flask(__name__)
 
 @app.route('/webhook/polar', methods=['POST'])
 def polar_webhook():
     try:
         event = validate_event(
-            request.get_data(),
-            dict(request.headers),
-            os.environ['POLAR_WEBHOOK_SECRET']
+            body=request.data,
+            headers=request.headers,
+            secret=os.getenv('POLAR_WEBHOOK_SECRET', ''),
         )
-
-        handle_event(event)
-        return {'received': True}
-
     except WebhookVerificationError:
-        return {'error': 'Invalid signature'}, 400
+        return '', 403
+
+    enqueue(event)
+    return '', 202
 ```
 
-### Manual Verification
+### Manual Verification (both schemes)
 ```typescript
 import crypto from 'crypto';
 
-function verifySignature(payload, headers, secret) {
-  const timestamp = headers['webhook-timestamp'];
-  const signatures = headers['webhook-signature'].split(',');
+function signingKeys(secret: string): Buffer[] {
+  const keys = [Buffer.from(secret, 'utf8')]; // legacy Polar HMAC
+  const b64 = secret.startsWith('whsec_') ? secret.slice(6) : secret;
+  if (/^[A-Za-z0-9+/]+={0,2}$/.test(b64)) keys.push(Buffer.from(b64, 'base64')); // Standard Webhooks
+  return keys;
+}
 
-  const signedPayload = `${timestamp}.${payload}`;
-  const expectedSignature = crypto
-    .createHmac('sha256', Buffer.from(secret, 'base64'))
-    .update(signedPayload)
-    .digest('base64');
+function verify(rawBody: string, headers: Record<string, string>, secret: string): boolean {
+  const id = headers['webhook-id'];
+  const ts = headers['webhook-timestamp'];
+  const signatures = headers['webhook-signature'];
+  if (!id || !ts || !signatures || !Number.isFinite(Number(ts))) return false;
+  if (Math.abs(Date.now() / 1000 - Number(ts)) > 300) return false;
 
-  return signatures.some(sig => {
-    const [version, signature] = sig.split('=');
-    return version === 'v1' && signature === expectedSignature;
+  const expected = signingKeys(secret).map(key =>
+    crypto.createHmac('sha256', key).update(`${id}.${ts}.${rawBody}`).digest()
+  );
+
+  return signatures.split(' ').some(entry => {
+    const [version, sig] = entry.split(',');
+    if (version !== 'v1' || !sig) return false;
+    const provided = Buffer.from(sig, 'base64');
+    return expected.some(e => e.length === provided.length && crypto.timingSafeEqual(e, provided));
   });
 }
 ```
+Full implementation: `scripts/polar-webhook-verify.js`.
 
 ## Event Types
 
+Payload shape: `{ type, timestamp, api_version, data }`.
+
 ### Checkout
-- `checkout.created` - Checkout session created
-- `checkout.updated` - Session updated
+- `checkout.created`, `checkout.updated`, `checkout.expired`
 
 ### Order
-- `order.created` - Order created (check `billing_reason`)
-  - `purchase` - One-time product
-  - `subscription_create` - New subscription
-  - `subscription_cycle` - Renewal
-  - `subscription_update` - Plan change
-- `order.paid` - Payment confirmed
-- `order.updated` - Order updated
-- `order.refunded` - Refund processed
+- `order.created` - Order created (renewals start `pending`); check `billing_reason`
+  - `purchase`, `subscription_create`, `subscription_cycle`, `subscription_update`, `subscription_meter_cycle`
+- `order.paid` - Payment collected; use for fulfillment
+- `order.updated` - Order changed (e.g. status)
+- `order.refunded` - Order (partially) refunded
 
 ### Subscription
-- `subscription.created` - Subscription created
-- `subscription.active` - Subscription activated
-- `subscription.updated` - Subscription modified
-- `subscription.canceled` - Cancellation scheduled
-- `subscription.revoked` - Subscription terminated
+- `subscription.created`, `subscription.active`, `subscription.updated`
+- `subscription.canceled` - Cancellation scheduled or immediate
+- `subscription.uncanceled` - Scheduled cancellation reverted
+- `subscription.revoked` - Access ended (status `canceled`)
+- `subscription.past_due` - Renewal payment failed
+- `subscription.cycled` - New billing period (also on trial conversion)
+- `subscription.paused`, `subscription.resumed`
+- `subscription.migrated` - Billing taken over from another provider
 
-**Note:** Multiple events may fire for single action
+**Note:** `subscription.updated` is the catch-all fired alongside every status change.
 
 ### Customer
-- `customer.created` - Customer created
-- `customer.updated` - Customer modified
-- `customer.deleted` - Customer deleted
-- `customer.state_changed` - Benefits/subscriptions changed
+- `customer.created`, `customer.updated`, `customer.deleted`
+- `customer.state_changed` - Active subscriptions, granted benefits or meters changed
+
+### Seats & Members (seat-based pricing)
+- `customer_seat.assigned`, `customer_seat.claimed`, `customer_seat.revoked`
+- `member.created`, `member.updated`, `member.deleted`
 
 ### Benefit Grant
-- `benefit_grant.created` - Benefit granted
-- `benefit_grant.updated` - Grant modified
-- `benefit_grant.revoked` - Benefit revoked
+- `benefit_grant.created`, `benefit_grant.updated`, `benefit_grant.revoked`
+- `benefit_grant.cycled` - Grant renewed for a new subscription period
 
 ### Refund
-- `refund.created` - Refund initiated
-- `refund.updated` - Refund status changed
+- `refund.created`, `refund.updated`
 
-### Product
-- `product.created` - Product created
-- `product.updated` - Product modified
+### Organization-level
+- `benefit.created`, `benefit.updated`
+- `product.created`, `product.updated`
+- `discount.created`, `discount.updated`, `discount.deleted`
+- `organization.updated`
 
-## Event Structure
+## Event Sequences
 
-```typescript
-{
-  "type": "order.paid",
-  "data": {
-    "id": "order_xxx",
-    "amount": 2000,
-    "currency": "USD",
-    "billing_reason": "purchase",
-    "customer": { ... },
-    "product": { ... },
-    "subscription": null,
-    "metadata": { ... }
-  }
-}
-```
+- **Cancel at period end:** `subscription.updated` + `subscription.canceled` now; `subscription.updated` + `subscription.revoked` at period end
+- **Immediate revoke:** `subscription.updated`, `subscription.canceled`, `subscription.revoked`
+- **Renewal:** `subscription.cycled`, `subscription.updated`, `order.created`, then `order.updated`, `order.paid`
+- **Pause:** `subscription.updated` now; `subscription.updated` + `subscription.paused` at period end
+- **Resume:** `subscription.updated`, `subscription.resumed`, `order.created`
 
 ## Handler Implementation
 
@@ -163,16 +197,12 @@ async function handleEvent(event) {
       await handleOrderPaid(event.data);
       break;
 
-    case 'subscription.active':
-      await grantAccess(event.data.customer_id);
+    case 'customer.state_changed':
+      await syncAccess(event.data); // activeSubscriptions, grantedBenefits, activeMeters
       break;
 
     case 'subscription.revoked':
-      await revokeAccess(event.data.customer_id);
-      break;
-
-    case 'benefit_grant.created':
-      await notifyBenefitGranted(event.data);
+      await revokeAccess(event.data.customer.externalId);
       break;
 
     default:
@@ -184,22 +214,18 @@ async function handleEvent(event) {
 ### Order Handler
 ```typescript
 async function handleOrderPaid(order) {
-  // Handle different billing reasons
-  switch (order.billing_reason) {
+  switch (order.billingReason) {
     case 'purchase':
       await fulfillOneTimeOrder(order);
       break;
-
     case 'subscription_create':
       await handleNewSubscription(order);
       break;
-
     case 'subscription_cycle':
       await handleRenewal(order);
       break;
-
     case 'subscription_update':
-      await handleUpgrade(order);
+      await handlePlanChange(order);
       break;
   }
 }
@@ -207,199 +233,77 @@ async function handleOrderPaid(order) {
 
 ### Customer State Handler
 ```typescript
-async function handleCustomerStateChanged(customer) {
-  // Customer state includes:
-  // - active_subscriptions
-  // - active_benefits
-
-  const hasActiveSubscription = customer.active_subscriptions.length > 0;
-
+async function syncAccess(state) {
+  const hasActiveSubscription = state.activeSubscriptions.length > 0;
   if (hasActiveSubscription) {
-    await enableFeatures(customer.external_id);
+    await enableFeatures(state.externalId);
   } else {
-    await disableFeatures(customer.external_id);
+    await disableFeatures(state.externalId);
   }
 }
 ```
 
 ## Best Practices
 
-### 1. Respond Immediately
-```typescript
-app.post('/webhook/polar', async (req, res) => {
-  // Respond quickly
-  res.json({ received: true });
-
-  // Queue for background processing
-  await webhookQueue.add('polar-webhook', req.body);
-});
-```
+### 1. Verify on the raw body, then acknowledge fast
+Use `express.raw` / `request.text()`; re-serialized JSON breaks signatures. Enqueue and return 2xx (202) within a couple of seconds.
 
 ### 2. Idempotency
+Deduplicate on the `webhook-id` header (stable across retries), not on `data.id` alone.
+
 ```typescript
-async function handleEvent(event) {
-  // Check if already processed
-  const exists = await db.processedEvents.findOne({
-    webhook_id: event.id
-  });
-
-  if (exists) {
-    console.log('Event already processed');
-    return;
-  }
-
-  // Process event
-  await processEvent(event);
-
-  // Mark as processed
-  await db.processedEvents.insert({
-    webhook_id: event.id,
-    processed_at: new Date()
-  });
-}
+const webhookId = req.headers['webhook-id'];
+if (await db.processedWebhooks.exists(webhookId)) return res.status(202).send('');
+await db.processedWebhooks.insert({ webhookId, type: event.type, receivedAt: new Date() });
 ```
 
-### 3. Retry Logic
-```typescript
-async function processWithRetry(event, maxRetries = 3) {
-  let attempt = 0;
-
-  while (attempt < maxRetries) {
-    try {
-      await handleEvent(event);
-      return;
-    } catch (error) {
-      attempt++;
-      if (attempt >= maxRetries) throw error;
-      await sleep(1000 * attempt);
-    }
-  }
-}
-```
+### 3. Ordering
+Deliveries can arrive out of order or be retried. Compare timestamps/status before overwriting state, or re-fetch current state (Customer State API) on each event.
 
 ### 4. Error Handling
-```typescript
-app.post('/webhook/polar', async (req, res) => {
-  try {
-    const event = validateEvent(req.body, req.headers, secret);
-    res.json({ received: true });
+- Invalid signature → 403 (Polar retries non-2xx; a persistent mismatch will disable the endpoint)
+- Processing failure after acceptance → log, retry internally, keep returning 2xx
 
-    await processWithRetry(event);
-  } catch (error) {
-    console.error('Webhook processing failed:', error);
-    // Log to error tracking service
-    await logError(error, req.body);
-
-    if (error instanceof WebhookVerificationError) {
-      return res.status(400).json({ error: 'Invalid signature' });
-    }
-
-    // Return 2xx even on processing errors
-    // Polar will retry if non-2xx
-    res.json({ received: true });
-  }
-});
-```
-
-### 5. Logging
-```typescript
-logger.info('Webhook received', {
-  event_type: event.type,
-  event_id: event.id,
-  customer_id: event.data.customer?.id,
-  amount: event.data.amount
-});
-```
+### 5. Firewalls
+Allowlist Polar IPs (production: `3.134.238.10`, `3.129.111.220`, `52.15.118.168`, `3.134.178.243`, `74.220.50.0/24`, `74.220.58.0/24`). Cloudflare Bot Fight Mode blocks webhooks (403); disable it for the route. Exclude the webhook route from auth/CSRF middleware.
 
 ## Monitoring
 
-### Dashboard Features
-- View webhook attempts
-- Check response status
-- Review retry history
-- Manual retry option
-- Filter by event type
-- Search by customer
+### Dashboard
+- Delivery history with payloads and response status
+- Manual redelivery
 
-### Application Monitoring
-```typescript
-const metrics = {
-  webhooks_received: counter('polar_webhooks_received_total'),
-  webhooks_processed: counter('polar_webhooks_processed_total'),
-  webhooks_failed: counter('polar_webhooks_failed_total'),
-  processing_time: histogram('polar_webhook_processing_seconds')
-};
-
-app.post('/webhook/polar', async (req, res) => {
-  metrics.webhooks_received.inc({ type: req.body.type });
-
-  const timer = metrics.processing_time.startTimer();
-
-  try {
-    await handleEvent(req.body);
-    metrics.webhooks_processed.inc({ type: req.body.type });
-  } catch (error) {
-    metrics.webhooks_failed.inc({ type: req.body.type });
-  } finally {
-    timer();
-  }
-
-  res.json({ received: true });
-});
-```
+### API
+- `GET /v1/webhooks/deliveries` - Delivery log
+- `PATCH /v1/webhooks/endpoints/{id}/secret` - Rotate secret (new secret uses Standard Webhooks)
 
 ## Framework Adapters
 
-### Next.js
+### Next.js (`@polar-sh/nextjs`)
 ```typescript
-import { validateEvent } from '@polar-sh/nextjs/webhooks';
+// app/api/webhook/polar/route.ts
+import { Webhooks } from "@polar-sh/nextjs";
 
-export async function POST(req: Request) {
-  const event = await validateEvent(req);
-
-  await handleEvent(event);
-
-  return Response.json({ received: true });
-}
-```
-
-### Laravel
-```php
-use Polar\Webhooks\WebhookHandler;
-
-Route::post('/webhook/polar', function (Request $request) {
-    $event = WebhookHandler::validate(
-        $request->getContent(),
-        $request->headers->all(),
-        config('polar.webhook_secret')
-    );
-
-    dispatch(new ProcessPolarWebhook($event));
-
-    return response()->json(['received' => true]);
+export const POST = Webhooks({
+  webhookSecret: process.env.POLAR_WEBHOOK_SECRET!,
+  onPayload: async (payload) => { /* catch-all */ },
+  onOrderPaid: async (payload) => { /* fulfill */ },
+  onCustomerStateChanged: async (payload) => { /* sync access */ }
 });
 ```
 
+### BetterAuth (`@polar-sh/better-auth`)
+`webhooks({ secret, onOrderPaid, onCustomerStateChanged, onPayload, ... })` plugin inside `polar({ client, use: [...] })`.
+
+### Laravel (`danestves/laravel-polar`, community)
+Routes under `polar/*` (exclude from CSRF). Listen to `Danestves\LaravelPolar\Events\WebhookHandled` or typed events such as `OrderCreated`, `SubscriptionUpdated`.
+
 ## Testing
 
-### Manual Testing
 ```bash
-# Use Polar dashboard to send test webhooks
-# Or use webhook testing tools
+# Sign and verify a payload locally (self-test)
+node scripts/polar-webhook-verify.js '{"type":"order.paid","data":{"id":"o1"}}' whsec_xxx
 
-curl -X POST https://your-domain.com/webhook/polar \
-  -H "Content-Type: application/json" \
-  -H "webhook-id: msg_test" \
-  -H "webhook-timestamp: $(date +%s)" \
-  -H "webhook-signature: v1,test_signature" \
-  -d '{"type":"order.paid","data":{...}}'
-```
-
-### Local Testing with ngrok
-```bash
-# Expose local server
-ngrok http 3000
-
-# Use ngrok URL in Polar webhook settings
-https://abc123.ngrok.io/webhook/polar
+# Forward sandbox events to localhost
+polar listen http://localhost:3000/
 ```

@@ -168,9 +168,9 @@ The finalizer differs by skill and MUST NOT be collapsed to one behavior:
   for `create`/`optimize` runs, and returns the evidence-validated,
   deduplicated union of audit findings for `audit` runs — a real deceptive
   test may be caught by only one candidate.
-- **`ak:bootstrap` does not fan itself: its planning phase runs `ak:plan --ultra`**
-  instead of the mode-mapped plan flag, and that skill's finalizer applies.
-  Bootstrap `--ultra` hard-conflicts with bootstrap `--parallel`.
+- **`ak:bootstrap` does not fan itself: its code review phase runs `ak:code-review --ultra`**
+  (bootstrap has no planning phase), and that skill's evidence-validated union
+  finalizer applies. Bootstrap `--ultra` combines with every bootstrap mode.
 
 ## Code-review Stage mapping
 

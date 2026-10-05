@@ -2,134 +2,142 @@
 
 Checkout flows, embedded checkout, and session management.
 
+Examples use the stable TypeScript SDK (`@polar-sh/sdk` 0.x, camelCase). REST bodies use snake_case.
+
 ## Checkout Approaches
 
 ### 1. Checkout Links
-- Pre-configured shareable links
-- Created via dashboard or API
-- For marketing campaigns
-- Can pre-apply discounts
+- Long-lived shareable URLs; each visit creates a fresh Checkout Session
+- Created via dashboard or API; can preset discount, trial, seats, metadata
+- Share the link URL, never a generated session URL (sessions expire)
 
 **Create via API:**
 ```typescript
 const link = await polar.checkoutLinks.create({
-  product_price_id: "price_xxx",
-  success_url: "https://example.com/success"
+  paymentProcessor: "stripe", // required, only "stripe" supported
+  products: ["product_id_1", "product_id_2"],
+  successUrl: "https://example.com/success?checkout_id={CHECKOUT_ID}"
 });
-// Returns: link.url
+// Share: link.url
 ```
 
+**Query params on a link URL:** `product_id` (preselect), `customer_email`, `customer_name`, `discount_code`, `amount` (PWYW), `locale`, `theme=light|dark`, `custom_field_data.{slug}`, `reference_id`, `utm_source|medium|campaign|content|term` (stored in metadata)
+
 ### 2. Checkout Sessions (API)
-- Programmatically created
-- Server-side API call
-- Dynamic workflows
-- Custom logic
+- Created server-side for per-customer, dynamic flows
 
 **Create Session:**
 ```typescript
-const session = await polar.checkouts.create({
-  product_price_id: "price_xxx",
-  success_url: "https://example.com/success?checkout_id={CHECKOUT_ID}",
-  customer_email: "user@example.com",
-  external_customer_id: "user_123",
-  metadata: {
-    user_id: "123",
-    source: "web"
-  }
+const checkout = await polar.checkouts.create({
+  products: ["product_id"], // product IDs; first is preselected
+  successUrl: "https://example.com/success?checkout_id={CHECKOUT_ID}",
+  externalCustomerId: "user_123",
+  customerEmail: "user@example.com",
+  customerIpAddress: clientIp, // when calling from a backend/proxy
+  metadata: { source: "web" }
 });
 
-// Redirect to: session.url
+// Redirect to: checkout.url
 ```
 
-**Response:**
+**Response (subset):**
 ```json
 {
-  "id": "checkout_xxx",
-  "url": "https://polar.sh/checkout/...",
-  "client_secret": "cs_xxx",
+  "id": "…",
+  "url": "https://polar.sh/checkout/…",
+  "client_secret": "…",
   "status": "open",
-  "expires_at": "2025-01-15T10:00:00Z"
+  "expires_at": "…"
 }
 ```
 
 ### 3. Embedded Checkout
-- Inline checkout within your site
-- Seamless purchase experience
-- Theme customization
+- Inline overlay on your site via `@polar-sh/checkout`
+- Works with a Checkout Link or a session URL created with `embed_origin`
+- Allowed hosts must be listed in **Settings → Preferences → Embedding**
+- Apple Pay / Google Pay in embeds require domain validation (email Polar support)
 
-**Implementation:**
+**Code snippet (no build step):**
 ```html
-<script src="https://polar.sh/embed.js"></script>
-
-<div id="polar-checkout"></div>
-
-<script>
-  const checkout = await fetch('/api/create-checkout', {
-    method: 'POST',
-    body: JSON.stringify({ productPriceId: 'price_xxx' })
-  }).then(r => r.json());
-
-  Polar('checkout', {
-    checkoutId: checkout.id,
-    clientSecret: checkout.client_secret,
-    onSuccess: () => {
-      window.location.href = '/success';
-    },
-    theme: 'dark' // or 'light'
-  });
-</script>
+<a href="__CHECKOUT_LINK_OR_SESSION_URL__" data-polar-checkout data-polar-checkout-theme="light">
+  Purchase
+</a>
+<script defer data-auto-init
+  src="https://cdn.jsdelivr.net/npm/@polar-sh/checkout@latest/dist/embed.global.js"></script>
 ```
 
-**Server-side (create session):**
+**Library:**
+```typescript
+import { PolarEmbedCheckout } from "@polar-sh/checkout/embed";
+
+const checkout = await PolarEmbedCheckout.create(sessionUrl, {
+  theme: "dark",
+  onLoaded: () => console.log("loaded")
+});
+
+checkout.addEventListener("success", (event) => {
+  // event.preventDefault() to stop the automatic redirect
+  if (!event.detail.redirect) showSuccessMessage();
+});
+checkout.addEventListener("close", () => {});
+checkout.addEventListener("confirmed", () => {}); // payment processing
+```
+
+**Server-side (create session for embedding):**
 ```typescript
 app.post('/api/create-checkout', async (req, res) => {
-  const session = await polar.checkouts.create({
-    product_price_id: req.body.productPriceId,
-    embed_origin: "https://example.com",
-    external_customer_id: req.user.id
+  const checkout = await polar.checkouts.create({
+    products: [req.body.productId],
+    embedOrigin: "https://example.com",
+    externalCustomerId: req.user.id
   });
 
-  res.json({
-    id: session.id,
-    client_secret: session.client_secret
-  });
+  res.json({ url: checkout.url });
 });
 ```
 
 ## Configuration Parameters
 
 ### Required
-- `product_price_id` - Product to checkout (or `products` array for multiple)
-- `success_url` - Post-payment redirect (absolute URL)
+- `products` - Array of product IDs (customer picks one; true multi-product bundles are not supported)
+- Deprecated forms: `product_price_id` and `product_id` (use `products`)
 
 ### Optional
-- `external_customer_id` - Your user ID mapping
-- `embed_origin` - For embedded checkouts
-- `customer_email` - Pre-fill email
-- `customer_name` - Pre-fill name
-- `discount_id` - Pre-apply discount code
-- `allow_discount_codes` - Allow customer to enter codes (default: true)
-- `metadata` - Custom data (key-value)
+- `success_url` - Absolute URL; supports `{CHECKOUT_ID}` placeholder
+- `return_url` - Shows a back button to this URL
+- `external_customer_id` / `customer_id` - Link to an existing or new customer (email field is then locked)
+- `customer_email`, `customer_name`, `customer_billing_address`, `customer_tax_id`, `is_business_customer`
+- `customer_ip_address` - Forward the buyer IP for currency/tax country detection
+- `customer_metadata` - Copied to the created customer
+- `discount_id` - Pre-apply a discount
+- `allow_discount_codes` - Allow code entry (default `true`)
+- `require_billing_address` - Full address instead of country only
+- `trial_interval` + `trial_interval_count` - Override product trial; `allow_trial: false` disables it
+- `seats`, `min_seats`, `max_seats` / `units`, `min_units`, `max_units` - Seat/unit-based pricing
+- `amount` - Pay-what-you-want amount
+- `prices` - Ad-hoc prices per product ID (session-only, `source: "ad_hoc"`)
+- `subscription_id` - Upgrade an existing free subscription
+- `embed_origin` - Origin of the embedding page
+- `locale`, `currency`
+- `metadata` - Copied to the resulting order/subscription
 - `custom_field_data` - Pre-fill custom fields
-- `customer_billing_address` - Pre-fill billing address
 
 ### Success URL Placeholder
 ```typescript
 {
-  success_url: "https://example.com/success?checkout_id={CHECKOUT_ID}"
+  successUrl: "https://example.com/success?checkout_id={CHECKOUT_ID}"
 }
-// Polar replaces {CHECKOUT_ID} with actual checkout ID
+// Polar replaces {CHECKOUT_ID} with the actual checkout ID
 ```
 
-## Multi-Product Checkout
+## Ad-hoc Prices
 
 ```typescript
-const session = await polar.checkouts.create({
-  products: [
-    { product_price_id: "price_1", quantity: 1 },
-    { product_price_id: "price_2", quantity: 2 }
-  ],
-  success_url: "https://example.com/success"
+const checkout = await polar.checkouts.create({
+  products: ["product_id"],
+  prices: {
+    product_id: [{ amountType: "fixed", priceAmount: 10000, priceCurrency: "usd" }]
+  }
 });
 ```
 
@@ -137,130 +145,108 @@ const session = await polar.checkouts.create({
 
 ### Pre-apply Discount
 ```typescript
-const session = await polar.checkouts.create({
-  product_price_id: "price_xxx",
-  discount_id: "discount_xxx",
-  success_url: "https://example.com/success"
+const checkout = await polar.checkouts.create({
+  products: ["product_id"],
+  discountId: "discount_id",
+  successUrl: "https://example.com/success"
 });
 ```
 
 ### Allow Customer Codes
 ```typescript
 {
-  allow_discount_codes: true // default
-  // Set to false to disable code entry
+  allowDiscountCodes: false // default true; a discountId still applies
 }
 ```
 
 ## Checkout States
 
 - `open` - Ready for payment
-- `confirmed` - Payment successful
-- `expired` - Session expired (typically 24 hours)
+- `expired` - Session expired without completion (`checkout.expired` webhook)
+- `confirmed` - Customer confirmed, payment processing
+- `succeeded` - Payment succeeded, order created
+- `failed` - Payment failed
 
 ## Events
 
 **Webhook Events:**
-- `checkout.created` - Session created
-- `checkout.updated` - Session updated
-- `order.created` - Order created after successful payment
-- `order.paid` - Payment confirmed
+- `checkout.created`, `checkout.updated`, `checkout.expired`
+- `order.created` - Order created (may still be `pending`)
+- `order.paid` - Payment collected; use this for fulfillment
 
 **Handle Success:**
 ```typescript
-// Listen to order.paid webhook
-app.post('/webhook/polar', async (req, res) => {
-  const event = validateEvent(req.body, req.headers, secret);
+import { validateEvent } from '@polar-sh/sdk/webhooks';
+
+// Raw body required for signature verification
+app.post('/webhook/polar', express.raw({ type: 'application/json' }), async (req, res) => {
+  const event = validateEvent(req.body, req.headers, process.env.POLAR_WEBHOOK_SECRET);
 
   if (event.type === 'order.paid') {
-    const order = event.data;
-    await fulfillOrder(order);
+    await fulfillOrder(event.data);
   }
 
-  res.json({ received: true });
+  res.status(202).send('');
 });
 ```
 
 ## Best Practices
 
 1. **Success URL:**
-   - Must be absolute URL: `https://example.com/success`
-   - Use `{CHECKOUT_ID}` placeholder to retrieve checkout details
-   - Verify payment via webhook, not just success redirect
+   - Absolute URL with `{CHECKOUT_ID}` placeholder
+   - Treat the redirect as UX only; fulfill on `order.paid` webhook or verified API state
 
 2. **External Customer ID:**
-   - Set on first checkout
-   - Never change once set
-   - Use for all customer operations
-   - Enables customer lookup without storing Polar IDs
+   - Set on every checkout from your authenticated user ID
+   - Use Customer State by external ID for access checks
 
-3. **Pre-filling Data:**
-   - Pre-fill customer info when available
-   - Reduces friction in checkout
-   - Improves conversion rates
+3. **Server-side creation:**
+   - Forward `customer_ip_address`, otherwise currency/tax country uses your server IP
 
 4. **Embedded Checkout:**
-   - Provide seamless experience
-   - Match your site's theme
-   - Handle errors gracefully
-   - Show loading states
+   - List every host (including staging/preview) under Embedding settings
+   - Set `embed_origin` on API-created sessions
+   - Blank embed with a `frame-ancestors` console error means the host isn't allowed
 
 5. **Metadata:**
-   - Store tracking info (source, campaign, etc.)
-   - Link to your internal systems
-   - Use for analytics and reporting
+   - Store your order ID/tracking info; keys max 40 characters
 
 6. **Error Handling:**
-   - Handle expired sessions
-   - Provide clear error messages
-   - Offer to create new session
-   - Log failures for debugging
-
-7. **Mobile Optimization:**
-   - Test on mobile devices
-   - Ensure responsive design
-   - Consider mobile payment methods
-   - Test embedded checkout on mobile
+   - Create a new session when one expires
+   - Log failures with the checkout ID
 
 ## Framework Examples
 
-### Next.js
+### Next.js (`@polar-sh/nextjs`)
 ```typescript
-// app/actions/checkout.ts
+// app/checkout/route.ts
+import { Checkout } from "@polar-sh/nextjs";
+
+export const GET = Checkout({
+  accessToken: process.env.POLAR_ACCESS_TOKEN,
+  successUrl: process.env.SUCCESS_URL,
+  server: "sandbox" // omit or "production" in prod
+});
+// Link to /checkout?products=<productId>&customerExternalId=<userId>
+```
+
+### Next.js server action (SDK directly)
+```typescript
 'use server'
+import { polar } from '@/lib/polar';
 
-export async function createCheckout(productPriceId: string) {
-  const session = await polar.checkouts.create({
-    product_price_id: productPriceId,
-    success_url: `${process.env.NEXT_PUBLIC_URL}/success?checkout_id={CHECKOUT_ID}`,
-    external_customer_id: await getCurrentUserId()
+export async function createCheckout(productId: string) {
+  const checkout = await polar.checkouts.create({
+    products: [productId],
+    successUrl: `${process.env.NEXT_PUBLIC_URL}/success?checkout_id={CHECKOUT_ID}`,
+    externalCustomerId: await getCurrentUserId()
   });
-
-  return session.url;
-}
-
-// app/product/page.tsx
-export default function ProductPage() {
-  async function handleCheckout() {
-    const url = await createCheckout(productPriceId);
-    window.location.href = url;
-  }
-
-  return <button onClick={handleCheckout}>Buy Now</button>;
+  return checkout.url;
 }
 ```
 
-### Laravel
+### Laravel (`danestves/laravel-polar`, community-maintained)
 ```php
-Route::post('/checkout', function (Request $request) {
-    $polar = new Polar(config('polar.access_token'));
-
-    $session = $polar->checkouts->create([
-        'product_price_id' => $request->input('product_price_id'),
-        'success_url' => route('checkout.success'),
-        'external_customer_id' => auth()->id(),
-    ]);
-
-    return redirect($session['url']);
-});
+// Billable model; see package docs for full API
+return $request->user()->checkout(['product_id_123']);
 ```

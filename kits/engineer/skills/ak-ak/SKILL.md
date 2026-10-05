@@ -8,7 +8,7 @@ keywords: [ak, cli, lifecycle, install, kit, skills, scope, adapter, doctor, rec
 argument-hint: "[goal or subcommand]"
 metadata:
   author: agentkit
-  version: "1.0.1"
+  version: "1.0.2"
 ---
 
 # ak — safe CLI operation
@@ -146,6 +146,11 @@ flags.
   Check `status`, `fallback_reason`, and provenance; the effective decision
   always remains the supplied legacy decision. See the repository operations
   guide for profile inputs and the privacy boundary.
+  `ak eval workflow <request.json|->` validates scenario/fix/debug facts in off
+  mode; `--mode shadow` additionally requires explicit `workflow-controller`
+  consent and may incur charges. Effective actions and policy authority remain
+  unchanged. `ak eval workflow-benchmark <corpus.json|->` replays local labeled
+  evidence offline; inspect completion and coverage before interpreting metrics.
   `ak insights contribute preview --month YYYY-MM` freezes an aggregate
   locally. `contribute send --month YYYY-MM --digest <preview-digest>` sends
   that exact payload only with separate sharing consent and an approved HTTPS
@@ -179,6 +184,32 @@ flags.
   before invoking; keep the installed skill copies in mind (see
   source-of-truth clause below — the binary can advance without the
   skill copies moving).
+- **Background auto-update (opt-in, off by default)** — settings live in the
+  top-level `auto_update:` section of the user `config.yaml`, not in `updates:`.
+  `ak update --schedule daily|weekly|off` and
+  `ak update --project <dir>` / `--no-project <dir>` are `mutating`. They write
+  only that section and update nothing right away. `--project` requires a
+  project already registered with `ak projects add`. `--schedule off` also
+  clears the auto-update state file (session heartbeats and the run lock file
+  stay). `ak update --status [--json]` is `read-only`; adding `--ack` marks the
+  last result as seen, and `acknowledged_now` is true only for the call that
+  marked it. None of these combine with the update flags or a project-dir
+  argument. Once scheduled, the first ordinary `ak` command after each
+  interval starts a detached update. That update covers the CLI and global
+  kits whether or not agent sessions are live, plus each opted-in project
+  whose git tree is clean and that has no live agent session. Runtime-home
+  overrides such as `CODEX_HOME` apply to it as to an interactive
+  `ak update`. `AK_NO_AUTO_UPDATE=1` or a set `CI` skips the trigger, and so
+  do `--json` invocations and the lifecycle and interactive commands
+  themselves (install, setup, onboarding, backup restore, the desktop app). A
+  "kit installs are being modified" busy error may mean a background update
+  is running; check `ak update --status`, which also keeps showing a result
+  whose session-start notice was missed. A `deferred (spawn_in_job)` result
+  means the caller's Windows job object would not let the update run
+  detached. Do not enable the
+  schedule or opt a project in without an explicit user request. Read
+  `ak update --status --json` before diagnosing a background result, and take
+  details from `ak update --help`.
 
 ## Maintaining this skill
 
@@ -233,3 +264,31 @@ authoritative surfaces, in order:
 - Temp-home discipline: `docs/operations/implementation-smoke.md`.
 - Owner-locked packaging model: repo root `CLAUDE.md` §"Owner-locked kit
   packaging and installation safety".
+
+For deliberate finding-triage experiments, inspect `ak eval triage --help`.
+Default off and shadow reports preserve review authority. `ak eval triage-benchmark`
+uses frozen local evidence only; inspect safety and coverage before savings.
+
+### UI semantic experiments
+
+`ak eval ui` defaults to off and reads a reviewed text capture. `--mode shadow`
+can incur provider charges only with explicit user `ui-regression` consent and a
+key; classify this as an external diagnostic experiment. `--output` additionally
+creates a new local receipt without overwriting. It never runs the browser,
+vision investigation, or changes deterministic test outcomes. `ak eval
+ui-benchmark` is offline read-only evaluation of independently labeled records.
+Inspect each command's live help and retain unknown measurement fields.
+
+## Test-impact operation
+
+`ak test optimize --base <ref> --json` plans without executing checks. Its command
+classification is mutating because `--run` executes trusted repository commands
+and `--output` creates a new receipt; explicitly granted semantic modes can send
+compact facts externally and incur charges. Default semantic mode is off. Shadow
+retains the baseline; advisory only adds checks. `ak test classify-e2e` requires
+its own consumer grant, may incur charges, and never edits the class manifest.
+`ak test benchmark --semantic-replay` stays offline; frozen synthetic success is
+not model-quality evidence or permission for selective skipping.
+Inspect the manifest before execution;
+external evidence never supplies commands. Missing required policy mappings
+block execution. See [test-impact operations](../../../../docs/operations/test-impact.md).

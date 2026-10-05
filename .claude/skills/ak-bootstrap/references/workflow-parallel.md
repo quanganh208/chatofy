@@ -3,7 +3,7 @@
 **Continuation:** Reuse accepted design and scope, then execute independent work in parallel; ask only for material missing decisions.
 
 The opening brainstorm contract in the parent skill is already satisfied and
-must be passed to every independent planning branch.
+must be passed to every independent implementation branch.
 
 ## Step 1: Research
 
@@ -15,7 +15,7 @@ No user gate — proceed automatically.
 
 ## Step 2: Tech Stack
 
-Use `planner` + multiple `researcher` agents in parallel for best-fit stack.
+Use multiple `researcher` agents in parallel for best-fit stack.
 Write to `./docs` directory (≤150 lines).
 
 No user gate — proceed automatically.
@@ -36,27 +36,17 @@ Resolve material design gaps; reuse an accepted direction without another approv
 
 **Image tools:** `ak:ai-multimodal` for generation/analysis, `imagemagick` for crop/resize, background removal tool as needed.
 
-## Step 4: Parallel Planning
-
-Activate **ak:plan** skill: `/ak:plan --parallel <requirements>`
-- Creates phases with **exclusive file ownership** per phase (no overlap)
-- **Dependency matrix**: which phases run concurrently vs sequentially
-- `plan.md` includes dependency graph, execution strategy, file ownership matrix
-- Task hydration with `addBlockedBy` for sequential deps, no blockers for parallel groups
-
-After planning, hand off the accepted contract and scope to cook for implementation and verification.
-
-## Step 5: Parallel Implementation → Final Report
+## Step 4: Parallel Implementation → Done
 
 Load `references/shared-phases.md` for remaining phases.
 
-Activate **ak:cook** skill: `/ak:cook --parallel <plan-path>`
-- Read `plan.md` for dependency graph and execution strategy
-- Launch multiple `fullstack-developer` agents in PARALLEL for concurrent phases
-  - Pass: phase file path, environment info
+Activate **ak:cook** skill: `/ak:cook --parallel <brainstorm contract>`
+- No separate planning phase; cook splits the contract into independent work units with **exclusive file ownership** and a dependency order
+- Launch multiple `fullstack-developer` agents in PARALLEL for independent units
+  - Pass: the unit's scope, owned files, environment info
 - Use `ui-ux-designer` for frontend (generate/analyze assets with `ak:ai-multimodal`, edit with `imagemagick`)
 - Respect file ownership boundaries
 - Run type checking after implementation
 - Keep verification and safety gates; `--parallel` controls execution shape
 
-Cook handles testing, review, docs, onboarding, final report per `shared-phases.md`.
+Continue with code review, UX/AX enhancement, release, docs, onboarding and final report per `shared-phases.md`.

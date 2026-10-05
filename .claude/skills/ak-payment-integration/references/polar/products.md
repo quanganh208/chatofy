@@ -2,96 +2,114 @@
 
 Product management, pricing models, and usage-based billing.
 
+Examples use the stable TypeScript SDK (`@polar-sh/sdk` 0.x, camelCase fields). REST/JSON uses snake_case.
+
 ## Billing Cycles
 
 **Options:**
-- One-time: Charged once, forever access
-- Monthly: Charged every month
-- Yearly: Charged every year
+- One-time: Charged once, lifetime access
+- Recurring: `recurringInterval` = `day` | `week` | `month` | `year`, plus `recurringIntervalCount` (e.g. every 3 months)
 
-**Important:** Cannot change after product creation
+**Important:** Billing cycle and interval are locked at creation. For monthly + yearly, create two products and offer both at checkout.
 
 ## Pricing Types
 
-**Fixed Price:** Set amount
-**Pay What You Want:** Customer decides (optional minimum)
-**Free:** No charge
+Each price has an `amountType`:
+- `fixed` - Set amount (`priceAmount` in cents, `0` = free price)
+- `custom` - Pay what you want (`minimumAmount`, optional `maximumAmount`, `presetAmount`)
+- `free` - No charge
+- `metered_unit` / `metered_tiers` - Usage-based, tied to a meter (subscriptions only)
+- `seat_based` - Per-seat with volume or graduated tiers
+- `unit_based` - Quantity bought up front with tiered rates
 
-**Important:** Cannot change after product creation
+**Important:** Pricing type is locked at creation. Fixed amounts can be changed; existing subscribers are grandfathered.
+
+**Stacking:** A product may combine one fixed price with one seat-based price; metered prices stack on top (e.g. base fee + usage).
+
+**Multi-currency:** Prices in several currencies (`priceCurrency`); a price in the organization default currency is required. Currency is picked from customer geolocation (forward `customer_ip_address` when creating checkouts server-side).
 
 ## Advanced Pricing Models
 
 ### Seat-Based Pricing
-- Team access with assignable seats
-- Works for recurring or one-time
-- Tiered pricing structures
-- Customer manages seat assignments
+- Billing customer buys N seats, assigns them to members by email or external ID
+- Works for subscriptions (seats while active) and one-time (perpetual seats)
+- Tier models: fixed per seat, graduated, volume (default)
+- Benefits are granted to members when a seat is claimed, not at purchase
+- Webhooks: `customer_seat.assigned`, `customer_seat.claimed`, `customer_seat.revoked`
 
 **Configuration:**
 ```typescript
 const product = await polar.products.create({
   name: "Team Plan",
+  recurringInterval: "month",
   prices: [{
-    type: "recurring",
-    recurring_interval: "month",
-    price_amount: 5000, // per seat
-    pricing_type: "fixed"
-  }],
-  is_seat_based: true,
-  max_seats: 100
+    amountType: "seat_based",
+    priceCurrency: "usd",
+    seatTiers: {
+      seatTierType: "volume", // or "graduated"
+      tiers: [/* see API reference: ProductPriceSeatTier */]
+    }
+  }]
 });
 ```
 
 ### Usage-Based Billing
 
-**Architecture:** Events → Meters → Metered Prices
+**Architecture:** Events → Meters → Metered Prices (+ optional Meter Credits)
 
-**1. Events:** Usage data from your application
+**1. Events:** Usage data from your application (immutable once ingested)
 ```typescript
-await polar.events.create({
-  external_customer_id: "user_123",
-  event_name: "api_call",
-  properties: {
-    tokens: 1000,
-    model: "gpt-4"
-  }
+await polar.events.ingest({
+  events: [{
+    name: "api_call",
+    externalCustomerId: "user_123",
+    metadata: { tokens: 1000, model: "gpt-4.1" }
+  }]
 });
 ```
+- Optional `externalId` (dedup), `parentId`, backdated `timestamp`
+- Events count toward the billing period in which Polar receives them
 
 **2. Meters:** Filter & aggregate events
 ```typescript
 const meter = await polar.meters.create({
   name: "API Tokens",
-  slug: "api_tokens",
-  event_name: "api_call",
-  aggregation: {
-    type: "sum",
-    property: "tokens"
+  filter: {
+    conjunction: "and",
+    clauses: [{ property: "name", operator: "eq", value: "api_call" }]
+  },
+  aggregation: { func: "sum", property: "tokens" } // count | sum | avg | min | max | unique
+});
+```
+- `unit`: `scalar` | `token` | `custom` (display only)
+- Filters/aggregation can't change once the meter has processed events or purchases
+
+**3. Metered Prices:** Billing based on usage
+```typescript
+await polar.products.update({
+  id: productId,
+  productUpdate: {
+    prices: [
+      { id: existingFixedPriceId }, // keep existing prices
+      {
+        amountType: "metered_unit",
+        meterId: meter.id,
+        priceCurrency: "usd",
+        unitAmount: 0.01, // cents per unit, up to 12 decimals
+        capAmount: 10000 // optional cap in cents
+      }
+    ]
   }
 });
 ```
 
-**3. Metered Prices:** Billing based on usage
-```typescript
-const price = await polar.products.createPrice(productId, {
-  type: "metered",
-  meter_id: meter.id,
-  price_per_unit: 10, // 10 cents per 1000 tokens
-  billing_interval: "month"
-});
-```
+**Credits:**
+- Meter Credits benefit (`meter_credit`) pre-pays units; overage is billed only if a metered price exists
+- Credited each cycle (subscriptions) or once (one-time), optional rollover
+- Balance: Customer State `active_meters` or Customer Meters API (`polar.customerMeters.list`)
+- Polar never blocks usage; enforce limits in your app
 
-**Credits System:**
-- Pre-purchased usage credits
-- Credit customer's meter balance
-- Use as subscription benefit
-- Balance tracking API
-
-**Ingestion Strategies:**
-- LLM Strategy: AI/ML tracking
-- S3 Strategy: Bulk import
-- Stream Strategy: Real-time
-- Delta Time Strategy: Time-based
+**Ingestion Strategies (`@polar-sh/ingestion`):** LLM, S3, Stream, Delta Time
 
 ## Product Features
 
@@ -99,51 +117,44 @@ const price = await polar.products.createPrice(productId, {
 ```typescript
 const product = await polar.products.create({
   name: "Pro Plan",
-  metadata: {
-    feature_x: "enabled",
-    tier: "pro",
-    custom_field: "value"
-  }
+  recurringInterval: "month",
+  prices: [{ amountType: "fixed", priceCurrency: "usd", priceAmount: 2000 }],
+  metadata: { tier: "pro" }
 });
 ```
 
 ### Custom Fields
+Defined once at organization level (types: text, number, date, checkbox, select), then attached per product:
 ```typescript
-const product = await polar.products.create({
-  name: "Enterprise Plan",
-  custom_fields: [
-    {
-      slug: "company_name",
-      label: "Company Name",
-      type: "text",
-      required: true
-    },
-    {
-      slug: "employees",
-      label: "Number of Employees",
-      type: "number"
-    }
-  ]
+const field = await polar.customFields.create({
+  type: "text",
+  slug: "company_name",
+  name: "Company Name",
+  properties: { formLabel: "Company name" }
+});
+
+await polar.products.update({
+  id: productId,
+  productUpdate: {
+    attachedCustomFields: [{ customFieldId: field.id, required: true }]
+  }
 });
 ```
 
-Data collected at checkout, accessible via Orders/Subscriptions API in `custom_field_data`.
+Values appear on the order/subscription in `custom_field_data`.
 
 ### Trials
-- Set on recurring products
-- Customer not charged during trial
-- Benefits granted immediately
-- Configure at product or checkout level
+- Product-level: `trialInterval` (`day` | `week` | `month` | `year`) + `trialIntervalCount`
+- Checkout Link / Checkout Session trial overrides the product trial
+- Payment method collected at checkout; charged when the trial ends
 
 ```typescript
 const product = await polar.products.create({
   name: "Pro Plan",
-  prices: [{
-    type: "recurring",
-    recurring_interval: "month",
-    price_amount: 2000,
-    trial_period_days: 14
-  }]
+  recurringInterval: "month",
+  trialInterval: "day",
+  trialIntervalCount: 14,
+  prices: [{ amountType: "fixed", priceCurrency: "usd", priceAmount: 2000 }]
 });
 ```
 
@@ -152,93 +163,74 @@ const product = await polar.products.create({
 ### Create Product
 ```typescript
 const product = await polar.products.create({
-  organization_id: "org_xxx",
   name: "Pro Plan",
   description: "Professional features",
-  prices: [{
-    type: "recurring",
-    recurring_interval: "month",
-    price_amount: 2000,
-    pricing_type: "fixed"
-  }]
+  recurringInterval: "month", // omit (null) for one-time
+  prices: [{ amountType: "fixed", priceCurrency: "usd", priceAmount: 2000 }]
 });
+// organizationId is only required when not using an organization token
 ```
 
 ### List Products
 ```typescript
-const products = await polar.products.list({
-  organization_id: "org_xxx",
-  is_archived: false
-});
+const result = await polar.products.list({ isArchived: false, limit: 100 });
+for await (const page of result) {
+  console.log(page.result.items);
+}
 ```
 
 ### Update Product
 ```typescript
-const product = await polar.products.update(productId, {
-  name: "Pro Plan Updated",
-  description: "New description"
+await polar.products.update({
+  id: productId,
+  productUpdate: { name: "Pro Plan Updated", description: "New description" }
 });
 ```
 
-### Archive Product
+### Archive / Delete Product
 ```typescript
-await polar.products.archive(productId);
-// Products can be unarchived later
-// Cannot be deleted (maintains order history)
+await polar.products.update({ id: productId, productUpdate: { isArchived: true } });
+// Unarchive with isArchived: false
+// DELETE /v1/products/{id} works only for products without orders,
+// subscriptions, trials or discounts
 ```
 
 ### Update Benefits
 ```typescript
-await polar.products.updateBenefits(productId, {
-  benefits: [benefitId1, benefitId2]
+await polar.products.updateBenefits({
+  id: productId,
+  productBenefitsUpdate: { benefits: [benefitId1, benefitId2] }
 });
 ```
 
 ## Important Constraints
 
-1. **Cannot change after creation:**
-   - Billing cycle (one-time, monthly, yearly)
-   - Pricing type (fixed, pay-what-you-want, free)
-
-2. **Price changes don't affect existing subscribers:**
-   - Current subscribers keep their original price
-   - New subscribers get new price
-   - Use separate products for significant changes
-
-3. **Products cannot be deleted:**
-   - Archive instead
-   - Maintains order history integrity
-   - Archived products not shown to new customers
-
-4. **Metadata vs Custom Fields:**
-   - Metadata: For internal use, not shown to customers
-   - Custom Fields: Collected from customers at checkout
+1. **Locked after creation:** billing cycle/interval and pricing type
+2. **Price changes don't affect existing subscribers** (grandfathered); migrate per subscription via plan change
+3. **Delete only unused products**; archive everything else (hidden from new checkouts, renewals continue)
+4. **Metadata vs Custom Fields:** metadata is internal; custom fields are collected from customers
+5. **Benefit changes propagate** to existing customers (added = granted, removed = revoked)
 
 ## Best Practices
 
 1. **Product Strategy:**
-   - Plan billing cycle carefully before creation
-   - Use separate products for different tiers
-   - Archive unused products rather than delete
+   - Plan billing cycle and pricing type before creation
+   - One product per tier/interval; show variants side by side at checkout
+   - Use Duplicate Product for yearly variants or pricing tests
 
 2. **Pricing Changes:**
-   - Create new product for major changes
-   - Grandfather existing customers
-   - Communicate changes clearly
+   - Change fixed amounts in place for new buyers
+   - Move existing subscribers deliberately via plan change
 
 3. **Usage-Based:**
-   - Define clear meter aggregations
-   - Set appropriate billing intervals
-   - Monitor usage patterns
-   - Provide usage dashboards to customers
+   - Send an `externalId` per event for deduplication
+   - Keep meter filters narrow and stable
+   - Enforce balances in your app; show usage in the Customer Portal
 
 4. **Custom Fields:**
    - Collect only necessary information
-   - Validate on frontend before checkout
-   - Use for personalization and support
+   - Use required checkboxes for legal terms
 
 5. **Trials:**
-   - Set appropriate trial duration
-   - Communicate trial end clearly
-   - Notify before trial expires
-   - Easy cancellation during trial
+   - Enable "Prevent trial abuse" in subscription settings
+   - Polar emails trial-conversion reminders (3 days before for trials of 3+ days)

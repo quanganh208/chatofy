@@ -123,7 +123,11 @@ CMD ["node", "server.js"]
 
         assert len(analyzer.issues) == 1
         assert analyzer.issues[0]['category'] == 'optimization'
-        assert 'multi-stage' in analyzer.issues[0]['message'].lower()
+        # The issue message names the problem ("single-stage build with
+        # build tools"); the recommended fix ("use multi-stage build...")
+        # lives in the suggestion field, not the message.
+        assert 'single-stage' in analyzer.issues[0]['message'].lower()
+        assert 'multi-stage' in analyzer.issues[0]['suggestion'].lower()
 
     def test_multi_stage_no_issues(self, temp_dockerfile):
         content = """

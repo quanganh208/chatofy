@@ -3,6 +3,7 @@
  * Route testing, security validation, MIME types
  */
 
+const { describe, it } = require('node:test');
 const assert = require('assert');
 const fs = require('fs');
 const http = require('http');
@@ -237,22 +238,38 @@ describe('createHttpServer', () => {
 });
 
 describe('Route: /assets/*', () => {
-  it('should prevent directory traversal in assets path', () => {
+  it('should prevent directory traversal in assets path', async () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>'
     });
-    // Route validation happens internally - can't test HTTP response without full setup
-    server.close();
+    try {
+      const port = await listen(server);
+      // http-server.cjs rejects any /assets/ request whose decoded path
+      // still contains '..' before it ever touches the filesystem.
+      const res = await httpGet(port, '/assets/../secret.txt');
+      assert.strictEqual(res.status, 403, 'literal .. must be rejected with 403');
+      assert.ok(res.body.toString().includes('Access denied'));
+    } finally {
+      await closeServer(server);
+    }
   });
 
-  it('should validate asset paths for ../', () => {
+  it('should validate asset paths for ../ after URL-decoding', async () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>'
     });
-    // Security check happens in route handler
-    server.close();
+    try {
+      const port = await listen(server);
+      // %2e%2e decodes to '..' via decodeURIComponent before the traversal
+      // check runs, so an encoded payload must be caught the same way a
+      // literal one is.
+      const res = await httpGet(port, '/assets/%2e%2e/secret.txt');
+      assert.strictEqual(res.status, 403, 'URL-encoded .. must be rejected with 403');
+    } finally {
+      await closeServer(server);
+    }
   });
 
   it('serves novel-theme.css and every local @import as text/css 200', async () => {
@@ -289,63 +306,107 @@ describe('Route: /assets/*', () => {
   });
 });
 
+// http-server.cjs only implements '/', '/view', '/browse', '/assets/*' and
+// '/file/*' (see module.exports and the routing chain in createHttpServer).
+// '/dashboard', '/api/dashboard' and '/api/files' are not registered routes,
+// so `plansDir` is accepted as a createHttpServer option but never read by
+// the request handler. The tests below assert the server's real, current
+// behavior for these paths (falling through to the default 404 handler)
+// instead of exercising options that have no route to act on.
 describe('Route: /dashboard', () => {
-  it('should accept plansDir parameter', () => {
+  it('is not a registered route and falls through to 404', async () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
       plansDir: __dirname
     });
-    server.close();
+    try {
+      const port = await listen(server);
+      const res = await httpGet(port, '/dashboard');
+      assert.strictEqual(res.status, 404);
+    } finally {
+      await closeServer(server);
+    }
   });
 
-  it('should validate custom directory parameter', () => {
+  it('ignores plansDir/allowedDirs options for the unregistered route', async () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
       allowedDirs: [__dirname]
     });
-    server.close();
+    try {
+      const port = await listen(server);
+      const res = await httpGet(port, '/dashboard?dir=' + encodeURIComponent(__dirname));
+      assert.strictEqual(res.status, 404, 'query params cannot resurrect an unregistered route');
+    } finally {
+      await closeServer(server);
+    }
   });
 });
 
 describe('Route: /api/dashboard', () => {
-  it('should return JSON response', () => {
+  it('is not a registered route, so it does not return JSON', async () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
       plansDir: __dirname
     });
-    server.close();
+    try {
+      const port = await listen(server);
+      const res = await httpGet(port, '/api/dashboard');
+      assert.strictEqual(res.status, 404);
+      assert.ok(!res.type.includes('application/json'), 'the default 404 handler responds text/html');
+    } finally {
+      await closeServer(server);
+    }
   });
 
-  it('should handle missing plansDir gracefully', () => {
+  it('handles a missing plansDir gracefully (still 404, no crash)', async () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>'
     });
-    server.close();
+    try {
+      const port = await listen(server);
+      const res = await httpGet(port, '/api/dashboard');
+      assert.strictEqual(res.status, 404);
+    } finally {
+      await closeServer(server);
+    }
   });
 });
 
 describe('Route: /file/*', () => {
-  it('should validate file path safety', () => {
+  it('rejects a file path outside allowedDirs with 403', async () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
       allowedDirs: [__dirname]
     });
-    server.close();
+    try {
+      const port = await listen(server);
+      const res = await httpGet(port, '/file//etc/passwd');
+      assert.strictEqual(res.status, 403, 'a path outside allowedDirs must be denied');
+    } finally {
+      await closeServer(server);
+    }
   });
 });
 
 describe('Route: /api/files', () => {
-  it('should be disabled for security', () => {
+  it('is not a registered route and returns 404', async () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>'
     });
-    server.close();
+    try {
+      const port = await listen(server);
+      const res = await httpGet(port, '/api/files');
+      assert.strictEqual(res.status, 404);
+    } finally {
+      await closeServer(server);
+    }
   });
 });
 

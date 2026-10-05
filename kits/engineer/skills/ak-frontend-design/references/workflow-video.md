@@ -1,74 +1,18 @@
-# Video Replication Workflow
+# Video replication workflow
 
-Replicate a design including animations/interactions from a provided video.
+Replicate a design including its motion and interactions from a video.
 
-## Prerequisites
-- Activate `ak:ui-ux-pro-max` skill first
-- Have `ak:ai-multimodal` skill ready for video analysis
-
-## Workflow Steps
-
-### 1. Analyze Video Details
-Use `ak:ai-multimodal` skill to describe:
-- Every visible element and its properties
-- All interactions and user flows
-- Animation timing, easing, duration
-- Transitions between states/pages
-- Color palette with hex codes
-- Typography (predict Google Fonts)
-- Borders, spacing, sizing
-- Textures, materials, lighting
-- Shadows, reflections, blur, glow
-- Background effects
-
-**Font Prediction**: Avoid defaulting to Inter/Poppins.
-
-### 2. Create Implementation Plan
-Use `ui-ux-designer` subagent:
-- Create plan directory (use `## Naming` pattern)
-- Write `plan.md` (<80 lines overview)
-- Add `phase-XX-name.md` files with full sections
-- Keep research reports under 150 lines
-
-### 3. Implement
-- Follow plan step by step
-- Default to HTML/CSS/JS if unspecified
-- Prioritize animation accuracy
-
-### 4. Animation Implementation
-Focus on:
-- Timing functions matching video
-- State transitions
-- Micro-interactions
-- Scroll-triggered effects
-- Hover/focus states
-- Loading animations
-
-Use `animejs.md` reference for animation patterns.
-
-### 5. Generate Assets
-Use `ak:ai-multimodal` skill:
-- Generate static assets
-- Create animated sprites if needed
-- Verify quality matches video
-- Use `ak:media-processing` for processing
-
-### 6. Verify & Report
-- Compare implementation to video
-- Test all interactions
-- Report summary to user
-- Surface the review result and continue already-authorized work, preserving user-selected design preferences. Ask only when a material design or scope decision is unresolved, or a destructive action needs authorization not already given.
-
-### 7. Document
-Update the owning design documentation when the authorized work changes durable guidelines; use `./docs/design-guidelines.md` when it is the repository's established owner.
-
-## Quality Standards
-- Frame-accurate animation timing
-- Smooth 60fps performance
-- Responsive behavior preserved
-- All interactions functional
-
-## Related
-- `animejs.md` - Animation library reference
-- `design-extraction-overview.md` - Guidelines extraction
-- `technical-optimization.md` - Performance tips
+1. **Extract.** Follow `visual-analysis.md` for the static system, then record motion:
+   for each animation, what moves, trigger, duration in ms, easing, delay and stagger,
+   plus transitions between states or pages. Step through frames for timing when the
+   analysis route allows it.
+2. **Brief and tokens** from the extraction, including duration and easing tokens.
+3. **Plan when large**, in the project's plan location.
+4. **Build** structure and static states first, then motion using `motion-craft.md`
+   (and `animejs.md` if the project uses Anime.js). Match the video's timing; keep
+   reduced-motion alternatives and visible-by-default content.
+5. **Assets** via `asset-pipeline.md`.
+6. **Verify.** Record or step through your build and compare each animation with the
+   source; test every interaction; confirm smooth frame rate and no layout shift.
+   Run `self-critique-loop.md` for the static result.
+7. **Report** remaining differences and unverified areas.

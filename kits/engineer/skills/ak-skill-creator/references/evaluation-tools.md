@@ -121,3 +121,9 @@ matched repetitions. Inspect those outcomes and quality before interpreting mean
 Legacy records still load and keep their previous aggregates, explicitly marked
 without sufficient comparison evidence. Compare quality first and do not interpret
 their aggregate tokens as a proven cost improvement.
+
+## Optional catalog routing diagnostics
+
+Use [semantic routing evaluation](semantic-routing-evaluation.md) only when explicitly
+requested. Its separate script adds streaming probability diagnostics and trace-backed
+runtime summaries; the commands above retain their offline behavior.

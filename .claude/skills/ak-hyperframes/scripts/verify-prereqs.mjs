@@ -7,15 +7,16 @@
  *
  * Checks:
  *   - Node.js >= 22.0.0 (semver-compared against process.versions.node).
- *   - FFmpeg on PATH (spawnSync('ffmpeg', ['-version'])).
+ *   - FFmpeg and FFprobe on PATH (spawnSync('<binary>', ['-version'])).
  *
  * Tests run with AK_HYPERFRAMES_TEST_MODE=1 to unlock MOCK_NODE_VERSION /
- * MOCK_FFMPEG_PRESENT=0|1 overrides without depending on real system state.
+ * MOCK_FFMPEG_PRESENT=0|1 / MOCK_FFPROBE_PRESENT=0|1 overrides without
+ * depending on real system state.
  * Both the test-mode flag and the individual MOCK_ var are required — a
  * stray MOCK_FFMPEG_PRESENT left in a real shell must not silently fake a
  * READY result for an actual user.
  *
- * Exit 0 with a "READY" line when both checks pass. Exit non-zero with
+ * Exit 0 with a "READY" line when all checks pass. Exit non-zero with
  * actionable remediation (also printed to stderr) when any check fails.
  * A structured summary is always printed to stdout — JSON with --json,
  * a human-readable table otherwise.
@@ -69,31 +70,35 @@ function checkNodeVersion() {
   };
 }
 
-function checkFfmpeg() {
-  const FFMPEG_INSTALL_HINT = 'Install FFmpeg: brew install ffmpeg (macOS) or apt install ffmpeg (Debian/Ubuntu)';
+const INSTALL_HINT_SUFFIX =
+  'brew install ffmpeg (macOS), apt install ffmpeg (Debian/Ubuntu), or winget install --id Gyan.FFmpeg -e (Windows)';
 
-  if (TEST_MODE && process.env.MOCK_FFMPEG_PRESENT === '0') {
-    return { name: 'ffmpeg', ok: false, detail: 'ffmpeg not found on PATH (mocked)', remediation: FFMPEG_INSTALL_HINT };
+/** Check that `binary -version` runs; `mockVar` is honored only in test mode. */
+function checkBinary(binary, label, mockVar) {
+  const hint = `Install ${label}: ${INSTALL_HINT_SUFFIX}`;
+
+  if (TEST_MODE && process.env[mockVar] === '0') {
+    return { name: binary, ok: false, detail: `${binary} not found on PATH (mocked)`, remediation: hint };
   }
-  if (TEST_MODE && process.env.MOCK_FFMPEG_PRESENT === '1') {
-    return { name: 'ffmpeg', ok: true, detail: 'ffmpeg present (mocked)', remediation: null };
+  if (TEST_MODE && process.env[mockVar] === '1') {
+    return { name: binary, ok: true, detail: `${binary} present (mocked)`, remediation: null };
   }
 
-  // shell:true is needed on win32 to resolve ffmpeg via PATH lookup rules
-  // (PATHEXT-based .exe resolution) the way cmd.exe would. Safe here — argv
-  // is the fixed literal ['-version'], never user- or caller-supplied
+  // shell:true is needed on win32 to resolve the binary via PATH lookup rules
+  // (PATHEXT-based .exe resolution) the way cmd.exe would. Safe here — the
+  // binary name and argv are fixed literals, never user- or caller-supplied
   // content, so there's nothing for shell:true to misinterpret.
-  const result = spawnSync('ffmpeg', ['-version'], {
+  const result = spawnSync(binary, ['-version'], {
     encoding: 'utf8',
     shell: process.platform === 'win32',
   });
 
   const ok = !result.error && result.status === 0;
   return {
-    name: 'ffmpeg',
+    name: binary,
     ok,
-    detail: ok ? (result.stdout || '').split('\n')[0].trim() : 'ffmpeg not found on PATH',
-    remediation: ok ? null : FFMPEG_INSTALL_HINT,
+    detail: ok ? (result.stdout || '').split('\n')[0].trim() : `${binary} not found on PATH`,
+    remediation: ok ? null : hint,
   };
 }
 
@@ -133,7 +138,11 @@ function main() {
     return;
   }
 
-  const checks = [checkNodeVersion(), checkFfmpeg()];
+  const checks = [
+    checkNodeVersion(),
+    checkBinary('ffmpeg', 'FFmpeg', 'MOCK_FFMPEG_PRESENT'),
+    checkBinary('ffprobe', 'FFprobe', 'MOCK_FFPROBE_PRESENT'),
+  ];
   const allOk = checks.every((c) => c.ok);
 
   if (values.json) {

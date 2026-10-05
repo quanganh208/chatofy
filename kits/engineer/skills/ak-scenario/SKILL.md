@@ -10,7 +10,7 @@ metadata:
   author: agentkit
   attribution: "Scenario exploration pattern adapted from autoresearch by Udit Goenka (MIT)"
   license: MIT
-  version: "1.2.1"
+  version: "1.3.0"
 ---
 
 # ak:scenario — Edge Case & Scenario Explorer
@@ -227,3 +227,26 @@ Saturation loop mechanics, novelty detection, and generation strategy are embedd
 Faithful absorption (in scope) of upstream `/autoresearch:scenario` ([uditgoenka/autoresearch](https://github.com/uditgoenka/autoresearch), MIT). The local version supports both one-shot generation and the iterative saturation loop.
 
 See `/ak:autoresearch` for the full family map.
+
+## Optional workflow shadow experiment
+
+Only when explicitly requested, inspect `ak eval workflow --help` and prepare
+its bounded, reviewed request with workflow `scenario`. Default `off`
+validates locally. `--mode shadow` additionally requires user-scope master and
+provider configuration, explicit `workflow-controller: true` consumer consent,
+and the provider credential; never enable or infer consent from an ambient key.
+The optional command may send sanitized facts externally and incur charges.
+
+Supply the existing domain decision and complete policy facts first. Keep all
+`effective_*` decisions unchanged; record accepted `hypothetical_*` suggestions
+only for comparison. Errors, low confidence and unavailable provider evidence
+use the existing workflow. Never execute a recommendation or treat it as
+permission. Existing caps, user stops, three-failure human checkpoints and
+approval/R3 controls remain authoritative. Ordinary skill startup makes no call.
+
+The generator still creates candidates and checks complete history. Supply the
+latest chronological 16 kept situations at most, plus total history count;
+partial history cannot qualify for changed classification. Inspect classification,
+novelty/value scores and full probabilities; these ordinal scores are not
+percentages. KEEP/DISCARD is candidate disposition, not workflow CONTINUE/STOP.
+Variants remain non-New for the existing two-iteration saturation counter.

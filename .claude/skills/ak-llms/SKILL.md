@@ -1,14 +1,14 @@
 ---
 name: ak:llms
-description: "Generate llms.txt files from docs or codebase scanning. Follows llmstxt.org spec. Use for LLM-friendly site indexes, documentation summaries, AI context optimization."
+description: "Generate llms.txt, llms-full.txt, and per-page .md variants from docs or codebase scanning, following the llmstxt.org spec. Use for LLM-friendly site indexes, Markdown page mirrors, documentation summaries, AI context optimization."
 user-invocable: true
-when_to_use: "Invoke to produce LLM-friendly indexes like llms.txt."
+when_to_use: "Invoke to produce llms.txt, llms-full.txt, or .md page variants for AI readers."
 category: engineering
-keywords: [llms-txt, documentation, AI-context]
-argument-hint: "[path|url] [--full] [--output path]"
+keywords: [llms-txt, llms-full-txt, markdown-mirror, documentation, AI-context]
+argument-hint: "[path|url] [--full] [--md-links] [--output path]"
 metadata:
   author: agentkit
-  version: "1.0.1"
+  version: "1.1.0"
 ---
 
 # llms.txt Generator
@@ -17,7 +17,7 @@ Generate [llms.txt](https://llmstxt.org/) files — LLM-friendly markdown indexe
 
 ## Scope
 
-This skill generates `llms.txt` and `llms-full.txt` files. Does NOT handle: hosting, deployment, SEO, robots.txt, sitemaps.
+This skill generates `llms.txt` and `llms-full.txt` and defines the per-page `.md` variant contract they link to. Framework routing that serves those files, sitemaps, robots.txt, social metadata, and page actions belong to the site's framework skill (for Next.js, the SEO/GEO reference in `ak:web-frameworks`).
 
 ## When to Use
 
@@ -30,9 +30,11 @@ This skill generates `llms.txt` and `llms-full.txt` files. Does NOT handle: host
 
 - No args: Discover documentation from the root README, site config and navigation
 - `path`: Scan specific directory or file
-- `--full`: Also generate `llms-full.txt` (expanded with inline content)
+- `--full`: Also generate `llms-full.txt` (expanded with inline content, each page headed by its canonical `Source:` URL when a base URL is set)
+- `--md-links`: Link each page's Markdown variant (`page.md`) instead of its HTML URL; use when the site serves `.md` variants
+- `--trailing-slash`: The site serves directory pages as `guide/` (Markdown `guide/index.html.md`); default is `guide` / `guide.md`
 - `--output path`: Custom output location (default: project root)
-- `--url base`: Base URL prefix for links (e.g., `https://example.com/docs`)
+- `--base-url base`: Base URL prefix for links (e.g., `https://example.com/docs`)
 
 ## Workflow
 
@@ -61,12 +63,23 @@ scripts/generate-llms-txt.py \
   --source <path> \
   --output <output-path> \
   --base-url <url> \
-  [--full]
+  [--md-links] [--trailing-slash] [--full]
 ```
 
 Or generate manually following spec in `references/llms-txt-specification.md`.
 
-### 4. Structure Output
+### 4. Markdown Page Variants
+
+When the site can serve them, give every public page a Markdown twin and link it from `llms.txt` with `--md-links`:
+
+- URL is the page URL plus `.md` (`/docs/intro` → `/docs/intro.md`); a URL ending in `/` uses `index.html.md`. Match the site's trailing-slash setting so every linked URL returns 200 without a redirect.
+- Serve `text/markdown; charset=utf-8` with `X-Robots-Tag: noindex`; the HTML page keeps `rel=canonical` and adds `<link rel="alternate" type="text/markdown" href="…/intro.md">`.
+- Content is the page body only: `# Title`, a `Source: <canonical URL>` line, then the Markdown with frontmatter, nav, and components resolved to plain Markdown.
+- Generate variants, `llms.txt`, and `llms-full.txt` from the same source at build or request time so they never drift from the HTML.
+
+If the site cannot serve `.md` URLs, link HTML URLs and report the gap.
+
+### 5. Structure Output
 
 Follow llmstxt.org specification strictly:
 
@@ -85,13 +98,14 @@ Follow llmstxt.org specification strictly:
 - [Less Important Doc](url): Supplementary information
 ```
 
-### 5. Validate
+### 6. Validate
 
 - H1 heading present (required)
 - Blockquote summary present (recommended)
 - All links valid markdown format: `[title](url)`
 - Optional section at end for skippable content
 - Concise descriptions, no jargon
+- With a live site: every linked URL returns 200, and sampled `.md` URLs return `text/markdown`
 
 ## Format Rules (llmstxt.org Spec)
 
@@ -112,6 +126,7 @@ See `references/llms-txt-specification.md` for full spec details.
 |------|---------|
 | `llms.txt` | Curated index with links and descriptions |
 | `llms-full.txt` | Expanded version with inline doc content (use `--full`) |
+| `<page>.md` | Per-page Markdown variant served by the site (see step 4) |
 
 ## Security
 

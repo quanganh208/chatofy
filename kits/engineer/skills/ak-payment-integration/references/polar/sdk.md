@@ -1,6 +1,11 @@
 # Polar SDK Usage
 
-Multi-language SDKs and framework adapters.
+Official SDKs (TypeScript, Python) and framework adapters.
+
+**Status (Sep 2026):**
+- Stable: `@polar-sh/sdk` 0.x (npm `latest`), `polar-sdk` 0.x (PyPI). Speakeasy-generated; source now lives in the `polarsource/polar` monorepo.
+- Preview: SDK 1.0 (npm `next` / `pip install --pre`), bound to a dated API version (`2026-04`). Breaking API changes are opt-in via `Polar-Version`.
+- Go (`polar-go`) and PHP (`polar-php`) SDKs are archived/unmaintained; call the REST API directly from those languages.
 
 ## TypeScript/JavaScript
 
@@ -14,423 +19,296 @@ npm install @polar-sh/sdk
 import { Polar } from '@polar-sh/sdk';
 
 const polar = new Polar({
-  accessToken: process.env.POLAR_ACCESS_TOKEN,
+  accessToken: process.env.POLAR_ACCESS_TOKEN, // polar_oat_...
   server: "production" // or "sandbox"
 });
 ```
 
-**Usage:**
+**Usage (camelCase fields; mutations take `{ id, <resource>Update }`):**
 ```typescript
 // Products
-const products = await polar.products.list({ organization_id: "org_xxx" });
-const product = await polar.products.create({ name: "Pro Plan", ... });
+const product = await polar.products.create({
+  name: "Pro Plan",
+  recurringInterval: "month",
+  prices: [{ amountType: "fixed", priceCurrency: "usd", priceAmount: 2000 }]
+});
+const one = await polar.products.get({ id: product.id });
 
 // Checkouts
 const checkout = await polar.checkouts.create({
-  product_price_id: "price_xxx",
-  success_url: "https://example.com/success"
+  products: [product.id],
+  successUrl: "https://example.com/success?checkout_id={CHECKOUT_ID}",
+  externalCustomerId: "user_123"
 });
 
 // Subscriptions
-const subs = await polar.subscriptions.list({ customer_id: "cust_xxx" });
-await polar.subscriptions.update(subId, { metadata: { plan: "pro" } });
+const subs = await polar.subscriptions.list({ externalCustomerId: "user_123", active: true });
+await polar.subscriptions.update({ id: subId, subscriptionUpdate: { metadata: { plan: "pro" } } });
 
 // Orders
-const orders = await polar.orders.list({ organization_id: "org_xxx" });
-const order = await polar.orders.get(orderId);
+const order = await polar.orders.get({ id: orderId });
 
-// Customers
-const customer = await polar.customers.get({ external_id: "user_123" });
+// Customers (by your user ID)
+const customer = await polar.customers.getExternal({ externalId: "user_123" });
+const state = await polar.customers.getStateExternal({ externalId: "user_123" });
+
+// Portal link
+const session = await polar.customerSessions.create({ externalCustomerId: "user_123" });
+// session.customerPortalUrl
 
 // Events (usage-based)
-await polar.events.create({
-  external_customer_id: "user_123",
-  event_name: "api_call",
-  properties: { tokens: 1000 }
+await polar.events.ingest({
+  events: [{ name: "api_call", externalCustomerId: "user_123", metadata: { tokens: 1000 } }]
 });
 ```
 
-**Pagination:**
+**Pagination:** list methods return an async iterable of pages.
 ```typescript
-// Automatic pagination
-for await (const product of polar.products.listAutoPaging()) {
-  console.log(product.name);
+const result = await polar.products.list({ limit: 100 });
+for await (const page of result) {
+  for (const product of page.result.items) console.log(product.name);
 }
-
-// Manual pagination
-let page = 1;
-while (true) {
-  const response = await polar.products.list({ page, limit: 100 });
-  if (response.items.length === 0) break;
-  // Process items
-  page++;
-}
+// Raw REST: ?page=&limit= (max 100); response.pagination { total_count, max_page }
 ```
+
+### SDK 1.0 (preview)
+```bash
+npm install @polar-sh/sdk@next
+```
+```typescript
+import { createPolar, webhooks } from "@polar-sh/sdk/2026-04";
+
+const polar = createPolar({
+  accessToken: process.env.POLAR_ACCESS_TOKEN!,
+  environment: "sandbox" // or "production"
+});
+// webhooks.validateEvent is async and supports both webhook signing schemes
+```
+Preview APIs may change between alpha releases; pin the exact version.
 
 ## Python
 
 **Installation:**
 ```bash
-pip install polar-sdk
+pip install polar-sdk              # stable 0.x
+pip install --pre polar-sdk        # 1.0 preview: from polar.v2026_04 import Polar, PolarAsync
 ```
 
 **Configuration:**
 ```python
+import os
 from polar_sdk import Polar
 
 polar = Polar(
     access_token=os.environ["POLAR_ACCESS_TOKEN"],
-    server="production"  # or "sandbox"
+    server="production",  # or "sandbox"
 )
 ```
 
-**Sync Usage:**
+**Sync Usage (snake_case; create/update take `request=` dicts):**
 ```python
-# Products
-products = polar.products.list(organization_id="org_xxx")
-product = polar.products.create(name="Pro Plan", ...)
+checkout = polar.checkouts.create(request={
+    "products": ["product_id"],
+    "success_url": "https://example.com/success?checkout_id={CHECKOUT_ID}",
+    "external_customer_id": "user_123",
+})
 
-# Checkouts
-checkout = polar.checkouts.create(
-    product_price_id="price_xxx",
-    success_url="https://example.com/success"
-)
+res = polar.subscriptions.list(external_customer_id="user_123", active=True)
+while res is not None:
+    for sub in res.result.items:
+        print(sub.id)
+    res = res.next()
 
-# Subscriptions
-subs = polar.subscriptions.list(customer_id="cust_xxx")
-polar.subscriptions.update(sub_id, metadata={"plan": "pro"})
-
-# Orders
-orders = polar.orders.list(organization_id="org_xxx")
-order = polar.orders.get(order_id)
-
-# Events
-polar.events.create(
-    external_customer_id="user_123",
-    event_name="api_call",
-    properties={"tokens": 1000}
-)
+polar.events.ingest(request={
+    "events": [{"name": "api_call", "external_customer_id": "user_123", "metadata": {"tokens": 1000}}],
+})
 ```
 
-**Async Usage:**
+**Async Usage (stable):**
 ```python
-import asyncio
-from polar_sdk import AsyncPolar
+import asyncio, os
+from polar_sdk import Polar
 
 async def main():
-    polar = AsyncPolar(access_token=os.environ["POLAR_ACCESS_TOKEN"])
-
-    products = await polar.products.list(organization_id="org_xxx")
-    checkout = await polar.checkouts.create(...)
+    async with Polar(access_token=os.environ["POLAR_ACCESS_TOKEN"]) as polar:
+        res = await polar.products.list_async(limit=10)
 
 asyncio.run(main())
 ```
 
-## PHP
-
-**Installation:**
-```bash
-composer require polar-sh/sdk
-```
-
-**Configuration:**
-```php
-use Polar\Polar;
-
-$polar = new Polar(
-    accessToken: $_ENV['POLAR_ACCESS_TOKEN'],
-    server: 'production' // or 'sandbox'
-);
-```
-
-**Usage:**
-```php
-// Products
-$products = $polar->products->list(['organization_id' => 'org_xxx']);
-$product = $polar->products->create(['name' => 'Pro Plan', ...]);
-
-// Checkouts
-$checkout = $polar->checkouts->create([
-    'product_price_id' => 'price_xxx',
-    'success_url' => 'https://example.com/success'
-]);
-
-// Subscriptions
-$subs = $polar->subscriptions->list(['customer_id' => 'cust_xxx']);
-$polar->subscriptions->update($subId, ['metadata' => ['plan' => 'pro']]);
-
-// Orders
-$orders = $polar->orders->list(['organization_id' => 'org_xxx']);
-$order = $polar->orders->get($orderId);
-
-// Events
-$polar->events->create([
-    'external_customer_id' => 'user_123',
-    'event_name' => 'api_call',
-    'properties' => ['tokens' => 1000]
-]);
-```
-
-## Go
-
-**Installation:**
-```bash
-go get github.com/polarsource/polar-go
-```
-
-**Usage:**
-```go
-import (
-    "github.com/polarsource/polar-go"
-)
-
-client := polar.NewClient(
-    polar.WithAccessToken(os.Getenv("POLAR_ACCESS_TOKEN")),
-    polar.WithEnvironment("production"),
-)
-
-// Products
-products, err := client.Products.List(ctx, &polar.ProductListParams{
-    OrganizationID: "org_xxx",
-})
-
-// Checkouts
-checkout, err := client.Checkouts.Create(ctx, &polar.CheckoutCreateParams{
-    ProductPriceID: "price_xxx",
-    SuccessURL:     "https://example.com/success",
-})
-```
-
 ## Framework Adapters
 
-### Next.js (@polar-sh/nextjs)
+Maintained: **Next.js**, **Nuxt**, **TanStack Start**, **Laravel** (community), **BetterAuth**.
+Deprecated (no longer maintained): Astro, Deno, Elysia, Express, Fastify, Hono, Remix, Supabase, SvelteKit; use the core SDK instead.
 
-**Quick Start:**
+### Next.js (`@polar-sh/nextjs`)
+
 ```bash
-npx polar-init
+npm install @polar-sh/nextjs zod
 ```
 
-**Configuration:**
+**Checkout route:**
 ```typescript
-// lib/polar.ts
-import { PolarClient } from '@polar-sh/nextjs';
+// app/checkout/route.ts
+import { Checkout } from "@polar-sh/nextjs";
 
-export const polar = new PolarClient({
-  accessToken: process.env.POLAR_ACCESS_TOKEN!,
-  webhookSecret: process.env.POLAR_WEBHOOK_SECRET!
+export const GET = Checkout({
+  accessToken: process.env.POLAR_ACCESS_TOKEN,
+  successUrl: process.env.SUCCESS_URL,
+  server: "sandbox" // omit in production
+});
+// /checkout?products=<id>&customerExternalId=<userId>&customerEmail=...
+```
+
+**Customer portal route:**
+```typescript
+// app/portal/route.ts
+import { CustomerPortal } from "@polar-sh/nextjs";
+
+export const GET = CustomerPortal({
+  accessToken: process.env.POLAR_ACCESS_TOKEN,
+  getCustomerId: async (req) => await lookupPolarCustomerId(req),
+  server: "sandbox"
 });
 ```
 
-**Checkout Handler:**
-```typescript
-// app/actions/checkout.ts
-'use server'
-
-import { polar } from '@/lib/polar';
-
-export async function createCheckout(priceId: string) {
-  const session = await polar.checkouts.create({
-    product_price_id: priceId,
-    success_url: `${process.env.NEXT_PUBLIC_URL}/success?checkout_id={CHECKOUT_ID}`
-  });
-
-  return session.url;
-}
-```
-
-**Webhook Handler:**
+**Webhook route:**
 ```typescript
 // app/api/webhook/polar/route.ts
-import { polar } from '@/lib/polar';
+import { Webhooks } from "@polar-sh/nextjs";
 
-export async function POST(req: Request) {
-  const event = await polar.webhooks.validate(req);
-
-  switch (event.type) {
-    case 'order.paid':
-      await handleOrderPaid(event.data);
-      break;
-    // ... other events
-  }
-
-  return Response.json({ received: true });
-}
-```
-
-### Laravel (polar-sh/laravel)
-
-**Installation:**
-```bash
-composer require polar-sh/laravel
-php artisan vendor:publish --tag=polar-config
-php artisan vendor:publish --tag=polar-migrations
-php artisan migrate
-```
-
-**Configuration:**
-```php
-// config/polar.php
-return [
-    'access_token' => env('POLAR_ACCESS_TOKEN'),
-    'webhook_secret' => env('POLAR_WEBHOOK_SECRET'),
-];
-```
-
-**Checkout:**
-```php
-use Polar\Facades\Polar;
-
-Route::post('/checkout', function (Request $request) {
-    $checkout = Polar::checkouts()->create([
-        'product_price_id' => $request->input('price_id'),
-        'success_url' => route('checkout.success'),
-        'external_customer_id' => auth()->id(),
-    ]);
-
-    return redirect($checkout['url']);
+export const POST = Webhooks({
+  webhookSecret: process.env.POLAR_WEBHOOK_SECRET!,
+  onOrderPaid: async (payload) => { /* fulfill */ },
+  onPayload: async (payload) => { /* catch-all */ }
 });
 ```
 
-**Webhook:**
-```php
-use Polar\Events\WebhookReceived;
+For server actions, create a plain `new Polar({...})` client (see TypeScript above).
 
-// app/Listeners/PolarWebhookHandler.php
-class PolarWebhookHandler
-{
-    public function handle(WebhookReceived $event)
-    {
-        match ($event->payload['type']) {
-            'order.paid' => $this->handleOrderPaid($event->payload['data']),
-            'subscription.revoked' => $this->handleRevoked($event->payload['data']),
-            default => null,
-        };
-    }
-}
+### Laravel (`danestves/laravel-polar`, community-maintained)
+
+```bash
+composer require danestves/laravel-polar
+php artisan polar:install
 ```
 
-### Express
+```php
+// Billable model trait, then:
+return $request->user()->checkout(['product_id_123']);
+```
+Webhooks arrive on `polar/*` (exclude from CSRF); listen to `Danestves\LaravelPolar\Events\WebhookHandled` or typed events. See the package README for config keys.
+
+### Express / other Node frameworks (core SDK)
 
 ```javascript
-const express = require('express');
-const { Polar } = require('@polar-sh/sdk');
-const { validateEvent } = require('@polar-sh/sdk/webhooks');
+import express from 'express';
+import { Polar } from '@polar-sh/sdk';
+import { validateEvent, WebhookVerificationError } from '@polar-sh/sdk/webhooks';
 
 const app = express();
 const polar = new Polar({ accessToken: process.env.POLAR_ACCESS_TOKEN });
 
-app.use(express.json());
-
-app.post('/checkout', async (req, res) => {
-  const session = await polar.checkouts.create({
-    product_price_id: req.body.priceId,
-    success_url: 'https://example.com/success',
-    external_customer_id: req.user.id
-  });
-
-  res.json({ url: session.url });
+// Register the webhook route BEFORE express.json() and keep the raw body
+app.post('/webhook/polar', express.raw({ type: 'application/json' }), (req, res) => {
+  try {
+    const event = validateEvent(req.body, req.headers, process.env.POLAR_WEBHOOK_SECRET);
+    enqueue(event);
+    res.status(202).send('');
+  } catch (err) {
+    if (err instanceof WebhookVerificationError) return res.status(403).send('');
+    // Valid signature but unknown event type for this SDK version: acknowledge, don't 5xx
+    console.warn('Unparsed Polar event', req.headers['webhook-id'], err);
+    res.status(202).send('');
+  }
 });
 
-app.post('/webhook/polar', (req, res) => {
-  const event = validateEvent(
-    req.body,
-    req.headers,
-    process.env.POLAR_WEBHOOK_SECRET
-  );
-
-  handleEvent(event);
-  res.json({ received: true });
+app.post('/checkout', express.json(), async (req, res) => {
+  const checkout = await polar.checkouts.create({
+    products: [req.body.productId],
+    successUrl: 'https://example.com/success?checkout_id={CHECKOUT_ID}',
+    externalCustomerId: req.user.id
+  });
+  res.json({ url: checkout.url });
 });
 ```
-
-### Remix
-
-```typescript
-import { Polar } from '@polar-sh/sdk';
-
-const polar = new Polar({ accessToken: process.env.POLAR_ACCESS_TOKEN });
-
-export async function action({ request }: ActionFunctionArgs) {
-  const formData = await request.formData();
-  const priceId = formData.get('priceId');
-
-  const session = await polar.checkouts.create({
-    product_price_id: priceId,
-    success_url: `${request.url}/success`
-  });
-
-  return redirect(session.url);
-}
-```
+See `webhooks.md` for signing-scheme caveats of the stable `validateEvent`.
 
 ## BetterAuth Integration
 
-**Installation:**
 ```bash
-npm install @polar-sh/better-auth
+npm install better-auth @polar-sh/better-auth @polar-sh/sdk
 ```
 
-**Configuration:**
 ```typescript
-import { betterAuth } from 'better-auth';
-import { polarPlugin } from '@polar-sh/better-auth';
+import { betterAuth } from "better-auth";
+import { polar, checkout, portal, usage, webhooks } from "@polar-sh/better-auth";
+import { Polar } from "@polar-sh/sdk";
+
+const polarClient = new Polar({
+  accessToken: process.env.POLAR_ACCESS_TOKEN,
+  server: "sandbox"
+});
 
 export const auth = betterAuth({
-  database: db,
   plugins: [
-    polarPlugin({
-      organizationId: process.env.POLAR_ORG_ID!,
-      accessToken: process.env.POLAR_ACCESS_TOKEN!
+    polar({
+      client: polarClient,
+      createCustomerOnSignUp: true,
+      use: [
+        checkout({ products: [{ productId: "product_id", slug: "pro" }], successUrl: "/success?checkout_id={CHECKOUT_ID}" }),
+        portal(),
+        usage(),
+        webhooks({ secret: process.env.POLAR_WEBHOOK_SECRET, onOrderPaid: async (payload) => {} })
+      ]
     })
   ]
 });
 ```
 
-**Features:**
-- Auto-create Polar customers on signup
-- Automatic external_id mapping
-- User-customer sync
-- Access customer data in auth session
+**Features:** customer created on signup with `externalId` = user ID, checkout by slug, portal/state access, usage ingestion, typed webhook handlers.
 
 ## Error Handling
 
-**TypeScript:**
+**TypeScript (stable):**
 ```typescript
+import { SDKError } from "@polar-sh/sdk/models/errors/sdkerror.js";
+import { ResourceNotFound } from "@polar-sh/sdk/models/errors/resourcenotfound.js";
+
 try {
-  const product = await polar.products.get(productId);
+  const product = await polar.products.get({ id: productId });
 } catch (error) {
-  if (error.statusCode === 404) {
+  if (error instanceof ResourceNotFound) {
     console.error('Product not found');
-  } else if (error.statusCode === 429) {
-    console.error('Rate limit exceeded');
+  } else if (error instanceof SDKError && error.statusCode === 429) {
+    // honor Retry-After, back off
   } else {
-    console.error('API error:', error.message);
+    throw error;
   }
 }
+// All HTTP errors extend PolarError { statusCode, body, headers }
 ```
 
-**Python:**
+**Python (stable):**
 ```python
-from polar_sdk.exceptions import PolarException
+from polar_sdk import models
 
 try:
-    product = polar.products.get(product_id)
-except PolarException as e:
+    product = polar.products.get(id=product_id)
+except models.PolarError as e:
     if e.status_code == 404:
         print("Product not found")
     elif e.status_code == 429:
-        print("Rate limit exceeded")
+        print("Rate limited")
     else:
-        print(f"API error: {e.message}")
+        raise
 ```
 
 ## Best Practices
 
-1. **Environment Variables:** Store credentials securely
-2. **Error Handling:** Catch and handle API errors appropriately
-3. **Rate Limiting:** Implement backoff for 429 responses
-4. **Pagination:** Use auto-paging for large datasets
-5. **Webhooks:** Always verify signatures
-6. **Testing:** Use sandbox for development
-7. **Logging:** Log API calls for debugging
-8. **Retry Logic:** Implement for transient failures
+1. **Credentials:** OAT only server-side; separate sandbox and production tokens
+2. **Rate limits:** 500 req/min (sandbox 100); back off on 429 using `Retry-After`
+3. **Pagination:** iterate pages (`limit` max 100)
+4. **Webhooks:** verify on the raw body; mind the signing-scheme cutoff (`webhooks.md`)
+5. **Versioning:** pin SDK versions; the 1.0 preview changes shapes between alphas
+6. **Testing:** develop against sandbox (`server: "sandbox"`)

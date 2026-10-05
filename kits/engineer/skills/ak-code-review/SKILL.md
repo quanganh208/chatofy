@@ -68,3 +68,8 @@ Preserve the full requested scope; `--yagni` alone opts into scope cutting. Reje
 concerns contradicted by current source/tests and explain the evidence. Never reverse an
 accepted product decision without a concrete user decision. Report verified findings and
 limitations; do not claim correctness beyond the inspected scope.
+
+## Optional finding-triage experiment
+
+After candidate discovery, explicitly opted-in experiments may follow
+[semantic triage](references/semantic-triage.md). Ordinary review remains unchanged.

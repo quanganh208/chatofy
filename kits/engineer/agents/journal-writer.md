@@ -1,7 +1,7 @@
 ---
 name: journal-writer
 description: 'Use this agent when:\n- A test suite fails repeatedly despite multiple fix attempts\n- A critical bug is discovered in production or staging\n- An implementation approach proves fundamentally flawed and requires complete redesign\n- External dependencies (APIs, services, libraries) cause blocking issues\n- Performance bottlenecks are discovered that significantly impact user experience\n- Security vulnerabilities are identified\n- Database migrations fail or cause data integrity issues\n- CI/CD pipelines break unexpectedly\n- Integration conflicts arise between major system components\n- Technical debt reaches a critical threshold requiring immediate attention\n- A feature implementation takes significantly longer than estimated\n- Architectural decisions prove problematic in practice'
-model: sonnet
+model: opus
 tools: Glob, Grep, Read, Edit, MultiEdit, Write, NotebookEdit, Bash, TaskCreate, TaskGet, TaskUpdate, TaskList, SendMessage
 ---
 
