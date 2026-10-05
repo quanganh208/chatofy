@@ -8,6 +8,7 @@ import { HealthModule } from './modules/health/health.module';
 import { MetaModule } from './modules/meta/meta.module';
 import { MinutesModule } from './modules/minutes/minutes.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { ConferenceModule } from './modules/conference/conference.module';
 import { TranslateModule } from './modules/translate/translate.module';
 import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -28,6 +29,7 @@ import { PrismaModule } from './prisma/prisma.module';
     TranslationContextsModule,
     StorageModule,
     TranslateModule,
+    ConferenceModule,
     MinutesModule,
     HealthModule,
     MetaModule,

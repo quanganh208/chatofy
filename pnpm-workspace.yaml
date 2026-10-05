@@ -122,6 +122,8 @@ allowBuilds:
   '@parcel/watcher': false
   '@scarf/scarf': false
   protobufjs: false
+  # Native C++ Worker process needed at runtime; skipping breaks the SFU.
+  mediasoup: true
 minimumReleaseAgeExclude:
   - playwright-core@1.62.1
   - playwright@1.62.1
