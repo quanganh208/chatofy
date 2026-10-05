@@ -4,6 +4,28 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
+ * Scoped to this file, because the cost it covers is this file's alone.
+ *
+ * The first `mount()` compiles the popup's whole module graph — Radix, React,
+ * the entrypoint chain — and that compile lands inside the first test. On CI it
+ * measured 3300ms, 3489ms, 4565ms and 4958ms across four passing runs, so the 5s
+ * default was spent down to its last one percent and an ordinary slow draw
+ * failed it at 5048ms. Only the first test pays: the transform cache is warm
+ * after that and the other ten run in 40-200ms.
+ *
+ * So this budget is headroom for a compile, not slack for the assertions. That
+ * is why it is set here rather than in `vitest.config.ts` — the other twenty
+ * spec files in this package are cheap, and a package-wide bump would loosen
+ * their budgets for no reason.
+ *
+ * Priming the import in `beforeAll` would move the cost, but not somewhere
+ * safe. The module may only be imported once its stubs exist — `consent-gate`
+ * reads storage and attaches a listener at load — so a priming import would
+ * evaluate it against a DOM that no test asserts on.
+ */
+vi.setConfig({ testTimeout: 20_000 });
+
+/**
  * The popup, rendered.
  *
  * A fast loop under the e2e suite, not a replacement for it: this has no Chrome,
