@@ -2189,6 +2189,15 @@ GitHub Actions (`.github/workflows/ci.yml`):
 - Extension e2e (Playwright)
 - Supply chain (`pnpm audit --audit-level=high`)
 
+**Why supply chain is not simply "zero high advisories".** Two entries in
+`pnpm-workspace.yaml`'s `auditConfig.ignoreGhsas` are suppressed, because
+neither has a patched version in existence — the newest release is itself the
+vulnerable range — so no override floor can answer them and the job would fail
+on every branch. Add an entry only for an advisory a human has decided is
+acceptable; the list does not prune itself, so each carries the condition that
+clears it. The command is unchanged and still fails on the next high that is
+not on the list.
+
 **Why the api e2e suites get their own jobs.** `pnpm turbo run test` reaches api's
 `test` script, whose jest `rootDir` is `src` — so nothing under `apps/api/test/`
 had ever run in CI, which is exactly where enforcement is proved. `api-e2e` runs
