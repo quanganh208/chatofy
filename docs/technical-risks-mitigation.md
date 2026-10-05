@@ -1,8 +1,17 @@
 # Technical Risks & Mitigation Plans: Video Conferencing
 
+> **Status: Proposal — not implemented.** No conferencing code exists on `main` as of
+> 2026-10-05. Progress is tracked in [project-roadmap.md](./project-roadmap.md);
+> unresolved choices are in [Open decisions](./video-conferencing-architecture.md#open-decisions).
+
 **Date:** 2026-09-29  
-**Scope:** Detailed risk analysis, impact assessment, mitigation strategies  
-**Constraints:** SFU, VP8, 6 participants, 720p60fps, per-minute billing
+**Scope:** Risk analysis, impact assessment and mitigation strategies for the proposed design  
+**Assumed constraints (unverified, see [Open decisions](./video-conferencing-architecture.md#open-decisions)):** SFU, VP8, 6 participants, 720p60fps, per-minute billing (optional, out of thesis scope)
+
+Every ✅ below marks a **proposed** mitigation, not shipped behaviour. Probabilities,
+latency budgets, SLAs and cost figures are the proposal's estimates, not measurements on
+this project's hardware. The SFU is undecided; where the text says "Pion", read "the
+chosen media server".
 
 ---
 
@@ -60,7 +69,7 @@ End-to-end video latency (camera capture → network → receiver display) excee
   - VP8: Takes ~30-50ms to encode 720p60, better for wireless
   - Measurement: Compare encoded frame size (VP8 smaller = less bandwidth)
 
-- ✅ **Bitrate adaptation (SFU side)**: Pion's built-in REMB (Receiver Estimated Maximum Bitrate)
+- ✅ **Bitrate adaptation (SFU side)**: REMB (Receiver Estimated Maximum Bitrate) — assumed from Pion; depends on the media server chosen
   - Sidecar downscales resolution from 720p → 360p if bandwidth drops
   - Client preference (2500 kbps default) is a baseline, not a ceiling
 
@@ -123,7 +132,7 @@ Video (fast, ~300ms latency) arrives before translated subtitle (~1-2s latency),
 
 #### Why It Happens
 
-1. **STT latency**: Streaming doesn't help much; model still needs full audio frame (~500ms)
+1. **STT latency**: Streaming doesn't help much; model still needs full audio frame (~500ms, estimate — today's single-session measurement is STT p50 58ms on the `/ws/translate` path, see [Data Flow](./architecture/data-flow.md#streaming-turn-wstranslate); multi-speaker load is unmeasured)
 2. **Translation API roundtrip**: Gemini/DeepSeek takes 500-800ms for one sentence
 3. **TTS streaming**: Even streamed, first byte comes ~200ms after translation completes
 4. **No prioritization**: All 6 participants' streams process in parallel, no guaranteed ordering
@@ -136,10 +145,10 @@ Video (fast, ~300ms latency) arrives before translated subtitle (~1-2s latency),
   - Subtitle area displays spinner until text ready
   - Prevents user thinking something is wrong
 
-- ✅ **Live preview (already built in Chatofy)**
-  - Show partial translation while speaker continues
-  - Viewers see SOMETHING within 1s
-  - Caveat: Preview may be incomplete/wrong, but at least keeps screen alive
+- ✅ **Live preview (exists in Chatofy today, for turns past three seconds)**
+  - Show partial translation while speaker continues (`server.translation.partial`, `apps/api/src/modules/translate/session/live-preview.ts`)
+  - Viewers see SOMETHING within 1s (target)
+  - Caveat: Preview may be incomplete/wrong, but at least keeps screen alive; today it is never synthesized to audio
 
 - ✅ **Separate audio tracks for translation**
   - Translated audio (synthesis) goes to client's own audio mixing
@@ -154,7 +163,8 @@ Video (fast, ~300ms latency) arrives before translated subtitle (~1-2s latency),
   - Alert if p95 > 2s
   - Aggregate by language pair (vi→en vs en→vi may differ)
 
-- 🎯 **Speculative translation (already built)**
+- 🎯 **Speculative translation (exists today)**
+  - Today: `client.turn.speculate` on a short silence, up to four guesses per turn (`MAX_SPECULATIONS_PER_TURN` in `apps/api/src/modules/translate/session/translation-model-policy.ts`); the 2s-mark variant below is proposed
   - Translate partial audio at 2s mark (before silence)
   - If speaker continues, translation gets updated
   - If speaker stops, use the guess
@@ -207,7 +217,8 @@ Auto-attribution identifies "Speaker 1" as the wrong person, leading to confusio
 
 **Breakdown:**
 
-- CAM++ embedding accuracy: ~94.5% on clean audio, ~91% far-field (per system-architecture.md)
+- Today's attribution accuracy: all-turn 0.945 clean / 0.910 far-field — measured on two-person Vietnamese dialogues with at most two voices, behind the speech gate. These score the whole attribution layer, not CAM++ embeddings in isolation (see [Per-turn speaker attribution](./architecture/ai-providers.md#per-turn-speaker-attribution))
+- Nothing has been measured for 3+ voices; today's clustering is capped at two
 - In a meeting with 2+ people talking simultaneously, accuracy drops
 - Manual override rate: Expected ~10% of turns
 
@@ -231,10 +242,10 @@ Auto-attribution identifies "Speaker 1" as the wrong person, leading to confusio
   - Show "(80% confident)" next to speaker name
   - <85% confidence → offer override option immediately
 
-- ✅ **No re-labeleling after render**
+- ✅ **No re-labelling after render**
   - Once a turn is displayed, speaker label is final
   - Prevent "name changing mid-viewing" confusion
-  - (Already implemented in system-architecture.md)
+  - Today's analogue: auto-attribution only fills turns still `pending`, so no name anybody saw moves; a person can still overrule a label from the chip (see [Per-turn speaker attribution](./architecture/ai-providers.md#per-turn-speaker-attribution))
 
 **Short-term:**
 
@@ -245,6 +256,7 @@ Auto-attribution identifies "Speaker 1" as the wrong person, leading to confusio
   - Alert ops if accuracy drops below 88%
 
 - 🎯 **Enrollment option**
+  - Note: the current product replaced an enrolment design because it could not start without confirmed turns; see [Per-turn speaker attribution](./architecture/ai-providers.md#per-turn-speaker-attribution)
   - User's first turn: auto-enroll (one embedding per person)
   - Future turns: match against enrolled profile
   - Opt-in, stored locally (not persisted to DB for privacy)
@@ -366,6 +378,7 @@ Video composition job hangs, crashes, or produces corrupted output (no audio tra
 2. **Codec mismatch**: VP8 video + opus audio, but MP4 container doesn't support opus (audio missing)
 3. **Subtitle rendering**: OpenCV/PIL fails on Unicode (Vietnamese text crashes rendering)
 4. **Storage full**: R2 quota exceeded, upload fails silently (meeting appears recorded, but file is 0 bytes)
+5. **Exposure**: today's R2 bucket is public-read, so a stored recording is fetchable by URL ([Bucket layout](./architecture/authentication.md#bucket-layout-and-the-one-rule-that-governs-it); open decision)
 
 #### Why It Happens
 
@@ -451,14 +464,14 @@ Performance degrades or crashes when 7+ participants join (exceeds design constr
 
 **Breakdown:**
 
-- Pion SFU handles N participants by forking N-1 video tracks (each participant gets N-1 feeds)
+- An SFU (Pion assumed) handles N participants by forking N-1 video tracks (each participant gets N-1 feeds)
 - At 6 participants: 6 × 5 = 30 tracks on the SFU
 - At 20 participants: 20 × 19 = 380 tracks (possible, but CPU high)
 - Goal: Graceful degradation, not crash
 
 #### Why It Happens
 
-1. **CPU saturation**: Encoding 30 VP8 tracks = 100%+ CPU
+1. **CPU saturation**: Encoding 30 VP8 tracks = 100%+ CPU (estimate; note an SFU forwards rather than re-encodes, so this applies only if the server transcodes or composites)
 2. **Memory**: Each track buffers ~1s of frames (~500KB); 30 tracks = 15MB
 3. **Network**: SFU outbound = N × bitrate (6 participants × 2.5Mbps = 15Mbps out)
 4. **No admission control**: API accepts 7th join request, then SFU struggles
@@ -524,6 +537,10 @@ Monitoring:
 
 ### Risk 2.5: Translation Cost Explosion
 
+> The revenue, margin and billing parts of this risk depend on per-minute billing, which
+> is optional and out of thesis scope pending a decision ([Open decisions](./video-conferencing-architecture.md#open-decisions)). API cost against the
+> free-tier quotas applies either way.
+
 #### Description
 
 Translation API costs spiral beyond budget due to:
@@ -533,7 +550,7 @@ Translation API costs spiral beyond budget due to:
 3. Live previews (every 3 seconds, unnecessary cost)
 4. Message translation (auto-translate all chat)
 
-**Cost Model (with per-minute billing):**
+**Cost Model (with per-minute billing — illustrative figures, optional):**
 
 ```
 Cost per participant-minute = $0.10 (your rate)
@@ -561,21 +578,21 @@ But if:
   - Saves: ~$5-10 per meeting
 
 - ✅ **Cap speculative translations**
-  - Max 3 per turn (already implemented in system-architecture.md)
-  - If speaker pauses 4+ times, only translate first 3
+  - Today the cap is 4 per turn (`MAX_SPECULATIONS_PER_TURN` in `apps/api/src/modules/translate/session/translation-model-policy.ts`); a conference could lower it
+  - Past the cap the turn stops guessing and translates once at the end
 
-- ✅ **No live preview translation cost**
-  - Live preview is already built; reuse existing translation
-  - Don't issue EXTRA API call for preview
+- ✅ **Bound live preview translation cost**
+  - Today the live preview IS a separate metered translation request, issued only on turns past three seconds (see [Data Flow](./architecture/data-flow.md#streaming-turn-wstranslate))
+  - Proposed: keep that threshold, or reuse a speculative result instead of an extra call
 
-- ✅ **Billing audit**
+- ✅ **Billing audit** (optional billing)
   - Post-meeting: Log actual costs
   - If cost > 60% of revenue, alert ops + investigate
   - Example: If actual cost $24 and revenue $36, margin only 33% (should be 60%+)
 
 **Short-term:**
 
-- 📊 **Cost tracking per meeting**
+- 📊 **Cost tracking per meeting** (uses the optional billing table)
   - Breakdown:
     ```sql
     SELECT
@@ -616,7 +633,7 @@ But if:
 #### Measurement & Success Criteria
 
 ```
-SLA: API cost / Revenue < 40%
+SLA (optional billing): API cost / Revenue < 40%
 
 Monitoring:
 ├─ Per-meeting cost breakdown: Published daily
@@ -632,7 +649,7 @@ Monitoring:
 
 ### Risk 3.1: Redis Room State Lost
 
-**Probability:** 10% (only if Redis container crashes)  
+**Probability:** 10% (only if Redis container crashes; today Redis holds only refresh tokens, so room state would be its first other use)  
 **Impact:** Room state lost; participants booted with "conference ended" message  
 **Mitigation:**
 
@@ -656,7 +673,7 @@ Monitoring:
 **Impact:** Slow queries, missed captions  
 **Mitigation:**
 
-- ✅ Use `Serializable` isolation on batch writes
+- ✅ Use `Serializable` isolation on batch writes (not used anywhere in the API today)
 - ✅ Retry on serialization failure (exponential backoff)
 - ✅ Write metrics to logs (JSONL) first, batch insert async
 
@@ -664,7 +681,7 @@ Monitoring:
 
 ## Risk Monitoring Dashboard
 
-### Metrics to Track (Grafana)
+### Metrics to Track (Grafana — proposed; no Grafana or Prometheus runs today)
 
 ```
 Real-time:
@@ -681,14 +698,14 @@ Historical (Daily):
 ├─ Total meetings per day: counter
 ├─ Avg meeting duration: gauge
 ├─ API costs per day: gauge
-├─ Revenue per day: gauge
-├─ Margin (revenue - costs): gauge
+├─ Revenue per day: gauge (optional billing)
+├─ Margin (revenue - costs): gauge (optional billing)
 ├─ Speaker attribution override rate: rate
 ├─ Recording success rate: rate
 └─ User satisfaction (CSAT): gauge
 ```
 
-### Alerts (PagerDuty)
+### Alerts (PagerDuty — proposed; not part of the stack today)
 
 ```
 🔴 CRITICAL:
@@ -698,7 +715,7 @@ Historical (Daily):
 └─ Translation API timeout rate > 10% (page on-call)
 
 🟡 WARNING:
-├─ Cost/revenue ratio > 50% (notify ops)
+├─ Cost/revenue ratio > 50% (notify ops; optional billing)
 ├─ Subtitle latency p99 > 2s (notify ops)
 ├─ Speaker attribution override rate > 15% (notify ops)
 └─ Room state loss detected (notify ops)
@@ -722,7 +739,7 @@ Historical (Daily):
 - **Failover**: Restart Redis, verify room state recovered
 - **Recording**: Compose sample recording, verify codec + audio tracks
 
-### E2E Tests (Playwright)
+### E2E Tests (Playwright — today Playwright runs only in `apps/extension`)
 
 - **Happy path**: Alice joins → Bob joins → Alice speaks → Subtitle appears → Bob responds → Recording saves
 - **Error path**: Bob joins with no internet → Audio-only mode → Reconnect → Full video
@@ -748,14 +765,14 @@ Scenario: 10 parallel 30-minute meetings (60 participants total)
 1. **Video latency > 2s**
    - Auto-switch to audio-only mode (no video)
    - Alert: "Video quality low, using audio instead"
-   - Rollback: Revert to previous SFU version (compiled binary at deploy time)
+   - Rollback: Revert to previous SFU version (compiled binary at deploy time — assumes a Go/Pion build)
 
 2. **Recording job failing 20%+**
    - Disable recording temporarily (API returns 409)
    - Notify users: "Recordings temporarily unavailable"
    - Ops: Debug FFmpeg, fix, redeploy
 
-3. **Translation API costs 70%+ of revenue**
+3. **Translation API costs 70%+ of revenue** (optional billing)
    - Disable speculative translations immediately
    - Disable live preview immediately
    - Make message translation opt-in only
@@ -771,7 +788,7 @@ Before launch, all **P1 risks must be mitigated** to < 5% impact:
 - [ ] Subtitle latency p99 < 2s (live preview + fallback)
 - [ ] Recording success rate > 99%
 - [ ] Speaker attribution accuracy > 90%
-- [ ] API cost/revenue < 40%
+- [ ] API cost/revenue < 40% (only if billing is kept)
 - [ ] SFU stable with 6 participants
 
 **Then: GA Launch** 🚀
@@ -779,4 +796,4 @@ Before launch, all **P1 risks must be mitigated** to < 5% impact:
 ---
 
 **Document Version:** 1.0  
-**Last Updated:** 2026-09-29
+**Last Updated:** 2026-09-29 (reconciled with the current system 2026-10-05)

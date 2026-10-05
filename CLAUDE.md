@@ -113,12 +113,24 @@ We keep all important docs in `./docs` folder and keep updating them, structure 
 ```
 ./docs
 ├── project-overview-pdr.md
+├── project-roadmap.md
 ├── code-standards.md
 ├── codebase-summary.md
+├── system-architecture.md          # index into architecture/
+├── architecture/
+│   ├── contracts-and-languages.md
+│   ├── ai-providers.md
+│   ├── authentication.md
+│   ├── data-flow.md
+│   └── modules-extension-ci.md
 ├── design-guidelines.md
+├── brand-mark.md
 ├── deployment-guide.md
-├── system-architecture.md
-└── project-roadmap.md
+├── development-journey.md          # chronological record; measurements and dead ends
+├── video-conferencing-architecture.md   # proposal, not implemented
+├── database-schema-conference.md        # proposal, not implemented
+├── technical-risks-mitigation.md        # proposal, not implemented
+└── journals/
 ```
 
 **IMPORTANT:** _MUST READ_ and _MUST COMPLY_ all _INSTRUCTIONS_ in project `./CLAUDE.md`, especially _WORKFLOWS_ section is _CRITICALLY IMPORTANT_, this rule is _MANDATORY. NON-NEGOTIABLE. NO EXCEPTIONS. MUST REMEMBER AT ALL TIMES!!!_

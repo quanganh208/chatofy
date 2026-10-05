@@ -4,7 +4,7 @@ Real-time multilingual voice translation app. Turborepo + pnpm workspace.
 Languages are entries in one registry (`packages/types/src/domain/languages.ts`),
 and every direction between them is derived from it. Today it holds Vietnamese
 and English, so the live directions are vi→en and en→vi. Adding a language:
-[checklist](./docs/system-architecture.md#checklist-adding-a-language-to-the-registry).
+[checklist](./docs/architecture/contracts-and-languages.md#checklist-adding-a-language-to-the-registry).
 
 Speech runs **locally on CPU by default** — speech-to-text and text-to-speech
 need no API key and make no cloud call. Machine translation is still a cloud
@@ -33,30 +33,30 @@ cp apps/web/.env.example apps/web/.env.local
 # Apply the schema (starts Postgres if it is not already up)
 docker compose up -d --wait postgres
 
-# Redis holds the rotating refresh tokens. `pnpm dev` starts it with everything
-# else; start it alone if you are running one app by hand. The api BOOTS without
-# it — renewals then answer 503 rather than signing anyone out — but signing in
-# needs it, and so does `pnpm --filter api test:e2e`.
+# Redis holds the rotating refresh tokens. `pnpm dev` does NOT start it — it
+# brings up Postgres only; `pnpm dev:all` starts it with everything else. The api
+# BOOTS without it — renewals then answer 503 rather than signing anyone out — but
+# signing in needs it, and so does `pnpm --filter api test:e2e`.
 docker compose up -d --wait redis
-pnpm --filter @chatofy/api exec prisma migrate deploy
+pnpm --filter api exec prisma migrate deploy
 
 # Brings up the database, waits for it to be healthy, then starts every app
 # that has a dev task: api, web, and the extension's WXT watcher.
 pnpm dev
 
 # Or start one app (it expects `docker compose up -d` beforehand)
-pnpm --filter @chatofy/api dev
-pnpm --filter @chatofy/web dev
+pnpm --filter api dev
+pnpm --filter web dev
 ```
 
 > Everything that is not a Node app runs in Docker — see `docker-compose.yml`.
 > Nothing needs to be installed on the host for it: no Postgres, no Python, no
-> `uv`. `web` runs without any env setup.
+> `uv`. `web` needs only `AUTH_SECRET` in `apps/web/.env.local`.
 
 ### If `migrate deploy` refuses on a database you already had
 
-The migration history is a single baseline, `20260917024800_init`, squashed from
-the ten migrations that built the schema between 2026-08-23 and 2026-09-14. A
+The migration history starts from a single baseline, `20260917024800_init`,
+squashed from the ten migrations that built the schema between 2026-08-23 and 2026-09-14. A
 database created before that squash still has the ten recorded in
 `_prisma_migrations`, and Prisma stops rather than guess:
 
@@ -72,7 +72,7 @@ and diffing `pg_dump --schema-only` — so the quickest fix is to recreate it:
 
 ```bash
 docker compose down -v postgres && docker compose up -d --wait postgres
-pnpm --filter @chatofy/api exec prisma migrate deploy
+pnpm --filter api exec prisma migrate deploy
 ```
 
 To keep the rows instead, replace the ledger and leave the tables alone. Unlike
@@ -84,7 +84,8 @@ matches:
 ```bash
 pg_dump "$DATABASE_URL" > before-rebaseline.sql   # the ledger lives in here too
 psql "$DATABASE_URL" -c 'DELETE FROM "_prisma_migrations";'
-pnpm --filter @chatofy/api exec prisma migrate resolve --applied 20260917024800_init
+pnpm --filter api exec prisma migrate resolve --applied 20260917024800_init
+pnpm --filter api exec prisma migrate deploy   # the migrations after the baseline
 ```
 
 The one thing the baseline does not recreate is the `unaccent` extension. A
@@ -108,18 +109,15 @@ chatofy/
 │   ├── config/       # Shared config (ESLint, TS, etc.)
 │   ├── types/        # Shared TypeScript types (zod contracts)
 │   ├── api-client/   # Framework-agnostic API client
+│   ├── i18n/         # Every user-facing string, en + vi (@chatofy/i18n)
 │   ├── ai-providers/ # STT/MT/TTS provider interfaces + registry
 │   └── realtime-client/ # Audio capture, turn-taking policy, ordered playback,
 │                        # and the /ws/translate client — shared by web + extension
 ├── services/
 │   ├── local-stt/  # local speech-to-text sidecar (vi + en) — port 8002
 │   └── local-tts/  # local speech synthesis sidecar (vi + en) — port 8003
-├── benchmarks/
-│   ├── stt/        # STT CPU benchmark harness (standalone uv project)
-│   ├── tts/        # TTS EN CPU benchmark harness (standalone uv project)
-│   ├── error-analysis/ # Translation error taxonomy — which lever fixes what
-│   ├── mos/        # Blinded mini-MOS listening panel (standalone uv project)
-│   └── realtime/   # Turn-taking fixtures, offline VAD reference, metrics analysis
+├── benchmarks/     # Measurement harnesses (STT, TTS, translation, punctuation,
+│                   #   speaker id, turn-taking) — one directory per question
 └── docs/           # Project documentation
 ```
 
@@ -146,7 +144,7 @@ at `chrome://extensions/shortcuts`) or by right-clicking the call and choosing C
 after that the overlay's own Start/Stop button works for the rest of the call.
 
 ```bash
-# Needs the api and both speech sidecars running — see `pnpm dev:all` above.
+# Needs the api and both speech sidecars running — see `pnpm dev:all` below.
 pnpm --filter extension build
 
 # Then in Chrome: chrome://extensions → Developer mode → Load unpacked
@@ -213,12 +211,17 @@ Tick **"Also translate what I say"** in the popup or the overlay. Then:
   only**. On a loudspeaker their open microphone still carries it to the meeting, which
   is the same caveat the inbound direction has always had. Headphones avoid it.
 
-It needs two permissions the inbound direction does not:
+It needs two things the inbound direction does not:
 
-| Permission     | Why                                                                                                                                                                                                                                                                      |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `audioCapture` | An offscreen document has no UI, so it cannot show Chrome's microphone prompt. Without this the microphone is refused outright rather than asked about.                                                                                                                  |
-| `scripting`    | Registers the page-world patch, and **only while the feature is on**. Declaring it in the manifest instead would need no permission — and would replace the microphone of everyone who installs the extension, on every meeting they open, whether or not they use this. |
+- **A microphone grant, given once.** No manifest permission grants an extension the
+  microphone (`audioCapture` is a Chrome App permission and is refused), and the
+  offscreen document that opens it has no window to show Chrome's prompt. So the
+  popup's **Allow microphone** opens a tab that asks, and every later meeting reuses
+  that grant — see `apps/extension/src/microphone-permission.ts`.
+- **The `scripting` permission.** It registers the page-world patch, and **only while
+  the feature is on**. Declaring the patch in the manifest instead would need no
+  permission — and would replace the microphone of everyone who installs the
+  extension, on every meeting they open, whether or not they use this.
 
 The patch runs in the meeting page's own world, because the outgoing microphone belongs
 to the page and cannot be reached from anywhere else. That world **cannot hold a
@@ -310,7 +313,7 @@ the one line in `prod.env` returns the deployment to Gemini.
 > a `retryDelay`, and the provider remembers it: a throttled model is skipped
 > until it heals rather than costing every later turn a round-trip that can only
 > 429 again. The two flash-lite models together give ~30 turns/minute before
-> anything reaches the slow reserve.
+> the list is spent.
 >
 > `/translate` returns 503 only once the whole list is spent; speech keeps
 > working, and the API log carries the underlying 429. The log line names the
@@ -319,7 +322,7 @@ the one line in `prod.env` returns the deployment to Gemini.
 ### Running them
 
 Both sidecars are containers, so there is no setup step — `pnpm dev:all` brings
-them up along with the database and then starts web + api:
+them up along with Postgres and Redis, then starts every app with a `dev` task:
 
 ```bash
 pnpm dev:all
@@ -371,8 +374,8 @@ utterance instead of ~0.1s. Measurement details:
 | Command          | Description                                         |
 | ---------------- | --------------------------------------------------- |
 | `pnpm dev`       | Database, then every app with a `dev` task          |
-| `pnpm dev:all`   | The above plus both speech sidecars                 |
-| `pnpm logs`      | Follow the container logs (database and sidecars)   |
+| `pnpm dev:all`   | The above plus Redis and both speech sidecars       |
+| `pnpm logs`      | Follow the container logs                           |
 | `pnpm dev:stop`  | Stop the containers (`down -v` also wipes the data) |
 | `pnpm build`     | Build all packages and apps                         |
 | `pnpm lint`      | Lint all workspaces                                 |
@@ -387,7 +390,7 @@ utterance instead of ~0.1s. Measurement details:
 - pnpm 11 via Corepack (`corepack enable` — version pinned by `packageManager`)
 - Docker with Compose v2, for Postgres, Redis and the two speech sidecars
 
-Ports 5432, 8002 and 8003 have to be free: the compose file binds them, so a
+Ports 5432, 6379, 8002 and 8003 have to be free: the compose file binds them, so a
 Postgres already installed on the host has to be stopped
 (`sudo systemctl disable --now postgresql`) rather than left running alongside.
 
@@ -400,13 +403,14 @@ Compose reads a root `.env`, pnpm and turbo read no `.env` at all.
 | Port      | Default | Set in                                            |
 | --------- | ------- | ------------------------------------------------- |
 | Postgres  | 5432    | `POSTGRES_PORT` — root `.env`                     |
+| Redis     | 6379    | `REDIS_PORT` — root `.env`                        |
 | local-stt | 8002    | `LOCAL_STT_PORT` — root `.env`                    |
 | local-tts | 8003    | `LOCAL_TTS_PORT` — root `.env`                    |
 | api       | 3000    | `PORT` — `apps/api/.env`                          |
 | web       | 3001    | `WEB_PORT` — the shell (`WEB_PORT=3003 pnpm dev`) |
 
 Then point the clients at the moved ports, or the worktree will talk to the
-other stack: `DATABASE_URL`, `LOCAL_STT_URL` and `LOCAL_TTS_URL` in
+other stack: `DATABASE_URL`, `REDIS_URL`, `LOCAL_STT_URL` and `LOCAL_TTS_URL` in
 `apps/api/.env`, and `NEXT_PUBLIC_API_BASE_URL` in `apps/web/.env.local`.
 
 Containers and volumes need no attention — Compose scopes those by project

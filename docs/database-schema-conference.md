@@ -1,8 +1,25 @@
 # Database Schema: Video Conferencing
 
+> **Status: Proposal — not implemented.** No conferencing code exists on `main` as of
+> 2026-10-05. None of these tables is in `apps/api/prisma/schema.prisma`. Progress is
+> tracked in [project-roadmap.md](./project-roadmap.md); unresolved choices are in
+> [Open decisions](./video-conferencing-architecture.md#open-decisions).
+
 **Date:** 2026-09-29  
-**Scope:** Complete schema for Conference, Participants, Messages, Turns, Recording  
-**Decisions:** SFU architecture, 6 participants max, 720p60fps, per-minute billing
+**Scope:** Proposed schema for Conference, Participants, Messages, Turns, Recording  
+**Assumed targets (unverified, see [Open decisions](./video-conferencing-architecture.md#open-decisions)):** SFU architecture, 6 participants max, 720p60fps, per-minute billing (optional, out of thesis scope)
+
+**Not yet reconciled with current schema conventions** (`apps/api/prisma/schema.prisma`):
+
+- Ids are `String @id @default(cuid())` today, including `User.id`; the `UUID` keys and
+  `ownerId UUID REFERENCES "User"(id)` below would not match.
+- `Conversation`, `MeetingMinutes` and `TranslationContext` keep `ownerId` as a plain
+  column with no `User` relation, scoped by the verified token subject; the foreign keys
+  to `"User"` below depart from that.
+- Status columns are stored as text validated at the application boundary, not Postgres
+  enums.
+- The blocks mix SQL with Prisma attributes (`@@unique`) and are sketches, not runnable
+  DDL.
 
 ---
 
@@ -33,7 +50,7 @@ CREATE TABLE "Conference" (
   -- AI Context (optional, per-meeting)
   translationContextId UUID, -- FK to TranslationContext (optional)
 
-  -- Billing
+  -- Billing (optional, out of thesis scope — see Open decisions)
   participantCount INT DEFAULT 0,
   durationSeconds INT,
   costEstimateCents INT, -- Calculated: durationSeconds * participantCount * COST_PER_PARTICIPANT_SECOND
@@ -52,7 +69,7 @@ CREATE INDEX ON "Conference"(recordingStatus) WHERE recordingStatus != 'complete
 **Notes:**
 
 - `translationContextId` is optional; if set, all participants share it (per design)
-- `costEstimateCents` is calculated post-meeting by the billing job
+- `costEstimateCents` would be calculated post-meeting by the billing job (optional; see Open decisions)
 - `recordingKey` format: `recordings/{conferenceId}/{ISO_TIMESTAMP}.mp4`
 - No `participantInvites` column; participants join via room link or code
 
@@ -74,13 +91,13 @@ CREATE TABLE "ConferenceParticipant" (
 
   -- Identity
   displayName VARCHAR(256), -- Can differ from User.name (nickname in room)
-  avatarUrl VARCHAR(512), -- Snapshot at join time (reuse from User.avatarUrl)
+  avatarUrl VARCHAR(512), -- Snapshot at join time (User stores avatarKey, an R2 key; the URL is composed from config)
 
   -- Language & Voice
   sourceLanguage VARCHAR(2) NOT NULL, -- What language they speak (vi, en)
   targetLanguages VARCHAR(2)[], -- What languages they want to hear (derived from conversation.languages)
   voiceGender VARCHAR(16) DEFAULT 'female', -- female | male | neutral (for synthesis)
-  voicePresetId VARCHAR(64), -- Preset voice id (e.g., "vieneu-nhân", "kokoro-default")
+  voicePresetId VARCHAR(64), -- Voice id as returned by GET /translate/voices (examples illustrative, not real ids)
 
   -- Audio Quality
   audioLevel FLOAT DEFAULT 1.0, -- [0.0, 1.0] gain adjustment (user's output volume)
@@ -114,7 +131,7 @@ CREATE INDEX ON "ConferenceParticipant"(speakerId) WHERE speakerId IS NOT NULL;
 
 - `sourceLanguage` is what THEY speak; `targetLanguages` is what they want to hear
 - `targetLanguages` is a copy at join time (conference.languages); doesn't update mid-meeting
-- `speakerId` is auto-populated by speaker attribution engine
+- `speakerId` would be auto-populated by a speaker attribution engine (today's attribution is browser-side, capped at two voices, and persists no ordinals)
 - `voicePresetId` is opaque token from `/translate/voices` (never hardcoded)
 
 ---
@@ -133,7 +150,7 @@ CREATE TABLE "ConferenceSpeaker" (
   primaryParticipantId UUID, -- FK (may be null if speaker never confirmed)
 
   -- Attribution Confidence
-  embedding BYTEA, -- CAM++ vector (512D, float32) for speaker clustering
+  embedding BYTEA, -- CAM++ vector (dimension per services/local-stt/speaker/embedder.py; not verified as 512) for speaker clustering
   embeddingConfidence FLOAT, -- [0.0, 1.0] how confident is this cluster
 
   -- History
@@ -155,7 +172,7 @@ CREATE INDEX ON "ConferenceSpeaker"(primaryParticipantId);
 
 - `ordinal` is the public label ("Speaker 1", "Speaker 2")
 - `primaryParticipantId` null if speaker never joined or was unidentified
-- `embedding` is the CAM++ 512D vector; used for clustering new turns
+- `embedding` would be the CAM++ vector used for clustering new turns. Today no voice vector is persisted anywhere, by design — see [Open decisions](./video-conferencing-architecture.md#open-decisions)
 - Auto-attribution updates `embeddingConfidence` on each turn
 
 ---
@@ -179,20 +196,20 @@ CREATE TABLE "ConferenceTurn" (
 
   -- Transcription
   sourceLanguage VARCHAR(2) NOT NULL, -- What was spoken
-  sourceText TEXT NOT NULL, -- Raw transcript (vi: lowercase, en: sentence-cased)
+  sourceText TEXT NOT NULL, -- Raw recognizer output (as ConversationTurn.sourceText)
   sourceTextNormalized TEXT, -- normalizeForSearch() output
 
   -- Translation
   translations JSONB, -- {vi: "...", en: "...", ...} partial map (keyed by language)
-  translationModelUsed VARCHAR(64), -- gemini-3.5-flash-lite, deepseek-flash, etc.
-  translationCostMicros INT, -- Estimated API cost (for billing)
+  translationModelUsed VARCHAR(64), -- e.g. gemini-3.5-flash-lite (a model id from translation-model-policy.ts)
+  translationCostMicros INT, -- Estimated API cost (for billing; optional)
 
   -- Speaker Attribution
-  embedding BYTEA, -- CAM++ 512D vector of this turn
+  embedding BYTEA, -- CAM++ vector of this turn (persisting it is an open decision)
   embeddingConfidence FLOAT, -- Cosine similarity to cluster
 
   -- Display
-  displayText TEXT, -- searchText: what the user saw (merges multi-turn)
+  displayText TEXT, -- what the user saw (merges multi-turn); ConversationTurn keeps this separate from searchText
   isMergedDisplay BOOLEAN DEFAULT FALSE, -- Part of a display group (turns 1-3 show as turn 1)
 
   -- Metadata
@@ -206,7 +223,7 @@ CREATE TABLE "ConferenceTurn" (
 CREATE INDEX ON "ConferenceTurn"(conferenceId, audioStartMs); -- Query by time
 CREATE INDEX ON "ConferenceTurn"(speakerId); -- Query by speaker
 CREATE INDEX ON "ConferenceTurn"(createdAt DESC); -- Recent turns
-CREATE INDEX ON "ConferenceTurn"(sourceTextNormalized) USING GIN (pg_trgm); -- Trigram search
+CREATE INDEX ON "ConferenceTurn"(sourceTextNormalized) USING GIN (pg_trgm); -- Trigram search (today: gin_trgm_ops on ConversationTurn.searchText)
 CREATE INDEX ON "ConferenceTurn"(translations) USING GIN; -- Search translations
 ```
 
@@ -214,9 +231,9 @@ CREATE INDEX ON "ConferenceTurn"(translations) USING GIN; -- Search translations
 
 - **NO MERGE across participants.** Each turn is independent; route to all others.
 - `translations` is a partial map; only keys actually translated are present
-- `sourceTextNormalized` for search (diacritic-insensitive, lowercase)
+- `sourceTextNormalized` for search (diacritic-insensitive, lowercase), the role `ConversationTurn.searchText` plays today via `normalizeForSearch`; that column also folds `displayText` and every translation, not only the source
 - `audioStartMs` is relative to conference start, NOT to participant join
-- `displayText` is used for search; kept in sync by client-side display-group merge
+- `displayText` would be kept in sync by client-side display-group merge (as `ConversationTurn` rows are written after the client merges blocks). In the current schema search reads `searchText`, not `displayText`
 
 ---
 
@@ -332,9 +349,9 @@ CREATE TABLE "ConferenceRecording" (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   conferenceId UUID NOT NULL UNIQUE,
 
-  -- Storage
+  -- Storage (R2 is S3-compatible; today's bucket comes from R2_BUCKET and is public-read)
   s3Key VARCHAR(512), -- recordings/{conferenceId}/{timestamp}.mp4
-  s3Bucket VARCHAR(64) DEFAULT 'chatofy-prod',
+  s3Bucket VARCHAR(64) DEFAULT 'chatofy-prod', -- assumption: no such bucket is configured today
 
   -- Video Properties
   videoCodec VARCHAR(32), -- vp8, h264
@@ -369,13 +386,18 @@ CREATE INDEX ON "ConferenceRecording"(createdAt DESC);
 
 **Notes:**
 
-- Async job populates this after conference ends
+- An async job would populate this after the conference ends
+- Recording access is an open decision: the current bucket is public-read and a prefix is not an access boundary ([Bucket layout](./architecture/authentication.md#bucket-layout-and-the-one-rule-that-governs-it))
 - `audioTracks` is JSONB for flexibility (future: multiple TTS languages)
 - `s3Key` is the source of truth (not URL); URL composed at response time
 
 ---
 
-## 5. Billing & Analytics
+## 5. Billing & Analytics (optional, out of thesis scope)
+
+> Kept as designed, pending a decision: Chatofy is a non-commercial graduation thesis and
+> its default Vietnamese STT model is licensed for academic use only. See
+> [Open decisions](./video-conferencing-architecture.md#open-decisions).
 
 ### `ConferenceBillingLine`
 
@@ -392,7 +414,7 @@ CREATE TABLE "ConferenceBillingLine" (
   durationSeconds INT,
 
   -- Costs (all in cents USD)
-  sttCostCents INT, -- STT API cost (Deepgram, etc.)
+  sttCostCents INT, -- STT API cost (today STT is a local sidecar by default; ElevenLabs is the cloud comparison path)
   translationCostCents INT, -- Gemini API cost
   ttsCostCents INT, -- TTS API cost (if using cloud)
   recordingStorageCostCents INT, -- R2 storage
@@ -421,7 +443,7 @@ CREATE INDEX ON "ConferenceBillingLine"(status) WHERE status != 'paid';
 
 - `baseChargeCents` = cost per participant-minute × participants × duration
 - Additional costs (STT, TTS) summed separately for analytics
-- Reuse `PostgREST` or create a billing service endpoint to list user's charges
+- Create a billing endpoint in `apps/api` to list a user's charges (PostgREST is not part of the stack)
 
 ---
 
@@ -429,19 +451,14 @@ CREATE INDEX ON "ConferenceBillingLine"(status) WHERE status != 'paid';
 
 ### Extend `TranslationContext`
 
-Already exists; reuse for per-meeting context.
+Exists today; the proposal reuses it for per-meeting context. The owning definition is
+`model TranslationContext` in `apps/api/prisma/schema.prisma`: a `cuid()` id, a plain
+`ownerId`, a browser-minted `clientId` unique per owner, `name`, `topic`, `hotwords`,
+`style`, and `GlossaryTerm` children. It deliberately has no relation to
+`Conversation` today.
 
 ```sql
--- EXISTING: TranslationContext
-CREATE TABLE "TranslationContext" (
-  id UUID PRIMARY KEY,
-  ownerId UUID NOT NULL,
-  clientId VARCHAR(256), -- Browser-minted UUID
-  name VARCHAR(256),
-  -- ... glossary, hotwords, etc.
-);
-
--- Reference it in Conference:
+-- Reference it in Conference (proposed):
 ALTER TABLE "Conference"
 ADD COLUMN translationContextId UUID,
 ADD FOREIGN KEY (translationContextId) REFERENCES "TranslationContext"(id);
@@ -465,7 +482,7 @@ ADD FOREIGN KEY (translationContextId) REFERENCES "TranslationContext"(id);
 -- One recording per conference
 @@unique([conferenceId]) ON ConferenceRecording
 
--- One billing line per conference
+-- One billing line per conference (optional billing tables)
 @@unique([conferenceId]) ON ConferenceBillingLine
 ```
 
@@ -475,7 +492,7 @@ ADD FOREIGN KEY (translationContextId) REFERENCES "TranslationContext"(id);
 1. ConferenceParticipant.sourceLanguage must be in Conference.languages
 2. ConferenceParticipant.targetLanguages ⊆ Conference.languages
 3. ConferenceTurn.sourceLanguage must match ConferenceParticipant.sourceLanguage
-4. ConferenceSpeaker.ordinal < 6 (max participants decision)
+4. ConferenceSpeaker.ordinal < 6 (assumed max participants; unverified)
 5. Recording.status='completed' ⟹ Conference.recordingKey IS NOT NULL
 6. ConferenceBillingLine.status='billed' ⟹ Conference.endedAt IS NOT NULL
 ```
@@ -634,7 +651,7 @@ AND t.sourceTextNormalized % $2 -- pg_trgm similarity
 ORDER BY t.audioStartMs;
 ```
 
-### Calculate costs for a meeting
+### Calculate costs for a meeting (optional billing)
 
 ```sql
 SELECT
@@ -694,15 +711,15 @@ CREATE TABLE "Conference_Partitioned" (
 
 ## Appendix: Comparison to ConversationTurn
 
-| Field               | ConversationTurn          | ConferenceTurn                  | Reason                             |
-| ------------------- | ------------------------- | ------------------------------- | ---------------------------------- |
-| Merge strategy      | One direction (merge all) | No merge (one per speaker)      | Multi-participant, no merge        |
-| Participant         | Session-scoped (2 users)  | Multi-participant (6 max)       | Routing change                     |
-| Speaker attribution | Optional (future)         | Mandatory + embedding           | Conference identifies all speakers |
-| Audio offset        | Relative to upload        | Relative to conference start    | Recording sync                     |
-| Translation targets | One (targetLanguage)      | Multiple (each listener's lang) | Fan-out architecture               |
+| Field               | ConversationTurn                                                              | ConferenceTurn                     | Reason                             |
+| ------------------- | ----------------------------------------------------------------------------- | ---------------------------------- | ---------------------------------- |
+| Merge strategy      | One row per displayed block (client merges before save)                       | No merge (one per speaker)         | Multi-participant, no merge        |
+| Participant         | One account; `speakerRole` speaker_a/speaker_b                                | Multi-participant (6 max, assumed) | Routing change                     |
+| Speaker attribution | Shipped, browser-side, ≤2 voices; only the confirmed `speakerLabel` is stored | Mandatory + embedding              | Conference identifies all speakers |
+| Audio offset        | `offsetMs` from conversation `startedAt`                                      | Relative to conference start       | Recording sync                     |
+| Translation targets | `translations` JSON map, one key per destination language                     | Multiple (each listener's lang)    | Fan-out architecture               |
 
 ---
 
 **Document Version:** 1.0  
-**Last Updated:** 2026-09-29
+**Last Updated:** 2026-09-29 (reconciled with the current system 2026-10-05)

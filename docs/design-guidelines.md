@@ -13,18 +13,22 @@ colour** and the only colour with any saturation is the **dawn** of the lotus ma
 and the landing illustration. Colour marks the brand; it never marks a control.
 
 The theme is the reader's choice — light, dark, or whatever the machine asks for.
-Web, the popup and mobile all offer the three; **the overlay does not, and that is the
-one exception worth understanding.**
+Web and the popup offer the three; mobile follows the machine and offers no choice
+yet (`apps/mobile/src/providers/theme-provider.tsx`). **The overlay follows nothing,
+and that is the one exception worth understanding.**
 
 The overlay renders on top of someone else's video, and inside a content script
 `prefers-color-scheme` answers for the operating system rather than for the page it is
 standing on. Following it would drop a white panel onto a dark call. So the overlay is
 permanently dark, and it reads the dark palette (`color`) directly.
 
-The accent appears **once per screen-state**. Hierarchy is carried by size, weight and
-space; the ink fill is reserved for the single action a surface exists to offer, and
-the state colours for the states that mean something. Both rules are gated — see
-[State inventory](#state-inventory) and the accent-budget specs.
+The accent appears **once per screen-state**, and a screen-state draws **at most two
+elevated surfaces**. Hierarchy is carried by size, weight and space; the ink fill is
+reserved for the single action a surface exists to offer, and the state colours for the
+states that mean something. Both budgets are gated per screen-state by
+`apps/web/src/design/accent-budget-app.spec.tsx` (counting through `accent-count.ts` and
+`surface-count.ts`; its `KNOWN_VIOLATIONS` table is empty and fails a stale row), and
+the landing per section by `apps/web/src/components/marketing/accent-budget.spec.tsx`.
 
 **Surfaces are separated by depth, not by rules.** White cards on a near-white ground,
 divided by hairlines, read as a line drawing rather than as a product; the owner chose
@@ -51,8 +55,9 @@ Warm stone, hue about 30°.
 | `surface`       | `#FFFFFF` | `#1C1917` | cards and panels                                        |
 | `surfaceRaised` | `#EDEBE9` | `#252220` | a well (field, track) or a control resting on a surface |
 
-Light `surfaceRaised` is **darker** than `bg` on purpose: the C1 wells — a field, the
-segmented track, the slider track — are cut into the page, not lifted off it. In dark,
+Light `surfaceRaised` is **darker** than `bg` on purpose: the C1 wells — the segmented
+track, the slider track — are cut into the page, not lifted off it. A field fills with
+`bg`, which is the same gesture on a card. In dark,
 `bg` → `surface` → `surfaceRaised` step upward and stay distinct from `border`.
 
 ### Borders
@@ -185,7 +190,8 @@ through the token key names:
 | `--text-title`       | `xl`      | 28   |
 | `--text-display`     | `display` | 44   |
 
-`--text-display` is the landing hero and nothing else, and it is **web-only**: the popup
+`--text-display` is the landing's alone — the hero and the how-it-works ordinals — and
+it is **web-only**: the popup
 has no landing, so `apps/web/src/design/token-parity.spec.ts` lists it in `SURFACE_ONLY`
 rather than demanding the extension declare a size it never sets. It exists because a
 marketing page needs one size above every product screen's largest, and a hero is exactly
@@ -209,10 +215,14 @@ already assigns. `token-parity.spec.ts` compares each against `fontSize`, and th
 entries must stay inside the _first_ `@theme inline` block: that spec matches
 non-greedily, so a second block renders correctly and tests as absent.
 
-**Half-closed, deliberately.** The mechanism is in place and asserted; the call
-sites are not swept yet. Until they are, web still holds 32 Tailwind size utilities
-and 3 `text-[Npx]` literals. Sweeping them is its own change, for the reason this
-section always gave.
+**The call sites are swept.** `apps/web/src/design/app-skin-guard.spec.ts` holds web
+and the extension to role names: the whole Tailwind size-name family and `text-[Npx]`
+literals are refused.
+
+The reader's text-size control scales the transcript, not the tokens: the `text-source`
+and `text-target` utilities in `apps/web/app/globals.css` multiply `--text-body` and
+`--text-translation` by `--reading-scale`, and `reading-scale.spec.ts` holds their
+targets to declared variables.
 
 A related naming trap, recorded so it is not reintroduced: the supporting-prose
 token is `--prose`, **not** `--text-secondary`. `--color-secondary` already exists,
@@ -279,14 +289,12 @@ are translucent ink and translucent white, resolving against whatever they are l
 over. The contrast table is untouched by a change that alters how every surface reads.
 
 `surfaceEdge.hairline` is `border` receding on a surface that a shadow now separates.
-It measures 1.34:1 against the page, which makes it a hairline rather than a boundary,
-so 1.4.11 does not reach it. `borderControl` is a different token and a real boundary —
+Composited on a card it measures 1.13:1 light and 1.16:1 dark — a hairline rather than
+a boundary, so 1.4.11 does not reach it. `borderControl` is a different token and a real boundary —
 see [What the measurements say](#what-the-measurements-say).
 
-The scale is now actually exercised, which it was not when these values were released:
-cards at `md` (`card.tsx` carries `shadow-elev-md` on the base), the popover and the
-avatar dropdown at `lg`, controls and the selected segment at `sm`. That is most of what
-makes the current surfaces read as finished, and it cost no token change.
+The scale is exercised: cards at `md` (`card.tsx` carries `shadow-elev-md` on the base),
+the popover and the avatar dropdown at `lg`, controls and the selected segment at `sm`.
 
 ### Two ways to get this wrong, both silent
 
@@ -307,11 +315,8 @@ form emits a 17-layer chain with the ring still in it.
 
 Spacing `4 / 8 / 16 / 24 / 32 / 48 / 64`. Radius `6 / 10 / 14 / full`.
 
-These **replace** the scales that were in `apps/mobile/src/ui/theme.ts`, which
-shipped radii `4 / 8 / 16` and type `12 / 14 / 16 / 18 / 22 / 28 / 36`. Those
-disagree with these at nearly every step. They were scaffolding — the file marks
-them as being for upcoming screens and no screen reads them — so the shared
-scale wins. Only the `64` spacing step is carried over from it.
+Mobile's own scaffolding scales are gone: `apps/mobile/src/ui/theme.ts` maps colour
+from `palettes` and re-exports no scale, so a screen imports these from `@chatofy/ui`.
 
 ## Control depth
 
@@ -329,7 +334,7 @@ is the whole of the rule:
 | Border | none                             | none                                      |
 
 Fill cannot carry the distinction and must not be asked to: `card` and
-`secondary` are 1.10:1 apart, a difference nobody sees. Movement is the button's
+`secondary` are 1.19:1 apart in light and 1.11:1 in dark, a difference nobody sees. Movement is the button's
 signal and stillness is the field's.
 
 Both must survive reduced motion. Suppressing the transition is not enough — that
@@ -341,7 +346,7 @@ layer, so on that theme the fill step is doing most of the work.
 ### What C1 gives up, and why it was accepted anyway
 
 The edge a control ends up with under this rule composites to **1.13:1** in light
-and **1.17:1** in dark. WCAG **1.4.11** asks 3:1 for the visual boundary of a user
+and **1.16:1** in dark. WCAG **1.4.11** asks 3:1 for the visual boundary of a user
 interface component at rest. This does not meet it, knowingly.
 
 The alternative was on the table and measured. Variant **C2** kept a real
@@ -359,10 +364,12 @@ Two facts bound the cost, and neither is a rationalisation after the fact:
 
   One control state falls outside it, and outside the spec that measures it. A control
   that is `aria-invalid` REPLACES the ring rather than adding to it —
-  `aria-invalid:focus-visible:ring-destructive/50`, in `input`, `select`, `textarea`,
-  `checkbox`, `radio-group`, `toggle`, `badge` and `button`. A ring is one box-shadow
-  slot, so on an invalid AND focused control that is the only state indicator drawn,
-  and it measures **2.18–2.45:1** — under the floor. The state predates this direction
+  `aria-invalid:focus-visible:ring-destructive/50` in `input`, `select`, `textarea` and
+  `button`; `checkbox`, `radio-group`, `toggle` and `badge` tint it
+  `aria-invalid:ring-destructive/20` instead, which nothing measures. A ring is one
+  box-shadow slot, so on an invalid AND focused control that is the only state indicator
+  drawn, and the `/50` ring measures **2.18–2.45:1** on `bg`, `surface` and
+  `surfaceRaised` — under the floor. The state predates this direction
   and the repalette did not move it: the destructive hexes are unchanged. Closing it
   means raising the alpha or moving `live`, which is a palette decision nobody has
   taken yet, so it is recorded here and in `contrast-floors.spec.ts` rather than
@@ -381,8 +388,8 @@ without hovering:
   re-border their actions in the notice's own hue, at their own width. This is a
   **recorded exception to C1** and `skin-guard.spec.ts` holds both halves of it.
   The alternative — moving the hue to the fill — was rejected on measurement: the
-  notice's ink on its own hue is 1.90:1 (dark `warning`), 2.58:1 (light) and
-  2.88:1 on `live`, which fails 1.4.3's 4.5:1 for the LABEL of the button that
+  notice's ink on its own hue is 1.99:1 (dark `warning`), 2.43:1 (light) and
+  2.71–3.01:1 on `live`, which fails 1.4.3's 4.5:1 for the LABEL of the button that
   opens the user's microphone.
 - **A checkbox or radio**, whose shape _is_ its edge — there is no room for a
   recess in 16px.
@@ -407,13 +414,9 @@ signal:
 - **invalid** — driven by `aria-invalid`, so the visual state and the announced
   state cannot drift apart
 
-The focus rule is the shipped one, and this document used to disagree with every
-component about it: it prescribed "a 2px `accentText` ring, offset 2px" while
-seven primitives shipped `ring-[3px] ring-ring/50` and only the app shell followed the
-document — a component since deleted, its work split across `app-chrome.tsx`,
-`marketing-header.tsx` and `plain-frame.tsx`. The contradiction predates direction C1 and is settled here
-in favour of what ships — `--ring` is now carrying more of the identification
-load than it used to, and one rule is worth more than the better of two.
+The focus rule is the shipped one, `ring-[3px] ring-ring/50`, settled over an older
+"2px `accentText` ring, offset 2px" that only a since-deleted app shell followed: `--ring`
+carries more of the identification load under C1, and one rule beats the better of two.
 
 Focus-visible is mandatory in the overlay specifically, and is worth stating
 separately: it sits on a page whose own styles guarantee nothing, so a control
@@ -434,12 +437,14 @@ change one:
 
 - **Primitives** — `Accordion`, `Alert`, `Avatar`, `Badge`, `Button`, `Card`,
   `Checkbox`, `DropdownMenu`, `Input`, `Label`, `Popover`, `RadioGroup`, `Select`,
-  `Separator`, `Sheet`, `Sidebar`, `Skeleton`, `Slider`, `Switch`, `Tabs`, `Toggle`,
-  `ToggleGroup`, `Tooltip`. Generated by the shadcn CLI, then re-skinned. They carry no
+  `Separator`, `Sheet`, `Sidebar`, `Skeleton`, `Slider`, `Switch`, `Tabs`, `Textarea`,
+  `Toggle`, `ToggleGroup`, `Tooltip`. Generated by the shadcn CLI, then re-skinned. They carry no
   product vocabulary: a primitive that knows what a meeting is has been written in the
   wrong place.
 - **Compositions** — `DirectionToggle` (on `Button`), `SegmentedControl` and
-  `ThemeToggle` (on `ToggleGroup`), `StatusIndicator` (on `Badge`). This product's
+  `ThemeToggle` (on `ToggleGroup`), `StatusIndicator` (on `Badge`), and `BrandMark` /
+  `BrandWordmark` (on `brand-mark.ts` / `brand-wordmark.ts`; web sets the wordmark as
+  live text, so only the popup renders `BrandWordmark`). This product's
   own, and they live here for one reason only: **both DOM surfaces render them.** Not
   "it seems reusable" — two real consumers, today. A composition with one consumer
   belongs in the app that consumes it.
@@ -451,24 +456,23 @@ change one:
   that reached for a translation itself would have to know which of two surfaces it was
   on, which is exactly what living here means it cannot know.
 
-`Tabs` ships with **no consumer**, deliberately, so the shape exists when a surface
-finally switches between panels of content. Nothing does today: the three translate
-routes are routes, which is the right answer for something that should have a
-shareable URL and answer to the back button. It is emphatically not what the segmented
+`Tabs` ships with **no consumer**, and so do `Accordion` and `RadioGroup` — nothing in
+either app or in this package imports them. `Tabs` is kept deliberately, so the shape exists when a surface
+finally switches between panels of content. Nothing does today: `/translate`,
+`/history` and `/preferences` are routes, which is the right answer for something that
+should have a shareable URL and answer to the back button. It is emphatically not what the segmented
 controls are built on — they set a value and reveal no panel, and Tabs without a
 tabpanel announces "tab, 1 of 2" to a reader who then looks for content that does not
 exist.
 
-`Select` has **no consumer either**, and arrived there by the opposite route: it had
-one until the voice control was merged onto `SegmentedControl` (see _No longer
-duplicated_ below). It is kept because a dropdown is still the right shape for a
-choice among many named things, and nothing on either surface offers one today.
+`Select` is the shape for a choice among many named things: web's voice and AI Context
+pickers (`translate/voice-picker.tsx`, `translate/context-picker.tsx`) and the popup's
+AI Context picker (`settings-pane.tsx`). A choice between two named things is a
+`SegmentedControl` instead — see _No longer duplicated_ below.
 
 Its trigger **follows the field**, not the button: recessed, 40px, no border.
-Decided rather than left alone. A consumer-less component still speaking the
-pre-C1 language would hand its first consumer a control matching nothing on the
-screen it lands in — and a select shows a chosen value, which is what a field
-does, and will stand in a form column beside `Input`. The chevron already says it
+A select shows a chosen value, which is what a field does, and stands in a form
+column beside `Input`. The chevron already says it
 opens.
 
 `sidebar.tsx` is the largest of them and ships **variants nothing renders** — the
@@ -482,10 +486,6 @@ None of this is reported by `knip`, and not because of an exception: they are ex
 the `./react` entry point, and knip treats a package's declared public surface as used.
 So nothing mechanical will notice a consumer-less primitive appearing — this paragraph is
 the only record, and it has to be updated by hand.
-
-`Input` was briefly a third, between the phase that added it and the phase that
-adopted it. It has consumers on both surfaces now — both sign-in forms — and is
-listed above rather than here.
 
 ### The two surfaces that cannot take a shadcn component
 
@@ -501,8 +501,9 @@ This is a security invariant, not a styling preference. Importing a component he
 
 The overlay does read `elevation` and `motion` — interpolated as literals, and only
 the **dark** half. `elevation.md.dark`, never `elevation.md`: a `light-dark()` in that
-sheet would make a permanently-dark surface follow the operating system. No test
-catches that one, so it is a rule for the person writing it.
+sheet would make a permanently-dark surface follow the operating system.
+`overlay-invariants.spec.ts` refuses `colorLight` and `palettes` in `overlay-styles.ts`,
+but not a light elevation half, so that one is a rule for the person writing it.
 
 **`apps/mobile`.** React Native, no DOM. `react/index.ts` records that it must never
 resolve React, Radix, or any DOM type; the subpath split exists for this.
@@ -532,11 +533,10 @@ state: one frame showing no selection beats one frame showing the wrong one.
 ### Re-skinning a generated component
 
 The CLI writes stock shadcn. Four things in its output are wrong here, and **all four
-are now banned** by `packages/ui/src/react/skin-guard.spec.ts` and its app-side sibling.
-The `hover:bg-primary/90` row used to be described here as a review rule with no test;
-that is no longer true. It became the `bg-primary/\d` pattern in both guards, and adding
-it caught a violation that had been shipping in `badge.tsx` — which is the argument for
-turning a review rule into a spec whenever the rule can be written as one.
+are banned** by `packages/ui/src/react/skin-guard.spec.ts`; `app-skin-guard.spec.ts`
+repeats the size-name and `bg-primary/\d` bans for the apps, and `dark:` for the
+extension. The `bg-primary/\d` ban caught a violation shipping in `badge.tsx` — the
+argument for turning a review rule into a spec whenever it can be written as one.
 
 The full `FORBIDDEN` list is `dark:`, `bg-accent`, `text-accent-foreground`,
 `bg-popover` / `text-popover-foreground`, `border-input`, `text-sm` / `text-xs`,
@@ -546,10 +546,11 @@ The same spec also holds two rules that are the opposite shape — things a comp
 must **carry**, which a ban cannot express:
 
 - a filled `Alert` re-borders its actions in the notice's own hue
-  (`[&_[data-slot=button]]:border-live` / `border-warning`). A control on
-  `warningSubtle` / `liveSubtle` puts `borderControl` at 2.95, 2.87 and 2.70:1,
-  under 1.4.11's floor; `apps/web/src/design/contrast-floors.spec.ts` cannot catch
-  it, because it measures token pairs rather than which token a component asks for
+  (`[&_[data-slot=button]]:border-live` / `border-warning`). Against the previous
+  palette `borderControl` on `warningSubtle` / `liveSubtle` fell under 1.4.11's floor;
+  the stone palette lifts it to 3.05–3.43:1, so the hue border is now margin rather
+  than rescue. `contrast-floors.spec.ts` cannot hold it either way, because it
+  measures token pairs rather than which token a component asks for
 - anything using `transition-*` or `animate-*` carries a `motion-reduce:` escape.
   The CLI writes neither, so a generated component moves for a reader who asked
   the operating system for stillness, and nothing else fails
@@ -649,29 +650,19 @@ Backend names, measurement instruments and mechanism explanations are therefore
 not user-facing vocabulary. Identifiers are exempt: `CascadePanel` is a component
 name, not a word the product says. Only rendered strings are in scope.
 
-| Current string                                                                                          | `file:line`                                          | Decision                                                                               |
-| ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `Cascade`                                                                                               | `web/src/components/translate/mode-toggle.tsx:23`    | **Delete** — file removed; the mode choice leaves the product surface                  |
-| `Live`                                                                                                  | `mode-toggle.tsx:32`                                 | **Delete** — same                                                                      |
-| `Turn-based baseline`                                                                                   | `web/app/translate/page.tsx:75`                      | Done — renamed to an experience name, then removed outright when the route was deleted |
-| `heard during playback: {n}`                                                                            | `web/src/components/translate/cascade-panel.tsx:145` | **Delete from the product surface** — a diagnostic counter                             |
-| barge-in / echo tooltip                                                                                 | `cascade-panel.tsx:143`                              | **Delete** with the counter it explains                                                |
-| `End-to-end speech translation. Unlike the cascade, this does not wait for you to finish a sentence…`   | `live-panel.tsx` (deleted)                           | Done — the panel and its route are gone, and the string with them                      |
-| `The translation trails you by about three and a half seconds — that is the model, not the connection.` | `live-panel.tsx` (deleted)                           | Done — same                                                                            |
-| `Heard {vi}, but this direction expects {en}`                                                           | `live-panel.tsx` (deleted)                           | Done — same; the language-code rule below outlives it                                  |
-| `Cascade — a turn at a time`                                                                            | removed with `#mode`                                 | Done — the selector and both its options left the popup                                |
-| `Live — speaks while you talk`                                                                          | removed with `#mode`                                 | Done — same                                                                            |
-| `Report timings for measurement`                                                                        | removed with `#metrics`                              | Done — the checkbox is gone; the `reportMetrics` flag and its code path are kept       |
+Every string this rule once flagged is gone from the product: the `Cascade` / `Live`
+mode choice (web and popup), the `Turn-based baseline` route name, the
+`heard during playback` counter and its barge-in tooltip, the live panel's
+pipeline-and-latency copy, and the popup's `Report timings for measurement` checkbox
+(the `reportMetrics` flag and its code path are kept).
 
-**Language codes are never user-facing.** The surface that made this concrete — a live
-panel naming the language it heard against the one the direction expected — is deleted,
-and the rule is not. Codes still enter the app as data: a direction is `vi_to_en`, and
-`makeLanguageName` (`web/src/i18n/direction-labels.ts`) is the one place a code becomes a
-word. It needs a defined fallback, because a grep-clean dictionary can still render `xh`
-at runtime from a value the model chose.
+**Language codes are never user-facing.** Codes still enter the app as data — a
+direction is `vi_to_en` — and become words only through the language registry
+(`packages/types/src/domain/languages.ts`) or the dictionary's `web.languageName.<code>`
+keys.
 
 **Exempt, with reasons.** Safety text keeps its meaning even when its register
-changes: the recording disclosure (`popup/index.html:29-41`), and the overlay's
+changes: the recording disclosure (`popup/index.html:39-57`), and the overlay's
 reload-recovery instruction, which is two steps because reloading discards the
 `activeTab` grant `tabCapture` needs — saying only "reload" walks the reader into a
 trap. Shorten either at your peril; a reviewer who cannot restate the consequence
@@ -693,12 +684,12 @@ VIETNAMESE ALONE has found a bad translation, not a stylistic quibble. That is t
 test the exemptions above use, applied one locale at a time.
 
 **Language names are locale-dependent**, where codes were merely banned.
-`languageName()` in `@chatofy/ui` pins Vietnamese and English to their ENGLISH names,
-which is right for a package with no locale and wrong on a Vietnamese page — so web
-supplies its own through `apps/web/src/i18n/direction-labels.ts`, falling back to the
-helper for a code neither locale pins.
+`DirectionToggle` defaults to the registry's English name, which is right for the popup
+with no locale; web passes each language's own name (`nativeLanguageName` in
+`apps/web/src/i18n/direction-labels.ts`), and history rows and glossary columns use the
+interface locale's `web.languageName.<code>` (`history/direction-label.tsx`).
 
-**The register of address is neutral "bạn"**, everywhere, decided 2026-08-25. Not "quý
+**The register of address is neutral "bạn"**, everywhere. Not "quý
 khách", which is the register of a bank and wrong for a tool used daily, and not
 pronoun-avoidance, which is harder to keep consistent than it looks and drifts into
 passive constructions.
@@ -723,39 +714,32 @@ or error case.
 
 **Popup** (`extension/entrypoints/popup/`)
 
-> **This table's `file:line` refs are stale and were already stale before the
-> elevation work.** They point at `main.ts` and `styles.ts`, which the React popup
-> rewrite replaced with `popup.tsx`, `use-popup.ts`, `settings-pane.tsx` and
-> `consent-gate.ts`. The STATES are still right and still the thing this table is
-> for — a surface that looks unfinished because nobody drew its empty or error
-> case is what it catches. Only the addresses rotted. Re-deriving them is its own
-> change and is deliberately not folded into a depth-and-motion pass.
-
-| State                           | Renders at                                                                                                                |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| consent unseen                  | `main.ts:273-277` `showConsent(true)` — hides chrome, settings **and** footer, so Start is not on screen at all           |
-| consent just dismissed          | `main.ts:403` + `:402-408` re-runs `refreshScrollFade()`. **This** is the state where Start once fell below the 600px cap |
-| meeting tab, idle               | `main.ts:222` `toggle.disabled` false, footer visible                                                                     |
-| meeting tab, capturing          | `main.ts:222`; header state pill `styles.ts` `.state.live` (pulses)                                                       |
-| non-meeting tab                 | `main.ts:199-201` `unsupported.hidden = false`, message from `supportOf`                                                  |
-| Zoom-desktop tab                | same site, `support.kind === 'action'` → `:200` adds `.action`                                                            |
-| microphone notice               | `main.ts:99-101` — only when outbound is on and permission is not granted                                                 |
-| Start disabled by `Runs on` off | `main.ts:175` `input.disabled`, `:222`                                                                                    |
-| `main.scrolls` on / off         | `main.ts:269` — measured from `scrollHeight > clientHeight`, so any content-height change moves it                        |
+| State                         | Renders at                                                                                                      |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| consent unseen                | `index.html:39-57` `#consent`; `popup.tsx:18,30` hides header, settings **and** footer, `:70` disables Start    |
+| signed out                    | `popup.tsx:23,51` — `SignInPane`; settings and footer hidden                                                    |
+| meeting tab, idle             | `popup.tsx:70` Start enabled by `captureable`; `popup-status.ts` says "Ready."                                  |
+| meeting tab, capturing        | `popup.tsx:44-47` `StatusIndicator` tone `live`; `:64` the button turns Stop                                    |
+| non-meeting tab               | `settings-pane.tsx:83-86` default `Alert` with `support.message`; Start disabled                                |
+| Zoom-desktop tab              | same `Alert`, `support.kind === 'action'` → `warning` variant                                                   |
+| site switched off (`Runs on`) | `use-popup.ts:142` `captureable` false; `popup-status.ts:51` names the site                                     |
+| a direction failing           | `popup-status.ts:15` `firstFailure` — capture, then meeting audio, then microphone                              |
+| microphone notice             | `settings-pane.tsx:165` — only when `microphoneNeeded`                                                          |
+| `main` scrolls on / off       | `settings-pane.tsx:63-68` `data-scrolls`, re-measured after every render, so any content-height change moves it |
 
 **Overlay** (`extension/entrypoints/content/`)
 
-| State                                       | Renders at                                                                                                                                                                                         |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| pill, idle                                  | `overlay.ts:125-128`; part chosen by `visibleOverlayPart` (`src/site-enablement.ts`)                                                                                                               |
-| pill, live                                  | `.pill.live` — pulses; the undismissable capture signal when collapsed                                                                                                                             |
-| panel, idle, empty                          | `overlay.ts:140` `.panel` + empty `.lines`                                                                                                                                                         |
-| panel, capturing, empty                     | same, indicator visible                                                                                                                                                                            |
-| panel with turns, incl. `.mine` and `.live` | `overlay.ts` `renderLines` (text nodes only)                                                                                                                                                       |
-| error bar — capture / inbound / outbound    | `overlay.ts:107` `errors: {}`; `renderErrors` renders **one line per failing direction**, deliberately: one line cannot say the meeting translates fine while nothing the user says reaches anyone |
-| outbound `sending`                          | `overlay.ts:52`                                                                                                                                                                                    |
-| outbound `muted`                            | `overlay.ts:53-55`                                                                                                                                                                                 |
-| outbound `patched: false`                   | `overlay.ts:57-60` — the two-step reload instruction                                                                                                                                               |
+| State                                       | Renders at                                                                                                                                                                           |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| pill, idle                                  | `overlay.ts:252-260` — the lotus `pill-mark`; part chosen at `:423` by `visibleOverlayPart` (`src/site-enablement.ts`)                                                               |
+| pill, live                                  | `overlay.ts:430` `.pill.live` — the pulsing dot replaces the mark; the undismissable capture signal when collapsed                                                                   |
+| panel, idle, empty                          | `overlay.ts:268` `.panel`; `renderLines` (`:501`) writes "Not capturing."                                                                                                            |
+| panel, capturing, empty                     | same, "Listening…", indicator visible                                                                                                                                                |
+| panel with turns, incl. `.mine` and `.live` | `overlay.ts` `renderLines` (text nodes only)                                                                                                                                         |
+| error bar — capture / inbound / outbound    | `overlay.ts:474` `renderErrors` renders **one line per failing direction**, deliberately: one line cannot say the meeting translates fine while nothing the user says reaches anyone |
+| outbound `sending`                          | `overlay.ts:60`                                                                                                                                                                      |
+| outbound `muted`                            | `overlay.ts:61-62`                                                                                                                                                                   |
+| outbound `patched: false`                   | `overlay.ts:64-67` — the two-step reload instruction                                                                                                                                 |
 
 **Web** (`apps/web/`)
 
@@ -774,16 +758,16 @@ dictionary, which is the argument for keeping that number at zero.
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/` signed out                             | `layout/marketing-header.tsx` — "Sign in" ghost, "Get started" quiet (outline); the header spends no accent, gated at 0 by `accent-budget.spec.tsx`, because the hero's one filled button shares its viewport |
 | `/` signed in                              | same line, the other branch: one "Open Chatofy" at `/translate`                                                                                                                                               |
-| landing, mobile nav closed / open          | `layout/marketing-menu.tsx:35` — the sheet; the desktop nav is hidden below `md`                                                                                                                              |
+| landing, mobile nav closed / open          | `layout/marketing-menu.tsx:47` — the sheet; the desktop nav is hidden below `md`                                                                                                                              |
 | `/translate` mic refused                   | `translate/readiness-banner.tsx` `microphoneFault` — the banner speaks, otherwise silent                                                                                                                      |
 | `/translate` mic not asked / unknown       | same function — and neither is a fault, so neither renders anything                                                                                                                                           |
 | `/translate` mic absent                    | same function — no `audioinput` device; a refused permission still wins over it                                                                                                                               |
 | `/translate` service reachable             | nothing renders; a probe still in flight is not a problem to report                                                                                                                                           |
 | `/translate` service unreachable           | `translate/readiness-banner.tsx` — a failed `GET /health`, and a hung one after 5s                                                                                                                            |
-| sidebar expanded / rail                    | `layout/app-chrome.tsx:51` `opensExpanded` — the route decides, not a cookie                                                                                                                                  |
+| sidebar expanded / rail                    | `layout/app-chrome.tsx:50` `opensExpanded` — the route decides, not a cookie                                                                                                                                  |
 | sidebar mobile sheet                       | `packages/ui/src/react/sidebar.tsx:171` — the primitive swaps to a `Sheet` below `md`                                                                                                                         |
 | session menu loading                       | `layout/session-menu.tsx` — a `Skeleton` at the avatar's size, never `null`                                                                                                                                   |
-| `/translate` idle                          | `translate/cascade-panel.tsx:52` `STATUS_KEY.idle`                                                                                                                                                            |
+| `/translate` idle                          | `translate/cascade-panel.tsx:97` `STATUS_KEY.idle`                                                                                                                                                            |
 | connecting                                 | `STATUS_KEY.connecting`                                                                                                                                                                                       |
 | listening / hearing speech                 | `STATUS_KEY.listening`, `'hearing-speech'`                                                                                                                                                                    |
 | translating                                | `STATUS_KEY.translating`                                                                                                                                                                                      |
@@ -791,20 +775,24 @@ dictionary, which is the argument for keeping that number at zero.
 | display popover closed / open              | `translate/display-settings-popover.tsx` — the gear at the end of the dock; non-modal, so the transcript stays readable                                                                                       |
 | voice popover closed / open                | `translate/voice-settings-popover.tsx` — the speaker in the panel header, glyph swapped on `voiceOutput`; also non-modal                                                                                      |
 | `/translate` panel headers, idle / running | `translate/panel-headers.tsx` — the direction, named permanently; the swap goes dead mid-conversation                                                                                                         |
-| voice popover open mid-conversation        | `translate/voice-settings-panel.tsx:87` `disabled={running}` — everything but volume is frozen; direction with it, at `translate/panel-headers.tsx:181`                                                       |
-| transcript empty                           | `translate/conversation-transcript.tsx:66` — copy differs on `running`                                                                                                                                        |
+| voice popover open mid-conversation        | `translate/voice-settings-panel.tsx:89` `disabled={running}` — everything but volume is frozen; direction with it, at `translate/panel-headers.tsx:167`                                                       |
+| transcript empty                           | `translate/conversation-transcript.tsx:216` — copy differs on `running`                                                                                                                                       |
 | running with turns                         | same component, the turn list                                                                                                                                                                                 |
-| error notice                               | `translate/cascade-panel.tsx:148` (`role="alert"`)                                                                                                                                                            |
-| `/preferences` defaults section            | `preferences/conversation-defaults-section.tsx` — the same panel, `running={false}`, and the screen's one elevated surface                                                                                    |
+| error notice                               | `translate/cascade-panel.tsx:391` — a `live` `Alert` (`role="alert"`)                                                                                                                                         |
+| `/preferences` defaults section            | `preferences/conversation-defaults-section.tsx` — the same panel, `running={false}`; one of the screen's two elevated surfaces                                                                                |
 | `/preferences` interface section           | `preferences/interface-preferences-section.tsx` — language and theme, on the page ground                                                                                                                      |
+| `/preferences` AI Context library          | `preferences/ai-context-section.tsx` — the other surface; the editor expands inline, so editing stays at two                                                                                                  |
 | `/account` identity loading                | `account/account-identity.tsx` — the header paints at once; only the join date holds a place                                                                                                                  |
 | `/account` identity loaded                 | same component; name and email paint from the session before the profile lands                                                                                                                                |
 | `/account` profile lookup failed           | `account/account-screen.tsx` — reported on the join-date line, and nobody is signed out for it                                                                                                                |
 | any route, error boundary                  | `app/(app)/error.tsx`, `app/(auth)/error.tsx`, `app/(marketing)/error.tsx`                                                                                                                                    |
 | any address that is not a route            | `app/not-found.tsx`                                                                                                                                                                                           |
 
-Not reachable without a backend or a forced value: `live.error`,
-`languageMismatch`, `connecting`, `translating`, and the readiness card's
-`unreachable`. There is no Playwright in
-`apps/web` and none is being added, so those are reviewed against a temporarily
-forced value — stated here so a screenshot set is not mistaken for a harness.
+`/history`, `/history/[conversationId]` and the AI Context states on `/translate` are
+enumerated as the `SCREENS` rows of `apps/web/src/design/accent-budget-app.spec.tsx`,
+which mounts each one.
+
+Not reachable without a backend or a forced value: `connecting`, `translating`, and
+the readiness banner's `unreachable`. There is no Playwright in `apps/web` and none is
+being added, so those are reviewed against a temporarily forced value — stated here so
+a screenshot set is not mistaken for a harness.
