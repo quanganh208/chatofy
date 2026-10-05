@@ -8,9 +8,18 @@ name: Deploy
 # it also fires for FAILED runs, the conclusion check below is what gates.
 #
 # `pull_request` is deliberately absent and must stay absent: this runs on a
-# self-hosted runner on a personal machine, where fork-PR code execution is the
-# classic compromise. The repository is private today, which bounds it, but that
-# is a property of the repo and not of this file.
+# self-hosted runner on a personal machine that holds the production env file,
+# where fork-PR code execution is the classic compromise. The repository is
+# PUBLIC, so that absence is load-bearing rather than incidental — it used to
+# read "private today, which bounds it", which was wrong by the time anyone
+# needed it to be right.
+#
+# Absence of the trigger is not the whole guard, because `workflow_run` is
+# itself reachable from a pull request: GitHub's own guidance is to avoid
+# `workflow_run` with untrusted code "including from pull request forks", since
+# the triggered workflow is privileged. This one holds the production env file,
+# so the job below also refuses any run that did not come from a push to this
+# repository's `main`. See the `if:` on the job.
 #
 # NOTE: `workflows: [CI]` matches the CI workflow by its `name:` field, not its
 # filename. Rename CI and this trigger silently stops firing, with no error
@@ -52,9 +61,36 @@ jobs:
     # a hung run would hold the group and queue every later deploy behind it.
     # GitHub's 360-minute default is far too long for that.
     timeout-minutes: 30
+    # Only a push to this repository's `main`, or a maintainer asking for a
+    # deploy by hand. The `head_repository` test is the one that matters: it is
+    # what makes this independent of how `workflow_run`'s `branches:` filter
+    # decides to treat a pull request. A fork can name its branch `main`, and
+    # GitHub's documentation does not say whether the filter matches a PR's
+    # base branch or its fork's head branch — so rather than rely on that
+    # answer, require the run to have come from this repository at all.
+    #
+    # Together the two tests also rule out an in-repo topic branch: that has
+    # `head_repository` equal to this one, but `head_branch` would be the
+    # branch's own name, and `main` already exists, so a branch cannot be
+    # named it.
+    #
+    # Job-level `if:` rather than a validation step, deliberately: a step would
+    # mean the self-hosted runner had already been allocated and
+    # `actions/checkout` had already fetched the untrusted ref before anything
+    # refused. A skipped job never reaches the machine.
+    #
+    # `workflow_dispatch` is not subject to the tests above — which is sound,
+    # because dispatching needs write access to this repository. Note it can
+    # still be handed a fork's SHA, since a PR head is fetchable here by SHA.
+    # That is a maintainer choosing to run someone else's code on this host, not
+    # an outsider reaching it.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        github.event.workflow_run.head_branch == 'main'
+      )
 
     steps:
       # Check out the commit CI actually validated. Under `workflow_run` the
