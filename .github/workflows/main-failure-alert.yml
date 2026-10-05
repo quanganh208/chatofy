@@ -1,0 +1,110 @@
+name: Main failure alert
+
+# Branch protection gates what ENTERS main. It cannot see what happens after:
+# a pull request can be green and the merge commit still fail, from a flake or a
+# race the PR's own run did not reproduce. That is not hypothetical here — both
+# halves happened on one day. Main sat red for four days behind a gate nobody
+# was watching, and separately a merge commit failed on an extension spec whose
+# PR run had passed.
+#
+# So this is the half protection leaves out. When CI fails on main, open an
+# issue; when main goes green again, close it. An issue rather than a
+# notification because it outlives the moment — it stays until someone acts,
+# which is exactly what the four red days were missing.
+#
+# `workflow_run` rather than `on: push`, for the reason deploy.yml gives: a push
+# trigger starts in parallel with CI and would end up reporting on a run that
+# has not finished.
+#
+# NOTE: like deploy.yml, `workflows: [CI]` matches the CI workflow by its
+# `name:` field, not its filename. Rename CI and this silently stops firing,
+# with no error anywhere.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            const TITLE = 'main CI is red';
+            const { owner, repo } = context.repo;
+            const run = context.payload.workflow_run;
+            const sha = run.head_sha.slice(0, 8);
+
+            // `cancelled` is deliberately not an alert. Cancelling is what a
+            // re-run does to the run it replaces, so it means someone is
+            // already looking at this one.
+            const failed =
+              run.conclusion === 'failure' || run.conclusion === 'timed_out';
+
+            // Matched by title: a label would have to exist first, and this
+            // repo keeps its open issues few enough that a page of them is
+            // the whole list.
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const issue = open.find((candidate) => candidate.title === TITLE);
+
+            if (failed) {
+              const body = [
+                `\`${sha}\` — ${run.html_url}`,
+                '',
+                'Branch protection stops a red pull request from being merged. It cannot',
+                'stop a merge commit from going red on its own, which is what this is.',
+              ].join('\n');
+
+              if (!issue) {
+                await github.rest.issues.create({ owner, repo, title: TITLE, body });
+                return;
+              }
+
+              // One comment per commit, so re-running the same failing sha does
+              // not pile up identical comments.
+              const { data: comments } = await github.rest.issues.listComments({
+                owner,
+                repo,
+                issue_number: issue.number,
+                per_page: 100,
+              });
+              if (comments.some((comment) => (comment.body ?? '').includes(sha))) {
+                return;
+              }
+
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: issue.number,
+                body,
+              });
+              return;
+            }
+
+            // Green again with an alert open: say so, then close it, so the
+            // open list stays a list of things that are actually wrong.
+            if (run.conclusion === 'success' && issue) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: issue.number,
+                body: `\`${sha}\` — green again: ${run.html_url}`,
+              });
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: issue.number,
+                state: 'closed',
+              });
+            }
