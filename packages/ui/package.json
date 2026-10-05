@@ -30,12 +30,12 @@
     "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsup && tsup --config tsup.react.config.ts",
-    "prepare": "rm -rf dist && tsup && tsup --config tsup.react.config.ts",
+    "build": "tsup --clean && tsup --config tsup.react.config.ts",
+    "prepare": "tsup --clean && tsup --config tsup.react.config.ts",
     "test": "vitest run",
     "verify:build": "node scripts/verify-build.mjs",
     "typecheck": "tsc -b --noEmit",
-    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true}); require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\""
   },
   "devDependencies": {
     "@chatofy/types": "workspace:*",
