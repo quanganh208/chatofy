@@ -9,7 +9,8 @@ centre petal in front. The geometry is data in `packages/ui/src/brand-mark.ts` �
 64-unit square, the two petal paths, the angle, the base, the gap widths and the
 gradient stops — and every surface builds its own drawing from it: `BrandMark` in
 `@chatofy/ui/react` for web and the popup, `createElementNS` in the overlay (which
-parses no markup), and the exporter for rasters.
+parses no markup), the out-of-tree exporter for rasters, and `apps/web/app/icon.svg` as
+inlined literals.
 
 **The gap is cut, not painted.** A mask removes a 3-unit band (3.5 on the ink variant)
 along the centre petal's outline from all three petals. A stroke in the page colour
@@ -25,11 +26,11 @@ does, which is what keeps the idle pill readable — but a raster is fixed at ex
 The 16px icon needs a re-export with a size-aware gap, or a hand-tuned one; until
 then the toolbar icon reads as a blob on a non-HiDPI display.
 
-| Variant | Petals                                | Where                                                                |
-| ------- | ------------------------------------- | -------------------------------------------------------------------- |
-| `ink`   | all three in `currentColor`           | below 32px: app sidebar (20), auth frame and popup (20–24), favicon  |
-| `dawn`  | ink side petals, dawn gradient centre | 32px and up: the marketing header (32), the Open Graph image         |
-| `full`  | every petal in a gradient             | on a night tile (toolbar and app icons) and in the idle overlay pill |
+| Variant | Petals                                | Where                                                                                   |
+| ------- | ------------------------------------- | --------------------------------------------------------------------------------------- |
+| `ink`   | all three in `currentColor`           | below 32px: app sidebar (20), popup (20), auth frame and marketing footer (24), favicon |
+| `dawn`  | ink side petals, dawn gradient centre | 32px and up: the marketing header (32), the Open Graph image                            |
+| `full`  | every petal in a gradient             | on a night tile (toolbar and app icons) and in the idle overlay pill                    |
 
 The size rule exists because the dawn centre petal disappears when small.
 
@@ -39,7 +40,8 @@ The size rule exists because the dawn centre petal disappears when small.
   Newsreader at wght 500, opsz 24.
 - **Favicon.** `apps/web/app/icon.svg` is the ink mark with its own
   `prefers-color-scheme: dark` swap to `#F5F5F4`, so it stays visible on a dark tab
-  strip. `favicon.ico` is the night tile, because a browser that ignores the SVG
+  strip. It inlines the geometry as literals, so `apps/web/src/design/brand-mark-parity.spec.ts`
+  holds it to `brand-mark.ts`. `favicon.ico` is the night tile, because a browser that ignores the SVG
   cannot swap colours for a dark tab strip either.
 - **Toolbar and app icons.** The full-dawn mark on a rounded night tile at every size.
   MV3 has no per-theme toolbar icon, and a night tile reads on light and dark toolbars.

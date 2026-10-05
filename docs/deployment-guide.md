@@ -50,8 +50,13 @@ values. Run it by hand with
 docker compose -f docker-compose.prod.yml --env-file ~/.config/chatofy/prod.env <cmd>
 ```
 
-Omit `--env-file` and the model-path variables expand to empty, so the speech
-sidecars bind-mount the wrong directory and start with no weights.
+Omit `--env-file` and compose refuses to run at all: the model paths, the
+postgres credentials, `CHATOFY_ENV_FILE` and `NEXT_PUBLIC_API_BASE_URL` are
+required interpolations (`${VAR:?…}`), so every command fails while loading the
+file. That is the intended failure — before those were required, an empty model
+path bind-mounted the wrong directory and the sidecars started with no weights.
+`CHATOFY_ENV_FILE` is the absolute path of `prod.env` itself, read by `env_file:`
+on api and web; compose does not expand `~` there.
 
 ### Values that are not free choices
 
@@ -89,10 +94,12 @@ notes under _Known gaps_ for what that does and does not cover.
 Step order, and why:
 
 ```
-checkout(head_sha) → build → pg_dump → migrate → up -d --wait → smoke(local) → smoke(tunnel) → tag → prune
+checkout(head_sha) → check prod.env → build → seed weights → pg_dump → migrate → up -d --wait → smoke(local) → smoke(tunnel) → tag → prune
 ```
 
 - **checkout `head_sha`** — under `workflow_run` the default checkout is not necessarily the commit CI validated.
+- **check prod.env first** — a drifted env file stops the deploy before any image is built or container touched.
+- **build every compose profile, one service at a time** — the step refuses a profile it does not build, because a `migrate` or seed image left stale reports success while shipping nothing; serial because concurrent builds saturated the uplink.
 - **backup before migrate** — the dump must land between the build and the schema change, and is asserted non-empty. A zero-byte dump is worse than none because it invites trusting it.
 - **migrate as its own step** — a failed migration aborts before any running container is replaced, so the old stack keeps serving. It runs from the image's `builder` target, because `prisma` is a devDependency and is not in the runtime image.
 - **tunnel smoke asserts the CSP** names the production API origin. A 200 on the page is not sufficient evidence: a stale web image serves a healthy-looking page whose policy names the wrong origin, and the browser then blocks every request.
@@ -116,17 +123,18 @@ something an operator does INSTEAD of letting a push deploy, by holding the merg
 until they are at the keyboard. Written down here it looks like a gate; in the
 pipeline it is not one.
 
-The chain is now a SINGLE migration, `20260917024800_init`, squashed on
-2026-09-17 from the ten that built the schema between 2026-08-23 and 2026-09-14.
-Every one of those ten has shipped to production; the squash reproduces their end
+The chain starts from a single baseline, `20260917024800_init`, squashed on
+2026-09-17 from the ten that built the schema between 2026-08-23 and 2026-09-14;
+later migrations stack on it (`apps/api/prisma/migrations/` is the list). Every
+one of those ten had shipped to production; the squash reproduces their end
 state exactly and changes no DDL, verified by applying both chains to empty
 databases and diffing `pg_dump --schema-only`.
 
 What that means operationally:
 
 - **On a fresh database** the baseline is pure creation — tables, indexes and the
-  `pg_trgm` extension the trigram index needs. There is nothing destructive left
-  in the tree to schedule a window for.
+  `pg_trgm` extension the trigram index needs. Later destructive migrations act on
+  empty tables there, so a fresh database never needs a window.
 - **On the production database**, which already has all ten recorded, the baseline
   must never be _applied_. Its ledger row is written with
   `migrate resolve --applied` and the tables are left untouched; the README has
@@ -135,16 +143,17 @@ What that means operationally:
   from the local migrations directory" and changes nothing, which is the safe
   outcome, not a failure to work around.
 
-The rest of this section is the procedure for running one. It is no longer
-hypothetical: two destructive migrations are committed and pending release —
-see _Pending: the two language-registry migrations_ below.
+The rest of this section is the procedure for running one. It is not
+hypothetical: two destructive migrations have already shipped this way — see
+_The two language-registry migrations_ below.
 
 A destructive migration is run inside a window, since the roll-out is not atomic:
 
 ```bash
-docker compose -f docker-compose.prod.yml stop api web
-docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate
-docker compose -f docker-compose.prod.yml up -d --wait
+ENV=~/.config/chatofy/prod.env
+docker compose -f docker-compose.prod.yml --env-file "$ENV" stop api web
+docker compose -f docker-compose.prod.yml --env-file "$ENV" --profile migrate run --rm migrate
+docker compose -f docker-compose.prod.yml --env-file "$ENV" up -d --wait
 ```
 
 Give it a guard that aborts rather than destroying rows nobody reviewed — the
@@ -164,7 +173,8 @@ runs in one transaction, nothing was applied and the honest record is
 `--rolled-back` (`--applied` would tell Prisma the DDL ran):
 
 ```bash
-docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate \
+docker compose -f docker-compose.prod.yml --env-file ~/.config/chatofy/prod.env \
+  --profile migrate run --rm migrate \
   ./node_modules/.bin/prisma migrate resolve \
   --rolled-back <the-migration-that-aborted>
 ```
@@ -172,10 +182,13 @@ docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate \
 Restoring the pre-deploy dump instead also clears it, since `_prisma_migrations`
 is in the dump. Deal with the rows the guard found first, either way.
 
-### Pending: the two language-registry migrations
+### The two language-registry migrations
 
-Two destructive migrations, both from the pluggable-languages work, are
-committed and sort in the order they must deploy in:
+Two destructive migrations, both from the pluggable-languages work, sort in the
+order they had to deploy in. Both are applied in production (they shipped with
+the pluggable-languages merge on 2026-09-29; the production `_prisma_migrations`
+ledger lists both as finished). What remains useful below is the rehearsal
+record and the rollback path.
 
 1. `20260928114332_glossary_terms_by_language` — drops `GlossaryTerm.vi`/`.en`,
    replaces them with one `terms` JSONB column (a language-keyed map).
@@ -184,26 +197,10 @@ committed and sort in the order they must deploy in:
    `translations` (JSONB).
 
 Both were rehearsed against a restore of the actual production dump (not a
-synthetic fixture) before being written up here — see `plans/260928-1026-pluggable-languages-multilingual-ready-and-cleanup/reports/phase-04-implementation-report.md` and `phase-06-implementation-report.md` for the
-full rehearsal evidence (row counts, before/after snapshots, and the exact
-`pg_restore`/`prisma migrate deploy` commands run).
-
-**Release both together, in one window, in this order.** Merge them in the
-order their folders sort, and only while an operator is at the keyboard for the
-window below — the deploy pipeline fires on the merge and does not pause for one:
-
-```bash
-docker compose -f docker-compose.prod.yml stop api web
-docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate
-docker compose -f docker-compose.prod.yml up -d --wait
-```
-
-`pg_dump` runs before this regardless (the pipeline's own backup step); take a
-second, ad-hoc snapshot of `GlossaryTerm`/`Conversation`/`ConversationTurn`
-immediately before stopping `api`/`web`, to diff against after `up -d --wait`
-returns. Then check CI on `main` after the merge, not only the PR — a race
-between this merge and another can leave the PR's own run green while `main`
-is not (see the project memory on this).
+synthetic fixture) before release. The phase-04 and phase-06 implementation
+reports that recorded it (row counts, before/after snapshots, and the exact
+`pg_restore`/`prisma migrate deploy` commands run) were later removed from the
+tree; they survive in git history, in the parent of commit `953b93de`.
 
 **Down-SQL, applied in REVERSE order (`conversation_languages` first, then
 `glossary_terms_by_language`) if a rollback is needed without restoring the
@@ -321,8 +318,8 @@ outage, and all of them are already in `docker-compose.prod.yml`:
   `noeviction` on a completely untouched image and can never fail:
 
   ```bash
-  docker compose -f docker-compose.prod.yml exec redis redis-cli config get maxmemory
-  docker compose -f docker-compose.prod.yml exec redis redis-cli config get maxmemory-policy
+  docker compose -f docker-compose.prod.yml --env-file ~/.config/chatofy/prod.env exec redis redis-cli config get maxmemory
+  docker compose -f docker-compose.prod.yml --env-file ~/.config/chatofy/prod.env exec redis redis-cli config get maxmemory-policy
   ```
 
 `REDIS_URL` is **pinned in compose** (`redis://redis:6379`) under the api
@@ -410,9 +407,10 @@ is public-read, and a prefix is not an access boundary.
 
 1. **Cloudflare → R2 → create bucket** `chatofy` (location APAC). One bucket
    serves the whole project and both environments, with keys namespaced per
-   feature (`avatars/…`). Everything in it is world-readable by URL — read
-   _Bucket layout_ in `docs/system-architecture.md` before putting anything new
-   in it.
+   feature (`avatars/…`, `conversations/…`). Everything in it is world-readable
+   by URL — read _Bucket layout_ in
+   [Authentication → Avatar storage](./architecture/authentication.md#bucket-layout-and-the-one-rule-that-governs-it)
+   before putting anything new in it.
 2. **Bucket → Settings → Public access → connect a custom domain**, e.g.
    `chatofy-cdn.quanganh208.dev` — a **sibling** hostname, not `cdn.chatofy.…`.
    On the free plan Cloudflare Universal SSL covers the apex plus one label, so a
@@ -496,8 +494,9 @@ in place rather than orphaning bytes. To clear everything by hand, delete the
 
 ### Running without R2
 
-Supported, and the normal state in development. The API boots, logs one warning
-naming the missing capability, and `PUT`/`DELETE /auth/me/avatar` answer **409**
+Supported, and the normal state in development. The API boots — in production it
+logs one warning, worded for avatars only although recordings are refused too —
+and `PUT`/`DELETE /auth/me/avatar` answer **409**
 with a message saying storage is not configured. The two recording routes
 (`PUT`/`GET /conversations/:id/audio`) answer 409 the same way, and the
 transcript half of history is unaffected — conversations save, read back and

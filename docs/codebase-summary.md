@@ -7,10 +7,12 @@ they are Vietnamese and English.
 ## Stack
 
 - **Monorepo:** Turborepo + pnpm workspaces
-- **Mobile:** Expo SDK 52 (React Native) + expo-router
-- **API:** NestJS 11 + Fastify + Prisma + WebSocket
-- **Web:** Next.js 15 App Router (landing placeholder)
-- **DB:** Postgres 16 (via Prisma); Redis planned for multi-instance session state (no client dependency yet)
+- **Mobile:** Expo SDK 55 (React Native) + expo-router — still a scaffold
+- **API:** NestJS 12 + Express + Prisma + WebSocket (`ws`)
+- **Web:** Next.js 16 App Router + Auth.js
+- **Extension:** WXT, Chrome MV3
+- **DB:** Postgres 16 (via Prisma); Redis (node-redis v5) for rotating refresh-token families
+- **Speech:** two Python sidecars in `services/` (local STT, local TTS), run in Docker
 - **Language:** TypeScript strict + zod runtime validation
 
 ## Layout
@@ -20,7 +22,7 @@ chatofy/
 ├── apps/
 │   ├── api/       # NestJS gateway (:3000, /ws/translate — turn + live modes)
 │   ├── mobile/    # Expo RN (MVP surface)
-│   ├── web/       # Next.js app (:3001) — marketing landing, hub, translator, settings
+│   ├── web/       # Next.js app (:3001) — marketing landing, translator, history, settings
 │   └── extension/ # Chrome MV3 meeting translator (WXT; load unpacked)
 ├── packages/
 │   ├── config/    # tsconfig/eslint/prettier presets (@chatofy/config)
@@ -30,11 +32,12 @@ chatofy/
 │   ├── realtime-client/ # audio capture, turn policy, ordering, /ws/translate client (@chatofy/realtime-client)
 │   ├── i18n/      # every user-facing string, en + vi, parity enforced by tsc (@chatofy/i18n)
 │   └── ui/        # shadcn primitives + this product's compositions, tokens (@chatofy/ui)
-├── benchmarks/
-│   ├── prompt-injection/ # live corpus: does the translator still refuse to be talked to
-│   └── error-analysis/   # translation error taxonomy + a 40-row labelled corpus and a glossary before/after
-├── docker-compose.yml  # postgres + redis local dev
-├── .github/workflows/  # CI (lint / typecheck / build)
+├── services/
+│   ├── local-stt/ # speech-to-text sidecar (vi + en) — :8002
+│   └── local-tts/ # speech synthesis sidecar (vi + en) — :8003
+├── benchmarks/    # measurement harnesses, one directory per question
+├── docker-compose.yml  # postgres + redis + both speech sidecars, local dev
+├── .github/workflows/  # CI, deploy, main-failure alert
 └── docs/               # this directory
 ```
 
@@ -46,7 +49,9 @@ All external integrations are hidden behind interfaces so impls can swap without
 | ------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `RealtimeProvider`                                      | `packages/ai-providers/src/interfaces/realtime-provider.ts`                                   | `GeminiLiveTranslateProvider` (`gemini-3.5-live-translate-preview`) — speech to speech in one stream, for comparison against the trio below |
 | `SttProvider`                                           | `packages/ai-providers/src/interfaces/stt-provider.ts`                                        | `LocalSpeechSttProvider` (vi+en), `ElevenLabsSttProvider` (scribe_v2)                                                                       |
-| `TranslationProvider`                                   | `packages/ai-providers/src/interfaces/translation-provider.ts`                                | `GeminiTranslationProvider` (3.5-flash-lite → 3.1-flash-lite)                                                                               |
+| `TranslationProvider`                                   | `packages/ai-providers/src/interfaces/translation-provider.ts`                                | `GeminiTranslationProvider` (3.5-flash-lite → 3.1-flash-lite); `OpenAiCompatibleTranslationProvider` per host row (`deepseek`, `openai`)    |
+| `SpeakerEmbeddingProvider`                              | `packages/ai-providers/src/interfaces/speaker-embedding-provider.ts`                          | `LocalSpeechEmbeddingProvider` — voice vectors from the local-stt sidecar for per-turn speaker attribution                                  |
+| `DisplayRestorer`                                       | `packages/ai-providers/src/interfaces/display-restorer.ts`                                    | `LocalSpeechDisplayRestorer` — punctuation and case for the Vietnamese display, from the local-stt sidecar                                  |
 | `TtsProvider`                                           | `packages/ai-providers/src/interfaces/tts-provider.ts`                                        | `LocalSpeechTtsProvider` (vi+en), `ElevenLabsTtsProvider` (flash_v2_5/turbo)                                                                |
 | `SummarizationProvider`                                 | `packages/ai-providers/src/interfaces/summarization-provider.ts`                              | `GeminiSummarizationProvider` (3.5-flash → 3.5-flash-lite) — one JSON pass for meeting minutes over a finished conversation                 |
 | `MinutesStore` (`MINUTES_STORE`)                        | `apps/api/src/modules/minutes/interfaces/minutes-store.interface.ts`                          | `PrismaMinutesStore`, bound unconditionally — the env switch that used to default this to an in-memory store is gone                        |
@@ -55,12 +60,13 @@ All external integrations are hidden behind interfaces so impls can swap without
 | `AuthAdapter` (`AUTH_ADAPTER` symbol)                   | `apps/api/src/modules/auth/interfaces/auth-adapter.interface.ts`                              | `JwtAuthAdapter` — the API signs and verifies its own access tokens                                                                         |
 | `RedisClient` (`REDIS_CLIENT` symbol)                   | `apps/api/src/modules/redis/redis-client.provider.ts`                                         | node-redis v5, non-blocking connect and `disableOfflineQueue` so the API boots without Redis; imported by `AuthModule` alone                |
 | `UserRepository` (`USER_REPOSITORY`)                    | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`                          | `PrismaUserRepository`                                                                                                                      |
+| `AvatarStorage` / `ConversationAudioStorage`            | `apps/api/src/modules/storage/interfaces/*.interface.ts`                                      | R2 implementations when all `R2_*` keys are set, disabled ones otherwise                                                                    |
 | `StreamSocket`                                          | `apps/api/src/modules/translate/session/stream-socket.ts`                                     | any `ws` connection (structural — the state machine only pushes events); the session service re-exports it for existing importers           |
 | `IAudioRecorder` / `IAudioPlayer`                       | `apps/mobile/src/audio/*.interface.ts`                                                        | (impl deferred)                                                                                                                             |
 
-**Error Hierarchy:** `@chatofy/ai-providers` exports typed error classes: abstract `ProviderError` base; `ProviderResponseError` (non-2xx/malformed response with `status`), `ProviderConnectionError` (transport failure with `cause`), `ProviderConfigError`, `ProviderNotImplementedError`. All providers throw these; consume via `instanceof` checks.
+**Error Hierarchy:** `@chatofy/ai-providers` exports typed error classes from `packages/ai-providers/src/errors/provider-errors.ts`, under an abstract `ProviderError` base. All providers throw these; consume via `instanceof` checks.
 
-**Registry & Factory:** `ProviderRegistry` (typed via `ProviderKindMap` mapped type) holds provider implementations by kind (stt/translation/tts/realtime/speakerEmbedding/summarization) and name. `AiProvidersFactory` resolves from registry by name; no provider-name construction conditionals. Default providers wired at composition root (`apps/api/src/modules/translate/providers/register-default-providers.ts`).
+**Registry & Factory:** `ProviderRegistry` (typed via `ProviderKindMap` mapped type) holds provider implementations by kind (the keys of `ProviderKindMap`) and name. `AiProvidersFactory` resolves from registry by name; no provider-name construction conditionals. Default providers wired at composition root (`apps/api/src/modules/translate/providers/register-default-providers.ts`).
 
 **TtsProvider Output Format:** Each `TtsProvider` declares readonly `outputMimeType` (ElevenLabs → `audio/mpeg`, local → `audio/wav`). Pipeline reads it; per-language MIME maps deleted.
 
@@ -69,7 +75,7 @@ All external integrations are hidden behind interfaces so impls can swap without
 **V1 Translation Pipeline:**
 
 - **STT:** `LocalSpeechSttProvider` by default (`AI_STT_PROVIDER=local`) — one backend for both languages; the `services/local-stt` sidecar picks Zipformer-30M for vi and Parakeet-TDT-0.6b-v2 for en. `ElevenLabsSttProvider` (scribe_v2) stays registered for cloud comparison.
-- **Translation:** `GeminiTranslationProvider` via `@google/genai` SDK; walks an ordered model list (`gemini-3.5-flash-lite` → `gemini-3.1-flash-lite`), advancing only on a quota rejection since the free tier meters requests per model. No thinking config is sent — the 3.x models reject it. Returns the model that answered so the pipeline logs it. **The only cloud call left in a turn.**
+- **Translation:** `GeminiTranslationProvider` by default (`AI_TRANSLATION_PROVIDER=gemini`), via `@google/genai` SDK; walks an ordered model list (`gemini-3.5-flash-lite` → `gemini-3.1-flash-lite`), advancing only on a quota rejection since the free tier meters requests per model. No thinking config is sent — the 3.x models reject it. Returns the model that answered so the pipeline logs it. Any other `AI_TRANSLATION_PROVIDER` value picks a row of the OpenAI-compatible host table (`deepseek`, `openai`), served by `OpenAiCompatibleTranslationProvider`. **The only cloud call left in a turn.**
 - **TTS:** `LocalSpeechTtsProvider` by default (`AI_TTS_PROVIDER=local`) — one backend for both languages; the `services/local-tts` sidecar picks VieNeu for vi and Kokoro-82M for en, and resolves the requested `voiceGender` against that engine's own female/male pair. `ElevenLabsTtsProvider` stays registered for cloud comparison and always speaks in its configured voice.
 - **Model selection:** owned by each provider, with no selection layer above them — Gemini holds the quota-ordered list, the ElevenLabs providers default to `scribe_v2` / `eleven_flash_v2_5`, and the local sidecars take no model argument at all
 - **Provider reuse:** `AiProvidersFactory` memoizes the provider trio per backend selection so clients/connections persist across requests
@@ -85,12 +91,13 @@ All external integrations are hidden behind interfaces so impls can swap without
 **Web routes.** Three route groups, absent from the URLs and each carrying its own chrome
 (`apps/web/app/`):
 
-| Route                                                                         | Group         | Session  |
-| ----------------------------------------------------------------------------- | ------------- | -------- |
-| `/`                                                                           | `(marketing)` | public   |
-| `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email` | `(auth)`      | public   |
-| `/locale`                                                                     | route handler | public   |
-| `/translate`, `/history`, `/preferences`, `/account`                          | `(app)`       | required |
+| Route                                                                             | Group         | Session  |
+| --------------------------------------------------------------------------------- | ------------- | -------- |
+| `/`                                                                               | `(marketing)` | public   |
+| `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`     | `(auth)`      | public   |
+| `/locale`                                                                         | route handler | public   |
+| `/api/auth/*` (Auth.js)                                                           | route handler | public   |
+| `/translate`, `/history`, `/history/[conversationId]`, `/preferences`, `/account` | `(app)`       | required |
 
 Every route the app serves is in a group; there is no unlisted one. Two used to be —
 `/translate/live`, the continuous-mode experiment, and `/translate/baseline`, the
@@ -105,9 +112,9 @@ Every route is server-rendered on demand, including `/`. That is the locale cook
 the root layout, and it is the accepted price of one URL serving two languages — see
 `apps/web/src/i18n/server.ts`.
 
-**API Endpoints (V1):**
+**API Endpoints:** the full route set is the `*.controller.ts` files under `apps/api/src/modules/`; Swagger at `/docs` lists them in dev. Not described below: `GET /` (service descriptor), `GET /translate/voices`, the rest of `/auth/*` (register, verify, password reset, login, Google, avatar), `/conversations/*` (history and recordings) and `/conversations/:conversationId/minutes`.
 
-- `POST /translate` — Turn-based audio translation between registered languages (request: `{ audioBase64, audioMimeType, direction?, voiceGender? }`, response: `{ sourceText, targetText, audioBase64, audioMimeType }`)
+- `POST /translate` — Turn-based audio translation between registered languages (request: `{ audioBase64, audioMimeType, direction?, voiceGender?, speed? }`, response: `{ sourceText, targetText, audioBase64, audioMimeType }`)
 - `WS /ws/translate` — One path, two modes, chosen by the first message the client sends and fixed for that connection:
   - `client.session.start` → turn-based cascade (STT → translate → TTS), contract `clientEventSchema` / `serverEventSchema`
   - `client.live.start` → continuous speech-to-speech, contract `liveClientEventSchema` / `liveServerEventSchema`
@@ -122,7 +129,7 @@ the root layout, and it is the accepted price of one URL serving two languages �
   **whether or not the token matched**, so it is not an oracle for "is this token live" and
   a person leaving is never blocked. Closes no sockets: that is the difference between a
   voluntary sign-out and detected theft
-- `GET /auth/me` — the caller's own profile: id, email, name, `locale`, `createdAt`. Guarded
+- `GET /auth/me` — the caller's own profile (`userSchema` in `packages/types/src/domain/user.ts`). Guarded
 - `PATCH /auth/me` — changes the language this account's MAIL is written in. Guarded, and it names
   no user id: which row changes is decided by the verified token. Strict about the value,
   unlike `POST /auth/register` and `POST /auth/forgot-password`, which coerce an
@@ -146,7 +153,7 @@ Every template uses two line forms. `KEY=` means unset, which each schema reads 
 
 - `AUTH_JWT_SECRET` (**required**, min 32 chars) — signs and verifies every access token the API issues, and derives the keys for verification and reset links. There is no "auth off" mode, so the app refuses to boot without it. Rotating it signs every user out at once — still the only blanket revocation, though a password reset now invalidates one user's earlier tokens and closes their open sockets
 - `WEB_BASE_URL` (default `http://localhost:3001`) — the origin every mailed link is built from. **Never taken from the `Host` header**, which is attacker-controlled and would make a reset link point wherever the attacker chose. Production refuses to boot while this is still the default
-- `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` — Gmail SMTP, using an **app password** (which needs 2FA on the account). All four or none: with any missing, development and test print the link to the console instead, and production refuses to boot
+- `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` — Gmail SMTP, using an **app password** (which needs 2FA on the account). Read only outside development and test, which always print the link to the console whatever is set. Elsewhere all four or none: with any missing, mail is dropped and logged, and production refuses to boot
 - `MAIL_FROM` — display name on outbound mail. The address itself must be `SMTP_USER` or Gmail rewrites it
 - `GOOGLE_CLIENT_IDS` — comma-separated OAuth client ids whose id_tokens `POST /auth/google` will accept (lazy validation; unset disables that route with a clear error rather than blocking the boot). Web's `AUTH_GOOGLE_ID` must appear in this list
 - `REDIS_URL` (default `redis://localhost:6379`) — where rotating refresh-token families
@@ -161,44 +168,38 @@ Every template uses two line forms. `KEY=` means unset, which each schema reads 
 - `GEMINI_API_KEY` — Google Gemini API key, or several comma-separated to rotate across (lazy validation). Required to call `/translate` only while `AI_TRANSLATION_PROVIDER` is `gemini`; it authenticates the realtime and summarization providers regardless, so it stays required in production even though translation moved off it. Several keys only raise the quota ceiling when they come from different Google Cloud projects
 - `OPENAI_COMPATIBLE_API_KEY` — the credential for whichever OpenAI-compatible host `AI_TRANSLATION_PROVIDER` names (lazy validation). One variable for the whole family: the endpoint, model and per-host flags live beside the host name in the table, not in env, because a model id only means anything against the endpoint serving it
 - `LOCAL_STT_URL` / `LOCAL_TTS_URL` — local speech sidecars (`services/local-stt` :8002, `services/local-tts` :8003)
+- `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` / `R2_PUBLIC_BASE_URL` — Cloudflare R2 for avatars and conversation recordings. Optional and read as one unit: with any missing the avatar routes answer 409 and the API still boots
 
 The continuous speech-to-speech backend has **no** env selector. `gemini-live` is named once, at the provider composition root (`apps/api/src/modules/translate/providers/register-default-providers.ts`), and the live session path imports that name. There is one implementation, so a selector would be a knob with one position; adding a second means adding a `register()` call and a way to choose between them. It uses `GEMINI_API_KEY`, first key only — a live session connects once and holds, so it has no point at which to rotate.
 
 ### Choosing cascade or live
 
-Purely a **client** choice, and there is nothing to configure on the server to match it: both backends are served on `/ws/translate` and are told apart by which start message goes out first (`client.session.start` vs `client.live.start`). The mode union is `TranslateMode` in `@chatofy/types`.
+A **client** choice, and there is nothing to configure on the server to match it: both backends are served on `/ws/translate` and are told apart by which start message goes out first (`client.session.start` vs `client.live.start`). The mode union is `TranslateMode` in `@chatofy/types`. No shipped client offers live today:
 
-| Client    | Where the choice lives                                                                                        |
-| --------- | ------------------------------------------------------------------------------------------------------------- |
-| web       | No choice: `cascade-panel.tsx` is the only path, and the live route that used to sit beside it is deleted     |
-| extension | `Mode` in the popup, stored as `CaptureSettings.mode`; changing it mid-call has the worker reopen the capture |
+| Client    | Where the choice lives                                                                                                                        |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| web       | No choice: `cascade-panel.tsx` is the only path, and the live route that used to sit beside it is deleted                                     |
+| extension | No choice either: the popup no longer offers one, and `loadSettings` (`apps/extension/src/settings.ts`) reads any stored mode back as cascade |
 
-In the extension both directions of one meeting always run the same mode. `createDirectionSession` routes on the setting and returns either a `ConversationSession` or a `LiveDirectionSession` — `MeetingCapture` drives whichever it is handed through the `DirectionRunner` interface and does not know which it holds. Three things differ on the live path: capture runs ungated through `MicrophoneGraph`, ducking follows audible audio rather than open turns (there are none to count), and transcript text appends to one line per direction instead of a turn per sentence. `voiceGender` is inert in live mode — the model has its own voice, and the popup disables the control rather than leaving it doing nothing.
+The extension keeps the live path in code. Both directions of one meeting always run the same mode. `createDirectionSession` routes on `CaptureSettings.mode` and returns either a `ConversationSession` or a `LiveDirectionSession` — `MeetingCapture` drives whichever it is handed through the `DirectionRunner` interface and does not know which it holds. Three things differ on the live path: capture runs ungated through `MicrophoneGraph`, ducking follows audible audio rather than open turns (there are none to count), and transcript text appends to one line per direction instead of a turn per sentence. `voiceGender` is inert in live mode — the model has its own voice, and the popup disables the control rather than leaving it doing nothing.
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) — lint, typecheck, build jobs on PR + push to `main`.
+GitHub Actions — the jobs are defined in `.github/workflows/ci.yml` (PR + push to `main`); deploy and the main-failure alert sit beside it. See [modules, extension and CI](./architecture/modules-extension-ci.md).
 
 **Dead-code gate (manual):** `pnpm knip` (config: root `knip.json`) reports unused files/exports/dependencies across all workspaces. A clean run exits 0 with no findings.
 
 The script pins `KNIP_DISABLE_RAW_TRANSFER=1` (via `cross-env`, since Windows `cmd` rejects POSIX env prefixes). Without it, knip parses through oxc-parser's raw-transfer fast path, which reserves a single 6 GiB `ArrayBuffer`. That reservation is free on Linux but charges against the Windows commit limit, so on a machine with less than ~6 GiB of commit headroom knip aborts with `RangeError: Array buffer allocation failed` before reporting anything — and `--max-old-space-size` cannot help, because the buffer lives outside the V8 heap. oxc-parser's own `rawTransferSupported()` probe only checks CPU architecture and Node version, never whether the allocation can actually succeed, so the fast path has to be switched off explicitly. Parsing is slower without it; for a manual gate that runs occasionally, running everywhere beats running fast.
 
-Intentional interface-first stubs are excluded via `ignore`/`ignoreDependencies` entries plus `@public` JSDoc tags on scaffold exports. `knip.json` is plain JSON and cannot carry comments, so each exclusion's rationale lives here:
+Intentional exclusions are `ignore`/`ignoreDependencies` entries in `knip.json`, plus `@public` JSDoc tags on scaffold exports. `knip.json` carries most rationales as comments beside the entry; the ones it does not:
 
-| Exclusion                                                                        | Why knip can't see the usage                                                                                                                                                                                                                                                                                                 |
-| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `swagger-ui-express` (api)                                                       | `@nestjs/swagger` requires it dynamically at runtime on the Express platform                                                                                                                                                                                                                                                 |
-| `tailwindcss` (web)                                                              | pulled in by `@import 'tailwindcss'` in `globals.css`; knip does not parse CSS                                                                                                                                                                                                                                               |
-| `@chatofy/config` (api, api-client)                                              | both tsconfigs extend the preset by relative path (package-specifier extends breaks knip's symlink resolution); the dep stays to express the workspace edge                                                                                                                                                                  |
-| `next`, `eslint-config-*` (packages/config)                                      | preset files are data, not source — nothing imports them inside the workspace                                                                                                                                                                                                                                                |
-| `expo-updates` (mobile)                                                          | Expo plugin quirk; `app.json` declares no updates config                                                                                                                                                                                                                                                                     |
-| `to-user.mapper.ts` (api)                                                        | part of the users-persistence stub cluster, kept by the interface-first decision                                                                                                                                                                                                                                             |
-| `audio-player.interface.ts`, `audio-recorder.interface.ts` (mobile)              | scaffold interfaces awaiting native implementations                                                                                                                                                                                                                                                                          |
-| `useAuth`, `useTheme`, `spacing`, `radii`, `typography` (mobile)                 | auth/theme scaffold consumer surface; the providers are mounted                                                                                                                                                                                                                                                              |
-| `buttonVariants`, `CardFooter` (web)                                             | shadcn vendored-component convention surface                                                                                                                                                                                                                                                                                 |
-| `Tabs*`, `Toggle`, `toggleVariants`, unused `sidebar.tsx` variants (packages/ui) | shipped without a consumer on purpose. `Tabs` is the shape for a surface that switches between panels, and nothing does today — the three translate routes are routes. `sidebar.tsx` is generated whole and left whole, because editing a generated primitive forks it from the upstream the next `shadcn add` would rewrite |
-| `TranslateTurnOptions` (web)                                                     | appears in the exported `runTranslate` hook signature                                                                                                                                                                                                                                                                        |
-| `ignoreBinaries: ["blue,magenta"]`                                               | knip misreads `concurrently -c blue,magenta` in the root `dev:all` script as a binary name                                                                                                                                                                                                                                   |
+| Exclusion                                                           | Why knip can't see the usage                                                                                                                               |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `swagger-ui-express` (api)                                          | `@nestjs/swagger` requires it dynamically at runtime on the Express platform                                                                               |
+| `@chatofy/config` (api, web)                                        | the tsconfig extends the preset by relative path (package-specifier extends breaks knip's symlink resolution); the dep stays to express the workspace edge |
+| `next`, `eslint-config-*` (packages/config)                         | preset files are data, not source — nothing imports them inside the workspace                                                                              |
+| `expo-updates` (mobile)                                             | Expo plugin quirk; `app.json` declares no updates config                                                                                                   |
+| `audio-player.interface.ts`, `audio-recorder.interface.ts` (mobile) | scaffold interfaces awaiting native implementations                                                                                                        |
 
 Husky hooks must stay LF-terminated (`.gitattributes` enforces it) — CRLF made knip read the binary as `lint-staged\r` and report the root devDependency as unused.
 
@@ -235,7 +236,7 @@ All HTTP responses (except `/health*` probes) follow a standard envelope:
 {
   "success": false,
   "error": {
-    "code": "VALIDATION_FAILED|UNAUTHORIZED|FORBIDDEN|NOT_FOUND|CONFLICT|INTERNAL_ERROR",
+    "code": "VALIDATION_FAILED|UNAUTHORIZED|...  (errorCodeSchema)",
     "message": "Human-readable message",
     "details": [{ "path": "field.nested", "message": "error reason" }]
   },
@@ -301,7 +302,7 @@ API documentation available at `/docs` (non-production only):
 Use the `ApiEnvelopeResponse(DataDto)` decorator helper (apps/api/src/common/swagger/api-envelope-response.helper.ts):
 
 ```typescript
-import { ApiEnvelopeResponse } from '@common/swagger/api-envelope-response.helper';
+import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
 
 @Get('/users/:id')
 @ApiEnvelopeResponse(UserResponseDto)
@@ -312,14 +313,6 @@ This documents the response as the standard success envelope with the given data
 
 ## Status
 
-- **V1 Translation Pipeline (V1 COMPLETE):**
-  - `POST /translate` endpoint: turn-based audio translation between registered languages
-  - STT + TTS run on the local sidecars by default; Gemini translation is the only cloud call
-  - Web is a full surface: marketing landing, post-login hub, the translator, preferences
-    and account, in English and Vietnamese
-  - All contracts in `@chatofy/types` + dual-build packages
-- **Scaffold & Infrastructure:**
-  - API response contract infrastructure (envelope, validation, tracing)
-  - Swagger/OpenAPI at `/docs` (non-prod)
-  - `@chatofy/types`, `@chatofy/api-client`, `@chatofy/ai-providers` packages
-- **Out of Scope (V1):** Auth, DB persistence, WS streaming, multi-turn context, language pairs beyond vi→en
+- **Shipped:** web (translator, history, minutes, AI Contexts, preferences, account, in English and Vietnamese) and the browser extension, over `POST /translate` and the streaming `/ws/translate`; email + Google auth with rotating refresh tokens; Postgres persistence; local STT/TTS sidecars, with cloud translation the only remote call in a turn
+- **Scaffold only:** mobile — screens, auth client and audio interfaces are stubs
+- **Infrastructure:** response envelope, validation and tracing; Swagger at `/docs` (non-prod); all contracts in `@chatofy/types`
