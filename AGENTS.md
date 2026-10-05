@@ -45,10 +45,24 @@ Keep all important docs in `./docs` folder:
 ```
 ./docs
 ├── project-overview-pdr.md
+├── project-roadmap.md
 ├── code-standards.md
 ├── codebase-summary.md
+├── system-architecture.md          # index into architecture/
+├── architecture/
+│   ├── contracts-and-languages.md
+│   ├── ai-providers.md
+│   ├── authentication.md
+│   ├── data-flow.md
+│   └── modules-extension-ci.md
 ├── design-guidelines.md
-└── system-architecture.md
+├── brand-mark.md
+├── deployment-guide.md
+├── development-journey.md          # chronological record; measurements and dead ends
+├── video-conferencing-architecture.md   # proposal, not implemented
+├── database-schema-conference.md        # proposal, not implemented
+├── technical-risks-mitigation.md        # proposal, not implemented
+└── journals/
 ```
 
 ## External Files
