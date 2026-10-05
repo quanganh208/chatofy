@@ -36,6 +36,10 @@ Part of the [system architecture](../system-architecture.md).
   - `storage/` — `AVATAR_STORAGE` and `CONVERSATION_AUDIO_STORAGE`, two seams each with an R2 implementation and a disabled one, chosen at module construction from the same configuration. Also the shared image validator (`avatar-image.ts`), the recording sniffer and key builder (`conversation-audio.ts`), and the Google picture importer. See [Avatar storage](./authentication.md#avatar-storage) and [Conversation recordings](./ai-providers.md#conversation-recordings-and-the-access-boundary-they-do-not-have)
   - `users/` — `PrismaUserRepository` and `toUserContract`, which composes `avatarUrl` from the stored key
   - `redis/` — `REDIS_CLIENT` only, imported by `AuthModule` and nowhere else: refresh-token families are its sole consumer
+  - `conference/` — `/ws/conference` (mediasoup SFU signaling; PoC, not production — see `docs/poc-mediasoup-207.md`)
+    - `conference.gateway.ts` — WebSocket signaling: join, transport create/connect, produce, consume, consumer resume, translation broadcast fan-out. Auth via `ws-auth.ts` upgrade-time verifyClient
+    - `conference-worker.service.ts` — mediasoup Worker lifecycle (one Worker per process, started on module init)
+    - `conference-room-registry.service.ts` — in-memory room and peer state; each room has one mediasoup Router, each peer has send + recv transports, producers, and consumers
   - `health/`, `meta/` — `GET /health` (the deploy smoke's probe) and `GET /`
 
 **Web:**
