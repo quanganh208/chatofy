@@ -14,12 +14,14 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getSession } from 'next-auth/react';
 import * as mediasoupClient from 'mediasoup-client';
 import type { types } from 'mediasoup-client';
+import { WS_SUBPROTOCOL } from '@chatofy/types/events';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-const API_WS_URL = process.env['NEXT_PUBLIC_API_WS_URL'] ?? 'ws://localhost:3001';
+const API_WS_URL = process.env['NEXT_PUBLIC_API_WS_URL'] ?? 'ws://localhost:3000';
 
 // ─── Signaling helpers ────────────────────────────────────────────────────────
 
@@ -76,10 +78,15 @@ export default function ConferencePocPage() {
     }
     setStatus('connecting');
 
-    // 1. Open WebSocket — JWT from cookie is forwarded automatically by the
-    //    browser if credentials are included; here we use the Auth.js session
-    //    cookie that the app already sets.
-    const ws = new WebSocket(`${API_WS_URL}/ws/conference`);
+    // 1. Open WebSocket — token rides Sec-WebSocket-Protocol (see ws-handshake.ts).
+    const session = await getSession();
+    const token = (session as { accessToken?: string } | null)?.accessToken;
+    if (!token) {
+      addLog('Not logged in — please sign in first.');
+      setStatus('error');
+      return;
+    }
+    const ws = new WebSocket(`${API_WS_URL}/ws/conference`, [WS_SUBPROTOCOL, token]);
     wsRef.current = ws;
 
     ws.addEventListener('open', async () => {
