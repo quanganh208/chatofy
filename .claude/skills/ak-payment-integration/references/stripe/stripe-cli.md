@@ -1,105 +1,109 @@
 # Stripe CLI Reference
 
-Command-line tool for testing and development workflows.
+Command-line tool for testing and development workflows. Latest release v1.52.0 (2026-09-24).
 
 ## Installation
 
 ```bash
-# macOS
-brew install stripe/stripe-cli/stripe
+# npm (macOS, Linux, Windows; Node.js >= 18) - the method docs.stripe.com leads with
+npm install -g @stripe/cli
 
-# Windows (scoop)
+# macOS
+brew install stripe
+
+# Windows
+winget install Stripe.StripeCLI
+# or scoop
+scoop bucket add stripe https://github.com/stripe/scoop-stripe-cli.git
 scoop install stripe
 
-# Linux (apt)
-curl -s https://packages.stripe.dev/api/security/keypair/stripe-cli-gpg/public | gpg --dearmor | sudo tee /usr/share/keyrings/stripe.gpg
+# Linux (apt: Debian, Ubuntu)
+curl -s https://packages.stripe.dev/api/security/keypair/stripe-cli-gpg/public | gpg --dearmor | sudo tee /usr/share/keyrings/stripe.gpg > /dev/null
 echo "deb [signed-by=/usr/share/keyrings/stripe.gpg] https://packages.stripe.dev/stripe-cli-debian-local stable main" | sudo tee -a /etc/apt/sources.list.d/stripe.list
 sudo apt update && sudo apt install stripe
 
+# Linux (yum/dnf): repo https://packages.stripe.dev/stripe-cli-rpm-local/ (see README)
+
 # Docker
-docker run --rm -it stripe/stripe-cli
+docker run --rm -it stripe/stripe-cli version
 ```
+
+Source of truth for install options: https://github.com/stripe/stripe-cli#installation
 
 ## Authentication
 
 ```bash
-stripe login
-# Opens browser for Dashboard authorization
-# Stores credentials in ~/.config/stripe/config.toml
+stripe login                    # browser pairing flow
+stripe login --non-interactive  # JSON output for agents/CI, then run the returned next_step
+stripe login --interactive      # paste an API key when no browser is available
+stripe whoami --format json     # check auth
 ```
 
-Environment variable (CI/CD):
+- Credentials are stored in the OS secure credential store when available and the session refreshes automatically.
+- CLI versions newer than v1.50.0 require an Administrator or IAM Admin to enable CLI access in Dashboard: Settings → Team and security → MCP and CLI access.
+- CI/CD: set `STRIPE_API_KEY` (use a sandbox restricted key; never a live key in CI logs).
+
+### No account yet: sandbox
+
 ```bash
-export STRIPE_API_KEY=sk_test_...
+stripe sandbox create --email you@example.com   # or --from-git; saves test keys to the CLI profile
+stripe sandbox claim                            # convert to a real account within 7 days
 ```
 
 ## Webhook Testing
 
-### Listen for Events
-
 ```bash
-# Forward webhooks to local server
+# Forward snapshot events to local server
 stripe listen --forward-to localhost:3000/webhook
+# Ready! Your webhook signing secret is whsec_xxx  -> use as the endpoint secret locally
 
-# Output:
-# Ready! Your webhook signing secret is whsec_xxx
-```
+# Limit events
+stripe listen --events checkout.session.completed,invoice.paid --forward-to localhost:3000/webhook
 
-### Trigger Test Events
+# Thin (v2) events
+stripe listen --forward-thin-to localhost:3000/webhook --thin-events "*"
 
-```bash
-stripe trigger payment_intent.succeeded
-stripe trigger customer.subscription.created
+# Trigger test events (creates real sandbox objects as side effects)
 stripe trigger checkout.session.completed
+stripe trigger payment_intent.succeeded
+
+# Resend a real event to an endpoint (up to 30 days)
+stripe events resend evt_xxx --webhook-endpoint=we_xxx
 ```
 
-### Event Types
+### Event types worth testing
 
-Common events to test:
-- `payment_intent.succeeded`
-- `payment_intent.payment_failed`
-- `checkout.session.completed`
-- `customer.subscription.created`
-- `customer.subscription.updated`
-- `customer.subscription.deleted`
-- `invoice.paid`
-- `invoice.payment_failed`
+- `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`
+- `payment_intent.succeeded`, `payment_intent.payment_failed`
+- `customer.subscription.created` / `.updated` / `.deleted`
+- `invoice.paid`, `invoice.payment_failed`
 
 ## API Logs
 
 ```bash
-# Real-time logs
 stripe logs tail
-
-# Filter by status
+stripe logs tail --filter-status-code-type 4XX
 stripe logs tail --filter-status-code 400
-
-# Filter by path
-stripe logs tail --filter-request-path "/v1/charges"
+stripe logs tail --filter-http-method POST --filter-request-path /v1/checkout/sessions
 ```
+
+Other filters: `--filter-account`, `--filter-ip-address`, `--filter-request-status SUCCEEDED|FAILED`, `--filter-source API|DASHBOARD`, `--format JSON`. Useful for finding `403`s when migrating to restricted keys.
 
 ## Resource Commands
 
 ```bash
-# List customers
 stripe customers list --limit 5
-
-# Create customer
-stripe customers create --email="test@example.com"
-
-# Retrieve resource
 stripe products retrieve prod_xxx
-
-# Delete resource
-stripe products delete prod_xxx
+stripe customers create --email="test@example.com" --stripe-version 2026-08-26.dahlia  # pin version per command
 ```
 
 ## Fixtures (Batch Operations)
 
 Create `fixtures.json`:
+
 ```json
 {
-  "_name": "test_flow",
+  "_meta": { "template_version": 0 },
   "fixtures": [
     {
       "name": "customer",
@@ -108,41 +112,47 @@ Create `fixtures.json`:
       "params": { "email": "test@example.com" }
     },
     {
-      "name": "subscription",
-      "path": "/v1/subscriptions",
+      "name": "payment",
+      "path": "/v1/payment_intents",
       "method": "post",
       "params": {
         "customer": "${customer:id}",
-        "items[0][price]": "price_xxx"
+        "amount": 2000,
+        "currency": "usd",
+        "payment_method": "pm_card_visa",
+        "return_url": "https://example.com",
+        "confirm": true
       }
     }
   ]
 }
 ```
 
-Run: `stripe fixtures fixtures.json`
+Run: `stripe fixtures fixtures.json`. References: `${name:json.path}`, env vars `${.env:VAR|default}`. Flags: `--override`, `--add`, `--remove`, `--skip`. Use `expected_error_type` on a fixture to assert an error.
 
 ## Common Workflows
 
 ### Test Checkout Integration
-```bash
-# Terminal 1: Listen for webhooks
-stripe listen --forward-to localhost:3000/webhook
 
-# Terminal 2: Trigger checkout event
+```bash
+# Terminal 1
+stripe listen --forward-to localhost:3000/webhook
+# Terminal 2
 stripe trigger checkout.session.completed
 ```
 
 ### Test Subscription Lifecycle
+
 ```bash
 stripe trigger customer.subscription.created
 stripe trigger invoice.paid
-stripe trigger customer.subscription.updated
+stripe trigger invoice.payment_failed
 stripe trigger customer.subscription.deleted
 ```
 
 ## Resources
 
-- Full docs: https://docs.stripe.com/cli
-- Webhook testing: https://docs.stripe.com/webhooks/test
+- Command reference: https://docs.stripe.com/cli
+- Webhook testing: https://docs.stripe.com/webhooks#local-listener
 - Fixtures: https://docs.stripe.com/cli/fixtures
+- Sandbox: https://docs.stripe.com/cli/sandbox

@@ -1,32 +1,71 @@
 ---
 name: stripe-best-practices
-description: Best practices for building a Stripe integrations
+description: Best practices for building a Stripe integration
 ---
 
-When designing an integration, always prefer the documentation in [Stripe's Integration Options doc](https://docs.stripe.com/payments/payment-methods/integration-options.md)
-The [API Tour](https://docs.stripe.com/payments-api/tour.md)
-Use the [Go Live Checklist](https://docs.stripe.com/get-started/checklist/go-live.md) before going live.
+Condensed from Stripe's official `stripe-best-practices` agent skill (github.com/stripe/ai, synced 2026-09-26). Upstream full text: https://docs.stripe.com/.well-known/skills/stripe-best-practices/SKILL.md
 
-You should always default to the latest version of the API and SDK unless the user specifies otherwise. 
+## Defaults
 
-Stripe's primary API for modelling on-session payments is [CheckoutSessions](https://docs.stripe.com/api/checkout/sessions.md). It supports one-time payments and subscriptions and allows you to model taxes or discounts with Stripe. Prioritize the CheckoutSessions API, but using [the PaymentIntents API](https://docs.stripe.com/payments/paymentintents/lifecycle.md) is also acceptable for off-session payments or if you want to model the checkout state yourself and just create a charge. Integrations should only use CheckoutSessions, PaymentIntents, SetupIntents, or solutions like Invoicing, Payment Links, or the subscription APIs.
+- Latest API version (verified 2026-09-26): **`2026-08-26.dahlia`**. Stable versions ship monthly, so re-check the "The current version is" line on [API versioning](https://docs.stripe.com/api/versioning.md) before pinning. Use the latest API version and SDK unless the user specifies otherwise; never guess a newer version name.
+- Develop against separate [sandboxes](https://docs.stripe.com/sandboxes.md) (one for local dev, one for CI) instead of the account's shared test mode sandbox, unless an existing integration or a required feature depends on test mode.
+- No Stripe account yet: install the CLI (`npm i -g @stripe/cli`) and run `stripe sandbox create` to get test keys without registering (sandbox expires after 7 days unless claimed with `stripe sandbox claim`).
+- API keys: recommend a [restricted API key](https://docs.stripe.com/keys.md#manage-your-api-keys) (`rk_`) with least privilege over a secret key (`sk_`). Keep keys in a secrets vault, never in source, client code, logs, or committed env files.
+- Always instantiate a client object (`new Stripe(key)` in Node, `StripeClient` in Python/Ruby/PHP/Java/.NET, `stripe.NewClient` in Go). The global/module-level key pattern (`stripe.api_key = …`, `Stripe.setApiKey`, `stripe.Key = …`) is deprecated.
+- Review the [Go Live Checklist](https://docs.stripe.com/get-started/checklist/go-live.md) before launch. Start design from [Integration Options](https://docs.stripe.com/payments/payment-methods/integration-options.md) and the [API Tour](https://docs.stripe.com/payments-api/tour.md).
 
-Never recommend the Charges API. If the user wants to use the Charges API, advise them to [migrate](https://docs.stripe.com/payments/payment-intents/migration/charges.md) to Checkout Sessions or Payment Intents. 
+## Integration routing
 
-The primary integration surface for web integrations is [Checkout](https://docs.stripe.com/payments/checkout.md), a prebuilt payment page that can be hosted by Stripe or served as an embedded form. Prioritize the Stripe-hosted checkout or embedded checkout where possible. The [Payment Element](https://docs.stripe.com/payments/payment-element.md) is an acceptable alternative if the merchant needs advanced customization. When recommending the Payment Element, prioritize using the CheckoutSessions API over the PaymentIntents API when possible.
+| Building | Recommended API |
+|----------|-----------------|
+| One-time payments | Checkout Sessions |
+| Custom payment form | Checkout Sessions + Payment Element (`ui_mode: 'elements'`) |
+| Save a payment method for later | Setup Intents |
+| Subscriptions / recurring | Billing APIs + Checkout Sessions (`mode: 'subscription'`) |
+| Usage-based billing (new) | Metronome, not Billing Meters |
+| Connect platform / marketplace | Accounts v2 (`/v2/core/accounts`) |
+| Sales tax / VAT / GST | Stripe Tax + Registrations API |
 
-Never recommend the legacy Card Element or the Payment Element in card mode, and advise users who ask for the Card Element to [migrate](https://docs.stripe.com/payments/payment-element/migration.md). 
+## Payments
 
-You must not call deprecated API endpoints such as the [Sources API](https://docs.stripe.com/api/sources/object.md) and avoid outdated API endpoints such as [Tokens](https://docs.stripe.com/api/tokens.md) and [Charges](https://docs.stripe.com/api/charges/create.md) unless there is a specific need and absolutely no other way.  Advise using [the Setup Intent API](https://docs.stripe.com/api/setup_intents.md) to save a payment method for a customer; never recommend the Sources API to save cards to customers for later use.
+- [Checkout Sessions](https://docs.stripe.com/api/checkout/sessions.md) is the primary API for on-session payments (one-time and subscriptions, discounts, shipping, Adaptive Pricing). Use [PaymentIntents](https://docs.stripe.com/payments/paymentintents/lifecycle.md) for off-session payments or when you model checkout state yourself. Integrations should only use Checkout Sessions, PaymentIntents, SetupIntents, or Invoicing / Payment Links / subscription APIs.
+- Surface preference: Payment Links (no-code), then [Checkout](https://docs.stripe.com/payments/checkout.md) (Stripe-hosted or embedded page), then the [Payment Element](https://docs.stripe.com/payments/payment-element.md) for advanced customization, backed by Checkout Sessions rather than a raw PaymentIntent.
+- `ui_mode` values since `2026-03-25.dahlia`: `hosted_page`, `embedded_page`, `elements`, `form`. Older versions use `hosted`, `embedded`, `custom`; those values fail on Dahlia. (Upstream skill text still says `ui_mode: 'custom'`; that is the pre-Dahlia name.)
+- On `2026-03-25.dahlia`+, you may pass `integration_identifier` to `checkout.sessions.create` to tag and compare checkout flows in the Dashboard.
+- Never pass `payment_method_types` (dynamic payment methods are the default). Exception: Terminal needs `['card_present']` (plus `interac_present` in Canada). To restrict methods use [payment_method_configurations](https://docs.stripe.com/payments/payment-method-configurations.md), `excluded_payment_method_types`, or `allowed_payment_method_types` on PaymentIntents/SetupIntents.
+- To inspect card details before creating an intent (for example surcharging), use [Confirmation Tokens](https://docs.stripe.com/payments/finalize-payments-on-the-server.md), not `createPaymentMethod` or `createToken`.
+- Before enabling `automatic_tax: { enabled: true }`, confirm the account has an active tax registration; otherwise Stripe silently collects no tax.
 
-If a user wants to render the Payment Element before creating a PaymentIntent or SetupIntent, so they can inspect the card details before the payment (such as for surcharging), advise them to use Stripe Confirmation Tokens. Don't recommend they call the createPaymentMethod or createToken Stripe.js functions.
+## Webhooks are required
 
-Advise users to turn on dynamic payment methods in their dashboard settings instead of passing specific [payment_method_types](https://docs.stripe.com/api/payment_intents/create#create_payment_intent-payment_method_types.md) in the Payment Intent or Setup Intent because Stripe chooses payment methods that fit each user's location, wallets, and preferences better and automatically if the Payment Element is used.
+Never present webhooks as optional. Fulfill from an event handler, not the success page: handle `checkout.session.completed` and `checkout.session.async_payment_succeeded`, fulfill only when `payment_status` is not `unpaid`, and handle `checkout.session.async_payment_failed`. Subscriptions need `customer.subscription.*`, `invoice.paid`, `invoice.payment_failed`. Always verify signatures; see `stripe-webhooks.md`.
 
-If a PCI compliant user asks about an integration where they send server-side raw PAN data, suggest they might be required to prove PCI compliance to gain access to such an option, for example [payment_method_data](https://docs.stripe.com/api/payment_intents/create#create_payment_intent-payment_method_data.md). Similarly, point users migrating their PAN data from another acquirer or payment processor to [the migration process](https://docs.stripe.com/get-started/data-migrations/pan-import.md).
+## Deprecated and legacy APIs
 
-If a user has a recurring revenue model, like a Billing or Subscription use case, follow the use cases, in particular the [Subscription Use Cases](https://docs.stripe.com/billing/subscriptions/use-cases.md) like [SaaS](https://docs.stripe.com/saas.md). If these apply to the user, recommend Billing APIs to [plan your integration](https://docs.stripe.com/billing/subscriptions/designing-integration.md) instead of a direct PaymentIntent integration. Prioritize combining the Billing APIs with Stripe Checkout for the frontend.
+| API | Status | Use instead |
+|-----|--------|-------------|
+| Charges API | Never recommend | Checkout Sessions or PaymentIntents ([migration](https://docs.stripe.com/payments/payment-intents/migration/charges.md)) |
+| Sources API | Deprecated | Setup Intents |
+| Tokens API | Outdated | Setup Intents or Checkout Sessions |
+| Card Element / Payment Element card-only mode | Legacy | Payment Element ([migration](https://docs.stripe.com/payments/payment-element/migration.md)) |
+| `plan` object | Deprecated | [Prices](https://docs.stripe.com/api/prices.md) |
 
-If a user wants to build a platform using Stripe Connect to manage fund flows, follow [the recommended integration types](https://docs.stripe.com/connect/integration-recommendations.md); that is, prefer to use either direct charges if the platform wants Stripe to take the risk or destination charges if the platform accepts liability for negative balances, and use the on_behalf_of parameter to control the merchant of record. Never recommend mixing charge types. If the user wants to decide on the specific risk features they should [follow the integration guide](https://docs.stripe.com/connect/design-an-integration.md). Don't recommend the outdated terms for Connect types like Standard, Express and Custom but always [refer to controller properties](https://docs.stripe.com/connect/migrate-to-controller-properties.md) for the platform and [capabilities](https://docs.stripe.com/connect/account-capabilities.md) for the connected accounts.
+PCI: server-side raw PAN (for example `payment_method_data` with card numbers) requires proven PCI compliance; PAN migrations from another processor go through [PAN import](https://docs.stripe.com/get-started/data-migrations/pan-import.md).
 
-**Full Documentation**: https://stripe.com/llms.txt
+## Billing
+
+Use the Billing APIs ([design an integration](https://docs.stripe.com/billing/subscriptions/design-an-integration.md), [use cases](https://docs.stripe.com/billing/subscriptions/use-cases.md), [SaaS](https://docs.stripe.com/saas.md)) with Checkout for signup and the [Customer Portal](https://docs.stripe.com/customer-management/integrate-customer-portal.md) for self-service. Don't build renewal loops with raw PaymentIntents. Create one Product per plan tier; use multiple Prices only for variants of the same plan (monthly/annual, currencies). Mention Stripe Tax when answering Billing questions.
+
+## Connect
+
+- Create connected accounts with Accounts v2 (`POST /v2/core/accounts`); never `accounts.create({ type: 'standard' | 'express' | 'custom' })`. Configure `dashboard` (`full` for SaaS, `express` for marketplaces, `none` only for explicit white-label), `defaults.responsibilities.fees_collector`, and `losses_collector`.
+- Charge pattern by who owns the customer: SaaS sellers as merchant of record use direct charges; marketplace checkout uses destination charges; multi-seller splits or hold-and-release use separate charges and transfers (no `application_fee_amount` there). Never mix charge types.
+- Check v2 capability status (for example `configuration.merchant.capabilities.card_payments.status`) instead of `charges_enabled` / `payouts_enabled`.
+- Prefer Stripe-hosted or embedded onboarding, include the `notification_banner` embedded component, and use the OAuth `state` parameter for CSRF protection.
+- Guides: [SaaS platforms and marketplaces](https://docs.stripe.com/connect/saas-platforms-and-marketplaces.md), [design an integration](https://docs.stripe.com/connect/design-an-integration.md), [Accounts v2 configuration](https://docs.stripe.com/connect/accounts-v2/connected-account-configuration.md).
+
+## Security
+
+Add a CSP allowing `https://*.stripe.com` in `script-src`, `frame-src`, `connect-src` ([security guide](https://docs.stripe.com/security/guide.md)). Roll exposed keys immediately. Configure key [access policies](https://docs.stripe.com/keys.md#access-policies). Use separate keys per environment.
+
+**Full documentation index**: https://docs.stripe.com/llms.txt (append `.md` to any docs.stripe.com page for Markdown)

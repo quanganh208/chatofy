@@ -1,102 +1,25 @@
-# 3D Design Workflow
+# 3D design workflow
 
-Create immersive interactive 3D designs with Three.js.
+Interactive 3D and WebGL experiences with Three.js. When `ak:threejs` is installed,
+it owns Three.js APIs, shaders and performance details; this file covers the design side.
 
-## Prerequisites
-- Activate `ak:ui-ux-pro-max` skill first
-- Activate `ak:threejs` skill for 3D and WebGL expertise
-- Have `ak:ai-multimodal` skill ready for asset generation
+1. **Brief.** Write the brief from `../SKILL.md`. Decide what the 3D element means in
+   the content (the product, a data shape, a place). 3D without meaning is decoration.
+2. **Plan** in the project's plan location: scene, camera behavior, interaction, how
+   the HTML UI layers over the canvas, and the fallback.
+3. **Build the HTML layer first** so the page is complete and readable without WebGL.
+4. **Build the scene.** Scene setup, materials and lighting in the brief's palette,
+   custom shaders or particles only where they serve the idea, cinematic but calm
+   camera motion, post-processing within a performance budget.
+5. **Assets.** Textures, environment maps and sprites via `asset-pipeline.md`;
+   compress textures (KTX2/Basis where supported), use power-of-two sizes.
+6. **Verify.** 60fps on a mid-range laptop and acceptable frame rate on a mid-range
+   phone; responsive canvas; reduced-motion and no-WebGL fallbacks (static image or
+   poster frame); no memory growth when navigating away. Run `self-critique-loop.md`
+   for the page around the canvas.
+7. **Report** measured frame rates, fallbacks and unverified devices.
 
-## Initial Research
-Run `ak:ui-ux-pro-max` searches:
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/ak-ui-ux-pro-max/scripts/search.py "<product-type>" --domain product
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/ak-ui-ux-pro-max/scripts/search.py "immersive 3d" --domain style
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/ak-ui-ux-pro-max/scripts/search.py "animation" --domain ux
-```
-
-## Workflow Steps
-
-### 1. Create Implementation Plan
-Use `ui-ux-designer` + `researcher` subagents:
-- Create plan directory (use `## Naming` pattern)
-- Write `plan.md` (<80 lines overview)
-- Add `phase-XX-name.md` files
-- Keep research reports under 150 lines
-
-### 2. Implement with Three.js
-Use `ui-ux-designer` subagent to build:
-- Three.js scene setup
-- Custom GLSL shaders
-- GPU particle systems
-- Cinematic camera controls
-- Post-processing effects
-- Interactive elements
-
-### 3. Generate 3D Assets
-Use `ak:ai-multimodal` skill for:
-- Textures and materials
-- Skyboxes and environment maps
-- Particle sprites
-- Video backgrounds
-
-Use `ak:media-processing` skill for:
-- Texture optimization for WebGL
-- Normal/height map generation
-- Sprite sheet creation
-- Background removal
-- Asset optimization
-
-### 4. Verify & Report
-- Test across devices
-- Optimize for 60fps
-- Report to user
-- Surface the review result and continue already-authorized work, preserving user-selected design preferences. Ask only when a material design or scope decision is unresolved, or a destructive action needs authorization not already given.
-
-### 5. Document
-Update the owning design documentation for durable changes (`./docs/design-guidelines.md` when established), including applicable:
-- 3D design patterns
-- Shader libraries
-- Reusable components
-
-## Technical Requirements
-
-### Three.js Implementation
-- Proper scene optimization
-- Efficient draw calls
-- LOD (Level of Detail) where needed
-- Responsive canvas behavior
-- Memory management
-
-### Shader Development
-- Custom vertex shaders
-- Custom fragment shaders
-- Uniform management
-- Performance optimization
-
-### Particle Systems
-- GPU-accelerated rendering
-- Efficient buffer geometry
-- Point sprite optimization
-
-### Post-Processing
-- Render pipeline setup
-- Effect composition
-- Performance budgeting
-
-## Implementation Stack
-- Three.js - 3D rendering
-- GLSL - Custom shaders
-- HTML/CSS/JS - UI integration
-- WebGL - GPU graphics
-
-## Performance Targets
-- 60fps minimum
-- < 100ms initial load
-- Responsive to viewport
-- Mobile-friendly fallbacks
-
-## Related
-- `animejs.md` - UI animation patterns
-- `technical-optimization.md` - Performance tips
-- `asset-generation.md` - Asset creation
+Technical checklist: efficient draw calls and instancing, level of detail where
+needed, dispose geometries/materials/textures on unmount, pause rendering when the
+canvas is off-screen or the tab is hidden, cap device pixel ratio at 2, lazy-load the
+3D bundle after the first paint.

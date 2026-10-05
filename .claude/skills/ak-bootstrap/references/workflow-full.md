@@ -24,7 +24,7 @@ Present decision-relevant findings; continue when the accepted contract resolves
 ## Step 3: Tech Stack
 
 1. Ask user for preferred tech stack. If provided, skip to step 4.
-2. Use `planner` + multiple `researcher` subagents in parallel to find best-fit stack
+2. Use multiple `researcher` subagents in parallel to find best-fit stack
 3. Present 2-3 options with pros/cons via `ask_user capability`
 4. Write approved tech stack to `./docs` directory
 
@@ -46,17 +46,10 @@ Reuse the accepted design direction; resolve any material outstanding design cho
 
 **Image tools:** `ak:ai-multimodal` for generation/analysis, `imagemagick` for crop/resize, background removal tool as needed.
 
-## Step 5: Planning
-
-Activate **ak:plan** skill: `/ak:plan --hard <requirements>`
-- Planner creates directory using `## Naming` pattern
-- Overview at `plan.md` (<80 lines) + `phase-XX-*.md` files
-- Present pros/cons of plan
-
-Continue into implementation when the plan satisfies the accepted contract; ask only about material scope changes.
-
-## Step 6: Implementation → Final Report
+## Step 5: Implementation → Done
 
 Load `references/shared-phases.md` for remaining phases.
 
-Activate **ak:cook** skill: `/ak:cook <plan-path>` (continue within accepted scope through tests and review)
+Activate **ak:cook** skill: `/ak:cook <brainstorm contract>`
+- No separate planning phase; cook sizes its own implementation plan from the contract
+- Continue within accepted scope through tests and review; ask only about material scope changes

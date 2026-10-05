@@ -61,3 +61,40 @@ This restriction applies only when real user Chrome state is required. For profi
 - Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
 
 **Do not** start implementing fixes.
+
+## Optional semantic regression experiment
+
+The ordinary UI workflow above remains unchanged. Only for a requested shadow
+experiment with an explicit user `ui-regression` consumer grant, use
+`ak eval ui capture.json --mode shadow --json`. Default mode is `off`; ambient
+credentials do not authorize inference. The command consumes reviewed compact
+text from already-observed DOM, accessibility, computed layout, console/network,
+viewport and journey evidence. Missing surfaces are `null`, observed empty
+surfaces are `[]`. Never paste HTML, cookies, input values, raw console payloads,
+URLs with credentials, screenshots or video. Use local opaque journey IDs.
+An optional `vision_description` may reuse a description from the existing
+native-vision/multimodal investigation; do not perform extra vision extraction
+solely to feed the experiment. Review all text for private business/user data;
+redaction is defense in depth, not permission to upload it.
+
+Keep browser and accessibility outcomes in `deterministic` and preserve them in
+the final report. A semantic probability never converts failures to passes or
+cancels existing investigations. Save assertion results with `--output` to a new
+local file; add an earlier report as `previous` only for the same journey/device
+and observed surfaces. Comparable completed observations also require the same
+assertion version, provider and model. Low probabilities and downward shifts
+are signals, not confirmed regressions.
+
+Example: `error-recovery` becomes an anomaly after a failed checkout request.
+Follow the report's hypothetical handoff: reproduce the checkout with the
+existing browser workflow, inspect visible retry controls and accessibility
+announcements, then inspect an existing screenshot with native vision or the
+installed multimodal capability when visual evidence is needed. Record whether
+that investigation confirms or rejects the signal. The command never launches
+these calls, skips screenshots, or changes the current UI test result.
+
+Use `ak eval ui-benchmark corpus.json --json` for offline independently labeled
+journeys. Synthetic protocol fixtures test integration, not model effectiveness.
+Separate useful/false/missed signals and unknown coverage from recorded baseline
+versus matched semantic measurements; unknown costs and missing call counts
+remain unknown. Never call hypothetical investigation counts actual savings.

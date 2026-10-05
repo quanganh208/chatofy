@@ -7,9 +7,10 @@ Production-proven patterns for Vietnamese bank transfer payments via SePay/VietQ
 ### Required Environment Variables
 ```bash
 # Core API
-SEPAY_API_TOKEN=xxx              # Bearer token for SePay API
-SEPAY_WEBHOOK_API_KEY=xxx        # API key for webhook authentication
-SEPAY_API_URL=https://my.sepay.vn/userapi  # Base URL (optional)
+SEPAY_API_TOKEN=xxx              # Bearer token for SePay API (reconciliation)
+SEPAY_WEBHOOK_SECRET=xxx         # HMAC-SHA256 secret (recommended webhook auth)
+SEPAY_WEBHOOK_API_KEY=xxx        # API key, if the webhook uses API Key auth instead
+SEPAY_API_URL=https://userapi.sepay.vn/v2  # API v2 base (legacy v1: https://my.sepay.vn/userapi)
 
 # Bank Account Details
 SEPAY_ACCOUNT_NUMBER=0123456789  # Bank account for transfers
@@ -67,7 +68,7 @@ export function generateVietQRUrl(
     des: content,
   });
 
-  return `https://qr.sepay.vn/img?${params.toString()}`;
+  return `https://vietqr.app/img?${params.toString()}`; // legacy host qr.sepay.vn/img still works
 }
 ```
 
@@ -79,7 +80,7 @@ const qrUrl = generateVietQRUrl(
   2450000,
   `CLAUDEKIT ${orderId}`
 );
-// Returns: https://qr.sepay.vn/img?acc=0123456789&bank=Vietcombank&amount=2450000&des=CLAUDEKIT+uuid
+// Returns: https://vietqr.app/img?acc=0123456789&bank=Vietcombank&amount=2450000&des=CLAUDEKIT+uuid
 ```
 
 ## Checkout API Implementation
@@ -230,48 +231,48 @@ export async function POST(request: Request) {
 ## Webhook Handling
 
 ### Webhook Authentication (Timing-Safe)
+
+SePay sends `X-SePay-Signature: sha256={hex}` + `X-SePay-Timestamp` in HMAC-SHA256 mode (recommended) and `Authorization: Apikey {key}` in API Key mode. `Bearer` only appears in OAuth 2.0 mode, carrying a token issued by your own token endpoint, so never accept the API key as a Bearer token.
+
 ```typescript
 // app/api/webhooks/sepay/route.ts
-import { timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 
-function verifyWebhookAuth(request: Request): boolean {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader) return false;
+function safeEqual(a: string, b: string): boolean {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
 
-  const expectedKey = process.env.SEPAY_WEBHOOK_API_KEY!;
-
-  // Support both "Bearer" and "Apikey" formats
-  let providedKey: string;
-  if (authHeader.startsWith('Bearer ')) {
-    providedKey = authHeader.slice(7);
-  } else if (authHeader.startsWith('Apikey ')) {
-    providedKey = authHeader.slice(7);
-  } else {
-    return false;
+function verifyWebhookAuth(request: Request, rawBody: string): boolean {
+  const secret = process.env.SEPAY_WEBHOOK_SECRET;
+  if (secret) {
+    const signature = request.headers.get('X-SePay-Signature') ?? '';
+    const timestamp = Number(request.headers.get('X-SePay-Timestamp') ?? 0);
+    if (Math.abs(Date.now() / 1000 - timestamp) > 300) return false; // replay window
+    const expected = 'sha256=' + createHmac('sha256', secret)
+      .update(`${timestamp}.${rawBody}`)
+      .digest('hex');
+    return safeEqual(signature, expected);
   }
 
-  // Timing-safe comparison to prevent timing attacks
-  try {
-    const expected = Buffer.from(expectedKey);
-    const provided = Buffer.from(providedKey);
-    if (expected.length !== provided.length) return false;
-    return timingSafeEqual(expected, provided);
-  } catch {
-    return false;
-  }
+  const apiKey = process.env.SEPAY_WEBHOOK_API_KEY;
+  const authHeader = request.headers.get('Authorization') ?? '';
+  return Boolean(apiKey) && safeEqual(authHeader, `Apikey ${apiKey}`);
 }
 
 export async function POST(request: Request) {
-  // 1. Verify authentication
-  if (!verifyWebhookAuth(request)) {
+  // 1. Verify authentication against the raw body (HMAC signs raw bytes)
+  const rawBody = await request.text();
+  if (!verifyWebhookAuth(request, rawBody)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const payload = await request.json();
+  const payload = JSON.parse(rawBody);
 
-  // 2. Extract event ID for idempotency
-  const eventId = String(payload.id || payload.transaction_id || Date.now());
+  // 2. Extract event ID for idempotency (same id across retries and replays)
+  const eventId = String(payload.id);
 
   // 3. Check for duplicate
   const existingEvent = await db.select()
@@ -312,7 +313,7 @@ export async function POST(request: Request) {
       .where(eq(webhookEvents.eventId, eventId));
   }
 
-  // Always return 200 to prevent SePay retries
+  // SePay only counts HTTP 200/201 with exactly {"success": true} (within 30s) as delivered
   return NextResponse.json({ success: true });
 }
 ```
@@ -320,18 +321,18 @@ export async function POST(request: Request) {
 ### Webhook Payload Structure
 ```typescript
 interface SepayWebhookPayload {
-  id: number;                    // Transaction ID (unique key)
+  id: number;                    // Transaction ID (unique key, stable across retries)
   gateway: string;               // Bank name (e.g., "Vietcombank")
-  transactionDate: string;       // "2025-01-07 10:30:00"
+  transactionDate: string;       // "2025-01-07 10:30:00" (Vietnam time)
   accountNumber: string;         // Account number
-  code?: string;                 // Optional payment code
-  content: string;               // Transaction memo - CRITICAL for matching
+  code: string | null;           // Payment code from your code-structure config, null if none
+  content: string;               // Raw transfer memo - CRITICAL for matching
   transferType: 'in' | 'out';    // Only process 'in'
-  transferAmount: number;        // Amount in VND
-  accumulated: number;           // Balance after transaction
-  subAccount?: string;
-  referenceCode?: string;
-  description?: string;
+  transferAmount: number;        // Integer VND, always positive
+  accumulated: number;           // Balance after transaction (0 if bank doesn't report)
+  subAccount: string;            // Matched VA, "" if none
+  referenceCode: string;         // Bank reference, may be ""
+  description: string;           // Full bank description, may be ""
 }
 ```
 
@@ -750,9 +751,10 @@ export function generateSepayInvoice(order: Order, transaction: TransactionInfo)
 
 ## Error Handling Patterns
 
-### Always Return 200 to SePay
+### Always Acknowledge Authenticated Webhooks
 ```typescript
-// Webhook must always return 200 to prevent retry loop
+// Return 200 + {"success": true} once the event is stored; 202/204 or another body count as failure.
+// Business errors are handled internally (flag for review), not via SePay retries.
 export async function POST(request: Request) {
   try {
     // ... processing
@@ -762,7 +764,7 @@ export async function POST(request: Request) {
     await logWebhookError(error);
   }
 
-  // ALWAYS return 200
+  // ALWAYS return 200 with the exact success body
   return NextResponse.json({ success: true });
 }
 ```
@@ -840,18 +842,24 @@ describe('parseOrderIdFromContent', () => {
 
 BASE_URL="http://localhost:3000/api/webhooks/sepay"
 API_KEY="your-test-key"
+SECRET="your-test-hmac-secret"
 
-# Test 1: Valid Bearer token
-echo "Test 1: Bearer token auth"
+# Test 1: HMAC-SHA256 signature (sha256=hex(HMAC(secret, "{timestamp}.{body}")))
+echo "Test 1: HMAC-SHA256 auth"
+BODY='{"id":12345,"content":"CLAUDEKIT test-uuid","transferAmount":2450000,"transferType":"in"}'
+TS=$(date +%s)
+SIG=$(printf '%s.%s' "$TS" "$BODY" | openssl dgst -sha256 -hmac "$SECRET" | sed 's/^.* //')
 curl -X POST "$BASE_URL" \
-  -H "Authorization: Bearer $API_KEY" \
+  -H "X-SePay-Signature: sha256=$SIG" \
+  -H "X-SePay-Timestamp: $TS" \
   -H "Content-Type: application/json" \
-  -d '{"id":12345,"content":"CLAUDEKIT test-uuid","transferAmount":2450000,"transferType":"in"}'
+  -d "$BODY"
 
-# Test 2: Valid Apikey format
+# Test 2: Valid Apikey format (API Key mode)
 echo "Test 2: Apikey auth"
 curl -X POST "$BASE_URL" \
   -H "Authorization: Apikey $API_KEY" \
+  -H "Content-Type: application/json" \
   -d '{"id":12346,"content":"CLAUDEKIT test-uuid","transferAmount":2450000,"transferType":"in"}'
 
 # Test 3: Missing auth (should return 401)
@@ -862,7 +870,7 @@ curl -X POST "$BASE_URL" \
 # Test 4: Invalid key (should return 401)
 echo "Test 4: Invalid key (expect 401)"
 curl -X POST "$BASE_URL" \
-  -H "Authorization: Bearer wrong-key" \
+  -H "Authorization: Apikey wrong-key" \
   -d '{"id":12348,"content":"test","transferAmount":100000,"transferType":"in"}'
 ```
 
@@ -907,8 +915,10 @@ CREATE INDEX idx_orders_payment_id ON orders (payment_id)
 - [ ] Environment variables configured
 - [ ] Bank account verified and active
 - [ ] Webhook endpoint publicly accessible (HTTPS)
-- [ ] Webhook API key set and verified
+- [ ] Webhook auth set (HMAC-SHA256 preferred, else API Key) and verified
 - [ ] Timing-safe auth comparison implemented
+- [ ] SePay outbound IPs allowlisted (developer.sepay.vn/en/dia-chi-ip)
+- [ ] Reconciliation cron (API v2) covers webhooks lost after the ~33 min retry window
 - [ ] Idempotency handling tested with duplicate webhooks
 - [ ] UUID parsing tested with real Vietnamese bank memos
 - [ ] Amount validation (underpayment rejection) tested
@@ -929,7 +939,7 @@ CREATE INDEX idx_orders_payment_id ON orders (payment_id)
 2. **Rejecting overpayments** - Should accept; customer paid more
 3. **Blocking webhook on non-critical failures** - Wrap in try-catch, continue
 4. **Not using timing-safe comparison** - Vulnerable to timing attacks
-5. **Returning non-200 on error** - Causes SePay retry loops
+5. **Returning anything but 200/201 + `{"success": true}`** - Causes SePay retries (up to 8 attempts over ~33 min)
 6. **Using raw exchange rates without fallback** - API can fail
 7. **Applying discounts in wrong order** - Always coupon first, then referral
 8. **Not logging matchMethod** - Hard to debug failed matches

@@ -40,6 +40,10 @@ Place at the END of the file.
 | `llms.txt` | Curated index with links |
 | `llms-full.txt` | Complete content inlined (no external URLs needed) |
 
+## Markdown Page Variants
+
+The proposal also asks pages useful to LLMs to offer a clean Markdown version at the same URL with `.md` appended; URLs without a file name append `index.html.md`. Link these variants from `llms.txt` so agents fetch Markdown instead of rendered HTML.
+
 ## Writing Guidelines
 
 - Use concise, clear language

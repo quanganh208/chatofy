@@ -71,7 +71,14 @@ class TestMigrationManager:
         assert manager.connection_string == "mongodb://localhost"
         assert Path(temp_migrations_dir).exists()
 
-    @patch('db_migrate.MongoClient')
+    # pymongo is an optional dependency (db_migrate.py imports it inside a
+    # try/except, binding MONGO_AVAILABLE=True only when it's installed), so
+    # in an environment without it there is no `MongoClient` attribute to
+    # patch without create=True, and MONGO_AVAILABLE must be forced True so
+    # connect() takes the mongodb branch instead of reporting "not
+    # installed" — same pattern as the psycopg2 tests below.
+    @patch('db_migrate.MONGO_AVAILABLE', True)
+    @patch('db_migrate.MongoClient', create=True)
     def test_connect_mongodb(self, mock_client_class, temp_migrations_dir, mock_mongo_client):
         """Test MongoDB connection."""
         mock_client, mock_db = mock_mongo_client
@@ -84,7 +91,14 @@ class TestMigrationManager:
         assert manager.client == mock_client
         assert manager.db == mock_db
 
-    @patch('db_migrate.psycopg2')
+    # psycopg2 is an optional dependency (db_migrate.py imports it inside a
+    # try/except and only binds POSTGRES_AVAILABLE=True when it's installed),
+    # so the module has no `psycopg2` attribute in an environment without it.
+    # `create=True` lets patch() add the attribute for the duration of the
+    # test, and POSTGRES_AVAILABLE must also be forced True so connect()
+    # takes the postgres branch instead of reporting "not installed".
+    @patch('db_migrate.POSTGRES_AVAILABLE', True)
+    @patch('db_migrate.psycopg2', create=True)
     def test_connect_postgres(self, mock_psycopg2, temp_migrations_dir, mock_postgres_conn):
         """Test PostgreSQL connection."""
         mock_conn, mock_cursor = mock_postgres_conn
@@ -159,7 +173,8 @@ class TestMigrationManager:
             assert pending[0].id == "20250101120000"
             assert pending[0].name == "test_migration"
 
-    @patch('db_migrate.MongoClient')
+    @patch('db_migrate.MONGO_AVAILABLE', True)
+    @patch('db_migrate.MongoClient', create=True)
     def test_apply_mongodb_migration(self, mock_client_class, temp_migrations_dir, mock_mongo_client):
         """Test applying MongoDB migration."""
         mock_client, mock_db = mock_mongo_client
@@ -205,7 +220,8 @@ class TestMigrationManager:
 
         assert result is True
 
-    @patch('db_migrate.psycopg2')
+    @patch('db_migrate.POSTGRES_AVAILABLE', True)
+    @patch('db_migrate.psycopg2', create=True)
     def test_rollback_postgres_migration(self, mock_psycopg2, temp_migrations_dir, mock_postgres_conn):
         """Test rolling back PostgreSQL migration."""
         mock_conn, mock_cursor = mock_postgres_conn

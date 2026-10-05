@@ -153,6 +153,12 @@ call.
 | `ak doctor` | `read-only` | Run health checks on the AgentKit installation |
 | `ak eval decision` | `mutating` | Compare an explicitly enabled semantic judgment with a legacy decision |
 | `ak eval run` | `mutating` | Execute repeated isolated evaluation trials |
+| `ak eval triage` | `mutating` | Compare shadow finding triage with authoritative review decisions |
+| `ak eval triage-benchmark` | `read-only` | Evaluate frozen finding triage against local verified labels |
+| `ak eval ui` | `mutating` | Report opt-in shadow UI regression signals |
+| `ak eval ui-benchmark` | `read-only` | Measure independently labeled UI signals offline |
+| `ak eval workflow` | `mutating` | Inspect a bounded scenario, fix or debug decision without executing it |
+| `ak eval workflow-benchmark` | `read-only` | Replay labeled workflow decisions offline |
 | `ak feedback` | `diagnostic` | Send or export product feedback |
 | `ak insights agents` | `read-only` | Inspect agents effectiveness |
 | `ak insights collect` | `mutating` | Collect native runtime observations |
@@ -177,7 +183,10 @@ call.
 | `ak sessions show` | `read-only` | Show paginated session messages |
 | `ak sessions stats` | `read-only` | Aggregate local session analytics |
 | `ak sessions tail` | `read-only` | Stream appended session messages |
-| `ak usage limits` | `read-only` | Show trailing 5h and week token usage per provider |
+| `ak test benchmark` | `mutating` | Execute trusted regression corpus in isolated temporary workspaces |
+| `ak test classify-e2e` | `mutating` | Advise on changed E2E scenario classes without changing scheduling |
+| `ak test optimize` | `mutating` | Explain impact-selected checks, optionally execute trusted commands |
+| `ak usage limits` | `read-only` | Show usage-limit windows per provider |
 | `ak versions` | `read-only` | List local versions for ak, kits, and skills |
 | `ak watch dry-run` | `read-only` | Preview what `ak watch start` would post without actually posting |
 | `ak watch start` | `diagnostic` | Start watching a repository for new issues |
@@ -214,11 +223,23 @@ call.
 | `ak orchestrate start` | `mutating` | Launch a new orchestrated run from a job graph file |
 | `ak orchestrate status` | `mutating` | Report a run's current lifecycle state |
 | `ak orchestrate stop` | `mutating` | Terminate a run's live jobs (TERM, grace period, then KILL) |
+| `ak secrets approve` | `mutating` | Answer the secret requests agents left waiting |
+| `ak secrets audit` | `mutating` | Show the secrets access ledger and matching grants |
 | `ak secrets delete` | `mutating` | Delete a stored secret |
+| `ak secrets export` | `read-only` | Emit a versioned inventory of every stored secret |
 | `ak secrets get` | `read-only` | Show a secret's metadata, redacted by default |
+| `ak secrets grant` | `mutating` | Let a fingerprinted agent binary read a secret |
+| `ak secrets grants` | `mutating` | List recorded agent grants |
 | `ak secrets import-env` | `mutating` | Bulk-import secrets from a dotenv file |
 | `ak secrets list` | `read-only` | List stored secret refs and metadata |
+| `ak secrets recovery accept-rollback` | `mutating` | Accept a vault that is older than the last one this host saw |
+| `ak secrets recovery add` | `mutating` | Add another recovery recipient to the vault |
+| `ak secrets recovery init` | `mutating` | Create the vault and print its first recovery key once |
+| `ak secrets recovery list` | `read-only` | List the vault's recovery recipients |
+| `ak secrets recovery remove` | `mutating` | Remove a recovery recipient from the vault |
+| `ak secrets revoke` | `mutating` | Remove an agent's grants on a secret, or all of them |
 | `ak secrets rotate` | `mutating` | Replace an existing secret's value |
 | `ak secrets set` | `mutating` | Store a secret value |
+| `ak secrets trust` | `mutating` | Show or re-pin a coding agent's trusted binary |
 | `ak whoami` | `read-only` | Show current AgentKit login and licensed kits |
 

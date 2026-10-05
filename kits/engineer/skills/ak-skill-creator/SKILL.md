@@ -9,7 +9,7 @@ license: Apache-2.0 and MIT; see LICENSE.txt and LICENSE-MIT.txt
 argument-hint: "<create|update|audit|optimize> [skill-name|path|kit|--all] [--kit <kit>|--project|--user] [--long-horizon] [--apply] [--from-audit <report>] [--advice]"
 metadata:
   author: agentkit
-  version: "5.5.0"
+  version: "5.7.0"
 ---
 
 # Skill Creator
@@ -24,8 +24,9 @@ behavior and user-owned files. Load only the resources needed for the selected t
 |---|---|---|
 | `create <name or description> [--kit <kit>\|--project\|--user] [--long-horizon]` | `references/skill-creation-workflow.md`: resolve target, capture intent, author and evaluate | New skill |
 | `update <path> <change>` | Inspect the existing skill and affected resources; follow `references/writing-effective-instructions.md` and `references/testing-and-iteration.md`; preserve accepted behavior and bump `metadata.version` | Requested changes |
-| `audit [path\|kit\|--all] [--target-model <model>]` | `references/prompt-cruft-patterns.md`: inventory, provenance, lint and semantic review with proposed hunks | Report only |
-| `optimize <path> [--apply] [--from-audit <report>]` | Same audit reference: classify findings, compare original and scratch candidate, preserve justified constraints | Proposed diff; apply only with `--apply` |
+| `semantic-eval` (explicit optional diagnostic) | `references/semantic-routing-evaluation.md`: snapshot, replay or consented live batch diagnostics; freeze before holdout | Evaluation artifacts |
+| `audit [path\|kit\|--all] [--target-model <model>]` | `references/prompt-cruft-patterns.md`: inventory, measured local sessions (`references/session-usage-analysis.md`), provenance, lint and semantic review with proposed hunks | Report only |
+| `optimize <path> [--apply] [--from-audit <report>]` | Same audit reference: classify lint and session findings, compare original and scratch candidate, preserve justified constraints and quality | Proposed diff; apply only with `--apply` |
 
 Resolve scope through `references/agentkit-kit-skill-contract.md`: default to the
 current project, kit scope only inside AgentKit, user scope only on request.
@@ -69,7 +70,7 @@ exemption for a real constraint; heuristic findings are not deletion instruction
 
 `references/testing-and-iteration.md` owns comparisons, holdout and completion
 evidence; `references/evaluation-tools.md` owns executable records and observed cost.
-Audit ends with findings, retained constraints and proposed changes. Optimize ends
+Audit ends with session evidence, findings, retained constraints and proposed changes. Optimize ends
 with the diff or authorized application and comparison results. Do not repeat passed
 checks without new changes, failures or unresolved risk.
 
@@ -100,7 +101,8 @@ configuration are protected by that mode's scope contract.
 
 Use `scripts/init_skill.py <name> --path <dir> [--kit <kit>]` for a new skeleton.
 `scripts/eval_skill.py` validates cases, grades existing artifacts and summarizes
-observations; it does not invoke providers. For packaging, follow the distribution
+observations; it does not invoke providers. `scripts/session_usage.py` measures a skill's
+past invocations in local transcripts without printing their content. For packaging, follow the distribution
 guide's inspection steps and `scripts/package_skill.py`. Script regression tests:
 
 ```bash

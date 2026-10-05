@@ -1,9 +1,10 @@
-# Auto Workflow (`--auto`) — Explicit Opt-In
+# Auto Workflow (`--auto`) — Default
 
-**Continuation:** Proceed automatically within scope; resolve material design decisions only if still missing.
+**Continuation:** Proceed automatically within scope; decide remaining design choices from the prompt, project context and remembered preferences, and record them as assumptions.
 
-The opening brainstorm contract in the parent skill is already satisfied;
-explicit auto mode may proceed without a routine approval pause.
+The opening brainstorm contract in the parent skill is already satisfied
+(through `ak:advise` when `--ask` was passed); auto mode proceeds without a
+routine approval pause and stops only at an authorization boundary.
 
 ## Step 1: Research
 
@@ -15,7 +16,7 @@ No user gate — proceed automatically.
 
 ## Step 2: Tech Stack
 
-1. Use `planner` + multiple `researcher` subagents in parallel for best-fit stack
+1. Use multiple `researcher` subagents in parallel for best-fit stack
 2. Write tech stack to `./docs` directory
 
 No user gate — auto-select best option.
@@ -31,24 +32,16 @@ No user gate — auto-select best option.
 3. If no logo provided: generate with `ak:ai-multimodal` skill
 4. Screenshot wireframes with `ak:agent-browser` -> save to `./docs/wireframes/`
 
-Resolve material design gaps; reuse an accepted direction without another approval.
+Decide remaining design gaps from the contract and record them as assumptions; reuse an accepted direction without another approval.
 
 **Image tools:** `ak:ai-multimodal` for generation/analysis, `imagemagick` for crop/resize, background removal tool as needed.
 
-## Step 4: Planning
-
-Activate **ak:plan** skill: `/ak:plan --auto <requirements>`
-- Planning skill auto-detects complexity and picks appropriate mode
-- Creates plan directory using `## Naming` pattern
-- Overview at `plan.md` (<80 lines) + `phase-XX-*.md` files
-
-No user gate after planning in explicit auto mode — proceed to implementation.
-
-## Step 5: Implementation → Final Report
+## Step 4: Implementation → Done
 
 Load `references/shared-phases.md` for remaining phases.
 
-Activate **ak:cook** skill: `/ak:cook --auto <plan-path>`
+Activate **ak:cook** skill: `/ak:cook --auto <brainstorm contract>`
+- No separate planning phase; cook sizes its own implementation plan from the contract
 - Continues accepted scope through cook verification and review
 - Requires evidence that acceptance criteria hold and blocking findings are resolved
-- Continues through all phases unless an external blocker or material missing decision prevents progress
+- Continues through all phases unless an external blocker or an authorization boundary (missing secret, unauthorized destructive or outward-facing action, uncovered spend) prevents progress

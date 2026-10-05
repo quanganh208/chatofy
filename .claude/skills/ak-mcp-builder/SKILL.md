@@ -1,41 +1,67 @@
 ---
 name: ak:mcp-builder
-description: Build MCP servers for LLM-external service integration. Use for FastMCP (Python), MCP SDK (Node/TypeScript), tool design, API integration, resource providers.
+description: Build, upgrade, test and publish MCP servers that expose external services as tools. Covers MCP spec 2026-07-28, TypeScript SDK v2 and Python mcp v2 (MCPServer), tool design, OAuth, evaluations and the MCP Registry.
 user-invocable: true
-when_to_use: "Invoke when building an MCP server or tool surface."
+when_to_use: "Invoke when building, migrating or reviewing an MCP server or its tool surface; not for configuring MCP clients or calling existing servers."
 category: engineering
-keywords: [MCP, server, tools, integration]
+keywords: [MCP, server, tools, integration, TypeScript SDK, Python SDK, OAuth, MCP Registry]
 license: Complete terms in LICENSE.txt
 argument-hint: "[service or API to integrate]"
 metadata:
   author: agentkit
-  version: "1.1.1"
+  version: "2.0.0"
 ---
 
 # MCP server development
 
-Define the user task and first tool contract before selecting infrastructure. Inspect the
-project SDK/version and transport. Read only official protocol/API sections needed for that
-tool: authentication, input/output schema, pagination, errors/retries and transport as relevant.
-Do not require the full specification or every API endpoint before building one tool.
+Target the current protocol, **2026-07-28** (stateless core, `server/discover`, multi
+round-trip requests, extensions), unless the project pins an older client base. Read
+`references/protocol-2026-07-28.md` when the project uses v1 SDKs, deprecated features
+(sampling, roots, logging, SSE), or when behavior differs from older examples.
+
+## Start from the task
+
+Define the user task and the first tool contract (inputs, output shape, side effects,
+auth) before choosing infrastructure. Inspect the project's language, SDK version, and
+transport first; upgrade a v1 SDK only when the user asked or a required feature needs it.
+Read only the upstream API sections that tool needs.
+
+| Need | Read |
+|---|---|
+| Tool names, descriptions, schemas, errors, annotations, confirmation flows | `references/tool-design.md` |
+| TypeScript server (`@modelcontextprotocol/server` v2) | `references/typescript-server.md` |
+| Python server (`mcp` v2, `MCPServer`) | `references/python-server.md` |
+| HTTP auth, scopes, token handling, threat checklist | `references/security-and-auth.md` |
+| Spec changes, deprecations, v1 → v2 migration | `references/protocol-2026-07-28.md` |
+| Inspector checks, evaluation questions, harness | `references/evaluation-authoring.md` |
+| `server.json` and MCP Registry publishing | `references/publishing.md` |
+
+Default to stdio for local single-user servers and Streamable HTTP for remote or
+multi-user servers. Never start a new server on the deprecated HTTP+SSE transport.
 
 ## Implement one complete tool
 
-Choose the matching `reference/python-mcp-server.md` or `reference/node-mcp-server.md` and
-relevant guidance from `reference/mcp-best-practices.md`. Implement a working path from
-validated input through authorized API behavior to useful bounded output. Extract shared
-helpers only after repeated logic or a real boundary warrants them.
+Build one working path from validated input through authorized upstream calls to bounded,
+structured output before adding more tools. Use the reference example for the chosen SDK
+as the pattern: input schema with constraints, `outputSchema` with `structuredContent`,
+accurate annotations, actionable `isError` results, timeouts, and pagination. Extract
+shared helpers only once logic repeats.
 
-Use accurate readOnly/destructive/idempotent/openWorld annotations, input constraints,
-actionable errors and proper cancellation/timeouts. Match authentication and scopes to the
-actual operation; annotations are not enforcement. Test invalid/auth/pagination/retry paths
-where they apply. Detailed implementation guidance: `references/tool-implementation.md`.
+Annotations are hints, not enforcement: authorize every operation server-side. Confirm
+destructive actions through elicitation (input-required results on 2026-era connections);
+for clients that cannot prompt, refuse until an explicit confirmation argument arrives and
+treat it as the model's claim, not proof of user consent. Keep
+credentials in environment variables or OAuth tokens validated for this server; never pass
+client tokens upstream or place secrets in tool output.
 
 ## Verify and expand
 
-Compile/import-check the server, drive it with an actual client or harness, and verify the
-user task completes with correct output and effects. Use `references/evaluation-authoring.md`
-and `reference/evaluation.md` for task-based evaluations, not only tool-schema checks.
-Use bounded/harness-owned server processes; record and clean up those started for the task.
-Add further tools only to fulfill the requested workflow. Report working contracts, observed
-client outcomes and missing capabilities instead of claiming completion from registration.
+1. Type-check or import-check the server.
+2. Drive it with a real client: MCP Inspector CLI or an SDK client in tests, covering
+   valid calls, invalid input, upstream failures, pagination, and (HTTP) 401/403/Origin.
+3. For task quality, write read-only evaluation questions and run `scripts/evaluation.py`.
+4. Add tools only as the requested workflow needs them; re-run checks after each change.
+
+Start servers for testing with bounded, harness-owned processes and stop those you started.
+Report working tools, observed client results, and missing or unverified capabilities;
+registration alone is not completion. Publish to a registry only when the user asks.

@@ -1,58 +1,68 @@
-# New-design techniques
+# Aesthetic recipes
 
-Use only for new art direction or requested exploration. These recipes are optional; preserve/replicate routes follow their existing system/reference.
-
-## Design Dials
-
-Three configurable parameters that drive design decisions. Set from the preset table (or user override via chat):
-
-| Dial | Default | Range | Low (1-3) | High (8-10) |
-|------|---------|-------|-----------|-------------|
-| `DESIGN_VARIANCE` | 8 | 1-10 | Perfect symmetry, centered layouts, equal grids | Asymmetric, masonry, massive empty zones, fractional CSS Grid |
-| `MOTION_INTENSITY` | 6 | 1-10 | CSS hover/active states only | Scroll reveals, spring physics, perpetual micro-animations |
-| `VISUAL_DENSITY` | 4 | 1-10 | Art gallery — huge whitespace, expensive/clean | Cockpit — tiny paddings, 1px dividers, monospace numbers everywhere |
-
-Presets by surface (variance/motion/density): SaaS landing 7/6/4 · agency/creative 9/8/3 · premium consumer 7/6/3 · designer portfolio 8/7/3 · dev portfolio 6/5/4 · editorial 6/4/3 · dashboard/product UI 3/2/6 · public sector 3/2/5. Redesigns: infer the existing page's dial values first; preserve-mode matches them, overhaul-mode chooses values from the new brief.
-
-Dial suggestions: higher variance can explore split or asymmetric layouts; higher density can use spacing and hairlines. Neither setting bans centered heroes or cards. Motion is optional at every setting and must respect reduced-motion preferences when used.
+Explains each line of the design brief in `../SKILL.md`, then lists directions, craft
+numbers and the anti-slop list. For preserve and replicate routes, the existing system
+or source governs; use this file to name what you see and to fill gaps.
 
 ## Register: Brand vs Product
 
-Identify the register before designing — the rules differ:
+Identify the register first; the rules differ.
 
 | | **Brand** (landing, marketing, portfolio) | **Product** (app UI, dashboard, tool) |
 |---|---|---|
-| Slop test | "Would someone say AI made that?" — bar is distinctiveness | "Would a Linear/Figma-fluent user trust it?" — bar is earned familiarity |
-| Type scale | Fluid `clamp()`, ratio ≥ 1.25 | Fixed `rem`, ratio 1.125–1.2; one family often right |
-| Color | Committed/Full/Drenched strategies allowed — one saturated color owning a hero is voice | Restrained floor: accent = primary action + selection + state, nothing else |
-| Motion | One orchestrated page-load entrance allowed | 150–250ms state-conveying only; page-load choreography avoid |
+| Slop test | "Would someone say AI made that?" The bar is distinctiveness | "Would a Linear/Figma-fluent user trust it?" The bar is earned familiarity |
+| Type scale | Fluid `clamp()`, ratio 1.25–1.333 | Fixed `rem`, ratio 1.125–1.2; one family is usually right |
+| Color | Restrained by default; Committed, Full or Drenched when the brand owns the color or the brief asks for boldness | Restrained: accent = primary action + selection + focus + state, nothing else |
+| Motion | One orchestrated page-load entrance allowed | 150–250ms state changes only; no page-load choreography |
 | Layout | Asymmetry, grid-breaking, art direction per section | Density, consistency, structural responsiveness (collapse sidebar, not shrink type) |
 | Failure mode | Restraint without intent reads as mediocre | Strangeness without purpose destroys trust |
 
-## Design Thinking
+## Design dials
 
-For exploratory art direction, consider:
-- **Purpose**: What problem does this interface solve? Who uses it?
-- **Tone**: Possible tones include: brutally minimal, maximalist chaos, retro-futuristic, organic/natural, luxury/refined, playful/toy-like, editorial/magazine, brutalist/raw, art deco/geometric, soft/pastel, industrial/utilitarian, etc.
-- **Constraints**: Technical requirements (framework, performance, accessibility).
-- **Differentiation**: What gives this content a recognizable identity? What's the one thing someone will remember?
+| Dial | Low (1-3) | High (8-10) |
+|------|-----------|-------------|
+| `variance` | Symmetry, centered layouts, equal grids | Asymmetric, masonry, large empty zones, fractional CSS Grid |
+| `motion` | CSS hover/active states only | Scroll reveals, spring physics, ambient micro-animation |
+| `density` | Gallery: large whitespace, few elements | Cockpit: tight padding, 1px dividers, monospace numbers |
 
-**CRITICAL**: Choose a clear conceptual direction and execute it with precision. Bold maximalism and refined minimalism both work - the key is intentionality, not intensity.
+Presets (variance/motion/density): SaaS landing 7/5/4 · agency/creative 9/8/3 ·
+premium consumer 7/6/3 · designer portfolio 8/7/3 · developer portfolio 6/5/4 ·
+editorial 6/4/3 · dashboard/product UI 3/2/6 · public sector 3/2/5. For a redesign,
+infer the current values first; keep them unless the brief asks for an overhaul.
 
-### Optional exploration procedure
+## Filling the brief
 
-For a new design needing exploration, choose the techniques that serve the brief:
+Work top to bottom; each line constrains the next.
 
-1. **Design Read declaration** — one line: `Reading this as: <page kind> for <audience>, with a <vibe> language, leaning <aesthetic direction>.` Use this optional summary when it clarifies an unresolved brief; reuse clear requirements without another question.
-2. **Seeded variation (break mode collapse)** — when the user wants variation, choose a reproducible seed independent of prompt wording and use it to sample the menu below, then pick the hero archetype and 2-3 component patterns from that direction. Preserve an accepted direction, font pairing and palette across iterations. If the seeded pick is a poor fit for the audience, step to the adjacent row and say so — choose based on audience and brand fit.
-3. **Aesthetic thesis** — one sentence: `<direction> for <audience>: <palette in 5 words>, <type character>, <layout signature>, <one memorable element>`. Also state where the form came from in the CONTENT (a motif, a domain object, a word in the copy). Use it only if it helps explain the selected direction.
-4. **Tokens first** — CSS variables for colors (OKLCH), font families, type scale, spacing scale, radii, shadows, easings. Every value in the implementation traces to a token. No ad-hoc hex codes or magic pixels mid-file.
-5. **Optionally emphasize one dimension** to a memorable extreme (type scale, color, layout, motion, or density). Keep the others disciplined and quiet. Choose intensity for the audience and task.
-6. **If you cannot justify a value, re-derive it from the scale.** "It looked about right" is not a justification.
+1. **Scene.** One sentence: who, device, place, light, mood. Example: "A clinic
+   receptionist on a shared desktop, bright fluorescent light, interrupted every few
+   minutes." Add detail until it decides light vs dark and dense vs airy.
+2. **Direction.** Pick from the menu below the row whose audience and mood match the
+   Scene, then name the reason in the content ("editorial because the product sells
+   long-form reports"). If no row fits, describe your own in five words.
+3. **Color.** Choose the strategy first (see Color below), then build palette values:
+   hue from the brand or content imagery, neutrals tinted toward it, one accent. Match
+   temperature to the Scene's mood: warm hues (about 20–90) for handmade, food,
+   hospitality, craft and slow leisure; cool hues (about 200–260) for precision,
+   finance, security and technical tools. A large color field in the opposite
+   temperature needs an explicit reason in the brief. Write one sentence justifying
+   the palette; if you cannot, you are copying a recipe.
+4. **Type.** Pair on one contrast axis (serif + sans, geometric + humanist, or one
+   family in several weights). Product register: one family is usually right.
+5. **Signature.** One memorable element taken from the content: a domain object (a
+   ticket stub, a route line, a lab label), a typographic gesture, or a single bold
+   color field. Everything else stays quiet so it can be noticed.
+6. **Dials.** Take the preset for the surface; move a dial only for a stated reason.
+
+Every value in the implementation traces to a token. If you cannot justify a value,
+re-derive it from the scale; "it looked about right" is not a justification.
+
+When the user asks for variations, keep the brief's Scene and change only Direction,
+Color or Signature per variant, so the options are genuinely different.
 
 ## Aesthetic Direction Menu
 
-When designing from scratch, consider a coherent direction, then execute it fully. A restrained design can be appropriate. These are **anchors, not recipes** — re-derive exact palette values from the actual brand/content, and rotate: preserve the chosen direction across iterations.
+Anchors, not recipes: re-derive exact palette values from the actual brand and content, and keep the chosen direction across iterations. A restrained direction is valid when chosen on purpose.
 
 | Direction | Display / Body fonts | Palette recipe | Layout signature |
 |-----------|---------------------|----------------|------------------|
@@ -71,7 +81,7 @@ Verify chosen fonts exist on Google Fonts (or self-host an equivalent); if the c
 
 ## Craft techniques
 
-Numeric recipes below are starting points for new art direction, not quotas. User preferences, brand, content, accessibility and existing system govern the result.
+Use these numbers as the default whenever the brief, brand or existing system does not specify otherwise.
 
 **Typography**
 - Max 2 families: one display, one body — paired on a CONTRAST axis (serif + sans, geometric + humanist, or one family in multiple weights). Avoid accidental font mismatches. Max 3-4 weights; preload only the critical body weight.
@@ -91,7 +101,7 @@ Numeric recipes below are starting points for new art direction, not quotas. Use
 
 **Color**
 - OKLCH for construction. Ramp recipe: hold hue + chroma, vary lightness; reduce chroma near white/black. Neutral ramp 9-11 steps, tinted 0.005-0.015 chroma toward THIS brand's hue — not reflex-warm or reflex-cool.
-- Pick a **color strategy** before colors: **Restrained** (tinted neutrals + one accent ≤ 10% — product default) · **Committed** (one saturated color carries 30-60% — brand identity pages) · **Full palette** (3-4 named roles) · **Drenched** (the surface IS the color — campaign heroes).
+- Pick a **color strategy** before colors: **Restrained** (tinted neutrals + one accent ≤ 10% — product default) · **Committed** (one saturated color carries 30-60%; use when the brand already owns that color) · **Full palette** (3-4 named roles) · **Drenched** (the surface IS the color — campaign heroes).
 - **Palette variation**: the warm cream/sand/beige body background is the saturated AI default. "Warm/artisan/editorial" briefs need not translate to a near-white warm bg — carry warmth via accent, typography, and imagery; pick a saturated brand color, a chroma-0 off-white, or a darker brand-tinted midtone instead.
 - Dark vs light is never a default. Write one sentence of physical scene (who uses this, where, under what light, in what mood) — if the sentence doesn't force the answer, add detail until it does.
 - Chroma tiers (low saturation reads premium): large backgrounds 0.01-0.04, brand/accent 0.08-0.15, small CTA pops 0.15-0.22.
@@ -106,14 +116,14 @@ Numeric recipes below are starting points for new art direction, not quotas. Use
 - **Shape lock**: one radius system per page — all-sharp (0), all-soft (8-16px), or all-pill. Cards top out at 16px; 24px+ on cards is the over-round tell. Nested radius = parent radius − parent padding.
 - **Theme lock**: one theme per page. `bg-zinc-950` next to `bg-zinc-900` is fine; a light section sandwiched into a dark page is broken. Max one deliberate theme-switch device per page.
 
-**Motion** (for scroll animation, GSAP, or `MOTION_INTENSITY > 4` builds, read `motion-craft.md` before implementing)
+**Motion** (for scroll animation, GSAP, or motion dial > 4 builds, read `motion-craft.md` before implementing)
 - The 100/300/500 rule: 100-150ms instant feedback (press, toggle) · 200-300ms state changes (hover, menu, tooltip) · 300-500ms layout changes (accordion, modal, drawer) · 500-800ms entrances (hero only). Exits run at ~75% of entrance duration.
-- Easing tokens: `--ease-out-quart: cubic-bezier(0.25,1,0.5,1)` · `--ease-out-quint: cubic-bezier(0.22,1,0.36,1)` · `--ease-out-expo: cubic-bezier(0.16,1,0.3,1)`. Springs fine (`stiffness: 100, damping: 20`). Consider whether `linear`, bounce `cubic-bezier(0.34,1.56,0.64,1)` and elastic easings support the interaction; avoid disorienting effects.
+- Easing tokens: `--ease-out-quart: cubic-bezier(0.25,1,0.5,1)` · `--ease-out-quint: cubic-bezier(0.22,1,0.36,1)` · `--ease-out-expo: cubic-bezier(0.16,1,0.3,1)`. Springs fine (`stiffness: 100, damping: 20`). No `linear` for UI movement (marquees and spinners only) and no bounce or elastic as general easing; a small overshoot is acceptable on toggles and switches.
 - Stagger 30-60ms per item, total sequence ≤ 500ms; more items → shorter per-item delay.
 - Animate only `transform`, `opacity`, `color`, `box-shadow` (grid-template-rows or FLIP for expansion; blur/clip-path allowed when bounded and verified smooth). Never `transition: all`. Never `width/height/top/left/margin`.
 - **Reveal safety**: content must be visible by default; animation enhances it. Never gate visibility on a class-triggered transition (hidden tabs and headless renderers ship the section blank).
 - The uniform whole-section fade-and-rise applied to every section is a tell. Stagger within one list is legitimate; each reveal should fit what it reveals. A static design is valid when motion would not help.
-- Motion must be motivated by hierarchy, feedback, story, or state — "looked cool" is invalid. Product UI: state-conveying 150-250ms only, usually no load choreography. Pause ≥ 300ms before a key reveal (reaction time); end sequences with a hard stop, not a fade.
+- Motion must be motivated by hierarchy, feedback, story, or state — "looked cool" is invalid. Product UI: state-conveying 150-250ms only, no page-load choreography. Pause ≥ 300ms before a key reveal (reaction time); end sequences with a hard stop, not a fade.
 - Scroll tech: `useScroll`/`useMotionValue`/`ScrollTrigger`/`IntersectionObserver`/CSS `animation-timeline` — never raw scroll listeners or `useState` for continuous values. GSAP pins: `start: "top top"` (not `"top center"` — the #1 pin failure), `pin: true`; horizontal pan: `end: "+=" + (track.scrollWidth - innerWidth)`, `scrub: 1`, `invalidateOnRefresh: true`. Use a marquee only when it serves content, with pause and reduced-motion support.
 - `@media (prefers-reduced-motion: reduce)` alternative for every animation. Non-negotiable.
 
@@ -126,9 +136,7 @@ Numeric recipes below are starting points for new art direction, not quotas. Use
 - Working-memory caps: ≤ 4 metrics above the fold, ≤ 5 top-level nav items, ≤ 4 fields per visual group, ≤ 3 pricing tiers, 1 primary button per view.
 
 **Imagery & icons**
-- Image-led briefs (restaurant, hotel, travel, fashion, product, photography) REQUIRE real imagery — CSS scenery, decorative gradient panels, or div-built fake screenshots/dashboards are broken implementations, not interpretations.
-- Source order: generation tools → seeded placeholders (`https://picsum.photos/seed/{descriptive-keyword}/1600/900`) → labeled TODO slots. Verify real URLs before referencing (guessed photo IDs ship as broken images). Apply CSS treatment (grayscale, `contrast-125`, duotone, `mix-blend-luminosity`) so photos don't read as stock. One decisive photo > five mediocre.
-- ONE icon family per project (Phosphor, Heroicons, Tabler — or the project's existing set), one stroke width (1.5 or 2.0). No emoji as icons. No hand-rolled "sketchy" SVG illustration scenes — no illustration beats bad illustration. Real brand logos via `https://cdn.simpleicons.org/{slug}`.
+- Image-led briefs (restaurant, hotel, travel, fashion, product, photography) require real imagery; CSS scenery, decorative gradient panels and div-built fake screenshots are broken implementations. Sourcing, treatment, optimization and icon rules live in `asset-pipeline.md`.
 
 **Content & copy**
 - Per section: headline ≤ 8 words, supporting text ≤ 25 words, one visual or CTA. Quotes ≤ 3 lines with name + role. Lists > 5 items need a different component (grouped columns, tabs, cards) — never a long `<ul>` with dividers.

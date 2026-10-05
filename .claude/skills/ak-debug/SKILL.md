@@ -9,7 +9,7 @@ languages: all
 argument-hint: "[error or issue description] [--ultra]"
 metadata:
   author: agentkit
-  version: "4.1.3"
+  version: "4.2.0"
 ---
 
 # Debugging & System Investigation
@@ -159,3 +159,23 @@ Full mechanics — evidence packet, anonymization, the five-usable-candidate gat
 reject-all, and the fail-closed runtime rule — are in
 `../ak-brainstorm/references/ultra-verifier-mode.md`. It is a best-of-5 verifier
 mode inspired by LLM-as-a-Verifier, not the full framework.
+
+## Optional workflow shadow experiment
+
+Only when explicitly requested, inspect `ak eval workflow --help` and prepare
+its bounded, reviewed request with workflow `debug`. Default `off`
+validates locally. `--mode shadow` additionally requires user-scope master and
+provider configuration, explicit `workflow-controller: true` consumer consent,
+and the provider credential; never enable or infer consent from an ambient key.
+The optional command may send sanitized facts externally and incur charges.
+
+Supply the existing domain decision and complete policy facts first. Keep all
+`effective_*` decisions unchanged; record accepted `hypothetical_*` suggestions
+only for comparison. Errors, low confidence and unavailable provider evidence
+use the existing workflow. Never execute a recommendation or treat it as
+permission. Existing caps, user stops, three-failure human checkpoints and
+approval/R3 controls remain authoritative. Ordinary skill startup makes no call.
+
+This is a shadow prototype for retry/replan/escalation decisions, not a new loop
+or executor. At three failed repairs retain the required human architecture
+checkpoint; never reset counters or rename a retry to evade a cap.

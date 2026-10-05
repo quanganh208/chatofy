@@ -101,7 +101,14 @@ class TestPerformanceAnalyzer:
         assert analyzer.connection_string == "mongodb://localhost"
         assert analyzer.threshold_ms == 100
 
-    @patch('db_performance_check.MongoClient')
+    # pymongo is an optional dependency (db_performance_check.py imports it
+    # inside a try/except, binding MONGO_AVAILABLE=True only when it's
+    # installed), so in an environment without it there is no `MongoClient`
+    # attribute to patch without create=True, and MONGO_AVAILABLE must be
+    # forced True so connect() takes the mongodb branch instead of reporting
+    # "not installed" — same pattern as the psycopg2 tests below.
+    @patch('db_performance_check.MONGO_AVAILABLE', True)
+    @patch('db_performance_check.MongoClient', create=True)
     def test_connect_mongodb(self, mock_client_class, mock_mongo_client):
         """Test MongoDB connection."""
         mock_client, mock_db = mock_mongo_client
@@ -114,7 +121,14 @@ class TestPerformanceAnalyzer:
         assert analyzer.client == mock_client
         assert analyzer.db == mock_db
 
-    @patch('db_performance_check.psycopg2')
+    # psycopg2 is an optional dependency (db_performance_check.py imports it
+    # inside a try/except, binding POSTGRES_AVAILABLE=True only when it's
+    # installed). In an environment without it there is no module-level
+    # `psycopg2` attribute to patch, so `create=True` must add it and
+    # POSTGRES_AVAILABLE must be forced True so connect() takes the postgres
+    # branch instead of reporting "not installed".
+    @patch('db_performance_check.POSTGRES_AVAILABLE', True)
+    @patch('db_performance_check.psycopg2', create=True)
     def test_connect_postgres(self, mock_psycopg2, mock_postgres_conn):
         """Test PostgreSQL connection."""
         mock_conn, mock_cursor = mock_postgres_conn
@@ -133,16 +147,27 @@ class TestPerformanceAnalyzer:
 
         assert result is False
 
-    @patch('db_performance_check.MongoClient')
+    @patch('db_performance_check.MONGO_AVAILABLE', True)
+    @patch('db_performance_check.MongoClient', create=True)
     def test_analyze_mongodb(self, mock_client_class, mock_mongo_client):
         """Test MongoDB performance analysis."""
         mock_client, mock_db = mock_mongo_client
         mock_client_class.return_value = mock_client
 
-        # Mock profiling
+        # Mock profiling. _analyze_mongodb() calls self.db.command() three
+        # times in sequence (profile -1 status check, profile 1 enable, then
+        # dbStats), and a `side_effect` list takes priority over
+        # `return_value` for every call, so all three results must be queued
+        # here or the third call raises StopIteration instead of falling
+        # back to a separately assigned return_value.
         mock_db.command.side_effect = [
             {"was": 0},  # profile -1 (get status)
             {},          # profile 1 (enable)
+            {            # dbStats
+                "dataSize": 1024 * 1024 * 100,
+                "indexSize": 1024 * 1024 * 10,
+                "collections": 5
+            },
         ]
 
         # Mock slow queries
@@ -160,24 +185,25 @@ class TestPerformanceAnalyzer:
         # Mock collections
         mock_db.list_collection_names.return_value = ["users", "orders"]
 
-        # Mock collection stats
+        # Mock collection stats. The code reads the $collStats result via
+        # cursor.next() (pymongo's CommandCursor, not plain iteration), so
+        # the aggregate() mock must return an object exposing .next(), not a
+        # bare list.
         mock_coll = MagicMock()
-        mock_coll.aggregate.return_value = [{"storageStats": {}}]
+        mock_agg_cursor = MagicMock()
+        mock_agg_cursor.next.return_value = {"storageStats": {}}
+        mock_coll.aggregate.return_value = mock_agg_cursor
         mock_coll.list_indexes.return_value = [{"name": "_id_"}]
         mock_coll.find.return_value.limit.return_value = [
             {"_id": 1, "name": "Alice", "email": "alice@example.com"}
         ]
         mock_db.__getitem__.return_value = mock_coll
 
-        # Mock server status and db stats
+        # Mock server status. dbStats is already queued above in
+        # mock_db.command.side_effect.
         mock_client.admin.command.return_value = {
             "connections": {"current": 10},
             "opcounters": {"query": 1000}
-        }
-        mock_db.command.return_value = {
-            "dataSize": 1024 * 1024 * 100,
-            "indexSize": 1024 * 1024 * 10,
-            "collections": 5
         }
 
         analyzer = PerformanceAnalyzer("mongodb", "mongodb://localhost")
@@ -191,8 +217,13 @@ class TestPerformanceAnalyzer:
         assert isinstance(report.index_recommendations, list)
         assert isinstance(report.database_metrics, dict)
 
-    @patch('db_performance_check.psycopg2')
-    def test_analyze_postgres(self, mock_psycopg2, mock_postgres_conn):
+    # _analyze_postgres() also references RealDictCursor (imported from
+    # psycopg2.extras in the same optional try/except block), so it needs
+    # the same create=True treatment as psycopg2 itself.
+    @patch('db_performance_check.POSTGRES_AVAILABLE', True)
+    @patch('db_performance_check.RealDictCursor', create=True)
+    @patch('db_performance_check.psycopg2', create=True)
+    def test_analyze_postgres(self, mock_psycopg2, mock_real_dict_cursor, mock_postgres_conn):
         """Test PostgreSQL performance analysis."""
         mock_conn, mock_cursor = mock_postgres_conn
         mock_psycopg2.connect.return_value = mock_conn
@@ -274,7 +305,9 @@ class TestPerformanceAnalyzer:
         captured = capsys.readouterr()
         assert "Database Performance Report" in captured.out
         assert "testdb" in captured.out
-        assert "150.5ms" in captured.out
+        # print_report formats execution_time_ms with `:.2f`, so 150.5
+        # renders as "150.50ms", not the raw value.
+        assert "150.50ms" in captured.out
         assert "users" in captured.out
 
     def test_save_report(self, tmp_path):
@@ -313,7 +346,8 @@ class TestPerformanceAnalyzer:
         analyzer.client.close.assert_called_once()
         analyzer.conn.close.assert_called_once()
 
-    @patch('db_performance_check.MongoClient')
+    @patch('db_performance_check.MONGO_AVAILABLE', True)
+    @patch('db_performance_check.MongoClient', create=True)
     def test_analyze_error_handling(self, mock_client_class, mock_mongo_client):
         """Test error handling during analysis."""
         mock_client, mock_db = mock_mongo_client
@@ -333,7 +367,8 @@ class TestPerformanceAnalyzer:
 class TestIntegration:
     """Integration tests."""
 
-    @patch('db_performance_check.MongoClient')
+    @patch('db_performance_check.MONGO_AVAILABLE', True)
+    @patch('db_performance_check.MongoClient', create=True)
     def test_full_mongodb_workflow(self, mock_client_class, mock_mongo_client, tmp_path):
         """Test complete MongoDB analysis workflow."""
         mock_client, mock_db = mock_mongo_client

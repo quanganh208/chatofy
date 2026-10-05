@@ -1,89 +1,96 @@
 # Polar Benefits
 
-Automated benefit delivery system for digital products.
+Automated entitlement delivery for digital products.
 
 ## Philosophy
 
-Configure once, automatic delivery. Polar handles granting and revoking based on subscription state.
+Benefits are standalone resources attached to one or many products. Polar grants them on purchase/subscription and revokes them when access ends. One-time purchases grant lifetime access; subscriptions grant while active or trialing.
 
 ## Benefit Types
 
+API `type` values: `license_keys`, `github_repository`, `discord`, `downloadables`, `meter_credit`, `feature_flag`, `custom`, `slack_shared_channel`.
+
+Examples use the stable TypeScript SDK (`@polar-sh/sdk` 0.x). Most integration setup (GitHub/Discord/Slack app install, file upload) happens in the dashboard.
+
 ### 1. License Keys
 
-**Auto-generate unique keys with customizable branding.**
+**Features:** branded prefix, expiration, activation limits, usage quotas, custom validation conditions, rotation, auto-revoke with the subscription.
 
 **Create:**
 ```typescript
 const benefit = await polar.benefits.create({
   type: "license_keys",
-  organization_id: "org_xxx",
   description: "Software License",
   properties: {
     prefix: "MYAPP",
-    expires: false,
-    activations: 1,
-    limit_usage: false
+    expires: { ttl: 1, timeframe: "year" }, // omit for no expiry
+    activations: { limit: 3, enableCustomerAdmin: true },
+    limitUsage: 1000 // optional quota
   }
 });
 ```
 
-**Validation API (unauthenticated):**
+**Validation (unauthenticated, from your app/CLI, 3 req/s):**
 ```typescript
-const validation = await polar.licenses.validate({
-  key: "MYAPP-XXXX-XXXX-XXXX",
-  organization_id: "org_xxx"
+const polar = new Polar(); // no token needed for customer-portal license endpoints
+
+const key = await polar.customerPortal.licenseKeys.validate({
+  key: "MYAPP-XXXX-XXXX",
+  organizationId: "org_uuid",
+  benefitId: "benefit_uuid",     // recommended when you sell several key types
+  activationId: "activation_uuid", // required if activations are enabled
+  incrementUsage: 1                // optional
 });
 
-if (validation.valid) {
-  // Grant access
+if (key.status === "granted") {
+  // Grant access; also check key.expiresAt, key.usage vs key.limitUsage
 }
+// Unknown key → 404 error
 ```
 
 **Activation/Deactivation:**
 ```typescript
-await polar.licenses.activate(licenseKey, {
-  label: "User's MacBook Pro"
+const activation = await polar.customerPortal.licenseKeys.activate({
+  key: "MYAPP-XXXX-XXXX",
+  organizationId: "org_uuid",
+  label: "User's MacBook Pro",
+  conditions: { major_version: 1 }
 });
 
-await polar.licenses.deactivate(activationId);
+await polar.customerPortal.licenseKeys.deactivate({
+  key: "MYAPP-XXXX-XXXX",
+  organizationId: "org_uuid",
+  activationId: activation.id
+});
 ```
 
-**Auto-revoke:** On subscription cancellation or refund
+Server-side (OAT, `license_keys:write`) equivalents live under `polar.licenseKeys.*` (`/v1/license-keys/...`), including `rotate`.
+
+**Status values:** `granted`, `revoked`, `disabled`.
 
 ### 2. GitHub Repository Access
 
-**Auto-invite to private repos with permission management.**
+**Auto-invite to private organization repositories.**
 
 **Create:**
 ```typescript
 const benefit = await polar.benefits.create({
   type: "github_repository",
-  organization_id: "org_xxx",
   description: "Access to private repo",
   properties: {
-    repository_owner: "myorg",
-    repository_name: "private-repo",
-    permission: "pull" // or "push", "admin"
+    repositoryOwner: "myorg",
+    repositoryName: "private-repo",
+    permission: "pull" // pull | triage | push | maintain | admin
   }
 });
 ```
 
-**Multiple Repos:**
-```typescript
-{
-  properties: {
-    repositories: [
-      { owner: "myorg", name: "repo1", permission: "pull" },
-      { owner: "myorg", name: "repo2", permission: "push" }
-    ]
-  }
-}
-```
-
 **Behavior:**
-- Auto-invite on subscription activation
-- Permission managed by Polar
-- Auto-revoke on cancellation
+- Requires connecting GitHub and installing Polar's dedicated GitHub App on the repositories
+- Organization repositories only (personal repos not supported by default)
+- One repository per benefit; create multiple benefits for multiple repos
+- Invite on grant, removed on revoke
+- Collaborators count as paid seats on paid GitHub plans
 
 ### 3. Discord Access
 
@@ -93,304 +100,179 @@ const benefit = await polar.benefits.create({
 ```typescript
 const benefit = await polar.benefits.create({
   type: "discord",
-  organization_id: "org_xxx",
   description: "Premium Discord role",
   properties: {
-    guild_id: "123456789",
-    role_id: "987654321"
+    guildId: "123456789",
+    roleId: "987654321",
+    kickMember: false // kick from server on revocation
   }
 });
 ```
 
-**Multiple Roles:**
-```typescript
-{
-  properties: {
-    guild_id: "123456789",
-    roles: [
-      { role_id: "role1", name: "Premium" },
-      { role_id: "role2", name: "Supporter" }
-    ]
-  }
-}
-```
-
 **Requirements:**
-- Polar Discord app must be added to server
-- Configure in Polar dashboard
+- Connect the Discord server via the dashboard (Polar bot needs Manage Roles, Kick Members, Create Invite)
+- The connected server can't be changed; create another benefit for another server
 
 **Behavior:**
-- Auto-invite to server
-- Assign roles automatically
-- Remove roles on cancellation
+- Customer connects Discord from the portal, is invited and given the role
+- Role removed (optionally kicked) on revocation
 
 ### 4. Downloadable Files
 
 **Secure file delivery up to 10GB each.**
 
-**Create:**
-```typescript
-const benefit = await polar.benefits.create({
-  type: "downloadable",
-  organization_id: "org_xxx",
-  description: "Premium templates",
-  properties: {
-    files: [
-      { name: "template1.zip", size: 5000000 },
-      { name: "template2.psd", size: 10000000 }
-    ]
-  }
-});
-```
-
-**Upload Files:**
-- Via Polar dashboard
-- Secure storage
-- Access control
-
-**Customer Access:**
-- Download links in customer portal
-- Secure, time-limited URLs
-- Multiple files supported
+- Upload files in the dashboard (API: `files` upload + `downloadables` benefit with file IDs)
+- SHA-256 checksums, signed personal download URLs in the Customer Portal
+- Disabling a file hides it from new customers only; deleting removes access for everyone
+- Adding/re-enabling files grants them retroactively to existing customers
 
 ### 5. Meter Credits
 
-**Pre-purchased usage for usage-based billing.**
+**Pre-paid usage units for usage-based billing.**
 
 **Create:**
 ```typescript
 const benefit = await polar.benefits.create({
-  type: "custom",
-  organization_id: "org_xxx",
+  type: "meter_credit",
   description: "10,000 API credits",
   properties: {
-    meter_id: "meter_xxx",
-    credits: 10000
+    meterId: "meter_uuid",
+    units: 10000,
+    rollover: false // carry unused credits into the next cycle
   }
 });
 ```
 
-**Automatic Application:**
-- Credits added on subscription start
-- Balance tracked via API
-- Depletes with usage
+**Behavior:**
+- Subscriptions: credited at the start of every cycle; one-time: credited once
+- Credits are consumed first; overage billed only if the product has a metered price
+- Polar never blocks usage when the balance hits 0 (enforce in your app)
 
 **Balance Check:**
 ```typescript
-const balance = await polar.meters.getBalance({
-  customer_id: "cust_xxx",
-  meter_id: "meter_xxx"
+const result = await polar.customerMeters.list({
+  externalCustomerId: "user_123",
+  meterId: "meter_uuid"
 });
+// or Customer State: state.activeMeters
 ```
 
-### 6. Custom Benefits
+### 6. Feature Flags
 
-**Flexible placeholder for manual fulfillment.**
+**API-driven feature gating with optional key-value metadata.**
 
-**Create:**
+```typescript
+const benefit = await polar.benefits.create({
+  type: "feature_flag",
+  description: "Premium Features",
+  properties: {}
+});
+```
+- Check via Customer State `grantedBenefits` or `customer.state_changed`
+- Recommended over empty Custom benefits for entitlement checks
+
+### 7. Custom Benefits
+
+**Markdown note shown after purchase (success page, email, portal).**
+
 ```typescript
 const benefit = await polar.benefits.create({
   type: "custom",
-  organization_id: "org_xxx",
-  description: "Priority support via email",
+  description: "Priority support",
   properties: {
     note: "Email support@example.com with your order ID for priority support"
   }
 });
 ```
 
-**Use Cases:**
-- Cal.com booking links
-- Email support access
-- Community forum access
-- Manual onboarding
+**Use Cases:** Cal.com/Calendly links, onboarding instructions, partner coupon codes, manual fulfillment.
+
+### 8. Shared Slack Channel (preview, paid plans)
+
+Creates a shared Slack Connect channel per customer. Configured in the dashboard after connecting Slack.
 
 ## Benefit Grants
 
-**Link between customer and benefit.**
-
-### States
-- `created` - Grant created
-- `active` - Benefit delivered
-- `revoked` - Access removed
+**Link between a customer (or seat member) and a benefit.**
 
 ### Webhooks
 - `benefit_grant.created` - Grant created
-- `benefit_grant.updated` - Status changed
+- `benefit_grant.updated` - Grant changed
+- `benefit_grant.cycled` - Grant renewed for a new subscription period
 - `benefit_grant.revoked` - Access revoked
 
-### Auto-revoke Triggers
-- Subscription canceled
-- Subscription revoked
-- Refund processed
-- Product changed (if benefit not on new product)
+### Revoke Triggers
+- Subscription revoked/ended (cancel at period end, immediate revoke, failed dunning after grace period)
+- Subscription paused (until resumed)
+- Refund of a one-time order with "revoke benefits" selected (default for full refunds)
+- Benefit removed from the product (propagates to existing customers)
+
+Refunding a subscription order does **not** revoke benefits; cancel the subscription instead.
 
 ### Querying Grants
 ```typescript
-const grants = await polar.benefitGrants.list({
-  customer_id: "cust_xxx",
-  benefit_id: "benefit_xxx",
-  is_granted: true
+const result = await polar.benefitGrants.list({
+  externalCustomerId: "user_123",
+  isGranted: true
 });
+// Grants of a single benefit: GET /v1/benefits/{id}/grants
 ```
 
 ## Attaching Benefits to Products
 
 ### Via API
 ```typescript
-await polar.products.updateBenefits(productId, {
-  benefits: [benefitId1, benefitId2, benefitId3]
+await polar.products.updateBenefits({
+  id: productId,
+  productBenefitsUpdate: { benefits: [benefitId1, benefitId2] }
 });
 ```
 
 ### Via Dashboard
-1. Navigate to product
-2. Benefits tab
-3. Select benefits to attach
-4. Save
+Toggle benefits in the product create/edit form, or manage them under **Benefits**.
 
-### Order
-- Benefits granted in order attached
-- Customers see in that order
-- Reorder via dashboard or API
+## Seat-Based Products
 
-## Customer Experience
-
-### Viewing Benefits
-- Customer portal shows all active benefits
-- Clear instructions for each type
-- Download links for files
-- License keys displayed
-
-### Accessing Benefits
-```typescript
-// Generate customer portal link
-const session = await polar.customerSessions.create({
-  external_customer_id: userId
-});
-
-// Customer sees:
-// - Active subscriptions
-// - Granted benefits
-// - Download links
-// - License keys
-// - Instructions
-```
+Benefits are granted to members when they claim a seat, not to the paying customer at purchase. Identify end users by member, not by the billing customer.
 
 ## Implementation Patterns
 
-### License Key Validation
+### Access Check via Customer State
 ```typescript
-// In your application
-async function validateLicense(key) {
-  try {
-    const result = await polar.licenses.validate({
-      key: key,
-      organization_id: process.env.POLAR_ORG_ID
-    });
-
-    if (!result.valid) {
-      return { valid: false, reason: 'Invalid license' };
-    }
-
-    if (result.limit_usage && result.usage >= result.limit_usage) {
-      return { valid: false, reason: 'Usage limit exceeded' };
-    }
-
-    return { valid: true, customer: result.customer };
-  } catch (error) {
-    console.error('License validation failed:', error);
-    return { valid: false, reason: 'Validation error' };
-  }
+async function hasFeature(userId: string, benefitId: string) {
+  const state = await polar.customers.getStateExternal({ externalId: userId });
+  return state.grantedBenefits.some(grant => grant.benefitId === benefitId);
 }
 ```
 
-### GitHub Access Check
+### React to Grants
 ```typescript
-// Listen to benefit grant webhook
-app.post('/webhook/polar', async (req, res) => {
-  const event = validateEvent(req.body, req.headers, secret);
-
-  if (event.type === 'benefit_grant.created') {
-    const grant = event.data;
-
-    if (grant.benefit.type === 'github_repository') {
-      // Update user's GitHub access in your system
-      await updateGitHubAccess(grant.customer.external_id, true);
-    }
-  }
-
-  res.json({ received: true });
-});
-```
-
-### Discord Role Sync
-```typescript
-// Monitor benefit grants
-if (event.type === 'benefit_grant.created') {
-  const grant = event.data;
-
-  if (grant.benefit.type === 'discord') {
-    // Notify user to connect Discord
-    await sendDiscordInvite(grant.customer.email);
-  }
-}
-
-if (event.type === 'benefit_grant.revoked') {
-  const grant = event.data;
-
-  if (grant.benefit.type === 'discord') {
-    // Roles removed automatically by Polar
-    await notifyRoleRemoval(grant.customer.external_id);
-  }
+switch (event.type) {
+  case 'benefit_grant.created':
+    await onBenefitGranted(event.data);
+    break;
+  case 'benefit_grant.revoked':
+    await onBenefitRevoked(event.data); // GitHub/Discord removal is done by Polar
+    break;
 }
 ```
 
 ## Best Practices
 
-1. **Benefit Selection:**
-   - Choose appropriate benefit types
-   - Consider automation capabilities
-   - Plan for revocation scenarios
+1. **License Keys:**
+   - Always pass `organizationId`; pass `benefitId` when selling several key types
+   - Enable customer activation admin to reduce support load
+   - Rotate exposed keys (`/rotate`) instead of revoking
 
-2. **License Keys:**
-   - Set appropriate activation limits
-   - Monitor usage patterns
-   - Provide clear validation errors
-   - Allow customers to manage activations
+2. **GitHub Access:**
+   - Grant `pull` (read) unless you truly need more
+   - Use separate repos/benefits per tier
 
-3. **GitHub Access:**
-   - Set minimum required permissions
-   - Use separate repos for different tiers
-   - Monitor repository access
-   - Communicate access removal
+3. **Discord Roles:**
+   - One role per tier; decide whether revocation should kick
 
-4. **Discord Roles:**
-   - Clear role hierarchy
-   - Meaningful role names
-   - Separate roles per product tier
-   - Welcome messages for new members
+4. **Credits:**
+   - Show balance and usage in your app; enforce limits yourself
 
-5. **Files:**
-   - Organize files clearly
-   - Provide README/instructions
-   - Keep files updated
-   - Version control important files
-
-6. **Credits:**
-   - Clear credit value communication
-   - Usage tracking and display
-   - Alerts near depletion
-   - Easy credit top-up
-
-7. **Custom Benefits:**
-   - Clear, actionable instructions
-   - Provide contact information
-   - Set expectations for timing
-   - Track manual fulfillment
-
-8. **Customer Communication:**
-   - Welcome email with benefit access info
-   - Instructions for each benefit type
-   - Support contact for issues
-   - Revocation warnings before cancellation
+5. **Entitlements:**
+   - Prefer Customer State / Feature Flags over checking product IDs

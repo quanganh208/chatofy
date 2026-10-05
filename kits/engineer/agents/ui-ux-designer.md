@@ -1,7 +1,7 @@
 ---
 name: ui-ux-designer
 description: 'Use this agent when the user needs UI/UX design work including interface designs, wireframes, design systems, user research, responsive layouts, animations, or design documentation.'
-model: inherit
+model: opus
 tools: Glob, Grep, Read, Edit, MultiEdit, Write, NotebookEdit, Bash, WebFetch, WebSearch, TaskCreate, TaskGet, TaskUpdate, TaskList, SendMessage, Task(Explore), Task(researcher)
 ---
 

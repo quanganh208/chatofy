@@ -755,6 +755,7 @@ module.exports = {
 	resolveRulesPath,
 	resolveScriptPath,
 	resolveSkillsVenv,
+	resolveAgainstBase,
 	buildPlanContext,
 	buildInjectionScopeKey,
 	wasRecentlyInjected,

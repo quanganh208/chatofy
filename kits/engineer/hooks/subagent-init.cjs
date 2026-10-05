@@ -27,7 +27,7 @@ try {
     extractTaskListId,
     isHookEnabled
   } = require('./lib/ck-config-utils.cjs');
-  const { resolveSkillsVenv } = require('./lib/context-builder.cjs');
+  const { resolveSkillsVenv, resolveAgainstBase } = require('./lib/context-builder.cjs');
   const { createHookTimer, logHookCrash } = require('./lib/hook-logger.cjs');
   const { safeDisplayValue } = require('./lib/session-state-renderer.cjs');
 
@@ -105,23 +105,26 @@ async function main() {
     // Pass effectiveCwd to git commands to support monorepo/submodule scenarios
     const gitBranch = getGitBranch(effectiveCwd);
     const gitRoot = getGitRoot(effectiveCwd);
-    // Use CWD as the base for subdirectory workflow support.
-    // Git root is kept for reference but CWD determines where files are created
-    const baseDir = effectiveCwd;
-
-    // Debug logging for path resolution troubleshooting
-    if (process['env'].CK_DEBUG) {
-      console.error(`[subagent-init] effectiveCwd=${effectiveCwd}, gitRoot=${gitRoot}, baseDir=${baseDir}`);
-    }
     const namePattern = resolveNamingPattern(config.plan, gitBranch);
 
-    // Resolve plan and report paths absolutely from CWD.
     // Use the payload session ID to resolve active plan context.
     const sessionContext = createSessionStateContext({
       sessionId: payload.session_id,
       cwd: process['env'].CK_PROJECT_ROOT || effectiveCwd,
       requireBinding: true
     });
+    // Anchor paths the way the prompt-side reminder does: the session's launch
+    // root first, so the parent session and its subagents are told one set of
+    // paths. A subagent spawned in a subdirectory would otherwise get plans and
+    // reports under that subdirectory while its bound plan stays under the
+    // launch root. Without a bound session, the repository root is the next
+    // project-level anchor, and the spawn cwd is the last resort.
+    const baseDir = sessionContext?.sessionLaunchRoot || gitRoot || effectiveCwd;
+
+    // Debug logging for path resolution troubleshooting
+    if (process['env'].CK_DEBUG) {
+      console.error(`[subagent-init] effectiveCwd=${effectiveCwd}, gitRoot=${gitRoot}, baseDir=${baseDir}`);
+    }
     const resolved = resolvePlanPath(sessionContext, config);
     const reportsPath = getReportsPath(resolved.path, resolved.resolvedBy, config.plan, config.paths, baseDir);
     const activePlan = resolved.resolvedBy === 'session' ? resolved.path : '';
@@ -129,11 +132,11 @@ async function main() {
 
     // Extract task list ID for Claude Code Tasks coordination (shared helper, DRY)
     const taskListId = extractTaskListId(resolved);
-    // Rendered at construction: both are emitted straight into the prompt below
-    // and joined onto further down, so normalising once here keeps every use in
-    // display form instead of relying on each caller to remember.
-    const plansPath = toDisplayPath(path.join(baseDir, normalizePath(config.paths?.plans) || 'plans'));
-    const docsPath = toDisplayPath(path.join(baseDir, normalizePath(config.paths?.docs) || 'docs'));
+    // resolveAgainstBase, not path.join: a configured path may already be
+    // absolute, and path.join would concatenate it onto baseDir. The result is
+    // in display form, which every use below relies on.
+    const plansPath = resolveAgainstBase(baseDir, normalizePath(config.paths?.plans) || 'plans');
+    const docsPath = resolveAgainstBase(baseDir, normalizePath(config.paths?.docs) || 'docs');
     const thinkingLanguage = config.locale?.thinkingLanguage || '';
     const responseLanguage = config.locale?.responseLanguage || '';
     // Auto-default thinkingLanguage to 'en' when only responseLanguage is set

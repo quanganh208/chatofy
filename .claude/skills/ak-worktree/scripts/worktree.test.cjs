@@ -74,7 +74,12 @@ function assertJSON(str) {
 function mkTempGitRepo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ak-wt-test-repo-'));
   execSync('git init -q', { cwd: dir, stdio: ['pipe', 'pipe', 'pipe'] });
-  return dir;
+  // `git rev-parse --show-toplevel` (used by the CLI under test) resolves
+  // symlinks, so on macOS the CLI reports a `/private/var/...` toplevel even
+  // though `os.tmpdir()` hands back the unresolved `/var/...` path. Return
+  // the resolved path here so every worktreeRoot comparison against `repo`
+  // in this suite matches what the CLI actually computes.
+  return fs.realpathSync(dir);
 }
 
 function mkTempHome() {
@@ -309,11 +314,21 @@ test('create dry-run surfaces checkout-submodules flag', () => {
 });
 
 test('create dry-run shows explicit base branch source', () => {
-  const result = run('create test-explicit-base --dry-run --json --base dev');
-  assert(result.success, 'Should succeed with explicit base');
-  const json = assertJSON(result.output);
-  assert(json.wouldCreate.baseBranch === 'dev', 'Should use explicit base branch');
-  assert(json.wouldCreate.baseBranchSource === 'explicit', 'Should mark baseBranchSource as explicit');
+  // The explicit base must exist, so use a throwaway repo that owns a `dev`
+  // branch: a shallow detached CI checkout has no local or remote `dev` ref.
+  const repo = mkTempGitRepo();
+  try {
+    const gitOpts = { cwd: repo, stdio: ['pipe', 'pipe', 'pipe'] };
+    execSync('git -c user.name=Fixture -c user.email=fixture@example.invalid commit -q --allow-empty -m initial', gitOpts);
+    execSync('git branch dev', gitOpts);
+    const result = run('create test-explicit-base --dry-run --json --base dev', { cwd: repo });
+    assert(result.success, `Should succeed with explicit base: ${result.output || result.stderr}`);
+    const json = assertJSON(result.output);
+    assert(json.wouldCreate.baseBranch === 'dev', 'Should use explicit base branch');
+    assert(json.wouldCreate.baseBranchSource === 'explicit', 'Should mark baseBranchSource as explicit');
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
 });
 
 test('create rejects invalid explicit base branch input', () => {
@@ -373,8 +388,14 @@ test('remove dry-run does not remove worktree', () => {
   const removable = listJson.worktrees.find(w => !w.isMainWorktree);
 
   if (removable) {
-    const name = path.basename(removable.path);
-    const result = run(`remove "${name}" --dry-run --json`);
+    // Match by full path, not basename: this suite runs against whatever
+    // worktrees already exist on the host, and multiple sibling checkouts
+    // commonly share a basename (e.g. several "agentkit" worktrees under
+    // different parent paths). A basename match would then legitimately
+    // fail as MULTIPLE_WORKTREES_MATCH instead of exercising the dry-run
+    // path this test targets, so use the one identifier `list` already
+    // reports as unique.
+    const result = run(`remove "${removable.path}" --dry-run --json`);
     assert(result.success, 'Dry-run should succeed');
     const json = assertJSON(result.output);
     assert(json.dryRun === true, 'Should have dryRun: true');

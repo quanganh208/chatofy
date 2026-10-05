@@ -85,3 +85,13 @@ fixed. Do not change user runtime configuration as part of a prose optimization.
 
 Use `references/creator-consumer-evaluation.md`. An author produces skills and
 independent consumers execute them. Script/metadata tests alone do not measure this value.
+
+## Large catalog diagnostics
+
+[Semantic routing evaluation](semantic-routing-evaluation.md) is optional. Tune only
+on train cases, freeze the selected metadata, then evaluate the fixed holdout once.
+Do not select or rewrite another candidate from holdout outcomes while calling that
+holdout untouched. Before/after metadata hashes differ by design; case identity,
+canonical roster, runtime/settings, provider/model, protocol and batch schedule must
+match. Full competing catalogs remain present in every batch. Diagnostic probability
+changes never substitute for actual runtime activation.

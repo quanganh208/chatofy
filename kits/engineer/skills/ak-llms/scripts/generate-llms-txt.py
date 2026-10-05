@@ -2,10 +2,11 @@
 """Generate llms.txt from a docs directory following llmstxt.org specification.
 
 Usage:
-  python3 generate-llms-txt.py --source <path> [--output <path>] [--base-url <url>] [--full] [--project-name <name>] [--project-description <desc>]
+  python3 generate-llms-txt.py --source <path> [--output <path>] [--base-url <url>] [--md-links] [--trailing-slash] [--full] [--project-name <name>] [--project-description <desc>]
 
 Examples:
   python3 generate-llms-txt.py --source ./docs --base-url https://example.com/docs
+  python3 generate-llms-txt.py --source ./docs --base-url https://example.com/docs --md-links --full
   python3 generate-llms-txt.py --source ./docs --output ./public --full --project-name "My Project"
 """
 
@@ -141,14 +142,30 @@ def scan_docs(source: Path) -> list[dict]:
     return docs
 
 
-def build_url(rel_path: str, base_url: str) -> str:
-    """Build full URL from relative path and base URL."""
+def build_url(
+    rel_path: str,
+    base_url: str,
+    md_links: bool = False,
+    trailing_slash: bool = False,
+) -> str:
+    """Build the page URL, or its Markdown variant when md_links is set.
+
+    ``guide/index.md`` maps to ``guide`` (``guide/`` with trailing_slash).
+    Markdown variants follow llmstxt.org: append ``.md`` to the page URL, or
+    ``index.html.md`` when it ends in ``/`` (always true for the root page).
+    Without a base URL the source-relative path is kept.
+    """
     if not base_url:
         return rel_path
-    base = base_url.rstrip("/")
-    # Remove .md/.mdx extension for web URLs
-    clean_path = re.sub(r"\.(md|mdx)$", "", rel_path)
-    return f"{base}/{clean_path}"
+    path = re.sub(r"\.(md|mdx)$", "", rel_path.replace("\\", "/"))
+    if path == "index" or path.endswith("/index"):
+        path = path[: -len("index")]
+        if not trailing_slash:
+            path = path.rstrip("/")
+    url = f"{base_url.rstrip('/')}/{path}"
+    if md_links:
+        url += "index.html.md" if url.endswith("/") else ".md"
+    return url
 
 
 def generate_llms_txt(
@@ -156,6 +173,8 @@ def generate_llms_txt(
     project_name: str,
     project_desc: str,
     base_url: str,
+    md_links: bool = False,
+    trailing_slash: bool = False,
 ) -> str:
     """Generate llms.txt content from scanned docs."""
     lines = [f"# {project_name}", ""]
@@ -183,7 +202,7 @@ def generate_llms_txt(
         lines.append(f"## {cat}")
         lines.append("")
         for doc in cat_docs:
-            url = build_url(doc["rel_path"], base_url)
+            url = build_url(doc["rel_path"], base_url, md_links, trailing_slash)
             desc_part = f": {doc['description']}" if doc["description"] else ""
             lines.append(f"- [{doc['title']}]({url}){desc_part}")
         lines.append("")
@@ -195,6 +214,8 @@ def generate_llms_full_txt(
     docs: list[dict],
     project_name: str,
     project_desc: str,
+    base_url: str = "",
+    trailing_slash: bool = False,
 ) -> str:
     """Generate llms-full.txt with inline content."""
     lines = [f"# {project_name}", ""]
@@ -222,6 +243,9 @@ def generate_llms_full_txt(
         for doc in cat_docs:
             lines.append(f"### {doc['title']}")
             lines.append("")
+            if base_url:
+                lines.append(f"Source: {build_url(doc['rel_path'], base_url, trailing_slash=trailing_slash)}")
+                lines.append("")
             # Include full content minus the H1
             content = doc["content"]
             # Strip frontmatter
@@ -292,6 +316,16 @@ def main():
         help="Base URL prefix for doc links",
     )
     parser.add_argument(
+        "--md-links",
+        action="store_true",
+        help="Link each page's Markdown variant (page.md) instead of its HTML URL",
+    )
+    parser.add_argument(
+        "--trailing-slash",
+        action="store_true",
+        help="Site serves directory pages with a trailing slash (guide/ not guide)",
+    )
+    parser.add_argument(
         "--full",
         action="store_true",
         help="Also generate llms-full.txt with inline content",
@@ -331,14 +365,23 @@ def main():
     print(f"Found {len(docs)} documentation files")
 
     # Generate llms.txt
-    llms_txt = generate_llms_txt(docs, project_name, project_desc, args.base_url)
+    llms_txt = generate_llms_txt(
+        docs,
+        project_name,
+        project_desc,
+        args.base_url,
+        args.md_links,
+        args.trailing_slash,
+    )
     llms_path = output_dir / "llms.txt"
     llms_path.write_text(llms_txt, encoding="utf-8")
     print(f"Generated: {llms_path}")
 
     # Generate llms-full.txt if requested
     if args.full:
-        llms_full = generate_llms_full_txt(docs, project_name, project_desc)
+        llms_full = generate_llms_full_txt(
+            docs, project_name, project_desc, args.base_url, args.trailing_slash
+        )
         full_path = output_dir / "llms-full.txt"
         full_path.write_text(llms_full, encoding="utf-8")
         print(f"Generated: {full_path}")

@@ -8,7 +8,7 @@ const SCRIPT = path.join(__dirname, 'verify-prereqs.mjs');
 function runScript(args, envOverrides = {}) {
   return spawnSync(process.execPath, [SCRIPT, ...args], {
     encoding: 'utf8',
-    env: { ...process.env, AK_HYPERFRAMES_TEST_MODE: '1', ...envOverrides },
+    env: { ...process.env, AK_HYPERFRAMES_TEST_MODE: '1', MOCK_FFPROBE_PRESENT: '1', ...envOverrides },
   });
 }
 
@@ -22,7 +22,7 @@ test('verify-prereqs: MOCK_FFMPEG_PRESENT is ignored without AK_HYPERFRAMES_TEST
   assert.doesNotMatch(result.stdout, /\(mocked\)/);
 });
 
-test('verify-prereqs: Node >= 22 + FFmpeg present -> exit 0, stdout contains READY', () => {
+test('verify-prereqs: Node >= 22 + FFmpeg + FFprobe present -> exit 0, stdout contains READY', () => {
   const result = runScript([], { MOCK_FFMPEG_PRESENT: '1' });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /READY/);
@@ -38,6 +38,12 @@ test('verify-prereqs: FFmpeg missing via MOCK_FFMPEG_PRESENT=0 -> non-zero exit,
   const result = runScript([], { MOCK_FFMPEG_PRESENT: '0' });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /FFmpeg/);
+});
+
+test('verify-prereqs: FFprobe missing via MOCK_FFPROBE_PRESENT=0 -> non-zero exit, stderr mentions FFprobe', () => {
+  const result = runScript([], { MOCK_FFMPEG_PRESENT: '1', MOCK_FFPROBE_PRESENT: '0' });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /FFprobe/);
 });
 
 test('verify-prereqs: --json mode produces valid JSON on stdout when all checks pass', () => {

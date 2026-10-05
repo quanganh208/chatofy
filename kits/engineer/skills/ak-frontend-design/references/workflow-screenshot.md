@@ -1,63 +1,21 @@
-# Screenshot Replication Workflow
+# Screenshot replication workflow
 
-Replicate a design exactly from a provided screenshot.
+Replicate a design from a screenshot. The source governs composition; your taste
+fills only what the screenshot does not show (states, responsive behavior, motion).
 
-## Prerequisites
-- Activate `ak:ui-ux-pro-max` skill first for design intelligence
-- Have `ak:ai-multimodal` skill ready for visual analysis
-
-## Workflow Steps
-
-### 1. Analyze Screenshot Details
-Use `ak:ai-multimodal` skill to extract:
-- Design style and visual trends
-- Font names (predict Google Fonts), sizes, weights
-- Color palette with exact hex codes
-- Border radius, spacing patterns
-- Element positions, sizes, shapes
-- Textures, materials, lighting
-- Shadows, reflections, blur, glow effects
-- Background transparency, transitions
-- Image treatments and effects
-
-**Font Prediction**: Avoid defaulting to Inter/Poppins. Match actual fonts visible.
-
-### 2. Create Implementation Plan
-Use `ui-ux-designer` subagent:
-- Create plan directory (use `## Naming` pattern from hooks)
-- Write `plan.md` (<80 lines, generic overview)
-- Add `phase-XX-name.md` files with:
-  - Context links, Overview, Key Insights
-  - Requirements, Architecture, Related files
-  - Implementation Steps, Todo list
-  - Success Criteria, Risk Assessment
-
-### 3. Implement
-- Follow plan step by step
-- Default to HTML/CSS/JS if no framework specified
-- Match screenshot precisely
-
-### 4. Generate Assets
-Use `ak:ai-multimodal` skill:
-- Generate images, icons, backgrounds
-- Verify generated assets match design
-- Remove backgrounds if needed with `ak:media-processing`
-
-### 5. Verify & Report
-- Compare implementation to screenshot
-- Report changes summary to user
-- Surface the review result and continue already-authorized work, preserving user-selected design preferences. Ask only when a material design or scope decision is unresolved, or a destructive action needs authorization not already given.
-
-### 6. Document
-Update the owning design documentation when the authorized work changes durable guidelines; use `./docs/design-guidelines.md` when it is the repository's established owner.
-
-## Quality Standards
-- Match screenshot at pixel level where possible
-- Preserve all visual hierarchy
-- Maintain exact spacing and proportions
-- Replicate animations if visible in source
-
-## Related
-- `design-extraction-overview.md` - Extract design guidelines
-- `extraction-prompts.md` - Detailed analysis prompts
-- `visual-analysis-overview.md` - Verify quality
+1. **Extract.** Follow `visual-analysis.md` and write every value: fonts (match what
+   is visible; do not default to Inter or Poppins), sizes, weights, colors, radii,
+   spacing, shadows, effects, image treatments and element positions.
+2. **Brief from the source.** Fill the brief lines in `../SKILL.md` from the extraction
+   and turn the values into tokens (`../assets/starter-tokens-*.css` shape).
+3. **Plan when large.** For a multi-page or multi-component build, write a short plan
+   in the project's plan location before implementing.
+4. **Build.** Project stack, or a single HTML file when none. Match proportions,
+   spacing and hierarchy before details. Add the states and breakpoints the screenshot
+   cannot show, in the same visual language.
+5. **Assets.** Reuse provided assets; otherwise follow `asset-pipeline.md`.
+6. **Verify.** Screenshot your build at the source's viewport and compare side by side
+   (`visual-analysis.md`, "Verify an implementation against its source"). Fix
+   mismatches, then run `self-critique-loop.md` at the other viewports.
+7. **Report** the remaining differences and unverified areas. Record durable
+   guidelines in the project's design docs when they exist and the user wants them.

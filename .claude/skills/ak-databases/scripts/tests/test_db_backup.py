@@ -89,23 +89,24 @@ class TestBackupManager:
     @patch('subprocess.run')
     def test_backup_postgres(self, mock_run, temp_backup_dir):
         """Test PostgreSQL backup creation."""
+        # create_backup() opens the backup path for real (via `open(...)` as
+        # pg_dump's stdout target) and later reads its size with
+        # `Path.stat()`, so the mock must only stand in for the pg_dump
+        # subprocess itself, not the filesystem.
         mock_run.return_value = Mock(returncode=0, stderr="")
 
         manager = BackupManager("postgres", temp_backup_dir)
 
-        with patch('builtins.open', create=True) as mock_open:
-            mock_open.return_value.__enter__.return_value = MagicMock()
+        backup_info = manager.create_backup(
+            "postgresql://localhost/testdb",
+            "testdb",
+            compress=False,
+            verify=False
+        )
 
-            backup_info = manager.create_backup(
-                "postgresql://localhost/testdb",
-                "testdb",
-                compress=False,
-                verify=False
-            )
-
-            assert backup_info is not None
-            assert backup_info.database_type == "postgres"
-            assert backup_info.database_name == "testdb"
+        assert backup_info is not None
+        assert backup_info.database_type == "postgres"
+        assert backup_info.database_name == "testdb"
 
     def test_backup_postgres_no_database(self, temp_backup_dir):
         """Test PostgreSQL backup without database name."""

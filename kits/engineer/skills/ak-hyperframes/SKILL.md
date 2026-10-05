@@ -9,7 +9,7 @@ license: Apache-2.0
 argument-hint: "[composition or command]"
 metadata:
   author: agentkit
-  version: "1.0.1"
+  version: "1.1.0"
 ---
 
 # ak:hyperframes
@@ -36,9 +36,9 @@ FFmpeg/ImageMagick encode-only tasks — see also the ak-media-processing skill.
 ## Prerequisites
 
 - Node.js 22+
-- FFmpeg on `PATH`
-- Optional: a HeyGen cloud/lambda API key (`HEYGEN_API_KEY`) for remote
-  rendering; local rendering works without it.
+- FFmpeg and FFprobe on `PATH`; headless Chrome (`hyperframes browser ensure`)
+- Optional: HeyGen credentials (`HEYGEN_API_KEY` or `hyperframes auth login`)
+  for cloud rendering; local rendering works without them.
 
 Run the bundled verifier before starting any render work:
 
@@ -56,21 +56,22 @@ instructions per platform and the pinned-version verification note.
 `references/render-workflow.md` owns the pinned CLI invocation/version. Use that pin for
 reproducibility; it is not a claim of latest availability. A mismatch requires reporting
 installed versus expected version and resolving the invocation, not silently upgrading.
-Load that reference for init/edit/preview/lint/render. Always run lint before render because
-render depends on valid composition attributes. Reuse successful prerequisite diagnostics
+Load that reference for init/edit/preview/lint/check/render. Always pass `check` (which reruns
+lint) before render because render depends on valid composition attributes. Reuse successful prerequisite diagnostics
 until the environment changes, and stop only preview processes started for this task.
 
 ## Composition contract
 
-HyperFrames compositions are plain HTML files annotated with
-`data-composition-id`, `data-start`, `data-width`, and `data-height`
-attributes on the root element(s). See
+HyperFrames compositions are plain HTML files. The root carries
+`data-composition-id`, `data-start="0"`, `data-width`, `data-height`, and
+usually `data-duration`; each timed clip carries `id`, `data-start`, and
+`data-duration`. See
 [references/composition-basics.md](references/composition-basics.md) for the
 full attribute reference and a complete vertical 1080×1920 example.
 
 ## Reference material
 
-- [references/heygen-skills.md](references/heygen-skills.md) — the 25 HeyGen
+- [references/heygen-skills.md](references/heygen-skills.md) — the 21 HeyGen
   agent skills this wrapper defers to instead of re-implementing; install
   them using the pinned command in the render-workflow reference when deeper HyperFrames-specific
   expertise (animation, keyframes, captions, product-launch templates, etc.)
@@ -78,9 +79,9 @@ full attribute reference and a complete vertical 1080×1920 example.
 - [references/composition-basics.md](references/composition-basics.md) — HTML
   composition attribute contract with a full vertical-preset example.
 - [references/render-workflow.md](references/render-workflow.md) — the full
-  `init → edit → preview → lint → render` flow with every pinned invocation.
-- [references/env-and-deps.md](references/env-and-deps.md) — Node/FFmpeg/API
-  key setup per platform.
+  `init → edit → preview → lint/check → render` flow with every pinned invocation.
+- [references/env-and-deps.md](references/env-and-deps.md) — Node/FFmpeg/FFprobe/Chrome
+  and HeyGen credential setup per platform.
 
 ## Troubleshooting
 
@@ -88,8 +89,8 @@ full attribute reference and a complete vertical 1080×1920 example.
 | --- | --- |
 | `command not found: ffmpeg` | Run `node scripts/verify-prereqs.mjs` for the exact remediation for your platform. |
 | `npx hyperframes` reports an unknown flag | The pinned version in the render-workflow reference may be behind upstream; run the pinned CLI with `--help` to confirm current flags before updating the pin. |
-| `render` fails with a blank/short MP4 | Run `lint` first; most render failures are malformed `data-start`/`data-composition-id` attributes caught by lint. |
-| Remote/cloud render needed | Set `HEYGEN_API_KEY` per [references/env-and-deps.md](references/env-and-deps.md), then use `hyperframes cloud render` (a separate top-level command, not a `render` flag) — see [references/render-workflow.md](references/render-workflow.md). |
+| `render` fails with a blank/short MP4 | Run `check` first; most render failures are malformed `data-start`/`data-duration`/`data-composition-id` attributes or a missing timeline registration caught by lint/check. |
+| Remote/cloud render needed | Configure HeyGen credentials per [references/env-and-deps.md](references/env-and-deps.md), then use `hyperframes cloud render` (a separate top-level command, not a `render` flag) — see [references/render-workflow.md](references/render-workflow.md). |
 
 ## See also
 

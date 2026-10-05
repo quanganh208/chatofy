@@ -1,6 +1,6 @@
 # Motion Craft — Timing, Easing, GSAP & Motion Recipes
 
-Load this when the task involves scroll animation, page-load choreography, GSAP, Motion (Framer), or any `MOTION_INTENSITY > 4` build. The SKILL.md motion rules are the contract; this file is the implementation playbook.
+Load this when the task involves scroll animation, page-load choreography, GSAP, Motion (Framer), or a build with the motion dial above 4. `aesthetic-recipes.md` holds the motion rules; this file is the implementation playbook.
 
 ## 1. Timing system
 
@@ -38,7 +38,7 @@ Define once, use everywhere:
 
 ## 3. Choreography
 
-- Motion must be motivated by hierarchy, feedback, story, or state. "Looked cool" is invalid. Product UI: 150-250ms state-conveying motion only, page-load choreography NEVER.
+- Motion must be motivated by hierarchy, feedback, story, or state. "Looked cool" is invalid. Product UI: 150-250ms state-conveying motion only, no page-load choreography.
 - One well-orchestrated page-load with staggered reveals beats scattered micro-animations. Budget the drama: brand surfaces get ONE orchestrated moment.
 - Long scroll narratives follow a slow-fast-boom-stop arc: slow trigger (~15%) → reveal (~15%) → fast process (~40%) → burst (~20%) → still hold (~10%). Uniform pacing reads as a tech demo.
 - Focus shifts need depth, not just opacity: de-emphasize the background with `brightness(.5) saturate(.7) blur(4px)` while the focus target stays sharp. Opacity alone leaves the background visually competing.
@@ -126,7 +126,7 @@ const sy = useSpring(y, { stiffness: 150, damping: 15 });
 - Button physics: hover `translateY(-2px)` or `scale(1.02-1.05)` at 200ms `--ease-out-quart`; press `translateY(2px)` or `scale(0.98)` at 100ms. Hover must move or reveal something — a bare color dim is not a state.
 - Card image hover: scale the image inside an `overflow-hidden` container (`group-hover:scale-105 duration-700 ease-out`) — the container never grows.
 - Skeletons over spinners; shimmer via a translating gradient on `transform`, not `background-position`.
-- Perpetual ambient motion (mesh blobs, grain drift) at `MOTION > 5`: opacity 0.02-0.04, duration 20s+, on a `position: fixed; pointer-events: none` layer.
+- Perpetual ambient motion (mesh blobs, grain drift) when the motion dial is above 5: opacity 0.02-0.04, duration 20s+, on a `position: fixed; pointer-events: none` layer.
 
 ## 8. Safety & performance (non-negotiable)
 

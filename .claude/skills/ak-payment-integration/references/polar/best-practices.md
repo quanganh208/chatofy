@@ -7,9 +7,9 @@ Production-proven patterns from real SaaS implementations covering SDK initializ
 ### Required Environment Variables
 ```bash
 # Core API
-POLAR_API_KEY=polar_at_xxx           # Access token from Polar Dashboard
-POLAR_ORGANIZATION_ID=org_xxx        # Your organization ID
-POLAR_WEBHOOK_SECRET=whsec_xxx       # Webhook signature verification
+POLAR_ACCESS_TOKEN=polar_oat_xxx     # Organization Access Token (server-side only)
+POLAR_ORGANIZATION_ID=org_xxx        # Only needed for user-scoped/OAuth tokens
+POLAR_WEBHOOK_SECRET=whsec_xxx       # Exactly as shown in webhook settings
 
 # Product IDs (one per product)
 POLAR_PRODUCT_ENGINEER_ID=prod_xxx
@@ -27,8 +27,8 @@ import { Polar } from '@polar-sh/sdk';
 import { z } from 'zod';
 
 const polarEnvSchema = z.object({
-  POLAR_API_KEY: z.string().min(1),
-  POLAR_ORGANIZATION_ID: z.string().min(1),
+  POLAR_ACCESS_TOKEN: z.string().min(1),
+  POLAR_ORGANIZATION_ID: z.string().min(1).optional(),
   POLAR_WEBHOOK_SECRET: z.string().min(1),
 });
 
@@ -38,7 +38,7 @@ let _env: z.infer<typeof polarEnvSchema> | null = null;
 export function getPolarEnv() {
   if (!_env) {
     _env = polarEnvSchema.parse({
-      POLAR_API_KEY: process.env.POLAR_API_KEY,
+      POLAR_ACCESS_TOKEN: process.env.POLAR_ACCESS_TOKEN,
       POLAR_ORGANIZATION_ID: process.env.POLAR_ORGANIZATION_ID,
       POLAR_WEBHOOK_SECRET: process.env.POLAR_WEBHOOK_SECRET,
     });
@@ -51,7 +51,7 @@ export function getPolar() {
     const env = getPolarEnv();
     const polarEnv = process.env.POLAR_ENV || 'production';
     _polar = new Polar({
-      accessToken: env.POLAR_API_KEY,
+      accessToken: env.POLAR_ACCESS_TOKEN,
       server: polarEnv as 'production' | 'sandbox',
     });
   }
@@ -196,7 +196,8 @@ export async function POST(request: Request) {
 
     // 7. Create Polar checkout session
     const checkout = await polar.checkouts.create({
-      productPriceId: productId,
+      products: [productId],
+      // externalCustomerId: session.user.id, // recommended for logged-in buyers (Customer State lookups)
       customerEmail: normalizedEmail,
       successUrl: `${process.env.NEXT_PUBLIC_URL}/checkout/success?orderId=${order[0].id}`,
       discountId: polarDiscountId,
@@ -240,7 +241,7 @@ Never apply referral to original price if coupon was used!
 ### Signature Verification
 ```typescript
 // app/api/webhooks/polar/route.ts
-import { validateEvent } from '@polar-sh/sdk/webhooks';
+import { validateEvent, WebhookVerificationError } from '@polar-sh/sdk/webhooks';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -252,13 +253,18 @@ export async function POST(request: Request) {
   try {
     webhookEvent = validateEvent(payload, headers, secret);
   } catch (error) {
-    console.error('Invalid webhook signature:', error);
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
+    if (error instanceof WebhookVerificationError) {
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 403 });
+    }
+    // Valid signature, event type unknown to this SDK version: acknowledge so Polar stops retrying
+    console.warn('Unparsed Polar event', request.headers.get('webhook-id'), error);
+    return NextResponse.json({ received: true }, { status: 202 });
   }
+  // Stable validateEvent only supports legacy secrets (see webhooks.md);
+  // for secrets generated after 2026-09-08 use the SDK 1.0 preview or scripts/polar-webhook-verify.js
 
-  // Extract event ID for idempotency
-  const parsedPayload = JSON.parse(payload);
-  const eventId = parsedPayload.id || `${parsedPayload.type}-${Date.now()}`;
+  // Idempotency key: webhook-id header (same across retries; payload has no top-level id)
+  const eventId = headers['webhook-id'];
 
   // Check for duplicate processing
   const existingEvent = await db.select()
@@ -317,8 +323,8 @@ async function handleWebhookEvent(event: WebhookEvent) {
       await handleCheckoutUpdated(event.data);
       break;
 
-    case 'order.created':
-      await handleOrderCreated(event.data);
+    case 'order.paid': // not order.created: orders can be created as pending
+      await handleOrderPaid(event.data);
       break;
 
     case 'order.refunded':
@@ -330,7 +336,7 @@ async function handleWebhookEvent(event: WebhookEvent) {
   }
 }
 
-async function handleOrderCreated(order: PolarOrder) {
+async function handleOrderPaid(order: PolarOrder) {
   const orderId = order.metadata?.orderId;
   if (!orderId) {
     console.error('Order missing orderId in metadata');
@@ -396,9 +402,11 @@ async function handleOrderCreated(order: PolarOrder) {
 }
 ```
 
-### Status Mapping
+### Status Mapping (checkout status from `checkout.updated`)
 ```typescript
-function mapPolarStatusToAppStatus(polarStatus: string): string | null {
+// Checkout: open | expired | confirmed | succeeded | failed
+// Order (different enum): draft | pending | paid | refunded | partially_refunded | void
+function mapPolarCheckoutStatusToAppStatus(polarStatus: string): string | null {
   switch (polarStatus) {
     case 'succeeded':
       return 'completed';
@@ -416,7 +424,10 @@ function mapPolarStatusToAppStatus(polarStatus: string): string | null {
 
 ## Fee Calculation
 
-### Platform Fee Structure (Dec 2025)
+### Platform Fee Structure (Early Member rate)
+
+Current plans (Sep 2026): Starter free 5% + 50¢, Pro $20/mo 3.8% + 40¢, Growth $100/mo 3.6% + 35¢, Scale $400/mo 3.4% + 30¢. Organizations created before 2026-05-27 keep the Early Member rate below. All plans: +1.5% international cards, $15 per dispute, Stripe payout fees extra. Source: https://polar.sh/docs/merchant-of-record/fees
+
 ```typescript
 // lib/polar-fees.ts
 interface PolarFeeConfig {
@@ -514,8 +525,8 @@ export async function validateDiscount(
 
     const result = await Promise.race([searchPromise, timeoutPromise]);
 
-    // Find exact match
-    const discount = result.items.find(d =>
+    // Find exact match (first page; SDK list results are paged)
+    const discount = result.result.items.find(d =>
       d.code?.toUpperCase() === sanitizedCode
     );
 
@@ -662,25 +673,23 @@ export async function getPolarApiRevenue(): Promise<{
   try {
     let totalRevenueCents = 0;
     let orderCount = 0;
-    let page = 1;
+    let pages = 0;
     const maxPages = 100; // Safety limit
 
-    while (page <= maxPages) {
-      const response = await polar.orders.list({
-        organizationId: env.POLAR_ORGANIZATION_ID,
-        page,
-        limit: 100,
-      });
+    // SDK pages are async-iterable (REST: pagination.max_page)
+    const result = await polar.orders.list({
+      organizationId: env.POLAR_ORGANIZATION_ID,
+      limit: 100,
+    });
 
-      for (const order of response.items) {
-        if (order.status === 'succeeded') {
+    for await (const page of result) {
+      for (const order of page.result.items) {
+        if (order.status === 'paid') {
           totalRevenueCents += order.netAmount; // After discounts, before tax
           orderCount++;
         }
       }
-
-      if (!response.pagination.hasMore) break;
-      page++;
+      if (++pages >= maxPages) break;
     }
 
     revenueCache = { data: { totalRevenueCents, orderCount }, timestamp: now };
@@ -745,7 +754,7 @@ async function callWithRetry<T>(
       return await fn();
     } catch (error: any) {
       if (error.statusCode === 429) {
-        const retryAfter = parseInt(error.headers?.['retry-after'] || '1', 10);
+        const retryAfter = parseInt(error.headers?.get('retry-after') || '1', 10); // PolarError.headers is a Headers object
         const delay = retryAfter * 1000 * Math.pow(2, attempt);
         console.log(`Rate limited, retrying in ${delay}ms...`);
         await sleep(delay);
@@ -892,7 +901,7 @@ describe('calculatePolarFees', () => {
 
 1. **Applying discounts in wrong order** - Always coupon first, then referral
 2. **Trusting success redirect without verification** - Always verify via API or webhook
-3. **Not handling duplicate webhooks** - Use eventId for idempotency
+3. **Not handling duplicate webhooks** - Use the `webhook-id` header for idempotency; fulfill on `order.paid`
 4. **Blocking webhook on non-critical failures** - Wrap in try-catch, log, continue
 5. **Hardcoding Polar customer IDs** - Use external_id (your user ID) for lookups
 6. **Not setting timeout on discount validation** - API can be slow

@@ -7,7 +7,7 @@ Production patterns for managing orders across multiple payment providers (Polar
 ### Unified Orders Table
 ```typescript
 // db/schema/orders.ts
-import { pgTable, uuid, text, integer, numeric, timestamp, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, numeric, timestamp, boolean, uniqueIndex } from 'drizzle-orm/pg-core';
 
 export const orders = pgTable('orders', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -21,14 +21,16 @@ export const orders = pgTable('orders', {
   // Pricing (stored in provider's currency)
   amount: integer('amount').notNull(),           // Final amount after discounts
   originalAmount: integer('original_amount'),    // Before any discounts
-  currency: text('currency').default('USD'),     // 'USD' or 'VND'
+  currency: text('currency').default('USD'),     // ISO 4217 code, e.g. 'USD', 'EUR' or 'VND'
 
   // Status
-  status: text('status').default('pending'),     // pending, completed, failed, refunded
+  status: text('status').default('pending'),     // pending, completed, failed, refund_processing, refund_pending, refunded
 
   // Provider info
-  paymentProvider: text('payment_provider').notNull(), // 'polar' or 'sepay'
-  paymentId: text('payment_id'),                 // External payment/transaction ID
+  paymentProvider: text('payment_provider').notNull(), // PaymentProvider (see webhook section)
+  // External payment ID used for refunds: Creem tran_..., Dodo pay_..., Paddle txn_...,
+  // PayPal capture ID (not the order ID), Lemon Squeezy 'order:<id>' or 'invoice:<id>'
+  paymentId: text('payment_id'),
 
   // Referral tracking
   referredBy: uuid('referred_by').references(() => users.id),
@@ -361,42 +363,32 @@ export async function getTotalRevenue(options?: {
   endDate?: Date;
 }): Promise<{
   totalUsdCents: number;
-  byProvider: { polar: number; sepay: number };
+  byProvider: Record<string, number>; // keyed by paymentProvider
   orderCount: number;
   averageOrderValueCents: number;
 }> {
-  let query = db.select()
+  // One and(...) condition: chaining .where() replaces the earlier condition
+  const completedOrders = await db.select()
     .from(orders)
-    .where(eq(orders.status, 'completed'));
-
-  if (options?.startDate) {
-    query = query.where(gte(orders.createdAt, options.startDate));
-  }
-  if (options?.endDate) {
-    query = query.where(lte(orders.createdAt, options.endDate));
-  }
-
-  const completedOrders = await query;
+    .where(and(
+      eq(orders.status, 'completed'),
+      options?.startDate ? gte(orders.createdAt, options.startDate) : undefined,
+      options?.endDate ? lte(orders.createdAt, options.endDate) : undefined,
+    ));
 
   let totalUsdCents = 0;
-  let polarUsdCents = 0;
-  let sepayUsdCents = 0;
+  const byProvider: Record<string, number> = {};
 
   for (const order of completedOrders) {
     const normalized = await normalizeOrderToUsd(order);
 
     totalUsdCents += normalized.amountUsdCents;
-
-    if (order.paymentProvider === 'polar') {
-      polarUsdCents += normalized.amountUsdCents;
-    } else {
-      sepayUsdCents += normalized.amountUsdCents;
-    }
+    byProvider[order.paymentProvider] = (byProvider[order.paymentProvider] ?? 0) + normalized.amountUsdCents;
   }
 
   return {
     totalUsdCents,
-    byProvider: { polar: polarUsdCents, sepay: sepayUsdCents },
+    byProvider,
     orderCount: completedOrders.length,
     averageOrderValueCents: completedOrders.length > 0
       ? Math.round(totalUsdCents / completedOrders.length)
@@ -412,7 +404,7 @@ export async function getTotalRevenue(options?: {
 
 interface MaintainerRevenue {
   grossRevenue: number;      // Total received
-  platformFees: number;      // Polar/Stripe fees
+  platformFees: number;      // Provider fees (MoR and card processors)
   operatingCosts: number;    // Proportional costs
   taxDeduction: number;      // 17% tax
   netPayout: number;         // Final amount
@@ -424,7 +416,7 @@ export async function calculateMaintainerRevenue(
   dateRange: { start: Date; end: Date }
 ): Promise<MaintainerRevenue> {
   // Get orders for these products
-  const orders = await db.select()
+  const productOrders = await db.select()
     .from(orders)
     .where(and(
       eq(orders.status, 'completed'),
@@ -436,7 +428,7 @@ export async function calculateMaintainerRevenue(
   let grossRevenue = 0;
   let platformFees = 0;
 
-  for (const order of orders) {
+  for (const order of productOrders) {
     const normalized = await normalizeOrderToUsd(order);
     grossRevenue += normalized.amountUsdCents;
 
@@ -444,7 +436,33 @@ export async function calculateMaintainerRevenue(
       const fees = calculatePolarFees(normalized.amountUsdCents);
       platformFees += fees.totalFee;
     }
-    // SePay has no platform fees (direct bank transfer)
+    if (order.paymentProvider === 'creem') {
+      // Creem: 3.9% + 40¢ on the tax-inclusive total (recheck https://www.creem.io/pricing)
+      platformFees += Math.round(normalized.amountUsdCents * 0.039) + 40;
+    }
+    if (order.paymentProvider === 'dodo') {
+      // Dodo Payments: 4% + 40¢ base on the tax-inclusive total; +1.5% international,
+      // +0.5% subscriptions (checked 2026-09-26, recheck https://dodopayments.com/pricing)
+      platformFees += Math.round(normalized.amountUsdCents * 0.04) + 40;
+    }
+    if (order.paymentProvider === 'lemonsqueezy') {
+      // Lemon Squeezy: 5% + 50¢ on the tax-inclusive total; +1.5% non-US, +1.5% PayPal,
+      // +0.5% subscriptions (recheck https://docs.lemonsqueezy.com/help/getting-started/fees)
+      platformFees += Math.round(normalized.amountUsdCents * 0.05) + 50;
+    }
+    if (order.paymentProvider === 'paddle') {
+      // Paddle: 5% + 50¢ per checkout transaction (checked 2026-09-26, recheck https://www.paddle.com/pricing).
+      // Prefer the transaction's payout totals (details.payout_totals.fee) when stored.
+      platformFees += Math.round(normalized.amountUsdCents * 0.05) + 50;
+    }
+    if (order.paymentProvider === 'paypal') {
+      // PayPal: prefer the real fee from the capture (seller_receivable_breakdown.paypal_fee,
+      // stored at capture time). Fallback estimate, US PayPal Checkout as of 2026-09-01:
+      // 3.49% + 49¢, +1.50% international (recheck https://www.paypal.com/us/business/paypal-business-fees)
+      platformFees += Math.round(normalized.amountUsdCents * 0.0349) + 49;
+    }
+    // SePay and PayFS have no per-payment platform fees (direct bank transfer);
+    // PayFS charges a flat monthly plan plus overage, so book it as an operating cost.
   }
 
   // Proportional operating costs (hosting, services, etc.)
@@ -481,28 +499,117 @@ export async function calculateMaintainerRevenue(
 export async function processRefund(
   orderId: string,
   options: { keepAccess?: boolean; reason?: string }
-): Promise<{ success: boolean; error?: string }> {
-  const order = await db.select()
-    .from(orders)
-    .where(eq(orders.id, orderId))
-    .limit(1);
+): Promise<{ success: boolean; pending?: boolean; error?: string }> {
+  // Claim the order atomically so two concurrent requests cannot refund it twice
+  const order = await db.update(orders)
+    .set({ status: 'refund_processing', updatedAt: new Date() })
+    .where(and(eq(orders.id, orderId), eq(orders.status, 'completed')))
+    .returning();
 
   if (!order[0]) {
-    return { success: false, error: 'Order not found' };
+    return { success: false, error: 'Order not found or not refundable' };
   }
 
-  if (order[0].status !== 'completed') {
-    return { success: false, error: 'Order not refundable' };
-  }
-
+  let issued = false; // true once the provider accepted the refund request
+  // New key per refund attempt: the claim above stops concurrent attempts, SDK retries
+  // inside this call reuse it, and a retry after a confirmed failure gets a fresh key.
+  const refundKey = `${orderId}:refund:${crypto.randomUUID()}`;
   try {
-    // 1. Process refund with payment provider
+    // 1. Process refund with payment provider. Async and manual refunds set `pending`.
+    let pending = false;
     if (order[0].paymentProvider === 'polar') {
-      await polar.orders.refund({ id: order[0].paymentId! });
-    } else {
-      // SePay: Manual bank transfer refund required
-      // Just mark order, admin handles bank transfer
+      // Polar Refunds API: amount (minor units) is required. Subscription refunds do not
+      // revoke benefits; cancel the subscription separately.
+      await polar.refunds.create({
+        orderId: order[0].paymentId!,
+        reason: 'customer_request',
+        amount: order[0].amount,
+        revokeBenefits: !options.keepAccess, // one-time orders only
+      });
+    } else if (order[0].paymentProvider === 'stripe') {
+      // Stripe: paymentId is the PaymentIntent ID (pi_...). Card refunds are usually
+      // `succeeded` at once; others stay `pending` until charge.refund.updated.
+      const refund = await stripe.refunds.create(
+        { payment_intent: order[0].paymentId!, reason: 'requested_by_customer' },
+        { idempotencyKey: refundKey },
+      );
+      pending = refund.status !== 'succeeded';
+    } else if (order[0].paymentProvider === 'creem') {
+      // Creem Refunds API is full-refund only (POST /v1/refunds { transaction_id }).
+      // Partial refunds are dashboard-only. paymentId must be the transaction ID
+      // (tran_...), e.g. from subscription.last_transaction_id or
+      // GET /v1/transactions/search?order_id=. A refund does not cancel the
+      // subscription; cancel it separately when access should end.
+      await creem.transactions.refund({ transactionId: order[0].paymentId! });
+    } else if (order[0].paymentProvider === 'dodo') {
+      // Dodo Payments refunds are async: 30-day window, one pending/review refund per
+      // payment, paymentId is the payment ID (pay_...). Confirm on refund.succeeded.
+      // A refund does not cancel the subscription; cancel it separately.
+      await dodo.refunds.create({ payment_id: order[0].paymentId!, reason: 'customer_request' });
+      pending = true;
+    } else if (order[0].paymentProvider === 'lemonsqueezy') {
+      // Lemon Squeezy: one-time orders refund via POST /v1/orders/:id/refund, subscription
+      // charges via POST /v1/subscription-invoices/:id/refund; amount in minor units.
+      // A refund does not cancel the subscription, and the platform fee is not returned.
+      const [kind, id] = order[0].paymentId!.split(':');
+      const { error } = kind === 'invoice'
+        ? await issueSubscriptionInvoiceRefund(id, order[0].amount)
+        : await issueOrderRefund(id, order[0].amount);
+      if (error) throw error; // the JS SDK returns errors instead of throwing
+    } else if (order[0].paymentProvider === 'paddle') {
+      // Paddle refunds are adjustments against a `completed` transaction (txn_...). Live
+      // refunds usually start as `pending_approval`; confirm on adjustment.updated.
+      // Partial refunds pass `items`. A refund does not cancel the subscription.
+      const adjustment = await paddle.adjustments.create({
+        action: 'refund',
+        type: 'full',
+        transactionId: order[0].paymentId!,
+        reason: options.reason || 'customer_request',
+      });
+      if (adjustment.status === 'rejected') {
+        throw Object.assign(new Error('Paddle rejected the refund'), { definite: true });
+      }
+      pending = adjustment.status !== 'approved';
+    } else if (order[0].paymentProvider === 'paypal') {
+      // PayPal Payments v2: refund the CAPTURE (paymentId = capture ID, not the order ID).
+      // Amounts are decimal strings; HUF/JPY/TWD are zero-decimal. One PayPal-Request-Id
+      // per refund so a retry after a timeout does not refund twice.
+      const currency = order[0].currency ?? 'USD';
+      const zeroDecimal = ['HUF', 'JPY', 'TWD'].includes(currency);
+      await paypalPayments.refundCapturedPayment({
+        captureId: order[0].paymentId!,
+        paypalRequestId: refundKey,
+        body: {
+          amount: {
+            currencyCode: currency,
+            value: zeroDecimal ? String(order[0].amount) : (order[0].amount / 100).toFixed(2),
+          },
+        },
+      });
+    } else if (order[0].paymentProvider === 'payfs') {
+      // PayFS has no refund API: refund by manual bank transfer from your account,
+      // then reconcile it with the transaction.debit webhook if subscribed.
+      console.log(`Manual refund needed for PayFS order ${orderId}`);
+      pending = true; // an admin confirms after the transfer
+    } else if (order[0].paymentProvider === 'sepay') {
+      // SePay: manual bank refund, except VietinBank enterprise accounts that can use
+      // Refunds API v2 (POST /v2/transactions/{id}/refund with X-Idempotency-Key)
+      // Otherwise mark the order and let an admin handle the bank transfer
       console.log(`Manual refund needed for SePay order ${orderId}`);
+      pending = true; // an admin confirms after the transfer
+    } else {
+      throw Object.assign(new Error(`Unsupported provider: ${order[0].paymentProvider}`), { definite: true });
+    }
+    issued = true;
+
+    if (pending) {
+      // Finish steps 2-4 when the provider's refund webhook (or the admin, for manual
+      // bank refunds) confirms the refund. On a failed or rejected refund, set the
+      // order back to 'completed' so it can be refunded again.
+      await db.update(orders)
+        .set({ status: 'refund_pending', updatedAt: new Date() })
+        .where(eq(orders.id, orderId));
+      return { success: true, pending: true };
     }
 
     // 2. Update order status
@@ -548,6 +655,17 @@ export async function processRefund(
 
   } catch (error) {
     console.error('Refund failed:', error);
+    // Release the claim only on a definite rejection (4xx or explicit). A timeout or 5xx
+    // may still have refunded, so the order stays 'refund_processing' for reconciliation.
+    const status = (error as { statusCode?: number; status?: number })?.statusCode
+      ?? (error as { status?: number })?.status;
+    const definite = (error as { definite?: boolean })?.definite === true ||
+      (typeof status === 'number' && status >= 400 && status < 500);
+    if (!issued && definite) {
+      await db.update(orders)
+        .set({ status: 'completed', updatedAt: new Date() })
+        .where(and(eq(orders.id, orderId), eq(orders.status, 'refund_processing')));
+    }
     return { success: false, error: error instanceof Error ? error.message : 'Refund failed' };
   }
 }
@@ -560,15 +678,26 @@ export async function processRefund(
 // db/schema/webhook-events.ts
 export const webhookEvents = pgTable('webhook_events', {
   id: uuid('id').primaryKey().defaultRandom(),
-  provider: text('provider').notNull(),          // 'polar' or 'sepay'
+  provider: text('provider').notNull(),          // PaymentProvider
   eventType: text('event_type').notNull(),       // Event type/name
-  eventId: text('event_id').notNull().unique(),  // Idempotency key
+  // Idempotency key, unique together with provider:
+  // - Polar, Dodo Payments: `webhook-id` header (payloads have no top-level id)
+  // - SePay transaction `id`; PayFS `transaction_id` (orders: `order_id:status`)
+  // - Stripe `event.id`; Creem top-level `id` (evt_...)
+  // - Paddle `event_id` (not `notification_id`, which is per delivery)
+  // - PayPal top-level event `id` (WH-...; not paypal-transmission-id, per delivery)
+  // - Lemon Squeezy has no event id:
+  //   `${meta.event_name}:${data.type}:${data.id}:${data.attributes.updated_at}`
+  eventId: text('event_id').notNull(),
   payload: text('payload').notNull(),            // Raw JSON payload
   processed: boolean('processed').default(false),
   processedAt: timestamp('processed_at'),
+  claimedAt: timestamp('claimed_at').defaultNow(), // start of the latest attempt
   error: text('error'),                          // Error message if failed
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (t) => [
+  uniqueIndex('uq_webhook_events_provider_event').on(t.provider, t.eventId),
+]);
 
 // Partial index for unprocessed events
 // CREATE INDEX idx_webhook_events_unprocessed ON webhook_events (created_at)
@@ -578,56 +707,71 @@ export const webhookEvents = pgTable('webhook_events', {
 ### Idempotent Webhook Processing
 ```typescript
 // lib/webhooks.ts
+export type PaymentProvider =
+  | 'polar' | 'sepay' | 'payfs' | 'stripe' | 'creem'
+  | 'dodo' | 'lemonsqueezy' | 'paddle' | 'paypal';
+
 export async function processWebhookIdempotently<T>(
-  provider: 'polar' | 'sepay',
+  provider: PaymentProvider,
   eventId: string,
   eventType: string,
   payload: string,
   handler: () => Promise<T>
-): Promise<{ processed: boolean; result?: T; error?: string }> {
-  // Check for duplicate
-  const existing = await db.select()
-    .from(webhookEvents)
-    .where(eq(webhookEvents.eventId, eventId))
-    .limit(1);
+): Promise<{ processed: boolean; duplicate?: boolean; result?: T; error?: string }> {
+  const eventMatch = and(eq(webhookEvents.provider, provider), eq(webhookEvents.eventId, eventId));
 
-  if (existing.length > 0) {
-    return { processed: false }; // Already processed
-  }
-
-  // Record event BEFORE processing
-  await db.insert(webhookEvents).values({
+  // Claim the event atomically; the unique index makes concurrent retries lose the race
+  let claimed = await db.insert(webhookEvents).values({
     id: crypto.randomUUID(),
     provider,
     eventType,
     eventId,
     payload,
     processed: false,
-  });
+  }).onConflictDoNothing().returning({ id: webhookEvents.id });
+
+  if (claimed.length === 0) {
+    // Seen before. Reclaim it only if the earlier attempt failed or went stale
+    // (crashed mid-handler); a live attempt or a processed event is a duplicate.
+    const staleBefore = new Date(Date.now() - 5 * 60 * 1000);
+    claimed = await db.update(webhookEvents)
+      .set({ claimedAt: new Date(), error: null })
+      .where(and(
+        eventMatch,
+        eq(webhookEvents.processed, false),
+        or(isNotNull(webhookEvents.error), lt(webhookEvents.claimedAt, staleBefore)),
+      ))
+      .returning({ id: webhookEvents.id });
+
+    if (claimed.length === 0) {
+      return { processed: false, duplicate: true };
+    }
+  }
 
   try {
     const result = await handler();
 
     await db.update(webhookEvents)
       .set({ processed: true, processedAt: new Date() })
-      .where(eq(webhookEvents.eventId, eventId));
+      .where(eventMatch);
 
     return { processed: true, result };
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
+    // Keep processed = false so the provider's retry can reclaim the event
     await db.update(webhookEvents)
-      .set({
-        processed: true,
-        processedAt: new Date(),
-        error: errorMessage,
-      })
-      .where(eq(webhookEvents.eventId, eventId));
+      .set({ error: errorMessage })
+      .where(eventMatch);
 
-    return { processed: true, error: errorMessage };
+    // The route must answer 5xx here so the provider retries delivery
+    return { processed: false, error: errorMessage };
   }
 }
+
+// In the route: `if (outcome.error) return new Response('retry', { status: 500 });`
+// Duplicates and successes return 2xx.
 ```
 
 ## Discount Cross-Provider Sync
@@ -742,19 +886,18 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '50');
-  const provider = searchParams.get('provider'); // 'polar' | 'sepay' | null
+  const provider = searchParams.get('provider'); // PaymentProvider | null
   const status = searchParams.get('status');
 
   let query = db.select()
     .from(orders)
     .orderBy(desc(orders.createdAt));
 
-  if (provider) {
-    query = query.where(eq(orders.paymentProvider, provider));
-  }
-  if (status) {
-    query = query.where(eq(orders.status, status));
-  }
+  // One and(...) condition: chaining .where() replaces the earlier condition
+  query = query.where(and(
+    provider ? eq(orders.paymentProvider, provider) : undefined,
+    status ? eq(orders.status, status) : undefined,
+  ));
 
   const results = await query
     .limit(limit)
@@ -806,7 +949,7 @@ export async function GET(request: Request) {
 ### 4. Webhook Processing
 - Use idempotency keys for deduplication
 - Record event before processing
-- Always return 200 to prevent retry loops
+- Return 2xx for processed or duplicate events and 5xx for handler failures, so the provider retries only real failures
 - Log errors in event record for debugging
 
 ### 5. Cross-Provider Sync
