@@ -134,59 +134,74 @@ export class ConferenceGateway
   async handleJoin(
     @ConnectedSocket() ws: ConferenceSocket,
     @MessageBody() body: { roomId: string; displayName: string },
-  ): Promise<unknown> {
-    if (!ws._userId || !ws._socketId) return { error: 'not_authenticated' };
+  ): Promise<void> {
+    if (!ws._userId || !ws._socketId) {
+      this.reply(ws, 'conference.join', { error: 'not_authenticated' });
+      return;
+    }
+    try {
+      ws._roomId = body.roomId;
+      const room = await this.rooms.getOrCreateRoom(body.roomId);
+      this.rooms.addPeer(room, ws._socketId, ws._userId, body.displayName);
 
-    ws._roomId = body.roomId;
-    const room = await this.rooms.getOrCreateRoom(body.roomId);
-    this.rooms.addPeer(room, ws._socketId, ws._userId, body.displayName);
+      const existingPeers = [...room.peers.entries()]
+        .filter(([sid]) => sid !== ws._socketId)
+        .map(([sid, p]) => ({
+          socketId: sid,
+          displayName: p.displayName,
+          userId: p.userId,
+        }));
 
-    const existingPeers = [...room.peers.entries()]
-      .filter(([sid]) => sid !== ws._socketId)
-      .map(([sid, p]) => ({
-        socketId: sid,
-        displayName: p.displayName,
-        userId: p.userId,
-      }));
+      this.broadcast(room, ws, {
+        event: 'conference.peer.joined',
+        data: {
+          socketId: ws._socketId,
+          displayName: body.displayName,
+          userId: ws._userId,
+        },
+      });
 
-    this.broadcast(room, ws, {
-      event: 'conference.peer.joined',
-      data: {
+      this.reply(ws, 'conference.join', {
         socketId: ws._socketId,
-        displayName: body.displayName,
-        userId: ws._userId,
-      },
-    });
-
-    return {
-      socketId: ws._socketId,
-      rtpCapabilities: room.router.rtpCapabilities,
-      peers: existingPeers,
-    };
+        rtpCapabilities: room.router.rtpCapabilities,
+        peers: existingPeers,
+      });
+    } catch (err) {
+      this.logger.error('handleJoin failed', err);
+      this.reply(ws, 'conference.join', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   @SubscribeMessage('conference.transport.create')
   async handleTransportCreate(
     @ConnectedSocket() ws: ConferenceSocket,
     @MessageBody() body: { direction: 'send' | 'recv' },
-  ): Promise<unknown> {
+  ): Promise<void> {
     const resolved = this.resolvePeer(ws);
-    if ('error' in resolved) return resolved;
-    const { room, peer } = resolved;
-
-    const transport = await makeWebRtcTransport(room.router);
-
-    if (body.direction === 'send') peer.sendTransport = transport;
-    else peer.recvTransport = transport;
-
-    return {
-      id: transport.id,
-      iceParameters: transport.iceParameters,
-      iceCandidates: transport.iceCandidates,
-      dtlsParameters: transport.dtlsParameters,
-      // TURN credentials for clients behind NAT (e.g. Cloudflare Tunnel scenario).
-      iceServers: turnIceServers(),
-    };
+    if ('error' in resolved) {
+      this.reply(ws, 'conference.transport.create', resolved);
+      return;
+    }
+    try {
+      const { room, peer } = resolved;
+      const transport = await makeWebRtcTransport(room.router);
+      if (body.direction === 'send') peer.sendTransport = transport;
+      else peer.recvTransport = transport;
+      this.reply(ws, 'conference.transport.create', {
+        id: transport.id,
+        iceParameters: transport.iceParameters,
+        iceCandidates: transport.iceCandidates,
+        dtlsParameters: transport.dtlsParameters,
+        iceServers: turnIceServers(),
+      });
+    } catch (err) {
+      this.logger.error('handleTransportCreate failed', err);
+      this.reply(ws, 'conference.transport.create', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   @SubscribeMessage('conference.transport.connect')
@@ -194,21 +209,34 @@ export class ConferenceGateway
     @ConnectedSocket() ws: ConferenceSocket,
     @MessageBody()
     body: { transportId: string; dtlsParameters: types.DtlsParameters },
-  ): Promise<unknown> {
+  ): Promise<void> {
     const resolved = this.resolvePeer(ws);
-    if ('error' in resolved) return resolved;
-    const { peer } = resolved;
-
-    const transport =
-      peer.sendTransport?.id === body.transportId
-        ? peer.sendTransport
-        : peer.recvTransport?.id === body.transportId
-          ? peer.recvTransport
-          : null;
-
-    if (!transport) return { error: 'transport_not_found' };
-    await transport.connect({ dtlsParameters: body.dtlsParameters });
-    return { connected: true };
+    if ('error' in resolved) {
+      this.reply(ws, 'conference.transport.connect', resolved);
+      return;
+    }
+    try {
+      const { peer } = resolved;
+      const transport =
+        peer.sendTransport?.id === body.transportId
+          ? peer.sendTransport
+          : peer.recvTransport?.id === body.transportId
+            ? peer.recvTransport
+            : null;
+      if (!transport) {
+        this.reply(ws, 'conference.transport.connect', {
+          error: 'transport_not_found',
+        });
+        return;
+      }
+      await transport.connect({ dtlsParameters: body.dtlsParameters });
+      this.reply(ws, 'conference.transport.connect', { connected: true });
+    } catch (err) {
+      this.logger.error('handleTransportConnect failed', err);
+      this.reply(ws, 'conference.transport.connect', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   @SubscribeMessage('conference.produce')
@@ -220,31 +248,40 @@ export class ConferenceGateway
       rtpParameters: types.RtpParameters;
       appData?: Record<string, unknown>;
     },
-  ): Promise<unknown> {
+  ): Promise<void> {
     const resolved = this.resolvePeer(ws);
-    if ('error' in resolved) return resolved;
-    const { room, peer } = resolved;
-
-    if (!peer.sendTransport) return { error: 'no_send_transport' };
-
-    const producer = await peer.sendTransport.produce({
-      kind: body.kind,
-      rtpParameters: body.rtpParameters,
-      appData: body.appData ?? {},
-    });
-    peer.producers.set(producer.id, producer);
-
-    this.broadcast(room, ws, {
-      event: 'conference.new.producer',
-      data: {
-        producerId: producer.id,
-        socketId: ws._socketId,
-        kind: producer.kind,
-        appData: producer.appData,
-      },
-    });
-
-    return { id: producer.id };
+    if ('error' in resolved) {
+      this.reply(ws, 'conference.produce', resolved);
+      return;
+    }
+    try {
+      const { room, peer } = resolved;
+      if (!peer.sendTransport) {
+        this.reply(ws, 'conference.produce', { error: 'no_send_transport' });
+        return;
+      }
+      const producer = await peer.sendTransport.produce({
+        kind: body.kind,
+        rtpParameters: body.rtpParameters,
+        appData: body.appData ?? {},
+      });
+      peer.producers.set(producer.id, producer);
+      this.broadcast(room, ws, {
+        event: 'conference.new.producer',
+        data: {
+          producerId: producer.id,
+          socketId: ws._socketId,
+          kind: producer.kind,
+          appData: producer.appData,
+        },
+      });
+      this.reply(ws, 'conference.produce', { id: producer.id });
+    } catch (err) {
+      this.logger.error('handleProduce failed', err);
+      this.reply(ws, 'conference.produce', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   @SubscribeMessage('conference.consume')
@@ -255,53 +292,81 @@ export class ConferenceGateway
       producerId: string;
       rtpCapabilities: types.RtpCapabilities;
     },
-  ): Promise<unknown> {
+  ): Promise<void> {
     const resolved = this.resolvePeer(ws);
-    if ('error' in resolved) return resolved;
-    const { room, peer } = resolved;
-
-    if (!peer.recvTransport) return { error: 'no_recv_transport' };
-
-    if (
-      !room.router.canConsume({
+    if ('error' in resolved) {
+      this.reply(ws, 'conference.consume', resolved);
+      return;
+    }
+    try {
+      const { room, peer } = resolved;
+      if (!peer.recvTransport) {
+        this.reply(ws, 'conference.consume', { error: 'no_recv_transport' });
+        return;
+      }
+      if (
+        !room.router.canConsume({
+          producerId: body.producerId,
+          rtpCapabilities: body.rtpCapabilities,
+        })
+      ) {
+        this.reply(ws, 'conference.consume', { error: 'cannot_consume' });
+        return;
+      }
+      const consumer = await peer.recvTransport.consume({
         producerId: body.producerId,
         rtpCapabilities: body.rtpCapabilities,
-      })
-    ) {
-      return { error: 'cannot_consume' };
+        paused: true,
+      });
+      peer.consumers.set(consumer.id, consumer);
+      this.reply(ws, 'conference.consume', {
+        id: consumer.id,
+        producerId: body.producerId,
+        kind: consumer.kind,
+        rtpParameters: consumer.rtpParameters,
+      });
+    } catch (err) {
+      this.logger.error('handleConsume failed', err);
+      this.reply(ws, 'conference.consume', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
-
-    const consumer = await peer.recvTransport.consume({
-      producerId: body.producerId,
-      rtpCapabilities: body.rtpCapabilities,
-      paused: true,
-    });
-    peer.consumers.set(consumer.id, consumer);
-
-    return {
-      id: consumer.id,
-      producerId: body.producerId,
-      kind: consumer.kind,
-      rtpParameters: consumer.rtpParameters,
-    };
   }
 
   @SubscribeMessage('conference.consumer.resume')
   async handleConsumerResume(
     @ConnectedSocket() ws: ConferenceSocket,
     @MessageBody() body: { consumerId: string },
-  ): Promise<unknown> {
+  ): Promise<void> {
     const resolved = this.resolvePeer(ws);
-    if ('error' in resolved) return resolved;
-    const { peer } = resolved;
-
-    const consumer = peer.consumers.get(body.consumerId);
-    if (!consumer) return { error: 'consumer_not_found' };
-    await consumer.resume();
-    return { resumed: true };
+    if ('error' in resolved) {
+      this.reply(ws, 'conference.consumer.resume', resolved);
+      return;
+    }
+    try {
+      const { peer } = resolved;
+      const consumer = peer.consumers.get(body.consumerId);
+      if (!consumer) {
+        this.reply(ws, 'conference.consumer.resume', {
+          error: 'consumer_not_found',
+        });
+        return;
+      }
+      await consumer.resume();
+      this.reply(ws, 'conference.consumer.resume', { resumed: true });
+    } catch (err) {
+      this.logger.error('handleConsumerResume failed', err);
+      this.reply(ws, 'conference.consumer.resume', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  private reply(ws: ConferenceSocket, event: string, data: unknown): void {
+    ws.send(JSON.stringify({ event, data }));
+  }
 
   private resolvePeer(
     ws: ConferenceSocket,
