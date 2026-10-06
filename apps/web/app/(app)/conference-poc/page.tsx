@@ -459,24 +459,26 @@ function wireTranslate(
     );
   });
 
-  // Capture mic PCM via MediaRecorder at 16kHz mono and stream to /ws/translate.
-  const audioTrack = stream.getAudioTracks()[0];
-  if (!audioTrack) {
-    log('[translate] no audio track');
-    return;
-  }
-  const recorder = new MediaRecorder(new MediaStream([audioTrack]), {
-    mimeType: 'audio/webm;codecs=opus',
-  });
+  // Capture raw PCM16 at 16 kHz via Web Audio API.
+  // The live path requires pcm16 — MediaRecorder (WebM/Opus) is rejected by the server.
+  const audioCtx = new AudioContext({ sampleRate: 16000 });
+  const src = audioCtx.createMediaStreamSource(stream);
+  // eslint-disable-next-line @typescript-eslint/no-deprecated
+  const processor = audioCtx.createScriptProcessor(4096, 1, 1);
   let seq = 0;
-  recorder.addEventListener('dataavailable', async (evt) => {
-    if (!evt.data.size || translateWs.readyState !== WebSocket.OPEN) return;
+  processor.onaudioprocess = (evt) => {
+    if (translateWs.readyState !== WebSocket.OPEN) return;
     if (seq === 0) {
       t1 = performance.now();
       console.log(`[T1] first audio frame t=${t1.toFixed(1)}ms`);
     }
-    const buf = await evt.data.arrayBuffer();
-    const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    const float32 = evt.inputBuffer.getChannelData(0);
+    // Float32 → Int16 (PCM16)
+    const int16 = new Int16Array(float32.length);
+    for (let i = 0; i < float32.length; i++) {
+      int16[i] = Math.max(-32768, Math.min(32767, (float32[i] ?? 0) * 32768));
+    }
+    const b64 = btoa(String.fromCharCode(...new Uint8Array(int16.buffer)));
     translateWs.send(
       JSON.stringify({
         event: 'client.live.audio',
@@ -484,7 +486,7 @@ function wireTranslate(
           type: 'client.live.audio',
           frame: {
             sessionId: turnId,
-            encoding: 'opus',
+            encoding: 'pcm16',
             sampleRate: 16000,
             sequence: seq++,
             timestamp: Date.now(),
@@ -493,8 +495,13 @@ function wireTranslate(
         },
       }),
     );
-  });
-  recorder.start(200); // 200ms chunks
+  };
+  // Connect through a silent gain so the graph runs without producing output.
+  const silence = audioCtx.createGain();
+  silence.gain.value = 0;
+  src.connect(processor);
+  processor.connect(silence);
+  silence.connect(audioCtx.destination);
 
   translateWs.addEventListener('message', (evt: MessageEvent<string>) => {
     // The live gateway sends raw JSON (no NestJS envelope), so the discriminant is `type`.
@@ -542,7 +549,8 @@ function wireTranslate(
   });
 
   translateWs.addEventListener('close', () => {
-    recorder.stop();
+    processor.disconnect();
+    void audioCtx.close();
     log('[translate] WS closed');
   });
   translateWs.addEventListener('error', () => log('[translate] WS error'));
