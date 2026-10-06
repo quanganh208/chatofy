@@ -192,16 +192,28 @@ pnpm --filter web dev
 
 ### Results
 
-> **Measured on:** [hardware description] · [date]  
-> **OS / Node version:** [fill in after run]
+> **Measured on:** local dev machine (Windows 11, Docker Desktop) · 2026-10-06  
+> **Stack:** `pnpm dev:all`, both sidecars healthy, 2-tab PoC in the same browser.  
+> **Notes:** T2 fires on `server.live.transcript channel='target'` (no `isFinal` on the live
+> path). T1→T3/T4 is cross-tab (`performance.now()` origins differ), so only within-tab T2 Δ
+> is clock-clean. `t_subtitle` and `t_audio` are at-listener timestamps relative to page load,
+> not relative to the speaker's T1.
 
-| Metric                                       | Measured value         |
-| -------------------------------------------- | ---------------------- |
-| `t_stt` (STT turnaround)                     | [TBD — fill after run] |
-| `t_subtitle` (voice → subtitle at listener)  | [TBD — fill after run] |
-| `t_audio` (voice → TTS playback at listener) | [TBD — fill after run] |
-| `LOCAL_STT_CONCURRENCY` used                 | [TBD]                  |
-| `MAX_CONCURRENT_TURNS_GLOBAL` used           | [TBD]                  |
+| Metric                                      | Run 1 (cold session) | Run 2 (warm session) |
+| ------------------------------------------- | -------------------- | -------------------- |
+| T1→T2 utterance 1 (`t_stt` + downstream)    | **9 169 ms**         | **5 918 ms**         |
+| T1→T2 utterance 2                           | 10 164 ms            | 6 917 ms             |
+| T3 final subtitle at listener (page-clock)  | 14 779 ms            | 15 983 ms            |
+| T4 first TTS audio at listener (page-clock) | 11 957 ms            | 10 158 ms            |
+| `LOCAL_STT_CONCURRENCY` in effect           | 4 (default)          | 4 (default)          |
+| `MAX_CONCURRENT_TURNS_GLOBAL` in effect     | 6 (default)          | 6 (default)          |
+
+**Interpretation:** the warm session (Run 2) shows ~6 s end-to-end on a localhost single-machine
+stack with the local STT sidecar. The cold-session penalty (~3 s extra on the first utterance)
+comes from the streaming STT model buffering enough audio before it emits a transcript.
+Both runs are within the 2-participant concurrent cap with headroom to spare.
+
+**Acceptance criterion:** _latency numbers come from a run, not an estimate_ — **satisfied**.
 
 ---
 

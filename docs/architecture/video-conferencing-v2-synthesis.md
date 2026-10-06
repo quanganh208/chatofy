@@ -74,23 +74,16 @@ The server-side gateway receives `conference.translation.broadcast` messages and
 as `conference.translation.subtitle` and `conference.translation.audio` to all room peers.
 No new server-side audio processing; no `PlainTransport`; no FFmpeg or decode step.
 
-**Latency model (estimates, not measurements):**
+**Measured latency (2026-10-06, local dev, 2-tab PoC, single machine):**
 
-| Stage                   | p50 estimate | Source                                      |
-| ----------------------- | ------------ | ------------------------------------------- |
-| VAD gate + mic capture  | 200 ms       | existing CapturePump                        |
-| STT (local sidecar, vi) | 300 ms       | local sidecar benchmarks in ai-providers.md |
-| MT (cloud, Gemini)      | 200 ms       | benchmark/error-analysis                    |
-| TTS (local sidecar, en) | 170 ms       | local sidecar benchmarks                    |
-| **Total p50**           | **~870 ms**  | sum of above                                |
+| Measurement                     | Cold session        | Warm session        | Notes                          |
+| ------------------------------- | ------------------- | ------------------- | ------------------------------ |
+| T1→T2 (mic → translated output) | ~9.2 s              | ~5.9 s              | warm = model already streaming |
+| T3 final subtitle at listener   | 14.8 s (page-clock) | 16.0 s (page-clock) | cross-tab clocks, not Δ        |
+| T4 first TTS audio at listener  | 12.0 s (page-clock) | 10.2 s (page-clock) | cross-tab clocks, not Δ        |
 
-**Actual latency numbers have not been measured.** The acceptance criterion "latency numbers
-come from a run, not an estimate" (#209) is pending. Measurement procedure:
-
-1. `docker compose up -d`, `pnpm --filter api dev`, `pnpm --filter web dev` on the PoC branch.
-2. Two tabs join the same room. Tab A speaks ~5 s Vietnamese. Tab B observes subtitles.
-3. Copy `[T1]`–`[T4]` lines from DevTools console of both tabs.
-4. Fill §4 of `docs/video-conference-translation-audio.md` with measured values.
+**Acceptance criterion "latency numbers come from a run, not an estimate" — satisfied.**
+Full measurement detail and reproduction steps: `docs/video-conference-translation-audio.md §4`.
 
 ---
 
