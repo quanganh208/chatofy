@@ -747,6 +747,29 @@ an access boundary (see
 so a stored meeting recording would be fetchable by anyone with its URL. Decide on a
 private bucket or another store before recording ships.
 
+### 7. Network path for meeting media — **Pending: Issue #208**
+
+Production is served exclusively through a Cloudflare Tunnel, which carries only HTTP/WS
+(no raw UDP or TCP ingress). mediasoup is ICE-lite, meaning the **server** must be publicly
+reachable — TURN only rescues UDP-blocked clients, it does not solve server reachability.
+Full analysis and topology options: [`docs/architecture/video-network-path.md`](./architecture/video-network-path.md).
+
+Two paths remain under consideration:
+
+**Path A — Public media port on the existing host** (preferred if host allows it)  
+Open UDP 40000–49999 and bind mediasoup to the host's public IP
+(`MEDIASOUP_ANNOUNCED_IP=<public-ip>`). Add Cloudflare TURN (free 1 TB/month) for
+clients whose networks block UDP. No new VM; fits the current `docker-compose.yml`.
+
+**Path B — Separate VPS for mediasoup** (fallback if host cannot expose a public port)  
+Run mediasoup on a small VPS (~$5–6/month, e.g. Hetzner CX22). API stays behind the
+tunnel; a lightweight signaling proxy bridges the two. Adds operational complexity but
+does not require changing the production host's network policy.
+
+**Pending decision gate:** confirm whether the production host can expose a public port
+(static IP, no CGNAT, ISP allows inbound). Network connectivity measurements from at
+least two networks (home Wi-Fi + 4G) are required before this decision is finalised.
+
 ---
 
 ## Appendix: Comparison Matrix (estimates)
