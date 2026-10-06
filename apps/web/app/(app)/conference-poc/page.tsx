@@ -151,7 +151,7 @@ export default function ConferencePocPage() {
         // 8a. Open /ws/translate in live mode for this speaker's audio translation.
         //     Receives server.live.transcript + server.live.audio and forwards them
         //     into /ws/conference as conference.translation.broadcast (Issue #209).
-        wireTranslate(ws, stream, socketId, displayName, addLog);
+        wireTranslate(ws, stream, socketId, displayName, token, addLog);
 
         // 8. Consume existing peers' producers.
         for (const peer of peers) {
@@ -442,9 +442,10 @@ function wireTranslate(
   stream: MediaStream,
   socketId: string,
   speakerDisplayName: string,
+  token: string,
   log: (m: string) => void,
 ): void {
-  const translateWs = new WebSocket(`${API_WS_URL}/ws/translate`);
+  const translateWs = new WebSocket(`${API_WS_URL}/ws/translate`, [WS_SUBPROTOCOL, token]);
   const turnId = crypto.randomUUID();
   let t1 = 0;
 
