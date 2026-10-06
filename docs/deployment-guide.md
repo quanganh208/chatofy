@@ -571,6 +571,50 @@ deletion, which requires a second API token and is out of scope.
 - **Model weights** — `~/chatofy/models/{stt,tts}`, mounted read-only into the sidecars. Because that mount is read-only, a sidecar can never fetch a model it does not already have; the deploy's `Seed speech model weights` step is what puts weights on the host, running each sidecar's own `scripts/download_models.py` through the `seed` profile with the same directory mounted writable. Renaming or replacing a model directory is therefore a normal deploy, but a slow one — the new weights download before anything is rolled out. This gap was invisible until the first rename: the in-container download had only ever run as a cached no-op, and its first real write crash-looped the container on `EROFS`. CI cannot catch it, since CI never mounts these volumes. The STT seed also quantizes the Dewpoint display tagger in place (`fetch_dewpoint`, through `scripts/quantize_embedding.py`), downloading a 1.2 GB graph. That runs inside the Docker VM beside the live sidecars, with about 3.4 GB free: onnxruntime's own `quantize_dynamic` peaked at 5.8 GB and was OOM-killed there (exit 137), and so was a version that loaded the graph with `onnx.load` (about 3 GB). The quantizer therefore never parses the graph whole — it memory-maps the file and rewrites it at the protobuf wire level — and completes under a 600 MB container limit. It runs as a child process, so a kill there would skip the restorer instead of failing the deploy. Until that step has run, `/healthz` reports `"restore": false` and the Vietnamese display falls back to numerals only.
 - **Tunnel** — the ingress in `/etc/cloudflared/config.yml` is root-owned and also carries the operator's SSH ingress. **CD never touches it.** Adding a hostname is a manual, one-time change: back the file up, `cloudflared tunnel ingress validate`, then restart, keeping the catch-all rule last.
 
+## Video conferencing — media port setup (Path A)
+
+WebRTC media cannot travel through the Cloudflare Tunnel. mediasoup requires the host
+to be reachable on open UDP ports. These steps are manual and one-time; they are not
+performed by the CI/CD pipeline.
+
+**1. Open the media port range on the host firewall:**
+
+```bash
+# ufw (Ubuntu)
+ufw allow 3478/udp   # coturn STUN/TURN
+ufw allow 3478/tcp   # coturn TURN over TCP
+ufw allow 5349/tcp   # coturn TURNS/TLS
+ufw allow 40000:49999/udp  # mediasoup RTP/RTCP
+```
+
+**2. Set environment variables in `prod.env`:**
+
+```env
+MEDIASOUP_ANNOUNCED_IP=<host-public-ipv4>
+TURN_URL=turn:<host-public-ipv4>:3478
+TURN_USERNAME=chatofy
+TURN_CREDENTIAL=<same-value-as-COTURN_SECRET>
+COTURN_SECRET=<random-secret-min-32-chars>
+COTURN_REALM=<your-domain-e.g.-chatofy.example.com>
+```
+
+**3. Start coturn alongside the API:**
+
+```bash
+docker compose up -d coturn
+```
+
+**4. Verify TURN is reachable** (run from a different network, e.g. mobile 4G):
+
+```bash
+# A 200 response from the TURN REST API confirms coturn is up.
+curl http://<host-public-ip>:3478
+```
+
+**Security note:** opening UDP 40000–49999 departs from the deployment guide invariant
+that every port binds `127.0.0.1`. The `--denied-peer-ip` rules in `docker-compose.yml`
+prevent coturn from being used as a relay to internal RFC-1918 addresses.
+
 ## Known gaps
 
 - **No WebSocket keepalive.** Cloudflare drops idle sockets after roughly 100 seconds, and a user pausing mid-conversation is ordinary. Localhost development never exercises this. The minimal fix is server-side (`ws.ping()` in the gateway); client reconnect is a larger follow-up.
