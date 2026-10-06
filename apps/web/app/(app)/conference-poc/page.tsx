@@ -148,6 +148,11 @@ export default function ConferencePocPage() {
         const recvTransport = device.createRecvTransport(recvParams);
         wireRecvTransport(ws, recvTransport, addLog);
 
+        // 8a. Open /ws/translate in live mode for this speaker's audio translation.
+        //     Receives server.live.transcript + server.live.audio and forwards them
+        //     into /ws/conference as conference.translation.broadcast (Issue #209).
+        wireTranslate(ws, stream, socketId, displayName, addLog);
+
         // 8. Consume existing peers' producers.
         for (const peer of peers) {
           addLog(`Will consume tracks from ${peer.displayName}`);
@@ -179,6 +184,39 @@ export default function ConferencePocPage() {
           if (msg.event === 'conference.peer.left') {
             const { socketId: peerSid } = msg.data as { socketId: string };
             addLog(`Peer left: ${peerSid}`);
+          }
+          // ── Translation events (Issue #209 latency instrumentation) ──────
+          if (msg.event === 'conference.translation.subtitle') {
+            const d = msg.data as {
+              speakerDisplayName: string;
+              translatedText: string;
+              isFinal: boolean;
+            };
+            // [T3] subtitle received by listener
+            console.log(
+              `[T3] subtitle received t=${performance.now().toFixed(1)}ms final=${d.isFinal}`,
+            );
+            addLog(`[sub] ${d.speakerDisplayName}: ${d.translatedText}${d.isFinal ? '' : '…'}`);
+          }
+          if (msg.event === 'conference.translation.audio') {
+            const d = msg.data as { speakerSocketId: string; sampleRate: number; payload: string };
+            // [T4] TTS frame received; decode and schedule for playback
+            const binary = atob(d.payload);
+            const pcm = new Int16Array(binary.length / 2);
+            for (let i = 0; i < pcm.length; i++) {
+              pcm[i] = binary.charCodeAt(i * 2) | (binary.charCodeAt(i * 2 + 1) << 8);
+            }
+            const ctx = new AudioContext({ sampleRate: d.sampleRate });
+            const buf = ctx.createBuffer(1, pcm.length, d.sampleRate);
+            const ch = buf.getChannelData(0);
+            for (let i = 0; i < pcm.length; i++) ch[i] = pcm[i] / 32768;
+            const src = ctx.createBufferSource();
+            src.buffer = buf;
+            src.connect(ctx.destination);
+            src.start();
+            console.log(
+              `[T4] audio queued t=${performance.now().toFixed(1)}ms samples=${pcm.length}`,
+            );
           }
         });
       } catch (err) {
@@ -386,4 +424,106 @@ async function consumeTrack(
   send(ws, 'conference.consumer.resume', { consumerId: consumer.id });
   await waitForEvent(ws, 'conference.consumer.resume');
   log(`Consumer ${consumer.id} resumed`);
+}
+
+/**
+ * Open a /ws/translate socket in live mode for this speaker.
+ * When the server returns transcript/audio events, forward them into /ws/conference
+ * so all other room participants receive the translation.
+ *
+ * Issue #209 latency markers:
+ *   [T1] speech gate open — logged when MediaRecorder fires first audio data
+ *   [T2] server.live.transcript isFinal — logged on receipt
+ *
+ * [T3] and [T4] are logged on the LISTENER side in the message handler above.
+ */
+function wireTranslate(
+  confWs: WebSocket,
+  stream: MediaStream,
+  socketId: string,
+  speakerDisplayName: string,
+  log: (m: string) => void,
+): void {
+  const translateWs = new WebSocket(`${API_WS_URL}/ws/translate`);
+  const turnId = crypto.randomUUID();
+  let t1 = 0;
+
+  translateWs.addEventListener('open', () => {
+    log('[translate] WS open');
+    translateWs.send(JSON.stringify({ event: 'client.live.start', data: { direction: 'both' } }));
+  });
+
+  // Capture mic PCM via MediaRecorder at 16kHz mono and stream to /ws/translate.
+  const audioTrack = stream.getAudioTracks()[0];
+  if (!audioTrack) {
+    log('[translate] no audio track');
+    return;
+  }
+  const recorder = new MediaRecorder(new MediaStream([audioTrack]), {
+    mimeType: 'audio/webm;codecs=opus',
+  });
+  let seq = 0;
+  recorder.addEventListener('dataavailable', async (evt) => {
+    if (!evt.data.size || translateWs.readyState !== WebSocket.OPEN) return;
+    if (seq === 0) {
+      t1 = performance.now();
+      console.log(`[T1] first audio frame t=${t1.toFixed(1)}ms`);
+    }
+    const buf = await evt.data.arrayBuffer();
+    const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    translateWs.send(
+      JSON.stringify({
+        event: 'client.live.audio',
+        data: { sequence: seq++, sampleRate: 16000, payload: b64 },
+      }),
+    );
+  });
+  recorder.start(200); // 200ms chunks
+
+  translateWs.addEventListener('message', (evt: MessageEvent<string>) => {
+    const msg = JSON.parse(evt.data) as SignalMessage;
+
+    if (msg.event === 'server.live.transcript') {
+      const d = msg.data as { delta: string; isFinal: boolean; lang: string };
+      if (d.isFinal) {
+        console.log(
+          `[T2] transcript isFinal t=${performance.now().toFixed(1)}ms Δ=${(performance.now() - t1).toFixed(0)}ms`,
+        );
+        log(`[T2] transcript: "${d.delta}"`);
+      }
+      // Forward subtitle to conference room.
+      send(confWs, 'conference.translation.broadcast', {
+        subtitle: {
+          speakerSocketId: socketId,
+          speakerDisplayName,
+          sourceLang: 'vi',
+          targetLang: 'en',
+          sourceText: d.delta,
+          translatedText: d.delta,
+          isFinal: d.isFinal,
+          turnId,
+        },
+      });
+    }
+
+    if (msg.event === 'server.live.audio') {
+      const d = msg.data as { sequence: number; sampleRate: number; payload: string };
+      // Forward TTS audio to conference room.
+      send(confWs, 'conference.translation.broadcast', {
+        audio: {
+          speakerSocketId: socketId,
+          lang: 'en',
+          sequence: d.sequence,
+          sampleRate: d.sampleRate,
+          payload: d.payload,
+        },
+      });
+    }
+  });
+
+  translateWs.addEventListener('close', () => {
+    recorder.stop();
+    log('[translate] WS closed');
+  });
+  translateWs.addEventListener('error', () => log('[translate] WS error'));
 }

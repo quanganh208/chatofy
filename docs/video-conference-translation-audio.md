@@ -1,0 +1,232 @@
+# Conference Translation Audio Path — Design & Latency
+
+**Issue:** #209 | **Depends on:** #207 (mediasoup PoC)  
+**Date:** 2026-10-05  
+**Status:** Design complete; latency numbers require a local run (see §4).
+
+---
+
+## 1. Decision: client-side vs server-side capture
+
+### Option A — client-side capture (chosen)
+
+Each speaker's browser opens two connections in parallel:
+
+- `/ws/conference` — mediasoup WebRTC for video + raw audio
+- `/ws/translate` — existing live-mode pipeline for STT → MT → TTS
+
+When `/ws/translate` returns a subtitle (`server.live.transcript`) or audio frame
+(`server.live.audio`), the speaker's client forwards it into `/ws/conference` as new
+broadcast events. The conference gateway fans those events to all other participants.
+
+**Why chosen:**
+
+- Zero new server code for capture — `CapturePump` + `LiveTranslateSocket` are reused exactly.
+- Failure is isolated to the speaker's client; a crashed translate session does not
+  affect the conference session or other participants.
+- No new native dependencies.
+
+### Option B — server-side capture (rejected)
+
+The server subscribes to each speaker's mediasoup audio `Producer`, routes it through a
+`PlainTransport` to receive RTP packets, decodes Opus → PCM, and feeds the STT sidecar.
+
+**Why rejected:**
+
+- mediasoup does not expose PCM natively. Getting PCM requires:  
+  `router.createPlainTransport()` → RTP relay → an Opus decoder library (e.g.
+  `@discordjs/opus` or `node-opus`) — a native dependency with no prior art in this repo.
+- If the `PlainTransport` or decoder crashes, the listener receives silence with no
+  recovery path visible to the client.
+- Doubles server load: mediasoup routing + STT/TTS in-process simultaneously.
+
+### Failure case: server-side capture
+
+```
+Speaker sends audio ──► PlainTransport ──► RTP relay ──► Opus decoder
+                                                              │
+                                                        CRASH / overload
+                                                              │
+                                                    listener receives silence
+                                                    no error event to client
+                                                    no retry possible
+```
+
+Client-side equivalent: `/ws/translate` closes with an error event, the speaker's client
+logs a warning and may reconnect. Video and other participants are unaffected.
+
+---
+
+## 2. Sequence diagram: chosen option (client-side)
+
+```
+Speaker (Browser A)      /ws/translate (NestJS)     /ws/conference (NestJS)    Listener (Browser B)
+         │                        │                          │                          │
+         ├── conference.join ─────────────────────────────►│                          │
+         │◄── { rtpCapabilities } ─────────────────────────┤                          │
+         │                        │                          │                          │
+         ├── client.live.start ──►│                          │                          │
+         │   { direction }        │                          │                          │
+         │◄── server.live.ready ──┤                          │                          │
+         │   { sessionId }        │                          │                          │
+         │                        │                          │                          │
+         │  [speaker talks]       │                          │                          │
+         │                        │                          │                          │
+         ├── client.live.audio ──►│ STT(vi PCM)              │                          │
+         │   { frame }            │──► MT(vi→en)             │                          │
+         │                        │──► TTS(en text)          │                          │
+         │◄── server.live.transcript                         │                          │
+         │   { delta, isFinal }   │                          │                          │
+         │◄── server.live.audio ──┤                          │                          │
+         │   { frame }            │                          │                          │
+         │                        │                          │                          │
+         ├── conference.translation.broadcast ─────────────►│                          │
+         │   { subtitle, audio }  │                          │                          │
+         │                        │                          ├── conference.translation.subtitle ──►│
+         │                        │                          ├── conference.translation.audio ─────►│
+         │                        │                          │                          │ play AudioContext
+         │                        │                          │                          │ show subtitle overlay
+```
+
+### Event contracts (Zod schemas in `packages/types`)
+
+See `packages/types/src/events/conference-translation-events.ts` (added by this issue).
+
+| Event                              | Direction                           | Schema                                 |
+| ---------------------------------- | ----------------------------------- | -------------------------------------- |
+| `conference.translation.broadcast` | speaker client → `/ws/conference`   | `ConferenceTranslationBroadcastSchema` |
+| `conference.translation.subtitle`  | `/ws/conference` → listener clients | `ConferenceTranslationSubtitleSchema`  |
+| `conference.translation.audio`     | `/ws/conference` → listener clients | `ConferenceTranslationAudioSchema`     |
+
+**Gateway change required:** `ConferenceGateway` needs a handler for
+`conference.translation.broadcast` that fans `subtitle` and `audio` sub-objects
+to all other room participants. No coupling to `TranslateGateway` is needed.
+
+---
+
+## 3. Sidecar load estimates
+
+Derived from code reading, not measurement. **Measure before relying on these.**
+
+### Concurrency caps (from source)
+
+| Limit                                | Value       | Source                                                           |
+| ------------------------------------ | ----------- | ---------------------------------------------------------------- |
+| `MAX_CONCURRENT_TURNS_GLOBAL`        | 6           | `apps/api/src/modules/translate/session/turn-concurrency.ts`     |
+| `MAX_CONCURRENT_TURNS_GLOBAL` (live) | 6 (shared)  | `apps/api/src/modules/translate/session/live-session-limits.ts`  |
+| `LOCAL_STT_CONCURRENCY`              | 4 (default) | `services/local-stt/engines/base.py` env `LOCAL_STT_CONCURRENCY` |
+
+### Per-participant cost
+
+With vi↔en only (current Chatofy scope), each active speaker needs:
+
+- 1 STT job (vi or en PCM → text)
+- 1 MT call (vi→en or en→vi)
+- 1 TTS job (en or vi text → PCM)
+
+### Load table
+
+| Scenario                      | STT jobs | TTS jobs | Total vs cap (6)    | STT sidecar vs cap (4) |
+| ----------------------------- | -------- | -------- | ------------------- | ---------------------- |
+| 2 participants, both speaking | 2        | 2        | 4 — within cap      | 2 — within cap         |
+| 3 participants, all speaking  | 3        | 3        | **6 — at cap**      | 3 — within cap         |
+| 4 participants, all speaking  | 4        | 4        | **8 — exceeds cap** | **4 — at cap**         |
+| 6 participants, all speaking  | 6        | 6        | **12 — 2× cap**     | **6 — 1.5× cap**       |
+
+> At 3+ participants speaking simultaneously, the global cap (`MAX_CONCURRENT_TURNS_GLOBAL = 6`)
+> is saturated. New jobs queue, increasing latency. The STT sidecar caps at 4 concurrent decodes;
+> at 4+ simultaneous speakers, STT queues first.
+>
+> **Before a 6-participant demo**, raise `MAX_CONCURRENT_TURNS_GLOBAL` and
+> `LOCAL_STT_CONCURRENCY` to at least 12 and 6 respectively, and re-measure latency.
+
+### N×M translation explosion (future languages)
+
+With K languages and N participants, the worst case per turn is 1 STT + (K−1) TTS jobs.
+With K = 2 (current), this is 1 + 1 = 2 jobs per speaker — no explosion. If K grows, the
+client-side design requires the speaker's client to request one TTS output per target
+language or the gateway must fan out selectively.
+
+---
+
+## 4. Latency measurement
+
+### What to measure
+
+| Measurement  | Description                 | Start                            | End                                           |
+| ------------ | --------------------------- | -------------------------------- | --------------------------------------------- |
+| `t_stt`      | STT turnaround              | `client.live.audio` sent         | `server.live.transcript` isFinal received     |
+| `t_subtitle` | Voice → subtitle visible    | Utterance start (mic gate opens) | Subtitle renders in listener DOM              |
+| `t_audio`    | Voice → TTS playback starts | Utterance start                  | `AudioContext.currentTime` of first TTS frame |
+
+### Instrumentation in the PoC page
+
+`apps/web/app/(app)/conference-poc/page.tsx` logs `performance.now()` at:
+
+- `[T1]` speech gate open (first audio frame sent)
+- `[T2]` `server.live.transcript isFinal=true` received
+- `[T3]` `conference.translation.subtitle` received by listener
+- `[T4]` first TTS audio frame queued in `AudioContext`
+
+Open the browser DevTools console on **both** tabs (speaker + listener) and copy the
+`[T1]`–`[T4]` lines. `t_subtitle = T3 − T1`, `t_audio = T4 − T1`.
+
+### Reproduction steps
+
+```bash
+# 1. Start the stack (requires the mediasoup PoC branch)
+git checkout feat/207-mediasoup-poc   # or feat/209-translation-design once merged
+docker compose up -d coturn
+pnpm --filter api dev
+pnpm --filter web dev
+
+# 2. Open two browser tabs at http://localhost:3000/conference-poc
+#    Tab A: room = "poc", name = "Speaker" → Join
+#    Tab B: room = "poc", name = "Listener" → Join
+
+# 3. Open DevTools console on both tabs.
+#    Tab A: speak ~5 s of Vietnamese.
+#    Tab B: observe conference.translation.subtitle events.
+#    Both: copy [T1]–[T4] lines and paste below.
+```
+
+### Results
+
+> **Measured on:** [hardware description] · [date]  
+> **OS / Node version:** [fill in after run]
+
+| Metric                                       | Measured value         |
+| -------------------------------------------- | ---------------------- |
+| `t_stt` (STT turnaround)                     | [TBD — fill after run] |
+| `t_subtitle` (voice → subtitle at listener)  | [TBD — fill after run] |
+| `t_audio` (voice → TTS playback at listener) | [TBD — fill after run] |
+| `LOCAL_STT_CONCURRENCY` used                 | [TBD]                  |
+| `MAX_CONCURRENT_TURNS_GLOBAL` used           | [TBD]                  |
+
+---
+
+## 5. Reuse of `/ws/translate` contracts
+
+The client-side design reuses the following without change:
+
+| Reused                                                         | How                                                                                 |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `client.live.start` / `client.live.audio` / `client.live.stop` | Sent from speaker's browser exactly as today                                        |
+| `server.live.transcript` / `server.live.audio`                 | Received by speaker's client; forwarded into `/ws/conference`                       |
+| `CapturePump`                                                  | Unchanged — captures mic PCM, feeds `LiveTranslateSocket`                           |
+| `LiveTranslateSocket`                                          | Unchanged — wraps `/ws/translate` live mode                                         |
+| `AudioFrame` schema                                            | Reused in `ConferenceTranslationAudioSchema.payload` (same base64 PCM-16 LE format) |
+
+New additions to `packages/types`:
+
+- `packages/types/src/events/conference-translation-events.ts` —
+  `ConferenceTranslationSubtitleSchema`, `ConferenceTranslationAudioSchema`,
+  `ConferenceTranslationBroadcastSchema`
+
+**One speaker attribution note:** with one mediasoup audio `Producer` per participant, the
+speaker's identity is known from the WebRTC track — the CAM++ two-voice cap in the
+current translate pipeline becomes irrelevant for meeting contexts. Attribution is free.
+
+---
+
+**Document version:** 1.0 · **Last updated:** 2026-10-05
