@@ -451,7 +451,12 @@ function wireTranslate(
 
   translateWs.addEventListener('open', () => {
     log('[translate] WS open');
-    translateWs.send(JSON.stringify({ event: 'client.live.start', data: { direction: 'both' } }));
+    translateWs.send(
+      JSON.stringify({
+        event: 'client.live.start',
+        data: { type: 'client.live.start', direction: 'vi_to_en' },
+      }),
+    );
   });
 
   // Capture mic PCM via MediaRecorder at 16kHz mono and stream to /ws/translate.
@@ -475,20 +480,31 @@ function wireTranslate(
     translateWs.send(
       JSON.stringify({
         event: 'client.live.audio',
-        data: { sequence: seq++, sampleRate: 16000, payload: b64 },
+        data: {
+          type: 'client.live.audio',
+          frame: {
+            sessionId: turnId,
+            encoding: 'opus',
+            sampleRate: 16000,
+            sequence: seq++,
+            timestamp: Date.now(),
+            payload: b64,
+          },
+        },
       }),
     );
   });
   recorder.start(200); // 200ms chunks
 
   translateWs.addEventListener('message', (evt: MessageEvent<string>) => {
-    const msg = JSON.parse(evt.data) as SignalMessage;
+    // The live gateway sends raw JSON (no NestJS envelope), so the discriminant is `type`.
+    const msg = JSON.parse(evt.data) as { type: string; [k: string]: unknown };
 
-    if (msg.event === 'server.live.transcript') {
-      const d = msg.data as { delta: string; isFinal: boolean; lang: string };
-      if (d.isFinal) {
+    if (msg.type === 'server.live.transcript') {
+      const d = msg as { type: string; channel: 'source' | 'target'; delta: string; lang: string };
+      if (d.channel === 'target') {
         console.log(
-          `[T2] transcript isFinal t=${performance.now().toFixed(1)}ms Δ=${(performance.now() - t1).toFixed(0)}ms`,
+          `[T2] transcript target t=${performance.now().toFixed(1)}ms Δ=${(performance.now() - t1).toFixed(0)}ms`,
         );
         log(`[T2] transcript: "${d.delta}"`);
       }
@@ -501,22 +517,25 @@ function wireTranslate(
           targetLang: 'en',
           sourceText: d.delta,
           translatedText: d.delta,
-          isFinal: d.isFinal,
+          isFinal: d.channel === 'target',
           turnId,
         },
       });
     }
 
-    if (msg.event === 'server.live.audio') {
-      const d = msg.data as { sequence: number; sampleRate: number; payload: string };
+    if (msg.type === 'server.live.audio') {
+      const d = msg as {
+        type: string;
+        frame: { sequence: number; sampleRate: number; payload: string };
+      };
       // Forward TTS audio to conference room.
       send(confWs, 'conference.translation.broadcast', {
         audio: {
           speakerSocketId: socketId,
           lang: 'en',
-          sequence: d.sequence,
-          sampleRate: d.sampleRate,
-          payload: d.payload,
+          sequence: d.frame.sequence,
+          sampleRate: d.frame.sampleRate,
+          payload: d.frame.payload,
         },
       });
     }
