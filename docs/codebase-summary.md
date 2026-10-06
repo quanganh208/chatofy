@@ -20,7 +20,7 @@ they are Vietnamese and English.
 ```
 chatofy/
 ├── apps/
-│   ├── api/       # NestJS gateway (:3000, /ws/translate — turn + live modes)
+│   ├── api/       # NestJS gateway (:3000, /ws/translate — turn + live modes; /ws/conference — mediasoup SFU PoC)
 │   ├── mobile/    # Expo RN (MVP surface)
 │   ├── web/       # Next.js app (:3001) — marketing landing, translator, history, settings
 │   └── extension/ # Chrome MV3 meeting translator (WXT; load unpacked)
