@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   ProviderRegistry,
   type DisplayRestorer,
+  type LoanwordRespeller,
   type SpeakerEmbeddingProvider,
   type SttProvider,
   type TranslationProvider,
@@ -44,6 +45,7 @@ export class AiProvidersFactory {
    */
   private speakerEmbedding: SpeakerEmbeddingProvider | null = null;
   private displayRestorer: DisplayRestorer | null = null;
+  private loanwordRespeller: LoanwordRespeller | null | undefined;
 
   constructor(
     private readonly config: ConfigService<Env, true>,
@@ -122,5 +124,28 @@ export class AiProvidersFactory {
       localSttUrl: this.config.get('LOCAL_STT_URL', { infer: true }),
     } satisfies AiProviderResolveConfig);
     return this.displayRestorer;
+  }
+
+  /**
+   * The respeller on the same host as the translation, or null when that host
+   * has none (the Gemini translation registers no respeller).
+   *
+   * Resolved by the translation provider's name rather than `resolveOnly`: one
+   * respeller exists per host row, and the one to use is the one whose endpoint
+   * already answers this deployment's translations.
+   */
+  makeLoanwordRespeller(): LoanwordRespeller | null {
+    if (this.loanwordRespeller !== undefined) return this.loanwordRespeller;
+    const name = this.config.get('AI_TRANSLATION_PROVIDER', { infer: true });
+    this.loanwordRespeller = this.registry
+      .list('loanwordRespeller')
+      .includes(name)
+      ? this.registry.resolve('loanwordRespeller', name, {
+          openAiCompatibleApiKey: this.config.get('OPENAI_COMPATIBLE_API_KEY', {
+            infer: true,
+          }),
+        } satisfies AiProviderResolveConfig)
+      : null;
+    return this.loanwordRespeller;
   }
 }

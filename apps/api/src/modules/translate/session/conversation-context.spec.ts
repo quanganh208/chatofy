@@ -93,3 +93,26 @@ describe('ConversationContext', () => {
     expect(context.recall(client)).toEqual([]);
   });
 });
+
+describe('learned spellings', () => {
+  const socket = {} as StreamSocket;
+
+  it('keeps the newest 48 and moves a re-learned span to the newest end', () => {
+    const context = new ConversationContext();
+    for (let i = 0; i < 50; i++)
+      context.learnSpellings(socket, { [`span${i}`]: `Term${i}` });
+    context.learnSpellings(socket, { span2: 'Term2' });
+
+    const terms = context.learnedTerms(socket);
+    expect(terms).toHaveLength(48);
+    expect(terms).not.toContain('Term0');
+    expect(terms.at(-1)).toBe('Term2');
+  });
+
+  it('forgets them with the connection', () => {
+    const context = new ConversationContext();
+    context.learnSpellings(socket, { 'deep fred': 'deepfake' });
+    context.forget(socket);
+    expect(context.learnedTerms(socket)).toEqual([]);
+  });
+});

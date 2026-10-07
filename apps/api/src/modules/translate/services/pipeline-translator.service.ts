@@ -1,3 +1,4 @@
+import { mergeHotwords } from '../session/conversation-context';
 import {
   BadRequestException,
   Injectable,
@@ -120,6 +121,16 @@ export interface TranslateTurnInput {
   context?: string[];
   /** The turn picks up an utterance the client's length ceiling cut. */
   continuesCut?: boolean;
+  /**
+   * Spellings this conversation learned from earlier turns' guarded
+   * respellings, as hotwords for the RECOGNIZER only.
+   *
+   * Kept apart from {@link hints} on purpose: hints reach the translation
+   * prompt, and these come from whoever is speaking in the room rather than
+   * from the account owner, so they bias what is heard and are never written
+   * into an instruction.
+   */
+  learnedTerms?: string[];
   /**
    * Silero speech floor, in ms, the local sidecar should apply before a decode
    * counts as containing anything.
@@ -367,6 +378,55 @@ export class PipelineTranslatorService {
   }
 
   /**
+   * Whether this deployment's translation host has a respeller at all. False
+   * rather than thrown when resolving it fails, so a caller deciding a turn's
+   * ordering can never be broken by it.
+   */
+  canRespellLoanwords(): boolean {
+    try {
+      return this.providers.makeLoanwordRespeller() !== null;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * A model's proposed spellings for a transcript's garbled foreign spans.
+   *
+   * Never rejects, like {@link restoreDisplay}: the answer only ever improves a
+   * display, so a host that is down, slow or refusing costs the turn its
+   * respelling and nothing else. The proposals are NOT checked here — that is
+   * `acceptRespellings`, which the caller applies before anything is shown.
+   */
+  async respellLoanwords(
+    transcript: string,
+    spans: string[],
+    translation: string,
+  ): Promise<Record<string, string | null>> {
+    const start = Date.now();
+    try {
+      const respeller = this.providers.makeLoanwordRespeller();
+      if (!respeller || spans.length === 0) return {};
+      const proposals = await respeller.respell({
+        transcript,
+        spans,
+        translation,
+      });
+      this.logger.log(
+        `respell(${respeller.name}) ${Date.now() - start}ms spans=${spans.length}`,
+      );
+      return proposals;
+    } catch (err) {
+      this.logger.warn(
+        `loanword respelling failed after ${Date.now() - start}ms, the turn keeps its display: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return {};
+    }
+  }
+
+  /**
    * Punctuation and case for a finished transcript, or `undefined`.
    *
    * Never rejects. The display is an enhancement on a transcript that is
@@ -484,6 +544,14 @@ export class PipelineTranslatorService {
   ): Promise<TranscribedAudio> {
     try {
       const trio = this.providers.makeProviders();
+      // Once a conversation has learned a term, every later turn decodes with
+      // the biased (beam) recognizer; this line is what makes that visible in a
+      // production log rather than only as a slower `stt(...)` time.
+      if (input.learnedTerms?.length) {
+        this.logger.log(
+          `stt hotwords user=${input.hints?.hotwords?.length ?? 0} learned=${input.learnedTerms.length}`,
+        );
+      }
       const sttStart = Date.now();
       const { text, speechMs, pauses, leadPause } = await trio.stt.transcribe(
         input.audio,
@@ -493,7 +561,12 @@ export class PipelineTranslatorService {
         // RECOGNIZER mishears it, so spending the list here first is what the
         // field was always for; the translator still receives it, for the term
         // that biasing does not recover.
-        { hotwords: input.hints?.hotwords, minSpeechMs: input.minSpeechMs },
+        //
+        // Learned terms follow the user's, under the same ceiling.
+        {
+          hotwords: mergeHotwords(input.hints?.hotwords, input.learnedTerms),
+          minSpeechMs: input.minSpeechMs,
+        },
       );
       this.logger.log(`stt(${trio.stt.name}) ${Date.now() - sttStart}ms`);
       return {

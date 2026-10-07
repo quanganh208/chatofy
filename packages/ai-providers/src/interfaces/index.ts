@@ -6,6 +6,7 @@ export type {
   RealtimeProvider,
 } from './realtime-provider.js';
 export type { DisplayRestoreOptions, DisplayRestorer } from './display-restorer.js';
+export type { LoanwordRespellRequest, LoanwordRespeller } from './loanword-respeller.js';
 export type {
   SpeakerEmbeddingProvider,
   SpeakerEmbeddingResult,

@@ -1,9 +1,12 @@
 import type { Logger } from '@nestjs/common';
 import type { LanguageCode } from '@chatofy/types';
 import {
+  applyRespellings,
   inverseNormalizeTranscript,
   normalizeTranscript,
+  type Respellings,
 } from '@chatofy/ai-providers';
+import { mergeHotwords } from '../session/conversation-context';
 import type { TurnSession } from '../session/turn-session';
 import type { DisplayRestoreRequest } from './pipeline-translator.service';
 
@@ -29,13 +32,19 @@ const RESTORED_RECOGNITION: readonly LanguageCode[] = ['vi'];
 export function restoreRequestFor(
   session: TurnSession,
   continued: string | undefined,
+  /**
+   * Spellings the conversation learned from guarded respellings. Read as forms
+   * beside the user's hotwords, so a learned "OpenAI" is cased the way it was
+   * learned rather than the way the restorer guesses.
+   */
+  learnedTerms: readonly string[] = [],
 ): DisplayRestoreRequest | undefined {
   if (!session.repairDisplay) return undefined;
   if (!RESTORED_RECOGNITION.includes(session.languages.recognition))
     return undefined;
   return {
     ...(continued === undefined ? {} : { context: continued }),
-    terms: session.hints?.hotwords ?? [],
+    terms: mergeHotwords(session.hints?.hotwords, learnedTerms) ?? [],
   };
 }
 
@@ -82,6 +91,14 @@ export function typesetTranscript(
   restored: string | undefined,
   recognition: LanguageCode,
   logger: Pick<Logger, 'warn'>,
+  /**
+   * Spellings for the line's garbled foreign spans, already through every
+   * guard in `loanword-respelling.ts`. Applied AFTER the restore is checked to
+   * have kept the recognizer's words, because applying them is exactly what
+   * changes words: the restorer is held to "marks and case only", this is held
+   * to "only a guarded respelling of a span that cannot be Vietnamese".
+   */
+  respellings: Respellings = {},
 ): string | undefined {
   // A wordless turn has nothing to typeset. The ITN cannot invent words the
   // way a model could, but an event for an empty turn is still noise.
@@ -109,7 +126,10 @@ export function typesetTranscript(
     // a line whose original is identical to it.
     canonical = normalizeTranscript(sourceText);
     typeset = inverseNormalizeTranscript(
-      restored === undefined ? canonical : normalizeTranscript(restored),
+      applyRespellings(
+        restored === undefined ? canonical : normalizeTranscript(restored),
+        respellings,
+      ),
       recognition,
     );
   } catch (err: unknown) {

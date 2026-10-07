@@ -1,3 +1,4 @@
+import { CONTEXT_LIMITS } from '@chatofy/types';
 import type { StreamSocket } from './stream-socket';
 
 /**
@@ -58,6 +59,15 @@ export class ConversationContext {
   private readonly waiters = new WeakMap<StreamSocket, Waiters>();
   /** Turns that closed without a transcript, so a late waiter is answered at once. */
   private readonly silent = new WeakMap<StreamSocket, Set<string>>();
+  /**
+   * Spellings accepted for garbled foreign spans on this connection, keyed by
+   * the span as heard (see `loanword-respelling.ts`), in the order learned.
+   *
+   * Per connection because a connection is one conversation, and what a speaker
+   * keeps saying is that conversation's own vocabulary — the case §3.17 of the
+   * development journey measured as a gain, where a standing list was a loss.
+   */
+  private readonly learned = new WeakMap<StreamSocket, Map<string, string>>();
 
   /**
    * The finished utterances a turn starting now should be translated against.
@@ -182,9 +192,54 @@ export class ConversationContext {
     return this.silent.get(socket)?.has(sessionId) ? { text: undefined } : null;
   }
 
+  /**
+   * Remember spellings a turn's guards accepted, for the turns after it.
+   *
+   * Only guarded spellings reach here, never a model's raw proposal: every one
+   * becomes a hotword the recognizer is pulled towards for the rest of the
+   * conversation, and a wrong one would pull every later turn.
+   */
+  learnSpellings(
+    socket: StreamSocket,
+    spellings: Readonly<Record<string, string>>,
+  ): void {
+    const entries = Object.entries(spellings);
+    if (entries.length === 0) return;
+    const learned = this.learned.get(socket) ?? new Map<string, string>();
+    for (const [span, spelling] of entries) {
+      // Re-learned moves to the newest end, so the ceiling below evicts what
+      // the conversation stopped saying rather than what it keeps saying.
+      learned.delete(span);
+      learned.set(span, spelling);
+    }
+    // No more than the recognizer could ever be sent. Oldest first out, so a
+    // long conversation keeps biasing towards its recent vocabulary instead of
+    // freezing on whatever filled the list first.
+    while (learned.size > CONTEXT_LIMITS.MAX_HOTWORDS) {
+      const oldest = learned.keys().next().value;
+      if (oldest === undefined) break;
+      learned.delete(oldest);
+    }
+    this.learned.set(socket, learned);
+  }
+
+  /** The learned spellings as hotword terms, deduplicated, newest last. */
+  learnedTerms(socket: StreamSocket): string[] {
+    const terms: string[] = [];
+    const seen = new Set<string>();
+    for (const spelling of this.learned.get(socket)?.values() ?? []) {
+      const key = spelling.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      terms.push(spelling);
+    }
+    return terms;
+  }
+
   /** Drop a connection's history, for a socket that went away. */
   forget(socket: StreamSocket): void {
     this.recent.delete(socket);
+    this.learned.delete(socket);
     this.lastOpened.delete(socket);
     this.silent.delete(socket);
     const waiters = this.waiters.get(socket);
@@ -210,4 +265,29 @@ export class ConversationContext {
     const list = this.waiters.get(socket)?.get(sessionId);
     for (const settle of [...(list ?? [])]) settle(text);
   }
+}
+
+/**
+ * The hotwords a turn sends the recognizer: the user's own first, then what the
+ * conversation learned, deduplicated case-insensitively and cut at the same
+ * ceiling the socket enforces on the user's list alone.
+ *
+ * User terms first because they were chosen; learned ones fill what is left.
+ * Undefined when there is nothing to send, which keeps the unbiased decoder
+ * selected exactly as it was before anything was learned.
+ */
+export function mergeHotwords(
+  user: readonly string[] | undefined,
+  learned: readonly string[] | undefined,
+): string[] | undefined {
+  const merged: string[] = [];
+  const seen = new Set<string>();
+  for (const term of [...(user ?? []), ...(learned ?? [])]) {
+    const key = term.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(term);
+    if (merged.length >= CONTEXT_LIMITS.MAX_HOTWORDS) break;
+  }
+  return merged.length > 0 ? merged : undefined;
 }
