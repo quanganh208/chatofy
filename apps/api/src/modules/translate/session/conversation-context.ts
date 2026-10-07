@@ -272,7 +272,10 @@ export class ConversationContext {
  * conversation learned, deduplicated case-insensitively and cut at the same
  * ceiling the socket enforces on the user's list alone.
  *
- * User terms first because they were chosen; learned ones fill what is left.
+ * User terms first because they were chosen; learned ones fill what is left,
+ * and when they do not all fit it is the NEWEST that stay — `learned` is
+ * oldest first, so cutting its tail would drop exactly the words the
+ * conversation is saying now.
  * Undefined when there is nothing to send, which keeps the unbiased decoder
  * selected exactly as it was before anything was learned.
  */
@@ -280,14 +283,16 @@ export function mergeHotwords(
   user: readonly string[] | undefined,
   learned: readonly string[] | undefined,
 ): string[] | undefined {
-  const merged: string[] = [];
   const seen = new Set<string>();
-  for (const term of [...(user ?? []), ...(learned ?? [])]) {
-    const key = term.trim().toLowerCase();
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    merged.push(term);
-    if (merged.length >= CONTEXT_LIMITS.MAX_HOTWORDS) break;
-  }
+  const fresh = (terms: readonly string[] | undefined): string[] =>
+    (terms ?? []).filter((term) => {
+      const key = term.trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  const chosen = fresh(user).slice(0, CONTEXT_LIMITS.MAX_HOTWORDS);
+  const room = CONTEXT_LIMITS.MAX_HOTWORDS - chosen.length;
+  const merged = [...chosen, ...(room > 0 ? fresh(learned).slice(-room) : [])];
   return merged.length > 0 ? merged : undefined;
 }

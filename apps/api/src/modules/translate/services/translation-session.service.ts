@@ -652,72 +652,85 @@ export class TranslationSessionService implements OnModuleDestroy {
             )
           : undefined;
       void speaking?.catch(() => undefined);
-      const respellings = await respelling;
+      // Settled however this block ends — a throw from the emit included —
+      // because a speech path holding an error waits on it and would wait
+      // forever otherwise.
+      try {
+        const respellings = await respelling;
 
-      if (split) {
-        await this.emitPieces(socket, session, split, respellings);
-      } else {
-        // Computed BEFORE the emit so the finished line arrives already typeset.
-        // Reached only from this point — after a FINAL transcript, on the turn's
-        // real text — which is what keeps "never for a speculation" true by
-        // construction rather than by a check: `speculate()` has no path here.
-        const display = this.displayFor(
-          session,
-          translated.sourceText,
-          translated.restored,
-          translated.translations,
-          respellings[0],
-        );
-
-        this.channelFor(socket, session).emit({
-          type: 'server.transcript.final',
-          sessionId: session.sessionId,
-          segment: session.toSegment(
-            translated.sourceText,
-            translated.translations,
-          ),
-          ...(display === undefined ? {} : { display }),
-        });
-        this.rememberSegment(
-          socket,
-          session,
-          session.sessionId,
-          translated.sourceText,
-          translated,
-          respellings[0],
-        );
-
-        // After the transcript is out, so a slow sidecar delays a label and never
-        // the sentence. A failed embedding resolves null and the turn simply
-        // carries no vector.
-        //
-        // `vector`, when set, is a one-survivor split's own piece vector — it
-        // must win over `embedding`, the WHOLE turn's vector, because the whole
-        // turn includes the dropped non-speech the survivor does not.
-        const heard = await (vector ?? embedding);
-        if (heard && this.registry.holds(socket, session)) {
-          this.channelFor(socket, session).emit({
-            type: 'server.turn.embedding',
-            sessionId: session.sessionId,
-            vector: heard.vector,
-            dim: heard.vector.length,
-            // The SURVIVOR's own duration when `vector` is a one-survivor
-            // split's piece vector — the whole turn's byte length would still
-            // count the non-speech the other piece was dropped for, which is
-            // exactly what this vector does NOT carry.
-            audioMs:
-              pieceAudioMs ??
-              Math.round(audio.secondsAt(audio.byteLength) * 1000),
-            // Buffer time and speech time, both, because they are different
-            // quantities: `audioMs` counts the pre-roll and the hangover, and one
-            // measured turn held 720ms of speech inside a 1540ms buffer. The
-            // client's floor is measured in the second one.
-            speechMs: heard.speechMs,
-          });
+        // The respelling is an await the check above does not cover: a client
+        // that left during it is the same abandoned turn as one that left before.
+        if (!this.registry.holds(socket, session)) {
+          record(false, 'abandoned');
+          return;
         }
+
+        if (split) {
+          await this.emitPieces(socket, session, split, respellings);
+        } else {
+          // Computed BEFORE the emit so the finished line arrives already typeset.
+          // Reached only from this point — after a FINAL transcript, on the turn's
+          // real text — which is what keeps "never for a speculation" true by
+          // construction rather than by a check: `speculate()` has no path here.
+          const display = this.displayFor(
+            session,
+            translated.sourceText,
+            translated.restored,
+            translated.translations,
+            respellings[0],
+          );
+
+          this.channelFor(socket, session).emit({
+            type: 'server.transcript.final',
+            sessionId: session.sessionId,
+            segment: session.toSegment(
+              translated.sourceText,
+              translated.translations,
+            ),
+            ...(display === undefined ? {} : { display }),
+          });
+          this.rememberSegment(
+            socket,
+            session,
+            session.sessionId,
+            translated.sourceText,
+            translated,
+            respellings[0],
+          );
+
+          // After the transcript is out, so a slow sidecar delays a label and never
+          // the sentence. A failed embedding resolves null and the turn simply
+          // carries no vector.
+          //
+          // `vector`, when set, is a one-survivor split's own piece vector — it
+          // must win over `embedding`, the WHOLE turn's vector, because the whole
+          // turn includes the dropped non-speech the survivor does not.
+          const heard = await (vector ?? embedding);
+          if (heard && this.registry.holds(socket, session)) {
+            this.channelFor(socket, session).emit({
+              type: 'server.turn.embedding',
+              sessionId: session.sessionId,
+              vector: heard.vector,
+              dim: heard.vector.length,
+              // The SURVIVOR's own duration when `vector` is a one-survivor
+              // split's piece vector — the whole turn's byte length would still
+              // count the non-speech the other piece was dropped for, which is
+              // exactly what this vector does NOT carry.
+              audioMs:
+                pieceAudioMs ??
+                Math.round(audio.secondsAt(audio.byteLength) * 1000),
+              // Buffer time and speech time, both, because they are different
+              // quantities: `audioMs` counts the pre-roll and the hangover, and one
+              // measured turn held 720ms of speech inside a 1540ms buffer. The
+              // client's floor is measured in the second one.
+              speechMs: heard.speechMs,
+            });
+          }
+        }
+      } finally {
+        lineOut();
       }
 
-      lineOut();
       const delivery = await (speaking ??
         this.speak(socket, session, translated, timeline));
       timeline.markAudio(delivery);
