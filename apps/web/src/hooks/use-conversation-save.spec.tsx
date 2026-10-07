@@ -45,6 +45,7 @@ const baseInput: ConversationSaveInput = {
   running: true,
   turns: [],
   audioOffsetMs: null,
+  pausedMs: 0,
 };
 
 /** The body of the nth write. `mock.calls` is untyped, and the assertions are not. */
@@ -101,6 +102,24 @@ afterEach(() => {
 });
 
 describe('useConversationSave', () => {
+  it('never sends more paused time than the conversation lasted', async () => {
+    // A wall clock that stepped during a pause can sum to more than the span;
+    // the API refuses that with a 400 that is never retried.
+    vi.setSystemTime(new Date('2026-09-03T00:00:10.000Z'));
+    await render({ ...baseInput, running: true, turns: [turn('xin chào')] });
+    await render({ ...baseInput, running: false, turns: [turn('xin chào')], pausedMs: 60_000 });
+
+    expect(bodyOf(0).pausedMs).toBe(10_000);
+  });
+
+  it('never sends a negative paused time', async () => {
+    vi.setSystemTime(new Date('2026-09-03T00:00:10.000Z'));
+    await render({ ...baseInput, running: true, turns: [turn('xin chào')] });
+    await render({ ...baseInput, running: false, turns: [turn('xin chào')], pausedMs: -500 });
+
+    expect(bodyOf(0).pausedMs).toBe(0);
+  });
+
   it('fires once when a conversation with blocks goes idle', async () => {
     await render({ ...baseInput, running: true, turns: [turn('xin chào')] });
     expect(saveConversation).not.toHaveBeenCalled();

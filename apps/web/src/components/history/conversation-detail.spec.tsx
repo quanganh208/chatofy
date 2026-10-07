@@ -42,6 +42,7 @@ const conversation: Conversation = {
   turnCount: 15,
   preview: 'xin chào',
   hasMinutes: false,
+  pausedMs: 0,
   turns: [
     {
       position: 0,

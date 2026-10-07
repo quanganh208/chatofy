@@ -129,6 +129,7 @@ function makeService(
       turnCount: rows.length,
       preview: rows[0]?.sourceText ?? '',
       hasMinutes: false,
+      pausedMs: 0,
       turns: rows,
       // No recording on these fixtures. Minutes read the transcript only, so the
       // generator must work identically whether or not audio was kept.

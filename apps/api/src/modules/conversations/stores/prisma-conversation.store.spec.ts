@@ -21,6 +21,7 @@ const conversation: ConversationWrite = {
   startedAt: '2026-09-17T00:00:00.000Z',
   endedAt: '2026-09-17T00:01:00.000Z',
   audioOffsetMs: null,
+  pausedMs: 0,
   turns: [
     {
       position: 0,
@@ -83,13 +84,28 @@ function assertRealCommitShape(err: Error & { cause?: unknown }): void {
  * `failures` defaults to "every time" when an error is supplied, which is what
  * proves the budget is bounded rather than merely that a retry happens.
  */
-function fakePrisma(options: { failWith?: unknown; failures?: number } = {}) {
+function fakePrisma(
+  options: {
+    failWith?: unknown;
+    failures?: number;
+    /** The paused total the row already holds, as the upsert reads it back. */
+    storedPausedMs?: number;
+  } = {},
+) {
   // The order the transaction issues its statements in, which is what the lock
   // assertions below are really about.
   const calls: string[] = [];
   const upsert = vi.fn(async () => {
     calls.push('conversation.upsert');
-    return { id: 'cuid-1', minutes: null };
+    return {
+      id: 'cuid-1',
+      pausedMs: options.storedPausedMs ?? 0,
+      minutes: null,
+    };
+  });
+  const update = vi.fn(async () => {
+    calls.push('conversation.update');
+    return {};
   });
   const deleteMany = vi.fn(async () => {
     calls.push('turn.deleteMany');
@@ -110,7 +126,7 @@ function fakePrisma(options: { failWith?: unknown; failures?: number } = {}) {
 
   const tx = {
     $executeRaw: executeRaw,
-    conversation: { upsert },
+    conversation: { upsert, update },
     conversationTurn: { deleteMany, createMany },
   };
 
@@ -138,6 +154,7 @@ function fakePrisma(options: { failWith?: unknown; failures?: number } = {}) {
     settings,
     executeRaw,
     upsert,
+    update,
     deleteMany,
     createMany,
     transaction: transaction as Mock,
@@ -161,6 +178,66 @@ describe('PrismaConversationStore', () => {
       turnCount: 1,
       preview: 'xin chào',
       hasMinutes: false,
+      pausedMs: 0,
+    });
+  });
+
+  describe('paused time', () => {
+    it('writes the paused total on create', async () => {
+      const { store, upsert } = fakePrisma();
+
+      await store.save('owner-1', 'conv-1', {
+        ...conversation,
+        pausedMs: 5_000,
+      });
+
+      const [args] = upsert.mock.calls[0] as unknown as [
+        { create: Record<string, unknown> },
+      ];
+      expect(args.create.pausedMs).toBe(5_000);
+    });
+
+    it('never lists it in the update, which re-fires on every rename', async () => {
+      const { store, upsert } = fakePrisma();
+
+      await store.save('owner-1', 'conv-1', {
+        ...conversation,
+        pausedMs: 5_000,
+      });
+
+      const [args] = upsert.mock.calls[0] as unknown as [
+        { update: Record<string, unknown> },
+      ];
+      expect(args.update).not.toHaveProperty('pausedMs');
+    });
+
+    it('raises a stored total that a later save exceeds', async () => {
+      const { store, update } = fakePrisma({ storedPausedMs: 2_000 });
+
+      const saved = await store.save('owner-1', 'conv-1', {
+        ...conversation,
+        pausedMs: 5_000,
+      });
+
+      expect(update).toHaveBeenCalledWith({
+        where: { id: 'cuid-1' },
+        data: { pausedMs: 5_000 },
+      });
+      expect(saved.pausedMs).toBe(5_000);
+    });
+
+    it('keeps a stored total against a save that sends less', async () => {
+      // A tab on a bundle from before pausing stopped the clock re-saves a
+      // rename with no field at all, which parses as 0.
+      const { store, update } = fakePrisma({ storedPausedMs: 5_000 });
+
+      const saved = await store.save('owner-1', 'conv-1', {
+        ...conversation,
+        pausedMs: 0,
+      });
+
+      expect(update).not.toHaveBeenCalled();
+      expect(saved.pausedMs).toBe(5_000);
     });
   });
 
@@ -306,6 +383,7 @@ describe('PrismaConversationStore', () => {
       languages: ['vi', 'en'],
       startedAt: new Date('2026-09-17T00:00:00.000Z'),
       endedAt: new Date('2026-09-17T00:01:00.000Z'),
+      pausedMs: 0,
       minutes: null,
       _count: { turns: 1 },
       turns: [{ sourceText: 'xin chào', displayText: null }],
@@ -391,6 +469,7 @@ describe('PrismaConversationStore', () => {
       languages: ['vi', 'en'],
       startedAt: new Date('2026-09-17T00:00:00.000Z'),
       endedAt: new Date('2026-09-17T00:01:00.000Z'),
+      pausedMs: 0,
       audioOffsetMs: null,
       audioDurationMs: null,
       minutes: null,
@@ -443,6 +522,15 @@ describe('PrismaConversationStore', () => {
 
       expect(conversation?.turns.map((t) => t.position)).toEqual([1]);
       expect(conversation?.turnCount).toBe(1);
+    });
+
+    it('reads the stored paused total back', async () => {
+      const conversation = await storeGetting(row({ pausedMs: 7_000 })).get(
+        'owner-1',
+        'conv-1',
+      );
+
+      expect(conversation?.pausedMs).toBe(7_000);
     });
 
     it('reads a well-formed conversation through unchanged', async () => {

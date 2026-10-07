@@ -342,6 +342,7 @@ function toConversationWrite(body: SaveConversationRequest): ConversationWrite {
     startedAt: body.startedAt,
     endedAt: body.endedAt,
     audioOffsetMs: body.audioOffsetMs,
+    pausedMs: body.pausedMs,
     turns: body.turns.map(toTurnWrite),
   };
 }

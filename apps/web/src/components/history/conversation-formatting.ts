@@ -107,6 +107,22 @@ function daysFromToday(date: Date): number {
 }
 
 /**
+ * How long the conversation was ACTIVE, in ms: from start to end, less the time
+ * it spent paused.
+ *
+ * The live clock stops while paused and the recording pauses with it, so this
+ * is the length both of those showed. `pausedMs` is 0 on every conversation
+ * saved before that, which is what their duration meant. Floored at 0 as a
+ * last line: the client bounds the total by the span and the API refuses one
+ * that exceeds it, but a card must never read a negative length whatever a row
+ * holds.
+ */
+export function activeDurationMs(conversation: ConversationSummary): number {
+  const span = Date.parse(conversation.endedAt) - Date.parse(conversation.startedAt);
+  return Math.max(0, span - conversation.pausedMs);
+}
+
+/**
  * Whole minutes, to the NEAREST, and never fewer than one.
  *
  * Nearest rather than up, because this reads as a length rather than as a bill: a
@@ -118,6 +134,5 @@ function daysFromToday(date: Date): number {
  * the boundary — an unbounded pair could render a duration measured in years.
  */
 export function durationMinutes(conversation: ConversationSummary): number {
-  const ms = Date.parse(conversation.endedAt) - Date.parse(conversation.startedAt);
-  return Math.max(1, Math.round(ms / 60_000));
+  return Math.max(1, Math.round(activeDurationMs(conversation) / 60_000));
 }

@@ -1,7 +1,12 @@
 'use client';
 
 import { VolumeX } from 'lucide-react';
-import type { CapturesBySession, LiveTurn, UnheardBySession } from '@chatofy/realtime-client';
+import type {
+  CapturesBySession,
+  LiveTurn,
+  PauseInterval,
+  UnheardBySession,
+} from '@chatofy/realtime-client';
 import {
   displayGroupOffsetMs,
   groupIsRepaired,
@@ -72,6 +77,11 @@ interface ConversationTranscriptProps {
    * `displayGroupOffsetMs`, which both call.
    */
   startedAtMs: number | null;
+  /**
+   * The pauses a block's offset leaves out — the same ones the save measures
+   * the stored `offsetMs` in. Defaults to none, which keeps wall time.
+   */
+  pauses?: readonly PauseInterval[];
   /**
    * How long after the conversation started the recording did, or null when the
    * microphone never opened.
@@ -168,6 +178,7 @@ export function ConversationTranscript({
   displays,
   blockTranslations = {},
   startedAtMs,
+  pauses = [],
   audioOffsetMs,
   running,
   side = 'both',
@@ -280,7 +291,10 @@ export function ConversationTranscript({
             const at =
               startedAtMs === null
                 ? null
-                : mediaOffset(displayGroupOffsetMs(group, captures, startedAtMs), audioOffsetMs);
+                : mediaOffset(
+                    displayGroupOffsetMs(group, captures, startedAtMs, pauses),
+                    audioOffsetMs,
+                  );
             return (
               <li key={group.key} className={cn('border-primary', turnFrame)}>
                 {/* The block's meta line. It exists when there is a name to show,

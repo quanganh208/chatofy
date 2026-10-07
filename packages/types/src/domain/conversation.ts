@@ -186,6 +186,15 @@ export const conversationSummarySchema = z.object({
    * marker never appeared for anyone.
    */
   hasMinutes: z.boolean(),
+  /**
+   * Time the conversation spent paused, in ms — what the card's duration leaves
+   * out: `endedAt - startedAt - pausedMs`. Zero for every conversation saved
+   * before pausing stopped the clock, which is what their duration meant.
+   *
+   * Defaulted for the rollback `audioOffsetMs` describes below: an API build
+   * from before this field sends none, and a list must still parse.
+   */
+  pausedMs: z.number().int().min(0).default(0),
 });
 export type ConversationSummary = z.infer<typeof conversationSummarySchema>;
 

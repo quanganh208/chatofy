@@ -134,6 +134,41 @@ describe('saveConversationRequestSchema', () => {
     });
   });
 
+  describe('pausedMs', () => {
+    it('defaults to 0 for a body from a build that never paused the clock', () => {
+      const parsed = saveConversationRequestSchema.safeParse(body([turn()]));
+      expect(parsed.success && parsed.data.pausedMs).toBe(0);
+    });
+
+    it('accepts paused time up to the whole span of the conversation', () => {
+      const parsed = saveConversationRequestSchema.safeParse({
+        ...body([turn()]),
+        pausedMs: 15_000,
+      });
+      expect(parsed.success && parsed.data.pausedMs).toBe(15_000);
+    });
+
+    it('refuses more paused time than the conversation lasted', () => {
+      const { startedAt, endedAt, ...rest } = body([turn()]);
+      const span = Date.parse(endedAt) - Date.parse(startedAt);
+      const parsed = saveConversationRequestSchema.safeParse({
+        ...rest,
+        startedAt,
+        endedAt,
+        pausedMs: span + 1,
+      });
+      expect(parsed.success).toBe(false);
+    });
+
+    it('refuses a negative or fractional value', () => {
+      for (const pausedMs of [-1, 1.5]) {
+        expect(
+          saveConversationRequestSchema.safeParse({ ...body([turn()]), pausedMs }).success,
+        ).toBe(false);
+      }
+    });
+  });
+
   it('accepts offsets that run backwards across positions', () => {
     // Deliberate. An earlier draft refined these to be non-decreasing, which
     // made ONE bad offset cost the WHOLE transcript — a 400 on a body whose text
@@ -392,6 +427,12 @@ describe('response wire schemas (API-rollback tolerance)', () => {
     const put = conversationSummaryResponseSchema.safeParse({ conversation: summary });
     expect(put.success).toBe(true);
     expect(put.success && put.data.conversation.languages).toEqual(['vi', 'en']);
+  });
+
+  it('reads a summary from an API build without pausedMs as never paused', () => {
+    const { turns: _turns, ...summary } = conversation();
+    const put = conversationSummaryResponseSchema.safeParse({ conversation: summary });
+    expect(put.success && put.data.conversation.pausedMs).toBe(0);
   });
 });
 

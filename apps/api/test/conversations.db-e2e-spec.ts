@@ -61,6 +61,7 @@ interface SaveConversationBody {
     offsetMs?: number | null;
   }>;
   audioOffsetMs?: number | null;
+  pausedMs?: number;
 }
 
 describe('Conversation history (db-e2e)', () => {
@@ -1033,6 +1034,75 @@ describe('Conversation history (db-e2e)', () => {
       Date.parse(backwards.startedAt) - 1,
     ).toISOString();
     await put(randomUUID(), alice, backwards).expect(400);
+  });
+
+  describe('paused time', () => {
+    const read = async (id: string) =>
+      (
+        await request(app.getHttpServer())
+          .get(`/conversations/${id}`)
+          .set('authorization', alice.bearer)
+          .expect(200)
+      ).body.data.conversation as Conversation;
+
+    it('round trips pausedMs through the save, the detail and the list', async () => {
+      const id = randomUUID();
+      const paused = body();
+      paused.pausedMs = 15_000;
+      const saved = await put(id, alice, paused).expect(200);
+      expect(saved.body.data.conversation.pausedMs).toBe(15_000);
+
+      expect((await read(id)).pausedMs).toBe(15_000);
+
+      const list = await request(app.getHttpServer())
+        .get('/conversations')
+        .set('authorization', alice.bearer)
+        .expect(200);
+      const card = (
+        list.body.data.conversations as {
+          conversationId: string;
+          pausedMs: number;
+        }[]
+      ).find((c) => c.conversationId === id);
+      expect(card?.pausedMs).toBe(15_000);
+    });
+
+    it('reads 0 for a row written without the column, as every older row was', async () => {
+      // Written straight to the table, the way a row from before the column
+      // existed looks after the migration: the default is what it reads back.
+      const id = randomUUID();
+      await prisma.conversation.create({
+        data: {
+          ownerId: alice.userId,
+          clientId: id,
+          languages: ['vi', 'en'],
+          startedAt: new Date(Date.now() - 60_000),
+          endedAt: new Date(),
+        },
+      });
+
+      expect((await read(id)).pausedMs).toBe(0);
+    });
+
+    it('a re-save without pausedMs keeps the stored total', async () => {
+      // A tab on the previous bundle re-saves a rename with no such field; it
+      // must not put the paused time back into the card's duration.
+      const id = randomUUID();
+      const paused = body();
+      paused.pausedMs = 15_000;
+      await put(id, alice, paused).expect(200);
+
+      await put(id, alice, body()).expect(200);
+
+      expect((await read(id)).pausedMs).toBe(15_000);
+    });
+
+    it('refuses more paused time than the conversation lasted with 400', async () => {
+      const tooLong = body();
+      tooLong.pausedMs =
+        Date.parse(tooLong.endedAt) - Date.parse(tooLong.startedAt) + 1;
+      await put(randomUUID(), alice, tooLong).expect(400);
+    });
   });
 
   it('caps the list page size at MAX_PAGE_SIZE', async () => {

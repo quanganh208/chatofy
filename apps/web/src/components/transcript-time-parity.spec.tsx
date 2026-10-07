@@ -2,7 +2,11 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { toConversationTurns, type CapturesBySession } from '@chatofy/realtime-client';
+import {
+  toConversationTurns,
+  type CapturesBySession,
+  type PauseInterval,
+} from '@chatofy/realtime-client';
 import { HISTORY_LIMITS, type TranscriptSegment } from '@chatofy/types';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
 import { HistoryTranscript } from '@/components/history/history-transcript';
@@ -113,7 +117,7 @@ afterEach(() => {
 const times = () =>
   [...container.querySelectorAll('time')].map((element) => element.textContent ?? '');
 
-function renderLive(audioOffsetMs: number | null) {
+function renderLive(audioOffsetMs: number | null, pauses: readonly PauseInterval[] = []) {
   act(() => {
     root.render(
       <LocaleProvider>
@@ -123,6 +127,7 @@ function renderLive(audioOffsetMs: number | null) {
           captures={CAPTURES}
           displays={{}}
           startedAtMs={STARTED_AT_MS}
+          pauses={pauses}
           audioOffsetMs={audioOffsetMs}
           speakers={[]}
           attributions={{}}
@@ -139,12 +144,13 @@ function renderLive(audioOffsetMs: number | null) {
   return times();
 }
 
-function renderStored(audioOffsetMs: number | null) {
+function renderStored(audioOffsetMs: number | null, pauses: readonly PauseInterval[] = []) {
   // Exactly what the save sends: the projection over the same state, measured
-  // from the same conversation start.
+  // from the same conversation start, leaving out the same pauses.
   const stored = toConversationTurns(
     { turns: TURNS, speakers: [], attributions: {}, captures: CAPTURES, displays: {} },
     STARTED_AT_MS,
+    pauses,
   );
   act(() => {
     root.render(
@@ -166,6 +172,31 @@ describe('a turn reads the same live and in history', () => {
     const stored = renderStored(1_400);
 
     expect(live).toEqual(['0:05', '1:12', '1:01:09']);
+    expect(stored).toEqual(live);
+  });
+
+  it('agrees after a pause, and both point at where the words are in the paused recording', () => {
+    // Paused for 20s between the first block and the second. The recorder
+    // paused over the same 20s, so the recording has no paused stretch: a block
+    // after the pause sits 20s earlier in the media than in wall time.
+    const recorderStartedAt = STARTED_AT_MS + 1_400;
+    const pauses = [{ startedAt: STARTED_AT_MS + 30_000, endedAt: STARTED_AT_MS + 50_000 }];
+    // Where each block's words are in the media, worked out from the
+    // recorder's own timeline rather than from the rule under test: time since
+    // the recorder started, less the time it spent paused before the words.
+    const mediaSeconds = [7_000, 74_000, 3_671_000].map((wall) => {
+      const spokenAt = STARTED_AT_MS + wall;
+      const pausedBefore = spokenAt > STARTED_AT_MS + 50_000 ? 20_000 : 0;
+      return Math.floor((spokenAt - recorderStartedAt - pausedBefore) / 1000);
+    });
+
+    const live = renderLive(1_400, pauses);
+    act(() => root.unmount());
+    root = createRoot(container);
+    const stored = renderStored(1_400, pauses);
+
+    expect(mediaSeconds).toEqual([5, 52, 3_649]);
+    expect(live).toEqual(['0:05', '0:52', '1:00:49']);
     expect(stored).toEqual(live);
   });
 

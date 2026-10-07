@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ServerEvent, SessionOptions, TranscriptSegment } from '@chatofy/types';
 import { ConversationSession, type ConversationRuntimeOptions } from './conversation-session.js';
 import type { ConversationStatus } from './conversation-status.js';
@@ -153,6 +153,7 @@ function harness(options: HarnessOptions = {}) {
     onDrained: vi.fn<() => Promise<void> | void>(),
     onTurnCaptured: vi.fn(),
     onTurnAbandoned: vi.fn(),
+    onPauses: vi.fn(),
     onLog: vi.fn(),
   };
 
@@ -613,6 +614,107 @@ describe('ConversationSession', () => {
       h.session.pause(); // already paused
 
       expect(h.statuses).toEqual([]);
+    });
+
+    /**
+     * A pause stops the conversation's clock, so the session records when. The
+     * clock is driven by hand: every assertion here is about which instant an
+     * interval opened or closed at, and a real clock would make those ranges.
+     */
+    describe('recording when it was paused', () => {
+      let now = 0;
+      const at = (ms: number) => {
+        now = ms;
+      };
+      beforeEach(() => {
+        now = 1_000;
+        vi.spyOn(Date, 'now').mockImplementation(() => now);
+      });
+      afterEach(() => {
+        vi.restoreAllMocks();
+      });
+
+      it('opens an interval on pause and closes it on resume', async () => {
+        const h = harness(continuous);
+        await h.session.start(startOptions);
+
+        at(5_000);
+        h.session.pause();
+        expect(h.session.pauseIntervals).toEqual([{ startedAt: 5_000, endedAt: null }]);
+
+        at(8_000);
+        h.session.resume();
+
+        expect(h.session.pauseIntervals).toEqual([{ startedAt: 5_000, endedAt: 8_000 }]);
+        expect(h.listeners.onPauses).toHaveBeenLastCalledWith([
+          { startedAt: 5_000, endedAt: 8_000 },
+        ]);
+      });
+
+      it('counts only the paused time before an instant, an open pause up to it', async () => {
+        const h = harness(continuous);
+        await h.session.start(startOptions);
+        at(2_000);
+        h.session.pause();
+        at(3_000);
+        h.session.resume();
+        at(10_000);
+        h.session.pause();
+
+        expect(h.session.pausedBefore(1_500)).toBe(0);
+        expect(h.session.pausedBefore(2_500)).toBe(500);
+        expect(h.session.pausedBefore(9_000)).toBe(1_000);
+        // Still paused: the open interval counts up to the instant asked about.
+        expect(h.session.pausedBefore(12_000)).toBe(3_000);
+      });
+
+      it('closes the open interval when the conversation ends while paused', async () => {
+        const h = harness(continuous);
+        await h.session.start(startOptions);
+        at(4_000);
+        h.session.pause();
+
+        at(9_000);
+        h.session.finish();
+
+        // At the press, not at the drain: the tail is the conversation's own time.
+        expect(h.session.pauseIntervals).toEqual([{ startedAt: 4_000, endedAt: 9_000 }]);
+      });
+
+      it('closes the open interval when torn down while paused, and keeps it after', async () => {
+        const h = harness(continuous);
+        await h.session.start(startOptions);
+        at(4_000);
+        h.session.pause();
+
+        at(6_000);
+        h.session.stop();
+
+        // Kept past `stop`: the save that stores the total runs once this is idle.
+        expect(h.session.pauseIntervals).toEqual([{ startedAt: 4_000, endedAt: 6_000 }]);
+      });
+
+      it('records nothing for a pause the session refused', async () => {
+        const h = harness(continuous);
+        await h.session.start(startOptions);
+        h.session.finish();
+
+        h.session.pause();
+
+        expect(h.session.pauseIntervals).toEqual([]);
+      });
+
+      it('starts the next conversation with no pauses', async () => {
+        const h = harness(continuous);
+        await h.session.start(startOptions);
+        h.session.pause();
+        h.session.stop();
+
+        await h.session.start(startOptions);
+
+        expect(h.session.pauseIntervals).toEqual([]);
+        expect(h.listeners.onPauses).toHaveBeenLastCalledWith([]);
+      });
     });
   });
 

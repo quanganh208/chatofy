@@ -20,6 +20,7 @@ import {
   type UnheardBySession,
   type ConversationStatus,
   type LiveTurn,
+  type PauseInterval,
   type SessionSpeaker,
 } from '@chatofy/realtime-client';
 import { useAccessToken } from '@/hooks/use-access-token';
@@ -33,6 +34,9 @@ import { openMicrophone } from '@/lib/open-microphone';
 import { env } from '@/config/env';
 
 const WORKLET_URL = '/worklets/mic-capture-processor.js';
+
+/** No pauses, with one identity, so a memo keyed on it does not re-run. */
+const NO_PAUSES: readonly PauseInterval[] = [];
 
 /** Turns this page will have open at the server at once. */
 const MAX_IN_FLIGHT = 3;
@@ -174,18 +178,43 @@ export interface UseStreamingTranslate {
    * and afterwards.
    */
   recordingStartedAtMs: number | null;
+  /**
+   * Every pause of this conversation so far, the last one open while it is
+   * paused — what the elapsed clock freezes on.
+   */
+  pauses: readonly PauseInterval[];
+  /**
+   * Time this conversation has spent in pauses that are over, in ms.
+   *
+   * Closed intervals only, so it does not change while a pause is on. Once the
+   * conversation has ended every pause is closed — ending closes the open one —
+   * and this is the total the save stores as `pausedMs`.
+   */
+  pausedMs: number;
+  /**
+   * The pauses a turn's offset leaves out — what `toConversationTurns` and the
+   * live transcript measure in.
+   *
+   * The conversation's pauses when the recording paused with it, which is every
+   * case but one: a `MediaRecorder` with no `pause()` records straight through,
+   * so its media keeps wall time and this is empty, keeping every seek after a
+   * pause on the words it points at.
+   */
+  offsetPauses: readonly PauseInterval[];
   start: (options: SessionOptions) => Promise<void>;
   stop: () => void;
   /**
-   * Turn the microphone off without ending the conversation.
+   * Turn the microphone off without ending the conversation, and pause the
+   * clock and the recording with it.
    *
    * Not a weaker `stop`: nothing is released, the transcript stays, and
    * `conversationId` does not change — so the save that fires when a
    * conversation ends does not fire here. What was already said is still
-   * translated and still spoken.
+   * translated and still spoken. The paused time is left out of the duration
+   * and of every later turn's offset.
    */
   pause: () => void;
-  /** Listen again, in the same conversation and on the same socket. */
+  /** Listen again, in the same conversation and on the same socket, recording again. */
   resume: () => void;
   /**
    * End the conversation, letting it finish speaking first.
@@ -242,6 +271,9 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   const [error, setError] = useState<string | null>(null);
   const [level, setLevel] = useState(0);
   const [echoHeard, setEchoHeard] = useState(0);
+  // The session's own record of when this conversation was paused; see
+  // `onPauses` below.
+  const [pauses, setPauses] = useState<readonly PauseInterval[]>(NO_PAUSES);
 
   /**
    * The gain stage the translated audio passes through, for the run in progress.
@@ -284,6 +316,9 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     startedAtMs: recordingStartedAtMs,
     reset: resetRecording,
     attach: attachRecording,
+    pause: pauseRecording,
+    resume: resumeRecording,
+    recordsThroughPause,
     finish: finishRecording,
   } = useConversationRecording();
 
@@ -384,6 +419,9 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
         }),
       onServerEvent: dispatch,
       onReset: () => dispatch({ type: 'transcript.reset' }),
+      // A new array on every change, straight into state: the clock, the
+      // duration and every offset read it.
+      onPauses: setPauses,
       // Not optional once turns run concurrently. A turn refused at a ceiling,
       // dropped from the playback backlog, or released by the stall watchdog
       // produces no `server.session.ended`, so without this its live line stays
@@ -507,8 +545,20 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     };
   }, [status, finishRecording]);
   const stop = useCallback(() => session.stop(), [session]);
-  const pause = useCallback(() => session.pause(), [session]);
-  const resume = useCallback(() => session.resume(), [session]);
+  // The recorder follows the session, and only on a transition the session
+  // actually made: a pause it refused — while connecting, while finishing — must
+  // not silence a recording the conversation is still making. Called in the
+  // same tick as the session stamps its interval, so the recording skips the
+  // same stretch the offsets leave out.
+  const pause = useCallback(() => {
+    session.pause();
+    if (session.isPaused) pauseRecording();
+  }, [session, pauseRecording]);
+  const resume = useCallback(() => {
+    const wasPaused = session.isPaused;
+    session.resume();
+    if (wasPaused && !session.isPaused) resumeRecording();
+  }, [session, resumeRecording]);
   const end = useCallback(() => session.finish(), [session]);
   const retranslateBlock = useCallback(
     (segmentIds: string[]) => session.retranslateBlock(segmentIds),
@@ -619,6 +669,15 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     return () => window.removeEventListener('pagehide', settle);
   }, []);
 
+  // Closed pauses only — see the interface.
+  const pausedMs = pauses.reduce(
+    // Each interval floored at 0, as `pausedMsBefore` does: a clock stepped back
+    // mid-pause must not subtract from the total.
+    (total, pause) =>
+      pause.endedAt === null ? total : total + Math.max(0, pause.endedAt - pause.startedAt),
+    0,
+  );
+
   return {
     status,
     turns: conversation.turns,
@@ -643,6 +702,9 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     direction: identity?.direction ?? null,
     recording: finishedRecording,
     recordingStartedAtMs,
+    pauses,
+    pausedMs,
+    offsetPauses: recordsThroughPause ? NO_PAUSES : pauses,
     start,
     stop,
     pause,

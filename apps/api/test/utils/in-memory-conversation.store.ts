@@ -66,6 +66,8 @@ export class InMemoryConversationStore implements ConversationStore {
       turnCount: turns.length,
       preview: previewOf(turns),
       hasMinutes: previous?.hasMinutes ?? false,
+      // Never lowered by a later save, mirroring the durable store.
+      pausedMs: Math.max(previous?.pausedMs ?? 0, conversation.pausedMs),
       turns,
       hasRecording: previous?.hasRecording ?? false,
       audioOffsetMs:
@@ -197,6 +199,7 @@ function summaryOf(stored: Conversation): ConversationSummary {
     turnCount: stored.turnCount,
     preview: stored.preview,
     hasMinutes: stored.hasMinutes,
+    pausedMs: stored.pausedMs,
   };
 }
 

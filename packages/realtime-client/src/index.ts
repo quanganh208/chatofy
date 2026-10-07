@@ -23,6 +23,10 @@ export type {
   ConversationSessionListeners,
 } from './conversation/conversation-session.js';
 export type { ConversationStatus } from './conversation/conversation-status.js';
+// What a pause records, and the one rule that reads it: a turn's offset and the
+// conversation's duration both leave out the paused time before the instant
+// they are measured at.
+export { pausedMsBefore, type PauseInterval } from './conversation/pause-intervals.js';
 export { TranslateSocket, translateSocketUrl } from './transport/translate-socket.js';
 export type { TranslateSocketHandlers } from './transport/translate-socket.js';
 

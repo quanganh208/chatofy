@@ -50,6 +50,7 @@ const summary = (overrides: Partial<ConversationSummary> = {}): ConversationSumm
   turnCount: 12,
   preview: 'xin chào',
   hasMinutes: false,
+  pausedMs: 0,
   ...overrides,
 });
 

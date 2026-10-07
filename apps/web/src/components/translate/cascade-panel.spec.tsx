@@ -116,6 +116,9 @@ const conversation: UseStreamingTranslate = {
   // the state a browser without one produces — the transcript half unaffected.
   recording: null,
   recordingStartedAtMs: null,
+  pauses: [],
+  pausedMs: 0,
+  offsetPauses: [],
   start: vi.fn(),
   stop: vi.fn(),
   pause: vi.fn(),

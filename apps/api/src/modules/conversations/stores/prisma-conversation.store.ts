@@ -95,6 +95,7 @@ interface ConversationRow {
   languages: string[];
   startedAt: Date;
   endedAt: Date;
+  pausedMs: number;
 }
 
 /**
@@ -249,6 +250,7 @@ export class PrismaConversationStore implements ConversationStore {
                 clientId: conversationId,
                 ...parent,
                 ...recordingOrigin,
+                pausedMs: conversation.pausedMs,
               },
               // `parent` is languages/startedAt/endedAt and MUST stay exactly
               // those three. This is load-bearing and invisible from the line:
@@ -263,8 +265,28 @@ export class PrismaConversationStore implements ConversationStore {
               // would clear it writes no key for it, and a rename that does carry
               // it writes the value it already had.
               update: { ...parent, ...recordingOrigin },
-              select: { id: true, minutes: { select: { id: true } } },
+              select: {
+                id: true,
+                pausedMs: true,
+                minutes: { select: { id: true } },
+              },
             });
+
+            // Paused time only ever grows on an update, the way `endedAt` is
+            // stamped once by the client: every re-save of one conversation
+            // repeats the same total, and the one save that sends LESS is a tab
+            // on a bundle from before pausing stopped the clock, whose missing
+            // field reads as 0. Letting that write would make a renamed
+            // speaker lengthen the card by every pause. Read-then-write is safe
+            // here because the owner lock above serialises this conversation's
+            // saves.
+            const pausedMs = Math.max(row.pausedMs, conversation.pausedMs);
+            if (pausedMs !== row.pausedMs) {
+              await tx.conversation.update({
+                where: { id: row.id },
+                data: { pausedMs },
+              });
+            }
 
             await tx.conversationTurn.deleteMany({
               where: { conversationId: row.id },
@@ -285,7 +307,7 @@ export class PrismaConversationStore implements ConversationStore {
             });
 
             return toSummary(
-              { clientId: conversationId, ...parent },
+              { clientId: conversationId, ...parent, pausedMs },
               conversation.turns.length,
               previewOf(conversation.turns),
               row.minutes,
@@ -347,6 +369,7 @@ export class PrismaConversationStore implements ConversationStore {
         languages: true,
         startedAt: true,
         endedAt: true,
+        pausedMs: true,
         audioOffsetMs: true,
         audioDurationMs: true,
         minutes: { select: { id: true } },
@@ -417,6 +440,7 @@ export class PrismaConversationStore implements ConversationStore {
         languages: true,
         startedAt: true,
         endedAt: true,
+        pausedMs: true,
         minutes: { select: { id: true } },
         _count: { select: { turns: true } },
         // Without the explicit orderBy Prisma returns an ARBITRARY row for a
@@ -659,6 +683,7 @@ function toSummary(
     turnCount,
     preview,
     hasMinutes: minutes !== null,
+    pausedMs: row.pausedMs,
   };
 }
 

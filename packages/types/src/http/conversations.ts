@@ -220,6 +220,20 @@ const saveConversationRequestShape = z
       .max(HISTORY_LIMITS.MAX_DURATION_MS)
       .nullable()
       .default(null),
+    /**
+     * Total time the conversation spent paused, in ms.
+     *
+     * History's duration is `endedAt - startedAt - pausedMs`, which is the time
+     * the live clock counted — it stops while paused. Every turn's `offsetMs`
+     * already leaves out the pauses before it, so this is the one value a pause
+     * adds to the record; the intervals themselves are not stored.
+     *
+     * Defaulting to 0 for the reason `audioOffsetMs` defaults: a tab on the
+     * previous bundle sends no such field, and 0 is exactly what its duration
+     * meant — that build's clock never stopped. A stored value is never lowered
+     * by a later save; see the store's `save`.
+     */
+    pausedMs: z.number().int().min(0).max(HISTORY_LIMITS.MAX_DURATION_MS).default(0),
   })
   .refine(
     (body) =>
@@ -266,6 +280,13 @@ const saveConversationRequestShape = z
       message: 'the conversation is implausibly long',
     },
   )
+  // Paused time is part of the span it is taken out of. More of it than the
+  // span itself is a body that disagrees with itself, and would render a
+  // negative duration on the card.
+  .refine((body) => body.pausedMs <= Date.parse(body.endedAt) - Date.parse(body.startedAt), {
+    path: ['pausedMs'],
+    message: 'pausedMs is longer than the conversation',
+  })
   // A browser clock can be wrong, and the duration on a history card is
   // rendered from these two values. Bounding them at the boundary is what stops
   // a lying clock from putting a conversation in 1970 or in the next century.

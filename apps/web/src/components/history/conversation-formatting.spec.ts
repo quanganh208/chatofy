@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ConversationSummary } from '@chatofy/types';
-import { durationMinutes } from './conversation-formatting';
+import { activeDurationMs, durationMinutes } from './conversation-formatting';
 
 /**
  * The rounding the history row prints, pinned because the docblock above it was
@@ -11,7 +11,7 @@ import { durationMinutes } from './conversation-formatting';
  * rescues either way. They disagree everywhere else, so nothing was catching it.
  */
 
-const conversation = (startedAt: string, endedAt: string): ConversationSummary => ({
+const conversation = (startedAt: string, endedAt: string, pausedMs = 0): ConversationSummary => ({
   conversationId: '11111111-1111-4111-8111-111111111111',
   direction: 'vi_to_en',
   languages: ['vi', 'en'],
@@ -20,6 +20,7 @@ const conversation = (startedAt: string, endedAt: string): ConversationSummary =
   turnCount: 1,
   preview: 'xin chào',
   hasMinutes: false,
+  pausedMs,
 });
 
 describe('durationMinutes', () => {
@@ -42,5 +43,28 @@ describe('durationMinutes', () => {
     expect(
       durationMinutes(conversation('2026-09-03T10:00:00.000Z', '2026-09-03T10:00:01.000Z')),
     ).toBe(1);
+  });
+});
+
+describe('activeDurationMs', () => {
+  it('leaves the paused time out, which is what the live clock counted', () => {
+    // Ten minutes start to end, four of them paused.
+    const paused = conversation('2026-09-03T10:00:00.000Z', '2026-09-03T10:10:00.000Z', 240_000);
+    expect(activeDurationMs(paused)).toBe(360_000);
+    expect(durationMinutes(paused)).toBe(6);
+  });
+
+  it('reads a conversation saved before pausing stopped the clock as its whole span', () => {
+    expect(
+      activeDurationMs(conversation('2026-09-03T10:00:00.000Z', '2026-09-03T10:10:00.000Z')),
+    ).toBe(600_000);
+  });
+
+  it('never reads a negative length', () => {
+    expect(
+      activeDurationMs(
+        conversation('2026-09-03T10:00:00.000Z', '2026-09-03T10:01:00.000Z', 120_000),
+      ),
+    ).toBe(0);
   });
 });
