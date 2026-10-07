@@ -1,25 +1,25 @@
 # Database Schema: Video Conferencing
 
-> **Status: Proposal — not implemented.** No conferencing code exists on `main` as of
-> 2026-10-05. None of these tables is in `apps/api/prisma/schema.prisma`. Progress is
-> tracked in [project-roadmap.md](./project-roadmap.md); unresolved choices are in
+> **Status: Design — not implemented.** No conferencing code exists on `main` as of
+> 2026-10-07. None of these models is in `apps/api/prisma/schema.prisma` yet. The
+> mediasoup SFU PoC lives on `video-conferencing` (Issue #207). Progress is tracked
+> in [project-roadmap.md](./project-roadmap.md); deferred choices are in
 > [Open decisions](./video-conferencing-architecture.md#open-decisions).
 
-**Date:** 2026-09-29  
+**Date:** 2026-09-29 | **Updated:** 2026-10-07 (reconciled with Prisma conventions for #212)  
 **Scope:** Proposed schema for Conference, Participants, Messages, Turns, Recording  
-**Assumed targets (unverified, see [Open decisions](./video-conferencing-architecture.md#open-decisions)):** SFU architecture, 6 participants max, 720p60fps, per-minute billing (optional, out of thesis scope)
+**SFU:** mediasoup in-process (resolved #207). Billing deferred (resolved #212).
 
-**Not yet reconciled with current schema conventions** (`apps/api/prisma/schema.prisma`):
+**Schema conventions (`apps/api/prisma/schema.prisma`):**
 
-- Ids are `String @id @default(cuid())` today, including `User.id`; the `UUID` keys and
-  `ownerId UUID REFERENCES "User"(id)` below would not match.
-- `Conversation`, `MeetingMinutes` and `TranslationContext` keep `ownerId` as a plain
-  column with no `User` relation, scoped by the verified token subject; the foreign keys
-  to `"User"` below depart from that.
-- Status columns are stored as text validated at the application boundary, not Postgres
-  enums.
-- The blocks mix SQL with Prisma attributes (`@@unique`) and are sketches, not runnable
-  DDL.
+- IDs: `String @id @default(cuid())` — the SQL blocks below that use UUID are historical
+  sketches; §9 contains the canonical Prisma fragment following the actual conventions.
+- Ownership: `ownerId String` plain column, no `User` relation (same pattern as
+  `Conversation`, `MeetingMinutes`, `TranslationContext` today).
+- Status: `String` validated at the application boundary, not a Postgres enum.
+- Speaker embeddings: **deferred** — see Open decision 5 in
+  [`video-conferencing-architecture.md`](./video-conferencing-architecture.md#open-decisions).
+- Billing tables: **deferred out of thesis scope** — see Open decision 3.
 
 ---
 
@@ -549,65 +549,104 @@ CREATE INDEX ON "ConferenceTurn"(sourceTextNormalized) USING GIN (pg_trgm);
 
 ### Prisma Schema Fragment
 
+This is the canonical representation following `apps/api/prisma/schema.prisma` conventions.
+The SQL DDL blocks in §§1–5 are historical sketches; use these models when writing the
+migration.
+
 ```prisma
+// Meeting room. ownerId is the creator's JWT subject — no User relation
+// (same pattern as Conversation, MeetingMinutes, TranslationContext).
+// 'status' validated as 'waiting'|'active'|'ended' at the app boundary.
 model Conference {
-  id              String   @id @default(dbgenerated("gen_random_uuid()"))
-  ownerId         String
-  title           String?  @db.VarChar(256)
-  description     String?
-  startedAt       DateTime?
-  endedAt         DateTime?
-  createdAt       DateTime @default(now())
+  id                   String   @id @default(cuid())
+  ownerId              String
+  title                String?
+  startedAt            DateTime?
+  endedAt              DateTime?
+  // 'waiting' | 'active' | 'ended'
+  status               String   @default("waiting")
+  // Optional: links to a TranslationContext row (same owner)
+  translationContextId String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  recordingKey    String?  @db.VarChar(512)
-  recordingStatus String   @default("not_requested") // enum
-  recordingSize   BigInt?
+  participants ConferenceParticipant[]
+  turns        ConferenceTurn[]
+  messages     ConferenceMessage[]
 
-  translationContextId String? // FK
-
-  participants    ConferenceParticipant[]
-  turns           ConferenceTurn[]
-  messages        ConferenceMessage[]
-  recording       ConferenceRecording?
-  billing         ConferenceBillingLine?
-  speakers        ConferenceSpeaker[]
-
-  @@index([ownerId, startedAt(sort: Desc)])
   @@index([ownerId, createdAt(sort: Desc)])
 }
 
+// One participant slot per room. userId is the JWT subject; no User relation.
+// sourceLanguage / targetLanguages use LanguageCode values ('vi', 'en').
+// 'status' validated as 'joined'|'left' at the boundary.
 model ConferenceParticipant {
-  id              String   @id @default(dbgenerated("gen_random_uuid()"))
+  id              String    @id @default(cuid())
   conferenceId    String
   userId          String
-
-  joinedAt        DateTime @default(now())
+  displayName     String?
+  sourceLanguage  String
+  // 'joined' | 'left'
+  status          String    @default("joined")
+  joinedAt        DateTime  @default(now())
   leftAt          DateTime?
 
-  displayName     String?  @db.VarChar(256)
-  sourceLanguage  String   @db.VarChar(2)
-  targetLanguages String[] @default([])
-  voiceGender     String   @default("female") @db.VarChar(16)
-  voicePresetId   String?  @db.VarChar(64)
-
-  isMuted         Boolean  @default(false)
-  speakerId       String?
-
-  turnCount       Int      @default(0)
-  messageCount    Int      @default(0)
-
-  conference      Conference @relation(fields: [conferenceId], references: [id], onDelete: Cascade)
-  user            User       @relation(fields: [userId], references: [id])
-  speaker         ConferenceSpeaker? @relation(fields: [speakerId], references: [id])
-  messages        ConferenceMessage[]
+  conference Conference     @relation(fields: [conferenceId], references: [id], onDelete: Cascade)
+  turns      ConferenceTurn[]
+  messages   ConferenceMessage[]
 
   @@unique([conferenceId, userId])
-  @@index([conferenceId, joinedAt])
+  @@index([conferenceId])
   @@index([userId])
 }
 
-// ... (repeat for other models)
+// One utterance per participant turn. Mirrors ConversationTurn but is never merged.
+// translations is a partial map {vi: "...", en: "..."} — only translated keys present.
+// Speaker embeddings deferred (Open decision 5).
+model ConferenceTurn {
+  id             String   @id @default(cuid())
+  conferenceId   String
+  participantId  String
+  sourceLanguage String
+  sourceText     String
+  // Diacritic-insensitive lowercase copy for search (normalizeForSearch)
+  searchText     String?
+  // {vi: "...", en: "..."} partial map
+  translations   Json?
+  audioStartMs   Int?
+  audioDurationMs Int?
+  createdAt      DateTime @default(now())
+
+  conference   Conference           @relation(fields: [conferenceId], references: [id], onDelete: Cascade)
+  participant  ConferenceParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([conferenceId, audioStartMs])
+  @@index([participantId])
+}
+
+// Chat messages. Immutable — no updatedAt.
+model ConferenceMessage {
+  id             String   @id @default(cuid())
+  conferenceId   String
+  participantId  String
+  text           String
+  sourceLanguage String
+  createdAt      DateTime @default(now())
+
+  conference  Conference           @relation(fields: [conferenceId], references: [id], onDelete: Cascade)
+  participant ConferenceParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([conferenceId, createdAt(sort: Desc)])
+}
 ```
+
+**Deferred models (not in initial migration):**
+
+- `ConferenceSpeaker` / `ConferenceTurn.embedding` — acoustic speaker attribution via CAM++
+  embeddings is deferred (Open decision 5). With one audio track per participant the speaker
+  identity is available from the WebRTC track without acoustic clustering.
+- `ConferenceRecording` — deferred until recording access policy is settled (Open decision 6).
+- `ConferenceBillingLine` — deferred out of thesis scope (Open decision 3).
 
 ---
 

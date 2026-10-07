@@ -709,43 +709,58 @@ Resolved: mediasoup was chosen (see above). All Pion references in §3.1, §7 Ph
 proposal's original intent but should be replaced when the production implementation plan
 is written.
 
-### 3. Billing vs a non-commercial thesis
+### 3. Billing vs a non-commercial thesis — **Deferred out of thesis scope** (Issue #212, 2026-10-07)
 
-The design includes per-minute billing: `ConferenceBillingLine`, the `costEstimateCents`
-/ `billingStatus` columns on `Conference`, the cost model and revenue/margin metrics in
-[technical-risks-mitigation.md](./technical-risks-mitigation.md). Chatofy is a
-non-commercial graduation thesis, and the default Vietnamese STT model is licensed for
-academic/thesis use only (see [README → Model licences](../README.md#model-licences)).
-The billing design is **kept but marked optional and out of thesis scope** pending a
-decision. Tracking API cost (not revenue) may still be useful against the free-tier
-quotas.
+The design included per-minute billing (`ConferenceBillingLine`, `costEstimateCents`,
+`billingStatus`). Chatofy is a non-commercial graduation thesis; the default Vietnamese
+STT model is licensed for academic/thesis use only (see
+[README → Model licences](../README.md#model-licences)).
 
-### 4. Stated targets are unverified on this project's hardware
+**Decision:** billing tables are deferred out of thesis scope. They are retained in
+`docs/database-schema-conference.md` as a deferred-model note so the design intent is
+not lost. Tracking API cost (not revenue) against free-tier quotas is still useful and
+may be added without billing infrastructure — a plain cost log column on `Conference`
+is sufficient for that goal if needed.
 
-6 participants, 720p at 60 fps, VP8, 2.5 Mbps per stream, the latency budgets, the
-effort hours (164h) and the 20-week schedule are the proposal's targets, not
-measurements. Speech runs on CPU in the sidecars, and the STT sidecar serves a bounded
-number of concurrent decodes per engine (`LOCAL_STT_CONCURRENCY`, see
-[Speech backend routing](./architecture/ai-providers.md#speech-backend-routing)); six
-simultaneous speakers have not been measured against it.
+### 4. Stated targets are unverified on this project's hardware — **Deferred to #211**
 
-### 5. Persisting speaker embeddings
+The 6-participant / 720p60 / 2.5 Mbps targets, the latency budgets, the effort hours
+(164 h) and the 20-week schedule were the proposal's estimates, not measurements.
 
-The schema stores CAM++ vectors (`ConferenceTurn.embedding`,
-`ConferenceSpeaker.embedding`). Today no voice vector is ever persisted — vectors stay
-in the browser tab and leave with the conversation, by design (see
+**Decision:** target verification is tracked in Issue #211 (hardware-gated; requires
+running the load test on the production or production-equivalent machine). Until #211
+closes, the targets in this doc remain unconfirmed. Translation latency has been measured
+in a 2-tab local PoC (warm session ~5.9 s T1→T2, cold ~9.2 s — see
+[`docs/video-conference-translation-audio.md §4`](./video-conference-translation-audio.md));
+multi-participant load under concurrent translation has not been measured.
+
+### 5. Persisting speaker embeddings — **Deferred** (Issue #212, 2026-10-07)
+
+The original schema stored CAM++ vectors (`ConferenceTurn.embedding`,
+`ConferenceSpeaker.embedding`). Today no voice vector is persisted — vectors live in
+the browser tab for the conversation duration, by design (see
 [Per-turn speaker attribution](./architecture/ai-providers.md#per-turn-speaker-attribution)).
-With one audio track per participant the speaker may be known without acoustic
-attribution at all. Decide whether attribution is needed, and if so whether storing
-vectors is acceptable.
 
-### 6. Recording access
+**Decision:** embedding persistence is deferred. With one WebRTC audio track per
+participant, speaker identity is available from the track itself without acoustic
+clustering — the two-voice cap that makes attribution necessary in the turn pipeline
+does not apply to a conference where each participant owns a known track. The
+`ConferenceSpeaker` model and embedding columns are removed from the initial migration
+(see `docs/database-schema-conference.md §9`); they can be added later if multi-language
+rooms with anonymous guests require acoustic attribution.
 
-Recordings are proposed for R2. The project's bucket is public-read and a prefix is not
-an access boundary (see
+### 6. Recording access — **Deferred** (Issue #212, 2026-10-07)
+
+Recordings were proposed for the existing R2 bucket, which is public-read. A prefix is
+not an access boundary (see
 [Bucket layout](./architecture/authentication.md#bucket-layout-and-the-one-rule-that-governs-it)),
-so a stored meeting recording would be fetchable by anyone with its URL. Decide on a
-private bucket or another store before recording ships.
+so any recording stored there would be world-readable by URL.
+
+**Decision:** recording is deferred until a private-bucket or signed-URL policy is
+decided. The `ConferenceRecording` model is removed from the initial migration
+(see `docs/database-schema-conference.md §9`). The `Conference.recordingKey` column
+may be retained as a nullable placeholder when the initial migration is written, so
+adding recording later does not require an `ALTER TABLE`.
 
 ### 7. Network path for meeting media — **Resolved: Path A — public media port on existing host** (Issue #208, 2026-10-06)
 
@@ -799,16 +814,16 @@ WebSocket Pipeline      80%    16h     Adapt for multi-participant
 
 ```
 Component              New    Effort  Complexity
-WebRTC SFU            YES     40h     🔴 HIGH (Pion library — assumption)
+WebRTC SFU            YES     40h     🔴 HIGH (mediasoup — PoC done #207)
 Video Grid UI         YES     24h     🟡 MEDIUM
 Message Service       YES      8h     🟢 LOW
-Recording Compositor  YES     32h     🔴 HIGH (FFmpeg)
+Recording Compositor  YES     32h     🔴 HIGH (FFmpeg) — deferred #212
 Subtitle Overlay      YES     12h     🟡 MEDIUM
 Database Schema       YES      4h     🟢 LOW
-TOTAL                          164h   = 4-5 weeks (1 eng)
+TOTAL                          ~136h  (recording deferred; 4 weeks est. 1 eng)
 ```
 
 ---
 
-**Document Version:** 1.1  
-**Last Updated:** 2026-10-05 (Open Decision 1 resolved: mediasoup chosen, Issue #207)
+**Document Version:** 1.2  
+**Last Updated:** 2026-10-07 (Open Decisions 3–6 resolved/deferred, Issue #212)

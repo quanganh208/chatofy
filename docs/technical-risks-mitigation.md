@@ -1,34 +1,33 @@
 # Technical Risks & Mitigation Plans: Video Conferencing
 
-> **Status: Proposal — not implemented.** No conferencing code exists on `main` as of
-> 2026-10-05. Progress is tracked in [project-roadmap.md](./project-roadmap.md);
-> unresolved choices are in [Open decisions](./video-conferencing-architecture.md#open-decisions).
+> **Status: Design — PoC proven, production gates pending.** The mediasoup SFU PoC is
+> on `video-conferencing` (Issue #207). Translation latency was measured in a 2-tab
+> local run (Issue #209). Production hardware load (#211) and recording access (#212)
+> remain deferred. Progress: [project-roadmap.md](./project-roadmap.md).
 
-**Date:** 2026-09-29  
+**Date:** 2026-09-29 | **Updated:** 2026-10-07 (re-rated translation lag with measured numbers, #212)  
 **Scope:** Risk analysis, impact assessment and mitigation strategies for the proposed design  
-**Assumed constraints (unverified, see [Open decisions](./video-conferencing-architecture.md#open-decisions)):** SFU, VP8, 6 participants, 720p60fps, per-minute billing (optional, out of thesis scope)
+**SFU:** mediasoup in-process (resolved #207). Billing deferred (resolved #212).
 
-Every ✅ below marks a **proposed** mitigation, not shipped behaviour. Probabilities,
-latency budgets, SLAs and cost figures are the proposal's estimates, not measurements on
-this project's hardware. The SFU is undecided; where the text says "Pion", read "the
-chosen media server".
+Probabilities and cost figures are estimates unless marked **measured**. Where the
+original text said "Pion", mediasoup is the chosen SFU (resolved #207).
 
 ---
 
 ## Risk Matrix Overview
 
-| Risk                                           | Probability  | Impact      | Effort to Mitigate | Priority |
-| ---------------------------------------------- | ------------ | ----------- | ------------------ | -------- |
-| **Video Latency > 2s**                         | HIGH (80%)   | CRITICAL 🔴 | Medium             | P1       |
-| **Translation lag delays video**               | HIGH (70%)   | HIGH 🔴     | Medium             | P1       |
-| **Speaker attribution wrong**                  | MEDIUM (50%) | MEDIUM 🟡   | Low                | P2       |
-| **Subtitle mismatch (timing)**                 | MEDIUM (60%) | MEDIUM 🟡   | Medium             | P2       |
-| **Recording composition fails**                | LOW (20%)    | HIGH 🔴     | Medium             | P2       |
-| **SFU scalability beyond 6 participants**      | MEDIUM (50%) | HIGH 🔴     | High               | P2       |
-| **Redis room state lost (crash)**              | LOW (10%)    | MEDIUM 🟡   | Low                | P3       |
-| **Translation cost explosion**                 | MEDIUM (40%) | HIGH 🔴     | Low                | P2       |
-| **Browser compatibility (codec)**              | LOW (15%)    | LOW 🟢      | Low                | P3       |
-| **Database write contention (turns/messages)** | MEDIUM (45%) | MEDIUM 🟡   | Low                | P3       |
+| Risk                                           | Probability                   | Impact      | Effort to Mitigate | Priority |
+| ---------------------------------------------- | ----------------------------- | ----------- | ------------------ | -------- |
+| **Video Latency > 2s**                         | HIGH (80%)                    | CRITICAL 🔴 | Medium             | P1       |
+| **Translation lag delays video**               | CERTAIN (measured ~5.9–9.2 s) | HIGH 🔴     | Medium             | P1       |
+| **Speaker attribution wrong**                  | MEDIUM (50%)                  | MEDIUM 🟡   | Low                | P2       |
+| **Subtitle mismatch (timing)**                 | MEDIUM (60%)                  | MEDIUM 🟡   | Medium             | P2       |
+| **Recording composition fails**                | LOW (20%)                     | HIGH 🔴     | Medium             | P2       |
+| **SFU scalability beyond 6 participants**      | MEDIUM (50%)                  | HIGH 🔴     | High               | P2       |
+| **Redis room state lost (crash)**              | LOW (10%)                     | MEDIUM 🟡   | Low                | P3       |
+| **Translation cost explosion**                 | MEDIUM (40%)                  | HIGH 🔴     | Low                | P2       |
+| **Browser compatibility (codec)**              | LOW (15%)                     | LOW 🟢      | Low                | P3       |
+| **Database write contention (turns/messages)** | MEDIUM (45%)                  | MEDIUM 🟡   | Low                | P3       |
 
 ---
 
@@ -122,13 +121,22 @@ After mitigation:
 
 #### Description
 
-Video (fast, ~300ms latency) arrives before translated subtitle (~1-2s latency), creating mismatch: user sees video of person speaking, but subtitle appears 0.5-2 seconds later (or even shows previous person's text).
+Video (fast, ~300ms latency) arrives before translated subtitle, creating a mismatch:
+the listener sees the speaker's video before the translated subtitle appears.
 
-**Breakdown:**
+**Measured breakdown (Issue #209, local dev, 2-tab PoC, 2026-10-06):**
 
-- Video path: Capture → Network → SFU → Client (300ms)
-- Audio path: Capture → Network → STT (300ms) → Translation (500-1000ms) → TTS (200ms) → Network (100ms) → Total ~1.2-1.8s
-- **Gap: 0.9-1.5 seconds**
+- Video path: Capture → Network → SFU → Client (~300 ms, PoC)
+- Translation path: Capture → `/ws/translate` STT→MT→TTS → transcript received by speaker
+  - Warm session (model already streaming): **~5.9 s** T1→T2
+  - Cold session (first utterance): **~9.2 s** T1→T2
+- **Measured gap: 5.6–8.9 s** (not the ~1 s estimated in the original proposal)
+
+The original proposal estimated 1.2–1.8 s based on individual stage estimates; the actual
+pipeline buffers audio before the streaming STT emits a transcript, producing a gap
+significantly larger than the per-stage sum suggests. The warm-session number (~5.9 s)
+represents the steady-state cost; cold-session penalty (~3 s extra) affects the first
+utterance per session.
 
 #### Why It Happens
 

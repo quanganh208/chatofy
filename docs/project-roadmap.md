@@ -29,38 +29,42 @@ The measurements and the dead ends behind these are in
 
 ## Next: video meetings
 
-**Not started.** No conferencing code exists on `main` as of 2026-10-05. The proposal is
-in three documents:
+**PoC on `video-conferencing` branch; not yet on `main`.** Design gates complete as of
+2026-10-07 (Issues #207–#212). The three design documents are:
 
 - [video-conferencing-architecture.md](./video-conferencing-architecture.md) — target,
-  reuse of the current stack, phased plan
-- [database-schema-conference.md](./database-schema-conference.md) — proposed tables
-- [technical-risks-mitigation.md](./technical-risks-mitigation.md) — risks
+  reuse, open decisions (all resolved or deferred)
+- [database-schema-conference.md](./database-schema-conference.md) — Prisma models
+- [technical-risks-mitigation.md](./technical-risks-mitigation.md) — risks (updated with measurements)
 
-### Gate 0 — decide before building
+### Gate 0 — design decisions
 
-The [open decisions](./video-conferencing-architecture.md#open-decisions) have to be
-settled first, because each one changes what the phases below contain:
+| Decision                                | Status                                                          |
+| --------------------------------------- | --------------------------------------------------------------- |
+| SFU / media server                      | **Resolved: mediasoup** (#207)                                  |
+| Network path for media                  | **Resolved: Path A** (public port + coturn) (#208)              |
+| Translation audio path                  | **Resolved: client-side capture** (#209)                        |
+| Client support (web / mobile)           | **Resolved** (#210) — mobile real-device test pending (#210 AC) |
+| Capacity targets on production hardware | **Deferred: #211** (hardware-gated)                             |
+| Billing tables                          | **Deferred out of thesis scope** (#212)                         |
+| Speaker embedding persistence           | **Deferred** (#212)                                             |
+| Recording access policy                 | **Deferred** (#212)                                             |
+| System design v2 review                 | **Pending: @quanganh208 review** (#212 AC)                      |
 
-- the SFU / media server (LiveKit, mediasoup or Pion);
-- whether billing tables belong in a non-commercial thesis at all;
-- the participant, resolution and frame-rate targets, measured on this project's
-  hardware rather than assumed.
+### Implementation phases
 
-### Proposed phases
+Phase 1 is ready to start once @quanganh208 approves the design. Implementation issues
+are listed in [#212](https://github.com/VitusNguyen/chatofy/issues/212).
 
-From [§7 of the proposal](./video-conferencing-architecture.md#7-phased-implementation-roadmap-proposed).
-All are **not started**; the week ranges are the proposal's estimates, not a schedule.
-
-| Phase | Goal                                       | Status      |
-| ----- | ------------------------------------------ | ----------- |
-| 1     | Infrastructure — schema, CRUD, room state  | Not started |
-| 2     | Real-time signaling — multi-user WebSocket | Not started |
-| 3     | Video basics — transport and grid layout   | Not started |
-| 4     | Translation in video — audio and subtitles | Not started |
-| 5     | Chat and recording                         | Not started |
-| 6     | Minutes and polish                         | Not started |
-| 7     | Production hardening                       | Not started |
+| Phase | Goal                                       | Status                            |
+| ----- | ------------------------------------------ | --------------------------------- |
+| 1     | Infrastructure — schema, CRUD, room state  | Ready (PoC code on branch)        |
+| 2     | Real-time signaling — multi-user WebSocket | Ready (PoC code on branch)        |
+| 3     | Video basics — transport and grid layout   | Not started                       |
+| 4     | Translation in video — audio and subtitles | Designed (#209), not wired        |
+| 5     | Chat and recording                         | Chat designed; recording deferred |
+| 6     | Minutes and polish                         | Not started                       |
+| 7     | Production hardening                       | Not started                       |
 
 ## Known gaps
 
@@ -76,6 +80,6 @@ code change, not a doc edit.
   warning in `apps/api/src/main.ts` naming avatars only.
 - **Speaker-attribution seed-perturbation minimum** — the architecture doc says 96/94
   exact, `auto-attribution.ts` says 90/89. Needs a re-run to settle.
-- **Video meetings** — the [open decisions](./video-conferencing-architecture.md#open-decisions),
-  plus how media traffic would reach a server when production sits behind a Cloudflare
-  Tunnel.
+- **Video meetings — production gates** — open decisions resolved (#207–#212); remaining
+  gates are hardware-gated (#211), mobile real-device (#210), and @quanganh208 design
+  review (#212). Implementation starts after the review.
