@@ -29,6 +29,7 @@ const summary = (id: string): ConversationSummary => ({
   turnCount: 4,
   preview: id,
   hasMinutes: false,
+  pausedMs: 0,
 });
 
 const ids = (): string[] => latest.conversations.map((c) => c.conversationId);

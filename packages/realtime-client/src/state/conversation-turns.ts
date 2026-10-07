@@ -29,6 +29,7 @@ import {
 } from './display-groups.js';
 import { speakerFor } from './speaker-roster.js';
 import type { CapturesBySession, TurnKeyedTranscript } from './turn-keyed-transcript.js';
+import { pausedMsBefore, type PauseInterval } from '../conversation/pause-intervals.js';
 
 /**
  * Project the finished turns onto stored rows, in display order.
@@ -68,6 +69,11 @@ import type { CapturesBySession, TurnKeyedTranscript } from './turn-keyed-transc
  * still on the previous signature would otherwise pass `undefined`, and
  * `Math.max(0, openedAt - undefined)` is `NaN` for every row — a save the server
  * 400s outright rather than one row losing its timestamp.
+ *
+ * `pauses` are the intervals whose time the offsets leave out — see
+ * {@link displayGroupOffsetMs}. Defaulted to none for the same reason, and none
+ * is also the right answer for a caller whose recording ran straight through
+ * its pauses.
  */
 export function toConversationTurns(
   state: Pick<
@@ -78,6 +84,7 @@ export function toConversationTurns(
     // pieces' joined translations, which is what was saved before.
     Partial<Pick<TurnKeyedTranscript, 'blockTranslations'>>,
   startedAtMs: number = 0,
+  pauses: readonly PauseInterval[] = [],
 ): ConversationTurn[] {
   const groups = groupTurnsForDisplay(state.turns, state.captures, state.attributions);
 
@@ -97,7 +104,7 @@ export function toConversationTurns(
     const speakerLabel =
       speakerFor(state.speakers, state.attributions, head.sessionId)?.label ?? null;
 
-    const offsetMs = displayGroupOffsetMs(group, state.captures, startedAtMs);
+    const offsetMs = displayGroupOffsetMs(group, state.captures, startedAtMs, pauses);
 
     // Block-level facts, constant across every piece the block is split into —
     // the same reason `speakerRole` and `offsetMs` are read once, above.
@@ -170,7 +177,8 @@ export function toConversationTurns(
 }
 
 /**
- * When a displayed block was spoken, in milliseconds from `startedAtMs`.
+ * When a displayed block was spoken, in milliseconds of ACTIVE time from
+ * `startedAtMs` — wall time with the paused time before it left out.
  *
  * **Exported because the live screen must show the number it is going to
  * STORE.** `/translate` renders a timestamp on every finished block and
@@ -200,6 +208,17 @@ export function toConversationTurns(
  * `CapturePumpOptions.continuous` documents — contains no audio before
  * `openedAt` to point at.
  *
+ * **Paused time comes off too, and that is what keeps a seek right.** A pause
+ * pauses the recorder over exactly the intervals in `pauses`, so the recording
+ * has no paused stretch in it: a turn spoken after a five-second pause sits five
+ * seconds EARLIER in the media than in wall time. Subtracting the paused time
+ * before `spokenAt` puts the offset on that same timeline, and `mediaOffset`
+ * (`apps/web`) keeps converting it with nothing but `audioOffsetMs`, which is
+ * why no interval has to be stored. A turn cannot open inside a pause — capture
+ * is off — and resuming clears the pump's pre-roll, so `spokenAt` never lands
+ * inside one either. A caller whose recorder could not pause passes none and
+ * keeps the wall-time meaning its recording still has.
+ *
  * A missing capture record yields null rather than 0. The record arrives
  * separately and may be absent for a turn still in flight or one that aged out
  * of the pipeline's bounded buffer — the same "never merge on missing evidence"
@@ -223,6 +242,7 @@ export function displayGroupOffsetMs(
   group: DisplayGroup,
   captures: CapturesBySession,
   startedAtMs: number,
+  pauses: readonly PauseInterval[] = [],
 ): number | null {
   const head = group.turns[0];
   if (!head) return null;
@@ -230,7 +250,8 @@ export function displayGroupOffsetMs(
   if (capture === undefined || !Number.isFinite(startedAtMs)) return null;
   // The turn's audio starts at its pre-roll, not at `openedAt` — see above.
   const spokenAt = capture.openedAt - (capture.preRollMs ?? 0);
-  return Math.min(Math.max(0, spokenAt - startedAtMs), HISTORY_LIMITS.MAX_DURATION_MS);
+  const active = spokenAt - startedAtMs - pausedMsBefore(pauses, spokenAt);
+  return Math.min(Math.max(0, active), HISTORY_LIMITS.MAX_DURATION_MS);
 }
 
 /**

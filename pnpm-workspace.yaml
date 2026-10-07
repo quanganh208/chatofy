@@ -97,6 +97,11 @@ overrides:
   # GHSA-ggr8-5vv4-36mx — high, <8.0.0. @prisma/config pins 7.1.5 exactly and
   # only calls `deepmerge`, whose signature 8.x keeps.
   deepmerge-ts: '>=8.0.0 <9'
+  # GHSA-68fv-2mgg-jv7q — high, >=1.0.0 <1.2.2: event-loop denial of service.
+  # Build-time only, under postcss, css-tree, magicast and @tailwindcss/node;
+  # their ^1.x ranges admit the patch, but a lockfile refresh left three of
+  # them on 1.2.1, so the floor is what moves all four.
+  source-map-js: '>=1.2.2 <2'
 # Which dependency install/build scripts pnpm may run (supply-chain policy).
 # true  = native binary / engine needed at runtime; skipping breaks the app.
 # false = telemetry, donation banner, or optional codegen; safe to skip.

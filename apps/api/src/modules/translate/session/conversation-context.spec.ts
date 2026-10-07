@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ConversationContext } from './conversation-context';
+import { ConversationContext, mergeHotwords } from './conversation-context';
 import type { StreamSocket } from './stream-socket';
 
 /**
@@ -91,5 +91,58 @@ describe('ConversationContext', () => {
     context.remember(client, 'Đấy');
     context.forget(client);
     expect(context.recall(client)).toEqual([]);
+  });
+});
+
+describe('learned spellings', () => {
+  const socket = {} as StreamSocket;
+
+  it('keeps the newest 48 and moves a re-learned span to the newest end', () => {
+    const context = new ConversationContext();
+    for (let i = 0; i < 50; i++)
+      context.learnSpellings(socket, { [`span${i}`]: `Term${i}` });
+    context.learnSpellings(socket, { span2: 'Term2' });
+
+    const terms = context.learnedTerms(socket);
+    expect(terms).toHaveLength(48);
+    expect(terms).not.toContain('Term0');
+    expect(terms.at(-1)).toBe('Term2');
+  });
+
+  it('forgets them with the connection', () => {
+    const context = new ConversationContext();
+    context.learnSpellings(socket, { 'deep fred': 'deepfake' });
+    context.forget(socket);
+    expect(context.learnedTerms(socket)).toEqual([]);
+  });
+});
+
+describe('mergeHotwords', () => {
+  const terms = (prefix: string, count: number) =>
+    Array.from({ length: count }, (_, i) => `${prefix}${i}`);
+
+  it('sends nothing when neither list has a term', () => {
+    expect(mergeHotwords(undefined, [])).toBeUndefined();
+  });
+
+  it('puts the user terms first and fills the rest with the NEWEST learned', () => {
+    // 40 chosen terms leave 8 slots; the learned list is oldest first, so the
+    // slots go to learned12..learned19, the words the conversation says now.
+    const merged = mergeHotwords(terms('user', 40), terms('learned', 20));
+    expect(merged).toHaveLength(48);
+    expect(merged!.slice(0, 40)).toEqual(terms('user', 40));
+    expect(merged!.slice(40)).toEqual(terms('learned', 20).slice(12));
+  });
+
+  it('drops a learned term the user already chose, case-insensitively', () => {
+    expect(mergeHotwords(['Deepfake'], ['deepfake', 'Altman'])).toEqual([
+      'Deepfake',
+      'Altman',
+    ]);
+  });
+
+  it('never lets the learned list displace a chosen term', () => {
+    const merged = mergeHotwords(terms('user', 50), ['Altman']);
+    expect(merged).toEqual(terms('user', 48));
   });
 });

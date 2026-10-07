@@ -60,6 +60,8 @@ export class LivePreview {
         // proper noun differently from the settled transcript would correct
         // itself on screen for no reason the reader can see.
         hints: session.hints,
+        // And the conversation's learned spellings, for the same reason.
+        learnedTerms: [...session.learnedTerms],
       })
       .then(({ text }) => {
         // Checked here, not only before starting: the turn may have ended, or

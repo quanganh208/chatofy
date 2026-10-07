@@ -45,6 +45,8 @@ export interface ConversationWrite {
   endedAt: string;
   turns: ConversationTurnWrite[];
   audioOffsetMs: number | null;
+  /** Total paused time, in ms; an update keeps the larger of stored and sent. */
+  pausedMs: number;
 }
 
 /** One page of the caller's history, newest first. */

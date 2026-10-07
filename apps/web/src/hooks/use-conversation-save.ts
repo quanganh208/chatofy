@@ -65,6 +65,14 @@ export interface ConversationSaveInput {
    * the same value again when it succeeds.
    */
   audioOffsetMs: number | null;
+  /**
+   * Total time the conversation spent paused, in ms.
+   *
+   * What History leaves out of the duration, so a card reads the time the clock
+   * on `/translate` counted. Complete by the time the save fires: ending a
+   * conversation closes the pause it ended in.
+   */
+  pausedMs: number;
 }
 
 /**
@@ -124,7 +132,7 @@ const EDIT_COALESCE_MS = 800;
  * client should not be generating the collisions in the first place.
  */
 export function useConversationSave(input: ConversationSaveInput): UseConversationSave {
-  const { conversationId, startedAt, direction, running, turns, audioOffsetMs } = input;
+  const { conversationId, startedAt, direction, running, turns, audioOffsetMs, pausedMs } = input;
 
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -151,10 +159,26 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
   // be discarded or replayed, so a ref write there is a side effect at a moment
   // React promises nothing about. Declared FIRST so the effects that read it run
   // after it in the same commit.
-  const latest = useRef({ conversationId, startedAt, direction, turns, saved, audioOffsetMs });
+  const latest = useRef({
+    conversationId,
+    startedAt,
+    direction,
+    turns,
+    saved,
+    audioOffsetMs,
+    pausedMs,
+  });
   useEffect(() => {
-    latest.current = { conversationId, startedAt, direction, turns, saved, audioOffsetMs };
-  }, [conversationId, startedAt, direction, turns, saved, audioOffsetMs]);
+    latest.current = {
+      conversationId,
+      startedAt,
+      direction,
+      turns,
+      saved,
+      audioOffsetMs,
+      pausedMs,
+    };
+  }, [conversationId, startedAt, direction, turns, saved, audioOffsetMs, pausedMs]);
 
   const enqueue = useCallback(() => {
     const {
@@ -163,6 +187,7 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
       direction: dir,
       turns: rows,
       audioOffsetMs: recordingOffset,
+      pausedMs: paused,
     } = latest.current;
     if (!id || !began || rows.length === 0) return;
 
@@ -182,6 +207,15 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
           endedAt: ended,
           turns: rows,
           audioOffsetMs: recordingOffset,
+          // Bounded by the span here, where the span is known. The paused total
+          // is summed from wall-clock readings, and a clock that steps (a time
+          // sync mid-pause) could push it past the conversation's length — which
+          // the API refuses with a 400 that is never retried, losing the whole
+          // transcript to a number that only shortens a label.
+          pausedMs: Math.min(
+            Math.max(0, Math.round(paused)),
+            Math.max(0, Date.parse(ended) - Date.parse(began)),
+          ),
         });
         // A write that lands after the reader has started another conversation
         // stored the right rows under the right id — but the state it would

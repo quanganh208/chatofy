@@ -74,6 +74,8 @@ export async function translateSplitTurn(
   options: {
     plan: TurnLanguagePlan;
     hints?: TranslationHints;
+    /** Learned spellings, as recognizer hotwords only; see `TranslateTurnInput`. */
+    learnedTerms?: string[];
     models?: string[];
     /** Finished utterances from earlier turns on this connection, oldest first. */
     context: string[];
@@ -104,6 +106,7 @@ export async function translateSplitTurn(
         mimeType: 'audio/wav',
         language: options.plan.recognition,
         hints: options.hints,
+        learnedTerms: options.learnedTerms,
         minSpeechMs: options.minSpeechMs,
       }),
     ),

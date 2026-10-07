@@ -638,6 +638,40 @@ describe('toConversationTurns', () => {
       });
       expect(rows[0]?.offsetMs).toBe(6_200);
     });
+
+    it('leaves out the paused time before a block, so it lands on the paused recording', () => {
+      // Paused from 10s to 15s. The recorder skipped those five seconds, so a
+      // block spoken at 20s wall time sits at 15s in the media; one spoken
+      // before the pause is not moved at all.
+      const startedAt = 1_700_000_000_000;
+      const pauses = [{ startedAt: startedAt + 10_000, endedAt: startedAt + 15_000 }];
+      const rows = project(
+        {
+          ...base,
+          turns: [segment('a', 'trước'), segment('b', 'sau')],
+          captures: captures(
+            ['a', startedAt + 4_000, false, startedAt + 6_000],
+            ['b', startedAt + 20_000, false, startedAt + 22_000],
+          ),
+        },
+        startedAt,
+        pauses,
+      );
+      expect(rows.map((row) => row.offsetMs)).toEqual([4_000, 15_000]);
+    });
+
+    it('keeps wall time when no pauses are passed, for a recording that ran through them', () => {
+      const startedAt = 1_700_000_000_000;
+      const rows = project(
+        {
+          ...base,
+          turns: [segment('b', 'sau')],
+          captures: captures(['b', startedAt + 20_000, false, startedAt + 22_000]),
+        },
+        startedAt,
+      );
+      expect(rows[0]?.offsetMs).toBe(20_000);
+    });
   });
 });
 

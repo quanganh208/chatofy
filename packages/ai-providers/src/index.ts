@@ -10,6 +10,8 @@ export type {
   ProviderConfig,
   DisplayRestoreOptions,
   DisplayRestorer,
+  LoanwordRespellRequest,
+  LoanwordRespeller,
   RealtimeProviderConfig,
   RealtimeStartParams,
   RealtimeStreamEvents,
@@ -54,6 +56,21 @@ export {
 // Transcript canonicalization, and the match-fold shared with the error
 // taxonomy in `benchmarks/error-analysis`.
 export { normalizeTranscript, foldForMatch } from './text/vietnamese.js';
+export {
+  foreignSpans,
+  isVietnameseSyllable,
+  type ForeignSpan,
+} from './text/vietnamese-syllable.js';
+export {
+  acceptRespellings,
+  applyRespellings,
+  letterSimilarity,
+  MAX_RESPELLING_LENGTH,
+  MIN_RESPELLING_SIMILARITY,
+  respellingKey,
+  unresolvedSpans,
+  type Respellings,
+} from './text/loanword-respelling.js';
 
 // Spoken numbers -> digits, deterministically and in process, so a finished line
 // carries its digits the first time it paints. Pure and total on a string: no
@@ -72,6 +89,11 @@ export { GeminiTranslationProvider } from './providers/gemini/gemini-translation
 export type { GeminiTranslationConfig } from './providers/gemini/gemini-translation-provider.js';
 export { OpenAiCompatibleTranslationProvider } from './providers/openai-compatible/openai-compatible-translation-provider.js';
 export type { OpenAiCompatibleTranslationConfig } from './providers/openai-compatible/openai-compatible-translation-provider.js';
+export {
+  OpenAiCompatibleLoanwordRespeller,
+  RESPELL_TIMEOUT_MS,
+} from './providers/openai-compatible/openai-compatible-loanword-respeller.js';
+export type { OpenAiCompatibleLoanwordRespellerConfig } from './providers/openai-compatible/openai-compatible-loanword-respeller.js';
 export { GeminiSummarizationProvider } from './providers/gemini/gemini-summarization-provider.js';
 export type { GeminiSummarizationConfig } from './providers/gemini/gemini-summarization-provider.js';
 export {

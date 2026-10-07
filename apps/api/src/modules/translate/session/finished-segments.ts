@@ -31,6 +31,19 @@ export interface FinishedSegment {
   restore?: DisplayRestoreRequest;
   /** Silence before the first word in ms, measured with `restore.pauses`. */
   leadPause?: number;
+  /** Guarded spellings the segment's own display applied, keyed by span. */
+  respellings?: Readonly<Record<string, string>>;
+}
+
+/** The pieces' accepted spellings in one map, or nothing when none had any. */
+function blockRespellings(found: FinishedSegment[]): {
+  respellings?: Record<string, string>;
+} {
+  const respellings = Object.assign(
+    {},
+    ...found.map((segment) => segment.respellings ?? {}),
+  ) as Record<string, string>;
+  return Object.keys(respellings).length > 0 ? { respellings } : {};
 }
 
 /** A run of segments that can be translated as one text. */
@@ -41,6 +54,8 @@ export interface SegmentBlock {
   hints?: TranslationHints;
   /** The block's display restore, as its first piece asked for one. */
   restore?: DisplayRestoreRequest;
+  /** Every piece's accepted spellings together, so the block keeps them. */
+  respellings?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -119,6 +134,7 @@ export class FinishedSegments {
       recognition: first.recognition,
       targets: [...first.targets],
       ...(first.hints ? { hints: first.hints } : {}),
+      ...blockRespellings(found as FinishedSegment[]),
       // Terms, and pauses when every piece has them: a block starts a display
       // group, so it continues nothing and the first piece's seam context does
       // not apply to it. The pauses join piece after piece, each seam's

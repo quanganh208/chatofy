@@ -65,6 +65,18 @@ class FakeMediaRecorder {
     this.endOfStream();
   }
 
+  // Per the spec: `pause()` from `recording` and `resume()` from `paused` flip
+  // the state; both throw from `inactive`, which the hook must never reach.
+  pause(): void {
+    if (this.state === 'inactive') throw new DOMException('inactive', 'InvalidStateError');
+    this.state = 'paused';
+  }
+
+  resume(): void {
+    if (this.state === 'inactive') throw new DOMException('inactive', 'InvalidStateError');
+    this.state = 'recording';
+  }
+
   /**
    * What the user agent does when the recorded stream's tracks all end: flush the
    * data, fire `stop`, go inactive. No caller involved.
@@ -76,6 +88,14 @@ class FakeMediaRecorder {
     this.onstop?.();
   }
 }
+
+/** A browser's `MediaRecorder` with no `pause()`/`resume()` at all. */
+class UnpausableMediaRecorder extends FakeMediaRecorder {
+  declare pause: never;
+  declare resume: never;
+}
+Object.defineProperty(UnpausableMediaRecorder.prototype, 'pause', { value: undefined });
+Object.defineProperty(UnpausableMediaRecorder.prototype, 'resume', { value: undefined });
 
 /** A stream whose identity a case can assert is handed back untouched. */
 const fakeStream = () => ({ id: 'mic' }) as unknown as MediaStream;
@@ -323,5 +343,86 @@ describe('useConversationRecording', () => {
 
     act(() => hookValue().reset());
     expect(hookValue().startedAtMs).toBeNull();
+  });
+
+  describe('pausing with the conversation', () => {
+    it('pauses the recorder and resumes it', () => {
+      act(() => {
+        hookValue().attach(fakeStream());
+      });
+      const recorder = FakeMediaRecorder.instances[0]!;
+
+      act(() => hookValue().pause());
+      expect(recorder.state).toBe('paused');
+
+      act(() => hookValue().resume());
+      expect(recorder.state).toBe('recording');
+      expect(hookValue().recordsThroughPause).toBe(false);
+    });
+
+    it('leaves the paused time out of the duration, a pause open at the stop included', async () => {
+      // The media holds none of the paused time, so a duration that counted it
+      // would put the scrubber's maximum past the end of the audio.
+      vi.useFakeTimers();
+      try {
+        act(() => {
+          hookValue().attach(fakeStream());
+        });
+        const recorder = FakeMediaRecorder.instances[0]!;
+
+        vi.advanceTimersByTime(10_000);
+        act(() => hookValue().pause());
+        vi.advanceTimersByTime(5_000);
+        act(() => hookValue().resume());
+        vi.advanceTimersByTime(20_000);
+        act(() => hookValue().pause());
+        vi.advanceTimersByTime(3_000);
+        // End pressed while paused: the tracks end, and the recorder stops paused.
+        act(() => recorder.endOfStream());
+
+        const result = await hookValue().finish();
+        expect(result?.durationMs).toBe(30_000);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('does nothing to a recorder that has already stopped', () => {
+      act(() => {
+        hookValue().attach(fakeStream());
+      });
+      const recorder = FakeMediaRecorder.instances[0]!;
+      act(() => recorder.endOfStream());
+
+      expect(() => act(() => hookValue().pause())).not.toThrow();
+      expect(() => act(() => hookValue().resume())).not.toThrow();
+      expect(recorder.state).toBe('inactive');
+    });
+
+    it('does nothing with no recorder at all, and reports no recording through a pause', () => {
+      FakeMediaRecorder.supported = [];
+      act(() => {
+        hookValue().attach(fakeStream());
+      });
+
+      expect(() => act(() => hookValue().pause())).not.toThrow();
+      expect(hookValue().recordsThroughPause).toBe(false);
+    });
+
+    it('reports a recorder with no pause(), which keeps recording through a pause', () => {
+      vi.stubGlobal('MediaRecorder', UnpausableMediaRecorder);
+      act(() => {
+        hookValue().attach(fakeStream());
+      });
+      const recorder = FakeMediaRecorder.instances[0]!;
+
+      act(() => hookValue().pause());
+
+      expect(recorder.state).toBe('recording');
+      expect(hookValue().recordsThroughPause).toBe(true);
+
+      act(() => hookValue().reset());
+      expect(hookValue().recordsThroughPause).toBe(false);
+    });
   });
 });

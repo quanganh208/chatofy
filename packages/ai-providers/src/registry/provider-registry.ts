@@ -1,6 +1,7 @@
 // ProviderRegistry — register and resolve AI providers by kind + name
 import type { ProviderConfig } from '../interfaces/provider-types.js';
 import type { DisplayRestorer } from '../interfaces/display-restorer.js';
+import type { LoanwordRespeller } from '../interfaces/loanword-respeller.js';
 import type { RealtimeProvider } from '../interfaces/realtime-provider.js';
 import type { SpeakerEmbeddingProvider } from '../interfaces/speaker-embedding-provider.js';
 import type { SttProvider } from '../interfaces/stt-provider.js';
@@ -15,6 +16,7 @@ import { ProviderNotImplementedError } from '../errors/provider-errors.js';
  */
 export interface ProviderKindMap {
   displayRestorer: DisplayRestorer;
+  loanwordRespeller: LoanwordRespeller;
   realtime: RealtimeProvider;
   speakerEmbedding: SpeakerEmbeddingProvider;
   stt: SttProvider;

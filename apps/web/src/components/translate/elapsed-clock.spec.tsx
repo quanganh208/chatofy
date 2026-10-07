@@ -41,7 +41,7 @@ function renderStartedSecondsAgo(secondsAgo: number | null) {
   act(() => {
     root.render(
       <LocaleProvider>
-        <ElapsedClock startedAt={startedAt} />
+        <ElapsedClock startedAt={startedAt} pauses={[]} />
       </LocaleProvider>,
     );
   });
@@ -82,7 +82,7 @@ describe('ElapsedClock', () => {
     act(() => {
       root.render(
         <LocaleProvider>
-          <ElapsedClock startedAt="not-an-instant" />
+          <ElapsedClock startedAt="not-an-instant" pauses={[]} />
         </LocaleProvider>,
       );
     });
@@ -95,6 +95,58 @@ describe('ElapsedClock', () => {
     expect(clock).not.toBeNull();
     // A number re-announcing itself every second would talk over the transcript.
     expect(clock.getAttribute('aria-live')).toBeNull();
+  });
+
+  describe('while paused', () => {
+    const START = new Date('2026-09-07T10:00:00.000Z').getTime();
+    function renderAt(pauses: { startedAt: number; endedAt: number | null }[]) {
+      act(() => {
+        root.render(
+          <LocaleProvider>
+            <ElapsedClock startedAt={new Date(START).toISOString()} pauses={pauses} />
+          </LocaleProvider>,
+        );
+      });
+    }
+
+    it('holds still from the moment the pause began', () => {
+      vi.setSystemTime(START + 65_000);
+      renderAt([{ startedAt: START + 60_000, endedAt: null }]);
+      expect(text()).toBe('1:00');
+
+      act(() => {
+        vi.advanceTimersByTime(30_000);
+      });
+      expect(text()).toBe('1:00');
+    });
+
+    it('picks up where it stopped on resume, without stepping back', () => {
+      vi.setSystemTime(START + 60_000);
+      renderAt([]);
+      vi.setSystemTime(START + 60_500);
+      renderAt([{ startedAt: START + 60_500, endedAt: null }]);
+
+      // Resumed five seconds later. No tick has run since before the pause, so
+      // a clock reading at its last tick would take the pause off a moment
+      // before it and show 0:55.
+      vi.setSystemTime(START + 65_500);
+      renderAt([{ startedAt: START + 60_500, endedAt: START + 65_500 }]);
+      expect(text()).toBe('1:00');
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(text()).toBe('1:01');
+    });
+
+    it('leaves every finished pause out of the reading', () => {
+      vi.setSystemTime(START + 125_000);
+      renderAt([
+        { startedAt: START + 10_000, endedAt: START + 20_000 },
+        { startedAt: START + 40_000, endedAt: START + 60_000 },
+      ]);
+      expect(text()).toBe('1:35');
+    });
   });
 
   it('stops its timer when unmounted', () => {

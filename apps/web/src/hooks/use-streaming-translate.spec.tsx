@@ -43,6 +43,29 @@ const FakeConversationSession = vi.hoisted(() => {
     };
 
     retranslateBlock = vi.fn();
+
+    // Pause bookkeeping the way the real session does it: an interval opened
+    // on pause, closed on resume, and every change reported as a new array.
+    isPaused = false;
+    pauseIntervals: { startedAt: number; endedAt: number | null }[] = [];
+    pause = (): void => {
+      if (this.isPaused) return;
+      this.isPaused = true;
+      this.pauseIntervals = [...this.pauseIntervals, { startedAt: Date.now(), endedAt: null }];
+      this.listeners.onPauses?.(this.pauseIntervals);
+      this.listeners.onStatus('paused');
+    };
+    resume = (): void => {
+      if (!this.isPaused) return;
+      this.isPaused = false;
+      const last = this.pauseIntervals.at(-1)!;
+      this.pauseIntervals = [
+        ...this.pauseIntervals.slice(0, -1),
+        { startedAt: last.startedAt, endedAt: Date.now() },
+      ];
+      this.listeners.onPauses?.(this.pauseIntervals);
+      this.listeners.onStatus('listening');
+    };
   }
   return Fake;
 });
@@ -288,5 +311,27 @@ describe('useStreamingTranslate block retranslation', () => {
 
     expect(released).toBe(true);
     expect(session.retranslateBlock).not.toHaveBeenCalled();
+  });
+});
+
+describe('useStreamingTranslate pauses', () => {
+  it('reports the paused total once a pause is over, and the open one apart', async () => {
+    let now = 1_000_000;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    await act(async () => {
+      await latest.start(options);
+    });
+
+    now += 10_000;
+    act(() => latest.pause());
+    expect(latest.pauses).toEqual([{ startedAt: 1_010_000, endedAt: null }]);
+    // Not counted until it closes, so the total does not tick while paused.
+    expect(latest.pausedMs).toBe(0);
+
+    now += 5_000;
+    act(() => latest.resume());
+    expect(latest.pausedMs).toBe(5_000);
+    // No recorder ran through the pause, so offsets leave it out too.
+    expect(latest.offsetPauses).toEqual(latest.pauses);
   });
 });

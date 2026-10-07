@@ -110,6 +110,8 @@ interface Harness {
   turns: TurnMetrics[];
   /** Every input the turn handed the pipeline, in call order. */
   inputs: TranslateTurnInput[];
+  /** The spans each respelling call asked about, in call order. */
+  respellCalls: string[][];
 }
 
 function makeService(
@@ -118,14 +120,24 @@ function makeService(
   {
     translation = 'hello',
     blockRestored,
+    respell = {},
+    respellGate,
+    respellThrows = false,
   }: {
     translation?: string;
     /** What the sidecar answers for a whole block; undefined is no answer. */
     blockRestored?: (text: string) => string | undefined;
+    /** What the respelling model proposes, keyed by span. */
+    respell?: Record<string, string | null>;
+    /** Held until this settles, to model a slow respelling. */
+    respellGate?: Promise<void>;
+    /** Model a respelling that fails outright. */
+    respellThrows?: boolean;
   } = {},
 ): Harness {
   const turns: TurnMetrics[] = [];
   const inputs: TranslateTurnInput[] = [];
+  const respellCalls: string[][] = [];
 
   const pipeline = {
     transcribeAndTranslate: vi.fn((input: TranslateTurnInput) => {
@@ -141,6 +153,13 @@ function makeService(
     restoreDisplay: vi.fn((text: string) =>
       Promise.resolve(blockRestored?.(text)),
     ),
+    canRespellLoanwords: vi.fn(() => true),
+    respellLoanwords: vi.fn(async (_text: string, spans: string[]) => {
+      respellCalls.push(spans);
+      await respellGate;
+      if (respellThrows) throw new Error('respeller exploded');
+      return respell;
+    }),
     synthesize: vi
       .fn()
       .mockResolvedValue({ bytes: ttsWav(), mimeType: 'audio/wav' }),
@@ -171,6 +190,7 @@ function makeService(
     ),
     turns,
     inputs,
+    respellCalls,
   };
 }
 
@@ -573,5 +593,152 @@ describe('a block typeset as one text', () => {
     expect(socket.ofType('server.block.translated').at(-1)).not.toHaveProperty(
       'display',
     );
+  });
+});
+
+describe('garbled foreign words on the display', () => {
+  it('shows a guarded respelling and leaves the transcript as heard', async () => {
+    const { service } = makeService(
+      'lợi dụng deep fred để lừa đảo',
+      'Lợi dụng Deep Fred để lừa đảo.',
+      {
+        translation: 'exploiting deepfakes for fraud',
+        respell: { 'deep fred': 'deepfake' },
+      },
+    );
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+
+    const final = socket.ofType('server.transcript.final').at(-1)!;
+    expect(final.display).toBe('Lợi dụng deepfake để lừa đảo.');
+    expect(final.segment.sourceText).toBe('lợi dụng deep fred để lừa đảo');
+  });
+
+  it('keeps the restore when the proposal fails a guard', async () => {
+    const { service } = makeService(
+      'lợi dụng deep fred để lừa đảo',
+      'Lợi dụng Deep Fred để lừa đảo.',
+      {
+        translation: 'exploiting fakes for fraud',
+        respell: { 'deep fred': 'deepfake' },
+      },
+    );
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+
+    expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(
+      'Lợi dụng Deep Fred để lừa đảo.',
+    );
+  });
+
+  it('asks nothing when the translation already spells every span as heard', async () => {
+    const { service, respellCalls } = makeService(
+      'mô hình của openai',
+      undefined,
+      {
+        translation: "OpenAI's model",
+      },
+    );
+    await runTurn(service, new FakeSocket());
+
+    expect(respellCalls).toEqual([]);
+  });
+
+  it('asks nothing for a client that wants no display', async () => {
+    const { service, respellCalls } = makeService(
+      'lợi dụng deep fred',
+      undefined,
+      {
+        translation: 'exploiting deepfakes',
+      },
+    );
+    await runTurn(service, new FakeSocket(), { wantsDisplay: false });
+
+    expect(respellCalls).toEqual([]);
+  });
+
+  it('biases the later turns of the same conversation towards what it learned', async () => {
+    const { service, inputs } = makeService('lợi dụng deep fred', undefined, {
+      translation: 'exploiting deepfakes',
+      respell: { 'deep fred': 'deepfake' },
+    });
+    const socket = new FakeSocket();
+    await runTurn(service, socket, { hotwords: ['Interpol'] });
+    await runTurn(service, socket, { hotwords: ['Interpol'] });
+
+    expect(inputs[0]!.learnedTerms).toEqual([]);
+    expect(inputs[1]!.learnedTerms).toEqual(['deepfake']);
+    expect(inputs[1]!.restoreDisplay?.terms).toEqual(['Interpol', 'deepfake']);
+    // Never into the translation prompt: hints stay the user's own.
+    expect(inputs[1]!.hints?.hotwords).toEqual(['Interpol']);
+  });
+
+  it('keeps what one conversation learned out of another', async () => {
+    const { service, inputs } = makeService('lợi dụng deep fred', undefined, {
+      translation: 'exploiting deepfakes',
+      respell: { 'deep fred': 'deepfake' },
+    });
+    await runTurn(service, new FakeSocket());
+    await runTurn(service, new FakeSocket());
+
+    expect(inputs[1]!.learnedTerms).toEqual([]);
+  });
+
+  it('does not hold the speech back while a respelling is out', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((done) => (release = done));
+    const { service } = makeService('lợi dụng deep fred', undefined, {
+      translation: 'exploiting deepfakes',
+      respell: { 'deep fred': 'deepfake' },
+      respellGate: gate,
+    });
+    const socket = new FakeSocket();
+    service.start(socket, {
+      direction: 'vi_to_en',
+      voiceGender: 'female',
+      repairDisplay: true,
+    });
+    const sessionId = socket.ofType('server.session.ready').at(-1)!.sessionId;
+    service.pushFrame(socket, frame(sessionId));
+    const ending = service.end(socket, sessionId);
+
+    await vi.waitFor(() =>
+      expect(socket.ofType('server.audio.frame').length).toBeGreaterThan(0),
+    );
+    expect(socket.ofType('server.transcript.final')).toHaveLength(0);
+
+    release();
+    await ending;
+    expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(
+      'lợi dụng deepfake',
+    );
+  });
+
+  it('keeps the old order — line before speech — on a turn with nothing to respell', async () => {
+    const { service } = makeService('cuộc họp bắt đầu', undefined, {
+      translation: 'the meeting starts',
+    });
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+
+    const types = socket.events.map((event) => event.type);
+    expect(types.indexOf('server.transcript.final')).toBeGreaterThanOrEqual(0);
+    expect(types.indexOf('server.transcript.final')).toBeLessThan(
+      types.indexOf('server.audio.frame'),
+    );
+  });
+
+  it('never fails a turn because the respelling failed', async () => {
+    const { service } = makeService('lợi dụng deep fred', undefined, {
+      translation: 'exploiting deepfakes',
+      respellThrows: true,
+    });
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+
+    expect(socket.ofType('server.error')).toHaveLength(0);
+    expect(
+      socket.ofType('server.transcript.final').at(-1)!.segment.sourceText,
+    ).toBe('lợi dụng deep fred');
   });
 });

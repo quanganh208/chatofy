@@ -12,9 +12,13 @@ import {
   type SessionOptions,
 } from '@chatofy/types';
 import {
+  acceptRespellings,
   ProviderAbortedError,
+  unresolvedSpans,
+  type Respellings,
   type SpeakerEmbeddingResult,
   type TtsAudioStream,
+  foreignSpans,
 } from '@chatofy/ai-providers';
 import {
   NoSpeechDetectedException,
@@ -259,6 +263,7 @@ export class TranslationSessionService implements OnModuleDestroy {
       commitChars: LIVE_TRANSLATION_COMMIT_CHARS,
       userId,
       languages: plan,
+      learnedTerms: this.context.learnedTerms(socket),
     });
     this.registry.open(socket, session);
     const sessionId = session.sessionId;
@@ -378,6 +383,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           // would be the version the listener actually hears — the hints would
           // then apply only to the turns that happened to speculate badly.
           hints: session.hints,
+          learnedTerms: this.context.learnedTerms(socket),
           // And the same conversational context, for the same reason: a reused
           // speculation IS the answer, so one built without it would be the
           // version the listener hears. Same for the speech floor: a reused
@@ -390,7 +396,11 @@ export class TranslationSessionService implements OnModuleDestroy {
           minSpeechMs: STT_MIN_SPEECH_MS,
           // And the same display request: a reused speculation is the turn's
           // text, so one restored without it would leave the turn plain.
-          restoreDisplay: restoreRequestFor(session, continuation.continued),
+          restoreDisplay: restoreRequestFor(
+            session,
+            continuation.continued,
+            this.context.learnedTerms(socket),
+          ),
         },
         session.languages,
       );
@@ -549,6 +559,7 @@ export class TranslationSessionService implements OnModuleDestroy {
               reusable,
               continuation,
               minSpeechMs,
+              this.context.learnedTerms(socket),
             ),
           )
         : {
@@ -560,12 +571,14 @@ export class TranslationSessionService implements OnModuleDestroy {
                     mimeType: 'audio/wav',
                     models: FINAL_MODELS,
                     hints: session.hints,
+                    learnedTerms: this.context.learnedTerms(socket),
                     context: continuation.context,
                     continuesCut: continuation.continuesCut,
                     minSpeechMs,
                     restoreDisplay: restoreRequestFor(
                       session,
                       continuation.continued,
+                      this.context.learnedTerms(socket),
                     ),
                   },
                   session.languages,
@@ -609,68 +622,117 @@ export class TranslationSessionService implements OnModuleDestroy {
         return;
       }
 
-      if (split) {
-        await this.emitPieces(socket, session, split);
-      } else {
-        // Computed BEFORE the emit so the finished line arrives already typeset.
-        // Reached only from this point — after a FINAL transcript, on the turn's
-        // real text — which is what keeps "never for a speculation" true by
-        // construction rather than by a check: `speculate()` has no path here.
-        const display = this.displayFor(
-          session,
-          translated.sourceText,
-          translated.restored,
-          translated.translations,
-        );
-
-        this.channelFor(socket, session).emit({
-          type: 'server.transcript.final',
-          sessionId: session.sessionId,
-          segment: session.toSegment(
-            translated.sourceText,
-            translated.translations,
+      // The respelling is part of the line and of nothing else, so only the
+      // line waits for it. A turn that needs none keeps the order it always had
+      // — line, label, then speech. A turn that does need one (~0.6 s,
+      // measured 2026-10-07) starts its speech beside it instead, once the
+      // speaker vectors it always waited for are in: the client routes audio by
+      // session id, not by transcript, so a frame ahead of the final plays the
+      // same. What must NOT overtake the final is an error, because the client
+      // forgets a turn on a turn-scoped error and would drop the final after
+      // it — so the speech path holds its one error until the line is out.
+      const pieces = split?.pieces ?? [translated];
+      const respelling = Promise.all(
+        pieces.map((piece) =>
+          this.respellingsFor(
+            socket,
+            session,
+            piece.sourceText,
+            piece.translations,
           ),
-          ...(display === undefined ? {} : { display }),
-        });
-        this.rememberSegment(
-          socket,
-          session,
-          session.sessionId,
-          translated.sourceText,
-          translated,
-        );
+        ),
+      );
+      let lineOut!: () => void;
+      const afterLine = new Promise<void>((done) => (lineOut = done));
+      const speaking =
+        session.voiceOutput && this.wantsRespelling(session, pieces)
+          ? Promise.resolve(split ? split.vectors : (vector ?? embedding)).then(
+              () =>
+                this.speak(socket, session, translated, timeline, afterLine),
+            )
+          : undefined;
+      void speaking?.catch(() => undefined);
+      // Settled however this block ends — a throw from the emit included —
+      // because a speech path holding an error waits on it and would wait
+      // forever otherwise.
+      try {
+        const respellings = await respelling;
 
-        // After the transcript is out, so a slow sidecar delays a label and never
-        // the sentence. A failed embedding resolves null and the turn simply
-        // carries no vector.
-        //
-        // `vector`, when set, is a one-survivor split's own piece vector — it
-        // must win over `embedding`, the WHOLE turn's vector, because the whole
-        // turn includes the dropped non-speech the survivor does not.
-        const heard = await (vector ?? embedding);
-        if (heard && this.registry.holds(socket, session)) {
-          this.channelFor(socket, session).emit({
-            type: 'server.turn.embedding',
-            sessionId: session.sessionId,
-            vector: heard.vector,
-            dim: heard.vector.length,
-            // The SURVIVOR's own duration when `vector` is a one-survivor
-            // split's piece vector — the whole turn's byte length would still
-            // count the non-speech the other piece was dropped for, which is
-            // exactly what this vector does NOT carry.
-            audioMs:
-              pieceAudioMs ??
-              Math.round(audio.secondsAt(audio.byteLength) * 1000),
-            // Buffer time and speech time, both, because they are different
-            // quantities: `audioMs` counts the pre-roll and the hangover, and one
-            // measured turn held 720ms of speech inside a 1540ms buffer. The
-            // client's floor is measured in the second one.
-            speechMs: heard.speechMs,
-          });
+        // The respelling is an await the check above does not cover: a client
+        // that left during it is the same abandoned turn as one that left before.
+        if (!this.registry.holds(socket, session)) {
+          record(false, 'abandoned');
+          return;
         }
+
+        if (split) {
+          await this.emitPieces(socket, session, split, respellings);
+        } else {
+          // Computed BEFORE the emit so the finished line arrives already typeset.
+          // Reached only from this point — after a FINAL transcript, on the turn's
+          // real text — which is what keeps "never for a speculation" true by
+          // construction rather than by a check: `speculate()` has no path here.
+          const display = this.displayFor(
+            session,
+            translated.sourceText,
+            translated.restored,
+            translated.translations,
+            respellings[0],
+          );
+
+          this.channelFor(socket, session).emit({
+            type: 'server.transcript.final',
+            sessionId: session.sessionId,
+            segment: session.toSegment(
+              translated.sourceText,
+              translated.translations,
+            ),
+            ...(display === undefined ? {} : { display }),
+          });
+          this.rememberSegment(
+            socket,
+            session,
+            session.sessionId,
+            translated.sourceText,
+            translated,
+            respellings[0],
+          );
+
+          // After the transcript is out, so a slow sidecar delays a label and never
+          // the sentence. A failed embedding resolves null and the turn simply
+          // carries no vector.
+          //
+          // `vector`, when set, is a one-survivor split's own piece vector — it
+          // must win over `embedding`, the WHOLE turn's vector, because the whole
+          // turn includes the dropped non-speech the survivor does not.
+          const heard = await (vector ?? embedding);
+          if (heard && this.registry.holds(socket, session)) {
+            this.channelFor(socket, session).emit({
+              type: 'server.turn.embedding',
+              sessionId: session.sessionId,
+              vector: heard.vector,
+              dim: heard.vector.length,
+              // The SURVIVOR's own duration when `vector` is a one-survivor
+              // split's piece vector — the whole turn's byte length would still
+              // count the non-speech the other piece was dropped for, which is
+              // exactly what this vector does NOT carry.
+              audioMs:
+                pieceAudioMs ??
+                Math.round(audio.secondsAt(audio.byteLength) * 1000),
+              // Buffer time and speech time, both, because they are different
+              // quantities: `audioMs` counts the pre-roll and the hangover, and one
+              // measured turn held 720ms of speech inside a 1540ms buffer. The
+              // client's floor is measured in the second one.
+              speechMs: heard.speechMs,
+            });
+          }
+        }
+      } finally {
+        lineOut();
       }
 
-      const delivery = await this.speak(socket, session, translated, timeline);
+      const delivery = await (speaking ??
+        this.speak(socket, session, translated, timeline));
       timeline.markAudio(delivery);
 
       // A client that leaves part-way through delivery is the same case as one
@@ -743,6 +805,8 @@ export class TranslationSessionService implements OnModuleDestroy {
     reusable: Promise<TranslatedTurnText> | null,
     continuation: Continuation,
     minSpeechMs: number,
+    /** This conversation's learned spellings, as recognizer hotwords. */
+    learnedTerms: string[],
   ): Promise<{
     translated: TranslatedTurnText;
     split: SplitTurn | null;
@@ -770,6 +834,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           mimeType: 'audio/wav',
           language: plan.recognition,
           hints,
+          learnedTerms,
           minSpeechMs,
         });
     // Both may settle while the plan is still out; an unhandled rejection takes
@@ -799,10 +864,15 @@ export class TranslationSessionService implements OnModuleDestroy {
         split = await translateSplitTurn(this.pipeline, audio, spans, {
           plan,
           hints,
+          learnedTerms,
           models: FINAL_MODELS,
           context: continuation.context,
           continuesCut: continuation.continuesCut,
-          restoreDisplay: restoreRequestFor(session, continuation.continued),
+          restoreDisplay: restoreRequestFor(
+            session,
+            continuation.continued,
+            learnedTerms,
+          ),
           minSpeechMs,
           logger: this.logger,
         });
@@ -861,17 +931,26 @@ export class TranslationSessionService implements OnModuleDestroy {
             mimeType: 'audio/wav',
             models: FINAL_MODELS,
             hints,
+            learnedTerms,
             context: continuation.context,
             continuesCut: continuation.continuesCut,
             minSpeechMs,
-            restoreDisplay: restoreRequestFor(session, continuation.continued),
+            restoreDisplay: restoreRequestFor(
+              session,
+              continuation.continued,
+              learnedTerms,
+            ),
           },
           plan,
         ),
         split: null,
       };
     }
-    const display = restoreRequestFor(session, continuation.continued);
+    const display = restoreRequestFor(
+      session,
+      continuation.continued,
+      learnedTerms,
+    );
     const restoring = display
       ? this.pipeline.restoreDisplay(sourceText, plan.recognition, {
           ...display,
@@ -913,6 +992,8 @@ export class TranslationSessionService implements OnModuleDestroy {
     socket: StreamSocket,
     session: TurnSession,
     { pieces, vectors }: SplitTurn,
+    /** Each piece's accepted respellings, by piece index. */
+    respellings: readonly Respellings[],
   ): Promise<void> {
     const channel = this.channelFor(socket, session);
     const ids = pieces.map((_, index) => `${session.sessionId}#${index}`);
@@ -922,6 +1003,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         piece.sourceText,
         piece.restored,
         piece.translations,
+        respellings[index],
       );
       channel.emit({
         type: 'server.transcript.final',
@@ -947,6 +1029,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         ids[index]!,
         piece.sourceText,
         piece,
+        respellings[index],
       );
     });
     // After every line is out, as for a whole turn: a label may wait on the
@@ -964,6 +1047,88 @@ export class TranslationSessionService implements OnModuleDestroy {
         speechMs: vector.speechMs,
       });
     });
+  }
+
+  /**
+   * Whether any of these lines would ask for a respelling at all: a display of
+   * a Vietnamese transcript, a respeller on this host, and a foreign span the
+   * translation does not already spell as heard. Synchronous, so the caller can
+   * decide the turn's ordering before anything is awaited.
+   */
+  private wantsRespelling(
+    session: TurnSession,
+    pieces: readonly Pick<TranslatedTurnText, 'sourceText' | 'translations'>[],
+  ): boolean {
+    if (!session.repairDisplay || session.languages.recognition !== 'vi')
+      return false;
+    // Nothing about a respelling may end a turn, including deciding to ask.
+    try {
+      if (!this.pipeline.canRespellLoanwords()) return false;
+      return pieces.some(
+        (piece) =>
+          unresolvedSpans(foreignSpans(piece.sourceText), piece.translations)
+            .length > 0,
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Guarded spellings for a final transcript's garbled foreign spans, learned
+   * for the rest of the conversation as they are accepted.
+   *
+   * Asked only when {@link wantsRespelling} would, so "openai" or "interpol"
+   * costs nothing. The model call is charged to the same budget as the block
+   * retranslation, on the same model — and only once a respeller is known to
+   * exist. Never rejects: whatever goes wrong here, the line is the one it
+   * would have been without it.
+   */
+  private async respellingsFor(
+    socket: StreamSocket,
+    session: TurnSession,
+    sourceText: string,
+    translations: Partial<Record<LanguageCode, string>>,
+  ): Promise<Respellings> {
+    try {
+      if (!this.wantsRespelling(session, [{ sourceText, translations }]))
+        return {};
+      const spans = unresolvedSpans(foreignSpans(sourceText), translations);
+      const translation =
+        translations[session.languages.spoken] ??
+        Object.values(translations).find((text) => Boolean(text?.trim()));
+      if (!translation) return {};
+
+      const model = FINAL_MODELS[0] ?? '';
+      if (!this.budget.canSpend(session.userId, model)) {
+        this.logger.log(
+          'loanword respelling skipped, translation budget spent',
+        );
+        return {};
+      }
+      this.budget.spend(session.userId, model);
+      const proposals = await this.pipeline.respellLoanwords(
+        sourceText,
+        spans.map((span) => span.text),
+        translation,
+      );
+      const accepted = acceptRespellings(spans, proposals, translations);
+      const count = Object.keys(accepted).length;
+      if (count > 0 && this.registry.holds(socket, session)) {
+        this.context.learnSpellings(socket, accepted);
+      }
+      this.logger.log(
+        `respell accepted=${count}/${spans.length} learned=${this.context.learnedTerms(socket).length}`,
+      );
+      return accepted;
+    } catch (err) {
+      this.logger.warn(
+        `loanword respelling failed, the turn keeps its display: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return {};
+    }
   }
 
   /**
@@ -990,6 +1155,8 @@ export class TranslationSessionService implements OnModuleDestroy {
     restored: string | undefined,
     /** The turn's translations, which spell the names the restorer cannot. */
     translations: Partial<Record<LanguageCode, string>>,
+    /** Guarded spellings for the turn's garbled foreign spans. */
+    respellings: Respellings = {},
   ): string | undefined {
     // The client's opt-in. Its name is now a misnomer — nothing repairs anything
     // — but renaming it is a breaking contract change, taken separately or not
@@ -1002,6 +1169,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         : adoptTranslatedCasing(restored, translations),
       session.languages.recognition,
       this.logger,
+      respellings,
     );
   }
 
@@ -1107,6 +1275,9 @@ export class TranslationSessionService implements OnModuleDestroy {
       adoptTranslatedCasing(restored, translations),
       block.recognition,
       this.logger,
+      // The pieces' own accepted spellings, so a block typeset as one keeps the
+      // repair each piece already showed rather than reverting it.
+      block.respellings,
     );
   }
 
@@ -1116,9 +1287,15 @@ export class TranslationSessionService implements OnModuleDestroy {
     segmentId: string,
     sourceText: string,
     { pauses, leadPause }: { pauses?: number[]; leadPause?: number },
+    respellings: Respellings = {},
   ): void {
-    const restore = restoreRequestFor(session, undefined);
+    const restore = restoreRequestFor(
+      session,
+      undefined,
+      this.context.learnedTerms(socket),
+    );
     this.finished.record(socket, segmentId, {
+      ...(Object.keys(respellings).length > 0 ? { respellings } : {}),
       sourceText,
       recognition: session.languages.recognition,
       targets: session.languages.targets,
@@ -1238,6 +1415,8 @@ export class TranslationSessionService implements OnModuleDestroy {
     session: TurnSession,
     translated: TranslatedTurnText,
     timeline: TurnTimeline,
+    /** Settles once the turn's final line is out; see `end()`. */
+    afterLine: Promise<void> = Promise.resolve(),
   ): Promise<ClauseDelivery> {
     // Speech is a budget of exactly one target — `plan.spoken` — never every
     // target a fan-out turn was translated into (TTS for all of them is a
@@ -1280,7 +1459,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     if (!stream) {
       const clauses = splitIntoClauses(spokenText);
       timeline.markClauses(clauses.length, 'clauses');
-      return this.streamClauses(socket, session, clauses, language);
+      return this.streamClauses(socket, session, clauses, language, afterLine);
     }
 
     timeline.markClauses(1, 'stream');
@@ -1308,6 +1487,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     session: TurnSession,
     clauses: string[],
     language: LanguageCode,
+    afterLine: Promise<void> = Promise.resolve(),
   ): Promise<ClauseDelivery> {
     let firstAudioAt: number | undefined;
     let lastAudioAt: number | undefined;
@@ -1363,6 +1543,8 @@ export class TranslationSessionService implements OnModuleDestroy {
         this.logger.error(
           `cannot frame ${speech.mimeType} output: ${pushed.detail}`,
         );
+        // Never ahead of the line: the client forgets a turn on this error.
+        await afterLine;
         this.channelFor(socket, session).fail(
           'unsupported_audio',
           `The configured TTS backend returns ${speech.mimeType}; the streaming path needs 16-bit PCM WAV`,

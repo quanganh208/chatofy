@@ -559,15 +559,18 @@ export const en = {
   //
   // Three facts in the body are there because they are the ones a reader would
   // be surprised by later, and a notice that omits the surprising part is not a
-  // notice: the recording is KEPT rather than merely used, the microphone keeps
-  // recording while a conversation is PAUSED, and the object it is kept in —
-  // see "Conversation recordings" in `docs/deployment-guide.md` — sits in a
-  // public-read bucket with no per-object auth, so its 64-bit key is the ONLY
-  // thing standing between the recording and anyone who has it. The second is a
-  // real design consequence — `use-conversation-recording.ts` runs the recorder
-  // through pause on purpose, because stopping it would desynchronise every
-  // timestamp from the audio — and someone who believes pause silences the
-  // microphone would otherwise be wrong about it in their own words. The third
+  // notice: the recording is KEPT rather than merely used, what a PAUSE does to
+  // it, and the object it is kept in — see "Conversation recordings" in
+  // `docs/deployment-guide.md` — sits in a public-read bucket with no per-object
+  // auth, so its 64-bit key is the ONLY thing standing between the recording and
+  // anyone who has it. The second used to warn that the microphone kept
+  // recording through a pause; it now says the opposite, because
+  // `use-conversation-recording.ts` pauses the recorder with the conversation
+  // and offsets are measured in active time so the timestamps still line up.
+  // It stays in the notice because pausing to say something off the record is
+  // exactly when a reader needs to know. It does not claim the microphone is
+  // released — the track stays open, and the browser's indicator says so —
+  // only that nothing said during a pause is recorded or translated. The third
   // is the whole of this product's access control for a stored recording, and a
   // notice that mentioned retention and pause but not that would let a reader
   // believe "kept" meant "kept behind a login" when it does not.
@@ -576,7 +579,7 @@ export const en = {
   // (`marketing-header.tsx`), so it has to stay short enough to sit in a header.
   'web.landing.localTitle': 'Your voice is understood on your machine',
   'web.landing.localBody':
-    'What you say is heard on your own computer — no key to obtain, and nothing is sent away to be understood. When a conversation ends, its recording and its words are saved to your history, so you can play it back and read it again. The recording is kept at an unguessable address that anyone holding the link can open, so the link is what keeps it private. The microphone keeps recording while a conversation is paused. Deleting a conversation deletes its recording with it.',
+    'What you say is heard on your own computer — no key to obtain, and nothing is sent away to be understood. When a conversation ends, its recording and its words are saved to your history, so you can play it back and read it again. The recording is kept at an unguessable address that anyone holding the link can open, so the link is what keeps it private. Pausing a conversation pauses its recording too: what is said while it is paused is neither recorded nor translated. Deleting a conversation deletes its recording with it.',
   'web.landing.hopOnDevice': 'On device',
   'web.landing.hopOverNetwork': 'Over the network',
   'web.landing.hopHears': 'Hears what you said',

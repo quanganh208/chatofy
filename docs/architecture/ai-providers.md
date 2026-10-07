@@ -647,6 +647,15 @@ when it ends. `Conversation.audioKey` names the object; `audioOffsetMs` and
 `audioDurationMs` place a transcript timestamp inside it. The transcript is
 unchanged and still lives in Postgres.
 
+Pause pauses the recorder, the elapsed clock and capture together. Every turn's
+`offsetMs` is therefore measured in active time, which is wall time since
+`startedAt` minus the paused time before it, and that is also the recording's
+media time. `mediaOffset` seeks with no per-pause bookkeeping. The save stores
+only the total, `Conversation.pausedMs`, and History shows `endedAt − startedAt
+− pausedMs` as the duration. A browser whose `MediaRecorder` cannot pause keeps
+recording straight through, and offsets then keep their wall-time meaning,
+because the recording does too.
+
 `audioOffsetMs` is written by the transcript save as well as by the upload, and
 it is the only recording column that is. It is not a fact about the object: it
 is the origin every per-turn timestamp is measured against, and `/translate`

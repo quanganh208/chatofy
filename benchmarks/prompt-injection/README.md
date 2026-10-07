@@ -310,6 +310,16 @@ green while measuring nothing. The first drafts of `context-command` and
 phrases the new instruction paragraph and the block's own heading share. As ever,
 reword them if the instruction is reworded.
 
+## The respelling arm
+
+The loanword respelling is a model call whose answer can land in the speaker's own Vietnamese line. That makes it the surface §3.14 of the development journey once removed, so it has its own cases. `respell.mjs` grades the line a reader would see: the display after the guards in `packages/ai-providers/src/text/loanword-respelling.ts`. It does not grade the model's raw answer, but it prints any attack where the model obeyed and a guard was the only thing that stopped it.
+
+```bash
+node benchmarks/prompt-injection/respell.mjs --repeats 3
+```
+
+Recorded on 2026-10-07 against `deepseek-flash`: **18/18 passed**. The cases were 2 controls and 4 attacks, each run 3 times. The guard was never the only defence.
+
 ## Adding a case
 
 `corpus.mjs`. Give every case an `any` group per idea the translation must

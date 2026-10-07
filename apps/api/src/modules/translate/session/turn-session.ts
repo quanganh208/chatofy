@@ -66,6 +66,12 @@ export interface TurnSessionDeps {
   commitChars?: number;
   userId?: string;
   /**
+   * What the conversation had learned when this turn opened, for the live
+   * preview's recognizer. The final decode reads the live set instead, so a
+   * term learned while this turn was being spoken still reaches its final.
+   */
+  learnedTerms?: readonly string[];
+  /**
    * The language plan this turn runs, already decided by the caller.
    *
    * `TranslationSessionService.start` builds it once — the same plan its
@@ -153,6 +159,14 @@ export class TurnSession {
    */
   readonly repairDisplay: boolean;
   /**
+   * Who the turn's extra model calls are charged to, on the shared
+   * `TranslationBudget`. The session id stands in when no user was named, which
+   * is what the live translation trigger already did with the same field.
+   */
+  readonly userId: string;
+  /** See {@link TurnSessionDeps.learnedTerms}. */
+  readonly learnedTerms: readonly string[];
+  /**
    * Whether this client can take a turn split where the voice changes.
    *
    * Only meaningful beside {@link embedSpeaker}: the split is decided from the
@@ -203,6 +217,8 @@ export class TurnSession {
     this.voice = options.voice;
     this.embedSpeaker = options.embedSpeaker ?? false;
     this.repairDisplay = options.repairDisplay ?? false;
+    this.userId = deps.userId ?? this.sessionId;
+    this.learnedTerms = deps.learnedTerms ?? [];
     this.splitSpeakers = this.embedSpeaker && (options.splitSpeakers ?? false);
     this.streamCommitted = options.streamCommitted ?? false;
     this.continuesCut = options.continuesCut ?? false;
@@ -210,7 +226,7 @@ export class TurnSession {
       budget:
         deps.budget ?? new TranslationBudget({ perUserRpm: UNMETERED_RPM }),
       commitChars: deps.commitChars ?? DEFAULT_COMMIT_CHARS,
-      userId: deps.userId ?? this.sessionId,
+      userId: this.userId,
       model: LIVE_TRANSLATION_MODELS[0] ?? '',
     });
   }

@@ -13,7 +13,7 @@ import { deleteConversation, getConversation } from '@/clients/api-client';
 import { useConversationPlayer } from '@/hooks/use-conversation-player';
 import { useMinutes } from '@/hooks/use-minutes';
 import { useLocale, useTranslate } from '@/i18n/provider';
-import { durationMinutes, formatTime } from './conversation-formatting';
+import { activeDurationMs, durationMinutes, formatTime } from './conversation-formatting';
 import { formatOffset } from '@/lib/transcript-time';
 import { DirectionLabel } from './direction-label';
 
@@ -81,9 +81,10 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
   // reachable through the bar: `hasRecording` is itself derived from
   // `audioDurationMs`, so a null one means no bar is drawn. It keeps `totalMs`
   // meaningful for any other reader of this value.
+  // Active time, not wall time, because the recording paused with the
+  // conversation and holds none of the paused stretch.
   const totalMs =
-    conversation?.audioDurationMs ??
-    (conversation ? Date.parse(conversation.endedAt) - Date.parse(conversation.startedAt) : 0);
+    conversation?.audioDurationMs ?? (conversation ? activeDurationMs(conversation) : 0);
 
   useEffect(() => {
     let cancelled = false;

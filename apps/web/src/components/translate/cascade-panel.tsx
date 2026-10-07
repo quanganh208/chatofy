@@ -230,6 +230,9 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             // timestamps are also `Date.now()`, also this tab, so this subtracts
             // meaningfully against them.
             Date.parse(conversation.startedAt),
+            // And the pauses it leaves out, so a stored offset is a position in
+            // a recording that skipped them — see `offsetPauses`.
+            conversation.offsetPauses,
           ),
     [
       running,
@@ -240,6 +243,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
       conversation.displays,
       conversation.blockTranslations,
       conversation.startedAt,
+      conversation.offsetPauses,
     ],
   );
 
@@ -260,6 +264,9 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
     // timestamps, and they have to keep meaning what they meant on the live
     // screen. The upload writes the same number afterwards when it succeeds.
     audioOffsetMs,
+    // What History takes off `endedAt - startedAt`, so the card's duration is
+    // the time the clock on this screen counted.
+    pausedMs: conversation.pausedMs,
   });
 
   // Gated on `save.saved`, not merely on the conversation having ended: the row
@@ -371,6 +378,8 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             // number on screen now is the number read back later.
             startedAtMs: conversation.startedAt ? Date.parse(conversation.startedAt) : null,
             audioOffsetMs,
+            // The pauses the stored offset leaves out, left out here too.
+            pauses: conversation.offsetPauses,
             speakers: conversation.speakers,
             attributions: conversation.attributions,
             onAttribute: conversation.attributeTurn,
@@ -470,7 +479,9 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             label={t(STATUS_KEY[conversation.status])}
           />
           <MicMeter level={conversation.level} />
-          {running ? <ElapsedClock startedAt={conversation.startedAt} /> : null}
+          {running ? (
+            <ElapsedClock startedAt={conversation.startedAt} pauses={conversation.pauses} />
+          ) : null}
         </div>
 
         <div className="flex items-center gap-2 justify-self-stretch sm:justify-self-center">

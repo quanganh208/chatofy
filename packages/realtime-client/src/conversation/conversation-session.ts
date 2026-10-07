@@ -13,6 +13,7 @@ import { base64ToPcm16, downsampleToPcm16, TARGET_SAMPLE_RATE } from '../audio/p
 import { DEFAULT_MAX_IN_FLIGHT, TurnPipeline, type CapturedTurnMetrics } from './turn-pipeline.js';
 import { blockKey } from '../state/turn-keyed-transcript.js';
 import type { ConversationStatus } from './conversation-status.js';
+import { pausedMsBefore, type PauseInterval } from './pause-intervals.js';
 
 /** Samples the worklet posts per block, at the audio context's own rate. */
 const WORKLET_BLOCK_SAMPLES = 1024;
@@ -249,6 +250,16 @@ export interface ConversationSessionListeners {
    * holds it open like any other — bounded by the drain deadline either way.
    */
   onDrained?: () => Promise<void> | void;
+  /**
+   * The conversation's pause intervals changed: one opened, one closed, or a new
+   * conversation started with none.
+   *
+   * Always a NEW array, so a caller can put it straight into state. Optional
+   * because only a caller that shows a clock, stores a duration or keeps a
+   * recording aligned with its transcript has a use for it — see
+   * {@link PauseInterval} for what each interval means.
+   */
+  onPauses?: (pauses: readonly PauseInterval[]) => void;
   /** Diagnostics that must never be silent — dropped turns above all. */
   onLog?: (message: string) => void;
 }
@@ -309,6 +320,19 @@ export class ConversationSession {
    */
   private paused = false;
   /**
+   * Every stretch this conversation spent paused, oldest first, the last one
+   * still open while `paused` is set.
+   *
+   * Owned here because this class owns every transition that opens or closes
+   * one — `pause`, `resume`, `finish` and `stop`. Kept after `stop` on purpose:
+   * the save that stores the conversation's paused total runs once the session
+   * is already idle. The next `start` is what clears it.
+   *
+   * Replaced rather than mutated, so the array handed to `onPauses` is never
+   * changed under a caller that kept it.
+   */
+  private pauses: readonly PauseInterval[] = [];
+  /**
    * The conversation is ending, and the tail has not finished playing.
    *
    * Distinct from `paused` because it is one-way: nothing leaves this state
@@ -352,6 +376,43 @@ export class ConversationSession {
     return this.paused;
   }
 
+  /** This conversation's pause intervals so far — see {@link PauseInterval}. */
+  get pauseIntervals(): readonly PauseInterval[] {
+    return this.pauses;
+  }
+
+  /**
+   * How long this conversation was paused before `at` (epoch ms), counting an
+   * open pause up to `at`.
+   *
+   * Wall time minus this is ACTIVE time, which is what a turn's offset is
+   * measured in — see `displayGroupOffsetMs`.
+   */
+  pausedBefore(at: number): number {
+    return pausedMsBefore(this.pauses, at);
+  }
+
+  /** Open a pause interval at `at` and tell the caller. */
+  private openPause(at: number): void {
+    this.pauses = [...this.pauses, { startedAt: at, endedAt: null }];
+    this.listeners.onPauses?.(this.pauses);
+  }
+
+  /**
+   * Close the open pause interval at `at`, if there is one, and tell the caller.
+   *
+   * Called from every edge that leaves the paused state: resuming, and ending
+   * the conversation while paused. Ending is a close and not a discard — the
+   * time spent paused before End was pressed is paused time all the same, and a
+   * duration that forgot it would count the pause as talking.
+   */
+  private closePause(at: number): void {
+    const last = this.pauses.at(-1);
+    if (!last || last.endedAt !== null) return;
+    this.pauses = [...this.pauses.slice(0, -1), { startedAt: last.startedAt, endedAt: at }];
+    this.listeners.onPauses?.(this.pauses);
+  }
+
   /**
    * Report a status, unless a pause outranks it.
    *
@@ -381,12 +442,21 @@ export class ConversationSession {
   }
 
   /**
-   * Turn the microphone off without ending the conversation.
+   * Turn the microphone off without ending the conversation, and stop the
+   * conversation's clock.
    *
-   * Releases NOTHING: the socket stays open, the audio context stays running,
-   * and every turn already in flight keeps arriving and playing out. What the
-   * user just said is translated and spoken — a pause silences the input, not
-   * the answer to the sentence they finished.
+   * Releases no resource: the socket stays open, the audio context stays
+   * running, and every turn already in flight keeps arriving and playing out.
+   * What the user just said is translated and spoken — a pause silences the
+   * input, not the answer to the sentence they finished.
+   *
+   * What it does record is TIME. The pause opens an interval (see
+   * {@link PauseInterval}), and from here on a turn's offset is measured in
+   * active time: wall time minus the paused time before it. A caller that keeps
+   * a recording pauses its recorder on this same call, so the recording skips
+   * exactly these intervals and an offset in active time is still a position in
+   * the media. The track itself stays live — the session never owned the
+   * decision to stop it, and the recorder is what stops writing.
    *
    * The turn open at this moment is CLOSED rather than abandoned, and closed the
    * ordinary way, with `cutForced` false: that flag marks this tab's own length
@@ -399,6 +469,7 @@ export class ConversationSession {
     // its way to teardown, and there is nothing left to come back to.
     if (!this.live || this.paused || this.finishing) return;
     this.paused = true;
+    this.openPause(Date.now());
 
     this.live.pipeline?.closeCapturedTurn(false);
     // Clears the gate, the pre-roll and the held silence, so the first block
@@ -413,10 +484,11 @@ export class ConversationSession {
     this.listeners.onStatus('paused');
   }
 
-  /** Listen again in the same conversation, on the same socket. */
+  /** Listen again in the same conversation, on the same socket, and restart the clock. */
   resume(): void {
     if (!this.live || !this.paused) return;
     this.paused = false;
+    this.closePause(Date.now());
     this.live.pump?.armNextTurn();
     this.listeners.onStatus('listening');
   }
@@ -465,8 +537,12 @@ export class ConversationSession {
     this.finishing = true;
     this.drainOffered = false;
     // Ending outranks a pause, and the flags must not both be set: `stop` clears
-    // them together, but the status latch reads them independently.
+    // them together, but the status latch reads them independently. The pause
+    // ends HERE, at the press, not when the drain completes — the tail playing
+    // out is the conversation's own time, as it is for an End pressed while
+    // listening.
     this.paused = false;
+    this.closePause(Date.now());
     const live = this.live;
 
     // Closed the ordinary way rather than abandoned, and NOT as a forced cut —
@@ -554,6 +630,11 @@ export class ConversationSession {
 
     this.listeners.onError(null);
     this.listeners.onReset();
+    // A new conversation has paused for no time at all. Cleared here rather
+    // than in `stop`, because the previous conversation's total is read after
+    // it stopped — by the save that stores it.
+    this.pauses = [];
+    this.listeners.onPauses?.(this.pauses);
     this.listeners.onStatus('connecting');
     this.options = options;
 
@@ -902,8 +983,10 @@ export class ConversationSession {
     // Before the status below, or the latch in `emitStatus` would be the last
     // thing standing between a torn-down session and a UI that still says it is
     // paused. Teardown outranks a pause, always — and outranks a drain, which is
-    // how the second press of End cuts one short.
+    // how the second press of End cuts one short. A pause still open ends here,
+    // for the reason `closePause` gives.
     this.paused = false;
+    this.closePause(Date.now());
     this.finishing = false;
     if (this.drainTimer) clearTimeout(this.drainTimer);
     this.drainTimer = null;

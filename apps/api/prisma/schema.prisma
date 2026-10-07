@@ -199,11 +199,21 @@ model Conversation {
   // `@chatofy/types`) rather than stored twice, and read by the history list
   // card either way.
   languages       String[]
-  // Reported by the client and DISPLAYED: endedAt - startedAt is the duration on
-  // a history card. Not the sort key — a browser clock can lie — and both are
-  // bounded at the boundary so a lying clock cannot render an absurd duration.
+  // Reported by the client and DISPLAYED: endedAt - startedAt - pausedMs is the
+  // duration on a history card. Not the sort key — a browser clock can lie — and
+  // both are bounded at the boundary so a lying clock cannot render an absurd
+  // duration.
   startedAt       DateTime
   endedAt         DateTime
+  // Total milliseconds the conversation spent paused. The live clock stops while
+  // paused and the recording pauses with it, so this is what the card's duration
+  // leaves out to read the same active time. Turn offsets already exclude the
+  // pauses before them, so the intervals themselves are not stored.
+  //
+  // 0 for every row saved before pausing stopped the clock, which is exactly
+  // what their duration meant. A save never lowers it (see the store's `save`):
+  // a tab on an older bundle re-saving a rename sends none.
+  pausedMs        Int                @default(0)
   // The server instant the record landed. The list's sort key, and the only
   // timestamp here the server can vouch for.
   createdAt       DateTime           @default(now())
