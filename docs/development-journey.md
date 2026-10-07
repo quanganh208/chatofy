@@ -2230,3 +2230,58 @@ container.
 concurrency 2, re-measured when the machine was less busy: Δp95 across two runs was
 **+10.2 ms** and **+20.6 ms** respectively — within the +25 ms budget (the earlier
 measurement, under load from parallel phases, was +28.3 ms).
+
+## Garbled loanwords on the Vietnamese display: a structural detector, a guarded respelling, learned hotwords (07/10/2026)
+
+Found in a quality check of a 56 s vi→en news clip about deepfake fraud. The recognizer was good on Vietnamese: about 3 errors in 188 words, and no words lost at the four forced-cut seams. The one visible defect was the English word itself. "deepfake" reached the transcript as "deep fred" and later as "defec", and the restorer capitalised them into "Deep Fred" and "DEFEC". The translation got it right both times ("deepfakes"). Only the speaker's own line was wrong.
+
+### No list, by measurement
+
+§3.17 (18/09) already measured that a standing list of English words loses WER, because biasing toward words nobody said costs real Vietnamese. So detection uses the shape of a syllable instead: whether a word can be written as onset + nucleus + coda in Vietnamese orthography (`packages/ai-providers/src/text/vietnamese-syllable.ts`). On the 50 Vietnamese turns in production (10 conversations, 2,916 words) it flagged 26 distinct spans.
+
+- **Correct loanwords:** openai, internet, podcast, interpol, video, deadline, VNeID, Donald Trump.
+- **Garbled:** deep fred, defec, vnei, vini, vn id, opena, joshup pengo, ammon, Amode, "opera Dario", "Principle singtin".
+
+Errors that land on real Vietnamese syllables ("poker" heard as "quốc cơ") are invisible to it by construction. User-declared hotwords remain the only fix for those.
+
+### Two arms
+
+| Arm                                                             | Right | Wrong | Note                                                                          |
+| --------------------------------------------------------------- | ----- | ----- | ----------------------------------------------------------------------------- |
+| Closest translation n-gram by letters, no model                 | 6     | 3     | "Amode"→"mode", "hecta"→"hectare", and an n-gram running long                 |
+| `deepseek-flash` respelling, given the translation, then guards | 9     | 1     | 3 of 3 runs identical; the wrong one is "Principle singtin"→"First principle" |
+| Same prompt without the translation                             | 7     | —     | invented "Joseph Pengo", "Amodei" for "Altman"                                |
+
+A respelling is accepted only if all four hold:
+
+- it is Latin script ("đét-lai" for "deadline" is refused);
+- it changes letters, not just case or spacing;
+- it appears in the translation of the same words;
+- its letter similarity to what was heard is ≥ 0.5 (twice the longest common subsequence over the combined length).
+
+Spans the translation already spells as heard never reach the model. That is why openai, interpol and deadline cost nothing.
+
+### What it changes about §3.14
+
+§3.14 took the model off the display path, because an injected answer there reads as the speaker's own words in the right language. This is a model on that path again, so the boundary is now explicit. The model proposes, deterministic guards decide, and `sourceText` never changes. The client already offers the recognizer's words under any line whose display differs. `benchmarks/prompt-injection/respell.mjs` puts attack cases back on this surface: 18/18 passed (2 controls and 4 attacks, 3 runs each), and the model never obeyed, so no guard had to be the only defence.
+
+### Cost
+
+The call runs after the translation and measured p50 599 ms, p90 894 ms and max 1003 ms over 42 calls. Its ceiling is 1.2 s. It runs only on the ~18% of turns that hold an unresolved span. On those turns speech starts beside the call, once the speaker vectors it always waited for are in, so the listener never waits for the respelling; only the line does. The one speech-path error (`unsupported_audio`) is held until the line is out, because the client forgets a turn on a turn-scoped error and would drop a final that came after it. Every other turn keeps the old order: line, label, then speech. A code review on 07/10 found two guard holes, now closed with regression tests. An `Object.prototype` key such as "constructor" could crash a turn or write native code into the line. A highland place name such as "Đắk Lắk" could lose its diacritics ("Dak Lak") and then become a hotword. A span carrying a Vietnamese mark is now never sent, and a respelling that only drops marks is refused. The call is charged to the same `TranslationBudget` as a block retranslation, and a spent budget leaves the line as it was.
+
+### Learned hotwords
+
+An accepted spelling becomes a hotword for that connection's later turns, after the user's own hotwords and under the same 48-term ceiling. On the clip's ten windows, the hotword "deepfake" turned "deep f" into "deepfake" and changed nothing else. Learned terms reach the recognizer and the restorer and never the translation prompt, because they come from whoever is speaking in the room, not from the account owner.
+
+Reproduce:
+
+- `node benchmarks/loanword-respelling/score.mjs --repeats 3` (data is local only; see its README)
+- `node benchmarks/prompt-injection/respell.mjs --repeats 3`
+
+## Pause that pauses: the clock, the recorder and paused time (07/10/2026)
+
+Found in the same quality check. The last sentence of a conversation was in the recording but never translated, because the user had pressed Pause. Pause had only detached capture. The recorder kept writing, on purpose, so that media time stayed equal to wall time and every offset after a pause stayed right. The elapsed clock kept running so that it matched `endedAt − startedAt` in History. Both choices were documented, and both contradicted what the button says. The user decided they should change.
+
+The design that keeps seeks right without storing intervals is to measure every offset in **active time**, meaning wall time minus the paused time before it. The recorder pauses over exactly the same intervals, so media time equals active time minus `audioOffsetMs`, and the existing `mediaOffset` is unchanged. The only new stored value is the total, `Conversation.pausedMs` (an additive migration with default 0, which is exactly what an old row meant), and History subtracts it.
+
+Verified in headless Chromium with a fake microphone: recording 2 s, pausing 3 s and recording 2 s gave 7011 ms of wall time and 3960 ms of decoded media. A recorder without `pause()` keeps the old wall-time offsets, because its recording keeps them too. The clock takes the list of pauses rather than a running total, because a total alone cannot tell when the last pause ended, and the clock would step back after Resume.

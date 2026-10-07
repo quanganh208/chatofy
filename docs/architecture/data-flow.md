@@ -110,7 +110,27 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      decodes with PyAV, which opens a container and cannot read raw samples
    - `PipelineTranslatorService.transcribeAndTranslate()` — the text half only,
      reusing the speculated result when it is still valid
-   - `server.transcript.final` carries the full `TranscriptSegment`
+   - `server.transcript.final` carries the full `TranscriptSegment`, and, for a
+     client that asked (`repairDisplay`), a typeset `display`. The display is
+     composed in this order, and `sourceText` is never changed:
+     1. the restorer's marks and case, kept only if it changed no word;
+     2. names the translation spells in mixed case;
+     3. guarded loanword respellings;
+     4. the ITN.
+
+     Step 3 runs only on a Vietnamese transcript with a span that cannot be a
+     Vietnamese syllable (`foreignSpans`) and that the translation does not
+     already spell as heard. It is one model call on the translation's own host,
+     made after the translation. The proposal must be Latin script, must appear
+     in the translation, and must be close in letters to what was heard
+     (`acceptRespellings`). On such a turn speech starts beside the call, still
+     after the speaker vectors, so only the line waits, and the speech path holds
+     its one error until the line is out. Every other turn keeps the order line,
+     label, then speech. Accepted spellings become hotwords for that connection's later turns,
+     but only for the recognizer and the restorer, never the translation prompt.
+     The rules and the measurements are in
+     [`benchmarks/loanword-respelling`](../../benchmarks/loanword-respelling/README.md).
+
    - `synthesizeStream()` sends the **whole** translation to the local TTS
      sidecar's `POST /synthesize/stream`, and `session/streamed-speech-delivery.ts`
      puts each pcm16 chunk on the wire as it arrives, as `server.audio.frame`s of
