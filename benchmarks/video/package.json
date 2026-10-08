@@ -1,0 +1,24 @@
+{
+  "name": "@chatofy-benchmarks/video",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Video SFU capacity benchmark — Issue #211. Standalone; NOT in pnpm workspace.",
+  "type": "module",
+  "scripts": {
+    "install-browsers": "playwright install chromium",
+    "generate-fixtures": "node --loader ts-node/esm scripts/generate-fixtures.ts",
+    "run-once": "node --loader ts-node/esm src/run-once.ts",
+    "sweep": "node --loader ts-node/esm src/sweep.ts",
+    "sweep-with-translation": "node --loader ts-node/esm src/sweep-with-translation.ts"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.48.0",
+    "playwright": "^1.48.0",
+    "pidusage": "^3.0.2"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3",
+    "@types/node": "^22.7.5"
+  }
+}

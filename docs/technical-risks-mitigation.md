@@ -458,13 +458,22 @@ Monitoring:
 
 ### Risk 2.4: SFU Scalability Beyond 6 Participants
 
+> **Issue #211 (2026-10-08):** A benchmark harness was implemented on branch
+> `feat/211-video-capacity-benchmark` to measure real mediasoup SFU capacity.
+> The harness drives N headless Chromium participants (2, 3, 4, 6) across three
+> resolutions (360p30, 720p30, 720p60) and records worker CPU, RSS, bytes
+> sent/received, and API process metrics. Results are in
+> `benchmarks/video/results/summary.csv` on that branch (PLACEHOLDER rows until
+> `pnpm sweep` is run — see `benchmarks/video/README.md`). Once measurements
+> land, the assumed targets below will be replaced with measured ones.
+
 #### Description
 
 Performance degrades or crashes when 7+ participants join (exceeds design constraint).
 
 **Breakdown:**
 
-- An SFU (Pion assumed) handles N participants by forking N-1 video tracks (each participant gets N-1 feeds)
+- A mediasoup SFU handles N participants by forwarding N-1 video tracks (each participant gets N-1 feeds); it does NOT transcode
 - At 6 participants: 6 × 5 = 30 tracks on the SFU
 - At 20 participants: 20 × 19 = 380 tracks (possible, but CPU high)
 - Goal: Graceful degradation, not crash

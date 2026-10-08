@@ -15,6 +15,7 @@ import type {
   ConferenceRoom,
   PeerState,
 } from './conference-room-registry.service';
+import { ConferenceMetricsService } from './conference-metrics.service';
 import {
   createVerifyClient,
   handleProtocols,
@@ -84,6 +85,7 @@ export class ConferenceGateway
 
   constructor(
     private readonly rooms: ConferenceRoomRegistry,
+    private readonly metrics: ConferenceMetricsService,
     @Inject(AUTH_ADAPTER) private readonly auth: AuthAdapter,
   ) {}
 
@@ -360,6 +362,22 @@ export class ConferenceGateway
         error: err instanceof Error ? err.message : String(err),
       });
     }
+  }
+
+  // ─── Metrics (benchmark only, gated by CONFERENCE_METRICS_ENABLED=1) ─────
+
+  @SubscribeMessage('conference.metrics')
+  handleMetrics(@ConnectedSocket() ws: ConferenceSocket): void {
+    if (!this.metrics.isEnabled()) {
+      this.reply(ws, 'conference.metrics', { error: 'metrics_not_enabled' });
+      return;
+    }
+    const snapshot = this.metrics.getSnapshot();
+    this.reply(
+      ws,
+      'conference.metrics',
+      snapshot ?? { error: 'no_snapshot_yet' },
+    );
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

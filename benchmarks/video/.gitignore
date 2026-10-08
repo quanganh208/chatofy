@@ -1,0 +1,5 @@
+node_modules/
+dist/
+fixtures/*.y4m
+# Raw run JSONs are gitignored — only summary.csv is committed
+results/*.json

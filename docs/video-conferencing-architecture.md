@@ -720,11 +720,20 @@ The billing design is **kept but marked optional and out of thesis scope** pendi
 decision. Tracking API cost (not revenue) may still be useful against the free-tier
 quotas.
 
-### 4. Stated targets are unverified on this project's hardware
+### 4. Stated targets — **Pending measurement** (Issue #211, 2026-10-08)
 
-6 participants, 720p at 60 fps, VP8, 2.5 Mbps per stream, the latency budgets, the
-effort hours (164h) and the 20-week schedule are the proposal's targets, not
-measurements. Speech runs on CPU in the sidecars, and the STT sidecar serves a bounded
+Decision: The assumed targets (6 participants, 720p60, VP8, 2.5 Mbps per stream) are
+being verified against real mediasoup SFU performance on this project's hardware. A
+benchmark harness was implemented on `feat/211-video-capacity-benchmark` that drives N
+headless Chromium participants via Playwright across a 4 × 3 grid
+(participants: 2, 3, 4, 6 × resolutions: 360p30, 720p30, 720p60) and records
+worker CPU, RSS memory, bytes sent/received, and API process metrics.
+
+Evidence: `benchmarks/video/results/summary.csv` on `feat/211-video-capacity-benchmark`
+(currently contains PLACEHOLDER rows — run `pnpm sweep` from `benchmarks/video/` to
+fill with measured numbers; see `benchmarks/video/README.md` for full instructions).
+
+Original note: Speech runs on CPU in the sidecars, and the STT sidecar serves a bounded
 number of concurrent decodes per engine (`LOCAL_STT_CONCURRENCY`, see
 [Speech backend routing](./architecture/ai-providers.md#speech-backend-routing)); six
 simultaneous speakers have not been measured against it.

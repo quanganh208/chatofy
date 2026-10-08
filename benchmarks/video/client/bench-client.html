@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bench Client</title>
+  <style>
+    body { font-family: monospace; font-size: 13px; background: #111; color: #ccc; padding: 12px; }
+    #log { white-space: pre-wrap; }
+    video { width: 160px; height: 90px; background: #333; margin: 4px; }
+    #videos { display: flex; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <h2>Bench Client</h2>
+  <div id="status">initializing…</div>
+  <div id="videos"></div>
+  <pre id="log"></pre>
+
+  <script type="module">
+    /**
+     * bench-client.html — headless mediasoup benchmark client.
+     *
+     * The Playwright driver loads this page, passes config via URL query params:
+     *   ?apiWs=ws://localhost:3000/ws/conference
+     *   &roomId=bench-room-XYZ
+     *   &peerName=peer-0
+     *   &token=JWT
+     *   &res=720p30
+     *
+     * The page joins the room, produces fake video+audio (supplied by Chromium's
+     * --use-fake-device-for-media-stream flag), consumes all remote producers,
+     * and exposes a window.__benchState object the driver reads.
+     */
+
+    const log = (msg) => {
+      const el = document.getElementById('log');
+      el.textContent += `[${new Date().toISOString()}] ${msg}\n`;
+      console.log('[bench]', msg);
+    };
+
+    const setStatus = (s) => { document.getElementById('status').textContent = s; };
+
+    const params = new URLSearchParams(location.search);
+    const API_WS = params.get('apiWs') ?? 'ws://localhost:3000/ws/conference';
+    const ROOM_ID = params.get('roomId') ?? 'bench-room';
+    const PEER_NAME = params.get('peerName') ?? 'peer-0';
+    const TOKEN = params.get('token') ?? '';
+    const RES = params.get('res') ?? '720p30';
+
+    const resMap = {
+      '360p30': { width: 640, height: 360, frameRate: 30 },
+      '720p30': { width: 1280, height: 720, frameRate: 30 },
+      '720p60': { width: 1280, height: 720, frameRate: 60 },
+    };
+    const VIDEO_CONSTRAINTS = resMap[RES] ?? resMap['720p30'];
+
+    // ─── State exposed to the driver ────────────────────────────────────────
+    window.__benchState = {
+      status: 'init',
+      socketId: null,
+      producerIds: [],
+      consumerIds: [],
+      errors: [],
+      negotiatedCodecs: {},
+    };
+
+    const setState = (patch) => Object.assign(window.__benchState, patch);
+
+    // ─── mediasoup-client must be loaded at runtime from CDN ─────────────────
+    // We avoid a bundler; load from unpkg.
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/mediasoup-client@3/lib/index.min.js';
+    script.onload = () => main().catch(err => {
+      log('FATAL: ' + err.message);
+      setState({ status: 'error', errors: [err.message] });
+    });
+    script.onerror = () => {
+      // Offline / CI — try local fallback path served by the harness
+      const s2 = document.createElement('script');
+      s2.src = '/mediasoup-client.min.js';
+      s2.onload = () => main().catch(err => {
+        log('FATAL: ' + err.message);
+        setState({ status: 'error', errors: [err.message] });
+      });
+      s2.onerror = () => {
+        log('ERROR: could not load mediasoup-client (offline + no local fallback)');
+        setState({ status: 'error', errors: ['mediasoup-client not loaded'] });
+      };
+      document.head.appendChild(s2);
+    };
+    document.head.appendChild(script);
+
+    async function main() {
+      log(`Starting: room=${ROOM_ID} peer=${PEER_NAME} res=${RES}`);
+      setStatus('connecting…');
+
+      // ── Open WebSocket ──────────────────────────────────────────────────
+      const ws = new WebSocket(API_WS, ['jwt', TOKEN]);
+
+      const send = (event, data) => ws.send(JSON.stringify({ event, data }));
+
+      const waitFor = (event) => new Promise((resolve, reject) => {
+        const handler = (msg) => {
+          const parsed = JSON.parse(msg.data);
+          if (parsed.event === event) {
+            ws.removeEventListener('message', handler);
+            if (parsed.data?.error) reject(new Error(`${event}: ${parsed.data.error}`));
+            else resolve(parsed.data);
+          }
+        };
+        ws.addEventListener('message', handler);
+        setTimeout(() => reject(new Error(`timeout waiting for ${event}`)), 15000);
+      });
+
+      const remoteProducers = []; // { producerId, socketId, kind }
+
+      ws.addEventListener('message', (msg) => {
+        const { event, data } = JSON.parse(msg.data);
+        if (event === 'conference.new.producer') {
+          remoteProducers.push(data);
+          log(`New remote producer: ${data.producerId} (${data.kind})`);
+          // Consume if we already have recvTransport
+          if (window.__benchState._recvTransport) {
+            consumeProducer(
+              window.__benchState._device,
+              window.__benchState._recvTransport,
+              data.producerId,
+              data.kind,
+            );
+          }
+        }
+      });
+
+      await new Promise((res, rej) => {
+        ws.onopen = res;
+        ws.onerror = (e) => rej(new Error('WS open failed'));
+        setTimeout(() => rej(new Error('WS open timeout')), 10000);
+      });
+      log('WS open');
+
+      // ── Join room ───────────────────────────────────────────────────────
+      send('conference.join', { roomId: ROOM_ID, displayName: PEER_NAME });
+      const joinData = await waitFor('conference.join');
+      const { socketId, rtpCapabilities, peers: existingPeers } = joinData;
+      setState({ socketId, status: 'joined' });
+      log(`Joined room, socketId=${socketId}, existing peers=${existingPeers.length}`);
+
+      // ── Init mediasoup Device ───────────────────────────────────────────
+      const device = new mediasoupClient.Device();
+      await device.load({ routerRtpCapabilities: rtpCapabilities });
+      setState({ _device: device });
+      log('Device loaded');
+
+      // ── Get media ────────────────────────────────────────────────────────
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: VIDEO_CONSTRAINTS,
+        });
+        const vt = stream.getVideoTracks()[0];
+        const settings = vt?.getSettings() ?? {};
+        log(`getUserMedia OK — actual: ${settings.width}x${settings.height}@${settings.frameRate}fps`);
+        setState({ actualVideoSettings: settings });
+      } catch (err) {
+        log('ERROR getUserMedia: ' + err.message);
+        setState({ status: 'error', errors: [...window.__benchState.errors, err.message] });
+        throw err;
+      }
+
+      // ── Create send transport ───────────────────────────────────────────
+      send('conference.transport.create', { direction: 'send' });
+      const sendTp = await waitFor('conference.transport.create');
+
+      const sendTransport = device.createSendTransport({
+        id: sendTp.id,
+        iceParameters: sendTp.iceParameters,
+        iceCandidates: sendTp.iceCandidates,
+        dtlsParameters: sendTp.dtlsParameters,
+        iceServers: sendTp.iceServers ?? [],
+      });
+
+      sendTransport.on('connect', ({ dtlsParameters }, cb, eb) => {
+        send('conference.transport.connect', { transportId: sendTransport.id, dtlsParameters });
+        waitFor('conference.transport.connect').then(() => cb()).catch(eb);
+      });
+
+      sendTransport.on('produce', async ({ kind, rtpParameters, appData }, cb, eb) => {
+        try {
+          send('conference.produce', { kind, rtpParameters, appData });
+          const { id } = await waitFor('conference.produce');
+          cb({ id });
+        } catch (err) {
+          eb(err);
+        }
+      });
+
+      // ── Produce video ───────────────────────────────────────────────────
+      const videoTrack = stream.getVideoTracks()[0];
+      const videoProducer = await sendTransport.produce({
+        track: videoTrack,
+        encodings: [{ maxBitrate: 2_500_000 }],
+        codecOptions: { videoGoogleStartBitrate: 1000 },
+        codec: device.rtpCapabilities.codecs?.find(c => c.mimeType.toLowerCase() === 'video/vp8'),
+      });
+
+      setState({
+        producerIds: [...window.__benchState.producerIds, videoProducer.id],
+        negotiatedCodecs: {
+          ...window.__benchState.negotiatedCodecs,
+          video: videoProducer.rtpParameters.codecs[0]?.mimeType ?? 'unknown',
+        },
+      });
+      log(`Video producer: ${videoProducer.id}, codec: ${videoProducer.rtpParameters.codecs[0]?.mimeType}`);
+
+      // ── Produce audio ───────────────────────────────────────────────────
+      const audioTrack = stream.getAudioTracks()[0];
+      const audioProducer = await sendTransport.produce({ track: audioTrack });
+      setState({ producerIds: [...window.__benchState.producerIds, audioProducer.id] });
+      log(`Audio producer: ${audioProducer.id}`);
+
+      // ── Create recv transport ────────────────────────────────────────────
+      send('conference.transport.create', { direction: 'recv' });
+      const recvTp = await waitFor('conference.transport.create');
+
+      const recvTransport = device.createRecvTransport({
+        id: recvTp.id,
+        iceParameters: recvTp.iceParameters,
+        iceCandidates: recvTp.iceCandidates,
+        dtlsParameters: recvTp.dtlsParameters,
+        iceServers: recvTp.iceServers ?? [],
+      });
+
+      recvTransport.on('connect', ({ dtlsParameters }, cb, eb) => {
+        send('conference.transport.connect', { transportId: recvTransport.id, dtlsParameters });
+        waitFor('conference.transport.connect').then(() => cb()).catch(eb);
+      });
+
+      setState({ _recvTransport: recvTransport });
+
+      // ── Consume existing remote producers ────────────────────────────────
+      for (const { producerId } of existingPeers.flatMap(p => p.producers ?? [])) {
+        await consumeProducer(device, recvTransport, producerId, 'video');
+      }
+      // Also consume any that arrived while we were setting up
+      for (const rp of remoteProducers) {
+        await consumeProducer(device, recvTransport, rp.producerId, rp.kind);
+      }
+
+      setState({ status: 'running' });
+      setStatus('running — producing + consuming');
+      log('READY — benchmark hold starts');
+    }
+
+    async function consumeProducer(device, recvTransport, producerId, kind) {
+      const send = (event, data) => {
+        const ws = document.querySelector('[data-ws]')?.__ws;
+        // Use the global ws from closure — captured via window
+      };
+
+      // We need the ws reference from main; expose it globally
+      if (!window.__ws) return;
+
+      try {
+        window.__ws.send(JSON.stringify({
+          event: 'conference.consume',
+          data: {
+            producerId,
+            rtpCapabilities: window.__benchState._device.rtpCapabilities,
+          },
+        }));
+
+        const consumed = await new Promise((resolve, reject) => {
+          const handler = (msg) => {
+            const parsed = JSON.parse(msg.data);
+            if (parsed.event === 'conference.consume') {
+              window.__ws.removeEventListener('message', handler);
+              if (parsed.data?.error) reject(new Error(parsed.data.error));
+              else resolve(parsed.data);
+            }
+          };
+          window.__ws.addEventListener('message', handler);
+          setTimeout(() => reject(new Error('consume timeout')), 10000);
+        });
+
+        const consumer = await recvTransport.consume(consumed);
+        const videoEl = document.createElement('video');
+        videoEl.autoplay = true;
+        videoEl.srcObject = new MediaStream([consumer.track]);
+        document.getElementById('videos').appendChild(videoEl);
+
+        // Resume consumer
+        window.__ws.send(JSON.stringify({
+          event: 'conference.consumer.resume',
+          data: { consumerId: consumer.id },
+        }));
+
+        setState({
+          consumerIds: [...window.__benchState.consumerIds, consumer.id],
+        });
+        log(`Consuming ${producerId} (${kind}), consumer=${consumer.id}`);
+      } catch (err) {
+        log(`Failed to consume ${producerId}: ${err.message}`);
+      }
+    }
+
+    // Patch main() to expose ws globally after the refactor above
+    // Re-define main partially to wire up __ws
+    const origMain = window._main;
+    window._main = origMain;
+  </script>
+</body>
+</html>
