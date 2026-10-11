@@ -45,7 +45,7 @@ The measurements and the dead ends behind these are in
 | Network path for media                  | **Resolved: Path A** (public port + coturn) (#208)              |
 | Translation audio path                  | **Resolved: client-side capture** (#209)                        |
 | Client support (web / mobile)           | **Resolved** (#210) — mobile real-device test pending (#210 AC) |
-| Capacity targets on production hardware | **Deferred: #211** (hardware-gated)                             |
+| Capacity targets on production hardware | **Resolved: #211** (measured 2026-10-11 — 6p × 720p60 viable)   |
 | Billing tables                          | **Deferred out of thesis scope** (#212)                         |
 | Speaker embedding persistence           | **Deferred** (#212)                                             |
 | Recording access policy                 | **Deferred** (#212)                                             |
@@ -81,5 +81,5 @@ code change, not a doc edit.
 - **Speaker-attribution seed-perturbation minimum** — the architecture doc says 96/94
   exact, `auto-attribution.ts` says 90/89. Needs a re-run to settle.
 - **Video meetings — production gates** — open decisions resolved (#207–#212); remaining
-  gates are hardware-gated (#211), mobile real-device (#210), and @quanganh208 design
+  gate: mobile real-device (#210), and @quanganh208 design
   review (#212). Implementation starts after the review.

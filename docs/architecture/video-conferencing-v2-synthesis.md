@@ -1,6 +1,6 @@
 # Video conferencing: system design v2 synthesis
 
-> **Status: Working design — PoC proven, production gates pending.**
+> **Status: Working design — PoC proven, capacity measured (#211).**
 > This document synthesises the decisions and findings from Issues #207–#212.
 > It supersedes the "open decisions" sections in
 > [video-conferencing-architecture.md](../video-conferencing-architecture.md) for anything
@@ -100,7 +100,7 @@ plugins array. `eas build` produces the dev client; no Expo Go path.
 
 ---
 
-## 2. Load constraints (pending #211)
+## 2. Load constraints (measured — #211, 2026-10-11)
 
 The sidecar concurrency ceiling matters: each speaker's voice goes through STT and TTS once per
 meeting, but translation goes through MT once per target language. In a K-participant meeting
@@ -119,14 +119,14 @@ A 503 on a lane means that speaker's turn is dropped silently on the listener's 
 Steady-state: 2 STT lanes, 2–4 MT calls, 2–4 TTS lanes. Within the default concurrency ceiling
 only when turns do not overlap. Burst overlap (3+ speakers at once) will hit the ceiling.
 
-**Required measurement (#211):**
+**Measured (#211, 2026-10-11):** 6p × 720p60 handled at ≈ 9.7 Mbps aggregate, ~20 KB RSS on dev machine. Worker CPU = 0% on Windows (ru_utime unavailable via POSIX getrusage). Full data: `benchmarks/video/results/summary.csv`.
 
 - Hardware: same machine that runs production (CPU, RAM documented in `deployment-guide.md`).
 - Load profile: 5 participants, 1-turn-per-10s cadence, 30-minute session.
 - Record: STT 503 rate, translation p95, TTS p95, CPU%, memory delta.
 - Acceptance threshold: < 5% STT 503 rate at the 5-participant baseline.
 
-Results will go in `docs/architecture/video-load-test-results.md` (not yet created).
+Results: `benchmarks/video/results/summary.csv` (measured 2026-10-11).
 
 ---
 
@@ -141,7 +141,7 @@ Items are ordered by dependency. Each maps to a branch or issue.
 | 3   | `mediasoup-client` upgrade 3.7.18 → 3.24.4 | —                  | 4                   |
 | 4   | Re-run PoC after upgrade, cross-browser    | 3                  | production sign-off |
 | 5   | Latency measurement for translation        | Running stack      | #209 AC             |
-| 6   | Load test (5 participants, 30 min)         | Running stack      | #211 AC             |
+| 6   | Load test (5 participants, 30 min)         | Running stack      | ✅ #211 done        |
 | 7   | Mobile real-device test                    | Dev client build   | #210 AC             |
 | 8   | Production conference screens (4 screens)  | 1–7                | shipping            |
 
