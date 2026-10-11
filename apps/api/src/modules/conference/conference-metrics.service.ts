@@ -101,11 +101,8 @@ export class ConferenceMetricsService implements OnModuleDestroy {
             transportCount++;
             const statsArr = await peer.sendTransport.getStats();
             for (const stat of statsArr) {
-              if (
-                'bytesWritten' in stat &&
-                typeof stat.bytesWritten === 'number'
-              ) {
-                bytesSent += stat.bytesWritten;
+              if ('bytesSent' in stat && typeof stat.bytesSent === 'number') {
+                bytesSent += stat.bytesSent;
               }
               if (
                 'bytesReceived' in stat &&
@@ -121,11 +118,8 @@ export class ConferenceMetricsService implements OnModuleDestroy {
             transportCount++;
             const statsArr = await peer.recvTransport.getStats();
             for (const stat of statsArr) {
-              if (
-                'bytesWritten' in stat &&
-                typeof stat.bytesWritten === 'number'
-              ) {
-                bytesSent += stat.bytesWritten;
+              if ('bytesSent' in stat && typeof stat.bytesSent === 'number') {
+                bytesSent += stat.bytesSent;
               }
               if (
                 'bytesReceived' in stat &&

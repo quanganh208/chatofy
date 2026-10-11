@@ -1,4 +1,5 @@
 import { Controller, Get, NotFoundException } from '@nestjs/common';
+import { Public } from '../../common/decorators/public.decorator';
 import { ConferenceMetricsService } from './conference-metrics.service';
 
 /**
@@ -11,6 +12,7 @@ import { ConferenceMetricsService } from './conference-metrics.service';
 export class ConferenceMetricsController {
   constructor(private readonly metricsService: ConferenceMetricsService) {}
 
+  @Public()
   @Get('metrics')
   getMetrics() {
     if (!this.metricsService.isEnabled()) {

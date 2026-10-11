@@ -43,11 +43,13 @@ export async function pollServerMetrics(apiBaseUrl: string): Promise<ServerMetri
       return null;
     }
     const body = (await resp.json()) as Record<string, unknown>;
-    if ('error' in body || 'status' in body) {
-      console.warn('[metrics] Server metrics not ready yet:', body);
+    // API wraps responses in { success, data } envelope
+    const payload = ('data' in body ? body['data'] : body) as Record<string, unknown>;
+    if ('error' in payload || 'status' in payload) {
+      console.warn('[metrics] Server metrics not ready yet:', payload);
       return null;
     }
-    return body as unknown as ServerMetrics;
+    return payload as unknown as ServerMetrics;
   } catch (err) {
     console.warn(
       '[metrics] Failed to poll server metrics:',

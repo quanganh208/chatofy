@@ -66,24 +66,24 @@
 
     const setState = (patch) => Object.assign(window.__benchState, patch);
 
-    // ─── mediasoup-client must be loaded at runtime from CDN ─────────────────
-    // We avoid a bundler; load from unpkg.
+    // ─── mediasoup-client — local bundle first, CDN fallback ────────────────
+    // prepare-client.mjs copies the npm bundle to ./mediasoup-client.min.js
     const script = document.createElement('script');
-    script.src = 'https://unpkg.com/mediasoup-client@3/lib/index.min.js';
+    script.src = './mediasoup-client.min.js';
     script.onload = () => main().catch(err => {
       log('FATAL: ' + err.message);
       setState({ status: 'error', errors: [err.message] });
     });
     script.onerror = () => {
-      // Offline / CI — try local fallback path served by the harness
+      // Local bundle missing — fall back to CDN
       const s2 = document.createElement('script');
-      s2.src = '/mediasoup-client.min.js';
+      s2.src = 'https://unpkg.com/mediasoup-client@3/lib/index.min.js';
       s2.onload = () => main().catch(err => {
         log('FATAL: ' + err.message);
         setState({ status: 'error', errors: [err.message] });
       });
       s2.onerror = () => {
-        log('ERROR: could not load mediasoup-client (offline + no local fallback)');
+        log('ERROR: could not load mediasoup-client (no local bundle + CDN unreachable)');
         setState({ status: 'error', errors: ['mediasoup-client not loaded'] });
       };
       document.head.appendChild(s2);
@@ -95,7 +95,8 @@
       setStatus('connecting…');
 
       // ── Open WebSocket ──────────────────────────────────────────────────
-      const ws = new WebSocket(API_WS, ['jwt', TOKEN]);
+      const ws = new WebSocket(API_WS, ['chatofy-v1', TOKEN]);
+      window.__ws = ws;
 
       const send = (event, data) => ws.send(JSON.stringify({ event, data }));
 
@@ -253,12 +254,6 @@
     }
 
     async function consumeProducer(device, recvTransport, producerId, kind) {
-      const send = (event, data) => {
-        const ws = document.querySelector('[data-ws]')?.__ws;
-        // Use the global ws from closure — captured via window
-      };
-
-      // We need the ws reference from main; expose it globally
       if (!window.__ws) return;
 
       try {
@@ -304,10 +299,6 @@
       }
     }
 
-    // Patch main() to expose ws globally after the refactor above
-    // Re-define main partially to wire up __ws
-    const origMain = window._main;
-    window._main = origMain;
   </script>
 </body>
 </html>
