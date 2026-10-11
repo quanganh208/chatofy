@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "chatofy",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -51,8 +51,7 @@
         }
       ],
       "expo-image",
-      "expo-web-browser",
-      "react-native-webrtc"
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
