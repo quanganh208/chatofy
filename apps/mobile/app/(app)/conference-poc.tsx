@@ -25,8 +25,25 @@ import { ConferencePocCallView } from './conference-poc-call-view';
 // MUST be called once at module level before any Device instantiation.
 registerGlobals();
 
-const API_BASE = process.env['EXPO_PUBLIC_API_BASE_URL'] ?? 'http://localhost:3001';
+const API_BASE = process.env['EXPO_PUBLIC_API_BASE_URL'] ?? 'http://10.0.2.2:3001';
 const WS_URL = API_BASE.replace(/^http/, 'ws') + '/ws/conference';
+
+async function fetchAuthToken(): Promise<string> {
+  const email = process.env['EXPO_PUBLIC_BENCH_EMAIL'] ?? '';
+  const password = process.env['EXPO_PUBLIC_BENCH_PASSWORD'] ?? '';
+  if (!email || !password)
+    throw new Error(
+      'Set EXPO_PUBLIC_BENCH_EMAIL and EXPO_PUBLIC_BENCH_PASSWORD in apps/mobile/.env',
+    );
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) throw new Error(`Login failed: ${res.status}`);
+  const json = (await res.json()) as { data: { token: { accessToken: string } } };
+  return json.data.token.accessToken;
+}
 
 // ─── Signaling ────────────────────────────────────────────────────────────────
 
@@ -100,8 +117,7 @@ export default function ConferencePocScreen() {
       ]);
     }
 
-    // Auth token stub — swap for real session token when Supabase auth is wired.
-    const token = 'poc-token-placeholder';
+    const token = await fetchAuthToken();
     const ws = new WebSocket(WS_URL, [token]);
     wsRef.current = ws;
     await new Promise<void>((res, rej) => {
