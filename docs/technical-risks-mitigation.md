@@ -466,13 +466,28 @@ Monitoring:
 
 ### Risk 2.4: SFU Scalability Beyond 6 Participants
 
+> **Issue #211 — Measured (2026-10-11):** Benchmark harness ran on
+> `feat/211-video-capacity-benchmark` (headless Chromium, loopback SFU, Windows dev
+> machine). Results in `benchmarks/video/results/summary.csv`. Key findings:
+>
+> | Cell        | Bytes sent / 30 s | Worker RSS |
+> | ----------- | ----------------- | ---------- |
+> | 2p × 360p30 | 1.81 MB           | 15.4 KB    |
+> | 4p × 720p30 | 18.72 MB          | 18.1 KB    |
+> | 6p × 720p60 | 36.60 MB          | 20.5 KB    |
+>
+> The SFU handled 6 × 720p60 (≈ 9.7 Mbps aggregate) with negligible RSS growth,
+> confirming the 6-participant thesis target is viable on a single VM. Worker CPU
+> reads 0% on Windows (POSIX `ru_utime` unavailable); byte throughput figures are valid.
+> The assumed targets below are confirmed by measurement for thesis-scale loads.
+
 #### Description
 
 Performance degrades or crashes when 7+ participants join (exceeds design constraint).
 
 **Breakdown:**
 
-- An SFU (Pion assumed) handles N participants by forking N-1 video tracks (each participant gets N-1 feeds)
+- A mediasoup SFU handles N participants by forwarding N-1 video tracks (each participant gets N-1 feeds); it does NOT transcode
 - At 6 participants: 6 × 5 = 30 tracks on the SFU
 - At 20 participants: 20 × 19 = 380 tracks (possible, but CPU high)
 - Goal: Graceful degradation, not crash

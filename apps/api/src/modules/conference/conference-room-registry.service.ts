@@ -77,6 +77,10 @@ export class ConferenceRoomRegistry {
     return this.rooms.get(roomId);
   }
 
+  getAllRooms(): ConferenceRoom[] {
+    return [...this.rooms.values()];
+  }
+
   addPeer(
     room: ConferenceRoom,
     socketId: string,
