@@ -20,6 +20,7 @@ import {
 import { registerGlobals, mediaDevices, MediaStream } from 'react-native-webrtc';
 import { Device } from 'mediasoup-client';
 import type { types } from 'mediasoup-client';
+import { WS_SUBPROTOCOL } from '@chatofy/types/events';
 import { ConferencePocCallView } from './conference-poc-call-view';
 
 // MUST be called once at module level before any Device instantiation.
@@ -118,7 +119,7 @@ export default function ConferencePocScreen() {
     }
 
     const token = await fetchAuthToken();
-    const ws = new WebSocket(WS_URL, [token]);
+    const ws = new WebSocket(WS_URL, [WS_SUBPROTOCOL, token]);
     wsRef.current = ws;
     await new Promise<void>((res, rej) => {
       ws.addEventListener('open', () => res());
@@ -128,7 +129,7 @@ export default function ConferencePocScreen() {
     const joinData = (await wsRequest(ws, 'conference.join', { roomId, displayName })) as {
       socketId: string;
       rtpCapabilities: types.RtpCapabilities;
-      peers: { socketId: string; producerId?: string }[];
+      peers: { socketId: string; producers: { producerId: string }[] }[];
     };
     mySocketIdRef.current = joinData.socketId;
 
@@ -161,8 +162,8 @@ export default function ConferencePocScreen() {
     recvTransportRef.current = recvTransport;
     await connectTransport(ws, recvTransport);
 
-    for (const peer of joinData.peers) {
-      if (peer.producerId) await consumeProducer(peer.producerId);
+    for (const { producerId } of joinData.peers.flatMap((peer) => peer.producers)) {
+      await consumeProducer(producerId);
     }
 
     setScreen('call');

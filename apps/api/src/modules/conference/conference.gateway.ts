@@ -152,6 +152,12 @@ export class ConferenceGateway
           socketId: sid,
           displayName: p.displayName,
           userId: p.userId,
+          // `conference.new.producer` only reaches peers already in the room, so a
+          // late joiner learns about earlier tracks from this list or never at all.
+          producers: [...p.producers.values()].map((producer) => ({
+            producerId: producer.id,
+            kind: producer.kind,
+          })),
         }));
 
       this.broadcast(room, ws, {
