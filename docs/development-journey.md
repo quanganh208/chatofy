@@ -2285,3 +2285,5 @@ Found in the same quality check. The last sentence of a conversation was in the 
 The design that keeps seeks right without storing intervals is to measure every offset in **active time**, meaning wall time minus the paused time before it. The recorder pauses over exactly the same intervals, so media time equals active time minus `audioOffsetMs`, and the existing `mediaOffset` is unchanged. The only new stored value is the total, `Conversation.pausedMs` (an additive migration with default 0, which is exactly what an old row meant), and History subtracts it.
 
 Verified in headless Chromium with a fake microphone: recording 2 s, pausing 3 s and recording 2 s gave 7011 ms of wall time and 3960 ms of decoded media. A recorder without `pause()` keeps the old wall-time offsets, because its recording keeps them too. The clock takes the list of pauses rather than a running total, because a total alone cannot tell when the last pause ended, and the clock would step back after Resume.
+
+Probe line for CI selection check; this PR is closed unmerged.
