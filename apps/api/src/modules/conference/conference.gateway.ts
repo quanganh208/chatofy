@@ -1,3 +1,4 @@
+import { createHmac } from 'crypto';
 import { Inject, Logger } from '@nestjs/common';
 import {
   ConnectedSocket,
@@ -51,16 +52,23 @@ const ANNOUNCED_IP = process.env['MEDIASOUP_ANNOUNCED_IP'] ?? '127.0.0.1';
  * mediasoup's server-side WebRtcTransport does NOT take iceServers — TURN is a
  * client-side concept. The server returns TURN credentials in the transport
  * create response so the client's mediasoup-client Device can relay through it.
+ *
+ * coturn runs with --use-auth-secret (TURN REST API). Credentials must be:
+ *   username = "${expiry_unix_ts}:${userId}"
+ *   password = base64(HMAC-SHA1(COTURN_SECRET, username))
  */
-function turnIceServers(): {
-  urls: string;
-  username: string;
-  credential: string;
-}[] {
+function turnIceServers(
+  userId: string,
+): { urls: string; username: string; credential: string }[] {
   const url = process.env['TURN_URL'];
-  const username = process.env['TURN_USERNAME'];
-  const credential = process.env['TURN_CREDENTIAL'];
-  if (!url || !username || !credential) return [];
+  const secret = process.env['COTURN_SECRET'];
+  if (!url || !secret) return [];
+
+  const expiry = Math.floor(Date.now() / 1000) + 3600;
+  const username = `${expiry}:${userId}`;
+  const credential = createHmac('sha1', secret)
+    .update(username)
+    .digest('base64');
   return [{ urls: url, username, credential }];
 }
 
@@ -70,6 +78,7 @@ async function makeWebRtcTransport(
   return router.createWebRtcTransport({
     listenInfos: [
       { protocol: 'udp', ip: '0.0.0.0', announcedAddress: ANNOUNCED_IP },
+      { protocol: 'tcp', ip: '0.0.0.0', announcedAddress: ANNOUNCED_IP },
     ],
     enableUdp: true,
     enableTcp: true,
@@ -100,12 +109,31 @@ export class ConferenceGateway
    */
   afterInit(server: {
     options: { verifyClient?: unknown; handleProtocols?: unknown };
+    clients: Set<ConferenceSocket & { isAlive?: boolean }>;
+    on(event: string, cb: () => void): void;
   }): void {
     server.options.verifyClient = createVerifyClient(
       (token) => this.auth.verifyToken(token),
       this.logger,
     );
     server.options.handleProtocols = handleProtocols;
+
+    // Heartbeat: evict ghost peers that stop responding to pings.
+    const PING_INTERVAL_MS = 30_000;
+    const pingInterval = setInterval(() => {
+      server.clients.forEach((ws) => {
+        if (ws.isAlive === false) {
+          ws.close(1001, 'heartbeat timeout');
+          return;
+        }
+        ws.isAlive = false;
+        (ws as unknown as { ping(): void }).ping();
+      });
+    }, PING_INTERVAL_MS);
+
+    server.on('close', () => {
+      clearInterval(pingInterval);
+    });
   }
 
   handleConnection(ws: ConferenceSocket, req: Record<symbol, unknown>): void {
@@ -116,6 +144,16 @@ export class ConferenceGateway
     }
     ws._userId = userId;
     ws._socketId = crypto.randomUUID();
+
+    // Mark alive on connect; update on every pong so the heartbeat doesn't evict active peers.
+    (ws as ConferenceSocket & { isAlive?: boolean }).isAlive = true;
+    (ws as unknown as { on(event: string, cb: () => void): void }).on(
+      'pong',
+      () => {
+        (ws as ConferenceSocket & { isAlive?: boolean }).isAlive = true;
+      },
+    );
+
     this.logger.log(`Connected: ${ws._socketId} (user ${userId})`);
   }
 
@@ -227,7 +265,7 @@ export class ConferenceGateway
         iceParameters: transport.iceParameters,
         iceCandidates: transport.iceCandidates,
         dtlsParameters: transport.dtlsParameters,
-        iceServers: turnIceServers(),
+        iceServers: turnIceServers(ws._userId ?? 'anonymous'),
       });
     } catch (err) {
       this.logger.error('handleTransportCreate failed', err);

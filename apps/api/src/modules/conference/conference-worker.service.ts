@@ -16,8 +16,9 @@ export class ConferenceWorkerService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit(): Promise<void> {
     this.worker = await mediasoup.createWorker({
       logLevel: 'warn',
-      rtcMinPort: 40000,
-      rtcMaxPort: 49999,
+      // 50000–59999 avoids collision with coturn (--min-port 40000 --max-port 49999).
+      rtcMinPort: 50000,
+      rtcMaxPort: 59999,
     });
 
     this.worker.on('died', (error) => {
