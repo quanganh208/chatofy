@@ -102,6 +102,7 @@ export function selectLanes(paths) {
 // CLI: NUL-separated paths on stdin (`git diff --name-only -z`), `lane=bool`
 // lines on stdout for $GITHUB_OUTPUT, the reasoning on stderr for the log.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  process.exit(1); // probe: a crashing classifier must run every job
   const paths = readFileSync(0, 'utf8').split('\0').filter(Boolean);
   for (const path of paths) {
     const lanes = lanesFor(path);
