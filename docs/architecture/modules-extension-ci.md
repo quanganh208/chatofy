@@ -266,7 +266,8 @@ GitHub Actions (`.github/workflows/ci.yml`, workflow name `CI`) on pushes and pu
 requests to `main`. The workflow file owns the job list and each job's rationale;
 in outline:
 
-- Lint and typecheck (`pnpm turbo run typecheck` catches schema ↔ usage drift)
+- Lint (fails when the scripts' `--fix` had to change a tracked file) and typecheck
+  (`pnpm turbo run typecheck` catches schema ↔ usage drift)
 - Test — `pnpm turbo run test` (unit suites only; see below) plus the root
   `scripts/*.test.mjs`
 - Build — `pnpm turbo run build` (mobile has no build script), `verify:build` over
@@ -277,9 +278,19 @@ in outline:
   secret
 - API e2e, in two jobs
 - Extension e2e (Playwright)
-- Display ITN gates, TTS sidecar unit tests (model-free), and realtime replay
+- Display ITN gates, TTS and STT sidecar unit tests (model-free), and realtime replay
   suites over synthesized fixtures that fail rather than skip when absent
 - Supply chain (`pnpm audit --audit-level=high`, plus a one-React-per-bundle check)
+
+**Why some jobs show as skipped on a PR.** A `Detect changes` job classifies the PR's
+diff and each job above skips, through its own `if:`, when the diff provably cannot
+reach it — a docs-only PR runs none of them, a web-only PR does not wait on Chromium.
+It is job-level and never a workflow-level `paths` filter: every job name is a required
+check, a skipped job satisfies one and a workflow that never starts leaves it pending,
+and on `main` `deploy.yml` would never see a run. It fails open — an unmapped path,
+a crash, or anything but an explicit `false` runs the job — and every push to `main`
+runs every job. A spec that starts reading a file outside its own package must add
+that path to the lane it runs in, in `scripts/ci-changed-jobs.mjs`.
 
 **Main going red is watched, not just gated.** Branch protection gates what enters
 `main` but cannot see a merge commit that fails afterwards.
@@ -298,8 +309,9 @@ clears it. The command is unchanged and still fails on the next high that is
 not on the list.
 
 **Why the api e2e suites get their own jobs.** `pnpm turbo run test` reaches api's
-`test` script, whose jest `rootDir` is `src` — so nothing under `apps/api/test/`
-had ever run in CI, which is exactly where enforcement is proved. `api-e2e` runs
+`test` script, whose vitest config includes only `src/**/*.spec.ts` — so nothing
+under `apps/api/test/` had ever run in CI, which is exactly where enforcement is
+proved. `api-e2e` runs
 the fast suites on an in-memory user repository (with a Redis service, because
 login mints a refresh family); `api-e2e-db` brings up Postgres and Redis service
 containers, applies migrations, checks the migration chain against

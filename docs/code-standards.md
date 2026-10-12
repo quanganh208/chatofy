@@ -98,8 +98,11 @@ derives directions from it rather than naming `vi` or `en`.
 
 `.github/workflows/ci.yml` runs on every PR and on `main`: Lint, Type check, Test, API
 e2e, API e2e (Postgres), Build (+ `verify:build`), Extension e2e, Display ITN gates, TTS
-sidecar unit tests, Realtime replay, Supply chain. `main-failure-alert.yml` raises an
+sidecar unit tests, STT sidecar unit tests, Realtime replay, Supply chain. `main-failure-alert.yml` raises an
 alert when `main` goes red; deploy is in [deployment-guide.md](./deployment-guide.md).
+On pull requests a `Detect changes` job skips the jobs a diff provably cannot reach (map
+and rationale in `scripts/ci-changed-jobs.mjs`); unmapped paths run everything, and
+every push to `main` runs every job.
 
 ## Commits
 
