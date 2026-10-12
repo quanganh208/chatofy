@@ -1,4 +1,5 @@
 import type { Route } from 'next';
+// Probe comment for CI selection check; this PR is closed unmerged.
 
 /**
  * Reduce an attacker-supplied `?next=` to a path on this origin, or to nothing.
