@@ -13,7 +13,7 @@ import type { types } from 'mediasoup';
 import { ConferenceRoomRegistry } from './conference-room-registry.service';
 import type {
   ConferenceRoom,
-  PeerState,
+  ParticipantSession,
 } from './conference-room-registry.service';
 import { ConferenceMetricsService } from './conference-metrics.service';
 import { ConferencePersistenceService } from './services/conference-persistence.service';
@@ -153,7 +153,13 @@ export class ConferenceGateway
     try {
       ws._roomId = body.roomId;
       const room = await this.rooms.getOrCreateRoom(body.roomId);
-      this.rooms.addPeer(room, ws._socketId, ws._userId, body.displayName);
+      this.rooms.addPeer(
+        room,
+        ws._socketId,
+        ws._userId,
+        body.displayName,
+        body.sourceLanguage ?? 'vi',
+      );
 
       // Persist join — fire-and-forget; errors are logged inside the service.
       void this.persistence.recordJoin(
@@ -451,6 +457,76 @@ export class ConferenceGateway
     }
   }
 
+  @SubscribeMessage('conference.participant.mute')
+  handleParticipantMute(
+    @ConnectedSocket() ws: ConferenceSocket,
+    @MessageBody() body: { muted: boolean },
+  ): void {
+    const resolved = this.resolvePeer(ws);
+    if ('error' in resolved) {
+      this.reply(ws, 'conference.participant.mute', resolved);
+      return;
+    }
+    const { room, peer } = resolved;
+    peer.muted = body.muted;
+    this.broadcast(room, ws, {
+      event: 'conference.participant.state',
+      data: {
+        socketId: ws._socketId,
+        muted: peer.muted,
+        videoEnabled: peer.videoEnabled,
+      },
+    });
+    this.reply(ws, 'conference.participant.mute', { muted: peer.muted });
+  }
+
+  @SubscribeMessage('conference.participant.video')
+  handleParticipantVideo(
+    @ConnectedSocket() ws: ConferenceSocket,
+    @MessageBody() body: { videoEnabled: boolean },
+  ): void {
+    const resolved = this.resolvePeer(ws);
+    if ('error' in resolved) {
+      this.reply(ws, 'conference.participant.video', resolved);
+      return;
+    }
+    const { room, peer } = resolved;
+    peer.videoEnabled = body.videoEnabled;
+    this.broadcast(room, ws, {
+      event: 'conference.participant.state',
+      data: {
+        socketId: ws._socketId,
+        muted: peer.muted,
+        videoEnabled: peer.videoEnabled,
+      },
+    });
+    this.reply(ws, 'conference.participant.video', {
+      videoEnabled: peer.videoEnabled,
+    });
+  }
+
+  @SubscribeMessage('conference.leave')
+  handleLeave(@ConnectedSocket() ws: ConferenceSocket): void {
+    const { _socketId: sid, _roomId: roomId, _userId: userId } = ws;
+    if (sid && roomId) {
+      const room = this.rooms.getRoom(roomId);
+      if (room) {
+        this.broadcast(room, ws, {
+          event: 'conference.peer.left',
+          data: { socketId: sid },
+        });
+        this.rooms.removePeer(room, sid);
+      }
+      if (userId) {
+        void this.persistence.recordLeave(roomId, userId);
+      }
+      // Clear room association but keep socket open.
+      ws._roomId = undefined;
+      this.logger.log(`Explicit leave: ${sid}`);
+    }
+    this.reply(ws, 'conference.leave', { left: true });
+  }
+
   // ─── Metrics (benchmark only, gated by CONFERENCE_METRICS_ENABLED=1) ─────
 
   @SubscribeMessage('conference.metrics')
@@ -475,7 +551,7 @@ export class ConferenceGateway
 
   private resolvePeer(
     ws: ConferenceSocket,
-  ): { room: ConferenceRoom; peer: PeerState } | { error: string } {
+  ): { room: ConferenceRoom; peer: ParticipantSession } | { error: string } {
     const { _socketId: sid, _roomId: roomId } = ws;
     if (!sid || !roomId) return { error: 'not_in_room' };
 

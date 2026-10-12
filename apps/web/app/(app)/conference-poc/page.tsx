@@ -54,6 +54,37 @@ function request(ws: WebSocket, event: string, data: unknown): Promise<unknown> 
   });
 }
 
+// ─── RemoteTile component ─────────────────────────────────────────────────────
+
+interface RemoteTileProps {
+  stream: MediaStream;
+  displayName: string;
+}
+
+function RemoteTile({ stream, displayName }: RemoteTileProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
+  return (
+    <div style={{ position: 'relative', background: '#111', aspectRatio: '16/9' }}>
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+      />
+      <span style={{ position: 'absolute', bottom: 4, left: 6, color: '#fff', fontSize: '0.7rem' }}>
+        {displayName}
+      </span>
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ConferencePocPage() {
@@ -61,14 +92,37 @@ export default function ConferencePocPage() {
   const [displayName, setDisplayName] = useState('');
   const [status, setStatus] = useState('idle');
   const [log, setLog] = useState<string[]>([]);
+  const [remoteStreams, setRemoteStreams] = useState<
+    Map<string, { stream: MediaStream; displayName: string }>
+  >(new Map());
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const deviceRef = useRef<types.Device | null>(null);
+  /** socketId → displayName for labeling tiles */
+  const peersRef = useRef<Map<string, string>>(new Map());
 
   const addLog = useCallback((msg: string) => {
     setLog((prev) => [...prev.slice(-49), `${new Date().toISOString().slice(11, 23)} ${msg}`]);
+  }, []);
+
+  /** Upsert a track into the remoteStreams map keyed by socketId. */
+  const onTrack = useCallback((socketId: string, track: MediaStreamTrack) => {
+    setRemoteStreams((prev) => {
+      const next = new Map(prev);
+      const entry = next.get(socketId);
+      if (entry) {
+        entry.stream.addTrack(track);
+        next.set(socketId, { ...entry });
+      } else {
+        const stream = new MediaStream([track]);
+        next.set(socketId, {
+          stream,
+          displayName: peersRef.current.get(socketId) ?? socketId,
+        });
+      }
+      return next;
+    });
   }, []);
 
   const join = useCallback(async () => {
@@ -98,12 +152,21 @@ export default function ConferencePocPage() {
         const joinResp = await waitForEvent(ws, 'conference.join');
         const { rtpCapabilities, peers, socketId } = joinResp as {
           rtpCapabilities: types.RtpCapabilities;
-          peers: { socketId: string; displayName: string }[];
+          peers: {
+            socketId: string;
+            displayName: string;
+            producers: { producerId: string; kind: string }[];
+          }[];
           socketId: string;
         };
         addLog(
           `Joined as ${socketId}. Peers: ${peers.map((p) => p.displayName).join(', ') || 'none'}`,
         );
+
+        // Populate peer display-name map from join response.
+        for (const peer of peers) {
+          peersRef.current.set(peer.socketId, peer.displayName);
+        }
 
         // 3. Load mediasoup Device.
         const device = new mediasoupClient.Device();
@@ -153,10 +216,20 @@ export default function ConferencePocPage() {
         //     into /ws/conference as conference.translation.broadcast (Issue #209).
         wireTranslate(ws, stream, socketId, displayName, token, addLog);
 
-        // 8. Consume existing peers' producers.
+        // 8. Consume existing peers' producers (late-joiner catch-up).
         for (const peer of peers) {
-          addLog(`Will consume tracks from ${peer.displayName}`);
-          // Server will push conference.new.producer events for their tracks.
+          for (const producer of peer.producers) {
+            addLog(`Consuming existing ${producer.kind} from ${peer.displayName}`);
+            await consumeTrack(
+              ws,
+              device,
+              recvTransport,
+              producer.producerId,
+              peer.socketId,
+              addLog,
+              onTrack,
+            );
+          }
         }
 
         setStatus('in-call');
@@ -175,14 +248,32 @@ export default function ConferencePocPage() {
               kind: string;
             };
             addLog(`New ${kind} producer ${producerId} from ${peerSocketId}`);
-            await consumeTrack(ws, device, recvTransport, producerId, addLog, remoteVideoRef);
+            await consumeTrack(
+              ws,
+              device,
+              recvTransport,
+              producerId,
+              peerSocketId,
+              addLog,
+              onTrack,
+            );
           }
           if (msg.event === 'conference.peer.joined') {
-            const { displayName: peerName } = msg.data as { displayName: string };
+            const { socketId: peerSid, displayName: peerName } = msg.data as {
+              socketId: string;
+              displayName: string;
+            };
+            peersRef.current.set(peerSid, peerName);
             addLog(`Peer joined: ${peerName}`);
           }
           if (msg.event === 'conference.peer.left') {
             const { socketId: peerSid } = msg.data as { socketId: string };
+            peersRef.current.delete(peerSid);
+            setRemoteStreams((prev) => {
+              const next = new Map(prev);
+              next.delete(peerSid);
+              return next;
+            });
             addLog(`Peer left: ${peerSid}`);
           }
           // ── Translation events (Issue #209 latency instrumentation) ──────
@@ -209,7 +300,7 @@ export default function ConferencePocPage() {
             const ctx = new AudioContext({ sampleRate: d.sampleRate });
             const buf = ctx.createBuffer(1, pcm.length, d.sampleRate);
             const ch = buf.getChannelData(0);
-            for (let i = 0; i < pcm.length; i++) ch[i] = pcm[i] / 32768;
+            for (let i = 0; i < pcm.length; i++) ch[i] = (pcm[i] ?? 0) / 32768;
             const src = ctx.createBufferSource();
             src.buffer = buf;
             src.connect(ctx.destination);
@@ -228,19 +319,21 @@ export default function ConferencePocPage() {
     ws.addEventListener('close', () => {
       addLog('WS closed');
       setStatus('idle');
+      setRemoteStreams(new Map());
     });
 
     ws.addEventListener('error', (e) => {
       addLog(`WS error: ${JSON.stringify(e)}`);
     });
-  }, [roomId, displayName, addLog]);
+  }, [roomId, displayName, addLog, onTrack]);
 
   const leave = useCallback(() => {
     wsRef.current?.close();
     wsRef.current = null;
     deviceRef.current = null;
+    peersRef.current.clear();
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    setRemoteStreams(new Map());
     setStatus('idle');
     addLog('Left room');
   }, [addLog]);
@@ -253,7 +346,7 @@ export default function ConferencePocPage() {
   );
 
   return (
-    <div style={{ padding: '1.5rem', fontFamily: 'monospace', maxWidth: 800 }}>
+    <div style={{ padding: '1.5rem', fontFamily: 'monospace', maxWidth: 1200 }}>
       <h1 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>mediasoup PoC — Issue #207</h1>
 
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
@@ -285,26 +378,51 @@ export default function ConferencePocPage() {
         </span>
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-        <div>
-          <div style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Local</div>
+      {/* Video grid */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gap: '0.5rem',
+          marginBottom: '1rem',
+        }}
+      >
+        {/* Local tile — always first */}
+        <div style={{ position: 'relative', background: '#111', aspectRatio: '16/9' }}>
           <video
             ref={localVideoRef}
             autoPlay
             playsInline
             muted
-            style={{ width: 320, height: 240, background: '#111', display: 'block' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
+          <span
+            style={{ position: 'absolute', bottom: 4, left: 6, color: '#fff', fontSize: '0.7rem' }}
+          >
+            You (muted)
+          </span>
         </div>
-        <div>
-          <div style={{ fontSize: '0.75rem', marginBottom: '0.25rem' }}>Remote</div>
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            style={{ width: 320, height: 240, background: '#111', display: 'block' }}
-          />
-        </div>
+
+        {/* Remote tiles */}
+        {remoteStreams.size === 0 && status === 'in-call' ? (
+          <div
+            style={{
+              background: '#222',
+              aspectRatio: '16/9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#888',
+              fontSize: '0.8rem',
+            }}
+          >
+            Waiting for others…
+          </div>
+        ) : (
+          [...remoteStreams.entries()].map(([sid, { stream, displayName: peerName }]) => (
+            <RemoteTile key={sid} stream={stream} displayName={peerName} />
+          ))
+        )}
       </div>
 
       <pre
@@ -391,13 +509,13 @@ async function consumeTrack(
   device: types.Device,
   recvTransport: types.Transport,
   producerId: string,
+  producerSocketId: string,
   log: (m: string) => void,
-  remoteVideoRef: React.RefObject<HTMLVideoElement | null>,
+  onTrack: (socketId: string, track: MediaStreamTrack) => void,
 ): Promise<void> {
   send(ws, 'conference.consume', {
     producerId,
     rtpCapabilities: device.rtpCapabilities,
-    producerSocketId: '',
   });
 
   const consumerParams = (await waitForEvent(ws, 'conference.consume')) as types.ConsumerOptions & {
@@ -409,15 +527,9 @@ async function consumeTrack(
   }
 
   const consumer = await recvTransport.consume(consumerParams);
-  log(`Consuming ${consumer.kind} track`);
+  log(`Consuming ${consumer.kind} track from ${producerSocketId}`);
 
-  // Attach to remote video element.
-  if (remoteVideoRef.current) {
-    const existing = remoteVideoRef.current.srcObject as MediaStream | null;
-    const stream = existing instanceof MediaStream ? existing : new MediaStream();
-    stream.addTrack(consumer.track);
-    remoteVideoRef.current.srcObject = stream;
-  }
+  onTrack(producerSocketId, consumer.track);
 
   // Resume (server pauses consumers by default to avoid media before the recv
   // transport DTLS handshake completes).

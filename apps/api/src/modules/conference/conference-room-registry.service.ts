@@ -39,18 +39,24 @@ const MEDIA_CODECS: types.RtpCodecCapability[] = [
 export interface ConferenceRoom {
   id: string;
   router: types.Router;
-  /** socketId → peer state */
-  peers: Map<string, PeerState>;
+  /** socketId → participant session */
+  peers: Map<string, ParticipantSession>;
 }
 
-export interface PeerState {
+export interface ParticipantSession {
   userId: string;
   displayName: string;
+  sourceLanguage: string;
+  muted: boolean;
+  videoEnabled: boolean;
   sendTransport: types.WebRtcTransport | null;
   recvTransport: types.WebRtcTransport | null;
   producers: Map<string, types.Producer>;
   consumers: Map<string, types.Consumer>;
 }
+
+/** @deprecated Use ParticipantSession */
+export type PeerState = ParticipantSession;
 
 @Injectable()
 export class ConferenceRoomRegistry {
@@ -86,10 +92,14 @@ export class ConferenceRoomRegistry {
     socketId: string,
     userId: string,
     displayName: string,
-  ): PeerState {
-    const peer: PeerState = {
+    sourceLanguage = 'vi',
+  ): ParticipantSession {
+    const peer: ParticipantSession = {
       userId,
       displayName,
+      sourceLanguage,
+      muted: false,
+      videoEnabled: true,
       sendTransport: null,
       recvTransport: null,
       producers: new Map(),
