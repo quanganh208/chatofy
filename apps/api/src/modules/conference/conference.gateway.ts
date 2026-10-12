@@ -17,6 +17,7 @@ import type {
 } from './conference-room-registry.service';
 import { ConferenceMetricsService } from './conference-metrics.service';
 import { ConferencePersistenceService } from './services/conference-persistence.service';
+import { ConferenceTranslationRouter } from './services/conference-translation-router.service';
 import {
   createVerifyClient,
   handleProtocols,
@@ -88,6 +89,7 @@ export class ConferenceGateway
     private readonly rooms: ConferenceRoomRegistry,
     private readonly metrics: ConferenceMetricsService,
     private readonly persistence: ConferencePersistenceService,
+    private readonly translationRouter: ConferenceTranslationRouter,
     @Inject(AUTH_ADAPTER) private readonly auth: AuthAdapter,
   ) {}
 
@@ -370,25 +372,32 @@ export class ConferenceGateway
     @MessageBody()
     body: {
       subtitle?: {
+        speakerSocketId?: string;
+        speakerDisplayName?: string;
         sourceLanguage?: string;
         sourceText?: string;
         searchText?: string;
         translations?: Record<string, unknown>;
         audioStartMs?: number;
         audioDurationMs?: number;
+        [k: string]: unknown;
       };
       audio?: unknown;
     },
   ): void {
     const resolved = this.resolvePeer(ws);
     if ('error' in resolved) return;
-    // Fan out subtitle and audio sub-objects as separate events so listeners
-    // can handle each independently without parsing the combined envelope.
+    const { room } = resolved;
+
+    // Fan out subtitle and audio via the router (self-filter + language routing).
     if (body.subtitle) {
-      this.broadcast(resolved.room, ws, {
-        event: 'conference.translation.subtitle',
-        data: body.subtitle,
-      });
+      this.translationRouter.routeSubtitle(
+        room,
+        ws._socketId!,
+        body.subtitle,
+        (socketId, event, data) =>
+          this.broadcastToSocket(socketId, event, data),
+      );
 
       // Persist turn when subtitle carries the required fields.
       const sub = body.subtitle;
@@ -398,11 +407,6 @@ export class ConferenceGateway
         typeof sub.sourceLanguage === 'string' &&
         typeof sub.sourceText === 'string'
       ) {
-        // Participant id resolved async — look up by userId inside the service.
-        // We use userId as a proxy here; the gateway does not cache participantId.
-        // recordTurn accepts participantId; we pass the socket-level userId and
-        // rely on the unique index to find the row. The service requires the DB
-        // row id directly, so we look it up before persisting.
         void this.persistence
           .recordJoin(ws._roomId, ws._userId, undefined, sub.sourceLanguage)
           .then((participantId) =>
@@ -421,10 +425,13 @@ export class ConferenceGateway
       }
     }
     if (body.audio) {
-      this.broadcast(resolved.room, ws, {
-        event: 'conference.translation.audio',
-        data: body.audio,
-      });
+      this.translationRouter.routeAudio(
+        room,
+        ws._socketId!,
+        body.audio,
+        (socketId, event, data) =>
+          this.broadcastToSocket(socketId, event, data),
+      );
     }
   }
 
@@ -562,6 +569,24 @@ export class ConferenceGateway
     if (!peer) return { error: 'peer_not_found' };
 
     return { room, peer };
+  }
+
+  /**
+   * Send an event to exactly one socket identified by socketId.
+   * Used by ConferenceTranslationRouter's broadcast callback.
+   */
+  private broadcastToSocket(
+    socketId: string,
+    event: string,
+    data: unknown,
+  ): void {
+    const payload = JSON.stringify({ event, data });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (this.server.clients as Set<any>).forEach((client: ConferenceSocket) => {
+      if (client._socketId === socketId && client.readyState === 1) {
+        client.send(payload);
+      }
+    });
   }
 
   private broadcast(

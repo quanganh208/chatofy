@@ -59,9 +59,10 @@ function request(ws: WebSocket, event: string, data: unknown): Promise<unknown> 
 interface RemoteTileProps {
   stream: MediaStream;
   displayName: string;
+  subtitle?: string;
 }
 
-function RemoteTile({ stream, displayName }: RemoteTileProps) {
+function RemoteTile({ stream, displayName, subtitle }: RemoteTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -81,6 +82,23 @@ function RemoteTile({ stream, displayName }: RemoteTileProps) {
       <span style={{ position: 'absolute', bottom: 4, left: 6, color: '#fff', fontSize: '0.7rem' }}>
         {displayName}
       </span>
+      {subtitle && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 24,
+            left: 0,
+            right: 0,
+            background: 'rgba(0,0,0,0.65)',
+            color: '#fff',
+            fontSize: '0.75rem',
+            padding: '2px 6px',
+            textAlign: 'center',
+          }}
+        >
+          {subtitle}
+        </div>
+      )}
     </div>
   );
 }
@@ -90,17 +108,22 @@ function RemoteTile({ stream, displayName }: RemoteTileProps) {
 export default function ConferencePocPage() {
   const [roomId, setRoomId] = useState('poc-room');
   const [displayName, setDisplayName] = useState('');
+  const [sourceLanguage, setSourceLanguage] = useState('vi');
   const [status, setStatus] = useState('idle');
   const [log, setLog] = useState<string[]>([]);
   const [remoteStreams, setRemoteStreams] = useState<
     Map<string, { stream: MediaStream; displayName: string }>
   >(new Map());
+  /** socketId → latest subtitle text; cleared after 4 s */
+  const [subtitles, setSubtitles] = useState<Map<string, string>>(new Map());
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const deviceRef = useRef<types.Device | null>(null);
   /** socketId → displayName for labeling tiles */
   const peersRef = useRef<Map<string, string>>(new Map());
+  /** Own socketId — needed to show own subtitle on the local tile */
+  const mySocketIdRef = useRef<string | null>(null);
 
   const addLog = useCallback((msg: string) => {
     setLog((prev) => [...prev.slice(-49), `${new Date().toISOString().slice(11, 23)} ${msg}`]);
@@ -148,7 +171,7 @@ export default function ConferencePocPage() {
         addLog('WS connected');
 
         // 2. Join room — server returns routerRtpCapabilities + existing peers.
-        send(ws, 'conference.join', { roomId, displayName });
+        send(ws, 'conference.join', { roomId, displayName, sourceLanguage });
         const joinResp = await waitForEvent(ws, 'conference.join');
         const { rtpCapabilities, peers, socketId } = joinResp as {
           rtpCapabilities: types.RtpCapabilities;
@@ -162,6 +185,7 @@ export default function ConferencePocPage() {
         addLog(
           `Joined as ${socketId}. Peers: ${peers.map((p) => p.displayName).join(', ') || 'none'}`,
         );
+        mySocketIdRef.current = socketId;
 
         // Populate peer display-name map from join response.
         for (const peer of peers) {
@@ -214,7 +238,7 @@ export default function ConferencePocPage() {
         // 8a. Open /ws/translate in live mode for this speaker's audio translation.
         //     Receives server.live.transcript + server.live.audio and forwards them
         //     into /ws/conference as conference.translation.broadcast (Issue #209).
-        wireTranslate(ws, stream, socketId, displayName, token, addLog);
+        wireTranslate(ws, stream, socketId, displayName, sourceLanguage, token, addLog);
 
         // 8. Consume existing peers' producers (late-joiner catch-up).
         for (const peer of peers) {
@@ -279,15 +303,33 @@ export default function ConferencePocPage() {
           // ── Translation events (Issue #209 latency instrumentation) ──────
           if (msg.event === 'conference.translation.subtitle') {
             const d = msg.data as {
+              speakerSocketId: string;
               speakerDisplayName: string;
-              translatedText: string;
+              translatedText?: string;
+              sourceText?: string;
               isFinal: boolean;
             };
             // [T3] subtitle received by listener
             console.log(
               `[T3] subtitle received t=${performance.now().toFixed(1)}ms final=${d.isFinal}`,
             );
-            addLog(`[sub] ${d.speakerDisplayName}: ${d.translatedText}${d.isFinal ? '' : '…'}`);
+            addLog(
+              `[sub] ${d.speakerDisplayName}: ${d.translatedText ?? d.sourceText ?? ''}${d.isFinal ? '' : '…'}`,
+            );
+            // Update subtitle overlay for the speaker's tile.
+            const text = d.translatedText ?? d.sourceText ?? '';
+            setSubtitles((prev) => {
+              const next = new Map(prev);
+              next.set(d.speakerSocketId, text);
+              return next;
+            });
+            setTimeout(() => {
+              setSubtitles((prev) => {
+                const next = new Map(prev);
+                next.delete(d.speakerSocketId);
+                return next;
+              });
+            }, 4000);
           }
           if (msg.event === 'conference.translation.audio') {
             const d = msg.data as { speakerSocketId: string; sampleRate: number; payload: string };
@@ -332,8 +374,10 @@ export default function ConferencePocPage() {
     wsRef.current = null;
     deviceRef.current = null;
     peersRef.current.clear();
+    mySocketIdRef.current = null;
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
     setRemoteStreams(new Map());
+    setSubtitles(new Map());
     setStatus('idle');
     addLog('Left room');
   }, [addLog]);
@@ -364,6 +408,18 @@ export default function ConferencePocPage() {
           disabled={status !== 'idle'}
           style={{ padding: '0.4rem 0.6rem', fontSize: '0.875rem', width: 140 }}
         />
+        <select
+          value={sourceLanguage}
+          onChange={(e) => setSourceLanguage(e.target.value)}
+          disabled={status !== 'idle'}
+          style={{ padding: '0.4rem 0.6rem', fontSize: '0.875rem' }}
+        >
+          <option value="vi">Tiếng Việt</option>
+          <option value="en">English</option>
+          <option value="zh">中文</option>
+          <option value="ja">日本語</option>
+          <option value="ko">한국어</option>
+        </select>
         {status === 'idle' || status === 'error' ? (
           <button onClick={join} style={{ padding: '0.4rem 1rem' }}>
             Join
@@ -401,6 +457,23 @@ export default function ConferencePocPage() {
           >
             You (muted)
           </span>
+          {mySocketIdRef.current && subtitles.get(mySocketIdRef.current) && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 24,
+                left: 0,
+                right: 0,
+                background: 'rgba(0,0,0,0.65)',
+                color: '#fff',
+                fontSize: '0.75rem',
+                padding: '2px 6px',
+                textAlign: 'center',
+              }}
+            >
+              {subtitles.get(mySocketIdRef.current)}
+            </div>
+          )}
         </div>
 
         {/* Remote tiles */}
@@ -420,7 +493,12 @@ export default function ConferencePocPage() {
           </div>
         ) : (
           [...remoteStreams.entries()].map(([sid, { stream, displayName: peerName }]) => (
-            <RemoteTile key={sid} stream={stream} displayName={peerName} />
+            <RemoteTile
+              key={sid}
+              stream={stream}
+              displayName={peerName}
+              subtitle={subtitles.get(sid)}
+            />
           ))
         )}
       </div>
@@ -554,9 +632,11 @@ function wireTranslate(
   stream: MediaStream,
   socketId: string,
   speakerDisplayName: string,
+  sourceLanguage: string,
   token: string,
   log: (m: string) => void,
 ): void {
+  const direction = `${sourceLanguage}_to_en`;
   const translateWs = new WebSocket(`${API_WS_URL}/ws/translate`, [WS_SUBPROTOCOL, token]);
   const turnId = crypto.randomUUID();
   let t1 = 0;
@@ -566,7 +646,7 @@ function wireTranslate(
     translateWs.send(
       JSON.stringify({
         event: 'client.live.start',
-        data: { type: 'client.live.start', direction: 'vi_to_en' },
+        data: { type: 'client.live.start', direction },
       }),
     );
   });
@@ -632,7 +712,7 @@ function wireTranslate(
         subtitle: {
           speakerSocketId: socketId,
           speakerDisplayName,
-          sourceLang: 'vi',
+          sourceLanguage,
           targetLang: 'en',
           sourceText: d.delta,
           translatedText: d.delta,

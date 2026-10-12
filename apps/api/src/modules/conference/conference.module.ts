@@ -8,6 +8,7 @@ import { ConferenceMetricsController } from './conference-metrics.controller';
 import { ConferenceController } from './conference.controller';
 import { ConferenceService } from './conference.service';
 import { ConferencePersistenceService } from './services/conference-persistence.service';
+import { ConferenceTranslationRouter } from './services/conference-translation-router.service';
 
 @Module({
   imports: [AuthModule],
@@ -19,6 +20,7 @@ import { ConferencePersistenceService } from './services/conference-persistence.
     ConferenceGateway,
     ConferenceService,
     ConferencePersistenceService,
+    ConferenceTranslationRouter,
   ],
 })
 export class ConferenceModule {}
