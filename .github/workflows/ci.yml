@@ -517,7 +517,9 @@ jobs:
   # `LOCAL_STT_SKIP_MODEL_TESTS=1`, because a skip flag turns every model test
   # into a green skip; the files left out (`test_app.py`, `test_embed.py`,
   # `test_restore.py`, `test_silero_speech.py`) load real models through the
-  # app's lifespan and stay local.
+  # app's lifespan and stay local. So does the one hotwords test that reads
+  # `bpe.model` from the weights: it passes on a laptop only because an earlier
+  # run left the generated vocabulary in the system temp directory.
   stt-sidecar-unit:
     name: STT sidecar unit tests
     runs-on: ubuntu-latest
@@ -537,6 +539,7 @@ jobs:
           uv run --frozen --directory services/local-stt
           pytest -q test_decode.py test_hotwords.py test_speech_duration.py
           test_word_pauses.py test_postprocess.py test_quantize_embedding.py
+          --deselect test_hotwords.py::test_bpe_vocab_is_not_written_into_the_model_directory
 
   # The replay suites drive the real capture pump and the real turn pipeline over
   # synthesized speech, and their fixtures are not committed — so until now they
