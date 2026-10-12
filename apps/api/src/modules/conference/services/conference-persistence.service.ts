@@ -41,6 +41,14 @@ export class ConferencePersistenceService {
     displayName: string | undefined,
     sourceLanguage: string,
   ): Promise<string> {
+    // Auto-create the Conference row if it doesn't exist (covers ad-hoc rooms
+    // created directly via the gateway without a prior POST /conference call).
+    await this.prisma.conference.upsert({
+      where: { id: conferenceId },
+      create: { id: conferenceId, ownerId: userId, status: 'active' },
+      update: {},
+    });
+
     const participant = await this.prisma.conferenceParticipant.upsert({
       where: { conferenceId_userId: { conferenceId, userId } },
       create: {
