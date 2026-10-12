@@ -277,9 +277,19 @@ in outline:
   secret
 - API e2e, in two jobs
 - Extension e2e (Playwright)
-- Display ITN gates, TTS sidecar unit tests (model-free), and realtime replay
+- Display ITN gates, TTS and STT sidecar unit tests (model-free), and realtime replay
   suites over synthesized fixtures that fail rather than skip when absent
 - Supply chain (`pnpm audit --audit-level=high`, plus a one-React-per-bundle check)
+
+**Why some jobs show as skipped on a PR.** A `Detect changes` job classifies the PR's
+diff and each job above skips, through its own `if:`, when the diff provably cannot
+reach it — a docs-only PR runs none of them, a web-only PR does not wait on Chromium.
+It is job-level and never a workflow-level `paths` filter: every job name is a required
+check, a skipped job satisfies one and a workflow that never starts leaves it pending,
+and on `main` `deploy.yml` would never see a run. It fails open — an unmapped path,
+a crash, or anything but an explicit `false` runs the job — and every push to `main`
+runs every job. A spec that starts reading a file outside its own package must add
+that path to the lane it runs in, in `scripts/ci-changed-jobs.mjs`.
 
 **Main going red is watched, not just gated.** Branch protection gates what enters
 `main` but cannot see a merge commit that fails afterwards.

@@ -25,5 +25,12 @@ silently stops them firing with no error anywhere.
   the same ref cancels the run it replaces. `deploy.yml` deliberately does the
   opposite: it never cancels, because a run can be sitting between `pg_dump` and
   `migrate deploy`, which is exactly when killing it hurts.
+- Path selection lives inside `ci.yml`, per job (`Detect changes` plus an `if:` on
+  each job; map in `scripts/ci-changed-jobs.mjs`). Never add a workflow-level
+  `paths`/`paths-ignore`: every CI job is a required check and would sit pending,
+  and on a docs-only merge `deploy.yml` and `main-failure-alert.yml` would never
+  see a run.
+- Never add `schedule:` to CI. `deploy.yml` accepts any successful CI run on `main`
+  from this repository, so every scheduled tick would redeploy production.
 - Turborepo remote caching is not wired up (CI reports "Remote caching
   disabled"). `TURBO_TOKEN` + `TURBO_TEAM` would turn it on and cut build time.
