@@ -272,26 +272,26 @@ model ConversationTurn {
   // collide with another's row on write — a unique violation that reveals the
   // row exists. `MinutesActionItem.id` is app-minted SERVER-side, so it is not a
   // precedent here.
-  id             String       @id @default(cuid())
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  id              String       @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   // Display-block order.
-  position       Int
+  position        Int
   // 'speaker_a' | 'speaker_b' — the localizable primitive. Read at render to
   // build a fallback name when nobody was named.
-  speakerRole    String
+  speakerRole     String
   // The roster label the user confirmed, or NULL when they never attributed this
   // block. Nullable rather than defaulted, because the fallback is
   // language-dependent: baking "Speaker A" in here would put an English string
   // on a Vietnamese screen forever, and a row is invisible to the
   // compiler-enforced i18n parity.
-  speakerLabel   String?
+  speakerLabel    String?
   // What the recognizer produced.
-  sourceText     String
+  sourceText      String
   // The repaired, typeset rendering — present ONLY when it differs from
   // sourceText, exactly as `displays` works today. Read as
   // `displayText ?? sourceText`, which is also what search must match.
-  displayText    String?
+  displayText     String?
   // The language(s) this block was spoken in — one, except for a mixed block
   // that switched languages mid-turn. Registry codes only (`LanguageCode`),
   // validated as `sourceLanguagesSchema` at the boundary; derived server-side
@@ -303,7 +303,7 @@ model ConversationTurn {
   // Validated as `translationMapSchema` at the boundary; server-written only,
   // after zod has already checked every value's length, so no client ever puts
   // an arbitrary key or an oversized value in this JSON.
-  translations   Json
+  translations    Json
   // The legacy `targetText` this replaces: a SINGLE translation, chosen by
   // `primaryTranslation` (`@chatofy/types`) from `translations` on every read,
   // never stored — a column that duplicated one of `translations`' own values
@@ -333,7 +333,7 @@ model ConversationTurn {
   //
   // Nullable because it is backfilled: rows written before this column existed get
   // it from the migration, and nothing reads it as a claim about the row.
-  searchText     String?
+  searchText      String?
   // Milliseconds from the conversation's `startedAt` to the moment capture opened
   // on this block — its FIRST member's `openedAt`, which is the same measurement
   // `display-groups.ts` already trusts to decide whether two turns were one
@@ -348,7 +348,7 @@ model ConversationTurn {
   // read in `position` order, and `@@unique([conversationId, position])` below
   // already IS that index. An index here would be paid for on every write and
   // read by nothing.
-  offsetMs       Int?
+  offsetMs        Int?
 
   // Unique, not merely indexed: two rows at one position is a corrupt
   // transcript, and with conversationId leading this IS the read index.
@@ -461,4 +461,74 @@ model GlossaryTerm {
   // Unique, not merely indexed: two entries at one position is a corrupt
   // dictionary, and with contextId leading this IS the read index.
   @@unique([contextId, position])
+}
+
+model Conference {
+  id                   String    @id @default(cuid())
+  ownerId              String
+  title                String?
+  startedAt            DateTime?
+  endedAt              DateTime?
+  status               String    @default("waiting")
+  translationContextId String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  participants ConferenceParticipant[]
+  turns        ConferenceTurn[]
+  messages     ConferenceMessage[]
+
+  @@index([ownerId, createdAt(sort: Desc)])
+}
+
+model ConferenceParticipant {
+  id             String    @id @default(cuid())
+  conferenceId   String
+  userId         String
+  displayName    String?
+  sourceLanguage String
+  status         String    @default("joined")
+  joinedAt       DateTime  @default(now())
+  leftAt         DateTime?
+
+  conference Conference          @relation(fields: [conferenceId], references: [id], onDelete: Cascade)
+  turns      ConferenceTurn[]
+  messages   ConferenceMessage[]
+
+  @@unique([conferenceId, userId])
+  @@index([conferenceId])
+  @@index([userId])
+}
+
+model ConferenceTurn {
+  id              String   @id @default(cuid())
+  conferenceId    String
+  participantId   String
+  sourceLanguage  String
+  sourceText      String
+  searchText      String?
+  translations    Json?
+  audioStartMs    Int?
+  audioDurationMs Int?
+  createdAt       DateTime @default(now())
+
+  conference  Conference            @relation(fields: [conferenceId], references: [id], onDelete: Cascade)
+  participant ConferenceParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([conferenceId, audioStartMs])
+  @@index([participantId])
+}
+
+model ConferenceMessage {
+  id             String   @id @default(cuid())
+  conferenceId   String
+  participantId  String
+  text           String
+  sourceLanguage String
+  createdAt      DateTime @default(now())
+
+  conference  Conference            @relation(fields: [conferenceId], references: [id], onDelete: Cascade)
+  participant ConferenceParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([conferenceId, createdAt(sort: Desc)])
 }

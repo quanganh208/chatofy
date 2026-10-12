@@ -120,3 +120,19 @@ export type {
   TranslationContext,
   TranslationContextListResponse,
 } from './translation-contexts.js';
+
+// Conference contracts.
+export {
+  createConferenceRequestSchema,
+  conferenceParticipantSchema,
+  conferenceResponseSchema,
+  conferenceDetailResponseSchema,
+  conferenceListResponseSchema,
+} from './conference.js';
+export type {
+  CreateConferenceRequest,
+  ConferenceParticipant,
+  ConferenceResponse,
+  ConferenceDetailResponse,
+  ConferenceListResponse,
+} from './conference.js';

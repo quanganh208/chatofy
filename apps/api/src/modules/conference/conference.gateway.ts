@@ -16,6 +16,7 @@ import type {
   PeerState,
 } from './conference-room-registry.service';
 import { ConferenceMetricsService } from './conference-metrics.service';
+import { ConferencePersistenceService } from './services/conference-persistence.service';
 import {
   createVerifyClient,
   handleProtocols,
@@ -86,6 +87,7 @@ export class ConferenceGateway
   constructor(
     private readonly rooms: ConferenceRoomRegistry,
     private readonly metrics: ConferenceMetricsService,
+    private readonly persistence: ConferencePersistenceService,
     @Inject(AUTH_ADAPTER) private readonly auth: AuthAdapter,
   ) {}
 
@@ -116,7 +118,7 @@ export class ConferenceGateway
   }
 
   handleDisconnect(ws: ConferenceSocket): void {
-    const { _socketId: sid, _roomId: roomId } = ws;
+    const { _socketId: sid, _roomId: roomId, _userId: userId } = ws;
     if (!sid || !roomId) return;
 
     const room = this.rooms.getRoom(roomId);
@@ -127,6 +129,12 @@ export class ConferenceGateway
       });
       this.rooms.removePeer(room, sid);
     }
+
+    // Persist leave — fire-and-forget; errors are logged inside the service.
+    if (userId) {
+      void this.persistence.recordLeave(roomId, userId);
+    }
+
     this.logger.log(`Disconnected: ${sid}`);
   }
 
@@ -135,7 +143,8 @@ export class ConferenceGateway
   @SubscribeMessage('conference.join')
   async handleJoin(
     @ConnectedSocket() ws: ConferenceSocket,
-    @MessageBody() body: { roomId: string; displayName: string },
+    @MessageBody()
+    body: { roomId: string; displayName: string; sourceLanguage?: string },
   ): Promise<void> {
     if (!ws._userId || !ws._socketId) {
       this.reply(ws, 'conference.join', { error: 'not_authenticated' });
@@ -145,6 +154,14 @@ export class ConferenceGateway
       ws._roomId = body.roomId;
       const room = await this.rooms.getOrCreateRoom(body.roomId);
       this.rooms.addPeer(room, ws._socketId, ws._userId, body.displayName);
+
+      // Persist join — fire-and-forget; errors are logged inside the service.
+      void this.persistence.recordJoin(
+        body.roomId,
+        ws._userId,
+        body.displayName,
+        body.sourceLanguage ?? 'vi',
+      );
 
       const existingPeers = [...room.peers.entries()]
         .filter(([sid]) => sid !== ws._socketId)
@@ -344,7 +361,18 @@ export class ConferenceGateway
   @SubscribeMessage('conference.translation.broadcast')
   handleTranslationBroadcast(
     @ConnectedSocket() ws: ConferenceSocket,
-    @MessageBody() body: { subtitle?: unknown; audio?: unknown },
+    @MessageBody()
+    body: {
+      subtitle?: {
+        sourceLanguage?: string;
+        sourceText?: string;
+        searchText?: string;
+        translations?: Record<string, unknown>;
+        audioStartMs?: number;
+        audioDurationMs?: number;
+      };
+      audio?: unknown;
+    },
   ): void {
     const resolved = this.resolvePeer(ws);
     if ('error' in resolved) return;
@@ -355,6 +383,36 @@ export class ConferenceGateway
         event: 'conference.translation.subtitle',
         data: body.subtitle,
       });
+
+      // Persist turn when subtitle carries the required fields.
+      const sub = body.subtitle;
+      if (
+        ws._roomId &&
+        ws._userId &&
+        typeof sub.sourceLanguage === 'string' &&
+        typeof sub.sourceText === 'string'
+      ) {
+        // Participant id resolved async — look up by userId inside the service.
+        // We use userId as a proxy here; the gateway does not cache participantId.
+        // recordTurn accepts participantId; we pass the socket-level userId and
+        // rely on the unique index to find the row. The service requires the DB
+        // row id directly, so we look it up before persisting.
+        void this.persistence
+          .recordJoin(ws._roomId, ws._userId, undefined, sub.sourceLanguage)
+          .then((participantId) =>
+            this.persistence.recordTurn(participantId, ws._roomId!, {
+              sourceLanguage: sub.sourceLanguage!,
+              sourceText: sub.sourceText!,
+              searchText: sub.searchText,
+              translations: sub.translations,
+              audioStartMs: sub.audioStartMs,
+              audioDurationMs: sub.audioDurationMs,
+            }),
+          )
+          .catch((err: unknown) => {
+            this.logger.error('recordTurn via broadcast failed', err);
+          });
+      }
     }
     if (body.audio) {
       this.broadcast(resolved.room, ws, {
