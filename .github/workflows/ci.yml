@@ -106,6 +106,14 @@ jobs:
       - name: Lint all workspaces
         run: pnpm turbo run lint
 
+      # The workspace lint scripts pass `--fix`, which is right on a laptop and
+      # wrong here: eslint rewrites the checkout, exits 0, and a violation that
+      # was merged reads green. Any file the step above changed is a violation
+      # the committed code still carries. Tracked files only — dist and the
+      # generated Prisma client are ignored, so the build cannot trip this.
+      - name: Fail on violations the lint step auto-fixed
+        run: git diff --exit-code --stat
+
   typecheck:
     name: Type check
     runs-on: ubuntu-latest
@@ -168,8 +176,8 @@ jobs:
         run: node --test scripts/*.test.mjs
 
   # The api's e2e suites are NOT covered by the job above: `pnpm turbo run test`
-  # reaches api's `test` script, whose jest rootDir is `src`, so nothing under
-  # `test/` has ever run in CI. That is where enforcement is proved — the guard,
+  # reaches api's `test` script, whose vitest config includes only
+  # `src/**/*.spec.ts`, so nothing under `test/` runs there. That is where enforcement is proved — the guard,
   # the WebSocket upgrade refusal, the envelope — so it gets its own job.
   api-e2e:
     name: API e2e

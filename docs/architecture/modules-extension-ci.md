@@ -266,7 +266,8 @@ GitHub Actions (`.github/workflows/ci.yml`, workflow name `CI`) on pushes and pu
 requests to `main`. The workflow file owns the job list and each job's rationale;
 in outline:
 
-- Lint and typecheck (`pnpm turbo run typecheck` catches schema ↔ usage drift)
+- Lint (fails when the scripts' `--fix` had to change a tracked file) and typecheck
+  (`pnpm turbo run typecheck` catches schema ↔ usage drift)
 - Test — `pnpm turbo run test` (unit suites only; see below) plus the root
   `scripts/*.test.mjs`
 - Build — `pnpm turbo run build` (mobile has no build script), `verify:build` over
@@ -308,8 +309,9 @@ clears it. The command is unchanged and still fails on the next high that is
 not on the list.
 
 **Why the api e2e suites get their own jobs.** `pnpm turbo run test` reaches api's
-`test` script, whose jest `rootDir` is `src` — so nothing under `apps/api/test/`
-had ever run in CI, which is exactly where enforcement is proved. `api-e2e` runs
+`test` script, whose vitest config includes only `src/**/*.spec.ts` — so nothing
+under `apps/api/test/` had ever run in CI, which is exactly where enforcement is
+proved. `api-e2e` runs
 the fast suites on an in-memory user repository (with a Redis service, because
 login mints a refresh family); `api-e2e-db` brings up Postgres and Redis service
 containers, applies migrations, checks the migration chain against
