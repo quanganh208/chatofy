@@ -497,6 +497,17 @@ describe('group text', () => {
     expect(groupIsRepaired(group!, { a: '17 giờ,' })).toBe(true);
   });
 
+  it('does not call a Chinese line repaired when it only gained marks', () => {
+    const [group] = groupTurnsForDisplay(
+      [segment('a', '我们明天去北京', 'we go to Beijing tomorrow')],
+      captures(['a', 1_000, false, 9_000]),
+      {},
+    );
+    // A comma between two Han characters splits no word: each character is one.
+    expect(groupIsRepaired(group!, { a: '我们，明天去北京。' })).toBe(false);
+    expect(groupIsRepaired(group!, { a: '我们明天去南京。' })).toBe(true);
+  });
+
   it('drops a cut piece\u2019s full stop when the next piece continues the sentence', () => {
     const [group] = groups();
     // The second piece was punctuated reading the first as context, and opened

@@ -593,6 +593,23 @@ describe('GeminiTranslationProvider — carried-over speech', () => {
     expect(turn.instruction).not.toContain('earlier speech');
   });
 
+  // Chinese is one whitespace token however long it is, so the gate counts it
+  // by its words: a two-character reply is a fragment, a full sentence is not.
+  it('carries earlier speech to a short Chinese reply', async () => {
+    const turn = await turnFor(['我们明天开会吗'], undefined, '好的');
+    expect(turn.block).toContain(HEADING);
+  });
+
+  it('sends no earlier speech to a full Chinese sentence', async () => {
+    const turn = await turnFor(
+      ['我们明天开会吗'],
+      undefined,
+      '我们明天上午在会议室开会讨论这个项目的预算',
+    );
+    expect(turn.parts).toHaveLength(2);
+    expect(turn.instruction).not.toContain('earlier speech');
+  });
+
   it('still gives a long turn its operator hints', async () => {
     // The gate is about carried SPEECH. Hints are per session and were never
     // about the length of one utterance.

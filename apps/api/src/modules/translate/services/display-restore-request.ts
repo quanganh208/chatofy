@@ -1,5 +1,5 @@
 import type { Logger } from '@nestjs/common';
-import type { LanguageCode } from '@chatofy/types';
+import { wordsOf, type LanguageCode } from '@chatofy/types';
 import {
   applyRespellings,
   inverseNormalizeTranscript,
@@ -46,16 +46,6 @@ export function restoreRequestFor(
     ...(continued === undefined ? {} : { context: continued }),
     terms: mergeHotwords(session.hints?.hotwords, learnedTerms) ?? [],
   };
-}
-
-/** A line's words in order, case and marks aside. */
-function wordsOf(text: string): string {
-  return (
-    text
-      .normalize('NFC')
-      .toLowerCase()
-      .match(/[\p{L}\p{N}]+/gu) ?? []
-  ).join(' ');
 }
 
 /**

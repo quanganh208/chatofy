@@ -90,6 +90,11 @@ const MAX_CONTEXT_UTTERANCE_CHARS = 240;
  * Four is therefore a line drawn where the evidence is, not a tuning knob. What
  * is NOT measured is anything between 5 and 15 words; raising it means measuring
  * that range first.
+ *
+ * A word is what `countTermWords` counts: a whitespace or punctuation token, or,
+ * for text written without spaces (Chinese, Japanese, Thai…), a word from the
+ * ICU dictionary — so `好的` is one word and a fragment, while a ten-word
+ * Chinese sentence clears the gate as its English translation would.
  */
 const MAX_FRAGMENT_WORDS = 4;
 /**

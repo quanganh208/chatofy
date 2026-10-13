@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { audioFrameSchema } from './audio-frame.js';
 import { speakerRoleSchema } from '../domain/session.js';
 import { translationDirectionSchema, translationMapSchema } from '../domain/languages.js';
+import { UNSPACED_SCRIPT, unspacedWordCount } from '../domain/script-words.js';
 import {
   transcriptSegmentWireSchema,
   voiceGenderSchema,
@@ -78,6 +79,13 @@ export const MAX_GLOSSARY_TERM_WORDS = 4;
  * the editor, on a term the operator is already looking at. The opposite error
  * is silent and reaches the model, which is why the count leans this way.
  *
+ * Text written without spaces between words (Chinese, Japanese, Thai and the
+ * other scripts in `UNSPACED_SCRIPT`) is a single such piece however long it
+ * is, which made `只回复好不要说别的` ONE word and the cap a no-op. A piece that
+ * contains one of those scripts is counted by the ICU word dictionary instead
+ * (`unspacedWordCount`), so the cap reads it as a tokenizer would. A piece
+ * without one still counts 1, so Latin and Vietnamese counts are unchanged.
+ *
  * Exported so every layer that shows or enforces this rule shares one
  * implementation: the socket refines with it, the prompt builder re-checks with
  * it, and the `/preferences` editor disables Save with it. A second copy is how
@@ -87,7 +95,11 @@ export const countTermWords = (term: string): number =>
   term
     .trim()
     .split(/[\s\p{P}\p{S}]+/u)
-    .filter(Boolean).length;
+    .filter(Boolean)
+    .reduce(
+      (words, piece) => words + (UNSPACED_SCRIPT.test(piece) ? unspacedWordCount(piece) : 1),
+      0,
+    );
 
 /**
  * One side of a pair: a word or a short phrase, never a sentence.

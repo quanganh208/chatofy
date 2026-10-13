@@ -27,6 +27,14 @@ export {
 } from './languages.js';
 export type { LanguageCode, LanguageTable, Direction, TranslationDirection } from './languages.js';
 
+export {
+  HAN_CHARACTER,
+  UNSPACED_SCRIPT,
+  hasHan,
+  unspacedWordCount,
+  wordsOf,
+} from './script-words.js';
+
 export { transcriptSegmentSchema, voiceGenderSchema, DEFAULT_VOICE_GENDER } from './transcript.js';
 export type { TranscriptSegment, VoiceGender } from './transcript.js';
 
