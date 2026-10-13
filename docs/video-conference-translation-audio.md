@@ -241,4 +241,71 @@ current translate pipeline becomes irrelevant for meeting contexts. Attribution 
 
 ---
 
-**Document version:** 1.0 · **Last updated:** 2026-10-05
+---
+
+## 6. Phase 3 fixes (bidirectional translation + demo env)
+
+### 6.1 Bidirectional direction fix
+
+**Problem (Phase 1 carry-over):** `wireTranslate()` hardcoded
+`direction = \`${sourceLanguage}_to_en\``and broadcast`targetLang: 'en'`and`lang: 'en'`for every speaker. An English speaker produced`en_to_en` (invalid);
+Vietnamese listeners never received Vietnamese-language audio or subtitles.
+
+**Fix (Phase 3):** the target language is computed as the _other_ member of the
+vi↔en pair:
+
+```ts
+const targetLanguage = sourceLanguage === 'en' ? 'vi' : 'en';
+const direction = `${sourceLanguage}_to_${targetLanguage}`;
+```
+
+`subtitle.targetLang` and `audio.lang` are set to `targetLanguage`. The server
+translation router (`conference-translation-router.service.ts`) required **no
+change** — its self-filter + same-language-skip rules already route correctly once
+the direction string is right.
+
+**`en_to_vi` support confirmed:** `apps/api/src/modules/translate/translate.gateway.spec.ts`
+line 193 and `apps/api/src/modules/translate/services/live-translate-session.service.spec.ts`
+line 146 both call `service.start(socket, 'en_to_vi')` against the live gateway,
+proving the direction is a first-class supported value.
+
+### 6.2 Ordered audio sink
+
+**Problem:** the Phase 1 hook created `new AudioContext()` per TTS frame, causing
+overlapping playback, no sequence ordering, and an unbounded context leak.
+
+**Fix:** `apps/web/src/hooks/use-translation-audio-sink.ts` — one `AudioContext`
+and one `PcmPlaybackQueue` (reused from `@chatofy/realtime-client`) per remote
+speaker, keyed by `speakerSocketId`. Frames are buffered by `sequence` and drained
+in contiguous order before being enqueued into `PcmPlaybackQueue`'s gapless Web
+Audio scheduler. All contexts are released in `leave()`.
+
+`OrderedPlayback` from `@chatofy/realtime-client` was evaluated and NOT used: it
+needs an explicit `open(turnKey)` / `finish(turnKey)` lifecycle driven by a live
+session socket. In the conference path there is no distinct turn boundary per frame
+— `speakerSocketId` IS the entire "turn" for the call. A plain resequencing buffer
+on top of `PcmPlaybackQueue` is the minimal correct fit.
+
+### 6.3 Demo concurrency — raising caps for 3-speaker sessions
+
+The default caps (`MAX_CONCURRENT_TURNS_GLOBAL = 6`, `LOCAL_STT_CONCURRENCY = 4`)
+are sufficient for 2-participant demos. For a **3-speaker simultaneous demo** the
+global cap is saturated (3 STT + 3 TTS = 6 = cap). Raise via environment variables
+before the demo — no code change is needed:
+
+```bash
+# apps/api/.env (or shell export before `pnpm --filter api dev`)
+MAX_CONCURRENT_TURNS_GLOBAL=12
+LOCAL_STT_CONCURRENCY=6
+```
+
+Sources: `apps/api/src/modules/translate/session/turn-concurrency.ts` (global cap)
+and `services/local-stt/engines/base.py` (STT sidecar, reads `LOCAL_STT_CONCURRENCY`
+env at startup — restart the sidecar after changing it).
+
+Re-measure `t_stt` after raising the caps with 3 simultaneous speakers to confirm
+there is no queuing penalty before the demo.
+
+---
+
+**Document version:** 1.1 · **Last updated:** 2026-10-13
