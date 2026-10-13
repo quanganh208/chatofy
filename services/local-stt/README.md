@@ -1,18 +1,19 @@
 # local-stt sidecar
 
 Local speech-to-text over localhost, no cloud call. Wraps [sherpa-onnx][sherpa]
-behind a small FastAPI service so the NestJS API can transcribe Vietnamese and
-English through the normal `SttProvider` contract.
+behind a small FastAPI service so the NestJS API can transcribe Vietnamese,
+English and Mandarin Chinese through the normal `SttProvider` contract.
 
 Standalone `uv` project — not part of the pnpm/turbo workspace, never imported
 by the app (standalone `uv` project, like the benchmark harnesses).
 
 ## Models
 
-| Language | Model                                      | WER   | RTF   | p95   | RAM    | License             |
-| -------- | ------------------------------------------ | ----- | ----- | ----- | ------ | ------------------- |
-| vi       | [hynt/Zipformer-30M-RNNT-6000h][zipformer] | 5.38% | 0.017 | 0.09s | 223MB  | **CC-BY-NC-ND-4.0** |
-| en       | [Parakeet-TDT-0.6b-v2][parakeet] (INT8)    | —     | —     | 0.33s | ~1.1GB | CC-BY-4.0           |
+| Language | Model                                         | WER       | RTF   | p95   | RAM    | License             |
+| -------- | --------------------------------------------- | --------- | ----- | ----- | ------ | ------------------- |
+| vi       | [hynt/Zipformer-30M-RNNT-6000h][zipformer]    | 5.38%     | 0.017 | 0.09s | 223MB  | **CC-BY-NC-ND-4.0** |
+| en       | [Parakeet-TDT-0.6b-v2][parakeet] (INT8)       | —         | —     | 0.33s | ~1.1GB | CC-BY-4.0           |
+| zh       | [Paraformer-zh 2023-09-14][paraformer] (INT8) | 3.22% CER | 0.018 | 0.18s | ~360MB | Apache-2.0          |
 
 Numbers measured on this machine — see
 `docs/development-journey.md` for the method and
@@ -33,6 +34,17 @@ the alternatives that lost.
 > Parakeet answers a cough or knock with a filler ("Uh", "Mm.") where Moonshine
 > answered with nothing, so a transcript made only of fillers is returned empty
 > and the API rejects the turn as no speech (`FILLERS` in `engines/parakeet_en.py`).
+
+> **Mandarin is Paraformer-zh, not SenseVoice-small.** Mean CER over FLEURS and
+> AISHELL-1 (50 clips each) was 3.22% against SenseVoice's 4.58%, and the sidecar
+> reproduces 3.22% exactly over HTTP on the same clips. With the 320 ms of
+> silence the client puts before every turn it reads 3.59%: Paraformer is a
+> little sensitive to leading silence, 10 of 100 hypotheses change, not all for
+> the worse. It writes no punctuation and every number as words; the API's zh
+> ITN typesets the numbers. Its weights add about 270 MB to the sidecar's peak
+> under four concurrent decodes. The tarball is pinned by size and sha256 in
+> `scripts/download_models.py`, and only `model.int8.onnx` and `tokens.txt` are
+> extracted. No hotword biasing.
 
 > **Display punctuation and case (vi).** `POST /restore` runs
 > [valkayuh/dewpoint][dewpoint] (MIT), mmBERT member, pinned revision, with only
@@ -65,7 +77,7 @@ the alternatives that lost.
 
 This is a container — `pnpm dev:all` from the repo root builds it and brings it
 up with the rest of the local stack. `models/` is bind-mounted and the weights
-(~1.3GB) download on first start, so there is no separate setup step.
+(~1.6GB) download on first start, so there is no separate setup step.
 
 ```bash
 docker compose up -d --wait local-stt   # just this one
@@ -83,7 +95,7 @@ uv sync
 # host venv needs it again after every `uv sync` that recreates .venv.
 ln -sf "$(uv run python -c 'import onnxruntime,pathlib;print(next((pathlib.Path(onnxruntime.__file__).parent/"capi").glob("libonnxruntime.so.*")))')" \
        "$(uv run python -c 'import onnxruntime,pathlib;print(pathlib.Path(onnxruntime.__file__).parent.parent/"sherpa_onnx.libs"/"libonnxruntime.so")')"
-uv run python scripts/download_models.py   # ~2.5GB, one time, idempotent
+uv run python scripts/download_models.py   # ~2.7GB, one time, idempotent
 uv run uvicorn app:app --port 8002
 ```
 
@@ -198,4 +210,5 @@ uv run --directory services/local-stt pytest
 [sherpa]: https://github.com/k2-fsa/sherpa-onnx
 [zipformer]: https://huggingface.co/hynt/Zipformer-30M-RNNT-6000h
 [parakeet]: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2
+[paraformer]: https://k2-fsa.github.io/sherpa/onnx/pretrained_models/offline-paraformer/paraformer-models.html
 [dewpoint]: https://huggingface.co/valkayuh/dewpoint
