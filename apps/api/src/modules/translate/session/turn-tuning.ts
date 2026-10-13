@@ -1,3 +1,5 @@
+import type { LanguageTable } from '@chatofy/types';
+
 /**
  * Tuning values the turn pipeline runs with. They were env keys until every
  * deployment set the same numbers; a change is now a reviewed edit here rather
@@ -34,12 +36,26 @@ export const STT_MIN_SPEECH_MS = 300;
  * minute at conversational density — comfortably inside the per-minute
  * ceiling, and around a hundred minutes of conversation against the daily one.
  *
- * Do not go below 12. Below it a request lands every couple of syllables
- * and the 500-per-day-per-model allowance is gone in minutes. Per-word output
- * is reachable by raising quota — more projects, more keys — not by lowering
- * this number.
+ * Do not go below 12 for a language written in letters. Below it a request
+ * lands every couple of syllables and the 500-per-day-per-model allowance is
+ * gone in minutes. Per-word output is reachable by raising quota — more
+ * projects, more keys — not by lowering this number.
+ *
+ * Per language, because a character is not the same amount of speech in every
+ * script: a Han character is a whole syllable. MEASURED on 8 s turns cut from
+ * continuous speech (`benchmarks/stt/results/r13-zh-commit`, replayed through
+ * this trigger): at 15 for both, Chinese fired 15.8 times per minute of audio
+ * against Vietnamese's 35.2 — 0.45×, so zh provisional text trailed the
+ * speaker for more than twice as long. The rule fixed before that run gives zh
+ * max(4, round(15 × 15.8 / 35.2)) = 7, which brings its request rate back to
+ * Vietnamese's rather than above it; the floor above is about that RATE, and
+ * 7 Han characters keep it.
  */
-export const LIVE_TRANSLATION_COMMIT_CHARS = 15;
+export const LIVE_TRANSLATION_COMMIT_CHARS: LanguageTable<number> = {
+  vi: 15,
+  en: 15,
+  zh: 7,
+};
 
 /**
  * Ceiling on MID-SENTENCE translation requests per minute, per user.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LiveTranslationTrigger } from './live-translation-trigger';
 import { TranslationBudget } from './translation-budget';
+import { LIVE_TRANSLATION_COMMIT_CHARS } from '../session/turn-tuning';
 
 const MODEL = 'gemini-3.5-flash-lite';
 const USER = 'user-a';
@@ -108,6 +109,17 @@ describe('LiveTranslationTrigger', () => {
       trigger.markSettled();
       expect(trigger.shouldTranslate('我们明天开会，你来', 0)).toBe(false);
       expect(trigger.shouldTranslate('我们明天开会，你来吗？', 0)).toBe(true);
+    });
+
+    it('fires on seven settled Han characters, the zh entry of the tuning table', () => {
+      // A Han character is a syllable, so 15 of them is far more speech than 15
+      // letters; measured, zh fired at 0.45x the vi rate at 15.
+      const { trigger } = makeTrigger({
+        commitChars: LIVE_TRANSLATION_COMMIT_CHARS.zh,
+      });
+      expect(trigger.shouldTranslate('我们明天上午', 0)).toBe(false);
+      expect(trigger.shouldTranslate('我们明天上午开', 0)).toBe(true);
+      expect(LIVE_TRANSLATION_COMMIT_CHARS.vi).toBe(15);
     });
 
     it('sees no clause in unpunctuated Chinese', () => {
