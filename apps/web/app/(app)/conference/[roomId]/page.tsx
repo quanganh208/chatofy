@@ -41,6 +41,7 @@ export default function ConferenceRoomPage() {
     localMuted,
     localVideoEnabled,
     audioBlocked,
+    localTranslating,
     join,
     leave,
     toggleMute,
@@ -169,6 +170,8 @@ export default function ConferenceRoomPage() {
             localVideoEnabled={localVideoEnabled}
             peers={peers}
             waitingLabel={t('web.conference.waiting')}
+            localTranslating={localTranslating}
+            translatingLabel={t('web.conference.translating')}
           />
         </main>
 

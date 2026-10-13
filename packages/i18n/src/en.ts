@@ -647,6 +647,10 @@ export const en = {
   // No card, no elevation — ghost button only; Leave stays the one accent control.
   'web.conference.audioBlocked': 'Sound is blocked by your browser.',
   'web.conference.enableAudio': 'Tap to enable sound',
+  // ---- web.conference: translating indicator (Phase 2) ----
+  // Badge on the local tile from [T1] (first audio frame) to [T2] (final subtitle).
+  // Pure readout — no accent fill; Leave stays the one accent control.
+  'web.conference.translating': 'Translating…',
   'web.meta.conference': 'Conference · Chatofy',
 } as const;
 

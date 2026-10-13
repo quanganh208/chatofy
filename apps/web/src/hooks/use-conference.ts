@@ -89,6 +89,12 @@ export interface UseConferenceReturn {
    * while this is true. Clears after `resumeAudio()` succeeds.
    */
   audioBlocked: boolean;
+  /**
+   * True from the first audio frame of a speech turn ([T1]) until the final
+   * subtitle for that turn arrives ([T2]), or until a 10 s safety timeout fires.
+   * The in-call page shows a "translating…" badge on the local tile while true.
+   */
+  localTranslating: boolean;
   join: () => Promise<void>;
   leave: () => void;
   toggleMute: () => void;
@@ -226,6 +232,11 @@ async function consumeTrack(
  * Phase 3: direction is now bidirectional — computed as `${source}_to_${target}`
  * where target is the other language in the vi↔en pair.
  *
+ * Phase 2 (polish): `setLocalTranslating` is driven here:
+ *  - TRUE  at [T1] (first audio frame sent for a turn, seq === 0)
+ *  - FALSE at [T2] (final/target server.live.transcript for that turn)
+ *  A 10 s safety timeout also clears it so it can never stay stuck.
+ *
  * [T1] first audio frame sent
  * [T2] server.live.transcript target received
  */
@@ -237,6 +248,7 @@ function wireTranslate(
   sourceLanguage: string,
   token: string,
   log: (m: string) => void,
+  setLocalTranslating: (v: boolean) => void,
 ): void {
   // Phase 3: compute the OTHER language in the vi↔en pair.
   const targetLanguage = sourceLanguage === 'en' ? 'vi' : 'en';
@@ -245,6 +257,17 @@ function wireTranslate(
   const translateWs = new WebSocket(`${API_WS_URL}/ws/translate`, [WS_SUBPROTOCOL, token]);
   const turnId = crypto.randomUUID();
   let t1 = 0;
+  // Safety timeout handle — cleared when the final subtitle arrives first.
+  let translatingTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  /** Clear `localTranslating` and cancel any pending safety timeout. */
+  function clearTranslating(): void {
+    if (translatingTimeout !== null) {
+      clearTimeout(translatingTimeout);
+      translatingTimeout = null;
+    }
+    setLocalTranslating(false);
+  }
 
   translateWs.addEventListener('open', () => {
     log('[translate] WS open');
@@ -266,6 +289,18 @@ function wireTranslate(
     if (seq === 0) {
       t1 = performance.now();
       console.log(`[T1] first audio frame t=${t1.toFixed(1)}ms`);
+      // [T1] — start of a new turn: show the "translating…" badge.
+      // Cancel any leftover timeout from a previous turn first.
+      if (translatingTimeout !== null) {
+        clearTimeout(translatingTimeout);
+      }
+      setLocalTranslating(true);
+      // Safety timeout: clear after 10 s if no final subtitle arrives.
+      translatingTimeout = setTimeout(() => {
+        translatingTimeout = null;
+        setLocalTranslating(false);
+        log('[translate] translating timeout — badge cleared');
+      }, 10_000);
     }
     const float32 = evt.inputBuffer.getChannelData(0);
     const int16 = new Int16Array(float32.length);
@@ -306,6 +341,8 @@ function wireTranslate(
           `[T2] transcript target t=${performance.now().toFixed(1)}ms Δ=${(performance.now() - t1).toFixed(0)}ms`,
         );
         log(`[T2] transcript: "${d.delta}"`);
+        // [T2] — final subtitle for this turn: hide the "translating…" badge.
+        clearTranslating();
       }
       send(confWs, 'conference.translation.broadcast', {
         subtitle: {
@@ -341,6 +378,8 @@ function wireTranslate(
   translateWs.addEventListener('close', () => {
     processor.disconnect();
     void audioCtx.close();
+    // Ensure the badge is cleared if the socket closes unexpectedly mid-turn.
+    clearTranslating();
     log('[translate] WS closed');
   });
   translateWs.addEventListener('error', () => log('[translate] WS error'));
@@ -364,6 +403,8 @@ export function useConference(
   const [localVideoEnabled, setLocalVideoEnabled] = useState(true);
   // Phase 1 (audio unlock): true when any TTS AudioContext is still suspended.
   const [audioBlocked, setAudioBlocked] = useState(false);
+  // Phase 2 (translating indicator): true from [T1] to [T2] (or timeout).
+  const [localTranslating, setLocalTranslating] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const deviceRef = useRef<types.Device | null>(null);
@@ -536,7 +577,16 @@ export function useConference(
         wireRecvTransport(ws, recvTransport, addLog);
 
         // Open /ws/translate in live mode for this speaker's audio translation.
-        wireTranslate(ws, stream, socketId, displayName, sourceLanguage, token, addLog);
+        wireTranslate(
+          ws,
+          stream,
+          socketId,
+          displayName,
+          sourceLanguage,
+          token,
+          addLog,
+          setLocalTranslating,
+        );
 
         // Consume existing peers' producers (late-joiner catch-up).
         for (const peer of existingPeers) {
@@ -749,6 +799,7 @@ export function useConference(
     setLocalMuted(false);
     setLocalVideoEnabled(true);
     setAudioBlocked(false);
+    setLocalTranslating(false);
     setPeers(new Map());
     setMySocketId(null);
     setStatus('idle');
@@ -834,6 +885,7 @@ export function useConference(
     localMuted,
     localVideoEnabled,
     audioBlocked,
+    localTranslating,
     join,
     leave,
     toggleMute,

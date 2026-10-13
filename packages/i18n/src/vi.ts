@@ -464,5 +464,7 @@ export const vi: Messages = {
   // ---- web.conference: mở khóa âm thanh (Phase 1) ----
   'web.conference.audioBlocked': 'Âm thanh bị chặn bởi trình duyệt.',
   'web.conference.enableAudio': 'Nhấn để bật âm thanh',
+  // ---- web.conference: chỉ báo đang dịch (Phase 2) ----
+  'web.conference.translating': 'Đang dịch…',
   'web.meta.conference': 'Hội nghị · Chatofy',
 };

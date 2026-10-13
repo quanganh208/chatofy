@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { MicOff, VideoOff } from 'lucide-react';
+import { Loader2, MicOff, VideoOff } from 'lucide-react';
 import type { PeerState } from '@/hooks/use-conference';
 import { SubtitleOverlay } from './subtitle-overlay';
 import { gridColsClass } from '../utils/video-layout';
@@ -25,6 +25,10 @@ interface VideoTileProps {
   subtitle?: string;
   /** Whether to mute the audio track (always true for the local tile). */
   audioMuted?: boolean;
+  /** Show the "translating…" badge on this tile. Local tile only. */
+  translating?: boolean;
+  /** Localised badge text, e.g. "Translating…". Required when translating=true. */
+  translatingLabel?: string;
 }
 
 function VideoTile({
@@ -34,6 +38,8 @@ function VideoTile({
   videoEnabled,
   subtitle,
   audioMuted = false,
+  translating = false,
+  translatingLabel = '',
 }: VideoTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -77,6 +83,18 @@ function VideoTile({
         )}
       </div>
 
+      {/* Translating badge — top-right, readout only, no accent fill */}
+      {translating && (
+        <div
+          className="absolute right-2 top-2 flex items-center gap-1 rounded bg-black/50 px-2 py-0.5"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="text-textMuted size-3 animate-spin" aria-hidden />
+          <span className="text-label text-textMuted">{translatingLabel}</span>
+        </div>
+      )}
+
       {/* Subtitle overlay — bottom-center, above name */}
       <SubtitleOverlay subtitle={subtitle} />
     </div>
@@ -93,6 +111,10 @@ interface VideoGridProps {
   peers: Map<string, PeerState>;
   /** i18n label for "Waiting for others" placeholder */
   waitingLabel: string;
+  /** Whether the local speaker is currently being translated ([T1]→[T2] window). */
+  localTranslating?: boolean;
+  /** i18n badge text shown on the local tile while localTranslating is true. */
+  translatingLabel?: string;
 }
 
 export function VideoGrid({
@@ -102,6 +124,8 @@ export function VideoGrid({
   localVideoEnabled,
   peers,
   waitingLabel,
+  localTranslating = false,
+  translatingLabel = '',
 }: VideoGridProps) {
   const peerEntries = [...peers.entries()];
   // Count = local tile (always shown when stream exists) + remote peers
@@ -118,6 +142,8 @@ export function VideoGrid({
           muted={localMuted}
           videoEnabled={localVideoEnabled}
           audioMuted
+          translating={localTranslating}
+          translatingLabel={translatingLabel}
         />
       )}
 
