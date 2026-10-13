@@ -10,6 +10,7 @@ import { SubmittedNotice } from '@/components/auth/submitted-notice';
 import { forgotPassword } from '@/clients/api-client';
 import { useSubmittedNotice } from '@/hooks/use-submitted-notice';
 import { useLocale, useTranslate } from '@/i18n/provider';
+import { formText } from '@/lib/form-text';
 
 /**
  * The confirmation text is a fixed string here, not `data.message`.
@@ -27,7 +28,6 @@ export function ForgotPasswordForm() {
   // Used only by the no-account branch, which by construction has no row to read a
   // language from. The found branch reads the column — see `password-reset.service.ts`.
   const locale = useLocale();
-  const [email, setEmail] = useState('');
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
   const { submitted, setSubmitted, notice } = useSubmittedNotice();
@@ -43,9 +43,14 @@ export function ForgotPasswordForm() {
 
       {submitted ? null : (
         <form
+          method="post"
           className="flex flex-col gap-4"
           onSubmit={(event) => {
             event.preventDefault();
+            // Read from the form, not React state — see `login-form.tsx`: a value typed or
+            // autofilled before hydration is only in the DOM, and the submit sent it empty.
+            const form = new FormData(event.currentTarget);
+            const email = formText(form, 'email');
             setSubmitting(true);
             setError(undefined);
             forgotPassword({ email, locale })
@@ -71,8 +76,7 @@ export function ForgotPasswordForm() {
             required
             maxLength={AUTH_LIMITS.maxEmail}
             autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            name="email"
           />
 
           <AuthAlert id="forgot-error" message={error} />
