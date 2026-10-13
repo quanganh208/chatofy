@@ -118,6 +118,44 @@ side-by-side.
 12. Either profile clicks **Leave** → returns to the conference lobby. The other
     profile's grid removes the departed tile.
 
+### Smoke checklist (tick each — maps to polish items A/B/C/D)
+
+Run this once on a real stack before trusting the demo. Each line is a thing to see or hear
+with your own eyes/ears — the unit tests cannot confirm any of it. Tick `[x]` as you go.
+
+**Basics**
+
+- [ ] Both profiles reach `/conference` from the sidebar **Conference** link (not just a typed URL).
+- [ ] After both join the same room, each sees the other's **video** and hears the other's raw voice.
+- [ ] Mic button mutes and the peer's roster shows the muted icon; camera button darkens the tile on both sides; **Leave** returns to the lobby and removes the tile for the other peer.
+
+**Bidirectional translation (the core)**
+
+- [ ] Vietnamese speaker → the English profile sees a **Vietnamese→English subtitle** and hears English audio.
+- [ ] English speaker → the Vietnamese profile sees an **English→Vietnamese subtitle** and hears Vietnamese audio. (The old PoC failed this direction — it is the headline fix.)
+
+**A — audio unlock**
+
+- [ ] Translated speech is actually **audible** from the speakers/headphones.
+- [ ] If it is silent on first join, a **"tap to enable sound"** control appears; clicking it makes audio play. (If audio plays without ever seeing that control, that is also a pass.)
+
+**B — translating indicator**
+
+- [ ] While you speak and before the subtitle lands, a **"translating…"** badge shows on your own tile, then clears when the subtitle arrives (and never stays stuck).
+
+**C — active-speaker + subtitle styling**
+
+- [ ] The tile of whoever is currently speaking/translating has a visible **highlight ring**.
+- [ ] Subtitles are **large and legible** from across a room; a final line is solid, a partial one is dimmer.
+
+**D — auto-reconnect** (kill the API mid-call to simulate a drop)
+
+- [ ] With a call live, stop the API briefly (`Ctrl+C` the `pnpm dev:all` terminal, or `docker`/process kill), then restart it: the UI shows **"Reconnecting (1/3)…"** and the call **recovers** on its own — no duplicate tiles, audio resumes.
+- [ ] Kill the API for longer than 3 attempts (~7 s): the UI falls through to **"Connection lost. The call ended."** with a Back to lobby button (the terminal dead-end, not a crash).
+
+If any line fails, note the symptom and the browser DevTools console `[T1]`–`[T4]` lines for that
+turn — they pinpoint which stage (audio sent / transcript / subtitle / TTS frame) broke.
+
 ---
 
 ## 4. Edge-case states (what to expect, not errors)
