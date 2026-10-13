@@ -651,6 +651,11 @@ export const en = {
   // Badge on the local tile from [T1] (first audio frame) to [T2] (final subtitle).
   // Pure readout — no accent fill; Leave stays the one accent control.
   'web.conference.translating': 'Translating…',
+  // ---- web.conference: auto-reconnect (Phase 4) ----
+  // Shown during a bounded auto-rejoin after an unexpected mid-call WS drop.
+  // {attempt} is the current attempt number (1-based); {cap} is the maximum.
+  // Leave stays the one accent control in this state too.
+  'web.conference.reconnecting': 'Reconnecting ({attempt}/{cap})…',
   'web.meta.conference': 'Conference · Chatofy',
 } as const;
 

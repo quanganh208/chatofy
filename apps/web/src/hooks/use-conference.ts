@@ -38,9 +38,15 @@ import { TranslationAudioSink } from './use-translation-audio-sink';
 
 const API_WS_URL = process.env['NEXT_PUBLIC_API_WS_URL'] ?? 'ws://localhost:3000';
 
+/** Maximum number of automatic reconnect attempts before giving up. */
+const RECONNECT_CAP = 3;
+/** Backoff delays (ms) indexed by attempt number (0-based). */
+const RECONNECT_BACKOFF_MS = [1000, 2000, 4000] as const;
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type ConferenceStatus = 'idle' | 'connecting' | 'in-call' | 'error' | 'disconnected';
+export type ConferenceStatus =
+  'idle' | 'connecting' | 'in-call' | 'error' | 'disconnected' | 'reconnecting';
 
 /**
  * Machine-readable reason attached to `status === 'error'` or `status === 'disconnected'`.
@@ -95,6 +101,13 @@ export interface UseConferenceReturn {
    * The in-call page shows a "translating…" badge on the local tile while true.
    */
   localTranslating: boolean;
+  /**
+   * Current reconnect attempt number (1-based). 0 when not reconnecting.
+   * Only meaningful while `status === 'reconnecting'`.
+   */
+  reconnectAttempt: number;
+  /** Maximum reconnect attempts before giving up to `disconnected`. Default 3. */
+  reconnectCap: number;
   join: () => Promise<void>;
   leave: () => void;
   toggleMute: () => void;
@@ -405,6 +418,8 @@ export function useConference(
   const [audioBlocked, setAudioBlocked] = useState(false);
   // Phase 2 (translating indicator): true from [T1] to [T2] (or timeout).
   const [localTranslating, setLocalTranslating] = useState(false);
+  // Phase 4 (auto-reconnect): current attempt number (1-based, 0 = not reconnecting).
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
   const deviceRef = useRef<types.Device | null>(null);
@@ -418,6 +433,14 @@ export function useConference(
   /** Phase 3: ref-copies of mute/video state for use inside callbacks. */
   const localMutedRef = useRef(false);
   const localVideoEnabledRef = useRef(true);
+  /**
+   * Phase 4: true when leave() has been intentionally called.
+   * The ws.onclose handler checks this to distinguish an intentional leave
+   * (do nothing) from an unexpected drop (trigger reconnect).
+   */
+  const intentionalLeaveRef = useRef(false);
+  /** Phase 4: number of reconnect attempts already made for the current call. */
+  const reconnectAttemptRef = useRef(0);
 
   const addLog = useCallback((msg: string) => {
     console.debug(`[conference] ${new Date().toISOString().slice(11, 23)} ${msg}`);
@@ -445,35 +468,45 @@ export function useConference(
     });
   }, []);
 
-  const join = useCallback(async () => {
-    if (!displayName.trim()) {
-      addLog('displayName is empty');
-      return;
-    }
-    setStatus('connecting');
-
-    const session = await getSession();
-    const token = (session as { accessToken?: string } | null)?.accessToken;
-    if (!token) {
-      addLog('Not logged in — redirecting to /login.');
-      setErrorReason('not-authenticated');
-      setStatus('error');
-      // Redirect client-side; the server layout already gates the route but the
-      // hook fires earlier in the render cycle (client-side join auto-invocation).
-      if (typeof window !== 'undefined') {
-        const callbackUrl = encodeURIComponent(window.location.pathname + window.location.search);
-        window.location.replace(`/login?callbackUrl=${callbackUrl}`);
+  /**
+   * Phase 4: tear down all media/transport/sink resources held by a prior attempt
+   * so a reconnect attempt starts completely clean.
+   *
+   * Closes the audio sink (releases all AudioContexts), stops local media tracks,
+   * and clears device + peer maps. Does NOT touch wsRef (the caller owns that),
+   * does NOT touch status (set by the caller).
+   */
+  const teardownMediaResources = useCallback(() => {
+    audioSinkRef.current?.close();
+    audioSinkRef.current = null;
+    deviceRef.current = null;
+    peersRef.current.clear();
+    mySocketIdRef.current = null;
+    setLocalStream((prev) => {
+      if (prev) {
+        prev.getTracks().forEach((t) => t.stop());
       }
-      return;
-    }
+      localStreamRef.current = null;
+      return null;
+    });
+    setAudioBlocked(false);
+    setLocalTranslating(false);
+    setPeers(new Map());
+    setMySocketId(null);
+  }, []);
 
-    // Phase 3: create the ordered audio sink for this call.
-    audioSinkRef.current = new TranslationAudioSink();
-
-    const ws = new WebSocket(`${API_WS_URL}/ws/conference`, [WS_SUBPROTOCOL, token]);
-    wsRef.current = ws;
-
-    ws.addEventListener('open', async () => {
+  /**
+   * Phase 4 (Step 1 — refactor):
+   * Run the full join sequence on an already-open WebSocket.
+   *
+   * Extracted verbatim from the former ws.onopen callback body so that
+   * the same sequence can be re-run on each reconnect attempt.
+   *
+   * On success sets `status: 'in-call'` and resets the reconnect counter.
+   * On failure sets `status: 'error'` with reason `'generic'`.
+   */
+  const runJoinSequence = useCallback(
+    async (ws: WebSocket, token: string) => {
       try {
         addLog('WS connected');
 
@@ -604,6 +637,9 @@ export function useConference(
           }
         }
 
+        // Phase 4: successful join — reset reconnect counter.
+        reconnectAttemptRef.current = 0;
+        setReconnectAttempt(0);
         setStatus('in-call');
 
         // Phase 1: attempt an optimistic resume now that a join gesture occurred.
@@ -750,34 +786,122 @@ export function useConference(
         setErrorReason('generic');
         setStatus('error');
       }
-    });
+    },
+    [roomId, displayName, sourceLanguage, addLog, onTrack],
+  );
 
-    ws.addEventListener('close', () => {
-      addLog('WS closed');
-      // If we were in-call (not an intentional leave() which sets status to
-      // 'idle' before closing the socket), surface 'disconnected' so the page
-      // can show "connection lost / call ended" and return to lobby cleanly.
-      setStatus((prev) => {
-        if (prev === 'in-call' || prev === 'connecting') {
-          setErrorReason('connection-lost');
-          return 'disconnected';
-        }
-        // Intentional leave: leave() already set status to 'idle'.
-        return 'idle';
+  /**
+   * Phase 4: open a fresh WebSocket, run the join sequence, and wire the close
+   * handler to retry or give up. Separated from `join()` so the same logic is
+   * reused on each reconnect attempt without duplicating the socket lifecycle.
+   *
+   * `token` is captured from the original `join()` call so reconnect attempts
+   * reuse the same auth token (valid for the call's lifetime).
+   */
+  const openAndJoin = useCallback(
+    (token: string) => {
+      const ws = new WebSocket(`${API_WS_URL}/ws/conference`, [WS_SUBPROTOCOL, token]);
+      wsRef.current = ws;
+
+      ws.addEventListener('open', () => {
+        void runJoinSequence(ws, token);
       });
-      setPeers(new Map());
-    });
 
-    ws.addEventListener('error', (e) => {
-      addLog(`WS error: ${JSON.stringify(e)}`);
-    });
-  }, [roomId, displayName, sourceLanguage, addLog, onTrack]);
+      ws.addEventListener('close', () => {
+        addLog('WS closed');
+
+        // Phase 4: intentional leave() sets the flag before closing; skip retry.
+        if (intentionalLeaveRef.current) {
+          // leave() already set status to 'idle' before calling ws.close().
+          return;
+        }
+
+        // Phase 4: unexpected close — attempt auto-reconnect up to the cap.
+        const attempt = reconnectAttemptRef.current + 1;
+        if (attempt <= RECONNECT_CAP) {
+          reconnectAttemptRef.current = attempt;
+          setReconnectAttempt(attempt);
+          setStatus('reconnecting');
+          const delay = RECONNECT_BACKOFF_MS[attempt - 1] ?? 4000;
+          addLog(
+            `Unexpected WS close — reconnect attempt ${attempt}/${RECONNECT_CAP} in ${delay}ms`,
+          );
+
+          setTimeout(() => {
+            // Guard: if the user called leave() while the timer was pending, abort.
+            if (intentionalLeaveRef.current) {
+              addLog('Reconnect aborted — intentional leave during backoff');
+              return;
+            }
+            // Phase 4: tear down the prior attempt's media resources before rebuilding
+            // so there are no duplicate peer tiles or leaked AudioContexts.
+            teardownMediaResources();
+            audioSinkRef.current = new TranslationAudioSink();
+
+            addLog(`Reconnect attempt ${attempt} — opening new socket`);
+            openAndJoin(token);
+          }, delay);
+        } else {
+          // Cap exhausted — dead-end to the existing disconnected state.
+          addLog('Reconnect cap exhausted — giving up');
+          teardownMediaResources();
+          setErrorReason('connection-lost');
+          setStatus('disconnected');
+        }
+      });
+
+      ws.addEventListener('error', (e) => {
+        addLog(`WS error: ${JSON.stringify(e)}`);
+      });
+    },
+    [runJoinSequence, addLog, teardownMediaResources],
+  );
+
+  const join = useCallback(async () => {
+    if (!displayName.trim()) {
+      addLog('displayName is empty');
+      return;
+    }
+    setStatus('connecting');
+
+    const session = await getSession();
+    const token = (session as { accessToken?: string } | null)?.accessToken;
+    if (!token) {
+      addLog('Not logged in — redirecting to /login.');
+      setErrorReason('not-authenticated');
+      setStatus('error');
+      // Redirect client-side; the server layout already gates the route but the
+      // hook fires earlier in the render cycle (client-side join auto-invocation).
+      if (typeof window !== 'undefined') {
+        const callbackUrl = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.replace(`/login?callbackUrl=${callbackUrl}`);
+      }
+      return;
+    }
+
+    // Phase 3: create the ordered audio sink for this call.
+    audioSinkRef.current = new TranslationAudioSink();
+
+    // Phase 4: clear the intentional-leave flag and reset the reconnect counter
+    // for this fresh join.
+    intentionalLeaveRef.current = false;
+    reconnectAttemptRef.current = 0;
+    setReconnectAttempt(0);
+
+    openAndJoin(token);
+  }, [displayName, addLog, openAndJoin]);
 
   const leave = useCallback(() => {
+    // Phase 4: set the intentional-leave flag BEFORE closing the socket so the
+    // ws.onclose handler knows not to trigger a reconnect attempt.
+    intentionalLeaveRef.current = true;
     // Set status to 'idle' BEFORE closing the socket so the WS 'close' handler
     // sees 'idle' and does not override it with 'disconnected'.
     setStatus('idle');
     setErrorReason(undefined);
+    // Reset reconnect counters on intentional leave.
+    reconnectAttemptRef.current = 0;
+    setReconnectAttempt(0);
     wsRef.current?.close();
     wsRef.current = null;
     deviceRef.current = null;
@@ -886,6 +1010,8 @@ export function useConference(
     localVideoEnabled,
     audioBlocked,
     localTranslating,
+    reconnectAttempt,
+    reconnectCap: RECONNECT_CAP,
     join,
     leave,
     toggleMute,

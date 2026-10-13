@@ -466,5 +466,7 @@ export const vi: Messages = {
   'web.conference.enableAudio': 'Nhấn để bật âm thanh',
   // ---- web.conference: chỉ báo đang dịch (Phase 2) ----
   'web.conference.translating': 'Đang dịch…',
+  // ---- web.conference: tự động kết nối lại (Phase 4) ----
+  'web.conference.reconnecting': 'Đang kết nối lại ({attempt}/{cap})…',
   'web.meta.conference': 'Hội nghị · Chatofy',
 };

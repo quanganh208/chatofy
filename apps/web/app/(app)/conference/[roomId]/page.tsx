@@ -42,6 +42,8 @@ export default function ConferenceRoomPage() {
     localVideoEnabled,
     audioBlocked,
     localTranslating,
+    reconnectAttempt,
+    reconnectCap,
     join,
     leave,
     toggleMute,
@@ -73,6 +75,24 @@ export default function ConferenceRoomPage() {
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
         <p className="text-body text-textMuted">{t('web.conference.connecting')}</p>
         {/* Leave is still the one accent-filled control even in the loading state */}
+        <Button variant="default" onClick={handleLeave}>
+          {t('web.conference.leave')}
+        </Button>
+      </div>
+    );
+  }
+
+  // ── Reconnecting — transient WS drop, auto-retry in progress ────────────────
+  if (status === 'reconnecting') {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
+        <p className="text-body text-textMuted">
+          {t('web.conference.reconnecting', {
+            attempt: String(reconnectAttempt),
+            cap: String(reconnectCap),
+          })}
+        </p>
+        {/* Leave stays the one accent-filled control in this transient state too */}
         <Button variant="default" onClick={handleLeave}>
           {t('web.conference.leave')}
         </Button>

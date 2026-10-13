@@ -988,6 +988,30 @@ const SCREENS: ScreenState[] = [
     },
     render: () => <ConferenceRoomPage />,
   },
+  {
+    // Phase 4: reconnecting is a transient mid-call state — one accent (Leave), zero surfaces.
+    name: '/conference/[roomId] — reconnecting (auto-reconnect in progress)',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      useConference.mockReturnValue({
+        status: 'reconnecting',
+        errorReason: undefined,
+        localStream: null,
+        peers: new Map(),
+        mySocketId: null,
+        localMuted: false,
+        localVideoEnabled: true,
+        reconnectAttempt: 1,
+        reconnectCap: 3,
+        join: vi.fn(),
+        leave: vi.fn(),
+        toggleMute: vi.fn(),
+        toggleVideo: vi.fn(),
+      });
+    },
+    render: () => <ConferenceRoomPage />,
+  },
 ];
 
 /**
