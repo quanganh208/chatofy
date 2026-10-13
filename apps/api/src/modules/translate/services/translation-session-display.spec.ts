@@ -532,6 +532,20 @@ describe('names the restorer cannot case', () => {
   });
 });
 
+describe('which recognition languages ask for a restore', () => {
+  it('a Chinese turn asks the restorer for punctuation', async () => {
+    const harness = makeService('我们明天去北京', '我们明天去北京。');
+    await runTurn(harness.service, new FakeSocket(), { direction: 'zh_to_en' });
+    expect(harness.inputs[0]?.restoreDisplay).toBeDefined();
+  });
+
+  it('an English turn asks for nothing: Parakeet already punctuates', async () => {
+    const harness = makeService('see you tomorrow', 'See you tomorrow.');
+    await runTurn(harness.service, new FakeSocket(), { direction: 'en_to_vi' });
+    expect(harness.inputs[0]?.restoreDisplay).toBeUndefined();
+  });
+});
+
 describe('restoreKeepsWords', () => {
   it('accepts a Chinese restore that only added marks', () => {
     expect(restoreKeepsWords('我们去吧', '我们，去吧。')).toBe(true);

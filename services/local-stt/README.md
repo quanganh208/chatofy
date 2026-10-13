@@ -46,6 +46,17 @@ the alternatives that lost.
 > `scripts/download_models.py`, and only `model.int8.onnx` and `tokens.txt` are
 > extracted. No hotword biasing.
 
+> **Display punctuation (zh).** `POST /restore` with `language: "zh"` runs
+> sherpa-onnx's CT-Transformer punctuation model
+> (`sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8`, 64.7 MB
+> tarball, pinned by GitHub's published digest, only `model.int8.onnx`
+> extracted). It inserts marks only; the spaces Paraformer wrote around Latin
+> tokens are put back after it, because the model drops them. On the 50 FLEURS
+> Paraformer hypotheses: punctuation F1 0.865, words kept 50/50, p95 16 ms over
+> HTTP, +80 MiB peak. Optional like Dewpoint: an unloaded zh model answers 400,
+> never 503, so it cannot trip the API's restore cooldown, which is kept per
+> language anyway. No per-word pauses for zh: the model reads text only.
+
 > **Display punctuation and case (vi).** `POST /restore` runs
 > [valkayuh/dewpoint][dewpoint] (MIT), mmBERT member, pinned revision, with only
 > its token embedding quantized to 8 bits by `scripts/quantize_embedding.py` at

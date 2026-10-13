@@ -340,8 +340,12 @@ function ttsRequestFor(
 @Injectable()
 export class PipelineTranslatorService {
   private readonly logger = new Logger(PipelineTranslatorService.name);
-  /** See {@link RESTORE_UNAVAILABLE_COOLDOWN_MS}. */
-  private restoreUnavailableUntil = 0;
+  /**
+   * See {@link RESTORE_UNAVAILABLE_COOLDOWN_MS}. Per language, because each
+   * language has its own restorer behind the one endpoint: a zh model that is
+   * missing must pause zh restores, never Vietnamese ones.
+   */
+  private readonly restoreUnavailableUntil = new Map<LanguageCode, number>();
   /** Per-language voice catalog, with the wall-clock time it goes stale. */
   private readonly voiceCache = new Map<
     LanguageCode,
@@ -450,7 +454,8 @@ export class PipelineTranslatorService {
     request: DisplayRestoreRequest,
     budgetMs = RESTORE_BUDGET_MS,
   ): Promise<string | undefined> {
-    if (Date.now() < this.restoreUnavailableUntil) return undefined;
+    if (Date.now() < (this.restoreUnavailableUntil.get(language) ?? 0))
+      return undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const outOfTime = new Promise<undefined>((resolve) => {
       timer = setTimeout(() => resolve(undefined), budgetMs);
@@ -487,8 +492,10 @@ export class PipelineTranslatorService {
         return undefined;
       }
       if (status === 404 || status === 503 || isRefusedConnection(err)) {
-        this.restoreUnavailableUntil =
-          Date.now() + RESTORE_UNAVAILABLE_COOLDOWN_MS;
+        this.restoreUnavailableUntil.set(
+          language,
+          Date.now() + RESTORE_UNAVAILABLE_COOLDOWN_MS,
+        );
       }
       this.logger.warn(
         `display restore failed, the turn keeps its plain display: ${
