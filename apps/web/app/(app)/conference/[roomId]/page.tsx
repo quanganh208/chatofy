@@ -35,6 +35,7 @@ export default function ConferenceRoomPage() {
 
   const {
     status,
+    errorReason,
     localStream,
     peers,
     localMuted,
@@ -76,13 +77,39 @@ export default function ConferenceRoomPage() {
     );
   }
 
-  // ── Error state ─────────────────────────────────────────────────────────────
+  // ── Permission denied — cannot join at all ──────────────────────────────────
+  if (status === 'error' && errorReason === 'permission-denied') {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
+        <p className="text-body font-medium">{t('web.conference.permissionDenied')}</p>
+        <p className="text-hint text-textMuted">{t('web.conference.permissionDeniedHint')}</p>
+        <Button variant="default" onClick={handleLeave}>
+          {t('web.conference.backToLobby')}
+        </Button>
+      </div>
+    );
+  }
+
+  // ── WS disconnect / heartbeat eviction mid-call ──────────────────────────────
+  if (status === 'disconnected') {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
+        <p className="text-body font-medium">{t('web.conference.disconnected')}</p>
+        <p className="text-hint text-textMuted">{t('web.conference.disconnectedHint')}</p>
+        <Button variant="default" onClick={handleLeave}>
+          {t('web.conference.backToLobby')}
+        </Button>
+      </div>
+    );
+  }
+
+  // ── Generic error state ─────────────────────────────────────────────────────
   if (status === 'error') {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
-        <p className="text-body text-live">{t('web.conference.connecting')}</p>
+        <p className="text-body text-live">{t('web.conference.errorGeneric')}</p>
         <Button variant="default" onClick={handleLeave}>
-          {t('web.conference.leave')}
+          {t('web.conference.backToLobby')}
         </Button>
       </div>
     );
@@ -104,6 +131,13 @@ export default function ConferenceRoomPage() {
           <Users className="size-4" aria-hidden />
         </Button>
       </div>
+
+      {/* Audio-only soft notice — no card, no elevation, inline text */}
+      {errorReason === 'audio-only' && (
+        <p className="text-hint text-textMuted border-border border-b px-4 py-1">
+          {t('web.conference.permissionDeniedAudioOnly')}
+        </p>
+      )}
 
       {/* Main area: grid + optional roster */}
       <div className="flex min-h-0 flex-1 overflow-hidden">

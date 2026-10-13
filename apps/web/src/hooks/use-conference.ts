@@ -40,7 +40,24 @@ const API_WS_URL = process.env['NEXT_PUBLIC_API_WS_URL'] ?? 'ws://localhost:3000
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type ConferenceStatus = 'idle' | 'connecting' | 'in-call' | 'error';
+export type ConferenceStatus = 'idle' | 'connecting' | 'in-call' | 'error' | 'disconnected';
+
+/**
+ * Machine-readable reason attached to `status === 'error'` or `status === 'disconnected'`.
+ *
+ * - `'permission-denied'` — getUserMedia rejected with NotAllowedError / NotFoundError.
+ *   The page should prompt the user to grant camera/mic access and reload.
+ * - `'audio-only'` — video permission denied but audio succeeded.
+ *   The call continues with audio only; the page can surface a soft notice.
+ * - `'not-authenticated'` — no access token in the session; the hook sets this
+ *   before the page redirects to /login (the app layout also gates the route, but
+ *   the hook fires earlier in the client render cycle).
+ * - `'connection-lost'` — the WS closed unexpectedly mid-call (heartbeat eviction
+ *   or network drop). The page should show "call ended" and return to the lobby.
+ * - `'generic'` — any other runtime error during join.
+ */
+export type ConferenceErrorReason =
+  'permission-denied' | 'audio-only' | 'not-authenticated' | 'connection-lost' | 'generic';
 
 export interface PeerState {
   displayName: string;
@@ -53,6 +70,11 @@ export interface PeerState {
 
 export interface UseConferenceReturn {
   status: ConferenceStatus;
+  /**
+   * Present when `status === 'error'` or `status === 'disconnected'`.
+   * Undefined in all other states.
+   */
+  errorReason: ConferenceErrorReason | undefined;
   localStream: MediaStream | null;
   /** socketId → PeerState for all remote peers */
   peers: Map<string, PeerState>;
@@ -325,6 +347,7 @@ export function useConference(
   const { displayName, sourceLanguage } = options;
 
   const [status, setStatus] = useState<ConferenceStatus>('idle');
+  const [errorReason, setErrorReason] = useState<ConferenceErrorReason | undefined>(undefined);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [peers, setPeers] = useState<Map<string, PeerState>>(new Map());
   const [mySocketId, setMySocketId] = useState<string | null>(null);
@@ -381,8 +404,15 @@ export function useConference(
     const session = await getSession();
     const token = (session as { accessToken?: string } | null)?.accessToken;
     if (!token) {
-      addLog('Not logged in — please sign in first.');
+      addLog('Not logged in — redirecting to /login.');
+      setErrorReason('not-authenticated');
       setStatus('error');
+      // Redirect client-side; the server layout already gates the route but the
+      // hook fires earlier in the render cycle (client-side join auto-invocation).
+      if (typeof window !== 'undefined') {
+        const callbackUrl = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.replace(`/login?callbackUrl=${callbackUrl}`);
+      }
       return;
     }
 
@@ -426,7 +456,49 @@ export function useConference(
         deviceRef.current = device;
         addLog('Device loaded');
 
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        // Phase 5: handle permission denial gracefully.
+        // Try audio+video; on failure attempt audio-only; on total failure surface
+        // a clear 'permission-denied' state rather than an uncaught throw.
+        let stream: MediaStream;
+        let audioOnly = false;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        } catch (mediaErr) {
+          const name = (mediaErr as Error).name;
+          if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+            // Camera denied — try audio-only so the call can still proceed.
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+              audioOnly = true;
+              addLog('Camera permission denied — joining audio-only.');
+            } catch {
+              addLog('Mic permission denied — cannot join.');
+              setErrorReason('permission-denied');
+              setStatus('error');
+              ws.close();
+              return;
+            }
+          } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+            // No camera device — fall back to audio-only automatically.
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+              audioOnly = true;
+              addLog('No camera found — joining audio-only.');
+            } catch {
+              addLog('No audio device — cannot join.');
+              setErrorReason('permission-denied');
+              setStatus('error');
+              ws.close();
+              return;
+            }
+          } else {
+            throw mediaErr;
+          }
+        }
+        if (audioOnly) {
+          // Surface a soft notice to the room page without blocking the call.
+          setErrorReason('audio-only');
+        }
         setLocalStream(stream);
         localStreamRef.current = stream;
         addLog('Got local media');
@@ -602,13 +674,24 @@ export function useConference(
         });
       } catch (err) {
         addLog(`Error: ${(err as Error).message}`);
+        setErrorReason('generic');
         setStatus('error');
       }
     });
 
     ws.addEventListener('close', () => {
       addLog('WS closed');
-      setStatus('idle');
+      // If we were in-call (not an intentional leave() which sets status to
+      // 'idle' before closing the socket), surface 'disconnected' so the page
+      // can show "connection lost / call ended" and return to lobby cleanly.
+      setStatus((prev) => {
+        if (prev === 'in-call' || prev === 'connecting') {
+          setErrorReason('connection-lost');
+          return 'disconnected';
+        }
+        // Intentional leave: leave() already set status to 'idle'.
+        return 'idle';
+      });
       setPeers(new Map());
     });
 
@@ -618,6 +701,10 @@ export function useConference(
   }, [roomId, displayName, sourceLanguage, addLog, onTrack]);
 
   const leave = useCallback(() => {
+    // Set status to 'idle' BEFORE closing the socket so the WS 'close' handler
+    // sees 'idle' and does not override it with 'disconnected'.
+    setStatus('idle');
+    setErrorReason(undefined);
     wsRef.current?.close();
     wsRef.current = null;
     deviceRef.current = null;
@@ -703,6 +790,7 @@ export function useConference(
 
   return {
     status,
+    errorReason,
     localStream,
     peers,
     mySocketId,

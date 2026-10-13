@@ -633,6 +633,15 @@ export const en = {
   'web.conference.rosterTitle': 'In this call',
   'web.conference.hideRoster': 'Hide participants',
   'web.conference.showRoster': 'Show participants',
+  // ---- web.conference: edge-case states (Phase 5) ----
+  'web.conference.permissionDenied': 'Camera and microphone access is required.',
+  'web.conference.permissionDeniedHint':
+    'Open your browser settings and allow access to the camera and microphone, then reload this page.',
+  'web.conference.permissionDeniedAudioOnly': 'No camera access — joining with audio only.',
+  'web.conference.disconnected': 'Connection lost.',
+  'web.conference.disconnectedHint': 'The call ended. Return to the lobby to rejoin.',
+  'web.conference.backToLobby': 'Back to lobby',
+  'web.conference.errorGeneric': 'Something went wrong.',
   'web.meta.conference': 'Conference · Chatofy',
 } as const;
 

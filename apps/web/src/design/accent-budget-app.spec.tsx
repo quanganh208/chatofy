@@ -856,6 +856,7 @@ const SCREENS: ScreenState[] = [
     setup() {
       useConference.mockReturnValue({
         status: 'in-call',
+        errorReason: undefined,
         localStream: null,
         peers: new Map(),
         mySocketId: 's-local',
@@ -876,6 +877,7 @@ const SCREENS: ScreenState[] = [
     setup() {
       useConference.mockReturnValue({
         status: 'in-call',
+        errorReason: undefined,
         localStream: null,
         peers: new Map([
           [
@@ -892,6 +894,92 @@ const SCREENS: ScreenState[] = [
         mySocketId: 's-local',
         localMuted: false,
         localVideoEnabled: true,
+        join: vi.fn(),
+        leave: vi.fn(),
+        toggleMute: vi.fn(),
+        toggleVideo: vi.fn(),
+      });
+    },
+    render: () => <ConferenceRoomPage />,
+  },
+  // ---- Phase 5 edge-case states — one accent (Leave / Back to lobby) each, zero surfaces ----
+  {
+    name: '/conference/[roomId] — permission denied',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      useConference.mockReturnValue({
+        status: 'error',
+        errorReason: 'permission-denied',
+        localStream: null,
+        peers: new Map(),
+        mySocketId: null,
+        localMuted: false,
+        localVideoEnabled: true,
+        join: vi.fn(),
+        leave: vi.fn(),
+        toggleMute: vi.fn(),
+        toggleVideo: vi.fn(),
+      });
+    },
+    render: () => <ConferenceRoomPage />,
+  },
+  {
+    name: '/conference/[roomId] — disconnected mid-call',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      useConference.mockReturnValue({
+        status: 'disconnected',
+        errorReason: 'connection-lost',
+        localStream: null,
+        peers: new Map(),
+        mySocketId: null,
+        localMuted: false,
+        localVideoEnabled: true,
+        join: vi.fn(),
+        leave: vi.fn(),
+        toggleMute: vi.fn(),
+        toggleVideo: vi.fn(),
+      });
+    },
+    render: () => <ConferenceRoomPage />,
+  },
+  {
+    name: '/conference/[roomId] — generic error',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      useConference.mockReturnValue({
+        status: 'error',
+        errorReason: 'generic',
+        localStream: null,
+        peers: new Map(),
+        mySocketId: null,
+        localMuted: false,
+        localVideoEnabled: true,
+        join: vi.fn(),
+        leave: vi.fn(),
+        toggleMute: vi.fn(),
+        toggleVideo: vi.fn(),
+      });
+    },
+    render: () => <ConferenceRoomPage />,
+  },
+  {
+    // Audio-only is an in-call state with a soft inline notice — still one accent, zero surfaces.
+    name: '/conference/[roomId] — audio-only (camera denied)',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      useConference.mockReturnValue({
+        status: 'in-call',
+        errorReason: 'audio-only',
+        localStream: null,
+        peers: new Map(),
+        mySocketId: 's-local',
+        localMuted: false,
+        localVideoEnabled: false,
         join: vi.fn(),
         leave: vi.fn(),
         toggleMute: vi.fn(),

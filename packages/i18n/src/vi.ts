@@ -452,5 +452,14 @@ export const vi: Messages = {
   'web.conference.rosterTitle': 'Trong cuộc gọi này',
   'web.conference.hideRoster': 'Ẩn danh sách',
   'web.conference.showRoster': 'Xem danh sách',
+  // ---- web.conference: trạng thái ngoại lệ (Phase 5) ----
+  'web.conference.permissionDenied': 'Cần quyền truy cập camera và micro.',
+  'web.conference.permissionDeniedHint':
+    'Mở cài đặt trình duyệt và cấp quyền camera + micro, sau đó tải lại trang.',
+  'web.conference.permissionDeniedAudioOnly': 'Không có camera — tham gia chỉ với âm thanh.',
+  'web.conference.disconnected': 'Mất kết nối.',
+  'web.conference.disconnectedHint': 'Cuộc gọi đã kết thúc. Quay lại sảnh để tham gia lại.',
+  'web.conference.backToLobby': 'Về sảnh',
+  'web.conference.errorGeneric': 'Đã xảy ra lỗi.',
   'web.meta.conference': 'Hội nghị · Chatofy',
 };
