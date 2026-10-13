@@ -1,6 +1,6 @@
 'use client';
 
-import { LANGUAGES, type LanguageCode } from '@chatofy/types';
+import type { LanguageCode } from '@chatofy/types';
 import type { DirectionToggleLabels } from '@chatofy/ui/react';
 import type { Translate } from '@chatofy/i18n';
 
@@ -15,13 +15,13 @@ import type { Translate } from '@chatofy/i18n';
  *
  * ## Language names
  *
- * The toggle names a language with its OWN name for itself — "Tiếng Việt" regardless of
- * which locale the interface is in, so it needs no dictionary. A locale-dependent name
- * (`web.languageName.<code>`, used for history rows and glossary columns, which DO vary
- * by interface locale) lives in `direction-label.tsx` instead.
+ * In the interface locale — "Tiếng Trung" in Vietnamese, "Chinese" in English — the
+ * same `web.languageName.<code>` that history rows and glossary columns use, so a
+ * language is called one thing everywhere on web. It used to be each language's own
+ * name ("简体中文"), which a reader who does not read that language cannot pick.
  */
-export function nativeLanguageName(code: LanguageCode): string {
-  return LANGUAGES[code].nativeName;
+export function languageNamer(t: Translate): (code: LanguageCode) => string {
+  return (code) => t(`web.languageName.${code}`);
 }
 
 export function directionLabels(t: Translate): DirectionToggleLabels {

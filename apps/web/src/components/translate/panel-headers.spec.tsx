@@ -36,12 +36,15 @@ afterEach(() => {
   container.remove();
 });
 
-function render(props: Partial<Parameters<typeof PanelHeaders>[0]> = {}) {
+function render(
+  props: Partial<Parameters<typeof PanelHeaders>[0]> = {},
+  locale: 'en' | 'vi' = 'en',
+) {
   const onSwap = vi.fn();
   const onDirection = vi.fn();
   act(() => {
     root.render(
-      <LocaleProvider>
+      <LocaleProvider locale={locale}>
         <PanelHeaders
           direction="vi_to_en"
           running={false}
@@ -78,13 +81,19 @@ describe('PanelHeaders', () => {
     render();
     expect(container.textContent).toContain('Source');
     expect(container.textContent).toContain('Translation');
-    // Autonyms, in both locales: a language is named the way its own speakers
-    // name it, which is the rule the locale switcher already follows.
-    expect(container.textContent).toContain('Tiếng Việt');
+    // In the interface locale (English here): the same name history rows and
+    // glossary columns use, not the language's own name for itself.
+    expect(container.textContent).toContain('Vietnamese');
     expect(container.textContent).toContain('English');
     // The codes are an implementation detail of the wire and have no business on
     // a screen — the rule the direction control was rewritten to hold.
     expect(container.textContent).not.toMatch(/\bvi_to_en\b/);
+  });
+
+  it('names the languages in the Vietnamese interface in Vietnamese', () => {
+    render({ direction: 'zh_to_vi' }, 'vi');
+    expect(pickers().map((picker) => picker.textContent)).toEqual(['Tiếng Trung', 'Tiếng Việt']);
+    expect(container.textContent).not.toContain('中文');
   });
 
   it('stacks the two sides, identically at every width', () => {
@@ -105,7 +114,7 @@ describe('PanelHeaders', () => {
     render({ direction: 'en_to_vi' });
     const [source, translation] = pickers().map((picker) => picker.textContent);
     expect(source).toBe('English');
-    expect(translation).toBe('Tiếng Việt');
+    expect(translation).toBe('Vietnamese');
   });
 
   it('picks a language per side, and keeps the one-press swap', () => {
@@ -134,7 +143,7 @@ describe('PanelHeaders', () => {
     expect(pickers().every((picker) => picker.disabled)).toBe(true);
     // Disabled, not hidden: which way this is translating is exactly what a
     // reader still wants to see while they are talking.
-    expect(container.textContent).toContain('Tiếng Việt');
+    expect(container.textContent).toContain('Vietnamese');
     expect(container.textContent).toContain('English');
   });
 
@@ -143,7 +152,7 @@ describe('PanelHeaders', () => {
     // A bare verb with no object is unusable from a screen reader: "swap" what,
     // into what. The interpolated name is why the key takes two arguments.
     expect(swap()?.getAttribute('aria-label')).toBe(
-      'Swap direction — translate English into Tiếng Việt',
+      'Swap direction — translate English into Vietnamese',
     );
   });
 

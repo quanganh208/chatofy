@@ -8,7 +8,7 @@ import { DisplaySettingsPanel } from '@/components/translate/display-settings-pa
 import { useTranslateSettings } from '@/hooks/use-translate-settings';
 import { useTranslationContexts } from '@/hooks/use-translation-contexts';
 import { useTranslate } from '@/i18n/provider';
-import { directionLabels, nativeLanguageName } from '@/i18n/direction-labels';
+import { directionLabels, languageNamer } from '@/i18n/direction-labels';
 
 /**
  * Where a new conversation starts from.
@@ -63,7 +63,7 @@ export function ConversationDefaultsSection() {
             value={settings.direction}
             onChange={(direction) => set({ direction })}
             labels={directionLabels(t)}
-            nameLanguage={nativeLanguageName}
+            nameLanguage={languageNamer(t)}
           />
 
           {/* Which context a NEW conversation starts under, beside the direction

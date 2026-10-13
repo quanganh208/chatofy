@@ -4,7 +4,7 @@ import { ArrowLeftRight } from 'lucide-react';
 import { Button, LanguageSelect, pairAfterPick } from '@chatofy/ui/react';
 import { directionLanguages, type TranslationDirection } from '@chatofy/types';
 import { useTranslate } from '@/i18n/provider';
-import { nativeLanguageName } from '@/i18n/direction-labels';
+import { languageNamer } from '@/i18n/direction-labels';
 import { cn } from '@/lib/utils';
 
 interface PanelHeadersProps {
@@ -189,7 +189,7 @@ export function HeaderLanguage({
         side === 'source' ? 'web.translate.directionSource' : 'web.translate.directionTarget',
       )}
       disabled={running}
-      nameLanguage={nativeLanguageName}
+      nameLanguage={languageNamer(t)}
       size="sm"
       className="font-medium"
     />
@@ -217,6 +217,7 @@ export function DirectionSwap({
 }) {
   const t = useTranslate();
   const { source, target } = directionLanguages(direction);
+  const nameLanguage = languageNamer(t);
 
   return (
     <Button
@@ -225,8 +226,8 @@ export function DirectionSwap({
       disabled={running}
       onClick={onSwap}
       aria-label={t('web.translate.directionSwap', {
-        from: nativeLanguageName(target),
-        to: nativeLanguageName(source),
+        from: nameLanguage(target),
+        to: nameLanguage(source),
       })}
       className={cn(
         'text-prose hover:text-foreground disabled:hover:text-inherit',

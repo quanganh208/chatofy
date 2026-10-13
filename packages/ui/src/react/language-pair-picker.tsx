@@ -44,13 +44,15 @@ const DEFAULT_LABELS: DirectionToggleLabels = {
 };
 
 /**
- * A language by its own name for itself — "Tiếng Việt", "简体中文" — whatever the
- * interface locale, the rule web already follows for direction (see
- * `apps/web/src/i18n/direction-labels.ts`). It is also what fits: in the 320px
- * popup a side has about 80px of text, which "Vietnamese" overran and "Simplified
- * Chinese" would have doubled.
+ * A language by its English interface name — "Vietnamese", "Chinese" — which is what
+ * the extension popup, the one caller without a dictionary, shows. Web passes the
+ * reader's locale's names instead (`apps/web/src/i18n/direction-labels.ts`).
+ *
+ * A name the reader recognises in their own interface language beats the language's
+ * name for itself: "简体中文" in a Vietnamese or English interface is a word most
+ * readers cannot read, on the control that decides what they will hear.
  */
-const ownName = (code: LanguageCode) => LANGUAGES[code].nativeName;
+const englishLabel = (code: LanguageCode) => LANGUAGES[code].label;
 
 /**
  * The pair after picking `code` on one `side`.
@@ -99,7 +101,7 @@ export function LanguageSelect({
   label,
   languages = LANGUAGE_CODES,
   disabled,
-  nameLanguage = ownName,
+  nameLanguage = englishLabel,
   size = 'default',
   className,
 }: LanguageSelectProps) {
@@ -128,7 +130,7 @@ interface LanguagePairPickerProps {
   disabled?: boolean;
   onChange: (direction: TranslationDirection) => void;
   labels?: DirectionToggleLabels;
-  /** Names the languages. Defaults to each language's own name. */
+  /** Names the languages. Defaults to each language's English interface name. */
   nameLanguage?: (code: LanguageCode) => string;
   /** The languages offered on either side; the registry by default. */
   languages?: readonly LanguageCode[];
@@ -143,13 +145,19 @@ interface LanguagePairPickerProps {
  * because reversing the pair between turns is the common action and it is one press
  * instead of two selects. It is `outline`, and the selects are fields, so the control
  * spends no accent.
+ *
+ * Side by side from 18rem of its OWN width, stacked below it — a container query,
+ * not a viewport one, because the same control sits in the 320px popup (a 288px row,
+ * side by side) and in a padded card on a 375px phone (about 280px, where "Tiếng
+ * Trung" was clipped). Stacked, the swap sits between the two and turns to point
+ * up and down.
  */
 export function LanguagePairPicker({
   value,
   disabled,
   onChange,
   labels = DEFAULT_LABELS,
-  nameLanguage = ownName,
+  nameLanguage = englishLabel,
   languages = LANGUAGE_CODES,
 }: LanguagePairPickerProps) {
   const { source, target } = directionLanguages(value);
@@ -157,11 +165,11 @@ export function LanguagePairPicker({
     onChange(pairAfterPick(value, side, code));
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="@container flex flex-col gap-2">
       <span className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
         {labels.direction}
       </span>
-      <div className="flex items-end gap-2">
+      <div className="flex flex-col gap-2 @2xs:flex-row @2xs:items-end">
         <Side role={labels.source}>
           <LanguageSelect
             value={source}
@@ -182,11 +190,11 @@ export function LanguagePairPicker({
           className={cn(
             'text-prose hover:text-foreground disabled:hover:text-inherit',
             // `size-auto` overrides the `icon` size deliberately: a round 34px swap,
-            // centred on the 40px fields beside it.
-            'mb-[3px] size-auto shrink-0 rounded-full p-2',
+            // centred on the 40px fields beside it — or between them, stacked.
+            'size-auto shrink-0 self-center rounded-full p-2 @2xs:mb-[3px] @2xs:self-auto',
           )}
         >
-          <ArrowLeftRight aria-hidden className="size-3.5" />
+          <ArrowLeftRight aria-hidden className="size-3.5 @max-2xs:rotate-90" />
         </Button>
         <Side role={labels.translation}>
           <LanguageSelect

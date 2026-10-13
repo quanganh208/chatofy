@@ -684,10 +684,11 @@ VIETNAMESE ALONE has found a bad translation, not a stylistic quibble. That is t
 test the exemptions above use, applied one locale at a time.
 
 **Language names are locale-dependent**, where codes were merely banned.
-`DirectionToggle` defaults to the registry's English name, which is right for the popup
-with no locale; web passes each language's own name (`nativeLanguageName` in
-`apps/web/src/i18n/direction-labels.ts`), and history rows and glossary columns use the
-interface locale's `web.languageName.<code>` (`history/direction-label.tsx`).
+`LanguagePairPicker` defaults to the registry's English interface name (`label`:
+"Chinese"), which is right for the popup with no locale. Everywhere on web — the
+pickers (`languageNamer` in `apps/web/src/i18n/direction-labels.ts`), history rows and
+glossary columns — a language is the interface locale's `web.languageName.<code>`.
+Not the language's own name: "简体中文" is unreadable to most of the readers choosing it.
 
 **The register of address is neutral "bạn"**, everywhere. Not "quý
 khách", which is the register of a bank and wrong for a tool used daily, and not

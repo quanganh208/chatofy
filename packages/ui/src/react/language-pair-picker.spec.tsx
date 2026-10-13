@@ -58,27 +58,27 @@ const optionNames = () => screen.getAllByRole('option').map((option) => option.t
 describe('LanguagePairPicker', () => {
   it('names each side with its label and shows the chosen languages', () => {
     renderPicker('vi_to_zh');
-    // Each language by its own name, as web names them.
-    expect(screen.getByRole('combobox', { name: 'Source' }).textContent).toContain('Tiếng Việt');
-    expect(screen.getByRole('combobox', { name: 'Translation' }).textContent).toContain('简体中文');
+    // Each language by its English interface name, as the popup names them.
+    expect(screen.getByRole('combobox', { name: 'Source' }).textContent).toContain('Vietnamese');
+    expect(screen.getByRole('combobox', { name: 'Translation' }).textContent).toContain('Chinese');
   });
 
   it('offers every registry language on a side', async () => {
     renderPicker('vi_to_en');
     await userEvent.click(screen.getByRole('combobox', { name: 'Translation' }));
-    expect(optionNames()).toEqual(['Tiếng Việt', 'English', '简体中文']);
+    expect(optionNames()).toEqual(['Vietnamese', 'English', 'Chinese']);
   });
 
   it('a languages prop narrows what either side offers', async () => {
     renderPicker('vi_to_en', { languages: ['vi', 'en'] });
     await userEvent.click(screen.getByRole('combobox', { name: 'Source' }));
-    expect(optionNames()).toEqual(['Tiếng Việt', 'English']);
+    expect(optionNames()).toEqual(['Vietnamese', 'English']);
   });
 
   it('picking a language goes through pairAfterPick', async () => {
     const onChange = renderPicker('vi_to_en');
     await userEvent.click(screen.getByRole('combobox', { name: 'Translation' }));
-    await userEvent.click(screen.getByRole('option', { name: '简体中文' }));
+    await userEvent.click(screen.getByRole('option', { name: 'Chinese' }));
     expect(onChange).toHaveBeenCalledWith('vi_to_zh');
   });
 
@@ -86,7 +86,7 @@ describe('LanguagePairPicker', () => {
     const onChange = renderPicker('en_to_zh');
     await userEvent.click(
       screen.getByRole('button', {
-        name: 'Swap direction — translate 简体中文 into English',
+        name: 'Swap direction — translate Chinese into English',
       }),
     );
     expect(onChange).toHaveBeenCalledWith('zh_to_en');
