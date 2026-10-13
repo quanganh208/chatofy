@@ -24,16 +24,18 @@ _MAX_CARDINAL_DIGITS = 12
 #: A run this long is a phone number or an identifier, read digit by digit.
 _DIGITWISE_FROM = 11
 
-#: Full-width forms a zh translation may contain, folded to ASCII first.
-_FULL_WIDTH = str.maketrans("０１２３４５６７８９％．：", "0123456789%.:")
+#: Full-width forms a zh translation may contain, folded to ASCII first. The
+#: full-width colon is NOT folded here — it is ordinary punctuation in Chinese
+#: (`注意：`); `_TIME` accepts it between two digit groups instead.
+_FULL_WIDTH = str.maketrans("０１２３４５６７８９％．", "0123456789%.")
 
 #: 2 before a measure word is 两, not 二: 两个人, 两点, 两天.
-_LIANG_BEFORE = "个位种次件本张天年点只条台辆份家岁小周倍"
+_LIANG_BEFORE = "个位种次件本张天年点只条台辆份家岁小周倍千万亿"
 
 _THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}(?!\d))")
 _ISO_DATE = re.compile(r"(?<!\d)(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)")
 _PERCENT = re.compile(r"(\d+(?:\.\d+)?)\s*%")
-_TIME = re.compile(r"(?<![\d.])(\d{1,2}):(\d{2})(?![\d:])")
+_TIME = re.compile(r"(?<![\d.])(\d{1,2})[:：](\d{2})(?![\d:：])")
 _YEAR = re.compile(r"(?<!\d)(\d{4})(?=\s*年)")
 _VERSION = re.compile(r"(?<![\d.])\d+(?:\.\d+){2,}(?![\d.])")
 _DECIMAL = re.compile(r"(?<![\d.])(\d+)\.(\d+)(?![\d.])")
@@ -102,7 +104,7 @@ def _time(match: re.Match) -> str:
     hour, minute = int(match.group(1)), int(match.group(2))
     if hour > 24 or minute > 59:
         return match.group(0)
-    spoken = f"{int_to_zh(hour)}点"
+    spoken = f"{'两' if hour == 2 else int_to_zh(hour)}点"
     if minute == 0:
         return spoken
     return spoken + (f"零{_DIGITS[minute]}" if minute < 10 else int_to_zh(minute))

@@ -16,7 +16,7 @@ RESTORERS = {"vi": DisplayRestorer(), "zh": ZhPunctuationRestorer()}
 #: The languages whose `/transcribe` answer carries per-word pauses.
 PAUSE_LANGUAGES = frozenset({"vi"})
 
-#: The restorer whose absence is an outage of the display path (503, which the
-#: API answers with a cooldown). Every other one answers 400 when unloaded, so a
-#: missing secondary model can never pause Vietnamese restores.
+#: The restorer whose absence answers 503, as it always has. Every other one
+#: answers 404 when unloaded; the API pauses restores per language either way,
+#: so a missing secondary model can never pause Vietnamese ones.
 PRIMARY_RESTORE_LANGUAGE = "vi"

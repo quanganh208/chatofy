@@ -119,9 +119,14 @@ describe('chineseInverseNormalize', () => {
     '水煮一分钟就足够了',
     '合金基本上由两种或以上金属混合而成',
     '十分钟以后',
-    // Neighbouring digits a step apart are an estimate.
+    // Two bare digits are an estimate or an idiom, not a number.
     '三四个人',
     '七八天',
+    '三五个人',
+    '三五成群',
+    '五五开',
+    '七七八八',
+    '十万八千里',
     // Idioms a rule would otherwise read as a number.
     '一点一滴',
     '一点一点地',

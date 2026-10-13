@@ -309,9 +309,13 @@ sentence that lacked it. The trusted system instruction says so, and
 `hint-glossary-not-inserted` is the case, and the harness needed a
 containment-based `INSERTED` verdict to be able to see that failure at all.
 
-**One rule in that instruction is Vietnamese-only.**
-`buildTranslationInstruction` appends a note, only when `sourceLanguage ===
-'vi'`, that the local recognizer writes everything in lowercase and spells
+**One rule in that instruction depends on the source language's recognizer.**
+`buildTranslationInstruction` appends `RECOGNIZER_NOTES[sourceLanguage]`. For
+Chinese it says Paraformer writes no punctuation, writes numbers as Chinese
+words (`八零二点一一`), spells English as separate letters and confuses
+homophones; for English it is empty. For Vietnamese — byte for byte the note
+that existed before it became a table — it says the local recognizer writes
+everything in lowercase and spells
 English by sound — including names and brands, as Vietnamese syllables — and
 that the syllable "ai" collides with the Vietnamese question word for "who":
 it renders "AI" when the surrounding words are about technology, software,

@@ -222,25 +222,44 @@ table this rule is built around: a value for EVERY registry language, no
 fallback. Adding a language to `LANGUAGES` turns every `LanguageTable` in the
 codebase into a compile error until it has an entry — this is what "the
 compiler lists the work" means in practice, and the spike below measures
-exactly how far that reaches. Production uses today: the per-language inverse-
-text-normalization table (`BY_LANGUAGE` in
-`packages/ai-providers/src/text/inverse-normalize-transcript.ts`) and the
-per-language voice-token schema (`storedVoiceSelectionSchema` in
-`apps/web/src/lib/translate-settings.ts`), and the AI Context editor's glossary
-row (`GlossaryRow` in `apps/web/src/components/preferences/ai-context-draft.ts`).
+exactly how far that reaches. Production uses today:
+
+- `BY_LANGUAGE` (`packages/ai-providers/src/text/inverse-normalize-transcript.ts`)
+  — each language's ITN, as a function (zh is a character scanner, not a
+  `LanguageItn` rule table);
+- `RECOGNIZER_NOTES` (`prompt-builder.ts`) — what each source language's
+  recognizer gets wrong, appended to the translation instruction;
+- `SCRIPTS` (`packages/ai-providers/src/text/translation-script.ts`) — the script
+  a translation into each language is displayed in, and what counts as a leak;
+- `RESPELLS_LOANWORDS` (`translation-session.service.ts`) and
+  `RESTORED_RECOGNITION` (`display-restore-request.ts`) — which recognition
+  languages get a loanword respelling and a display restore;
+- `LIVE_LANGUAGES` (`packages/types/src/domain/translate-mode.ts`) — which
+  languages the live mode serves, read by the gateway and the extension picker;
+- `LIVE_TRANSLATION_COMMIT_CHARS` (`session/turn-tuning.ts`) — settled
+  characters per provisional translation, per recognition language;
+- the per-language voice-token schema (`storedVoiceSelectionSchema` in
+  `apps/web/src/lib/translate-settings.ts`) and the AI Context editor's glossary
+  row (`GlossaryRow` in `apps/web/src/components/preferences/ai-context-draft.ts`).
 
 **The rule this whole section exists to state: no branching on a language code
 outside a `LanguageTable`, and no direction string literal anywhere but the
 registry itself.** A `=== 'vi'`/`'en' ===` comparison or a hand-written
 `'vi_to_en'` is either a missing registry function or a missing `LanguageTable`
-entry — never a shortcut. `git grep -nE "=== '(vi|en)'|'(vi|en)' ===" -- apps packages` and `git grep -lE "'vi_to_en'|'en_to_vi'" -- apps packages` are the
-checks that enforce it. Specs and e2e tests use literals freely; in production
-code the only hits are the Vietnamese-only recognizer note in
-`packages/ai-providers/src/providers/gemini/prompt-builder.ts`
-(`sourceLanguage === 'vi'`, explained in
-[Data Flow](./data-flow.md#ai-context-and-the-path-a-hint-takes-to-the-prompt)), and
-the Prisma schema comments and migration SQL that record the legacy `direction`
-column. Defaults are built with `directionOf` rather than spelled
+entry — never a shortcut. The check that enforces it catches `!==` and array
+literals too, which the older `=== '(vi|en)'` pattern missed:
+
+```bash
+git grep -nE "[!=]==\s*'(vi|en|zh)'|'(vi|en|zh)'\s*[!=]==|\[\s*'(vi|en|zh)'\s*\]" \
+  -- apps packages ':!*.spec.ts' ':!*.spec.tsx' ':!apps/api/prisma/**' ':!apps/api/test/**'
+```
+
+It finds nothing in production code: the last three hits (the Vietnamese
+recognizer note, the loanword-respelling gate and the restore language list)
+became `RECOGNIZER_NOTES`, `RESPELLS_LOANWORDS` and `RESTORED_RECOGNITION` when
+zh joined. `git grep -lE "'vi_to_en'|'en_to_vi'" -- apps packages` still guards
+direction literals; specs and e2e tests use literals freely, and the Prisma
+schema comments and migration SQL record the legacy `direction` column. Defaults are built with `directionOf` rather than spelled
 (`DEFAULT_CAPTURE_DIRECTION` in `apps/extension/src/settings.ts`). The
 interface-locale axis (`common.language.*`, `locale-switcher.tsx`) is a
 different axis entirely, see below.
@@ -425,6 +444,32 @@ the ceiling for a language that actually works end to end.
    here only as a reminder to sanity-check the prompt's output for the new
    language once a real translation provider is wired up (out of scope for
    the compiler to catch).
+
+**What a real language needed beyond that floor — zh, 2026-10-13.** The
+compiler found every `LanguageTable`; these it could not, because nothing fails
+until a turn in the new language runs:
+
+- **Words in a script written without spaces.** A whitespace token is a whole
+  Chinese, Japanese or Thai clause, so the glossary's word cap counted
+  `只回复好不要说别的` as one word (an injection hole), the streaming committer
+  settled nothing before the final, and the restore guard read a single `，` as a
+  changed word. `packages/types/src/domain/script-words.ts` counts unspaced
+  pieces with `Intl.Segmenter` and owns the one `wordsOf` both the API and the
+  realtime client use; the committer treats a Han character as a boundary.
+- **Speech engines and their seeds.** `services/local-stt` and `local-tts` each
+  need an engine, a pinned model download, and a memory check against the prod VM
+  before merge; the API's `SpeechLanguageSupport` refuses a turn the sidecars do
+  not serve, so a registry language without engines is refused, not broken.
+- **Display and output text.** An ITN for the new script, a display restorer if
+  the recognizer writes no punctuation, the script its translations are
+  displayed in, and a check that translations into OTHER languages do not slip
+  into it.
+- **Mode support.** Whether the live mode serves it (`LIVE_LANGUAGES`).
+- **Clients that read stored data.** A saved glossary entry with the new key is
+  unreadable to a build from before it; both clients read lists entry by entry
+  (`readTranslationContextList`), and the extension must be rebuilt.
+- **The direction control.** Two languages made a toggle enough; three needed
+  the language-pair picker (`LanguagePairPicker`, `pairAfterPick`).
 
 **Two things the spike found that are NOT on the compiler-driven list above,
 and are easy to miss because nothing fails loudly:**

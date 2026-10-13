@@ -276,7 +276,9 @@ export class TranslationSessionService implements OnModuleDestroy {
 
     const session = new TurnSession(options, turnId, {
       budget: this.budget,
-      commitChars: LIVE_TRANSLATION_COMMIT_CHARS,
+      // Counted in the language the turn is RECOGNIZED in: that is the text
+      // the trigger reads as it settles.
+      commitChars: LIVE_TRANSLATION_COMMIT_CHARS[plan.recognition],
       userId,
       languages: plan,
       learnedTerms: this.context.learnedTerms(socket),
