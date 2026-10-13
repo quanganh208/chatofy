@@ -76,6 +76,7 @@ export {
 // carries its digits the first time it paints. Pure and total on a string: no
 // network, no key, no second event.
 export { inverseNormalizeTranscript } from './text/inverse-normalize-transcript.js';
+export { chineseInverseNormalize } from './text/chinese-inverse-normalize.js';
 
 export { ProviderRegistry } from './registry/index.js';
 export type { ProviderKind, ProviderKindMap, ProviderEntry } from './registry/index.js';
