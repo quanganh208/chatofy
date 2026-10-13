@@ -8,6 +8,8 @@ results into a markdown report.
     uv run python run_benchmark.py --report-out path  # also render the report
     uv run python run_benchmark.py --decoder-arms \
         --run-tag r3-decoder-arms                     # vi decode comparison only
+    uv run python run_benchmark.py --zh-set fleurs \
+        --run-tag r11-zh-fleurs                       # Mandarin arms, one set
 
 Per-engine results land in results/{run_tag}/{engine}.jsonl.
 """
@@ -38,6 +40,11 @@ DECODER_ARM_ENGINES = [
     ("sherpa-zipformer-vi-beam", "data/manifest-vi.jsonl"),
     ("sherpa-zipformer-vi-beam-hotwords", "data/manifest-vi.jsonl"),
 ]
+
+# Mandarin arms. One manifest per run tag, because result files are keyed by
+# engine id and every arm runs over both sets.
+ZH_ENGINE_IDS = ["sherpa-sensevoice-zh", "sherpa-sensevoice-zh-noitn", "sherpa-paraformer-zh"]
+ZH_MANIFESTS = {"fleurs": "data/manifest-zh-fleurs.jsonl", "aishell": "data/manifest-zh-aishell.jsonl"}
 
 
 def run_one(engine_id: str, manifest: str, out_path: Path) -> bool:
@@ -71,15 +78,25 @@ def main() -> int:
         action="store_true",
         help="run the vi decode-comparison arms INSTEAD of the stack comparison",
     )
+    parser.add_argument(
+        "--zh-set",
+        choices=sorted(ZH_MANIFESTS),
+        help="run the Mandarin arms over this set INSTEAD of the stack comparison",
+    )
     parser.add_argument("--engines", help="comma-separated subset of engine ids")
     parser.add_argument("--report-out", type=Path, help="render markdown report to this path")
     args = parser.parse_args()
 
+    if args.decoder_arms and args.zh_set:
+        print("[error] --decoder-arms and --zh-set are separate runs", file=sys.stderr)
+        return 1
+    if (args.decoder_arms or args.zh_set) and args.include_cloud:
+        print("[error] --decoder-arms/--zh-set are local-only; drop --include-cloud", file=sys.stderr)
+        return 1
     if args.decoder_arms:
-        if args.include_cloud:
-            print("[error] --decoder-arms is local-only; drop --include-cloud", file=sys.stderr)
-            return 1
         engines = DECODER_ARM_ENGINES
+    elif args.zh_set:
+        engines = [(engine_id, ZH_MANIFESTS[args.zh_set]) for engine_id in ZH_ENGINE_IDS]
     else:
         engines = LOCAL_ENGINES + (CLOUD_ENGINES if args.include_cloud else [])
     if args.engines:

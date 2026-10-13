@@ -100,6 +100,32 @@ the test set's own reference texts (`stt_bench/hotwords.py` documents the rule),
 so it measures what biasing could buy if the rare terms were known in advance.
 Live conversation does not grant that. Report the number with the label attached.
 
+## Mandarin (zh) arms
+
+Two candidate engines for adding Mandarin, both on the sidecar's pin
+(sherpa-onnx 1.13.4, onnxruntime 1.27.0):
+
+| Engine id                    | Model                                            | Output                    |
+| ---------------------------- | ------------------------------------------------ | ------------------------- |
+| `sherpa-sensevoice-zh`       | SenseVoice-Small int8 2024-07-17, `use_itn=True` | punctuation + digits      |
+| `sherpa-sensevoice-zh-noitn` | same weights, `use_itn=False`                    | bare characters, numerals |
+| `sherpa-paraformer-zh`       | Paraformer-zh int8 2023-09-14                    | bare characters, numerals |
+
+```bash
+uv run python scripts/download_models.py --only sensevoice-zh,paraformer-zh
+uv run --with pyarrow python -I scripts/prepare_datasets_zh.py   # FLEURS cmn + AISHELL-1, 50 each
+uv run python run_benchmark.py --zh-set fleurs --run-tag r11-zh-fleurs
+uv run python run_benchmark.py --zh-set aishell --run-tag r11-zh-aishell
+uv run python scripts/score_zh_results.py r11-zh-fleurs r11-zh-aishell
+```
+
+zh is scored by CER only, through `normalize_text(language="zh")`: NFKC, Arabic
+digits read as spoken Mandarin numerals on both sides (`stt_bench/zh_numbers.py`),
+then every whitespace and punctuation character removed. Traditional ->
+Simplified is not applied. The scorer also prints CER on the rows whose reference
+has no digit or Latin letter, because FLEURS references carry parenthesised
+English names the speakers do not read.
+
 ## Display fidelity — the metric WER cannot be
 
 The WER table above can never credit a fix to the Vietnamese transcript's
