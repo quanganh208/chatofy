@@ -53,8 +53,19 @@ function VideoTile({
     }
   }, [stream]);
 
+  // Active-speaker signal: remote tile with a live subtitle, or local tile while
+  // translating. Uses the `speaking` state token — a readout ring, not accent fill.
+  const isActiveSpeaker = Boolean(subtitle) || translating;
+
   return (
-    <div className="bg-surfaceRaised relative aspect-video overflow-hidden rounded-lg">
+    <div
+      className={[
+        'bg-surfaceRaised relative aspect-video overflow-hidden rounded-lg',
+        isActiveSpeaker ? 'ring-2 ring-speaking' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       {/* Video element — hidden (but still active) when camera is off */}
       {stream && (
         <video

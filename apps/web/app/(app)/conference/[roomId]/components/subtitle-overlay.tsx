@@ -24,15 +24,20 @@ export function SubtitleOverlay({ subtitle, isFinal = true }: SubtitleOverlayPro
 
   return (
     <div
-      className="absolute right-0 bottom-0 left-0 px-2 py-1"
+      className="absolute right-0 bottom-0 left-0 px-2 py-2"
       aria-live="polite"
       aria-atomic="true"
     >
       <p
         className={[
-          'inline rounded px-1.5 py-0.5',
-          'bg-black/60 text-white',
-          'text-label leading-snug',
+          'inline rounded px-2 py-1',
+          // Scrim: black/80 gives ≈18:1 white-on-black — well above the 4.5:1 AA
+          // floor. Opacity is on the ELEMENT (readout), not on the foreground text,
+          // so the white/scrim pair is evaluated at full values.
+          'bg-black/80 text-white',
+          // text-body (14px) is legible across the room; text-label (11px) is not.
+          'text-body leading-snug',
+          // Final subtitles are solid; partials are dimmed to signal in-progress.
           isFinal ? 'opacity-100' : 'opacity-60',
         ].join(' ')}
       >
