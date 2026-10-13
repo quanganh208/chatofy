@@ -39,6 +39,10 @@ as the page:
 | `/index.md`                           | `app/index.md/route.ts`                                | `landing-markdown.spec.ts` fails when a landing string is missing from the twin                  |
 | `/llms.txt`                           | `app/llms.txt/route.ts`                                | Links the absolute `.md` twin                                                                    |
 
+`robots.ts` and `sitemap.ts` are `force-dynamic`: they read no request, so Next
+would otherwise prerender them at build time, before `WEB_BASE_URL` is set. Only a
+deployed build shows this; `next dev` hides it.
+
 Run the scan against a running server. A dev server or preview needs the production
 origin:
 
