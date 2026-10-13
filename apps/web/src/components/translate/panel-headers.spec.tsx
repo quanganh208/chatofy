@@ -38,6 +38,7 @@ afterEach(() => {
 
 function render(props: Partial<Parameters<typeof PanelHeaders>[0]> = {}) {
   const onSwap = vi.fn();
+  const onDirection = vi.fn();
   act(() => {
     root.render(
       <LocaleProvider>
@@ -45,13 +46,19 @@ function render(props: Partial<Parameters<typeof PanelHeaders>[0]> = {}) {
           direction="vi_to_en"
           running={false}
           onSwap={onSwap}
+          onDirection={onDirection}
           voiceControl={<button type="button">voice slot</button>}
           {...props}
         />
       </LocaleProvider>,
     );
   });
-  return { onSwap };
+  return { onSwap, onDirection };
+}
+
+/** The two language pickers, source first. */
+function pickers(): HTMLButtonElement[] {
+  return [...container.querySelectorAll<HTMLButtonElement>('[data-slot="select-trigger"]')];
 }
 
 function swap(): HTMLButtonElement | null {
@@ -76,7 +83,7 @@ describe('PanelHeaders', () => {
     expect(container.textContent).toContain('Tiếng Việt');
     expect(container.textContent).toContain('English');
     // The codes are an implementation detail of the wire and have no business on
-    // a screen — this is the rule `DirectionToggle` was rewritten to hold.
+    // a screen — the rule the direction control was rewritten to hold.
     expect(container.textContent).not.toMatch(/\bvi_to_en\b/);
   });
 
@@ -89,37 +96,42 @@ describe('PanelHeaders', () => {
     // the rule under the source side is what separates the two at every width.
     expect(container.innerHTML).not.toMatch(/\bsm:/);
 
-    const [source, target] = [...container.querySelectorAll('span.text-body')].map(
-      (name) => name.parentElement?.parentElement,
-    );
+    const [source, target] = pickers().map((picker) => picker.parentElement?.parentElement);
     expect(source?.className).toContain('border-b');
     expect(target?.className ?? '').not.toContain('border-b');
   });
 
   it('follows the direction rather than assuming one', () => {
     render({ direction: 'en_to_vi' });
-    const [source, translation] = [...container.querySelectorAll('.text-body')].map(
-      (el) => el.textContent,
-    );
+    const [source, translation] = pickers().map((picker) => picker.textContent);
     expect(source).toBe('English');
     expect(translation).toBe('Tiếng Việt');
   });
 
-  it('offers no way to pick a language, only to swap', () => {
+  it('picks a language per side, and keeps the one-press swap', () => {
     const { onSwap } = render();
-    // The languages are readouts. A picker per side would be a third and fourth
-    // way to make the same change — with `vi`/`en` the whole enum, choosing the
-    // other value in either picker IS the swap.
-    expect(container.querySelectorAll('button').length).toBe(2);
+    // With three languages each side is a real choice, so each is a picker,
+    // named for its side. The swap stays: reversing the pair between turns is
+    // the common action, and it is one press instead of two selects.
+    expect(pickers().map((picker) => picker.getAttribute('aria-label'))).toEqual([
+      'Source',
+      'Translation',
+    ]);
     expect(swap()).toBeTruthy();
     expect(slot()).toBeTruthy();
     act(() => swap()?.click());
     expect(onSwap).toHaveBeenCalledTimes(1);
   });
 
+  it('spends no accent: the pickers are fields and the swap is outline', () => {
+    render();
+    expect(container.querySelector('.bg-primary')).toBeNull();
+  });
+
   it('goes dead while a conversation is running, without going away', () => {
     render({ running: true });
     expect(swap()?.disabled).toBe(true);
+    expect(pickers().every((picker) => picker.disabled)).toBe(true);
     // Disabled, not hidden: which way this is translating is exactly what a
     // reader still wants to see while they are talking.
     expect(container.textContent).toContain('Tiếng Việt');

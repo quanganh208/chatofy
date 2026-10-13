@@ -1,6 +1,6 @@
 'use client';
 
-import { DirectionToggle, Separator, Skeleton } from '@chatofy/ui/react';
+import { LanguagePairPicker, Separator, Skeleton } from '@chatofy/ui/react';
 import { SettingsSection, SettingsSectionRow } from '@/components/layout/settings-section';
 import { ContextPicker } from '@/components/translate/context-picker';
 import { VoiceSettingsPanel } from '@/components/translate/voice-settings-panel';
@@ -59,7 +59,7 @@ export function ConversationDefaultsSection() {
               two permanent panel headers with the swap between them, which is a
               better answer than a row in a popover; this page has no such headers,
               and the direction a new conversation starts in is what it is for. */}
-          <DirectionToggle
+          <LanguagePairPicker
             value={settings.direction}
             onChange={(direction) => set({ direction })}
             labels={directionLabels(t)}

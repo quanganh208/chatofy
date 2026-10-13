@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowLeftRight } from 'lucide-react';
-import { Button } from '@chatofy/ui/react';
+import { Button, LanguageSelect, pairAfterPick } from '@chatofy/ui/react';
 import { directionLanguages, type TranslationDirection } from '@chatofy/types';
 import { useTranslate } from '@/i18n/provider';
 import { nativeLanguageName } from '@/i18n/direction-labels';
@@ -12,6 +12,8 @@ interface PanelHeadersProps {
   /** A conversation is running, so the direction is fixed for its duration. */
   running: boolean;
   onSwap: () => void;
+  /** A language picked on one side, as the whole new direction. */
+  onDirection: (direction: TranslationDirection) => void;
   /**
    * The voice control, rendered at the end of the target header.
    *
@@ -32,20 +34,23 @@ interface PanelHeadersProps {
  * was something you had to open something to find. The two panels below have
  * headers; this is what belongs in them.
  *
- * The composition is `DirectionToggle` pulled apart to panel width, and the words
- * are that component's own keys: nothing new is invented and nothing is
- * translated twice. **`DirectionToggle` itself is untouched.** It is a shared
- * package component and one of its consumers is the extension popup, rendering
- * in a 320px window that cannot take an exploded two-panel header — so this is a
- * new web-only component beside it rather than an edit to it.
+ * The composition is `LanguagePairPicker` pulled apart to panel width, and the
+ * words are that component's own keys: nothing new is invented and nothing is
+ * translated twice. The picker itself stays a compact row because one of its
+ * consumers is the extension popup, in a 320px window that cannot take an
+ * exploded two-panel header — so this is a web-only composition of its
+ * `LanguageSelect` rather than an edit to it.
  *
- * ## Two language readouts, one swap
+ * ## Two language pickers, and the swap stays
  *
- * The languages are text, not pickers. There are exactly two — `vi` and `en` are
- * the whole enum — so a picker in either header would offer one alternative,
- * which is the swap; three entry points for one state change, on a screen whose
- * job is to be unambiguous. If a third language ever arrives these become
- * pickers and the swap goes.
+ * While the registry held two languages these were readouts: a picker in either
+ * header would have offered one alternative, which is the swap. With three, each
+ * header is a real choice, so each is a `LanguageSelect`, and a pick that
+ * collides with the other side swaps the pair (`pairAfterPick`, the same rule the
+ * popup and `/preferences` use). The swap button stays anyway: reversing the pair
+ * between turns is the common action, and it is one press instead of two
+ * selects. It is `outline` and the selects are fields, so the screen still spends
+ * its one accent on Start.
  *
  * ## Disabled, not hidden, while running
  *
@@ -73,9 +78,14 @@ interface PanelHeadersProps {
  * `transcript-panes.tsx` records. What is left here sits over ONE stream, so a
  * two-column bar would name two things where there is one column of prose.
  */
-export function PanelHeaders({ direction, running, onSwap, voiceControl }: PanelHeadersProps) {
+export function PanelHeaders({
+  direction,
+  running,
+  onSwap,
+  onDirection,
+  voiceControl,
+}: PanelHeadersProps) {
   const t = useTranslate();
-  const { source, target } = directionLanguages(direction);
 
   return (
     // The same left inset the turns below carry, so a header and the prose it
@@ -83,12 +93,26 @@ export function PanelHeaders({ direction, running, onSwap, voiceControl }: Panel
     <div className="border-hairline relative border-b px-8">
       <Side
         role={t('web.translate.directionSource')}
-        language={nativeLanguageName(source)}
+        language={
+          <HeaderLanguage
+            direction={direction}
+            side="source"
+            running={running}
+            onDirection={onDirection}
+          />
+        }
         className="border-hairline border-b"
       />
       <Side
         role={t('web.translate.directionTarget')}
-        language={nativeLanguageName(target)}
+        language={
+          <HeaderLanguage
+            direction={direction}
+            side="target"
+            running={running}
+            onDirection={onDirection}
+          />
+        }
         end={voiceControl}
       />
 
@@ -128,13 +152,47 @@ export function PanelHeader({
   end,
 }: {
   role: string;
-  language: string;
+  language: React.ReactNode;
   end?: React.ReactNode;
 }) {
   return (
     <div className="border-hairline border-b px-8">
       <Side role={role} language={language} end={end} />
     </div>
+  );
+}
+
+/**
+ * One side's language, as a picker.
+ *
+ * Disabled while running, for the reason the swap is: direction rides
+ * `client.session.start` and holds for the whole run.
+ */
+export function HeaderLanguage({
+  direction,
+  side,
+  running,
+  onDirection,
+}: {
+  direction: TranslationDirection;
+  side: 'source' | 'target';
+  running: boolean;
+  onDirection: (direction: TranslationDirection) => void;
+}) {
+  const t = useTranslate();
+  const languages = directionLanguages(direction);
+  return (
+    <LanguageSelect
+      value={side === 'source' ? languages.source : languages.target}
+      onPick={(code) => onDirection(pairAfterPick(direction, side, code))}
+      label={t(
+        side === 'source' ? 'web.translate.directionSource' : 'web.translate.directionTarget',
+      )}
+      disabled={running}
+      nameLanguage={nativeLanguageName}
+      size="sm"
+      className="font-medium"
+    />
   );
 }
 
@@ -188,17 +246,20 @@ function Side({
   end,
 }: {
   role: string;
-  language: string;
+  language: React.ReactNode;
   className?: string;
   end?: React.ReactNode;
 }) {
   return (
     <div className={cn('flex min-h-[58px] items-center gap-2.5 py-2.5', className)}>
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
+        <span
+          aria-hidden
+          className="text-muted-foreground text-label font-semibold tracking-wide uppercase"
+        >
           {role}
         </span>
-        <span className="text-body truncate font-medium">{language}</span>
+        {language}
       </div>
       {end ? <div className="ml-auto flex items-center gap-2">{end}</div> : null}
     </div>

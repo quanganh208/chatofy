@@ -5,9 +5,13 @@ import { directionLanguages, type TranslationDirection } from '@chatofy/types';
 import { cn } from '@/lib/utils';
 
 import { useTranslate } from '@/i18n/provider';
-import { nativeLanguageName } from '@/i18n/direction-labels';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
-import { DirectionSwap, PanelHeader, PanelHeaders } from '@/components/translate/panel-headers';
+import {
+  DirectionSwap,
+  HeaderLanguage,
+  PanelHeader,
+  PanelHeaders,
+} from '@/components/translate/panel-headers';
 import { TranscriptScroller } from '@/components/translate/transcript-scroller';
 import { textSizeScale, type TranslateSettings } from '@/lib/translate-settings';
 
@@ -25,6 +29,8 @@ interface TranscriptPanesProps {
   settings: TranslateSettings;
   running: boolean;
   onSwap: () => void;
+  /** A language picked in a header, as the whole new direction. */
+  onDirection: (direction: TranslationDirection) => void;
   /** The voice, for the target header's end slot — see `panel-headers.tsx`. */
   voiceControl: React.ReactNode;
   stream: StreamProps;
@@ -105,12 +111,12 @@ export function TranscriptPanes({
   settings,
   running,
   onSwap,
+  onDirection,
   voiceControl,
   stream,
   conversationDirection,
 }: TranscriptPanesProps) {
   const t = useTranslate();
-  const { source: from, target: to } = directionLanguages(settings.direction);
   // The language a FINISHED turn's translation line reads — see the prop doc.
   // Headers above keep reading `settings.direction`: which language is going
   // IN or coming OUT is a fact about the upcoming conversation, and only the
@@ -146,7 +152,14 @@ export function TranscriptPanes({
       <div className="flex min-h-0 flex-1 flex-col">
         <PanelHeader
           role={t('web.translate.directionSource')}
-          language={nativeLanguageName(from)}
+          language={
+            <HeaderLanguage
+              direction={settings.direction}
+              side="source"
+              running={running}
+              onDirection={onDirection}
+            />
+          }
           end={<DirectionSwap direction={settings.direction} running={running} onSwap={onSwap} />}
         />
         {pane('source', true, t('web.translate.paneSource'))}
@@ -156,7 +169,14 @@ export function TranscriptPanes({
       <div className="flex min-h-0 flex-1 flex-col">
         <PanelHeader
           role={t('web.translate.directionTarget')}
-          language={nativeLanguageName(to)}
+          language={
+            <HeaderLanguage
+              direction={settings.direction}
+              side="target"
+              running={running}
+              onDirection={onDirection}
+            />
+          }
           end={voiceControl}
         />
         {pane('target', false, t('web.translate.paneTarget'))}
@@ -196,6 +216,7 @@ export function TranscriptPanes({
         direction={settings.direction}
         running={running}
         onSwap={onSwap}
+        onDirection={onDirection}
         voiceControl={voiceControl}
       />
       {settings.translationOnly
