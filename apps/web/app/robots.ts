@@ -2,6 +2,14 @@ import type { MetadataRoute } from 'next';
 import { serverEnv } from '@/config/server-env';
 
 /**
+ * Rendered per request, not at build. A route that reads no request is prerendered,
+ * and the build has no `WEB_BASE_URL` — the first deploy served
+ * `http://localhost:3001/…` from the build cache while the container held the
+ * real origin. `crawler-surfaces-are-dynamic.spec.ts` keeps this line.
+ */
+export const dynamic = 'force-dynamic';
+
+/**
  * Every crawler may read the public surface; none needs the signed-in app.
  *
  * No per-bot rules: search, answer-engine and training crawlers are all allowed,
