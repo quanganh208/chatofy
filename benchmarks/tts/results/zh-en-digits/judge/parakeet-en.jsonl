@@ -1,0 +1,161 @@
+{"type": "header", "judge": "parakeet-en", "decode_params": {"model": "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8 (services/local-stt, read-only)", "num_threads": 8}}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s001.wav", "judge": "parakeet-en", "hypothesis": "The meeting starts at 10.30 tomorrow morning."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s002.wav", "judge": "parakeet-en", "hypothesis": "Let's move the call to 3.45 in the afternoon."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s003.wav", "judge": "parakeet-en", "hypothesis": "The ticket costs$15.99, including tax."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s004.wav", "judge": "parakeet-en", "hypothesis": "We spent about$2,500 on the trip."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s005.wav", "judge": "parakeet-en", "hypothesis": "She was born in 1998 and moved here in 2015."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s006.wav", "judge": "parakeet-en", "hypothesis": "The company was founded in 1976."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s007.wav", "judge": "parakeet-en", "hypothesis": "Please go to room 402 on the fourth floor."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s008.wav", "judge": "parakeet-en", "hypothesis": "Your table is number 17 by the window."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s009.wav", "judge": "parakeet-en", "hypothesis": "Sales grew by 15% last quarter."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s010.wav", "judge": "parakeet-en", "hypothesis": "Only 3.5% of users opted out."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s011.wav", "judge": "parakeet-en", "hypothesis": "Call me back at 555-0142 after lunch."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s012.wav", "judge": "parakeet-en", "hypothesis": "The support line is 1-800-555-0199."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s013.wav", "judge": "parakeet-en", "hypothesis": "The report is due on 2026-10-13."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s014.wav", "judge": "parakeet-en", "hypothesis": "The contract runs from 2025-01-01 to 2027-12-31."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s015.wav", "judge": "parakeet-en", "hypothesis": "Please update the app to v1.13.4 before Friday."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s016.wav", "judge": "parakeet-en", "hypothesis": "We are still running version 2.0.1 in production."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s017.wav", "judge": "parakeet-en", "hypothesis": "The card number on file ends in 4 quadrillion 11,100 11,100 11,100 11,111."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s018.wav", "judge": "parakeet-en", "hypothesis": "Order 98,765,432, shipped this morning."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s019.wav", "judge": "parakeet-en", "hypothesis": "I need three copies of the 12-page report."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid9/s020.wav", "judge": "parakeet-en", "hypothesis": "The flight leaves from gate 22 at 7 p.m."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s001.wav", "judge": "parakeet-en", "hypothesis": "The meeting starts at 10.30 tomorrow morning."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s002.wav", "judge": "parakeet-en", "hypothesis": "Let's move the call to 3.45 in the afternoon."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s003.wav", "judge": "parakeet-en", "hypothesis": "The ticket costs$15.99 including tax."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s004.wav", "judge": "parakeet-en", "hypothesis": "We spent about$2,500 on the trip."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s005.wav", "judge": "parakeet-en", "hypothesis": "She was born in 1998 and moved here in 2015."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s006.wav", "judge": "parakeet-en", "hypothesis": "The company was founded in 1976."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s007.wav", "judge": "parakeet-en", "hypothesis": "Please go to room 402 on the fourth floor."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s008.wav", "judge": "parakeet-en", "hypothesis": "Your table is number 17 by the window."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s009.wav", "judge": "parakeet-en", "hypothesis": "Sales grew by 15% last quarter."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s010.wav", "judge": "parakeet-en", "hypothesis": "Only 3.5% of users opted out."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s011.wav", "judge": "parakeet-en", "hypothesis": "Call me back at 555-0142 after lunch."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s012.wav", "judge": "parakeet-en", "hypothesis": "The support line is 1-800-555-0199."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s013.wav", "judge": "parakeet-en", "hypothesis": "The report is due on 2026-10-13."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s014.wav", "judge": "parakeet-en", "hypothesis": "The contract runs from 2025-01-01 to 2027-12-31."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s015.wav", "judge": "parakeet-en", "hypothesis": "Please update the app to v1.13.4 before Friday."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s016.wav", "judge": "parakeet-en", "hypothesis": "We are still running version 2.0.1 in production."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s017.wav", "judge": "parakeet-en", "hypothesis": "The card number on file ends, in 4 quadrillion 11,11,100,11,111,111."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s018.wav", "judge": "parakeet-en", "hypothesis": "Order 98,765,432, shipped this morning."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s019.wav", "judge": "parakeet-en", "hypothesis": "I need three copies of the 12-page report."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-only/sid11/s020.wav", "judge": "parakeet-en", "hypothesis": "The flight leaves from gate 22 at 7 p.m."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s001.wav", "judge": "parakeet-en", "hypothesis": "The meeting starts at 10.30 tomorrow morning."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s002.wav", "judge": "parakeet-en", "hypothesis": "Let's move the call to 3.45 in the afternoon."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s003.wav", "judge": "parakeet-en", "hypothesis": "The ticket costs$15.99, including tax."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s004.wav", "judge": "parakeet-en", "hypothesis": "We spent about$2,500 on the trip."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s005.wav", "judge": "parakeet-en", "hypothesis": "She was born in 1998 and moved here in 2015."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s006.wav", "judge": "parakeet-en", "hypothesis": "The company was founded in 1976."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s007.wav", "judge": "parakeet-en", "hypothesis": "Please go to room 402 on the fourth floor."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s008.wav", "judge": "parakeet-en", "hypothesis": "Your table is number 17 by the window."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s009.wav", "judge": "parakeet-en", "hypothesis": "Sales grew by 15% last quarter."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s010.wav", "judge": "parakeet-en", "hypothesis": "Only 3.5% of users opted out."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s011.wav", "judge": "parakeet-en", "hypothesis": "Call me back at 555-0142 after lunch."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s012.wav", "judge": "parakeet-en", "hypothesis": "The support line is 1-800-555-0199."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s013.wav", "judge": "parakeet-en", "hypothesis": "The report is due on 2026-10-13."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s014.wav", "judge": "parakeet-en", "hypothesis": "The contract runs from 2025-01-01 to 2027-12-31."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s015.wav", "judge": "parakeet-en", "hypothesis": "Please update the app to v1.13.4 before Friday."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s016.wav", "judge": "parakeet-en", "hypothesis": "We are still running version 2.0.1 in production."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s017.wav", "judge": "parakeet-en", "hypothesis": "The card number on file ends in 4 quadrillion 11,100 11,100 11,100 11,111."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s018.wav", "judge": "parakeet-en", "hypothesis": "Order 98,765,432 shipped this morning."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s019.wav", "judge": "parakeet-en", "hypothesis": "I need three copies of the 12-page report."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid9/s020.wav", "judge": "parakeet-en", "hypothesis": "The flight leaves from gate 22 at 7 p.m."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s001.wav", "judge": "parakeet-en", "hypothesis": "The meeting starts at 10.30 tomorrow morning."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s002.wav", "judge": "parakeet-en", "hypothesis": "Let's move the call to 3.45 in the afternoon."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s003.wav", "judge": "parakeet-en", "hypothesis": "The ticket costs$15.99 including tax."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s004.wav", "judge": "parakeet-en", "hypothesis": "We spent about$2,500 on the trip."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s005.wav", "judge": "parakeet-en", "hypothesis": "She was born in 1998 and moved here in 2015."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s006.wav", "judge": "parakeet-en", "hypothesis": "The company was founded in 1976."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s007.wav", "judge": "parakeet-en", "hypothesis": "Please go to room 402 on the fourth floor."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s008.wav", "judge": "parakeet-en", "hypothesis": "Your table is number 17 by the window."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s009.wav", "judge": "parakeet-en", "hypothesis": "Sales grew by 15% last quarter."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s010.wav", "judge": "parakeet-en", "hypothesis": "Only 3.5% of users opted out."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s011.wav", "judge": "parakeet-en", "hypothesis": "Call me back at 555-0142 after lunch."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s012.wav", "judge": "parakeet-en", "hypothesis": "The support line is 1-800-555-0199."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s013.wav", "judge": "parakeet-en", "hypothesis": "The report is due on 2026-10-13."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s014.wav", "judge": "parakeet-en", "hypothesis": "The contract runs from 2025-01-01 to 2027-12-31."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s015.wav", "judge": "parakeet-en", "hypothesis": "Please update the app to v1.13.4 before Friday."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s016.wav", "judge": "parakeet-en", "hypothesis": "We are still running version 2.0.1 in production."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s017.wav", "judge": "parakeet-en", "hypothesis": "The card number on file ends, in 4 quadrillion 11,11,100,11,111,111."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s018.wav", "judge": "parakeet-en", "hypothesis": "Order 98,765,432, ship this morning."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s019.wav", "judge": "parakeet-en", "hypothesis": "I need three copies of the 12-page report."}
+{"type": "hyp", "wav": "results/zh-en-digits/en-control/wav/kokoro-v1_0-en-only/sid11/s020.wav", "judge": "parakeet-en", "hypothesis": "The flight leaves from gate 22 at 7 p.m."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s001.wav", "judge": "parakeet-en", "hypothesis": "The meeting starts at 10.30 tomorrow morning."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s002.wav", "judge": "parakeet-en", "hypothesis": "Let's move the call to 345 in the afternoon."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s003.wav", "judge": "parakeet-en", "hypothesis": "The ticket costs$15.99, including tax."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s004.wav", "judge": "parakeet-en", "hypothesis": "We spent about$2,500 on the trip."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s005.wav", "judge": "parakeet-en", "hypothesis": "She was born in 1998 and moved here in 2015."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s006.wav", "judge": "parakeet-en", "hypothesis": "The company was founded in 1976."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s007.wav", "judge": "parakeet-en", "hypothesis": "Please go to room 402 on the fourth floor."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s008.wav", "judge": "parakeet-en", "hypothesis": "Your table is number 17 by the window."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s009.wav", "judge": "parakeet-en", "hypothesis": "Sales grew by 15% last quarter."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s010.wav", "judge": "parakeet-en", "hypothesis": "Only 3.5% of users opted out."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s011.wav", "judge": "parakeet-en", "hypothesis": "Call me back at 555-0142 after lunch."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s012.wav", "judge": "parakeet-en", "hypothesis": "The support line is 1-800-555-0199."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s013.wav", "judge": "parakeet-en", "hypothesis": "The report is due on 2026-10-13."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s014.wav", "judge": "parakeet-en", "hypothesis": "The contract runs from 2025-01-01 to 2027-12-31."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s015.wav", "judge": "parakeet-en", "hypothesis": "Please update the app to v1.13.4 before Friday."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s016.wav", "judge": "parakeet-en", "hypothesis": "We are still running version 2.0.1 in production."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s017.wav", "judge": "parakeet-en", "hypothesis": "The card number on file ends in 4 quadrillion 11,100 11,100 11,100 11,111."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s018.wav", "judge": "parakeet-en", "hypothesis": "Order 98,765,432 shipped this morning."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s019.wav", "judge": "parakeet-en", "hypothesis": "I need three copies of the 12-page report."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid9/s020.wav", "judge": "parakeet-en", "hypothesis": "The flight leaves from gate 22 at 7 p.m."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s001.wav", "judge": "parakeet-en", "hypothesis": "The meeting starts at 10.30 tomorrow morning."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s002.wav", "judge": "parakeet-en", "hypothesis": "Let's move the call to 3.45 in the afternoon."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s003.wav", "judge": "parakeet-en", "hypothesis": "The ticket costs$15.99 including tax."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s004.wav", "judge": "parakeet-en", "hypothesis": "We spent about$2,500 on the trip."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s005.wav", "judge": "parakeet-en", "hypothesis": "She was born in 1998 and moved here in 2015."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s006.wav", "judge": "parakeet-en", "hypothesis": "The company was founded in 1976."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s007.wav", "judge": "parakeet-en", "hypothesis": "Please go to room 402 on the fourth floor."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s008.wav", "judge": "parakeet-en", "hypothesis": "Your table is number 17 by the window."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s009.wav", "judge": "parakeet-en", "hypothesis": "Sales grew by 15% last quarter."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s010.wav", "judge": "parakeet-en", "hypothesis": "Only 3.5% of users opted out."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s011.wav", "judge": "parakeet-en", "hypothesis": "Call me back at 555-0142 after lunch."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s012.wav", "judge": "parakeet-en", "hypothesis": "The support line is 1-800-555-0199."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s013.wav", "judge": "parakeet-en", "hypothesis": "The report is due on 2026-10-13."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s014.wav", "judge": "parakeet-en", "hypothesis": "The contract runs from 2025-01-01 to 2027-12-31."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s015.wav", "judge": "parakeet-en", "hypothesis": "Please update the app to v1.13.4 before Friday."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s016.wav", "judge": "parakeet-en", "hypothesis": "We are still running version 2.0.1 in production."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s017.wav", "judge": "parakeet-en", "hypothesis": "The card number on file ends, in 4 quadrillion 11,11,100,11,111,111."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s018.wav", "judge": "parakeet-en", "hypothesis": "Order 98,765,432. Ship this morning."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s019.wav", "judge": "parakeet-en", "hypothesis": "I need three copies of the 12-page report."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-lexicon/sid11/s020.wav", "judge": "parakeet-en", "hypothesis": "The flight leaves from gate 22 at 7 p.m."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s001.wav", "judge": "parakeet-en", "hypothesis": "The meeting starts at 10.30 tomorrow morning."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s002.wav", "judge": "parakeet-en", "hypothesis": "Let's move the call to 3.45 in the afternoon."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s003.wav", "judge": "parakeet-en", "hypothesis": "The ticket costs$15.99, including tax."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s004.wav", "judge": "parakeet-en", "hypothesis": "We spent about$2,500 on the trip."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s005.wav", "judge": "parakeet-en", "hypothesis": "She was born in Ichochopa and moved here in 2015."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s006.wav", "judge": "parakeet-en", "hypothesis": "The company was founded in 1976."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s007.wav", "judge": "parakeet-en", "hypothesis": "Please go to room 402 on the fourth floor."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s008.wav", "judge": "parakeet-en", "hypothesis": "Your table is number 17 by the window."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s009.wav", "judge": "parakeet-en", "hypothesis": "Sales grew by 15% last quarter."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s010.wav", "judge": "parakeet-en", "hypothesis": "Only 3.5% of users opted out."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s011.wav", "judge": "parakeet-en", "hypothesis": "Call me back at 555-0142 after lunch."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s012.wav", "judge": "parakeet-en", "hypothesis": "The support line is 1-800-555-0199."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s013.wav", "judge": "parakeet-en", "hypothesis": "The report is due on 2026-10-13."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s014.wav", "judge": "parakeet-en", "hypothesis": "The contract runs from 2025-01-01 to 2027-12-31."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s015.wav", "judge": "parakeet-en", "hypothesis": "Please update the app to v1.13.4 before Friday."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s016.wav", "judge": "parakeet-en", "hypothesis": "We are still running version 2.0.1 in production."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s017.wav", "judge": "parakeet-en", "hypothesis": "The card number on file ends in 4.1111."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s018.wav", "judge": "parakeet-en", "hypothesis": "Order 9876. Usasaner. Shipped this morning."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s019.wav", "judge": "parakeet-en", "hypothesis": "I need three copies of the 12-page report."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid9/s020.wav", "judge": "parakeet-en", "hypothesis": "The flight leaves from gate 22 at 7 p.m."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s001.wav", "judge": "parakeet-en", "hypothesis": "The meeting starts at 10.30 tomorrow morning."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s002.wav", "judge": "parakeet-en", "hypothesis": "Let's move the call to 3.45 in the afternoon."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s003.wav", "judge": "parakeet-en", "hypothesis": "The ticket costs$15.99 including tax."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s004.wav", "judge": "parakeet-en", "hypothesis": "We spent about$2,500 on the trip."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s005.wav", "judge": "parakeet-en", "hypothesis": "She was born in Ichochopa and moved here in 2015."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s006.wav", "judge": "parakeet-en", "hypothesis": "The company was founded in 1976."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s007.wav", "judge": "parakeet-en", "hypothesis": "Please go to room 402 on the fourth floor."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s008.wav", "judge": "parakeet-en", "hypothesis": "Your table is number 17 by the window."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s009.wav", "judge": "parakeet-en", "hypothesis": "Sales grew by 15% last quarter."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s010.wav", "judge": "parakeet-en", "hypothesis": "Only 3.5% of users opted out."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s011.wav", "judge": "parakeet-en", "hypothesis": "Call me back at 555-0142 after lunch."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s012.wav", "judge": "parakeet-en", "hypothesis": "The support line is 1-800-555-0199."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s013.wav", "judge": "parakeet-en", "hypothesis": "The report is due on 2026-10-13."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s014.wav", "judge": "parakeet-en", "hypothesis": "The contract runs from 2025-01-01 to 2027-12-31."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s015.wav", "judge": "parakeet-en", "hypothesis": "Please update the app to v1.13.4 before Friday."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s016.wav", "judge": "parakeet-en", "hypothesis": "We are still running version 2.0.1 in production."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s017.wav", "judge": "parakeet-en", "hypothesis": "The card number on file ends in 4.1111."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s018.wav", "judge": "parakeet-en", "hypothesis": "Order 9876. Usasanar. Ship this morning."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s019.wav", "judge": "parakeet-en", "hypothesis": "I need three copies of the 12-page report."}
+{"type": "hyp", "wav": "results/zh-en-digits/wav/kokoro-v1_0-en-zh-date-phone/sid11/s020.wav", "judge": "parakeet-en", "hypothesis": "The flight leaves from gate 22 at 7 p.m."}

@@ -1,0 +1,61 @@
+{"type": "header", "judge": "sensevoice-zh", "decode_params": {"model": "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17/model.int8.onnx", "language": "zh", "use_itn": false, "num_threads": 8}}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s001.wav", "judge": "sensevoice-zh", "hypothesis": "你好今天的会议改到下午三点半开始"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s002.wav", "judge": "sensevoice-zh", "hypothesis": "我刚买了一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s003.wav", "judge": "sensevoice-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s004.wav", "judge": "sensevoice-zh", "hypothesis": "我们约在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s005.wav", "judge": "sensevoice-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s006.wav", "judge": "sensevoice-zh", "hypothesis": "现在的 i工具越来越好用了"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s007.wav", "judge": "sensevoice-zh", "hypothesis": "你的航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s008.wav", "judge": "sensevoice-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s009.wav", "judge": "sensevoice-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s010.wav", "judge": "sensevoice-zh", "hypothesis": "他每天跑步五公里一经坚持了两年"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s011.wav", "judge": "sensevoice-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s012.wav", "judge": "sensevoice-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s013.wav", "judge": "sensevoice-zh", "hypothesis": "这家餐厅的评分是四点八分值得一试"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s014.wav", "judge": "sensevoice-zh", "hypothesis": "我的手机号是幺三八幺二三四五六七八有事打给我"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s015.wav", "judge": "sensevoice-zh", "hypothesis": "今年公司的销售额增长了百分之十五"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s016.wav", "judge": "sensevoice-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s017.wav", "judge": "sensevoice-zh", "hypothesis": "我用微信给你转了两千块记得查收"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s018.wav", "judge": "sensevoice-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s019.wav", "judge": "sensevoice-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s020.wav", "judge": "sensevoice-zh", "hypothesis": "我们的 z 会议链接已经发到群里了"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s021.wav", "judge": "sensevoice-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s022.wav", "judge": "sensevoice-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s023.wav", "judge": "sensevoice-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s024.wav", "judge": "sensevoice-zh", "hypothesis": "我刚下载了叉 g b g 的新版本"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s025.wav", "judge": "sensevoice-zh", "hypothesis": "房租每个月涨五百元真让人头疼"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s026.wav", "judge": "sensevoice-zh", "hypothesis": "周末你想去看电影还是去爬山"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s027.wav", "judge": "sensevoice-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s028.wav", "judge": "sensevoice-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s029.wav", "judge": "sensevoice-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid47/s030.wav", "judge": "sensevoice-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s001.wav", "judge": "sensevoice-zh", "hypothesis": "你好今天的会议改到下午三点半开始"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s002.wav", "judge": "sensevoice-zh", "hypothesis": "我刚买一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s003.wav", "judge": "sensevoice-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s004.wav", "judge": "sensevoice-zh", "hypothesis": "我们约在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s005.wav", "judge": "sensevoice-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s006.wav", "judge": "sensevoice-zh", "hypothesis": "现在的呀工具越来越好用了"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s007.wav", "judge": "sensevoice-zh", "hypothesis": "你的航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s008.wav", "judge": "sensevoice-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s009.wav", "judge": "sensevoice-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s010.wav", "judge": "sensevoice-zh", "hypothesis": "他每天跑步五公里已经坚持了两年"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s011.wav", "judge": "sensevoice-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s012.wav", "judge": "sensevoice-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s013.wav", "judge": "sensevoice-zh", "hypothesis": "这家餐厅的评分是四点八分值得一试"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s014.wav", "judge": "sensevoice-zh", "hypothesis": "我的手机号是幺三八幺二三四五六七八有事打给我"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s015.wav", "judge": "sensevoice-zh", "hypothesis": "今年公司的销售额增长了百分之十五"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s016.wav", "judge": "sensevoice-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s017.wav", "judge": "sensevoice-zh", "hypothesis": "我用微信给你转了两千块记得查收"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s018.wav", "judge": "sensevoice-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s019.wav", "judge": "sensevoice-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s020.wav", "judge": "sensevoice-zh", "hypothesis": "我们的颂会议链接已经发到群里了"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s021.wav", "judge": "sensevoice-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s022.wav", "judge": "sensevoice-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s023.wav", "judge": "sensevoice-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s024.wav", "judge": "sensevoice-zh", "hypothesis": "我刚下载了叉 g b g 的新版本"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s025.wav", "judge": "sensevoice-zh", "hypothesis": "房租每个月涨五百元真让人头疼"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s026.wav", "judge": "sensevoice-zh", "hypothesis": "周末你想去看电影还是去爬山"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s027.wav", "judge": "sensevoice-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s028.wav", "judge": "sensevoice-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s029.wav", "judge": "sensevoice-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "results/zh-sidecar/wav/sid51/s030.wav", "judge": "sensevoice-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}

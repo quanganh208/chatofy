@@ -1,4 +1,4 @@
-import { splitIntoClauses } from './clause-splitter';
+import { CLAUSE_MARKS, splitIntoClauses } from './clause-splitter';
 import type { TranslationBudget } from './translation-budget';
 
 /**
@@ -155,4 +155,4 @@ function clauseCount(text: string): number {
 }
 
 /** The boundary marks `clause-splitter` splits on, anchored at the end. */
-const CLOSING_MARK = /[,;:.!?…]$/;
+const CLOSING_MARK = new RegExp(`[${CLAUSE_MARKS}]$`);

@@ -96,6 +96,26 @@ describe('LiveTranslationTrigger', () => {
     });
   });
 
+  describe('the clause rule in Chinese', () => {
+    // Chinese ends a clause on a full-width mark with no space after it. A
+    // trigger blind to `，。` would never see a Chinese clause close, and zh
+    // provisional text would wait for the character rule alone.
+    it('sees a full-width comma close a clause, then a full-width question mark', () => {
+      const { trigger } = makeTrigger({ commitChars: 500 });
+
+      expect(trigger.shouldTranslate('我们明天开会，', 0)).toBe(true);
+      trigger.markStarted('我们明天开会，', 0);
+      trigger.markSettled();
+      expect(trigger.shouldTranslate('我们明天开会，你来', 0)).toBe(false);
+      expect(trigger.shouldTranslate('我们明天开会，你来吗？', 0)).toBe(true);
+    });
+
+    it('sees no clause in unpunctuated Chinese', () => {
+      const { trigger } = makeTrigger({ commitChars: 500 });
+      expect(trigger.shouldTranslate('我们明天开会你来吗', 0)).toBe(false);
+    });
+  });
+
   describe('the correction rule', () => {
     it('translates again when settled text was replaced', () => {
       const { trigger } = makeTrigger({ commitChars: 500 });

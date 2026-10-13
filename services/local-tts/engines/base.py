@@ -135,14 +135,21 @@ class TtsEngine(ABC):
     #: conservative answer for an engine nobody has checked yet.
     SPEED_ADJUSTABLE: ClassVar[bool] = False
 
-    def __init__(self) -> None:
+    def __init__(self, lock: "threading.Lock | None" = None) -> None:
         self._engine = None
         self._threads = tts_threads()
-        self._lock = threading.Lock()
+        # Injected where two engines drive ONE runtime instance (Kokoro speaks
+        # en and zh from the same `OfflineTts`): a lock per engine would let both
+        # drive it at once. An engine with a runtime of its own gets its own.
+        self._lock = lock if lock is not None else threading.Lock()
 
     @abstractmethod
     def load(self) -> None:
         """Build the engine. Called once at startup."""
+
+    def unload(self) -> None:
+        """Drop the engine. Overridden where the runtime is shared and counted."""
+        self._engine = None
 
     @abstractmethod
     def _infer(self, text: str, voice: int | str, speed: float) -> tuple[np.ndarray, int]:

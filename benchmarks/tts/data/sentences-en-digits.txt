@@ -1,0 +1,26 @@
+# One sentence per line; lines starting with # are ignored.
+# The en regression set for a Kokoro instance shared with zh. Every line holds
+# digits, because the zh rule FSTs are set on the whole OfflineTtsConfig and so
+# read English text too: number-zh.fst was measured rewriting "room 402" as
+# "room 四百零二". Shapes: times, money, years, room numbers, percentages,
+# phone numbers, ISO dates, version strings and long digit runs.
+The meeting starts at 10:30 tomorrow morning.
+Let's move the call to 3:45 in the afternoon.
+The ticket costs $15.99 including tax.
+We spent about 2,500 dollars on the trip.
+She was born in 1998 and moved here in 2015.
+The company was founded in 1976.
+Please go to room 402 on the fourth floor.
+Your table is number 17 by the window.
+Sales grew by 15% last quarter.
+Only 3.5 percent of users opted out.
+Call me back at 555-0142 after lunch.
+The support line is 1-800-555-0199.
+The report is due on 2026-10-13.
+The contract runs from 2025-01-01 to 2027-12-31.
+Please update the app to v1.13.4 before Friday.
+We are still running version 2.0.1 in production.
+The card number on file ends in 4111111111111111.
+Order 98765432 shipped this morning.
+I need 3 copies of the 12 page report.
+The flight leaves from gate 22 at 7 pm.

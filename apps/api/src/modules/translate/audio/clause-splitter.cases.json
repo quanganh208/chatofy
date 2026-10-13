@@ -65,6 +65,26 @@
       "name": "treats a boundary before a newline like one before a space",
       "input": "Hello,\nhow are you?",
       "parts": ["Hello,", "how are you?"]
+    },
+    {
+      "name": "splits a Chinese turn at full-width marks, which need no space after them",
+      "input": "我们明天开会，你来吗？",
+      "parts": ["我们明天开会，", "你来吗？"]
+    },
+    {
+      "name": "splits Chinese sentences written with no space between them",
+      "input": "今天天气很好。我们出去走走吧！",
+      "parts": ["今天天气很好。", "我们出去走走吧！"]
+    },
+    {
+      "name": "folds a short Chinese clause into its neighbour without adding a space",
+      "input": "你好，今天开会。好的！",
+      "parts": ["你好，今天开会。好的！"]
+    },
+    {
+      "name": "leaves a decimal inside Chinese text alone",
+      "input": "价格是3.5元。",
+      "parts": ["价格是3.5元。"]
     }
   ]
 }

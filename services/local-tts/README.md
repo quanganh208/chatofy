@@ -6,7 +6,7 @@ the NestJS API can synthesize through the normal `TtsProvider` contract.
 Standalone `uv` project — not part of the pnpm/turbo workspace, never imported
 by the app (same convention as the benchmark harnesses).
 
-**Both output languages.** The engine is chosen from the `language` field, so
+**Every output language.** The engine is chosen from the `language` field, so
 the two runtimes below are invisible to callers.
 
 ## Models
@@ -15,6 +15,27 @@ the two runtimes below are invisible to callers.
 | -------- | ------------------------------------- | --------------------- | -------------- | ------------ |
 | en       | Kokoro-82M (`kokoro-multi-lang-v1_0`) | [sherpa-onnx][sherpa] | p95 0.86s/sent | Apache-2.0   |
 | vi       | [VieNeu-TTS][vieneu] v3 Turbo         | `vieneu` (ONNX, CPU)  | ~1.2–1.5s/sent | see upstream |
+| zh       | Kokoro-82M, same instance as en       | [sherpa-onnx][sherpa] | p95 1.29–1.44s | Apache-2.0   |
+
+**en and zh share one Kokoro instance** (`engines/kokoro_runtime.py`): one
+`OfflineTts` loaded with `lexicon-us-en.txt` and `lexicon-zh.txt`, one lock
+handed to both engines, reference counted across reloads. The zh lexicon cost
++13 MB RSS and left English unchanged: on the 30-sentence en set and on
+`benchmarks/tts/data/sentences-en-digits.txt` (times, money, years, phones, ISO
+dates, versions) the Parakeet judge's WER stayed inside the run-to-run band of
+an en-only control. Peak under four concurrent en/zh syntheses: 1,732 MiB
+against 1,726 MiB for the en-only service.
+
+**No rule FSTs.** sherpa-onnx applies `rule_fsts` to every text the instance
+reads, and all three zh FSTs the package ships rewrite English digits:
+`number-zh` reads "room 402" as "room 四百零二", `date-zh` turns "born in 1998"
+into "一九九八" (the en voice says "Ichochopa"), and `phone-zh` rewrites a long
+card number. The zh engine instead verbalizes digits itself before synthesis
+(`engines/zh_number_verbalizer.py`: `15%` → 百分之十五, `10:30` → 十点三十,
+`2026年` → 二零二六年, phone-length runs digit by digit). Round trip through
+the sidecar on the 30-sentence zh set: CER 2.2% (sid 47) and 1.1% (sid 51)
+under the Paraformer judge, 1.3% for both under SenseVoice. Latin acronyms are
+still spelled letter by letter ("ChatGPT").
 
 Kokoro was picked over Piper — faster but judged lower quality in a listening
 comparison; see `docs/development-journey.md`.
@@ -43,18 +64,21 @@ Callers ask for a gender, and get one of these — the pair each engine speaks
 with when no specific voice is named. Both were chosen by listening to every
 voice the model shipped at the time.
 
-| Language | `female`                | `male`                  |
-| -------- | ----------------------- | ----------------------- |
-| en       | Kokoro sid 9 `af_sarah` | Kokoro sid 11 `am_adam` |
-| vi       | VieNeu `Mai Anh`        | VieNeu `Thanh Bình`     |
+| Language | `female`                    | `male`                    |
+| -------- | --------------------------- | ------------------------- |
+| en       | Kokoro sid 9 `af_sarah`     | Kokoro sid 11 `am_adam`   |
+| vi       | VieNeu `Mai Anh`            | VieNeu `Thanh Bình`       |
+| zh       | Kokoro sid 47 `zf_xiaoxiao` | Kokoro sid 51 `zm_yunxia` |
 
 A caller may instead name one voice out of `GET /voices`. The two languages do not
-publish the same number of voices — en offers 20, vi offers 25:
+publish the same number of voices — en offers 20, vi offers 25, zh offers 7:
 
 - **en** — Kokoro's US English block, speaker ids 0–19 (`af_alloy` … `am_santa`).
-  It stops there because `load` wires up the US English lexicon alone, so ids 20+
-  (British, French, Hindi, Italian, Japanese, Portuguese, Chinese) would be
-  phonemized as American English whatever they sound like.
+  It stops there because ids 20+ are British, French, Hindi, Italian, Japanese,
+  Portuguese and Chinese speakers; the Chinese ones are the zh catalog.
+- **zh** — Kokoro's Chinese speakers 45 and 47–52, ids from the model's own
+  `id2speaker` metadata. 46 (`zf_xiaoni`) is left out: it read with wrong tones,
+  round-trip CER 25–30% where every other voice stayed under 5%.
 - **vi** — every preset the installed `vieneu` package publishes, read from its
   own manifest at import, so a package that ships more offers more without a code
   change. Labels carry the region (`Trúc Ly · Bắc`), which is the first thing a
