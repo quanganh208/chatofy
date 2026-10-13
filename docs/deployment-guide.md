@@ -8,6 +8,13 @@ that same machine.
 - Web — <https://chatofy.quanganh208.dev>
 - API — <https://chatofy-api.quanganh208.dev>
 
+Page analytics is **Cloudflare Web Analytics** on the web zone. Cloudflare injects the
+beacon at the edge, so it needs no code, but the web CSP must name its two origins
+(`static.cloudflareinsights.com` for the script, `cloudflareinsights.com` for reports;
+see `CLOUDFLARE_INSIGHTS` in `apps/web/next.config.ts`). The CSP is fixed at build
+time, so the beacon starts counting after the next web image deploy. If Web Analytics
+is turned off for the zone, remove both origins from the CSP.
+
 ## The two stacks
 
 Dev and production run **side by side on one host**, sharing nothing. Isolation
@@ -63,7 +70,7 @@ on api and web; compose does not expand `~` there.
 | Key                                 | Constraint                                                                                                                                                                                                                                                                                                                                                                |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NODE_ENV`                          | Must be `production`. The schema is a strict enum with no `staging`, and any other value also flips the web CSP onto its `unsafe-eval` dev branch.                                                                                                                                                                                                                        |
-| `WEB_BASE_URL`                      | The public origin, written once and read three ways: mailed links, the web's `metadataBase`, and `AUTH_URL` below. The API refuses to boot in production while this is the default. Changing the domain is this key alone.                                                                                                                                                |
+| `WEB_BASE_URL`                      | The public origin, written once and read three ways: mailed links, the web's `metadataBase` (and with it every absolute URL crawlers read — canonical, `robots.txt`, `sitemap.xml`, JSON-LD, `/index.md`, `/llms.txt`), and `AUTH_URL` below. The API refuses to boot in production while this is the default. Changing the domain is this key alone.                     |
 | `AUTH_URL`                          | **Not set by hand** — `docker-compose.prod.yml` derives it from `WEB_BASE_URL`. It is still required despite `trustHost: true`: without it Auth.js builds OAuth callbacks from the container's bind address (`0.0.0.0:3001`), which Google rejects as a policy violation — the Cloud Console looks correct while sign-in fails.                                           |
 | `NEXT_PUBLIC_API_BASE_URL`          | Read at **build** time. It is inlined into the bundle _and_ generates the CSP `connect-src`, including the `wss://` origin. Changing it is a rebuild, never a restart.                                                                                                                                                                                                    |
 | `CORS_ORIGIN`                       | The exact origin, never `*` — credentials mode is enabled only when it is not the wildcard.                                                                                                                                                                                                                                                                               |

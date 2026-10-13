@@ -106,6 +106,12 @@ The project's NotebookLM notebook is **"Đồ án tốt nghiệp"** (shared).
 - ID: `b1a7a1c2-17cf-463c-afd8-f5f85190b897`
 - Use this notebook as the default target for all `mcp__notebooklm__*` operations (query, add source, mind map, reports, etc.) unless the user names a different notebook.
 
+## Public pages: UX and discovery
+
+- Read `docs/design-guidelines.md` before any UI work.
+- When a public route or the landing copy changes, keep the discovery surfaces in step: `robots.ts` and `sitemap.ts`, the page metadata, the JSON-LD, `/index.md` and `/llms.txt`. The checklist is `docs/ux-ax-review-checklist.md`.
+- Verify UI changes at 1440×900, 768×1024 and 375×812.
+
 ## Documentation Management
 
 We keep all important docs in `./docs` folder and keep updating them, structure like below:
@@ -124,6 +130,7 @@ We keep all important docs in `./docs` folder and keep updating them, structure 
 │   ├── data-flow.md
 │   └── modules-extension-ci.md
 ├── design-guidelines.md
+├── ux-ax-review-checklist.md       # UX/AX review pass for public pages
 ├── brand-mark.md
 ├── deployment-guide.md
 ├── development-journey.md          # chronological record; measurements and dead ends

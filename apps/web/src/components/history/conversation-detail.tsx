@@ -16,6 +16,7 @@ import { useLocale, useTranslate } from '@/i18n/provider';
 import { activeDurationMs, durationMinutes, formatTime } from './conversation-formatting';
 import { formatOffset } from '@/lib/transcript-time';
 import { DirectionLabel } from './direction-label';
+import { turnCountLabel } from './turn-count-label';
 
 interface ConversationDetailProps {
   conversationId: string;
@@ -138,7 +139,7 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
               to={conversation.languages[1] as LanguageCode}
             />
             <Dot />
-            {t('web.history.turnCount', { count: conversation.turnCount })}
+            {turnCountLabel(t, conversation.turnCount)}
             <Dot />
             {t('web.history.duration', { minutes: durationMinutes(conversation) })}
           </p>

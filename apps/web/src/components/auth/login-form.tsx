@@ -9,6 +9,7 @@ import { AuthAlert } from '@/components/auth/auth-alert';
 import { AuthField } from '@/components/auth/auth-field';
 import { sameOriginPath } from '@/lib/same-origin-path';
 import { useTranslate } from '@/i18n/provider';
+import { formText } from '@/lib/form-text';
 
 /**
  * Email and password, terminating at the Nest API through the Credentials
@@ -23,8 +24,6 @@ export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const t = useTranslate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
 
@@ -41,10 +40,22 @@ export function LoginForm() {
   const next = sameOriginPath(params.get('next'));
 
   return (
+    // `method="post"` because the fields now carry `name`: a submit that lands
+    // before hydration would otherwise be a native GET with the password in the
+    // query string, and so in history and every access log on the way.
     <form
+      method="post"
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
+        // Read from the form, not from React state. The fields are uncontrolled on
+        // purpose: a value typed or autofilled before hydration lives only in the
+        // DOM, and controlled fields reset it to the empty initial state when React
+        // attaches — measured, the email came back blank and the submit sent empty
+        // credentials, so the reader was told their password was wrong.
+        const form = new FormData(event.currentTarget);
+        const email = formText(form, 'email');
+        const password = formText(form, 'password');
         setSubmitting(true);
         setError(undefined);
         void signIn('credentials', { email, password, redirect: false }).then((result) => {
@@ -93,8 +104,7 @@ export function LoginForm() {
         required
         maxLength={AUTH_LIMITS.maxEmail}
         autoComplete="username"
-        value={email}
-        onChange={(event) => setEmail(event.target.value)}
+        name="email"
       />
 
       <AuthField
@@ -105,8 +115,7 @@ export function LoginForm() {
         required
         maxLength={AUTH_LIMITS.maxPassword}
         autoComplete="current-password"
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
+        name="password"
       />
 
       <AuthAlert id="login-error" message={error} />

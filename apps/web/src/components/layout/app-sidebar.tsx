@@ -16,7 +16,7 @@ import {
 } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 import { Brand } from './brand';
-import { NAV_GROUPS } from './nav-items';
+import { NAV_GROUPS, navItemFor } from './nav-items';
 import { SessionMenu } from './session-menu';
 
 /**
@@ -40,7 +40,7 @@ import { SessionMenu } from './session-menu';
  * collapsed, or being read aloud.
  */
 export function AppSidebar() {
-  const pathname = usePathname();
+  const active = navItemFor(usePathname());
   const t = useTranslate();
 
   return (
@@ -74,7 +74,7 @@ export function AppSidebar() {
                   const label = t(item.labelKey);
                   return (
                     <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={label}>
+                      <SidebarMenuButton asChild isActive={active === item} tooltip={label}>
                         <Link href={item.href} aria-label={label}>
                           <item.icon aria-hidden />
                           <span>{label}</span>

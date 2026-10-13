@@ -205,4 +205,26 @@ describe('LoginForm', () => {
     await submit();
     expect(push).not.toHaveBeenCalled();
   });
+
+  it('submits what the fields hold even when no input event ever fired', () => {
+    // A value typed or autofilled before hydration reaches the DOM with no React
+    // event. Controlled fields kept their empty state and sent that, so the reader
+    // was told their password did not match.
+    render();
+    signIn.mockResolvedValueOnce(undefined);
+    act(() => {
+      inputById('email').value = 'early@example.com';
+      inputById('password').value = 'typed-before-hydration';
+      inputById('email').form!.requestSubmit();
+    });
+    expect(signIn).toHaveBeenCalledWith(
+      'credentials',
+      expect.objectContaining({ email: 'early@example.com', password: 'typed-before-hydration' }),
+    );
+  });
+
+  it('posts rather than gets, so a pre-hydration submit cannot put the password in a URL', () => {
+    render();
+    expect(inputById('email').form!.method).toBe('post');
+  });
 });

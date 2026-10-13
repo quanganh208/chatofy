@@ -12,7 +12,10 @@ import { getT } from '@/i18n/server';
  */
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getT();
-  return { title: t('web.meta.resetPassword') };
+  // Kept out of search results, and still crawlable so the `noindex` is seen: this
+  // page is only ever reached through a mailed link carrying a one-time token,
+  // and an indexed copy of that URL would publish the token.
+  return { title: t('web.meta.resetPassword'), robots: { index: false, follow: false } };
 }
 
 // `ResetPasswordForm` reads `useSearchParams` for the token, so it needs the

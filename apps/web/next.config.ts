@@ -21,9 +21,10 @@ import { DEFAULT_API_BASE_URL } from './src/config/env';
  * This header is mitigation for that, and the limit is worth naming here rather
  * than being discovered later. `script-src` carries `'unsafe-inline'`, so it does
  * NOT raise the cost of getting script onto the page: an injected `<script>`
- * runs. What it buys is narrower — no script may be LOADED from another origin,
- * `connect-src` refuses `fetch` and `WebSocket` to anywhere but this app and the
- * API, and `object-src`, `base-uri` and `form-action` close the usual sidesteps
+ * runs. What it buys is narrower — no script may be LOADED from another origin
+ * (one exception, Cloudflare's analytics beacon, below), `connect-src` refuses
+ * `fetch` and `WebSocket` to anywhere but this app, the API and that beacon's
+ * report endpoint, and `object-src`, `base-uri` and `form-action` close the usual sidesteps
  * around those. An attacker who lands inline script still reads the token and can
  * still leak it by navigating the top-level document, which no directive here
  * stops. So this is not a compensating control for the token's exposure; the
@@ -47,6 +48,19 @@ import { DEFAULT_API_BASE_URL } from './src/config/env';
  * browser. It has to be present in the build environment, which is already true
  * of every NEXT_PUBLIC_ value the client bundle reads.
  */
+/**
+ * Cloudflare Web Analytics, chosen by the owner on 2026-10-13. Cloudflare injects
+ * the beacon at the edge — nothing in this repo loads it — so until these two
+ * origins were named, every page logged a CSP violation and nothing was counted.
+ * The beacon loads from `static.` and reports to the apex; it measures page views
+ * and timings, never audio or transcripts. Remove both if the zone's Web Analytics
+ * is ever turned off, rather than leaving a third-party origin authorised.
+ */
+const CLOUDFLARE_INSIGHTS = {
+  script: 'https://static.cloudflareinsights.com',
+  report: 'https://cloudflareinsights.com',
+};
+
 function contentSecurityPolicy(): string {
   const api = process.env.NEXT_PUBLIC_API_BASE_URL ?? DEFAULT_API_BASE_URL;
   const socket = api.replace(/^http/, 'ws');
@@ -79,12 +93,12 @@ function contentSecurityPolicy(): string {
     // 'unsafe-eval' is dev-only: the Next dev overlay needs it and production
     // must not have it.
     process.env.NODE_ENV === 'production'
-      ? "script-src 'self' 'unsafe-inline'"
-      : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      ? `script-src 'self' 'unsafe-inline' ${CLOUDFLARE_INSIGHTS.script}`
+      : `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${CLOUDFLARE_INSIGHTS.script}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob:${avatarOrigin ? ` ${avatarOrigin}` : ''}`,
     "font-src 'self' data:",
-    `connect-src 'self' ${api} ${socket}`,
+    `connect-src 'self' ${api} ${socket} ${CLOUDFLARE_INSIGHTS.report}`,
     // The worklet is same-origin; naming it keeps a future CDN move deliberate.
     "worker-src 'self' blob:",
     "media-src 'self' blob:",

@@ -4,6 +4,7 @@ import { FooterCta } from '@/components/marketing/footer-cta';
 import { Hero } from '@/components/marketing/hero';
 import { HowItWorks } from '@/components/marketing/how-it-works';
 import { LocalSpeech } from '@/components/marketing/local-speech';
+import { StructuredData } from '@/components/marketing/structured-data';
 import { Surfaces } from '@/components/marketing/surfaces';
 
 /**
@@ -13,8 +14,44 @@ import { Surfaces } from '@/components/marketing/surfaces';
  */
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getT();
-  return { title: t('web.meta.home'), description: t('web.meta.homeDescription') };
+  const title = t('web.meta.home');
+  const description = t('web.meta.homeDescription');
+  return {
+    title,
+    description,
+    // Relative, resolved against `metadataBase` in the root layout. Set here and not
+    // in the layout: a layout canonical would point every page at `/`.
+    alternates: {
+      canonical: '/',
+      types: { 'text/markdown': '/index.md' },
+    },
+    // The image is named here, not left to `app/opengraph-image.png`'s file
+    // convention: any `openGraph` object on a page replaces the root segment's
+    // whole one, file image included — measured, the served page lost `og:image`
+    // and `twitter:card` fell back to `summary` the moment `url` was added.
+    openGraph: {
+      title,
+      description,
+      url: '/',
+      siteName: 'Chatofy',
+      type: 'website',
+      images: [SOCIAL_CARD],
+    },
+    twitter: { card: 'summary_large_image', title, description, images: [SOCIAL_CARD] },
+  };
 }
+
+/**
+ * `app/opengraph-image.png`, served at its own path. English only, like the image:
+ * it is the headline set in type, and the alt describes what is drawn.
+ */
+const SOCIAL_CARD = {
+  url: '/opengraph-image.png',
+  width: 1200,
+  height: 630,
+  type: 'image/png',
+  alt: 'The chatofy wordmark and lotus over the headline "Speak Vietnamese. Be heard in English." on a dawn-coloured glow',
+};
 
 /**
  * The landing page.
@@ -39,6 +76,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function HomePage() {
   return (
     <>
+      <StructuredData />
       <Hero />
       <HowItWorks />
       <LocalSpeech />
