@@ -5,7 +5,7 @@ import type { DirectionToggleLabels } from '@chatofy/ui/react';
 import type { Translate } from '@chatofy/i18n';
 
 /**
- * The words `DirectionToggle` says, in the reader's language — written once for the
+ * The words `LanguagePairPicker` says, in the reader's language — written once for the
  * surfaces that render it.
  *
  * The component itself defaults to English, on purpose: the extension popup renders

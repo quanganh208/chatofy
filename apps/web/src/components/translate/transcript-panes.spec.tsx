@@ -65,6 +65,7 @@ function render(overrides: Partial<TranslateSettings> = {}) {
           settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...overrides }}
           running={false}
           onSwap={vi.fn()}
+          onDirection={vi.fn()}
           voiceControl={<button type="button">voice slot</button>}
           stream={{
             turns: TURNS,
@@ -194,6 +195,7 @@ describe('TranscriptPanes and the conversation-captured direction', () => {
             }}
             running={false}
             onSwap={vi.fn()}
+            onDirection={vi.fn()}
             voiceControl={<button type="button">voice slot</button>}
             conversationDirection="vi_to_en"
             stream={{

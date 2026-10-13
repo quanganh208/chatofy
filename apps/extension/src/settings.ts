@@ -1,4 +1,12 @@
-import { DEFAULT_TRANSLATE_MODE, DEFAULT_VOICE_GENDER, directionOf } from '@chatofy/types';
+import {
+  DEFAULT_TRANSLATE_MODE,
+  DEFAULT_VOICE_GENDER,
+  LANGUAGE_CODES,
+  LIVE_LANGUAGES,
+  directionOf,
+  type LanguageCode,
+  type TranslateMode,
+} from '@chatofy/types';
 import type { CaptureSettings } from './messages';
 
 /**
@@ -113,4 +121,18 @@ export async function recordingNoticeSeen(): Promise<boolean> {
 
 export async function markRecordingNoticeSeen(): Promise<void> {
   await chrome.storage.local.set({ [NOTICE_KEY]: true });
+}
+
+/**
+ * The languages the popup's direction picker offers in a translate mode.
+ *
+ * Every registry language in `cascade`; in `live`, only those the live gateway
+ * translates (`LIVE_LANGUAGES`), because it refuses a zh pair and a picker that
+ * offered one would hand the reader a refusal at the start of their meeting. The
+ * gateway stays the authority on every other path.
+ */
+export function directionPickerLanguages(mode: TranslateMode | undefined): LanguageCode[] {
+  return mode === 'live'
+    ? LANGUAGE_CODES.filter((code) => LIVE_LANGUAGES[code])
+    : [...LANGUAGE_CODES];
 }

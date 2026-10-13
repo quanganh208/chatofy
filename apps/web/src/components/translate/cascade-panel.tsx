@@ -352,6 +352,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           // line reads from.
           conversationDirection={conversation.direction ?? settings.direction}
           onSwap={() => onChange({ direction: reverseDirection(settings.direction) })}
+          onDirection={(direction) => onChange({ direction })}
           // The voice belongs beside the panel it speaks for, not behind the gear
           // at the far end of the dock beside the page settings.
           voiceControl={
