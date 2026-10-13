@@ -63,6 +63,18 @@ CONFIGS: dict[str, KokoroConfig] = {
         V1_0_DIR, "model.onnx", "kokoro-multi-lang-v1_0.tar.bz2",
         ("lexicon-us-en.txt", "lexicon-zh.txt"), ZH_RULE_FSTS, _V1_0_NAMES,
     ),
+    # The en digit gate for the shipped shared instance: the zh lexicon alone,
+    # and the lexicon with the two FSTs the plan first meant to keep. All three
+    # zh FSTs rewrite English digits (date-zh: "1998" -> 一九九八; phone-zh: a
+    # 16-digit run), so the sidecar ships the lexicon-only config.
+    "kokoro-v1_0-en-zh-lexicon": KokoroConfig(
+        V1_0_DIR, "model.onnx", "kokoro-multi-lang-v1_0.tar.bz2",
+        ("lexicon-us-en.txt", "lexicon-zh.txt"), (), _V1_0_NAMES,
+    ),
+    "kokoro-v1_0-en-zh-date-phone": KokoroConfig(
+        V1_0_DIR, "model.onnx", "kokoro-multi-lang-v1_0.tar.bz2",
+        ("lexicon-us-en.txt", "lexicon-zh.txt"), ("date-zh.fst", "phone-zh.fst"), _V1_0_NAMES,
+    ),
     "kokoro-v1_1-int8-zh": KokoroConfig(
         V1_1_DIR, "model.int8.onnx", "kokoro-int8-multi-lang-v1_1.tar.bz2",
         ("lexicon-us-en.txt", "lexicon-zh.txt"), ZH_RULE_FSTS, _V1_1_NAMES,

@@ -508,6 +508,7 @@ jobs:
         run: >-
           uv run --frozen --directory services/local-tts
           pytest -q test_engine_lock.py test_stream_worker.py test_clause_splitter.py
+          test_zh_number_verbalizer.py
 
   # The STT sidecar's tests that need no model weights: webm/opus decoding, the
   # hotword builder's limits, speech-duration and word-pause measurement, the

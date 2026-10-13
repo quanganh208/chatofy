@@ -1,6 +1,6 @@
 """Language to engine resolution.
 
-Symmetric with `services/local-stt/engines/registry.py`. Both voices load
+Symmetric with `services/local-stt/engines/registry.py`. Every voice loads
 eagerly at startup so /healthz is honest about readiness and the first request
 has no load spike — VieNeu's ~8s cold start in particular must not land on a
 user's first turn.
@@ -15,11 +15,14 @@ serve is the API's refusal to make, before the audio ever reaches here.
 """
 from .base import TtsEngine
 from .kokoro_en import KokoroEn
+from .kokoro_zh import KokoroZh
 from .vieneu_vi import VieNeuVi
 
 _ENGINE_TYPES: dict[str, type[TtsEngine]] = {
     "en": KokoroEn,
     "vi": VieNeuVi,
+    # Same Kokoro instance as "en", under the same lock: see kokoro_runtime.py.
+    "zh": KokoroZh,
 }
 
 SUPPORTED_LANGUAGES = tuple(_ENGINE_TYPES)
@@ -40,6 +43,8 @@ class EngineRegistry:
             self._engines[lang] = engine
 
     def unload_all(self) -> None:
+        for engine in self._engines.values():
+            engine.unload()
         self._engines.clear()
 
     @property
