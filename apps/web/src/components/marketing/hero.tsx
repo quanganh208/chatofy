@@ -44,7 +44,12 @@ export async function Hero() {
           <Button asChild size="lg" className="rounded-full">
             <Link href="/translate">{t('web.translate.startTranslating')}</Link>
           </Button>
-          <Button asChild variant="ghost" size="lg" className="rounded-full">
+          {/* No side padding below `sm`. At phone width the padded pair is wider
+              than the column, so the ghost wrapped onto its own line and its text
+              sat a padding's width in from the edge everything else aligns to.
+              Unpadded, the pair fits at 375px; where it still wraps (320px), the
+              text lands on the left edge. Touch has no hover fill to frame. */}
+          <Button asChild variant="ghost" size="lg" className="rounded-full max-sm:px-0">
             <a href="#how-it-works">
               {t('web.landing.heroSeeHow')}
               <span aria-hidden>→</span>

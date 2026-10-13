@@ -58,3 +58,14 @@ export const NAV_GROUPS: readonly (readonly NavItem[])[] = [
  * in sync, and the failure would be a route with no title rather than anything loud.
  */
 export const NAV_ITEMS: readonly NavItem[] = NAV_GROUPS.flat();
+
+/**
+ * The nav item a path belongs to: its own `href`, or any route nested under it.
+ *
+ * Exact matching left `/history/<id>` with no topbar title — so no `<h1>` on the
+ * page — and no active item in the sidebar, although the reader is plainly still in
+ * History. The `/` boundary keeps a sibling such as `/historyx` from matching.
+ */
+export function navItemFor(pathname: string): NavItem | undefined {
+  return NAV_ITEMS.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+}

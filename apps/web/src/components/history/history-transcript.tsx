@@ -65,8 +65,23 @@ export function HistoryTranscript({
         <ul className="flex flex-col gap-4">
           {turns.map((turn) => {
             const at = mediaOffset(turn.offsetMs, audioOffsetMs);
+            const stamp =
+              at === null ? null : onSeek ? (
+                <button
+                  type="button"
+                  onClick={() => onSeek(at)}
+                  className="text-label text-muted-foreground hover:text-foreground tabular-nums"
+                  aria-label={t('web.history.playFrom', { time: formatOffset(at) })}
+                >
+                  <time dateTime={isoDuration(at)}>{formatOffset(at)}</time>
+                </button>
+              ) : (
+                <span className="text-label text-muted-foreground tabular-nums">
+                  <time dateTime={isoDuration(at)}>{formatOffset(at)}</time>
+                </span>
+              );
             return (
-              <li key={turn.position} className="flex gap-3">
+              <li key={turn.position} className="relative flex gap-3">
                 {/* The gutter. Fixed width so every line of the transcript starts
                     at the same x — a column that resized per row would make the
                     left rule ragged, which is the one thing it exists to keep
@@ -79,28 +94,20 @@ export function HistoryTranscript({
 
                     `text-right` so the digits sit against the rule they belong to,
                     and `tabular-nums` so 1:09 and 1:10 do not shift the column. */}
-                <div className="w-16 shrink-0 pt-0.5 text-right">
-                  {at === null ? null : onSeek ? (
-                    <button
-                      type="button"
-                      onClick={() => onSeek(at)}
-                      className="text-label text-muted-foreground hover:text-foreground tabular-nums"
-                      aria-label={t('web.history.playFrom', { time: formatOffset(at) })}
-                    >
-                      <time dateTime={isoDuration(at)}>{formatOffset(at)}</time>
-                    </button>
-                  ) : (
-                    <span className="text-label text-muted-foreground tabular-nums">
-                      <time dateTime={isoDuration(at)}>{formatOffset(at)}</time>
-                    </span>
-                  )}
+                <div className="absolute top-0 right-0 flex sm:static sm:block sm:w-16 sm:shrink-0 sm:pt-0.5 sm:text-right">
+                  {stamp}
                 </div>
                 {/* The block, unchanged: the left rule and the larger translation
                     are what `conversation-transcript.tsx` established and what
                     makes reading a stored conversation the same act as reading a
                     live one. */}
-                <div className="border-primary flex min-w-0 flex-col gap-1 border-l-2 pl-4">
-                  <p className="text-label text-muted-foreground uppercase">
+                <div className="border-primary flex min-w-0 flex-1 flex-col gap-1 border-l-2 pl-3 sm:pl-4">
+                  {/* Below `sm` the gutter is lifted out of the row and pinned to the
+                      top right, on this label's line; the padding keeps a long label
+                      from running under it. A 64px gutter plus the rule left a 180px
+                      column at 375px — two or three words a line on a long turn. One
+                      element in both layouts, so it is focused and announced once. */}
+                  <p className="text-label text-muted-foreground uppercase max-sm:pr-14">
                     {/* The label the reader confirmed, or a fallback composed HERE from
                         the role and the dictionary. Storing the fallback would have put
                         an English name permanently into a Vietnamese reader's rows. */}

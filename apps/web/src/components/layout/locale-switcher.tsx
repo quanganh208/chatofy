@@ -54,7 +54,19 @@ const LABEL_KEY = {
   en: 'common.language.english',
 } as const satisfies Record<Locale, string>;
 
-export function LocaleSwitcher({ className }: { className?: string }) {
+/**
+ * `showValue` draws the active language beside the icon. The chrome's icon is
+ * enough where the whole page is the readout; in a settings row it is not — the
+ * theme control beside it shows its state, and a bare icon left "which language
+ * is this set to?" answerable only by opening the menu.
+ */
+export function LocaleSwitcher({
+  className,
+  showValue = false,
+}: {
+  className?: string;
+  showValue?: boolean;
+}) {
   const router = useRouter();
   const active = useLocale();
   const t = useTranslate();
@@ -63,14 +75,28 @@ export function LocaleSwitcher({ className }: { className?: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={className ?? 'size-8'}
-          aria-label={t('common.language.label')}
-        >
-          <Languages aria-hidden />
-        </Button>
+        {showValue ? (
+          // The visible name is part of the accessible one (WCAG 2.5.3), so a voice
+          // user saying what they see still reaches it.
+          <Button
+            variant="ghost"
+            size="sm"
+            className={className}
+            aria-label={`${t('common.language.label')}: ${t(LABEL_KEY[active])}`}
+          >
+            <Languages aria-hidden />
+            {t(LABEL_KEY[active])}
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            className={className ?? 'size-8'}
+            aria-label={t('common.language.label')}
+          >
+            <Languages aria-hidden />
+          </Button>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
         {LOCALES.map((locale) => (

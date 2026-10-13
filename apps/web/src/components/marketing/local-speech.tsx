@@ -28,6 +28,13 @@ export async function LocalSpeech() {
     { badge: t('web.landing.hopOnDevice'), body: t('web.landing.hopSpeaks'), local: true },
   ];
 
+  const kept = [
+    t('web.landing.localKeptHistory'),
+    t('web.landing.localKeptLink'),
+    t('web.landing.localKeptPause'),
+    t('web.landing.localKeptDelete'),
+  ];
+
   return (
     <Section id="on-your-machine">
       <div className="grid items-center gap-10 lg:grid-cols-2">
@@ -36,6 +43,16 @@ export async function LocalSpeech() {
             {t('web.landing.localTitle')}
           </h2>
           <p className="text-prose text-body max-w-prose">{t('web.landing.localBody')}</p>
+          {/* The rest of the notice, one fact per line. It was one paragraph, and at
+              phone width the part a reader would be surprised by later — kept, by
+              link, through a pause — sat in the middle of thirteen lines. */}
+          <ul className="border-hairline flex max-w-prose flex-col border-t">
+            {kept.map((fact) => (
+              <li key={fact} className="text-prose text-hint border-hairline border-b py-3">
+                {fact}
+              </li>
+            ))}
+          </ul>
         </div>
 
         <Card>

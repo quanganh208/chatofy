@@ -315,7 +315,8 @@ export const en = {
   'web.translate.minutesGenerate': 'Generate minutes',
   'web.translate.minutesRegenerate': 'Regenerate',
   'web.translate.minutesGenerating': 'Summarizing the conversation…',
-  'web.translate.minutesEmpty': 'No minutes yet — generate them once the conversation has ended.',
+  'web.translate.minutesEmpty':
+    'No minutes yet. Generate them for a summary, key points, decisions and action items.',
   'web.translate.minutesNeedsTurns':
     'Have a conversation first — there is nothing to summarize yet.',
   'web.translate.minutesFailed': 'Could not generate minutes. Try again.',
@@ -374,6 +375,7 @@ export const en = {
   'web.history.clearSearch': 'Clear search',
   'web.history.back': 'Back to history',
   'web.history.turnCount': '{count} lines',
+  'web.history.turnCountOne': '1 line',
   'web.history.duration': '{minutes} min',
   // `direction` is the ACCESSIBLE name; `directionShort` is what is drawn on a
   // row. "Vietnamese → English" is 21 characters printed once per row, which at
@@ -578,8 +580,18 @@ export const en = {
   // `localTitle` is ALSO the nav label for `#on-your-machine`
   // (`marketing-header.tsx`), so it has to stay short enough to sit in a header.
   'web.landing.localTitle': 'Your voice is understood on your machine',
+  // Split into the claim and the four facts a reader would be surprised by later —
+  // each fact is one sentence of the original notice, verbatim, so the notice says
+  // exactly what it said as one paragraph and can be scanned as a list.
   'web.landing.localBody':
-    'What you say is heard on your own computer — no key to obtain, and nothing is sent away to be understood. When a conversation ends, its recording and its words are saved to your history, so you can play it back and read it again. The recording is kept at an unguessable address that anyone holding the link can open, so the link is what keeps it private. Pausing a conversation pauses its recording too: what is said while it is paused is neither recorded nor translated. Deleting a conversation deletes its recording with it.',
+    'What you say is heard on your own computer — no key to obtain, and nothing is sent away to be understood.',
+  'web.landing.localKeptHistory':
+    'When a conversation ends, its recording and its words are saved to your history, so you can play it back and read it again.',
+  'web.landing.localKeptLink':
+    'The recording is kept at an unguessable address that anyone holding the link can open, so the link is what keeps it private.',
+  'web.landing.localKeptPause':
+    'Pausing a conversation pauses its recording too: what is said while it is paused is neither recorded nor translated.',
+  'web.landing.localKeptDelete': 'Deleting a conversation deletes its recording with it.',
   'web.landing.hopOnDevice': 'On device',
   'web.landing.hopOverNetwork': 'Over the network',
   'web.landing.hopHears': 'Hears what you said',

@@ -248,7 +248,8 @@ export const vi: Messages = {
   'web.translate.minutesGenerate': 'Tạo biên bản',
   'web.translate.minutesRegenerate': 'Tạo lại',
   'web.translate.minutesGenerating': 'Đang tóm tắt cuộc trò chuyện…',
-  'web.translate.minutesEmpty': 'Chưa có biên bản — tạo sau khi cuộc trò chuyện kết thúc.',
+  'web.translate.minutesEmpty':
+    'Chưa có biên bản. Tạo biên bản để có phần tóm tắt, ý chính, quyết định và việc cần làm.',
   'web.translate.minutesNeedsTurns': 'Hãy trò chuyện trước đã — chưa có gì để tóm tắt.',
   'web.translate.minutesFailed': 'Không tạo được biên bản. Thử lại nhé.',
   'web.translate.minutesSummary': 'Tóm tắt',
@@ -288,6 +289,7 @@ export const vi: Messages = {
   'web.history.clearSearch': 'Xoá tìm kiếm',
   'web.history.back': 'Quay lại lịch sử',
   'web.history.turnCount': '{count} dòng',
+  'web.history.turnCountOne': '1 dòng',
   'web.history.duration': '{minutes} phút',
   'web.history.direction': '{from} → {to}',
   'web.history.directionShort': '{from} → {to}',
@@ -401,7 +403,14 @@ export const vi: Messages = {
   // là nhãn điều hướng nên phải ngắn.
   'web.landing.localTitle': 'Giọng nói của bạn được hiểu ngay trên máy bạn',
   'web.landing.localBody':
-    'Những gì bạn nói được nghe ngay trên máy tính của bạn — không cần xin khoá nào, và không có gì phải gửi đi nơi khác để hiểu. Khi một cuộc hội thoại kết thúc, bản ghi âm cùng phần chữ được lưu vào lịch sử của bạn, để bạn nghe lại và đọc lại. Bản ghi âm được lưu tại một địa chỉ khó đoán mà bất kỳ ai có đường liên kết đó cũng mở được, nên chính đường liên kết là thứ giữ cho nó riêng tư. Khi tạm dừng cuộc hội thoại, bản ghi âm cũng tạm dừng theo: những gì nói trong lúc tạm dừng không được ghi lại và không được dịch. Xoá một cuộc hội thoại sẽ xoá luôn bản ghi âm của nó.',
+    'Những gì bạn nói được nghe ngay trên máy tính của bạn — không cần xin khoá nào, và không có gì phải gửi đi nơi khác để hiểu.',
+  'web.landing.localKeptHistory':
+    'Khi một cuộc hội thoại kết thúc, bản ghi âm cùng phần chữ được lưu vào lịch sử của bạn, để bạn nghe lại và đọc lại.',
+  'web.landing.localKeptLink':
+    'Bản ghi âm được lưu tại một địa chỉ khó đoán mà bất kỳ ai có đường liên kết đó cũng mở được, nên chính đường liên kết là thứ giữ cho nó riêng tư.',
+  'web.landing.localKeptPause':
+    'Khi tạm dừng cuộc hội thoại, bản ghi âm cũng tạm dừng theo: những gì nói trong lúc tạm dừng không được ghi lại và không được dịch.',
+  'web.landing.localKeptDelete': 'Xoá một cuộc hội thoại sẽ xoá luôn bản ghi âm của nó.',
   'web.landing.hopOnDevice': 'Trên máy',
   'web.landing.hopOverNetwork': 'Qua mạng',
   'web.landing.hopHears': 'Nghe những gì bạn vừa nói',

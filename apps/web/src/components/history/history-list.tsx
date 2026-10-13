@@ -8,6 +8,7 @@ import { Badge, Button, Skeleton } from '@chatofy/ui/react';
 import { useLocale, useTranslate } from '@/i18n/provider';
 import { durationMinutes, formatTime, groupByDay } from './conversation-formatting';
 import { DirectionLabel } from './direction-label';
+import { turnCountLabel } from './turn-count-label';
 
 interface HistoryListProps {
   conversations: ConversationSummary[];
@@ -204,7 +205,7 @@ function Row({ conversation }: { conversation: ConversationSummary }) {
             <DirectionLabel from={source} to={target} />
           </span>
           <Dot />
-          {t('web.history.turnCount', { count: conversation.turnCount })}
+          {turnCountLabel(t, conversation.turnCount)}
           <Dot />
           {t('web.history.duration', { minutes: durationMinutes(conversation) })}
         </p>
