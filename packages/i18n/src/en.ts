@@ -634,6 +634,12 @@ export const en = {
   'web.conference.rosterTitle': 'In this call',
   'web.conference.hideRoster': 'Hide participants',
   'web.conference.showRoster': 'Show participants',
+  // ---- web.conference: in-meeting chat (Phase 4) ----
+  // Flat side region — ghost/outline controls only; Leave stays the one accent control.
+  'web.conference.chatTitle': 'Chat',
+  'web.conference.chatPlaceholder': 'Type a message…',
+  'web.conference.chatSend': 'Send',
+  'web.conference.chatEmpty': 'No messages yet.',
   // ---- web.conference: edge-case states (Phase 5) ----
   'web.conference.permissionDenied': 'Camera and microphone access is required.',
   'web.conference.permissionDeniedHint':

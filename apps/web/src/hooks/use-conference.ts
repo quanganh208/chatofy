@@ -74,6 +74,25 @@ export interface PeerState {
   videoEnabled: boolean;
 }
 
+/**
+ * One in-meeting chat message as delivered to THIS client.
+ *
+ * `text` is already in this client's chosen language (the gateway translates
+ * per recipient); `lang` is the language of that text. `socketId` identifies
+ * the sender so own-vs-other messages are distinguishable in the UI.
+ */
+export interface ConferenceChatMessage {
+  id: string;
+  socketId: string;
+  displayName: string;
+  text: string;
+  lang: string;
+  sentAt: number;
+}
+
+/** Max chat messages retained per meeting (ephemeral, bounded). */
+const CHAT_MESSAGE_CAP = 200;
+
 export interface UseConferenceReturn {
   status: ConferenceStatus;
   /**
@@ -114,6 +133,13 @@ export interface UseConferenceReturn {
   toggleVideo: () => void;
   /** Resume all suspended TTS AudioContexts. Must be called from a user gesture. */
   resumeAudio: () => Promise<void>;
+  /**
+   * In-meeting chat messages in arrival order, each already in this client's
+   * chosen language. Bounded to the last {@link CHAT_MESSAGE_CAP} for the meeting.
+   */
+  messages: ConferenceChatMessage[];
+  /** Send a chat message. No-op for blank/whitespace-only text. */
+  sendChat: (text: string) => void;
 }
 
 // ─── Signaling helpers (module-level, not hooks) ──────────────────────────────
@@ -420,6 +446,8 @@ export function useConference(
   const [localTranslating, setLocalTranslating] = useState(false);
   // Phase 4 (auto-reconnect): current attempt number (1-based, 0 = not reconnecting).
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
+  // Phase 4 (in-meeting chat): bounded message list, each in this client's language.
+  const [messages, setMessages] = useState<ConferenceChatMessage[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const deviceRef = useRef<types.Device | null>(null);
@@ -780,6 +808,17 @@ export function useConference(
               setAudioBlocked(audioSinkRef.current.isAnySuspended());
             }
           }
+
+          if (msg.event === 'conference.chat.message') {
+            const d = msg.data as ConferenceChatMessage & { error?: string };
+            if (d.error) return;
+            setMessages((prev) => {
+              const next = [...prev, d];
+              return next.length > CHAT_MESSAGE_CAP
+                ? next.slice(next.length - CHAT_MESSAGE_CAP)
+                : next;
+            });
+          }
         });
       } catch (err) {
         addLog(`Error: ${(err as Error).message}`);
@@ -926,6 +965,7 @@ export function useConference(
     setLocalTranslating(false);
     setPeers(new Map());
     setMySocketId(null);
+    setMessages([]);
     setStatus('idle');
     addLog('Left room');
   }, [addLog]);
@@ -979,6 +1019,18 @@ export function useConference(
   }, []);
 
   /**
+   * Send an in-meeting chat message. The gateway translates it per recipient
+   * and echoes the original back, which arrives via `conference.chat.message`.
+   * No-op for blank text or a closed socket.
+   */
+  const sendChat = useCallback((text: string) => {
+    if (!text.trim()) return;
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      send(wsRef.current, 'conference.chat', { text });
+    }
+  }, []);
+
+  /**
    * Resume all suspended TTS AudioContexts.
    *
    * Must be called from a direct user-gesture handler (e.g. a button click) so
@@ -1017,5 +1069,7 @@ export function useConference(
     toggleMute,
     toggleVideo,
     resumeAudio,
+    messages,
+    sendChat,
   };
 }

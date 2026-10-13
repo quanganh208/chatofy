@@ -453,6 +453,11 @@ export const vi: Messages = {
   'web.conference.rosterTitle': 'Trong cuộc gọi này',
   'web.conference.hideRoster': 'Ẩn danh sách',
   'web.conference.showRoster': 'Xem danh sách',
+  // ---- web.conference: trò chuyện trong cuộc gọi (Phase 4) ----
+  'web.conference.chatTitle': 'Trò chuyện',
+  'web.conference.chatPlaceholder': 'Nhập tin nhắn…',
+  'web.conference.chatSend': 'Gửi',
+  'web.conference.chatEmpty': 'Chưa có tin nhắn.',
   // ---- web.conference: trạng thái ngoại lệ (Phase 5) ----
   'web.conference.permissionDenied': 'Cần quyền truy cập camera và micro.',
   'web.conference.permissionDeniedHint':

@@ -11,6 +11,9 @@ export type {
   ConferenceTranslationSubtitle,
 } from './conference-translation-events.js';
 
+export { ConferenceChatMessageSchema } from './conference-chat-events.js';
+export type { ConferenceChatMessage } from './conference-chat-events.js';
+
 export {
   audioEncodingSchema,
   audioFrameSchema,

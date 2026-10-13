@@ -19,6 +19,8 @@ import type {
 import { ConferenceMetricsService } from './conference-metrics.service';
 import { ConferencePersistenceService } from './services/conference-persistence.service';
 import { ConferenceTranslationRouter } from './services/conference-translation-router.service';
+import { PipelineTranslatorService } from '../translate/services/pipeline-translator.service';
+import { LANGUAGE_CODES, type LanguageCode } from '@chatofy/types';
 import {
   createVerifyClient,
   handleProtocols,
@@ -99,6 +101,7 @@ export class ConferenceGateway
     private readonly metrics: ConferenceMetricsService,
     private readonly persistence: ConferencePersistenceService,
     private readonly translationRouter: ConferenceTranslationRouter,
+    private readonly translator: PipelineTranslatorService,
     @Inject(AUTH_ADAPTER) private readonly auth: AuthAdapter,
   ) {}
 
@@ -525,6 +528,94 @@ export class ConferenceGateway
     this.reply(ws, 'conference.participant.mute', { muted: peer.muted });
   }
 
+  /**
+   * In-meeting text chat, translated per recipient.
+   *
+   * One sent message is translated into every distinct recipient language in
+   * the room and fanned out per peer; a recipient sharing the sender's language
+   * gets the original text, and the sender gets an echo of their own original.
+   * Ephemeral — nothing is persisted. If translation throws (provider hiccup),
+   * everyone receives the original text so chat never breaks.
+   */
+  @SubscribeMessage('conference.chat')
+  async handleChat(
+    @ConnectedSocket() ws: ConferenceSocket,
+    @MessageBody() body: { text: string },
+  ): Promise<void> {
+    const resolved = this.resolvePeer(ws);
+    if ('error' in resolved) {
+      this.reply(ws, 'conference.chat.message', resolved);
+      return;
+    }
+    const { room, peer } = resolved;
+
+    const text = typeof body?.text === 'string' ? body.text.trim() : '';
+    if (!text) return;
+
+    const senderSocketId = ws._socketId!;
+    const senderDisplayName = peer.displayName;
+    const senderLang = this.toLanguageCode(peer.sourceLanguage);
+    const id = crypto.randomUUID();
+    const sentAt = Date.now();
+
+    // Echo the original to the sender in their own language.
+    this.reply(ws, 'conference.chat.message', {
+      id,
+      socketId: senderSocketId,
+      displayName: senderDisplayName,
+      text,
+      lang: senderLang,
+      sentAt,
+    });
+
+    // Other peers in the room (exclude the sender).
+    const recipients = [...room.peers.entries()].filter(
+      ([sid]) => sid !== senderSocketId,
+    );
+    if (recipients.length === 0) return;
+
+    // Distinct recipient languages that differ from the sender's.
+    const targets = [
+      ...new Set(
+        recipients
+          .map(([, p]) => this.toLanguageCode(p.sourceLanguage))
+          .filter((lang) => lang !== senderLang),
+      ),
+    ];
+
+    // text keyed by target language; the sender's language maps to the original.
+    const byLang = new Map<LanguageCode, string>([[senderLang, text]]);
+    if (targets.length > 0) {
+      try {
+        const translations = await this.translator.translateAll({
+          text,
+          source: senderLang,
+          targets,
+        });
+        for (const target of targets) {
+          byLang.set(target, translations[target] ?? text);
+        }
+      } catch (err) {
+        // Provider hiccup: degrade to the original for every target. Chat must
+        // not break on a translation failure.
+        this.logger.error('conference.chat translateAll failed', err);
+        for (const target of targets) byLang.set(target, text);
+      }
+    }
+
+    for (const [sid, p] of recipients) {
+      const recipientLang = this.toLanguageCode(p.sourceLanguage);
+      this.broadcastToSocket(sid, 'conference.chat.message', {
+        id,
+        socketId: senderSocketId,
+        displayName: senderDisplayName,
+        text: byLang.get(recipientLang) ?? text,
+        lang: recipientLang,
+        sentAt,
+      });
+    }
+  }
+
   @SubscribeMessage('conference.participant.video')
   handleParticipantVideo(
     @ConnectedSocket() ws: ConferenceSocket,
@@ -592,6 +683,17 @@ export class ConferenceGateway
 
   private reply(ws: ConferenceSocket, event: string, data: unknown): void {
     ws.send(JSON.stringify({ event, data }));
+  }
+
+  /**
+   * Narrow a peer's declared `sourceLanguage` string to a `LanguageCode`,
+   * falling back to the first supported code for an unknown value so chat
+   * translation never crashes on a malformed join language.
+   */
+  private toLanguageCode(lang: string): LanguageCode {
+    return (LANGUAGE_CODES as readonly string[]).includes(lang)
+      ? (lang as LanguageCode)
+      : LANGUAGE_CODES[0];
   }
 
   private resolvePeer(

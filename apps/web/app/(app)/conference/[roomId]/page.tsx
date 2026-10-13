@@ -20,6 +20,7 @@ import { useConference } from '@/hooks/use-conference';
 import { VideoGrid } from './components/video-grid';
 import { ControlBar } from './components/control-bar';
 import { ParticipantList } from './components/participant-list';
+import { ChatPanel } from './components/chat-panel';
 
 export default function ConferenceRoomPage() {
   const t = useTranslate();
@@ -38,17 +39,20 @@ export default function ConferenceRoomPage() {
     errorReason,
     localStream,
     peers,
+    mySocketId,
     localMuted,
     localVideoEnabled,
     audioBlocked,
     localTranslating,
     reconnectAttempt,
     reconnectCap,
+    messages,
     join,
     leave,
     toggleMute,
     toggleVideo,
     resumeAudio,
+    sendChat,
   } = useConference(roomId, { displayName, sourceLanguage });
 
   // Auto-join once on mount. Ref guard prevents double-invoke in React Strict Mode.
@@ -195,21 +199,34 @@ export default function ConferenceRoomPage() {
           />
         </main>
 
-        {/* Participant roster — collapsible side region, no card */}
+        {/* Participant roster + chat — collapsible side region, flat (no cards) */}
         {rosterOpen && (
           <aside
-            className="border-border w-52 shrink-0 overflow-y-auto border-l"
+            className="border-border flex w-52 shrink-0 flex-col overflow-hidden border-l"
             aria-label={t('web.conference.rosterTitle')}
           >
-            <ParticipantList
-              selfName={displayName || t('web.conference.you')}
-              selfMuted={localMuted}
-              selfVideoEnabled={localVideoEnabled}
-              selfLanguage={sourceLanguage}
-              selfLabel={t('web.conference.you')}
-              peers={peers}
-              rosterTitle={t('web.conference.rosterTitle')}
-            />
+            <div className="shrink-0 overflow-y-auto">
+              <ParticipantList
+                selfName={displayName || t('web.conference.you')}
+                selfMuted={localMuted}
+                selfVideoEnabled={localVideoEnabled}
+                selfLanguage={sourceLanguage}
+                selfLabel={t('web.conference.you')}
+                peers={peers}
+                rosterTitle={t('web.conference.rosterTitle')}
+              />
+            </div>
+            <div className="border-border mt-1 flex min-h-0 flex-1 flex-col border-t">
+              <ChatPanel
+                messages={messages}
+                mySocketId={mySocketId}
+                onSend={sendChat}
+                title={t('web.conference.chatTitle')}
+                inputPlaceholder={t('web.conference.chatPlaceholder')}
+                sendLabel={t('web.conference.chatSend')}
+                emptyLabel={t('web.conference.chatEmpty')}
+              />
+            </div>
           </aside>
         )}
       </div>
