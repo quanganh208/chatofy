@@ -44,6 +44,7 @@ export const en = {
   'web.chrome.skipToContent': 'Skip to content',
   'web.chrome.productNav': 'Product',
   'web.chrome.navTranslate': 'Translate',
+  'web.chrome.navConference': 'Conference',
   'web.chrome.navHistory': 'History',
   'web.chrome.navPreferences': 'Preferences',
   // Its own key rather than reusing `accountMenu`. That one names the avatar

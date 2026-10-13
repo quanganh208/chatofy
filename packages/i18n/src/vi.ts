@@ -53,6 +53,7 @@ export const vi: Messages = {
   'web.chrome.skipToContent': 'Tới nội dung chính',
   'web.chrome.productNav': 'Sản phẩm',
   'web.chrome.navTranslate': 'Dịch',
+  'web.chrome.navConference': 'Hội thảo',
   'web.chrome.navHistory': 'Lịch sử',
   'web.chrome.navPreferences': 'Tuỳ chọn',
   'web.chrome.navAccount': 'Tài khoản',

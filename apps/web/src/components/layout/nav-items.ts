@@ -1,5 +1,5 @@
 import type { Route } from 'next';
-import { History, Mic, SlidersHorizontal, User, type LucideIcon } from 'lucide-react';
+import { History, Mic, SlidersHorizontal, User, Video, type LucideIcon } from 'lucide-react';
 import type { MessageKey } from '@chatofy/i18n';
 
 /**
@@ -43,6 +43,7 @@ export interface NavItem {
 export const NAV_GROUPS: readonly (readonly NavItem[])[] = [
   [
     { href: '/translate', labelKey: 'web.chrome.navTranslate', icon: Mic },
+    { href: '/conference', labelKey: 'web.chrome.navConference', icon: Video },
     { href: '/history', labelKey: 'web.chrome.navHistory', icon: History },
   ],
   [
