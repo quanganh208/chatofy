@@ -29,42 +29,42 @@ The measurements and the dead ends behind these are in
 
 ## Next: video meetings
 
-**PoC on `video-conferencing` branch; not yet on `main`.** Design gates complete as of
-2026-10-07 (Issues #207–#212). The three design documents are:
+**Demo-ready on `video-conferencing` branch; not yet on `main`.**
 
-- [video-conferencing-architecture.md](./video-conferencing-architecture.md) — target,
-  reuse, open decisions (all resolved or deferred)
-- [database-schema-conference.md](./database-schema-conference.md) — Prisma models
-- [technical-risks-mitigation.md](./technical-risks-mitigation.md) — risks (updated with measurements)
+Phases 1–5 are complete on the branch. A full production lobby (`/conference`) and
+in-call screen (`/conference/[roomId]`) ship with bidirectional vi↔en translation,
+ordered audio playback, participant mute/video/leave, subtitle overlay, and graceful
+edge-case states (permission denied, audio-only fallback, mid-call disconnect).
 
-### Gate 0 — design decisions
+Operator runbook: [conference-demo-runbook.md](./conference-demo-runbook.md).
 
-| Decision                                | Status                                                          |
-| --------------------------------------- | --------------------------------------------------------------- |
-| SFU / media server                      | **Resolved: mediasoup** (#207)                                  |
-| Network path for media                  | **Resolved: Path A** (public port + coturn) (#208)              |
-| Translation audio path                  | **Resolved: client-side capture** (#209)                        |
-| Client support (web / mobile)           | **Resolved** (#210) — mobile real-device test pending (#210 AC) |
-| Capacity targets on production hardware | **Resolved: #211** (measured 2026-10-11 — 6p × 720p60 viable)   |
-| Billing tables                          | **Deferred out of thesis scope** (#212)                         |
-| Speaker embedding persistence           | **Deferred** (#212)                                             |
-| Recording access policy                 | **Deferred** (#212)                                             |
-| System design v2 review                 | **Pending: @quanganh208 review** (#212 AC)                      |
+Design gates (complete as of 2026-10-07, Issues #207–#212):
 
-### Implementation phases
+- [video-conferencing-architecture.md](./video-conferencing-architecture.md)
+- [database-schema-conference.md](./database-schema-conference.md)
+- [technical-risks-mitigation.md](./technical-risks-mitigation.md)
 
-Phase 1 is ready to start once @quanganh208 approves the design. Implementation issues
-are listed in [#212](https://github.com/VitusNguyen/chatofy/issues/212).
+### Implementation phases (branch `video-conferencing`)
 
-| Phase | Goal                                       | Status                            |
-| ----- | ------------------------------------------ | --------------------------------- |
-| 1     | Infrastructure — schema, CRUD, room state  | Ready (PoC code on branch)        |
-| 2     | Real-time signaling — multi-user WebSocket | Ready (PoC code on branch)        |
-| 3     | Video basics — transport and grid layout   | Not started                       |
-| 4     | Translation in video — audio and subtitles | Designed (#209), not wired        |
-| 5     | Chat and recording                         | Chat designed; recording deferred |
-| 6     | Minutes and polish                         | Not started                       |
-| 7     | Production hardening                       | Not started                       |
+| Phase | Goal                                                             | Status                        |
+| ----- | ---------------------------------------------------------------- | ----------------------------- |
+| 1     | Production `/conference` lobby + `useConference` hook            | **Done**                      |
+| 2     | In-call UI: video grid, control bar, roster, subtitle overlay    | **Done**                      |
+| 3     | Translation robustness: bidirectional vi↔en + ordered audio sink | **Done**                      |
+| 4     | In-meeting chat                                                  | **Cut** (not needed for demo) |
+| 5     | Demo polish: edge-case states, runbook, end-to-end smoke         | **Done**                      |
+| 6     | _(post-demo)_ Mobile RN lobby + call view                        | Not started                   |
+| 7     | _(post-demo)_ Mobile RN translation UX                           | Not started                   |
+
+### Still-open production gates (before `main` merge)
+
+| Gate                                                        | Issue | Status                                |
+| ----------------------------------------------------------- | ----- | ------------------------------------- |
+| Mobile real-device A/V test                                 | #210  | Untested — demo on web only           |
+| ≥2-network media reachability (TURN/STUN)                   | #208  | Untested — demo on loopback only      |
+| Concurrent-translation load test (3+ speakers, caps raised) | —     | Not formally measured                 |
+| `main` merge / production hardening                         | #212  | Pending design review by @quanganh208 |
+| Billing tables + recording access policy                    | #212  | Deferred out of thesis scope          |
 
 ## Known gaps
 
