@@ -441,5 +441,16 @@ export const vi: Messages = {
   'web.conference.nameRequired': 'Nhập tên của bạn để tiếp tục.',
   'web.conference.roomRequired': 'Nhập mã phòng để tham gia.',
   'web.conference.you': 'Bạn',
+  // ---- web.conference: in-call control bar ----
+  'web.conference.muteMic': 'Tắt micro',
+  'web.conference.unmuteMic': 'Bật micro',
+  'web.conference.disableCamera': 'Tắt camera',
+  'web.conference.enableCamera': 'Bật camera',
+  'web.conference.participants': 'Người tham gia',
+  'web.conference.cameraOff': 'Camera tắt',
+  'web.conference.muted': 'Đã tắt tiếng',
+  'web.conference.rosterTitle': 'Trong cuộc gọi này',
+  'web.conference.hideRoster': 'Ẩn danh sách',
+  'web.conference.showRoster': 'Xem danh sách',
   'web.meta.conference': 'Hội nghị · Chatofy',
 };

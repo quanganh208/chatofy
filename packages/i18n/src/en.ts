@@ -622,6 +622,17 @@ export const en = {
   'web.conference.nameRequired': 'Enter your name to continue.',
   'web.conference.roomRequired': 'Enter a room ID to join.',
   'web.conference.you': 'You',
+  // ---- web.conference: in-call control bar ----
+  'web.conference.muteMic': 'Mute microphone',
+  'web.conference.unmuteMic': 'Unmute microphone',
+  'web.conference.disableCamera': 'Turn off camera',
+  'web.conference.enableCamera': 'Turn on camera',
+  'web.conference.participants': 'Participants',
+  'web.conference.cameraOff': 'Camera off',
+  'web.conference.muted': 'Muted',
+  'web.conference.rosterTitle': 'In this call',
+  'web.conference.hideRoster': 'Hide participants',
+  'web.conference.showRoster': 'Show participants',
   'web.meta.conference': 'Conference · Chatofy',
 } as const;
 

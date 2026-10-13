@@ -109,6 +109,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
   usePathname: () => '/history',
   useSearchParams: () => new URLSearchParams(url.query),
+  useParams: () => ({ roomId: 'test-room' }),
 }));
 
 vi.mock('next-auth/react', () => ({
@@ -116,11 +117,18 @@ vi.mock('next-auth/react', () => ({
   useSession: () => ({ data: null, status: 'unauthenticated' }),
 }));
 
+// `useConference` is mocked so the conference page can be mounted in happy-dom
+// without a real WebSocket or mediasoup device. The hook's public surface is
+// typed here so any API drift is caught by this file's own typecheck.
+const useConference = vi.hoisted(() => vi.fn());
+vi.mock('@/hooks/use-conference', () => ({ useConference }));
+
 const { CascadePanel } = await import('@/components/translate/cascade-panel');
 const { HistoryScreen } = await import('@/components/history/history-screen');
 const { ConversationDetail } = await import('@/components/history/conversation-detail');
 const { default: PreferencesPage } = await import('../../app/(app)/preferences/page');
 const { default: AccountPage } = await import('../../app/(app)/account/page');
+const { default: ConferenceRoomPage } = await import('../../app/(app)/conference/[roomId]/page');
 const { LocaleProvider } = await import('@/i18n/provider');
 const { DEFAULT_TRANSLATE_SETTINGS, saveTranslateSettings } =
   await import('@/lib/translate-settings');
@@ -834,6 +842,64 @@ const SCREENS: ScreenState[] = [
     render: translate(),
   },
   ...ARRANGEMENTS,
+
+  // ---- /conference/[roomId] in-call screen ----
+  //
+  // Two states: waiting (in-call with no remote peers yet) and in-call with one
+  // peer. Both spend exactly ONE accent: Leave. Mic and camera are outline, the
+  // roster button is ghost. Zero elevated surfaces: the call screen is the page
+  // ground; no cards, no panels.
+  {
+    name: '/conference/[roomId] — waiting for others',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      useConference.mockReturnValue({
+        status: 'in-call',
+        localStream: null,
+        peers: new Map(),
+        mySocketId: 's-local',
+        localMuted: false,
+        localVideoEnabled: true,
+        join: vi.fn(),
+        leave: vi.fn(),
+        toggleMute: vi.fn(),
+        toggleVideo: vi.fn(),
+      });
+    },
+    render: () => <ConferenceRoomPage />,
+  },
+  {
+    name: '/conference/[roomId] — in-call with a peer',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      useConference.mockReturnValue({
+        status: 'in-call',
+        localStream: null,
+        peers: new Map([
+          [
+            's-peer-1',
+            {
+              displayName: 'Alice',
+              stream: { getTracks: () => [] } as unknown as MediaStream,
+              subtitle: undefined,
+              muted: false,
+              videoEnabled: true,
+            },
+          ],
+        ]),
+        mySocketId: 's-local',
+        localMuted: false,
+        localVideoEnabled: true,
+        join: vi.fn(),
+        leave: vi.fn(),
+        toggleMute: vi.fn(),
+        toggleVideo: vi.fn(),
+      });
+    },
+    render: () => <ConferenceRoomPage />,
+  },
 ];
 
 /**
