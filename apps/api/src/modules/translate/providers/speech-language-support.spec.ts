@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { LanguageCode } from '@chatofy/types';
+import { LANGUAGE_CODES, type LanguageCode } from '@chatofy/types';
 import type {
   ServedLanguages,
   SttProvider,
@@ -195,7 +195,7 @@ describe('SpeechLanguageSupport', () => {
     const support = new SpeechLanguageSupport(
       fakeFactory(
         { supportedLanguages: async () => served(sttServed) },
-        { supportedLanguages: async () => served(['vi', 'en']) },
+        { supportedLanguages: async () => served([...LANGUAGE_CODES]) },
       ),
     );
     const logger = (
@@ -213,7 +213,7 @@ describe('SpeechLanguageSupport', () => {
     // The gap closes: a set that now includes everything is a CHANGE too, and
     // there is nothing left to warn about.
     warn.mockClear();
-    sttServed = ['vi', 'en'];
+    sttServed = [...LANGUAGE_CODES];
     await refresh();
     expect(warn).not.toHaveBeenCalled();
 

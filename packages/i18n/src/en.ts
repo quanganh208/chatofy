@@ -354,8 +354,10 @@ export const en = {
   // conversation is between.
   'web.languageName.vi': 'Vietnamese',
   'web.languageName.en': 'English',
+  'web.languageName.zh': 'Chinese',
   'web.languageShort.vi': 'VI',
   'web.languageShort.en': 'EN',
+  'web.languageShort.zh': 'ZH',
 
   // ---- web.history: conversations this account has finished and kept ----
   //
@@ -457,7 +459,7 @@ export const en = {
   // Says what a pair IS and what it is not, because the second half is the part
   // people get wrong: a pair is not a find-and-replace.
   'web.preferences.aiContext.glossaryHint':
-    'How a particular term should come out. Write each term in both languages; the translator uses the pair whichever way the conversation runs, and only when the term is actually said.',
+    'How a particular term should come out. Write it in at least two of the languages; the translator uses the two a conversation is in, whichever way it runs, and only when the term is actually said.',
   'web.preferences.aiContext.glossaryTooLong':
     'A rendering is a word or a short phrase — at most {max} words. Shorten this pair, or remove it.',
   'web.preferences.aiContext.glossaryAdd': 'Add a pair',

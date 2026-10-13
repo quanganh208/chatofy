@@ -5,19 +5,25 @@
 // a cycle would evaluate one of them before its vocabulary existed.
 import type { LanguageTable } from '@chatofy/types';
 import type { LanguageCode } from '../interfaces/provider-types.js';
-import { inverseNormalize, type LanguageItn } from './inverse-normalize.js';
+import { inverseNormalize } from './inverse-normalize.js';
 import { VIETNAMESE_ITN } from './vietnamese-inverse-normalize.js';
 import { ENGLISH_ITN } from './english-inverse-normalize.js';
+import { chineseInverseNormalize } from './chinese-inverse-normalize.js';
 
 /**
  * Every language's ITN, with no fallback: `language` arrives through
  * `languageCodeSchema` at the socket/HTTP boundary, so a value this table has no
  * entry for cannot reach here, and a silent default would only hide the day that
  * stops being true.
+ *
+ * Functions rather than `LanguageItn` tables, because Chinese cannot be one: the
+ * shared engine reads an unspaced Chinese clause as a single word, so zh has a
+ * character scanner of its own (`chinese-inverse-normalize.ts`).
  */
-const BY_LANGUAGE: LanguageTable<LanguageItn> = {
-  vi: VIETNAMESE_ITN,
-  en: ENGLISH_ITN,
+const BY_LANGUAGE: LanguageTable<(text: string) => string> = {
+  vi: (text) => inverseNormalize(text, VIETNAMESE_ITN),
+  en: (text) => inverseNormalize(text, ENGLISH_ITN),
+  zh: chineseInverseNormalize,
 };
 
 /**
@@ -34,5 +40,5 @@ const BY_LANGUAGE: LanguageTable<LanguageItn> = {
  * and the display-fidelity scorer are allowed to see.
  */
 export function inverseNormalizeTranscript(text: string, language: LanguageCode): string {
-  return inverseNormalize(text, BY_LANGUAGE[language]);
+  return BY_LANGUAGE[language](text);
 }

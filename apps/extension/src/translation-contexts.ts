@@ -1,5 +1,5 @@
 import {
-  translationContextListResponseSchema,
+  readableTranslationContextListSchema,
   type TranslationContext,
   type TranslationHints,
 } from '@chatofy/types';
@@ -54,7 +54,9 @@ export async function listTranslationContexts(
   }
 
   const body = (await res.json().catch(() => null)) as { data?: unknown } | null;
-  const parsed = translationContextListResponseSchema.safeParse(body?.data);
+  // Read entry by entry: a glossary key this build does not know costs that
+  // key, not every saved context (see `readTranslationContextList`).
+  const parsed = readableTranslationContextListSchema.safeParse(body?.data);
   if (!parsed.success) {
     return { contexts: [], message: 'Could not read your saved contexts' };
   }

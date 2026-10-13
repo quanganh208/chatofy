@@ -119,6 +119,32 @@ describe('listTranslationContexts', () => {
     expect(result.contexts).toEqual([one]);
     expect(result.message).toBeUndefined();
   });
+
+  it('keeps every context when one glossary entry has a language this build does not know', async () => {
+    // A build from before a language joined the registry reading a list saved
+    // by a newer one: the unknown side costs that side, not the whole library.
+    installChrome('a-token');
+    const known = context({ id: '22222222-2222-4222-8222-222222222222' });
+    const withUnknownSide = {
+      ...context(),
+      glossary: [{ vi: 'hóa đơn', en: 'invoice', xx: 'unknown' }],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse(200, { success: true, data: { contexts: [withUnknownSide, known] } }),
+        ),
+    );
+
+    const { listTranslationContexts } = await import('./translation-contexts');
+    const result = await listTranslationContexts(API);
+
+    expect(result.contexts.map((c) => c.id)).toEqual([context().id, known.id]);
+    expect(result.contexts[0]!.glossary).toEqual([{ vi: 'hóa đơn', en: 'invoice' }]);
+    expect(result.message).toBeUndefined();
+  });
 });
 
 describe('resolveContext', () => {

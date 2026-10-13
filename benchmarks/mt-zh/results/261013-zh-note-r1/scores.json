@@ -1,0 +1,115 @@
+{
+  "run": "261013-zh-note-r1",
+  "directions": {
+    "zh_to_vi": {
+      "n_per_repeat": {
+        "1": 200
+      },
+      "chrf++": {
+        "mean": 52.02308629479613,
+        "sd": 0.0,
+        "min": 52.02308629479613,
+        "max": 52.02308629479613,
+        "per_repeat": [52.02308629479613]
+      },
+      "chrf": {
+        "mean": 52.516742440419925,
+        "sd": 0.0,
+        "min": 52.516742440419925,
+        "max": 52.516742440419925,
+        "per_repeat": [52.516742440419925]
+      },
+      "comet": {
+        "mean": 0.8828546226024627,
+        "sd": 0.0,
+        "min": 0.8828546226024627,
+        "max": 0.8828546226024627,
+        "per_repeat": [0.8828546226024627]
+      },
+      "latency_ms": {
+        "total_p50": 984.0,
+        "total_p95": 1375.5499999999997,
+        "ttft_p50": 593.0,
+        "ttft_p95": 797.15,
+        "n": 200
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 79616,
+        "miss": 46821,
+        "out": 12262,
+        "with_usage": 200
+      },
+      "checks": {
+        "outputs": 200,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "zh_to_en": {
+      "n_per_repeat": {
+        "1": 200
+      },
+      "chrf++": {
+        "mean": 59.53542572342718,
+        "sd": 0.0,
+        "min": 59.53542572342718,
+        "max": 59.53542572342718,
+        "per_repeat": [59.53542572342718]
+      },
+      "chrf": {
+        "mean": 62.034271841953135,
+        "sd": 0.0,
+        "min": 62.034271841953135,
+        "max": 62.034271841953135,
+        "per_repeat": [62.034271841953135]
+      },
+      "comet": {
+        "mean": 0.8781480237841606,
+        "sd": 0.0,
+        "min": 0.8781480237841606,
+        "max": 0.8781480237841606,
+        "per_repeat": [0.8781480237841606]
+      },
+      "latency_ms": {
+        "total_p50": 800.0,
+        "total_p95": 1068.1999999999998,
+        "ttft_p50": 586.0,
+        "ttft_p95": 782.1999999999999,
+        "n": 200
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 79616,
+        "miss": 46821,
+        "out": 5849,
+        "with_usage": 200
+      },
+      "checks": {
+        "outputs": 200,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    }
+  },
+  "decision": {
+    "skipped": "no vi<->en baseline directions in this run"
+  },
+  "tokens": {
+    "hit": 159232,
+    "miss": 93642,
+    "out": 18111,
+    "requests": 400
+  },
+  "cost_usd": {
+    "peak": {
+      "run_total": 0.050781191999999996,
+      "per_1000_requests": 0.12695298
+    },
+    "offpeak": {
+      "run_total": 0.025390595999999998,
+      "per_1000_requests": 0.06347649
+    }
+  },
+  "price_source": "api-docs.deepseek.com/quick_start/pricing, read 2026-10-13"
+}

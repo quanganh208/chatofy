@@ -23,9 +23,18 @@ import { z } from 'zod';
 const THREE = ['vi', 'en', 'ja'] as const;
 
 describe('directions', () => {
-  it('the registry generates exactly the two directions the wire already carries', () => {
-    expect(new Set(TRANSLATION_DIRECTIONS)).toEqual(new Set(['vi_to_en', 'en_to_vi']));
-    expectTypeOf<TranslationDirection>().toEqualTypeOf<'vi_to_en' | 'en_to_vi'>();
+  it('the registry generates every ordered pair of vi, en and zh', () => {
+    expect(new Set(TRANSLATION_DIRECTIONS)).toEqual(
+      new Set(['vi_to_en', 'vi_to_zh', 'en_to_vi', 'en_to_zh', 'zh_to_vi', 'zh_to_en']),
+    );
+    expectTypeOf<TranslationDirection>().toEqualTypeOf<
+      'vi_to_en' | 'vi_to_zh' | 'en_to_vi' | 'en_to_zh' | 'zh_to_vi' | 'zh_to_en'
+    >();
+  });
+
+  it('keeps the two directions the wire already carried, source-major in registry order', () => {
+    expect(TRANSLATION_DIRECTIONS.slice(0, 1)).toEqual(['vi_to_en']);
+    expect(TRANSLATION_DIRECTIONS).toContain('en_to_vi');
   });
 
   it('three languages generate every ordered pair and no self-pair', () => {
@@ -82,6 +91,13 @@ describe('speakerRoleFor', () => {
     expect(speakerRoleFor('vi', ['en', 'vi'])).toBe('speaker_a');
     expect(speakerRoleFor('en', ['en', 'vi'])).toBe('speaker_b');
     expect(speakerRoleFor('vi', ['vi', 'en'])).toBe('speaker_a');
+  });
+
+  it('Vietnamese stays speaker_a beside Chinese, and English is speaker_a without Vietnamese', () => {
+    expect(speakerRoleFor('vi', ['zh', 'vi'])).toBe('speaker_a');
+    expect(speakerRoleFor('zh', ['zh', 'vi'])).toBe('speaker_b');
+    expect(speakerRoleFor('en', ['zh', 'en'])).toBe('speaker_a');
+    expect(speakerRoleFor('zh', ['en', 'zh'])).toBe('speaker_b');
   });
 });
 

@@ -186,6 +186,26 @@ describe('LiveTranslateSessionService', () => {
       await isolated.onModuleDestroy();
     });
 
+    // Gemini Live was never validated for Chinese, and the decision is to
+    // refuse it rather than let it run unmeasured.
+    it.each(['vi_to_zh', 'zh_to_en', 'en_to_zh', 'zh_to_vi'] as const)(
+      'refuses %s before dialing anything or holding a slot',
+      async (direction) => {
+        const socket = new FakeSocket();
+        await service.start(socket, direction);
+
+        expect(provider.upstreams).toHaveLength(0);
+        expect(socket.events('server.live.error')[0]).toMatchObject({
+          code: 'unsupported_direction',
+        });
+        expect(socket.events('server.live.ready')).toHaveLength(0);
+        // No slot held: the same connection can start a supported pair at once.
+        await service.start(socket, 'en_to_vi');
+        expect(provider.upstreams).toHaveLength(1);
+        expect(socket.events('server.live.ready')).toHaveLength(1);
+      },
+    );
+
     it('refuses a second session on the same connection', async () => {
       const socket = new FakeSocket();
       await service.start(socket, 'vi_to_en');

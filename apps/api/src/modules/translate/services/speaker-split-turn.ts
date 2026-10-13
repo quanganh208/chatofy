@@ -4,6 +4,7 @@ import type {
   TranslationHints,
 } from '@chatofy/ai-providers';
 import type { TurnAudio } from '../session/turn-audio';
+import type { ScriptRetry } from './foreign-script-retry';
 import type { Span } from '../session/speaker-change-split';
 import type {
   DisplayRestoreRequest,
@@ -92,6 +93,8 @@ export async function translateSplitTurn(
     restoreDisplay?: DisplayRestoreRequest;
     /** Silero speech floor passed to each piece's own transcription. */
     minSpeechMs?: number;
+    /** One more translation per piece and target that leaks a foreign script. */
+    scriptRetry?: ScriptRetry;
     /** Logs which piece was dropped and how long it was — never its text. */
     logger: Pick<Logger, 'warn'>;
   },
@@ -194,6 +197,7 @@ export async function translateSplitTurn(
         context: [...options.context, ...survivorTexts.slice(0, k)],
         continuesCut:
           k === 0 && firstIsOpening && (options.continuesCut ?? false),
+        scriptRetry: options.scriptRetry,
       }),
     ),
   );

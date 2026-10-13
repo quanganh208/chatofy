@@ -37,6 +37,7 @@ interface LanguageSpec {
 export const LANGUAGES = {
   vi: { englishName: 'Vietnamese', nativeName: 'Tiếng Việt' },
   en: { englishName: 'English', nativeName: 'English' },
+  zh: { englishName: 'Simplified Chinese', nativeName: '简体中文' },
 } as const satisfies Record<string, LanguageSpec>;
 
 export type LanguageCode = keyof typeof LANGUAGES;
@@ -136,7 +137,9 @@ export function translationTargets<L extends string>(
  *
  * The conversation's registry-first language is `speaker_a`, whatever order the
  * conversation declared its languages in. That keeps the invariant every stored
- * row already has — `speaker_a` is the Vietnamese side — for both directions.
+ * row already has — `speaker_a` is the Vietnamese side of any conversation with
+ * Vietnamese in it — for both directions. Without Vietnamese (en↔zh), English is
+ * registry-first and so `speaker_a`.
  */
 export function speakerRoleFor(
   source: LanguageCode,

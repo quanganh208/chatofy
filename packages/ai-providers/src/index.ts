@@ -77,6 +77,7 @@ export {
 // network, no key, no second event.
 export { inverseNormalizeTranscript } from './text/inverse-normalize-transcript.js';
 export { chineseInverseNormalize } from './text/chinese-inverse-normalize.js';
+export { hanCount, leaksForeignScript, toTargetScript } from './text/translation-script.js';
 
 export { ProviderRegistry } from './registry/index.js';
 export type { ProviderKind, ProviderKindMap, ProviderEntry } from './registry/index.js';

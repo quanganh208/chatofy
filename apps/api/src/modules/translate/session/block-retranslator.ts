@@ -6,6 +6,7 @@ import type { FinishedSegments, SegmentBlock } from './finished-segments';
 import type { StreamSocket } from './stream-socket';
 import { FINAL_MODELS } from './translation-model-policy';
 import type { TranslationMap } from './turn-language-plan';
+import type { ScriptRetry } from '../services/foreign-script-retry';
 
 /**
  * Translates a run of a connection's finished segments again, as one text, and
@@ -86,6 +87,7 @@ export interface BlockTranslator {
     targets: readonly LanguageCode[];
     models?: string[];
     hints?: TranslationHints;
+    scriptRetry?: ScriptRetry;
   }): Promise<TranslationMap>;
 }
 
@@ -204,6 +206,16 @@ export class BlockRetranslator {
         targets: block.targets,
         models: FINAL_MODELS,
         hints: block.hints,
+        // A block is a final translation: it gets the one retry a turn's final
+        // gets when it leaks a foreign script, charged to this block budget.
+        scriptRetry: {
+          label: `block=${segmentIds[0] ?? ''}`,
+          allow: () => {
+            if (!this.budget.canSpend(userId, model)) return false;
+            this.budget.spend(userId, model);
+            return true;
+          },
+        },
       });
       this.answer(
         socket,
