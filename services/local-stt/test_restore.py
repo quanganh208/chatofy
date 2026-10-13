@@ -372,7 +372,7 @@ def test_an_unknown_language_is_still_refused(client):
     assert restore(client, "hello", language="fr").status_code == 400
 
 
-def test_an_unloaded_zh_restorer_answers_400_not_503(client):
+def test_an_unloaded_zh_restorer_answers_404_not_503(client):
     # 503 makes the API pause every restore for a minute. A missing secondary
     # model must cost zh its punctuation and nothing else.
     zh = sidecar.RESTORERS["zh"]
@@ -383,7 +383,7 @@ def test_an_unloaded_zh_restorer_answers_400_not_503(client):
     finally:
         zh._punctuator = loaded
 
-    assert res.status_code == 400
+    assert res.status_code == 404
     # `/healthz` reports the vi restorer only, exactly as before.
     assert set(health.json()) == {"status", "languages", "restore"}
 

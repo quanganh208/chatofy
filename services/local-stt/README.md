@@ -53,9 +53,9 @@ the alternatives that lost.
 > extracted). It inserts marks only; the spaces Paraformer wrote around Latin
 > tokens are put back after it, because the model drops them. On the 50 FLEURS
 > Paraformer hypotheses: punctuation F1 0.865, words kept 50/50, p95 16 ms over
-> HTTP, +80 MiB peak. Optional like Dewpoint: an unloaded zh model answers 400,
-> never 503, so it cannot trip the API's restore cooldown, which is kept per
-> language anyway. No per-word pauses for zh: the model reads text only.
+> HTTP, +80 MiB peak. Optional like Dewpoint: an unloaded zh model answers 404,
+> which the API's per-language cooldown reads as "stop asking for zh a while" —
+> it can never pause vi restores. No per-word pauses for zh: the model reads text only.
 
 > **Display punctuation and case (vi).** `POST /restore` runs
 > [valkayuh/dewpoint][dewpoint] (MIT), mmBERT member, pinned revision, with only
@@ -132,8 +132,9 @@ is — the caller is sent a capture buffer with pre-roll and hangover on it, and
 the difference is what tells it whether the vector was built on enough voice to
 mean anything. Energy-based; see `audio/speech_duration.py`.
 
-`POST /restore` returns `400` for any language but `vi`, `503` when the
-Dewpoint weights were never seeded, and `429` when another restore holds the
+`POST /restore` returns `400` for a language it has no restorer for, `503` when
+the Dewpoint weights were never seeded, `404` when the zh punctuation model was
+never seeded, and `429` when another restore holds the
 model for longer than 150 ms (`LOCK_WAIT_S` in `punctuation/restorer.py`). The
 two refusals mean different things to the API: `503` makes it stop asking for a
 while, `429` is a momentary queue and only that one line falls back. The wait is

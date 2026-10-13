@@ -254,12 +254,14 @@ def restore(body: RestoreRequest) -> dict:
             status_code=400, detail=f"restore serves {', '.join(RESTORERS)} only"
         )
     if not chosen.loaded:
-        # 503 only for the primary restorer: the API reads 503 as "the display
-        # path is down" and pauses asking. A secondary model that did not load
-        # answers 400 instead, so it can never pause Vietnamese restores.
+        # 503 for the primary restorer, as it always was. A secondary model
+        # that did not load answers 404 (below).
         if body.language == PRIMARY_RESTORE_LANGUAGE:
             raise HTTPException(status_code=503, detail="display restorer not loaded")
-        raise HTTPException(status_code=400, detail=f"restore for {body.language} not loaded")
+        # 404: the API reads it as "no restorer here" and stops asking for a
+        # minute — for THIS language only, since its cooldown is per language —
+        # instead of sending a doomed request and a warning on every zh turn.
+        raise HTTPException(status_code=404, detail=f"restore for {body.language} not loaded")
     try:
         return {"text": chosen.restore(body.text, body.context, body.terms, body.pauses)}
     except RestorerBusyError as err:

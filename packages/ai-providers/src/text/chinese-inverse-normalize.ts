@@ -56,7 +56,7 @@ const ABSTAIN_WORDS = [
  * Idioms that a span rule would otherwise read as a number, copied through
  * whole wherever they start: `一点一滴` ("bit by bit") is not the decimal 1.1.
  */
-const VERBATIM = ['一点一滴', '一点一点'];
+const VERBATIM = ['一点一滴', '一点一点', '十万八千里', '七七八八', '三五成群', '五五开'];
 
 /** Each abstain word, as the numeral characters inside it and where they start. */
 const ABSTAIN_CORES = ABSTAIN_WORDS.map((word) => {
@@ -72,12 +72,15 @@ function isAbstainWord(text: string, at: number, span: string): boolean {
 }
 
 /**
- * Two neighbouring digits a step apart are an estimate, not a number: `三四个`
- * is "three or four", `七八天` "seven or eight days".
+ * A bare run of exactly two digit characters is an estimate or an idiom far
+ * more often than a number: `三四个` "three or four", `三五个人` "three to five
+ * people", `五五开` "fifty-fifty". A real digit string from Paraformer is three
+ * characters or more (`八零二`, `一九九零`), and a two-digit number a span rule
+ * can vouch for — a score `二五比二三`, a date, a time — is read by that rule
+ * before a bare run is ever considered.
  */
 function isEstimate(run: string): boolean {
-  const digits = digitRunValue(run);
-  return digits?.length === 2 && Number(digits[1]) === Number(digits[0]) + 1;
+  return digitRunValue(run)?.length === 2;
 }
 
 /** A cardinal as Chinese typesets it: `3万`, `3000万`, `1亿`, else plain digits. */
