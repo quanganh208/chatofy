@@ -1,0 +1,14 @@
+{
+  "source": "google/fleurs parquet (refs/convert/parquet), column raw_transcription",
+  "license": "CC-BY-4.0",
+  "configs": {
+    "zh": "cmn_hans_cn",
+    "vi": "vi_vn",
+    "en": "en_us"
+  },
+  "split": "test",
+  "seed": 42,
+  "count": 200,
+  "pool": 346,
+  "draw": "random.Random(seed).sample(sorted(common ids), count), then sorted"
+}

@@ -11,7 +11,7 @@ from pathlib import Path
 
 MIN_DURATION_S = 3.0
 MAX_DURATION_S = 10.0
-SUPPORTED_LANGS = {"vi", "en"}
+SUPPORTED_LANGS = {"vi", "en", "zh"}
 
 
 @dataclass(frozen=True)

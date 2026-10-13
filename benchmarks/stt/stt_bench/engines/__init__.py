@@ -11,6 +11,8 @@ from .elevenlabs_cloud import ElevenLabsCloudEngine
 from .fw_phowhisper_vi import FasterWhisperPhoWhisperVi
 from .fw_whisper_small_en import FasterWhisperSmallEn
 from .sherpa_moonshine_en import SherpaMoonshineEn
+from .sherpa_paraformer_zh import SherpaParaformerZh
+from .sherpa_sensevoice_zh import SherpaSenseVoiceZh, SherpaSenseVoiceZhNoItn
 from .sherpa_zipformer_vi import (
     SherpaZipformerVi,
     SherpaZipformerViBeam,
@@ -30,6 +32,10 @@ ENGINE_REGISTRY: dict[str, Callable[[], SttEngine]] = {
     "sherpa-zipformer-vi-greedy": SherpaZipformerViGreedy,
     "sherpa-zipformer-vi-beam": SherpaZipformerViBeam,
     "sherpa-zipformer-vi-beam-hotwords": SherpaZipformerViBeamHotwords,
+    # Mandarin arms; each runs over both zh manifests (FLEURS, AISHELL-1).
+    "sherpa-sensevoice-zh": SherpaSenseVoiceZh,
+    "sherpa-sensevoice-zh-noitn": SherpaSenseVoiceZhNoItn,
+    "sherpa-paraformer-zh": SherpaParaformerZh,
 }
 
 

@@ -1,0 +1,36 @@
+# 30 Simplified Chinese conversational sentences — the zh TTS reference set.
+# The text below is the exact reference for round-trip CER; do not edit it
+# after a run is recorded. Numbers are written so that each has one reading
+# under tts_bench/zh_text.py (cardinal, a 4-digit year before 年 digit by
+# digit, an 11-digit phone number digit by digit). Embedded English: iPhone,
+# AI, Zoom, ChatGPT.
+你好，今天的会议改到下午3点半开始。
+我刚买了一部新的iPhone，用起来很顺手。
+这件衣服打折以后只要128元。
+我们约在2026年10月20日见面吧。
+请把报告在周五之前发给我。
+现在的AI工具越来越好用了。
+你的航班几点起飞？我记得是早上8点20分。
+这个月的电费一共是356块钱。
+我住在3楼，电梯就在门口右边。
+他每天跑步5公里，已经坚持了两年。
+下周一我们要去上海出差。
+你能帮我订一张明天去北京的高铁票吗？
+这家餐厅的评分是4.8分，值得一试。
+我的手机号是13812345678，有事打给我。
+今年公司的销售额增长了15%。
+孩子们放学以后在公园里踢足球。
+我用微信给你转了2000块，记得查收。
+天气预报说明天最高气温32度。
+请问洗手间在哪里？
+我们的Zoom会议链接已经发到群里了。
+这本书我看了一半，故事特别精彩。
+他的生日是5月4日，我们准备给他一个惊喜。
+从这里打车到机场大概需要40分钟。
+我刚下载了ChatGPT的新版本。
+房租每个月涨了500元，真让人头疼。
+周末你想去看电影还是去爬山？
+这台笔记本电脑的价格是6999元。
+医生建议我每天喝8杯水。
+我们团队一共有12个人，分成3个小组。
+谢谢你的帮忙，下次我请你喝咖啡。

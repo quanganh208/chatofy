@@ -1,0 +1,481 @@
+{"type": "header", "judge": "paraformer-zh", "decode_params": {"model": "sherpa-onnx-paraformer-zh-2023-09-14/model.int8.onnx", "num_threads": 4}}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s001.wav", "judge": "paraformer-zh", "hypothesis": "你好今天的会议改到下午三点半开始"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s002.wav", "judge": "paraformer-zh", "hypothesis": "我刚买了一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s003.wav", "judge": "paraformer-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s004.wav", "judge": "paraformer-zh", "hypothesis": "我们约在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s005.wav", "judge": "paraformer-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s006.wav", "judge": "paraformer-zh", "hypothesis": "现在的 i 工具越来越好用了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s007.wav", "judge": "paraformer-zh", "hypothesis": "你的航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s008.wav", "judge": "paraformer-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s009.wav", "judge": "paraformer-zh", "hypothesis": "卧住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s010.wav", "judge": "paraformer-zh", "hypothesis": "他每天跑步五公里已经坚持了两年"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s011.wav", "judge": "paraformer-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s012.wav", "judge": "paraformer-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s013.wav", "judge": "paraformer-zh", "hypothesis": "这家餐厅的评分是四点八分吱的一声"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s014.wav", "judge": "paraformer-zh", "hypothesis": "我的手机号是幺三八一二三四五六七八优势打给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s015.wav", "judge": "paraformer-zh", "hypothesis": "今年公司的销售额增长了十五 bir 是呢"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s016.wav", "judge": "paraformer-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s017.wav", "judge": "paraformer-zh", "hypothesis": "我用微信给你转了二千块记得啥时候"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s018.wav", "judge": "paraformer-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s019.wav", "judge": "paraformer-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s020.wav", "judge": "paraformer-zh", "hypothesis": "wom 们 day zoom 会议链接已经发到群里了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s021.wav", "judge": "paraformer-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s022.wav", "judge": "paraformer-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s023.wav", "judge": "paraformer-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s024.wav", "judge": "paraformer-zh", "hypothesis": "我刚下载了啥 g b d 的新版本"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s025.wav", "judge": "paraformer-zh", "hypothesis": "房租每个月涨了五百元真让人头疼"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s026.wav", "judge": "paraformer-zh", "hypothesis": "周末你想去看电影还是去爬山"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s027.wav", "judge": "paraformer-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s028.wav", "judge": "paraformer-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s029.wav", "judge": "paraformer-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid45/s030.wav", "judge": "paraformer-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s001.wav", "judge": "paraformer-zh", "hypothesis": "你好今天的灰衣盖刀侠雾闪电般凯四"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s002.wav", "judge": "paraformer-zh", "hypothesis": "沃港卖率不行跌 nisso 勇气来恨顺受"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s003.wav", "judge": "paraformer-zh", "hypothesis": "这间一幅大折一齁致腰一败而死把元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s004.wav", "judge": "paraformer-zh", "hypothesis": "我们也在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s005.wav", "judge": "paraformer-zh", "hypothesis": "请把包高灾种物指遣法给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s006.wav", "judge": "paraformer-zh", "hypothesis": "现在对 i 攻具越来越好用了呀"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s007.wav", "judge": "paraformer-zh", "hypothesis": "你的航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s008.wav", "judge": "paraformer-zh", "hypothesis": "这个月的滇飞一共司三百五十六块钱"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s009.wav", "judge": "paraformer-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s010.wav", "judge": "paraformer-zh", "hypothesis": "他每天跑步五公里已经坚持了两年"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s011.wav", "judge": "paraformer-zh", "hypothesis": "下周一卧门妖区伤害出差"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s012.wav", "judge": "paraformer-zh", "hypothesis": "你能帮我订一张明天去背景的搞贴票吗"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s013.wav", "judge": "paraformer-zh", "hypothesis": "这家餐厅的平粉是撕电宝粉只怼撕"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s014.wav", "judge": "paraformer-zh", "hypothesis": "我的手机号是幺三八一二三四五六七八幺四打给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s015.wav", "judge": "paraformer-zh", "hypothesis": "几年公司的小收割增长类食物 bcent"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s016.wav", "judge": "paraformer-zh", "hypothesis": "孩子们放学以后栽拱原力踢足球"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s017.wav", "judge": "paraformer-zh", "hypothesis": "我用微信给你赚了二千块记得查收"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s018.wav", "judge": "paraformer-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s019.wav", "judge": "paraformer-zh", "hypothesis": "请问洗漱剪在哪里"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s020.wav", "judge": "paraformer-zh", "hypothesis": "我们 desume 会议链接议警发到群里了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s021.wav", "judge": "paraformer-zh", "hypothesis": "这被鼠卧看了一半故司特别精彩"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s022.wav", "judge": "paraformer-zh", "hypothesis": "他对生日十五月四日我们准备给他一个警戏"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s023.wav", "judge": "paraformer-zh", "hypothesis": "从这里大扯刀际唱搭该许妖丝石粉冢"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s024.wav", "judge": "paraformer-zh", "hypothesis": "沃港下载里插 g 笔记最新版本"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s025.wav", "judge": "paraformer-zh", "hypothesis": "房租每个月涨露百元真让人头疼"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s026.wav", "judge": "paraformer-zh", "hypothesis": "咒摸泥巷区看电影还是去爬山"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s027.wav", "judge": "paraformer-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s028.wav", "judge": "paraformer-zh", "hypothesis": "医生间一我每天喝八杯睡"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s029.wav", "judge": "paraformer-zh", "hypothesis": "我们团队已共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid46/s030.wav", "judge": "paraformer-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s001.wav", "judge": "paraformer-zh", "hypothesis": "你好哟今天的会议改到下午三点半开始"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s002.wav", "judge": "paraformer-zh", "hypothesis": "我刚买了一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s003.wav", "judge": "paraformer-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s004.wav", "judge": "paraformer-zh", "hypothesis": "我们约在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s005.wav", "judge": "paraformer-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s006.wav", "judge": "paraformer-zh", "hypothesis": "现在 di 工具越来越好用了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s007.wav", "judge": "paraformer-zh", "hypothesis": "你的航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s008.wav", "judge": "paraformer-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s009.wav", "judge": "paraformer-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s010.wav", "judge": "paraformer-zh", "hypothesis": "他每天跑步五公里已经坚持了两年"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s011.wav", "judge": "paraformer-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s012.wav", "judge": "paraformer-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s013.wav", "judge": "paraformer-zh", "hypothesis": "这家餐厅的评分是四点八分值得一试"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s014.wav", "judge": "paraformer-zh", "hypothesis": "我的手机号是幺三八一二三四五六七八有事打给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s015.wav", "judge": "paraformer-zh", "hypothesis": "今年公司的销售额增长了十五 per 三定"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s016.wav", "judge": "paraformer-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s017.wav", "judge": "paraformer-zh", "hypothesis": "我用微信给你转了二千块记得查收"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s018.wav", "judge": "paraformer-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s019.wav", "judge": "paraformer-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s020.wav", "judge": "paraformer-zh", "hypothesis": "我们 assume 会议链接已经发到群里了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s021.wav", "judge": "paraformer-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s022.wav", "judge": "paraformer-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s023.wav", "judge": "paraformer-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s024.wav", "judge": "paraformer-zh", "hypothesis": "我刚下载了叉 g b g 的新版本"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s025.wav", "judge": "paraformer-zh", "hypothesis": "房租每个月涨五百元真让人头疼"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s026.wav", "judge": "paraformer-zh", "hypothesis": "周末你想去看电影还是去爬山"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s027.wav", "judge": "paraformer-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s028.wav", "judge": "paraformer-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s029.wav", "judge": "paraformer-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid47/s030.wav", "judge": "paraformer-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s001.wav", "judge": "paraformer-zh", "hypothesis": "你好今天的会议改到下午三点半开始"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s002.wav", "judge": "paraformer-zh", "hypothesis": "我刚买了一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s003.wav", "judge": "paraformer-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s004.wav", "judge": "paraformer-zh", "hypothesis": "我们约在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s005.wav", "judge": "paraformer-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s006.wav", "judge": "paraformer-zh", "hypothesis": "现在的呀工具越来越好用了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s007.wav", "judge": "paraformer-zh", "hypothesis": "你的航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s008.wav", "judge": "paraformer-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s009.wav", "judge": "paraformer-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s010.wav", "judge": "paraformer-zh", "hypothesis": "他每天跑步五公里已经坚持了两年"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s011.wav", "judge": "paraformer-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s012.wav", "judge": "paraformer-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s013.wav", "judge": "paraformer-zh", "hypothesis": "这家餐厅的评分是四点八分值得一试"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s014.wav", "judge": "paraformer-zh", "hypothesis": "我的手机号是幺三八一二三四五六七八有事打给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s015.wav", "judge": "paraformer-zh", "hypothesis": "今年公司的销售额增长了十五 percent"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s016.wav", "judge": "paraformer-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s017.wav", "judge": "paraformer-zh", "hypothesis": "我用微信给你转了二千块记得查收"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s018.wav", "judge": "paraformer-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s019.wav", "judge": "paraformer-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s020.wav", "judge": "paraformer-zh", "hypothesis": "我们的 zone 会议链接已经发到群里了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s021.wav", "judge": "paraformer-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s022.wav", "judge": "paraformer-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s023.wav", "judge": "paraformer-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s024.wav", "judge": "paraformer-zh", "hypothesis": "我刚下载了榨汁笔记的新版本"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s025.wav", "judge": "paraformer-zh", "hypothesis": "房租每个月涨五百元真让人头疼"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s026.wav", "judge": "paraformer-zh", "hypothesis": "周末你想去看电影还是去爬山"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s027.wav", "judge": "paraformer-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s028.wav", "judge": "paraformer-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s029.wav", "judge": "paraformer-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid48/s030.wav", "judge": "paraformer-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s001.wav", "judge": "paraformer-zh", "hypothesis": "你好今天的会议改到下午三点半开始"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s002.wav", "judge": "paraformer-zh", "hypothesis": "我刚买了一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s003.wav", "judge": "paraformer-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s004.wav", "judge": "paraformer-zh", "hypothesis": "我们约在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s005.wav", "judge": "paraformer-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s006.wav", "judge": "paraformer-zh", "hypothesis": "现在对呀工具越来越好用了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s007.wav", "judge": "paraformer-zh", "hypothesis": "你的航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s008.wav", "judge": "paraformer-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s009.wav", "judge": "paraformer-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s010.wav", "judge": "paraformer-zh", "hypothesis": "他每天跑步五公里已经坚持了两年"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s011.wav", "judge": "paraformer-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s012.wav", "judge": "paraformer-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s013.wav", "judge": "paraformer-zh", "hypothesis": "这家餐厅的评分是四点八分值得一试"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s014.wav", "judge": "paraformer-zh", "hypothesis": "我的手机号是幺三八一二三四五六七八有事打给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s015.wav", "judge": "paraformer-zh", "hypothesis": "今年公司的销售额增长了十五 percent"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s016.wav", "judge": "paraformer-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s017.wav", "judge": "paraformer-zh", "hypothesis": "我用微信给你转了二千块记得查收"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s018.wav", "judge": "paraformer-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s019.wav", "judge": "paraformer-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s020.wav", "judge": "paraformer-zh", "hypothesis": "我们 dzoo 会议链接已经发到群里了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s021.wav", "judge": "paraformer-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s022.wav", "judge": "paraformer-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s023.wav", "judge": "paraformer-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s024.wav", "judge": "paraformer-zh", "hypothesis": "我刚下载了叉 g b t 的新版本"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s025.wav", "judge": "paraformer-zh", "hypothesis": "房租每个月涨五百元真让人头疼"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s026.wav", "judge": "paraformer-zh", "hypothesis": "周末你想去看电影还是去爬山"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s027.wav", "judge": "paraformer-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s028.wav", "judge": "paraformer-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s029.wav", "judge": "paraformer-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid49/s030.wav", "judge": "paraformer-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s001.wav", "judge": "paraformer-zh", "hypothesis": "你好今天的会议改到下午三点半开始"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s002.wav", "judge": "paraformer-zh", "hypothesis": "我刚买了一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s003.wav", "judge": "paraformer-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s004.wav", "judge": "paraformer-zh", "hypothesis": "我们约在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s005.wav", "judge": "paraformer-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s006.wav", "judge": "paraformer-zh", "hypothesis": "现在对爱工具越来越好用了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s007.wav", "judge": "paraformer-zh", "hypothesis": "你的航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s008.wav", "judge": "paraformer-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s009.wav", "judge": "paraformer-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s010.wav", "judge": "paraformer-zh", "hypothesis": "他每天跑步五公里已经坚持了两年"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s011.wav", "judge": "paraformer-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s012.wav", "judge": "paraformer-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s013.wav", "judge": "paraformer-zh", "hypothesis": "这家餐厅的评分是四点八分值得一试"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s014.wav", "judge": "paraformer-zh", "hypothesis": "我的手机号是幺三八一二三四五六七八有事打给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s015.wav", "judge": "paraformer-zh", "hypothesis": "今年公司的销售额增长了十五 percent"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s016.wav", "judge": "paraformer-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s017.wav", "judge": "paraformer-zh", "hypothesis": "我用微信给你转二千块记得查收"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s018.wav", "judge": "paraformer-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s019.wav", "judge": "paraformer-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s020.wav", "judge": "paraformer-zh", "hypothesis": "我们的 zone 会议链接已经发到群里了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s021.wav", "judge": "paraformer-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s022.wav", "judge": "paraformer-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s023.wav", "judge": "paraformer-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s024.wav", "judge": "paraformer-zh", "hypothesis": "我刚下载了杀 g b d 的新版本"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s025.wav", "judge": "paraformer-zh", "hypothesis": "房租每个月涨五百元真让人头疼"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s026.wav", "judge": "paraformer-zh", "hypothesis": "周末你想去看电影还是去爬山"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s027.wav", "judge": "paraformer-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s028.wav", "judge": "paraformer-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s029.wav", "judge": "paraformer-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid50/s030.wav", "judge": "paraformer-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s001.wav", "judge": "paraformer-zh", "hypothesis": "你好今天的会议改到下午三点半开始"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s002.wav", "judge": "paraformer-zh", "hypothesis": "我刚买了一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s003.wav", "judge": "paraformer-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s004.wav", "judge": "paraformer-zh", "hypothesis": "我们约在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s005.wav", "judge": "paraformer-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s006.wav", "judge": "paraformer-zh", "hypothesis": "现在的爱工具越来越好用了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s007.wav", "judge": "paraformer-zh", "hypothesis": "你的航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s008.wav", "judge": "paraformer-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s009.wav", "judge": "paraformer-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s010.wav", "judge": "paraformer-zh", "hypothesis": "他每天跑步五公里已经坚持了两年"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s011.wav", "judge": "paraformer-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s012.wav", "judge": "paraformer-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s013.wav", "judge": "paraformer-zh", "hypothesis": "这家餐厅的评分是四点八分值得一试"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s014.wav", "judge": "paraformer-zh", "hypothesis": "我的手机号是幺三八一二三四五六七八有事打给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s015.wav", "judge": "paraformer-zh", "hypothesis": "今年公司的销售额增长了十五 percent"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s016.wav", "judge": "paraformer-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s017.wav", "judge": "paraformer-zh", "hypothesis": "我用微信给你转二千块记得查收"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s018.wav", "judge": "paraformer-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s019.wav", "judge": "paraformer-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s020.wav", "judge": "paraformer-zh", "hypothesis": "我们的 zone 会议链接已经发到群里了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s021.wav", "judge": "paraformer-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s022.wav", "judge": "paraformer-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s023.wav", "judge": "paraformer-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s024.wav", "judge": "paraformer-zh", "hypothesis": "我刚下载了杀 g b g 的新版本"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s025.wav", "judge": "paraformer-zh", "hypothesis": "房租每个月涨五百元真让人头疼"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s026.wav", "judge": "paraformer-zh", "hypothesis": "周末你想去看电影还是去爬山"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s027.wav", "judge": "paraformer-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s028.wav", "judge": "paraformer-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s029.wav", "judge": "paraformer-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid51/s030.wav", "judge": "paraformer-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s001.wav", "judge": "paraformer-zh", "hypothesis": "你好今天的会议改到下午三点半开始"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s002.wav", "judge": "paraformer-zh", "hypothesis": "我刚买了一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s003.wav", "judge": "paraformer-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s004.wav", "judge": "paraformer-zh", "hypothesis": "我们约在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s005.wav", "judge": "paraformer-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s006.wav", "judge": "paraformer-zh", "hypothesis": "现在对爱工具越来越好用了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s007.wav", "judge": "paraformer-zh", "hypothesis": "你的航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s008.wav", "judge": "paraformer-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s009.wav", "judge": "paraformer-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s010.wav", "judge": "paraformer-zh", "hypothesis": "他每天跑步五公里已经坚持了两年"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s011.wav", "judge": "paraformer-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s012.wav", "judge": "paraformer-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s013.wav", "judge": "paraformer-zh", "hypothesis": "这家餐厅的评分是四点八分值得一试"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s014.wav", "judge": "paraformer-zh", "hypothesis": "我的手机号是幺三八一二三四五六七八有事打给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s015.wav", "judge": "paraformer-zh", "hypothesis": "今年公司的销售额增长的食物 percending"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s016.wav", "judge": "paraformer-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s017.wav", "judge": "paraformer-zh", "hypothesis": "我用微信给你转多少千块记得查收"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s018.wav", "judge": "paraformer-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s019.wav", "judge": "paraformer-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s020.wav", "judge": "paraformer-zh", "hypothesis": "我们的 soon 会议链接已经发到群里了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s021.wav", "judge": "paraformer-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s022.wav", "judge": "paraformer-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s023.wav", "judge": "paraformer-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s024.wav", "judge": "paraformer-zh", "hypothesis": "我刚下载了战 g b d 最新版本"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s025.wav", "judge": "paraformer-zh", "hypothesis": "房租每个月涨五百元真让人头疼"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s026.wav", "judge": "paraformer-zh", "hypothesis": "周末你想去看电影还是去爬山"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s027.wav", "judge": "paraformer-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s028.wav", "judge": "paraformer-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s029.wav", "judge": "paraformer-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_0-en-zh/sid52/s030.wav", "judge": "paraformer-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s001.wav", "judge": "paraformer-zh", "hypothesis": "你好今天的会议改到下午三点半开始"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s002.wav", "judge": "paraformer-zh", "hypothesis": "我刚买了一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s003.wav", "judge": "paraformer-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s004.wav", "judge": "paraformer-zh", "hypothesis": "我们约在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s005.wav", "judge": "paraformer-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s006.wav", "judge": "paraformer-zh", "hypothesis": "现在的 ar 工具越来越好用了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s007.wav", "judge": "paraformer-zh", "hypothesis": "你个航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s008.wav", "judge": "paraformer-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s009.wav", "judge": "paraformer-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s010.wav", "judge": "paraformer-zh", "hypothesis": "他每天跑步五公里已经坚持了两年"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s011.wav", "judge": "paraformer-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s012.wav", "judge": "paraformer-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s013.wav", "judge": "paraformer-zh", "hypothesis": "这家餐厅的评分是四点八分值得一是"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s014.wav", "judge": "paraformer-zh", "hypothesis": "我的手机号是幺三八一二三四五六七八有事打给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s015.wav", "judge": "paraformer-zh", "hypothesis": "今年公司的销售额增长了十五片"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s016.wav", "judge": "paraformer-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s017.wav", "judge": "paraformer-zh", "hypothesis": "我用微信给你转了二千块记得查收"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s018.wav", "judge": "paraformer-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s019.wav", "judge": "paraformer-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s020.wav", "judge": "paraformer-zh", "hypothesis": "我们的所有会议链接已经发到群里了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s021.wav", "judge": "paraformer-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s022.wav", "judge": "paraformer-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s023.wav", "judge": "paraformer-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s024.wav", "judge": "paraformer-zh", "hypothesis": "我刚下载了叉 g p t 的新版本"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s025.wav", "judge": "paraformer-zh", "hypothesis": "房租每个月涨了五百元真让人头疼"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s026.wav", "judge": "paraformer-zh", "hypothesis": "周末你想去看店应还是去爬山"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s027.wav", "judge": "paraformer-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s028.wav", "judge": "paraformer-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s029.wav", "judge": "paraformer-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid3/s030.wav", "judge": "paraformer-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s001.wav", "judge": "paraformer-zh", "hypothesis": "你好今天的会议改到下午三点半开始"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s002.wav", "judge": "paraformer-zh", "hypothesis": "我刚买了一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s003.wav", "judge": "paraformer-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s004.wav", "judge": "paraformer-zh", "hypothesis": "我们约在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s005.wav", "judge": "paraformer-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s006.wav", "judge": "paraformer-zh", "hypothesis": "现在的 a i 工具越来越好用了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s007.wav", "judge": "paraformer-zh", "hypothesis": "你的航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s008.wav", "judge": "paraformer-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s009.wav", "judge": "paraformer-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s010.wav", "judge": "paraformer-zh", "hypothesis": "他每天跑步五公里已经坚持了两年"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s011.wav", "judge": "paraformer-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s012.wav", "judge": "paraformer-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s013.wav", "judge": "paraformer-zh", "hypothesis": "这家餐厅的评分是四点八分值得一试"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s014.wav", "judge": "paraformer-zh", "hypothesis": "我的手机号幺三八一二三四五六七八有事打给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s015.wav", "judge": "paraformer-zh", "hypothesis": "今年公司的销售额增长了十五片"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s016.wav", "judge": "paraformer-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s017.wav", "judge": "paraformer-zh", "hypothesis": "我用微信给你转了二千块记得查收"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s018.wav", "judge": "paraformer-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s019.wav", "judge": "paraformer-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s020.wav", "judge": "paraformer-zh", "hypothesis": "我们的所有名会议链接已经发到群里了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s021.wav", "judge": "paraformer-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s022.wav", "judge": "paraformer-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s023.wav", "judge": "paraformer-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s024.wav", "judge": "paraformer-zh", "hypothesis": "我刚下载了杀 g p t 的新版本"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s025.wav", "judge": "paraformer-zh", "hypothesis": "房租每个月涨了五百元真让人头疼"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s026.wav", "judge": "paraformer-zh", "hypothesis": "周末你想去看店并还是去爬山"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s027.wav", "judge": "paraformer-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s028.wav", "judge": "paraformer-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s029.wav", "judge": "paraformer-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid4/s030.wav", "judge": "paraformer-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s001.wav", "judge": "paraformer-zh", "hypothesis": "你好今天的会一改到下午三点半开始"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s002.wav", "judge": "paraformer-zh", "hypothesis": "我刚买了一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s003.wav", "judge": "paraformer-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s004.wav", "judge": "paraformer-zh", "hypothesis": "我们约在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s005.wav", "judge": "paraformer-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s006.wav", "judge": "paraformer-zh", "hypothesis": "现在的 ar 工具越来越好用了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s007.wav", "judge": "paraformer-zh", "hypothesis": "你这航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s008.wav", "judge": "paraformer-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s009.wav", "judge": "paraformer-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s010.wav", "judge": "paraformer-zh", "hypothesis": "他每天跑步五公里意境坚持了两年"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s011.wav", "judge": "paraformer-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s012.wav", "judge": "paraformer-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s013.wav", "judge": "paraformer-zh", "hypothesis": "这家餐厅的评分是四点八分值得一是"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s014.wav", "judge": "paraformer-zh", "hypothesis": "我的手机号是幺三八一二三四五六七八有事打给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s015.wav", "judge": "paraformer-zh", "hypothesis": "今年公司的销售额增长了十五片"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s016.wav", "judge": "paraformer-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s017.wav", "judge": "paraformer-zh", "hypothesis": "我用微信给你转了二千块记得查收"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s018.wav", "judge": "paraformer-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s019.wav", "judge": "paraformer-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s020.wav", "judge": "paraformer-zh", "hypothesis": "我们的所有 me 会议链接已经发到群里了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s021.wav", "judge": "paraformer-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s022.wav", "judge": "paraformer-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s023.wav", "judge": "paraformer-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s024.wav", "judge": "paraformer-zh", "hypothesis": "我刚下载了啥 g p t 的新版本"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s025.wav", "judge": "paraformer-zh", "hypothesis": "房租每个月涨了五百元真让人头疼"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s026.wav", "judge": "paraformer-zh", "hypothesis": "周末你想去看店并还是去爬山"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s027.wav", "judge": "paraformer-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s028.wav", "judge": "paraformer-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s029.wav", "judge": "paraformer-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid5/s030.wav", "judge": "paraformer-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s001.wav", "judge": "paraformer-zh", "hypothesis": "你好今天的会已改到下午三点半开始"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s002.wav", "judge": "paraformer-zh", "hypothesis": "我刚买了一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s003.wav", "judge": "paraformer-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s004.wav", "judge": "paraformer-zh", "hypothesis": "我们约在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s005.wav", "judge": "paraformer-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s006.wav", "judge": "paraformer-zh", "hypothesis": "现在的 ar 工具越来越好用了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s007.wav", "judge": "paraformer-zh", "hypothesis": "你的航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s008.wav", "judge": "paraformer-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s009.wav", "judge": "paraformer-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s010.wav", "judge": "paraformer-zh", "hypothesis": "他每天跑步五公里已经坚持了两年"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s011.wav", "judge": "paraformer-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s012.wav", "judge": "paraformer-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s013.wav", "judge": "paraformer-zh", "hypothesis": "这家餐厅的评分是四点八分值得一是"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s014.wav", "judge": "paraformer-zh", "hypothesis": "我的手机号是幺三八一二三四五六七八又是打给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s015.wav", "judge": "paraformer-zh", "hypothesis": "今年公司的销售额增长了十五片"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s016.wav", "judge": "paraformer-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s017.wav", "judge": "paraformer-zh", "hypothesis": "我用微信给你转了二千块记得查收"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s018.wav", "judge": "paraformer-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s019.wav", "judge": "paraformer-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s020.wav", "judge": "paraformer-zh", "hypothesis": "我们的 susume 会议链接已经发到群里了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s021.wav", "judge": "paraformer-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s022.wav", "judge": "paraformer-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s023.wav", "judge": "paraformer-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s024.wav", "judge": "paraformer-zh", "hypothesis": "我刚下载了 sht g pt 的新版本"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s025.wav", "judge": "paraformer-zh", "hypothesis": "房租每个月涨了五百元真让人头疼"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s026.wav", "judge": "paraformer-zh", "hypothesis": "周末你想去看电影还是去爬山"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s027.wav", "judge": "paraformer-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s028.wav", "judge": "paraformer-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s029.wav", "judge": "paraformer-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid6/s030.wav", "judge": "paraformer-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s001.wav", "judge": "paraformer-zh", "hypothesis": "你好今天的会议改到下午三点半开始"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s002.wav", "judge": "paraformer-zh", "hypothesis": "我刚买了一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s003.wav", "judge": "paraformer-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s004.wav", "judge": "paraformer-zh", "hypothesis": "我们约在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s005.wav", "judge": "paraformer-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s006.wav", "judge": "paraformer-zh", "hypothesis": "现在的 ar 工具越来越好用了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s007.wav", "judge": "paraformer-zh", "hypothesis": "你在航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s008.wav", "judge": "paraformer-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s009.wav", "judge": "paraformer-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s010.wav", "judge": "paraformer-zh", "hypothesis": "他每天跑步五公里一经坚持了两年"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s011.wav", "judge": "paraformer-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s012.wav", "judge": "paraformer-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s013.wav", "judge": "paraformer-zh", "hypothesis": "这家餐厅的评分是四点八分值得一是"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s014.wav", "judge": "paraformer-zh", "hypothesis": "我的手机号是幺三八一二三四五六七八有事打给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s015.wav", "judge": "paraformer-zh", "hypothesis": "今年公司的销售额增长了十五三"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s016.wav", "judge": "paraformer-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s017.wav", "judge": "paraformer-zh", "hypothesis": "我用微信给你转了二千块记得查收"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s018.wav", "judge": "paraformer-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s019.wav", "judge": "paraformer-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s020.wav", "judge": "paraformer-zh", "hypothesis": "我们的私有密会议链接已经发到群里了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s021.wav", "judge": "paraformer-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s022.wav", "judge": "paraformer-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s023.wav", "judge": "paraformer-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s024.wav", "judge": "paraformer-zh", "hypothesis": "我刚下载了杀 g p t 的新版本"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s025.wav", "judge": "paraformer-zh", "hypothesis": "房租每个月涨了五百元真让人头疼"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s026.wav", "judge": "paraformer-zh", "hypothesis": "周末你想去看店应还是去爬山"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s027.wav", "judge": "paraformer-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s028.wav", "judge": "paraformer-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s029.wav", "judge": "paraformer-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid58/s030.wav", "judge": "paraformer-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s001.wav", "judge": "paraformer-zh", "hypothesis": "你好今天的会议改到下午三点半开始"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s002.wav", "judge": "paraformer-zh", "hypothesis": "我刚买了一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s003.wav", "judge": "paraformer-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s004.wav", "judge": "paraformer-zh", "hypothesis": "我们已在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s005.wav", "judge": "paraformer-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s006.wav", "judge": "paraformer-zh", "hypothesis": "现在的 ai 工具越来越好用了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s007.wav", "judge": "paraformer-zh", "hypothesis": "你次航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s008.wav", "judge": "paraformer-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s009.wav", "judge": "paraformer-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s010.wav", "judge": "paraformer-zh", "hypothesis": "他每天跑步五公里已经坚持了两年"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s011.wav", "judge": "paraformer-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s012.wav", "judge": "paraformer-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s013.wav", "judge": "paraformer-zh", "hypothesis": "这家餐厅的评分是四点八分值得一试啊"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s014.wav", "judge": "paraformer-zh", "hypothesis": "我的手机号是幺三八一二三四五六七八有事打给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s015.wav", "judge": "paraformer-zh", "hypothesis": "今年公司的销售额增长了十五三"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s016.wav", "judge": "paraformer-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s017.wav", "judge": "paraformer-zh", "hypothesis": "我用微信给你转了二千块记得查收"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s018.wav", "judge": "paraformer-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s019.wav", "judge": "paraformer-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s020.wav", "judge": "paraformer-zh", "hypothesis": "我们的寿米会议链接已经发到群里了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s021.wav", "judge": "paraformer-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s022.wav", "judge": "paraformer-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s023.wav", "judge": "paraformer-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s024.wav", "judge": "paraformer-zh", "hypothesis": "我刚下载了啥 g p ity 的新版本"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s025.wav", "judge": "paraformer-zh", "hypothesis": "房租每个月涨了五百元真让人头疼"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s026.wav", "judge": "paraformer-zh", "hypothesis": "周末你想去看店应还是去爬山"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s027.wav", "judge": "paraformer-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s028.wav", "judge": "paraformer-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s029.wav", "judge": "paraformer-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid59/s030.wav", "judge": "paraformer-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s001.wav", "judge": "paraformer-zh", "hypothesis": "你好今天的会议改到下午三点半开始"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s002.wav", "judge": "paraformer-zh", "hypothesis": "我刚买了一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s003.wav", "judge": "paraformer-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s004.wav", "judge": "paraformer-zh", "hypothesis": "我们约在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s005.wav", "judge": "paraformer-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s006.wav", "judge": "paraformer-zh", "hypothesis": "现在的 ar 工具越来越好用了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s007.wav", "judge": "paraformer-zh", "hypothesis": "你这航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s008.wav", "judge": "paraformer-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s009.wav", "judge": "paraformer-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s010.wav", "judge": "paraformer-zh", "hypothesis": "才每天跑步五公里已经坚持了两年"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s011.wav", "judge": "paraformer-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s012.wav", "judge": "paraformer-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s013.wav", "judge": "paraformer-zh", "hypothesis": "这家餐厅的评分是四点八分值的一是"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s014.wav", "judge": "paraformer-zh", "hypothesis": "我的手机号是幺三八一二三四五六七八有事打给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s015.wav", "judge": "paraformer-zh", "hypothesis": "今年公司的销售额增长了十五三"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s016.wav", "judge": "paraformer-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s017.wav", "judge": "paraformer-zh", "hypothesis": "我用微信给你转了二千块记得查收"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s018.wav", "judge": "paraformer-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s019.wav", "judge": "paraformer-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s020.wav", "judge": "paraformer-zh", "hypothesis": "我们的私有名会议链接已经发到群里了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s021.wav", "judge": "paraformer-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s022.wav", "judge": "paraformer-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s023.wav", "judge": "paraformer-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s024.wav", "judge": "paraformer-zh", "hypothesis": "我刚下载了杀 g p t 的新版本"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s025.wav", "judge": "paraformer-zh", "hypothesis": "房主每个月涨了五百元真让人头疼"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s026.wav", "judge": "paraformer-zh", "hypothesis": "周末你想去看店应还是去爬山"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s027.wav", "judge": "paraformer-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s028.wav", "judge": "paraformer-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s029.wav", "judge": "paraformer-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid60/s030.wav", "judge": "paraformer-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s001.wav", "judge": "paraformer-zh", "hypothesis": "你好今天的会议改到下午三点半开始"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s002.wav", "judge": "paraformer-zh", "hypothesis": "我刚买了一部新的 iphone 用起来很顺手"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s003.wav", "judge": "paraformer-zh", "hypothesis": "这件衣服打折以后只要一百二十八元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s004.wav", "judge": "paraformer-zh", "hypothesis": "我们约在二零二六年十月二十日见面吧"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s005.wav", "judge": "paraformer-zh", "hypothesis": "请把报告在周五之前发给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s006.wav", "judge": "paraformer-zh", "hypothesis": "现在的 ai 工具越来越好用了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s007.wav", "judge": "paraformer-zh", "hypothesis": "你这航班几点起飞我记得是早上八点二十分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s008.wav", "judge": "paraformer-zh", "hypothesis": "这个月的电费一共是三百五十六块钱"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s009.wav", "judge": "paraformer-zh", "hypothesis": "我住在三楼电梯就在门口右边"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s010.wav", "judge": "paraformer-zh", "hypothesis": "他每天跑步五公里已经坚持了两年"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s011.wav", "judge": "paraformer-zh", "hypothesis": "下周一我们要去上海出差"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s012.wav", "judge": "paraformer-zh", "hypothesis": "你能帮我订一张明天去北京的高铁票吗"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s013.wav", "judge": "paraformer-zh", "hypothesis": "这家餐厅的评分是四点八分值得一是"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s014.wav", "judge": "paraformer-zh", "hypothesis": "我的手机号是幺三八一二三四五六七八有事打给我"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s015.wav", "judge": "paraformer-zh", "hypothesis": "今年公司的销售额增长了十五分"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s016.wav", "judge": "paraformer-zh", "hypothesis": "孩子们放学以后在公园里踢足球"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s017.wav", "judge": "paraformer-zh", "hypothesis": "我用微信给你转了二千块记得查收"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s018.wav", "judge": "paraformer-zh", "hypothesis": "天气预报说明天最高气温三十二度"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s019.wav", "judge": "paraformer-zh", "hypothesis": "请问洗手间在哪里"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s020.wav", "judge": "paraformer-zh", "hypothesis": "我们的 somme 会议链接已经发到群里了"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s021.wav", "judge": "paraformer-zh", "hypothesis": "这本书我看了一半故事特别精彩"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s022.wav", "judge": "paraformer-zh", "hypothesis": "他的生日是五月四日我们准备给他一个惊喜"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s023.wav", "judge": "paraformer-zh", "hypothesis": "从这里打车到机场大概需要四十分钟"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s024.wav", "judge": "paraformer-zh", "hypothesis": "我刚下载了十二 g p t 的新版本"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s025.wav", "judge": "paraformer-zh", "hypothesis": "房主每个月涨了五百元真让人头疼"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s026.wav", "judge": "paraformer-zh", "hypothesis": "周末你想去看店应还是去爬山"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s027.wav", "judge": "paraformer-zh", "hypothesis": "这台笔记本电脑的价格是六千九百九十九元"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s028.wav", "judge": "paraformer-zh", "hypothesis": "医生建议我每天喝八杯水"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s029.wav", "judge": "paraformer-zh", "hypothesis": "我们团队一共有十二个人分成三个小组"}
+{"type": "hyp", "wav": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/tts/results/zh-r1/wav/kokoro-v1_1-int8-zh/sid61/s030.wav", "judge": "paraformer-zh", "hypothesis": "谢谢你的帮忙下次我请你喝咖啡"}
