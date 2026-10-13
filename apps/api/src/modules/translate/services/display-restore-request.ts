@@ -1,5 +1,5 @@
 import type { Logger } from '@nestjs/common';
-import { wordsOf, type LanguageCode } from '@chatofy/types';
+import { wordsOf, type LanguageCode, type LanguageTable } from '@chatofy/types';
 import {
   applyRespellings,
   inverseNormalizeTranscript,
@@ -11,13 +11,19 @@ import type { TurnSession } from '../session/turn-session';
 import type { DisplayRestoreRequest } from './pipeline-translator.service';
 
 /**
- * Recognition languages whose transcript arrives with no punctuation or case.
+ * Recognition languages whose transcript arrives with no punctuation, so a
+ * turn asks the sidecar's restorer for a display.
  *
- * Only Vietnamese: the zipformer emits bare uppercase syllables, while the
- * English recognizer (Parakeet) already writes cased, punctuated text, and
- * the sidecar's restorer refuses any other language.
+ * Vietnamese: the zipformer emits bare uppercase syllables (Dewpoint restores
+ * marks and case). Chinese: Paraformer writes no punctuation (the
+ * CT-Transformer restores marks). Not English: Parakeet already writes cased,
+ * punctuated text.
  */
-const RESTORED_RECOGNITION: readonly LanguageCode[] = ['vi'];
+const RESTORED_RECOGNITION: LanguageTable<boolean> = {
+  vi: true,
+  en: false,
+  zh: true,
+};
 
 /**
  * What a turn asks the display restorer for, or `undefined` when it asks nothing.
@@ -40,8 +46,7 @@ export function restoreRequestFor(
   learnedTerms: readonly string[] = [],
 ): DisplayRestoreRequest | undefined {
   if (!session.repairDisplay) return undefined;
-  if (!RESTORED_RECOGNITION.includes(session.languages.recognition))
-    return undefined;
+  if (!RESTORED_RECOGNITION[session.languages.recognition]) return undefined;
   return {
     ...(continued === undefined ? {} : { context: continued }),
     terms: mergeHotwords(session.hints?.hotwords, learnedTerms) ?? [],

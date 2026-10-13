@@ -841,6 +841,59 @@ describe('PipelineTranslatorService', () => {
       ).toHaveLength(1);
     });
 
+    it('lets a zh restorer that is absent pause only zh restores', async () => {
+      // The sidecar answers 400 for an unloaded zh model, but an older sidecar
+      // answers 503 or nothing at all; either way vi must keep its display.
+      const restore = vi.fn(async (text: string, options: unknown) => {
+        const { language } = options as { language: string };
+        if (language === 'zh')
+          throw new ProviderResponseError('not loaded', 503);
+        return `${text}.`;
+      });
+      const service = serviceWith(fakeTrio(), restore);
+
+      expect(
+        await service.restoreDisplay('我们去吧', 'zh', {}),
+      ).toBeUndefined();
+      expect(await service.restoreDisplay('xin chào', 'vi', {})).toBe(
+        'xin chào.',
+      );
+      // zh is paused; vi is still asked.
+      expect(
+        await service.restoreDisplay('我们去吧', 'zh', {}),
+      ).toBeUndefined();
+      expect(await service.restoreDisplay('xin chào', 'vi', {})).toBe(
+        'xin chào.',
+      );
+      expect(
+        restore.mock.calls.filter(
+          ([, options]) => (options as { language: string }).language === 'zh',
+        ),
+      ).toHaveLength(1);
+      expect(
+        restore.mock.calls.filter(
+          ([, options]) => (options as { language: string }).language === 'vi',
+        ),
+      ).toHaveLength(2);
+    });
+
+    it('keeps vi restores running beside a zh restore refused with 400', async () => {
+      const restore = vi.fn(async (text: string, options: unknown) => {
+        const { language } = options as { language: string };
+        if (language === 'zh')
+          throw new ProviderResponseError('restore for zh not loaded', 400);
+        return `${text}.`;
+      });
+      const service = serviceWith(fakeTrio(), restore);
+
+      expect(
+        await service.restoreDisplay('我们去吧', 'zh', {}),
+      ).toBeUndefined();
+      expect(await service.restoreDisplay('xin chào', 'vi', {})).toBe(
+        'xin chào.',
+      );
+    });
+
     it('keeps asking a restorer that was only busy', async () => {
       const restore = vi
         .fn()

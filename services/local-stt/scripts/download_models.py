@@ -10,6 +10,9 @@
   because that release publishes no int8 variant of any speaker model.
 - Silero VAD: one ONNX file, pinned by sha256 (see below) rather than trusted
   on whatever the URL currently serves — see `audio/silero_speech.py`.
+- CT-Transformer punctuation for the zh display: k2-fsa release tarball, pinned
+  by the digest GitHub publishes for it; only the model is extracted. Optional,
+  like Dewpoint.
 - Dewpoint mmBERT punctuation/case tagger for the vi display: pinned HF
   revision, then its embedding matrix quantized to 8 bits here by
   `quantize_embedding.py` — see `punctuation/restorer.py` for why only the
@@ -63,6 +66,18 @@ PARAFORMER_ZH_SIZE = 234_051_698
 PARAFORMER_ZH_SHA256 = "9c49fd9c6fb63de8e18c1054cf3d100f804741b7e608e187923cd8ff09fa9f03"
 #: The tarball also carries test WAVs and helper scripts nothing here runs.
 PARAFORMER_ZH_MEMBERS = ("model.int8.onnx", "tokens.txt")
+
+CT_PUNCT_ZH_NAME = "sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8"
+CT_PUNCT_ZH_URL = (
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/punctuation-models/"
+    f"{CT_PUNCT_ZH_NAME}.tar.bz2"
+)
+#: The digest GitHub publishes for this asset, checked against the first fetch.
+CT_PUNCT_ZH_SIZE = 64_717_756
+CT_PUNCT_ZH_SHA256 = "c0d5aa5f8eeb686032345e180bedf39319dc2e0556781c6264bcadba8328a6e1"
+#: The model carries its own token table in its metadata; `tokens.json` and the
+#: export scripts beside it are not needed to run it.
+CT_PUNCT_ZH_MEMBERS = ("model.int8.onnx",)
 
 # The release tag is misspelled upstream ("recongition"). Copied verbatim: the
 # corrected spelling 404s.
@@ -172,32 +187,71 @@ def extract_members(tar_path: Path, prefix: str, members: tuple[str, ...], out_d
         raise RuntimeError(f"{tar_path.name} has no {sorted(missing)}")
 
 
-def fetch_paraformer_zh() -> None:
-    out_dir = MODELS_DIR / PARAFORMER_ZH_NAME
-    if all((out_dir / name).exists() for name in PARAFORMER_ZH_MEMBERS):
-        print("[paraformer-zh] ready (cached)")
+def fetch_pinned_release(
+    tag: str, name: str, url: str, size: int, sha256: str, members: tuple[str, ...]
+) -> None:
+    """A k2-fsa release tarball, verified against its pin, `members` extracted.
+
+    Verified before a single byte is extracted, cached or fresh: a tampered or
+    truncated tarball is deleted and this raises, as Silero's check does.
+    """
+    out_dir = MODELS_DIR / name
+    if all((out_dir / member).exists() for member in members):
+        print(f"[{tag}] ready (cached)")
         return
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    tar_path = MODELS_DIR / f"{PARAFORMER_ZH_NAME}.tar.bz2"
+    tar_path = MODELS_DIR / f"{name}.tar.bz2"
     if not tar_path.exists():
-        print(f"[paraformer-zh] downloading {PARAFORMER_ZH_URL}")
+        print(f"[{tag}] downloading {url}")
         tmp = tar_path.with_suffix(".part")
-        with urllib.request.urlopen(PARAFORMER_ZH_URL, timeout=60) as response, open(
-            tmp, "wb"
-        ) as out:
+        with urllib.request.urlopen(url, timeout=60) as response, open(tmp, "wb") as out:
             shutil.copyfileobj(response, out, length=1024 * 1024)
         tmp.rename(tar_path)
-    # Verified before a single byte is extracted, cached or fresh: a tampered
-    # or truncated tarball is deleted and the seed fails, as Silero's does.
     try:
-        verify_pinned(tar_path, PARAFORMER_ZH_SIZE, PARAFORMER_ZH_SHA256)
+        verify_pinned(tar_path, size, sha256)
     except RuntimeError:
         tar_path.unlink()
         raise
-    print("[paraformer-zh] extracting")
-    extract_members(tar_path, PARAFORMER_ZH_NAME, PARAFORMER_ZH_MEMBERS, out_dir)
+    print(f"[{tag}] extracting")
+    extract_members(tar_path, name, members, out_dir)
     tar_path.unlink()
-    print("[paraformer-zh] ready")
+    print(f"[{tag}] ready")
+
+
+def fetch_paraformer_zh() -> None:
+    fetch_pinned_release(
+        "paraformer-zh",
+        PARAFORMER_ZH_NAME,
+        PARAFORMER_ZH_URL,
+        PARAFORMER_ZH_SIZE,
+        PARAFORMER_ZH_SHA256,
+        PARAFORMER_ZH_MEMBERS,
+    )
+
+
+def fetch_ct_punct_zh() -> None:
+    """The zh display restorer, which is OPTIONAL: any failure is a warning.
+
+    Same contract as `fetch_dewpoint`: the sidecar transcribes zh without it and
+    the API shows the plain transcript, so neither a download failure nor a
+    read-only models mount may stop the seed or the runtime.
+    """
+    if not _writable(MODELS_DIR / CT_PUNCT_ZH_NAME) and not (
+        MODELS_DIR / CT_PUNCT_ZH_NAME / CT_PUNCT_ZH_MEMBERS[0]
+    ).exists():
+        print(f"[ct-punct-zh] skipped, {MODELS_DIR} is not writable; zh display stays plain")
+        return
+    try:
+        fetch_pinned_release(
+            "ct-punct-zh",
+            CT_PUNCT_ZH_NAME,
+            CT_PUNCT_ZH_URL,
+            CT_PUNCT_ZH_SIZE,
+            CT_PUNCT_ZH_SHA256,
+            CT_PUNCT_ZH_MEMBERS,
+        )
+    except Exception as err:  # noqa: BLE001 — see the docstring
+        print(f"[ct-punct-zh] skipped, zh display stays plain: {err}")
 
 
 def fetch_campplus_speaker() -> None:
@@ -340,6 +394,7 @@ def main() -> int:
         fetch_paraformer_zh,
         fetch_campplus_speaker,
         fetch_silero_vad,
+        fetch_ct_punct_zh,
         fetch_dewpoint,
     ):
         fetch()

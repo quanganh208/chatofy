@@ -34,14 +34,21 @@ from engines.registry import (  # noqa: E402
 )
 from engines.word_pauses import lead_pause  # noqa: E402
 from hotwords import build_hotwords  # noqa: E402
-from punctuation.restorer import LANGUAGE as RESTORE_LANGUAGE  # noqa: E402
-from punctuation.restorer import DisplayRestorer, RestorerBusyError  # noqa: E402
+from punctuation.registry import (  # noqa: E402
+    PAUSE_LANGUAGES,
+    PRIMARY_RESTORE_LANGUAGE,
+    RESTORERS,
+)
+from punctuation.restorer import RestorerBusyError  # noqa: E402
 from speaker.embedder import SpeakerEmbedder  # noqa: E402
 
 registry = EngineRegistry()
 embedder = SpeakerEmbedder()
 speech_gate = SileroSpeechGate()
-restorer = DisplayRestorer()
+# The Vietnamese restorer, bound by name because `/healthz` reports it and the
+# tests drive it directly. The same object as `RESTORERS["vi"]`, never a second
+# Dewpoint.
+restorer = RESTORERS[PRIMARY_RESTORE_LANGUAGE]
 
 
 @asynccontextmanager
@@ -54,11 +61,13 @@ async def lifespan(_app: FastAPI):
     embedder.load()
     speech_gate.load()
     # Last, and allowed to stay unloaded: see `DisplayRestorer.load`.
-    restorer.load()
+    for display_restorer in RESTORERS.values():
+        display_restorer.load()
     try:
         yield
     finally:
-        restorer.unload()
+        for display_restorer in RESTORERS.values():
+            display_restorer.unload()
         speech_gate.unload()
         embedder.unload()
         registry.unload_all()
@@ -148,7 +157,7 @@ def transcribe(
         # each word: the restorer reads text only, and a full stop where the
         # speaker never paused ("anh Tuấn. Anh…" for the name "Tuấn Anh") is
         # only visible in the audio. Absent when the tokens did not line up.
-        if language == RESTORE_LANGUAGE:
+        if language in PAUSE_LANGUAGES:
             text, pauses = engine.transcribe_with_pauses(samples, terms)
         else:
             text, pauses = engine.transcribe(samples, terms), None
@@ -232,19 +241,27 @@ class RestoreRequest(BaseModel):
 
 @app.post("/restore")
 def restore(body: RestoreRequest) -> dict:
-    """Punctuation and case for a Vietnamese transcript, for display only.
+    """Punctuation (and for vi, case) for a transcript, for display only.
 
     Its own endpoint rather than part of `/transcribe` for the reason `/embed`
     is: the caller starts it beside the translation, which cannot begin until
     the transcript exists, so riding in that response would put its cost in
     front of the translation instead of next to it.
     """
-    if body.language != RESTORE_LANGUAGE:
-        raise HTTPException(status_code=400, detail=f"restore serves {RESTORE_LANGUAGE} only")
-    if not restorer.loaded:
-        raise HTTPException(status_code=503, detail="display restorer not loaded")
+    chosen = RESTORERS.get(body.language)
+    if chosen is None:
+        raise HTTPException(
+            status_code=400, detail=f"restore serves {', '.join(RESTORERS)} only"
+        )
+    if not chosen.loaded:
+        # 503 only for the primary restorer: the API reads 503 as "the display
+        # path is down" and pauses asking. A secondary model that did not load
+        # answers 400 instead, so it can never pause Vietnamese restores.
+        if body.language == PRIMARY_RESTORE_LANGUAGE:
+            raise HTTPException(status_code=503, detail="display restorer not loaded")
+        raise HTTPException(status_code=400, detail=f"restore for {body.language} not loaded")
     try:
-        return {"text": restorer.restore(body.text, body.context, body.terms, body.pauses)}
+        return {"text": chosen.restore(body.text, body.context, body.terms, body.pauses)}
     except RestorerBusyError as err:
         # 429, not 503: the API reads 503 as "not loaded" and stops asking for a
         # while, which a momentary queue must not trigger.
