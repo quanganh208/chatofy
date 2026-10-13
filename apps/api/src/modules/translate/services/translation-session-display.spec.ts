@@ -151,6 +151,10 @@ function makeService(
       });
     }),
     translateAll: vi.fn().mockResolvedValue({ en: translation }),
+    retryAdopted: vi.fn(
+      async (translated: { translations: Record<string, string> }) =>
+        translated.translations,
+    ),
     restoreDisplay: vi.fn((text: string) =>
       Promise.resolve(blockRestored?.(text)),
     ),
@@ -658,6 +662,23 @@ describe('garbled foreign words on the display', () => {
     const final = socket.ofType('server.transcript.final').at(-1)!;
     expect(final.display).toBe('Lợi dụng deepfake để lừa đảo.');
     expect(final.segment.sourceText).toBe('lợi dụng deep fred để lừa đảo');
+  });
+
+  it('never asks for a respelling on a Chinese turn', async () => {
+    // Paraformer writes the English inside Chinese speech as Latin letters, not
+    // as characters standing for sounds, so there is nothing to respell.
+    const harness = makeService(
+      '我们用 deep fred 做的',
+      '我们用 deep fred 做的。',
+      {
+        translation: 'we made it with deepfake',
+        respell: { 'deep fred': 'deepfake' },
+      },
+    );
+    const socket = new FakeSocket();
+    await runTurn(harness.service, socket, { direction: 'zh_to_en' });
+
+    expect(harness.respellCalls).toEqual([]);
   });
 
   it('keeps the restore when the proposal fails a guard', async () => {

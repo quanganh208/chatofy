@@ -25,6 +25,11 @@ import {
   type VoiceGender,
 } from '@chatofy/types';
 import { AiProvidersFactory } from '../providers/ai-providers.factory';
+import {
+  retryAdoptedTranslations,
+  translateInTargetScript,
+  type ScriptRetry,
+} from './foreign-script-retry';
 import type {
   TurnLanguagePlan,
   TranslationMap,
@@ -146,6 +151,12 @@ export interface TranslateTurnInput {
    * the translation. Absent means the turn did not ask for a display.
    */
   restoreDisplay?: DisplayRestoreRequest;
+  /**
+   * One more translation per target if the final answer leaked a foreign
+   * script (see `ScriptRetry`). Absent on a speculation: if one is adopted, the
+   * caller runs the check then, with `retryAdopted`.
+   */
+  scriptRetry?: ScriptRetry;
 }
 
 /** What a display restore reads besides the transcript. */
@@ -606,27 +617,68 @@ export class PipelineTranslatorService {
      * splice two different translations together.
      */
     onChunk?: (delta: string, restart: boolean) => void;
+    /** One more call if the answer leaks a foreign script; see `ScriptRetry`. */
+    scriptRetry?: ScriptRetry;
   }): Promise<string> {
     try {
       const trio = this.providers.makeProviders();
-      const start = Date.now();
-      const { text, model } = await trio.translation.translate({
-        text: req.text,
-        sourceLanguage: req.source,
-        targetLanguage: req.target,
-        models: req.models,
-        hints: req.hints,
-        context: req.context,
-        continuesCut: req.continuesCut,
-        onChunk: req.onChunk,
-      });
-      this.logger.log(
-        `translate(${model ?? trio.translation.name}) ${Date.now() - start}ms`,
+      // Every answer, streamed or final, is rendered in its target's script
+      // (Simplified for Chinese), and a final one may be retried once.
+      return await translateInTargetScript(
+        async (onChunk) => {
+          const start = Date.now();
+          const { text, model } = await trio.translation.translate({
+            text: req.text,
+            sourceLanguage: req.source,
+            targetLanguage: req.target,
+            models: req.models,
+            hints: req.hints,
+            context: req.context,
+            continuesCut: req.continuesCut,
+            onChunk,
+          });
+          this.logger.log(
+            `translate(${model ?? trio.translation.name}) ${Date.now() - start}ms`,
+          );
+          return text;
+        },
+        req,
+        this.logger,
       );
-      return text;
     } catch (err) {
       return this.handlePipelineError(err);
     }
+  }
+
+  /**
+   * The script check a reused speculation skipped: its translations were made
+   * without a `ScriptRetry`, and adopting one runs no final call. Never
+   * rejects; a target whose retry fails keeps the answer it had.
+   */
+  retryAdopted(
+    translated: Pick<TranslatedTurnText, 'sourceText' | 'translations'>,
+    source: LanguageCode,
+    req: {
+      models?: string[];
+      hints?: TranslationHints;
+      scriptRetry: ScriptRetry;
+    },
+  ): Promise<TranslationMap> {
+    return retryAdoptedTranslations(
+      translated.sourceText,
+      source,
+      translated.translations,
+      (target) =>
+        this.translate({
+          text: translated.sourceText,
+          source,
+          target,
+          models: req.models,
+          hints: req.hints,
+        }),
+      req.scriptRetry,
+      this.logger,
+    );
   }
 
   /**
@@ -646,6 +698,7 @@ export class PipelineTranslatorService {
     hints?: TranslationHints;
     context?: string[];
     continuesCut?: boolean;
+    scriptRetry?: ScriptRetry;
   }): Promise<TranslationMap> {
     const entries = await Promise.all(
       req.targets.map(
@@ -660,6 +713,7 @@ export class PipelineTranslatorService {
               hints: req.hints,
               context: req.context,
               continuesCut: req.continuesCut,
+              scriptRetry: req.scriptRetry,
             }),
           ] as const,
       ),
@@ -738,6 +792,7 @@ export class PipelineTranslatorService {
         hints: input.hints,
         context: input.context,
         continuesCut: input.continuesCut,
+        scriptRetry: input.scriptRetry,
       });
       const restored = await restoring;
 

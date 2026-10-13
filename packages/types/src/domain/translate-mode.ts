@@ -1,6 +1,7 @@
 // Which translation backend a client drives. Schema-first, like every other
 // domain enum here.
 import { z } from 'zod';
+import type { LanguageTable } from './languages.js';
 
 /**
  * The two ways this system can translate speech.
@@ -28,3 +29,18 @@ export type TranslateMode = z.infer<typeof translateModeSchema>;
  * headphones.
  */
 export const DEFAULT_TRANSLATE_MODE: TranslateMode = 'cascade';
+
+/**
+ * Which registry languages the `live` mode will translate from or into.
+ *
+ * Chinese is refused there by decision, not by accident: the zh language work
+ * validated the cascade (Paraformer, DeepSeek, Kokoro) and never Gemini Live,
+ * so the gateway answers a zh direction with `unsupported_direction` and the
+ * extension's picker offers no zh pair in live mode. One table, read by both,
+ * so they cannot disagree.
+ */
+export const LIVE_LANGUAGES: LanguageTable<boolean> = {
+  vi: true,
+  en: true,
+  zh: false,
+};

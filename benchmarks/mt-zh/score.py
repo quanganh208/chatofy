@@ -48,6 +48,13 @@ VI_DIACRITIC = re.compile(r"[ăâđêôơưĂÂĐÊÔƠƯàáảãạằắẳ�
 
 
 def load(run: Path) -> dict[str, list[dict]]:
+    """The directions the run recorded (meta.json `directions`), all six by default."""
+    global DIRECTIONS
+    meta = run / "meta.json"
+    if meta.exists():
+        recorded = json.loads(meta.read_text(encoding="utf-8")).get("directions")
+        if recorded:
+            DIRECTIONS = [d for d in DIRECTIONS if d in recorded]
     rows: dict[str, list[dict]] = {}
     for direction in DIRECTIONS:
         path = run / f"{direction}.jsonl"
@@ -199,17 +206,22 @@ def main() -> int:
             "checks": checks,
         }
 
-    baseline = statistics.fmean(report["directions"][d]["comet"]["mean"] for d in BASELINE)
-    report["decision"] = {
-        "rule": f"flag a zh direction whose COMET mean is more than {FLAG_MARGIN} below the vi<->en baseline mean",
-        "baseline_comet_mean": baseline,
-        "threshold": baseline - FLAG_MARGIN,
-        "flags": {
-            d: report["directions"][d]["comet"]["mean"] < baseline - FLAG_MARGIN
-            for d in DIRECTIONS
-            if d not in BASELINE
-        },
-    }
+    # A partial rerun (e.g. only the zh source directions) has no vi<->en
+    # baseline of its own; it is compared against a full run's scores by hand.
+    if all(d in report["directions"] for d in BASELINE):
+        baseline = statistics.fmean(report["directions"][d]["comet"]["mean"] for d in BASELINE)
+        report["decision"] = {
+            "rule": f"flag a zh direction whose COMET mean is more than {FLAG_MARGIN} below the vi<->en baseline mean",
+            "baseline_comet_mean": baseline,
+            "threshold": baseline - FLAG_MARGIN,
+            "flags": {
+                d: report["directions"][d]["comet"]["mean"] < baseline - FLAG_MARGIN
+                for d in DIRECTIONS
+                if d not in BASELINE
+            },
+        }
+    else:
+        report["decision"] = {"skipped": "no vi<->en baseline directions in this run"}
     report["tokens"] = usage_total
     report["cost_usd"] = {
         band: {

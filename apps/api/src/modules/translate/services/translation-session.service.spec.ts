@@ -141,6 +141,11 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
     translate,
     translateAll,
     transcribeAndTranslate,
+    // A reused speculation is checked for a leaked script; nothing leaks here.
+    retryAdopted: vi.fn(
+      async (translated: { translations: Record<string, string> }) =>
+        translated.translations,
+    ),
     embedSpeaker,
     restoreDisplay,
     synthesize,
@@ -530,6 +535,47 @@ describe('TranslationSessionService', () => {
 
       expect(transcribeAndTranslate).toHaveBeenCalledTimes(1);
       expect(recorded[0]?.speculationUsed).toBe(true);
+    });
+
+    it('gives a reused speculation the one script check its final would have had', async () => {
+      const { service, transcribeAndTranslate } = makeService();
+      const pipeline = (
+        service as unknown as { pipeline: PipelineTranslatorService }
+      ).pipeline;
+      const retryAdopted = vi
+        .spyOn(pipeline, 'retryAdopted')
+        .mockResolvedValue({ en: 'retried' });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      service.speculate(socket);
+      await service.end(socket);
+
+      // The speculation itself went out with no retry of its own…
+      expect(transcribeAndTranslate.mock.calls[0]?.[0]).not.toHaveProperty(
+        'scriptRetry',
+      );
+      // …and adopting it ran the check, with a budget-backed permission.
+      expect(retryAdopted).toHaveBeenCalledTimes(1);
+      const permission = retryAdopted.mock.calls[0]?.[2].scriptRetry;
+      expect(typeof permission?.label).toBe('string');
+      expect(permission).toHaveProperty('allow');
+      expect(
+        socket.ofType('server.transcript.final')[0]!.segment.translations,
+      ).toEqual({ en: 'retried' });
+    });
+
+    it('lets a final translation retry a leaked script, and a speculation not', async () => {
+      const { service, transcribeAndTranslate } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+      await service.end(socket);
+
+      expect(
+        transcribeAndTranslate.mock.calls[0]?.[0].scriptRetry?.allow,
+      ).toBeTypeOf('function');
     });
 
     it('discards speculated work when the speaker carried on', async () => {

@@ -10,6 +10,7 @@ import {
 import {
   MAX_LIVE_ERROR_MESSAGE_CHARS,
   directionLanguages,
+  LIVE_LANGUAGES,
   type AudioFrame,
   type LanguageCode,
   type LiveServerEvent,
@@ -155,6 +156,16 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
     }
 
     const { source, target } = directionLanguages(direction);
+    // Before any provider is resolved or slot reserved: a refused direction
+    // costs nothing. See `LIVE_LANGUAGES` for why zh is refused here.
+    if (!LIVE_LANGUAGES[source] || !LIVE_LANGUAGES[target]) {
+      this.fail(
+        socket,
+        'unsupported_direction',
+        'Live mode does not translate this language pair; use the turn-by-turn mode',
+      );
+      return;
+    }
     const sessionId = randomUUID();
     const connectStartedAt = Date.now();
 

@@ -10,13 +10,10 @@
 // `deepseek` preset (host, model, thinking-disabled flag, request gap), and the
 // shipped prompt builder writes every byte of the instruction.
 //
-// The one thing production cannot do yet is NAME Chinese. The prompt builder
-// reads `LANGUAGES[code].englishName` from `@chatofy/types`, which has only `vi`
-// and `en`, so a `zh` request throws a TypeError before any traffic. Rather than
-// re-typing the instruction here (a copy that would keep passing after the real
-// one drifted), this harness adds ONE entry to the registry object at runtime —
-// the same module instance the provider imports — and asserts from the captured
-// request that it took. Everything else in the request is production's.
+// The registry names Chinese now (`LANGUAGES.zh`), so the run checks from the
+// captured request that the prompt names the registry's language rather than
+// patching it in; the 2026-10-13 r3 run predates that and carried a runtime
+// shim, recorded as `registryShim` in its meta.json.
 //
 // Results go to results/<tag>/ and an existing tag is refused, never overwritten.
 import {
@@ -35,13 +32,6 @@ import { makeTranslationProvider } from '../translation-providers.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../..');
-
-/**
- * The name the prompt will use for zh. Not decided by the product yet; the
- * script check in `score.py` (Traditional characters in zh output) is what tells
- * whether this wording is enough to get Simplified script.
- */
-const ZH_SPEC = { englishName: 'Simplified Chinese', nativeName: '简体中文' };
 
 const DIRECTIONS = ['vi_to_zh', 'zh_to_vi', 'en_to_zh', 'zh_to_en', 'vi_to_en', 'en_to_vi'];
 
@@ -145,10 +135,7 @@ if (existsSync(outDir))
   throw new Error(`${outDir} exists; results are never overwritten. Pick a new --tag.`);
 
 const types = await providerTypesModule();
-if (types.LANGUAGES.zh) throw new Error('registry already has zh; this shim is obsolete, drop it');
-if (Object.isFrozen(types.LANGUAGES))
-  throw new Error('LANGUAGES is frozen; cannot add zh at runtime');
-types.LANGUAGES.zh = ZH_SPEC;
+if (!types.LANGUAGES.zh) throw new Error('the registry has no zh; rebuild packages/types');
 
 const tap = installFetchTap();
 const { provider, models, gapMs, label } = makeTranslationProvider({ preset: 'deepseek' });
@@ -167,7 +154,6 @@ const meta = {
   repeats: args.repeats,
   sentences: sentences.length,
   directions: args.directions,
-  registryShim: { zh: ZH_SPEC },
   order:
     'for repeat, for sentence, for direction — directions interleaved so time-of-day affects all equally',
   prompts: {},
@@ -216,9 +202,8 @@ for (let repeat = 1; repeat <= args.repeats; repeat += 1) {
 
       if (!meta.prompts[direction] && tap.lastBody) {
         const [system, user] = tap.lastBody.messages ?? [];
-        // Proof the shim reached the provider's prompt rather than a copy.
-        const name = (code) =>
-          code === 'zh' ? ZH_SPEC.englishName : types.LANGUAGES[code].englishName;
+        // Proof the registry's name reached the provider's prompt rather than a copy.
+        const name = (code) => types.LANGUAGES[code].englishName;
         if (!system?.content?.includes(`render what they said in ${name(target)}`)) {
           throw new Error(`captured system prompt for ${direction} does not name ${name(target)}`);
         }

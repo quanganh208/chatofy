@@ -9,6 +9,7 @@ import {
   type AudioFrame,
   type ClientTurnMetrics,
   type LanguageCode,
+  type LanguageTable,
   type SessionOptions,
 } from '@chatofy/types';
 import {
@@ -29,6 +30,7 @@ import {
   type TranslatedTurnText,
 } from './pipeline-translator.service';
 import { TurnMetricsRecorder } from './turn-metrics.recorder';
+import type { ScriptRetry } from './foreign-script-retry';
 import {
   adoptTranslatedCasing,
   restoreKeepsWords,
@@ -87,6 +89,20 @@ import {
 
 // Re-exported because the gateway and both specs import it from here.
 export type { StreamSocket } from '../session/stream-socket';
+
+/**
+ * Recognition languages whose transcript spells foreign words by sound, so a
+ * garbled loanword is worth asking a model to respell.
+ *
+ * Vietnamese only: the zipformer writes "open ai" for OpenAI. Parakeet writes
+ * English words as English, and Paraformer writes the English inside Chinese
+ * speech as Latin letters, not as Chinese characters standing for sounds.
+ */
+const RESPELLS_LOANWORDS: LanguageTable<boolean> = {
+  vi: true,
+  en: false,
+  zh: false,
+};
 
 /**
  * Per-connection state machine for the WebSocket translation path.
@@ -563,27 +579,29 @@ export class TranslationSessionService implements OnModuleDestroy {
             ),
           )
         : {
-            translated: await (reusable ??
-              withContinuation((continuation) =>
-                this.pipeline.transcribeAndTranslate(
-                  {
-                    audio: audio.toWav(),
-                    mimeType: 'audio/wav',
-                    models: FINAL_MODELS,
-                    hints: session.hints,
-                    learnedTerms: this.context.learnedTerms(socket),
-                    context: continuation.context,
-                    continuesCut: continuation.continuesCut,
-                    minSpeechMs,
-                    restoreDisplay: restoreRequestFor(
-                      session,
-                      continuation.continued,
-                      this.context.learnedTerms(socket),
-                    ),
-                  },
-                  session.languages,
+            translated: reusable
+              ? await this.adopt(session, await reusable)
+              : await withContinuation((continuation) =>
+                  this.pipeline.transcribeAndTranslate(
+                    {
+                      audio: audio.toWav(),
+                      mimeType: 'audio/wav',
+                      models: FINAL_MODELS,
+                      hints: session.hints,
+                      learnedTerms: this.context.learnedTerms(socket),
+                      context: continuation.context,
+                      continuesCut: continuation.continuesCut,
+                      minSpeechMs,
+                      restoreDisplay: restoreRequestFor(
+                        session,
+                        continuation.continued,
+                        this.context.learnedTerms(socket),
+                      ),
+                      scriptRetry: this.scriptRetryFor(session),
+                    },
+                    session.languages,
+                  ),
                 ),
-              )),
             split: null,
             vector: undefined,
             pieceAudioMs: undefined,
@@ -874,6 +892,7 @@ export class TranslationSessionService implements OnModuleDestroy {
             learnedTerms,
           ),
           minSpeechMs,
+          scriptRetry: this.scriptRetryFor(session),
           logger: this.logger,
         });
       } catch (err) {
@@ -919,7 +938,12 @@ export class TranslationSessionService implements OnModuleDestroy {
       };
     }
 
-    if (reusable) return { translated: await reusable, split: null };
+    if (reusable) {
+      return {
+        translated: await this.adopt(session, await reusable),
+        split: null,
+      };
+    }
     const { text: sourceText, pauses, leadPause } = await wholeSource!;
     // Heard as nothing: the ordinary path owns what that means for a turn —
     // the warning, and the rejection the caller reports.
@@ -940,6 +964,7 @@ export class TranslationSessionService implements OnModuleDestroy {
               continuation.continued,
               learnedTerms,
             ),
+            scriptRetry: this.scriptRetryFor(session),
           },
           plan,
         ),
@@ -965,6 +990,7 @@ export class TranslationSessionService implements OnModuleDestroy {
       hints,
       context: continuation.context,
       continuesCut: continuation.continuesCut,
+      scriptRetry: this.scriptRetryFor(session),
     });
     const restored = await restoring;
     return {
@@ -1050,6 +1076,45 @@ export class TranslationSessionService implements OnModuleDestroy {
   }
 
   /**
+   * Permission for one more final translation when an answer leaks a foreign
+   * script, charged to the same per-user budget and model as a respelling.
+   */
+  private scriptRetryFor(session: TurnSession): ScriptRetry {
+    return {
+      label: `session=${session.sessionId}`,
+      allow: () => {
+        const model = FINAL_MODELS[0] ?? '';
+        if (!this.budget.canSpend(session.userId, model)) return false;
+        this.budget.spend(session.userId, model);
+        return true;
+      },
+    };
+  }
+
+  /**
+   * A reused speculation, given the one script check its final would have run.
+   * Returns the same object when nothing was retried.
+   */
+  private async adopt(
+    session: TurnSession,
+    translated: TranslatedTurnText,
+  ): Promise<TranslatedTurnText> {
+    const translations = await this.pipeline.retryAdopted(
+      translated,
+      session.languages.recognition,
+      {
+        models: FINAL_MODELS,
+        hints: session.hints,
+        scriptRetry: this.scriptRetryFor(session),
+      },
+    );
+    const changed = Object.entries(translations).some(
+      ([code, text]) => translated.translations[code as LanguageCode] !== text,
+    );
+    return changed ? { ...translated, translations } : translated;
+  }
+
+  /**
    * Whether any of these lines would ask for a respelling at all: a display of
    * a Vietnamese transcript, a respeller on this host, and a foreign span the
    * translation does not already spell as heard. Synchronous, so the caller can
@@ -1059,7 +1124,10 @@ export class TranslationSessionService implements OnModuleDestroy {
     session: TurnSession,
     pieces: readonly Pick<TranslatedTurnText, 'sourceText' | 'translations'>[],
   ): boolean {
-    if (!session.repairDisplay || session.languages.recognition !== 'vi')
+    if (
+      !session.repairDisplay ||
+      !RESPELLS_LOANWORDS[session.languages.recognition]
+    )
       return false;
     // Nothing about a respelling may end a turn, including deciding to ask.
     try {
