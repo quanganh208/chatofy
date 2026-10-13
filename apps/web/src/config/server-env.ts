@@ -24,6 +24,9 @@ export const serverEnvSchema = z.object({
   AUTH_GOOGLE_SECRET: z.string().min(1).optional(),
   // This app's own public origin, for `metadataBase` — without it Next resolves
   // `og:image` against localhost and every shared link previews a dead image.
+  // It is also every absolute URL a crawler reads: the canonical, the
+  // `robots.txt` Sitemap line, `sitemap.xml`, the JSON-LD, `/index.md` and
+  // `/llms.txt` — so a default value here publishes localhost in all of them.
   // The api's OWN variable (it builds email links from it), shared rather than
   // mirrored. Read once per process, at the parse below — but nothing bakes it
   // into the bundle, so a deploy picks it up from `prod.env` on restart without
