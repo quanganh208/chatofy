@@ -35,7 +35,11 @@ def test_healthz_reports_supported_languages(client):
     assert res.json()["languages"] == list(SUPPORTED_LANGUAGES)
 
 
-@pytest.mark.parametrize("language", ["vi", "en"])
+def test_healthz_lists_vi_en_and_zh(client):
+    assert set(client.get("/healthz").json()["languages"]) == {"vi", "en", "zh"}
+
+
+@pytest.mark.parametrize("language", ["vi", "en", "zh"])
 def test_transcribe_returns_text_field(client, webm_audio, language):
     res = client.post(
         "/transcribe",
@@ -223,6 +227,16 @@ def test_unsupported_language_400(client, webm_audio):
         data={"language": "fr"},
     )
     assert res.status_code == 400
+
+
+def test_zh_transcribe_returns_no_pauses(client, webm_audio):
+    res = client.post(
+        "/transcribe",
+        files={"file": ("audio.webm", webm_audio, "audio/webm")},
+        data={"language": "zh"},
+    )
+    assert res.status_code == 200
+    assert "pauses" not in res.json()
 
 
 def test_undecodable_audio_400(client):

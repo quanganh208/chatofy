@@ -4,6 +4,8 @@
   generates tokens.txt from bpe.model (the repo does not ship one; sherpa-onnx
   requires the "SYMBOL ID" token table).
 - Parakeet-TDT-0.6b-v2 en INT8 (~630MB): k2-fsa release tarball, extracted.
+- Paraformer-zh int8 (2023-09-14): k2-fsa release tarball (~234MB), pinned by
+  size and sha256, of which only the model and its token table are extracted.
 - CAM++ speaker embedding: one ONNX file from the k2-fsa speaker release. fp32,
   because that release publishes no int8 variant of any speaker model.
 - Silero VAD: one ONNX file, pinned by sha256 (see below) rather than trusted
@@ -49,6 +51,18 @@ PARAKEET_URL = (
     "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/"
     "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2"
 )
+
+PARAFORMER_ZH_NAME = "sherpa-onnx-paraformer-zh-2023-09-14"
+PARAFORMER_ZH_URL = (
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/"
+    f"{PARAFORMER_ZH_NAME}.tar.bz2"
+)
+#: GitHub publishes no digest for this 2023 asset, so both values come from the
+#: first fetch (2026-10-13) — the same tarball the r11 benchmark measured.
+PARAFORMER_ZH_SIZE = 234_051_698
+PARAFORMER_ZH_SHA256 = "9c49fd9c6fb63de8e18c1054cf3d100f804741b7e608e187923cd8ff09fa9f03"
+#: The tarball also carries test WAVs and helper scripts nothing here runs.
+PARAFORMER_ZH_MEMBERS = ("model.int8.onnx", "tokens.txt")
 
 # The release tag is misspelled upstream ("recongition"). Copied verbatim: the
 # corrected spelling 404s.
@@ -118,6 +132,72 @@ def fetch_parakeet_en() -> None:
         raise RuntimeError(f"unexpected tarball layout; {out_dir} incomplete")
     tar_path.unlink()
     print("[parakeet-en] ready")
+
+
+def verify_pinned(path: Path, size: int, sha256: str) -> None:
+    """Raise unless `path` has exactly the pinned size and sha256.
+
+    Size first: a truncated download fails in a stat instead of a 200MB hash.
+    """
+    actual_size = path.stat().st_size
+    if actual_size != size:
+        raise RuntimeError(f"{path.name} is {actual_size} bytes, pinned {size}")
+    actual = _sha256(path)
+    if actual != sha256:
+        raise RuntimeError(f"{path.name} sha256 {actual} != pinned {sha256}")
+
+
+def extract_members(tar_path: Path, prefix: str, members: tuple[str, ...], out_dir: Path) -> None:
+    """Extract only `prefix/<member>` for each member, streamed, one at a time.
+
+    `filter="data"` refuses links, devices and paths that leave `out_dir`, the
+    same guard the Parakeet extraction uses. Each file lands through a `.part`
+    and a rename, so an interrupted run never leaves a truncated model that the
+    cache check would accept.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    wanted = {f"{prefix}/{name}": name for name in members}
+    found: set[str] = set()
+    with tarfile.open(tar_path, "r|bz2") as tar:
+        for member in tar:
+            name = wanted.get(member.name)
+            if name is None:
+                continue
+            member.name = name + ".part"
+            tar.extract(member, out_dir, filter="data")
+            (out_dir / member.name).rename(out_dir / name)
+            found.add(name)
+    missing = set(members) - found
+    if missing:
+        raise RuntimeError(f"{tar_path.name} has no {sorted(missing)}")
+
+
+def fetch_paraformer_zh() -> None:
+    out_dir = MODELS_DIR / PARAFORMER_ZH_NAME
+    if all((out_dir / name).exists() for name in PARAFORMER_ZH_MEMBERS):
+        print("[paraformer-zh] ready (cached)")
+        return
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    tar_path = MODELS_DIR / f"{PARAFORMER_ZH_NAME}.tar.bz2"
+    if not tar_path.exists():
+        print(f"[paraformer-zh] downloading {PARAFORMER_ZH_URL}")
+        tmp = tar_path.with_suffix(".part")
+        with urllib.request.urlopen(PARAFORMER_ZH_URL, timeout=60) as response, open(
+            tmp, "wb"
+        ) as out:
+            shutil.copyfileobj(response, out, length=1024 * 1024)
+        tmp.rename(tar_path)
+    # Verified before a single byte is extracted, cached or fresh: a tampered
+    # or truncated tarball is deleted and the seed fails, as Silero's does.
+    try:
+        verify_pinned(tar_path, PARAFORMER_ZH_SIZE, PARAFORMER_ZH_SHA256)
+    except RuntimeError:
+        tar_path.unlink()
+        raise
+    print("[paraformer-zh] extracting")
+    extract_members(tar_path, PARAFORMER_ZH_NAME, PARAFORMER_ZH_MEMBERS, out_dir)
+    tar_path.unlink()
+    print("[paraformer-zh] ready")
 
 
 def fetch_campplus_speaker() -> None:
@@ -257,6 +337,7 @@ def main() -> int:
     for fetch in (
         fetch_zipformer_vi,
         fetch_parakeet_en,
+        fetch_paraformer_zh,
         fetch_campplus_speaker,
         fetch_silero_vad,
         fetch_dewpoint,

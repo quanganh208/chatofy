@@ -1,7 +1,8 @@
 """Language to engine resolution.
 
-Both engines load eagerly at startup (~1.5GB resident) so /healthz is honest
-about readiness and the first request has no load spike.
+Every engine loads eagerly at startup (~1.9GB resident: vi ~0.2GB, en ~1.1GB,
+zh ~0.4GB, plus the runtime) so /healthz is honest about readiness and the
+first request has no load spike.
 
 One engine per language answers both the live re-reads and the settled
 transcript. English is Parakeet-TDT: on real prod turns it halved Moonshine's
@@ -17,12 +18,14 @@ what actually loaded. A code outside `SUPPORTED_LANGUAGES` is still a 400 from
 serve is the API's refusal to make, before the audio ever reaches here.
 """
 from .base import SttEngine, preload_onnxruntime_dll
+from .paraformer_zh import ParaformerZh
 from .parakeet_en import ParakeetEn
 from .zipformer_vi import ZipformerVi
 
 _ENGINE_TYPES: dict[str, type[SttEngine]] = {
     "vi": ZipformerVi,
     "en": ParakeetEn,
+    "zh": ParaformerZh,
 }
 
 SUPPORTED_LANGUAGES = tuple(_ENGINE_TYPES)

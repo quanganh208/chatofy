@@ -539,6 +539,7 @@ jobs:
           uv run --frozen --directory services/local-stt
           pytest -q test_decode.py test_hotwords.py test_speech_duration.py
           test_word_pauses.py test_postprocess.py test_quantize_embedding.py
+          test_download_models.py
           --deselect test_hotwords.py::test_bpe_vocab_is_not_written_into_the_model_directory
 
   # The replay suites drive the real capture pump and the real turn pipeline over

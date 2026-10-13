@@ -1,4 +1,5 @@
 """Unit tests for engine text post-processing. No model weights required."""
+from engines.paraformer_zh import ParaformerZh
 from engines.parakeet_en import ParakeetEn
 from engines.zipformer_vi import ZipformerVi
 
@@ -38,3 +39,18 @@ def test_en_filler_only_transcript_is_no_speech():
 def test_en_fillers_inside_speech_are_kept():
     for raw in ("Uh, I think so.", "Yeah.", "Okay.", "Mm, maybe tomorrow."):
         assert ParakeetEn().postprocess(raw) == raw
+
+
+def test_zh_spaces_between_han_characters_are_dropped():
+    assert ParaformerZh().postprocess("我们 明天 去 北京") == "我们明天去北京"
+
+
+def test_zh_spaces_around_latin_tokens_are_kept():
+    # Paraformer's own output for an English standard name inside zh speech —
+    # see benchmarks/stt/results/r11-zh-fleurs/sherpa-paraformer-zh.jsonl
+    raw = "它能向后兼容八零二点一一 a 八零二点一一 b"
+    assert ParaformerZh().postprocess(raw) == raw
+
+
+def test_zh_empty_transcript_stays_empty():
+    assert ParaformerZh().postprocess("  ") == ""
