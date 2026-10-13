@@ -256,7 +256,8 @@ two contexts took to agree. Both halves are pure functions in
 `src/site-enablement.ts`, which is where their tests are.
 
 Not in scope: Zoom's desktop app (not a tab, so not capturable — the popup says so), diarization,
-and any language the registry does not hold yet (today it holds vi and en).
+and any language the registry does not hold yet (today it holds vi, en and zh). In live
+mode the popup offers no zh pair (`LIVE_LANGUAGES`): the live gateway refuses it.
 
 ---
 
