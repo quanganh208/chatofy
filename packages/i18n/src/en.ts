@@ -602,6 +602,27 @@ export const en = {
   // The part of `heroTitle` set in italic. Must appear verbatim inside it; the hero
   // falls back to an upright headline when it does not.
   'web.landing.heroTitleEmphasis': 'Be heard',
+
+  // ---- web.conference: video conferencing lobby + in-call screen ----
+  'web.conference.lobbyTitle': 'Video conference',
+  'web.conference.create': 'Create a room',
+  'web.conference.join': 'Join a room',
+  'web.conference.yourName': 'Your name',
+  'web.conference.yourNamePlaceholder': 'How others will see you',
+  'web.conference.roomId': 'Room ID',
+  'web.conference.roomIdPlaceholder': 'Enter a room ID to join',
+  'web.conference.sourceLanguage': 'Your language',
+  'web.conference.sourceLanguageVi': 'Tiếng Việt',
+  'web.conference.sourceLanguageEn': 'English',
+  'web.conference.start': 'Start',
+  'web.conference.joining': 'Joining…',
+  'web.conference.leave': 'Leave',
+  'web.conference.waiting': 'Waiting for others to join…',
+  'web.conference.connecting': 'Connecting…',
+  'web.conference.nameRequired': 'Enter your name to continue.',
+  'web.conference.roomRequired': 'Enter a room ID to join.',
+  'web.conference.you': 'You',
+  'web.meta.conference': 'Conference · Chatofy',
 } as const;
 
 /** Every key any locale must carry. Derived, so a locale cannot drift from it. */
