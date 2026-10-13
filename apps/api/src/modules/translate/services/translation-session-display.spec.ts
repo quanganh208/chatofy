@@ -16,6 +16,7 @@ import type { TurnMetrics, TurnMetricsRecorder } from './turn-metrics.recorder';
 import { encodePcm16Wav } from '../audio/wav-codec';
 import type { SpeechLanguageSupport } from '../providers/speech-language-support';
 import { DeclaredLanguageIdentifier } from '../session/language-identifier';
+import { restoreKeepsWords } from './display-restore-request';
 
 /**
  * Display typesetting on a finished turn.
@@ -527,6 +528,25 @@ describe('names the restorer cannot case', () => {
   });
 });
 
+describe('restoreKeepsWords', () => {
+  it('accepts a Chinese restore that only added marks', () => {
+    expect(restoreKeepsWords('我们去吧', '我们，去吧。')).toBe(true);
+  });
+
+  it('refuses a Chinese restore that changed a character', () => {
+    expect(restoreKeepsWords('我们去吧', '我门去吧')).toBe(false);
+  });
+
+  it('reads Vietnamese exactly as before', () => {
+    expect(restoreKeepsWords('xin chào các bạn', 'Xin chào, các bạn.')).toBe(
+      true,
+    );
+    expect(restoreKeepsWords('xin chào các bạn', 'Xin chào các bà.')).toBe(
+      false,
+    );
+  });
+});
+
 describe('a block typeset as one text', () => {
   /** Two finished turns on one socket, then a request for their block. */
   async function runBlock(harness: Harness): Promise<FakeSocket> {
@@ -569,6 +589,32 @@ describe('a block typeset as one text', () => {
     const socket = await runBlock(
       makeService('mô hình ai của openai', 'Mô hình AI.', {
         blockRestored: () => 'Mô hình AI của Google.',
+      }),
+    );
+
+    expect(socket.ofType('server.block.translated').at(-1)).not.toHaveProperty(
+      'display',
+    );
+  });
+
+  it('keeps a Chinese block whose restore only added punctuation', async () => {
+    // The word guard reads each Han character as a word, so a comma between
+    // two of them is a mark, not one word split into two.
+    const socket = await runBlock(
+      makeService('我们明天去北京', '我们明天去北京。', {
+        blockRestored: () => '我们明天去北京，我们明天去北京。',
+      }),
+    );
+
+    expect(socket.ofType('server.block.translated').at(-1)!.display).toBe(
+      '我们明天去北京，我们明天去北京。',
+    );
+  });
+
+  it('drops a Chinese block whose restore changed a character', async () => {
+    const socket = await runBlock(
+      makeService('我们明天去北京', '我们明天去北京。', {
+        blockRestored: () => '我们明天去南京，我们明天去北京。',
       }),
     );
 

@@ -127,6 +127,37 @@ describe('StreamingCommitter', () => {
     });
   });
 
+  describe('text written without spaces', () => {
+    // Chinese has no whitespace, so a whitespace-only boundary would commit
+    // nothing at all until the final. Each Han character is a syllable.
+    it('settles the agreed Chinese prefix up to the last shared character', () => {
+      const committer = feed(['我们明天去北京开会', '我们明天去北京吧']);
+      expect(committer.committed).toBe('我们明天去北京');
+      expect(committer.pending).toBe('吧');
+    });
+
+    it('settles identical Chinese reads whole', () => {
+      const committer = feed(['我们明天去北京开会', '我们明天去北京开会']);
+      expect(committer.committed).toBe('我们明天去北京开会');
+    });
+
+    it('still drops half a Latin word inside Chinese text', () => {
+      const committer = feed(['我们用iPhone', '我们用iPad']);
+      expect(committer.committed).toBe('我们用');
+    });
+
+    it('keeps the Chinese before a Latin word that is still growing', () => {
+      const committer = feed(['我们去a', '我们去b']);
+      expect(committer.committed).toBe('我们去');
+    });
+
+    it('withholds one Han character per held syllable', () => {
+      const committer = feed(['我们明天去', '我们明天去'], 2);
+      expect(committer.committed).toBe('我们明');
+      expect(committer.pending).toBe('天去');
+    });
+  });
+
   describe('reset', () => {
     it('clears settled text, pending text and the replacement count', () => {
       const committer = feed(['cơ', 'cơ', 'cô cứ nhè', 'cô cứ nhè']);

@@ -1,4 +1,9 @@
-import { MAX_BLOCK_SEGMENTS, type LanguageCode, type TranscriptSegment } from '@chatofy/types';
+import {
+  MAX_BLOCK_SEGMENTS,
+  wordsOf,
+  type LanguageCode,
+  type TranscriptSegment,
+} from '@chatofy/types';
 import { attributionFor, isRendered, type AttributionsBySession } from './speaker-roster.js';
 import {
   blockKey,
@@ -230,18 +235,6 @@ export function groupSourceText(
 function opensLowercase(text: string): boolean {
   const first = text.match(/[\p{L}\p{N}]/u)?.[0];
   return first !== undefined && /\p{L}/u.test(first) && first !== first.toUpperCase();
-}
-
-/** A line's words, case and punctuation aside: what a reader would call its text. */
-function wordsOf(text: string): string {
-  // NFC first: the display arrives composed and a raw transcript may not, and
-  // the same word in two encodings must not read as a repair.
-  return (
-    text
-      .normalize('NFC')
-      .toLowerCase()
-      .match(/[\p{L}\p{N}]+/gu) ?? []
-  ).join(' ');
 }
 
 /**

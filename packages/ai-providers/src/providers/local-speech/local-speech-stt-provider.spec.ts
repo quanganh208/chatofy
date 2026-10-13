@@ -33,6 +33,13 @@ describe('LocalSpeechSttProvider pauses', () => {
     expect(await transcribe()).not.toHaveProperty('pauses');
   });
 
+  it('drops pauses for unspaced Han text rather than misaligning them', async () => {
+    // Words are counted by whitespace here, so a Chinese clause is one word. A
+    // pause list of any other length is dropped whole, never shifted.
+    answering({ text: '我们明天去北京', language: 'zh', pauses: [0, 0, 120] });
+    expect(await transcribe()).not.toHaveProperty('pauses');
+  });
+
   it('drops pauses that are not non-negative numbers', async () => {
     answering({ text: 'Xin chào', language: 'vi', pauses: [0, 'x'] });
     expect(await transcribe()).not.toHaveProperty('pauses');
