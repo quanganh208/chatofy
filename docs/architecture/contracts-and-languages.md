@@ -411,7 +411,7 @@ when it is actually needed — not a redesign:
 
 ### Checklist: adding a language to the registry
 
-Verified against a real, throwaway spike — `ja: {englishName:'Japanese', nativeName:'日本語'}` added to `LANGUAGES` on a disposable worktree, then
+Verified against a real, throwaway spike — `ja: {englishName:'Japanese', label:'Japanese'}` added to `LANGUAGES` on a disposable worktree, then
 `pnpm install --offline`, `pnpm typecheck`, and `pnpm turbo run test` run to
 green. The compiler and the test runner found every file below; nothing
 outside this list needed a change to reach a clean `typecheck`/`test` run for

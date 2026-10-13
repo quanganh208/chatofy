@@ -19,14 +19,14 @@ interface LanguageSpec {
   /** The name English-language prompts use ("translate into Vietnamese"). */
   readonly englishName: string;
   /**
-   * The language's name for itself.
+   * The name an English interface shows: "Chinese", where the prompt name says
+   * "Simplified Chinese" because the model has to be told the script.
    *
-   * Lives here rather than in the i18n catalogues because an endonym does not
-   * depend on the interface locale: the direction toggle reads "Tiếng Việt" in
-   * both locales. Names that DO follow the locale ("Vietnamese" / "Tiếng Việt" on
-   * a history row) stay in i18n under `web.languageName.<code>`.
+   * Here rather than in the i18n catalogues because the extension popup has no
+   * catalogue and names languages in English. Web names them in the reader's
+   * locale instead, from `web.languageName.<code>`.
    */
-  readonly nativeName: string;
+  readonly label: string;
 }
 
 /**
@@ -35,9 +35,9 @@ interface LanguageSpec {
  * conversation is `speaker_a` (see `speakerRoleFor`).
  */
 export const LANGUAGES = {
-  vi: { englishName: 'Vietnamese', nativeName: 'Tiếng Việt' },
-  en: { englishName: 'English', nativeName: 'English' },
-  zh: { englishName: 'Simplified Chinese', nativeName: '简体中文' },
+  vi: { englishName: 'Vietnamese', label: 'Vietnamese' },
+  en: { englishName: 'English', label: 'English' },
+  zh: { englishName: 'Simplified Chinese', label: 'Chinese' },
 } as const satisfies Record<string, LanguageSpec>;
 
 export type LanguageCode = keyof typeof LANGUAGES;
