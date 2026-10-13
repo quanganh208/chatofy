@@ -38,14 +38,19 @@ muted, videoEnabled, subtitle}>, mySocketId, join(), leave(), toggleMute(), togg
    Leave the translation `direction`/audio-sink **as-is** for now — Phase 3 fixes them. Keep the
    `[T1]`–`[T4]` console markers.
 3. **Lobby `page.tsx`.** A form (room id — prefilled with a generated id for "create", editable
-   for "join"; display name; source-language select vi/en) + a muted local-camera preview via
-   `getUserMedia`. On submit, route to `/conference/<roomId>` carrying name + language (query or
-   client state). Use `@chatofy/ui/react` inputs/button and `@chatofy/i18n` strings.
+   for "join"; display name; source-language select **vi/en only** — the demo scope is vi↔en, so
+   trim the PoC's 5-language picker (vi/en/zh/ja/ko) down to vi/en) + a muted local-camera preview
+   via `getUserMedia`. On submit, route to `/conference/<roomId>` carrying name + language (query
+   or client state). Use `@chatofy/ui/react` inputs/button and `@chatofy/i18n` strings.
 4. **In-call shell `[roomId]/page.tsx`.** Call `useConference`, auto-join on mount, render a bare
    grid of `peers` + local tile + a Leave button. This is deliberately ugly; Phase 2 replaces the
    body. It exists so Phase 1 is independently verifiable.
-5. **i18n.** Add keys (`conference.lobby.title`, `.create`, `.join`, `.yourName`,
-   `.sourceLanguage`, `.start`, `conference.call.leave`, `.waiting`, …) in en + vi.
+5. **i18n.** The flat, web-prefixed convention is the one in use (`web.chrome.signOut`, etc.) —
+   conference keys are `web.conference.*`, NOT a dotted `conference.lobby.*` sub-namespace.
+   A first batch is **already committed** (`web.conference.lobbyTitle`, `.create`, `.join`,
+   `.yourName`, `.roomId`, `.sourceLanguage`, `.start`, `.joining`, `.leave`, `.waiting`,
+   `.connecting`, `.nameRequired`, `.roomRequired`, `.you`, `web.meta.conference` in en + vi) —
+   **extend** that set with any missing lobby strings, do not recreate or duplicate it.
 
 ## Verification
 

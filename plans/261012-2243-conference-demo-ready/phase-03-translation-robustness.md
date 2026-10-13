@@ -37,9 +37,10 @@ public surface stays stable (append fields, don't rename).
 1. **Bidirectional direction.** Compute the target as the _other_ language in the pair:
    `targetLanguage = sourceLanguage === 'en' ? 'vi' : 'en'`; `direction = \`${sourceLanguage}_to_${targetLanguage}\``.
 Set the subtitle's `targetLang`to`targetLanguage`and`lang`on the audio frame accordingly.
-Verify`/ws/translate`accepts`en_to_vi`(it must — the app ships vi↔en both ways; check`register-default-providers.ts` / the live direction parsing). Keep the server router as-is:
-   with correct directions, Rule 2 (skip same-language peers) already routes vi→en output to the
-   en listeners and en→vi output to the vi listeners.
+`/ws/translate`accepting`en_to_vi`is **confirmed** (verified 2026-10-13):`translate.controller.ts`documents both`vi_to_en`and`en_to_vi`, and `audio/live-translation-trigger.ts`handles both
+directions — no server change is needed; the`_to_en` hardcode is purely a client bug. Keep the
+   server router as-is: with correct directions, Rule 2 (skip same-language peers) already routes
+   vi→en output to the en listeners and en→vi output to the vi listeners.
 2. **Ordered audio sink.** Replace the per-frame context with one `AudioContext` per _speaker_
    (or one shared, keyed by `speakerSocketId`), buffering frames by `sequence` and scheduling each
    at `max(ctx.currentTime, nextStartTime)` so they play gapless and in order. Prefer reusing

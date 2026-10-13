@@ -20,7 +20,10 @@ surface — no new server events needed.
 - `.../components/subtitle-overlay.tsx` (new)
 - `apps/web/app/(app)/conference/[roomId]/utils/video-layout.ts` (new — grid columns per count)
 - `apps/web/src/design/accent-budget-app.spec.tsx` (edit: register the `/conference` screen state)
-- `packages/i18n/src/**` (edit: control-bar/roster strings, en + vi)
+- The app sidebar component (add a Conference nav destination so `/conference` is reachable) +
+  its `web.chrome.navConference` i18n key.
+- `packages/i18n/src/**` (edit: control-bar/roster strings + `web.chrome.navConference`, en + vi;
+  flat `web.*` convention, extend the committed `web.conference.*` set)
 
 Must NOT change `useConference`'s public surface (Phase 3 depends on it) beyond additive,
 backward-compatible fields. Do NOT touch `apps/api`.
@@ -45,7 +48,10 @@ backward-compatible fields. Do NOT touch `apps/api`.
    `subtitle`. Partial vs final styling (final solid, partial dimmed) — keep it a pure readout.
 6. **Compose** in `[roomId]/page.tsx`: grid center, control bar bottom, roster as a collapsible
    side region. Loading/permission/empty states use tokens + i18n.
-7. **Design spec.** Register `/conference` in `accent-budget-app.spec.tsx` for its screen-states
+7. **Sidebar nav.** Add a Conference destination to the app sidebar (alongside Translate/History/
+   Preferences/Account) with a `web.chrome.navConference` label, routing to `/conference`. The
+   sidebar spends no accent budget. Without this the user has no way to reach the route.
+8. **Design spec.** Register `/conference` in `accent-budget-app.spec.tsx` for its screen-states
    (in-call, waiting) asserting exactly one accent control (Leave) and ≤2 elevated surfaces; run
    the contrast specs.
 
