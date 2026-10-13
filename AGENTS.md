@@ -56,6 +56,7 @@ Keep all important docs in `./docs` folder:
 │   ├── data-flow.md
 │   └── modules-extension-ci.md
 ├── design-guidelines.md
+├── ux-ax-review-checklist.md       # UX/AX review pass for public pages
 ├── brand-mark.md
 ├── deployment-guide.md
 ├── development-journey.md          # chronological record; measurements and dead ends
@@ -64,6 +65,12 @@ Keep all important docs in `./docs` folder:
 ├── technical-risks-mitigation.md        # proposal, not implemented
 └── journals/
 ```
+
+## Public pages: UX and discovery
+
+- Read `docs/design-guidelines.md` before any UI work.
+- When a public route or the landing copy changes, keep the discovery surfaces in step: `robots.ts` and `sitemap.ts`, the page metadata, the JSON-LD, `/index.md` and `/llms.txt`. The checklist is `docs/ux-ax-review-checklist.md`.
+- Verify UI changes at 1440×900, 768×1024 and 375×812.
 
 ## External Files
 

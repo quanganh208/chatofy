@@ -691,7 +691,7 @@ follow, and both are load-bearing rather than defensive:
   stores a key, not a URL.
 
 Two constraints decided the transport, and both would have failed only at runtime
-in a browser. `connect-src 'self' ${api} ${socket}` forbids a fetch straight to
+in a browser. `connect-src 'self' ${api} ${socket}` (plus Cloudflare's analytics endpoint) forbids a fetch straight to
 R2, which rules out presigned direct upload; `media-src 'self' blob:` forbids an
 `<audio src>` pointed anywhere but the page's own origin or a blob. Independently,
 the global `JwtAuthGuard` means a media element could not authenticate even if the
