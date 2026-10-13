@@ -461,5 +461,8 @@ export const vi: Messages = {
   'web.conference.disconnectedHint': 'Cuộc gọi đã kết thúc. Quay lại sảnh để tham gia lại.',
   'web.conference.backToLobby': 'Về sảnh',
   'web.conference.errorGeneric': 'Đã xảy ra lỗi.',
+  // ---- web.conference: mở khóa âm thanh (Phase 1) ----
+  'web.conference.audioBlocked': 'Âm thanh bị chặn bởi trình duyệt.',
+  'web.conference.enableAudio': 'Nhấn để bật âm thanh',
   'web.meta.conference': 'Hội nghị · Chatofy',
 };

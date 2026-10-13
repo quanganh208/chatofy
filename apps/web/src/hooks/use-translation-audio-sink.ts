@@ -84,11 +84,42 @@ export class TranslationAudioSink {
 
   // ─── Private ──────────────────────────────────────────────────────────────
 
+  /**
+   * Returns true when at least one speaker's AudioContext is in the
+   * 'suspended' state (Chrome autoplay policy). Used to surface the
+   * "tap to enable sound" fallback affordance.
+   */
+  isAnySuspended(): boolean {
+    for (const sink of this.speakers.values()) {
+      if (sink.ctx.state === 'suspended') return true;
+    }
+    return false;
+  }
+
+  /**
+   * Resume all suspended AudioContexts. Must be called from a user-gesture
+   * handler so the browser permits the resume.
+   */
+  async resumeAll(): Promise<void> {
+    const promises: Promise<void>[] = [];
+    for (const sink of this.speakers.values()) {
+      if (sink.ctx.state === 'suspended') {
+        promises.push(sink.ctx.resume());
+      }
+    }
+    await Promise.all(promises);
+  }
+
   private getOrCreate(speakerSocketId: string, sampleRate: number): SpeakerSink {
     const existing = this.speakers.get(speakerSocketId);
     if (existing) return existing;
 
     const ctx = new AudioContext({ sampleRate });
+    // Optimistically attempt to resume immediately — succeeds when a user
+    // gesture is already in the chain (e.g. the lobby join click). If the
+    // browser defers it, `isAnySuspended()` will detect the remaining
+    // suspended context and the in-call page will show the tap affordance.
+    void ctx.resume();
     const queue = new PcmPlaybackQueue(ctx);
     const sink: SpeakerSink = { ctx, queue, buffer: [], nextSeq: 0 };
     this.speakers.set(speakerSocketId, sink);

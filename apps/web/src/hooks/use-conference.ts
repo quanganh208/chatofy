@@ -83,10 +83,18 @@ export interface UseConferenceReturn {
   localMuted: boolean;
   /** Whether the local video track is currently enabled. */
   localVideoEnabled: boolean;
+  /**
+   * True when one or more TTS AudioContexts are still suspended (browser
+   * autoplay policy). The in-call page shows a "tap to enable sound" affordance
+   * while this is true. Clears after `resumeAudio()` succeeds.
+   */
+  audioBlocked: boolean;
   join: () => Promise<void>;
   leave: () => void;
   toggleMute: () => void;
   toggleVideo: () => void;
+  /** Resume all suspended TTS AudioContexts. Must be called from a user gesture. */
+  resumeAudio: () => Promise<void>;
 }
 
 // ─── Signaling helpers (module-level, not hooks) ──────────────────────────────
@@ -354,6 +362,8 @@ export function useConference(
   // Phase 3 (folded-in): local mute/video state exposed to the UI.
   const [localMuted, setLocalMuted] = useState(false);
   const [localVideoEnabled, setLocalVideoEnabled] = useState(true);
+  // Phase 1 (audio unlock): true when any TTS AudioContext is still suspended.
+  const [audioBlocked, setAudioBlocked] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const deviceRef = useRef<types.Device | null>(null);
@@ -546,6 +556,14 @@ export function useConference(
 
         setStatus('in-call');
 
+        // Phase 1: attempt an optimistic resume now that a join gesture occurred.
+        // If the browser still suspends the contexts (no frames yet so no contexts
+        // exist here), audioBlocked will be set to true when the first frame arrives.
+        if (audioSinkRef.current) {
+          void audioSinkRef.current.resumeAll();
+          setAudioBlocked(audioSinkRef.current.isAnySuspended());
+        }
+
         // Handle new producers from peers joining later.
         ws.addEventListener('message', async (evt: MessageEvent<string>) => {
           const msg = JSON.parse(evt.data) as SignalMessage;
@@ -670,6 +688,11 @@ export function useConference(
             };
             // [T4] delegated to TranslationAudioSink (logged there).
             audioSinkRef.current?.push(d.speakerSocketId, d.sequence, d.sampleRate, d.payload);
+            // Phase 1: a new AudioContext was lazily created for this speaker;
+            // check whether it ended up suspended (autoplay policy).
+            if (audioSinkRef.current) {
+              setAudioBlocked(audioSinkRef.current.isAnySuspended());
+            }
           }
         });
       } catch (err) {
@@ -725,6 +748,7 @@ export function useConference(
     localVideoEnabledRef.current = true;
     setLocalMuted(false);
     setLocalVideoEnabled(true);
+    setAudioBlocked(false);
     setPeers(new Map());
     setMySocketId(null);
     setStatus('idle');
@@ -779,6 +803,19 @@ export function useConference(
     }
   }, []);
 
+  /**
+   * Resume all suspended TTS AudioContexts.
+   *
+   * Must be called from a direct user-gesture handler (e.g. a button click) so
+   * the browser permits the resume. Clears `audioBlocked` on success.
+   */
+  const resumeAudio = useCallback(async () => {
+    if (audioSinkRef.current) {
+      await audioSinkRef.current.resumeAll();
+      setAudioBlocked(audioSinkRef.current.isAnySuspended());
+    }
+  }, []);
+
   // Close on unmount.
   useEffect(
     () => () => {
@@ -796,9 +833,11 @@ export function useConference(
     mySocketId,
     localMuted,
     localVideoEnabled,
+    audioBlocked,
     join,
     leave,
     toggleMute,
     toggleVideo,
+    resumeAudio,
   };
 }

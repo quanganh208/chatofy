@@ -40,10 +40,12 @@ export default function ConferenceRoomPage() {
     peers,
     localMuted,
     localVideoEnabled,
+    audioBlocked,
     join,
     leave,
     toggleMute,
     toggleVideo,
+    resumeAudio,
   } = useConference(roomId, { displayName, sourceLanguage });
 
   // Auto-join once on mount. Ref guard prevents double-invoke in React Strict Mode.
@@ -137,6 +139,23 @@ export default function ConferenceRoomPage() {
         <p className="text-hint text-textMuted border-border border-b px-4 py-1">
           {t('web.conference.permissionDeniedAudioOnly')}
         </p>
+      )}
+
+      {/* Audio blocked — browser autoplay policy suspended the TTS AudioContext.
+          Ghost/readout control only; Leave is still the one accent-filled control. */}
+      {audioBlocked && (
+        <div className="border-border flex items-center justify-between border-b px-4 py-1">
+          <p className="text-hint text-textMuted">{t('web.conference.audioBlocked')}</p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              void resumeAudio();
+            }}
+          >
+            {t('web.conference.enableAudio')}
+          </Button>
+        </div>
       )}
 
       {/* Main area: grid + optional roster */}

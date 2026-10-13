@@ -642,6 +642,11 @@ export const en = {
   'web.conference.disconnectedHint': 'The call ended. Return to the lobby to rejoin.',
   'web.conference.backToLobby': 'Back to lobby',
   'web.conference.errorGeneric': 'Something went wrong.',
+  // ---- web.conference: audio unlock (Phase 1) ----
+  // Inline notice when the browser's autoplay policy suspended a TTS AudioContext.
+  // No card, no elevation — ghost button only; Leave stays the one accent control.
+  'web.conference.audioBlocked': 'Sound is blocked by your browser.',
+  'web.conference.enableAudio': 'Tap to enable sound',
   'web.meta.conference': 'Conference · Chatofy',
 } as const;
 
