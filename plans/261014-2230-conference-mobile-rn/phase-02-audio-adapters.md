@@ -30,6 +30,15 @@ The wire contracts are fixed in `packages/types`: `ConferenceTranslationSubtitle
 - Hook wiring in `use-conference-native.ts`: start capture on join, feed playback from incoming
   `ConferenceTranslationAudio`, drive `localTranslating` during the speak→subtitle gap.
 
+## Library choice (step 1 — user-approved)
+
+**`react-native-audio-api` 0.13.6** (Software Mansion). A Web Audio API
+implementation for RN: New-Arch compatible, ships an Expo config plugin, and
+does both 16 kHz PCM16 **capture** (`AudioRecorder` data-callback mode, float32
+channel data) and low-latency **playback** of streamed frames (`AudioContext` —
+lets `PcmPlaybackQueue` from `@chatofy/realtime-client` be reused unchanged).
+User approved before adding; requires a dev-client native rebuild before runtime.
+
 ## Steps
 
 1. **Spike (bounded) — pick the RN audio library.** Evaluate `react-native-audio-api` vs `expo-av`

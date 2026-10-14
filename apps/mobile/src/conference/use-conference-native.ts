@@ -23,6 +23,9 @@ import type { types } from 'mediasoup-client';
 import { WS_SUBPROTOCOL } from '@chatofy/types/events';
 import type { ConferenceChatMessage } from '@chatofy/types/events';
 import { toMediasoupTrack, toNativeTrack } from './native-media-adapter';
+import { NativeTranslationAudioSink } from './native-audio-playback';
+import { NativeAudioCapture } from './native-audio-capture';
+import { startTranslateBridge, type TranslateBridge } from './translate-bridge-native';
 
 // MUST be called once at module load, before any Device is constructed. This installs
 // react-native-webrtc's RTCPeerConnection/MediaStream/MediaStreamTrack as the globals
@@ -32,7 +35,10 @@ registerGlobals();
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 const API_BASE = process.env['EXPO_PUBLIC_API_BASE_URL'] ?? 'http://10.0.2.2:3001';
-const WS_URL = API_BASE.replace(/^http/, 'ws') + '/ws/conference';
+const WS_BASE = API_BASE.replace(/^http/, 'ws');
+const WS_URL = WS_BASE + '/ws/conference';
+/** Second socket for live translation, opened by the translate bridge on join. */
+const TRANSLATE_WS_URL = WS_BASE + '/ws/translate';
 
 /** Maximum number of automatic reconnect attempts before giving up. */
 const RECONNECT_CAP = 3;
@@ -71,9 +77,9 @@ export interface UseConferenceReturn {
   mySocketId: string | null;
   localMuted: boolean;
   localVideoEnabled: boolean;
-  /** Phase 2 stub — always false until native TTS audio lands. */
+  /** Always false on RN — there is no autoplay gate to block TTS playback. */
   audioBlocked: boolean;
-  /** Phase 2 stub — always false until live translation lands. */
+  /** True from a turn's first captured mic frame until its final subtitle (or a timeout). */
   localTranslating: boolean;
   /** Current reconnect attempt (1-based). 0 when not reconnecting. */
   reconnectAttempt: number;
@@ -83,7 +89,7 @@ export interface UseConferenceReturn {
   leave: () => void;
   toggleMute: () => void;
   toggleVideo: () => void;
-  /** Phase 2 stub — no-op until native TTS audio lands. */
+  /** No-op on RN (no autoplay gate); kept for contract parity with web. */
   resumeAudio: () => Promise<void>;
   /** Phase 4 stub — always empty until in-meeting chat lands. */
   messages: ConferenceChatMessage[];
@@ -193,9 +199,16 @@ export function useConferenceNative(
   const [mySocketId, setMySocketId] = useState<string | null>(null);
   const [localMuted, setLocalMuted] = useState(false);
   const [localVideoEnabled, setLocalVideoEnabled] = useState(true);
+  const [localTranslating, setLocalTranslating] = useState(false);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
 
   const wsRef = useRef<WebSocket | null>(null);
+  /** Ordered per-speaker TTS playback sink; created on join, closed on leave. */
+  const audioSinkRef = useRef<NativeTranslationAudioSink | null>(null);
+  /** Live translate bridge (mic → /ws/translate → broadcast); stopped on leave. */
+  const translateBridgeRef = useRef<TranslateBridge | null>(null);
+  /** The token for this call, captured so the translate bridge can open its socket. */
+  const tokenRef = useRef<string | null>(null);
   const deviceRef = useRef<types.Device | null>(null);
   /** socketId → displayName, known before a PeerState exists (from join/peer.joined). */
   const peerNamesRef = useRef<Map<string, string>>(new Map());
@@ -240,6 +253,13 @@ export function useConferenceNative(
     const prev = localStreamRef.current;
     if (prev) prev.getTracks().forEach((t) => t.stop());
     localStreamRef.current = null;
+    // Release the translate bridge (recorder + socket) and the playback sink so
+    // a reconnect starts clean and no mic/AudioContext is left held.
+    void translateBridgeRef.current?.stop();
+    translateBridgeRef.current = null;
+    audioSinkRef.current?.close();
+    audioSinkRef.current = null;
+    setLocalTranslating(false);
     setLocalStream(null);
     setPeers(new Map());
     setMySocketId(null);
@@ -400,8 +420,88 @@ export function useConferenceNative(
               });
               return next;
             });
+            return;
+          }
+
+          // Incoming subtitle from a translating peer. Keyed by (speakerSocketId,
+          // turnId) so partial frames replace in-place and a final-frame clear
+          // timer only clears its own turn. Mirrors web's listener handling.
+          if (msg.event === 'conference.translation.subtitle') {
+            const d = msg.data as {
+              speakerSocketId: string;
+              translatedText?: string;
+              sourceText?: string;
+              isFinal: boolean;
+              turnId?: string;
+            };
+            const text = d.translatedText ?? d.sourceText ?? '';
+            const subtitleKey = d.turnId ? `${d.speakerSocketId}:${d.turnId}` : d.speakerSocketId;
+
+            setPeers((prev) => {
+              const entry = prev.get(d.speakerSocketId);
+              if (!entry) return prev;
+              const next = new Map(prev);
+              next.set(d.speakerSocketId, {
+                ...entry,
+                subtitle: text,
+                _subtitleKey: subtitleKey,
+              } as PeerState & { _subtitleKey: string });
+              return next;
+            });
+
+            if (d.isFinal) {
+              // Clear only if this turn's subtitle is still the one showing.
+              setTimeout(() => {
+                setPeers((prev) => {
+                  const entry = prev.get(d.speakerSocketId) as
+                    (PeerState & { _subtitleKey?: string }) | undefined;
+                  if (!entry) return prev;
+                  if (entry._subtitleKey !== subtitleKey) return prev;
+                  const next = new Map(prev);
+                  next.set(d.speakerSocketId, { ...entry, subtitle: undefined });
+                  return next;
+                });
+              }, 4000);
+            }
+            return;
+          }
+
+          // Incoming TTS audio frame from a translating peer → ordered sink.
+          if (msg.event === 'conference.translation.audio') {
+            const d = msg.data as {
+              speakerSocketId: string;
+              sampleRate: number;
+              sequence: number;
+              payload: string;
+            };
+            audioSinkRef.current?.push(d.speakerSocketId, d.sequence, d.sampleRate, d.payload);
           }
         });
+
+        // Live translation: play incoming TTS in order (sink) and stream our own
+        // mic to /ws/translate (bridge). Both are torn down on leave/reconnect.
+        audioSinkRef.current = new NativeTranslationAudioSink();
+        const token = tokenRef.current;
+        if (token && joinResp.socketId) {
+          try {
+            translateBridgeRef.current = await startTranslateBridge({
+              confWs: ws,
+              capture: new NativeAudioCapture(),
+              socketId: joinResp.socketId,
+              speakerDisplayName: displayName,
+              sourceLanguage,
+              translateUrl: TRANSLATE_WS_URL,
+              subprotocol: WS_SUBPROTOCOL,
+              token,
+              setLocalTranslating,
+              log: (m) => console.log(m),
+            });
+          } catch (bridgeErr) {
+            // A capture failure (e.g. mic contention with webrtc) must not drop
+            // the video call — the call stays up, translation just doesn't start.
+            console.error('[conference] translate bridge failed to start', bridgeErr);
+          }
+        }
       } catch (err) {
         setErrorReason('generic');
         setStatus('error');
@@ -473,6 +573,7 @@ export function useConferenceNative(
       setStatus('error');
       return;
     }
+    tokenRef.current = token;
 
     intentionalLeaveRef.current = false;
     reconnectAttemptRef.current = 0;
@@ -485,6 +586,13 @@ export function useConferenceNative(
     intentionalLeaveRef.current = true;
     reconnectAttemptRef.current = 0;
     setReconnectAttempt(0);
+    // Stop capture + translate socket and close the playback sink first so the
+    // mic and all AudioContexts are released before the signaling socket drops.
+    void translateBridgeRef.current?.stop();
+    translateBridgeRef.current = null;
+    audioSinkRef.current?.close();
+    audioSinkRef.current = null;
+    tokenRef.current = null;
     wsRef.current?.close();
     wsRef.current = null;
     deviceRef.current = null;
@@ -495,6 +603,7 @@ export function useConferenceNative(
     localStreamRef.current = null;
     localMutedRef.current = false;
     localVideoEnabledRef.current = true;
+    setLocalTranslating(false);
     setLocalStream(null);
     setLocalMuted(false);
     setLocalVideoEnabled(true);
@@ -527,18 +636,25 @@ export function useConferenceNative(
     }
   }, []);
 
-  // ─── Phase 2–4 stubs (present in the contract, inert for now) ─────────────────
+  // react-native-audio-api has no browser autoplay policy, so incoming TTS plays
+  // as soon as a frame arrives — there is nothing to unlock. `resumeAudio` stays
+  // in the contract for parity with web (and `audioBlocked` stays false on RN).
   const resumeAudio = useCallback(async () => {
-    /* Phase 2: native TTS audio unlock. */
+    /* No-op on RN: no autoplay gate to release. */
   }, []);
   const sendChat = useCallback((_text: string) => {
     /* Phase 4: in-meeting chat. */
   }, []);
 
-  // Close on unmount so a backgrounded/killed screen never leaks a socket or camera.
+  // Close on unmount so a backgrounded/killed screen never leaks a socket,
+  // camera, mic, or AudioContext.
   useEffect(
     () => () => {
       intentionalLeaveRef.current = true;
+      void translateBridgeRef.current?.stop();
+      translateBridgeRef.current = null;
+      audioSinkRef.current?.close();
+      audioSinkRef.current = null;
       wsRef.current?.close();
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
     },
@@ -554,7 +670,7 @@ export function useConferenceNative(
     localMuted,
     localVideoEnabled,
     audioBlocked: false,
-    localTranslating: false,
+    localTranslating,
     reconnectAttempt,
     reconnectCap: RECONNECT_CAP,
     join,

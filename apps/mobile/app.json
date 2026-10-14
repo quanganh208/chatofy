@@ -67,6 +67,12 @@
           "cameraPermission": "Chatofy uses the camera in video meetings.",
           "microphonePermission": "Chatofy uses the microphone in video meetings."
         }
+      ],
+      [
+        "react-native-audio-api",
+        {
+          "iosMicrophonePermission": "Chatofy uses the microphone to translate your speech in video meetings."
+        }
       ]
     ],
     "experiments": {
