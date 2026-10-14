@@ -195,9 +195,13 @@ curl -F file=@sample.webm -F language=vi -F min_speech_ms=300 \
 answered byte for byte as before, with no second decode. Set it on a vi final
 and the response gains `"alternates": ["…"]`, the 150M's unbiased reading of the
 same samples. The key is simply absent — never an error — when no alternate is
-loaded for the language, when `min_speech_ms` gated the turn, or when the
-alternate's lanes were busy or its decode failed. It has its own lanes, so it
-never takes one from the 30M's live re-reads.
+loaded for the language, when `min_speech_ms` gated the turn, when the
+alternate is still decoding `LOCAL_STT_ALTERNATE_WAIT_MS` (default 400 ms)
+after the primary finished, or when the alternate's lanes were busy or its
+decode failed. It has its own lanes, so it never takes one from the 30M's live
+re-reads. It waits at most `LOCAL_STT_ALTERNATE_WAIT_MS` for one of them, and an
+alternate whose response has already gone out gives its lane back without
+decoding.
 
 ```bash
 curl -F file=@sample.webm -F language=vi -F alternates=true \

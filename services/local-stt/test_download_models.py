@@ -105,6 +105,10 @@ def test_a_tarball_missing_a_member_fails(tmp_path):
 # ── Alternate vi recognizer ──────────────────────────────────────────────────
 
 
+def _pin_of(data: bytes) -> tuple[int, str]:
+    return len(data), hashlib.sha256(data).hexdigest()
+
+
 def _fake_hub(monkeypatch, tmp_path, calls: list):
     """`hf_hub_download` answered from files written in the test, args recorded."""
     cache = tmp_path / "hub"
@@ -117,6 +121,12 @@ def _fake_hub(monkeypatch, tmp_path, calls: list):
         return str(path)
 
     monkeypatch.setattr(seed, "hf_hub_download", download)
+    # Pinned to what this fake hub serves, so the pin check runs for real.
+    monkeypatch.setattr(
+        seed,
+        "ZIPFORMER_ALT_PINS",
+        {name: _pin_of(f"{seed.ZIPFORMER_ALT_REPO}/{name}".encode()) for name in seed.ZIPFORMER_ALT_FILES},
+    )
     # A real bpe.model is the one thing the test cannot build; the table is
     # sentencepiece's job, and only that it is written matters here.
     monkeypatch.setattr(seed, "write_tokens", lambda _bpe, path: path.write_text("<blk> 0\n"))
@@ -150,6 +160,32 @@ def test_alternate_second_run_is_a_no_op(tmp_path, monkeypatch):
     seed.fetch_zipformer_vi_alternate()
 
     assert calls == []
+
+
+def test_the_alternate_pins_cover_every_file():
+    assert seed.ZIPFORMER_ALT_FILES == list(seed.ZIPFORMER_ALT_PINS)
+    for size, sha256 in seed.ZIPFORMER_ALT_PINS.values():
+        assert size > 0
+        assert len(sha256) == 64 and int(sha256, 16) >= 0
+
+
+@pytest.mark.parametrize("pin", ["sha256", "size"])
+def test_a_tampered_alternate_file_never_lands(tmp_path, monkeypatch, capsys, pin):
+    models_dir = tmp_path / "models"
+    monkeypatch.setattr(seed, "MODELS_DIR", models_dir)
+    _fake_hub(monkeypatch, tmp_path, [])
+    encoder = seed.ZIPFORMER_ALT_FILES[0]
+    size, sha256 = seed.ZIPFORMER_ALT_PINS[encoder]
+    tampered = (size, "0" * 64) if pin == "sha256" else (size + 1, sha256)
+    monkeypatch.setitem(seed.ZIPFORMER_ALT_PINS, encoder, tampered)
+
+    seed.fetch_zipformer_vi_alternate()
+
+    # Neither the file nor its `.part` remains, and the half-fetched model is
+    # not completed into something the sidecar would load.
+    out_dir = models_dir / seed.ZIPFORMER_ALT_DIR
+    assert list(out_dir.iterdir()) == []
+    assert "skipped, no vi alternates" in capsys.readouterr().out
 
 
 def test_alternate_download_failure_does_not_stop_the_seed(tmp_path, monkeypatch, capsys):

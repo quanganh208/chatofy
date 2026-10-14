@@ -80,6 +80,14 @@ class SttBusyError(Exception):
     """Every decode lane was busy for longer than the wait budget. Maps to 503."""
 
 
+class DecodeAbandonedError(Exception):
+    """The caller stopped waiting before a lane came free, so nothing was decoded.
+
+    Raised instead of decoding into a result nobody will read: the decode would
+    still take a lane and CPU from requests that are being waited on.
+    """
+
+
 def preload_onnxruntime_dll() -> None:
     """Load the venv's onnxruntime.dll before sherpa-onnx native code runs.
 
@@ -156,11 +164,26 @@ class SttEngine(ABC):
         """
         return self._recognizer
 
-    def transcribe(self, samples: np.ndarray, hotwords: str = "") -> str:
-        return self.transcribe_with_pauses(samples, hotwords, pauses=False)[0]
+    def transcribe(
+        self,
+        samples: np.ndarray,
+        hotwords: str = "",
+        *,
+        lane_wait_ms: float | None = None,
+        abandoned: threading.Event | None = None,
+    ) -> str:
+        return self.transcribe_with_pauses(
+            samples, hotwords, pauses=False, lane_wait_ms=lane_wait_ms, abandoned=abandoned
+        )[0]
 
     def transcribe_with_pauses(
-        self, samples: np.ndarray, hotwords: str = "", pauses: bool = True
+        self,
+        samples: np.ndarray,
+        hotwords: str = "",
+        pauses: bool = True,
+        *,
+        lane_wait_ms: float | None = None,
+        abandoned: threading.Event | None = None,
     ) -> tuple[str, list[int] | None]:
         """Transcribe one utterance of mono float32 samples at SAMPLE_RATE,
         with the silence after each word in ms (see `engines.word_pauses`) when
@@ -170,17 +193,27 @@ class SttEngine(ABC):
         UTTERANCE rather than per engine: the terms belong to the conversation
         being transcribed. Empty means no biasing, which is also what keeps an
         ordinary turn on the faster decoder.
+
+        `lane_wait_ms` shortens (never lengthens) the engine's lane wait for a
+        caller that cannot use an answer later than that. `abandoned`, once
+        set, means nobody will read the result: checked again after the lane
+        is acquired, because that wait is where a background decode outlives
+        its request, and raises `DecodeAbandonedError` instead of decoding.
         """
         if self._recognizer is None:
             raise RuntimeError(f"{self.lang} engine not loaded")
         # Sync endpoints run in FastAPI's threadpool, so requests arrive
         # concurrently; the lanes bound how many decodes run at once. The wait
         # for a lane is timed so saturation refuses loudly instead of queuing.
+        wait_ms = self._lane_wait_ms if lane_wait_ms is None else min(lane_wait_ms, self._lane_wait_ms)
+        if abandoned is not None and abandoned.is_set():
+            raise DecodeAbandonedError(f"{self.lang} decode abandoned before its lane wait")
         started = time.perf_counter()
-        if not self._lanes.acquire(timeout=self._lane_wait_ms / 1000):
-            raise SttBusyError(
-                f"{self.lang} engine saturated: no lane within {self._lane_wait_ms:.0f}ms"
-            )
+        if not self._lanes.acquire(timeout=wait_ms / 1000):
+            raise SttBusyError(f"{self.lang} engine saturated: no lane within {wait_ms:.0f}ms")
+        if abandoned is not None and abandoned.is_set():
+            self._lanes.release()
+            raise DecodeAbandonedError(f"{self.lang} decode abandoned while waiting for a lane")
         waited_ms = (time.perf_counter() - started) * 1000
         if waited_ms > SLOW_WAIT_MS:
             logger.warning(

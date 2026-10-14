@@ -272,7 +272,7 @@ class _FakeAlternate:
         self.delay = delay
         self.calls: list[str] = []
 
-    def transcribe(self, samples, hotwords=""):
+    def transcribe(self, samples, hotwords="", *, lane_wait_ms=None, abandoned=None):
         import time
 
         self.calls.append(hotwords)
@@ -384,6 +384,152 @@ def test_a_late_alternate_is_dropped_not_waited_for(client, webm_audio, monkeypa
     assert res.status_code == 200
     assert res.json() == {"text": "xin chào", "language": "vi"}
     assert time.perf_counter() - started < 0.9
+
+
+class _LaneEngine:
+    """A real `SttEngine` (real lanes, real abandonment) over a fake recognizer
+    that only counts decodes, so the tests can hold its single lane."""
+
+    @staticmethod
+    def build(monkeypatch, lane_wait_ms="2000"):
+        from engines.base import SttEngine
+
+        monkeypatch.setenv("LOCAL_STT_CONCURRENCY", "1")
+        monkeypatch.setenv("LOCAL_STT_LANE_WAIT_MS", lane_wait_ms)
+        decodes: list[int] = []
+
+        class _Result:
+            text, tokens, timestamps = "xin chào các bạn", [], []
+
+        class _Stream:
+            result = _Result()
+
+            def accept_waveform(self, *_):
+                pass
+
+        class _Recognizer:
+            def create_stream(self, **_):
+                return _Stream()
+
+            def decode_stream(self, _stream):
+                decodes.append(1)
+
+        class _Engine(SttEngine):
+            lang = "vi"
+
+            def load(self) -> None:
+                self._recognizer = _Recognizer()
+
+        engine = _Engine()
+        engine.load()
+        return engine, decodes
+
+
+def test_an_abandoned_alternate_gives_its_lane_back_without_decoding(
+    client, webm_audio, monkeypatch
+):
+    # The primary fails while the alternate is still waiting for a lane. When
+    # that lane frees up — after the response is gone — the alternate must not
+    # spend it on a decode nobody will read.
+    from concurrent.futures import ThreadPoolExecutor
+
+    import app
+    from app import registry
+    from engines.base import DecodeAbandonedError
+
+    alternate, decodes = _LaneEngine.build(monkeypatch)
+    monkeypatch.setattr(app, "ALTERNATE_WAIT_MS", 2000.0)
+    monkeypatch.setattr(registry, "alternate", lambda lang: alternate)
+    pool = ThreadPoolExecutor(max_workers=1)
+    submitted = []
+
+    def submit(*args, **kwargs):
+        submitted.append(pool.submit(*args, **kwargs))
+        return submitted[-1]
+
+    monkeypatch.setattr(app._alternate_pool, "submit", submit)
+
+    def primary_fails(samples, hotwords=""):
+        raise RuntimeError("onnx went away")
+
+    monkeypatch.setattr(registry.get("vi"), "transcribe_with_pauses", primary_fails)
+
+    assert alternate._lanes.acquire(blocking=False)
+    try:
+        with pytest.raises(RuntimeError, match="onnx went away"):
+            _post_vi(client, webm_audio, alternates="true")
+    finally:
+        alternate._lanes.release()
+    pool.shutdown(wait=True)
+
+    assert len(submitted) == 1
+    with pytest.raises(DecodeAbandonedError):
+        submitted[0].result()
+    assert decodes == []
+    # And the lane went back: a fresh decode gets it at once.
+    assert alternate._lanes.acquire(blocking=False)
+
+
+def test_an_abandoned_decode_releases_its_lane_without_decoding(monkeypatch):
+    import threading
+
+    import numpy as np
+
+    from engines.base import DecodeAbandonedError
+
+    engine, decodes = _LaneEngine.build(monkeypatch)
+    abandoned = threading.Event()
+    samples = np.zeros(1600, dtype=np.float32)
+
+    assert engine._lanes.acquire(blocking=False)
+    errors: list[Exception] = []
+
+    def decode():
+        try:
+            engine.transcribe(samples, abandoned=abandoned)
+        except Exception as err:  # noqa: BLE001 — asserted below
+            errors.append(err)
+
+    waiter = threading.Thread(target=decode)
+    waiter.start()
+    abandoned.set()
+    engine._lanes.release()
+    waiter.join(timeout=2)
+
+    assert [type(e) for e in errors] == [DecodeAbandonedError]
+    assert decodes == []
+    assert engine._lanes.acquire(blocking=False)
+
+    # Abandoned before it ever asks for a lane: refused without waiting.
+    engine._lanes.release()
+    with pytest.raises(DecodeAbandonedError):
+        engine.transcribe(samples, abandoned=abandoned)
+    assert decodes == []
+    # Not abandoned: decodes as usual.
+    assert engine.transcribe(samples, abandoned=threading.Event()) == "xin chào các bạn"
+    assert decodes == [1]
+
+
+def test_a_shorter_lane_wait_caps_but_never_extends_the_engine_wait(monkeypatch):
+    import time
+
+    import numpy as np
+
+    from engines.base import SttBusyError
+
+    engine, _ = _LaneEngine.build(monkeypatch, lane_wait_ms="2000")
+    samples = np.zeros(1600, dtype=np.float32)
+    assert engine._lanes.acquire(blocking=False)
+
+    started = time.perf_counter()
+    with pytest.raises(SttBusyError, match="no lane within 50ms"):
+        engine.transcribe(samples, lane_wait_ms=50)
+    assert time.perf_counter() - started < 1.0
+
+    short, _ = _LaneEngine.build(monkeypatch, lane_wait_ms="20")
+    assert short._lanes.acquire(blocking=False)
+    with pytest.raises(SttBusyError, match="no lane within 20ms"):
+        short.transcribe(samples, lane_wait_ms=5000)
 
 
 def test_a_gated_turn_runs_no_alternate(client, webm_audio, monkeypatch):

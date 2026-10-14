@@ -5,7 +5,8 @@
   requires the "SYMBOL ID" token table).
 - ZipFormer-150M vi, the alternate recognizer behind `/transcribe`'s
   `alternates`: the same four files and the same generated tokens.txt, from a
-  pinned HF revision. Optional, like Dewpoint.
+  pinned HF revision, each file pinned by size and sha256. Optional, like
+  Dewpoint.
 - Parakeet-TDT-0.6b-v2 en INT8 (~630MB): k2-fsa release tarball, extracted.
 - Paraformer-zh int8 (2023-09-14): k2-fsa release tarball (~234MB), pinned by
   size and sha256, of which only the model and its token table are extracted.
@@ -58,12 +59,28 @@ ZIPFORMER_ALT_REPO = "hynt/ZipFormer-150M-CR-CTC-RNNT-6000h"
 #: measured on exactly this revision.
 ZIPFORMER_ALT_REVISION = "8c3d474d3d74cb247f4b8c7b0f8b48598ac8c1c6"
 ZIPFORMER_ALT_DIR = "zipformer-vi-150m"
-ZIPFORMER_ALT_FILES = [
-    "encoder-epoch-11-avg-2.int8.onnx",
-    "decoder-epoch-11-avg-2.int8.onnx",
-    "joiner-epoch-11-avg-2.int8.onnx",
-    "bpe.model",
-]
+#: Size and sha256 of each file at that revision, from the Hub's LFS metadata
+#: and checked against the files the fusion was measured on: a revision pins
+#: what the repo says, these pin the bytes that land.
+ZIPFORMER_ALT_PINS = {
+    "encoder-epoch-11-avg-2.int8.onnx": (
+        154_671_174,
+        "827db843495b35ba1153a92494f89e5e58ec31f5393b4f199b39b508f5a9d025",
+    ),
+    "decoder-epoch-11-avg-2.int8.onnx": (
+        1_308_689,
+        "af6c029366f12c1feef320e601d80e6b797a0b3b23d5013b110402bde53991e3",
+    ),
+    "joiner-epoch-11-avg-2.int8.onnx": (
+        1_033_417,
+        "7d0417a93de825ab0002de19acb30500406bb7224074493387f616180b1807f0",
+    ),
+    "bpe.model": (
+        268_106,
+        "002894e7a82d80ffa5e25008ec8c5496159db804005e2103de96b01b4c13d445",
+    ),
+}
+ZIPFORMER_ALT_FILES = list(ZIPFORMER_ALT_PINS)
 
 PARAKEET_URL = (
     "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/"
@@ -135,19 +152,31 @@ def fetch_zipformer_vi_alternate() -> None:
         return
     try:
         fetch_hynt_zipformer(
-            tag, ZIPFORMER_ALT_REPO, ZIPFORMER_ALT_REVISION, ZIPFORMER_ALT_DIR, ZIPFORMER_ALT_FILES
+            tag,
+            ZIPFORMER_ALT_REPO,
+            ZIPFORMER_ALT_REVISION,
+            ZIPFORMER_ALT_DIR,
+            ZIPFORMER_ALT_FILES,
+            pins=ZIPFORMER_ALT_PINS,
         )
     except Exception as err:  # noqa: BLE001 — see the docstring
         print(f"[{tag}] skipped, no vi alternates: {err}")
 
 
 def fetch_hynt_zipformer(
-    tag: str, repo: str, revision: str | None, dir_name: str, files: list[str]
+    tag: str,
+    repo: str,
+    revision: str | None,
+    dir_name: str,
+    files: list[str],
+    pins: dict[str, tuple[int, str]] | None = None,
 ) -> None:
     """One of hynt's Zipformer exports: the files as published, plus tokens.txt.
 
     Each file lands through a `.part` and a rename, so an interrupted run never
     leaves a truncated encoder that the existence check would accept as cached.
+    A file with an entry in `pins` (size, sha256) is verified as the `.part`,
+    so bytes that do not match never take the name the cache check trusts.
     """
     out_dir = MODELS_DIR / dir_name
     tokens_path = out_dir / "tokens.txt"
@@ -163,6 +192,12 @@ def fetch_hynt_zipformer(
         cached = hf_hub_download(repo, filename, revision=revision)
         part = target.with_name(target.name + ".part")
         shutil.copyfile(cached, part)
+        if pins is not None and filename in pins:
+            try:
+                verify_pinned(part, *pins[filename])
+            except RuntimeError:
+                part.unlink()
+                raise
         part.rename(target)
 
     if not tokens_path.exists():
