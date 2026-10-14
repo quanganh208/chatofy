@@ -115,19 +115,52 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      composed in this order, and `sourceText` is never changed:
      1. the restorer's marks and case, kept only if it changed no word;
      2. names the translation spells in mixed case;
-     3. guarded loanword respellings;
-     4. the ITN.
+     3. guarded corrections: stretches a second recognizer heard better, and
+        homophone repairs;
+     4. guarded loanword respellings;
+     5. the ITN.
 
-     Step 3 runs only on a Vietnamese transcript with a span that cannot be a
+     Step 3 runs on every Vietnamese transcript of a client that asked for a
+     display, as two model calls on the translation's host, both started beside
+     the translation with the transcript and the two sentences before it
+     (`correctTranscript`).
+
+     - **Recognizer fusion.** The final turn's STT request asks for
+       `alternates`, and the sidecar decodes the same samples with a second
+       recognizer (hynt ZipFormer-150M) beside the first. When the two heard
+       different words, the model is shown both and answers the sentence it
+       judges was said ("đâm giao" / "đâm dao"). The answer is aligned against
+       the transcript, and a stretch is kept only if it replaces words with
+       what the second recognizer heard at that place, adds or drops nothing,
+       changes how the words sound (not only mark placement or spacing), and
+       touches no hint term (`acceptRecognizerFusion`). The live preview never
+       asks for a second decode.
+     - **Homophone repair.** The model names words heard as a sound-alike. A
+       repair names one place in the transcript. It is kept only if every word
+       it changes sounds like the word it replaces and differs from it in one
+       of onset, rhyme and tone (`acceptHomophoneRepairs`: d/gi/r, tr/ch, s/x
+       and final n/ng, t/c merged), and never if it touches a number word.
+
+     Where both touch the same words, the fusion's correction is kept. The turn
+     waits for them at most `CORRECTION_GRACE_MS` (250 ms) past the
+     translation. The rules and the measurements are in
+     [`benchmarks/recognizer-fusion`](../../benchmarks/recognizer-fusion/README.md)
+     and [`benchmarks/homophone-repair`](../../benchmarks/homophone-repair/README.md).
+
+     Step 4 runs only on a Vietnamese transcript with a span that cannot be a
      Vietnamese syllable (`foreignSpans`) and that the translation does not
      already spell as heard. It is one model call on the translation's own host,
      made after the translation. The proposal must be Latin script, must appear
      in the translation, and must be close in letters to what was heard
-     (`acceptRespellings`). On such a turn speech starts beside the call, still
-     after the speaker vectors, so only the line waits, and the speech path holds
-     its one error until the line is out. Every other turn keeps the order line,
-     label, then speech. Accepted spellings become hotwords for that connection's later turns,
-     but only for the recognizer and the restorer, never the translation prompt.
+     (`acceptRespellings`). A translation in Han characters cannot hold a Latin
+     spelling, so when it is the only one the model also names the words of the
+     translation that render the span (保加利亚 for "bungary"), and those must
+     appear in it. On such a turn speech starts beside the call, still after the
+     speaker vectors, so only the line waits, and the speech path holds its one
+     error until the line is out. Every other turn keeps the order line, label,
+     then speech. Accepted spellings become hotwords for that connection's later
+     turns, but only for the recognizer and the restorer, never the translation
+     prompt, and never a spelling accepted only on a Han rendering.
      The rules and the measurements are in
      [`benchmarks/loanword-respelling`](../../benchmarks/loanword-respelling/README.md).
 

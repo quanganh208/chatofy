@@ -231,9 +231,11 @@ exactly how far that reaches. Production uses today:
   recognizer gets wrong, appended to the translation instruction;
 - `SCRIPTS` (`packages/ai-providers/src/text/translation-script.ts`) — the script
   a translation into each language is displayed in, and what counts as a leak;
-- `RESPELLS_LOANWORDS` (`translation-session.service.ts`) and
-  `RESTORED_RECOGNITION` (`display-restore-request.ts`) — which recognition
-  languages get a loanword respelling and a display restore;
+- `RESPELLS_LOANWORDS` (`translation-session.service.ts`),
+  `REPAIRS_HOMOPHONES` and `FUSES_RECOGNIZERS` (`pipeline-translator.service.ts`)
+  and `RESTORED_RECOGNITION` (`display-restore-request.ts`) — which recognition
+  languages get a loanword respelling, a homophone repair, a second recognizer
+  fused into the display, and a display restore;
 - `LIVE_LANGUAGES` (`packages/types/src/domain/translate-mode.ts`) — which
   languages the live mode serves, read by the gateway and the extension picker;
 - `LIVE_TRANSLATION_COMMIT_CHARS` (`session/turn-tuning.ts`) — settled

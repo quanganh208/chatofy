@@ -218,6 +218,14 @@ of syllables dropped audio after the cut. 40ms rather than one block, because on
 the lookahead is armed a speaker who really stops is cut too, and a click right after
 that must not open a turn.
 
+The 120ms confirmation itself counts speech across dips shorter than 100ms, and resets
+only on a longer quiet. Vietnamese read speech has 85–110ms syllables with 40–85ms dips
+between them, so counting only unbroken speech confirmed on the third syllable, past
+the 320ms pre-roll. "Hàn Quốc từng…" reached the server as "Quốc từng…". For the same
+reason, in continuous mode what a hangover held (unsent) becomes the next turn's
+pre-roll instead of being dropped. A word begun softly inside the hangover keeps its
+onset.
+
 **Starting it where there is no toolbar.** Facebook opens a call in a `type: "popup"`
 window: no tab strip, no extension icon, so the popup cannot be the way capture starts
 there. And `tabCapture.getMediaStreamId` requires the extension to have been invoked on
