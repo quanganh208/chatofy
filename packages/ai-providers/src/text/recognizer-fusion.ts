@@ -19,7 +19,9 @@ import { syllableParts } from './vietnamese-syllable.js';
  * - it REPLACES words. A stretch where the model only added words, or only
  *   dropped them, is refused: on the measured set those netted to no gain,
  *   and a drop is the one failure no reader can see — a phrase gone from the
- *   line. Nor may it replace a word the other recognizer heard as well;
+ *   line. Nor may it take out a word the other recognizer heard there as well,
+ *   or come out shorter than both recognizers heard it: that is a drop beside
+ *   a swap ("không đồng" against "hông đồ" must never become "đồ");
  * - its words are a contiguous run of what a second recognizer heard AT THAT
  *   PLACE — between the words both recognizers share on either side — so every
  *   word on the line was heard there, as a whole stretch, by some recognizer;
@@ -183,13 +185,23 @@ export function acceptRecognizerFusion(
     // Heard by another recognizer AT THIS PLACE: a word it heard elsewhere in
     // the turn is no evidence for this stretch, and is exactly what a spoken
     // "change X into Y" would ask the model to move here.
-    // And a word the other recognizer ALSO heard is not replaced: both heard
-    // it, so taking it out is a drop, even beside a swap ("tôi không đồng ý"
+    const places = witnesses.map(({ words: other, anchors }) =>
+      heardThere(anchors, other, from, to),
+    );
+    // A word another recognizer ALSO heard here is not taken out: both heard
+    // it, so losing it is a drop, even beside a swap ("tôi không đồng ý"
     // against "tôi vẫn không đồng ý" must never become "tôi vẫn đồng ý").
-    const witnessed = witnesses.some(
-      ({ words: other, anchors }) =>
-        !anchors.some(([h]) => h >= from && h < to) &&
-        occursIn(heardThere(anchors, other, from, to), words),
+    // Compared by value, not through the alignment, which may leave such a
+    // word unpaired when pairing it costs no less than a substitution.
+    if (
+      places.some((there) => replaced.some((word) => there.includes(word) && !words.includes(word)))
+    ) {
+      continue;
+    }
+    // Nor shorter than both recognizers heard it: fewer words than either one
+    // heard at this place is a drop wearing a swap.
+    const witnessed = places.some(
+      (there) => occursIn(there, words) && words.length >= Math.min(replaced.length, there.length),
     );
     if (!witnessed) continue;
     accepted.push({ heard: replaced.join(' '), said: words.join(' '), at: from });

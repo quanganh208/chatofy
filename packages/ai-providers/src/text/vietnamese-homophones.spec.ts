@@ -57,6 +57,9 @@ describe('soundsAlike', () => {
     // Onset and tone.
     ['chiều', 'triệu'],
     ['dễ', 'sẽ'],
+    // No difference in sound: mark placement, or the spelling rules alone.
+    ['khóa', 'khoá'],
+    ['cá', 'ká'],
   ])('refuses %s for %s', (was, said) => {
     expect(soundsAlike(was, said)).toBe(false);
   });

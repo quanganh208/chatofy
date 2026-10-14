@@ -47,6 +47,28 @@ describe('acceptRecognizerFusion', () => {
     expect(
       acceptRecognizerFusion('tôi không đồng ý', ['tôi vẫn không đồng ý'], 'tôi vẫn đồng ý'),
     ).toEqual([]);
+    // Pairing "không" costs no less than three substitutions, so the alignment
+    // leaves it unpaired; both recognizers still heard it there.
+    expect(
+      acceptRecognizerFusion(
+        'anh ấy nói tôi không đi nhé',
+        ['anh ấy nói không biết rồi nhé'],
+        'anh ấy nói biết rồi nhé',
+      ),
+    ).toEqual([]);
+  });
+
+  it('never comes out shorter than both recognizers heard the stretch', () => {
+    expect(
+      acceptRecognizerFusion(
+        'chúng tôi không đồng ý điều đó',
+        ['chúng tôi hông đồ ý điều đó'],
+        'chúng tôi đồ ý điều đó',
+      ),
+    ).toEqual([]);
+    expect(
+      acceptRecognizerFusion('kết hợp kẻ sọ đá', ['kết hợp kè dọ đá'], 'kết hợp kè đá'),
+    ).toEqual([]);
   });
 
   it('never drops or adds words', () => {

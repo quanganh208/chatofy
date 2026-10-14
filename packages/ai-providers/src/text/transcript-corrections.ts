@@ -24,9 +24,15 @@ export interface TranscriptCorrection {
 /** A run of letters and digits: one word. */
 export const WORD = /[\p{L}\p{N}]+/gu;
 
-/** `text`'s words, lowercased and NFC, as a correction's `at` counts them. */
+/**
+ * `text`'s words, lowercased and NFC, as a correction's `at` counts them.
+ *
+ * Split before lowercasing, as the line is when a correction is applied:
+ * lowercasing first can change the count ("İ" lowercases to "i" and a
+ * combining dot, which is no letter).
+ */
 export function wordsOf(text: string): string[] {
-  return (text.normalize('NFC').toLowerCase().match(WORD) ?? []) as string[];
+  return (text.normalize('NFC').match(WORD) ?? []).map((word) => word.toLowerCase());
 }
 
 /**

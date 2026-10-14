@@ -102,21 +102,34 @@ export function soundKey(word: string): string | null {
   return `${ONSET_SOUND[onset] ?? onset}|${codaSound(parts.rhyme)}`;
 }
 
+/** Onsets that are one sound written two ways, as the one they are spelled for. */
+const ONSET_SPELLING: Readonly<Record<string, string>> = { k: 'c', gh: 'g', ngh: 'ng' };
+
+/** The onset with the spelling rules' variants folded away. */
+function spokenOnset(parts: SyllableParts): string {
+  const onset = onsetOf(parts);
+  return ONSET_SPELLING[onset] ?? onset;
+}
+
 /**
  * Whether `said` could have been heard as `was`: the same sound key, and a
- * difference in only one of onset, rhyme and tone.
+ * difference in exactly one of onset, rhyme and tone.
  *
  * One, because the mergers are regional and the tone is a separate channel: a
  * pair that needs the north's onsets AND the south's codas AND a different tone
- * ("rán" and "giáng") is a pair no listener confuses.
+ * ("rán" and "giáng") is a pair no listener confuses. And not none: a change of
+ * mark placement ("khóa", "khoá") or of spelling alone ("cá", "ká") repairs
+ * nothing anyone heard.
  */
 export function soundsAlike(was: string, said: string): boolean {
   const a = syllableParts(was);
   const b = syllableParts(said);
   if (!a || !b || soundKey(was) !== soundKey(said)) return false;
   const differences =
-    Number(onsetOf(a) !== onsetOf(b)) + Number(a.rhyme !== b.rhyme) + Number(a.tone !== b.tone);
-  return differences <= 1;
+    Number(spokenOnset(a) !== spokenOnset(b)) +
+    Number(a.rhyme !== b.rhyme) +
+    Number(a.tone !== b.tone);
+  return differences === 1;
 }
 
 const DIGIT = /\p{N}/u;

@@ -236,6 +236,11 @@ const CORRECTION_CONTEXT_TURNS = 2;
 /**
  * How long a turn waits for its corrections once its translation is in.
  *
+ * Not the whole of their cost: a turn that asks for a second recognizer's
+ * transcript also waits for it in the STT sidecar, up to
+ * `LOCAL_STT_ALTERNATE_WAIT_MS` (400 ms) past the primary's, before the
+ * translation can start.
+ *
  * The checks start beside the translation and usually end first. Measured on
  * 94 recorded turns against the production host, both in flight together: the
  * homophone repair finished first on 65 of them, and with this grace it was
@@ -259,7 +264,8 @@ export async function settleCorrections(
     timer = setTimeout(() => resolve(undefined), CORRECTION_GRACE_MS);
   });
   try {
-    return await Promise.race([correcting, late]);
+    // A display correction never fails the turn it rides on.
+    return await Promise.race([correcting.catch(() => undefined), late]);
   } finally {
     clearTimeout(timer);
   }
