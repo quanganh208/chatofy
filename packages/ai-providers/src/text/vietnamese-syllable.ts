@@ -98,6 +98,9 @@ const CODA = '(?:ch|ng|nh|c|m|n|p|t)?';
 
 const SYLLABLE = new RegExp(`^${ONSET}(?:${NUCLEI})${CODA}$`, 'u');
 
+/** {@link SYLLABLE} with the onset and the rest captured, for {@link syllableParts}. */
+const SYLLABLE_PARTS = new RegExp(`^(${ONSET})((?:${NUCLEI})${CODA})$`, 'u');
+
 /** A run of letters and digits: one word of a transcript. */
 const WORD = /[\p{L}\p{N}]+/gu;
 
@@ -113,6 +116,33 @@ const DIGITS = /^\p{N}+$/u;
 export function isVietnameseSyllable(word: string): boolean {
   const toneless = word.toLowerCase().normalize('NFD').replace(TONE_MARKS, '').normalize('NFC');
   return SYLLABLE.test(toneless);
+}
+
+/** One Vietnamese syllable taken apart, as written. */
+export interface SyllableParts {
+  /** The initial consonant as written, or empty: "gi", "ngh", "tr". */
+  onset: string;
+  /** Nucleus and coda, without the tone mark: "ao", "iêu", "ương". */
+  rhyme: string;
+  /** The tone mark as a combining character, or empty for the level tone. */
+  tone: string;
+}
+
+/**
+ * `word` taken apart into onset, rhyme and tone, or null when it cannot be one
+ * Vietnamese syllable. Lowercased, so the parts compare across case.
+ *
+ * "gì" is written with no vowel after its "gi", so it parses as the onset "g"
+ * and the rhyme "i". That is the reading a comparison of sounds needs: "gì" and
+ * "dì" differ in the onset and share the rhyme.
+ */
+export function syllableParts(word: string): SyllableParts | null {
+  const decomposed = word.toLowerCase().normalize('NFD');
+  const tone = decomposed.match(TONE_MARKS)?.[0] ?? '';
+  const toneless = decomposed.replace(TONE_MARKS, '').normalize('NFC');
+  const match = SYLLABLE_PARTS.exec(toneless);
+  if (!match) return null;
+  return { onset: match[1] ?? '', rhyme: match[2] ?? '', tone };
 }
 
 /** A maximal run of words that cannot be Vietnamese, where it sits in the text. */

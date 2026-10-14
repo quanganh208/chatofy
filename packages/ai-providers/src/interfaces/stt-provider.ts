@@ -39,6 +39,14 @@ export interface SttTranscriptResult {
    * joining the pieces adds this to the previous piece's last pause.
    */
   leadPause?: number;
+  /**
+   * The same audio as heard by a second, independent recognizer — set only
+   * when `alternates` was asked for and the backend has one for the language
+   * (the local sidecar, for Vietnamese). Plain words with no marks, cased as
+   * the backend cases `text`. A caller may let a model pick between these
+   * words and `text`'s; nothing here replaces `text`.
+   */
+  alternates?: string[];
 }
 
 /** Streaming partial/final transcript event (future realtime path). */
@@ -75,6 +83,13 @@ export interface SttTranscribeOptions {
    * the two it sends.
    */
   minSpeechMs?: number;
+  /**
+   * Ask for {@link SttTranscriptResult.alternates}: the turn decoded again by
+   * a second recognizer, beside the first. For a FINISHED turn only — the
+   * live re-reads would pay for a decode nobody reads. Ignored by a backend
+   * that has no second recognizer, like the two fields above.
+   */
+  alternates?: boolean;
 }
 
 /**

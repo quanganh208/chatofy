@@ -113,6 +113,8 @@ interface Harness {
   inputs: TranslateTurnInput[];
   /** The spans each respelling call asked about, in call order. */
   respellCalls: string[][];
+  /** Whether each respelling call was told its translation is in Han characters. */
+  respellHan: boolean[];
 }
 
 function makeService(
@@ -124,12 +126,28 @@ function makeService(
     respell = {},
     respellGate,
     respellThrows = false,
+    corrections,
+    translations,
+    transcripts,
   }: {
+    /** Each turn's transcript in call order, when turns differ; else `sourceText`. */
+    transcripts?: string[];
     translation?: string;
+    /** What the pipeline corrected, already guarded; undefined is nothing. */
+    corrections?:
+      | { heard: string; said: string; at: number }[]
+      | ((
+          sourceText: string,
+        ) => { heard: string; said: string; at: number }[] | undefined);
+    /** Every target's translation, when not the one English line. */
+    translations?: Record<string, string>;
     /** What the sidecar answers for a whole block; undefined is no answer. */
     blockRestored?: (text: string) => string | undefined;
     /** What the respelling model proposes, keyed by span. */
-    respell?: Record<string, string | null>;
+    respell?: Record<
+      string,
+      string | { spelling: string; rendering: string } | null
+    >;
     /** Held until this settles, to model a slow respelling. */
     respellGate?: Promise<void>;
     /** Model a respelling that fails outright. */
@@ -139,15 +157,25 @@ function makeService(
   const turns: TurnMetrics[] = [];
   const inputs: TranslateTurnInput[] = [];
   const respellCalls: string[][] = [];
+  const respellHan: boolean[] = [];
 
   const pipeline = {
     transcribeAndTranslate: vi.fn((input: TranslateTurnInput) => {
       inputs.push(input);
+      const heard = transcripts?.[inputs.length - 1] ?? sourceText;
       return Promise.resolve({
         // Lowercase and unpunctuated, as the Vietnamese recognizer actually emits.
-        sourceText,
-        translations: { en: translation },
+        sourceText: heard,
+        translations: translations ?? { en: translation },
         ...(restored === undefined ? {} : { restored }),
+        ...(corrections === undefined
+          ? {}
+          : {
+              corrections:
+                typeof corrections === 'function'
+                  ? corrections(heard)
+                  : corrections,
+            }),
       });
     }),
     translateAll: vi.fn().mockResolvedValue({ en: translation }),
@@ -159,12 +187,20 @@ function makeService(
       Promise.resolve(blockRestored?.(text)),
     ),
     canRespellLoanwords: vi.fn(() => true),
-    respellLoanwords: vi.fn(async (_text: string, spans: string[]) => {
-      respellCalls.push(spans);
-      await respellGate;
-      if (respellThrows) throw new Error('respeller exploded');
-      return respell;
-    }),
+    respellLoanwords: vi.fn(
+      async (
+        _text: string,
+        spans: string[],
+        _translation: string,
+        han = false,
+      ) => {
+        respellCalls.push(spans);
+        respellHan.push(han);
+        await respellGate;
+        if (respellThrows) throw new Error('respeller exploded');
+        return respell;
+      },
+    ),
     synthesize: vi
       .fn()
       .mockResolvedValue({ bytes: ttsWav(), mimeType: 'audio/wav' }),
@@ -196,6 +232,7 @@ function makeService(
     turns,
     inputs,
     respellCalls,
+    respellHan,
   };
 }
 
@@ -821,5 +858,99 @@ describe('garbled foreign words on the display', () => {
     expect(
       socket.ofType('server.transcript.final').at(-1)!.segment.sourceText,
     ).toBe('lợi dụng deep fred');
+  });
+});
+
+describe('words misheard as a word that sounds the same', () => {
+  it('shows the repair and leaves the transcript as heard', async () => {
+    const { service } = makeService(
+      'một vụ đâm giao nghiêm trọng',
+      'Một vụ đâm giao nghiêm trọng.',
+      {
+        translation: 'a serious stabbing',
+        corrections: [{ heard: 'đâm giao', said: 'đâm dao', at: 2 }],
+      },
+    );
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+
+    const final = socket.ofType('server.transcript.final').at(-1)!;
+    expect(final.display).toBe('Một vụ đâm dao nghiêm trọng.');
+    expect(final.segment.sourceText).toBe('một vụ đâm giao nghiêm trọng');
+  });
+
+  it('keeps each repair on its own word when the turns join a block', async () => {
+    // Both turns say "giao"; only the second was misheard. The repair names
+    // word 1 of ITS turn, which is word 5 of the block. Carried by word rather
+    // than by place, it would also change the first turn's "giao hàng"; not
+    // moved by the first turn's length, it would land on "ấy".
+    const harness = makeService('', undefined, {
+      translation: 'stabbing',
+      transcripts: ['anh ấy giao hàng', 'đâm giao'],
+      corrections: (text) =>
+        text === 'đâm giao'
+          ? [{ heard: 'giao', said: 'dao', at: 1 }]
+          : undefined,
+      blockRestored: (text) =>
+        `${text.charAt(0).toUpperCase()}${text.slice(1)}.`,
+    });
+    const socket = new FakeSocket();
+    const first = await runTurn(harness.service, socket);
+    const second = await runTurn(harness.service, socket);
+    await harness.service.retranslateBlock(socket, [first, second], 'user-1');
+
+    expect(socket.ofType('server.block.translated').at(-1)!.display).toBe(
+      'Anh ấy giao hàng đâm dao.',
+    );
+  });
+});
+
+describe('garbled foreign words with a translation in Han characters', () => {
+  it('asks for renderings and shows the spelling the rendering attests', async () => {
+    const harness = makeService(
+      'bungary đang điều tra',
+      'Bungary đang điều tra.',
+      {
+        translations: { zh: '保加利亚正在调查' },
+        respell: { bungary: { spelling: 'Bulgaria', rendering: '保加利亚' } },
+      },
+    );
+    const socket = new FakeSocket();
+    await runTurn(harness.service, socket, { direction: 'vi_to_zh' });
+
+    expect(harness.respellHan).toEqual([true]);
+    expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(
+      'Bulgaria đang điều tra.',
+    );
+  });
+
+  it('shows a spelling attested only by a rendering, but never learns it', async () => {
+    const harness = makeService('bungary đang điều tra', undefined, {
+      translations: { zh: '保加利亚正在调查' },
+      respell: { bungary: { spelling: 'Bulgaria', rendering: '保加利亚' } },
+    });
+    const socket = new FakeSocket();
+    await runTurn(harness.service, socket, { direction: 'vi_to_zh' });
+    await runTurn(harness.service, socket, { direction: 'vi_to_zh' });
+
+    expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(
+      'Bulgaria đang điều tra',
+    );
+    // A hotword biases every later turn; a rendering cannot carry that.
+    expect(harness.inputs[1]!.learnedTerms).toEqual([]);
+  });
+
+  it('asks with a Latin translation when the turn has one as well', async () => {
+    const harness = makeService('bungary đang điều tra', undefined, {
+      translations: { zh: '保加利亚正在调查', en: 'Bulgaria is investigating' },
+      respell: { bungary: 'Bulgaria' },
+    });
+    const socket = new FakeSocket();
+    await runTurn(harness.service, socket, { direction: 'vi_to_zh' });
+
+    expect(harness.respellHan).toEqual([false]);
+    expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(
+      'Bulgaria đang điều tra',
+    );
   });
 });

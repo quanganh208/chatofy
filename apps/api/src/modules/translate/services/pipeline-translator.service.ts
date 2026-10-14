@@ -12,6 +12,13 @@ import {
   ProviderConnectionError,
   ProviderNotImplementedError,
   ProviderResponseError,
+  acceptHomophoneRepairs,
+  acceptRecognizerFusion,
+  mergeCorrections,
+  wordsOf,
+  type TranscriptCorrection,
+  type LoanwordProposal,
+  type LoanwordRespeller,
   type SpeakerEmbeddingResult,
   type TranslationHints,
   type TtsAudioStream,
@@ -21,6 +28,7 @@ import {
 } from '@chatofy/ai-providers';
 import {
   type LanguageCode,
+  type LanguageTable,
   type TranslateResponse,
   type VoiceGender,
 } from '@chatofy/types';
@@ -152,6 +160,13 @@ export interface TranslateTurnInput {
    */
   restoreDisplay?: DisplayRestoreRequest;
   /**
+   * Also decode the turn with a second recognizer, for
+   * {@link PipelineTranslatorService.correctTranscript} to fuse with the first.
+   * Asked only where a display will be corrected: a live re-read or a turn
+   * with no display would pay for a decode nobody reads.
+   */
+  alternates?: boolean;
+  /**
    * One more translation per target if the final answer leaked a foreign
    * script (see `ScriptRetry`). Absent on a speculation: if one is adopted, the
    * caller runs the check then, with `retryAdopted`.
@@ -181,6 +196,74 @@ export interface DisplayRestoreRequest {
  * costs a fast turn at most this, and a slow translation nothing at all.
  */
 export const RESTORE_BUDGET_MS = 300;
+
+/**
+ * Recognition languages whose finished transcript is checked for words misheard
+ * as a word that sounds the same.
+ *
+ * Vietnamese only, because only its guard exists: `soundKey` knows which
+ * Vietnamese spellings share a sound. Chinese homophones are real, but a guard
+ * for them would have to be built and measured on its own.
+ */
+const REPAIRS_HOMOPHONES: LanguageTable<boolean> = {
+  vi: true,
+  en: false,
+  zh: false,
+};
+
+/**
+ * Recognition languages whose finished transcript is fused with a second
+ * recognizer's, when the backend has one.
+ *
+ * Vietnamese only: the second recognizer and the prompt that picks between
+ * them are both Vietnamese, and only that pair was measured: with the
+ * homophone repair beside it, 5.86% → 4.73–4.91% WER on 6 recorded
+ * conversations (`benchmarks/recognizer-fusion`).
+ */
+const FUSES_RECOGNIZERS: LanguageTable<boolean> = {
+  vi: true,
+  en: false,
+  zh: false,
+};
+
+/**
+ * How many earlier transcripts a correction reads: the number both checks were
+ * measured with. A correction needs the topic ("a stabbing", "a flood"), and
+ * two sentences carry it.
+ */
+const CORRECTION_CONTEXT_TURNS = 2;
+
+/**
+ * How long a turn waits for its corrections once its translation is in.
+ *
+ * The checks start beside the translation and usually end first. Measured on
+ * 94 recorded turns against the production host, both in flight together: the
+ * homophone repair finished first on 65 of them, and with this grace it was
+ * lost on 4. So the line — and the speech that follows it — is never more than
+ * this late on their account, and the cost of a slow host is a correction, not
+ * a turn.
+ */
+export const CORRECTION_GRACE_MS = 250;
+
+/**
+ * `correcting` if it settles within {@link CORRECTION_GRACE_MS} of now, else
+ * undefined. For the moment the translation is in: only the wait from here on
+ * is the reader's.
+ */
+export async function settleCorrections(
+  correcting: Promise<TranscriptCorrection[] | undefined> | undefined | null,
+): Promise<TranscriptCorrection[] | undefined> {
+  if (!correcting) return undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => resolve(undefined), CORRECTION_GRACE_MS);
+  });
+  try {
+    return await Promise.race([correcting, late]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /**
  * How long a WHOLE block's display restore may run.
@@ -244,6 +327,12 @@ export interface TranslatedTurnText {
    */
   restored?: string;
   /**
+   * Stretches of `sourceText` with the words that were said instead, already
+   * through `acceptRecognizerFusion` or `acceptHomophoneRepairs`. For display
+   * only; absent when the turn asked for no display or nothing was corrected.
+   */
+  corrections?: TranscriptCorrection[];
+  /**
    * Silence after each word of `sourceText` in ms, when the recognizer
    * measured it. Kept so a block joining this turn can restore with it.
    */
@@ -269,6 +358,8 @@ export interface TranscribedAudio {
   pauses?: number[];
   /** Silence before the first word in ms; see `SttTranscriptResult`. */
   leadPause?: number;
+  /** The same audio as a second recognizer heard it; see `SttTranscriptResult`. */
+  alternates?: string[];
 }
 
 /** One synthesis request. */
@@ -417,7 +508,9 @@ export class PipelineTranslatorService {
     transcript: string,
     spans: string[],
     translation: string,
-  ): Promise<Record<string, string | null>> {
+    /** Whether `translation` is written in Han characters; see `LoanwordRespellRequest`. */
+    translationInHan = false,
+  ): Promise<Record<string, LoanwordProposal>> {
     const start = Date.now();
     try {
       const respeller = this.providers.makeLoanwordRespeller();
@@ -426,6 +519,7 @@ export class PipelineTranslatorService {
         transcript,
         spans,
         translation,
+        ...(translationInHan ? { translationInHan } : {}),
       });
       this.logger.log(
         `respell(${respeller.name}) ${Date.now() - start}ms spans=${spans.length}`,
@@ -438,6 +532,116 @@ export class PipelineTranslatorService {
         }`,
       );
       return {};
+    }
+  }
+
+  /**
+   * Guarded corrections of `text`, or undefined when there are none: stretches
+   * a second recognizer heard better ({@link FUSES_RECOGNIZERS}, when
+   * `alternates` came back with the transcript), and words misheard as a word
+   * that sounds the same ({@link REPAIRS_HOMOPHONES}).
+   *
+   * Started beside the translation, like the display restore: both checks read
+   * only transcripts and the sentences before — the homophone repair, given the
+   * translation as well, was measured giving the same answers — so on an
+   * ordinary turn they are done before the translation is, and the line waits
+   * for nothing. The two run at once, and where they touch the same words the
+   * fusion's correction is kept: it is the one another recognizer heard.
+   *
+   * Never rejects. The display is an enhancement on a transcript that is
+   * already right; a host that is down or slow costs the turn its corrections,
+   * never its text. The answers are checked here, because the checks read
+   * nothing but transcripts.
+   *
+   * Not charged to the `TranslationBudget`, unlike a respelling: at most two
+   * calls per transcribe-and-translate (per piece, for a split), beside its
+   * translation — a speculation included, because an adopted speculation IS
+   * the final — and the budget exists for the per-minute ceiling the live lane
+   * can hit. A call abandoned after its grace is not aborted; its own ceiling
+   * ends it.
+   */
+  async correctTranscript(
+    text: string,
+    recognition: LanguageCode,
+    context: readonly string[] = [],
+    alternates: readonly string[] = [],
+    /** The turn's hint terms, whose words a fusion never changes. */
+    keep: readonly string[] = [],
+  ): Promise<TranscriptCorrection[] | undefined> {
+    if (!text.trim()) return undefined;
+    const heard = wordsOf(text).join(' ');
+    // An alternate that heard the same words has nothing to offer, and on the
+    // measured set half the turns were such: those cost no call.
+    // The first only: it is the one the prompt shows, so it is the only one
+    // whose words the guard may take as the model's evidence.
+    const differing = FUSES_RECOGNIZERS[recognition]
+      ? alternates
+          .slice(0, 1)
+          .filter((alternate) => wordsOf(alternate).join(' ') !== heard)
+      : [];
+    if (!REPAIRS_HOMOPHONES[recognition] && differing.length === 0)
+      return undefined;
+    let checker: LoanwordRespeller | null;
+    try {
+      checker = this.providers.makeLoanwordRespeller();
+    } catch (err) {
+      this.logger.warn(
+        `transcript checks unavailable, the turn keeps its display: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return undefined;
+    }
+    if (!checker) return undefined;
+    const before = context.slice(-CORRECTION_CONTEXT_TURNS);
+    const [fused, repaired] = await Promise.all([
+      differing.length > 0
+        ? this.check('fusion', checker, async () =>
+            acceptRecognizerFusion(
+              text,
+              differing,
+              await checker.fuseRecognizers({
+                transcript: text,
+                alternates: differing,
+                before,
+              }),
+              keep,
+            ),
+          )
+        : [],
+      REPAIRS_HOMOPHONES[recognition]
+        ? this.check('homophones', checker, async () =>
+            acceptHomophoneRepairs(
+              text,
+              await checker.repairHomophones({ transcript: text, before }),
+            ),
+          )
+        : [],
+    ]);
+    const corrections = mergeCorrections(fused, repaired);
+    return corrections.length > 0 ? corrections : undefined;
+  }
+
+  /** One check's accepted corrections, timed and logged; empty when it failed. */
+  private async check(
+    what: string,
+    checker: LoanwordRespeller,
+    run: () => Promise<TranscriptCorrection[]>,
+  ): Promise<TranscriptCorrection[]> {
+    const start = Date.now();
+    try {
+      const accepted = await run();
+      this.logger.log(
+        `${what}(${checker.name}) ${Date.now() - start}ms accepted=${accepted.length}`,
+      );
+      return accepted;
+    } catch (err) {
+      this.logger.warn(
+        `${what} failed after ${Date.now() - start}ms, the turn keeps its display: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return [];
     }
   }
 
@@ -571,27 +775,33 @@ export class PipelineTranslatorService {
         );
       }
       const sttStart = Date.now();
-      const { text, speechMs, pauses, leadPause } = await trio.stt.transcribe(
-        input.audio,
-        input.mimeType,
-        input.language,
-        // The same hints the translator gets. A hotword is named because the
-        // RECOGNIZER mishears it, so spending the list here first is what the
-        // field was always for; the translator still receives it, for the term
-        // that biasing does not recover.
-        //
-        // Learned terms follow the user's, under the same ceiling.
-        {
-          hotwords: mergeHotwords(input.hints?.hotwords, input.learnedTerms),
-          minSpeechMs: input.minSpeechMs,
-        },
-      );
+      const { text, speechMs, pauses, leadPause, alternates } =
+        await trio.stt.transcribe(
+          input.audio,
+          input.mimeType,
+          input.language,
+          // The same hints the translator gets. A hotword is named because the
+          // RECOGNIZER mishears it, so spending the list here first is what the
+          // field was always for; the translator still receives it, for the term
+          // that biasing does not recover.
+          //
+          // Learned terms follow the user's, under the same ceiling.
+          {
+            hotwords: mergeHotwords(input.hints?.hotwords, input.learnedTerms),
+            minSpeechMs: input.minSpeechMs,
+            // Named only when asked, so an ordinary request is unchanged.
+            ...(input.alternates === true && FUSES_RECOGNIZERS[input.language]
+              ? { alternates: true }
+              : {}),
+          },
+        );
       this.logger.log(`stt(${trio.stt.name}) ${Date.now() - sttStart}ms`);
       return {
         text,
         speechMs,
         ...(pauses === undefined ? {} : { pauses }),
         ...(leadPause === undefined ? {} : { leadPause }),
+        ...(alternates === undefined ? {} : { alternates }),
       };
     } catch (err) {
       return this.handlePipelineError(err);
@@ -745,9 +955,11 @@ export class PipelineTranslatorService {
         speechMs,
         pauses,
         leadPause,
+        alternates,
       } = await this.transcribe({
         ...input,
         language: plan.recognition,
+        alternates: input.restoreDisplay !== undefined,
       });
       if (!sourceText.trim()) {
         // Logged, not merely thrown, because how often this fires is itself the
@@ -791,6 +1003,15 @@ export class PipelineTranslatorService {
             ...(pauses === undefined ? {} : { pauses }),
           })
         : undefined;
+      const correcting = input.restoreDisplay
+        ? this.correctTranscript(
+            sourceText,
+            plan.recognition,
+            input.context,
+            alternates,
+            mergeHotwords(input.hints?.hotwords, input.learnedTerms),
+          )
+        : undefined;
       const translations = await this.translateAll({
         text: sourceText,
         source: plan.recognition,
@@ -802,11 +1023,13 @@ export class PipelineTranslatorService {
         scriptRetry: input.scriptRetry,
       });
       const restored = await restoring;
+      const corrections = await settleCorrections(correcting);
 
       return {
         sourceText,
         translations,
         ...(restored === undefined ? {} : { restored }),
+        ...(corrections === undefined ? {} : { corrections }),
         ...(pauses === undefined ? {} : { pauses }),
         ...(leadPause === undefined ? {} : { leadPause }),
       };

@@ -64,3 +64,35 @@ describe('LocalSpeechSttProvider pauses', () => {
     expect(await transcribe()).not.toHaveProperty('pauses');
   });
 });
+
+describe('LocalSpeechSttProvider alternates', () => {
+  const sentForm = () =>
+    (vi.mocked(globalThis.fetch).mock.calls[0]![1] as RequestInit).body as FormData;
+
+  it('asks for them only when the caller does', async () => {
+    answering({ text: 'Xin chào', language: 'vi' });
+    await transcribe();
+    expect(sentForm().has('alternates')).toBe(false);
+
+    answering({ text: 'Xin chào', language: 'vi' });
+    await new LocalSpeechSttProvider({ baseUrl: 'http://localhost:8012' }).transcribe(
+      new Uint8Array([1, 2, 3]),
+      'audio/wav',
+      'vi',
+      { alternates: true },
+    );
+    expect(sentForm().get('alternates')).toBe('true');
+  });
+
+  it('passes on the non-blank strings the sidecar sent', async () => {
+    answering({ text: 'Đâm giao', language: 'vi', alternates: ['Đâm dao', '', 3] });
+    await expect(transcribe()).resolves.toMatchObject({ alternates: ['Đâm dao'] });
+  });
+
+  it('has none when the sidecar sent none, or nothing usable', async () => {
+    answering({ text: 'Xin chào', language: 'vi' });
+    expect(await transcribe()).not.toHaveProperty('alternates');
+    answering({ text: 'Xin chào', language: 'vi', alternates: 'Xin chào' });
+    expect(await transcribe()).not.toHaveProperty('alternates');
+  });
+});

@@ -11,6 +11,7 @@ import {
   ProviderResponseError,
 } from '@chatofy/ai-providers';
 import {
+  CORRECTION_GRACE_MS,
   NoSpeechDetectedException,
   PipelineTranslatorService,
   RESTORE_BUDGET_MS,
@@ -53,11 +54,31 @@ function fakeTrio(
 function serviceWith(
   trio: PipelineProviders,
   restore?: (text: string, options: unknown) => Promise<string>,
-  { localStt = true }: { localStt?: boolean } = {},
+  {
+    localStt = true,
+    repairHomophones,
+    fuseRecognizers,
+  }: {
+    localStt?: boolean;
+    /** The translation host's homophone repair; absent is a host without one. */
+    repairHomophones?: (request: unknown) => Promise<unknown[]>;
+    /** The translation host's recognizer fusion; answers nothing when absent. */
+    fuseRecognizers?: (request: unknown) => Promise<unknown>;
+  } = {},
 ): PipelineTranslatorService {
   const factory = {
     makeProviders: vi.fn().mockReturnValue(trio),
     sttWritesBareText: vi.fn().mockReturnValue(localStt),
+    makeLoanwordRespeller: vi.fn().mockReturnValue(
+      repairHomophones || fuseRecognizers
+        ? {
+            name: 'fake-checker',
+            repairHomophones: repairHomophones ?? vi.fn().mockResolvedValue([]),
+            fuseRecognizers:
+              fuseRecognizers ?? vi.fn().mockResolvedValue(undefined),
+          }
+        : null,
+    ),
     makeDisplayRestorer: vi.fn().mockReturnValue({
       name: 'fake-restorer',
       restore: restore ?? vi.fn().mockRejectedValue(new Error('no restorer')),
@@ -1016,6 +1037,215 @@ describe('PipelineTranslatorService', () => {
       );
 
       expect(restore).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('transcribeAndTranslate — homophone repair', () => {
+    it('repairs beside the translation and keeps only the guarded proposals', async () => {
+      const repairHomophones = vi.fn().mockResolvedValue([
+        { heard: 'chào', said: 'trào' },
+        // Does not sound like what was heard: a rewrite, refused.
+        { heard: 'xin', said: 'mời' },
+      ]);
+      const result = await serviceWith(fakeTrio(), undefined, {
+        repairHomophones,
+      }).transcribeAndTranslate(
+        {
+          ...input,
+          context: ['một', 'hai', 'ba'],
+          restoreDisplay: { terms: [] },
+        },
+        VI_TO_EN,
+      );
+
+      expect(result.corrections).toEqual([
+        { heard: 'chào', said: 'trào', at: 1 },
+      ]);
+      // The two sentences before it, which is what it was measured with.
+      expect(repairHomophones).toHaveBeenCalledWith({
+        transcript: 'xin chào',
+        before: ['hai', 'ba'],
+      });
+    });
+
+    it('asks nothing for a turn that wants no display', async () => {
+      const repairHomophones = vi.fn().mockResolvedValue([]);
+      const result = await serviceWith(fakeTrio(), undefined, {
+        repairHomophones,
+      }).transcribeAndTranslate(input, VI_TO_EN);
+
+      expect(repairHomophones).not.toHaveBeenCalled();
+      expect(result).not.toHaveProperty('corrections');
+    });
+
+    it('asks nothing for a language it has no guard for', async () => {
+      const repairHomophones = vi.fn().mockResolvedValue([]);
+      await serviceWith(
+        fakeTrio({
+          stt: {
+            name: 'fake-stt',
+            transcribe: vi
+              .fn()
+              .mockResolvedValue({ text: 'hello there', language: 'en' }),
+          },
+        }),
+        undefined,
+        { repairHomophones },
+      ).transcribeAndTranslate(
+        { ...input, restoreDisplay: { terms: [] } },
+        EN_TO_VI,
+      );
+
+      expect(repairHomophones).not.toHaveBeenCalled();
+    });
+
+    it('waits for a slow repair no longer than its grace after the translation', async () => {
+      vi.useFakeTimers();
+      try {
+        const turn = serviceWith(fakeTrio(), undefined, {
+          // A host that never answers: the turn must still finish.
+          repairHomophones: () => new Promise<unknown[]>(() => {}),
+        }).transcribeAndTranslate(
+          { ...input, restoreDisplay: { terms: [] } },
+          VI_TO_EN,
+        );
+        await vi.advanceTimersByTimeAsync(CORRECTION_GRACE_MS);
+        const result = await turn;
+
+        expect(result.translations).toEqual({ en: 'hello' });
+        expect(result).not.toHaveProperty('corrections');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('never fails a turn because the repair failed', async () => {
+      const result = await serviceWith(fakeTrio(), undefined, {
+        repairHomophones: vi.fn().mockRejectedValue(new Error('host down')),
+      }).transcribeAndTranslate(
+        { ...input, restoreDisplay: { terms: [] } },
+        VI_TO_EN,
+      );
+
+      expect(result.translations).toEqual({ en: 'hello' });
+      expect(result).not.toHaveProperty('corrections');
+    });
+  });
+
+  describe('transcribeAndTranslate — recognizer fusion', () => {
+    const withAlternate = (alternates: string[]) =>
+      fakeTrio({
+        stt: {
+          name: 'fake-stt',
+          transcribe: vi.fn().mockResolvedValue({
+            text: 'Hắn đâm giao vào người',
+            language: 'vi',
+            alternates,
+          }),
+        },
+      });
+
+    it('asks the recognizer for a second hearing only for a turn with a display', async () => {
+      const transcribe = vi
+        .fn()
+        .mockResolvedValue({ text: 'xin chào', language: 'vi' });
+      const service = serviceWith(
+        fakeTrio({ stt: { name: 'fake-stt', transcribe } }),
+      );
+      await service.transcribeAndTranslate(input, VI_TO_EN);
+      await service.transcribeAndTranslate(
+        { ...input, restoreDisplay: { terms: [] } },
+        VI_TO_EN,
+      );
+
+      const options = transcribe.mock.calls.map(
+        (call) => (call[3] as { alternates?: boolean } | undefined)?.alternates,
+      );
+      expect(options).toEqual([undefined, true]);
+    });
+
+    it('never asks for a language it has no fusion for', async () => {
+      const transcribe = vi
+        .fn()
+        .mockResolvedValue({ text: 'hello there', language: 'en' });
+      await serviceWith(
+        fakeTrio({ stt: { name: 'fake-stt', transcribe } }),
+      ).transcribeAndTranslate(
+        { ...input, restoreDisplay: { terms: [] } },
+        EN_TO_VI,
+      );
+      expect(transcribe.mock.calls[0]![3]).not.toHaveProperty('alternates');
+    });
+
+    it('keeps the stretches the other recognizer heard, beside the homophone repair', async () => {
+      const fuseRecognizers = vi
+        .fn()
+        .mockResolvedValue('hắn đâm dao vào người');
+      const repairHomophones = vi
+        .fn()
+        // The same word, repaired as well: only the fusion's survives.
+        .mockResolvedValue([{ heard: 'giao', said: 'dao' }]);
+      const result = await serviceWith(
+        withAlternate(['hắn đâm dao vào người']),
+        undefined,
+        { fuseRecognizers, repairHomophones },
+      ).transcribeAndTranslate(
+        {
+          ...input,
+          context: ['một', 'hai', 'ba'],
+          restoreDisplay: { terms: [] },
+        },
+        VI_TO_EN,
+      );
+
+      expect(result.corrections).toEqual([
+        { heard: 'giao', said: 'dao', at: 2 },
+      ]);
+      expect(fuseRecognizers).toHaveBeenCalledWith({
+        transcript: 'Hắn đâm giao vào người',
+        alternates: ['hắn đâm dao vào người'],
+        before: ['hai', 'ba'],
+      });
+    });
+
+    it('asks nothing when the other recognizer heard the same words', async () => {
+      const fuseRecognizers = vi.fn().mockResolvedValue('x');
+      await serviceWith(withAlternate(['hắn đâm giao, vào người']), undefined, {
+        fuseRecognizers,
+      }).transcribeAndTranslate(
+        { ...input, restoreDisplay: { terms: [] } },
+        VI_TO_EN,
+      );
+      expect(fuseRecognizers).not.toHaveBeenCalled();
+    });
+
+    it('leaves the words of the turn’s hint terms as heard', async () => {
+      const result = await serviceWith(
+        withAlternate(['hắn đâm dao vào người']),
+        undefined,
+        { fuseRecognizers: vi.fn().mockResolvedValue('hắn đâm dao vào người') },
+      ).transcribeAndTranslate(
+        {
+          ...input,
+          hints: { hotwords: ['giao'] },
+          restoreDisplay: { terms: [] },
+        },
+        VI_TO_EN,
+      );
+      expect(result).not.toHaveProperty('corrections');
+    });
+
+    it('never fails a turn because the fusion failed', async () => {
+      const result = await serviceWith(
+        withAlternate(['hắn đâm dao vào người']),
+        undefined,
+        { fuseRecognizers: vi.fn().mockRejectedValue(new Error('host down')) },
+      ).transcribeAndTranslate(
+        { ...input, restoreDisplay: { terms: [] } },
+        VI_TO_EN,
+      );
+      expect(result.translations).toEqual({ en: 'hello' });
+      expect(result).not.toHaveProperty('corrections');
     });
   });
 

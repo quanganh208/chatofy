@@ -1,4 +1,6 @@
 import type { LanguageCode } from '../interfaces/provider-types.js';
+import type { LoanwordProposal } from '../interfaces/loanword-respeller.js';
+import { hanCount, isWrittenInHan, toTargetScript } from './translation-script.js';
 import { foreignSpans, type ForeignSpan } from './vietnamese-syllable.js';
 
 /**
@@ -22,7 +24,12 @@ import { foreignSpans, type ForeignSpan } from './vietnamese-syllable.js';
  *   changes nothing a reader could use.
  * - Attested in the translation of the same words. The proposal has to be
  *   something the translator independently wrote, so a prompt cannot make the
- *   line say a word the translation does not.
+ *   line say a word the translation does not. A translation in Han characters
+ *   writes "Bulgaria" as 保加利亚 and can never attest it letter for letter, so
+ *   there the model also names the words of the translation that render the
+ *   span, and those have to be in it, Han characters and all. That is a weaker
+ *   attestation — it cannot tie the rendering to this span — so such a
+ *   spelling is shown but never learned (see {@link attestedInLetters}).
  * - Close in letters to what was heard. A respelling repairs hearing; a
  *   proposal far from the heard letters is a substitution.
  *
@@ -56,6 +63,15 @@ export function respellingKey(spanText: string): string {
  * set scored as high as right ones, and were stopped by the other guards.
  */
 export const MIN_RESPELLING_SIMILARITY = 0.5;
+
+/**
+ * Longest rendering a Han translation may attest a spelling with.
+ *
+ * A name is a few characters: 保加利亚 is four, and a full name such as
+ * 约书亚·本吉奥 seven. A longer "rendering" is a clause, and pointing at a
+ * clause attests nothing about one name.
+ */
+export const MAX_RENDERING_LENGTH = 12;
 
 /** Longest accepted spelling; the same ceiling as one hotword term. */
 export const MAX_RESPELLING_LENGTH = 64;
@@ -92,6 +108,9 @@ function ownString(record: Readonly<Record<string, unknown>>, key: string): stri
 
 /** A run of letters and digits: one word. */
 const WORD = /[\p{L}\p{N}]+/gu;
+
+/** A run of Han characters. */
+const HAN_RUN = /\p{Script=Han}+/gu;
 
 /** How many translation words one proposal may be matched against. */
 const MAX_ATTESTED_WORDS = 3;
@@ -138,7 +157,11 @@ export function letterSimilarity(a: string, b: string): number {
 function attestedForms(translations: Partial<Record<LanguageCode, string>>): Set<string> {
   const forms = new Set<string>();
   for (const text of Object.values(translations)) {
-    const words = text?.normalize('NFC').match(WORD) ?? [];
+    // Han characters are letters too, and Chinese writes no space between a
+    // name kept in Latin letters and the words around it: "OpenAI的AI模型" is
+    // one run of letters, in which "OpenAI" would never be found. A Han
+    // character attests no Latin spelling, so it only separates words here.
+    const words = text?.normalize('NFC').replace(HAN_RUN, ' ').match(WORD) ?? [];
     for (let length = 1; length <= MAX_ATTESTED_WORDS; length++) {
       for (let start = 0; start + length <= words.length; start++) {
         const form = lettersOf(words.slice(start, start + length).join(' '));
@@ -169,21 +192,66 @@ export function unresolvedSpans(
 }
 
 /**
+ * Whether `rendering` attests a spelling in a Han translation: a few words that
+ * hold Han characters and appear in one of `translations` written in them.
+ */
+function renderedInHan(
+  rendering: string,
+  translations: Partial<Record<LanguageCode, string>>,
+): boolean {
+  const words = rendering.normalize('NFC').trim();
+  // Two characters at least: one is a syllable, and the commonest ones (的, 是)
+  // are in every translation.
+  if (words.length > MAX_RENDERING_LENGTH || hanCount(words) < 2) return false;
+  // Compared in the script the translation is displayed in: a model asked to
+  // copy Simplified characters was measured answering with Traditional ones.
+  return Object.entries(translations).some(([code, text]) => {
+    const language = code as LanguageCode;
+    if (!isWrittenInHan(language) || !text) return false;
+    return toTargetScript(language, text.normalize('NFC')).includes(
+      toTargetScript(language, words),
+    );
+  });
+}
+
+/**
+ * Whether a translation writes `spelling` letter for letter.
+ *
+ * True of every spelling attested the strong way. False of one accepted only on
+ * a Han rendering, which proves the translation names SOMETHING where the span
+ * is, not that it names this: what holds such a spelling to the speaker is its
+ * letter similarity to what was heard. So a caller may show it, but should not
+ * carry it beyond the line it was proposed for, for instance as a hotword.
+ */
+export function attestedInLetters(
+  spelling: string,
+  translations: Partial<Record<LanguageCode, string>>,
+): boolean {
+  return attestedForms(translations).has(lettersOf(spelling));
+}
+
+/**
  * The proposals that pass every guard.
  *
  * `proposals` is keyed by span text, as the model was asked; a key that names
  * no span sent is ignored, and so is a null answer, which is the model saying
- * the span is already right.
+ * the span is already right. A `{spelling, rendering}` answer is attested by
+ * its rendering, for a translation in Han characters; a bare spelling only by
+ * its own letters.
  */
 export function acceptRespellings(
   spans: readonly ForeignSpan[],
-  proposals: Readonly<Record<string, string | null | undefined>>,
+  proposals: Readonly<Record<string, LoanwordProposal | undefined>>,
   translations: Partial<Record<LanguageCode, string>>,
 ): Record<string, string> {
   const attested = attestedForms(translations);
   const accepted: Record<string, string> = {};
   for (const span of spans) {
-    const proposal = ownString(proposals, span.text)?.trim();
+    if (!Object.hasOwn(proposals, span.text)) continue;
+    const answer = proposals[span.text];
+    const rendered = typeof answer === 'object' && answer !== null;
+    const raw = rendered ? answer.spelling : answer;
+    const proposal = typeof raw === 'string' ? raw.trim() : '';
     if (!proposal || proposal.length > MAX_RESPELLING_LENGTH) continue;
     if (!LATIN_SPELLING.test(proposal)) continue;
     const letters = lettersOf(proposal);
@@ -191,7 +259,12 @@ export function acceptRespellings(
     // A respelling that only drops the marks writes Vietnamese without its
     // diacritics — "Dak Lak" for "Đắk Lắk" — which is not a repair of hearing.
     if (letters === foldedLettersOf(span.text)) continue;
-    if (!attested.has(letters)) continue;
+    const witnessed =
+      attested.has(letters) ||
+      (rendered &&
+        typeof answer.rendering === 'string' &&
+        renderedInHan(answer.rendering, translations));
+    if (!witnessed) continue;
     if (letterSimilarity(span.text, proposal) < MIN_RESPELLING_SIMILARITY) continue;
     accepted[respellingKey(span.text)] = proposal;
   }

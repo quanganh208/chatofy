@@ -14,8 +14,11 @@ import {
 } from '@chatofy/types';
 import {
   acceptRespellings,
+  attestedInLetters,
+  isWrittenInHan,
   ProviderAbortedError,
   unresolvedSpans,
+  type TranscriptCorrection,
   type Respellings,
   type SpeakerEmbeddingResult,
   type TtsAudioStream,
@@ -25,6 +28,7 @@ import {
   NoSpeechDetectedException,
   BLOCK_RESTORE_BUDGET_MS,
   PipelineTranslatorService,
+  settleCorrections,
   SpeechEngineBusyException,
   type SynthesizedSpeech,
   type TranslatedTurnText,
@@ -55,7 +59,10 @@ import {
 } from './speaker-split-turn';
 import { TranslationBudget } from '../audio/translation-budget';
 import { SessionRegistry } from '../session/session-registry';
-import { ConversationContext } from '../session/conversation-context';
+import {
+  ConversationContext,
+  mergeHotwords,
+} from '../session/conversation-context';
 import {
   FinishedSegments,
   type SegmentBlock,
@@ -698,6 +705,7 @@ export class TranslationSessionService implements OnModuleDestroy {
             translated.restored,
             translated.translations,
             respellings[0],
+            translated.corrections,
           );
 
           this.channelFor(socket, session).emit({
@@ -856,6 +864,12 @@ export class TranslationSessionService implements OnModuleDestroy {
           hints,
           learnedTerms,
           minSpeechMs,
+          // Whether a display will be corrected is the same question
+          // `restoreRequestFor` answers further down; asked here because the
+          // second decode rides on this one request.
+          alternates:
+            restoreRequestFor(session, continuation.continued, learnedTerms) !==
+            undefined,
         });
     // Both may settle while the plan is still out; an unhandled rejection takes
     // the process down. The awaits below still see the failure.
@@ -928,6 +942,9 @@ export class TranslationSessionService implements OnModuleDestroy {
             ...(piece.restored === undefined
               ? {}
               : { restored: piece.restored }),
+            ...(piece.corrections === undefined
+              ? {}
+              : { corrections: piece.corrections }),
           },
           split: null,
           vector: split.vectors.then((vectors) => vectors[0] ?? null),
@@ -946,7 +963,12 @@ export class TranslationSessionService implements OnModuleDestroy {
         split: null,
       };
     }
-    const { text: sourceText, pauses, leadPause } = await wholeSource!;
+    const {
+      text: sourceText,
+      pauses,
+      leadPause,
+      alternates,
+    } = await wholeSource!;
     // Heard as nothing: the ordinary path owns what that means for a turn —
     // the warning, and the rejection the caller reports.
     if (!sourceText.trim()) {
@@ -984,6 +1006,15 @@ export class TranslationSessionService implements OnModuleDestroy {
           ...(pauses === undefined ? {} : { pauses }),
         })
       : undefined;
+    const correcting = display
+      ? this.pipeline.correctTranscript(
+          sourceText,
+          plan.recognition,
+          continuation.context,
+          alternates,
+          mergeHotwords(hints?.hotwords, learnedTerms),
+        )
+      : undefined;
     const translations = await this.pipeline.translateAll({
       text: sourceText,
       source: plan.recognition,
@@ -995,11 +1026,13 @@ export class TranslationSessionService implements OnModuleDestroy {
       scriptRetry: this.scriptRetryFor(session),
     });
     const restored = await restoring;
+    const corrections = await settleCorrections(correcting);
     return {
       translated: {
         sourceText,
         translations,
         ...(restored === undefined ? {} : { restored }),
+        ...(corrections === undefined ? {} : { corrections }),
         ...(pauses === undefined ? {} : { pauses }),
         ...(leadPause === undefined ? {} : { leadPause }),
       },
@@ -1032,6 +1065,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         piece.restored,
         piece.translations,
         respellings[index],
+        piece.corrections,
       );
       channel.emit({
         type: 'server.transcript.final',
@@ -1164,10 +1198,17 @@ export class TranslationSessionService implements OnModuleDestroy {
       if (!this.wantsRespelling(session, [{ sourceText, translations }]))
         return {};
       const spans = unresolvedSpans(foreignSpans(sourceText), translations);
-      const translation =
-        translations[session.languages.spoken] ??
-        Object.values(translations).find((text) => Boolean(text?.trim()));
-      if (!translation) return {};
+      // A translation in Latin letters when the turn has one, because it
+      // attests a spelling letter for letter; a Han one only when it is all
+      // there is, asked for with its renderings instead.
+      const candidates = [
+        session.languages.spoken,
+        ...(Object.keys(translations) as LanguageCode[]),
+      ].filter((code) => Boolean(translations[code]?.trim()));
+      const language =
+        candidates.find((code) => !isWrittenInHan(code)) ?? candidates[0];
+      const translation = language && translations[language];
+      if (!language || !translation) return {};
 
       const model = FINAL_MODELS[0] ?? '';
       if (!this.budget.canSpend(session.userId, model)) {
@@ -1181,11 +1222,24 @@ export class TranslationSessionService implements OnModuleDestroy {
         sourceText,
         spans.map((span) => span.text),
         translation,
+        isWrittenInHan(language),
       );
       const accepted = acceptRespellings(spans, proposals, translations);
       const count = Object.keys(accepted).length;
-      if (count > 0 && this.registry.holds(socket, session)) {
-        this.context.learnSpellings(socket, accepted);
+      // Learned only when the translation writes the spelling itself. One
+      // accepted on a Han rendering is shown on this line and goes no further:
+      // a hotword biases every later turn of the conversation, and that
+      // rendering cannot prove which word of the translation it is.
+      const learnable = Object.fromEntries(
+        Object.entries(accepted).filter(([, spelling]) =>
+          attestedInLetters(spelling, translations),
+        ),
+      );
+      if (
+        Object.keys(learnable).length > 0 &&
+        this.registry.holds(socket, session)
+      ) {
+        this.context.learnSpellings(socket, learnable);
       }
       this.logger.log(
         `respell accepted=${count}/${spans.length} learned=${this.context.learnedTerms(socket).length}`,
@@ -1227,6 +1281,8 @@ export class TranslationSessionService implements OnModuleDestroy {
     translations: Partial<Record<LanguageCode, string>>,
     /** Guarded spellings for the turn's garbled foreign spans. */
     respellings: Respellings = {},
+    /** Guarded corrections of the turn's words heard wrong. */
+    corrections: readonly TranscriptCorrection[] = [],
   ): string | undefined {
     // The client's opt-in. Its name is now a misnomer — nothing repairs anything
     // — but renaming it is a breaking contract change, taken separately or not
@@ -1240,6 +1296,7 @@ export class TranslationSessionService implements OnModuleDestroy {
       session.languages.recognition,
       this.logger,
       respellings,
+      corrections,
     );
   }
 
@@ -1345,9 +1402,10 @@ export class TranslationSessionService implements OnModuleDestroy {
       adoptTranslatedCasing(restored, translations),
       block.recognition,
       this.logger,
-      // The pieces' own accepted spellings, so a block typeset as one keeps the
-      // repair each piece already showed rather than reverting it.
+      // The pieces' own accepted spellings and repairs, so a block typeset as
+      // one keeps what each piece already showed rather than reverting it.
       block.respellings,
+      block.corrections,
     );
   }
 
@@ -1356,7 +1414,15 @@ export class TranslationSessionService implements OnModuleDestroy {
     session: TurnSession,
     segmentId: string,
     sourceText: string,
-    { pauses, leadPause }: { pauses?: number[]; leadPause?: number },
+    {
+      pauses,
+      leadPause,
+      corrections,
+    }: {
+      pauses?: number[];
+      leadPause?: number;
+      corrections?: readonly TranscriptCorrection[];
+    },
     respellings: Respellings = {},
   ): void {
     const restore = restoreRequestFor(
@@ -1366,6 +1432,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     );
     this.finished.record(socket, segmentId, {
       ...(Object.keys(respellings).length > 0 ? { respellings } : {}),
+      ...(corrections?.length ? { corrections } : {}),
       sourceText,
       recognition: session.languages.recognition,
       targets: session.languages.targets,
