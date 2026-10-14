@@ -51,6 +51,29 @@ describe('SpeechGate', () => {
       expect(handlers.onSpeechEnd).not.toHaveBeenCalled();
     });
 
+    // Measured on a Vietnamese newsreader: "Hàn" was loud for ~100ms, then a 60ms
+    // dip, then "Quốc". Counting only unbroken speech, neither syllable reached
+    // the minimum, the turn opened on the third, and the first word was lost.
+    it('counts speech across the gap between two syllables', () => {
+      const { events, feed } = harness();
+
+      feed(LOUD, 100);
+      feed(QUIET, 60);
+      feed(LOUD, 40);
+
+      expect(events).toEqual(['start']);
+    });
+
+    it('starts the count again after a pause longer than a syllable gap', () => {
+      const { handlers, feed } = harness();
+
+      feed(LOUD, 100);
+      feed(QUIET, 100);
+      feed(LOUD, 100);
+
+      expect(handlers.onSpeechStart).not.toHaveBeenCalled();
+    });
+
     it('treats a run shorter than the minimum as room tone', () => {
       const { handlers, feed } = harness();
 

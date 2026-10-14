@@ -48,6 +48,20 @@ const PROBABLE_END_MS = 150;
 /** Speech must outlast this to open a turn, so a cough is not an utterance. */
 const MIN_SPEECH_MS = 120;
 
+/**
+ * Quiet that resets the speech count toward {@link MIN_SPEECH_MS} before a turn
+ * opens. Shorter dips are the gaps between syllables, and the count runs across them.
+ *
+ * Counting only unbroken speech lost the first word of a turn. Vietnamese read
+ * speech has syllables of 85–110ms voiced, separated by 40–85ms dips under the
+ * threshold. A reset on every dip meant "Hàn Quốc từng…" confirmed only on its
+ * third syllable, ~450ms in. By then the pre-roll no longer reached "Hàn", and the
+ * turn reached the server as "Quốc từng…". Replayed through the pump on six
+ * production recordings, tolerating dips up to this length kept the turn count
+ * (95) and recovered both first words that had been dropped.
+ */
+const ONSET_GAP_MS = 100;
+
 /** Level above the noise floor that counts as speech. */
 const SPEECH_MARGIN = 0.018;
 
@@ -171,8 +185,10 @@ export interface SpeechGateOptions {
 export class SpeechGate {
   private noiseFloor = MIN_NOISE_FLOOR;
   private speaking = false;
-  /** Milliseconds of consecutive speech before a turn is opened. */
+  /** Milliseconds of speech before a turn is opened, across syllable gaps. */
   private speechMs = 0;
+  /** Milliseconds of quiet since the last speech block, before a turn is open. */
+  private onsetQuietMs = 0;
   /** Milliseconds of silence since the last speech block. */
   private silenceMs = 0;
   private probableEndFired = false;
@@ -222,6 +238,7 @@ export class SpeechGate {
     }
 
     if (isSpeech) {
+      this.onsetQuietMs = 0;
       this.silenceMs = 0;
       this.probableEndFired = false;
       this.speechMs += durationMs;
@@ -244,9 +261,11 @@ export class SpeechGate {
       return true;
     }
 
-    // Silence that never became a turn is just room tone; forget it.
+    // Silence that never became a turn is just room tone; forget it — once it
+    // has lasted longer than the gap between two syllables.
     if (!this.speaking) {
-      this.speechMs = 0;
+      this.onsetQuietMs += durationMs;
+      if (this.onsetQuietMs >= ONSET_GAP_MS) this.speechMs = 0;
       // A cut followed by a real stop: the next turn is an ordinary one again.
       if (this.resuming) {
         this.silenceMs += durationMs;
@@ -329,6 +348,7 @@ export class SpeechGate {
   reset(): void {
     this.speaking = false;
     this.speechMs = 0;
+    this.onsetQuietMs = 0;
     this.silenceMs = 0;
     this.probableEndFired = false;
     this.utteranceMs = 0;
