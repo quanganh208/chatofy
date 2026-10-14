@@ -706,6 +706,30 @@ describe('CapturePump', () => {
       expect(pump.droppedBlocksWhileSounding).toBeGreaterThan(0);
     });
 
+    // Only a hangover's held audio is adjacent to the next turn. An interruption
+    // closes on our own playback, and the next turn opens after it stops: carrying
+    // what that turn held would splice audio from before the playback onto speech
+    // that came after it.
+    it('opens the turn after an interruption without what the interrupted turn held', () => {
+      let sounding = false;
+      const { pump, handlers } = harness({ ...CONTINUOUS, sounding: () => sounding });
+
+      push(pump, speech, 400);
+      push(pump, silence, 100); // held: short of the probable end, so never flushed
+      const interruptedAt = nextTag;
+      sounding = true;
+      push(pump, speech, 200);
+      expect(handlers.onTurnClose).toHaveBeenCalledWith('interrupted');
+
+      sounding = false;
+      handlers.onTurnOpen.mockClear();
+      push(pump, speech, 300);
+
+      expect(handlers.onTurnOpen).toHaveBeenCalledTimes(1);
+      const preRoll = handlers.onTurnOpen.mock.calls[0]?.[0] as Int16Array[];
+      expect(preRoll.every((block) => tagOf(block) > interruptedAt)).toBe(true);
+    });
+
     // Continuous mode has no close to zero the meter at, so without an edge the
     // needle sits at whatever it last read for the whole of playback. Once, not
     // per block: the single-turn path asserts silence across its muted window.

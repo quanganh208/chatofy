@@ -62,6 +62,18 @@ const MIN_SPEECH_MS = 120;
  */
 const ONSET_GAP_MS = 100;
 
+/**
+ * Longest unbroken speech run the count toward {@link MIN_SPEECH_MS} must contain.
+ *
+ * Tolerating {@link ONSET_GAP_MS} dips let a train of short transients add up to a
+ * turn: keyboard typing is ~8–10 clicks a second, each 20–40ms loud with ~80ms
+ * between, and three or four of them reached 120ms where unbroken counting never opened
+ * one. A syllable is a voiced run of 85–110ms; a click is not. At the pump's
+ * ~21.3ms blocks this needs four consecutive speech blocks (85ms), which a 40ms
+ * click cannot fill even when it straddles three; at 20ms blocks it needs four too.
+ */
+const ONSET_MIN_RUN_MS = 70;
+
 /** Level above the noise floor that counts as speech. */
 const SPEECH_MARGIN = 0.018;
 
@@ -189,6 +201,10 @@ export class SpeechGate {
   private speechMs = 0;
   /** Milliseconds of quiet since the last speech block, before a turn is open. */
   private onsetQuietMs = 0;
+  /** Milliseconds of the current unbroken speech run, before a turn is open. */
+  private onsetRunMs = 0;
+  /** Longest unbroken run inside {@link speechMs}; see {@link ONSET_MIN_RUN_MS}. */
+  private onsetLongestRunMs = 0;
   /** Milliseconds of silence since the last speech block. */
   private silenceMs = 0;
   private probableEndFired = false;
@@ -242,8 +258,9 @@ export class SpeechGate {
       this.silenceMs = 0;
       this.probableEndFired = false;
       this.speechMs += durationMs;
-      const minSpeechMs = this.resuming ? RESUME_MIN_SPEECH_MS : MIN_SPEECH_MS;
-      if (!this.speaking && this.speechMs >= minSpeechMs) {
+      this.onsetRunMs += durationMs;
+      this.onsetLongestRunMs = Math.max(this.onsetLongestRunMs, this.onsetRunMs);
+      if (!this.speaking && this.onsetConfirmed()) {
         this.speaking = true;
         this.resuming = false;
         this.handlers.onSpeechStart?.();
@@ -265,7 +282,11 @@ export class SpeechGate {
     // has lasted longer than the gap between two syllables.
     if (!this.speaking) {
       this.onsetQuietMs += durationMs;
-      if (this.onsetQuietMs >= ONSET_GAP_MS) this.speechMs = 0;
+      this.onsetRunMs = 0;
+      if (this.onsetQuietMs >= ONSET_GAP_MS) {
+        this.speechMs = 0;
+        this.onsetLongestRunMs = 0;
+      }
       // A cut followed by a real stop: the next turn is an ordinary one again.
       if (this.resuming) {
         this.silenceMs += durationMs;
@@ -300,6 +321,16 @@ export class SpeechGate {
     }
 
     return false;
+  }
+
+  /**
+   * Enough speech to open a turn. A resume after a forced cut needs no unbroken
+   * run: the speaker is mid-sentence, and {@link RESUME_MIN_SPEECH_MS} is already
+   * shorter than {@link ONSET_MIN_RUN_MS}.
+   */
+  private onsetConfirmed(): boolean {
+    if (this.resuming) return this.speechMs >= RESUME_MIN_SPEECH_MS;
+    return this.speechMs >= MIN_SPEECH_MS && this.onsetLongestRunMs >= ONSET_MIN_RUN_MS;
   }
 
   private get hasCeiling(): boolean {
@@ -349,6 +380,8 @@ export class SpeechGate {
     this.speaking = false;
     this.speechMs = 0;
     this.onsetQuietMs = 0;
+    this.onsetRunMs = 0;
+    this.onsetLongestRunMs = 0;
     this.silenceMs = 0;
     this.probableEndFired = false;
     this.utteranceMs = 0;

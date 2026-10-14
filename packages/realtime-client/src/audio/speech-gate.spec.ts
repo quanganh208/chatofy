@@ -74,6 +74,36 @@ describe('SpeechGate', () => {
       expect(handlers.onSpeechStart).not.toHaveBeenCalled();
     });
 
+    // Keyboard typing: 8–10 clicks a second, each 20–40ms loud with ~80ms between.
+    // Every gap is short enough to be a syllable gap, so the count alone adds the
+    // clicks up past the minimum; no click is long enough to be a syllable.
+    it('does not open a turn on a train of key clicks', () => {
+      for (const clickMs of [20, 40]) {
+        const { handlers, feed } = harness();
+
+        for (let elapsed = 0; elapsed < 3000; elapsed += clickMs + 80) {
+          feed(LOUD, clickMs);
+          feed(QUIET, 80);
+        }
+
+        expect(handlers.onSpeechStart).not.toHaveBeenCalled();
+      }
+    });
+
+    // The capture pump's blocks are 1024 samples at 48kHz, ~21.3ms. A 40ms click
+    // that straddles three of them reads as a 64ms run, which must still fall short.
+    it('does not open a turn on clicks that straddle three capture blocks', () => {
+      const { gate, handlers } = harness();
+      const blockMs = (1024 / 48_000) * 1000;
+
+      for (let click = 0; click < 30; click += 1) {
+        for (let i = 0; i < 3; i += 1) gate.push(LOUD, blockMs);
+        for (let i = 0; i < 3; i += 1) gate.push(QUIET, blockMs);
+      }
+
+      expect(handlers.onSpeechStart).not.toHaveBeenCalled();
+    });
+
     it('treats a run shorter than the minimum as room tone', () => {
       const { handlers, feed } = harness();
 
