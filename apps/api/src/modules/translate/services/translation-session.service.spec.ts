@@ -73,6 +73,8 @@ interface Harness {
   embedSpeaker: Mock;
   /** Display restore; resolves undefined (nothing restored) by default. */
   restoreDisplay: Mock;
+  /** Transcript corrections; resolves undefined (nothing corrected) by default. */
+  correctTranscript: Mock;
   synthesize: Mock;
   /**
    * The streamed synthesis. Resolves null by default — a backend that cannot
@@ -135,6 +137,8 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
 
   const restoreDisplay =
     overrides.restoreDisplay ?? vi.fn().mockResolvedValue(undefined);
+  const correctTranscript =
+    overrides.correctTranscript ?? vi.fn().mockResolvedValue(undefined);
 
   const pipeline = {
     transcribe,
@@ -148,6 +152,7 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
     ),
     embedSpeaker,
     restoreDisplay,
+    correctTranscript,
     synthesize,
     synthesizeStream,
     // The real mapping is the pipeline's; a spec only needs it to throw.
@@ -178,6 +183,7 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
     transcribeAndTranslate,
     embedSpeaker,
     restoreDisplay,
+    correctTranscript,
     synthesize,
     synthesizeStream,
     synthesized,
@@ -3056,6 +3062,86 @@ describe('splitting a turn where the voice changes', () => {
       ['first voice', 'First voice.'],
       ['second voice', 'Second voice.'],
     ]);
+  });
+
+  it('corrects each piece against the pieces before it, and shows the correction', async () => {
+    // The pipeline has already guarded what it returns; this proves each
+    // piece asks for its own, with its own second hearing, and its display
+    // carries it.
+    const correctTranscript = vi.fn(
+      async (
+        text: string,
+        _language: string,
+        _before: string[],
+        _alternates?: string[],
+      ) =>
+        text === 'second voice'
+          ? [{ heard: 'voice', said: 'choice', at: 1 }]
+          : undefined,
+    );
+    const { socket } = await run(
+      twoVoices,
+      { correctTranscript },
+      { repairDisplay: true },
+    );
+
+    const calls = correctTranscript.mock.calls as [
+      string,
+      string,
+      string[],
+      string[] | undefined,
+    ][];
+    expect(calls.map(([text]) => text)).toEqual([
+      'first voice',
+      'second voice',
+    ]);
+    expect(calls[1]![2].at(-1)).toBe('first voice');
+    expect(
+      socket.ofType('server.transcript.final').map((f) => f.display),
+    ).toEqual(['First voice.', 'Second choice.']);
+  });
+
+  it('hands each piece its own second hearing, asked for only with a display', async () => {
+    const transcribe = vi.fn(async ({ audio }: TranslateTurnInput) => {
+      const second = peakOf(audio) > 10000;
+      return {
+        text: second ? 'second voice' : 'first voice',
+        alternates: [second ? 'second choice' : 'first choice'],
+      };
+    });
+    const correctTranscript = vi.fn().mockResolvedValue(undefined);
+    await run(
+      twoVoices,
+      { transcribe, correctTranscript },
+      { repairDisplay: true },
+    );
+
+    const asked = transcribe.mock.calls.map(([input]) => input.alternates);
+    // The live preview's re-read asks for none; the whole turn's final and
+    // each piece's do.
+    expect(asked).toEqual([undefined, true, true, true]);
+    expect(
+      correctTranscript.mock.calls.map(([text, , , alternates]) => [
+        text,
+        alternates,
+      ]),
+    ).toEqual([
+      ['first voice', ['first choice']],
+      ['second voice', ['second choice']],
+    ]);
+
+    transcribe.mockClear();
+    await run(twoVoices, { transcribe });
+    expect(
+      transcribe.mock.calls.every(([input]) => input.alternates !== true),
+    ).toBe(true);
+  });
+
+  it('asks for no correction when the client wants no display', async () => {
+    const correctTranscript = vi.fn().mockResolvedValue(undefined);
+    await run(twoVoices, { correctTranscript });
+
+    expect(correctTranscript).not.toHaveBeenCalled();
   });
 
   it('restores the pieces one at a time, so they cannot refuse each other', async () => {

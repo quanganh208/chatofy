@@ -10,8 +10,12 @@ export type {
   ProviderConfig,
   DisplayRestoreOptions,
   DisplayRestorer,
+  HomophoneRepairRequest,
+  LoanwordProposal,
   LoanwordRespellRequest,
   LoanwordRespeller,
+  RecognizerFusionRequest,
+  RenderedSpelling,
   RealtimeProviderConfig,
   RealtimeStartParams,
   RealtimeStreamEvents,
@@ -64,6 +68,7 @@ export {
 export {
   acceptRespellings,
   applyRespellings,
+  attestedInLetters,
   letterSimilarity,
   MAX_RESPELLING_LENGTH,
   MIN_RESPELLING_SIMILARITY,
@@ -71,13 +76,34 @@ export {
   unresolvedSpans,
   type Respellings,
 } from './text/loanword-respelling.js';
+export {
+  applyTranscriptCorrections,
+  countWords,
+  mergeCorrections,
+  wordsOf,
+  type TranscriptCorrection,
+} from './text/transcript-corrections.js';
+export { acceptRecognizerFusion } from './text/recognizer-fusion.js';
+export {
+  acceptHomophoneRepairs,
+  MAX_REPAIR_WORDS,
+  MAX_REPAIRS_PER_TRANSCRIPT,
+  soundKey,
+  soundsAlike,
+  type HomophoneRepair,
+} from './text/vietnamese-homophones.js';
 
 // Spoken numbers -> digits, deterministically and in process, so a finished line
 // carries its digits the first time it paints. Pure and total on a string: no
 // network, no key, no second event.
 export { inverseNormalizeTranscript } from './text/inverse-normalize-transcript.js';
 export { chineseInverseNormalize } from './text/chinese-inverse-normalize.js';
-export { hanCount, leaksForeignScript, toTargetScript } from './text/translation-script.js';
+export {
+  hanCount,
+  isWrittenInHan,
+  leaksForeignScript,
+  toTargetScript,
+} from './text/translation-script.js';
 
 export { ProviderRegistry } from './registry/index.js';
 export type { ProviderKind, ProviderKindMap, ProviderEntry } from './registry/index.js';
@@ -92,6 +118,7 @@ export type { GeminiTranslationConfig } from './providers/gemini/gemini-translat
 export { OpenAiCompatibleTranslationProvider } from './providers/openai-compatible/openai-compatible-translation-provider.js';
 export type { OpenAiCompatibleTranslationConfig } from './providers/openai-compatible/openai-compatible-translation-provider.js';
 export {
+  HOMOPHONE_REPAIR_TIMEOUT_MS,
   OpenAiCompatibleLoanwordRespeller,
   RESPELL_TIMEOUT_MS,
 } from './providers/openai-compatible/openai-compatible-loanword-respeller.js';

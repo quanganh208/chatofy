@@ -17,7 +17,11 @@ _threads = os.environ.get("LOCAL_STT_THREADS", "8")
 os.environ.setdefault("OMP_NUM_THREADS", _threads)
 os.environ.setdefault("MKL_NUM_THREADS", _threads)
 
+import logging  # noqa: E402
+from concurrent.futures import Future, ThreadPoolExecutor  # noqa: E402
+from concurrent.futures import TimeoutError as FutureTimeout  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
+from threading import Event  # noqa: E402
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
@@ -26,7 +30,11 @@ from pydantic import BaseModel, Field  # noqa: E402
 from audio.decode import AudioTooLongError, DecodeError, decode_to_16k_mono  # noqa: E402
 from audio.silero_speech import SileroSpeechGate  # noqa: E402
 from audio.speech_duration import speech_duration_ms  # noqa: E402
-from engines.base import SAMPLE_RATE, SttBusyError  # noqa: E402
+from engines.base import (  # noqa: E402
+    SAMPLE_RATE,
+    SttBusyError,
+    stt_concurrency,
+)
 from engines.registry import (  # noqa: E402
     SUPPORTED_LANGUAGES,
     EngineRegistry,
@@ -49,6 +57,25 @@ speech_gate = SileroSpeechGate()
 # tests drive it directly. The same object as `RESTORERS["vi"]`, never a second
 # Dewpoint.
 restorer = RESTORERS[PRIMARY_RESTORE_LANGUAGE]
+
+log = logging.getLogger(__name__)
+
+#: How long the response waits for the alternate once the primary is done.
+#: The transcript is the turn's critical path and the alternate only a display
+#: enhancement, so it gets a bounded wait, never the caller's whole budget:
+#: measured on 95 real turns, the alternate finished at most 287 ms after the
+#: primary (p95 100 ms). Past this the turn answers without it. Also caps the
+#: alternate's own lane wait: a decode that could not start within this long is
+#: unlikely to finish in time to be read.
+ALTERNATE_WAIT_MS = float(os.environ.get("LOCAL_STT_ALTERNATE_WAIT_MS", "400"))
+
+#: Runs the alternate decode while the request thread runs the primary one, so
+#: a turn asking for both pays the slower of the two rather than their sum.
+#: Twice the lanes, so a waiting task reaches the engine's own lane wait — which
+#: refuses after the wait above — instead of queueing unseen in here.
+_alternate_pool = ThreadPoolExecutor(
+    max_workers=2 * stt_concurrency(), thread_name_prefix="stt-alternate"
+)
 
 
 @asynccontextmanager
@@ -95,6 +122,9 @@ def healthz() -> JSONResponse:
             # Reported, never gating: a sidecar that cannot restore still
             # transcribes, and the API falls back to the numerals-only display.
             "restore": restorer.loaded,
+            # Reported, never gating, for the same reason: without an
+            # alternate the display is exactly what it was before one existed.
+            "alternates": registry.alternate_languages,
         },
         status_code=200 if ready else 503,
     )
@@ -114,6 +144,12 @@ def transcribe(
     # engine — the caller decided the turn is not worth decoding, and paying
     # for the decode anyway would defeat the point of asking.
     min_speech_ms: int = Form(default=0),
+    # Off (the default) is today's response byte for byte: no second decode,
+    # no `alternates` key. On, and with an alternate recognizer loaded for the
+    # language, its unbiased reading of the same samples comes back as
+    # `alternates: [text]` for the API to fuse into the display. Absent on any
+    # failure of that second decode — the transcript never depends on it.
+    alternates: bool = Form(default=False),
 ) -> dict:
     if not registry.ready:
         raise HTTPException(status_code=503, detail="models not loaded")
@@ -152,28 +188,65 @@ def transcribe(
     # with. An engine that cannot be biased is handed nothing either way.
     terms = build_hotwords(hotwords) if engine.supports_hotwords else ""
 
+    # Started BEFORE the primary decode so the two overlap. Never handed the
+    # hotwords: it is an independent reading, and biasing both towards the same
+    # terms would make them agree for the wrong reason.
+    alternate_engine = registry.alternate(language) if alternates else None
+    # Set once the response no longer wants the alternate — answered, gave up
+    # waiting, or failed. A queued alternate is cancelled outright; one already
+    # waiting in the engine's lane wait sees this when it gets the lane, and
+    # gives the lane back instead of running a decode nobody reads.
+    abandoned = Event()
+    alternate: Future[str] | None = (
+        _alternate_pool.submit(
+            alternate_engine.transcribe,
+            samples,
+            lane_wait_ms=ALTERNATE_WAIT_MS,
+            abandoned=abandoned,
+        )
+        if alternate_engine is not None
+        else None
+    )
+
     try:
-        # The language the display restorer serves also gets the silence after
-        # each word: the restorer reads text only, and a full stop where the
-        # speaker never paused ("anh Tuấn. Anh…" for the name "Tuấn Anh") is
-        # only visible in the audio. Absent when the tokens did not line up.
-        if language in PAUSE_LANGUAGES:
-            text, pauses = engine.transcribe_with_pauses(samples, terms)
-        else:
-            text, pauses = engine.transcribe(samples, terms), None
-    except SttBusyError as err:
-        raise HTTPException(status_code=503, detail=str(err)) from err
-    result = {"text": text, "language": language}
-    if speech_ms is not None:
-        result["speechMs"] = speech_ms
-    if pauses is not None:
-        result["pauses"] = pauses
-        # The silence before the first word: where a piece was cut out of
-        # continuous speech, the pause at the cut is split between the end of
-        # one piece and the start of the next, and a caller joining them adds
-        # the two.
-        result["leadPause"] = lead_pause(samples, SAMPLE_RATE)
-    return result
+        try:
+            # The language the display restorer serves also gets the silence after
+            # each word: the restorer reads text only, and a full stop where the
+            # speaker never paused ("anh Tuấn. Anh…" for the name "Tuấn Anh") is
+            # only visible in the audio. Absent when the tokens did not line up.
+            if language in PAUSE_LANGUAGES:
+                text, pauses = engine.transcribe_with_pauses(samples, terms)
+            else:
+                text, pauses = engine.transcribe(samples, terms), None
+        except SttBusyError as err:
+            raise HTTPException(status_code=503, detail=str(err)) from err
+        result = {"text": text, "language": language}
+        if speech_ms is not None:
+            result["speechMs"] = speech_ms
+        if pauses is not None:
+            result["pauses"] = pauses
+            # The silence before the first word: where a piece was cut out of
+            # continuous speech, the pause at the cut is split between the end of
+            # one piece and the start of the next, and a caller joining them adds
+            # the two.
+            result["leadPause"] = lead_pause(samples, SAMPLE_RATE)
+        if alternate is not None:
+            try:
+                result["alternates"] = [alternate.result(timeout=ALTERNATE_WAIT_MS / 1000)]
+            except FutureTimeout:
+                # Queued or slow; the caller abandons it, so it never decodes late.
+                log.warning("%s alternate decode late; answering without it", language)
+            except SttBusyError:
+                # An alternate the engine refused is a turn whose display is not
+                # fused, not a turn that failed — and expected under load.
+                log.warning("%s alternate decode refused, lanes busy", language)
+            except Exception:  # noqa: BLE001 — the transcript must never fail on the alternate
+                log.warning("%s alternate decode failed; answering without it", language, exc_info=True)
+        return result
+    finally:
+        abandoned.set()
+        if alternate is not None:
+            alternate.cancel()
 
 
 @app.post("/embed")

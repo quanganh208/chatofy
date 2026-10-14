@@ -37,6 +37,7 @@ interface TranscribeResponse {
   speechMs?: number;
   pauses?: unknown;
   leadPause?: unknown;
+  alternates?: unknown;
 }
 
 const isPause = (ms: unknown): ms is number =>
@@ -86,6 +87,7 @@ export class LocalSpeechSttProvider implements SttProvider {
     if (options?.minSpeechMs && options.minSpeechMs > 0) {
       form.append('min_speech_ms', String(options.minSpeechMs));
     }
+    if (options?.alternates) form.append('alternates', 'true');
     // Copy into a fresh ArrayBuffer-backed view so the bytes satisfy BlobPart
     // regardless of the caller's backing buffer (TS typed-array generics).
     const fileBlob = new Blob([new Uint8Array(audio)], { type: mimeType });
@@ -118,12 +120,18 @@ export class LocalSpeechSttProvider implements SttProvider {
     // the field, and `typeof` keeps a stray non-number in the JSON from being
     // passed on as if it were the sidecar's own answer.
     const pauses = pausesFor(json.text, json.pauses);
+    // Kept only as a list of non-blank strings: anything else is a sidecar
+    // this provider does not understand, and no alternate is the safe answer.
+    const alternates = Array.isArray(json.alternates)
+      ? json.alternates.filter((alt): alt is string => typeof alt === 'string' && alt.trim() !== '')
+      : [];
     return {
       text: json.text,
       language,
       ...(typeof json.speechMs === 'number' ? { speechMs: json.speechMs } : {}),
       ...(pauses === undefined ? {} : { pauses }),
       ...(pauses !== undefined && isPause(json.leadPause) ? { leadPause: json.leadPause } : {}),
+      ...(alternates.length > 0 ? { alternates } : {}),
     };
   }
 

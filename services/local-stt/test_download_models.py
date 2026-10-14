@@ -1,6 +1,8 @@
-"""The Paraformer-zh seed: pinned before extraction, extracts only what it serves.
+"""The seed: Paraformer-zh pinned before extraction and extracting only what it
+serves, and the optional alternate vi recognizer fetched at its pinned revision.
 
-No network and no model weights: every tarball here is built in the test.
+No network and no model weights: every tarball and every "download" here is
+built in the test.
 """
 import hashlib
 import io
@@ -98,3 +100,116 @@ def test_a_tarball_missing_a_member_fails(tmp_path):
     tar_path = _tarball(tmp_path / "t.tar.bz2", "release", {"model.int8.onnx": b"w"})
     with pytest.raises(RuntimeError, match="tokens.txt"):
         seed.extract_members(tar_path, "release", ("model.int8.onnx", "tokens.txt"), tmp_path / "out")
+
+
+# ── Alternate vi recognizer ──────────────────────────────────────────────────
+
+
+def _pin_of(data: bytes) -> tuple[int, str]:
+    return len(data), hashlib.sha256(data).hexdigest()
+
+
+def _fake_hub(monkeypatch, tmp_path, calls: list):
+    """`hf_hub_download` answered from files written in the test, args recorded."""
+    cache = tmp_path / "hub"
+    cache.mkdir()
+
+    def download(repo, filename, revision=None):
+        calls.append((repo, filename, revision))
+        path = cache / filename
+        path.write_bytes(f"{repo}/{filename}".encode())
+        return str(path)
+
+    monkeypatch.setattr(seed, "hf_hub_download", download)
+    # Pinned to what this fake hub serves, so the pin check runs for real.
+    monkeypatch.setattr(
+        seed,
+        "ZIPFORMER_ALT_PINS",
+        {name: _pin_of(f"{seed.ZIPFORMER_ALT_REPO}/{name}".encode()) for name in seed.ZIPFORMER_ALT_FILES},
+    )
+    # A real bpe.model is the one thing the test cannot build; the table is
+    # sentencepiece's job, and only that it is written matters here.
+    monkeypatch.setattr(seed, "write_tokens", lambda _bpe, path: path.write_text("<blk> 0\n"))
+
+
+def test_alternate_fetches_every_file_at_the_pinned_revision(tmp_path, monkeypatch):
+    models_dir = tmp_path / "models"
+    monkeypatch.setattr(seed, "MODELS_DIR", models_dir)
+    calls: list = []
+    _fake_hub(monkeypatch, tmp_path, calls)
+
+    seed.fetch_zipformer_vi_alternate()
+
+    out_dir = models_dir / seed.ZIPFORMER_ALT_DIR
+    assert sorted(p.name for p in out_dir.iterdir()) == sorted(
+        [*seed.ZIPFORMER_ALT_FILES, "tokens.txt"]
+    )
+    assert calls == [
+        (seed.ZIPFORMER_ALT_REPO, name, seed.ZIPFORMER_ALT_REVISION)
+        for name in seed.ZIPFORMER_ALT_FILES
+    ]
+
+
+def test_alternate_second_run_is_a_no_op(tmp_path, monkeypatch):
+    monkeypatch.setattr(seed, "MODELS_DIR", tmp_path / "models")
+    calls: list = []
+    _fake_hub(monkeypatch, tmp_path, calls)
+    seed.fetch_zipformer_vi_alternate()
+    calls.clear()
+
+    seed.fetch_zipformer_vi_alternate()
+
+    assert calls == []
+
+
+def test_the_alternate_pins_cover_every_file():
+    assert seed.ZIPFORMER_ALT_FILES == list(seed.ZIPFORMER_ALT_PINS)
+    for size, sha256 in seed.ZIPFORMER_ALT_PINS.values():
+        assert size > 0
+        assert len(sha256) == 64 and int(sha256, 16) >= 0
+
+
+@pytest.mark.parametrize("pin", ["sha256", "size"])
+def test_a_tampered_alternate_file_never_lands(tmp_path, monkeypatch, capsys, pin):
+    models_dir = tmp_path / "models"
+    monkeypatch.setattr(seed, "MODELS_DIR", models_dir)
+    _fake_hub(monkeypatch, tmp_path, [])
+    encoder = seed.ZIPFORMER_ALT_FILES[0]
+    size, sha256 = seed.ZIPFORMER_ALT_PINS[encoder]
+    tampered = (size, "0" * 64) if pin == "sha256" else (size + 1, sha256)
+    monkeypatch.setitem(seed.ZIPFORMER_ALT_PINS, encoder, tampered)
+
+    seed.fetch_zipformer_vi_alternate()
+
+    # Neither the file nor its `.part` remains, and the half-fetched model is
+    # not completed into something the sidecar would load.
+    out_dir = models_dir / seed.ZIPFORMER_ALT_DIR
+    assert list(out_dir.iterdir()) == []
+    assert "skipped, no vi alternates" in capsys.readouterr().out
+
+
+def test_alternate_download_failure_does_not_stop_the_seed(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(seed, "MODELS_DIR", tmp_path / "models")
+
+    def offline(*_args, **_kwargs):
+        raise OSError("hub unreachable")
+
+    monkeypatch.setattr(seed, "hf_hub_download", offline)
+
+    seed.fetch_zipformer_vi_alternate()
+
+    assert "skipped, no vi alternates" in capsys.readouterr().out
+
+
+def test_alternate_skips_a_read_only_models_mount(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(seed, "MODELS_DIR", tmp_path / "models")
+    monkeypatch.setattr(seed, "_writable", lambda _path: False)
+
+    def no_network(*_args, **_kwargs):
+        raise AssertionError("a read-only mount must not be fetched into")
+
+    monkeypatch.setattr(seed, "hf_hub_download", no_network)
+
+    seed.fetch_zipformer_vi_alternate()
+
+    assert "not writable" in capsys.readouterr().out

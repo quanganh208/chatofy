@@ -43,6 +43,11 @@ const SCRIPTS: LanguageTable<TargetScript> = {
   zh: { toDisplay: simplified, leak: null, writtenInHan: true },
 };
 
+/** Whether text in `language` is written in Han characters. */
+export function isWrittenInHan(language: LanguageCode): boolean {
+  return SCRIPTS[language].writtenInHan;
+}
+
 /** `text` in the script its target is displayed in: Simplified for Chinese. */
 export function toTargetScript(target: LanguageCode, text: string): string {
   return SCRIPTS[target].toDisplay(text);

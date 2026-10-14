@@ -1,3 +1,4 @@
+import { countWords, type TranscriptCorrection } from '@chatofy/ai-providers';
 import type { LanguageCode, TranslationHints } from '@chatofy/types';
 import type { DisplayRestoreRequest } from '../services/pipeline-translator.service';
 import type { StreamSocket } from './stream-socket';
@@ -33,6 +34,30 @@ export interface FinishedSegment {
   leadPause?: number;
   /** Guarded spellings the segment's own display applied, keyed by span. */
   respellings?: Readonly<Record<string, string>>;
+  /** Guarded corrections the segment's own display applied. */
+  corrections?: readonly TranscriptCorrection[];
+}
+
+/**
+ * The pieces' corrections in one list, each moved to its place in the
+ * joined text, or nothing when none had any.
+ *
+ * A repair names a word index in its own piece, so it is shifted by the words
+ * of the pieces before it. That keeps it on the word it repaired: piece B may
+ * say "giao" too, and heard rightly.
+ */
+function blockCorrections(found: FinishedSegment[]): {
+  corrections?: TranscriptCorrection[];
+} {
+  const corrections: TranscriptCorrection[] = [];
+  let offset = 0;
+  for (const segment of found) {
+    for (const correction of segment.corrections ?? []) {
+      corrections.push({ ...correction, at: correction.at + offset });
+    }
+    offset += countWords(segment.sourceText);
+  }
+  return corrections.length > 0 ? { corrections } : {};
 }
 
 /** The pieces' accepted spellings in one map, or nothing when none had any. */
@@ -56,6 +81,8 @@ export interface SegmentBlock {
   restore?: DisplayRestoreRequest;
   /** Every piece's accepted spellings together, so the block keeps them. */
   respellings?: Readonly<Record<string, string>>;
+  /** Every piece's corrections together, so the block keeps them. */
+  corrections?: readonly TranscriptCorrection[];
 }
 
 /**
@@ -135,6 +162,7 @@ export class FinishedSegments {
       targets: [...first.targets],
       ...(first.hints ? { hints: first.hints } : {}),
       ...blockRespellings(found as FinishedSegment[]),
+      ...blockCorrections(found as FinishedSegment[]),
       // Terms, and pauses when every piece has them: a block starts a display
       // group, so it continues nothing and the first piece's seam context does
       // not apply to it. The pauses join piece after piece, each seam's

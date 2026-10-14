@@ -1,9 +1,11 @@
 import type { Logger } from '@nestjs/common';
 import { wordsOf, type LanguageCode, type LanguageTable } from '@chatofy/types';
 import {
+  applyTranscriptCorrections,
   applyRespellings,
   inverseNormalizeTranscript,
   normalizeTranscript,
+  type TranscriptCorrection,
   type Respellings,
 } from '@chatofy/ai-providers';
 import { mergeHotwords } from '../session/conversation-context';
@@ -94,6 +96,14 @@ export function typesetTranscript(
    * to "only a guarded respelling of a span that cannot be Vietnamese".
    */
   respellings: Respellings = {},
+  /**
+   * Stretches heard wrong, with the words said, already through every guard in
+   * `recognizer-fusion.ts` or `vietnamese-homophones.ts`. Applied beside the
+   * respellings and for the same reason after the restore check: the restorer
+   * is held to "marks and case only", these to "only words another recognizer
+   * heard there, or a word that sounds like the one heard".
+   */
+  corrections: readonly TranscriptCorrection[] = [],
 ): string | undefined {
   // A wordless turn has nothing to typeset. The ITN cannot invent words the
   // way a model could, but an event for an empty turn is still noise.
@@ -122,7 +132,10 @@ export function typesetTranscript(
     canonical = normalizeTranscript(sourceText);
     typeset = inverseNormalizeTranscript(
       applyRespellings(
-        restored === undefined ? canonical : normalizeTranscript(restored),
+        applyTranscriptCorrections(
+          restored === undefined ? canonical : normalizeTranscript(restored),
+          corrections,
+        ),
         respellings,
       ),
       recognition,

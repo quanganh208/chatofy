@@ -2319,3 +2319,97 @@ The CT-Transformer punctuation model scored F1 0.865 on the 50 FLEURS hypotheses
 Each phase merged on its own and deployed. Prod replay as the owner account over the prod socket: 14 zh turns in each of zh→vi and zh→en, all finals punctuated, no translation carrying Han; 6 vi→zh turns with zh audio; 0 `language_unavailable`, 0 errors. With every zh engine loaded and four decodes plus four syntheses running, the Docker VM's available memory bottomed at 2,754 MiB.
 
 Known limits: Kokoro spells Latin acronyms letter by letter, `℃`/`¥` are not verbalized, nobody has listened to the zh voices for naturalness yet, and Gemini Live refuses zh by design.
+
+## Where the Vietnamese errors really are: turn onsets, sound-alikes and names on a Chinese line (13/10/2026)
+
+Found in a quality check of a vi→zh news clip (83 s, Incheon stabbing, drones off Bulgaria). The reader saw "đâm giao" for "đâm dao" (stabbing) twice, "Bungary", "Inche" and "MATA", and one turn that had lost its first word. Five earlier rounds had tuned cuts and seams, so this time the errors were counted before anything was changed.
+
+### The error budget
+
+Six recorded vi conversations (2,222 words) were replayed through the shipped `CapturePump` and decoded per turn, on a copy of the production sidecar, against ElevenLabs Scribe v2. Of 134 errors:
+
+| Bucket                           | Errors | Share |
+| -------------------------------- | ------ | ----- |
+| Common words misheard or dropped | 74     | 55%   |
+| Within ±0.6 s of a forced cut    | 29     | 22%   |
+| Names and foreign words          | 13     | 10%   |
+| Turn onsets                      | 9      | 7%    |
+| Insertions                       | 9      | 7%    |
+
+The forced-cut share is inflated by coincidence: cuts land in pauses, which is where the other person's backchannel sits. Re-decoding whole blocks, the upper bound for any seam repair, saved 2–6 errors. A longer cut quiet made seams worse (12.4% → 13.8% at 150 ms, 15.5% at 200 ms). So the recognizer, not the cut, is where the errors are.
+
+### What did not help
+
+- **A bigger recognizer.** On the same turns, prod `zipformer-vi-30m` read 5.72%; hynt ZipFormer-150M 6.30% (it drops number words), ChunkFormer-RNNT-large 7.34%, Qwen3-ASR-0.6B 13.41%.
+- **Beam search without a language model.** `modified_beam_search` with 4 and 8 paths read 5.72% and 5.76%, against 5.72% greedy. Without a language model, the beam has nothing to choose with, which §3.10 found on VIVOS too.
+
+### Turn onsets
+
+The capture gate opened a turn on 120 ms of unbroken speech and restarted the count on every quiet block. Vietnamese read speech has 85–110 ms syllables with 40–85 ms dips between them, so the turn opened on the third syllable, after the 320 ms pre-roll had already passed the first word ("Hàn" of "Hàn Quốc"). The count now restarts only after 100 ms of quiet, and a hangover's unsent tail becomes the next turn's pre-roll. Replayed: WER 6.04% → 5.86%, onset errors 9 → 7, 95 turns either way.
+
+A review found what that let in: keyboard typing, 20–40 ms clicks about 80 ms apart, now added up to 120 ms and opened a turn, where unbroken counting never had. The count must now also contain one unbroken run of 70 ms. That is four pump blocks of ~21.3 ms, which a 40 ms click cannot fill even when it straddles three. Click trains of 20–40 ms at 6–10 per second open no turn at any block phase. On the six recordings it changed one onset. Faint blips 0.5 s before "Hôm nay", none longer than two blocks, had opened a turn 0.57 s early, and that turn was decoded as "Nay tôi…". It now opens later and reads "Hôm nay tôi…": WER 5.86% → 5.81%, onset errors 7 → 6, 95 turns. A 60 ms burst every 160 ms can still open one, but that is as long as a syllable. The hangover's tail is no longer carried after an interruption by our own playback, because the next turn opens seconds later.
+
+### Sound-alikes, repaired on the display
+
+Most of the misheard words that change the meaning sound exactly like the right one. In most of the country "dao", "giao" and "rao" are said alike, and so are "triều" and "chiều". The recognizer decodes a turn without a sentence around it, so it cannot tell them apart. A model reading the sentence can, but a model on the speaker's own line is the thing §3.14 removed. So the model proposes, and a deterministic guard decides. A repair names one place in the transcript. It is accepted only if every word it changes shares the sound key of the word heard, under the mergers the spoken language really makes (d/gi/r, tr/ch, s/x, final n/ng and t/c), and differs from it in only one of onset, rhyme and tone. A repair that touches a number word is refused, because the ITN prints it as a digit right after. `sourceText` never changes.
+
+On the six conversations, 3 runs with the shipped guard: WER 5.86% → 5.50% each time, 8 repairs accepted, all right. The same prompt and guard over the reference itself changed one word, a typo in the reference. Giving the model the translation changed no answer, so the call runs beside the translation. It finished first on 65 of 94 turns, and a turn waits at most 250 ms past its translation for it (lost on 4 of 94). Measuring changed three things. The guard first compared tones and refused right repairs ("đạt đinh" → "đạt đỉnh"). The first prompt let the model "repair" a right "chợ lách" to match an uncorrected earlier turn, so the prompt now says the earlier sentences come from the same recognizer. A code review found the next three faults. The first version replaced a repaired word wherever it occurred, so "đâm giao rồi giao hàng" would have lost a right "giao". It also mixed onset, coda and tone mergers in one pair. And it let a sound-alike change a number. Five prompt-injection attacks, including a spoken order whose swap sounds alike ("dám" → "giám"), left the line unchanged 15 of 15 times (`benchmarks/prompt-injection/homophones.mjs`).
+
+### Names on a Chinese line
+
+The loanword respelling (07/10) accepts a spelling only if the translation writes it, and a Chinese translation writes "Bulgaria" as 保加利亚. On a vi→zh conversation it refused every proposal, after paying for each call. When a turn's only translation is in Han characters, the model now also names the words of the translation that render the span, and those must be in it. On 56 turns with Chinese translations: 0 → 8–11 right per run, 2 wrong, the rest missed when the longer answer passed the 1.2 s ceiling. English is asked exactly as before (9 right, 1 wrong). A rendering proves that the translation names something where the span is, not which word it names, so a spelling accepted only on one is shown and never learned as a hotword. Measuring it found two more faults. A Latin name inside Chinese ("OpenAI的AI模型") was one run of letters with the characters around it, so it could never be found. And the model sometimes copies a name in Traditional characters.
+
+### Replayed end to end
+
+The clip was replayed through the real `TranslationSessionService` with the real providers (the isolated sidecar, DeepSeek). The line read "đâm dao", "Incheon" and "Bulgaria". The zh had 负二楼 for the basement floor that production had translated as 地下一层, but nothing here changes the translation, so that is one sample of a sampled model. One vi→en conversation repaired "đạt đỉnh", "dao động", "Chợ Lách" and "vườn". Neither had an error.
+
+Known limits:
+
+- "Roman Brad" for Rumen Radev stays. A Vietnamese mark ("vàv") in a span keeps the whole span from being respelled.
+- Words misheard as a word that does not sound alike ("về" for "với") are refused by design.
+- The 55% of common-word errors are the recognizer's. A language model does not reach them with what exists today; see the next section.
+
+Reproduce:
+
+- `node benchmarks/homophone-repair/score.mjs --repeats 3`
+- `node benchmarks/loanword-respelling/score.mjs --repeats 3 --target zh`
+
+### A language model over the recognizer's n-best (13/10/2026)
+
+sherpa-onnx's `lm=` only rescores the final beam, so the question was whether the beam even holds the right sentence. A modified beam search over the same ONNX encoder, decoder and joiner (8 paths), checked against sherpa's own greedy output (11 of 12 turns identical, 128 vs 127 errors), gave the n-best for the 95 turns.
+
+| Arm                                                                                                | WER        | Errors  |
+| -------------------------------------------------------------------------------------------------- | ---------- | ------- |
+| Top hypothesis (what ships)                                                                        | 5.76%      | 128     |
+| Oracle: best of 8 per turn                                                                         | 3.65%      | 81      |
+| `deepseek-flash` picks among the candidates                                                        | 5.36–5.58% | 119–124 |
+| Pretrained word 4-gram KenLM (`nguyenvulebinh`, news text), weight tuned leaving one recording out | 5.76%      | 128     |
+| Pick, then the homophone repair                                                                    | 5.27%      | —       |
+
+The right sentence is often in the beam: 47 of the 128 errors are not in the best of 8. Nothing available picks it. The news-text KenLM got a weight of 0 on every fold, because conversational speech is not what it was trained on. The model picks about as well as the homophone repair, and mostly the same errors. Stacked, they gain about 5 errors over the repair alone, while sherpa does not expose the n-best (an unmerged PR) and the decoder would have to be replaced. So nothing ships from this. Reaching the gap needs an in-domain language model, which means conversational Vietnamese text this project does not have, or a better acoustic model. A BPE-level RNN LM for sherpa's `lm=` would have to be trained here (no Vietnamese one fits this model's 2,000-piece vocabulary), and published gains for that kind of rescoring are 8–12% relative, about 10–15 words on this corpus.
+
+A note for the translation: production rendered "tầng hầm bê hai" (basement B2) as 地下一层. Re-asked 8 times, the long sentence came back as B1 in 2 of them, and the short one never did. A recognizer note naming the Vietnamese letter names made zh worse (7 of 8) while fixing en, so it was not kept: at temperature 1.0 this is sampling, not a rule the prompt is missing.
+
+## A second recognizer, fused on the display (14/10/2026)
+
+No single recognizer beats production's 30M on these conversations, even with the CPU limit lifted. On the same 95 turns, Qwen3-ASR-1.7B read 7.02%, MERaLiON-3-3B-ASR 10.31% and Cohere Transcribe 16.43%, against 5.72%. What beats it is two recognizers whose mistakes differ, with a model picking between them. Per turn, the better of the 30M and Qwen-1.7B would read 4.37%.
+
+So the sidecar now loads hynt ZipFormer-150M beside the 30M and decodes each finished turn with both. The 150M is worse alone (6.30%) and needs no GPU. A third recognizer, ChunkFormer, landed inside the two-recognizer runs' spread and would have put torch in the sidecar. The model call runs beside the translation, like the homophone repair. Its answer reaches only the display, and only what a deterministic guard accepts:
+
+- a stretch must replace words, and never a word the 150M heard as well. Adds and drops gained nothing, and a drop is invisible to a reader. A code review found the first guard let a swap beside a drop through ("tôi không đồng ý" could become "tôi vẫn đồng ý");
+- the new words must be what the 150M heard at that place, between the words both recognizers share. A word heard elsewhere in the turn is refused, because a spoken "change X into Y" puts Y in both transcripts;
+- a change of mark placement or spacing ("khóa"/"khoá", "openai"/"open ai") is refused. The two models were trained on text written differently, and "open ai" was the one edit that made a conversation worse in every run;
+- a hint term's words stay as heard, because the 150M decodes without the hotwords.
+
+Measured with the shipped prompt and guard on the six conversations (`benchmarks/recognizer-fusion`, 2,220 words): 5.86% → 4.95–5.00% for fusion alone, and **4.73–4.91% with the homophone repair beside it**, against 5.50% for the repair alone. A review then found the guard let the model pass a drop beside a swap: a word both recognizers heard could go when the alignment left it unpaired, and a stretch could come out shorter than either recognizer heard it ("không đồng" against "hông đồ" became "đồ"). Both are refused now. Over every answer the final runs logged, that refuses one correction, "kẻ sọ → kè" where the reference is "kè rọ", so the bound is 4.77–4.82%. No conversation got worse in any run. The model is called on 46 of 95 turns, p50 ~850 ms. `prompt-injection/fusion.mjs` passed 21 of 21.
+
+Two prompt choices were measured. Told "when both make sense, take A", the model kept A's wrong word where B's fitted (5.14–5.23%), so neither recognizer is named the better one. A prompt that described the 150M as better at names, which is untrue, scored the same as one that says nothing, so the honest one ships.
+
+On the sidecar, the 150M decodes beside the 30M rather than after it, and the response waits for it at most 400 ms past the 30M (`LOCAL_STT_ALTERNATE_WAIT_MS`), so a slow second decode costs a turn its fusion, never its transcript. A final with alternates takes +53 ms at p50 and +100 ms at p95, the difference between the two decodes. Memory is +87 MiB at rest and +411 MiB at the peak of four concurrent finals, so the prod limit went from 4g to 4608m. Replayed end to end through `TranslationSessionService` against an isolated sidecar, on 269afa03 (vi→zh) and 5b679761 (vi→en): 28 turns, 0 errors. Among the lines read were "cồn cái gà", "hoa kiểng" and "có thể thấy". The time from end of speech to the final line moved +18 ms and +111 ms at p50, which is within the translation host's own variation.
+
+Where both recognizers mishear the same word, there is nothing to pick. That, and fillers that the reference keeps and neither outputs, is most of what is left.
+
+Reproduce:
+
+- `node benchmarks/recognizer-fusion/score.mjs --repeats 3 --with-homophones`
+- `node benchmarks/prompt-injection/fusion.mjs --repeats 3`

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { foreignSpans, isVietnameseSyllable } from './vietnamese-syllable.js';
+import { foreignSpans, isVietnameseSyllable, syllableParts } from './vietnamese-syllable.js';
 
 describe('isVietnameseSyllable', () => {
   it.each([
@@ -53,5 +53,21 @@ describe('foreignSpans', () => {
 
   it('returns nothing for plain Vietnamese', () => {
     expect(foreignSpans('Cơ quan này còn ghi nhận tình trạng.')).toEqual([]);
+  });
+});
+
+describe('syllableParts', () => {
+  it('takes a syllable apart into onset, rhyme and tone', () => {
+    expect(syllableParts('Giao')).toEqual({ onset: 'gi', rhyme: 'ao', tone: '' });
+    expect(syllableParts('triều')).toEqual({ onset: 'tr', rhyme: 'iêu', tone: '\u0300' });
+    expect(syllableParts('ương')).toEqual({ onset: '', rhyme: 'ương', tone: '' });
+  });
+
+  it('reads "gì" as g and i, so it shares its rhyme with "dì"', () => {
+    expect(syllableParts('gì')).toEqual({ onset: 'g', rhyme: 'i', tone: '\u0300' });
+  });
+
+  it('has no parts for a word that cannot be a syllable', () => {
+    expect(syllableParts('bulgaria')).toBeNull();
   });
 });
