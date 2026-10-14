@@ -2,7 +2,8 @@
 
 Every engine loads eagerly at startup (~1.9GB resident: vi ~0.2GB, en ~1.1GB,
 zh ~0.4GB, plus the runtime) so /healthz is honest about readiness and the
-first request has no load spike.
+first request has no load spike. The optional vi alternate adds ~0.1GB after
+load and ~0.4GB at a four-lane peak.
 
 One engine per language answers both the live re-reads and the settled
 transcript. English is Parakeet-TDT: on real prod turns it halved Moonshine's
@@ -17,15 +18,28 @@ what actually loaded. A code outside `SUPPORTED_LANGUAGES` is still a 400 from
 `EngineRegistry.get`, same as before; a registry code this sidecar does not
 serve is the API's refusal to make, before the audio ever reaches here.
 """
+import logging
+
 from .base import SttEngine, preload_onnxruntime_dll
 from .paraformer_zh import ParaformerZh
 from .parakeet_en import ParakeetEn
 from .zipformer_vi import ZipformerVi
+from .zipformer_vi_alternate import ZipformerViAlternate
+
+logger = logging.getLogger(__name__)
 
 _ENGINE_TYPES: dict[str, type[SttEngine]] = {
     "vi": ZipformerVi,
     "en": ParakeetEn,
     "zh": ParaformerZh,
+}
+
+#: A second recognizer per language whose reading rides beside the primary
+#: one on `/transcribe?alternates=true`. OPTIONAL, unlike `_ENGINE_TYPES`: one
+#: that is not seeded or fails to load is a warning, and neither `ready` nor
+#: `/healthz` ever depends on it — the display without it is today's display.
+_ALTERNATE_TYPES: dict[str, type[ZipformerViAlternate]] = {
+    "vi": ZipformerViAlternate,
 }
 
 SUPPORTED_LANGUAGES = tuple(_ENGINE_TYPES)
@@ -38,6 +52,7 @@ class UnsupportedLanguageError(Exception):
 class EngineRegistry:
     def __init__(self) -> None:
         self._engines: dict[str, SttEngine] = {}
+        self._alternates: dict[str, SttEngine] = {}
 
     def load_all(self) -> None:
         # Must precede every `import sherpa_onnx`, which happens inside each
@@ -47,15 +62,43 @@ class EngineRegistry:
             engine = engine_type()
             engine.load()
             self._engines[lang] = engine
+        # After the primaries, so a failure here can never be mistaken for one
+        # of theirs, and a slow load never delays the engines readiness needs.
+        for lang, alternate_type in _ALTERNATE_TYPES.items():
+            if not alternate_type.weights_present():
+                logger.warning(
+                    "%s alternate recognizer not seeded; serving without alternates", lang
+                )
+                continue
+            alternate = alternate_type()
+            try:
+                alternate.load()
+            except Exception:  # noqa: BLE001 — an alternate must never stop the sidecar
+                logger.exception(
+                    "%s alternate recognizer failed to load; serving without alternates", lang
+                )
+                continue
+            self._alternates[lang] = alternate
 
     def unload_all(self) -> None:
         self._engines.clear()
+        self._alternates.clear()
 
     @property
     def ready(self) -> bool:
         return len(self._engines) == len(_ENGINE_TYPES) and all(
             engine.loaded for engine in self._engines.values()
         )
+
+    @property
+    def alternate_languages(self) -> list[str]:
+        """Languages whose alternate recognizer loaded. Reported, never gating."""
+        return [lang for lang, engine in self._alternates.items() if engine.loaded]
+
+    def alternate(self, lang: str) -> SttEngine | None:
+        """The loaded alternate recognizer for `lang`, or None when it has none."""
+        engine = self._alternates.get(lang)
+        return engine if engine is not None and engine.loaded else None
 
     def get(self, lang: str) -> SttEngine:
         engine = self._engines.get(lang)

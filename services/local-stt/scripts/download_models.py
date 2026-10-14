@@ -3,6 +3,9 @@
 - Zipformer-30M vi: encoder/decoder/joiner INT8 ONNX + bpe.model from HF, then
   generates tokens.txt from bpe.model (the repo does not ship one; sherpa-onnx
   requires the "SYMBOL ID" token table).
+- ZipFormer-150M vi, the alternate recognizer behind `/transcribe`'s
+  `alternates`: the same four files and the same generated tokens.txt, from a
+  pinned HF revision. Optional, like Dewpoint.
 - Parakeet-TDT-0.6b-v2 en INT8 (~630MB): k2-fsa release tarball, extracted.
 - Paraformer-zh int8 (2023-09-14): k2-fsa release tarball (~234MB), pinned by
   size and sha256, of which only the model and its token table are extracted.
@@ -47,6 +50,18 @@ ZIPFORMER_FILES = [
     "encoder-epoch-20-avg-10.int8.onnx",
     "decoder-epoch-20-avg-10.int8.onnx",
     "joiner-epoch-20-avg-10.int8.onnx",
+    "bpe.model",
+]
+
+ZIPFORMER_ALT_REPO = "hynt/ZipFormer-150M-CR-CTC-RNNT-6000h"
+#: Pinned: the fusion numbers in `engines/zipformer_vi_alternate.py` were
+#: measured on exactly this revision.
+ZIPFORMER_ALT_REVISION = "8c3d474d3d74cb247f4b8c7b0f8b48598ac8c1c6"
+ZIPFORMER_ALT_DIR = "zipformer-vi-150m"
+ZIPFORMER_ALT_FILES = [
+    "encoder-epoch-11-avg-2.int8.onnx",
+    "decoder-epoch-11-avg-2.int8.onnx",
+    "joiner-epoch-11-avg-2.int8.onnx",
     "bpe.model",
 ]
 
@@ -102,27 +117,74 @@ DEWPOINT_ONNX = "onnx/mmbert-base/model.onnx"
 
 
 def fetch_zipformer_vi() -> None:
-    out_dir = MODELS_DIR / "zipformer-vi-30m"
+    fetch_hynt_zipformer("zipformer-vi", ZIPFORMER_REPO, None, "zipformer-vi-30m", ZIPFORMER_FILES)
+
+
+def fetch_zipformer_vi_alternate() -> None:
+    """The alternate vi recognizer, which is OPTIONAL: any failure is a warning.
+
+    Same contract as `fetch_ct_punct_zh`: the sidecar serves without it (no
+    `alternates` on any response) and the API shows the unfused display, so
+    neither a download failure nor a read-only models mount may stop the seed or
+    the runtime.
+    """
+    tag = "zipformer-vi-150m"
+    out_dir = MODELS_DIR / ZIPFORMER_ALT_DIR
+    if not _writable(out_dir) and not (out_dir / "tokens.txt").exists():
+        print(f"[{tag}] skipped, {MODELS_DIR} is not writable; no vi alternates")
+        return
+    try:
+        fetch_hynt_zipformer(
+            tag, ZIPFORMER_ALT_REPO, ZIPFORMER_ALT_REVISION, ZIPFORMER_ALT_DIR, ZIPFORMER_ALT_FILES
+        )
+    except Exception as err:  # noqa: BLE001 — see the docstring
+        print(f"[{tag}] skipped, no vi alternates: {err}")
+
+
+def fetch_hynt_zipformer(
+    tag: str, repo: str, revision: str | None, dir_name: str, files: list[str]
+) -> None:
+    """One of hynt's Zipformer exports: the files as published, plus tokens.txt.
+
+    Each file lands through a `.part` and a rename, so an interrupted run never
+    leaves a truncated encoder that the existence check would accept as cached.
+    """
+    out_dir = MODELS_DIR / dir_name
+    tokens_path = out_dir / "tokens.txt"
+    if tokens_path.exists() and all((out_dir / name).exists() for name in files):
+        print(f"[{tag}] ready (cached)")
+        return
     out_dir.mkdir(parents=True, exist_ok=True)
-    for filename in ZIPFORMER_FILES:
+    for filename in files:
         target = out_dir / filename
         if target.exists():
             continue
-        print(f"[zipformer-vi] fetching {filename}")
-        cached = hf_hub_download(ZIPFORMER_REPO, filename)
-        shutil.copyfile(cached, target)
+        print(f"[{tag}] fetching {filename}")
+        cached = hf_hub_download(repo, filename, revision=revision)
+        part = target.with_name(target.name + ".part")
+        shutil.copyfile(cached, part)
+        part.rename(target)
 
-    tokens_path = out_dir / "tokens.txt"
     if not tokens_path.exists():
-        print("[zipformer-vi] generating tokens.txt from bpe.model")
-        import sentencepiece as spm
+        print(f"[{tag}] generating tokens.txt from bpe.model")
+        write_tokens(out_dir / "bpe.model", tokens_path)
+    print(f"[{tag}] ready")
 
-        sp = spm.SentencePieceProcessor()
-        sp.load(str(out_dir / "bpe.model"))
-        with open(tokens_path, "w", encoding="utf-8") as f:
-            for token_id in range(sp.get_piece_size()):
-                f.write(f"{sp.id_to_piece(token_id)} {token_id}\n")
-    print("[zipformer-vi] ready")
+
+def write_tokens(bpe_model: Path, tokens_path: Path) -> None:
+    """The "SYMBOL ID" table sherpa-onnx reads, from the repo's SentencePiece model.
+
+    hynt's repos ship only `bpe.model`; through a `.part` like the weights.
+    """
+    import sentencepiece as spm
+
+    sp = spm.SentencePieceProcessor()
+    sp.load(str(bpe_model))
+    part = tokens_path.with_name(tokens_path.name + ".part")
+    with open(part, "w", encoding="utf-8") as f:
+        for token_id in range(sp.get_piece_size()):
+            f.write(f"{sp.id_to_piece(token_id)} {token_id}\n")
+    part.rename(tokens_path)
 
 
 def fetch_parakeet_en() -> None:
@@ -390,6 +452,7 @@ def _fetch_dewpoint() -> None:
 def main() -> int:
     for fetch in (
         fetch_zipformer_vi,
+        fetch_zipformer_vi_alternate,
         fetch_parakeet_en,
         fetch_paraformer_zh,
         fetch_campplus_speaker,

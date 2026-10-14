@@ -257,6 +257,222 @@ def test_missing_language_422(client, webm_audio):
     assert res.status_code == 422
 
 
+# ── Alternate recognizer ─────────────────────────────────────────────────────
+# `alternates=true` asks for a second, unbiased reading of the same samples for
+# the API to fuse into the display. Off, the response is today's byte for byte;
+# on, anything going wrong with the second decode drops the key, never the turn.
+
+
+class _FakeAlternate:
+    """Stands in for the 150M: records what it was handed, answers or raises."""
+
+    def __init__(self, answer="xin chào các bạn", error: Exception | None = None, delay=0.0):
+        self.answer = answer
+        self.error = error
+        self.delay = delay
+        self.calls: list[str] = []
+
+    def transcribe(self, samples, hotwords=""):
+        import time
+
+        self.calls.append(hotwords)
+        time.sleep(self.delay)
+        if self.error is not None:
+            raise self.error
+        return self.answer
+
+
+def _post_vi(client, webm_audio, **data):
+    return client.post(
+        "/transcribe",
+        files={"file": ("audio.webm", webm_audio, "audio/webm")},
+        data={"language": "vi", **data},
+    )
+
+
+def _stub_primary(monkeypatch, text="xin chào", delay=0.0):
+    import time
+
+    from app import registry
+
+    def decode(samples, hotwords=""):
+        time.sleep(delay)
+        return text, None
+
+    monkeypatch.setattr(registry.get("vi"), "transcribe_with_pauses", decode)
+
+
+def test_alternates_off_leaves_the_response_unchanged(client, webm_audio, monkeypatch):
+    from app import registry
+
+    fake = _FakeAlternate()
+    monkeypatch.setattr(registry, "alternate", lambda lang: fake)
+    _stub_primary(monkeypatch)
+
+    res = _post_vi(client, webm_audio)
+
+    assert res.status_code == 200
+    assert res.json() == {"text": "xin chào", "language": "vi"}
+    assert fake.calls == []
+
+
+def test_alternates_on_returns_the_second_reading(client, webm_audio, monkeypatch):
+    from app import registry
+
+    fake = _FakeAlternate("xin chào các bạn")
+    monkeypatch.setattr(registry, "alternate", lambda lang: fake)
+    _stub_primary(monkeypatch)
+
+    res = _post_vi(client, webm_audio, alternates="true", hotwords=["poker"])
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["text"] == "xin chào"
+    assert body["alternates"] == ["xin chào các bạn"]
+    # Never biased: the primary got the term, the alternate did not.
+    assert fake.calls == [""]
+
+
+def test_alternates_on_without_an_alternate_loaded(client, webm_audio, monkeypatch):
+    from app import registry
+
+    monkeypatch.setattr(registry, "alternate", lambda lang: None)
+    _stub_primary(monkeypatch)
+
+    res = _post_vi(client, webm_audio, alternates="true")
+
+    assert res.status_code == 200
+    assert "alternates" not in res.json()
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        __import__("engines.base", fromlist=["SttBusyError"]).SttBusyError(
+            "vi engine saturated: no lane within 2000ms"
+        ),
+        RuntimeError("onnx went away"),
+    ],
+)
+def test_a_failing_alternate_never_fails_the_turn(client, webm_audio, monkeypatch, error):
+    from app import registry
+
+    monkeypatch.setattr(registry, "alternate", lambda lang: _FakeAlternate(error=error))
+    _stub_primary(monkeypatch)
+
+    res = _post_vi(client, webm_audio, alternates="true")
+
+    assert res.status_code == 200
+    assert res.json() == {"text": "xin chào", "language": "vi"}
+
+
+def test_a_late_alternate_is_dropped_not_waited_for(client, webm_audio, monkeypatch):
+    # The transcript is the turn's critical path: an alternate still decoding
+    # past its wait must not hold the response up.
+    import time
+
+    import app
+    from app import registry
+
+    monkeypatch.setattr(app, "ALTERNATE_WAIT_MS", 50.0)
+    monkeypatch.setattr(registry, "alternate", lambda lang: _FakeAlternate(delay=1.0))
+    _stub_primary(monkeypatch)
+
+    started = time.perf_counter()
+    res = _post_vi(client, webm_audio, alternates="true")
+
+    assert res.status_code == 200
+    assert res.json() == {"text": "xin chào", "language": "vi"}
+    assert time.perf_counter() - started < 0.9
+
+
+def test_a_gated_turn_runs_no_alternate(client, webm_audio, monkeypatch):
+    # The sweep fixture is not speech, so the 300ms floor gates it (see
+    # test_min_speech_ms_gates_a_non_speech_clip).
+    from app import registry
+
+    fake = _FakeAlternate()
+    monkeypatch.setattr(registry, "alternate", lambda lang: fake)
+
+    res = _post_vi(client, webm_audio, alternates="true", min_speech_ms="300")
+
+    assert res.status_code == 200
+    assert res.json()["text"] == ""
+    assert "alternates" not in res.json()
+    assert fake.calls == []
+
+
+def test_the_two_decodes_overlap(client, webm_audio, monkeypatch):
+    """Latency is the slower decode, not the sum: 0.4s each must finish well
+    under 0.8s. The bound leaves room for a loaded runner, not for serializing."""
+    import time
+
+    from app import registry
+
+    monkeypatch.setattr(registry, "alternate", lambda lang: _FakeAlternate(delay=0.4))
+    _stub_primary(monkeypatch, delay=0.4)
+
+    started = time.perf_counter()
+    res = _post_vi(client, webm_audio, alternates="true")
+    elapsed = time.perf_counter() - started
+
+    assert res.json()["alternates"] == ["xin chào các bạn"]
+    assert elapsed < 0.7, f"{elapsed*1000:.0f}ms — the alternate is serialized behind the primary"
+
+
+def test_healthz_is_ready_without_any_alternate(client, monkeypatch):
+    from app import registry
+
+    monkeypatch.setattr(registry, "_alternates", {})
+
+    res = client.get("/healthz")
+
+    assert res.status_code == 200
+    assert res.json()["status"] == "ok"
+    assert res.json()["alternates"] == []
+
+
+def test_registry_without_alternate_weights_loads_and_is_ready(monkeypatch):
+    """Unseeded weights are a warning: every primary loads, `ready` holds, and
+    `alternate()` answers None instead of raising."""
+    import engines.registry as registry_module
+    from engines.base import SttEngine
+    from engines.zipformer_vi_alternate import ZipformerViAlternate
+
+    class _StubPrimary(SttEngine):
+        lang = "vi"
+
+        def load(self) -> None:
+            self._recognizer = object()
+
+    # Stub primaries: what is under test is the alternate's absence, and a
+    # second real set of every model would cost this process gigabytes.
+    monkeypatch.setattr(registry_module, "_ENGINE_TYPES", {"vi": _StubPrimary})
+    monkeypatch.setattr(ZipformerViAlternate, "weights_present", staticmethod(lambda: False))
+    registry = registry_module.EngineRegistry()
+    registry.load_all()
+
+    assert registry.ready
+    assert registry.alternate("vi") is None
+    assert registry.alternate_languages == []
+
+
+@pytest.mark.skipif(
+    not __import__("engines.zipformer_vi_alternate", fromlist=["x"])
+    .ZipformerViAlternate.weights_present(),
+    reason="alternate vi weights not seeded",
+)
+def test_the_seeded_alternate_loads_and_decodes(client, webm_audio):
+    assert client.get("/healthz").json()["alternates"] == ["vi"]
+
+    res = _post_vi(client, webm_audio, alternates="true")
+
+    assert res.status_code == 200
+    # The sweep is not speech; that the key is there and holds a string is the
+    # real model's whole contract here.
+    assert isinstance(res.json()["alternates"][0], str)
+
+
 # ── Concurrency ──────────────────────────────────────────────────────────────
 # The engine used to serialize every decode behind a lock; the API fans out
 # many decodes per turn, so the lock queued them while the machine idled. These
@@ -391,3 +607,4 @@ def test_lane_wait_times_out_instead_of_queueing(monkeypatch):
     assert engine._lanes.acquire(blocking=False)
     with pytest.raises(SttBusyError):
         engine.transcribe(np.zeros(1600, dtype=np.float32))
+

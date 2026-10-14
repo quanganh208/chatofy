@@ -138,16 +138,25 @@ class ZipformerVi(SttEngine):
         return self._biased_recognizer if hotwords else self._recognizer
 
     def postprocess(self, text: str) -> str:
-        """Convert the decoder's bare uppercase output to sentence case.
+        return sentence_case(text)
 
-        This model emits "XIN CHÀO HÔM NAY TRỜI RẤT ĐẸP" — all caps, no
-        punctuation. The transcript is shown to the user next to the English
-        one from Parakeet, which is already sentence-cased and punctuated, so
-        leaving it shouting looks broken.
 
-        Proper nouns stay lowercased ("tôi đi hà nội") — recovering them needs
-        a casing/punctuation restoration model, which is out of scope here.
-        Python's case mapping handles Vietnamese diacritics correctly.
-        """
-        text = text.strip().lower()
-        return text[:1].upper() + text[1:]
+def sentence_case(text: str) -> str:
+    """Convert a hynt Zipformer's bare uppercase output to sentence case.
+
+    This model emits "XIN CHÀO HÔM NAY TRỜI RẤT ĐẸP" — all caps, no
+    punctuation. The transcript is shown to the user next to the English one
+    from Parakeet, which is already sentence-cased and punctuated, so leaving it
+    shouting looks broken.
+
+    A function rather than only a method because the alternate recognizer
+    (`zipformer_vi_alternate.py`) is trained on the same vocabulary and must
+    come out in exactly this shape: its text is compared word for word against
+    this engine's, and a casing difference would read as a disagreement.
+
+    Proper nouns stay lowercased ("tôi đi hà nội") — recovering them needs a
+    casing/punctuation restoration model, which is out of scope here. Python's
+    case mapping handles Vietnamese diacritics correctly.
+    """
+    text = text.strip().lower()
+    return text[:1].upper() + text[1:]

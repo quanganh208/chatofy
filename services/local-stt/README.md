@@ -79,7 +79,20 @@ the alternatives that lost.
 > full stop the speaker did not pause at (under 120 ms, chosen on FLEURS dev in
 > `benchmarks/punct`).
 
-> **License obligation.** Zipformer-30M is CC-BY-NC-ND-4.0: **academic / thesis
+> **Alternate vi recognizer (optional).** [hynt/ZipFormer-150M][zipformer150]
+> (INT8, pinned revision, greedy, never biased) decodes the same final turn
+> beside the 30M when a request sets `alternates=true`, and its reading comes
+> back as `alternates: ["…"]`. The API lets an LLM pick words between the two
+> for the display; the 30M's `text` stays the transcript of record. On the
+> 95-turn vi ruler the 30M alone is 5.72% WER, this model alone 6.30%, the two
+> fused ~4.9%. Missing weights are a startup warning, not a failed `/healthz`,
+> which lists what loaded in `alternates` (`["vi"]` or `[]`). Measured on 95
+> real turns at 4 threads: +53 ms p50 / +100 ms p95 per final (the two decodes
+> run concurrently, so the cost is the 150M's extra time, not its whole
+> decode), +411 MiB peak RSS under four concurrent finals. Same license as the
+> 30M.
+
+> **License obligation.** Zipformer-30M (and the 150M alternate) is CC-BY-NC-ND-4.0: **academic / thesis
 > use only**, no commercial use, no distribution of derivatives. If this project
 > is ever commercialized, swap in PhoWhisper behind the same `SttProvider`
 > contract (measured at ~1.3s/utterance instead of ~0.1s).
@@ -120,12 +133,12 @@ the service is genuinely ready.
 
 ## API
 
-| Route              | Request                                                                                                                         | Response                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `GET /healthz`     | —                                                                                                                               | `200 {"status":"ok"}` when loaded, `503 {"status":"loading"}` otherwise |
-| `POST /transcribe` | `multipart/form-data`: `file` (audio), `language` (`vi` or `en`), `hotwords` (repeatable, optional), `min_speech_ms` (optional) | `200 {"text":"…","language":"vi"}`                                      |
-| `POST /embed`      | `multipart/form-data`: `file` (audio)                                                                                           | `200 {"vector":[…],"dim":192,"speechMs":1480}`                          |
-| `POST /restore`    | JSON: `text`, `language` (`vi` only), `context` (optional, the piece this one continues), `terms` (optional, session hotwords)  | `200 {"text":"Mô hình AI của OpenAI."}`                                 |
+| Route              | Request                                                                                                                                                  | Response                                                                                    |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `GET /healthz`     | —                                                                                                                                                        | `200 {"status":"ok","alternates":["vi"]}` when loaded, `503 {"status":"loading"}` otherwise |
+| `POST /transcribe` | `multipart/form-data`: `file` (audio), `language` (`vi` or `en`), `hotwords` (repeatable, optional), `min_speech_ms` (optional), `alternates` (optional) | `200 {"text":"…","language":"vi"}`                                                          |
+| `POST /embed`      | `multipart/form-data`: `file` (audio)                                                                                                                    | `200 {"vector":[…],"dim":192,"speechMs":1480}`                                              |
+| `POST /restore`    | JSON: `text`, `language` (`vi` only), `context` (optional, the piece this one continues), `terms` (optional, session hotwords)                           | `200 {"text":"Mô hình AI của OpenAI."}`                                                     |
 
 `speechMs` on `/embed` is how much of the clip is speech, not how long the clip
 is — the caller is sent a capture buffer with pre-roll and hangover on it, and
@@ -176,6 +189,22 @@ curl -F file=@sample.webm -F language=vi -F min_speech_ms=300 \
      http://localhost:8002/transcribe
 ```
 
+### Alternates
+
+`alternates` is opt-in and off by default: a request that does not set it is
+answered byte for byte as before, with no second decode. Set it on a vi final
+and the response gains `"alternates": ["…"]`, the 150M's unbiased reading of the
+same samples. The key is simply absent — never an error — when no alternate is
+loaded for the language, when `min_speech_ms` gated the turn, or when the
+alternate's lanes were busy or its decode failed. It has its own lanes, so it
+never takes one from the 30M's live re-reads.
+
+```bash
+curl -F file=@sample.webm -F language=vi -F alternates=true \
+     http://localhost:8002/transcribe
+# {"text":"…","language":"vi","pauses":[…],"leadPause":320,"alternates":["…"]}
+```
+
 ### Hotwords
 
 Terms the Vietnamese decoder should be biased towards, one form field each,
@@ -221,6 +250,7 @@ uv run --directory services/local-stt pytest
 
 [sherpa]: https://github.com/k2-fsa/sherpa-onnx
 [zipformer]: https://huggingface.co/hynt/Zipformer-30M-RNNT-6000h
+[zipformer150]: https://huggingface.co/hynt/ZipFormer-150M-CR-CTC-RNNT-6000h
 [parakeet]: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2
 [paraformer]: https://k2-fsa.github.io/sherpa/onnx/pretrained_models/offline-paraformer/paraformer-models.html
 [dewpoint]: https://huggingface.co/valkayuh/dewpoint

@@ -296,7 +296,12 @@ services:
       # requests decode through it at once. Measured on prod: a single lane
       # (the old lock) left ~72% of the cores idle while requests queued.
       LOCAL_STT_CONCURRENCY: ${PROD_LOCAL_STT_CONCURRENCY:-4}
-    mem_limit: 4g
+    # 4g plus 512m for the alternate vi recognizer (ZipFormer-150M), measured on
+    # an isolated instance at these threads and lanes, 95 real turns: +87 MiB
+    # after load, +411 MiB at the peak of four concurrent finals each decoded by
+    # both models (2.65 → 3.05 GiB). Seeded without it, the sidecar never
+    # reaches that peak, so the extra is headroom it does not take.
+    mem_limit: 4608m
     healthcheck:
       test:
         [
