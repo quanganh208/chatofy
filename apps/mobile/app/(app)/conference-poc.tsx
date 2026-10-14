@@ -21,6 +21,7 @@ import { registerGlobals, mediaDevices, MediaStream } from 'react-native-webrtc'
 import { Device } from 'mediasoup-client';
 import type { types } from 'mediasoup-client';
 import { WS_SUBPROTOCOL } from '@chatofy/types/events';
+import { toMediasoupTrack, toNativeTrack } from '@/conference/native-media-adapter';
 import { ConferencePocCallView } from './conference-poc-call-view';
 
 // MUST be called once at module level before any Device instantiation.
@@ -106,7 +107,7 @@ export default function ConferencePocScreen() {
     const consumer = await recvTransport.consume(params);
     await wsRequest(ws, 'conference.consumer.resume', { consumerId: consumer.id });
     const stream = new MediaStream();
-    stream.addTrack(consumer.track);
+    stream.addTrack(toNativeTrack(consumer.track));
     setRemoteStreams((prev) => [...prev, stream]);
   }, []);
 
@@ -152,8 +153,8 @@ export default function ConferencePocScreen() {
     setLocalStream(stream);
     const vt = stream.getVideoTracks()[0];
     const at = stream.getAudioTracks()[0];
-    if (vt) await sendTransport.produce({ track: vt });
-    if (at) await sendTransport.produce({ track: at });
+    if (vt) await sendTransport.produce({ track: toMediasoupTrack(vt) });
+    if (at) await sendTransport.produce({ track: toMediasoupTrack(at) });
 
     const recvParams = (await wsRequest(ws, 'conference.transport.create', {
       direction: 'recv',

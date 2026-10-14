@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@chatofy/i18n": "workspace:*",
     "@chatofy/types": "workspace:*",
     "@chatofy/ui": "workspace:*",
     "@config-plugins/react-native-webrtc": "14.0.0",

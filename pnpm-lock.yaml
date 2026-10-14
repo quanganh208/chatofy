@@ -300,6 +300,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@chatofy/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@chatofy/types':
         specifier: workspace:*
         version: link:../../packages/types

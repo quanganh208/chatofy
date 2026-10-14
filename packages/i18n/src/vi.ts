@@ -475,4 +475,36 @@ export const vi: Messages = {
   // ---- web.conference: tự động kết nối lại (Phase 4) ----
   'web.conference.reconnecting': 'Đang kết nối lại ({attempt}/{cap})…',
   'web.meta.conference': 'Hội nghị · Chatofy',
+
+  // ---- mobile.conference: sảnh và màn hình gọi của ứng dụng React Native ----
+  'mobile.conference.lobbyTitle': 'Hội nghị video',
+  'mobile.conference.yourName': 'Tên của bạn',
+  'mobile.conference.yourNamePlaceholder': 'Người khác sẽ thấy tên này',
+  'mobile.conference.roomId': 'Mã phòng',
+  'mobile.conference.roomIdPlaceholder': 'Nhập mã phòng để tham gia',
+  'mobile.conference.start': 'Bắt đầu',
+  'mobile.conference.leave': 'Rời phòng',
+  'mobile.conference.you': 'Bạn',
+  'mobile.conference.connecting': 'Đang kết nối…',
+  'mobile.conference.waiting': 'Đang chờ người khác tham gia…',
+  'mobile.conference.reconnecting': 'Đang kết nối lại ({attempt}/{cap})…',
+  // ---- mobile.conference: điều khiển trong cuộc gọi ----
+  'mobile.conference.muteMic': 'Tắt micro',
+  'mobile.conference.unmuteMic': 'Bật micro',
+  'mobile.conference.disableCamera': 'Tắt camera',
+  'mobile.conference.enableCamera': 'Bật camera',
+  'mobile.conference.participants': 'Người tham gia',
+  'mobile.conference.cameraOff': 'Camera tắt',
+  'mobile.conference.rosterTitle': 'Trong cuộc gọi này',
+  'mobile.conference.hideRoster': 'Ẩn danh sách',
+  // ---- mobile.conference: lỗi và trạng thái ngoại lệ ----
+  'mobile.conference.permissionDenied': 'Cần quyền truy cập camera và micro.',
+  'mobile.conference.permissionDeniedHint':
+    'Mở Cài đặt và cho phép ứng dụng dùng camera và micro, sau đó thử lại.',
+  'mobile.conference.permissionDeniedAudioOnly': 'Không có camera — tham gia chỉ với âm thanh.',
+  'mobile.conference.notAuthenticated': 'Bạn cần đăng nhập để tham gia cuộc gọi.',
+  'mobile.conference.disconnected': 'Mất kết nối.',
+  'mobile.conference.disconnectedHint': 'Cuộc gọi đã kết thúc. Quay lại sảnh để tham gia lại.',
+  'mobile.conference.backToLobby': 'Về sảnh',
+  'mobile.conference.errorGeneric': 'Đã xảy ra lỗi.',
 };

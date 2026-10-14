@@ -664,6 +664,46 @@ export const en = {
   // Leave stays the one accent control in this state too.
   'web.conference.reconnecting': 'Reconnecting ({attempt}/{cap})…',
   'web.meta.conference': 'Conference · Chatofy',
+
+  // ---- mobile.conference: the React Native conference lobby + call screen ----
+  //
+  // A separate namespace from `web.conference.*` because a few strings name a
+  // surface the other cannot have: the permission hint points at the device's
+  // settings app rather than a browser, and there is no "reload the page" on a
+  // phone. The shared vocabulary could in principle be reused, but keeping the
+  // mobile set whole lets each platform word a prompt the way it expects without
+  // one leaking into the other.
+  'mobile.conference.lobbyTitle': 'Video conference',
+  'mobile.conference.yourName': 'Your name',
+  'mobile.conference.yourNamePlaceholder': 'How others will see you',
+  'mobile.conference.roomId': 'Room ID',
+  'mobile.conference.roomIdPlaceholder': 'Enter a room ID to join',
+  'mobile.conference.start': 'Start',
+  'mobile.conference.leave': 'Leave',
+  'mobile.conference.you': 'You',
+  'mobile.conference.connecting': 'Connecting…',
+  'mobile.conference.waiting': 'Waiting for others to join…',
+  // {attempt} is the current attempt (1-based); {cap} is the maximum.
+  'mobile.conference.reconnecting': 'Reconnecting ({attempt}/{cap})…',
+  // ---- mobile.conference: in-call controls (readouts + toggles) ----
+  'mobile.conference.muteMic': 'Mute microphone',
+  'mobile.conference.unmuteMic': 'Unmute microphone',
+  'mobile.conference.disableCamera': 'Turn off camera',
+  'mobile.conference.enableCamera': 'Turn on camera',
+  'mobile.conference.participants': 'Participants',
+  'mobile.conference.cameraOff': 'Camera off',
+  'mobile.conference.rosterTitle': 'In this call',
+  'mobile.conference.hideRoster': 'Hide participants',
+  // ---- mobile.conference: error / edge states ----
+  'mobile.conference.permissionDenied': 'Camera and microphone access is required.',
+  'mobile.conference.permissionDeniedHint':
+    'Open Settings and allow this app to use the camera and microphone, then try again.',
+  'mobile.conference.permissionDeniedAudioOnly': 'No camera access — joining with audio only.',
+  'mobile.conference.notAuthenticated': 'You need to sign in to join the call.',
+  'mobile.conference.disconnected': 'Connection lost.',
+  'mobile.conference.disconnectedHint': 'The call ended. Return to the lobby to rejoin.',
+  'mobile.conference.backToLobby': 'Back to lobby',
+  'mobile.conference.errorGeneric': 'Something went wrong.',
 } as const;
 
 /** Every key any locale must carry. Derived, so a locale cannot drift from it. */
