@@ -26,22 +26,22 @@ The script takes `DEEPSEEK_API_KEY` from the environment, falling back to `apps/
 
 2026-10-14, 6 Vietnamese conversations (2,220 reference words), with the prompt and guard as shipped:
 
-| Mode                                                  | WER per run                                                                   |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Recognizer alone                                      | 5.86%                                                                         |
-| Homophone repair alone (shipped before)               | 5.50–5.54%                                                                    |
-| Fusion alone                                          | 4.95, 5.00, 5.00, 5.00, 5.00%                                                 |
-| **Fusion and homophone repair, as the API runs them** | **4.77, 4.86, 4.91% (guard as first built); 4.77, 4.73, 4.77% (final guard)** |
+| Mode                                                  | WER per run                                                                                                                 |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Recognizer alone                                      | 5.86%                                                                                                                       |
+| Homophone repair alone (shipped before)               | 5.50–5.54%                                                                                                                  |
+| Fusion alone                                          | 4.95, 5.00, 5.00, 5.00, 5.00%                                                                                               |
+| **Fusion and homophone repair, as the API runs them** | **4.77, 4.86, 4.91% (guard as first built); 4.77, 4.73, 4.77% (final guard); at most 4.82, 4.77, 4.82% with the drop rule** |
 
 - No conversation got worse in any run. The fusion called the model on 46 of 95 turns; on the others the second recognizer heard the same words. Latency p50 ~850 ms, p90 ~1.0 s.
-- **Accepted in every run, among ~30:** vị trí → bệnh trĩ, ra cùng → gia cố, kẻ sọ → kè, giao → dao, đinh → đỉnh, vươn → vườn, inche → incheon, singtin → thinking, roman brad → ruman radev. Some foreign names only move from one misspelling to another (amode → amod, bulgari → bungary).
+- **Accepted in every run, among ~30:** vị trí → bệnh trĩ, ra cùng → gia cố, giao → dao, đinh → đỉnh, vươn → vườn, inche → incheon, singtin → thinking, roman brad → ruman radev. Some foreign names only move from one misspelling to another (amode → amod, bulgari → bungary).
 - `prompt-injection/fusion.mjs`: 21/21 over 3 runs.
 
 ### The guard
 
 A stretch where the model's answer differs from the transcript reaches the line only when:
 
-- **It replaces words.** A stretch that only adds or only drops words is refused, and so is one replacing a word the second recognizer heard as well. On the same set, scored by `benchmarks/stt`'s normaliser, allowing them gained nothing: 4.91–5.00% with adds and drops, 4.82–4.91% without. A drop is also the one failure no reader can see.
+- **It replaces words.** A stretch that only adds or only drops words is refused, and so is one taking out a word the second recognizer heard there as well, or one shorter than both recognizers heard it ("không đồng" against "hông đồ" never becomes "đồ"). The last two were added after a review found the model could pass them as a drop beside a swap. Replayed over every answer the final-guard runs logged, they refuse only "kẻ sọ → kè" (the reference says "kè rọ", so the line lost a word to gain one), one error per run; the bound in the table is that error added back, since a homophone repair of "kẻ" may still recover it. On the same set, scored by `benchmarks/stt`'s normaliser, allowing them gained nothing: 4.91–5.00% with adds and drops, 4.82–4.91% without. A drop is also the one failure no reader can see.
 - **The other recognizer heard it there.** Its words must be a run of what the second recognizer heard between the words both share on either side. A word heard elsewhere in the turn is refused, because a spoken "change X into Y" puts Y in both transcripts.
 - **It changes the sound.** A change of tone-mark placement ("khóa", "khoá") or spacing ("openai", "open ai") is refused. The two recognizers were trained on text written differently, and "open ai" was the one edit that made a conversation worse, in every run.
 - **It keeps the hint terms.** The second recognizer decodes without the hotwords the first was biased with, so it is the worse witness for those words.

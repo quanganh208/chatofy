@@ -221,10 +221,12 @@ that must not open a turn.
 The 120ms confirmation itself counts speech across dips shorter than 100ms, and resets
 only on a longer quiet. Vietnamese read speech has 85–110ms syllables with 40–85ms dips
 between them, so counting only unbroken speech confirmed on the third syllable, past
-the 320ms pre-roll. "Hàn Quốc từng…" reached the server as "Quốc từng…". For the same
-reason, in continuous mode what a hangover held (unsent) becomes the next turn's
-pre-roll instead of being dropped. A word begun softly inside the hangover keeps its
-onset.
+the 320ms pre-roll. "Hàn Quốc từng…" reached the server as "Quốc từng…". The count must
+also contain one unbroken run of at least 70ms. Without it, a train of 20–40ms key clicks
+would add up to a turn. For the same reason, in continuous mode what a hangover held
+(unsent) becomes the next turn's pre-roll instead of being dropped, so a word begun
+softly inside the hangover keeps its onset. An interrupted turn's held audio is
+dropped, because the next turn opens only after our playback ends.
 
 **Starting it where there is no toolbar.** Facebook opens a call in a `type: "popup"`
 window: no tab strip, no extension icon, so the popup cannot be the way capture starts

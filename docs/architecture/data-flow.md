@@ -131,19 +131,22 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
        different words, the model is shown both and answers the sentence it
        judges was said ("đâm giao" / "đâm dao"). The answer is aligned against
        the transcript, and a stretch is kept only if it replaces words with
-       what the second recognizer heard at that place, adds or drops nothing,
-       changes how the words sound (not only mark placement or spacing), and
+       what the second recognizer heard at that place, adds or drops nothing
+       (it takes out no word the second recognizer heard there too, and is no
+       shorter than both recognizers heard it), changes how the words sound (not only mark placement or spacing), and
        touches no hint term (`acceptRecognizerFusion`). The live preview never
        asks for a second decode.
      - **Homophone repair.** The model names words heard as a sound-alike. A
        repair names one place in the transcript. It is kept only if every word
        it changes sounds like the word it replaces and differs from it in one
-       of onset, rhyme and tone (`acceptHomophoneRepairs`: d/gi/r, tr/ch, s/x
+       exactly one of onset, rhyme and tone (`acceptHomophoneRepairs`: d/gi/r, tr/ch, s/x
        and final n/ng, t/c merged), and never if it touches a number word.
 
      Where both touch the same words, the fusion's correction is kept. The turn
      waits for them at most `CORRECTION_GRACE_MS` (250 ms) past the
-     translation. The rules and the measurements are in
+     translation; before that, the sidecar may hold the transcript up to
+     `LOCAL_STT_ALTERNATE_WAIT_MS` (400 ms) past the primary decode for the
+     second recognizer's. The rules and the measurements are in
      [`benchmarks/recognizer-fusion`](../../benchmarks/recognizer-fusion/README.md)
      and [`benchmarks/homophone-repair`](../../benchmarks/homophone-repair/README.md).
 
