@@ -2,7 +2,7 @@
 
 **Nhánh:** `video-conferencing`  
 **Mục tiêu:** demo đồ án trên một máy / loopback (cùng một máy, cùng trình duyệt, nhiều profile)  
-**Kiểm lần cuối:** 2026-10-13
+**Kiểm lần cuối:** 2026-10-15
 
 > Bản tiếng Việt của `conference-demo-runbook.md`. Khi hai bản lệch nhau, bản tiếng Anh là bản gốc.
 
@@ -39,6 +39,25 @@ AUTH_SECRET=<chuỗi base-64 32 byte>
 
 # Trỏ web app tới WebSocket của API chạy local
 NEXT_PUBLIC_API_WS_URL=ws://localhost:3000
+```
+
+### Tệp môi trường mobile (chỉ khi test app React Native)
+
+`apps/mobile/.env` phải có:
+
+```bash
+# Địa chỉ API mà thiết bị/emulator gọi tới. BẮT BUỘC đặt rõ — mặc định trong code
+# đang trỏ sai CỔNG (3001 là web; /ws/conference và /auth/login nằm trên API = 3000).
+#   - Emulator Android: 10.0.2.2 ánh xạ về localhost của máy host.
+#   - Thiết bị thật: thay bằng IP LAN của máy chạy stack, ví dụ http://192.168.1.50:3000
+EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:3000
+
+# Auth mobile còn là stub (chưa có đăng nhập thật), nên socket hội nghị lấy token
+# qua một tài khoản "bench" đã đăng ký. Gateway /ws/conference CÓ kiểm token nên
+# không thể bỏ qua. Dùng một tài khoản đã đăng ký, hoặc tạo nhanh tài khoản bench:
+#   node apps/api/scripts/create-bench-user.cjs   # tạo bench@dev.local / Benchmark123!
+EXPO_PUBLIC_BENCH_EMAIL=bench@dev.local
+EXPO_PUBLIC_BENCH_PASSWORD=Benchmark123!
 ```
 
 ### Tài khoản
@@ -159,7 +178,94 @@ lượt nói đó — chúng chỉ ra đúng tầng (gửi audio / transcript / 
 
 ---
 
-## 4. Các trạng thái biên (điều cần biết, không phải lỗi)
+## 4. Kiểm thử Mobile (React Native) — mobile ↔ web cùng phòng
+
+Phần này đưa conference trên app `apps/mobile` lên ngang web: video, dịch realtime
+(phụ đề + audio TTS) và chat dịch theo từng người nhận. Toàn bộ chạy với cùng stack
+`pnpm dev:all` ở trên — mobile chỉ là một client thứ hai của cùng API.
+
+### 4.1 Điều kiện riêng của mobile
+
+- **Phải build dev client** — app có native module (`react-native-webrtc`,
+  `react-native-audio-api`). **Expo Go KHÔNG chạy được**. Lần đầu phải build native.
+- Đã điền `apps/mobile/.env` theo §1 (`EXPO_PUBLIC_API_BASE_URL` đúng cổng 3000 và
+  `EXPO_PUBLIC_BENCH_*`).
+- Stack API/web/sidecar đang chạy (`pnpm dev:all`).
+- Tài khoản bench đã tồn tại (tạo bằng `node apps/api/scripts/create-bench-user.cjs`
+  nếu chưa có).
+
+### 4.2 Build và mở app
+
+```bash
+# Build + cài dev client lên emulator/thiết bị (lần đầu mất vài phút vì build native).
+pnpm --filter mobile android      # hoặc: pnpm --filter mobile ios
+```
+
+Khi app mở, vào màn hình **Conference** → lobby hội nghị.
+
+### 4.3 Các bước demo (mobile là người thứ hai)
+
+1. **Trên web (Profile A, Tiếng Việt)** — tạo phòng ở `http://localhost:3001/conference`,
+   copy mã phòng (`/conference/<roomId>`).
+2. **Trên mobile** — mở Conference → nhập tên (ví dụ "Minh"), **dán mã phòng**, chọn
+   **English** → bấm **Start**.
+3. Khi hệ điều hành hỏi, **cấp quyền camera + mic**. Mobile vào cùng phòng với web.
+
+### 4.4 Checklist — test gì và thế nào là ổn
+
+Giống web, mỗi dòng là thứ phải tận mắt thấy / tai nghe trên thiết bị. Tích `[x]` khi đạt.
+
+**Video (Phase 1)**
+
+- [ ] Mobile vào được phòng web tạo; **hai bên thấy video của nhau** (RTCView hiện hình)
+      và nghe giọng gốc. OK = hình chạy hai chiều, không tile trùng, không crash.
+- [ ] Trên mobile bấm **mic** → bên web thấy icon tắt mic trong roster; bấm **camera** →
+      tile mobile tối đi ở cả hai bên; bật lại thì khôi phục.
+- [ ] Bấm **Leave** → mobile về lobby; grid bên web bỏ tile của mobile; **đèn camera của
+      thiết bị tắt** (teardown đã nhả mic/cam).
+
+**Dịch audio (Phase 2) — RỦI RO SỐ 1: tranh chấp mic**
+
+- [ ] Nói **tiếng Anh** trên mobile → web (Tiếng Việt) thấy **phụ đề Anh→Việt** và nghe
+      tiếng Việt. ⚠ Đây là chỗ dễ fail nhất: `react-native-webrtc` đang giữ mic cho cuộc
+      gọi, còn recorder `react-native-audio-api` là consumer mic **thứ hai**. OK = vừa
+      giữ được tiếng gọi gốc **vừa** có transcript hiện bên web. FAIL điển hình = recorder
+      không mở được, hoặc cuộc gọi mất tiếng khi bắt đầu dịch → cần dùng fallback "tap
+      thẳng webrtc audio track" (đã ghi trong report Phase 2), không phải lỗi logic.
+- [ ] Web nói **tiếng Việt** → mobile thấy phụ đề Việt→Anh và **nghe tiếng Anh phát ra
+      loa mobile**, đúng thứ tự, không chồng tiếng. OK = audio TTS rõ và tuần tự.
+
+**UX dịch (Phase 3)**
+
+- [ ] Khi bạn nói trên mobile, tile của chính bạn hiện badge **"đang dịch…"** rồi tự tắt
+      khi phụ đề final về (hoặc hết timeout) — không bao giờ kẹt.
+- [ ] Phụ đề hiện trên tile người đang nói; mở **transcript sheet** thấy các lượt tích lũy.
+- [ ] **Language picker** hiển thị đúng ngôn ngữ đã chọn. Lưu ý: hiện là **readout khóa**
+      trong lúc gọi (màn hình tự join khi mở) — muốn đổi ngôn ngữ phải chọn ở lobby TRƯỚC
+      khi join. OK = picker phản ánh đúng ngôn ngữ, không cho đổi giữa cuộc.
+
+**Chat dịch per-recipient (Phase 4)**
+
+- [ ] Mở panel **chat**, gửi tin từ mobile → web nhận tin **đã dịch sang ngôn ngữ của
+      web**; web gửi → mobile nhận **đã dịch sang ngôn ngữ mobile**. Tin của chính mình
+      hiện ngay (echo). OK = mỗi bên đọc tin bằng ngôn ngữ của mình; Leave là nút nhấn
+      màu duy nhất, chat chỉ là panel phụ.
+
+> Dịch chat do **server** làm (gateway dịch cho từng người nhận) — client chỉ gửi
+> `conference.chat` và hiển thị. Nếu một chiều không dịch, kiểm `GEMINI_API_KEY` như web.
+
+### 4.5 Xử lý sự cố mobile
+
+| Triệu chứng                               | Nguyên nhân thường gặp                                                                                                                 |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Join thất bại ngay / không kết nối WS     | `EXPO_PUBLIC_API_BASE_URL` sai cổng (phải **3000**) hoặc sai host (emulator dùng `10.0.2.2`, thiết bị thật dùng IP LAN của máy host).  |
+| Vào là báo `not-authenticated`            | Thiếu `EXPO_PUBLIC_BENCH_*` hoặc tài khoản bench chưa tồn tại → chạy `create-bench-user.cjs`.                                          |
+| App không build / native module lỗi       | Đang dùng Expo Go — phải build **dev client** (`expo run:android`/`ios`).                                                              |
+| Có video nhưng bật dịch thì mất tiếng gọi | Tranh chấp mic (rủi ro #1) — xác nhận bằng cách tắt dịch; nếu call có tiếng lại thì đúng là contention, cần fallback tap webrtc track. |
+
+---
+
+## 5. Các trạng thái biên (điều cần biết, không phải lỗi)
 
 | Tình huống                                  | UI hiển thị                                                               |
 | ------------------------------------------- | ------------------------------------------------------------------------- |
@@ -170,19 +276,19 @@ lượt nói đó — chúng chỉ ra đúng tầng (gửi audio / transcript / 
 
 ---
 
-## 5. Rủi ro demo đã biết (nói thẳng)
+## 6. Rủi ro demo đã biết (nói thẳng)
 
-| Rủi ro                                  | Tác động                                | Ghi chú                                                                                                                                          |
-| --------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Chỉ một máy / loopback**              | Khách từ xa không vào được              | Media qua mạng (TURN/STUN, UDP 40000–49999) **chưa test** (Issue #208). Demo trên cùng một máy.                                                  |
-| **Mobile chưa test trên thiết bị thật** | —                                       | Test mobile thiết bị thật đang treo (Issue #210). Demo trên trình duyệt web thôi.                                                                |
-| **Tải dịch nhiều người nói đồng thời**  | Dịch xếp hàng khi 3+ người nói cùng lúc | Mặc định `MAX_CONCURRENT_TURNS_GLOBAL` (6) chạm trần ở 3 người × 2 job. Tăng lên 12 theo §1. Chưa load-test chính thức khi đã tăng hết các trần. |
-| **Độ trễ dịch ~6 giây (phiên nóng)**    | Người xem có thể thấy trễ               | Đo được: ~6 giây khi nóng (T1→T2 trên stack local). Cho người nói dùng câu ngắn, ngắt quãng. Dẫn dắt bằng phụ đề — nó hiện trước tiếng.          |
-| **Phạt câu đầu khi phiên nguội**        | Lần dịch đầu mất ~9 giây                | Model STT đệm ~2–3 giây audio trước khi ra transcript ở phiên nguội. "Làm nóng" mỗi profile bằng một câu bỏ đi trước khi demo thật.              |
+| Rủi ro                                               | Tác động                                | Ghi chú                                                                                                                                                                                                                                          |
+| ---------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Chỉ một máy / loopback**                           | Khách từ xa không vào được              | Media qua mạng (TURN/STUN, UDP 40000–49999) **chưa test** (Issue #208). Demo trên cùng một máy.                                                                                                                                                  |
+| **Mobile đã code đủ nhưng CHƯA smoke trên thiết bị** | Có thể fail đúng lúc demo mobile        | Cả 4 phase (video, dịch audio, UX, chat) đã làm và qua static check (typecheck/lint), **chưa chạy runtime** vì cần dev-client build + 2 thiết bị. Chạy §4 trước khi tin. Rủi ro cao nhất: tranh chấp mic giữa `react-native-webrtc` và recorder. |
+| **Tải dịch nhiều người nói đồng thời**               | Dịch xếp hàng khi 3+ người nói cùng lúc | Mặc định `MAX_CONCURRENT_TURNS_GLOBAL` (6) chạm trần ở 3 người × 2 job. Tăng lên 12 theo §1. Chưa load-test chính thức khi đã tăng hết các trần.                                                                                                 |
+| **Độ trễ dịch ~6 giây (phiên nóng)**                 | Người xem có thể thấy trễ               | Đo được: ~6 giây khi nóng (T1→T2 trên stack local). Cho người nói dùng câu ngắn, ngắt quãng. Dẫn dắt bằng phụ đề — nó hiện trước tiếng.                                                                                                          |
+| **Phạt câu đầu khi phiên nguội**                     | Lần dịch đầu mất ~9 giây                | Model STT đệm ~2–3 giây audio trước khi ra transcript ở phiên nguội. "Làm nóng" mỗi profile bằng một câu bỏ đi trước khi demo thật.                                                                                                              |
 
 ---
 
-## 6. Reset giữa các lần chạy
+## 7. Reset giữa các lần chạy
 
 ```bash
 # Dừng tất cả (Postgres, Redis, sidecar, API, web)
@@ -207,7 +313,7 @@ pnpm dev:all
 
 ---
 
-## 7. Xử lý sự cố
+## 8. Xử lý sự cố
 
 **Báo "Application is running" nhưng `/health` trả 500**  
 Kiểm tra `AUTH_JWT_SECRET` và `GEMINI_API_KEY` đã đặt trong `apps/api/.env`.
