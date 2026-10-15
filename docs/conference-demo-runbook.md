@@ -2,7 +2,7 @@
 
 **Branch:** `video-conferencing`  
 **Target:** thesis demo on one host / loopback (single machine, same browser, multiple profiles)  
-**Last verified:** 2026-10-13
+**Last verified:** 2026-10-15
 
 ---
 
@@ -37,6 +37,26 @@ AUTH_SECRET=<32-byte base-64 string>
 
 # Points the web app at the local API WebSocket
 NEXT_PUBLIC_API_WS_URL=ws://localhost:3000
+```
+
+### Mobile environment file (only when testing the React Native app)
+
+`apps/mobile/.env` must have:
+
+```bash
+# API address the device/emulator calls (the API is on port 3000, NOT web's 3001).
+#   - Android emulator: the in-code default is already http://10.0.2.2:3000
+#     (10.0.2.2 maps to the host machine's localhost) — no need to set it.
+#   - Real device: you MUST set the host machine's LAN IP, e.g. http://192.168.1.50:3000
+EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:3000
+
+# Mobile auth is still a stub (no real sign-in yet), so the conference socket gets its
+# token by logging in as a registered "bench" account. The /ws/conference gateway DOES
+# validate the token, so it cannot be skipped. Use a registered account, or create a
+# bench account quickly:
+#   node apps/api/scripts/create-bench-user.cjs   # creates bench@dev.local / Benchmark123!
+EXPO_PUBLIC_BENCH_EMAIL=bench@dev.local
+EXPO_PUBLIC_BENCH_PASSWORD=Benchmark123!
 ```
 
 ### Accounts
@@ -158,7 +178,97 @@ turn — they pinpoint which stage (audio sent / transcript / subtitle / TTS fra
 
 ---
 
-## 4. Edge-case states (what to expect, not errors)
+## 4. Mobile testing (React Native) — mobile ↔ web in the same room
+
+This brings the conference on the `apps/mobile` app to parity with web: video, realtime
+translation (subtitles + TTS audio), and per-recipient translated chat. It all runs against
+the same `pnpm dev:all` stack above — mobile is just a second client of the same API.
+
+### 4.1 Mobile-specific prerequisites
+
+- **You must build a dev client** — the app has native modules (`react-native-webrtc`,
+  `react-native-audio-api`). **Expo Go will NOT work.** The first run has to build native.
+- `apps/mobile/.env` filled per §1 (`EXPO_PUBLIC_API_BASE_URL` on port 3000 and
+  `EXPO_PUBLIC_BENCH_*`).
+- The API/web/sidecar stack is running (`pnpm dev:all`).
+- A bench account exists (create with `node apps/api/scripts/create-bench-user.cjs` if not).
+
+### 4.2 Build and open the app
+
+```bash
+# Build + install the dev client onto an emulator/device (first run takes a few minutes
+# because it builds native).
+pnpm --filter mobile android      # or: pnpm --filter mobile ios
+```
+
+When the app opens, go to the **Conference** screen → the conference lobby.
+
+### 4.3 Demo steps (mobile joins as the second participant)
+
+1. **On web (Profile A, Tiếng Việt)** — create a room at `http://localhost:3001/conference`,
+   copy the room ID (`/conference/<roomId>`).
+2. **On mobile** — open Conference → enter a name (e.g. "Minh"), **paste the room ID**, pick
+   **English** → tap **Start**.
+3. When the OS prompts, **grant camera + mic**. Mobile joins the same room as web.
+
+### 4.4 Checklist — what to test and what "OK" looks like
+
+Like web, each line is something to see/hear on the device. Tick `[x]` when it passes.
+
+**Video (Phase 1)**
+
+- [ ] Mobile joins the web-created room; **both sides see each other's video** (RTCView renders)
+      and hear raw voice. OK = video flows both ways, no duplicate tiles, no crash.
+- [ ] On mobile tap **mic** → web's roster shows the muted icon; tap **camera** → the mobile
+      tile darkens on both sides; tapping again restores.
+- [ ] Tap **Leave** → mobile returns to the lobby; web's grid drops the mobile tile; **the
+      device camera light goes off** (teardown released mic/cam).
+
+**Translation audio (Phase 2) — TOP RUNTIME RISK: mic contention**
+
+- [ ] Speak **English** on mobile → web (Tiếng Việt) sees an **English→Vietnamese subtitle**
+      and hears Vietnamese. ⚠ This is the most likely thing to fail: `react-native-webrtc`
+      holds the mic for the call, while the `react-native-audio-api` recorder is a **second**
+      mic consumer. OK = the raw call audio is kept **and** a transcript shows on web. A typical
+      FAIL = the recorder cannot open, or the call loses audio when translation starts → use the
+      "tap the webrtc audio track directly" fallback (documented in the Phase 2 report), not a
+      logic bug.
+- [ ] Web speaks **Vietnamese** → mobile sees a Vietnamese→English subtitle and **hears English
+      from the mobile speaker**, in order, no overlap. OK = TTS audio is clear and sequential.
+
+**Translation UX (Phase 3)**
+
+- [ ] While you speak on mobile, your own tile shows a **"translating…"** badge, then clears
+      when the final subtitle lands (or after a timeout) — never stuck.
+- [ ] Subtitles render on the active speaker's tile; opening the **transcript sheet** shows the
+      turns accumulating.
+- [ ] The **language picker** shows the chosen language correctly. Note: it is a **locked
+      readout** during a call (the screen auto-joins on open) — to change language, pick it in
+      the lobby BEFORE joining. OK = the picker reflects the right language, no mid-call change.
+
+**Per-recipient translated chat (Phase 4)**
+
+- [ ] Open the **chat** panel, send from mobile → web receives the message **translated into
+      web's language**; web sends → mobile receives it **translated into mobile's language**.
+      Your own message shows immediately (echo). OK = each side reads messages in its own
+      language; Leave stays the single accent control, chat is a secondary panel.
+
+> Chat translation is done on the **server** (the gateway translates per recipient) — the client
+> only sends `conference.chat` and renders. If one direction does not translate, check
+> `GEMINI_API_KEY` as for web.
+
+### 4.5 Mobile troubleshooting
+
+| Symptom                                               | Common cause                                                                                                                                             |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Join fails immediately / no WS connection             | `EXPO_PUBLIC_API_BASE_URL` wrong port (must be **3000**) or wrong host (emulator uses `10.0.2.2`, a real device uses the host machine's LAN IP).         |
+| Joins straight to `not-authenticated`                 | Missing `EXPO_PUBLIC_BENCH_*` or the bench account does not exist → run `create-bench-user.cjs`.                                                         |
+| App won't build / native module error                 | Running Expo Go — you must build a **dev client** (`expo run:android`/`ios`).                                                                            |
+| Video works but enabling translation kills call audio | Mic contention (top risk) — confirm by turning translation off; if the call regains audio it is contention, and the webrtc-track-tap fallback is needed. |
+
+---
+
+## 5. Edge-case states (what to expect, not errors)
 
 | Situation                                | What the UI shows                                                    |
 | ---------------------------------------- | -------------------------------------------------------------------- |
@@ -169,19 +279,19 @@ turn — they pinpoint which stage (audio sent / transcript / subtitle / TTS fra
 
 ---
 
-## 5. Known demo risks (stated plainly)
+## 6. Known demo risks (stated plainly)
 
-| Risk                                          | Impact                                         | Note                                                                                                                                                                |
-| --------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **One-host / loopback only**                  | A remote guest cannot join                     | Cross-network media (TURN/STUN, UDP 40000–49999) is **untested** (Issue #208). Demo on the same machine.                                                            |
-| **Mobile untested on real device**            | —                                              | Mobile real-device test is pending (Issue #210). Demo on web browser only.                                                                                          |
-| **Multi-speaker concurrent translation load** | Translation queues at 3+ simultaneous speakers | `MAX_CONCURRENT_TURNS_GLOBAL` default (6) saturates at 3 speakers × 2 jobs each. Raise to 12 per §1 above. Not formally load-tested with all caps raised.           |
-| **~6 s warm translation latency**             | Audience may notice the delay                  | Measured: ~6 s warm (T1→T2 on a local stack). Script speakers to use short turns and pause between them. Lead with the subtitle — it appears before the audio.      |
-| **Cold-session first-utterance penalty**      | First translation takes ~9 s                   | The STT model buffers ~2–3 s of audio before emitting a transcript on a cold session. Warm up each profile by speaking one throwaway sentence before the live demo. |
+| Risk                                                    | Impact                                         | Note                                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **One-host / loopback only**                            | A remote guest cannot join                     | Cross-network media (TURN/STUN, UDP 40000–49999) is **untested** (Issue #208). Demo on the same machine.                                                                                                                                                                                            |
+| **Mobile fully coded but NOT smoke-tested on a device** | May fail right at the mobile demo              | All four phases (video, translation audio, UX, chat) are implemented and pass static checks (typecheck/lint), but have **not been run at runtime** — that needs a dev-client build + 2 devices. Run §4 before trusting it. Top risk: mic contention between `react-native-webrtc` and the recorder. |
+| **Multi-speaker concurrent translation load**           | Translation queues at 3+ simultaneous speakers | `MAX_CONCURRENT_TURNS_GLOBAL` default (6) saturates at 3 speakers × 2 jobs each. Raise to 12 per §1 above. Not formally load-tested with all caps raised.                                                                                                                                           |
+| **~6 s warm translation latency**                       | Audience may notice the delay                  | Measured: ~6 s warm (T1→T2 on a local stack). Script speakers to use short turns and pause between them. Lead with the subtitle — it appears before the audio.                                                                                                                                      |
+| **Cold-session first-utterance penalty**                | First translation takes ~9 s                   | The STT model buffers ~2–3 s of audio before emitting a transcript on a cold session. Warm up each profile by speaking one throwaway sentence before the live demo.                                                                                                                                 |
 
 ---
 
-## 6. Reset between runs
+## 7. Reset between runs
 
 ```bash
 # Stop everything (Postgres, Redis, sidecars, API, web)
@@ -206,7 +316,7 @@ pnpm dev:all
 
 ---
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 **"Application is running" but `/health` returns 500**  
 Check `AUTH_JWT_SECRET` and `GEMINI_API_KEY` are set in `apps/api/.env`.

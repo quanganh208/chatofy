@@ -46,10 +46,10 @@ NEXT_PUBLIC_API_WS_URL=ws://localhost:3000
 `apps/mobile/.env` phải có:
 
 ```bash
-# Địa chỉ API mà thiết bị/emulator gọi tới. BẮT BUỘC đặt rõ — mặc định trong code
-# đang trỏ sai CỔNG (3001 là web; /ws/conference và /auth/login nằm trên API = 3000).
-#   - Emulator Android: 10.0.2.2 ánh xạ về localhost của máy host.
-#   - Thiết bị thật: thay bằng IP LAN của máy chạy stack, ví dụ http://192.168.1.50:3000
+# Địa chỉ API mà thiết bị/emulator gọi tới (API ở cổng 3000, KHÔNG phải 3001 của web).
+#   - Emulator Android: mặc định trong code đã là http://10.0.2.2:3000
+#     (10.0.2.2 ánh xạ về localhost của máy host) — không cần đặt.
+#   - Thiết bị thật: BẮT BUỘC đặt IP LAN của máy chạy stack, ví dụ http://192.168.1.50:3000
 EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:3000
 
 # Auth mobile còn là stub (chưa có đăng nhập thật), nên socket hội nghị lấy token
