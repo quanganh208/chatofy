@@ -27,7 +27,7 @@ import { ConferencePocCallView } from './conference-poc-call-view';
 // MUST be called once at module level before any Device instantiation.
 registerGlobals();
 
-const API_BASE = process.env['EXPO_PUBLIC_API_BASE_URL'] ?? 'http://10.0.2.2:3001';
+const API_BASE = process.env['EXPO_PUBLIC_API_BASE_URL'] ?? 'http://10.0.2.2:3000';
 const WS_URL = API_BASE.replace(/^http/, 'ws') + '/ws/conference';
 
 async function fetchAuthToken(): Promise<string> {

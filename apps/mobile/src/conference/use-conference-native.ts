@@ -34,7 +34,7 @@ registerGlobals();
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-const API_BASE = process.env['EXPO_PUBLIC_API_BASE_URL'] ?? 'http://10.0.2.2:3001';
+const API_BASE = process.env['EXPO_PUBLIC_API_BASE_URL'] ?? 'http://10.0.2.2:3000';
 const WS_BASE = API_BASE.replace(/^http/, 'ws');
 const WS_URL = WS_BASE + '/ws/conference';
 /** Second socket for live translation, opened by the translate bridge on join. */

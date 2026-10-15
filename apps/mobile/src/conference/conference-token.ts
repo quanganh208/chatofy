@@ -12,7 +12,7 @@
  * token source exists, swap this one function's body and nothing else changes.
  */
 
-const API_BASE = process.env['EXPO_PUBLIC_API_BASE_URL'] ?? 'http://10.0.2.2:3001';
+const API_BASE = process.env['EXPO_PUBLIC_API_BASE_URL'] ?? 'http://10.0.2.2:3000';
 
 /**
  * Resolve an access token for the conference socket.
