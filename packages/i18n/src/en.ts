@@ -715,6 +715,13 @@ export const en = {
   'mobile.conference.showTranscript': 'Show transcript',
   'mobile.conference.hideTranscript': 'Hide transcript',
   'mobile.conference.transcriptEmpty': 'Nothing has been said yet.',
+  // ---- mobile.conference: in-meeting chat (translated per recipient) ----
+  'mobile.conference.chat': 'Chat',
+  'mobile.conference.showChat': 'Show chat',
+  'mobile.conference.hideChat': 'Hide chat',
+  'mobile.conference.chatPlaceholder': 'Type a message…',
+  'mobile.conference.chatSend': 'Send',
+  'mobile.conference.chatEmpty': 'No messages yet.',
 } as const;
 
 /** Every key any locale must carry. Derived, so a locale cannot drift from it. */

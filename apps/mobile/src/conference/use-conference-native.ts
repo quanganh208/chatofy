@@ -42,6 +42,8 @@ const TRANSLATE_WS_URL = WS_BASE + '/ws/translate';
 
 /** Maximum number of automatic reconnect attempts before giving up. */
 const RECONNECT_CAP = 3;
+/** Max chat messages retained per meeting (ephemeral, bounded). Same as web. */
+const CHAT_MESSAGE_CAP = 200;
 /** Backoff delays (ms) indexed by attempt number (0-based). */
 const RECONNECT_BACKOFF_MS = [1000, 2000, 4000] as const;
 
@@ -91,9 +93,12 @@ export interface UseConferenceReturn {
   toggleVideo: () => void;
   /** No-op on RN (no autoplay gate); kept for contract parity with web. */
   resumeAudio: () => Promise<void>;
-  /** Phase 4 stub — always empty until in-meeting chat lands. */
+  /**
+   * In-meeting chat messages in arrival order, each already in this client's
+   * chosen language. Bounded to the last {@link CHAT_MESSAGE_CAP} for the meeting.
+   */
   messages: ConferenceChatMessage[];
-  /** Phase 4 stub — no-op until in-meeting chat lands. */
+  /** Send a chat message. No-op for blank/whitespace-only text or a closed socket. */
   sendChat: (text: string) => void;
 }
 
@@ -201,6 +206,8 @@ export function useConferenceNative(
   const [localVideoEnabled, setLocalVideoEnabled] = useState(true);
   const [localTranslating, setLocalTranslating] = useState(false);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
+  // In-meeting chat: bounded message list, each already in this client's language.
+  const [messages, setMessages] = useState<ConferenceChatMessage[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
   /** Ordered per-speaker TTS playback sink; created on join, closed on leave. */
@@ -475,6 +482,21 @@ export function useConferenceNative(
               payload: string;
             };
             audioSinkRef.current?.push(d.speakerSocketId, d.sequence, d.sampleRate, d.payload);
+            return;
+          }
+
+          // In-meeting chat. The gateway translates one sent message per
+          // recipient and echoes the original to the sender; `text` here is
+          // already in this client's language. Append bounded, same as web.
+          if (msg.event === 'conference.chat.message') {
+            const d = msg.data as ConferenceChatMessage & { error?: string };
+            if (d.error) return;
+            setMessages((prev) => {
+              const next = [...prev, d];
+              return next.length > CHAT_MESSAGE_CAP
+                ? next.slice(next.length - CHAT_MESSAGE_CAP)
+                : next;
+            });
           }
         });
 
@@ -612,6 +634,7 @@ export function useConferenceNative(
       return new Map();
     });
     setMySocketId(null);
+    setMessages([]);
     setErrorReason(undefined);
     setStatus('idle');
   }, []);
@@ -642,8 +665,16 @@ export function useConferenceNative(
   const resumeAudio = useCallback(async () => {
     /* No-op on RN: no autoplay gate to release. */
   }, []);
-  const sendChat = useCallback((_text: string) => {
-    /* Phase 4: in-meeting chat. */
+  /**
+   * Send an in-meeting chat message. The gateway translates it per recipient
+   * and echoes the original back, which arrives via `conference.chat.message`.
+   * No-op for blank text or a closed socket.
+   */
+  const sendChat = useCallback((text: string) => {
+    if (!text.trim()) return;
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      send(wsRef.current, 'conference.chat', { text });
+    }
   }, []);
 
   // Close on unmount so a backgrounded/killed screen never leaks a socket,
@@ -678,7 +709,7 @@ export function useConferenceNative(
     toggleMute,
     toggleVideo,
     resumeAudio,
-    messages: [],
+    messages,
     sendChat,
   };
 }

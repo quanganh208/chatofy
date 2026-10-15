@@ -517,4 +517,11 @@ export const vi: Messages = {
   'mobile.conference.showTranscript': 'Hiện bản ghi',
   'mobile.conference.hideTranscript': 'Ẩn bản ghi',
   'mobile.conference.transcriptEmpty': 'Chưa có ai nói gì.',
+  // ---- mobile.conference: in-meeting chat (translated per recipient) ----
+  'mobile.conference.chat': 'Trò chuyện',
+  'mobile.conference.showChat': 'Hiện trò chuyện',
+  'mobile.conference.hideChat': 'Ẩn trò chuyện',
+  'mobile.conference.chatPlaceholder': 'Nhập tin nhắn…',
+  'mobile.conference.chatSend': 'Gửi',
+  'mobile.conference.chatEmpty': 'Chưa có tin nhắn nào.',
 };

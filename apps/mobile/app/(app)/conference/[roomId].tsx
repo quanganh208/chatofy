@@ -21,6 +21,7 @@ import { VideoGrid } from '@/components/conference/video-grid';
 import { CallControlBar } from '@/components/conference/call-control-bar';
 import { ParticipantSheet } from '@/components/conference/participant-sheet';
 import { TranscriptSheet, type TranscriptEntry } from '@/components/conference/transcript-sheet';
+import { ChatPanel } from '@/components/conference/chat-panel';
 import { LanguagePicker, type SourceLanguage } from '@/components/conference/language-picker';
 import { getConferenceToken } from '@/conference/conference-token';
 
@@ -92,6 +93,7 @@ export default function ConferenceCallScreen() {
 
   const [sheetVisible, setSheetVisible] = useState(false);
   const [transcriptVisible, setTranscriptVisible] = useState(false);
+  const [chatVisible, setChatVisible] = useState(false);
   const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>(initialLang);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const joinedRef = useRef(false);
@@ -117,10 +119,13 @@ export default function ConferenceCallScreen() {
     localTranslating,
     reconnectAttempt,
     reconnectCap,
+    mySocketId,
+    messages,
     join,
     leave,
     toggleMute,
     toggleVideo,
+    sendChat,
   } = conference;
 
   // Join once on mount. leave() runs on unmount via the cleanup below.
@@ -247,16 +252,29 @@ export default function ConferenceCallScreen() {
         onLeave={onLeave}
       />
 
-      <TouchableOpacity
-        style={[styles.transcriptButton, { borderColor: colors.border }]}
-        onPress={() => setTranscriptVisible(true)}
-        activeOpacity={0.7}
-        accessibilityRole="button"
-      >
-        <Text style={[styles.transcriptButtonText, { color: colors.text }]}>
-          {t('mobile.conference.showTranscript')}
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.sheetButtons}>
+        <TouchableOpacity
+          style={[styles.sheetButton, { borderColor: colors.border }]}
+          onPress={() => setTranscriptVisible(true)}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.sheetButtonText, { color: colors.text }]}>
+            {t('mobile.conference.showTranscript')}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.sheetButton, { borderColor: colors.border }]}
+          onPress={() => setChatVisible(true)}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.sheetButtonText, { color: colors.text }]}>
+            {t('mobile.conference.showChat')}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <ParticipantSheet
         t={t}
@@ -273,6 +291,15 @@ export default function ConferenceCallScreen() {
         visible={transcriptVisible}
         entries={transcript}
         onClose={() => setTranscriptVisible(false)}
+      />
+
+      <ChatPanel
+        t={t}
+        visible={chatVisible}
+        messages={messages}
+        mySocketId={mySocketId}
+        onSend={sendChat}
+        onClose={() => setChatVisible(false)}
       />
     </SafeAreaView>
   );
@@ -299,15 +326,20 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     gap: space.md,
   },
-  transcriptButton: {
+  sheetButtons: {
+    flexDirection: 'row',
+    gap: space.sm,
     marginHorizontal: space.md,
     marginBottom: space.sm,
+  },
+  sheetButton: {
+    flex: 1,
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingVertical: space.sm,
     alignItems: 'center',
   },
-  transcriptButtonText: {
+  sheetButtonText: {
     fontSize: fontSize.base,
     fontWeight: fontWeight.medium,
   },
