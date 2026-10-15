@@ -16,6 +16,10 @@ interface VideoGridProps {
   localMuted: boolean;
   localVideoEnabled: boolean;
   peers: Map<string, PeerState>;
+  /** Show the `translating…` badge on the local tile ([T1]→[T2] window). */
+  localTranslating?: boolean;
+  /** Localised badge text shown while `localTranslating` is true. */
+  translatingLabel?: string;
 }
 
 export function VideoGrid({
@@ -24,6 +28,8 @@ export function VideoGrid({
   localMuted,
   localVideoEnabled,
   peers,
+  localTranslating = false,
+  translatingLabel = '',
 }: VideoGridProps) {
   const peerEntries = [...peers.entries()];
   // One tile alone spans the row; two or more share it half-and-half.
@@ -39,6 +45,8 @@ export function VideoGrid({
           mirror
           muted={localMuted}
           videoEnabled={localVideoEnabled}
+          translating={localTranslating}
+          translatingLabel={translatingLabel}
         />
       </View>
       {peerEntries.map(([socketId, peer]) => (
@@ -48,6 +56,7 @@ export function VideoGrid({
             label={peer.displayName}
             muted={peer.muted}
             videoEnabled={peer.videoEnabled}
+            subtitle={peer.subtitle}
           />
         </View>
       ))}

@@ -704,6 +704,17 @@ export const en = {
   'mobile.conference.disconnectedHint': 'The call ended. Return to the lobby to rejoin.',
   'mobile.conference.backToLobby': 'Back to lobby',
   'mobile.conference.errorGeneric': 'Something went wrong.',
+  // ---- mobile.conference: translation UX (subtitles, transcript, language) ----
+  'mobile.conference.translating': 'Translating…',
+  'mobile.conference.sourceLanguage': 'Your language',
+  'mobile.conference.sourceLanguageVi': 'Tiếng Việt',
+  'mobile.conference.sourceLanguageEn': 'English',
+  // The picker only takes effect before joining; once in the call it is a readout.
+  'mobile.conference.sourceLanguageLocked': 'Language is fixed for this call.',
+  'mobile.conference.transcript': 'Transcript',
+  'mobile.conference.showTranscript': 'Show transcript',
+  'mobile.conference.hideTranscript': 'Hide transcript',
+  'mobile.conference.transcriptEmpty': 'Nothing has been said yet.',
 } as const;
 
 /** Every key any locale must carry. Derived, so a locale cannot drift from it. */

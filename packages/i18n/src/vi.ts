@@ -507,4 +507,14 @@ export const vi: Messages = {
   'mobile.conference.disconnectedHint': 'Cuộc gọi đã kết thúc. Quay lại sảnh để tham gia lại.',
   'mobile.conference.backToLobby': 'Về sảnh',
   'mobile.conference.errorGeneric': 'Đã xảy ra lỗi.',
+  // ---- mobile.conference: giao diện dịch (phụ đề, bản ghi, ngôn ngữ) ----
+  'mobile.conference.translating': 'Đang dịch…',
+  'mobile.conference.sourceLanguage': 'Ngôn ngữ của bạn',
+  'mobile.conference.sourceLanguageVi': 'Tiếng Việt',
+  'mobile.conference.sourceLanguageEn': 'English',
+  'mobile.conference.sourceLanguageLocked': 'Ngôn ngữ đã cố định cho cuộc gọi này.',
+  'mobile.conference.transcript': 'Bản ghi',
+  'mobile.conference.showTranscript': 'Hiện bản ghi',
+  'mobile.conference.hideTranscript': 'Ẩn bản ghi',
+  'mobile.conference.transcriptEmpty': 'Chưa có ai nói gì.',
 };

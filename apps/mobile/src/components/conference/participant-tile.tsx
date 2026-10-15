@@ -6,8 +6,9 @@
 
 import { View, Text, StyleSheet } from 'react-native';
 import { RTCView, type MediaStream } from 'react-native-webrtc';
-import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
+import { space, radius, fontSize, fontWeight, overlay, color } from '@chatofy/ui';
 import { useTheme } from '@/providers/theme-provider';
+import { SubtitleOverlay } from './subtitle-overlay';
 
 interface ParticipantTileProps {
   stream: MediaStream;
@@ -16,6 +17,12 @@ interface ParticipantTileProps {
   mirror?: boolean;
   muted?: boolean;
   videoEnabled?: boolean;
+  /** Current translated caption for this tile; undefined when none is active. */
+  subtitle?: string;
+  /** Show the `translating…` badge on this tile (local tile only). */
+  translating?: boolean;
+  /** Localised badge text; required when `translating` is true. */
+  translatingLabel?: string;
 }
 
 export function ParticipantTile({
@@ -24,6 +31,9 @@ export function ParticipantTile({
   mirror = false,
   muted = false,
   videoEnabled = true,
+  subtitle,
+  translating = false,
+  translatingLabel = '',
 }: ParticipantTileProps) {
   const { colors } = useTheme();
 
@@ -41,6 +51,16 @@ export function ParticipantTile({
           <Text style={[styles.offText, { color: colors.textSecondary }]}>{label}</Text>
         </View>
       )}
+
+      {/* Translating badge — top-right readout, no accent fill. */}
+      {translating ? (
+        <View style={styles.badge} pointerEvents="none">
+          <Text style={styles.badgeText}>{translatingLabel}</Text>
+        </View>
+      ) : null}
+
+      {/* Subtitle overlay — bottom-center, above the name label. */}
+      <SubtitleOverlay subtitle={subtitle} />
 
       <View style={styles.overlay} pointerEvents="none">
         <Text style={[styles.label, { color: colors.text }]} numberOfLines={1}>
@@ -79,6 +99,20 @@ const styles = StyleSheet.create({
     gap: space.xs,
     paddingHorizontal: space.sm,
     paddingVertical: space.xs,
+  },
+  badge: {
+    position: 'absolute',
+    top: space.xs,
+    right: space.xs,
+    backgroundColor: overlay.bg,
+    borderRadius: radius.sm,
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xs,
+  },
+  badgeText: {
+    color: color.text,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
   },
   label: {
     flexShrink: 1,
