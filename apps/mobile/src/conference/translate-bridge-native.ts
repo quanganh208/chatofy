@@ -50,6 +50,12 @@ export interface TranslateBridgeDeps {
  */
 export interface TranslateBridge {
   stop: () => Promise<void>;
+  /**
+   * Pause/resume translation capture when the local mic is muted/unmuted. While
+   * paused no mic audio is captured or sent to /ws/translate, so a muted user is
+   * never transcribed or translated (privacy).
+   */
+  setPaused: (paused: boolean) => void;
 }
 
 /** UUID v4 without a browser `crypto.randomUUID` dependency (RN has no DOM crypto). */
@@ -91,6 +97,7 @@ export async function startTranslateBridge(deps: TranslateBridgeDeps): Promise<T
   const turnId = randomUuid();
   let seq = 0;
   let stopped = false;
+  let paused = false;
   let translatingTimeout: ReturnType<typeof setTimeout> | null = null;
 
   /** Clear `localTranslating` and cancel any pending safety timeout. */
@@ -161,7 +168,7 @@ export async function startTranslateBridge(deps: TranslateBridgeDeps): Promise<T
 
   // Begin capture. Each PCM16 frame → client.live.audio on the translate socket.
   await capture.start((bytes, _frameSeq) => {
-    if (stopped || translateWs.readyState !== WebSocket.OPEN) return;
+    if (stopped || paused || translateWs.readyState !== WebSocket.OPEN) return;
 
     if (seq === 0) {
       // [T1] start of a new turn: show the "translating…" badge with a safety
@@ -190,6 +197,18 @@ export async function startTranslateBridge(deps: TranslateBridgeDeps): Promise<T
   });
 
   return {
+    setPaused(next: boolean): void {
+      if (next === paused) return;
+      paused = next;
+      if (next) {
+        // Stop feeding STT/MT at the source and drop the badge — a muted user is
+        // not translating.
+        capture.pause();
+        clearTranslating();
+      } else {
+        capture.resume();
+      }
+    },
     async stop(): Promise<void> {
       if (stopped) return;
       stopped = true;

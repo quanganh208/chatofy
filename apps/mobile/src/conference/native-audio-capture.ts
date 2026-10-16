@@ -55,10 +55,26 @@ interface OnAudioReadyEvent {
 export class NativeAudioCapture implements AudioRecorder {
   private recorder: RNAudioRecorder | null = null;
   private recording = false;
+  private paused = false;
   private sequence = 0;
 
   get isRecording(): boolean {
     return this.recording;
+  }
+
+  /**
+   * Suspend/resume frame emission without tearing down the recorder. While paused
+   * the data callback drops every buffer, so no mic audio reaches STT/MT — this is
+   * what mute must do, since a muted WebRTC track alone leaves this recorder
+   * feeding the translation pipeline. Keeping the recorder alive makes unmute
+   * instant (no re-acquire of the mic / audio session).
+   */
+  pause(): void {
+    this.paused = true;
+  }
+
+  resume(): void {
+    this.paused = false;
   }
 
   async start(onFrame: AudioFrameCallback): Promise<void> {
@@ -89,7 +105,7 @@ export class NativeAudioCapture implements AudioRecorder {
         channelCount: 1,
       },
       (event: OnAudioReadyEvent) => {
-        if (!this.recording) return;
+        if (!this.recording || this.paused) return;
         const float32 = event.buffer.getChannelData(0);
         // Downsample from the buffer's ACTUAL rate (may differ from requested),
         // falling back to 16 kHz when the buffer reports no rate. When already

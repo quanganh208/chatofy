@@ -233,9 +233,14 @@ export function useConferenceNative(
       const next = new Map(prev);
       const entry = next.get(socketId);
       if (entry) {
-        // A peer already has a tile (e.g. audio arrived first); merge in the new track.
-        stream.getTracks().forEach((t) => entry.stream.addTrack(t));
-        next.set(socketId, { ...entry });
+        // A peer already has a tile (e.g. audio arrived first); merge in the new
+        // track. A NEW MediaStream is built from the combined tracks so its
+        // `toURL()` changes — adding a track to the existing stream in place keeps
+        // the same URL, so RTCView never re-attaches and video stays black.
+        const merged = new MediaStream();
+        entry.stream.getTracks().forEach((t) => merged.addTrack(t));
+        stream.getTracks().forEach((t) => merged.addTrack(t));
+        next.set(socketId, { ...entry, stream: merged });
       } else {
         next.set(socketId, {
           stream,
@@ -518,6 +523,9 @@ export function useConferenceNative(
               setLocalTranslating,
               log: (m) => console.log(m),
             });
+            // Carry the mute state across a reconnect: a user muted before the
+            // drop must not resume being transcribed on the fresh bridge.
+            if (localMutedRef.current) translateBridgeRef.current.setPaused(true);
           } catch (bridgeErr) {
             // A capture failure (e.g. mic contention with webrtc) must not drop
             // the video call — the call stays up, translation just doesn't start.
@@ -644,6 +652,9 @@ export function useConferenceNative(
     localMutedRef.current = nextMuted;
     setLocalMuted(nextMuted);
     localStreamRef.current?.getAudioTracks().forEach((t) => (t.enabled = !nextMuted));
+    // Mute must also stop the translation recorder, not just the WebRTC track —
+    // otherwise a muted user is still transcribed and translated (privacy).
+    translateBridgeRef.current?.setPaused(nextMuted);
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       send(wsRef.current, 'conference.participant.mute', { muted: nextMuted });
     }

@@ -20,6 +20,7 @@ import { registerGlobals, mediaDevices, RTCView, MediaStream } from 'react-nativ
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import { createTranslator, en } from '@chatofy/i18n';
 import { useTheme } from '@/providers/theme-provider';
+import { LanguagePicker, type SourceLanguage } from '@/components/conference/language-picker';
 
 registerGlobals();
 
@@ -32,6 +33,9 @@ export default function ConferenceLobbyScreen() {
 
   const [roomId, setRoomId] = useState('poc');
   const [displayName, setDisplayName] = useState('mobile-user');
+  // The call screen reads `sourceLanguage` only at join, so it is chosen here in
+  // the lobby and passed through as `lang`. Defaults to Vietnamese.
+  const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>('vi');
   const [preview, setPreview] = useState<MediaStream | null>(null);
   const previewRef = useRef<MediaStream | null>(null);
 
@@ -77,9 +81,9 @@ export default function ConferenceLobbyScreen() {
     setPreview(null);
     router.push({
       pathname: '/(app)/conference/[roomId]',
-      params: { roomId: room, displayName: name },
+      params: { roomId: room, displayName: name, lang: sourceLanguage },
     });
-  }, [roomId, displayName, router]);
+  }, [roomId, displayName, sourceLanguage, router]);
 
   const canStart = roomId.trim().length > 0 && displayName.trim().length > 0;
 
@@ -132,6 +136,8 @@ export default function ConferenceLobbyScreen() {
           autoCapitalize="none"
         />
       </View>
+
+      <LanguagePicker t={t} value={sourceLanguage} onChange={setSourceLanguage} locked={false} />
 
       <TouchableOpacity
         style={[styles.start, { backgroundColor: canStart ? colors.primary : colors.border }]}
