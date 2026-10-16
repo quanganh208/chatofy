@@ -22,7 +22,7 @@ import { Device } from 'mediasoup-client';
 import type { types } from 'mediasoup-client';
 import { WS_SUBPROTOCOL } from '@chatofy/types/events';
 import { toMediasoupTrack, toNativeTrack } from '@/conference/native-media-adapter';
-import { ConferencePocCallView } from './conference-poc-call-view';
+import { ConferencePocCallView } from '@/components/conference/conference-poc-call-view';
 
 // MUST be called once at module level before any Device instantiation.
 registerGlobals();

@@ -16,6 +16,7 @@
     "@chatofy/types": "workspace:*",
     "@chatofy/ui": "workspace:*",
     "@config-plugins/react-native-webrtc": "14.0.0",
+    "@expo/vector-icons": "15.1.1",
     "@tanstack/react-query": "^5.104.0",
     "expo": "~55.0.17",
     "expo-constants": "~55.0.15",

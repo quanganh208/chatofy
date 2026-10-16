@@ -2,10 +2,13 @@ const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
 const argon2 = require('argon2');
 const fs = require('fs');
+const path = require('path');
 
-// Load DATABASE_URL from .env
+// Load DATABASE_URL from apps/api/.env, resolved relative to this script so the
+// script works from any working directory (not just apps/api).
+const envPath = path.join(__dirname, '..', '.env');
 const envLine = fs
-  .readFileSync('.env', 'utf8')
+  .readFileSync(envPath, 'utf8')
   .split('\n')
   .find((l) => l.startsWith('DATABASE_URL='));
 const dbUrl = envLine
