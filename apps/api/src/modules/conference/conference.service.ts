@@ -103,7 +103,7 @@ export class ConferenceService {
       id: conference.id,
       status: conference.status,
       title: conference.title ?? undefined,
-      createdAt: conference.createdAt,
+      createdAt: conference.createdAt.toISOString(),
       ownerId: conference.ownerId,
       participants: conference.participants.map((p) => ({
         id: p.id,
@@ -111,8 +111,8 @@ export class ConferenceService {
         displayName: p.displayName ?? undefined,
         sourceLanguage: p.sourceLanguage,
         status: p.status,
-        joinedAt: p.joinedAt,
-        leftAt: p.leftAt ?? undefined,
+        joinedAt: p.joinedAt.toISOString(),
+        leftAt: p.leftAt ? p.leftAt.toISOString() : undefined,
       })),
       _count: { turns: conference._count.turns },
     };
@@ -158,7 +158,7 @@ export class ConferenceService {
       id: conference.id,
       status: conference.status,
       title: conference.title ?? undefined,
-      createdAt: conference.createdAt,
+      createdAt: conference.createdAt.toISOString(),
       ownerId: conference.ownerId,
     };
   }

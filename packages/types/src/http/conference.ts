@@ -12,8 +12,8 @@ export const conferenceParticipantSchema = z.object({
   displayName: z.string().nullable().optional(),
   sourceLanguage: z.string(),
   status: z.string(),
-  joinedAt: z.coerce.date(),
-  leftAt: z.coerce.date().nullable().optional(),
+  joinedAt: z.iso.datetime(),
+  leftAt: z.iso.datetime().nullable().optional(),
 });
 export type ConferenceParticipant = z.infer<typeof conferenceParticipantSchema>;
 
@@ -21,7 +21,7 @@ export const conferenceResponseSchema = z.object({
   id: z.string(),
   status: z.string(),
   title: z.string().nullable().optional(),
-  createdAt: z.coerce.date(),
+  createdAt: z.iso.datetime(),
   ownerId: z.string(),
 });
 export type ConferenceResponse = z.infer<typeof conferenceResponseSchema>;

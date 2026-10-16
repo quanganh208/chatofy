@@ -90,9 +90,11 @@ export class NativeTranslationAudioSink {
     if (existing) return existing;
 
     // One context per speaker, pinned to that speaker's TTS sample rate so the
-    // samples play at their native pitch. Unlike web there is no autoplay policy
-    // to defer the context, so no suspended-resume dance is needed on RN.
+    // samples play at their native pitch. react-native-audio-api creates the
+    // context suspended, so it must be resumed explicitly before any scheduled
+    // buffer will play — without this the AAudio player never starts.
     const ctx = new AudioContext({ sampleRate });
+    void ctx.resume();
     const queue = new PcmPlaybackQueue(ctx as unknown as WebAudioContext);
     const sink: SpeakerSink = { ctx, queue, buffer: [], nextSeq: 0 };
     this.speakers.set(speakerSocketId, sink);
