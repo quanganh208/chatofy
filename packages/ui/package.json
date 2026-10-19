@@ -50,13 +50,13 @@
     "react-dom": "19.2.5",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.5"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.53.0",
-    "radix-ui": "^1.7.0",
+    "lucide-react": "^1.57.0",
+    "radix-ui": "^1.8.1",
     "tailwind-merge": "^3.7.0"
   },
   "peerDependencies": {
