@@ -6,10 +6,10 @@ import { PanelHeaders } from './panel-headers';
 import { LocaleProvider } from '@/i18n/provider';
 
 /**
- * The direction, said permanently instead of hidden behind a gear.
+ * The language pair, said permanently instead of hidden behind a gear.
  *
  * The swap must go dead while a conversation runs: `client.session.start` carries
- * the direction and `ConversationSession` holds it for the whole run, so a live
+ * the pair and `ConversationSession` holds it for the whole run, so a live
  * swap would accept the press, look like it worked, and translate the next turn
  * the old way — nothing thrown, nothing logged.
  *
@@ -41,22 +41,22 @@ function render(
   locale: 'en' | 'vi' = 'en',
 ) {
   const onSwap = vi.fn();
-  const onDirection = vi.fn();
+  const onLanguagePair = vi.fn();
   act(() => {
     root.render(
       <LocaleProvider locale={locale}>
         <PanelHeaders
-          direction="vi_to_en"
+          languagePair={{ source: 'vi', target: 'en' }}
           running={false}
           onSwap={onSwap}
-          onDirection={onDirection}
+          onLanguagePair={onLanguagePair}
           voiceControl={<button type="button">voice slot</button>}
           {...props}
         />
       </LocaleProvider>,
     );
   });
-  return { onSwap, onDirection };
+  return { onSwap, onLanguagePair };
 }
 
 /** The two language pickers, source first. */
@@ -65,7 +65,7 @@ function pickers(): HTMLButtonElement[] {
 }
 
 function swap(): HTMLButtonElement | null {
-  return container.querySelector<HTMLButtonElement>('button[aria-label^="Swap direction"]');
+  return container.querySelector<HTMLButtonElement>('button[aria-label^="Swap languages"]');
 }
 
 function slot(): HTMLButtonElement | null {
@@ -86,12 +86,12 @@ describe('PanelHeaders', () => {
     expect(container.textContent).toContain('Vietnamese');
     expect(container.textContent).toContain('English');
     // The codes are an implementation detail of the wire and have no business on
-    // a screen — the rule the direction control was rewritten to hold.
-    expect(container.textContent).not.toMatch(/\bvi_to_en\b/);
+    // a screen — the rule the language control was rewritten to hold.
+    expect(container.textContent).not.toMatch(/\b(vi|en)\b/);
   });
 
   it('names the languages in the Vietnamese interface in Vietnamese', () => {
-    render({ direction: 'zh_to_vi' }, 'vi');
+    render({ languagePair: { source: 'zh', target: 'vi' } }, 'vi');
     expect(pickers().map((picker) => picker.textContent)).toEqual(['Tiếng Trung', 'Tiếng Việt']);
     expect(container.textContent).not.toContain('中文');
   });
@@ -110,8 +110,8 @@ describe('PanelHeaders', () => {
     expect(target?.className ?? '').not.toContain('border-b');
   });
 
-  it('follows the direction rather than assuming one', () => {
-    render({ direction: 'en_to_vi' });
+  it('follows the pair rather than assuming one', () => {
+    render({ languagePair: { source: 'en', target: 'vi' } });
     const [source, translation] = pickers().map((picker) => picker.textContent);
     expect(source).toBe('English');
     expect(translation).toBe('Vietnamese');
@@ -152,7 +152,7 @@ describe('PanelHeaders', () => {
     // A bare verb with no object is unusable from a screen reader: "swap" what,
     // into what. The interpolated name is why the key takes two arguments.
     expect(swap()?.getAttribute('aria-label')).toBe(
-      'Swap direction — translate English into Vietnamese',
+      'Swap languages — translate English into Vietnamese',
     );
   });
 
@@ -164,7 +164,7 @@ describe('PanelHeaders', () => {
   });
 
   it('leaves the voice control alone while running', () => {
-    // The swap beside it goes dead because the direction is fixed for the run.
+    // The swap beside it goes dead because the pair is fixed for the run.
     // The voice control must not follow it by default — volume is live, so its
     // own popover decides, and this header has no business overriding that.
     render({ running: true });

@@ -1,5 +1,5 @@
 /**
- * Who the meeting hears while the outbound direction is running.
+ * Who the meeting hears while the outbound leg is running.
  *
  * The rule the user asked for: while a capture is sending their translation into
  * the meeting, the other participants hear ONLY that translation. Their real

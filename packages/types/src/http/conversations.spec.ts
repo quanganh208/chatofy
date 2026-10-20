@@ -18,16 +18,9 @@ const turn = (over: Record<string, unknown> = {}) => ({
   displayText: null,
   sourceLanguages: ['vi'],
   translations: { en: 'hello' },
-  targetText: 'hello',
   offsetMs: 1_200,
   ...over,
 });
-
-/** The same turn as a legacy client — before this migration — sent it. */
-const legacyTurn = (over: Record<string, unknown> = {}) => {
-  const { sourceLanguages: _sl, translations: _t, ...rest } = turn(over);
-  return rest;
-};
 
 describe('saveConversationTurnSchema.offsetMs', () => {
   it('accepts null — the client had no capture record for the block', () => {
@@ -78,8 +71,11 @@ describe('saveConversationTurnSchema.sourceLanguages/translations', () => {
     expect(parsed.success && parsed.data.translations).toEqual({ en: 'hello' });
   });
 
-  it('refuses a turn missing them — the legacy shape only the whole request schema fills', () => {
-    expect(saveConversationTurnSchema.safeParse(legacyTurn()).success).toBe(false);
+  it('refuses a turn missing them, or carrying the removed targetText instead', () => {
+    const { sourceLanguages: _sl, translations: _t, ...bare } = turn();
+    expect(saveConversationTurnSchema.safeParse({ ...bare, targetText: 'hello' }).success).toBe(
+      false,
+    );
   });
 
   it('refuses an empty sourceLanguages when the field is sent at all', () => {
@@ -94,8 +90,7 @@ describe('saveConversationTurnSchema.sourceLanguages/translations', () => {
 
   it('accepts a mixed turn translated into every conversation language', () => {
     // Two sources, both destinations filled — the shape a turn spoken partly in
-    // each language takes (`translationTargets`, domain/languages.ts). Sent
-    // ALONGSIDE `targetText`, which the schema still requires either way.
+    // each language takes (`translationTargets`, domain/languages.ts).
     expect(
       saveConversationTurnSchema.safeParse(
         turn({ sourceLanguages: ['vi', 'en'], translations: { vi: 'ok', en: 'ok' } }),
@@ -106,7 +101,6 @@ describe('saveConversationTurnSchema.sourceLanguages/translations', () => {
 
 describe('saveConversationRequestSchema', () => {
   const body = (turns: unknown[]) => ({
-    direction: 'vi_to_en',
     languages: ['vi', 'en'],
     startedAt: new Date(Date.now() - 60_000).toISOString(),
     endedAt: new Date().toISOString(),
@@ -115,17 +109,6 @@ describe('saveConversationRequestSchema', () => {
 
   it('requires languages — the shape apps/web always sends', () => {
     const parsed = saveConversationRequestSchema.safeParse(body([turn()]));
-    expect(parsed.success).toBe(true);
-    expect(parsed.success && parsed.data.languages).toEqual(['vi', 'en']);
-    expect(parsed.success && parsed.data.turns[0]).toMatchObject({
-      sourceLanguages: ['vi'],
-      translations: { en: 'hello' },
-    });
-  });
-
-  it('fills languages and every turn from direction/speakerRole/targetText — a tab holding an older bundle', () => {
-    const { languages: _l, ...legacyBody } = body([legacyTurn()]);
-    const parsed = saveConversationRequestSchema.safeParse(legacyBody);
     expect(parsed.success).toBe(true);
     expect(parsed.success && parsed.data.languages).toEqual(['vi', 'en']);
     expect(parsed.success && parsed.data.turns[0]).toMatchObject({
@@ -180,26 +163,22 @@ describe('saveConversationRequestSchema', () => {
     expect(parsed.success).toBe(true);
   });
 
-  it('still refuses a body over the total character ceiling, counting targetText', () => {
-    // The offset field must not have weakened the bound that actually protects
-    // the row. A legacy turn — no `translations` sent — has it derived from
-    // `targetText` by the preprocess before this refine ever runs, so the huge
-    // value still reaches the ceiling.
+  it('still refuses a body over the total character ceiling', () => {
     const huge = 'x'.repeat(HISTORY_LIMITS.MAX_TURN_CHARS);
-    const { languages: _l, ...legacyBody } = body(
-      Array.from({ length: 40 }, (_unused, position) =>
-        legacyTurn({ position, sourceText: huge, displayText: huge, targetText: huge }),
+    const parsed = saveConversationRequestSchema.safeParse(
+      body(
+        Array.from({ length: 40 }, (_unused, position) =>
+          turn({ position, sourceText: huge, displayText: huge, translations: { en: huge } }),
+        ),
       ),
     );
-    expect(saveConversationRequestSchema.safeParse(legacyBody).success).toBe(false);
+    expect(parsed.success).toBe(false);
   });
 
-  it('sums every translation on a turn that sends them, not only targetText', () => {
-    // A turn with two filled destinations must count both against the ceiling —
-    // counting only `targetText` would let a fanned-out conversation store far
-    // past HISTORY_LIMITS.MAX_TOTAL_CHARS while every turn looks small on its
-    // own (`targetText` itself stays short here, which is what proves the sum
-    // came from `translations` and not from it).
+  it('sums every translation on a turn', () => {
+    // A turn with two filled destinations must count both against the ceiling,
+    // or a fanned-out conversation could store far past
+    // HISTORY_LIMITS.MAX_TOTAL_CHARS while every turn looks small on its own.
     const half = 'x'.repeat(Math.ceil(HISTORY_LIMITS.MAX_TOTAL_CHARS / 2) + 1);
     const parsed = saveConversationRequestSchema.safeParse(
       body([
@@ -207,7 +186,6 @@ describe('saveConversationRequestSchema', () => {
           sourceLanguages: ['vi', 'en'],
           translations: { vi: half, en: half },
           sourceText: '',
-          targetText: '',
         }),
       ]),
     );
@@ -257,42 +235,6 @@ describe('saveConversationRequestSchema', () => {
       ).toBe(true);
     });
 
-    it('refuses a turn with spoken text and no translation for it at all', () => {
-      expect(
-        saveConversationRequestSchema.safeParse(
-          body([turn({ translations: {}, targetText: 'xin chào' })]),
-        ).success,
-      ).toBe(false);
-    });
-
-    it('accepts a turn with no translation when targetText is genuinely empty', () => {
-      // Not every turn has something to translate — the empty case must stay
-      // reachable rather than being folded into the refusal above.
-      expect(
-        saveConversationRequestSchema.safeParse(body([turn({ translations: {}, targetText: '' })]))
-          .success,
-      ).toBe(true);
-    });
-
-    it('does not silently fill an EMPTY translations sent alongside a non-empty targetText', () => {
-      // The legacy-fill preprocess only backfills a MISSING field; `translations`
-      // present-but-empty is not that case, and reaching the refine above (a
-      // 400) rather than a silently accepted, permanently empty translation is
-      // the point of this whole check.
-      const parsed = saveConversationRequestSchema.safeParse(
-        body([turn({ translations: {}, targetText: 'xin chào' })]),
-      );
-      expect(parsed.success).toBe(false);
-    });
-
-    it('still accepts a legacy payload carrying only direction/targetText', () => {
-      // The preprocess derives sourceLanguages/translations from
-      // speakerRole/targetText for a tab that predates the language-keyed
-      // fields — this must keep working under the new cross-field refine.
-      const { languages: _l, ...legacyBody } = body([legacyTurn()]);
-      expect(saveConversationRequestSchema.safeParse(legacyBody).success).toBe(true);
-    });
-
     it('refuses a single-source turn whose speaker role contradicts its language', () => {
       // `speaker_a` is the registry-first language's side, so an English turn
       // labelled `speaker_a` would read one way through `speakerRole` and
@@ -303,7 +245,6 @@ describe('saveConversationRequestSchema', () => {
             speakerRole: 'speaker_a',
             sourceLanguages: ['en'],
             translations: { vi: 'xin chào' },
-            targetText: 'xin chào',
           }),
         ]),
       );
@@ -317,12 +258,11 @@ describe('saveConversationRequestSchema', () => {
 
     it('ties the role to the registry order, not the order the conversation declared', () => {
       // An en-first conversation still has Vietnamese as `speaker_a`.
-      const enFirst = { ...body([]), direction: 'en_to_vi', languages: ['en', 'vi'] };
+      const enFirst = { ...body([]), languages: ['en', 'vi'] };
       const english = turn({
         speakerRole: 'speaker_b',
         sourceLanguages: ['en'],
         translations: { vi: 'xin chào' },
-        targetText: 'xin chào',
       });
       expect(
         saveConversationRequestSchema.safeParse({ ...enFirst, turns: [english] }).success,
@@ -357,11 +297,10 @@ describe('saveConversationRequestSchema', () => {
   });
 });
 
-describe('response wire schemas (API-rollback tolerance)', () => {
+describe('response schemas', () => {
   /** What a stored, migrated conversation looks like on the wire today. */
   const conversation = () => ({
     conversationId: 'c1',
-    direction: 'vi_to_en',
     languages: ['vi', 'en'],
     startedAt: '2026-01-01T00:00:00.000Z',
     endedAt: '2026-01-01T00:01:00.000Z',
@@ -377,7 +316,6 @@ describe('response wire schemas (API-rollback tolerance)', () => {
         displayText: null,
         sourceLanguages: ['vi'],
         translations: { en: 'hello' },
-        targetText: 'hello',
         offsetMs: null,
       },
     ],
@@ -392,40 +330,30 @@ describe('response wire schemas (API-rollback tolerance)', () => {
     );
   });
 
-  it('fills languages/sourceLanguages/translations on a response from a rolled-back API', () => {
+  it('refuses a conversation without languages — the removed direction is not enough', () => {
     const { languages: _l, ...rest } = conversation();
-    const legacy = {
-      ...rest,
-      turns: rest.turns.map(({ sourceLanguages: _sl, translations: _t, ...turn }) => turn),
-    };
-    const parsed = conversationResponseSchema.safeParse({ conversation: legacy });
-    expect(parsed.success).toBe(true);
-    expect(parsed.success && parsed.data.conversation.languages).toEqual(['vi', 'en']);
-    expect(parsed.success && parsed.data.conversation.turns[0]).toMatchObject({
-      sourceLanguages: ['vi'],
-      translations: { en: 'hello' },
+    const parsed = conversationResponseSchema.safeParse({
+      conversation: { ...rest, direction: 'vi_to_en' },
     });
+    expect(parsed.success).toBe(false);
   });
 
-  it('fills a rolled-back summary in the list and the PUT response', () => {
-    const { languages: _l, ...legacySummary } = conversation();
+  it('parses a summary in the list and the PUT response', () => {
     const {
       turns: _turns,
       hasRecording: _hr,
       audioOffsetMs: _ao,
       audioDurationMs: _ad,
       ...summary
-    } = legacySummary;
+    } = conversation();
 
     const list = conversationListResponseSchema.safeParse({
       conversations: [summary],
       nextCursor: null,
     });
-    expect(list.success).toBe(true);
     expect(list.success && list.data.conversations[0]?.languages).toEqual(['vi', 'en']);
 
     const put = conversationSummaryResponseSchema.safeParse({ conversation: summary });
-    expect(put.success).toBe(true);
     expect(put.success && put.data.conversation.languages).toEqual(['vi', 'en']);
   });
 

@@ -3,9 +3,7 @@ import {
   conversationLanguagesSchema,
   escapeLikePattern,
   languageCodeSchema,
-  legacyDirectionOf,
   normalizeForSearch,
-  primaryTranslation,
   sourceLanguagesSchema,
   type Conversation,
   type ConversationSummary,
@@ -404,7 +402,7 @@ export class PrismaConversationStore implements ConversationStore {
       return null;
     }
     const turns = row.turns
-      .map((turn) => toTurn(turn, languages.data))
+      .map((turn) => toTurn(turn))
       .filter((turn): turn is ConversationTurn => turn !== null);
     return {
       ...toSummary(row, turns.length, previewOf(turns), row.minutes),
@@ -578,17 +576,10 @@ export class PrismaConversationStore implements ConversationStore {
 }
 
 /**
- * `targetText` is not a column anymore — it is derived, per row, from
- * `translations` and the PARENT conversation's `languages` (which language a
- * legacy reader shows depends on which the conversation declared, not only on
- * what this one turn was spoken in). `primaryTranslation` is the same function
- * a later reader uses to render a block, so the two can never disagree about
- * which translation is "the" one.
+ * One stored turn, read back from its own columns only. Which translation a
+ * reader shows is decided at render time (`primaryTranslation`), never here.
  */
-function toTurn(
-  row: TurnRow,
-  languages: readonly LanguageCode[],
-): ConversationTurn | null {
+function toTurn(row: TurnRow): ConversationTurn | null {
   // Validated here rather than cast: a registry code added, written under and
   // later rolled back would otherwise reach the client, whose detail schema
   // rejects the WHOLE conversation over one unknown key. Unknown codes are
@@ -611,10 +602,6 @@ function toTurn(
     displayText: row.displayText,
     sourceLanguages,
     translations,
-    targetText: primaryTranslation(
-      { sourceLanguages, translations },
-      languages,
-    ),
     offsetMs: row.offsetMs,
   };
 }
@@ -674,9 +661,6 @@ function toSummary(
   const languages = parsed.data;
   return {
     conversationId: row.clientId,
-    // Derived, never stored — see `legacyDirectionOf`'s own docblock for why
-    // Postgres no longer has a `direction` column to read this from.
-    direction: legacyDirectionOf(languages),
     languages,
     startedAt: row.startedAt.toISOString(),
     endedAt: row.endedAt.toISOString(),

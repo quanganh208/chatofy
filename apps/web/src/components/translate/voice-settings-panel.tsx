@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Volume2, Volume1 } from 'lucide-react';
 import { SegmentedControl, Slider, Switch } from '@chatofy/ui/react';
-import { directionLanguages } from '@chatofy/types';
 import { SPEED_PRESETS, type TranslateSettings } from '@/lib/translate-settings';
 import { VoiceScopeToggle, type VoiceScope } from '@/components/translate/voice-scope-toggle';
 import { VoicePicker } from '@/components/translate/voice-picker';
@@ -53,8 +52,8 @@ export function VoiceSettingsPanel({
   onVolumeChange,
 }: VoiceSettingsPanelProps) {
   const t = useTranslate();
-  const catalog = useVoiceCatalog(settings.direction);
-  const outputLanguage = directionLanguages(settings.direction).target;
+  const catalog = useVoiceCatalog(settings.languagePair);
+  const outputLanguage = settings.languagePair.target;
   // Shown unless the running engine has explicitly said it ignores `speed`.
   // `catalog.speedAdjustable` is tri-state (`SpeedAdjustable`'s doc): `'unknown'`
   // — the catalog is still loading, the lookup failed, or the API predates the
@@ -149,7 +148,7 @@ export function VoiceSettingsPanel({
 
               The setting itself is untouched — it is stored per conversation and
               still sent, and the server hands it to whichever engine speaks the
-              output language. Switching direction brings the row back with the
+              output language. Switching the pair brings the row back with the
               value the reader last chose. */}
           {speedApplies ? (
             <SegmentedControl

@@ -276,9 +276,9 @@ export function groupIsRepaired(
 /**
  * One block's translation INTO `language`, in speaking order.
  *
- * Reads each member's `translations` map rather than its pre-fan-out
- * `targetText`, so a pane can ask for whichever language it is showing rather
- * than always getting the one language a turn happened to speak aloud. Falls
+ * Reads each member's `translations` map, so a pane can ask for whichever
+ * language it is showing rather than always getting the one language a turn
+ * happened to speak aloud. Falls
  * back to `''` for a member whose plan never translated into `language` at all
  * — unreachable in an ordinary two-language conversation, where every turn's
  * targets are exactly the languages it was not spoken in, but not a type this

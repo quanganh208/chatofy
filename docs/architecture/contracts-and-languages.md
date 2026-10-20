@@ -196,17 +196,24 @@ This documents the response as the standard envelope with the given data type.
 ## Languages
 
 **One registry, `LANGUAGES` in `packages/types/src/domain/languages.ts`, is the
-only place in the monorepo that knows which languages exist.** Every direction
-string, every schema that validates a language code, and every rule that maps
+only place in the monorepo that knows which languages exist.** Every language
+pair, every schema that validates a language code, and every rule that maps
 between languages is derived from it — nothing else may spell `'vi'` or `'en'`
-as a branch condition or write a direction literal (`'vi_to_en'`) by hand. The
+as a branch condition. The
 module's own file header states this and explains why; read it before adding
 anything nearby.
 
 **Data plus pure functions, deliberately not a class per language.** A
-direction travels as the string `${source}_to_${target}` across the socket,
-Postgres, `localStorage` and React state — a class instance would break `===`
-and every serializer on that path. "OOP" in this codebase, for languages, means
+conversation declares its languages as a plain `LanguagePair`
+(`{ source, target }`, field `languagePair`) across the socket, `localStorage`
+and React state, and Postgres stores them as `Conversation.languages`
+(`pairLanguages(pair)`, declared source first) — a class instance would not
+survive a serializer on that path. A pair is an object, so two equal pairs are
+never `===`: compare with `samePair`, and keep a pair used as an effect
+dependency in state rather than building it during render. It replaced the
+`${source}_to_${target}` direction string so that `source` can later widen to
+"detect it" (Saydi-style one-way and two-way modes) without a second wire
+format. "OOP" in this codebase, for languages, means
 **encapsulation** (one module owns the knowledge) **plus strategy**
 (`LanguageTable<T>`, the provider interfaces, `LanguageIdentifier`) — not
 inheritance. There is no `class Vietnamese extends Language`, and there should
@@ -245,10 +252,9 @@ exactly how far that reaches. Production uses today:
   row (`GlossaryRow` in `apps/web/src/components/preferences/ai-context-draft.ts`).
 
 **The rule this whole section exists to state: no branching on a language code
-outside a `LanguageTable`, and no direction string literal anywhere but the
-registry itself.** A `=== 'vi'`/`'en' ===` comparison or a hand-written
-`'vi_to_en'` is either a missing registry function or a missing `LanguageTable`
-entry — never a shortcut. The check that enforces it catches `!==` and array
+outside a `LanguageTable`.** A `=== 'vi'`/`'en' ===` comparison is either a
+missing registry function or a missing `LanguageTable` entry — never a
+shortcut. The check that enforces it catches `!==` and array
 literals too, which the older `=== '(vi|en)'` pattern missed:
 
 ```bash
@@ -259,10 +265,13 @@ git grep -nE "[!=]==\s*'(vi|en|zh)'|'(vi|en|zh)'\s*[!=]==|\[\s*'(vi|en|zh)'\s*\]
 It finds nothing in production code: the last three hits (the Vietnamese
 recognizer note, the loanword-respelling gate and the restore language list)
 became `RECOGNIZER_NOTES`, `RESPELLS_LOANWORDS` and `RESTORED_RECOGNITION` when
-zh joined. `git grep -lE "'vi_to_en'|'en_to_vi'" -- apps packages` still guards
-direction literals; specs and e2e tests use literals freely, and the Prisma
-schema comments and migration SQL record the legacy `direction` column. Defaults are built with `directionOf` rather than spelled
-(`DEFAULT_CAPTURE_DIRECTION` in `apps/extension/src/settings.ts`). The
+zh joined. Specs and e2e tests use literals freely, and the Prisma schema
+comments and migration SQL record the dropped `direction` column. Defaults are
+built with `languagePairOf` / `DEFAULT_LANGUAGE_PAIR` rather than spelled. The
+old `'vi_to_en'` string survives in exactly one parser,
+`languagePairFromStoredDirection` (`packages/types/src/domain/stored-language-pair.ts`),
+which the web and extension settings readers call so a setting saved before the
+pair existed is not silently reset; no wire schema accepts it. The
 interface-locale axis (`common.language.*`, `locale-switcher.tsx`) is a
 different axis entirely, see below.
 
@@ -275,9 +284,9 @@ into (`targets`), which one its audio is recognised in (`recognition`, today
 always `sourceLanguages[0]` — one STT engine per language cannot read a mixed
 utterance in one pass), and which one its translation is spoken aloud in
 (`spoken`, today always `targets[0]` — TTS for every target at once is a
-deferred seam, see below). Built once per turn by `planForDirection(direction,
+deferred seam, see below). Built once per turn by `planForPair(languagePair,
 identifier)` (a wrapper over `planTurnLanguages`), and read by everything
-downstream instead of re-deriving anything from `direction`.
+downstream instead of re-deriving anything from the pair.
 `TranslationSessionService.start()` builds it once, checks it with
 `SpeechLanguageSupport`, and hands that same plan to the `TurnSession`
 (`TurnSessionDeps.languages`), so the turn that runs is the turn the refusal
@@ -356,26 +365,22 @@ restricted is judged a worse fault than occasionally forwarding a turn to an
 engine that, it turns out, was not there (the engine's own error is the
 backstop for that case, same as before this existed).
 
-### Legacy wire fields, and when they may be removed
+### Legacy wire fields
 
-Every wire and stored shape that predates this registry work is KEPT
-alongside its language-keyed replacement, because `apps/api` does not deploy
-atomically with `apps/web`, `apps/extension`, or an already-open browser tab:
-
-| Legacy field                                | Replacement                                                                         | Where the compatibility lives                                                                                                                                            |
-| ------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `direction` (`'vi_to_en'` string)           | `Conversation.languages` / turn `sourceLanguages`                                   | `packages/types/src/domain/language-fields-compat.ts` (`fillConversationLanguages`, `legacyDirectionOf`)                                                                 |
-| segment/turn `targetText` (one string)      | `translations` (`Partial<Record<LanguageCode, string>>`)                            | same file (`fillTurnLanguages`), plus `primaryTranslation` in `domain/conversation.ts`                                                                                   |
-| glossary entry `{ vi: string; en: string }` | `glossaryEntrySchema` = `translationMapSchema(glossaryTermSchema)` (≥2 filled keys) | `packages/types/src/events/ws-events.ts` — an old `{vi, en}` object is already a valid instance of the new partial-map type, so nothing had to migrate at the wire level |
-
-A response and a save request both still parse and still emit the legacy
-shape (pinned by `packages/types/src/domain/language-fields-compat.spec.ts`). **Removal criterion**: the legacy
-fields may be dropped once every extension build on the Chrome/Firefox store
-is at or above the version that writes the language-keyed shape for at least
-14 days, AND no open web tab from before that version can still be sending the
-old shape. Removing them is explicitly a SEPARATE change from this one — it touches the wire contracts, the two
-DB columns the migrations already dropped stay dropped either way, and it is
-not scheduled here.
+None remain. The `direction` string and the single-string `targetText` were
+removed from every wire and stored shape in one change, together with the
+compatibility shim that filled one from the other
+(`language-fields-compat.ts`). That was safe to do at once because the only
+extension builds that exist are the maintainer's own (see
+`docs/deployment-guide.md`), so no store build could still be sending the old
+shape; a browser tab opened before the deploy is refused and recovers on
+reload. On the socket that refusal is emitted, not thrown: a start carrying any
+`direction` key gets `server.error` (or `server.live.error`) with code
+`client_outdated`, because a thrown one reaches the client as silence and the
+stale page would hang in "connecting". The REST `POST /translate` response keeps a `targetText` field: it is
+that call's one translation, not the legacy turn field. Glossary entries were
+already language-keyed (`translationMapSchema(glossaryTermSchema)`), and an old
+`{vi, en}` object is a valid instance of that type.
 
 ### Deferred seams
 
@@ -399,13 +404,14 @@ when it is actually needed — not a redesign:
 5. **TTS / spoken audio for more than one target.** `TurnLanguagePlan.spoken`
    is always `targets[0]`.
 6. **UI to choose or display more than one target.** No client surfaces more
-   than the two-language direction toggle today.
-7. **A wire field for declaring more than two conversation languages.** No
-   client sends one; `direction` remains the only way a conversation declares
-   its languages.
+   than the language-pair picker today.
+7. **A wire field for declaring more than two conversation languages, or an
+   undeclared source.** `languagePair` is the only way a conversation declares
+   its languages; auto-detect would widen `source` to a "detect" value, and a
+   two-way conversation reads the pair as a set rather than an order.
 8. **A `targetLanguage` field on `server.translation.partial`/`.delta`.** The
-   event's own `direction` field already says source→target for a
-   single-target turn.
+   event's own `languagePair` already says source→target for a single-target
+   turn.
 9. **An N-ary `speakerRoleSchema`.** The roster already supports more than two
    speakers; the binary `speaker_a`/`speaker_b` role stays a fallback label.
 10. **Splitting a turn at a language-change boundary, and lazy-loading a
@@ -425,8 +431,8 @@ the ceiling for a language that actually works end to end.
    a `LanguageTable`, or a test that hard-coded an assumption about "today's
    two languages" that the new language now falsifies.
 2. **`packages/types/src/domain/languages.spec.ts`** — the spec that pins
-   `TranslationDirection` to an exact closed set (`expectTypeOf<...>.toEqualTypeOf<'vi_to_en' | 'en_to_vi'>()`) must be updated to the new
-   direction set; this is a real, intentional assertion about the CURRENT
+   `allLanguagePairs(LANGUAGE_CODES)` to the exact list of registry pairs must
+   be updated to the new pair set; this is a real, intentional assertion about the CURRENT
    registry, not a generic one, and is expected to need editing on every real
    addition.
 3. **Every `LanguageTable<T>` in production code** — at the time of the
@@ -470,7 +476,7 @@ until a turn in the new language runs:
 - **Clients that read stored data.** A saved glossary entry with the new key is
   unreadable to a build from before it; both clients read lists entry by entry
   (`readTranslationContextList`), and the extension must be rebuilt.
-- **The direction control.** Two languages made a toggle enough; three needed
+- **The language-pair control.** Two languages made a toggle enough; three needed
   the language-pair picker (`LanguagePairPicker`, `pairAfterPick`).
 
 **Two things the spike found that are NOT on the compiler-driven list above,

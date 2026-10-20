@@ -66,7 +66,7 @@ export function SettingsSection({
  * three of those read as a table rather than as a person's settings. A grid with
  * the control column sized to its content keeps them related.
  *
- * `block` is for a control too wide to sit beside its label — the direction pair,
+ * `block` is for a control too wide to sit beside its label — the language pair,
  * which is itself two named sides and a swap. It takes the full row and the label
  * sits above it.
  */

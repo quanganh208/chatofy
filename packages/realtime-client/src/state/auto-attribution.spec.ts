@@ -100,7 +100,7 @@ const segment = (sessionId: string) => ({
   id: sessionId,
   sessionId,
   speakerRole: 'speaker_a' as const,
-  direction: 'vi_to_en' as const,
+  languagePair: { source: 'vi', target: 'en' } as const,
   sourceLanguages: ['vi'] as LanguageCode[],
   translations: { en: 'hello' },
   sourceText: 'xin chào',

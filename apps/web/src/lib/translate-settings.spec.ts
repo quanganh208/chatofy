@@ -5,7 +5,7 @@
 // it does with `localStorage`, including when the browser refuses it.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { en, vi as viMessages } from '@chatofy/i18n';
-import { LANGUAGE_CODES } from '@chatofy/types';
+import { DEFAULT_LANGUAGE_PAIR, LANGUAGE_CODES } from '@chatofy/types';
 import {
   DEFAULT_TRANSLATE_SETTINGS,
   SPEED_PRESETS,
@@ -136,11 +136,41 @@ describe('loadTranslateSettings', () => {
     expect(loadTranslateSettings().textSize).toBe(1);
   });
 
-  it('falls back on an unknown direction or gender', () => {
-    store({ direction: 'fr_to_en', voiceGender: 'robot' });
+  it('falls back on an unknown language pair or gender', () => {
+    store({ languagePair: { source: 'fr', target: 'en' }, voiceGender: 'robot' });
     const loaded = loadTranslateSettings();
-    expect(loaded.direction).toBe(DEFAULT_TRANSLATE_SETTINGS.direction);
+    expect(loaded.languagePair).toEqual(DEFAULT_TRANSLATE_SETTINGS.languagePair);
     expect(loaded.voiceGender).toBe(DEFAULT_TRANSLATE_SETTINGS.voiceGender);
+  });
+
+  it('refuses a pair that names one language twice', () => {
+    store({ languagePair: { source: 'en', target: 'en' } });
+    expect(loadTranslateSettings().languagePair).toEqual(DEFAULT_LANGUAGE_PAIR);
+  });
+
+  it('reads the pair out of a direction string stored by an older build', () => {
+    store({ direction: 'en_to_zh' });
+    const loaded = loadTranslateSettings();
+    expect(loaded.languagePair).toEqual({ source: 'en', target: 'zh' });
+    expect(loaded).not.toHaveProperty('direction');
+  });
+
+  it('falls back to the default for an unreadable direction string', () => {
+    store({ direction: 'fr_to_en' });
+    expect(loadTranslateSettings().languagePair).toEqual(DEFAULT_LANGUAGE_PAIR);
+  });
+
+  it('prefers a stored pair over a leftover direction string', () => {
+    store({ languagePair: { source: 'zh', target: 'vi' }, direction: 'en_to_zh' });
+    expect(loadTranslateSettings().languagePair).toEqual({ source: 'zh', target: 'vi' });
+  });
+
+  it('round-trips a saved pair', () => {
+    saveTranslateSettings({
+      ...DEFAULT_TRANSLATE_SETTINGS,
+      languagePair: { source: 'zh', target: 'en' },
+    });
+    expect(loadTranslateSettings().languagePair).toEqual({ source: 'zh', target: 'en' });
   });
 
   it('falls back field by field, not wholesale', () => {

@@ -259,7 +259,7 @@ export const OVERLAY_STYLE = `
     border-left: 2px solid ${color.border};
   }
   .line.live { opacity: 0.75; font-style: italic; }
-  /* The user's own turns, marked. With both directions running the transcript
+  /* The user's own turns, marked. With both legs running the transcript
      interleaves two conversations that are translations of each other, and
      without a side the reader cannot tell which is which. */
   .line.mine { border-left-color: ${color.accent}; }

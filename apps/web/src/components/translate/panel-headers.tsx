@@ -2,18 +2,18 @@
 
 import { ArrowLeftRight } from 'lucide-react';
 import { Button, LanguageSelect, pairAfterPick } from '@chatofy/ui/react';
-import { directionLanguages, type TranslationDirection } from '@chatofy/types';
+import type { LanguagePair } from '@chatofy/types';
 import { useTranslate } from '@/i18n/provider';
-import { languageNamer } from '@/i18n/direction-labels';
+import { languageNamer } from '@/i18n/language-pair-labels';
 import { cn } from '@/lib/utils';
 
 interface PanelHeadersProps {
-  direction: TranslationDirection;
-  /** A conversation is running, so the direction is fixed for its duration. */
+  languagePair: LanguagePair;
+  /** A conversation is running, so the pair is fixed for its duration. */
   running: boolean;
   onSwap: () => void;
-  /** A language picked on one side, as the whole new direction. */
-  onDirection: (direction: TranslationDirection) => void;
+  /** A language picked on one side, as the whole new pair. */
+  onLanguagePair: (pair: LanguagePair) => void;
   /**
    * The voice control, rendered at the end of the target header.
    *
@@ -27,7 +27,7 @@ interface PanelHeadersProps {
 /**
  * Which way this is translating, said permanently at the top of the two panels.
  *
- * ## Direction stops being a setting
+ * ## The pair stops being a setting
  *
  * It used to live inside the settings popover, which meant the first fact about
  * what is on screen — what language is going in, what language is coming out —
@@ -54,7 +54,7 @@ interface PanelHeadersProps {
  *
  * ## Disabled, not hidden, while running
  *
- * Direction rides `client.session.start` and `ConversationSession` holds it for
+ * The pair rides `client.session.start` and `ConversationSession` holds it for
  * the whole run, so a swap that stayed live would accept the press, look like it
  * worked, and translate the next turn the old way. It is disabled instead of
  * removed because "this is translating Vietnamese into English" is exactly what a
@@ -79,10 +79,10 @@ interface PanelHeadersProps {
  * two-column bar would name two things where there is one column of prose.
  */
 export function PanelHeaders({
-  direction,
+  languagePair,
   running,
   onSwap,
-  onDirection,
+  onLanguagePair,
   voiceControl,
 }: PanelHeadersProps) {
   const t = useTranslate();
@@ -92,25 +92,25 @@ export function PanelHeaders({
     // names start at the same x.
     <div className="border-hairline relative border-b px-8">
       <Side
-        role={t('web.translate.directionSource')}
+        role={t('web.translate.languagePairSource')}
         language={
           <HeaderLanguage
-            direction={direction}
+            languagePair={languagePair}
             side="source"
             running={running}
-            onDirection={onDirection}
+            onLanguagePair={onLanguagePair}
           />
         }
         className="border-hairline border-b"
       />
       <Side
-        role={t('web.translate.directionTarget')}
+        role={t('web.translate.languagePairTarget')}
         language={
           <HeaderLanguage
-            direction={direction}
+            languagePair={languagePair}
             side="target"
             running={running}
-            onDirection={onDirection}
+            onLanguagePair={onLanguagePair}
           />
         }
         end={voiceControl}
@@ -124,8 +124,8 @@ export function PanelHeaders({
           32px tall: 14px icon + 16px padding + 2px border, since `size-auto`
           overrides the shared icon size. Half of that is the offset that actually
           centres it. */}
-      <DirectionSwap
-        direction={direction}
+      <LanguagePairSwap
+        languagePair={languagePair}
         running={running}
         onSwap={onSwap}
         className="absolute top-1/2 right-3 z-[2] -mt-4"
@@ -165,28 +165,27 @@ export function PanelHeader({
 /**
  * One side's language, as a picker.
  *
- * Disabled while running, for the reason the swap is: direction rides
+ * Disabled while running, for the reason the swap is: the pair rides
  * `client.session.start` and holds for the whole run.
  */
 export function HeaderLanguage({
-  direction,
+  languagePair,
   side,
   running,
-  onDirection,
+  onLanguagePair,
 }: {
-  direction: TranslationDirection;
+  languagePair: LanguagePair;
   side: 'source' | 'target';
   running: boolean;
-  onDirection: (direction: TranslationDirection) => void;
+  onLanguagePair: (pair: LanguagePair) => void;
 }) {
   const t = useTranslate();
-  const languages = directionLanguages(direction);
   return (
     <LanguageSelect
-      value={side === 'source' ? languages.source : languages.target}
-      onPick={(code) => onDirection(pairAfterPick(direction, side, code))}
+      value={languagePair[side]}
+      onPick={(code) => onLanguagePair(pairAfterPick(languagePair, side, code))}
       label={t(
-        side === 'source' ? 'web.translate.directionSource' : 'web.translate.directionTarget',
+        side === 'source' ? 'web.translate.languagePairSource' : 'web.translate.languagePairTarget',
       )}
       disabled={running}
       nameLanguage={languageNamer(t)}
@@ -197,26 +196,26 @@ export function HeaderLanguage({
 }
 
 /**
- * The direction, reversed.
+ * The pair, reversed.
  *
- * Disabled while running: direction rides `client.session.start` and
+ * Disabled while running: the pair rides `client.session.start` and
  * `ConversationSession` holds it for the whole run, so a swap that stayed live
  * would accept the press, look like it worked, and translate the next turn the
  * old way — nothing thrown and nothing logged.
  */
-export function DirectionSwap({
-  direction,
+export function LanguagePairSwap({
+  languagePair,
   running,
   onSwap,
   className,
 }: {
-  direction: TranslationDirection;
+  languagePair: LanguagePair;
   running: boolean;
   onSwap: () => void;
   className?: string;
 }) {
   const t = useTranslate();
-  const { source, target } = directionLanguages(direction);
+  const { source, target } = languagePair;
   const nameLanguage = languageNamer(t);
 
   return (
@@ -225,7 +224,7 @@ export function DirectionSwap({
       size="icon"
       disabled={running}
       onClick={onSwap}
-      aria-label={t('web.translate.directionSwap', {
+      aria-label={t('web.translate.languagePairSwap', {
         from: nameLanguage(target),
         to: nameLanguage(source),
       })}

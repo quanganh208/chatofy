@@ -1,13 +1,13 @@
 // The language registry — the ONE place in the monorepo that knows which
-// languages exist. Every language code, every direction, and every rule that maps
-// between them derives from `LANGUAGES`; nothing else may spell 'vi' or 'en' as a
-// branch condition or write a direction literal.
+// languages exist. Every language code, every language pair, and every rule that
+// maps between them derives from `LANGUAGES`; nothing else may spell 'vi' or 'en'
+// as a branch condition.
 //
-// DATA plus PURE FUNCTIONS, deliberately not a class per language. A direction
-// travels as the string `${source}_to_${target}` across the socket, Postgres,
-// localStorage and React state; a class instance would break `===` and every
-// serializer on that path. Polymorphism lives where behaviour actually differs,
-// behind `LanguageTable<T>` strategy tables and provider interfaces, not here.
+// DATA plus PURE FUNCTIONS, deliberately not a class per language. A language
+// pair travels as a plain `{ source, target }` object across the socket,
+// localStorage and React state; a class instance would not survive a serializer
+// on that path. Polymorphism lives where behaviour actually differs, behind
+// `LanguageTable<T>` strategy tables and provider interfaces, not here.
 //
 // This module is a leaf: it depends only on zod and the speaker-role enum, so any
 // package that already takes `@chatofy/types` can read it.
@@ -31,7 +31,7 @@ interface LanguageSpec {
 
 /**
  * Every supported language, in REGISTRY ORDER. The order is load-bearing: it
- * fixes the order of generated directions and decides which side of a
+ * fixes the order of generated language pairs and decides which side of a
  * conversation is `speaker_a` (see `speakerRoleFor`).
  */
 export const LANGUAGES = {
@@ -53,66 +53,53 @@ export const languageCodeSchema = z.enum(LANGUAGE_CODES);
  */
 export type LanguageTable<T> = Readonly<Record<LanguageCode, T>>;
 
-/** Every ordered pair of distinct languages from `L`, as a direction string. */
-export type Direction<L extends string> = {
-  [S in L]: { [T in Exclude<L, S>]: `${S}_to_${T}` }[Exclude<L, S>];
-}[L];
-
-type SourceOf<D extends string> = D extends `${infer S}_to_${string}` ? S : never;
-type TargetOf<D extends string> = D extends `${string}_to_${infer T}` ? T : never;
-type Reversed<D extends string> = D extends `${infer S}_to_${infer T}` ? `${T}_to_${S}` : never;
-
-// Generic over `L` so the specs can exercise a third language without adding it
-// to the registry.
-export function directionOf<L extends string>(source: L, target: L): Direction<L> {
-  return `${source}_to_${target}` as Direction<L>;
+/**
+ * The two languages a conversation is declared in: the one the speaker is
+ * expected to use, and the one its turns are translated into.
+ *
+ * An object rather than a `${source}_to_${target}` string so that a later
+ * `source` can widen to "detect it" without a second wire format. The price is
+ * identity: two equal pairs are never `===`, so every comparison goes through
+ * `samePair`, and a pair used as an effect dependency has to come from state.
+ */
+export interface LanguagePair<L extends string = LanguageCode> {
+  readonly source: L;
+  readonly target: L;
 }
 
-/** Every direction between `codes`, source-major in the order given. */
-export function allDirections<L extends string>(codes: readonly L[]): Direction<L>[] {
+/** Generic over `L` so the specs can exercise a third language without adding it to the registry. */
+export function languagePairOf<L extends string>(source: L, target: L): LanguagePair<L> {
+  return { source, target };
+}
+
+/** Every pair of distinct languages from `codes`, source-major in the order given. */
+export function allLanguagePairs<L extends string>(codes: readonly L[]): LanguagePair<L>[] {
   return codes.flatMap((source) =>
-    codes.filter((target) => target !== source).map((target) => directionOf(source, target)),
+    codes.filter((target) => target !== source).map((target) => languagePairOf(source, target)),
   );
 }
 
-const DIRECTION_SEPARATOR = '_to_';
-
-export function directionLanguages<D extends string>(
-  direction: D,
-): { source: SourceOf<D>; target: TargetOf<D> } {
-  const at = direction.indexOf(DIRECTION_SEPARATOR);
-  return {
-    source: direction.slice(0, at) as SourceOf<D>,
-    target: direction.slice(at + DIRECTION_SEPARATOR.length) as TargetOf<D>,
-  };
+export function reversePair<L extends string>(pair: LanguagePair<L>): LanguagePair<L> {
+  return languagePairOf(pair.target, pair.source);
 }
 
-export function reverseDirection<D extends string>(direction: D): Reversed<D> {
-  const { source, target } = directionLanguages(direction);
-  return `${target}${DIRECTION_SEPARATOR}${source}` as Reversed<D>;
+export function samePair<L extends string>(a: LanguagePair<L>, b: LanguagePair<L>): boolean {
+  return a.source === b.source && a.target === b.target;
 }
 
-export type TranslationDirection = Direction<LanguageCode>;
+export const languagePairSchema = z
+  .object({ source: languageCodeSchema, target: languageCodeSchema })
+  .refine((pair) => pair.source !== pair.target, 'source and target must differ');
 
-export const TRANSLATION_DIRECTIONS = allDirections(LANGUAGE_CODES) as [
-  TranslationDirection,
-  ...TranslationDirection[],
-];
-
-export const translationDirectionSchema = z.enum(TRANSLATION_DIRECTIONS);
-
-/** Applied wherever a caller may leave the direction unstated. */
-export const DEFAULT_TRANSLATION_DIRECTION: TranslationDirection = directionOf('vi', 'en');
+/** Applied wherever a caller may leave the pair unstated. */
+export const DEFAULT_LANGUAGE_PAIR: LanguagePair = languagePairOf('vi', 'en');
 
 /**
- * The languages a conversation declared by `direction` is held in, declared
- * source first — so the direction can be derived back from the set exactly.
+ * The languages a conversation declared by `pair` is held in, declared source
+ * first — the shape `Conversation.languages` stores.
  */
-export function conversationLanguagesOf(
-  direction: TranslationDirection,
-): [LanguageCode, LanguageCode] {
-  const { source, target } = directionLanguages(direction);
-  return [source, target];
+export function pairLanguages(pair: LanguagePair): [LanguageCode, LanguageCode] {
+  return [pair.source, pair.target];
 }
 
 /**
@@ -138,7 +125,7 @@ export function translationTargets<L extends string>(
  * The conversation's registry-first language is `speaker_a`, whatever order the
  * conversation declared its languages in. That keeps the invariant every stored
  * row already has — `speaker_a` is the Vietnamese side of any conversation with
- * Vietnamese in it — for both directions. Without Vietnamese (en↔zh), English is
+ * Vietnamese in it — whichever side is declared the source. Without Vietnamese (en↔zh), English is
  * registry-first and so `speaker_a`.
  */
 export function speakerRoleFor(

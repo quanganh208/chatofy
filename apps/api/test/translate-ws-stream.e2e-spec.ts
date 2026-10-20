@@ -182,7 +182,7 @@ describe('/ws/translate (e2e)', () => {
     try {
       client.send('client.session.start', {
         type: 'client.session.start',
-        direction: 'vi_to_en',
+        languagePair: { source: 'vi', target: 'en' },
         turnId: 'turn-1',
       });
       const ready = await client.waitFor('server.session.ready');
@@ -203,9 +203,10 @@ describe('/ws/translate (e2e)', () => {
       expect(transcript.segment).toMatchObject({
         sessionId,
         sourceText: 'xin chào',
-        targetText: 'Hello, how are you?',
-        direction: 'vi_to_en',
+        sourceLanguages: ['vi'],
+        translations: { en: 'Hello, how are you?' },
       });
+      expect(transcript.segment).not.toHaveProperty('targetText');
 
       const ended = await client.waitFor('server.session.ended');
       expect(ended.reason).toBe('completed');
@@ -241,7 +242,7 @@ describe('/ws/translate (e2e)', () => {
     try {
       client.send('client.session.start', {
         type: 'client.session.start',
-        direction: 'vi_to_en',
+        languagePair: { source: 'vi', target: 'en' },
         turnId,
       });
       const { sessionId } = await client.waitFor('server.session.ready');
@@ -307,7 +308,7 @@ describe('/ws/translate (e2e)', () => {
     try {
       client.send('client.session.start', {
         type: 'client.session.start',
-        direction: 'vi_to_en',
+        languagePair: { source: 'vi', target: 'en' },
         turnId: 'turn-2',
       });
       const { sessionId } = await client.waitFor('server.session.ready');
@@ -341,6 +342,40 @@ describe('/ws/translate (e2e)', () => {
       // transcribed says nothing about whether the guess was reused. Only the
       // whole-turn path translates.
       expect(fakeProviders.translation.translate).toHaveBeenCalledTimes(1);
+    } finally {
+      client.close();
+    }
+  }, 20000);
+
+  // A tab built before the language pair replaced `direction`. No turn opens,
+  // but the refusal is answered — `client_outdated` naming its turn — so the
+  // stale page can tell its user to reload instead of hanging. The connection
+  // itself stays usable.
+  it('refuses a start that carries the legacy direction with client_outdated', async () => {
+    const client = await Client.connect(url);
+    try {
+      client.send('client.session.start', {
+        type: 'client.session.start',
+        direction: 'vi_to_en',
+        turnId: 'legacy-turn',
+      });
+      const refusal = await client.waitFor('server.error');
+      expect(refusal.code).toBe('client_outdated');
+      expect(refusal.turnId).toBe('legacy-turn');
+      expect(
+        client.events.filter((e) => e.type === 'server.session.ready'),
+      ).toHaveLength(0);
+
+      client.send('client.session.start', {
+        type: 'client.session.start',
+        languagePair: { source: 'vi', target: 'en' },
+        turnId: 'current-turn',
+      });
+      const ready = await client.waitFor('server.session.ready');
+      expect(ready.turnId).toBe('current-turn');
+      expect(
+        client.events.filter((e) => e.type === 'server.session.ready'),
+      ).toHaveLength(1);
     } finally {
       client.close();
     }

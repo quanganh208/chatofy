@@ -12,14 +12,9 @@ import {
   conversationLanguagesSchema,
   sourceLanguagesSchema,
   speakerRoleFor,
-  translationDirectionSchema,
   translationMapSchema,
   translationTargets,
 } from '../domain/languages.js';
-import {
-  fillConversationLanguages,
-  fillLegacyConversationFields,
-} from '../domain/language-fields-compat.js';
 
 /**
  * Ceilings on a stored conversation.
@@ -34,12 +29,7 @@ import {
  * 400,000 characters is ~520–640 KB of Vietnamese UTF-8, which is what sets the
  * `/conversations` JSON parser limit registered in
  * `apps/api/src/common/middleware/narrow-body-limits.ts` — the two are one
- * decision and move together. That limit currently sits at 2 MiB rather than
- * the ~1 MB a single copy of the text would need, because the client sends
- * every translation TWICE right now: once keyed by language in each turn's
- * `translations`, and once more as the legacy `targetText` this schema keeps
- * for a rolled-back reader — see `saveConversationTurnSchema` below. The
- * parser limit can come back down once `targetText` is removed from the wire.
+ * decision and move together.
  */
 export const HISTORY_LIMITS = {
   MAX_TURNS: 4_000,
@@ -90,19 +80,9 @@ export const HISTORY_LIMITS = {
 /**
  * One displayed block as the client submits it.
  *
- * `targetText` is KEPT, required exactly as before this migration:
  * `packages/realtime-client`'s `toConversationTurns` builds this same shape to
  * project a finished conversation into a save body, and `apps/web` passes that
- * straight through, so the field this route has always required has to keep
- * being enough on its own for a reader that still only knows `targetText`.
- *
- * `sourceLanguages`/`translations` are the language-keyed record `targetText`
- * is being replaced by, and REQUIRED here: `toConversationTurns` fills them on
- * every row it builds, so a body from the current client always carries them.
- * A browser tab holding an older bundle sends neither — the ONE preprocess this
- * schema is wrapped in, {@link fillLegacyConversationFields}, derives them from
- * `targetText` and the turn's `speakerRole` before this schema ever sees the
- * body, so a strict shape can still validate what that tab sends.
+ * straight through.
  */
 export const saveConversationTurnSchema = z.object({
   position: z.number().int().min(0),
@@ -114,7 +94,6 @@ export const saveConversationTurnSchema = z.object({
   sourceLanguages: sourceLanguagesSchema,
   /** A translation per destination language this block needed. */
   translations: translationMapSchema(z.string().max(HISTORY_LIMITS.MAX_TURN_CHARS)),
-  targetText: z.string().max(HISTORY_LIMITS.MAX_TURN_CHARS),
   /**
    * When this block was spoken, in milliseconds from the conversation's
    * `startedAt`. Null when the client had no capture record for it.
@@ -164,20 +143,8 @@ export type UploadConversationAudioQuery = z.infer<typeof uploadConversationAudi
 /**
  * PUT /conversations/:conversationId body.
  *
- * `direction` is KEPT, required exactly as before — a body from a build that
- * predates `languages` sends only this, and it stays the fact both a rolled-
- * forward and a rolled-back server can agree on. `languages` is now REQUIRED
- * here too: `apps/web` derives and sends it on every save
- * (`conversationLanguagesOf(settings.direction)`), so a caller ahead of that
- * rollback always carries both. A tab holding an older bundle that sends only
- * `direction` is not rejected — {@link fillLegacyConversationFields}, the ONE
- * preprocess this schema is wrapped in, derives `languages` from `direction`
- * before this shape is validated, exactly as it derives a turn's
- * `sourceLanguages`/`translations` from `speakerRole`/`targetText`. Nothing on
- * this boundary reconciles a body that disagrees with itself (sends both, and
- * they name different languages) — a caller doing that is malformed in a way no
- * refine here is positioned to catch, and the sent `languages` wins because it
- * is what the store actually persists.
+ * `languages` is the conversation's pair, declared source first — `apps/web`
+ * sends `pairLanguages(languagePair)` on every save.
  *
  * The first refine below is the only bound on the WHOLE payload that runs in
  * the application: the per-field caps each pass while a thousand of them
@@ -185,9 +152,8 @@ export type UploadConversationAudioQuery = z.infer<typeof uploadConversationAudi
  * `main.ts` registers a byte limit for this path as well — a zod `max` cannot
  * refuse a body that has already been read and parsed.
  */
-const saveConversationRequestShape = z
+export const saveConversationRequestSchema = z
   .object({
-    direction: translationDirectionSchema,
     /** The conversation's language pair, declared source first. */
     languages: conversationLanguagesSchema,
     /** ISO-8601, client clock. */
@@ -247,9 +213,7 @@ const saveConversationRequestShape = z
           // conversation with more than two languages writes more than one
           // entry, and the cap has to see all of them or a body that fans out
           // wide could store far past HISTORY_LIMITS.MAX_TOTAL_CHARS while
-          // looking small turn by turn. Always present by the time this refine
-          // runs: the preprocess wrapping this whole schema fills it from
-          // `targetText` for a legacy body before validation reaches here.
+          // looking small turn by turn.
           Object.values(t.translations).reduce((n, text) => n + text.length, 0),
         0,
       ) <= HISTORY_LIMITS.MAX_TOTAL_CHARS,
@@ -305,18 +269,8 @@ const saveConversationRequestShape = z
    * to its speaker role.
    * The per-field schemas above only check `sourceLanguages`/`translations`
    * against the REGISTRY, so a turn naming a language its own conversation
-   * never declared, a translation keyed by the language it was SPOKEN in, or a
-   * turn carrying spoken text (`targetText`) with no translation recorded for
-   * it at all, were every one silently accepted and stored — the last of those
-   * then reads back as an empty translation forever, with nothing left on the
-   * wire to say why.
-   *
-   * Deliberately NOT folded into the legacy-fill preprocess: a body that sends
-   * an EMPTY `translations` alongside a non-empty `targetText` is not the
-   * "field absent" case that preprocess exists to backfill — a client sending
-   * that shape is malformed in a way no fill can safely guess at, and this
-   * refine is what turns it into a 400 instead of a turn that quietly loses
-   * its translation.
+   * never declared, or a translation keyed by the language it was SPOKEN in,
+   * were silently accepted and stored.
    */
   .superRefine((body, ctx) => {
     const languages = new Set<string>(body.languages);
@@ -367,32 +321,9 @@ const saveConversationRequestShape = z
           message: `speakerRole ${turn.speakerRole} does not match sourceLanguages ${onlySource} in this conversation`,
         });
       }
-
-      if (turn.targetText !== '' && translationKeys.length === 0) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['turns', index, 'translations'],
-          message: 'translations must not be empty when targetText is non-empty',
-        });
-      }
     });
   });
 
-/**
- * `saveConversationRequestShape`, tolerant of a body sent by a browser tab
- * holding a bundle that predates `languages`/turn `sourceLanguages`/
- * `translations` — the same rollback tolerance `transcriptSegmentWireSchema`
- * (`domain/transcript.ts`) gives a segment, applied to the request a client
- * SENDS rather than one it reads. `fillLegacyConversationFields`
- * (`language-fields-compat.ts`) fills every missing field from `direction`/
- * `speakerRole`/`targetText` before the strict shape above ever validates the
- * body, so `SaveConversationRequest` — this schema's OUTPUT type — can require
- * them without refusing a tab that has not reloaded yet.
- */
-export const saveConversationRequestSchema = z.preprocess(
-  fillLegacyConversationFields,
-  saveConversationRequestShape,
-);
 export type SaveConversationRequest = z.infer<typeof saveConversationRequestSchema>;
 
 /**
@@ -469,24 +400,6 @@ export function escapeLikePattern(term: string): string {
 }
 
 /**
- * `conversationSummarySchema`, tolerant of a summary sent by an API build
- * rolled back to before `languages` existed — only `direction`. A summary
- * carries no turns, so `fillConversationLanguages` alone is enough — unlike the
- * full conversation below, there is nothing nested to walk.
- */
-const conversationSummaryWireSchema = z.preprocess((raw) => {
-  if (typeof raw !== 'object' || raw === null) return raw;
-  return fillConversationLanguages(raw as Record<string, unknown>);
-}, conversationSummarySchema);
-
-/**
- * `conversationSchema`, tolerant of the same rolled-back-API gap as
- * {@link conversationSummaryWireSchema}, extended to the nested turns via
- * {@link fillLegacyConversationFields}.
- */
-const conversationWireSchema = z.preprocess(fillLegacyConversationFields, conversationSchema);
-
-/**
  * Cursor paging lives in `data`, not `meta.pagination`.
  *
  * `TransformInterceptor` emits only `{requestId, timestamp}` and never populates
@@ -495,19 +408,19 @@ const conversationWireSchema = z.preprocess(fillLegacyConversationFields, conver
  * query nothing needs.
  */
 export const conversationListResponseSchema = z.object({
-  conversations: z.array(conversationSummaryWireSchema),
+  conversations: z.array(conversationSummarySchema),
   /** Pass back as `?cursor=` for the next page; null when this is the last. */
   nextCursor: z.string().nullable(),
 });
 export type ConversationListResponse = z.infer<typeof conversationListResponseSchema>;
 
 export const conversationResponseSchema = z.object({
-  conversation: conversationWireSchema,
+  conversation: conversationSchema,
 });
 export type ConversationResponse = z.infer<typeof conversationResponseSchema>;
 
 /** PUT answers with the summary it stored — the list card's shape, no turns. */
 export const conversationSummaryResponseSchema = z.object({
-  conversation: conversationSummaryWireSchema,
+  conversation: conversationSummarySchema,
 });
 export type ConversationSummaryResponse = z.infer<typeof conversationSummaryResponseSchema>;

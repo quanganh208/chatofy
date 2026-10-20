@@ -20,11 +20,9 @@ const segment = (sessionId: string, sourceText: string, targetText = 'en'): Tran
   id: `seg-${sessionId}`,
   sessionId,
   speakerRole: 'speaker_a',
-  direction: 'vi_to_en',
   sourceLanguages: ['vi'],
   translations: { en: targetText },
   sourceText,
-  targetText,
   audioUrl: null,
   createdAt: '2026-08-27T00:00:00.000Z',
 });
@@ -38,11 +36,9 @@ const enSegment = (
   id: `seg-${sessionId}`,
   sessionId,
   speakerRole: 'speaker_b',
-  direction: 'vi_to_en',
   sourceLanguages: ['en'],
   translations: { vi: targetText },
   sourceText,
-  targetText,
   audioUrl: null,
   createdAt: '2026-08-27T00:00:00.000Z',
 });

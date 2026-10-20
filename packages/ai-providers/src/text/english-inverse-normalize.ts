@@ -1,5 +1,5 @@
 // The English ITN. The display path is bidirectional and always was — on
-// `en_to_vi` the transcript being typeset is the ENGLISH one — so deleting the
+// en→vi the transcript being typeset is the ENGLISH one — so deleting the
 // LLM repair without this would have silently stopped display on half the
 // product while the schema kept documenting it.
 //

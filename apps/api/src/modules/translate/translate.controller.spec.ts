@@ -16,7 +16,7 @@ import type { SpeechLanguageSupport } from './providers/speech-language-support'
 const REQUEST: TranslateRequestDto = {
   audioBase64: Buffer.from('audio').toString('base64'),
   audioMimeType: 'audio/webm',
-  direction: 'vi_to_en',
+  languagePair: { source: 'vi', target: 'en' },
   voiceGender: 'female',
   speed: 1,
 };

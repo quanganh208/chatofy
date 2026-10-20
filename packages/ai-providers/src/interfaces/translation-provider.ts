@@ -48,8 +48,8 @@ export interface TranslationHints {
    * Preferred renderings for particular terms, as language-keyed maps.
    *
    * Keyed BY LANGUAGE rather than by role, because one stored dictionary serves
-   * BOTH directions of a bidirectional meeting — the extension runs two sessions
-   * with opposite directions off one settings object. Which side is the source
+   * BOTH legs of a meeting — the extension runs two sessions on reversed
+   * language pairs off one settings object. Which side is the source
    * is therefore a property of the REQUEST, not of the entry, and
    * `buildContextBlock` resolves it against `TranslationRequest.sourceLanguage`.
    *

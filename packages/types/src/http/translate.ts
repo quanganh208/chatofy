@@ -1,8 +1,8 @@
 // Translate HTTP contracts — schema-first. Turn-based (record full utterance →
 // POST → response) voice translation. Audio travels as base64 inside the standard
-// ApiResponse<T> envelope. Directions come from the language registry.
+// ApiResponse<T> envelope. Language pairs come from the language registry.
 import { z } from 'zod';
-import { translationDirectionSchema } from '../domain/languages.js';
+import { languagePairSchema } from '../domain/languages.js';
 import { voiceGenderSchema, DEFAULT_VOICE_GENDER } from '../domain/transcript.js';
 
 /** POST /translate request body. */
@@ -11,14 +11,19 @@ export const translateRequestSchema = z.object({
   audioBase64: z.string().min(1),
   /** MIME type of the recorded audio, e.g. "audio/webm". */
   audioMimeType: z.string().min(1),
+  /** Which language is spoken and which it is translated into. Omitted means `DEFAULT_LANGUAGE_PAIR`. */
+  languagePair: languagePairSchema.optional(),
   /**
-   * Translation direction. Optional for backward compatibility — the server
-   * defaults an omitted direction to vi→en.
+   * The removed `${source}_to_${target}` string, refused rather than stripped.
+   * `languagePair` is optional, so a caller still sending only this would
+   * otherwise be translated vi→en whatever it asked for, with nothing to say so.
    */
-  direction: translationDirectionSchema.optional(),
+  direction: z
+    .never({ error: 'direction was removed; send languagePair: { source, target }' })
+    .optional(),
   /**
    * Which voice speaks the translation. Applies to whichever language the
-   * direction outputs — both engines have a voice for each gender.
+   * pair translates into — both engines have a voice for each gender.
    */
   voiceGender: voiceGenderSchema.default(DEFAULT_VOICE_GENDER),
   /**
@@ -52,9 +57,9 @@ export type TranslateRequest = z.infer<typeof translateRequestSchema>;
 
 /** POST /translate success payload (inner data of the response envelope). */
 export const translateResponseSchema = z.object({
-  /** Recognised transcript, in the direction's source language. */
+  /** Recognised transcript, in the pair's source language. */
   sourceText: z.string(),
-  /** Translation, in the direction's target language. */
+  /** Translation, in the pair's target language. */
   targetText: z.string(),
   /** Base64-encoded synthesized target-language audio (no data-url prefix). */
   audioBase64: z.string(),

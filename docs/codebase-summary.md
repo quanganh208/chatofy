@@ -114,7 +114,7 @@ the root layout, and it is the accepted price of one URL serving two languages �
 
 **API Endpoints:** the full route set is the `*.controller.ts` files under `apps/api/src/modules/`; Swagger at `/docs` lists them in dev. Not described below: `GET /` (service descriptor), `GET /translate/voices`, the rest of `/auth/*` (register, verify, password reset, login, Google, avatar), `/conversations/*` (history and recordings) and `/conversations/:conversationId/minutes`.
 
-- `POST /translate` — Turn-based audio translation between registered languages (request: `{ audioBase64, audioMimeType, direction?, voiceGender?, speed? }`, response: `{ sourceText, targetText, audioBase64, audioMimeType }`)
+- `POST /translate` — Turn-based audio translation between registered languages (request: `{ audioBase64, audioMimeType, languagePair?, voiceGender?, speed? }`, response: `{ sourceText, targetText, audioBase64, audioMimeType }`)
 - `WS /ws/translate` — One path, two modes, chosen by the first message the client sends and fixed for that connection:
   - `client.session.start` → turn-based cascade (STT → translate → TTS), contract `clientEventSchema` / `serverEventSchema`
   - `client.live.start` → continuous speech-to-speech, contract `liveClientEventSchema` / `liveServerEventSchema`
@@ -181,7 +181,7 @@ A **client** choice, and there is nothing to configure on the server to match it
 | web       | No choice: `cascade-panel.tsx` is the only path, and the live route that used to sit beside it is deleted                                     |
 | extension | No choice either: the popup no longer offers one, and `loadSettings` (`apps/extension/src/settings.ts`) reads any stored mode back as cascade |
 
-The extension keeps the live path in code. Both directions of one meeting always run the same mode. `createDirectionSession` routes on `CaptureSettings.mode` and returns either a `ConversationSession` or a `LiveDirectionSession` — `MeetingCapture` drives whichever it is handed through the `DirectionRunner` interface and does not know which it holds. Three things differ on the live path: capture runs ungated through `MicrophoneGraph`, ducking follows audible audio rather than open turns (there are none to count), and transcript text appends to one line per direction instead of a turn per sentence. `voiceGender` is inert in live mode — the model has its own voice, and the popup disables the control rather than leaving it doing nothing.
+The extension keeps the live path in code. Both legs of one meeting always run the same mode. `createLanguagePairSession` routes on `CaptureSettings.mode` and returns either a `ConversationSession` or a `LiveLanguagePairSession` — `MeetingCapture` drives whichever it is handed through the `LegRunner` interface and does not know which it holds. Three things differ on the live path: capture runs ungated through `MicrophoneGraph`, ducking follows audible audio rather than open turns (there are none to count), and transcript text appends to one line per leg instead of a turn per sentence. `voiceGender` is inert in live mode — the model has its own voice, and the popup disables the control rather than leaving it doing nothing.
 
 ## CI
 

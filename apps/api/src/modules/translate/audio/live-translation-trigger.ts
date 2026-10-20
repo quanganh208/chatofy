@@ -75,9 +75,9 @@ export class LiveTranslationTrigger {
    * Vietnamese recogniser emits no punctuation at all — the model's own notes
    * record output like "XIN CHÀO HÔM NAY TRỜI RẤT ĐẸP", and post-processing only
    * lowercases it. `splitIntoClauses` matches on `,;:.!?…`, so on Vietnamese it
-   * never matches and the clause rule never fires. For `vi_to_en`, the main
-   * direction, counting characters is the only mechanism there is. English from
-   * Parakeet does carry punctuation, so `en_to_vi` gets both.
+   * never matches and the clause rule never fires. For vi→en, the main
+   * language pair, counting characters is the only mechanism there is. English
+   * from Parakeet does carry punctuation, so en→vi gets both.
    */
   shouldTranslate(committed: string, reanchors: number): boolean {
     if (this.inFlight) return false;

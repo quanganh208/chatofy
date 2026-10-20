@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { directionPickerLanguages, loadSettings, saveSettings } from './settings';
+import { languagePairPickerLanguages, loadSettings, saveSettings } from './settings';
 import type { CaptureSettings } from './messages';
 
 /**
@@ -26,6 +26,7 @@ beforeEach(() => {
 });
 
 const KEY = 'chatofy.settings';
+const VI_TO_EN = { source: 'vi', target: 'en' } as const;
 
 describe('loadSettings', () => {
   it('reads a stored live mode back as the cascade', async () => {
@@ -58,15 +59,15 @@ describe('loadSettings', () => {
   });
 
   it('still merges the settings a user does control', async () => {
-    store.set(KEY, { direction: 'vi_to_en', outbound: true });
+    store.set(KEY, { languagePair: VI_TO_EN, outbound: true });
     const settings = await loadSettings();
-    expect(settings.direction).toBe('vi_to_en');
+    expect(settings.languagePair).toEqual(VI_TO_EN);
     expect(settings.outbound).toBe(true);
   });
 
   it('fills every field when nothing has been stored', async () => {
     const settings = await loadSettings();
-    expect(settings.direction).toBe('en_to_vi');
+    expect(settings.languagePair).toEqual({ source: 'en', target: 'vi' });
     expect(settings.voiceGender).toBeDefined();
     expect(settings.apiBaseUrl).toMatch(/^https?:\/\//);
     expect(settings.outbound).toBe(false);
@@ -76,10 +77,44 @@ describe('loadSettings', () => {
   // so unlike `mode` and `apiBaseUrl` it is not whitelisted away. This is the
   // load half of that: nothing here should reject or rewrite it.
   it('a stored object with no contextId loads', async () => {
-    store.set(KEY, { direction: 'vi_to_en' });
+    store.set(KEY, { languagePair: VI_TO_EN });
     const settings = await loadSettings();
     expect(settings.contextId).toBeUndefined();
-    expect(settings.direction).toBe('vi_to_en');
+    expect(settings.languagePair).toEqual(VI_TO_EN);
+  });
+
+  // Builds before the pair stored a `direction` string. A profile that chose its
+  // languages then must keep them rather than reopening on the default.
+  it('reads a pre-pair stored direction as its language pair', async () => {
+    store.set(KEY, { direction: 'zh_to_en', outbound: true });
+    const settings = await loadSettings();
+    expect(settings.languagePair).toEqual({ source: 'zh', target: 'en' });
+    expect(settings.outbound).toBe(true);
+  });
+
+  it('does not carry the pre-pair key into what the next save writes', async () => {
+    store.set(KEY, { direction: 'vi_to_en' });
+    await saveSettings(await loadSettings());
+    expect(store.get(KEY)).not.toHaveProperty('direction');
+    expect(store.get(KEY)).toMatchObject({ languagePair: VI_TO_EN });
+  });
+
+  it('prefers a stored pair over a leftover direction', async () => {
+    store.set(KEY, { languagePair: VI_TO_EN, direction: 'en_to_zh' });
+    expect((await loadSettings()).languagePair).toEqual(VI_TO_EN);
+  });
+
+  it('falls back to the default for a malformed pair or direction', async () => {
+    for (const stored of [
+      { languagePair: { source: 'vi', target: 'vi' } },
+      { languagePair: { source: 'xx', target: 'en' } },
+      { languagePair: 'vi_to_en' },
+      { direction: 'vi_to_vi' },
+      { direction: 42 },
+    ]) {
+      store.set(KEY, stored);
+      expect((await loadSettings()).languagePair).toEqual({ source: 'en', target: 'vi' });
+    }
   });
 
   it('contextId is not stripped by the whitelist', async () => {
@@ -104,20 +139,20 @@ describe('saveSettings', () => {
   it('does not persist apiBaseUrl, even when the caller passes one', async () => {
     const loaded = await loadSettings();
     expect(loaded).toHaveProperty('apiBaseUrl');
-    await saveSettings({ ...loaded, direction: 'vi_to_en' });
+    await saveSettings({ ...loaded, languagePair: VI_TO_EN });
     expect(store.get(KEY)).not.toHaveProperty('apiBaseUrl');
   });
 
   it('round-trips the settings a user does control', async () => {
     await saveSettings({
-      direction: 'vi_to_en',
+      languagePair: VI_TO_EN,
       mode: 'cascade',
       voiceGender: 'male',
       reportMetrics: true,
       outbound: true,
     });
     const settings = await loadSettings();
-    expect(settings.direction).toBe('vi_to_en');
+    expect(settings.languagePair).toEqual(VI_TO_EN);
     expect(settings.voiceGender).toBe('male');
     expect(settings.reportMetrics).toBe(true);
     expect(settings.outbound).toBe(true);
@@ -125,7 +160,7 @@ describe('saveSettings', () => {
 
   it('a contextId survives the round-trip', async () => {
     await saveSettings({
-      direction: 'en_to_vi',
+      languagePair: { source: 'en', target: 'vi' },
       mode: 'cascade',
       voiceGender: 'female',
       reportMetrics: false,
@@ -136,12 +171,12 @@ describe('saveSettings', () => {
   });
 });
 
-describe('directionPickerLanguages', () => {
+describe('languagePairPickerLanguages', () => {
   it('offers every registry language in the turn-by-turn mode', () => {
-    expect(directionPickerLanguages('cascade')).toEqual(['vi', 'en', 'zh']);
+    expect(languagePairPickerLanguages('cascade')).toEqual(['vi', 'en', 'zh']);
   });
 
   it('offers no zh pair in live mode, which the live gateway refuses', () => {
-    expect(directionPickerLanguages('live')).toEqual(['vi', 'en']);
+    expect(languagePairPickerLanguages('live')).toEqual(['vi', 'en']);
   });
 });

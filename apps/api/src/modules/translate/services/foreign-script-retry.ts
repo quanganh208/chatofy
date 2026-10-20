@@ -6,6 +6,7 @@ import {
 } from '@chatofy/ai-providers';
 import type { LanguageCode } from '@chatofy/types';
 import type { TranslationMap } from '../session/turn-language-plan';
+import { languagePairLabel } from '../language-pair-label';
 
 /**
  * Permission for ONE more provider call when a final translation slipped into
@@ -84,7 +85,7 @@ export async function translateInTargetScript(
     req.scriptRetry.allow()
   ) {
     logger.warn(
-      `translation leaked a foreign script, retrying once: ${req.scriptRetry.label} ${req.source}_to_${req.target} han_in=${hanCount(req.text)} han_out=${hanCount(first)}`,
+      `translation leaked a foreign script, retrying once: ${req.scriptRetry.label} ${languagePairLabel({ source: req.source, target: req.target })} han_in=${hanCount(req.text)} han_out=${hanCount(first)}`,
     );
     try {
       text = await attempt(restarting(onChunk));
@@ -125,7 +126,7 @@ export async function retryAdoptedTranslations(
         return [target, text] as const;
       }
       logger.warn(
-        `adopted speculation leaked a foreign script, retrying once: ${scriptRetry.label} ${source}_to_${target} han_in=${hanCount(sourceText)} han_out=${hanCount(text)}`,
+        `adopted speculation leaked a foreign script, retrying once: ${scriptRetry.label} ${languagePairLabel({ source, target })} han_in=${hanCount(sourceText)} han_out=${hanCount(text)}`,
       );
       try {
         return [target, await retranslate(target)] as const;

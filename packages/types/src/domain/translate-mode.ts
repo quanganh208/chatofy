@@ -35,7 +35,7 @@ export const DEFAULT_TRANSLATE_MODE: TranslateMode = 'cascade';
  *
  * Chinese is refused there by decision, not by accident: the zh language work
  * validated the cascade (Paraformer, DeepSeek, Kokoro) and never Gemini Live,
- * so the gateway answers a zh direction with `unsupported_direction` and the
+ * so the gateway answers a zh pair with `unsupported_language_pair` and the
  * extension's picker offers no zh pair in live mode. One table, read by both,
  * so they cannot disagree.
  */

@@ -14,7 +14,10 @@ import { encodePcm16Wav } from '../audio/wav-codec';
 
 /** A turn whose output voice is beside the point for the behavior under test. */
 const openSession = () =>
-  new TurnSession({ direction: 'vi_to_en', voiceGender: 'female' });
+  new TurnSession({
+    languagePair: { source: 'vi', target: 'en' },
+    voiceGender: 'female',
+  });
 
 const TTS_SAMPLE_RATE = 24000;
 

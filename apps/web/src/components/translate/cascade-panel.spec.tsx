@@ -76,11 +76,9 @@ const conversation: UseStreamingTranslate = {
       id: 'seg-a',
       sessionId: 'a',
       speakerRole: 'speaker_a',
-      direction: 'vi_to_en',
       sourceLanguages: ['vi'],
       translations: { en: 'hello' },
       sourceText: 'xin chào',
-      targetText: 'hello',
       audioUrl: null,
       createdAt: '2026-09-03T00:00:00.000Z',
     },
@@ -111,7 +109,7 @@ const conversation: UseStreamingTranslate = {
   level: 0,
   conversationId: 'c-1',
   startedAt: '2026-09-03T00:00:00.000Z',
-  direction: 'vi_to_en',
+  languagePair: { source: 'vi', target: 'en' },
   // No recording by default: happy-dom has no `MediaRecorder`, so this is also
   // the state a browser without one produces — the transcript half unaffected.
   recording: null,
@@ -240,8 +238,8 @@ describe('CascadePanel', () => {
     expect(generateButton()?.disabled).toBe(true);
   });
 
-  it('saves the direction the conversation was captured with, not a later swap', () => {
-    // The direction toggle stays live once `running` is false, so a reader can
+  it('saves the pair the conversation was captured with, not a later swap', () => {
+    // The language pickers stay live once `running` is false, so a reader can
     // swap it between End and pressing Start again for the NEXT conversation.
     // The already-finished one on screen must still be stored under the
     // language it was actually spoken in.
@@ -251,7 +249,10 @@ describe('CascadePanel', () => {
       addEventListener() {},
       removeEventListener() {},
     });
-    useStreamingTranslate.mockReturnValue({ ...conversation, direction: 'vi_to_en' });
+    useStreamingTranslate.mockReturnValue({
+      ...conversation,
+      languagePair: { source: 'vi', target: 'en' },
+    });
     useConversationSave.mockReturnValue({
       saved: true,
       failure: null,
@@ -262,7 +263,10 @@ describe('CascadePanel', () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
-            settings={{ ...DEFAULT_TRANSLATE_SETTINGS, direction: 'en_to_vi' }}
+            settings={{
+              ...DEFAULT_TRANSLATE_SETTINGS,
+              languagePair: { source: 'en', target: 'vi' },
+            }}
             onChange={vi.fn()}
             getVolume={() => 1}
           />
@@ -271,7 +275,7 @@ describe('CascadePanel', () => {
     });
 
     expect(useConversationSave).toHaveBeenCalledWith(
-      expect.objectContaining({ direction: 'vi_to_en' }),
+      expect.objectContaining({ languagePair: { source: 'vi', target: 'en' } }),
     );
   });
 });
@@ -614,7 +618,7 @@ describe('the context a conversation starts under', () => {
       topic: 'thesis defense committee meeting',
       hotwords: ['VinFast'],
       // The stored `{vi, en}` pairs, untouched: which side is the source is
-      // resolved server-side, because only the session knows its direction.
+      // resolved server-side, because only the session knows its pair.
       glossary: [{ vi: 'hội đồng phản biện', en: 'thesis defense committee' }],
       style: 'formal',
     });

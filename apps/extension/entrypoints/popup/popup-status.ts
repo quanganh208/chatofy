@@ -11,7 +11,7 @@ import { meetingSiteName, type MeetingSite } from '../../src/supported-meeting-u
  * where the only way to check a case was to open the popup in that case.
  */
 
-/** The first failure there is, named by which direction it belongs to. */
+/** The first failure there is, named by which leg it belongs to. */
 export function firstFailure(overlay: OverlayState | undefined): string | undefined {
   const errors = overlay?.errors;
   if (!errors) return undefined;

@@ -1,41 +1,51 @@
 import { describe, expect, it } from 'vitest';
+import { languagePairOf, reversePair, type LanguagePair } from '@chatofy/types';
 import { MeetingTranscript } from './meeting-transcript';
 
 /**
- * Two directions read as one conversation, or they do not read at all.
+ * Two legs read as one conversation, or they do not read at all.
  */
 
-const said = (transcript: MeetingTranscript, direction: 'inbound' | 'outbound', id: string) => {
-  transcript.apply(direction, {
+/** What the meeting side is translated by; the user's side runs the reverse. */
+const MEETING_PAIR = languagePairOf('en', 'vi');
+const pairOf = (leg: 'inbound' | 'outbound'): LanguagePair =>
+  leg === 'inbound' ? MEETING_PAIR : reversePair(MEETING_PAIR);
+
+/** A transcript for a meeting translated by {@link MEETING_PAIR}. */
+const meeting = () => {
+  const transcript = new MeetingTranscript();
+  transcript.clear(MEETING_PAIR);
+  return transcript;
+};
+
+const said = (transcript: MeetingTranscript, leg: 'inbound' | 'outbound', id: string) => {
+  transcript.apply(leg, {
     type: 'server.transcript.partial',
     sessionId: id,
     text: id,
     speaker: 'speaker_a',
-    direction: direction === 'inbound' ? 'en_to_vi' : 'vi_to_en',
+    languagePair: pairOf(leg),
   });
 };
 
 /** A finished turn, real enough to exercise the language-keyed read. */
 const finished = (
   transcript: MeetingTranscript,
-  direction: 'inbound' | 'outbound',
+  leg: 'inbound' | 'outbound',
   id: string,
   sourceText: string,
   translations: Record<string, string>,
 ) => {
-  const turnDirection = direction === 'inbound' ? 'en_to_vi' : 'vi_to_en';
-  transcript.apply(direction, {
+  transcript.apply(leg, {
     type: 'server.transcript.final',
     sessionId: id,
     segment: {
       id: `seg-${id}`,
       sessionId: id,
       speakerRole: 'speaker_a',
-      direction: turnDirection,
-      sourceLanguages: [turnDirection === 'en_to_vi' ? 'en' : 'vi'],
+      sourceLanguages: [pairOf(leg).source],
       translations,
       sourceText,
-      targetText: Object.values(translations)[0] ?? '',
       audioUrl: null,
       createdAt: '2026-09-28T00:00:00.000Z',
     },
@@ -43,11 +53,11 @@ const finished = (
 };
 
 describe('MeetingTranscript', () => {
-  it('orders both directions by when each turn was first seen', () => {
+  it('orders both legs by when each turn was first seen', () => {
     // Concatenating the two produces two monologues: every sentence the user said
     // below every sentence said to them. Turn segments carry no timestamp, so the
     // order is recovered from first sight, which is when the speech started.
-    const transcript = new MeetingTranscript();
+    const transcript = meeting();
 
     said(transcript, 'inbound', 'they-1');
     transcript.lines();
@@ -59,7 +69,7 @@ describe('MeetingTranscript', () => {
   });
 
   it('tags each line with the side that said it', () => {
-    const transcript = new MeetingTranscript();
+    const transcript = meeting();
     said(transcript, 'inbound', 'they-1');
     said(transcript, 'outbound', 'me-1');
 
@@ -69,10 +79,10 @@ describe('MeetingTranscript', () => {
     expect(origins).toEqual({ 'they-1': 'them', 'me-1': 'me' });
   });
 
-  it('keeps what one direction said after that direction is reset', () => {
-    // A dropped socket resets its own direction. The meeting's history is not
-    // that direction's to take with it.
-    const transcript = new MeetingTranscript();
+  it('keeps what one leg said after that leg is reset', () => {
+    // A dropped socket resets its own leg. The meeting's history is not
+    // that leg's to take with it.
+    const transcript = meeting();
     said(transcript, 'inbound', 'they-1');
     said(transcript, 'outbound', 'me-1');
 
@@ -84,29 +94,27 @@ describe('MeetingTranscript', () => {
   it('starts empty for a new meeting', () => {
     // Capturing meeting A, stopping, then capturing meeting B must not render A's
     // lines in B's overlay.
-    const transcript = new MeetingTranscript();
+    const transcript = meeting();
     said(transcript, 'inbound', 'they-1');
 
-    transcript.clear();
+    transcript.clear(MEETING_PAIR);
 
     expect(transcript.lines()).toEqual([]);
     expect(transcript.liveTurns).toBe(0);
   });
 
-  it('counts open turns across both directions', () => {
-    const transcript = new MeetingTranscript();
+  it('counts open turns across both legs', () => {
+    const transcript = meeting();
     said(transcript, 'inbound', 'they-1');
     said(transcript, 'outbound', 'me-1');
 
     expect(transcript.liveTurns).toBe(2);
   });
 
-  // A finished turn's `targetText` is the pre-fan-out field; the overlay now
-  // reads out of `translations` instead, keyed by the segment's OWN declared
-  // direction — not by which side of the meeting spoke it, since inbound and
-  // outbound translate opposite ways.
-  it('reads a finished line out of the map keyed by its own direction, not the pre-fan-out field', () => {
-    const transcript = new MeetingTranscript();
+  // Keyed by the pair of the side that said it: inbound and outbound translate
+  // opposite ways, so one shared target would show the user their own language.
+  it("reads a finished line out of the map keyed by its side's target language", () => {
+    const transcript = meeting();
     finished(transcript, 'inbound', 'they-1', 'hello', { vi: 'xin chào' });
     finished(transcript, 'outbound', 'me-1', 'chào bạn', { en: 'hi there' });
 
@@ -117,17 +125,27 @@ describe('MeetingTranscript', () => {
   });
 
   // A mixed turn's map can carry more than one entry; the overlay must pick the
-  // ONE key its own direction names, not merely the first or only key present.
-  it('picks the direction-named key out of a turn translated into more than one language', () => {
-    // Inbound is `en_to_vi` (see `said`/`finished`): the target this line's OWN
-    // direction names is 'vi', so that is the entry that must win even though
-    // the map also carries 'en'.
-    const transcript = new MeetingTranscript();
+  // ONE key its side's pair names, not merely the first or only key present.
+  it('picks the pair-named key out of a turn translated into more than one language', () => {
+    // Inbound is en → vi (`MEETING_PAIR`): the target this side's pair names is
+    // 'vi', so that is the entry that must win even though the map also carries
+    // 'en'.
+    const transcript = meeting();
     finished(transcript, 'inbound', 'they-1', 'ship it now', {
       en: 'ship it now',
       vi: 'ship it giờ này',
     });
 
     expect(transcript.lines()[0]?.targetText).toBe('ship it giờ này');
+  });
+
+  // The pair is the capture's, not fixed: a meeting translated the other way
+  // round must read the other key.
+  it('follows the pair the meeting was cleared with', () => {
+    const transcript = new MeetingTranscript();
+    transcript.clear(reversePair(MEETING_PAIR));
+    finished(transcript, 'inbound', 'they-1', 'xin chào', { en: 'hello', vi: 'xin chào' });
+
+    expect(transcript.lines()[0]?.targetText).toBe('hello');
   });
 });

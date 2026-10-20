@@ -45,17 +45,12 @@ import { registerAndLogin, type Identity } from './utils/auth-fixture';
 const run = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 
 /**
- * A save body as a LEGACY client tab still sends it — `direction` and turn
- * `targetText`, not `SaveConversationRequest`'s language-keyed shape.
- *
- * Every `seed` call in this file drives the save route with exactly this
- * shape, exercising `saveConversationRequestSchema`'s preprocess the same way
- * `conversations.db-e2e-spec.ts`'s own `SaveConversationBody` does — this suite
- * is about minutes, not about the save contract itself, so it keeps sending the
- * shape a real, un-upgraded tab sends rather than switching to the stricter one.
+ * A save body as a client sends it — `SaveConversationRequest`'s
+ * language-keyed shape. This suite is about minutes, not about the save
+ * contract itself; `conversations.db-e2e-spec.ts` owns that.
  */
 interface SaveConversationBody {
-  direction: 'vi_to_en' | 'en_to_vi';
+  languages: string[];
   startedAt: string;
   endedAt: string;
   turns: Array<{
@@ -64,7 +59,8 @@ interface SaveConversationBody {
     speakerLabel: string | null;
     sourceText: string;
     displayText: string | null;
-    targetText: string;
+    sourceLanguages: string[];
+    translations: Record<string, string>;
     offsetMs?: number | null;
   }>;
   audioOffsetMs?: number | null;
@@ -347,7 +343,8 @@ describe('Prisma-backed minutes (db-e2e)', () => {
           speakerLabel: 'Alice',
           sourceText: 'x'.repeat(MINUTES_LIMITS.MAX_TURN_CHARS),
           displayText: null,
-          targetText: '',
+          sourceLanguages: ['vi'],
+          translations: { en: '' },
           // What is refused here is the CHARACTER total; nothing in this body is
           // timed, and minutes never read a turn timestamp anyway.
           offsetMs: null,
@@ -413,7 +410,7 @@ describe('Prisma-backed minutes (db-e2e)', () => {
       .put(`/conversations/${id}`)
       .set('authorization', who.bearer)
       .send({
-        direction: 'vi_to_en',
+        languages: ['vi', 'en'],
         startedAt: new Date(Date.now() - 60_000).toISOString(),
         endedAt: new Date().toISOString(),
         turns: [
@@ -423,7 +420,8 @@ describe('Prisma-backed minutes (db-e2e)', () => {
             speakerLabel: 'Alice',
             sourceText: 'ship it?',
             displayText: null,
-            targetText: 'ship it?',
+            sourceLanguages: ['vi'],
+            translations: { en: 'ship it?' },
           },
         ],
         ...overrides,

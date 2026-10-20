@@ -2,7 +2,7 @@ import {
   liveServerEventSchema,
   type LiveClientEvent,
   type LiveServerEvent,
-  type TranslationDirection,
+  type LanguagePair,
 } from '@chatofy/types';
 
 import { connectJsonSocket, detachJsonSocket, sendJsonEvent } from './json-event-socket.js';
@@ -101,8 +101,8 @@ export class LiveTranslateSocket {
     sendJsonEvent(this.socket, event);
   }
 
-  start(direction: TranslationDirection): void {
-    this.send({ type: 'client.live.start', direction });
+  start(languagePair: LanguagePair): void {
+    this.send({ type: 'client.live.start', languagePair });
   }
 
   /**

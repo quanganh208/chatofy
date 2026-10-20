@@ -181,8 +181,8 @@ describe('toHints', () => {
   });
 
   it('carries vi/en pairs through unchanged', () => {
-    // Untouched, and not re-keyed by direction: which side is the source is
-    // resolved server-side, because only the session knows its direction.
+    // Untouched, and not re-keyed by the pair: which side is the source is
+    // resolved server-side, because only the session knows its pair.
     const glossary = [{ vi: 'hội đồng phản biện', en: 'thesis defense committee' }];
     expect(toHints(context({ glossary }))?.glossary).toEqual(glossary);
   });

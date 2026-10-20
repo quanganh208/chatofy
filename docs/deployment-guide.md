@@ -587,7 +587,7 @@ deletion, which requires a second API token and is out of scope.
 
 ## Known gaps
 
-- **Chinese speech has limits that are known and not fixed.** Kokoro spells Latin acronyms letter by letter ("ChatGPT"); `℃` and `¥` are not verbalized before synthesis; nobody has yet listened to the zh voices (47 `zf_xiaoxiao`, 51 `zm_yunxia`) for naturalness — they were chosen by round-trip intelligibility. Gemini Live refuses every zh direction by design (`unsupported_direction`). Traditional-script output and Cantonese are out of scope.
+- **Chinese speech has limits that are known and not fixed.** Kokoro spells Latin acronyms letter by letter ("ChatGPT"); `℃` and `¥` are not verbalized before synthesis; nobody has yet listened to the zh voices (47 `zf_xiaoxiao`, 51 `zm_yunxia`) for naturalness — they were chosen by round-trip intelligibility. Gemini Live refuses every pair with zh in it by design (`unsupported_language_pair`). Traditional-script output and Cantonese are out of scope.
 - **Rebuild the extension after a registry change.** A build from before zh drops its whole saved-context list once any glossary entry has a zh side; builds since read the list entry by entry. Only the maintainer's own builds exist, so this is a rebuild-and-reload, not a store release.
 
 - **No WebSocket keepalive.** Cloudflare drops idle sockets after roughly 100 seconds, and a user pausing mid-conversation is ordinary. Localhost development never exercises this. The minimal fix is server-side (`ws.ping()` in the gateway); client reconnect is a larger follow-up.

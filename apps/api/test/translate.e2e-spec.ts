@@ -115,14 +115,22 @@ describe('POST /translate (e2e)', () => {
     expect(res.body.meta.requestId).toBeDefined();
   });
 
-  it('accepts en→vi direction + voice gender and returns a wav envelope', async () => {
+  it('refuses the removed direction string instead of translating vi→en regardless', async () => {
+    await request(app.getHttpServer())
+      .post('/translate')
+      .set('authorization', identity.bearer)
+      .send({ audioBase64, audioMimeType: 'audio/webm', direction: 'en_to_vi' })
+      .expect(400);
+  });
+
+  it('accepts an en→vi language pair + voice gender and returns a wav envelope', async () => {
     const res = await request(app.getHttpServer())
       .post('/translate')
       .set('authorization', identity.bearer)
       .send({
         audioBase64,
         audioMimeType: 'audio/webm',
-        direction: 'en_to_vi',
+        languagePair: { source: 'en', target: 'vi' },
         voiceGender: 'male',
       })
       .expect(201);
@@ -148,14 +156,14 @@ describe('POST /translate (e2e)', () => {
     );
   });
 
-  it('rejects an unknown direction with a 400', async () => {
+  it('rejects a language pair naming an unknown language with a 400', async () => {
     const res = await request(app.getHttpServer())
       .post('/translate')
       .set('authorization', identity.bearer)
       .send({
         audioBase64,
         audioMimeType: 'audio/webm',
-        direction: 'fr_to_en',
+        languagePair: { source: 'fr', target: 'en' },
       })
       .expect(400);
     expect(res.body.error.code).toBe('VALIDATION_FAILED');

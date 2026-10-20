@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import type { SessionOptions, TranscriptSegment, TranslationDirection } from '@chatofy/types';
+import type { LanguagePair, SessionOptions, TranscriptSegment } from '@chatofy/types';
 import {
   ConversationSession,
   PcmPlaybackQueue,
@@ -151,14 +151,14 @@ export interface UseStreamingTranslate {
   /** ISO-8601 instant the current conversation started. Minted with the id. */
   startedAt: string | null;
   /**
-   * The direction this conversation was actually started with. Minted with the
-   * id and never re-read from settings afterwards, because settings can change
-   * the moment the microphone stops — the direction toggle is only disabled
-   * while `running`. A pane or a save that read `settings.direction` instead
+   * The language pair this conversation was actually started with. Minted with
+   * the id and never re-read from settings afterwards, because settings can change
+   * the moment the microphone stops — the language pickers are only disabled
+   * while `running`. A pane or a save that read `settings.languagePair` instead
    * would show or store turns under languages they were never spoken in the
    * moment somebody swapped it. Null until the first `start`.
    */
-  direction: TranslationDirection | null;
+  languagePair: LanguagePair | null;
   /**
    * The finished recording, once the conversation has stopped.
    *
@@ -485,13 +485,13 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   const session = sessionRef.current;
 
   // The durable identity of one conversation. Held together because they are one
-  // fact — which conversation this is, when it began, and which direction it
-  // runs — and all three are stamped at the same moment for the reason on
+  // fact — which conversation this is, when it began, and which language pair
+  // it runs — and all three are stamped at the same moment for the reason on
   // `conversationId` above.
   const [identity, setIdentity] = useState<{
     id: string;
     startedAt: string;
-    direction: TranslationDirection;
+    languagePair: LanguagePair;
   } | null>(null);
 
   /**
@@ -511,7 +511,7 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       setIdentity({
         id: crypto.randomUUID(),
         startedAt: new Date().toISOString(),
-        direction: options.direction,
+        languagePair: options.languagePair,
       });
       // The previous conversation's recording must not survive into this one:
       // the upload keys off `conversationId`, and a stale blob here would be
@@ -699,7 +699,7 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     level,
     conversationId: identity?.id ?? null,
     startedAt: identity?.startedAt ?? null,
-    direction: identity?.direction ?? null,
+    languagePair: identity?.languagePair ?? null,
     recording: finishedRecording,
     recordingStartedAtMs,
     pauses,
