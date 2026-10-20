@@ -99,42 +99,42 @@ page world (registered only while outbound is on)
                 base64 PCM ─► scheduler ───┴─► MediaStreamDestination ─► the meeting
 ```
 
-**Two directions, two sessions, one context.** Each direction is a
+**Two legs, two sessions, one context.** A meeting has two legs — inbound (the meeting's audio, translated for the user) and outbound (the user's microphone, translated for the meeting). Each leg is a
 `ConversationSession` differing in four things — its input stream, which way it
 translates, how many turns it keeps open, and where its audio goes. Everything else,
 which is the whole turn-taking configuration, is shared through
-`src/direction-session.ts` so the two cannot drift.
+`src/language-pair-session.ts` so the two cannot drift.
 
 **Either backend, behind one interface.** `CaptureSettings.mode` picks the cascade
-above or the continuous model, and `createDirectionSession` returns a
-`ConversationSession` or a `LiveDirectionSession` accordingly. `MeetingCapture` drives
-both through `DirectionRunner` and never learns which it holds, so the ducking, the
+above or the continuous model, and `createLanguagePairSession` returns a
+`ConversationSession` or a `LiveLanguagePairSession` accordingly. `MeetingCapture` drives
+both through `LegRunner` and never learns which it holds, so the ducking, the
 microphone gate, the echo monitor and the teardown ordering are written once. Both
-directions of a meeting always run the same mode — mixing them would put two unrelated
+legs of a meeting always run the same mode — mixing them would put two unrelated
 latencies on one conversation. On the live path capture runs ungated through
 `MicrophoneGraph` (the backend ends an utterance on trailing quiet, so withholding
 silence truncates it), ducking follows audible audio because there are no open turns to
-count, and transcript text appends to one capped line per direction rather than opening
+count, and transcript text appends to one capped line per leg rather than opening
 a turn per sentence. Every piece of state they touch is
 either explicitly shared or explicitly split in two: a single flag written by both is
 not a tidier version of two flags, it is the outbound turn draining mid-inbound-sentence
 and reopening the microphone into our own loudspeaker.
 
-**One AI Context, both directions, resolved once.** `entrypoints/offscreen/main.ts`
+**One AI Context, both legs, resolved once.** `entrypoints/offscreen/main.ts`
 supplies `loadContextHints`, which `MeetingCapture` calls ONCE at the start of a
 capture and threads as the SAME object into both `inbound.start` and
 `outbound.start`. That is the case language-keyed entries exist for: two
-concurrent sessions running in opposite directions off one settings object, where
+concurrent sessions running on reversed language pairs off one settings object, where
 a role-keyed pair would be applied backwards in one of them with nothing on
 screen to say so. `src/translation-contexts.ts` never throws — a network failure,
 an expired session or an unparseable response all read back as an empty list with
 a message — so a context can never prevent a meeting from starting.
-`LiveDirectionSession.start` accepts the hints and ignores them, exactly as it
-already does for `voiceGender`, which is what keeps one `DirectionRunner` shape
+`LiveLanguagePairSession.start` accepts the hints and ignores them, exactly as it
+already does for `voiceGender`, which is what keeps one `LegRunner` shape
 across two backends. The popup has a picker and no editor: authoring 24 term
 pairs is the wrong shape for a window that dies on blur, so it happens on web.
 
-The two are **not symmetric on failure**, deliberately. Losing the outbound direction
+The two are **not symmetric on failure**, deliberately. Losing the outbound leg
 costs the ability to be understood; losing the inbound one means the capture is
 translating nothing, so it ends the capture rather than leaving a recording indicator
 lit over a dead pipeline.

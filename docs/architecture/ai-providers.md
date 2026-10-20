@@ -62,7 +62,7 @@ recorded DeepSeek output: 3 Traditional outputs in 1,200 and 3 zh→vi leaks in
 en, with both lexicons and **no rule FSTs**: all three zh FSTs rewrite English
 digits, so the zh engine verbalizes its own digits
 (`services/local-tts/engines/zh_number_verbalizer.py`). Gemini Live refuses any
-zh direction (`LIVE_LANGUAGES`, `unsupported_direction`).
+pair with zh in it (`LIVE_LANGUAGES`, `unsupported_language_pair`).
 
 **STT sidecar concurrency.** Each STT engine serves several decodes at once
 through a lane semaphore over its one recognizer (`LOCAL_STT_CONCURRENCY`,
