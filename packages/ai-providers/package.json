@@ -30,9 +30,9 @@
   },
   "devDependencies": {
     "@chatofy/config": "workspace:*",
-    "@types/node": "^24.19.1",
+    "@types/node": "^24.19.2",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.5"
   }
 }
