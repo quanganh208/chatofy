@@ -3,8 +3,11 @@ import {
   DEFAULT_VOICE_GENDER,
   LANGUAGE_CODES,
   LIVE_LANGUAGES,
-  directionOf,
+  languagePairFromStoredDirection,
+  languagePairSchema,
+  languagePairOf,
   type LanguageCode,
+  type LanguagePair,
   type TranslateMode,
 } from '@chatofy/types';
 import type { CaptureSettings } from './messages';
@@ -41,22 +44,22 @@ const API_BASE_URL: string =
   (import.meta.env.WXT_API_BASE_URL as string | undefined) ?? DEFAULT_API_BASE_URL;
 
 /**
- * The direction a fresh capture opens with, the opposite of web's `vi_to_en`.
+ * The pair a fresh capture opens with: English into Vietnamese.
  *
  * This is a meeting-capture default, not the web app's own: a meeting is
  * usually a call with someone speaking English while the user speaks
  * Vietnamese, so what needs translating first is the OTHER side speaking
  * English, into Vietnamese for the user to read.
  */
-export const DEFAULT_CAPTURE_DIRECTION = directionOf('en', 'vi');
+export const DEFAULT_CAPTURE_PAIR: LanguagePair = languagePairOf('en', 'vi');
 
 const DEFAULT_SETTINGS: CaptureSettings = {
-  direction: DEFAULT_CAPTURE_DIRECTION,
+  languagePair: DEFAULT_CAPTURE_PAIR,
   mode: DEFAULT_TRANSLATE_MODE,
   voiceGender: DEFAULT_VOICE_GENDER,
   apiBaseUrl: API_BASE_URL,
   reportMetrics: false,
-  // Off. This direction opens the user's microphone and translates what they say
+  // Off. This leg opens the user's microphone and translates what they say
   // into the meeting; it is not something to discover after the fact.
   outbound: false,
   // No context until the popup's picker writes one. Absent here rather than
@@ -66,15 +69,33 @@ const DEFAULT_SETTINGS: CaptureSettings = {
   contextId: undefined,
 };
 
+/**
+ * The stored pair, or what an older build stored in its place.
+ *
+ * Validated rather than trusted: storage is written by whichever version ran
+ * last, and a malformed pair would reach the socket as a refused start. Builds
+ * before the pair kept a `direction` string such as `'en_to_vi'`; that is read
+ * once here and dropped on the next save, so a profile keeps the languages it
+ * chose instead of silently reverting to the default.
+ */
+function storedLanguagePair(value: Record<string, unknown> | undefined): LanguagePair {
+  const parsed = languagePairSchema.safeParse(value?.languagePair);
+  if (parsed.success) return parsed.data;
+  return languagePairFromStoredDirection(value?.direction) ?? DEFAULT_CAPTURE_PAIR;
+}
+
 export async function loadSettings(): Promise<CaptureSettings> {
   const stored = await chrome.storage.local.get(KEY);
-  const value = stored[KEY] as Partial<CaptureSettings> | undefined;
+  const value = stored[KEY] as (Partial<CaptureSettings> & { direction?: unknown }) | undefined;
   // Merged over the defaults rather than used as-is: a stored object written by an
   // older version is missing whatever has been added since, and a missing
-  // `apiBaseUrl` would make the socket URL `undefined` at connect time.
-  const merged = { ...DEFAULT_SETTINGS, ...value };
+  // `apiBaseUrl` would make the socket URL `undefined` at connect time. The
+  // pre-pair key is left out so it is not written back by the next save.
+  const { direction: _superseded, ...current } = value ?? {};
+  const merged = { ...DEFAULT_SETTINGS, ...current };
   return {
     ...merged,
+    languagePair: storedLanguagePair(value),
     // Anything other than the cascade is read back as the cascade. The popup no
     // longer offers a choice, so a stored value from when it did would pin that
     // profile to a backend with no surface left to leave it by — and the profiles
@@ -124,14 +145,14 @@ export async function markRecordingNoticeSeen(): Promise<void> {
 }
 
 /**
- * The languages the popup's direction picker offers in a translate mode.
+ * The languages the popup's language pair picker offers in a translate mode.
  *
  * Every registry language in `cascade`; in `live`, only those the live gateway
  * translates (`LIVE_LANGUAGES`), because it refuses a zh pair and a picker that
  * offered one would hand the reader a refusal at the start of their meeting. The
  * gateway stays the authority on every other path.
  */
-export function directionPickerLanguages(mode: TranslateMode | undefined): LanguageCode[] {
+export function languagePairPickerLanguages(mode: TranslateMode | undefined): LanguageCode[] {
   return mode === 'live'
     ? LANGUAGE_CODES.filter((code) => LIVE_LANGUAGES[code])
     : [...LANGUAGE_CODES];

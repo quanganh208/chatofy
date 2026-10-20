@@ -1,7 +1,5 @@
 import {
-  legacyDirectionOf,
   normalizeForSearch,
-  primaryTranslation,
   type Conversation,
   type ConversationSummary,
 } from '@chatofy/types';
@@ -50,17 +48,10 @@ export class InMemoryConversationStore implements ConversationStore {
     // body measured one and inherited when it did not, which is what the durable
     // store does by writing that column only when it is present.
     const previous = this.byOwnerClient.get(key(ownerId, conversationId));
-    const { languages } = conversation;
-    const turns = conversation.turns.map((turn) => ({
-      ...turn,
-      // Derived on READ here too, mirroring `PrismaConversationStore.toTurn`:
-      // a Postgres row has no `targetText` column to store this in either.
-      targetText: primaryTranslation(turn, languages),
-    }));
+    const turns = conversation.turns.map((turn) => ({ ...turn }));
     const stored: Conversation = {
       conversationId,
-      direction: legacyDirectionOf(languages),
-      languages,
+      languages: conversation.languages,
       startedAt: conversation.startedAt,
       endedAt: conversation.endedAt,
       turnCount: turns.length,
@@ -103,10 +94,13 @@ export class InMemoryConversationStore implements ConversationStore {
         (stored) =>
           !term ||
           stored.turns.some((turn) =>
+            // Every translation, as `PrismaConversationStore` folds them.
             normalizeForSearch(
-              [turn.displayText ?? '', turn.sourceText, turn.targetText].join(
-                ' ',
-              ),
+              [
+                turn.displayText ?? '',
+                turn.sourceText,
+                ...Object.values(turn.translations),
+              ].join(' '),
             ).includes(term),
           ),
       )
@@ -192,7 +186,6 @@ export class InMemoryConversationStore implements ConversationStore {
 function summaryOf(stored: Conversation): ConversationSummary {
   return {
     conversationId: stored.conversationId,
-    direction: stored.direction,
     languages: stored.languages,
     startedAt: stored.startedAt,
     endedAt: stored.endedAt,

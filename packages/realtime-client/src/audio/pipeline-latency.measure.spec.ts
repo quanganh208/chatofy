@@ -154,7 +154,7 @@ async function measureTurn(id: string, steps: Step[]): Promise<Measured> {
   // Carries the ids a real client sends. The server tolerates their absence, so
   // omitting them here would measure a path production never takes.
   const turnId = crypto.randomUUID();
-  send({ type: 'client.session.start', direction: 'vi_to_en', turnId });
+  send({ type: 'client.session.start', languagePair: { source: 'vi', target: 'en' }, turnId });
   await ready;
 
   for (const step of steps) {

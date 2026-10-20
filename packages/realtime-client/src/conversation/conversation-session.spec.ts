@@ -19,7 +19,10 @@ import type { TranslateSocket, TranslateSocketHandlers } from '../transport/tran
  * twenty-four. The counts below are comfortably past both.
  */
 /** Settings every test starts with; the voice is beside the point for most. */
-const startOptions: SessionOptions = { direction: 'vi_to_en', voiceGender: 'female' };
+const startOptions: SessionOptions = {
+  languagePair: { source: 'vi', target: 'en' },
+  voiceGender: 'female',
+};
 
 const BLOCKS_TO_CONFIRM_SPEECH = 8;
 const BLOCKS_TO_CLOSE_TURN = 30;
@@ -71,7 +74,7 @@ const endedEvent = (sessionId = 's1'): ServerEvent => ({
  * A playback sink that records instead of sounding.
  *
  * Stands in for one that ships samples to another context — the extension's
- * outbound direction hands them to the meeting page. `drain` is exposed because
+ * outbound leg hands them to the meeting page. `drain` is exposed because
  * with a remote sink the moment a turn stops sounding is reported back rather
  * than observed on a local clock, and that report has to reach the ordering
  * layer or the next turn never plays.
@@ -1701,11 +1704,9 @@ describe('ConversationSession', () => {
         id: 'seg-1',
         sessionId: 's1',
         speakerRole: 'speaker_a',
-        direction: 'vi_to_en',
         sourceLanguages: ['vi'],
         translations: { en: 'hello' },
         sourceText: 'xin chào',
-        targetText: 'hello',
         audioUrl: null,
         createdAt: new Date().toISOString(),
       };

@@ -10,7 +10,7 @@ import type { PlaybackSink } from '@chatofy/realtime-client';
  * has both closed server-side and drained. In a meeting where someone talks for
  * forty-five seconds there is always a turn open, so a gate keyed on it would
  * hold the user's microphone shut for the whole stretch and the outbound
- * direction would never get a turn of its own. It would pass every test in a
+ * leg would never get a turn of its own. It would pass every test in a
  * quiet room.
  *
  * This reports the narrower fact: audio is queued or playing right now. That is

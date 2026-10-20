@@ -3,17 +3,18 @@ import {
   MAX_SAMPLE_RATE,
   transcriptSegmentSchema,
   type AudioFrame,
-  type TranslationDirection,
+  type LanguagePair,
 } from '@chatofy/types';
 import { TurnSession } from './turn-session';
-import { planForDirection } from './turn-language-plan';
+import { planForPair } from './turn-language-plan';
 import { MAX_TURN_SECONDS } from './turn-audio';
 
 const SAMPLE_RATE = 16000;
 
 /** A turn whose output voice is beside the point for the behavior under test. */
-const openSession = (direction: TranslationDirection = 'vi_to_en') =>
-  new TurnSession({ direction, voiceGender: 'female' });
+const openSession = (
+  languagePair: LanguagePair = { source: 'vi', target: 'en' },
+) => new TurnSession({ languagePair, voiceGender: 'female' });
 
 const frame = (
   session: TurnSession,
@@ -46,14 +47,16 @@ describe('TurnSession', () => {
     expect(openSession().sessionId).not.toBe(session.sessionId);
   });
 
-  it('names the speaker from the direction it translates away from', () => {
+  it('names the speaker from the language it translates away from', () => {
     expect(openSession().speakerRole).toBe('speaker_a');
-    expect(openSession('en_to_vi').speakerRole).toBe('speaker_b');
+    expect(openSession({ source: 'en', target: 'vi' }).speakerRole).toBe(
+      'speaker_b',
+    );
   });
 
   describe('languages', () => {
-    it('plans a single source and target from the declared direction by default', () => {
-      const session = openSession('vi_to_en');
+    it('plans a single source and target from the declared language pair by default', () => {
+      const session = openSession({ source: 'vi', target: 'en' });
 
       expect(session.languages).toMatchObject({
         conversation: ['vi', 'en'],
@@ -68,11 +71,14 @@ describe('TurnSession', () => {
     // that is what keeps the service's refusal check and the running turn
     // reading the same plan.
     it('runs the plan it was handed instead of re-deriving one', () => {
-      const languages = planForDirection('vi_to_en', {
-        identify: () => ['vi', 'en'],
-      });
+      const languages = planForPair(
+        { source: 'vi', target: 'en' },
+        {
+          identify: () => ['vi', 'en'],
+        },
+      );
       const session = new TurnSession(
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
         undefined,
         { languages },
       );
@@ -309,16 +315,16 @@ describe('TurnSession', () => {
 
   describe('toSegment', () => {
     it('carries the turn identity and leaves audio off the record', () => {
-      const session = openSession('en_to_vi');
+      const session = openSession({ source: 'en', target: 'vi' });
 
       const segment = session.toSegment('hello', { vi: 'xin chào' });
 
       expect(segment).toMatchObject({
         sessionId: session.sessionId,
         speakerRole: 'speaker_b',
-        direction: 'en_to_vi',
+        sourceLanguages: ['en'],
+        translations: { vi: 'xin chào' },
         sourceText: 'hello',
-        targetText: 'xin chào',
         // Audio travels over the socket rather than being stored.
         audioUrl: null,
       });
@@ -326,31 +332,16 @@ describe('TurnSession', () => {
       expect(() => new Date(segment.createdAt).toISOString()).not.toThrow();
     });
 
-    // The two fields fan-out added, additive to the record above: the strict
-    // domain schema (no client-parse leniency) is what a server-built segment
+    // The strict domain schema (no client-parse leniency) is what a server-built segment
     // must satisfy, since nothing else validates `toSegment`'s output.
     it('fills sourceLanguages and translations, and lets the strict schema parse it', () => {
-      const session = openSession('vi_to_en');
+      const session = openSession({ source: 'vi', target: 'en' });
 
       const segment = session.toSegment('xin chào', { en: 'hello' });
 
       expect(segment.sourceLanguages).toEqual(['vi']);
       expect(segment.translations).toEqual({ en: 'hello' });
       expect(() => transcriptSegmentSchema.parse(segment)).not.toThrow();
-    });
-
-    // `targetText` mirrors whichever language this turn is SPOKEN as, not
-    // merely "whatever key came back" — a fan-out translation map may hold
-    // more than one.
-    it('derives targetText from the spoken language of a fan-out translation', () => {
-      const session = openSession('vi_to_en');
-
-      const segment = session.toSegment('xin chào', {
-        vi: 'xin chào',
-        en: 'hello',
-      });
-
-      expect(segment.targetText).toBe('hello');
     });
   });
 });

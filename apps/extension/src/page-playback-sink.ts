@@ -4,7 +4,7 @@ import type { OutboundCommand } from './outbound-channel';
 /**
  * Playback that happens in the meeting page instead of on this machine.
  *
- * The outbound direction translates what the USER says and has to deliver it to
+ * The outbound leg translates what the USER says and has to deliver it to
  * the other participants. Their outgoing audio lives in the page, and a
  * `MediaStream` cannot cross into it, so the samples travel as base64 and the
  * page schedules them into the track the meeting client is transmitting.

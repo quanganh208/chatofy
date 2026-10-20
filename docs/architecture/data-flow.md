@@ -6,11 +6,11 @@ Part of the [system architecture](../system-architecture.md).
 
 ### Translation Pipeline (POST /translate)
 
-1. **Client Request** → `@chatofy/api-client.apiFetch('/translate', schema)` with `{ audioBase64, audioMimeType, direction?, voiceGender?, speed? }` (`translateRequestSchema` in `packages/types/src/http/translate.ts`; `direction` defaults to vi→en, `voiceGender` to `female`, `speed` is clamped to 0.5–2)
+1. **Client Request** → `@chatofy/api-client.apiFetch('/translate', schema)` with `{ audioBase64, audioMimeType, languagePair?, voiceGender?, speed? }` (`translateRequestSchema` in `packages/types/src/http/translate.ts`; `languagePair` defaults to `DEFAULT_LANGUAGE_PAIR` (vi→en), `voiceGender` to `female`, `speed` is clamped to 0.5–2)
 2. **Request Validation** → `ZodValidationPipe` validates DTO
-3. **Controller** (`TranslateController.translate()`) → Decode base64 audio, build the turn's `TurnLanguagePlan` with `planForDirection`, refuse with 503 `language_unavailable` if `SpeechLanguageSupport` says no configured engine serves it, then call the service
+3. **Controller** (`TranslateController.translate()`) → Decode base64 audio, build the turn's `TurnLanguagePlan` with `planForPair`, refuse with 503 `language_unavailable` if `SpeechLanguageSupport` says no configured engine serves it, then call the service
 4. **Pipeline** (`PipelineTranslatorService.translateTurn(input, plan)`):
-   - Build provider trio via `AiProvidersFactory.makeProviders()` — registry resolves each by kind, memoized per backend selection; every provider handles both languages, so the trio does not depend on direction
+   - Build provider trio via `AiProvidersFactory.makeProviders()` — registry resolves each by kind, memoized per backend selection; every provider handles both languages, so the trio does not depend on the language pair
    - **STT:** transcribe in `plan.recognition` → `sourceText`
    - **Translation:** `translateAll` over `plan.targets` → a `TranslationMap`; `targetText` is the entry for `plan.spoken` (the selected provider walks its own model list on a quota rejection)
    - **TTS:** synthesize `targetText` in `plan.spoken` with `voiceGender`/`speed` → audio bytes; `audioMimeType` read from `provider.outputMimeType`
@@ -26,7 +26,7 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
 
 1. **`client.session.start`** → `TranslationSessionService.start()` opens a turn
    and answers `server.session.ready` with the id every later frame must carry.
-   Carries the turn's `SessionOptions` — direction plus `voiceGender`, which is
+   Carries the turn's `SessionOptions` — `languagePair` plus `voiceGender`, which is
    optional on the wire and defaults to `female` before it reaches the session
 2. **`client.audio.frame`** (repeated) → raw PCM16 buffered. Frames are rejected
    if they name another session, change sample rate mid-turn, or fail to advance
@@ -328,15 +328,15 @@ costs about what two hotwords cost.
 
 **Glossary entries are keyed by LANGUAGE (`{vi, en}` today, a
 `translationMapSchema` over the registry), never by role.** The
-extension translates one meeting in BOTH directions at once from ONE settings
-object — `apps/extension/src/meeting-capture.ts` starts a session on
-`settings.direction` and another on `reverseDirection(settings.direction)` — so a
-`{source, target}` pair would be applied backwards in one of them, with nothing
-on screen to say so. Which side is the SOURCE is therefore a property of a
-session, and `buildContextBlock(hints, sourceLanguage)` resolves it against the
-direction it is given. It is also why no database constraint can express the
+extension translates one meeting both ways at once from ONE settings object —
+`apps/extension/src/meeting-capture.ts` starts a session on
+`settings.languagePair` and another on `reversePair(settings.languagePair)` — so
+a `{source, target}` entry would be applied backwards in one of them, with
+nothing on screen to say so. Which side is the SOURCE is therefore a property of
+a session, and `buildContextBlock(hints, sourceLanguage)` resolves it against
+the pair it is given. It is also why no database constraint can express the
 de-duplication: the row knows of no session, so a unique index would have to pick
-a direction and would be wrong half the time.
+a source and would be wrong half the time.
 
 A rendering is a choice the model may make when the transcript actually contains
 the term, never a substitution and never a licence to insert either side into a

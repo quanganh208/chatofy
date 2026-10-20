@@ -56,7 +56,7 @@ response envelope and the enforcement points are in
 [Contracts, Envelope and Languages](./architecture/contracts-and-languages.md).
 
 Languages are entries in one registry, `packages/types/src/domain/languages.ts`; code
-derives directions from it rather than naming `vi` or `en`.
+derives language pairs from it rather than naming `vi` or `en`.
 
 ## Structure and naming
 

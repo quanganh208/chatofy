@@ -188,7 +188,7 @@ describe('VoiceHold', () => {
   });
 
   it('does not send anything on a release it never held', () => {
-    // Teardown runs through more than one path — `stopDirection`, `endOutbound`
+    // Teardown runs through more than one path — `stopLeg`, `endOutbound`
     // and `end` all release — and a capture that never sent must not tell a page
     // anything at all.
     const h = holdHarness();

@@ -101,7 +101,7 @@ export class TranslateGateway
    * close from the idle sweep, the byte ceiling, or the upstream's own socket,
    * and none of those has a gateway frame in the stack. Releasing would mean new
    * API on both services to enable a switch no client performs — each opens one
-   * socket per direction or per page. A client that ever needs to switch opens a
+   * socket per language pair or per page. A client that ever needs to switch opens a
    * second connection.
    *
    * Keyed weakly, so an entry cannot outlive the socket it describes.
@@ -221,6 +221,51 @@ export class TranslateGateway
     return false;
   }
 
+  /**
+   * Answer a start from a client built before `languagePair` replaced
+   * `direction`: a tab left open across that deploy, or an extension built
+   * from an older checkout.
+   *
+   * Its start is malformed either way, but a malformed start is THROWN and
+   * reaches the client as silence (see `claimMode`), so the stale page would
+   * sit in "connecting" with nothing telling it to reload. Emitted instead, in
+   * a shape the old client already parses — both error schemas take any code
+   * string. Any `direction` key is refused, even beside a `languagePair`,
+   * matching REST `/translate`: no current client sends one.
+   */
+  private refuseLegacyStart(
+    client: StreamSocket,
+    payload: unknown,
+    mode: ConnectionMode,
+  ): boolean {
+    if (typeof payload !== 'object' || payload === null) return false;
+    if (!('direction' in payload)) return false;
+
+    this.logger.warn(
+      `Refused a ${mode} start sending the removed direction field`,
+    );
+    const message =
+      'This page was built for an older server; reload it to keep translating';
+    const { turnId } = payload as { turnId?: unknown };
+    this.emit(
+      client,
+      mode === 'live'
+        ? { type: 'server.live.error', code: 'client_outdated', message }
+        : {
+            type: 'server.error',
+            code: 'client_outdated',
+            message,
+            // Echoed so an ordered playback queue that reserved this turn stops
+            // waiting on it — but only an id the client schema would accept.
+            turnId:
+              typeof turnId === 'string' && turnId.length <= 64
+                ? turnId
+                : undefined,
+          },
+    );
+    return true;
+  }
+
   /** Push one contract event, never letting a dead socket take the process down. */
   private emit(
     client: StreamSocket,
@@ -257,6 +302,7 @@ export class TranslateGateway
     // the translation, and widening `sessionOptionsSchema` to hold it would drag
     // it through every layer that touches that object. `type` is the discriminant
     // and means nothing past the parse.
+    if (this.refuseLegacyStart(client, payload, 'turn')) return;
     const {
       type: _type,
       turnId,
@@ -344,9 +390,11 @@ export class TranslateGateway
     @MessageBody() payload: unknown,
     @ConnectedSocket() client: StreamSocket,
   ): Promise<void> {
-    const { direction } = this.parseLiveEvent(payload, 'client.live.start');
+    if (this.refuseLegacyStart(client, payload, 'live'))
+      return Promise.resolve();
+    const { languagePair } = this.parseLiveEvent(payload, 'client.live.start');
     if (!this.claimMode(client, 'live')) return Promise.resolve();
-    return this.live.start(client, direction);
+    return this.live.start(client, languagePair);
   }
 
   @SubscribeMessage('client.live.audio')

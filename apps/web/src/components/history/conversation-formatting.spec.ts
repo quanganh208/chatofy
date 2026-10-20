@@ -13,7 +13,6 @@ import { activeDurationMs, durationMinutes } from './conversation-formatting';
 
 const conversation = (startedAt: string, endedAt: string, pausedMs = 0): ConversationSummary => ({
   conversationId: '11111111-1111-4111-8111-111111111111',
-  direction: 'vi_to_en',
   languages: ['vi', 'en'],
   startedAt,
   endedAt,

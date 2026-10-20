@@ -85,7 +85,10 @@ vi.mock('@/i18n/provider', () => ({
   useLocale: () => 'en',
 }));
 
-const options: SessionOptions = { direction: 'vi_to_en', voiceGender: 'female' };
+const options: SessionOptions = {
+  languagePair: { source: 'vi', target: 'en' },
+  voiceGender: 'female',
+};
 
 let container: HTMLDivElement;
 let root: Root;
@@ -180,29 +183,29 @@ describe('useStreamingTranslate conversation identity', () => {
     expect(latest.conversationId).toBe(during);
   });
 
-  it('captures the direction a conversation started with, and keeps it after it ends', async () => {
+  it('captures the language pair a conversation started with, and keeps it after it ends', async () => {
     // The one thing a caller must NOT be able to do by re-reading its own
-    // settings after `stop`: the direction toggle stays live once the
-    // conversation is idle, so a page holding `settings.direction` instead of
+    // settings after `stop`: the language pickers stay live once the
+    // conversation is idle, so a page holding `settings.languagePair` instead of
     // this captured value would report the wrong language for turns already on
     // screen the moment somebody swapped it.
-    expect(latest.direction).toBeNull();
+    expect(latest.languagePair).toBeNull();
 
     await act(async () => {
       await latest.start(options);
     });
-    expect(latest.direction).toBe('vi_to_en');
+    expect(latest.languagePair).toEqual({ source: 'vi', target: 'en' });
 
     await act(async () => {
       latest.stop();
       await Promise.resolve();
     });
-    expect(latest.direction).toBe('vi_to_en');
+    expect(latest.languagePair).toEqual({ source: 'vi', target: 'en' });
 
     await act(async () => {
-      await latest.start({ ...options, direction: 'en_to_vi' });
+      await latest.start({ ...options, languagePair: { source: 'en', target: 'vi' } });
     });
-    expect(latest.direction).toBe('en_to_vi');
+    expect(latest.languagePair).toEqual({ source: 'en', target: 'vi' });
   });
 });
 
@@ -214,11 +217,9 @@ describe('useStreamingTranslate block retranslation', () => {
       id: `seg-${sessionId}`,
       sessionId,
       speakerRole: 'speaker_a',
-      direction: 'vi_to_en',
       sourceLanguages: ['vi'],
       translations: { en },
       sourceText,
-      targetText: en,
       audioUrl: null,
       createdAt: '2026-10-01T00:00:00.000Z',
     },

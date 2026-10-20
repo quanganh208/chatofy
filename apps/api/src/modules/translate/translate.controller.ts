@@ -15,9 +15,8 @@ import {
 } from '@nestjs/swagger';
 import type { TtsVoiceCatalog } from '@chatofy/ai-providers';
 import {
-  DEFAULT_TRANSLATION_DIRECTION,
+  DEFAULT_LANGUAGE_PAIR,
   LANGUAGE_CODES,
-  directionLanguages,
   languageCodeSchema,
   type TranslateResponse,
 } from '@chatofy/types';
@@ -32,27 +31,25 @@ import {
   LANGUAGE_IDENTIFIER,
   type LanguageIdentifier,
 } from './session/language-identifier';
-import { planForDirection } from './session/turn-language-plan';
+import { planForPair } from './session/turn-language-plan';
 
 /**
  * The language `voices` answers for when the caller names none.
  *
- * Derived from the registry's own default direction rather than written as a
- * literal: it is the language a fresh `vi_to_en` conversation speaks its
+ * Derived from the registry's own default language pair rather than written
+ * as a literal: it is the language a fresh default conversation speaks its
  * translation in, which is the voice a client most likely wants before it has
  * asked for anything else.
  */
-const DEFAULT_VOICES_LANGUAGE = directionLanguages(
-  DEFAULT_TRANSLATION_DIRECTION,
-).target;
+const DEFAULT_VOICES_LANGUAGE = DEFAULT_LANGUAGE_PAIR.target;
 
 /**
  * Turn-based translation endpoint. Accepts a complete audio utterance (base64)
- * plus a direction, returns the transcript, the translation, and synthesized
- * speech in the target language.
+ * plus a language pair, returns the transcript, the translation, and
+ * synthesized speech in the target language.
  *
- * Directions are the ones `TRANSLATION_DIRECTIONS` derives from the language
- * registry in `@chatofy/types`. The raw payload is wrapped by
+ * Any two distinct languages of the registry in `@chatofy/types` form a pair
+ * (`languagePairSchema`); an omitted pair means `DEFAULT_LANGUAGE_PAIR`. The raw payload is wrapped by
  * TransformInterceptor.
  *
  * Authenticated, despite what this comment used to say: `JwtAuthGuard` is
@@ -81,7 +78,7 @@ export class TranslateController {
   @ApiOperation({
     summary: 'Translate an audio utterance to speech in the target language',
     description:
-      'Send a complete utterance as base64 audio plus a direction (`vi_to_en` or `en_to_vi`). Answers with the transcript, the translation, and synthesized speech in the target language. This is a ONE-turn, ONE-audio surface: the turn is still translated into every language the conversation language plan calls for, but only the first target (`plan.spoken`) is synthesized and returned — the same budget the streaming path applies to its own preview. The body carries audio, so it is large — the JSON body limit is 12 MB, and anything longer than a short utterance belongs on the WebSocket surface instead.',
+      'Send a complete utterance as base64 audio plus a language pair (`languagePair: { source, target }`, default `vi` → `en`). Answers with the transcript, the translation, and synthesized speech in the target language. This is a ONE-turn, ONE-audio surface: the turn is still translated into every language the conversation language plan calls for, but only the first target (`plan.spoken`) is synthesized and returned — the same budget the streaming path applies to its own preview. The body carries audio, so it is large — the JSON body limit is 12 MB, and anything longer than a short utterance belongs on the WebSocket surface instead.',
   })
   @ApiEnvelopeResponse(TranslateResponseDto)
   @ApiErrorResponses(400, 401, 503)
@@ -96,9 +93,9 @@ export class TranslateController {
     }
     // Same helper and identifier the WS path uses in
     // `TranslationSessionService.start`, so the two transports never disagree
-    // about what a given direction is decided to mean.
-    const plan = planForDirection(
-      body.direction ?? DEFAULT_TRANSLATION_DIRECTION,
+    // about what a given language pair is decided to mean.
+    const plan = planForPair(
+      body.languagePair ?? DEFAULT_LANGUAGE_PAIR,
       this.identifier,
     );
     // Checked before any provider call is spent on a language no configured

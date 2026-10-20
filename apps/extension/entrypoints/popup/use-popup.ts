@@ -154,7 +154,7 @@ export function usePopup() {
       .sendMessage({
         to: 'worker',
         type: 'settings',
-        direction: next.direction,
+        languagePair: next.languagePair,
         mode: DEFAULT_TRANSLATE_MODE,
         voiceGender: next.voiceGender,
         outbound: next.outbound,
@@ -163,7 +163,7 @@ export function usePopup() {
   }, []);
 
   const change = useCallback(
-    (patch: Partial<Pick<CaptureSettings, 'direction' | 'voiceGender' | 'outbound'>>) => {
+    (patch: Partial<Pick<CaptureSettings, 'languagePair' | 'voiceGender' | 'outbound'>>) => {
       setSettings((current) => {
         // Nothing to send before the first read: the fields this page does not show
         // would travel as whatever a default says rather than as what is stored.
@@ -172,7 +172,7 @@ export function usePopup() {
         pushToWorker(next);
         return next;
       });
-      // Turning the outbound direction on is the moment the microphone starts
+      // Turning the outbound leg on is the moment the microphone starts
       // mattering, and the moment to say it is still missing — not after a capture
       // has already started and produced nothing. Re-asked rather than read once,
       // because the answer changes while this popup is closed.
@@ -267,7 +267,7 @@ export function usePopup() {
     void (async () => {
       // Saved before starting, not after: the worker reads settings from storage
       // when it opens the offscreen document, so an unsaved change would start a
-      // capture with the previous direction.
+      // capture with the previous language pair.
       //
       // `apiBaseUrl` is dropped rather than carried: the compile decides it and
       // `saveSettings` refuses it. `reportMetrics` IS carried — its checkbox is
@@ -322,9 +322,9 @@ export function usePopup() {
     host,
     capturing,
     captureable,
-    // Only while the outbound direction is on. Chrome grants the microphone to the
+    // Only while the outbound leg is on. Chrome grants the microphone to the
     // extension, not to a meeting, so asking someone who has not turned that
-    // direction on is asking for something they have no use for.
+    // leg on is asking for something they have no use for.
     microphoneNeeded: Boolean(settings?.outbound) && !micGranted,
     status: transient ?? statusMessage({ overlay, capturing, captureable, site, enablement }),
     actions: {

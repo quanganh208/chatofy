@@ -19,7 +19,6 @@ let container: HTMLDivElement;
 let root: Root;
 
 const turn = (overrides: Partial<ConversationTurn> = {}): ConversationTurn => {
-  const targetText = overrides.targetText ?? 'hello';
   return {
     position: 0,
     speakerRole: 'speaker_a',
@@ -27,11 +26,7 @@ const turn = (overrides: Partial<ConversationTurn> = {}): ConversationTurn => {
     sourceText: 'xin chao',
     displayText: null,
     sourceLanguages: ['vi'],
-    // Defaults to a plain mirror of `targetText`, since `HistoryTranscript`
-    // reads `primaryTranslation`, not the pre-fan-out field, and a case that
-    // only overrides `targetText` must still see its own text rendered.
-    translations: { en: targetText },
-    targetText,
+    translations: { en: 'hello' },
     // Null by default: a row stored before timestamps existed is the case the
     // gutter has to render without breaking, so it is the one the fixtures
     // default to.
@@ -86,7 +81,9 @@ describe('HistoryTranscript', () => {
   });
 
   it('renders the translation beside the source', () => {
-    expect(render([turn({ targetText: 'hello there' })]).textContent).toContain('hello there');
+    expect(render([turn({ translations: { en: 'hello there' } })]).textContent).toContain(
+      'hello there',
+    );
   });
 
   it('uses the confirmed roster label when the block was attributed', () => {
@@ -109,7 +106,7 @@ describe('HistoryTranscript', () => {
     // turns the ceiling cut arrive as a single stored row, so there is one
     // speaker line rather than two.
     const container = render([
-      turn({ position: 0, sourceText: 'first half second half', targetText: 'one two' }),
+      turn({ position: 0, sourceText: 'first half second half', translations: { en: 'one two' } }),
     ]);
     expect(container.textContent).toContain('first half second half');
     expect(container.querySelectorAll('p.uppercase').length).toBe(1);

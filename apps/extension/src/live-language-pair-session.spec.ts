@@ -1,12 +1,23 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PlaybackSink } from '@chatofy/realtime-client';
-import type { LiveClientEvent, LiveServerEvent } from '@chatofy/types';
-import type { DirectionSessionDeps } from './direction-session';
-import { LiveDirectionSession, type LiveDirectionBrowser } from './live-direction-session';
+import {
+  languagePairOf,
+  reversePair,
+  type LanguagePair,
+  type LiveClientEvent,
+  type LiveServerEvent,
+} from '@chatofy/types';
+import type { LanguagePairSessionDeps } from './language-pair-session';
+import {
+  LiveLanguagePairSession,
+  type LiveLanguagePairBrowser,
+} from './live-language-pair-session';
 import type { CaptureSettings } from './messages';
 
+const EN_TO_VI = languagePairOf('en', 'vi');
+
 /**
- * The continuous direction, wired into a meeting.
+ * The continuous leg, wired into a meeting.
  *
  * What is tested here is the wiring only this class decides: which signal the
  * duck follows, whether a teardown reports itself back, and what the transcript
@@ -22,8 +33,8 @@ class FakeSocket {
   connect(): Promise<void> {
     return Promise.resolve();
   }
-  start(direction: 'vi_to_en' | 'en_to_vi'): void {
-    this.sent.push({ type: 'client.live.start', direction });
+  start(languagePair: LanguagePair): void {
+    this.sent.push({ type: 'client.live.start', languagePair });
   }
   sendAudio(): void {}
   stop(): void {
@@ -67,7 +78,7 @@ class FakeQueue implements PlaybackSink {
 }
 
 const settings = (overrides: Partial<CaptureSettings> = {}): CaptureSettings => ({
-  direction: 'en_to_vi',
+  languagePair: EN_TO_VI,
   mode: 'live',
   voiceGender: 'female',
   apiBaseUrl: 'http://localhost:3000',
@@ -76,8 +87,8 @@ const settings = (overrides: Partial<CaptureSettings> = {}): CaptureSettings => 
   ...overrides,
 });
 
-function harness(overrides: Partial<DirectionSessionDeps> = {}) {
-  const events: Parameters<DirectionSessionDeps['onServerEvent']>[0][] = [];
+function harness(overrides: Partial<LanguagePairSessionDeps> = {}) {
+  const events: Parameters<LanguagePairSessionDeps['onServerEvent']>[0][] = [];
   const busy: boolean[] = [];
   const sounding: boolean[] = [];
   const stopped = vi.fn();
@@ -93,12 +104,12 @@ function harness(overrides: Partial<DirectionSessionDeps> = {}) {
     close: () => Promise.resolve(),
   };
 
-  const deps: DirectionSessionDeps = {
+  const deps: LanguagePairSessionDeps = {
     context: context as unknown as AudioContext,
     accessToken: 'test-access-token',
     workletUrl: '/worklets/mic-capture-processor.js',
     settings: settings(),
-    direction: 'en_to_vi',
+    languagePair: EN_TO_VI,
     input: { getTracks: () => [] } as unknown as MediaStream,
     maxInFlight: 1,
     onServerEvent: (event) => events.push(event),
@@ -112,7 +123,7 @@ function harness(overrides: Partial<DirectionSessionDeps> = {}) {
     ...overrides,
   };
 
-  const browser: LiveDirectionBrowser = {
+  const browser: LiveLanguagePairBrowser = {
     createWorkletNode: () => node as unknown as AudioWorkletNode,
     createSocket: (handlers) => {
       socket = new FakeSocket(handlers);
@@ -124,7 +135,7 @@ function harness(overrides: Partial<DirectionSessionDeps> = {}) {
     },
   };
 
-  const session = new LiveDirectionSession(deps, browser);
+  const session = new LiveLanguagePairSession(deps, browser);
   return {
     session,
     events,
@@ -157,7 +168,7 @@ const audio = (): LiveServerEvent => ({
   },
 });
 
-describe('LiveDirectionSession', () => {
+describe('LiveLanguagePairSession', () => {
   describe('the ducking signal', () => {
     it('reports audible audio as BUSY as well as sounding', async () => {
       // The cascade ducks on `OrderedPlayback.isBusy`, which counts turns still
@@ -165,7 +176,7 @@ describe('LiveDirectionSession', () => {
       // the meeting would never duck at all. Audible audio is the only edge
       // this backend has.
       const h = harness();
-      await h.session.start({ direction: 'en_to_vi' });
+      await h.session.start({ languagePair: EN_TO_VI });
       h.socket.emit({ type: 'server.live.ready', sessionId: 's1' });
 
       h.socket.emit(audio());
@@ -176,7 +187,7 @@ describe('LiveDirectionSession', () => {
 
     it('releases both when the queue drains', async () => {
       const h = harness();
-      await h.session.start({ direction: 'en_to_vi' });
+      await h.session.start({ languagePair: EN_TO_VI });
       h.socket.emit({ type: 'server.live.ready', sessionId: 's1' });
       h.socket.emit(audio());
 
@@ -190,9 +201,9 @@ describe('LiveDirectionSession', () => {
   });
 
   describe('transcript', () => {
-    it('appends deltas under a key that names the direction', async () => {
+    it('appends deltas under a key that names the language pair', async () => {
       const h = harness();
-      await h.session.start({ direction: 'en_to_vi' });
+      await h.session.start({ languagePair: EN_TO_VI });
       h.socket.emit({ type: 'server.live.ready', sessionId: 's1' });
 
       h.socket.emit({
@@ -206,20 +217,20 @@ describe('LiveDirectionSession', () => {
       expect(h.events).toEqual([
         {
           type: 'transcript.liveDelta',
-          sessionId: 'live:en_to_vi',
+          sessionId: 'live:en-vi',
           channel: 'source',
           delta: 'hello',
         },
       ]);
     });
 
-    it('keys the two directions apart, so one cannot overwrite the other', async () => {
-      // `MeetingTranscript` orders both directions through one `firstSeen` map
+    it('keys the two legs apart, so one cannot overwrite the other', async () => {
+      // `MeetingTranscript` orders both legs through one `firstSeen` map
       // keyed by this id, and both live sessions run for the whole meeting. A
       // shared key would merge the meeting and the user into one line.
-      const said = async (direction: 'en_to_vi' | 'vi_to_en') => {
-        const h = harness({ direction });
-        await h.session.start({ direction });
+      const said = async (languagePair: LanguagePair) => {
+        const h = harness({ languagePair });
+        await h.session.start({ languagePair });
         h.socket.emit({ type: 'server.live.ready', sessionId: 's1' });
         h.socket.emit({
           type: 'server.live.transcript',
@@ -229,23 +240,23 @@ describe('LiveDirectionSession', () => {
           lang: 'en',
         });
         const event = h.events[0]!;
-        // Narrowed rather than cast: if this direction ever stopped emitting a
+        // Narrowed rather than cast: if this leg ever stopped emitting a
         // live delta, the test should say so instead of comparing undefined.
         if (event.type !== 'transcript.liveDelta') throw new Error(`got ${event.type}`);
         return event.sessionId;
       };
 
-      expect(await said('en_to_vi')).not.toBe(await said('vi_to_en'));
+      expect(await said(EN_TO_VI)).not.toBe(await said(reversePair(EN_TO_VI)));
     });
   });
 
   describe('teardown', () => {
     it('does NOT report a stop it was asked for', async () => {
-      // `MeetingCapture.stopDirection` clears its slot before calling stop, and
-      // the inbound direction's `onStopped` tears the whole capture down.
+      // `MeetingCapture.stopLeg` clears its slot before calling stop, and
+      // the inbound leg's `onStopped` tears the whole capture down.
       // Reporting here would re-enter a teardown already in progress.
       const h = harness();
-      await h.session.start({ direction: 'en_to_vi' });
+      await h.session.start({ languagePair: EN_TO_VI });
       h.socket.emit({ type: 'server.live.ready', sessionId: 's1' });
 
       h.session.stop();
@@ -258,7 +269,7 @@ describe('LiveDirectionSession', () => {
       // nowhere left to play — and a socket held open for it would keep a
       // metered upstream session alive with nothing able to reach it.
       const h = harness();
-      await h.session.start({ direction: 'en_to_vi' });
+      await h.session.start({ languagePair: EN_TO_VI });
       h.socket.emit({ type: 'server.live.ready', sessionId: 's1' });
 
       h.session.stop();
@@ -269,7 +280,7 @@ describe('LiveDirectionSession', () => {
 
     it('DOES report an end the server decided', async () => {
       const h = harness();
-      await h.session.start({ direction: 'en_to_vi' });
+      await h.session.start({ languagePair: EN_TO_VI });
       h.socket.emit({ type: 'server.live.ready', sessionId: 's1' });
 
       h.socket.emit({ type: 'server.live.ended', sessionId: 's1', reason: 'idle' });
@@ -281,12 +292,12 @@ describe('LiveDirectionSession', () => {
   describe('hints', () => {
     // This backend's socket protocol takes no hint parameter, so there is
     // nothing to forward `hints` to. Accepting and ignoring it is what keeps
-    // one `DirectionRunner` shape across both backends — the same treatment
+    // one `LegRunner` shape across both backends — the same treatment
     // `voiceGender` already gets.
     it('the live backend ignores hints without failing', async () => {
       const h = harness();
       await expect(
-        h.session.start({ direction: 'en_to_vi', hints: { topic: 'cardiology consult' } }),
+        h.session.start({ languagePair: EN_TO_VI, hints: { topic: 'cardiology consult' } }),
       ).resolves.toBeUndefined();
 
       h.socket.emit({ type: 'server.live.ready', sessionId: 's1' });
@@ -297,9 +308,9 @@ describe('LiveDirectionSession', () => {
     });
   });
 
-  it('surfaces an upstream failure to the direction that owns it', async () => {
+  it('surfaces an upstream failure to the leg that owns it', async () => {
     const h = harness();
-    await h.session.start({ direction: 'en_to_vi' });
+    await h.session.start({ languagePair: EN_TO_VI });
 
     h.socket.emit({ type: 'server.live.error', code: 'bad_key', message: 'rejected' });
 

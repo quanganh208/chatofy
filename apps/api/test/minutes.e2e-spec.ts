@@ -228,7 +228,7 @@ describe('Meeting minutes (e2e)', () => {
 function turn(position: number, sourceText: string): ConversationTurnWrite {
   return {
     position,
-    // The conversation here is en_to_vi (`languages: ['en','vi']`); speaker_a is
+    // The conversation here is en→vi (`languages: ['en','vi']`); speaker_a is
     // always the Vietnamese side (`speakerRoleFor`, `@chatofy/types`), so this
     // block's source is 'vi' and its one destination is 'en' — the pair
     // `translationTargets(['en','vi'], ['vi'])` gives.

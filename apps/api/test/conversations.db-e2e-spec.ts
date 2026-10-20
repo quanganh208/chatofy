@@ -33,22 +33,18 @@ import {
 const run = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 
 /**
- * A save body as a LEGACY client tab still sends it — `direction` and turn
- * `targetText`, not `SaveConversationRequest`'s language-keyed shape.
+ * A save body as a client sends it — `SaveConversationRequest`'s
+ * language-keyed shape, typed loosely enough that a case can build a body the
+ * schema refuses.
  *
- * Every case in this file drives the save route with exactly this shape, which
- * is what proves the route stays backward-compatible: a client that has not
- * picked up `languages`/`sourceLanguages`/`translations` keeps working against
- * the migrated schema and store, because `saveConversationRequestSchema`'s
- * preprocess fills the new fields in before validation ever runs. `offsetMs`
- * and `audioOffsetMs` are optional for the same reason they always were: a real
- * body may omit either, and two cases below assert exactly that — the
+ * `offsetMs` and `audioOffsetMs` are optional for the same reason they always
+ * were: a real body may omit either, and two cases below assert exactly that — the
  * cross-process round trip expects `offsetMs: null` on turns whose body never
  * carried one, and "a save that omits audioOffsetMs" deletes the key before it
  * sends.
  */
 interface SaveConversationBody {
-  direction: 'vi_to_en' | 'en_to_vi';
+  languages: string[];
   startedAt: string;
   endedAt: string;
   turns: Array<{
@@ -57,7 +53,8 @@ interface SaveConversationBody {
     speakerLabel: string | null;
     sourceText: string;
     displayText: string | null;
-    targetText: string;
+    sourceLanguages: string[];
+    translations: Record<string, string>;
     offsetMs?: number | null;
   }>;
   audioOffsetMs?: number | null;
@@ -140,15 +137,12 @@ describe('Conversation history (db-e2e)', () => {
 
       expect(res.body.data.conversation).toMatchObject({
         conversationId: id,
-        direction: 'vi_to_en',
         languages: ['vi', 'en'],
         turnCount: 2,
         preview: 'xin chào',
       });
-      // Both the legacy fields (`targetText`) AND the language-keyed ones
-      // (`sourceLanguages`/`translations`) come back on every turn — the
-      // response contract this migration is required to keep, derived from
-      // the same `speakerRole`-based backfill rule the migration SQL uses.
+      // Exactly the stored columns come back on every turn: no legacy
+      // `targetText` is derived on read.
       expect(res.body.data.conversation.turns).toEqual([
         {
           position: 0,
@@ -158,7 +152,6 @@ describe('Conversation history (db-e2e)', () => {
           displayText: 'xin chào',
           sourceLanguages: ['vi'],
           translations: { en: 'hello' },
-          targetText: 'hello',
           offsetMs: null,
         },
         {
@@ -169,7 +162,6 @@ describe('Conversation history (db-e2e)', () => {
           displayText: null,
           sourceLanguages: ['en'],
           translations: { vi: 'how are you' },
-          targetText: 'how are you',
           // Null on both turns: this body predates timestamps and omits the
           // field, which the schema defaults rather than refuses — the
           // stale-bundle case, asserted here end to end.
@@ -260,7 +252,8 @@ describe('Conversation history (db-e2e)', () => {
         speakerLabel: null,
         sourceText: 'cau thu ba',
         displayText: null,
-        targetText: 'a third line',
+        sourceLanguages: ['vi'],
+        translations: { en: 'a third line' },
       },
     ];
 
@@ -373,7 +366,8 @@ describe('Conversation history (db-e2e)', () => {
         speakerLabel: null,
         sourceText: 'x'.repeat(3_000),
         displayText: null,
-        targetText: '',
+        sourceLanguages: ['vi'],
+        translations: { en: '' },
       }),
     );
 
@@ -1163,60 +1157,32 @@ describe('Conversation history (db-e2e)', () => {
     await prisma.user.deleteMany({ where: { id: carol.userId } });
   });
 
-  /**
-   * `SaveConversationBody`, extended with the optional new fields a caller MAY
-   * additionally send — `languages` and, per turn, `sourceLanguages`/
-   * `translations`. A typed alternative to `as any`: every field
-   * `SaveConversationBody` already requires stays required here too.
-   */
-  type LanguageKeyedSaveBody = Omit<SaveConversationBody, 'turns'> & {
-    languages?: string[];
-    turns: (SaveConversationBody['turns'][number] & {
-      sourceLanguages?: string[];
-      translations?: Record<string, string>;
-    })[];
-  };
-
   describe('language-keyed persistence', () => {
-    // The new save shape a body MAY send once a caller derives its own
-    // languages/sourceLanguages/translations — proven end to end, not just at
-    // the schema layer, because the store's write conversion only runs the
-    // legacy-derivation branch when a turn omits them.
-    it('accepts a body that already sends languages and sourceLanguages/translations', async () => {
-      const id = randomUUID();
-      const newShapeBody: LanguageKeyedSaveBody = {
+    // A tab built before the language pair replaced `direction` still sends
+    // the old shape. It is refused, not translated: `languages` and a turn's
+    // `sourceLanguages`/`translations` are required, and nothing derives them
+    // from `direction`/`targetText` any more.
+    it('refuses a legacy body that sends direction and targetText instead', async () => {
+      const { languages: _languages, turns, ...rest } = body();
+      const legacy = {
+        ...rest,
         direction: 'vi_to_en',
-        languages: ['vi', 'en'],
-        startedAt: new Date(Date.now() - 60_000).toISOString(),
-        endedAt: new Date().toISOString(),
-        turns: [
-          {
-            position: 0,
-            speakerRole: 'speaker_a',
-            speakerLabel: null,
-            sourceText: 'xin chào',
-            displayText: null,
-            targetText: 'hello',
-            sourceLanguages: ['vi'],
-            translations: { en: 'hello' },
-          },
-        ],
+        turns: turns.map(({ sourceLanguages: _s, translations, ...turn }) => ({
+          ...turn,
+          targetText: Object.values(translations)[0] ?? '',
+        })),
       };
-      await put(id, alice, newShapeBody).expect(200);
 
-      const res = await request(app.getHttpServer())
+      const id = randomUUID();
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}`)
+        .set('authorization', alice.bearer)
+        .send(legacy)
+        .expect(400);
+      await request(app.getHttpServer())
         .get(`/conversations/${id}`)
         .set('authorization', alice.bearer)
-        .expect(200);
-      expect(res.body.data.conversation).toMatchObject({
-        direction: 'vi_to_en',
-        languages: ['vi', 'en'],
-      });
-      expect(res.body.data.conversation.turns[0]).toMatchObject({
-        sourceLanguages: ['vi'],
-        translations: { en: 'hello' },
-        targetText: 'hello',
-      });
+        .expect(404);
     });
 
     // A turn with two sources (a block that switched languages mid-turn) and a
@@ -1225,8 +1191,7 @@ describe('Conversation history (db-e2e)', () => {
     // on real data rather than a synthetic string.
     it('stores a mixed turn translated into every conversation language, and indexes every translation for search', async () => {
       const id = randomUUID();
-      const mixedTurnBody: LanguageKeyedSaveBody = {
-        direction: 'vi_to_en',
+      const mixedTurnBody: SaveConversationBody = {
         languages: ['vi', 'en'],
         startedAt: new Date(Date.now() - 60_000).toISOString(),
         endedAt: new Date().toISOString(),
@@ -1237,11 +1202,8 @@ describe('Conversation history (db-e2e)', () => {
             speakerLabel: null,
             sourceText: 'xin chào, hello',
             displayText: null,
-            // Deliberately NOT the word either translation carries, so a
-            // search hit on either one can only have come from `translations`
-            // — proving `searchTextFor` folds every entry, not only the one a
-            // legacy `targetText` would have held.
-            targetText: 'unrelated',
+            // Two translations, so a search hit on the Vietnamese one proves
+            // `searchTextFor` folds every entry, not only the spoken one.
             sourceLanguages: ['vi', 'en'],
             translations: { vi: 'quả chuối vàng', en: 'yellow banana fruit' },
           },
@@ -1278,61 +1240,6 @@ describe('Conversation history (db-e2e)', () => {
         ),
       ).toContain(id);
     });
-
-    // Step 8 of the migration rehearsal: the SAME conversation, saved and read
-    // through the migrated API, answers with the identical shape a pre-migration
-    // reader already asserted on — `direction` and `targetText` unchanged —
-    // once the two new fields are stripped back out. Covers the three
-    // conversation kinds the phase names: vi_to_en, en_to_vi, and one with a
-    // display-repaired ("split") turn.
-    it('answers the pre-migration response shape once languages/sourceLanguages/translations are stripped', async () => {
-      const cases: { direction: 'vi_to_en' | 'en_to_vi' }[] = [
-        { direction: 'vi_to_en' },
-        { direction: 'en_to_vi' },
-      ];
-      for (const { direction } of cases) {
-        const id = randomUUID();
-        await put(id, alice, {
-          direction,
-          startedAt: new Date(Date.now() - 60_000).toISOString(),
-          endedAt: new Date().toISOString(),
-          turns: [
-            {
-              position: 0,
-              speakerRole: 'speaker_a',
-              speakerLabel: 'Ana',
-              sourceText: 'raw text',
-              displayText: 'repaired text',
-              targetText: 'translated text',
-            },
-          ],
-        }).expect(200);
-
-        const res = await request(app.getHttpServer())
-          .get(`/conversations/${id}`)
-          .set('authorization', alice.bearer)
-          .expect(200);
-
-        const { languages: _l, ...conversation } = res.body.data
-          .conversation as Record<string, unknown>;
-        const turns = (conversation.turns as Record<string, unknown>[]).map(
-          ({ sourceLanguages: _sl, translations: _t, ...turn }) => turn,
-        );
-        expect({ ...conversation, turns }).toMatchObject({
-          direction,
-          turns: [
-            {
-              position: 0,
-              speakerRole: 'speaker_a',
-              speakerLabel: 'Ana',
-              sourceText: 'raw text',
-              displayText: 'repaired text',
-              targetText: 'translated text',
-            },
-          ],
-        });
-      }
-    });
   });
 
   describe('search', () => {
@@ -1354,7 +1261,8 @@ describe('Conversation history (db-e2e)', () => {
           // the index and the query cover what the reader actually saw.
           sourceText: 'bao cao ngan sach',
           displayText: 'báo cáo ngân sách',
-          targetText: 'the budget report',
+          sourceLanguages: ['vi'],
+          translations: { en: 'the budget report' },
         },
         {
           position: 1,
@@ -1364,7 +1272,8 @@ describe('Conversation history (db-e2e)', () => {
           // an accented term still finds it.
           sourceText: 'ky hop dong',
           displayText: null,
-          targetText: 'sign the contract',
+          sourceLanguages: ['en'],
+          translations: { vi: 'sign the contract' },
         },
         {
           position: 2,
@@ -1374,7 +1283,8 @@ describe('Conversation history (db-e2e)', () => {
           // term finds it. Also carries the two LIKE metacharacters.
           sourceText: 'đồng ý 100% rồi',
           displayText: null,
-          targetText: 'done, path C:\\Users\\ana',
+          sourceLanguages: ['vi'],
+          translations: { en: 'done, path C:\\Users\\ana' },
         },
       ];
       await put(searchable, alice, payload).expect(200);
@@ -1390,7 +1300,8 @@ describe('Conversation history (db-e2e)', () => {
           speakerLabel: null,
           sourceText: 'bao cao ngan sach',
           displayText: 'báo cáo ngân sách',
-          targetText: 'the budget report',
+          sourceLanguages: ['vi'],
+          translations: { en: 'the budget report' },
         },
       ];
       await put(randomUUID(), dave, daves).expect(200);
@@ -1531,7 +1442,7 @@ describe('Conversation history (db-e2e)', () => {
 function body(): SaveConversationBody {
   const startedAt = new Date(Date.now() - 60_000).toISOString();
   return {
-    direction: 'vi_to_en' as const,
+    languages: ['vi', 'en'],
     startedAt,
     endedAt: new Date().toISOString(),
     turns: [
@@ -1542,7 +1453,8 @@ function body(): SaveConversationBody {
         sourceText: 'xin chao',
         // Present because it differs — the repaired rendering the user read.
         displayText: 'xin chào',
-        targetText: 'hello',
+        sourceLanguages: ['vi'],
+        translations: { en: 'hello' },
       },
       {
         position: 1,
@@ -1550,7 +1462,8 @@ function body(): SaveConversationBody {
         speakerLabel: null,
         sourceText: 'khoẻ không',
         displayText: null,
-        targetText: 'how are you',
+        sourceLanguages: ['en'],
+        translations: { vi: 'how are you' },
       },
     ],
   };

@@ -3,7 +3,7 @@ import * as React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TranslationDirection } from '@chatofy/types';
+import type { LanguagePair } from '@chatofy/types';
 import type { VoiceCatalogState } from './use-voice-catalog';
 
 /**
@@ -29,9 +29,9 @@ async function loadHook() {
   return (await import('./use-voice-catalog')).useVoiceCatalog;
 }
 
-function probeFor(useVoiceCatalog: (direction: TranslationDirection) => VoiceCatalogState) {
-  return function Probe({ direction }: { direction: TranslationDirection }) {
-    const value = useVoiceCatalog(direction);
+function probeFor(useVoiceCatalog: (pair: LanguagePair) => VoiceCatalogState) {
+  return function Probe({ pair }: { pair: LanguagePair }) {
+    const value = useVoiceCatalog(pair);
     React.useEffect(() => {
       latest = value;
     });
@@ -67,12 +67,12 @@ describe('useVoiceCatalog', () => {
     listVoices.mockResolvedValue({ voices: [voice('en-a')], speedAdjustable: true });
     const Probe = probeFor(await loadHook());
 
-    await render(<Probe direction="vi_to_en" />);
+    await render(<Probe pair={{ source: 'vi', target: 'en' }} />);
     expect(latest).toEqual({ status: 'ready', voices: [voice('en-a')], speedAdjustable: true });
 
     // Closing and reopening the popover, which is a full unmount and remount.
     await render(<></>);
-    await render(<Probe direction="vi_to_en" />);
+    await render(<Probe pair={{ source: 'vi', target: 'en' }} />);
 
     expect(listVoices).toHaveBeenCalledTimes(1);
     // And straight to the list, with no "loading" frame in between.
@@ -85,8 +85,8 @@ describe('useVoiceCatalog', () => {
     );
     const Probe = probeFor(await loadHook());
 
-    await render(<Probe direction="vi_to_en" />);
-    await render(<Probe direction="en_to_vi" />);
+    await render(<Probe pair={{ source: 'vi', target: 'en' }} />);
+    await render(<Probe pair={{ source: 'en', target: 'vi' }} />);
 
     expect(listVoices).toHaveBeenCalledTimes(2);
     expect(listVoices).toHaveBeenLastCalledWith('vi');
@@ -100,13 +100,13 @@ describe('useVoiceCatalog', () => {
     listVoices.mockResolvedValue({ voices: [voice('en-a')], speedAdjustable: true });
     const Probe = probeFor(await loadHook());
 
-    await render(<Probe direction="vi_to_en" />);
+    await render(<Probe pair={{ source: 'vi', target: 'en' }} />);
     // Not `false`: a failed lookup says nothing about whether the engine
     // honours the rate, and answering `false` would hide a working control.
     expect(latest).toEqual({ status: 'failed', voices: [], speedAdjustable: 'unknown' });
 
     await render(<></>);
-    await render(<Probe direction="vi_to_en" />);
+    await render(<Probe pair={{ source: 'vi', target: 'en' }} />);
 
     expect(listVoices).toHaveBeenCalledTimes(2);
     expect(latest).toEqual({ status: 'ready', voices: [voice('en-a')], speedAdjustable: true });
@@ -118,8 +118,8 @@ describe('useVoiceCatalog', () => {
 
     await render(
       <>
-        <Probe direction="vi_to_en" />
-        <Probe direction="vi_to_en" />
+        <Probe pair={{ source: 'vi', target: 'en' }} />
+        <Probe pair={{ source: 'vi', target: 'en' }} />
       </>,
     );
 
@@ -133,7 +133,7 @@ describe('useVoiceCatalog', () => {
     listVoices.mockResolvedValue({ voices: [voice('en-a')] });
     const Probe = probeFor(await loadHook());
 
-    await render(<Probe direction="vi_to_en" />);
+    await render(<Probe pair={{ source: 'vi', target: 'en' }} />);
 
     expect(latest).toEqual({
       status: 'ready',
@@ -148,7 +148,7 @@ describe('useVoiceCatalog', () => {
     listVoices.mockReturnValue(new Promise(() => {}));
     const Probe = probeFor(await loadHook());
 
-    await render(<Probe direction="vi_to_en" />);
+    await render(<Probe pair={{ source: 'vi', target: 'en' }} />);
 
     expect(latest).toEqual({ status: 'loading', voices: [], speedAdjustable: 'unknown' });
   });

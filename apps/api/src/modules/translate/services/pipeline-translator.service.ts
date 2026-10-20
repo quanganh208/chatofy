@@ -429,8 +429,8 @@ function ttsRequestFor(
 
 /**
  * Orchestrates one turn-based translation: STT → translate → TTS.
- * Languages follow the requested direction (vi→en or en→vi) and are passed to
- * each provider, every one of which handles both.
+ * Languages follow the requested language pair and are passed to each
+ * provider, which is told the language per call.
  * Provider errors are mapped to HTTP exceptions so the response envelope carries
  * a meaningful status instead of a raw 500.
  */

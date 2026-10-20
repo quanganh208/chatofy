@@ -1,11 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  conversationLanguagesOf,
-  type ConversationTurn,
-  type TranslationDirection,
-} from '@chatofy/types';
+import { pairLanguages, type ConversationTurn, type LanguagePair } from '@chatofy/types';
 import { saveConversation } from '@/clients/api-client';
 import { classifyApiFailure } from '@/lib/api-failure';
 
@@ -48,7 +44,13 @@ export interface ConversationSaveInput {
   /** Re-minted on every `start`; null before the first conversation. */
   conversationId: string | null;
   startedAt: string | null;
-  direction: TranslationDirection;
+  /**
+   * The pair the conversation was started in — captured at `start`, so its
+   * identity only changes when the conversation does. It is read through the
+   * `latest` ref and is no save trigger: a fresh-but-equal object must not
+   * re-send a conversation that has not changed.
+   */
+  languagePair: LanguagePair;
   /** True while the microphone is open. The save fires on the falling edge. */
   running: boolean;
   /** The finished conversation as display blocks — see `toConversationTurns`. */
@@ -132,7 +134,8 @@ const EDIT_COALESCE_MS = 800;
  * client should not be generating the collisions in the first place.
  */
 export function useConversationSave(input: ConversationSaveInput): UseConversationSave {
-  const { conversationId, startedAt, direction, running, turns, audioOffsetMs, pausedMs } = input;
+  const { conversationId, startedAt, languagePair, running, turns, audioOffsetMs, pausedMs } =
+    input;
 
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -162,7 +165,7 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
   const latest = useRef({
     conversationId,
     startedAt,
-    direction,
+    languagePair,
     turns,
     saved,
     audioOffsetMs,
@@ -172,19 +175,19 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
     latest.current = {
       conversationId,
       startedAt,
-      direction,
+      languagePair,
       turns,
       saved,
       audioOffsetMs,
       pausedMs,
     };
-  }, [conversationId, startedAt, direction, turns, saved, audioOffsetMs, pausedMs]);
+  }, [conversationId, startedAt, languagePair, turns, saved, audioOffsetMs, pausedMs]);
 
   const enqueue = useCallback(() => {
     const {
       conversationId: id,
       startedAt: began,
-      direction: dir,
+      languagePair: pair,
       turns: rows,
       audioOffsetMs: recordingOffset,
       pausedMs: paused,
@@ -201,8 +204,7 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
     inFlight.current = inFlight.current.then(async () => {
       try {
         await saveConversation(id, {
-          direction: dir,
-          languages: conversationLanguagesOf(dir),
+          languages: pairLanguages(pair),
           startedAt: began,
           endedAt: ended,
           turns: rows,

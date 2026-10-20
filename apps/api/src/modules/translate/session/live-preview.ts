@@ -90,7 +90,7 @@ export class LivePreview {
             sessionId: session.sessionId,
             text,
             speaker: session.speakerRole,
-            direction: session.direction,
+            languagePair: session.languagePair,
           });
         }
         this.settleTranscript(
@@ -155,7 +155,7 @@ export class LivePreview {
       pending: windowed ? session.committer.pending : text,
       reanchors: session.committer.reanchors,
       speaker: session.speakerRole,
-      direction: session.direction,
+      languagePair: session.languagePair,
     });
   }
 
@@ -236,7 +236,7 @@ export class LivePreview {
             sessionId: session.sessionId,
             delta,
             generation,
-            direction: session.direction,
+            languagePair: session.languagePair,
           });
         },
         // The on-screen preview is hinted like every other path. Leaving it out
@@ -271,7 +271,7 @@ export class LivePreview {
               sessionId: session.sessionId,
               delta: '',
               generation: session.nextTranslationGeneration(),
-              direction: session.direction,
+              languagePair: session.languagePair,
             });
           }
           return;
@@ -281,7 +281,7 @@ export class LivePreview {
           type: 'server.translation.partial',
           sessionId: session.sessionId,
           text,
-          direction: session.direction,
+          languagePair: session.languagePair,
         });
       })
       .catch((err: unknown) => {

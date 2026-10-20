@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { TranslationDirection } from '@chatofy/types';
+import type { LanguagePair } from '@chatofy/types';
 import { TurnTimeline } from './turn-timeline';
 import { TurnSession } from './turn-session';
 import { TurnAudio } from './turn-audio';
 
 /** A turn whose output voice is beside the point for the behavior under test. */
-const openSession = (direction: TranslationDirection = 'vi_to_en') =>
-  new TurnSession({ direction, voiceGender: 'female' });
+const openSession = (
+  languagePair: LanguagePair = { source: 'vi', target: 'en' },
+) => new TurnSession({ languagePair, voiceGender: 'female' });
 
 /** A clock the test drives, so nothing here has to sleep. */
 function fakeClock(start = 1_000_000) {
@@ -105,12 +106,12 @@ describe('TurnTimeline', () => {
 
   it('reads the turn identity and audio it is given', () => {
     const timeline = new TurnTimeline(fakeClock().now);
-    const session = openSession('en_to_vi');
+    const session = openSession({ source: 'en', target: 'vi' });
 
     const metrics = timeline.toMetrics(session, audioOf(6400, 48000), true);
 
     expect(metrics.sessionId).toBe(session.sessionId);
-    expect(metrics.direction).toBe('en_to_vi');
+    expect(metrics.languagePair).toEqual({ source: 'en', target: 'vi' });
     expect(metrics.inputBytes).toBe(6400);
     expect(metrics.inputSampleRate).toBe(48000);
   });

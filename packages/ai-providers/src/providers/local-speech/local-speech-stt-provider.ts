@@ -4,7 +4,7 @@
 // SDK dependency.
 //
 // The sidecar picks the engine from `language` (Zipformer for vi, Parakeet for
-// en), so this provider serves both directions through one backend name.
+// en), so this provider serves every language pair through one backend name.
 import type { LanguageCode } from '../../interfaces/provider-types.js';
 import type {
   ServedLanguages,

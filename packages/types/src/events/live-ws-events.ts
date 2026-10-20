@@ -10,7 +10,7 @@
 // in either direction — see `audioFrameSchema`.
 import { z } from 'zod';
 import { audioFrameSchema } from './audio-frame.js';
-import { languageCodeSchema, translationDirectionSchema } from '../domain/languages.js';
+import { languageCodeSchema, languagePairSchema } from '../domain/languages.js';
 
 /**
  * Every string here is bounded, for the same reason the turn contract bounds
@@ -32,7 +32,7 @@ const MAX_LIVE_FRAME_PAYLOAD_CHARS = 65536;
 
 const liveClientStartSchema = z.object({
   type: z.literal('client.live.start'),
-  direction: translationDirectionSchema,
+  languagePair: languagePairSchema,
 });
 
 /**

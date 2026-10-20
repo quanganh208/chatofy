@@ -1,11 +1,10 @@
 import {
   LANGUAGES,
   LANGUAGE_CODES,
-  directionLanguages,
-  directionOf,
-  reverseDirection,
+  languagePairOf,
+  reversePair,
   type LanguageCode,
-  type TranslationDirection,
+  type LanguagePair,
 } from '@chatofy/types';
 import { ArrowLeftRight } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -24,29 +23,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
  *
  * `swap` takes the two language NAMES, because the accessible name has to say what
  * pressing it does — "swap" alone is a verb with no object.
- *
- * The name is the one this type had when the control was a two-readout toggle: the
- * words did not change, and renaming the type would have rippled into every surface
- * that supplies them for no change in what they say.
  */
-export interface DirectionToggleLabels {
-  direction: string;
+export interface LanguagePairLabels {
+  pair: string;
   source: string;
   translation: string;
   swap: (from: string, to: string) => string;
 }
 
-const DEFAULT_LABELS: DirectionToggleLabels = {
-  direction: 'Direction',
+const DEFAULT_LABELS: LanguagePairLabels = {
+  pair: 'Languages',
   source: 'Source',
   translation: 'Translation',
-  swap: (from, to) => `Swap direction — translate ${from} into ${to}`,
+  swap: (from, to) => `Swap languages — translate ${from} into ${to}`,
 };
 
 /**
  * A language by its English interface name — "Vietnamese", "Chinese" — which is what
  * the extension popup, the one caller without a dictionary, shows. Web passes the
- * reader's locale's names instead (`apps/web/src/i18n/direction-labels.ts`).
+ * reader's locale's names instead (`apps/web/src/i18n/language-pair-labels.ts`).
  *
  * A name the reader recognises in their own interface language beats the language's
  * name for itself: "简体中文" in a Vietnamese or English interface is a word most
@@ -59,21 +54,21 @@ const englishLabel = (code: LanguageCode) => LANGUAGES[code].label;
  *
  * Picking, on one side, the language the OTHER side already holds swaps the pair —
  * the reader asked for that language there, and the only pair with it there and no
- * repeat is the reverse. So no caller can produce `vi_to_vi`, and every surface that
+ * repeat is the reverse. So no caller can produce a pair of one language, and every surface that
  * picks a language (`LanguagePairPicker`, the `/translate` panel headers) answers a
  * collision the same way because it calls this one function.
  */
 export function pairAfterPick(
-  pair: TranslationDirection,
+  pair: LanguagePair,
   side: 'source' | 'target',
   code: LanguageCode,
-): TranslationDirection {
-  const { source, target } = directionLanguages(pair);
+): LanguagePair {
+  const { source, target } = pair;
   const kept = side === 'source' ? source : target;
   const other = side === 'source' ? target : source;
   if (code === kept) return pair;
-  if (code === other) return reverseDirection(pair);
-  return side === 'source' ? directionOf(code, target) : directionOf(source, code);
+  if (code === other) return reversePair(pair);
+  return side === 'source' ? languagePairOf(code, target) : languagePairOf(source, code);
 }
 
 interface LanguageSelectProps {
@@ -126,10 +121,10 @@ export function LanguageSelect({
 }
 
 interface LanguagePairPickerProps {
-  value: TranslationDirection;
+  value: LanguagePair;
   disabled?: boolean;
-  onChange: (direction: TranslationDirection) => void;
-  labels?: DirectionToggleLabels;
+  onChange: (pair: LanguagePair) => void;
+  labels?: LanguagePairLabels;
   /** Names the languages. Defaults to each language's English interface name. */
   nameLanguage?: (code: LanguageCode) => string;
   /** The languages offered on either side; the registry by default. */
@@ -137,7 +132,7 @@ interface LanguagePairPickerProps {
 }
 
 /**
- * The direction, as two languages to pick and a swap between them.
+ * The language pair, as two languages to pick and a swap between them.
  *
  * It was a toggle of two readouts and one swap while the registry held two
  * languages: a picker on either side would have offered one alternative, which is
@@ -160,14 +155,14 @@ export function LanguagePairPicker({
   nameLanguage = englishLabel,
   languages = LANGUAGE_CODES,
 }: LanguagePairPickerProps) {
-  const { source, target } = directionLanguages(value);
+  const { source, target } = value;
   const pick = (side: 'source' | 'target') => (code: LanguageCode) =>
     onChange(pairAfterPick(value, side, code));
 
   return (
     <div className="@container flex flex-col gap-2">
       <span className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
-        {labels.direction}
+        {labels.pair}
       </span>
       <div className="flex flex-col gap-2 @2xs:flex-row @2xs:items-end">
         <Side role={labels.source}>
@@ -185,7 +180,7 @@ export function LanguagePairPicker({
           variant="outline"
           size="icon"
           disabled={disabled}
-          onClick={() => onChange(reverseDirection(value))}
+          onClick={() => onChange(reversePair(value))}
           aria-label={labels.swap(nameLanguage(target), nameLanguage(source))}
           className={cn(
             'text-prose hover:text-foreground disabled:hover:text-inherit',

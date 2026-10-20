@@ -532,12 +532,12 @@ function dedupeHotwords(hotwords: readonly string[]): string[] {
 }
 
 /**
- * Resolve each language-keyed pair against the direction this session runs in,
+ * Resolve each language-keyed pair against the language pair this session runs in,
  * sanitize both sides, and drop contradictions.
  *
  * The fold is applied to the SOURCE side, which is whichever language the
  * speaker is talking in — so the same stored dictionary de-duplicates
- * differently in `vi_to_en` than in `en_to_vi`. That is correct, and it is also
+ * differently in vi→en than in en→vi. That is correct, and it is also
  * why no database constraint can express this: which side folds is a property of
  * a session, and the row knows of no session.
  *
@@ -576,8 +576,8 @@ function dedupeGlossary(
     const target = clean(entry[targetLanguage] ?? '');
     if (!source || !target) continue;
     // Either side, not just the rendering: the pair is keyed by language, so the
-    // side that carried the imperative in `en_to_vi` is the SOURCE side in
-    // `vi_to_en` and would otherwise reach the block simply by running the
+    // side that carried the imperative in en→vi is the SOURCE side in
+    // vi→en and would otherwise reach the block simply by running the
     // conversation the other way.
     if (
       countTermWords(source) > MAX_GLOSSARY_WORDS ||

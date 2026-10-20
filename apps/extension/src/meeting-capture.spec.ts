@@ -8,14 +8,14 @@ import type { CaptureSettings } from './messages';
  *
  * Every test here stands for a failure that a green build did not catch and a
  * code review did: a refused microphone taking the whole meeting down, a dead
- * inbound direction leaving a recording indicator lit over nothing, a teardown
+ * inbound leg leaving a recording indicator lit over nothing, a teardown
  * re-entering itself, and the transcript being wiped at the exact moment
  * something went wrong. None of them are visible from the type system and none
  * of them would show up without a meeting to run.
  */
 
 const settings = (overrides: Partial<CaptureSettings> = {}): CaptureSettings => ({
-  direction: 'en_to_vi',
+  languagePair: { source: 'en', target: 'vi' },
   mode: 'cascade',
   voiceGender: 'female',
   apiBaseUrl: 'http://localhost:3000',
@@ -36,12 +36,12 @@ describe('MeetingCapture', () => {
       expect(h.events.indexOf('passthrough')).toBeLessThan(h.events.indexOf('microphone'));
     });
 
-    it('translates the user in the opposite direction to the meeting', async () => {
+    it('translates the user with the reverse of the meeting language pair', async () => {
       const h = harness();
       await new MeetingCapture(h.deps).begin('stream-1', settings({ outbound: true }));
 
-      expect(h.sessions.inbound!.deps.direction).toBe('en_to_vi');
-      expect(h.sessions.outbound!.deps.direction).toBe('vi_to_en');
+      expect(h.sessions.inbound!.deps.languagePair).toEqual({ source: 'en', target: 'vi' });
+      expect(h.sessions.outbound!.deps.languagePair).toEqual({ source: 'vi', target: 'en' });
     });
 
     it('opens no microphone and no second session when outbound is off', async () => {
@@ -55,7 +55,7 @@ describe('MeetingCapture', () => {
   });
 
   describe('a microphone the user refuses', () => {
-    it('leaves the meeting translating and blames the right direction', async () => {
+    it('leaves the meeting translating and blames the right leg', async () => {
       const h = harness();
       h.microphoneError.current = new Error('Permission denied');
       const capture = new MeetingCapture(h.deps);
@@ -74,9 +74,9 @@ describe('MeetingCapture', () => {
     });
   });
 
-  describe('a direction that dies on its own', () => {
+  describe('a leg that dies on its own', () => {
     it('ends the capture when the inbound one goes', async () => {
-      // Losing this direction means the capture is translating nothing at all.
+      // Losing this leg means the capture is translating nothing at all.
       // Leaving it running holds a recording indicator over a dead pipeline.
       const h = harness();
       const capture = new MeetingCapture(h.deps);
@@ -106,7 +106,7 @@ describe('MeetingCapture', () => {
       expect(h.context.closed).toBe(0);
       expect(h.tabStream.stopped).toBe(false);
       expect(h.sessions.inbound!.stopped).toBe(0);
-      // The microphone is this direction's alone; holding it open would keep the
+      // The microphone is this leg's alone; holding it open would keep the
       // recording indicator lit for something that has stopped.
       expect(h.microphones[0]!.stopped).toBe(1);
 
@@ -133,7 +133,7 @@ describe('MeetingCapture', () => {
   });
 
   describe('the transcript', () => {
-    it('survives the direction that produced it', async () => {
+    it('survives the leg that produced it', async () => {
       // A dropped socket is exactly when the user wants to read what was said.
       const h = harness();
       const capture = new MeetingCapture(h.deps);
@@ -144,7 +144,7 @@ describe('MeetingCapture', () => {
         sessionId: 's1',
         text: 'hello there',
         speaker: 'speaker_a',
-        direction: 'en_to_vi',
+        languagePair: { source: 'en', target: 'vi' },
       });
       h.sessions.outbound!.dropConnection();
       await Promise.resolve();
@@ -155,7 +155,7 @@ describe('MeetingCapture', () => {
   });
 
   describe('the microphone gate', () => {
-    it('stays shut while either direction is still audible', async () => {
+    it('stays shut while either leg is still audible', async () => {
       // The failure this prevents: the outbound turn draining 200ms after the
       // inbound one starts reports "nothing is playing", the gate opens, and on a
       // loudspeaker the microphone hears the inbound translation and translates
@@ -338,7 +338,7 @@ describe('MeetingCapture', () => {
   });
 
   describe('ducking the meeting', () => {
-    it('follows the inbound direction and ignores the outbound one', async () => {
+    it('follows the inbound leg and ignores the outbound one', async () => {
       // Ducking lowers what the USER is listening to. Their own translation is a
       // monitor of what the other participants will hear, so quietening the
       // meeting under it is wrong in every phase.
@@ -356,7 +356,7 @@ describe('MeetingCapture', () => {
   });
 
   describe('AI Context hints', () => {
-    it("the selected context's hints reach DirectionRunner.start", async () => {
+    it("the selected context's hints reach LegRunner.start", async () => {
       const h = harness();
       const hints = { topic: 'quarterly planning' };
       h.deps.loadContextHints = () => Promise.resolve(hints);
@@ -366,10 +366,10 @@ describe('MeetingCapture', () => {
       expect(h.sessions.inbound!.startOptions?.hints).toBe(hints);
     });
 
-    it('both directions receive the SAME hints object', async () => {
+    it('both legs receive the SAME hints object', async () => {
       // The whole point of resolving hints once per capture rather than once
-      // per direction: one settings object, two concurrent sessions, opposite
-      // directions, one dictionary that is correct in both because its entries
+      // per leg: one settings object, two concurrent sessions, reversed
+      // language pairs, one dictionary that is correct in both because its entries
       // are keyed by language rather than by role.
       const h = harness();
       h.deps.loadContextHints = () => Promise.resolve({ hotwords: ['Chatofy'] });

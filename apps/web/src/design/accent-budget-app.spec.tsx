@@ -2,7 +2,6 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { conversationLanguagesOf, type TranslationDirection } from '@chatofy/types';
 import type { UseStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { accentFilledControls } from './accent-count';
 import { elevatedSurfaces } from './surface-count';
@@ -131,11 +130,9 @@ const oneTurn: UseStreamingTranslate['turns'] = [
     id: 'seg-a',
     sessionId: 'a',
     speakerRole: 'speaker_a',
-    direction: 'vi_to_en',
     sourceLanguages: ['vi'],
     translations: { en: 'hello' },
     sourceText: 'xin chào',
-    targetText: 'hello',
     audioUrl: null,
     createdAt: '2026-09-03T00:00:00.000Z',
   },
@@ -171,7 +168,7 @@ function conversation(over: Partial<UseStreamingTranslate> = {}): UseStreamingTr
     level: 0,
     conversationId: 'c-1',
     startedAt: '2026-09-03T00:00:00.000Z',
-    direction: 'vi_to_en',
+    languagePair: { source: 'vi', target: 'en' },
     recording: null,
     recordingStartedAtMs: null,
     pauses: [],
@@ -211,11 +208,9 @@ function idle() {
 
 /** A stored conversation, at the shape `/history/[conversationId]` reads. */
 function stored(over: Record<string, unknown> = {}) {
-  const direction: TranslationDirection = 'vi_to_en';
   return {
     conversationId: 'c-1',
-    direction,
-    languages: conversationLanguagesOf(direction),
+    languages: ['vi', 'en'],
     startedAt: '2026-09-03T12:00:00.000Z',
     endedAt: '2026-09-03T12:10:00.000Z',
     turnCount: 4,
@@ -230,7 +225,6 @@ function stored(over: Record<string, unknown> = {}) {
         displayText: null,
         sourceLanguages: ['vi'],
         translations: { en: 'hello' },
-        targetText: 'hello',
         offsetMs: 6_200,
       },
     ],
@@ -255,8 +249,7 @@ const STORED_CONVERSATIONS = [
   {
     ...stored(),
     conversationId: 'c-2',
-    direction: 'en_to_vi',
-    languages: conversationLanguagesOf('en_to_vi'),
+    languages: ['en', 'vi'],
     startedAt: '2026-09-03T09:30:00.000Z',
     endedAt: '2026-09-03T09:35:00.000Z',
     turnCount: 2,
@@ -690,7 +683,7 @@ const SCREENS: ScreenState[] = [
     // The same screen with a backend that actually answers: the picker lists
     // voices instead of saying there are none.
     //
-    // `en_to_vi` deliberately, and it is load-bearing rather than decorative.
+    // en→vi deliberately, and it is load-bearing rather than decorative.
     // `use-voice-catalog.ts` caches a list per OUTPUT LANGUAGE at module scope for
     // the life of the tab — so a second row asking for English would be handed the
     // empty answer the row above cached, and a fixture that cannot change what it
@@ -700,7 +693,10 @@ const SCREENS: ScreenState[] = [
     filled: 0,
     surfaces: 2,
     setup() {
-      saveTranslateSettings({ ...DEFAULT_TRANSLATE_SETTINGS, direction: 'en_to_vi' });
+      saveTranslateSettings({
+        ...DEFAULT_TRANSLATE_SETTINGS,
+        languagePair: { source: 'en', target: 'vi' },
+      });
       listVoices.mockResolvedValue({ voices: VOICES });
     },
     render: () => <PreferencesPage />,
@@ -783,7 +779,7 @@ const SCREENS: ScreenState[] = [
     // dock. One surface — the popover — because `/translate` before a conversation
     // starts draws none of its own, and one accent, which is still Start behind it.
     //
-    // `en_to_vi` for the same reason the `/preferences — voices listed` row gives:
+    // en→vi for the same reason the `/preferences — voices listed` row gives:
     // `use-voice-catalog.ts` caches a list per OUTPUT LANGUAGE at module scope for
     // the life of the file, and English was cached EMPTY by the rows above. Asking
     // for it here handed `VoicePicker` an empty catalog, which is its render-nothing
@@ -805,7 +801,7 @@ const SCREENS: ScreenState[] = [
       });
       listVoices.mockResolvedValue({ voices: VOICES });
     },
-    render: translate({ direction: 'en_to_vi' }),
+    render: translate({ languagePair: { source: 'en', target: 'vi' } }),
   },
   {
     // A context selected, with the picker CLOSED. An open `Select` renders its

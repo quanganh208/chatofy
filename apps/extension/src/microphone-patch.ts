@@ -88,7 +88,7 @@ export interface InjectionPoint {
    * not go to the newest destination: the client may be transmitting a graph it
    * asked for earlier, and the mute the user pressed lands on THAT one. Reading
    * the newest leaves the user muted in the meeting and still being captured,
-   * transcribed and translated — the one thing this direction promises not to do.
+   * transcribed and translated — the one thing this leg promises not to do.
    *
    * So every live graph has to agree before this says yes. The cost of the
    * conservative direction is a stale muted graph gating the feature shut; the

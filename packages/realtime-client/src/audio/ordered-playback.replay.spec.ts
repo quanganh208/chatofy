@@ -136,7 +136,10 @@ class RecordingSink implements PlaybackSink {
   }
 }
 
-const options: SessionOptions = { direction: 'vi_to_en', voiceGender: 'female' };
+const options: SessionOptions = {
+  languagePair: { source: 'vi', target: 'en' },
+  voiceGender: 'female',
+};
 
 /** A turn as the server saw it: how much audio it carried, and its ids. */
 interface ServerTurn {

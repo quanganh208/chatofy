@@ -342,9 +342,8 @@ describe('CONVERSATIONS_JSON_BODY_LIMIT_BYTES', () => {
 
   /**
    * A save body at both caps at once: every one of the 4,000 turns, with the
-   * 400,000 counted characters spread evenly across them, realistic prose, and
-   * the translation sent twice — keyed in `translations` and again as the
-   * uncounted legacy `targetText`. Spreading over the most turns is what makes
+   * 400,000 counted characters spread evenly across them, and realistic prose.
+   * Spreading over the most turns is what makes
    * it the worst case: the per-turn JSON overhead is paid 4,000 times.
    */
   function worstCaseBody(source: LanguageCode, target: LanguageCode): string {
@@ -359,7 +358,6 @@ describe('CONVERSATIONS_JSON_BODY_LIMIT_BYTES', () => {
     const languages: LanguageCode[] = ['vi', 'en'];
     const now = Date.now();
     return JSON.stringify({
-      direction: 'vi_to_en',
       languages,
       startedAt: new Date(now - 3_600_000).toISOString(),
       endedAt: new Date(now).toISOString(),
@@ -374,7 +372,6 @@ describe('CONVERSATIONS_JSON_BODY_LIMIT_BYTES', () => {
           displayText: null,
           sourceLanguages: [source],
           translations: { [target]: translation },
-          targetText: translation,
           offsetMs: 3_000_000 + position,
         }),
       ),

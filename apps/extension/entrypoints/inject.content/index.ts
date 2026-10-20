@@ -13,7 +13,7 @@ import { VoiceLease } from '../../src/outbound-voice-lease';
  * speaks the user's translated sentences into that graph.
  *
  * `registration: 'runtime'` — this is NOT in the manifest, and is registered by
- * the service worker only while the user has the outbound direction switched on.
+ * the service worker only while the user has the outbound leg switched on.
  * A statically declared version would run for everyone who installs the
  * extension, on every meeting they open, replacing the microphone of people who
  * never asked for this. It would also be detectable in one line
@@ -171,7 +171,7 @@ export default defineContentScript({
     // braces. This script starts when the PAGE loads; the offscreen document
     // starts when the user invokes capture, which is later, and it begins by
     // assuming muted. An edge-triggered report has already been sent by then, so
-    // without the heartbeat the outbound direction stays gated shut for the whole
+    // without the heartbeat the outbound leg stays gated shut for the whole
     // call while the overlay reports it as sending.
     const HEARTBEAT_TICKS = 8;
     let transmitting: boolean | null = null;

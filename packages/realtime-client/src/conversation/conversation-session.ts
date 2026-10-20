@@ -1,5 +1,5 @@
 import {
-  DEFAULT_TRANSLATION_DIRECTION,
+  DEFAULT_LANGUAGE_PAIR,
   DEFAULT_VOICE_GENDER,
   type ServerEvent,
   type SessionOptions,
@@ -88,7 +88,7 @@ export interface ConversationSessionDeps {
    * running this session.
    *
    * Exists because one caller's output device is not a loudspeaker at all. The
-   * extension's outbound direction translates what the USER says and has to
+   * extension's outbound leg translates what the USER says and has to
    * deliver it to the OTHER participants, which means handing the samples to a
    * page it does not share an audio graph with — a `MediaStream` cannot cross
    * that boundary, so the leaf that touches an output device moves and
@@ -297,10 +297,10 @@ export class ConversationSession {
   /**
    * Settings for the conversation in progress. Held rather than passed per
    * turn: a conversation opens a fresh server session for every turn, and all
-   * of them must be spoken by the same voice in the same direction.
+   * of them must be spoken by the same voice in the same language pair.
    */
   private options: SessionOptions = {
-    direction: DEFAULT_TRANSLATION_DIRECTION,
+    languagePair: DEFAULT_LANGUAGE_PAIR,
     voiceGender: DEFAULT_VOICE_GENDER,
   };
   /**

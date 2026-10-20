@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { planForDirection, planTurnLanguages } from './turn-language-plan';
+import { planForPair, planTurnLanguages } from './turn-language-plan';
 
 describe('planTurnLanguages', () => {
-  it('vi_to_en: recognises vi, targets en, speaks en', () => {
+  it('vi→en: recognises vi, targets en, speaks en', () => {
     const plan = planTurnLanguages(['vi', 'en'], ['vi']);
 
     expect(plan.targets).toEqual(['en']);
@@ -12,7 +12,7 @@ describe('planTurnLanguages', () => {
     expect(plan.conversation).toEqual(['vi', 'en']);
   });
 
-  it('en_to_vi: recognises en, targets vi, speaks vi', () => {
+  it('en→vi: recognises en, targets vi, speaks vi', () => {
     const plan = planTurnLanguages(['en', 'vi'], ['en']);
 
     expect(plan.targets).toEqual(['vi']);
@@ -33,11 +33,11 @@ describe('planTurnLanguages', () => {
   });
 });
 
-describe('planForDirection', () => {
+describe('planForPair', () => {
   it('asks the identifier about the declared source and plans from its answer', () => {
     const identify = vi.fn(() => ['en', 'vi'] as const);
 
-    const plan = planForDirection('en_to_vi', { identify });
+    const plan = planForPair({ source: 'en', target: 'vi' }, { identify });
 
     expect(identify).toHaveBeenCalledExactlyOnceWith({ declared: 'en' });
     expect(plan).toEqual(planTurnLanguages(['en', 'vi'], ['en', 'vi']));

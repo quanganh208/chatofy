@@ -4,7 +4,7 @@ import { SignInPane } from './sign-in-pane';
 import { usePopup } from './use-popup';
 
 /**
- * The popup: pick a direction and a voice, start, stop.
+ * The popup: pick a language pair and a voice, start, stop.
  *
  * The recording notice is not in this tree — see `consent-gate.ts`. While it is
  * unacknowledged everything here is hidden AND Start is disabled. Hidden alone

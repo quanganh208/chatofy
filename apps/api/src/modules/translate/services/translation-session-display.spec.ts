@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type {
-  AudioFrame,
-  ServerEvent,
-  TranslationDirection,
-} from '@chatofy/types';
+import type { AudioFrame, ServerEvent, LanguagePair } from '@chatofy/types';
 import {
   TranslationSessionService,
   type StreamSocket,
@@ -241,18 +237,18 @@ async function runTurn(
   socket: FakeSocket,
   {
     wantsDisplay = true,
-    direction = 'vi_to_en',
+    languagePair = { source: 'vi', target: 'en' },
     continuesCut,
     hotwords,
   }: {
     wantsDisplay?: boolean;
-    direction?: TranslationDirection;
+    languagePair?: LanguagePair;
     continuesCut?: boolean;
     hotwords?: string[];
   } = {},
 ): Promise<string> {
   service.start(socket, {
-    direction,
+    languagePair,
     voiceGender: 'female',
     ...(wantsDisplay ? { repairDisplay: true } : {}),
     ...(continuesCut ? { continuesCut } : {}),
@@ -372,7 +368,9 @@ describe('restored punctuation and case', () => {
 
   it('asks for nothing on an English recognition, which is already cased', async () => {
     const { service, inputs } = makeService('meet at three');
-    await runTurn(service, new FakeSocket(), { direction: 'en_to_vi' });
+    await runTurn(service, new FakeSocket(), {
+      languagePair: { source: 'en', target: 'vi' },
+    });
 
     expect(inputs.at(-1)?.restoreDisplay).toBeUndefined();
   });
@@ -451,23 +449,27 @@ describe('sends nothing when there is nothing to say', () => {
   });
 });
 
-describe('A14 — direction selects the module, it does not gate the feature', () => {
-  it('typesets an en_to_vi turn with the ENGLISH ITN', async () => {
-    // The display path is bidirectional: on `en_to_vi` the transcript being
-    // typeset is the English one. Letting `direction` decide WHETHER to run
+describe('A14 — the language pair selects the module, it does not gate the feature', () => {
+  it('typesets an en→vi turn with the ENGLISH ITN', async () => {
+    // The display path works both ways: on en→vi the transcript being
+    // typeset is the English one. Letting the pair decide WHETHER to run
     // would have stopped display on half the product while the schema went on
     // documenting it.
     const { service } = makeService('the meeting starts at nine o’clock');
     const socket = new FakeSocket();
-    await runTurn(service, socket, { direction: 'en_to_vi' });
+    await runTurn(service, socket, {
+      languagePair: { source: 'en', target: 'vi' },
+    });
 
     expect(mockItnCalls.at(-1)?.language).toBe('en');
   });
 
-  it('typesets a vi_to_en turn with the VIETNAMESE ITN', async () => {
+  it('typesets a vi→en turn with the VIETNAMESE ITN', async () => {
     const { service } = makeService('cuộc họp lúc mười bốn giờ ba mươi phút');
     const socket = new FakeSocket();
-    await runTurn(service, socket, { direction: 'vi_to_en' });
+    await runTurn(service, socket, {
+      languagePair: { source: 'vi', target: 'en' },
+    });
 
     expect(mockItnCalls.at(-1)?.language).toBe('vi');
   });
@@ -477,7 +479,9 @@ describe('A14 — direction selects the module, it does not gate the feature', (
       'it cost two thousand five hundred dollars',
     );
     const socket = new FakeSocket();
-    await runTurn(service, socket, { direction: 'en_to_vi' });
+    await runTurn(service, socket, {
+      languagePair: { source: 'en', target: 'vi' },
+    });
 
     const display = socket.ofType('server.transcript.final').at(-1)!.display;
     // English groups with a comma; `2.500` here would be the Vietnamese one.
@@ -572,13 +576,17 @@ describe('names the restorer cannot case', () => {
 describe('which recognition languages ask for a restore', () => {
   it('a Chinese turn asks the restorer for punctuation', async () => {
     const harness = makeService('我们明天去北京', '我们明天去北京。');
-    await runTurn(harness.service, new FakeSocket(), { direction: 'zh_to_en' });
+    await runTurn(harness.service, new FakeSocket(), {
+      languagePair: { source: 'zh', target: 'en' },
+    });
     expect(harness.inputs[0]?.restoreDisplay).toBeDefined();
   });
 
   it('an English turn asks for nothing: Parakeet already punctuates', async () => {
     const harness = makeService('see you tomorrow', 'See you tomorrow.');
-    await runTurn(harness.service, new FakeSocket(), { direction: 'en_to_vi' });
+    await runTurn(harness.service, new FakeSocket(), {
+      languagePair: { source: 'en', target: 'vi' },
+    });
     expect(harness.inputs[0]?.restoreDisplay).toBeUndefined();
   });
 });
@@ -727,7 +735,9 @@ describe('garbled foreign words on the display', () => {
       },
     );
     const socket = new FakeSocket();
-    await runTurn(harness.service, socket, { direction: 'zh_to_en' });
+    await runTurn(harness.service, socket, {
+      languagePair: { source: 'zh', target: 'en' },
+    });
 
     expect(harness.respellCalls).toEqual([]);
   });
@@ -812,7 +822,7 @@ describe('garbled foreign words on the display', () => {
     });
     const socket = new FakeSocket();
     service.start(socket, {
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
       voiceGender: 'female',
       repairDisplay: true,
     });
@@ -916,7 +926,9 @@ describe('garbled foreign words with a translation in Han characters', () => {
       },
     );
     const socket = new FakeSocket();
-    await runTurn(harness.service, socket, { direction: 'vi_to_zh' });
+    await runTurn(harness.service, socket, {
+      languagePair: { source: 'vi', target: 'zh' },
+    });
 
     expect(harness.respellHan).toEqual([true]);
     expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(
@@ -930,8 +942,12 @@ describe('garbled foreign words with a translation in Han characters', () => {
       respell: { bungary: { spelling: 'Bulgaria', rendering: '保加利亚' } },
     });
     const socket = new FakeSocket();
-    await runTurn(harness.service, socket, { direction: 'vi_to_zh' });
-    await runTurn(harness.service, socket, { direction: 'vi_to_zh' });
+    await runTurn(harness.service, socket, {
+      languagePair: { source: 'vi', target: 'zh' },
+    });
+    await runTurn(harness.service, socket, {
+      languagePair: { source: 'vi', target: 'zh' },
+    });
 
     expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(
       'Bulgaria đang điều tra',
@@ -946,7 +962,9 @@ describe('garbled foreign words with a translation in Han characters', () => {
       respell: { bungary: 'Bulgaria' },
     });
     const socket = new FakeSocket();
-    await runTurn(harness.service, socket, { direction: 'vi_to_zh' });
+    await runTurn(harness.service, socket, {
+      languagePair: { source: 'vi', target: 'zh' },
+    });
 
     expect(harness.respellHan).toEqual([false]);
     expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(

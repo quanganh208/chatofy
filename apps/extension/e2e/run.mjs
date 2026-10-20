@@ -73,7 +73,7 @@ const MEASURE_RMS = async () => {
  *     URLs so the match patterns fire; it is not their code, so "does the call
  *     still work" remains a hand check.
  *   - Whether any of it sounds right. Ducking, clicks, intelligibility.
- *   - Load. Two directions against one CPU is a measurement, not an assertion.
+ *   - Load. Two legs against one CPU is a measurement, not an assertion.
  */
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -926,7 +926,7 @@ try {
   // composed another — reported "transmitting" for the rest of the call. The
   // meeting heard nothing, because the muted track carries nothing; the user was
   // recorded, transcribed and translated anyway, which is exactly the case this
-  // direction promises cannot happen.
+  // leg promises cannot happen.
   const muteOnKept = await page.evaluate(async () => {
     const kept = await navigator.mediaDevices.getUserMedia({ audio: true });
     const [keptTrack] = kept.getAudioTracks();
@@ -1156,7 +1156,7 @@ try {
     ['panel-with-turns', { ...idle, capturing: true, lines: turns }],
     ['error-capture', { ...idle, errors: { capture: 'This tab cannot be captured.' } }],
     [
-      'error-both-directions',
+      'error-both-legs',
       {
         ...idle,
         capturing: true,
@@ -1291,7 +1291,7 @@ try {
   // ---- popup ----------------------------------------------------------------
   const popupUrl = `chrome-extension://${extensionId}/popup.html`;
   const BASE_SETTINGS = {
-    direction: 'en_to_vi',
+    languagePair: { source: 'en', target: 'vi' },
     mode: 'cascade',
     voiceGender: 'female',
     reportMetrics: false,
@@ -1423,7 +1423,7 @@ try {
      * hidden-but-enabled button is one CSS change away from being a live control
      * in front of someone who has not been told what it does.
      *
-     * Both directions are checked, so neither can pass by accident. A page that
+     * Both legs are checked, so neither can pass by accident. A page that
      * failed to render has no notice AND no button, which reads as "not
      * consenting" — the second branch is what stops that from being a pass.
      */
@@ -1550,6 +1550,6 @@ console.log(
     '    cannot tell an inherited grant from an auto-accepted second prompt\n' +
     "  - whether Meet, Zoom and Facebook's own clients keep working: this serves\n" +
     '    its own page at their URLs, not their code\n' +
-    '  - whether any of it sounds right, and what two directions cost one CPU',
+    '  - whether any of it sounds right, and what two legs cost one CPU',
 );
 process.exit(failures > 0 ? 1 : 0);

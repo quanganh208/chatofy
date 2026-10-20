@@ -1,4 +1,4 @@
-import { createDirectionSession } from '../../src/direction-session';
+import { createLanguagePairSession } from '../../src/language-pair-session';
 import { EchoMonitor } from '../../src/echo-monitor';
 import { getFreshAccessToken } from '../../src/access-token';
 import { MeetingCapture } from '../../src/meeting-capture';
@@ -31,7 +31,7 @@ const capture = new MeetingCapture({
   openTab: openTabAudio,
   openMicrophone: openGatedMicrophone,
   createEcho: (deps) => new EchoMonitor(deps),
-  createSession: createDirectionSession,
+  createSession: createLanguagePairSession,
   // The relay into the meeting page. This document may only use
   // `chrome.runtime`, so every frame goes offscreen → worker → tab → page.
   createPageSink: (onTurnDrained) =>
@@ -56,7 +56,7 @@ const capture = new MeetingCapture({
   // and nothing else.
   loadAccessToken: async () => getFreshAccessToken((await loadSettings()).apiBaseUrl),
   // The selected AI Context, resolved ONCE per capture into the hints both
-  // directions run under. Read per capture rather than held, like the token
+  // legs run under. Read per capture rather than held, like the token
   // above: the library can change between meetings, and a context deleted since
   // the popup last listed it must read as "no context" rather than as an error.
   //

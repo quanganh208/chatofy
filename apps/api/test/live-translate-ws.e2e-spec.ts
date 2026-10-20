@@ -191,14 +191,14 @@ describe('/ws/translate continuous mode (e2e)', () => {
 
     live.send('client.live.start', {
       type: 'client.live.start',
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
     });
     await live.waitFor('server.live.ready');
 
     // The turn path is untouched while a live session runs.
     turn.send('client.session.start', {
       type: 'client.session.start',
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
       voiceGender: 'female',
     });
     const ready = await new Promise<ServerEvent>((resolve) => {
@@ -216,11 +216,11 @@ describe('/ws/translate continuous mode (e2e)', () => {
     live.close();
   });
 
-  it('opens the upstream with the direction the client asked for', async () => {
+  it('opens the upstream with the language pair the client asked for', async () => {
     const live = await Client.connect(`${base}/ws/translate`);
     live.send('client.live.start', {
       type: 'client.live.start',
-      direction: 'en_to_vi',
+      languagePair: { source: 'en', target: 'vi' },
     });
     await live.waitFor('server.live.ready');
 
@@ -242,7 +242,7 @@ describe('/ws/translate continuous mode (e2e)', () => {
     const live = await Client.connect(`${base}/ws/translate`);
     live.send('client.live.start', {
       type: 'client.live.start',
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
     });
     await live.waitFor('server.live.ready');
 
@@ -263,7 +263,7 @@ describe('/ws/translate continuous mode (e2e)', () => {
     const live = await Client.connect(`${base}/ws/translate`);
     live.send('client.live.start', {
       type: 'client.live.start',
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
     });
     await live.waitFor('server.live.ready');
 
@@ -282,7 +282,7 @@ describe('/ws/translate continuous mode (e2e)', () => {
     const live = await Client.connect(`${base}/ws/translate`);
     live.send('client.live.start', {
       type: 'client.live.start',
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
     });
     await live.waitFor('server.live.ready');
 
@@ -304,7 +304,7 @@ describe('/ws/translate continuous mode (e2e)', () => {
     const live = await Client.connect(`${base}/ws/translate`);
     live.send('client.live.start', {
       type: 'client.live.start',
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
     });
     await live.waitFor('server.live.ready');
 
@@ -337,7 +337,7 @@ describe('/ws/translate continuous mode (e2e)', () => {
     const live = await Client.connect(`${base}/ws/translate`);
     live.send('client.live.start', {
       type: 'client.live.start',
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
     });
     await live.waitFor('server.live.ready');
 
@@ -364,14 +364,14 @@ describe('/ws/translate continuous mode (e2e)', () => {
     const client = await Client.connect(`${base}/ws/translate`);
     client.send('client.session.start', {
       type: 'client.session.start',
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
       voiceGender: 'female',
     });
     await new Promise((r) => setTimeout(r, 50));
 
     client.send('client.live.start', {
       type: 'client.live.start',
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
     });
 
     const deadline = Date.now() + 2000;
@@ -406,7 +406,7 @@ describe('/ws/translate continuous mode (e2e)', () => {
     const live = await Client.connect(`${base}/ws/translate`);
     live.send('client.live.start', {
       type: 'client.live.start',
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
     });
     await live.waitFor('server.live.ready');
 

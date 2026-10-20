@@ -184,10 +184,10 @@ export const vi: Messages = {
   'web.translate.registerNeutral': 'Trung tính',
   'web.translate.registerFormal': 'Trang trọng',
   'web.translate.registerCasual': 'Thân mật',
-  'web.translate.direction': 'Hướng dịch',
-  'web.translate.directionSource': 'Nguồn',
-  'web.translate.directionTarget': 'Bản dịch',
-  'web.translate.directionSwap': 'Đảo chiều — dịch {from} sang {to}',
+  'web.translate.languagePair': 'Ngôn ngữ',
+  'web.translate.languagePairSource': 'Nguồn',
+  'web.translate.languagePairTarget': 'Bản dịch',
+  'web.translate.languagePairSwap': 'Đảo ngôn ngữ — dịch {from} sang {to}',
   'web.translate.voiceDefault': 'Mặc định',
   'web.translate.voiceListFailed':
     'Chưa tải được danh sách giọng đọc. Lựa chọn giới tính giọng ở trên vẫn áp dụng.',
@@ -293,8 +293,8 @@ export const vi: Messages = {
   'web.history.turnCount': '{count} dòng',
   'web.history.turnCountOne': '1 dòng',
   'web.history.duration': '{minutes} phút',
-  'web.history.direction': '{from} → {to}',
-  'web.history.directionShort': '{from} → {to}',
+  'web.history.languagePair': '{from} → {to}',
+  'web.history.languagePairShort': '{from} → {to}',
   'web.history.minutesReady': 'Có biên bản',
   'web.history.cancel': 'Huỷ',
   'web.history.delete': 'Xoá',
@@ -318,7 +318,7 @@ export const vi: Messages = {
 
   'web.preferences.conversation': 'Mặc định cho hội thoại mới',
   'web.preferences.conversationHint':
-    'Một cuộc hội thoại mới bắt đầu từ những lựa chọn này. Trong lúc đang dịch, bạn đổi ngay trên trang Dịch — hướng dịch và giọng thì cố định cho tới khi cuộc đó kết thúc.',
+    'Một cuộc hội thoại mới bắt đầu từ những lựa chọn này. Trong lúc đang dịch, bạn đổi ngay trên trang Dịch — ngôn ngữ và giọng thì cố định cho tới khi cuộc đó kết thúc.',
   // AI Context — thư viện ngữ cảnh đã đặt tên.
   'web.preferences.aiContext': 'Ngữ cảnh AI',
   'web.preferences.aiContextHint':

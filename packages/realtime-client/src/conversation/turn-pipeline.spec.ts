@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SessionOptions } from '@chatofy/types';
 import { TurnPipeline, type TurnPipelineTransport } from './turn-pipeline.js';
 
-const options: SessionOptions = { direction: 'vi_to_en', voiceGender: 'female' };
+const options: SessionOptions = {
+  languagePair: { source: 'vi', target: 'en' },
+  voiceGender: 'female',
+};
 
 interface Sent {
   type: 'start' | 'audio' | 'speculate' | 'end';

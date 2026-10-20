@@ -15,7 +15,7 @@ import { useMinutes } from '@/hooks/use-minutes';
 import { useLocale, useTranslate } from '@/i18n/provider';
 import { activeDurationMs, durationMinutes, formatTime } from './conversation-formatting';
 import { formatOffset } from '@/lib/transcript-time';
-import { DirectionLabel } from './direction-label';
+import { LanguagePairLabel } from './language-pair-label';
 import { turnCountLabel } from './turn-count-label';
 
 interface ConversationDetailProps {
@@ -132,9 +132,8 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
             {formatTime(conversation.startedAt, locale)}
             <Dot />
             {/* `conversationLanguagesSchema` guarantees at least two, declared
-                source first — the same guarantee `legacyDirectionOf` relies on
-                server-side. */}
-            <DirectionLabel
+                source first, which is how the conversation's pair was stored. */}
+            <LanguagePairLabel
               from={conversation.languages[0] as LanguageCode}
               to={conversation.languages[1] as LanguageCode}
             />

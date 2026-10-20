@@ -37,11 +37,9 @@ const segment = (sessionId: string): TranscriptSegment => ({
   id: `id-${sessionId}`,
   sessionId,
   speakerRole: 'speaker_a',
-  direction: 'vi_to_en',
   sourceLanguages: ['vi'],
   translations: { en: 'hello' },
   sourceText: 'xin chào',
-  targetText: 'hello',
   audioUrl: null,
   createdAt: '2026-08-25T00:00:00.000Z',
 });

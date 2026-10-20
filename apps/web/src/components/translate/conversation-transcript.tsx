@@ -166,7 +166,7 @@ interface ConversationTranscriptProps {
  *
  * **`speakerRole` is deliberately not rendered.** Every segment carries it, but
  * it is a side of a translation, constant for a whole session and derived from
- * the direction toggle. Showing it as though it named a person would put an
+ * the language pair. Showing it as though it named a person would put an
  * identity on screen that nobody chose, which is exactly what the chip's
  * fallback state exists to prevent.
  */

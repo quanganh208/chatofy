@@ -17,7 +17,7 @@ import { TurnSession } from './turn-session';
  */
 
 const options: SessionOptions = {
-  direction: 'vi_to_en',
+  languagePair: { source: 'vi', target: 'en' },
   voiceGender: 'female',
 };
 

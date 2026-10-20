@@ -1,5 +1,5 @@
-import type { DirectionSessionDeps } from './direction-session';
-import type { DirectionRunner, EchoRunner, MeetingCaptureDeps } from './meeting-capture';
+import type { LanguagePairSessionDeps } from './language-pair-session';
+import type { LegRunner, EchoRunner, MeetingCaptureDeps } from './meeting-capture';
 import type { GatedMicrophone } from './outbound-mic';
 
 /**
@@ -9,7 +9,7 @@ import type { GatedMicrophone } from './outbound-mic';
  * These are deliberately observant rather than empty: what has to be asserted is
  * not "did it call getUserMedia" but the ORDER and the CLEANUP — that the
  * meeting's passthrough is connected before anything waits on a human, that a
- * refused microphone leaves the other direction running, that a teardown which
+ * refused microphone leaves the other leg running, that a teardown which
  * re-enters itself closes the context exactly once. Every fake below records the
  * facts those assertions need.
  */
@@ -127,7 +127,7 @@ class FakeEcho implements EchoRunner {
 }
 
 /** A session that records what it was wired to, and can fail on demand. */
-class FakeSession implements DirectionRunner {
+class FakeSession implements LegRunner {
   started = 0;
   stopped = 0;
   echoesNoted = 0;
@@ -137,20 +137,20 @@ class FakeSession implements DirectionRunner {
    *
    * Recorded rather than discarded because a whole feature — the resolved AI
    * Context hints reaching this call, and reaching it as the SAME object for
-   * both directions — is only observable from here: everything else about a
-   * direction is exercised through `deps`, which is fixed at construction, not
+   * both legs — is only observable from here: everything else about a
+   * leg is exercised through `deps`, which is fixed at construction, not
    * at start.
    */
-  startOptions: Parameters<DirectionRunner['start']>[0] | undefined;
+  startOptions: Parameters<LegRunner['start']>[0] | undefined;
 
-  constructor(readonly deps: DirectionSessionDeps) {
+  constructor(readonly deps: LanguagePairSessionDeps) {
     // The real session asks for its playback sink while starting. Leaving that
     // out of the fake would hide everything the caller does with the sink it
     // hands over — including dropping audio in flight when the meeting mutes.
     deps.createSink?.(() => {});
   }
 
-  start(options: Parameters<DirectionRunner['start']>[0]): Promise<void> {
+  start(options: Parameters<LegRunner['start']>[0]): Promise<void> {
     this.started += 1;
     this.startOptions = options;
     return this.startError ? Promise.reject(this.startError) : Promise.resolve();
@@ -226,9 +226,9 @@ export function harness(): Harness {
       return echo;
     },
     createSession: (sessionDeps) => {
-      events.push(`session:${sessionDeps.direction}`);
+      events.push(`session:${sessionDeps.languagePair.source}-${sessionDeps.languagePair.target}`);
       const session = new FakeSession(sessionDeps);
-      // Identified by input rather than by a flag: the outbound direction is the
+      // Identified by input rather than by a flag: the outbound leg is the
       // one listening to the microphone, and asserting on that is what proves the
       // two were not swapped.
       const isOutbound = microphones.some((mic) => mic.stream === sessionDeps.input);

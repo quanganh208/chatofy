@@ -2,9 +2,9 @@
 
 Real-time multilingual voice translation app. Turborepo + pnpm workspace.
 Languages are entries in one registry (`packages/types/src/domain/languages.ts`),
-and every direction between them is derived from it. Today it holds Vietnamese,
-English and Simplified Chinese, so every ordered pair of the three is a
-direction (vi↔en, vi↔zh, en↔zh). Adding a language:
+and every language pair between them is derived from it. Today it holds Vietnamese,
+English and Simplified Chinese, so every ordered pair of the three can be
+translated (vi↔en, vi↔zh, en↔zh). Adding a language:
 [checklist](./docs/architecture/contracts-and-languages.md#checklist-adding-a-language-to-the-registry).
 
 Speech runs **locally on CPU by default** — speech-to-text and text-to-speech
@@ -152,7 +152,7 @@ pnpm --filter extension build
 #   → apps/extension/.output/chrome-mv3
 ```
 
-Open a meeting tab, click the Chatofy icon, pick a direction and press Start. The
+Open a meeting tab, click the Chatofy icon, pick a language pair and press Start. The
 overlay shows the transcript and an indicator saying the meeting is being captured;
 that indicator cannot be dismissed while capture is running, because the other
 participants are not told by their own client.
@@ -210,9 +210,9 @@ Tick **"Also translate what I say"** in the popup or the overlay. Then:
   must not have it translated and handed to the page.
 - Until the page carries the patch, the overlay says the translation is **for the user
   only**. On a loudspeaker their open microphone still carries it to the meeting, which
-  is the same caveat the inbound direction has always had. Headphones avoid it.
+  is the same caveat the inbound leg has always had. Headphones avoid it.
 
-It needs two things the inbound direction does not:
+It needs two things the inbound leg does not:
 
 - **A microphone grant, given once.** No manifest permission grants an extension the
   microphone (`audioCapture` is a Chrome App permission and is refused), and the
@@ -253,7 +253,7 @@ engine from the language it is given:
 | [`services/local-tts`](./services/local-tts/README.md) | 8003 | TTS | VieNeu v3 Turbo (vi), Kokoro-82M (en, zh)              |
 
 Gemini Live (the `live` translate mode) does not translate Chinese; a zh pair is
-refused there by design (`unsupported_direction`) and offered only in the
+refused there by design (`unsupported_language_pair`) and offered only in the
 turn-by-turn mode.
 
 The API picks the backend from `AI_STT_PROVIDER` / `AI_TTS_PROVIDER`, both

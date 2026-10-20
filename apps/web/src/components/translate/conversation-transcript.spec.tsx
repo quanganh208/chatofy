@@ -23,15 +23,17 @@ const SPEAKERS: SessionSpeaker[] = [
   { id: 'speaker-2', label: 'Bình' },
 ];
 
-const segment = (sessionId: string, sourceText: string, targetText: string): TranscriptSegment => ({
+const segment = (
+  sessionId: string,
+  sourceText: string,
+  translation: string,
+): TranscriptSegment => ({
   id: `seg-${sessionId}`,
   sessionId,
   speakerRole: 'speaker_a',
-  direction: 'vi_to_en',
   sourceLanguages: ['vi'],
-  translations: { en: targetText },
+  translations: { en: translation },
   sourceText,
-  targetText,
   audioUrl: null,
   createdAt: '2026-08-27T00:00:00.000Z',
 });

@@ -81,13 +81,17 @@ describe('OverlayPublisher', () => {
     it('carries settings and patched state through an unrelated update', () => {
       const h = harness();
       h.publisher.setTarget(1);
-      h.publisher.setSettings({ direction: 'en_to_vi', voiceGender: 'female', outbound: true });
+      h.publisher.setSettings({
+        languagePair: { source: 'en', target: 'vi' },
+        voiceGender: 'female',
+        outbound: true,
+      });
       h.patchedTabs.add(1);
 
       h.publisher.applyStatus({ capturing: true, outbound: 'on', errors: {} } as never);
 
       expect(h.last()!.patched).toBe(true);
-      expect(h.last()!.settings?.direction).toBe('en_to_vi');
+      expect(h.last()!.settings?.languagePair).toEqual({ source: 'en', target: 'vi' });
     });
 
     it('asks again at publish time, so a newly patched tab is not stale', () => {
@@ -105,7 +109,7 @@ describe('OverlayPublisher', () => {
   });
 
   describe('applyStatus', () => {
-    it('keeps the worker capture error while replacing the direction errors', () => {
+    it('keeps the worker capture error while replacing the leg errors', () => {
       const h = harness();
       h.publisher.setTarget(1);
       h.publisher.publishCaptureError('tab went away');

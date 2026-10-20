@@ -94,7 +94,7 @@ export interface TurnKeyedTranscript {
    * Held here rather than above the reducer because its lifetime is the
    * conversation's. The panel that owns this state releases the microphone and
    * closes the socket when it unmounts, so a roster that outlived it would be
-   * names for turns that no longer exist. `direction` is deliberately held
+   * names for turns that no longer exist. `languagePair` is deliberately held
    * higher up and is different in kind — it configures the NEXT session, while
    * this describes the one running.
    */

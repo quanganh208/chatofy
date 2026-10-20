@@ -1,3 +1,4 @@
+import { languagePairSchema } from '@chatofy/types';
 import { forContext, type OverlayState } from '../src/messages';
 import { MicrophonePatchRegistry, type PatchScript } from '../src/microphone-patch-registry';
 import { OffscreenHost } from '../src/offscreen-host';
@@ -44,7 +45,7 @@ const TOGGLE_COMMAND = 'toggle-capture';
 const TOGGLE_MENU_ID = 'chatofy-toggle-capture';
 
 /**
- * The page-world patch, registered only while the outbound direction is on.
+ * The page-world patch, registered only while the outbound leg is on.
  *
  * Not in the manifest, deliberately — see `entrypoints/inject.content/index.ts`.
  * WXT builds it under `content-scripts/`; `registration: 'runtime'` keeps it out
@@ -229,8 +230,8 @@ let shortcutHint: string | undefined;
 let settingsHint: OverlayState['settings'];
 
 async function refreshSettingsHint(): Promise<void> {
-  const { direction, voiceGender, outbound } = await loadSettings();
-  settingsHint = { direction, voiceGender, outbound };
+  const { languagePair, voiceGender, outbound } = await loadSettings();
+  settingsHint = { languagePair, voiceGender, outbound };
   publisher.setSettings(settingsHint);
   try {
     await patch.sync(outbound);
@@ -471,7 +472,7 @@ export default defineBackground(() => {
     .catch(() => undefined);
 
   // The popup writes the same two values this overlay shows. Without this, changing
-  // the direction there would leave a running overlay showing the old one.
+  // the language pair there would leave a running overlay showing the old one.
   chrome.storage.onChanged.addListener(() => {
     void refreshSettingsHint()
       .then(() => publisher.republish())
@@ -552,14 +553,18 @@ export default defineBackground(() => {
       case 'settings':
         void (async () => {
           const current = await loadSettings();
+          // Parsed, not trusted: the sender may be a content script, whose
+          // message `sendMessage` types as `any`. A pair that fails the registry
+          // keeps the stored one rather than writing a start the server refuses.
+          const languagePair = languagePairSchema.safeParse(forWorker.languagePair);
           await saveSettings({
             ...current,
-            direction: forWorker.direction,
+            languagePair: languagePair.success ? languagePair.data : current.languagePair,
             // Kept when the sender did not name one. The overlay's controls are
             // a subset of the popup's — it has no mode control — and this
             // message is built by hand in a content script that `sendMessage`
             // types as `any`, so a missing field is not a compile error. Taken
-            // literally, changing the direction from the overlay would silently
+            // literally, changing the language pair from the overlay would silently
             // reset the mode.
             mode: forWorker.mode ?? current.mode,
             voiceGender: forWorker.voiceGender,

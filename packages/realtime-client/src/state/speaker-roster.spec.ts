@@ -18,11 +18,9 @@ const segment = (sessionId: string): TranscriptSegment => ({
   id: `id-${sessionId}`,
   sessionId,
   speakerRole: 'speaker_a',
-  direction: 'vi_to_en',
   sourceLanguages: ['vi'],
   translations: { en: 'hello' },
   sourceText: 'xin chào',
-  targetText: 'hello',
   audioUrl: null,
   createdAt: '2026-08-25T00:00:00.000Z',
 });
@@ -38,7 +36,7 @@ const partial = (sessionId: string, text: string): ServerEvent => ({
   sessionId,
   text,
   speaker: 'speaker_a',
-  direction: 'vi_to_en',
+  languagePair: { source: 'vi', target: 'en' },
 });
 
 const add = (label?: string): TurnKeyedAction => ({ type: 'transcript.speakerAdded', label });

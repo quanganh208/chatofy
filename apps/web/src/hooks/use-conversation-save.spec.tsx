@@ -34,14 +34,13 @@ const turn = (text: string, speakerLabel: string | null = null): ConversationTur
   displayText: null,
   sourceLanguages: ['vi'],
   translations: { en: 'translated' },
-  targetText: 'translated',
   offsetMs: null,
 });
 
 const baseInput: ConversationSaveInput = {
   conversationId: 'c-1',
   startedAt: '2026-09-03T00:00:00.000Z',
-  direction: 'vi_to_en',
+  languagePair: { source: 'vi', target: 'en' },
   running: true,
   turns: [],
   audioOffsetMs: null,
@@ -130,8 +129,7 @@ describe('useConversationSave', () => {
     expect(saveConversation).toHaveBeenCalledWith(
       'c-1',
       expect.objectContaining({
-        direction: 'vi_to_en',
-        // Derived from `direction`, not left to the server to fill in — the
+        // Derived from the pair, not left to the server to fill in — the
         // client always knows its own conversation's languages.
         languages: ['vi', 'en'],
         startedAt: baseInput.startedAt,
@@ -143,6 +141,33 @@ describe('useConversationSave', () => {
     // A re-render with the same content must not spend a second write.
     await render({ ...baseInput, running: false, turns: [turn('xin chào')] });
     expect(saveConversation).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not re-save when the pair is re-rendered as an equal new object', async () => {
+    await render({ ...baseInput, running: false, turns: [turn('xin chào')] });
+    expect(saveConversation).toHaveBeenCalledTimes(1);
+
+    // Equal by value, never by identity — a pair rebuilt during render must not
+    // read as a change to the conversation.
+    await render({
+      ...baseInput,
+      languagePair: { source: 'vi', target: 'en' },
+      running: false,
+      turns: [turn('xin chào')],
+    });
+    await flushEdits();
+    expect(saveConversation).toHaveBeenCalledTimes(1);
+  });
+
+  it('stores the languages of the pair the conversation ran in, source first', async () => {
+    await render({
+      ...baseInput,
+      languagePair: { source: 'zh', target: 'vi' },
+      running: false,
+      turns: [turn('你好')],
+    });
+    expect(bodyOf(0).languages).toEqual(['zh', 'vi']);
+    expect(bodyOf(0)).not.toHaveProperty('direction');
   });
 
   it('does not fire for a conversation with no blocks', async () => {

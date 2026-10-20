@@ -110,15 +110,6 @@ export function toConversationTurns(
     // the same reason `speakerRole` and `offsetMs` are read once, above.
     const sourceLanguages = groupSourceLanguages(group);
     const translationLanguages = groupTranslationLanguages(group);
-    // `targetText` is the pre-fan-out field: each member's OWN spoken text,
-    // joined the same way `sourceText` is. Kept for a reader that has not
-    // picked up `translations` yet — see `domain/conversation.ts`. Read through
-    // the block translation when there is one, so the row's two fields agree.
-    const legacyTargetText = groupLegacyTargetText(
-      group,
-      translationLanguages,
-      state.blockTranslations,
-    );
 
     // One row count for the whole block, with every field cut into that many
     // pieces — see {@link spreadOver} for why a field that needed fewer is cut
@@ -128,7 +119,6 @@ export function toConversationTurns(
     // strings and one running longer than the other is ordinary.
     const source = splitAtCap(sourceText);
     const display = rendered === sourceText ? [] : splitAtCap(rendered);
-    const legacyTarget = splitAtCap(legacyTargetText);
     const translationPieces = new Map(
       translationLanguages.map((language) => [
         language,
@@ -138,12 +128,10 @@ export function toConversationTurns(
     const pieces = Math.max(
       source.length,
       display.length,
-      legacyTarget.length,
       ...Array.from(translationPieces.values(), (piece) => piece.length),
     );
     const sourceRows = spreadOver(source, pieces);
     const displayRows = spreadOver(display, pieces);
-    const legacyTargetRows = spreadOver(legacyTarget, pieces);
     const translationRows = new Map(
       Array.from(translationPieces, ([language, piece]) => [language, spreadOver(piece, pieces)]),
     );
@@ -164,7 +152,6 @@ export function toConversationTurns(
         displayText: displayRows[piece] || null,
         sourceLanguages,
         translations,
-        targetText: legacyTargetRows[piece] ?? '',
         // Every piece of a split block carries the BLOCK's offset. A split is
         // one utterance shown as several rows because a field outgrew its
         // column — the pieces were all said at one moment, and giving the tail
@@ -269,31 +256,6 @@ function groupSourceLanguages(group: DisplayGroup): LanguageCode[] {
     }
   }
   return languages;
-}
-
-/**
- * The block's legacy `targetText`: what a reader that predates `translations`
- * shows.
- *
- * A member's `targetText` mirrors `translations[spoken]`, so when one language
- * is that mirror for EVERY member the block's legacy text is
- * {@link groupTranslation} into it — the same text `translations` stores, block
- * answer included. Without a block answer that is byte-for-byte the members'
- * own `targetText` joined. A block whose members spoke different languages (a
- * forced cut across a language switch) has no one language to read through,
- * and keeps the plain join.
- */
-function groupLegacyTargetText(
-  group: DisplayGroup,
-  languages: readonly LanguageCode[],
-  blocks: TurnKeyedTranscript['blockTranslations'] | undefined,
-): string {
-  const spoken = languages.find((language) =>
-    group.turns.every((turn) => (turn.translations[language] ?? '') === turn.targetText),
-  );
-  return spoken === undefined
-    ? group.turns.map((turn) => turn.targetText).join(' ')
-    : groupTranslation(group, spoken, blocks);
 }
 
 /**

@@ -15,14 +15,13 @@ const finalEvent = (segment: Record<string, unknown>) => ({
   segment,
 });
 
-/** A segment exactly as a pre-fan-out server produced it — no new fields. */
-const legacySegment = () => ({
+const segment = () => ({
   id: 'seg-1',
   sessionId: 's1',
   speakerRole: 'speaker_a',
-  direction: 'vi_to_en',
+  sourceLanguages: ['vi'],
+  translations: { en: 'hello' },
   sourceText: 'xin chào',
-  targetText: 'hello',
   audioUrl: null,
   createdAt: '2026-01-01T00:00:00.000Z',
 });
@@ -200,55 +199,38 @@ describe('translationHintsSchema.glossary', () => {
 describe('sessionOptionsSchema', () => {
   it('carries the glossary through a full client.session.start payload', () => {
     const parsed = sessionOptionsSchema.parse({
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
       hints: { topic: 'thesis defense', glossary: [pair()] },
     });
     expect(parsed.hints?.glossary).toEqual([{ vi: 'hội đồng', en: 'committee' }]);
   });
 });
 
-// This is the client-parse half of the fan-out wire change: `apps/api` and
-// `apps/web` do not deploy atomically, so a segment sent by an old server (or
-// received by an old tab) may carry only `direction`/`targetText`. The server
-// itself never goes through this preprocessing — see `transcript.ts`.
-describe('server.transcript.final segment — legacy fallback', () => {
-  it('fills sourceLanguages and translations from direction and targetText', () => {
-    const parsed = serverEventSchema.parse(finalEvent(legacySegment()));
+describe('sessionOptionsSchema languagePair', () => {
+  it('refuses the old direction string — a stale tab must reload', () => {
+    expect(sessionOptionsSchema.safeParse({ direction: 'vi_to_en' }).success).toBe(false);
+  });
+
+  it('refuses a pair naming one language twice', () => {
+    const parsed = sessionOptionsSchema.safeParse({ languagePair: { source: 'vi', target: 'vi' } });
+    expect(parsed.success).toBe(false);
+  });
+});
+
+describe('server.transcript.final segment', () => {
+  it('parses a segment keyed by language', () => {
+    const parsed = serverEventSchema.parse(finalEvent(segment()));
     if (parsed.type !== 'server.transcript.final') throw new Error('wrong type');
 
     expect(parsed.segment.sourceLanguages).toEqual(['vi']);
     expect(parsed.segment.translations).toEqual({ en: 'hello' });
-    // Additive: nothing about the fields every client already reads changes.
-    expect(parsed.segment.direction).toBe('vi_to_en');
-    expect(parsed.segment.targetText).toBe('hello');
   });
 
-  it('derives the fallback from the reverse direction too', () => {
-    const parsed = serverEventSchema.parse(
-      finalEvent({
-        ...legacySegment(),
-        speakerRole: 'speaker_b',
-        direction: 'en_to_vi',
-        sourceText: 'hello',
-        targetText: 'xin chào',
-      }),
+  it('refuses a segment that carries only the removed direction/targetText fields', () => {
+    const { sourceLanguages: _s, translations: _t, ...bare } = segment();
+    const parsed = serverEventSchema.safeParse(
+      finalEvent({ ...bare, direction: 'vi_to_en', targetText: 'hello' }),
     );
-    if (parsed.type !== 'server.transcript.final') throw new Error('wrong type');
-
-    expect(parsed.segment.sourceLanguages).toEqual(['en']);
-    expect(parsed.segment.translations).toEqual({ vi: 'xin chào' });
-  });
-
-  it('leaves a segment that already carries the new fields untouched', () => {
-    const segment = {
-      ...legacySegment(),
-      sourceLanguages: ['vi', 'en'],
-      translations: { vi: 'xin chào', en: 'hello' },
-    };
-    const parsed = serverEventSchema.parse(finalEvent(segment));
-    if (parsed.type !== 'server.transcript.final') throw new Error('wrong type');
-
-    expect(parsed.segment.sourceLanguages).toEqual(['vi', 'en']);
-    expect(parsed.segment.translations).toEqual({ vi: 'xin chào', en: 'hello' });
+    expect(parsed.success).toBe(false);
   });
 });

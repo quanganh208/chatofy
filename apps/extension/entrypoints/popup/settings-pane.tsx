@@ -16,7 +16,7 @@ import {
   ThemeToggle,
 } from '@chatofy/ui/react';
 import type { VoiceGender } from '@chatofy/types';
-import { DEFAULT_CAPTURE_DIRECTION, directionPickerLanguages } from '../../src/settings';
+import { DEFAULT_CAPTURE_PAIR, languagePairPickerLanguages } from '../../src/settings';
 
 /**
  * Stands for "no context" in the picker's own value space.
@@ -91,10 +91,10 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
           would hand the reader a refusal at the start of their meeting. The
           gateway stays the authority for every other path. */}
       <LanguagePairPicker
-        value={settings?.direction ?? DEFAULT_CAPTURE_DIRECTION}
+        value={settings?.languagePair ?? DEFAULT_CAPTURE_PAIR}
         disabled={!settings}
-        onChange={(direction) => actions.change({ direction })}
-        languages={directionPickerLanguages(settings?.mode)}
+        onChange={(languagePair) => actions.change({ languagePair })}
+        languages={languagePairPickerLanguages(settings?.mode)}
       />
 
       {/* Hidden entirely rather than shown empty or disabled: this control offers

@@ -7,7 +7,7 @@ import type { ConversationSummary, LanguageCode } from '@chatofy/types';
 import { Badge, Button, Skeleton } from '@chatofy/ui/react';
 import { useLocale, useTranslate } from '@/i18n/provider';
 import { durationMinutes, formatTime, groupByDay } from './conversation-formatting';
-import { DirectionLabel } from './direction-label';
+import { LanguagePairLabel } from './language-pair-label';
 import { turnCountLabel } from './turn-count-label';
 
 interface HistoryListProps {
@@ -180,7 +180,7 @@ function Row({ conversation }: { conversation: ConversationSummary }) {
   const t = useTranslate();
   const locale = useLocale();
   // `conversationLanguagesSchema` guarantees at least two, declared source
-  // first — the same guarantee `legacyDirectionOf` relies on server-side.
+  // first, which is how the conversation's pair was stored.
   const [source, target] = conversation.languages as [LanguageCode, LanguageCode];
 
   return (
@@ -202,7 +202,7 @@ function Row({ conversation }: { conversation: ConversationSummary }) {
         <p className="text-body truncate">{conversation.preview}</p>
         <p className="text-hint text-muted-foreground mt-0.5 flex flex-wrap items-center gap-1.5">
           <span className="text-foreground font-medium">
-            <DirectionLabel from={source} to={target} />
+            <LanguagePairLabel from={source} to={target} />
           </span>
           <Dot />
           {turnCountLabel(t, conversation.turnCount)}
