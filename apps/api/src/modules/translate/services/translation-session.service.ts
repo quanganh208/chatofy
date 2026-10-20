@@ -73,7 +73,8 @@ import {
   LANGUAGE_IDENTIFIER,
   type LanguageIdentifier,
 } from '../session/language-identifier';
-import { planForDirection } from '../session/turn-language-plan';
+import { planForPair } from '../session/turn-language-plan';
+import { languagePairLabel } from '../language-pair-label';
 import { TurnTimeline, type ClauseDelivery } from '../session/turn-timeline';
 import {
   LIVE_TRANSLATION_COMMIT_CHARS,
@@ -264,7 +265,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     // the declared language. Deciding it before the turn exists is what lets
     // this refusal happen before a turn (and its budget, its live-translation
     // trigger) is even built.
-    const plan = planForDirection(options.direction, this.identifier);
+    const plan = planForPair(options.languagePair, this.identifier);
     const languageRefusal = this.languageSupport.refusal({
       recognition: plan.recognition,
       spoken: plan.spoken,
@@ -299,7 +300,7 @@ export class TranslationSessionService implements OnModuleDestroy {
       this.predecessors.set(session, predecessor);
     }
     this.logger.log(
-      `session.start ${sessionId} direction=${options.direction} voice=${options.voiceGender}`,
+      `session.start ${sessionId} pair=${languagePairLabel(options.languagePair)} voice=${options.voiceGender}`,
     );
     this.channelFor(socket, session).emit({
       type: 'server.session.ready',

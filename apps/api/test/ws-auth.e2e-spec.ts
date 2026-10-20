@@ -217,7 +217,10 @@ describe('WebSocket upgrade auth (e2e)', () => {
       req.write(
         JSON.stringify({
           event: 'client.session.start',
-          data: { type: 'client.session.start', direction: 'vi_to_en' },
+          data: {
+            type: 'client.session.start',
+            languagePair: { source: 'vi', target: 'en' },
+          },
         }),
       );
       req.end();

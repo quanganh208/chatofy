@@ -116,16 +116,16 @@ describe('the popup surface', () => {
   });
 
   /**
-   * No typed arrow in a language direction.
+   * No typed arrow in a language pair.
    *
    * A glyph inside a string answers to nothing in the type system — its weight,
-   * width and baseline shift with the face around it. Directions are written out.
+   * width and baseline shift with the face around it. Pairs are written out.
    *
    * Scoped to this surface on purpose: the overlay uses the same arrow for a menu
    * path ("right-click → Chatofy"), which is a route through a UI rather than a
    * direction, and a sweep that removed both would be tidying rather than fixing.
    */
-  it('writes language directions without an arrow', () => {
+  it('writes language pairs without an arrow', () => {
     expect(ALL).not.toContain('→');
   });
 

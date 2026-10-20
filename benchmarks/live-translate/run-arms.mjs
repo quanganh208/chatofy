@@ -210,6 +210,16 @@ async function obtainToken(api, { email, password }) {
 }
 
 /**
+ * The wire's `{ source, target }` for a result row. Rows keep the `direction`
+ * string they have always been recorded and analysed with (`analyze.mjs` groups
+ * by it); only what is SENT to the server is a pair.
+ */
+function languagePairOf(direction) {
+  const [source, target] = direction.split('_to_');
+  return { source, target };
+}
+
+/**
  * One arm's measurement of one utterance.
  *
  * Both arms fill the same fields, measured at the SAME boundary — this process,
@@ -259,7 +269,8 @@ async function runCascade(apiWsBase, accessToken, utterance, samples, vadEnd, ou
     if (msg.type === 'server.session.ready') sessionId = msg.sessionId;
     if (msg.type === 'server.transcript.final') {
       lastEventAt = Date.now();
-      result.transcript = msg.segment?.targetText ?? result.transcript;
+      const { target } = languagePairOf(result.direction);
+      result.transcript = msg.segment?.translations?.[target] ?? result.transcript;
     }
     if (msg.type === 'server.audio.frame') {
       const pcm = Buffer.from(msg.frame.payload, 'base64');
@@ -281,7 +292,7 @@ async function runCascade(apiWsBase, accessToken, utterance, samples, vadEnd, ou
   const send = (event, data) => socket.send(JSON.stringify({ event, data }));
   send('client.session.start', {
     type: 'client.session.start',
-    direction: result.direction,
+    languagePair: languagePairOf(result.direction),
     voiceGender: 'female',
   });
   // Wait for the id rather than sleeping a guessed interval: a frame that names
@@ -385,7 +396,10 @@ async function runLive(apiWsBase, accessToken, utterance, samples, vadEnd, outDi
   });
 
   const send = (event, data) => socket.send(JSON.stringify({ event, data }));
-  send('client.live.start', { type: 'client.live.start', direction: result.direction });
+  send('client.live.start', {
+    type: 'client.live.start',
+    languagePair: languagePairOf(result.direction),
+  });
 
   // Dialing the upstream is not part of the latency being measured; the clock
   // starts when audio does.

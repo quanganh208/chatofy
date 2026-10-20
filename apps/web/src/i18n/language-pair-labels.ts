@@ -1,7 +1,7 @@
 'use client';
 
 import type { LanguageCode } from '@chatofy/types';
-import type { DirectionToggleLabels } from '@chatofy/ui/react';
+import type { LanguagePairLabels } from '@chatofy/ui/react';
 import type { Translate } from '@chatofy/i18n';
 
 /**
@@ -24,11 +24,11 @@ export function languageNamer(t: Translate): (code: LanguageCode) => string {
   return (code) => t(`web.languageName.${code}`);
 }
 
-export function directionLabels(t: Translate): DirectionToggleLabels {
+export function languagePairLabels(t: Translate): LanguagePairLabels {
   return {
-    direction: t('web.translate.direction'),
-    source: t('web.translate.directionSource'),
-    translation: t('web.translate.directionTarget'),
-    swap: (from, to) => t('web.translate.directionSwap', { from, to }),
+    pair: t('web.translate.languagePair'),
+    source: t('web.translate.languagePairSource'),
+    translation: t('web.translate.languagePairTarget'),
+    swap: (from, to) => t('web.translate.languagePairSwap', { from, to }),
   };
 }

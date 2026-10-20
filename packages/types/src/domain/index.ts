@@ -10,14 +10,13 @@ export {
   LANGUAGES,
   LANGUAGE_CODES,
   languageCodeSchema,
-  allDirections,
-  directionOf,
-  directionLanguages,
-  reverseDirection,
-  TRANSLATION_DIRECTIONS,
-  translationDirectionSchema,
-  DEFAULT_TRANSLATION_DIRECTION,
-  conversationLanguagesOf,
+  languagePairOf,
+  allLanguagePairs,
+  reversePair,
+  samePair,
+  languagePairSchema,
+  DEFAULT_LANGUAGE_PAIR,
+  pairLanguages,
   translationTargets,
   speakerRoleFor,
   toLanguageCode,
@@ -25,7 +24,9 @@ export {
   sourceLanguagesSchema,
   translationMapSchema,
 } from './languages.js';
-export type { LanguageCode, LanguageTable, Direction, TranslationDirection } from './languages.js';
+export type { LanguageCode, LanguageTable, LanguagePair } from './languages.js';
+
+export { languagePairFromStoredDirection } from './stored-language-pair.js';
 
 export {
   HAN_CHARACTER,
@@ -51,10 +52,3 @@ export {
   primaryTranslation,
 } from './conversation.js';
 export type { ConversationTurn, ConversationSummary, Conversation } from './conversation.js';
-
-export {
-  fillConversationLanguages,
-  fillLegacyConversationFields,
-  fillTurnLanguages,
-  legacyDirectionOf,
-} from './language-fields-compat.js';

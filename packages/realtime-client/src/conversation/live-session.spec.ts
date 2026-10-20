@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LiveSession } from './live-session.js';
 import type { LiveTranslateSocketHandlers } from '../transport/live-translate-socket.js';
-import type { LiveServerEvent, LiveClientEvent } from '@chatofy/types';
+import type { LanguagePair, LiveServerEvent, LiveClientEvent } from '@chatofy/types';
 import { pcm16ToBase64 } from '../audio/pcm-resampler.js';
 import { JsonSocketAbortedError } from '../transport/json-event-socket.js';
 
@@ -35,8 +35,8 @@ class FakeSocket {
   send(event: LiveClientEvent): void {
     this.sent.push(event);
   }
-  start(direction: 'vi_to_en' | 'en_to_vi'): void {
-    this.send({ type: 'client.live.start', direction });
+  start(languagePair: LanguagePair): void {
+    this.send({ type: 'client.live.start', languagePair });
   }
   sendAudio(sequence: number, sampleRate: number, payload: string): void {
     this.send({
@@ -101,15 +101,18 @@ function harness(options: { deferConnect?: boolean } = {}) {
 
 /** Ready is what the contract says a client waits for before sending audio. */
 async function started(h: ReturnType<typeof harness>) {
-  await h.session.start('vi_to_en');
+  await h.session.start({ source: 'vi', target: 'en' });
   h.socket.emit({ type: 'server.live.ready', sessionId: 's1' });
 }
 
 describe('LiveSession', () => {
-  it('opens with the direction it was given', async () => {
+  it('opens with the language pair it was given', async () => {
     const h = harness();
-    await h.session.start('en_to_vi');
-    expect(h.socket.sent[0]).toEqual({ type: 'client.live.start', direction: 'en_to_vi' });
+    await h.session.start({ source: 'en', target: 'vi' });
+    expect(h.socket.sent[0]).toEqual({
+      type: 'client.live.start',
+      languagePair: { source: 'en', target: 'vi' },
+    });
   });
 
   /**
@@ -143,7 +146,7 @@ describe('LiveSession', () => {
    */
   it('holds audio captured before ready, then sends it in order', async () => {
     const h = harness();
-    await h.session.start('vi_to_en');
+    await h.session.start({ source: 'vi', target: 'en' });
 
     h.session.pushBlock(new Int16Array(160).fill(1000));
     h.session.pushBlock(new Int16Array(160).fill(2000));
@@ -168,7 +171,7 @@ describe('LiveSession', () => {
 
   it('drops the oldest held blocks rather than growing without bound', async () => {
     const h = harness();
-    await h.session.start('vi_to_en');
+    await h.session.start({ source: 'vi', target: 'en' });
     // A session that never connects must not hold audio for ever.
     for (let i = 0; i < 300; i += 1) h.session.pushBlock(new Int16Array(160).fill(i));
     h.socket.emit({ type: 'server.live.ready', sessionId: 's1' });
@@ -181,7 +184,7 @@ describe('LiveSession', () => {
 
   it('discards held audio after stop', async () => {
     const h = harness();
-    await h.session.start('vi_to_en');
+    await h.session.start({ source: 'vi', target: 'en' });
     h.session.pushBlock(new Int16Array(160).fill(1000));
     h.session.dispose();
     h.session.pushBlock(new Int16Array(160).fill(2000));
@@ -269,7 +272,7 @@ describe('LiveSession', () => {
   it('ignores a second start while one is live', async () => {
     const h = harness();
     await started(h);
-    await h.session.start('vi_to_en');
+    await h.session.start({ source: 'vi', target: 'en' });
     expect(h.socket.sent.filter((e) => e.type === 'client.live.start')).toHaveLength(1);
   });
 
@@ -316,7 +319,7 @@ describe('LiveSession', () => {
       // caller asked for this, and without sending `start` to an upstream
       // nobody is left to consume.
       const h = harness({ deferConnect: true });
-      const starting = h.session.start('vi_to_en');
+      const starting = h.session.start({ source: 'vi', target: 'en' });
 
       h.session.dispose();
       await starting;
@@ -331,7 +334,7 @@ describe('LiveSession', () => {
       const h = harness();
       // No `ready`: the socket is up but the upstream has not answered, which is
       // where a user who starts and immediately restarts lands.
-      await h.session.start('vi_to_en');
+      await h.session.start({ source: 'vi', target: 'en' });
       h.session.pushBlock(new Int16Array(160).fill(1000));
 
       h.session.dispose();

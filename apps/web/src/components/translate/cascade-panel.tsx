@@ -16,7 +16,7 @@ import { ElapsedClock } from '@/components/translate/elapsed-clock';
 import { Button } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
 import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
-import { directionLanguages, reverseDirection } from '@chatofy/types';
+import { reversePair } from '@chatofy/types';
 import { toConversationTurns } from '@chatofy/realtime-client';
 import type { TranslateSettings } from '@/lib/translate-settings';
 import { recordingOffsetMs } from '@/lib/transcript-time';
@@ -250,12 +250,12 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   const save = useConversationSave({
     conversationId: conversation.conversationId,
     startedAt: conversation.startedAt,
-    // Captured at `start`, not read live from `settings`: the direction toggle
-    // is only disabled while running, so a swap between End and the next Start
+    // Captured at `start`, not read live from `settings`: the language pickers
+    // are only disabled while running, so a swap between End and the next Start
     // must not flip what an already-finished conversation is stored as. Falls
-    // back to `settings.direction` only before the first `start`, when nothing
+    // back to `settings.languagePair` only before the first `start`, when nothing
     // has been captured yet and `turns` is empty so the fallback never saves.
-    direction: conversation.direction ?? settings.direction,
+    languagePair: conversation.languagePair ?? settings.languagePair,
     running,
     turns: conversationTurns,
     // Stored by the TRANSCRIPT save, not only by the recording upload, because
@@ -350,9 +350,9 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           // Same capture as the save above, and for the same reason: a stop-then
           // -swap must not flip which language a finished turn's translation
           // line reads from.
-          conversationDirection={conversation.direction ?? settings.direction}
-          onSwap={() => onChange({ direction: reverseDirection(settings.direction) })}
-          onDirection={(direction) => onChange({ direction })}
+          conversationLanguagePair={conversation.languagePair ?? settings.languagePair}
+          onSwap={() => onChange({ languagePair: reversePair(settings.languagePair) })}
+          onLanguagePair={(languagePair) => onChange({ languagePair })}
           // The voice belongs beside the panel it speaks for, not behind the gear
           // at the far end of the dock beside the page settings.
           voiceControl={
@@ -539,10 +539,10 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
                 disabled={awaitingContext}
                 onClick={() =>
                   void conversation.start({
-                    direction: settings.direction,
+                    languagePair: settings.languagePair,
                     voiceGender: settings.voiceGender,
                     voiceOutput: settings.voiceOutput,
-                    // Sent regardless of direction. The server hands it to whichever
+                    // Sent regardless of the pair. The server hands it to whichever
                     // engine speaks the output language, and the one without a rate
                     // control ignores it — the UI disables the picker there so the
                     // choice is never silently inert, but the value itself is honest.
@@ -550,8 +550,8 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
                     // ONE token, for the language about to be spoken. Settings keep
                     // one per language because the two engines share no vocabulary;
                     // the wire carries a single value because the server already
-                    // knows the direction and two could disagree.
-                    voice: settings.voice[directionLanguages(settings.direction).target],
+                    // knows the pair and two could disagree.
+                    voice: settings.voice[settings.languagePair.target],
                     // Always asked for; the server decides whether to answer. A
                     // tab loaded before this field existed simply never asks, so
                     // it is never sent an event its copy of the contract cannot

@@ -86,7 +86,7 @@ describe('LiveTranslationTrigger', () => {
   describe('the clause rule', () => {
     it('is a transition, not a state', () => {
       // Text that already contains a comma is always "closing a clause", so a
-      // state check would latch true forever on the English direction.
+      // state check would latch true forever on an English-source pair.
       const { trigger } = makeTrigger({ commitChars: 500 });
       const text = 'yesterday I booked a room, for two nights';
 

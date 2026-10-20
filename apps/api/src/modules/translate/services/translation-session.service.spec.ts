@@ -94,7 +94,7 @@ interface Harness {
   /**
    * Decides which language(s) a turn was spoken in. Defaults to
    * `DeclaredLanguageIdentifier` — every test above this feature assumes a
-   * single source equal to the direction's declared language.
+   * single source equal to the pair's declared source.
    */
   identifier: LanguageIdentifier;
 }
@@ -246,7 +246,11 @@ function open(
   const before = socket.ofType('server.session.ready').length;
   service.start(
     socket,
-    { direction: 'vi_to_en', voiceGender: 'female', streamCommitted },
+    {
+      languagePair: { source: 'vi', target: 'en' },
+      voiceGender: 'female',
+      streamCommitted,
+    },
     turnId,
   );
   const ready = socket.ofType('server.session.ready').at(-1);
@@ -330,20 +334,17 @@ describe('TranslationSessionService', () => {
     const [segment] = socket.ofType('server.transcript.final');
     expect(segment?.segment).toMatchObject({
       sessionId,
-      direction: 'vi_to_en',
       speakerRole: 'speaker_a',
       sourceText: 'xin chào',
-      targetText: 'hello',
+      translations: { en: 'hello' },
       audioUrl: null,
     });
   });
 
-  // The whole point of the additive wire change: a default, single-target turn
-  // must produce EXACTLY the pre-fan-out segment plus the two new fields —
-  // never a segment that merely happens to look the same. Substitutes for
-  // running a real vi_to_en turn through web local and diffing the JSON, which
-  // this spec can do exactly instead of approximately.
-  it('adds sourceLanguages and translations to the wire segment, unchanged otherwise', async () => {
+  // A default, single-target turn must produce EXACTLY the segment fields the
+  // contract names — no legacy `direction`/`targetText` riding along, and
+  // nothing that merely happens to look the same.
+  it('emits exactly the language-keyed wire segment', async () => {
     const { service } = makeService();
     const socket = new FakeSocket();
     const sessionId = open(service, socket);
@@ -352,16 +353,13 @@ describe('TranslationSessionService', () => {
     await service.end(socket);
 
     const [final] = socket.ofType('server.transcript.final');
-    const { sourceLanguages, translations, ...legacyShape } = final!.segment;
-    expect(sourceLanguages).toEqual(['vi']);
-    expect(translations).toEqual({ en: 'hello' });
-    expect(legacyShape).toEqual({
+    expect(final!.segment).toEqual({
       id: final!.segment.id,
       sessionId,
       speakerRole: 'speaker_a',
-      direction: 'vi_to_en',
+      sourceLanguages: ['vi'],
+      translations: { en: 'hello' },
       sourceText: 'xin chào',
-      targetText: 'hello',
       audioUrl: null,
       createdAt: final!.segment.createdAt,
     });
@@ -392,7 +390,7 @@ describe('TranslationSessionService', () => {
     const input = seen[0];
     expect(input).toBeDefined();
     expect(input?.mimeType).toBe('audio/wav');
-    // The plan, not a `direction` field on the input, is what carries which
+    // The plan, not a language field on the input, is what carries which
     // language(s) this turn recognises and translates into.
     expect(seenPlans[0]).toMatchObject({ recognition: 'vi', spoken: 'en' });
 
@@ -449,7 +447,10 @@ describe('TranslationSessionService', () => {
         }),
       });
       const socket = new FakeSocket();
-      service.start(socket, { direction: 'vi_to_en', voiceGender: 'male' });
+      service.start(socket, {
+        languagePair: { source: 'vi', target: 'en' },
+        voiceGender: 'male',
+      });
       const sessionId = socket.ofType('server.session.ready')[0]!.sessionId;
       service.pushFrame(socket, frame({ sessionId }));
 
@@ -731,7 +732,7 @@ describe('TranslationSessionService', () => {
       expect(socket.ofType('server.transcript.partial')[0]).toMatchObject({
         text: 'xin chào tôi muốn',
         speaker: 'speaker_a',
-        direction: 'vi_to_en',
+        languagePair: { source: 'vi', target: 'en' },
       });
     });
 
@@ -805,7 +806,7 @@ describe('TranslationSessionService', () => {
         committed: '',
         pending: 'xin chào tôi muốn',
         speaker: 'speaker_a',
-        direction: 'vi_to_en',
+        languagePair: { source: 'vi', target: 'en' },
       });
     });
 
@@ -873,7 +874,7 @@ describe('TranslationSessionService', () => {
       expect(translate).toHaveBeenCalledTimes(1);
       expect(socket.ofType('server.translation.partial')[0]).toMatchObject({
         text: 'yesterday I booked a room',
-        direction: 'vi_to_en',
+        languagePair: { source: 'vi', target: 'en' },
       });
     });
 
@@ -1132,7 +1133,7 @@ describe('TranslationSessionService', () => {
       expect(recorded).toHaveLength(1);
       expect(recorded[0]).toMatchObject({
         sessionId,
-        direction: 'vi_to_en',
+        languagePair: { source: 'vi', target: 'en' },
         inputSampleRate: SAMPLE_RATE,
         targetChars: 'Hello, how are you?'.length,
         clauses: 2,
@@ -1532,7 +1533,7 @@ describe('TranslationSessionService', () => {
 
       service.start(
         socket,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
         'turn-4',
       );
 
@@ -1562,7 +1563,7 @@ describe('TranslationSessionService', () => {
 
       service.start(
         three,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
         'turn-7',
       );
 
@@ -1601,7 +1602,7 @@ describe('TranslationSessionService', () => {
 
       service.start(
         socket,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
         'turn-1',
       );
 
@@ -1621,7 +1622,7 @@ describe('TranslationSessionService', () => {
 
       service.start(
         socket,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
         'turn-1',
       );
 
@@ -1944,7 +1945,7 @@ describe('TranslationSessionService', () => {
       // Global ceiling reached, so a third client gets nothing.
       service.start(
         three,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
         't',
       );
       expect(three.ofType('server.error')[0]).toMatchObject({
@@ -1955,7 +1956,7 @@ describe('TranslationSessionService', () => {
 
       service.start(
         three,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
         't2',
       );
       expect(three.ofType('server.session.ready')).toHaveLength(1);
@@ -2308,7 +2309,10 @@ describe('TranslationSessionService', () => {
       service.pushFrame(socket, frame({ sessionId: first }));
       await service.end(socket);
 
-      service.start(socket, { direction: 'vi_to_en', voiceGender: 'female' });
+      service.start(socket, {
+        languagePair: { source: 'vi', target: 'en' },
+        voiceGender: 'female',
+      });
 
       const ready = socket.ofType('server.session.ready');
       expect(ready).toHaveLength(2);
@@ -2448,7 +2452,7 @@ describe('TranslationSessionService', () => {
       continuesCut = false,
     ) => {
       service.start(socket, {
-        direction: 'vi_to_en',
+        languagePair: { source: 'vi', target: 'en' },
         voiceGender: 'female',
         ...(continuesCut ? { continuesCut } : {}),
       });
@@ -2651,7 +2655,7 @@ describe('speaker embedding', () => {
     socket: FakeSocket,
   ): string => {
     service.start(socket, {
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
       voiceGender: 'female',
       embedSpeaker: true,
     });
@@ -2825,7 +2829,7 @@ describe('splitting a turn where the voice changes', () => {
     const harness = makeService({ ...fakes(), ...overrides });
     if (afterATurn) {
       harness.service.start(socket, {
-        direction: 'vi_to_en',
+        languagePair: { source: 'vi', target: 'en' },
         voiceGender: 'female',
       });
       const first = socket.ofType('server.session.ready').at(-1)!.sessionId;
@@ -2833,7 +2837,7 @@ describe('splitting a turn where the voice changes', () => {
       await harness.service.end(socket, first);
     }
     harness.service.start(socket, {
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
       voiceGender: 'female',
       embedSpeaker: true,
       splitSpeakers,
@@ -3295,7 +3299,7 @@ describe('splitting a turn where the voice changes', () => {
     const { service } = harness;
     holder.service = service;
     service.start(socket, {
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
       voiceGender: 'female',
       embedSpeaker: true,
       splitSpeakers: true,
@@ -3697,7 +3701,7 @@ describe('streamed speech', () => {
     const { service } = makeService({ synthesizeStream });
     const socket = new FakeSocket();
     service.start(socket, {
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
       voiceGender: 'female',
       voiceOutput: false,
     });

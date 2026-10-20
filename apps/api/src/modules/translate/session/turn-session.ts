@@ -5,7 +5,7 @@ import {
   type SessionOptions,
   type SpeakerRole,
   type TranscriptSegment,
-  type TranslationDirection,
+  type LanguagePair,
   type TranslationHints,
   type VoiceGender,
 } from '@chatofy/types';
@@ -19,7 +19,7 @@ import { MAX_TURN_SECONDS, TurnAudio } from './turn-audio';
 import { TurnSpeculation } from './turn-speculation';
 import { DeclaredLanguageIdentifier } from './language-identifier';
 import {
-  planForDirection,
+  planForPair,
   type TurnLanguagePlan,
   type TranslationMap,
 } from './turn-language-plan';
@@ -77,7 +77,7 @@ export interface TurnSessionDeps {
    * `TranslationSessionService.start` builds it once — the same plan its
    * `language_unavailable` check read — and hands it here, so the turn can
    * never run a plan the refusal check did not see. Defaults to
-   * `planForDirection` with {@link DeclaredLanguageIdentifier}, in the same
+   * `planForPair` with {@link DeclaredLanguageIdentifier}, in the same
    * spirit as `budget` above: a turn built without one still runs the real
    * derivation, just with the trivial identifier.
    */
@@ -111,7 +111,7 @@ export class TurnSession {
   private translationGeneration = 0;
   private readonly speculation = new TurnSpeculation();
 
-  readonly direction: TranslationDirection;
+  readonly languagePair: LanguagePair;
   /**
    * What this turn is decided to do, language-wise: which language(s) it was
    * spoken in, every language it must be translated into, and which of those
@@ -183,7 +183,7 @@ export class TurnSession {
   readonly continuesCut: boolean;
 
   // Takes the whole options object so the caller has one thing to pass, but
-  // keeps the settings flat internally — everything below reads `this.direction`
+  // keeps the settings flat internally — everything below reads `this.languagePair`
   // directly, and an options bag would only add a hop.
   //
   // `turnId` sits beside the options rather than inside them. The gateway
@@ -207,9 +207,9 @@ export class TurnSession {
      */
     deps: TurnSessionDeps = {},
   ) {
-    this.direction = options.direction;
+    this.languagePair = options.languagePair;
     this.languages =
-      deps.languages ?? planForDirection(options.direction, DEFAULT_IDENTIFIER);
+      deps.languages ?? planForPair(options.languagePair, DEFAULT_IDENTIFIER);
     this.voiceGender = options.voiceGender;
     this.hints = options.hints;
     this.voiceOutput = options.voiceOutput ?? true;
@@ -266,9 +266,9 @@ export class TurnSession {
   /**
    * Which side of the conversation is speaking.
    *
-   * Reads `this.languages` rather than the direction directly: `recognition` is
-   * the language this turn is actually taken to be spoken in — today always the
-   * direction's declared source, but the field to read once a real identifier
+   * Reads `this.languages` rather than the language pair directly: `recognition`
+   * is the language this turn is actually taken to be spoken in — today always
+   * the pair's declared source, but the field to read once a real identifier
    * can disagree with it. Delegates to the registry rather than comparing a
    * language to a literal: `speakerRoleFor` is what fixes `speaker_a` to the
    * conversation's registry-first language regardless of which side of the
@@ -406,16 +406,7 @@ export class TurnSession {
     return this.speculation.usable(this.audio.byteLength);
   }
 
-  /**
-   * Build this turn's persisted record.
-   *
-   * `direction` and `targetText` are computed rather than dropped, even though
-   * `translations` and `sourceLanguages` now carry the same information more
-   * generally: no client reads them today, but the client-side schema still
-   * requires them, and `apps/api`/`apps/web` do not deploy atomically. See
-   * `TranscriptSegment` in `@chatofy/types` for the fuller version of this
-   * note.
-   */
+  /** Build this turn's persisted record. */
   toSegment(
     sourceText: string,
     translations: TranslationMap,
@@ -425,11 +416,9 @@ export class TurnSession {
       id: randomUUID(),
       sessionId,
       speakerRole: this.speakerRole,
-      direction: this.direction,
       sourceLanguages: [...this.languages.sourceLanguages],
       translations,
       sourceText,
-      targetText: translations[this.languages.spoken] ?? '',
       // Audio travels over this socket rather than being stored.
       audioUrl: null,
       createdAt: new Date().toISOString(),

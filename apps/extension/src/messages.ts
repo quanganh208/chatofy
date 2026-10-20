@@ -1,4 +1,4 @@
-import type { TranslateMode, TranslationDirection, VoiceGender } from '@chatofy/types';
+import type { LanguagePair, TranslateMode, VoiceGender } from '@chatofy/types';
 import type { OutboundCommand } from './outbound-channel';
 
 /**
@@ -19,14 +19,14 @@ export interface CaptureSettings {
   /**
    * Which way the MEETING is translated: what the other participants say, into
    * the language the user reads. The user's own speech is translated the other
-   * way, derived from this rather than configured beside it — two directions a
-   * user could set independently is two ways to describe one conversation.
+   * way, derived from this rather than configured beside it — two pairs a user
+   * could set independently is two ways to describe one conversation.
    */
-  direction: TranslationDirection;
+  languagePair: LanguagePair;
   /**
    * Which backend translates: the turn-based cascade, or the continuous model.
    *
-   * Read only when a capture STARTS. Both directions of one meeting always run
+   * Read only when a capture STARTS. Both legs of one meeting always run
    * the same mode — mixing them would put two unrelated latencies on one
    * conversation, and the user would be reading a reply to a sentence they had
    * not finished hearing.
@@ -41,7 +41,7 @@ export interface CaptureSettings {
   /**
    * Translate what the USER says as well, and send it to the meeting.
    *
-   * Off by default, and that is not timidity: this direction reaches into the
+   * Off by default, and that is not timidity: this leg reaches into the
    * meeting page and replaces what everyone else hears from this microphone. It
    * has to be a choice someone made.
    */
@@ -53,7 +53,7 @@ export interface CaptureSettings {
    * The id only, never the content: the popup and the web app share a bearer
    * token and nothing else, so the context itself — topic, hotwords, glossary —
    * is fetched from the API at the start of a capture rather than carried here.
-   * One id for the whole meeting, not one per direction: both directions
+   * One id for the whole meeting, not one per leg: both legs
    * translate the same conversation, and the glossary they read is keyed by
    * language rather than by role for exactly that reason.
    */
@@ -61,7 +61,7 @@ export interface CaptureSettings {
 }
 
 /**
- * What the outbound direction is doing, in the words the overlay shows.
+ * What the outbound leg is doing, in the words the overlay shows.
  *
  * `monitor` is not a degraded `sending` — it is the honest name for translating
  * the user's speech and playing it back to the user alone, which is all that is
@@ -86,14 +86,14 @@ export type ExtensionMessage =
    *
    * The worker owns the write rather than the content script doing it directly, for
    * two reasons. The offscreen document is handed its settings once, when capture
-   * opens, so a direction changed mid-call has to reopen the capture — which only
+   * opens, so a language pair changed mid-call has to reopen the capture — which only
    * the worker can do. And importing the settings module into a content script
    * pulled the whole shared types package onto every meeting page.
    */
   | {
       to: 'worker';
       type: 'settings';
-      direction: TranslationDirection;
+      languagePair: LanguagePair;
       /**
        * Optional: the overlay offers no mode control and does not send one.
        *
@@ -175,7 +175,7 @@ export type ExtensionMessage =
  * Failures, kept apart by which of them failed.
  *
  * One field for all of them loses the only thing worth knowing. The two
- * directions run on two sockets and either can die alone: a dropped outbound
+ * legs run on two sockets and either can die alone: a dropped outbound
  * socket leaves the meeting perfectly translated INTO the user's language while
  * nothing they say reaches anyone, and a single string cannot say that.
  *
@@ -191,14 +191,14 @@ interface DirectionErrors {
 /** What the capture side is doing, in the words the popup shows. */
 export interface CaptureStatus {
   capturing: boolean;
-  /** What the outbound direction is doing, or `off` when it is not running. */
+  /** What the outbound leg is doing, or `off` when it is not running. */
   outbound: OutboundState;
   /**
-   * Present when something went wrong, per direction.
+   * Present when something went wrong, per leg.
    *
-   * Merged by the receiver rather than assigned: a report about one direction
+   * Merged by the receiver rather than assigned: a report about one leg
    * carries nothing about the other, and overwriting would erase a live failure
-   * every time the healthy direction said anything.
+   * every time the healthy leg said anything.
    */
   errors: Omit<DirectionErrors, 'capture'>;
   /** Turns waiting to be heard. Non-zero means the translation is behind. */
@@ -206,7 +206,7 @@ export interface CaptureStatus {
   /**
    * Times the echo microphone heard the INBOUND translation while it played.
    *
-   * Inbound only, deliberately. With the outbound direction monitoring through
+   * Inbound only, deliberately. With the outbound leg monitoring through
    * the same loudspeakers, that microphone also hears the user's own translation
    * coming back — counting both would merge two different measurements into one
    * number that means neither.
@@ -223,7 +223,7 @@ export interface TranscriptLine {
   /**
    * Who said it: the meeting, or the person running the extension.
    *
-   * Not decoration. With both directions running, the transcript interleaves two
+   * Not decoration. With both legs running, the transcript interleaves two
    * conversations that are translations of each other, and without a side the
    * reader cannot tell a sentence they said from a sentence said to them.
    */
@@ -240,7 +240,7 @@ export interface OverlayState {
    */
   capturing: boolean;
   lines: TranscriptLine[];
-  /** What the outbound direction is doing. `off` while capture is not running. */
+  /** What the outbound leg is doing. `off` while capture is not running. */
   outbound: OutboundState;
   errors: DirectionErrors;
   /**
@@ -261,13 +261,13 @@ export interface OverlayState {
    */
   shortcut?: string;
   /**
-   * What the overlay's own direction and voice selects should show.
+   * What the overlay's own language pair and voice selects should show.
    *
    * Sent from the worker because the overlay must not read storage itself: the two
    * surfaces that can change these — this one and the popup — would otherwise drift
    * apart until the page reloaded.
    */
-  settings?: Pick<CaptureSettings, 'direction' | 'voiceGender' | 'outbound'>;
+  settings?: Pick<CaptureSettings, 'languagePair' | 'voiceGender' | 'outbound'>;
 }
 
 /** Narrow an incoming message to the ones this context is meant to handle. */

@@ -1,8 +1,8 @@
 import {
-  conversationLanguagesOf,
+  pairLanguages,
   translationTargets,
   type LanguageCode,
-  type TranslationDirection,
+  type LanguagePair,
 } from '@chatofy/types';
 import type { LanguageIdentifier } from './language-identifier';
 
@@ -23,7 +23,7 @@ export type TranslationMap = Partial<Record<LanguageCode, string>>;
  * `LanguageIdentifier` reports the turn was actually spoken in — see
  * `planTurnLanguages`. Everything downstream (recognition, the translation
  * fan-out, which target is spoken aloud) reads this rather than re-deriving
- * from `direction`, so a turn that one day mixes languages changes in exactly
+ * from the language pair, so a turn that one day mixes languages changes in exactly
  * one place.
  */
 export interface TurnLanguagePlan {
@@ -59,7 +59,7 @@ export interface TurnLanguagePlan {
  * `sourceLanguages` must already be non-empty — every `LanguageIdentifier`
  * returns at least one code, `DeclaredLanguageIdentifier` being the trivial
  * case — and `conversation` must hold every code any source or target could
- * name, which `conversationLanguagesOf` already guarantees for today's two-
+ * name, which `pairLanguages` already guarantees for today's two-
  * language conversations.
  */
 export function planTurnLanguages(
@@ -82,20 +82,20 @@ export function planTurnLanguages(
 }
 
 /**
- * Decide a turn's language plan from the direction the client declared.
+ * Decide a turn's language plan from the language pair the client declared.
  *
- * The ONE place a transport turns a direction into a plan: the WS path calls
+ * The ONE place a transport turns a language pair into a plan: the WS path calls
  * it once per turn in `TranslationSessionService.start` (and hands the result
  * to `TurnSession`), the REST path once per request. Keeping the derivation
  * here is what keeps the refusal check and the turn that actually runs reading
  * the same plan once an identifier is no longer a pure function of the
  * declared language.
  */
-export function planForDirection(
-  direction: TranslationDirection,
+export function planForPair(
+  pair: LanguagePair,
   identifier: LanguageIdentifier,
 ): TurnLanguagePlan {
-  const conversation = conversationLanguagesOf(direction);
+  const conversation = pairLanguages(pair);
   return planTurnLanguages(
     conversation,
     identifier.identify({ declared: conversation[0] }),

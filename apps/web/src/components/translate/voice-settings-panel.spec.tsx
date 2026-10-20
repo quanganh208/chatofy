@@ -68,7 +68,7 @@ describe('VoiceSettingsPanel', () => {
 
 /**
  * `speedAdjustable` is an ENGINE fact from the catalog, not a fact derived from
- * direction — a lesson this component's own history already paid for once (see
+ * the language pair — a lesson this component's own history already paid for once (see
  * the removed `RATE_ADJUSTABLE` table this replaced).
  *
  * Each case mocks `useVoiceCatalog` directly and imports a fresh copy of the

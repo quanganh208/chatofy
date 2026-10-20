@@ -89,7 +89,7 @@ export function resolveContext(
  * feature existed. `glossary` is passed through as the stored language-keyed
  * maps untouched — which side is the source is resolved server-side, in the
  * prompt builder, because only the session (and here, only `MeetingCapture`,
- * which starts one session per direction) knows it.
+ * which starts one session per leg) knows it.
  */
 export function toHints(context: TranslationContext | null): TranslationHints | undefined {
   if (context === null) return undefined;

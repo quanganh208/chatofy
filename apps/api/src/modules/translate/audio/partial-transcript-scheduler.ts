@@ -119,7 +119,7 @@ const DEFAULT_WINDOW_SECONDS = 9;
  * convolution, `Invalid input shape: {2,80}` — and accepts from 85ms up. The
  * English Parakeet model takes 10ms happily, so this is a floor one engine
  * needs and the other does not; the scheduler applies it to both because the
- * engine is chosen downstream by direction, out of sight from here.
+ * engine is chosen downstream by language pair, out of sight from here.
  *
  * Without it the first frame of every turn starts a read on one ~21ms block and
  * that read always fails. The failure is swallowed by design — a live

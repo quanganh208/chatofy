@@ -101,7 +101,7 @@ export class TranslateGateway
    * close from the idle sweep, the byte ceiling, or the upstream's own socket,
    * and none of those has a gateway frame in the stack. Releasing would mean new
    * API on both services to enable a switch no client performs — each opens one
-   * socket per direction or per page. A client that ever needs to switch opens a
+   * socket per language pair or per page. A client that ever needs to switch opens a
    * second connection.
    *
    * Keyed weakly, so an entry cannot outlive the socket it describes.
@@ -344,9 +344,9 @@ export class TranslateGateway
     @MessageBody() payload: unknown,
     @ConnectedSocket() client: StreamSocket,
   ): Promise<void> {
-    const { direction } = this.parseLiveEvent(payload, 'client.live.start');
+    const { languagePair } = this.parseLiveEvent(payload, 'client.live.start');
     if (!this.claimMode(client, 'live')) return Promise.resolve();
-    return this.live.start(client, direction);
+    return this.live.start(client, languagePair);
   }
 
   @SubscribeMessage('client.live.audio')

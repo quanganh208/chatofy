@@ -215,25 +215,21 @@ export function limitConcurrentAudioUploads(
  * legitimate body is the one that spreads the 400,000-character ceiling over
  * the full 4,000 turns.
  *
- * That text is also sent TWICE per turn right now: `saveConversationTurnSchema`
- * keeps the legacy `targetText` alongside the language-keyed `translations`
- * map it is being replaced by, for a browser tab that has not reloaded past
- * the migration, and `targetText` is not counted by the character ceiling.
- * Measured on a synthetic body at the caps — 4,000 turns, 400,000 counted
- * characters, realistic prose, `targetText` duplicated — the worst case is
- * ~1.32 MiB for vi→en and ~1.37 MiB for en→vi (2,000 turns ≈ 1.0 MiB). The
- * previous 1.5 MB limit left ~9% over that; 2 MiB leaves ~45%, room for a
- * small addition to the per-turn wire shape without 413-ing a legitimate
- * near-cap save. It can come back down once `targetText` is removed from the
- * wire (see the `HISTORY_LIMITS.MAX_TOTAL_CHARS` doc in `@chatofy/types`, which
- * names this same pairing from the schema side).
+ * Each turn's text is sent once now — the legacy `targetText` that used to
+ * duplicate a translation is gone from the wire. Measured on a synthetic body
+ * at the caps without it — 4,000 turns, ~400,000 counted characters of
+ * realistic prose, a speaker label and a timestamp on every turn — the worst
+ * case is ~1.1 MiB, and over half of that is the per-turn JSON rather than
+ * the text. 1 MiB would therefore 413 a legitimate near-cap save; 2 MiB
+ * leaves ~80% headroom, room for a small addition to the per-turn wire shape.
+ * (With `targetText` duplicated the same body measured ~1.32-1.37 MiB.)
  *
  * A transcript never gets close — a ten-minute conversation is a few hundred
- * turns — but a constructed one can exceed even this: precomposed Vietnamese
- * vowels (U+1EA0-U+1EF9) cost 3 bytes each, so 400,000 characters of nothing
- * else, doubled by `targetText`, takes a 413 here rather than the schema's
- * 400. Refusing that at the parser is the point; it is not a body any client
- * sends.
+ * turns. Even the constructed worst case now fits: precomposed Vietnamese
+ * vowels (U+1EA0-U+1EF9) cost 3 bytes each, and 400,000 characters of nothing
+ * else over the full 4,000 turns measures ~1.78 MiB. So every body the schema
+ * would accept clears this parser, and what it still refuses is a body the
+ * schema would refuse anyway, before it is buffered and parsed.
  *
  * The two numbers — this and HISTORY_LIMITS.MAX_TOTAL_CHARS — are ONE
  * decision. Raising either without the other either 413s legitimate saves or

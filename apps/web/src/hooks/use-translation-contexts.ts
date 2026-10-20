@@ -61,8 +61,8 @@ export function resolveContext(
  *
  * The glossary travels as the stored `{vi, en}` pairs, UNTOUCHED. Which side is
  * the source is resolved server-side in the prompt builder, because only the
- * session knows its direction — and the extension runs two sessions with
- * opposite directions off one selection.
+ * session knows its language pair — and the extension runs two sessions with
+ * opposite pairs off one selection.
  */
 export function toHints(context: TranslationContext | null): TranslationHints | undefined {
   if (!context) return undefined;

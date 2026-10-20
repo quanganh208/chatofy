@@ -4,15 +4,15 @@ import {
   type TurnKeyedAction,
   type TurnKeyedTranscript,
 } from '@chatofy/realtime-client';
-import { directionLanguages } from '@chatofy/types';
+import { DEFAULT_LANGUAGE_PAIR, reversePair, type LanguagePair } from '@chatofy/types';
 import type { TranscriptLine } from './messages';
 
 /**
- * Both directions' turns, merged into one thing to read.
+ * Both legs' turns, merged into one thing to read.
  *
- * Two problems live here that neither direction's reducer can solve alone.
+ * Two problems live here that neither leg's reducer can solve alone.
  *
- * The first is ORDER. Each direction keeps its own turn-keyed transcript, and
+ * The first is ORDER. Each leg keeps its own turn-keyed transcript, and
  * concatenating them produces two monologues rather than a conversation — every
  * sentence the user said below every sentence said to them. The turn segments
  * carry no timestamp, so order is recovered from the only clock available here:
@@ -20,49 +20,66 @@ import type { TranscriptLine } from './messages';
  * because a turn is created when its speech starts.
  *
  * The second is LIFETIME. The transcript outlives the sessions. A dropped socket
- * ends a direction, and if its lines lived inside that direction's state the
+ * ends a leg, and if its lines lived inside that leg's state the
  * meeting's history would vanish from the overlay at the exact moment something
  * went wrong — leaving the user with an error and no record of what was said.
  * These are cleared when a new capture begins, and at no other time.
  */
 
-/** Lines kept per direction. The overlay is a window, not an archive. */
+/** Lines kept per leg. The overlay is a window, not an archive. */
 const RETAINED_TURNS = 20;
 
-type Direction = 'inbound' | 'outbound';
+type MeetingLeg = 'inbound' | 'outbound';
 
-const ORIGIN: Record<Direction, TranscriptLine['origin']> = {
+const ORIGIN: Record<MeetingLeg, TranscriptLine['origin']> = {
   inbound: 'them',
   outbound: 'me',
 };
 
 export class MeetingTranscript {
-  private readonly state: Record<Direction, TurnKeyedTranscript> = {
+  private readonly state: Record<MeetingLeg, TurnKeyedTranscript> = {
     inbound: initialTurnKeyedTranscript,
     outbound: initialTurnKeyedTranscript,
+  };
+
+  /**
+   * Which pair each side is translated by, set by {@link clear}.
+   *
+   * Held here because a finished segment no longer names its pair, and the
+   * overlay shows exactly one translation per line: the target of the side that
+   * said it. The default is a placeholder — a capture clears with its own pair
+   * before either side can apply a turn.
+   */
+  private pairs: Record<MeetingLeg, LanguagePair> = {
+    inbound: DEFAULT_LANGUAGE_PAIR,
+    outbound: reversePair(DEFAULT_LANGUAGE_PAIR),
   };
 
   /** First sight of each turn, which is the order the turns were spoken in. */
   private readonly firstSeen = new Map<string, number>();
   private seq = 0;
 
-  apply(direction: Direction, action: TurnKeyedAction): void {
-    this.state[direction] = turnKeyedTranscriptReducer(this.state[direction], action);
+  apply(leg: MeetingLeg, action: TurnKeyedAction): void {
+    this.state[leg] = turnKeyedTranscriptReducer(this.state[leg], action);
   }
 
-  reset(direction: Direction): void {
-    this.state[direction] = initialTurnKeyedTranscript;
+  reset(leg: MeetingLeg): void {
+    this.state[leg] = initialTurnKeyedTranscript;
   }
 
-  /** A new meeting. The previous one's lines must not appear in it. */
-  clear(): void {
+  /**
+   * A new meeting, its side translated by `languagePair` and the user's by the
+   * reverse. The previous meeting's lines must not appear in it.
+   */
+  clear(languagePair: LanguagePair): void {
+    this.pairs = { inbound: languagePair, outbound: reversePair(languagePair) };
     this.state.inbound = initialTurnKeyedTranscript;
     this.state.outbound = initialTurnKeyedTranscript;
     this.firstSeen.clear();
     this.seq = 0;
   }
 
-  /** Turns still open, both directions. Non-zero means a translation is behind. */
+  /** Turns still open, both legs. Non-zero means a translation is behind. */
   get liveTurns(): number {
     return (
       Object.keys(this.state.inbound.live).length + Object.keys(this.state.outbound.live).length
@@ -73,25 +90,20 @@ export class MeetingTranscript {
   lines(): TranscriptLine[] {
     const lines: TranscriptLine[] = [];
 
-    for (const direction of ['inbound', 'outbound'] as const) {
-      const transcript = this.state[direction];
-      const origin = ORIGIN[direction];
-      // Trimmed per direction rather than after the merge: a single cut across
+    for (const leg of ['inbound', 'outbound'] as const) {
+      const transcript = this.state[leg];
+      const origin = ORIGIN[leg];
+      // Trimmed per leg rather than after the merge: a single cut across
       // both would drop whichever side had been quiet longest, so a talkative
       // user would slowly erase the meeting.
       for (const segment of transcript.turns.slice(-RETAINED_TURNS)) {
-        // Read out of the language-keyed map rather than the pre-fan-out
-        // `targetText`: a mixed turn's map can carry more than one entry, and
-        // this overlay shows exactly one side's translation — the language the
-        // segment's own declared direction names as the target. Falls back to
-        // `targetText` for a segment a rolled-back server sent (the wire schema
-        // that parses it already fills this key from that same field, so the
-        // fallback is unreachable in practice, not a second source of truth).
-        const target = directionLanguages(segment.direction).target;
+        // A mixed turn's map can carry more than one entry, and this overlay
+        // shows exactly one: the target of the pair this side is translated by.
+        const target = this.pairs[leg].target;
         lines.push({
           sessionId: segment.sessionId,
           sourceText: segment.sourceText,
-          targetText: segment.translations[target] ?? segment.targetText,
+          targetText: segment.translations[target] ?? '',
           final: true,
           origin,
         });

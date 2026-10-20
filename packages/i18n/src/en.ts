@@ -213,12 +213,12 @@ export const en = {
   'web.translate.registerNeutral': 'Neutral',
   'web.translate.registerFormal': 'Formal',
   'web.translate.registerCasual': 'Casual',
-  'web.translate.direction': 'Direction',
-  'web.translate.directionSource': 'Source',
-  'web.translate.directionTarget': 'Translation',
+  'web.translate.languagePair': 'Languages',
+  'web.translate.languagePairSource': 'Source',
+  'web.translate.languagePairTarget': 'Translation',
   // Interpolated, because the accessible name has to say what pressing it DOES:
   // "swap" alone is a verb with no object.
-  'web.translate.directionSwap': 'Swap direction — translate {from} into {to}',
+  'web.translate.languagePairSwap': 'Swap languages — translate {from} into {to}',
   'web.translate.voiceDefault': 'Default',
   'web.translate.voiceListFailed':
     'Could not load the voice list. The gender choice above still applies.',
@@ -346,7 +346,7 @@ export const en = {
   // ---- web.languageName / web.languageShort: a registry language's name in
   // THIS locale ----
   //
-  // Keyed by code rather than by direction, unlike `web.history.direction*`
+  // Keyed by code rather than by pair, unlike `web.history.languagePair*`
   // below: a history row or a glossary column names one language at a time, and
   // keying by code is what makes adding a language a data change here rather
   // than a new pair of keys. Distinct from `common.language.*`, which names the
@@ -379,14 +379,14 @@ export const en = {
   'web.history.turnCount': '{count} lines',
   'web.history.turnCountOne': '1 line',
   'web.history.duration': '{minutes} min',
-  // `direction` is the ACCESSIBLE name; `directionShort` is what is drawn on a
+  // `languagePair` is the ACCESSIBLE name; `languagePairShort` is what is drawn on a
   // row. "Vietnamese → English" is 21 characters printed once per row, which at
   // eight rows is the loudest thing on a screen whose subject is the previews.
   // Both take the language names as `{from}`/`{to}` — see `web.languageName.*`
-  // and `web.languageShort.*` above — rather than naming a direction, which is
+  // and `web.languageShort.*` above — rather than naming a pair, which is
   // what lets a third language reuse the same two templates.
-  'web.history.direction': '{from} → {to}',
-  'web.history.directionShort': '{from} → {to}',
+  'web.history.languagePair': '{from} → {to}',
+  'web.history.languagePairShort': '{from} → {to}',
   'web.history.minutesReady': 'Minutes',
   'web.history.cancel': 'Cancel',
   'web.history.delete': 'Delete',
@@ -425,7 +425,7 @@ export const en = {
   // out loud — and "where a new conversation starts from" is it.
   'web.preferences.conversation': 'Defaults for new conversations',
   'web.preferences.conversationHint':
-    'A new conversation starts from these. While one is running you change what you can on the Translate page — direction and voice stay fixed until it ends.',
+    'A new conversation starts from these. While one is running you change what you can on the Translate page — languages and voice stay fixed until it ends.',
   // AI Context — the named library the translator is told about a KIND of
   // conversation from. Authored here; picked on Translate and in the extension.
   //

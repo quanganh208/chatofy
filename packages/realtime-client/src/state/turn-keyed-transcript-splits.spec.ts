@@ -15,11 +15,9 @@ const segment = (sessionId: string, sourceText: string): TranscriptSegment => ({
   id: `id-${sessionId}`,
   sessionId,
   speakerRole: 'speaker_a',
-  direction: 'en_to_vi',
   sourceLanguages: ['en'],
   translations: { vi: `<${sourceText}>` },
   sourceText,
-  targetText: `<${sourceText}>`,
   audioUrl: null,
   createdAt: '2026-09-28T00:00:00.000Z',
 });
@@ -67,7 +65,7 @@ describe('a turn split where the voice changed', () => {
         sessionId: 't1',
         text: 'Two circles yeah in',
         speaker: 'speaker_a',
-        direction: 'en_to_vi',
+        languagePair: { source: 'en', target: 'vi' },
       },
       piece('t1', 0, 'Two circles?'),
     );

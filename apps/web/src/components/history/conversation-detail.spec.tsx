@@ -35,7 +35,6 @@ const { LocaleProvider } = await import('@/i18n/provider');
 
 const conversation: Conversation = {
   conversationId: 'c-1',
-  direction: 'vi_to_en',
   languages: ['vi', 'en'],
   startedAt: '2026-09-03T10:00:00.000Z',
   endedAt: '2026-09-03T10:11:00.000Z',
@@ -52,7 +51,6 @@ const conversation: Conversation = {
       displayText: null,
       sourceLanguages: ['vi'],
       translations: { en: 'hello' },
-      targetText: 'hello',
       offsetMs: null,
     },
   ],

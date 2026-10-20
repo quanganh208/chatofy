@@ -4,16 +4,16 @@ import {
   type LiveSessionDeps,
   type PlaybackSink,
 } from '@chatofy/realtime-client';
-import type { TranslationDirection, TranslationHints } from '@chatofy/types';
-import type { DirectionSessionDeps } from './direction-session';
-import type { DirectionRunner } from './meeting-capture';
+import type { LanguagePair, TranslationHints } from '@chatofy/types';
+import type { LanguagePairSessionDeps } from './language-pair-session';
+import type { LegRunner } from './meeting-capture';
 import { SoundingSink } from './sounding-sink';
 
 /**
- * One direction of the meeting, translated by the continuous backend.
+ * One leg of the meeting, translated by the continuous backend.
  *
- * A sibling of `createDirectionSession`, never a mode inside it. It presents the
- * same {@link DirectionRunner} face, so `MeetingCapture` drives either without
+ * A sibling of `createLanguagePairSession`, never a mode inside it. It presents the
+ * same {@link LegRunner} face, so `MeetingCapture` drives either without
  * knowing which it holds — the ducking, the microphone gate, the echo monitor
  * and the teardown ordering are all written once, against that interface.
  *
@@ -33,21 +33,21 @@ import { SoundingSink } from './sounding-sink';
  *   meeting back up.
  *
  *   TEXT arrives as deltas under one session id that lasts the whole meeting,
- *   so it appends to a single line per direction instead of opening a turn per
+ *   so it appends to a single line per leg instead of opening a turn per
  *   sentence. The line is capped in the reducer.
  */
 
 /**
- * The transcript key this direction's line lives under.
+ * The transcript key this leg's line lives under.
  *
  * Synthetic, and NOT the server's session id, for two reasons. It exists from
  * construction, so a delta can never arrive before there is a line to put it on.
- * And `MeetingTranscript` orders both directions through one `firstSeen` map
- * keyed by this id, so the two directions must never collide — they translate
+ * And `MeetingTranscript` orders both legs through one `firstSeen` map
+ * keyed by this id, so the two legs must never collide — they translate
  * opposite ways, which is exactly what makes this unique.
  */
-function transcriptKey(direction: TranslationDirection): string {
-  return `live:${direction}`;
+function transcriptKey(pair: LanguagePair): string {
+  return `live:${pair.source}-${pair.target}`;
 }
 
 /**
@@ -56,17 +56,17 @@ function transcriptKey(direction: TranslationDirection): string {
  * Same split the rest of `src/` keeps and for the same reason: what is worth
  * testing here is the wiring between a sounding queue, a duck and a teardown,
  * and none of that is reachable from a test if constructing the class reaches
- * for `AudioWorkletNode` and `WebSocket`. `createDirectionSession` supplies the
+ * for `AudioWorkletNode` and `WebSocket`. `createLanguagePairSession` supplies the
  * real ones; it is the untested layer by design.
  */
-export interface LiveDirectionBrowser {
+export interface LiveLanguagePairBrowser {
   createWorkletNode: (context: AudioContext) => AudioWorkletNode;
   createSocket: LiveSessionDeps['createSocket'];
   /** The playback leaf for audio that plays on THIS machine. */
   createQueue: (context: AudioContext, onDrained: () => void) => PlaybackSink;
 }
 
-export class LiveDirectionSession implements DirectionRunner {
+export class LiveLanguagePairSession implements LegRunner {
   private readonly session: LiveSession;
   private readonly mic: MicrophoneGraph;
   private readonly sink: SoundingSink;
@@ -75,10 +75,10 @@ export class LiveDirectionSession implements DirectionRunner {
   private stopped = false;
 
   constructor(
-    private readonly deps: DirectionSessionDeps,
-    browser: LiveDirectionBrowser,
+    private readonly deps: LanguagePairSessionDeps,
+    browser: LiveLanguagePairBrowser,
   ) {
-    this.key = transcriptKey(deps.direction);
+    this.key = transcriptKey(deps.languagePair);
     this.sink = this.buildSink(browser);
 
     this.mic = new MicrophoneGraph({
@@ -89,7 +89,7 @@ export class LiveDirectionSession implements DirectionRunner {
       createWorkletNode: browser.createWorkletNode,
       workletUrl: deps.workletUrl,
       // The context carries the meeting's own passthrough and the other
-      // direction. Closing it here would silence the meeting permanently on
+      // leg. Closing it here would silence the meeting permanently on
       // something as ordinary as this socket dropping.
       ownsAudioResources: false,
     });
@@ -106,9 +106,9 @@ export class LiveDirectionSession implements DirectionRunner {
         onTargetText: (delta) => this.appendText('target', delta),
         onError: (message) => deps.onError(message),
         onEnded: () => {
-          // Suppressed after our own stop: `MeetingCapture.stopDirection` has
+          // Suppressed after our own stop: `MeetingCapture.stopLeg` has
           // already cleared its slot, and reporting again would have the inbound
-          // direction tear down a capture that is mid-teardown.
+          // leg tear down a capture that is mid-teardown.
           if (!this.stopped) deps.onStopped();
         },
       },
@@ -118,13 +118,13 @@ export class LiveDirectionSession implements DirectionRunner {
   /**
    * Where translated audio goes, and the one place `sounding` is derived.
    *
-   * Mirrors `createDirectionSession`: the outbound direction may ship samples
+   * Mirrors `createLanguagePairSession`: the outbound leg may ship samples
    * into the meeting page, everything else plays on this machine. Both are
    * wrapped so the gate and the duck learn when audio is actually audible —
    * a page sink finishes on a clock and has nothing to announce, so the wrapper
    * polls it.
    */
-  private buildSink(browser: LiveDirectionBrowser): SoundingSink {
+  private buildSink(browser: LiveLanguagePairBrowser): SoundingSink {
     const report = (sounding: boolean) => {
       this.deps.onSounding(sounding);
       // The duck's signal too, unlike the cascade. See the class comment.
@@ -162,20 +162,17 @@ export class LiveDirectionSession implements DirectionRunner {
    * `hints` is unused for the same reason. This backend's socket protocol takes
    * no hint parameter at all, so there is nothing here to forward it to.
    * Accepting and ignoring it — rather than narrowing this class's own
-   * `start` signature — is what keeps one `DirectionRunner` shape across both
+   * `start` signature — is what keeps one `LegRunner` shape across both
    * backends; `MeetingCapture` drives either without knowing which it holds.
    */
-  async start(options: {
-    direction: TranslationDirection;
-    hints?: TranslationHints;
-  }): Promise<void> {
+  async start(options: { languagePair: LanguagePair; hints?: TranslationHints }): Promise<void> {
     this.deps.onReset();
     // Capture first, and unconditionally. Blocks captured before the upstream is
     // ready are HELD by `LiveSession`, not dropped — a user starts talking the
     // moment they press start, and discarding that window truncates the first
     // utterance of every conversation.
     await this.mic.open((block) => this.session.pushBlock(block));
-    await this.session.start(options.direction);
+    await this.session.start(options.languagePair);
   }
 
   /**

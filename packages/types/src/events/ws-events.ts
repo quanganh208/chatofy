@@ -2,10 +2,10 @@
 import { z } from 'zod';
 import { audioFrameSchema } from './audio-frame.js';
 import { speakerRoleSchema } from '../domain/session.js';
-import { translationDirectionSchema, translationMapSchema } from '../domain/languages.js';
+import { languagePairSchema, translationMapSchema } from '../domain/languages.js';
 import { UNSPACED_SCRIPT, unspacedWordCount } from '../domain/script-words.js';
 import {
-  transcriptSegmentWireSchema,
+  transcriptSegmentSchema,
   voiceGenderSchema,
   DEFAULT_VOICE_GENDER,
 } from '../domain/transcript.js';
@@ -120,13 +120,12 @@ const glossaryTermSchema = z
  * One dictionary entry: a term per language, present in at least two.
  *
  * Keyed BY LANGUAGE, not by role, and that is the load-bearing choice. The
- * extension translates one meeting in BOTH directions at once from ONE settings
- * object — `meeting-capture.ts` starts a session on `settings.direction` and
- * another on `reverseDirection(settings.direction)` — so a `{source, target}`
- * pair would be applied backwards in one of them, with nothing on screen to say
- * so. Which side is the source is a property of a SESSION, and this value knows
- * of no session; the prompt builder resolves it against the direction it is
- * given.
+ * extension translates one meeting both ways at once from ONE settings object —
+ * `meeting-capture.ts` starts a session on `settings.languagePair` and another
+ * on `reversePair(settings.languagePair)` — so a `{source, target}` entry would
+ * be applied backwards in one of them, with nothing on screen to say so. Which
+ * side is the source is a property of a SESSION, and this value knows of no
+ * session; the prompt builder resolves it against the pair it is given.
  *
  * A MAP over the registry (`translationMapSchema`), not a record over every
  * registry code: `z.record(languageCodeSchema, ...)` demands a value for EVERY
@@ -194,8 +193,8 @@ export type TranslationHints = z.infer<typeof translationHintsSchema>;
  * chain from growing a positional argument per setting.
  */
 export const sessionOptionsSchema = z.object({
-  // Canonical direction enum from the domain layer — do not inline the literals.
-  direction: translationDirectionSchema,
+  /** Which language is spoken and which it is translated into. */
+  languagePair: languagePairSchema,
   /** Defaulted rather than required, so a client may omit it entirely. */
   voiceGender: voiceGenderSchema.default(DEFAULT_VOICE_GENDER),
   /**
@@ -246,7 +245,7 @@ export const sessionOptionsSchema = z.object({
    * A specific voice, as an OPAQUE token the running backend published.
    *
    * One value, not one per language: the server already knows which language it
-   * is about to speak from `direction`, so sending both would let the two
+   * is about to speak from `languagePair`, so sending both would let the two
    * disagree. Clients that remember a choice per language pick the right one
    * before sending.
    *
@@ -309,7 +308,7 @@ export const sessionOptionsSchema = z.object({
    * client that never asks is never sent one, so no such tab can be reached.
    *
    * Applies to whichever language is being SPOKEN, not to Vietnamese: on
-   * `en_to_vi` the thing repaired is the English transcript.
+   * en→vi the thing repaired is the English transcript.
    */
   repairDisplay: z.boolean().optional(),
 
@@ -531,7 +530,7 @@ const serverTranscriptPartialSchema = z.object({
   sessionId: z.string(),
   text: z.string(),
   speaker: speakerRoleSchema,
-  direction: translationDirectionSchema,
+  languagePair: languagePairSchema,
 });
 
 /**
@@ -572,7 +571,7 @@ const serverTranscriptDeltaSchema = z.object({
    */
   reanchors: z.number().int().nonnegative(),
   speaker: speakerRoleSchema,
-  direction: translationDirectionSchema,
+  languagePair: languagePairSchema,
 });
 
 /**
@@ -593,7 +592,7 @@ const serverTranslationPartialSchema = z.object({
   /** Which turn this guess belongs to. */
   sessionId: z.string(),
   text: z.string(),
-  direction: translationDirectionSchema,
+  languagePair: languagePairSchema,
 });
 
 /**
@@ -630,7 +629,7 @@ const serverTranslationDeltaSchema = z.object({
    * and append only while it stays the same.
    */
   generation: z.number().int().nonnegative(),
-  direction: translationDirectionSchema,
+  languagePair: languagePairSchema,
 });
 
 const serverTranscriptFinalSchema = z.object({
@@ -647,15 +646,8 @@ const serverTranscriptFinalSchema = z.object({
   sessionId: z.string(),
   /**
    * Full TranscriptSegment record persisted to DB — canonical domain schema.
-   *
-   * Parsed here through the WIRE variant, not the strict one: this event
-   * reaches `realtime-client` (and through it, web and the extension), and a
-   * segment sent before `sourceLanguages`/`translations` existed — an old API
-   * behind a rolled-forward tab, or the reverse — must still parse. See
-   * `transcriptSegmentWireSchema` for why the server that BUILDS this record
-   * does not get the same leniency.
    */
-  segment: transcriptSegmentWireSchema,
+  segment: transcriptSegmentSchema,
   /**
    * A readable rendering of `segment.sourceText`, present only when it differs.
    *

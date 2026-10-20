@@ -54,7 +54,7 @@ export class AiProvidersFactory {
 
   /**
    * Every provider handles both languages, so the trio no longer depends on
-   * the translation direction — each backend is told the language per call.
+   * the language pair — each backend is told the language per call.
    */
   makeProviders(): PipelineProviders {
     const sttName = this.config.get('AI_STT_PROVIDER', { infer: true });

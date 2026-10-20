@@ -67,9 +67,9 @@ export class TurnTimeline {
     this.speculationUsed = used;
   }
 
-  markTranslated(targetText: string): void {
+  markTranslated(translation: string): void {
     this.translatedAt = this.now();
-    this.targetChars = targetText.length;
+    this.targetChars = translation.length;
   }
 
   /**
@@ -109,7 +109,7 @@ export class TurnTimeline {
     const fallback = this.translatedAt ?? this.now();
     return {
       sessionId: session.sessionId,
-      direction: session.direction,
+      languagePair: session.languagePair,
       completed,
       reason,
       // Nullable because a turn can end before any frame fixed a sample rate —

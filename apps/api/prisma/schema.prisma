@@ -194,10 +194,8 @@ model Conversation {
   //
   // Replaces the single `direction` column ('vi_to_en' | 'en_to_vi'): a
   // direction only ever named two languages in a fixed order, and an array
-  // says the same thing without hard-coding the count at two. The legacy field
-  // is derived back from this on every read (`legacyDirectionOf`,
-  // `@chatofy/types`) rather than stored twice, and read by the history list
-  // card either way.
+  // says the same thing without hard-coding the count at two. Nothing derives
+  // the old string back on read: the API returns this column as stored.
   languages       String[]
   // Reported by the client and DISPLAYED: endedAt - startedAt - pausedMs is the
   // duration on a history card. Not the sort key — a browser clock can lie — and
@@ -314,10 +312,11 @@ model ConversationTurn {
   // after zod has already checked every value's length, so no client ever puts
   // an arbitrary key or an oversized value in this JSON.
   translations   Json
-  // The legacy `targetText` this replaces: a SINGLE translation, chosen by
-  // `primaryTranslation` (`@chatofy/types`) from `translations` on every read,
-  // never stored — a column that duplicated one of `translations`' own values
-  // could disagree with it the moment either changed. The dropped column's
+  // The legacy `targetText` this replaces was a SINGLE translation. Which one
+  // a reader shows is now picked at render time (`primaryTranslation`,
+  // `@chatofy/types`) and never stored or returned — a column that duplicated
+  // one of `translations`' own values could disagree with it the moment either
+  // changed. The dropped column's
   // last stored values ARE what `translations` and `sourceLanguages` were
   // backfilled from (see the migration).
   //
@@ -455,9 +454,9 @@ model TranslationContext {
 // not one column per language: a fixed-column table needs a migration to add a
 // language, and this one already carries the registry's own openness. There is
 // no fold column and no uniqueness on the terms, deliberately: which side is the
-// SOURCE depends on the direction the session runs in, the prompt builder folds
-// that side, and a row knows of no session. A unique index here would have to
-// pick a direction and would be wrong half the time.
+// SOURCE depends on the language pair the session runs in, the prompt builder
+// folds that side, and a row knows of no session. A unique index here would have
+// to pick a side and would be wrong half the time.
 model GlossaryTerm {
   id        String             @id @default(cuid())
   contextId String

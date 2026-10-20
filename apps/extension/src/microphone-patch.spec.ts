@@ -378,7 +378,7 @@ describe('MicrophonePatch', () => {
 
   describe('whether the client is transmitting', () => {
     /**
-     * The one privacy rule of this direction: a user who mutes in the meeting
+     * The one privacy rule of this leg: a user who mutes in the meeting
      * client must stop being captured. The mute lands on the track the client is
      * transmitting, which is not necessarily the newest one composed.
      */

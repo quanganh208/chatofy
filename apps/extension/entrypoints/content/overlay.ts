@@ -1,12 +1,14 @@
 import {
   LANGUAGES,
-  TRANSLATION_DIRECTIONS,
-  directionLanguages,
-  type TranslationDirection,
+  LANGUAGE_CODES,
+  allLanguagePairs,
+  languagePairSchema,
+  samePair,
+  type LanguagePair,
   type VoiceGender,
 } from '@chatofy/types';
 import type { OverlayState } from '../../src/messages';
-import { DEFAULT_CAPTURE_DIRECTION } from '../../src/settings';
+import { DEFAULT_CAPTURE_PAIR } from '../../src/settings';
 import { visibleOverlayPart } from '../../src/site-enablement';
 import { brandMark } from '@chatofy/ui';
 import { OVERLAY_STYLE } from './overlay-styles';
@@ -47,7 +49,7 @@ import { OVERLAY_STYLE } from './overlay-styles';
  */
 
 /**
- * What the outbound direction is doing, in words that name the next step.
+ * What the outbound leg is doing, in words that name the next step.
  *
  * The unpatched case is the one worth spelling out. A page that was already open
  * when the patch was switched on cannot be given it retroactively, and the fix is
@@ -94,6 +96,23 @@ function select(
     node.append(option);
   }
   return node;
+}
+
+/**
+ * A pair as a select option value, which has to be a string.
+ *
+ * Private to this overlay and never sent anywhere: the message to the worker
+ * carries the decoded pair, so this encoding is not a second wire format.
+ */
+function encodePairOption(pair: LanguagePair): string {
+  return `${pair.source}:${pair.target}`;
+}
+
+/** The inverse of {@link encodePairOption}, checked against the registry. */
+function decodePairOption(value: string): LanguagePair | null {
+  const [source, target] = value.split(':');
+  const parsed = languagePairSchema.safeParse({ source, target });
+  return parsed.success ? parsed.data : null;
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -215,7 +234,7 @@ export class Overlay {
   private readonly panel: HTMLDivElement;
   private readonly toggle: HTMLButtonElement;
   private readonly hint: HTMLSpanElement;
-  private readonly direction: HTMLSelectElement;
+  private readonly languagePair: HTMLSelectElement;
   private readonly voice: HTMLSelectElement;
   private readonly outbound: HTMLInputElement;
 
@@ -317,7 +336,7 @@ export class Overlay {
     this.hint = document.createElement('span');
     this.hint.className = 'hint';
 
-    // Direction and voice live here as well as in the popup, and that is not
+    // The language pair and voice live here as well as in the popup, and that is not
     // duplication for its own sake: a call in its own window has no toolbar, so the
     // popup can only be opened from some other tab in some other window. Without
     // these, the only thing reachable mid-call would be start and stop.
@@ -326,23 +345,22 @@ export class Overlay {
     // call and has already had to fight for the vertical space its Stop row needs;
     // a second stacked row would take that back. A select states both languages in
     // one line and stays reachable from a keyboard.
-    this.direction = select(
+    this.languagePair = select(
       'Translate',
       // The default first, then the registry's order for the rest: the option
-      // a fresh capture already runs (`DEFAULT_CAPTURE_DIRECTION`, `en_to_vi`)
-      // is the one a reader expects to see first. Named rather than got by
-      // reversing the registry, which only puts it first while there are two
-      // languages.
+      // a fresh capture already runs (`DEFAULT_CAPTURE_PAIR`) is the one a
+      // reader expects to see first. Named rather than got by reversing the
+      // registry, which only puts it first while there are two languages.
       [
-        DEFAULT_CAPTURE_DIRECTION,
-        ...TRANSLATION_DIRECTIONS.filter((direction) => direction !== DEFAULT_CAPTURE_DIRECTION),
-      ].map((direction) => {
-        const { source, target } = directionLanguages(direction);
-        return [
-          direction,
-          `${LANGUAGES[source].englishName} into ${LANGUAGES[target].englishName}`,
-        ] as const;
-      }),
+        DEFAULT_CAPTURE_PAIR,
+        ...allLanguagePairs(LANGUAGE_CODES).filter((pair) => !samePair(pair, DEFAULT_CAPTURE_PAIR)),
+      ].map(
+        (pair) =>
+          [
+            encodePairOption(pair),
+            `${LANGUAGES[pair.source].englishName} into ${LANGUAGES[pair.target].englishName}`,
+          ] as const,
+      ),
     );
     this.voice = select('Voice', [
       ['female', 'Female voice'],
@@ -363,21 +381,25 @@ export class Overlay {
     // beside it.
     const settingsRow = document.createElement('div');
     settingsRow.className = 'settings-row';
-    settingsRow.append(this.direction, this.voice);
+    settingsRow.append(this.languagePair, this.voice);
 
     controls.append(this.toggle, settingsRow, outboundLabel, this.hint);
 
-    for (const input of [this.direction, this.voice, this.outbound]) {
+    for (const input of [this.languagePair, this.voice, this.outbound]) {
       // Sent to the worker rather than written here. It owns the store and is the
       // only context that can reopen a running capture so the change takes effect
       // mid-call; it also keeps the shared types package out of this bundle, which
       // is injected into every meeting page.
       input.addEventListener('change', () => {
+        const languagePair = decodePairOption(this.languagePair.value);
+        // Unreachable while every option was built by `encodePairOption`; a
+        // value that does not decode is not a pair to store.
+        if (!languagePair) return;
         void chrome.runtime
           .sendMessage({
             to: 'worker',
             type: 'settings',
-            direction: this.direction.value as TranslationDirection,
+            languagePair,
             voiceGender: this.voice.value as VoiceGender,
             outbound: this.outbound.checked,
           })
@@ -440,7 +462,7 @@ export class Overlay {
     // Whatever the worker says is stored, wherever it was last changed from — this
     // overlay or the popup.
     if (state.settings) {
-      this.direction.value = state.settings.direction;
+      this.languagePair.value = encodePairOption(state.settings.languagePair);
       this.voice.value = state.settings.voiceGender;
       this.outbound.checked = state.settings.outbound;
     }
@@ -466,7 +488,7 @@ export class Overlay {
   }
 
   /**
-   * One line per failing direction.
+   * One line per failing leg.
    *
    * A single line cannot say that the meeting is being translated fine while
    * nothing the user says reaches anyone.

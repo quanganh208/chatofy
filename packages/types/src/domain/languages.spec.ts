@@ -1,20 +1,19 @@
-import { describe, expect, expectTypeOf, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_TRANSLATION_DIRECTION,
-  TRANSLATION_DIRECTIONS,
-  allDirections,
-  conversationLanguagesOf,
+  DEFAULT_LANGUAGE_PAIR,
+  LANGUAGE_CODES,
+  allLanguagePairs,
   conversationLanguagesSchema,
-  directionLanguages,
-  directionOf,
-  reverseDirection,
+  languagePairOf,
+  languagePairSchema,
+  pairLanguages,
+  reversePair,
+  samePair,
   sourceLanguagesSchema,
   speakerRoleFor,
   toLanguageCode,
-  translationDirectionSchema,
   translationMapSchema,
   translationTargets,
-  type TranslationDirection,
 } from './languages.js';
 import { z } from 'zod';
 
@@ -22,52 +21,57 @@ import { z } from 'zod';
 // it to the registry: these cases are what keep "adding a language" a data change.
 const THREE = ['vi', 'en', 'ja'] as const;
 
-describe('directions', () => {
-  it('the registry generates every ordered pair of vi, en and zh', () => {
-    expect(new Set(TRANSLATION_DIRECTIONS)).toEqual(
-      new Set(['vi_to_en', 'vi_to_zh', 'en_to_vi', 'en_to_zh', 'zh_to_vi', 'zh_to_en']),
-    );
-    expectTypeOf<TranslationDirection>().toEqualTypeOf<
-      'vi_to_en' | 'vi_to_zh' | 'en_to_vi' | 'en_to_zh' | 'zh_to_vi' | 'zh_to_en'
-    >();
-  });
-
-  it('keeps the two directions the wire already carried, source-major in registry order', () => {
-    expect(TRANSLATION_DIRECTIONS.slice(0, 1)).toEqual(['vi_to_en']);
-    expect(TRANSLATION_DIRECTIONS).toContain('en_to_vi');
+describe('language pairs', () => {
+  it('the registry yields every ordered pair of vi, en and zh, source-major', () => {
+    expect(allLanguagePairs(LANGUAGE_CODES)).toEqual([
+      { source: 'vi', target: 'en' },
+      { source: 'vi', target: 'zh' },
+      { source: 'en', target: 'vi' },
+      { source: 'en', target: 'zh' },
+      { source: 'zh', target: 'vi' },
+      { source: 'zh', target: 'en' },
+    ]);
   });
 
   it('three languages generate every ordered pair and no self-pair', () => {
-    const directions = allDirections(THREE);
-    expect(directions).toHaveLength(6);
-    expect(directions).not.toContain('vi_to_vi');
-    expect(directions).toContain('ja_to_en');
+    const pairs = allLanguagePairs(THREE);
+    expect(pairs).toHaveLength(6);
+    expect(pairs.some((pair) => pair.source === pair.target)).toBe(false);
+    expect(pairs).toContainEqual({ source: 'ja', target: 'en' });
   });
 
-  it('directionOf and directionLanguages round-trip', () => {
-    for (const direction of allDirections(THREE)) {
-      const { source, target } = directionLanguages(direction);
-      expect(directionOf(source, target)).toBe(direction);
-    }
+  it('reversePair swaps both ways', () => {
+    expect(reversePair(languagePairOf('vi', 'en'))).toEqual({ source: 'en', target: 'vi' });
+    expect(reversePair(languagePairOf<(typeof THREE)[number]>('ja', 'vi'))).toEqual({
+      source: 'vi',
+      target: 'ja',
+    });
   });
 
-  it('reverseDirection swaps both ways', () => {
-    expect(reverseDirection('vi_to_en')).toBe('en_to_vi');
-    expect(reverseDirection('en_to_vi')).toBe('vi_to_en');
-    expect(reverseDirection(directionOf<(typeof THREE)[number]>('ja', 'vi'))).toBe('vi_to_ja');
+  it('samePair compares by value, which === on two pairs never does', () => {
+    const a = languagePairOf('vi', 'en');
+    const b = languagePairOf('vi', 'en');
+    expect(a === b).toBe(false);
+    expect(samePair(a, b)).toBe(true);
+    expect(samePair(a, reversePair(a))).toBe(false);
   });
 
   it('the default is Vietnamese into English', () => {
-    expect(DEFAULT_TRANSLATION_DIRECTION).toBe('vi_to_en');
+    expect(DEFAULT_LANGUAGE_PAIR).toEqual({ source: 'vi', target: 'en' });
   });
 
-  it('an existing payload direction still parses', () => {
-    expect(translationDirectionSchema.parse('en_to_vi')).toBe('en_to_vi');
-    expect(translationDirectionSchema.safeParse('vi_to_vi').success).toBe(false);
+  it('the schema takes two distinct registry languages', () => {
+    expect(languagePairSchema.parse({ source: 'zh', target: 'vi' })).toEqual({
+      source: 'zh',
+      target: 'vi',
+    });
+    expect(languagePairSchema.safeParse({ source: 'vi', target: 'vi' }).success).toBe(false);
+    expect(languagePairSchema.safeParse({ source: 'xx', target: 'vi' }).success).toBe(false);
+    expect(languagePairSchema.safeParse('vi_to_en').success).toBe(false);
   });
 
   it('the conversation languages put the declared source first', () => {
-    expect(conversationLanguagesOf('en_to_vi')).toEqual(['en', 'vi']);
+    expect(pairLanguages(languagePairOf('en', 'vi'))).toEqual(['en', 'vi']);
   });
 });
 

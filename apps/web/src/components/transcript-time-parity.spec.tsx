@@ -64,15 +64,17 @@ const captures = (...rows: [string, number, boolean, number, number?][]): Captur
     ]),
   );
 
-const segment = (sessionId: string, sourceText: string, targetText: string): TranscriptSegment => ({
+const segment = (
+  sessionId: string,
+  sourceText: string,
+  translation: string,
+): TranscriptSegment => ({
   id: `seg-${sessionId}`,
   sessionId,
   speakerRole: 'speaker_a',
-  direction: 'vi_to_en',
   sourceLanguages: ['vi'],
-  translations: { en: targetText },
+  translations: { en: translation },
   sourceText,
-  targetText,
   audioUrl: null,
   createdAt: '2026-09-17T01:00:00.000Z',
 });

@@ -141,9 +141,9 @@ describe('LiveTranslateSessionService', () => {
   });
 
   describe('starting', () => {
-    it('opens the upstream with the direction and format the backend needs', async () => {
+    it('opens the upstream with the language pair and format the backend needs', async () => {
       const socket = new FakeSocket();
-      await service.start(socket, 'en_to_vi');
+      await service.start(socket, { source: 'en', target: 'vi' });
 
       expect(provider.upstreams[0]!.params).toMatchObject({
         sourceLanguage: 'en',
@@ -177,7 +177,7 @@ describe('LiveTranslateSessionService', () => {
       );
       const socket = new FakeSocket();
 
-      await isolated.start(socket, 'vi_to_en');
+      await isolated.start(socket, { source: 'vi', target: 'en' });
 
       expect(provider.upstreams).toHaveLength(0);
       expect(socket.events('server.live.error')[0]).toMatchObject({
@@ -188,19 +188,24 @@ describe('LiveTranslateSessionService', () => {
 
     // Gemini Live was never validated for Chinese, and the decision is to
     // refuse it rather than let it run unmeasured.
-    it.each(['vi_to_zh', 'zh_to_en', 'en_to_zh', 'zh_to_vi'] as const)(
-      'refuses %s before dialing anything or holding a slot',
-      async (direction) => {
+    it.each([
+      { source: 'vi', target: 'zh' },
+      { source: 'zh', target: 'en' },
+      { source: 'en', target: 'zh' },
+      { source: 'zh', target: 'vi' },
+    ] as const)(
+      'refuses $source→$target before dialing anything or holding a slot',
+      async (languagePair) => {
         const socket = new FakeSocket();
-        await service.start(socket, direction);
+        await service.start(socket, languagePair);
 
         expect(provider.upstreams).toHaveLength(0);
         expect(socket.events('server.live.error')[0]).toMatchObject({
-          code: 'unsupported_direction',
+          code: 'unsupported_language_pair',
         });
         expect(socket.events('server.live.ready')).toHaveLength(0);
         // No slot held: the same connection can start a supported pair at once.
-        await service.start(socket, 'en_to_vi');
+        await service.start(socket, { source: 'en', target: 'vi' });
         expect(provider.upstreams).toHaveLength(1);
         expect(socket.events('server.live.ready')).toHaveLength(1);
       },
@@ -208,8 +213,8 @@ describe('LiveTranslateSessionService', () => {
 
     it('refuses a second session on the same connection', async () => {
       const socket = new FakeSocket();
-      await service.start(socket, 'vi_to_en');
-      await service.start(socket, 'vi_to_en');
+      await service.start(socket, { source: 'vi', target: 'en' });
+      await service.start(socket, { source: 'vi', target: 'en' });
 
       expect(provider.upstreams).toHaveLength(1);
       expect(socket.events('server.live.error')[0]).toMatchObject({
@@ -228,9 +233,9 @@ describe('LiveTranslateSessionService', () => {
       const socket = new FakeSocket();
 
       const starts = [
-        service.start(socket, 'vi_to_en'),
-        service.start(socket, 'vi_to_en'),
-        service.start(socket, 'vi_to_en'),
+        service.start(socket, { source: 'vi', target: 'en' }),
+        service.start(socket, { source: 'vi', target: 'en' }),
+        service.start(socket, { source: 'vi', target: 'en' }),
       ];
       provider.resolveAll();
       await Promise.all(starts);
@@ -255,7 +260,7 @@ describe('LiveTranslateSessionService', () => {
         provider.holdDials();
         const socket = new FakeSocket();
 
-        const starting = service.start(socket, 'vi_to_en');
+        const starting = service.start(socket, { source: 'vi', target: 'en' });
         await vi.advanceTimersByTimeAsync(LIVE_DIAL_TIMEOUT_MS);
         await starting;
 
@@ -282,7 +287,7 @@ describe('LiveTranslateSessionService', () => {
         provider.holdDials();
         const socket = new FakeSocket();
 
-        const starting = service.start(socket, 'vi_to_en');
+        const starting = service.start(socket, { source: 'vi', target: 'en' });
         await vi.advanceTimersByTimeAsync(LIVE_DIAL_TIMEOUT_MS);
         await starting;
 
@@ -300,7 +305,9 @@ describe('LiveTranslateSessionService', () => {
       provider.holdDials();
       const sockets = Array.from({ length: 50 }, () => new FakeSocket());
 
-      const starts = sockets.map((socket) => service.start(socket, 'vi_to_en'));
+      const starts = sockets.map((socket) =>
+        service.start(socket, { source: 'vi', target: 'en' }),
+      );
       provider.resolveAll();
       await Promise.all(starts);
 
@@ -332,7 +339,7 @@ describe('LiveTranslateSessionService', () => {
         { record: () => undefined } as unknown as LiveSessionMetricsRecorder,
       );
       const socket = new FakeSocket();
-      await failed.start(socket, 'vi_to_en');
+      await failed.start(socket, { source: 'vi', target: 'en' });
 
       expect(socket.events('server.live.error')[0]).toMatchObject({
         code: 'upstream_unavailable',
@@ -349,7 +356,7 @@ describe('LiveTranslateSessionService', () => {
     it('closes the handle and writes one row when the session ends mid-dial', async () => {
       provider.holdDials();
       const socket = new FakeSocket();
-      const starting = service.start(socket, 'vi_to_en');
+      const starting = service.start(socket, { source: 'vi', target: 'en' });
 
       await service.stop(socket, 'client_stopped');
       provider.resolveAll();
@@ -365,7 +372,7 @@ describe('LiveTranslateSessionService', () => {
   describe('audio', () => {
     it('forwards every frame, including silent ones', async () => {
       const socket = new FakeSocket();
-      await service.start(socket, 'vi_to_en');
+      await service.start(socket, { source: 'vi', target: 'en' });
       for (let i = 0; i < 5; i += 1) await service.pushFrame(socket, frame());
 
       // Silence is how a model with no endpoint event learns the speaker
@@ -384,7 +391,7 @@ describe('LiveTranslateSessionService', () => {
     it('refuses audio while the upstream is still dialing', async () => {
       provider.holdDials();
       const socket = new FakeSocket();
-      const starting = service.start(socket, 'vi_to_en');
+      const starting = service.start(socket, { source: 'vi', target: 'en' });
 
       await service.pushFrame(socket, frame());
       expect(socket.events('server.live.error')[0]).toMatchObject({
@@ -397,7 +404,7 @@ describe('LiveTranslateSessionService', () => {
 
     it('refuses a rate the backend does not take', async () => {
       const socket = new FakeSocket();
-      await service.start(socket, 'vi_to_en');
+      await service.start(socket, { source: 'vi', target: 'en' });
       await service.pushFrame(socket, { ...frame(), sampleRate: 48000 });
 
       expect(socket.events('server.live.error')[0]).toMatchObject({
@@ -408,7 +415,7 @@ describe('LiveTranslateSessionService', () => {
 
     it('closes a session that exceeds its audio ceiling', async () => {
       const socket = new FakeSocket();
-      await service.start(socket, 'vi_to_en');
+      await service.start(socket, { source: 'vi', target: 'en' });
 
       const big = MAX_LIVE_SESSION_INPUT_BYTES + 1;
       await service.pushFrame(socket, frame(48000));
@@ -433,7 +440,7 @@ describe('LiveTranslateSessionService', () => {
      */
     it('clamps an oversized upstream error to what the contract allows', async () => {
       const socket = new FakeSocket();
-      await service.start(socket, 'vi_to_en');
+      await service.start(socket, { source: 'vi', target: 'en' });
 
       provider.upstreams[0]!.events.onError?.(
         new Error('x'.repeat(MAX_LIVE_ERROR_MESSAGE_CHARS * 3)),
@@ -457,7 +464,7 @@ describe('LiveTranslateSessionService', () => {
      */
     it('keeps an upstream warning off the wire and out of the session', async () => {
       const socket = new FakeSocket();
-      await service.start(socket, 'vi_to_en');
+      await service.start(socket, { source: 'vi', target: 'en' });
 
       provider.upstreams[0]!.events.onWarning?.(
         new Error('Gemini Live detected "pt", which is neither vi nor en'),
@@ -478,7 +485,7 @@ describe('LiveTranslateSessionService', () => {
       ['shutdown', async () => service.onModuleDestroy()],
     ])('writes exactly one row on %s', async (_label, close) => {
       const socket = new FakeSocket();
-      await service.start(socket, 'vi_to_en');
+      await service.start(socket, { source: 'vi', target: 'en' });
       await close(socket);
 
       expect(rows).toHaveLength(1);
@@ -488,7 +495,7 @@ describe('LiveTranslateSessionService', () => {
     /** Both paths race on a client that stops and immediately drops. */
     it('writes one row when two close paths race', async () => {
       const socket = new FakeSocket();
-      await service.start(socket, 'vi_to_en');
+      await service.start(socket, { source: 'vi', target: 'en' });
 
       await Promise.all([
         service.stop(socket, 'client_stopped'),
@@ -501,7 +508,7 @@ describe('LiveTranslateSessionService', () => {
 
     it('writes one row when the upstream hangs up', async () => {
       const socket = new FakeSocket();
-      await service.start(socket, 'vi_to_en');
+      await service.start(socket, { source: 'vi', target: 'en' });
 
       provider.upstreams[0]!.events.onClose?.('token expired');
       await Promise.resolve();
@@ -511,9 +518,9 @@ describe('LiveTranslateSessionService', () => {
       expect(socket.events('server.live.ended')).toHaveLength(1);
     });
 
-    it('counts detected languages that disagree with the direction', async () => {
+    it('counts detected languages that disagree with the pair source', async () => {
       const socket = new FakeSocket();
-      await service.start(socket, 'vi_to_en');
+      await service.start(socket, { source: 'vi', target: 'en' });
       const { events } = provider.upstreams[0]!;
 
       events.onSourceTranscript?.('xin chào', 'vi');
@@ -528,7 +535,7 @@ describe('LiveTranslateSessionService', () => {
 
     it('reports output duration at the rate the backend used', async () => {
       const socket = new FakeSocket();
-      await service.start(socket, 'vi_to_en');
+      await service.start(socket, { source: 'vi', target: 'en' });
 
       // 24000 bytes of 24 kHz mono pcm16 = 500 ms.
       provider.upstreams[0]!.events.onTranslatedAudio?.(
@@ -549,7 +556,7 @@ describe('LiveTranslateSessionService', () => {
      */
     it('closes a session that has gone quiet', async () => {
       const socket = new FakeSocket();
-      await service.start(socket, 'vi_to_en');
+      await service.start(socket, { source: 'vi', target: 'en' });
 
       expect(await service.sweepIdleSessions(Date.now())).toBe(0);
       const closed = await service.sweepIdleSessions(
@@ -566,7 +573,7 @@ describe('LiveTranslateSessionService', () => {
 
     it('leaves a session that is still sending audio alone', async () => {
       const socket = new FakeSocket();
-      await service.start(socket, 'vi_to_en');
+      await service.start(socket, { source: 'vi', target: 'en' });
       // Anchored BEFORE the frame, so the deadline is measured from no later
       // than the stamp the frame writes. Reading the clock afterwards instead
       // made the assertion depend on how long the frame took: the sweep fires
@@ -586,7 +593,7 @@ describe('LiveTranslateSessionService', () => {
     it('leaves a session that is still dialing alone', async () => {
       provider.holdDials();
       const socket = new FakeSocket();
-      const starting = service.start(socket, 'vi_to_en');
+      const starting = service.start(socket, { source: 'vi', target: 'en' });
 
       expect(
         await service.sweepIdleSessions(Date.now() + TURN_IDLE_TIMEOUT_MS + 1),
@@ -622,7 +629,7 @@ describe('LiveTranslateSessionService', () => {
       const svc = serviceWithKeys('k1,k2,k3');
       for (let i = 0; i < 4; i += 1) {
         const socket = new FakeSocket();
-        await svc.start(socket, 'vi_to_en');
+        await svc.start(socket, { source: 'vi', target: 'en' });
         await svc.stop(socket, 'client_stopped');
       }
       expect(provider.upstreams.map((u) => u.params.apiKey)).toEqual([
@@ -637,7 +644,7 @@ describe('LiveTranslateSessionService', () => {
     it('leaves the key unset when only one is configured', async () => {
       const svc = serviceWithKeys('solo');
       const socket = new FakeSocket();
-      await svc.start(socket, 'vi_to_en');
+      await svc.start(socket, { source: 'vi', target: 'en' });
       // Rotating over one key is that key; passing it explicitly would only add
       // a way for the service and the provider to disagree about it.
       expect(provider.upstreams[0]!.params.apiKey).toBeUndefined();
@@ -648,7 +655,7 @@ describe('LiveTranslateSessionService', () => {
       const svc = serviceWithKeys('k1, ,k2,');
       for (let i = 0; i < 2; i += 1) {
         const socket = new FakeSocket();
-        await svc.start(socket, 'vi_to_en');
+        await svc.start(socket, { source: 'vi', target: 'en' });
         await svc.stop(socket, 'client_stopped');
       }
       expect(provider.upstreams.map((u) => u.params.apiKey)).toEqual([

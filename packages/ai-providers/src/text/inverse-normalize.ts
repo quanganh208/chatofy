@@ -13,7 +13,7 @@
 // Everything that is a fact about a LANGUAGE — which words are numbers, what a
 // date looks like, whether a scale word is written or spoken — lives in
 // `vietnamese-inverse-normalize.ts` and `english-inverse-normalize.ts`. The
-// display path is bidirectional and always was, so both directions get one.
+// display path serves either source language and always did, so each gets one.
 //
 // ## The rule the whole design turns on
 //

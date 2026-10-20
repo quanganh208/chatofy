@@ -14,7 +14,7 @@ const handleOf = (id = 'upstream-1'): StreamHandle => ({
 });
 
 const sessionOf = () =>
-  new LiveSession('sess-1', 'vi_to_en', 'vi', START, provider);
+  new LiveSession('sess-1', { source: 'vi', target: 'en' }, START, provider);
 
 describe('LiveSession', () => {
   it('starts with no upstream and idles from the moment it was created', () => {
@@ -50,7 +50,7 @@ describe('LiveSession', () => {
       expect(row.languageMismatches).toBe(0);
     });
 
-    it('flags a delta detected as anything but the direction source', () => {
+    it('flags a delta detected as anything but the pair source', () => {
       const session = sessionOf();
 
       session.noteSourceDelta('hello', 'en');
@@ -164,6 +164,6 @@ describe('LiveSession', () => {
     expect(row.durationMs).toBe(12_500);
     expect(row.reason).toBe('client_stop');
     expect(row.sessionId).toBe('sess-1');
-    expect(row.direction).toBe('vi_to_en');
+    expect(row.languagePair).toEqual({ source: 'vi', target: 'en' });
   });
 });

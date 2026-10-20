@@ -75,8 +75,7 @@ export class ConversationsService {
     // stored timestamp is read through, and a conversation whose audio is
     // refused — no storage configured, a body over the cap — still has to
     // read the way it read while it was being spoken. Everything else goes
-    // through `toConversationWrite`, since Postgres has no `direction` or
-    // `targetText` column for the store to write.
+    // through `toConversationWrite`, the one narrowing to stored columns.
     return this.store.save(ownerId, conversationId, toConversationWrite(body));
   }
 
@@ -327,14 +326,12 @@ function notFound(conversationId: string): NotFoundException {
 /**
  * The store's write shape, from the HTTP contract's — the one place a body's
  * `SaveConversationRequest` fields are narrowed to what Postgres actually has
- * columns for (no `direction`, no turn `targetText`).
+ * columns for.
  *
  * `body.languages` and a turn's `sourceLanguages`/`translations` are read AS
- * SENT and never re-derived here: `saveConversationRequestSchema`'s preprocess
- * (`@chatofy/types`) already filled them from `direction`/`speakerRole`/
- * `targetText` when a legacy tab's body omitted them, so every `body` this
- * function sees — validated against that schema before it can reach the
- * service — already carries both.
+ * SENT and never re-derived here: `saveConversationRequestSchema` requires
+ * them, and every `body` this function sees was validated against it before it
+ * could reach the service.
  */
 function toConversationWrite(body: SaveConversationRequest): ConversationWrite {
   return {
@@ -347,7 +344,7 @@ function toConversationWrite(body: SaveConversationRequest): ConversationWrite {
   };
 }
 
-/** One turn's write shape, dropping the legacy `targetText` Postgres has no column for. */
+/** One turn's write shape: the turn columns Postgres stores. */
 function toTurnWrite(turn: SaveConversationTurn): ConversationTurnWrite {
   return {
     position: turn.position,

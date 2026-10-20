@@ -186,7 +186,7 @@ export class OverlayPublisher {
       capturing: status.capturing,
       lines: this.state.lines,
       outbound: status.outbound,
-      // The offscreen document owns both direction errors and reports them
+      // The offscreen document owns both leg errors and reports them
       // together, so they replace their own slots wholesale; `capture` is the
       // worker's and survives untouched.
       errors: { capture: this.state.errors.capture, ...status.errors },

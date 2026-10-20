@@ -2,7 +2,7 @@ import { base64ToPcm16, pcm16ToBase64, TARGET_SAMPLE_RATE } from '../audio/pcm-r
 import type { LiveTranslateSocket } from '../transport/live-translate-socket.js';
 import { isJsonSocketAborted } from '../transport/json-event-socket.js';
 import type { LiveTranslateSocketHandlers } from '../transport/live-translate-socket.js';
-import type { LiveServerEvent, TranslationDirection } from '@chatofy/types';
+import type { LanguagePair, LiveServerEvent } from '@chatofy/types';
 
 /**
  * Drives one continuous speech-to-speech conversation.
@@ -77,7 +77,7 @@ export class LiveSession {
     return this.status;
   }
 
-  async start(direction: TranslationDirection): Promise<void> {
+  async start(languagePair: LanguagePair): Promise<void> {
     if (this.status === 'connecting' || this.status === 'live') return;
     this.status = 'connecting';
     this.sequence = 0;
@@ -122,7 +122,7 @@ export class LiveSession {
       socket.close();
       return;
     }
-    socket.start(direction);
+    socket.start(languagePair);
   }
 
   /**

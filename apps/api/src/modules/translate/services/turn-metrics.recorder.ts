@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { ClientTurnMetrics } from '@chatofy/types';
+import type { ClientTurnMetrics, LanguagePair } from '@chatofy/types';
 
 /**
  * One streamed turn, timed stage by stage. Every duration is milliseconds from
@@ -8,7 +8,7 @@ import type { ClientTurnMetrics } from '@chatofy/types';
  */
 export interface TurnMetrics {
   sessionId: string;
-  direction: string;
+  languagePair: LanguagePair;
   /**
    * False when the turn failed part-way. Recorded either way: a latency table
    * built from success rows alone cannot tell "no failures" from "failures not

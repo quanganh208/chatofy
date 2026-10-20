@@ -8,17 +8,17 @@ import {
   type PlaybackSink,
   type TurnKeyedAction,
 } from '@chatofy/realtime-client';
-import type { TranslationDirection } from '@chatofy/types';
-import { LiveDirectionSession } from './live-direction-session';
-import type { DirectionRunner } from './meeting-capture';
+import type { LanguagePair } from '@chatofy/types';
+import { LiveLanguagePairSession } from './live-language-pair-session';
+import type { LegRunner } from './meeting-capture';
 import type { CaptureSettings } from './messages';
 import { SoundingSink } from './sounding-sink';
 
 /**
- * One direction of the conversation: an input stream, a socket, and a place to
+ * One leg of the conversation: an input stream, a socket, and a place to
  * put the translated audio.
  *
- * Extracted so the two directions cannot drift. They differ in four things —
+ * Extracted so the two legs cannot drift. They differ in four things —
  * where the audio comes from, which way it is translated, how many turns they
  * keep open, and where the result goes — and everything else about them, which
  * is the entire turn-taking configuration, has to stay identical. Two call sites
@@ -29,8 +29,8 @@ import { SoundingSink } from './sounding-sink';
 /** Length ceiling for one turn. Provisional; phase 3's measurements settle it. */
 const MAX_UTTERANCE_MS = 8000;
 
-export interface DirectionSessionDeps {
-  /** Shared by both directions and by the echo monitor. Owned by the caller. */
+export interface LanguagePairSessionDeps {
+  /** Shared by both legs and by the echo monitor. Owned by the caller. */
   context: AudioContext;
   workletUrl: string;
   settings: CaptureSettings;
@@ -43,15 +43,16 @@ export interface DirectionSessionDeps {
    * capture and handed down from there.
    */
   accessToken: string;
-  direction: TranslationDirection;
-  /** What this direction listens to: the captured tab, or the gated microphone. */
+  /** The languages this leg translates from and into. */
+  languagePair: LanguagePair;
+  /** What this leg listens to: the captured tab, or the gated microphone. */
   input: MediaStream;
-  /** Turns this direction keeps open at the server. */
+  /** Turns this leg keeps open at the server. */
   maxInFlight: number;
   /**
    * Where the translated audio goes. Omitted means this machine's loudspeakers.
    *
-   * The outbound direction passes one that ships samples into the meeting page
+   * The outbound leg passes one that ships samples into the meeting page
    * when that page can carry them. It still needs the sounding report the plain
    * queue does not give, which is why the wrapper below applies either way.
    */
@@ -67,7 +68,7 @@ export interface DirectionSessionDeps {
   /** Cleared when a run starts over. */
   onReset: () => void;
   onTurnAbandoned: (sessionId: string | null) => void;
-  /** A failure belonging to THIS direction. `undefined` clears it. */
+  /** A failure belonging to THIS leg. `undefined` clears it. */
   onError: (message: string | undefined) => void;
   /**
    * Turns queued or waiting, from `OrderedPlayback.isBusy`.
@@ -78,13 +79,13 @@ export interface DirectionSessionDeps {
   onBusy: (busy: boolean) => void;
   /** Audio for some turn is queued or playing right now. The gating signal. */
   onSounding: (sounding: boolean) => void;
-  /** This direction has ended, including when it ended itself. */
+  /** This leg has ended, including when it ended itself. */
   onStopped: () => void;
   onLog: (message: string) => void;
 }
 
 /**
- * Build one direction's session. The caller starts it.
+ * Build one leg's session. The caller starts it.
  *
  * The runtime options are the whole reason the extension can do this at all:
  *
@@ -96,7 +97,7 @@ export interface DirectionSessionDeps {
  *   maxUtterance — someone in a meeting will not leave a 500ms silence for tens
  *                  of seconds, so length is what has to end a turn.
  */
-export function createDirectionSession(deps: DirectionSessionDeps): DirectionRunner {
+export function createLanguagePairSession(deps: LanguagePairSessionDeps): LegRunner {
   // The mode is a client choice and nothing else: both backends are served on
   // `/ws/translate` and are told apart by which start message goes out first, so
   // there is no server setting to agree with and nothing to deploy differently.
@@ -104,13 +105,13 @@ export function createDirectionSession(deps: DirectionSessionDeps): DirectionRun
   // Routed here rather than at the offscreen entrypoint because `MeetingCapture`
   // is what holds the settings, and this keeps it from having to know there are
   // two kinds of session at all — it drives whichever it is handed through
-  // `DirectionRunner`.
+  // `LegRunner`.
   if (deps.settings.mode === 'live') {
     // The browser globals are supplied HERE rather than reached for inside that
     // class, which is what keeps its wiring — the duck signal, the teardown
     // ordering — reachable from a node test. This function is the untested
     // layer on purpose.
-    return new LiveDirectionSession(deps, {
+    return new LiveLanguagePairSession(deps, {
       createWorkletNode: (ctx) => new AudioWorkletNode(ctx, 'mic-capture-processor'),
       createSocket: (handlers) =>
         new LiveTranslateSocket(
@@ -160,7 +161,7 @@ export function createDirectionSession(deps: DirectionSessionDeps): DirectionRun
       // session that closed those on teardown would, on something as ordinary as
       // the API restarting mid-call, silence the meeting permanently: the tab is
       // already muted by `tabCapture`, and the graph replaying it lives in that
-      // same context. It would also take the OTHER direction down with it.
+      // same context. It would also take the OTHER leg down with it.
       ownsAudioResources: false,
     },
     {
@@ -168,7 +169,7 @@ export function createDirectionSession(deps: DirectionSessionDeps): DirectionRun
       // audio frame — several times a second per turn — and each push costs an
       // IPC round trip and a `chrome.tabs.query` behind the menu title. Worse, a
       // status carrying no error clears the error banner, so a real failure
-      // would be wiped within 200ms by the healthy direction.
+      // would be wiped within 200ms by the healthy leg.
       onStatus: () => {},
       onLevel: () => {},
       onMuted: () => {},

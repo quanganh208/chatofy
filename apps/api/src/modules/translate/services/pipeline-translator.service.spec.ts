@@ -23,7 +23,7 @@ import type {
 } from '../providers/ai-providers.factory';
 import { planTurnLanguages } from '../session/turn-language-plan';
 
-/** The plan every default-direction test in this file drives the pipeline with. */
+/** The plan every default-pair test in this file drives the pipeline with. */
 const VI_TO_EN = planTurnLanguages(['vi', 'en'], ['vi']);
 const EN_TO_VI = planTurnLanguages(['en', 'vi'], ['en']);
 
@@ -387,7 +387,7 @@ describe('PipelineTranslatorService', () => {
       EN_TO_VI,
     );
 
-    // The trio no longer depends on direction — the language travels with each
+    // The trio no longer depends on the language pair — the language travels with each
     // provider call instead.
     expect(makeProviders).toHaveBeenCalledWith();
     expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'en', {
@@ -418,7 +418,7 @@ describe('PipelineTranslatorService', () => {
       VI_TO_EN,
     );
     expect(makeProviders).toHaveBeenCalledWith();
-    // Direction reaches the provider as an argument, not via the trio it built.
+    // The language pair reaches the provider as an argument, not via the trio it built.
     expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'vi', {
       hotwords: undefined,
     });
@@ -676,14 +676,14 @@ describe('PipelineTranslatorService', () => {
       expect(text).toBe('Tôi gặp 王偉 hôm qua');
     });
 
-    it('logs the label, direction and Han counts, never the text', async () => {
+    it('logs the label, language pair and Han counts, never the text', async () => {
       const warn = vi
         .spyOn(Logger.prototype, 'warn')
         .mockImplementation(() => {});
       await zhToVi(answering(LEAK, CLEAN), { scriptRetry: retry(true) });
       const lines = warn.mock.calls.map((call) => String(call[0]));
       expect(
-        lines.some((line) => line.includes('session=s1 zh_to_vi han_in=')),
+        lines.some((line) => line.includes('session=s1 zh→vi han_in=')),
       ).toBe(true);
       for (const line of lines) {
         expect(line).not.toContain('safari');

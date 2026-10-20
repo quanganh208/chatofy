@@ -3,7 +3,7 @@ import { inverseNormalizeTranscript } from '@chatofy/ai-providers';
 
 /**
  * The English ITN, which exists because the display path is bidirectional: on
- * `en_to_vi` the transcript being typeset is the English one. Deleting the LLM
+ * en→vi the transcript being typeset is the English one. Deleting the LLM
  * repair without building this would have stopped display on half the product
  * while the schema went on documenting it.
  *

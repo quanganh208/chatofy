@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { LanguagePair } from '@chatofy/types';
+import { languagePairLabel } from '../language-pair-label';
 
 /**
  * One continuous session, start to finish.
@@ -16,7 +18,7 @@ import { Injectable, Logger } from '@nestjs/common';
  */
 export interface LiveSessionMetrics {
   sessionId: string;
-  direction: string;
+  languagePair: LanguagePair;
   /** Wall-clock length of the session, in ms. */
   durationMs: number;
   /** Microphone bytes forwarded upstream. Continuous capture, so this is large. */
@@ -26,7 +28,7 @@ export interface LiveSessionMetrics {
   sourceChars: number;
   targetChars: number;
   /**
-   * Deltas whose detected language was not the direction's source.
+   * Deltas whose detected language was not the language pair's source.
    *
    * The docs warn auto-detection struggles with similar languages and heavy
    * accents, so this is the column that says whether that warning bit us. Zero
@@ -55,7 +57,7 @@ export class LiveSessionMetricsRecorder {
 
   record(metrics: LiveSessionMetrics): void {
     this.logger.log(
-      `live ${metrics.sessionId} ${metrics.direction} (${metrics.reason}) ` +
+      `live ${metrics.sessionId} ${languagePairLabel(metrics.languagePair)} (${metrics.reason}) ` +
         `duration=${metrics.durationMs}ms in=${metrics.inputBytes}B ` +
         `out=${metrics.outputAudioMs}ms connect=${metrics.upstreamConnectMs}ms ` +
         `firstByte=${metrics.firstUpstreamByteMs ?? '-'}ms ` +

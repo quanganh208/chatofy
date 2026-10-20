@@ -18,11 +18,13 @@
  */
 import { z } from 'zod';
 import {
-  DEFAULT_TRANSLATION_DIRECTION,
+  DEFAULT_LANGUAGE_PAIR,
   DEFAULT_VOICE_GENDER,
   LANGUAGE_CODES,
-  translationDirectionSchema,
+  languagePairFromStoredDirection,
+  languagePairSchema,
   voiceGenderSchema,
+  type LanguagePair,
   type LanguageTable,
 } from '@chatofy/types';
 
@@ -125,8 +127,8 @@ export function textSizeScale(step: number): number {
  *
  * NOT a single string. The two engines address voices by disjoint vocabularies —
  * an integer speaker id for English, a preset name for Vietnamese — so one flat
- * token survives a direction change and is then sent to an engine that cannot
- * mean anything by it. Keyed by output language, a direction flip selects the
+ * token survives a language pair change and is then sent to an engine that cannot
+ * mean anything by it. Keyed by output language, a swap of the pair selects the
  * right token or none.
  *
  * Bounded but otherwise opaque, and deliberately never an enum: which voices
@@ -157,7 +159,8 @@ const storedVoiceSelectionSchema = z.object(
 type VoiceSelection = z.infer<typeof storedVoiceSelectionSchema>;
 
 export interface TranslateSettings {
-  direction: z.infer<typeof translationDirectionSchema>;
+  /** Which languages a new conversation starts in, source first. */
+  languagePair: LanguagePair;
   voiceGender: z.infer<typeof voiceGenderSchema>;
   /** Whether the translation is spoken at all. */
   voiceOutput: boolean;
@@ -213,7 +216,7 @@ export interface TranslateSettings {
  * moment it is made, instead of being absorbed silently.
  */
 export const DEFAULT_TRANSLATE_SETTINGS: TranslateSettings = Object.freeze({
-  direction: DEFAULT_TRANSLATION_DIRECTION,
+  languagePair: DEFAULT_LANGUAGE_PAIR,
   voiceGender: DEFAULT_VOICE_GENDER,
   voiceOutput: true,
   speed: 1,
@@ -353,7 +356,6 @@ function migrate(stored: Record<string, unknown>): Record<string, unknown> {
  * was out of range.
  */
 const storedSettingsSchema = z.object({
-  direction: translationDirectionSchema.catch(DEFAULT_TRANSLATE_SETTINGS.direction),
   voiceGender: voiceGenderSchema.catch(DEFAULT_TRANSLATE_SETTINGS.voiceGender),
   voiceOutput: z.boolean().catch(DEFAULT_TRANSLATE_SETTINGS.voiceOutput),
   speed: z.number().catch(DEFAULT_TRANSLATE_SETTINGS.speed).transform(snapSpeed),
@@ -398,7 +400,7 @@ export function loadTranslateSettings(): TranslateSettings {
     // every consumer and eventually into a comparison.
     const parsed = storedSettingsSchema.parse(merged);
     const settings: TranslateSettings = {
-      direction: parsed.direction,
+      languagePair: storedLanguagePair(stored),
       voiceGender: parsed.voiceGender,
       voiceOutput: parsed.voiceOutput,
       speed: parsed.speed,
@@ -418,6 +420,21 @@ export function loadTranslateSettings(): TranslateSettings {
     // throws on access. Defaults are always a state the UI can render.
     return DEFAULT_TRANSLATE_SETTINGS;
   }
+}
+
+/**
+ * The stored pair, read off the raw blob rather than through the whitelist.
+ *
+ * Not a `.catch(default)` field like its neighbours, because an absent or
+ * unreadable `languagePair` still has one more place to come from: builds before
+ * it stored a `'vi_to_en'`-style `direction` string. Parsing that is
+ * `languagePairFromStoredDirection`'s job alone, so the old format has one
+ * reader; the next save writes `languagePair` and the string is not read again.
+ */
+function storedLanguagePair(stored: Record<string, unknown>): LanguagePair {
+  const pair = languagePairSchema.safeParse(stored.languagePair);
+  if (pair.success) return pair.data;
+  return languagePairFromStoredDirection(stored.direction) ?? DEFAULT_LANGUAGE_PAIR;
 }
 
 export function saveTranslateSettings(settings: TranslateSettings): void {

@@ -171,7 +171,6 @@ describe('PrismaConversationStore', () => {
     expect(createMany).toHaveBeenCalledTimes(1);
     expect(saved).toEqual({
       conversationId: 'conv-1',
-      direction: 'vi_to_en',
       languages: ['vi', 'en'],
       startedAt: '2026-09-17T00:00:00.000Z',
       endedAt: '2026-09-17T00:01:00.000Z',
@@ -398,8 +397,8 @@ describe('PrismaConversationStore', () => {
       return new PrismaConversationStore(prisma);
     }
 
-    it('drops a row whose languages column cannot yield a direction, keeping the rest', async () => {
-      // `legacyDirectionOf` throws on fewer than two codes — a shape the write
+    it('drops a row whose languages column cannot yield a language pair, keeping the rest', async () => {
+      // `conversationLanguagesSchema` refuses fewer than two codes — a shape the write
       // side never stores, so reaching it here means the row is corrupt, not
       // that the request is wrong. One such row must cost its own card, not
       // the whole list.
@@ -420,7 +419,7 @@ describe('PrismaConversationStore', () => {
 
     it('drops a row naming a language this registry does not know, keeping the rest', async () => {
       // A code added, written under, then rolled back: two codes, so the
-      // direction would concatenate happily, but the client's page schema
+      // pair would read happily, but the client's page schema
       // rejects the whole page over one unknown enum value.
       const store = storeListing([
         row({
@@ -507,7 +506,6 @@ describe('PrismaConversationStore', () => {
       ).get('owner-1', 'conv-1');
 
       expect(conversation?.turns[0]?.translations).toEqual({ en: 'hello' });
-      expect(conversation?.turns[0]?.targetText).toBe('hello');
     });
 
     it('drops only the turn whose source language cannot be read', async () => {
@@ -537,12 +535,13 @@ describe('PrismaConversationStore', () => {
       const conversation = await storeGetting(row()).get('owner-1', 'conv-1');
 
       expect(conversation?.languages).toEqual(['vi', 'en']);
-      expect(conversation?.direction).toBe('vi_to_en');
       expect(conversation?.turns[0]).toMatchObject({
         sourceLanguages: ['vi'],
         translations: { en: 'hello' },
-        targetText: 'hello',
       });
+      // Stored columns only: nothing derives a legacy field back on read.
+      expect(conversation).not.toHaveProperty('direction');
+      expect(conversation?.turns[0]).not.toHaveProperty('targetText');
     });
   });
 });

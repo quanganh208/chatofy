@@ -70,7 +70,7 @@ function installChrome({
 }: Stubs) {
   const store: Record<string, unknown> = {
     'chatofy.settings': {
-      direction: 'en_to_vi',
+      languagePair: { source: 'en', target: 'vi' },
       mode: 'cascade',
       voiceGender: 'female',
       reportMetrics: true,
@@ -253,19 +253,22 @@ describe('the popup', () => {
   });
 
   /**
-   * Direction, voice and outbound go to the worker, not to storage: a running
+   * The language pair, voice and outbound go to the worker, not to storage: a running
    * capture has to be reopened for a change to take effect, and only the worker can
    * do that.
    */
-  it('sends a direction change to the worker rather than writing it', async () => {
+  it('sends a language pair change to the worker rather than writing it', async () => {
     await mount();
-    const swap = document.querySelector<HTMLButtonElement>('[aria-label^="Swap direction"]');
+    const swap = document.querySelector<HTMLButtonElement>('[aria-label^="Swap languages"]');
     expect(swap).not.toBeNull();
     await settle(() => swap?.click());
 
     const settings = sent.filter((m) => (m as { type: string }).type === 'settings');
     expect(settings).toHaveLength(1);
-    expect(settings[0]).toMatchObject({ direction: 'vi_to_en', voiceGender: 'female' });
+    expect(settings[0]).toMatchObject({
+      languagePair: { source: 'vi', target: 'en' },
+      voiceGender: 'female',
+    });
     expect(written['chatofy.settings']).toBeUndefined();
   });
 

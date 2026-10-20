@@ -120,8 +120,8 @@ export function typesetTranscript(
   let canonical: string;
   try {
     // `recognition` SELECTS the module rather than gating the feature: on
-    // `en_to_vi` the transcript being typeset is the English one, so both
-    // directions have an ITN and `ws-events.ts`'s bidirectional contract stays
+    // en→vi the transcript being typeset is the English one, so both
+    // pairs have an ITN and `ws-events.ts`'s bidirectional contract stays
     // true.
     // The ITN canonicalizes its input before it does anything else, so the
     // string to COMPARE against is the canonical one, not the raw one. Against
