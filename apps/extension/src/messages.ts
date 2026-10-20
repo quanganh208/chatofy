@@ -182,7 +182,7 @@ export type ExtensionMessage =
  * `capture` belongs to the worker — a tab that cannot be captured at all — and
  * the other two to the offscreen document.
  */
-interface DirectionErrors {
+interface LegErrors {
   capture?: string;
   inbound?: string;
   outbound?: string;
@@ -200,7 +200,7 @@ export interface CaptureStatus {
    * carries nothing about the other, and overwriting would erase a live failure
    * every time the healthy leg said anything.
    */
-  errors: Omit<DirectionErrors, 'capture'>;
+  errors: Omit<LegErrors, 'capture'>;
   /** Turns waiting to be heard. Non-zero means the translation is behind. */
   backlogTurns: number;
   /**
@@ -242,7 +242,7 @@ export interface OverlayState {
   lines: TranscriptLine[];
   /** What the outbound leg is doing. `off` while capture is not running. */
   outbound: OutboundState;
-  errors: DirectionErrors;
+  errors: LegErrors;
   /**
    * Whether this tab carries the page-world microphone patch.
    *

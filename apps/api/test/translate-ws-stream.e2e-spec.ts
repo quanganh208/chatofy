@@ -347,10 +347,11 @@ describe('/ws/translate (e2e)', () => {
     }
   }, 20000);
 
-  // A tab built before the language pair replaced `direction`. Its start fails
-  // validation like any malformed payload — answered with no `ready`, and no
-  // turn opened — while the connection itself stays usable.
-  it('opens no turn for a start that carries only the legacy direction', async () => {
+  // A tab built before the language pair replaced `direction`. No turn opens,
+  // but the refusal is answered — `client_outdated` naming its turn — so the
+  // stale page can tell its user to reload instead of hanging. The connection
+  // itself stays usable.
+  it('refuses a start that carries the legacy direction with client_outdated', async () => {
     const client = await Client.connect(url);
     try {
       client.send('client.session.start', {
@@ -358,9 +359,12 @@ describe('/ws/translate (e2e)', () => {
         direction: 'vi_to_en',
         turnId: 'legacy-turn',
       });
-      await expect(client.waitFor('server.session.ready', 500)).rejects.toThrow(
-        /timed out/,
-      );
+      const refusal = await client.waitFor('server.error');
+      expect(refusal.code).toBe('client_outdated');
+      expect(refusal.turnId).toBe('legacy-turn');
+      expect(
+        client.events.filter((e) => e.type === 'server.session.ready'),
+      ).toHaveLength(0);
 
       client.send('client.session.start', {
         type: 'client.session.start',

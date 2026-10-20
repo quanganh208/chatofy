@@ -361,14 +361,7 @@ export class MeetingCapture {
 
       this.endCaptureIfTabGoesAway(tab.stream);
 
-      const inbound = this.buildDirection(
-        'inbound',
-        context,
-        settings,
-        accessToken,
-        tab.stream,
-        duck,
-      );
+      const inbound = this.buildLeg('inbound', context, settings, accessToken, tab.stream, duck);
       inboundRef.current = inbound;
       this.legs.inbound = inbound;
       await inbound.start({
@@ -479,7 +472,7 @@ export class MeetingCapture {
       // user's speech captured and translated anyway.
       this.applyMicrophoneGate();
 
-      const outbound = this.buildDirection(
+      const outbound = this.buildLeg(
         'outbound',
         context,
         settings,
@@ -506,7 +499,7 @@ export class MeetingCapture {
   }
 
   /** Wire one leg into the shared graph. */
-  private buildDirection(
+  private buildLeg(
     leg: MeetingLeg,
     context: AudioContext,
     settings: CaptureSettings,

@@ -374,7 +374,10 @@ compatibility shim that filled one from the other
 extension builds that exist are the maintainer's own (see
 `docs/deployment-guide.md`), so no store build could still be sending the old
 shape; a browser tab opened before the deploy is refused and recovers on
-reload. The REST `POST /translate` response keeps a `targetText` field: it is
+reload. On the socket that refusal is emitted, not thrown: a start carrying any
+`direction` key gets `server.error` (or `server.live.error`) with code
+`client_outdated`, because a thrown one reaches the client as silence and the
+stale page would hang in "connecting". The REST `POST /translate` response keeps a `targetText` field: it is
 that call's one translation, not the legacy turn field. Glossary entries were
 already language-keyed (`translationMapSchema(glossaryTermSchema)`), and an old
 `{vi, en}` object is a valid instance of that type.

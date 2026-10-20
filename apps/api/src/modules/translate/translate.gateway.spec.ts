@@ -373,24 +373,56 @@ describe('TranslateGateway', () => {
     });
 
     // A tab built before the language pair replaced `direction` still sends the
-    // old field. No wire compat is kept: without a `languagePair` the start is
-    // malformed, on both paths.
-    it('rejects a start that carries only the legacy direction', () => {
-      expect(() =>
-        gateway.handleSessionStart(
-          { type: 'client.session.start', direction: 'vi_to_en' },
-          socket,
-        ),
-      ).toThrow(WsException);
+    // old field. No wire compat is kept, but the refusal is EMITTED: a thrown
+    // one reaches the client as silence and the stale page never learns to
+    // reload.
+    it('answers a turn start carrying the legacy direction with client_outdated', () => {
+      gateway.handleSessionStart(
+        {
+          type: 'client.session.start',
+          direction: 'vi_to_en',
+          turnId: 'stale-turn',
+        },
+        socket,
+      );
       expect(sessions.start).not.toHaveBeenCalled();
-
-      expect(() =>
-        gateway.handleLiveStart(
-          { type: 'client.live.start', direction: 'vi_to_en' },
-          socket,
+      expect(
+        JSON.parse(
+          (socket.send as Mock<(data: string) => void>).mock.lastCall![0],
         ),
-      ).toThrow(WsException);
+      ).toMatchObject({
+        type: 'server.error',
+        code: 'client_outdated',
+        turnId: 'stale-turn',
+      });
+    });
+
+    it('answers a live start carrying the legacy direction with client_outdated', async () => {
+      await gateway.handleLiveStart(
+        { type: 'client.live.start', direction: 'vi_to_en' },
+        socket,
+      );
       expect(live.start).not.toHaveBeenCalled();
+      expect(
+        JSON.parse(
+          (socket.send as Mock<(data: string) => void>).mock.lastCall![0],
+        ),
+      ).toMatchObject({
+        type: 'server.live.error',
+        code: 'client_outdated',
+      });
+    });
+
+    it('refuses direction even beside a valid language pair, like REST', () => {
+      gateway.handleSessionStart(
+        {
+          type: 'client.session.start',
+          direction: 'vi_to_en',
+          languagePair: { source: 'vi', target: 'en' },
+        },
+        socket,
+      );
+      expect(sessions.start).not.toHaveBeenCalled();
     });
 
     it('rejects an event whose type does not match the subscribed handler', () => {
