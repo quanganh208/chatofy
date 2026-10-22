@@ -327,6 +327,8 @@ export class ConferenceGateway
     }
   }
 
+  private static readonly MAX_PRODUCERS_PER_PEER = 2;
+
   @SubscribeMessage('conference.produce')
   async handleProduce(
     @ConnectedSocket() ws: ConferenceSocket,
@@ -346,6 +348,12 @@ export class ConferenceGateway
       const { room, peer } = resolved;
       if (!peer.sendTransport) {
         this.reply(ws, 'conference.produce', { error: 'no_send_transport' });
+        return;
+      }
+      if (peer.producers.size >= ConferenceGateway.MAX_PRODUCERS_PER_PEER) {
+        this.reply(ws, 'conference.produce', {
+          error: 'producer_limit_reached',
+        });
         return;
       }
       const producer = await peer.sendTransport.produce({
@@ -446,16 +454,23 @@ export class ConferenceGateway
 
     // Fan out subtitle and audio via the router (self-filter + language routing).
     if (body.subtitle) {
+      // Overwrite client-supplied identity fields with server-authoritative values
+      // to prevent a peer from spoofing another participant's subtitles.
+      const serverSubtitle: typeof body.subtitle & Record<string, unknown> = {
+        ...body.subtitle,
+        speakerSocketId: ws._socketId!,
+        speakerDisplayName: resolved.peer.displayName,
+      };
       this.translationRouter.routeSubtitle(
         room,
         ws._socketId!,
-        body.subtitle,
+        serverSubtitle,
         (socketId, event, data) =>
           this.broadcastToSocket(socketId, event, data),
       );
 
       // Only persist final subtitle frames — partial frames skip the DB write.
-      const sub = body.subtitle;
+      const sub = serverSubtitle;
       if (
         sub.isFinal &&
         ws._roomId &&
@@ -566,6 +581,12 @@ export class ConferenceGateway
 
     const text = typeof body?.text === 'string' ? body.text.trim() : '';
     if (!text) return;
+
+    const MAX_CHAT_TEXT_LENGTH = 2000;
+    if (text.length > MAX_CHAT_TEXT_LENGTH) {
+      this.reply(ws, 'conference.chat.message', { error: 'text_too_long' });
+      return;
+    }
 
     const senderSocketId = ws._socketId!;
     const senderDisplayName = peer.displayName;
