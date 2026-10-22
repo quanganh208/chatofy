@@ -16,7 +16,7 @@ export const ConferenceTranslationSubtitleSchema = z.object({
   speakerSocketId: z.string(),
   speakerDisplayName: z.string(),
   /** ISO-639-1 source language, e.g. 'vi'. */
-  sourceLang: langCodeSchema,
+  sourceLanguage: langCodeSchema,
   /** ISO-639-1 target language, e.g. 'en'. */
   targetLang: langCodeSchema,
   sourceText: z.string(),

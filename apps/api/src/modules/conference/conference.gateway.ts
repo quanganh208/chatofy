@@ -212,13 +212,19 @@ export class ConferenceGateway
         body.sourceLanguage ?? 'vi',
       );
 
-      // Persist join — fire-and-forget; errors are logged inside the service.
-      void this.persistence.recordJoin(
-        body.roomId,
-        ws._userId,
-        body.displayName,
-        body.sourceLanguage ?? 'vi',
-      );
+      // Persist join and cache participantId for later subtitle turns.
+      void this.persistence
+        .recordJoin(
+          body.roomId,
+          ws._userId,
+          body.displayName,
+          body.sourceLanguage ?? 'vi',
+        )
+        .then((participantId) => {
+          const p = room.peers.get(ws._socketId!);
+          if (p) p.participantId = participantId;
+        })
+        .catch((err: unknown) => this.logger.error('recordJoin failed', err));
 
       const existingPeers = [...room.peers.entries()]
         .filter(([sid]) => sid !== ws._socketId)
@@ -448,29 +454,30 @@ export class ConferenceGateway
           this.broadcastToSocket(socketId, event, data),
       );
 
-      // Persist turn when subtitle carries the required fields.
+      // Only persist final subtitle frames — partial frames skip the DB write.
       const sub = body.subtitle;
       if (
+        sub.isFinal &&
         ws._roomId &&
         ws._userId &&
         typeof sub.sourceLanguage === 'string' &&
         typeof sub.sourceText === 'string'
       ) {
-        void this.persistence
-          .recordJoin(ws._roomId, ws._userId, undefined, sub.sourceLanguage)
-          .then((participantId) =>
-            this.persistence.recordTurn(participantId, ws._roomId!, {
-              sourceLanguage: sub.sourceLanguage!,
-              sourceText: sub.sourceText!,
+        const participantId = resolved.peer.participantId;
+        if (participantId) {
+          void this.persistence
+            .recordTurn(participantId, ws._roomId, {
+              sourceLanguage: sub.sourceLanguage,
+              sourceText: sub.sourceText,
               searchText: sub.searchText,
               translations: sub.translations,
               audioStartMs: sub.audioStartMs,
               audioDurationMs: sub.audioDurationMs,
-            }),
-          )
-          .catch((err: unknown) => {
-            this.logger.error('recordTurn via broadcast failed', err);
-          });
+            })
+            .catch((err: unknown) =>
+              this.logger.error('recordTurn failed', err),
+            );
+        }
       }
     }
     if (body.audio) {

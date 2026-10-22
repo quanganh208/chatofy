@@ -47,6 +47,7 @@ export interface ParticipantSession {
   userId: string;
   displayName: string;
   sourceLanguage: string;
+  participantId?: string;
   muted: boolean;
   videoEnabled: boolean;
   sendTransport: types.WebRtcTransport | null;
