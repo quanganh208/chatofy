@@ -95,26 +95,28 @@ export async function startTranslateBridge(deps: TranslateBridgeDeps): Promise<T
 
   const translateWs = new WebSocket(translateUrl, [subprotocol, token]);
   const turnId = randomUuid();
-  let seq = 0;
-  let stopped = false;
-  let paused = false;
-  let translatingTimeout: ReturnType<typeof setTimeout> | null = null;
+  const state = {
+    seq: 0,
+    stopped: false,
+    paused: false,
+    translatingTimeout: null as ReturnType<typeof setTimeout> | null,
+  };
 
   /** Clear `localTranslating` and cancel any pending safety timeout. */
   function clearTranslating(): void {
-    if (translatingTimeout !== null) {
-      clearTimeout(translatingTimeout);
-      translatingTimeout = null;
+    if (state.translatingTimeout !== null) {
+      clearTimeout(state.translatingTimeout);
+      state.translatingTimeout = null;
     }
     setLocalTranslating(false);
   }
 
-  translateWs.addEventListener('open', () => {
+  const onOpen = (): void => {
     log('[translate] WS open');
     send(translateWs, 'client.live.start', { type: 'client.live.start', direction });
-  });
+  };
 
-  translateWs.addEventListener('message', (evt: MessageEvent<string>) => {
+  const onMessage = (evt: MessageEvent<string>): void => {
     let msg: { type: string; [k: string]: unknown };
     try {
       msg = JSON.parse(evt.data) as { type: string; [k: string]: unknown };
@@ -158,26 +160,32 @@ export async function startTranslateBridge(deps: TranslateBridgeDeps): Promise<T
         },
       });
     }
-  });
+  };
 
-  translateWs.addEventListener('close', () => {
+  const onClose = (): void => {
     clearTranslating();
     log('[translate] WS closed');
-  });
-  translateWs.addEventListener('error', () => log('[translate] WS error'));
+  };
+
+  const onError = (): void => log('[translate] WS error');
+
+  translateWs.addEventListener('open', onOpen);
+  translateWs.addEventListener('message', onMessage);
+  translateWs.addEventListener('close', onClose);
+  translateWs.addEventListener('error', onError);
 
   // Begin capture. Each PCM16 frame → client.live.audio on the translate socket.
   await capture.start((bytes, _frameSeq) => {
-    if (stopped || paused || translateWs.readyState !== WebSocket.OPEN) return;
+    if (state.stopped || state.paused || translateWs.readyState !== WebSocket.OPEN) return;
 
-    if (seq === 0) {
+    if (state.seq === 0) {
       // [T1] start of a new turn: show the "translating…" badge with a safety
       // timeout so it never sticks on if no final subtitle arrives.
       log('[T1] first audio frame');
-      if (translatingTimeout !== null) clearTimeout(translatingTimeout);
+      if (state.translatingTimeout !== null) clearTimeout(state.translatingTimeout);
       setLocalTranslating(true);
-      translatingTimeout = setTimeout(() => {
-        translatingTimeout = null;
+      state.translatingTimeout = setTimeout(() => {
+        state.translatingTimeout = null;
         setLocalTranslating(false);
         log('[translate] translating timeout — badge cleared');
       }, TRANSLATING_TIMEOUT_MS);
@@ -189,7 +197,7 @@ export async function startTranslateBridge(deps: TranslateBridgeDeps): Promise<T
         sessionId: turnId,
         encoding: 'pcm16',
         sampleRate: 16000,
-        sequence: seq++,
+        sequence: state.seq++,
         timestamp: Date.now(),
         payload: pcm16BytesToBase64(bytes),
       },
@@ -198,8 +206,8 @@ export async function startTranslateBridge(deps: TranslateBridgeDeps): Promise<T
 
   return {
     setPaused(next: boolean): void {
-      if (next === paused) return;
-      paused = next;
+      if (next === state.paused) return;
+      state.paused = next;
       if (next) {
         // Stop feeding STT/MT at the source and drop the badge — a muted user is
         // not translating.
@@ -210,9 +218,13 @@ export async function startTranslateBridge(deps: TranslateBridgeDeps): Promise<T
       }
     },
     async stop(): Promise<void> {
-      if (stopped) return;
-      stopped = true;
+      if (state.stopped) return;
+      state.stopped = true;
       clearTranslating();
+      translateWs.removeEventListener('open', onOpen);
+      translateWs.removeEventListener('message', onMessage);
+      translateWs.removeEventListener('close', onClose);
+      translateWs.removeEventListener('error', onError);
       await capture.stop();
       if (
         translateWs.readyState === WebSocket.OPEN ||

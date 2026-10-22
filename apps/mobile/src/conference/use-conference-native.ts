@@ -284,6 +284,7 @@ export function useConferenceNative(
    */
   const runJoinSequence = useCallback(
     async (ws: WebSocket) => {
+      let onMessage: ((evt: MessageEvent<string>) => void) | undefined;
       try {
         const joinResp = (await request(ws, 'conference.join', {
           roomId,
@@ -382,8 +383,9 @@ export function useConferenceNative(
         setReconnectAttempt(0);
         setStatus('in-call');
 
-        // Inbound room events for the life of the call.
-        ws.addEventListener('message', (evt: MessageEvent<string>) => {
+        // Inbound room events for the life of the call. Named so it can be
+        // removed when the join sequence ends (reconnect or error path).
+        onMessage = (evt: MessageEvent<string>): void => {
           let msg: SignalMessage;
           try {
             msg = JSON.parse(evt.data) as SignalMessage;
@@ -503,7 +505,8 @@ export function useConferenceNative(
                 : next;
             });
           }
-        });
+        };
+        ws.addEventListener('message', onMessage);
 
         // Live translation: play incoming TTS in order (sink) and stream our own
         // mic to /ws/translate (bridge). Both are torn down on leave/reconnect.
@@ -533,6 +536,7 @@ export function useConferenceNative(
           }
         }
       } catch (err) {
+        if (onMessage) ws.removeEventListener('message', onMessage);
         setErrorReason('generic');
         setStatus('error');
         // Surface the cause in the dev console; the UI shows the generic state.
@@ -548,6 +552,11 @@ export function useConferenceNative(
    */
   const openAndJoin = useCallback(
     (token: string) => {
+      if (wsRef.current) {
+        const prev = wsRef.current;
+        wsRef.current = null;
+        prev.close(1000, 'reconnecting');
+      }
       const ws = new WebSocket(WS_URL, [WS_SUBPROTOCOL, token]);
       wsRef.current = ws;
 
