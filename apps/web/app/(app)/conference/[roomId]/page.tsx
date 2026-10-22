@@ -191,7 +191,7 @@ export default function ConferenceRoomPage() {
       {/* Main area: grid + optional roster */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Video grid — takes all remaining horizontal space */}
-        <main className="min-w-0 flex-1 overflow-y-auto p-3">
+        <main className="min-w-0 flex-1 overflow-hidden p-2">
           <VideoGrid
             localStream={localStream}
             localLabel={displayName || t('web.conference.you')}

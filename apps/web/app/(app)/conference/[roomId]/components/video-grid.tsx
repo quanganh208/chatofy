@@ -60,7 +60,7 @@ function VideoTile({
   return (
     <div
       className={[
-        'bg-surfaceRaised relative aspect-video overflow-hidden rounded-lg',
+        'bg-surfaceRaised relative overflow-hidden rounded-lg',
         isActiveSpeaker ? 'ring-2 ring-speaking' : '',
       ]
         .filter(Boolean)
@@ -144,7 +144,7 @@ export function VideoGrid({
   const colsClass = gridColsClass(Math.max(totalCount, 1));
 
   return (
-    <div className={`grid gap-3 ${colsClass}`}>
+    <div className={`grid h-full auto-rows-fr gap-2 ${colsClass}`}>
       {/* Local tile — audio always muted to prevent echo */}
       {localStream && (
         <VideoTile
@@ -173,7 +173,7 @@ export function VideoGrid({
 
       {/* Empty-room placeholder */}
       {peerEntries.length === 0 && (
-        <div className="text-textMuted flex aspect-video items-center justify-center rounded-lg border border-dashed border-border text-body">
+        <div className="text-textMuted flex items-center justify-center rounded-lg border border-dashed border-border text-body">
           {waitingLabel}
         </div>
       )}
