@@ -40,14 +40,25 @@ import { MEASURE } from './measures';
  */
 
 /**
- * Routes that open as a rail.
+ * Routes that open as a rail (exact match).
  *
  * One entry, and it is exact rather than a prefix — a prefix match would quietly start
  * claiming `/translate/history` the day it exists.
  */
 const RAIL_ROUTES: readonly Route[] = ['/translate'];
 
-const opensExpanded = (pathname: string) => !RAIL_ROUTES.some((route) => route === pathname);
+/**
+ * Route prefixes that also open as a rail.
+ *
+ * Used for dynamic routes like `/conference/[roomId]` where the path can't be
+ * expressed as a static `Route`. Prefix is intentionally specific — `/conference/`
+ * (with trailing slash) so the lobby at `/conference` stays expanded.
+ */
+const RAIL_PREFIXES: readonly string[] = ['/conference/'];
+
+const opensExpanded = (pathname: string) =>
+  !RAIL_ROUTES.some((route) => route === pathname) &&
+  !RAIL_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
 /**
  * Routes laid out as two columns rather than one, and measured for it.
@@ -61,6 +72,16 @@ const WORKSPACE_ROUTES: readonly Route[] = ['/translate'];
 
 const measureFor = (pathname: string) =>
   WORKSPACE_ROUTES.some((route) => route === pathname) ? MEASURE.workspace : MEASURE.wide;
+
+/**
+ * Routes that render edge-to-edge with no padding or max-width constraint.
+ *
+ * These are full-screen app surfaces (video conference room) that own their
+ * own internal layout and should not be framed by the standard content column.
+ */
+const FLUSH_PREFIXES: readonly string[] = ['/conference/'];
+
+const isFlush = (pathname: string) => FLUSH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -93,15 +114,21 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         <AppTopbar />
         {/* `min-h-0` so a screen that wants to fill the viewport can: without it
             a flex child's implicit min-height is its content, and a transcript
-            asking for the leftover space gets its own height back instead. */}
-        <div
-          className={cn(
-            'mx-auto flex w-full min-h-0 flex-1 flex-col gap-8 px-6 py-8',
-            measureFor(pathname),
-          )}
-        >
-          {children}
-        </div>
+            asking for the leftover space gets its own height back instead.
+            Flush routes (e.g. the conference room) skip padding and max-width
+            so their full-screen UI fills the available space edge-to-edge. */}
+        {isFlush(pathname) ? (
+          <div className="flex w-full min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+        ) : (
+          <div
+            className={cn(
+              'mx-auto flex w-full min-h-0 flex-1 flex-col gap-8 px-6 py-8',
+              measureFor(pathname),
+            )}
+          >
+            {children}
+          </div>
+        )}
       </SidebarInset>
     </SidebarProvider>
   );
