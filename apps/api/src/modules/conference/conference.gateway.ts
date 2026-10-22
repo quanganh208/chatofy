@@ -492,6 +492,10 @@ export class ConferenceGateway
             .catch((err: unknown) =>
               this.logger.error('recordTurn failed', err),
             );
+        } else {
+          this.logger.debug(
+            `recordTurn skipped — participantId not yet resolved for ${ws._socketId} in ${ws._roomId}`,
+          );
         }
       }
     }
