@@ -110,13 +110,21 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         changes, focus stays in the nav, and the skip link looks implemented while doing
         nothing.
       */}
-      <SidebarInset id="main" tabIndex={-1}>
+      {/*
+        Flush routes (conference room) cap SidebarInset at exactly h-svh so the
+        chain of flex-1/h-full inside resolves against a fixed height instead of
+        the SidebarProvider's min-h-svh which can grow with content.
+        overflow-hidden on SidebarInset prevents the body from ever scrolling.
+      */}
+      <SidebarInset
+        id="main"
+        tabIndex={-1}
+        className={isFlush(pathname) ? 'h-svh overflow-hidden' : undefined}
+      >
         <AppTopbar />
         {/* `min-h-0` so a screen that wants to fill the viewport can: without it
             a flex child's implicit min-height is its content, and a transcript
-            asking for the leftover space gets its own height back instead.
-            Flush routes (e.g. the conference room) skip padding and max-width
-            so their full-screen UI fills the available space edge-to-edge. */}
+            asking for the leftover space gets its own height back instead. */}
         {isFlush(pathname) ? (
           <div className="flex w-full min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
         ) : (
