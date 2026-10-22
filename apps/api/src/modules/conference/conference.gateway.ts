@@ -18,6 +18,7 @@ import type {
 } from './conference-room-registry.service';
 import { ConferenceMetricsService } from './conference-metrics.service';
 import { ConferencePersistenceService } from './services/conference-persistence.service';
+import { ConferenceService } from './conference.service';
 import { ConferenceTranslationRouter } from './services/conference-translation-router.service';
 import { PipelineTranslatorService } from '../translate/services/pipeline-translator.service';
 import { LANGUAGE_CODES, type LanguageCode } from '@chatofy/types';
@@ -103,6 +104,7 @@ export class ConferenceGateway
     private readonly translationRouter: ConferenceTranslationRouter,
     private readonly translator: PipelineTranslatorService,
     @Inject(AUTH_ADAPTER) private readonly auth: AuthAdapter,
+    private readonly conferenceService: ConferenceService,
   ) {}
 
   /**
@@ -191,6 +193,12 @@ export class ConferenceGateway
   ): Promise<void> {
     if (!ws._userId || !ws._socketId) {
       this.reply(ws, 'conference.join', { error: 'not_authenticated' });
+      return;
+    }
+    try {
+      await this.conferenceService.findOne(body.roomId, ws._userId);
+    } catch {
+      this.reply(ws, 'conference.join', { error: 'forbidden' });
       return;
     }
     try {
