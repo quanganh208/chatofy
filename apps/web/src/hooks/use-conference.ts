@@ -1047,6 +1047,9 @@ export function useConference(
   // Close on unmount.
   useEffect(
     () => () => {
+      // Mark as intentional so the ws close handler does not trigger a
+      // reconnect attempt into the already-unmounted component.
+      intentionalLeaveRef.current = true;
       wsRef.current?.close();
       audioSinkRef.current?.close();
     },
