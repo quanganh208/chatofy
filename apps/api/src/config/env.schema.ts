@@ -154,6 +154,16 @@ export const envSchema = z.object({
   // meaning of a voice differs per engine.
   LOCAL_STT_URL: z.string().url().default('http://localhost:8002'),
   LOCAL_TTS_URL: z.string().url().default('http://localhost:8003'),
+
+  // ── Video conferencing (mediasoup + coturn) ───────────────────────────────
+  // Announced IP for WebRTC ICE candidates. Override with the host's public IP
+  // in production; loopback is correct for local dev.
+  MEDIASOUP_ANNOUNCED_IP: z.string().default('127.0.0.1'),
+  // TURN server credentials returned to clients in transport.create.
+  // Leave blank to disable TURN (loopback-only dev is fine without it).
+  TURN_URL: emptyStringAsUndefined(z.string().min(1).optional()),
+  TURN_USERNAME: emptyStringAsUndefined(z.string().min(1).optional()),
+  TURN_CREDENTIAL: emptyStringAsUndefined(z.string().min(1).optional()),
 });
 
 export type Env = z.infer<typeof envSchema>;
