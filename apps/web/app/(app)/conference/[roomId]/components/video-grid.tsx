@@ -13,7 +13,7 @@ import { useEffect, useRef } from 'react';
 import { Loader2, MicOff, VideoOff } from 'lucide-react';
 import type { PeerState } from '@/hooks/use-conference';
 import { SubtitleOverlay } from './subtitle-overlay';
-import { gridColsClass } from '../utils/video-layout';
+import { computeGridLayout } from '../utils/video-layout';
 
 // ─── Video tile ───────────────────────────────────────────────────────────────
 
@@ -29,6 +29,8 @@ interface VideoTileProps {
   translating?: boolean;
   /** Localised badge text, e.g. "Translating…". Required when translating=true. */
   translatingLabel?: string;
+  /** Extra classes from the grid layout (col-span, col-start, etc.). */
+  tileClassName?: string;
 }
 
 function VideoTile({
@@ -40,6 +42,7 @@ function VideoTile({
   audioMuted = false,
   translating = false,
   translatingLabel = '',
+  tileClassName = '',
 }: VideoTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -62,6 +65,7 @@ function VideoTile({
       className={[
         'bg-surfaceRaised relative overflow-hidden rounded-lg',
         isActiveSpeaker ? 'ring-2 ring-speaking' : '',
+        tileClassName,
       ]
         .filter(Boolean)
         .join(' ')}
@@ -139,12 +143,15 @@ export function VideoGrid({
   translatingLabel = '',
 }: VideoGridProps) {
   const peerEntries = [...peers.entries()];
-  // Count = local tile (always shown when stream exists) + remote peers
-  const totalCount = (localStream ? 1 : 0) + peerEntries.length;
-  const colsClass = gridColsClass(Math.max(totalCount, 1));
+  const showWaiting = peerEntries.length === 0;
+  // Include the waiting placeholder as a tile slot for layout purposes.
+  const totalCount = (localStream ? 1 : 0) + (showWaiting ? 1 : peerEntries.length);
+  const layout = computeGridLayout(Math.max(totalCount, 1));
+
+  let tileIndex = 0;
 
   return (
-    <div className={`grid h-full auto-rows-fr gap-2 ${colsClass}`}>
+    <div className={`${layout.containerClass} h-full auto-rows-fr gap-2`}>
       {/* Local tile — audio always muted to prevent echo */}
       {localStream && (
         <VideoTile
@@ -155,6 +162,7 @@ export function VideoGrid({
           audioMuted
           translating={localTranslating}
           translatingLabel={translatingLabel}
+          tileClassName={layout.tiles[tileIndex++]?.className}
         />
       )}
 
@@ -168,12 +176,20 @@ export function VideoGrid({
           videoEnabled={peer.videoEnabled}
           subtitle={peer.subtitle}
           audioMuted={false}
+          tileClassName={layout.tiles[tileIndex++]?.className}
         />
       ))}
 
       {/* Empty-room placeholder */}
-      {peerEntries.length === 0 && (
-        <div className="text-textMuted flex items-center justify-center rounded-lg border border-dashed border-border text-body">
+      {showWaiting && (
+        <div
+          className={[
+            'text-textMuted flex items-center justify-center rounded-lg border border-dashed border-border text-body',
+            layout.tiles[tileIndex]?.className ?? '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
           {waitingLabel}
         </div>
       )}
