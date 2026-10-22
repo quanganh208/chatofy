@@ -60,6 +60,10 @@ export default function ConferenceRoomPage() {
   useEffect(() => {
     if (joinedRef.current) return;
     joinedRef.current = true;
+    sessionStorage.setItem(
+      'conference:active',
+      JSON.stringify({ roomId, name: displayName, lang: sourceLanguage }),
+    );
     void join();
     // join is a stable useCallback; deps intentionally empty.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -69,6 +73,7 @@ export default function ConferenceRoomPage() {
   const [rosterOpen, setRosterOpen] = useState(true);
 
   function handleLeave() {
+    sessionStorage.removeItem('conference:active');
     leave();
     router.push('/conference');
   }

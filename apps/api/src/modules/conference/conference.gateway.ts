@@ -196,14 +196,23 @@ export class ConferenceGateway
       return;
     }
     try {
-      await this.conferenceService.findOne(body.roomId, ws._userId);
-    } catch {
-      this.reply(ws, 'conference.join', { error: 'forbidden' });
-      return;
-    }
-    try {
       ws._roomId = body.roomId;
       const room = await this.rooms.getOrCreateRoom(body.roomId);
+
+      // Evict any stale peer from the same user (e.g. page reload / navigation-away rejoin).
+      for (const [staleSid, stalePeer] of room.peers) {
+        if (stalePeer.userId === ws._userId) {
+          this.broadcast(room, ws, {
+            event: 'conference.peer.left',
+            data: { socketId: staleSid },
+          });
+          this.rooms.removePeer(room, staleSid);
+          this.logger.log(
+            `Evicted stale peer ${staleSid} for user ${ws._userId}`,
+          );
+        }
+      }
+
       this.rooms.addPeer(
         room,
         ws._socketId,

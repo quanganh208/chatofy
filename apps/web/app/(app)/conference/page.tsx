@@ -30,6 +30,29 @@ export default function ConferenceLobbyPage() {
   const t = useTranslate();
   const router = useRouter();
 
+  // Redirect back to the room if the user navigated away without explicitly leaving.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('conference:active');
+      if (!raw) return;
+      const {
+        roomId: rid,
+        name: n,
+        lang,
+      } = JSON.parse(raw) as {
+        roomId: string;
+        name: string;
+        lang: string;
+      };
+      if (rid) {
+        const params = new URLSearchParams({ name: n ?? '', lang: lang ?? 'vi' });
+        router.replace(`/conference/${encodeURIComponent(rid)}?${params.toString()}` as Route);
+      }
+    } catch {
+      sessionStorage.removeItem('conference:active');
+    }
+  }, [router]);
+
   const [name, setName] = useState('');
   const [roomId, setRoomId] = useState(generateRoomId);
   const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>('vi');
