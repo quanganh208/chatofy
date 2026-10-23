@@ -1,7 +1,11 @@
 // ElevenLabs Scribe speech-to-text — batch transcription via the REST API.
 // Uses global fetch/FormData/Blob (Node 18+/22), no SDK dependency.
 import type { LanguageCode } from '../../interfaces/provider-types.js';
-import type { SttProvider, SttTranscriptResult } from '../../interfaces/stt-provider.js';
+import type {
+  SttProvider,
+  SttTranscribeOptions,
+  SttTranscriptResult,
+} from '../../interfaces/stt-provider.js';
 import { ProviderConfigError, ProviderResponseError } from '../../errors/provider-errors.js';
 import { extFromMime, fetchWithDeadline, ELEVENLABS_TIMEOUT_MS, truncate } from '../http-util.js';
 
@@ -19,6 +23,12 @@ interface ScribeResponse {
   language_code?: string;
 }
 
+/**
+ * Scribe is always asked for the declared language and never identifies one:
+ * it implements no `supportedLanguages`, so it reports no identifiable
+ * languages, and `candidates` are ignored — the result says `identified: false`
+ * so a caller cannot mistake the declared language for a decision.
+ */
 export class ElevenLabsSttProvider implements SttProvider {
   readonly name = 'elevenlabs';
   private readonly apiKey: string;
@@ -36,6 +46,7 @@ export class ElevenLabsSttProvider implements SttProvider {
     audio: Uint8Array,
     mimeType: string,
     language: LanguageCode,
+    options?: SttTranscribeOptions,
   ): Promise<SttTranscriptResult> {
     const form = new FormData();
     form.append('model_id', this.model);
@@ -69,6 +80,8 @@ export class ElevenLabsSttProvider implements SttProvider {
     if (!json || typeof json.text !== 'string') {
       throw new ProviderResponseError('ElevenLabs STT returned an unexpected response');
     }
-    return { text: json.text, language };
+    // Same "two or more" rule as the local provider: one candidate is no choice.
+    const askedToIdentify = new Set(options?.candidates ?? []).size >= 2;
+    return { text: json.text, language, ...(askedToIdentify ? { identified: false } : {}) };
   }
 }

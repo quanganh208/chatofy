@@ -3,7 +3,7 @@
 // against, rather than trusting a generated list that could drift from what
 // the sidecar actually loaded. Shared between the STT and TTS local
 // providers because both sidecars publish the same `{languages: string[]}`
-// shape on `/healthz`.
+// shape on `/healthz`; the STT sidecar adds `lidLanguages` beside it.
 import { toLanguageCode, type LanguageCode } from '@chatofy/types';
 import type { ServedLanguages } from '../../interfaces/stt-provider.js';
 import { fetchWithDeadline } from '../http-util.js';
@@ -65,5 +65,24 @@ export async function readServedLanguages(
       unknown.push(tag);
     }
   }
-  return known.length > 0 ? { known, unknown } : null;
+  if (known.length === 0) return null;
+
+  // `lidLanguages` is the STT sidecar's: the languages its identifier can
+  // choose between, `[]` while identification is switched off. A sidecar from
+  // before it, and the TTS sidecar, send no such key — and leaving
+  // `identifiable` absent says the same "none" without making every caller
+  // that reads this shape carry a field it has no use for. Only registry codes
+  // the sidecar also SERVES are kept: a language it can identify but not
+  // decode is not one a turn can be routed to.
+  const lid =
+    body !== null && typeof body === 'object' && 'lidLanguages' in body
+      ? body.lidLanguages
+      : undefined;
+  if (!isStringArray(lid)) return { known, unknown };
+  const identifiable: LanguageCode[] = [];
+  for (const tag of lid) {
+    const code = toLanguageCode(tag);
+    if (code && known.includes(code) && !identifiable.includes(code)) identifiable.push(code);
+  }
+  return { known, unknown, identifiable };
 }

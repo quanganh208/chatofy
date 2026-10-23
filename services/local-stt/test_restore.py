@@ -385,8 +385,8 @@ def test_an_unloaded_zh_restorer_answers_404_not_503(client):
 
     assert res.status_code == 404
     # `/healthz` reports the vi restorer only, exactly as before (`alternates`
-    # is the recognizers', not a restorer's).
-    assert set(health.json()) == {"status", "languages", "restore", "alternates"}
+    # and `lidLanguages` are the recognizers', not a restorer's).
+    assert set(health.json()) == {"status", "languages", "restore", "alternates", "lidLanguages"}
 
 
 def test_the_vi_restorer_is_the_registry_entry_not_a_second_model():

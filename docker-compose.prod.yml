@@ -268,6 +268,10 @@ services:
     container_name: chatofy_prod_seed_stt
     volumes:
       - ${STT_MODELS_DIR:?set STT_MODELS_DIR to an absolute path}:/app/models
+    # The same switch as the sidecar's: off, the language identifier's weights
+    # are not fetched at all.
+    environment:
+      LOCAL_STT_LID: ${PROD_LOCAL_STT_LID:-off}
     command: ['python', 'scripts/download_models.py']
     restart: 'no'
     logging: *logging
@@ -296,12 +300,23 @@ services:
       # requests decode through it at once. Measured on prod: a single lane
       # (the old lock) left ~72% of the cores idle while requests queued.
       LOCAL_STT_CONCURRENCY: ${PROD_LOCAL_STT_CONCURRENCY:-4}
+      # Language identification behind `/transcribe`'s `candidates`. Off until
+      # prod has the memory for it: off, the seed skips its weights, the sidecar
+      # never loads it, and `candidates` is a 409 the API answers by decoding
+      # the declared language.
+      LOCAL_STT_LID: ${PROD_LOCAL_STT_LID:-off}
     # 4g plus 512m for the alternate vi recognizer (ZipFormer-150M), measured on
     # an isolated instance at these threads and lanes, 95 real turns: +87 MiB
     # after load, +411 MiB at the peak of four concurrent finals each decoded by
     # both models (2.65 → 3.05 GiB). Seeded without it, the sidecar never
     # reaches that peak, so the extra is headroom it does not take.
-    mem_limit: 4608m
+    #
+    # Plus 512m for language identification (`LOCAL_STT_LID=on`, Whisper base):
+    # peaks of 3.7 GiB (2 two-way + 1 detect session with split, speculation and
+    # TTS running beside it) and 4.4 GiB (the same without TTS, earlier build),
+    # isolated instance at these threads and lanes. 5120m keeps 512m above the
+    # higher one. Off, the identifier is never loaded and none of this is used.
+    mem_limit: 5120m
     healthcheck:
       test:
         [
