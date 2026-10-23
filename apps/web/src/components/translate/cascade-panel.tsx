@@ -16,9 +16,16 @@ import { ElapsedClock } from '@/components/translate/elapsed-clock';
 import { Button } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
 import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
-import { reversePair } from '@chatofy/types';
+import {
+  AUTO_DETECT,
+  LANGUAGE_CODES,
+  languagePairOf,
+  reversePair,
+  type LanguageCode,
+} from '@chatofy/types';
 import { toConversationTurns } from '@chatofy/realtime-client';
-import type { TranslateSettings } from '@/lib/translate-settings';
+import { asksTwoWay, type TranslateSettings } from '@/lib/translate-settings';
+import { languageNamer } from '@/i18n/language-pair-labels';
 import { recordingOffsetMs } from '@/lib/transcript-time';
 import { useLocale, useTranslate } from '@/i18n/provider';
 import { ContextPicker } from '@/components/translate/context-picker';
@@ -88,6 +95,20 @@ import { resolveContext, toHints, useTranslationContexts } from '@/hooks/use-tra
  * write originate here; the settings VALUES belong to the page, which is the only
  * place allowed to call `useTranslateSettings`.
  */
+
+/**
+ * The chosen voice per language, for a start whose spoken language is only
+ * known per turn. Languages with no choice are left out, which the server reads
+ * as "the gender default" — exactly what an unset token means everywhere else.
+ */
+function chosenVoices(voice: TranslateSettings['voice']): Partial<Record<LanguageCode, string>> {
+  const voices: Partial<Record<LanguageCode, string>> = {};
+  for (const code of LANGUAGE_CODES) {
+    const token = voice[code];
+    if (token) voices[code] = token;
+  }
+  return voices;
+}
 
 /**
  * Status → dictionary key. The words moved to `@chatofy/i18n`; this table keeps
@@ -292,6 +313,23 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   // from it. The notice below is what says which case a reader is in.
   const canGenerate = save.saved && conversationTurns.length > 0;
 
+  const nameLanguage = languageNamer(t);
+  // Whether a start from the CURRENT settings would have its spoken language
+  // decided per turn — both ways, or auto-detected.
+  const identifiesTurns =
+    settings.languagePair.source === AUTO_DETECT || asksTwoWay(settings.languagePair);
+  // Asked for both ways, answered one way: the pair it runs in, or null. Read
+  // off the newest turn's answer, and only while running — the answer belongs
+  // to the conversation in progress.
+  const declinedPair =
+    running &&
+    conversation.twoWayRequested &&
+    conversation.languageMode?.mode === 'declared' &&
+    conversation.languagePair &&
+    conversation.languagePair.source !== AUTO_DETECT
+      ? languagePairOf(conversation.languagePair.source, conversation.languagePair.target)
+      : null;
+
   // Nothing was stored and nothing ever will be: the same body is refused every
   // time. Only then is there no conversation to summarize — a terminal failure
   // while `saved` holds belongs to an EDIT, and the stored conversation behind
@@ -351,7 +389,14 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           // -swap must not flip which language a finished turn's translation
           // line reads from.
           conversationLanguagePair={conversation.languagePair ?? settings.languagePair}
-          onSwap={() => onChange({ languagePair: reversePair(settings.languagePair) })}
+          onSwap={() => {
+            // The swap is disabled for an auto-detected source; this keeps the
+            // handler honest about the one pair it cannot reverse.
+            const { source, target } = settings.languagePair;
+            if (source === AUTO_DETECT) return;
+            onChange({ languagePair: reversePair(languagePairOf(source, target)) });
+          }}
+          languageMode={conversation.languageMode?.mode ?? null}
           onLanguagePair={(languagePair) => onChange({ languagePair })}
           // The voice belongs beside the panel it speaks for, not behind the gear
           // at the far end of the dock beside the page settings.
@@ -393,9 +438,23 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             // it exists for.
             onRenameSpeaker: conversation.renameSpeaker,
             onRemoveSpeaker: conversation.removeSpeaker,
+            languageModes: conversation.languageModes,
           }}
         />
       </section>
+
+      {/* A two-way start the server is running one way — it could not tell the
+          two languages apart right now. Said as what the reader gets instead,
+          and as a readout: no fill, no surface, nothing to press, because there
+          is nothing on this screen that would change the answer. */}
+      {declinedPair ? (
+        <p role="status" className="text-muted-foreground text-hint" data-two-way-unavailable>
+          {t('web.translate.twoWayUnavailable', {
+            from: nameLanguage(declinedPair.source),
+            to: nameLanguage(declinedPair.target),
+          })}
+        </p>
+      ) : null}
 
       {conversation.error ? (
         <Alert variant="live">
@@ -547,11 +606,15 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
                     // control ignores it — the UI disables the picker there so the
                     // choice is never silently inert, but the value itself is honest.
                     speed: settings.speed,
-                    // ONE token, for the language about to be spoken. Settings keep
-                    // one per language because the two engines share no vocabulary;
-                    // the wire carries a single value because the server already
-                    // knows the pair and two could disagree.
+                    // The target's token, for the language a declared turn speaks —
+                    // and what a two-way start the server runs one way falls back
+                    // to. Settings keep one per language because the two engines
+                    // share no vocabulary.
                     voice: settings.voice[settings.languagePair.target],
+                    // A start whose spoken language is decided per turn also
+                    // carries the whole map, so a reply is read out in the voice
+                    // chosen for ITS language rather than the target's.
+                    ...(identifiesTurns ? { voices: chosenVoices(settings.voice) } : {}),
                     // Always asked for; the server decides whether to answer. A
                     // tab loaded before this field existed simply never asks, so
                     // it is never sent an event its copy of the contract cannot

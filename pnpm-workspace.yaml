@@ -31,6 +31,10 @@ overrides:
   '@types/node': ^24
   # GHSA-c83g-rgw3-j3cx, GHSA-73wf-gq98-2v4g — high, <=4.28.6. Build-time only.
   browserslist: '>=4.28.8'
+  # GHSA-587h-7wmj-h5pm — high, >=8.0.0 <=8.1.5: launch-editor's existence check
+  # bypassable on Windows. Dev-only (vitest, unplugin-swc), 32 paths deep. Scoped
+  # and capped to the 8 line so the v4 consumer is not dragged across majors.
+  'vite@^8': '>=8.1.6 <9'
   # GHSA-3f6p-5ww8-9rcr — high, <3.22.0: an auth-plugin downgrade that leaks
   # plaintext credentials. Unreachable here — `schema.prisma` is `postgresql`, so
   # this driver never loads — but the floor costs nothing and the gate should not

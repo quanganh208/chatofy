@@ -219,6 +219,69 @@ describe('TranscriptPanes and the conversation-captured language pair', () => {
   });
 });
 
+describe('TranscriptPanes in a two-way conversation', () => {
+  const REPLY: TranscriptSegment = {
+    id: 'seg-b',
+    sessionId: 'b',
+    speakerRole: 'speaker_b',
+    sourceLanguages: ['en'],
+    translations: { vi: 'Chào bạn' },
+    sourceText: 'Hi there',
+    audioUrl: null,
+    createdAt: '2026-09-04T00:00:05.000Z',
+  };
+
+  function renderTwoWay(displayMode: 'split' | 'list') {
+    act(() => {
+      root.render(
+        <LocaleProvider>
+          <TranscriptPanes
+            settings={{ ...DEFAULT_TRANSLATE_SETTINGS, displayMode }}
+            running
+            onSwap={vi.fn()}
+            onLanguagePair={vi.fn()}
+            voiceControl={<button type="button">voice slot</button>}
+            conversationLanguagePair={{ source: 'vi', target: 'en' }}
+            languageMode="two-way"
+            stream={{
+              turns: [...TURNS, REPLY],
+              liveTurns: [],
+              captures: { ...CAPTURES, b: { openedAt: 3_000, cutForced: false, closedAt: 4_000 } },
+              displays: {},
+              startedAtMs: null,
+              audioOffsetMs: null,
+              speakers: SPEAKERS,
+              attributions: {},
+              languageModes: { a: 'two-way', b: 'two-way' },
+              onAttribute: vi.fn(),
+              onUnattribute: vi.fn(),
+              onAddSpeaker: vi.fn(),
+              onRenameSpeaker: vi.fn(),
+              onRemoveSpeaker: vi.fn(),
+            }}
+          />
+        </LocaleProvider>,
+      );
+    });
+  }
+
+  it('reads an English turn in a Vietnamese–English pair in the direction it was translated', () => {
+    renderTwoWay('split');
+    const [, target] = regions();
+    // The target pane reads each turn's OWN translation: English for the
+    // Vietnamese turn, Vietnamese for the English reply.
+    expect(target?.textContent).toContain('Hello');
+    expect(target?.textContent).toContain('Chào bạn');
+  });
+
+  it('says which way it is running beside the source role, in either arrangement', () => {
+    renderTwoWay('split');
+    expect(container.querySelector('[data-language-mode="two-way"]')).not.toBeNull();
+    renderTwoWay('list');
+    expect(container.querySelector('[data-language-mode="two-way"]')).not.toBeNull();
+  });
+});
+
 describe('TranscriptPanes and the one interactive chip', () => {
   it('asks who spoke exactly once, however many panes there are', () => {
     // Two chips would be two controls writing one piece of state, with nothing

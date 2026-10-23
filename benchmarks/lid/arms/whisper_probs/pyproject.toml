@@ -1,0 +1,22 @@
+[project]
+name = "lid-arm-whisper-probs"
+version = "0.1.0"
+description = "Arm 2: Whisper first-step language probabilities -- ONNX runtime + faster-whisper reference"
+requires-python = ">=3.11.4,<3.12"
+dependencies = [
+    "onnxruntime==1.27.0",
+    "sherpa-onnx==1.13.4",
+    "numpy>=1.26",
+    "soundfile>=0.12",
+    "av>=13",
+    "huggingface-hub>=0.26",
+    # Feature extraction only (numpy path); no torch is installed in this env.
+    "transformers==4.53.2",
+    # Parity reference only.
+    "faster-whisper==1.1.1",
+    # Graph surgery for the turn-length encoder (window.py); not used at inference.
+    "onnx==1.17.0",
+]
+
+[tool.uv]
+package = false

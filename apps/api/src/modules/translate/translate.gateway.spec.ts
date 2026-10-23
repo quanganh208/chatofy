@@ -413,6 +413,89 @@ describe('TranslateGateway', () => {
       });
     });
 
+    // Live runs the declared pair one way. Both fields are refused before the
+    // parse, as an event: thrown, `detect` would be silence, and `twoWay`
+    // would be stripped and the session run one-way without a word.
+    it.each([
+      [
+        'twoWay',
+        {
+          type: 'client.live.start',
+          languagePair: { source: 'vi', target: 'en' },
+          twoWay: true,
+        },
+      ],
+      [
+        'a detected source',
+        {
+          type: 'client.live.start',
+          languagePair: { source: 'detect', target: 'en' },
+        },
+      ],
+    ])(
+      'answers a live start asking for %s with language_unavailable',
+      async (_case, payload) => {
+        await gateway.handleLiveStart(payload, socket);
+        expect(live.start).not.toHaveBeenCalled();
+        expect(
+          JSON.parse(
+            (socket.send as Mock<(data: string) => void>).mock.lastCall![0],
+          ),
+        ).toMatchObject({
+          type: 'server.live.error',
+          code: 'language_unavailable',
+        });
+      },
+    );
+
+    it('still answers a live start with the legacy direction as client_outdated, beside twoWay', async () => {
+      await gateway.handleLiveStart(
+        { type: 'client.live.start', direction: 'vi_to_en', twoWay: true },
+        socket,
+      );
+      expect(
+        JSON.parse(
+          (socket.send as Mock<(data: string) => void>).mock.lastCall![0],
+        ),
+      ).toMatchObject({ type: 'server.live.error', code: 'client_outdated' });
+    });
+
+    it('starts a live session for a declared pair, with twoWay false', async () => {
+      await gateway.handleLiveStart(
+        {
+          type: 'client.live.start',
+          languagePair: { source: 'vi', target: 'en' },
+          twoWay: false,
+        },
+        socket,
+      );
+      expect(live.start).toHaveBeenCalledWith(socket, {
+        source: 'vi',
+        target: 'en',
+      });
+    });
+
+    it('forwards twoWay and a detect source on a turn start, for the session to decide', () => {
+      gateway.handleSessionStart(
+        {
+          type: 'client.session.start',
+          languagePair: { source: 'detect', target: 'en' },
+          twoWay: true,
+          turnId: 't1',
+        },
+        socket,
+      );
+      expect(sessions.start).toHaveBeenCalledWith(
+        socket,
+        expect.objectContaining({
+          languagePair: { source: 'detect', target: 'en' },
+          twoWay: true,
+        }),
+        't1',
+        undefined,
+      );
+    });
+
     it('refuses direction even beside a valid language pair, like REST', () => {
       gateway.handleSessionStart(
         {

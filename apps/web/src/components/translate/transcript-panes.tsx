@@ -1,7 +1,7 @@
 'use client';
 
 import type { ComponentProps } from 'react';
-import type { LanguagePair } from '@chatofy/types';
+import type { SessionLanguageMode, SessionLanguagePair } from '@chatofy/types';
 import { cn } from '@/lib/utils';
 
 import { useTranslate } from '@/i18n/provider';
@@ -9,6 +9,7 @@ import { ConversationTranscript } from '@/components/translate/conversation-tran
 import {
   LanguagePairSwap,
   HeaderLanguage,
+  LanguageModeHint,
   PanelHeader,
   PanelHeaders,
 } from '@/components/translate/panel-headers';
@@ -17,12 +18,12 @@ import { textSizeScale, type TranslateSettings } from '@/lib/translate-settings'
 
 /**
  * Everything a stream needs except which half of a turn it is showing, and
- * `target` — this file already derives that from `settings.languagePair` for its
- * own pane headers, so a caller has no second language to supply.
+ * `languagePair` — this file already holds the conversation's pair for its own
+ * pane headers, so a caller has no second one to supply.
  */
 type StreamProps = Omit<
   ComponentProps<typeof ConversationTranscript>,
-  'side' | 'speakerLabels' | 'interactive' | 'running' | 'target'
+  'side' | 'speakerLabels' | 'interactive' | 'running' | 'languagePair'
 >;
 
 interface TranscriptPanesProps {
@@ -30,7 +31,12 @@ interface TranscriptPanesProps {
   running: boolean;
   onSwap: () => void;
   /** A language picked in a header, as the whole new pair. */
-  onLanguagePair: (pair: LanguagePair) => void;
+  onLanguagePair: (pair: SessionLanguagePair) => void;
+  /**
+   * How the server ran the newest turn, for the source header's readout — see
+   * `LanguageModeHint`. Null when no turn has said.
+   */
+  languageMode?: SessionLanguageMode | null;
   /** The voice, for the target header's end slot — see `panel-headers.tsx`. */
   voiceControl: React.ReactNode;
   stream: StreamProps;
@@ -45,7 +51,7 @@ interface TranscriptPanesProps {
    * this. Defaults to `settings.languagePair` so a caller with no conversation yet
    * (nothing captured, nothing to show) still gets the ordinary pane.
    */
-  conversationLanguagePair?: LanguagePair;
+  conversationLanguagePair?: SessionLanguagePair;
 }
 
 /**
@@ -115,13 +121,15 @@ export function TranscriptPanes({
   voiceControl,
   stream,
   conversationLanguagePair,
+  languageMode = null,
 }: TranscriptPanesProps) {
   const t = useTranslate();
-  // The language a FINISHED turn's translation line reads — see the prop doc.
-  // Headers above keep reading `settings.languagePair`: which language is going
-  // IN or coming OUT is a fact about the upcoming conversation, and only the
+  // The pair a FINISHED turn's translation line is chosen from — see the prop
+  // doc. Per turn, not one target: a two-way reply reads the other side. Headers
+  // above keep reading `settings.languagePair`: which language is going IN or
+  // coming OUT is a fact about the upcoming conversation, and only the
   // already-spoken text must stay pinned to what it was captured for.
-  const { target: liveTarget } = conversationLanguagePair ?? settings.languagePair;
+  const turnPair = conversationLanguagePair ?? settings.languagePair;
 
   const split = settings.displayMode === 'split' && !settings.translationOnly;
   const column = split && settings.paneLayout === 'column';
@@ -142,7 +150,7 @@ export function TranscriptPanes({
         {...shared}
         side={side}
         interactive={interactive}
-        target={liveTarget}
+        languagePair={turnPair}
       />
     </TranscriptScroller>
   );
@@ -152,6 +160,7 @@ export function TranscriptPanes({
       <div className="flex min-h-0 flex-1 flex-col">
         <PanelHeader
           role={t('web.translate.languagePairSource')}
+          hint={<LanguageModeHint mode={languageMode} />}
           language={
             <HeaderLanguage
               languagePair={settings.languagePair}
@@ -223,6 +232,7 @@ export function TranscriptPanes({
         running={running}
         onSwap={onSwap}
         onLanguagePair={onLanguagePair}
+        mode={languageMode}
         voiceControl={voiceControl}
       />
       {settings.translationOnly

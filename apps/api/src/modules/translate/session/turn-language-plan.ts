@@ -1,4 +1,5 @@
 import {
+  detectConversationLanguages,
   pairLanguages,
   translationTargets,
   type LanguageCode,
@@ -49,7 +50,15 @@ export interface TurnLanguagePlan {
    * The first of `targets`, in the conversation's own order — only one of the
    * fan-out's results is ever synthesized; TTS for every target at once is
    * not supported (see `docs/system-architecture.md`).
+   *
+   * Null when `targets` is empty: a detect turn heard in the language it would
+   * be translated into is shown as transcript and neither translated nor spoken.
    */
+  readonly spoken: LanguageCode | null;
+}
+
+/** A plan from a declared pair, which always has a language to speak. */
+export interface DeclaredTurnLanguagePlan extends TurnLanguagePlan {
   readonly spoken: LanguageCode;
 }
 
@@ -74,10 +83,29 @@ export function planTurnLanguages(
     // Non-null by the contract above: a `LanguageIdentifier` never returns an
     // empty array.
     recognition: sourceLanguages[0]!,
-    // Non-null because `targets` keeps `conversation`'s order and `conversation`
-    // holds at least two distinct languages while `sourceLanguages` is a
-    // non-empty subset of it — `translationTargets` cannot empty it out.
-    spoken: targets[0]!,
+    spoken: targets[0] ?? null,
+  };
+}
+
+/**
+ * The plan of one turn of a detect session, once the turn's language is known.
+ *
+ * The conversation is {@link detectConversationLanguages}, the same array the
+ * client saves, so the speaker role decided here is the one the save checks.
+ * The one target is the session's own: a turn heard in it has nothing to be
+ * translated into, and is transcript only.
+ */
+export function planDetectTurn(
+  target: LanguageCode,
+  heard: LanguageCode,
+): TurnLanguagePlan {
+  const targets = heard === target ? [] : [target];
+  return {
+    conversation: detectConversationLanguages(target),
+    sourceLanguages: [heard],
+    targets,
+    recognition: heard,
+    spoken: targets[0] ?? null,
   };
 }
 
@@ -94,10 +122,19 @@ export function planTurnLanguages(
 export function planForPair(
   pair: LanguagePair,
   identifier: LanguageIdentifier,
-): TurnLanguagePlan {
+): DeclaredTurnLanguagePlan {
   const conversation = pairLanguages(pair);
-  return planTurnLanguages(
+  const plan = planTurnLanguages(
     conversation,
     identifier.identify({ declared: conversation[0] }),
   );
+  const { spoken } = plan;
+  // A pair holds two distinct languages and the identifier answers a non-empty
+  // subset of them, so `translationTargets` cannot empty the targets out.
+  if (spoken === null) {
+    throw new Error(
+      `A declared pair planned no target: ${pair.source}→${pair.target}`,
+    );
+  }
+  return { ...plan, spoken };
 }

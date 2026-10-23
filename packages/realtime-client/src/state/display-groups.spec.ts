@@ -7,6 +7,7 @@ import {
   groupSourceText,
   groupTranslation,
   groupTurnsForDisplay,
+  turnTargetLanguage,
   type DisplayGroup,
 } from './display-groups.js';
 import {
@@ -555,5 +556,59 @@ describe('group text', () => {
     expect(groupSourceText(group!, { a: 'Mười bảy giờ,', b: 'trời mưa?' })).toBe(
       'Mười bảy giờ, trời mưa?',
     );
+  });
+});
+
+describe('two-way turns', () => {
+  it('never merges a ceiling cut into a turn heard in the other language', () => {
+    // Forced cut, a 200ms gap, nobody named: everything else says "one
+    // utterance". The languages say two people.
+    const groups = groupTurnsForDisplay(
+      [segment('a', 'chắc rồi', 'sure'), enSegment('b', 'ready to ship?', 'sẵn sàng chưa?')],
+      captures(['a', 1_000, true, 9_000], ['b', 9_200, false, 12_000]),
+      {},
+    );
+    expect(shape(groups)).toEqual([['a'], ['b']]);
+  });
+
+  it('still merges a ceiling cut between two turns heard in the same language', () => {
+    const groups = groupTurnsForDisplay(
+      [enSegment('a', 'ready to', 'sẵn sàng'), enSegment('b', 'ship it', 'ra mắt')],
+      captures(['a', 1_000, true, 9_000], ['b', 9_200, false, 12_000]),
+      {},
+    );
+    expect(shape(groups)).toEqual([['a', 'b']]);
+  });
+});
+
+describe('turnTargetLanguage', () => {
+  it('reads a two-way turn heard in the target in the source — the reply direction', () => {
+    expect(turnTargetLanguage(['en'], { source: 'vi', target: 'en' })).toBe('vi');
+    expect(turnTargetLanguage(['vi'], { source: 'vi', target: 'en' })).toBe('en');
+  });
+
+  it('reads the target for an undecided live turn and for a mixed one', () => {
+    expect(turnTargetLanguage([], { source: 'vi', target: 'en' })).toBe('en');
+    expect(turnTargetLanguage(['vi', 'en'], { source: 'vi', target: 'en' })).toBe('en');
+  });
+
+  it('always reads the target when the source was auto-detected', () => {
+    expect(turnTargetLanguage(['vi'], { source: 'detect', target: 'en' })).toBe('en');
+    // Said in the target itself: nothing translated it there, so the turn reads
+    // as transcript only rather than borrowing another language's line.
+    expect(turnTargetLanguage(['en'], { source: 'detect', target: 'en' })).toBe('en');
+  });
+
+  it('lets a reversed turn read its own translation out of the block', () => {
+    const [group] = groupTurnsForDisplay(
+      [enSegment('a', 'ready to ship?', 'sẵn sàng ra mắt chưa?')],
+      captures(['a', 1_000, false, 9_000]),
+      {},
+    );
+    const language = turnTargetLanguage(group!.turns[0]!.sourceLanguages, {
+      source: 'vi',
+      target: 'en',
+    });
+    expect(groupTranslation(group!, language)).toBe('sẵn sàng ra mắt chưa?');
   });
 });

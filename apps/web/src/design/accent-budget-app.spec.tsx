@@ -169,6 +169,9 @@ function conversation(over: Partial<UseStreamingTranslate> = {}): UseStreamingTr
     conversationId: 'c-1',
     startedAt: '2026-09-03T00:00:00.000Z',
     languagePair: { source: 'vi', target: 'en' },
+    twoWayRequested: false,
+    languageMode: null,
+    languageModes: {},
     recording: null,
     recordingStartedAtMs: null,
     pauses: [],
@@ -424,6 +427,110 @@ const SCREENS: ScreenState[] = [
         retry: vi.fn(),
       });
     },
+    render: translate(),
+  },
+  // The source picker's "Auto-detect" and what it reaches. Every readout it adds —
+  // the mode beside the source role, a turn's language tag, the line saying a
+  // two-way start is running one way — is muted text, so each of these states
+  // spends exactly what its declared twin above spends.
+  {
+    name: '/translate — auto-detect, before anything starts',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      useStreamingTranslate.mockReturnValue(conversation());
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    // The swap goes dead only for an undeclared source while nothing is running.
+    shows: 'button[aria-label^="Swap languages"]:disabled',
+    render: translate({ languagePair: { source: 'detect', target: 'en' } }),
+  },
+  {
+    name: '/translate — auto-detect, running',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      useStreamingTranslate.mockReturnValue(
+        conversation({
+          status: 'listening',
+          languagePair: { source: 'detect', target: 'en' },
+          languageMode: { mode: 'detect' },
+          liveTurns: [{ sessionId: 'b', text: 'good morning', translation: '', language: 'en' }],
+        }),
+      );
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    shows: '[data-language-mode="detect"]',
+    render: translate({ languagePair: { source: 'detect', target: 'en' } }),
+  },
+  {
+    name: '/translate — two-way, running with a turn from each side',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      useStreamingTranslate.mockReturnValue(
+        conversation({
+          status: 'listening',
+          twoWayRequested: true,
+          languageMode: { mode: 'two-way' },
+          turns: [
+            ...oneTurn,
+            {
+              id: 'seg-b',
+              sessionId: 'b',
+              speakerRole: 'speaker_b',
+              sourceLanguages: ['en'],
+              translations: { vi: 'chào buổi sáng' },
+              sourceText: 'good morning',
+              audioUrl: null,
+              createdAt: '2026-09-03T00:00:05.000Z',
+            },
+          ],
+          languageModes: { a: 'two-way', b: 'two-way' },
+        }),
+      );
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    shows: '[data-turn-language="en"]',
+    render: translate(),
+  },
+  {
+    name: '/translate — two-way asked, running one way',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      useStreamingTranslate.mockReturnValue(
+        conversation({
+          status: 'listening',
+          turns: oneTurn,
+          twoWayRequested: true,
+          languageMode: { mode: 'declared', reason: 'language_detection' },
+          languageModes: { a: 'declared' },
+        }),
+      );
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    shows: '[data-two-way-unavailable]',
     render: translate(),
   },
   {
@@ -683,19 +790,21 @@ const SCREENS: ScreenState[] = [
     // The same screen with a backend that actually answers: the picker lists
     // voices instead of saying there are none.
     //
-    // en→vi deliberately, and it is load-bearing rather than decorative.
+    // en→zh deliberately, and it is load-bearing rather than decorative.
     // `use-voice-catalog.ts` caches a list per OUTPUT LANGUAGE at module scope for
     // the life of the tab — so a second row asking for English would be handed the
     // empty answer the row above cached, and a fixture that cannot change what it
-    // renders proves nothing. Vietnamese is a key nothing else in this table asks
-    // for.
+    // renders proves nothing. It was en→vi until the default pair started asking
+    // for both ways, which lists Vietnamese voices too and cached that key empty
+    // as well. Chinese is a key nothing else in this table asks for, and a pair
+    // with it stays one way, so this panel asks for Chinese alone.
     name: '/preferences — voices listed',
     filled: 0,
     surfaces: 2,
     setup() {
       saveTranslateSettings({
         ...DEFAULT_TRANSLATE_SETTINGS,
-        languagePair: { source: 'en', target: 'vi' },
+        languagePair: { source: 'en', target: 'zh' },
       });
       listVoices.mockResolvedValue({ voices: VOICES });
     },
@@ -779,13 +888,14 @@ const SCREENS: ScreenState[] = [
     // dock. One surface — the popover — because `/translate` before a conversation
     // starts draws none of its own, and one accent, which is still Start behind it.
     //
-    // en→vi for the same reason the `/preferences — voices listed` row gives:
+    // en→zh for the same reason the `/preferences — voices listed` row gives:
     // `use-voice-catalog.ts` caches a list per OUTPUT LANGUAGE at module scope for
-    // the life of the file, and English was cached EMPTY by the rows above. Asking
-    // for it here handed `VoicePicker` an empty catalog, which is its render-nothing
-    // case — so this row mounted an empty popover while being named for a full one,
-    // and the counts matched either way. `shows` is what keeps it honest: the voice
-    // Select exists only when there are voices to list.
+    // the life of the file, and English and Vietnamese were cached EMPTY by the
+    // rows above. Asking for either here handed `VoicePicker` an empty catalog,
+    // which is its render-nothing case — so this row mounted an empty popover
+    // while being named for a full one, and the counts matched either way. `shows`
+    // is what keeps it honest: the voice Select exists only when there are voices
+    // to list.
     name: '/translate — voice settings open',
     filled: 1,
     surfaces: 1,
@@ -801,7 +911,7 @@ const SCREENS: ScreenState[] = [
       });
       listVoices.mockResolvedValue({ voices: VOICES });
     },
-    render: translate({ languagePair: { source: 'en', target: 'vi' } }),
+    render: translate({ languagePair: { source: 'en', target: 'zh' } }),
   },
   {
     // A context selected, with the picker CLOSED. An open `Select` renders its

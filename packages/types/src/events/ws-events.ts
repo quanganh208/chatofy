@@ -2,7 +2,11 @@
 import { z } from 'zod';
 import { audioFrameSchema } from './audio-frame.js';
 import { speakerRoleSchema } from '../domain/session.js';
-import { languagePairSchema, translationMapSchema } from '../domain/languages.js';
+import {
+  languageCodeSchema,
+  sessionLanguagePairSchema,
+  translationMapSchema,
+} from '../domain/languages.js';
 import { UNSPACED_SCRIPT, unspacedWordCount } from '../domain/script-words.js';
 import {
   transcriptSegmentSchema,
@@ -193,8 +197,23 @@ export type TranslationHints = z.infer<typeof translationHintsSchema>;
  * chain from growing a positional argument per setting.
  */
 export const sessionOptionsSchema = z.object({
-  /** Which language is spoken and which it is translated into. */
-  languagePair: languagePairSchema,
+  /**
+   * Which language is spoken and which it is translated into. The source may be
+   * `'detect'` here, and only here: REST and live keep the declared pair.
+   */
+  languagePair: sessionLanguagePairSchema,
+  /**
+   * Treat the declared pair as a SET: each turn is identified as one of its two
+   * languages and translated into the other.
+   *
+   * A request, not a command. The server answers with the mode it actually runs
+   * on `server.session.ready` (`mode`), and runs a declared one-way turn instead
+   * when it cannot identify these languages right now — so absent, false, and
+   * "asked but not served" all run exactly what every session ran before this
+   * field existed. Ignored beside a `'detect'` source, which is one-way by
+   * definition; never refused at parse, because a refused parse is silence.
+   */
+  twoWay: z.boolean().optional(),
   /** Defaulted rather than required, so a client may omit it entirely. */
   voiceGender: voiceGenderSchema.default(DEFAULT_VOICE_GENDER),
   /**
@@ -256,6 +275,14 @@ export const sessionOptionsSchema = z.object({
    * rather than failing the turn.
    */
   voice: z.string().max(64).optional(),
+  /**
+   * A voice token per language, for a session whose spoken language is only
+   * known per turn — two-way speaks either side, detect may answer in more than
+   * one. Any subset of the registry; a language without an entry falls back to
+   * {@link voice} and then to the gender voice, exactly like an unknown token.
+   * Additive: a declared one-way session keeps sending `voice` alone.
+   */
+  voices: z.partialRecord(languageCodeSchema, z.string().max(64)).optional(),
   /**
    * Ask for a speaker embedding per turn, so this client can guess who spoke.
    *
@@ -518,10 +545,26 @@ export type ClientEvent = z.infer<typeof clientEventSchema>;
  */
 const echoedTurnIdSchema = z.string().max(64).optional();
 
+/**
+ * How the server is running a turn's languages: the declared source one-way,
+ * either side of the pair, or a source identified per turn.
+ */
+export const sessionLanguageModeSchema = z.enum(['declared', 'two-way', 'detect']);
+export type SessionLanguageMode = z.infer<typeof sessionLanguageModeSchema>;
+
 const serverSessionReadySchema = z.object({
   type: z.literal('server.session.ready'),
   sessionId: z.string(),
   turnId: echoedTurnIdSchema,
+  /**
+   * The language mode this turn actually runs, which may be less than the start
+   * asked for: `twoWay` the engine cannot identify right now runs `declared`.
+   * Optional so a server from before this field still parses; a client reads
+   * its absence as `declared`, which is all such a server ever ran.
+   */
+  mode: sessionLanguageModeSchema.optional(),
+  /** Why `mode` is less than what was asked for. Absent when it is not. */
+  modeReason: z.string().optional(),
 });
 
 const serverTranscriptPartialSchema = z.object({
@@ -530,7 +573,12 @@ const serverTranscriptPartialSchema = z.object({
   sessionId: z.string(),
   text: z.string(),
   speaker: speakerRoleSchema,
-  languagePair: languagePairSchema,
+  /**
+   * The language this read was heard in, when the turn's language was decided
+   * rather than declared. Absent on a declared turn, where it is the source.
+   */
+  language: languageCodeSchema.optional(),
+  languagePair: sessionLanguagePairSchema,
 });
 
 /**
@@ -571,7 +619,9 @@ const serverTranscriptDeltaSchema = z.object({
    */
   reanchors: z.number().int().nonnegative(),
   speaker: speakerRoleSchema,
-  languagePair: languagePairSchema,
+  /** As on `server.transcript.partial`: present only when the language was decided. */
+  language: languageCodeSchema.optional(),
+  languagePair: sessionLanguagePairSchema,
 });
 
 /**
@@ -592,7 +642,7 @@ const serverTranslationPartialSchema = z.object({
   /** Which turn this guess belongs to. */
   sessionId: z.string(),
   text: z.string(),
-  languagePair: languagePairSchema,
+  languagePair: sessionLanguagePairSchema,
 });
 
 /**
@@ -629,7 +679,7 @@ const serverTranslationDeltaSchema = z.object({
    * and append only while it stays the same.
    */
   generation: z.number().int().nonnegative(),
-  languagePair: languagePairSchema,
+  languagePair: sessionLanguagePairSchema,
 });
 
 const serverTranscriptFinalSchema = z.object({
@@ -847,6 +897,13 @@ const serverErrorSchema = z.object({
    */
   sessionId: z.string().optional(),
   turnId: echoedTurnIdSchema,
+  /**
+   * A finer reason under `code`, for a client that acts on it — such as
+   * `language_detection` under `language_unavailable`, meaning the source could
+   * not be left to identification. Optional: every code means what it did
+   * without one.
+   */
+  detail: z.string().optional(),
 });
 
 export const serverEventSchema = z.discriminatedUnion('type', [

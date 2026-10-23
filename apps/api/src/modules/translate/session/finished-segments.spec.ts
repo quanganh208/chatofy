@@ -54,3 +54,17 @@ describe('FinishedSegments block pauses', () => {
     expect(finished.block(socket, ['a', 'b'])?.restore).toEqual({ terms: [] });
   });
 });
+
+describe('FinishedSegments across languages', () => {
+  it('never joins a two-way turn decided in one language to a turn decided in the other', () => {
+    const finished = new FinishedSegments();
+    finished.record(socket, 'a', segment('xin chào'));
+    finished.record(socket, 'b', {
+      ...segment('hello there'),
+      recognition: 'en',
+      targets: ['vi'],
+    });
+
+    expect(finished.block(socket, ['a', 'b'])).toBeNull();
+  });
+});

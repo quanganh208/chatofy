@@ -3,7 +3,12 @@ import * as React from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { LANGUAGE_CODES, allLanguagePairs, type LanguagePair } from '@chatofy/types';
+import {
+  LANGUAGE_CODES,
+  allLanguagePairs,
+  type LanguagePair,
+  type SessionLanguagePair,
+} from '@chatofy/types';
 import { LanguagePairPicker, pairAfterPick } from './language-pair-picker.js';
 
 beforeAll(() => {
@@ -47,6 +52,31 @@ describe('pairAfterPick', () => {
       target: 'vi',
     });
     expect(pairAfterPick({ source: 'vi', target: 'en' }, 'source', 'vi')).toEqual({
+      source: 'vi',
+      target: 'en',
+    });
+  });
+
+  it('picking detect keeps the target, and a detect pair never collides into a reverse', () => {
+    expect(pairAfterPick({ source: 'vi', target: 'en' }, 'source', 'detect')).toEqual({
+      source: 'detect',
+      target: 'en',
+    });
+    expect(pairAfterPick({ source: 'detect', target: 'en' }, 'target', 'zh')).toEqual({
+      source: 'detect',
+      target: 'zh',
+    });
+    expect(pairAfterPick({ source: 'detect', target: 'en' }, 'source', 'vi')).toEqual({
+      source: 'vi',
+      target: 'en',
+    });
+    // "Detect" has no reverse, so the picked language stays where it was picked
+    // and the translation moves to the first other registry language.
+    expect(pairAfterPick({ source: 'detect', target: 'en' }, 'source', 'en')).toEqual({
+      source: 'en',
+      target: 'vi',
+    });
+    expect(pairAfterPick({ source: 'detect', target: 'vi' }, 'source', 'vi')).toEqual({
       source: 'vi',
       target: 'en',
     });
@@ -135,5 +165,52 @@ describe('LanguagePairPicker', () => {
       <LanguagePairPicker value={{ source: 'vi', target: 'en' }} onChange={() => {}} />,
     );
     expect(container.querySelector('.bg-primary')).toBeNull();
+  });
+
+  it('without a detect option, offers exactly the registry — what the popup renders', async () => {
+    renderPicker({ source: 'vi', target: 'en' });
+    expect(
+      (screen.getByRole('button', { name: /Swap languages/ }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+    await userEvent.click(screen.getByRole('combobox', { name: 'Source' }));
+    expect(optionNames()).toEqual(['Vietnamese', 'English', 'Chinese']);
+  });
+});
+
+describe('LanguagePairPicker with a detect option', () => {
+  function renderSession(value: SessionLanguagePair) {
+    const onChange = vi.fn();
+    render(
+      <LanguagePairPicker<SessionLanguagePair>
+        value={value}
+        onChange={onChange}
+        detectOption={{ label: 'Auto-detect' }}
+      />,
+    );
+    return onChange;
+  }
+
+  it('leads the source side with it, and only the source side', async () => {
+    renderSession({ source: 'vi', target: 'en' });
+    await userEvent.click(screen.getByRole('combobox', { name: 'Source' }));
+    expect(optionNames()).toEqual(['Auto-detect', 'Vietnamese', 'English', 'Chinese']);
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByRole('combobox', { name: 'Translation' }));
+    expect(optionNames()).toEqual(['Vietnamese', 'English', 'Chinese']);
+  });
+
+  it('can be picked, and keeps the translation side', async () => {
+    const onChange = renderSession({ source: 'vi', target: 'en' });
+    await userEvent.click(screen.getByRole('combobox', { name: 'Source' }));
+    await userEvent.click(screen.getByRole('option', { name: 'Auto-detect' }));
+    expect(onChange).toHaveBeenCalledWith({ source: 'detect', target: 'en' });
+  });
+
+  it('shows it as the chosen source, with no swap to offer', () => {
+    renderSession({ source: 'detect', target: 'en' });
+    expect(screen.getByRole('combobox', { name: 'Source' }).textContent).toContain('Auto-detect');
+    expect(
+      (screen.getByRole('button', { name: /Swap languages/ }) as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 });

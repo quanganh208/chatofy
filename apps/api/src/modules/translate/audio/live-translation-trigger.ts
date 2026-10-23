@@ -38,8 +38,12 @@ import type { TranslationBudget } from './translation-budget';
 export interface LiveTranslationTriggerOptions {
   /** Shared ceiling this turn spends against. */
   budget: TranslationBudget;
-  /** Newly settled characters that justify another translation. */
-  commitChars: number;
+  /**
+   * Newly settled characters that justify another translation. A function
+   * because the count is per language, and a two-way turn's language is only
+   * known once its preview locks.
+   */
+  commitChars: number | (() => number);
   /** Who is spending, for the per-user tier. */
   userId: string;
   /** Which model is being spent, since quota is metered per model. */
@@ -48,7 +52,7 @@ export interface LiveTranslationTriggerOptions {
 
 export class LiveTranslationTrigger {
   private readonly budget: TranslationBudget;
-  private readonly commitChars: number;
+  private readonly commitChars: () => number;
   private readonly userId: string;
   private readonly model: string;
 
@@ -60,7 +64,9 @@ export class LiveTranslationTrigger {
 
   constructor(options: LiveTranslationTriggerOptions) {
     this.budget = options.budget;
-    this.commitChars = options.commitChars;
+    const { commitChars } = options;
+    this.commitChars =
+      typeof commitChars === 'number' ? () => commitChars : commitChars;
     this.userId = options.userId;
     this.model = options.model;
   }
@@ -84,7 +90,7 @@ export class LiveTranslationTrigger {
     if (!this.budget.canSpend(this.userId, this.model)) return false;
     if (!committed.trim()) return false;
 
-    if (committed.length - this.lastCommittedLength >= this.commitChars)
+    if (committed.length - this.lastCommittedLength >= this.commitChars())
       return true;
     if (clauseCount(committed) > this.lastClauseCount) return true;
     // A correction is worth a request of its own, because a re-anchor can leave

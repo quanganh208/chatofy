@@ -213,3 +213,92 @@ def test_alternate_skips_a_read_only_models_mount(tmp_path, monkeypatch, capsys)
     seed.fetch_zipformer_vi_alternate()
 
     assert "not writable" in capsys.readouterr().out
+
+
+# ── Language identifier ──────────────────────────────────────────────────────
+
+
+def _fake_lid_hub(monkeypatch, tmp_path, calls: list) -> None:
+    def download(repo, filename, revision=None):
+        calls.append((repo, filename, revision))
+        path = tmp_path / "hub" / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(f"{repo}/{filename}".encode())
+        return str(path)
+
+    monkeypatch.setattr(seed, "hf_hub_download", download)
+    monkeypatch.setattr(
+        seed,
+        "WHISPER_LID_PINS",
+        {name: _pin_of(f"{seed.WHISPER_LID_REPO}/{name}".encode()) for name in seed.WHISPER_LID_PINS},
+    )
+
+
+def test_lid_off_fetches_nothing(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(seed, "MODELS_DIR", tmp_path / "models")
+    monkeypatch.setenv("LOCAL_STT_LID", "off")
+
+    def no_network(*_args, **_kwargs):
+        raise AssertionError("identification is off; nothing may be fetched")
+
+    monkeypatch.setattr(seed, "hf_hub_download", no_network)
+
+    seed.fetch_whisper_lid()
+
+    assert "skipped, LOCAL_STT_LID is off" in capsys.readouterr().out
+    assert not (tmp_path / "models").exists()
+
+
+def test_lid_fetches_every_file_at_the_pinned_revision(tmp_path, monkeypatch):
+    models_dir = tmp_path / "models"
+    monkeypatch.setattr(seed, "MODELS_DIR", models_dir)
+    monkeypatch.setenv("LOCAL_STT_LID", "on")
+    calls: list = []
+    _fake_lid_hub(monkeypatch, tmp_path, calls)
+
+    seed.fetch_whisper_lid()
+    seed.fetch_whisper_lid()
+
+    assert calls == [
+        (seed.WHISPER_LID_REPO, name, seed.WHISPER_LID_REVISION) for name in seed.WHISPER_LID_PINS
+    ]
+    assert all((models_dir / seed.WHISPER_LID_DIR / name).exists() for name in seed.WHISPER_LID_PINS)
+
+
+def test_a_tampered_lid_file_never_lands(tmp_path, monkeypatch, capsys):
+    models_dir = tmp_path / "models"
+    monkeypatch.setattr(seed, "MODELS_DIR", models_dir)
+    monkeypatch.setenv("LOCAL_STT_LID", "on")
+    _fake_lid_hub(monkeypatch, tmp_path, [])
+    encoder = next(iter(seed.WHISPER_LID_PINS))
+    monkeypatch.setitem(seed.WHISPER_LID_PINS, encoder, (seed.WHISPER_LID_PINS[encoder][0], "0" * 64))
+
+    seed.fetch_whisper_lid()
+
+    assert not (models_dir / seed.WHISPER_LID_DIR / encoder).exists()
+    assert not (models_dir / seed.WHISPER_LID_DIR / f"{encoder}.part").exists()
+    assert "skipped, candidates will be refused" in capsys.readouterr().out
+
+
+def test_lid_download_failure_does_not_stop_the_seed(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(seed, "MODELS_DIR", tmp_path / "models")
+    monkeypatch.setenv("LOCAL_STT_LID", "on")
+
+    def offline(*_args, **_kwargs):
+        raise OSError("hub unreachable")
+
+    monkeypatch.setattr(seed, "hf_hub_download", offline)
+
+    seed.fetch_whisper_lid()
+
+    assert "skipped, candidates will be refused" in capsys.readouterr().out
+
+
+def test_lid_seed_and_loader_agree_on_the_files(monkeypatch):
+    from lid import decider, model_decider
+
+    assert seed.WHISPER_LID_DIR == model_decider.MODEL_DIR.name
+    assert set(seed.WHISPER_LID_PINS) == set(model_decider.FILES)
+    for value in ("on", "off", "0", "false", "OFF ", "no", "yes"):
+        monkeypatch.setenv("LOCAL_STT_LID", value)
+        assert seed.lid_enabled() == decider.lid_enabled(), value

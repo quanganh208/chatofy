@@ -170,6 +170,18 @@ describe('useConversationSave', () => {
     expect(bodyOf(0)).not.toHaveProperty('direction');
   });
 
+  it('stores an auto-detected conversation target first, with every other language', async () => {
+    // The shape the server writes for the same conversation, from the same
+    // helper — and more than two languages is what reads it back as detected.
+    await render({
+      ...baseInput,
+      languagePair: { source: 'detect', target: 'en' },
+      running: false,
+      turns: [turn('good morning')],
+    });
+    expect(bodyOf(0).languages).toEqual(['en', 'vi', 'zh']);
+  });
+
   it('does not fire for a conversation with no blocks', async () => {
     await render({ ...baseInput, running: false, turns: [] });
     expect(saveConversation).not.toHaveBeenCalled();

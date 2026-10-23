@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AUTO_DETECT,
   DEFAULT_LANGUAGE_PAIR,
+  IDENTIFIABLE_LANGUAGES,
   LANGUAGE_CODES,
   allLanguagePairs,
+  canIdentify,
+  detectConversationLanguages,
+  isAutoDetectConversation,
+  sessionLanguagePairSchema,
+  turnCandidates,
   conversationLanguagesSchema,
   languagePairOf,
   languagePairSchema,
@@ -138,5 +145,97 @@ describe('language set schemas', () => {
     // 'xx', never a real BCP-47 primary subtag, so this stays a code outside
     // the registry even after a real language joins it — 'ja' would not.
     expect(schema.safeParse({ xx: 'unknown' }).success).toBe(false);
+  });
+});
+
+describe('session language pairs', () => {
+  it('a session pair takes a declared pair or an undeclared source', () => {
+    expect(sessionLanguagePairSchema.safeParse({ source: 'vi', target: 'en' }).success).toBe(true);
+    expect(sessionLanguagePairSchema.safeParse({ source: AUTO_DETECT, target: 'zh' }).success).toBe(
+      true,
+    );
+  });
+
+  it('a session pair still refuses one language twice, a detect target, and unknown codes', () => {
+    expect(sessionLanguagePairSchema.safeParse({ source: 'en', target: 'en' }).success).toBe(false);
+    expect(sessionLanguagePairSchema.safeParse({ source: 'vi', target: AUTO_DETECT }).success).toBe(
+      false,
+    );
+    expect(sessionLanguagePairSchema.safeParse({ source: 'xx', target: 'en' }).success).toBe(false);
+  });
+
+  it('the declared pair schema stays two codes, so REST and live never see detect', () => {
+    expect(languagePairSchema.safeParse({ source: AUTO_DETECT, target: 'en' }).success).toBe(false);
+  });
+});
+
+describe('turnCandidates', () => {
+  it('a declared one-way turn can only be in its source', () => {
+    expect(turnCandidates({ source: 'vi', target: 'en' }, false)).toEqual(['vi']);
+  });
+
+  it('a two-way turn is either side of the pair, source first', () => {
+    expect(turnCandidates({ source: 'en', target: 'vi' }, true)).toEqual(['en', 'vi']);
+  });
+
+  it('an undeclared source may be any identifiable language, whatever twoWay says', () => {
+    expect(turnCandidates({ source: AUTO_DETECT, target: 'en' }, false)).toEqual([
+      ...IDENTIFIABLE_LANGUAGES,
+    ]);
+    expect(turnCandidates({ source: AUTO_DETECT, target: 'en' }, true)).toEqual([
+      ...IDENTIFIABLE_LANGUAGES,
+    ]);
+  });
+});
+
+describe('canIdentify', () => {
+  it('only Vietnamese and English are told apart', () => {
+    expect(IDENTIFIABLE_LANGUAGES).toEqual(['vi', 'en']);
+  });
+
+  it('a two-way pair of identifiable languages can be identified', () => {
+    expect(canIdentify({ source: 'vi', target: 'en' }, true)).toBe(true);
+    expect(canIdentify({ source: 'en', target: 'vi' }, true)).toBe(true);
+  });
+
+  it('a two-way pair with Chinese cannot', () => {
+    expect(canIdentify({ source: 'vi', target: 'zh' }, true)).toBe(false);
+    expect(canIdentify({ source: 'zh', target: 'en' }, true)).toBe(false);
+  });
+
+  it('a declared one-way pair has nothing to decide between', () => {
+    expect(canIdentify({ source: 'vi', target: 'en' }, false)).toBe(false);
+  });
+
+  it('an undeclared source decides between the identifiable languages', () => {
+    expect(canIdentify({ source: AUTO_DETECT, target: 'zh' }, false)).toBe(true);
+  });
+});
+
+describe('auto-detected conversations', () => {
+  it('store the target first, then the rest of the registry in registry order', () => {
+    expect(detectConversationLanguages('en')).toEqual(['en', 'vi', 'zh']);
+    expect(detectConversationLanguages('vi')).toEqual(['vi', 'en', 'zh']);
+    expect(detectConversationLanguages('zh')).toEqual(['zh', 'vi', 'en']);
+  });
+
+  it('are told from declared ones by holding more than two languages', () => {
+    expect(isAutoDetectConversation(detectConversationLanguages('en'))).toBe(true);
+    expect(isAutoDetectConversation(['vi', 'en'])).toBe(false);
+  });
+
+  it('are valid stored conversation languages', () => {
+    expect(conversationLanguagesSchema.safeParse(detectConversationLanguages('zh')).success).toBe(
+      true,
+    );
+  });
+
+  it('keep Vietnamese as speaker_a and give every other language speaker_b', () => {
+    for (const target of LANGUAGE_CODES) {
+      const languages = detectConversationLanguages(target);
+      expect(speakerRoleFor('vi', languages)).toBe('speaker_a');
+      expect(speakerRoleFor('en', languages)).toBe('speaker_b');
+      expect(speakerRoleFor('zh', languages)).toBe('speaker_b');
+    }
   });
 });

@@ -92,6 +92,16 @@ the alternatives that lost.
 > decode), +411 MiB peak RSS under four concurrent finals. Same license as the
 > 30M.
 
+> **Language identifier (optional).** [Whisper base][whisperbase] (onnx-community
+> ONNX export, pinned revision and sha256, MIT) answers which of a request's
+> `candidates` the turn is in. Only its first decoder step runs — the language
+> token's probabilities, masked to the candidates — and the encoder is cut to
+> the turn with a 5 s floor (`lid/window.py`). Chosen over AmberNet, MMS-LID,
+> competing recognizers and other Whisper sizes in `benchmarks/lid`: vi↔en
+> passed every criterion, zh did not, so the API asks for vi and en only.
+> Measured at 4 threads: +126 ms p95 per final, ~0.6 GB at a four-lane peak.
+> Off with `LOCAL_STT_LID=off`, which also skips its weights in the seed.
+
 > **License obligation.** Zipformer-30M (and the 150M alternate) is CC-BY-NC-ND-4.0: **academic / thesis
 > use only**, no commercial use, no distribution of derivatives. If this project
 > is ever commercialized, swap in PhoWhisper behind the same `SttProvider`
@@ -133,12 +143,12 @@ the service is genuinely ready.
 
 ## API
 
-| Route              | Request                                                                                                                                                  | Response                                                                                    |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `GET /healthz`     | —                                                                                                                                                        | `200 {"status":"ok","alternates":["vi"]}` when loaded, `503 {"status":"loading"}` otherwise |
-| `POST /transcribe` | `multipart/form-data`: `file` (audio), `language` (`vi` or `en`), `hotwords` (repeatable, optional), `min_speech_ms` (optional), `alternates` (optional) | `200 {"text":"…","language":"vi"}`                                                          |
-| `POST /embed`      | `multipart/form-data`: `file` (audio)                                                                                                                    | `200 {"vector":[…],"dim":192,"speechMs":1480}`                                              |
-| `POST /restore`    | JSON: `text`, `language` (`vi` only), `context` (optional, the piece this one continues), `terms` (optional, session hotwords)                           | `200 {"text":"Mô hình AI của OpenAI."}`                                                     |
+| Route              | Request                                                                                                                                                                                             | Response                                                                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `GET /healthz`     | —                                                                                                                                                                                                   | `200 {"status":"ok","alternates":["vi"],"lidLanguages":["vi","en","zh"]}` when loaded, `503 {"status":"loading"}` otherwise |
+| `POST /transcribe` | `multipart/form-data`: `file` (audio), `language` (`vi`, `en` or `zh`), `hotwords` (repeatable, optional), `min_speech_ms` (optional), `alternates` (optional), `candidates` (repeatable, optional) | `200 {"text":"…","language":"vi"}`                                                                                          |
+| `POST /embed`      | `multipart/form-data`: `file` (audio)                                                                                                                                                               | `200 {"vector":[…],"dim":192,"speechMs":1480}`                                                                              |
+| `POST /restore`    | JSON: `text`, `language` (`vi` only), `context` (optional, the piece this one continues), `terms` (optional, session hotwords)                                                                      | `200 {"text":"Mô hình AI của OpenAI."}`                                                                                     |
 
 `speechMs` on `/embed` is how much of the clip is speech, not how long the clip
 is — the caller is sent a capture buffer with pre-roll and hangover on it, and
@@ -209,6 +219,35 @@ curl -F file=@sample.webm -F language=vi -F alternates=true \
 # {"text":"…","language":"vi","pauses":[…],"leadPause":320,"alternates":["…"]}
 ```
 
+### Candidates
+
+Two or more languages, one form field each, `language` among them, and the
+sidecar decides which one the turn is in before decoding it with that
+language's engine. The response's `language` is the decision and
+`languageConfidence` the chosen candidate's probability among the candidates;
+`lidSpeechMs` is how much speech it heard, by the energy measure the lock
+threshold was tuned on (not the Silero gate behind `speechMs`):
+
+```bash
+curl -F file=@sample.webm -F language=vi -F candidates=vi -F candidates=en \
+     http://localhost:8002/transcribe
+# {"text":"Along the same line…","language":"en","languageConfidence":0.99996,"lidSpeechMs":4280}
+```
+
+- No `candidates`: the response is byte for byte what it was before.
+- The decision never sees the hotwords; they only bias the chosen engine's
+  decode, and only if that engine takes them.
+- A malformed list (one entry, a duplicate, `language` missing, an unknown
+  code) is a `400`. Identification off, unseeded or not loaded is a `409`, and
+  `/healthz` then reports `lidLanguages: []`.
+- Busy is never a refusal on its own: an identifier with no free lane, or an
+  identified language whose engine has none, decodes the declared `language`
+  and answers `languageConfidence: null`. Only when that decode is busy too is
+  the turn a `503`.
+- A turn `min_speech_ms` gated returns the declared `language` with no
+  `languageConfidence`. The vi alternate is started only for a turn identified
+  as vi.
+
 ### Hotwords
 
 Terms the Vietnamese decoder should be biased towards, one form field each,
@@ -237,10 +276,11 @@ resampled to mono 16 kHz because both models are trained at that rate.
 
 ## Configuration
 
-| Env                           | Default | Purpose                                                                       |
-| ----------------------------- | ------- | ----------------------------------------------------------------------------- |
-| `LOCAL_STT_THREADS`           | `8`     | Threads per engine. 8 (physical cores) beat 16 (hyperthreads) on this machine |
-| `LOCAL_STT_MAX_AUDIO_SECONDS` | `300`   | Longest utterance accepted; longer audio returns `413` instead of decoding it |
+| Env                           | Default | Purpose                                                                                                                   |
+| ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `LOCAL_STT_THREADS`           | `8`     | Threads per engine. 8 (physical cores) beat 16 (hyperthreads) on this machine                                             |
+| `LOCAL_STT_MAX_AUDIO_SECONDS` | `300`   | Longest utterance accepted; longer audio returns `413` instead of decoding it                                             |
+| `LOCAL_STT_LID`               | `on`    | Language identification for `candidates`; `off` skips its weights and refuses `candidates` (prod compose defaults it off) |
 
 ## Test
 
@@ -258,3 +298,4 @@ uv run --directory services/local-stt pytest
 [parakeet]: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2
 [paraformer]: https://k2-fsa.github.io/sherpa/onnx/pretrained_models/offline-paraformer/paraformer-models.html
 [dewpoint]: https://huggingface.co/valkayuh/dewpoint
+[whisperbase]: https://huggingface.co/onnx-community/whisper-base

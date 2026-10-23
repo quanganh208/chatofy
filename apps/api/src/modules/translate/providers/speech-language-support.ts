@@ -3,7 +3,17 @@ import {
   Logger,
   type OnApplicationBootstrap,
 } from '@nestjs/common';
-import { LANGUAGE_CODES, type LanguageCode } from '@chatofy/types';
+import {
+  AUTO_DETECT,
+  LANGUAGE_CODES,
+  canIdentify,
+  languagePairOf,
+  turnCandidates,
+  type LanguageCode,
+  type LanguagePair,
+  type SessionLanguageMode,
+  type SessionLanguagePair,
+} from '@chatofy/types';
 import type {
   ServedLanguages,
   SttProvider,
@@ -18,10 +28,109 @@ const REFRESH_INTERVAL_MS = 60_000;
 export interface LanguagePlan {
   /** Language the turn's audio must be RECOGNISED in. */
   recognition: LanguageCode;
-  /** Language the translation must be SPOKEN in. */
-  spoken: LanguageCode;
+  /**
+   * Language the translation must be SPOKEN in; null for a turn with nothing
+   * to translate into, which asks no engine to speak.
+   */
+  spoken: LanguageCode | null;
   /** Whether the turn wants audio at all — an unspeakable target only matters then. */
   voiceOutput: boolean;
+}
+
+/** Why a session runs less than it asked for, or cannot run at all. */
+export const LANGUAGE_DETECTION_REASON = 'language_detection';
+
+/** What a start asks for, language-wise, and what this process can give it. */
+export interface LanguageModeRequest {
+  pair: SessionLanguagePair;
+  twoWay: boolean;
+  /**
+   * Languages the STT engine reported it can identify, or `null` when that is
+   * not known — not yet probed, a failed probe, or a backend with no
+   * `supportedLanguages` at all. Unknown is treated as "cannot identify".
+   */
+  identifiable: readonly LanguageCode[] | null;
+  /** The modes this build of the session path actually runs. */
+  servedModes: readonly SessionLanguageMode[];
+}
+
+/** The mode a start is admitted to, or why it is refused. */
+export type LanguageAdmission =
+  | {
+      admitted: true;
+      mode: 'declared' | 'two-way';
+      pair: LanguagePair;
+      /** Set when `mode` is less than the start asked for. */
+      modeReason?: typeof LANGUAGE_DETECTION_REASON;
+    }
+  | { admitted: true; mode: 'detect'; target: LanguageCode }
+  | {
+      admitted: false;
+      detail: typeof LANGUAGE_DETECTION_REASON;
+      message: string;
+    };
+
+/**
+ * Decide which language mode a start runs. The one place that does, so a mode
+ * reaching the turn is always one this check approved.
+ *
+ * Identification is only used when all three hold: the shipped identifier can
+ * tell the candidates apart at all (`canIdentify` — no Chinese, today), the
+ * running engine says it can identify every one of them right now, and this
+ * build serves the mode. Otherwise:
+ *
+ *  - a declared pair asked to run two-way DEGRADES to declared one-way and
+ *    says why — the speaker still gets what every session got before, which is
+ *    better than no session;
+ *  - an undeclared source is REFUSED: there is no declared language to fall
+ *    back to, and guessing one would translate the wrong way silently.
+ *
+ * Unknown capability fails closed here, unlike `refusal()`, which fails open:
+ * a wrong "can identify" sends candidates the engine cannot honour, and a
+ * wrong "cannot" only runs a declared turn.
+ */
+export function admitLanguageMode(
+  request: LanguageModeRequest,
+): LanguageAdmission {
+  const { source, target } = request.pair;
+  // `twoWay` means nothing beside an undeclared source, which is one-way by
+  // definition, so it is not part of what that source has to be served.
+  const twoWay = source !== AUTO_DETECT && request.twoWay;
+  const wanted: SessionLanguageMode =
+    source === AUTO_DETECT ? 'detect' : twoWay ? 'two-way' : 'declared';
+  const identifiable = request.identifiable;
+  const served =
+    wanted === 'declared' ||
+    (request.servedModes.includes(wanted) &&
+      canIdentify(request.pair, twoWay) &&
+      identifiable !== null &&
+      turnCandidates(request.pair, twoWay).every((language) =>
+        identifiable.includes(language),
+      ));
+
+  if (source === AUTO_DETECT) {
+    return served
+      ? { admitted: true, mode: 'detect', target }
+      : {
+          admitted: false,
+          detail: LANGUAGE_DETECTION_REASON,
+          message:
+            'This server cannot identify the spoken language right now; choose the language you speak',
+        };
+  }
+  const pair = languagePairOf(source, target);
+  if (served)
+    return {
+      admitted: true,
+      mode: wanted === 'two-way' ? 'two-way' : 'declared',
+      pair,
+    };
+  return {
+    admitted: true,
+    mode: 'declared',
+    pair,
+    modeReason: LANGUAGE_DETECTION_REASON,
+  };
 }
 
 /**
@@ -52,6 +161,18 @@ export class SpeechLanguageSupport implements OnApplicationBootstrap {
   private readonly logger = new Logger(SpeechLanguageSupport.name);
   private sttLanguages: readonly LanguageCode[] | null = null;
   private ttsLanguages: readonly LanguageCode[] | null = null;
+  /**
+   * What the STT engine can identify, `null` while that is not known. A
+   * resolved probe that reported no identifier is `[]`, not `null`: known to
+   * identify nothing.
+   */
+  private sttIdentifiable: readonly LanguageCode[] | null = null;
+  /**
+   * The STT engine can say what it identifies but has not answered yet: still
+   * loading its models, or down. Not the same `null` as a provider with no
+   * probe at all, which will never answer and is not asked again early.
+   */
+  private sttAnswerPending = true;
   /**
    * Tags each engine last reported that the registry does not know. Kept
    * across a failed probe rather than cleared: a sidecar that blinks out and
@@ -86,12 +207,42 @@ export class SpeechLanguageSupport implements OnApplicationBootstrap {
     }
     if (
       plan.voiceOutput &&
+      plan.spoken !== null &&
       this.ttsLanguages &&
       !this.ttsLanguages.includes(plan.spoken)
     ) {
       return `This server cannot speak ${plan.spoken} right now`;
     }
     return null;
+  }
+
+  /**
+   * The languages the STT engine can identify right now, or `null` when that is
+   * not known. Read for {@link admitLanguageMode}; refreshed on the same
+   * interval as {@link refusal}.
+   */
+  identifiable(): readonly LanguageCode[] | null {
+    // Asked again on every call while the engine owes an answer, not once a
+    // minute: the API boots in seconds and the sidecar loads its models for
+    // longer, so a deploy that recreates both would otherwise refuse every
+    // detect start and run every two-way one way for up to a minute after the
+    // sidecar is ready. Coalesced, so a burst of starts is still one probe.
+    if (
+      this.sttAnswerPending ||
+      Date.now() - this.refreshedAt >= REFRESH_INTERVAL_MS
+    )
+      void this.refresh();
+    return this.sttIdentifiable;
+  }
+
+  /**
+   * Ask both engines again without waiting out the interval — for a caller
+   * that just learned the cached answer is wrong, such as the STT engine
+   * refusing candidates it was reported to accept. Coalesced with any refresh
+   * already in flight, and never rejects.
+   */
+  refreshNow(): Promise<void> {
+    return this.refresh();
   }
 
   /**
@@ -141,6 +292,11 @@ export class SpeechLanguageSupport implements OnApplicationBootstrap {
     }
     this.sttLanguages = stt;
     this.ttsLanguages = tts;
+    // Not known when the probe was not answered; an answer without the field
+    // is an engine that identifies nothing.
+    this.sttIdentifiable = sttServed ? (sttServed.identifiable ?? []) : null;
+    this.sttAnswerPending =
+      sttServed === null && trio.stt.supportedLanguages !== undefined;
     // Same once-per-change rule for tags the registry does not know: the
     // sidecar reports them on every refresh, forever, until the registry
     // catches up.

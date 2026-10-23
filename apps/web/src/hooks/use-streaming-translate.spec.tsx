@@ -3,9 +3,13 @@ import * as React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ServerEvent, SessionOptions } from '@chatofy/types';
+import type { ServerEvent } from '@chatofy/types';
 import type { ConversationSessionListeners } from '@chatofy/realtime-client';
-import { useStreamingTranslate, type UseStreamingTranslate } from './use-streaming-translate';
+import {
+  useStreamingTranslate,
+  type StartOptions,
+  type UseStreamingTranslate,
+} from './use-streaming-translate';
 
 /**
  * The conversation id, and only the conversation id.
@@ -31,7 +35,11 @@ const FakeConversationSession = vi.hoisted(() => {
       Fake.last = this;
     }
 
-    start = (): Promise<void> => {
+    /** What each `start` was handed, so a case can read what reached the wire. */
+    startedWith: Record<string, unknown>[] = [];
+
+    start = (options: Record<string, unknown>): Promise<void> => {
+      this.startedWith.push(options);
       this.listeners.onReset();
       this.listeners.onStatus('listening');
       return Promise.resolve();
@@ -85,7 +93,7 @@ vi.mock('@/i18n/provider', () => ({
   useLocale: () => 'en',
 }));
 
-const options: SessionOptions = {
+const options: StartOptions = {
   languagePair: { source: 'vi', target: 'en' },
   voiceGender: 'female',
 };
@@ -334,5 +342,63 @@ describe('useStreamingTranslate pauses', () => {
     expect(latest.pausedMs).toBe(5_000);
     // No recorder ran through the pause, so offsets leave it out too.
     expect(latest.offsetPauses).toEqual(latest.pauses);
+  });
+});
+
+describe('useStreamingTranslate languages', () => {
+  const startIn = async (languagePair: StartOptions['languagePair']) => {
+    await act(async () => {
+      await latest.start({ ...options, languagePair });
+    });
+    return FakeConversationSession.last!.startedWith.at(-1);
+  };
+
+  it('asks for two-way when the pair can be told apart, and says so', async () => {
+    expect(await startIn({ source: 'vi', target: 'en' })).toMatchObject({ twoWay: true });
+    expect(latest.twoWayRequested).toBe(true);
+  });
+
+  it('never asks two-way for an auto-detected source or a pair it cannot identify', async () => {
+    expect(await startIn({ source: 'detect', target: 'en' })).not.toHaveProperty('twoWay');
+    expect(latest.twoWayRequested).toBe(false);
+    expect(await startIn({ source: 'vi', target: 'zh' })).not.toHaveProperty('twoWay');
+  });
+
+  it('follows the mode the server answers, and forgets it on the next start', async () => {
+    await startIn({ source: 'vi', target: 'en' });
+    expect(latest.languageMode).toBeNull();
+    act(() => FakeConversationSession.last!.listeners.onLanguageMode?.('declared', 'lid_capacity'));
+    expect(latest.languageMode).toEqual({ mode: 'declared', reason: 'lid_capacity' });
+    await startIn({ source: 'vi', target: 'en' });
+    expect(latest.languageMode).toBeNull();
+  });
+
+  it('keeps per-turn modes from the ready events', async () => {
+    await startIn({ source: 'vi', target: 'en' });
+    act(() =>
+      FakeConversationSession.last!.listeners.onServerEvent({
+        type: 'server.session.ready',
+        sessionId: 's1',
+        mode: 'two-way',
+      }),
+    );
+    expect(latest.languageModes).toEqual({ s1: 'two-way' });
+  });
+
+  it('says an auto-detect refusal in the reader’s language', async () => {
+    await startIn({ source: 'detect', target: 'en' });
+    const { listeners } = FakeConversationSession.last!;
+    act(() =>
+      listeners.onError('Language detection is unavailable', {
+        code: 'language_unavailable',
+        detail: 'language_detection',
+      }),
+    );
+    expect(latest.error).toBe('web.translate.detectUnavailable');
+    act(() => listeners.onError('busy', { code: 'language_unavailable', detail: 'lid_capacity' }));
+    expect(latest.error).toBe('web.translate.detectBusy');
+    // Anything else keeps the server's own words.
+    act(() => listeners.onError('Something else', { code: 'internal' }));
+    expect(latest.error).toBe('Something else');
   });
 });

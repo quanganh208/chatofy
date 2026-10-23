@@ -3,7 +3,8 @@
 Every engine loads eagerly at startup (~1.9GB resident: vi ~0.2GB, en ~1.1GB,
 zh ~0.4GB, plus the runtime) so /healthz is honest about readiness and the
 first request has no load spike. The optional vi alternate adds ~0.1GB after
-load and ~0.4GB at a four-lane peak.
+load and ~0.4GB at a four-lane peak; the optional language identifier
+(`lid.model_decider`) ~0.6GB at a four-lane peak.
 
 One engine per language answers both the live re-reads and the settled
 transcript. English is Parakeet-TDT: on real prod turns it halved Moonshine's
@@ -19,6 +20,9 @@ what actually loaded. A code outside `SUPPORTED_LANGUAGES` is still a 400 from
 serve is the API's refusal to make, before the audio ever reaches here.
 """
 import logging
+
+from lid.decider import IDENTIFIABLE, lid_enabled
+from lid.model_decider import WhisperLanguageId
 
 from .base import SttEngine, preload_onnxruntime_dll
 from .paraformer_zh import ParaformerZh
@@ -53,6 +57,7 @@ class EngineRegistry:
     def __init__(self) -> None:
         self._engines: dict[str, SttEngine] = {}
         self._alternates: dict[str, SttEngine] = {}
+        self._lid: WhisperLanguageId | None = None
 
     def load_all(self) -> None:
         # Must precede every `import sherpa_onnx`, which happens inside each
@@ -79,10 +84,27 @@ class EngineRegistry:
                 )
                 continue
             self._alternates[lang] = alternate
+        # Optional in the same way: without it, a request naming candidates is
+        # refused and every other request is served as before.
+        if not lid_enabled():
+            return
+        if not WhisperLanguageId.weights_present():
+            logger.warning("language identifier not seeded; candidates will be refused")
+            return
+        lid = WhisperLanguageId()
+        try:
+            lid.load()
+        except Exception:  # noqa: BLE001 — identification must never stop the sidecar
+            logger.exception("language identifier failed to load; candidates will be refused")
+            return
+        self._lid = lid
 
     def unload_all(self) -> None:
         self._engines.clear()
         self._alternates.clear()
+        if self._lid is not None:
+            self._lid.unload()
+        self._lid = None
 
     @property
     def ready(self) -> bool:
@@ -94,6 +116,16 @@ class EngineRegistry:
     def alternate_languages(self) -> list[str]:
         """Languages whose alternate recognizer loaded. Reported, never gating."""
         return [lang for lang, engine in self._alternates.items() if engine.loaded]
+
+    @property
+    def lid(self) -> WhisperLanguageId | None:
+        """The loaded language identifier, or None when off, unseeded or failed."""
+        return self._lid if self._lid is not None and self._lid.loaded else None
+
+    @property
+    def lid_languages(self) -> list[str]:
+        """Languages a request's `candidates` may name; empty without an identifier."""
+        return [lang for lang in IDENTIFIABLE if lang in self._engines] if self.lid is not None else []
 
     def alternate(self, lang: str) -> SttEngine | None:
         """The loaded alternate recognizer for `lang`, or None when it has none."""

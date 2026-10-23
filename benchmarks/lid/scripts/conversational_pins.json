@@ -1,0 +1,185 @@
+{
+  "edacc": {
+    "repo": "edinburghcstr/edacc",
+    "repo_type": "dataset",
+    "revision": "d9ae7bd344f0562b766ec93ee5ce8f2f9568ce66",
+    "files": [
+      {
+        "name": "data/test-00000-of-00010-f0aceb1ca4406ff1.parquet",
+        "size": 471245844,
+        "sha256": "1aeffcba6a8a77b7b2c0be70fa7a30fa437f8a5705b02d1d5cab2932d76af767"
+      },
+      {
+        "name": "data/test-00001-of-00010-856b016d9d438ff3.parquet",
+        "size": 274199976,
+        "sha256": "3bbfdd17383d39ffb90f0f28079b9150618312da73f82c4125ad7fbf731d087c"
+      },
+      {
+        "name": "data/test-00002-of-00010-2b021baedb4deb8a.parquet",
+        "size": 333196154,
+        "sha256": "c165a89a35511863acf301fbca747a92b44a2694a344ebf3edc0586de337ba26"
+      },
+      {
+        "name": "data/test-00003-of-00010-4de275e704375a02.parquet",
+        "size": 497673001,
+        "sha256": "ca21548f35f7a0c6320ddda70795dd22f5c7ffe5484e381bfb6c0b899dbecde9"
+      },
+      {
+        "name": "data/test-00004-of-00010-806407c9bc68112a.parquet",
+        "size": 257093852,
+        "sha256": "923dde356508439b93babc65940567d80915ffe34d6fed8dad23e09931388320"
+      },
+      {
+        "name": "data/test-00005-of-00010-9c97c4c4c8d01f82.parquet",
+        "size": 282260196,
+        "sha256": "5ac07084e88f5acbf3564ed4824bd09cc8bd94f625d0945583317b258f6dc0d4"
+      },
+      {
+        "name": "data/test-00006-of-00010-cc4648d0f66f65a4.parquet",
+        "size": 353729499,
+        "sha256": "e04f9147c20671e023b9ec52f282e36e3f0702a842a8764c99b9082262c108a2"
+      },
+      {
+        "name": "data/test-00007-of-00010-ea5ed4464ecff3c9.parquet",
+        "size": 438747542,
+        "sha256": "77a3b90cfe5a07b3037314e382736c50bd79fc50a2e21850978e8f63c7e45f15"
+      },
+      {
+        "name": "data/test-00008-of-00010-d1aa19b51ad423da.parquet",
+        "size": 408862837,
+        "sha256": "9056bf79642ea7ef6044486b44a2e087cc2b2640bba50dde9f922882d8551598"
+      },
+      {
+        "name": "data/test-00009-of-00010-648ce5002d124496.parquet",
+        "size": 298846617,
+        "sha256": "4878c2f93d395f3fdc44d8d09e45032c44204f238458a05631e06226531f4a71"
+      },
+      {
+        "name": "data/validation-00000-of-00006-17ec18f4d1c3d587.parquet",
+        "size": 457088416,
+        "sha256": "20644a158cebbf3bad980719bc4aae2226d88dfe270d13785f76bb0ade86f899"
+      },
+      {
+        "name": "data/validation-00001-of-00006-6f3978e4f6163671.parquet",
+        "size": 478249304,
+        "sha256": "c0e2335bd3e992d7fd3b371de9c1b90778337f7ecd0b90f4f6986b68e225c3fe"
+      },
+      {
+        "name": "data/validation-00002-of-00006-5a1d86079a8c9228.parquet",
+        "size": 445536279,
+        "sha256": "7eb542898afb1239fc2cdc7a751b192ceff47ba52f8ed50fba79fbc370407692"
+      },
+      {
+        "name": "data/validation-00003-of-00006-b26008b096562d41.parquet",
+        "size": 491614484,
+        "sha256": "03c26e00c5e921d8316301a1088723e217e3f85c860f454565358e5bf27a01bf"
+      },
+      {
+        "name": "data/validation-00004-of-00006-8cad96ca1a653334.parquet",
+        "size": 786779035,
+        "sha256": "aaab611405faacf6ea737f824ebd032e150c7b0d61fb2a9f7f9f82c42ba0cc3a"
+      },
+      {
+        "name": "data/validation-00005-of-00006-976f2f011d30d486.parquet",
+        "size": 676041286,
+        "sha256": "64354f3e802541733dbca0a6d7c1f0949bb3ccf2b58ae863e9cc87c3e4450b7b"
+      }
+    ]
+  },
+  "ascend": {
+    "repo": "CAiRE/ASCEND",
+    "repo_type": "dataset",
+    "revision": "737e9800ae31be9932ba8464c80366559bd28424",
+    "files": [
+      {
+        "name": "main/test-00000-of-00001.parquet",
+        "size": 105756434,
+        "sha256": "a4c81d2b5ed6124f052089a695972808c16e0ce0c365ec9773c5d1a8fcf043a7"
+      },
+      {
+        "name": "main/train-00000-of-00003.parquet",
+        "size": 316735328,
+        "sha256": "3d66ba76f324e0711b779cfb01ee4e772a24a929e1d77a2063cde0506f75976f"
+      },
+      {
+        "name": "main/train-00001-of-00003.parquet",
+        "size": 366824932,
+        "sha256": "569f84f771c3637ca8535bd35e10e62feed2c240833534711909a9c04f51e589"
+      },
+      {
+        "name": "main/train-00002-of-00003.parquet",
+        "size": 327687102,
+        "sha256": "aa76b7ef4a74ff111fd1d2573d0b69e6b6f901df6054618d8e5658a7a394523e"
+      },
+      {
+        "name": "main/validation-00000-of-00001.parquet",
+        "size": 106532266,
+        "sha256": "3bdec53d2abfd3dd4f0d86a6df4e27e60f20660edc9b66055ae0ef8ec05cf7e2"
+      }
+    ]
+  },
+  "vietmed": {
+    "repo": "leduckhai/VietMed",
+    "repo_type": "dataset",
+    "revision": "f302146de79c5cbd6a7d14400fefa2c8cfda7738",
+    "files": [
+      {
+        "name": "data/dev-00000-of-00001.parquet",
+        "size": 57059580,
+        "sha256": "ddbce77039a150053a3a6dbe7c92c8f07a7924537a4681a1a1788aa2f917b18b"
+      },
+      {
+        "name": "data/test-00000-of-00001.parquet",
+        "size": 68997494,
+        "sha256": "275b205059e1e4e0ef88eb7bae3cf14287de456752e74a57e0c10476725b4a22"
+      },
+      {
+        "name": "data/train-00000-of-00001.parquet",
+        "size": 56020895,
+        "sha256": "c316eda2f98b65da68cda370ca674c3109291a0977d3a6d7105c9b31fdb52d5f"
+      }
+    ]
+  },
+  "vimedcss": {
+    "repo": "tensorxt/ViMedCSS",
+    "repo_type": "dataset",
+    "revision": "b6959a18a08739464733930a872e7125c03e6558",
+    "files": [
+      {
+        "name": "data/hard-00000-of-00002.parquet",
+        "size": 395447872,
+        "sha256": "82c41d58472c81794465d7002f6c2dd2459cb04c62b02fce13c5bcdcee33c17f"
+      },
+      {
+        "name": "data/hard-00001-of-00002.parquet",
+        "size": 361031719,
+        "sha256": "dcba6a4b102dc3e42c7195cb1c1742a976c30bcaccd7e53437d3793e72805e55"
+      },
+      {
+        "name": "data/test-00000-of-00005.parquet",
+        "size": 376784496,
+        "sha256": "be4f3650414cdf7181a1348789349d555ba8cf25a2e588ff59bc24af49550369"
+      },
+      {
+        "name": "data/test-00001-of-00005.parquet",
+        "size": 379324022,
+        "sha256": "c8774838bb5b28812e1e0f6dd6f20256d5073a6cc7b82a6277eeac8e31e58b72"
+      },
+      {
+        "name": "data/test-00002-of-00005.parquet",
+        "size": 385349405,
+        "sha256": "bcd91d2bf99fad7cbbe8d8708c43c1f5206d2606f8f6963293dc6e403b45b07b"
+      },
+      {
+        "name": "data/test-00003-of-00005.parquet",
+        "size": 376842128,
+        "sha256": "8cc20f58721a07682dba7abc05bcee9fd4742ecc6cc0f6b550dd4edfd0cd3fa7"
+      },
+      {
+        "name": "data/test-00004-of-00005.parquet",
+        "size": 381218061,
+        "sha256": "6f073c4792ae4dc2fc94021be51e5ab5592499a1a241754bdbedb88d8f808062"
+      }
+    ]
+  }
+}

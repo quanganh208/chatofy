@@ -34,6 +34,8 @@ export interface LocalSpeechSttConfig {
 interface TranscribeResponse {
   text?: string;
   language?: string;
+  languageConfidence?: unknown;
+  lidSpeechMs?: unknown;
   speechMs?: number;
   pauses?: unknown;
   leadPause?: unknown;
@@ -49,6 +51,33 @@ function pausesFor(text: string, pauses: unknown): number[] | undefined {
   const words = text.split(/\s+/).filter(Boolean).length;
   const valid = pauses.every(isPause);
   return valid && pauses.length === words ? (pauses as number[]) : undefined;
+}
+
+/**
+ * The status the sidecar answers `candidates` with when it has language
+ * identification switched off. Any other failure is a failure; this one means
+ * "decode it the declared way instead", and is answered that way.
+ */
+const IDENTIFY_UNAVAILABLE_STATUS = 409;
+
+/** The language the sidecar identified, when it is one of `candidates` and it said how sure. */
+function identifiedLanguage(
+  json: TranscribeResponse,
+  candidates: readonly LanguageCode[],
+): { language: LanguageCode; languageConfidence: number | null; lidSpeechMs?: number } | null {
+  const language = candidates.find((candidate) => candidate === json.language);
+  if (language === undefined) return null;
+  const confidence = json.languageConfidence;
+  // `null` is the sidecar saying it decided but cannot say how surely; absent
+  // is a sidecar that never decided at all and echoed the request back.
+  if (confidence !== null && !(typeof confidence === 'number' && Number.isFinite(confidence))) {
+    return null;
+  }
+  return {
+    language,
+    languageConfidence: confidence,
+    ...(isPause(json.lidSpeechMs) ? { lidSpeechMs: json.lidSpeechMs } : {}),
+  };
 }
 
 export class LocalSpeechSttProvider implements SttProvider {
@@ -69,6 +98,66 @@ export class LocalSpeechSttProvider implements SttProvider {
     language: LanguageCode,
     options?: SttTranscribeOptions,
   ): Promise<SttTranscriptResult> {
+    // De-duplicated, and sent only when there is a choice to make: one
+    // candidate is the declared language, which `language` already says.
+    const candidates = [...new Set(options?.candidates ?? [])];
+    const identifying = candidates.length >= 2;
+
+    let res = await this.post(
+      this.form(audio, mimeType, language, options, identifying ? candidates : []),
+    );
+    let refused = false;
+    if (identifying && res.status === IDENTIFY_UNAVAILABLE_STATUS) {
+      // Identification was switched off under a caller that still believed it
+      // on. The turn is still decodable in its declared language, so it is
+      // decoded again that way — once, without candidates — rather than lost,
+      // and the caller is told so it stops offering candidates.
+      refused = true;
+      options?.onIdentifyUnavailable?.();
+      res = await this.post(this.form(audio, mimeType, language, options, []));
+    }
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new ProviderResponseError(
+        `Local STT returned ${res.status}: ${truncate(detail)}`,
+        res.status,
+      );
+    }
+
+    const json = (await res.json().catch(() => null)) as TranscribeResponse | null;
+    if (!json || typeof json.text !== 'string') {
+      throw new ProviderResponseError('Local STT returned an unexpected response');
+    }
+    // Trusted only when the sidecar named one of the languages it was offered
+    // AND reported a confidence for it. A sidecar from before identification
+    // ignores the field and echoes the declared language with no confidence,
+    // which is a declared decode and must read as one.
+    const identified = identifying && !refused ? identifiedLanguage(json, candidates) : null;
+    const result = this.result(json, json.text, identified?.language ?? language);
+    if (!identifying) return result;
+    return identified
+      ? { ...result, identified: true, ...identified }
+      : { ...result, identified: false };
+  }
+
+  private post(form: FormData): Promise<Response> {
+    return fetchWithDeadline(
+      `${this.baseUrl}/transcribe`,
+      { method: 'POST', body: form },
+      LOCAL_STT_TIMEOUT_MS,
+      'Local STT request',
+    );
+  }
+
+  /** One request's body. Built per attempt: a sent `FormData` is not reusable. */
+  private form(
+    audio: Uint8Array,
+    mimeType: string,
+    language: LanguageCode,
+    options: SttTranscribeOptions | undefined,
+    candidates: readonly LanguageCode[],
+  ): FormData {
     const form = new FormData();
     form.append('language', language);
     // One field per term rather than one delimited field: the sidecar joins them
@@ -88,30 +177,20 @@ export class LocalSpeechSttProvider implements SttProvider {
       form.append('min_speech_ms', String(options.minSpeechMs));
     }
     if (options?.alternates) form.append('alternates', 'true');
+    // One field per language, like `hotwords`, and only when there is a choice.
+    for (const candidate of candidates) form.append('candidates', candidate);
     // Copy into a fresh ArrayBuffer-backed view so the bytes satisfy BlobPart
     // regardless of the caller's backing buffer (TS typed-array generics).
     const fileBlob = new Blob([new Uint8Array(audio)], { type: mimeType });
     form.append('file', fileBlob, `audio.${extFromMime(mimeType)}`);
+    return form;
+  }
 
-    const res = await fetchWithDeadline(
-      `${this.baseUrl}/transcribe`,
-      { method: 'POST', body: form },
-      LOCAL_STT_TIMEOUT_MS,
-      'Local STT request',
-    );
-
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      throw new ProviderResponseError(
-        `Local STT returned ${res.status}: ${truncate(detail)}`,
-        res.status,
-      );
-    }
-
-    const json = (await res.json().catch(() => null)) as TranscribeResponse | null;
-    if (!json || typeof json.text !== 'string') {
-      throw new ProviderResponseError('Local STT returned an unexpected response');
-    }
+  private result(
+    json: TranscribeResponse,
+    text: string,
+    language: LanguageCode,
+  ): SttTranscriptResult {
     // An empty transcript is a legitimate result (silence); the pipeline turns
     // it into a "no speech detected" error, so it is not this layer's concern.
     //
@@ -119,14 +198,14 @@ export class LocalSpeechSttProvider implements SttProvider {
     // was sent and > 0); an older sidecar or an ungated request simply omits
     // the field, and `typeof` keeps a stray non-number in the JSON from being
     // passed on as if it were the sidecar's own answer.
-    const pauses = pausesFor(json.text, json.pauses);
+    const pauses = pausesFor(text, json.pauses);
     // Kept only as a list of non-blank strings: anything else is a sidecar
     // this provider does not understand, and no alternate is the safe answer.
     const alternates = Array.isArray(json.alternates)
       ? json.alternates.filter((alt): alt is string => typeof alt === 'string' && alt.trim() !== '')
       : [];
     return {
-      text: json.text,
+      text,
       language,
       ...(typeof json.speechMs === 'number' ? { speechMs: json.speechMs } : {}),
       ...(pauses === undefined ? {} : { pauses }),

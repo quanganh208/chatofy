@@ -1,11 +1,13 @@
 'use client';
 
+import type { SessionLanguagePair } from '@chatofy/types';
 import { LanguagePairPicker, Separator, Skeleton } from '@chatofy/ui/react';
 import { SettingsSection, SettingsSectionRow } from '@/components/layout/settings-section';
 import { ContextPicker } from '@/components/translate/context-picker';
 import { VoiceSettingsPanel } from '@/components/translate/voice-settings-panel';
 import { DisplaySettingsPanel } from '@/components/translate/display-settings-panel';
 import { useTranslateSettings } from '@/hooks/use-translate-settings';
+import { canAutoDetectInto, representablePair } from '@/lib/translate-settings';
 import { useTranslationContexts } from '@/hooks/use-translation-contexts';
 import { useTranslate } from '@/i18n/provider';
 import { languagePairLabels, languageNamer } from '@/i18n/language-pair-labels';
@@ -59,11 +61,18 @@ export function ConversationDefaultsSection() {
               two permanent panel headers with the swap between them, which is a
               better answer than a row in a popover; this page has no such headers,
               and the pair a new conversation starts in is what it is for. */}
-          <LanguagePairPicker
+          {/* The same "Auto-detect" entry, on the same rule, as the `/translate`
+              source header: one setting, so the two must offer the same values. */}
+          <LanguagePairPicker<SessionLanguagePair>
             value={settings.languagePair}
-            onChange={(languagePair) => set({ languagePair })}
+            onChange={(languagePair) => set({ languagePair: representablePair(languagePair) })}
             labels={languagePairLabels(t)}
             nameLanguage={languageNamer(t)}
+            detectOption={
+              canAutoDetectInto(settings.languagePair.target)
+                ? { label: t('web.translate.autoDetect') }
+                : undefined
+            }
           />
 
           {/* Which context a NEW conversation starts under, beside the pair

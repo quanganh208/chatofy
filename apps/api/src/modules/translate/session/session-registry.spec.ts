@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { SessionOptions } from '@chatofy/types';
 import { SessionRegistry } from './session-registry';
 import type { StreamSocket } from './stream-socket';
-import { TurnSession } from './turn-session';
+import { TurnSession, type DeclaredSessionOptions } from './turn-session';
 
 /**
  * The registry is where every piece of fire-and-forget work on this path checks
@@ -16,7 +15,7 @@ import { TurnSession } from './turn-session';
  * before the map underneath them changes shape.
  */
 
-const options: SessionOptions = {
+const options: DeclaredSessionOptions = {
   languagePair: { source: 'vi', target: 'en' },
   voiceGender: 'female',
 };

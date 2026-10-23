@@ -7,6 +7,16 @@ English and Simplified Chinese, so every ordered pair of the three can be
 translated (vi↔en, vi↔zh, en↔zh). Adding a language:
 [checklist](./docs/architecture/contracts-and-languages.md#checklist-adding-a-language-to-the-registry).
 
+On `/translate` one source picker sets how a conversation runs. A named source
+makes a vi↔en conversation two-way: each turn is identified as one of the two
+languages, labelled, and translated into the other. **Auto-detect** identifies
+each turn as Vietnamese or English and translates it into the chosen target; a
+turn already in the target is shown as transcript only. Pairs with Chinese stay
+one-way, because Chinese is not identified. Both modes need the STT sidecar's
+language identifier (`LOCAL_STT_LID`, on in development, off in production
+until it is enabled there); without it, two-way runs one-way and says so.
+[How it works](./docs/architecture/contracts-and-languages.md#lid-and-audio-based-detection).
+
 Speech runs **locally on CPU by default** — speech-to-text and text-to-speech
 need no API key and make no cloud call. Machine translation is still a cloud
 call, so the app is not fully offline. See

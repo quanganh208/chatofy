@@ -15,11 +15,17 @@ import {
   groupTranslation,
   groupTurnsForDisplay,
   speakerFor,
+  turnTargetLanguage,
   type AttributionsBySession,
   type BlockTranslation,
   type SessionSpeaker,
 } from '@chatofy/realtime-client';
-import type { LanguageCode, TranscriptSegment } from '@chatofy/types';
+import type {
+  LanguageCode,
+  SessionLanguageMode,
+  SessionLanguagePair,
+  TranscriptSegment,
+} from '@chatofy/types';
 import { cn } from '@/lib/utils';
 import { formatOffset, isoDuration, mediaOffset } from '@/lib/transcript-time';
 import { useTranslate } from '@/i18n/provider';
@@ -119,13 +125,43 @@ interface ConversationTranscriptProps {
   onRenameSpeaker: (speakerId: string, label: string) => void;
   onRemoveSpeaker: (speakerId: string) => void;
   /**
-   * Which language a finished block's translation line reads — the
-   * conversation's declared target, read once by the caller rather than
-   * re-derived per turn. Every segment's own `translations` map is keyed by
-   * language, not by "the" target, because a mixed turn can carry more than
-   * one; this is which key the target pane shows.
+   * The pair the conversation was started in, from which each block's
+   * translation line is chosen PER TURN (`turnTargetLanguage`). A declared
+   * conversation reads its target on every turn; a two-way one reads the other
+   * side of whichever language the turn was heard in, so a reply is shown in
+   * the language it was translated into rather than an empty target slot.
    */
-  target: LanguageCode;
+  languagePair: SessionLanguagePair;
+  /**
+   * How the server ran each turn's languages, keyed by `sessionId`. A turn
+   * whose language was identified — two-way or auto-detected — carries a tag
+   * saying which one; a declared turn does not, because its language is the
+   * header's. Defaults to none, which is every declared conversation.
+   */
+  languageModes?: Record<string, SessionLanguageMode>;
+}
+
+/** Whether a turn's language was decided by identification rather than declared. */
+const identified = (mode: SessionLanguageMode | undefined) =>
+  mode === 'two-way' || mode === 'detect';
+
+/**
+ * Which language a turn was heard in, as a short muted tag — a readout beside the
+ * speaker's name, never a control and never the accent. The tag is drawn short
+ * ("EN") and said in full, the arrangement history rows use for the same fact.
+ */
+function TurnLanguage({ languages }: { languages: readonly LanguageCode[] }) {
+  const t = useTranslate();
+  return (
+    <span className="text-label text-muted-foreground" data-turn-language={languages.join(' ')}>
+      <span aria-hidden>{languages.map((code) => t(`web.languageShort.${code}`)).join(' · ')}</span>
+      <span className="sr-only">
+        {t('web.translate.turnLanguage', {
+          language: languages.map((code) => t(`web.languageName.${code}`)).join(', '),
+        })}
+      </span>
+    </span>
+  );
 }
 
 /**
@@ -191,7 +227,8 @@ export function ConversationTranscript({
   onAddSpeaker,
   onRenameSpeaker,
   onRemoveSpeaker,
-  target,
+  languagePair,
+  languageModes = {},
 }: ConversationTranscriptProps) {
   const t = useTranslate();
   const showsSource = side !== 'target';
@@ -295,6 +332,16 @@ export function ConversationTranscript({
                     displayGroupOffsetMs(group, captures, startedAtMs, pauses),
                     audioOffsetMs,
                   );
+            // One language per block: grouping never merges turns heard in
+            // different ones, so the first member speaks for all of them.
+            const spoken = group.turns[0]!.sourceLanguages;
+            const tagged = identified(languageModes[group.sessionIds[0]!]);
+            const translationLanguage = turnTargetLanguage(spoken, languagePair);
+            // An auto-detected turn said in the target itself: nothing to
+            // translate, so it is transcript only. The translation pane shows
+            // its words as they were said — they are already in the language
+            // that pane reads — and a pane holding both halves shows them once.
+            const inTarget = spoken.length === 1 && spoken[0] === translationLanguage;
             return (
               <li key={group.key} className={cn('border-primary', turnFrame)}>
                 {/* The block's meta line. It exists when there is a name to show,
@@ -324,7 +371,7 @@ export function ConversationTranscript({
                     added under it. `items-start` would hold it still too, but
                     level with the badge's top border rather than its text, so
                     the time would read as sitting high. */}
-                {speakerLabels || at !== null ? (
+                {speakerLabels || at !== null || tagged ? (
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     {speakerLabels ? (
                       interactive ? (
@@ -361,6 +408,7 @@ export function ConversationTranscript({
                         <SpeakerLabel speaker={speaker} origin={origin} />
                       )
                     ) : null}
+                    {tagged ? <TurnLanguage languages={spoken} /> : null}
                     {at === null ? null : (
                       <span className="text-label text-muted-foreground tabular-nums">
                         <time dateTime={isoDuration(at)}>{formatOffset(at)}</time>
@@ -375,9 +423,11 @@ export function ConversationTranscript({
                     repaired={groupIsRepaired(group, displays, blockTranslations)}
                   />
                 ) : null}
-                {showsTarget ? (
+                {showsTarget && !(inTarget && showsSource) ? (
                   <p className="text-target font-medium">
-                    {groupTranslation(group, target, blockTranslations)}
+                    {inTarget
+                      ? groupSourceText(group, displays, blockTranslations)
+                      : groupTranslation(group, translationLanguage, blockTranslations)}
                   </p>
                 ) : null}
                 {/* Said on the turn it happened to, because that is the only
@@ -432,6 +482,10 @@ export function ConversationTranscript({
             // exist for.
             className={cn('border-border border-dashed', turnFrame)}
           >
+            {/* Present only once the server has decided the turn's language —
+                a declared turn never carries one, so nothing here changes for
+                it. The finished turn's tag replaces this, and may differ. */}
+            {live.language ? <TurnLanguage languages={[live.language]} /> : null}
             {showsSource && live.text ? (
               <p className="text-source text-prose italic">
                 {/* Two layers, one line. The head is text the recogniser has

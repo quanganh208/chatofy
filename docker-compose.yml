@@ -96,6 +96,10 @@ services:
       # Decodes served concurrently per engine, through the one recognizer —
       # see services/local-stt/engines/base.py for the measurement.
       LOCAL_STT_CONCURRENCY: ${LOCAL_STT_CONCURRENCY:-4}
+      # Language identification behind `/transcribe`'s `candidates` (Whisper
+      # base, ~280 MB of weights fetched on first start). Off skips the
+      # download and refuses `candidates` with 409.
+      LOCAL_STT_LID: ${LOCAL_STT_LID:-on}
     healthcheck:
       # /healthz answers 503 until both engines AND the speaker extractor are
       # loaded, so `--wait` really does mean the sidecar can serve a request.

@@ -64,6 +64,25 @@ function pickers(): HTMLButtonElement[] {
   return [...container.querySelectorAll<HTMLButtonElement>('[data-slot="select-trigger"]')];
 }
 
+/**
+ * The names a picker offers, read off its open list. Opened from the keyboard,
+ * which Radix answers without the pointer-capture APIs happy-dom lacks.
+ */
+function offered(picker: HTMLButtonElement): string[] {
+  act(() => {
+    picker.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  });
+  const names = [...document.querySelectorAll('[role="option"]')].map(
+    (option) => option.textContent ?? '',
+  );
+  act(() => {
+    document.activeElement?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
+  });
+  return names;
+}
+
 function swap(): HTMLButtonElement | null {
   return container.querySelector<HTMLButtonElement>('button[aria-label^="Swap languages"]');
 }
@@ -170,5 +189,62 @@ describe('PanelHeaders', () => {
     render({ running: true });
     expect(swap()?.disabled).toBe(true);
     expect(slot()?.disabled).toBe(false);
+  });
+
+  it('leads the source picker with Auto-detect, and only the source picker', () => {
+    render();
+    const [source, target] = pickers();
+    expect(offered(source!)).toEqual(['Auto-detect', 'Vietnamese', 'English', 'Chinese']);
+    expect(offered(target!)).toEqual(['Vietnamese', 'English', 'Chinese']);
+  });
+
+  it('offers no Auto-detect into a language a turn cannot be recognised in', () => {
+    // Chinese misses the identification bar, so a turn said in it could not be
+    // kept as transcript-only — the one thing Auto-detect promises about the
+    // translation language itself.
+    render({ languagePair: { source: 'vi', target: 'zh' } });
+    expect(offered(pickers()[0]!)).toEqual(['Vietnamese', 'English', 'Chinese']);
+  });
+
+  it('shows Auto-detect as the source, with no swap to offer', () => {
+    render({ languagePair: { source: 'detect', target: 'en' } });
+    expect(pickers()[0]?.textContent).toBe('Auto-detect');
+    expect(swap()?.disabled).toBe(true);
+    // Not "translate English into Auto-detect": that names a direction that
+    // does not exist.
+    expect(swap()?.getAttribute('aria-label')).toBe(
+      'Swap languages — not available with Auto-detect',
+    );
+  });
+
+  it('drops Auto-detect when the translation picked rules it out', () => {
+    const { onLanguagePair } = render({ languagePair: { source: 'detect', target: 'en' } });
+    const target = pickers()[1]!;
+    act(() => {
+      target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    const chinese = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+      (option) => option.textContent === 'Chinese',
+    );
+    act(() => {
+      chinese?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    expect(onLanguagePair).toHaveBeenCalledWith({ source: 'vi', target: 'zh' });
+  });
+
+  it('says nothing about the mode until a turn has answered', () => {
+    render();
+    expect(container.querySelector('[data-language-mode]')).toBeNull();
+  });
+
+  it('says which way the server is running the newest turn, as words, not a switch', () => {
+    render({ mode: 'two-way' });
+    expect(container.textContent).toContain('Both ways');
+    render({ mode: 'declared' });
+    expect(container.textContent).toContain('One way');
+    render({ mode: 'detect' });
+    expect(container.textContent).toContain('One way');
+    expect(container.querySelector('[role="switch"]')).toBeNull();
+    expect(container.querySelector('.bg-primary')).toBeNull();
   });
 });

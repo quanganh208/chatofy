@@ -73,3 +73,43 @@ export const LIVE_TRANSLATION_COMMIT_CHARS: LanguageTable<number> = {
  * measured at acceptance and decided on real numbers instead.
  */
 export const LIVE_TRANSLATION_RPM = 66;
+
+/**
+ * When a two-way turn's live preview settles on a language: the sidecar's
+ * confidence in its guess, and how much speech that guess heard (its
+ * `lidSpeechMs`). Below either, partials show text but no language, and the
+ * live translation waits.
+ *
+ * Tuned on the language-identification bake-off (`benchmarks/lid`, run
+ * `conv-r4-all`, Whisper base with a 5 s encoder floor), every candidate
+ * threshold scored leave-one-group-out on public conversational speech and its
+ * re-recordings. These two gave the earliest label with at most 5% of locks
+ * overruled in tuning; held out, 7.0% of vi↔en turns had their final overrule
+ * the lock (bar 10%) and the label appeared by 3.1 s at p95 (bar 3.5 s).
+ */
+export const LID_LOCK_CONFIDENCE = 0.6;
+export const LID_LOCK_MIN_SPEECH_MS = 1500;
+
+/**
+ * Below this confidence a final is not believed, and the turn takes the
+ * previous turn's language — or the source, for the first turn. Same run as
+ * above: vi↔en turns under 1.5 s were 95.2% right before any fallback.
+ */
+export const LID_UNCERTAIN_BELOW = 0.6;
+
+/**
+ * A confident turn: one this sure (no prior applied) in the language that is
+ * not the source is evidence the other side is talking, which ends the source
+ * prior for the rest of the session.
+ */
+export const LID_CONFIDENT_AT = 0.9;
+
+/**
+ * Log-odds added to the source while a session has shown only one side.
+ *
+ * Zero because that is what the bake-off's tuning chose from its grid. Kept
+ * as a constant rather than removed so a re-tuned bonus is one edit; with it
+ * at zero, leaning towards the source is the fallback's job (an uncertain
+ * first turn takes the source).
+ */
+export const LID_SOURCE_PRIOR_LOGODDS = 0;

@@ -1,6 +1,8 @@
 import type { Logger } from '@nestjs/common';
+import type { LanguageCode } from '@chatofy/types';
 import type { PipelineTranslatorService } from '../services/pipeline-translator.service';
 import type { EventChannel } from './event-channel';
+import type { SourcePrior } from './turn-language-decision';
 import { LIVE_TRANSLATION_MODELS } from './translation-model-policy';
 import type { TurnSession } from './turn-session';
 
@@ -38,6 +40,11 @@ export class LivePreview {
     session: TurnSession,
     channel: EventChannel,
     stillCurrent: StillCurrent,
+    /**
+     * The connection's lean towards its source, for a two-way turn whose
+     * preview has not locked yet. Unused by any other turn.
+     */
+    prior?: SourcePrior,
   ): void {
     const audio = session.buffered;
     if (!audio) return;
@@ -47,6 +54,11 @@ export class LivePreview {
 
     const atBytes = audio.byteLength;
     session.partials.markStarted(atBytes);
+    // Until a two-way turn locks, each re-read also asks which of the pair it
+    // is hearing; once it locks, it reads one language like any other turn.
+    const { decision } = session;
+    const identifying =
+      decision.identifying && decision.locked === null && prior !== undefined;
 
     void this.pipeline
       .transcribe({
@@ -62,13 +74,20 @@ export class LivePreview {
         hints: session.hints,
         // And the conversation's learned spellings, for the same reason.
         learnedTerms: [...session.learnedTerms],
+        ...(identifying ? { candidates: decision.candidates } : {}),
       })
-      .then(({ text }) => {
+      .then(({ text, heard }) => {
         // Checked here, not only before starting: the turn may have ended, or
         // the client left, while this was decoding.
         if (!stillCurrent()) return;
         if (!session.isListening) return;
         if (!session.partials.shouldEmit(atBytes)) return;
+        if (identifying && heard !== undefined) {
+          const atMs = Math.round(audio.secondsAt(atBytes) * 1000);
+          // What settled so far was read in the provisional language; the
+          // locked one starts settling from nothing.
+          if (decision.observe(heard, prior, atMs)) session.resetCommitter();
+        }
         if (!text.trim()) return;
 
         session.partials.markEmitted(atBytes);
@@ -90,6 +109,7 @@ export class LivePreview {
             sessionId: session.sessionId,
             text,
             speaker: session.speakerRole,
+            ...languageOf(session),
             languagePair: session.languagePair,
           });
         }
@@ -155,6 +175,7 @@ export class LivePreview {
       pending: windowed ? session.committer.pending : text,
       reanchors: session.committer.reanchors,
       speaker: session.speakerRole,
+      ...languageOf(session),
       languagePair: session.languagePair,
     });
   }
@@ -187,6 +208,13 @@ export class LivePreview {
     // Deciding on settled text and then sending the raw reading would translate
     // the tail that is still moving, and would leave the two measured in
     // different units — which silently kills the character rule after one fire.
+    // Not before the turn's language is known: a translation into the wrong
+    // side of the pair is worse than a moment of no translation.
+    if (session.decision.locked === null) return;
+    // Nor for a turn locked in the language it would be translated into: it
+    // is transcript only, and has nothing to preview.
+    const target = session.languages.spoken;
+    if (target === null) return;
     const committed = session.committer.committed;
     const { reanchors } = session.committer;
     if (!session.liveTranslation.shouldTranslate(committed, reanchors)) return;
@@ -209,7 +237,7 @@ export class LivePreview {
         // Preview is budgeted for exactly one target — the one this turn
         // speaks aloud — never every target a fan-out turn eventually
         // translates into (see `docs/system-architecture.md`).
-        target: session.languages.spoken,
+        target,
         models: LIVE_TRANSLATION_MODELS,
         onChunk: (delta, restart) => {
           // Behind the same opt-in as the settled transcript, and for the same
@@ -291,4 +319,16 @@ export class LivePreview {
       })
       .finally(() => session.liveTranslation.markSettled());
   }
+}
+
+/**
+ * The language a partial may show: the turn's lock, or nothing while a
+ * two-way turn is still undecided. Showing each partial's guess flipped the
+ * label on ~38% of conversational turns; holding it until the lock does not.
+ * A declared turn shows none: its language is what the user picked, not what
+ * was heard, and labelling it would tag English speech in a vi→en turn "vi".
+ */
+function languageOf(session: TurnSession): { language?: LanguageCode } {
+  const { identifying, locked } = session.decision;
+  return !identifying || locked === null ? {} : { language: locked };
 }

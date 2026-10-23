@@ -1,0 +1,15 @@
+{
+  "arm": "whisper_probs_tiny",
+  "kind": "lid-model",
+  "runtime": "onnxruntime-1.27.0",
+  "parity_passed": true,
+  "needs_gpu": false,
+  "needs_torch": false,
+  "new_model": true,
+  "notes": [
+    "onnx-community whisper-tiny@ff417702",
+    "30 s padded window per call, so latency does not shrink with the prefix"
+  ],
+  "rss_peak_mib": 673.6,
+  "rss_delta_mib": 620.8
+}

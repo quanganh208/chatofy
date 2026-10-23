@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { planForPair, planTurnLanguages } from './turn-language-plan';
+import {
+  planDetectTurn,
+  planForPair,
+  planTurnLanguages,
+} from './turn-language-plan';
 
 describe('planTurnLanguages', () => {
   it('vi→en: recognises vi, targets en, speaks en', () => {
@@ -41,5 +45,29 @@ describe('planForPair', () => {
 
     expect(identify).toHaveBeenCalledExactlyOnceWith({ declared: 'en' });
     expect(plan).toEqual(planTurnLanguages(['en', 'vi'], ['en', 'vi']));
+  });
+});
+
+describe('planDetectTurn', () => {
+  it('holds the conversation the client saves: the target first, then the rest of the registry', () => {
+    expect(planDetectTurn('en', 'vi').conversation).toEqual(['en', 'vi', 'zh']);
+    expect(planDetectTurn('vi', 'en').conversation).toEqual(['vi', 'en', 'zh']);
+  });
+
+  it('a turn heard in another language is translated into the target and spoken in it', () => {
+    const plan = planDetectTurn('en', 'vi');
+
+    expect(plan.recognition).toBe('vi');
+    expect(plan.sourceLanguages).toEqual(['vi']);
+    expect(plan.targets).toEqual(['en']);
+    expect(plan.spoken).toBe('en');
+  });
+
+  it('a turn heard in the target is transcript only: no target and nothing to speak', () => {
+    const plan = planDetectTurn('en', 'en');
+
+    expect(plan.recognition).toBe('en');
+    expect(plan.targets).toEqual([]);
+    expect(plan.spoken).toBeNull();
   });
 });

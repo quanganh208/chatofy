@@ -95,6 +95,87 @@ export const languagePairSchema = z
 export const DEFAULT_LANGUAGE_PAIR: LanguagePair = languagePairOf('vi', 'en');
 
 /**
+ * The source a streaming session sends when the speaker's language is not
+ * declared: each turn is identified, then translated into the fixed target.
+ */
+export const AUTO_DETECT = 'detect';
+
+/**
+ * A language pair as a streaming session may declare it: either side named, or
+ * the source left to be identified per turn.
+ *
+ * Separate from {@link LanguagePair} rather than a widening of it, because only
+ * the WebSocket session path can serve an undeclared source. REST, live and
+ * every stored record keep the two-codes pair, so none of them has to narrow a
+ * value that can never reach them.
+ */
+export interface SessionLanguagePair {
+  readonly source: LanguageCode | typeof AUTO_DETECT;
+  readonly target: LanguageCode;
+}
+
+export const sessionLanguagePairSchema = z
+  .object({
+    source: z.union([languageCodeSchema, z.literal(AUTO_DETECT)]),
+    target: languageCodeSchema,
+  })
+  .refine((pair) => pair.source !== pair.target, 'source and target must differ');
+
+/**
+ * The languages a turn can be told apart in, by the identification the product
+ * ships. A pair with a language outside this set stays declared one-way: its
+ * turns are recognised in the declared source, never guessed at.
+ *
+ * Chinese is absent because it missed the accuracy bar the vi↔en pair met, on
+ * the same labelled set, not because the registry lacks it.
+ */
+export const IDENTIFIABLE_LANGUAGES: readonly LanguageCode[] = ['vi', 'en'];
+
+/**
+ * The languages one turn of this session may turn out to be spoken in.
+ *
+ * An undeclared source is any identifiable language; a two-way pair is either of
+ * its two sides; a declared one-way pair is its source alone, which is what
+ * every session was before identification existed.
+ */
+export function turnCandidates(pair: SessionLanguagePair, twoWay: boolean): LanguageCode[] {
+  if (pair.source === AUTO_DETECT) return [...IDENTIFIABLE_LANGUAGES];
+  return twoWay ? [pair.source, pair.target] : [pair.source];
+}
+
+/**
+ * Whether the shipped identification can decide between this session's
+ * candidates at all — at least two of them, every one identifiable. Says
+ * nothing about whether the running engine has identification switched on;
+ * that is the server's to know.
+ */
+export function canIdentify(pair: SessionLanguagePair, twoWay: boolean): boolean {
+  const candidates = turnCandidates(pair, twoWay);
+  return (
+    candidates.length >= 2 &&
+    candidates.every((language) => IDENTIFIABLE_LANGUAGES.includes(language))
+  );
+}
+
+/**
+ * The stored languages of a conversation whose source was identified per turn:
+ * the target first, then every other registry language in registry order.
+ *
+ * Target first, where a declared conversation stores its source first, because
+ * there is no declared source to lead with. More than two entries is what marks
+ * the conversation as auto-detected (see {@link isAutoDetectConversation}), so
+ * no extra stored field is needed to tell the two apart.
+ */
+export function detectConversationLanguages(target: LanguageCode): LanguageCode[] {
+  return [target, ...LANGUAGE_CODES.filter((code) => code !== target)];
+}
+
+/** Whether stored conversation languages came from an auto-detected session. */
+export function isAutoDetectConversation(languages: readonly LanguageCode[]): boolean {
+  return languages.length > 2;
+}
+
+/**
  * The languages a conversation declared by `pair` is held in, declared source
  * first — the shape `Conversation.languages` stores.
  */

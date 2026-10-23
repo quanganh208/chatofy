@@ -21,6 +21,10 @@
   revision, then its embedding matrix quantized to 8 bits here by
   `quantize_embedding.py` — see `punctuation/restorer.py` for why only the
   embedding.
+- Whisper base (onnx-community ONNX export) for language identification:
+  encoder, decoder and token table at a pinned revision, each pinned by size
+  and sha256. Optional, like Dewpoint, and skipped outright when
+  `LOCAL_STT_LID` is off.
 
 Idempotent; safe to re-run.
 Run: uv run --directory services/local-stt python scripts/download_models.py
@@ -131,6 +135,28 @@ DEWPOINT_FILES = [
     "mmbert-base/tokenizer_config.json",
 ]
 DEWPOINT_ONNX = "onnx/mmbert-base/model.onnx"
+
+WHISPER_LID_REPO = "onnx-community/whisper-base"
+#: Pinned: the language-identification numbers in `lid/model_decider.py` were
+#: measured on exactly these bytes (`benchmarks/lid/arms/whisper_probs/pins.json`).
+WHISPER_LID_REVISION = "1846881b6b3a3024392c1eea3ad983695bc23925"
+#: Duplicated from `lid.model_decider` for the reason SILERO_VAD_URL is;
+#: `test_download_models.py` asserts the two agree.
+WHISPER_LID_DIR = "whisper-base-lid"
+WHISPER_LID_PINS = {
+    "onnx/encoder_model.onnx": (
+        82_468_078,
+        "a9f3b752833b49e880dec91ee5b6d936112be7c3ea07c221024ba493439f46fe",
+    ),
+    "onnx/decoder_model.onnx": (
+        208_289_724,
+        "70d26763610c0d6bb407373b7f30d415252ee470e62a0f816c8a46b2caca7326",
+    ),
+    "tokenizer.json": (
+        2_480_466,
+        "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566",
+    ),
+}
 
 
 def fetch_zipformer_vi() -> None:
@@ -484,6 +510,52 @@ def _fetch_dewpoint() -> None:
     print("[dewpoint] ready")
 
 
+def lid_enabled() -> bool:
+    """`lid.decider.lid_enabled`, duplicated for the import reason above."""
+    return os.environ.get("LOCAL_STT_LID", "on").strip().lower() not in {"off", "0", "false", "no"}
+
+
+def fetch_whisper_lid() -> None:
+    """The language identifier, which is OPTIONAL: any failure is a warning.
+
+    Skipped without a request when `LOCAL_STT_LID` is off, so a deploy that has
+    not turned identification on pays nothing for it — not the download, not
+    the disk. On, the sidecar without it refuses `candidates` and serves
+    everything else as before, so neither a Hub outage nor a read-only mount may
+    stop the seed.
+    """
+    tag = "whisper-lid"
+    if not lid_enabled():
+        print(f"[{tag}] skipped, LOCAL_STT_LID is off")
+        return
+    out_dir = MODELS_DIR / WHISPER_LID_DIR
+    missing = [name for name in WHISPER_LID_PINS if not (out_dir / name).exists()]
+    if not missing:
+        print(f"[{tag}] ready (cached)")
+        return
+    if not _writable(out_dir):
+        print(f"[{tag}] skipped, {out_dir} is not writable; candidates will be refused")
+        return
+    try:
+        for filename in missing:
+            print(f"[{tag}] fetching {filename} @ {WHISPER_LID_REVISION[:8]}")
+            target = out_dir / filename
+            target.parent.mkdir(parents=True, exist_ok=True)
+            cached = hf_hub_download(WHISPER_LID_REPO, filename, revision=WHISPER_LID_REVISION)
+            part = target.with_name(target.name + ".part")
+            shutil.copyfile(cached, part)
+            try:
+                verify_pinned(part, *WHISPER_LID_PINS[filename])
+            except RuntimeError:
+                part.unlink()
+                raise
+            part.rename(target)
+    except Exception as err:  # noqa: BLE001 — see the docstring
+        print(f"[{tag}] skipped, candidates will be refused: {err}")
+        return
+    print(f"[{tag}] ready")
+
+
 def main() -> int:
     for fetch in (
         fetch_zipformer_vi,
@@ -494,6 +566,7 @@ def main() -> int:
         fetch_silero_vad,
         fetch_ct_punct_zh,
         fetch_dewpoint,
+        fetch_whisper_lid,
     ):
         fetch()
     print("[done] models cached in models/")

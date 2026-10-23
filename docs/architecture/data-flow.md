@@ -27,7 +27,9 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
 1. **`client.session.start`** → `TranslationSessionService.start()` opens a turn
    and answers `server.session.ready` with the id every later frame must carry.
    Carries the turn's `SessionOptions` — `languagePair` plus `voiceGender`, which is
-   optional on the wire and defaults to `female` before it reaches the session
+   optional on the wire and defaults to `female` before it reaches the session.
+   `ready.mode` says which language mode the turn actually runs: `declared`,
+   `two-way` or `detect` (see [Two-way and auto-detect turns](#two-way-and-auto-detect-turns))
 2. **`client.audio.frame`** (repeated) → raw PCM16 buffered. Frames are rejected
    if they name another session, change sample rate mid-turn, or fail to advance
    their sequence. Sequence _gaps_ are accepted: a client gating on voice
@@ -286,6 +288,46 @@ splitting changes prosody at the seams.
 - No configured engine serves the turn's language → `LanguageUnavailableException` (HTTP 503, `SERVICE_UNAVAILABLE`, message passed through)
 - No speech detected → `BadRequestException` (HTTP 400)
 - All errors mapped by `AllExceptionsFilter` to error envelope
+
+### Two-way and auto-detect turns
+
+The same steps, with the turn's language decided while it is spoken instead of
+before. Admission, the fallbacks and the wire fields are in
+[Contracts and Languages](./contracts-and-languages.md#lid-and-audio-based-detection);
+this is the order things happen in one turn.
+
+1. **Start.** `admitLanguageMode` picks the mode, `LidAdmission` applies the
+   per-user cap, and the turn gets a `TurnLanguageDecision` (`twoWayDecision`
+   or `detectDecision` in `translation-session.service.ts`) read as the
+   declared source, or for detect the first identifiable language that is not
+   the target.
+2. **Partials before the lock.** Each live re-read sends the decision's
+   `candidates` to the sidecar (`session/live-preview.ts`). The answer's
+   language feeds `TurnLanguageDecision.observe`; the partial goes out with no
+   `language` field, and live translation does not start, because a translation
+   into the wrong side of the pair is worse than a moment of none.
+3. **Lock.** The first confident, long-enough partial locks the turn. The
+   committer restarts, later partials carry `language`, and live translation
+   runs in the locked language unless that language is a detect session's
+   target, which has nothing to translate into. Re-reads after the lock send no
+   `candidates`.
+4. **Speculation.** A guess on a pause sends `candidates` too, but asks only
+   what the final would decide (`peekFinal`). It is reused if the final agrees
+   and read again if not, so a guess never fixes the turn's language.
+5. **Final.** The whole turn is transcribed with `candidates`, and
+   `decideFinal` decides on that answer, overruling the lock if they differ.
+   Only then are the display restore and the earlier-speech context chosen,
+   both for the decided language; a split turn is decided once on the whole
+   turn before its pieces are translated. A detect turn decided as its own
+   target is shown as transcript only: no translation, no speech, ended
+   `voice_off`, and not remembered as context.
+6. **After.** The decided language is noted per socket
+   (`ConversationContext.noteLanguage`) for the next turn's fallback, and logged
+   as one `lid turn=… lang=… via=…` line.
+
+A sidecar busy at the decision decodes the declared language and reports no
+confidence, which the decision treats as unsure; see the sidecar's
+[candidates rules](../../services/local-stt/README.md#candidates).
 
 ### AI Context, and the path a hint takes to the prompt
 

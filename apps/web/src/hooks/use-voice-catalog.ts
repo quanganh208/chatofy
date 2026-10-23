@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { listVoices, type TtsVoice } from '@/clients/api-client';
-import type { LanguageCode, LanguagePair } from '@chatofy/types';
+import type { LanguageCode } from '@chatofy/types';
 
 /**
  * What the catalog request produced.
@@ -103,14 +103,15 @@ function cachedState(language: LanguageCode): VoiceCatalogState {
 }
 
 /**
- * The voices the running backend offers for whichever language is being SPOKEN.
+ * The voices the running backend offers for one language that is SPOKEN.
  *
  * Keyed by output language rather than by pair, because that is what decides
  * which engine answers — and the two engines share no vocabulary, so a token from
- * one is meaningless to the other.
+ * one is meaningless to the other. Named by the caller rather than read off a
+ * pair: a two-way conversation speaks both of its languages, so the voice panel
+ * asks once per language.
  */
-export function useVoiceCatalog(pair: LanguagePair): VoiceCatalogState {
-  const outputLanguage = pair.target;
+export function useVoiceCatalog(outputLanguage: LanguageCode): VoiceCatalogState {
   const [state, setState] = useState<VoiceCatalogState>(() => cachedState(outputLanguage));
   const [shownFor, setShownFor] = useState(outputLanguage);
 

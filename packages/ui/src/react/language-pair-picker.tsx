@@ -1,10 +1,12 @@
 import {
+  AUTO_DETECT,
   LANGUAGES,
   LANGUAGE_CODES,
   languagePairOf,
   reversePair,
   type LanguageCode,
   type LanguagePair,
+  type SessionLanguagePair,
 } from '@chatofy/types';
 import { ArrowLeftRight } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -49,6 +51,9 @@ const DEFAULT_LABELS: LanguagePairLabels = {
  */
 const englishLabel = (code: LanguageCode) => LANGUAGES[code].label;
 
+/** What one side of a pair can hold: a language, or — on the source side only — "detect it". */
+type SourceChoice = LanguageCode | typeof AUTO_DETECT;
+
 /**
  * The pair after picking `code` on one `side`.
  *
@@ -57,23 +62,60 @@ const englishLabel = (code: LanguageCode) => LANGUAGES[code].label;
  * repeat is the reverse. So no caller can produce a pair of one language, and every surface that
  * picks a language (`LanguagePairPicker`, the `/translate` panel headers) answers a
  * collision the same way because it calls this one function.
+ *
+ * An undeclared source cannot be reversed — "detect" is never a translation — so a
+ * collision against one keeps the language where it was picked and gives the
+ * translation side the first other registry language instead. Picking "detect"
+ * itself never collides: no target can hold it.
  */
 export function pairAfterPick(
   pair: LanguagePair,
   side: 'source' | 'target',
   code: LanguageCode,
-): LanguagePair {
+): LanguagePair;
+export function pairAfterPick(
+  pair: SessionLanguagePair,
+  side: 'source',
+  code: SourceChoice,
+): SessionLanguagePair;
+export function pairAfterPick(
+  pair: SessionLanguagePair,
+  side: 'target',
+  code: LanguageCode,
+): SessionLanguagePair;
+export function pairAfterPick(
+  pair: SessionLanguagePair,
+  side: 'source' | 'target',
+  code: SourceChoice,
+): SessionLanguagePair {
   const { source, target } = pair;
   const kept = side === 'source' ? source : target;
   const other = side === 'source' ? target : source;
   if (code === kept) return pair;
-  if (code === other) return reversePair(pair);
-  return side === 'source' ? languagePairOf(code, target) : languagePairOf(source, code);
+  if (code === AUTO_DETECT) return { source: AUTO_DETECT, target };
+  if (code === other) {
+    if (source !== AUTO_DETECT) return reversePair(languagePairOf(source, target));
+    // Only the source side can collide with a detect pair's target.
+    return languagePairOf(code, LANGUAGE_CODES.find((language) => language !== code) ?? target);
+  }
+  return side === 'source' ? { source: code, target } : { source, target: code };
 }
 
-interface LanguageSelectProps {
-  value: LanguageCode;
-  onPick: (code: LanguageCode) => void;
+/**
+ * The "detect it" entry a source picker may lead with.
+ *
+ * Opt-in, and only where the caller's pair can hold an undeclared source: the
+ * extension popup passes none, so its picker offers exactly the registry it
+ * always did. Which surfaces offer it, and when, is the caller's call — this
+ * component cannot know whether the session it configures can identify a turn.
+ */
+export interface DetectOption {
+  label: string;
+}
+
+interface LanguageSelectProps<V extends SourceChoice> {
+  value: V;
+  onPick: (code: V) => void;
   /** The accessible name: which side this is ("Source", "Translation"). */
   label: string;
   languages?: readonly LanguageCode[];
@@ -81,6 +123,11 @@ interface LanguageSelectProps {
   nameLanguage?: (code: LanguageCode) => string;
   size?: 'sm' | 'default';
   className?: string;
+  /**
+   * Lead the list with "detect it" (value `'detect'`). Typed so it can only be
+   * passed where `onPick` accepts that value.
+   */
+  detectOption?: typeof AUTO_DETECT extends V ? DetectOption : never;
 }
 
 /**
@@ -90,7 +137,7 @@ interface LanguageSelectProps {
  * no accent. `min-w-0` lets it shrink inside the 320px popup instead of widening it;
  * the value line-clamps.
  */
-export function LanguageSelect({
+export function LanguageSelect<V extends SourceChoice = LanguageCode>({
   value,
   onPick,
   label,
@@ -99,17 +146,15 @@ export function LanguageSelect({
   nameLanguage = englishLabel,
   size = 'default',
   className,
-}: LanguageSelectProps) {
+  detectOption,
+}: LanguageSelectProps<V>) {
   return (
-    <Select
-      value={value}
-      onValueChange={(code) => onPick(code as LanguageCode)}
-      disabled={disabled}
-    >
+    <Select value={value} onValueChange={(code) => onPick(code as V)} disabled={disabled}>
       <SelectTrigger aria-label={label} size={size} className={cn('min-w-0', className)}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
+        {detectOption ? <SelectItem value={AUTO_DETECT}>{detectOption.label}</SelectItem> : null}
         {languages.map((code) => (
           <SelectItem key={code} value={code}>
             {nameLanguage(code)}
@@ -120,15 +165,21 @@ export function LanguageSelect({
   );
 }
 
-interface LanguagePairPickerProps {
-  value: LanguagePair;
+interface LanguagePairPickerProps<P extends SessionLanguagePair> {
+  value: P;
   disabled?: boolean;
-  onChange: (pair: LanguagePair) => void;
+  onChange: (pair: P) => void;
   labels?: LanguagePairLabels;
   /** Names the languages. Defaults to each language's English interface name. */
   nameLanguage?: (code: LanguageCode) => string;
   /** The languages offered on either side; the registry by default. */
   languages?: readonly LanguageCode[];
+  /**
+   * Lead the source side with "detect it". Only for a pair type that can hold
+   * it; the swap is disabled while it is chosen, because there is no language
+   * to swap it with.
+   */
+  detectOption?: typeof AUTO_DETECT extends P['source'] ? DetectOption : never;
 }
 
 /**
@@ -147,17 +198,21 @@ interface LanguagePairPickerProps {
  * Trung" was clipped). Stacked, the swap sits between the two and turns to point
  * up and down.
  */
-export function LanguagePairPicker({
+export function LanguagePairPicker<P extends SessionLanguagePair = LanguagePair>({
   value,
   disabled,
   onChange,
   labels = DEFAULT_LABELS,
   nameLanguage = englishLabel,
   languages = LANGUAGE_CODES,
-}: LanguagePairPickerProps) {
+  detectOption,
+}: LanguagePairPickerProps<P>) {
   const { source, target } = value;
-  const pick = (side: 'source' | 'target') => (code: LanguageCode) =>
-    onChange(pairAfterPick(value, side, code));
+  // The one cast here, and it is sound: a pick only yields `'detect'` from the
+  // detect entry, which `detectOption`'s type allows only when `P` can hold it.
+  const change = (pair: SessionLanguagePair) => onChange(pair as P);
+  const nameSource = (code: SourceChoice) =>
+    code === AUTO_DETECT ? (detectOption?.label ?? code) : nameLanguage(code);
 
   return (
     <div className="@container flex flex-col gap-2">
@@ -166,22 +221,25 @@ export function LanguagePairPicker({
       </span>
       <div className="flex flex-col gap-2 @2xs:flex-row @2xs:items-end">
         <Side role={labels.source}>
-          <LanguageSelect
+          <LanguageSelect<SourceChoice>
             value={source}
-            onPick={pick('source')}
+            onPick={(code) => change(pairAfterPick(value, 'source', code))}
             label={labels.source}
             languages={languages}
             disabled={disabled}
             nameLanguage={nameLanguage}
             className={TIGHT}
+            detectOption={detectOption}
           />
         </Side>
         <Button
           variant="outline"
           size="icon"
-          disabled={disabled}
-          onClick={() => onChange(reversePair(value))}
-          aria-label={labels.swap(nameLanguage(target), nameLanguage(source))}
+          disabled={disabled || source === AUTO_DETECT}
+          onClick={() => {
+            if (source !== AUTO_DETECT) change(reversePair(languagePairOf(source, target)));
+          }}
+          aria-label={labels.swap(nameLanguage(target), nameSource(source))}
           className={cn(
             'text-prose hover:text-foreground disabled:hover:text-inherit',
             // `size-auto` overrides the `icon` size deliberately: a round 34px swap,
@@ -194,7 +252,7 @@ export function LanguagePairPicker({
         <Side role={labels.translation}>
           <LanguageSelect
             value={target}
-            onPick={pick('target')}
+            onPick={(code) => change(pairAfterPick(value, 'target', code))}
             label={labels.translation}
             languages={languages}
             disabled={disabled}

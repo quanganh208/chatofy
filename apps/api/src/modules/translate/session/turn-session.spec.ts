@@ -6,7 +6,8 @@ import {
   type LanguagePair,
 } from '@chatofy/types';
 import { TurnSession } from './turn-session';
-import { planForPair } from './turn-language-plan';
+import { planForPair, planTurnLanguages } from './turn-language-plan';
+import { SourcePrior, TurnLanguageDecision } from './turn-language-decision';
 import { MAX_TURN_SECONDS } from './turn-audio';
 
 const SAMPLE_RATE = 16000;
@@ -86,6 +87,52 @@ describe('TurnSession', () => {
       expect(session.languages).toBe(languages);
       expect(session.languages.targets).toEqual(['vi', 'en']);
       expect(session.languages.spoken).toBe('vi');
+    });
+  });
+
+  describe('a two-way turn', () => {
+    const decision = () =>
+      new TurnLanguageDecision('two-way', ['vi', 'en'], 'vi', (language) =>
+        planTurnLanguages(['vi', 'en'], [language]),
+      );
+
+    it('reads its plan and speaker role from the language it is decided in', () => {
+      const session = new TurnSession(
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
+        undefined,
+        { decision: decision() },
+      );
+      expect(session.languages.recognition).toBe('vi');
+      const roleBefore = session.speakerRole;
+
+      session.decision.decideFinal(
+        { language: 'en', confidence: 0.97 },
+        new SourcePrior('vi'),
+        { previous: null, source: 'vi' },
+      );
+
+      expect(session.languages.recognition).toBe('en');
+      expect(session.languages.targets).toEqual(['vi']);
+      expect(session.speakerRole).not.toBe(roleBefore);
+      expect(
+        session.toSegment('hello', { vi: 'xin chào' }).sourceLanguages,
+      ).toEqual(['en']);
+    });
+
+    it('settles again from nothing once its preview locks', () => {
+      const session = new TurnSession(
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
+        undefined,
+        { decision: decision() },
+      );
+      session.committer.push('xin chao');
+      session.committer.push('xin chao ban');
+      const before = session.committer;
+
+      session.resetCommitter();
+
+      expect(session.committer).not.toBe(before);
+      expect(session.committer.committed).toBe('');
     });
   });
 

@@ -1,4 +1,9 @@
-import type { LanguageCode, ServerEvent, TranscriptSegment } from '@chatofy/types';
+import type {
+  LanguageCode,
+  ServerEvent,
+  SessionLanguageMode,
+  TranscriptSegment,
+} from '@chatofy/types';
 import {
   addSpeaker,
   attributeTurn,
@@ -74,6 +79,15 @@ export interface LiveTurn {
    * one.
    */
   translationGeneration?: number;
+  /**
+   * The language this turn is being heard in, once the server has decided it.
+   *
+   * Absent on a declared turn, where the source is the answer, and on an
+   * identified turn the server has not settled yet. Kept once set: a later read
+   * that omits it has said nothing new. The finished turn's
+   * `segment.sourceLanguages` is the last word, and may differ from this.
+   */
+  language?: LanguageCode;
 }
 
 export interface TurnKeyedTranscript {
@@ -211,6 +225,16 @@ export interface TurnKeyedTranscript {
    * pieces without having lost them.
    */
   blockTranslations: Record<string, BlockTranslation>;
+  /**
+   * How the server ran each turn's languages, keyed by the server's `sessionId`,
+   * from `server.session.ready` — absent there reads as `declared`.
+   *
+   * Per turn rather than once per conversation, because it is decided per turn:
+   * a server that loses identification mid-conversation runs the next turn
+   * declared while the earlier ones stay identified. A piece of a split turn
+   * inherits its parent's.
+   */
+  languageModes: Record<string, SessionLanguageMode>;
 }
 
 /** The key a block shape is stored and asked for under. */
@@ -376,6 +400,7 @@ export const initialTurnKeyedTranscript: TurnKeyedTranscript = {
   splits: {},
   displays: {},
   blockTranslations: {},
+  languageModes: {},
 };
 
 /**
@@ -730,11 +755,20 @@ export function turnKeyedTranscriptReducer(
       // Invisible to a client that never asked for settled text: it never sets
       // `committedChars`, so this guard is never true and the line below is what
       // runs, exactly as before.
-      if (state.live[event.sessionId]?.committedChars !== undefined) return state;
+      //
+      // The language still lands: it says nothing about which characters settled.
+      if (state.live[event.sessionId]?.committedChars !== undefined) {
+        return event.language === undefined
+          ? state
+          : patchLive(state, event.sessionId, { language: event.language });
+      }
       // Rewritten wholesale rather than appended to: the recogniser re-reads the
       // whole utterance each time and can revise a word it already offered, so
       // treating this as a growing string would leave the correction behind.
-      return patchLive(state, event.sessionId, { text: event.text });
+      return patchLive(state, event.sessionId, {
+        text: event.text,
+        ...(event.language === undefined ? {} : { language: event.language }),
+      });
 
     case 'server.transcript.delta': {
       // Rebuilt from empty, never joined onto what is already there. The server
@@ -750,6 +784,7 @@ export function turnKeyedTranscriptReducer(
         // line near 120 characters against a 600 limit — but this stays correct
         // for a client with no such ceiling.)
         committedChars: Math.max(0, text.length - event.pending.length),
+        ...(event.language === undefined ? {} : { language: event.language }),
       });
     }
 
@@ -1024,6 +1059,7 @@ export function turnKeyedTranscriptReducer(
       const appended = { ...cleared, turns: [...cleared.turns, event.segment], displays };
       if (!event.split) return appended;
       const { parentSessionId, index, count, startMs, endMs, reachesEnd } = event.split;
+      const parentMode = appended.languageModes[parentSessionId];
       return joinPieces(
         {
           ...appended,
@@ -1031,10 +1067,20 @@ export function turnKeyedTranscriptReducer(
             ...appended.splits,
             [event.sessionId]: { parentSessionId, index, count, startMs, endMs, reachesEnd },
           },
+          languageModes:
+            parentMode === undefined
+              ? appended.languageModes
+              : { ...appended.languageModes, [event.sessionId]: parentMode },
         },
         parentSessionId,
       );
     }
+
+    case 'server.session.ready':
+      return {
+        ...state,
+        languageModes: { ...state.languageModes, [event.sessionId]: event.mode ?? 'declared' },
+      };
 
     case 'server.session.ended':
       // A turn can end with no transcript — no speech, or a failure. Whatever was

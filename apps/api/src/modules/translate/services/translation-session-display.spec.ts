@@ -216,6 +216,7 @@ function makeService(
 
   const languageSupport = {
     refusal: () => null,
+    identifiable: () => null,
   } as unknown as SpeechLanguageSupport;
 
   return {

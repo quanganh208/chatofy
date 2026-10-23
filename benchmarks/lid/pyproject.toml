@@ -1,0 +1,37 @@
+[project]
+name = "lid-bench"
+version = "0.1.0"
+description = "Language-identification bake-off: which mechanism decides a turn's language for two-way and auto-detect /translate"
+requires-python = ">=3.11.4,<3.12"
+dependencies = [
+    # sherpa-onnx links libonnxruntime by versioned symbol (VERS_1.27.0) and its
+    # wheel does not bundle the library, so these two are one ABI pair. Pinned
+    # EXACTLY and identically to services/local-stt/pyproject.toml: arm 4 runs the
+    # sidecar's own engine classes, and every ONNX arm is scored through this
+    # onnxruntime because it is the one the sidecar would load them with.
+    "sherpa-onnx==1.13.4",
+    "onnxruntime==1.27.0",
+    "numpy>=1.26",
+    "soundfile>=0.12",
+    # The sidecar's vi engine builds its biased recognizer's vocabulary with this
+    # at load; arm 4 loads that engine class unchanged, so it needs it too.
+    "sentencepiece>=0.2.2",
+    # Arm 4's classifier and the leave-one-group-out folds.
+    "scikit-learn>=1.5",
+    # FLEURS ships as parquet with the audio inline.
+    "pyarrow>=17",
+    "huggingface-hub>=0.26",
+    # Decodes webm/opus recordings and mp3 corpora, resampling as it goes; the
+    # sidecar decodes uploads with it, and it bundles ffmpeg (none on PATH here).
+    "av>=13",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# Application, not a distributable package -- `uv sync` only resolves deps.
+[tool.uv]
+package = false

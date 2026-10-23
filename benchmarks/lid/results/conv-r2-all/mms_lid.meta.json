@@ -1,0 +1,15 @@
+{
+  "arm": "mms_lid",
+  "kind": "lid-model",
+  "runtime": "transformers",
+  "parity_passed": null,
+  "needs_gpu": true,
+  "needs_torch": true,
+  "new_model": true,
+  "notes": [
+    "device cpu; accuracy-only, no ONNX path through the sidecar runtime",
+    "resumed after 77 turns"
+  ],
+  "rss_peak_mib": 4791.2,
+  "rss_delta_mib": 4740.4
+}

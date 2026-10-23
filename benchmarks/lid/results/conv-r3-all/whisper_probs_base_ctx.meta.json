@@ -1,0 +1,15 @@
+{
+  "arm": "whisper_probs_base_ctx",
+  "kind": "lid-model",
+  "runtime": "onnxruntime-1.27.0",
+  "parity_passed": true,
+  "needs_gpu": false,
+  "needs_torch": false,
+  "new_model": true,
+  "notes": [
+    "onnx-community whisper-base@1846881b",
+    "encoder cut to the turn, rounded up to 1 s (window.py)"
+  ],
+  "rss_peak_mib": 638.1,
+  "rss_delta_mib": 587.1
+}
