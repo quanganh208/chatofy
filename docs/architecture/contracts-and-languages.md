@@ -386,7 +386,9 @@ mode a client must render; `twoWay` is a request, never a command, and the web
 client follows the echo, not its own guess. A sidecar that answers `409` to
 candidates (identification switched off since the last probe) makes the
 provider decode the turn declared and calls `onIdentifyUnavailable`, which
-re-probes at once (`SpeechLanguageSupport.refreshNow`).
+re-probes at once (`SpeechLanguageSupport.refreshNow`). While an engine that can
+report what it identifies has not answered yet — still loading its models after
+a deploy — every start probes again instead of waiting out the interval.
 
 **Capacity.** An identifying session costs the sidecar a decision on every
 partial and final, and the sidecar refuses rather than queues once its lanes
@@ -430,9 +432,9 @@ turn has locked), and `server.error.detail`. The sidecar side (`candidates`,
 `/healthz`) is documented in
 [`services/local-stt/README.md`](../../services/local-stt/README.md#candidates).
 
-**Off in production until it is enabled there.** `LOCAL_STT_LID` defaults on
-in `docker-compose.yml` and off in `docker-compose.prod.yml`
-(`PROD_LOCAL_STT_LID`). Off, `/healthz` reports `lidLanguages: []`, two-way
+**One switch.** `LOCAL_STT_LID` defaults on in `docker-compose.yml` and off in
+`docker-compose.prod.yml` (`PROD_LOCAL_STT_LID`, set on in production's
+`prod.env`). Off, `/healthz` reports `lidLanguages: []`, two-way
 starts run declared, and detect starts are refused, so turning it off needs no
 API deploy.
 

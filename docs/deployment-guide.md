@@ -397,6 +397,16 @@ Two different failures with two different answers:
 
 Backups live in `~/chatofy-backups` (14 retained).
 
+**Language identification** has its own switch and needs no rollback of code: set
+`PROD_LOCAL_STT_LID=off` in `prod.env`, then `docker compose -f docker-compose.prod.yml
+--env-file ~/.config/chatofy/prod.env up -d local-stt`. Recognition is down for the
+~20 s the sidecar takes to come back; after that two-way starts run declared (the
+web says so) and Auto-detect is refused. Turning it back on is the same with `on`;
+the weights stay seeded. Rehearsed on production 2026-10-23. With it on, the STT
+sidecar needs `mem_limit: 5120m` and the Docker VM was raised to 10 GiB
+(`MemoryMiB` in `~/.docker/desktop/settings-store.json`, then `docker desktop
+restart`, which restarts every container).
+
 ## Object storage (R2): avatars and conversation recordings
 
 Avatar bytes live in a Cloudflare R2 bucket served through a public custom

@@ -27,16 +27,15 @@ Grouped by area; the PR numbers are the merges that delivered each piece.
 The measurements and the dead ends behind these are in
 [development-journey.md](./development-journey.md).
 
-## Built, not yet enabled in production: two-way and auto-detect
+## In production since 2026-10-23: two-way and auto-detect
 
 Two-way vi↔en conversations and auto-detected source language on `/translate`:
 one source picker, a language identifier in the STT sidecar, the turn's
-language decided while it is spoken. The API, sidecar and web code are built
-and measured locally; production keeps `PROD_LOCAL_STT_LID` off, so every
-two-way start there runs one-way and auto-detect is refused. Still open before
-it is switched on, and before the web part merges: the production memory
-budget, a load run on an isolated sidecar instance, a replay on production, and
-a rehearsed rollback. Chinese is not identified and its pairs stay one-way.
+language decided while it is spoken. Enabled on production with
+`PROD_LOCAL_STT_LID=on` after an isolated load run, a production replay and a
+rehearsed rollback. Still open: the language label shows up about 100 ms later
+than its 3.5 s p95 target on production. Chinese is not identified and its pairs
+stay one-way.
 
 The mobile app compiles against the new contract only; its translate screen is
 planned separately.
