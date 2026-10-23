@@ -27,6 +27,23 @@ Grouped by area; the PR numbers are the merges that delivered each piece.
 The measurements and the dead ends behind these are in
 [development-journey.md](./development-journey.md).
 
+## Built, not yet enabled in production: two-way and auto-detect
+
+Two-way vi↔en conversations and auto-detected source language on `/translate`:
+one source picker, a language identifier in the STT sidecar, the turn's
+language decided while it is spoken. The API, sidecar and web code are built
+and measured locally; production keeps `PROD_LOCAL_STT_LID` off, so every
+two-way start there runs one-way and auto-detect is refused. Still open before
+it is switched on, and before the web part merges: the production memory
+budget, a load run on an isolated sidecar instance, a replay on production, and
+a rehearsed rollback. Chinese is not identified and its pairs stay one-way.
+
+The mobile app compiles against the new contract only; its translate screen is
+planned separately.
+
+Described in [Contracts and Languages](./architecture/contracts-and-languages.md#lid-and-audio-based-detection);
+measured in [development-journey.md](./development-journey.md).
+
 ## Next: video meetings
 
 **Not started.** No conferencing code exists on `main` as of 2026-10-05. The proposal is
