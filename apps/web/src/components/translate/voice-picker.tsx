@@ -73,6 +73,11 @@ interface VoicePickerProps {
   disabled?: boolean;
   /** The token (or `undefined` for a default) and the gender it speaks in. */
   onChange: (token: string | undefined, gender: VoiceGender) => void;
+  /**
+   * The field's name. "Voice" by default; a panel showing one picker per spoken
+   * language names each by its language, or two fields would share one name.
+   */
+  label?: string;
 }
 
 export function VoicePicker({
@@ -82,6 +87,7 @@ export function VoicePicker({
   value,
   disabled,
   onChange,
+  label,
 }: VoicePickerProps) {
   const t = useTranslate();
   const labelId = useId();
@@ -122,7 +128,7 @@ export function VoicePicker({
         id={labelId}
         className="text-muted-foreground text-label font-semibold tracking-wide uppercase"
       >
-        {t('web.translate.voice')}
+        {label ?? t('web.translate.voice')}
       </span>
       {catalog.status === 'loading' ? (
         // The trigger's own height, so nothing below it moves when the list lands.

@@ -1,7 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import type { LanguagePair, SessionOptions, TranscriptSegment } from '@chatofy/types';
+import type {
+  SessionLanguageMode,
+  SessionLanguagePair,
+  SessionOptions,
+  TranscriptSegment,
+} from '@chatofy/types';
 import {
   ConversationSession,
   PcmPlaybackQueue,
@@ -21,6 +26,7 @@ import {
   type ConversationStatus,
   type LiveTurn,
   type PauseInterval,
+  type ServerErrorCause,
   type SessionSpeaker,
 } from '@chatofy/realtime-client';
 import { useAccessToken } from '@/hooks/use-access-token';
@@ -31,7 +37,38 @@ import {
 } from '@/hooks/use-conversation-recording';
 import { useTranslate } from '@/i18n/provider';
 import { openMicrophone } from '@/lib/open-microphone';
+import { asksTwoWay } from '@/lib/translate-settings';
 import { env } from '@/config/env';
+import type { Translate } from '@chatofy/i18n';
+
+/**
+ * What a caller starts a conversation with. `twoWay` is not among it: whether
+ * to ask for it follows from the pair alone (`asksTwoWay`), so one rule decides
+ * it for every start rather than each caller deciding again.
+ */
+export type StartOptions = Omit<SessionOptions, 'twoWay'>;
+
+/** What the server said about the languages of the newest turn. */
+export interface LanguageModeAnswer {
+  mode: SessionLanguageMode;
+  /** Why `mode` is less than was asked for; absent when it is not. */
+  reason?: string;
+}
+
+/**
+ * A refusal said in the reader's language, where its code is one this page
+ * knows; null hands the server's own message through.
+ *
+ * Only `language_unavailable` with a `detail` is named: it is the answer to an
+ * "Auto-detect" start, and the server's English names the mechanism where the
+ * reader needs the next step.
+ */
+function refusalMessage(t: Translate, cause: ServerErrorCause | undefined): string | null {
+  if (cause?.code !== 'language_unavailable') return null;
+  if (cause.detail === 'language_detection') return t('web.translate.detectUnavailable');
+  if (cause.detail === 'lid_capacity') return t('web.translate.detectBusy');
+  return null;
+}
 
 const WORKLET_URL = '/worklets/mic-capture-processor.js';
 
@@ -158,7 +195,21 @@ export interface UseStreamingTranslate {
    * would show or store turns under languages they were never spoken in the
    * moment somebody swapped it. Null until the first `start`.
    */
-  languagePair: LanguagePair | null;
+  languagePair: SessionLanguagePair | null;
+  /**
+   * Whether this conversation's start asked the server for two-way. Stamped
+   * with the pair, so a banner comparing it with {@link languageMode} compares
+   * two facts about the same conversation.
+   */
+  twoWayRequested: boolean;
+  /**
+   * How the server ran the newest turn's languages, or null before any turn of
+   * this conversation opened. What the screen's two-way affordances follow —
+   * never the request, which the server may answer with less.
+   */
+  languageMode: LanguageModeAnswer | null;
+  /** The same answer per turn, keyed by the server's `sessionId`. */
+  languageModes: Record<string, SessionLanguageMode>;
   /**
    * The finished recording, once the conversation has stopped.
    *
@@ -201,7 +252,7 @@ export interface UseStreamingTranslate {
    * pause on the words it points at.
    */
   offsetPauses: readonly PauseInterval[];
-  start: (options: SessionOptions) => Promise<void>;
+  start: (options: StartOptions) => Promise<void>;
   stop: () => void;
   /**
    * Turn the microphone off without ending the conversation, and pause the
@@ -274,6 +325,7 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   // The session's own record of when this conversation was paused; see
   // `onPauses` below.
   const [pauses, setPauses] = useState<readonly PauseInterval[]>(NO_PAUSES);
+  const [languageMode, setLanguageMode] = useState<LanguageModeAnswer | null>(null);
 
   /**
    * The gain stage the translated audio passes through, for the run in progress.
@@ -388,10 +440,12 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // API being down and the user retries into a refusal forever. Renewal is
       // attempted first now, so signing in again is the way out only once that
       // renewal has been terminally refused.
-      onError: (message) => {
-        setError(message);
+      onError: (message, cause) => {
+        setError(message === null ? null : (refusalMessage(tRef.current, cause) ?? message));
         void recovery.handleConnectionFailure();
       },
+      onLanguageMode: (mode, reason) =>
+        setLanguageMode(reason === undefined ? { mode } : { mode, reason }),
       onEchoHeard: () => setEchoHeard((count) => count + 1),
       // The only teardown signal that reaches outside the session. `stop()` is not
       // enough on its own: a dropped socket makes the session stop ITSELF, and
@@ -491,7 +545,8 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   const [identity, setIdentity] = useState<{
     id: string;
     startedAt: string;
-    languagePair: LanguagePair;
+    languagePair: SessionLanguagePair;
+    twoWay: boolean;
   } | null>(null);
 
   /**
@@ -504,7 +559,8 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   const [finishedRecording, setFinishedRecording] = useState<ConversationRecording | null>(null);
 
   const start = useCallback(
-    (options: SessionOptions) => {
+    (options: StartOptions) => {
+      const twoWay = asksTwoWay(options.languagePair);
       // Before `session.start`, which is what dispatches the reset: the id and
       // the transcript it names must change together, or a save fired on the
       // edge could carry the new turns under the previous id.
@@ -512,7 +568,11 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
         id: crypto.randomUUID(),
         startedAt: new Date().toISOString(),
         languagePair: options.languagePair,
+        twoWay,
       });
+      // The previous conversation's answer is not this one's: until a turn of
+      // this one opens, nothing has said how it runs.
+      setLanguageMode(null);
       // The previous conversation's recording must not survive into this one:
       // the upload keys off `conversationId`, and a stale blob here would be
       // attached to the wrong conversation. Its ORIGIN must not survive either —
@@ -526,7 +586,14 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // union is strict: a build that predates the event would report a parse
       // failure once per round instead of ignoring it. Only a client that knows
       // the event asks for it, and this is that client.
-      return session.start({ ...options, streamCommitted: true });
+      //
+      // `twoWay` rides only when asked, so a declared start is byte-for-byte
+      // what it was before the field existed.
+      return session.start({
+        ...options,
+        ...(twoWay ? { twoWay: true } : {}),
+        streamCommitted: true,
+      });
     },
     [session, resetRecording],
   );
@@ -700,6 +767,9 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     conversationId: identity?.id ?? null,
     startedAt: identity?.startedAt ?? null,
     languagePair: identity?.languagePair ?? null,
+    twoWayRequested: identity?.twoWay ?? false,
+    languageMode,
+    languageModes: conversation.languageModes,
     recording: finishedRecording,
     recordingStartedAtMs,
     pauses,

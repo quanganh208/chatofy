@@ -21,6 +21,7 @@ export type {
   ConversationRuntimeOptions,
   ConversationSessionDeps,
   ConversationSessionListeners,
+  ServerErrorCause,
 } from './conversation/conversation-session.js';
 export type { ConversationStatus } from './conversation/conversation-status.js';
 // What a pause records, and the one rule that reads it: a turn's offset and the
@@ -92,6 +93,7 @@ export {
   groupSourceText,
   groupTranslation,
   groupTurnsForDisplay,
+  turnTargetLanguage,
 } from './state/display-groups.js';
 export type { DisplayGroup } from './state/display-groups.js';
 

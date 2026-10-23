@@ -138,7 +138,7 @@ function renderLive(audioOffsetMs: number | null, pauses: readonly PauseInterval
           onAddSpeaker={vi.fn()}
           onRenameSpeaker={vi.fn()}
           onRemoveSpeaker={vi.fn()}
-          target="en"
+          languagePair={{ source: 'vi', target: 'en' }}
         />
       </LocaleProvider>,
     );
@@ -247,7 +247,7 @@ describe('a turn reads the same live and in history', () => {
               onAddSpeaker={vi.fn()}
               onRenameSpeaker={vi.fn()}
               onRemoveSpeaker={vi.fn()}
-              target="en"
+              languagePair={{ source: 'vi', target: 'en' }}
             />
           </LocaleProvider>,
         );
@@ -308,7 +308,7 @@ describe('a turn reads the same live and in history', () => {
             onAddSpeaker={vi.fn()}
             onRenameSpeaker={vi.fn()}
             onRemoveSpeaker={vi.fn()}
-            target="en"
+            languagePair={{ source: 'vi', target: 'en' }}
           />
         </LocaleProvider>,
       );
@@ -338,7 +338,7 @@ describe('a turn reads the same live and in history', () => {
             onAddSpeaker={vi.fn()}
             onRenameSpeaker={vi.fn()}
             onRemoveSpeaker={vi.fn()}
-            target="en"
+            languagePair={{ source: 'vi', target: 'en' }}
           />
         </LocaleProvider>,
       );
@@ -366,7 +366,7 @@ describe('a turn reads the same live and in history', () => {
             onAddSpeaker={vi.fn()}
             onRenameSpeaker={vi.fn()}
             onRemoveSpeaker={vi.fn()}
-            target="en"
+            languagePair={{ source: 'vi', target: 'en' }}
           />
         </LocaleProvider>,
       );

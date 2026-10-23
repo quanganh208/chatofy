@@ -1,7 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { pairLanguages, type ConversationTurn, type LanguagePair } from '@chatofy/types';
+import {
+  AUTO_DETECT,
+  detectConversationLanguages,
+  pairLanguages,
+  type ConversationTurn,
+  type LanguageCode,
+  type SessionLanguagePair,
+} from '@chatofy/types';
 import { saveConversation } from '@/clients/api-client';
 import { classifyApiFailure } from '@/lib/api-failure';
 
@@ -50,7 +57,7 @@ export interface ConversationSaveInput {
    * `latest` ref and is no save trigger: a fresh-but-equal object must not
    * re-send a conversation that has not changed.
    */
-  languagePair: LanguagePair;
+  languagePair: SessionLanguagePair;
   /** True while the microphone is open. The save fires on the falling edge. */
   running: boolean;
   /** The finished conversation as display blocks — see `toConversationTurns`. */
@@ -204,7 +211,7 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
     inFlight.current = inFlight.current.then(async () => {
       try {
         await saveConversation(id, {
-          languages: pairLanguages(pair),
+          languages: storedLanguages(pair),
           startedAt: began,
           endedAt: ended,
           turns: rows,
@@ -340,4 +347,18 @@ function signatureOf(turns: readonly ConversationTurn[]): string {
   return turns
     .map((turn) => `${turn.speakerLabel ?? ''}|${turn.displayText ?? turn.sourceText}`)
     .join('\0');
+}
+
+/**
+ * The languages a conversation is stored in.
+ *
+ * Auto-detected, through the SAME helper the server uses — target first, then
+ * every other registry language — because "more than two" is what marks the
+ * conversation as auto-detected when it is read back; no extra field says so.
+ * Declared or two-way, the pair source first, as every stored row always was.
+ */
+function storedLanguages(pair: SessionLanguagePair): LanguageCode[] {
+  return pair.source === AUTO_DETECT
+    ? detectConversationLanguages(pair.target)
+    : pairLanguages({ source: pair.source, target: pair.target });
 }

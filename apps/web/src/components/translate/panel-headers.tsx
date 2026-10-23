@@ -2,18 +2,29 @@
 
 import { ArrowLeftRight } from 'lucide-react';
 import { Button, LanguageSelect, pairAfterPick } from '@chatofy/ui/react';
-import type { LanguagePair } from '@chatofy/types';
+import {
+  AUTO_DETECT,
+  type LanguageCode,
+  type SessionLanguageMode,
+  type SessionLanguagePair,
+} from '@chatofy/types';
 import { useTranslate } from '@/i18n/provider';
 import { languageNamer } from '@/i18n/language-pair-labels';
+import { canAutoDetectInto, representablePair } from '@/lib/translate-settings';
 import { cn } from '@/lib/utils';
 
 interface PanelHeadersProps {
-  languagePair: LanguagePair;
+  languagePair: SessionLanguagePair;
   /** A conversation is running, so the pair is fixed for its duration. */
   running: boolean;
   onSwap: () => void;
   /** A language picked on one side, as the whole new pair. */
-  onLanguagePair: (pair: LanguagePair) => void;
+  onLanguagePair: (pair: SessionLanguagePair) => void;
+  /**
+   * How the server is running the newest turn, or null when no turn has said —
+   * see {@link LanguageModeHint}.
+   */
+  mode?: SessionLanguageMode | null;
   /**
    * The voice control, rendered at the end of the target header.
    *
@@ -52,6 +63,14 @@ interface PanelHeadersProps {
  * selects. It is `outline` and the selects are fields, so the screen still spends
  * its one accent on Start.
  *
+ * ## The source picker decides the mode
+ *
+ * Its first entry is "Auto-detect": each turn's language is recognised and
+ * translated one way into the target. A named source asks for both ways — the
+ * pair as a set, each turn translated into the other side. There is no mode
+ * switch; what the server actually ran is a readout beside the source role
+ * (`LanguageModeHint`), because the server may answer a two-way start one way.
+ *
  * ## Disabled, not hidden, while running
  *
  * The pair rides `client.session.start` and `ConversationSession` holds it for
@@ -83,6 +102,7 @@ export function PanelHeaders({
   running,
   onSwap,
   onLanguagePair,
+  mode = null,
   voiceControl,
 }: PanelHeadersProps) {
   const t = useTranslate();
@@ -93,6 +113,7 @@ export function PanelHeaders({
     <div className="border-hairline relative border-b px-8">
       <Side
         role={t('web.translate.languagePairSource')}
+        hint={<LanguageModeHint mode={mode} />}
         language={
           <HeaderLanguage
             languagePair={languagePair}
@@ -150,15 +171,39 @@ export function PanelHeader({
   role,
   language,
   end,
+  hint,
 }: {
   role: string;
   language: React.ReactNode;
   end?: React.ReactNode;
+  /** A readout beside the role — the source side's {@link LanguageModeHint}. */
+  hint?: React.ReactNode;
 }) {
   return (
     <div className="border-hairline border-b px-8">
-      <Side role={role} language={language} end={end} />
+      <Side role={role} language={language} end={end} hint={hint} />
     </div>
+  );
+}
+
+/**
+ * Which way the running conversation translates, as the server answered it —
+ * a readout, never a control.
+ *
+ * There is no mode switch: the source picker decides what is ASKED ("detect"
+ * runs one way, a named language both ways), and this says what the newest turn
+ * actually ran, which can be less — a server that cannot tell the two languages
+ * apart right now runs a two-way start one way. Nothing at all before a turn
+ * has said: a guess drawn from the pair would claim "both ways" on a server
+ * that is about to answer otherwise.
+ */
+export function LanguageModeHint({ mode }: { mode: SessionLanguageMode | null }) {
+  const t = useTranslate();
+  if (mode === null) return null;
+  return (
+    <span className="text-muted-foreground text-label" data-language-mode={mode}>
+      {t(mode === 'two-way' ? 'web.translate.modeTwoWay' : 'web.translate.modeOneWay')}
+    </span>
   );
 }
 
@@ -174,26 +219,52 @@ export function HeaderLanguage({
   running,
   onLanguagePair,
 }: {
-  languagePair: LanguagePair;
+  languagePair: SessionLanguagePair;
   side: 'source' | 'target';
   running: boolean;
-  onLanguagePair: (pair: LanguagePair) => void;
+  onLanguagePair: (pair: SessionLanguagePair) => void;
 }) {
   const t = useTranslate();
+  const shared = {
+    disabled: running,
+    nameLanguage: languageNamer(t),
+    size: 'sm' as const,
+    className: 'font-medium',
+  };
+  // Through `representablePair`, because a picked TARGET can be the one that
+  // rules detection out — the source then becomes a language, visibly, rather
+  // than a conversation starting in a mode nothing on screen offered.
+  const pick = (pair: SessionLanguagePair) => onLanguagePair(representablePair(pair));
+
+  if (side === 'target') {
+    return (
+      <LanguageSelect
+        {...shared}
+        value={languagePair.target}
+        onPick={(code) => pick(pairAfterPick(languagePair, 'target', code))}
+        label={t('web.translate.languagePairTarget')}
+      />
+    );
+  }
   return (
-    <LanguageSelect
-      value={languagePair[side]}
-      onPick={(code) => onLanguagePair(pairAfterPick(languagePair, side, code))}
-      label={t(
-        side === 'source' ? 'web.translate.languagePairSource' : 'web.translate.languagePairTarget',
-      )}
-      disabled={running}
-      nameLanguage={languageNamer(t)}
-      size="sm"
-      className="font-medium"
+    <LanguageSelect<SourceChoice>
+      {...shared}
+      value={languagePair.source}
+      onPick={(code) => pick(pairAfterPick(languagePair, 'source', code))}
+      label={t('web.translate.languagePairSource')}
+      // Offered only where it can be served as Saydi means it — see
+      // `canAutoDetectInto`. Hidden rather than disabled: there is no step the
+      // reader could take on this screen to make it work.
+      detectOption={
+        canAutoDetectInto(languagePair.target)
+          ? { label: t('web.translate.autoDetect') }
+          : undefined
+      }
     />
   );
 }
+
+type SourceChoice = LanguageCode | typeof AUTO_DETECT;
 
 /**
  * The pair, reversed.
@@ -209,7 +280,7 @@ export function LanguagePairSwap({
   onSwap,
   className,
 }: {
-  languagePair: LanguagePair;
+  languagePair: SessionLanguagePair;
   running: boolean;
   onSwap: () => void;
   className?: string;
@@ -222,12 +293,18 @@ export function LanguagePairSwap({
     <Button
       variant="outline"
       size="icon"
-      disabled={running}
+      // Also dead while the source is "detect": it has no language to trade
+      // places with, and a translation cannot be "detect".
+      disabled={running || source === AUTO_DETECT}
       onClick={onSwap}
-      aria-label={t('web.translate.languagePairSwap', {
-        from: nameLanguage(target),
-        to: nameLanguage(source),
-      })}
+      aria-label={
+        source === AUTO_DETECT
+          ? t('web.translate.languagePairSwapDetect')
+          : t('web.translate.languagePairSwap', {
+              from: nameLanguage(target),
+              to: nameLanguage(source),
+            })
+      }
       className={cn(
         'text-prose hover:text-foreground disabled:hover:text-inherit',
         'size-auto rounded-full p-2',
@@ -244,20 +321,28 @@ function Side({
   language,
   className,
   end,
+  hint,
 }: {
   role: string;
   language: React.ReactNode;
   className?: string;
   end?: React.ReactNode;
+  hint?: React.ReactNode;
 }) {
   return (
     <div className={cn('flex min-h-[58px] items-center gap-2.5 py-2.5', className)}>
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span
-          aria-hidden
-          className="text-muted-foreground text-label font-semibold tracking-wide uppercase"
-        >
-          {role}
+        {/* The role and the hint share one line, so a hint arriving mid-run
+            moves nothing below it. Only the role is hidden from assistive tech:
+            the picker carries it as its name, the hint is said nowhere else. */}
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          <span
+            aria-hidden
+            className="text-muted-foreground text-label font-semibold tracking-wide uppercase"
+          >
+            {role}
+          </span>
+          {hint}
         </span>
         {language}
       </div>

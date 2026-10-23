@@ -1,6 +1,6 @@
 'use client';
 
-import type { LanguageCode } from '@chatofy/types';
+import { isAutoDetectConversation, type LanguageCode } from '@chatofy/types';
 import { useTranslate } from '@/i18n/provider';
 
 /**
@@ -18,21 +18,32 @@ import { useTranslate } from '@/i18n/provider';
  *
  * Shared by the list row and the detail header so the two cannot drift into
  * naming the same fact two different ways.
+ *
+ * Takes the stored languages whole, because their COUNT is part of what they
+ * say: more than two means the source was recognised turn by turn, stored
+ * target first, so the row reads "Auto-detect → EN" rather than naming one of
+ * the recognised languages as if it had been declared.
  */
-export function LanguagePairLabel({ from, to }: { from: LanguageCode; to: LanguageCode }) {
+export function LanguagePairLabel({ languages }: { languages: readonly LanguageCode[] }) {
   const t = useTranslate();
+  const detected = isAutoDetectConversation(languages);
+  // `conversationLanguagesSchema` guarantees at least two.
+  const [first, second] = languages as [LanguageCode, LanguageCode];
+  const to = detected ? first : second;
+  const fromShort = detected ? t('web.history.autoDetect') : t(`web.languageShort.${first}`);
+  const fromName = detected ? t('web.history.autoDetect') : t(`web.languageName.${first}`);
 
   return (
     <span className="whitespace-nowrap">
       <span aria-hidden>
         {t('web.history.languagePairShort', {
-          from: t(`web.languageShort.${from}`),
+          from: fromShort,
           to: t(`web.languageShort.${to}`),
         })}
       </span>
       <span className="sr-only">
         {t('web.history.languagePair', {
-          from: t(`web.languageName.${from}`),
+          from: fromName,
           to: t(`web.languageName.${to}`),
         })}
       </span>

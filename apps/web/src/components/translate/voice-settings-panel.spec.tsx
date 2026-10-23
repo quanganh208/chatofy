@@ -174,3 +174,79 @@ describe('what is reachable with playback off', () => {
     expect(container.querySelectorAll('[role="radiogroup"]').length).toBe(0);
   });
 });
+
+/**
+ * A two-way conversation speaks both of its languages — a reply in the target is
+ * read out in the source — so it needs a voice for each. Mocked the way the rate
+ * cases above are, for the same reason: the real hook caches per language for
+ * the whole file.
+ */
+describe('voices per spoken language', () => {
+  async function renderWith(
+    languagePair: TranslateSettings['languagePair'],
+  ): Promise<{ text: string | null; asked: string[]; cleanup: () => void }> {
+    vi.resetModules();
+    const asked: string[] = [];
+    vi.doMock('@/hooks/use-voice-catalog', () => ({
+      useVoiceCatalog: (language: string) => {
+        asked.push(language);
+        return {
+          status: 'ready',
+          voices: [{ token: `${language}-1`, label: `${language} voice`, gender: 'female' }],
+          speedAdjustable: true,
+        };
+      },
+    }));
+    const { VoiceSettingsPanel: FreshPanel } = await import('./voice-settings-panel');
+    const { LocaleProvider: FreshLocaleProvider } = await import('@/i18n/provider');
+    const { DEFAULT_TRANSLATE_SETTINGS: freshDefaults } = await import('@/lib/translate-settings');
+
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    const freshRoot = createRoot(el);
+    await act(async () => {
+      freshRoot.render(
+        <FreshLocaleProvider>
+          <FreshPanel
+            settings={{ ...freshDefaults, voiceOutput: true, languagePair }}
+            running={false}
+            onChange={vi.fn()}
+            onVolumeChange={vi.fn()}
+          />
+        </FreshLocaleProvider>,
+      );
+      for (let i = 0; i < 5; i += 1) await Promise.resolve();
+    });
+    return {
+      text: el.textContent,
+      asked,
+      cleanup: () => {
+        act(() => freshRoot.unmount());
+        el.remove();
+        vi.doUnmock('@/hooks/use-voice-catalog');
+      },
+    };
+  }
+
+  it('offers a voice for each language of a two-way pair, named by its language', async () => {
+    const { text, asked, cleanup } = await renderWith({ source: 'vi', target: 'en' });
+    expect(text).toContain(`${en['web.translate.voice']} · ${en['web.languageName.en']}`);
+    expect(text).toContain(`${en['web.translate.voice']} · ${en['web.languageName.vi']}`);
+    expect(new Set(asked)).toEqual(new Set(['en', 'vi']));
+    cleanup();
+  });
+
+  it('offers one voice, the translation language’s, for an auto-detected source', async () => {
+    const { text, asked, cleanup } = await renderWith({ source: 'detect', target: 'en' });
+    expect(text).toContain(en['web.translate.voice']);
+    expect(text).not.toContain(`${en['web.translate.voice']} · `);
+    expect(new Set(asked)).toEqual(new Set(['en']));
+    cleanup();
+  });
+
+  it('keeps one voice for a pair it cannot run both ways', async () => {
+    const { text, cleanup } = await renderWith({ source: 'vi', target: 'zh' });
+    expect(text).not.toContain(`${en['web.translate.voice']} · `);
+    cleanup();
+  });
+});

@@ -18,14 +18,18 @@
  */
 import { z } from 'zod';
 import {
+  AUTO_DETECT,
   DEFAULT_LANGUAGE_PAIR,
   DEFAULT_VOICE_GENDER,
+  IDENTIFIABLE_LANGUAGES,
   LANGUAGE_CODES,
+  canIdentify,
   languagePairFromStoredDirection,
-  languagePairSchema,
+  sessionLanguagePairSchema,
   voiceGenderSchema,
-  type LanguagePair,
+  type LanguageCode,
   type LanguageTable,
+  type SessionLanguagePair,
 } from '@chatofy/types';
 
 export const TRANSLATE_SETTINGS_STORAGE_KEY = 'chatofy.translate-settings';
@@ -159,8 +163,11 @@ const storedVoiceSelectionSchema = z.object(
 type VoiceSelection = z.infer<typeof storedVoiceSelectionSchema>;
 
 export interface TranslateSettings {
-  /** Which languages a new conversation starts in, source first. */
-  languagePair: LanguagePair;
+  /**
+   * Which languages a new conversation starts in, source first. The source may
+   * be `'detect'` — see {@link canAutoDetectInto} for when it is offered.
+   */
+  languagePair: SessionLanguagePair;
   voiceGender: z.infer<typeof voiceGenderSchema>;
   /** Whether the translation is spoken at all. */
   voiceOutput: boolean;
@@ -431,10 +438,51 @@ export function loadTranslateSettings(): TranslateSettings {
  * `languagePairFromStoredDirection`'s job alone, so the old format has one
  * reader; the next save writes `languagePair` and the string is not read again.
  */
-function storedLanguagePair(stored: Record<string, unknown>): LanguagePair {
-  const pair = languagePairSchema.safeParse(stored.languagePair);
-  if (pair.success) return pair.data;
+function storedLanguagePair(stored: Record<string, unknown>): SessionLanguagePair {
+  const pair = sessionLanguagePairSchema.safeParse(stored.languagePair);
+  if (pair.success) return representablePair(pair.data);
   return languagePairFromStoredDirection(stored.direction) ?? DEFAULT_LANGUAGE_PAIR;
+}
+
+/**
+ * Whether "detect it" is offered for a conversation translated into `target`.
+ *
+ * Two conditions, and the second is the one `canIdentify` alone does not ask:
+ * the turns must be identifiable among each other, AND a turn said in the
+ * target itself must be recognisable as such — that is what lets it stay
+ * transcript-only instead of being forced into another language and
+ * "translated" back. A target outside the identifiable set fails it.
+ */
+export function canAutoDetectInto(target: LanguageCode): boolean {
+  return (
+    canIdentify({ source: AUTO_DETECT, target }, false) && IDENTIFIABLE_LANGUAGES.includes(target)
+  );
+}
+
+/**
+ * Whether a conversation started in `pair` asks the server to run it two-way.
+ *
+ * A request, which the server may answer with less — the screen follows the
+ * mode `server.session.ready` reports, never this. A pair with a language the
+ * shipped identification cannot tell apart stays declared without asking.
+ */
+export function asksTwoWay(pair: SessionLanguagePair): boolean {
+  return pair.source !== AUTO_DETECT && canIdentify(pair, true);
+}
+
+/**
+ * The pair as this build can offer it: "detect" dropped, for the first other
+ * registry language, where {@link canAutoDetectInto} refuses the target.
+ *
+ * Applied on read AND on every pick, because a picked target can be the one
+ * that rules detection out — and a stored value the current UI cannot show is a
+ * state the reader cannot leave.
+ */
+export function representablePair(pair: SessionLanguagePair): SessionLanguagePair {
+  if (pair.source !== AUTO_DETECT || canAutoDetectInto(pair.target)) return pair;
+  const source =
+    LANGUAGE_CODES.find((code) => code !== pair.target) ?? DEFAULT_LANGUAGE_PAIR.source;
+  return { source, target: pair.target };
 }
 
 export function saveTranslateSettings(settings: TranslateSettings): void {

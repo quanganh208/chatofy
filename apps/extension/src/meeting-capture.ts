@@ -1,4 +1,9 @@
-import { reversePair, type LanguagePair, type TranslationHints } from '@chatofy/types';
+import {
+  reversePair,
+  type LanguagePair,
+  type TranslationHints,
+  type VoiceGender,
+} from '@chatofy/types';
 import type { PlaybackSink } from '@chatofy/realtime-client';
 import type { LanguagePairSessionDeps } from './language-pair-session';
 import { DuckController } from './duck-controller';
@@ -43,7 +48,7 @@ const MAX_IN_FLIGHT_OUTBOUND = 2;
 export interface LegRunner {
   start(options: {
     languagePair: LanguagePair;
-    voiceGender: string;
+    voiceGender: VoiceGender;
     /**
      * The chosen AI Context, resolved once per capture and handed to both
      * legs unchanged. Optional because a backend may take no hint

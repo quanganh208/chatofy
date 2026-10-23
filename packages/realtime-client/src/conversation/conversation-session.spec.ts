@@ -158,6 +158,7 @@ function harness(options: HarnessOptions = {}) {
     onTurnAbandoned: vi.fn(),
     onPauses: vi.fn(),
     onLog: vi.fn(),
+    onLanguageMode: vi.fn(),
   };
 
   const openMicrophone = options.openMicrophone ?? (() => Promise.resolve(stream));
@@ -1914,6 +1915,46 @@ describe('ConversationSession', () => {
       h.session.stop();
 
       expect(h.context.disconnectedSources).toBe(1);
+    });
+  });
+
+  describe('the language mode the server runs', () => {
+    it('reports the mode each turn was opened in, with the reason it fell short', async () => {
+      const h = harness();
+      await h.session.start(startOptions);
+      h.socket().emit({
+        type: 'server.session.ready',
+        sessionId: 's1',
+        mode: 'declared',
+        modeReason: 'lid_capacity',
+      });
+      h.socket().emit({ type: 'server.session.ready', sessionId: 's2', mode: 'two-way' });
+      expect(h.listeners.onLanguageMode.mock.calls).toEqual([
+        ['declared', 'lid_capacity'],
+        ['two-way', undefined],
+      ]);
+    });
+
+    it('reads a server that sends no mode as running declared', async () => {
+      const h = harness();
+      await h.session.start(startOptions);
+      h.socket().emit(readyEvent('s1'));
+      expect(h.listeners.onLanguageMode).toHaveBeenCalledWith('declared', undefined);
+    });
+
+    it('hands a server error its code and detail beside the message', async () => {
+      const h = harness();
+      await h.session.start(startOptions);
+      h.socket().emit({
+        type: 'server.error',
+        code: 'language_unavailable',
+        message: 'Language detection is unavailable',
+        detail: 'language_detection',
+      });
+      expect(h.listeners.onError).toHaveBeenLastCalledWith('Language detection is unavailable', {
+        code: 'language_unavailable',
+        detail: 'language_detection',
+      });
     });
   });
 });

@@ -219,6 +219,26 @@ export const en = {
   // Interpolated, because the accessible name has to say what pressing it DOES:
   // "swap" alone is a verb with no object.
   'web.translate.languagePairSwap': 'Swap languages — translate {from} into {to}',
+  // The same button while the source is Auto-detect: there is no source language
+  // to trade places with, so the name says why it is off instead.
+  'web.translate.languagePairSwapDetect': 'Swap languages — not available with Auto-detect',
+  // The source picker's first entry: leave the spoken language to be recognised,
+  // turn by turn, and translate it into the chosen translation language.
+  'web.translate.autoDetect': 'Auto-detect',
+  // A readout under the source header, never a control: which way the running
+  // conversation actually translates, as the server answered it.
+  'web.translate.modeTwoWay': 'Both ways',
+  'web.translate.modeOneWay': 'One way',
+  // The accessible name beside a turn's short language tag.
+  'web.translate.turnLanguage': 'Spoken in {language}',
+  // A two-way conversation the service is running one way for now. Says what the
+  // reader gets instead, so a reply that is not translated is not a surprise.
+  'web.translate.twoWayUnavailable':
+    'Translating one way for now: {from} into {to}. Anything said in {to} stays untranslated.',
+  'web.translate.detectUnavailable':
+    'Auto-detect is not available right now. Choose the language being spoken to continue.',
+  'web.translate.detectBusy':
+    'Auto-detect is busy right now. Try again in a moment, or choose the language being spoken.',
   'web.translate.voiceDefault': 'Default',
   'web.translate.voiceListFailed':
     'Could not load the voice list. The gender choice above still applies.',
@@ -387,6 +407,8 @@ export const en = {
   // what lets a third language reuse the same two templates.
   'web.history.languagePair': '{from} → {to}',
   'web.history.languagePairShort': '{from} → {to}',
+  // Stands in for the source of a conversation whose turns were each recognised.
+  'web.history.autoDetect': 'Auto-detect',
   'web.history.minutesReady': 'Minutes',
   'web.history.cancel': 'Cancel',
   'web.history.delete': 'Delete',

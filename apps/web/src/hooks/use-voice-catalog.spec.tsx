@@ -3,7 +3,7 @@ import * as React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { LanguagePair } from '@chatofy/types';
+import type { LanguageCode, LanguagePair } from '@chatofy/types';
 import type { VoiceCatalogState } from './use-voice-catalog';
 
 /**
@@ -29,9 +29,11 @@ async function loadHook() {
   return (await import('./use-voice-catalog')).useVoiceCatalog;
 }
 
-function probeFor(useVoiceCatalog: (pair: LanguagePair) => VoiceCatalogState) {
+// Takes a pair and asks for its TARGET, which is what the panel asks for on a
+// one-way conversation — so the cases below read as the pair the reader picked.
+function probeFor(useVoiceCatalog: (language: LanguageCode) => VoiceCatalogState) {
   return function Probe({ pair }: { pair: LanguagePair }) {
-    const value = useVoiceCatalog(pair);
+    const value = useVoiceCatalog(pair.target);
     React.useEffect(() => {
       latest = value;
     });

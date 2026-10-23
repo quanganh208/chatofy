@@ -1,4 +1,10 @@
-import type { ClientTurnMetrics, ServerEvent, SessionOptions, LanguagePair } from '@chatofy/types';
+import type {
+  ClientTurnMetrics,
+  ServerEvent,
+  SessionLanguagePair,
+  SessionOptions,
+  LanguagePair,
+} from '@chatofy/types';
 import type { TranslateSocketHandlers } from '../transport/translate-socket.js';
 
 /**
@@ -129,7 +135,7 @@ export interface SentEvent {
   turnId?: string;
   sequence?: number;
   payload?: string;
-  languagePair?: LanguagePair;
+  languagePair?: SessionLanguagePair;
   /** The segments a block retranslation names. */
   segmentIds?: string[];
   /** The whole row, for the one event that carries measurements. */

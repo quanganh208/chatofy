@@ -179,6 +179,17 @@ describe('HistoryList', () => {
     expect(container.textContent).toContain('12 lines');
   });
 
+  it('names an auto-detected conversation by its translation language alone', () => {
+    // Stored target first, then every other registry language — the count is
+    // what marks it, so no recognised language is drawn as if it were declared.
+    const { container } = render({
+      conversations: [summary({ languages: ['en', 'vi', 'zh'] })],
+    });
+    expect(container.textContent).toContain('Auto-detect → EN');
+    const row = container.querySelector('a[href^="/history/"]');
+    expect(row?.querySelector('.sr-only')?.textContent).toBe('Auto-detect → English');
+  });
+
   it('rounds a short conversation up rather than reporting zero minutes', () => {
     const { container } = render({
       conversations: [

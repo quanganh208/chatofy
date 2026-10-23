@@ -188,6 +188,17 @@ export const vi: Messages = {
   'web.translate.languagePairSource': 'Nguồn',
   'web.translate.languagePairTarget': 'Bản dịch',
   'web.translate.languagePairSwap': 'Đảo ngôn ngữ — dịch {from} sang {to}',
+  'web.translate.languagePairSwapDetect': 'Đảo ngôn ngữ — không dùng được khi Tự nhận diện',
+  'web.translate.autoDetect': 'Tự nhận diện',
+  'web.translate.modeTwoWay': 'Hai chiều',
+  'web.translate.modeOneWay': 'Một chiều',
+  'web.translate.turnLanguage': 'Nói bằng {language}',
+  'web.translate.twoWayUnavailable':
+    'Tạm thời chỉ dịch một chiều: {from} sang {to}. Câu nói bằng {to} sẽ không được dịch.',
+  'web.translate.detectUnavailable':
+    'Hiện chưa tự nhận diện được ngôn ngữ. Hãy chọn ngôn ngữ đang nói để tiếp tục.',
+  'web.translate.detectBusy':
+    'Tính năng tự nhận diện đang bận. Hãy thử lại sau ít phút, hoặc chọn ngôn ngữ đang nói.',
   'web.translate.voiceDefault': 'Mặc định',
   'web.translate.voiceListFailed':
     'Chưa tải được danh sách giọng đọc. Lựa chọn giới tính giọng ở trên vẫn áp dụng.',
@@ -295,6 +306,7 @@ export const vi: Messages = {
   'web.history.duration': '{minutes} phút',
   'web.history.languagePair': '{from} → {to}',
   'web.history.languagePairShort': '{from} → {to}',
+  'web.history.autoDetect': 'Tự nhận diện',
   'web.history.minutesReady': 'Có biên bản',
   'web.history.cancel': 'Huỷ',
   'web.history.delete': 'Xoá',

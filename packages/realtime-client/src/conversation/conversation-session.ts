@@ -2,6 +2,7 @@ import {
   DEFAULT_LANGUAGE_PAIR,
   DEFAULT_VOICE_GENDER,
   type ServerEvent,
+  type SessionLanguageMode,
   type SessionOptions,
   type TurnOutcome,
 } from '@chatofy/types';
@@ -170,14 +171,39 @@ export interface ConversationRuntimeOptions {
   reportMetrics?: boolean;
 }
 
+/**
+ * The server's own code for an error it sent, beside the message it wrote.
+ *
+ * Handed to `onError` so a caller can say a refusal in its reader's language
+ * where it knows the code — `language_unavailable` with a `detail` says WHY a
+ * source could not be identified — and fall back to the server's English where
+ * it does not.
+ */
+export interface ServerErrorCause {
+  code: string;
+  detail?: string;
+}
+
 export interface ConversationSessionListeners {
   onStatus: (status: ConversationStatus) => void;
   onLevel: (level: number) => void;
   onMuted: (muted: boolean) => void;
-  onError: (message: string | null) => void;
+  /** `cause` is present only for an error the server sent. */
+  onError: (message: string | null, cause?: ServerErrorCause) => void;
   onEchoHeard: () => void;
   /** Straight to the reducer that owns the transcript. */
   onServerEvent: (event: ServerEvent) => void;
+  /**
+   * How the server is running the languages of the turn it just opened — the
+   * `mode` on `server.session.ready`, read as `declared` when a server too old
+   * to send it says nothing — and why it is less than was asked, when it is.
+   *
+   * Fired per turn, because the server decides per turn: a conversation started
+   * two-way can run its next turn declared when identification drops out.
+   * Optional: a caller that never asks for anything but a declared pair has
+   * nothing to learn from it.
+   */
+  onLanguageMode?: (mode: SessionLanguageMode, reason: string | undefined) => void;
   /** Clear the transcript for a conversation that is starting over. */
   onReset: () => void;
   /**
@@ -1179,6 +1205,7 @@ export class ConversationSession {
     switch (event.type) {
       case 'server.session.ready':
         pipeline?.onReady(event.turnId, event.sessionId);
+        this.listeners.onLanguageMode?.(event.mode ?? 'declared', event.modeReason);
         break;
 
       case 'server.block.translated':
@@ -1215,7 +1242,12 @@ export class ConversationSession {
           sessionId: event.sessionId,
           turnId: event.turnId,
         });
-        this.listeners.onError(event.message);
+        this.listeners.onError(
+          event.message,
+          event.detail === undefined
+            ? { code: event.code }
+            : { code: event.code, detail: event.detail },
+        );
         break;
 
       default:

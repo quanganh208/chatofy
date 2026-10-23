@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, FileX2, Pause, Play } from 'lucide-react';
-import type { Conversation, LanguageCode } from '@chatofy/types';
+import type { Conversation } from '@chatofy/types';
 import { Button, Card, CardContent, Skeleton, Slider } from '@chatofy/ui/react';
 import { HistoryTranscript } from '@/components/history/history-transcript';
 import { ConfirmDeleteButton } from '@/components/layout/confirm-delete-button';
@@ -131,12 +131,7 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
             <Dot />
             {formatTime(conversation.startedAt, locale)}
             <Dot />
-            {/* `conversationLanguagesSchema` guarantees at least two, declared
-                source first, which is how the conversation's pair was stored. */}
-            <LanguagePairLabel
-              from={conversation.languages[0] as LanguageCode}
-              to={conversation.languages[1] as LanguageCode}
-            />
+            <LanguagePairLabel languages={conversation.languages} />
             <Dot />
             {turnCountLabel(t, conversation.turnCount)}
             <Dot />

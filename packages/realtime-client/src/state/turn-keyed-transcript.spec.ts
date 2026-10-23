@@ -597,3 +597,66 @@ describe('settled transcript text', () => {
     expect(second.live.s1?.committedChars).toBe(0);
   });
 });
+
+describe('identified languages', () => {
+  const ready = (sessionId: string, mode?: 'declared' | 'two-way' | 'detect'): ServerEvent => ({
+    type: 'server.session.ready',
+    sessionId,
+    ...(mode === undefined ? {} : { mode }),
+  });
+  const decided = (sessionId: string, text: string, language: 'vi' | 'en'): ServerEvent => ({
+    type: 'server.transcript.partial',
+    sessionId,
+    text,
+    speaker: 'speaker_b',
+    language,
+    languagePair: { source: 'vi', target: 'en' },
+  });
+
+  it('records how the server ran each turn, reading an absent mode as declared', () => {
+    const state = play(ready('a', 'two-way'), ready('b'), ready('c', 'detect'));
+    expect(state.languageModes).toEqual({ a: 'two-way', b: 'declared', c: 'detect' });
+  });
+
+  it('keeps a live turn its decided language once a partial carries it', () => {
+    const state = play(partial('a', 'ready'), decided('a', 'ready to', 'en'), partial('a', 'x'));
+    // The later partial omits the field; that says nothing new about the turn.
+    expect(state.live.a).toMatchObject({ text: 'x', language: 'en' });
+  });
+
+  it('leaves a declared turn with no language of its own', () => {
+    expect(play(partial('a', 'xin chào')).live.a?.language).toBeUndefined();
+  });
+
+  it('takes the language off a settled-text delta, and off a partial the delta owns', () => {
+    const settled: ServerEvent = {
+      type: 'server.transcript.delta',
+      sessionId: 'a',
+      committed: 'ready',
+      pending: ' to',
+      reanchors: 0,
+      speaker: 'speaker_b',
+      language: 'en',
+      languagePair: { source: 'vi', target: 'en' },
+    };
+    expect(play(settled).live.a?.language).toBe('en');
+    // A partial for a turn that has settled text keeps the delta's line, but
+    // still updates the language.
+    const later = play(delta('a', 'ready', ' to'), decided('a', 'ignored', 'vi'));
+    expect(later.live.a).toMatchObject({ text: 'ready to', language: 'vi' });
+  });
+
+  it('gives the pieces of a split turn their parent turn mode', () => {
+    const piece: ServerEvent = {
+      type: 'server.transcript.final',
+      sessionId: 'a#0',
+      segment: segment('a#0', 'xin chào', 'hello'),
+      split: { parentSessionId: 'a', index: 0, count: 2, startMs: 0, endMs: 900 },
+    };
+    expect(play(ready('a', 'two-way'), piece).languageModes['a#0']).toBe('two-way');
+  });
+
+  it('forgets every mode when a conversation starts over', () => {
+    expect(play(ready('a', 'two-way'), { type: 'transcript.reset' }).languageModes).toEqual({});
+  });
+});
