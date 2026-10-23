@@ -22,6 +22,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OFFLINE_SCORES = HERE / "results" / "conv-r4-ctx5" / "whisper_probs_base_ctx5.scores.jsonl"
+# Speech onset per clip (`scripts/speech_onsets.py`): A6 is timed from speech,
+# the replay from the start of the clip it plays.
+ONSETS = HERE / "results" / "conv-r4-ctx5" / "onsets.json"
 PAIR = ("en", "vi")
 # The shipped policy (`apps/api/.../turn-tuning.ts`).
 UNCERTAIN_BELOW = 0.6
@@ -49,6 +52,18 @@ def speech(row: dict) -> bool:
 
 def correct(row: dict) -> bool:
     return row["final_language"] == row["lang"]
+
+
+def label_from_speech_ms(run: list[dict]) -> list[float]:
+    """First-language times measured from speech onset rather than clip start."""
+    if not ONSETS.exists():
+        raise SystemExit(f"{ONSETS.relative_to(HERE)} missing: run scripts/speech_onsets.py")
+    onsets = json.loads(ONSETS.read_text())
+    return [
+        r["first_language_ms"] - onsets[r["turn"]]
+        for r in run
+        if r["first_language_ms"] is not None and onsets.get(r["turn"]) is not None
+    ]
 
 
 def offline_finals(turns: list[dict]) -> dict[str, str]:
@@ -107,9 +122,16 @@ def identified(run: list[dict], baseline: list[dict] | None, mode: str) -> dict:
     locked = [r for r in talk if any(r["partial_languages"])]
     changed = [r for r in locked if r["first_language"] != r["final_language"]]
     out["A6.changed"] = {"value": rate(len(changed), len(talk)), "threshold": "<=0.10", "n": len(talk)}
+    from_speech = label_from_speech_ms(talk)
     out["A6.first_language_p95_ms"] = {
-        "value": p95([r["first_language_ms"] for r in talk if r["first_language_ms"] is not None]),
+        "value": p95(from_speech),
         "threshold": "<=3500",
+        "n": len(from_speech),
+        "timed_from": "speech onset",
+    }
+    out["A6.first_language_p95_ms_from_clip_start"] = {
+        "value": p95([r["first_language_ms"] for r in talk if r["first_language_ms"] is not None]),
+        "threshold": "report",
         "n": len(talk),
     }
     out["A6.locked_share"] = {"value": rate(len(locked), len(talk)), "threshold": "report", "n": len(talk)}
