@@ -80,15 +80,21 @@ export const LIVE_TRANSLATION_RPM = 66;
  * `lidSpeechMs`). Below either, partials show text but no language, and the
  * live translation waits.
  *
- * Tuned on the language-identification bake-off (`benchmarks/lid`, run
- * `conv-r4-all`, Whisper base with a 5 s encoder floor), every candidate
- * threshold scored leave-one-group-out on public conversational speech and its
- * re-recordings. These two gave the earliest label with at most 5% of locks
- * overruled in tuning; held out, 7.0% of vi↔en turns had their final overrule
- * the lock (bar 10%) and the label appeared by 3.1 s at p95 (bar 3.5 s).
+ * Chosen on the language-identification bake-off (`benchmarks/lid`, run
+ * `conv-r4-all`, Whisper base with a 5 s encoder floor), scored
+ * leave-one-group-out on public conversational speech and its re-recordings.
+ * The first tuning grid stepped from 900 ms straight to 1500 ms and picked
+ * 0.6 / 1500; on the same held-out folds 0.8 / 1300 overrules fewer locks
+ * (5.7% against 6.2% of vi↔en turns, bar 10%) and locks right more often
+ * (91.8% against 91.0%), and needs 200 ms less speech.
+ *
+ * Replayed through the API on the same 491 turns (`replay_sessions.mjs`,
+ * timed from speech onset, which is what the bar means): label p50 1697 →
+ * 1559 ms, p95 3409 → 3320 ms (bar 3.5 s), finals overruling the lock 7.1% →
+ * 5.9%, final accuracy unchanged.
  */
-export const LID_LOCK_CONFIDENCE = 0.6;
-export const LID_LOCK_MIN_SPEECH_MS = 1500;
+export const LID_LOCK_CONFIDENCE = 0.8;
+export const LID_LOCK_MIN_SPEECH_MS = 1300;
 
 /**
  * Below this confidence a final is not believed, and the turn takes the

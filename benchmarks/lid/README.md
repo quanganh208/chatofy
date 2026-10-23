@@ -377,8 +377,10 @@ nothing unsound, LOGO. Every arm was rescored under the new budget.
 | A-ACC detect / pair (≥ 0.95)          | 0.964 / 0.977           | 0.964 / 0.976                 |
 | A1 en-vi / A2 en-vi raw / A4 / A5     | pass                    | 0.985 / 0.952 / 0.963 / 0.906 |
 
-- Shipped thresholds from gate.json: `tau_lock` 0.6 with ≥ 1500 ms of speech,
-  `tau_uncertain` 0.6, no source prior. RSS +596 MiB.
+- Thresholds from gate.json: `tau_lock` 0.6 with ≥ 1500 ms of speech,
+  `tau_uncertain` 0.6, no source prior. RSS +596 MiB. The API later moved to
+  `tau_lock` 0.8 with ≥ 1300 ms, a point this grid did not have; see
+  `apps/api/.../turn-tuning.ts` for the held-out and replay numbers.
 - The budget alone fixes A6 for both windowed arms (0.117 → 0.073 for `_ctx`).
   The floor fixes A3 short and, unexpectedly, lowers A7: the p95 is set by long
   turns, and fewer distinct short shapes seem to help onnxruntime. A7 has 24 ms of

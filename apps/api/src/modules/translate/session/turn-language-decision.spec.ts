@@ -6,6 +6,7 @@ import {
   type LanguageMode,
 } from './turn-language-decision';
 import { planTurnLanguages } from './turn-language-plan';
+import { LID_LOCK_CONFIDENCE, LID_LOCK_MIN_SPEECH_MS } from './turn-tuning';
 
 const conversation: LanguageCode[] = ['vi', 'en'];
 const planFor = (language: LanguageCode) =>
@@ -54,7 +55,11 @@ describe('TurnLanguageDecision', () => {
     // Confident but too short: held.
     expect(
       turn.observe(
-        { language: 'en', confidence: 0.95, speechMs: 900 },
+        {
+          language: 'en',
+          confidence: 0.99,
+          speechMs: LID_LOCK_MIN_SPEECH_MS - 100,
+        },
         prior,
         900,
       ),
@@ -63,15 +68,24 @@ describe('TurnLanguageDecision', () => {
     // Long enough but unsure: held.
     expect(
       turn.observe(
-        { language: 'en', confidence: 0.55, speechMs: 1600 },
+        {
+          language: 'en',
+          confidence: LID_LOCK_CONFIDENCE - 0.05,
+          speechMs: LID_LOCK_MIN_SPEECH_MS + 100,
+        },
         prior,
         1200,
       ),
     ).toBe(false);
     expect(turn.locked).toBeNull();
+    // Exactly at the bar on both: locked.
     expect(
       turn.observe(
-        { language: 'en', confidence: 0.6, speechMs: 1500 },
+        {
+          language: 'en',
+          confidence: LID_LOCK_CONFIDENCE,
+          speechMs: LID_LOCK_MIN_SPEECH_MS,
+        },
         prior,
         1500,
       ),
@@ -104,10 +118,15 @@ describe('TurnLanguageDecision', () => {
     const turn = decision();
     const prior = new SourcePrior('vi');
     turn.observe(
-      { language: 'en', confidence: 0.7, speechMs: 1800 },
+      {
+        language: 'en',
+        confidence: LID_LOCK_CONFIDENCE,
+        speechMs: LID_LOCK_MIN_SPEECH_MS,
+      },
       prior,
       1800,
     );
+    expect(turn.locked).toBe('en');
 
     expect(
       turn.decideFinal({ language: 'vi', confidence: 0.97 }, prior, none),

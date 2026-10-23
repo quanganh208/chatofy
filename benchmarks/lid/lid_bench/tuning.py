@@ -32,7 +32,10 @@ from lid_bench.runtime_policy import LockParams
 from lid_bench.scoring import Episode, PrefixFn, ProbsFn, Trial, run_trials
 
 PRIOR_GRID = tuple((b, u) for b in (0.0, 0.5, 1.0, 1.5, 2.0, 3.0) for u in (0.0, 0.6, 0.7, 0.8, 0.9))
-LOCK_GRID = tuple((t, ms) for t in (0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.98) for ms in (0, 300, 600, 900, 1500))
+# 1100 and 1300 were missing from the first grid, which went from 900 straight to
+# 1500; held out, 0.8 / 1300 beat the 0.6 / 1500 it picked on both change rate
+# and lock accuracy (the API ships it).
+LOCK_GRID = tuple((t, ms) for t in (0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.98) for ms in (0, 300, 600, 900, 1100, 1300, 1500))
 CHANGE_BUDGET = 0.05
 
 

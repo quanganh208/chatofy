@@ -33,8 +33,8 @@ Two-way vi↔en conversations and auto-detected source language on `/translate`:
 one source picker, a language identifier in the STT sidecar, the turn's
 language decided while it is spoken. Enabled on production with
 `PROD_LOCAL_STT_LID=on` after an isolated load run, a production replay and a
-rehearsed rollback. Still open: the language label shows up about 100 ms later
-than its 3.5 s p95 target on production. Chinese is not identified and its pairs
+rehearsed rollback; the language label shows by 3.3 s at p95 from the start of
+speech (bar 3.5 s). Chinese is not identified and its pairs
 stay one-way.
 
 The mobile app compiles against the new contract only; its translate screen is
