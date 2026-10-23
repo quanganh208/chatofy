@@ -1,4 +1,12 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+  type Mock,
+} from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
@@ -10,6 +18,7 @@ import { InMemoryUserRepository } from './utils/in-memory-user.repository';
 import { registerAndLogin, type Identity } from './utils/auth-fixture';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AiProvidersFactory } from '../src/modules/translate/providers/ai-providers.factory';
+import { SpeechLanguageSupport } from '../src/modules/translate/providers/speech-language-support';
 import { encodePcm16Wav } from '../src/modules/translate/audio/wav-codec';
 
 /**
@@ -50,7 +59,11 @@ describe('/ws/translate (e2e)', () => {
   });
 
   const fakeProviders: {
-    stt: { name: string; transcribe: ReturnType<typeof vi.fn> };
+    stt: {
+      name: string;
+      transcribe: Mock<(...args: never[]) => Promise<unknown>>;
+      supportedLanguages: ReturnType<typeof vi.fn>;
+    };
     translation: { name: string; translate: ReturnType<typeof vi.fn> };
     tts: {
       name: string;
@@ -65,6 +78,13 @@ describe('/ws/translate (e2e)', () => {
       transcribe: vi
         .fn()
         .mockResolvedValue({ text: 'xin chào', language: 'vi' }),
+      // Able to identify vi and en, as the sidecar is with identification on;
+      // only a start asking for two-way ever sends it candidates.
+      supportedLanguages: vi.fn().mockResolvedValue({
+        known: ['vi', 'en', 'zh'],
+        unknown: [],
+        identifiable: ['vi', 'en'],
+      }),
     },
     translation: {
       name: 'fake-translation',
@@ -161,6 +181,18 @@ describe('/ws/translate (e2e)', () => {
 
     close(): void {
       this.socket.close();
+    }
+
+    /** Close, and wait until the server has seen it go. */
+    async closed(): Promise<void> {
+      const gone = new Promise<void>((resolve) =>
+        this.socket.addEventListener('close', () => resolve(), { once: true }),
+      );
+      this.socket.close();
+      await gone;
+      // The server's disconnect handler runs on the same close; one more tick
+      // lets it finish before the next connection of this user asks for a slot.
+      await new Promise((resolve) => setTimeout(resolve, 50));
     }
   }
 
@@ -351,6 +383,192 @@ describe('/ws/translate (e2e)', () => {
   // but the refusal is answered — `client_outdated` naming its turn — so the
   // stale page can tell its user to reload instead of hanging. The connection
   // itself stays usable.
+  /**
+   * One identifying turn whose recognition answers as `heard` would — two-way
+   * on vi→en unless `start` asks for another language mode.
+   */
+  async function runTwoWayTurn(
+    heard: (options: { candidates?: string[] }) => Record<string, unknown>,
+    start: Record<string, unknown> = {
+      languagePair: { source: 'vi', target: 'en' },
+      twoWay: true,
+    },
+  ) {
+    const original = fakeProviders.stt.transcribe.getMockImplementation();
+    fakeProviders.stt.transcribe.mockImplementation(
+      (
+        _audio: Uint8Array,
+        _mime: string,
+        language: string,
+        options: { candidates?: string[] } = {},
+      ) => Promise.resolve({ language, ...heard(options) }),
+    );
+    const client = await Client.connect(url);
+    try {
+      client.send('client.session.start', {
+        type: 'client.session.start',
+        ...start,
+        turnId: 'two-way-1',
+      });
+      const ready = await client.waitFor('server.session.ready');
+      client.send('client.audio.frame', frame(ready.sessionId, 0));
+      client.send('client.audio.frame', frame(ready.sessionId, 1));
+      client.send('client.session.end', {
+        type: 'client.session.end',
+        sessionId: ready.sessionId,
+      });
+      const final = await client.waitFor('server.transcript.final');
+      const ended = await client.waitFor('server.session.ended');
+      const audio = client.events.filter(
+        (e) => e.type === 'server.audio.frame',
+      );
+      return { ready, final, ended, audio };
+    } finally {
+      // Closed for real before the next test: one identifying socket per user.
+      await client.closed();
+      fakeProviders.stt.transcribe.mockImplementation(
+        original ??
+          (() => Promise.resolve({ text: 'xin chào', language: 'vi' })),
+      );
+    }
+  }
+
+  it('runs a two-way turn in the language the recognizer identified', async () => {
+    const { ready, final } = await runTwoWayTurn((options) =>
+      options.candidates
+        ? {
+            text: 'hello there',
+            language: 'en',
+            languageConfidence: 0.97,
+            identified: true,
+          }
+        : { text: 'hello there' },
+    );
+
+    expect(ready.mode).toBe('two-way');
+    expect(final.segment).toMatchObject({
+      sourceText: 'hello there',
+      sourceLanguages: ['en'],
+    });
+    expect(Object.keys(final.segment.translations)).toEqual(['vi']);
+    expect(fakeProviders.stt.transcribe).toHaveBeenCalledWith(
+      expect.anything(),
+      'audio/wav',
+      'vi',
+      expect.objectContaining({ candidates: ['vi', 'en'] }),
+    );
+  }, 20000);
+
+  it('runs a two-way turn declared when the recognizer ignores the candidates', async () => {
+    const { ready, final } = await runTwoWayTurn(() => ({
+      text: 'xin chào',
+      identified: false,
+    }));
+
+    expect(ready.mode).toBe('two-way');
+    expect(final.segment).toMatchObject({ sourceLanguages: ['vi'] });
+    expect(Object.keys(final.segment.translations)).toEqual(['en']);
+  }, 20000);
+
+  it('translates a detect turn heard in another language into the target', async () => {
+    fakeProviders.translation.translate.mockClear();
+    const { ready, final, ended, audio } = await runTwoWayTurn(
+      (options) =>
+        options.candidates
+          ? {
+              text: 'hello there',
+              language: 'en',
+              languageConfidence: 0.97,
+              identified: true,
+            }
+          : { text: 'hello there' },
+      { languagePair: { source: 'detect', target: 'vi' } },
+    );
+
+    expect(ready.mode).toBe('detect');
+    expect(final.segment).toMatchObject({
+      sourceText: 'hello there',
+      sourceLanguages: ['en'],
+    });
+    expect(Object.keys(final.segment.translations)).toEqual(['vi']);
+    expect(fakeProviders.translation.translate).toHaveBeenCalled();
+    expect(audio.length).toBeGreaterThan(0);
+    expect(ended.reason).toBe('completed');
+    expect(fakeProviders.stt.transcribe).toHaveBeenCalledWith(
+      expect.anything(),
+      'audio/wav',
+      'en',
+      expect.objectContaining({ candidates: ['vi', 'en'] }),
+    );
+  }, 20000);
+
+  it('shows a detect turn heard in its target as transcript only, ending it like a text-only turn', async () => {
+    fakeProviders.translation.translate.mockClear();
+    fakeProviders.tts.synthesize.mockClear();
+    const { ready, final, ended, audio } = await runTwoWayTurn(
+      (options) =>
+        options.candidates
+          ? {
+              text: 'hello there',
+              language: 'en',
+              languageConfidence: 0.97,
+              identified: true,
+            }
+          : { text: 'hello there' },
+      { languagePair: { source: 'detect', target: 'en' } },
+    );
+
+    expect(ready.mode).toBe('detect');
+    expect(final.segment).toMatchObject({
+      sourceText: 'hello there',
+      sourceLanguages: ['en'],
+      translations: {},
+    });
+    expect(fakeProviders.translation.translate).not.toHaveBeenCalled();
+    expect(fakeProviders.tts.synthesize).not.toHaveBeenCalled();
+    expect(audio).toHaveLength(0);
+    expect(ended.reason).toBe('voice_off');
+  }, 20000);
+
+  it('refuses a detect start with language_detection while the engine cannot identify', async () => {
+    const support = app.get(SpeechLanguageSupport);
+    const original =
+      fakeProviders.stt.supportedLanguages.getMockImplementation();
+    fakeProviders.stt.supportedLanguages.mockResolvedValue({
+      known: ['vi', 'en', 'zh'],
+      unknown: [],
+    });
+    await support.refreshNow();
+    const client = await Client.connect(url);
+    try {
+      client.send('client.session.start', {
+        type: 'client.session.start',
+        languagePair: { source: 'detect', target: 'en' },
+        turnId: 'detect-refused',
+      });
+      const refusal = await client.waitFor('server.error');
+      expect(refusal).toMatchObject({
+        code: 'language_unavailable',
+        detail: 'language_detection',
+        turnId: 'detect-refused',
+      });
+      expect(
+        client.events.filter((e) => e.type === 'server.session.ready'),
+      ).toHaveLength(0);
+    } finally {
+      client.close();
+      if (original)
+        fakeProviders.stt.supportedLanguages.mockImplementation(original);
+      else
+        fakeProviders.stt.supportedLanguages.mockResolvedValue({
+          known: ['vi', 'en', 'zh'],
+          unknown: [],
+          identifiable: ['vi', 'en'],
+        });
+      await support.refreshNow();
+    }
+  }, 20000);
+
   it('refuses a start that carries the legacy direction with client_outdated', async () => {
     const client = await Client.connect(url);
     try {

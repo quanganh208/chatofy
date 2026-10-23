@@ -217,6 +217,113 @@ describe('sessionOptionsSchema languagePair', () => {
   });
 });
 
+describe('sessionOptionsSchema language modes', () => {
+  it('a start with none of the new fields parses as it always did', () => {
+    const parsed = sessionOptionsSchema.parse({ languagePair: { source: 'vi', target: 'en' } });
+    expect(parsed.languagePair).toEqual({ source: 'vi', target: 'en' });
+    expect('twoWay' in parsed).toBe(false);
+    expect('voices' in parsed).toBe(false);
+  });
+
+  it('takes a declared pair asked to run two-way', () => {
+    const parsed = sessionOptionsSchema.parse({
+      languagePair: { source: 'en', target: 'vi' },
+      twoWay: true,
+    });
+    expect(parsed.twoWay).toBe(true);
+  });
+
+  it('takes an undeclared source, with or without twoWay — refusal is the server’s, not the parse’s', () => {
+    expect(
+      sessionOptionsSchema.safeParse({ languagePair: { source: 'detect', target: 'en' } }).success,
+    ).toBe(true);
+    expect(
+      sessionOptionsSchema.safeParse({
+        languagePair: { source: 'detect', target: 'en' },
+        twoWay: true,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('takes a voice per language for any subset of the registry', () => {
+    const parsed = sessionOptionsSchema.parse({
+      languagePair: { source: 'vi', target: 'en' },
+      voices: { en: 'af_heart' },
+    });
+    expect(parsed.voices).toEqual({ en: 'af_heart' });
+  });
+
+  it('refuses a voice keyed by a language outside the registry, or an overlong token', () => {
+    const base = { languagePair: { source: 'vi', target: 'en' } };
+    expect(sessionOptionsSchema.safeParse({ ...base, voices: { xx: 'a' } }).success).toBe(false);
+    expect(
+      sessionOptionsSchema.safeParse({ ...base, voices: { en: 'v'.repeat(65) } }).success,
+    ).toBe(false);
+  });
+});
+
+describe('server events that echo the language mode', () => {
+  it('a ready event with no mode still parses, and one with a mode carries it', () => {
+    const old = serverEventSchema.parse({ type: 'server.session.ready', sessionId: 's1' });
+    expect(old.type === 'server.session.ready' && old.mode).toBeUndefined();
+
+    const fresh = serverEventSchema.parse({
+      type: 'server.session.ready',
+      sessionId: 's1',
+      mode: 'declared',
+      modeReason: 'language_detection',
+    });
+    if (fresh.type !== 'server.session.ready') throw new Error('wrong type');
+    expect(fresh.mode).toBe('declared');
+    expect(fresh.modeReason).toBe('language_detection');
+  });
+
+  it('refuses a mode the contract does not name', () => {
+    expect(
+      serverEventSchema.safeParse({ type: 'server.session.ready', sessionId: 's1', mode: 'auto' })
+        .success,
+    ).toBe(false);
+  });
+
+  it('a transcript read parses with or without its language, and echoes a detect pair', () => {
+    const partial = {
+      type: 'server.transcript.partial',
+      sessionId: 's1',
+      text: 'xin chào',
+      speaker: 'speaker_a',
+      languagePair: { source: 'vi', target: 'en' },
+    };
+    expect(serverEventSchema.safeParse(partial).success).toBe(true);
+    expect(
+      serverEventSchema.safeParse({
+        ...partial,
+        language: 'vi',
+        languagePair: { source: 'detect', target: 'en' },
+      }).success,
+    ).toBe(true);
+
+    const delta = {
+      type: 'server.transcript.delta',
+      sessionId: 's1',
+      committed: 'xin',
+      pending: 'chào',
+      reanchors: 0,
+      speaker: 'speaker_a',
+      languagePair: { source: 'vi', target: 'en' },
+    };
+    expect(serverEventSchema.safeParse(delta).success).toBe(true);
+    expect(serverEventSchema.safeParse({ ...delta, language: 'en' }).success).toBe(true);
+    expect(serverEventSchema.safeParse({ ...delta, language: 'xx' }).success).toBe(false);
+  });
+
+  it('an error parses with or without a detail', () => {
+    const error = { type: 'server.error', code: 'language_unavailable', message: 'no' };
+    expect(serverEventSchema.safeParse(error).success).toBe(true);
+    const parsed = serverEventSchema.parse({ ...error, detail: 'language_detection' });
+    expect(parsed.type === 'server.error' && parsed.detail).toBe('language_detection');
+  });
+});
+
 describe('server.transcript.final segment', () => {
   it('parses a segment keyed by language', () => {
     const parsed = serverEventSchema.parse(finalEvent(segment()));

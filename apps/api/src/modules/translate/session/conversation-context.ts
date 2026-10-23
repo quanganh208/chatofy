@@ -1,4 +1,4 @@
-import { CONTEXT_LIMITS } from '@chatofy/types';
+import { CONTEXT_LIMITS, type LanguageCode } from '@chatofy/types';
 import type { StreamSocket } from './stream-socket';
 
 /**
@@ -18,9 +18,9 @@ import type { StreamSocket } from './stream-socket';
  * gets its own holder rather than a second meaning for `sessions`.
  *
  * Keyed by the socket object in a `WeakMap`, for the reason the registry keys
- * its own recent-turn record that way: `/ws/translate` takes no authentication,
- * so a connection's memory must be released structurally and not because a
- * disconnect handler was reached.
+ * its own recent-turn record that way: any registered account can open as many
+ * connections as it likes, so a connection's memory must be released
+ * structurally and not because a disconnect handler was reached.
  */
 
 /**
@@ -42,6 +42,21 @@ const REMEMBERED_UTTERANCES = 4;
 interface Utterance {
   sessionId?: string;
   text: string;
+  /**
+   * What it was spoken in, when the turn named it. A two-way conversation
+   * holds speech in both of its languages, and a turn is translated only
+   * against earlier speech in its own: the other side's words, already in the
+   * language the translation is written in, are the easiest thing in a prompt
+   * to copy into the answer, and an instruction among them needs no
+   * translation step to hide behind.
+   */
+  language?: LanguageCode;
+}
+
+/** A finished utterance as a caller filters it. */
+export interface RecalledUtterance {
+  readonly text: string;
+  readonly language?: LanguageCode;
 }
 
 /** A turn somebody is waiting on, and who. */
@@ -68,6 +83,15 @@ export class ConversationContext {
    * development journey measured as a gain, where a standing list was a loss.
    */
   private readonly learned = new WeakMap<StreamSocket, Map<string, string>>();
+  /**
+   * The language each recent turn was decided in, by turn id, oldest first.
+   * What an unsure two-way final falls back on: the language of the turn
+   * opened before it.
+   */
+  private readonly decided = new WeakMap<
+    StreamSocket,
+    Map<string, LanguageCode>
+  >();
 
   /**
    * The finished utterances a turn starting now should be translated against.
@@ -76,8 +100,51 @@ export class ConversationContext {
    * it to a provider, and handing out the live ring would let a turn that
    * finishes mid-flight change what an in-flight prompt was built from.
    */
-  recall(socket: StreamSocket): string[] {
-    return (this.recent.get(socket) ?? []).map((utterance) => utterance.text);
+  recall(socket: StreamSocket, language?: LanguageCode): string[] {
+    return (this.recent.get(socket) ?? [])
+      .filter(
+        (utterance) =>
+          language === undefined || utterance.language === language,
+      )
+      .map((utterance) => utterance.text);
+  }
+
+  /**
+   * {@link recall} with each utterance's language, for a turn whose own
+   * language is decided only after its context had to be gathered.
+   */
+  recallUtterances(socket: StreamSocket): RecalledUtterance[] {
+    return (this.recent.get(socket) ?? []).map(({ text, language }) =>
+      language === undefined ? { text } : { text, language },
+    );
+  }
+
+  /** Note the language a turn was decided in. */
+  noteLanguage(
+    socket: StreamSocket,
+    sessionId: string,
+    language: LanguageCode,
+  ): void {
+    const decided = this.decided.get(socket) ?? new Map<string, LanguageCode>();
+    decided.delete(sessionId);
+    decided.set(sessionId, language);
+    // Twice the ring: a fallback reads only the turn opened just before, and
+    // turns run a few at a time.
+    while (decided.size > 2 * REMEMBERED_UTTERANCES) {
+      const oldest = decided.keys().next().value;
+      if (oldest === undefined) break;
+      decided.delete(oldest);
+    }
+    this.decided.set(socket, decided);
+  }
+
+  /** The language a turn was decided in, or null when it is not (yet) decided. */
+  languageOf(
+    socket: StreamSocket,
+    sessionId: string | undefined,
+  ): LanguageCode | null {
+    if (sessionId === undefined) return null;
+    return this.decided.get(socket)?.get(sessionId) ?? null;
   }
 
   /**
@@ -115,11 +182,20 @@ export class ConversationContext {
    * call would hand a continuation the OTHER speaker's piece as the sentence
    * it completes.
    */
-  remember(socket: StreamSocket, sourceText: string, sessionId?: string): void {
+  remember(
+    socket: StreamSocket,
+    sourceText: string,
+    sessionId?: string,
+    language?: LanguageCode,
+  ): void {
     const text = sourceText.trim();
     if (!text) return;
     const kept = this.recent.get(socket) ?? [];
-    kept.push(sessionId === undefined ? { text } : { sessionId, text });
+    kept.push({
+      ...(sessionId === undefined ? {} : { sessionId }),
+      text,
+      ...(language === undefined ? {} : { language }),
+    });
     while (kept.length > REMEMBERED_UTTERANCES) kept.shift();
     this.recent.set(socket, kept);
     if (sessionId === undefined) return;
@@ -240,6 +316,7 @@ export class ConversationContext {
   forget(socket: StreamSocket): void {
     this.recent.delete(socket);
     this.learned.delete(socket);
+    this.decided.delete(socket);
     this.lastOpened.delete(socket);
     this.silent.delete(socket);
     const waiters = this.waiters.get(socket);

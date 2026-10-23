@@ -23,8 +23,20 @@ export {
   conversationLanguagesSchema,
   sourceLanguagesSchema,
   translationMapSchema,
+  AUTO_DETECT,
+  sessionLanguagePairSchema,
+  IDENTIFIABLE_LANGUAGES,
+  turnCandidates,
+  canIdentify,
+  detectConversationLanguages,
+  isAutoDetectConversation,
 } from './languages.js';
-export type { LanguageCode, LanguageTable, LanguagePair } from './languages.js';
+export type {
+  LanguageCode,
+  LanguageTable,
+  LanguagePair,
+  SessionLanguagePair,
+} from './languages.js';
 
 export { languagePairFromStoredDirection } from './stored-language-pair.js';
 

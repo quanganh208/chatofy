@@ -46,9 +46,15 @@ export function restoreRequestFor(
    * learned rather than the way the restorer guesses.
    */
   learnedTerms: readonly string[] = [],
+  /**
+   * The language the turn was decided in. Defaults to the turn's plan, which is
+   * the answer for a declared turn; a two-way turn asks here only after its
+   * final is decided, because its plan before that is a guess.
+   */
+  language: LanguageCode = session.languages.recognition,
 ): DisplayRestoreRequest | undefined {
   if (!session.repairDisplay) return undefined;
-  if (!RESTORED_RECOGNITION[session.languages.recognition]) return undefined;
+  if (!RESTORED_RECOGNITION[language]) return undefined;
   return {
     ...(continued === undefined ? {} : { context: continued }),
     terms: mergeHotwords(session.hints?.hotwords, learnedTerms) ?? [],

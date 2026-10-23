@@ -16,7 +16,13 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
-import { HISTORY_LIMITS, type Conversation } from '@chatofy/types';
+import {
+  detectConversationLanguages,
+  HISTORY_LIMITS,
+  isAutoDetectConversation,
+  speakerRoleFor,
+  type Conversation,
+} from '@chatofy/types';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
@@ -1239,6 +1245,75 @@ describe('Conversation history (db-e2e)', () => {
           (c: { conversationId: string }) => c.conversationId,
         ),
       ).toContain(id);
+    });
+  });
+
+  describe('auto-detected conversations', () => {
+    // A detect session stores the target first, then the rest of the
+    // registry; nothing else marks it. Turns in a language other than the
+    // target carry its translation, and a turn in the target is transcript
+    // only — so every one of the three shapes is saved and read back here.
+    it('stores a detect conversation with turns in every language, the target ones transcript only', async () => {
+      const id = randomUUID();
+      const languages = detectConversationLanguages('en');
+      const turn = (
+        position: number,
+        source: 'vi' | 'en' | 'zh',
+        sourceText: string,
+        translations: Record<string, string>,
+      ) => ({
+        position,
+        speakerRole: speakerRoleFor(source, languages),
+        speakerLabel: null,
+        sourceText,
+        displayText: null,
+        sourceLanguages: [source],
+        translations,
+      });
+      const detectBody: SaveConversationBody = {
+        languages,
+        startedAt: new Date(Date.now() - 60_000).toISOString(),
+        endedAt: new Date().toISOString(),
+        turns: [
+          turn(0, 'vi', 'xin chào', { en: 'hello' }),
+          turn(1, 'zh', '你好', { en: 'hi there' }),
+          turn(2, 'en', 'nice to meet you', {}),
+        ],
+      };
+      await put(id, alice, detectBody).expect(200);
+
+      const res = await request(app.getHttpServer())
+        .get(`/conversations/${id}`)
+        .set('authorization', alice.bearer)
+        .expect(200);
+      const conversation = res.body.data.conversation as Conversation;
+      expect(conversation.languages).toEqual(['en', 'vi', 'zh']);
+      expect(isAutoDetectConversation(conversation.languages)).toBe(true);
+      expect(
+        conversation.turns.map(
+          ({ speakerRole, sourceLanguages, translations }) => ({
+            speakerRole,
+            sourceLanguages,
+            translations,
+          }),
+        ),
+      ).toEqual([
+        {
+          speakerRole: 'speaker_a',
+          sourceLanguages: ['vi'],
+          translations: { en: 'hello' },
+        },
+        {
+          speakerRole: 'speaker_b',
+          sourceLanguages: ['zh'],
+          translations: { en: 'hi there' },
+        },
+        {
+          speakerRole: 'speaker_b',
+          sourceLanguages: ['en'],
+          translations: {},
+        },
+      ]);
     });
   });
 

@@ -21,11 +21,13 @@ import type {
   AiProvidersFactory,
   PipelineProviders,
 } from '../providers/ai-providers.factory';
-import { planTurnLanguages } from '../session/turn-language-plan';
+import { planForPair, planTurnLanguages } from '../session/turn-language-plan';
+import { DeclaredLanguageIdentifier } from '../session/language-identifier';
 
 /** The plan every default-pair test in this file drives the pipeline with. */
-const VI_TO_EN = planTurnLanguages(['vi', 'en'], ['vi']);
-const EN_TO_VI = planTurnLanguages(['en', 'vi'], ['en']);
+const DECLARED = new DeclaredLanguageIdentifier();
+const VI_TO_EN = planForPair({ source: 'vi', target: 'en' }, DECLARED);
+const EN_TO_VI = planForPair({ source: 'en', target: 'vi' }, DECLARED);
 
 /** Build a fake provider trio with overridable behavior per test. */
 function fakeTrio(
@@ -218,6 +220,106 @@ describe('PipelineTranslatorService', () => {
     expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'vi', {
       hotwords: undefined,
       minSpeechMs: undefined,
+    });
+  });
+
+  describe('a turn whose language is decided on what was heard', () => {
+    const resolver = (
+      decide: (heard: {
+        language: string;
+        confidence: number | null;
+      }) => 'vi' | 'en',
+    ) => ({
+      provisional: 'vi' as const,
+      candidates: ['vi', 'en'] as const,
+      alternates: false,
+      resolve: vi.fn(
+        (heard: { language: 'vi' | 'en'; confidence: number | null }) => ({
+          plan: planTurnLanguages(['vi', 'en'], [decide(heard)]),
+          context: ['earlier'],
+        }),
+      ),
+    });
+
+    it('asks the recognizer which candidate it is and translates the way it decided', async () => {
+      const transcribe = vi.fn().mockResolvedValue({
+        text: 'hello there',
+        language: 'en',
+        languageConfidence: 0.97,
+        identified: true,
+        lidSpeechMs: 1800,
+      });
+      const translate = vi.fn().mockResolvedValue({ text: 'xin chào' });
+      const trio = fakeTrio({
+        stt: { name: 'fake-stt', transcribe },
+        translation: { name: 'fake-translation', translate },
+      });
+      const languages = resolver((heard) =>
+        heard.language === 'en' ? 'en' : 'vi',
+      );
+
+      const result = await serviceWith(trio).transcribeAndTranslate(
+        input,
+        languages,
+      );
+
+      expect(transcribe).toHaveBeenCalledTimes(1);
+      expect(transcribe.mock.calls[0]![3]).toMatchObject({
+        candidates: ['vi', 'en'],
+      });
+      expect(languages.resolve).toHaveBeenCalledWith({
+        language: 'en',
+        confidence: 0.97,
+        speechMs: 1800,
+      });
+      expect(translate).toHaveBeenCalledWith(
+        expect.objectContaining({ sourceLanguage: 'en', targetLanguage: 'vi' }),
+      );
+      expect(result).toMatchObject({
+        sourceText: 'hello there',
+        language: 'en',
+      });
+    });
+
+    it('reads the turn again in the decided language when the decision overrules what was heard', async () => {
+      const transcribe = vi
+        .fn()
+        .mockResolvedValueOnce({
+          text: 'hello',
+          language: 'en',
+          languageConfidence: 0.51,
+          identified: true,
+        })
+        .mockResolvedValueOnce({ text: 'xin chào', language: 'vi' });
+      const trio = fakeTrio({ stt: { name: 'fake-stt', transcribe } });
+
+      const result = await serviceWith(trio).transcribeAndTranslate(
+        input,
+        resolver(() => 'vi'),
+      );
+
+      expect(transcribe).toHaveBeenCalledTimes(2);
+      expect(transcribe.mock.calls[1]![2]).toBe('vi');
+      expect(transcribe.mock.calls[1]![3]).not.toHaveProperty('candidates');
+      expect(result).toMatchObject({ sourceText: 'xin chào', language: 'vi' });
+    });
+
+    it('treats a sidecar that ignored the candidates as unsure, in the language it was asked', async () => {
+      const transcribe = vi.fn().mockResolvedValue({
+        text: 'xin chào',
+        language: 'vi',
+        identified: false,
+      });
+      const trio = fakeTrio({ stt: { name: 'fake-stt', transcribe } });
+      const languages = resolver(() => 'vi');
+
+      await serviceWith(trio).transcribeAndTranslate(input, languages);
+
+      expect(languages.resolve).toHaveBeenCalledWith({
+        language: 'vi',
+        confidence: null,
+      });
+      expect(transcribe).toHaveBeenCalledTimes(1);
     });
   });
 

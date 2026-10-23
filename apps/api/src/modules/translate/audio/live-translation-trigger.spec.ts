@@ -27,6 +27,21 @@ const settled = (length: number): string =>
   'a b c d e f g h i j '.repeat(20).slice(0, length);
 
 describe('LiveTranslationTrigger', () => {
+  it('reads the character rule for the language the turn settled in, at the time it settles', () => {
+    let chars = 15;
+    const trigger = new LiveTranslationTrigger({
+      budget: new TranslationBudget({ perUserRpm: 100 }),
+      commitChars: () => chars,
+      userId: USER,
+      model: MODEL,
+    });
+
+    expect(trigger.shouldTranslate(settled(10), 0)).toBe(false);
+    // A two-way turn that locked in Chinese counts Han characters.
+    chars = LIVE_TRANSLATION_COMMIT_CHARS.zh;
+    expect(trigger.shouldTranslate(settled(10), 0)).toBe(true);
+  });
+
   describe('when a translation is worth sending', () => {
     it('translates a short sentence that closes a clause', () => {
       // Under the old clock-driven policy a 2.5-second sentence got nothing at

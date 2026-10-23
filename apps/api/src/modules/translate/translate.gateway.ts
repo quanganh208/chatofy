@@ -9,6 +9,7 @@ import {
   type OnGatewayInit,
 } from '@nestjs/websockets';
 import {
+  AUTO_DETECT,
   clientEventSchema,
   liveClientEventSchema,
   type ClientEvent,
@@ -266,6 +267,41 @@ export class TranslateGateway
     return true;
   }
 
+  /**
+   * Answer a live start asking for a language mode the live path does not run:
+   * `twoWay`, or a source left to be identified.
+   *
+   * Refused before the parse for the reason on {@link refuseLegacyStart}: the
+   * live schema does not know either field, so `source: 'detect'` would be
+   * thrown as malformed — silence — and `twoWay` would be stripped and the
+   * session run one-way without a word. Neither is something the client asked
+   * for. The live preview reads the declared source on every tick and has no
+   * per-turn language to decide, so these are refusals, not degradations.
+   */
+  private refuseUnservedStart(client: StreamSocket, payload: unknown): boolean {
+    if (typeof payload !== 'object' || payload === null) return false;
+    const twoWay = 'twoWay' in payload && payload.twoWay === true;
+    const pair = 'languagePair' in payload ? payload.languagePair : undefined;
+    const detect =
+      typeof pair === 'object' &&
+      pair !== null &&
+      'source' in pair &&
+      pair.source === AUTO_DETECT;
+    if (!twoWay && !detect) return false;
+
+    this.logger.warn(
+      `Refused a live start asking for ${detect ? 'a detected source' : 'two-way'}`,
+    );
+    this.emit(client, {
+      type: 'server.live.error',
+      code: 'language_unavailable',
+      message: detect
+        ? 'Live translation needs the language you speak; choose it instead of detecting it'
+        : 'Live translation runs one way; turn off two-way to use it',
+    });
+    return true;
+  }
+
   /** Push one contract event, never letting a dead socket take the process down. */
   private emit(
     client: StreamSocket,
@@ -392,6 +428,7 @@ export class TranslateGateway
   ): Promise<void> {
     if (this.refuseLegacyStart(client, payload, 'live'))
       return Promise.resolve();
+    if (this.refuseUnservedStart(client, payload)) return Promise.resolve();
     const { languagePair } = this.parseLiveEvent(payload, 'client.live.start');
     if (!this.claimMode(client, 'live')) return Promise.resolve();
     return this.live.start(client, languagePair);
