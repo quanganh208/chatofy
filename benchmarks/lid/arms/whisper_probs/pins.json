@@ -1,0 +1,298 @@
+{
+  "tiny": {
+    "runtime": {
+      "repo": "onnx-community/whisper-tiny",
+      "revision": "ff4177021cc41f7db950912b73ea4fdf7d01d8e7",
+      "files": [
+        {
+          "name": "onnx/decoder_model.onnx",
+          "size": 118397483,
+          "sha256": "ab79e3f2a9a3d98f159f853a3172120a38af7eb5f7863d706aa7d39c228f009e"
+        },
+        {
+          "name": "onnx/encoder_model.onnx",
+          "size": 32904992,
+          "sha256": "6642befb640f950d4a8cbbd17834d59e7e75f575b81ccf213e06b050623ab1dd"
+        },
+        {
+          "name": "config.json",
+          "size": 2243,
+          "sha256": "46aeea0a406afbeb563fc8e59ca10609203df4299af6a83f73752fef369efd2d"
+        },
+        {
+          "name": "generation_config.json",
+          "size": 3772,
+          "sha256": "f5c67e5a4f7102f8cb4d058bc95da276bbc19eeec997267c3bb0f25ef68facd1"
+        },
+        {
+          "name": "preprocessor_config.json",
+          "size": 339,
+          "sha256": "a6a76d28c93edb273669eb9e0b0636a2bddbb1272c3261e47b7ca6dfdbac1b8d"
+        },
+        {
+          "name": "quantize_config.json",
+          "size": 10126,
+          "sha256": "6e0e27f293a5c17ff2ca8046f06079c0120aa2ede6456faac8ec4b3203471a55"
+        },
+        {
+          "name": "tokenizer.json",
+          "size": 2480466,
+          "sha256": "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566"
+        },
+        {
+          "name": "tokenizer_config.json",
+          "size": 282683,
+          "sha256": "2a4c4281cf9f51ac6ccc406fdc711a087afe6530f671fa7b80953edc498275ce"
+        }
+      ]
+    },
+    "reference": {
+      "repo": "Systran/faster-whisper-tiny",
+      "revision": "d90ca5fe260221311c53c58e660288d3deb8d356",
+      "files": [
+        {
+          "name": "config.json",
+          "size": 2249,
+          "sha256": "a73a28cdfe1c43ccc7202fa333d1f89c202477271407ae9a7f19afa52039cac8"
+        },
+        {
+          "name": "model.bin",
+          "size": 75538270,
+          "sha256": "dcb76c6586fc06cbdac6dd21f14cfd129cc4cdd9dce19bf4ffa62e59cbe6e6d1"
+        },
+        {
+          "name": "tokenizer.json",
+          "size": 2203239,
+          "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab"
+        },
+        {
+          "name": "vocabulary.txt",
+          "size": 459861,
+          "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913"
+        }
+      ]
+    }
+  },
+  "base": {
+    "runtime": {
+      "repo": "onnx-community/whisper-base",
+      "revision": "1846881b6b3a3024392c1eea3ad983695bc23925",
+      "files": [
+        {
+          "name": "onnx/decoder_model.onnx",
+          "size": 208289724,
+          "sha256": "70d26763610c0d6bb407373b7f30d415252ee470e62a0f816c8a46b2caca7326"
+        },
+        {
+          "name": "onnx/encoder_model.onnx",
+          "size": 82468078,
+          "sha256": "a9f3b752833b49e880dec91ee5b6d936112be7c3ea07c221024ba493439f46fe"
+        },
+        {
+          "name": "config.json",
+          "size": 2243,
+          "sha256": "f4d0608f7d918166da7edb3e188de5ef1bfe70d9802e785d271fd88111e9cf4b"
+        },
+        {
+          "name": "generation_config.json",
+          "size": 3832,
+          "sha256": "61070cf8de25b1e9256e8e102ded49d8d24a8369ed36ef84fdf21549e68125a0"
+        },
+        {
+          "name": "preprocessor_config.json",
+          "size": 339,
+          "sha256": "a6a76d28c93edb273669eb9e0b0636a2bddbb1272c3261e47b7ca6dfdbac1b8d"
+        },
+        {
+          "name": "quantize_config.json",
+          "size": 10126,
+          "sha256": "6e0e27f293a5c17ff2ca8046f06079c0120aa2ede6456faac8ec4b3203471a55"
+        },
+        {
+          "name": "tokenizer.json",
+          "size": 2480466,
+          "sha256": "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566"
+        },
+        {
+          "name": "tokenizer_config.json",
+          "size": 282682,
+          "sha256": "2e036e4dbacfdeb7242c7d4ec4149f4a16e86026048f94d1637e3a8ee9c6a573"
+        }
+      ]
+    },
+    "reference": {
+      "repo": "Systran/faster-whisper-base",
+      "revision": "ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66",
+      "files": [
+        {
+          "name": "config.json",
+          "size": 2309,
+          "sha256": "56a6d8110d311f19c8f0471e562832c7527f146b567275bfca59fcf7c184da9a"
+        },
+        {
+          "name": "model.bin",
+          "size": 145217532,
+          "sha256": "d01c3014881c9c6f3133c182f3d2887eb6ca1c789a7538c5c007196857a0a6a9"
+        },
+        {
+          "name": "tokenizer.json",
+          "size": 2203239,
+          "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab"
+        },
+        {
+          "name": "vocabulary.txt",
+          "size": 459861,
+          "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913"
+        }
+      ]
+    }
+  },
+  "small": {
+    "runtime": {
+      "repo": "onnx-community/whisper-small",
+      "revision": "36050c46d777d46dc4b5f43f6d90574fc38f8732",
+      "files": [
+        {
+          "name": "onnx/decoder_model.onnx",
+          "size": 614865004,
+          "sha256": "12130ce1e82372a8e54e753d3fb4339f289470cbbe2eceb9c8bf89cb2cc6fe63"
+        },
+        {
+          "name": "onnx/encoder_model.onnx",
+          "size": 352825870,
+          "sha256": "b37cd6625dc36f9178ec7539a1876b9680ea26a910097e092be39dc766320c7b"
+        },
+        {
+          "name": "config.json",
+          "size": 2227,
+          "sha256": "457854d452f17661e197d74aee12b8e74fb75ba30ebfaa7426d0d61ea1e08a18"
+        },
+        {
+          "name": "generation_config.json",
+          "size": 3893,
+          "sha256": "f538b28220c6a6d6f1af1458d4141cacb4ef4963df3de98a19490440c412ddf0"
+        },
+        {
+          "name": "preprocessor_config.json",
+          "size": 339,
+          "sha256": "a6a76d28c93edb273669eb9e0b0636a2bddbb1272c3261e47b7ca6dfdbac1b8d"
+        },
+        {
+          "name": "quantize_config.json",
+          "size": 10126,
+          "sha256": "6e0e27f293a5c17ff2ca8046f06079c0120aa2ede6456faac8ec4b3203471a55"
+        },
+        {
+          "name": "tokenizer.json",
+          "size": 2480466,
+          "sha256": "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566"
+        },
+        {
+          "name": "tokenizer_config.json",
+          "size": 282683,
+          "sha256": "2a4c4281cf9f51ac6ccc406fdc711a087afe6530f671fa7b80953edc498275ce"
+        }
+      ]
+    },
+    "reference": {
+      "repo": "Systran/faster-whisper-small",
+      "revision": "536b0662742c02347bc0e980a01041f333bce120",
+      "files": [
+        {
+          "name": "config.json",
+          "size": 2370,
+          "sha256": "b55496ac7940a7ae47d2c01eab40edfd8701feec1229d9cce3b40014383fb828"
+        },
+        {
+          "name": "model.bin",
+          "size": 483546902,
+          "sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671"
+        },
+        {
+          "name": "tokenizer.json",
+          "size": 2203239,
+          "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab"
+        },
+        {
+          "name": "vocabulary.txt",
+          "size": 459861,
+          "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913"
+        }
+      ]
+    }
+  },
+  "medium": {
+    "runtime": {
+      "repo": "onnx-community/whisper-medium-ONNX",
+      "revision": "d3978248a6b5de6df7ec29ddfbde3993845fa806",
+      "files": [
+        {
+          "name": "onnx/decoder_model.onnx",
+          "size": 1827383235,
+          "sha256": "647acf8fcaabd2b8f02fdf0fd5a6e10509611de1891380ecc1ef6d7a6dde0b21"
+        },
+        {
+          "name": "onnx/encoder_model.onnx",
+          "size": 1229148954,
+          "sha256": "1ba06650e954d3f43122dd3f946d3bf7deeb3aaaea0adac4db5e190fb0d0df6f"
+        },
+        {
+          "name": "config.json",
+          "size": 1389,
+          "sha256": "6f05735b8279a8eaadf51b276909151687cb94dc6d1eb2a32e6e9bfd36ea1c49"
+        },
+        {
+          "name": "generation_config.json",
+          "size": 3780,
+          "sha256": "060a0ba092ee90ee7124d00c00376ded564e6e4edf3f2c4a19a1a35076a1b91c"
+        },
+        {
+          "name": "preprocessor_config.json",
+          "size": 339,
+          "sha256": "a6a76d28c93edb273669eb9e0b0636a2bddbb1272c3261e47b7ca6dfdbac1b8d"
+        },
+        {
+          "name": "quantize_config.json",
+          "size": 312,
+          "sha256": "70f61db8708568fa3ee6e66ecbcfdb8a89b9069feadff679dea00b097e521c98"
+        },
+        {
+          "name": "tokenizer.json",
+          "size": 3930494,
+          "sha256": "7b469ff15eb7816315aa45eec391f5943d639b9d73d110f5c003df5192fd54e3"
+        },
+        {
+          "name": "tokenizer_config.json",
+          "size": 282713,
+          "sha256": "21a4fc0483c14b87f4e0bbc177a9a357479bfa7c95aaf21ad53d71e9c5afafb9"
+        }
+      ]
+    },
+    "reference": {
+      "repo": "Systran/faster-whisper-medium",
+      "revision": "08e178d48790749d25932bbc082711ddcfdfbc4f",
+      "files": [
+        {
+          "name": "config.json",
+          "size": 2257,
+          "sha256": "3622a2ddc41ec0e0fd4e68c13c6830f03b90c38d89aaad184de02c8c642cf807"
+        },
+        {
+          "name": "model.bin",
+          "size": 1527906378,
+          "sha256": "9b45e1009dcc4ab601eff815b61d80e60ce3fd8c74c1a14f4a282258286b51ae"
+        },
+        {
+          "name": "tokenizer.json",
+          "size": 2203239,
+          "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab"
+        },
+        {
+          "name": "vocabulary.txt",
+          "size": 459861,
+          "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "arm": "recognizer_competition",
+  "kind": "recognizer",
+  "runtime": "onnxruntime-1.27.0",
+  "parity_passed": null,
+  "needs_gpu": false,
+  "needs_torch": false,
+  "new_model": false,
+  "rss_peak_mib": 1534.1,
+  "notes": [
+    "features only; probabilities are out-of-fold from score.py",
+    "zh engine leaves ys_log_probs empty; its confidence features are 0, text features carry it"
+  ]
+}

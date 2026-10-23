@@ -1,0 +1,39 @@
+{
+  "detect": {
+    "turns": 80,
+    "served": 80,
+    "errors": {
+      "turn_failed": 22
+    },
+    "final_ms_p95": 14050
+  },
+  "two-way": {
+    "turns": 180,
+    "served": 180,
+    "errors": {
+      "turn_failed": 52
+    },
+    "final_ms_p95": 16233
+  },
+  "A12.failed_turns": {
+    "value": 74,
+    "threshold": "==0 busy (see api log)",
+    "n": 260
+  },
+  "run": {
+    "mode": "mixed-load",
+    "concurrent": 3,
+    "split": true,
+    "speculate": true,
+    "sessions": [
+      "e9c49473e352b4de",
+      "9a224749cb71414a",
+      "2f55a06e7c69a247",
+      "e24aee66b4a3bf69",
+      "dbae4b918d07ad77",
+      "d87ada2494f70e27"
+    ],
+    "manifest": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/lid/results/conv-r4-ctx5/manifest.jsonl",
+    "started": "2026-10-22T10:39:21.293Z"
+  }
+}

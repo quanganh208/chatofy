@@ -1,0 +1,12 @@
+{
+  "arm": "ambernet",
+  "kind": "lid-model",
+  "runtime": "onnxruntime-1.27.0",
+  "parity_passed": true,
+  "needs_gpu": false,
+  "needs_torch": false,
+  "new_model": true,
+  "notes": ["licence: NGC Terms of Use (redistribution not assumed)", "redistribution_ok: False"],
+  "rss_peak_mib": 311.6,
+  "rss_delta_mib": 255.9
+}

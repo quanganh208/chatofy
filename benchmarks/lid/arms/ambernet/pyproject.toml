@@ -1,0 +1,30 @@
+[project]
+name = "lid-arm-ambernet"
+version = "0.1.0"
+description = "Arm 1: NVIDIA AmberNet LID -- NeMo reference + ONNX runtime (onnxruntime pinned like the sidecar)"
+requires-python = ">=3.11.4,<3.12"
+dependencies = [
+    # The runtime the score comes from: identical to services/local-stt.
+    "onnxruntime==1.27.0",
+    "sherpa-onnx==1.13.4",
+    "numpy>=1.26",
+    "soundfile>=0.12",
+    "av>=13",
+    # Reference + export only. Never imported by the scored path.
+    "nemo_toolkit[asr]==2.4.0",
+    "torch==2.7.1",
+    "onnx>=1.17",
+]
+
+[tool.uv]
+package = false
+# NeMo 2.4 holds numpy < 2; pyarrow 26 (via datasets) needs numpy >= 2 and fails on import.
+constraint-dependencies = ["pyarrow<21", "datasets<4"]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }

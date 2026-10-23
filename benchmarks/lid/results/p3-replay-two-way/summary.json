@@ -1,0 +1,89 @@
+{
+  "turns": 380,
+  "served": 380,
+  "degraded": null,
+  "errors": ["turn_failed"],
+  "A1.en-vi": {
+    "value": 1.0,
+    "threshold": ">=0.97",
+    "n": 85
+  },
+  "A2.en-vi.err_after_fallback": {
+    "value": 0.0,
+    "threshold": "<=0.05",
+    "n": 14
+  },
+  "A4": {
+    "value": null,
+    "threshold": ">=0.95",
+    "n": 0
+  },
+  "A6.changed": {
+    "value": 0.0101,
+    "threshold": "<=0.10",
+    "n": 99
+  },
+  "A6.first_language_p95_ms": {
+    "value": 3291,
+    "threshold": "<=3500",
+    "n": 99
+  },
+  "A6.locked_share": {
+    "value": 0.8384,
+    "threshold": "report",
+    "n": 99
+  },
+  "A9-mono.en": {
+    "value": 0.0143,
+    "threshold": "<=0.03",
+    "n": 70
+  },
+  "A9-mono.vi": {
+    "value": 0.0,
+    "threshold": "<=0.03",
+    "n": 100
+  },
+  "A5.noise_finals": {
+    "value": 0,
+    "n": 0,
+    "declared": 0,
+    "pass": true
+  },
+  "A13.A1": {
+    "online": 1.0,
+    "offline": 1.0,
+    "threshold": "online >= offline - 0.02",
+    "pass": true,
+    "n": 85,
+    "disagree": 0
+  },
+  "A7.added_final_ms_p95": {
+    "value": 505,
+    "threshold": "<=150",
+    "n": 206
+  },
+  "A7.final_ms_p95": {
+    "two_way": 1430,
+    "declared": 1511
+  },
+  "run": {
+    "mode": "two-way",
+    "concurrent": 2,
+    "split": false,
+    "speculate": false,
+    "sessions": [
+      "e9c49473e352b4de",
+      "570606e93c3b135a",
+      "3cbd0d4a3d183575",
+      "9a224749cb71414a",
+      "5c8184d5645d7592",
+      "cfe28b0f63ed19b2",
+      "2f55a06e7c69a247",
+      "e24aee66b4a3bf69",
+      "dbae4b918d07ad77",
+      "d87ada2494f70e27"
+    ],
+    "manifest": "/home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/lid/results/conv-r4-ctx5/manifest.jsonl",
+    "started": "2026-10-22T10:07:44.110Z"
+  }
+}

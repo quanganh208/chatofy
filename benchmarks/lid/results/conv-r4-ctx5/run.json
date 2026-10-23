@@ -1,0 +1,12 @@
+{
+  "turns": 8106,
+  "prefixes": "600,900,1200,1500,2000,3000",
+  "threads": 4,
+  "arms": [
+    {
+      "arm": "whisper_probs",
+      "exit": 0,
+      "seconds": 4196.0
+    }
+  ]
+}
