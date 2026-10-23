@@ -13,8 +13,8 @@ languages, labelled, and translated into the other. **Auto-detect** identifies
 each turn as Vietnamese or English and translates it into the chosen target; a
 turn already in the target is shown as transcript only. Pairs with Chinese stay
 one-way, because Chinese is not identified. Both modes need the STT sidecar's
-language identifier (`LOCAL_STT_LID`, on in development, off in production
-until it is enabled there); without it, two-way runs one-way and says so.
+language identifier (`LOCAL_STT_LID`, on in development and production; off is the
+production default when the variable is unset); without it, two-way runs one-way and says so.
 [How it works](./docs/architecture/contracts-and-languages.md#lid-and-audio-based-detection).
 
 Speech runs **locally on CPU by default** — speech-to-text and text-to-speech
