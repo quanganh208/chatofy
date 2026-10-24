@@ -1,6 +1,8 @@
-// The Vietnamese span rules, in priority order: date, year, clock, decimal,
-// quantity. Longest-match, highest-priority-first, left to right; a token one
-// rule consumed is unavailable to the next.
+// The Vietnamese span rules, in priority order: letter-and-number codes, date,
+// year, clock, decimal, quantity. Codes come first because their number is not
+// a quantity: `tầng hầm bê hai` is B2, not a 2 for the quantity rule to weigh.
+// Longest-match, highest-priority-first, left to right; a token one rule
+// consumed is unavailable to the next.
 //
 // Every rule obeys the same contract — consume a whole span and return one
 // numeral, or return null and leave the words alone. None of them makes a
@@ -35,6 +37,7 @@ import {
   parseSmallValue,
   parseYear,
 } from './vietnamese-number-grammar.js';
+import { letterThenNumber, numberThenLetter } from './vietnamese-letter-codes.js';
 
 const THOUSANDS = '.';
 
@@ -362,5 +365,5 @@ function asDigitString(words: string[], single: boolean, ambiguousHead: boolean)
 
 export const VIETNAMESE_ITN: LanguageItn = {
   tiers: VIETNAMESE_TIERS,
-  rules: [date, year, clock, decimal, quantity],
+  rules: [letterThenNumber, numberThenLetter, date, year, clock, decimal, quantity],
 };

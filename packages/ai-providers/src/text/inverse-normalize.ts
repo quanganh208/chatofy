@@ -130,6 +130,14 @@ export interface Match {
 export interface Context {
   /** Original-cased words. */
   words: string[];
+  /**
+   * The separator before each word; `gaps[words.length]` trails the last one.
+   *
+   * Read-only evidence for a rule that must know what a word is glued to:
+   * `15h` and `4d` tokenize as a numeral gap and a one-letter word, and that
+   * letter is a unit, not the start of a spelled code.
+   */
+  gaps: readonly string[];
   /** Case-folded words, what every rule matches on. */
   lower: string[];
   tiers: NumberTiers;
@@ -245,7 +253,7 @@ export function inverseNormalize(text: string, language: LanguageItn): string {
     let limit = index + 1;
     while (limit < words.length && WHITESPACE_ONLY.test(gaps[limit] ?? '')) limit += 1;
 
-    const context: Context = { words, lower, tiers: language.tiers, limit };
+    const context: Context = { words, gaps, lower, tiers: language.tiers, limit };
     let matched: Match | null = null;
     for (const rule of language.rules) {
       const candidate = rule(context, index);

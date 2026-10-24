@@ -66,8 +66,13 @@ overrides:
   # multipart route, and the one upload it has (the avatar) is base64 in a JSON
   # body. So this is a floor over an unreachable parser rather than a live fix,
   # raised because the parser ships in the api image regardless and the next
-  # multipart route must not silently inherit a vulnerable one.
-  multer: '>=2.3.0'
+  # multipart route must not silently inherit a vulnerable one. GHSA-q7qp-rjg7-q26m
+  # (high, <2.5.0, a pending-field denial of service) moved it to 2.5.0.
+  multer: '>=2.5.0'
+  # GHSA-27r3-jxmh-p828 — high, >=2.0.0 <2.4.0: denial of service. Under express
+  # 5 through @nestjs/platform-express, which parses every JSON body the api
+  # takes, so this one is live. express asks for ^2.2.1 and the patch is inside it.
+  body-parser: '>=2.4.0 <3'
   # GHSA-xwg4-73v4-xw9w — high, <3.3.12. Deep in the Expo transitive tree
   # (@react-navigation, @expo/*) under parents that pin `nanoid ^3.3.11`;
   # nothing here depends on nanoid directly, so same story as fast-uri.
@@ -78,9 +83,10 @@ overrides:
   # patch, so the floor costs nothing.
   smol-toml: '>=1.7.1'
   # GHSA-rfgv-xxqx-mfg5, GHSA-w293-vg96-wgc3, GHSA-vp8m-p9jh-q5pm — high,
-  # <8.10.2. Reached only through jsdom under vitest, so test-time only; jsdom
-  # asks for ^8.9.0 and the patch sits inside it.
-  undici: '>=8.10.2 <9'
+  # <8.10.2, and GHSA-xjj6-f33q-929c — high, <8.12.2: denial of service from
+  # excessive content-encodings. Reached only through jsdom under vitest, so
+  # test-time only; jsdom asks for ^8.9.0 and the patch sits inside it.
+  undici: '>=8.12.2 <9'
   # GHSA-qhr7-859c-m2p7, GHSA-6j4f-fj2g-mc7p — high: stack exhaustion from
   # crafted brace patterns. Two live major lines under minimatch (eslint,
   # @nestjs/cli, the Expo tree), each floored and capped like js-yaml.
@@ -167,3 +173,10 @@ auditConfig:
     # this repo's own file tree, never over anything a user sends. Clears when
     # micromatch moves to a patched braces.
     - GHSA-vfj7-8cjw-p6xm
+    # GHSA-mrhx-c7xc-m3w5 — zod <4.6.6: memory exhaustion validating a large
+    # array against an unbounded array schema. Every workspace package already
+    # runs zod 4.6.7; the one 3.x copy is @expo/cli's (`^3.25.76`), and no 3.x
+    # release is patched, so a floor would move Expo's CLI across a major. It
+    # validates the developer's own config on the developer's machine, never a
+    # request. Clears when Expo ships a CLI on zod 4.
+    - GHSA-mrhx-c7xc-m3w5
