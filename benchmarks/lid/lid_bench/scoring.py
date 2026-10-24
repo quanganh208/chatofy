@@ -29,6 +29,12 @@ from lid_bench.runtime_policy import LockParams, Outcome, Prefix, replay
 
 PAIRS = tuple(tuple(sorted(p)) for p in combinations(LANGUAGES, 2))
 TRIPLE = tuple(sorted(LANGUAGES))
+#: What detect chooses from while zh is not identifiable: the baseline 3-way
+#: detect is measured against (`detect2v3.*`).
+DETECT_2WAY = ("en", "vi")
+#: How far 3-way detect may fall below 2-way detect on the same short vi or en
+#: turns (user decision, 2026-10-24).
+DETECT_REGRESSION_BUDGET = 0.02
 LONG = ("1.5-3", "3-8")
 
 #: The API's speech floor (`STT_MIN_SPEECH_MS`, apps/api turn-tuning.ts): a turn
@@ -92,6 +98,13 @@ def episodes(turns: list[Turn]) -> list[Episode]:
             out += [Episode(tuple(members), pair, source) for source in sources]
         out.append(Episode(tuple(members), TRIPLE, None))
     return out
+
+
+def detect_2way_episodes(turns: list[Turn]) -> list[Episode]:
+    """Every session decided the way detect runs today, between vi and en with
+    no declared source. Sessions that hold zh are kept whole: a zh turn in a
+    2-way detect session still moves the session's prior, as it would live."""
+    return [Episode(ep.turns, DETECT_2WAY, None) for ep in episodes(turns) if ep.candidates == TRIPLE]
 
 
 def run_trials(eps: list[Episode], probs: ProbsFn, prefixes: PrefixFn | None,
@@ -161,12 +174,21 @@ def _pair_name(pair: tuple[str, ...]) -> str:
 
 
 def criteria(trials: list[Trial], added_ms: list[float], noise: dict[str, tuple[int, int] | None],
-             substitute: bool = False) -> dict[str, Result]:
+             substitute: bool = False, excluded: frozenset[str] = frozenset(),
+             detect_2way: list[Trial] | None = None) -> dict[str, Result]:
     """Offline criteria. A7's `added_ms` and A5's held-out rejections per noise
     source (`{"real": (rejected, total), "esc50": ...}`, None when a turn of it
     had no Silero measurement) are computed by the caller: they come from
-    latency and the speech gate, not from decisions."""
+    latency and the speech gate, not from decisions.
+
+    `excluded` names turns that carry no language decision (ruler v5: under
+    the API's speech floor, or fillers only); they leave every speech
+    criterion, whatever their language. `detect_2way` are the same sessions
+    decided between vi and en only, for the `detect2v3` regression rows."""
     out: dict[str, Result] = {}
+
+    def speech(t: Trial) -> bool:
+        return _speech(t) and t.turn.id not in excluded
 
     def row(name, value, threshold_text, passed, n, data):
         out[name] = Result(name, value, threshold_text, passed, n, data)
@@ -179,7 +201,7 @@ def criteria(trials: list[Trial], added_ms: list[float], noise: dict[str, tuple[
     for pair in PAIRS:
         real_langs = {"vi", "en"} & set(pair)
         accuracy_row(f"A1.{_pair_name(pair)}",
-                     lambda t, p=pair: t.candidates == p and t.turn.bucket in LONG and _speech(t),
+                     lambda t, p=pair: t.candidates == p and t.turn.bucket in LONG and speech(t),
                      real_langs, 0.97)
 
     # A2 counts real turns and Common Voice's short clips together (step 4:
@@ -187,7 +209,7 @@ def criteria(trials: list[Trial], added_ms: list[float], noise: dict[str, tuple[
     # weak zh can never fail the vi<->en criterion.
     for pair in PAIRS:
         name = _pair_name(pair)
-        base = [t for t in trials if t.candidates == pair and t.turn.bucket == "<1.5" and _speech(t)]
+        base = [t for t in trials if t.candidates == pair and t.turn.bucket == "<1.5" and speech(t)]
         merged = [t for t in base if t.turn.real or t.turn.source == "cv"]
         data = "real+cv"
         if not merged and substitute:
@@ -211,8 +233,42 @@ def criteria(trials: list[Trial], added_ms: list[float], noise: dict[str, tuple[
         for part, langs, real_langs in (("vien", {"vi", "en"}, {"vi", "en"}), ("zh", {"zh"}, set())):
             accuracy_row(f"A3.{bucket}.{part}",
                          lambda t, b=buckets, l=langs: t.mode == "detect" and t.turn.bucket in b
-                         and t.turn.lang in l and _speech(t),
+                         and t.turn.lang in l and speech(t),
                          real_langs, threshold)
+    # Per language and per source: a pooled vi/en row is mostly en and hid how
+    # weak short vi is.
+    for bucket, buckets in (("long", LONG), ("short", ("<1.5",))):
+        for lang in TRIPLE:
+            pool = [t for t in trials if t.mode == "detect" and t.turn.bucket in buckets and t.turn.lang == lang
+                    and t.turn.real and speech(t)]
+            row(f"A3.{bucket}.by_lang.{lang}", _accuracy(pool), "report", None, len(pool), "real")
+            if bucket == "short":
+                for source in sorted({t.turn.source for t in pool}):
+                    subset = [t for t in pool if t.turn.source == source]
+                    row(f"A3.short.by_lang.{lang}.{source}", _accuracy(subset), "report", None, len(subset), source)
+
+    # Turning zh on must not cost the users detect already serves: 3-way
+    # against 2-way detect on the same real short vi and en turns.
+    if detect_2way is not None:
+        two_way = {t.turn.id: t for t in detect_2way}
+        for lang in ("vi", "en"):
+            pool = [t for t in trials if t.mode == "detect" and t.turn.bucket == "<1.5" and t.turn.lang == lang
+                    and t.turn.real and speech(t) and t.turn.id in two_way]
+            if pool:
+                drop = _accuracy(pool) - _accuracy([two_way[t.turn.id] for t in pool])
+                row(f"detect2v3.short.{lang}", drop, f">=-{DETECT_REGRESSION_BUDGET}",
+                    drop >= -DETECT_REGRESSION_BUDGET, len(pool), "real")
+            else:
+                row(f"detect2v3.short.{lang}", None, f">=-{DETECT_REGRESSION_BUDGET}", None, 0, "real")
+
+    # What the ruler left out, per language: a share that differs a lot between
+    # languages would mean the exclusion is doing the work, not the arm.
+    if excluded:
+        for lang in TRIPLE:
+            pool = [t for t in trials if t.mode == "detect" and t.turn.lang == lang and t.turn.real and _speech(t)]
+            gone = [t for t in pool if t.turn.id in excluded]
+            row(f"excluded.{lang}", len(gone) / len(pool) if pool else None, "report", None, len(pool), "real")
+
     accuracy_row("A4", lambda t: t.turn.codeswitch and t.candidates in (("en", "vi"), TRIPLE), {"vi"}, 0.95)
 
     counts = [v for v in noise.values() if v is not None]
@@ -232,7 +288,7 @@ def criteria(trials: list[Trial], added_ms: list[float], noise: dict[str, tuple[
     for pair in PAIRS:
         name = _pair_name(pair)
         policy, data = _real_or_public(
-            trials, lambda t, p=pair: t.candidates == p and t.outcome is not None and _speech(t),
+            trials, lambda t, p=pair: t.candidates == p and t.outcome is not None and speech(t),
             {"vi", "en"} & set(pair), substitute)
         if not policy:
             continue

@@ -94,7 +94,8 @@ def load_arm(run_dir: Path, arm: str, turns: list[Turn]) -> ArmData:
         meta["parity_passed"] = json.loads(parity_path.read_text())["passed"]
     info = ArmInfo(**{k: meta[k] for k in ArmInfo.__dataclass_fields__ if k in meta})
     rows = [json.loads(line) for line in (run_dir / f"{arm}.scores.jsonl").read_text().splitlines()]
-    data = ArmData(info=info)
+    # A model arm whose probabilities are out of fold says how it validated them.
+    data = ArmData(info=info, cv_scheme=meta.get("cv"))
     for row in rows:
         key = (row["id"], row["prefix_ms"])
         data.speech_ms[key] = row.get("speech_ms", 0)

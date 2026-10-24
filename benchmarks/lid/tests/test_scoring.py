@@ -196,3 +196,42 @@ def test_partials_lose_the_source_prior_once_the_session_is_symmetric():
     assert trials[0].decision.bonus == 2.0 and trials[1].decision.bonus == 0.0
     assert trials[1].outcome.locked is None or trials[1].outcome.locked == "en"
     assert not trials[1].outcome.changed
+
+
+def test_excluded_turns_leave_every_speech_criterion_whatever_their_language():
+    turns = [turn(i, l, bucket="<1.5", speech=800) for i, l in enumerate(["vi", "en", "zh"] * 3)]
+    lang = {t.id: t.lang for t in turns}
+    # Wrong on exactly the turns the ruler leaves out.
+    gone = frozenset({"t0", "t1", "t2"})
+
+    def wrong_on_gone(tid, cands):
+        right = lang[tid] if tid not in gone else next(c for c in cands if c != lang[tid])
+        return {c: (0.99 if c == right else 0.01 / (len(cands) - 1)) for c in cands}
+
+    trials = run_trials(episodes(turns), wrong_on_gone, None, Params(), None)
+    full = criteria(trials, [0.0], {})
+    v5 = criteria(trials, [0.0], {}, excluded=gone)
+    assert full["A3.short.zh"].value < 1.0
+    assert v5["A3.short.zh"].value == 1.0 and v5["A3.short.zh"].n == full["A3.short.zh"].n - 1
+    assert v5["excluded.vi"].value == v5["excluded.en"].value == v5["excluded.zh"].value == 1 / 3
+
+
+def test_detect_regression_compares_the_same_turns_in_two_and_three_way_detect():
+    from lid_bench.scoring import detect_2way_episodes
+    turns = [turn(i, l, bucket="<1.5", speech=800) for i, l in enumerate(["vi", "en"] * 5)]
+    lang = {t.id: t.lang for t in turns}
+
+    def zh_steals_vi(tid, cands):
+        right = "zh" if lang[tid] == "vi" and "zh" in cands else lang[tid]
+        return {c: (0.99 if c == right else 0.01 / (len(cands) - 1)) for c in cands}
+
+    trials = run_trials(episodes(turns), zh_steals_vi, None, Params(), None)
+    two_way = run_trials(detect_2way_episodes(turns), zh_steals_vi, None, Params(), None)
+    out = criteria(trials, [0.0], {}, detect_2way=two_way)
+    assert out["detect2v3.short.vi"].value == -1.0 and out["detect2v3.short.vi"].passed is False
+    assert out["detect2v3.short.en"].value == 0.0 and out["detect2v3.short.en"].passed is True
+    assert out["A3.short.by_lang.vi"].value == 0.0
+
+
+def test_zh_gate_needs_its_short_two_way_turns_and_no_detect_regression():
+    assert {"A2.vi-zh", "A2.en-zh", "detect2v3.short.vi", "detect2v3.short.en"} <= set(REQUIRED_ZH)

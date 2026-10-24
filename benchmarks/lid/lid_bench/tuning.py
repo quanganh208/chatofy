@@ -87,14 +87,29 @@ def held_out(eps: list[Episode], probs: ProbsFn, prefixes: PrefixFn | None, voic
              voices: dict | None, tune_prior: bool = True) -> tuple[list[Trial], str]:
     """Pooled held-out trials, and the scheme used ("logo" or "in-sample" when
     there is only one group to hold out)."""
+    trials, _, scheme = held_out_with(eps, [], probs, prefixes, voice_prior, voices, tune_prior)
+    return trials, scheme
+
+
+def held_out_with(eps: list[Episode], extra: list[Episode], probs: ProbsFn, prefixes: PrefixFn | None,
+                  voice_prior: bool, voices: dict | None,
+                  tune_prior: bool = True) -> tuple[list[Trial], list[Trial], str]:
+    """`held_out`, plus `extra` episodes decided with each fold's thresholds
+    and never tuned on: the same sessions run another way (2-way detect), so a
+    comparison between the two sees one set of thresholds per held-out group.
+    `extra` trials carry no partials (their lock is not scored)."""
     groups = sorted({episode_group(ep) for ep in eps})
     if len(groups) < 2:
         params, lock = choose(eps, probs, prefixes, voice_prior, voices, tune_prior)
-        return run_trials(eps, probs, prefixes, params, lock, voices), "in-sample"
+        return (run_trials(eps, probs, prefixes, params, lock, voices),
+                run_trials(extra, probs, None, params, None, voices), "in-sample")
     pooled: list[Trial] = []
+    pooled_extra: list[Trial] = []
     for group in groups:
         train = [ep for ep in eps if episode_group(ep) != group]
         test = [ep for ep in eps if episode_group(ep) == group]
         params, lock = choose(train, probs, prefixes, voice_prior, voices, tune_prior)
         pooled += run_trials(test, probs, prefixes, params, lock, voices)
-    return pooled, "logo"
+        pooled_extra += run_trials([ep for ep in extra if episode_group(ep) == group], probs, None, params,
+                                   None, voices)
+    return pooled, pooled_extra, "logo"
