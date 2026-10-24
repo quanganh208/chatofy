@@ -500,4 +500,131 @@ describe('inverseNormalizeTranscript (vi)', () => {
       expect(digitsIn(itn('sinh năm hai'))).toEqual([]);
     });
   });
+
+  /**
+   * A spelled letter beside a number is one code. The recognizer writes the
+   * letter as its Vietnamese name (`a hai`, `bê hai`, `mờ mười sáu`) or as a
+   * bare consonant (`f một`), and production showed `trại giam A Hai` for the
+   * A2 prison camp: the number alone had no classifier, and the restorer read
+   * the pair as a name.
+   */
+  describe('spelled letter-and-number codes', () => {
+    it.each([
+      [
+        'trốn khỏi trại giam a hai tỉnh khánh hòa',
+        'trốn khỏi trại giam A2 tỉnh khánh hòa',
+      ],
+      ['giữa tầng hầm bê hai và tầng hai', 'giữa tầng hầm B2 và tầng 2'],
+      ['khẩu súng trường mờ mười sáu của hắn', 'khẩu súng trường M16 của hắn'],
+      ['đội tuyển u hai mươi ba việt nam', 'đội tuyển U23 việt nam'],
+      ['bổ sung vitamin bê mười hai mỗi ngày', 'bổ sung vitamin B12 mỗi ngày'],
+      ['khẩu trang en chín lăm', 'khẩu trang N95'],
+      ['phòng a một không hai ở tầng một', 'phòng A102 ở tầng một'],
+      ['trình độ tiếng anh bê một', 'trình độ tiếng anh B1'],
+      ['bằng lái hạng bê hai', 'bằng lái hạng B2'],
+      ['hội nghị gờ bảy', 'hội nghị G7'],
+    ])('reads a letter name after a code noun in %j', (spoken, written) => {
+      expect(itn(spoken)).toBe(written);
+    });
+
+    it('keeps the casing the restorer gave the rest of the line', () => {
+      expect(itn('Trốn khỏi trại giam A Hai, tỉnh Khánh Hòa.')).toBe(
+        'Trốn khỏi trại giam A2, tỉnh Khánh Hòa.',
+      );
+    });
+
+    it('reads a bare consonant as a letter anywhere, since no syllable is one', () => {
+      expect(itn('đua mô tô f một')).toBe('đua mô tô F1');
+    });
+
+    it('follows a chain of codes from the noun that introduced the first', () => {
+      expect(itn('thoát vị đĩa đệm lờ bốn lờ năm')).toBe(
+        'thoát vị đĩa đệm L4 L5',
+      );
+      expect(itn('vitamin bê một bê sáu bê mười hai')).toBe(
+        'vitamin B1 B6 B12',
+      );
+    });
+
+    it('reads a number then a letter after a code noun', () => {
+      expect(itn('đi theo quốc lộ một a về phía nam')).toBe(
+        'đi theo quốc lộ 1A về phía nam',
+      );
+      expect(itn('lớp mười hai a học rất giỏi')).toBe('lớp 12A học rất giỏi');
+      expect(itn('siêu âm bốn đê')).toBe('siêu âm 4D');
+    });
+
+    /**
+     * Every letter name is also a word, so none is read as a letter without a
+     * code noun before it. Each of these is the name doing its ordinary job.
+     */
+    it.each([
+      'anh ấy bê hai thùng nước lên lầu',
+      'mắt tôi mờ hai hôm nay',
+      'bà ấy bị u hai bên vú',
+      'chúng tôi hát hai bài rồi về',
+      'con đê hai bên sông bị vỡ',
+      'a hai người đến rồi kìa',
+    ])('leaves a letter name with no code noun in %j', (text) => {
+      expect(itn(text)).not.toMatch(/\p{Lu}\d/u);
+    });
+
+    it.each([
+      // The article and the year, not a digit of a code.
+      ['bổ sung vitamin bê một số bệnh', 'vitamin B1'],
+      ['viêm gan c năm ngoái đã điều trị', 'C5'],
+      ['uống vitamin c một thời gian dài', 'C1'],
+      // A classifier or unit after the number says it is counting.
+      ['viêm gan b hai tháng nay', 'B2'],
+      ['viêm gan b hai năm nay', 'B2'],
+      // A letter glued to a numeral is a unit.
+      ['ngủ khoảng 10h một ngày', 'H1'],
+    ])('does not read a count as a code in %j', (text, code) => {
+      expect(itn(text)).not.toContain(code);
+    });
+
+    it('keeps the negation after a letter rather than writing a zero', () => {
+      expect(itn('phòng a không có ai')).toBe('phòng a không có ai');
+    });
+
+    it('keeps a negation after the code instead of folding it in as a zero', () => {
+      // Read whole, the run gave `A20 có ai`: the sentence reversed.
+      expect(itn('phòng a hai không có ai')).toBe('phòng A2 không có ai');
+      expect(itn('Phòng A hai không, có ai đâu.')).toBe(
+        'Phòng A2 không, có ai đâu.',
+      );
+      expect(itn('xe f một không chạy được')).not.toMatch(/F10/u);
+    });
+
+    it('reads a closing `năm` as the year, not a digit of the code', () => {
+      expect(itn('bị giam ở trại a hai mươi năm')).not.toMatch(/A25/u);
+      expect(itn('phòng a hai mươi năm')).not.toMatch(/A25/u);
+    });
+
+    it.each([
+      ['lên tầng hai bê đồ xuống', 'lên tầng 2 bê đồ xuống'],
+      ['tầng hai xê dịch', 'tầng 2 xê dịch'],
+    ])(
+      'reads `bê` and `xê` after a number as the verbs in %j',
+      (text, expected) => {
+        expect(itn(text)).toBe(expected);
+      },
+    );
+
+    it('takes no evidence from across a sentence end', () => {
+      expect(itn('anh ấy ở tầng. Mờ hai hôm nay.')).toBe(
+        'anh ấy ở tầng. Mờ hai hôm nay.',
+      );
+      expect(itn('vitamin bê một. Mờ hai hôm nay.')).toBe(
+        'vitamin B1. Mờ hai hôm nay.',
+      );
+    });
+
+    it('leaves a spelling it cannot read whole as words', () => {
+      // Typesetting the last letter alone would print `vê tê V3`.
+      expect(itn('xem kênh vê tê vê ba')).toBe('xem kênh vê tê vê ba');
+      // Runs of consonants are units and abbreviations far more often.
+      expect(itn('mổ đc hai tháng')).not.toMatch(/ĐC2/u);
+    });
+  });
 });
