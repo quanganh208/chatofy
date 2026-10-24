@@ -2486,3 +2486,22 @@ The rollback was then rehearsed in the middle of a two-way session: identificati
 The look also found a better lock. The first tuning grid went from 900 ms of speech straight to 1500 ms. Held out on the bake-off, 0.8 confidence with 1300 ms overrules fewer locks than the shipped 0.6 / 1500 (5.7% against 6.2%) and locks right more often (91.8% against 91.0%). Replayed through the API on the same 491 turns, timed from speech: label p50 1697 → 1559 ms, p95 3409 → 3320 ms, finals overruling the lock 7.1% → 5.9%, final accuracy unchanged (A1 0.995 both). Lowering the speech bar further does buy time — 900 ms gives a 2.1 s p95 — but overrules 13–15% of locks, over the 10% bar. A late second lock (any guess after 2–3 s) moved nothing: with two candidates almost every turn clears 0.6 long before. The API now ships 0.8 / 1300.
 
 Reproduce: `node benchmarks/lid/replay_sessions.mjs --api http://localhost:3000 --token-file "$TOKEN_FILE" --mode two-way --run-tag <tag>` (modes `declared`, `two-way`, `detect`, `mixed-load`, `adversarial`), then `cd benchmarks/lid && python3 score_replay.py --run results/<tag> --baseline results/<declared-tag>`; `node benchmarks/prompt-injection/run.mjs --provider deepseek --repeats 3`.
+
+## Spelled codes on the Vietnamese display (24/10/2026)
+
+An auto-detect session on production showed `trại giam A Hai` for the A2 prison camp. The recognizer had written `a hai`; the ITN left a lone number word with no classifier as a word, and the restorer cased the pair as a name. Two of production's 58 Vietnamese turns held such a code (`a hai`, and `tầng hầm bê hai` for B2), and FLEURS showed the other spelling the recognizer uses, a bare Latin letter: `f một` for F1, beside `mờ mười sáu` for M16.
+
+The Vietnamese ITN now reads a letter beside a number as one code (`vietnamese-letter-codes.ts`). A lone consonant is never a syllable, so `f một` needs nothing else. Every letter name is also a word (`bê hai thùng nước`, `mờ hai hôm nay`, `bị u hai bên`, `ca ba`), so a name is read only after a noun that introduces codes, taken from the words in front of 6,420 written codes in vicappunc (`vitamin`, `đốt sống`, `khẩu trang`, `trại giam`, `tầng hầm`…), or after another such code (`L4 L5`, `B1 B6 B12`). The restorer's casing was tried as the signal and dropped: it cased `A Hai` in one context and wrote `trại giam. A. Hai` in another.
+
+Measured as old against new ITN, line by line, every changed line read by hand:
+
+| Corpus                                  | Lines   | Changed | Wrong |
+| --------------------------------------- | ------- | ------- | ----- |
+| VIVOS train + test references           | 12,420  | 0       | 0     |
+| Production vi turns, source and display | 84      | 4       | 0     |
+| Punct rulers, recognizer input and refs | 4,076   | 2       | 0     |
+| vicappunc sentences (written chat text) | 320,021 | 1       | 1     |
+
+The first version changed 31 vicappunc lines and nearly all were wrong, which is what shaped the guards: a letter glued to a numeral is a unit (`15h`, `4d`); a lone `một`, `năm` or `ba` with a word after it is the article or the year (`vitamin c một thời gian`, `viêm gan c năm ngoái`); a classifier after the number is a count (`b hai tháng`); runs of consonants are abbreviations (`đc`, `bs`, `ml`, and the recognizer's own `kg`). A code review then found four more by hand, none in any corpus: a closing `không` folded in as a zero reversed the sentence (`phòng a hai không có ai` → `phòng A20 có ai`), a closing `năm` became a digit (`trại giam a hai mươi năm` → `A25`), the verbs `bê` and `xê` read as a trailing letter (`lên tầng hai bê đồ` → `2B đồ`), and a marker vouched across a full stop (`ở tầng. Mờ hai hôm nay` → `M2`). Each now has a spec. The one left is `acid folic m hai`, a chat abbreviation the recognizer does not write. What it costs: `F0` (indistinguishable from `phòng a không có ai`), `f một rất hấp dẫn` (the article guard), and multi-letter spellings like `vê tê vê ba`.
+
+Reproduce: the specs in `apps/api/src/modules/translate/providers/vietnamese-inverse-normalize.spec.ts`; `node benchmarks/stt/scripts/itn_holdout_check.mjs`; `node benchmarks/stt/scripts/itn_roundtrip_recall.mjs`.
