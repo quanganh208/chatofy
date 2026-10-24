@@ -13,8 +13,9 @@ so the ruler can count how many it could not judge. VietMed's pause-cut
 fragments (`vietmed-cut`) get null: the corpus transcript is the whole turn,
 not the fragment that was kept.
 
-Writes `data/transcripts.jsonl` (`data/` is ignored: transcripts are corpus
-content, re-creatable from the pinned downloads).
+RAMC's transcripts (`data/ramc/texts.jsonl`) are folded in when it is
+prepared. Writes `data/transcripts.jsonl` (`data/` is ignored: transcripts are
+corpus content, re-creatable from the pinned downloads).
 """
 
 from __future__ import annotations
@@ -64,6 +65,10 @@ def main() -> int:
                 continue
             origin = played.get(turn.id)
             out.append({"id": turn.id, "source": turn.source, "text": known.get(origin) if origin else None})
+    # RAMC (`prepare_ramc.py`) writes its own: its ids are made where its text is read.
+    ramc = DATA / "ramc" / "texts.jsonl"
+    if ramc.exists():
+        out += [json.loads(line) for line in ramc.read_text().splitlines() if line.strip()]
     OUT.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in out))
     missing: dict[str, int] = {}
     for row in out:

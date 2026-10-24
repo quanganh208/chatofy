@@ -120,12 +120,13 @@ Real speech is **spontaneous conversation from public corpora**, plus a sample o
 it played through the laptop speaker and captured by its microphone. Revisions
 and sha256 are pinned in `scripts/conversational_pins.json`.
 
-| Corpus                                                        | What it gives                                                                                 | Licence      |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------ |
-| [EdAcc](https://huggingface.co/datasets/edinburghcstr/edacc)  | English video calls; 1,046 turns from Vietnamese-L1 and 663 from Mandarin-L1 speakers (A-ACC) | CC-BY-SA 4.0 |
-| [ASCEND](https://huggingface.co/datasets/CAiRE/ASCEND)        | real zh↔en conversations, language per utterance (`mixed` dropped); test + validation         | CC-BY-SA 4.0 |
-| [VietMed](https://huggingface.co/datasets/leduckhai/VietMed)  | Vietnamese talk show, consultations, phone-ins (`Book` = read aloud, dropped)                 | MIT          |
-| [ViMedCSS](https://huggingface.co/datasets/tensorxt/ViMedCSS) | Vietnamese with English medical terms (A4)                                                    | CC-BY-4.0    |
+| Corpus                                                        | What it gives                                                                                                                               | Licence                                                                                |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| [EdAcc](https://huggingface.co/datasets/edinburghcstr/edacc)  | English video calls; 1,046 turns from Vietnamese-L1 and 663 from Mandarin-L1 speakers (A-ACC)                                               | CC-BY-SA 4.0                                                                           |
+| [ASCEND](https://huggingface.co/datasets/CAiRE/ASCEND)        | real zh↔en conversations, language per utterance (`mixed` dropped); test + validation                                                       | CC-BY-SA 4.0                                                                           |
+| [VietMed](https://huggingface.co/datasets/leduckhai/VietMed)  | Vietnamese talk show, consultations, phone-ins (`Book` = read aloud, dropped)                                                               | MIT                                                                                    |
+| [ViMedCSS](https://huggingface.co/datasets/tensorxt/ViMedCSS) | Vietnamese with English medical terms (A4)                                                                                                  | CC-BY-4.0                                                                              |
+| [MagicData-RAMC](https://www.openslr.org/123/)                | Mainland Mandarin phone conversations, 663 speakers; release test split only (`scripts/prepare_ramc.py`, archive by hand, sha256 beside it) | CC BY-NC-ND 4.0: **measure only**, group `ramc` is `--eval-only` for every trained arm |
 
 What is constructed, and labelled so:
 
