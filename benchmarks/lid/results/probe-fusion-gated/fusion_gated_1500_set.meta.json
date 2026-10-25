@@ -1,0 +1,17 @@
+{
+  "arm": "fusion_gated_1500_set",
+  "kind": "lid-model",
+  "runtime": "onnxruntime-1.27.0",
+  "parity_passed": true,
+  "needs_gpu": false,
+  "needs_torch": false,
+  "new_model": true,
+  "notes": [
+    "fusion of whisper_probs_base_ctx5 and ambernet on speech under 1500 ms; exponents (0.5, 0.5), (0.7, 0.3) on en+vi",
+    "fused latency is the sum of both (sequential)",
+    "licence: NGC Terms of Use (redistribution not assumed)",
+    "exponents chosen after seeing conv-r4-v5 short vi (vietmed-cut): in-sample, not a held-out number"
+  ],
+  "rss_peak_mib": 311.6,
+  "rss_delta_mib": 255.9
+}
