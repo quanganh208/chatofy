@@ -1,15 +1,14 @@
 # Video Translation Audio Path — Design & Latency
 
-> **Status: Proposal — not implemented.** Resolves Issue #209. Builds on the
-> mediasoup PoC on `feat/207-mediasoup-poc` (Open Decision 1 in
-> [video-conferencing-architecture.md](./video-conferencing-architecture.md)).
-> The conference module today (`apps/api/src/modules/conference/`) does
-> signaling only — no translation is wired to it (verified: grep for
-> `translate`/`PlainTransport`/`decode` in that module finds only the shared
-> `ws-auth` import). Everything describing translation inside a meeting is
-> proposed.
+> **Status: Option A is built, on `main`, behind the conference flags**
+> (`CONFERENCE_ENABLED` for the API, `NEXT_PUBLIC_CONFERENCE_ENABLED` for web; see
+> [deployment-guide.md → Video conferencing](../deployment-guide.md#video-conferencing-disabled-by-default)).
+> Each speaker's client sends its own microphone to the live mode of `/ws/translate`
+> and forwards the result into `/ws/conference`, which fans it out (§2). This answers
+> Issue #209. §3's per-language producer injection and §5's ducking are still
+> proposals.
 
-**Date:** 2026-10-06
+**Date:** 2026-10-06 (design), 2026-10-25 (as-built section)
 **Scope:** How a speaker's audio in a mediasoup meeting reaches the existing
 translation pipeline, and how each listener gets the result in their own
 language.
@@ -82,9 +81,9 @@ Speaker mic ── mediasoup producer ── SFU ──┬── listeners (orig
 | Dimension          | Option A (client capture)                                                                                                | Option B (server capture)                                                                                                                                                                                                                                                                |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Complexity**     | **Low.** Reuses `CapturePump` + `/ws/translate` verbatim; the extension proves the N-session pattern. No new media code. | **High.** New: `PlainTransport` per producer, Opus decode, **server-side turn segmentation** (`CapturePump` runs in the browser on the Web Audio clock — porting VAD/endpointing server-side is net-new and is where the project says its defects have lived, `capture-pump.ts` header). |
-| **Latency**        | Client already has clean mic PCM; no decode. One WS hop to API.                                                          | Adds encode→SFU→decode **before** STT (≈ one Opus round trip + jitter buffer, est. +80–150 ms, see §6).                                                                                                                                                                                  |
+| **Latency**        | Client already has clean mic PCM; no decode. One WS hop to API.                                                          | Adds encode→SFU→decode **before** STT (≈ one Opus round trip + jitter buffer, est. +80–150 ms, see §7).                                                                                                                                                                                  |
 | **Bandwidth**      | Speaker uploads audio **twice** (SFU + WS). Mic Opus ~24–32 kbps; WS PCM16 @16 kHz ~256 kbps **per speaking client**.    | Speaker uploads **once**. Server pulls RTP locally (loopback-ish, no client cost). Lowest client bandwidth.                                                                                                                                                                              |
-| **Sidecar load**   | Identical STT/TTS job count either way (§3) — capture location does not change how many turns exist.                     | Identical, plus server CPU for N Opus decodes.                                                                                                                                                                                                                                           |
+| **Sidecar load**   | Identical STT/TTS job count either way (§4) — capture location does not change how many turns exist.                     | Identical, plus server CPU for N Opus decodes.                                                                                                                                                                                                                                           |
 | **Who cuts turns** | Browser VAD (shipped, tuned, tested).                                                                                    | Server VAD (greenfield).                                                                                                                                                                                                                                                                 |
 | **Mobile/Expo**    | Same `realtime-client` path the mobile app would use anyway.                                                             | Client untouched for translation — but mobile still needs the SFU track.                                                                                                                                                                                                                 |
 | **Degradation**    | A client can drop its WS session without affecting the SFU media.                                                        | Server failure drops translation for everyone in the room.                                                                                                                                                                                                                               |
@@ -97,7 +96,71 @@ client; B costs more server CPU and a large net-new segmentation module.
 
 ---
 
-## 2. Listener delivery — how a listener receives the translation
+## 2. As built — Option A over live mode
+
+The shipped path is Option A, run on the **live** mode of `/ws/translate`
+(`client.live.start`, served by `LiveTranslateSessionService` over `gemini-live`,
+[data-flow.md § Live mode](./data-flow.md#live-mode-on-the-same-socket)), not the
+turn cascade §0 describes. §6 explains why that was flagged as a cost risk at design
+time; it is the path that existed to reuse.
+
+```
+Speaker client          /ws/translate (live)        /ws/conference              Listener client
+     │                          │                          │                           │
+     ├─ conference.join ───────────────────────────────────►│ (room must exist:         │
+     │                          │                          │  POST /conference)         │
+     ├─ client.live.start ─────►│  languagePair {source,   │                           │
+     │   target = other of vi/en│  target}                 │                           │
+     ├─ client.live.audio ─────►│ ── speech-to-speech ──   │                           │
+     │◄─ server.live.transcript ┤  (source + target deltas)│                           │
+     │◄─ server.live.audio ─────┤                          │                           │
+     ├─ conference.translation.broadcast {subtitle?, audio?} ─►│                        │
+     │                          │                          ├─ conference.translation.subtitle ─►│
+     │                          │                          ├─ conference.translation.audio ────►│
+```
+
+What each side does, as the contract in
+`packages/types/src/events/conference-translation-events.ts` and the gateway define it:
+
+- **Target language.** vi↔en only: the target is the other member of the pair
+  (`source === 'en' ? 'vi' : 'en'`), sent as `client.live.start { languagePair }`.
+- **Turns are closed by the client.** The live stream has no utterance boundary. The
+  speaker client accumulates `source`- and `target`-channel deltas into the current
+  turn and sends a **cumulative** subtitle (`isFinal: false`) on every delta. After
+  **1500 ms** with no delta on either channel it sends one `isFinal: true` frame and
+  mints a new `turnId` (uuid) for the next delta. Listeners replace by `turnId`.
+- **Subtitle** = `{ sourceLanguage, targetLanguage, sourceText, translatedText,
+isFinal, turnId, speakerSocketId?, speakerDisplayName? }`, each text ≤ 4000 chars.
+  The server overwrites the speaker fields, sends the subtitle to every other peer
+  whose `sourceLanguage` differs from the speaker's (`ConferenceTranslationRouter`),
+  and stores each final frame as one `ConferenceTurn` row.
+- **Audio** = `{ lang, sequence, sampleRate 8000–48000, payload ≤ 320000 chars,
+speakerSocketId? }`. The server overwrites `speakerSocketId` and delivers it only
+  to peers whose `sourceLanguage === audio.lang`, so nobody hears a voice in a
+  language they did not choose. Listeners resequence per speaker: `nextSeq` starts
+  at the first frame seen from that speaker, and a gap is skipped after about
+  500 ms or once more than 50 frames are buffered, so a late joiner hears a speaker
+  who has already spoken.
+- **Delivery is per listener over the conference WebSocket** — the fallback §3
+  names, not producer injection.
+
+### The failure case Option B would have had
+
+```
+Speaker audio ──► PlainTransport ──► RTP relay ──► Opus decoder
+                                                        │
+                                              crash / overload
+                                                        │
+                                    every listener in the room gets silence,
+                                    with no error event and no client retry
+```
+
+Under Option A the same fault is one speaker's `/ws/translate` closing: that
+speaker's client sees the error and the media of the call is untouched.
+
+---
+
+## 3. Listener delivery at scale (proposed, not built)
 
 Two independent channels, matching how `/ws/translate` already splits them:
 
@@ -145,7 +208,7 @@ is the scale answer.
 
 ---
 
-## 3. Scale — STT and TTS job count
+## 4. Scale — STT and TTS job count
 
 Let **N** = participants, **K** = distinct languages in the room, and assume at
 most one person speaks at a time (meetings mostly hold this).
@@ -154,7 +217,7 @@ most one person speaks at a time (meetings mostly hold this).
 | ------- | ---------------------------- | ------------------------------------------------------------------------------------------------- |
 | **STT** | **1**                        | One recognition of the speaker's own language. Independent of N and K.                            |
 | **MT**  | **K−1**                      | Translate into every _other_ language present. `translateAll` fan-out. Cloud — not sidecar-bound. |
-| **TTS** | **K−1**                      | One synthesis per target language (§2), **not** per listener. Sidecar-bound.                      |
+| **TTS** | **K−1**                      | One synthesis per target language (§3), **not** per listener. Sidecar-bound.                      |
 
 **The binding constraint is the STT/TTS sidecar, at real-time factor ≈ 1×.**
 Each STT engine serves `LOCAL_STT_CONCURRENCY` (default 4) concurrent decodes
@@ -173,15 +236,25 @@ and two `vi` turns needing synthesis, the second waits ≤15 s or fails
 is comfortable at **K=2 languages and 1–2 concurrent speakers**. Beyond that,
 TTS is the bottleneck — concurrent same-language turns serialize on the engine
 lock. This matches Open Decision 4's unmeasured-capacity flag; it has **not**
-been measured on this project's hardware (§7).
+been measured on this project's hardware (§8).
 
 Mitigations (all proposed): cap room language count; prioritize the active
 speaker and drop translation for interrupted overlap; run more TTS engine
 instances behind the sidecar; accept subtitles-only above a threshold.
 
+**The ceiling that binds the build (§2) is a different one.** Live mode does not use
+the sidecars. Each participant whose translation is on holds one live session, and
+`LiveTranslateSessionService` refuses a new one with `too_many_sessions` once
+`MAX_CONCURRENT_TURNS_GLOBAL` (6) live sessions are open **server-wide**, counting
+`/translate` users in live mode too. So at most six participants across all rooms get
+translation at once. The number is a constant in
+`apps/api/src/modules/translate/session/turn-concurrency.ts`, not an environment
+variable: raising it is a code change, and a capacity decision, because each session
+is a metered upstream stream.
+
 ---
 
-## 4. Echo / ducking — the original voice while translation plays
+## 5. Echo / ducking — the original voice while translation plays
 
 **What the extension does today**, and the mechanism is directly reusable:
 
@@ -216,7 +289,7 @@ instead of `OrderedPlayback.isBusy`.
 
 ---
 
-## 5. Gemini Live — does live mode fit a meeting?
+## 6. Gemini Live — does live mode fit a meeting?
 
 **Live mode today** (`GeminiLiveTranslateProvider`, the `realtime` kind behind
 `translateMode: 'live'`) is one upstream speech-to-speech session per
@@ -232,25 +305,50 @@ continuous, no turn cascade ([data-flow.md § Live mode](./data-flow.md#live-mod
   the WebSocket, not RTP from the SFU. So "mediasoup does server-side track
   access" does not enable live mode — live mode never looks at the SFU track.
 - **It does not fit the fan-out requirement cleanly.** Live mode is one
-  bidirectional stream; the K-languages-once-each dedup in §2 assumes a
+  bidirectional stream; the K-languages-once-each dedup in §3 assumes a
   turn-shaped result (one finished translation per language, fanned out). A
   continuous speech-to-speech stream is per-session, so N speakers × (K−1)
   targets = N×(K−1) concurrent live sessions, each a metered cloud stream. That
-  is the cost explosion §2 exists to avoid, moved to the cloud bill.
+  is the cost explosion §3 exists to avoid, moved to the cloud bill.
 - **Cost/quota:** every live session is a sustained upstream connection on
   metered quota, versus the cascade's per-turn requests. For a multi-party room
   this multiplies fast.
 
-**Verdict on Gemini Live:** viable as a **1:1 or demo** path (low latency,
-speech-to-speech), **not** the multi-party room engine. It is orthogonal to the
-Option A/B choice because it bypasses the SFU track entirely.
+**Verdict at design time on Gemini Live:** viable as a **1:1 or demo** path (low
+latency, speech-to-speech), **not** the multi-party room engine. It is orthogonal to
+the Option A/B choice because it bypasses the SFU track entirely.
+
+**What was built anyway (§2):** one live session per participant, with K = 2 (vi↔en),
+so N×(K−1) = N sessions — the N×(K−1) growth above has not bitten at two languages.
+It is the reason a third room language is not a configuration change, and the reason
+for the six-session ceiling in §4.
 
 ---
 
-## 6. Latency estimates
+## 7. Latency
 
 Per-hop numbers come from the project's own measurements where they exist;
 everything else is labelled **estimated**.
+
+### Measured in a meeting (2-tab PoC, 2026-10-06)
+
+One machine (Windows 11, Docker Desktop, both sidecars healthy), two tabs in one
+browser, `client.live.*` path. T1 = first speech frame sent, T2 = first
+`server.live.transcript` on the `target` channel, both in the speaker tab, so only
+T1→T2 is clock-clean. T3 (final subtitle) and T4 (first TTS frame) were read in the
+listener tab against its own page clock, so they are not deltas from T1.
+
+| Metric                                      | Run 1 (cold session) | Run 2 (warm session) |
+| ------------------------------------------- | -------------------- | -------------------- |
+| T1→T2 utterance 1                           | **9 169 ms**         | **5 918 ms**         |
+| T1→T2 utterance 2                           | 10 164 ms            | 6 917 ms             |
+| T3 final subtitle at listener (page-clock)  | 14 779 ms            | 15 983 ms            |
+| T4 first TTS audio at listener (page-clock) | 11 957 ms            | 10 158 ms            |
+
+About 6 s warm, with a ~3 s cold-session penalty on the first utterance. These were
+taken on the PoC page, with its `[T1]`–`[T4]` console timings, before the client
+closed turns itself (§2); they have not been re-measured on the current clients. The cascade hops below are much faster because the
+cascade is turn-shaped; they are what Option A would cost on the turn path.
 
 ### Measured hops (from the shipped cascade)
 
@@ -307,9 +405,10 @@ measure.
 
 ---
 
-## 7. Recommendation
+## 8. Recommendation
 
-**Adopt Option A (client-side capture).** Ranked rationale:
+**Adopt Option A (client-side capture)** — adopted and built (§2), on live mode rather
+than the cascade. Ranked rationale at design time:
 
 1. **It is already built and tuned.** `meeting-capture.ts` runs the exact
    pattern — one client, N `/ws/translate` sessions, ducking, echo monitoring —
@@ -333,26 +432,25 @@ acceptable; if it ever bites, Opus-encode the WS leg before reaching for B.
 
 **Listener delivery:** subtitles over the conference WebSocket; TTS synthesized
 once per (speaker, language) and fanned out as one mediasoup producer per
-language (§2). Build the per-listener WebSocket-frame fallback first for the
+language (§3). Build the per-listener WebSocket-frame fallback first for the
 demo, then the producer-injection dedup for scale.
 
-**Gemini Live:** keep as a separate 1:1/demo path; do not use it as the
-multi-party room engine (§5).
+**Gemini Live:** recommended as a separate 1:1/demo path, not the multi-party room
+engine (§6). The build uses it anyway, which §4 and §6 bound.
 
 ---
 
 ## Unresolved questions
 
-1. **Sidecar capacity is unmeasured (Open Decision 4).** The K=2 / 1–2
-   concurrent-speaker limit in §3 is derived from `LOCAL_STT_CONCURRENCY` and
-   per-engine TTS locking, **not** measured on this project's hardware. A load
-   test (Phase 3/7) is needed before committing a participant ceiling.
+1. **Translation capacity in a meeting is unmeasured.** The #211 run measured the SFU
+   only (Open Decision 4). The cascade limit in §4 is derived from
+   `LOCAL_STT_CONCURRENCY` and per-engine TTS locking, and the live-mode ceiling is the
+   six-session constant; neither has been load-tested with several speakers.
 2. **Server-side RTP injection of TTS** into mediasoup (producer-per-language,
-   §2) is unproven on this stack — the PoC only forwards client-produced tracks.
+   §3) is unproven on this stack — the SFU only forwards client-produced tracks.
    The WebSocket-frame fallback is the safe interim.
-3. **Speaker language per participant**: §3 assumes each participant has one
-   known source language (from `ConferenceParticipant.sourceLanguage`, proposed
-   schema). Code-switching within one speaker is out of scope here.
+3. **Speaker language per participant**: §4 assumes each participant has one
+   known source language (`ConferenceParticipant.sourceLanguage`, set at join). Code-switching within one speaker is out of scope here.
 4. **TTS voice per translated producer**: should a listener hear a consistent
    voice per remote speaker, or one voice per language? Affects whether TTS
    fan-out is per-(speaker,language) or per-language only.

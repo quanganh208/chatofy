@@ -1,18 +1,19 @@
 # Video Client Support and Meeting Screen Design
 
-> **Status: Research — not implemented.** This answers Issue #210: confirm web and
-> mobile client SDK support for the mediasoup media server (chosen in #207, see
+> **Status: Research for Issue #210, since built in part.** It confirms web and mobile
+> client SDK support for the mediasoup media server (chosen in #207, see
 > [video-conferencing-architecture.md](../video-conferencing-architecture.md) Open
-> Decision 1) and design the four meeting screens. No conferencing UI is on `main`;
-> the only client code that exists is the PoC at
-> `apps/web/app/(app)/conference-poc/page.tsx`.
+> Decision 1) and designs the meeting screens. The lobby and call screens are on `main`
+> behind the conference flags (`apps/web/app/(app)/conference/`, web, when
+> `NEXT_PUBLIC_CONFERENCE_ENABLED=true`; `apps/mobile/app/(app)/conference/`, development
+> builds only). The end screen (§4.4) is not built.
 
 **Date:** 2026-10-06
 **Media server:** mediasoup (SFU library in-process with NestJS)
 **Client SDK (web):** `mediasoup-client`
 
 Every SDK/version claim below cites the npm registry (queried 2026-10-06) or the
-mediasoup/library docs. "PoC" means observed in `apps/web/app/(app)/conference-poc/`.
+mediasoup/library docs. "PoC" means observed on the #207 PoC page, since removed.
 
 ---
 
@@ -369,6 +370,13 @@ rows, which the production implementation should do.
   you read it as a unit; it holds only readouts, no nested action.
 - **Budget: 1 accent, 1 elevated surface. PASS.**
 
+**Deferred: the end screen, and minutes on it.** Issue #210 asks for an end screen "with
+minutes". Neither is built: Leave returns to the conference lobby. Minutes are deferred
+because conferences have no minutes pipeline yet. The minutes that exist on `main` are
+generated from a `/translate` conversation's stored turns; a conference stores
+`ConferenceTurn` rows, but nothing summarises them. When that pipeline exists, a
+**Minutes** readout section goes inside the summary card, keeping the budget above.
+
 ### 4.5 Budget summary
 
 | Screen state         | Accent (≤1)                            | Elevated surfaces (≤2)       | Verdict |
@@ -392,9 +400,10 @@ in-call to one elevated surface.
    plugin docs in this research; verify the manifest additions against
    `@config-plugins/react-native-webrtc@15.0.2` source, and confirm Android 14+
    foreground-service-microphone handling.
-3. **`react-native-webrtc` + RN 0.83 new architecture (Fabric).** `apps/mobile` has
-   `newArchEnabled: true`; confirm the chosen `react-native-webrtc` version supports the
-   new arch on RN 0.83 before committing to the dev-client build.
+3. **`react-native-webrtc` + RN 0.83 new architecture (Fabric).** Answered: `124.0.8`
+   (exact) with `newArchEnabled: true` and `@config-plugins/react-native-webrtc` `14.0.0`
+   (15.x needs Expo ≥ 56) gave two-way audio and video on a physical Android 14 phone on
+   2026-10-12.
 4. **Backgrounded meeting audio on iOS.** The config plugin does not add
    `UIBackgroundModes: audio`. Decide whether meetings continue audio when backgrounded;
    if yes, add it manually.

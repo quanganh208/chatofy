@@ -1,9 +1,11 @@
 # Database Schema: Video Conferencing
 
-> **Status: Design — not implemented.** No conferencing code exists on `main` as of
-> 2026-10-07. None of these models is in `apps/api/prisma/schema.prisma` yet. The
-> mediasoup SFU PoC lives on `video-conferencing` (Issue #207). Progress is tracked
-> in [project-roadmap.md](./project-roadmap.md); deferred choices are in
+> **Status: Four models built, the rest deferred.** `Conference`, `ConferenceParticipant`,
+> `ConferenceTurn` and `ConferenceMessage` are in `apps/api/prisma/schema.prisma` (migration
+> `20261012144353_add_conference_models`), used only when `CONFERENCE_ENABLED` is on. A
+> `Conference` row is created only by `POST /conference`; joining upserts the participant.
+> Recording, speakers and billing stay deferred. Progress:
+> [project-roadmap.md](./project-roadmap.md); deferred choices:
 > [Open decisions](./video-conferencing-architecture.md#open-decisions).
 
 **Date:** 2026-09-29 | **Updated:** 2026-10-07 (reconciled with Prisma conventions for #212)  

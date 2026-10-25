@@ -45,42 +45,35 @@ measured in [development-journey.md](./development-journey.md).
 
 ## Next: video meetings
 
-**Demo-ready on `video-conferencing` branch; not yet on `main`.**
+**On `main` behind flags, off by default; not usable in production yet.** The API side is
+gated by `CONFERENCE_ENABLED`, the web routes by `NEXT_PUBLIC_CONFERENCE_ENABLED` (build
+time), and the mobile screens exist only in development builds
+([deployment-guide.md → Video conferencing](./deployment-guide.md#video-conferencing-disabled-by-default)).
+What exists: rooms created by `POST /conference` (the link is the access), a mediasoup SFU
+inside the API, a web lobby and call screen, client-side vi↔en translation fanned out to the
+room, translated chat, and persistence of participants, turns and messages. How to run it:
+[conference-demo-runbook.md](./conference-demo-runbook.md).
 
-Phases 1–5 are complete on the branch. A full production lobby (`/conference`) and
-in-call screen (`/conference/[roomId]`) ship with bidirectional vi↔en translation,
-ordered audio playback, participant mute/video/leave, subtitle overlay, and graceful
-edge-case states (permission denied, audio-only fallback, mid-call disconnect).
+Design and evidence:
 
-Operator runbook: [conference-demo-runbook.md](./conference-demo-runbook.md).
+- [video-conferencing-architecture.md](./video-conferencing-architecture.md) — target,
+  reuse, and the Open decisions
+- [architecture/video-conferencing-v2-synthesis.md](./architecture/video-conferencing-v2-synthesis.md) —
+  what was decided and measured (#207–#212)
+- [database-schema-conference.md](./database-schema-conference.md) — tables
+- [technical-risks-mitigation.md](./technical-risks-mitigation.md) — risks
 
-Design gates (complete as of 2026-10-07, Issues #207–#212):
+### Open before production
 
-- [video-conferencing-architecture.md](./video-conferencing-architecture.md)
-- [database-schema-conference.md](./database-schema-conference.md)
-- [technical-risks-mitigation.md](./technical-risks-mitigation.md)
-
-### Implementation phases (branch `video-conferencing`)
-
-| Phase | Goal                                                             | Status                        |
-| ----- | ---------------------------------------------------------------- | ----------------------------- |
-| 1     | Production `/conference` lobby + `useConference` hook            | **Done**                      |
-| 2     | In-call UI: video grid, control bar, roster, subtitle overlay    | **Done**                      |
-| 3     | Translation robustness: bidirectional vi↔en + ordered audio sink | **Done**                      |
-| 4     | In-meeting chat                                                  | **Cut** (not needed for demo) |
-| 5     | Demo polish: edge-case states, runbook, end-to-end smoke         | **Done**                      |
-| 6     | _(post-demo)_ Mobile RN lobby + call view                        | Not started                   |
-| 7     | _(post-demo)_ Mobile RN translation UX                           | Not started                   |
-
-### Still-open production gates (before `main` merge)
-
-| Gate                                                        | Issue | Status                                |
-| ----------------------------------------------------------- | ----- | ------------------------------------- |
-| Mobile real-device A/V test                                 | #210  | Untested — demo on web only           |
-| ≥2-network media reachability (TURN/STUN)                   | #208  | Untested — demo on loopback only      |
-| Concurrent-translation load test (3+ speakers, caps raised) | —     | Not formally measured                 |
-| `main` merge / production hardening                         | #212  | Pending design review by @quanganh208 |
-| Billing tables + recording access policy                    | #212  | Deferred out of thesis scope          |
+| Gate                                                   | Issue | Status                                      |
+| ------------------------------------------------------ | ----- | ------------------------------------------- |
+| Network path for media (VPS + TURN, or Cloudflare SFU) | #208  | **Pending** the owner's choice              |
+| Connectivity from ≥ 2 networks (Wi-Fi, 4G)             | #208  | Waits on the path                           |
+| Translation load with several simultaneous speakers    | —     | Not measured; six live sessions server-wide |
+| Mobile sign-in through the real auth client            | #210  | Mobile is dev-build only                    |
+| End screen with minutes                                | #210  | Deferred: no minutes pipeline for meetings  |
+| `mediasoup-client` upgrade from 3.7.18                 | #210  | Not started                                 |
+| Billing tables, recording access                       | #212  | Deferred out of thesis scope                |
 
 ## Known gaps
 
@@ -96,6 +89,5 @@ code change, not a doc edit.
   warning in `apps/api/src/main.ts` naming avatars only.
 - **Speaker-attribution seed-perturbation minimum** — the architecture doc says 96/94
   exact, `auto-attribution.ts` says 90/89. Needs a re-run to settle.
-- **Video meetings — production gates** — open decisions resolved (#207–#212); remaining
-  gate: mobile real-device (#210), and @quanganh208 design
-  review (#212). Implementation starts after the review.
+- **Video meetings** — behind flags and not usable in production until the network path
+  (#208) is chosen; the remaining gates are in [Open before production](#open-before-production).
