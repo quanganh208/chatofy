@@ -16,6 +16,12 @@ criterion, for all languages alike: Silero speech under the API's floor
 (`lid_bench.fillers`, transcripts from `scripts/attach_transcripts.py`). Each
 v5 row is printed beside its unamended `v4.` twin, which never gates.
 
+`detect2v3.*` compares every arm's 3-way detect with the 2-way detect prod
+runs today (`DETECT_BASELINE_ARM` deciding between vi and en, user decision
+2026-10-25), not with the arm's own 2-way: a stronger model must not be let
+off for beating itself. A run without that arm borrows it from
+`DETECT_BASELINE_RUN` when both runs hold the same turns.
+
 `--substitute-public` lets public read speech stand in where real speech is
 required. The rows say so, and the outcome is then always INCOMPLETE: it is
 a preliminary signal, never a verdict.
@@ -38,6 +44,7 @@ from lid_bench.fillers import is_filler_only  # noqa: E402
 from lid_bench.prior import ClientVoiceLabels  # noqa: E402
 from lid_bench.run_data import ArmData, load_run, set_latency  # noqa: E402
 from lid_bench.scoring import (  # noqa: E402
+    DETECT_BASELINE_ARM,
     STT_MIN_SPEECH_MS,
     Result,
     criteria,
@@ -47,6 +54,8 @@ from lid_bench.scoring import (  # noqa: E402
 )
 
 RESULTS = BENCH_ROOT / "results"
+#: Where `DETECT_BASELINE_ARM` is read from when a run does not hold it.
+DETECT_BASELINE_RUN = RESULTS / "conv-r4-v5"
 TRANSCRIPTS = BENCH_ROOT / "data" / "transcripts.jsonl"
 VARIANTS = {"bare": (False, False), "src": (True, False), "src+voice": (True, True)}
 TAU_NOISE_GRID = (0.0, 0.5, 0.6, 0.7, 0.8, 0.9)
@@ -168,19 +177,25 @@ def choose_tau_noise(arm: ArmData, turns, facts) -> tuple[float, dict, float, st
 
 
 def score_arm(name: str, arm: ArmData, turns, facts, voices, substitute: bool,
-              excluded: frozenset[str] | None) -> dict:
-    """`excluded` None scores ruler v4; a set scores v5 with v4 twins."""
+              excluded: frozenset[str] | None, baseline_2way: dict[str, list] | None = None) -> dict:
+    """`excluded` None scores ruler v4; a set scores v5 with v4 twins.
+    `baseline_2way` holds the prod 2-way detect trials per variant; None means
+    this arm is the baseline, and its own 2-way trials are kept under
+    `_two_way` for the caller to pass on."""
     speech_turns = [t for t in turns if not t.noise and (t.id, None) in arm.probs]
     eps = episodes(speech_turns)
     eps_2way = detect_2way_episodes(speech_turns)
     tau_noise, noise, lost, noise_scheme = choose_tau_noise(arm, turns, facts)
     added = added_latency(arm, eps)
     out = {"cv": arm.cv_scheme, "tau_noise": tau_noise, "noise_scheme": noise_scheme,
-           "speech_lost_to_tau_noise": round(lost, 4), "variants": {}}
+           "speech_lost_to_tau_noise": round(lost, 4), "variants": {}, "_two_way": {}}
     for variant, (tune_prior, voice_prior) in VARIANTS.items():
         trials, trials_2way, scheme = tuning.held_out_with(eps, eps_2way, arm.full, arm.prefixes, voice_prior,
                                                            voices, tune_prior)
         params, lock = tuning.choose(eps, arm.full, arm.prefixes, voice_prior, voices, tune_prior)
+        out["_two_way"][variant] = trials_2way
+        if baseline_2way is not None:
+            trials_2way = baseline_2way.get(variant)
         results = criteria(trials, added, noise, substitute, detect_2way=trials_2way)
         if excluded is not None:
             results = with_v4_twins(
@@ -195,6 +210,20 @@ def score_arm(name: str, arm: ArmData, turns, facts, voices, substitute: bool,
             "results": results,
         }
     return out
+
+
+def borrowed_baseline(turns, facts, voices, substitute: bool, excluded) -> dict[str, list]:
+    """The prod 2-way trials from `DETECT_BASELINE_RUN`, or {} (the
+    `detect2v3` rows then go missing, never fall back to the arm's own 2-way)
+    when that run holds other turns."""
+    if not (DETECT_BASELINE_RUN / f"{DETECT_BASELINE_ARM}.meta.json").exists():
+        return {}
+    theirs, _, arms = load_run(DETECT_BASELINE_RUN)
+    if [t.id for t in theirs] != [t.id for t in turns]:
+        print(f"{DETECT_BASELINE_RUN.name} holds other turns: detect2v3 left unscored", file=sys.stderr)
+        return {}
+    return score_arm(DETECT_BASELINE_ARM, arms[DETECT_BASELINE_ARM], turns, facts, voices, substitute,
+                     excluded)["_two_way"]
 
 
 def judged_variant(data: dict) -> str:
@@ -250,8 +279,20 @@ def main() -> int:
     turns, facts, arms = load_run(run_dir)
     voices = client_labels(turns, facts)
     excluded = no_language_turns(turns, facts) if args.ruler == "v5" else None
-    scored = {name: score_arm(name, arm, turns, facts, voices, args.substitute_public, excluded)
-              for name, arm in arms.items()}
+    scored = {}
+    if DETECT_BASELINE_ARM in arms:
+        scored[DETECT_BASELINE_ARM] = score_arm(DETECT_BASELINE_ARM, arms[DETECT_BASELINE_ARM], turns, facts, voices,
+                                                args.substitute_public, excluded)
+        baseline_2way = scored[DETECT_BASELINE_ARM]["_two_way"]
+    else:
+        baseline_2way = borrowed_baseline(turns, facts, voices, args.substitute_public, excluded)
+    for name, arm in arms.items():
+        if name not in scored:
+            scored[name] = score_arm(name, arm, turns, facts, voices, args.substitute_public, excluded,
+                                     baseline_2way)
+    for data in scored.values():
+        data.pop("_two_way")
+        data["detect_baseline"] = DETECT_BASELINE_ARM if baseline_2way else None
 
     variants = {name: judged_variant(data) for name, data in scored.items()}
     per_arm = {name: data["variants"][variants[name]]["results"] for name, data in scored.items()}

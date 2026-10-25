@@ -308,14 +308,14 @@
               "data": "rerecorded"
             },
             "detect2v3.short.vi": {
-              "value": -0.0336,
+              "value": 0.1879,
               "threshold": ">=-0.02",
-              "pass": false,
+              "pass": true,
               "n": 149,
               "data": "real"
             },
             "detect2v3.short.en": {
-              "value": -0.081,
+              "value": -0.1101,
               "threshold": ">=-0.02",
               "pass": false,
               "n": 790,
@@ -777,14 +777,14 @@
               "data": "rerecorded"
             },
             "v4.detect2v3.short.vi": {
-              "value": -0.0377,
+              "value": 0.1824,
               "threshold": "report",
               "pass": null,
               "n": 159,
               "data": "real"
             },
             "v4.detect2v3.short.en": {
-              "value": -0.0906,
+              "value": -0.1374,
               "threshold": "report",
               "pass": null,
               "n": 1346,
@@ -1238,14 +1238,14 @@
               "data": "rerecorded"
             },
             "detect2v3.short.vi": {
-              "value": -0.0336,
+              "value": 0.1879,
               "threshold": ">=-0.02",
-              "pass": false,
+              "pass": true,
               "n": 149,
               "data": "real"
             },
             "detect2v3.short.en": {
-              "value": -0.0861,
+              "value": -0.1177,
               "threshold": ">=-0.02",
               "pass": false,
               "n": 790,
@@ -1707,14 +1707,14 @@
               "data": "rerecorded"
             },
             "v4.detect2v3.short.vi": {
-              "value": -0.0377,
+              "value": 0.1824,
               "threshold": "report",
               "pass": null,
               "n": 159,
               "data": "real"
             },
             "v4.detect2v3.short.en": {
-              "value": -0.0906,
+              "value": -0.1397,
               "threshold": "report",
               "pass": null,
               "n": 1346,
@@ -2168,14 +2168,14 @@
               "data": "rerecorded"
             },
             "detect2v3.short.vi": {
-              "value": -0.0336,
+              "value": 0.1879,
               "threshold": ">=-0.02",
-              "pass": false,
+              "pass": true,
               "n": 149,
               "data": "real"
             },
             "detect2v3.short.en": {
-              "value": -0.0734,
+              "value": -0.0987,
               "threshold": ">=-0.02",
               "pass": false,
               "n": 790,
@@ -2637,14 +2637,14 @@
               "data": "rerecorded"
             },
             "v4.detect2v3.short.vi": {
-              "value": -0.0377,
+              "value": 0.1824,
               "threshold": "report",
               "pass": null,
               "n": 159,
               "data": "real"
             },
             "v4.detect2v3.short.en": {
-              "value": -0.0825,
+              "value": -0.1241,
               "threshold": "report",
               "pass": null,
               "n": 1346,
@@ -2799,7 +2799,8 @@
             }
           }
         }
-      }
+      },
+      "detect_baseline": "whisper_probs_base_ctx5"
     }
   },
   "arm_info": {

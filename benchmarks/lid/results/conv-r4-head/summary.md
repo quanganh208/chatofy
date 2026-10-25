@@ -2,142 +2,6 @@
 
 Outcome: **INCOMPLETE**
 
-## whisper_head (cv logo, tau_noise 0.0)
-
-| criterion                          | bare                | src                 | src+voice           | threshold                               | data        |
-| ---------------------------------- | ------------------- | ------------------- | ------------------- | --------------------------------------- | ----------- |
-| A-ACC.detect                       | 0.854 ✗ (n=604)     | 0.854 ✗ (n=604)     | 0.854 ✗ (n=604)     | >=0.95                                  | public      |
-| A-ACC.pair                         | 0.856 ✗ (n=616)     | 0.856 ✗ (n=616)     | 0.856 ✗ (n=616)     | >=0.95                                  | public      |
-| A1.en-vi                           | 0.963 ✗ (n=5586)    | 0.963 ✗ (n=5586)    | 0.963 ✗ (n=5586)    | >=0.97                                  | real        |
-| A1.en-zh                           | 0.946 ✗ (n=4332)    | 0.945 ✗ (n=4332)    | 0.945 ✗ (n=4332)    | >=0.97                                  | mixed       |
-| A1.vi-zh                           | 0.991 ✓ (n=3468)    | 0.991 ✓ (n=3468)    | 0.991 ✓ (n=3468)    | >=0.97                                  | mixed       |
-| A2.en-vi                           | 0.860 ✗ (n=1227)    | 0.860 ✗ (n=1227)    | 0.860 ✗ (n=1227)    | >=0.90 raw OR <=0.05 err after fallback | real+cv     |
-| A2.en-vi.edacc                     | 0.886 · (n=911)     | 0.872 · (n=911)     | 0.872 · (n=911)     | report                                  | edacc       |
-| A2.en-vi.err_after_fallback        | 0.140 ✗ (n=1227)    | 0.151 ✗ (n=1227)    | 0.151 ✗ (n=1227)    | <=0.05                                  | real+cv     |
-| A2.en-vi.rerecorded                | 0.750 · (n=24)      | 0.750 · (n=24)      | 0.750 · (n=24)      | report                                  | rerecorded  |
-| A2.en-vi.vietmed                   | 1.000 · (n=6)       | 1.000 · (n=6)       | 1.000 · (n=6)       | report                                  | vietmed     |
-| A2.en-vi.vietmed-cut               | 0.780 · (n=282)     | 0.780 · (n=282)     | 0.780 · (n=282)     | report                                  | vietmed-cut |
-| A2.en-vi.vimedcss                  | 1.000 · (n=4)       | 1.000 · (n=4)       | 1.000 · (n=4)       | report                                  | vimedcss    |
-| A2.en-zh                           | 0.593 ✗ (n=2094)    | 0.593 ✗ (n=2094)    | 0.593 ✗ (n=2094)    | >=0.90 raw OR <=0.05 err after fallback | real+cv     |
-| A2.en-zh.ascend                    | 0.534 · (n=1374)    | 0.534 · (n=1374)    | 0.534 · (n=1374)    | report                                  | ascend      |
-| A2.en-zh.edacc                     | 0.728 · (n=676)     | 0.728 · (n=676)     | 0.728 · (n=676)     | report                                  | edacc       |
-| A2.en-zh.err_after_fallback        | 0.407 ✗ (n=2094)    | 0.407 ✗ (n=2094)    | 0.407 ✗ (n=2094)    | <=0.05                                  | real+cv     |
-| A2.en-zh.rerecorded                | 0.364 · (n=44)      | 0.364 · (n=44)      | 0.364 · (n=44)      | report                                  | rerecorded  |
-| A2.vi-zh                           | 0.700 ✗ (n=440)     | 0.700 ✗ (n=440)     | 0.700 ✗ (n=440)     | >=0.90 raw OR <=0.05 err after fallback | real+cv     |
-| A2.vi-zh.ascend                    | 0.828 · (n=116)     | 0.828 · (n=116)     | 0.828 · (n=116)     | report                                  | ascend      |
-| A2.vi-zh.err_after_fallback        | 0.300 ✗ (n=440)     | 0.300 ✗ (n=440)     | 0.300 ✗ (n=440)     | <=0.05                                  | real+cv     |
-| A2.vi-zh.rerecorded                | 0.562 · (n=32)      | 0.562 · (n=32)      | 0.562 · (n=32)      | report                                  | rerecorded  |
-| A2.vi-zh.vietmed                   | 0.667 · (n=6)       | 0.667 · (n=6)       | 0.667 · (n=6)       | report                                  | vietmed     |
-| A2.vi-zh.vietmed-cut               | 0.667 · (n=282)     | 0.667 · (n=282)     | 0.667 · (n=282)     | report                                  | vietmed-cut |
-| A2.vi-zh.vimedcss                  | 0.500 · (n=4)       | 0.500 · (n=4)       | 0.500 · (n=4)       | report                                  | vimedcss    |
-| A3.long.by_lang.en                 | 0.913 · (n=1623)    | 0.913 · (n=1623)    | 0.913 · (n=1623)    | report                                  | real        |
-| A3.long.by_lang.vi                 | 0.993 · (n=2305)    | 0.993 · (n=2305)    | 0.993 · (n=2305)    | report                                  | real        |
-| A3.long.by_lang.zh                 | 0.830 · (n=635)     | 0.830 · (n=635)     | 0.830 · (n=635)     | report                                  | real        |
-| A3.long.vien                       | 0.960 ✓ (n=3928)    | 0.960 ✓ (n=3928)    | 0.960 ✓ (n=3928)    | >=0.95                                  | real        |
-| A3.long.zh                         | 0.900 ✗ (n=1135)    | 0.900 ✗ (n=1135)    | 0.900 ✗ (n=1135)    | >=0.95                                  | mixed       |
-| A3.short.by_lang.en                | 0.754 · (n=790)     | 0.754 · (n=790)     | 0.754 · (n=790)     | report                                  | real        |
-| A3.short.by_lang.en.ascend         | 0.995 · (n=208)     | 0.995 · (n=208)     | 0.995 · (n=208)     | report                                  | ascend      |
-| A3.short.by_lang.en.edacc          | 0.668 · (n=573)     | 0.668 · (n=573)     | 0.668 · (n=573)     | report                                  | edacc       |
-| A3.short.by_lang.en.rerecorded     | 0.667 · (n=9)       | 0.667 · (n=9)       | 0.667 · (n=9)       | report                                  | rerecorded  |
-| A3.short.by_lang.vi                | 0.584 · (n=149)     | 0.584 · (n=149)     | 0.584 · (n=149)     | report                                  | real        |
-| A3.short.by_lang.vi.rerecorded     | 0.000 · (n=3)       | 0.000 · (n=3)       | 0.000 · (n=3)       | report                                  | rerecorded  |
-| A3.short.by_lang.vi.vietmed        | 0.667 · (n=3)       | 0.667 · (n=3)       | 0.667 · (n=3)       | report                                  | vietmed     |
-| A3.short.by_lang.vi.vietmed-cut    | 0.596 · (n=141)     | 0.596 · (n=141)     | 0.596 · (n=141)     | report                                  | vietmed-cut |
-| A3.short.by_lang.vi.vimedcss       | 0.500 · (n=2)       | 0.500 · (n=2)       | 0.500 · (n=2)       | report                                  | vimedcss    |
-| A3.short.by_lang.zh                | 0.307 · (n=492)     | 0.307 · (n=492)     | 0.307 · (n=492)     | report                                  | real        |
-| A3.short.by_lang.zh.ascend         | 0.313 · (n=479)     | 0.313 · (n=479)     | 0.313 · (n=479)     | report                                  | ascend      |
-| A3.short.by_lang.zh.rerecorded     | 0.077 · (n=13)      | 0.077 · (n=13)      | 0.077 · (n=13)      | report                                  | rerecorded  |
-| A3.short.vien                      | 0.727 ✗ (n=939)     | 0.727 ✗ (n=939)     | 0.727 ✗ (n=939)     | >=0.85                                  | real        |
-| A3.short.zh                        | 0.307 ✗ (n=492)     | 0.307 ✗ (n=492)     | 0.307 ✗ (n=492)     | >=0.85                                  | real        |
-| A4                                 | 0.978 ✓ (n=1833)    | 0.978 ✓ (n=1833)    | 0.978 ✓ (n=1833)    | >=0.95                                  | real        |
-| A5                                 | 0.906 ✓ (n=160)     | 0.906 ✓ (n=160)     | 0.906 ✓ (n=160)     | >=0.90 rejected                         | esc50+real  |
-| A5.esc50                           | 0.900 · (n=80)      | 0.900 · (n=80)      | 0.900 · (n=80)      | report                                  | esc50       |
-| A5.real                            | 0.912 · (n=80)      | 0.912 · (n=80)      | 0.912 · (n=80)      | report                                  | real        |
-| A6.en-vi.changed                   | 0.087 ✓ (n=6618)    | 0.088 ✓ (n=6618)    | 0.088 ✓ (n=6618)    | <=0.10                                  | real        |
-| A6.en-vi.first_language_p95_ms     | 3111.610 ✓ (n=6813) | 3111.410 ✓ (n=6813) | 3111.410 ✓ (n=6813) | <=3500                                  | real        |
-| A6.en-zh.changed                   | 0.050 ✓ (n=6156)    | 0.051 ✓ (n=6156)    | 0.051 ✓ (n=6156)    | <=0.10                                  | mixed       |
-| A6.en-zh.first_language_p95_ms     | 3105.295 ✓ (n=6426) | 3104.950 ✓ (n=6426) | 3104.950 ✓ (n=6426) | <=3500                                  | mixed       |
-| A6.vi-zh.changed                   | 0.048 ✓ (n=3894)    | 0.048 ✓ (n=3894)    | 0.048 ✓ (n=3894)    | <=0.10                                  | mixed       |
-| A6.vi-zh.first_language_p95_ms     | 3100.762 ✓ (n=3908) | 3100.762 ✓ (n=3908) | 3100.762 ✓ (n=3908) | <=3500                                  | mixed       |
-| A7                                 | 125.710 ✓ (n=29672) | 125.710 ✓ (n=29672) | 125.710 ✓ (n=29672) | <=150 ms p95                            | mixed       |
-| A9-mono.en                         | 0.072 ✗ (n=138)     | 0.072 ✗ (n=138)     | 0.072 ✗ (n=138)     | <=0.03 err (worst source)               | real        |
-| A9-mono.vi                         | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | <=0.03 err (worst source)               | real        |
-| detect2v3.short.en                 | -0.161 ✗ (n=790)    | -0.161 ✗ (n=790)    | -0.161 ✗ (n=790)    | >=-0.02                                 | real        |
-| detect2v3.short.vi                 | -0.188 ✗ (n=149)    | -0.188 ✗ (n=149)    | -0.188 ✗ (n=149)    | >=-0.02                                 | real        |
-| excluded.en                        | 0.188 · (n=2970)    | 0.188 · (n=2970)    | 0.188 · (n=2970)    | report                                  | real        |
-| excluded.vi                        | 0.009 · (n=2476)    | 0.009 · (n=2476)    | 0.009 · (n=2476)    | report                                  | real        |
-| excluded.zh                        | 0.195 · (n=1400)    | 0.195 · (n=1400)    | 0.195 · (n=1400)    | report                                  | real        |
-| lock.en-vi.accuracy                | 0.870 · (n=5009)    | 0.870 · (n=5011)    | 0.870 · (n=5011)    | report                                  | real        |
-| lock.en-zh.accuracy                | 0.898 · (n=3610)    | 0.897 · (n=3606)    | 0.897 · (n=3606)    | report                                  | mixed       |
-| lock.vi-zh.accuracy                | 0.942 · (n=3288)    | 0.942 · (n=3288)    | 0.942 · (n=3288)    | report                                  | mixed       |
-| v4.A-ACC.detect                    | 0.854 · (n=604)     | 0.854 · (n=604)     | 0.854 · (n=604)     | report                                  | public      |
-| v4.A-ACC.pair                      | 0.856 · (n=616)     | 0.856 · (n=616)     | 0.856 · (n=616)     | report                                  | public      |
-| v4.A1.en-vi                        | 0.963 · (n=5612)    | 0.963 · (n=5612)    | 0.963 · (n=5612)    | report                                  | real        |
-| v4.A1.en-zh                        | 0.946 · (n=4334)    | 0.945 · (n=4334)    | 0.945 · (n=4334)    | report                                  | mixed       |
-| v4.A1.vi-zh                        | 0.991 · (n=3492)    | 0.991 · (n=3492)    | 0.991 · (n=3492)    | report                                  | mixed       |
-| v4.A2.en-vi                        | 0.853 · (n=2050)    | 0.853 · (n=2050)    | 0.853 · (n=2050)    | report                                  | real+cv     |
-| v4.A2.en-vi.edacc                  | 0.870 · (n=1682)    | 0.843 · (n=1682)    | 0.843 · (n=1682)    | report                                  | edacc       |
-| v4.A2.en-vi.err_after_fallback     | 0.147 · (n=2050)    | 0.169 · (n=2050)    | 0.169 · (n=2050)    | report                                  | real+cv     |
-| v4.A2.en-vi.rerecorded             | 0.893 · (n=56)      | 0.893 · (n=56)      | 0.893 · (n=56)      | report                                  | rerecorded  |
-| v4.A2.en-vi.vietmed                | 1.000 · (n=6)       | 1.000 · (n=6)       | 1.000 · (n=6)       | report                                  | vietmed     |
-| v4.A2.en-vi.vietmed-cut            | 0.753 · (n=300)     | 0.753 · (n=300)     | 0.753 · (n=300)     | report                                  | vietmed-cut |
-| v4.A2.en-vi.vimedcss               | 0.667 · (n=6)       | 0.667 · (n=6)       | 0.667 · (n=6)       | report                                  | vimedcss    |
-| v4.A2.en-zh                        | 0.453 · (n=3314)    | 0.453 · (n=3314)    | 0.453 · (n=3314)    | report                                  | real+cv     |
-| v4.A2.en-zh.ascend                 | 0.420 · (n=1982)    | 0.420 · (n=1982)    | 0.420 · (n=1982)    | report                                  | ascend      |
-| v4.A2.en-zh.edacc                  | 0.523 · (n=1228)    | 0.529 · (n=1228)    | 0.529 · (n=1228)    | report                                  | edacc       |
-| v4.A2.en-zh.err_after_fallback     | 0.547 · (n=3314)    | 0.545 · (n=3314)    | 0.545 · (n=3314)    | report                                  | real+cv     |
-| v4.A2.en-zh.rerecorded             | 0.250 · (n=104)     | 0.250 · (n=104)     | 0.250 · (n=104)     | report                                  | rerecorded  |
-| v4.A2.vi-zh                        | 0.698 · (n=524)     | 0.698 · (n=524)     | 0.698 · (n=524)     | report                                  | real+cv     |
-| v4.A2.vi-zh.ascend                 | 0.829 · (n=152)     | 0.829 · (n=152)     | 0.829 · (n=152)     | report                                  | ascend      |
-| v4.A2.vi-zh.err_after_fallback     | 0.302 · (n=524)     | 0.302 · (n=524)     | 0.302 · (n=524)     | report                                  | real+cv     |
-| v4.A2.vi-zh.rerecorded             | 0.633 · (n=60)      | 0.633 · (n=60)      | 0.633 · (n=60)      | report                                  | rerecorded  |
-| v4.A2.vi-zh.vietmed                | 0.667 · (n=6)       | 0.667 · (n=6)       | 0.667 · (n=6)       | report                                  | vietmed     |
-| v4.A2.vi-zh.vietmed-cut            | 0.653 · (n=300)     | 0.653 · (n=300)     | 0.653 · (n=300)     | report                                  | vietmed-cut |
-| v4.A2.vi-zh.vimedcss               | 0.333 · (n=6)       | 0.333 · (n=6)       | 0.333 · (n=6)       | report                                  | vimedcss    |
-| v4.A3.long.by_lang.en              | 0.913 · (n=1624)    | 0.913 · (n=1624)    | 0.913 · (n=1624)    | report                                  | real        |
-| v4.A3.long.by_lang.vi              | 0.993 · (n=2317)    | 0.993 · (n=2317)    | 0.993 · (n=2317)    | report                                  | real        |
-| v4.A3.long.by_lang.zh              | 0.830 · (n=635)     | 0.830 · (n=635)     | 0.830 · (n=635)     | report                                  | real        |
-| v4.A3.long.vien                    | 0.960 · (n=3941)    | 0.960 · (n=3941)    | 0.960 · (n=3941)    | report                                  | real        |
-| v4.A3.long.zh                      | 0.900 · (n=1135)    | 0.900 · (n=1135)    | 0.900 · (n=1135)    | report                                  | mixed       |
-| v4.A3.short.by_lang.en             | 0.577 · (n=1346)    | 0.577 · (n=1346)    | 0.577 · (n=1346)    | report                                  | real        |
-| v4.A3.short.by_lang.en.ascend      | 0.992 · (n=253)     | 0.992 · (n=253)     | 0.992 · (n=253)     | report                                  | ascend      |
-| v4.A3.short.by_lang.en.edacc       | 0.481 · (n=1068)    | 0.481 · (n=1068)    | 0.481 · (n=1068)    | report                                  | edacc       |
-| v4.A3.short.by_lang.en.rerecorded  | 0.440 · (n=25)      | 0.440 · (n=25)      | 0.440 · (n=25)      | report                                  | rerecorded  |
-| v4.A3.short.by_lang.vi             | 0.560 · (n=159)     | 0.560 · (n=159)     | 0.560 · (n=159)     | report                                  | real        |
-| v4.A3.short.by_lang.vi.rerecorded  | 0.000 · (n=3)       | 0.000 · (n=3)       | 0.000 · (n=3)       | report                                  | rerecorded  |
-| v4.A3.short.by_lang.vi.vietmed     | 0.667 · (n=3)       | 0.667 · (n=3)       | 0.667 · (n=3)       | report                                  | vietmed     |
-| v4.A3.short.by_lang.vi.vietmed-cut | 0.573 · (n=150)     | 0.573 · (n=150)     | 0.573 · (n=150)     | report                                  | vietmed-cut |
-| v4.A3.short.by_lang.vi.vimedcss    | 0.333 · (n=3)       | 0.333 · (n=3)       | 0.333 · (n=3)       | report                                  | vimedcss    |
-| v4.A3.short.by_lang.zh             | 0.203 · (n=765)     | 0.203 · (n=765)     | 0.203 · (n=765)     | report                                  | real        |
-| v4.A3.short.by_lang.zh.ascend      | 0.209 · (n=738)     | 0.209 · (n=738)     | 0.209 · (n=738)     | report                                  | ascend      |
-| v4.A3.short.by_lang.zh.rerecorded  | 0.037 · (n=27)      | 0.037 · (n=27)      | 0.037 · (n=27)      | report                                  | rerecorded  |
-| v4.A3.short.vien                   | 0.575 · (n=1505)    | 0.575 · (n=1505)    | 0.575 · (n=1505)    | report                                  | real        |
-| v4.A3.short.zh                     | 0.203 · (n=765)     | 0.203 · (n=765)     | 0.203 · (n=765)     | report                                  | real        |
-| v4.A4                              | 0.978 · (n=1833)    | 0.978 · (n=1833)    | 0.978 · (n=1833)    | report                                  | real        |
-| v4.A5                              | 0.906 · (n=160)     | 0.906 · (n=160)     | 0.906 · (n=160)     | report                                  | esc50+real  |
-| v4.A5.esc50                        | 0.900 · (n=80)      | 0.900 · (n=80)      | 0.900 · (n=80)      | report                                  | esc50       |
-| v4.A5.real                         | 0.912 · (n=80)      | 0.912 · (n=80)      | 0.912 · (n=80)      | report                                  | real        |
-| v4.A6.en-vi.changed                | 0.086 · (n=6758)    | 0.087 · (n=6758)    | 0.087 · (n=6758)    | report                                  | real        |
-| v4.A6.en-vi.first_language_p95_ms  | 3107.569 · (n=7662) | 3107.535 · (n=7662) | 3107.535 · (n=7662) | report                                  | real        |
-| v4.A6.en-zh.changed                | 0.048 · (n=6428)    | 0.048 · (n=6428)    | 0.048 · (n=6428)    | report                                  | mixed       |
-| v4.A6.en-zh.first_language_p95_ms  | 3100.520 · (n=7648) | 3100.450 · (n=7648) | 3100.450 · (n=7648) | report                                  | mixed       |
-| v4.A6.vi-zh.changed                | 0.048 · (n=3952)    | 0.048 · (n=3952)    | 0.048 · (n=3952)    | report                                  | mixed       |
-| v4.A6.vi-zh.first_language_p95_ms  | 3100.580 · (n=4016) | 3100.580 · (n=4016) | 3100.580 · (n=4016) | report                                  | mixed       |
-| v4.A7                              | 125.710 · (n=29672) | 125.710 · (n=29672) | 125.710 · (n=29672) | report                                  | mixed       |
-| v4.A9-mono.en                      | 0.120 · (n=200)     | 0.120 · (n=200)     | 0.120 · (n=200)     | report                                  | real        |
-| v4.A9-mono.vi                      | 0.000 · (n=200)     | 0.000 · (n=200)     | 0.000 · (n=200)     | report                                  | real        |
-| v4.detect2v3.short.en              | -0.316 · (n=1346)   | -0.316 · (n=1346)   | -0.316 · (n=1346)   | report                                  | real        |
-| v4.detect2v3.short.vi              | -0.182 · (n=159)    | -0.182 · (n=159)    | -0.182 · (n=159)    | report                                  | real        |
-| v4.lock.en-vi.accuracy             | 0.870 · (n=5033)    | 0.870 · (n=5035)    | 0.870 · (n=5035)    | report                                  | real        |
-| v4.lock.en-zh.accuracy             | 0.898 · (n=3610)    | 0.897 · (n=3606)    | 0.897 · (n=3606)    | report                                  | mixed       |
-| v4.lock.vi-zh.accuracy             | 0.942 · (n=3310)    | 0.942 · (n=3310)    | 0.942 · (n=3310)    | report                                  | mixed       |
-| v4.zh_real.A1.en-zh                | 0.841 · (n=1270)    | 0.841 · (n=1270)    | 0.841 · (n=1270)    | report                                  | real        |
-| v4.zh_real.A1.vi-zh                | 0.947 · (n=150)     | 0.947 · (n=150)     | 0.947 · (n=150)     | report                                  | real        |
-| v4.zh_real.A3                      | 0.487 · (n=1400)    | 0.487 · (n=1400)    | 0.487 · (n=1400)    | report                                  | real        |
-| zh_real.A1.en-zh                   | 0.841 · (n=1270)    | 0.841 · (n=1270)    | 0.841 · (n=1270)    | report                                  | real        |
-| zh_real.A1.vi-zh                   | 0.947 · (n=150)     | 0.947 · (n=150)     | 0.947 · (n=150)     | report                                  | real        |
-| zh_real.A3                         | 0.487 · (n=1400)    | 0.487 · (n=1400)    | 0.487 · (n=1400)    | report                                  | real        |
-
 ## whisper_probs_base_ctx5 (cv None, tau_noise 0.0)
 
 | criterion                          | bare                | src                 | src+voice           | threshold                               | data        |
@@ -273,3 +137,139 @@ Outcome: **INCOMPLETE**
 | zh_real.A1.en-zh                   | 0.986 · (n=1270)    | 0.986 · (n=1270)    | 0.986 · (n=1270)    | report                                  | real        |
 | zh_real.A1.vi-zh                   | 1.000 · (n=150)     | 1.000 · (n=150)     | 1.000 · (n=150)     | report                                  | real        |
 | zh_real.A3                         | 0.758 · (n=1400)    | 0.758 · (n=1400)    | 0.758 · (n=1400)    | report                                  | real        |
+
+## whisper_head (cv logo, tau_noise 0.0)
+
+| criterion                          | bare                | src                 | src+voice           | threshold                               | data        |
+| ---------------------------------- | ------------------- | ------------------- | ------------------- | --------------------------------------- | ----------- |
+| A-ACC.detect                       | 0.854 ✗ (n=604)     | 0.854 ✗ (n=604)     | 0.854 ✗ (n=604)     | >=0.95                                  | public      |
+| A-ACC.pair                         | 0.856 ✗ (n=616)     | 0.856 ✗ (n=616)     | 0.856 ✗ (n=616)     | >=0.95                                  | public      |
+| A1.en-vi                           | 0.963 ✗ (n=5586)    | 0.963 ✗ (n=5586)    | 0.963 ✗ (n=5586)    | >=0.97                                  | real        |
+| A1.en-zh                           | 0.946 ✗ (n=4332)    | 0.945 ✗ (n=4332)    | 0.945 ✗ (n=4332)    | >=0.97                                  | mixed       |
+| A1.vi-zh                           | 0.991 ✓ (n=3468)    | 0.991 ✓ (n=3468)    | 0.991 ✓ (n=3468)    | >=0.97                                  | mixed       |
+| A2.en-vi                           | 0.860 ✗ (n=1227)    | 0.860 ✗ (n=1227)    | 0.860 ✗ (n=1227)    | >=0.90 raw OR <=0.05 err after fallback | real+cv     |
+| A2.en-vi.edacc                     | 0.886 · (n=911)     | 0.872 · (n=911)     | 0.872 · (n=911)     | report                                  | edacc       |
+| A2.en-vi.err_after_fallback        | 0.140 ✗ (n=1227)    | 0.151 ✗ (n=1227)    | 0.151 ✗ (n=1227)    | <=0.05                                  | real+cv     |
+| A2.en-vi.rerecorded                | 0.750 · (n=24)      | 0.750 · (n=24)      | 0.750 · (n=24)      | report                                  | rerecorded  |
+| A2.en-vi.vietmed                   | 1.000 · (n=6)       | 1.000 · (n=6)       | 1.000 · (n=6)       | report                                  | vietmed     |
+| A2.en-vi.vietmed-cut               | 0.780 · (n=282)     | 0.780 · (n=282)     | 0.780 · (n=282)     | report                                  | vietmed-cut |
+| A2.en-vi.vimedcss                  | 1.000 · (n=4)       | 1.000 · (n=4)       | 1.000 · (n=4)       | report                                  | vimedcss    |
+| A2.en-zh                           | 0.593 ✗ (n=2094)    | 0.593 ✗ (n=2094)    | 0.593 ✗ (n=2094)    | >=0.90 raw OR <=0.05 err after fallback | real+cv     |
+| A2.en-zh.ascend                    | 0.534 · (n=1374)    | 0.534 · (n=1374)    | 0.534 · (n=1374)    | report                                  | ascend      |
+| A2.en-zh.edacc                     | 0.728 · (n=676)     | 0.728 · (n=676)     | 0.728 · (n=676)     | report                                  | edacc       |
+| A2.en-zh.err_after_fallback        | 0.407 ✗ (n=2094)    | 0.407 ✗ (n=2094)    | 0.407 ✗ (n=2094)    | <=0.05                                  | real+cv     |
+| A2.en-zh.rerecorded                | 0.364 · (n=44)      | 0.364 · (n=44)      | 0.364 · (n=44)      | report                                  | rerecorded  |
+| A2.vi-zh                           | 0.700 ✗ (n=440)     | 0.700 ✗ (n=440)     | 0.700 ✗ (n=440)     | >=0.90 raw OR <=0.05 err after fallback | real+cv     |
+| A2.vi-zh.ascend                    | 0.828 · (n=116)     | 0.828 · (n=116)     | 0.828 · (n=116)     | report                                  | ascend      |
+| A2.vi-zh.err_after_fallback        | 0.300 ✗ (n=440)     | 0.300 ✗ (n=440)     | 0.300 ✗ (n=440)     | <=0.05                                  | real+cv     |
+| A2.vi-zh.rerecorded                | 0.562 · (n=32)      | 0.562 · (n=32)      | 0.562 · (n=32)      | report                                  | rerecorded  |
+| A2.vi-zh.vietmed                   | 0.667 · (n=6)       | 0.667 · (n=6)       | 0.667 · (n=6)       | report                                  | vietmed     |
+| A2.vi-zh.vietmed-cut               | 0.667 · (n=282)     | 0.667 · (n=282)     | 0.667 · (n=282)     | report                                  | vietmed-cut |
+| A2.vi-zh.vimedcss                  | 0.500 · (n=4)       | 0.500 · (n=4)       | 0.500 · (n=4)       | report                                  | vimedcss    |
+| A3.long.by_lang.en                 | 0.913 · (n=1623)    | 0.913 · (n=1623)    | 0.913 · (n=1623)    | report                                  | real        |
+| A3.long.by_lang.vi                 | 0.993 · (n=2305)    | 0.993 · (n=2305)    | 0.993 · (n=2305)    | report                                  | real        |
+| A3.long.by_lang.zh                 | 0.830 · (n=635)     | 0.830 · (n=635)     | 0.830 · (n=635)     | report                                  | real        |
+| A3.long.vien                       | 0.960 ✓ (n=3928)    | 0.960 ✓ (n=3928)    | 0.960 ✓ (n=3928)    | >=0.95                                  | real        |
+| A3.long.zh                         | 0.900 ✗ (n=1135)    | 0.900 ✗ (n=1135)    | 0.900 ✗ (n=1135)    | >=0.95                                  | mixed       |
+| A3.short.by_lang.en                | 0.754 · (n=790)     | 0.754 · (n=790)     | 0.754 · (n=790)     | report                                  | real        |
+| A3.short.by_lang.en.ascend         | 0.995 · (n=208)     | 0.995 · (n=208)     | 0.995 · (n=208)     | report                                  | ascend      |
+| A3.short.by_lang.en.edacc          | 0.668 · (n=573)     | 0.668 · (n=573)     | 0.668 · (n=573)     | report                                  | edacc       |
+| A3.short.by_lang.en.rerecorded     | 0.667 · (n=9)       | 0.667 · (n=9)       | 0.667 · (n=9)       | report                                  | rerecorded  |
+| A3.short.by_lang.vi                | 0.584 · (n=149)     | 0.584 · (n=149)     | 0.584 · (n=149)     | report                                  | real        |
+| A3.short.by_lang.vi.rerecorded     | 0.000 · (n=3)       | 0.000 · (n=3)       | 0.000 · (n=3)       | report                                  | rerecorded  |
+| A3.short.by_lang.vi.vietmed        | 0.667 · (n=3)       | 0.667 · (n=3)       | 0.667 · (n=3)       | report                                  | vietmed     |
+| A3.short.by_lang.vi.vietmed-cut    | 0.596 · (n=141)     | 0.596 · (n=141)     | 0.596 · (n=141)     | report                                  | vietmed-cut |
+| A3.short.by_lang.vi.vimedcss       | 0.500 · (n=2)       | 0.500 · (n=2)       | 0.500 · (n=2)       | report                                  | vimedcss    |
+| A3.short.by_lang.zh                | 0.307 · (n=492)     | 0.307 · (n=492)     | 0.307 · (n=492)     | report                                  | real        |
+| A3.short.by_lang.zh.ascend         | 0.313 · (n=479)     | 0.313 · (n=479)     | 0.313 · (n=479)     | report                                  | ascend      |
+| A3.short.by_lang.zh.rerecorded     | 0.077 · (n=13)      | 0.077 · (n=13)      | 0.077 · (n=13)      | report                                  | rerecorded  |
+| A3.short.vien                      | 0.727 ✗ (n=939)     | 0.727 ✗ (n=939)     | 0.727 ✗ (n=939)     | >=0.85                                  | real        |
+| A3.short.zh                        | 0.307 ✗ (n=492)     | 0.307 ✗ (n=492)     | 0.307 ✗ (n=492)     | >=0.85                                  | real        |
+| A4                                 | 0.978 ✓ (n=1833)    | 0.978 ✓ (n=1833)    | 0.978 ✓ (n=1833)    | >=0.95                                  | real        |
+| A5                                 | 0.906 ✓ (n=160)     | 0.906 ✓ (n=160)     | 0.906 ✓ (n=160)     | >=0.90 rejected                         | esc50+real  |
+| A5.esc50                           | 0.900 · (n=80)      | 0.900 · (n=80)      | 0.900 · (n=80)      | report                                  | esc50       |
+| A5.real                            | 0.912 · (n=80)      | 0.912 · (n=80)      | 0.912 · (n=80)      | report                                  | real        |
+| A6.en-vi.changed                   | 0.087 ✓ (n=6618)    | 0.088 ✓ (n=6618)    | 0.088 ✓ (n=6618)    | <=0.10                                  | real        |
+| A6.en-vi.first_language_p95_ms     | 3111.610 ✓ (n=6813) | 3111.410 ✓ (n=6813) | 3111.410 ✓ (n=6813) | <=3500                                  | real        |
+| A6.en-zh.changed                   | 0.050 ✓ (n=6156)    | 0.051 ✓ (n=6156)    | 0.051 ✓ (n=6156)    | <=0.10                                  | mixed       |
+| A6.en-zh.first_language_p95_ms     | 3105.295 ✓ (n=6426) | 3104.950 ✓ (n=6426) | 3104.950 ✓ (n=6426) | <=3500                                  | mixed       |
+| A6.vi-zh.changed                   | 0.048 ✓ (n=3894)    | 0.048 ✓ (n=3894)    | 0.048 ✓ (n=3894)    | <=0.10                                  | mixed       |
+| A6.vi-zh.first_language_p95_ms     | 3100.762 ✓ (n=3908) | 3100.762 ✓ (n=3908) | 3100.762 ✓ (n=3908) | <=3500                                  | mixed       |
+| A7                                 | 125.710 ✓ (n=29672) | 125.710 ✓ (n=29672) | 125.710 ✓ (n=29672) | <=150 ms p95                            | mixed       |
+| A9-mono.en                         | 0.072 ✗ (n=138)     | 0.072 ✗ (n=138)     | 0.072 ✗ (n=138)     | <=0.03 err (worst source)               | real        |
+| A9-mono.vi                         | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | <=0.03 err (worst source)               | real        |
+| detect2v3.short.en                 | -0.233 ✗ (n=790)    | -0.233 ✗ (n=790)    | -0.235 ✗ (n=790)    | >=-0.02                                 | real        |
+| detect2v3.short.vi                 | -0.161 ✗ (n=149)    | -0.161 ✗ (n=149)    | -0.161 ✗ (n=149)    | >=-0.02                                 | real        |
+| excluded.en                        | 0.188 · (n=2970)    | 0.188 · (n=2970)    | 0.188 · (n=2970)    | report                                  | real        |
+| excluded.vi                        | 0.009 · (n=2476)    | 0.009 · (n=2476)    | 0.009 · (n=2476)    | report                                  | real        |
+| excluded.zh                        | 0.195 · (n=1400)    | 0.195 · (n=1400)    | 0.195 · (n=1400)    | report                                  | real        |
+| lock.en-vi.accuracy                | 0.870 · (n=5009)    | 0.870 · (n=5011)    | 0.870 · (n=5011)    | report                                  | real        |
+| lock.en-zh.accuracy                | 0.898 · (n=3610)    | 0.897 · (n=3606)    | 0.897 · (n=3606)    | report                                  | mixed       |
+| lock.vi-zh.accuracy                | 0.942 · (n=3288)    | 0.942 · (n=3288)    | 0.942 · (n=3288)    | report                                  | mixed       |
+| v4.A-ACC.detect                    | 0.854 · (n=604)     | 0.854 · (n=604)     | 0.854 · (n=604)     | report                                  | public      |
+| v4.A-ACC.pair                      | 0.856 · (n=616)     | 0.856 · (n=616)     | 0.856 · (n=616)     | report                                  | public      |
+| v4.A1.en-vi                        | 0.963 · (n=5612)    | 0.963 · (n=5612)    | 0.963 · (n=5612)    | report                                  | real        |
+| v4.A1.en-zh                        | 0.946 · (n=4334)    | 0.945 · (n=4334)    | 0.945 · (n=4334)    | report                                  | mixed       |
+| v4.A1.vi-zh                        | 0.991 · (n=3492)    | 0.991 · (n=3492)    | 0.991 · (n=3492)    | report                                  | mixed       |
+| v4.A2.en-vi                        | 0.853 · (n=2050)    | 0.853 · (n=2050)    | 0.853 · (n=2050)    | report                                  | real+cv     |
+| v4.A2.en-vi.edacc                  | 0.870 · (n=1682)    | 0.843 · (n=1682)    | 0.843 · (n=1682)    | report                                  | edacc       |
+| v4.A2.en-vi.err_after_fallback     | 0.147 · (n=2050)    | 0.169 · (n=2050)    | 0.169 · (n=2050)    | report                                  | real+cv     |
+| v4.A2.en-vi.rerecorded             | 0.893 · (n=56)      | 0.893 · (n=56)      | 0.893 · (n=56)      | report                                  | rerecorded  |
+| v4.A2.en-vi.vietmed                | 1.000 · (n=6)       | 1.000 · (n=6)       | 1.000 · (n=6)       | report                                  | vietmed     |
+| v4.A2.en-vi.vietmed-cut            | 0.753 · (n=300)     | 0.753 · (n=300)     | 0.753 · (n=300)     | report                                  | vietmed-cut |
+| v4.A2.en-vi.vimedcss               | 0.667 · (n=6)       | 0.667 · (n=6)       | 0.667 · (n=6)       | report                                  | vimedcss    |
+| v4.A2.en-zh                        | 0.453 · (n=3314)    | 0.453 · (n=3314)    | 0.453 · (n=3314)    | report                                  | real+cv     |
+| v4.A2.en-zh.ascend                 | 0.420 · (n=1982)    | 0.420 · (n=1982)    | 0.420 · (n=1982)    | report                                  | ascend      |
+| v4.A2.en-zh.edacc                  | 0.523 · (n=1228)    | 0.529 · (n=1228)    | 0.529 · (n=1228)    | report                                  | edacc       |
+| v4.A2.en-zh.err_after_fallback     | 0.547 · (n=3314)    | 0.545 · (n=3314)    | 0.545 · (n=3314)    | report                                  | real+cv     |
+| v4.A2.en-zh.rerecorded             | 0.250 · (n=104)     | 0.250 · (n=104)     | 0.250 · (n=104)     | report                                  | rerecorded  |
+| v4.A2.vi-zh                        | 0.698 · (n=524)     | 0.698 · (n=524)     | 0.698 · (n=524)     | report                                  | real+cv     |
+| v4.A2.vi-zh.ascend                 | 0.829 · (n=152)     | 0.829 · (n=152)     | 0.829 · (n=152)     | report                                  | ascend      |
+| v4.A2.vi-zh.err_after_fallback     | 0.302 · (n=524)     | 0.302 · (n=524)     | 0.302 · (n=524)     | report                                  | real+cv     |
+| v4.A2.vi-zh.rerecorded             | 0.633 · (n=60)      | 0.633 · (n=60)      | 0.633 · (n=60)      | report                                  | rerecorded  |
+| v4.A2.vi-zh.vietmed                | 0.667 · (n=6)       | 0.667 · (n=6)       | 0.667 · (n=6)       | report                                  | vietmed     |
+| v4.A2.vi-zh.vietmed-cut            | 0.653 · (n=300)     | 0.653 · (n=300)     | 0.653 · (n=300)     | report                                  | vietmed-cut |
+| v4.A2.vi-zh.vimedcss               | 0.333 · (n=6)       | 0.333 · (n=6)       | 0.333 · (n=6)       | report                                  | vimedcss    |
+| v4.A3.long.by_lang.en              | 0.913 · (n=1624)    | 0.913 · (n=1624)    | 0.913 · (n=1624)    | report                                  | real        |
+| v4.A3.long.by_lang.vi              | 0.993 · (n=2317)    | 0.993 · (n=2317)    | 0.993 · (n=2317)    | report                                  | real        |
+| v4.A3.long.by_lang.zh              | 0.830 · (n=635)     | 0.830 · (n=635)     | 0.830 · (n=635)     | report                                  | real        |
+| v4.A3.long.vien                    | 0.960 · (n=3941)    | 0.960 · (n=3941)    | 0.960 · (n=3941)    | report                                  | real        |
+| v4.A3.long.zh                      | 0.900 · (n=1135)    | 0.900 · (n=1135)    | 0.900 · (n=1135)    | report                                  | mixed       |
+| v4.A3.short.by_lang.en             | 0.577 · (n=1346)    | 0.577 · (n=1346)    | 0.577 · (n=1346)    | report                                  | real        |
+| v4.A3.short.by_lang.en.ascend      | 0.992 · (n=253)     | 0.992 · (n=253)     | 0.992 · (n=253)     | report                                  | ascend      |
+| v4.A3.short.by_lang.en.edacc       | 0.481 · (n=1068)    | 0.481 · (n=1068)    | 0.481 · (n=1068)    | report                                  | edacc       |
+| v4.A3.short.by_lang.en.rerecorded  | 0.440 · (n=25)      | 0.440 · (n=25)      | 0.440 · (n=25)      | report                                  | rerecorded  |
+| v4.A3.short.by_lang.vi             | 0.560 · (n=159)     | 0.560 · (n=159)     | 0.560 · (n=159)     | report                                  | real        |
+| v4.A3.short.by_lang.vi.rerecorded  | 0.000 · (n=3)       | 0.000 · (n=3)       | 0.000 · (n=3)       | report                                  | rerecorded  |
+| v4.A3.short.by_lang.vi.vietmed     | 0.667 · (n=3)       | 0.667 · (n=3)       | 0.667 · (n=3)       | report                                  | vietmed     |
+| v4.A3.short.by_lang.vi.vietmed-cut | 0.573 · (n=150)     | 0.573 · (n=150)     | 0.573 · (n=150)     | report                                  | vietmed-cut |
+| v4.A3.short.by_lang.vi.vimedcss    | 0.333 · (n=3)       | 0.333 · (n=3)       | 0.333 · (n=3)       | report                                  | vimedcss    |
+| v4.A3.short.by_lang.zh             | 0.203 · (n=765)     | 0.203 · (n=765)     | 0.203 · (n=765)     | report                                  | real        |
+| v4.A3.short.by_lang.zh.ascend      | 0.209 · (n=738)     | 0.209 · (n=738)     | 0.209 · (n=738)     | report                                  | ascend      |
+| v4.A3.short.by_lang.zh.rerecorded  | 0.037 · (n=27)      | 0.037 · (n=27)      | 0.037 · (n=27)      | report                                  | rerecorded  |
+| v4.A3.short.vien                   | 0.575 · (n=1505)    | 0.575 · (n=1505)    | 0.575 · (n=1505)    | report                                  | real        |
+| v4.A3.short.zh                     | 0.203 · (n=765)     | 0.203 · (n=765)     | 0.203 · (n=765)     | report                                  | real        |
+| v4.A4                              | 0.978 · (n=1833)    | 0.978 · (n=1833)    | 0.978 · (n=1833)    | report                                  | real        |
+| v4.A5                              | 0.906 · (n=160)     | 0.906 · (n=160)     | 0.906 · (n=160)     | report                                  | esc50+real  |
+| v4.A5.esc50                        | 0.900 · (n=80)      | 0.900 · (n=80)      | 0.900 · (n=80)      | report                                  | esc50       |
+| v4.A5.real                         | 0.912 · (n=80)      | 0.912 · (n=80)      | 0.912 · (n=80)      | report                                  | real        |
+| v4.A6.en-vi.changed                | 0.086 · (n=6758)    | 0.087 · (n=6758)    | 0.087 · (n=6758)    | report                                  | real        |
+| v4.A6.en-vi.first_language_p95_ms  | 3107.569 · (n=7662) | 3107.535 · (n=7662) | 3107.535 · (n=7662) | report                                  | real        |
+| v4.A6.en-zh.changed                | 0.048 · (n=6428)    | 0.048 · (n=6428)    | 0.048 · (n=6428)    | report                                  | mixed       |
+| v4.A6.en-zh.first_language_p95_ms  | 3100.520 · (n=7648) | 3100.450 · (n=7648) | 3100.450 · (n=7648) | report                                  | mixed       |
+| v4.A6.vi-zh.changed                | 0.048 · (n=3952)    | 0.048 · (n=3952)    | 0.048 · (n=3952)    | report                                  | mixed       |
+| v4.A6.vi-zh.first_language_p95_ms  | 3100.580 · (n=4016) | 3100.580 · (n=4016) | 3100.580 · (n=4016) | report                                  | mixed       |
+| v4.A7                              | 125.710 · (n=29672) | 125.710 · (n=29672) | 125.710 · (n=29672) | report                                  | mixed       |
+| v4.A9-mono.en                      | 0.120 · (n=200)     | 0.120 · (n=200)     | 0.120 · (n=200)     | report                                  | real        |
+| v4.A9-mono.vi                      | 0.000 · (n=200)     | 0.000 · (n=200)     | 0.000 · (n=200)     | report                                  | real        |
+| v4.detect2v3.short.en              | -0.415 · (n=1346)   | -0.415 · (n=1346)   | -0.416 · (n=1346)   | report                                  | real        |
+| v4.detect2v3.short.vi              | -0.157 · (n=159)    | -0.157 · (n=159)    | -0.157 · (n=159)    | report                                  | real        |
+| v4.lock.en-vi.accuracy             | 0.870 · (n=5033)    | 0.870 · (n=5035)    | 0.870 · (n=5035)    | report                                  | real        |
+| v4.lock.en-zh.accuracy             | 0.898 · (n=3610)    | 0.897 · (n=3606)    | 0.897 · (n=3606)    | report                                  | mixed       |
+| v4.lock.vi-zh.accuracy             | 0.942 · (n=3310)    | 0.942 · (n=3310)    | 0.942 · (n=3310)    | report                                  | mixed       |
+| v4.zh_real.A1.en-zh                | 0.841 · (n=1270)    | 0.841 · (n=1270)    | 0.841 · (n=1270)    | report                                  | real        |
+| v4.zh_real.A1.vi-zh                | 0.947 · (n=150)     | 0.947 · (n=150)     | 0.947 · (n=150)     | report                                  | real        |
+| v4.zh_real.A3                      | 0.487 · (n=1400)    | 0.487 · (n=1400)    | 0.487 · (n=1400)    | report                                  | real        |
+| zh_real.A1.en-zh                   | 0.841 · (n=1270)    | 0.841 · (n=1270)    | 0.841 · (n=1270)    | report                                  | real        |
+| zh_real.A1.vi-zh                   | 0.947 · (n=150)     | 0.947 · (n=150)     | 0.947 · (n=150)     | report                                  | real        |
+| zh_real.A3                         | 0.487 · (n=1400)    | 0.487 · (n=1400)    | 0.487 · (n=1400)    | report                                  | real        |

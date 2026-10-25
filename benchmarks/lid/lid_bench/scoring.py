@@ -32,6 +32,9 @@ TRIPLE = tuple(sorted(LANGUAGES))
 #: What detect chooses from while zh is not identifiable: the baseline 3-way
 #: detect is measured against (`detect2v3.*`).
 DETECT_2WAY = ("en", "vi")
+#: The arm prod runs: every arm's 3-way detect is held against ITS 2-way
+#: decisions, not the arm's own (user decision, 2026-10-25).
+DETECT_BASELINE_ARM = "whisper_probs_base_ctx5"
 #: How far 3-way detect may fall below 2-way detect on the same short vi or en
 #: turns (user decision, 2026-10-24).
 DETECT_REGRESSION_BUDGET = 0.02

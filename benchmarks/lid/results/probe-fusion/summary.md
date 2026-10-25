@@ -62,8 +62,8 @@ Outcome: **INCOMPLETE**
 | A7                                 | 350.780 ✗ (n=29672) | 350.780 ✗ (n=29672) | 350.780 ✗ (n=29672) | <=150 ms p95                            | mixed       |
 | A9-mono.en                         | 0.029 ✓ (n=138)     | 0.029 ✓ (n=138)     | 0.014 ✓ (n=138)     | <=0.03 err (worst source)               | real        |
 | A9-mono.vi                         | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | <=0.03 err (worst source)               | real        |
-| detect2v3.short.en                 | -0.081 ✗ (n=790)    | -0.086 ✗ (n=790)    | -0.073 ✗ (n=790)    | >=-0.02                                 | real        |
-| detect2v3.short.vi                 | -0.034 ✗ (n=149)    | -0.034 ✗ (n=149)    | -0.034 ✗ (n=149)    | >=-0.02                                 | real        |
+| detect2v3.short.en                 | -0.110 ✗ (n=790)    | -0.118 ✗ (n=790)    | -0.099 ✗ (n=790)    | >=-0.02                                 | real        |
+| detect2v3.short.vi                 | 0.188 ✓ (n=149)     | 0.188 ✓ (n=149)     | 0.188 ✓ (n=149)     | >=-0.02                                 | real        |
 | excluded.en                        | 0.188 · (n=2970)    | 0.188 · (n=2970)    | 0.188 · (n=2970)    | report                                  | real        |
 | excluded.vi                        | 0.009 · (n=2476)    | 0.009 · (n=2476)    | 0.009 · (n=2476)    | report                                  | real        |
 | excluded.zh                        | 0.195 · (n=1400)    | 0.195 · (n=1400)    | 0.195 · (n=1400)    | report                                  | real        |
@@ -126,8 +126,8 @@ Outcome: **INCOMPLETE**
 | v4.A7                              | 350.780 · (n=29672) | 350.780 · (n=29672) | 350.780 · (n=29672) | report                                  | mixed       |
 | v4.A9-mono.en                      | 0.020 · (n=200)     | 0.020 · (n=200)     | 0.010 · (n=200)     | report                                  | real        |
 | v4.A9-mono.vi                      | 0.000 · (n=200)     | 0.000 · (n=200)     | 0.000 · (n=200)     | report                                  | real        |
-| v4.detect2v3.short.en              | -0.091 · (n=1346)   | -0.091 · (n=1346)   | -0.082 · (n=1346)   | report                                  | real        |
-| v4.detect2v3.short.vi              | -0.038 · (n=159)    | -0.038 · (n=159)    | -0.038 · (n=159)    | report                                  | real        |
+| v4.detect2v3.short.en              | -0.137 · (n=1346)   | -0.140 · (n=1346)   | -0.124 · (n=1346)   | report                                  | real        |
+| v4.detect2v3.short.vi              | 0.182 · (n=159)     | 0.182 · (n=159)     | 0.182 · (n=159)     | report                                  | real        |
 | v4.lock.en-vi.accuracy             | 0.930 · (n=6114)    | 0.930 · (n=6114)    | 0.930 · (n=6114)    | report                                  | real        |
 | v4.lock.en-zh.accuracy             | 0.948 · (n=5314)    | 0.948 · (n=5311)    | 0.948 · (n=5314)    | report                                  | mixed       |
 | v4.lock.vi-zh.accuracy             | 0.948 · (n=3844)    | 0.948 · (n=3844)    | 0.948 · (n=3844)    | report                                  | mixed       |
