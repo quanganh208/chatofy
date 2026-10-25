@@ -3,10 +3,10 @@
 > **Status: Proposal, partly built.** Conferencing code is on `main` behind two flags,
 > both off by default: `CONFERENCE_ENABLED` (API) and `NEXT_PUBLIC_CONFERENCE_ENABLED`
 > (web, build time); the mobile screens are reachable only in development builds. What
-> exists is a mediasoup SFU inside the API, rooms created by `POST /conference`, signaling
-> on `/ws/conference`, and client-side translation fanned out to the room
+> exists is meeting media on Cloudflare Realtime SFU driven by the API (Decisions 1 and 7),
+> rooms created by `POST /conference`, signaling on `/ws/conference`, and client-side
+> translation fanned out to the room
 > ([video-translation-audio-path.md](./architecture/video-translation-audio-path.md)).
-> Production cannot carry meeting media yet: the network path (Decision 7) is pending.
 > Progress is tracked in [project-roadmap.md](./project-roadmap.md).
 
 **Date:** 2026-09-29  
@@ -654,7 +654,8 @@ Detailed analysis is in [technical-risks-mitigation.md](./technical-risks-mitiga
 
 ## 12. Next Steps
 
-1. Choose the network path (Decision 7); only then the two-network connectivity run.
+1. Run one call on production from two networks (Wi-Fi and 4G, RTT and packet loss); the
+   table is in [video-network-path.md → Measured](./architecture/video-network-path.md#measured).
 2. Measure translation under several simultaneous speakers (Decision 4).
 3. Replace the Pion assumptions above when the next implementation plan is written.
 
@@ -662,27 +663,36 @@ Detailed analysis is in [technical-risks-mitigation.md](./technical-risks-mitiga
 
 ## Open decisions
 
-Decisions 1, 3, 5 and 6 are settled, 2 is superseded, 4 is half measured, 7 is pending. The
-other video documents link here.
+Decisions 1, 3, 5, 6 and 7 are settled, 2 is superseded, 4 is half measured. The other
+video documents link here.
 
-### 1. Media server (SFU) — **Resolved: mediasoup 3.28.0** (Issue #207, 2026-10-05)
+### 1. Media server (SFU) — **Resolved: Cloudflare Realtime SFU** (Issue #208, 2026-10-25)
 
-**Decision:** mediasoup  
-**Rejected:** LiveKit, Pion  
-**Evidence:** the #207 PoC — two browser tabs exchanged audio + video through a
-mediasoup Worker running inside the NestJS API process (`ConferenceWorkerService`,
-`ConferenceRoomRegistry`, `ConferenceGateway`). That module is what is now on `main`
-behind `CONFERENCE_ENABLED`.
+**Decision:** Cloudflare Realtime SFU through its Sessions/Tracks API, driven by the API
+(owner decision). It replaced mediasoup, the in-process SFU the #207 PoC chose on 2026-10-05.  
+**Rejected:** mediasoup, RealtimeKit, LiveKit, Pion
 
-The LiveKit / mediasoup / Pion comparison table, with a source for every cell, and why
-LiveKit and Pion were rejected, is in
-[video-conferencing-v2-synthesis.md → Decision 1](./architecture/video-conferencing-v2-synthesis.md#decision-1--sfu-library-mediasoup-resolved-by-207).
-In one line each: LiveKit needs one extra container, two with recording, on a VM with
-~3.4 GiB headroom; Pion adds a Go service the repo has no toolchain or CI for.
+Why: the production host can accept no inbound connection (measured, Decision 7), and an
+ICE-lite server such as mediasoup needs one. Cloudflare's SFU needs none: every client
+sends media to Cloudflare's edge, and the API drives the SFU over outbound HTTPS. There is
+no SFU VM to run or pay for, since "your application does not deploy SFU servers or select
+an SFU region"
+([architecture](https://developers.cloudflare.com/realtime/sfu/concepts/architecture/)),
+and egress is free up to 1,000 GB/month, shared with TURN
+([pricing](https://developers.cloudflare.com/realtime/sfu/platform/pricing/)). RealtimeKit
+would replace the app's rooms, UI and translation hooks with its own model
+([SFU overview](https://developers.cloudflare.com/realtime/sfu/)).
+
+**Evidence:** `plans/261025-1812-cloudflare-realtime-sfu/research/cloudflare-realtime-sfu-api.md`
+(API, limits, pricing) and `spike/results.md` beside it (the real Cloudflare app from the
+production host's network); the numbers are in
+[video-network-path.md → Measured](./architecture/video-network-path.md#measured). Why
+mediasoup had beaten LiveKit and Pion in #207, with a source for every cell:
+[video-conferencing-v2-synthesis.md → Decision 1](./architecture/video-conferencing-v2-synthesis.md#decision-1--sfu-cloudflare-realtime-sfu-replaced-mediasoup-from-207).
 
 ### 2. Pion implies a Go service beside NestJS — **Superseded by Decision 1**
 
-mediasoup was chosen. The Pion references in §3.1, §7 Phase 3, §9 and the Appendix are
+Pion was rejected in #207. The Pion references in §3.1, §7 Phase 3, §9 and the Appendix are
 the proposal's original assumption, kept to show its intent; they do not describe the code.
 
 ### 3. Billing vs a non-commercial thesis — **Deferred out of thesis scope** (Issue #212, 2026-10-07)
@@ -696,17 +706,18 @@ STT model is licensed for academic/thesis use only (see
 `docs/database-schema-conference.md` as a deferred-model note. Tracking API cost (not
 revenue) against free-tier quotas needs no billing tables, at most a cost column.
 
-### 4. Stated targets — **SFU measured; translation load not** (Issue #211, 2026-10-11)
+### 4. Stated targets — **SFU measured on mediasoup; translation load not** (Issue #211, 2026-10-11)
 
-Measured on the Windows 11 dev machine (loopback SFU, headless Chromium via Playwright):
-the SFU handled 6 × 720p60 peers at ≈ 9.7 Mbps aggregate, so the 6-participant / 720p60
-target holds for media on that machine. Worker CPU reads 0% because Windows does not
-expose `ru_utime` through `getrusage`; memory and byte counts are valid. The per-cell table
-is in
-[video-conferencing-v2-synthesis.md → Load constraints](./architecture/video-conferencing-v2-synthesis.md#2-load-constraints-measured--211-2026-10-11);
-raw data in `benchmarks/video/results/summary.csv`.
+Measured on mediasoup, the SFU since replaced (Decision 1), on the Windows 11 dev machine
+(loopback, headless Chromium via Playwright): 6 × 720p60 peers at ≈ 9.7 Mbps aggregate.
+The per-cell table is in
+[video-conferencing-v2-synthesis.md → Load constraints](./architecture/video-conferencing-v2-synthesis.md#2-load-constraints-measured-on-mediasoup--211-2026-10-11),
+and the run in [development-journey.md](./development-journey.md). Cloudflare's SFU is
+not ours to load-test; its documented limits are 50 API requests per second per session
+and 64 tracks per request
+([limits](https://developers.cloudflare.com/realtime/sfu/platform/limits/)).
 
-Not measured: the production host, and translation under several simultaneous speakers.
+Not measured: translation under several simultaneous speakers.
 Translation latency comes only from a 2-tab local PoC (warm ~5.9 s T1→T2, cold ~9.2 s —
 [video-translation-audio-path.md → Latency](./architecture/video-translation-audio-path.md#7-latency)),
 and a meeting is bounded by the six live translation sessions the API allows server-wide.
@@ -736,28 +747,20 @@ so any recording stored there would be world-readable by URL.
 **Decision:** deferred until a private-bucket or signed-URL policy is decided.
 `ConferenceRecording` is not in the migration (`docs/database-schema-conference.md §9`).
 
-### 7. Network path for meeting media — **Pending** (Issue #208)
+### 7. Network path for meeting media — **Resolved: Cloudflare Realtime SFU** (Issue #208, 2026-10-25)
 
-**Not decided.** An earlier revision recorded "Path A — public media port on the existing
-host"; the host check on 2026-10-12 ruled it out. The production host sits on a **company
-network** whose router is not the operator's: no port forward or inbound port can be added,
-the WAN address cannot be read (so CGNAT no longer matters), and UPnP and NAT-PMP are
-refused. The Cloudflare Tunnel carries signaling (`/ws/conference`) but no media. The path
-must therefore need **no inbound port on this host**. The two candidates, from
-[video-network-path.md](./architecture/video-network-path.md):
+**Decision:** meeting media goes from each client straight to Cloudflare Realtime SFU; the
+Cloudflare Tunnel carries signaling (`/ws/conference`) and nothing else (owner decision,
+2026-10-25). **Rejected:** a public media port on the host, and mediasoup on a relay VPS.
 
-- **§4.5 — mediasoup on a small VPS, plus Cloudflare Realtime TURN** for UDP-blocked
-  clients. Keeps mediasoup and the code on `main`; costs a second host to deploy and pay
-  for, and moves the SFU out of the NestJS process.
-- **§4.2 — Cloudflare Realtime SFU.** No host ports, free tier covers thesis traffic;
-  reopens Decision 1, because it replaces mediasoup.
-
-What each changes in the gateway, the clients and the deploy, and its cost:
-[video-network-path.md → §9](./architecture/video-network-path.md#9-the-two-remaining-candidates-against-the-current-code).
-The owner chooses. Until then there are no host changes and no media ports, and the TURN
-provider is whichever this decision picks. The code-level TURN fixes (per-join HMAC
-credentials, the coturn/mediasoup port split, the TCP listener) apply to §4.5. The
-connectivity run from two networks (Wi-Fi and 4G, RTT and packet loss) waits on the choice.
+The host check on 2026-10-12 ruled out a public port: the production host sits on a
+**company network** whose router is not the operator's, so no port forward or inbound port
+can be added, the WAN address cannot be read, and UPnP and NAT-PMP are refused. A relay VPS
+would route each packet A → VPS → host → VPS → B, four legs against Cloudflare's two, and
+from the host TCP connect to `rtc.live.cloudflare.com` took ~21 ms against ~68 ms to a
+Singapore VPS region (measured 2026-10-25). TURN comes from Cloudflare too, optional and
+free when used with the SFU ([TURN](https://developers.cloudflare.com/realtime/turn/)).
+Reasoning and measurements: [video-network-path.md](./architecture/video-network-path.md).
 
 ---
 
@@ -780,7 +783,7 @@ WebSocket Pipeline      80%    16h     Adapt for multi-participant
 
 ```
 Component              New    Effort  Complexity
-WebRTC SFU            YES     40h     🔴 HIGH (mediasoup — built, flagged off)
+WebRTC SFU            YES     40h     🔴 HIGH (Cloudflare Realtime SFU — built, flagged off)
 Video Grid UI         YES     24h     🟡 MEDIUM
 Message Service       YES      8h     🟢 LOW
 Recording Compositor  YES     32h     🔴 HIGH (FFmpeg) — deferred #212
@@ -791,5 +794,5 @@ TOTAL                          ~136h  (recording deferred; 4 weeks est. 1 eng)
 
 ---
 
-**Document Version:** 1.3  
-**Last Updated:** 2026-10-25 (Decision 7 back to pending; status reflects the flagged code on `main`)
+**Document Version:** 1.4  
+**Last Updated:** 2026-10-25 (Decisions 1 and 7 resolved: Cloudflare Realtime SFU)

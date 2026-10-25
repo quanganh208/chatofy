@@ -597,36 +597,33 @@ deletion, which requires a second API token and is out of scope.
 
 ## Video conferencing (disabled by default)
 
-Conferencing code is on `main`, behind two flags that both default off. Keep both off
-in production: there are no host steps to take while the media network path
-is undecided: it is pending in [Issue #208](https://github.com/quanganh208/chatofy/issues/208)
-and in [Decision 7](./video-conferencing-architecture.md#7-network-path-for-meeting-media--pending-issue-208).
-Do not open ports or start coturn on the production host for it.
+Conferencing code is on `main`, behind two flags that both default off. Meeting media goes
+from each browser or phone straight to Cloudflare Realtime SFU; the API drives the SFU over
+outbound HTTPS and signaling stays on `/ws/conference` through the tunnel. **The host opens
+no port for it**, and there is no media container or relay to run. Why this path, and what
+is measured: [video-network-path.md](./architecture/video-network-path.md) and
+[Decision 7](./video-conferencing-architecture.md#7-network-path-for-meeting-media--resolved-cloudflare-realtime-sfu-issue-208-2026-10-25).
 
-| Variable                         | Read by           | Effect                                                                                                                                                                                                                                                                                                                   |
-| -------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `CONFERENCE_ENABLED`             | api, at boot      | `true` imports the conference module: the mediasoup worker, `/ws/conference`, the `/conference` REST routes. Off, none of them load, so a mediasoup worker that fails to start cannot take the rest of the API down. The image build still installs mediasoup either way (see below).                                    |
-| `NEXT_PUBLIC_CONFERENCE_ENABLED` | web, at **build** | `'true'` shows the nav entry and the `/conference` routes; `'false'` (the default) hides the entry and every `/conference` route returns 404; any other value fails the build. A build arg of `apps/web/Dockerfile`; `docker-compose.prod.yml` does not pass it, so production builds are off. Changing it is a rebuild. |
-| `MEDIASOUP_ANNOUNCED_IP`         | api               | The address mediasoup puts in its ICE candidates. Defaults to `127.0.0.1`, correct for one-machine testing.                                                                                                                                                                                                              |
-| `TURN_URL`, `COTURN_SECRET`      | api               | TURN is handed to clients only when both are set. The API mints short-lived TURN REST credentials per join (`expiry:userId`, HMAC-SHA1 with the secret); the secret itself never leaves the server.                                                                                                                      |
+| Variable                                                       | Read by           | Effect                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CONFERENCE_ENABLED`                                           | api, at boot      | `true` imports the conference module: `/ws/conference`, the `/conference` REST routes and the Cloudflare client. Off, none of them load and nothing talks to Cloudflare.                                                                                                                                                                                  |
+| `NEXT_PUBLIC_CONFERENCE_ENABLED`                               | web, at **build** | `'true'` shows the nav entry and the `/conference` routes; `'false'` (the default) hides the entry and every `/conference` route returns 404; any other value fails the build. A build arg of `apps/web/Dockerfile`, which `docker-compose.prod.yml` passes from prod.env (default `false`). Changing it is a **web rebuild**, like `R2_PUBLIC_BASE_URL`. |
+| `CLOUDFLARE_REALTIME_APP_ID`, `CLOUDFLARE_REALTIME_APP_SECRET` | api               | The Realtime SFU app (Cloudflare dashboard, Realtime → Serverless SFU). Required once `CONFERENCE_ENABLED` is on: the API refuses to boot without both. The secret is the API's bearer token for the SFU and never reaches a client.                                                                                                                      |
+| `CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_KEY_API_TOKEN`      | api               | Optional, recommended in production. TURN is on only when both are set: each join then gets short-lived TURN credentials beside Cloudflare's STUN, for networks that block UDP. Free when used with the SFU ([TURN](https://developers.cloudflare.com/realtime/turn/)). Unset, clients get STUN only.                                                     |
 
-Ports, from code: the mediasoup worker uses RTC ports **50000–59999** (UDP and TCP,
-`conference-worker.service.ts`); the coturn relay in `docker-compose.yml` uses
-**40000–49999**, so the two never overlap. coturn exists only in the development
-compose file, for LAN tests; which TURN production uses follows Decision 7.
+All six are commented, so optional, in `prod.env.example`; `scripts/check-prod-env.mjs`
+accepts prod.env with or without them. Turning meetings on is: add the four Cloudflare keys
+and both flags set to `true` to prod.env, then deploy. Turning them off is both flags back
+to `false` and a deploy; the API then never constructs the Cloudflare client.
 
-To check a TURN server, use the
+Cloudflare egress is free up to 1,000 GB/month, shared between the SFU and TURN, then
+$0.05/GB on the account bill
+([pricing](https://developers.cloudflare.com/realtime/sfu/platform/pricing/)).
+
+To check that TURN relays, use the
 [Trickle ICE page](https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/)
-(a `relay` candidate means the relay works) or `turnutils_uclient` from the coturn
-package. `curl` tests nothing: TURN is not HTTP.
-
-The API image is `node:24-trixie-slim`, not Alpine or bookworm, because mediasoup's
-prebuilt worker needs glibc 2.38 on a kernel-7 build host; `apps/api/Dockerfile` carries
-the details. That install runs whatever `CONFERENCE_ENABLED` says: every API image build
-downloads the worker binary from mediasoup's GitHub releases, and falls back to a
-source build (which fails, the image has no compiler) if the download is blocked or the
-binary does not run. The flag isolates conferencing at runtime only. How to run a
-meeting locally is in
+with credentials from a join reply (a `relay` candidate means the relay works). `curl` tests
+nothing: TURN is not HTTP. How to run a meeting locally is in
 [conference-demo-runbook.md](./conference-demo-runbook.md).
 
 ## Known gaps
