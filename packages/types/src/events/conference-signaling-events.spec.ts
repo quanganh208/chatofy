@@ -51,7 +51,7 @@ describe('ConferenceMediaSubscribeReplySchema', () => {
 });
 
 describe('CONFERENCE_ERROR_CODES', () => {
-  it('names SFU failures and no longer carries the mediasoup transport code', () => {
+  it('names SFU failures and no longer carries the old transport error code', () => {
     expect(CONFERENCE_ERROR_CODES).toContain('sfu_unavailable');
     expect(CONFERENCE_ERROR_CODES).not.toContain('transport_exists');
   });
