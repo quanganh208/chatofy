@@ -54,10 +54,9 @@ COPY . .
 # cache mount, make the next layer's pnpm freshness check purge node_modules and
 # abort for want of a TTY.
 #
-# Scoped to web's own dependency graph plus the workspace root (turbo, husky).
-# A whole-workspace install would also install the api's mediasoup, whose
-# postinstall needs a glibc prebuilt worker and fails on this musl image; web
-# never imports it (it uses mediasoup-client, which is plain JS).
+# Scoped to web's own dependency graph plus the workspace root (turbo, husky),
+# so the image never installs or builds the api's and mobile's native
+# dependencies, which web does not import.
 RUN --mount=type=cache,id=chatofy-pnpm-store,target=/pnpm-store \
     pnpm install --frozen-lockfile --store-dir /pnpm-store --filter "web..." --filter "."
 

@@ -37,3 +37,15 @@ describe('parseRoomEvent — chat refusals', () => {
     });
   });
 });
+
+describe('parseRoomEvent — media', () => {
+  it('reads a peer whose tracks went live on the SFU', () => {
+    expect(
+      parseRoomEvent({ event: 'conference.media.published', data: { socketId: 's-1' } }),
+    ).toEqual({ type: 'media-published', socketId: 's-1' });
+  });
+
+  it('drops a published announcement with no socket id', () => {
+    expect(parseRoomEvent({ event: 'conference.media.published', data: {} })).toBeNull();
+  });
+});

@@ -124,7 +124,7 @@ vi.mock('next-auth/react', () => ({
 }));
 
 // `useConference` is mocked so the conference page can be mounted in happy-dom
-// without a real WebSocket or mediasoup device. Typed against the hook's return,
+// without a real WebSocket or WebRTC connection. Typed against the hook's return,
 // and every row builds its value through `call()` below, so a field the page
 // reads that the hook stops returning is a type error here, not a silent
 // `undefined` in a counting test.
