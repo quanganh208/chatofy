@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CONFERENCE_CLOSE_ENDED,
   CONFERENCE_CLOSE_REPLACED,
+  MAX_CONFERENCE_AUDIO_PAYLOAD_CHARS,
 } from '@chatofy/types';
 import { InMemoryConferencePrisma } from '../../../test/utils/in-memory-conference-prisma';
 import type { AuthAdapter } from '../auth/interfaces/auth-adapter.interface';
@@ -20,6 +21,7 @@ import { SOCKET_OPEN, type ConferenceSocket } from './conference-socket';
 import { ConferenceWebRtcTransportFactory } from './conference-webrtc-transport.factory';
 import type { ConferenceWorkerService } from './conference-worker.service';
 import { CHAT_BURST, ConferenceChat } from './services/conference-chat.service';
+import { RELAY_CHAR_BURST } from './services/conference-translation-relay.service';
 import { ConferencePersistenceService } from './services/conference-persistence.service';
 import { ConferenceTranslationRelay } from './services/conference-translation-relay.service';
 import { ConferenceTranslationRouter } from './services/conference-translation-router.service';
@@ -76,6 +78,19 @@ function fakeTransport() {
     dtlsParameters: {},
     close: vi.fn(),
     connect: vi.fn().mockResolvedValue(undefined),
+    produce: vi.fn(async ({ kind }: { kind: string }) => {
+      // Resolves on a later tick, like a real worker round trip, so calls
+      // pipelined by one client overlap.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      transportSeq += 1;
+      return {
+        id: `p${transportSeq}`,
+        kind,
+        appData: {},
+        on: vi.fn(),
+        close: vi.fn(),
+      };
+    }),
   };
 }
 
@@ -90,8 +105,11 @@ function fakeRouter() {
 
 function buildHarness() {
   const prisma = new InMemoryConferencePrisma();
+  let workerDied: () => void = () => undefined;
   const worker = {
-    onWorkerDied: vi.fn(),
+    onWorkerDied: (listener: () => void) => {
+      workerDied = listener;
+    },
     getWorker: () => ({ createRouter: () => Promise.resolve(fakeRouter()) }),
   } as unknown as ConferenceWorkerService;
   const config = {
@@ -157,6 +175,7 @@ function buildHarness() {
   };
 
   return {
+    killWorker: () => workerDied(),
     prisma,
     rooms,
     conferences,
@@ -263,6 +282,92 @@ describe('ConferenceGateway', () => {
       expect(
         h.prisma.participants.find((p) => p.userId === 'bob')?.status,
       ).toBe('joined');
+    });
+  });
+
+  describe('rejoin while alone', () => {
+    it('keeps the live room when the only peer is the same user rejoining', async () => {
+      const first = h.connect('bob');
+      await h.join(first, roomId, 'Bob', 'en');
+      const room = h.rooms.getRoom(roomId);
+      const router = room?.router as unknown as {
+        close: ReturnType<typeof vi.fn>;
+      };
+
+      const second = h.connect('bob');
+      const reply = await h.join(second, roomId, 'Bob', 'en');
+
+      expect(reply).toHaveProperty('socketId', second._socketId);
+      expect(first.closedWith?.code).toBe(CONFERENCE_CLOSE_REPLACED);
+      expect(h.rooms.getRoom(roomId)).toBe(room);
+      expect(router.close).not.toHaveBeenCalled();
+      expect([...(room?.peers.keys() ?? [])]).toStrictEqual([second._socketId]);
+
+      await h.gateway.handleTransportCreate(second, { direction: 'send' });
+      expect(second.last('conference.transport.create')).toHaveProperty('id');
+    });
+
+    it('opens the room again when it was torn down mid-join while still joinable', async () => {
+      const ws = h.connect('bob');
+      const status = h.conferences.joinableStatus.bind(h.conferences);
+      let calls = 0;
+      vi.spyOn(h.conferences, 'joinableStatus').mockImplementation(
+        async (id) => {
+          calls += 1;
+          // The re-check after the room was opened: the media worker dies just
+          // before it answers, dropping every room.
+          if (calls === 2) h.killWorker();
+          return status(id);
+        },
+      );
+
+      const reply = await h.join(ws, roomId, 'Bob', 'en');
+
+      expect(reply).toHaveProperty('socketId', ws._socketId);
+      expect(h.rooms.getRoom(roomId)?.peers.has(ws._socketId ?? '')).toBe(true);
+    });
+
+    it('does not drop a room another join is holding when one join aborts', async () => {
+      const aborting = h.connect('bob');
+      const staying = h.connect('carol');
+      const joins = [
+        h.join(aborting, roomId, 'Bob', 'en'),
+        h.join(staying, roomId, 'Carol', 'vi'),
+      ];
+      // Bob's socket closes while both joins are in flight.
+      aborting.readyState = 3;
+      await Promise.all(joins);
+
+      expect(staying.last('conference.join')).toHaveProperty('socketId');
+      const room = h.rooms.getRoom(roomId);
+      expect([...(room?.peers.keys() ?? [])]).toStrictEqual([
+        staying._socketId,
+      ]);
+      await h.gateway.handleTransportCreate(staying, { direction: 'recv' });
+      expect(staying.last('conference.transport.create')).toHaveProperty('id');
+    });
+  });
+
+  describe('produce', () => {
+    const produceBody = (kind: 'audio' | 'video') => ({
+      kind,
+      rtpParameters: { codecs: [{ mimeType: 'audio/opus' }] },
+    });
+
+    it('counts produce calls still in flight against the per-peer cap', async () => {
+      const ws = h.connect('bob');
+      await h.join(ws, roomId, 'Bob', 'en');
+      await h.gateway.handleTransportCreate(ws, { direction: 'send' });
+
+      await Promise.all([
+        h.gateway.handleProduce(ws, produceBody('audio')),
+        h.gateway.handleProduce(ws, produceBody('video')),
+        h.gateway.handleProduce(ws, produceBody('video')),
+      ]);
+
+      const replies = ws.all('conference.produce');
+      expect(replies.filter((r) => 'id' in r)).toHaveLength(2);
+      expect(replies).toContainEqual({ error: 'limit_reached' });
     });
   });
 
@@ -373,6 +478,75 @@ describe('ConferenceGateway', () => {
         sourceText: 'xin chào',
         translations: { en: 'hello' },
       });
+    });
+
+    it('refuses frames past the per-peer relay budget with limit_reached', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      const speaker = h.connect('alice');
+      const listener = h.connect('carol');
+      await h.join(speaker, roomId, 'Alice', 'vi');
+      await h.join(listener, roomId, 'Carol', 'en');
+      const bigFrame = {
+        audio: {
+          lang: 'en',
+          sequence: 0,
+          sampleRate: 24000,
+          payload: 'A'.repeat(MAX_CONFERENCE_AUDIO_PAYLOAD_CHARS),
+        },
+      };
+
+      const allowed = Math.floor(
+        RELAY_CHAR_BURST / MAX_CONFERENCE_AUDIO_PAYLOAD_CHARS,
+      );
+      for (let i = 0; i <= allowed; i += 1) {
+        h.gateway.handleTranslationBroadcast(speaker, bigFrame);
+      }
+
+      expect(listener.all('conference.translation.audio')).toHaveLength(
+        allowed,
+      );
+      expect(speaker.last('conference.translation.broadcast')).toStrictEqual({
+        error: 'limit_reached',
+      });
+
+      // The budget refills: a second later the speaker is heard again.
+      vi.setSystemTime(Date.now() + 1000);
+      h.gateway.handleTranslationBroadcast(speaker, bigFrame);
+      expect(listener.all('conference.translation.audio')).toHaveLength(
+        allowed + 1,
+      );
+    });
+
+    it('lets a real-time speaker through: 200 ms audio frames plus subtitle deltas for a minute', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      const speaker = h.connect('alice');
+      const listener = h.connect('carol');
+      await h.join(speaker, roomId, 'Alice', 'vi');
+      await h.join(listener, roomId, 'Carol', 'en');
+      const audio = {
+        lang: 'en',
+        sequence: 0,
+        sampleRate: 24000,
+        // 200 ms of 24 kHz pcm16, base64.
+        payload: 'A'.repeat(12_800),
+      };
+      const subtitle = {
+        sourceLanguage: 'vi',
+        targetLanguage: 'en',
+        sourceText: 'x'.repeat(2000),
+        translatedText: 'y'.repeat(2000),
+        isFinal: false,
+        turnId,
+      };
+
+      // Speech delivered twice as fast as real time, a delta every 100 ms.
+      for (let tick = 0; tick < 600; tick += 1) {
+        vi.setSystemTime(Date.now() + 100);
+        h.gateway.handleTranslationBroadcast(speaker, { subtitle, audio });
+      }
+
+      expect(speaker.all('conference.translation.broadcast')).toStrictEqual([]);
+      expect(listener.all('conference.translation.audio')).toHaveLength(600);
     });
 
     it('refuses a frame that does not match the contract', async () => {

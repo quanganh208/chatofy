@@ -7,7 +7,7 @@ import {
 } from '@chatofy/types';
 import { PipelineTranslatorService } from '../../translate/services/pipeline-translator.service';
 import { ConferencePeerLifecycle } from '../conference-peer-lifecycle.service';
-import type { ChatAllowance } from '../conference-room-registry.service';
+import { TokenBucket } from '../conference-token-bucket';
 import { ConferenceSocketRegistry } from '../conference-socket-registry.service';
 import {
   parsePayload,
@@ -60,7 +60,11 @@ export class ConferenceChat {
       return;
     }
     const { room, peer, socketId } = resolved;
-    if (!takeToken(peer, Date.now())) {
+    peer.limits.chat ??= new TokenBucket(
+      CHAT_BURST,
+      CHAT_BURST / (CHAT_REFILL_WINDOW_MS / 1000),
+    );
+    if (!peer.limits.chat.take()) {
       reply({ error: 'limit_reached' });
       return;
     }
@@ -139,20 +143,4 @@ function isTooLong(body: unknown): boolean {
     typeof text === 'string' &&
     text.trim().length > MAX_CONFERENCE_CHAT_TEXT_CHARS
   );
-}
-
-/** Spend one chat token, refilling first. False when the bucket is empty. */
-function takeToken(
-  peer: { chat: ChatAllowance | null },
-  nowMs: number,
-): boolean {
-  const bucket = peer.chat ?? { tokens: CHAT_BURST, refilledAt: nowMs };
-  const refill =
-    ((nowMs - bucket.refilledAt) / CHAT_REFILL_WINDOW_MS) * CHAT_BURST;
-  bucket.tokens = Math.min(CHAT_BURST, bucket.tokens + refill);
-  bucket.refilledAt = nowMs;
-  peer.chat = bucket;
-  if (bucket.tokens < 1) return false;
-  bucket.tokens -= 1;
-  return true;
 }

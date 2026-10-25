@@ -605,7 +605,7 @@ Do not open ports or start coturn on the production host for it.
 
 | Variable                         | Read by           | Effect                                                                                                                                                                                                                                                                                                                   |
 | -------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `CONFERENCE_ENABLED`             | api, at boot      | `true` imports the conference module: the mediasoup worker, `/ws/conference`, the `/conference` REST routes. Off, none of them exist, so a broken mediasoup install cannot take the rest of the API down.                                                                                                                |
+| `CONFERENCE_ENABLED`             | api, at boot      | `true` imports the conference module: the mediasoup worker, `/ws/conference`, the `/conference` REST routes. Off, none of them load, so a mediasoup worker that fails to start cannot take the rest of the API down. The image build still installs mediasoup either way (see below).                                    |
 | `NEXT_PUBLIC_CONFERENCE_ENABLED` | web, at **build** | `'true'` shows the nav entry and the `/conference` routes; `'false'` (the default) hides the entry and every `/conference` route returns 404; any other value fails the build. A build arg of `apps/web/Dockerfile`; `docker-compose.prod.yml` does not pass it, so production builds are off. Changing it is a rebuild. |
 | `MEDIASOUP_ANNOUNCED_IP`         | api               | The address mediasoup puts in its ICE candidates. Defaults to `127.0.0.1`, correct for one-machine testing.                                                                                                                                                                                                              |
 | `TURN_URL`, `COTURN_SECRET`      | api               | TURN is handed to clients only when both are set. The API mints short-lived TURN REST credentials per join (`expiry:userId`, HMAC-SHA1 with the secret); the secret itself never leaves the server.                                                                                                                      |
@@ -622,7 +622,11 @@ package. `curl` tests nothing: TURN is not HTTP.
 
 The API image is `node:24-trixie-slim`, not Alpine or bookworm, because mediasoup's
 prebuilt worker needs glibc 2.38 on a kernel-7 build host; `apps/api/Dockerfile` carries
-the details. How to run a meeting locally is in
+the details. That install runs whatever `CONFERENCE_ENABLED` says: every API image build
+downloads the worker binary from mediasoup's GitHub releases, and falls back to a
+source build (which fails, the image has no compiler) if the download is blocked or the
+binary does not run. The flag isolates conferencing at runtime only. How to run a
+meeting locally is in
 [conference-demo-runbook.md](./conference-demo-runbook.md).
 
 ## Known gaps

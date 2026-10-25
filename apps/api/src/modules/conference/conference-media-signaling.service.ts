@@ -121,16 +121,27 @@ export class ConferenceMediaSignaling {
           reply({ error: 'invalid_payload' });
           return;
         }
-        if (peer.producers.size >= MAX_PRODUCERS_PER_PEER) {
+        // In-flight calls count too, or a client pipelining `produce` would
+        // pass the check N times before the first one landed.
+        if (
+          peer.producers.size + peer.pendingProduces >=
+          MAX_PRODUCERS_PER_PEER
+        ) {
           reply({ error: 'limit_reached' });
           return;
         }
-        const producer = await peer.sendTransport.produce({
-          kind: input.kind,
-          // Shape-checked by the schema; mediasoup validates the rest and throws.
-          rtpParameters: input.rtpParameters as types.RtpParameters,
-          appData: input.appData ?? {},
-        });
+        peer.pendingProduces += 1;
+        let producer: types.Producer;
+        try {
+          producer = await peer.sendTransport.produce({
+            kind: input.kind,
+            // Shape-checked by the schema; mediasoup validates the rest and throws.
+            rtpParameters: input.rtpParameters as types.RtpParameters,
+            appData: input.appData ?? {},
+          });
+        } finally {
+          peer.pendingProduces -= 1;
+        }
         if (!this.lifecycle.isCurrent(resolved)) {
           producer.close();
           return;
@@ -161,7 +172,10 @@ export class ConferenceMediaSignaling {
           reply({ error: 'invalid_payload' });
           return;
         }
-        if (peer.consumers.size >= MAX_CONSUMERS_PER_PEER) {
+        if (
+          peer.consumers.size + peer.pendingConsumes >=
+          MAX_CONSUMERS_PER_PEER
+        ) {
           reply({ error: 'limit_reached' });
           return;
         }
@@ -174,11 +188,17 @@ export class ConferenceMediaSignaling {
           reply({ error: 'invalid_payload' });
           return;
         }
-        const consumer = await peer.recvTransport.consume({
-          producerId: input.producerId,
-          rtpCapabilities,
-          paused: true,
-        });
+        peer.pendingConsumes += 1;
+        let consumer: types.Consumer;
+        try {
+          consumer = await peer.recvTransport.consume({
+            producerId: input.producerId,
+            rtpCapabilities,
+            paused: true,
+          });
+        } finally {
+          peer.pendingConsumes -= 1;
+        }
         if (!this.lifecycle.isCurrent(resolved)) {
           consumer.close();
           return;

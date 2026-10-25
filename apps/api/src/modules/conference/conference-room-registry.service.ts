@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { types } from 'mediasoup';
 import type { LanguageCode } from '@chatofy/types';
 import { ConferenceWorkerService } from './conference-worker.service';
+import type { TokenBucket } from './conference-token-bucket';
 
 /**
  * Mediasoup codec capabilities offered by every room router.
@@ -42,12 +43,19 @@ export interface ConferenceRoom {
   router: types.Router;
   /** socketId → participant session */
   peers: Map<string, ParticipantSession>;
+  /**
+   * Joins holding this room between opening it and adding their peer. An
+   * empty room with a join in flight is not dropped, or that join would be
+   * seated on a closed router.
+   */
+  joining: number;
 }
 
-/** Token-bucket state for one peer's chat sends. */
-export interface ChatAllowance {
-  tokens: number;
-  refilledAt: number;
+/** Per-peer rate limits, created lazily by the handler that owns each one. */
+export interface PeerLimits {
+  chat?: TokenBucket;
+  relayFrames?: TokenBucket;
+  relayChars?: TokenBucket;
 }
 
 export interface ParticipantSession {
@@ -62,12 +70,14 @@ export interface ParticipantSession {
   recvTransport: types.WebRtcTransport | null;
   /** Directions whose transport is being created right now. */
   creatingTransports: Set<'send' | 'recv'>;
+  /** Produce / consume calls awaiting mediasoup, counted against the caps. */
+  pendingProduces: number;
+  pendingConsumes: number;
   producers: Map<string, types.Producer>;
   consumers: Map<string, types.Consumer>;
   /** Turns already persisted, so a repeated final frame writes nothing. */
   persistedTurnIds: Set<string>;
-  /** Null until the peer first chats; the chat handler owns the bucket size. */
-  chat: ChatAllowance | null;
+  limits: PeerLimits;
 }
 
 export type NewParticipant = Pick<
@@ -136,7 +146,12 @@ export class ConferenceRoomRegistry {
             throw new RoomClosedError(roomId);
           }
           this.pending.delete(roomId);
-          const room: ConferenceRoom = { id: roomId, router, peers: new Map() };
+          const room: ConferenceRoom = {
+            id: roomId,
+            router,
+            peers: new Map(),
+            joining: 0,
+          };
           this.rooms.set(roomId, room);
           this.logger.log(`Room created: ${roomId}`);
           return room;
@@ -148,6 +163,19 @@ export class ConferenceRoomRegistry {
       );
     this.pending.set(roomId, created);
     return created;
+  }
+
+  /** Open (or share) the room for a join, holding it open until released. */
+  async acquireForJoin(roomId: string): Promise<ConferenceRoom> {
+    const room = await this.getOrCreateRoom(roomId);
+    room.joining += 1;
+    return room;
+  }
+
+  /** The join is done with `room` — seated or aborted. */
+  releaseJoin(room: ConferenceRoom): void {
+    room.joining = Math.max(0, room.joining - 1);
+    this.dropIfEmpty(room);
   }
 
   getRoom(roomId: string): ConferenceRoom | undefined {
@@ -175,15 +203,21 @@ export class ConferenceRoomRegistry {
       sendTransport: null,
       recvTransport: null,
       creatingTransports: new Set(),
+      pendingProduces: 0,
+      pendingConsumes: 0,
       producers: new Map(),
       consumers: new Map(),
       persistedTurnIds: new Set(),
-      chat: null,
+      limits: {},
     };
     room.peers.set(socketId, peer);
     return peer;
   }
 
+  /**
+   * Remove a peer and close its media. The room closes when it is left empty
+   * and no join is holding it.
+   */
   removePeer(room: ConferenceRoom, socketId: string): void {
     const peer = room.peers.get(socketId);
     if (!peer) return;
@@ -192,9 +226,9 @@ export class ConferenceRoomRegistry {
     this.dropIfEmpty(room);
   }
 
-  /** Close a room nobody is in, e.g. after a join aborted mid-way. */
+  /** Close a room nobody is in or joining, e.g. after a join aborted mid-way. */
   dropIfEmpty(room: ConferenceRoom): void {
-    if (room.peers.size > 0 || !this.isLive(room)) return;
+    if (room.peers.size > 0 || room.joining > 0 || !this.isLive(room)) return;
     this.rooms.delete(room.id);
     room.router.close();
     this.logger.log(`Room removed (empty): ${room.id}`);

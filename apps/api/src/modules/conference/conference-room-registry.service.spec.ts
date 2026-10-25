@@ -87,6 +87,21 @@ describe('ConferenceRoomRegistry', () => {
     expect(room.peers.size).toBe(0);
   });
 
+  it('keeps an empty room open while a join holds it, and closes it once released', async () => {
+    const w = fakeWorker();
+    const registry = new ConferenceRoomRegistry(w.worker);
+    const held = await registry.acquireForJoin('room');
+    const aborted = await registry.acquireForJoin('room');
+
+    registry.releaseJoin(aborted);
+    expect(registry.isLive(held)).toBe(true);
+    expect(w.routers[0]?.close).not.toHaveBeenCalled();
+
+    registry.releaseJoin(held);
+    expect(registry.getRoom('room')).toBeUndefined();
+    expect(w.routers[0]?.close).toHaveBeenCalled();
+  });
+
   it('closes the router once the last peer leaves', async () => {
     const w = fakeWorker();
     const registry = new ConferenceRoomRegistry(w.worker);

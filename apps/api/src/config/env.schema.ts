@@ -168,8 +168,10 @@ export const envSchema = z.object({
   // ── Video conferencing (mediasoup + coturn) ───────────────────────────────
   // Video conferencing (mediasoup SFU + coturn). OFF by default: while false
   // the ConferenceModule is not imported at all, so no mediasoup worker is
-  // spawned and neither `/ws/conference` nor `/conference` exists. A broken
-  // mediasoup install therefore cannot take the rest of the API down.
+  // spawned and neither `/ws/conference` nor `/conference` exists. This
+  // isolates the API at RUNTIME only: the image build still installs
+  // mediasoup and runs its postinstall (which downloads the prebuilt worker),
+  // so a failing mediasoup install fails the build whatever this is set to.
   CONFERENCE_ENABLED: envFlag,
   // Benchmark-only SFU metrics tap at GET /conference/metrics.
   CONFERENCE_METRICS_ENABLED: envFlag,

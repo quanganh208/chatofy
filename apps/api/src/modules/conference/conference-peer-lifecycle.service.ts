@@ -86,13 +86,28 @@ export class ConferencePeerLifecycle {
         input.sourceLanguage,
       );
       joinRecorded = true;
-      room = await this.rooms.getOrCreateRoom(input.roomId);
+      // Held from here until `finally`, so neither an eviction below nor
+      // another join aborting can drop the room as empty under this one.
+      room = await this.rooms.acquireForJoin(input.roomId);
       // Re-checked after the awaits: an owner who ended the room in the
       // meantime has either flipped the status (refused here) or will close
       // this peer through the registry once it is added below.
-      const after = await this.conferences.joinableStatus(input.roomId);
-      if (after !== 'joinable' || !this.rooms.isLive(room)) {
-        reply({ error: after === 'joinable' ? 'room_ended' : after });
+      let after = await this.conferences.joinableStatus(input.roomId);
+      if (after === 'joinable' && !this.rooms.isLive(room)) {
+        // Still joinable, yet torn down meanwhile — a media-worker restart.
+        // The meeting is running, so open it again once rather than report
+        // a terminal `room_ended`.
+        this.rooms.releaseJoin(room);
+        room = undefined;
+        room = await this.rooms.acquireForJoin(input.roomId);
+        after = await this.conferences.joinableStatus(input.roomId);
+      }
+      if (after !== 'joinable') {
+        reply({ error: after });
+        return;
+      }
+      if (!this.rooms.isLive(room)) {
+        reply({ error: 'internal_error' });
         return;
       }
       // The socket may have closed while this join awaited; its disconnect
@@ -126,7 +141,12 @@ export class ConferencePeerLifecycle {
       });
     } catch (err) {
       if (err instanceof RoomClosedError) {
-        reply({ error: 'room_ended' });
+        // The creation this join waited on was cancelled: by the owner ending
+        // the room, or by a worker restart (retryable).
+        const status = await this.conferences
+          .joinableStatus(input.roomId)
+          .catch(() => 'joinable' as const);
+        reply({ error: status === 'joinable' ? 'internal_error' : status });
       } else {
         this.logger.error(`join failed for ${socketId}`, err);
         reply({ error: 'internal_error' });
@@ -138,7 +158,7 @@ export class ConferencePeerLifecycle {
       if (joinRecorded && !this.hasSeat(input.roomId, userId)) {
         void this.persistence.recordLeave(input.roomId, userId);
       }
-      if (room && !ws._roomId) this.rooms.dropIfEmpty(room);
+      if (room) this.rooms.releaseJoin(room);
     }
   }
 
