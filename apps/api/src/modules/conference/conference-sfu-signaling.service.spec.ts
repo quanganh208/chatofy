@@ -38,7 +38,9 @@ function fakeCloudflare() {
         }),
     ),
     renegotiate: vi.fn(() => Promise.resolve()),
-    forceCloseTracks: vi.fn(() => Promise.resolve()),
+    forceCloseTracks: vi.fn((_id: string, _mids: string[]) =>
+      Promise.resolve(),
+    ),
     generateIceServers: vi.fn(() => Promise.resolve(null)),
   };
 }
@@ -110,6 +112,15 @@ function harness() {
 
 /** Let fire-and-forget work queued on the session queues settle. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/** A promise the test resolves by hand, to hold a Cloudflare call in flight. */
+function deferred<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((r) => (resolve = r));
+  return { promise, resolve };
+}
+
+type ForceClose = [string, string[]];
 
 describe('ConferenceSfuSignaling', () => {
   afterEach(() => {
@@ -383,11 +394,11 @@ describe('ConferenceSfuSignaling', () => {
   });
 
   it('offers Cloudflare STUN alone without TURN, and drops port-53 TURN URLs', async () => {
-    const h = harness();
-    expect(await h.sfu.iceServersFor()).toStrictEqual([
+    expect(await harness().sfu.iceServersFor()).toStrictEqual([
       { urls: 'stun:stun.cloudflare.com:3478' },
     ]);
 
+    const h = harness();
     h.cloudflare.generateIceServers.mockResolvedValueOnce([
       {
         urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.cloudflare.com:53'],
@@ -425,5 +436,268 @@ describe('ConferenceSfuSignaling', () => {
     expect(await h.sfu.iceServersFor()).toStrictEqual([
       { urls: 'stun:stun.cloudflare.com:3478' },
     ]);
+  });
+
+  it('keeps one set of TURN credentials for six hours and does not cache a failure', async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    const turn = [
+      { urls: 'turn:turn.cloudflare.com:3478', username: 'u', credential: 'c' },
+    ];
+    h.cloudflare.generateIceServers
+      .mockRejectedValueOnce(new CloudflareRealtimeError(0, 'request_failed'))
+      .mockResolvedValue(turn as never);
+
+    expect(await h.sfu.iceServersFor()).toHaveLength(1);
+    expect(await h.sfu.iceServersFor()).toHaveLength(2);
+    expect(await h.sfu.iceServersFor()).toHaveLength(2);
+    expect(h.cloudflare.generateIceServers).toHaveBeenCalledTimes(2);
+    expect(h.cloudflare.generateIceServers).toHaveBeenLastCalledWith(43_200);
+
+    await vi.advanceTimersByTimeAsync(6 * 60 * 60 * 1000);
+    await h.sfu.iceServersFor();
+    expect(h.cloudflare.generateIceServers).toHaveBeenCalledTimes(3);
+  });
+
+  it('closes tracks published after the peer left, through the queued cleanup', async () => {
+    const h = harness();
+    const alice = h.seat('alice');
+    h.seat('bob');
+    const push = deferred<{
+      answerSdp: string;
+      tracks: { mid: string; trackName: string }[];
+    }>();
+    h.cloudflare.pushTracks.mockReturnValueOnce(push.promise);
+
+    const reply = h.sfu.publish(alice, h.publishBody);
+    await settle();
+    h.room.peers.delete('alice');
+    h.sfu.cleanupPeer(h.room, 'alice', alice.peer);
+    push.resolve({
+      answerSdp: 'v=0 answer',
+      tracks: [
+        { mid: '0', trackName: 'audio' },
+        { mid: '1', trackName: 'video' },
+      ],
+    });
+
+    expect(await reply).toStrictEqual({ error: 'not_in_room' });
+    await settle();
+    expect(h.cloudflare.forceCloseTracks).toHaveBeenCalledWith('sess-1', [
+      '0',
+      '1',
+    ]);
+    expect(h.socket('bob')?.frames).toStrictEqual([]);
+  });
+
+  it('takes no hold for a subscribe that lands after the peer left', async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    const alice = h.seat('alice');
+    const bob = h.seat('bob');
+    await h.sfu.publish(alice, h.publishBody);
+    const pull = deferred<{
+      offerSdp: string;
+      requiresImmediateRenegotiation: boolean;
+      tracks: { sessionId: string; trackName: string; mid: string }[];
+    }>();
+    h.cloudflare.pullTracks.mockReturnValueOnce(pull.promise);
+
+    const reply = h.sfu.subscribe(bob);
+    await vi.advanceTimersByTimeAsync(0);
+    h.room.peers.delete('bob');
+    h.sfu.cleanupPeer(h.room, 'bob', bob.peer);
+    pull.resolve({
+      offerSdp: 'v=0 sfu offer',
+      requiresImmediateRenegotiation: true,
+      tracks: [
+        { sessionId: 'sess-1', trackName: 'audio', mid: 'm0' },
+        { sessionId: 'sess-1', trackName: 'video', mid: 'm1' },
+      ],
+    });
+
+    expect(await reply).toStrictEqual({ error: 'not_in_room' });
+    // The cleanup ran at once rather than behind an answer timeout.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(h.cloudflare.forceCloseTracks).toHaveBeenCalledWith('sess-2', [
+      'm0',
+      'm1',
+    ]);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(h.socket('bob')?.closeMock).not.toHaveBeenCalled();
+  });
+
+  it('drops an open answer on leave and treats the refused close as cleaned up', async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    const alice = h.seat('alice');
+    const bob = h.seat('bob');
+    await h.sfu.publish(alice, h.publishBody);
+    await h.sfu.subscribe(bob);
+    h.cloudflare.forceCloseTracks.mockImplementation((id: string) =>
+      id === bob.peer.subSessionId
+        ? Promise.reject(new CloudflareRealtimeError(406, undefined))
+        : Promise.resolve(),
+    );
+    const warn = vi.spyOn(Logger.prototype, 'warn');
+
+    h.room.peers.delete('bob');
+    h.sfu.cleanupPeer(h.room, 'bob', bob.peer);
+    await vi.advanceTimersByTimeAsync(0);
+
+    const closes = h.cloudflare.forceCloseTracks.mock
+      .calls as unknown as ForceClose[];
+    expect(closes).toContainEqual([bob.peer.subSessionId, ['m0', 'm1']]);
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('failed'));
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(h.socket('bob')?.closeMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [0, 'request_failed'],
+    [406, undefined],
+    [410, 'session_error'],
+  ])(
+    'closes the socket with 1011 when a pull fails with HTTP %s',
+    async (status, code) => {
+      const h = harness();
+      const alice = h.seat('alice');
+      const bob = h.seat('bob');
+      await h.sfu.publish(alice, h.publishBody);
+      h.cloudflare.pullTracks.mockRejectedValueOnce(
+        new CloudflareRealtimeError(status, code),
+      );
+
+      expect(await h.sfu.subscribe(bob)).toStrictEqual({
+        error: 'sfu_unavailable',
+      });
+      expect(h.socket('bob')?.closeMock).toHaveBeenCalledWith(
+        1011,
+        'subscribe session broken',
+      );
+    },
+  );
+
+  it('asks for a retry when the receiving session could not be created', async () => {
+    const h = harness();
+    const alice = h.seat('alice');
+    const bob = h.seat('bob');
+    await h.sfu.publish(alice, h.publishBody);
+    h.cloudflare.newSession.mockRejectedValueOnce(
+      new CloudflareRealtimeError(0, 'request_failed'),
+    );
+
+    expect(await h.sfu.subscribe(bob)).toStrictEqual({
+      sdp: null,
+      mids: [],
+      retryAfterMs: 1000,
+    });
+    expect(bob.peer.subSessionId).toBeUndefined();
+    expect(h.socket('bob')?.closeMock).not.toHaveBeenCalled();
+  });
+
+  it('asks for a retry when a pull fails with an error that left nothing behind', async () => {
+    const h = harness();
+    const alice = h.seat('alice');
+    const bob = h.seat('bob');
+    await h.sfu.publish(alice, h.publishBody);
+    h.cloudflare.pullTracks.mockRejectedValueOnce(
+      new CloudflareRealtimeError(503, 'retryable_transient_error'),
+    );
+
+    expect(await h.sfu.subscribe(bob)).toStrictEqual({
+      sdp: null,
+      mids: [],
+      retryAfterMs: 1000,
+    });
+    expect(h.socket('bob')?.closeMock).not.toHaveBeenCalled();
+
+    const again = await h.sfu.subscribe(bob);
+    expect(again).toMatchObject({ sdp: 'v=0 sfu offer' });
+    expect(again).not.toHaveProperty('retryAfterMs');
+  });
+
+  it('asks for a retry when a pull with an offer skipped a track that was not ready', async () => {
+    const h = harness();
+    const alice = h.seat('alice');
+    const bob = h.seat('bob');
+    await h.sfu.publish(alice, h.publishBody);
+    h.cloudflare.pullTracks.mockResolvedValueOnce({
+      offerSdp: 'v=0 sfu offer',
+      requiresImmediateRenegotiation: true,
+      tracks: [
+        { sessionId: 'sess-1', trackName: 'audio', mid: 'm0' },
+        {
+          sessionId: 'sess-1',
+          trackName: 'video',
+          mid: '',
+          errorCode: 'not_found_track_error',
+        },
+      ],
+    } as never);
+
+    expect(await h.sfu.subscribe(bob)).toStrictEqual({
+      sdp: 'v=0 sfu offer',
+      mids: [{ mid: 'm0', socketId: 'alice', kind: 'audio' }],
+      retryAfterMs: 1000,
+    });
+    expect(h.cloudflare.pullTracks).toHaveBeenCalledTimes(1);
+
+    // The retry, once the answer is in, asks only for the skipped track.
+    await h.sfu.renegotiate(bob, { sdp: 'v=0 answer' });
+    await h.sfu.subscribe(bob);
+    expect(h.cloudflare.pullTracks).toHaveBeenLastCalledWith('sess-2', [
+      { sessionId: 'sess-1', trackName: 'video' },
+    ]);
+  });
+
+  it('undoes a partial publish and reuses its session on the retry', async () => {
+    const h = harness();
+    const alice = h.seat('alice');
+    h.seat('bob');
+    h.cloudflare.pushTracks.mockResolvedValueOnce({
+      answerSdp: 'v=0 answer',
+      tracks: [
+        { mid: '0', trackName: 'audio', errorCode: 'invalid_track' },
+        { mid: '1', trackName: 'video' },
+      ],
+    } as never);
+
+    expect(await h.sfu.publish(alice, h.publishBody)).toStrictEqual({
+      error: 'sfu_unavailable',
+    });
+    expect(h.cloudflare.forceCloseTracks).toHaveBeenCalledWith('sess-1', ['1']);
+    expect(alice.peer.publishedTracks).toStrictEqual([]);
+    expect(h.socket('bob')?.frames).toStrictEqual([]);
+
+    expect(await h.sfu.publish(alice, h.publishBody)).toStrictEqual({
+      sdp: 'v=0 answer',
+    });
+    expect(h.cloudflare.newSession).toHaveBeenCalledTimes(1);
+    expect(h.cloudflare.pushTracks).toHaveBeenLastCalledWith(
+      'sess-1',
+      'v=0 offer',
+      expect.any(Array),
+    );
+  });
+
+  it('refuses media requests past the per-peer burst until the bucket refills', async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    const bob = h.seat('bob');
+
+    for (let i = 0; i < 20; i++) {
+      expect(await h.sfu.subscribe(bob)).toStrictEqual({ sdp: null, mids: [] });
+    }
+    expect(await h.sfu.subscribe(bob)).toStrictEqual({
+      error: 'limit_reached',
+    });
+    expect(await h.sfu.publish(bob, h.publishBody)).toStrictEqual({
+      error: 'limit_reached',
+    });
+    expect(h.cloudflare.pushTracks).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(await h.sfu.subscribe(bob)).toStrictEqual({ sdp: null, mids: [] });
   });
 });

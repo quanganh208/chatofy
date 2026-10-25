@@ -28,6 +28,8 @@ export interface PullOutcome {
   offerSdp: string | null;
   /** Each pulled track's `mid` on the receiving session. */
   pulled: { mid: string; from: WantedTrack }[];
+  /** A track was skipped with a retryable error and is worth asking for again. */
+  retryable: boolean;
 }
 
 /** Every track published in the room that `peer` does not receive yet. */
@@ -62,7 +64,8 @@ export function missingTracks(
  * The retry runs only when the first pull produced no offer: an offer still
  * waiting for its answer makes any further mutation fail with 406. A track
  * that is not pulled is reported to `onSkipped` and left for the caller's next
- * subscribe, which sees it missing again.
+ * subscribe, which sees it missing again; `retryable` says whether one of them
+ * failed with an error a later pull may get past.
  */
 export async function pullWithRetry(
   client: CloudflareRealtimeClient,
@@ -73,7 +76,11 @@ export async function pullWithRetry(
   const first = await pullOnce(client, sessionId, wanted);
   if (first.retry.length === 0 || first.offerSdp !== null) {
     report([...first.retry, ...first.failed], onSkipped);
-    return { offerSdp: first.offerSdp, pulled: first.pulled };
+    return {
+      offerSdp: first.offerSdp,
+      pulled: first.pulled,
+      retryable: first.retry.length > 0,
+    };
   }
   report(first.failed, onSkipped);
   await new Promise((resolve) => setTimeout(resolve, PULL_RETRY_DELAY_MS));
@@ -86,6 +93,7 @@ export async function pullWithRetry(
   return {
     offerSdp: second.offerSdp,
     pulled: [...first.pulled, ...second.pulled],
+    retryable: second.retry.length > 0,
   };
 }
 

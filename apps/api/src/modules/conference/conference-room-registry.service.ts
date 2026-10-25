@@ -20,6 +20,8 @@ export interface PeerLimits {
   chat?: TokenBucket;
   relayFrames?: TokenBucket;
   relayChars?: TokenBucket;
+  /** `conference.media.*` requests, each of which drives Cloudflare calls. */
+  media?: TokenBucket;
 }
 
 export type MediaKind = 'audio' | 'video';

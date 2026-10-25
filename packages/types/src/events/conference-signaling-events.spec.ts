@@ -48,6 +48,15 @@ describe('ConferenceMediaSubscribeReplySchema', () => {
       true,
     );
   });
+
+  it('accepts a retry delay within bounds and refuses one outside them', () => {
+    const reply = (retryAfterMs: number) =>
+      ConferenceMediaSubscribeReplySchema.safeParse({ sdp: null, mids: [], retryAfterMs }).success;
+    expect(reply(1000)).toBe(true);
+    expect(reply(99)).toBe(false);
+    expect(reply(10_001)).toBe(false);
+    expect(reply(1000.5)).toBe(false);
+  });
 });
 
 describe('CONFERENCE_ERROR_CODES', () => {

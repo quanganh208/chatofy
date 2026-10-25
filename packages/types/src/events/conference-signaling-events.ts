@@ -98,6 +98,11 @@ export type ConferenceMediaSubscribe = z.infer<typeof ConferenceMediaSubscribeSc
 export const ConferenceMediaSubscribeReplySchema = z.object({
   sdp: sdpSchema.nullable(),
   mids: z.array(z.object({ mid: midSchema, socketId: socketIdSchema, kind: mediaKindSchema })),
+  /**
+   * The server skipped something retryable; subscribe again after this delay.
+   * Absent when the receiving connection holds everything published so far.
+   */
+  retryAfterMs: z.number().int().min(100).max(10_000).optional(),
 });
 export type ConferenceMediaSubscribeReply = z.infer<typeof ConferenceMediaSubscribeReplySchema>;
 
