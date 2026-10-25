@@ -20,11 +20,10 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsup",
-    "prepare": "tsup",
     "test": "vitest run",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint \"src/**/*.ts\" --fix",
-    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true}); require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\""
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "@chatofy/types": "workspace:*"
