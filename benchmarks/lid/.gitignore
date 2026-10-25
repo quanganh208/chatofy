@@ -28,3 +28,7 @@ results/**/*.scores.jsonl
 results/**/*.scores.partial.jsonl
 results/**/facts.jsonl
 results/**/manifest.jsonl
+# Per-turn language tags are scores in all but name.
+results/**/sensevoice_lid.jsonl
+# Checkpoints SpeechBrain copies next to an arm.
+arms/*/pretrained/

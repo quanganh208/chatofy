@@ -1,0 +1,29 @@
+[project]
+name = "lid-arm-ecapa-vl107"
+version = "0.1.0"
+description = "Ceiling probe: SpeechBrain ECAPA-TDNN VoxLingua107 LID (Apache-2.0), torch on CPU, run as lidbench"
+requires-python = ">=3.11.4,<3.12"
+dependencies = [
+    "speechbrain==1.0.3",
+    "torch==2.7.1",
+    "torchaudio==2.7.1",
+    "numpy>=1.26",
+    "soundfile>=0.12",
+    "av>=13",
+    # speechbrain imports both without declaring them.
+    "requests>=2.31",
+    # speechbrain 1.0.3 passes `use_auth_token`, which huggingface_hub 1.0 removed.
+    "huggingface_hub>=0.23,<1.0",
+]
+
+[tool.uv]
+package = false
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchaudio = { index = "pytorch-cpu" }
