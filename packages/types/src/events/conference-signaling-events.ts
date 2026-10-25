@@ -39,81 +39,89 @@ export const CONFERENCE_ERROR_CODES = [
   'room_ended',
   'not_in_room',
   'peer_not_found',
-  'transport_exists',
   'limit_reached',
   'text_too_long',
+  'sfu_unavailable',
   'internal_error',
 ] as const;
 export type ConferenceErrorCode = (typeof CONFERENCE_ERROR_CODES)[number];
 
-// ── SFU signaling ────────────────────────────────────────────────────────────
+// ── SFU signaling (Cloudflare Realtime) ─────────────────────────────────────
 //
-// The mediasoup-shaped fields (`dtlsParameters`, `rtpParameters`,
-// `rtpCapabilities`) are bounded here and checked in depth by mediasoup itself,
-// which throws on anything it cannot use. What these schemas guarantee is the
-// shape the gateway reads and an upper bound on what it hands to the SFU.
+// Media goes from each client straight to Cloudflare Realtime SFU; the API
+// holds the app secret and drives the SFU over HTTPS on the client's behalf.
+// A client owns two RTCPeerConnections: one that publishes its own tracks and
+// one that receives everyone else's. SDP is opaque here and bounded only by
+// size; Cloudflare rejects anything it cannot negotiate.
 
-/** A mediasoup object id (transport, producer, consumer). */
-const sfuIdSchema = z.string().min(1).max(64);
+/** Upper bound on one SDP blob a client may send or receive. */
+export const MAX_CONFERENCE_SDP_CHARS = 64_000;
 
-/** An open JSON object whose own nested structure mediasoup validates. */
-const sfuObjectSchema = z.looseObject({});
-
-/** conference.transport.create */
-export const ConferenceTransportCreateSchema = z.object({
-  direction: z.enum(['send', 'recv']),
-});
-export type ConferenceTransportCreate = z.infer<typeof ConferenceTransportCreateSchema>;
-
-/** conference.transport.connect */
-export const ConferenceTransportConnectSchema = z.object({
-  transportId: sfuIdSchema,
-  dtlsParameters: z.looseObject({
-    role: z.enum(['auto', 'client', 'server']).optional(),
-    fingerprints: z
-      .array(z.object({ algorithm: z.string().max(32), value: z.string().max(256) }))
-      .min(1)
-      .max(8),
-  }),
-});
-export type ConferenceTransportConnect = z.infer<typeof ConferenceTransportConnectSchema>;
+const sdpSchema = z.string().min(1).max(MAX_CONFERENCE_SDP_CHARS);
+/** A transceiver `mid`, which belongs to the connection that negotiated it. */
+const midSchema = z.string().min(1).max(16);
+const socketIdSchema = z.string().min(1).max(64);
+const mediaKindSchema = z.enum(['audio', 'video']);
 
 /**
- * Producer `appData`, which the gateway relays to every other peer in
- * `conference.new.producer`. Kept to a handful of flat primitive values so a
- * client cannot use it to fan arbitrary data out to the room.
+ * conference.media.publish — client → server. The offer from the publishing
+ * connection and the `mid` of each sendonly transceiver, at most one per kind.
+ * Replies `{ sdp }` with the SFU's answer, or `{ error }`.
  */
-const producerAppDataSchema = z
-  .record(z.string().max(32), z.union([z.string().max(64), z.number(), z.boolean(), z.null()]))
-  .refine((value) => Object.keys(value).length <= 8, 'at most 8 appData keys');
-
-/** conference.produce */
-export const ConferenceProduceSchema = z.object({
-  kind: z.enum(['audio', 'video']),
-  rtpParameters: z.looseObject({
-    codecs: z.array(sfuObjectSchema).min(1).max(16),
-    encodings: z.array(sfuObjectSchema).max(8).optional(),
-    headerExtensions: z.array(sfuObjectSchema).max(32).optional(),
-  }),
-  appData: producerAppDataSchema.optional(),
+export const ConferenceMediaPublishSchema = z.object({
+  sdp: sdpSchema,
+  tracks: z
+    .array(z.object({ mid: midSchema, kind: mediaKindSchema }))
+    .min(1)
+    .max(2)
+    .refine(
+      (tracks) => new Set(tracks.map((t) => t.kind)).size === tracks.length,
+      'one track per kind',
+    ),
 });
-export type ConferenceProduce = z.infer<typeof ConferenceProduceSchema>;
+export type ConferenceMediaPublish = z.infer<typeof ConferenceMediaPublishSchema>;
 
-/** conference.consume */
-export const ConferenceConsumeSchema = z.object({
-  producerId: sfuIdSchema,
-  rtpCapabilities: z.looseObject({
-    codecs: z.array(sfuObjectSchema).max(64).optional(),
-    headerExtensions: z.array(sfuObjectSchema).max(64).optional(),
-  }),
-});
-export type ConferenceConsume = z.infer<typeof ConferenceConsumeSchema>;
+/**
+ * conference.media.subscribe — client → server. "Bring my receiving
+ * connection up to date with the room": the server works out which published
+ * tracks this client does not hold yet, so the request carries nothing.
+ * Replies with {@link ConferenceMediaSubscribeReplySchema}, or `{ error }`.
+ */
+export const ConferenceMediaSubscribeSchema = z.object({});
+export type ConferenceMediaSubscribe = z.infer<typeof ConferenceMediaSubscribeSchema>;
 
-/** conference.consumer.resume */
-export const ConferenceConsumerResumeSchema = z.object({
-  consumerId: sfuIdSchema,
+/**
+ * Reply to conference.media.subscribe. `sdp` is the SFU's offer for the
+ * receiving connection, or `null` when there was nothing new to pull. `mids`
+ * says which peer and kind each new receiving transceiver carries.
+ */
+export const ConferenceMediaSubscribeReplySchema = z.object({
+  sdp: sdpSchema.nullable(),
+  mids: z.array(z.object({ mid: midSchema, socketId: socketIdSchema, kind: mediaKindSchema })),
 });
-export type ConferenceConsumerResume = z.infer<typeof ConferenceConsumerResumeSchema>;
+export type ConferenceMediaSubscribeReply = z.infer<typeof ConferenceMediaSubscribeReplySchema>;
+
+/**
+ * conference.media.renegotiate — client → server. The receiving connection's
+ * answer to the last subscribe offer. Replies `{ ok: true }`, or `{ error }`.
+ */
+export const ConferenceMediaRenegotiateSchema = z.object({ sdp: sdpSchema });
+export type ConferenceMediaRenegotiate = z.infer<typeof ConferenceMediaRenegotiateSchema>;
+
+/**
+ * conference.media.published — server → other peers, once a peer's tracks are
+ * live on the SFU. Receivers answer with conference.media.subscribe.
+ */
+export const ConferenceMediaPublishedSchema = z.object({ socketId: socketIdSchema });
+export type ConferenceMediaPublished = z.infer<typeof ConferenceMediaPublishedSchema>;
+
+/** One ICE server in the join reply, in RTCIceServer shape. */
+export const ConferenceIceServerSchema = z.object({
+  urls: z.union([z.string(), z.array(z.string())]),
+  username: z.string().optional(),
+  credential: z.string().optional(),
+});
+export type ConferenceIceServer = z.infer<typeof ConferenceIceServerSchema>;
 
 /** conference.participant.mute */
 export const ConferenceParticipantMuteSchema = z.object({ muted: z.boolean() });
