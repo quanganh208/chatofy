@@ -446,6 +446,43 @@ short real turns under v5. The 2-way figure is in brackets.
 
 The user chose to stay at G3: production keeps vi/en.
 
+### Round 2: prod baseline, licence, three more voters (G3 holds; medium passes raw)
+
+On 2026-10-25 the user fixed what `detect2v3` is measured against: **the 2-way
+detect prod runs** (`DETECT_BASELINE_ARM`, ctx5 choosing between vi and en), not
+each arm's own 2-way. A stronger model is no longer let off for beating itself. A run
+without ctx5 borrows it from `conv-r4-v5` (same turns, checked). Every v5 tag was
+rescored: ctx5's rows are unchanged, and only `detect2v3` moved for the other arms.
+
+**AmberNet cannot ship.** The NGC model page puts it under the NGC Terms of Use,
+which forbid offering the Technology "as a service" or making derivative works
+without a Product Agreement. Its numbers stay as a ceiling. Length-gated fusion
+(`scripts/fuse_scores.py`, AmberNet only under 1500 ms of speech; `probe-fusion-gated`)
+would otherwise have been the best two-way arm: A7 129 ms, A2.en-vi 0.958, A2.vi-zh 0.950.
+It still fails A2.en-zh (0.892) and short en in detect (−0.118 against prod).
+
+**Three more voters, raw per turn** (`scripts/raw_frontier.py`). The 1431 short real
+turns are scored under v5 against prod 2-way (en 0.987, vi 0.745). The zh bias and
+weights are chosen with the source, or the speaker, held out. RAMC is v5 too and is
+never tuned on.
+
+| Combination                                  | en                  | vi                | zh                | RAMC zh   | Runs on      |
+| -------------------------------------------- | ------------------- | ----------------- | ----------------- | --------- | ------------ |
+| ctx5 (shipped), best bias                    | −0.003              | −0.034 ✗          | 0.185 ✗           | 0.387     | CPU          |
+| ctx5 × ECAPA + SenseVoice, source / speaker  | −0.018 / −0.025 ✗   | −0.087 ✗ / −0.007 | 0.872 / 0.937     | 0.887     | CPU, >150 ms |
+| **medium, zh bias +1, source / speaker out** | **−0.008 / −0.015** | **+0.087**        | **0.874 / 0.860** | **0.916** | GPU          |
+
+- **SenseVoice-Small** (`arms/sensevoice_lid/`, the zh STT benchmark's int8 model,
+  argmax tag only): it rarely hears zh as en (0.4%). It has no Vietnamese and tags 74%
+  of short vi as zh, and it gets short en right only 0.842 of the time.
+- **ECAPA VoxLingua107** (`arms/ecapa_vl107/`, Apache-2.0, torch, run as `lidbench`):
+  vi 0.966, but en 0.622 and RAMC zh 0.727. It does not replace AmberNet on English.
+- **Whisper medium** passes all three bars under both hold-outs, with one parameter,
+  and RAMC agrees. It is not a gate verdict yet: the gate needs medium on every turn and
+  prefix (≈45k decisions, ≈42 h CPU), and shipping it needs a GPU (G5).
+
+G3 holds. The open decision is the user's: rent a GPU for medium.
+
 ## Gate
 
 `lid_bench/gate.py`. Required for vi↔en: A1.en-vi, A2.en-vi (real + Common Voice

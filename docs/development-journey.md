@@ -2523,3 +2523,17 @@ Three ways to do better were measured, and none passed:
 What blocks is the user's own rule: no local model keeps short Vietnamese and English within 2 points once Chinese is a candidate. The user chose to stay at vi/en. The plan, numbers and dead ends are in `plans/261024-1545-three-language-lid/` and `benchmarks/lid/README.md`.
 
 Reproduce: `cd benchmarks/lid && uv run --frozen python scripts/attach_transcripts.py && uv run --frozen python score.py --run-tag conv-r4-v5 --ruler v5`; `scripts/prepare_ramc.py`; `arms/whisper_head/{dump_features,train}.py`; `arms/whisper_ceiling/probe.py --size medium`.
+
+## Auto-detect round 2: a fair baseline, a licence, and a GPU question (25/10/2026)
+
+The first round stopped at G3. The second began by fixing the ruler, not the models. The rule "3-way detect may cost short vi/en at most 2 points against 2-way" had been coded as each arm against its own 2-way. That reading punishes a stronger model for beating itself, and it lets a weaker one off. The user chose the reading that matches what a person feels: against the 2-way detect running in prod. Only `detect2v3` moved in the rescore; the shipped arm's numbers stayed the same to four places, which is how the change was checked.
+
+The best two-way arm turned out to be unshippable for a reason no benchmark measures. Running AmberNet only on turns under 1.5 s brought the fused arm's latency from 351 to 129 ms and passed the vi↔zh pair. But the NGC Terms of Use forbid offering the model "as a service" without a Product Agreement. That ends AmberNet as a product path, after two rounds spent measuring it. The licence should have been read first.
+
+Three voters were then measured on the same 1431 short turns, with parameters chosen with the source or the speaker held out:
+
+- **SenseVoice-Small:** almost never hears Chinese as English, but tags 74% of short Vietnamese as Chinese.
+- **ECAPA VoxLingua107 (licence-clean):** hears Vietnamese well and English badly.
+- **Their combination with Whisper-base:** passes everything in-sample and fails held-out.
+
+The only thing that passed held-out was the simplest: **Whisper medium with one zh bias**. Short en −0.8/−1.5 points, short vi +8.7, short zh 0.874/0.860, and Mainland RAMC 0.916. Medium needs 3.4 s per decision on CPU, so the question is no longer what to build. It is whether to rent a GPU.
