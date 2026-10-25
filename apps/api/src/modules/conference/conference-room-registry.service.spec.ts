@@ -1,40 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  ConferenceRoomRegistry,
-  RoomClosedError,
-} from './conference-room-registry.service';
-import type { ConferenceWorkerService } from './conference-worker.service';
+import { ConferenceRoomRegistry } from './conference-room-registry.service';
+import type { ConferenceSfuSignaling } from './conference-sfu-signaling.service';
 
-function fakeWorker() {
-  let died: (() => void) | undefined;
-  const routers: { close: ReturnType<typeof vi.fn> }[] = [];
-  let release: () => void = () => undefined;
-  let gate = Promise.resolve();
-  const worker = {
-    onWorkerDied: (listener: () => void) => {
-      died = listener;
-    },
-    getWorker: () => ({
-      createRouter: async () => {
-        await gate;
-        const router = { close: vi.fn(), rtpCapabilities: {} };
-        routers.push(router);
-        return router;
-      },
-    }),
-  } as unknown as ConferenceWorkerService;
+function fakeSfu() {
   return {
-    worker,
-    routers,
-    die: () => died?.(),
-    /** Hold router creation until `release()` is called. */
-    hold: () => {
-      gate = new Promise((resolve) => {
-        release = resolve;
-      });
-    },
-    release: () => release(),
+    cleanupPeer: vi.fn(),
+    cleanupRoom: vi.fn(),
   };
+}
+
+function makeRegistry() {
+  const sfu = fakeSfu();
+  const registry = new ConferenceRoomRegistry(
+    sfu as unknown as ConferenceSfuSignaling,
+  );
+  return { sfu, registry };
 }
 
 const participant = {
@@ -45,72 +25,80 @@ const participant = {
 };
 
 describe('ConferenceRoomRegistry', () => {
-  it('shares one router between concurrent first joins of a room', async () => {
-    const w = fakeWorker();
-    const registry = new ConferenceRoomRegistry(w.worker);
+  it('shares one room between concurrent first joins', () => {
+    const { registry } = makeRegistry();
 
-    const [a, b] = await Promise.all([
-      registry.getOrCreateRoom('room'),
-      registry.getOrCreateRoom('room'),
-    ]);
+    const a = registry.acquireForJoin('room');
+    const b = registry.acquireForJoin('room');
 
     expect(a).toBe(b);
-    expect(w.routers).toHaveLength(1);
+    expect(registry.getAllRooms()).toHaveLength(1);
   });
 
-  it('discards a router whose room was ended while it was being created', async () => {
-    const w = fakeWorker();
-    const registry = new ConferenceRoomRegistry(w.worker);
-    w.hold();
+  it('starts a peer with no SFU sessions and nothing published or pulled', () => {
+    const { registry } = makeRegistry();
+    const room = registry.getOrCreateRoom('room');
 
-    const opening = registry.getOrCreateRoom('room');
-    registry.endRoom('room');
-    w.release();
+    const peer = registry.addPeer(room, 's1', participant);
 
-    await expect(opening).rejects.toBeInstanceOf(RoomClosedError);
-    expect(w.routers[0]?.close).toHaveBeenCalled();
-    expect(registry.getRoom('room')).toBeUndefined();
+    expect(peer.pubSessionId).toBeUndefined();
+    expect(peer.subSessionId).toBeUndefined();
+    expect(peer.publishedTracks).toStrictEqual([]);
+    expect(peer.pulled.size).toBe(0);
   });
 
-  it('tells listeners and drops every room when the worker dies', async () => {
-    const w = fakeWorker();
-    const registry = new ConferenceRoomRegistry(w.worker);
-    const closing = vi.fn();
-    registry.onRoomClosing(closing);
-    const room = await registry.getOrCreateRoom('room');
-    registry.addPeer(room, 's1', participant);
-
-    w.die();
-
-    expect(closing).toHaveBeenCalledWith(room, 'media_restart');
-    expect(registry.getAllRooms()).toHaveLength(0);
-    expect(room.peers.size).toBe(0);
-  });
-
-  it('keeps an empty room open while a join holds it, and closes it once released', async () => {
-    const w = fakeWorker();
-    const registry = new ConferenceRoomRegistry(w.worker);
-    const held = await registry.acquireForJoin('room');
-    const aborted = await registry.acquireForJoin('room');
+  it('keeps an empty room open while a join holds it, and closes it once released', () => {
+    const { registry } = makeRegistry();
+    const held = registry.acquireForJoin('room');
+    const aborted = registry.acquireForJoin('room');
 
     registry.releaseJoin(aborted);
     expect(registry.isLive(held)).toBe(true);
-    expect(w.routers[0]?.close).not.toHaveBeenCalled();
 
     registry.releaseJoin(held);
     expect(registry.getRoom('room')).toBeUndefined();
-    expect(w.routers[0]?.close).toHaveBeenCalled();
   });
 
-  it('closes the router once the last peer leaves', async () => {
-    const w = fakeWorker();
-    const registry = new ConferenceRoomRegistry(w.worker);
-    const room = await registry.getOrCreateRoom('room');
+  it('cleans up a leaving peer’s SFU tracks after taking it out of the room', () => {
+    const { registry, sfu } = makeRegistry();
+    const room = registry.getOrCreateRoom('room');
+    const peer = registry.addPeer(room, 's1', participant);
+    registry.addPeer(room, 's2', { ...participant, userId: 'u2' });
+    sfu.cleanupPeer.mockImplementation((r: typeof room) => {
+      expect(r.peers.has('s1')).toBe(false);
+    });
+
+    registry.removePeer(room, 's1');
+
+    expect(sfu.cleanupPeer).toHaveBeenCalledWith(room, 's1', peer);
+    expect(registry.isLive(room)).toBe(true);
+  });
+
+  it('drops the room once the last peer leaves', () => {
+    const { registry } = makeRegistry();
+    const room = registry.getOrCreateRoom('room');
     registry.addPeer(room, 's1', participant);
 
     registry.removePeer(room, 's1');
 
-    expect(w.routers[0]?.close).toHaveBeenCalled();
     expect(registry.getRoom('room')).toBeUndefined();
+  });
+
+  it('tells listeners, then cleans up every peer’s SFU tracks when the room ends', () => {
+    const { registry, sfu } = makeRegistry();
+    const closing = vi.fn();
+    registry.onRoomClosing(closing);
+    const room = registry.getOrCreateRoom('room');
+    registry.addPeer(room, 's1', participant);
+    sfu.cleanupRoom.mockImplementation((r: typeof room) => {
+      expect(r.peers.size).toBe(1);
+    });
+
+    registry.endRoom('room');
+
+    expect(closing).toHaveBeenCalledWith(room);
+    expect(sfu.cleanupRoom).toHaveBeenCalledWith(room);
+    expect(registry.getRoom('room')).toBeUndefined();
+    expect(room.peers.size).toBe(0);
   });
 });

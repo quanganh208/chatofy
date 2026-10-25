@@ -165,25 +165,29 @@ export const envSchema = z.object({
   LOCAL_STT_URL: z.string().url().default('http://localhost:8002'),
   LOCAL_TTS_URL: z.string().url().default('http://localhost:8003'),
 
-  // ── Video conferencing (mediasoup + coturn) ───────────────────────────────
-  // Video conferencing (mediasoup SFU + coturn). OFF by default: while false
-  // the ConferenceModule is not imported at all, so no mediasoup worker is
-  // spawned and neither `/ws/conference` nor `/conference` exists. This
-  // isolates the API at RUNTIME only: the image build still installs
-  // mediasoup and runs its postinstall (which downloads the prebuilt worker),
-  // so a failing mediasoup install fails the build whatever this is set to.
+  // ── Video conferencing (Cloudflare Realtime SFU) ──────────────────────────
+  // OFF by default: while false the ConferenceModule is not imported at all,
+  // so neither `/ws/conference` nor `/conference` exists and nothing talks to
+  // Cloudflare. Media goes from each client straight to Cloudflare Realtime
+  // SFU; the API holds the app secret and drives the SFU over outbound HTTPS.
   CONFERENCE_ENABLED: envFlag,
-  // Benchmark-only SFU metrics tap at GET /conference/metrics.
-  CONFERENCE_METRICS_ENABLED: envFlag,
-  // Announced IP for WebRTC ICE candidates. Override with the host's public IP
-  // in production; loopback is correct for local dev.
-  MEDIASOUP_ANNOUNCED_IP: z.string().min(1).default('127.0.0.1'),
-  // TURN relay returned to clients in transport.create. TURN is on only when
-  // BOTH are set: credentials are minted per join as TURN REST credentials
-  // (HMAC-SHA1 over `expiry:userId`), so COTURN_SECRET must equal coturn's
-  // `--static-auth-secret`.
-  TURN_URL: emptyStringAsUndefined(z.string().min(1).optional()),
-  COTURN_SECRET: emptyStringAsUndefined(z.string().min(1).optional()),
+  // The Realtime SFU app (dashboard: Realtime > Serverless SFU). Optional here
+  // so a deployment without conferencing needs neither, but required once
+  // CONFERENCE_ENABLED is on: CloudflareRealtimeClient refuses to construct
+  // without both, which fails the boot.
+  CLOUDFLARE_REALTIME_APP_ID: emptyStringAsUndefined(
+    z.string().min(1).optional(),
+  ),
+  CLOUDFLARE_REALTIME_APP_SECRET: emptyStringAsUndefined(
+    z.string().min(1).optional(),
+  ),
+  // A Realtime TURN key (dashboard: Realtime > TURN Server). TURN is on only
+  // when BOTH are set: each join then gets short-lived TURN credentials beside
+  // Cloudflare's STUN, for networks that block UDP. Free when used with the SFU.
+  CLOUDFLARE_TURN_KEY_ID: emptyStringAsUndefined(z.string().min(1).optional()),
+  CLOUDFLARE_TURN_KEY_API_TOKEN: emptyStringAsUndefined(
+    z.string().min(1).optional(),
+  ),
 });
 
 export type Env = z.infer<typeof envSchema>;
