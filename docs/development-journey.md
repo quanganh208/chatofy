@@ -2505,3 +2505,21 @@ Measured as old against new ITN, line by line, every changed line read by hand:
 The first version changed 31 vicappunc lines and nearly all were wrong, which is what shaped the guards: a letter glued to a numeral is a unit (`15h`, `4d`); a lone `một`, `năm` or `ba` with a word after it is the article or the year (`vitamin c một thời gian`, `viêm gan c năm ngoái`); a classifier after the number is a count (`b hai tháng`); runs of consonants are abbreviations (`đc`, `bs`, `ml`, and the recognizer's own `kg`). A code review then found four more by hand, none in any corpus: a closing `không` folded in as a zero reversed the sentence (`phòng a hai không có ai` → `phòng A20 có ai`), a closing `năm` became a digit (`trại giam a hai mươi năm` → `A25`), the verbs `bê` and `xê` read as a trailing letter (`lên tầng hai bê đồ` → `2B đồ`), and a marker vouched across a full stop (`ở tầng. Mờ hai hôm nay` → `M2`). Each now has a spec. The one left is `acid folic m hai`, a chat abbreviation the recognizer does not write. What it costs: `F0` (indistinguishable from `phòng a không có ai`), `f một rất hấp dẫn` (the article guard), and multi-letter spellings like `vê tê vê ba`.
 
 Reproduce: the specs in `apps/api/src/modules/translate/providers/vietnamese-inverse-normalize.spec.ts`; `node benchmarks/stt/scripts/itn_holdout_check.mjs`; `node benchmarks/stt/scripts/itn_roundtrip_recall.mjs`.
+
+## Adding Chinese to auto-detect, measured and stopped (24/10/2026)
+
+Identification shipped for vi and en only. The bake-off scored zh, and it failed one required criterion: short Chinese turns were right 0.569 of the time against a 0.85 bar. Before trying to fix it, the user set the terms. Three-way detect may cost short vi and en turns at most 2 points against two-way detect on the same turns, and the vi↔zh and en↔zh pairs must pass the same bar as vi↔en. That first rule was new to the gate. Without it, adding zh would have looked free: on the shipped arm it quietly costs short English 7 points and short Vietnamese 13.
+
+The ruler came first. Production never decodes a turn under 300 ms of speech, and a Chinese turn of 嗯 has no language to identify, yet both counted against zh. Ruler v5 drops them for all three languages alike, using a filler list committed before any number was read under it. It prints the old figure beside every new one (`benchmarks/lid/results/conv-r4-v5/`). Short zh rose to 0.791. vi↔en still passed.
+
+Then a second Mandarin source. ASCEND, the only conversational Chinese in the bench, is bilingual students in Hong Kong. On the MagicData-RAMC test split (Mainland phone calls; its licence allows measuring, not training) the shipped path was right 0.845 of the time on short turns (Wilson 0.820–0.867) against ASCEND's 0.772 (0.730–0.810). Part of the zh failure was the corpus. What is left is mostly Chinese heard as English.
+
+Three ways to do better were measured, and none passed:
+
+- **A classifier on the encoder states.** Whisper-base already computes them for every decision. Scored leaving one corpus out, short zh fell to 0.307. With ASCEND held out, the only other Chinese to learn from is FLEURS read speech, so the classifier learned the recording channel instead of the language.
+- **Whisper medium.** It was a large gain for Vietnamese (0.56 → 0.84 on short turns) and a small one for Chinese (RAMC 0.866). It takes 3.4 s per turn on this CPU, against a 150 ms budget.
+- **Whisper-base combined with AmberNet.** The two make different mistakes. Combined, they passed vi↔zh (0.950) and brought short zh to 0.850. Short English still dropped 8 points, en↔zh stayed at 0.892, the pair costs 351 ms, and AmberNet's licence does not cover shipping it.
+
+What blocks is the user's own rule: no local model keeps short Vietnamese and English within 2 points once Chinese is a candidate. The user chose to stay at vi/en. The plan, numbers and dead ends are in `plans/261024-1545-three-language-lid/` and `benchmarks/lid/README.md`.
+
+Reproduce: `cd benchmarks/lid && uv run --frozen python scripts/attach_transcripts.py && uv run --frozen python score.py --run-tag conv-r4-v5 --ruler v5`; `scripts/prepare_ramc.py`; `arms/whisper_head/{dump_features,train}.py`; `arms/whisper_ceiling/probe.py --size medium`.

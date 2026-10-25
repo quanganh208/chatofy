@@ -395,6 +395,57 @@ nothing unsound, LOGO. Every arm was rescored under the new budget.
   thresholds are still fitted on training folds only, but the two knobs are not,
   so G3 here is somewhat optimistic. Phase 1 should re-measure on fresh turns.
 
+### Adding zh: ruler v5, a second Mandarin source, ceiling probes (G3 holds)
+
+On 2026-10-24 the user set what zh needs before it joins detect and two-way:
+three-way detect may cost short vi and en turns at most 2 points against two-way
+detect on the same turns (`detect2v3.short.{vi,en}`, required), and A2.vi-zh /
+A2.en-zh are required at the A2.en-vi bar. No bar moved.
+
+**Ruler v5** (`score.py --ruler v5`, `conv-r4-v5`) scores only turns that carry a
+language: it drops turns under the API's 300 ms Silero floor and turns whose
+reference transcript is fillers only (`lid_bench/fillers.py`, committed before any
+number was read under it; transcripts joined by `scripts/attach_transcripts.py`).
+Every v4 row is printed beside it as `v4.*`. It drops 18.8% of real en turns, 19.5%
+of zh and 0.9% of vi. vi is low because its short turns (`vietmed-cut`) have no
+transcript of their own, so only the floor applies to them, which makes v5 harder
+on vi rather than easier.
+
+| `whisper_probs_base_ctx5`         | v4              | v5              | Bar                |
+| --------------------------------- | --------------- | --------------- | ------------------ |
+| A2 en-vi raw / err after fallback | 0.952 / 0.048   | 0.931 / 0.069   | ≥ 0.90 raw, passes |
+| A3 short vi+en                    | 0.892           | 0.865           | ≥ 0.85             |
+| A3 short zh                       | 0.569           | **0.791**       | ≥ 0.85 ✗           |
+| A2 vi-zh / en-zh                  | 0.813 / 0.769   | 0.818 / 0.862   | ≥ 0.90 ✗           |
+| detect2v3 short en / vi           | −0.062 / −0.132 | −0.076 / −0.128 | ≥ −0.02 ✗          |
+
+**A second Mandarin source.** ASCEND's speakers are bilingual students in Hong
+Kong. On the MagicData-RAMC test split (`scripts/prepare_ramc.py`, Mainland phone
+calls, measure only), the shipped path gets short zh right 0.845 of the time
+(Wilson 0.820–0.867, n 936) against 0.772 (0.730–0.810, n 421) on ASCEND. ASCEND
+makes short zh look harder than it is. What remains is heard as English.
+
+**Probes, none of which passes.** All numbers are raw per-turn accuracy on the same
+short real turns under v5. The 2-way figure is in brackets.
+
+| Arm                                                | en 3-way (2-way) | vi 3-way (2-way) | zh ASCEND / RAMC | p95 CPU |
+| -------------------------------------------------- | ---------------- | ---------------- | ---------------- | ------- |
+| base ctx5 (shipped)                                | 0.908 (0.987)    | 0.560 (0.697)    | 0.772 / 0.845    | 126 ms  |
+| head on base encoder states, LOGO (`conv-r4-head`) | 0.754            | 0.584            | **0.307** / —    | ≈ base  |
+| medium, 30 s window (`arms/whisper_ceiling/`)      | 0.990 (1.000)    | 0.844 (0.899)    | 0.789 / 0.866    | 3373 ms |
+| base ctx5 × AmberNet, equal weight, full gate      | 0.877            | 0.933            | 0.850 / —        | 351 ms  |
+
+- The head (`arms/whisper_head/`) learns each corpus's channel. With ASCEND held
+  out, the only other Mandarin to train on is FLEURS read speech.
+- Medium's gain is in vi. It cannot be windowed, because the onnx-community export
+  bakes 1500 positions into every attention reshape, so it would need a GPU.
+- The fusion passes A1, A2.en-vi and A2.vi-zh (0.950). It fails A2.en-zh (0.892),
+  the detect regression, A-ACC and A7, and AmberNet's NGC licence still does not
+  allow redistribution. No leave-one-corpus-out weight fixes en and vi together:
+  short English from EdAcc's accented speakers is heard as zh.
+
+The user chose to stay at G3: production keeps vi/en.
+
 ## Gate
 
 `lid_bench/gate.py`. Required for vi↔en: A1.en-vi, A2.en-vi (real + Common Voice
