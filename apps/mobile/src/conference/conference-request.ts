@@ -14,6 +14,13 @@
 
 /** How long a request waits for its reply, measured from when it is sent. */
 export const REQUEST_TIMEOUT_MS = 10_000;
+/**
+ * For `conference.media.*`: the server's worst case is several Cloudflare
+ * calls, each with its own timeout and retry, behind the session's queue.
+ * Giving up sooner would hand its late reply to the next request of the same
+ * name, which takes the first reply it sees.
+ */
+export const SFU_REQUEST_TIMEOUT_MS = 60_000;
 
 export interface SignalMessage {
   event: string;

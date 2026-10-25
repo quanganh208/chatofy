@@ -21,7 +21,12 @@ import {
   ConferenceMediaSubscribeReplySchema,
   type ConferenceIceServer,
 } from '@chatofy/types/events';
-import { ConferenceRequestError, request, type SignalSocket } from './conference-request';
+import {
+  ConferenceRequestError,
+  request,
+  SFU_REQUEST_TIMEOUT_MS,
+  type SignalSocket,
+} from './conference-request';
 import {
   dropPeer,
   peerForMid,
@@ -29,6 +34,7 @@ import {
   recordMids,
   type SfuMidMap,
 } from './sfu-mid-map';
+import { SubscribeRetryScheduler } from './subscribe-retry-scheduler';
 
 export {
   ConferenceRequestError,
@@ -65,10 +71,12 @@ export async function publishLocalTracks(
   await pc.setLocalDescription(await pc.createOffer());
   const offer = pc.localDescription?.sdp;
   if (!offer) throw new Error('send connection has no local offer');
-  const reply = await request(ws, 'conference.media.publish', {
-    sdp: offer,
-    tracks: publishTracksFromTransceivers(pc.getTransceivers()),
-  });
+  const reply = await request(
+    ws,
+    'conference.media.publish',
+    { sdp: offer, tracks: publishTracksFromTransceivers(pc.getTransceivers()) },
+    SFU_REQUEST_TIMEOUT_MS,
+  );
   await pc.setRemoteDescription({ type: 'answer', sdp: sdpOf(reply, 'conference.media.publish') });
 }
 
@@ -109,15 +117,20 @@ export function createSfuSubscriber(
 ): SfuSubscriber {
   const pc = createSfuPeerConnection(iceServers);
   const midToPeer: SfuMidMap = new Map();
-  // A renegotiation can re-announce a receiver it already reported; attach once.
-  const attachedTracks = new Set<string>();
+  // A renegotiation can re-announce a receiver it already reported; attach it
+  // once per owner. Keyed by owner, then mid and track id: a transceiver the
+  // SFU recycles for a new peer keeps its receiver's track id, and must still
+  // reach that peer's tile.
+  const attachedTracks = new Map<string, Set<string>>();
   let chain: Promise<void> = Promise.resolve();
   let closed = false;
+  // Re-asks, on the same chain, for what a subscribe reply said it skipped.
+  const retries = new SubscribeRetryScheduler(() => subscribe());
 
   (pc as unknown as TrackEventTarget).addEventListener('track', (event) => {
     if (closed) return;
     const track = event.track;
-    if (!track || attachedTracks.has(track.id)) return;
+    if (!track) return;
     // react-native-webrtc sets the transceiver on the event; fall back to the
     // connection's own transceiver list, matched by the received track.
     const mid =
@@ -129,51 +142,66 @@ export function createSfuSubscriber(
       console.warn('[conference] received a track on an unknown mid', mid);
       return;
     }
-    attachedTracks.add(track.id);
+    const attached = attachedTracks.get(owner.socketId) ?? new Set<string>();
+    const key = `${mid}/${track.id}`;
+    if (attached.has(key)) return;
+    attached.add(key);
+    attachedTracks.set(owner.socketId, attached);
     const stream = new MediaStream();
     stream.addTrack(track);
     onTrack(owner.socketId, stream);
   });
 
-  async function runSubscribe(): Promise<void> {
-    const raw = await request(ws, 'conference.media.subscribe', {});
-    if (closed) return;
+  /** One subscribe round; resolves with the reply's `retryAfterMs`, if any. */
+  async function runSubscribe(): Promise<number | undefined> {
+    const raw = await request(ws, 'conference.media.subscribe', {}, SFU_REQUEST_TIMEOUT_MS);
+    if (closed) return undefined;
     const parsed = ConferenceMediaSubscribeReplySchema.safeParse(raw);
     if (!parsed.success) throw new Error('conference.media.subscribe returned an unexpected shape');
-    const { sdp, mids } = parsed.data;
-    if (sdp === null) return;
+    const { sdp, mids, retryAfterMs } = parsed.data;
+    if (sdp === null) return retryAfterMs;
     // Track events fire before setRemoteDescription resolves, so the owners of
     // the offer's mids must be known first.
     recordMids(midToPeer, mids);
     await pc.setRemoteDescription({ type: 'offer', sdp });
     await pc.setLocalDescription(await pc.createAnswer());
-    if (closed) return;
+    if (closed) return undefined;
     const answer = pc.localDescription?.sdp;
     if (!answer) throw new Error('receive connection has no local answer');
-    await request(ws, 'conference.media.renegotiate', { sdp: answer });
+    await request(ws, 'conference.media.renegotiate', { sdp: answer }, SFU_REQUEST_TIMEOUT_MS);
+    return retryAfterMs;
+  }
+
+  function subscribe(): void {
+    if (closed) return;
+    chain = chain
+      .then(async () => {
+        if (closed) return;
+        const retryAfterMs = await runSubscribe();
+        if (!closed) retries.completed(retryAfterMs);
+      })
+      .catch((err: unknown) => {
+        // A refused subscribe is skipped; the server closes the socket when
+        // the receive connection cannot recover, and the next
+        // `conference.media.published` asks again otherwise.
+        if (err instanceof ConferenceRequestError) {
+          console.warn('[conference] subscribe refused', err.code);
+          return;
+        }
+        console.warn('[conference] subscribe failed', err);
+      });
   }
 
   return {
-    subscribe() {
-      if (closed) return;
-      chain = chain
-        .then(() => (closed ? undefined : runSubscribe()))
-        .catch((err: unknown) => {
-          // A refused subscribe is skipped like a refused consume was; the next
-          // `conference.media.published` asks again.
-          if (err instanceof ConferenceRequestError) {
-            console.warn('[conference] subscribe refused', err.code);
-            return;
-          }
-          console.warn('[conference] subscribe failed', err);
-        });
-    },
+    subscribe,
     dropPeer(socketId) {
       dropPeer(midToPeer, socketId);
+      attachedTracks.delete(socketId);
     },
     close() {
       if (closed) return;
       closed = true;
+      retries.cancel();
       midToPeer.clear();
       attachedTracks.clear();
       pc.close();
