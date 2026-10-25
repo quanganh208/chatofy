@@ -77,6 +77,12 @@ def no_language_turns(turns, facts) -> frozenset[str]:
     for line in TRANSCRIPTS.read_text().splitlines():
         row = json.loads(line)
         texts[row["id"]] = row["text"]
+    # A turn with no row was never joined (say, a source prepared after the
+    # transcripts were): it would pass as language-bearing without being read.
+    unjoined = [t.id for t in turns if t.real and not t.noise and t.id not in texts]
+    if unjoined:
+        raise SystemExit(f"{len(unjoined)} real turns have no row in {TRANSCRIPTS.name}: "
+                         "re-run scripts/attach_transcripts.py")
     out = set()
     for turn in turns:
         silero = facts.get(turn.id, {}).get("silero_ms")

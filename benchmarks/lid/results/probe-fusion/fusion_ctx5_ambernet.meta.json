@@ -1,0 +1,14 @@
+{
+  "arm": "fusion_ctx5_ambernet",
+  "kind": "lid-model",
+  "runtime": "onnxruntime-1.27.0",
+  "parity_passed": true,
+  "needs_gpu": false,
+  "needs_torch": false,
+  "new_model": true,
+  "notes": [
+    "probe: product of whisper_probs_base_ctx5 and ambernet probabilities, equal weight, nothing tuned",
+    "latency is the sum of both (sequential)",
+    "ambernet licence: NGC ToU, redistribution not assumed"
+  ]
+}

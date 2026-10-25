@@ -16,7 +16,8 @@ therefore `whisper_probs_base` (30 s), not the shipped `base_ctx5`.
 
 Whole turns only, no prefixes: this answers "is the signal there", not "can it
 lock in time". Writes `whisper_probs_<size>.scores.jsonl` and a meta that
-says it is a probe (`ceiling_probe: true`); nothing here is a gate candidate.
+says it is a probe (`ceiling_probe: true`), which `score.py` never loads as an
+arm. Write it to a tag of its own: the file name is the scored Whisper arm's.
 """
 
 from __future__ import annotations

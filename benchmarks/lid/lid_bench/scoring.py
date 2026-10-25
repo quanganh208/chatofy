@@ -314,7 +314,7 @@ def criteria(trials: list[Trial], added_ms: list[float], noise: dict[str, tuple[
         row(f"A-ACC.{mode}", value, ">=0.95", None if value is None else value >= 0.95, len(rows), "public")
 
     for lang in ("en", "vi"):
-        rows = [t for t in trials if t.turn.mono and t.turn.real and t.turn.lang == lang
+        rows = [t for t in trials if t.turn.mono and speech(t) and t.turn.real and t.turn.lang == lang
                 and t.candidates == ("en", "vi")]
         worst = None
         for source in ("en", "vi"):

@@ -235,3 +235,16 @@ def test_detect_regression_compares_the_same_turns_in_two_and_three_way_detect()
 
 def test_zh_gate_needs_its_short_two_way_turns_and_no_detect_regression():
     assert {"A2.vi-zh", "A2.en-zh", "detect2v3.short.vi", "detect2v3.short.en"} <= set(REQUIRED_ZH)
+
+
+def test_excluded_turns_leave_the_mono_session_rows_too():
+    turns = [turn(i, "en", session="m", order=i, mono=True) for i in range(10)]
+    gone = frozenset({"t0"})
+
+    def wrong_on_gone(tid, cands):
+        right = "vi" if tid in gone else "en"
+        return {c: (0.99 if c == right else 0.01 / (len(cands) - 1)) for c in cands}
+
+    trials = run_trials(episodes(turns), wrong_on_gone, None, Params(), None)
+    assert criteria(trials, [0.0], {})["A9-mono.en"].value > 0
+    assert criteria(trials, [0.0], {}, excluded=gone)["A9-mono.en"].value == 0

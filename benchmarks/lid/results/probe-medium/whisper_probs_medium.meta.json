@@ -1,0 +1,13 @@
+{
+  "arm": "whisper_probs_medium",
+  "kind": "lid-model",
+  "runtime": "onnxruntime-1.27.0",
+  "ceiling_probe": true,
+  "needs_gpu": false,
+  "needs_torch": false,
+  "new_model": true,
+  "latency_p95_ms": 3373.2,
+  "notes": [
+    "onnx-community whisper-medium@d3978248 through the sidecar's log-mel, 30 s window; whole turns only, accuracy probe, not a gate candidate"
+  ]
+}

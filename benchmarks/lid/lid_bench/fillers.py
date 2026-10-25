@@ -5,7 +5,9 @@ A turn whose reference transcript is only these has no correct language label.
 "嗯", "mm hmm" and "ừ" sound alike across the three languages, and the product
 handles such a turn the same way whatever it is decided as: transcript only,
 nothing translated, the session prior left alone. Ruler v5 therefore leaves
-these turns out of A1-A3 and A6, for every language alike.
+these turns out of every speech criterion, for every language alike, as far
+as transcripts reach: VietMed's pause-cut fragments and ViMedCSS have none,
+so short vi meets the 300 ms floor only (`excluded.{lang}` shows the gap).
 
 The lexicons were written before any accuracy was read under them. They hold
 NON-LEXICAL sounds only: words that mean something ("对", "好的", "yeah",

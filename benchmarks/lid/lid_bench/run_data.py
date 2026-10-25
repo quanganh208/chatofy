@@ -163,5 +163,7 @@ def load_run(run_dir: Path) -> tuple[list[Turn], dict[str, dict], dict[str, ArmD
     arms = {
         path.name.removesuffix(".meta.json"): load_arm(run_dir, path.name.removesuffix(".meta.json"), turns)
         for path in sorted(run_dir.glob("*.meta.json"))
+        # A ceiling probe answers "is the signal there", whole turns only: never a gate arm.
+        if not json.loads(path.read_text()).get("ceiling_probe")
     }
     return turns, load_facts(run_dir), arms
