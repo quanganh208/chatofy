@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { Logger } from '@nestjs/common';
 import {
   CloudflareRealtimeError,
   type CloudflareRealtimeClient,
@@ -282,6 +283,23 @@ describe('ConferenceSfuSignaling', () => {
       1011,
       'subscribe answer refused',
     );
+  });
+
+  it('treats a session the SFU already closed as cleaned up', async () => {
+    const h = harness();
+    const alice = h.seat('alice');
+    await h.sfu.publish(alice, h.publishBody);
+    h.cloudflare.forceCloseTracks.mockRejectedValue(
+      new CloudflareRealtimeError(410, 'session_error'),
+    );
+    const warn = vi.spyOn(Logger.prototype, 'warn');
+
+    h.sfu.cleanupPeer(alice.room, alice.socketId, alice.peer);
+    await vi.waitFor(() =>
+      expect(h.cloudflare.forceCloseTracks).toHaveBeenCalled(),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('failed'));
   });
 
   it('closes a leaver’s own tracks, and only the tracks other peers pulled from it', async () => {

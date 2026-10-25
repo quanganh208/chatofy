@@ -5,7 +5,10 @@ import type {
   ConferenceMediaRenegotiate,
   ConferenceMediaSubscribeReply,
 } from '@chatofy/types';
-import { CloudflareRealtimeClient } from './cloudflare-realtime.client';
+import {
+  CloudflareRealtimeClient,
+  CloudflareRealtimeError,
+} from './cloudflare-realtime.client';
 import type {
   ConferenceRoom,
   ParticipantSession,
@@ -297,9 +300,14 @@ function closeTracks(
   sessionId: string | undefined,
   mids: string[],
 ): Promise<void> {
-  return sessionId
-    ? cloudflare.forceCloseTracks(sessionId, mids)
-    : Promise.resolve();
+  if (!sessionId) return Promise.resolve();
+  // 410 means the SFU already closed the session — the client's connection
+  // went first, which is the normal way a call ends — so there is nothing
+  // left to close.
+  return cloudflare.forceCloseTracks(sessionId, mids).catch((err: unknown) => {
+    if (err instanceof CloudflareRealtimeError && err.status === 410) return;
+    throw err;
+  });
 }
 
 function describe(err: unknown): string {
