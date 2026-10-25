@@ -32,6 +32,11 @@ vi.mock('next-auth/react', () => ({
   signOut: vi.fn(),
 }));
 
+// The build flag, as a box a test can flip: `vi.mock` factories are hoisted above
+// every declaration, so they can only close over something `vi.hoisted` made.
+const flags = vi.hoisted(() => ({ conference: true }));
+vi.mock('@/config/feature-flags', () => ({ isConferenceEnabled: () => flags.conference }));
+
 const { AppChrome } = await import('./app-chrome');
 const { LocaleProvider } = await import('@/i18n/provider');
 
@@ -42,6 +47,7 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   pathname.mockReturnValue('/translate');
+  flags.conference = true;
 });
 
 afterEach(() => {
@@ -72,7 +78,18 @@ describe('the product sidebar', () => {
     // The full set, in order. It is complete now, so this asserts against additions
     // as much as omissions. History arrived at PDR milestone 6, with its route —
     // which is the rule this assertion exists to hold anything else to.
-    expect(navLinks).toEqual(['/translate', '/history', '/preferences', '/account']);
+    expect(navLinks).toEqual(['/translate', '/conference', '/history', '/preferences', '/account']);
+  });
+
+  it('leaves conferencing out of a build that does not ship it', () => {
+    flags.conference = false;
+    const links = [...render().querySelectorAll('a[href]')].map((a) => a.getAttribute('href'));
+    expect(links.filter((href) => href !== '/')).toEqual([
+      '/translate',
+      '/history',
+      '/preferences',
+      '/account',
+    ]);
   });
 
   it('separates the two groups without captioning either', () => {

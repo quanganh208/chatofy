@@ -595,6 +595,40 @@ deletion, which requires a second API token and is out of scope.
 
 - **Tunnel** — the ingress in `/etc/cloudflared/config.yml` is root-owned and also carries the operator's SSH ingress. **CD never touches it.** Adding a hostname is a manual, one-time change: back the file up, `cloudflared tunnel ingress validate`, then restart, keeping the catch-all rule last.
 
+## Video conferencing (disabled by default)
+
+Conferencing code is on `main`, behind two flags that both default off. Keep both off
+in production: there are no host steps to take while the media network path
+is undecided: it is pending in [Issue #208](https://github.com/quanganh208/chatofy/issues/208)
+and in [Decision 7](./video-conferencing-architecture.md#7-network-path-for-meeting-media--pending-issue-208).
+Do not open ports or start coturn on the production host for it.
+
+| Variable                         | Read by           | Effect                                                                                                                                                                                                                                                                                                                   |
+| -------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CONFERENCE_ENABLED`             | api, at boot      | `true` imports the conference module: the mediasoup worker, `/ws/conference`, the `/conference` REST routes. Off, none of them load, so a mediasoup worker that fails to start cannot take the rest of the API down. The image build still installs mediasoup either way (see below).                                    |
+| `NEXT_PUBLIC_CONFERENCE_ENABLED` | web, at **build** | `'true'` shows the nav entry and the `/conference` routes; `'false'` (the default) hides the entry and every `/conference` route returns 404; any other value fails the build. A build arg of `apps/web/Dockerfile`; `docker-compose.prod.yml` does not pass it, so production builds are off. Changing it is a rebuild. |
+| `MEDIASOUP_ANNOUNCED_IP`         | api               | The address mediasoup puts in its ICE candidates. Defaults to `127.0.0.1`, correct for one-machine testing.                                                                                                                                                                                                              |
+| `TURN_URL`, `COTURN_SECRET`      | api               | TURN is handed to clients only when both are set. The API mints short-lived TURN REST credentials per join (`expiry:userId`, HMAC-SHA1 with the secret); the secret itself never leaves the server.                                                                                                                      |
+
+Ports, from code: the mediasoup worker uses RTC ports **50000–59999** (UDP and TCP,
+`conference-worker.service.ts`); the coturn relay in `docker-compose.yml` uses
+**40000–49999**, so the two never overlap. coturn exists only in the development
+compose file, for LAN tests; which TURN production uses follows Decision 7.
+
+To check a TURN server, use the
+[Trickle ICE page](https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/)
+(a `relay` candidate means the relay works) or `turnutils_uclient` from the coturn
+package. `curl` tests nothing: TURN is not HTTP.
+
+The API image is `node:24-trixie-slim`, not Alpine or bookworm, because mediasoup's
+prebuilt worker needs glibc 2.38 on a kernel-7 build host; `apps/api/Dockerfile` carries
+the details. That install runs whatever `CONFERENCE_ENABLED` says: every API image build
+downloads the worker binary from mediasoup's GitHub releases, and falls back to a
+source build (which fails, the image has no compiler) if the download is blocked or the
+binary does not run. The flag isolates conferencing at runtime only. How to run a
+meeting locally is in
+[conference-demo-runbook.md](./conference-demo-runbook.md).
+
 ## Known gaps
 
 - **Chinese speech has limits that are known and not fixed.** Kokoro spells Latin acronyms letter by letter ("ChatGPT"); `℃` and `¥` are not verbalized before synthesis; nobody has yet listened to the zh voices (47 `zf_xiaoxiao`, 51 `zm_yunxia`) for naturalness — they were chosen by round-trip intelligibility. Gemini Live refuses every pair with zh in it by design (`unsupported_language_pair`). Traditional-script output and Cantonese are out of scope.

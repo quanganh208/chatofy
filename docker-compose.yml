@@ -148,6 +148,36 @@ services:
       retries: 5
     restart: 'no'
 
+  # ── TURN server (mediasoup PoC — Issue #207) ───────────────────────────────
+  # WebRTC media cannot travel through the Cloudflare Tunnel (TCP/HTTP only),
+  # so clients need a TURN relay. coturn listens on UDP+TCP 3478 and TURNS/TCP
+  # 5349. Bind to 0.0.0.0 here so a second machine on the same LAN can reach
+  # it — still inside the private network, not exposed to the internet.
+  #
+  # For local testing: leave COTURN_SECRET as the default below; the API's
+  # COTURN_SECRET (apps/api/.env) must hold the same value.
+  # For production: set COTURN_SECRET and COTURN_REALM in .env.
+  coturn:
+    image: coturn/coturn:4.6.2
+    network_mode: host
+    command:
+      - '--lt-cred-mech'
+      - '--use-auth-secret'
+      - '--static-auth-secret=${COTURN_SECRET:-dev-secret}'
+      - '--realm=${COTURN_REALM:-localhost}'
+      - '--min-port=40000'
+      - '--max-port=49999'
+      - '--no-stun'
+      - '--no-multicast-peers'
+      - '--denied-peer-ip=10.0.0.0-10.255.255.255'
+      - '--denied-peer-ip=192.168.0.0-192.168.255.255'
+      - '--denied-peer-ip=172.16.0.0-172.31.255.255'
+      # The three ranges above include every LAN address, so on a LAN test
+      # where MEDIASOUP_ANNOUNCED_IP is a private IP coturn refuses to relay to
+      # mediasoup. Allow exactly that one address (it overrides the deny):
+      # - '--allowed-peer-ip=192.168.1.10'
+    restart: 'no'
+
 volumes:
   chatofy_postgres_data:
   chatofy_hf_cache:

@@ -60,5 +60,6 @@ import { TranslateGateway } from './translate.gateway';
     // one-line change here, not a rewire of the callers that use the token.
     { provide: LANGUAGE_IDENTIFIER, useClass: DeclaredLanguageIdentifier },
   ],
+  exports: [PipelineTranslatorService],
 })
 export class TranslateModule {}

@@ -1,34 +1,33 @@
 # Technical Risks & Mitigation Plans: Video Conferencing
 
-> **Status: Proposal — not implemented.** No conferencing code exists on `main` as of
-> 2026-10-05. Progress is tracked in [project-roadmap.md](./project-roadmap.md);
-> unresolved choices are in [Open decisions](./video-conferencing-architecture.md#open-decisions).
+> **Status: Design; code on `main` behind flags.** The mediasoup SFU and client-side
+> translation are on `main` behind `CONFERENCE_ENABLED` / `NEXT_PUBLIC_CONFERENCE_ENABLED`,
+> off by default. Translation latency is from a 2-tab local run (#209); SFU load from #211;
+> the network path (#208) is pending. Progress: [project-roadmap.md](./project-roadmap.md).
 
-**Date:** 2026-09-29  
+**Date:** 2026-09-29 | **Updated:** 2026-10-07 (re-rated translation lag with measured numbers, #212)  
 **Scope:** Risk analysis, impact assessment and mitigation strategies for the proposed design  
-**Assumed constraints (unverified, see [Open decisions](./video-conferencing-architecture.md#open-decisions)):** SFU, VP8, 6 participants, 720p60fps, per-minute billing (optional, out of thesis scope)
+**SFU:** mediasoup in-process (resolved #207). Billing deferred (resolved #212).
 
-Every ✅ below marks a **proposed** mitigation, not shipped behaviour. Probabilities,
-latency budgets, SLAs and cost figures are the proposal's estimates, not measurements on
-this project's hardware. The SFU is undecided; where the text says "Pion", read "the
-chosen media server".
+Probabilities and cost figures are estimates unless marked **measured**. Where the
+original text said "Pion", mediasoup is the chosen SFU (resolved #207).
 
 ---
 
 ## Risk Matrix Overview
 
-| Risk                                           | Probability  | Impact      | Effort to Mitigate | Priority |
-| ---------------------------------------------- | ------------ | ----------- | ------------------ | -------- |
-| **Video Latency > 2s**                         | HIGH (80%)   | CRITICAL 🔴 | Medium             | P1       |
-| **Translation lag delays video**               | HIGH (70%)   | HIGH 🔴     | Medium             | P1       |
-| **Speaker attribution wrong**                  | MEDIUM (50%) | MEDIUM 🟡   | Low                | P2       |
-| **Subtitle mismatch (timing)**                 | MEDIUM (60%) | MEDIUM 🟡   | Medium             | P2       |
-| **Recording composition fails**                | LOW (20%)    | HIGH 🔴     | Medium             | P2       |
-| **SFU scalability beyond 6 participants**      | MEDIUM (50%) | HIGH 🔴     | High               | P2       |
-| **Redis room state lost (crash)**              | LOW (10%)    | MEDIUM 🟡   | Low                | P3       |
-| **Translation cost explosion**                 | MEDIUM (40%) | HIGH 🔴     | Low                | P2       |
-| **Browser compatibility (codec)**              | LOW (15%)    | LOW 🟢      | Low                | P3       |
-| **Database write contention (turns/messages)** | MEDIUM (45%) | MEDIUM 🟡   | Low                | P3       |
+| Risk                                           | Probability                   | Impact      | Effort to Mitigate | Priority |
+| ---------------------------------------------- | ----------------------------- | ----------- | ------------------ | -------- |
+| **Video Latency > 2s**                         | HIGH (80%)                    | CRITICAL 🔴 | Medium             | P1       |
+| **Translation lag delays video**               | CERTAIN (measured ~5.9–9.2 s) | HIGH 🔴     | Medium             | P1       |
+| **Speaker attribution wrong**                  | MEDIUM (50%)                  | MEDIUM 🟡   | Low                | P2       |
+| **Subtitle mismatch (timing)**                 | MEDIUM (60%)                  | MEDIUM 🟡   | Medium             | P2       |
+| **Recording composition fails**                | LOW (20%)                     | HIGH 🔴     | Medium             | P2       |
+| **SFU scalability beyond 6 participants**      | MEDIUM (50%)                  | HIGH 🔴     | High               | P2       |
+| **Redis room state lost (crash)**              | LOW (10%)                     | MEDIUM 🟡   | Low                | P3       |
+| **Translation cost explosion**                 | MEDIUM (40%)                  | HIGH 🔴     | Low                | P2       |
+| **Browser compatibility (codec)**              | LOW (15%)                     | LOW 🟢      | Low                | P3       |
+| **Database write contention (turns/messages)** | MEDIUM (45%)                  | MEDIUM 🟡   | Low                | P3       |
 
 ---
 
@@ -122,13 +121,20 @@ After mitigation:
 
 #### Description
 
-Video (fast, ~300ms latency) arrives before translated subtitle (~1-2s latency), creating mismatch: user sees video of person speaking, but subtitle appears 0.5-2 seconds later (or even shows previous person's text).
+Video (fast, ~300ms latency) arrives before translated subtitle, creating a mismatch:
+the listener sees the speaker's video before the translated subtitle appears.
 
-**Breakdown:**
+**Measured breakdown (Issue #209, local dev, 2-tab PoC, 2026-10-06):**
 
-- Video path: Capture → Network → SFU → Client (300ms)
-- Audio path: Capture → Network → STT (300ms) → Translation (500-1000ms) → TTS (200ms) → Network (100ms) → Total ~1.2-1.8s
-- **Gap: 0.9-1.5 seconds**
+- Video path: Capture → Network → SFU → Client (~300 ms, PoC)
+- Translation path: Capture → `/ws/translate` STT→MT→TTS → transcript received by speaker
+  - Warm session (model already streaming): **~5.9 s** T1→T2
+  - Cold session (first utterance): **~9.2 s** T1→T2
+- **Measured gap: 5.6–8.9 s** (not the ~1 s estimated in the original proposal)
+
+The proposal's per-stage sum was 1.2–1.8 s; the measured path is the live (speech-to-speech)
+mode, which emits only after buffering enough audio. Warm ~5.9 s is the steady state; the
+cold penalty (~3 s) hits each session's first utterance.
 
 #### Why It Happens
 
@@ -368,6 +374,8 @@ Monitoring:
 
 ### Risk 2.3: Recording Composition Fails
 
+> Recording is deferred (Decision 6 in the architecture document); nothing below is built.
+
 #### Description
 
 Video composition job hangs, crashes, or produces corrupted output (no audio track, video glitchy, subtitles misaligned in final file).
@@ -411,35 +419,11 @@ Video composition job hangs, crashes, or produces corrupted output (no audio tra
   - Retry: On timeout, try AGAIN with lower bitrate (2Mbps → 1Mbps)
   - Max retries: 3, then mark as failed + notify user
 
-**Short-term:**
-
-- 📊 **Recording job telemetry**
-  - Log: Start time, FFmpeg version, input specs, output size, duration, success/fail
-  - Alert: If > 5% of jobs fail, page on-call
-  - Automated: Retry failed jobs (off-peak hours)
-
-- 🎯 **E2E test: Recording**
-  - Test fixture: Compose a 5min sample recording (all codecs, languages)
-  - Verify: Can download, play in VLC, no corruption
-  - Run: Weekly, before deploy
-
-- 🔄 **User notification**
-  - Don't hide recording failures
-  - After meeting ends, show: "Recording: ⏳ Compositing..." → "✅ Ready" or "❌ Failed"
-  - Failed: "Recording unavailable. We're working on it." + Support link
-
-**Long-term:**
-
-- 🧠 **Streaming composition**
-  - Instead of async job, composite in real-time during meeting
-  - Write segments to R2 as they complete
-  - User can download partial recording immediately
-  - Requires: Redesign of TTS + subtitle injection (complex)
-
-- 🏗️ **Multi-format fallback**
-  - If MP4 composition fails (codec mismatch), fall back to Matroska (.mkv)
-  - Matroska more flexible (supports any codec combo)
-  - Trade-off: Not all players support .mkv
+**Later, if recording is ever built:** job telemetry (FFmpeg version, input specs, output
+size, outcome) with an alert above a 5% failure rate; a weekly E2E test that composes a
+5-minute fixture and plays it back; visible recording status after the meeting instead of a
+silent failure; and, long-term, streaming composition into R2 segments during the meeting,
+with a Matroska fallback when an MP4 codec combination fails.
 
 #### Measurement & Success Criteria
 
@@ -458,13 +442,19 @@ Monitoring:
 
 ### Risk 2.4: SFU Scalability Beyond 6 Participants
 
+> **Measured (#211, 2026-10-11, Windows dev machine, loopback SFU):** 6 × 720p60 ran at
+> ≈ 9.7 Mbps aggregate with a 15–20 MiB worker, so 6 participants hold for media on one
+> machine; per-cell numbers in
+> [video-conferencing-v2-synthesis.md → Load constraints](./architecture/video-conferencing-v2-synthesis.md#2-load-constraints-measured--211-2026-10-11).
+> Translation, not the SFU, caps a meeting today: six live translation sessions server-wide.
+
 #### Description
 
 Performance degrades or crashes when 7+ participants join (exceeds design constraint).
 
 **Breakdown:**
 
-- An SFU (Pion assumed) handles N participants by forking N-1 video tracks (each participant gets N-1 feeds)
+- A mediasoup SFU handles N participants by forwarding N-1 video tracks (each participant gets N-1 feeds); it does NOT transcode
 - At 6 participants: 6 × 5 = 30 tracks on the SFU
 - At 20 participants: 20 × 19 = 380 tracks (possible, but CPU high)
 - Goal: Graceful degradation, not crash

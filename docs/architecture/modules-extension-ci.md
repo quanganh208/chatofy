@@ -36,6 +36,11 @@ Part of the [system architecture](../system-architecture.md).
   - `storage/` — `AVATAR_STORAGE` and `CONVERSATION_AUDIO_STORAGE`, two seams each with an R2 implementation and a disabled one, chosen at module construction from the same configuration. Also the shared image validator (`avatar-image.ts`), the recording sniffer and key builder (`conversation-audio.ts`), and the Google picture importer. See [Avatar storage](./authentication.md#avatar-storage) and [Conversation recordings](./ai-providers.md#conversation-recordings-and-the-access-boundary-they-do-not-have)
   - `users/` — `PrismaUserRepository` and `toUserContract`, which composes `avatarUrl` from the stored key
   - `redis/` — `REDIS_CLIENT` only, imported by `AuthModule` and nowhere else: refresh-token families are its sole consumer
+  - `conference/` — Video meetings, imported only when `CONFERENCE_ENABLED` is on: off, there is no mediasoup worker, no `/ws/conference` and no `/conference` route. Rooms are created only by `POST /conference`; the gateway never creates one. See [video-conferencing-v2-synthesis.md](./video-conferencing-v2-synthesis.md)
+    - `conference.controller.ts` / `conference.service.ts` — REST create, list (caller-scoped), get and end; ending a room closes its live call
+    - `conference.gateway.ts` — `/ws/conference` signaling: join, transports, produce/consume, translation broadcast, chat. Upgrade auth via `ws-auth.ts`; errors reply `{ error: <code> }` on the same event
+    - `conference-worker.service.ts`, `conference-room-registry.service.ts`, `conference-webrtc-transport.factory.ts` — the mediasoup worker (RTC ports 50000–59999), one router per room, transports announcing `MEDIASOUP_ANNOUNCED_IP` with per-join TURN credentials
+    - `services/` — translation relay and routing (subtitles to other-language peers, audio to same-language peers), translated chat, and persistence of participants, final turns and messages. See [video-translation-audio-path.md](./video-translation-audio-path.md)
   - `health/`, `meta/` — `GET /health` (the deploy smoke's probe) and `GET /`
 
 **Web:**

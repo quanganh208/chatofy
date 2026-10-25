@@ -471,3 +471,72 @@ model GlossaryTerm {
   // dictionary, and with contextId leading this IS the read index.
   @@unique([contextId, position])
 }
+
+model Conference {
+  id                   String    @id @default(cuid())
+  ownerId              String
+  title                String?
+  startedAt            DateTime?
+  endedAt              DateTime?
+  status               String    @default("waiting")
+  translationContextId String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  participants ConferenceParticipant[]
+  turns        ConferenceTurn[]
+  messages     ConferenceMessage[]
+
+  @@index([ownerId, createdAt(sort: Desc)])
+}
+
+model ConferenceParticipant {
+  id             String    @id @default(cuid())
+  conferenceId   String
+  userId         String
+  displayName    String?
+  sourceLanguage String
+  status         String    @default("joined")
+  joinedAt       DateTime  @default(now())
+  leftAt         DateTime?
+
+  conference Conference          @relation(fields: [conferenceId], references: [id], onDelete: Cascade)
+  turns      ConferenceTurn[]
+  messages   ConferenceMessage[]
+
+  @@unique([conferenceId, userId])
+  @@index([userId])
+}
+
+model ConferenceTurn {
+  id              String   @id @default(cuid())
+  conferenceId    String
+  participantId   String
+  sourceLanguage  String
+  sourceText      String
+  searchText      String?
+  translations    Json?
+  audioStartMs    Int?
+  audioDurationMs Int?
+  createdAt       DateTime @default(now())
+
+  conference  Conference            @relation(fields: [conferenceId], references: [id], onDelete: Cascade)
+  participant ConferenceParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([conferenceId, audioStartMs])
+  @@index([participantId])
+}
+
+model ConferenceMessage {
+  id             String   @id @default(cuid())
+  conferenceId   String
+  participantId  String
+  text           String
+  sourceLanguage String
+  createdAt      DateTime @default(now())
+
+  conference  Conference            @relation(fields: [conferenceId], references: [id], onDelete: Cascade)
+  participant ConferenceParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([conferenceId, createdAt(sort: Desc)])
+}

@@ -9,6 +9,16 @@ const emptyStringAsUndefined = <T extends z.ZodTypeAny>(schema: T) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema);
 
 /**
+ * An on/off switch. Absent means off; `1`/`0` are accepted beside `true`/`false`
+ * because the benchmark scripts already spell it that way. Anything else fails
+ * the boot rather than being read as off.
+ */
+const envFlag = z
+  .enum(['true', 'false', '1', '0'])
+  .default('false')
+  .transform((value) => value === 'true' || value === '1');
+
+/**
  * The port `apps/web` actually runs on in dev. Exported so main.ts's
  * production boot check compares WEB_BASE_URL against the exact same string
  * this schema defaults it to, rather than repeating the literal.
@@ -154,6 +164,26 @@ export const envSchema = z.object({
   // meaning of a voice differs per engine.
   LOCAL_STT_URL: z.string().url().default('http://localhost:8002'),
   LOCAL_TTS_URL: z.string().url().default('http://localhost:8003'),
+
+  // ── Video conferencing (mediasoup + coturn) ───────────────────────────────
+  // Video conferencing (mediasoup SFU + coturn). OFF by default: while false
+  // the ConferenceModule is not imported at all, so no mediasoup worker is
+  // spawned and neither `/ws/conference` nor `/conference` exists. This
+  // isolates the API at RUNTIME only: the image build still installs
+  // mediasoup and runs its postinstall (which downloads the prebuilt worker),
+  // so a failing mediasoup install fails the build whatever this is set to.
+  CONFERENCE_ENABLED: envFlag,
+  // Benchmark-only SFU metrics tap at GET /conference/metrics.
+  CONFERENCE_METRICS_ENABLED: envFlag,
+  // Announced IP for WebRTC ICE candidates. Override with the host's public IP
+  // in production; loopback is correct for local dev.
+  MEDIASOUP_ANNOUNCED_IP: z.string().min(1).default('127.0.0.1'),
+  // TURN relay returned to clients in transport.create. TURN is on only when
+  // BOTH are set: credentials are minted per join as TURN REST credentials
+  // (HMAC-SHA1 over `expiry:userId`), so COTURN_SECRET must equal coturn's
+  // `--static-auth-secret`.
+  TURN_URL: emptyStringAsUndefined(z.string().min(1).optional()),
+  COTURN_SECRET: emptyStringAsUndefined(z.string().min(1).optional()),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,8 +1,13 @@
 # Chatofy: Video Conferencing + Real-time Translation Architecture
 
-> **Status: Proposal — not implemented.** No conferencing code exists on `main` as of
-> 2026-10-05. Progress is tracked in [project-roadmap.md](./project-roadmap.md); the
-> choices that must be made before building are in [Open decisions](#open-decisions).
+> **Status: Proposal, partly built.** Conferencing code is on `main` behind two flags,
+> both off by default: `CONFERENCE_ENABLED` (API) and `NEXT_PUBLIC_CONFERENCE_ENABLED`
+> (web, build time); the mobile screens are reachable only in development builds. What
+> exists is a mediasoup SFU inside the API, rooms created by `POST /conference`, signaling
+> on `/ws/conference`, and client-side translation fanned out to the room
+> ([video-translation-audio-path.md](./architecture/video-translation-audio-path.md)).
+> Production cannot carry meeting media yet: the network path (Decision 7) is pending.
+> Progress is tracked in [project-roadmap.md](./project-roadmap.md).
 
 **Date:** 2026-09-29  
 **Scope:** Proposed evolution from standalone translation → unified video conferencing platform
@@ -649,83 +654,110 @@ Detailed analysis is in [technical-risks-mitigation.md](./technical-risks-mitiga
 
 ## 12. Next Steps
 
-1. Settle the [Open decisions](#open-decisions) (Gate 0 in
-   [project-roadmap.md](./project-roadmap.md))
-2. Review + approve architecture
-3. Create implementation plan with detailed task breakdown
-4. Set up video-provider package scaffolding
-5. Begin Phase 1 (infrastructure)
+1. Choose the network path (Decision 7); only then the two-network connectivity run.
+2. Measure translation under several simultaneous speakers (Decision 4).
+3. Replace the Pion assumptions above when the next implementation plan is written.
 
 ---
 
 ## Open decisions
 
-Nothing below is settled. Each item changes what the phases above contain, and the
-other two video documents link here.
+Decisions 1, 3, 5 and 6 are settled, 2 is superseded, 4 is half measured, 7 is pending. The
+other video documents link here.
 
-### 1. Media server (SFU) — undecided
+### 1. Media server (SFU) — **Resolved: mediasoup 3.28.0** (Issue #207, 2026-10-05)
 
-The text above names Pion (§3.1, §7 Phase 3, §9, Appendix). That is an assumption made
-while writing, not a decision. Three candidates:
+**Decision:** mediasoup  
+**Rejected:** LiveKit, Pion  
+**Evidence:** the #207 PoC — two browser tabs exchanged audio + video through a
+mediasoup Worker running inside the NestJS API process (`ConferenceWorkerService`,
+`ConferenceRoomRegistry`, `ConferenceGateway`). That module is what is now on `main`
+behind `CONFERENCE_ENABLED`.
 
-| Criterion                              | LiveKit                                                                                                  | mediasoup                                                                                        | Pion                                                                     |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| What it is                             | Self-hosted SFU server (Go) with JS, React and React Native SDKs                                         | Node.js library (C++ media workers); SFU primitives only                                         | Go WebRTC library; the SFU is ours to write                              |
-| Fit with the NestJS stack              | NestJS only mints access tokens and stores room metadata; media and signaling stay in the LiveKit server | Runs in or beside the Node API; signaling is ours (could ride the existing `ws` gateway pattern) | A separate Go service beside NestJS, plus a control channel between them |
-| Ops on the prod VM (~3.4 GiB headroom) | One more container; recording (Egress) is a separate, heavier service. Footprint unmeasured              | Worker processes in or beside the API container. Footprint unmeasured                            | One more service; footprint depends on our code. Unmeasured              |
-| Mobile (Expo)                          | React Native SDK; native WebRTC module, so an Expo development build rather than Expo Go                 | `mediasoup-client` over `react-native-webrtc`; development build                                 | Plain WebRTC client over `react-native-webrtc`; development build        |
-| Effort                                 | Lowest: rooms, simulcast, reconnection and recording come with it                                        | Medium: signaling, room state and simulcast layer selection are ours                             | Highest: SFU logic is ours (the Appendix's 40h assumes this)             |
+The LiveKit / mediasoup / Pion comparison table, with a source for every cell, and why
+LiveKit and Pion were rejected, is in
+[video-conferencing-v2-synthesis.md → Decision 1](./architecture/video-conferencing-v2-synthesis.md#decision-1--sfu-library-mediasoup-resolved-by-207).
+In one line each: LiveKit needs one extra container, two with recording, on a VM with
+~3.4 GiB headroom; Pion adds a Go service the repo has no toolchain or CI for.
 
-Common to all three: production is published through a Cloudflare Tunnel (see
-[deployment-guide.md](./deployment-guide.md)), which serves the web and API hostnames.
-How media packets reach the SFU — an open UDP port on the host or a TURN relay — is
-unresolved for every option. Any footprint figure must be measured under a
-`docker --memory` cap before it is trusted against the VM's headroom.
+### 2. Pion implies a Go service beside NestJS — **Superseded by Decision 1**
 
-### 2. Pion implies a Go service beside NestJS
+mediasoup was chosen. The Pion references in §3.1, §7 Phase 3, §9 and the Appendix are
+the proposal's original assumption, kept to show its intent; they do not describe the code.
 
-Every Pion reference assumes a Go process the repo does not have: no Go toolchain, CI
-job, Dockerfile or deploy step exists for one today. Choosing Pion adds a language and a
-service to build, test and deploy. The references are kept, flagged as assumptions,
-until item 1 is decided.
+### 3. Billing vs a non-commercial thesis — **Deferred out of thesis scope** (Issue #212, 2026-10-07)
 
-### 3. Billing vs a non-commercial thesis
+The design included per-minute billing (`ConferenceBillingLine`, `costEstimateCents`,
+`billingStatus`). Chatofy is a non-commercial graduation thesis; the default Vietnamese
+STT model is licensed for academic/thesis use only (see
+[README → Model licences](../README.md#model-licences)).
 
-The design includes per-minute billing: `ConferenceBillingLine`, the `costEstimateCents`
-/ `billingStatus` columns on `Conference`, the cost model and revenue/margin metrics in
-[technical-risks-mitigation.md](./technical-risks-mitigation.md). Chatofy is a
-non-commercial graduation thesis, and the default Vietnamese STT model is licensed for
-academic/thesis use only (see [README → Model licences](../README.md#model-licences)).
-The billing design is **kept but marked optional and out of thesis scope** pending a
-decision. Tracking API cost (not revenue) may still be useful against the free-tier
-quotas.
+**Decision:** billing is deferred out of thesis scope; the tables stay in
+`docs/database-schema-conference.md` as a deferred-model note. Tracking API cost (not
+revenue) against free-tier quotas needs no billing tables, at most a cost column.
 
-### 4. Stated targets are unverified on this project's hardware
+### 4. Stated targets — **SFU measured; translation load not** (Issue #211, 2026-10-11)
 
-6 participants, 720p at 60 fps, VP8, 2.5 Mbps per stream, the latency budgets, the
-effort hours (164h) and the 20-week schedule are the proposal's targets, not
-measurements. Speech runs on CPU in the sidecars, and the STT sidecar serves a bounded
-number of concurrent decodes per engine (`LOCAL_STT_CONCURRENCY`, see
-[Speech backend routing](./architecture/ai-providers.md#speech-backend-routing)); six
-simultaneous speakers have not been measured against it.
+Measured on the Windows 11 dev machine (loopback SFU, headless Chromium via Playwright):
+the SFU handled 6 × 720p60 peers at ≈ 9.7 Mbps aggregate, so the 6-participant / 720p60
+target holds for media on that machine. Worker CPU reads 0% because Windows does not
+expose `ru_utime` through `getrusage`; memory and byte counts are valid. The per-cell table
+is in
+[video-conferencing-v2-synthesis.md → Load constraints](./architecture/video-conferencing-v2-synthesis.md#2-load-constraints-measured--211-2026-10-11);
+raw data in `benchmarks/video/results/summary.csv`.
 
-### 5. Persisting speaker embeddings
+Not measured: the production host, and translation under several simultaneous speakers.
+Translation latency comes only from a 2-tab local PoC (warm ~5.9 s T1→T2, cold ~9.2 s —
+[video-translation-audio-path.md → Latency](./architecture/video-translation-audio-path.md#7-latency)),
+and a meeting is bounded by the six live translation sessions the API allows server-wide.
+The latency budgets, the effort hours (164 h) and the 20-week schedule remain the
+proposal's estimates.
 
-The schema stores CAM++ vectors (`ConferenceTurn.embedding`,
-`ConferenceSpeaker.embedding`). Today no voice vector is ever persisted — vectors stay
-in the browser tab and leave with the conversation, by design (see
+### 5. Persisting speaker embeddings — **Deferred** (Issue #212, 2026-10-07)
+
+The original schema stored CAM++ vectors (`ConferenceTurn.embedding`,
+`ConferenceSpeaker.embedding`). Today no voice vector is persisted — vectors live in
+the browser tab for the conversation duration, by design (see
 [Per-turn speaker attribution](./architecture/ai-providers.md#per-turn-speaker-attribution)).
-With one audio track per participant the speaker may be known without acoustic
-attribution at all. Decide whether attribution is needed, and if so whether storing
-vectors is acceptable.
 
-### 6. Recording access
+**Decision:** deferred. With one WebRTC audio track per participant the speaker is known
+from the track, so the two-voice attribution cap of the turn pipeline does not apply.
+`ConferenceSpeaker` and the embedding columns are not in the migration
+(`docs/database-schema-conference.md §9`); add them only if rooms with anonymous guests
+need acoustic attribution.
 
-Recordings are proposed for R2. The project's bucket is public-read and a prefix is not
-an access boundary (see
+### 6. Recording access — **Deferred** (Issue #212, 2026-10-07)
+
+Recordings were proposed for the existing R2 bucket, which is public-read. A prefix is
+not an access boundary (see
 [Bucket layout](./architecture/authentication.md#bucket-layout-and-the-one-rule-that-governs-it)),
-so a stored meeting recording would be fetchable by anyone with its URL. Decide on a
-private bucket or another store before recording ships.
+so any recording stored there would be world-readable by URL.
+
+**Decision:** deferred until a private-bucket or signed-URL policy is decided.
+`ConferenceRecording` is not in the migration (`docs/database-schema-conference.md §9`).
+
+### 7. Network path for meeting media — **Pending** (Issue #208)
+
+**Not decided.** An earlier revision recorded "Path A — public media port on the existing
+host"; the host check on 2026-10-12 ruled it out. The production host sits on a **company
+network** whose router is not the operator's: no port forward or inbound port can be added,
+the WAN address cannot be read (so CGNAT no longer matters), and UPnP and NAT-PMP are
+refused. The Cloudflare Tunnel carries signaling (`/ws/conference`) but no media. The path
+must therefore need **no inbound port on this host**. The two candidates, from
+[video-network-path.md](./architecture/video-network-path.md):
+
+- **§4.5 — mediasoup on a small VPS, plus Cloudflare Realtime TURN** for UDP-blocked
+  clients. Keeps mediasoup and the code on `main`; costs a second host to deploy and pay
+  for, and moves the SFU out of the NestJS process.
+- **§4.2 — Cloudflare Realtime SFU.** No host ports, free tier covers thesis traffic;
+  reopens Decision 1, because it replaces mediasoup.
+
+What each changes in the gateway, the clients and the deploy, and its cost:
+[video-network-path.md → §9](./architecture/video-network-path.md#9-the-two-remaining-candidates-against-the-current-code).
+The owner chooses. Until then there are no host changes and no media ports, and the TURN
+provider is whichever this decision picks. The code-level TURN fixes (per-join HMAC
+credentials, the coturn/mediasoup port split, the TCP listener) apply to §4.5. The
+connectivity run from two networks (Wi-Fi and 4G, RTT and packet loss) waits on the choice.
 
 ---
 
@@ -748,16 +780,16 @@ WebSocket Pipeline      80%    16h     Adapt for multi-participant
 
 ```
 Component              New    Effort  Complexity
-WebRTC SFU            YES     40h     🔴 HIGH (Pion library — assumption)
+WebRTC SFU            YES     40h     🔴 HIGH (mediasoup — built, flagged off)
 Video Grid UI         YES     24h     🟡 MEDIUM
 Message Service       YES      8h     🟢 LOW
-Recording Compositor  YES     32h     🔴 HIGH (FFmpeg)
+Recording Compositor  YES     32h     🔴 HIGH (FFmpeg) — deferred #212
 Subtitle Overlay      YES     12h     🟡 MEDIUM
 Database Schema       YES      4h     🟢 LOW
-TOTAL                          164h   = 4-5 weeks (1 eng)
+TOTAL                          ~136h  (recording deferred; 4 weeks est. 1 eng)
 ```
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** 2026-09-29 (reconciled with the current system 2026-10-05)
+**Document Version:** 1.3  
+**Last Updated:** 2026-10-25 (Decision 7 back to pending; status reflects the flagged code on `main`)

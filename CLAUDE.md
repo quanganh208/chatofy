@@ -128,15 +128,20 @@ We keep all important docs in `./docs` folder and keep updating them, structure 
 │   ├── ai-providers.md
 │   ├── authentication.md
 │   ├── data-flow.md
-│   └── modules-extension-ci.md
+│   ├── modules-extension-ci.md
+│   ├── video-client-support.md
+│   ├── video-conferencing-v2-synthesis.md
+│   ├── video-network-path.md
+│   └── video-translation-audio-path.md
 ├── design-guidelines.md
 ├── ux-ax-review-checklist.md       # UX/AX review pass for public pages
 ├── brand-mark.md
 ├── deployment-guide.md
 ├── development-journey.md          # chronological record; measurements and dead ends
-├── video-conferencing-architecture.md   # proposal, not implemented
-├── database-schema-conference.md        # proposal, not implemented
-├── technical-risks-mitigation.md        # proposal, not implemented
+├── conference-demo-runbook.md           # local demo of video meetings
+├── video-conferencing-architecture.md   # partly built, behind CONFERENCE_ENABLED
+├── database-schema-conference.md        # built: the four Conference* models
+├── technical-risks-mitigation.md        # video meetings risk register
 └── journals/
 ```
 

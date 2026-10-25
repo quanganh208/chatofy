@@ -45,38 +45,35 @@ measured in [development-journey.md](./development-journey.md).
 
 ## Next: video meetings
 
-**Not started.** No conferencing code exists on `main` as of 2026-10-05. The proposal is
-in three documents:
+**On `main` behind flags, off by default; not usable in production yet.** The API side is
+gated by `CONFERENCE_ENABLED`, the web routes by `NEXT_PUBLIC_CONFERENCE_ENABLED` (build
+time), and the mobile screens exist only in development builds
+([deployment-guide.md → Video conferencing](./deployment-guide.md#video-conferencing-disabled-by-default)).
+What exists: rooms created by `POST /conference` (the link is the access), a mediasoup SFU
+inside the API, a web lobby and call screen, client-side vi↔en translation fanned out to the
+room, translated chat, and persistence of participants, turns and messages. How to run it:
+[conference-demo-runbook.md](./conference-demo-runbook.md).
+
+Design and evidence:
 
 - [video-conferencing-architecture.md](./video-conferencing-architecture.md) — target,
-  reuse of the current stack, phased plan
-- [database-schema-conference.md](./database-schema-conference.md) — proposed tables
+  reuse, and the Open decisions
+- [architecture/video-conferencing-v2-synthesis.md](./architecture/video-conferencing-v2-synthesis.md) —
+  what was decided and measured (#207–#212)
+- [database-schema-conference.md](./database-schema-conference.md) — tables
 - [technical-risks-mitigation.md](./technical-risks-mitigation.md) — risks
 
-### Gate 0 — decide before building
+### Open before production
 
-The [open decisions](./video-conferencing-architecture.md#open-decisions) have to be
-settled first, because each one changes what the phases below contain:
-
-- the SFU / media server (LiveKit, mediasoup or Pion);
-- whether billing tables belong in a non-commercial thesis at all;
-- the participant, resolution and frame-rate targets, measured on this project's
-  hardware rather than assumed.
-
-### Proposed phases
-
-From [§7 of the proposal](./video-conferencing-architecture.md#7-phased-implementation-roadmap-proposed).
-All are **not started**; the week ranges are the proposal's estimates, not a schedule.
-
-| Phase | Goal                                       | Status      |
-| ----- | ------------------------------------------ | ----------- |
-| 1     | Infrastructure — schema, CRUD, room state  | Not started |
-| 2     | Real-time signaling — multi-user WebSocket | Not started |
-| 3     | Video basics — transport and grid layout   | Not started |
-| 4     | Translation in video — audio and subtitles | Not started |
-| 5     | Chat and recording                         | Not started |
-| 6     | Minutes and polish                         | Not started |
-| 7     | Production hardening                       | Not started |
+| Gate                                                   | Issue | Status                                      |
+| ------------------------------------------------------ | ----- | ------------------------------------------- |
+| Network path for media (VPS + TURN, or Cloudflare SFU) | #208  | **Pending** the owner's choice              |
+| Connectivity from ≥ 2 networks (Wi-Fi, 4G)             | #208  | Waits on the path                           |
+| Translation load with several simultaneous speakers    | —     | Not measured; six live sessions server-wide |
+| Mobile sign-in through the real auth client            | #210  | Mobile is dev-build only                    |
+| End screen with minutes                                | #210  | Deferred: no minutes pipeline for meetings  |
+| `mediasoup-client` upgrade from 3.7.18                 | #210  | Not started                                 |
+| Billing tables, recording access                       | #212  | Deferred out of thesis scope                |
 
 ## Known gaps
 
@@ -92,6 +89,5 @@ code change, not a doc edit.
   warning in `apps/api/src/main.ts` naming avatars only.
 - **Speaker-attribution seed-perturbation minimum** — the architecture doc says 96/94
   exact, `auto-attribution.ts` says 90/89. Needs a re-run to settle.
-- **Video meetings** — the [open decisions](./video-conferencing-architecture.md#open-decisions),
-  plus how media traffic would reach a server when production sits behind a Cloudflare
-  Tunnel.
+- **Video meetings** — behind flags and not usable in production until the network path
+  (#208) is chosen; the remaining gates are in [Open before production](#open-before-production).

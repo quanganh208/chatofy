@@ -10,7 +10,7 @@ import { LocaleSwitcher } from './locale-switcher';
 /**
  * Where you are, and the two controls that belong to every product route.
  *
- * The title is read from `NAV_ITEMS`, not passed down from the page — a layout
+ * The title is read from `navItems()`, not passed down from the page — a layout
  * receives nothing from the page below it, and the alternative was a second list of
  * route names maintained by hand. A nested route takes its parent item's title
  * (`/history/<id>` is History); a route under no item renders no title rather than a
