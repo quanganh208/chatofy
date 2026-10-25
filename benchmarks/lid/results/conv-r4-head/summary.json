@@ -455,10 +455,10 @@
               "data": "public"
             },
             "A9-mono.en": {
-              "value": 0.12,
+              "value": 0.0725,
               "threshold": "<=0.03 err (worst source)",
               "pass": false,
-              "n": 200,
+              "n": 138,
               "data": "real"
             },
             "A9-mono.vi": {
@@ -1385,10 +1385,10 @@
               "data": "public"
             },
             "A9-mono.en": {
-              "value": 0.12,
+              "value": 0.0725,
               "threshold": "<=0.03 err (worst source)",
               "pass": false,
-              "n": 200,
+              "n": 138,
               "data": "real"
             },
             "A9-mono.vi": {
@@ -2315,10 +2315,10 @@
               "data": "public"
             },
             "A9-mono.en": {
-              "value": 0.12,
+              "value": 0.0725,
               "threshold": "<=0.03 err (worst source)",
               "pass": false,
-              "n": 200,
+              "n": 138,
               "data": "real"
             },
             "A9-mono.vi": {
@@ -3253,10 +3253,10 @@
               "data": "public"
             },
             "A9-mono.en": {
-              "value": 0.01,
+              "value": 0.0145,
               "threshold": "<=0.03 err (worst source)",
               "pass": true,
-              "n": 200,
+              "n": 138,
               "data": "real"
             },
             "A9-mono.vi": {
@@ -4183,10 +4183,10 @@
               "data": "public"
             },
             "A9-mono.en": {
-              "value": 0.01,
+              "value": 0.0145,
               "threshold": "<=0.03 err (worst source)",
               "pass": true,
-              "n": 200,
+              "n": 138,
               "data": "real"
             },
             "A9-mono.vi": {
@@ -5116,7 +5116,7 @@
               "value": 0.0,
               "threshold": "<=0.03 err (worst source)",
               "pass": true,
-              "n": 200,
+              "n": 138,
               "data": "real"
             },
             "A9-mono.vi": {

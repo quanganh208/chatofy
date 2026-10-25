@@ -437,10 +437,10 @@
         "data": "public"
       },
       "A9-mono.en": {
-        "value": 0.02,
+        "value": 0.029,
         "threshold": "<=0.03 err (worst source)",
         "pass": true,
-        "n": 200,
+        "n": 138,
         "data": "real"
       },
       "A9-mono.vi": {

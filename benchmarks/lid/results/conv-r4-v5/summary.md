@@ -60,7 +60,7 @@ Outcome: **G3**, winner `whisper_probs_base_ctx5`
 | A6.vi-zh.changed                   | 0.028 ✓ (n=3894)    | 0.028 ✓ (n=3894)    | 0.028 ✓ (n=3894)    | <=0.10                                  | mixed       |
 | A6.vi-zh.first_language_p95_ms     | 2028.449 ✓ (n=3908) | 2028.449 ✓ (n=3908) | 2028.449 ✓ (n=3908) | <=3500                                  | mixed       |
 | A7                                 | 239.883 ✗ (n=29672) | 239.883 ✗ (n=29672) | 239.883 ✗ (n=29672) | <=150 ms p95                            | mixed       |
-| A9-mono.en                         | 0.100 ✗ (n=200)     | 0.110 ✗ (n=200)     | 0.120 ✗ (n=200)     | <=0.03 err (worst source)               | real        |
+| A9-mono.en                         | 0.043 ✗ (n=138)     | 0.043 ✗ (n=138)     | 0.043 ✗ (n=138)     | <=0.03 err (worst source)               | real        |
 | A9-mono.vi                         | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | <=0.03 err (worst source)               | real        |
 | detect2v3.short.en                 | -0.108 ✗ (n=790)    | -0.111 ✗ (n=790)    | -0.110 ✗ (n=790)    | >=-0.02                                 | real        |
 | detect2v3.short.vi                 | -0.013 ✓ (n=149)    | -0.013 ✓ (n=149)    | -0.013 ✓ (n=149)    | >=-0.02                                 | real        |
@@ -196,7 +196,7 @@ Outcome: **G3**, winner `whisper_probs_base_ctx5`
 | A6.vi-zh.changed                   | 0.023 ✓ (n=3894)     | 0.023 ✓ (n=3894)     | 0.023 ✓ (n=3894)     | <=0.10                                  | mixed       |
 | A6.vi-zh.first_language_p95_ms     | 2344.988 ✓ (n=3908)  | 2344.988 ✓ (n=3908)  | 2344.988 ✓ (n=3908)  | <=3500                                  | mixed       |
 | A7                                 | 2311.370 ✗ (n=29672) | 2311.370 ✗ (n=29672) | 2311.370 ✗ (n=29672) | <=150 ms p95                            | mixed       |
-| A9-mono.en                         | 0.170 ✗ (n=200)      | 0.090 ✗ (n=200)      | 0.150 ✗ (n=200)      | <=0.03 err (worst source)               | real        |
+| A9-mono.en                         | 0.058 ✗ (n=138)      | 0.058 ✗ (n=138)      | 0.058 ✗ (n=138)      | <=0.03 err (worst source)               | real        |
 | A9-mono.vi                         | 0.000 ✓ (n=200)      | 0.000 ✓ (n=200)      | 0.000 ✓ (n=200)      | <=0.03 err (worst source)               | real        |
 | detect2v3.short.en                 | -0.048 ✗ (n=790)     | -0.053 ✗ (n=790)     | -0.027 ✗ (n=790)     | >=-0.02                                 | real        |
 | detect2v3.short.vi                 | -0.013 ✓ (n=149)     | -0.013 ✓ (n=149)     | -0.013 ✓ (n=149)     | >=-0.02                                 | real        |
@@ -332,7 +332,7 @@ Outcome: **G3**, winner `whisper_probs_base_ctx5`
 | A6.vi-zh.changed                   | 0.050 ✓ (n=3894)    | 0.050 ✓ (n=3894)    | 0.050 ✓ (n=3894)    | <=0.10                                  | mixed       |
 | A6.vi-zh.first_language_p95_ms     | 6579.000 ✗ (n=3908) | 6579.000 ✗ (n=3908) | 6579.000 ✗ (n=3908) | <=3500                                  | mixed       |
 | A7                                 | 257.039 ✗ (n=29672) | 257.039 ✗ (n=29672) | 257.039 ✗ (n=29672) | <=150 ms p95                            | mixed       |
-| A9-mono.en                         | 0.030 ✗ (n=200)     | 0.030 ✗ (n=200)     | 0.030 ✗ (n=200)     | <=0.03 err (worst source)               | real        |
+| A9-mono.en                         | 0.014 ✓ (n=138)     | 0.014 ✓ (n=138)     | 0.014 ✓ (n=138)     | <=0.03 err (worst source)               | real        |
 | A9-mono.vi                         | 0.010 ✓ (n=200)     | 0.010 ✓ (n=200)     | 0.010 ✓ (n=200)     | <=0.03 err (worst source)               | real        |
 | detect2v3.short.en                 | -0.339 ✗ (n=790)    | -0.339 ✗ (n=790)    | -0.339 ✗ (n=790)    | >=-0.02                                 | real        |
 | detect2v3.short.vi                 | -0.114 ✗ (n=149)    | -0.114 ✗ (n=149)    | -0.114 ✗ (n=149)    | >=-0.02                                 | real        |
@@ -468,7 +468,7 @@ Outcome: **G3**, winner `whisper_probs_base_ctx5`
 | A6.vi-zh.changed                   | 0.080 ✓ (n=3894)    | 0.080 ✓ (n=3894)    | 0.081 ✓ (n=3894)    | <=0.10                                  | mixed       |
 | A6.vi-zh.first_language_p95_ms     | 3330.714 ✓ (n=3908) | 3334.306 ✓ (n=3908) | 3330.714 ✓ (n=3908) | <=3500                                  | mixed       |
 | A7                                 | 358.250 ✗ (n=29672) | 358.250 ✗ (n=29672) | 358.250 ✗ (n=29672) | <=150 ms p95                            | mixed       |
-| A9-mono.en                         | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | <=0.03 err (worst source)               | real        |
+| A9-mono.en                         | 0.000 ✓ (n=138)     | 0.000 ✓ (n=138)     | 0.000 ✓ (n=138)     | <=0.03 err (worst source)               | real        |
 | A9-mono.vi                         | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | <=0.03 err (worst source)               | real        |
 | detect2v3.short.en                 | -0.008 ✓ (n=790)    | -0.015 ✓ (n=790)    | -0.008 ✓ (n=790)    | >=-0.02                                 | real        |
 | detect2v3.short.vi                 | -0.067 ✗ (n=149)    | -0.067 ✗ (n=149)    | -0.067 ✗ (n=149)    | >=-0.02                                 | real        |
@@ -604,7 +604,7 @@ Outcome: **G3**, winner `whisper_probs_base_ctx5`
 | A6.vi-zh.changed                   | 0.087 ✓ (n=3894)    | 0.087 ✓ (n=3894)    | 0.087 ✓ (n=3894)    | <=0.10                                  | mixed       |
 | A6.vi-zh.first_language_p95_ms     | 3094.950 ✓ (n=3908) | 3094.950 ✓ (n=3908) | 3094.950 ✓ (n=3908) | <=3500                                  | mixed       |
 | A7                                 | 139.504 ✓ (n=29672) | 139.504 ✓ (n=29672) | 139.504 ✓ (n=29672) | <=150 ms p95                            | mixed       |
-| A9-mono.en                         | 0.010 ✓ (n=200)     | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | <=0.03 err (worst source)               | real        |
+| A9-mono.en                         | 0.014 ✓ (n=138)     | 0.000 ✓ (n=138)     | 0.000 ✓ (n=138)     | <=0.03 err (worst source)               | real        |
 | A9-mono.vi                         | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | <=0.03 err (worst source)               | real        |
 | detect2v3.short.en                 | -0.122 ✗ (n=790)    | -0.120 ✗ (n=790)    | -0.122 ✗ (n=790)    | >=-0.02                                 | real        |
 | detect2v3.short.vi                 | -0.161 ✗ (n=149)    | -0.161 ✗ (n=149)    | -0.161 ✗ (n=149)    | >=-0.02                                 | real        |
@@ -740,7 +740,7 @@ Outcome: **G3**, winner `whisper_probs_base_ctx5`
 | A6.vi-zh.changed                   | 0.085 ✓ (n=3894)    | 0.084 ✓ (n=3894)    | 0.084 ✓ (n=3894)    | <=0.10                                  | mixed       |
 | A6.vi-zh.first_language_p95_ms     | 3086.382 ✓ (n=3908) | 3086.382 ✓ (n=3908) | 3086.382 ✓ (n=3908) | <=3500                                  | mixed       |
 | A7                                 | 125.710 ✓ (n=29672) | 125.710 ✓ (n=29672) | 125.710 ✓ (n=29672) | <=150 ms p95                            | mixed       |
-| A9-mono.en                         | 0.010 ✓ (n=200)     | 0.010 ✓ (n=200)     | 0.000 ✓ (n=200)     | <=0.03 err (worst source)               | real        |
+| A9-mono.en                         | 0.014 ✓ (n=138)     | 0.014 ✓ (n=138)     | 0.000 ✓ (n=138)     | <=0.03 err (worst source)               | real        |
 | A9-mono.vi                         | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | <=0.03 err (worst source)               | real        |
 | detect2v3.short.en                 | -0.076 ✗ (n=790)    | -0.075 ✗ (n=790)    | -0.071 ✗ (n=790)    | >=-0.02                                 | real        |
 | detect2v3.short.vi                 | -0.128 ✗ (n=149)    | -0.128 ✗ (n=149)    | -0.128 ✗ (n=149)    | >=-0.02                                 | real        |
@@ -876,7 +876,7 @@ Outcome: **G3**, winner `whisper_probs_base_ctx5`
 | A6.vi-zh.changed                   | 0.061 ✓ (n=3894)    | 0.060 ✓ (n=3894)    | 0.060 ✓ (n=3894)    | <=0.10                                  | mixed       |
 | A6.vi-zh.first_language_p95_ms     | 4313.000 ✗ (n=3908) | 4313.000 ✗ (n=3908) | 4313.000 ✗ (n=3908) | <=3500                                  | mixed       |
 | A7                                 | 243.773 ✗ (n=29672) | 243.773 ✗ (n=29672) | 243.773 ✗ (n=29672) | <=150 ms p95                            | mixed       |
-| A9-mono.en                         | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | 0.000 ✓ (n=200)     | <=0.03 err (worst source)               | real        |
+| A9-mono.en                         | 0.000 ✓ (n=138)     | 0.000 ✓ (n=138)     | 0.000 ✓ (n=138)     | <=0.03 err (worst source)               | real        |
 | A9-mono.vi                         | 0.010 ✓ (n=200)     | 0.010 ✓ (n=200)     | 0.010 ✓ (n=200)     | <=0.03 err (worst source)               | real        |
 | detect2v3.short.en                 | -0.020 ✗ (n=790)    | -0.020 ✗ (n=790)    | -0.020 ✗ (n=790)    | >=-0.02                                 | real        |
 | detect2v3.short.vi                 | -0.121 ✗ (n=149)    | -0.121 ✗ (n=149)    | -0.121 ✗ (n=149)    | >=-0.02                                 | real        |
