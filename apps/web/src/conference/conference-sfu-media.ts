@@ -13,8 +13,9 @@ import {
   MAX_CONFERENCE_SDP_CHARS,
 } from '@chatofy/types/events';
 import { conferenceDebug } from './conference-debug-log';
-import { request } from './conference-signaling';
+import { request, SFU_REQUEST_TIMEOUT_MS } from './conference-signaling';
 import { SerialChain } from './serial-chain';
+import { SubscribeRetryScheduler } from './subscribe-retry-scheduler';
 import {
   dropPeer,
   peerForMid,
@@ -40,6 +41,8 @@ export class ConferenceSfuMedia {
   private readonly mids: MidMap = new Map();
   /** Subscribes run one at a time: the SFU refuses an offer while one is unanswered. */
   private readonly subscribes = new SerialChain();
+  /** Re-asks, on the same chain, for what a subscribe reply said it skipped. */
+  private readonly retries = new SubscribeRetryScheduler(() => this.subscribe());
   private closed = false;
 
   constructor(private readonly options: ConferenceSfuMediaOptions) {
@@ -69,7 +72,12 @@ export class ConferenceSfuMedia {
     if (!sdp) throw new Error('publishing connection has no local offer');
     const tracks = publishTracksFromTransceivers(this.pubPc.getTransceivers());
     const reply = publishReplySchema.parse(
-      await request(this.options.ws, 'conference.media.publish', { sdp, tracks }),
+      await request(
+        this.options.ws,
+        'conference.media.publish',
+        { sdp, tracks },
+        SFU_REQUEST_TIMEOUT_MS,
+      ),
     );
     if (this.closed) return;
     await this.pubPc.setRemoteDescription({ type: 'answer', sdp: reply.sdp });
@@ -78,7 +86,10 @@ export class ConferenceSfuMedia {
   /** Queue one catch-up with the room. Duplicates are harmless. */
   subscribe(): void {
     this.subscribes.enqueue(
-      () => this.subscribeOnce(),
+      async () => {
+        const retryAfterMs = await this.subscribeOnce();
+        if (!this.closed) this.retries.completed(retryAfterMs);
+      },
       (err: unknown) => conferenceDebug(`subscribe failed: ${String(err)}`),
     );
   }
@@ -100,19 +111,22 @@ export class ConferenceSfuMedia {
   close(): void {
     if (this.closed) return;
     this.closed = true;
+    this.retries.cancel();
     this.subPc.ontrack = null;
     this.pubPc.close();
     this.subPc.close();
     this.mids.clear();
   }
 
-  private async subscribeOnce(): Promise<void> {
-    if (this.closed) return;
+  /** One subscribe round; resolves with the reply's `retryAfterMs`, if any. */
+  private async subscribeOnce(): Promise<number | undefined> {
+    if (this.closed) return undefined;
     const { ws } = this.options;
     const reply = ConferenceMediaSubscribeReplySchema.parse(
-      await request(ws, 'conference.media.subscribe', {}),
+      await request(ws, 'conference.media.subscribe', {}, SFU_REQUEST_TIMEOUT_MS),
     );
-    if (reply.sdp === null || this.closed) return;
+    if (this.closed) return undefined;
+    if (reply.sdp === null) return reply.retryAfterMs;
     // Before the offer is applied: its track events fire during
     // setRemoteDescription and are matched to a peer by mid.
     recordMids(this.mids, reply.mids);
@@ -120,6 +134,7 @@ export class ConferenceSfuMedia {
     await this.subPc.setLocalDescription(await this.subPc.createAnswer());
     const answer = this.subPc.localDescription?.sdp;
     if (!answer) throw new Error('receiving connection has no local answer');
-    await request(ws, 'conference.media.renegotiate', { sdp: answer });
+    await request(ws, 'conference.media.renegotiate', { sdp: answer }, SFU_REQUEST_TIMEOUT_MS);
+    return reply.retryAfterMs;
   }
 }

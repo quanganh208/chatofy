@@ -8,6 +8,13 @@
  */
 
 const REQUEST_TIMEOUT_MS = 10_000;
+/**
+ * For `conference.media.*`: the server's worst case is several Cloudflare
+ * calls, each with its own timeout and retry, behind the session's queue.
+ * Giving up sooner would leave its late reply to the next request of the same
+ * name, which takes the first reply it sees.
+ */
+export const SFU_REQUEST_TIMEOUT_MS = 60_000;
 
 export interface SignalMessage {
   event: string;
@@ -56,7 +63,12 @@ export function send(ws: WebSocket, event: string, data: unknown): void {
  * The listener is attached BEFORE the send, so a reply can never arrive in a
  * window with nothing listening for it.
  */
-export function request(ws: WebSocket, event: string, data: unknown): Promise<unknown> {
+export function request(
+  ws: WebSocket,
+  event: string,
+  data: unknown,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const finish = () => {
       clearTimeout(timer);
@@ -78,7 +90,7 @@ export function request(ws: WebSocket, event: string, data: unknown): Promise<un
     const timer = setTimeout(() => {
       finish();
       reject(new Error(`timeout waiting for ${event}`));
-    }, REQUEST_TIMEOUT_MS);
+    }, timeoutMs);
     ws.addEventListener('message', onMessage);
     ws.addEventListener('close', onClose);
     send(ws, event, data);
