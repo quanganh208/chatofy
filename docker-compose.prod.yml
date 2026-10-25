@@ -208,6 +208,11 @@ services:
         # means avatars are off and everything else still deploys; the img-src
         # assertion in the deploy smoke is what catches a WRONG value.
         R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL:-}
+        # Shows the Conference entry and the /conference pages. BUILD-time like
+        # the two above: Next inlines it, so changing it is a web rebuild.
+        # Defaulted for the same reason as R2_PUBLIC_BASE_URL: unset means
+        # meetings stay hidden and everything else still deploys.
+        NEXT_PUBLIC_CONFERENCE_ENABLED: ${NEXT_PUBLIC_CONFERENCE_ENABLED:-false}
     container_name: chatofy_prod_web
     env_file:
       - ${CHATOFY_ENV_FILE:?set CHATOFY_ENV_FILE to the absolute path of prod.env}
