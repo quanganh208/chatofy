@@ -1,5 +1,9 @@
 import { SafeAreaView, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { createTranslator, en } from '@chatofy/i18n';
+
+// English for now, matching the conference screens; device-locale selection is a follow-up.
+const t = createTranslator(en);
 
 export default function LandingScreen() {
   const router = useRouter();
@@ -7,16 +11,20 @@ export default function LandingScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Chatofy</Text>
-      <Text style={styles.subtitle}>coming soon</Text>
+      <Text style={styles.subtitle}>{t('mobile.home.comingSoon')}</Text>
 
-      <TouchableOpacity
-        style={styles.cta}
-        onPress={() => router.push('/(app)/conference')}
-        activeOpacity={0.8}
-        accessibilityRole="button"
-      >
-        <Text style={styles.ctaText}>Join a conference</Text>
-      </TouchableOpacity>
+      {/* Conference signs in with dev-only bench credentials until mobile has a
+          real AuthClient, so only a development build offers the entry. */}
+      {__DEV__ ? (
+        <TouchableOpacity
+          style={styles.cta}
+          onPress={() => router.push('/(app)/conference')}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+        >
+          <Text style={styles.ctaText}>{t('mobile.home.joinConference')}</Text>
+        </TouchableOpacity>
+      ) : null}
     </SafeAreaView>
   );
 }

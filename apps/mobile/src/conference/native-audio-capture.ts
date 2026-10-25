@@ -18,9 +18,10 @@
  *
  * ⚠️ Mic contention: react-native-webrtc already holds the microphone for the
  * mediasoup audio track during a call. Whether a second consumer (this recorder)
- * can open concurrently is device-dependent and UNVERIFIED on hardware — see the
- * Phase 2 report's runtime-verification section. The fallback, if it conflicts,
- * is to tap the existing webrtc audio track instead of opening a second mic.
+ * can open concurrently is device-dependent; it held on a Galaxy A13 (Android 14)
+ * smoke test, where the call kept its audio while translation ran. The fallback,
+ * if a device conflicts, is to tap the existing webrtc audio track instead of
+ * opening a second mic.
  */
 
 import { AudioManager, AudioRecorder as RNAudioRecorder } from 'react-native-audio-api';

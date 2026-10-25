@@ -28,13 +28,16 @@ export default function AppLayout() {
         name="settings"
         options={{ title: 'Settings', tabBarIcon: tabIcon('settings-outline') }}
       />
+      {/* Conference signs in with dev-only bench credentials until mobile has a
+          real AuthClient, so a release build hides the tab (`href: null`) and the
+          conference stack itself refuses to render outside `__DEV__`. */}
       <Tabs.Screen
         name="conference"
-        options={{ title: 'Conference', tabBarIcon: tabIcon('videocam-outline') }}
-      />
-      <Tabs.Screen
-        name="conference-poc"
-        options={{ title: 'Conference PoC', tabBarIcon: tabIcon('flask-outline') }}
+        options={{
+          title: 'Conference',
+          tabBarIcon: tabIcon('videocam-outline'),
+          href: __DEV__ ? undefined : null,
+        }}
       />
     </Tabs>
   );

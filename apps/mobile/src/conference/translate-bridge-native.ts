@@ -1,25 +1,23 @@
 /**
- * The React Native equivalent of web's `wireTranslate`
- * (apps/web/src/hooks/use-conference.ts lines 282–425).
+ * The React Native equivalent of web's `wireTranslate`.
  *
- * Opens `/ws/translate` as a SECOND WebSocket (matching web — see the two-socket
- * note in the Phase 2 report), streams captured 16 kHz PCM16 mic frames to it,
- * and rebroadcasts the returned transcript + TTS audio to the already-open
- * `/ws/conference` socket as `conference.translation.broadcast` envelopes. The
- * message shapes are copied byte-for-byte from web so a web peer parses what
- * mobile sends and vice versa.
+ * Opens `/ws/translate` as a SECOND WebSocket (matching web), streams captured
+ * 16 kHz PCM16 mic frames to it, and rebroadcasts the returned transcript + TTS
+ * audio onto the already-open `/ws/conference` socket as
+ * `conference.translation.broadcast` envelopes in the shared
+ * `ConferenceTranslationBroadcast` shape.
  *
- * Interop note (flagged in the report): web's subtitle payload carries
- * `sourceLanguage` even though `ConferenceTranslationSubtitleSchema` names the
- * field `sourceLang`. This bridge matches WEB's actual wire (`sourceLanguage`)
- * so web↔mobile interop holds; the schema discrepancy is for the API/web owners.
+ * Transcript deltas are grouped into turns by `TurnAccumulator`: each delta
+ * sends the turn's cumulative texts as a provisional subtitle, and a quiet gap
+ * closes the turn with one `isFinal: true` frame. The "Translating…" indicator
+ * follows the open turn.
  */
 
+import type { LanguageCode } from '@chatofy/types/domain';
+import type { ConferenceTranslationBroadcast } from '@chatofy/types/events';
 import type { NativeAudioCapture } from './native-audio-capture';
 import { pcm16BytesToBase64 } from './native-audio-capture';
-
-/** How long to keep the "translating…" badge on if no final subtitle arrives. */
-const TRANSLATING_TIMEOUT_MS = 10_000;
+import { TurnAccumulator, type TurnFrame } from './conference-turn-accumulator';
 
 export interface TranslateBridgeDeps {
   /** The open /ws/conference socket to rebroadcast onto. */
@@ -30,8 +28,8 @@ export interface TranslateBridgeDeps {
   socketId: string;
   /** Our display name, shown next to the subtitle on listeners. */
   speakerDisplayName: string;
-  /** Our spoken language ('en' | 'vi'); the other of the pair is the target. */
-  sourceLanguage: string;
+  /** Our spoken language; the other of the vi/en pair is the target. */
+  sourceLanguage: LanguageCode;
   /** Full `${wsBase}/ws/translate` URL. */
   translateUrl: string;
   /** WS subprotocol marker (WS_SUBPROTOCOL). */
@@ -71,10 +69,20 @@ function send(ws: WebSocket, event: string, data: unknown): void {
   ws.send(JSON.stringify({ event, data }));
 }
 
+function broadcast(ws: WebSocket, envelope: ConferenceTranslationBroadcast): void {
+  if (ws.readyState !== WebSocket.OPEN) return;
+  send(ws, 'conference.translation.broadcast', envelope);
+}
+
+type TranslateServerMessage =
+  | { type: 'server.live.transcript'; channel: 'source' | 'target'; delta: string }
+  | { type: 'server.live.audio'; frame: { sequence: number; sampleRate: number; payload: string } }
+  | { type: 'server.live.ended' }
+  | { type: string };
+
 /**
  * Start capturing the mic and translating. Returns a handle whose `stop()` tears
- * everything down. Mirrors `wireTranslate`; the capture lib replaces web's
- * ScriptProcessor and the conference socket is passed in rather than captured.
+ * everything down. The conference socket is passed in rather than captured.
  */
 export async function startTranslateBridge(deps: TranslateBridgeDeps): Promise<TranslateBridge> {
   const {
@@ -90,26 +98,33 @@ export async function startTranslateBridge(deps: TranslateBridgeDeps): Promise<T
     log,
   } = deps;
 
-  const targetLanguage = sourceLanguage === 'en' ? 'vi' : 'en';
+  const targetLanguage: LanguageCode = sourceLanguage === 'en' ? 'vi' : 'en';
   const languagePair = { source: sourceLanguage, target: targetLanguage };
 
   const translateWs = new WebSocket(translateUrl, [subprotocol, token]);
-  const turnId = randomUuid();
-  const state = {
-    seq: 0,
-    stopped: false,
-    paused: false,
-    translatingTimeout: null as ReturnType<typeof setTimeout> | null,
-  };
+  // Identifies this live session's audio frames; turns get their own ids.
+  const sessionId = randomUuid();
+  const state = { seq: 0, stopped: false, paused: false };
 
-  /** Clear `localTranslating` and cancel any pending safety timeout. */
-  function clearTranslating(): void {
-    if (state.translatingTimeout !== null) {
-      clearTimeout(state.translatingTimeout);
-      state.translatingTimeout = null;
-    }
-    setLocalTranslating(false);
-  }
+  const turns = new TurnAccumulator({
+    newTurnId: randomUuid,
+    onTurnActive: setLocalTranslating,
+    emit: (frame: TurnFrame) => {
+      if (frame.isFinal) log(`[T2] turn closed: "${frame.translatedText}"`);
+      broadcast(confWs, {
+        subtitle: {
+          speakerSocketId: socketId,
+          speakerDisplayName,
+          sourceLanguage,
+          targetLanguage,
+          sourceText: frame.sourceText,
+          translatedText: frame.translatedText,
+          isFinal: frame.isFinal,
+          turnId: frame.turnId,
+        },
+      });
+    },
+  });
 
   const onOpen = (): void => {
     log('[translate] WS open');
@@ -117,53 +132,43 @@ export async function startTranslateBridge(deps: TranslateBridgeDeps): Promise<T
   };
 
   const onMessage = (evt: MessageEvent<string>): void => {
-    let msg: { type: string; [k: string]: unknown };
+    let msg: TranslateServerMessage;
     try {
-      msg = JSON.parse(evt.data) as { type: string; [k: string]: unknown };
+      msg = JSON.parse(evt.data) as TranslateServerMessage;
     } catch {
       return;
     }
 
-    if (msg.type === 'server.live.transcript') {
-      const d = msg as unknown as { channel: 'source' | 'target'; delta: string; lang: string };
-      if (d.channel === 'target') {
-        // [T2] final subtitle for this turn: clear the "translating…" badge.
-        log(`[T2] transcript: "${d.delta}"`);
-        clearTranslating();
-      }
-      // Field names copied from web wireTranslate (sourceLanguage, targetLang).
-      send(confWs, 'conference.translation.broadcast', {
-        subtitle: {
-          speakerSocketId: socketId,
-          speakerDisplayName,
-          sourceLanguage,
-          targetLang: targetLanguage,
-          sourceText: d.delta,
-          translatedText: d.delta,
-          isFinal: d.channel === 'target',
-          turnId,
-        },
-      });
+    // Deltas and speech that arrive after a mute are for words said before it
+    // (nothing is captured while paused), so they still go out.
+    if (msg.type === 'server.live.transcript' && 'channel' in msg) {
+      if (typeof msg.delta !== 'string') return;
+      if (msg.channel !== 'source' && msg.channel !== 'target') return;
+      turns.push(msg.channel, msg.delta);
+      return;
     }
 
-    if (msg.type === 'server.live.audio') {
-      const d = msg as unknown as {
-        frame: { sequence: number; sampleRate: number; payload: string };
-      };
-      send(confWs, 'conference.translation.broadcast', {
+    if (msg.type === 'server.live.audio' && 'frame' in msg) {
+      broadcast(confWs, {
         audio: {
           speakerSocketId: socketId,
           lang: targetLanguage,
-          sequence: d.frame.sequence,
-          sampleRate: d.frame.sampleRate,
-          payload: d.frame.payload,
+          sequence: msg.frame.sequence,
+          sampleRate: msg.frame.sampleRate,
+          payload: msg.frame.payload,
         },
       });
+      return;
+    }
+
+    if (msg.type === 'server.live.ended') {
+      // No more deltas will come for this turn; close it now.
+      turns.close();
     }
   };
 
   const onClose = (): void => {
-    clearTranslating();
+    turns.close();
     log('[translate] WS closed');
   };
 
@@ -175,44 +180,37 @@ export async function startTranslateBridge(deps: TranslateBridgeDeps): Promise<T
   translateWs.addEventListener('error', onError);
 
   // Begin capture. Each PCM16 frame → client.live.audio on the translate socket.
-  await capture.start((bytes, _frameSeq) => {
-    if (state.stopped || state.paused || translateWs.readyState !== WebSocket.OPEN) return;
-
-    if (state.seq === 0) {
-      // [T1] start of a new turn: show the "translating…" badge with a safety
-      // timeout so it never sticks on if no final subtitle arrives.
-      log('[T1] first audio frame');
-      if (state.translatingTimeout !== null) clearTimeout(state.translatingTimeout);
-      setLocalTranslating(true);
-      state.translatingTimeout = setTimeout(() => {
-        state.translatingTimeout = null;
-        setLocalTranslating(false);
-        log('[translate] translating timeout — badge cleared');
-      }, TRANSLATING_TIMEOUT_MS);
-    }
-
-    send(translateWs, 'client.live.audio', {
-      type: 'client.live.audio',
-      frame: {
-        sessionId: turnId,
-        encoding: 'pcm16',
-        sampleRate: 16000,
-        sequence: state.seq++,
-        timestamp: Date.now(),
-        payload: pcm16BytesToBase64(bytes),
-      },
+  try {
+    await capture.start((bytes) => {
+      if (state.stopped || state.paused || translateWs.readyState !== WebSocket.OPEN) return;
+      send(translateWs, 'client.live.audio', {
+        type: 'client.live.audio',
+        frame: {
+          sessionId,
+          encoding: 'pcm16',
+          sampleRate: 16000,
+          sequence: state.seq++,
+          timestamp: Date.now(),
+          payload: pcm16BytesToBase64(bytes),
+        },
+      });
     });
-  });
+  } catch (err) {
+    // Do not leave the translate socket open without a recorder behind it.
+    state.stopped = true;
+    turns.dispose();
+    translateWs.close();
+    throw err;
+  }
 
   return {
     setPaused(next: boolean): void {
-      if (next === state.paused) return;
+      if (next === state.paused || state.stopped) return;
       state.paused = next;
       if (next) {
-        // Stop feeding STT/MT at the source and drop the badge — a muted user is
-        // not translating.
+        // Stop feeding STT/MT at the source. The open turn closes on its own
+        // once the translation of what was said before muting has drained.
         capture.pause();
-        clearTranslating();
       } else {
         capture.resume();
       }
@@ -220,18 +218,19 @@ export async function startTranslateBridge(deps: TranslateBridgeDeps): Promise<T
     async stop(): Promise<void> {
       if (state.stopped) return;
       state.stopped = true;
-      clearTranslating();
+      // Send the closing frame while the conference socket may still be open.
+      turns.close();
       translateWs.removeEventListener('open', onOpen);
       translateWs.removeEventListener('message', onMessage);
       translateWs.removeEventListener('close', onClose);
       translateWs.removeEventListener('error', onError);
-      await capture.stop();
       if (
         translateWs.readyState === WebSocket.OPEN ||
         translateWs.readyState === WebSocket.CONNECTING
       ) {
         translateWs.close();
       }
+      await capture.stop();
     },
   };
 }

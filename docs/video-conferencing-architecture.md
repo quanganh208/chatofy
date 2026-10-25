@@ -1,9 +1,12 @@
 # Chatofy: Video Conferencing + Real-time Translation Architecture
 
-> **Status: Proposal — PoC landed.** A minimal mediasoup SFU PoC
-> (`apps/api/src/modules/conference/`, `apps/web/app/(app)/conference-poc/`) was committed
-> to `feat/207-mediasoup-poc` by Issue #207. Open Decision 1 is now resolved (see below).
-> Production conferencing code is not on `main`. Other open decisions remain.
+> **Status: Proposal, partly built.** Conferencing code is on `main` behind two flags,
+> both off by default: `CONFERENCE_ENABLED` (API) and `NEXT_PUBLIC_CONFERENCE_ENABLED`
+> (web, build time); the mobile screens are reachable only in development builds. What
+> exists is a mediasoup SFU inside the API, rooms created by `POST /conference`, signaling
+> on `/ws/conference`, and client-side translation fanned out to the room
+> ([video-translation-audio-path.md](./architecture/video-translation-audio-path.md)).
+> Production cannot carry meeting media yet: the network path (Decision 7) is pending.
 > Progress is tracked in [project-roadmap.md](./project-roadmap.md).
 
 **Date:** 2026-09-29  
@@ -651,63 +654,36 @@ Detailed analysis is in [technical-risks-mitigation.md](./technical-risks-mitiga
 
 ## 12. Next Steps
 
-1. Settle the [Open decisions](#open-decisions) (Gate 0 in
-   [project-roadmap.md](./project-roadmap.md))
-2. Review + approve architecture
-3. Create implementation plan with detailed task breakdown
-4. Set up video-provider package scaffolding
-5. Begin Phase 1 (infrastructure)
+1. Choose the network path (Decision 7); only then the two-network connectivity run.
+2. Measure translation under several simultaneous speakers (Decision 4).
+3. Replace the Pion assumptions above when the next implementation plan is written.
 
 ---
 
 ## Open decisions
 
-Nothing below is settled. Each item changes what the phases above contain, and the
-other two video documents link here.
+Decisions 1, 3, 5 and 6 are settled, 2 is superseded, 4 is half measured, 7 is pending. The
+other video documents link here.
 
 ### 1. Media server (SFU) — **Resolved: mediasoup 3.28.0** (Issue #207, 2026-10-05)
 
 **Decision:** mediasoup  
 **Rejected:** LiveKit, Pion  
-**Evidence:** PoC on `feat/207-mediasoup-poc` — two browser tabs exchanged audio + video
-through a mediasoup Worker running inside the NestJS API process (`ConferenceWorkerService`,
-`ConferenceRoomRegistry`, `ConferenceGateway`).
+**Evidence:** the #207 PoC — two browser tabs exchanged audio + video through a
+mediasoup Worker running inside the NestJS API process (`ConferenceWorkerService`,
+`ConferenceRoomRegistry`, `ConferenceGateway`). That module is what is now on `main`
+behind `CONFERENCE_ENABLED`.
 
-#### Comparison table
-
-Every cell cites a source or a PoC measurement. "PoC" means observed on
-`feat/207-mediasoup-poc` during local testing.
-
-| Criterion                 | LiveKit                                                                                                                                                                                         | mediasoup                                                                                                                                                                                                   | Pion                                                                                                                                                                 |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **What it is**            | Standalone SFU **server** (Go binary / Docker image) + client SDKs ([livekit/livekit](https://github.com/livekit/livekit), Apache-2.0)                                                          | **Node.js library** — SFU primitives only; C++ Worker child process handles media ([mediasoup.org — Architecture](https://mediasoup.org/documentation/v3/mediasoup/design/))                                | **Go library** — WebRTC primitives; the SFU logic is entirely ours to write ([pion/webrtc](https://github.com/pion/webrtc), MIT)                                     |
-| **Fits NestJS stack**     | NestJS mints access tokens only; all media + signaling live inside the LiveKit container ([LiveKit self-hosting](https://docs.livekit.io/home/self-hosting/))                                   | Runs **in-process** with NestJS; Worker is a C++ child process ([mediasoup API — Worker](https://mediasoup.org/documentation/v3/mediasoup/api/#Worker)); PoC confirmed                                      | Needs a Go service + a control channel beside NestJS; no Go toolchain, Dockerfile, or CI job exists in this repo today (verified: `Glob("**/*.go")` returns nothing) |
-| **Additional containers** | **1 extra** (livekit-server); recording needs a **second** Egress container ([LiveKit Egress](https://docs.livekit.io/egress/))                                                                 | **0 extra** — Worker spawns as a child process of the API; coturn only needed for non-localhost TURN ([mediasoup Workers](https://mediasoup.org/documentation/v3/mediasoup/design/#Workers)); PoC confirmed | **1 extra** (Go SFU service); footprint depends on our code, unmeasured                                                                                              |
-| **License**               | Apache-2.0 ([livekit/livekit LICENSE](https://github.com/livekit/livekit/blob/main/LICENSE))                                                                                                    | ISC ([mediasoup npm](https://www.npmjs.com/package/mediasoup))                                                                                                                                              | MIT ([pion/webrtc LICENSE](https://github.com/pion/webrtc/blob/master/LICENSE))                                                                                      |
-| **Mobile (Expo)**         | React Native SDK (`@livekit/react-native`); needs dev build because it depends on `react-native-webrtc` ([livekit/client-sdk-react-native](https://github.com/livekit/client-sdk-react-native)) | `mediasoup-client@3.7.18` + `react-native-webrtc`; also needs dev build ([mediasoup — React Native](https://mediasoup.org/documentation/v3/mediasoup-client/installation/))                                 | Plain `react-native-webrtc`; dev build still needed; no higher-level SDK                                                                                             |
-| **Signaling**             | Built in to livekit-server (gRPC + WebSocket); signaling is NOT ours ([LiveKit protocol](https://github.com/livekit/protocol))                                                                  | **Entirely ours** — mediasoup is transport-only; PoC reused the existing `@WebSocketGateway` pattern from `TranslateGateway`                                                                                | Entirely ours; same cost as mediasoup but in Go                                                                                                                      |
-| **Implementation effort** | **Lowest** — rooms, simulcast, reconnection, and recording (Egress) come with the server                                                                                                        | **Medium** — signaling, room state, and simulcast layer selection are ours; PoC took ~1 day                                                                                                                 | **Highest** — full SFU logic is ours in Go; the Appendix's 40 h estimate assumed Pion                                                                                |
-| **TURN / NAT**            | Needs an open port or TURN relay for media; same as mediasoup ([LiveKit deployment](https://docs.livekit.io/home/self-hosting/deployment/))                                                     | coturn added to `docker-compose.yml` with `--use-auth-secret`; PoC confirmed loopback works without TURN                                                                                                    | Same requirement; same coturn approach                                                                                                                               |
-
-**Why LiveKit was rejected:** it runs as a separate Go server (container), and recording requires a
-second Egress container — two extra services for a graduation thesis VM with ~3.4 GiB headroom.
-Its built-in signaling also cannot be absorbed into the existing `ws` gateway patterns.
-
-**Why Pion was rejected:** it is a Go library that would add a language, a Dockerfile, and a CI
-pipeline the repo has none of today. Effort is higher than mediasoup for no gain relevant to this
-project's scope.
-
-**Remaining note:** The Cloudflare Tunnel serving the web and API hostnames blocks UDP media
-(TCP only). coturn in `docker-compose.yml` provides a TURN relay for non-localhost testing.
-Any footprint figure must be measured under a `docker --memory` cap before trusting it against
-the VM's headroom.
+The LiveKit / mediasoup / Pion comparison table, with a source for every cell, and why
+LiveKit and Pion were rejected, is in
+[video-conferencing-v2-synthesis.md → Decision 1](./architecture/video-conferencing-v2-synthesis.md#decision-1--sfu-library-mediasoup-resolved-by-207).
+In one line each: LiveKit needs one extra container, two with recording, on a VM with
+~3.4 GiB headroom; Pion adds a Go service the repo has no toolchain or CI for.
 
 ### 2. Pion implies a Go service beside NestJS — **Superseded by Decision 1**
 
-Resolved: mediasoup was chosen (see above). All Pion references in §3.1, §7 Phase 3,
-§9, and the Appendix are now incorrect assumptions; they are left in place to show the
-proposal's original intent but should be replaced when the production implementation plan
-is written.
+mediasoup was chosen. The Pion references in §3.1, §7 Phase 3, §9 and the Appendix are
+the proposal's original assumption, kept to show its intent; they do not describe the code.
 
 ### 3. Billing vs a non-commercial thesis — **Deferred out of thesis scope** (Issue #212, 2026-10-07)
 
@@ -716,57 +692,26 @@ The design included per-minute billing (`ConferenceBillingLine`, `costEstimateCe
 STT model is licensed for academic/thesis use only (see
 [README → Model licences](../README.md#model-licences)).
 
-**Decision:** billing tables are deferred out of thesis scope. They are retained in
-`docs/database-schema-conference.md` as a deferred-model note so the design intent is
-not lost. Tracking API cost (not revenue) against free-tier quotas is still useful and
-may be added without billing infrastructure — a plain cost log column on `Conference`
-is sufficient for that goal if needed.
+**Decision:** billing is deferred out of thesis scope; the tables stay in
+`docs/database-schema-conference.md` as a deferred-model note. Tracking API cost (not
+revenue) against free-tier quotas needs no billing tables, at most a cost column.
 
-### 4. Stated targets — **Measured** (Issue #211, 2026-10-11)
+### 4. Stated targets — **SFU measured; translation load not** (Issue #211, 2026-10-11)
 
-Decision: Measured on this project's hardware (Windows 11 dev machine, loopback SFU,
-headless Chromium via Playwright). The 6-participant, 720p60 target is achievable within
-the dev-machine baseline. Worker CPU is reported as 0% because Windows does not expose
-`ru_utime` via POSIX `getrusage`; memory and byte throughput measurements are valid.
+Measured on the Windows 11 dev machine (loopback SFU, headless Chromium via Playwright):
+the SFU handled 6 × 720p60 peers at ≈ 9.7 Mbps aggregate, so the 6-participant / 720p60
+target holds for media on that machine. Worker CPU reads 0% because Windows does not
+expose `ru_utime` through `getrusage`; memory and byte counts are valid. The per-cell table
+is in
+[video-conferencing-v2-synthesis.md → Load constraints](./architecture/video-conferencing-v2-synthesis.md#2-load-constraints-measured--211-2026-10-11);
+raw data in `benchmarks/video/results/summary.csv`.
 
-Key results from `benchmarks/video/results/summary.csv` (2 repeats per cell, averages):
-
-| Participants | Resolution | Bytes sent (MB/30 s) | Bytes recv (MB/30 s) | Worker RSS (KB) |
-| :----------: | :--------: | :------------------: | :------------------: | :-------------: |
-|      2       |   360p30   |         1.81         |         1.85         |      15.4       |
-|      2       |   720p30   |         4.61         |         4.71         |      16.4       |
-|      2       |   720p60   |         4.91         |         4.94         |      16.5       |
-|      3       |   360p30   |         3.52         |         2.69         |      16.5       |
-|      3       |   720p30   |        13.06         |         7.24         |      17.1       |
-|      3       |   720p60   |        12.21         |         7.45         |      17.3       |
-|      4       |   360p30   |         6.52         |         3.65         |      17.5       |
-|      4       |   720p30   |        18.72         |         9.71         |      18.1       |
-|      4       |   720p60   |        26.69         |         9.95         |      18.5       |
-|      6       |   360p30   |        19.19         |         5.64         |      18.5       |
-|      6       |   720p30   |        31.96         |        14.22         |      20.0       |
-|      6       |   720p60   |        36.60         |        14.27         |      20.5       |
-
-The SFU handled 6 × 720p60 peers (36 MB sent in 30 s ≈ 9.7 Mbps aggregate) with ~20 KB
-RSS increase, confirming the architecture is viable on a single VM for thesis-scale
-loads. The original 2.5 Mbps-per-stream assumption holds: 6 streams × ~1.6 Mbps ≈
-9.7 Mbps observed.
-
-Evidence: `benchmarks/video/results/summary.csv` on `feat/211-video-capacity-benchmark`.
-
-Original note: Speech runs on CPU in the sidecars, and the STT sidecar serves a bounded
-number of concurrent decodes per engine (`LOCAL_STT_CONCURRENCY`, see
-[Speech backend routing](./architecture/ai-providers.md#speech-backend-routing)); six
-simultaneous speakers have not been measured against it.
-
-The 6-participant / 720p60 / 2.5 Mbps targets, the latency budgets, the effort hours
-(164 h) and the 20-week schedule were the proposal's estimates, not measurements.
-
-**Decision:** target verification is tracked in Issue #211 (hardware-gated; requires
-running the load test on the production or production-equivalent machine). Until #211
-closes, the targets in this doc remain unconfirmed. Translation latency has been measured
-in a 2-tab local PoC (warm session ~5.9 s T1→T2, cold ~9.2 s — see
-[`docs/video-conference-translation-audio.md §4`](./video-conference-translation-audio.md));
-multi-participant load under concurrent translation has not been measured.
+Not measured: the production host, and translation under several simultaneous speakers.
+Translation latency comes only from a 2-tab local PoC (warm ~5.9 s T1→T2, cold ~9.2 s —
+[video-translation-audio-path.md → Latency](./architecture/video-translation-audio-path.md#7-latency)),
+and a meeting is bounded by the six live translation sessions the API allows server-wide.
+The latency budgets, the effort hours (164 h) and the 20-week schedule remain the
+proposal's estimates.
 
 ### 5. Persisting speaker embeddings — **Deferred** (Issue #212, 2026-10-07)
 
@@ -775,13 +720,11 @@ The original schema stored CAM++ vectors (`ConferenceTurn.embedding`,
 the browser tab for the conversation duration, by design (see
 [Per-turn speaker attribution](./architecture/ai-providers.md#per-turn-speaker-attribution)).
 
-**Decision:** embedding persistence is deferred. With one WebRTC audio track per
-participant, speaker identity is available from the track itself without acoustic
-clustering — the two-voice cap that makes attribution necessary in the turn pipeline
-does not apply to a conference where each participant owns a known track. The
-`ConferenceSpeaker` model and embedding columns are removed from the initial migration
-(see `docs/database-schema-conference.md §9`); they can be added later if multi-language
-rooms with anonymous guests require acoustic attribution.
+**Decision:** deferred. With one WebRTC audio track per participant the speaker is known
+from the track, so the two-voice attribution cap of the turn pipeline does not apply.
+`ConferenceSpeaker` and the embedding columns are not in the migration
+(`docs/database-schema-conference.md §9`); add them only if rooms with anonymous guests
+need acoustic attribution.
 
 ### 6. Recording access — **Deferred** (Issue #212, 2026-10-07)
 
@@ -790,42 +733,31 @@ not an access boundary (see
 [Bucket layout](./architecture/authentication.md#bucket-layout-and-the-one-rule-that-governs-it)),
 so any recording stored there would be world-readable by URL.
 
-**Decision:** recording is deferred until a private-bucket or signed-URL policy is
-decided. The `ConferenceRecording` model is removed from the initial migration
-(see `docs/database-schema-conference.md §9`). The `Conference.recordingKey` column
-may be retained as a nullable placeholder when the initial migration is written, so
-adding recording later does not require an `ALTER TABLE`.
+**Decision:** deferred until a private-bucket or signed-URL policy is decided.
+`ConferenceRecording` is not in the migration (`docs/database-schema-conference.md §9`).
 
-### 7. Network path for meeting media — **Resolved: Path A — public media port on existing host** (Issue #208, 2026-10-06)
+### 7. Network path for meeting media — **Pending** (Issue #208)
 
-**Decision:** Path A — expose UDP 40000–49999 on the production host and use Cloudflare
-TURN (free tier, 1 TB/month) for clients whose networks block UDP.
+**Not decided.** An earlier revision recorded "Path A — public media port on the existing
+host"; the host check on 2026-10-12 ruled it out. The production host sits on a **company
+network** whose router is not the operator's: no port forward or inbound port can be added,
+the WAN address cannot be read (so CGNAT no longer matters), and UPnP and NAT-PMP are
+refused. The Cloudflare Tunnel carries signaling (`/ws/conference`) but no media. The path
+must therefore need **no inbound port on this host**. The two candidates, from
+[video-network-path.md](./architecture/video-network-path.md):
 
-Production is served through a Cloudflare Tunnel (HTTP/WS only, no UDP ingress).
-mediasoup is ICE-lite so the server must be publicly reachable on open ports; TURN only
-rescues UDP-blocked clients and does not solve server reachability. Full analysis and
-topology: [`docs/architecture/video-network-path.md`](./architecture/video-network-path.md).
+- **§4.5 — mediasoup on a small VPS, plus Cloudflare Realtime TURN** for UDP-blocked
+  clients. Keeps mediasoup and the code on `main`; costs a second host to deploy and pay
+  for, and moves the SFU out of the NestJS process.
+- **§4.2 — Cloudflare Realtime SFU.** No host ports, free tier covers thesis traffic;
+  reopens Decision 1, because it replaces mediasoup.
 
-**Topology:**
-
-```
-Client ──UDP 40000-49999──► mediasoup (NestJS API, public IP)
-Client ──TURNS/443─────────► Cloudflare TURN ──► mediasoup   (fallback for NAT/firewall)
-Browser ──WSS──────────────► Cloudflare Tunnel ──► /ws/conference (signaling, unchanged)
-```
-
-**Required host changes (one-time, manual):**
-
-- Open UDP 40000–49999 inbound on the host firewall/router
-- Set `MEDIASOUP_ANNOUNCED_IP=<host-public-ip>` in `prod.env`
-- Set `COTURN_SECRET`, `COTURN_REALM=<domain>` in `prod.env`
-- Set `TURN_URL`, `TURN_USERNAME`, `TURN_CREDENTIAL` in `prod.env` (returned to clients by the API)
-
-**Rejected:** Path B (separate VPS for mediasoup) — adds ~$6/month, an extra VM to
-maintain, and a signaling proxy, with no benefit for a thesis demo.
-
-**Pending:** network connectivity measurement from ≥2 networks (home Wi-Fi + 4G) to
-confirm the path reaches real clients before the thesis demo.
+What each changes in the gateway, the clients and the deploy, and its cost:
+[video-network-path.md → §9](./architecture/video-network-path.md#9-the-two-remaining-candidates-against-the-current-code).
+The owner chooses. Until then there are no host changes and no media ports, and the TURN
+provider is whichever this decision picks. The code-level TURN fixes (per-join HMAC
+credentials, the coturn/mediasoup port split, the TCP listener) apply to §4.5. The
+connectivity run from two networks (Wi-Fi and 4G, RTT and packet loss) waits on the choice.
 
 ---
 
@@ -848,7 +780,7 @@ WebSocket Pipeline      80%    16h     Adapt for multi-participant
 
 ```
 Component              New    Effort  Complexity
-WebRTC SFU            YES     40h     🔴 HIGH (mediasoup — PoC done #207)
+WebRTC SFU            YES     40h     🔴 HIGH (mediasoup — built, flagged off)
 Video Grid UI         YES     24h     🟡 MEDIUM
 Message Service       YES      8h     🟢 LOW
 Recording Compositor  YES     32h     🔴 HIGH (FFmpeg) — deferred #212
@@ -859,5 +791,5 @@ TOTAL                          ~136h  (recording deferred; 4 weeks est. 1 eng)
 
 ---
 
-**Document Version:** 1.2  
-**Last Updated:** 2026-10-07 (Open Decisions 3–6 resolved/deferred, Issue #212)
+**Document Version:** 1.3  
+**Last Updated:** 2026-10-25 (Decision 7 back to pending; status reflects the flagged code on `main`)

@@ -1,8 +1,7 @@
 /**
  * A modal sheet showing the call's transcript — one line per captured turn,
  * newest last, scrollable. Pure readout, no accent; dismiss is a ghost control.
- * Mirrors the participant-sheet pattern (Modal + bottom sheet) established in
- * Phase 1.
+ * Mirrors the participant-sheet pattern (Modal + bottom sheet).
  *
  * The call view owns accumulation: subtitles in the hook are transient (replaced
  * on partial, cleared on final/timeout), so the view records each speaker's turn

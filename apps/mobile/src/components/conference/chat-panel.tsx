@@ -2,7 +2,7 @@
  * A modal sheet for in-meeting chat — a scrollable message list (newest last)
  * plus a text composer. Pure readout + input, no accent: the send control is a
  * ghost/outline button so the call screen's single accent control stays Leave.
- * Mirrors the transcript-sheet pattern (Modal + bottom sheet) from Phase 3.
+ * Mirrors the transcript-sheet pattern (Modal + bottom sheet).
  *
  * Each message arrives already in this client's chosen language (the gateway
  * translates per recipient). Own messages are distinguished by `mySocketId`.

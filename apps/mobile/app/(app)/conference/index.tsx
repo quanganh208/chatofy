@@ -1,7 +1,8 @@
 /**
- * Conference lobby: pick a room + display name, preview the local camera, and join.
- * "Start" navigates to `[roomId]`, which runs the call. One accent control here is
- * Start; the fields and the preview are ground.
+ * Conference lobby: display name, language, a local camera preview, and two ways
+ * into a call. "Create a room" asks `POST /conference` for a new room and opens
+ * it; "Join a room" opens the id the user entered. Both navigate to `[roomId]`,
+ * which runs the call. The one accent control here is Create; Join is outlined.
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
@@ -19,24 +20,28 @@ import { useRouter } from 'expo-router';
 import { registerGlobals, mediaDevices, RTCView, MediaStream } from 'react-native-webrtc';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import { createTranslator, en } from '@chatofy/i18n';
+import { conferenceRoomIdSchema } from '@chatofy/types/events';
 import { useTheme } from '@/providers/theme-provider';
 import { LanguagePicker, type SourceLanguage } from '@/components/conference/language-picker';
+import { CreateConferenceRoomError, createConferenceRoom } from '@/conference/conference-rooms-api';
 
 registerGlobals();
 
-// English for now; device-locale selection is a follow-up (see the Phase 1 report).
+// English for now; device-locale selection is a follow-up.
 const t = createTranslator(en);
 
 export default function ConferenceLobbyScreen() {
   const { colors } = useTheme();
   const router = useRouter();
 
-  const [roomId, setRoomId] = useState('poc');
+  const [roomId, setRoomId] = useState('');
   const [displayName, setDisplayName] = useState('mobile-user');
   // The call screen reads `sourceLanguage` only at join, so it is chosen here in
   // the lobby and passed through as `lang`. Defaults to Vietnamese.
   const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>('vi');
   const [preview, setPreview] = useState<MediaStream | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [lobbyError, setLobbyError] = useState<string | undefined>(undefined);
   const previewRef = useRef<MediaStream | null>(null);
 
   // Open a local camera preview so the user sees themselves before joining.
@@ -71,21 +76,56 @@ export default function ConferenceLobbyScreen() {
     };
   }, []);
 
-  const onStart = useCallback(() => {
-    const room = roomId.trim();
-    const name = displayName.trim();
-    if (!room || !name) return;
-    // Release the preview camera before the call screen opens its own.
-    previewRef.current?.getTracks().forEach((track) => track.stop());
-    previewRef.current = null;
-    setPreview(null);
-    router.push({
-      pathname: '/(app)/conference/[roomId]',
-      params: { roomId: room, displayName: name, lang: sourceLanguage },
-    });
-  }, [roomId, displayName, sourceLanguage, router]);
+  const openRoom = useCallback(
+    (room: string) => {
+      // Release the preview camera before the call screen opens its own.
+      previewRef.current?.getTracks().forEach((track) => track.stop());
+      previewRef.current = null;
+      setPreview(null);
+      router.push({
+        pathname: '/(app)/conference/[roomId]',
+        params: { roomId: room, displayName: displayName.trim(), lang: sourceLanguage },
+      });
+    },
+    [displayName, sourceLanguage, router],
+  );
 
-  const canStart = roomId.trim().length > 0 && displayName.trim().length > 0;
+  const onCreate = useCallback(async () => {
+    if (!displayName.trim() || creating) return;
+    setCreating(true);
+    setLobbyError(undefined);
+    try {
+      const id = await createConferenceRoom();
+      openRoom(id);
+    } catch (err) {
+      const notAuthenticated =
+        err instanceof CreateConferenceRoomError && err.kind === 'not-authenticated';
+      console.warn('[conference] create room failed', err);
+      setLobbyError(
+        notAuthenticated
+          ? t('mobile.conference.notAuthenticated')
+          : t('mobile.conference.createFailed'),
+      );
+    } finally {
+      setCreating(false);
+    }
+  }, [displayName, creating, openRoom]);
+
+  const onJoin = useCallback(() => {
+    const room = roomId.trim();
+    if (!room || !displayName.trim()) return;
+    // Only an id `POST /conference` minted can name a room.
+    if (!conferenceRoomIdSchema.safeParse(room).success) {
+      setLobbyError(t('mobile.conference.roomNotFound'));
+      return;
+    }
+    setLobbyError(undefined);
+    openRoom(room);
+  }, [roomId, displayName, openRoom]);
+
+  const hasName = displayName.trim().length > 0;
+  const canCreate = hasName && !creating;
+  const canJoin = hasName && roomId.trim().length > 0 && !creating;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -130,7 +170,10 @@ export default function ConferenceLobbyScreen() {
             { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface },
           ]}
           value={roomId}
-          onChangeText={setRoomId}
+          onChangeText={(text) => {
+            setRoomId(text);
+            setLobbyError(undefined);
+          }}
           placeholder={t('mobile.conference.roomIdPlaceholder')}
           placeholderTextColor={colors.muted}
           autoCapitalize="none"
@@ -139,15 +182,35 @@ export default function ConferenceLobbyScreen() {
 
       <LanguagePicker t={t} value={sourceLanguage} onChange={setSourceLanguage} locked={false} />
 
+      {lobbyError ? (
+        <Text style={[styles.label, { color: colors.textSecondary }]} accessibilityRole="alert">
+          {lobbyError}
+        </Text>
+      ) : null}
+
       <TouchableOpacity
-        style={[styles.start, { backgroundColor: canStart ? colors.primary : colors.border }]}
-        onPress={onStart}
-        disabled={!canStart}
+        style={[styles.start, { backgroundColor: canCreate ? colors.primary : colors.border }]}
+        onPress={() => void onCreate()}
+        disabled={!canCreate}
         activeOpacity={0.8}
         accessibilityRole="button"
+        accessibilityState={{ disabled: !canCreate, busy: creating }}
       >
         <Text style={[styles.startText, { color: colors.primaryForeground }]}>
-          {t('mobile.conference.start')}
+          {creating ? t('mobile.conference.creating') : t('mobile.conference.create')}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.start, styles.join, { borderColor: colors.border }]}
+        onPress={onJoin}
+        disabled={!canJoin}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !canJoin }}
+      >
+        <Text style={[styles.startText, { color: canJoin ? colors.text : colors.muted }]}>
+          {t('mobile.conference.join')}
         </Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -194,6 +257,10 @@ const styles = StyleSheet.create({
     paddingVertical: space.md,
     alignItems: 'center',
     marginTop: space.sm,
+  },
+  join: {
+    borderWidth: 1,
+    marginTop: 0,
   },
   startText: {
     fontSize: fontSize.base,

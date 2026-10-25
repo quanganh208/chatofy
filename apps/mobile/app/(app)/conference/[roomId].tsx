@@ -4,10 +4,10 @@
  * waiting (joined, alone), in-call, reconnecting, and the error/disconnected
  * dead-ends. The only accent control on this screen is Leave.
  *
- * Phase 3 (translation UX): a subtitle overlay on each speaking tile, a transcript
- * sheet accumulating the call's turns, a source-language picker (pre-join only —
- * the hook reads `sourceLanguage` at join and has no mid-call setter), and the
- * `translating…` badge on the local tile bound to `localTranslating`.
+ * Translation UX: a subtitle overlay on each speaking tile, a transcript sheet
+ * accumulating the call's turns, the source language (chosen in the lobby and
+ * shown locked here — the hook reads it at join and has no mid-call setter), and
+ * the `translating…` badge on the local tile bound to `localTranslating`.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -25,22 +25,20 @@ import { ChatPanel } from '@/components/conference/chat-panel';
 import { LanguagePicker, type SourceLanguage } from '@/components/conference/language-picker';
 import { getConferenceToken } from '@/conference/conference-token';
 
-// English for now; device-locale selection is a follow-up (see the Phase 1 report).
+// English for now; device-locale selection is a follow-up.
 const t = createTranslator(en);
 
-/** Per-speaker accumulation state: the open entry's id, or null once it closes. */
-type OpenEntries = Map<string, string | null>;
+/** Per-speaker accumulation state: the open entry and its turn, or null once it closes. */
+type OpenEntries = Map<string, { id: string; turnId: string | undefined } | null>;
 
 /**
  * Fold the peers' transient subtitles into an accumulating transcript.
  *
- * The hook replaces a turn's subtitle on each partial and clears it to undefined
- * on final/timeout, so the only durable record is what the call view captures as
- * it sees each value. While a speaker has an open (non-empty) caption, each new
- * value updates the SAME entry in place — the partials of one turn collapse to a
- * single line. When the caption clears, the entry closes, so the speaker's next
- * caption starts a fresh line. This is the correct bound without touching the
- * hook: no turnId is exposed publicly, and the clear is what delimits a turn.
+ * The hook replaces a turn's subtitle with each cumulative frame and clears it a
+ * moment after the turn closes, so the only durable record is what the call view
+ * captures as it sees each value. Frames of the same turn update the SAME entry
+ * in place — one utterance is one line. A different turn id, or a cleared
+ * caption, closes the entry, so the speaker's next turn starts a fresh line.
  */
 function foldTranscript(
   peers: Map<string, PeerState>,
@@ -52,24 +50,25 @@ function foldTranscript(
   let next = prev;
   for (const [socketId, peer] of peers) {
     const text = peer.subtitle;
-    const openId = open.get(socketId) ?? null;
+    const turnId = peer.subtitleTurnId;
+    const current = open.get(socketId) ?? null;
 
     if (!text) {
       // Caption cleared → close the open entry so the next turn gets a new line.
-      if (openId !== null) open.set(socketId, null);
+      if (current !== null) open.set(socketId, null);
       continue;
     }
 
-    if (openId === null) {
+    if (current === null || current.turnId !== turnId) {
       // New turn for this speaker → append a fresh entry.
       const id = `${socketId}:${seq.n++}`;
-      open.set(socketId, id);
+      open.set(socketId, { id, turnId });
       next = next === prev ? [...prev] : next;
       next.push({ id, speaker: peer.displayName, text });
       changed = true;
     } else {
       // Same turn continuing → replace the open entry's text in place.
-      const idx = next.findIndex((e) => e.id === openId);
+      const idx = next.findIndex((e) => e.id === current.id);
       if (idx >= 0 && next[idx].text !== text) {
         next = next === prev ? [...prev] : next;
         next[idx] = { ...next[idx], text, speaker: peer.displayName };
@@ -84,7 +83,8 @@ export default function ConferenceCallScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{ roomId: string; displayName?: string; lang?: string }>();
-  const roomId = typeof params.roomId === 'string' ? params.roomId : 'poc';
+  // The hook refuses an id that is not one `POST /conference` minted.
+  const roomId = typeof params.roomId === 'string' ? params.roomId : '';
   const displayName =
     typeof params.displayName === 'string' && params.displayName.length > 0
       ? params.displayName
@@ -178,9 +178,13 @@ export default function ConferenceCallScreen() {
         ? t('mobile.conference.permissionDenied')
         : errorReason === 'not-authenticated'
           ? t('mobile.conference.notAuthenticated')
-          : status === 'disconnected'
-            ? t('mobile.conference.disconnected')
-            : t('mobile.conference.errorGeneric');
+          : errorReason === 'room-not-found'
+            ? t('mobile.conference.roomNotFound')
+            : errorReason === 'room-ended'
+              ? t('mobile.conference.roomEnded')
+              : status === 'disconnected'
+                ? t('mobile.conference.disconnected')
+                : t('mobile.conference.errorGeneric');
     const hint =
       errorReason === 'permission-denied'
         ? t('mobile.conference.permissionDeniedHint')
