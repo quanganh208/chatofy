@@ -1,8 +1,13 @@
 # Conference Feature — Demo Runbook
 
-**Branch:** `video-conferencing`  
-**Target:** thesis demo on one host / loopback (single machine, same browser, multiple profiles)  
-**Last verified:** 2026-10-15
+**Target:** thesis demo on one machine (loopback, one browser with several profiles,
+optionally an Android dev build on the same LAN)
+**Last revised:** 2026-10-25
+
+Conferencing is on `main` behind flags that are off by default. Everything below is a
+local run; production has no media path yet (Decision 7 in
+[video-conferencing-architecture.md](./video-conferencing-architecture.md) is pending), so
+a remote guest cannot join.
 
 ---
 
@@ -10,301 +15,193 @@
 
 ### Environment files
 
-`apps/api/.env` must have at minimum:
+`apps/api/.env`, at minimum:
 
 ```bash
-# Required — the API refuses to start without it
+# Required — the API refuses to start without it (openssl rand -base64 32)
 AUTH_JWT_SECRET=<32-byte base-64 string>
-# openssl rand -base64 32
 
-# Required for machine-translation (Gemini)
+# Required: a meeting translates through the live mode of /ws/translate, which is Gemini Live.
 GEMINI_API_KEY=<your key>
 
-# Demo concurrency — raise these for 3+ simultaneous speakers.
-# Default (6 / 4) is sufficient for a 2-participant demo.
-# For 3 active speakers all translating at once, saturate hits the default cap;
-# raise both before the demo and restart the STT sidecar after changing LOCAL_STT_CONCURRENCY.
-MAX_CONCURRENT_TURNS_GLOBAL=12
-LOCAL_STT_CONCURRENCY=6
+# Off by default. Without it there is no mediasoup worker, no /ws/conference, no /conference.
+CONFERENCE_ENABLED=true
+
+# Loopback is right for one machine. For a phone on the LAN, use this machine's LAN IP.
+MEDIASOUP_ANNOUNCED_IP=127.0.0.1
 ```
 
-`apps/web/.env.local` must have:
+Chat messages are translated per recipient through the configured translation provider
+(`AI_TRANSLATION_PROVIDER`, Gemini by default), so that provider's key must be set too.
+
+`apps/web/.env.local`:
 
 ```bash
-# Signs the Next-Auth session cookie
-AUTH_SECRET=<32-byte base-64 string>
-# openssl rand -base64 32
-
-# Points the web app at the local API WebSocket
-NEXT_PUBLIC_API_WS_URL=ws://localhost:3000
-```
-
-### Mobile environment file (only when testing the React Native app)
-
-`apps/mobile/.env` must have:
-
-```bash
-# API address the device/emulator calls (the API is on port 3000, NOT web's 3001).
-#   - Android emulator: the in-code default is already http://10.0.2.2:3000
-#     (10.0.2.2 maps to the host machine's localhost) — no need to set it.
-#   - Real device: you MUST set the host machine's LAN IP, e.g. http://192.168.1.50:3000
-EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:3000
-
-# Mobile auth is still a stub (no real sign-in yet), so the conference socket gets its
-# token by logging in as a registered "bench" account. The /ws/conference gateway DOES
-# validate the token, so it cannot be skipped. Use a registered account, or create a
-# bench account quickly:
-#   node apps/api/scripts/create-bench-user.cjs   # creates bench@dev.local / Benchmark123!
-EXPO_PUBLIC_BENCH_EMAIL=bench@dev.local
-EXPO_PUBLIC_BENCH_PASSWORD=Benchmark123!
+AUTH_SECRET=<32-byte base-64 string>   # openssl rand -base64 32
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+# Build-time: restart `next dev` after changing it. 'false' (default) hides the
+# Conference nav entry and makes every /conference route a 404.
+NEXT_PUBLIC_CONFERENCE_ENABLED=true
 ```
 
 ### Accounts
 
-You need 2–3 registered accounts (one per browser profile). Create them via
-`http://localhost:3001/register` after the stack is up. Email verification links are
-printed to the API console when `SMTP_*` env vars are unset — copy the link, open it in
-the same browser, done.
+One registered account per browser profile (2–3). Register at
+`http://localhost:3001/register`; with `SMTP_*` unset the verification link is printed to
+the API console.
 
 ---
 
 ## 2. Start sequence
 
 ```bash
-# From the repo root — starts Postgres, Redis, both speech sidecars (local-stt on
-# port 8002, local-tts on port 8003), the NestJS API on port 3000, and the Next.js
-# web app on port 3001. Blocks in the terminal.
+# Postgres, Redis, the speech sidecars, coturn, then the API (3000) and web (3001).
 pnpm dev:all
 ```
 
-Wait until the terminal shows:
+A meeting itself does not use the speech sidecars (live mode is speech-to-speech in the
+cloud). On a machine whose Docker VM also runs production, do not start the dev sidecars:
+they compete with production for the same memory.
 
-- `[api] Application is running on: http://localhost:3000`
-- `[web] ✓ Ready in ...`
-- Both sidecars print a startup banner (local-stt and local-tts each log to stdout)
-
-**URLs**
+Wait for `[api] Application is running on: http://localhost:3000` and `[web] ✓ Ready`.
 
 | Surface          | URL                              |
 | ---------------- | -------------------------------- |
 | Web app          | http://localhost:3001            |
 | API (health)     | http://localhost:3000/health     |
-| STT sidecar      | http://localhost:8002            |
-| TTS sidecar      | http://localhost:8003            |
 | Conference lobby | http://localhost:3001/conference |
 
 ---
 
 ## 3. Demo script (one host, 2–3 browser profiles)
 
-### Setup
+Each profile is signed in to a different account; arrange the windows side by side.
 
-Open Chrome (or any Chromium browser) with two or three separate profiles. Each
-profile should be signed in to a different Chatofy account. Arrange the windows
-side-by-side.
+1. **Profile A** opens **Conference** from the sidebar, enters a name, picks **Tiếng Việt**,
+   and clicks **Create a room**. The lobby calls `POST /conference` and opens
+   `/conference/<roomId>`. Copy the id from the URL.
+2. **Profile B** opens **Conference**, enters a name, picks **English**, pastes the id and
+   clicks **Join**. Both now see and hear each other.
 
-### Step-by-step
+The link is the access: anyone signed in who has the id can join. There are no
+client-made ids; an id that `POST /conference` did not create shows the room-not-found
+state, and an ended room shows room ended.
 
-1. **Profile A** — navigate to `http://localhost:3001/conference`.
-2. Enter a name (e.g. "Quang Anh"), leave the room ID as generated, pick **Tiếng Việt**.
-3. Click **Start** — the in-call screen opens. Copy the room ID from the URL bar
-   (`/conference/<roomId>`).
-4. **Profile B** — navigate to `http://localhost:3001/conference`.
-5. Enter a name (e.g. "Alice"), paste the room ID into the Room ID field, pick **English**.
-6. Click **Start** — Profile B joins the same room. Both profiles now show each other's video.
+### Translation
 
-### Translation demo
+3. **A** says a short Vietnamese sentence, then pauses. **B** sees the subtitle build up
+   and hears English. The subtitle is cumulative: it grows while A speaks and settles
+   about 1.5 s after the last translated word.
+4. **B** answers in English; **A** sees and hears Vietnamese.
 
-7. **Profile A (Vietnamese)** — speak a short sentence in Vietnamese (5–10 words, then pause).
-   - Profile B (English) should see a subtitle appear within ~6 s (warm session) and hear the
-     English translation spoken aloud shortly after.
-8. **Profile B (English)** — respond with a short sentence in English.
-   - Profile A (Vietnamese) should see and hear the Vietnamese translation.
+Point out: each participant picks their own language; subtitles reach only listeners of
+the other language, and translated speech reaches only listeners of its language.
 
-**What to point out to the audience:**
+### Controls, chat, leave, end
 
-- The subtitle appears **before** the translated audio (subtitle is faster — no TTS encoding delay).
-- The room is a short alphanumeric ID anyone can type or share.
-- Each participant independently picks their own language.
+5. Mic and camera buttons: the other side's roster shows muted; the tile darkens.
+6. Chat: a message arrives translated into each recipient's language.
+7. **Leave** returns to the lobby; the other side drops the tile.
+8. Ending the room as its creator (`DELETE /conference/:id`) closes every peer's call with
+   the room-ended state. It does not reconnect.
 
-### Mute / camera controls
+### Smoke checklist
 
-9. Profile A clicks the mic button → mic mutes; Profile B's roster shows the muted icon.
-10. Profile A clicks the camera button → video tile goes dark on both sides.
-11. Click both again to restore.
+Run once on a real stack before trusting the demo; none of this is visible to unit tests.
 
-### Leave
-
-12. Either profile clicks **Leave** → returns to the conference lobby. The other
-    profile's grid removes the departed tile.
-
-### Smoke checklist (tick each — maps to polish items A/B/C/D)
-
-Run this once on a real stack before trusting the demo. Each line is a thing to see or hear
-with your own eyes/ears — the unit tests cannot confirm any of it. Tick `[x]` as you go.
-
-**Basics**
-
-- [ ] Both profiles reach `/conference` from the sidebar **Conference** link (not just a typed URL).
-- [ ] After both join the same room, each sees the other's **video** and hears the other's raw voice.
-- [ ] Mic button mutes and the peer's roster shows the muted icon; camera button darkens the tile on both sides; **Leave** returns to the lobby and removes the tile for the other peer.
-
-**Bidirectional translation (the core)**
-
-- [ ] Vietnamese speaker → the English profile sees a **Vietnamese→English subtitle** and hears English audio.
-- [ ] English speaker → the Vietnamese profile sees an **English→Vietnamese subtitle** and hears Vietnamese audio. (The old PoC failed this direction — it is the headline fix.)
-
-**A — audio unlock**
-
-- [ ] Translated speech is actually **audible** from the speakers/headphones.
-- [ ] If it is silent on first join, a **"tap to enable sound"** control appears; clicking it makes audio play. (If audio plays without ever seeing that control, that is also a pass.)
-
-**B — translating indicator**
-
-- [ ] While you speak and before the subtitle lands, a **"translating…"** badge shows on your own tile, then clears when the subtitle arrives (and never stays stuck).
-
-**C — active-speaker + subtitle styling**
-
-- [ ] The tile of whoever is currently speaking/translating has a visible **highlight ring**.
-- [ ] Subtitles are **large and legible** from across a room; a final line is solid, a partial one is dimmer.
-
-**D — auto-reconnect** (kill the API mid-call to simulate a drop)
-
-- [ ] With a call live, stop the API briefly (`Ctrl+C` the `pnpm dev:all` terminal, or `docker`/process kill), then restart it: the UI shows **"Reconnecting (1/3)…"** and the call **recovers** on its own — no duplicate tiles, audio resumes.
-- [ ] Kill the API for longer than 3 attempts (~7 s): the UI falls through to **"Connection lost. The call ended."** with a Back to lobby button (the terminal dead-end, not a crash).
-
-If any line fails, note the symptom and the browser DevTools console `[T1]`–`[T4]` lines for that
-turn — they pinpoint which stage (audio sent / transcript / subtitle / TTS frame) broke.
+- [ ] The **Conference** sidebar entry exists only with `NEXT_PUBLIC_CONFERENCE_ENABLED=true`.
+- [ ] Create a room → the call opens; Join with the copied id from a second profile works.
+- [ ] Joining a made-up id shows room not found, without retrying.
+- [ ] vi → en and en → vi both show a subtitle and play translated audio.
+- [ ] If audio is silent on first join, a **tap to enable sound** control appears and works.
+- [ ] A **translating…** badge shows on your own tile while you speak and clears when the
+      turn settles.
+- [ ] Stop the API briefly mid-call: the UI shows **Reconnecting (n/3)…** and recovers.
+      Stopped for longer than three attempts, it ends with a disconnected state.
+- [ ] The same account joining from a second tab replaces the first; the first tab leaves
+      the call and does not reconnect.
 
 ---
 
-## 4. Mobile testing (React Native) — mobile ↔ web in the same room
+## 4. Mobile (Android dev build only)
 
-This brings the conference on the `apps/mobile` app to parity with web: video, realtime
-translation (subtitles + TTS audio), and per-recipient translated chat. It all runs against
-the same `pnpm dev:all` stack above — mobile is just a second client of the same API.
+The conference entry, lobby and call screen exist only in development builds (`__DEV__`).
+Mobile has no real sign-in for conferences yet, so a dev build logs in with a bench
+account from `EXPO_PUBLIC_BENCH_EMAIL` / `EXPO_PUBLIC_BENCH_PASSWORD`; a release build
+ignores them and has no conference screens. Never set those variables for a build you hand
+to anyone.
 
-### 4.1 Mobile-specific prerequisites
-
-- **You must build a dev client** — the app has native modules (`react-native-webrtc`,
-  `react-native-audio-api`). **Expo Go will NOT work.** The first run has to build native.
-- `apps/mobile/.env` filled per §1 (`EXPO_PUBLIC_API_BASE_URL` on port 3000 and
-  `EXPO_PUBLIC_BENCH_*`).
-- The API/web/sidecar stack is running (`pnpm dev:all`).
-- A bench account exists (create with `node apps/api/scripts/create-bench-user.cjs` if not).
-
-### 4.2 Build and open the app
+`apps/mobile/.env`:
 
 ```bash
-# Build + install the dev client onto an emulator/device (first run takes a few minutes
-# because it builds native).
-pnpm --filter mobile android      # or: pnpm --filter mobile ios
+# The API port (3000), not web's. Emulator default is http://10.0.2.2:3000;
+# a real device needs this machine's LAN IP.
+EXPO_PUBLIC_API_BASE_URL=http://192.168.1.50:3000
+EXPO_PUBLIC_BENCH_EMAIL=bench@dev.local
+EXPO_PUBLIC_BENCH_PASSWORD=<the bench account's password>
 ```
 
-When the app opens, go to the **Conference** screen → the conference lobby.
+Create the bench account with `node apps/api/scripts/create-bench-user.cjs`. For a real
+device, set `MEDIASOUP_ANNOUNCED_IP` in `apps/api/.env` to the LAN IP as well.
 
-### 4.3 Demo steps (mobile joins as the second participant)
+Build and run a dev client (Expo Go cannot load `react-native-webrtc`):
 
-1. **On web (Profile A, Tiếng Việt)** — create a room at `http://localhost:3001/conference`,
-   copy the room ID (`/conference/<roomId>`).
-2. **On mobile** — open Conference → enter a name (e.g. "Minh"), **paste the room ID**, pick
-   **English** → tap **Start**.
-3. When the OS prompts, **grant camera + mic**. Mobile joins the same room as web.
+```bash
+cd apps/mobile
+npx expo prebuild --platform android
+cd android && ./gradlew installDebug -PreactNativeArchitectures=<device ABI>
+cd .. && npx expo start --dev-client
+adb reverse tcp:8081 tcp:8081
+```
 
-### 4.4 Checklist — what to test and what "OK" looks like
+Then: create a room on web (§3 step 1), open **Conference** on the phone, enter the id and
+join; grant camera and mic. Two-way audio and video were confirmed this way on an Android
+14 phone on 2026-10-12. Check the same list as §3, plus that Leave turns the camera light
+off. The language is picked in the lobby; it is read-only during the call.
 
-Like web, each line is something to see/hear on the device. Tick `[x]` when it passes.
-
-**Video (Phase 1)**
-
-- [ ] Mobile joins the web-created room; **both sides see each other's video** (RTCView renders)
-      and hear raw voice. OK = video flows both ways, no duplicate tiles, no crash.
-- [ ] On mobile tap **mic** → web's roster shows the muted icon; tap **camera** → the mobile
-      tile darkens on both sides; tapping again restores.
-- [ ] Tap **Leave** → mobile returns to the lobby; web's grid drops the mobile tile; **the
-      device camera light goes off** (teardown released mic/cam).
-
-**Translation audio (Phase 2) — TOP RUNTIME RISK: mic contention**
-
-- [ ] Speak **English** on mobile → web (Tiếng Việt) sees an **English→Vietnamese subtitle**
-      and hears Vietnamese. ⚠ This is the most likely thing to fail: `react-native-webrtc`
-      holds the mic for the call, while the `react-native-audio-api` recorder is a **second**
-      mic consumer. OK = the raw call audio is kept **and** a transcript shows on web. A typical
-      FAIL = the recorder cannot open, or the call loses audio when translation starts → use the
-      "tap the webrtc audio track directly" fallback (documented in the Phase 2 report), not a
-      logic bug.
-- [ ] Web speaks **Vietnamese** → mobile sees a Vietnamese→English subtitle and **hears English
-      from the mobile speaker**, in order, no overlap. OK = TTS audio is clear and sequential.
-
-**Translation UX (Phase 3)**
-
-- [ ] While you speak on mobile, your own tile shows a **"translating…"** badge, then clears
-      when the final subtitle lands (or after a timeout) — never stuck.
-- [ ] Subtitles render on the active speaker's tile; opening the **transcript sheet** shows the
-      turns accumulating.
-- [ ] The **language picker** shows the chosen language correctly. Note: it is a **locked
-      readout** during a call (the screen auto-joins on open) — to change language, pick it in
-      the lobby BEFORE joining. OK = the picker reflects the right language, no mid-call change.
-
-**Per-recipient translated chat (Phase 4)**
-
-- [ ] Open the **chat** panel, send from mobile → web receives the message **translated into
-      web's language**; web sends → mobile receives it **translated into mobile's language**.
-      Your own message shows immediately (echo). OK = each side reads messages in its own
-      language; Leave stays the single accent control, chat is a secondary panel.
-
-> Chat translation is done on the **server** (the gateway translates per recipient) — the client
-> only sends `conference.chat` and renders. If one direction does not translate, check
-> `GEMINI_API_KEY` as for web.
-
-### 4.5 Mobile troubleshooting
-
-| Symptom                                               | Common cause                                                                                                                                             |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Join fails immediately / no WS connection             | `EXPO_PUBLIC_API_BASE_URL` wrong port (must be **3000**) or wrong host (emulator uses `10.0.2.2`, a real device uses the host machine's LAN IP).         |
-| Joins straight to `not-authenticated`                 | Missing `EXPO_PUBLIC_BENCH_*` or the bench account does not exist → run `create-bench-user.cjs`.                                                         |
-| App won't build / native module error                 | Running Expo Go — you must build a **dev client** (`expo run:android`/`ios`).                                                                            |
-| Video works but enabling translation kills call audio | Mic contention (top risk) — confirm by turning translation off; if the call regains audio it is contention, and the webrtc-track-tap fallback is needed. |
+| Symptom                                  | Cause                                                                                        |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------- |
+| No WebSocket connection                  | `EXPO_PUBLIC_API_BASE_URL` on the wrong port or host                                         |
+| Not authenticated                        | Bench variables missing, or the account does not exist                                       |
+| Native module error                      | Running in Expo Go instead of a dev client                                                   |
+| Joins but no media                       | `MEDIASOUP_ANNOUNCED_IP` still `127.0.0.1` while testing from a device                       |
+| Call audio drops when translation starts | Mic contention between `react-native-webrtc` and the translation recorder; confirm by muting |
 
 ---
 
-## 5. Edge-case states (what to expect, not errors)
+## 5. Edge-case states (expected, not errors)
 
-| Situation                                | What the UI shows                                                    |
-| ---------------------------------------- | -------------------------------------------------------------------- |
-| Browser blocks camera AND mic            | "Camera and microphone access is required" + Back to lobby button    |
-| Browser blocks only camera (mic granted) | Joins audio-only; soft banner: "No camera — joining with audio only" |
-| WS disconnected mid-call (killed API)    | "Connection lost. The call ended." + Back to lobby button            |
-| Opened before signing in                 | Browser redirected to `/login` automatically                         |
+| Situation                               | What the UI shows                           |
+| --------------------------------------- | ------------------------------------------- |
+| Browser blocks camera and mic           | Permission-required message + Back to lobby |
+| Only the camera is blocked              | Joins audio-only with a banner              |
+| Unknown room id                         | Room not found; no retry                    |
+| Room ended by its creator               | Room ended; no reconnect                    |
+| API gone for longer than three attempts | Connection lost + Back to lobby             |
+| Opened before signing in                | Redirected to `/login`                      |
 
 ---
 
-## 6. Known demo risks (stated plainly)
+## 6. Known demo risks
 
-| Risk                                                    | Impact                                         | Note                                                                                                                                                                                                                                                                                                |
-| ------------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **One-host / loopback only**                            | A remote guest cannot join                     | Cross-network media (TURN/STUN, UDP 40000–49999) is **untested** (Issue #208). Demo on the same machine.                                                                                                                                                                                            |
-| **Mobile fully coded but NOT smoke-tested on a device** | May fail right at the mobile demo              | All four phases (video, translation audio, UX, chat) are implemented and pass static checks (typecheck/lint), but have **not been run at runtime** — that needs a dev-client build + 2 devices. Run §4 before trusting it. Top risk: mic contention between `react-native-webrtc` and the recorder. |
-| **Multi-speaker concurrent translation load**           | Translation queues at 3+ simultaneous speakers | `MAX_CONCURRENT_TURNS_GLOBAL` default (6) saturates at 3 speakers × 2 jobs each. Raise to 12 per §1 above. Not formally load-tested with all caps raised.                                                                                                                                           |
-| **~6 s warm translation latency**                       | Audience may notice the delay                  | Measured: ~6 s warm (T1→T2 on a local stack). Script speakers to use short turns and pause between them. Lead with the subtitle — it appears before the audio.                                                                                                                                      |
-| **Cold-session first-utterance penalty**                | First translation takes ~9 s                   | The STT model buffers ~2–3 s of audio before emitting a transcript on a cold session. Warm up each profile by speaking one throwaway sentence before the live demo.                                                                                                                                 |
+| Risk                                     | Impact                         | Note                                                                                                                       |
+| ---------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| One machine / one LAN only               | A remote guest cannot join     | The network path is pending (#208). The dev coturn relay (ports 40000–49999) is for LAN tests; mediasoup uses 50000–59999. |
+| At most six translating participants     | A seventh gets no translation  | The API allows six live translation sessions server-wide, `/translate` users included. A code constant, not an env var.    |
+| ~6 s warm translation latency            | The audience notices the delay | Measured on a 2-tab local run. Use short turns with pauses; the subtitle arrives before the audio.                         |
+| Cold first utterance (~9 s)              | First translation is slow      | Warm each profile up with one throwaway sentence before the demo.                                                          |
+| Mobile is a dev build with a bench login | Two phones share one account   | The same user joining twice replaces the first socket, so use one phone plus browser profiles.                             |
 
 ---
 
 ## 7. Reset between runs
 
 ```bash
-# Stop everything (Postgres, Redis, sidecars, API, web)
 pnpm dev:stop
-
-# Restart for a fresh run
 pnpm dev:all
 ```
 
-To reset participant accounts between runs, sign out of each browser profile and
-sign back in — no database wipe is needed.
-
-To reset the Postgres data entirely:
+A fresh database:
 
 ```bash
 pnpm dev:stop
@@ -318,21 +215,14 @@ pnpm dev:all
 
 ## 8. Troubleshooting
 
-**"Application is running" but `/health` returns 500**  
-Check `AUTH_JWT_SECRET` and `GEMINI_API_KEY` are set in `apps/api/.env`.
+**`/conference` is a 404 or the nav entry is missing** — `NEXT_PUBLIC_CONFERENCE_ENABLED`
+is not `true`, or `next dev` was not restarted after setting it.
 
-**STT sidecar does not start**  
-Docker Desktop must be running. `docker compose up -d --wait` is included in
-`pnpm dev:all`; if a sidecar exits, check `docker compose logs local-stt`.
+**The call never connects** — `CONFERENCE_ENABLED` is not `true` in `apps/api/.env`, so
+`/ws/conference` does not exist.
 
-**No translated audio from Profile B (English speaker)**  
-Confirm `GEMINI_API_KEY` is valid. The MT step (Google Gemini) is the one cloud
-call in the pipeline; STT and TTS run locally.
+**No subtitle or translated audio** — check `GEMINI_API_KEY`. A live session refused with
+`too_many_sessions` means six are already open server-wide.
 
-**`LOCAL_STT_CONCURRENCY` change had no effect**  
-This env var is read at **sidecar startup**. After changing it, restart the
-sidecar: `docker compose restart local-stt`.
-
-**Translation works one way but not the other**  
-Verify each profile's language is set correctly in the lobby (Tiếng Việt vs English).
-The direction is computed at join time from the language selected on the lobby page.
+**Translation works one way only** — check each profile's lobby language (Tiếng Việt vs
+English); it is fixed at join.

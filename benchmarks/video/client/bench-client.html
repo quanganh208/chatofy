@@ -22,7 +22,7 @@
      *
      * The Playwright driver loads this page, passes config via URL query params:
      *   ?apiWs=ws://localhost:3000/ws/conference
-     *   &roomId=bench-room-XYZ
+     *   &roomId=<cuid from POST /conference>
      *   &peerName=peer-0
      *   &token=JWT
      *   &res=720p30
@@ -42,10 +42,11 @@
 
     const params = new URLSearchParams(location.search);
     const API_WS = params.get('apiWs') ?? 'ws://localhost:3000/ws/conference';
-    const ROOM_ID = params.get('roomId') ?? 'bench-room';
+    const ROOM_ID = params.get('roomId') ?? '';
     const PEER_NAME = params.get('peerName') ?? 'peer-0';
     const TOKEN = params.get('token') ?? '';
     const RES = params.get('res') ?? '720p30';
+    const LANG = params.get('lang') ?? 'vi';
 
     const resMap = {
       '360p30': { width: 640, height: 360, frameRate: 30 },
@@ -140,7 +141,7 @@
       log('WS open');
 
       // ── Join room ───────────────────────────────────────────────────────
-      send('conference.join', { roomId: ROOM_ID, displayName: PEER_NAME });
+      send('conference.join', { roomId: ROOM_ID, displayName: PEER_NAME, sourceLanguage: LANG });
       const joinData = await waitFor('conference.join');
       const { socketId, rtpCapabilities, peers: existingPeers } = joinData;
       setState({ socketId, status: 'joined' });

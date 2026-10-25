@@ -1,10 +1,10 @@
 /**
  * sweep-with-translation.ts
  *
- * Phase 6 follow-up note: Running the translation sweep requires the
- * `/ws/translate` WebSocket to be reachable and the STT/TTS sidecars to be
- * running. The conference PoC page wires translation per speaker via this path
- * (see feat/207-mediasoup-poc commit history and docs/poc-mediasoup-207.md).
+ * Running the translation sweep requires the `/ws/translate` WebSocket to be
+ * reachable and the STT/TTS sidecars to be running. The conference clients wire
+ * translation per speaker through this path (see
+ * docs/architecture/video-translation-audio-path.md).
  *
  * For the thesis submission, the translation sweep is documented here as a
  * follow-up step rather than a fully automated grid run, for two reasons:
@@ -14,7 +14,7 @@
  *      is silent (or a sine tone), which produces near-zero STT load and does
  *      not represent the actual translation overhead.
  *
- *   2. The translation path requires a valid AUTH_TOKEN and an active
+ *   2. The translation path requires a signed-in speaker and an active
  *      conversation context, which are not available in the headless harness
  *      without additional wiring.
  *

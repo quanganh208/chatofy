@@ -34,15 +34,21 @@ in `results/summary.csv` for per-run context.
 2. `pnpm` (or `npm`)
 3. `ffmpeg` on PATH (for Y4M fixture generation — optional; Chromium fake device
    works without Y4M files)
-4. The NestJS API running with `CONFERENCE_METRICS_ENABLED=1`:
+4. The NestJS API running with conferencing and its metrics tap enabled:
 
 ```sh
-# From the project root (feat/211-video-capacity-benchmark branch):
-CONFERENCE_METRICS_ENABLED=1 pnpm --filter api start:dev
+# From the project root:
+CONFERENCE_ENABLED=true CONFERENCE_METRICS_ENABLED=1 pnpm --filter api start:dev
 ```
 
-5. A valid auth token. For local dev the API accepts any JWT; set `AUTH_TOKEN` env
-   to a token that passes `verifyToken` in your dev environment.
+5. One bench account per peer. The gateway keeps one socket per user in a room
+   (a second join by the same user replaces the first), so peer `i` signs in as
+   the `i`-th account — `bench@dev.local`, `bench+2@dev.local`, … The runner
+   creates each run's room through `POST /conference`:
+
+```sh
+BENCH_PASSWORD=<password> BENCH_USERS=6 node apps/api/scripts/create-bench-user.cjs
+```
 
 ---
 
@@ -75,12 +81,12 @@ Per `preview-first-batch.md`: always smoke at the smallest cell first.
 
 ```sh
 # Start API (separate terminal):
-CONFERENCE_METRICS_ENABLED=1 pnpm --filter api start:dev
+CONFERENCE_ENABLED=true CONFERENCE_METRICS_ENABLED=1 pnpm --filter api start:dev
 
 # Run one cell:
 API_BASE_URL=http://localhost:3000 \
 API_WS_URL=ws://localhost:3000/ws/conference \
-AUTH_TOKEN=<your-dev-jwt> \
+BENCH_PASSWORD=<password> \
 SAMPLE_WINDOW=10 \
   npm run run-once -- --count 2 --res 360p30
 
@@ -104,7 +110,7 @@ Expected output in the JSON:
 SWEEP_REPEATS=2 \
 API_BASE_URL=http://localhost:3000 \
 API_WS_URL=ws://localhost:3000/ws/conference \
-AUTH_TOKEN=<your-dev-jwt> \
+BENCH_PASSWORD=<password> \
   npm run sweep
 ```
 
@@ -118,12 +124,12 @@ bash scripts/run-capped-api.sh
 
 # Wait for boot (~5s), then verify:
 curl http://localhost:3000/health
-curl http://localhost:3000/conference/metrics   # requires CONFERENCE_METRICS_ENABLED=1
+curl http://localhost:3000/conference/metrics   # requires CONFERENCE_ENABLED=true and CONFERENCE_METRICS_ENABLED=1
 
 # Run sweep pointing at the container:
 API_BASE_URL=http://localhost:3000 \
 API_WS_URL=ws://localhost:3000/ws/conference \
-AUTH_TOKEN=<your-dev-jwt> \
+BENCH_PASSWORD=<password> \
   npm run sweep
 
 # Stop container:
@@ -140,7 +146,7 @@ are near-silent and produce negligible STT load). See
 
 To run a manual translation comparison:
 
-1. Start the API with `CONFERENCE_METRICS_ENABLED=1`.
+1. Start the API with `CONFERENCE_ENABLED=true CONFERENCE_METRICS_ENABLED=1`.
 2. Open the conference PoC page in N browsers with real microphones and enable
    translation per speaker.
 3. Collect a 30s server metrics snapshot while the room is active:

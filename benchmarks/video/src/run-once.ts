@@ -12,7 +12,11 @@
  * Env:
  *   API_BASE_URL   HTTP base for the NestJS API (default: http://localhost:3000)
  *   API_WS_URL     WebSocket URL for /ws/conference  (default: ws://localhost:3000/ws/conference)
- *   AUTH_TOKEN     JWT for WebSocket auth (default: benchmark-token-insecure)
+ *   BENCH_EMAIL / BENCH_PASSWORD
+ *                  Bench accounts to sign in with. Peer i signs in as the i-th
+ *                  account (bench@, bench+2@, …) because the gateway keeps one
+ *                  socket per user in a room; create them with
+ *                  `BENCH_USERS=<max peers> node apps/api/scripts/create-bench-user.cjs`.
  *   SAMPLE_WINDOW  Hold time in seconds (default: 30)
  *   API_PID        PID of the API process for OS metrics (optional)
  */
@@ -33,22 +37,51 @@ const API_WS_URL = process.env['API_WS_URL'] ?? 'ws://localhost:3000/ws/conferen
 const SAMPLE_WINDOW_MS = (parseInt(process.env['SAMPLE_WINDOW'] ?? '30', 10) || 30) * 1000;
 const API_PID = process.env['API_PID'] ? parseInt(process.env['API_PID'], 10) : null;
 
-async function resolveAuthToken(): Promise<string> {
-  if (process.env['AUTH_TOKEN']) return process.env['AUTH_TOKEN'];
-  const email = process.env['BENCH_EMAIL'] ?? 'bench@dev.local';
-  const password = process.env['BENCH_PASSWORD'] ?? 'Benchmark123!';
+const BENCH_EMAIL = process.env['BENCH_EMAIL'] ?? 'bench@dev.local';
+
+/** bench@dev.local for peer 0, bench+N@dev.local for peer N-1 (matches create-bench-user.cjs). */
+function benchEmailFor(peerIndex: number): string {
+  if (peerIndex === 0) return BENCH_EMAIL;
+  const at = BENCH_EMAIL.indexOf('@');
+  return `${BENCH_EMAIL.slice(0, at)}+${peerIndex + 1}${BENCH_EMAIL.slice(at)}`;
+}
+
+async function login(email: string): Promise<string> {
+  const password = process.env['BENCH_PASSWORD'];
+  if (!password) throw new Error('BENCH_PASSWORD is not set');
   const resp = await fetch(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   });
-  if (!resp.ok) throw new Error(`Auto-login failed: ${resp.status} ${await resp.text()}`);
-  const body = (await resp.json()) as Record<string, unknown>;
-  const token = (body as Record<string, Record<string, Record<string, string>>>)?.data?.token
-    ?.accessToken;
-  if (!token) throw new Error(`Login response missing token: ${JSON.stringify(body)}`);
-  console.log('  ✓ Auth token obtained via login');
+  if (!resp.ok) throw new Error(`Login as ${email} failed: ${resp.status} ${await resp.text()}`);
+  const body = (await resp.json()) as { data?: { token?: { accessToken?: string } } };
+  const token = body.data?.token?.accessToken;
+  if (!token) throw new Error(`Login response for ${email} is missing the token`);
   return token;
+}
+
+/** One access token per peer, each for a different bench account. */
+async function resolveAuthTokens(participantCount: number): Promise<string[]> {
+  const tokens = await Promise.all(
+    Array.from({ length: participantCount }, (_, i) => login(benchEmailFor(i))),
+  );
+  console.log(`  ✓ ${tokens.length} auth tokens obtained via login`);
+  return tokens;
+}
+
+/** Rooms exist only once POST /conference created them; the gateway refuses any other id. */
+async function createRoom(token: string): Promise<string> {
+  const resp = await fetch(`${API_BASE_URL}/conference`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ title: 'benchmark' }),
+  });
+  if (!resp.ok) throw new Error(`POST /conference failed: ${resp.status} ${await resp.text()}`);
+  const body = (await resp.json()) as { data?: { id?: string } };
+  const id = body.data?.id;
+  if (!id) throw new Error('POST /conference response is missing the room id');
+  return id;
 }
 
 const FAKE_MEDIA_ARGS = [
@@ -72,7 +105,6 @@ export interface RunConfig {
   participantCount: number;
   resolution: Resolution;
   runIndex?: number;
-  roomId?: string;
 }
 
 export interface RunResult {
@@ -101,14 +133,10 @@ interface PeerRunState {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export async function runOnce(config: RunConfig): Promise<RunResult> {
-  const {
-    participantCount,
-    resolution,
-    runIndex = 0,
-    roomId = `bench-room-${Date.now()}`,
-  } = config;
+  const { participantCount, resolution, runIndex = 0 } = config;
 
-  const AUTH_TOKEN = await resolveAuthToken();
+  const authTokens = await resolveAuthTokens(participantCount);
+  const roomId = await createRoom(authTokens[0]!);
   const resInfo = RES_MAP[resolution];
   const runId = `run-${new Date().toISOString().replace(/[:.]/g, '-')}-${participantCount}p-${resolution}-r${runIndex}`;
   console.log(`\n▶  Starting run: ${runId}`);
@@ -139,7 +167,7 @@ export async function runOnce(config: RunConfig): Promise<RunResult> {
       url.searchParams.set('apiWs', API_WS_URL);
       url.searchParams.set('roomId', roomId);
       url.searchParams.set('peerName', `peer-${i}`);
-      url.searchParams.set('token', AUTH_TOKEN);
+      url.searchParams.set('token', authTokens[i]!);
       url.searchParams.set('res', resolution);
 
       await page.goto(url.toString());

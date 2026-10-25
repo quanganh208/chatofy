@@ -66,6 +66,7 @@ docker run \
   --memory-swap "$MEMORY_LIMIT" \
   -p "${API_PORT}:3000" \
   -e NODE_ENV=development \
+  -e CONFERENCE_ENABLED=true \
   -e CONFERENCE_METRICS_ENABLED=1 \
   -e MEDIASOUP_ANNOUNCED_IP=127.0.0.1 \
   --env-file "${PROJECT_ROOT}/.env" \

@@ -16,7 +16,7 @@
  *   SWEEP_REPEATS      Runs per cell (default: 2)
  *   SWEEP_COUNTS       Comma-sep participant counts (default: 2,3,4,6)
  *   SWEEP_RESOLUTIONS  Comma-sep resolutions (default: 360p30,720p30,720p60)
- *   API_BASE_URL / API_WS_URL / AUTH_TOKEN / SAMPLE_WINDOW  (see run-once.ts)
+ *   API_BASE_URL / API_WS_URL / BENCH_EMAIL / BENCH_PASSWORD / SAMPLE_WINDOW  (see run-once.ts)
  */
 import { writeFileSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
@@ -124,7 +124,6 @@ async function main(): Promise<void> {
             participantCount: count,
             resolution: res,
             runIndex: rep,
-            roomId: `bench-${count}p-${res}-r${rep}`,
           });
           cellResults.push(result);
           csvRows.push(resultToCsvRow(result, rep + 1));

@@ -1,9 +1,9 @@
 # Technical Risks & Mitigation Plans: Video Conferencing
 
-> **Status: Design — PoC proven, production gates pending.** The mediasoup SFU PoC is
-> on `video-conferencing` (Issue #207). Translation latency was measured in a 2-tab
-> local run (Issue #209). Production hardware load (#211) and recording access (#212)
-> remain deferred. Progress: [project-roadmap.md](./project-roadmap.md).
+> **Status: Design; code on `main` behind flags.** The mediasoup SFU and client-side
+> translation are on `main` behind `CONFERENCE_ENABLED` / `NEXT_PUBLIC_CONFERENCE_ENABLED`,
+> off by default. Translation latency is from a 2-tab local run (#209); SFU load from #211;
+> the network path (#208) is pending. Progress: [project-roadmap.md](./project-roadmap.md).
 
 **Date:** 2026-09-29 | **Updated:** 2026-10-07 (re-rated translation lag with measured numbers, #212)  
 **Scope:** Risk analysis, impact assessment and mitigation strategies for the proposed design  
@@ -132,11 +132,9 @@ the listener sees the speaker's video before the translated subtitle appears.
   - Cold session (first utterance): **~9.2 s** T1→T2
 - **Measured gap: 5.6–8.9 s** (not the ~1 s estimated in the original proposal)
 
-The original proposal estimated 1.2–1.8 s based on individual stage estimates; the actual
-pipeline buffers audio before the streaming STT emits a transcript, producing a gap
-significantly larger than the per-stage sum suggests. The warm-session number (~5.9 s)
-represents the steady-state cost; cold-session penalty (~3 s extra) affects the first
-utterance per session.
+The proposal's per-stage sum was 1.2–1.8 s; the measured path is the live (speech-to-speech)
+mode, which emits only after buffering enough audio. Warm ~5.9 s is the steady state; the
+cold penalty (~3 s) hits each session's first utterance.
 
 #### Why It Happens
 
@@ -376,6 +374,8 @@ Monitoring:
 
 ### Risk 2.3: Recording Composition Fails
 
+> Recording is deferred (Decision 6 in the architecture document); nothing below is built.
+
 #### Description
 
 Video composition job hangs, crashes, or produces corrupted output (no audio track, video glitchy, subtitles misaligned in final file).
@@ -419,35 +419,11 @@ Video composition job hangs, crashes, or produces corrupted output (no audio tra
   - Retry: On timeout, try AGAIN with lower bitrate (2Mbps → 1Mbps)
   - Max retries: 3, then mark as failed + notify user
 
-**Short-term:**
-
-- 📊 **Recording job telemetry**
-  - Log: Start time, FFmpeg version, input specs, output size, duration, success/fail
-  - Alert: If > 5% of jobs fail, page on-call
-  - Automated: Retry failed jobs (off-peak hours)
-
-- 🎯 **E2E test: Recording**
-  - Test fixture: Compose a 5min sample recording (all codecs, languages)
-  - Verify: Can download, play in VLC, no corruption
-  - Run: Weekly, before deploy
-
-- 🔄 **User notification**
-  - Don't hide recording failures
-  - After meeting ends, show: "Recording: ⏳ Compositing..." → "✅ Ready" or "❌ Failed"
-  - Failed: "Recording unavailable. We're working on it." + Support link
-
-**Long-term:**
-
-- 🧠 **Streaming composition**
-  - Instead of async job, composite in real-time during meeting
-  - Write segments to R2 as they complete
-  - User can download partial recording immediately
-  - Requires: Redesign of TTS + subtitle injection (complex)
-
-- 🏗️ **Multi-format fallback**
-  - If MP4 composition fails (codec mismatch), fall back to Matroska (.mkv)
-  - Matroska more flexible (supports any codec combo)
-  - Trade-off: Not all players support .mkv
+**Later, if recording is ever built:** job telemetry (FFmpeg version, input specs, output
+size, outcome) with an alert above a 5% failure rate; a weekly E2E test that composes a
+5-minute fixture and plays it back; visible recording status after the meeting instead of a
+silent failure; and, long-term, streaming composition into R2 segments during the meeting,
+with a Matroska fallback when an MP4 codec combination fails.
 
 #### Measurement & Success Criteria
 
@@ -466,20 +442,11 @@ Monitoring:
 
 ### Risk 2.4: SFU Scalability Beyond 6 Participants
 
-> **Issue #211 — Measured (2026-10-11):** Benchmark harness ran on
-> `feat/211-video-capacity-benchmark` (headless Chromium, loopback SFU, Windows dev
-> machine). Results in `benchmarks/video/results/summary.csv`. Key findings:
->
-> | Cell        | Bytes sent / 30 s | Worker RSS |
-> | ----------- | ----------------- | ---------- |
-> | 2p × 360p30 | 1.81 MB           | 15.4 KB    |
-> | 4p × 720p30 | 18.72 MB          | 18.1 KB    |
-> | 6p × 720p60 | 36.60 MB          | 20.5 KB    |
->
-> The SFU handled 6 × 720p60 (≈ 9.7 Mbps aggregate) with negligible RSS growth,
-> confirming the 6-participant thesis target is viable on a single VM. Worker CPU
-> reads 0% on Windows (POSIX `ru_utime` unavailable); byte throughput figures are valid.
-> The assumed targets below are confirmed by measurement for thesis-scale loads.
+> **Measured (#211, 2026-10-11, Windows dev machine, loopback SFU):** 6 × 720p60 ran at
+> ≈ 9.7 Mbps aggregate with a 15–20 MiB worker, so 6 participants hold for media on one
+> machine; per-cell numbers in
+> [video-conferencing-v2-synthesis.md → Load constraints](./architecture/video-conferencing-v2-synthesis.md#2-load-constraints-measured--211-2026-10-11).
+> Translation, not the SFU, caps a meeting today: six live translation sessions server-wide.
 
 #### Description
 
