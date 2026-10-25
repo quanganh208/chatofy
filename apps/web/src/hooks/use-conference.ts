@@ -15,6 +15,8 @@ import { getSession } from 'next-auth/react';
 import type { LanguageCode } from '@chatofy/types';
 import { ConferenceConnection } from '@/conference/conference-connection';
 import { RECONNECT_CAP } from '@/conference/conference-connection-policy';
+import { conferenceSocketBaseUrl } from '@/conference/conference-socket-url';
+import { env } from '@/config/env';
 import type {
   ConferenceChatMessage,
   ConferenceChatRefusal,
@@ -32,7 +34,7 @@ export type {
   PeerState,
 } from '@/conference/conference-types';
 
-const API_WS_URL = process.env['NEXT_PUBLIC_API_WS_URL'] ?? 'ws://localhost:3000';
+const API_WS_URL = conferenceSocketBaseUrl(env.NEXT_PUBLIC_API_BASE_URL);
 
 /** Max chat messages retained per meeting (ephemeral, bounded). */
 const CHAT_MESSAGE_CAP = 200;
