@@ -241,6 +241,22 @@ describe('ConferenceSfuSignaling', () => {
     );
   });
 
+  it('accepts the answer to an offer even when the media budget is spent', async () => {
+    const h = harness();
+    const alice = h.seat('alice');
+    const bob = h.seat('bob');
+    await h.sfu.publish(alice, h.publishBody);
+    await h.sfu.subscribe(bob);
+    bob.peer.limits.media?.take(Number.MAX_SAFE_INTEGER);
+    while (bob.peer.limits.media?.take()) {
+      // drain whatever is left
+    }
+
+    expect(await h.sfu.renegotiate(bob, { sdp: 'v=0 answer' })).toStrictEqual({
+      ok: true,
+    });
+  });
+
   it('closes the socket with 1011 when the answer never comes', async () => {
     vi.useFakeTimers();
     const h = harness();

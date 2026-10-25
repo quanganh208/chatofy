@@ -263,7 +263,9 @@ export class ConferenceSfuSignaling {
     input: ConferenceMediaRenegotiate,
   ): Promise<{ ok: true } | ConferenceErrorReply> {
     const { peer, socketId } = seat;
-    if (!takeMediaToken(peer)) return { error: 'limit_reached' };
+    // Not rate-limited: an answer is accepted only for an offer a limited
+    // subscribe handed out, and refusing it would strand the session until
+    // the answer timeout forces a reconnect.
     const open = this.openAnswers.get(socketId);
     if (!open || open.peer !== peer || !peer.subSessionId) {
       return { error: 'invalid_payload' };
