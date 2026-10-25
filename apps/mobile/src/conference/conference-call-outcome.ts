@@ -22,16 +22,33 @@ export const CLOSE_CODE_REPLACED = 4000;
 /** The gateway closed this socket because the room's owner ended the meeting. */
 export const CLOSE_CODE_ENDED = 4001;
 
-/** Map a `conference.join` refusal code to the reason the call screen shows. */
-export function joinErrorReason(code: string): ConferenceErrorReason {
+/**
+ * What a `conference.join` refusal means for the call. `internal_error` (the SFU
+ * worker respawning, a database blip) and `limit_reached` are transient: the
+ * join is retried within the reconnect backoff and cap. A missing or ended room
+ * and a malformed join are final, as is any code this client does not know.
+ */
+export type JoinRefusalOutcome = { retry: true } | { retry: false; reason: ConferenceErrorReason };
+
+const RETRYABLE_JOIN_REFUSALS: ReadonlySet<string> = new Set(['internal_error', 'limit_reached']);
+
+export function joinRefusalOutcome(code: string): JoinRefusalOutcome {
+  if (RETRYABLE_JOIN_REFUSALS.has(code)) return { retry: true };
   switch (code) {
     case 'room_not_found':
-      return 'room-not-found';
+      return { retry: false, reason: 'room-not-found' };
     case 'room_ended':
-      return 'room-ended';
+      return { retry: false, reason: 'room-ended' };
     default:
-      return 'generic';
+      return { retry: false, reason: 'generic' };
   }
+}
+
+/** Which chat-panel notice a refused `conference.chat` shows. */
+export type ChatRefusal = 'rate-limited' | 'not-sent';
+
+export function chatRefusal(code: string): ChatRefusal {
+  return code === 'limit_reached' ? 'rate-limited' : 'not-sent';
 }
 
 export interface FinalClose {

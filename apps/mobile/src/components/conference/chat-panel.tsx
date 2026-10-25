@@ -32,9 +32,19 @@ interface ChatPanelProps {
   mySocketId: string | null;
   onSend: (text: string) => void;
   onClose: () => void;
+  /** Set when the gateway refused the last message this client sent. */
+  notice?: 'rate-limited' | 'not-sent';
 }
 
-export function ChatPanel({ t, visible, messages, mySocketId, onSend, onClose }: ChatPanelProps) {
+export function ChatPanel({
+  t,
+  visible,
+  messages,
+  mySocketId,
+  onSend,
+  onClose,
+  notice,
+}: ChatPanelProps) {
   const { colors } = useTheme();
   const [draft, setDraft] = useState('');
 
@@ -77,6 +87,18 @@ export function ChatPanel({ t, visible, messages, mySocketId, onSend, onClose }:
               })
             )}
           </ScrollView>
+
+          {notice ? (
+            <Text
+              style={[styles.notice, { color: colors.textSecondary }]}
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+            >
+              {notice === 'rate-limited'
+                ? t('mobile.conference.chatRateLimited')
+                : t('mobile.conference.chatNotSent')}
+            </Text>
+          ) : null}
 
           <View style={styles.composer}>
             <TextInput
@@ -122,6 +144,9 @@ export function ChatPanel({ t, visible, messages, mySocketId, onSend, onClose }:
 }
 
 const styles = StyleSheet.create({
+  notice: {
+    fontSize: fontSize.sm,
+  },
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',

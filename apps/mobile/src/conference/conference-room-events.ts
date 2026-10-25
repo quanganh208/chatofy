@@ -21,7 +21,7 @@ import {
   type ConferenceTranslationSubtitle,
 } from '@chatofy/types/events';
 import type { LanguageCode } from '@chatofy/types/domain';
-import { consumeTrack, parseSignal } from './conference-signaling';
+import { consumeTrack, parseSignal, replyErrorCode } from './conference-signaling';
 import {
   withPeerMediaState,
   withPeerSubtitle,
@@ -52,6 +52,8 @@ export interface RoomEventDeps {
   onTrack: (socketId: string, stream: MediaStream) => void;
   /** The owner ended the meeting. */
   onEnded: () => void;
+  /** The gateway refused a chat message this client sent; `code` is its error code. */
+  onChatRefused: (code: string) => void;
 }
 
 export interface ProducerRef {
@@ -107,15 +109,22 @@ export function createRoomEventListener(deps: RoomEventDeps): RoomEventListener 
   // A producer can be both in the join reply and announced while the sequence
   // ran; consume it once.
   const consumedProducers = new Set<string>();
+  let consumeChain: Promise<void> = Promise.resolve();
   const subtitleTimers = new Set<ReturnType<typeof setTimeout>>();
   let disposed = false;
 
   function consume(producerId: string, socketId: string): void {
     if (!media || departed.has(socketId) || consumedProducers.has(producerId)) return;
     consumedProducers.add(producerId);
-    consumeTrack(ws, media.device, media.recvTransport, producerId, socketId, deps.onTrack).catch(
-      (err: unknown) => console.warn('[conference] consume failed', producerId, err),
-    );
+    const { device, recvTransport } = media;
+    // One consume (consume → resume) at a time, in arrival order, like web: the
+    // gateway's replies carry no correlation id.
+    consumeChain = consumeChain
+      .then(() => {
+        if (disposed || departed.has(socketId)) return;
+        return consumeTrack(ws, device, recvTransport, producerId, socketId, deps.onTrack);
+      })
+      .catch((err: unknown) => console.warn('[conference] consume failed', producerId, err));
   }
 
   function onSubtitle(data: unknown): void {
@@ -206,6 +215,12 @@ export function createRoomEventListener(deps: RoomEventDeps): RoomEventListener 
       case 'conference.chat.message':
         onChat(msg.data);
         return;
+      // A refused `conference.chat` comes back on the same event name.
+      case 'conference.chat': {
+        const code = replyErrorCode(msg.data);
+        if (code) deps.onChatRefused(code);
+        return;
+      }
       case 'conference.ended':
         deps.onEnded();
         return;

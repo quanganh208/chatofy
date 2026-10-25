@@ -121,6 +121,7 @@ export default function ConferenceCallScreen() {
     reconnectCap,
     mySocketId,
     messages,
+    chatNotice,
     join,
     leave,
     toggleMute,
@@ -303,6 +304,7 @@ export default function ConferenceCallScreen() {
         messages={messages}
         mySocketId={mySocketId}
         onSend={sendChat}
+        notice={chatNotice}
         onClose={() => setChatVisible(false)}
       />
     </SafeAreaView>

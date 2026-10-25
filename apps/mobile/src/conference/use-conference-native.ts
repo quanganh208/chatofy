@@ -37,12 +37,14 @@ import { createRoomEventListener, type RoomEventListener } from './conference-ro
 import { withPeerTrack, type PeerMap, type PeerState } from './conference-peer-state';
 import {
   finalCloseOutcome,
-  joinErrorReason,
+  chatRefusal,
+  joinRefusalOutcome,
+  type ChatRefusal,
   type ConferenceErrorReason,
 } from './conference-call-outcome';
 
 export type { PeerState } from './conference-peer-state';
-export type { ConferenceErrorReason } from './conference-call-outcome';
+export type { ChatRefusal, ConferenceErrorReason } from './conference-call-outcome';
 
 // MUST be called once at module load, before any Device is constructed. This installs
 // react-native-webrtc's RTCPeerConnection/MediaStream/MediaStreamTrack as the globals
@@ -85,6 +87,8 @@ export interface UseConferenceReturn {
   messages: ConferenceChatMessage[];
   /** Send a chat message. No-op for blank/whitespace-only text or a closed socket. */
   sendChat: (text: string) => void;
+  /** Set when the gateway refused the last chat message; cleared by the next send. */
+  chatNotice: ChatRefusal | undefined;
 }
 
 interface JoinReply {
@@ -146,6 +150,8 @@ export function useConferenceNative(
   const [localTranslating, setLocalTranslating] = useState(false);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [messages, setMessages] = useState<ConferenceChatMessage[]>([]);
+  /** Why the last chat message was refused; cleared by the next send. */
+  const [chatNotice, setChatNotice] = useState<ChatRefusal | undefined>(undefined);
 
   const wsRef = useRef<WebSocket | null>(null);
   /** Ordered per-speaker TTS playback sink; created on join, closed on leave. */
@@ -231,6 +237,30 @@ export function useConferenceNative(
   );
 
   /**
+   * Retry after an unexpected drop or a transient join refusal: bounded backoff,
+   * then `disconnected` once the cap is spent. The caller has already detached
+   * the failed socket from `wsRef`.
+   */
+  const scheduleReconnect = useCallback(() => {
+    const attempt = reconnectAttemptRef.current + 1;
+    if (attempt > RECONNECT_CAP) {
+      endCall('disconnected', 'connection-lost');
+      return;
+    }
+    reconnectAttemptRef.current = attempt;
+    setReconnectAttempt(attempt);
+    setStatus('reconnecting');
+    teardownMediaResources();
+    const delay = RECONNECT_BACKOFF_MS[attempt - 1] ?? 4000;
+    cancelReconnectTimer();
+    reconnectTimerRef.current = setTimeout(() => {
+      reconnectTimerRef.current = null;
+      if (intentionalLeaveRef.current || terminalRef.current) return;
+      void connectRef.current();
+    }, delay);
+  }, [endCall, teardownMediaResources, cancelReconnectTimer]);
+
+  /**
    * Run the join sequence on an open socket. Every await is followed by a check
    * that this socket is still the live one, so a drop or leave mid-sequence
    * neither overwrites the newer state nor leaks the camera.
@@ -247,7 +277,15 @@ export function useConferenceNative(
         } catch (err) {
           if (!isCurrent()) return;
           if (err instanceof ConferenceRequestError) {
-            endCall('error', joinErrorReason(err.code));
+            const outcome = joinRefusalOutcome(err.code);
+            if (outcome.retry) {
+              // Detach first so this socket's close is not handled as a second drop.
+              wsRef.current = null;
+              ws.close();
+              scheduleReconnect();
+            } else {
+              endCall('error', outcome.reason);
+            }
             return;
           }
           throw err;
@@ -274,6 +312,7 @@ export function useConferenceNative(
           audioSink: () => audioSinkRef.current,
           onTrack,
           onEnded: () => endCall('error', 'room-ended'),
+          onChatRefused: (code) => setChatNotice(chatRefusal(code)),
         });
         roomEventsRef.current = room;
         ws.addEventListener('message', room.onMessage);
@@ -309,6 +348,12 @@ export function useConferenceNative(
         for (const track of stream.getTracks()) {
           await sendTransport.produce({ track: toMediasoupTrack(track) });
           if (!isCurrent()) return;
+        }
+        // The gateway starts every new peer unmuted with the camera on; after a
+        // reconnect, tell the room what this user had already turned off.
+        if (localMutedRef.current) send(ws, 'conference.participant.mute', { muted: true });
+        if (!localVideoEnabledRef.current) {
+          send(ws, 'conference.participant.video', { videoEnabled: false });
         }
 
         const recvParams = (await request(ws, 'conference.transport.create', {
@@ -364,7 +409,7 @@ export function useConferenceNative(
         endCall('error', 'generic');
       }
     },
-    [roomId, displayName, sourceLanguage, onTrack, endCall],
+    [roomId, displayName, sourceLanguage, onTrack, endCall, scheduleReconnect],
   );
 
   /**
@@ -404,27 +449,13 @@ export function useConferenceNative(
       }
 
       wsRef.current = null;
-      const attempt = reconnectAttemptRef.current + 1;
-      if (attempt > RECONNECT_CAP) {
-        endCall('disconnected', 'connection-lost');
-        return;
-      }
-      reconnectAttemptRef.current = attempt;
-      setReconnectAttempt(attempt);
-      setStatus('reconnecting');
-      teardownMediaResources();
-      const delay = RECONNECT_BACKOFF_MS[attempt - 1] ?? 4000;
-      reconnectTimerRef.current = setTimeout(() => {
-        reconnectTimerRef.current = null;
-        if (intentionalLeaveRef.current || terminalRef.current) return;
-        void connectRef.current();
-      }, delay);
+      scheduleReconnect();
     });
 
     ws.addEventListener('error', () => {
       // The close handler drives recovery; swallow to avoid an unhandled event.
     });
-  }, [getToken, runJoinSequence, endCall, teardownMediaResources]);
+  }, [getToken, runJoinSequence, endCall, scheduleReconnect]);
 
   useEffect(() => {
     connectRef.current = connect;
@@ -466,6 +497,7 @@ export function useConferenceNative(
     setLocalMuted(false);
     setLocalVideoEnabled(true);
     setMessages([]);
+    setChatNotice(undefined);
     setErrorReason(undefined);
     setStatus('idle');
   }, [cancelReconnectTimer, teardownMediaResources]);
@@ -502,7 +534,10 @@ export function useConferenceNative(
   const sendChat = useCallback((text: string) => {
     if (!text.trim()) return;
     if (wsRef.current?.readyState === WebSocket.OPEN) {
+      setChatNotice(undefined);
       send(wsRef.current, 'conference.chat', { text });
+    } else {
+      setChatNotice('not-sent');
     }
   }, []);
 
@@ -543,5 +578,6 @@ export function useConferenceNative(
     resumeAudio,
     messages,
     sendChat,
+    chatNotice,
   };
 }

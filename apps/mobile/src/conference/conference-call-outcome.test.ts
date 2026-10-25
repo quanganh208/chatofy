@@ -3,19 +3,36 @@ import assert from 'node:assert/strict';
 import {
   CLOSE_CODE_ENDED,
   CLOSE_CODE_REPLACED,
+  chatRefusal,
   finalCloseOutcome,
-  joinErrorReason,
+  joinRefusalOutcome,
 } from './conference-call-outcome.ts';
 
-describe('joinErrorReason', () => {
-  it('maps the room lifecycle refusals to their own reasons', () => {
-    assert.equal(joinErrorReason('room_not_found'), 'room-not-found');
-    assert.equal(joinErrorReason('room_ended'), 'room-ended');
+describe('joinRefusalOutcome', () => {
+  it('retries transient refusals', () => {
+    assert.deepEqual(joinRefusalOutcome('internal_error'), { retry: true });
+    assert.deepEqual(joinRefusalOutcome('limit_reached'), { retry: true });
   });
 
-  it('maps every other code to the generic reason', () => {
-    assert.equal(joinErrorReason('invalid_payload'), 'generic');
-    assert.equal(joinErrorReason('internal_error'), 'generic');
+  it('keeps a missing or ended room final, with its own reason', () => {
+    assert.deepEqual(joinRefusalOutcome('room_not_found'), {
+      retry: false,
+      reason: 'room-not-found',
+    });
+    assert.deepEqual(joinRefusalOutcome('room_ended'), { retry: false, reason: 'room-ended' });
+  });
+
+  it('keeps a malformed join and unknown codes final and generic', () => {
+    assert.deepEqual(joinRefusalOutcome('invalid_payload'), { retry: false, reason: 'generic' });
+    assert.deepEqual(joinRefusalOutcome('something_new'), { retry: false, reason: 'generic' });
+  });
+});
+
+describe('chatRefusal', () => {
+  it('names a rate limit apart from every other refusal', () => {
+    assert.equal(chatRefusal('limit_reached'), 'rate-limited');
+    assert.equal(chatRefusal('text_too_long'), 'not-sent');
+    assert.equal(chatRefusal('invalid_payload'), 'not-sent');
   });
 });
 
