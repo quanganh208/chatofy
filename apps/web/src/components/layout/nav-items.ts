@@ -1,6 +1,7 @@
 import type { Route } from 'next';
 import { History, Mic, SlidersHorizontal, User, Video, type LucideIcon } from 'lucide-react';
 import type { MessageKey } from '@chatofy/i18n';
+import { isConferenceEnabled } from '@/config/feature-flags';
 
 /**
  * The product navigation, in one list, read by both the sidebar and the topbar.
@@ -40,17 +41,48 @@ export interface NavItem {
  * your settings. History was the reserved fifth item, and it arrived the way this file
  * says items arrive: with its route, at PDR milestone 6.
  */
-export const NAV_GROUPS: readonly (readonly NavItem[])[] = [
-  [
-    { href: '/translate', labelKey: 'web.chrome.navTranslate', icon: Mic },
-    { href: '/conference', labelKey: 'web.chrome.navConference', icon: Video },
-    { href: '/history', labelKey: 'web.chrome.navHistory', icon: History },
-  ],
-  [
-    { href: '/preferences', labelKey: 'web.chrome.navPreferences', icon: SlidersHorizontal },
-    { href: '/account', labelKey: 'web.chrome.navAccount', icon: User },
-  ],
-];
+const CONFERENCE_ITEM: NavItem = {
+  href: '/conference',
+  labelKey: 'web.chrome.navConference',
+  icon: Video,
+};
+
+function buildGroups(conferenceEnabled: boolean): readonly (readonly NavItem[])[] {
+  return [
+    [
+      { href: '/translate', labelKey: 'web.chrome.navTranslate', icon: Mic },
+      ...(conferenceEnabled ? [CONFERENCE_ITEM] : []),
+      { href: '/history', labelKey: 'web.chrome.navHistory', icon: History },
+    ],
+    [
+      { href: '/preferences', labelKey: 'web.chrome.navPreferences', icon: SlidersHorizontal },
+      { href: '/account', labelKey: 'web.chrome.navAccount', icon: User },
+    ],
+  ];
+}
+
+/**
+ * Both lists, built once. The sidebar marks the active item by IDENTITY against
+ * what `navItemFor` returns, so the two must hand out the same objects.
+ */
+const GROUPS_WITH_CONFERENCE = buildGroups(true);
+const GROUPS_WITHOUT_CONFERENCE = buildGroups(false);
+const ITEMS_WITH_CONFERENCE = GROUPS_WITH_CONFERENCE.flat();
+const ITEMS_WITHOUT_CONFERENCE = GROUPS_WITHOUT_CONFERENCE.flat();
+
+/**
+ * Conferencing is listed only in a build that ships it. Its routes answer 404
+ * otherwise (`app/(app)/conference/layout.tsx`), and an item that leads to a 404
+ * is the stub-page failure the paragraph above rules out.
+ *
+ * A function of the flag rather than a constant so both states are testable
+ * from one import; the default reads the build's own flag.
+ */
+export function navGroups(
+  conferenceEnabled: boolean = isConferenceEnabled(),
+): readonly (readonly NavItem[])[] {
+  return conferenceEnabled ? GROUPS_WITH_CONFERENCE : GROUPS_WITHOUT_CONFERENCE;
+}
 
 /**
  * The same items, flat — what the topbar looks a route title up in.
@@ -58,7 +90,9 @@ export const NAV_GROUPS: readonly (readonly NavItem[])[] = [
  * Derived rather than written twice: a second literal list is a second thing to keep
  * in sync, and the failure would be a route with no title rather than anything loud.
  */
-export const NAV_ITEMS: readonly NavItem[] = NAV_GROUPS.flat();
+export function navItems(conferenceEnabled: boolean = isConferenceEnabled()): readonly NavItem[] {
+  return conferenceEnabled ? ITEMS_WITH_CONFERENCE : ITEMS_WITHOUT_CONFERENCE;
+}
 
 /**
  * The nav item a path belongs to: its own `href`, or any route nested under it.
@@ -67,6 +101,9 @@ export const NAV_ITEMS: readonly NavItem[] = NAV_GROUPS.flat();
  * page — and no active item in the sidebar, although the reader is plainly still in
  * History. The `/` boundary keeps a sibling such as `/historyx` from matching.
  */
-export function navItemFor(pathname: string): NavItem | undefined {
-  return NAV_ITEMS.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+export function navItemFor(
+  pathname: string,
+  items: readonly NavItem[] = navItems(),
+): NavItem | undefined {
+  return items.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
 }

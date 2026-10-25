@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { UseStreamingTranslate } from '@/hooks/use-streaming-translate';
+import type { UseConferenceReturn } from '@/hooks/use-conference';
 import { accentFilledControls } from './accent-count';
 import { elevatedSurfaces } from './surface-count';
 
@@ -73,6 +74,9 @@ const fetchConversationAudio = vi.hoisted(() => vi.fn<() => Promise<Blob>>());
 const uploadConversationAudio = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 // The AI Context library, defaulting to an empty one in `beforeEach`.
 const listTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+// The conference lobby's "Create a room". Never pressed by a counting row except
+// the one that wants the failure line, which rejects it for itself.
+const createConference = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 vi.mock('@/clients/api-client', () => ({
   listConversations: () => listConversations(),
   getMe: () => getMe(),
@@ -89,6 +93,7 @@ vi.mock('@/clients/api-client', () => ({
   listTranslationContexts: () => listTranslationContexts(),
   saveTranslationContext: vi.fn(),
   deleteTranslationContext: vi.fn(),
+  createConference: () => createConference(),
 }));
 
 // The detail screen fetches minutes of its own. Its generate button is the one
@@ -108,7 +113,9 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
   usePathname: () => '/history',
   useSearchParams: () => new URLSearchParams(url.query),
-  useParams: () => ({ roomId: 'test-room' }),
+  // A cuid, because the room screen answers anything else as "room not found"
+  // without asking the server.
+  useParams: () => ({ roomId: 'cl9ebqhxk00003b600tymydho' }),
 }));
 
 vi.mock('next-auth/react', () => ({
@@ -117,10 +124,12 @@ vi.mock('next-auth/react', () => ({
 }));
 
 // `useConference` is mocked so the conference page can be mounted in happy-dom
-// without a real WebSocket or mediasoup device. The hook's public surface is
-// typed here so any API drift is caught by this file's own typecheck.
-const useConference = vi.hoisted(() => vi.fn());
-vi.mock('@/hooks/use-conference', () => ({ useConference }));
+// without a real WebSocket or mediasoup device. Typed against the hook's return,
+// and every row builds its value through `call()` below, so a field the page
+// reads that the hook stops returning is a type error here, not a silent
+// `undefined` in a counting test.
+const useConference = vi.hoisted(() => vi.fn<() => UseConferenceReturn>());
+vi.mock('@/hooks/use-conference', () => ({ useConference: () => useConference() }));
 
 const { CascadePanel } = await import('@/components/translate/cascade-panel');
 const { HistoryScreen } = await import('@/components/history/history-screen');
@@ -128,6 +137,7 @@ const { ConversationDetail } = await import('@/components/history/conversation-d
 const { default: PreferencesPage } = await import('../../app/(app)/preferences/page');
 const { default: AccountPage } = await import('../../app/(app)/account/page');
 const { default: ConferenceRoomPage } = await import('../../app/(app)/conference/[roomId]/page');
+const { default: ConferenceLobbyPage } = await import('../../app/(app)/conference/page');
 const { LocaleProvider } = await import('@/i18n/provider');
 const { DEFAULT_TRANSLATE_SETTINGS, saveTranslateSettings } =
   await import('@/lib/translate-settings');
@@ -194,6 +204,52 @@ function conversation(over: Partial<UseStreamingTranslate> = {}): UseStreamingTr
     ...over,
   };
 }
+
+/** A conference hook value: in a call, alone, unless a row says otherwise. */
+function call(over: Partial<UseConferenceReturn> = {}): UseConferenceReturn {
+  return {
+    status: 'in-call',
+    errorReason: undefined,
+    localStream: null,
+    peers: new Map(),
+    mySocketId: 's-local',
+    localMuted: false,
+    localVideoEnabled: true,
+    audioBlocked: false,
+    localTranslating: false,
+    reconnectAttempt: 0,
+    reconnectCap: 3,
+    join: vi.fn(() => Promise.resolve()),
+    leave: vi.fn(),
+    toggleMute: vi.fn(),
+    toggleVideo: vi.fn(),
+    resumeAudio: vi.fn(() => Promise.resolve()),
+    messages: [],
+    sendChat: vi.fn(),
+    ...over,
+  };
+}
+
+/** Put the room screen in a state: the URL a joined room has, and the hook's value. */
+function inRoom(over: Partial<UseConferenceReturn> = {}) {
+  return () => {
+    url.query = 'name=An&lang=vi';
+    useConference.mockReturnValue(call(over));
+  };
+}
+
+const ALICE: UseConferenceReturn['peers'] = new Map([
+  [
+    's-peer-1',
+    {
+      displayName: 'Alice',
+      stream: { getTracks: () => [] } as unknown as MediaStream,
+      subtitle: undefined,
+      muted: false,
+      videoEnabled: true,
+    },
+  ],
+]);
 
 const translate = (settings: Partial<typeof DEFAULT_TRANSLATE_SETTINGS> = {}) =>
   function Translate() {
@@ -952,131 +1008,132 @@ const SCREENS: ScreenState[] = [
   },
   ...ARRANGEMENTS,
 
+  // ---- /conference lobby ----
+  //
+  // "Create a room" is the one accent; Join is outline beside the room field.
+  // The camera preview is a muted region on the page ground, not a card.
+  {
+    name: '/conference — lobby',
+    filled: 1,
+    surfaces: 0,
+    setup() {},
+    render: () => <ConferenceLobbyPage />,
+    shows: '#conf-room',
+  },
+  {
+    name: '/conference — lobby, opened from a shared room link',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      url.query = 'room=cl9ebqhxk00003b600tymydho&lang=en';
+    },
+    render: () => <ConferenceLobbyPage />,
+    shows: '#conf-room',
+  },
+  {
+    // Pressing Create with no name: the line that explains it is text, not a
+    // second filled control.
+    name: '/conference — lobby, refusing to create without a name',
+    filled: 1,
+    surfaces: 0,
+    setup() {},
+    render: () => <ConferenceLobbyPage />,
+    press: 'button[data-variant="default"]',
+    shows: '[role="alert"]',
+  },
+
   // ---- /conference/[roomId] in-call screen ----
   //
-  // Two states: waiting (in-call with no remote peers yet) and in-call with one
-  // peer. Both spend exactly ONE accent: Leave. Mic and camera are outline, the
-  // roster button is ghost. Zero elevated surfaces: the call screen is the page
-  // ground; no cards, no panels.
+  // Every state spends exactly ONE accent: Leave, or Back to lobby where the call
+  // is over. Mic and camera are outline, the roster button is ghost. Zero
+  // elevated surfaces: the call screen is the page ground; the roster and chat
+  // are a flat side region, not cards.
   {
     name: '/conference/[roomId] — waiting for others',
     filled: 1,
     surfaces: 0,
-    setup() {
-      useConference.mockReturnValue({
-        status: 'in-call',
-        errorReason: undefined,
-        localStream: null,
-        peers: new Map(),
-        mySocketId: 's-local',
-        localMuted: false,
-        localVideoEnabled: true,
-        messages: [],
-        join: vi.fn(),
-        leave: vi.fn(),
-        toggleMute: vi.fn(),
-        toggleVideo: vi.fn(),
-        sendChat: vi.fn(),
-      });
-    },
+    setup: inRoom(),
     render: () => <ConferenceRoomPage />,
   },
   {
     name: '/conference/[roomId] — in-call with a peer',
     filled: 1,
     surfaces: 0,
-    setup() {
-      useConference.mockReturnValue({
-        status: 'in-call',
-        errorReason: undefined,
-        localStream: null,
-        peers: new Map([
-          [
-            's-peer-1',
-            {
-              displayName: 'Alice',
-              stream: { getTracks: () => [] } as unknown as MediaStream,
-              subtitle: undefined,
-              muted: false,
-              videoEnabled: true,
-            },
-          ],
-        ]),
-        mySocketId: 's-local',
-        localMuted: false,
-        localVideoEnabled: true,
-        messages: [],
-        join: vi.fn(),
-        leave: vi.fn(),
-        toggleMute: vi.fn(),
-        toggleVideo: vi.fn(),
-        sendChat: vi.fn(),
-      });
-    },
+    setup: inRoom({ peers: ALICE }),
     render: () => <ConferenceRoomPage />,
   },
-  // ---- Phase 5 edge-case states — one accent (Leave / Back to lobby) each, zero surfaces ----
+  {
+    // The roster opens with the screen, and the chat lives under it; with
+    // messages in it the region carries its densest state.
+    name: '/conference/[roomId] — roster and chat open, with messages',
+    filled: 1,
+    surfaces: 0,
+    setup: inRoom({
+      peers: ALICE,
+      messages: [
+        {
+          id: 'm-1',
+          socketId: 's-peer-1',
+          displayName: 'Alice',
+          text: 'Hello',
+          lang: 'en',
+          sentAt: Date.parse('2026-10-25T00:00:00.000Z'),
+        },
+        {
+          id: 'm-2',
+          socketId: 's-local',
+          displayName: 'An',
+          text: 'Hi',
+          lang: 'en',
+          sentAt: Date.parse('2026-10-25T00:00:05.000Z'),
+        },
+      ],
+    }),
+    render: () => <ConferenceRoomPage />,
+    shows: 'aside section[aria-label="Chat"]',
+  },
+  {
+    name: '/conference/[roomId] — roster closed',
+    filled: 1,
+    surfaces: 0,
+    setup: inRoom({ peers: ALICE }),
+    render: () => <ConferenceRoomPage />,
+    press: 'button[aria-label="Hide participants"]',
+    shows: 'button[aria-label="Show participants"]',
+  },
   {
     name: '/conference/[roomId] — permission denied',
     filled: 1,
     surfaces: 0,
-    setup() {
-      useConference.mockReturnValue({
-        status: 'error',
-        errorReason: 'permission-denied',
-        localStream: null,
-        peers: new Map(),
-        mySocketId: null,
-        localMuted: false,
-        localVideoEnabled: true,
-        join: vi.fn(),
-        leave: vi.fn(),
-        toggleMute: vi.fn(),
-        toggleVideo: vi.fn(),
-      });
-    },
+    setup: inRoom({ status: 'error', errorReason: 'permission-denied', mySocketId: null }),
     render: () => <ConferenceRoomPage />,
   },
   {
     name: '/conference/[roomId] — disconnected mid-call',
     filled: 1,
     surfaces: 0,
-    setup() {
-      useConference.mockReturnValue({
-        status: 'disconnected',
-        errorReason: 'connection-lost',
-        localStream: null,
-        peers: new Map(),
-        mySocketId: null,
-        localMuted: false,
-        localVideoEnabled: true,
-        join: vi.fn(),
-        leave: vi.fn(),
-        toggleMute: vi.fn(),
-        toggleVideo: vi.fn(),
-      });
-    },
+    setup: inRoom({ status: 'disconnected', errorReason: 'connection-lost', mySocketId: null }),
     render: () => <ConferenceRoomPage />,
   },
   {
     name: '/conference/[roomId] — generic error',
     filled: 1,
     surfaces: 0,
-    setup() {
-      useConference.mockReturnValue({
-        status: 'error',
-        errorReason: 'generic',
-        localStream: null,
-        peers: new Map(),
-        mySocketId: null,
-        localMuted: false,
-        localVideoEnabled: true,
-        join: vi.fn(),
-        leave: vi.fn(),
-        toggleMute: vi.fn(),
-        toggleVideo: vi.fn(),
-      });
-    },
+    setup: inRoom({ status: 'error', errorReason: 'generic', mySocketId: null }),
+    render: () => <ConferenceRoomPage />,
+  },
+  {
+    name: '/conference/[roomId] — room not found',
+    filled: 1,
+    surfaces: 0,
+    setup: inRoom({ status: 'error', errorReason: 'room-not-found', mySocketId: null }),
+    render: () => <ConferenceRoomPage />,
+  },
+  {
+    name: '/conference/[roomId] — meeting ended by its owner',
+    filled: 1,
+    surfaces: 0,
+    setup: inRoom({ status: 'disconnected', errorReason: 'room-ended', mySocketId: null }),
     render: () => <ConferenceRoomPage />,
   },
   {
@@ -1084,47 +1141,15 @@ const SCREENS: ScreenState[] = [
     name: '/conference/[roomId] — audio-only (camera denied)',
     filled: 1,
     surfaces: 0,
-    setup() {
-      useConference.mockReturnValue({
-        status: 'in-call',
-        errorReason: 'audio-only',
-        localStream: null,
-        peers: new Map(),
-        mySocketId: 's-local',
-        localMuted: false,
-        localVideoEnabled: false,
-        messages: [],
-        join: vi.fn(),
-        leave: vi.fn(),
-        toggleMute: vi.fn(),
-        toggleVideo: vi.fn(),
-        sendChat: vi.fn(),
-      });
-    },
+    setup: inRoom({ errorReason: 'audio-only', localVideoEnabled: false }),
     render: () => <ConferenceRoomPage />,
   },
   {
-    // Phase 4: reconnecting is a transient mid-call state — one accent (Leave), zero surfaces.
+    // Reconnecting is a transient mid-call state — one accent (Leave), zero surfaces.
     name: '/conference/[roomId] — reconnecting (auto-reconnect in progress)',
     filled: 1,
     surfaces: 0,
-    setup() {
-      useConference.mockReturnValue({
-        status: 'reconnecting',
-        errorReason: undefined,
-        localStream: null,
-        peers: new Map(),
-        mySocketId: null,
-        localMuted: false,
-        localVideoEnabled: true,
-        reconnectAttempt: 1,
-        reconnectCap: 3,
-        join: vi.fn(),
-        leave: vi.fn(),
-        toggleMute: vi.fn(),
-        toggleVideo: vi.fn(),
-      });
-    },
+    setup: inRoom({ status: 'reconnecting', mySocketId: null, reconnectAttempt: 1 }),
     render: () => <ConferenceRoomPage />,
   },
 ];
@@ -1175,6 +1200,7 @@ beforeEach(() => {
   uploadConversationAudio.mockResolvedValue(undefined);
   // No contexts, which is what every screen but the two named for them sees.
   listTranslationContexts.mockResolvedValue({ contexts: [] });
+  createConference.mockRejectedValue(new Error('not created in this test'));
   // "None yet", which is what every screen but one sees. `reset` included:
   // `cascade-panel.tsx` calls it from an effect, so a stub missing it throws on
   // every `/translate` row rather than on the one screen the mock is for.

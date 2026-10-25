@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { navItemFor } from './nav-items';
+import { navItemFor, navItems } from './nav-items';
 
 describe('navItemFor', () => {
   it('finds the item for its own route', () => {
@@ -16,5 +16,24 @@ describe('navItemFor', () => {
 
   it('matches nothing outside the product', () => {
     expect(navItemFor('/')).toBeUndefined();
+  });
+});
+
+describe('the conference entry follows the build flag', () => {
+  const hrefs = (enabled: boolean) => navItems(enabled).map((item) => item.href);
+
+  it('is listed, after Translate, in a build that ships conferencing', () => {
+    expect(hrefs(true)).toEqual([
+      '/translate',
+      '/conference',
+      '/history',
+      '/preferences',
+      '/account',
+    ]);
+  });
+
+  it('is absent in a build that does not, so no nav item leads to a 404', () => {
+    expect(hrefs(false)).toEqual(['/translate', '/history', '/preferences', '/account']);
+    expect(navItemFor('/conference', navItems(false))).toBeUndefined();
   });
 });

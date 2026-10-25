@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ApiClientError, createApiClient, type ApiRequestOptions } from '@chatofy/api-client';
 import {
   authMessageSchema,
+  conferenceResponseSchema,
   conversationListResponseSchema,
   conversationResponseSchema,
   conversationSummaryResponseSchema,
@@ -10,6 +11,7 @@ import {
   translationContextSchema,
   userSchema,
   voiceGenderSchema,
+  type CreateConferenceRequest,
   type ForgotPasswordRequest,
   type GenerateMinutesRequest,
   type LanguageCode,
@@ -423,6 +425,21 @@ export function uploadAvatar(body: UploadAvatarRequest) {
  */
 export function deleteAvatar() {
   return authedFetch('/auth/me/avatar', userSchema, { method: 'DELETE' });
+}
+
+/**
+ * Create a conference room and return it.
+ *
+ * The ONLY way a room comes to exist: the conference socket never creates one, so
+ * the id this returns — a server-minted cuid — is what a join names and what the
+ * caller shares. The caller becomes the room's owner; nothing here passes a user
+ * id, the owner is the token's subject.
+ */
+export function createConference(body: CreateConferenceRequest = {}) {
+  return authedFetch('/conference', conferenceResponseSchema, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 }
 
 /**

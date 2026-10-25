@@ -1,94 +1,36 @@
 'use client';
 
 /**
- * Reusable hook for a mediasoup conference room.
+ * React state for one mediasoup conference room.
  *
- * Extracted verbatim from `conference-poc/page.tsx` (Issue #207) so that
- * Phases 2–3 can build UI and fix translation against a stable typed surface.
- *
- * Phase 3 changes (bidirectional translation + ordered audio + subtitle coalescing):
- *  - `wireTranslate`: the language pair runs from the speaker's language to
- *    the other language in the vi↔en pair (fixes the hardcoded target).
- *  - Audio playback replaced by `TranslationAudioSink` (one AudioContext per
- *    speaker, in-order delivery, no per-frame context leak). Closed in `leave()`.
- *  - Subtitle handler keys by `(speakerSocketId, turnId)`: replaces while
- *    isFinal===false, locks on final, clears after 4 s.
- *
- * Phase 3 (folded-in hook control state):
- *  - `toggleMute` / `toggleVideo` now send the actual boolean and apply it to
- *    the local MediaStreamTrack (`enabled` flag).
- *  - Local `muted` / `videoEnabled` state is tracked and exposed as
- *    `localMuted` / `localVideoEnabled` in the return value.
- *
- * Latency markers kept from the PoC:
- *  [T1] first audio frame sent to /ws/translate
- *  [T2] server.live.transcript target received
- *  [T3] conference.translation.subtitle received by listener
- *  [T4] conference.translation.audio received and queued (logged inside TranslationAudioSink)
+ * The call itself — sockets, reconnects, media, the translate leg, room events —
+ * lives in `ConferenceConnection` (`src/conference/`). This hook owns only what
+ * the screen renders, and makes sure a call never outlives the component: an
+ * unmount leaves the room, which stops the camera, the microphone and the
+ * translate session.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSession } from 'next-auth/react';
-import * as mediasoupClient from 'mediasoup-client';
-import type { types } from 'mediasoup-client';
-import { WS_SUBPROTOCOL } from '@chatofy/types/events';
-import { TranslationAudioSink } from './use-translation-audio-sink';
+import type { LanguageCode } from '@chatofy/types';
+import { ConferenceConnection } from '@/conference/conference-connection';
+import { RECONNECT_CAP } from '@/conference/conference-connection-policy';
+import type {
+  ConferenceChatMessage,
+  ConferenceErrorReason,
+  ConferenceSink,
+  ConferenceStatus,
+  PeerState,
+} from '@/conference/conference-types';
 
-// ─── Config ──────────────────────────────────────────────────────────────────
+export type {
+  ConferenceChatMessage,
+  ConferenceErrorReason,
+  ConferenceStatus,
+  PeerState,
+} from '@/conference/conference-types';
 
 const API_WS_URL = process.env['NEXT_PUBLIC_API_WS_URL'] ?? 'ws://localhost:3000';
-
-/** Maximum number of automatic reconnect attempts before giving up. */
-const RECONNECT_CAP = 3;
-/** Backoff delays (ms) indexed by attempt number (0-based). */
-const RECONNECT_BACKOFF_MS = [1000, 2000, 4000] as const;
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type ConferenceStatus =
-  'idle' | 'connecting' | 'in-call' | 'error' | 'disconnected' | 'reconnecting';
-
-/**
- * Machine-readable reason attached to `status === 'error'` or `status === 'disconnected'`.
- *
- * - `'permission-denied'` — getUserMedia rejected with NotAllowedError / NotFoundError.
- *   The page should prompt the user to grant camera/mic access and reload.
- * - `'audio-only'` — video permission denied but audio succeeded.
- *   The call continues with audio only; the page can surface a soft notice.
- * - `'not-authenticated'` — no access token in the session; the hook sets this
- *   before the page redirects to /login (the app layout also gates the route, but
- *   the hook fires earlier in the client render cycle).
- * - `'connection-lost'` — the WS closed unexpectedly mid-call (heartbeat eviction
- *   or network drop). The page should show "call ended" and return to the lobby.
- * - `'generic'` — any other runtime error during join.
- */
-export type ConferenceErrorReason =
-  'permission-denied' | 'audio-only' | 'not-authenticated' | 'connection-lost' | 'generic';
-
-export interface PeerState {
-  displayName: string;
-  stream: MediaStream;
-  /** Latest subtitle text for this peer; undefined when none active. */
-  subtitle: string | undefined;
-  muted: boolean;
-  videoEnabled: boolean;
-}
-
-/**
- * One in-meeting chat message as delivered to THIS client.
- *
- * `text` is already in this client's chosen language (the gateway translates
- * per recipient); `lang` is the language of that text. `socketId` identifies
- * the sender so own-vs-other messages are distinguishable in the UI.
- */
-export interface ConferenceChatMessage {
-  id: string;
-  socketId: string;
-  displayName: string;
-  text: string;
-  lang: string;
-  sentAt: number;
-}
 
 /** Max chat messages retained per meeting (ephemeral, bounded). */
 const CHAT_MESSAGE_CAP = 200;
@@ -96,8 +38,8 @@ const CHAT_MESSAGE_CAP = 200;
 export interface UseConferenceReturn {
   status: ConferenceStatus;
   /**
-   * Present when `status === 'error'` or `status === 'disconnected'`.
-   * Undefined in all other states.
+   * Present when `status === 'error'` or `'disconnected'`, and as the soft
+   * `'audio-only'` notice while in the call. Undefined otherwise.
    */
   errorReason: ConferenceErrorReason | undefined;
   localStream: MediaStream | null;
@@ -110,22 +52,14 @@ export interface UseConferenceReturn {
   localVideoEnabled: boolean;
   /**
    * True when one or more TTS AudioContexts are still suspended (browser
-   * autoplay policy). The in-call page shows a "tap to enable sound" affordance
-   * while this is true. Clears after `resumeAudio()` succeeds.
+   * autoplay policy). The page offers "tap to enable sound" while true.
    */
   audioBlocked: boolean;
-  /**
-   * True from the first audio frame of a speech turn ([T1]) until the final
-   * subtitle for that turn arrives ([T2]), or until a 10 s safety timeout fires.
-   * The in-call page shows a "translating…" badge on the local tile while true.
-   */
+  /** True while the local speaker's current subtitle turn is open. */
   localTranslating: boolean;
-  /**
-   * Current reconnect attempt number (1-based). 0 when not reconnecting.
-   * Only meaningful while `status === 'reconnecting'`.
-   */
+  /** Current reconnect attempt (1-based); 0 when not reconnecting. */
   reconnectAttempt: number;
-  /** Maximum reconnect attempts before giving up to `disconnected`. Default 3. */
+  /** Maximum reconnect attempts before giving up to `disconnected`. */
   reconnectCap: number;
   join: () => Promise<void>;
   leave: () => void;
@@ -133,924 +67,126 @@ export interface UseConferenceReturn {
   toggleVideo: () => void;
   /** Resume all suspended TTS AudioContexts. Must be called from a user gesture. */
   resumeAudio: () => Promise<void>;
-  /**
-   * In-meeting chat messages in arrival order, each already in this client's
-   * chosen language. Bounded to the last {@link CHAT_MESSAGE_CAP} for the meeting.
-   */
+  /** In-meeting chat, each message already in this client's language. Bounded. */
   messages: ConferenceChatMessage[];
   /** Send a chat message. No-op for blank/whitespace-only text. */
   sendChat: (text: string) => void;
 }
 
-// ─── Signaling helpers (module-level, not hooks) ──────────────────────────────
-
-type SignalMessage = { event: string; data: unknown };
-
-function send(ws: WebSocket, event: string, data: unknown): void {
-  if (ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({ event, data }));
+async function currentAccessToken(): Promise<string | undefined> {
+  return (await getSession())?.accessToken;
 }
 
-function request(ws: WebSocket, event: string, data: unknown): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const handler = (msg: MessageEvent<string>) => {
-      try {
-        const parsed = JSON.parse(msg.data) as SignalMessage;
-        if (parsed.event === event) {
-          ws.removeEventListener('message', handler);
-          resolve(parsed.data);
-        }
-      } catch {
-        /* ignore parse errors */
-      }
-    };
-    ws.addEventListener('message', handler);
-    send(ws, event, data);
-    setTimeout(() => {
-      ws.removeEventListener('message', handler);
-      reject(new Error(`Timeout waiting for ${event}`));
-    }, 10_000);
-  });
+/** Send the browser to sign-in and back here afterwards. */
+function redirectToLogin(): void {
+  if (typeof window === 'undefined') return;
+  const callbackUrl = encodeURIComponent(window.location.pathname + window.location.search);
+  window.location.replace(`/login?callbackUrl=${callbackUrl}`);
 }
-
-function waitForEvent(ws: WebSocket, event: string): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const handler = (msg: MessageEvent<string>) => {
-      try {
-        const parsed = JSON.parse(msg.data) as SignalMessage;
-        if (parsed.event === event) {
-          ws.removeEventListener('message', handler);
-          resolve(parsed.data);
-        }
-      } catch {
-        /* ignore */
-      }
-    };
-    ws.addEventListener('message', handler);
-    setTimeout(() => {
-      ws.removeEventListener('message', handler);
-      reject(new Error(`Timeout: ${event}`));
-    }, 10_000);
-  });
-}
-
-function wireSendTransport(
-  ws: WebSocket,
-  transport: types.Transport,
-  log: (m: string) => void,
-): void {
-  transport.on('connect', ({ dtlsParameters }, callback, errback) => {
-    log('send transport connect');
-    request(ws, 'conference.transport.connect', {
-      transportId: transport.id,
-      dtlsParameters,
-    })
-      .then(() => callback())
-      .catch(errback);
-  });
-
-  transport.on('produce', ({ kind, rtpParameters, appData }, callback, errback) => {
-    log(`produce ${kind}`);
-    request(ws, 'conference.produce', { kind, rtpParameters, appData })
-      .then((resp) => callback({ id: (resp as { id: string }).id }))
-      .catch(errback);
-  });
-}
-
-function wireRecvTransport(
-  ws: WebSocket,
-  transport: types.Transport,
-  log: (m: string) => void,
-): void {
-  transport.on('connect', ({ dtlsParameters }, callback, errback) => {
-    log('recv transport connect');
-    request(ws, 'conference.transport.connect', {
-      transportId: transport.id,
-      dtlsParameters,
-    })
-      .then(() => callback())
-      .catch(errback);
-  });
-}
-
-async function consumeTrack(
-  ws: WebSocket,
-  device: types.Device,
-  recvTransport: types.Transport,
-  producerId: string,
-  producerSocketId: string,
-  log: (m: string) => void,
-  onTrack: (socketId: string, track: MediaStreamTrack) => void,
-): Promise<void> {
-  send(ws, 'conference.consume', {
-    producerId,
-    rtpCapabilities: device.rtpCapabilities,
-  });
-
-  const consumerParams = (await waitForEvent(ws, 'conference.consume')) as types.ConsumerOptions & {
-    id: string;
-  };
-  if ('error' in consumerParams) {
-    log(`Cannot consume: ${(consumerParams as unknown as { error: string }).error}`);
-    return;
-  }
-
-  const consumer = await recvTransport.consume(consumerParams);
-  log(`Consuming ${consumer.kind} track from ${producerSocketId}`);
-
-  onTrack(producerSocketId, consumer.track);
-
-  send(ws, 'conference.consumer.resume', { consumerId: consumer.id });
-  await waitForEvent(ws, 'conference.consumer.resume');
-  log(`Consumer ${consumer.id} resumed`);
-}
-
-/**
- * Open a /ws/translate socket in live mode for this speaker.
- * Forwards transcript/audio events into /ws/conference for all room participants.
- *
- * The live session's language pair runs from the speaker's language to the
- * other language in the vi↔en pair.
- *
- * Phase 2 (polish): `setLocalTranslating` is driven here:
- *  - TRUE  at [T1] (first audio frame sent for a turn, seq === 0)
- *  - FALSE at [T2] (final/target server.live.transcript for that turn)
- *  A 10 s safety timeout also clears it so it can never stay stuck.
- *
- * [T1] first audio frame sent
- * [T2] server.live.transcript target received
- */
-function wireTranslate(
-  confWs: WebSocket,
-  stream: MediaStream,
-  socketId: string,
-  speakerDisplayName: string,
-  sourceLanguage: string,
-  token: string,
-  log: (m: string) => void,
-  setLocalTranslating: (v: boolean) => void,
-): void {
-  // Phase 3: compute the OTHER language in the vi↔en pair.
-  const targetLanguage = sourceLanguage === 'en' ? 'vi' : 'en';
-  const languagePair = { source: sourceLanguage, target: targetLanguage };
-
-  const translateWs = new WebSocket(`${API_WS_URL}/ws/translate`, [WS_SUBPROTOCOL, token]);
-  const turnId = crypto.randomUUID();
-  let t1 = 0;
-  // Safety timeout handle — cleared when the final subtitle arrives first.
-  let translatingTimeout: ReturnType<typeof setTimeout> | null = null;
-
-  /** Clear `localTranslating` and cancel any pending safety timeout. */
-  function clearTranslating(): void {
-    if (translatingTimeout !== null) {
-      clearTimeout(translatingTimeout);
-      translatingTimeout = null;
-    }
-    setLocalTranslating(false);
-  }
-
-  translateWs.addEventListener('open', () => {
-    log('[translate] WS open');
-    translateWs.send(
-      JSON.stringify({
-        event: 'client.live.start',
-        data: { type: 'client.live.start', languagePair },
-      }),
-    );
-  });
-
-  const audioCtx = new AudioContext({ sampleRate: 16000 });
-  const src = audioCtx.createMediaStreamSource(stream);
-
-  const processor = audioCtx.createScriptProcessor(4096, 1, 1);
-  let seq = 0;
-  processor.onaudioprocess = (evt) => {
-    if (translateWs.readyState !== WebSocket.OPEN) return;
-    if (seq === 0) {
-      t1 = performance.now();
-      console.log(`[T1] first audio frame t=${t1.toFixed(1)}ms`);
-      // [T1] — start of a new turn: show the "translating…" badge.
-      // Cancel any leftover timeout from a previous turn first.
-      if (translatingTimeout !== null) {
-        clearTimeout(translatingTimeout);
-      }
-      setLocalTranslating(true);
-      // Safety timeout: clear after 10 s if no final subtitle arrives.
-      translatingTimeout = setTimeout(() => {
-        translatingTimeout = null;
-        setLocalTranslating(false);
-        log('[translate] translating timeout — badge cleared');
-      }, 10_000);
-    }
-    const float32 = evt.inputBuffer.getChannelData(0);
-    const int16 = new Int16Array(float32.length);
-    for (let i = 0; i < float32.length; i++) {
-      int16[i] = Math.max(-32768, Math.min(32767, (float32[i] ?? 0) * 32768));
-    }
-    const b64 = btoa(String.fromCharCode(...new Uint8Array(int16.buffer)));
-    translateWs.send(
-      JSON.stringify({
-        event: 'client.live.audio',
-        data: {
-          type: 'client.live.audio',
-          frame: {
-            sessionId: turnId,
-            encoding: 'pcm16',
-            sampleRate: 16000,
-            sequence: seq++,
-            timestamp: Date.now(),
-            payload: b64,
-          },
-        },
-      }),
-    );
-  };
-  const silence = audioCtx.createGain();
-  silence.gain.value = 0;
-  src.connect(processor);
-  processor.connect(silence);
-  silence.connect(audioCtx.destination);
-
-  translateWs.addEventListener('message', (evt: MessageEvent<string>) => {
-    const msg = JSON.parse(evt.data) as { type: string; [k: string]: unknown };
-
-    if (msg.type === 'server.live.transcript') {
-      const d = msg as { type: string; channel: 'source' | 'target'; delta: string; lang: string };
-      if (d.channel === 'target') {
-        console.log(
-          `[T2] transcript target t=${performance.now().toFixed(1)}ms Δ=${(performance.now() - t1).toFixed(0)}ms`,
-        );
-        log(`[T2] transcript: "${d.delta}"`);
-        // [T2] — final subtitle for this turn: hide the "translating…" badge.
-        clearTranslating();
-      }
-      send(confWs, 'conference.translation.broadcast', {
-        subtitle: {
-          speakerSocketId: socketId,
-          speakerDisplayName,
-          sourceLanguage,
-          targetLang: targetLanguage,
-          sourceText: d.delta,
-          translatedText: d.delta,
-          isFinal: d.channel === 'target',
-          turnId,
-        },
-      });
-    }
-
-    if (msg.type === 'server.live.audio') {
-      const d = msg as {
-        type: string;
-        frame: { sequence: number; sampleRate: number; payload: string };
-      };
-      send(confWs, 'conference.translation.broadcast', {
-        audio: {
-          speakerSocketId: socketId,
-          lang: targetLanguage,
-          sequence: d.frame.sequence,
-          sampleRate: d.frame.sampleRate,
-          payload: d.frame.payload,
-        },
-      });
-    }
-  });
-
-  translateWs.addEventListener('close', () => {
-    processor.disconnect();
-    void audioCtx.close();
-    // Ensure the badge is cleared if the socket closes unexpectedly mid-turn.
-    clearTranslating();
-    log('[translate] WS closed');
-  });
-  translateWs.addEventListener('error', () => log('[translate] WS error'));
-}
-
-// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useConference(
   roomId: string,
-  options: { displayName: string; sourceLanguage: string },
+  options: { displayName: string; sourceLanguage: LanguageCode },
 ): UseConferenceReturn {
   const { displayName, sourceLanguage } = options;
 
-  const [status, setStatus] = useState<ConferenceStatus>('idle');
+  const [status, setStatusValue] = useState<ConferenceStatus>('idle');
   const [errorReason, setErrorReason] = useState<ConferenceErrorReason | undefined>(undefined);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [peers, setPeers] = useState<Map<string, PeerState>>(new Map());
   const [mySocketId, setMySocketId] = useState<string | null>(null);
-  // Phase 3 (folded-in): local mute/video state exposed to the UI.
   const [localMuted, setLocalMuted] = useState(false);
   const [localVideoEnabled, setLocalVideoEnabled] = useState(true);
-  // Phase 1 (audio unlock): true when any TTS AudioContext is still suspended.
   const [audioBlocked, setAudioBlocked] = useState(false);
-  // Phase 2 (translating indicator): true from [T1] to [T2] (or timeout).
   const [localTranslating, setLocalTranslating] = useState(false);
-  // Phase 4 (auto-reconnect): current attempt number (1-based, 0 = not reconnecting).
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
-  // Phase 4 (in-meeting chat): bounded message list, each in this client's language.
   const [messages, setMessages] = useState<ConferenceChatMessage[]>([]);
 
-  const wsRef = useRef<WebSocket | null>(null);
-  const deviceRef = useRef<types.Device | null>(null);
-  /** socketId → displayName for label lookup before PeerState is created */
-  const peersRef = useRef<Map<string, string>>(new Map());
-  const mySocketIdRef = useRef<string | null>(null);
-  /** Phase 3: one ordered audio sink for the whole call, closed on leave(). */
-  const audioSinkRef = useRef<TranslationAudioSink | null>(null);
-  /** Phase 3: ref-copy of localStream for use inside callbacks without stale closure. */
-  const localStreamRef = useRef<MediaStream | null>(null);
-  /** Phase 3: ref-copies of mute/video state for use inside callbacks. */
+  const connectionRef = useRef<ConferenceConnection | null>(null);
   const localMutedRef = useRef(false);
   const localVideoEnabledRef = useRef(true);
-  /**
-   * Phase 4: true when leave() has been intentionally called.
-   * The ws.onclose handler checks this to distinguish an intentional leave
-   * (do nothing) from an unexpected drop (trigger reconnect).
-   */
-  const intentionalLeaveRef = useRef(false);
-  /** Phase 4: number of reconnect attempts already made for the current call. */
-  const reconnectAttemptRef = useRef(0);
 
-  const addLog = useCallback((msg: string) => {
-    console.debug(`[conference] ${new Date().toISOString().slice(11, 23)} ${msg}`);
-  }, []);
-
-  /** Upsert a track into the peers map. */
-  const onTrack = useCallback((socketId: string, track: MediaStreamTrack) => {
-    setPeers((prev) => {
-      const next = new Map(prev);
-      const entry = next.get(socketId);
-      if (entry) {
-        entry.stream.addTrack(track);
-        next.set(socketId, { ...entry });
-      } else {
-        const stream = new MediaStream([track]);
-        next.set(socketId, {
-          stream,
-          displayName: peersRef.current.get(socketId) ?? socketId,
-          subtitle: undefined,
-          muted: false,
-          videoEnabled: true,
+  // Every member is a stable state setter, so one sink serves every connection.
+  const sink = useMemo<ConferenceSink>(
+    () => ({
+      status(next, reason) {
+        setStatusValue(next);
+        setErrorReason(reason);
+      },
+      reconnectAttempt: setReconnectAttempt,
+      selfSocketId: setMySocketId,
+      localStream: setLocalStream,
+      peers: setPeers,
+      audioBlocked: setAudioBlocked,
+      translating: setLocalTranslating,
+      chat(message) {
+        setMessages((prev) => {
+          const next = [...prev, message];
+          return next.length > CHAT_MESSAGE_CAP ? next.slice(-CHAT_MESSAGE_CAP) : next;
         });
-      }
-      return next;
-    });
-  }, []);
-
-  /**
-   * Phase 4: tear down all media/transport/sink resources held by a prior attempt
-   * so a reconnect attempt starts completely clean.
-   *
-   * Closes the audio sink (releases all AudioContexts), stops local media tracks,
-   * and clears device + peer maps. Does NOT touch wsRef (the caller owns that),
-   * does NOT touch status (set by the caller).
-   */
-  const teardownMediaResources = useCallback(() => {
-    audioSinkRef.current?.close();
-    audioSinkRef.current = null;
-    deviceRef.current = null;
-    peersRef.current.clear();
-    mySocketIdRef.current = null;
-    setLocalStream((prev) => {
-      if (prev) {
-        prev.getTracks().forEach((t) => t.stop());
-      }
-      localStreamRef.current = null;
-      return null;
-    });
-    setAudioBlocked(false);
-    setLocalTranslating(false);
-    setPeers(new Map());
-    setMySocketId(null);
-  }, []);
-
-  /**
-   * Phase 4 (Step 1 — refactor):
-   * Run the full join sequence on an already-open WebSocket.
-   *
-   * Extracted verbatim from the former ws.onopen callback body so that
-   * the same sequence can be re-run on each reconnect attempt.
-   *
-   * On success sets `status: 'in-call'` and resets the reconnect counter.
-   * On failure sets `status: 'error'` with reason `'generic'`.
-   */
-  const runJoinSequence = useCallback(
-    async (ws: WebSocket, token: string) => {
-      try {
-        addLog('WS connected');
-
-        send(ws, 'conference.join', { roomId, displayName, sourceLanguage });
-        const joinResp = await waitForEvent(ws, 'conference.join');
-        const {
-          rtpCapabilities,
-          peers: existingPeers,
-          socketId,
-        } = joinResp as {
-          rtpCapabilities: types.RtpCapabilities;
-          peers: {
-            socketId: string;
-            displayName: string;
-            producers: { producerId: string; kind: string }[];
-          }[];
-          socketId: string;
-        };
-        addLog(
-          `Joined as ${socketId}. Peers: ${existingPeers.map((p) => p.displayName).join(', ') || 'none'}`,
-        );
-        mySocketIdRef.current = socketId;
-        setMySocketId(socketId);
-
-        for (const peer of existingPeers) {
-          peersRef.current.set(peer.socketId, peer.displayName);
-        }
-
-        const device = new mediasoupClient.Device();
-        await device.load({ routerRtpCapabilities: rtpCapabilities });
-        deviceRef.current = device;
-        addLog('Device loaded');
-
-        // Phase 5: handle permission denial gracefully.
-        // Try audio+video; on failure attempt audio-only; on total failure surface
-        // a clear 'permission-denied' state rather than an uncaught throw.
-        let stream: MediaStream;
-        let audioOnly = false;
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-        } catch (mediaErr) {
-          const name = (mediaErr as Error).name;
-          if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-            // Camera denied — try audio-only so the call can still proceed.
-            try {
-              stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-              audioOnly = true;
-              addLog('Camera permission denied — joining audio-only.');
-            } catch {
-              addLog('Mic permission denied — cannot join.');
-              setErrorReason('permission-denied');
-              setStatus('error');
-              ws.close();
-              return;
-            }
-          } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-            // No camera device — fall back to audio-only automatically.
-            try {
-              stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-              audioOnly = true;
-              addLog('No camera found — joining audio-only.');
-            } catch {
-              addLog('No audio device — cannot join.');
-              setErrorReason('permission-denied');
-              setStatus('error');
-              ws.close();
-              return;
-            }
-          } else {
-            throw mediaErr;
-          }
-        }
-        if (audioOnly) {
-          // Surface a soft notice to the room page without blocking the call.
-          setErrorReason('audio-only');
-        }
-        setLocalStream(stream);
-        localStreamRef.current = stream;
-        addLog('Got local media');
-
-        send(ws, 'conference.transport.create', { direction: 'send' });
-        const sendParams = (await waitForEvent(
-          ws,
-          'conference.transport.create',
-        )) as types.TransportOptions & { iceServers?: RTCIceServer[] };
-        addLog(`TURN servers: ${sendParams.iceServers?.length ?? 0}`);
-        const sendTransport = device.createSendTransport(sendParams);
-        wireSendTransport(ws, sendTransport, addLog);
-
-        for (const track of stream.getTracks()) {
-          await sendTransport.produce({ track });
-          addLog(`Producing ${track.kind}`);
-        }
-
-        send(ws, 'conference.transport.create', { direction: 'recv' });
-        const recvParams = (await waitForEvent(
-          ws,
-          'conference.transport.create',
-        )) as types.TransportOptions & { iceServers?: RTCIceServer[] };
-        const recvTransport = device.createRecvTransport(recvParams);
-        wireRecvTransport(ws, recvTransport, addLog);
-
-        // Open /ws/translate in live mode for this speaker's audio translation.
-        wireTranslate(
-          ws,
-          stream,
-          socketId,
-          displayName,
-          sourceLanguage,
-          token,
-          addLog,
-          setLocalTranslating,
-        );
-
-        // Consume existing peers' producers (late-joiner catch-up).
-        for (const peer of existingPeers) {
-          for (const producer of peer.producers) {
-            addLog(`Consuming existing ${producer.kind} from ${peer.displayName}`);
-            await consumeTrack(
-              ws,
-              device,
-              recvTransport,
-              producer.producerId,
-              peer.socketId,
-              addLog,
-              onTrack,
-            );
-          }
-        }
-
-        // Phase 4: successful join — reset reconnect counter.
-        reconnectAttemptRef.current = 0;
-        setReconnectAttempt(0);
-        setStatus('in-call');
-
-        // Phase 1: attempt an optimistic resume now that a join gesture occurred.
-        // If the browser still suspends the contexts (no frames yet so no contexts
-        // exist here), audioBlocked will be set to true when the first frame arrives.
-        if (audioSinkRef.current) {
-          void audioSinkRef.current.resumeAll();
-          setAudioBlocked(audioSinkRef.current.isAnySuspended());
-        }
-
-        // Handle new producers from peers joining later.
-        ws.addEventListener('message', async (evt: MessageEvent<string>) => {
-          const msg = JSON.parse(evt.data) as SignalMessage;
-
-          if (msg.event === 'conference.new.producer') {
-            const {
-              producerId,
-              socketId: peerSocketId,
-              kind,
-            } = msg.data as { producerId: string; socketId: string; kind: string };
-            addLog(`New ${kind} producer ${producerId} from ${peerSocketId}`);
-            await consumeTrack(
-              ws,
-              device,
-              recvTransport,
-              producerId,
-              peerSocketId,
-              addLog,
-              onTrack,
-            );
-          }
-
-          if (msg.event === 'conference.peer.joined') {
-            const { socketId: peerSid, displayName: peerName } = msg.data as {
-              socketId: string;
-              displayName: string;
-            };
-            peersRef.current.set(peerSid, peerName);
-            addLog(`Peer joined: ${peerName}`);
-          }
-
-          if (msg.event === 'conference.peer.left') {
-            const { socketId: peerSid } = msg.data as { socketId: string };
-            peersRef.current.delete(peerSid);
-            setPeers((prev) => {
-              const next = new Map(prev);
-              next.delete(peerSid);
-              return next;
-            });
-            addLog(`Peer left: ${peerSid}`);
-          }
-
-          if (msg.event === 'conference.participant.state') {
-            const d = msg.data as {
-              socketId: string;
-              muted?: boolean;
-              videoEnabled?: boolean;
-            };
-            setPeers((prev) => {
-              const entry = prev.get(d.socketId);
-              if (!entry) return prev;
-              const next = new Map(prev);
-              next.set(d.socketId, {
-                ...entry,
-                muted: d.muted ?? entry.muted,
-                videoEnabled: d.videoEnabled ?? entry.videoEnabled,
-              });
-              return next;
-            });
-          }
-
-          if (msg.event === 'conference.translation.subtitle') {
-            const d = msg.data as {
-              speakerSocketId: string;
-              speakerDisplayName: string;
-              translatedText?: string;
-              sourceText?: string;
-              isFinal: boolean;
-              turnId?: string;
-            };
-            // [T3] subtitle received by listener
-            console.log(
-              `[T3] subtitle received t=${performance.now().toFixed(1)}ms final=${d.isFinal}`,
-            );
-            addLog(
-              `[sub] ${d.speakerDisplayName}: ${d.translatedText ?? d.sourceText ?? ''}${d.isFinal ? '' : '…'}`,
-            );
-            const text = d.translatedText ?? d.sourceText ?? '';
-            // Phase 3: key subtitle by (speakerSocketId, turnId) so partial frames
-            // replace in-place and a new turn after final doesn't flicker.
-            const subtitleKey = d.turnId ? `${d.speakerSocketId}:${d.turnId}` : d.speakerSocketId;
-
-            setPeers((prev) => {
-              const next = new Map(prev);
-              const entry = next.get(d.speakerSocketId);
-              if (entry) {
-                // Store both the visible text and which key last wrote it.
-                next.set(d.speakerSocketId, {
-                  ...entry,
-                  subtitle: text,
-                  // Carry the key so the clear timer below only clears its own turn.
-                  _subtitleKey: subtitleKey,
-                } as PeerState & { _subtitleKey: string });
-              }
-              return next;
-            });
-
-            if (d.isFinal) {
-              // Clear only when this specific turn's subtitle is still showing.
-              setTimeout(() => {
-                setPeers((prev) => {
-                  const entry = prev.get(d.speakerSocketId);
-                  if (!entry) return prev;
-                  // Only clear if our key is still the active one (a newer turn
-                  // hasn't replaced it while the timer was pending).
-                  if (entry._subtitleKey !== subtitleKey) return prev;
-                  const next = new Map(prev);
-                  next.set(d.speakerSocketId, { ...entry, subtitle: undefined });
-                  return next;
-                });
-              }, 4000);
-            }
-          }
-
-          if (msg.event === 'conference.translation.audio') {
-            const d = msg.data as {
-              speakerSocketId: string;
-              sampleRate: number;
-              sequence: number;
-              payload: string;
-            };
-            // [T4] delegated to TranslationAudioSink (logged there).
-            audioSinkRef.current?.push(d.speakerSocketId, d.sequence, d.sampleRate, d.payload);
-            // Phase 1: a new AudioContext was lazily created for this speaker;
-            // check whether it ended up suspended (autoplay policy).
-            if (audioSinkRef.current) {
-              setAudioBlocked(audioSinkRef.current.isAnySuspended());
-            }
-          }
-
-          if (msg.event === 'conference.chat.message') {
-            const d = msg.data as ConferenceChatMessage & { error?: string };
-            if (d.error) return;
-            setMessages((prev) => {
-              const next = [...prev, d];
-              return next.length > CHAT_MESSAGE_CAP
-                ? next.slice(next.length - CHAT_MESSAGE_CAP)
-                : next;
-            });
-          }
-        });
-      } catch (err) {
-        addLog(`Error: ${(err as Error).message}`);
-        setErrorReason('generic');
-        setStatus('error');
-      }
-    },
-    [roomId, displayName, sourceLanguage, addLog, onTrack],
+      },
+      unauthenticated: redirectToLogin,
+    }),
+    [],
   );
 
-  /**
-   * Phase 4: open a fresh WebSocket, run the join sequence, and wire the close
-   * handler to retry or give up. Separated from `join()` so the same logic is
-   * reused on each reconnect attempt without duplicating the socket lifecycle.
-   *
-   * `token` is captured from the original `join()` call so reconnect attempts
-   * reuse the same auth token (valid for the call's lifetime).
-   */
-  const openAndJoin = useCallback(
-    (token: string) => {
-      const ws = new WebSocket(`${API_WS_URL}/ws/conference`, [WS_SUBPROTOCOL, token]);
-      wsRef.current = ws;
-
-      ws.addEventListener('open', () => {
-        void runJoinSequence(ws, token);
-      });
-
-      ws.addEventListener('close', () => {
-        addLog('WS closed');
-
-        // Phase 4: intentional leave() sets the flag before closing; skip retry.
-        if (intentionalLeaveRef.current) {
-          // leave() already set status to 'idle' before calling ws.close().
-          return;
-        }
-
-        // Phase 4: unexpected close — attempt auto-reconnect up to the cap.
-        const attempt = reconnectAttemptRef.current + 1;
-        if (attempt <= RECONNECT_CAP) {
-          reconnectAttemptRef.current = attempt;
-          setReconnectAttempt(attempt);
-          setStatus('reconnecting');
-          const delay = RECONNECT_BACKOFF_MS[attempt - 1] ?? 4000;
-          addLog(
-            `Unexpected WS close — reconnect attempt ${attempt}/${RECONNECT_CAP} in ${delay}ms`,
-          );
-
-          setTimeout(() => {
-            // Guard: if the user called leave() while the timer was pending, abort.
-            if (intentionalLeaveRef.current) {
-              addLog('Reconnect aborted — intentional leave during backoff');
-              return;
-            }
-            // Phase 4: tear down the prior attempt's media resources before rebuilding
-            // so there are no duplicate peer tiles or leaked AudioContexts.
-            teardownMediaResources();
-            audioSinkRef.current = new TranslationAudioSink();
-
-            addLog(`Reconnect attempt ${attempt} — opening new socket`);
-            openAndJoin(token);
-          }, delay);
-        } else {
-          // Cap exhausted — dead-end to the existing disconnected state.
-          addLog('Reconnect cap exhausted — giving up');
-          teardownMediaResources();
-          setErrorReason('connection-lost');
-          setStatus('disconnected');
-        }
-      });
-
-      ws.addEventListener('error', (e) => {
-        addLog(`WS error: ${JSON.stringify(e)}`);
-      });
-    },
-    [runJoinSequence, addLog, teardownMediaResources],
-  );
-
-  const join = useCallback(async () => {
-    if (!displayName.trim()) {
-      addLog('displayName is empty');
-      return;
-    }
-    setStatus('connecting');
-
-    const session = await getSession();
-    const token = (session as { accessToken?: string } | null)?.accessToken;
-    if (!token) {
-      addLog('Not logged in — redirecting to /login.');
-      setErrorReason('not-authenticated');
-      setStatus('error');
-      // Redirect client-side; the server layout already gates the route but the
-      // hook fires earlier in the render cycle (client-side join auto-invocation).
-      if (typeof window !== 'undefined') {
-        const callbackUrl = encodeURIComponent(window.location.pathname + window.location.search);
-        window.location.replace(`/login?callbackUrl=${callbackUrl}`);
-      }
-      return;
-    }
-
-    // Phase 3: create the ordered audio sink for this call.
-    audioSinkRef.current = new TranslationAudioSink();
-
-    // Phase 4: clear the intentional-leave flag and reset the reconnect counter
-    // for this fresh join.
-    intentionalLeaveRef.current = false;
-    reconnectAttemptRef.current = 0;
-    setReconnectAttempt(0);
-
-    openAndJoin(token);
-  }, [displayName, addLog, openAndJoin]);
+  const join = useCallback((): Promise<void> => {
+    if (!displayName.trim()) return Promise.resolve();
+    connectionRef.current?.leave();
+    const connection = new ConferenceConnection({
+      wsBaseUrl: API_WS_URL,
+      roomId,
+      displayName: displayName.trim(),
+      sourceLanguage,
+      getToken: currentAccessToken,
+      sink,
+    });
+    connectionRef.current = connection;
+    connection.setMuted(localMutedRef.current);
+    connection.setVideoEnabled(localVideoEnabledRef.current);
+    connection.start();
+    return Promise.resolve();
+  }, [roomId, displayName, sourceLanguage, sink]);
 
   const leave = useCallback(() => {
-    // Phase 4: set the intentional-leave flag BEFORE closing the socket so the
-    // ws.onclose handler knows not to trigger a reconnect attempt.
-    intentionalLeaveRef.current = true;
-    // Set status to 'idle' BEFORE closing the socket so the WS 'close' handler
-    // sees 'idle' and does not override it with 'disconnected'.
-    setStatus('idle');
-    setErrorReason(undefined);
-    // Reset reconnect counters on intentional leave.
-    reconnectAttemptRef.current = 0;
-    setReconnectAttempt(0);
-    wsRef.current?.close();
-    wsRef.current = null;
-    deviceRef.current = null;
-    peersRef.current.clear();
-    mySocketIdRef.current = null;
-    // Phase 3: close the ordered audio sink (releases all AudioContexts).
-    audioSinkRef.current?.close();
-    audioSinkRef.current = null;
-    setLocalStream((prev) => {
-      if (prev) {
-        prev.getTracks().forEach((t) => t.stop());
-      }
-      localStreamRef.current = null;
-      return null;
-    });
-    // Reset local state.
+    connectionRef.current?.leave();
+    connectionRef.current = null;
     localMutedRef.current = false;
     localVideoEnabledRef.current = true;
     setLocalMuted(false);
     setLocalVideoEnabled(true);
-    setAudioBlocked(false);
-    setLocalTranslating(false);
-    setPeers(new Map());
-    setMySocketId(null);
     setMessages([]);
-    setStatus('idle');
-    addLog('Left room');
-  }, [addLog]);
+  }, []);
 
-  /**
-   * Toggle local microphone mute.
-   *
-   * Phase 3 (folded-in): sends the real `{ muted: boolean }` payload the gateway
-   * expects (was sending `{}`) and applies the change to the local audio track.
-   */
   const toggleMute = useCallback(() => {
-    const nextMuted = !localMutedRef.current;
-    localMutedRef.current = nextMuted;
-    setLocalMuted(nextMuted);
-
-    // Apply to the local MediaStream audio tracks.
-    const stream = localStreamRef.current;
-    if (stream) {
-      stream.getAudioTracks().forEach((t) => {
-        t.enabled = !nextMuted;
-      });
-    }
-
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      send(wsRef.current, 'conference.participant.mute', { muted: nextMuted });
-    }
+    const next = !localMutedRef.current;
+    localMutedRef.current = next;
+    setLocalMuted(next);
+    connectionRef.current?.setMuted(next);
   }, []);
 
-  /**
-   * Toggle local camera.
-   *
-   * Phase 3 (folded-in): sends the real `{ videoEnabled: boolean }` payload the
-   * gateway expects (was sending `{}`) and applies the change to the local video track.
-   */
   const toggleVideo = useCallback(() => {
-    const nextVideoEnabled = !localVideoEnabledRef.current;
-    localVideoEnabledRef.current = nextVideoEnabled;
-    setLocalVideoEnabled(nextVideoEnabled);
-
-    // Apply to the local MediaStream video tracks.
-    const stream = localStreamRef.current;
-    if (stream) {
-      stream.getVideoTracks().forEach((t) => {
-        t.enabled = nextVideoEnabled;
-      });
-    }
-
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      send(wsRef.current, 'conference.participant.video', { videoEnabled: nextVideoEnabled });
-    }
+    const next = !localVideoEnabledRef.current;
+    localVideoEnabledRef.current = next;
+    setLocalVideoEnabled(next);
+    connectionRef.current?.setVideoEnabled(next);
   }, []);
 
-  /**
-   * Send an in-meeting chat message. The gateway translates it per recipient
-   * and echoes the original back, which arrives via `conference.chat.message`.
-   * No-op for blank text or a closed socket.
-   */
   const sendChat = useCallback((text: string) => {
     if (!text.trim()) return;
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      send(wsRef.current, 'conference.chat', { text });
-    }
+    connectionRef.current?.sendChat(text);
   }, []);
 
-  /**
-   * Resume all suspended TTS AudioContexts.
-   *
-   * Must be called from a direct user-gesture handler (e.g. a button click) so
-   * the browser permits the resume. Clears `audioBlocked` on success.
-   */
   const resumeAudio = useCallback(async () => {
-    if (audioSinkRef.current) {
-      await audioSinkRef.current.resumeAll();
-      setAudioBlocked(audioSinkRef.current.isAnySuspended());
-    }
+    await connectionRef.current?.resumeAudio();
   }, []);
 
-  // Close on unmount.
+  // A call never outlives the screen: navigating away leaves the room, which
+  // stops the local tracks and the translate session with it.
   useEffect(
     () => () => {
-      // Mark as intentional so the ws close handler does not trigger a
-      // reconnect attempt into the already-unmounted component.
-      intentionalLeaveRef.current = true;
-      wsRef.current?.close();
-      audioSinkRef.current?.close();
+      connectionRef.current?.leave();
+      connectionRef.current = null;
     },
     [],
   );

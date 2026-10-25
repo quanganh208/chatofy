@@ -1,20 +1,23 @@
 'use client';
 
 /**
- * In-call screen — Phase 2 product UI.
+ * In-call screen.
  *
- * Layout: video grid (center), control bar (bottom), participant roster
- * (collapsible side region). Loading/connecting/error states use tokens + i18n.
+ * Layout: video grid (center), control bar (bottom), participant roster and
+ * chat (collapsible side region). Loading, error and ended states use tokens +
+ * i18n.
  *
- * Design budget: Leave is the ONE accent-filled control (variant="default").
+ * Design budget: Leave (or Back to lobby) is the ONE accent-filled control.
  * Mic and camera toggles are outline. Zero elevated surfaces (the call screen
  * is the page ground; no cards). Registered in accent-budget-app.spec.tsx.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { Route } from 'next';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Users } from 'lucide-react';
 import { Button } from '@chatofy/ui/react';
+import { conferenceRoomIdSchema } from '@chatofy/types/events';
 import { useTranslate } from '@/i18n/provider';
 import { useConference } from '@/hooks/use-conference';
 import { VideoGrid } from './components/video-grid';
@@ -22,17 +25,30 @@ import { ControlBar } from './components/control-bar';
 import { ParticipantList } from './components/participant-list';
 import { ChatPanel } from './components/chat-panel';
 
+/** Where the lobby keeps the call to return to after navigating away mid-call. */
+const ACTIVE_CALL_KEY = 'conference:active';
+
+/** The route segment as a room id; a malformed escape reads as no id at all. */
+function decodeRoomId(segment: string | undefined): string {
+  try {
+    return decodeURIComponent(segment ?? '');
+  } catch {
+    return '';
+  }
+}
+
 export default function ConferenceRoomPage() {
   const t = useTranslate();
   const router = useRouter();
   const params = useParams<{ roomId: string }>();
   const searchParams = useSearchParams();
 
-  const roomId = decodeURIComponent(
-    Array.isArray(params.roomId) ? (params.roomId[0] ?? '') : (params.roomId ?? ''),
-  );
-  const displayName = searchParams.get('name') ?? '';
-  const sourceLanguage = searchParams.get('lang') ?? 'vi';
+  const roomId = decodeRoomId(params.roomId);
+  const displayName = (searchParams.get('name') ?? '').trim();
+  const sourceLanguage = searchParams.get('lang') === 'en' ? 'en' : 'vi';
+  // A room id is a server-minted cuid; anything else can never name a room, so
+  // it is answered here instead of with a socket round trip.
+  const roomIdValid = conferenceRoomIdSchema.safeParse(roomId).success;
 
   const {
     status,
@@ -55,27 +71,63 @@ export default function ConferenceRoomPage() {
     sendChat,
   } = useConference(roomId, { displayName, sourceLanguage });
 
-  // Auto-join once on mount. Ref guard prevents double-invoke in React Strict Mode.
-  const joinedRef = useRef(false);
+  // A shared link carries only the room: the name is asked for in the lobby,
+  // with the room already filled in, and the lobby brings the user back here.
   useEffect(() => {
-    if (joinedRef.current) return;
-    joinedRef.current = true;
+    if (!roomIdValid || displayName) return;
+    const query = new URLSearchParams({ room: roomId, lang: sourceLanguage });
+    router.replace(`/conference?${query.toString()}` as Route);
+  }, [roomIdValid, displayName, roomId, sourceLanguage, router]);
+
+  // Join on mount, leave on unmount. Leaving on unmount is what stops the
+  // camera, the microphone and the translate session when the user navigates
+  // away mid-call; the active-call key is kept so the lobby can bring them back.
+  useEffect(() => {
+    if (!roomIdValid || !displayName) return;
     sessionStorage.setItem(
-      'conference:active',
+      ACTIVE_CALL_KEY,
       JSON.stringify({ roomId, name: displayName, lang: sourceLanguage }),
     );
     void join();
-    // join is a stable useCallback; deps intentionally empty.
+    return leave;
+    // Mount-only: the room and the name are fixed for the life of this screen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // A room that is gone, or a call taken over by another tab, is not one to
+  // bounce back into from the lobby.
+  const callIsOver =
+    !roomIdValid ||
+    errorReason === 'room-not-found' ||
+    errorReason === 'room-ended' ||
+    errorReason === 'replaced';
+  useEffect(() => {
+    if (callIsOver) sessionStorage.removeItem(ACTIVE_CALL_KEY);
+  }, [callIsOver]);
 
   // Collapsible roster panel
   const [rosterOpen, setRosterOpen] = useState(true);
 
   function handleLeave() {
-    sessionStorage.removeItem('conference:active');
+    sessionStorage.removeItem(ACTIVE_CALL_KEY);
     leave();
     router.push('/conference');
+  }
+
+  // ── The room does not exist, or its meeting is over — nothing to retry ────────
+  if (!roomIdValid || errorReason === 'room-not-found' || errorReason === 'room-ended') {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
+        <p className="text-body font-medium">
+          {errorReason === 'room-ended'
+            ? t('web.conference.roomEnded')
+            : t('web.conference.roomNotFound')}
+        </p>
+        <Button variant="default" onClick={handleLeave}>
+          {t('web.conference.backToLobby')}
+        </Button>
+      </div>
+    );
   }
 
   // ── Connecting state ────────────────────────────────────────────────────────
