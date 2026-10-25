@@ -226,6 +226,7 @@ function call(over: Partial<UseConferenceReturn> = {}): UseConferenceReturn {
     resumeAudio: vi.fn(() => Promise.resolve()),
     messages: [],
     sendChat: vi.fn(),
+    chatRefusal: null,
     ...over,
   };
 }
@@ -1091,6 +1092,15 @@ const SCREENS: ScreenState[] = [
     }),
     render: () => <ConferenceRoomPage />,
     shows: 'aside section[aria-label="Chat"]',
+  },
+  {
+    // A refused message is a line of text in the chat region, not a control.
+    name: '/conference/[roomId] — chat message refused for sending too fast',
+    filled: 1,
+    surfaces: 0,
+    setup: inRoom({ peers: ALICE, chatRefusal: 'rate-limited' }),
+    render: () => <ConferenceRoomPage />,
+    shows: 'aside section[aria-label="Chat"] [role="alert"]',
   },
   {
     name: '/conference/[roomId] — roster closed',

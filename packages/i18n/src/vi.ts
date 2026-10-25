@@ -501,6 +501,8 @@ export const vi: Messages = {
   'web.conference.createFailed': 'Không tạo được phòng. Hãy thử lại.',
   'web.conference.roomNotFound': 'Phòng này không tồn tại.',
   'web.conference.roomEnded': 'Cuộc họp này đã kết thúc.',
+  'web.conference.chatRateLimited': 'Gửi chậm lại — hãy đợi vài giây rồi gửi tiếp.',
+  'web.conference.chatNotSent': 'Chưa gửi được tin nhắn.',
   'web.meta.conference': 'Hội nghị · Chatofy',
 
   // ---- mobile.conference: sảnh và màn hình gọi của ứng dụng React Native ----
@@ -557,6 +559,8 @@ export const vi: Messages = {
   'mobile.conference.createFailed': 'Không tạo được phòng. Hãy thử lại.',
   'mobile.conference.roomNotFound': 'Phòng này không tồn tại.',
   'mobile.conference.roomEnded': 'Cuộc họp này đã kết thúc.',
+  'mobile.conference.chatRateLimited': 'Gửi chậm lại — hãy đợi vài giây rồi gửi tiếp.',
+  'mobile.conference.chatNotSent': 'Chưa gửi được tin nhắn.',
   'mobile.home.comingSoon': 'sắp ra mắt',
   'mobile.home.joinConference': 'Tham gia cuộc họp',
 };

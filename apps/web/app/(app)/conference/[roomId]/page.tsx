@@ -63,6 +63,7 @@ export default function ConferenceRoomPage() {
     reconnectAttempt,
     reconnectCap,
     messages,
+    chatRefusal,
     join,
     leave,
     toggleMute,
@@ -282,6 +283,13 @@ export default function ConferenceRoomPage() {
                 inputPlaceholder={t('web.conference.chatPlaceholder')}
                 sendLabel={t('web.conference.chatSend')}
                 emptyLabel={t('web.conference.chatEmpty')}
+                refusalLabel={
+                  chatRefusal === 'rate-limited'
+                    ? t('web.conference.chatRateLimited')
+                    : chatRefusal === 'not-sent'
+                      ? t('web.conference.chatNotSent')
+                      : undefined
+                }
               />
             </div>
           </aside>

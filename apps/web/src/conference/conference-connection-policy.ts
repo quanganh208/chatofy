@@ -35,12 +35,24 @@ export function closeOutcome(code: number, attemptsMade: number): CloseOutcome {
 }
 
 /**
- * What a refused join tells the user. Every refusal stops the call: the
- * gateway refuses only for reasons another attempt would meet again (an
- * unknown or ended room, a full one, a payload it cannot accept).
+ * What a refused join leads to.
+ *
+ * `internal_error` and `limit_reached` are the server saying "not now": it
+ * answers `internal_error` while a crashed media worker respawns (the very
+ * case its 1011 close sends every client back to reconnect for) or the
+ * database blips, and a full room can free a seat. Those are retried within
+ * the reconnect backoff and cap like a dropped socket. Everything else — an
+ * unknown or ended room, a payload it cannot accept — would be refused again,
+ * so it stops.
  */
-export function joinRefusalReason(code: string): ConferenceErrorReason {
-  if (code === 'room_not_found') return 'room-not-found';
-  if (code === 'room_ended') return 'room-ended';
-  return 'generic';
+export type JoinRefusalOutcome =
+  { kind: 'retry' } | { kind: 'stop'; reason: ConferenceErrorReason };
+
+const RETRYABLE_JOIN_REFUSALS = new Set(['internal_error', 'limit_reached']);
+
+export function joinRefusalOutcome(code: string): JoinRefusalOutcome {
+  if (RETRYABLE_JOIN_REFUSALS.has(code)) return { kind: 'retry' };
+  if (code === 'room_not_found') return { kind: 'stop', reason: 'room-not-found' };
+  if (code === 'room_ended') return { kind: 'stop', reason: 'room-ended' };
+  return { kind: 'stop', reason: 'generic' };
 }

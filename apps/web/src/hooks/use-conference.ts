@@ -17,6 +17,7 @@ import { ConferenceConnection } from '@/conference/conference-connection';
 import { RECONNECT_CAP } from '@/conference/conference-connection-policy';
 import type {
   ConferenceChatMessage,
+  ConferenceChatRefusal,
   ConferenceErrorReason,
   ConferenceSink,
   ConferenceStatus,
@@ -25,6 +26,7 @@ import type {
 
 export type {
   ConferenceChatMessage,
+  ConferenceChatRefusal,
   ConferenceErrorReason,
   ConferenceStatus,
   PeerState,
@@ -71,6 +73,11 @@ export interface UseConferenceReturn {
   messages: ConferenceChatMessage[];
   /** Send a chat message. No-op for blank/whitespace-only text. */
   sendChat: (text: string) => void;
+  /**
+   * Why the server refused the last message sent, until the next send. Null
+   * when nothing was refused.
+   */
+  chatRefusal: ConferenceChatRefusal | null;
 }
 
 async function currentAccessToken(): Promise<string | undefined> {
@@ -101,6 +108,7 @@ export function useConference(
   const [localTranslating, setLocalTranslating] = useState(false);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [messages, setMessages] = useState<ConferenceChatMessage[]>([]);
+  const [chatRefusal, setChatRefusal] = useState<ConferenceChatRefusal | null>(null);
 
   const connectionRef = useRef<ConferenceConnection | null>(null);
   const localMutedRef = useRef(false);
@@ -125,6 +133,7 @@ export function useConference(
           return next.length > CHAT_MESSAGE_CAP ? next.slice(-CHAT_MESSAGE_CAP) : next;
         });
       },
+      chatRefused: setChatRefusal,
       unauthenticated: redirectToLogin,
     }),
     [],
@@ -156,6 +165,7 @@ export function useConference(
     setLocalMuted(false);
     setLocalVideoEnabled(true);
     setMessages([]);
+    setChatRefusal(null);
   }, []);
 
   const toggleMute = useCallback(() => {
@@ -174,6 +184,7 @@ export function useConference(
 
   const sendChat = useCallback((text: string) => {
     if (!text.trim()) return;
+    setChatRefusal(null);
     connectionRef.current?.sendChat(text);
   }, []);
 
@@ -210,5 +221,6 @@ export function useConference(
     resumeAudio,
     messages,
     sendChat,
+    chatRefusal,
   };
 }

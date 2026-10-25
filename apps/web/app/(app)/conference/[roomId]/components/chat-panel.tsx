@@ -24,6 +24,8 @@ interface ChatPanelProps {
   inputPlaceholder: string;
   sendLabel: string;
   emptyLabel: string;
+  /** Why the last message was refused, already in the reader's language. */
+  refusalLabel?: string;
 }
 
 export function ChatPanel({
@@ -34,6 +36,7 @@ export function ChatPanel({
   inputPlaceholder,
   sendLabel,
   emptyLabel,
+  refusalLabel,
 }: ChatPanelProps) {
   const [draft, setDraft] = useState('');
 
@@ -68,6 +71,13 @@ export function ChatPanel({
           })
         )}
       </div>
+
+      {/* A refused message is said here, as text: no control, no accent. */}
+      {refusalLabel ? (
+        <p role="alert" className="text-hint text-destructive px-2">
+          {refusalLabel}
+        </p>
+      ) : null}
 
       {/* Composer — ghost/outline only, no accent fill */}
       <form

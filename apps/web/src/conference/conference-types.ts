@@ -33,6 +33,12 @@ export type ConferenceErrorReason =
   | 'connection-lost'
   | 'generic';
 
+/**
+ * Why the server refused a chat message: sent too fast, or not accepted at all
+ * (too long, malformed). Only the first has advice worth giving.
+ */
+export type ConferenceChatRefusal = 'rate-limited' | 'not-sent';
+
 export interface PeerState {
   displayName: string;
   stream: MediaStream;
@@ -57,6 +63,8 @@ export interface ConferenceSink {
   audioBlocked(blocked: boolean): void;
   translating(active: boolean): void;
   chat(message: ConferenceChatMessage): void;
+  /** The server refused the last chat message this client sent. */
+  chatRefused(refusal: ConferenceChatRefusal): void;
   /** The session has no access token; the caller decides where to send the user. */
   unauthenticated(): void;
 }

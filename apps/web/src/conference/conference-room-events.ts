@@ -15,6 +15,7 @@ import {
   type ConferenceTranslationSubtitle,
 } from '@chatofy/types/events';
 import type { SignalMessage } from './conference-signaling';
+import type { ConferenceChatRefusal } from './conference-types';
 
 const socketIdSchema = z.string().min(1).max(64);
 
@@ -30,6 +31,9 @@ const participantStateSchema = z.object({
   muted: z.boolean().optional(),
   videoEnabled: z.boolean().optional(),
 });
+// The gateway answers a refused `conference.chat` on the same event name; a
+// sent message that is accepted comes back as `conference.chat.message`.
+const chatRefusalSchema = z.object({ error: z.string() });
 const endedSchema = z.object({ reason: z.string().optional() }).optional();
 
 export type RoomEvent =
@@ -40,6 +44,7 @@ export type RoomEvent =
   | { type: 'subtitle'; subtitle: ConferenceTranslationSubtitle }
   | { type: 'audio'; audio: ConferenceTranslationAudio & { speakerSocketId: string } }
   | { type: 'chat'; message: ConferenceChatMessage }
+  | { type: 'chat-refused'; refusal: ConferenceChatRefusal }
   | { type: 'ended' };
 
 export function parseRoomEvent(signal: SignalMessage): RoomEvent | null {
@@ -77,6 +82,14 @@ export function parseRoomEvent(signal: SignalMessage): RoomEvent | null {
     case 'conference.chat.message': {
       const parsed = ConferenceChatMessageSchema.safeParse(data);
       return parsed.success ? { type: 'chat', message: parsed.data } : null;
+    }
+    case 'conference.chat': {
+      const parsed = chatRefusalSchema.safeParse(data);
+      if (!parsed.success) return null;
+      return {
+        type: 'chat-refused',
+        refusal: parsed.data.error === 'limit_reached' ? 'rate-limited' : 'not-sent',
+      };
     }
     case 'conference.ended':
       return endedSchema.safeParse(data).success ? { type: 'ended' } : null;

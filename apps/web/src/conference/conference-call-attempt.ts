@@ -279,6 +279,9 @@ export class CallAttempt {
       case 'chat':
         sink.chat(event.message);
         return;
+      case 'chat-refused':
+        sink.chatRefused(event.refusal);
+        return;
       case 'ended':
         this.options.onEnded();
         return;

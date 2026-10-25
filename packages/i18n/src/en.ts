@@ -709,6 +709,8 @@ export const en = {
   'web.conference.createFailed': 'Could not create a room. Try again.',
   'web.conference.roomNotFound': 'This room does not exist.',
   'web.conference.roomEnded': 'This meeting has ended.',
+  'web.conference.chatRateLimited': 'Slow down — wait a few seconds before sending again.',
+  'web.conference.chatNotSent': 'Message not sent.',
   'web.meta.conference': 'Conference · Chatofy',
 
   // ---- mobile.conference: the React Native conference lobby + call screen ----
@@ -774,6 +776,8 @@ export const en = {
   'mobile.conference.createFailed': 'Could not create a room. Try again.',
   'mobile.conference.roomNotFound': 'This room does not exist.',
   'mobile.conference.roomEnded': 'This meeting has ended.',
+  'mobile.conference.chatRateLimited': 'Slow down — wait a few seconds before sending again.',
+  'mobile.conference.chatNotSent': 'Message not sent.',
   'mobile.home.comingSoon': 'coming soon',
   'mobile.home.joinConference': 'Join a conference',
 } as const;

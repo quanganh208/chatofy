@@ -4,7 +4,7 @@ import {
   CLOSE_CODE_REPLACED,
   RECONNECT_CAP,
   closeOutcome,
-  joinRefusalReason,
+  joinRefusalOutcome,
 } from './conference-connection-policy';
 
 describe('closeOutcome', () => {
@@ -27,13 +27,21 @@ describe('closeOutcome', () => {
   });
 });
 
-describe('joinRefusalReason', () => {
-  it('names the two refusals the screen explains', () => {
-    expect(joinRefusalReason('room_not_found')).toBe('room-not-found');
-    expect(joinRefusalReason('room_ended')).toBe('room-ended');
+describe('joinRefusalOutcome', () => {
+  it('stops for a room that does not exist or has ended, with the reason the screen explains', () => {
+    expect(joinRefusalOutcome('room_not_found')).toEqual({
+      kind: 'stop',
+      reason: 'room-not-found',
+    });
+    expect(joinRefusalOutcome('room_ended')).toEqual({ kind: 'stop', reason: 'room-ended' });
   });
 
-  it('reads any other refusal as a generic failure', () => {
-    expect(joinRefusalReason('limit_reached')).toBe('generic');
+  it('stops for a payload the server cannot accept, which no retry changes', () => {
+    expect(joinRefusalOutcome('invalid_payload')).toEqual({ kind: 'stop', reason: 'generic' });
+  });
+
+  it('retries a refusal the server may lift: a respawning worker or a full room', () => {
+    expect(joinRefusalOutcome('internal_error')).toEqual({ kind: 'retry' });
+    expect(joinRefusalOutcome('limit_reached')).toEqual({ kind: 'retry' });
   });
 });

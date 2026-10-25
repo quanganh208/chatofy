@@ -10,7 +10,7 @@
 import { WS_SUBPROTOCOL } from '@chatofy/types/events';
 import type { LanguageCode } from '@chatofy/types';
 import { AttemptDisposedError, CallAttempt } from './conference-call-attempt';
-import { closeOutcome, joinRefusalReason } from './conference-connection-policy';
+import { closeOutcome, joinRefusalOutcome } from './conference-connection-policy';
 import { conferenceDebug } from './conference-debug-log';
 import { ConferenceRequestError } from './conference-signaling';
 import type { ConferenceErrorReason, ConferenceSink, ConferenceStatus } from './conference-types';
@@ -125,8 +125,16 @@ export class ConferenceConnection {
     } catch (err) {
       if (this.attempt !== attempt || this.closed || err instanceof AttemptDisposedError) return;
       conferenceDebug(`join failed: ${String(err)}`);
-      if (err instanceof ConferenceRequestError && err.event === 'conference.join') {
-        this.stop('error', joinRefusalReason(err.code));
+      const refusal =
+        err instanceof ConferenceRequestError && err.event === 'conference.join'
+          ? joinRefusalOutcome(err.code)
+          : undefined;
+      if (refusal?.kind === 'stop') {
+        this.stop('error', refusal.reason);
+      } else if (refusal?.kind === 'retry') {
+        // A refusal the server may lift: counted as one failed attempt, and
+        // closing lands in the close handler, which backs off or gives up.
+        ws.close(1000, 'retry');
       } else if (err instanceof MediaPermissionError) {
         this.stop('error', 'permission-denied');
       } else if (isReconnect) {
