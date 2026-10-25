@@ -5,7 +5,7 @@ import { ConferenceMetricsService } from './conference-metrics.service';
 /**
  * HTTP GET /conference/metrics — benchmark metrics tap.
  *
- * Only available when CONFERENCE_METRICS_ENABLED=1. Returns 404 otherwise so
+ * Only available when CONFERENCE_METRICS_ENABLED is on. Returns 404 otherwise so
  * normal production traffic is unaffected and no sensitive data is leaked.
  */
 @Controller('conference')

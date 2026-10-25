@@ -1,4 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { Env } from '../../config/env.schema';
 import { ConferenceWorkerService } from './conference-worker.service';
 import { ConferenceRoomRegistry } from './conference-room-registry.service';
 
@@ -22,7 +24,7 @@ export interface MetricsSnapshot {
 }
 
 /**
- * Lightweight SFU metrics tap — gated by CONFERENCE_METRICS_ENABLED=1.
+ * Lightweight SFU metrics tap — gated by CONFERENCE_METRICS_ENABLED.
  *
  * Polls worker.getResourceUsage() every 2 seconds when enabled and exposes a
  * current snapshot for the benchmark harness to poll via HTTP GET
@@ -41,10 +43,9 @@ export class ConferenceMetricsService implements OnModuleDestroy {
   constructor(
     private readonly workerService: ConferenceWorkerService,
     private readonly registry: ConferenceRoomRegistry,
+    config: ConfigService<Env, true>,
   ) {
-    this.enabled =
-      process.env['CONFERENCE_METRICS_ENABLED'] === '1' ||
-      process.env['CONFERENCE_METRICS_ENABLED'] === 'true';
+    this.enabled = config.get('CONFERENCE_METRICS_ENABLED', { infer: true });
 
     if (this.enabled) {
       this.logger.log('Conference metrics collection ENABLED (every 2s)');

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { types } from 'mediasoup';
+import type { LanguageCode } from '@chatofy/types';
 import { ConferenceWorkerService } from './conference-worker.service';
 
 /**
@@ -43,45 +44,119 @@ export interface ConferenceRoom {
   peers: Map<string, ParticipantSession>;
 }
 
+/** Token-bucket state for one peer's chat sends. */
+export interface ChatAllowance {
+  tokens: number;
+  refilledAt: number;
+}
+
 export interface ParticipantSession {
   userId: string;
   displayName: string;
-  sourceLanguage: string;
-  participantId?: string;
+  sourceLanguage: LanguageCode;
+  /** The ConferenceParticipant row this peer's turns and messages belong to. */
+  participantId: string;
   muted: boolean;
   videoEnabled: boolean;
   sendTransport: types.WebRtcTransport | null;
   recvTransport: types.WebRtcTransport | null;
+  /** Directions whose transport is being created right now. */
+  creatingTransports: Set<'send' | 'recv'>;
   producers: Map<string, types.Producer>;
   consumers: Map<string, types.Consumer>;
+  /** Turns already persisted, so a repeated final frame writes nothing. */
+  persistedTurnIds: Set<string>;
+  /** Null until the peer first chats; the chat handler owns the bucket size. */
+  chat: ChatAllowance | null;
 }
 
-/** @deprecated Use ParticipantSession */
-export type PeerState = ParticipantSession;
+export type NewParticipant = Pick<
+  ParticipantSession,
+  'userId' | 'displayName' | 'sourceLanguage' | 'participantId'
+>;
 
+/**
+ * Why a room is being torn down while it still has peers:
+ * - `ended`: the owner ended it through `DELETE /conference/:id`.
+ * - `media_restart`: the mediasoup worker died and every room went with it.
+ */
+export type RoomCloseReason = 'ended' | 'media_restart';
+
+/** Told about a room with peers right before it is torn down. */
+export type RoomClosingListener = (
+  room: ConferenceRoom,
+  reason: RoomCloseReason,
+) => void;
+
+/** A room was ended while its router was still being created. */
+export class RoomClosedError extends Error {
+  constructor(roomId: string) {
+    super(`room ${roomId} was closed while it was being opened`);
+    this.name = 'RoomClosedError';
+  }
+}
+
+/**
+ * The live rooms on this API instance, one mediasoup router each.
+ *
+ * Creation is memoised per room id: concurrent first joins (every client
+ * reconnecting after a restart) share one in-flight router instead of each
+ * creating one and the last `set` orphaning the others.
+ */
 @Injectable()
 export class ConferenceRoomRegistry {
   private readonly logger = new Logger(ConferenceRoomRegistry.name);
   private readonly rooms = new Map<string, ConferenceRoom>();
+  private readonly pending = new Map<string, Promise<ConferenceRoom>>();
+  private readonly closingListeners = new Set<RoomClosingListener>();
 
-  constructor(private readonly workerService: ConferenceWorkerService) {}
+  constructor(private readonly workerService: ConferenceWorkerService) {
+    workerService.onWorkerDied(() => this.closeAll('media_restart'));
+  }
 
-  async getOrCreateRoom(roomId: string): Promise<ConferenceRoom> {
+  onRoomClosing(listener: RoomClosingListener): void {
+    this.closingListeners.add(listener);
+  }
+
+  getOrCreateRoom(roomId: string): Promise<ConferenceRoom> {
     const existing = this.rooms.get(roomId);
-    if (existing) return existing;
+    if (existing) return Promise.resolve(existing);
+    const inflight = this.pending.get(roomId);
+    if (inflight) return inflight;
 
-    const router = await this.workerService.getWorker().createRouter({
-      mediaCodecs: MEDIA_CODECS,
-    });
-
-    const room: ConferenceRoom = { id: roomId, router, peers: new Map() };
-    this.rooms.set(roomId, room);
-    this.logger.log(`Room created: ${roomId}`);
-    return room;
+    const created: Promise<ConferenceRoom> = this.workerService
+      .getWorker()
+      .createRouter({ mediaCodecs: MEDIA_CODECS })
+      .then(
+        (router) => {
+          // `endRoom` / `closeAll` drop the pending entry to cancel a creation
+          // they raced with; a router that finishes after that is discarded.
+          if (this.pending.get(roomId) !== created) {
+            router.close();
+            throw new RoomClosedError(roomId);
+          }
+          this.pending.delete(roomId);
+          const room: ConferenceRoom = { id: roomId, router, peers: new Map() };
+          this.rooms.set(roomId, room);
+          this.logger.log(`Room created: ${roomId}`);
+          return room;
+        },
+        (err: unknown) => {
+          if (this.pending.get(roomId) === created) this.pending.delete(roomId);
+          throw err;
+        },
+      );
+    this.pending.set(roomId, created);
+    return created;
   }
 
   getRoom(roomId: string): ConferenceRoom | undefined {
     return this.rooms.get(roomId);
+  }
+
+  /** True while `room` is the registry's live room for its id. */
+  isLive(room: ConferenceRoom): boolean {
+    return this.rooms.get(room.id) === room;
   }
 
   getAllRooms(): ConferenceRoom[] {
@@ -91,20 +166,19 @@ export class ConferenceRoomRegistry {
   addPeer(
     room: ConferenceRoom,
     socketId: string,
-    userId: string,
-    displayName: string,
-    sourceLanguage = 'vi',
+    participant: NewParticipant,
   ): ParticipantSession {
     const peer: ParticipantSession = {
-      userId,
-      displayName,
-      sourceLanguage,
+      ...participant,
       muted: false,
       videoEnabled: true,
       sendTransport: null,
       recvTransport: null,
+      creatingTransports: new Set(),
       producers: new Map(),
       consumers: new Map(),
+      persistedTurnIds: new Set(),
+      chat: null,
     };
     room.peers.set(socketId, peer);
     return peer;
@@ -113,17 +187,62 @@ export class ConferenceRoomRegistry {
   removePeer(room: ConferenceRoom, socketId: string): void {
     const peer = room.peers.get(socketId);
     if (!peer) return;
-
-    peer.producers.forEach((p) => p.close());
-    peer.consumers.forEach((c) => c.close());
-    peer.sendTransport?.close();
-    peer.recvTransport?.close();
+    closePeerMedia(peer);
     room.peers.delete(socketId);
-
-    if (room.peers.size === 0) {
-      room.router.close();
-      this.rooms.delete(room.id);
-      this.logger.log(`Room removed (empty): ${room.id}`);
-    }
+    this.dropIfEmpty(room);
   }
+
+  /** Close a room nobody is in, e.g. after a join aborted mid-way. */
+  dropIfEmpty(room: ConferenceRoom): void {
+    if (room.peers.size > 0 || !this.isLive(room)) return;
+    this.rooms.delete(room.id);
+    room.router.close();
+    this.logger.log(`Room removed (empty): ${room.id}`);
+  }
+
+  /**
+   * End one room: listeners notify and disconnect its peers, then every
+   * transport and the router close. Also cancels a creation still in flight.
+   */
+  endRoom(roomId: string): void {
+    this.pending.delete(roomId);
+    const room = this.rooms.get(roomId);
+    if (room) this.close(room, 'ended');
+  }
+
+  private closeAll(reason: RoomCloseReason): void {
+    this.pending.clear();
+    for (const room of [...this.rooms.values()]) this.close(room, reason);
+  }
+
+  private close(room: ConferenceRoom, reason: RoomCloseReason): void {
+    this.rooms.delete(room.id);
+    for (const listener of this.closingListeners) {
+      try {
+        listener(room, reason);
+      } catch (err) {
+        this.logger.error('a room-closing listener threw', err);
+      }
+    }
+    for (const peer of room.peers.values()) closePeerMedia(peer);
+    room.peers.clear();
+    try {
+      room.router.close();
+    } catch (err) {
+      // A router on a dead worker may already be gone.
+      this.logger.warn(`router close failed for ${room.id}: ${String(err)}`);
+    }
+    this.logger.log(`Room closed (${reason}): ${room.id}`);
+  }
+}
+
+function closePeerMedia(peer: ParticipantSession): void {
+  peer.producers.forEach((p) => p.close());
+  peer.consumers.forEach((c) => c.close());
+  peer.sendTransport?.close();
+  peer.recvTransport?.close();
+  peer.producers.clear();
+  peer.consumers.clear();
+  peer.sendTransport = null;
+  peer.recvTransport = null;
 }

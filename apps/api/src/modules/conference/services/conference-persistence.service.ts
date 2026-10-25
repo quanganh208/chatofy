@@ -1,93 +1,85 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import type { LanguageCode } from '@chatofy/types';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 export interface RecordTurnData {
-  sourceLanguage: string;
+  sourceLanguage: LanguageCode;
   sourceText: string;
   searchText?: string;
-  translations?: Record<string, unknown>;
-  audioStartMs?: number;
-  audioDurationMs?: number;
+  translations: Partial<Record<LanguageCode, string>>;
 }
 
 export interface RecordMessageData {
   text: string;
-  sourceLanguage: string;
+  sourceLanguage: LanguageCode;
 }
 
 /**
  * Persistence layer for conference in-session events.
  *
- * Each method is fire-and-forget safe to call from the gateway — errors are
- * logged but not rethrown so a DB hiccup never kills the WebSocket handler.
+ * `recordJoin` throws, because a join cannot succeed without its participant
+ * row. Everything else is fire-and-forget safe to call from the gateway: errors
+ * are logged but not rethrown so a DB hiccup never kills a WebSocket handler.
+ *
+ * Joins and leaves for one (conference, user) run strictly in the order they
+ * were requested. There is one participant row per pair, so a leave from a
+ * socket that closed straight after joining must not land before that join's
+ * upsert (leaving the row `joined` forever), and a quick leave-then-rejoin must
+ * not have the leave overwrite the rejoin.
  */
 @Injectable()
 export class ConferencePersistenceService {
   private readonly logger = new Logger(ConferencePersistenceService.name);
+  /** Tail of the pending join/leave chain per (conference, user). */
+  private readonly chains = new Map<string, Promise<unknown>>();
 
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Upsert a participant row on join.
+   * Upsert the caller's participant row and return its id.
    *
-   * Uses the @@unique([conferenceId, userId]) constraint so re-joining an
-   * existing conference updates the row rather than creating a duplicate.
-   * Returns the participant row id.
+   * Never creates the Conference: a room exists only once `POST /conference`
+   * minted it, and the gateway checks that before calling this.
    */
-  async recordJoin(
+  recordJoin(
     conferenceId: string,
     userId: string,
-    displayName: string | undefined,
-    sourceLanguage: string,
+    displayName: string,
+    sourceLanguage: LanguageCode,
   ): Promise<string> {
-    // Auto-create the Conference row if it doesn't exist (covers ad-hoc rooms
-    // created directly via the gateway without a prior POST /conference call).
-    await this.prisma.conference.upsert({
-      where: { id: conferenceId },
-      create: { id: conferenceId, ownerId: userId, status: 'active' },
-      update: {},
+    return this.serialize(conferenceId, userId, async () => {
+      const participant = await this.prisma.conferenceParticipant.upsert({
+        where: { conferenceId_userId: { conferenceId, userId } },
+        create: {
+          conferenceId,
+          userId,
+          displayName,
+          sourceLanguage,
+          status: 'joined',
+        },
+        update: { displayName, sourceLanguage, status: 'joined', leftAt: null },
+        select: { id: true },
+      });
+      return participant.id;
     });
-
-    const participant = await this.prisma.conferenceParticipant.upsert({
-      where: { conferenceId_userId: { conferenceId, userId } },
-      create: {
-        conferenceId,
-        userId,
-        displayName: displayName ?? null,
-        sourceLanguage,
-        status: 'joined',
-      },
-      update: {
-        displayName: displayName ?? null,
-        sourceLanguage,
-        status: 'joined',
-        leftAt: null,
-      },
-    });
-    return participant.id;
   }
 
-  /**
-   * Mark a participant as left.
-   */
-  async recordLeave(conferenceId: string, userId: string): Promise<void> {
-    try {
+  /** Mark a participant as left. Never rejects. */
+  recordLeave(conferenceId: string, userId: string): Promise<void> {
+    return this.serialize(conferenceId, userId, async () => {
       await this.prisma.conferenceParticipant.updateMany({
         where: { conferenceId, userId, status: { not: 'left' } },
         data: { status: 'left', leftAt: new Date() },
       });
-    } catch (err) {
+    }).catch((err: unknown) => {
       this.logger.error(
         `recordLeave failed for user ${userId} in conference ${conferenceId}`,
         err,
       );
-    }
+    });
   }
 
-  /**
-   * Persist one speech turn from a participant.
-   */
+  /** Persist one finished speech turn. Never rejects. */
   async recordTurn(
     participantId: string,
     conferenceId: string,
@@ -101,11 +93,7 @@ export class ConferencePersistenceService {
           sourceLanguage: data.sourceLanguage,
           sourceText: data.sourceText,
           searchText: data.searchText ?? null,
-          translations: data.translations
-            ? (data.translations as Prisma.InputJsonValue)
-            : Prisma.JsonNull,
-          audioStartMs: data.audioStartMs ?? null,
-          audioDurationMs: data.audioDurationMs ?? null,
+          translations: data.translations,
         },
       });
     } catch (err) {
@@ -116,9 +104,7 @@ export class ConferencePersistenceService {
     }
   }
 
-  /**
-   * Persist one chat message from a participant.
-   */
+  /** Persist one chat message, in the sender's language. Never rejects. */
   async recordMessage(
     participantId: string,
     conferenceId: string,
@@ -139,5 +125,27 @@ export class ConferencePersistenceService {
         err,
       );
     }
+  }
+
+  /** Run `task` after every earlier join/leave for the same pair settled. */
+  private serialize<T>(
+    conferenceId: string,
+    userId: string,
+    task: () => Promise<T>,
+  ): Promise<T> {
+    // A newline cannot appear in either id, so two pairs cannot share a key.
+    const key = `${conferenceId}\n${userId}`;
+    // The stored tail never rejects, so one failed write cannot skip the next.
+    const previous = this.chains.get(key) ?? Promise.resolve();
+    const run = previous.then(task);
+    const settled = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.chains.set(key, settled);
+    void settled.then(() => {
+      if (this.chains.get(key) === settled) this.chains.delete(key);
+    });
+    return run;
   }
 }

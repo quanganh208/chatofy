@@ -10,6 +10,10 @@ import type {
   CreateConferenceRequest,
 } from '@chatofy/types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ConferenceRoomRegistry } from './conference-room-registry.service';
+
+/** Whether a room id may be joined, as the gateway reports it. */
+export type JoinableStatus = 'joinable' | 'room_not_found' | 'room_ended';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -17,7 +21,10 @@ const MAX_LIMIT = 100;
 
 @Injectable()
 export class ConferenceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly rooms: ConferenceRoomRegistry,
+  ) {}
 
   /**
    * Create a new conference room owned by the caller.
@@ -119,7 +126,36 @@ export class ConferenceService {
   }
 
   /**
-   * End a conference: set status='ended', endedAt=now().
+   * Whether `conferenceId` names a room that can be joined.
+   *
+   * Link is access: any signed-in caller holding the id may join, so this
+   * checks only that the room was minted by `POST /conference` and has not
+   * been ended.
+   */
+  async joinableStatus(conferenceId: string): Promise<JoinableStatus> {
+    const conference = await this.prisma.conference.findUnique({
+      where: { id: conferenceId },
+      select: { status: true },
+    });
+    if (!conference) return 'room_not_found';
+    return conference.status === 'ended' ? 'room_ended' : 'joinable';
+  }
+
+  /**
+   * Flip a `waiting` room to `active` on its first successful join.
+   * A no-op for a room that is already active or ended.
+   */
+  async markActive(conferenceId: string): Promise<void> {
+    await this.prisma.conference.updateMany({
+      where: { id: conferenceId, status: 'waiting' },
+      data: { status: 'active', startedAt: new Date() },
+    });
+  }
+
+  /**
+   * End a conference: set status='ended', endedAt=now(), then end the live
+   * room — every peer gets `conference.ended` and its socket closes with 4001.
+   * Ending an already-ended room changes nothing and returns it as it is.
    * Raises 403 when the caller is not the owner.
    * Raises 404 when the conference does not exist.
    */
@@ -139,12 +175,18 @@ export class ConferenceService {
       throw new ForbiddenException('Only the owner can end a conference');
     }
 
-    const updated = await this.prisma.conference.update({
-      where: { id: conferenceId },
-      data: { status: 'ended', endedAt: new Date() },
-    });
+    const ended =
+      conference.status === 'ended'
+        ? conference
+        : await this.prisma.conference.update({
+            where: { id: conferenceId },
+            data: { status: 'ended', endedAt: new Date() },
+          });
 
-    return this.toResponse(updated);
+    // After the write, so a join racing this one is refused by the status
+    // check if it has not reached the room yet, and closed here if it has.
+    this.rooms.endRoom(conferenceId);
+    return this.toResponse(ended);
   }
 
   private toResponse(conference: {

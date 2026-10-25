@@ -1,8 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Conferencing is off unless enabled, and AppModule decides whether to import
+// ConferenceModule when it is first loaded — so this must run before the
+// imports below, which `vi.hoisted` guarantees.
+vi.hoisted(() => {
+  process.env.CONFERENCE_ENABLED = 'true';
+});
+
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
 import type { AddressInfo } from 'node:net';
+import request from 'supertest';
 import { ProviderRegistry } from '@chatofy/ai-providers';
 import { WS_SUBPROTOCOL } from '@chatofy/types';
 import { AppModule } from '../src/app.module';
@@ -11,13 +20,19 @@ import { InMemoryUserRepository } from './utils/in-memory-user.repository';
 import { registerAndLogin, type Identity } from './utils/auth-fixture';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AiProvidersFactory } from '../src/modules/translate/providers/ai-providers.factory';
+import { InMemoryConferencePrisma } from './utils/in-memory-conference-prisma';
 
 /**
  * The Phase-4 conference chat path, proven end to end over a real /ws/conference
  * socket: a message sent in one participant's language arrives at each recipient
  * in THEIR language, while the sender hears their own original back.
  *
- * Hermetic — no browser, no WebRTC, no DB, no network, no key. The translation
+ * Rooms are minted through `POST /conference` first, as the clients do: the
+ * gateway never creates one, so a join to an id the API did not mint fails.
+ *
+ * Hermetic — no browser, no WebRTC, no DB, no network, no key. Conference rows
+ * live in the in-memory conference store, which keeps Postgres's key and
+ * visibility rules. The translation
  * backend is faked to echo `[<target>] <text>`, so an assertion on the delivered
  * text proves per-recipient routing and translation without a live model: a
  * vi→en delivery that reads `[en] …` could only have gone through the target the
@@ -28,6 +43,7 @@ describe('/ws/conference chat translation (e2e)', () => {
   let base: string;
   let alice: Identity;
   let bob: Identity;
+  const prisma = new InMemoryConferencePrisma();
 
   /**
    * The crux. The gateway's chat handler calls
@@ -56,7 +72,7 @@ describe('/ws/conference chat translation (e2e)', () => {
       imports: [AppModule],
     })
       .overrideProvider(PrismaService)
-      .useValue({ $queryRaw: vi.fn().mockResolvedValue([{ '?column?': 1 }]) })
+      .useValue(prisma)
       .overrideProvider(USER_REPOSITORY)
       .useValue(new InMemoryUserRepository())
       .overrideProvider(ProviderRegistry)
@@ -79,6 +95,18 @@ describe('/ws/conference chat translation (e2e)', () => {
   afterAll(async () => {
     await app.close();
   });
+
+  /** Mint a room through the REST API, the only way a room comes to exist. */
+  async function createRoom(owner: Identity): Promise<string> {
+    const res = await request(app.getHttpServer())
+      .post('/conference')
+      .set('Authorization', owner.bearer)
+      .send({})
+      .expect(201);
+    const body = res.body as { data: { id: string; status: string } };
+    expect(body.data.status).toBe('waiting');
+    return body.data.id;
+  }
 
   /** One frame received on a conference socket: `{ event, data }`. */
   interface Frame {
@@ -141,6 +169,16 @@ describe('/ws/conference chat translation (e2e)', () => {
       }
     }
 
+    /** Resolves with the close code once the server ends the connection. */
+    closed(): Promise<number> {
+      return new Promise((resolve) => {
+        if (this.socket.readyState === WebSocket.CLOSED) resolve(1006);
+        this.socket.addEventListener('close', (e) => resolve(e.code), {
+          once: true,
+        });
+      });
+    }
+
     close(): void {
       this.socket.close();
     }
@@ -163,7 +201,7 @@ describe('/ws/conference chat translation (e2e)', () => {
   }
 
   it('delivers a vi message to an en recipient translated, and echoes the original to the sender', async () => {
-    const room = 'smoke-room';
+    const room = await createRoom(alice);
     const aliceClient = await ConferenceClient.connect(alice);
     const bobClient = await ConferenceClient.connect(bob);
 
@@ -204,11 +242,11 @@ describe('/ws/conference chat translation (e2e)', () => {
   });
 
   it('translates the other direction too (en message → vi recipient)', async () => {
-    const room = 'smoke-room-2';
+    const room = await createRoom(bob);
     const aliceClient = await ConferenceClient.connect(alice);
     const bobClient = await ConferenceClient.connect(bob);
 
-    const aliceId = await join(aliceClient, room, 'Alice', 'vi');
+    await join(aliceClient, room, 'Alice', 'vi');
     const bobId = await join(bobClient, room, 'Bob', 'en');
 
     bobClient.send('conference.chat', { text: 'hello everyone' });
@@ -224,6 +262,50 @@ describe('/ws/conference chat translation (e2e)', () => {
       lang: 'vi',
     });
 
+    aliceClient.close();
+    bobClient.close();
+  });
+
+  it('refuses to join a room id the API never minted', async () => {
+    const client = await ConferenceClient.connect(alice);
+
+    client.send('conference.join', {
+      roomId: 'cneverminted00000000',
+      displayName: 'Alice',
+      sourceLanguage: 'vi',
+    });
+
+    const reply = await client.waitFor('conference.join');
+    expect(reply.data).toStrictEqual({ error: 'room_not_found' });
+    client.close();
+  });
+
+  it('drops a socket that sends a frame over the 512 KiB cap', async () => {
+    const client = await ConferenceClient.connect(alice);
+    const closed = client.closed();
+
+    client.send('conference.chat', { text: 'x'.repeat(600 * 1024) });
+
+    // 1009: message too big — refused by ws before any handler parses it.
+    expect(await closed).toBe(1009);
+  });
+
+  it('stores each chat message once, in the sender language', async () => {
+    const room = await createRoom(alice);
+    const aliceClient = await ConferenceClient.connect(alice);
+    const bobClient = await ConferenceClient.connect(bob);
+    await join(aliceClient, room, 'Alice', 'vi');
+    const bobId = await join(bobClient, room, 'Bob', 'en');
+
+    bobClient.send('conference.chat', { text: 'stored once' });
+    await aliceClient.waitFor(
+      'conference.chat.message',
+      (d) => d.socketId === bobId,
+    );
+
+    expect(
+      prisma.messages.filter((m) => m.conferenceId === room),
+    ).toMatchObject([{ text: 'stored once', sourceLanguage: 'en' }]);
     aliceClient.close();
     bobClient.close();
   });
