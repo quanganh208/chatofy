@@ -4,6 +4,8 @@ export {
   ConferenceTranslationAudioSchema,
   ConferenceTranslationBroadcastSchema,
   ConferenceTranslationSubtitleSchema,
+  MAX_CONFERENCE_AUDIO_PAYLOAD_CHARS,
+  MAX_CONFERENCE_TURN_TEXT_CHARS,
 } from './conference-translation-events.js';
 export type {
   ConferenceTranslationAudio,
@@ -13,6 +15,38 @@ export type {
 
 export { ConferenceChatMessageSchema } from './conference-chat-events.js';
 export type { ConferenceChatMessage } from './conference-chat-events.js';
+
+export {
+  CONFERENCE_CLOSE_ENDED,
+  CONFERENCE_CLOSE_REPLACED,
+  CONFERENCE_ERROR_CODES,
+  ConferenceChatSendSchema,
+  ConferenceConsumerResumeSchema,
+  ConferenceConsumeSchema,
+  ConferenceEndedSchema,
+  ConferenceJoinSchema,
+  ConferenceParticipantMuteSchema,
+  ConferenceParticipantVideoSchema,
+  ConferenceProduceSchema,
+  conferenceRoomIdSchema,
+  ConferenceTransportConnectSchema,
+  ConferenceTransportCreateSchema,
+  MAX_CONFERENCE_CHAT_TEXT_CHARS,
+  MAX_CONFERENCE_DISPLAY_NAME_CHARS,
+} from './conference-signaling-events.js';
+export type {
+  ConferenceChatSend,
+  ConferenceConsume,
+  ConferenceConsumerResume,
+  ConferenceEnded,
+  ConferenceErrorCode,
+  ConferenceJoin,
+  ConferenceParticipantMute,
+  ConferenceParticipantVideo,
+  ConferenceProduce,
+  ConferenceTransportConnect,
+  ConferenceTransportCreate,
+} from './conference-signaling-events.js';
 
 export {
   audioEncodingSchema,

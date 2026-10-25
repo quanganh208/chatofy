@@ -1,10 +1,12 @@
 # Video network path: how meeting media reaches the server
 
-> **Status: Research / decision input for [Issue #208](https://github.com/quanganh208/chatofy/issues/208).**
-> Resolves the open question left by Decision 1 in
-> [video-conferencing-architecture.md](../video-conferencing-architecture.md): mediasoup is
-> chosen, but its media cannot use the Cloudflare Tunnel. This document picks the network path.
-> No production conferencing code exists on `main`.
+> **Status: Decision input for [Issue #208](https://github.com/quanganh208/chatofy/issues/208); the
+> decision is pending.** mediasoup is chosen (Decision 1 in
+> [video-conferencing-architecture.md](../video-conferencing-architecture.md)), but its media
+> cannot use the Cloudflare Tunnel. The conferencing code is on `main` behind
+> `CONFERENCE_ENABLED`, off in production. §7's first-ranked option turned out impossible on
+> the production host (§8); the two remaining candidates are written up against the current
+> code in §9.
 
 **Date:** 2026-10-06
 **Constraints anchoring every choice below:** production is behind a Cloudflare Tunnel (every
@@ -255,7 +257,11 @@ settled.
 
 ---
 
-## 7. Recommendation
+## 7. Recommendation (2026-10-06, superseded in part)
+
+> Option #1 below needs an inbound port on the production host, and the host check of
+> 2026-10-12 found none can be opened (§8, question 1). It stays here as the reasoning of the
+> time; the open choice is between #2 and #3, in §9.
 
 **Primary: use the mediasoup-native path only if the host can expose a public media port
 (§4.4); otherwise adopt Cloudflare Realtime TURN (§4.3) as the client-side relay in front of a
@@ -299,7 +305,7 @@ expose a public media port** — establish that before writing the production im
   │          │                                             │    ICE-lite,           │
   │          │   WebRTC media (ICE/DTLS/RTP)               │    announcedAddress =  │
   │          │   direct to public media port ────────────▶│    <public IP/DNS>     │
-  │          │                                             │    UDP 40000–49999     │
+  │          │                                             │    RTC 50000–59999     │
   │          │                                             │    + TCP fallback      │
   │          │                                             └───────────────────────┘
   │          │   if client UDP+TCP blocked:                         ▲
@@ -316,9 +322,11 @@ network blocks direct media.
 
 ## 8. Unresolved questions
 
-1. **Can the production host expose a public media port at all?** (public/static IP, CGNAT,
-   ISP inbound policy, and whether breaking the loopback-only invariant is acceptable.) This
-   decides recommendation #1 vs #2 and is a host-network fact not recorded in the repo.
+1. **Can the production host expose a public media port at all?** **Answered, no**
+   (2026-10-12). The host sits on a company network; its router is not the operator's to
+   configure, so no port forward or inbound port can be added and its WAN address cannot be
+   read, which makes CGNAT moot. The router also refuses UPnP and NAT-PMP. Recommendation #1
+   is out.
 2. **mediasoup Worker RAM footprint under a `--memory` cap**, measured against the ~3.4 GiB
    headroom — flagged unmeasured in Decision 1 and still unmeasured.
 3. **Exact recurring cost** of the smallest viable VPS (#2) and of a static IP from the host's
@@ -326,3 +334,26 @@ network blocks direct media.
 4. **Does TURNS on port 443 actually traverse the specific client networks you must support?**
    TLS/443 defeats most blocks but not deep-packet-inspection proxies; only testing on the
    target networks confirms it.
+
+---
+
+## 9. The two remaining candidates against the current code
+
+Both need no inbound port on the production host. What exists today, and what either one
+changes: the API process runs the mediasoup worker (`ConferenceWorkerService`), one router per
+room, and the WebRTC transports (`conference-webrtc-transport.factory.ts`, announcing
+`MEDIASOUP_ANNOUNCED_IP`, UDP + TCP, RTC ports 50000–59999); `/ws/conference` carries
+signaling through the tunnel; `POST /conference` creates rooms; the translation relay, chat,
+persistence and REST routes do not touch media. The owner chooses; nothing below is a choice.
+
+|                | **§4.5 — mediasoup on a VPS + Cloudflare Realtime TURN**                                                                                                                                                                                                                                                                                                                                                                                                                                              | **§4.2 — Cloudflare Realtime SFU**                                                                                                                                                                                                                                                                        |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Gateway**    | The media half leaves the API process: the worker, routers and transports run in a small service on the VPS, and the gateway calls it over an outbound HTTPS/WSS control channel (outbound works from the company network). The VPS cannot simply run the whole API, because Postgres and the auth secret stay on the loopback-only host. Room registry, signaling events, translation relay, chat and persistence stay. TURN credentials come from Cloudflare's TURN API instead of the coturn HMAC. | mediasoup goes. The gateway creates Cloudflare sessions and pushes/pulls tracks through Cloudflare's HTTPS API, relaying SDP between clients and Cloudflare; `transport.create` / `produce` / `consume` become SDP-negotiation events. Room registry, translation relay, chat, persistence and REST stay. |
+| **Clients**    | None beyond configuration: ICE candidates now name the VPS address.                                                                                                                                                                                                                                                                                                                                                                                                                                   | The mediasoup-client `Device` / transports are replaced by a plain `RTCPeerConnection` (browser API on web, `react-native-webrtc` on mobile). Translation bridge and screens stay.                                                                                                                        |
+| **Deploy**     | A second host to provision, harden, deploy and monitor; its firewall opens the RTC range (or one UDP + one TCP port with a mediasoup `WebRtcServer`); the control channel needs its own credential.                                                                                                                                                                                                                                                                                                   | No worker, no media ports, no mediasoup native dependency in the API image; a Cloudflare Realtime app id and token become API secrets.                                                                                                                                                                    |
+| **Cost**       | VPS monthly fee (**verify at the provider**, §6) + TURN at $0.05/GB after the shared 1,000 GB/mo free tier.                                                                                                                                                                                                                                                                                                                                                                                           | $0.05/GB egress after the shared 1,000 GB/mo free tier (§6); thesis traffic sits far below it.                                                                                                                                                                                                            |
+| **Decision 1** | Kept.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Reopened: replaces mediasoup.                                                                                                                                                                                                                                                                             |
+
+The connectivity run from two networks (Wi-Fi and 4G, with RTT and packet loss) is the
+acceptance criterion still open on #208. It needs the chosen path and is run after the
+choice.

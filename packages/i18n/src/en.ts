@@ -702,6 +702,13 @@ export const en = {
   // {attempt} is the current attempt number (1-based); {cap} is the maximum.
   // Leave stays the one accent control in this state too.
   'web.conference.reconnecting': 'Reconnecting ({attempt}/{cap})…',
+  // ---- web.conference: room lifecycle ----
+  // A room exists only once POST /conference created it; the socket refuses a
+  // join to an id it does not know, or to a meeting its owner ended.
+  'web.conference.creating': 'Creating…',
+  'web.conference.createFailed': 'Could not create a room. Try again.',
+  'web.conference.roomNotFound': 'This room does not exist.',
+  'web.conference.roomEnded': 'This meeting has ended.',
   'web.meta.conference': 'Conference · Chatofy',
 
   // ---- mobile.conference: the React Native conference lobby + call screen ----
@@ -761,6 +768,14 @@ export const en = {
   'mobile.conference.chatPlaceholder': 'Type a message…',
   'mobile.conference.chatSend': 'Send',
   'mobile.conference.chatEmpty': 'No messages yet.',
+  'mobile.conference.creating': 'Creating…',
+  'mobile.conference.create': 'Create a room',
+  'mobile.conference.join': 'Join a room',
+  'mobile.conference.createFailed': 'Could not create a room. Try again.',
+  'mobile.conference.roomNotFound': 'This room does not exist.',
+  'mobile.conference.roomEnded': 'This meeting has ended.',
+  'mobile.home.comingSoon': 'coming soon',
+  'mobile.home.joinConference': 'Join a conference',
 } as const;
 
 /** Every key any locale must carry. Derived, so a locale cannot drift from it. */

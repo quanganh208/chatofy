@@ -1,9 +1,9 @@
 // Conference chat events — in-meeting text chat, translated per recipient on
-// the /ws/conference gateway. Ephemeral and in-memory; no persistence.
+// the /ws/conference gateway. Each sent message is stored once, in the
+// sender's language, as a ConferenceMessage row.
 import { z } from 'zod';
 
-/** ISO-639-1 language code, e.g. 'vi', 'en'. */
-const langCodeSchema = z.string().length(2);
+import { languageCodeSchema as langCodeSchema } from '../domain/languages.js';
 
 /**
  * conference.chat.message
