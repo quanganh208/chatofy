@@ -359,6 +359,31 @@ describe('CapturePump', () => {
       expect(preRoll.length).toBeGreaterThan(0);
     });
 
+    // A soft first consonant reads as silence, so a word begun inside the hangover
+    // has its onset held — and the close used to drop everything held, leaving the
+    // next turn to open on what followed. "Con tàu" reached the server as "Tàu".
+    it('carries what the hangover held into the next turn, unsent and once', () => {
+      const { pump, handlers, turnOf } = harness(CONTINUOUS);
+
+      push(pump, speech, 400);
+      let closedAt = 0;
+      handlers.onTurnClose.mockImplementationOnce(() => {
+        closedAt = nextTag;
+        return 0;
+      });
+      push(pump, silence, 500); // the hangover runs out on the last of these
+      handlers.onTurnOpen.mockClear();
+      push(pump, speech, 300); // the next word, with no silence in between
+
+      const preRoll = handlers.onTurnOpen.mock.calls[0]?.[0] as Int16Array[];
+      // Blocks tagged before the one that closed the turn were held by it. The
+      // closing block itself lands in the pre-roll either way.
+      expect(preRoll.some((block) => tagOf(block) < closedAt)).toBe(true);
+      // Held means unsent: none of them may also have gone out with the turn
+      // that ended, or the server hears them twice.
+      expect(preRoll.every((block) => turnOf.get(tagOf(block)) === 2)).toBe(true);
+    });
+
     // Same defect, other symptom: `isMuted` reads `state === 'awaiting-result'`,
     // so a pump stuck there reports the microphone as muted for the whole
     // conversation and the overlay says so.
@@ -679,6 +704,30 @@ describe('CapturePump', () => {
       expect(handlers.onTurnClose).toHaveBeenCalledWith('interrupted');
       expect(handlers.onTurnClose).not.toHaveBeenCalledWith('forced');
       expect(pump.droppedBlocksWhileSounding).toBeGreaterThan(0);
+    });
+
+    // Only a hangover's held audio is adjacent to the next turn. An interruption
+    // closes on our own playback, and the next turn opens after it stops: carrying
+    // what that turn held would splice audio from before the playback onto speech
+    // that came after it.
+    it('opens the turn after an interruption without what the interrupted turn held', () => {
+      let sounding = false;
+      const { pump, handlers } = harness({ ...CONTINUOUS, sounding: () => sounding });
+
+      push(pump, speech, 400);
+      push(pump, silence, 100); // held: short of the probable end, so never flushed
+      const interruptedAt = nextTag;
+      sounding = true;
+      push(pump, speech, 200);
+      expect(handlers.onTurnClose).toHaveBeenCalledWith('interrupted');
+
+      sounding = false;
+      handlers.onTurnOpen.mockClear();
+      push(pump, speech, 300);
+
+      expect(handlers.onTurnOpen).toHaveBeenCalledTimes(1);
+      const preRoll = handlers.onTurnOpen.mock.calls[0]?.[0] as Int16Array[];
+      expect(preRoll.every((block) => tagOf(block) > interruptedAt)).toBe(true);
     });
 
     // Continuous mode has no close to zero the meter at, so without an edge the

@@ -3,9 +3,13 @@ import * as React from 'react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ServerEvent, SessionOptions } from '@chatofy/types';
+import type { ServerEvent } from '@chatofy/types';
 import type { ConversationSessionListeners } from '@chatofy/realtime-client';
-import { useStreamingTranslate, type UseStreamingTranslate } from './use-streaming-translate';
+import {
+  useStreamingTranslate,
+  type StartOptions,
+  type UseStreamingTranslate,
+} from './use-streaming-translate';
 
 /**
  * The conversation id, and only the conversation id.
@@ -31,7 +35,11 @@ const FakeConversationSession = vi.hoisted(() => {
       Fake.last = this;
     }
 
-    start = (): Promise<void> => {
+    /** What each `start` was handed, so a case can read what reached the wire. */
+    startedWith: Record<string, unknown>[] = [];
+
+    start = (options: Record<string, unknown>): Promise<void> => {
+      this.startedWith.push(options);
       this.listeners.onReset();
       this.listeners.onStatus('listening');
       return Promise.resolve();
@@ -43,6 +51,29 @@ const FakeConversationSession = vi.hoisted(() => {
     };
 
     retranslateBlock = vi.fn();
+
+    // Pause bookkeeping the way the real session does it: an interval opened
+    // on pause, closed on resume, and every change reported as a new array.
+    isPaused = false;
+    pauseIntervals: { startedAt: number; endedAt: number | null }[] = [];
+    pause = (): void => {
+      if (this.isPaused) return;
+      this.isPaused = true;
+      this.pauseIntervals = [...this.pauseIntervals, { startedAt: Date.now(), endedAt: null }];
+      this.listeners.onPauses?.(this.pauseIntervals);
+      this.listeners.onStatus('paused');
+    };
+    resume = (): void => {
+      if (!this.isPaused) return;
+      this.isPaused = false;
+      const last = this.pauseIntervals.at(-1)!;
+      this.pauseIntervals = [
+        ...this.pauseIntervals.slice(0, -1),
+        { startedAt: last.startedAt, endedAt: Date.now() },
+      ];
+      this.listeners.onPauses?.(this.pauseIntervals);
+      this.listeners.onStatus('listening');
+    };
   }
   return Fake;
 });
@@ -62,7 +93,10 @@ vi.mock('@/i18n/provider', () => ({
   useLocale: () => 'en',
 }));
 
-const options: SessionOptions = { direction: 'vi_to_en', voiceGender: 'female' };
+const options: StartOptions = {
+  languagePair: { source: 'vi', target: 'en' },
+  voiceGender: 'female',
+};
 
 let container: HTMLDivElement;
 let root: Root;
@@ -157,29 +191,29 @@ describe('useStreamingTranslate conversation identity', () => {
     expect(latest.conversationId).toBe(during);
   });
 
-  it('captures the direction a conversation started with, and keeps it after it ends', async () => {
+  it('captures the language pair a conversation started with, and keeps it after it ends', async () => {
     // The one thing a caller must NOT be able to do by re-reading its own
-    // settings after `stop`: the direction toggle stays live once the
-    // conversation is idle, so a page holding `settings.direction` instead of
+    // settings after `stop`: the language pickers stay live once the
+    // conversation is idle, so a page holding `settings.languagePair` instead of
     // this captured value would report the wrong language for turns already on
     // screen the moment somebody swapped it.
-    expect(latest.direction).toBeNull();
+    expect(latest.languagePair).toBeNull();
 
     await act(async () => {
       await latest.start(options);
     });
-    expect(latest.direction).toBe('vi_to_en');
+    expect(latest.languagePair).toEqual({ source: 'vi', target: 'en' });
 
     await act(async () => {
       latest.stop();
       await Promise.resolve();
     });
-    expect(latest.direction).toBe('vi_to_en');
+    expect(latest.languagePair).toEqual({ source: 'vi', target: 'en' });
 
     await act(async () => {
-      await latest.start({ ...options, direction: 'en_to_vi' });
+      await latest.start({ ...options, languagePair: { source: 'en', target: 'vi' } });
     });
-    expect(latest.direction).toBe('en_to_vi');
+    expect(latest.languagePair).toEqual({ source: 'en', target: 'vi' });
   });
 });
 
@@ -191,11 +225,9 @@ describe('useStreamingTranslate block retranslation', () => {
       id: `seg-${sessionId}`,
       sessionId,
       speakerRole: 'speaker_a',
-      direction: 'vi_to_en',
       sourceLanguages: ['vi'],
       translations: { en },
       sourceText,
-      targetText: en,
       audioUrl: null,
       createdAt: '2026-10-01T00:00:00.000Z',
     },
@@ -288,5 +320,85 @@ describe('useStreamingTranslate block retranslation', () => {
 
     expect(released).toBe(true);
     expect(session.retranslateBlock).not.toHaveBeenCalled();
+  });
+});
+
+describe('useStreamingTranslate pauses', () => {
+  it('reports the paused total once a pause is over, and the open one apart', async () => {
+    let now = 1_000_000;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    await act(async () => {
+      await latest.start(options);
+    });
+
+    now += 10_000;
+    act(() => latest.pause());
+    expect(latest.pauses).toEqual([{ startedAt: 1_010_000, endedAt: null }]);
+    // Not counted until it closes, so the total does not tick while paused.
+    expect(latest.pausedMs).toBe(0);
+
+    now += 5_000;
+    act(() => latest.resume());
+    expect(latest.pausedMs).toBe(5_000);
+    // No recorder ran through the pause, so offsets leave it out too.
+    expect(latest.offsetPauses).toEqual(latest.pauses);
+  });
+});
+
+describe('useStreamingTranslate languages', () => {
+  const startIn = async (languagePair: StartOptions['languagePair']) => {
+    await act(async () => {
+      await latest.start({ ...options, languagePair });
+    });
+    return FakeConversationSession.last!.startedWith.at(-1);
+  };
+
+  it('asks for two-way when the pair can be told apart, and says so', async () => {
+    expect(await startIn({ source: 'vi', target: 'en' })).toMatchObject({ twoWay: true });
+    expect(latest.twoWayRequested).toBe(true);
+  });
+
+  it('never asks two-way for an auto-detected source or a pair it cannot identify', async () => {
+    expect(await startIn({ source: 'detect', target: 'en' })).not.toHaveProperty('twoWay');
+    expect(latest.twoWayRequested).toBe(false);
+    expect(await startIn({ source: 'vi', target: 'zh' })).not.toHaveProperty('twoWay');
+  });
+
+  it('follows the mode the server answers, and forgets it on the next start', async () => {
+    await startIn({ source: 'vi', target: 'en' });
+    expect(latest.languageMode).toBeNull();
+    act(() => FakeConversationSession.last!.listeners.onLanguageMode?.('declared', 'lid_capacity'));
+    expect(latest.languageMode).toEqual({ mode: 'declared', reason: 'lid_capacity' });
+    await startIn({ source: 'vi', target: 'en' });
+    expect(latest.languageMode).toBeNull();
+  });
+
+  it('keeps per-turn modes from the ready events', async () => {
+    await startIn({ source: 'vi', target: 'en' });
+    act(() =>
+      FakeConversationSession.last!.listeners.onServerEvent({
+        type: 'server.session.ready',
+        sessionId: 's1',
+        mode: 'two-way',
+      }),
+    );
+    expect(latest.languageModes).toEqual({ s1: 'two-way' });
+  });
+
+  it('says an auto-detect refusal in the reader’s language', async () => {
+    await startIn({ source: 'detect', target: 'en' });
+    const { listeners } = FakeConversationSession.last!;
+    act(() =>
+      listeners.onError('Language detection is unavailable', {
+        code: 'language_unavailable',
+        detail: 'language_detection',
+      }),
+    );
+    expect(latest.error).toBe('web.translate.detectUnavailable');
+    act(() => listeners.onError('busy', { code: 'language_unavailable', detail: 'lid_capacity' }));
+    expect(latest.error).toBe('web.translate.detectBusy');
+    // Anything else keeps the server's own words.
+    act(() => listeners.onError('Something else', { code: 'internal' }));
+    expect(latest.error).toBe('Something else');
   });
 });

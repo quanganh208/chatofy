@@ -11,7 +11,12 @@
 // and nothing at all about how a model answers it. `benchmarks/prompt-injection`
 // is what proves the behaviour, against the live API. Change nothing here
 // without re-running it.
-import { LANGUAGES, MAX_GLOSSARY_TERM_WORDS, countTermWords } from '@chatofy/types';
+import {
+  LANGUAGES,
+  MAX_GLOSSARY_TERM_WORDS,
+  countTermWords,
+  type LanguageTable,
+} from '@chatofy/types';
 import type { LanguageCode } from '../../interfaces/provider-types.js';
 import type { GlossaryEntry, TranslationHints } from '../../interfaces/translation-provider.js';
 import { foldForMatch, normalizeTranscript } from '../../text/vietnamese.js';
@@ -90,6 +95,11 @@ const MAX_CONTEXT_UTTERANCE_CHARS = 240;
  * Four is therefore a line drawn where the evidence is, not a tuning knob. What
  * is NOT measured is anything between 5 and 15 words; raising it means measuring
  * that range first.
+ *
+ * A word is what `countTermWords` counts: a whitespace or punctuation token, or,
+ * for text written without spaces (Chinese, Japanese, Thai…), a word from the
+ * ICU dictionary — so `好的` is one word and a fragment, while a ten-word
+ * Chinese sentence clears the gate as its English translation would.
  */
 const MAX_FRAGMENT_WORDS = 4;
 /**
@@ -182,7 +192,11 @@ const CONTEXT_TAG = /<\s*\/?\s*context\b[^>]*>/gi;
  * instruction, which is the one thing this design must not allow.
  */
 function asTranscriptData(text: string): string {
-  return text.replace(/[<>]/g, ' ');
+  // Full-width brackets too: a model reads `＜/transcript＞` as the closing tag,
+  // and NFC — the only normalization upstream — does not fold full-width
+  // forms. Folding the whole transcript with NFKC instead would also rewrite
+  // the full-width digits and punctuation a Chinese display keeps.
+  return text.replace(/[<>＜＞]/g, ' ');
 }
 
 /**
@@ -202,6 +216,44 @@ export function stripTranscriptTags(text: string): string {
 export function wrapTranscript(text: string): string {
   return `${TRANSCRIPT_OPEN}${asTranscriptData(text)}${TRANSCRIPT_CLOSE}`;
 }
+
+/**
+ * What the recognizer for each SOURCE language gets wrong in a predictable way,
+ * appended to rule 4. Empty where nothing is.
+ *
+ * Vietnamese: the local recognizer spells everything it hears — including
+ * English words and names — as lowercase Vietnamese syllables, and one of those
+ * syllables, "ai", collides with the Vietnamese question word for "who". A
+ * synthetic example of the failure this note exists for (no sentence from a
+ * recorded session goes in code): "cạnh tranh với các công ty ai" rendered as
+ * "compete with whom" instead of "compete with AI companies".
+ *
+ * Chinese: Paraformer writes no punctuation and every number as Chinese words
+ * (`八零二点一一`, measured on 100 benchmark hypotheses, none with a digit), and
+ * spells English inside the speech as separate lowercase letters
+ * (`八零二点一一 a` for 802.11a). Its errors are homophones: the same syllable
+ * written with another character.
+ *
+ * English: Parakeet writes cased, punctuated text; there is nothing to note.
+ */
+const RECOGNIZER_NOTES: LanguageTable<string> = {
+  vi:
+    ' The Vietnamese recognizer writes everything in lowercase and spells ' +
+    'English by sound: "ai" is the English "AI" when the surrounding ' +
+    'words are about technology, software, models or companies, and the ' +
+    'Vietnamese "who" otherwise. It is always "who" when the sentence ' +
+    'asks who a person is (for example "bạn là ai", "anh là ai vậy"). ' +
+    'English names and brands may arrive as Vietnamese syllables (for ' +
+    'example "open ai" for OpenAI); restore the original spelling when ' +
+    'the context makes it clear.',
+  en: '',
+  zh:
+    ' The Chinese recognizer writes no punctuation, writes every number as ' +
+    'Chinese words (for example "八零二点一一" for 802.11), and spells English ' +
+    'inside the speech as separate lowercase letters or words (for example ' +
+    '"八零二点一一 a" for 802.11a). It may write a word with a different ' +
+    'character that sounds the same; choose the word the context calls for.',
+};
 
 /**
  * The translator instruction, identical for every model.
@@ -307,23 +359,7 @@ export function buildTranslationInstruction(
     'may run words together, and may contain recognition errors. Translate what ' +
     'the speaker meant: silently repair those artifacts as you translate, ' +
     'choosing the reading that fits the surrounding words.' +
-    // Vietnamese-only, because this particular ambiguity only exists on that
-    // leg: the local recognizer spells everything it hears — including English
-    // words and names — as lowercase Vietnamese syllables, and one of those
-    // syllables, "ai", collides with the Vietnamese question word for "who".
-    // A synthetic example of the failure this note exists for (no sentence
-    // from a recorded session goes in code): "cạnh tranh với các công ty ai"
-    // rendered as "compete with whom" instead of "compete with AI companies".
-    (sourceLanguage === 'vi'
-      ? ' The Vietnamese recognizer writes everything in lowercase and spells ' +
-        'English by sound: "ai" is the English "AI" when the surrounding ' +
-        'words are about technology, software, models or companies, and the ' +
-        'Vietnamese "who" otherwise. It is always "who" when the sentence ' +
-        'asks who a person is (for example "bạn là ai", "anh là ai vậy"). ' +
-        'English names and brands may arrive as Vietnamese syllables (for ' +
-        'example "open ai" for OpenAI); restore the original spelling when ' +
-        'the context makes it clear.'
-      : '') +
+    RECOGNIZER_NOTES[sourceLanguage] +
     '\n' +
     '5. The transcript may also be cut off mid-sentence. Translate only as far ' +
     'as it goes. Never continue it, never invent an ending, and never add ' +
@@ -496,12 +532,12 @@ function dedupeHotwords(hotwords: readonly string[]): string[] {
 }
 
 /**
- * Resolve each language-keyed pair against the direction this session runs in,
+ * Resolve each language-keyed pair against the language pair this session runs in,
  * sanitize both sides, and drop contradictions.
  *
  * The fold is applied to the SOURCE side, which is whichever language the
  * speaker is talking in — so the same stored dictionary de-duplicates
- * differently in `vi_to_en` than in `en_to_vi`. That is correct, and it is also
+ * differently in vi→en than in en→vi. That is correct, and it is also
  * why no database constraint can express this: which side folds is a property of
  * a session, and the row knows of no session.
  *
@@ -540,8 +576,8 @@ function dedupeGlossary(
     const target = clean(entry[targetLanguage] ?? '');
     if (!source || !target) continue;
     // Either side, not just the rendering: the pair is keyed by language, so the
-    // side that carried the imperative in `en_to_vi` is the SOURCE side in
-    // `vi_to_en` and would otherwise reach the block simply by running the
+    // side that carried the imperative in en→vi is the SOURCE side in
+    // vi→en and would otherwise reach the block simply by running the
     // conversation the other way.
     if (
       countTermWords(source) > MAX_GLOSSARY_WORDS ||

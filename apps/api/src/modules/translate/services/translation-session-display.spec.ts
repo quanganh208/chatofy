@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type {
-  AudioFrame,
-  ServerEvent,
-  TranslationDirection,
-} from '@chatofy/types';
+import type { AudioFrame, ServerEvent, LanguagePair } from '@chatofy/types';
 import {
   TranslationSessionService,
   type StreamSocket,
@@ -16,6 +12,7 @@ import type { TurnMetrics, TurnMetricsRecorder } from './turn-metrics.recorder';
 import { encodePcm16Wav } from '../audio/wav-codec';
 import type { SpeechLanguageSupport } from '../providers/speech-language-support';
 import { DeclaredLanguageIdentifier } from '../session/language-identifier';
+import { restoreKeepsWords } from './display-restore-request';
 
 /**
  * Display typesetting on a finished turn.
@@ -110,6 +107,10 @@ interface Harness {
   turns: TurnMetrics[];
   /** Every input the turn handed the pipeline, in call order. */
   inputs: TranslateTurnInput[];
+  /** The spans each respelling call asked about, in call order. */
+  respellCalls: string[][];
+  /** Whether each respelling call was told its translation is in Han characters. */
+  respellHan: boolean[];
 }
 
 function makeService(
@@ -118,28 +119,83 @@ function makeService(
   {
     translation = 'hello',
     blockRestored,
+    respell = {},
+    respellGate,
+    respellThrows = false,
+    corrections,
+    translations,
+    transcripts,
   }: {
+    /** Each turn's transcript in call order, when turns differ; else `sourceText`. */
+    transcripts?: string[];
     translation?: string;
+    /** What the pipeline corrected, already guarded; undefined is nothing. */
+    corrections?:
+      | { heard: string; said: string; at: number }[]
+      | ((
+          sourceText: string,
+        ) => { heard: string; said: string; at: number }[] | undefined);
+    /** Every target's translation, when not the one English line. */
+    translations?: Record<string, string>;
     /** What the sidecar answers for a whole block; undefined is no answer. */
     blockRestored?: (text: string) => string | undefined;
+    /** What the respelling model proposes, keyed by span. */
+    respell?: Record<
+      string,
+      string | { spelling: string; rendering: string } | null
+    >;
+    /** Held until this settles, to model a slow respelling. */
+    respellGate?: Promise<void>;
+    /** Model a respelling that fails outright. */
+    respellThrows?: boolean;
   } = {},
 ): Harness {
   const turns: TurnMetrics[] = [];
   const inputs: TranslateTurnInput[] = [];
+  const respellCalls: string[][] = [];
+  const respellHan: boolean[] = [];
 
   const pipeline = {
     transcribeAndTranslate: vi.fn((input: TranslateTurnInput) => {
       inputs.push(input);
+      const heard = transcripts?.[inputs.length - 1] ?? sourceText;
       return Promise.resolve({
         // Lowercase and unpunctuated, as the Vietnamese recognizer actually emits.
-        sourceText,
-        translations: { en: translation },
+        sourceText: heard,
+        translations: translations ?? { en: translation },
         ...(restored === undefined ? {} : { restored }),
+        ...(corrections === undefined
+          ? {}
+          : {
+              corrections:
+                typeof corrections === 'function'
+                  ? corrections(heard)
+                  : corrections,
+            }),
       });
     }),
     translateAll: vi.fn().mockResolvedValue({ en: translation }),
+    retryAdopted: vi.fn(
+      async (translated: { translations: Record<string, string> }) =>
+        translated.translations,
+    ),
     restoreDisplay: vi.fn((text: string) =>
       Promise.resolve(blockRestored?.(text)),
+    ),
+    canRespellLoanwords: vi.fn(() => true),
+    respellLoanwords: vi.fn(
+      async (
+        _text: string,
+        spans: string[],
+        _translation: string,
+        han = false,
+      ) => {
+        respellCalls.push(spans);
+        respellHan.push(han);
+        await respellGate;
+        if (respellThrows) throw new Error('respeller exploded');
+        return respell;
+      },
     ),
     synthesize: vi
       .fn()
@@ -160,6 +216,7 @@ function makeService(
 
   const languageSupport = {
     refusal: () => null,
+    identifiable: () => null,
   } as unknown as SpeechLanguageSupport;
 
   return {
@@ -171,6 +228,8 @@ function makeService(
     ),
     turns,
     inputs,
+    respellCalls,
+    respellHan,
   };
 }
 
@@ -179,18 +238,18 @@ async function runTurn(
   socket: FakeSocket,
   {
     wantsDisplay = true,
-    direction = 'vi_to_en',
+    languagePair = { source: 'vi', target: 'en' },
     continuesCut,
     hotwords,
   }: {
     wantsDisplay?: boolean;
-    direction?: TranslationDirection;
+    languagePair?: LanguagePair;
     continuesCut?: boolean;
     hotwords?: string[];
   } = {},
 ): Promise<string> {
   service.start(socket, {
-    direction,
+    languagePair,
     voiceGender: 'female',
     ...(wantsDisplay ? { repairDisplay: true } : {}),
     ...(continuesCut ? { continuesCut } : {}),
@@ -310,7 +369,9 @@ describe('restored punctuation and case', () => {
 
   it('asks for nothing on an English recognition, which is already cased', async () => {
     const { service, inputs } = makeService('meet at three');
-    await runTurn(service, new FakeSocket(), { direction: 'en_to_vi' });
+    await runTurn(service, new FakeSocket(), {
+      languagePair: { source: 'en', target: 'vi' },
+    });
 
     expect(inputs.at(-1)?.restoreDisplay).toBeUndefined();
   });
@@ -389,23 +450,27 @@ describe('sends nothing when there is nothing to say', () => {
   });
 });
 
-describe('A14 — direction selects the module, it does not gate the feature', () => {
-  it('typesets an en_to_vi turn with the ENGLISH ITN', async () => {
-    // The display path is bidirectional: on `en_to_vi` the transcript being
-    // typeset is the English one. Letting `direction` decide WHETHER to run
+describe('A14 — the language pair selects the module, it does not gate the feature', () => {
+  it('typesets an en→vi turn with the ENGLISH ITN', async () => {
+    // The display path works both ways: on en→vi the transcript being
+    // typeset is the English one. Letting the pair decide WHETHER to run
     // would have stopped display on half the product while the schema went on
     // documenting it.
     const { service } = makeService('the meeting starts at nine o’clock');
     const socket = new FakeSocket();
-    await runTurn(service, socket, { direction: 'en_to_vi' });
+    await runTurn(service, socket, {
+      languagePair: { source: 'en', target: 'vi' },
+    });
 
     expect(mockItnCalls.at(-1)?.language).toBe('en');
   });
 
-  it('typesets a vi_to_en turn with the VIETNAMESE ITN', async () => {
+  it('typesets a vi→en turn with the VIETNAMESE ITN', async () => {
     const { service } = makeService('cuộc họp lúc mười bốn giờ ba mươi phút');
     const socket = new FakeSocket();
-    await runTurn(service, socket, { direction: 'vi_to_en' });
+    await runTurn(service, socket, {
+      languagePair: { source: 'vi', target: 'en' },
+    });
 
     expect(mockItnCalls.at(-1)?.language).toBe('vi');
   });
@@ -415,7 +480,9 @@ describe('A14 — direction selects the module, it does not gate the feature', (
       'it cost two thousand five hundred dollars',
     );
     const socket = new FakeSocket();
-    await runTurn(service, socket, { direction: 'en_to_vi' });
+    await runTurn(service, socket, {
+      languagePair: { source: 'en', target: 'vi' },
+    });
 
     const display = socket.ofType('server.transcript.final').at(-1)!.display;
     // English groups with a comma; `2.500` here would be the Vietnamese one.
@@ -507,6 +574,43 @@ describe('names the restorer cannot case', () => {
   });
 });
 
+describe('which recognition languages ask for a restore', () => {
+  it('a Chinese turn asks the restorer for punctuation', async () => {
+    const harness = makeService('我们明天去北京', '我们明天去北京。');
+    await runTurn(harness.service, new FakeSocket(), {
+      languagePair: { source: 'zh', target: 'en' },
+    });
+    expect(harness.inputs[0]?.restoreDisplay).toBeDefined();
+  });
+
+  it('an English turn asks for nothing: Parakeet already punctuates', async () => {
+    const harness = makeService('see you tomorrow', 'See you tomorrow.');
+    await runTurn(harness.service, new FakeSocket(), {
+      languagePair: { source: 'en', target: 'vi' },
+    });
+    expect(harness.inputs[0]?.restoreDisplay).toBeUndefined();
+  });
+});
+
+describe('restoreKeepsWords', () => {
+  it('accepts a Chinese restore that only added marks', () => {
+    expect(restoreKeepsWords('我们去吧', '我们，去吧。')).toBe(true);
+  });
+
+  it('refuses a Chinese restore that changed a character', () => {
+    expect(restoreKeepsWords('我们去吧', '我门去吧')).toBe(false);
+  });
+
+  it('reads Vietnamese exactly as before', () => {
+    expect(restoreKeepsWords('xin chào các bạn', 'Xin chào, các bạn.')).toBe(
+      true,
+    );
+    expect(restoreKeepsWords('xin chào các bạn', 'Xin chào các bà.')).toBe(
+      false,
+    );
+  });
+});
+
 describe('a block typeset as one text', () => {
   /** Two finished turns on one socket, then a request for their block. */
   async function runBlock(harness: Harness): Promise<FakeSocket> {
@@ -557,6 +661,32 @@ describe('a block typeset as one text', () => {
     );
   });
 
+  it('keeps a Chinese block whose restore only added punctuation', async () => {
+    // The word guard reads each Han character as a word, so a comma between
+    // two of them is a mark, not one word split into two.
+    const socket = await runBlock(
+      makeService('我们明天去北京', '我们明天去北京。', {
+        blockRestored: () => '我们明天去北京，我们明天去北京。',
+      }),
+    );
+
+    expect(socket.ofType('server.block.translated').at(-1)!.display).toBe(
+      '我们明天去北京，我们明天去北京。',
+    );
+  });
+
+  it('drops a Chinese block whose restore changed a character', async () => {
+    const socket = await runBlock(
+      makeService('我们明天去北京', '我们明天去北京。', {
+        blockRestored: () => '我们明天去南京，我们明天去北京。',
+      }),
+    );
+
+    expect(socket.ofType('server.block.translated').at(-1)).not.toHaveProperty(
+      'display',
+    );
+  });
+
   it('sends no display to a client that renders the raw line', async () => {
     const harness = makeService('mô hình ai của openai', undefined, {
       blockRestored: (text) => `${text}.`,
@@ -572,6 +702,274 @@ describe('a block typeset as one text', () => {
 
     expect(socket.ofType('server.block.translated').at(-1)).not.toHaveProperty(
       'display',
+    );
+  });
+});
+
+describe('garbled foreign words on the display', () => {
+  it('shows a guarded respelling and leaves the transcript as heard', async () => {
+    const { service } = makeService(
+      'lợi dụng deep fred để lừa đảo',
+      'Lợi dụng Deep Fred để lừa đảo.',
+      {
+        translation: 'exploiting deepfakes for fraud',
+        respell: { 'deep fred': 'deepfake' },
+      },
+    );
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+
+    const final = socket.ofType('server.transcript.final').at(-1)!;
+    expect(final.display).toBe('Lợi dụng deepfake để lừa đảo.');
+    expect(final.segment.sourceText).toBe('lợi dụng deep fred để lừa đảo');
+  });
+
+  it('never asks for a respelling on a Chinese turn', async () => {
+    // Paraformer writes the English inside Chinese speech as Latin letters, not
+    // as characters standing for sounds, so there is nothing to respell.
+    const harness = makeService(
+      '我们用 deep fred 做的',
+      '我们用 deep fred 做的。',
+      {
+        translation: 'we made it with deepfake',
+        respell: { 'deep fred': 'deepfake' },
+      },
+    );
+    const socket = new FakeSocket();
+    await runTurn(harness.service, socket, {
+      languagePair: { source: 'zh', target: 'en' },
+    });
+
+    expect(harness.respellCalls).toEqual([]);
+  });
+
+  it('keeps the restore when the proposal fails a guard', async () => {
+    const { service } = makeService(
+      'lợi dụng deep fred để lừa đảo',
+      'Lợi dụng Deep Fred để lừa đảo.',
+      {
+        translation: 'exploiting fakes for fraud',
+        respell: { 'deep fred': 'deepfake' },
+      },
+    );
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+
+    expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(
+      'Lợi dụng Deep Fred để lừa đảo.',
+    );
+  });
+
+  it('asks nothing when the translation already spells every span as heard', async () => {
+    const { service, respellCalls } = makeService(
+      'mô hình của openai',
+      undefined,
+      {
+        translation: "OpenAI's model",
+      },
+    );
+    await runTurn(service, new FakeSocket());
+
+    expect(respellCalls).toEqual([]);
+  });
+
+  it('asks nothing for a client that wants no display', async () => {
+    const { service, respellCalls } = makeService(
+      'lợi dụng deep fred',
+      undefined,
+      {
+        translation: 'exploiting deepfakes',
+      },
+    );
+    await runTurn(service, new FakeSocket(), { wantsDisplay: false });
+
+    expect(respellCalls).toEqual([]);
+  });
+
+  it('biases the later turns of the same conversation towards what it learned', async () => {
+    const { service, inputs } = makeService('lợi dụng deep fred', undefined, {
+      translation: 'exploiting deepfakes',
+      respell: { 'deep fred': 'deepfake' },
+    });
+    const socket = new FakeSocket();
+    await runTurn(service, socket, { hotwords: ['Interpol'] });
+    await runTurn(service, socket, { hotwords: ['Interpol'] });
+
+    expect(inputs[0]!.learnedTerms).toEqual([]);
+    expect(inputs[1]!.learnedTerms).toEqual(['deepfake']);
+    expect(inputs[1]!.restoreDisplay?.terms).toEqual(['Interpol', 'deepfake']);
+    // Never into the translation prompt: hints stay the user's own.
+    expect(inputs[1]!.hints?.hotwords).toEqual(['Interpol']);
+  });
+
+  it('keeps what one conversation learned out of another', async () => {
+    const { service, inputs } = makeService('lợi dụng deep fred', undefined, {
+      translation: 'exploiting deepfakes',
+      respell: { 'deep fred': 'deepfake' },
+    });
+    await runTurn(service, new FakeSocket());
+    await runTurn(service, new FakeSocket());
+
+    expect(inputs[1]!.learnedTerms).toEqual([]);
+  });
+
+  it('does not hold the speech back while a respelling is out', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((done) => (release = done));
+    const { service } = makeService('lợi dụng deep fred', undefined, {
+      translation: 'exploiting deepfakes',
+      respell: { 'deep fred': 'deepfake' },
+      respellGate: gate,
+    });
+    const socket = new FakeSocket();
+    service.start(socket, {
+      languagePair: { source: 'vi', target: 'en' },
+      voiceGender: 'female',
+      repairDisplay: true,
+    });
+    const sessionId = socket.ofType('server.session.ready').at(-1)!.sessionId;
+    service.pushFrame(socket, frame(sessionId));
+    const ending = service.end(socket, sessionId);
+
+    await vi.waitFor(() =>
+      expect(socket.ofType('server.audio.frame').length).toBeGreaterThan(0),
+    );
+    expect(socket.ofType('server.transcript.final')).toHaveLength(0);
+
+    release();
+    await ending;
+    expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(
+      'lợi dụng deepfake',
+    );
+  });
+
+  it('keeps the old order — line before speech — on a turn with nothing to respell', async () => {
+    const { service } = makeService('cuộc họp bắt đầu', undefined, {
+      translation: 'the meeting starts',
+    });
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+
+    const types = socket.events.map((event) => event.type);
+    expect(types.indexOf('server.transcript.final')).toBeGreaterThanOrEqual(0);
+    expect(types.indexOf('server.transcript.final')).toBeLessThan(
+      types.indexOf('server.audio.frame'),
+    );
+  });
+
+  it('never fails a turn because the respelling failed', async () => {
+    const { service } = makeService('lợi dụng deep fred', undefined, {
+      translation: 'exploiting deepfakes',
+      respellThrows: true,
+    });
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+
+    expect(socket.ofType('server.error')).toHaveLength(0);
+    expect(
+      socket.ofType('server.transcript.final').at(-1)!.segment.sourceText,
+    ).toBe('lợi dụng deep fred');
+  });
+});
+
+describe('words misheard as a word that sounds the same', () => {
+  it('shows the repair and leaves the transcript as heard', async () => {
+    const { service } = makeService(
+      'một vụ đâm giao nghiêm trọng',
+      'Một vụ đâm giao nghiêm trọng.',
+      {
+        translation: 'a serious stabbing',
+        corrections: [{ heard: 'đâm giao', said: 'đâm dao', at: 2 }],
+      },
+    );
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+
+    const final = socket.ofType('server.transcript.final').at(-1)!;
+    expect(final.display).toBe('Một vụ đâm dao nghiêm trọng.');
+    expect(final.segment.sourceText).toBe('một vụ đâm giao nghiêm trọng');
+  });
+
+  it('keeps each repair on its own word when the turns join a block', async () => {
+    // Both turns say "giao"; only the second was misheard. The repair names
+    // word 1 of ITS turn, which is word 5 of the block. Carried by word rather
+    // than by place, it would also change the first turn's "giao hàng"; not
+    // moved by the first turn's length, it would land on "ấy".
+    const harness = makeService('', undefined, {
+      translation: 'stabbing',
+      transcripts: ['anh ấy giao hàng', 'đâm giao'],
+      corrections: (text) =>
+        text === 'đâm giao'
+          ? [{ heard: 'giao', said: 'dao', at: 1 }]
+          : undefined,
+      blockRestored: (text) =>
+        `${text.charAt(0).toUpperCase()}${text.slice(1)}.`,
+    });
+    const socket = new FakeSocket();
+    const first = await runTurn(harness.service, socket);
+    const second = await runTurn(harness.service, socket);
+    await harness.service.retranslateBlock(socket, [first, second], 'user-1');
+
+    expect(socket.ofType('server.block.translated').at(-1)!.display).toBe(
+      'Anh ấy giao hàng đâm dao.',
+    );
+  });
+});
+
+describe('garbled foreign words with a translation in Han characters', () => {
+  it('asks for renderings and shows the spelling the rendering attests', async () => {
+    const harness = makeService(
+      'bungary đang điều tra',
+      'Bungary đang điều tra.',
+      {
+        translations: { zh: '保加利亚正在调查' },
+        respell: { bungary: { spelling: 'Bulgaria', rendering: '保加利亚' } },
+      },
+    );
+    const socket = new FakeSocket();
+    await runTurn(harness.service, socket, {
+      languagePair: { source: 'vi', target: 'zh' },
+    });
+
+    expect(harness.respellHan).toEqual([true]);
+    expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(
+      'Bulgaria đang điều tra.',
+    );
+  });
+
+  it('shows a spelling attested only by a rendering, but never learns it', async () => {
+    const harness = makeService('bungary đang điều tra', undefined, {
+      translations: { zh: '保加利亚正在调查' },
+      respell: { bungary: { spelling: 'Bulgaria', rendering: '保加利亚' } },
+    });
+    const socket = new FakeSocket();
+    await runTurn(harness.service, socket, {
+      languagePair: { source: 'vi', target: 'zh' },
+    });
+    await runTurn(harness.service, socket, {
+      languagePair: { source: 'vi', target: 'zh' },
+    });
+
+    expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(
+      'Bulgaria đang điều tra',
+    );
+    // A hotword biases every later turn; a rendering cannot carry that.
+    expect(harness.inputs[1]!.learnedTerms).toEqual([]);
+  });
+
+  it('asks with a Latin translation when the turn has one as well', async () => {
+    const harness = makeService('bungary đang điều tra', undefined, {
+      translations: { zh: '保加利亚正在调查', en: 'Bulgaria is investigating' },
+      respell: { bungary: 'Bulgaria' },
+    });
+    const socket = new FakeSocket();
+    await runTurn(harness.service, socket, {
+      languagePair: { source: 'vi', target: 'zh' },
+    });
+
+    expect(harness.respellHan).toEqual([false]);
+    expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(
+      'Bulgaria đang điều tra',
     );
   });
 });

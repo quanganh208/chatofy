@@ -7,8 +7,8 @@
  * Phases 2–3 can build UI and fix translation against a stable typed surface.
  *
  * Phase 3 changes (bidirectional translation + ordered audio + subtitle coalescing):
- *  - `wireTranslate`: direction now computed as `${source}_to_${target}` where
- *    target is the other language in the vi↔en pair (fixes the hardcoded `_to_en`).
+ *  - `wireTranslate`: the language pair runs from the speaker's language to
+ *    the other language in the vi↔en pair (fixes the hardcoded target).
  *  - Audio playback replaced by `TranslationAudioSink` (one AudioContext per
  *    speaker, in-order delivery, no per-frame context leak). Closed in `leave()`.
  *  - Subtitle handler keys by `(speakerSocketId, turnId)`: replaces while
@@ -269,8 +269,8 @@ async function consumeTrack(
  * Open a /ws/translate socket in live mode for this speaker.
  * Forwards transcript/audio events into /ws/conference for all room participants.
  *
- * Phase 3: direction is now bidirectional — computed as `${source}_to_${target}`
- * where target is the other language in the vi↔en pair.
+ * The live session's language pair runs from the speaker's language to the
+ * other language in the vi↔en pair.
  *
  * Phase 2 (polish): `setLocalTranslating` is driven here:
  *  - TRUE  at [T1] (first audio frame sent for a turn, seq === 0)
@@ -292,7 +292,7 @@ function wireTranslate(
 ): void {
   // Phase 3: compute the OTHER language in the vi↔en pair.
   const targetLanguage = sourceLanguage === 'en' ? 'vi' : 'en';
-  const direction = `${sourceLanguage}_to_${targetLanguage}`;
+  const languagePair = { source: sourceLanguage, target: targetLanguage };
 
   const translateWs = new WebSocket(`${API_WS_URL}/ws/translate`, [WS_SUBPROTOCOL, token]);
   const turnId = crypto.randomUUID();
@@ -314,14 +314,14 @@ function wireTranslate(
     translateWs.send(
       JSON.stringify({
         event: 'client.live.start',
-        data: { type: 'client.live.start', direction },
+        data: { type: 'client.live.start', languagePair },
       }),
     );
   });
 
   const audioCtx = new AudioContext({ sampleRate: 16000 });
   const src = audioCtx.createMediaStreamSource(stream);
-  // eslint-disable-next-line @typescript-eslint/no-deprecated
+
   const processor = audioCtx.createScriptProcessor(4096, 1, 1);
   let seq = 0;
   processor.onaudioprocess = (evt) => {
@@ -780,8 +780,7 @@ export function useConference(
               // Clear only when this specific turn's subtitle is still showing.
               setTimeout(() => {
                 setPeers((prev) => {
-                  const entry = prev.get(d.speakerSocketId) as
-                    (PeerState & { _subtitleKey?: string }) | undefined;
+                  const entry = prev.get(d.speakerSocketId);
                   if (!entry) return prev;
                   // Only clear if our key is still the active one (a newer turn
                   // hasn't replaced it while the timer was pending).

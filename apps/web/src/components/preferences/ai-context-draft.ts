@@ -19,7 +19,7 @@ import {
  * The glossary is a repeating row of fields, never a free-text blob: an entry is
  * several correlated strings, and one box to type them all into makes a
  * desynchronized set representable. A row is keyed by LANGUAGE rather than by
- * role, so one dictionary serves a conversation running in any direction — which
+ * role, so one dictionary serves a conversation running in any language pair — which
  * is why the fields are named for registry languages and not for "from" and "to".
  */
 

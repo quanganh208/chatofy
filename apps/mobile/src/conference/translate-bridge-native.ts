@@ -91,7 +91,7 @@ export async function startTranslateBridge(deps: TranslateBridgeDeps): Promise<T
   } = deps;
 
   const targetLanguage = sourceLanguage === 'en' ? 'vi' : 'en';
-  const direction = `${sourceLanguage}_to_${targetLanguage}`;
+  const languagePair = { source: sourceLanguage, target: targetLanguage };
 
   const translateWs = new WebSocket(translateUrl, [subprotocol, token]);
   const turnId = randomUuid();
@@ -113,7 +113,7 @@ export async function startTranslateBridge(deps: TranslateBridgeDeps): Promise<T
 
   const onOpen = (): void => {
     log('[translate] WS open');
-    send(translateWs, 'client.live.start', { type: 'client.live.start', direction });
+    send(translateWs, 'client.live.start', { type: 'client.live.start', languagePair });
   };
 
   const onMessage = (evt: MessageEvent<string>): void => {

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ServerEvent, SessionOptions, TranscriptSegment } from '@chatofy/types';
 import { ConversationSession, type ConversationRuntimeOptions } from './conversation-session.js';
 import type { ConversationStatus } from './conversation-status.js';
@@ -19,7 +19,10 @@ import type { TranslateSocket, TranslateSocketHandlers } from '../transport/tran
  * twenty-four. The counts below are comfortably past both.
  */
 /** Settings every test starts with; the voice is beside the point for most. */
-const startOptions: SessionOptions = { direction: 'vi_to_en', voiceGender: 'female' };
+const startOptions: SessionOptions = {
+  languagePair: { source: 'vi', target: 'en' },
+  voiceGender: 'female',
+};
 
 const BLOCKS_TO_CONFIRM_SPEECH = 8;
 const BLOCKS_TO_CLOSE_TURN = 30;
@@ -71,7 +74,7 @@ const endedEvent = (sessionId = 's1'): ServerEvent => ({
  * A playback sink that records instead of sounding.
  *
  * Stands in for one that ships samples to another context — the extension's
- * outbound direction hands them to the meeting page. `drain` is exposed because
+ * outbound leg hands them to the meeting page. `drain` is exposed because
  * with a remote sink the moment a turn stops sounding is reported back rather
  * than observed on a local clock, and that report has to reach the ordering
  * layer or the next turn never plays.
@@ -153,7 +156,9 @@ function harness(options: HarnessOptions = {}) {
     onDrained: vi.fn<() => Promise<void> | void>(),
     onTurnCaptured: vi.fn(),
     onTurnAbandoned: vi.fn(),
+    onPauses: vi.fn(),
     onLog: vi.fn(),
+    onLanguageMode: vi.fn(),
   };
 
   const openMicrophone = options.openMicrophone ?? (() => Promise.resolve(stream));
@@ -613,6 +618,107 @@ describe('ConversationSession', () => {
       h.session.pause(); // already paused
 
       expect(h.statuses).toEqual([]);
+    });
+
+    /**
+     * A pause stops the conversation's clock, so the session records when. The
+     * clock is driven by hand: every assertion here is about which instant an
+     * interval opened or closed at, and a real clock would make those ranges.
+     */
+    describe('recording when it was paused', () => {
+      let now = 0;
+      const at = (ms: number) => {
+        now = ms;
+      };
+      beforeEach(() => {
+        now = 1_000;
+        vi.spyOn(Date, 'now').mockImplementation(() => now);
+      });
+      afterEach(() => {
+        vi.restoreAllMocks();
+      });
+
+      it('opens an interval on pause and closes it on resume', async () => {
+        const h = harness(continuous);
+        await h.session.start(startOptions);
+
+        at(5_000);
+        h.session.pause();
+        expect(h.session.pauseIntervals).toEqual([{ startedAt: 5_000, endedAt: null }]);
+
+        at(8_000);
+        h.session.resume();
+
+        expect(h.session.pauseIntervals).toEqual([{ startedAt: 5_000, endedAt: 8_000 }]);
+        expect(h.listeners.onPauses).toHaveBeenLastCalledWith([
+          { startedAt: 5_000, endedAt: 8_000 },
+        ]);
+      });
+
+      it('counts only the paused time before an instant, an open pause up to it', async () => {
+        const h = harness(continuous);
+        await h.session.start(startOptions);
+        at(2_000);
+        h.session.pause();
+        at(3_000);
+        h.session.resume();
+        at(10_000);
+        h.session.pause();
+
+        expect(h.session.pausedBefore(1_500)).toBe(0);
+        expect(h.session.pausedBefore(2_500)).toBe(500);
+        expect(h.session.pausedBefore(9_000)).toBe(1_000);
+        // Still paused: the open interval counts up to the instant asked about.
+        expect(h.session.pausedBefore(12_000)).toBe(3_000);
+      });
+
+      it('closes the open interval when the conversation ends while paused', async () => {
+        const h = harness(continuous);
+        await h.session.start(startOptions);
+        at(4_000);
+        h.session.pause();
+
+        at(9_000);
+        h.session.finish();
+
+        // At the press, not at the drain: the tail is the conversation's own time.
+        expect(h.session.pauseIntervals).toEqual([{ startedAt: 4_000, endedAt: 9_000 }]);
+      });
+
+      it('closes the open interval when torn down while paused, and keeps it after', async () => {
+        const h = harness(continuous);
+        await h.session.start(startOptions);
+        at(4_000);
+        h.session.pause();
+
+        at(6_000);
+        h.session.stop();
+
+        // Kept past `stop`: the save that stores the total runs once this is idle.
+        expect(h.session.pauseIntervals).toEqual([{ startedAt: 4_000, endedAt: 6_000 }]);
+      });
+
+      it('records nothing for a pause the session refused', async () => {
+        const h = harness(continuous);
+        await h.session.start(startOptions);
+        h.session.finish();
+
+        h.session.pause();
+
+        expect(h.session.pauseIntervals).toEqual([]);
+      });
+
+      it('starts the next conversation with no pauses', async () => {
+        const h = harness(continuous);
+        await h.session.start(startOptions);
+        h.session.pause();
+        h.session.stop();
+
+        await h.session.start(startOptions);
+
+        expect(h.session.pauseIntervals).toEqual([]);
+        expect(h.listeners.onPauses).toHaveBeenLastCalledWith([]);
+      });
     });
   });
 
@@ -1599,11 +1705,9 @@ describe('ConversationSession', () => {
         id: 'seg-1',
         sessionId: 's1',
         speakerRole: 'speaker_a',
-        direction: 'vi_to_en',
         sourceLanguages: ['vi'],
         translations: { en: 'hello' },
         sourceText: 'xin chào',
-        targetText: 'hello',
         audioUrl: null,
         createdAt: new Date().toISOString(),
       };
@@ -1811,6 +1915,46 @@ describe('ConversationSession', () => {
       h.session.stop();
 
       expect(h.context.disconnectedSources).toBe(1);
+    });
+  });
+
+  describe('the language mode the server runs', () => {
+    it('reports the mode each turn was opened in, with the reason it fell short', async () => {
+      const h = harness();
+      await h.session.start(startOptions);
+      h.socket().emit({
+        type: 'server.session.ready',
+        sessionId: 's1',
+        mode: 'declared',
+        modeReason: 'lid_capacity',
+      });
+      h.socket().emit({ type: 'server.session.ready', sessionId: 's2', mode: 'two-way' });
+      expect(h.listeners.onLanguageMode.mock.calls).toEqual([
+        ['declared', 'lid_capacity'],
+        ['two-way', undefined],
+      ]);
+    });
+
+    it('reads a server that sends no mode as running declared', async () => {
+      const h = harness();
+      await h.session.start(startOptions);
+      h.socket().emit(readyEvent('s1'));
+      expect(h.listeners.onLanguageMode).toHaveBeenCalledWith('declared', undefined);
+    });
+
+    it('hands a server error its code and detail beside the message', async () => {
+      const h = harness();
+      await h.session.start(startOptions);
+      h.socket().emit({
+        type: 'server.error',
+        code: 'language_unavailable',
+        message: 'Language detection is unavailable',
+        detail: 'language_detection',
+      });
+      expect(h.listeners.onError).toHaveBeenLastCalledWith('Language detection is unavailable', {
+        code: 'language_unavailable',
+        detail: 'language_detection',
+      });
     });
   });
 });

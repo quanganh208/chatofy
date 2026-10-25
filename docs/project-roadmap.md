@@ -15,7 +15,7 @@ Grouped by area; the PR numbers are the merges that delivered each piece.
 | Realtime mode        | Gemini Live as an alternative to the turn pipeline, full-duplex                                                                          | #71, #80              | [AI Provider Abstraction](./architecture/ai-providers.md)                                                                 |
 | Display text         | Deterministic Vietnamese ITN and punctuation/case restoration for the transcript                                                         | #110, #192–#197       | [AI Provider Abstraction](./architecture/ai-providers.md)                                                                 |
 | Speaker attribution  | Per-turn speaker attribution, split turn on speaker change, deferred speaker minting                                                     | #99, #173, #179, #181 | [AI Provider Abstraction](./architecture/ai-providers.md#per-turn-speaker-attribution)                                    |
-| Languages            | Language registry: every direction derived from one list (vi, en today)                                                                  | #180                  | [checklist](./architecture/contracts-and-languages.md#checklist-adding-a-language-to-the-registry)                        |
+| Languages            | Language registry: every language pair derived from one list (vi, en, zh today)                                                          | #180                  | [checklist](./architecture/contracts-and-languages.md#checklist-adding-a-language-to-the-registry)                        |
 | Accounts             | Own identity provider in NestJS: email/password, verification, reset, revocation, rotating refresh tokens, Google linking, avatars on R2 | #85, #87, #106        | [Authentication](./architecture/authentication.md)                                                                        |
 | History              | Stored conversations, search, recordings, turn timestamps                                                                                | #135, #143            | [AI Provider Abstraction](./architecture/ai-providers.md#history-search)                                                  |
 | AI Context           | Saved per-user translation contexts (glossary + hints) applied to the prompt                                                             | #145                  | [Data Flow](./architecture/data-flow.md)                                                                                  |
@@ -26,6 +26,22 @@ Grouped by area; the PR numbers are the merges that delivered each piece.
 
 The measurements and the dead ends behind these are in
 [development-journey.md](./development-journey.md).
+
+## In production since 2026-10-23: two-way and auto-detect
+
+Two-way vi↔en conversations and auto-detected source language on `/translate`:
+one source picker, a language identifier in the STT sidecar, the turn's
+language decided while it is spoken. Enabled on production with
+`PROD_LOCAL_STT_LID=on` after an isolated load run, a production replay and a
+rehearsed rollback; the language label shows by 3.3 s at p95 from the start of
+speech (bar 3.5 s). Chinese is not identified and its pairs
+stay one-way.
+
+The mobile app compiles against the new contract only; its translate screen is
+planned separately.
+
+Described in [Contracts and Languages](./architecture/contracts-and-languages.md#lid-and-audio-based-detection);
+measured in [development-journey.md](./development-journey.md).
 
 ## Next: video meetings
 

@@ -4,13 +4,13 @@ import { MICROPHONE_BLOCKED } from './microphone-permission';
 /**
  * The user's microphone, with a gate that can silence it completely.
  *
- * This is the input to the OUTBOUND direction — the one that translates what the
+ * This is the input to the OUTBOUND leg — the one that translates what the
  * user says. It is a second, separate `getUserMedia` from the one `EchoMonitor`
  * holds, because the two want different things from the same device: that one
  * measures how much of our own playback comes back and must never be gated, this
  * one feeds a translator and must be.
  *
- * The gate exists because half of the echo problem survives into this direction.
+ * The gate exists because half of the echo problem survives into this leg.
  * On a loudspeaker the microphone hears the INBOUND translation playing, the
  * speech gate downstream opens a turn on it, and the extension translates its own
  * output back into the meeting. That is the loop the offscreen architecture

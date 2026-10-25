@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { Volume2, Volume1 } from 'lucide-react';
 import { SegmentedControl, Slider, Switch } from '@chatofy/ui/react';
-import { directionLanguages } from '@chatofy/types';
-import { SPEED_PRESETS, type TranslateSettings } from '@/lib/translate-settings';
+import { AUTO_DETECT, type LanguageCode } from '@chatofy/types';
+import { SPEED_PRESETS, asksTwoWay, type TranslateSettings } from '@/lib/translate-settings';
 import { VoiceScopeToggle, type VoiceScope } from '@/components/translate/voice-scope-toggle';
 import { VoicePicker } from '@/components/translate/voice-picker';
 import { SettingsRow } from '@/components/translate/settings-row';
 import { useVoiceCatalog } from '@/hooks/use-voice-catalog';
 import { useTranslate } from '@/i18n/provider';
+import { languageNamer } from '@/i18n/language-pair-labels';
 
 /**
  * Whether the translation is spoken, and — only if it is — how.
@@ -35,7 +36,20 @@ import { useTranslate } from '@/i18n/provider';
  * the next conversation. Volume reaches a gain node in this tab and is live.
  *
  * No accent anywhere. The screen's one accent-filled control is Start.
+ *
+ * **Two-way speaks both languages, so it offers a voice for each.** A reply in
+ * the target is read out in the source, and a token from one language's engine
+ * means nothing to the other's — so each spoken language gets its own picker,
+ * named by its language. Auto-detect speaks only the target, so it keeps one.
+ * The gender scope above them is shared: it is one stored setting.
  */
+
+/** The languages a conversation started from `pair` may speak, target first. */
+function spokenLanguages(pair: TranslateSettings['languagePair']): LanguageCode[] {
+  return pair.source !== AUTO_DETECT && asksTwoWay(pair)
+    ? [pair.target, pair.source]
+    : [pair.target];
+}
 
 interface VoiceSettingsPanelProps {
   settings: TranslateSettings;
@@ -53,22 +67,30 @@ export function VoiceSettingsPanel({
   onVolumeChange,
 }: VoiceSettingsPanelProps) {
   const t = useTranslate();
-  const catalog = useVoiceCatalog(settings.direction);
-  const outputLanguage = directionLanguages(settings.direction).target;
-  // Shown unless the running engine has explicitly said it ignores `speed`.
-  // `catalog.speedAdjustable` is tri-state (`SpeedAdjustable`'s doc): `'unknown'`
-  // — the catalog is still loading, the lookup failed, or the API predates the
-  // field — must keep the control visible rather than hiding a working slider
-  // for the length of a request or a stale deploy. Only an explicit `false`
-  // hides it.
-  const speedApplies = catalog.speedAdjustable !== false;
+  const nameLanguage = languageNamer(t);
+  const languages = spokenLanguages(settings.languagePair);
+  const [outputLanguage, otherLanguage] = languages as [LanguageCode, LanguageCode | undefined];
+  // Two calls, always, so the hook count never changes with the pair. With one
+  // spoken language the second asks for the same list, which the catalog cache
+  // answers without a request.
+  const outputCatalog = useVoiceCatalog(outputLanguage);
+  const otherCatalog = useVoiceCatalog(otherLanguage ?? outputLanguage);
   // Reconciled HERE rather than when settings were loaded: the catalog arrives
   // over HTTP, so a synchronous read of storage cannot know whether a saved token
   // still exists. A token the running backend no longer lists falls back to the
   // gender default, which is what the server would do with it anyway.
-  const savedVoice = settings.voice[outputLanguage];
-  const selected = catalog.voices.find((voice) => voice.token === savedVoice);
-  const selectedVoice = selected?.token ?? '';
+  const rows = languages.map((language, index) => {
+    const catalog = index === 0 ? outputCatalog : otherCatalog;
+    const selected = catalog.voices.find((voice) => voice.token === settings.voice[language]);
+    return { language, catalog, selected };
+  });
+  // Shown unless every engine about to speak has explicitly said it ignores
+  // `speed`. `speedAdjustable` is tri-state (`SpeedAdjustable`'s doc):
+  // `'unknown'` — the catalog is still loading, the lookup failed, or the API
+  // predates the field — must keep the control visible rather than hiding a
+  // working slider for the length of a request or a stale deploy. Only an
+  // explicit `false` hides it.
+  const speedApplies = rows.some(({ catalog }) => catalog.speedAdjustable !== false);
 
   // Which voices are LISTED is a browsing state, not a setting: `all` says
   // nothing about what is spoken, so there is nothing to persist and it opens
@@ -76,9 +98,9 @@ export function VoiceSettingsPanel({
   // defaults are in the list, so it is a scope you can leave this sitting in —
   // which is what a starting state has to be.
   const [scope, setScope] = useState<VoiceScope>('all');
-  // What "Default" means right now. `all` names no default of its own, so the
-  // stored gender keeps answering for it.
-  const voiceGender = selected?.gender ?? settings.voiceGender;
+  // What "Default" means right now, read off the output language's voice. `all`
+  // names no default of its own, so the stored gender keeps answering for it.
+  const voiceGender = rows[0]?.selected?.gender ?? settings.voiceGender;
 
   return (
     <div className="flex flex-col gap-5">
@@ -111,10 +133,11 @@ export function VoiceSettingsPanel({
               // narrowing to the gender already speaking, changes only what is
               // listed — and must not silently drop the chosen voice.
               if (next !== 'all' && next !== voiceGender) {
-                onChange({
-                  voiceGender: next,
-                  voice: { ...settings.voice, [outputLanguage]: undefined },
-                });
+                const voice = { ...settings.voice };
+                for (const { language, selected } of rows) {
+                  if (selected?.gender !== next) voice[language] = undefined;
+                }
+                onChange({ voiceGender: next, voice });
               }
             }}
             disabled={running}
@@ -122,25 +145,33 @@ export function VoiceSettingsPanel({
 
           {/* Empty catalog, failed lookup and a list of voices are three different
               answers, and the picker owns all three — see `voice-picker.tsx`. */}
-          <VoicePicker
-            catalog={catalog}
-            scope={scope}
-            gender={voiceGender}
-            value={selectedVoice}
-            disabled={running}
-            onChange={(token, gender) =>
-              onChange({
-                // Reported by the picker with the voice rather than looked up
-                // after it: in `all` a chosen voice may come from the other pool
-                // than the one stored, and one of the two "Default" entries IS
-                // the gender choice — it names no token to look up.
-                voiceGender: gender,
-                // Stored per output language: the token means nothing to the
-                // engine that speaks the other one.
-                voice: { ...settings.voice, [outputLanguage]: token },
-              })
-            }
-          />
+          {rows.map(({ language, catalog, selected }) => (
+            <VoicePicker
+              key={language}
+              catalog={catalog}
+              scope={scope}
+              gender={selected?.gender ?? settings.voiceGender}
+              value={selected?.token ?? ''}
+              disabled={running}
+              label={
+                rows.length > 1
+                  ? `${t('web.translate.voice')} · ${nameLanguage(language)}`
+                  : undefined
+              }
+              onChange={(token, gender) =>
+                onChange({
+                  // Reported by the picker with the voice rather than looked up
+                  // after it: in `all` a chosen voice may come from the other pool
+                  // than the one stored, and one of the two "Default" entries IS
+                  // the gender choice — it names no token to look up.
+                  voiceGender: gender,
+                  // Stored per output language: the token means nothing to the
+                  // engine that speaks the other one.
+                  voice: { ...settings.voice, [language]: token },
+                })
+              }
+            />
+          ))}
 
           {/* Absent, not disabled, when the voice about to speak has no rate
               control. A greyed row plus a sentence explaining why it is greyed
@@ -149,7 +180,7 @@ export function VoiceSettingsPanel({
 
               The setting itself is untouched — it is stored per conversation and
               still sent, and the server hands it to whichever engine speaks the
-              output language. Switching direction brings the row back with the
+              output language. Switching the pair brings the row back with the
               value the reader last chose. */}
           {speedApplies ? (
             <SegmentedControl

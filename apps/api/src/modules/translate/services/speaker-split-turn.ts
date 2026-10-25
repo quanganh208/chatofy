@@ -1,13 +1,17 @@
 import type { Logger } from '@nestjs/common';
 import type {
+  TranscriptCorrection,
   SpeakerEmbeddingResult,
   TranslationHints,
 } from '@chatofy/ai-providers';
+import { mergeHotwords } from '../session/conversation-context';
 import type { TurnAudio } from '../session/turn-audio';
+import type { ScriptRetry } from './foreign-script-retry';
 import type { Span } from '../session/speaker-change-split';
-import type {
-  DisplayRestoreRequest,
-  PipelineTranslatorService,
+import {
+  settleCorrections,
+  type DisplayRestoreRequest,
+  type PipelineTranslatorService,
 } from './pipeline-translator.service';
 import type {
   TurnLanguagePlan,
@@ -20,6 +24,8 @@ export interface TranslatedPiece extends Span {
   translations: TranslationMap;
   /** `sourceText` restored for display, when that was asked for and ran in time. */
   restored?: string;
+  /** Guarded corrections of words in `sourceText` heard wrong, for display. */
+  corrections?: TranscriptCorrection[];
   /** Silence after each word of `sourceText` in ms, when the recognizer measured it. */
   pauses?: number[];
   /** Silence before the first word in ms, measured with `pauses`. */
@@ -67,13 +73,19 @@ export interface SplitTurn {
 export async function translateSplitTurn(
   pipeline: Pick<
     PipelineTranslatorService,
-    'transcribe' | 'translateAll' | 'embedSpeaker' | 'restoreDisplay'
+    | 'transcribe'
+    | 'translateAll'
+    | 'embedSpeaker'
+    | 'restoreDisplay'
+    | 'correctTranscript'
   >,
   audio: TurnAudio,
   spans: Span[],
   options: {
     plan: TurnLanguagePlan;
     hints?: TranslationHints;
+    /** Learned spellings, as recognizer hotwords only; see `TranslateTurnInput`. */
+    learnedTerms?: string[];
     models?: string[];
     /** Finished utterances from earlier turns on this connection, oldest first. */
     context: string[];
@@ -90,6 +102,8 @@ export async function translateSplitTurn(
     restoreDisplay?: DisplayRestoreRequest;
     /** Silero speech floor passed to each piece's own transcription. */
     minSpeechMs?: number;
+    /** One more translation per piece and target that leaks a foreign script. */
+    scriptRetry?: ScriptRetry;
     /** Logs which piece was dropped and how long it was — never its text. */
     logger: Pick<Logger, 'warn'>;
   },
@@ -104,7 +118,9 @@ export async function translateSplitTurn(
         mimeType: 'audio/wav',
         language: options.plan.recognition,
         hints: options.hints,
+        learnedTerms: options.learnedTerms,
         minSpeechMs: options.minSpeechMs,
+        alternates: options.restoreDisplay !== undefined,
       }),
     ),
   );
@@ -153,6 +169,7 @@ export async function translateSplitTurn(
   const firstIsOpening = survivors[0]?.span === spans[0];
   const survivorTexts = survivors.map(({ source }) => source.text);
   const survivorPauses = survivors.map(({ source }) => source.pauses);
+  const survivorAlternates = survivors.map(({ source }) => source.alternates);
   const survivorLeads = survivors.map(({ source }) => source.leadPause);
   const display = options.restoreDisplay;
   // One piece after another, never all at once. The sidecar's restorer runs one
@@ -180,6 +197,20 @@ export async function translateSplitTurn(
         return restored;
       })()
     : null;
+  // Beside the translations too, and all at once: each is one request to the
+  // translation host, which serves them side by side.
+  const keep = mergeHotwords(options.hints?.hotwords, options.learnedTerms);
+  const correcting = display
+    ? survivorTexts.map((text, k) =>
+        pipeline.correctTranscript(
+          text,
+          options.plan.recognition,
+          [...options.context, ...survivorTexts.slice(0, k)],
+          survivorAlternates[k],
+          keep,
+        ),
+      )
+    : null;
   const translations = await Promise.all(
     survivorTexts.map((text, k) =>
       pipeline.translateAll({
@@ -191,11 +222,18 @@ export async function translateSplitTurn(
         context: [...options.context, ...survivorTexts.slice(0, k)],
         continuesCut:
           k === 0 && firstIsOpening && (options.continuesCut ?? false),
+        scriptRetry: options.scriptRetry,
       }),
     ),
   );
 
   const restored = restoring ? await restoring : null;
+  // Each piece gets the same grace, counted from when every translation is in.
+  const corrections = correcting
+    ? await Promise.all(
+        correcting.map((correction) => settleCorrections(correction)),
+      )
+    : null;
 
   return {
     pieces: survivors.map(({ span }, k) => ({
@@ -203,6 +241,9 @@ export async function translateSplitTurn(
       sourceText: survivorTexts[k]!,
       translations: translations[k]!,
       ...(restored?.[k] === undefined ? {} : { restored: restored[k] }),
+      ...(corrections?.[k] === undefined
+        ? {}
+        : { corrections: corrections[k] }),
       ...(survivorPauses[k] === undefined ? {} : { pauses: survivorPauses[k] }),
       ...(survivorLeads[k] === undefined
         ? {}

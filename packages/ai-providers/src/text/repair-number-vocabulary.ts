@@ -215,10 +215,10 @@ export const VI_NUMBER_VOCABULARY: NumberVocabulary = {
 };
 
 /**
- * English, which `en_to_vi` repairs need.
+ * English, which en→vi repairs need.
  *
- * The direction is not a Vietnamese feature and the implementation must not
- * assume it is: on `en_to_vi` the transcript being repaired is English, and a
+ * The repair is not a Vietnamese feature and the implementation must not
+ * assume it is: on en→vi the transcript being repaired is English, and a
  * guard that only knew Vietnamese counting words would score every English
  * number rewrite as a paraphrase and reject every repair on that half of the
  * product.

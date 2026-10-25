@@ -3,9 +3,7 @@ import {
   conversationLanguagesSchema,
   escapeLikePattern,
   languageCodeSchema,
-  legacyDirectionOf,
   normalizeForSearch,
-  primaryTranslation,
   sourceLanguagesSchema,
   type Conversation,
   type ConversationSummary,
@@ -95,6 +93,7 @@ interface ConversationRow {
   languages: string[];
   startedAt: Date;
   endedAt: Date;
+  pausedMs: number;
 }
 
 /**
@@ -249,6 +248,7 @@ export class PrismaConversationStore implements ConversationStore {
                 clientId: conversationId,
                 ...parent,
                 ...recordingOrigin,
+                pausedMs: conversation.pausedMs,
               },
               // `parent` is languages/startedAt/endedAt and MUST stay exactly
               // those three. This is load-bearing and invisible from the line:
@@ -263,8 +263,28 @@ export class PrismaConversationStore implements ConversationStore {
               // would clear it writes no key for it, and a rename that does carry
               // it writes the value it already had.
               update: { ...parent, ...recordingOrigin },
-              select: { id: true, minutes: { select: { id: true } } },
+              select: {
+                id: true,
+                pausedMs: true,
+                minutes: { select: { id: true } },
+              },
             });
+
+            // Paused time only ever grows on an update, the way `endedAt` is
+            // stamped once by the client: every re-save of one conversation
+            // repeats the same total, and the one save that sends LESS is a tab
+            // on a bundle from before pausing stopped the clock, whose missing
+            // field reads as 0. Letting that write would make a renamed
+            // speaker lengthen the card by every pause. Read-then-write is safe
+            // here because the owner lock above serialises this conversation's
+            // saves.
+            const pausedMs = Math.max(row.pausedMs, conversation.pausedMs);
+            if (pausedMs !== row.pausedMs) {
+              await tx.conversation.update({
+                where: { id: row.id },
+                data: { pausedMs },
+              });
+            }
 
             await tx.conversationTurn.deleteMany({
               where: { conversationId: row.id },
@@ -285,7 +305,7 @@ export class PrismaConversationStore implements ConversationStore {
             });
 
             return toSummary(
-              { clientId: conversationId, ...parent },
+              { clientId: conversationId, ...parent, pausedMs },
               conversation.turns.length,
               previewOf(conversation.turns),
               row.minutes,
@@ -347,6 +367,7 @@ export class PrismaConversationStore implements ConversationStore {
         languages: true,
         startedAt: true,
         endedAt: true,
+        pausedMs: true,
         audioOffsetMs: true,
         audioDurationMs: true,
         minutes: { select: { id: true } },
@@ -381,7 +402,7 @@ export class PrismaConversationStore implements ConversationStore {
       return null;
     }
     const turns = row.turns
-      .map((turn) => toTurn(turn, languages.data))
+      .map((turn) => toTurn(turn))
       .filter((turn): turn is ConversationTurn => turn !== null);
     return {
       ...toSummary(row, turns.length, previewOf(turns), row.minutes),
@@ -417,6 +438,7 @@ export class PrismaConversationStore implements ConversationStore {
         languages: true,
         startedAt: true,
         endedAt: true,
+        pausedMs: true,
         minutes: { select: { id: true } },
         _count: { select: { turns: true } },
         // Without the explicit orderBy Prisma returns an ARBITRARY row for a
@@ -554,17 +576,10 @@ export class PrismaConversationStore implements ConversationStore {
 }
 
 /**
- * `targetText` is not a column anymore — it is derived, per row, from
- * `translations` and the PARENT conversation's `languages` (which language a
- * legacy reader shows depends on which the conversation declared, not only on
- * what this one turn was spoken in). `primaryTranslation` is the same function
- * a later reader uses to render a block, so the two can never disagree about
- * which translation is "the" one.
+ * One stored turn, read back from its own columns only. Which translation a
+ * reader shows is decided at render time (`primaryTranslation`), never here.
  */
-function toTurn(
-  row: TurnRow,
-  languages: readonly LanguageCode[],
-): ConversationTurn | null {
+function toTurn(row: TurnRow): ConversationTurn | null {
   // Validated here rather than cast: a registry code added, written under and
   // later rolled back would otherwise reach the client, whose detail schema
   // rejects the WHOLE conversation over one unknown key. Unknown codes are
@@ -587,10 +602,6 @@ function toTurn(
     displayText: row.displayText,
     sourceLanguages,
     translations,
-    targetText: primaryTranslation(
-      { sourceLanguages, translations },
-      languages,
-    ),
     offsetMs: row.offsetMs,
   };
 }
@@ -650,15 +661,13 @@ function toSummary(
   const languages = parsed.data;
   return {
     conversationId: row.clientId,
-    // Derived, never stored — see `legacyDirectionOf`'s own docblock for why
-    // Postgres no longer has a `direction` column to read this from.
-    direction: legacyDirectionOf(languages),
     languages,
     startedAt: row.startedAt.toISOString(),
     endedAt: row.endedAt.toISOString(),
     turnCount,
     preview,
     hasMinutes: minutes !== null,
+    pausedMs: row.pausedMs,
   };
 }
 

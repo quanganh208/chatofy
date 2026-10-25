@@ -1,0 +1,30 @@
+# Audio, labels and anything cut from a recording. Prod turns are real people's
+# voices and their Scribe transcripts; public corpora carry licences that forbid
+# redistribution (CV, L2-ARCTIC, ESC-50 are NC or click-through). All of it is
+# re-creatable by scripts/prepare_*.py from sources the README names.
+data/
+# Downloaded and exported model weights.
+models/
+# A --limit run is a smoke test, never a result; it is kept out of git so it can
+# never be mistaken for one.
+results/smoke/
+# Scores and replay logs of prod-derived tags, even when the ids are opaque:
+# per-turn timing plus a language is enough to re-identify a short session.
+results/private/
+results/**/*.wav
+# esbuild output of the real SpeechGate.
+.cache/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Per-row outputs (~4 MB of scores per run; facts carry speaker embeddings once
+# sessions are in) and the run's manifest copy. `git rm` never shrinks history,
+# so only what a gate is argued from is tracked: summary.json/.md, gate.json,
+# <arm>.model.json, <arm>.meta.json, <arm>.parity.json, run.json. All per-row
+# files are re-derivable by re-running the tag.
+results/**/*.scores.jsonl
+# A half-written score file of an interrupted arm, kept so the run resumes.
+results/**/*.scores.partial.jsonl
+results/**/facts.jsonl
+results/**/manifest.jsonl

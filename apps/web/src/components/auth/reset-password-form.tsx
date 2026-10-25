@@ -9,6 +9,7 @@ import { AuthAlert } from '@/components/auth/auth-alert';
 import { AuthField } from '@/components/auth/auth-field';
 import { resetPassword } from '@/clients/api-client';
 import { useTranslate } from '@/i18n/provider';
+import { formText } from '@/lib/form-text';
 
 /**
  * The reset link's token, read once into state rather than re-read from
@@ -25,7 +26,6 @@ export function ResetPasswordForm() {
   const params = useSearchParams();
   const t = useTranslate();
   const [token] = useState(() => params.get('token'));
-  const [password, setPassword] = useState('');
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
 
@@ -47,9 +47,14 @@ export function ResetPasswordForm() {
 
   return (
     <form
+      method="post"
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
+        // Read from the form, not React state — see `login-form.tsx`: a value typed or
+        // autofilled before hydration is only in the DOM, and the submit sent it empty.
+        const form = new FormData(event.currentTarget);
+        const password = formText(form, 'password');
         setSubmitting(true);
         setError(undefined);
         resetPassword({ token, password })
@@ -81,8 +86,7 @@ export function ResetPasswordForm() {
         minLength={AUTH_LIMITS.minPassword}
         maxLength={AUTH_LIMITS.maxPassword}
         autoComplete="new-password"
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
+        name="password"
       />
 
       <AuthAlert id="reset-error" message={error} />

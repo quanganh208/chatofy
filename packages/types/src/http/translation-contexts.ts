@@ -8,6 +8,7 @@
 // that can be stored but not sent back down the socket would be a silent
 // truncation the user has no way to see.
 import { z } from 'zod';
+import { LANGUAGES } from '../domain/languages.js';
 import {
   MAX_GLOSSARY_TERM_WORDS,
   glossaryEntrySchema,
@@ -68,3 +69,49 @@ export const translationContextListResponseSchema = z.object({
   contexts: z.array(translationContextSchema),
 });
 export type TranslationContextListResponse = z.infer<typeof translationContextListResponseSchema>;
+
+/** One stored glossary entry with only the language keys this build knows. */
+function knownLanguagesOnly(entry: unknown): unknown {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return entry;
+  return Object.fromEntries(
+    Object.entries(entry).filter(([code]) => Object.hasOwn(LANGUAGES, code)),
+  );
+}
+
+/** A stored context with every unreadable glossary entry left out, or null. */
+function readableContext(raw: unknown): TranslationContext | null {
+  let candidate = raw;
+  if (raw && typeof raw === 'object' && Array.isArray((raw as { glossary?: unknown }).glossary)) {
+    const glossary = (raw as { glossary: unknown[] }).glossary
+      .map(knownLanguagesOnly)
+      .filter((entry) => glossaryEntrySchema.safeParse(entry).success);
+    candidate = { ...raw, glossary };
+  }
+  const parsed = translationContextSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
+}
+
+/**
+ * The saved contexts this build can read, and how many it could not.
+ *
+ * Entry by entry rather than one parse over the list, because the list outlives
+ * the build reading it: a language key this build has never heard of (a glossary
+ * entry with a `zh` side, read by a build from before zh) fails
+ * `translationMapSchema`, and one failed parse over the whole list used to show
+ * NO contexts at all. Now an unknown key is dropped, an entry that is then
+ * unreadable is dropped, and only a context that is still unreadable after that
+ * is left out — each loss as small as it can be.
+ */
+export function readTranslationContextList(raw: unknown): {
+  contexts: TranslationContext[];
+  dropped: number;
+} {
+  const list = Array.isArray(raw) ? raw : [];
+  const contexts = list.map(readableContext).filter((context) => context !== null);
+  return { contexts, dropped: list.length - contexts.length };
+}
+
+/** `translationContextListResponseSchema`, read with {@link readTranslationContextList}. */
+export const readableTranslationContextListSchema = z
+  .object({ contexts: z.array(z.unknown()) })
+  .transform(({ contexts }) => readTranslationContextList(contexts));

@@ -1,6 +1,11 @@
-import { reverseDirection, type TranslationDirection, type TranslationHints } from '@chatofy/types';
+import {
+  reversePair,
+  type LanguagePair,
+  type TranslationHints,
+  type VoiceGender,
+} from '@chatofy/types';
 import type { PlaybackSink } from '@chatofy/realtime-client';
-import type { DirectionSessionDeps } from './direction-session';
+import type { LanguagePairSessionDeps } from './language-pair-session';
 import { DuckController } from './duck-controller';
 import type { EchoMonitorDeps } from './echo-monitor';
 import { MeetingTranscript } from './meeting-transcript';
@@ -10,13 +15,13 @@ import type { TabAudioSource } from './tab-audio-source';
 import type { CaptureSettings, CaptureStatus, OutboundState, TranscriptLine } from './messages';
 
 /**
- * Both directions of one meeting: what to open, what to release, and in which
+ * Both legs of one meeting: what to open, what to release, and in which
  * order.
  *
  * Kept apart from the offscreen entrypoint so the ORDER can be tested. Everything
  * that matters here is a sequencing decision — the meeting must be audible before
  * anything waits on a human, a microphone the user refuses must not cost them the
- * direction that already works, and a teardown that re-enters itself must stop.
+ * leg that already works, and a teardown that re-enters itself must stop.
  * None of those are observable from the outside once they are wired into
  * `chrome.runtime` listeners and browser globals, and all three were wrong in the
  * first draft.
@@ -26,11 +31,11 @@ import type { CaptureSettings, CaptureStatus, OutboundState, TranscriptLine } fr
  */
 
 /**
- * Turns each direction keeps open at the server.
+ * Turns each leg keeps open at the server.
  *
  * The inbound three is what continuous capture needs at an ~8s forced cut and a
  * p95 near 2s. The outbound two is provisional and deliberately smaller: both
- * directions share one process-wide ceiling of six, and the sidecars lock per
+ * legs share one process-wide ceiling of six, and the sidecars lock per
  * ENGINE rather than per process, so a Vietnamese turn and an English turn are
  * genuinely concurrent inferences rather than two entries in one queue. Phase 3
  * measures what the pair actually costs; until then this leaves headroom instead
@@ -40,15 +45,15 @@ const MAX_IN_FLIGHT_INBOUND = 3;
 const MAX_IN_FLIGHT_OUTBOUND = 2;
 
 /** All this class needs from a running conversation. */
-export interface DirectionRunner {
+export interface LegRunner {
   start(options: {
-    direction: TranslationDirection;
-    voiceGender: string;
+    languagePair: LanguagePair;
+    voiceGender: VoiceGender;
     /**
      * The chosen AI Context, resolved once per capture and handed to both
-     * directions unchanged. Optional because a backend may take no hint
-     * parameter at all — see `LiveDirectionSession`, which accepts and ignores
-     * it rather than growing a second shape for `DirectionRunner`.
+     * legs unchanged. Optional because a backend may take no hint
+     * parameter at all — see `LiveLanguagePairSession`, which accepts and ignores
+     * it rather than growing a second shape for `LegRunner`.
      */
     hints?: TranslationHints;
   }): Promise<void>;
@@ -68,9 +73,9 @@ export interface MeetingCaptureDeps {
   openTab: (context: AudioContext, streamId: string) => Promise<TabAudioSource>;
   openMicrophone: (context: AudioContext) => Promise<GatedMicrophone>;
   createEcho: (deps: EchoMonitorDeps) => EchoRunner;
-  createSession: (deps: DirectionSessionDeps) => DirectionRunner;
+  createSession: (deps: LanguagePairSessionDeps) => LegRunner;
   /**
-   * The access token both directions authenticate with.
+   * The access token both legs authenticate with.
    *
    * Read at the start of every capture rather than held, because a token can be
    * cleared from the popup between meetings and a stale copy would fail at the
@@ -82,10 +87,10 @@ export interface MeetingCaptureDeps {
    *
    * Optional, so a build that does not wire this in still type-checks: an
    * absent loader resolves no hints, which is exactly what a capture did before
-   * this feature existed. Read once per {@link begin}, never per direction —
+   * this feature existed. Read once per {@link begin}, never per leg —
    * the same resolved value reaches both `inbound.start` and `outbound.start`,
    * which is the whole point: one settings object, two concurrent sessions,
-   * opposite directions, one dictionary that is correct in both because its
+   * reversed language pairs, one dictionary that is correct in both because its
    * entries are keyed by language rather than by role.
    *
    * A failure must never throw out of here. It has nothing to do with whether a
@@ -97,7 +102,7 @@ export interface MeetingCaptureDeps {
   /**
    * Where the user's translated speech goes when the meeting page can carry it.
    *
-   * Absent, or a page without the patch, and the outbound direction monitors
+   * Absent, or a page without the patch, and the outbound leg monitors
    * through this machine's speakers instead — which is a different thing, and is
    * named differently everywhere the user can see it.
    */
@@ -116,7 +121,7 @@ export interface MeetingCaptureDeps {
   onTranscript: (lines: TranscriptLine[]) => void;
 }
 
-/** What both directions share. Only a full stop may release these. */
+/** What both legs share. Only a full stop may release these. */
 interface SharedLive {
   context: AudioContext;
   duck: DuckController;
@@ -125,11 +130,11 @@ interface SharedLive {
   microphone?: GatedMicrophone;
 }
 
-type Direction = 'inbound' | 'outbound';
+type MeetingLeg = 'inbound' | 'outbound';
 
 export class MeetingCapture {
   private shared: SharedLive | null = null;
-  private readonly directions: Record<Direction, DirectionRunner | null> = {
+  private readonly legs: Record<MeetingLeg, LegRunner | null> = {
     inbound: null,
     outbound: null,
   };
@@ -146,12 +151,12 @@ export class MeetingCapture {
   private generation = 0;
 
   /**
-   * Whether each direction has audio queued or sounding right now.
+   * Whether each leg has audio queued or sounding right now.
    *
    * Two fields, not one, and which consumer reads which is a contract rather than
    * a detail:
    *
-   *   the microphone gate  ← inbound || outbound, while the outbound direction
+   *   the microphone gate  ← inbound || outbound, while the outbound leg
    *                          monitors through these same loudspeakers
    *   the echo measurement ← inbound only, so the count keeps meaning "our
    *                          translation came back" and not "the user talked"
@@ -161,7 +166,7 @@ export class MeetingCapture {
    */
   private readonly sounding = { inbound: false, outbound: false };
 
-  /** Turns queued or waiting per direction, from `isBusy`. Ducking's signal. */
+  /** Turns queued or waiting per leg, from `isBusy`. Ducking's signal. */
   private readonly busy = { inbound: false, outbound: false };
 
   private readonly errors: { inbound?: string; outbound?: string } = {};
@@ -190,7 +195,7 @@ export class MeetingCapture {
    * Set at capture open: is this capture running the continuous backend.
    *
    * Read by {@link applyMicrophoneGate} and nowhere else. Everything else about
-   * a direction is behind `DirectionRunner` on purpose; this one fact cannot be,
+   * a leg is behind `LegRunner` on purpose; this one fact cannot be,
    * because the gate's rule is not about a session at all — it is about whether
    * playback has gaps, and only the mode answers that.
    */
@@ -200,10 +205,10 @@ export class MeetingCapture {
   private pageSink: PlaybackSink | null = null;
 
   private outboundState(): OutboundState {
-    // Driven by whether the direction is actually running, not by what was
+    // Driven by whether the leg is actually running, not by what was
     // decided when capture opened: a session that died would otherwise leave the
     // user believing they are being translated for the rest of the call.
-    if (!this.directions.outbound) return 'off';
+    if (!this.legs.outbound) return 'off';
     if (!this.sending) return 'monitor';
     // Named rather than folded into `sending`: while the client is muted nothing
     // is captured at all, and telling the user their speech is reaching the
@@ -214,7 +219,7 @@ export class MeetingCapture {
   /**
    * The meeting client muted, or unmuted, the microphone we composed.
    *
-   * Muted stops the outbound direction at the source rather than only silencing
+   * Muted stops the outbound leg at the source rather than only silencing
    * it downstream: the point is that speech the user believes is private is
    * never captured, never translated, and never leaves this document.
    */
@@ -301,10 +306,10 @@ export class MeetingCapture {
       throw new Error('Sign in from the Chatofy popup before starting a capture');
     }
 
-    // Resolved once, here, and never again for this run — both directions below
-    // are handed the very same object. A per-direction fetch could race and
+    // Resolved once, here, and never again for this run — both legs below
+    // are handed the very same object. A per-leg fetch could race and
     // resolve to two different snapshots of the same setting, and there is no
-    // per-direction question to ask anyway: one meeting, one chosen context.
+    // per-leg question to ask anyway: one meeting, one chosen context.
     const hints = this.deps.loadContextHints
       ? await this.deps.loadContextHints(settings).catch(() => undefined)
       : undefined;
@@ -312,7 +317,7 @@ export class MeetingCapture {
     await this.end();
     delete this.errors.inbound;
     delete this.errors.outbound;
-    this.transcript.clear();
+    this.transcript.clear(settings.languagePair);
     // Sending needs both a page that can carry it and somewhere to send it to.
     this.sending = patched && settings.outbound && this.deps.createPageSink !== undefined;
     this.live = settings.mode === 'live';
@@ -353,7 +358,7 @@ export class MeetingCapture {
       // A holder, because the echo measurement is built before the inbound
       // session and has to reach it afterwards: the count lands on that session's
       // per-turn field, and the monitor needs `isPlaying` at construction.
-      const inboundRef: { current: DirectionRunner | undefined } = { current: undefined };
+      const inboundRef: { current: LegRunner | undefined } = { current: undefined };
 
       const echo = this.buildEchoMonitor(context, inboundRef);
 
@@ -361,24 +366,17 @@ export class MeetingCapture {
 
       this.endCaptureIfTabGoesAway(tab.stream);
 
-      const inbound = this.buildDirection(
-        'inbound',
-        context,
-        settings,
-        accessToken,
-        tab.stream,
-        duck,
-      );
+      const inbound = this.buildLeg('inbound', context, settings, accessToken, tab.stream, duck);
       inboundRef.current = inbound;
-      this.directions.inbound = inbound;
+      this.legs.inbound = inbound;
       await inbound.start({
-        direction: settings.direction,
+        languagePair: settings.languagePair,
         voiceGender: settings.voiceGender,
         hints,
       });
       if (stale()) throw new Error('capture was stopped while starting');
 
-      // Only now, with the meeting audible and its direction running. Everything
+      // Only now, with the meeting audible and its leg running. Everything
       // below fails on its own.
       if (settings.outbound) {
         await this.startOutbound(context, settings, accessToken, duck, stale, hints);
@@ -409,7 +407,7 @@ export class MeetingCapture {
    */
   private buildEchoMonitor(
     context: AudioContext,
-    inboundRef: { current: DirectionRunner | undefined },
+    inboundRef: { current: LegRunner | undefined },
   ): EchoRunner {
     return this.deps.createEcho({
       context,
@@ -439,7 +437,7 @@ export class MeetingCapture {
    *
    * A captured tab that reloads, navigates or closes ends this track, and nothing
    * else here would notice. The microphone lives in THIS document, not in that
-   * tab, so it survives — the outbound direction keeps capturing, translating and
+   * tab, so it survives — the outbound leg keeps capturing, translating and
    * publishing transcript while the meeting itself stopped arriving. What the user
    * sees is their own speech appearing on screen, which reads as the feature
    * working, over a capture that is half dead and sending nothing to anyone.
@@ -479,7 +477,7 @@ export class MeetingCapture {
       // user's speech captured and translated anyway.
       this.applyMicrophoneGate();
 
-      const outbound = this.buildDirection(
+      const outbound = this.buildLeg(
         'outbound',
         context,
         settings,
@@ -487,13 +485,13 @@ export class MeetingCapture {
         microphone.stream,
         duck,
       );
-      this.directions.outbound = outbound;
+      this.legs.outbound = outbound;
       await outbound.start({
-        direction: reverseDirection(settings.direction),
+        languagePair: reversePair(settings.languagePair),
         voiceGender: settings.voiceGender,
         // The SAME object `inbound.start` above was given, not a re-fetch and
         // not a re-keyed copy: the glossary's entries are keyed by language, so
-        // the one dictionary is already correct read from either direction.
+        // the one dictionary is already correct read from either leg.
         hints,
       });
     } catch (err) {
@@ -505,56 +503,56 @@ export class MeetingCapture {
     }
   }
 
-  /** Wire one direction into the shared graph. */
-  private buildDirection(
-    direction: Direction,
+  /** Wire one leg into the shared graph. */
+  private buildLeg(
+    leg: MeetingLeg,
     context: AudioContext,
     settings: CaptureSettings,
     accessToken: string,
     input: MediaStream,
     duck: DuckController,
-  ): DirectionRunner {
-    const inbound = direction === 'inbound';
+  ): LegRunner {
+    const inbound = leg === 'inbound';
     return this.deps.createSession({
       context,
       workletUrl: this.deps.workletUrl,
       settings,
       accessToken,
       // The user speaks the language the meeting is being translated INTO.
-      direction: inbound ? settings.direction : reverseDirection(settings.direction),
+      languagePair: inbound ? settings.languagePair : reversePair(settings.languagePair),
       input,
       maxInFlight: inbound ? MAX_IN_FLIGHT_INBOUND : MAX_IN_FLIGHT_OUTBOUND,
       onServerEvent: (event) => {
-        this.transcript.apply(direction, event);
+        this.transcript.apply(leg, event);
         this.publishTranscript();
       },
-      onReset: () => this.transcript.reset(direction),
+      onReset: () => this.transcript.reset(leg),
       onTurnAbandoned: (sessionId) => {
         // A turn refused at the ceiling or dropped at a backlog ceiling produces
         // no `server.session.ended`, so without this its live line would sit on
         // the overlay for the rest of the meeting.
-        this.transcript.apply(direction, {
+        this.transcript.apply(leg, {
           type: 'transcript.turnAbandoned',
           sessionId: sessionId ?? undefined,
         });
         this.publishTranscript();
       },
       onError: (message) => {
-        this.errors[direction] = message;
+        this.errors[leg] = message;
         this.reportStatus();
       },
       onBusy: (value) => {
-        this.busy[direction] = value;
+        this.busy[leg] = value;
         // Ducking lowers what the USER is listening to. The outbound translation
         // is not for them — it is a monitor of what the other participants will
         // hear — so it never touches the meeting's volume.
         if (inbound) duck.setBusy(value);
       },
       onSounding: (value) => {
-        this.sounding[direction] = value;
+        this.sounding[leg] = value;
         this.applyMicrophoneGate();
       },
-      // Only the outbound direction can be sent into the meeting, and only when
+      // Only the outbound leg can be sent into the meeting, and only when
       // the page can carry it. Everything else plays here.
       createSink:
         !inbound && this.sending && this.deps.createPageSink
@@ -570,9 +568,9 @@ export class MeetingCapture {
               return sink;
             }
           : undefined,
-      onLog: (message) => console.info(`[chatofy] ${direction}: ${message}`),
+      onLog: (message) => console.info(`[chatofy] ${leg}: ${message}`),
       onStopped: () => {
-        // Asymmetric on purpose. Losing the outbound direction costs the user the
+        // Asymmetric on purpose. Losing the outbound leg costs the user the
         // ability to be understood; losing the inbound one means the capture is
         // translating nothing at all, so it ends rather than leaving a recording
         // indicator lit over a dead pipeline.
@@ -582,19 +580,19 @@ export class MeetingCapture {
     });
   }
 
-  /** Release one direction's session, and nothing else. */
-  private stopDirection(direction: Direction): void {
-    const session = this.directions[direction];
+  /** Release one leg's session, and nothing else. */
+  private stopLeg(leg: MeetingLeg): void {
+    const session = this.legs[leg];
     if (!session) return;
     // Cleared BEFORE stopping: `stop()` fires `onStopped`, which lands back here.
-    this.directions[direction] = null;
+    this.legs[leg] = null;
     session.stop();
-    this.sounding[direction] = false;
-    this.busy[direction] = false;
-    if (direction === 'inbound') this.shared?.duck.setBusy(false);
-    // The user gets their own voice back the moment this direction stops, rather
+    this.sounding[leg] = false;
+    this.busy[leg] = false;
+    if (leg === 'inbound') this.shared?.duck.setBusy(false);
+    // The user gets their own voice back the moment this leg stops, rather
     // than a lease later. Every teardown path runs through here.
-    if (direction === 'outbound') {
+    if (leg === 'outbound') {
       this.deps.holdOutboundVoice?.release();
       this.pageSink = null;
     }
@@ -602,22 +600,22 @@ export class MeetingCapture {
   }
 
   /**
-   * End the outbound direction, keeping the meeting's translation running.
+   * End the outbound leg, keeping the meeting's translation running.
    *
    * The transcript is deliberately left alone. A dropped socket is exactly when
    * the user wants to read what was said, and clearing it here would erase the
    * meeting at the moment something went wrong.
    */
   endOutbound(): void {
-    const wasRunning = this.directions.outbound !== null || this.shared?.microphone !== undefined;
-    this.stopDirection('outbound');
-    // Restated outside `stopDirection`, which returns early when there is no
+    const wasRunning = this.legs.outbound !== null || this.shared?.microphone !== undefined;
+    this.stopLeg('outbound');
+    // Restated outside `stopLeg`, which returns early when there is no
     // session to stop. A start that got as far as the page sink and no further
     // has a voice held down and nothing that would give it back.
     this.deps.holdOutboundVoice?.release();
     if (this.shared) {
-      // The microphone belongs to this direction alone; leaving it open would
-      // hold Chrome's recording indicator lit for a direction that has stopped.
+      // The microphone belongs to this leg alone; leaving it open would
+      // hold Chrome's recording indicator lit for a leg that has stopped.
       this.shared.microphone?.stop();
       this.shared.microphone = undefined;
     }
@@ -635,8 +633,8 @@ export class MeetingCapture {
     const current = this.shared;
     this.shared = null;
 
-    this.stopDirection('inbound');
-    this.stopDirection('outbound');
+    this.stopLeg('inbound');
+    this.stopLeg('outbound');
     // Same backstop as `endOutbound`: a capture torn down before its outbound
     // session existed must still hand the microphone back.
     this.deps.holdOutboundVoice?.release();

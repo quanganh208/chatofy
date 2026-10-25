@@ -1,3 +1,5 @@
+import { HAN_CHARACTER } from '@chatofy/types';
+
 /**
  * Splits a recogniser's revisable guesses into text that has settled and text
  * that has not, so the screen can show words while someone is still speaking
@@ -124,9 +126,12 @@ export class StreamingCommitter {
     // whitespace and joining with ' ' would normalise whatever the recogniser
     // actually emitted, and the settled text would stop being a prefix of the
     // reading it came from — which is the one property `pending` relies on.
+    //
+    // A Han character is one syllable on its own, so it is held back one
+    // character at a time; any other run is held back whole, as before.
     let kept = prefix.trimEnd();
     for (let taken = 0; taken < this.holdBackSyllables; taken += 1) {
-      kept = kept.replace(/\s*\S+$/, '');
+      kept = kept.replace(/\s*(?:\p{Script=Han}|[^\s\p{Script=Han}]+)$/u, '');
       if (!kept) return '';
     }
     return kept;
@@ -144,15 +149,24 @@ export class StreamingCommitter {
  *
  * Vietnamese writes each syllable separately, so a syllable IS a whitespace
  * token here and this one cut serves both languages.
+ *
+ * Chinese writes no spaces at all, so a whitespace-only boundary would hold an
+ * entire zh turn back until its final. Each Han character is a syllable, so the
+ * position next to one is a boundary too: the cut only drops a trailing run when
+ * the agreement stopped between two characters NEITHER of which is Han. Text
+ * with no Han character takes exactly the path it took before.
  */
 function agreedPrefix(earlier: string, later: string): string {
   let shared = 0;
   const limit = Math.min(earlier.length, later.length);
   while (shared < limit && earlier[shared] === later[shared]) shared += 1;
 
+  const last = shared > 0 ? later[shared - 1] : undefined;
+  const continues = (next: string | undefined): boolean =>
+    next !== undefined && !isSpace(next) && !isHan(next) && !isHan(last);
   const splitsAWord =
-    (shared < later.length && !isSpace(later[shared])) ||
-    (shared < earlier.length && !isSpace(earlier[shared]));
+    (shared < later.length && continues(later[shared])) ||
+    (shared < earlier.length && continues(earlier[shared]));
 
   let prefix = later.slice(0, shared);
   // Drop the trailing run of non-space characters, which IS the word the
@@ -163,9 +177,15 @@ function agreedPrefix(earlier: string, later: string): string {
   //
   // A prefix with no whitespace in it at all falls out as empty, which is
   // right: the only word there is the one still growing.
-  if (splitsAWord) prefix = prefix.replace(/\S*$/, '');
+  //
+  // The run stops at a Han character as well as at whitespace: `我们用iP`
+  // drops the half-read `iP`, never the settled Chinese before it.
+  if (splitsAWord) prefix = prefix.replace(/[^\s\p{Script=Han}]*$/u, '');
   return prefix.trimEnd();
 }
 
 const isSpace = (character: string | undefined): boolean =>
   character !== undefined && /\s/.test(character);
+
+const isHan = (character: string | undefined): boolean =>
+  character !== undefined && HAN_CHARACTER.test(character);

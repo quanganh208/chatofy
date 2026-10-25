@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, FileX2, Pause, Play } from 'lucide-react';
-import type { Conversation, LanguageCode } from '@chatofy/types';
+import type { Conversation } from '@chatofy/types';
 import { Button, Card, CardContent, Skeleton, Slider } from '@chatofy/ui/react';
 import { HistoryTranscript } from '@/components/history/history-transcript';
 import { ConfirmDeleteButton } from '@/components/layout/confirm-delete-button';
@@ -13,9 +13,10 @@ import { deleteConversation, getConversation } from '@/clients/api-client';
 import { useConversationPlayer } from '@/hooks/use-conversation-player';
 import { useMinutes } from '@/hooks/use-minutes';
 import { useLocale, useTranslate } from '@/i18n/provider';
-import { durationMinutes, formatTime } from './conversation-formatting';
+import { activeDurationMs, durationMinutes, formatTime } from './conversation-formatting';
 import { formatOffset } from '@/lib/transcript-time';
-import { DirectionLabel } from './direction-label';
+import { LanguagePairLabel } from './language-pair-label';
+import { turnCountLabel } from './turn-count-label';
 
 interface ConversationDetailProps {
   conversationId: string;
@@ -81,9 +82,10 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
   // reachable through the bar: `hasRecording` is itself derived from
   // `audioDurationMs`, so a null one means no bar is drawn. It keeps `totalMs`
   // meaningful for any other reader of this value.
+  // Active time, not wall time, because the recording paused with the
+  // conversation and holds none of the paused stretch.
   const totalMs =
-    conversation?.audioDurationMs ??
-    (conversation ? Date.parse(conversation.endedAt) - Date.parse(conversation.startedAt) : 0);
+    conversation?.audioDurationMs ?? (conversation ? activeDurationMs(conversation) : 0);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,15 +131,9 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
             <Dot />
             {formatTime(conversation.startedAt, locale)}
             <Dot />
-            {/* `conversationLanguagesSchema` guarantees at least two, declared
-                source first — the same guarantee `legacyDirectionOf` relies on
-                server-side. */}
-            <DirectionLabel
-              from={conversation.languages[0] as LanguageCode}
-              to={conversation.languages[1] as LanguageCode}
-            />
+            <LanguagePairLabel languages={conversation.languages} />
             <Dot />
-            {t('web.history.turnCount', { count: conversation.turnCount })}
+            {turnCountLabel(t, conversation.turnCount)}
             <Dot />
             {t('web.history.duration', { minutes: durationMinutes(conversation) })}
           </p>

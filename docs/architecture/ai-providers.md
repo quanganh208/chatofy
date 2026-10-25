@@ -20,11 +20,11 @@ Dual-build (CommonJS + ESM via tsup) for NestJS (CJS require) + frontend (ESM im
   - `OpenAiCompatibleTranslationProvider` — Translation over the OpenAI chat-completions wire format (raw fetch), one class for every such host; production runs it against DeepSeek (see "Machine translation" below)
   - `GeminiSummarizationProvider` — meeting minutes (see "Meeting minutes" below)
   - `GeminiLiveTranslateProvider` — speech-to-speech in one upstream stream, the `realtime` kind behind the `live` translate mode (see [Data Flow](./data-flow.md#live-mode-on-the-same-socket))
-  - `LocalSpeechDisplayRestorer` — punctuation and case for the Vietnamese display via the local sidecar (`services/local-stt`, `POST /restore`)
+  - `LocalSpeechDisplayRestorer` — the display restore via the local sidecar (`services/local-stt`, `POST /restore`): punctuation and case for Vietnamese (Dewpoint), punctuation for Chinese (CT-Transformer)
   - `ElevenLabsTtsProvider` — TTS via ElevenLabs TTS API (raw fetch, `audio/mpeg`)
-  - `LocalSpeechSttProvider` — STT via the local sidecar (`services/local-stt`, HTTP multipart); one backend serves both languages, the sidecar picks Zipformer-30M for `vi` and Parakeet-TDT-0.6b-v2 for `en`
+  - `LocalSpeechSttProvider` — STT via the local sidecar (`services/local-stt`, HTTP multipart); one backend serves every language, the sidecar picks Zipformer-30M for `vi`, Parakeet-TDT-0.6b-v2 for `en` and Paraformer-zh for `zh`
   - `LocalSpeechEmbeddingProvider` — speaker vectors via the local sidecar (`services/local-stt`, `POST /embed`). A **separate endpoint from `/transcribe`, deliberately**: translation cannot start until it has the transcript text, so an embedding returned in that same response would land its cost before the translation instead of beside it. A second localhost upload of a few-second clip costs single-digit ms
-  - `LocalSpeechTtsProvider` — TTS via the local sidecar (`services/local-tts`, HTTP, `audio/wav`); one backend serves both languages, the sidecar picks VieNeu for `vi` and Kokoro-82M for `en`. Carries no default voice: a voice is a speaker id for one engine and a preset name for the other, so only the engine can default it
+  - `LocalSpeechTtsProvider` — TTS via the local sidecar (`services/local-tts`, HTTP, `audio/wav`); one backend serves every language, the sidecar picks VieNeu for `vi` and Kokoro-82M for `en` and `zh` (one shared instance). Carries no default voice: a voice is a speaker id for one engine and a preset name for the other, so only the engine can default it
 - Each provider owns its own model default — there is no model-selection layer above them. Gemini holds the ordered quota-fallback list; an OpenAI-compatible host takes its one model from its row in the host table; the ElevenLabs providers default to `scribe_v2` / `eleven_flash_v2_5`; the local sidecars pick their engine from the language and take no model argument at all
 - `registry/` — `ProviderRegistry`, typed via the `ProviderKindMap` mapped type
   - Holds implementations by kind (stt/translation/tts/realtime/speakerEmbedding/displayRestorer/summarization) and name, resolved at runtime
@@ -39,11 +39,30 @@ Lazy config validation: API boots without keys; missing config only errors when 
 | ----------- | -------- | --------------------------- | ----------------------------- |
 | STT         | vi       | `local` → Zipformer-30M     | `services/local-stt` :8002    |
 | STT         | en       | `local` → Parakeet-TDT      | `services/local-stt` :8002    |
+| STT         | zh       | `local` → Paraformer-zh     | `services/local-stt` :8002    |
 | TTS         | vi       | `local` → VieNeu v3 Turbo   | `services/local-tts` :8003    |
-| TTS         | en       | `local` → Kokoro-82M        | `services/local-tts` :8003    |
-| Translation | both     | `gemini` (prod: `deepseek`) | **Cloud** (Google / DeepSeek) |
-| Speaker     | both     | `local` → CAM++             | `services/local-stt` :8002    |
+| TTS         | en, zh   | `local` → Kokoro-82M        | `services/local-tts` :8003    |
+| Translation | all      | `gemini` (prod: `deepseek`) | **Cloud** (Google / DeepSeek) |
+| Speaker     | all      | `local` → CAM++             | `services/local-stt` :8002    |
 | Display     | vi       | `local` → Dewpoint          | `services/local-stt` :8002    |
+| Display     | zh       | `local` → CT-Transformer    | `services/local-stt` :8002    |
+
+**Chinese, end to end.** Paraformer writes no punctuation and every number as
+words, so a zh turn's display is the CT-Transformer's marks (the sidecar puts
+back the spaces it drops around Latin tokens), then `chineseInverseNormalize`
+(`packages/ai-providers/src/text/chinese-*.ts`), a character scanner, because
+the shared ITN engine reads an unspaced clause as one word. A translation INTO
+Chinese is always rendered Simplified (`toTargetScript`, OpenCC t2s via
+`opencc-js`, on every streamed chunk and the final text), and a FINAL translation
+into Vietnamese that keeps more Han than its source can explain is retried once
+against the translation budget (`leaksForeignScript`; `ScriptRetry` in
+`apps/api/src/modules/translate/services/foreign-script-retry.ts`) — measured on
+recorded DeepSeek output: 3 Traditional outputs in 1,200 and 3 zh→vi leaks in
+600, 0 in every other direction. Kokoro speaks zh from the instance it holds for
+en, with both lexicons and **no rule FSTs**: all three zh FSTs rewrite English
+digits, so the zh engine verbalizes its own digits
+(`services/local-tts/engines/zh_number_verbalizer.py`). Gemini Live refuses any
+pair with zh in it (`LIVE_LANGUAGES`, `unsupported_language_pair`).
 
 **STT sidecar concurrency.** Each STT engine serves several decodes at once
 through a lane semaphore over its one recognizer (`LOCAL_STT_CONCURRENCY`,
@@ -647,6 +666,15 @@ when it ends. `Conversation.audioKey` names the object; `audioOffsetMs` and
 `audioDurationMs` place a transcript timestamp inside it. The transcript is
 unchanged and still lives in Postgres.
 
+Pause pauses the recorder, the elapsed clock and capture together. Every turn's
+`offsetMs` is therefore measured in active time, which is wall time since
+`startedAt` minus the paused time before it, and that is also the recording's
+media time. `mediaOffset` seeks with no per-pause bookkeeping. The save stores
+only the total, `Conversation.pausedMs`, and History shows `endedAt − startedAt
+− pausedMs` as the duration. A browser whose `MediaRecorder` cannot pause keeps
+recording straight through, and offsets then keep their wall-time meaning,
+because the recording does too.
+
 `audioOffsetMs` is written by the transcript save as well as by the upload, and
 it is the only recording column that is. It is not a fact about the object: it
 is the origin every per-turn timestamp is measured against, and `/translate`
@@ -682,7 +710,7 @@ follow, and both are load-bearing rather than defensive:
   stores a key, not a URL.
 
 Two constraints decided the transport, and both would have failed only at runtime
-in a browser. `connect-src 'self' ${api} ${socket}` forbids a fetch straight to
+in a browser. `connect-src 'self' ${api} ${socket}` (plus Cloudflare's analytics endpoint) forbids a fetch straight to
 R2, which rules out presigned direct upload; `media-src 'self' blob:` forbids an
 `<audio src>` pointed anywhere but the page's own origin or a blob. Independently,
 the global `JwtAuthGuard` means a media element could not authenticate even if the

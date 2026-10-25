@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import {
+  AUTO_DETECT,
   speakerRoleFor,
   type AudioFrame,
+  type SessionLanguagePair,
   type SessionOptions,
   type SpeakerRole,
   type TranscriptSegment,
-  type TranslationDirection,
+  type LanguagePair,
+  type LanguageCode,
   type TranslationHints,
   type VoiceGender,
 } from '@chatofy/types';
@@ -19,10 +22,11 @@ import { MAX_TURN_SECONDS, TurnAudio } from './turn-audio';
 import { TurnSpeculation } from './turn-speculation';
 import { DeclaredLanguageIdentifier } from './language-identifier';
 import {
-  planForDirection,
+  planForPair,
   type TurnLanguagePlan,
   type TranslationMap,
 } from './turn-language-plan';
+import { TurnLanguageDecision } from './turn-language-decision';
 
 /**
  * The identifier behind `TurnSessionDeps.languages`'s default plan.
@@ -63,20 +67,46 @@ const DEFAULT_COMMIT_CHARS = 15;
 /** What a turn needs from the process to meter its mid-sentence translations. */
 export interface TurnSessionDeps {
   budget?: TranslationBudget;
-  commitChars?: number;
+  /**
+   * Newly settled characters worth a mid-sentence translation. A function for a
+   * turn whose language is decided while it is spoken: the count belongs to the
+   * language the settled text is in, which is only known once the turn locks.
+   */
+  commitChars?: number | ((language: LanguageCode) => number);
   userId?: string;
+  /**
+   * What the conversation had learned when this turn opened, for the live
+   * preview's recognizer. The final decode reads the live set instead, so a
+   * term learned while this turn was being spoken still reaches its final.
+   */
+  learnedTerms?: readonly string[];
   /**
    * The language plan this turn runs, already decided by the caller.
    *
    * `TranslationSessionService.start` builds it once — the same plan its
    * `language_unavailable` check read — and hands it here, so the turn can
    * never run a plan the refusal check did not see. Defaults to
-   * `planForDirection` with {@link DeclaredLanguageIdentifier}, in the same
+   * `planForPair` with {@link DeclaredLanguageIdentifier}, in the same
    * spirit as `budget` above: a turn built without one still runs the real
    * derivation, just with the trivial identifier.
    */
   languages?: TurnLanguagePlan;
+  /**
+   * How this turn's language is decided, for a turn whose language is not
+   * declared up front. Wins over {@link languages}, which becomes a decision
+   * already made.
+   */
+  decision?: TurnLanguageDecision;
 }
+
+/**
+ * Session options with the pair declared — what a turn built without a
+ * {@link TurnSessionDeps.decision} runs, since only a decision can say what an
+ * undeclared source turned out to be.
+ */
+export type DeclaredSessionOptions = Omit<SessionOptions, 'languagePair'> & {
+  readonly languagePair: LanguagePair;
+};
 
 /** One turn of speech: what has been heard, and what may still be done to it. */
 export class TurnSession {
@@ -85,8 +115,7 @@ export class TurnSession {
   readonly partials = new PartialTranscriptScheduler();
   /** Decides when this turn is worth translating before it ends. */
   readonly liveTranslation: LiveTranslationTrigger;
-  /** Separates this turn's settled transcript text from the revisable rest. */
-  readonly committer = new StreamingCommitter();
+  private settled = new StreamingCommitter();
 
   private phase: TurnPhase = 'listening';
   /**
@@ -105,14 +134,14 @@ export class TurnSession {
   private translationGeneration = 0;
   private readonly speculation = new TurnSpeculation();
 
-  readonly direction: TranslationDirection;
+  /** The pair as the client declared it, echoed on this turn's events. */
+  readonly languagePair: SessionLanguagePair;
   /**
-   * What this turn is decided to do, language-wise: which language(s) it was
-   * spoken in, every language it must be translated into, and which of those
-   * is recognised from / spoken back as. Decided by the caller before the
-   * turn exists (see `TurnSessionDeps.languages`), never re-derived here.
+   * Which language this turn is in, and when that became known. Declared up
+   * front for most turns; for a two-way turn, provisional while it is spoken,
+   * locked for the live preview, and decided on the whole turn at its end.
    */
-  readonly languages: TurnLanguagePlan;
+  readonly decision: TurnLanguageDecision;
   /** Which voice speaks this turn's translation, for every clause of it. */
   readonly voiceGender: VoiceGender;
   /**
@@ -132,6 +161,8 @@ export class TurnSession {
   readonly speed: number;
   /** An opaque backend voice token, when the client named one. */
   readonly voice?: string;
+  /** A voice per spoken language, for a turn that may be spoken in either. */
+  readonly voices?: Partial<Record<LanguageCode, string>>;
   /**
    * Whether this client asked for a voice vector for its turns.
    *
@@ -153,6 +184,14 @@ export class TurnSession {
    */
   readonly repairDisplay: boolean;
   /**
+   * Who the turn's extra model calls are charged to, on the shared
+   * `TranslationBudget`. The session id stands in when no user was named, which
+   * is what the live translation trigger already did with the same field.
+   */
+  readonly userId: string;
+  /** See {@link TurnSessionDeps.learnedTerms}. */
+  readonly learnedTerms: readonly string[];
+  /**
    * Whether this client can take a turn split where the voice changes.
    *
    * Only meaningful beside {@link embedSpeaker}: the split is decided from the
@@ -169,7 +208,7 @@ export class TurnSession {
   readonly continuesCut: boolean;
 
   // Takes the whole options object so the caller has one thing to pass, but
-  // keeps the settings flat internally — everything below reads `this.direction`
+  // keeps the settings flat internally — everything below reads `this.languagePair`
   // directly, and an options bag would only add a hop.
   //
   // `turnId` sits beside the options rather than inside them. The gateway
@@ -193,26 +232,56 @@ export class TurnSession {
      */
     deps: TurnSessionDeps = {},
   ) {
-    this.direction = options.direction;
-    this.languages =
-      deps.languages ?? planForDirection(options.direction, DEFAULT_IDENTIFIER);
+    this.languagePair = options.languagePair;
+    this.decision =
+      deps.decision ?? declaredDecision(deps.languages ?? defaultPlan(options));
     this.voiceGender = options.voiceGender;
     this.hints = options.hints;
     this.voiceOutput = options.voiceOutput ?? true;
     this.speed = options.speed ?? 1;
     this.voice = options.voice;
+    this.voices = options.voices;
     this.embedSpeaker = options.embedSpeaker ?? false;
     this.repairDisplay = options.repairDisplay ?? false;
+    this.userId = deps.userId ?? this.sessionId;
+    this.learnedTerms = deps.learnedTerms ?? [];
     this.splitSpeakers = this.embedSpeaker && (options.splitSpeakers ?? false);
     this.streamCommitted = options.streamCommitted ?? false;
     this.continuesCut = options.continuesCut ?? false;
     this.liveTranslation = new LiveTranslationTrigger({
       budget:
         deps.budget ?? new TranslationBudget({ perUserRpm: UNMETERED_RPM }),
-      commitChars: deps.commitChars ?? DEFAULT_COMMIT_CHARS,
-      userId: deps.userId ?? this.sessionId,
+      commitChars: commitCharsFor(
+        deps.commitChars,
+        () => this.languages.recognition,
+      ),
+      userId: this.userId,
       model: LIVE_TRANSLATION_MODELS[0] ?? '',
     });
+  }
+
+  /**
+   * What this turn does, language-wise: which language it was spoken in, every
+   * language it must be translated into, and which of those is recognised from
+   * and spoken back as. Read from {@link decision} every time, because a
+   * two-way turn's answer changes as it is decided.
+   */
+  get languages(): TurnLanguagePlan {
+    return this.decision.plan;
+  }
+
+  /** Separates this turn's settled transcript text from the revisable rest. */
+  get committer(): StreamingCommitter {
+    return this.settled;
+  }
+
+  /**
+   * Start settling again from nothing. For a two-way turn whose preview just
+   * locked: what settled before was read in the provisional language, and a
+   * reading in another one shares no prefix with it worth keeping.
+   */
+  resetCommitter(): void {
+    this.settled = new StreamingCommitter();
   }
 
   get isListening(): boolean {
@@ -250,9 +319,9 @@ export class TurnSession {
   /**
    * Which side of the conversation is speaking.
    *
-   * Reads `this.languages` rather than the direction directly: `recognition` is
-   * the language this turn is actually taken to be spoken in — today always the
-   * direction's declared source, but the field to read once a real identifier
+   * Reads `this.languages` rather than the language pair directly: `recognition`
+   * is the language this turn is actually taken to be spoken in — today always
+   * the pair's declared source, but the field to read once a real identifier
    * can disagree with it. Delegates to the registry rather than comparing a
    * language to a literal: `speakerRoleFor` is what fixes `speaker_a` to the
    * conversation's registry-first language regardless of which side of the
@@ -390,16 +459,7 @@ export class TurnSession {
     return this.speculation.usable(this.audio.byteLength);
   }
 
-  /**
-   * Build this turn's persisted record.
-   *
-   * `direction` and `targetText` are computed rather than dropped, even though
-   * `translations` and `sourceLanguages` now carry the same information more
-   * generally: no client reads them today, but the client-side schema still
-   * requires them, and `apps/api`/`apps/web` do not deploy atomically. See
-   * `TranscriptSegment` in `@chatofy/types` for the fuller version of this
-   * note.
-   */
+  /** Build this turn's persisted record. */
   toSegment(
     sourceText: string,
     translations: TranslationMap,
@@ -409,14 +469,40 @@ export class TurnSession {
       id: randomUUID(),
       sessionId,
       speakerRole: this.speakerRole,
-      direction: this.direction,
       sourceLanguages: [...this.languages.sourceLanguages],
       translations,
       sourceText,
-      targetText: translations[this.languages.spoken] ?? '',
       // Audio travels over this socket rather than being stored.
       audioUrl: null,
       createdAt: new Date().toISOString(),
     };
   }
+}
+
+/** The plan of a turn built with neither a plan nor a decision. */
+function defaultPlan(options: SessionOptions): TurnLanguagePlan {
+  const { source, target } = options.languagePair;
+  if (source === AUTO_DETECT) {
+    throw new Error('A turn with an undeclared source needs its decision');
+  }
+  return planForPair({ source, target }, DEFAULT_IDENTIFIER);
+}
+
+/** A plan decided before the turn starts, as the decision a turn reads it through. */
+function declaredDecision(plan: TurnLanguagePlan): TurnLanguageDecision {
+  return new TurnLanguageDecision(
+    'declared',
+    [plan.recognition],
+    plan.recognition,
+    () => plan,
+  );
+}
+
+function commitCharsFor(
+  chars: TurnSessionDeps['commitChars'],
+  language: () => LanguageCode,
+): () => number {
+  if (chars === undefined) return () => DEFAULT_COMMIT_CHARS;
+  if (typeof chars === 'number') return () => chars;
+  return () => chars(language());
 }

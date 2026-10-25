@@ -103,42 +103,42 @@ page world (registered only while outbound is on)
                 base64 PCM ─► scheduler ───┴─► MediaStreamDestination ─► the meeting
 ```
 
-**Two directions, two sessions, one context.** Each direction is a
+**Two legs, two sessions, one context.** A meeting has two legs — inbound (the meeting's audio, translated for the user) and outbound (the user's microphone, translated for the meeting). Each leg is a
 `ConversationSession` differing in four things — its input stream, which way it
 translates, how many turns it keeps open, and where its audio goes. Everything else,
 which is the whole turn-taking configuration, is shared through
-`src/direction-session.ts` so the two cannot drift.
+`src/language-pair-session.ts` so the two cannot drift.
 
 **Either backend, behind one interface.** `CaptureSettings.mode` picks the cascade
-above or the continuous model, and `createDirectionSession` returns a
-`ConversationSession` or a `LiveDirectionSession` accordingly. `MeetingCapture` drives
-both through `DirectionRunner` and never learns which it holds, so the ducking, the
+above or the continuous model, and `createLanguagePairSession` returns a
+`ConversationSession` or a `LiveLanguagePairSession` accordingly. `MeetingCapture` drives
+both through `LegRunner` and never learns which it holds, so the ducking, the
 microphone gate, the echo monitor and the teardown ordering are written once. Both
-directions of a meeting always run the same mode — mixing them would put two unrelated
+legs of a meeting always run the same mode — mixing them would put two unrelated
 latencies on one conversation. On the live path capture runs ungated through
 `MicrophoneGraph` (the backend ends an utterance on trailing quiet, so withholding
 silence truncates it), ducking follows audible audio because there are no open turns to
-count, and transcript text appends to one capped line per direction rather than opening
+count, and transcript text appends to one capped line per leg rather than opening
 a turn per sentence. Every piece of state they touch is
 either explicitly shared or explicitly split in two: a single flag written by both is
 not a tidier version of two flags, it is the outbound turn draining mid-inbound-sentence
 and reopening the microphone into our own loudspeaker.
 
-**One AI Context, both directions, resolved once.** `entrypoints/offscreen/main.ts`
+**One AI Context, both legs, resolved once.** `entrypoints/offscreen/main.ts`
 supplies `loadContextHints`, which `MeetingCapture` calls ONCE at the start of a
 capture and threads as the SAME object into both `inbound.start` and
 `outbound.start`. That is the case language-keyed entries exist for: two
-concurrent sessions running in opposite directions off one settings object, where
+concurrent sessions running on reversed language pairs off one settings object, where
 a role-keyed pair would be applied backwards in one of them with nothing on
 screen to say so. `src/translation-contexts.ts` never throws — a network failure,
 an expired session or an unparseable response all read back as an empty list with
 a message — so a context can never prevent a meeting from starting.
-`LiveDirectionSession.start` accepts the hints and ignores them, exactly as it
-already does for `voiceGender`, which is what keeps one `DirectionRunner` shape
+`LiveLanguagePairSession.start` accepts the hints and ignores them, exactly as it
+already does for `voiceGender`, which is what keeps one `LegRunner` shape
 across two backends. The popup has a picker and no editor: authoring 24 term
 pairs is the wrong shape for a window that dies on blur, so it happens on web.
 
-The two are **not symmetric on failure**, deliberately. Losing the outbound direction
+The two are **not symmetric on failure**, deliberately. Losing the outbound leg
 costs the ability to be understood; losing the inbound one means the capture is
 translating nothing, so it ends the capture rather than leaving a recording indicator
 lit over a dead pipeline.
@@ -222,6 +222,16 @@ of syllables dropped audio after the cut. 40ms rather than one block, because on
 the lookahead is armed a speaker who really stops is cut too, and a click right after
 that must not open a turn.
 
+The 120ms confirmation itself counts speech across dips shorter than 100ms, and resets
+only on a longer quiet. Vietnamese read speech has 85–110ms syllables with 40–85ms dips
+between them, so counting only unbroken speech confirmed on the third syllable, past
+the 320ms pre-roll. "Hàn Quốc từng…" reached the server as "Quốc từng…". The count must
+also contain one unbroken run of at least 70ms. Without it, a train of 20–40ms key clicks
+would add up to a turn. For the same reason, in continuous mode what a hangover held
+(unsent) becomes the next turn's pre-roll instead of being dropped, so a word begun
+softly inside the hangover keeps its onset. An interrupted turn's held audio is
+dropped, because the next turn opens only after our playback ends.
+
 **Starting it where there is no toolbar.** Facebook opens a call in a `type: "popup"`
 window: no tab strip, no extension icon, so the popup cannot be the way capture starts
 there. And `tabCapture.getMediaStreamId` requires the extension to have been invoked on
@@ -260,7 +270,8 @@ two contexts took to agree. Both halves are pure functions in
 `src/site-enablement.ts`, which is where their tests are.
 
 Not in scope: Zoom's desktop app (not a tab, so not capturable — the popup says so), diarization,
-and any language the registry does not hold yet (today it holds vi and en).
+and any language the registry does not hold yet (today it holds vi, en and zh). In live
+mode the popup offers no zh pair (`LIVE_LANGUAGES`): the live gateway refuses it.
 
 ---
 
@@ -270,7 +281,8 @@ GitHub Actions (`.github/workflows/ci.yml`, workflow name `CI`) on pushes and pu
 requests to `main`. The workflow file owns the job list and each job's rationale;
 in outline:
 
-- Lint and typecheck (`pnpm turbo run typecheck` catches schema ↔ usage drift)
+- Lint (fails when the scripts' `--fix` had to change a tracked file) and typecheck
+  (`pnpm turbo run typecheck` catches schema ↔ usage drift)
 - Test — `pnpm turbo run test` (unit suites only; see below) plus the root
   `scripts/*.test.mjs`
 - Build — `pnpm turbo run build` (mobile has no build script), `verify:build` over
@@ -281,9 +293,19 @@ in outline:
   secret
 - API e2e, in two jobs
 - Extension e2e (Playwright)
-- Display ITN gates, TTS sidecar unit tests (model-free), and realtime replay
+- Display ITN gates, TTS and STT sidecar unit tests (model-free), and realtime replay
   suites over synthesized fixtures that fail rather than skip when absent
 - Supply chain (`pnpm audit --audit-level=high`, plus a one-React-per-bundle check)
+
+**Why some jobs show as skipped on a PR.** A `Detect changes` job classifies the PR's
+diff and each job above skips, through its own `if:`, when the diff provably cannot
+reach it — a docs-only PR runs none of them, a web-only PR does not wait on Chromium.
+It is job-level and never a workflow-level `paths` filter: every job name is a required
+check, a skipped job satisfies one and a workflow that never starts leaves it pending,
+and on `main` `deploy.yml` would never see a run. It fails open — an unmapped path,
+a crash, or anything but an explicit `false` runs the job — and every push to `main`
+runs every job. A spec that starts reading a file outside its own package must add
+that path to the lane it runs in, in `scripts/ci-changed-jobs.mjs`.
 
 **Main going red is watched, not just gated.** Branch protection gates what enters
 `main` but cannot see a merge commit that fails afterwards.
@@ -302,8 +324,9 @@ clears it. The command is unchanged and still fails on the next high that is
 not on the list.
 
 **Why the api e2e suites get their own jobs.** `pnpm turbo run test` reaches api's
-`test` script, whose jest `rootDir` is `src` — so nothing under `apps/api/test/`
-had ever run in CI, which is exactly where enforcement is proved. `api-e2e` runs
+`test` script, whose vitest config includes only `src/**/*.spec.ts` — so nothing
+under `apps/api/test/` had ever run in CI, which is exactly where enforcement is
+proved. `api-e2e` runs
 the fast suites on an in-memory user repository (with a Redis service, because
 login mints a refresh family); `api-e2e-db` brings up Postgres and Redis service
 containers, applies migrations, checks the migration chain against

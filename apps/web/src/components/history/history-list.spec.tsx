@@ -43,13 +43,13 @@ const NOW = new Date('2026-09-04T12:00:00.000Z');
 
 const summary = (overrides: Partial<ConversationSummary> = {}): ConversationSummary => ({
   conversationId: '11111111-1111-4111-8111-111111111111',
-  direction: 'vi_to_en',
   languages: ['vi', 'en'],
   startedAt: '2026-09-03T10:00:00.000Z',
   endedAt: '2026-09-03T10:10:00.000Z',
   turnCount: 12,
   preview: 'xin chào',
   hasMinutes: false,
+  pausedMs: 0,
   ...overrides,
 });
 
@@ -167,7 +167,7 @@ describe('HistoryList', () => {
     ).toContain('Minutes');
   });
 
-  it('draws the direction short and says it in full', () => {
+  it('draws the language pair short and says it in full', () => {
     const { container } = render({ conversations: [summary({ turnCount: 12 })] });
     // What is drawn. The long form is 21 characters on every row, which at eight
     // rows is the loudest thing on a screen whose subject is the previews.
@@ -177,6 +177,17 @@ describe('HistoryList', () => {
     const row = container.querySelector('a[href^="/history/"]');
     expect(row?.querySelector('.sr-only')?.textContent).toBe('Vietnamese → English');
     expect(container.textContent).toContain('12 lines');
+  });
+
+  it('names an auto-detected conversation by its translation language alone', () => {
+    // Stored target first, then every other registry language — the count is
+    // what marks it, so no recognised language is drawn as if it were declared.
+    const { container } = render({
+      conversations: [summary({ languages: ['en', 'vi', 'zh'] })],
+    });
+    expect(container.textContent).toContain('Auto-detect → EN');
+    const row = container.querySelector('a[href^="/history/"]');
+    expect(row?.querySelector('.sr-only')?.textContent).toBe('Auto-detect → English');
   });
 
   it('rounds a short conversation up rather than reporting zero minutes', () => {

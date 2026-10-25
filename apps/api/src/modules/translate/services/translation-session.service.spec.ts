@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import { BadRequestException, Logger } from '@nestjs/common';
-import type { AudioFrame, ServerEvent } from '@chatofy/types';
+import type {
+  AudioFrame,
+  LanguageCode,
+  ServerEvent,
+  SessionOptions,
+} from '@chatofy/types';
 import { MAX_SAMPLE_RATE } from '@chatofy/types';
 import {
   TranslationSessionService,
@@ -13,9 +18,12 @@ import {
   PipelineTranslatorService as RealPipelineTranslatorService,
   SpeechEngineBusyException,
   type PipelineTranslatorService,
+  type ResolvedTurnInput,
   type SynthesizeRequest,
   type TranslateTurnInput,
+  type TurnLanguageResolver,
 } from './pipeline-translator.service';
+import type { HeardLanguage } from '../session/turn-language-decision';
 import type { AiProvidersFactory } from '../providers/ai-providers.factory';
 import type { ClientTurnMetrics } from '@chatofy/types';
 import type { TurnMetrics, TurnMetricsRecorder } from './turn-metrics.recorder';
@@ -73,6 +81,8 @@ interface Harness {
   embedSpeaker: Mock;
   /** Display restore; resolves undefined (nothing restored) by default. */
   restoreDisplay: Mock;
+  /** Transcript corrections; resolves undefined (nothing corrected) by default. */
+  correctTranscript: Mock;
   synthesize: Mock;
   /**
    * The streamed synthesis. Resolves null by default — a backend that cannot
@@ -90,9 +100,14 @@ interface Harness {
    */
   languageRefusal: string | null;
   /**
+   * What the STT engine reports it can identify, or `null` when not known —
+   * the state every test above this feature runs in.
+   */
+  identifiable: readonly LanguageCode[] | null;
+  /**
    * Decides which language(s) a turn was spoken in. Defaults to
    * `DeclaredLanguageIdentifier` — every test above this feature assumes a
-   * single source equal to the direction's declared language.
+   * single source equal to the pair's declared source.
    */
   identifier: LanguageIdentifier;
 }
@@ -135,14 +150,22 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
 
   const restoreDisplay =
     overrides.restoreDisplay ?? vi.fn().mockResolvedValue(undefined);
+  const correctTranscript =
+    overrides.correctTranscript ?? vi.fn().mockResolvedValue(undefined);
 
   const pipeline = {
     transcribe,
     translate,
     translateAll,
     transcribeAndTranslate,
+    // A reused speculation is checked for a leaked script; nothing leaks here.
+    retryAdopted: vi.fn(
+      async (translated: { translations: Record<string, string> }) =>
+        translated.translations,
+    ),
     embedSpeaker,
     restoreDisplay,
+    correctTranscript,
     synthesize,
     synthesizeStream,
     // The real mapping is the pipeline's; a spec only needs it to throw.
@@ -155,8 +178,10 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
     recordClient: (m: ClientTurnMetrics) => recordedClient.push(m),
   } as unknown as TurnMetricsRecorder;
   const languageRefusal = overrides.languageRefusal ?? null;
+  const identifiable = overrides.identifiable ?? null;
   const languageSupport = {
     refusal: () => languageRefusal,
+    identifiable: () => identifiable,
   } as unknown as SpeechLanguageSupport;
   const identifier = overrides.identifier ?? new DeclaredLanguageIdentifier();
 
@@ -173,12 +198,14 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
     transcribeAndTranslate,
     embedSpeaker,
     restoreDisplay,
+    correctTranscript,
     synthesize,
     synthesizeStream,
     synthesized,
     recorded,
     recordedClient,
     languageRefusal,
+    identifiable,
     identifier,
   };
 }
@@ -235,7 +262,11 @@ function open(
   const before = socket.ofType('server.session.ready').length;
   service.start(
     socket,
-    { direction: 'vi_to_en', voiceGender: 'female', streamCommitted },
+    {
+      languagePair: { source: 'vi', target: 'en' },
+      voiceGender: 'female',
+      streamCommitted,
+    },
     turnId,
   );
   const ready = socket.ofType('server.session.ready').at(-1);
@@ -319,20 +350,17 @@ describe('TranslationSessionService', () => {
     const [segment] = socket.ofType('server.transcript.final');
     expect(segment?.segment).toMatchObject({
       sessionId,
-      direction: 'vi_to_en',
       speakerRole: 'speaker_a',
       sourceText: 'xin chào',
-      targetText: 'hello',
+      translations: { en: 'hello' },
       audioUrl: null,
     });
   });
 
-  // The whole point of the additive wire change: a default, single-target turn
-  // must produce EXACTLY the pre-fan-out segment plus the two new fields —
-  // never a segment that merely happens to look the same. Substitutes for
-  // running a real vi_to_en turn through web local and diffing the JSON, which
-  // this spec can do exactly instead of approximately.
-  it('adds sourceLanguages and translations to the wire segment, unchanged otherwise', async () => {
+  // A default, single-target turn must produce EXACTLY the segment fields the
+  // contract names — no legacy `direction`/`targetText` riding along, and
+  // nothing that merely happens to look the same.
+  it('emits exactly the language-keyed wire segment', async () => {
     const { service } = makeService();
     const socket = new FakeSocket();
     const sessionId = open(service, socket);
@@ -341,16 +369,13 @@ describe('TranslationSessionService', () => {
     await service.end(socket);
 
     const [final] = socket.ofType('server.transcript.final');
-    const { sourceLanguages, translations, ...legacyShape } = final!.segment;
-    expect(sourceLanguages).toEqual(['vi']);
-    expect(translations).toEqual({ en: 'hello' });
-    expect(legacyShape).toEqual({
+    expect(final!.segment).toEqual({
       id: final!.segment.id,
       sessionId,
       speakerRole: 'speaker_a',
-      direction: 'vi_to_en',
+      sourceLanguages: ['vi'],
+      translations: { en: 'hello' },
       sourceText: 'xin chào',
-      targetText: 'hello',
       audioUrl: null,
       createdAt: final!.segment.createdAt,
     });
@@ -381,7 +406,7 @@ describe('TranslationSessionService', () => {
     const input = seen[0];
     expect(input).toBeDefined();
     expect(input?.mimeType).toBe('audio/wav');
-    // The plan, not a `direction` field on the input, is what carries which
+    // The plan, not a language field on the input, is what carries which
     // language(s) this turn recognises and translates into.
     expect(seenPlans[0]).toMatchObject({ recognition: 'vi', spoken: 'en' });
 
@@ -438,7 +463,10 @@ describe('TranslationSessionService', () => {
         }),
       });
       const socket = new FakeSocket();
-      service.start(socket, { direction: 'vi_to_en', voiceGender: 'male' });
+      service.start(socket, {
+        languagePair: { source: 'vi', target: 'en' },
+        voiceGender: 'male',
+      });
       const sessionId = socket.ofType('server.session.ready')[0]!.sessionId;
       service.pushFrame(socket, frame({ sessionId }));
 
@@ -530,6 +558,47 @@ describe('TranslationSessionService', () => {
 
       expect(transcribeAndTranslate).toHaveBeenCalledTimes(1);
       expect(recorded[0]?.speculationUsed).toBe(true);
+    });
+
+    it('gives a reused speculation the one script check its final would have had', async () => {
+      const { service, transcribeAndTranslate } = makeService();
+      const pipeline = (
+        service as unknown as { pipeline: PipelineTranslatorService }
+      ).pipeline;
+      const retryAdopted = vi
+        .spyOn(pipeline, 'retryAdopted')
+        .mockResolvedValue({ en: 'retried' });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      service.speculate(socket);
+      await service.end(socket);
+
+      // The speculation itself went out with no retry of its own…
+      expect(transcribeAndTranslate.mock.calls[0]?.[0]).not.toHaveProperty(
+        'scriptRetry',
+      );
+      // …and adopting it ran the check, with a budget-backed permission.
+      expect(retryAdopted).toHaveBeenCalledTimes(1);
+      const permission = retryAdopted.mock.calls[0]?.[2].scriptRetry;
+      expect(typeof permission?.label).toBe('string');
+      expect(permission).toHaveProperty('allow');
+      expect(
+        socket.ofType('server.transcript.final')[0]!.segment.translations,
+      ).toEqual({ en: 'retried' });
+    });
+
+    it('lets a final translation retry a leaked script, and a speculation not', async () => {
+      const { service, transcribeAndTranslate } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+      await service.end(socket);
+
+      expect(
+        transcribeAndTranslate.mock.calls[0]?.[0].scriptRetry?.allow,
+      ).toBeTypeOf('function');
     });
 
     it('discards speculated work when the speaker carried on', async () => {
@@ -665,6 +734,169 @@ describe('TranslationSessionService', () => {
     /** Let the fire-and-forget read settle without reaching for timers. */
     const settle = () => new Promise((resolve) => setImmediate(resolve));
 
+    it("locks a two-way turn's live preview once confidence and speech length reach the lock bar", async () => {
+      const reads = [
+        {
+          text: 'hello',
+          heard: { language: 'en', confidence: 0.95, speechMs: 900 },
+        },
+        {
+          text: 'hello there',
+          heard: { language: 'en', confidence: 0.95, speechMs: 1600 },
+        },
+        { text: 'hello there friend' },
+      ];
+      const transcribe = vi.fn(
+        async () => reads.shift() ?? { text: 'hello there friend' },
+      );
+      const translate = vi.fn().mockResolvedValue('xin chào');
+      const { service } = makeService({
+        transcribe,
+        translate,
+        identifiable: ['vi', 'en'],
+      });
+      const socket = new FakeSocket();
+      // The preview re-reads at most every 300ms; the clock is moved past
+      // that between frames so each frame gets its own read.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      try {
+        service.start(socket, {
+          languagePair: { source: 'vi', target: 'en' },
+          voiceGender: 'female',
+          twoWay: true,
+        });
+        const sessionId = socket.ofType('server.session.ready')[0]!.sessionId;
+        for (let sequence = 0; sequence < 3; sequence += 1) {
+          vi.setSystemTime(Date.now() + 400);
+          service.pushFrame(
+            socket,
+            frame({ sessionId, sequence, timestamp: sequence * 320 }),
+          );
+          await settle();
+        }
+      } finally {
+        vi.useRealTimers();
+      }
+      expect(transcribe).toHaveBeenCalledTimes(3);
+
+      const partials = socket.ofType('server.transcript.partial');
+      // Held while unsure: text, but no language.
+      expect(partials[0]).not.toHaveProperty('language');
+      expect(partials.slice(1).map((p) => p.language)).toEqual(
+        partials.slice(1).map(() => 'en'),
+      );
+      // Once locked, each re-read reads English alone.
+      const calls = transcribe.mock.calls as unknown as [
+        { language: string; candidates?: unknown },
+      ][];
+      expect(calls.at(-1)![0]).toMatchObject({ language: 'en' });
+      expect(calls.at(-1)![0].candidates).toBeUndefined();
+      // And nothing was translated before the lock, into the wrong side.
+      for (const [request] of translate.mock.calls as [
+        { source: string; target: string },
+      ][]) {
+        expect(request).toMatchObject({ source: 'en', target: 'vi' });
+      }
+    });
+
+    it('labels no partial of a declared turn with a language', async () => {
+      const transcribe = vi.fn(async () => ({ text: 'hello there' }));
+      const { service } = makeService({
+        transcribe,
+        identifiable: ['vi', 'en'],
+      });
+      const socket = new FakeSocket();
+      vi.useFakeTimers({ toFake: ['Date'] });
+      try {
+        service.start(socket, {
+          languagePair: { source: 'vi', target: 'en' },
+          voiceGender: 'female',
+        });
+        const sessionId = socket.ofType('server.session.ready')[0]!.sessionId;
+        for (let sequence = 0; sequence < 2; sequence += 1) {
+          vi.setSystemTime(Date.now() + 400);
+          service.pushFrame(
+            socket,
+            frame({ sessionId, sequence, timestamp: sequence * 320 }),
+          );
+          await settle();
+        }
+      } finally {
+        vi.useRealTimers();
+      }
+
+      // The declared source is what the user picked, not what was heard.
+      const partials = socket.ofType('server.transcript.partial');
+      expect(partials.length).toBeGreaterThan(0);
+      for (const partial of partials)
+        expect(partial).not.toHaveProperty('language');
+    });
+
+    /** A detect turn whose preview reads `reads` in turn, over three frames. */
+    const previewDetectTurn = async (
+      target: LanguageCode,
+      language: LanguageCode,
+    ) => {
+      // Locked on the first read; the next ones settle well past the
+      // characters a live translation waits for.
+      const said = 'hello there my friend how are you doing today';
+      const reads = [3, 5, 7, 9].map((words) => ({
+        text: said.split(' ').slice(0, words).join(' '),
+        heard: { language, confidence: 0.95, speechMs: 2000 },
+      }));
+      const transcribe = vi.fn(async () => reads.shift() ?? { text: said });
+      const translate = vi.fn().mockResolvedValue('xin chào');
+      const { service } = makeService({
+        transcribe,
+        translate,
+        identifiable: ['vi', 'en'],
+      });
+      const socket = new FakeSocket();
+      vi.useFakeTimers({ toFake: ['Date'] });
+      try {
+        service.start(socket, {
+          languagePair: { source: 'detect', target },
+          voiceGender: 'female',
+        });
+        const sessionId = socket.ofType('server.session.ready')[0]!.sessionId;
+        for (let sequence = 0; sequence < 5; sequence += 1) {
+          vi.setSystemTime(Date.now() + 400);
+          service.pushFrame(
+            socket,
+            frame({ sessionId, sequence, timestamp: sequence * 320 }),
+          );
+          await settle();
+          await settle();
+        }
+      } finally {
+        vi.useRealTimers();
+      }
+      return { socket, translate };
+    };
+
+    it('previews a detect turn heard in another language as a translation into the target', async () => {
+      const { socket, translate } = await previewDetectTurn('vi', 'en');
+
+      expect(socket.ofType('server.transcript.partial').at(-1)).toMatchObject({
+        language: 'en',
+      });
+      expect(translate).toHaveBeenCalled();
+      for (const [request] of translate.mock.calls as [
+        { source: string; target: string },
+      ][]) {
+        expect(request).toMatchObject({ source: 'en', target: 'vi' });
+      }
+    });
+
+    it('previews a detect turn heard in its target as transcript alone', async () => {
+      const { socket, translate } = await previewDetectTurn('en', 'en');
+
+      expect(socket.ofType('server.transcript.partial').at(-1)).toMatchObject({
+        language: 'en',
+      });
+      expect(translate).not.toHaveBeenCalled();
+    });
+
     it('shows what has been said so far, while the turn is still open', async () => {
       const { service, transcribe } = makeService({
         transcribe: vi.fn().mockResolvedValue({ text: 'xin chào tôi muốn' }),
@@ -679,7 +911,7 @@ describe('TranslationSessionService', () => {
       expect(socket.ofType('server.transcript.partial')[0]).toMatchObject({
         text: 'xin chào tôi muốn',
         speaker: 'speaker_a',
-        direction: 'vi_to_en',
+        languagePair: { source: 'vi', target: 'en' },
       });
     });
 
@@ -753,7 +985,7 @@ describe('TranslationSessionService', () => {
         committed: '',
         pending: 'xin chào tôi muốn',
         speaker: 'speaker_a',
-        direction: 'vi_to_en',
+        languagePair: { source: 'vi', target: 'en' },
       });
     });
 
@@ -821,7 +1053,7 @@ describe('TranslationSessionService', () => {
       expect(translate).toHaveBeenCalledTimes(1);
       expect(socket.ofType('server.translation.partial')[0]).toMatchObject({
         text: 'yesterday I booked a room',
-        direction: 'vi_to_en',
+        languagePair: { source: 'vi', target: 'en' },
       });
     });
 
@@ -1080,7 +1312,7 @@ describe('TranslationSessionService', () => {
       expect(recorded).toHaveLength(1);
       expect(recorded[0]).toMatchObject({
         sessionId,
-        direction: 'vi_to_en',
+        languagePair: { source: 'vi', target: 'en' },
         inputSampleRate: SAMPLE_RATE,
         targetChars: 'Hello, how are you?'.length,
         clauses: 2,
@@ -1480,7 +1712,7 @@ describe('TranslationSessionService', () => {
 
       service.start(
         socket,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
         'turn-4',
       );
 
@@ -1510,7 +1742,7 @@ describe('TranslationSessionService', () => {
 
       service.start(
         three,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
         'turn-7',
       );
 
@@ -1549,7 +1781,7 @@ describe('TranslationSessionService', () => {
 
       service.start(
         socket,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
         'turn-1',
       );
 
@@ -1569,12 +1801,588 @@ describe('TranslationSessionService', () => {
 
       service.start(
         socket,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
         'turn-1',
       );
 
       expect(socket.ofType('server.error')).toHaveLength(0);
       expect(socket.ofType('server.session.ready')).toHaveLength(1);
+    });
+  });
+
+  describe('language mode', () => {
+    const start = (
+      service: TranslationSessionService,
+      socket: FakeSocket,
+      languagePair: { source: LanguageCode | 'detect'; target: LanguageCode },
+      twoWay?: boolean,
+    ) =>
+      service.start(
+        socket,
+        {
+          languagePair,
+          voiceGender: 'female',
+          ...(twoWay === undefined ? {} : { twoWay }),
+        },
+        'turn-1',
+      );
+
+    it('runs a declared pair with no twoWay exactly as before, echoing declared', () => {
+      const { service } = makeService();
+      const socket = new FakeSocket();
+
+      start(service, socket, { source: 'vi', target: 'en' });
+
+      expect(socket.ofType('server.error')).toHaveLength(0);
+      const ready = socket.ofType('server.session.ready')[0];
+      expect(ready).toMatchObject({ turnId: 'turn-1', mode: 'declared' });
+      expect(ready).not.toHaveProperty('modeReason');
+    });
+
+    it('runs twoWay as the declared pair and says why, when identification is unknown', () => {
+      const { service } = makeService({ identifiable: null });
+      const socket = new FakeSocket();
+
+      start(service, socket, { source: 'vi', target: 'en' }, true);
+
+      expect(socket.ofType('server.error')).toHaveLength(0);
+      expect(socket.ofType('server.session.ready')[0]).toMatchObject({
+        mode: 'declared',
+        modeReason: 'language_detection',
+      });
+    });
+
+    /**
+     * A pipeline whose recognition heard `heard`, for a two-way turn: it asks
+     * the resolver the turn was given, exactly as the real pipeline does, and
+     * answers in the plan that came back. A declared turn gets the old answer.
+     */
+    const resolving = (...heards: HeardLanguage[]) => {
+      const resolved: ResolvedTurnInput[] = [];
+      let call = 0;
+      const fn = vi.fn(
+        async (
+          _input: TranslateTurnInput,
+          languages: TurnLanguagePlan | TurnLanguageResolver,
+        ) => {
+          if (!('resolve' in languages)) {
+            return { sourceText: 'xin chào', translations: { en: 'hello' } };
+          }
+          const heard = heards[Math.min(call, heards.length - 1)]!;
+          call += 1;
+          const turn = languages.resolve(heard);
+          resolved.push(turn);
+          return {
+            sourceText: `said in ${turn.plan.recognition}`,
+            translations: Object.fromEntries(
+              turn.plan.targets.map((target) => [target, `in ${target}`]),
+            ),
+            language: turn.plan.recognition,
+            heard,
+          };
+        },
+      );
+      return { transcribeAndTranslate: fn, resolved };
+    };
+
+    const twoWayTurn = async (
+      service: TranslationSessionService,
+      socket: FakeSocket,
+      options: Partial<SessionOptions> = {},
+      {
+        speculate = false,
+        userId,
+      }: { speculate?: boolean; userId?: string } = {},
+    ) => {
+      service.start(
+        socket,
+        {
+          languagePair: { source: 'vi', target: 'en' },
+          voiceGender: 'female',
+          twoWay: true,
+          ...options,
+        },
+        undefined,
+        userId,
+      );
+      const sessionId = socket.ofType('server.session.ready').at(-1)!.sessionId;
+      service.pushFrame(socket, frame({ sessionId }));
+      if (speculate) service.speculate(socket, sessionId);
+      await service.end(socket, sessionId);
+      return sessionId;
+    };
+
+    const finalOf = (socket: FakeSocket, sessionId: string) =>
+      socket
+        .ofType('server.transcript.final')
+        .find((event) => event.sessionId === sessionId)!.segment;
+
+    it('runs a two-way start as two-way when the engine can identify both sides', () => {
+      const { service } = makeService({ identifiable: ['vi', 'en'] });
+      const socket = new FakeSocket();
+
+      start(service, socket, { source: 'en', target: 'vi' }, true);
+
+      const ready = socket.ofType('server.session.ready')[0];
+      expect(ready).toMatchObject({ mode: 'two-way' });
+      expect(ready).not.toHaveProperty('modeReason');
+    });
+
+    it('re-decides the final on the whole turn, in the language it heard', async () => {
+      const { transcribeAndTranslate } = resolving({
+        language: 'en',
+        confidence: 0.97,
+      });
+      const { service } = makeService({
+        identifiable: ['vi', 'en'],
+        transcribeAndTranslate,
+      });
+      const socket = new FakeSocket();
+
+      const sessionId = await twoWayTurn(service, socket);
+
+      const segment = finalOf(socket, sessionId);
+      expect(segment.sourceLanguages).toEqual(['en']);
+      expect(segment.translations).toEqual({ vi: 'in vi' });
+      expect(segment.sourceText).toBe('said in en');
+    });
+
+    it('biases an uncertain single-speaker turn toward the source', async () => {
+      const { transcribeAndTranslate } = resolving({
+        language: 'en',
+        confidence: 0.52,
+      });
+      const { service } = makeService({
+        identifiable: ['vi', 'en'],
+        transcribeAndTranslate,
+      });
+      const socket = new FakeSocket();
+
+      const sessionId = await twoWayTurn(service, socket);
+
+      expect(finalOf(socket, sessionId).sourceLanguages).toEqual(['vi']);
+    });
+
+    it('falls back to the declared decode when the sidecar ignores candidates', async () => {
+      const { transcribeAndTranslate } = resolving({
+        language: 'vi',
+        confidence: null,
+      });
+      const { service } = makeService({
+        identifiable: ['vi', 'en'],
+        transcribeAndTranslate,
+      });
+      const socket = new FakeSocket();
+
+      const sessionId = await twoWayTurn(service, socket);
+
+      expect(socket.ofType('server.session.ready')[0]).toMatchObject({
+        mode: 'two-way',
+      });
+      expect(finalOf(socket, sessionId).sourceLanguages).toEqual(['vi']);
+    });
+
+    it("takes the previous turn's language from the turn opened before it", async () => {
+      const { transcribeAndTranslate } = resolving(
+        { language: 'en', confidence: 0.98 },
+        { language: 'vi', confidence: 0.51 },
+      );
+      const { service } = makeService({
+        identifiable: ['vi', 'en'],
+        transcribeAndTranslate,
+      });
+      const socket = new FakeSocket();
+
+      await twoWayTurn(service, socket);
+      const second = await twoWayTurn(service, socket);
+
+      expect(finalOf(socket, second).sourceLanguages).toEqual(['en']);
+    });
+
+    it('carries context only from turns in the same language', async () => {
+      const { transcribeAndTranslate, resolved } = resolving(
+        { language: 'en', confidence: 0.98 },
+        { language: 'vi', confidence: 0.98 },
+        { language: 'en', confidence: 0.98 },
+      );
+      const { service } = makeService({
+        identifiable: ['vi', 'en'],
+        transcribeAndTranslate,
+      });
+      const socket = new FakeSocket();
+
+      await twoWayTurn(service, socket);
+      await twoWayTurn(service, socket);
+      await twoWayTurn(service, socket);
+
+      expect(resolved.map((turn) => turn.context)).toEqual([
+        [],
+        [],
+        ['said in en'],
+      ]);
+    });
+
+    it('restores a turn decided in Vietnamese whose provisional language was English', async () => {
+      const { transcribeAndTranslate, resolved } = resolving({
+        language: 'vi',
+        confidence: 0.97,
+      });
+      const { service } = makeService({
+        identifiable: ['vi', 'en'],
+        transcribeAndTranslate,
+      });
+      const socket = new FakeSocket();
+
+      await twoWayTurn(service, socket, {
+        languagePair: { source: 'en', target: 'vi' },
+        repairDisplay: true,
+      });
+
+      // English needs no restore, so the provisional plan would have asked for
+      // none; the decided one is Vietnamese, and does.
+      expect(resolved[0]!.restoreDisplay).toBeDefined();
+      expect(resolved[0]!.plan.recognition).toBe('vi');
+    });
+
+    it("a discarded speculation does not decide the turn's language", async () => {
+      // The guess heard English; more audio followed, so the final reads the
+      // turn again and hears Vietnamese.
+      const { transcribeAndTranslate } = resolving(
+        { language: 'en', confidence: 0.95 },
+        { language: 'vi', confidence: 0.97 },
+      );
+      const { service } = makeService({
+        identifiable: ['vi', 'en'],
+        transcribeAndTranslate,
+      });
+      const socket = new FakeSocket();
+      service.start(socket, {
+        languagePair: { source: 'vi', target: 'en' },
+        voiceGender: 'female',
+        twoWay: true,
+      });
+      const sessionId = socket.ofType('server.session.ready').at(-1)!.sessionId;
+      service.pushFrame(socket, frame({ sessionId }));
+      service.speculate(socket, sessionId);
+      service.pushFrame(
+        socket,
+        frame({ sessionId, sequence: 1, timestamp: 320 }),
+      );
+      await service.end(socket, sessionId);
+
+      expect(transcribeAndTranslate).toHaveBeenCalledTimes(2);
+      expect(finalOf(socket, sessionId).sourceLanguages).toEqual(['vi']);
+    });
+
+    it('reuses a speculation when the final decides the language it was translated in', async () => {
+      const { transcribeAndTranslate } = resolving({
+        language: 'en',
+        confidence: 0.95,
+      });
+      const { service, recorded } = makeService({
+        identifiable: ['vi', 'en'],
+        transcribeAndTranslate,
+      });
+      const socket = new FakeSocket();
+
+      const sessionId = await twoWayTurn(
+        service,
+        socket,
+        {},
+        { speculate: true },
+      );
+
+      expect(transcribeAndTranslate).toHaveBeenCalledTimes(1);
+      expect(finalOf(socket, sessionId).sourceLanguages).toEqual(['en']);
+      expect(recorded[0]?.speculationUsed).toBe(true);
+    });
+
+    it('runs a second identifying socket of the same user as one-way', () => {
+      const { service } = makeService({ identifiable: ['vi', 'en'] });
+      const first = new FakeSocket();
+      const second = new FakeSocket();
+      const options = {
+        languagePair: { source: 'vi', target: 'en' } as const,
+        voiceGender: 'female' as const,
+        twoWay: true,
+      };
+
+      service.start(first, options, 't1', 'alice');
+      service.start(second, options, 't2', 'alice');
+      // The same socket keeps its slot turn after turn.
+      service.start(first, options, 't3', 'alice');
+
+      expect(first.ofType('server.session.ready').map((r) => r.mode)).toEqual([
+        'two-way',
+        'two-way',
+      ]);
+      expect(second.ofType('server.session.ready')[0]).toMatchObject({
+        mode: 'declared',
+        modeReason: 'lid_capacity',
+      });
+      // Closing the first gives the slot to whoever asks next.
+      service.disconnect(first);
+      service.start(second, options, 't4', 'alice');
+      expect(second.ofType('server.session.ready').at(-1)).toMatchObject({
+        mode: 'two-way',
+      });
+    });
+
+    it('speaks a reversed turn with the voice chosen for its language', async () => {
+      const { transcribeAndTranslate } = resolving({
+        language: 'en',
+        confidence: 0.97,
+      });
+      const { service, synthesize } = makeService({
+        identifiable: ['vi', 'en'],
+        transcribeAndTranslate,
+      });
+      const socket = new FakeSocket();
+
+      await twoWayTurn(service, socket, {
+        voice: 'declared-voice',
+        voices: { vi: 'voice-vi', en: 'voice-en' },
+      });
+
+      // Heard in English, so it is spoken in Vietnamese, with that voice.
+      expect(synthesize).toHaveBeenCalledWith(
+        expect.objectContaining({ language: 'vi', voice: 'voice-vi' }),
+      );
+    });
+
+    it('decodes a degraded two-way turn in its declared source', async () => {
+      const { service, transcribeAndTranslate } = makeService();
+      const socket = new FakeSocket();
+      start(service, socket, { source: 'vi', target: 'en' }, true);
+      const sessionId = socket.ofType('server.session.ready')[0]!.sessionId;
+
+      service.pushFrame(socket, frame({ sessionId }));
+      await service.end(socket, sessionId);
+
+      expect(transcribeAndTranslate).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          recognition: 'vi',
+          sourceLanguages: ['vi'],
+          targets: ['en'],
+        }),
+      );
+    });
+
+    it('refuses an undeclared source before any session id exists, with a detail', () => {
+      const { service } = makeService({ identifiable: ['vi'] });
+      const socket = new FakeSocket();
+
+      start(service, socket, { source: 'detect', target: 'en' });
+
+      expect(socket.ofType('server.session.ready')).toHaveLength(0);
+      const error = socket.ofType('server.error')[0];
+      expect(error).toMatchObject({
+        code: 'language_unavailable',
+        detail: 'language_detection',
+        turnId: 'turn-1',
+      });
+      expect(error?.sessionId).toBeUndefined();
+    });
+
+    /** A detect turn targeting `target`, on a socket owned by `userId`. */
+    const detectTurn = async (
+      service: TranslationSessionService,
+      socket: FakeSocket,
+      target: LanguageCode = 'en',
+      userId?: string,
+    ) =>
+      twoWayTurn(
+        service,
+        socket,
+        { languagePair: { source: 'detect', target }, twoWay: undefined },
+        { userId },
+      );
+
+    it('runs an undeclared source as detect when the engine can identify every candidate', () => {
+      const { service } = makeService({ identifiable: ['vi', 'en'] });
+      const socket = new FakeSocket();
+
+      start(service, socket, { source: 'detect', target: 'en' });
+
+      expect(socket.ofType('server.error')).toHaveLength(0);
+      const ready = socket.ofType('server.session.ready')[0];
+      expect(ready).toMatchObject({ mode: 'detect' });
+      expect(ready).not.toHaveProperty('modeReason');
+    });
+
+    it('asks the recognizer to choose among the identifiable languages', async () => {
+      const { transcribeAndTranslate } = resolving({
+        language: 'vi',
+        confidence: 0.97,
+      });
+      const { service } = makeService({
+        identifiable: ['vi', 'en'],
+        transcribeAndTranslate,
+      });
+      const socket = new FakeSocket();
+
+      await detectTurn(service, socket, 'zh');
+
+      const [, languages] = transcribeAndTranslate.mock.calls[0]!;
+      expect(languages).toMatchObject({
+        provisional: 'vi',
+        candidates: ['vi', 'en'],
+      });
+    });
+
+    it('translates a detect turn heard in another language into the target and speaks it', async () => {
+      const { transcribeAndTranslate } = resolving({
+        language: 'vi',
+        confidence: 0.97,
+      });
+      const { service, synthesize, recorded } = makeService({
+        identifiable: ['vi', 'en'],
+        transcribeAndTranslate,
+      });
+      const socket = new FakeSocket();
+
+      const sessionId = await detectTurn(service, socket);
+
+      const segment = finalOf(socket, sessionId);
+      expect(segment.sourceLanguages).toEqual(['vi']);
+      expect(segment.translations).toEqual({ en: 'in en' });
+      // Same role the save derives from the stored `['en', 'vi', 'zh']`:
+      // Vietnamese is registry-first, so `speaker_a` in every conversation.
+      expect(segment.speakerRole).toBe('speaker_a');
+      expect(synthesize).toHaveBeenCalledWith(
+        expect.objectContaining({ language: 'en' }),
+      );
+      expect(recorded[0]).toMatchObject({
+        completed: true,
+        languagePair: { source: 'detect', target: 'en' },
+      });
+      expect(socket.ofType('server.session.ended')[0]?.reason).toBe(
+        'completed',
+      );
+    });
+
+    it('shows a detect turn heard in its target as transcript only, closing it like a text-only turn', async () => {
+      const { transcribeAndTranslate } = resolving({
+        language: 'en',
+        confidence: 0.97,
+      });
+      const { service, synthesize, synthesizeStream, recorded } = makeService({
+        identifiable: ['vi', 'en'],
+        transcribeAndTranslate,
+      });
+      const socket = new FakeSocket();
+
+      const sessionId = await detectTurn(service, socket);
+
+      const segment = finalOf(socket, sessionId);
+      expect(segment.sourceLanguages).toEqual(['en']);
+      expect(segment.translations).toEqual({});
+      expect(segment.sourceText).toBe('said in en');
+      expect(segment.speakerRole).toBe('speaker_b');
+      expect(synthesize).not.toHaveBeenCalled();
+      expect(synthesizeStream).not.toHaveBeenCalled();
+      expect(socket.ofType('server.audio.frame')).toHaveLength(0);
+      expect(socket.ofType('server.error')).toHaveLength(0);
+      expect(recorded[0]).toMatchObject({
+        completed: true,
+        reason: 'voice_off',
+      });
+      expect(socket.ofType('server.session.ended')[0]?.reason).toBe(
+        'voice_off',
+      );
+    });
+
+    it('keeps a transcript-only turn out of the context later turns are translated against', async () => {
+      const { transcribeAndTranslate, resolved } = resolving(
+        { language: 'vi', confidence: 0.98 },
+        { language: 'en', confidence: 0.98 },
+        { language: 'vi', confidence: 0.98 },
+      );
+      const { service } = makeService({
+        identifiable: ['vi', 'en'],
+        transcribeAndTranslate,
+      });
+      const socket = new FakeSocket();
+
+      await detectTurn(service, socket);
+      await detectTurn(service, socket);
+      await detectTurn(service, socket);
+
+      expect(resolved.map((turn) => turn.context)).toEqual([
+        [],
+        [],
+        ['said in vi'],
+      ]);
+    });
+
+    it("falls an unsure detect final back on the previous turn's language, with no source to lean on", async () => {
+      const { transcribeAndTranslate } = resolving(
+        { language: 'vi', confidence: 0.98 },
+        { language: 'en', confidence: 0.51 },
+      );
+      const { service } = makeService({
+        identifiable: ['vi', 'en'],
+        transcribeAndTranslate,
+      });
+      const socket = new FakeSocket();
+
+      await detectTurn(service, socket);
+      const second = await detectTurn(service, socket);
+
+      expect(finalOf(socket, second).sourceLanguages).toEqual(['vi']);
+    });
+
+    it('keeps what an unsure first detect turn heard, having nothing to fall back on', async () => {
+      const { transcribeAndTranslate } = resolving({
+        language: 'en',
+        confidence: 0.51,
+      });
+      const { service } = makeService({
+        identifiable: ['vi', 'en'],
+        transcribeAndTranslate,
+      });
+      const socket = new FakeSocket();
+
+      const sessionId = await detectTurn(service, socket, 'vi');
+
+      expect(finalOf(socket, sessionId).sourceLanguages).toEqual(['en']);
+    });
+
+    it('refuses a detect start over the identification cap, where two-way would run one-way', () => {
+      const { service } = makeService({ identifiable: ['vi', 'en'] });
+      const first = new FakeSocket();
+      const second = new FakeSocket();
+      const options = {
+        languagePair: { source: 'detect', target: 'en' } as const,
+        voiceGender: 'female' as const,
+      };
+
+      service.start(first, options, 't1', 'alice');
+      service.start(second, options, 't2', 'alice');
+
+      expect(first.ofType('server.session.ready')[0]).toMatchObject({
+        mode: 'detect',
+      });
+      expect(second.ofType('server.session.ready')).toHaveLength(0);
+      expect(second.ofType('server.error')[0]).toMatchObject({
+        code: 'language_unavailable',
+        detail: 'lid_capacity',
+        turnId: 't2',
+      });
+    });
+
+    it('refuses an undeclared source asked to run two-way the same way', () => {
+      const { service } = makeService({ identifiable: null });
+      const socket = new FakeSocket();
+
+      start(service, socket, { source: 'detect', target: 'vi' }, true);
+
+      expect(socket.ofType('server.session.ready')).toHaveLength(0);
+      expect(socket.ofType('server.error')[0]).toMatchObject({
+        code: 'language_unavailable',
+        detail: 'language_detection',
+      });
     });
   });
 
@@ -1892,7 +2700,7 @@ describe('TranslationSessionService', () => {
       // Global ceiling reached, so a third client gets nothing.
       service.start(
         three,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
         't',
       );
       expect(three.ofType('server.error')[0]).toMatchObject({
@@ -1903,7 +2711,7 @@ describe('TranslationSessionService', () => {
 
       service.start(
         three,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
         't2',
       );
       expect(three.ofType('server.session.ready')).toHaveLength(1);
@@ -2256,7 +3064,10 @@ describe('TranslationSessionService', () => {
       service.pushFrame(socket, frame({ sessionId: first }));
       await service.end(socket);
 
-      service.start(socket, { direction: 'vi_to_en', voiceGender: 'female' });
+      service.start(socket, {
+        languagePair: { source: 'vi', target: 'en' },
+        voiceGender: 'female',
+      });
 
       const ready = socket.ofType('server.session.ready');
       expect(ready).toHaveLength(2);
@@ -2396,7 +3207,7 @@ describe('TranslationSessionService', () => {
       continuesCut = false,
     ) => {
       service.start(socket, {
-        direction: 'vi_to_en',
+        languagePair: { source: 'vi', target: 'en' },
         voiceGender: 'female',
         ...(continuesCut ? { continuesCut } : {}),
       });
@@ -2599,7 +3410,7 @@ describe('speaker embedding', () => {
     socket: FakeSocket,
   ): string => {
     service.start(socket, {
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
       voiceGender: 'female',
       embedSpeaker: true,
     });
@@ -2773,7 +3584,7 @@ describe('splitting a turn where the voice changes', () => {
     const harness = makeService({ ...fakes(), ...overrides });
     if (afterATurn) {
       harness.service.start(socket, {
-        direction: 'vi_to_en',
+        languagePair: { source: 'vi', target: 'en' },
         voiceGender: 'female',
       });
       const first = socket.ofType('server.session.ready').at(-1)!.sessionId;
@@ -2781,7 +3592,7 @@ describe('splitting a turn where the voice changes', () => {
       await harness.service.end(socket, first);
     }
     harness.service.start(socket, {
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
       voiceGender: 'female',
       embedSpeaker: true,
       splitSpeakers,
@@ -2797,6 +3608,63 @@ describe('splitting a turn where the voice changes', () => {
   /** Longer than either piece: the whole turn's audio, as the recognizer is handed it. */
   const isWholeTurn = (audio: Uint8Array) =>
     audio.byteLength > SAMPLE_RATE * 2 * 2;
+
+  it("decides a split turn's language once for the whole turn", async () => {
+    const asked: {
+      whole: boolean;
+      language: string;
+      candidates?: readonly string[];
+    }[] = [];
+    const transcribe = vi.fn(
+      async ({
+        audio,
+        language,
+        candidates,
+        minSpeechMs,
+      }: TranslateTurnInput & { language: string }) => {
+        // The live preview re-reads the turn too, ungated; only the final's
+        // recognitions carry the speech floor.
+        if (minSpeechMs !== undefined)
+          asked.push({ whole: isWholeTurn(audio), language, candidates });
+        return {
+          text: peakOf(audio) > 10000 ? 'second voice' : 'first voice',
+          ...(candidates
+            ? { heard: { language: 'en' as const, confidence: 0.97 } }
+            : {}),
+        };
+      },
+    );
+    const socket = new FakeSocket();
+    const harness = makeService({
+      ...fakes(),
+      transcribe,
+      identifiable: ['vi', 'en'],
+    });
+    harness.service.start(socket, {
+      languagePair: { source: 'vi', target: 'en' },
+      voiceGender: 'female',
+      embedSpeaker: true,
+      splitSpeakers: true,
+      twoWay: true,
+    });
+    const sessionId = socket.ofType('server.session.ready').at(-1)!.sessionId;
+    harness.service.pushFrame(socket, frame({ sessionId, payload: twoVoices }));
+    await harness.service.end(socket, sessionId);
+
+    // Asked which language once, on the whole turn; every piece is then read
+    // in that language and nothing else.
+    expect(asked.filter((call) => call.candidates !== undefined)).toEqual([
+      { whole: true, language: 'vi', candidates: ['vi', 'en'] },
+    ]);
+    expect(
+      asked.filter((call) => !call.whole).map((call) => call.language),
+    ).toEqual(['en', 'en']);
+    const finals = socket.ofType('server.transcript.final');
+    expect(finals.map((f) => f.segment.sourceLanguages)).toEqual([
+      ['en'],
+      ['en'],
+    ]);
+  });
 
   it('sends each voice as its own final, joined to the turn it came from', async () => {
     const { socket, sessionId } = await run(twoVoices);
@@ -3012,6 +3880,86 @@ describe('splitting a turn where the voice changes', () => {
     ]);
   });
 
+  it('corrects each piece against the pieces before it, and shows the correction', async () => {
+    // The pipeline has already guarded what it returns; this proves each
+    // piece asks for its own, with its own second hearing, and its display
+    // carries it.
+    const correctTranscript = vi.fn(
+      async (
+        text: string,
+        _language: string,
+        _before: string[],
+        _alternates?: string[],
+      ) =>
+        text === 'second voice'
+          ? [{ heard: 'voice', said: 'choice', at: 1 }]
+          : undefined,
+    );
+    const { socket } = await run(
+      twoVoices,
+      { correctTranscript },
+      { repairDisplay: true },
+    );
+
+    const calls = correctTranscript.mock.calls as [
+      string,
+      string,
+      string[],
+      string[] | undefined,
+    ][];
+    expect(calls.map(([text]) => text)).toEqual([
+      'first voice',
+      'second voice',
+    ]);
+    expect(calls[1]![2].at(-1)).toBe('first voice');
+    expect(
+      socket.ofType('server.transcript.final').map((f) => f.display),
+    ).toEqual(['First voice.', 'Second choice.']);
+  });
+
+  it('hands each piece its own second hearing, asked for only with a display', async () => {
+    const transcribe = vi.fn(async ({ audio }: TranslateTurnInput) => {
+      const second = peakOf(audio) > 10000;
+      return {
+        text: second ? 'second voice' : 'first voice',
+        alternates: [second ? 'second choice' : 'first choice'],
+      };
+    });
+    const correctTranscript = vi.fn().mockResolvedValue(undefined);
+    await run(
+      twoVoices,
+      { transcribe, correctTranscript },
+      { repairDisplay: true },
+    );
+
+    const asked = transcribe.mock.calls.map(([input]) => input.alternates);
+    // The live preview's re-read asks for none; the whole turn's final and
+    // each piece's do.
+    expect(asked).toEqual([undefined, true, true, true]);
+    expect(
+      correctTranscript.mock.calls.map(([text, , , alternates]) => [
+        text,
+        alternates,
+      ]),
+    ).toEqual([
+      ['first voice', ['first choice']],
+      ['second voice', ['second choice']],
+    ]);
+
+    transcribe.mockClear();
+    await run(twoVoices, { transcribe });
+    expect(
+      transcribe.mock.calls.every(([input]) => input.alternates !== true),
+    ).toBe(true);
+  });
+
+  it('asks for no correction when the client wants no display', async () => {
+    const correctTranscript = vi.fn().mockResolvedValue(undefined);
+    await run(twoVoices, { correctTranscript });
+
+    expect(correctTranscript).not.toHaveBeenCalled();
+  });
+
   it('restores the pieces one at a time, so they cannot refuse each other', async () => {
     // The sidecar runs one restore at a time and refuses one it cannot start
     // promptly; asked together, the second piece would lose its typesetting.
@@ -3163,7 +4111,7 @@ describe('splitting a turn where the voice changes', () => {
     const { service } = harness;
     holder.service = service;
     service.start(socket, {
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
       voiceGender: 'female',
       embedSpeaker: true,
       splitSpeakers: true,
@@ -3565,7 +4513,7 @@ describe('streamed speech', () => {
     const { service } = makeService({ synthesizeStream });
     const socket = new FakeSocket();
     service.start(socket, {
-      direction: 'vi_to_en',
+      languagePair: { source: 'vi', target: 'en' },
       voiceGender: 'female',
       voiceOutput: false,
     });
@@ -3622,6 +4570,7 @@ describe('language fan-out (through the real pipeline)', () => {
     } as unknown as TurnMetricsRecorder;
     const languageSupport = {
       refusal: () => null,
+      identifiable: () => null,
     } as unknown as SpeechLanguageSupport;
     const service = new TranslationSessionService(
       pipeline,

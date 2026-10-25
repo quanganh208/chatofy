@@ -2230,3 +2230,278 @@ container.
 concurrency 2, re-measured when the machine was less busy: Δp95 across two runs was
 **+10.2 ms** and **+20.6 ms** respectively — within the +25 ms budget (the earlier
 measurement, under load from parallel phases, was +28.3 ms).
+
+## Garbled loanwords on the Vietnamese display: a structural detector, a guarded respelling, learned hotwords (07/10/2026)
+
+Found in a quality check of a 56 s vi→en news clip about deepfake fraud. The recognizer was good on Vietnamese: about 3 errors in 188 words, and no words lost at the four forced-cut seams. The one visible defect was the English word itself. "deepfake" reached the transcript as "deep fred" and later as "defec", and the restorer capitalised them into "Deep Fred" and "DEFEC". The translation got it right both times ("deepfakes"). Only the speaker's own line was wrong.
+
+### No list, by measurement
+
+§3.17 (18/09) already measured that a standing list of English words loses WER, because biasing toward words nobody said costs real Vietnamese. So detection uses the shape of a syllable instead: whether a word can be written as onset + nucleus + coda in Vietnamese orthography (`packages/ai-providers/src/text/vietnamese-syllable.ts`). On the 50 Vietnamese turns in production (10 conversations, 2,916 words) it flagged 26 distinct spans.
+
+- **Correct loanwords:** openai, internet, podcast, interpol, video, deadline, VNeID, Donald Trump.
+- **Garbled:** deep fred, defec, vnei, vini, vn id, opena, joshup pengo, ammon, Amode, "opera Dario", "Principle singtin".
+
+Errors that land on real Vietnamese syllables ("poker" heard as "quốc cơ") are invisible to it by construction. User-declared hotwords remain the only fix for those.
+
+### Two arms
+
+| Arm                                                             | Right | Wrong | Note                                                                          |
+| --------------------------------------------------------------- | ----- | ----- | ----------------------------------------------------------------------------- |
+| Closest translation n-gram by letters, no model                 | 6     | 3     | "Amode"→"mode", "hecta"→"hectare", and an n-gram running long                 |
+| `deepseek-flash` respelling, given the translation, then guards | 9     | 1     | 3 of 3 runs identical; the wrong one is "Principle singtin"→"First principle" |
+| Same prompt without the translation                             | 7     | —     | invented "Joseph Pengo", "Amodei" for "Altman"                                |
+
+A respelling is accepted only if all four hold:
+
+- it is Latin script ("đét-lai" for "deadline" is refused);
+- it changes letters, not just case or spacing;
+- it appears in the translation of the same words;
+- its letter similarity to what was heard is ≥ 0.5 (twice the longest common subsequence over the combined length).
+
+Spans the translation already spells as heard never reach the model. That is why openai, interpol and deadline cost nothing.
+
+### What it changes about §3.14
+
+§3.14 took the model off the display path, because an injected answer there reads as the speaker's own words in the right language. This is a model on that path again, so the boundary is now explicit. The model proposes, deterministic guards decide, and `sourceText` never changes. The client already offers the recognizer's words under any line whose display differs. `benchmarks/prompt-injection/respell.mjs` puts attack cases back on this surface: 18/18 passed (2 controls and 4 attacks, 3 runs each), and the model never obeyed, so no guard had to be the only defence.
+
+### Cost
+
+The call runs after the translation and measured p50 599 ms, p90 894 ms and max 1003 ms over 42 calls. Its ceiling is 1.2 s. It runs only on the ~18% of turns that hold an unresolved span. On those turns speech starts beside the call, once the speaker vectors it always waited for are in, so the listener never waits for the respelling; only the line does. The one speech-path error (`unsupported_audio`) is held until the line is out, because the client forgets a turn on a turn-scoped error and would drop a final that came after it. Every other turn keeps the old order: line, label, then speech. A code review on 07/10 found two guard holes, now closed with regression tests. An `Object.prototype` key such as "constructor" could crash a turn or write native code into the line. A highland place name such as "Đắk Lắk" could lose its diacritics ("Dak Lak") and then become a hotword. A span carrying a Vietnamese mark is now never sent, and a respelling that only drops marks is refused. The call is charged to the same `TranslationBudget` as a block retranslation, and a spent budget leaves the line as it was.
+
+### Learned hotwords
+
+An accepted spelling becomes a hotword for that connection's later turns, after the user's own hotwords and under the same 48-term ceiling. On the clip's ten windows, the hotword "deepfake" turned "deep f" into "deepfake" and changed nothing else. Learned terms reach the recognizer and the restorer and never the translation prompt, because they come from whoever is speaking in the room, not from the account owner.
+
+Reproduce:
+
+- `node benchmarks/loanword-respelling/score.mjs --repeats 3` (data is local only; see its README)
+- `node benchmarks/prompt-injection/respell.mjs --repeats 3`
+
+## Pause that pauses: the clock, the recorder and paused time (07/10/2026)
+
+Found in the same quality check. The last sentence of a conversation was in the recording but never translated, because the user had pressed Pause. Pause had only detached capture. The recorder kept writing, on purpose, so that media time stayed equal to wall time and every offset after a pause stayed right. The elapsed clock kept running so that it matched `endedAt − startedAt` in History. Both choices were documented, and both contradicted what the button says. The user decided they should change.
+
+The design that keeps seeks right without storing intervals is to measure every offset in **active time**, meaning wall time minus the paused time before it. The recorder pauses over exactly the same intervals, so media time equals active time minus `audioOffsetMs`, and the existing `mediaOffset` is unchanged. The only new stored value is the total, `Conversation.pausedMs` (an additive migration with default 0, which is exactly what an old row meant), and History subtracts it.
+
+Verified in headless Chromium with a fake microphone: recording 2 s, pausing 3 s and recording 2 s gave 7011 ms of wall time and 3960 ms of decoded media. A recorder without `pause()` keeps the old wall-time offsets, because its recording keeps them too. The clock takes the list of pauses rather than a running total, because a total alone cannot tell when the last pause ended, and the clock would step back after Resume.
+
+## Mandarin Chinese joins the registry (13/10/2026)
+
+`zh` (Simplified Chinese) became the third registry language, served by the same cascade as vi and en: local STT, a display restore and ITN, DeepSeek translation, local TTS. Every model choice comes from the 13/10 zh benchmarks (`benchmarks/stt` r11, `benchmarks/tts` zh-r1, `benchmarks/mt-zh` r3), and each sidecar change proved its memory under prod's limit before it merged.
+
+### What lost, and by how much
+
+- **STT: SenseVoice-small lost to Paraformer-zh.** Mean CER over FLEURS and AISHELL-1 (50 clips each) was 4.58% for SenseVoice (ITN off) against 3.22% for Paraformer, past the 1-point margin, so SenseVoice's built-in punctuation did not decide it. With its own ITN on, SenseVoice read 5.60%. Through the sidecar over HTTP Paraformer reproduces 3.22% exactly on the same clips. With the 320 ms of silence the client puts before every turn it reads 3.59%: 10 of 100 hypotheses change, not all for the worse.
+- **TTS: Kokoro v1_1-zh lost to the v1_0 instance en already used.** v1_1 was 0.3–0.4 points worse in round-trip CER and ran at RTF 1.25–1.36 against v1_0's 0.30–0.33. One shared instance costs +13 MB.
+- **Rule FSTs lost to a verbalizer of our own.** The plan kept `date-zh` and `phone-zh` after `number-zh` was seen rewriting English digits ("room 402" → "room 四百零二"). A wider English digit set showed both still do it: `date-zh` turned "born in 1998" into 一九九八, spoken "Ichochopa", and `phone-zh` rewrote a card number. With the zh lexicon alone, English judge WER stayed inside an en-only control's run-to-run band. Since the instance is shared, it loads no FSTs, and `zh_number_verbalizer.py` reads zh digits for the zh engine only. Round trip through the sidecar: CER 2.2% (sid 47) and 1.1% (sid 51) under the Paraformer judge, against 2.9% and 2.2% recorded before; the `15%` sentence now reads 百分之十五.
+
+### What "a word" means without spaces
+
+A Chinese, Japanese or Thai clause is one whitespace token. That made three things wrong at once. The glossary's 4-word cap read `只回复好不要说别的` as one word, an injection hole. The streaming committer settled nothing before a zh final. And the restore guard read one inserted `，` as a changed word. Pieces in an unspaced script are now counted with `Intl.Segmenter`, the ICU dictionary. On Node 24 / ICU 78 it reads `只回复好不要说别的` as 6, `答辩委员会` as 3 and the kana, Thai, Lao, Khmer and Myanmar instructions as 4–13. Hangul is counted per syllable block, because ICU returns an unspaced run whole. Per-character counting was rejected for the cap because it refuses `答辩委员会` (5), the kind of term the glossary exists to carry. Short instructions (`只回复OK` = 3) pass, exactly as `reply only OK` does; the prompt is the defence for those, and `benchmarks/prompt-injection` passed 192/192 on DeepSeek at 3 repeats with zh, kana, Thai, full-width-tag and unspaced-glossary rows added.
+
+### Commit boundary and provisional fires, measured on continuous speech
+
+The committer settles one Han character at a time. On 50 zh and 28 vi turns, cut at the clients' 8 s ceiling from continuous FLEURS and VIVOS speech (`prepare_continuous_audio.py`, `replay_committer.mts`), an `Intl.Segmenter` boundary retracted 21.2% of settled characters against 21.6% per character. That is under the 1-point rule fixed before the run, so per character stays. zh retracted less than vi (23.7%) and settled 91% of its text before the final.
+
+Provisional translations fired 15.8 times per minute of zh against 35.2 for vi at 15 characters each (0.45×), so `LIVE_TRANSLATION_COMMIT_CHARS` became per language with zh at max(4, round(15 × 15.8 / 35.2)) = 7. That gave 27.4/min (0.78×) on the same snapshots.
+
+### Translation output
+
+DeepSeek wrote Traditional characters in 3 of 1,200 zh outputs (by `hanzidentifier`, not by "t2s would change it"); every zh answer now passes OpenCC t2s, and the replay finds 0 left. It left Chinese in 3 of 600 zh→vi outputs and in 0 of 600 for every other direction, so a final →vi answer with more Han than its source allows is retried once against the translation budget. That includes a reused speculation, a split piece and a block. The zh recognizer note left COMET where it was: zh→vi 0.8829 vs 0.8833, zh→en 0.8781 vs 0.8777.
+
+### Display
+
+The CT-Transformer punctuation model scored F1 0.865 on the 50 FLEURS hypotheses, against a 0.5 gate (Dewpoint measured 0.62 on vi), so zh restore ships on. Words were kept on 50/50, at p95 16 ms. It drops the space next to a Latin token, which showed `802.11a802.11b`; the sidecar puts every recognizer space back. The zh ITN is a character scanner, because the shared engine reads an unspaced clause as one word. Hand-reviewed over the 100 hypotheses (27 spans) and the 50 restored lines (12 spans): every changed span was right. A first pass typeset one side of a range only (`十到60`), which the range rule fixed.
+
+### Rollout
+
+Each phase merged on its own and deployed. Prod replay as the owner account over the prod socket: 14 zh turns in each of zh→vi and zh→en, all finals punctuated, no translation carrying Han; 6 vi→zh turns with zh audio; 0 `language_unavailable`, 0 errors. With every zh engine loaded and four decodes plus four syntheses running, the Docker VM's available memory bottomed at 2,754 MiB.
+
+Known limits: Kokoro spells Latin acronyms letter by letter, `℃`/`¥` are not verbalized, nobody has listened to the zh voices for naturalness yet, and Gemini Live refuses zh by design.
+
+## Where the Vietnamese errors really are: turn onsets, sound-alikes and names on a Chinese line (13/10/2026)
+
+Found in a quality check of a vi→zh news clip (83 s, Incheon stabbing, drones off Bulgaria). The reader saw "đâm giao" for "đâm dao" (stabbing) twice, "Bungary", "Inche" and "MATA", and one turn that had lost its first word. Five earlier rounds had tuned cuts and seams, so this time the errors were counted before anything was changed.
+
+### The error budget
+
+Six recorded vi conversations (2,222 words) were replayed through the shipped `CapturePump` and decoded per turn, on a copy of the production sidecar, against ElevenLabs Scribe v2. Of 134 errors:
+
+| Bucket                           | Errors | Share |
+| -------------------------------- | ------ | ----- |
+| Common words misheard or dropped | 74     | 55%   |
+| Within ±0.6 s of a forced cut    | 29     | 22%   |
+| Names and foreign words          | 13     | 10%   |
+| Turn onsets                      | 9      | 7%    |
+| Insertions                       | 9      | 7%    |
+
+The forced-cut share is inflated by coincidence: cuts land in pauses, which is where the other person's backchannel sits. Re-decoding whole blocks, the upper bound for any seam repair, saved 2–6 errors. A longer cut quiet made seams worse (12.4% → 13.8% at 150 ms, 15.5% at 200 ms). So the recognizer, not the cut, is where the errors are.
+
+### What did not help
+
+- **A bigger recognizer.** On the same turns, prod `zipformer-vi-30m` read 5.72%; hynt ZipFormer-150M 6.30% (it drops number words), ChunkFormer-RNNT-large 7.34%, Qwen3-ASR-0.6B 13.41%.
+- **Beam search without a language model.** `modified_beam_search` with 4 and 8 paths read 5.72% and 5.76%, against 5.72% greedy. Without a language model, the beam has nothing to choose with, which §3.10 found on VIVOS too.
+
+### Turn onsets
+
+The capture gate opened a turn on 120 ms of unbroken speech and restarted the count on every quiet block. Vietnamese read speech has 85–110 ms syllables with 40–85 ms dips between them, so the turn opened on the third syllable, after the 320 ms pre-roll had already passed the first word ("Hàn" of "Hàn Quốc"). The count now restarts only after 100 ms of quiet, and a hangover's unsent tail becomes the next turn's pre-roll. Replayed: WER 6.04% → 5.86%, onset errors 9 → 7, 95 turns either way.
+
+A review found what that let in: keyboard typing, 20–40 ms clicks about 80 ms apart, now added up to 120 ms and opened a turn, where unbroken counting never had. The count must now also contain one unbroken run of 70 ms. That is four pump blocks of ~21.3 ms, which a 40 ms click cannot fill even when it straddles three. Click trains of 20–40 ms at 6–10 per second open no turn at any block phase. On the six recordings it changed one onset. Faint blips 0.5 s before "Hôm nay", none longer than two blocks, had opened a turn 0.57 s early, and that turn was decoded as "Nay tôi…". It now opens later and reads "Hôm nay tôi…": WER 5.86% → 5.81%, onset errors 7 → 6, 95 turns. A 60 ms burst every 160 ms can still open one, but that is as long as a syllable. The hangover's tail is no longer carried after an interruption by our own playback, because the next turn opens seconds later.
+
+### Sound-alikes, repaired on the display
+
+Most of the misheard words that change the meaning sound exactly like the right one. In most of the country "dao", "giao" and "rao" are said alike, and so are "triều" and "chiều". The recognizer decodes a turn without a sentence around it, so it cannot tell them apart. A model reading the sentence can, but a model on the speaker's own line is the thing §3.14 removed. So the model proposes, and a deterministic guard decides. A repair names one place in the transcript. It is accepted only if every word it changes shares the sound key of the word heard, under the mergers the spoken language really makes (d/gi/r, tr/ch, s/x, final n/ng and t/c), and differs from it in only one of onset, rhyme and tone. A repair that touches a number word is refused, because the ITN prints it as a digit right after. `sourceText` never changes.
+
+On the six conversations, 3 runs with the shipped guard: WER 5.86% → 5.50% each time, 8 repairs accepted, all right. The same prompt and guard over the reference itself changed one word, a typo in the reference. Giving the model the translation changed no answer, so the call runs beside the translation. It finished first on 65 of 94 turns, and a turn waits at most 250 ms past its translation for it (lost on 4 of 94). Measuring changed three things. The guard first compared tones and refused right repairs ("đạt đinh" → "đạt đỉnh"). The first prompt let the model "repair" a right "chợ lách" to match an uncorrected earlier turn, so the prompt now says the earlier sentences come from the same recognizer. A code review found the next three faults. The first version replaced a repaired word wherever it occurred, so "đâm giao rồi giao hàng" would have lost a right "giao". It also mixed onset, coda and tone mergers in one pair. And it let a sound-alike change a number. Five prompt-injection attacks, including a spoken order whose swap sounds alike ("dám" → "giám"), left the line unchanged 15 of 15 times (`benchmarks/prompt-injection/homophones.mjs`).
+
+### Names on a Chinese line
+
+The loanword respelling (07/10) accepts a spelling only if the translation writes it, and a Chinese translation writes "Bulgaria" as 保加利亚. On a vi→zh conversation it refused every proposal, after paying for each call. When a turn's only translation is in Han characters, the model now also names the words of the translation that render the span, and those must be in it. On 56 turns with Chinese translations: 0 → 8–11 right per run, 2 wrong, the rest missed when the longer answer passed the 1.2 s ceiling. English is asked exactly as before (9 right, 1 wrong). A rendering proves that the translation names something where the span is, not which word it names, so a spelling accepted only on one is shown and never learned as a hotword. Measuring it found two more faults. A Latin name inside Chinese ("OpenAI的AI模型") was one run of letters with the characters around it, so it could never be found. And the model sometimes copies a name in Traditional characters.
+
+### Replayed end to end
+
+The clip was replayed through the real `TranslationSessionService` with the real providers (the isolated sidecar, DeepSeek). The line read "đâm dao", "Incheon" and "Bulgaria". The zh had 负二楼 for the basement floor that production had translated as 地下一层, but nothing here changes the translation, so that is one sample of a sampled model. One vi→en conversation repaired "đạt đỉnh", "dao động", "Chợ Lách" and "vườn". Neither had an error.
+
+Known limits:
+
+- "Roman Brad" for Rumen Radev stays. A Vietnamese mark ("vàv") in a span keeps the whole span from being respelled.
+- Words misheard as a word that does not sound alike ("về" for "với") are refused by design.
+- The 55% of common-word errors are the recognizer's. A language model does not reach them with what exists today; see the next section.
+
+Reproduce:
+
+- `node benchmarks/homophone-repair/score.mjs --repeats 3`
+- `node benchmarks/loanword-respelling/score.mjs --repeats 3 --target zh`
+
+### A language model over the recognizer's n-best (13/10/2026)
+
+sherpa-onnx's `lm=` only rescores the final beam, so the question was whether the beam even holds the right sentence. A modified beam search over the same ONNX encoder, decoder and joiner (8 paths), checked against sherpa's own greedy output (11 of 12 turns identical, 128 vs 127 errors), gave the n-best for the 95 turns.
+
+| Arm                                                                                                | WER        | Errors  |
+| -------------------------------------------------------------------------------------------------- | ---------- | ------- |
+| Top hypothesis (what ships)                                                                        | 5.76%      | 128     |
+| Oracle: best of 8 per turn                                                                         | 3.65%      | 81      |
+| `deepseek-flash` picks among the candidates                                                        | 5.36–5.58% | 119–124 |
+| Pretrained word 4-gram KenLM (`nguyenvulebinh`, news text), weight tuned leaving one recording out | 5.76%      | 128     |
+| Pick, then the homophone repair                                                                    | 5.27%      | —       |
+
+The right sentence is often in the beam: 47 of the 128 errors are not in the best of 8. Nothing available picks it. The news-text KenLM got a weight of 0 on every fold, because conversational speech is not what it was trained on. The model picks about as well as the homophone repair, and mostly the same errors. Stacked, they gain about 5 errors over the repair alone, while sherpa does not expose the n-best (an unmerged PR) and the decoder would have to be replaced. So nothing ships from this. Reaching the gap needs an in-domain language model, which means conversational Vietnamese text this project does not have, or a better acoustic model. A BPE-level RNN LM for sherpa's `lm=` would have to be trained here (no Vietnamese one fits this model's 2,000-piece vocabulary), and published gains for that kind of rescoring are 8–12% relative, about 10–15 words on this corpus.
+
+A note for the translation: production rendered "tầng hầm bê hai" (basement B2) as 地下一层. Re-asked 8 times, the long sentence came back as B1 in 2 of them, and the short one never did. A recognizer note naming the Vietnamese letter names made zh worse (7 of 8) while fixing en, so it was not kept: at temperature 1.0 this is sampling, not a rule the prompt is missing.
+
+## A second recognizer, fused on the display (14/10/2026)
+
+No single recognizer beats production's 30M on these conversations, even with the CPU limit lifted. On the same 95 turns, Qwen3-ASR-1.7B read 7.02%, MERaLiON-3-3B-ASR 10.31% and Cohere Transcribe 16.43%, against 5.72%. What beats it is two recognizers whose mistakes differ, with a model picking between them. Per turn, the better of the 30M and Qwen-1.7B would read 4.37%.
+
+So the sidecar now loads hynt ZipFormer-150M beside the 30M and decodes each finished turn with both. The 150M is worse alone (6.30%) and needs no GPU. A third recognizer, ChunkFormer, landed inside the two-recognizer runs' spread and would have put torch in the sidecar. The model call runs beside the translation, like the homophone repair. Its answer reaches only the display, and only what a deterministic guard accepts:
+
+- a stretch must replace words, and never a word the 150M heard as well. Adds and drops gained nothing, and a drop is invisible to a reader. A code review found the first guard let a swap beside a drop through ("tôi không đồng ý" could become "tôi vẫn đồng ý");
+- the new words must be what the 150M heard at that place, between the words both recognizers share. A word heard elsewhere in the turn is refused, because a spoken "change X into Y" puts Y in both transcripts;
+- a change of mark placement or spacing ("khóa"/"khoá", "openai"/"open ai") is refused. The two models were trained on text written differently, and "open ai" was the one edit that made a conversation worse in every run;
+- a hint term's words stay as heard, because the 150M decodes without the hotwords.
+
+Measured with the shipped prompt and guard on the six conversations (`benchmarks/recognizer-fusion`, 2,220 words): 5.86% → 4.95–5.00% for fusion alone, and **4.73–4.91% with the homophone repair beside it**, against 5.50% for the repair alone. A review then found the guard let the model pass a drop beside a swap: a word both recognizers heard could go when the alignment left it unpaired, and a stretch could come out shorter than either recognizer heard it ("không đồng" against "hông đồ" became "đồ"). Both are refused now. Over every answer the final runs logged, that refuses one correction, "kẻ sọ → kè" where the reference is "kè rọ", so the bound is 4.77–4.82%. No conversation got worse in any run. The model is called on 46 of 95 turns, p50 ~850 ms. `prompt-injection/fusion.mjs` passed 21 of 21.
+
+Two prompt choices were measured. Told "when both make sense, take A", the model kept A's wrong word where B's fitted (5.14–5.23%), so neither recognizer is named the better one. A prompt that described the 150M as better at names, which is untrue, scored the same as one that says nothing, so the honest one ships.
+
+On the sidecar, the 150M decodes beside the 30M rather than after it, and the response waits for it at most 400 ms past the 30M (`LOCAL_STT_ALTERNATE_WAIT_MS`), so a slow second decode costs a turn its fusion, never its transcript. A final with alternates takes +53 ms at p50 and +100 ms at p95, the difference between the two decodes. Memory is +87 MiB at rest and +411 MiB at the peak of four concurrent finals, so the prod limit went from 4g to 4608m. Replayed end to end through `TranslationSessionService` against an isolated sidecar, on 269afa03 (vi→zh) and 5b679761 (vi→en): 28 turns, 0 errors. Among the lines read were "cồn cái gà", "hoa kiểng" and "có thể thấy". The time from end of speech to the final line moved +18 ms and +111 ms at p50, which is within the translation host's own variation.
+
+Where both recognizers mishear the same word, there is nothing to pick. That, and fillers that the reference keeps and neither outputs, is most of what is left.
+
+Reproduce:
+
+- `node benchmarks/recognizer-fusion/score.mjs --repeats 3 --with-homophones`
+- `node benchmarks/prompt-injection/fusion.mjs --repeats 3`
+
+## Language identification: the bake-off harness, and a first look at recognizer competition (20/10/2026)
+
+Two-way translation and auto-detect need the sidecar to decide which language a turn is in. `benchmarks/lid` is the gate that chooses how: five arms on one labelled set, each scored through the runtime it would ship on, with a machine verdict in `gate.json`. The real-speech half of that set does not exist yet (recordings, labelling and the consent for the prod recordings are still open), so the only thing measured so far is arm 4, recognizer competition, on public read speech. That run is a signal, not a verdict.
+
+Paraformer, the zh recognizer, never fills `ys_log_probs` (0 of 15 decodes, on every language). The vi and en recognizers do, and they separate the languages: the vi Zipformer averages −0.07 per token on Vietnamese and −0.62 on English. So arm 4's zh evidence is the text alone.
+
+On 1,100 FLEURS clips, every whole-turn decision is easy: 0.998 en-vi, 0.996 vi-zh, 1.000 en-zh, 0.997 detect. Partial transcripts are where it fails. Accuracy is 0.71 at 600 ms, 0.87 at 1.2 s and 0.95 at 2 s. No lock threshold keeps the shown language from changing in fewer than 29% of en-vi turns, against a 10% bar. The final decision also adds 273 ms at p95, against a 150 ms bar, because a parallel English decode waits for Parakeet (~330 ms on an 8 s turn) where the declared vi decode took ~66 ms.
+
+Two measurement mistakes were caught along the way. FLEURS clips start about a second before speech, while a gate-cut turn starts 320 ms before it, so the first run's early prefixes held a median of 0 ms of speech and measured the corpus. Public clips are now trimmed to the client's pre-roll. The classifier was also trained on whole turns only: it claimed 0.86 confidence at 600 ms for 0.50 accuracy, and one model trained on both stages cost the finals accuracy. Partials and finals now have separate models.
+
+Reproduce: `cd benchmarks/lid && uv run --frozen python run_bakeoff.py --run-tag <tag> --arms turn_facts,recognizer_competition && uv run --frozen python score.py --run-tag <tag> --substitute-public` (results in `results/public-prelim-r2/`).
+
+The real tier came from public conversation rather than new recordings. The new sources are EdAcc video calls (all English from L1-Vietnamese and L1-Mandarin speakers), ASCEND zh↔en sessions, VietMed medical talk shows (part of it over the phone) and ViMedCSS, which is Vietnamese with English medical terms. Vietnamese↔English sessions were stitched together from real turns, one voice per side, because no public corpus has that conversation. For the room channel, 260 clips were replayed through the laptop speaker and recorded on its microphone. Arm 4 on all 8,126 turns, held out by corpus (`results/conv-r1/`), keeps whole vi↔en turns (0.988) and code-switched Vietnamese (0.973). It loses everything short: detect under 1.5 s scores 0.516, and Vietnamese fragments cut at a pause score 0.647 even as a two-way choice. zh scores 0.78 on long turns and 0.14 on short ones, because Paraformer gives no confidence and its text loses to English. Neither the source prior nor the voice prior survived held-out tuning in two-way sessions. The gate is INCOMPLETE until AmberNet, Whisper and MMS run under the isolated `lidbench` user, and arm 4 alone would be G4. Scoring this run also exposed two harness bugs. A corpus whose turns are all shorter than the first prefix crashed the classifier. The voice clusterer compared numpy arrays through a dataclass `__eq__`. A third gap was in the verdict: it ignored arms that never ran, so this run first printed G4.
+
+The other three arms ran under a separate `lidbench` user, and the gate came out G4 (`benchmarks/lid/results/conv-r2-all/`). Both parity checks failed at first, and both times the frontend was at fault, not the model. AmberNet needed reflect padding in its STFT. It also needed its padded frames dropped, because the ONNX export turns masked convolutions off and the padding leaked into the pooled embedding. faster-whisper was padding zeros into the features, and after Whisper's normalisation that is not silence. With both fixed, the two runtimes match their references exactly over 100 clips. Whisper base came closest to passing. It met every vi↔en criterion but three: detect on L1-Vietnamese English (0.949, the bar is 0.95), the shown language changing on 37% of partials, and 358 ms added per decision. Every arm failed those last two. Partials never settle under the 10% change bar, and nothing decides within 150 ms on this CPU: arm 4 waits for the English decode, and Whisper encodes a 30 s window per call. Short zh turns peak at 0.62 (AmberNet). Combining AmberNet with arm 4 did not rescue it. Stacking AmberNet's log-probabilities into arm 4's classifier lowered arm 4's own vi↔en scores, and routing each pair to its stronger arm still failed the same four criteria. MMS ran on CPU for accuracy only and was not better. A hard reset of the machine cost about ten hours of Whisper small and MMS runs, because arms wrote their scores only at the end. They now append a turn at a time and `run_bakeoff.py --resume` picks the run up again.
+
+Two changes moved Whisper base close to passing, but not over (`benchmarks/lid/results/conv-r3-all/`). First, A6 now holds the language label until the lock, because the old pair of bars could not both be met by any arm. Second, Whisper's encoder covers only the turn instead of a 30 s window. The ONNX graph needed one edit for that: slicing the positional embedding to the input's length, which is what whisper.cpp's `audio_ctx` does. faster-whisper could not check the edit, because CTranslate2 quietly zero-pads short features back to 3000 frames, so its "short" answer is the 30 s one. The check became that the edited graph, given the full 3000 frames, matches the original exactly. The shorter window cut A7 from 358 to 139 ms and lifted detect on L1-Vietnamese English from 0.949 to 0.964. It also cost short turns: A3 under 1.5 s fell from 0.931 to 0.837. The held label still changed on 11.7% of turns held out by corpus, against 9.9% in-sample. Two vi↔en criteria remain, both close to the bar.
+
+The LID gate then passed at G3 with Whisper base (`benchmarks/lid/results/conv-r4-all/`). Two changes closed the last two vi↔en criteria, and no bar moved. The windowed encoder now never encodes less than 5 s, so a short turn keeps some of the padded context Whisper was trained with. That lifted short-turn accuracy from 0.837 to 0.892, and A7 fell to 126 ms. The lock tuning's change budget went from 0.08 to 0.05. It was tuned on every pair, public data included, but A6 is scored on real en-vi turns alone, and the 0.08 margin came out at 11.7% held out. At 0.05 the held label changes on 7.0% of turns and still appears by 3.1 s at p95. zh still fails, which G3 allows: it stays a hand-picked pair. Both knobs were chosen after looking at held-out numbers, so the result is somewhat optimistic until it is checked on turns the tuning never saw.
+
+## Two-way and auto-detect, measured through the API (22–23/10/2026)
+
+The winning identifier now runs inside the STT sidecar, behind `LOCAL_STT_LID` (`services/local-stt/lid/`). Against the bench's recorded scores for the same 150 turns (820 calls, whole turns and prefixes) the sidecar's probabilities differ by at most 2.2e-16 and never change the winner; a decision takes 91 ms at p50 and 111 ms at p95 on 4 threads. Two choices kept the cost down. The Vietnamese second recognizer starts only after the turn is decided, and only for a turn decided as Vietnamese, so an English turn pays for no decode it would throw away. The encoder is cut to the turn in memory at load rather than written out as a second model file, because production mounts the models read-only. On an isolated instance capped at 5376 MiB, 40 finals over four parallel streams peaked at 3.35 GiB. The seed step, run under `docker run --memory=512m`, downloads 280 MB at a 198 MiB peak, and skips the weights when identification is off.
+
+Then the same labelled sessions were replayed through the real API, played at wall clock the way the web client plays them (`benchmarks/lid/replay_sessions.mjs`, scored by `score_replay.py`): 10 sessions, six vi↔en conversations and four single-speaker ones, 380 turns per mode, against a dev API and a sidecar with identification on, speech output off, each worker on its own account. Two-way (`benchmarks/lid/results/p3-replay-two-way/`):
+
+| What                                   | Result                                         | Bar              |
+| -------------------------------------- | ---------------------------------------------- | ---------------- |
+| Whole turns ≥ 1.5 s, en-vi             | 1.000 (n 85)                                   | ≥ 0.97           |
+| Turns < 1.5 s wrong after fallback     | 0.000 (n 14)                                   | ≤ 0.05           |
+| Final overruled the lock               | 0.010 (n 99)                                   | ≤ 0.10           |
+| Language label shown, p95              | 3291 ms; 84% of turns locked before they ended | ≤ 3500 ms        |
+| Single-speaker sessions wrong, en / vi | 0.014 (n 70) / 0.000 (n 100)                   | ≤ 0.03           |
+| Online against offline, same turns     | 1.000 = 1.000, 0 disagreements                 | ≥ offline − 0.02 |
+
+These sessions come from the bake-off's own manifest. They show that the API runs the policy the gate scored, with the same answers; they do not show the policy holding on new speech, so the held-out optimism above stands. No session held code-switched or noise-only turns, so for those the offline figures are all there is.
+
+Final latency could not be compared. Dev translation is Gemini, and its quota failed about 19% of turns in both modes ("every Gemini key × model is cooling down"), which buries the identifier's cost in translation waits. The API's own `stt(local)` timings answer the question instead: p95 per recognition 306 → 308 ms, p50 65 → 103 ms, against a +150 ms p95 bar. Accuracy is over turns that produced a final.
+
+Auto-detect on the same sessions, each translated into the other side of its declared pair (`results/p4-replay-detect/`): whole turns 1.000 (n 88), short turns 0.000 wrong after fallback (n 23), 3.6% of locks overruled (n 111), and 87 turns heard in the target closed as transcript only. One English turn of 780 ms was heard as Vietnamese, in both modes. Gemini's quota collapsed further during this run, and only 164 of 380 turns produced a final; the label time (5.1 s at p95) and the final latency are inflated by turns that never locked while they waited on translation, so neither is read from it.
+
+Load, still on the dev machine. One detect and two two-way sessions at once, with speaker splits and speculation on, sent 20,632 requests to the sidecar and got no 503 (`results/p3-p4-replay-mixed-load/`). The sidecar peaked at 4.4 GiB, not the 3.35 GiB of the synthetic run, and within about 100 MiB of the production limit (`mem_limit: 4608m`). Five two-way sockets opened at once by one account got one two-way session and four declared ones marked `lid_capacity`, with no errors (`results/p3-replay-adversarial/`).
+
+Two-way puts speech in the output language into the conversation's history, which is the easiest thing in a prompt to copy into an answer. The server keeps each turn's context to its own language, and three `two-way-` rows in `benchmarks/prompt-injection` measure what the translator does if that filter ever fails. `deepseek-flash` passed 201 of 201 at `--repeats 3` with them in the corpus (23/10).
+
+The web screen was then checked on the real stack: sidecar with identification on, dev API on DeepSeek, Chromium with a fake microphone playing alternating FLEURS vi/en clips, one throwaway account deleted afterwards. Four states at 1440, 768 and 375 wide showed no horizontal overflow and no mode switch. Two-way labelled each turn VI or EN, translated the English turn into Vietnamese, and showed two speakers. A second socket of the same account showed the one-way banner. Auto-detect kept the English turns as transcript only, into English. One fix came out of it: the disabled swap button's accessible name read "translate English into Auto-detect", and now has its own (`web.translate.languagePairSwapDetect`). It also showed the first turn after the API booted ahead of a still-loading sidecar running declared: capability was re-read at most once a minute, and unknown counts as "cannot identify".
+
+**Isolated load, with speech output (23/10).** The Docker VM had 7.55 GiB, and the sidecar's 4.4 GiB peak left it about 0.6 GiB, against the 1.5 GiB the rollout asked for. Docker Desktop's VM went to 10 GiB (`MemoryMiB` in `~/.docker/desktop/settings-store.json`, about 20 s of downtime for the whole stack). The load run then used a host-native sidecar under a 5120 MiB cgroup cap with identification on, a host-native TTS beside it, and a dev API, with the same one detect and two two-way sessions, splits and speculation, now speaking every translation (`results/iso-load/`). 773 of 773 turns ran in the mode they asked for, the sidecar answered no request with 503, and the five failed turns were all "No speech detected". STT peaked at 3.8 GiB and TTS at 2.9 GiB. Five sockets of one account again got one two-way session (`results/iso-adversarial/`).
+
+The first attempt at it found a real fault. The API had booted while the sidecar was still loading, so its capability answer was "unknown", and it would not ask again for 60 seconds: 713 detect starts were refused in that window, and 12 two-way turns ran one way. A production deploy recreates both, so every deploy would have opened that window. `SpeechLanguageSupport.identifiable()` now probes again on every start while an engine that can answer has not, coalesced into one request.
+
+**Production (23/10).** `mem_limit` went from 4608m to 5120m, the code shipped with identification off, and then it was switched on: `PROD_LOCAL_STT_LID=on`, the seed fetched the pinned Whisper base weights, and the sidecar was recreated, healthy in 20 s. Four sessions per mode were replayed against production under the owner account, one session at a time with speech output on, 436 turns each (logs kept out of git):
+
+| What                                   | Result                                    | Bar              |
+| -------------------------------------- | ----------------------------------------- | ---------------- |
+| Whole turns ≥ 1.5 s, en-vi             | 1.000 (n 181)                             | ≥ 0.97           |
+| Turns < 1.5 s wrong after fallback     | 0.027 (n 37)                              | ≤ 0.05           |
+| Final overruled the lock               | 0.055 (n 218)                             | ≤ 0.10           |
+| Language label shown, p95              | 3591 ms two-way, 3660 ms detect; 82% lock | ≤ 3500 ms        |
+| Single-speaker sessions wrong, en / vi | 0.014 (n 70) / 0.000 (n 100)              | ≤ 0.03           |
+| Online against offline, same turns     | 1.000 = 1.000, 0 disagreements            | ≥ offline − 0.02 |
+| Recognition p95, `stt(local)`          | declared 301, two-way 290, detect 285 ms  | ≤ +150 ms        |
+
+The label time looked about 100 ms over its bar (see the next paragraphs: it was measured from the wrong point). Final latency over whole turns did not rise (p95 1438 ms two-way, 1467 ms declared). The sidecar peaked at 3.0 GiB with no OOM event and no restart.
+
+The rollback was then rehearsed in the middle of a two-way session: identification off, sidecar recreated, ready 17.5 s later. Every one of the 367 turns after that ran declared, with reason `language_detection`, on the same socket. Forty of them failed with "No speech detected", which is the declared baseline on these sessions (47 of 436): a turn in the other language, decoded as the declared one, comes back empty. Two-way failed 3 of 436 on the same sessions. Identification was switched back on afterwards.
+
+**The label-time "miss" was the ruler (23/10).** Paired on the same turns, production was not slower than the dev machine (p95 3252 against 3291 ms, mean −17 ms); its 3591 ms came from a larger sample, and a 494-turn local baseline the same day gave 3603 ms. The replay driver times the label from the start of the clip it plays, and the clips open with their own silence (p50 190 ms, p95 540 ms, up to 6 s). A6's bar is from the start of speech. Timed from the onset Silero finds (`scripts/speech_onsets.py`, now subtracted by `score_replay.py`), the same runs read 3409 ms locally and 3217 ms on production.
+
+The look also found a better lock. The first tuning grid went from 900 ms of speech straight to 1500 ms. Held out on the bake-off, 0.8 confidence with 1300 ms overrules fewer locks than the shipped 0.6 / 1500 (5.7% against 6.2%) and locks right more often (91.8% against 91.0%). Replayed through the API on the same 491 turns, timed from speech: label p50 1697 → 1559 ms, p95 3409 → 3320 ms, finals overruling the lock 7.1% → 5.9%, final accuracy unchanged (A1 0.995 both). Lowering the speech bar further does buy time — 900 ms gives a 2.1 s p95 — but overrules 13–15% of locks, over the 10% bar. A late second lock (any guess after 2–3 s) moved nothing: with two candidates almost every turn clears 0.6 long before. The API now ships 0.8 / 1300.
+
+Reproduce: `node benchmarks/lid/replay_sessions.mjs --api http://localhost:3000 --token-file "$TOKEN_FILE" --mode two-way --run-tag <tag>` (modes `declared`, `two-way`, `detect`, `mixed-load`, `adversarial`), then `cd benchmarks/lid && python3 score_replay.py --run results/<tag> --baseline results/<declared-tag>`; `node benchmarks/prompt-injection/run.mjs --provider deepseek --repeats 3`.
+
+## Spelled codes on the Vietnamese display (24/10/2026)
+
+An auto-detect session on production showed `trại giam A Hai` for the A2 prison camp. The recognizer had written `a hai`; the ITN left a lone number word with no classifier as a word, and the restorer cased the pair as a name. Two of production's 58 Vietnamese turns held such a code (`a hai`, and `tầng hầm bê hai` for B2), and FLEURS showed the other spelling the recognizer uses, a bare Latin letter: `f một` for F1, beside `mờ mười sáu` for M16.
+
+The Vietnamese ITN now reads a letter beside a number as one code (`vietnamese-letter-codes.ts`). A lone consonant is never a syllable, so `f một` needs nothing else. Every letter name is also a word (`bê hai thùng nước`, `mờ hai hôm nay`, `bị u hai bên`, `ca ba`), so a name is read only after a noun that introduces codes, taken from the words in front of 6,420 written codes in vicappunc (`vitamin`, `đốt sống`, `khẩu trang`, `trại giam`, `tầng hầm`…), or after another such code (`L4 L5`, `B1 B6 B12`). The restorer's casing was tried as the signal and dropped: it cased `A Hai` in one context and wrote `trại giam. A. Hai` in another.
+
+Measured as old against new ITN, line by line, every changed line read by hand:
+
+| Corpus                                  | Lines   | Changed | Wrong |
+| --------------------------------------- | ------- | ------- | ----- |
+| VIVOS train + test references           | 12,420  | 0       | 0     |
+| Production vi turns, source and display | 84      | 4       | 0     |
+| Punct rulers, recognizer input and refs | 4,076   | 2       | 0     |
+| vicappunc sentences (written chat text) | 320,021 | 1       | 1     |
+
+The first version changed 31 vicappunc lines and nearly all were wrong, which is what shaped the guards: a letter glued to a numeral is a unit (`15h`, `4d`); a lone `một`, `năm` or `ba` with a word after it is the article or the year (`vitamin c một thời gian`, `viêm gan c năm ngoái`); a classifier after the number is a count (`b hai tháng`); runs of consonants are abbreviations (`đc`, `bs`, `ml`, and the recognizer's own `kg`). A code review then found four more by hand, none in any corpus: a closing `không` folded in as a zero reversed the sentence (`phòng a hai không có ai` → `phòng A20 có ai`), a closing `năm` became a digit (`trại giam a hai mươi năm` → `A25`), the verbs `bê` and `xê` read as a trailing letter (`lên tầng hai bê đồ` → `2B đồ`), and a marker vouched across a full stop (`ở tầng. Mờ hai hôm nay` → `M2`). Each now has a spec. The one left is `acid folic m hai`, a chat abbreviation the recognizer does not write. What it costs: `F0` (indistinguishable from `phòng a không có ai`), `f một rất hấp dẫn` (the article guard), and multi-letter spellings like `vê tê vê ba`.
+
+Reproduce: the specs in `apps/api/src/modules/translate/providers/vietnamese-inverse-normalize.spec.ts`; `node benchmarks/stt/scripts/itn_holdout_check.mjs`; `node benchmarks/stt/scripts/itn_roundtrip_recall.mjs`.

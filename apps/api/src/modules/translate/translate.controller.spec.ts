@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { TranslateRequestDto } from './dto/translate.dto';
+import { ZodValidationException, ZodValidationPipe } from 'nestjs-zod';
+import { TranslateRequestDto } from './dto/translate.dto';
 import { TranslateController } from './translate.controller';
 import { LanguageUnavailableException } from '../../common/exceptions/language-unavailable.exception';
 import { DeclaredLanguageIdentifier } from './session/language-identifier';
@@ -16,7 +17,7 @@ import type { SpeechLanguageSupport } from './providers/speech-language-support'
 const REQUEST: TranslateRequestDto = {
   audioBase64: Buffer.from('audio').toString('base64'),
   audioMimeType: 'audio/webm',
-  direction: 'vi_to_en',
+  languagePair: { source: 'vi', target: 'en' },
   voiceGender: 'female',
   speed: 1,
 };
@@ -69,5 +70,33 @@ describe('TranslateController', () => {
     await expect(controller.translate(REQUEST)).resolves.toMatchObject({
       targetText: 'hello',
     });
+  });
+
+  // The undeclared source is a streaming-session value only. REST keeps the
+  // declared pair, so the global pipe — the one `AllExceptionsFilter` maps to
+  // 400 VALIDATION_FAILED — refuses it before the controller runs.
+  it('refuses a detect source with a 400 validation failure, before the controller runs', () => {
+    const pipe = new ZodValidationPipe();
+    const body = {
+      ...REQUEST,
+      languagePair: { source: 'detect', target: 'en' },
+    };
+
+    let thrown: unknown;
+    try {
+      pipe.transform(body, { type: 'body', metatype: TranslateRequestDto });
+    } catch (err) {
+      thrown = err;
+    }
+
+    expect(thrown).toBeInstanceOf(ZodValidationException);
+    expect((thrown as ZodValidationException).getStatus()).toBe(400);
+  });
+
+  it('still takes a declared pair through the same pipe', () => {
+    const pipe = new ZodValidationPipe();
+    expect(
+      pipe.transform(REQUEST, { type: 'body', metatype: TranslateRequestDto }),
+    ).toMatchObject({ languagePair: { source: 'vi', target: 'en' } });
   });
 });

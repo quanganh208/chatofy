@@ -153,7 +153,7 @@ describe('MicrophoneGraph', () => {
 
   /**
    * The extension hands this graph a context and a stream it does not own — the
-   * context also carries the meeting's own passthrough and the other direction,
+   * context also carries the meeting's own passthrough and the other meeting leg,
    * and the stream may be a captured tab. Releasing either would silence the
    * meeting permanently, and nothing about it would throw or fail a test.
    */

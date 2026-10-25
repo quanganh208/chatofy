@@ -23,15 +23,17 @@ const SPEAKERS: SessionSpeaker[] = [
   { id: 'speaker-2', label: 'Bình' },
 ];
 
-const segment = (sessionId: string, sourceText: string, targetText: string): TranscriptSegment => ({
+const segment = (
+  sessionId: string,
+  sourceText: string,
+  translation: string,
+): TranscriptSegment => ({
   id: `seg-${sessionId}`,
   sessionId,
   speakerRole: 'speaker_a',
-  direction: 'vi_to_en',
   sourceLanguages: ['vi'],
-  translations: { en: targetText },
+  translations: { en: translation },
   sourceText,
-  targetText,
   audioUrl: null,
   createdAt: '2026-08-27T00:00:00.000Z',
 });
@@ -85,7 +87,7 @@ const render = (props: Partial<Parameters<typeof ConversationTranscript>[0]> = {
           running
           speakers={SPEAKERS}
           attributions={{}}
-          target="en"
+          languagePair={{ source: 'vi', target: 'en' }}
           {...handlers}
           {...props}
         />
@@ -462,5 +464,94 @@ describe('turns that were never spoken', () => {
     // person told nothing about a sentence they never heard.
     render({ side: 'source', unheard: { a: 'backlog' } });
     expect(container.textContent).toContain(UNHEARD);
+  });
+});
+
+describe('ConversationTranscript in a two-way conversation', () => {
+  const VI_TURN = segment('a', 'chào buổi sáng', 'good morning');
+  const EN_TURN: TranscriptSegment = {
+    ...segment('b', 'good morning to you', ''),
+    speakerRole: 'speaker_b',
+    sourceLanguages: ['en'],
+    translations: { vi: 'chào bạn buổi sáng' },
+  };
+  const APART = captures(['a', 1_000, false, 4_000], ['b', 6_000, false, 9_000]);
+
+  it('reads a turn heard in the target in the language it was translated into', () => {
+    render({
+      turns: [VI_TURN, EN_TURN],
+      captures: APART,
+      side: 'target',
+      languageModes: { a: 'two-way', b: 'two-way' },
+    });
+    const [first, second] = blocks();
+    expect(first?.textContent).toContain('good morning');
+    // Not an empty "en" line: the reply went into Vietnamese.
+    expect(second?.textContent).toContain('chào bạn buổi sáng');
+  });
+
+  it('tags each identified turn with the language it was heard in, said in full', () => {
+    render({
+      turns: [VI_TURN, EN_TURN],
+      captures: APART,
+      languageModes: { a: 'two-way', b: 'two-way' },
+    });
+    const tags = [...container.querySelectorAll('[data-turn-language]')];
+    expect(tags.map((tag) => tag.getAttribute('data-turn-language'))).toEqual(['vi', 'en']);
+    expect(tags[1]?.textContent).toContain('Spoken in English');
+    // A readout, not the accent.
+    expect(container.querySelector('[data-turn-language].bg-primary')).toBeNull();
+  });
+
+  it('tags no turn of a declared conversation — the header already names its language', () => {
+    render({ turns: [VI_TURN], captures: APART, languageModes: { a: 'declared' } });
+    expect(container.querySelector('[data-turn-language]')).toBeNull();
+  });
+
+  it('tags a live turn once the server has decided its language', () => {
+    render({
+      turns: [],
+      captures: {},
+      liveTurns: [
+        { sessionId: 'c', text: 'ready to', translation: '', language: 'en' },
+        { sessionId: 'd', text: 'chưa rõ', translation: '' },
+      ],
+    });
+    const tags = [...container.querySelectorAll('[data-turn-language]')];
+    expect(tags.map((tag) => tag.getAttribute('data-turn-language'))).toEqual(['en']);
+  });
+
+  it('leaves an auto-detected turn said in the target as transcript only', () => {
+    const IN_TARGET: TranscriptSegment = {
+      ...segment('a', 'see you tomorrow', ''),
+      sourceLanguages: ['en'],
+      translations: {},
+    };
+    render({
+      turns: [IN_TARGET],
+      captures: captures(['a', 1_000, false, 4_000]),
+      languagePair: { source: 'detect', target: 'en' },
+      languageModes: { a: 'detect' },
+    });
+    const [block] = blocks();
+    expect(block?.textContent).toContain('see you tomorrow');
+    // Shown once, as said — no empty translation line under it.
+    expect(block?.querySelector('p.text-target')).toBeNull();
+  });
+
+  it('shows that turn in the translation pane as said, since it is already in that language', () => {
+    const IN_TARGET: TranscriptSegment = {
+      ...segment('a', 'see you tomorrow', ''),
+      sourceLanguages: ['en'],
+      translations: {},
+    };
+    render({
+      turns: [IN_TARGET],
+      captures: captures(['a', 1_000, false, 4_000]),
+      side: 'target',
+      languagePair: { source: 'detect', target: 'en' },
+      languageModes: { a: 'detect' },
+    });
+    expect(blocks()[0]?.querySelector('p.text-target')?.textContent).toBe('see you tomorrow');
   });
 });

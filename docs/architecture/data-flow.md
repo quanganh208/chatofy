@@ -6,11 +6,11 @@ Part of the [system architecture](../system-architecture.md).
 
 ### Translation Pipeline (POST /translate)
 
-1. **Client Request** → `@chatofy/api-client.apiFetch('/translate', schema)` with `{ audioBase64, audioMimeType, direction?, voiceGender?, speed? }` (`translateRequestSchema` in `packages/types/src/http/translate.ts`; `direction` defaults to vi→en, `voiceGender` to `female`, `speed` is clamped to 0.5–2)
+1. **Client Request** → `@chatofy/api-client.apiFetch('/translate', schema)` with `{ audioBase64, audioMimeType, languagePair?, voiceGender?, speed? }` (`translateRequestSchema` in `packages/types/src/http/translate.ts`; `languagePair` defaults to `DEFAULT_LANGUAGE_PAIR` (vi→en), `voiceGender` to `female`, `speed` is clamped to 0.5–2)
 2. **Request Validation** → `ZodValidationPipe` validates DTO
-3. **Controller** (`TranslateController.translate()`) → Decode base64 audio, build the turn's `TurnLanguagePlan` with `planForDirection`, refuse with 503 `language_unavailable` if `SpeechLanguageSupport` says no configured engine serves it, then call the service
+3. **Controller** (`TranslateController.translate()`) → Decode base64 audio, build the turn's `TurnLanguagePlan` with `planForPair`, refuse with 503 `language_unavailable` if `SpeechLanguageSupport` says no configured engine serves it, then call the service
 4. **Pipeline** (`PipelineTranslatorService.translateTurn(input, plan)`):
-   - Build provider trio via `AiProvidersFactory.makeProviders()` — registry resolves each by kind, memoized per backend selection; every provider handles both languages, so the trio does not depend on direction
+   - Build provider trio via `AiProvidersFactory.makeProviders()` — registry resolves each by kind, memoized per backend selection; every provider handles both languages, so the trio does not depend on the language pair
    - **STT:** transcribe in `plan.recognition` → `sourceText`
    - **Translation:** `translateAll` over `plan.targets` → a `TranslationMap`; `targetText` is the entry for `plan.spoken` (the selected provider walks its own model list on a quota rejection)
    - **TTS:** synthesize `targetText` in `plan.spoken` with `voiceGender`/`speed` → audio bytes; `audioMimeType` read from `provider.outputMimeType`
@@ -26,8 +26,10 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
 
 1. **`client.session.start`** → `TranslationSessionService.start()` opens a turn
    and answers `server.session.ready` with the id every later frame must carry.
-   Carries the turn's `SessionOptions` — direction plus `voiceGender`, which is
-   optional on the wire and defaults to `female` before it reaches the session
+   Carries the turn's `SessionOptions` — `languagePair` plus `voiceGender`, which is
+   optional on the wire and defaults to `female` before it reaches the session.
+   `ready.mode` says which language mode the turn actually runs: `declared`,
+   `two-way` or `detect` (see [Two-way and auto-detect turns](#two-way-and-auto-detect-turns))
 2. **`client.audio.frame`** (repeated) → raw PCM16 buffered. Frames are rejected
    if they name another session, change sample rate mid-turn, or fail to advance
    their sequence. Sequence _gaps_ are accepted: a client gating on voice
@@ -110,7 +112,63 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      decodes with PyAV, which opens a container and cannot read raw samples
    - `PipelineTranslatorService.transcribeAndTranslate()` — the text half only,
      reusing the speculated result when it is still valid
-   - `server.transcript.final` carries the full `TranscriptSegment`
+   - `server.transcript.final` carries the full `TranscriptSegment`, and, for a
+     client that asked (`repairDisplay`), a typeset `display`. The display is
+     composed in this order, and `sourceText` is never changed:
+     1. the restorer's marks and case, kept only if it changed no word;
+     2. names the translation spells in mixed case;
+     3. guarded corrections: stretches a second recognizer heard better, and
+        homophone repairs;
+     4. guarded loanword respellings;
+     5. the ITN.
+
+     Step 3 runs on every Vietnamese transcript of a client that asked for a
+     display, as two model calls on the translation's host, both started beside
+     the translation with the transcript and the two sentences before it
+     (`correctTranscript`).
+
+     - **Recognizer fusion.** The final turn's STT request asks for
+       `alternates`, and the sidecar decodes the same samples with a second
+       recognizer (hynt ZipFormer-150M) beside the first. When the two heard
+       different words, the model is shown both and answers the sentence it
+       judges was said ("đâm giao" / "đâm dao"). The answer is aligned against
+       the transcript, and a stretch is kept only if it replaces words with
+       what the second recognizer heard at that place, adds or drops nothing
+       (it takes out no word the second recognizer heard there too, and is no
+       shorter than both recognizers heard it), changes how the words sound (not only mark placement or spacing), and
+       touches no hint term (`acceptRecognizerFusion`). The live preview never
+       asks for a second decode.
+     - **Homophone repair.** The model names words heard as a sound-alike. A
+       repair names one place in the transcript. It is kept only if every word
+       it changes sounds like the word it replaces and differs from it in one
+       exactly one of onset, rhyme and tone (`acceptHomophoneRepairs`: d/gi/r, tr/ch, s/x
+       and final n/ng, t/c merged), and never if it touches a number word.
+
+     Where both touch the same words, the fusion's correction is kept. The turn
+     waits for them at most `CORRECTION_GRACE_MS` (250 ms) past the
+     translation; before that, the sidecar may hold the transcript up to
+     `LOCAL_STT_ALTERNATE_WAIT_MS` (400 ms) past the primary decode for the
+     second recognizer's. The rules and the measurements are in
+     [`benchmarks/recognizer-fusion`](../../benchmarks/recognizer-fusion/README.md)
+     and [`benchmarks/homophone-repair`](../../benchmarks/homophone-repair/README.md).
+
+     Step 4 runs only on a Vietnamese transcript with a span that cannot be a
+     Vietnamese syllable (`foreignSpans`) and that the translation does not
+     already spell as heard. It is one model call on the translation's own host,
+     made after the translation. The proposal must be Latin script, must appear
+     in the translation, and must be close in letters to what was heard
+     (`acceptRespellings`). A translation in Han characters cannot hold a Latin
+     spelling, so when it is the only one the model also names the words of the
+     translation that render the span (保加利亚 for "bungary"), and those must
+     appear in it. On such a turn speech starts beside the call, still after the
+     speaker vectors, so only the line waits, and the speech path holds its one
+     error until the line is out. Every other turn keeps the order line, label,
+     then speech. Accepted spellings become hotwords for that connection's later
+     turns, but only for the recognizer and the restorer, never the translation
+     prompt, and never a spelling accepted only on a Han rendering.
+     The rules and the measurements are in
+     [`benchmarks/loanword-respelling`](../../benchmarks/loanword-respelling/README.md).
+
    - `synthesizeStream()` sends the **whole** translation to the local TTS
      sidecar's `POST /synthesize/stream`, and `session/streamed-speech-delivery.ts`
      puts each pcm16 chunk on the wire as it arrives, as `server.audio.frame`s of
@@ -231,6 +289,46 @@ splitting changes prosody at the seams.
 - No speech detected → `BadRequestException` (HTTP 400)
 - All errors mapped by `AllExceptionsFilter` to error envelope
 
+### Two-way and auto-detect turns
+
+The same steps, with the turn's language decided while it is spoken instead of
+before. Admission, the fallbacks and the wire fields are in
+[Contracts and Languages](./contracts-and-languages.md#lid-and-audio-based-detection);
+this is the order things happen in one turn.
+
+1. **Start.** `admitLanguageMode` picks the mode, `LidAdmission` applies the
+   per-user cap, and the turn gets a `TurnLanguageDecision` (`twoWayDecision`
+   or `detectDecision` in `translation-session.service.ts`) read as the
+   declared source, or for detect the first identifiable language that is not
+   the target.
+2. **Partials before the lock.** Each live re-read sends the decision's
+   `candidates` to the sidecar (`session/live-preview.ts`). The answer's
+   language feeds `TurnLanguageDecision.observe`; the partial goes out with no
+   `language` field, and live translation does not start, because a translation
+   into the wrong side of the pair is worse than a moment of none.
+3. **Lock.** The first confident, long-enough partial locks the turn. The
+   committer restarts, later partials carry `language`, and live translation
+   runs in the locked language unless that language is a detect session's
+   target, which has nothing to translate into. Re-reads after the lock send no
+   `candidates`.
+4. **Speculation.** A guess on a pause sends `candidates` too, but asks only
+   what the final would decide (`peekFinal`). It is reused if the final agrees
+   and read again if not, so a guess never fixes the turn's language.
+5. **Final.** The whole turn is transcribed with `candidates`, and
+   `decideFinal` decides on that answer, overruling the lock if they differ.
+   Only then are the display restore and the earlier-speech context chosen,
+   both for the decided language; a split turn is decided once on the whole
+   turn before its pieces are translated. A detect turn decided as its own
+   target is shown as transcript only: no translation, no speech, ended
+   `voice_off`, and not remembered as context.
+6. **After.** The decided language is noted per socket
+   (`ConversationContext.noteLanguage`) for the next turn's fallback, and logged
+   as one `lid turn=… lang=… via=…` line.
+
+A sidecar busy at the decision decodes the declared language and reports no
+confidence, which the decision treats as unsure; see the sidecar's
+[candidates rules](../../services/local-stt/README.md#candidates).
+
 ### AI Context, and the path a hint takes to the prompt
 
 A saved **AI Context** is what the translator is told about a KIND of
@@ -272,15 +370,15 @@ costs about what two hotwords cost.
 
 **Glossary entries are keyed by LANGUAGE (`{vi, en}` today, a
 `translationMapSchema` over the registry), never by role.** The
-extension translates one meeting in BOTH directions at once from ONE settings
-object — `apps/extension/src/meeting-capture.ts` starts a session on
-`settings.direction` and another on `reverseDirection(settings.direction)` — so a
-`{source, target}` pair would be applied backwards in one of them, with nothing
-on screen to say so. Which side is the SOURCE is therefore a property of a
-session, and `buildContextBlock(hints, sourceLanguage)` resolves it against the
-direction it is given. It is also why no database constraint can express the
+extension translates one meeting both ways at once from ONE settings object —
+`apps/extension/src/meeting-capture.ts` starts a session on
+`settings.languagePair` and another on `reversePair(settings.languagePair)` — so
+a `{source, target}` entry would be applied backwards in one of them, with
+nothing on screen to say so. Which side is the SOURCE is therefore a property of
+a session, and `buildContextBlock(hints, sourceLanguage)` resolves it against
+the pair it is given. It is also why no database constraint can express the
 de-duplication: the row knows of no session, so a unique index would have to pick
-a direction and would be wrong half the time.
+a source and would be wrong half the time.
 
 A rendering is a choice the model may make when the transcript actually contains
 the term, never a substitution and never a licence to insert either side into a
@@ -289,9 +387,13 @@ sentence that lacked it. The trusted system instruction says so, and
 `hint-glossary-not-inserted` is the case, and the harness needed a
 containment-based `INSERTED` verdict to be able to see that failure at all.
 
-**One rule in that instruction is Vietnamese-only.**
-`buildTranslationInstruction` appends a note, only when `sourceLanguage ===
-'vi'`, that the local recognizer writes everything in lowercase and spells
+**One rule in that instruction depends on the source language's recognizer.**
+`buildTranslationInstruction` appends `RECOGNIZER_NOTES[sourceLanguage]`. For
+Chinese it says Paraformer writes no punctuation, writes numbers as Chinese
+words (`八零二点一一`), spells English as separate letters and confuses
+homophones; for English it is empty. For Vietnamese — byte for byte the note
+that existed before it became a table — it says the local recognizer writes
+everything in lowercase and spells
 English by sound — including names and brands, as Vietnamese syllables — and
 that the syllable "ai" collides with the Vietnamese question word for "who":
 it renders "AI" when the surrounding words are about technology, software,

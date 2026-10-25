@@ -51,6 +51,59 @@ describe('SpeechGate', () => {
       expect(handlers.onSpeechEnd).not.toHaveBeenCalled();
     });
 
+    // Measured on a Vietnamese newsreader: "Hàn" was loud for ~100ms, then a 60ms
+    // dip, then "Quốc". Counting only unbroken speech, neither syllable reached
+    // the minimum, the turn opened on the third, and the first word was lost.
+    it('counts speech across the gap between two syllables', () => {
+      const { events, feed } = harness();
+
+      feed(LOUD, 100);
+      feed(QUIET, 60);
+      feed(LOUD, 40);
+
+      expect(events).toEqual(['start']);
+    });
+
+    it('starts the count again after a pause longer than a syllable gap', () => {
+      const { handlers, feed } = harness();
+
+      feed(LOUD, 100);
+      feed(QUIET, 100);
+      feed(LOUD, 100);
+
+      expect(handlers.onSpeechStart).not.toHaveBeenCalled();
+    });
+
+    // Keyboard typing: 8–10 clicks a second, each 20–40ms loud with ~80ms between.
+    // Every gap is short enough to be a syllable gap, so the count alone adds the
+    // clicks up past the minimum; no click is long enough to be a syllable.
+    it('does not open a turn on a train of key clicks', () => {
+      for (const clickMs of [20, 40]) {
+        const { handlers, feed } = harness();
+
+        for (let elapsed = 0; elapsed < 3000; elapsed += clickMs + 80) {
+          feed(LOUD, clickMs);
+          feed(QUIET, 80);
+        }
+
+        expect(handlers.onSpeechStart).not.toHaveBeenCalled();
+      }
+    });
+
+    // The capture pump's blocks are 1024 samples at 48kHz, ~21.3ms. A 40ms click
+    // that straddles three of them reads as a 64ms run, which must still fall short.
+    it('does not open a turn on clicks that straddle three capture blocks', () => {
+      const { gate, handlers } = harness();
+      const blockMs = (1024 / 48_000) * 1000;
+
+      for (let click = 0; click < 30; click += 1) {
+        for (let i = 0; i < 3; i += 1) gate.push(LOUD, blockMs);
+        for (let i = 0; i < 3; i += 1) gate.push(QUIET, blockMs);
+      }
+
+      expect(handlers.onSpeechStart).not.toHaveBeenCalled();
+    });
+
     it('treats a run shorter than the minimum as room tone', () => {
       const { handlers, feed } = harness();
 

@@ -271,6 +271,8 @@ describe('prod.env.example', () => {
     'PROD_LOCAL_STT_THREADS',
     'PROD_LOCAL_TTS_THREADS',
     'PROD_LOCAL_STT_CONCURRENCY',
+    // The STT sidecar's language-identification switch, read the same way.
+    'PROD_LOCAL_STT_LID',
   ];
 
   // Supplied by docker-compose.prod.yml's per-service `environment:`, composed

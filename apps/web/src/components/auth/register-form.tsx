@@ -10,6 +10,7 @@ import { SubmittedNotice } from '@/components/auth/submitted-notice';
 import { register } from '@/clients/api-client';
 import { useSubmittedNotice } from '@/hooks/use-submitted-notice';
 import { useLocale, useTranslate } from '@/i18n/provider';
+import { formText } from '@/lib/form-text';
 
 /**
  * Begins registration only — it does not finish it.
@@ -29,9 +30,6 @@ export function RegisterForm() {
   // what redeeming the mailed link creates, and the verification mail goes out
   // before that. It is persisted with the row, so every later mail reads the column.
   const locale = useLocale();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
   const { submitted, setSubmitted, notice } = useSubmittedNotice();
@@ -47,9 +45,16 @@ export function RegisterForm() {
 
       {submitted ? null : (
         <form
+          method="post"
           className="flex flex-col gap-4"
           onSubmit={(event) => {
             event.preventDefault();
+            // Read from the form, not React state — see `login-form.tsx`: a value typed or
+            // autofilled before hydration is only in the DOM, and the submit sent it empty.
+            const form = new FormData(event.currentTarget);
+            const name = formText(form, 'name');
+            const email = formText(form, 'email');
+            const password = formText(form, 'password');
             setSubmitting(true);
             setError(undefined);
             register({ email, password, name, locale })
@@ -76,8 +81,7 @@ export function RegisterForm() {
             minLength={AUTH_LIMITS.minName}
             maxLength={AUTH_LIMITS.maxName}
             autoComplete="name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
+            name="name"
           />
 
           <AuthField
@@ -88,8 +92,7 @@ export function RegisterForm() {
             required
             maxLength={AUTH_LIMITS.maxEmail}
             autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            name="email"
           />
 
           <AuthField
@@ -101,8 +104,7 @@ export function RegisterForm() {
             minLength={AUTH_LIMITS.minPassword}
             maxLength={AUTH_LIMITS.maxPassword}
             autoComplete="new-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            name="password"
           />
 
           <AuthAlert id="register-error" message={error} />

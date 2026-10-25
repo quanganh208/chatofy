@@ -1,12 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { LanguageCode } from '@chatofy/types';
+import { LANGUAGE_CODES, type LanguageCode } from '@chatofy/types';
 import type {
   ServedLanguages,
   SttProvider,
   TtsProvider,
 } from '@chatofy/ai-providers';
 import type { AiProvidersFactory } from './ai-providers.factory';
-import { SpeechLanguageSupport } from './speech-language-support';
+import {
+  admitLanguageMode,
+  SpeechLanguageSupport,
+  type LanguageModeRequest,
+} from './speech-language-support';
 
 /** A served-languages answer naming only registry languages. */
 function served(
@@ -61,6 +65,25 @@ describe('SpeechLanguageSupport', () => {
     expect(
       support.refusal({ recognition: 'vi', spoken: 'en', voiceOutput: false }),
     ).toBeNull();
+  });
+
+  it('asks no engine to speak a turn with nothing to translate into, but still checks its recognition', async () => {
+    const support = new SpeechLanguageSupport(
+      fakeFactory(
+        { supportedLanguages: async () => served(['en']) },
+        // Speaks neither language the turns below are heard in.
+        { supportedLanguages: async () => served(['zh']) },
+      ),
+    );
+    support.onApplicationBootstrap();
+    await flush();
+
+    expect(
+      support.refusal({ recognition: 'en', spoken: null, voiceOutput: true }),
+    ).toBeNull();
+    expect(
+      support.refusal({ recognition: 'vi', spoken: null, voiceOutput: true }),
+    ).toMatch(/vi/);
   });
 
   it('refuses recognition for a language the STT sidecar does not serve', async () => {
@@ -195,7 +218,7 @@ describe('SpeechLanguageSupport', () => {
     const support = new SpeechLanguageSupport(
       fakeFactory(
         { supportedLanguages: async () => served(sttServed) },
-        { supportedLanguages: async () => served(['vi', 'en']) },
+        { supportedLanguages: async () => served([...LANGUAGE_CODES]) },
       ),
     );
     const logger = (
@@ -213,7 +236,7 @@ describe('SpeechLanguageSupport', () => {
     // The gap closes: a set that now includes everything is a CHANGE too, and
     // there is nothing left to warn about.
     warn.mockClear();
-    sttServed = ['vi', 'en'];
+    sttServed = [...LANGUAGE_CODES];
     await refresh();
     expect(warn).not.toHaveBeenCalled();
 
@@ -306,3 +329,224 @@ async function flush(): Promise<void> {
   await Promise.resolve();
   await Promise.resolve();
 }
+
+describe('SpeechLanguageSupport identifiable languages', () => {
+  it('knows nothing about identification before the first refresh has settled', () => {
+    const support = new SpeechLanguageSupport(
+      fakeFactory({
+        supportedLanguages: async () => ({
+          ...served(['vi', 'en']),
+          identifiable: ['vi', 'en'],
+        }),
+      }),
+    );
+    expect(support.identifiable()).toBeNull();
+  });
+
+  it('reports what the STT engine said it can identify, once refreshed', async () => {
+    const support = new SpeechLanguageSupport(
+      fakeFactory({
+        supportedLanguages: async () => ({
+          ...served(['vi', 'en', 'zh']),
+          identifiable: ['vi', 'en'],
+        }),
+      }),
+    );
+    support.onApplicationBootstrap();
+    await flush();
+    expect(support.identifiable()).toEqual(['vi', 'en']);
+  });
+
+  it('reads an answer with no identifiable field as identifying nothing', async () => {
+    const support = new SpeechLanguageSupport(
+      fakeFactory({ supportedLanguages: async () => served(['vi', 'en']) }),
+    );
+    support.onApplicationBootstrap();
+    await flush();
+    expect(support.identifiable()).toEqual([]);
+  });
+
+  it('knows nothing for a failed probe or a provider that cannot say', async () => {
+    const failing = new SpeechLanguageSupport(
+      fakeFactory({
+        supportedLanguages: async () => {
+          throw new Error('down');
+        },
+      }),
+    );
+    failing.onApplicationBootstrap();
+    await flush();
+    expect(failing.identifiable()).toBeNull();
+
+    const cloud = new SpeechLanguageSupport(fakeFactory());
+    cloud.onApplicationBootstrap();
+    await flush();
+    expect(cloud.identifiable()).toBeNull();
+  });
+
+  it('asks a loading engine again on the next start rather than a minute later', async () => {
+    // The sidecar is still loading its models when the API boots: the first
+    // probe fails, and the start that follows must not wait out the interval.
+    let loaded = false;
+    const supportedLanguages = vi.fn(async () => {
+      if (!loaded) throw new Error('models not loaded');
+      return {
+        ...served(['vi', 'en']),
+        identifiable: ['vi', 'en'] as LanguageCode[],
+      };
+    });
+    const support = new SpeechLanguageSupport(
+      fakeFactory({ supportedLanguages }),
+    );
+    support.onApplicationBootstrap();
+    await flush();
+    expect(support.identifiable()).toBeNull();
+
+    loaded = true;
+    await flush();
+    // Answered from what is known, with the probe it started already back.
+    support.identifiable();
+    await flush();
+    expect(support.identifiable()).toEqual(['vi', 'en']);
+  });
+
+  it('does not keep asking a provider that has no probe at all', async () => {
+    const factory = fakeFactory();
+    const makeProviders = vi.spyOn(factory, 'makeProviders');
+    const cloud = new SpeechLanguageSupport(factory);
+    cloud.onApplicationBootstrap();
+    await flush();
+    cloud.identifiable();
+    cloud.identifiable();
+    await flush();
+    expect(makeProviders).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshNow asks again at once, without waiting out the interval', async () => {
+    let identifiable: LanguageCode[] = ['vi', 'en'];
+    const supportedLanguages = vi.fn(async () => ({
+      ...served(['vi', 'en']),
+      identifiable,
+    }));
+    const support = new SpeechLanguageSupport(
+      fakeFactory({ supportedLanguages }),
+    );
+    // Awaited whole, so the second call below is not coalesced into it.
+    await support.refreshNow();
+    expect(support.identifiable()).toEqual(['vi', 'en']);
+
+    identifiable = [];
+    await support.refreshNow();
+
+    expect(supportedLanguages).toHaveBeenCalledTimes(2);
+    expect(support.identifiable()).toEqual([]);
+  });
+});
+
+describe('admitLanguageMode', () => {
+  const request = (
+    over: Partial<LanguageModeRequest> = {},
+  ): LanguageModeRequest => ({
+    pair: { source: 'vi', target: 'en' },
+    twoWay: false,
+    identifiable: ['vi', 'en'],
+    servedModes: ['declared', 'two-way', 'detect'],
+    ...over,
+  });
+
+  describe('a declared pair without twoWay', () => {
+    it('runs declared whatever is known about identification', () => {
+      for (const identifiable of [['vi', 'en'] as LanguageCode[], [], null]) {
+        expect(
+          admitLanguageMode(
+            request({ identifiable, servedModes: ['declared'] }),
+          ),
+        ).toEqual({
+          admitted: true,
+          mode: 'declared',
+          pair: { source: 'vi', target: 'en' },
+        });
+      }
+    });
+  });
+
+  describe('a declared pair with twoWay', () => {
+    it('runs two-way when served and both sides are identifiable', () => {
+      expect(admitLanguageMode(request({ twoWay: true }))).toEqual({
+        admitted: true,
+        mode: 'two-way',
+        pair: { source: 'vi', target: 'en' },
+      });
+    });
+
+    it.each([
+      ['identification is not known', { identifiable: null }],
+      ['the engine identifies nothing', { identifiable: [] }],
+      ['the engine cannot identify one side', { identifiable: ['vi'] }],
+      ['this build does not serve two-way', { servedModes: ['declared'] }],
+    ] satisfies [string, Partial<LanguageModeRequest>][])(
+      'degrades to declared, with a reason, when %s',
+      (_case, over) => {
+        expect(admitLanguageMode(request({ twoWay: true, ...over }))).toEqual({
+          admitted: true,
+          mode: 'declared',
+          pair: { source: 'vi', target: 'en' },
+          modeReason: 'language_detection',
+        });
+      },
+    );
+
+    it('degrades a pair with Chinese even when the engine claims to identify it', () => {
+      expect(
+        admitLanguageMode(
+          request({
+            pair: { source: 'zh', target: 'vi' },
+            twoWay: true,
+            identifiable: ['vi', 'en', 'zh'],
+          }),
+        ),
+      ).toEqual({
+        admitted: true,
+        mode: 'declared',
+        pair: { source: 'zh', target: 'vi' },
+        modeReason: 'language_detection',
+      });
+    });
+  });
+
+  describe('an undeclared source', () => {
+    it('runs detect when served and identifiable, ignoring twoWay', () => {
+      for (const twoWay of [false, true]) {
+        expect(
+          admitLanguageMode(
+            request({ pair: { source: 'detect', target: 'zh' }, twoWay }),
+          ),
+        ).toEqual({ admitted: true, mode: 'detect', target: 'zh' });
+      }
+    });
+
+    it.each([
+      ['identification is not known', { identifiable: null }],
+      ['the engine identifies nothing', { identifiable: [] }],
+      ['the engine cannot identify every candidate', { identifiable: ['en'] }],
+      [
+        'this build does not serve detect',
+        { servedModes: ['declared', 'two-way'] },
+      ],
+    ] satisfies [string, Partial<LanguageModeRequest>][])(
+      'is refused with a detail, never degraded, when %s',
+      (_case, over) => {
+        const admission = admitLanguageMode(
+          request({ pair: { source: 'detect', target: 'en' }, ...over }),
+        );
+        expect(admission).toMatchObject({
+          admitted: false,
+          detail: 'language_detection',
+        });
+        expect(admission.admitted === false && admission.message).toMatch(
+          /identify/,
+        );
+      },
+    );
+  });
+});

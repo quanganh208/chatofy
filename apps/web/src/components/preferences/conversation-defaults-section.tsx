@@ -1,14 +1,16 @@
 'use client';
 
-import { DirectionToggle, Separator, Skeleton } from '@chatofy/ui/react';
+import type { SessionLanguagePair } from '@chatofy/types';
+import { LanguagePairPicker, Separator, Skeleton } from '@chatofy/ui/react';
 import { SettingsSection, SettingsSectionRow } from '@/components/layout/settings-section';
 import { ContextPicker } from '@/components/translate/context-picker';
 import { VoiceSettingsPanel } from '@/components/translate/voice-settings-panel';
 import { DisplaySettingsPanel } from '@/components/translate/display-settings-panel';
 import { useTranslateSettings } from '@/hooks/use-translate-settings';
+import { canAutoDetectInto, representablePair } from '@/lib/translate-settings';
 import { useTranslationContexts } from '@/hooks/use-translation-contexts';
 import { useTranslate } from '@/i18n/provider';
-import { directionLabels, nativeLanguageName } from '@/i18n/direction-labels';
+import { languagePairLabels, languageNamer } from '@/i18n/language-pair-labels';
 
 /**
  * Where a new conversation starts from.
@@ -20,12 +22,12 @@ import { directionLabels, nativeLanguageName } from '@/i18n/direction-labels';
  * distinction the storage cannot make and the user would experience as a change that
  * did not take.
  *
- * `running={false}`, and that is the honest difference between the two mounts. Direction
+ * `running={false}`, and that is the honest difference between the two mounts. The pair
  * and voice ride `client.session.start` and cannot be changed inside a conversation, so
  * the popover disables them; here there is no conversation, so they are editable. The
- * other difference is `showDirection`: on `/translate` the direction is the two panel
+ * other difference is the pair itself: on `/translate` the pair is the two panel
  * headers, permanently on screen, so the popover hides the row — this page has no such
- * headers, and the direction a new conversation starts in is exactly what it is for.
+ * headers, and the pair a new conversation starts in is exactly what it is for.
  *
  * `useTranslateSettings` is called here, once, in a page-level component. The rule is
  * one call site per PAGE, not one per app: `/translate` and `/preferences` never mount
@@ -55,18 +57,25 @@ export function ConversationDefaultsSection() {
           `/translate` waits, and the same shape reserved so nothing below moves. */}
       {ready ? (
         <div className="flex flex-col gap-5">
-          {/* Direction is a setting HERE and nowhere else. `/translate` names it in
+          {/* The pair is a setting HERE and nowhere else. `/translate` names it in
               two permanent panel headers with the swap between them, which is a
               better answer than a row in a popover; this page has no such headers,
-              and the direction a new conversation starts in is what it is for. */}
-          <DirectionToggle
-            value={settings.direction}
-            onChange={(direction) => set({ direction })}
-            labels={directionLabels(t)}
-            nameLanguage={nativeLanguageName}
+              and the pair a new conversation starts in is what it is for. */}
+          {/* The same "Auto-detect" entry, on the same rule, as the `/translate`
+              source header: one setting, so the two must offer the same values. */}
+          <LanguagePairPicker<SessionLanguagePair>
+            value={settings.languagePair}
+            onChange={(languagePair) => set({ languagePair: representablePair(languagePair) })}
+            labels={languagePairLabels(t)}
+            nameLanguage={languageNamer(t)}
+            detectOption={
+              canAutoDetectInto(settings.languagePair.target)
+                ? { label: t('web.translate.autoDetect') }
+                : undefined
+            }
           />
 
-          {/* Which context a NEW conversation starts under, beside the direction
+          {/* Which context a NEW conversation starts under, beside the pair
               and the voice it starts with. `running={false}` like everything else
               on this page — there is no conversation here to be fixed by. The
               picker renders nothing at all when the account has authored none —

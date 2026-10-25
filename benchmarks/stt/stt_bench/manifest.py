@@ -1,6 +1,7 @@
 """Manifest loading/validation. One JSONL record per test utterance.
 
-Record shape: {"id", "lang", "audio_path", "ref_text", "duration_s"}.
+Record shape: {"id", "lang", "audio_path", "ref_text", "duration_s"}, plus an
+optional `"continuous": true` for joined clips, which lifts the length ceiling.
 audio_path is relative to the manifest file's directory; audio must already be
 16 kHz mono PCM16 WAV (prepare_datasets.py guarantees this).
 """
@@ -11,7 +12,7 @@ from pathlib import Path
 
 MIN_DURATION_S = 3.0
 MAX_DURATION_S = 10.0
-SUPPORTED_LANGS = {"vi", "en"}
+SUPPORTED_LANGS = {"vi", "en", "zh"}
 
 
 @dataclass(frozen=True)
@@ -51,7 +52,10 @@ def load_manifest(manifest_path: Path) -> list[Utterance]:
                 raise ValueError(f"{manifest_path}:{line_no}: missing audio {utt.audio_path}")
             if not utt.ref_text.strip():
                 raise ValueError(f"{manifest_path}:{line_no}: empty ref_text")
-            if not (MIN_DURATION_S <= utt.duration_s <= MAX_DURATION_S):
+            # A continuous record (`prepare_continuous_audio.py`) is many clips
+            # joined on purpose; the upper bound is about single utterances.
+            longest = float("inf") if record.get("continuous") else MAX_DURATION_S
+            if not (MIN_DURATION_S <= utt.duration_s <= longest):
                 raise ValueError(
                     f"{manifest_path}:{line_no}: duration {utt.duration_s}s outside "
                     f"[{MIN_DURATION_S}, {MAX_DURATION_S}]"

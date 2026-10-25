@@ -42,7 +42,7 @@ export interface RealtimeStartParams {
  * speaks another, so "the transcript" is two different texts, and neither
  * arrives with a finality marker — both grow by deltas until the session ends.
  * A single channel could not say which language a given delta belonged to
- * without the caller re-deriving it from the direction.
+ * without the caller re-deriving it from the language pair.
  */
 export interface RealtimeStreamEvents {
   /**

@@ -1,4 +1,11 @@
-import { MAX_BLOCK_SEGMENTS, type LanguageCode, type TranscriptSegment } from '@chatofy/types';
+import {
+  AUTO_DETECT,
+  MAX_BLOCK_SEGMENTS,
+  wordsOf,
+  type LanguageCode,
+  type SessionLanguagePair,
+  type TranscriptSegment,
+} from '@chatofy/types';
 import { attributionFor, isRendered, type AttributionsBySession } from './speaker-roster.js';
 import {
   blockKey,
@@ -74,7 +81,7 @@ export interface DisplayGroup {
 /**
  * Whether two adjacent turns are one utterance the ceiling split.
  *
- * All four conditions are required, and each rules out a different way of being
+ * All five conditions are required, and each rules out a different way of being
  * wrong.
  */
 function continues(
@@ -96,6 +103,13 @@ function continues(
   // quiet block. Either way the utterance continues into the next turn. A turn
   // that ended on the hangover is a complete utterance and keeps its own block.
   if (!previousCapture.cutForced) return false;
+
+  // Two turns heard in different languages are two people, or one person
+  // answering in the other language — either way a block reads one language and
+  // its translation another, so the pair's other side would show under the
+  // wrong one. Only a turn whose language was identified can differ here; a
+  // declared conversation's turns all carry its source.
+  if (!sameLanguages(previous.sourceLanguages, next.sourceLanguages)) return false;
 
   // Capture time, not `createdAt`. `createdAt` is stamped when the SERVER
   // finished translating, so the gap between two segments is the difference of
@@ -129,6 +143,35 @@ function continues(
   if (bothNamed && previousAttribution.speakerId !== nextAttribution.speakerId) return false;
 
   return true;
+}
+
+function sameLanguages(a: readonly LanguageCode[], b: readonly LanguageCode[]): boolean {
+  return a.length === b.length && a.every((language) => b.includes(language));
+}
+
+/**
+ * Which language a turn's translation is read in, for the conversation `pair`
+ * started.
+ *
+ * Two-way, a turn heard in the pair's target was translated into its source —
+ * the other side of the conversation answering. Everything else reads the
+ * target: a declared turn always does, a detected one was translated into it,
+ * and a mixed turn carries the whole set, target included. An auto-detected
+ * turn spoken in the target itself has no translation there, which is what
+ * leaves it transcript-only.
+ *
+ * `spoken` is a finished turn's `sourceLanguages`, or a live turn's one decided
+ * language — empty while it is undecided, which reads the target.
+ */
+export function turnTargetLanguage(
+  spoken: readonly LanguageCode[],
+  pair: SessionLanguagePair,
+): LanguageCode {
+  const [only, ...rest] = spoken;
+  if (pair.source !== AUTO_DETECT && rest.length === 0 && only === pair.target) {
+    return pair.source;
+  }
+  return pair.target;
 }
 
 /**
@@ -232,18 +275,6 @@ function opensLowercase(text: string): boolean {
   return first !== undefined && /\p{L}/u.test(first) && first !== first.toUpperCase();
 }
 
-/** A line's words, case and punctuation aside: what a reader would call its text. */
-function wordsOf(text: string): string {
-  // NFC first: the display arrives composed and a raw transcript may not, and
-  // the same word in two encodings must not read as a repair.
-  return (
-    text
-      .normalize('NFC')
-      .toLowerCase()
-      .match(/[\p{L}\p{N}]+/gu) ?? []
-  ).join(' ');
-}
-
 /**
  * One block's source text exactly as the recognizer produced it.
  *
@@ -283,9 +314,9 @@ export function groupIsRepaired(
 /**
  * One block's translation INTO `language`, in speaking order.
  *
- * Reads each member's `translations` map rather than its pre-fan-out
- * `targetText`, so a pane can ask for whichever language it is showing rather
- * than always getting the one language a turn happened to speak aloud. Falls
+ * Reads each member's `translations` map, so a pane can ask for whichever
+ * language it is showing rather than always getting the one language a turn
+ * happened to speak aloud. Falls
  * back to `''` for a member whose plan never translated into `language` at all
  * — unreachable in an ordinary two-language conversation, where every turn's
  * targets are exactly the languages it was not spoken in, but not a type this

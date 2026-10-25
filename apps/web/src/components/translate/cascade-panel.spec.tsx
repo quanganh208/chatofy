@@ -6,7 +6,7 @@ import type { UseStreamingTranslate } from '@/hooks/use-streaming-translate';
 import type { UseConversationSave } from '@/hooks/use-conversation-save';
 import { CascadePanel } from './cascade-panel';
 import { LocaleProvider } from '@/i18n/provider';
-import { DEFAULT_TRANSLATE_SETTINGS } from '@/lib/translate-settings';
+import { DEFAULT_TRANSLATE_SETTINGS, type TranslateSettings } from '@/lib/translate-settings';
 import { en } from '@chatofy/i18n';
 
 /**
@@ -76,11 +76,9 @@ const conversation: UseStreamingTranslate = {
       id: 'seg-a',
       sessionId: 'a',
       speakerRole: 'speaker_a',
-      direction: 'vi_to_en',
       sourceLanguages: ['vi'],
       translations: { en: 'hello' },
       sourceText: 'xin chào',
-      targetText: 'hello',
       audioUrl: null,
       createdAt: '2026-09-03T00:00:00.000Z',
     },
@@ -111,11 +109,17 @@ const conversation: UseStreamingTranslate = {
   level: 0,
   conversationId: 'c-1',
   startedAt: '2026-09-03T00:00:00.000Z',
-  direction: 'vi_to_en',
+  languagePair: { source: 'vi', target: 'en' },
+  twoWayRequested: false,
+  languageMode: null,
+  languageModes: {},
   // No recording by default: happy-dom has no `MediaRecorder`, so this is also
   // the state a browser without one produces — the transcript half unaffected.
   recording: null,
   recordingStartedAtMs: null,
+  pauses: [],
+  pausedMs: 0,
+  offsetPauses: [],
   start: vi.fn(),
   stop: vi.fn(),
   pause: vi.fn(),
@@ -237,8 +241,8 @@ describe('CascadePanel', () => {
     expect(generateButton()?.disabled).toBe(true);
   });
 
-  it('saves the direction the conversation was captured with, not a later swap', () => {
-    // The direction toggle stays live once `running` is false, so a reader can
+  it('saves the pair the conversation was captured with, not a later swap', () => {
+    // The language pickers stay live once `running` is false, so a reader can
     // swap it between End and pressing Start again for the NEXT conversation.
     // The already-finished one on screen must still be stored under the
     // language it was actually spoken in.
@@ -248,7 +252,10 @@ describe('CascadePanel', () => {
       addEventListener() {},
       removeEventListener() {},
     });
-    useStreamingTranslate.mockReturnValue({ ...conversation, direction: 'vi_to_en' });
+    useStreamingTranslate.mockReturnValue({
+      ...conversation,
+      languagePair: { source: 'vi', target: 'en' },
+    });
     useConversationSave.mockReturnValue({
       saved: true,
       failure: null,
@@ -259,7 +266,10 @@ describe('CascadePanel', () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
-            settings={{ ...DEFAULT_TRANSLATE_SETTINGS, direction: 'en_to_vi' }}
+            settings={{
+              ...DEFAULT_TRANSLATE_SETTINGS,
+              languagePair: { source: 'en', target: 'vi' },
+            }}
             onChange={vi.fn()}
             getVolume={() => 1}
           />
@@ -268,7 +278,7 @@ describe('CascadePanel', () => {
     });
 
     expect(useConversationSave).toHaveBeenCalledWith(
-      expect.objectContaining({ direction: 'vi_to_en' }),
+      expect.objectContaining({ languagePair: { source: 'vi', target: 'en' } }),
     );
   });
 });
@@ -611,7 +621,7 @@ describe('the context a conversation starts under', () => {
       topic: 'thesis defense committee meeting',
       hotwords: ['VinFast'],
       // The stored `{vi, en}` pairs, untouched: which side is the source is
-      // resolved server-side, because only the session knows its direction.
+      // resolved server-side, because only the session knows its pair.
       glossary: [{ vi: 'hội đồng phản biện', en: 'thesis defense committee' }],
       style: 'formal',
     });
@@ -757,5 +767,111 @@ describe('a stored context that has not settled', () => {
     // but it must not be able to do that without the words on screen first.
     expect(container.textContent).toContain(en['web.translate.contextUnavailable']);
     expect(startButton()?.disabled).toBe(false);
+  });
+});
+
+/**
+ * The source picker decides what a start asks for; the server decides what it
+ * gets. Voices travel per language whenever the spoken language is decided per
+ * turn, and the screen follows the server's answer rather than the request.
+ */
+describe('CascadePanel two-way and auto-detect', () => {
+  function mount(settings: Partial<TranslateSettings>, state: Partial<UseStreamingTranslate> = {}) {
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    useStreamingTranslate.mockReturnValue({ ...conversation, ...state });
+    useConversationSave.mockReturnValue({
+      saved: false,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+    act(() => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...settings }}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+    });
+  }
+
+  function pressStart(): Record<string, unknown> | undefined {
+    const start = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes(en['web.translate.startConversation']),
+    );
+    act(() => start?.click());
+    return (conversation.start as unknown as { mock: { calls: [Record<string, unknown>][] } }).mock
+      .calls[0]?.[0];
+  }
+
+  const VOICE_PER_LANGUAGE = { vi: 'vi-voice', en: 'en-voice' };
+
+  it('speaks a reversed turn with the voice chosen for its language', () => {
+    mount({ languagePair: { source: 'vi', target: 'en' }, voice: VOICE_PER_LANGUAGE });
+    const options = pressStart();
+    // A turn heard in English is answered in Vietnamese, so the map must carry
+    // the Vietnamese voice — the one `voice` alone could never name.
+    expect(options?.voices).toEqual(VOICE_PER_LANGUAGE);
+    expect((options?.voices as Record<string, string>).vi).toBe('vi-voice');
+    // The target's own voice still rides, for a start the server runs one way.
+    expect(options?.voice).toBe('en-voice');
+  });
+
+  it('sends the voice map for an auto-detected source too', () => {
+    mount({ languagePair: { source: 'detect', target: 'en' }, voice: VOICE_PER_LANGUAGE });
+    expect(pressStart()?.voices).toEqual(VOICE_PER_LANGUAGE);
+  });
+
+  it('keeps a pair it cannot identify on the one voice it always sent', () => {
+    mount({ languagePair: { source: 'vi', target: 'zh' }, voice: { zh: 'zh-voice' } });
+    const options = pressStart();
+    expect(options?.voice).toBe('zh-voice');
+    expect(options).not.toHaveProperty('voices');
+  });
+
+  it('shows one-way when the server answers declared for a two-way start', () => {
+    mount(
+      {},
+      {
+        status: 'listening',
+        twoWayRequested: true,
+        languageMode: { mode: 'declared', reason: 'language_detection' },
+      },
+    );
+    expect(container.textContent).toContain(
+      'Translating one way for now: Vietnamese into English.',
+    );
+    expect(container.querySelector('[data-language-mode="declared"]')?.textContent).toBe(
+      en['web.translate.modeOneWay'],
+    );
+  });
+
+  it('says nothing extra when the server runs the two-way start it was asked for', () => {
+    mount({}, { status: 'listening', twoWayRequested: true, languageMode: { mode: 'two-way' } });
+    expect(container.querySelector('[data-two-way-unavailable]')).toBeNull();
+    expect(container.querySelector('[data-language-mode="two-way"]')?.textContent).toBe(
+      en['web.translate.modeTwoWay'],
+    );
+  });
+
+  it('does not call a declared answer a downgrade when two-way was never asked', () => {
+    mount(
+      { languagePair: { source: 'vi', target: 'zh' } },
+      {
+        status: 'listening',
+        languagePair: { source: 'vi', target: 'zh' },
+        twoWayRequested: false,
+        languageMode: { mode: 'declared' },
+      },
+    );
+    expect(container.querySelector('[data-two-way-unavailable]')).toBeNull();
   });
 });

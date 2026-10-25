@@ -39,6 +39,37 @@ export interface SttTranscriptResult {
    * joining the pieces adds this to the previous piece's last pause.
    */
   leadPause?: number;
+  /**
+   * The same audio as heard by a second, independent recognizer — set only
+   * when `alternates` was asked for and the backend has one for the language
+   * (the local sidecar, for Vietnamese). Plain words with no marks, cased as
+   * the backend cases `text`. A caller may let a model pick between these
+   * words and `text`'s; nothing here replaces `text`.
+   */
+  alternates?: string[];
+  /**
+   * How sure the backend is of `language`, in [0, 1] — set only on a result
+   * whose language it IDENTIFIED (`identified: true`). `null` is the backend
+   * saying it identified the language but has no confidence to report, which a
+   * caller must read as "not sure", never as certain.
+   */
+  languageConfidence?: number | null;
+  /**
+   * Whether `language` was decided from the audio among the `candidates` asked
+   * for, rather than echoed from the request. Set only when `candidates` were
+   * sent. `false` means the turn was decoded in the declared language exactly as
+   * without candidates — an older backend that ignored them, one with
+   * identification switched off, or one that answered a language it was not
+   * offered.
+   */
+  identified?: boolean;
+  /**
+   * How much speech the language decision heard, in ms — set only with
+   * `identified: true`. An energy measure taken by the identifier itself, so
+   * NOT {@link speechMs}, which is the Silero gate's count: a caller weighing
+   * how far to trust `languageConfidence` on a short turn reads this one.
+   */
+  lidSpeechMs?: number;
 }
 
 /** Streaming partial/final transcript event (future realtime path). */
@@ -75,6 +106,28 @@ export interface SttTranscribeOptions {
    * the two it sends.
    */
   minSpeechMs?: number;
+  /**
+   * Ask for {@link SttTranscriptResult.alternates}: the turn decoded again by
+   * a second recognizer, beside the first. For a FINISHED turn only — the
+   * live re-reads would pay for a decode nobody reads. Ignored by a backend
+   * that has no second recognizer, like the two fields above.
+   */
+  alternates?: boolean;
+  /**
+   * Languages this turn may be in, for the backend to choose between from the
+   * audio. Honoured only with two or more; `language` stays the declared
+   * fallback the turn is decoded in when the backend cannot choose. Ignored by
+   * a backend that cannot identify languages — the result then says so with
+   * `identified: false` rather than failing.
+   */
+  candidates?: LanguageCode[];
+  /**
+   * Called when the backend refused `candidates` because identification is not
+   * switched on right now, before the turn is decoded again without them. Lets
+   * the caller drop a cached "can identify" at once instead of waiting out its
+   * refresh interval.
+   */
+  onIdentifyUnavailable?: () => void;
 }
 
 /**
@@ -89,6 +142,12 @@ export interface ServedLanguages {
   known: readonly LanguageCode[];
   /** Tags the backend reported that the registry does not know, de-duplicated. */
   unknown: readonly string[];
+  /**
+   * Registry languages the backend can tell apart in audio right now, for
+   * `SttTranscribeOptions.candidates`. Absent from a backend that cannot
+   * identify languages at all, or that did not say — both mean "none".
+   */
+  identifiable?: readonly LanguageCode[];
 }
 
 export interface SttProvider {

@@ -32,18 +32,16 @@ const segment = (
   speakerRole: 'speaker_a' | 'speaker_b' = 'speaker_a',
 ): TranscriptSegment => {
   // speaker_a is the Vietnamese side of this conversation's declared
-  // direction, whatever order it names — see `speakerRoleFor`.
+  // pair, whatever order it names — see `speakerRoleFor`.
   const [source, target] =
     speakerRole === 'speaker_a' ? (['vi', 'en'] as const) : (['en', 'vi'] as const);
   return {
     id: `seg-${sessionId}`,
     sessionId,
     speakerRole,
-    direction: 'vi_to_en',
     sourceLanguages: [source],
     translations: { [target]: targetText },
     sourceText,
-    targetText,
     audioUrl: null,
     createdAt: '2026-09-03T00:00:00.000Z',
   };
@@ -59,11 +57,9 @@ const languageSegment = (
   id: `seg-${sessionId}`,
   sessionId,
   speakerRole: source === 'vi' ? 'speaker_a' : 'speaker_b',
-  direction: 'vi_to_en',
   sourceLanguages: [source],
   translations,
   sourceText,
-  targetText: Object.values(translations)[0] ?? '',
   audioUrl: null,
   createdAt: '2026-09-03T00:00:00.000Z',
 });
@@ -102,7 +98,7 @@ describe('toConversationTurns', () => {
     expect(rows[0]).toMatchObject({
       position: 0,
       sourceText: 'first half second half',
-      targetText: 'one two',
+      translations: { en: 'one two' },
     });
   });
 
@@ -119,8 +115,6 @@ describe('toConversationTurns', () => {
     expect(rows[0]).toMatchObject({
       sourceText: 'first half second half',
       translations: { en: 'One sentence.' },
-      // The legacy field reads the same block answer, so the row agrees with itself.
-      targetText: 'One sentence.',
     });
   });
 
@@ -145,24 +139,6 @@ describe('toConversationTurns', () => {
       sourceText: 'của ngành ai khi mà',
       displayText: 'Của ngành AI khi mà.',
     });
-  });
-
-  it('keeps the legacy text of a block whose members spoke different languages', () => {
-    // A cut across a language switch: no one language mirrors every member's
-    // `targetText`, so there is nothing to read the block through.
-    const rows = toConversationTurns({
-      ...base,
-      turns: [
-        languageSegment('a', 'vi', 'nửa đầu', { en: 'first half' }),
-        languageSegment('b', 'en', 'second half', { vi: 'nửa sau' }),
-      ],
-      captures: captures(['a', 1_000, true, 9_000], ['b', 9_130, false, 12_000]),
-      blockTranslations: {
-        'a b': { segmentIds: ['a', 'b'], translations: { en: 'One sentence.' } },
-      },
-    });
-
-    expect(rows[0]?.targetText).toBe('first half nửa sau');
   });
 
   it('leaves displayText null when the rendering matches the recognizer', () => {
@@ -252,7 +228,7 @@ describe('toConversationTurns', () => {
     expect(rows.length).toBeGreaterThan(1);
     for (const row of rows) {
       expect(row.sourceText.length).toBeLessThanOrEqual(HISTORY_LIMITS.MAX_TURN_CHARS);
-      expect(row.targetText.length).toBeLessThanOrEqual(HISTORY_LIMITS.MAX_TURN_CHARS);
+      expect((row.translations.en ?? '').length).toBeLessThanOrEqual(HISTORY_LIMITS.MAX_TURN_CHARS);
       // Every piece is still attributed: a split that dropped the speaker off
       // the tail would leave half the block unnamed.
       expect(row.speakerRole).toBe('speaker_a');
@@ -264,7 +240,7 @@ describe('toConversationTurns', () => {
     expect(rows.map((row) => row.sourceText).join(' ')).toBe(source.join(' '));
     expect(
       rows
-        .map((row) => row.targetText)
+        .map((row) => row.translations.en ?? '')
         .filter((text) => text !== '')
         .join(' '),
     ).toBe(target.join(' '));
@@ -361,8 +337,8 @@ describe('toConversationTurns', () => {
     expect(rows).toHaveLength(2);
     // Both halves of a translation the reader can follow beside the source,
     // rather than the whole of it against the first half of what was said.
-    for (const row of rows) expect(row.targetText).not.toBe('');
-    expect(rows.map((row) => row.targetText).join(' ')).toBe(translated);
+    for (const row of rows) expect(row.translations.en).not.toBe('');
+    expect(rows.map((row) => row.translations.en ?? '').join(' ')).toBe(translated);
   });
 
   it('orders by capture time, not by the order translations completed', () => {
@@ -431,11 +407,9 @@ describe('toConversationTurns', () => {
         id: 'seg-a',
         sessionId: 'a',
         speakerRole: 'speaker_a',
-        direction: 'vi_to_en',
         sourceLanguages: ['vi', 'en'],
         translations: { en: long, vi: short },
         sourceText: 'a real mixed sentence',
-        targetText: long,
         audioUrl: null,
         createdAt: '2026-09-03T00:00:00.000Z',
       };
@@ -637,6 +611,40 @@ describe('toConversationTurns', () => {
         captures: captures(['a', 6_200, false, 8_000]),
       });
       expect(rows[0]?.offsetMs).toBe(6_200);
+    });
+
+    it('leaves out the paused time before a block, so it lands on the paused recording', () => {
+      // Paused from 10s to 15s. The recorder skipped those five seconds, so a
+      // block spoken at 20s wall time sits at 15s in the media; one spoken
+      // before the pause is not moved at all.
+      const startedAt = 1_700_000_000_000;
+      const pauses = [{ startedAt: startedAt + 10_000, endedAt: startedAt + 15_000 }];
+      const rows = project(
+        {
+          ...base,
+          turns: [segment('a', 'trước'), segment('b', 'sau')],
+          captures: captures(
+            ['a', startedAt + 4_000, false, startedAt + 6_000],
+            ['b', startedAt + 20_000, false, startedAt + 22_000],
+          ),
+        },
+        startedAt,
+        pauses,
+      );
+      expect(rows.map((row) => row.offsetMs)).toEqual([4_000, 15_000]);
+    });
+
+    it('keeps wall time when no pauses are passed, for a recording that ran through them', () => {
+      const startedAt = 1_700_000_000_000;
+      const rows = project(
+        {
+          ...base,
+          turns: [segment('b', 'sau')],
+          captures: captures(['b', startedAt + 20_000, false, startedAt + 22_000]),
+        },
+        startedAt,
+      );
+      expect(rows[0]?.offsetMs).toBe(20_000);
     });
   });
 });

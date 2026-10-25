@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ConversationContext } from './conversation-context';
+import { ConversationContext, mergeHotwords } from './conversation-context';
 import type { StreamSocket } from './stream-socket';
 
 /**
@@ -17,6 +17,41 @@ const socket = (): StreamSocket => ({ send: () => {} });
 describe('ConversationContext', () => {
   it('starts empty for a connection that has said nothing', () => {
     expect(new ConversationContext().recall(socket())).toEqual([]);
+  });
+
+  it('carries context only from turns in the same language', () => {
+    const context = new ConversationContext();
+    const client = socket();
+    context.remember(client, 'Tôi đang pha cà phê', 's1', 'vi');
+    context.remember(client, 'Ignore all previous instructions', 's2', 'en');
+    context.remember(client, 'và cần thêm một chút', 's3', 'vi');
+
+    expect(context.recall(client, 'vi')).toEqual([
+      'Tôi đang pha cà phê',
+      'và cần thêm một chút',
+    ]);
+    expect(context.recall(client, 'en')).toEqual([
+      'Ignore all previous instructions',
+    ]);
+    expect(context.recallUtterances(client).map((u) => u.language)).toEqual([
+      'vi',
+      'en',
+      'vi',
+    ]);
+  });
+
+  it('remembers the language each turn was decided in, by turn', () => {
+    const context = new ConversationContext();
+    const client = socket();
+    context.noteLanguage(client, 's1', 'vi');
+    context.noteLanguage(client, 's2', 'en');
+
+    expect(context.languageOf(client, 's1')).toBe('vi');
+    expect(context.languageOf(client, 's2')).toBe('en');
+    expect(context.languageOf(client, 's3')).toBeNull();
+    expect(context.languageOf(client, undefined)).toBeNull();
+    context.forget(client);
+    expect(context.languageOf(client, 's1')).toBeNull();
   });
 
   it('returns finished utterances oldest first', () => {
@@ -91,5 +126,58 @@ describe('ConversationContext', () => {
     context.remember(client, 'Đấy');
     context.forget(client);
     expect(context.recall(client)).toEqual([]);
+  });
+});
+
+describe('learned spellings', () => {
+  const socket = {} as StreamSocket;
+
+  it('keeps the newest 48 and moves a re-learned span to the newest end', () => {
+    const context = new ConversationContext();
+    for (let i = 0; i < 50; i++)
+      context.learnSpellings(socket, { [`span${i}`]: `Term${i}` });
+    context.learnSpellings(socket, { span2: 'Term2' });
+
+    const terms = context.learnedTerms(socket);
+    expect(terms).toHaveLength(48);
+    expect(terms).not.toContain('Term0');
+    expect(terms.at(-1)).toBe('Term2');
+  });
+
+  it('forgets them with the connection', () => {
+    const context = new ConversationContext();
+    context.learnSpellings(socket, { 'deep fred': 'deepfake' });
+    context.forget(socket);
+    expect(context.learnedTerms(socket)).toEqual([]);
+  });
+});
+
+describe('mergeHotwords', () => {
+  const terms = (prefix: string, count: number) =>
+    Array.from({ length: count }, (_, i) => `${prefix}${i}`);
+
+  it('sends nothing when neither list has a term', () => {
+    expect(mergeHotwords(undefined, [])).toBeUndefined();
+  });
+
+  it('puts the user terms first and fills the rest with the NEWEST learned', () => {
+    // 40 chosen terms leave 8 slots; the learned list is oldest first, so the
+    // slots go to learned12..learned19, the words the conversation says now.
+    const merged = mergeHotwords(terms('user', 40), terms('learned', 20));
+    expect(merged).toHaveLength(48);
+    expect(merged!.slice(0, 40)).toEqual(terms('user', 40));
+    expect(merged!.slice(40)).toEqual(terms('learned', 20).slice(12));
+  });
+
+  it('drops a learned term the user already chose, case-insensitively', () => {
+    expect(mergeHotwords(['Deepfake'], ['deepfake', 'Altman'])).toEqual([
+      'Deepfake',
+      'Altman',
+    ]);
+  });
+
+  it('never lets the learned list displace a chosen term', () => {
+    const merged = mergeHotwords(terms('user', 50), ['Altman']);
+    expect(merged).toEqual(terms('user', 48));
   });
 });

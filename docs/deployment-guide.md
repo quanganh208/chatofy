@@ -8,6 +8,13 @@ that same machine.
 - Web — <https://chatofy.quanganh208.dev>
 - API — <https://chatofy-api.quanganh208.dev>
 
+Page analytics is **Cloudflare Web Analytics** on the web zone. Cloudflare injects the
+beacon at the edge, so it needs no code, but the web CSP must name its two origins
+(`static.cloudflareinsights.com` for the script, `cloudflareinsights.com` for reports;
+see `CLOUDFLARE_INSIGHTS` in `apps/web/next.config.ts`). The CSP is fixed at build
+time, so the beacon starts counting after the next web image deploy. If Web Analytics
+is turned off for the zone, remove both origins from the CSP.
+
 ## The two stacks
 
 Dev and production run **side by side on one host**, sharing nothing. Isolation
@@ -63,7 +70,7 @@ on api and web; compose does not expand `~` there.
 | Key                                 | Constraint                                                                                                                                                                                                                                                                                                                                                                |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NODE_ENV`                          | Must be `production`. The schema is a strict enum with no `staging`, and any other value also flips the web CSP onto its `unsafe-eval` dev branch.                                                                                                                                                                                                                        |
-| `WEB_BASE_URL`                      | The public origin, written once and read three ways: mailed links, the web's `metadataBase`, and `AUTH_URL` below. The API refuses to boot in production while this is the default. Changing the domain is this key alone.                                                                                                                                                |
+| `WEB_BASE_URL`                      | The public origin, written once and read three ways: mailed links, the web's `metadataBase` (and with it every absolute URL crawlers read — canonical, `robots.txt`, `sitemap.xml`, JSON-LD, `/index.md`, `/llms.txt`), and `AUTH_URL` below. The API refuses to boot in production while this is the default. Changing the domain is this key alone.                     |
 | `AUTH_URL`                          | **Not set by hand** — `docker-compose.prod.yml` derives it from `WEB_BASE_URL`. It is still required despite `trustHost: true`: without it Auth.js builds OAuth callbacks from the container's bind address (`0.0.0.0:3001`), which Google rejects as a policy violation — the Cloud Console looks correct while sign-in fails.                                           |
 | `NEXT_PUBLIC_API_BASE_URL`          | Read at **build** time. It is inlined into the bundle _and_ generates the CSP `connect-src`, including the `wss://` origin. Changing it is a rebuild, never a restart.                                                                                                                                                                                                    |
 | `CORS_ORIGIN`                       | The exact origin, never `*` — credentials mode is enabled only when it is not the wildcard.                                                                                                                                                                                                                                                                               |
@@ -390,6 +397,16 @@ Two different failures with two different answers:
 
 Backups live in `~/chatofy-backups` (14 retained).
 
+**Language identification** has its own switch and needs no rollback of code: set
+`PROD_LOCAL_STT_LID=off` in `prod.env`, then `docker compose -f docker-compose.prod.yml
+--env-file ~/.config/chatofy/prod.env up -d local-stt`. Recognition is down for the
+~20 s the sidecar takes to come back; after that two-way starts run declared (the
+web says so) and Auto-detect is refused. Turning it back on is the same with `on`;
+the weights stay seeded. Rehearsed on production 2026-10-23. With it on, the STT
+sidecar needs `mem_limit: 5120m` and the Docker VM was raised to 10 GiB
+(`MemoryMiB` in `~/.docker/desktop/settings-store.json`, then `docker desktop
+restart`, which restarts every container).
+
 ## Object storage (R2): avatars and conversation recordings
 
 Avatar bytes live in a Cloudflare R2 bucket served through a public custom
@@ -569,6 +586,13 @@ deletion, which requires a second API token and is out of scope.
 - **Docker** — Docker Desktop, context `desktop-linux`, over a per-user socket. There is no `/var/run/docker.sock` on this host.
 - **Docker must survive a reboot unattended**, and that takes _two_ things, not one. Docker Desktop is a systemd _user_ service, so (a) **linger must stay enabled** (`loginctl enable-linger quanganh208`) or the user manager never starts at boot, and (b) `~/.config/systemd/user/docker-desktop.service` must stay in place. That file is a local replacement for the packaged unit, which requires `graphical-session.target` and is enabled only into `graphical-session.target.wants/`. Under lightdm + Cinnamon that target is never activated — measured, while logged into the desktop — so the packaged unit starts neither at boot nor at login, and Docker only ever came up when someone launched the app by hand. The replacement depends on `basic.target` and is wanted by `default.target`. Neither half is optional: the runner is a _system_ service and is always online after a reboot, so a missing daemon means a deploy that fails at the first `docker` call, and `restart: unless-stopped` cannot help either — it is honoured by a daemon that is not running. Re-check the unit after a Docker Desktop upgrade; it no longer tracks the packaged one.
 - **Model weights** — `~/chatofy/models/{stt,tts}`, mounted read-only into the sidecars. Because that mount is read-only, a sidecar can never fetch a model it does not already have; the deploy's `Seed speech model weights` step is what puts weights on the host, running each sidecar's own `scripts/download_models.py` through the `seed` profile with the same directory mounted writable. Renaming or replacing a model directory is therefore a normal deploy, but a slow one — the new weights download before anything is rolled out. This gap was invisible until the first rename: the in-container download had only ever run as a cached no-op, and its first real write crash-looped the container on `EROFS`. CI cannot catch it, since CI never mounts these volumes. The STT seed also quantizes the Dewpoint display tagger in place (`fetch_dewpoint`, through `scripts/quantize_embedding.py`), downloading a 1.2 GB graph. That runs inside the Docker VM beside the live sidecars, with about 3.4 GB free: onnxruntime's own `quantize_dynamic` peaked at 5.8 GB and was OOM-killed there (exit 137), and so was a version that loaded the graph with `onnx.load` (about 3 GB). The quantizer therefore never parses the graph whole — it memory-maps the file and rewrites it at the protobuf wire level — and completes under a 600 MB container limit. It runs as a child process, so a kill there would skip the restorer instead of failing the deploy. Until that step has run, `/healthz` reports `"restore": false` and the Vietnamese display falls back to numerals only.
+
+  **The vi display's second recognizer is one more STT download, optional.** hynt ZipFormer-150M (`hynt/ZipFormer-150M-CR-CTC-RNNT-6000h`, pinned revision `8c3d474d`, int8 encoder/decoder/joiner and `bpe.model`, ~158 MB) lands in `zipformer-vi-150m/`. A failed fetch warns and the seed exits 0. Until it is seeded, `/healthz` reports `"alternates": []` and the display is corrected by the homophone repair alone. Loaded, it costs the sidecar +87 MiB at rest and +411 MiB at the peak of four concurrent finals, which is why the prod `local_stt` limit is `4608m` rather than `4g`.
+
+  **Mandarin (zh) adds two STT downloads, both pinned and verified before a byte is extracted.** Paraformer-zh int8 (`sherpa-onnx-paraformer-zh-2023-09-14`, 234,051,698 B tarball, sha256 `9c49fd9c…9f03` from the first fetch because GitHub publishes no digest for it; only `model.int8.onnx` and `tokens.txt` are kept, ~243 MB) is required. The CT-Transformer punctuation model (`sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8`, 64,717,756 B, sha256 `c0d5aa5f…a6e1` as GitHub publishes it; only `model.int8.onnx`, ~75 MB) is optional like Dewpoint — a failed fetch warns, the seed exits 0, and zh shows the plain transcript. Both extract streamed, one member at a time: the seed's peak for the Paraformer step measured 42 MiB under a 600 MB cap. The TTS side needs no download: zh speaks from the Kokoro v1_0 package already on disk, through the same instance as en.
+
+  **Memory, measured 2026-10-13 with zh in.** The STT sidecar's peak under four concurrent decodes rose by about 270 MiB with Paraformer and 80 MiB more with the zh punctuation model (2,981 MiB against 2,606 MiB before, capped at 4 GiB with no swap; 0 OOM kills). The TTS sidecar rose by 6 MiB. With every zh engine loaded and four zh decodes plus four syntheses running against prod, the Docker VM's available memory bottomed at 2,754 MiB. That is above the 2.5 GiB the rollout required, with less room than the "about 3.4 GB" above: the VM's 1 GiB swap was already full before the zh work, and a sidecar that has sat idle for hours reports less than it holds (prod STT read 1.35 GiB idle and 2.26 GiB freshly restarted). Raising the VM's memory is the lever if more engines arrive.
+
 - **Tunnel** — the ingress in `/etc/cloudflared/config.yml` is root-owned and also carries the operator's SSH ingress. **CD never touches it.** Adding a hostname is a manual, one-time change: back the file up, `cloudflared tunnel ingress validate`, then restart, keeping the catch-all rule last.
 
 ## Video conferencing — media port setup (Path A)
@@ -616,6 +640,9 @@ that every port binds `127.0.0.1`. The `--denied-peer-ip` rules in `docker-compo
 prevent coturn from being used as a relay to internal RFC-1918 addresses.
 
 ## Known gaps
+
+- **Chinese speech has limits that are known and not fixed.** Kokoro spells Latin acronyms letter by letter ("ChatGPT"); `℃` and `¥` are not verbalized before synthesis; nobody has yet listened to the zh voices (47 `zf_xiaoxiao`, 51 `zm_yunxia`) for naturalness — they were chosen by round-trip intelligibility. Gemini Live refuses every pair with zh in it by design (`unsupported_language_pair`). Traditional-script output and Cantonese are out of scope.
+- **Rebuild the extension after a registry change.** A build from before zh drops its whole saved-context list once any glossary entry has a zh side; builds since read the list entry by entry. Only the maintainer's own builds exist, so this is a rebuild-and-reload, not a store release.
 
 - **No WebSocket keepalive.** Cloudflare drops idle sockets after roughly 100 seconds, and a user pausing mid-conversation is ordinary. Localhost development never exercises this. The minimal fix is server-side (`ws.ping()` in the gateway); client reconnect is a larger follow-up.
 - **The runner is root-equivalent** through the Docker daemon. **The repository is public**, so the three rules that used to bound this no longer all hold equally, and what is left is worth stating plainly because two of them moved:

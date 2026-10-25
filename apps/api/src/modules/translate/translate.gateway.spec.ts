@@ -77,7 +77,7 @@ describe('TranslateGateway', () => {
       gateway.handleSessionStart(
         {
           type: 'client.session.start',
-          direction: 'vi_to_en',
+          languagePair: { source: 'vi', target: 'en' },
           voiceGender: 'male',
           turnId: 'turn-1',
         },
@@ -89,7 +89,7 @@ describe('TranslateGateway', () => {
       // through every layer that touches that object.
       expect(sessions.start).toHaveBeenCalledWith(
         socket,
-        { direction: 'vi_to_en', voiceGender: 'male' },
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'male' },
         'turn-1',
         undefined,
       );
@@ -111,7 +111,7 @@ describe('TranslateGateway', () => {
       gateway.handleSessionStart(
         {
           type: 'client.session.start',
-          direction: 'vi_to_en',
+          languagePair: { source: 'vi', target: 'en' },
           voiceGender: 'male',
           embedSpeaker: true,
           repairDisplay: true,
@@ -122,7 +122,7 @@ describe('TranslateGateway', () => {
       expect(sessions.start).toHaveBeenCalledWith(
         socket,
         {
-          direction: 'vi_to_en',
+          languagePair: { source: 'vi', target: 'en' },
           voiceGender: 'male',
           embedSpeaker: true,
           repairDisplay: true,
@@ -136,7 +136,10 @@ describe('TranslateGateway', () => {
       // The field is optional on the wire so an older client keeps working; by
       // the time it reaches the state machine it must already be decided.
       gateway.handleSessionStart(
-        { type: 'client.session.start', direction: 'vi_to_en' },
+        {
+          type: 'client.session.start',
+          languagePair: { source: 'vi', target: 'en' },
+        },
         socket,
       );
       // `turnId` is optional for the same reason and stays undefined here: the
@@ -144,7 +147,7 @@ describe('TranslateGateway', () => {
       // still sending the old shape and must keep working.
       expect(sessions.start).toHaveBeenCalledWith(
         socket,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { languagePair: { source: 'vi', target: 'en' }, voiceGender: 'female' },
         undefined,
         undefined,
       );
@@ -154,7 +157,7 @@ describe('TranslateGateway', () => {
       gateway.handleSessionStart(
         {
           type: 'client.session.start',
-          direction: 'vi_to_en',
+          languagePair: { source: 'vi', target: 'en' },
           voiceOutput: false,
           speed: 1.5,
         },
@@ -175,7 +178,11 @@ describe('TranslateGateway', () => {
       // sits in "connecting" forever, with clearing its own storage the only way
       // out. A clamped value starts the conversation.
       gateway.handleSessionStart(
-        { type: 'client.session.start', direction: 'vi_to_en', speed: 99 },
+        {
+          type: 'client.session.start',
+          languagePair: { source: 'vi', target: 'en' },
+          speed: 99,
+        },
         socket,
       );
       expect(sessions.start).toHaveBeenCalledWith(
@@ -190,13 +197,16 @@ describe('TranslateGateway', () => {
       // web and api do not deploy together, so a tab loaded before this change is
       // still sending the old shape and must keep working unchanged.
       gateway.handleSessionStart(
-        { type: 'client.session.start', direction: 'en_to_vi' },
+        {
+          type: 'client.session.start',
+          languagePair: { source: 'en', target: 'vi' },
+        },
         socket,
       );
       expect(sessions.start).toHaveBeenCalledWith(
         socket,
         expect.objectContaining({
-          direction: 'en_to_vi',
+          languagePair: { source: 'en', target: 'vi' },
           voiceGender: 'female',
         }),
         undefined,
@@ -252,12 +262,18 @@ describe('TranslateGateway', () => {
   describe('connection mode', () => {
     const startTurn = () =>
       gateway.handleSessionStart(
-        { type: 'client.session.start', direction: 'vi_to_en' },
+        {
+          type: 'client.session.start',
+          languagePair: { source: 'vi', target: 'en' },
+        },
         socket,
       );
     const startLive = () =>
       gateway.handleLiveStart(
-        { type: 'client.live.start', direction: 'vi_to_en' },
+        {
+          type: 'client.live.start',
+          languagePair: { source: 'vi', target: 'en' },
+        },
         socket,
       );
 
@@ -353,6 +369,142 @@ describe('TranslateGateway', () => {
           socket,
         ),
       ).toThrow(WsException);
+      expect(sessions.start).not.toHaveBeenCalled();
+    });
+
+    // A tab built before the language pair replaced `direction` still sends the
+    // old field. No wire compat is kept, but the refusal is EMITTED: a thrown
+    // one reaches the client as silence and the stale page never learns to
+    // reload.
+    it('answers a turn start carrying the legacy direction with client_outdated', () => {
+      gateway.handleSessionStart(
+        {
+          type: 'client.session.start',
+          direction: 'vi_to_en',
+          turnId: 'stale-turn',
+        },
+        socket,
+      );
+      expect(sessions.start).not.toHaveBeenCalled();
+      expect(
+        JSON.parse(
+          (socket.send as Mock<(data: string) => void>).mock.lastCall![0],
+        ),
+      ).toMatchObject({
+        type: 'server.error',
+        code: 'client_outdated',
+        turnId: 'stale-turn',
+      });
+    });
+
+    it('answers a live start carrying the legacy direction with client_outdated', async () => {
+      await gateway.handleLiveStart(
+        { type: 'client.live.start', direction: 'vi_to_en' },
+        socket,
+      );
+      expect(live.start).not.toHaveBeenCalled();
+      expect(
+        JSON.parse(
+          (socket.send as Mock<(data: string) => void>).mock.lastCall![0],
+        ),
+      ).toMatchObject({
+        type: 'server.live.error',
+        code: 'client_outdated',
+      });
+    });
+
+    // Live runs the declared pair one way. Both fields are refused before the
+    // parse, as an event: thrown, `detect` would be silence, and `twoWay`
+    // would be stripped and the session run one-way without a word.
+    it.each([
+      [
+        'twoWay',
+        {
+          type: 'client.live.start',
+          languagePair: { source: 'vi', target: 'en' },
+          twoWay: true,
+        },
+      ],
+      [
+        'a detected source',
+        {
+          type: 'client.live.start',
+          languagePair: { source: 'detect', target: 'en' },
+        },
+      ],
+    ])(
+      'answers a live start asking for %s with language_unavailable',
+      async (_case, payload) => {
+        await gateway.handleLiveStart(payload, socket);
+        expect(live.start).not.toHaveBeenCalled();
+        expect(
+          JSON.parse(
+            (socket.send as Mock<(data: string) => void>).mock.lastCall![0],
+          ),
+        ).toMatchObject({
+          type: 'server.live.error',
+          code: 'language_unavailable',
+        });
+      },
+    );
+
+    it('still answers a live start with the legacy direction as client_outdated, beside twoWay', async () => {
+      await gateway.handleLiveStart(
+        { type: 'client.live.start', direction: 'vi_to_en', twoWay: true },
+        socket,
+      );
+      expect(
+        JSON.parse(
+          (socket.send as Mock<(data: string) => void>).mock.lastCall![0],
+        ),
+      ).toMatchObject({ type: 'server.live.error', code: 'client_outdated' });
+    });
+
+    it('starts a live session for a declared pair, with twoWay false', async () => {
+      await gateway.handleLiveStart(
+        {
+          type: 'client.live.start',
+          languagePair: { source: 'vi', target: 'en' },
+          twoWay: false,
+        },
+        socket,
+      );
+      expect(live.start).toHaveBeenCalledWith(socket, {
+        source: 'vi',
+        target: 'en',
+      });
+    });
+
+    it('forwards twoWay and a detect source on a turn start, for the session to decide', () => {
+      gateway.handleSessionStart(
+        {
+          type: 'client.session.start',
+          languagePair: { source: 'detect', target: 'en' },
+          twoWay: true,
+          turnId: 't1',
+        },
+        socket,
+      );
+      expect(sessions.start).toHaveBeenCalledWith(
+        socket,
+        expect.objectContaining({
+          languagePair: { source: 'detect', target: 'en' },
+          twoWay: true,
+        }),
+        't1',
+        undefined,
+      );
+    });
+
+    it('refuses direction even beside a valid language pair, like REST', () => {
+      gateway.handleSessionStart(
+        {
+          type: 'client.session.start',
+          direction: 'vi_to_en',
+          languagePair: { source: 'vi', target: 'en' },
+        },
+        socket,
+      );
       expect(sessions.start).not.toHaveBeenCalled();
     });
 

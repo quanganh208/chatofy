@@ -225,7 +225,7 @@ def run_utterance(utt, url: str, window_s: float, divisor: int, timeout: float,
             break
         tick += FEED_MS
 
-    _, final_hyp = transcribe(url, audio, utt.lang, timeout)
+    final_decode_ms, final_hyp = transcribe(url, audio, utt.lang, timeout)
 
     refresh_gaps = [
         (snapshots[i][1] - snapshots[i - 1][1]) * 1000.0 for i in range(1, len(snapshots))
@@ -245,6 +245,9 @@ def run_utterance(utt, url: str, window_s: float, divisor: int, timeout: float,
         "refresh_ms_p95": _pct(refresh_gaps, 0.95),
         "reference": utt.ref_text,
         "final_hypothesis": final_hyp.strip(),
+        # Thời gian decode cả clip (kèm pre-roll) qua HTTP, để RTF của bản cuối
+        # lấy từ đúng lần chạy này thay vì một lần chạy harness riêng.
+        "final_decode_ms": round(final_decode_ms, 1),
         # Chuỗi snapshot thô. Lưu lại vì mọi phép chấm lại — LocalAgreement-n,
         # hold-back khác, luật chốt khác — chạy được NGOẠI TUYẾN trên đúng chuỗi
         # này mà không tốn thêm một lần decode nào. Bản đầu không lưu, nên thử

@@ -26,6 +26,9 @@ ENGINE_LICENSES = {
     "sherpa-zipformer-vi-greedy": "CC-BY-NC-ND-4.0 (academic only)",
     "sherpa-zipformer-vi-beam": "CC-BY-NC-ND-4.0 (academic only)",
     "sherpa-zipformer-vi-beam-hotwords": "CC-BY-NC-ND-4.0 (academic only)",
+    "sherpa-sensevoice-zh": "FunASR model licence (SenseVoiceSmall)",
+    "sherpa-sensevoice-zh-noitn": "FunASR model licence (SenseVoiceSmall)",
+    "sherpa-paraformer-zh": "FunASR model licence (paraformer-large)",
 }
 
 
@@ -45,7 +48,14 @@ def load_engine_results(path: Path) -> dict:
         "decode_params": header["decode_params"],
         "num_utts": len(utts),
         "wer": corpus_wer([u["ref_text"] for u in utts], [u["hyp_text"] for u in utts]),
-        "cer": corpus_cer([u["ref_text"] for u in utts], [u["hyp_text"] for u in utts]),
+        # zh has no word boundaries, so its CER needs the zh normalizer (no
+        # whitespace, digits read as spoken numerals); vi/en keep the default
+        # so their recorded numbers do not move.
+        "cer": corpus_cer(
+            [u["ref_text"] for u in utts],
+            [u["hyp_text"] for u in utts],
+            language="zh" if header["lang"] == "zh" else None,
+        ),
         "rtf_mean": sum(proc_times) / total_audio_s,
         "latency": latency_stats(proc_times),
     }

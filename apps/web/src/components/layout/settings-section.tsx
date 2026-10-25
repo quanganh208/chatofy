@@ -66,7 +66,7 @@ export function SettingsSection({
  * three of those read as a table rather than as a person's settings. A grid with
  * the control column sized to its content keeps them related.
  *
- * `block` is for a control too wide to sit beside its label — the direction pair,
+ * `block` is for a control too wide to sit beside its label — the language pair,
  * which is itself two named sides and a swap. It takes the full row and the label
  * sits above it.
  */
@@ -86,14 +86,26 @@ export function SettingsSectionRow({
     <div
       className={cn(
         'border-hairline grid items-center gap-x-6 gap-y-2 border-b py-3.5 last:border-b-0',
-        block ? 'grid-cols-1' : 'grid-cols-[minmax(0,1fr)_auto]',
+        block
+          ? 'grid-cols-1'
+          : // A row with a note stacks on a phone. Beside its control, a note was a
+            // ~110px column eleven lines tall at 375px; a bare label beside a
+            // switch fits and stays inline everywhere.
+            note
+            ? 'grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto]'
+            : 'grid-cols-[minmax(0,1fr)_auto]',
       )}
     >
       <div className="flex min-w-0 max-w-[38ch] flex-col gap-0.5">
         <span className="text-body font-medium">{label}</span>
         {note ? <span className="text-muted-foreground text-hint">{note}</span> : null}
       </div>
-      <div className={cn('flex min-w-0 items-center gap-2.5', block ? '' : 'justify-self-end')}>
+      <div
+        className={cn(
+          'flex min-w-0 items-center gap-2.5',
+          block ? '' : note ? 'sm:justify-self-end' : 'justify-self-end',
+        )}
+      >
         {children}
       </div>
     </div>

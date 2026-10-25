@@ -9,13 +9,14 @@ import {
 } from '@chatofy/ai-providers';
 import {
   MAX_LIVE_ERROR_MESSAGE_CHARS,
-  directionLanguages,
+  LIVE_LANGUAGES,
   type AudioFrame,
   type LanguageCode,
+  type LanguagePair,
   type LiveServerEvent,
-  type TranslationDirection,
 } from '@chatofy/types';
 import type { Env } from '../../../config/env.schema';
+import { languagePairLabel } from '../language-pair-label';
 import { LiveSessionMetricsRecorder } from './live-session-metrics.recorder';
 import { LiveSession } from '../session/live-session';
 import { LIVE_DIAL_TIMEOUT_MS } from '../session/live-session-limits';
@@ -123,10 +124,7 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
   }
 
   /** Open the upstream session and tell the client it may start speaking. */
-  async start(
-    socket: StreamSocket,
-    direction: TranslationDirection,
-  ): Promise<void> {
+  async start(socket: StreamSocket, languagePair: LanguagePair): Promise<void> {
     if (this.sessions.has(socket)) {
       this.fail(
         socket,
@@ -154,7 +152,17 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
       return;
     }
 
-    const { source, target } = directionLanguages(direction);
+    const { source, target } = languagePair;
+    // Before any provider is resolved or slot reserved: a refused pair
+    // costs nothing. See `LIVE_LANGUAGES` for why zh is refused here.
+    if (!LIVE_LANGUAGES[source] || !LIVE_LANGUAGES[target]) {
+      this.fail(
+        socket,
+        'unsupported_language_pair',
+        'Live mode does not translate this language pair; use the turn-by-turn mode',
+      );
+      return;
+    }
     const sessionId = randomUUID();
     const connectStartedAt = Date.now();
 
@@ -163,8 +171,7 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
 
     const session = new LiveSession(
       sessionId,
-      direction,
-      source,
+      languagePair,
       connectStartedAt,
       provider,
     );
@@ -226,7 +233,9 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
     }
 
     session.attach(handle, Date.now());
-    this.logger.log(`live.start ${sessionId} direction=${direction}`);
+    this.logger.log(
+      `live.start ${sessionId} pair=${languagePairLabel(languagePair)}`,
+    );
     this.emit(socket, { type: 'server.live.ready', sessionId });
   }
 

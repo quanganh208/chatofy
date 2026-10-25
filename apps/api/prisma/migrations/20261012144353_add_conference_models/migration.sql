@@ -59,9 +59,6 @@ CREATE TABLE "ConferenceMessage" (
 CREATE INDEX "Conference_ownerId_createdAt_idx" ON "Conference"("ownerId", "createdAt" DESC);
 
 -- CreateIndex
-CREATE INDEX "ConferenceParticipant_conferenceId_idx" ON "ConferenceParticipant"("conferenceId");
-
--- CreateIndex
 CREATE INDEX "ConferenceParticipant_userId_idx" ON "ConferenceParticipant"("userId");
 
 -- CreateIndex

@@ -43,6 +43,21 @@ const SCALES = new Map<string, { value: number; leads: boolean }>([
 ]);
 
 /**
+ * Whether `word` can be part of a spoken number: a digit, a scale, a filler or
+ * the half and decimal markers. For callers that must not change a quantity.
+ */
+export function isNumberWord(word: string): boolean {
+  const lower = word.normalize('NFC').toLowerCase();
+  return (
+    DIGITS.has(lower) ||
+    SCALES.has(lower) ||
+    ZERO_FILLERS.has(lower) ||
+    lower === HALF_MARKER ||
+    lower === DECIMAL_MARKER
+  );
+}
+
+/**
  * Fills an empty tens place: `một trăm linh năm` = 105.
  *
  * Exported because it is also the one shape that forces the DIGIT reading of a

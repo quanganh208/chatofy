@@ -3,7 +3,7 @@ import type {
   RealtimeProvider,
   StreamHandle,
 } from '@chatofy/ai-providers';
-import type { TranslationDirection } from '@chatofy/types';
+import type { LanguagePair } from '@chatofy/types';
 import type { LiveSessionMetrics } from '../services/live-session-metrics.recorder';
 import { MAX_LIVE_SESSION_INPUT_BYTES } from './live-session-limits';
 
@@ -43,8 +43,7 @@ export class LiveSession {
 
   constructor(
     readonly sessionId: string,
-    readonly direction: TranslationDirection,
-    readonly source: LanguageCode,
+    readonly languagePair: LanguagePair,
     readonly startedAt: number,
     /**
      * Held on the session rather than looked up per frame.
@@ -83,7 +82,7 @@ export class LiveSession {
     // similar languages and heavy accents, and a column that says how often it
     // was wrong is the only way that warning becomes a measurement instead of a
     // caveat.
-    if (lang !== this.source) this.languageMismatches += 1;
+    if (lang !== this.languagePair.source) this.languageMismatches += 1;
   }
 
   noteTargetDelta(delta: string): void {
@@ -135,7 +134,7 @@ export class LiveSession {
   toMetricsRow(reason: string, now: number): LiveSessionMetrics {
     return {
       sessionId: this.sessionId,
-      direction: this.direction,
+      languagePair: this.languagePair,
       durationMs: now - this.startedAt,
       inputBytes: this.inputBytes,
       // Bytes → ms at the rate the backend actually used, 16-bit mono.

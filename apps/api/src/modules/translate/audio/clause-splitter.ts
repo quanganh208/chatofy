@@ -28,15 +28,35 @@
  */
 const MIN_PART_CHARS = 4;
 
+/** ASCII clause and sentence terminators. */
+const SPACED_MARKS = ',;:.!?…';
+
+/**
+ * Full-width terminators, as Chinese writes them. Chinese puts no space after a
+ * mark, and a full-width mark is never part of a number, so these need no
+ * lookahead.
+ */
+const FULL_WIDTH_MARKS = '，。！？；：';
+
+/**
+ * Every mark a clause can end on. Exported so a caller that asks "does this
+ * text end a clause" reads the same set this splitter cuts on, instead of a
+ * copy that forgets the next script.
+ */
+export const CLAUSE_MARKS = `${SPACED_MARKS}${FULL_WIDTH_MARKS}`;
+
 /**
  * Clause and sentence terminators, kept with the text they follow so the engine
  * still sees the punctuation it takes its intonation from.
  *
- * The trailing lookahead is load-bearing: it requires whitespace or end-of-text
- * after the mark, so "3.5" and the Vietnamese decimal comma in "1,5 triệu" are
- * not mistaken for boundaries.
+ * The trailing lookahead on the ASCII marks is load-bearing: it requires
+ * whitespace or end-of-text after the mark, so "3.5" and the Vietnamese decimal
+ * comma in "1,5 triệu" are not mistaken for boundaries.
  */
-const BOUNDARY = /[,;:.!?…]+(?=\s|$)/g;
+const BOUNDARY = new RegExp(
+  `[${SPACED_MARKS}]+(?=\\s|$)|[${FULL_WIDTH_MARKS}]+`,
+  'g',
+);
 
 /**
  * Break translated text into clause-level synthesis units.
@@ -79,7 +99,9 @@ function absorbFragments(parts: string[]): string[] {
       previous !== undefined && previous.length < MIN_PART_CHARS;
 
     if (previous !== undefined && (tooShort || previousTooShort)) {
-      merged[merged.length - 1] = `${previous} ${part}`;
+      // No space after a full-width mark: Chinese writes none there.
+      const joiner = FULL_WIDTH_MARKS.includes(previous.slice(-1)) ? '' : ' ';
+      merged[merged.length - 1] = `${previous}${joiner}${part}`;
     } else {
       merged.push(part);
     }

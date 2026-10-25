@@ -1,18 +1,19 @@
 # local-stt sidecar
 
 Local speech-to-text over localhost, no cloud call. Wraps [sherpa-onnx][sherpa]
-behind a small FastAPI service so the NestJS API can transcribe Vietnamese and
-English through the normal `SttProvider` contract.
+behind a small FastAPI service so the NestJS API can transcribe Vietnamese,
+English and Mandarin Chinese through the normal `SttProvider` contract.
 
 Standalone `uv` project — not part of the pnpm/turbo workspace, never imported
 by the app (standalone `uv` project, like the benchmark harnesses).
 
 ## Models
 
-| Language | Model                                      | WER   | RTF   | p95   | RAM    | License             |
-| -------- | ------------------------------------------ | ----- | ----- | ----- | ------ | ------------------- |
-| vi       | [hynt/Zipformer-30M-RNNT-6000h][zipformer] | 5.38% | 0.017 | 0.09s | 223MB  | **CC-BY-NC-ND-4.0** |
-| en       | [Parakeet-TDT-0.6b-v2][parakeet] (INT8)    | —     | —     | 0.33s | ~1.1GB | CC-BY-4.0           |
+| Language | Model                                         | WER       | RTF   | p95   | RAM    | License             |
+| -------- | --------------------------------------------- | --------- | ----- | ----- | ------ | ------------------- |
+| vi       | [hynt/Zipformer-30M-RNNT-6000h][zipformer]    | 5.38%     | 0.017 | 0.09s | 223MB  | **CC-BY-NC-ND-4.0** |
+| en       | [Parakeet-TDT-0.6b-v2][parakeet] (INT8)       | —         | —     | 0.33s | ~1.1GB | CC-BY-4.0           |
+| zh       | [Paraformer-zh 2023-09-14][paraformer] (INT8) | 3.22% CER | 0.018 | 0.18s | ~360MB | Apache-2.0          |
 
 Numbers measured on this machine — see
 `docs/development-journey.md` for the method and
@@ -33,6 +34,28 @@ the alternatives that lost.
 > Parakeet answers a cough or knock with a filler ("Uh", "Mm.") where Moonshine
 > answered with nothing, so a transcript made only of fillers is returned empty
 > and the API rejects the turn as no speech (`FILLERS` in `engines/parakeet_en.py`).
+
+> **Mandarin is Paraformer-zh, not SenseVoice-small.** Mean CER over FLEURS and
+> AISHELL-1 (50 clips each) was 3.22% against SenseVoice's 4.58%, and the sidecar
+> reproduces 3.22% exactly over HTTP on the same clips. With the 320 ms of
+> silence the client puts before every turn it reads 3.59%: Paraformer is a
+> little sensitive to leading silence, 10 of 100 hypotheses change, not all for
+> the worse. It writes no punctuation and every number as words; the API's zh
+> ITN typesets the numbers. Its weights add about 270 MB to the sidecar's peak
+> under four concurrent decodes. The tarball is pinned by size and sha256 in
+> `scripts/download_models.py`, and only `model.int8.onnx` and `tokens.txt` are
+> extracted. No hotword biasing.
+
+> **Display punctuation (zh).** `POST /restore` with `language: "zh"` runs
+> sherpa-onnx's CT-Transformer punctuation model
+> (`sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8`, 64.7 MB
+> tarball, pinned by GitHub's published digest, only `model.int8.onnx`
+> extracted). It inserts marks only; the spaces Paraformer wrote around Latin
+> tokens are put back after it, because the model drops them. On the 50 FLEURS
+> Paraformer hypotheses: punctuation F1 0.865, words kept 50/50, p95 16 ms over
+> HTTP, +80 MiB peak. Optional like Dewpoint: an unloaded zh model answers 404,
+> which the API's per-language cooldown reads as "stop asking for zh a while" —
+> it can never pause vi restores. No per-word pauses for zh: the model reads text only.
 
 > **Display punctuation and case (vi).** `POST /restore` runs
 > [valkayuh/dewpoint][dewpoint] (MIT), mmBERT member, pinned revision, with only
@@ -56,7 +79,30 @@ the alternatives that lost.
 > full stop the speaker did not pause at (under 120 ms, chosen on FLEURS dev in
 > `benchmarks/punct`).
 
-> **License obligation.** Zipformer-30M is CC-BY-NC-ND-4.0: **academic / thesis
+> **Alternate vi recognizer (optional).** [hynt/ZipFormer-150M][zipformer150]
+> (INT8, pinned revision, greedy, never biased) decodes the same final turn
+> beside the 30M when a request sets `alternates=true`, and its reading comes
+> back as `alternates: ["…"]`. The API lets an LLM pick words between the two
+> for the display; the 30M's `text` stays the transcript of record. On the
+> 95-turn vi ruler the 30M alone is 5.72% WER, this model alone 6.30%, the two
+> fused ~4.9%. Missing weights are a startup warning, not a failed `/healthz`,
+> which lists what loaded in `alternates` (`["vi"]` or `[]`). Measured on 95
+> real turns at 4 threads: +53 ms p50 / +100 ms p95 per final (the two decodes
+> run concurrently, so the cost is the 150M's extra time, not its whole
+> decode), +411 MiB peak RSS under four concurrent finals. Same license as the
+> 30M.
+
+> **Language identifier (optional).** [Whisper base][whisperbase] (onnx-community
+> ONNX export, pinned revision and sha256, MIT) answers which of a request's
+> `candidates` the turn is in. Only its first decoder step runs — the language
+> token's probabilities, masked to the candidates — and the encoder is cut to
+> the turn with a 5 s floor (`lid/window.py`). Chosen over AmberNet, MMS-LID,
+> competing recognizers and other Whisper sizes in `benchmarks/lid`: vi↔en
+> passed every criterion, zh did not, so the API asks for vi and en only.
+> Measured at 4 threads: +126 ms p95 per final, ~0.6 GB at a four-lane peak.
+> Off with `LOCAL_STT_LID=off`, which also skips its weights in the seed.
+
+> **License obligation.** Zipformer-30M (and the 150M alternate) is CC-BY-NC-ND-4.0: **academic / thesis
 > use only**, no commercial use, no distribution of derivatives. If this project
 > is ever commercialized, swap in PhoWhisper behind the same `SttProvider`
 > contract (measured at ~1.3s/utterance instead of ~0.1s).
@@ -65,7 +111,7 @@ the alternatives that lost.
 
 This is a container — `pnpm dev:all` from the repo root builds it and brings it
 up with the rest of the local stack. `models/` is bind-mounted and the weights
-(~1.3GB) download on first start, so there is no separate setup step.
+(~1.6GB) download on first start, so there is no separate setup step.
 
 ```bash
 docker compose up -d --wait local-stt   # just this one
@@ -83,7 +129,7 @@ uv sync
 # host venv needs it again after every `uv sync` that recreates .venv.
 ln -sf "$(uv run python -c 'import onnxruntime,pathlib;print(next((pathlib.Path(onnxruntime.__file__).parent/"capi").glob("libonnxruntime.so.*")))')" \
        "$(uv run python -c 'import onnxruntime,pathlib;print(pathlib.Path(onnxruntime.__file__).parent.parent/"sherpa_onnx.libs"/"libonnxruntime.so")')"
-uv run python scripts/download_models.py   # ~2.5GB, one time, idempotent
+uv run python scripts/download_models.py   # ~2.7GB, one time, idempotent
 uv run uvicorn app:app --port 8002
 ```
 
@@ -97,20 +143,21 @@ the service is genuinely ready.
 
 ## API
 
-| Route              | Request                                                                                                                         | Response                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `GET /healthz`     | —                                                                                                                               | `200 {"status":"ok"}` when loaded, `503 {"status":"loading"}` otherwise |
-| `POST /transcribe` | `multipart/form-data`: `file` (audio), `language` (`vi` or `en`), `hotwords` (repeatable, optional), `min_speech_ms` (optional) | `200 {"text":"…","language":"vi"}`                                      |
-| `POST /embed`      | `multipart/form-data`: `file` (audio)                                                                                           | `200 {"vector":[…],"dim":192,"speechMs":1480}`                          |
-| `POST /restore`    | JSON: `text`, `language` (`vi` only), `context` (optional, the piece this one continues), `terms` (optional, session hotwords)  | `200 {"text":"Mô hình AI của OpenAI."}`                                 |
+| Route              | Request                                                                                                                                                                                             | Response                                                                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `GET /healthz`     | —                                                                                                                                                                                                   | `200 {"status":"ok","alternates":["vi"],"lidLanguages":["vi","en","zh"]}` when loaded, `503 {"status":"loading"}` otherwise |
+| `POST /transcribe` | `multipart/form-data`: `file` (audio), `language` (`vi`, `en` or `zh`), `hotwords` (repeatable, optional), `min_speech_ms` (optional), `alternates` (optional), `candidates` (repeatable, optional) | `200 {"text":"…","language":"vi"}`                                                                                          |
+| `POST /embed`      | `multipart/form-data`: `file` (audio)                                                                                                                                                               | `200 {"vector":[…],"dim":192,"speechMs":1480}`                                                                              |
+| `POST /restore`    | JSON: `text`, `language` (`vi` only), `context` (optional, the piece this one continues), `terms` (optional, session hotwords)                                                                      | `200 {"text":"Mô hình AI của OpenAI."}`                                                                                     |
 
 `speechMs` on `/embed` is how much of the clip is speech, not how long the clip
 is — the caller is sent a capture buffer with pre-roll and hangover on it, and
 the difference is what tells it whether the vector was built on enough voice to
 mean anything. Energy-based; see `audio/speech_duration.py`.
 
-`POST /restore` returns `400` for any language but `vi`, `503` when the
-Dewpoint weights were never seeded, and `429` when another restore holds the
+`POST /restore` returns `400` for a language it has no restorer for, `503` when
+the Dewpoint weights were never seeded, `404` when the zh punctuation model was
+never seeded, and `429` when another restore holds the
 model for longer than 150 ms (`LOCK_WAIT_S` in `punctuation/restorer.py`). The
 two refusals mean different things to the API: `503` makes it stop asking for a
 while, `429` is a momentary queue and only that one line falls back. The wait is
@@ -152,6 +199,55 @@ curl -F file=@sample.webm -F language=vi -F min_speech_ms=300 \
      http://localhost:8002/transcribe
 ```
 
+### Alternates
+
+`alternates` is opt-in and off by default: a request that does not set it is
+answered byte for byte as before, with no second decode. Set it on a vi final
+and the response gains `"alternates": ["…"]`, the 150M's unbiased reading of the
+same samples. The key is simply absent — never an error — when no alternate is
+loaded for the language, when `min_speech_ms` gated the turn, when the
+alternate is still decoding `LOCAL_STT_ALTERNATE_WAIT_MS` (default 400 ms)
+after the primary finished, or when the alternate's lanes were busy or its
+decode failed. It has its own lanes, so it never takes one from the 30M's live
+re-reads. It waits at most `LOCAL_STT_ALTERNATE_WAIT_MS` for one of them, and an
+alternate whose response has already gone out gives its lane back without
+decoding.
+
+```bash
+curl -F file=@sample.webm -F language=vi -F alternates=true \
+     http://localhost:8002/transcribe
+# {"text":"…","language":"vi","pauses":[…],"leadPause":320,"alternates":["…"]}
+```
+
+### Candidates
+
+Two or more languages, one form field each, `language` among them, and the
+sidecar decides which one the turn is in before decoding it with that
+language's engine. The response's `language` is the decision and
+`languageConfidence` the chosen candidate's probability among the candidates;
+`lidSpeechMs` is how much speech it heard, by the energy measure the lock
+threshold was tuned on (not the Silero gate behind `speechMs`):
+
+```bash
+curl -F file=@sample.webm -F language=vi -F candidates=vi -F candidates=en \
+     http://localhost:8002/transcribe
+# {"text":"Along the same line…","language":"en","languageConfidence":0.99996,"lidSpeechMs":4280}
+```
+
+- No `candidates`: the response is byte for byte what it was before.
+- The decision never sees the hotwords; they only bias the chosen engine's
+  decode, and only if that engine takes them.
+- A malformed list (one entry, a duplicate, `language` missing, an unknown
+  code) is a `400`. Identification off, unseeded or not loaded is a `409`, and
+  `/healthz` then reports `lidLanguages: []`.
+- Busy is never a refusal on its own: an identifier with no free lane, or an
+  identified language whose engine has none, decodes the declared `language`
+  and answers `languageConfidence: null`. Only when that decode is busy too is
+  the turn a `503`.
+- A turn `min_speech_ms` gated returns the declared `language` with no
+  `languageConfidence`. The vi alternate is started only for a turn identified
+  as vi.
+
 ### Hotwords
 
 Terms the Vietnamese decoder should be biased towards, one form field each,
@@ -180,10 +276,11 @@ resampled to mono 16 kHz because both models are trained at that rate.
 
 ## Configuration
 
-| Env                           | Default | Purpose                                                                       |
-| ----------------------------- | ------- | ----------------------------------------------------------------------------- |
-| `LOCAL_STT_THREADS`           | `8`     | Threads per engine. 8 (physical cores) beat 16 (hyperthreads) on this machine |
-| `LOCAL_STT_MAX_AUDIO_SECONDS` | `300`   | Longest utterance accepted; longer audio returns `413` instead of decoding it |
+| Env                           | Default | Purpose                                                                                                                   |
+| ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `LOCAL_STT_THREADS`           | `8`     | Threads per engine. 8 (physical cores) beat 16 (hyperthreads) on this machine                                             |
+| `LOCAL_STT_MAX_AUDIO_SECONDS` | `300`   | Longest utterance accepted; longer audio returns `413` instead of decoding it                                             |
+| `LOCAL_STT_LID`               | `on`    | Language identification for `candidates`; `off` skips its weights and refuses `candidates` (prod compose defaults it off) |
 
 ## Test
 
@@ -197,5 +294,8 @@ uv run --directory services/local-stt pytest
 
 [sherpa]: https://github.com/k2-fsa/sherpa-onnx
 [zipformer]: https://huggingface.co/hynt/Zipformer-30M-RNNT-6000h
+[zipformer150]: https://huggingface.co/hynt/ZipFormer-150M-CR-CTC-RNNT-6000h
 [parakeet]: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2
+[paraformer]: https://k2-fsa.github.io/sherpa/onnx/pretrained_models/offline-paraformer/paraformer-models.html
 [dewpoint]: https://huggingface.co/valkayuh/dewpoint
+[whisperbase]: https://huggingface.co/onnx-community/whisper-base

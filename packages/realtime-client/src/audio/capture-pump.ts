@@ -322,6 +322,14 @@ export class CapturePump {
    * speaker is still talking, so the run is a gap between words of the turn
    * being closed, and it goes with that turn rather than being lost at the
    * boundary.
+   *
+   * In continuous mode, what a hangover leaves held is the most recent audio, and
+   * none of it was sent, so it becomes the next turn's pre-roll. Dropped instead,
+   * a word begun softly inside the hangover lost its onset: the gate counted its
+   * weak first consonant as silence, the close threw it away, and the next turn
+   * opened on what followed. Only a hangover carries it: an `interrupted` turn is
+   * cut by our own playback, and the next turn opens after it ends, seconds later
+   * — its held audio would be spliced onto speech it is not adjacent to.
    */
   private closeTurn(reason: TurnCloseReason): void {
     if (reason === 'forced') this.flushHeld();
@@ -330,7 +338,8 @@ export class CapturePump {
     // nothing to wait for and nobody to re-arm us, so the pump goes straight back
     // to listening for the next turn.
     this.state = this.continuous ? 'idle' : 'awaiting-result';
-    this.preRoll = [];
+    this.preRoll =
+      this.continuous && reason === 'hangover' ? this.held.slice(-this.preRollBlocks) : [];
     this.held = [];
     // Only meaningful when the microphone is about to be ignored. In continuous
     // mode it stays open, and zeroing the meter would report a mute that is not

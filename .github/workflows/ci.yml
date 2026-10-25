@@ -17,9 +17,74 @@ env:
   NODE_VERSION: '24'
 
 jobs:
+  # Picks which of the jobs below a pull request's diff can reach, so a
+  # docs-only PR does not spend twenty runner-minutes proving markdown compiles
+  # and a web-only change does not wait on Chromium. Selection is per JOB and
+  # never a workflow-level `paths` filter: every job name here is a required
+  # check, and a workflow that never starts leaves them pending forever — on
+  # `main` it would also never conclude, so deploy.yml would never fire. A job
+  # skipped by its own `if:` reports "skipped", which branch protection accepts.
+  #
+  # It fails OPEN. The only thing that skips a job is an explicit `false` from a
+  # classification that finished. A push, an unmapped path, a PR checkout that
+  # is not a merge commit, or a crash here all leave the outputs empty, and
+  # empty means run. The path map and why each row exists live in
+  # scripts/ci-changed-jobs.mjs, whose tests run in Test.
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    # A hung classifier holds every job behind it; five minutes is far past a
+    # shallow checkout and one diff, and a timeout fails open like any crash.
+    timeout-minutes: 5
+    # A broken classifier must cost minutes, never coverage and never a deploy:
+    # its dependents run on empty outputs, and this keeps its own failure from
+    # failing the run.
+    continue-on-error: true
+    outputs:
+      node: ${{ steps.select.outputs.node }}
+      api: ${{ steps.select.outputs.api }}
+      extension: ${{ steps.select.outputs.extension }}
+      itn: ${{ steps.select.outputs.itn }}
+      sidecar: ${{ steps.select.outputs.sidecar }}
+      stt: ${{ steps.select.outputs.stt }}
+      replay: ${{ steps.select.outputs.replay }}
+    steps:
+      # Pushes to main run everything — a merge commit has failed on main after
+      # its own PR run passed — so there is nothing to diff and nothing to check out.
+      - uses: actions/checkout@v7
+        if: github.event_name == 'pull_request'
+        with:
+          # The PR merge commit plus both parents: HEAD^1 is the base as of this
+          # run, so the diff is exactly what merging would change.
+          fetch-depth: 2
+
+      - name: Select jobs
+        id: select
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          # Not a merge commit means HEAD^1 is not the base; stop, and run all.
+          git rev-parse --verify --quiet 'HEAD^2' > /dev/null
+          # --no-renames: moving a file out of apps/api into docs/ deletes api
+          # code, and rename detection would report only the docs/ side of it.
+          # quotepath off + -z: the non-ASCII benchmark paths would otherwise
+          # arrive quoted, match no row, and needlessly force everything.
+          git -c core.quotepath=off diff --no-renames --name-only -z 'HEAD^1' HEAD \
+            > "$RUNNER_TEMP/changed-paths"
+          node scripts/ci-changed-jobs.mjs < "$RUNNER_TEMP/changed-paths" > "$RUNNER_TEMP/lanes"
+          # Written only once both commands above succeeded, so a half-finished
+          # classification can never leave a `false` behind.
+          cat "$RUNNER_TEMP/lanes" >> "$GITHUB_OUTPUT"
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    needs: changes
+    # Runs unless `changes` proved this diff cannot reach it. `!cancelled()` is
+    # load-bearing: without it a failed `changes` job would SKIP this one, and a
+    # skipped required check reads green. Comparing against 'false' rather than
+    # 'true' is what makes an empty output — push, crash, unmapped path — mean run.
+    if: ${{ !cancelled() && needs.changes.outputs.node != 'false' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -41,9 +106,20 @@ jobs:
       - name: Lint all workspaces
         run: pnpm turbo run lint
 
+      # The workspace lint scripts pass `--fix`, which is right on a laptop and
+      # wrong here: eslint rewrites the checkout, exits 0, and a violation that
+      # was merged reads green. Any file the step above changed is a violation
+      # the committed code still carries. Tracked files only — dist and the
+      # generated Prisma client are ignored, so the build cannot trip this.
+      - name: Fail on violations the lint step auto-fixed
+        run: git diff --exit-code --stat
+
   typecheck:
     name: Type check
     runs-on: ubuntu-latest
+    needs: changes
+    # Selection: see `changes` and the note on Lint.
+    if: ${{ !cancelled() && needs.changes.outputs.node != 'false' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -71,6 +147,9 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    needs: changes
+    # Selection: see `changes` and the note on Lint.
+    if: ${{ !cancelled() && needs.changes.outputs.node != 'false' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -97,12 +176,15 @@ jobs:
         run: node --test scripts/*.test.mjs
 
   # The api's e2e suites are NOT covered by the job above: `pnpm turbo run test`
-  # reaches api's `test` script, whose jest rootDir is `src`, so nothing under
-  # `test/` has ever run in CI. That is where enforcement is proved — the guard,
+  # reaches api's `test` script, whose vitest config includes only
+  # `src/**/*.spec.ts`, so nothing under `test/` runs there. That is where enforcement is proved — the guard,
   # the WebSocket upgrade refusal, the envelope — so it gets its own job.
   api-e2e:
     name: API e2e
     runs-on: ubuntu-latest
+    needs: changes
+    # Selection: see `changes` and the note on Lint.
+    if: ${{ !cancelled() && needs.changes.outputs.api != 'false' }}
     # Redis, even though these suites fake the storage layer. Six of them log in
     # for real through `test/utils/auth-fixture.ts`, and login now mints a
     # refresh family — so without this the job fails at the fixture rather than
@@ -157,6 +239,9 @@ jobs:
   api-e2e-db:
     name: API e2e (Postgres)
     runs-on: ubuntu-latest
+    needs: changes
+    # Selection: see `changes` and the note on Lint.
+    if: ${{ !cancelled() && needs.changes.outputs.api != 'false' }}
     services:
       postgres:
         image: postgres:16-alpine
@@ -245,6 +330,9 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    needs: changes
+    # Selection: see `changes` and the note on Lint.
+    if: ${{ !cancelled() && needs.changes.outputs.node != 'false' }}
     env:
       # `next build` prerenders /login, which reads the server-only config, so
       # the schema must be satisfied for the build to collect page data. A
@@ -318,6 +406,9 @@ jobs:
   e2e:
     name: Extension e2e
     runs-on: ubuntu-latest
+    needs: changes
+    # Selection: see `changes` and the note on Lint.
+    if: ${{ !cancelled() && needs.changes.outputs.extension != 'false' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -349,6 +440,9 @@ jobs:
   display-fidelity:
     name: Display ITN gates
     runs-on: ubuntu-latest
+    needs: changes
+    # Selection: see `changes` and the note on Lint.
+    if: ${{ !cancelled() && needs.changes.outputs.itn != 'false' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -399,6 +493,9 @@ jobs:
   sidecar-unit:
     name: TTS sidecar unit tests
     runs-on: ubuntu-latest
+    needs: changes
+    # Selection: see `changes` and the note on Lint.
+    if: ${{ !cancelled() && needs.changes.outputs.sidecar != 'false' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -411,6 +508,40 @@ jobs:
         run: >-
           uv run --frozen --directory services/local-tts
           pytest -q test_engine_lock.py test_stream_worker.py test_clause_splitter.py
+          test_zh_number_verbalizer.py
+
+  # The STT sidecar's tests that need no model weights: webm/opus decoding, the
+  # hotword builder's limits, speech-duration and word-pause measurement, the
+  # per-engine text post-processing, and the embedding quantizer. All of it is
+  # pure Python that no Node suite can reach, and until this job none of it ran
+  # anywhere but on the laptop of whoever last touched it. Listed by file, not
+  # `LOCAL_STT_SKIP_MODEL_TESTS=1`, because a skip flag turns every model test
+  # into a green skip; the files left out (`test_app.py`, `test_embed.py`,
+  # `test_restore.py`, `test_silero_speech.py`) load real models through the
+  # app's lifespan and stay local. So does the one hotwords test that reads
+  # `bpe.model` from the weights: it passes on a laptop only because an earlier
+  # run left the generated vocabulary in the system temp directory.
+  stt-sidecar-unit:
+    name: STT sidecar unit tests
+    runs-on: ubuntu-latest
+    needs: changes
+    # Selection: see `changes` and the note on Lint.
+    if: ${{ !cancelled() && needs.changes.outputs.stt != 'false' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Run the model-free sidecar tests
+        run: >-
+          uv run --frozen --directory services/local-stt
+          pytest -q test_decode.py test_hotwords.py test_speech_duration.py
+          test_word_pauses.py test_postprocess.py test_quantize_embedding.py
+          test_download_models.py test_zh_punctuation.py
+          --deselect test_hotwords.py::test_bpe_vocab_is_not_written_into_the_model_directory
 
   # The replay suites drive the real capture pump and the real turn pipeline over
   # synthesized speech, and their fixtures are not committed — so until now they
@@ -424,6 +555,9 @@ jobs:
   realtime-replay:
     name: Realtime replay
     runs-on: ubuntu-latest
+    needs: changes
+    # Selection: see `changes` and the note on Lint.
+    if: ${{ !cancelled() && needs.changes.outputs.replay != 'false' }}
     env:
       # Turns "no fixtures" from a skip into a failure — see the replay specs.
       REQUIRE_REALTIME_FIXTURES: '1'
@@ -560,6 +694,12 @@ jobs:
   supply-chain:
     name: Supply chain
     runs-on: ubuntu-latest
+    needs: changes
+    # Selection: see `changes` and the note on Lint.
+    # On the Node lane, not narrowed to the lockfile: advisories land without a
+    # commit — this job has gone red on main five times on diffs that touched no
+    # dependency — so it runs on every PR that reaches any Node code, and on every push.
+    if: ${{ !cancelled() && needs.changes.outputs.node != 'false' }}
     steps:
       - uses: actions/checkout@v7
 

@@ -1,0 +1,304 @@
+{
+  "per_arm": {
+    "recognizer_competition": {
+      "variant": "src",
+      "A1.en-vi": {
+        "value": 0.9983,
+        "threshold": ">=0.97",
+        "pass": true,
+        "n": 1200,
+        "data": "public-substitute"
+      },
+      "A1.vi-zh": {
+        "value": 0.9962,
+        "threshold": ">=0.97",
+        "pass": true,
+        "n": 1600,
+        "data": "public-substitute"
+      },
+      "A1.en-zh": {
+        "value": 1.0,
+        "threshold": ">=0.97",
+        "pass": true,
+        "n": 1600,
+        "data": "public-substitute"
+      },
+      "A2.en-vi": {
+        "value": null,
+        "threshold": ">=0.90 raw OR <=0.05 err",
+        "pass": null,
+        "n": 0,
+        "data": "public-substitute"
+      },
+      "A2.en-vi.real": {
+        "value": null,
+        "threshold": "report",
+        "pass": null,
+        "n": 0,
+        "data": "real"
+      },
+      "A2.en-vi.cv": {
+        "value": null,
+        "threshold": "report",
+        "pass": null,
+        "n": 0,
+        "data": "cv"
+      },
+      "A2.vi-zh": {
+        "value": null,
+        "threshold": ">=0.90 raw OR <=0.05 err",
+        "pass": null,
+        "n": 0,
+        "data": "public-substitute"
+      },
+      "A2.vi-zh.real": {
+        "value": null,
+        "threshold": "report",
+        "pass": null,
+        "n": 0,
+        "data": "real"
+      },
+      "A2.vi-zh.cv": {
+        "value": null,
+        "threshold": "report",
+        "pass": null,
+        "n": 0,
+        "data": "cv"
+      },
+      "A2.en-zh": {
+        "value": null,
+        "threshold": ">=0.90 raw OR <=0.05 err",
+        "pass": null,
+        "n": 0,
+        "data": "public-substitute"
+      },
+      "A2.en-zh.real": {
+        "value": null,
+        "threshold": "report",
+        "pass": null,
+        "n": 0,
+        "data": "real"
+      },
+      "A2.en-zh.cv": {
+        "value": null,
+        "threshold": "report",
+        "pass": null,
+        "n": 0,
+        "data": "cv"
+      },
+      "A3.long.vien": {
+        "value": 0.9967,
+        "threshold": ">=0.95",
+        "pass": true,
+        "n": 600,
+        "data": "public-substitute"
+      },
+      "A3.long.zh": {
+        "value": 0.998,
+        "threshold": ">=0.95",
+        "pass": true,
+        "n": 500,
+        "data": "public"
+      },
+      "A3.short.vien": {
+        "value": null,
+        "threshold": ">=0.85",
+        "pass": null,
+        "n": 0,
+        "data": "public-substitute"
+      },
+      "A3.short.zh": {
+        "value": null,
+        "threshold": ">=0.85",
+        "pass": null,
+        "n": 0,
+        "data": "public"
+      },
+      "A4": {
+        "value": null,
+        "threshold": ">=0.95",
+        "pass": null,
+        "n": 0,
+        "data": "public-substitute"
+      },
+      "A5": {
+        "value": 0.9,
+        "threshold": ">=0.90 rejected",
+        "pass": true,
+        "n": 80,
+        "data": "esc50"
+      },
+      "A5.esc50": {
+        "value": 0.9,
+        "threshold": "report",
+        "pass": null,
+        "n": 80,
+        "data": "esc50"
+      },
+      "A6.en-vi.first_language_p95_ms": {
+        "value": 747.5245,
+        "threshold": "<=1000",
+        "pass": true,
+        "n": 1200,
+        "data": "public-substitute"
+      },
+      "A6.en-vi.changed": {
+        "value": 0.295,
+        "threshold": "<=0.10",
+        "pass": false,
+        "n": 1200,
+        "data": "public-substitute"
+      },
+      "lock.en-vi.accuracy": {
+        "value": 0.7067,
+        "threshold": "report",
+        "pass": null,
+        "n": 1200,
+        "data": "public-substitute"
+      },
+      "A6.vi-zh.first_language_p95_ms": {
+        "value": 671.735,
+        "threshold": "<=1000",
+        "pass": true,
+        "n": 1600,
+        "data": "public-substitute"
+      },
+      "A6.vi-zh.changed": {
+        "value": 0.2875,
+        "threshold": "<=0.10",
+        "pass": false,
+        "n": 1600,
+        "data": "public-substitute"
+      },
+      "lock.vi-zh.accuracy": {
+        "value": 0.7137,
+        "threshold": "report",
+        "pass": null,
+        "n": 1600,
+        "data": "public-substitute"
+      },
+      "A6.en-zh.first_language_p95_ms": {
+        "value": 761.448,
+        "threshold": "<=1000",
+        "pass": true,
+        "n": 1600,
+        "data": "public-substitute"
+      },
+      "A6.en-zh.changed": {
+        "value": 0.17,
+        "threshold": "<=0.10",
+        "pass": false,
+        "n": 1600,
+        "data": "public-substitute"
+      },
+      "lock.en-zh.accuracy": {
+        "value": 0.83,
+        "threshold": "report",
+        "pass": null,
+        "n": 1600,
+        "data": "public-substitute"
+      },
+      "A7": {
+        "value": 273.103,
+        "threshold": "<=150 ms p95",
+        "pass": false,
+        "n": 5500,
+        "data": "mixed"
+      },
+      "A-ACC.pair": {
+        "value": null,
+        "threshold": ">=0.95",
+        "pass": null,
+        "n": 0,
+        "data": "public"
+      },
+      "A-ACC.detect": {
+        "value": null,
+        "threshold": ">=0.95",
+        "pass": null,
+        "n": 0,
+        "data": "public"
+      },
+      "A9-mono.en": {
+        "value": null,
+        "threshold": "<=0.03 err (worst source)",
+        "pass": null,
+        "n": 0,
+        "data": "real"
+      },
+      "A9-mono.vi": {
+        "value": null,
+        "threshold": "<=0.03 err (worst source)",
+        "pass": null,
+        "n": 0,
+        "data": "real"
+      },
+      "zh_real.A1.vi-zh": {
+        "value": null,
+        "threshold": "report",
+        "pass": null,
+        "n": 0,
+        "data": "real"
+      },
+      "zh_real.A1.en-zh": {
+        "value": null,
+        "threshold": "report",
+        "pass": null,
+        "n": 0,
+        "data": "real"
+      },
+      "zh_real.A3": {
+        "value": null,
+        "threshold": "report",
+        "pass": null,
+        "n": 0,
+        "data": "real"
+      }
+    }
+  },
+  "zh_real": {
+    "recognizer_competition": {
+      "zh_real.A1.vi-zh": {
+        "value": null,
+        "threshold": "report",
+        "pass": null,
+        "n": 0,
+        "data": "real"
+      },
+      "zh_real.A1.en-zh": {
+        "value": null,
+        "threshold": "report",
+        "pass": null,
+        "n": 0,
+        "data": "real"
+      },
+      "zh_real.A3": {
+        "value": null,
+        "threshold": "report",
+        "pass": null,
+        "n": 0,
+        "data": "real"
+      }
+    }
+  },
+  "winner": null,
+  "outcome": "INCOMPLETE",
+  "notes": [
+    "unsound: ['recognizer_competition']",
+    "--substitute-public: preliminary signal, never a verdict"
+  ],
+  "unsound": ["recognizer_competition"],
+  "prior_used": false,
+  "thresholds": {
+    "source_prior_logodds": 0.0,
+    "tau_uncertain": 0.0,
+    "tau_confident": 0.9,
+    "tau_lock": 0.5,
+    "lock_min_speech_ms": 0,
+    "tau_noise": 0.0
+  },
+  "rss_delta_mib": null,
+  "p95_added_ms": 273.103,
+  "runtime_artifact": null,
+  "substitute_public": true
+}

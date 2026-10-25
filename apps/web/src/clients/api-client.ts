@@ -6,7 +6,7 @@ import {
   conversationResponseSchema,
   conversationSummaryResponseSchema,
   minutesResponseSchema,
-  translationContextListResponseSchema,
+  readableTranslationContextListSchema,
   translationContextSchema,
   userSchema,
   voiceGenderSchema,
@@ -293,7 +293,9 @@ export function deleteConversation(conversationId: string) {
  * exist.
  */
 export function listTranslationContexts() {
-  return authedFetch('/translation-contexts', translationContextListResponseSchema);
+  // Read entry by entry: a glossary key this build does not know costs that
+  // key, not every saved context (see `readTranslationContextList`).
+  return authedFetch('/translation-contexts', readableTranslationContextListSchema);
 }
 
 /**

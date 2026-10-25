@@ -30,7 +30,7 @@ export function InterfacePreferencesSection() {
   return (
     <SettingsSection title={t('web.preferences.interface')}>
       <SettingsSectionRow label={t('common.language.label')}>
-        <LocaleSwitcher />
+        <LocaleSwitcher showValue />
       </SettingsSectionRow>
       <SettingsSectionRow label={t('common.theme.label')}>
         <ConnectedThemeToggle />

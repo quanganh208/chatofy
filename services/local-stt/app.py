@@ -17,7 +17,11 @@ _threads = os.environ.get("LOCAL_STT_THREADS", "8")
 os.environ.setdefault("OMP_NUM_THREADS", _threads)
 os.environ.setdefault("MKL_NUM_THREADS", _threads)
 
+import logging  # noqa: E402
+from concurrent.futures import Future, ThreadPoolExecutor  # noqa: E402
+from concurrent.futures import TimeoutError as FutureTimeout  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
+from threading import Event  # noqa: E402
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
@@ -26,7 +30,11 @@ from pydantic import BaseModel, Field  # noqa: E402
 from audio.decode import AudioTooLongError, DecodeError, decode_to_16k_mono  # noqa: E402
 from audio.silero_speech import SileroSpeechGate  # noqa: E402
 from audio.speech_duration import speech_duration_ms  # noqa: E402
-from engines.base import SAMPLE_RATE, SttBusyError  # noqa: E402
+from engines.base import (  # noqa: E402
+    SAMPLE_RATE,
+    SttBusyError,
+    stt_concurrency,
+)
 from engines.registry import (  # noqa: E402
     SUPPORTED_LANGUAGES,
     EngineRegistry,
@@ -34,14 +42,41 @@ from engines.registry import (  # noqa: E402
 )
 from engines.word_pauses import lead_pause  # noqa: E402
 from hotwords import build_hotwords  # noqa: E402
-from punctuation.restorer import LANGUAGE as RESTORE_LANGUAGE  # noqa: E402
-from punctuation.restorer import DisplayRestorer, RestorerBusyError  # noqa: E402
+from lid.decider import decide_language, lid_enabled  # noqa: E402
+from punctuation.registry import (  # noqa: E402
+    PAUSE_LANGUAGES,
+    PRIMARY_RESTORE_LANGUAGE,
+    RESTORERS,
+)
+from punctuation.restorer import RestorerBusyError  # noqa: E402
 from speaker.embedder import SpeakerEmbedder  # noqa: E402
 
 registry = EngineRegistry()
 embedder = SpeakerEmbedder()
 speech_gate = SileroSpeechGate()
-restorer = DisplayRestorer()
+# The Vietnamese restorer, bound by name because `/healthz` reports it and the
+# tests drive it directly. The same object as `RESTORERS["vi"]`, never a second
+# Dewpoint.
+restorer = RESTORERS[PRIMARY_RESTORE_LANGUAGE]
+
+log = logging.getLogger(__name__)
+
+#: How long the response waits for the alternate once the primary is done.
+#: The transcript is the turn's critical path and the alternate only a display
+#: enhancement, so it gets a bounded wait, never the caller's whole budget:
+#: measured on 95 real turns, the alternate finished at most 287 ms after the
+#: primary (p95 100 ms). Past this the turn answers without it. Also caps the
+#: alternate's own lane wait: a decode that could not start within this long is
+#: unlikely to finish in time to be read.
+ALTERNATE_WAIT_MS = float(os.environ.get("LOCAL_STT_ALTERNATE_WAIT_MS", "400"))
+
+#: Runs the alternate decode while the request thread runs the primary one, so
+#: a turn asking for both pays the slower of the two rather than their sum.
+#: Twice the lanes, so a waiting task reaches the engine's own lane wait — which
+#: refuses after the wait above — instead of queueing unseen in here.
+_alternate_pool = ThreadPoolExecutor(
+    max_workers=2 * stt_concurrency(), thread_name_prefix="stt-alternate"
+)
 
 
 @asynccontextmanager
@@ -54,11 +89,13 @@ async def lifespan(_app: FastAPI):
     embedder.load()
     speech_gate.load()
     # Last, and allowed to stay unloaded: see `DisplayRestorer.load`.
-    restorer.load()
+    for display_restorer in RESTORERS.values():
+        display_restorer.load()
     try:
         yield
     finally:
-        restorer.unload()
+        for display_restorer in RESTORERS.values():
+            display_restorer.unload()
         speech_gate.unload()
         embedder.unload()
         registry.unload_all()
@@ -86,6 +123,13 @@ def healthz() -> JSONResponse:
             # Reported, never gating: a sidecar that cannot restore still
             # transcribes, and the API falls back to the numerals-only display.
             "restore": restorer.loaded,
+            # Reported, never gating, for the same reason: without an
+            # alternate the display is exactly what it was before one existed.
+            "alternates": registry.alternate_languages,
+            # What a request's `candidates` may name: empty while identification
+            # is off, unseeded or failed to load, and then such a request is a
+            # 409. Never gating, like the two above.
+            "lidLanguages": registry.lid_languages,
         },
         status_code=200 if ready else 503,
     )
@@ -105,6 +149,21 @@ def transcribe(
     # engine — the caller decided the turn is not worth decoding, and paying
     # for the decode anyway would defeat the point of asking.
     min_speech_ms: int = Form(default=0),
+    # Off (the default) is today's response byte for byte: no second decode,
+    # no `alternates` key. On, and with an alternate recognizer loaded for the
+    # language, its unbiased reading of the same samples comes back as
+    # `alternates: [text]` for the API to fuse into the display. Absent on any
+    # failure of that second decode — the transcript never depends on it.
+    alternates: bool = Form(default=False),
+    # Empty (the default) is today's path and today's response byte for byte.
+    # Two or more, including `language`: the sidecar decides which one the turn
+    # is in, decodes it with that language's engine, and answers that
+    # `language` with `languageConfidence` — the chosen candidate's probability,
+    # or null when identification was too busy to run and `language` is the
+    # declared one decoded as asked. Identification never sees the hotwords:
+    # they name what the conversation expects, and biasing the decision with
+    # them would answer the question it was asked to settle.
+    candidates: list[str] = Form(default=[]),
 ) -> dict:
     if not registry.ready:
         raise HTTPException(status_code=503, detail="models not loaded")
@@ -114,6 +173,8 @@ def transcribe(
         engine = registry.get(language)
     except UnsupportedLanguageError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
+    if candidates:
+        _check_candidates(language, candidates)
 
     try:
         samples = decode_to_16k_mono(file.file.read())
@@ -134,6 +195,20 @@ def transcribe(
             # than the `turn_failed` banner an ungated empty decode gets.
             return {"text": "", "language": language, "speechMs": speech_ms}
 
+    # Asked first and on its own lanes, so the alternate below and the decode
+    # both know the language. Busy means the declared language, decoded as asked
+    # and reported unsure, rather than a 503 for a turn that can still be read.
+    declared = language
+    confidence: float | None = None
+    if candidates:
+        try:
+            decision = decide_language(registry.lid, samples, candidates)
+        except SttBusyError:
+            log.warning("language identification busy; decoding the declared %s", declared)
+        else:
+            language, confidence = decision.language, decision.confidence
+            engine = registry.get(language)
+
     # Sync endpoint runs in FastAPI's threadpool; the engine's lanes bound how
     # many decodes overlap. Saturation is a refusal, not a queue: a caller
     # waiting on a turn would rather hear 503 now than an answer too late to
@@ -143,28 +218,104 @@ def transcribe(
     # with. An engine that cannot be biased is handed nothing either way.
     terms = build_hotwords(hotwords) if engine.supports_hotwords else ""
 
+    # Started BEFORE the primary decode so the two overlap. Never handed the
+    # hotwords: it is an independent reading, and biasing both towards the same
+    # terms would make them agree for the wrong reason. After identification, so
+    # a turn identified as another language never starts one; read only if the
+    # decode stays in the alternate's language.
+    alternate_engine = registry.alternate(language) if alternates else None
+    alternate_language = language
+    # Set once the response no longer wants the alternate — answered, gave up
+    # waiting, or failed. A queued alternate is cancelled outright; one already
+    # waiting in the engine's lane wait sees this when it gets the lane, and
+    # gives the lane back instead of running a decode nobody reads.
+    abandoned = Event()
+    alternate: Future[str] | None = (
+        _alternate_pool.submit(
+            alternate_engine.transcribe,
+            samples,
+            lane_wait_ms=ALTERNATE_WAIT_MS,
+            abandoned=abandoned,
+        )
+        if alternate_engine is not None
+        else None
+    )
+
     try:
-        # The language the display restorer serves also gets the silence after
-        # each word: the restorer reads text only, and a full stop where the
-        # speaker never paused ("anh Tuấn. Anh…" for the name "Tuấn Anh") is
-        # only visible in the audio. Absent when the tokens did not line up.
-        if language == RESTORE_LANGUAGE:
-            text, pauses = engine.transcribe_with_pauses(samples, terms)
-        else:
-            text, pauses = engine.transcribe(samples, terms), None
-    except SttBusyError as err:
-        raise HTTPException(status_code=503, detail=str(err)) from err
-    result = {"text": text, "language": language}
-    if speech_ms is not None:
-        result["speechMs"] = speech_ms
-    if pauses is not None:
-        result["pauses"] = pauses
-        # The silence before the first word: where a piece was cut out of
-        # continuous speech, the pause at the cut is split between the end of
-        # one piece and the start of the next, and a caller joining them adds
-        # the two.
-        result["leadPause"] = lead_pause(samples, SAMPLE_RATE)
-    return result
+        try:
+            text, pauses = _decode(engine, language, samples, terms)
+        except SttBusyError as err:
+            if language == declared:
+                raise HTTPException(status_code=503, detail=str(err)) from err
+            # The identified language's engine is full; the declared one may not
+            # be, and its reading is a turn rather than a refusal.
+            log.warning("%s engine busy; decoding the declared %s", language, declared)
+            language, confidence, engine = declared, None, registry.get(declared)
+            terms = build_hotwords(hotwords) if engine.supports_hotwords else ""
+            try:
+                text, pauses = _decode(engine, language, samples, terms)
+            except SttBusyError as busy:
+                raise HTTPException(status_code=503, detail=str(busy)) from busy
+        result = {"text": text, "language": language}
+        if candidates:
+            result["languageConfidence"] = confidence
+            # How much speech the decision heard, by the measure its lock
+            # threshold was tuned on (`speech_duration_ms`, not the Silero gate
+            # behind `speechMs`): a caller locking a partial on "confident and
+            # at least 1.5 s of speech" needs the second half in those units.
+            result["lidSpeechMs"] = speech_duration_ms(samples)
+        if speech_ms is not None:
+            result["speechMs"] = speech_ms
+        if pauses is not None:
+            result["pauses"] = pauses
+            # The silence before the first word: where a piece was cut out of
+            # continuous speech, the pause at the cut is split between the end of
+            # one piece and the start of the next, and a caller joining them adds
+            # the two.
+            result["leadPause"] = lead_pause(samples, SAMPLE_RATE)
+        if alternate is not None and alternate_language == language:
+            try:
+                result["alternates"] = [alternate.result(timeout=ALTERNATE_WAIT_MS / 1000)]
+            except FutureTimeout:
+                # Queued or slow; the caller abandons it, so it never decodes late.
+                log.warning("%s alternate decode late; answering without it", language)
+            except SttBusyError:
+                # An alternate the engine refused is a turn whose display is not
+                # fused, not a turn that failed — and expected under load.
+                log.warning("%s alternate decode refused, lanes busy", language)
+            except Exception:  # noqa: BLE001 — the transcript must never fail on the alternate
+                log.warning("%s alternate decode failed; answering without it", language, exc_info=True)
+        return result
+    finally:
+        abandoned.set()
+        if alternate is not None:
+            alternate.cancel()
+
+
+def _check_candidates(language: str, candidates: list[str]) -> None:
+    """400 for a malformed list, 409 when there is nothing to identify with."""
+    if len(candidates) < 2 or len(set(candidates)) != len(candidates) or language not in candidates:
+        raise HTTPException(
+            status_code=400,
+            detail="candidates must be two or more distinct languages, including `language`",
+        )
+    unknown = [lang for lang in candidates if lang not in SUPPORTED_LANGUAGES]
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"unsupported candidates {unknown}")
+    if not lid_enabled() or registry.lid is None:
+        raise HTTPException(status_code=409, detail="language identification not enabled")
+    if any(lang not in registry.lid_languages for lang in candidates):
+        raise HTTPException(status_code=409, detail="language identification not enabled")
+
+
+def _decode(engine, language: str, samples, terms: str) -> tuple[str, list[int] | None]:
+    # The language the display restorer serves also gets the silence after
+    # each word: the restorer reads text only, and a full stop where the
+    # speaker never paused ("anh Tuấn. Anh…" for the name "Tuấn Anh") is
+    # only visible in the audio. Absent when the tokens did not line up.
+    if language in PAUSE_LANGUAGES:
+        return engine.transcribe_with_pauses(samples, terms)
+    return engine.transcribe(samples, terms), None
 
 
 @app.post("/embed")
@@ -232,19 +383,29 @@ class RestoreRequest(BaseModel):
 
 @app.post("/restore")
 def restore(body: RestoreRequest) -> dict:
-    """Punctuation and case for a Vietnamese transcript, for display only.
+    """Punctuation (and for vi, case) for a transcript, for display only.
 
     Its own endpoint rather than part of `/transcribe` for the reason `/embed`
     is: the caller starts it beside the translation, which cannot begin until
     the transcript exists, so riding in that response would put its cost in
     front of the translation instead of next to it.
     """
-    if body.language != RESTORE_LANGUAGE:
-        raise HTTPException(status_code=400, detail=f"restore serves {RESTORE_LANGUAGE} only")
-    if not restorer.loaded:
-        raise HTTPException(status_code=503, detail="display restorer not loaded")
+    chosen = RESTORERS.get(body.language)
+    if chosen is None:
+        raise HTTPException(
+            status_code=400, detail=f"restore serves {', '.join(RESTORERS)} only"
+        )
+    if not chosen.loaded:
+        # 503 for the primary restorer, as it always was. A secondary model
+        # that did not load answers 404 (below).
+        if body.language == PRIMARY_RESTORE_LANGUAGE:
+            raise HTTPException(status_code=503, detail="display restorer not loaded")
+        # 404: the API reads it as "no restorer here" and stops asking for a
+        # minute — for THIS language only, since its cooldown is per language —
+        # instead of sending a doomed request and a warning on every zh turn.
+        raise HTTPException(status_code=404, detail=f"restore for {body.language} not loaded")
     try:
-        return {"text": restorer.restore(body.text, body.context, body.terms, body.pauses)}
+        return {"text": chosen.restore(body.text, body.context, body.terms, body.pauses)}
     except RestorerBusyError as err:
         # 429, not 503: the API reads 503 as "not loaded" and stops asking for a
         # while, which a momentary queue must not trigger.

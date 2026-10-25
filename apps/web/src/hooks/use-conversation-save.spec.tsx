@@ -34,17 +34,17 @@ const turn = (text: string, speakerLabel: string | null = null): ConversationTur
   displayText: null,
   sourceLanguages: ['vi'],
   translations: { en: 'translated' },
-  targetText: 'translated',
   offsetMs: null,
 });
 
 const baseInput: ConversationSaveInput = {
   conversationId: 'c-1',
   startedAt: '2026-09-03T00:00:00.000Z',
-  direction: 'vi_to_en',
+  languagePair: { source: 'vi', target: 'en' },
   running: true,
   turns: [],
   audioOffsetMs: null,
+  pausedMs: 0,
 };
 
 /** The body of the nth write. `mock.calls` is untyped, and the assertions are not. */
@@ -101,6 +101,24 @@ afterEach(() => {
 });
 
 describe('useConversationSave', () => {
+  it('never sends more paused time than the conversation lasted', async () => {
+    // A wall clock that stepped during a pause can sum to more than the span;
+    // the API refuses that with a 400 that is never retried.
+    vi.setSystemTime(new Date('2026-09-03T00:00:10.000Z'));
+    await render({ ...baseInput, running: true, turns: [turn('xin chào')] });
+    await render({ ...baseInput, running: false, turns: [turn('xin chào')], pausedMs: 60_000 });
+
+    expect(bodyOf(0).pausedMs).toBe(10_000);
+  });
+
+  it('never sends a negative paused time', async () => {
+    vi.setSystemTime(new Date('2026-09-03T00:00:10.000Z'));
+    await render({ ...baseInput, running: true, turns: [turn('xin chào')] });
+    await render({ ...baseInput, running: false, turns: [turn('xin chào')], pausedMs: -500 });
+
+    expect(bodyOf(0).pausedMs).toBe(0);
+  });
+
   it('fires once when a conversation with blocks goes idle', async () => {
     await render({ ...baseInput, running: true, turns: [turn('xin chào')] });
     expect(saveConversation).not.toHaveBeenCalled();
@@ -111,8 +129,7 @@ describe('useConversationSave', () => {
     expect(saveConversation).toHaveBeenCalledWith(
       'c-1',
       expect.objectContaining({
-        direction: 'vi_to_en',
-        // Derived from `direction`, not left to the server to fill in — the
+        // Derived from the pair, not left to the server to fill in — the
         // client always knows its own conversation's languages.
         languages: ['vi', 'en'],
         startedAt: baseInput.startedAt,
@@ -124,6 +141,45 @@ describe('useConversationSave', () => {
     // A re-render with the same content must not spend a second write.
     await render({ ...baseInput, running: false, turns: [turn('xin chào')] });
     expect(saveConversation).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not re-save when the pair is re-rendered as an equal new object', async () => {
+    await render({ ...baseInput, running: false, turns: [turn('xin chào')] });
+    expect(saveConversation).toHaveBeenCalledTimes(1);
+
+    // Equal by value, never by identity — a pair rebuilt during render must not
+    // read as a change to the conversation.
+    await render({
+      ...baseInput,
+      languagePair: { source: 'vi', target: 'en' },
+      running: false,
+      turns: [turn('xin chào')],
+    });
+    await flushEdits();
+    expect(saveConversation).toHaveBeenCalledTimes(1);
+  });
+
+  it('stores the languages of the pair the conversation ran in, source first', async () => {
+    await render({
+      ...baseInput,
+      languagePair: { source: 'zh', target: 'vi' },
+      running: false,
+      turns: [turn('你好')],
+    });
+    expect(bodyOf(0).languages).toEqual(['zh', 'vi']);
+    expect(bodyOf(0)).not.toHaveProperty('direction');
+  });
+
+  it('stores an auto-detected conversation target first, with every other language', async () => {
+    // The shape the server writes for the same conversation, from the same
+    // helper — and more than two languages is what reads it back as detected.
+    await render({
+      ...baseInput,
+      languagePair: { source: 'detect', target: 'en' },
+      running: false,
+      turns: [turn('good morning')],
+    });
+    expect(bodyOf(0).languages).toEqual(['en', 'vi', 'zh']);
   });
 
   it('does not fire for a conversation with no blocks', async () => {

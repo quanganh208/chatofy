@@ -19,12 +19,18 @@ import re
 #: Shortest part worth its own synthesis call. See the TypeScript original.
 MIN_PART_CHARS = 4
 
+#: ASCII clause and sentence terminators.
+SPACED_MARKS = ",;:.!?…"
+#: Full-width terminators, as Chinese writes them: no space follows them and
+#: none is ever part of a number, so they need no lookahead.
+FULL_WIDTH_MARKS = "，。！？；："
+
 #: Clause and sentence terminators, kept with the text they follow. The
-#: lookahead requires whitespace or end-of-text after the mark, so "3.5" and
-#: the Vietnamese decimal comma in "1,5 triệu" are not boundaries. `\Z` rather
-#: than `$`: Python's `$` also matches before a trailing newline, JavaScript's
-#: (without the m flag) does not.
-BOUNDARY = re.compile(r"[,;:.!?…]+(?=\s|\Z)")
+#: lookahead on the ASCII marks requires whitespace or end-of-text after the
+#: mark, so "3.5" and the Vietnamese decimal comma in "1,5 triệu" are not
+#: boundaries. `\Z` rather than `$`: Python's `$` also matches before a
+#: trailing newline, JavaScript's (without the m flag) does not.
+BOUNDARY = re.compile(rf"[{SPACED_MARKS}]+(?=\s|\Z)|[{FULL_WIDTH_MARKS}]+")
 
 
 def split_into_clauses(text: str) -> list[str]:
@@ -59,7 +65,9 @@ def _absorb_fragments(parts: list[str]) -> list[str]:
         too_short = len(part) < MIN_PART_CHARS
         previous_too_short = previous is not None and len(previous) < MIN_PART_CHARS
         if previous is not None and (too_short or previous_too_short):
-            merged[-1] = f"{previous} {part}"
+            # No space after a full-width mark: Chinese writes none there.
+            joiner = "" if previous[-1] in FULL_WIDTH_MARKS else " "
+            merged[-1] = f"{previous}{joiner}{part}"
         else:
             merged.append(part)
     return merged

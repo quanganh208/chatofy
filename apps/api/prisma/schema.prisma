@@ -194,16 +194,24 @@ model Conversation {
   //
   // Replaces the single `direction` column ('vi_to_en' | 'en_to_vi'): a
   // direction only ever named two languages in a fixed order, and an array
-  // says the same thing without hard-coding the count at two. The legacy field
-  // is derived back from this on every read (`legacyDirectionOf`,
-  // `@chatofy/types`) rather than stored twice, and read by the history list
-  // card either way.
+  // says the same thing without hard-coding the count at two. Nothing derives
+  // the old string back on read: the API returns this column as stored.
   languages       String[]
-  // Reported by the client and DISPLAYED: endedAt - startedAt is the duration on
-  // a history card. Not the sort key — a browser clock can lie — and both are
-  // bounded at the boundary so a lying clock cannot render an absurd duration.
+  // Reported by the client and DISPLAYED: endedAt - startedAt - pausedMs is the
+  // duration on a history card. Not the sort key — a browser clock can lie — and
+  // both are bounded at the boundary so a lying clock cannot render an absurd
+  // duration.
   startedAt       DateTime
   endedAt         DateTime
+  // Total milliseconds the conversation spent paused. The live clock stops while
+  // paused and the recording pauses with it, so this is what the card's duration
+  // leaves out to read the same active time. Turn offsets already exclude the
+  // pauses before them, so the intervals themselves are not stored.
+  //
+  // 0 for every row saved before pausing stopped the clock, which is exactly
+  // what their duration meant. A save never lowers it (see the store's `save`):
+  // a tab on an older bundle re-saving a rename sends none.
+  pausedMs        Int                @default(0)
   // The server instant the record landed. The list's sort key, and the only
   // timestamp here the server can vouch for.
   createdAt       DateTime           @default(now())
@@ -272,26 +280,26 @@ model ConversationTurn {
   // collide with another's row on write — a unique violation that reveals the
   // row exists. `MinutesActionItem.id` is app-minted SERVER-side, so it is not a
   // precedent here.
-  id              String       @id @default(cuid())
-  conversationId  String
-  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   // Display-block order.
-  position        Int
+  position       Int
   // 'speaker_a' | 'speaker_b' — the localizable primitive. Read at render to
   // build a fallback name when nobody was named.
-  speakerRole     String
+  speakerRole    String
   // The roster label the user confirmed, or NULL when they never attributed this
   // block. Nullable rather than defaulted, because the fallback is
   // language-dependent: baking "Speaker A" in here would put an English string
   // on a Vietnamese screen forever, and a row is invisible to the
   // compiler-enforced i18n parity.
-  speakerLabel    String?
+  speakerLabel   String?
   // What the recognizer produced.
-  sourceText      String
+  sourceText     String
   // The repaired, typeset rendering — present ONLY when it differs from
   // sourceText, exactly as `displays` works today. Read as
   // `displayText ?? sourceText`, which is also what search must match.
-  displayText     String?
+  displayText    String?
   // The language(s) this block was spoken in — one, except for a mixed block
   // that switched languages mid-turn. Registry codes only (`LanguageCode`),
   // validated as `sourceLanguagesSchema` at the boundary; derived server-side
@@ -303,11 +311,12 @@ model ConversationTurn {
   // Validated as `translationMapSchema` at the boundary; server-written only,
   // after zod has already checked every value's length, so no client ever puts
   // an arbitrary key or an oversized value in this JSON.
-  translations    Json
-  // The legacy `targetText` this replaces: a SINGLE translation, chosen by
-  // `primaryTranslation` (`@chatofy/types`) from `translations` on every read,
-  // never stored — a column that duplicated one of `translations`' own values
-  // could disagree with it the moment either changed. The dropped column's
+  translations   Json
+  // The legacy `targetText` this replaces was a SINGLE translation. Which one
+  // a reader shows is now picked at render time (`primaryTranslation`,
+  // `@chatofy/types`) and never stored or returned — a column that duplicated
+  // one of `translations`' own values could disagree with it the moment either
+  // changed. The dropped column's
   // last stored values ARE what `translations` and `sourceLanguages` were
   // backfilled from (see the migration).
   //
@@ -333,7 +342,7 @@ model ConversationTurn {
   //
   // Nullable because it is backfilled: rows written before this column existed get
   // it from the migration, and nothing reads it as a claim about the row.
-  searchText      String?
+  searchText     String?
   // Milliseconds from the conversation's `startedAt` to the moment capture opened
   // on this block — its FIRST member's `openedAt`, which is the same measurement
   // `display-groups.ts` already trusts to decide whether two turns were one
@@ -348,7 +357,7 @@ model ConversationTurn {
   // read in `position` order, and `@@unique([conversationId, position])` below
   // already IS that index. An index here would be paid for on every write and
   // read by nothing.
-  offsetMs        Int?
+  offsetMs       Int?
 
   // Unique, not merely indexed: two rows at one position is a corrupt
   // transcript, and with conversationId leading this IS the read index.
@@ -445,9 +454,9 @@ model TranslationContext {
 // not one column per language: a fixed-column table needs a migration to add a
 // language, and this one already carries the registry's own openness. There is
 // no fold column and no uniqueness on the terms, deliberately: which side is the
-// SOURCE depends on the direction the session runs in, the prompt builder folds
-// that side, and a row knows of no session. A unique index here would have to
-// pick a direction and would be wrong half the time.
+// SOURCE depends on the language pair the session runs in, the prompt builder
+// folds that side, and a row knows of no session. A unique index here would have
+// to pick a side and would be wrong half the time.
 model GlossaryTerm {
   id        String             @id @default(cuid())
   contextId String
@@ -496,7 +505,6 @@ model ConferenceParticipant {
   messages   ConferenceMessage[]
 
   @@unique([conferenceId, userId])
-  @@index([conferenceId])
   @@index([userId])
 }
 

@@ -1,0 +1,17 @@
+{
+  "turns": 8106,
+  "prefixes": "600,900,1200,1500,2000,3000",
+  "threads": 4,
+  "arms": [
+    {
+      "arm": "turn_facts",
+      "exit": 0,
+      "seconds": 255.0
+    },
+    {
+      "arm": "recognizer_competition",
+      "exit": 0,
+      "seconds": 5343.2
+    }
+  ]
+}

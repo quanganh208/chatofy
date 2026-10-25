@@ -3,15 +3,28 @@
 - Zipformer-30M vi: encoder/decoder/joiner INT8 ONNX + bpe.model from HF, then
   generates tokens.txt from bpe.model (the repo does not ship one; sherpa-onnx
   requires the "SYMBOL ID" token table).
+- ZipFormer-150M vi, the alternate recognizer behind `/transcribe`'s
+  `alternates`: the same four files and the same generated tokens.txt, from a
+  pinned HF revision, each file pinned by size and sha256. Optional, like
+  Dewpoint.
 - Parakeet-TDT-0.6b-v2 en INT8 (~630MB): k2-fsa release tarball, extracted.
+- Paraformer-zh int8 (2023-09-14): k2-fsa release tarball (~234MB), pinned by
+  size and sha256, of which only the model and its token table are extracted.
 - CAM++ speaker embedding: one ONNX file from the k2-fsa speaker release. fp32,
   because that release publishes no int8 variant of any speaker model.
 - Silero VAD: one ONNX file, pinned by sha256 (see below) rather than trusted
   on whatever the URL currently serves — see `audio/silero_speech.py`.
+- CT-Transformer punctuation for the zh display: k2-fsa release tarball, pinned
+  by the digest GitHub publishes for it; only the model is extracted. Optional,
+  like Dewpoint.
 - Dewpoint mmBERT punctuation/case tagger for the vi display: pinned HF
   revision, then its embedding matrix quantized to 8 bits here by
   `quantize_embedding.py` — see `punctuation/restorer.py` for why only the
   embedding.
+- Whisper base (onnx-community ONNX export) for language identification:
+  encoder, decoder and token table at a pinned revision, each pinned by size
+  and sha256. Optional, like Dewpoint, and skipped outright when
+  `LOCAL_STT_LID` is off.
 
 Idempotent; safe to re-run.
 Run: uv run --directory services/local-stt python scripts/download_models.py
@@ -45,10 +58,62 @@ ZIPFORMER_FILES = [
     "bpe.model",
 ]
 
+ZIPFORMER_ALT_REPO = "hynt/ZipFormer-150M-CR-CTC-RNNT-6000h"
+#: Pinned: the fusion numbers in `engines/zipformer_vi_alternate.py` were
+#: measured on exactly this revision.
+ZIPFORMER_ALT_REVISION = "8c3d474d3d74cb247f4b8c7b0f8b48598ac8c1c6"
+ZIPFORMER_ALT_DIR = "zipformer-vi-150m"
+#: Size and sha256 of each file at that revision, from the Hub's LFS metadata
+#: and checked against the files the fusion was measured on: a revision pins
+#: what the repo says, these pin the bytes that land.
+ZIPFORMER_ALT_PINS = {
+    "encoder-epoch-11-avg-2.int8.onnx": (
+        154_671_174,
+        "827db843495b35ba1153a92494f89e5e58ec31f5393b4f199b39b508f5a9d025",
+    ),
+    "decoder-epoch-11-avg-2.int8.onnx": (
+        1_308_689,
+        "af6c029366f12c1feef320e601d80e6b797a0b3b23d5013b110402bde53991e3",
+    ),
+    "joiner-epoch-11-avg-2.int8.onnx": (
+        1_033_417,
+        "7d0417a93de825ab0002de19acb30500406bb7224074493387f616180b1807f0",
+    ),
+    "bpe.model": (
+        268_106,
+        "002894e7a82d80ffa5e25008ec8c5496159db804005e2103de96b01b4c13d445",
+    ),
+}
+ZIPFORMER_ALT_FILES = list(ZIPFORMER_ALT_PINS)
+
 PARAKEET_URL = (
     "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/"
     "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2"
 )
+
+PARAFORMER_ZH_NAME = "sherpa-onnx-paraformer-zh-2023-09-14"
+PARAFORMER_ZH_URL = (
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/"
+    f"{PARAFORMER_ZH_NAME}.tar.bz2"
+)
+#: GitHub publishes no digest for this 2023 asset, so both values come from the
+#: first fetch (2026-10-13) — the same tarball the r11 benchmark measured.
+PARAFORMER_ZH_SIZE = 234_051_698
+PARAFORMER_ZH_SHA256 = "9c49fd9c6fb63de8e18c1054cf3d100f804741b7e608e187923cd8ff09fa9f03"
+#: The tarball also carries test WAVs and helper scripts nothing here runs.
+PARAFORMER_ZH_MEMBERS = ("model.int8.onnx", "tokens.txt")
+
+CT_PUNCT_ZH_NAME = "sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8"
+CT_PUNCT_ZH_URL = (
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/punctuation-models/"
+    f"{CT_PUNCT_ZH_NAME}.tar.bz2"
+)
+#: The digest GitHub publishes for this asset, checked against the first fetch.
+CT_PUNCT_ZH_SIZE = 64_717_756
+CT_PUNCT_ZH_SHA256 = "c0d5aa5f8eeb686032345e180bedf39319dc2e0556781c6264bcadba8328a6e1"
+#: The model carries its own token table in its metadata; `tokens.json` and the
+#: export scripts beside it are not needed to run it.
+CT_PUNCT_ZH_MEMBERS = ("model.int8.onnx",)
 
 # The release tag is misspelled upstream ("recongition"). Copied verbatim: the
 # corrected spelling 404s.
@@ -71,29 +136,116 @@ DEWPOINT_FILES = [
 ]
 DEWPOINT_ONNX = "onnx/mmbert-base/model.onnx"
 
+WHISPER_LID_REPO = "onnx-community/whisper-base"
+#: Pinned: the language-identification numbers in `lid/model_decider.py` were
+#: measured on exactly these bytes (`benchmarks/lid/arms/whisper_probs/pins.json`).
+WHISPER_LID_REVISION = "1846881b6b3a3024392c1eea3ad983695bc23925"
+#: Duplicated from `lid.model_decider` for the reason SILERO_VAD_URL is;
+#: `test_download_models.py` asserts the two agree.
+WHISPER_LID_DIR = "whisper-base-lid"
+WHISPER_LID_PINS = {
+    "onnx/encoder_model.onnx": (
+        82_468_078,
+        "a9f3b752833b49e880dec91ee5b6d936112be7c3ea07c221024ba493439f46fe",
+    ),
+    "onnx/decoder_model.onnx": (
+        208_289_724,
+        "70d26763610c0d6bb407373b7f30d415252ee470e62a0f816c8a46b2caca7326",
+    ),
+    "tokenizer.json": (
+        2_480_466,
+        "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566",
+    ),
+}
+
 
 def fetch_zipformer_vi() -> None:
-    out_dir = MODELS_DIR / "zipformer-vi-30m"
+    fetch_hynt_zipformer("zipformer-vi", ZIPFORMER_REPO, None, "zipformer-vi-30m", ZIPFORMER_FILES)
+
+
+def fetch_zipformer_vi_alternate() -> None:
+    """The alternate vi recognizer, which is OPTIONAL: any failure is a warning.
+
+    Same contract as `fetch_ct_punct_zh`: the sidecar serves without it (no
+    `alternates` on any response) and the API shows the unfused display, so
+    neither a download failure nor a read-only models mount may stop the seed or
+    the runtime.
+    """
+    tag = "zipformer-vi-150m"
+    out_dir = MODELS_DIR / ZIPFORMER_ALT_DIR
+    if not _writable(out_dir) and not (out_dir / "tokens.txt").exists():
+        print(f"[{tag}] skipped, {MODELS_DIR} is not writable; no vi alternates")
+        return
+    try:
+        fetch_hynt_zipformer(
+            tag,
+            ZIPFORMER_ALT_REPO,
+            ZIPFORMER_ALT_REVISION,
+            ZIPFORMER_ALT_DIR,
+            ZIPFORMER_ALT_FILES,
+            pins=ZIPFORMER_ALT_PINS,
+        )
+    except Exception as err:  # noqa: BLE001 — see the docstring
+        print(f"[{tag}] skipped, no vi alternates: {err}")
+
+
+def fetch_hynt_zipformer(
+    tag: str,
+    repo: str,
+    revision: str | None,
+    dir_name: str,
+    files: list[str],
+    pins: dict[str, tuple[int, str]] | None = None,
+) -> None:
+    """One of hynt's Zipformer exports: the files as published, plus tokens.txt.
+
+    Each file lands through a `.part` and a rename, so an interrupted run never
+    leaves a truncated encoder that the existence check would accept as cached.
+    A file with an entry in `pins` (size, sha256) is verified as the `.part`,
+    so bytes that do not match never take the name the cache check trusts.
+    """
+    out_dir = MODELS_DIR / dir_name
+    tokens_path = out_dir / "tokens.txt"
+    if tokens_path.exists() and all((out_dir / name).exists() for name in files):
+        print(f"[{tag}] ready (cached)")
+        return
     out_dir.mkdir(parents=True, exist_ok=True)
-    for filename in ZIPFORMER_FILES:
+    for filename in files:
         target = out_dir / filename
         if target.exists():
             continue
-        print(f"[zipformer-vi] fetching {filename}")
-        cached = hf_hub_download(ZIPFORMER_REPO, filename)
-        shutil.copyfile(cached, target)
+        print(f"[{tag}] fetching {filename}")
+        cached = hf_hub_download(repo, filename, revision=revision)
+        part = target.with_name(target.name + ".part")
+        shutil.copyfile(cached, part)
+        if pins is not None and filename in pins:
+            try:
+                verify_pinned(part, *pins[filename])
+            except RuntimeError:
+                part.unlink()
+                raise
+        part.rename(target)
 
-    tokens_path = out_dir / "tokens.txt"
     if not tokens_path.exists():
-        print("[zipformer-vi] generating tokens.txt from bpe.model")
-        import sentencepiece as spm
+        print(f"[{tag}] generating tokens.txt from bpe.model")
+        write_tokens(out_dir / "bpe.model", tokens_path)
+    print(f"[{tag}] ready")
 
-        sp = spm.SentencePieceProcessor()
-        sp.load(str(out_dir / "bpe.model"))
-        with open(tokens_path, "w", encoding="utf-8") as f:
-            for token_id in range(sp.get_piece_size()):
-                f.write(f"{sp.id_to_piece(token_id)} {token_id}\n")
-    print("[zipformer-vi] ready")
+
+def write_tokens(bpe_model: Path, tokens_path: Path) -> None:
+    """The "SYMBOL ID" table sherpa-onnx reads, from the repo's SentencePiece model.
+
+    hynt's repos ship only `bpe.model`; through a `.part` like the weights.
+    """
+    import sentencepiece as spm
+
+    sp = spm.SentencePieceProcessor()
+    sp.load(str(bpe_model))
+    part = tokens_path.with_name(tokens_path.name + ".part")
+    with open(part, "w", encoding="utf-8") as f:
+        for token_id in range(sp.get_piece_size()):
+            f.write(f"{sp.id_to_piece(token_id)} {token_id}\n")
+    part.rename(tokens_path)
 
 
 def fetch_parakeet_en() -> None:
@@ -118,6 +270,111 @@ def fetch_parakeet_en() -> None:
         raise RuntimeError(f"unexpected tarball layout; {out_dir} incomplete")
     tar_path.unlink()
     print("[parakeet-en] ready")
+
+
+def verify_pinned(path: Path, size: int, sha256: str) -> None:
+    """Raise unless `path` has exactly the pinned size and sha256.
+
+    Size first: a truncated download fails in a stat instead of a 200MB hash.
+    """
+    actual_size = path.stat().st_size
+    if actual_size != size:
+        raise RuntimeError(f"{path.name} is {actual_size} bytes, pinned {size}")
+    actual = _sha256(path)
+    if actual != sha256:
+        raise RuntimeError(f"{path.name} sha256 {actual} != pinned {sha256}")
+
+
+def extract_members(tar_path: Path, prefix: str, members: tuple[str, ...], out_dir: Path) -> None:
+    """Extract only `prefix/<member>` for each member, streamed, one at a time.
+
+    `filter="data"` refuses links, devices and paths that leave `out_dir`, the
+    same guard the Parakeet extraction uses. Each file lands through a `.part`
+    and a rename, so an interrupted run never leaves a truncated model that the
+    cache check would accept.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    wanted = {f"{prefix}/{name}": name for name in members}
+    found: set[str] = set()
+    with tarfile.open(tar_path, "r|bz2") as tar:
+        for member in tar:
+            name = wanted.get(member.name)
+            if name is None:
+                continue
+            member.name = name + ".part"
+            tar.extract(member, out_dir, filter="data")
+            (out_dir / member.name).rename(out_dir / name)
+            found.add(name)
+    missing = set(members) - found
+    if missing:
+        raise RuntimeError(f"{tar_path.name} has no {sorted(missing)}")
+
+
+def fetch_pinned_release(
+    tag: str, name: str, url: str, size: int, sha256: str, members: tuple[str, ...]
+) -> None:
+    """A k2-fsa release tarball, verified against its pin, `members` extracted.
+
+    Verified before a single byte is extracted, cached or fresh: a tampered or
+    truncated tarball is deleted and this raises, as Silero's check does.
+    """
+    out_dir = MODELS_DIR / name
+    if all((out_dir / member).exists() for member in members):
+        print(f"[{tag}] ready (cached)")
+        return
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    tar_path = MODELS_DIR / f"{name}.tar.bz2"
+    if not tar_path.exists():
+        print(f"[{tag}] downloading {url}")
+        tmp = tar_path.with_suffix(".part")
+        with urllib.request.urlopen(url, timeout=60) as response, open(tmp, "wb") as out:
+            shutil.copyfileobj(response, out, length=1024 * 1024)
+        tmp.rename(tar_path)
+    try:
+        verify_pinned(tar_path, size, sha256)
+    except RuntimeError:
+        tar_path.unlink()
+        raise
+    print(f"[{tag}] extracting")
+    extract_members(tar_path, name, members, out_dir)
+    tar_path.unlink()
+    print(f"[{tag}] ready")
+
+
+def fetch_paraformer_zh() -> None:
+    fetch_pinned_release(
+        "paraformer-zh",
+        PARAFORMER_ZH_NAME,
+        PARAFORMER_ZH_URL,
+        PARAFORMER_ZH_SIZE,
+        PARAFORMER_ZH_SHA256,
+        PARAFORMER_ZH_MEMBERS,
+    )
+
+
+def fetch_ct_punct_zh() -> None:
+    """The zh display restorer, which is OPTIONAL: any failure is a warning.
+
+    Same contract as `fetch_dewpoint`: the sidecar transcribes zh without it and
+    the API shows the plain transcript, so neither a download failure nor a
+    read-only models mount may stop the seed or the runtime.
+    """
+    if not _writable(MODELS_DIR / CT_PUNCT_ZH_NAME) and not (
+        MODELS_DIR / CT_PUNCT_ZH_NAME / CT_PUNCT_ZH_MEMBERS[0]
+    ).exists():
+        print(f"[ct-punct-zh] skipped, {MODELS_DIR} is not writable; zh display stays plain")
+        return
+    try:
+        fetch_pinned_release(
+            "ct-punct-zh",
+            CT_PUNCT_ZH_NAME,
+            CT_PUNCT_ZH_URL,
+            CT_PUNCT_ZH_SIZE,
+            CT_PUNCT_ZH_SHA256,
+            CT_PUNCT_ZH_MEMBERS,
+        )
+    except Exception as err:  # noqa: BLE001 — see the docstring
+        print(f"[ct-punct-zh] skipped, zh display stays plain: {err}")
 
 
 def fetch_campplus_speaker() -> None:
@@ -253,13 +510,63 @@ def _fetch_dewpoint() -> None:
     print("[dewpoint] ready")
 
 
+def lid_enabled() -> bool:
+    """`lid.decider.lid_enabled`, duplicated for the import reason above."""
+    return os.environ.get("LOCAL_STT_LID", "on").strip().lower() not in {"off", "0", "false", "no"}
+
+
+def fetch_whisper_lid() -> None:
+    """The language identifier, which is OPTIONAL: any failure is a warning.
+
+    Skipped without a request when `LOCAL_STT_LID` is off, so a deploy that has
+    not turned identification on pays nothing for it — not the download, not
+    the disk. On, the sidecar without it refuses `candidates` and serves
+    everything else as before, so neither a Hub outage nor a read-only mount may
+    stop the seed.
+    """
+    tag = "whisper-lid"
+    if not lid_enabled():
+        print(f"[{tag}] skipped, LOCAL_STT_LID is off")
+        return
+    out_dir = MODELS_DIR / WHISPER_LID_DIR
+    missing = [name for name in WHISPER_LID_PINS if not (out_dir / name).exists()]
+    if not missing:
+        print(f"[{tag}] ready (cached)")
+        return
+    if not _writable(out_dir):
+        print(f"[{tag}] skipped, {out_dir} is not writable; candidates will be refused")
+        return
+    try:
+        for filename in missing:
+            print(f"[{tag}] fetching {filename} @ {WHISPER_LID_REVISION[:8]}")
+            target = out_dir / filename
+            target.parent.mkdir(parents=True, exist_ok=True)
+            cached = hf_hub_download(WHISPER_LID_REPO, filename, revision=WHISPER_LID_REVISION)
+            part = target.with_name(target.name + ".part")
+            shutil.copyfile(cached, part)
+            try:
+                verify_pinned(part, *WHISPER_LID_PINS[filename])
+            except RuntimeError:
+                part.unlink()
+                raise
+            part.rename(target)
+    except Exception as err:  # noqa: BLE001 — see the docstring
+        print(f"[{tag}] skipped, candidates will be refused: {err}")
+        return
+    print(f"[{tag}] ready")
+
+
 def main() -> int:
     for fetch in (
         fetch_zipformer_vi,
+        fetch_zipformer_vi_alternate,
         fetch_parakeet_en,
+        fetch_paraformer_zh,
         fetch_campplus_speaker,
         fetch_silero_vad,
+        fetch_ct_punct_zh,
         fetch_dewpoint,
+        fetch_whisper_lid,
     ):
         fetch()
     print("[done] models cached in models/")

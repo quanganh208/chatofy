@@ -18,7 +18,7 @@ import { useTranslate } from '@/i18n/provider';
  * One `Input` per `LANGUAGE_CODES` entry, generated rather than named per
  * language: adding a language to the registry is then a data change here, not a
  * markup change, and the ids stay `ai-context-glossary-<code>-<index>` for every
- * code the registry has ever had — `vi`/`en` today.
+ * code the registry has ever had — `vi`/`en`/`zh` today.
  *
  * Spends no accent: "Add pair" is `outline` and the row's remove is `ghost`. The
  * editor's Save is the screen's only filled control.
@@ -38,7 +38,9 @@ export function AiContextGlossaryFields({
       <span className="text-muted-foreground text-hint">
         {t('web.preferences.aiContext.glossaryHint')}
       </span>
-      <div className="flex flex-col gap-2">
+      {/* Rows sit further apart below `sm`, where each one is a stack of fields
+          and the gap is what tells one entry from the next. */}
+      <div className="flex flex-col gap-4 sm:gap-2">
         {rows.map((row, index) => {
           const tooLongByCode = Object.fromEntries(
             LANGUAGE_CODES.map((code) => [code, sideTooLong(row[code])]),
@@ -49,12 +51,15 @@ export function AiContextGlossaryFields({
             // context is PUT, so the rows have no stable id to key on
             // and the list is only ever rewritten as a unit.
             <div key={index} className="flex flex-col gap-1">
-              <div className="flex items-end gap-2">
+              {/* Side by side from `sm` up; stacked below it. Three languages
+                  across a 360px screen left each field 66px wide, too narrow to
+                  read the term being written, and ran the labels together. */}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                 {LANGUAGE_CODES.map((code) => (
-                  <div key={code} className="flex min-w-0 flex-1 flex-col gap-1">
+                  <div key={code} className="flex min-w-0 flex-col gap-1 sm:flex-1">
                     <Label
                       htmlFor={`ai-context-glossary-${code}-${index}`}
-                      className="text-muted-foreground text-hint"
+                      className="text-muted-foreground text-hint truncate"
                     >
                       {t(`web.languageName.${code}`)}
                     </Label>
@@ -76,6 +81,7 @@ export function AiContextGlossaryFields({
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="self-end"
                   aria-label={t('web.preferences.aiContext.glossaryRemove')}
                   onClick={() => onChange(rows.filter((_, at) => at !== index))}
                 >

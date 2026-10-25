@@ -1,20 +1,31 @@
 import type { Logger } from '@nestjs/common';
-import type { LanguageCode } from '@chatofy/types';
+import { wordsOf, type LanguageCode, type LanguageTable } from '@chatofy/types';
 import {
+  applyTranscriptCorrections,
+  applyRespellings,
   inverseNormalizeTranscript,
   normalizeTranscript,
+  type TranscriptCorrection,
+  type Respellings,
 } from '@chatofy/ai-providers';
+import { mergeHotwords } from '../session/conversation-context';
 import type { TurnSession } from '../session/turn-session';
 import type { DisplayRestoreRequest } from './pipeline-translator.service';
 
 /**
- * Recognition languages whose transcript arrives with no punctuation or case.
+ * Recognition languages whose transcript arrives with no punctuation, so a
+ * turn asks the sidecar's restorer for a display.
  *
- * Only Vietnamese: the zipformer emits bare uppercase syllables, while the
- * English recognizer (Parakeet) already writes cased, punctuated text, and
- * the sidecar's restorer refuses any other language.
+ * Vietnamese: the zipformer emits bare uppercase syllables (Dewpoint restores
+ * marks and case). Chinese: Paraformer writes no punctuation (the
+ * CT-Transformer restores marks). Not English: Parakeet already writes cased,
+ * punctuated text.
  */
-const RESTORED_RECOGNITION: readonly LanguageCode[] = ['vi'];
+const RESTORED_RECOGNITION: LanguageTable<boolean> = {
+  vi: true,
+  en: false,
+  zh: true,
+};
 
 /**
  * What a turn asks the display restorer for, or `undefined` when it asks nothing.
@@ -29,24 +40,25 @@ const RESTORED_RECOGNITION: readonly LanguageCode[] = ['vi'];
 export function restoreRequestFor(
   session: TurnSession,
   continued: string | undefined,
+  /**
+   * Spellings the conversation learned from guarded respellings. Read as forms
+   * beside the user's hotwords, so a learned "OpenAI" is cased the way it was
+   * learned rather than the way the restorer guesses.
+   */
+  learnedTerms: readonly string[] = [],
+  /**
+   * The language the turn was decided in. Defaults to the turn's plan, which is
+   * the answer for a declared turn; a two-way turn asks here only after its
+   * final is decided, because its plan before that is a guess.
+   */
+  language: LanguageCode = session.languages.recognition,
 ): DisplayRestoreRequest | undefined {
   if (!session.repairDisplay) return undefined;
-  if (!RESTORED_RECOGNITION.includes(session.languages.recognition))
-    return undefined;
+  if (!RESTORED_RECOGNITION[language]) return undefined;
   return {
     ...(continued === undefined ? {} : { context: continued }),
-    terms: session.hints?.hotwords ?? [],
+    terms: mergeHotwords(session.hints?.hotwords, learnedTerms) ?? [],
   };
-}
-
-/** A line's words in order, case and marks aside. */
-function wordsOf(text: string): string {
-  return (
-    text
-      .normalize('NFC')
-      .toLowerCase()
-      .match(/[\p{L}\p{N}]+/gu) ?? []
-  ).join(' ');
 }
 
 /**
@@ -82,6 +94,22 @@ export function typesetTranscript(
   restored: string | undefined,
   recognition: LanguageCode,
   logger: Pick<Logger, 'warn'>,
+  /**
+   * Spellings for the line's garbled foreign spans, already through every
+   * guard in `loanword-respelling.ts`. Applied AFTER the restore is checked to
+   * have kept the recognizer's words, because applying them is exactly what
+   * changes words: the restorer is held to "marks and case only", this is held
+   * to "only a guarded respelling of a span that cannot be Vietnamese".
+   */
+  respellings: Respellings = {},
+  /**
+   * Stretches heard wrong, with the words said, already through every guard in
+   * `recognizer-fusion.ts` or `vietnamese-homophones.ts`. Applied beside the
+   * respellings and for the same reason after the restore check: the restorer
+   * is held to "marks and case only", these to "only words another recognizer
+   * heard there, or a word that sounds like the one heard".
+   */
+  corrections: readonly TranscriptCorrection[] = [],
 ): string | undefined {
   // A wordless turn has nothing to typeset. The ITN cannot invent words the
   // way a model could, but an event for an empty turn is still noise.
@@ -98,8 +126,8 @@ export function typesetTranscript(
   let canonical: string;
   try {
     // `recognition` SELECTS the module rather than gating the feature: on
-    // `en_to_vi` the transcript being typeset is the English one, so both
-    // directions have an ITN and `ws-events.ts`'s bidirectional contract stays
+    // en→vi the transcript being typeset is the English one, so both
+    // pairs have an ITN and `ws-events.ts`'s bidirectional contract stays
     // true.
     // The ITN canonicalizes its input before it does anything else, so the
     // string to COMPARE against is the canonical one, not the raw one. Against
@@ -109,7 +137,13 @@ export function typesetTranscript(
     // a line whose original is identical to it.
     canonical = normalizeTranscript(sourceText);
     typeset = inverseNormalizeTranscript(
-      restored === undefined ? canonical : normalizeTranscript(restored),
+      applyRespellings(
+        applyTranscriptCorrections(
+          restored === undefined ? canonical : normalizeTranscript(restored),
+          corrections,
+        ),
+        respellings,
+      ),
       recognition,
     );
   } catch (err: unknown) {

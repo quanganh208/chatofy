@@ -1,17 +1,30 @@
 'use client';
 
 import { ArrowLeftRight } from 'lucide-react';
-import { Button } from '@chatofy/ui/react';
-import { directionLanguages, type TranslationDirection } from '@chatofy/types';
+import { Button, LanguageSelect, pairAfterPick } from '@chatofy/ui/react';
+import {
+  AUTO_DETECT,
+  type LanguageCode,
+  type SessionLanguageMode,
+  type SessionLanguagePair,
+} from '@chatofy/types';
 import { useTranslate } from '@/i18n/provider';
-import { nativeLanguageName } from '@/i18n/direction-labels';
+import { languageNamer } from '@/i18n/language-pair-labels';
+import { canAutoDetectInto, representablePair } from '@/lib/translate-settings';
 import { cn } from '@/lib/utils';
 
 interface PanelHeadersProps {
-  direction: TranslationDirection;
-  /** A conversation is running, so the direction is fixed for its duration. */
+  languagePair: SessionLanguagePair;
+  /** A conversation is running, so the pair is fixed for its duration. */
   running: boolean;
   onSwap: () => void;
+  /** A language picked on one side, as the whole new pair. */
+  onLanguagePair: (pair: SessionLanguagePair) => void;
+  /**
+   * How the server is running the newest turn, or null when no turn has said —
+   * see {@link LanguageModeHint}.
+   */
+  mode?: SessionLanguageMode | null;
   /**
    * The voice control, rendered at the end of the target header.
    *
@@ -25,31 +38,42 @@ interface PanelHeadersProps {
 /**
  * Which way this is translating, said permanently at the top of the two panels.
  *
- * ## Direction stops being a setting
+ * ## The pair stops being a setting
  *
  * It used to live inside the settings popover, which meant the first fact about
  * what is on screen — what language is going in, what language is coming out —
  * was something you had to open something to find. The two panels below have
  * headers; this is what belongs in them.
  *
- * The composition is `DirectionToggle` pulled apart to panel width, and the words
- * are that component's own keys: nothing new is invented and nothing is
- * translated twice. **`DirectionToggle` itself is untouched.** It is a shared
- * package component and one of its consumers is the extension popup, rendering
- * in a 320px window that cannot take an exploded two-panel header — so this is a
- * new web-only component beside it rather than an edit to it.
+ * The composition is `LanguagePairPicker` pulled apart to panel width, and the
+ * words are that component's own keys: nothing new is invented and nothing is
+ * translated twice. The picker itself stays a compact row because one of its
+ * consumers is the extension popup, in a 320px window that cannot take an
+ * exploded two-panel header — so this is a web-only composition of its
+ * `LanguageSelect` rather than an edit to it.
  *
- * ## Two language readouts, one swap
+ * ## Two language pickers, and the swap stays
  *
- * The languages are text, not pickers. There are exactly two — `vi` and `en` are
- * the whole enum — so a picker in either header would offer one alternative,
- * which is the swap; three entry points for one state change, on a screen whose
- * job is to be unambiguous. If a third language ever arrives these become
- * pickers and the swap goes.
+ * While the registry held two languages these were readouts: a picker in either
+ * header would have offered one alternative, which is the swap. With three, each
+ * header is a real choice, so each is a `LanguageSelect`, and a pick that
+ * collides with the other side swaps the pair (`pairAfterPick`, the same rule the
+ * popup and `/preferences` use). The swap button stays anyway: reversing the pair
+ * between turns is the common action, and it is one press instead of two
+ * selects. It is `outline` and the selects are fields, so the screen still spends
+ * its one accent on Start.
+ *
+ * ## The source picker decides the mode
+ *
+ * Its first entry is "Auto-detect": each turn's language is recognised and
+ * translated one way into the target. A named source asks for both ways — the
+ * pair as a set, each turn translated into the other side. There is no mode
+ * switch; what the server actually ran is a readout beside the source role
+ * (`LanguageModeHint`), because the server may answer a two-way start one way.
  *
  * ## Disabled, not hidden, while running
  *
- * Direction rides `client.session.start` and `ConversationSession` holds it for
+ * The pair rides `client.session.start` and `ConversationSession` holds it for
  * the whole run, so a swap that stayed live would accept the press, look like it
  * worked, and translate the next turn the old way. It is disabled instead of
  * removed because "this is translating Vietnamese into English" is exactly what a
@@ -73,22 +97,43 @@ interface PanelHeadersProps {
  * `transcript-panes.tsx` records. What is left here sits over ONE stream, so a
  * two-column bar would name two things where there is one column of prose.
  */
-export function PanelHeaders({ direction, running, onSwap, voiceControl }: PanelHeadersProps) {
+export function PanelHeaders({
+  languagePair,
+  running,
+  onSwap,
+  onLanguagePair,
+  mode = null,
+  voiceControl,
+}: PanelHeadersProps) {
   const t = useTranslate();
-  const { source, target } = directionLanguages(direction);
 
   return (
     // The same left inset the turns below carry, so a header and the prose it
     // names start at the same x.
     <div className="border-hairline relative border-b px-8">
       <Side
-        role={t('web.translate.directionSource')}
-        language={nativeLanguageName(source)}
+        role={t('web.translate.languagePairSource')}
+        hint={<LanguageModeHint mode={mode} />}
+        language={
+          <HeaderLanguage
+            languagePair={languagePair}
+            side="source"
+            running={running}
+            onLanguagePair={onLanguagePair}
+          />
+        }
         className="border-hairline border-b"
       />
       <Side
-        role={t('web.translate.directionTarget')}
-        language={nativeLanguageName(target)}
+        role={t('web.translate.languagePairTarget')}
+        language={
+          <HeaderLanguage
+            languagePair={languagePair}
+            side="target"
+            running={running}
+            onLanguagePair={onLanguagePair}
+          />
+        }
         end={voiceControl}
       />
 
@@ -100,8 +145,8 @@ export function PanelHeaders({ direction, running, onSwap, voiceControl }: Panel
           32px tall: 14px icon + 16px padding + 2px border, since `size-auto`
           overrides the shared icon size. Half of that is the offset that actually
           centres it. */}
-      <DirectionSwap
-        direction={direction}
+      <LanguagePairSwap
+        languagePair={languagePair}
         running={running}
         onSwap={onSwap}
         className="absolute top-1/2 right-3 z-[2] -mt-4"
@@ -126,50 +171,140 @@ export function PanelHeader({
   role,
   language,
   end,
+  hint,
 }: {
   role: string;
-  language: string;
+  language: React.ReactNode;
   end?: React.ReactNode;
+  /** A readout beside the role — the source side's {@link LanguageModeHint}. */
+  hint?: React.ReactNode;
 }) {
   return (
     <div className="border-hairline border-b px-8">
-      <Side role={role} language={language} end={end} />
+      <Side role={role} language={language} end={end} hint={hint} />
     </div>
   );
 }
 
 /**
- * The direction, reversed.
+ * Which way the running conversation translates, as the server answered it —
+ * a readout, never a control.
  *
- * Disabled while running: direction rides `client.session.start` and
+ * There is no mode switch: the source picker decides what is ASKED ("detect"
+ * runs one way, a named language both ways), and this says what the newest turn
+ * actually ran, which can be less — a server that cannot tell the two languages
+ * apart right now runs a two-way start one way. Nothing at all before a turn
+ * has said: a guess drawn from the pair would claim "both ways" on a server
+ * that is about to answer otherwise.
+ */
+export function LanguageModeHint({ mode }: { mode: SessionLanguageMode | null }) {
+  const t = useTranslate();
+  if (mode === null) return null;
+  return (
+    <span className="text-muted-foreground text-label" data-language-mode={mode}>
+      {t(mode === 'two-way' ? 'web.translate.modeTwoWay' : 'web.translate.modeOneWay')}
+    </span>
+  );
+}
+
+/**
+ * One side's language, as a picker.
+ *
+ * Disabled while running, for the reason the swap is: the pair rides
+ * `client.session.start` and holds for the whole run.
+ */
+export function HeaderLanguage({
+  languagePair,
+  side,
+  running,
+  onLanguagePair,
+}: {
+  languagePair: SessionLanguagePair;
+  side: 'source' | 'target';
+  running: boolean;
+  onLanguagePair: (pair: SessionLanguagePair) => void;
+}) {
+  const t = useTranslate();
+  const shared = {
+    disabled: running,
+    nameLanguage: languageNamer(t),
+    size: 'sm' as const,
+    className: 'font-medium',
+  };
+  // Through `representablePair`, because a picked TARGET can be the one that
+  // rules detection out — the source then becomes a language, visibly, rather
+  // than a conversation starting in a mode nothing on screen offered.
+  const pick = (pair: SessionLanguagePair) => onLanguagePair(representablePair(pair));
+
+  if (side === 'target') {
+    return (
+      <LanguageSelect
+        {...shared}
+        value={languagePair.target}
+        onPick={(code) => pick(pairAfterPick(languagePair, 'target', code))}
+        label={t('web.translate.languagePairTarget')}
+      />
+    );
+  }
+  return (
+    <LanguageSelect<SourceChoice>
+      {...shared}
+      value={languagePair.source}
+      onPick={(code) => pick(pairAfterPick(languagePair, 'source', code))}
+      label={t('web.translate.languagePairSource')}
+      // Offered only where it can be served as Saydi means it — see
+      // `canAutoDetectInto`. Hidden rather than disabled: there is no step the
+      // reader could take on this screen to make it work.
+      detectOption={
+        canAutoDetectInto(languagePair.target)
+          ? { label: t('web.translate.autoDetect') }
+          : undefined
+      }
+    />
+  );
+}
+
+type SourceChoice = LanguageCode | typeof AUTO_DETECT;
+
+/**
+ * The pair, reversed.
+ *
+ * Disabled while running: the pair rides `client.session.start` and
  * `ConversationSession` holds it for the whole run, so a swap that stayed live
  * would accept the press, look like it worked, and translate the next turn the
  * old way — nothing thrown and nothing logged.
  */
-export function DirectionSwap({
-  direction,
+export function LanguagePairSwap({
+  languagePair,
   running,
   onSwap,
   className,
 }: {
-  direction: TranslationDirection;
+  languagePair: SessionLanguagePair;
   running: boolean;
   onSwap: () => void;
   className?: string;
 }) {
   const t = useTranslate();
-  const { source, target } = directionLanguages(direction);
+  const { source, target } = languagePair;
+  const nameLanguage = languageNamer(t);
 
   return (
     <Button
       variant="outline"
       size="icon"
-      disabled={running}
+      // Also dead while the source is "detect": it has no language to trade
+      // places with, and a translation cannot be "detect".
+      disabled={running || source === AUTO_DETECT}
       onClick={onSwap}
-      aria-label={t('web.translate.directionSwap', {
-        from: nativeLanguageName(target),
-        to: nativeLanguageName(source),
-      })}
+      aria-label={
+        source === AUTO_DETECT
+          ? t('web.translate.languagePairSwapDetect')
+          : t('web.translate.languagePairSwap', {
+              from: nameLanguage(target),
+              to: nameLanguage(source),
+            })
+      }
       className={cn(
         'text-prose hover:text-foreground disabled:hover:text-inherit',
         'size-auto rounded-full p-2',
@@ -186,19 +321,30 @@ function Side({
   language,
   className,
   end,
+  hint,
 }: {
   role: string;
-  language: string;
+  language: React.ReactNode;
   className?: string;
   end?: React.ReactNode;
+  hint?: React.ReactNode;
 }) {
   return (
     <div className={cn('flex min-h-[58px] items-center gap-2.5 py-2.5', className)}>
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
-          {role}
+        {/* The role and the hint share one line, so a hint arriving mid-run
+            moves nothing below it. Only the role is hidden from assistive tech:
+            the picker carries it as its name, the hint is said nowhere else. */}
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          <span
+            aria-hidden
+            className="text-muted-foreground text-label font-semibold tracking-wide uppercase"
+          >
+            {role}
+          </span>
+          {hint}
         </span>
-        <span className="text-body truncate font-medium">{language}</span>
+        {language}
       </div>
       {end ? <div className="ml-auto flex items-center gap-2">{end}</div> : null}
     </div>

@@ -133,7 +133,12 @@ export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tool
 // primitive.
 export { BrandMark } from './brand-mark.js';
 export { BrandWordmark } from './brand-wordmark.js';
-export { DirectionToggle, type DirectionToggleLabels } from './direction-toggle.js';
+export {
+  LanguagePairPicker,
+  LanguageSelect,
+  pairAfterPick,
+  type LanguagePairLabels,
+} from './language-pair-picker.js';
 export { SegmentedControl, type SegmentedOption } from './segmented-control.js';
 export { StatusIndicator, type StatusTone } from './status-indicator.js';
 export { ThemeToggle, type ThemeChoice } from './theme-toggle.js';

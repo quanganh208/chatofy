@@ -31,11 +31,9 @@ const TURNS: TranscriptSegment[] = [
     id: 'seg-a',
     sessionId: 'a',
     speakerRole: 'speaker_a',
-    direction: 'vi_to_en',
     sourceLanguages: ['vi'],
     translations: { en: 'Hello' },
     sourceText: 'Xin chào',
-    targetText: 'Hello',
     audioUrl: null,
     createdAt: '2026-09-04T00:00:00.000Z',
   },
@@ -65,6 +63,7 @@ function render(overrides: Partial<TranslateSettings> = {}) {
           settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...overrides }}
           running={false}
           onSwap={vi.fn()}
+          onLanguagePair={vi.fn()}
           voiceControl={<button type="button">voice slot</button>}
           stream={{
             turns: TURNS,
@@ -146,10 +145,10 @@ describe('TranscriptPanes arrangements', () => {
 
   it('keeps the swap reachable with the panes stacked', () => {
     // It has nowhere to sit between two stacked panes, so it rides the source
-    // header. Losing it there would make the direction unchangeable in one
+    // header. Losing it there would make the pair unchangeable in one
     // arrangement and nowhere else.
     render({ displayMode: 'split', paneLayout: 'column' });
-    expect(container.querySelector('button[aria-label^="Swap direction"]')).not.toBeNull();
+    expect(container.querySelector('button[aria-label^="Swap languages"]')).not.toBeNull();
   });
 
   it('keeps the voice control reachable in every arrangement', () => {
@@ -177,10 +176,10 @@ describe('TranscriptPanes arrangements', () => {
   });
 });
 
-describe('TranscriptPanes and the conversation-captured direction', () => {
+describe('TranscriptPanes and the conversation-captured language pair', () => {
   it('keeps a finished turn readable after stop, swap', () => {
-    // TURNS was captured vi_to_en: `translations: { en: 'Hello' }`. Swapping
-    // `settings.direction` afterwards (the toggle stays live once `running` is
+    // TURNS was captured vi→en: `translations: { en: 'Hello' }`. Swapping
+    // `settings.languagePair` afterwards (the toggle stays live once `running` is
     // false) must not make the target pane look for `translations.vi`, which
     // that turn never had.
     act(() => {
@@ -190,12 +189,13 @@ describe('TranscriptPanes and the conversation-captured direction', () => {
             settings={{
               ...DEFAULT_TRANSLATE_SETTINGS,
               displayMode: 'split',
-              direction: 'en_to_vi',
+              languagePair: { source: 'en', target: 'vi' },
             }}
             running={false}
             onSwap={vi.fn()}
+            onLanguagePair={vi.fn()}
             voiceControl={<button type="button">voice slot</button>}
-            conversationDirection="vi_to_en"
+            conversationLanguagePair={{ source: 'vi', target: 'en' }}
             stream={{
               turns: TURNS,
               liveTurns: [],
@@ -216,6 +216,69 @@ describe('TranscriptPanes and the conversation-captured direction', () => {
       );
     });
     expect(container.textContent).toContain('Hello');
+  });
+});
+
+describe('TranscriptPanes in a two-way conversation', () => {
+  const REPLY: TranscriptSegment = {
+    id: 'seg-b',
+    sessionId: 'b',
+    speakerRole: 'speaker_b',
+    sourceLanguages: ['en'],
+    translations: { vi: 'Chào bạn' },
+    sourceText: 'Hi there',
+    audioUrl: null,
+    createdAt: '2026-09-04T00:00:05.000Z',
+  };
+
+  function renderTwoWay(displayMode: 'split' | 'list') {
+    act(() => {
+      root.render(
+        <LocaleProvider>
+          <TranscriptPanes
+            settings={{ ...DEFAULT_TRANSLATE_SETTINGS, displayMode }}
+            running
+            onSwap={vi.fn()}
+            onLanguagePair={vi.fn()}
+            voiceControl={<button type="button">voice slot</button>}
+            conversationLanguagePair={{ source: 'vi', target: 'en' }}
+            languageMode="two-way"
+            stream={{
+              turns: [...TURNS, REPLY],
+              liveTurns: [],
+              captures: { ...CAPTURES, b: { openedAt: 3_000, cutForced: false, closedAt: 4_000 } },
+              displays: {},
+              startedAtMs: null,
+              audioOffsetMs: null,
+              speakers: SPEAKERS,
+              attributions: {},
+              languageModes: { a: 'two-way', b: 'two-way' },
+              onAttribute: vi.fn(),
+              onUnattribute: vi.fn(),
+              onAddSpeaker: vi.fn(),
+              onRenameSpeaker: vi.fn(),
+              onRemoveSpeaker: vi.fn(),
+            }}
+          />
+        </LocaleProvider>,
+      );
+    });
+  }
+
+  it('reads an English turn in a Vietnamese–English pair in the direction it was translated', () => {
+    renderTwoWay('split');
+    const [, target] = regions();
+    // The target pane reads each turn's OWN translation: English for the
+    // Vietnamese turn, Vietnamese for the English reply.
+    expect(target?.textContent).toContain('Hello');
+    expect(target?.textContent).toContain('Chào bạn');
+  });
+
+  it('says which way it is running beside the source role, in either arrangement', () => {
+    renderTwoWay('split');
+    expect(container.querySelector('[data-language-mode="two-way"]')).not.toBeNull();
+    renderTwoWay('list');
+    expect(container.querySelector('[data-language-mode="two-way"]')).not.toBeNull();
   });
 });
 

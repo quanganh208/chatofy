@@ -178,12 +178,12 @@ describe('GeminiTranslationProvider', () => {
       expect(instruction).toContain('never omit or skip');
     });
 
-    it('states the direction, not merely both language names', async () => {
+    it('states which language is the source, not merely both language names', async () => {
       await translateWith('xin chào');
 
       const instruction = callArgs(0).config?.systemInstruction ?? '';
       // Asserting that both names appear would hold just as well with the
-      // direction reversed, leaving the test green while the provider
+      // pair reversed, leaving the test green while the provider
       // translated the wrong way. Pin the slots.
       expect(instruction).toContain('talks in Vietnamese');
       expect(instruction).toContain('in English for the');

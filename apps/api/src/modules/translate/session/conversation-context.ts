@@ -1,3 +1,4 @@
+import { CONTEXT_LIMITS, type LanguageCode } from '@chatofy/types';
 import type { StreamSocket } from './stream-socket';
 
 /**
@@ -17,9 +18,9 @@ import type { StreamSocket } from './stream-socket';
  * gets its own holder rather than a second meaning for `sessions`.
  *
  * Keyed by the socket object in a `WeakMap`, for the reason the registry keys
- * its own recent-turn record that way: `/ws/translate` takes no authentication,
- * so a connection's memory must be released structurally and not because a
- * disconnect handler was reached.
+ * its own recent-turn record that way: any registered account can open as many
+ * connections as it likes, so a connection's memory must be released
+ * structurally and not because a disconnect handler was reached.
  */
 
 /**
@@ -41,6 +42,21 @@ const REMEMBERED_UTTERANCES = 4;
 interface Utterance {
   sessionId?: string;
   text: string;
+  /**
+   * What it was spoken in, when the turn named it. A two-way conversation
+   * holds speech in both of its languages, and a turn is translated only
+   * against earlier speech in its own: the other side's words, already in the
+   * language the translation is written in, are the easiest thing in a prompt
+   * to copy into the answer, and an instruction among them needs no
+   * translation step to hide behind.
+   */
+  language?: LanguageCode;
+}
+
+/** A finished utterance as a caller filters it. */
+export interface RecalledUtterance {
+  readonly text: string;
+  readonly language?: LanguageCode;
 }
 
 /** A turn somebody is waiting on, and who. */
@@ -58,6 +74,24 @@ export class ConversationContext {
   private readonly waiters = new WeakMap<StreamSocket, Waiters>();
   /** Turns that closed without a transcript, so a late waiter is answered at once. */
   private readonly silent = new WeakMap<StreamSocket, Set<string>>();
+  /**
+   * Spellings accepted for garbled foreign spans on this connection, keyed by
+   * the span as heard (see `loanword-respelling.ts`), in the order learned.
+   *
+   * Per connection because a connection is one conversation, and what a speaker
+   * keeps saying is that conversation's own vocabulary — the case §3.17 of the
+   * development journey measured as a gain, where a standing list was a loss.
+   */
+  private readonly learned = new WeakMap<StreamSocket, Map<string, string>>();
+  /**
+   * The language each recent turn was decided in, by turn id, oldest first.
+   * What an unsure two-way final falls back on: the language of the turn
+   * opened before it.
+   */
+  private readonly decided = new WeakMap<
+    StreamSocket,
+    Map<string, LanguageCode>
+  >();
 
   /**
    * The finished utterances a turn starting now should be translated against.
@@ -66,8 +100,51 @@ export class ConversationContext {
    * it to a provider, and handing out the live ring would let a turn that
    * finishes mid-flight change what an in-flight prompt was built from.
    */
-  recall(socket: StreamSocket): string[] {
-    return (this.recent.get(socket) ?? []).map((utterance) => utterance.text);
+  recall(socket: StreamSocket, language?: LanguageCode): string[] {
+    return (this.recent.get(socket) ?? [])
+      .filter(
+        (utterance) =>
+          language === undefined || utterance.language === language,
+      )
+      .map((utterance) => utterance.text);
+  }
+
+  /**
+   * {@link recall} with each utterance's language, for a turn whose own
+   * language is decided only after its context had to be gathered.
+   */
+  recallUtterances(socket: StreamSocket): RecalledUtterance[] {
+    return (this.recent.get(socket) ?? []).map(({ text, language }) =>
+      language === undefined ? { text } : { text, language },
+    );
+  }
+
+  /** Note the language a turn was decided in. */
+  noteLanguage(
+    socket: StreamSocket,
+    sessionId: string,
+    language: LanguageCode,
+  ): void {
+    const decided = this.decided.get(socket) ?? new Map<string, LanguageCode>();
+    decided.delete(sessionId);
+    decided.set(sessionId, language);
+    // Twice the ring: a fallback reads only the turn opened just before, and
+    // turns run a few at a time.
+    while (decided.size > 2 * REMEMBERED_UTTERANCES) {
+      const oldest = decided.keys().next().value;
+      if (oldest === undefined) break;
+      decided.delete(oldest);
+    }
+    this.decided.set(socket, decided);
+  }
+
+  /** The language a turn was decided in, or null when it is not (yet) decided. */
+  languageOf(
+    socket: StreamSocket,
+    sessionId: string | undefined,
+  ): LanguageCode | null {
+    if (sessionId === undefined) return null;
+    return this.decided.get(socket)?.get(sessionId) ?? null;
   }
 
   /**
@@ -105,11 +182,20 @@ export class ConversationContext {
    * call would hand a continuation the OTHER speaker's piece as the sentence
    * it completes.
    */
-  remember(socket: StreamSocket, sourceText: string, sessionId?: string): void {
+  remember(
+    socket: StreamSocket,
+    sourceText: string,
+    sessionId?: string,
+    language?: LanguageCode,
+  ): void {
     const text = sourceText.trim();
     if (!text) return;
     const kept = this.recent.get(socket) ?? [];
-    kept.push(sessionId === undefined ? { text } : { sessionId, text });
+    kept.push({
+      ...(sessionId === undefined ? {} : { sessionId }),
+      text,
+      ...(language === undefined ? {} : { language }),
+    });
     while (kept.length > REMEMBERED_UTTERANCES) kept.shift();
     this.recent.set(socket, kept);
     if (sessionId === undefined) return;
@@ -182,9 +268,55 @@ export class ConversationContext {
     return this.silent.get(socket)?.has(sessionId) ? { text: undefined } : null;
   }
 
+  /**
+   * Remember spellings a turn's guards accepted, for the turns after it.
+   *
+   * Only guarded spellings reach here, never a model's raw proposal: every one
+   * becomes a hotword the recognizer is pulled towards for the rest of the
+   * conversation, and a wrong one would pull every later turn.
+   */
+  learnSpellings(
+    socket: StreamSocket,
+    spellings: Readonly<Record<string, string>>,
+  ): void {
+    const entries = Object.entries(spellings);
+    if (entries.length === 0) return;
+    const learned = this.learned.get(socket) ?? new Map<string, string>();
+    for (const [span, spelling] of entries) {
+      // Re-learned moves to the newest end, so the ceiling below evicts what
+      // the conversation stopped saying rather than what it keeps saying.
+      learned.delete(span);
+      learned.set(span, spelling);
+    }
+    // No more than the recognizer could ever be sent. Oldest first out, so a
+    // long conversation keeps biasing towards its recent vocabulary instead of
+    // freezing on whatever filled the list first.
+    while (learned.size > CONTEXT_LIMITS.MAX_HOTWORDS) {
+      const oldest = learned.keys().next().value;
+      if (oldest === undefined) break;
+      learned.delete(oldest);
+    }
+    this.learned.set(socket, learned);
+  }
+
+  /** The learned spellings as hotword terms, deduplicated, newest last. */
+  learnedTerms(socket: StreamSocket): string[] {
+    const terms: string[] = [];
+    const seen = new Set<string>();
+    for (const spelling of this.learned.get(socket)?.values() ?? []) {
+      const key = spelling.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      terms.push(spelling);
+    }
+    return terms;
+  }
+
   /** Drop a connection's history, for a socket that went away. */
   forget(socket: StreamSocket): void {
     this.recent.delete(socket);
+    this.learned.delete(socket);
+    this.decided.delete(socket);
     this.lastOpened.delete(socket);
     this.silent.delete(socket);
     const waiters = this.waiters.get(socket);
@@ -210,4 +342,34 @@ export class ConversationContext {
     const list = this.waiters.get(socket)?.get(sessionId);
     for (const settle of [...(list ?? [])]) settle(text);
   }
+}
+
+/**
+ * The hotwords a turn sends the recognizer: the user's own first, then what the
+ * conversation learned, deduplicated case-insensitively and cut at the same
+ * ceiling the socket enforces on the user's list alone.
+ *
+ * User terms first because they were chosen; learned ones fill what is left,
+ * and when they do not all fit it is the NEWEST that stay — `learned` is
+ * oldest first, so cutting its tail would drop exactly the words the
+ * conversation is saying now.
+ * Undefined when there is nothing to send, which keeps the unbiased decoder
+ * selected exactly as it was before anything was learned.
+ */
+export function mergeHotwords(
+  user: readonly string[] | undefined,
+  learned: readonly string[] | undefined,
+): string[] | undefined {
+  const seen = new Set<string>();
+  const fresh = (terms: readonly string[] | undefined): string[] =>
+    (terms ?? []).filter((term) => {
+      const key = term.trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  const chosen = fresh(user).slice(0, CONTEXT_LIMITS.MAX_HOTWORDS);
+  const room = CONTEXT_LIMITS.MAX_HOTWORDS - chosen.length;
+  const merged = [...chosen, ...(room > 0 ? fresh(learned).slice(-room) : [])];
+  return merged.length > 0 ? merged : undefined;
 }

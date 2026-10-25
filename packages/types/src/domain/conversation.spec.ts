@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { primaryTranslation } from './conversation.js';
 
 describe('primaryTranslation', () => {
-  it('picks the other language of a vi_to_en conversation for a vi turn', () => {
+  it('picks the other language of a vi→en conversation for a vi turn', () => {
     expect(
       primaryTranslation({ sourceLanguages: ['vi'], translations: { en: 'hello' } }, ['vi', 'en']),
     ).toBe('hello');
   });
 
-  it('picks the other language of an en_to_vi conversation for an en turn', () => {
+  it('picks the other language of an en→vi conversation for an en turn', () => {
     expect(
       primaryTranslation({ sourceLanguages: ['en'], translations: { vi: 'chào bạn' } }, [
         'en',

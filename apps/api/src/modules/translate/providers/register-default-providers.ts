@@ -10,6 +10,7 @@ import {
   GeminiTranslationProvider,
   LocalSpeechDisplayRestorer,
   LocalSpeechEmbeddingProvider,
+  OpenAiCompatibleLoanwordRespeller,
   OpenAiCompatibleTranslationProvider,
   LocalSpeechSttProvider,
   LocalSpeechTtsProvider,
@@ -205,6 +206,24 @@ export function registerDefaultProviders(
           maxOutputTokensField: host.maxOutputTokensField,
           // No `onQuotaCooldown` on any of these: the signal it carries is a
           // free tier running out, and none of these hosts has such a wall.
+        });
+      },
+    });
+    // The loanword respeller rides the same row under the same name, so it is
+    // resolved by the translation's own provider name: the endpoint, model and
+    // request fields that answer the translation answer the respelling, and a
+    // host without a row here simply has no respeller.
+    registry.register('loanwordRespeller', {
+      name: host.name,
+      create: (cfg: ProviderConfig) => {
+        const c = cfg as AiProviderResolveConfig;
+        return new OpenAiCompatibleLoanwordRespeller({
+          apiKey: c.openAiCompatibleApiKey,
+          baseUrl: host.baseUrl,
+          model: host.model,
+          name: host.name,
+          extraBody: host.extraBody,
+          maxOutputTokensField: host.maxOutputTokensField,
         });
       },
     });

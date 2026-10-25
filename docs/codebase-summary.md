@@ -74,9 +74,9 @@ All external integrations are hidden behind interfaces so impls can swap without
 
 **V1 Translation Pipeline:**
 
-- **STT:** `LocalSpeechSttProvider` by default (`AI_STT_PROVIDER=local`) — one backend for both languages; the `services/local-stt` sidecar picks Zipformer-30M for vi and Parakeet-TDT-0.6b-v2 for en. `ElevenLabsSttProvider` (scribe_v2) stays registered for cloud comparison.
+- **STT:** `LocalSpeechSttProvider` by default (`AI_STT_PROVIDER=local`) — one backend for every language; the `services/local-stt` sidecar picks Zipformer-30M for vi, Parakeet-TDT-0.6b-v2 for en and Paraformer-zh for zh. `ElevenLabsSttProvider` (scribe_v2) stays registered for cloud comparison.
 - **Translation:** `GeminiTranslationProvider` by default (`AI_TRANSLATION_PROVIDER=gemini`), via `@google/genai` SDK; walks an ordered model list (`gemini-3.5-flash-lite` → `gemini-3.1-flash-lite`), advancing only on a quota rejection since the free tier meters requests per model. No thinking config is sent — the 3.x models reject it. Returns the model that answered so the pipeline logs it. Any other `AI_TRANSLATION_PROVIDER` value picks a row of the OpenAI-compatible host table (`deepseek`, `openai`), served by `OpenAiCompatibleTranslationProvider`. **The only cloud call left in a turn.**
-- **TTS:** `LocalSpeechTtsProvider` by default (`AI_TTS_PROVIDER=local`) — one backend for both languages; the `services/local-tts` sidecar picks VieNeu for vi and Kokoro-82M for en, and resolves the requested `voiceGender` against that engine's own female/male pair. `ElevenLabsTtsProvider` stays registered for cloud comparison and always speaks in its configured voice.
+- **TTS:** `LocalSpeechTtsProvider` by default (`AI_TTS_PROVIDER=local`) — one backend for every language; the `services/local-tts` sidecar picks VieNeu for vi and Kokoro-82M for en and zh (one shared instance), and resolves the requested `voiceGender` against that engine's own female/male pair. `ElevenLabsTtsProvider` stays registered for cloud comparison and always speaks in its configured voice.
 - **Model selection:** owned by each provider, with no selection layer above them — Gemini holds the quota-ordered list, the ElevenLabs providers default to `scribe_v2` / `eleven_flash_v2_5`, and the local sidecars take no model argument at all
 - **Provider reuse:** `AiProvidersFactory` memoizes the provider trio per backend selection so clients/connections persist across requests
 
@@ -114,7 +114,7 @@ the root layout, and it is the accepted price of one URL serving two languages �
 
 **API Endpoints:** the full route set is the `*.controller.ts` files under `apps/api/src/modules/`; Swagger at `/docs` lists them in dev. Not described below: `GET /` (service descriptor), `GET /translate/voices`, the rest of `/auth/*` (register, verify, password reset, login, Google, avatar), `/conversations/*` (history and recordings) and `/conversations/:conversationId/minutes`.
 
-- `POST /translate` — Turn-based audio translation between registered languages (request: `{ audioBase64, audioMimeType, direction?, voiceGender?, speed? }`, response: `{ sourceText, targetText, audioBase64, audioMimeType }`)
+- `POST /translate` — Turn-based audio translation between registered languages (request: `{ audioBase64, audioMimeType, languagePair?, voiceGender?, speed? }`, response: `{ sourceText, targetText, audioBase64, audioMimeType }`)
 - `WS /ws/translate` — One path, two modes, chosen by the first message the client sends and fixed for that connection:
   - `client.session.start` → turn-based cascade (STT → translate → TTS), contract `clientEventSchema` / `serverEventSchema`
   - `client.live.start` → continuous speech-to-speech, contract `liveClientEventSchema` / `liveServerEventSchema`
@@ -181,7 +181,7 @@ A **client** choice, and there is nothing to configure on the server to match it
 | web       | No choice: `cascade-panel.tsx` is the only path, and the live route that used to sit beside it is deleted                                     |
 | extension | No choice either: the popup no longer offers one, and `loadSettings` (`apps/extension/src/settings.ts`) reads any stored mode back as cascade |
 
-The extension keeps the live path in code. Both directions of one meeting always run the same mode. `createDirectionSession` routes on `CaptureSettings.mode` and returns either a `ConversationSession` or a `LiveDirectionSession` — `MeetingCapture` drives whichever it is handed through the `DirectionRunner` interface and does not know which it holds. Three things differ on the live path: capture runs ungated through `MicrophoneGraph`, ducking follows audible audio rather than open turns (there are none to count), and transcript text appends to one line per direction instead of a turn per sentence. `voiceGender` is inert in live mode — the model has its own voice, and the popup disables the control rather than leaving it doing nothing.
+The extension keeps the live path in code. Both legs of one meeting always run the same mode. `createLanguagePairSession` routes on `CaptureSettings.mode` and returns either a `ConversationSession` or a `LiveLanguagePairSession` — `MeetingCapture` drives whichever it is handed through the `LegRunner` interface and does not know which it holds. Three things differ on the live path: capture runs ungated through `MicrophoneGraph`, ducking follows audible audio rather than open turns (there are none to count), and transcript text appends to one line per leg instead of a turn per sentence. `voiceGender` is inert in live mode — the model has its own voice, and the popup disables the control rather than leaving it doing nothing.
 
 ## CI
 

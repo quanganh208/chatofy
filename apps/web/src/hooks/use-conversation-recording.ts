@@ -39,7 +39,10 @@ export interface ConversationRecording {
    * recorder would be silently wrong rather than absent.
    */
   startedAtMs: number;
-  /** Wall-clock length, in ms. Zero when nothing was recorded. */
+  /**
+   * The recording's own length, in ms: wall time from start to stop minus the
+   * time the recorder spent paused. Zero when nothing was recorded.
+   */
   durationMs: number;
 }
 
@@ -79,6 +82,22 @@ export interface UseConversationRecording {
    * would have received anyway and learns nothing about recording.
    */
   attach: (stream: MediaStream) => MediaStream;
+  /**
+   * Pause the recorder with the conversation. A no-op with no recorder, one
+   * that cannot pause, or one that is not recording.
+   */
+  pause: () => void;
+  /** Resume a recorder this hook paused. A no-op in every other state. */
+  resume: () => void;
+  /**
+   * The recorder writes straight through a pause, because this browser's
+   * `MediaRecorder` has no `pause()`.
+   *
+   * False with no recorder at all, which is the ordinary case in a test and on a
+   * browser with no supported container: with no recording, nothing has a media
+   * timeline to stay aligned with. Reset with {@link UseConversationRecording.startedAtMs}.
+   */
+  recordsThroughPause: boolean;
   /** Stop and collect. Resolves null when nothing was ever attached. */
   finish: () => Promise<ConversationRecording | null>;
 }
@@ -95,14 +114,27 @@ export interface UseConversationRecording {
  * Reconstructing a recording from it would mean synthesising silence for every
  * gap, and the timestamps would still point at the wrong moment.
  *
- * ## Why it records straight through pause
+ * ## Why it pauses with the conversation
  *
- * `ConversationSession.pause()` releases nothing (it stops no tracks), so the
- * stream stays live and this keeps writing. That is deliberate: a paused recorder
- * makes media time diverge from wall-clock time, and every offset after the first
- * pause would be wrong by the accumulated pause length. The cost is real and the
- * landing copy has to carry it — a person who believes pause silences the
- * microphone would be mistaken.
+ * A pause stops the conversation's clock, and the recorder stops with it: the
+ * caller calls {@link UseConversationRecording.pause} on the same press that
+ * pauses the session, and `resume` on the press that resumes it. So the
+ * recording holds no paused stretch, and a person who pauses to say something
+ * off the record is not recorded saying it.
+ *
+ * The invariant that keeps the timestamps right: the recorder is paused over
+ * EXACTLY the intervals the session records, so media time equals active time —
+ * wall time minus the paused time before it — minus `audioOffsetMs`. Every
+ * stored offset is measured in active time (`displayGroupOffsetMs`), so
+ * `mediaOffset` still turns one into a position in the recording with nothing
+ * but `audioOffsetMs`, and no interval has to be stored.
+ *
+ * One browser case breaks the invariant and is handled rather than ignored: a
+ * `MediaRecorder` with no `pause()` writes straight through. Its media then
+ * keeps WALL time, so {@link UseConversationRecording.recordsThroughPause} says
+ * so and the caller measures offsets in wall time for that conversation —
+ * subtracting the pauses there would put every seek after one too early by its
+ * length.
  *
  * ## What it records
  *
@@ -121,6 +153,12 @@ export function useConversationRecording(): UseConversationRecording {
   // Resolved by the recorder's own `stop` event, never by `finish()`. See the
   // comment inside `finish` for why that distinction is the whole of this hook.
   const resultRef = useRef<Promise<ConversationRecording> | null>(null);
+  // Time the recorder spent paused, closed intervals only, and the start of the
+  // one still open. Read by the recorder's `stop` handler, which is where the
+  // recording's own length is stamped.
+  const pausedTotalRef = useRef(0);
+  const pausedSinceRef = useRef<number | null>(null);
+  const [recordsThroughPause, setRecordsThroughPause] = useState(false);
 
   const attach = useCallback((stream: MediaStream): MediaStream => {
     // Stamped BEFORE the recorder is constructed, and kept even if construction
@@ -130,6 +168,9 @@ export function useConversationRecording(): UseConversationRecording {
     setPublishedStartedAtMs(startedAtMs);
     recorderRef.current = null;
     resultRef.current = null;
+    pausedTotalRef.current = 0;
+    pausedSinceRef.current = null;
+    setRecordsThroughPause(false);
 
     const mimeType = CANDIDATE_TYPES.find(
       (type) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported?.(type),
@@ -152,13 +193,21 @@ export function useConversationRecording(): UseConversationRecording {
           if (event.data.size > 0) chunks.push(event.data);
         };
         recorder.onstop = () => {
+          const stoppedAt = Date.now();
+          const pausedSince = pausedSinceRef.current;
+          const pausedMs =
+            pausedTotalRef.current +
+            (pausedSince === null ? 0 : Math.max(0, stoppedAt - pausedSince));
           resolve({
             blob: chunks.length > 0 ? new Blob(chunks, { type: recorder.mimeType }) : null,
             startedAtMs,
             // Stamped in the STOP handler. Measuring at `finish()` time instead
             // would add however long the drain ran to every stored duration, and
             // the scrubber would then have a maximum past the end of the audio.
-            durationMs: Math.max(0, Date.now() - startedAtMs),
+            // The paused time comes off for the same reason: the media holds
+            // none of it. A recorder stopped while paused — End pressed during a
+            // pause stops its tracks — closes that pause here.
+            durationMs: Math.max(0, stoppedAt - startedAtMs - pausedMs),
           });
         };
       });
@@ -186,7 +235,36 @@ export function useConversationRecording(): UseConversationRecording {
 
     recorderRef.current = recorder;
     resultRef.current = result;
+    // Read once, here: a recorder either has `pause()` for its whole life or it
+    // does not. Chromium, Firefox and Safari all have it today; the check is for
+    // the browser that does not, where the recording keeps wall time.
+    // Every engine shipping today implements `pause()`. Measured on 2026-10-07
+    // that a paused stretch is left out of the media (2 s on, 3 s paused, 2 s
+    // on): Chromium 3960 ms and Gecko 3861 ms of ~7010 ms wall. WebKit is not
+    // measured here yet. The landing copy's promise — speech
+    // during a pause is not recorded — rests on that; a recorder without it
+    // would record straight through, and this flag is how the rest of the app
+    // learns so and keeps offsets in wall time to match.
+    setRecordsThroughPause(typeof recorder.pause !== 'function');
     return stream;
+  }, []);
+
+  const pause = useCallback(() => {
+    const recorder = recorderRef.current;
+    // `pause()` throws only from `inactive` (per the MediaStream Recording
+    // spec), which the state check rules out; `paused` already is.
+    if (!recorder || typeof recorder.pause !== 'function' || recorder.state !== 'recording') return;
+    recorder.pause();
+    pausedSinceRef.current = Date.now();
+  }, []);
+
+  const resume = useCallback(() => {
+    const recorder = recorderRef.current;
+    if (!recorder || typeof recorder.resume !== 'function' || recorder.state !== 'paused') return;
+    recorder.resume();
+    const since = pausedSinceRef.current;
+    if (since !== null) pausedTotalRef.current += Math.max(0, Date.now() - since);
+    pausedSinceRef.current = null;
   }, []);
 
   const finish = useCallback(async (): Promise<ConversationRecording | null> => {
@@ -224,7 +302,18 @@ export function useConversationRecording(): UseConversationRecording {
     return result;
   }, []);
 
-  const reset = useCallback(() => setPublishedStartedAtMs(null), []);
+  const reset = useCallback(() => {
+    setPublishedStartedAtMs(null);
+    setRecordsThroughPause(false);
+  }, []);
 
-  return { startedAtMs: publishedStartedAtMs, reset, attach, finish };
+  return {
+    startedAtMs: publishedStartedAtMs,
+    reset,
+    attach,
+    pause,
+    resume,
+    recordsThroughPause,
+    finish,
+  };
 }

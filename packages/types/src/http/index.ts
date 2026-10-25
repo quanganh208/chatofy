@@ -65,8 +65,8 @@ export type {
 export { serviceDescriptorSchema } from './meta.js';
 export type { ServiceDescriptor } from './meta.js';
 
-// Translate contracts. (translationDirectionSchema/TranslationDirection are owned
-// by the domain barrel — not re-exported here to avoid a duplicate-name conflict.)
+// Translate contracts. (languagePairSchema/LanguagePair are owned by the domain
+// barrel — not re-exported here to avoid a duplicate-name conflict.)
 export { translateRequestSchema, translateResponseSchema } from './translate.js';
 export type { TranslateRequest, TranslateResponse } from './translate.js';
 
@@ -114,6 +114,8 @@ export {
   saveTranslationContextRequestSchema,
   translationContextSchema,
   translationContextListResponseSchema,
+  readTranslationContextList,
+  readableTranslationContextListSchema,
 } from './translation-contexts.js';
 export type {
   SaveTranslationContextRequest,

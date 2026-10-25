@@ -12,17 +12,12 @@ import type {
 export const CONVERSATION_STORE = Symbol('CONVERSATION_STORE');
 
 /**
- * One turn as the store WRITES it — always the language-keyed shape, never the
- * legacy `targetText`.
+ * One turn as the store WRITES it: exactly the columns Postgres has for it.
  *
- * `SaveConversationTurn` (`@chatofy/types`) cannot serve this job unchanged: it
- * still carries the legacy `targetText`, which Postgres has no column for.
- * `sourceLanguages`/`translations` are REQUIRED on both types today — a body's
- * `saveConversationRequestSchema` preprocess already fills them from
- * `speakerRole`/`targetText` before the service ever sees it — so the only
- * narrowing left for `ConversationsService`'s write conversion to do is
- * dropping `targetText` itself, which nothing downstream of it should still be
- * reaching for.
+ * Declared here rather than reusing `SaveConversationTurn` (`@chatofy/types`)
+ * so the store depends on its own columns, not on the HTTP contract: a field
+ * the contract grows reaches Postgres only once `ConversationsService`'s write
+ * conversion maps it.
  */
 export interface ConversationTurnWrite {
   position: number;
@@ -45,6 +40,8 @@ export interface ConversationWrite {
   endedAt: string;
   turns: ConversationTurnWrite[];
   audioOffsetMs: number | null;
+  /** Total paused time, in ms; an update keeps the larger of stored and sent. */
+  pausedMs: number;
 }
 
 /** One page of the caller's history, newest first. */
@@ -86,13 +83,9 @@ export interface ConversationStore {
    *
    * The parameter is {@link ConversationWrite}, not `SaveConversationRequest`
    * (`@chatofy/types`) and not `Conversation`. `SaveConversationRequest` is the
-   * HTTP contract's shape and still carries the legacy `direction`/turn
-   * `targetText` pair a caller may send instead of (or alongside) the
-   * language-keyed fields; `ConversationsService.save` is where that resolves
-   * into a write with no legacy pair left in it at all. `Conversation` keeps
-   * BOTH the new fields and the legacy `direction`/`targetText` for a READER's
-   * sake (see its own docblock); a write has no column for the legacy pair at
-   * all, so carrying it here would be make-work with nowhere to put it.
+   * HTTP contract's shape; `ConversationsService.save` is where it is narrowed
+   * to the columns a write has. `Conversation` is the READ shape and carries
+   * fields only a read can compute.
    *
    * `turnCount`, `preview` and `hasMinutes` are not part of this type for the
    * same reason they were excluded before: they are computed from the turns or

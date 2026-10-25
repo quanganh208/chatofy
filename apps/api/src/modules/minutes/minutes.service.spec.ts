@@ -84,7 +84,6 @@ const turn = (overrides: Partial<ConversationTurn> = {}): ConversationTurn => ({
   displayText: null,
   sourceLanguages: ['en'],
   translations: { vi: 'xin chào' },
-  targetText: 'xin chào',
   // Minutes are generated from TEXT and never read a timestamp; the field is
   // here because the contract requires it, not because these cases exercise it.
   offsetMs: null,
@@ -122,13 +121,13 @@ function makeService(
   const seed = (ownerId: string, conversationId: string, rows = turns) => {
     conversations.set(key(ownerId, conversationId), {
       conversationId,
-      direction: 'en_to_vi',
       languages: ['en', 'vi'],
       startedAt: '2026-09-03T00:00:00.000Z',
       endedAt: '2026-09-03T00:10:00.000Z',
       turnCount: rows.length,
       preview: rows[0]?.sourceText ?? '',
       hasMinutes: false,
+      pausedMs: 0,
       turns: rows,
       // No recording on these fixtures. Minutes read the transcript only, so the
       // generator must work identically whether or not audio was kept.

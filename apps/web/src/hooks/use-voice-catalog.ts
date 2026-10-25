@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { listVoices, type TtsVoice } from '@/clients/api-client';
-import { directionLanguages, type LanguageCode, type TranslationDirection } from '@chatofy/types';
+import type { LanguageCode } from '@chatofy/types';
 
 /**
  * What the catalog request produced.
@@ -16,8 +16,8 @@ import { directionLanguages, type LanguageCode, type TranslationDirection } from
  */
 /**
  * Whether the running engine honours `speed` at all — an ENGINE capability,
- * not a language one, reported by the backend rather than assumed from
- * direction.
+ * not a language one, reported by the backend rather than assumed from the
+ * language pair.
  *
  * Tri-state, deliberately. `false` is an answer the backend actually gave:
  * this engine ignores the rate. `'unknown'` is every case where nobody has
@@ -103,18 +103,19 @@ function cachedState(language: LanguageCode): VoiceCatalogState {
 }
 
 /**
- * The voices the running backend offers for whichever language is being SPOKEN.
+ * The voices the running backend offers for one language that is SPOKEN.
  *
- * Keyed by output language rather than by direction, because that is what decides
+ * Keyed by output language rather than by pair, because that is what decides
  * which engine answers — and the two engines share no vocabulary, so a token from
- * one is meaningless to the other.
+ * one is meaningless to the other. Named by the caller rather than read off a
+ * pair: a two-way conversation speaks both of its languages, so the voice panel
+ * asks once per language.
  */
-export function useVoiceCatalog(direction: TranslationDirection): VoiceCatalogState {
-  const outputLanguage = directionLanguages(direction).target;
+export function useVoiceCatalog(outputLanguage: LanguageCode): VoiceCatalogState {
   const [state, setState] = useState<VoiceCatalogState>(() => cachedState(outputLanguage));
   const [shownFor, setShownFor] = useState(outputLanguage);
 
-  // Reset during render rather than in an effect: switching direction must not
+  // Reset during render rather than in an effect: switching the pair must not
   // paint the other engine's voices for a frame, and a cached list must not blink
   // through "loading" on the way back.
   if (shownFor !== outputLanguage) {

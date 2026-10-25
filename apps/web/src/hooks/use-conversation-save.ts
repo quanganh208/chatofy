@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  conversationLanguagesOf,
+  AUTO_DETECT,
+  detectConversationLanguages,
+  pairLanguages,
   type ConversationTurn,
-  type TranslationDirection,
+  type LanguageCode,
+  type SessionLanguagePair,
 } from '@chatofy/types';
 import { saveConversation } from '@/clients/api-client';
 import { classifyApiFailure } from '@/lib/api-failure';
@@ -48,7 +51,13 @@ export interface ConversationSaveInput {
   /** Re-minted on every `start`; null before the first conversation. */
   conversationId: string | null;
   startedAt: string | null;
-  direction: TranslationDirection;
+  /**
+   * The pair the conversation was started in — captured at `start`, so its
+   * identity only changes when the conversation does. It is read through the
+   * `latest` ref and is no save trigger: a fresh-but-equal object must not
+   * re-send a conversation that has not changed.
+   */
+  languagePair: SessionLanguagePair;
   /** True while the microphone is open. The save fires on the falling edge. */
   running: boolean;
   /** The finished conversation as display blocks — see `toConversationTurns`. */
@@ -65,6 +74,14 @@ export interface ConversationSaveInput {
    * the same value again when it succeeds.
    */
   audioOffsetMs: number | null;
+  /**
+   * Total time the conversation spent paused, in ms.
+   *
+   * What History leaves out of the duration, so a card reads the time the clock
+   * on `/translate` counted. Complete by the time the save fires: ending a
+   * conversation closes the pause it ended in.
+   */
+  pausedMs: number;
 }
 
 /**
@@ -124,7 +141,8 @@ const EDIT_COALESCE_MS = 800;
  * client should not be generating the collisions in the first place.
  */
 export function useConversationSave(input: ConversationSaveInput): UseConversationSave {
-  const { conversationId, startedAt, direction, running, turns, audioOffsetMs } = input;
+  const { conversationId, startedAt, languagePair, running, turns, audioOffsetMs, pausedMs } =
+    input;
 
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -151,18 +169,35 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
   // be discarded or replayed, so a ref write there is a side effect at a moment
   // React promises nothing about. Declared FIRST so the effects that read it run
   // after it in the same commit.
-  const latest = useRef({ conversationId, startedAt, direction, turns, saved, audioOffsetMs });
+  const latest = useRef({
+    conversationId,
+    startedAt,
+    languagePair,
+    turns,
+    saved,
+    audioOffsetMs,
+    pausedMs,
+  });
   useEffect(() => {
-    latest.current = { conversationId, startedAt, direction, turns, saved, audioOffsetMs };
-  }, [conversationId, startedAt, direction, turns, saved, audioOffsetMs]);
+    latest.current = {
+      conversationId,
+      startedAt,
+      languagePair,
+      turns,
+      saved,
+      audioOffsetMs,
+      pausedMs,
+    };
+  }, [conversationId, startedAt, languagePair, turns, saved, audioOffsetMs, pausedMs]);
 
   const enqueue = useCallback(() => {
     const {
       conversationId: id,
       startedAt: began,
-      direction: dir,
+      languagePair: pair,
       turns: rows,
       audioOffsetMs: recordingOffset,
+      pausedMs: paused,
     } = latest.current;
     if (!id || !began || rows.length === 0) return;
 
@@ -176,12 +211,20 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
     inFlight.current = inFlight.current.then(async () => {
       try {
         await saveConversation(id, {
-          direction: dir,
-          languages: conversationLanguagesOf(dir),
+          languages: storedLanguages(pair),
           startedAt: began,
           endedAt: ended,
           turns: rows,
           audioOffsetMs: recordingOffset,
+          // Bounded by the span here, where the span is known. The paused total
+          // is summed from wall-clock readings, and a clock that steps (a time
+          // sync mid-pause) could push it past the conversation's length — which
+          // the API refuses with a 400 that is never retried, losing the whole
+          // transcript to a number that only shortens a label.
+          pausedMs: Math.min(
+            Math.max(0, Math.round(paused)),
+            Math.max(0, Date.parse(ended) - Date.parse(began)),
+          ),
         });
         // A write that lands after the reader has started another conversation
         // stored the right rows under the right id — but the state it would
@@ -304,4 +347,18 @@ function signatureOf(turns: readonly ConversationTurn[]): string {
   return turns
     .map((turn) => `${turn.speakerLabel ?? ''}|${turn.displayText ?? turn.sourceText}`)
     .join('\0');
+}
+
+/**
+ * The languages a conversation is stored in.
+ *
+ * Auto-detected, through the SAME helper the server uses — target first, then
+ * every other registry language — because "more than two" is what marks the
+ * conversation as auto-detected when it is read back; no extra field says so.
+ * Declared or two-way, the pair source first, as every stored row always was.
+ */
+function storedLanguages(pair: SessionLanguagePair): LanguageCode[] {
+  return pair.source === AUTO_DETECT
+    ? detectConversationLanguages(pair.target)
+    : pairLanguages({ source: pair.source, target: pair.target });
 }

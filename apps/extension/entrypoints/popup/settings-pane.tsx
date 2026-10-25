@@ -4,7 +4,7 @@ import {
   AlertDescription,
   Button,
   Checkbox,
-  DirectionToggle,
+  LanguagePairPicker,
   Label,
   SegmentedControl,
   type SegmentedOption,
@@ -16,7 +16,7 @@ import {
   ThemeToggle,
 } from '@chatofy/ui/react';
 import type { VoiceGender } from '@chatofy/types';
-import { DEFAULT_CAPTURE_DIRECTION } from '../../src/settings';
+import { DEFAULT_CAPTURE_PAIR, languagePairPickerLanguages } from '../../src/settings';
 
 /**
  * Stands for "no context" in the picker's own value space.
@@ -86,10 +86,15 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
         </Alert>
       )}
 
-      <DirectionToggle
-        value={settings?.direction ?? DEFAULT_CAPTURE_DIRECTION}
+      {/* Live mode offers only the languages the live gateway translates
+          (`LIVE_LANGUAGES`): it refuses a zh pair, and a picker that offered one
+          would hand the reader a refusal at the start of their meeting. The
+          gateway stays the authority for every other path. */}
+      <LanguagePairPicker
+        value={settings?.languagePair ?? DEFAULT_CAPTURE_PAIR}
         disabled={!settings}
-        onChange={(direction) => actions.change({ direction })}
+        onChange={(languagePair) => actions.change({ languagePair })}
+        languages={languagePairPickerLanguages(settings?.mode)}
       />
 
       {/* Hidden entirely rather than shown empty or disabled: this control offers

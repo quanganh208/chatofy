@@ -185,10 +185,21 @@ export const vi: Messages = {
   'web.translate.registerNeutral': 'Trung tính',
   'web.translate.registerFormal': 'Trang trọng',
   'web.translate.registerCasual': 'Thân mật',
-  'web.translate.direction': 'Hướng dịch',
-  'web.translate.directionSource': 'Nguồn',
-  'web.translate.directionTarget': 'Bản dịch',
-  'web.translate.directionSwap': 'Đảo chiều — dịch {from} sang {to}',
+  'web.translate.languagePair': 'Ngôn ngữ',
+  'web.translate.languagePairSource': 'Nguồn',
+  'web.translate.languagePairTarget': 'Bản dịch',
+  'web.translate.languagePairSwap': 'Đảo ngôn ngữ — dịch {from} sang {to}',
+  'web.translate.languagePairSwapDetect': 'Đảo ngôn ngữ — không dùng được khi Tự nhận diện',
+  'web.translate.autoDetect': 'Tự nhận diện',
+  'web.translate.modeTwoWay': 'Hai chiều',
+  'web.translate.modeOneWay': 'Một chiều',
+  'web.translate.turnLanguage': 'Nói bằng {language}',
+  'web.translate.twoWayUnavailable':
+    'Tạm thời chỉ dịch một chiều: {from} sang {to}. Câu nói bằng {to} sẽ không được dịch.',
+  'web.translate.detectUnavailable':
+    'Hiện chưa tự nhận diện được ngôn ngữ. Hãy chọn ngôn ngữ đang nói để tiếp tục.',
+  'web.translate.detectBusy':
+    'Tính năng tự nhận diện đang bận. Hãy thử lại sau ít phút, hoặc chọn ngôn ngữ đang nói.',
   'web.translate.voiceDefault': 'Mặc định',
   'web.translate.voiceListFailed':
     'Chưa tải được danh sách giọng đọc. Lựa chọn giới tính giọng ở trên vẫn áp dụng.',
@@ -249,7 +260,8 @@ export const vi: Messages = {
   'web.translate.minutesGenerate': 'Tạo biên bản',
   'web.translate.minutesRegenerate': 'Tạo lại',
   'web.translate.minutesGenerating': 'Đang tóm tắt cuộc trò chuyện…',
-  'web.translate.minutesEmpty': 'Chưa có biên bản — tạo sau khi cuộc trò chuyện kết thúc.',
+  'web.translate.minutesEmpty':
+    'Chưa có biên bản. Tạo biên bản để có phần tóm tắt, ý chính, quyết định và việc cần làm.',
   'web.translate.minutesNeedsTurns': 'Hãy trò chuyện trước đã — chưa có gì để tóm tắt.',
   'web.translate.minutesFailed': 'Không tạo được biên bản. Thử lại nhé.',
   'web.translate.minutesSummary': 'Tóm tắt',
@@ -276,8 +288,10 @@ export const vi: Messages = {
   // ---- web.languageName / web.languageShort ----
   'web.languageName.vi': 'Tiếng Việt',
   'web.languageName.en': 'Tiếng Anh',
+  'web.languageName.zh': 'Tiếng Trung',
   'web.languageShort.vi': 'Việt',
   'web.languageShort.en': 'Anh',
+  'web.languageShort.zh': 'Trung',
 
   // ---- web.history ----
   'web.history.empty': 'Chưa có cuộc hội thoại nào',
@@ -289,9 +303,11 @@ export const vi: Messages = {
   'web.history.clearSearch': 'Xoá tìm kiếm',
   'web.history.back': 'Quay lại lịch sử',
   'web.history.turnCount': '{count} dòng',
+  'web.history.turnCountOne': '1 dòng',
   'web.history.duration': '{minutes} phút',
-  'web.history.direction': '{from} → {to}',
-  'web.history.directionShort': '{from} → {to}',
+  'web.history.languagePair': '{from} → {to}',
+  'web.history.languagePairShort': '{from} → {to}',
+  'web.history.autoDetect': 'Tự nhận diện',
   'web.history.minutesReady': 'Có biên bản',
   'web.history.cancel': 'Huỷ',
   'web.history.delete': 'Xoá',
@@ -315,7 +331,7 @@ export const vi: Messages = {
 
   'web.preferences.conversation': 'Mặc định cho hội thoại mới',
   'web.preferences.conversationHint':
-    'Một cuộc hội thoại mới bắt đầu từ những lựa chọn này. Trong lúc đang dịch, bạn đổi ngay trên trang Dịch — hướng dịch và giọng thì cố định cho tới khi cuộc đó kết thúc.',
+    'Một cuộc hội thoại mới bắt đầu từ những lựa chọn này. Trong lúc đang dịch, bạn đổi ngay trên trang Dịch — ngôn ngữ và giọng thì cố định cho tới khi cuộc đó kết thúc.',
   // AI Context — thư viện ngữ cảnh đã đặt tên.
   'web.preferences.aiContext': 'Ngữ cảnh AI',
   'web.preferences.aiContextHint':
@@ -342,7 +358,7 @@ export const vi: Messages = {
     'Bạn đang có {count} từ, trong khi giới hạn là {max}. Hãy bớt đi trước khi lưu.',
   'web.preferences.aiContext.glossary': 'Cách dịch mong muốn',
   'web.preferences.aiContext.glossaryHint':
-    'Cách bạn muốn một từ cụ thể được dịch ra. Hãy viết từ đó bằng cả hai thứ tiếng; trình dịch dùng cặp này theo chiều nào cũng được, và chỉ khi từ đó thực sự được nói ra.',
+    'Cách bạn muốn một từ cụ thể được dịch ra. Hãy viết từ đó bằng ít nhất hai thứ tiếng; trình dịch dùng đúng hai thứ tiếng của cuộc hội thoại, theo chiều nào cũng được, và chỉ khi từ đó thực sự được nói ra.',
   'web.preferences.aiContext.glossaryTooLong':
     'Cách dịch chỉ nên là một từ hoặc một cụm ngắn — tối đa {max} chữ. Hãy rút gọn cặp này, hoặc xoá nó đi.',
   'web.preferences.aiContext.glossaryAdd': 'Thêm một cặp',
@@ -402,7 +418,14 @@ export const vi: Messages = {
   // là nhãn điều hướng nên phải ngắn.
   'web.landing.localTitle': 'Giọng nói của bạn được hiểu ngay trên máy bạn',
   'web.landing.localBody':
-    'Những gì bạn nói được nghe ngay trên máy tính của bạn — không cần xin khoá nào, và không có gì phải gửi đi nơi khác để hiểu. Khi một cuộc hội thoại kết thúc, bản ghi âm cùng phần chữ được lưu vào lịch sử của bạn, để bạn nghe lại và đọc lại. Bản ghi âm được lưu tại một địa chỉ khó đoán mà bất kỳ ai có đường liên kết đó cũng mở được, nên chính đường liên kết là thứ giữ cho nó riêng tư. Micro vẫn tiếp tục ghi trong lúc cuộc hội thoại đang tạm dừng. Xoá một cuộc hội thoại sẽ xoá luôn bản ghi âm của nó.',
+    'Những gì bạn nói được nghe ngay trên máy tính của bạn — không cần xin khoá nào, và không có gì phải gửi đi nơi khác để hiểu.',
+  'web.landing.localKeptHistory':
+    'Khi một cuộc hội thoại kết thúc, bản ghi âm cùng phần chữ được lưu vào lịch sử của bạn, để bạn nghe lại và đọc lại.',
+  'web.landing.localKeptLink':
+    'Bản ghi âm được lưu tại một địa chỉ khó đoán mà bất kỳ ai có đường liên kết đó cũng mở được, nên chính đường liên kết là thứ giữ cho nó riêng tư.',
+  'web.landing.localKeptPause':
+    'Khi tạm dừng cuộc hội thoại, bản ghi âm cũng tạm dừng theo: những gì nói trong lúc tạm dừng không được ghi lại và không được dịch.',
+  'web.landing.localKeptDelete': 'Xoá một cuộc hội thoại sẽ xoá luôn bản ghi âm của nó.',
   'web.landing.hopOnDevice': 'Trên máy',
   'web.landing.hopOverNetwork': 'Qua mạng',
   'web.landing.hopHears': 'Nghe những gì bạn vừa nói',

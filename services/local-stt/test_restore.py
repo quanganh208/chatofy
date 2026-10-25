@@ -363,3 +363,68 @@ def test_restore_endpoint_reads_pauses(client):
     res = restore(client, text, pauses=pauses)
     assert res.status_code == 200
     assert "anh Tuấn Anh, xin kính chào" in res.json()["text"]
+
+
+# ── Routing by language: zh is served beside vi, and can never pause it ──────
+
+
+def test_an_unknown_language_is_still_refused(client):
+    assert restore(client, "hello", language="fr").status_code == 400
+
+
+def test_an_unloaded_zh_restorer_answers_404_not_503(client):
+    # 503 makes the API pause every restore for a minute. A missing secondary
+    # model must cost zh its punctuation and nothing else.
+    zh = sidecar.RESTORERS["zh"]
+    loaded, zh._punctuator = zh._punctuator, None
+    try:
+        res = restore(client, "我们明天去北京", language="zh")
+        health = client.get("/healthz")
+    finally:
+        zh._punctuator = loaded
+
+    assert res.status_code == 404
+    # `/healthz` reports the vi restorer only, exactly as before (`alternates`
+    # and `lidLanguages` are the recognizers', not a restorer's).
+    assert set(health.json()) == {"status", "languages", "restore", "alternates", "lidLanguages"}
+
+
+def test_the_vi_restorer_is_the_registry_entry_not_a_second_model():
+    assert sidecar.restorer is sidecar.RESTORERS["vi"]
+
+
+@model_tests
+def test_a_busy_zh_restorer_answers_429(client):
+    zh = sidecar.RESTORERS["zh"]
+    if not zh.loaded:
+        pytest.skip("zh punctuation model not seeded")
+    zh._lock.acquire()
+    try:
+        res = restore(client, "我们明天去北京", language="zh")
+    finally:
+        zh._lock.release()
+
+    assert res.status_code == 429
+
+
+@model_tests
+def test_zh_is_punctuated_through_the_route(client):
+    if not sidecar.RESTORERS["zh"].loaded:
+        pytest.skip("zh punctuation model not seeded")
+    res = restore(client, "我们都是木头人不会说话不会动", language="zh")
+
+    assert res.status_code == 200
+    assert res.json()["text"] == "我们都是木头人，不会说话，不会动。"
+
+
+def test_a_failed_zh_punctuation_fetch_does_not_stop_the_seed(monkeypatch, tmp_path, capsys):
+    import scripts.download_models as seed
+
+    def offline(*_args, **_kwargs):
+        raise OSError("network unreachable")
+
+    monkeypatch.setattr(seed, "MODELS_DIR", tmp_path)
+    monkeypatch.setattr(seed.urllib.request, "urlopen", offline)
+    seed.fetch_ct_punct_zh()
+
+    assert "skipped" in capsys.readouterr().out

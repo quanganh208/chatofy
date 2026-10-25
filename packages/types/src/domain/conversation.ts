@@ -21,7 +21,6 @@ import {
   type LanguageCode,
   conversationLanguagesSchema,
   sourceLanguagesSchema,
-  translationDirectionSchema,
   translationMapSchema,
 } from './languages.js';
 
@@ -41,22 +40,14 @@ import {
  * `displayText ?? sourceText`, which is also what search matches on.
  *
  * `sourceLanguages` and `translations` are the language-keyed record of what
- * was said and what it became; `targetText` is the pre-fan-out field, KEPT
- * rather than replaced, mirroring `TranscriptSegment`'s own `direction`/
- * `targetText` pair (`domain/transcript.ts`). A SERVER response always carries
- * both — `PrismaConversationStore` fills `targetText` from `translations` via
- * {@link primaryTranslation} on every read — so a caller reading this type from
- * an API response can treat `sourceLanguages`/`translations` as present.
+ * was said and what it became. Which translation a reader is shown is decided
+ * at render time by {@link primaryTranslation}, not stored.
  *
- * STRICT: `sourceLanguages`/`translations` are REQUIRED, no preprocessing.
+ * STRICT: every field is REQUIRED, no preprocessing.
  * `packages/realtime-client`'s `toConversationTurns` and `apps/web`'s
- * `use-conversation-save.ts` build every field of this shape directly — there is
- * no client left that constructs one without them — so a caller that forgot to
- * fill a new one fails to typecheck rather than being quietly patched here.
- * Backward-compatible PARSING of a turn that predates these two fields is a
- * separate concern that belongs only to a RESPONSE a rolled-back API sent, and
- * lives in `http/conversations.ts`'s wire schemas via `fillTurnLanguages`
- * (`language-fields-compat.ts`).
+ * `use-conversation-save.ts` build every field of this shape directly, so a
+ * caller that forgot to fill one fails to typecheck rather than being quietly
+ * patched here.
  */
 export const conversationTurnSchema = z.object({
   /** Display-block order, 0-based. Not a spoken-turn index. */
@@ -69,7 +60,6 @@ export const conversationTurnSchema = z.object({
   sourceLanguages: sourceLanguagesSchema,
   /** A translation per destination language; only the targets this block needed. */
   translations: translationMapSchema(z.string()),
-  targetText: z.string(),
   /**
    * Milliseconds from the conversation's `startedAt` to the moment capture
    * opened on this block — its FIRST member's `openedAt`, the same measurement
@@ -98,11 +88,11 @@ export const conversationTurnSchema = z.object({
 export type ConversationTurn = z.infer<typeof conversationTurnSchema>;
 
 /**
- * The turn's legacy `targetText` — the ONE translation an old reader shows —
- * derived from the language-keyed record rather than stored twice.
+ * The ONE translation a reader of a stored block is shown, picked out of the
+ * language-keyed record.
  *
  * The target is the conversation's first declared language the turn was NOT
- * spoken in — `languages` is declared-source-first (see `conversationLanguagesOf`),
+ * spoken in — `languages` is declared-source-first (see `pairLanguages`),
  * so for an ordinary single-source turn this is simply "the other one". A mixed
  * turn (several `sourceLanguages`) has no single right answer either way;
  * picking the conversation's first uncovered language keeps the choice
@@ -111,11 +101,8 @@ export type ConversationTurn = z.infer<typeof conversationTurnSchema>;
  * the pick falls back to the first declared language with a non-empty
  * translation.
  *
- * Shared by two callers that must agree byte-for-byte: `PrismaConversationStore`
- * uses it to fill the DROPPED `targetText` column's replacement on every read,
- * and the history UI (`HistoryTranscript`) reads the same field to render a
- * block, so a reader watching a live conversation and the same conversation read
- * back from history sees the identical translation picked out of the map.
+ * Read by the history UI (`HistoryTranscript`) to render a block, so a
+ * conversation read back from history shows the translation it showed live.
  *
  * Takes its own inline shape rather than `Pick<ConversationTurn, ...>` for
  * clarity at the call site: both fields are required on `ConversationTurn`
@@ -135,9 +122,7 @@ export function primaryTranslation(
   // one — but a mixed turn is translated into the whole set, sources included,
   // so the map normally holds a rendering for each. Showing nothing would read
   // as a lost translation. Prefer a rendering away from the FIRST source
-  // language, which is the pick the deployment guide's down-SQL makes when it
-  // rebuilds `targetText`, so a turn reads the same before and after a
-  // rollback; then any stored rendering.
+  // language, then any stored rendering.
   const hasRendering = (code: LanguageCode) => (turn.translations[code] ?? '') !== '';
   const rendered =
     languages.find((code) => code !== turn.sourceLanguages[0] && hasRendering(code)) ??
@@ -155,24 +140,12 @@ export function primaryTranslation(
  *
  * `preview` is the first block's text, computed at read.
  *
- * `languages` is the stored column — declared source first, so `direction` is
- * `legacyDirectionOf(languages)` and not a second fact about the row.
- * `direction` is KEPT rather than replaced, for the same reason
- * `ConversationTurn.targetText` is: `apps/api` does not deploy atomically with
- * every open client tab, so a reader ahead of a rollback still needs the field
- * it has always read.
- *
- * STRICT, mirroring `ConversationTurn.sourceLanguages`/`translations`:
- * `apps/web` reads `languages` directly now (`DirectionLabel`'s `from`/`to`) and
- * sends it on every save, and `PrismaConversationStore.toSummary` fills it on
- * every read — so a hand-built value missing it fails to typecheck. Backward-
- * compatible parsing of a rolled-back API's response, which predates this
- * column, lives in `http/conversations.ts`'s wire schemas via
- * `fillConversationLanguages`.
+ * `languages` is the stored column — declared source first, so the pair a
+ * conversation was held in is `{ source: languages[0], target: languages[1] }`
+ * for every conversation saved today.
  */
 export const conversationSummarySchema = z.object({
   conversationId: z.string(),
-  direction: translationDirectionSchema,
   languages: conversationLanguagesSchema,
   startedAt: z.string(),
   endedAt: z.string(),
@@ -186,6 +159,15 @@ export const conversationSummarySchema = z.object({
    * marker never appeared for anyone.
    */
   hasMinutes: z.boolean(),
+  /**
+   * Time the conversation spent paused, in ms — what the card's duration leaves
+   * out: `endedAt - startedAt - pausedMs`. Zero for every conversation saved
+   * before pausing stopped the clock, which is what their duration meant.
+   *
+   * Defaulted for the rollback `audioOffsetMs` describes below: an API build
+   * from before this field sends none, and a list must still parse.
+   */
+  pausedMs: z.number().int().min(0).default(0),
 });
 export type ConversationSummary = z.infer<typeof conversationSummarySchema>;
 

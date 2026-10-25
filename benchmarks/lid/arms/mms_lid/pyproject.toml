@@ -1,0 +1,19 @@
+[project]
+name = "lid-arm-mms"
+version = "0.1.0"
+description = "Arm 3: facebook/mms-lid-126 -- accuracy-only (torch + transformers, GPU box)"
+requires-python = ">=3.11.4,<3.12"
+dependencies = [
+    "numpy>=1.26",
+    "soundfile>=0.12",
+    "av>=13",
+    "sherpa-onnx==1.13.4",
+    "onnxruntime==1.27.0",
+    "huggingface-hub>=0.26",
+    "transformers==4.53.2",
+    "safetensors>=0.4",
+    "torch==2.7.1",
+]
+
+[tool.uv]
+package = false

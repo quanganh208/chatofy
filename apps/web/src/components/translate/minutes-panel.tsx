@@ -78,8 +78,10 @@ export function MinutesPanel({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <CardTitle>{t('web.translate.minutesTitle')}</CardTitle>
+      {/* Wraps rather than squeezes: at phone width the title broke over two lines
+          beside its buttons. The title stays whole and the actions drop below it. */}
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-x-2 gap-y-3">
+        <CardTitle className="whitespace-nowrap">{t('web.translate.minutesTitle')}</CardTitle>
         <div className="flex items-center gap-2">
           {ready && (
             <Button variant="ghost" size="sm" onClick={() => void copy()}>

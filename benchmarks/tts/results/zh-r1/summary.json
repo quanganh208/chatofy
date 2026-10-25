@@ -1,0 +1,525 @@
+{
+  "zh": {
+    "arms": {
+      "kokoro-v1_0-en-zh": {
+        "voices": {
+          "45": {
+            "speaker": "zf_xiaobei",
+            "gender": "female",
+            "cer": {
+              "sensevoice-zh": 3.794642857142857,
+              "paraformer-zh": 4.464285714285714
+            },
+            "latency": {
+              "mean_s": 1.22015,
+              "p50_s": 1.20805,
+              "p95_s": 1.6217749999999997
+            },
+            "rtf": 0.3250497282705218,
+            "peak_rss_mb": 667.1,
+            "load_s": 1.243
+          },
+          "46": {
+            "speaker": "zf_xiaoni",
+            "gender": "female",
+            "cer": {
+              "sensevoice-zh": 25.446428571428573,
+              "paraformer-zh": 30.133928571428573
+            },
+            "latency": {
+              "mean_s": 1.0780199999999998,
+              "p50_s": 1.10925,
+              "p95_s": 1.4246699999999999
+            },
+            "rtf": 0.3242230420660064,
+            "peak_rss_mb": 645.2,
+            "load_s": 1.23
+          },
+          "47": {
+            "speaker": "zf_xiaoxiao",
+            "gender": "female",
+            "cer": {
+              "sensevoice-zh": 1.7857142857142858,
+              "paraformer-zh": 2.9017857142857144
+            },
+            "latency": {
+              "mean_s": 0.9764999999999999,
+              "p50_s": 0.9886,
+              "p95_s": 1.2899499999999997
+            },
+            "rtf": 0.30170238622436896,
+            "peak_rss_mb": 639.0,
+            "load_s": 1.154
+          },
+          "48": {
+            "speaker": "zf_xiaoyi",
+            "gender": "female",
+            "cer": {
+              "sensevoice-zh": 2.232142857142857,
+              "paraformer-zh": 2.455357142857143
+            },
+            "latency": {
+              "mean_s": 1.0978199999999998,
+              "p50_s": 1.1164999999999998,
+              "p95_s": 1.5089299999999997
+            },
+            "rtf": 0.34875786263422076,
+            "peak_rss_mb": 642.8,
+            "load_s": 1.165
+          },
+          "49": {
+            "speaker": "zm_yunjian",
+            "gender": "male",
+            "cer": {
+              "sensevoice-zh": 2.232142857142857,
+              "paraformer-zh": 2.455357142857143
+            },
+            "latency": {
+              "mean_s": 1.0849233333333332,
+              "p50_s": 1.06765,
+              "p95_s": 1.500305
+            },
+            "rtf": 0.33299605082768935,
+            "peak_rss_mb": 643.0,
+            "load_s": 1.269
+          },
+          "50": {
+            "speaker": "zm_yunxi",
+            "gender": "male",
+            "cer": {
+              "sensevoice-zh": 2.9017857142857144,
+              "paraformer-zh": 2.455357142857143
+            },
+            "latency": {
+              "mean_s": 1.02076,
+              "p50_s": 1.06335,
+              "p95_s": 1.370825
+            },
+            "rtf": 0.34070761014686246,
+            "peak_rss_mb": 640.7,
+            "load_s": 1.192
+          },
+          "51": {
+            "speaker": "zm_yunxia",
+            "gender": "male",
+            "cer": {
+              "sensevoice-zh": 2.0089285714285716,
+              "paraformer-zh": 2.232142857142857
+            },
+            "latency": {
+              "mean_s": 1.0750633333333333,
+              "p50_s": 1.1008,
+              "p95_s": 1.443355
+            },
+            "rtf": 0.3261490388018648,
+            "peak_rss_mb": 647.0,
+            "load_s": 1.155
+          },
+          "52": {
+            "speaker": "zm_yunyang",
+            "gender": "male",
+            "cer": {
+              "sensevoice-zh": 2.455357142857143,
+              "paraformer-zh": 3.3482142857142856
+            },
+            "latency": {
+              "mean_s": 0.9337366666666665,
+              "p50_s": 0.9727,
+              "p95_s": 1.2440549999999997
+            },
+            "rtf": 0.31966335729772904,
+            "peak_rss_mb": 596.4,
+            "load_s": 1.238
+          }
+        },
+        "chosen": {
+          "female": {
+            "sid": 47,
+            "speaker": "zf_xiaoxiao"
+          },
+          "male": {
+            "sid": 51,
+            "speaker": "zm_yunxia"
+          }
+        },
+        "cer_chosen": {
+          "sensevoice-zh": 1.8973214285714286,
+          "paraformer-zh": 2.5669642857142856
+        },
+        "cer_all_voices": {
+          "sensevoice-zh": 5.357142857142857,
+          "paraformer-zh": 6.305803571428571
+        },
+        "peak_rss_mb_max": 667.1,
+        "worst5": [
+          {
+            "speaker": "zf_xiaoxiao",
+            "sentence_id": "s015",
+            "reference": "今年公司的销售额增长了15%。",
+            "cer": {
+              "sensevoice-zh": 25.0,
+              "paraformer-zh": 31.25
+            },
+            "mean_cer": 28.125,
+            "hyps": {
+              "sensevoice-zh": "今年公司的销售额增长了十五 percent",
+              "paraformer-zh": "今年公司的销售额增长了十五 per 三定"
+            }
+          },
+          {
+            "speaker": "zm_yunxia",
+            "sentence_id": "s015",
+            "reference": "今年公司的销售额增长了15%。",
+            "cer": {
+              "sensevoice-zh": 25.0,
+              "paraformer-zh": 25.0
+            },
+            "mean_cer": 25.0,
+            "hyps": {
+              "sensevoice-zh": "今年公司的销售额增长了十五 but",
+              "paraformer-zh": "今年公司的销售额增长了十五 percent"
+            }
+          },
+          {
+            "speaker": "zm_yunxia",
+            "sentence_id": "s024",
+            "reference": "我刚下载了ChatGPT的新版本。",
+            "cer": {
+              "sensevoice-zh": 20.0,
+              "paraformer-zh": 20.0
+            },
+            "mean_cer": 20.0,
+            "hyps": {
+              "sensevoice-zh": "我刚下载了叉 g b g 的新版本",
+              "paraformer-zh": "我刚下载了杀 g b g 的新版本"
+            }
+          },
+          {
+            "speaker": "zf_xiaoxiao",
+            "sentence_id": "s024",
+            "reference": "我刚下载了ChatGPT的新版本。",
+            "cer": {
+              "sensevoice-zh": 10.0,
+              "paraformer-zh": 20.0
+            },
+            "mean_cer": 15.0,
+            "hyps": {
+              "sensevoice-zh": "我刚下载了 x g b g 的新版本",
+              "paraformer-zh": "我刚下载了叉 g b g 的新版本"
+            }
+          },
+          {
+            "speaker": "zf_xiaoxiao",
+            "sentence_id": "s006",
+            "reference": "现在的AI工具越来越好用了。",
+            "cer": {
+              "sensevoice-zh": 8.333333333333334,
+              "paraformer-zh": 16.666666666666668
+            },
+            "mean_cer": 12.5,
+            "hyps": {
+              "sensevoice-zh": "现在的 i工具越来越好用了",
+              "paraformer-zh": "现在 di 工具越来越好用了"
+            }
+          }
+        ]
+      },
+      "kokoro-v1_1-int8-zh": {
+        "voices": {
+          "3": {
+            "speaker": "zf_001",
+            "gender": "female",
+            "cer": {
+              "sensevoice-zh": 2.455357142857143,
+              "paraformer-zh": 2.9017857142857144
+            },
+            "latency": {
+              "mean_s": 4.41028,
+              "p50_s": 4.4237,
+              "p95_s": 5.614674999999999
+            },
+            "rtf": 1.2542388305889713,
+            "peak_rss_mb": 499.3,
+            "load_s": 1.116
+          },
+          "4": {
+            "speaker": "zf_002",
+            "gender": "female",
+            "cer": {
+              "sensevoice-zh": 2.9017857142857144,
+              "paraformer-zh": 2.6785714285714284
+            },
+            "latency": {
+              "mean_s": 5.00658,
+              "p50_s": 5.067,
+              "p95_s": 6.480154999999999
+            },
+            "rtf": 1.259749387727715,
+            "peak_rss_mb": 506.3,
+            "load_s": 1.274
+          },
+          "5": {
+            "speaker": "zf_003",
+            "gender": "female",
+            "cer": {
+              "sensevoice-zh": 3.5714285714285716,
+              "paraformer-zh": 3.794642857142857
+            },
+            "latency": {
+              "mean_s": 5.32554,
+              "p50_s": 5.3416999999999994,
+              "p95_s": 6.8406449999999985
+            },
+            "rtf": 1.3129382180365863,
+            "peak_rss_mb": 510.2,
+            "load_s": 1.169
+          },
+          "58": {
+            "speaker": "zm_009",
+            "gender": "male",
+            "cer": {
+              "sensevoice-zh": 3.794642857142857,
+              "paraformer-zh": 3.3482142857142856
+            },
+            "latency": {
+              "mean_s": 4.828136666666666,
+              "p50_s": 4.9159,
+              "p95_s": 6.13897
+            },
+            "rtf": 1.3621873001542333,
+            "peak_rss_mb": 497.9,
+            "load_s": 1.18
+          },
+          "59": {
+            "speaker": "zm_010",
+            "gender": "male",
+            "cer": {
+              "sensevoice-zh": 2.232142857142857,
+              "paraformer-zh": 2.9017857142857144
+            },
+            "latency": {
+              "mean_s": 4.661833333333333,
+              "p50_s": 4.73435,
+              "p95_s": 5.874025
+            },
+            "rtf": 1.293755781683626,
+            "peak_rss_mb": 499.5,
+            "load_s": 1.203
+          },
+          "6": {
+            "speaker": "zf_004",
+            "gender": "female",
+            "cer": {
+              "sensevoice-zh": 3.5714285714285716,
+              "paraformer-zh": 2.455357142857143
+            },
+            "latency": {
+              "mean_s": 5.077043333333335,
+              "p50_s": 5.25255,
+              "p95_s": 6.803544999999999
+            },
+            "rtf": 1.264592379797913,
+            "peak_rss_mb": 515.3,
+            "load_s": 1.345
+          },
+          "60": {
+            "speaker": "zm_011",
+            "gender": "male",
+            "cer": {
+              "sensevoice-zh": 2.9017857142857144,
+              "paraformer-zh": 3.794642857142857
+            },
+            "latency": {
+              "mean_s": 4.5853866666666665,
+              "p50_s": 4.4601500000000005,
+              "p95_s": 6.263109999999999
+            },
+            "rtf": 1.3125355418582905,
+            "peak_rss_mb": 504.2,
+            "load_s": 1.297
+          },
+          "61": {
+            "speaker": "zm_012",
+            "gender": "male",
+            "cer": {
+              "sensevoice-zh": 2.9017857142857144,
+              "paraformer-zh": 2.9017857142857144
+            },
+            "latency": {
+              "mean_s": 4.619016666666668,
+              "p50_s": 4.7133,
+              "p95_s": 5.933584999999998
+            },
+            "rtf": 1.241181792124969,
+            "peak_rss_mb": 504.6,
+            "load_s": 1.047
+          }
+        },
+        "chosen": {
+          "female": {
+            "sid": 3,
+            "speaker": "zf_001"
+          },
+          "male": {
+            "sid": 59,
+            "speaker": "zm_010"
+          }
+        },
+        "cer_chosen": {
+          "sensevoice-zh": 2.34375,
+          "paraformer-zh": 2.9017857142857144
+        },
+        "cer_all_voices": {
+          "sensevoice-zh": 3.041294642857143,
+          "paraformer-zh": 3.0970982142857144
+        },
+        "peak_rss_mb_max": 515.3,
+        "worst5": [
+          {
+            "speaker": "zf_001",
+            "sentence_id": "s015",
+            "reference": "今年公司的销售额增长了15%。",
+            "cer": {
+              "sensevoice-zh": 25.0,
+              "paraformer-zh": 25.0
+            },
+            "mean_cer": 25.0,
+            "hyps": {
+              "sensevoice-zh": "今年公司的销售额增长了十五片",
+              "paraformer-zh": "今年公司的销售额增长了十五片"
+            }
+          },
+          {
+            "speaker": "zm_010",
+            "sentence_id": "s015",
+            "reference": "今年公司的销售额增长了15%。",
+            "cer": {
+              "sensevoice-zh": 25.0,
+              "paraformer-zh": 25.0
+            },
+            "mean_cer": 25.0,
+            "hyps": {
+              "sensevoice-zh": "今年公司的销售额增长了十五三",
+              "paraformer-zh": "今年公司的销售额增长了十五三"
+            }
+          },
+          {
+            "speaker": "zf_001",
+            "sentence_id": "s024",
+            "reference": "我刚下载了ChatGPT的新版本。",
+            "cer": {
+              "sensevoice-zh": 20.0,
+              "paraformer-zh": 20.0
+            },
+            "mean_cer": 20.0,
+            "hyps": {
+              "sensevoice-zh": "我刚下载了叉 g p t 的新版本",
+              "paraformer-zh": "我刚下载了叉 g p t 的新版本"
+            }
+          },
+          {
+            "speaker": "zm_010",
+            "sentence_id": "s024",
+            "reference": "我刚下载了ChatGPT的新版本。",
+            "cer": {
+              "sensevoice-zh": 20.0,
+              "paraformer-zh": 20.0
+            },
+            "mean_cer": 20.0,
+            "hyps": {
+              "sensevoice-zh": "我刚下载了杀 g p t 的新版本",
+              "paraformer-zh": "我刚下载了啥 g p ity 的新版本"
+            }
+          },
+          {
+            "speaker": "zf_001",
+            "sentence_id": "s006",
+            "reference": "现在的AI工具越来越好用了。",
+            "cer": {
+              "sensevoice-zh": 16.666666666666668,
+              "paraformer-zh": 8.333333333333334
+            },
+            "mean_cer": 12.5,
+            "hyps": {
+              "sensevoice-zh": "现在的绿 r工具越来越好用了",
+              "paraformer-zh": "现在的 ar 工具越来越好用了"
+            }
+          }
+        ]
+      }
+    },
+    "decision": {
+      "rule": "reuse v1_0 unless v1_1 CER is lower by > 2 points under both judges",
+      "v1_0_minus_v1_1_cer_points": {
+        "sensevoice-zh": -0.4464285714285714,
+        "paraformer-zh": -0.3348214285714288
+      },
+      "winner": "kokoro-v1_0-en-zh"
+    }
+  },
+  "en_regression": {
+    "per_sid": {
+      "9": {
+        "speaker": "af_sarah",
+        "byte_identical_vs_en_only": 0,
+        "byte_identical_control": 0,
+        "same_length_vs_en_only": 8,
+        "same_length_control": 9,
+        "n": 30,
+        "p95_s": {
+          "en-only": 1.0242499999999999,
+          "en-zh": 1.009725,
+          "en-only-control": 1.0326899999999997
+        },
+        "mean_s": {
+          "en-only": 0.8275566666666666,
+          "en-zh": 0.8177000000000001,
+          "en-only-control": 0.7972933333333333
+        },
+        "peak_rss_mb": {
+          "en-only": 639.4,
+          "en-zh": 652.4,
+          "en-only-control": 639.6
+        },
+        "wer": {
+          "en-only": 4.823151125401929,
+          "en-zh": 4.823151125401929,
+          "en-only-control": 4.823151125401929
+        },
+        "p95_delta_pct": -1.4181108127898365,
+        "pass": true
+      },
+      "11": {
+        "speaker": "am_adam",
+        "byte_identical_vs_en_only": 0,
+        "byte_identical_control": 0,
+        "same_length_vs_en_only": 8,
+        "same_length_control": 4,
+        "n": 30,
+        "p95_s": {
+          "en-only": 0.9391199999999998,
+          "en-zh": 0.9215049999999998,
+          "en-only-control": 0.90104
+        },
+        "mean_s": {
+          "en-only": 0.7462599999999998,
+          "en-zh": 0.7272066666666668,
+          "en-only-control": 0.7245733333333333
+        },
+        "peak_rss_mb": {
+          "en-only": 614.4,
+          "en-zh": 627.8,
+          "en-only-control": 614.6
+        },
+        "wer": {
+          "en-only": 4.501607717041801,
+          "en-zh": 4.501607717041801,
+          "en-only-control": 4.501607717041801
+        },
+        "p95_delta_pct": -1.8756921373200497,
+        "pass": true
+      }
+    },
+    "verdict": "PASS (p95 within ±10%, WER within run-to-run control)"
+  }
+}

@@ -196,17 +196,28 @@ This documents the response as the standard envelope with the given data type.
 ## Languages
 
 **One registry, `LANGUAGES` in `packages/types/src/domain/languages.ts`, is the
-only place in the monorepo that knows which languages exist.** Every direction
-string, every schema that validates a language code, and every rule that maps
+only place in the monorepo that knows which languages exist.** Every language
+pair, every schema that validates a language code, and every rule that maps
 between languages is derived from it — nothing else may spell `'vi'` or `'en'`
-as a branch condition or write a direction literal (`'vi_to_en'`) by hand. The
+as a branch condition. The
 module's own file header states this and explains why; read it before adding
 anything nearby.
 
 **Data plus pure functions, deliberately not a class per language.** A
-direction travels as the string `${source}_to_${target}` across the socket,
-Postgres, `localStorage` and React state — a class instance would break `===`
-and every serializer on that path. "OOP" in this codebase, for languages, means
+conversation declares its languages as a plain `LanguagePair`
+(`{ source, target }`, field `languagePair`) across the socket, `localStorage`
+and React state, and Postgres stores them as `Conversation.languages`
+(`pairLanguages(pair)`, declared source first) — a class instance would not
+survive a serializer on that path. A pair is an object, so two equal pairs are
+never `===`: compare with `samePair`, and keep a pair used as an effect
+dependency in state rather than building it during render. It replaced the
+`${source}_to_${target}` direction string so that `source` could widen to
+"detect it" without a second wire format, and on the streaming socket it now
+has: `SessionLanguagePair` (`sessionLanguagePairSchema`) allows `source:
+'detect'` (`AUTO_DETECT`). It is a separate type rather than a widening of
+`LanguagePair`, because only the WebSocket session path can serve an undeclared
+source; REST, live and every stored record keep the two-codes pair, so none of
+them has to narrow a value that can never reach them. "OOP" in this codebase, for languages, means
 **encapsulation** (one module owns the knowledge) **plus strategy**
 (`LanguageTable<T>`, the provider interfaces, `LanguageIdentifier`) — not
 inheritance. There is no `class Vietnamese extends Language`, and there should
@@ -222,68 +233,215 @@ table this rule is built around: a value for EVERY registry language, no
 fallback. Adding a language to `LANGUAGES` turns every `LanguageTable` in the
 codebase into a compile error until it has an entry — this is what "the
 compiler lists the work" means in practice, and the spike below measures
-exactly how far that reaches. Production uses today: the per-language inverse-
-text-normalization table (`BY_LANGUAGE` in
-`packages/ai-providers/src/text/inverse-normalize-transcript.ts`) and the
-per-language voice-token schema (`storedVoiceSelectionSchema` in
-`apps/web/src/lib/translate-settings.ts`), and the AI Context editor's glossary
-row (`GlossaryRow` in `apps/web/src/components/preferences/ai-context-draft.ts`).
+exactly how far that reaches. Production uses today:
+
+- `BY_LANGUAGE` (`packages/ai-providers/src/text/inverse-normalize-transcript.ts`)
+  — each language's ITN, as a function (zh is a character scanner, not a
+  `LanguageItn` rule table);
+- `RECOGNIZER_NOTES` (`prompt-builder.ts`) — what each source language's
+  recognizer gets wrong, appended to the translation instruction;
+- `SCRIPTS` (`packages/ai-providers/src/text/translation-script.ts`) — the script
+  a translation into each language is displayed in, and what counts as a leak;
+- `RESPELLS_LOANWORDS` (`translation-session.service.ts`),
+  `REPAIRS_HOMOPHONES` and `FUSES_RECOGNIZERS` (`pipeline-translator.service.ts`)
+  and `RESTORED_RECOGNITION` (`display-restore-request.ts`) — which recognition
+  languages get a loanword respelling, a homophone repair, a second recognizer
+  fused into the display, and a display restore;
+- `LIVE_LANGUAGES` (`packages/types/src/domain/translate-mode.ts`) — which
+  languages the live mode serves, read by the gateway and the extension picker;
+- `LIVE_TRANSLATION_COMMIT_CHARS` (`session/turn-tuning.ts`) — settled
+  characters per provisional translation, per recognition language;
+- the per-language voice-token schema (`storedVoiceSelectionSchema` in
+  `apps/web/src/lib/translate-settings.ts`) and the AI Context editor's glossary
+  row (`GlossaryRow` in `apps/web/src/components/preferences/ai-context-draft.ts`).
 
 **The rule this whole section exists to state: no branching on a language code
-outside a `LanguageTable`, and no direction string literal anywhere but the
-registry itself.** A `=== 'vi'`/`'en' ===` comparison or a hand-written
-`'vi_to_en'` is either a missing registry function or a missing `LanguageTable`
-entry — never a shortcut. `git grep -nE "=== '(vi|en)'|'(vi|en)' ===" -- apps packages` and `git grep -lE "'vi_to_en'|'en_to_vi'" -- apps packages` are the
-checks that enforce it. Specs and e2e tests use literals freely; in production
-code the only hits are the Vietnamese-only recognizer note in
-`packages/ai-providers/src/providers/gemini/prompt-builder.ts`
-(`sourceLanguage === 'vi'`, explained in
-[Data Flow](./data-flow.md#ai-context-and-the-path-a-hint-takes-to-the-prompt)), and
-the Prisma schema comments and migration SQL that record the legacy `direction`
-column. Defaults are built with `directionOf` rather than spelled
-(`DEFAULT_CAPTURE_DIRECTION` in `apps/extension/src/settings.ts`). The
+outside a `LanguageTable`.** A `=== 'vi'`/`'en' ===` comparison is either a
+missing registry function or a missing `LanguageTable` entry — never a
+shortcut. The check that enforces it catches `!==` and array
+literals too, which the older `=== '(vi|en)'` pattern missed:
+
+```bash
+git grep -nE "[!=]==\s*'(vi|en|zh)'|'(vi|en|zh)'\s*[!=]==|\[\s*'(vi|en|zh)'\s*\]" \
+  -- apps packages ':!*.spec.ts' ':!*.spec.tsx' ':!apps/api/prisma/**' ':!apps/api/test/**'
+```
+
+It finds nothing in production code: the last three hits (the Vietnamese
+recognizer note, the loanword-respelling gate and the restore language list)
+became `RECOGNIZER_NOTES`, `RESPELLS_LOANWORDS` and `RESTORED_RECOGNITION` when
+zh joined. Specs and e2e tests use literals freely, and the Prisma schema
+comments and migration SQL record the dropped `direction` column. Defaults are
+built with `languagePairOf` / `DEFAULT_LANGUAGE_PAIR` rather than spelled. The
+old `'vi_to_en'` string survives in exactly one parser,
+`languagePairFromStoredDirection` (`packages/types/src/domain/stored-language-pair.ts`),
+which the web and extension settings readers call so a setting saved before the
+pair existed is not silently reset; no wire schema accepts it. The
 interface-locale axis (`common.language.*`, `locale-switcher.tsx`) is a
 different axis entirely, see below.
 
 ### What a turn decides, and in what order
 
-**`TurnLanguagePlan`** (`apps/api/src/modules/translate/session/turn-language-plan.ts`) is what one turn decided, language-wise, before a single frame of its
-audio is transcribed: the conversation's full language set, what the turn was
+**`TurnLanguagePlan`** (`apps/api/src/modules/translate/session/turn-language-plan.ts`) is what one turn does, language-wise: the conversation's full language set, what the turn was
 actually spoken in (`sourceLanguages`), every language it must be translated
 into (`targets`), which one its audio is recognised in (`recognition`, today
 always `sourceLanguages[0]` — one STT engine per language cannot read a mixed
 utterance in one pass), and which one its translation is spoken aloud in
-(`spoken`, today always `targets[0]` — TTS for every target at once is a
-deferred seam, see below). Built once per turn by `planForDirection(direction,
-identifier)` (a wrapper over `planTurnLanguages`), and read by everything
-downstream instead of re-deriving anything from `direction`.
-`TranslationSessionService.start()` builds it once, checks it with
-`SpeechLanguageSupport`, and hands that same plan to the `TurnSession`
-(`TurnSessionDeps.languages`), so the turn that runs is the turn the refusal
-check approved; `TranslateController.translate()` calls the same helper for
-REST. `TurnSession` derives a plan itself only when none is handed in (tests).
+(`spoken`, `targets[0]` — TTS for every target at once is a deferred seam, see
+below — or `null` for an auto-detected turn heard in its own target, which is
+transcript only). Everything downstream reads the plan instead of re-deriving
+anything from the pair. A declared turn's plan is built once, before any audio,
+by `planForPair(languagePair, identifier)` (a wrapper over
+`planTurnLanguages`); `TranslateController.translate()` calls the same helper
+for REST, which therefore never identifies anything.
 
-**`LanguageIdentifier`** (`apps/api/src/modules/translate/session/language-identifier.ts`) is the DI seam that decides which language(s) a turn was
-spoken in. It is called once per turn — every WS turn and every REST call —
-with the language the CLIENT declared, not with audio.
-`DeclaredLanguageIdentifier` is the only implementation and the default
-`TurnSessionDeps.identifier`: it trusts the declaration outright and returns
-exactly one code. A real identifier (reading the turn's own audio) is a
-deferred seam — the interface already takes a turn-shaped argument rather than
-a bare code so that swap can add fields (a sample rate, a byte buffer) without
-another interface change — see "LID and audio-based detection" below.
+**`TurnLanguageDecision`** (`session/turn-language-decision.ts`) is what a
+WebSocket turn reads its plan through, so `TurnSession.languages` is a getter
+(`decision.plan`), not a field. A declared turn's decision is fixed at
+construction (`declaredDecision` in `turn-session.ts`) and never changes. A
+two-way or detect turn's decision is late-bound, in three steps:
+
+1. **Held.** Partials carry text but no language, and no live translation runs.
+   Showing every partial's guess flipped the label on about 38% of
+   conversational turns in the bake-off.
+2. **Locked.** The first partial at or above `LID_LOCK_CONFIDENCE` with at
+   least `LID_LOCK_MIN_SPEECH_MS` of the sidecar's `lidSpeechMs` fixes the
+   language for the rest of the partials and for live translation; the
+   streaming committer restarts from nothing (`TurnSession.resetCommitter`),
+   because text read in the provisional language shares no prefix with the
+   locked one.
+3. **Final.** Re-decided on the whole turn, always (`decideFinal`). It may
+   overrule the lock, which is the only way a turn's label changes. Below
+   `LID_UNCERTAIN_BELOW` the final falls back to the decided language of the
+   turn opened before it (`ConversationContext.languageOf`), then to the
+   declared source; a detect turn with neither keeps what it heard.
+
+The lock serves only the preview: the gate scored final accuracy on the whole
+turn, so letting a prefix decide the final would ship a policy nobody measured.
+A speculation asks `peekFinal`, which decides nothing, and its result is reused
+only if the final, asked at the endpoint, agrees; a split turn is decided once,
+on the whole turn, before its pieces are translated. The thresholds and why
+they hold their values are in `session/turn-tuning.ts` (`LID_*`).
+`SourcePrior` is the per-socket lean towards the declared source; its bonus,
+`LID_SOURCE_PRIOR_LOGODDS`, is zero because that is what the tuning chose, so
+leaning towards the source is today the fallback's job. A prior per voice was
+not built: the bake-off found it added nothing held out.
+
+`TranslationSessionService.start()` checks every candidate's plan
+(`decision.planIn`) against `SpeechLanguageSupport` before the turn exists, so
+any language the turn may turn out to be in is one the engines serve. The
+speaker role follows the decided language (`speakerRoleFor` on
+`plan.recognition`), not the voice.
+
+**`LanguageIdentifier`** (`apps/api/src/modules/translate/session/language-identifier.ts`) is the DI seam `planForPair` asks which language(s) a
+declared turn was spoken in, with the language the CLIENT declared, not with
+audio. `DeclaredLanguageIdentifier` is still the only implementation, bound to
+`LANGUAGE_IDENTIFIER` in `translate.module.ts` and used as `TurnSession`'s
+default: it trusts the declaration outright and returns exactly one code.
+Audio identification did not go behind this seam. It runs inside the STT
+sidecar, in the same `/transcribe` call that decodes the turn, so a decision
+costs no extra round trip and the decode uses the engine of the language just
+decided; see below.
 
 ### LID and audio-based detection
 
-There is no language identification (LID) from audio today. A turn's source
-language is whatever the client declared for it; `DeclaredLanguageIdentifier`
-turns that into a one-element `sourceLanguages`, so no turn is ever reported as
-mixed-language. The multi-source shape exists end to end
-(`TurnLanguagePlan.sourceLanguages`, `translationTargets`, the segment's
-`sourceLanguages`) so that an audio-based identifier is a new
-`LanguageIdentifier` bound to `LANGUAGE_IDENTIFIER` in `translate.module.ts`,
-not a contract change. What it would still leave undone is listed under
-"Deferred seams" below (items 1, 2 and 10).
+A streaming session runs in one of three modes (`sessionLanguageModeSchema`):
+
+- **`declared`** — the source the client named, one way. Every session that
+  does not ask for more, and every session from a client older than this.
+- **`two-way`** — `client.session.start` with a concrete pair and
+  `twoWay: true`. The pair is a set: each turn is identified as one of its two
+  languages and translated into the other.
+- **`detect`** — `languagePair.source: 'detect'`. Each turn is identified among
+  `IDENTIFIABLE_LANGUAGES` and translated into the fixed target; a turn heard in
+  the target is transcript only (`planDetectTurn` gives it no target), closes
+  as `voice_off`, gets no live translation, and is not remembered as context.
+
+The candidates a turn chooses between are `turnCandidates(pair, twoWay)`.
+`IDENTIFIABLE_LANGUAGES` (`packages/types/src/domain/languages.ts`) holds vi
+and en: zh missed the accuracy bar the vi↔en pair met on the same labelled
+set, so a pair with zh stays declared one-way and the web picker offers neither
+two-way nor auto-detect with it. The choice of identifier and the numbers are
+in `benchmarks/lid/README.md` and the development journey.
+
+**Admission** is decided once per start, by `admitLanguageMode`
+(`providers/speech-language-support.ts`). Identification is used only when the
+shipped identifier can tell the candidates apart (`canIdentify`), the STT
+engine says it can identify every one of them right now
+(`SpeechLanguageSupport.identifiable()`, read from the sidecar's
+`lidLanguages`), and the session path serves the mode (`SERVED_MODES` in
+`translation-session.service.ts`). Otherwise:
+
+- a two-way start **degrades** to declared one-way, and `server.session.ready`
+  says so: `mode: 'declared'`, `modeReason: 'language_detection'`. The speaker
+  still gets what every session got before, which beats no session;
+- a detect start is **refused**: `server.error` with code
+  `language_unavailable` and `detail: 'language_detection'`. There is no
+  declared language to fall back to, and guessing one would translate the
+  wrong way silently.
+
+Unknown capability counts as "cannot identify" here, the opposite of the
+fail-open `refusal()` below: a wrong "can" sends candidates the engine cannot
+honour, while a wrong "cannot" only runs a declared turn. `ready.mode` is the
+mode a client must render; `twoWay` is a request, never a command, and the web
+client follows the echo, not its own guess. A sidecar that answers `409` to
+candidates (identification switched off since the last probe) makes the
+provider decode the turn declared and calls `onIdentifyUnavailable`, which
+re-probes at once (`SpeechLanguageSupport.refreshNow`). While an engine that can
+report what it identifies has not answered yet — still loading its models after
+a deploy — every start probes again instead of waiting out the interval.
+
+**Capacity.** An identifying session costs the sidecar a decision on every
+partial and final, and the sidecar refuses rather than queues once its lanes
+are full. `LidAdmission` (`session/lid-admission.ts`) admits one identifying
+socket per user and `MAX_LID_SOCKETS` in the process. Over the cap a two-way
+start runs declared with `modeReason: 'lid_capacity'`, and a detect start is
+refused with `detail: 'lid_capacity'`.
+
+**Other transports.** `client.live.start` asking for `twoWay` or a detected
+source is answered `server.live.error` `language_unavailable` before the parse
+(`refuseUnservedStart` in `translate.gateway.ts`): the live schema knows
+neither field, and a parse failure would reach the client as silence. REST
+`POST /translate` keeps `languagePairSchema`, so a detect source is a 400.
+
+**Context stays in one language.** A two-way conversation holds speech in both
+languages, and a turn is translated only against earlier speech in its own
+(`ConversationContext.recall`, `continuationIn`): the other side's words are
+already in the output language, which makes them the easiest thing in a prompt
+to copy into the answer, and an instruction among them needs no translation
+step to hide behind. A turn continues a forced cut only when the cut turn was
+decided in the same language. The `two-way-` rows of
+`benchmarks/prompt-injection` measure what the translator does if that filter
+is ever wrong.
+
+**Voices.** A two-way or detect session may speak more than one language, so
+`sessionOptions.voices` carries a voice token per language; a language without
+one falls back to `voice`, then to the gender voice.
+
+**Stored conversations.** A detect conversation saves
+`detectConversationLanguages(target)` (target first, then every other registry
+language) and is recognised by `isAutoDetectConversation` (more than two
+languages). No column marks it. A two-way conversation saves its pair like a
+declared one.
+
+**Wire fields added**, all optional so an older peer on either side still
+parses: `sessionOptions.twoWay`, `sessionOptions.voices`,
+`server.session.ready.mode`/`modeReason` (absent reads as `declared`),
+`language` on `server.transcript.partial`/`.delta` (present only once a decided
+turn has locked), and `server.error.detail`. The sidecar side (`candidates`,
+`languageConfidence`, `lidSpeechMs`, the `400`/`409` rules, `lidLanguages` on
+`/healthz`) is documented in
+[`services/local-stt/README.md`](../../services/local-stt/README.md#candidates).
+
+**One switch.** `LOCAL_STT_LID` defaults on in `docker-compose.yml` and off in
+`docker-compose.prod.yml` (`PROD_LOCAL_STT_LID`, set on in production's
+`prod.env`). Off, `/healthz` reports `lidLanguages: []`, two-way
+starts run declared, and detect starts are refused, so turning it off needs no
+API deploy.
+
+The multi-source shape (`TurnLanguagePlan.sourceLanguages`,
+`translationTargets`, the segment's `sourceLanguages`) still exists end to end;
+every identified turn is decided as exactly one language. What that leaves
+undone is listed under "Deferred seams" below.
 
 **Fan-out over targets.** `translationTargets(conversation, sources)` (in
 `languages.ts`) is the one function that decides which languages a turn must
@@ -325,49 +483,45 @@ malformed).
 
 **Parity is checked at RUNTIME, not generated at build time, and it is ⊆, not
 =.** A registry language with no configured engine is refused; a sidecar
-serving a language OUTSIDE the registry is merely logged, never refused —
-today's registry only has `vi`/`en`, and a `ja`-serving sidecar imposes no
-config change on the API. **The failure mode is fail-OPEN on purpose**: `null`
+serving a language OUTSIDE the registry is merely logged, never refused — a
+`ja`-serving sidecar imposes no config change on the API. **The failure mode is fail-OPEN on purpose**: `null`
 ("no restriction known") is returned for a cloud provider with no
 `supportedLanguages()` at all, for an unresolved boot-time probe, and for a
 failed probe alike — refusing a language the operator never actually
 restricted is judged a worse fault than occasionally forwarding a turn to an
 engine that, it turns out, was not there (the engine's own error is the
-backstop for that case, same as before this existed).
+backstop for that case, same as before this existed). Whether the engine can
+IDENTIFY languages is the one answer read the other way, fail-closed: see
+"LID and audio-based detection" above.
 
-### Legacy wire fields, and when they may be removed
+### Legacy wire fields
 
-Every wire and stored shape that predates this registry work is KEPT
-alongside its language-keyed replacement, because `apps/api` does not deploy
-atomically with `apps/web`, `apps/extension`, or an already-open browser tab:
-
-| Legacy field                                | Replacement                                                                         | Where the compatibility lives                                                                                                                                            |
-| ------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `direction` (`'vi_to_en'` string)           | `Conversation.languages` / turn `sourceLanguages`                                   | `packages/types/src/domain/language-fields-compat.ts` (`fillConversationLanguages`, `legacyDirectionOf`)                                                                 |
-| segment/turn `targetText` (one string)      | `translations` (`Partial<Record<LanguageCode, string>>`)                            | same file (`fillTurnLanguages`), plus `primaryTranslation` in `domain/conversation.ts`                                                                                   |
-| glossary entry `{ vi: string; en: string }` | `glossaryEntrySchema` = `translationMapSchema(glossaryTermSchema)` (≥2 filled keys) | `packages/types/src/events/ws-events.ts` — an old `{vi, en}` object is already a valid instance of the new partial-map type, so nothing had to migrate at the wire level |
-
-A response and a save request both still parse and still emit the legacy
-shape (pinned by `packages/types/src/domain/language-fields-compat.spec.ts`). **Removal criterion**: the legacy
-fields may be dropped once every extension build on the Chrome/Firefox store
-is at or above the version that writes the language-keyed shape for at least
-14 days, AND no open web tab from before that version can still be sending the
-old shape. Removing them is explicitly a SEPARATE change from this one — it touches the wire contracts, the two
-DB columns the migrations already dropped stay dropped either way, and it is
-not scheduled here.
+None remain. The `direction` string and the single-string `targetText` were
+removed from every wire and stored shape in one change, together with the
+compatibility shim that filled one from the other
+(`language-fields-compat.ts`). That was safe to do at once because the only
+extension builds that exist are the maintainer's own (see
+`docs/deployment-guide.md`), so no store build could still be sending the old
+shape; a browser tab opened before the deploy is refused and recovers on
+reload. On the socket that refusal is emitted, not thrown: a start carrying any
+`direction` key gets `server.error` (or `server.live.error`) with code
+`client_outdated`, because a thrown one reaches the client as silence and the
+stale page would hang in "connecting". The REST `POST /translate` response keeps a `targetText` field: it is
+that call's one translation, not the legacy turn field. Glossary entries were
+already language-keyed (`translationMapSchema(glossaryTermSchema)`), and an old
+`{vi, en}` object is a valid instance of that type.
 
 ### Deferred seams
 
-These are seams the plan's design deliberately did NOT build, because nothing
-in the live vi↔en traffic exercises them yet and a seam with no real caller and
+These are seams the design deliberately did NOT build, because nothing
+in the live traffic exercises them yet and a seam with no real caller and
 no test touching it is dead code by this repo's own rule: build a seam only
 where the real vi↔en flow passes through it and a test touches it. Each is a specific, small change
 when it is actually needed — not a redesign:
 
-1. **Audio-based language identification.** `LanguageIdentifier.identify`
-   already takes a turn-shaped argument (not a bare code) so a real
-   implementation can add audio fields without another interface change; only
-   `DeclaredLanguageIdentifier` exists today.
+1. **Identification for zh, or any language outside `IDENTIFIABLE_LANGUAGES`.**
+   Pairs with zh stay declared; adding it is a re-run of `benchmarks/lid` that
+   clears the bar, then one array entry.
 2. **Multi-language / code-switching STT.** Each local engine is one
    language; `TurnLanguagePlan.recognition` is always `sourceLanguages[0]`.
 3. **Multi-source translation prompts.** `TranslationRequest.sourceLanguage`
@@ -378,21 +532,23 @@ when it is actually needed — not a redesign:
 5. **TTS / spoken audio for more than one target.** `TurnLanguagePlan.spoken`
    is always `targets[0]`.
 6. **UI to choose or display more than one target.** No client surfaces more
-   than the two-language direction toggle today.
-7. **A wire field for declaring more than two conversation languages.** No
-   client sends one; `direction` remains the only way a conversation declares
-   its languages.
+   than the language-pair picker today.
+7. **A wire field for declaring more than two conversation languages.**
+   `languagePair` is the only way a conversation declares its languages; a
+   detect session's candidates come from `IDENTIFIABLE_LANGUAGES`, not from the
+   client.
 8. **A `targetLanguage` field on `server.translation.partial`/`.delta`.** The
-   event's own `direction` field already says source→target for a
-   single-target turn.
+   event's own `languagePair` already says source→target for a single-target
+   turn.
 9. **An N-ary `speakerRoleSchema`.** The roster already supports more than two
    speakers; the binary `speaker_a`/`speaker_b` role stays a fallback label.
 10. **Splitting a turn at a language-change boundary, and lazy-loading a
-    sidecar engine on demand.**
+    sidecar engine on demand.** A turn that changes language part-way is
+    decided as one language and recognised in it.
 
 ### Checklist: adding a language to the registry
 
-Verified against a real, throwaway spike — `ja: {englishName:'Japanese', nativeName:'日本語'}` added to `LANGUAGES` on a disposable worktree, then
+Verified against a real, throwaway spike — `ja: {englishName:'Japanese', label:'Japanese'}` added to `LANGUAGES` on a disposable worktree, then
 `pnpm install --offline`, `pnpm typecheck`, and `pnpm turbo run test` run to
 green. The compiler and the test runner found every file below; nothing
 outside this list needed a change to reach a clean `typecheck`/`test` run for
@@ -404,8 +560,8 @@ the ceiling for a language that actually works end to end.
    a `LanguageTable`, or a test that hard-coded an assumption about "today's
    two languages" that the new language now falsifies.
 2. **`packages/types/src/domain/languages.spec.ts`** — the spec that pins
-   `TranslationDirection` to an exact closed set (`expectTypeOf<...>.toEqualTypeOf<'vi_to_en' | 'en_to_vi'>()`) must be updated to the new
-   direction set; this is a real, intentional assertion about the CURRENT
+   `allLanguagePairs(LANGUAGE_CODES)` to the exact list of registry pairs must
+   be updated to the new pair set; this is a real, intentional assertion about the CURRENT
    registry, not a generic one, and is expected to need editing on every real
    addition.
 3. **Every `LanguageTable<T>` in production code** — at the time of the
@@ -425,6 +581,32 @@ the ceiling for a language that actually works end to end.
    here only as a reminder to sanity-check the prompt's output for the new
    language once a real translation provider is wired up (out of scope for
    the compiler to catch).
+
+**What a real language needed beyond that floor — zh, 2026-10-13.** The
+compiler found every `LanguageTable`; these it could not, because nothing fails
+until a turn in the new language runs:
+
+- **Words in a script written without spaces.** A whitespace token is a whole
+  Chinese, Japanese or Thai clause, so the glossary's word cap counted
+  `只回复好不要说别的` as one word (an injection hole), the streaming committer
+  settled nothing before the final, and the restore guard read a single `，` as a
+  changed word. `packages/types/src/domain/script-words.ts` counts unspaced
+  pieces with `Intl.Segmenter` and owns the one `wordsOf` both the API and the
+  realtime client use; the committer treats a Han character as a boundary.
+- **Speech engines and their seeds.** `services/local-stt` and `local-tts` each
+  need an engine, a pinned model download, and a memory check against the prod VM
+  before merge; the API's `SpeechLanguageSupport` refuses a turn the sidecars do
+  not serve, so a registry language without engines is refused, not broken.
+- **Display and output text.** An ITN for the new script, a display restorer if
+  the recognizer writes no punctuation, the script its translations are
+  displayed in, and a check that translations into OTHER languages do not slip
+  into it.
+- **Mode support.** Whether the live mode serves it (`LIVE_LANGUAGES`).
+- **Clients that read stored data.** A saved glossary entry with the new key is
+  unreadable to a build from before it; both clients read lists entry by entry
+  (`readTranslationContextList`), and the extension must be rebuilt.
+- **The language-pair control.** Two languages made a toggle enough; three needed
+  the language-pair picker (`LanguagePairPicker`, `pairAfterPick`).
 
 **Two things the spike found that are NOT on the compiler-driven list above,
 and are easy to miss because nothing fails loudly:**

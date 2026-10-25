@@ -1,0 +1,311 @@
+{
+  "run": "smoke-1",
+  "directions": {
+    "vi_to_zh": {
+      "n_per_repeat": {
+        "1": 2
+      },
+      "chrf++": {
+        "mean": 44.48217739592689,
+        "sd": 0.0,
+        "min": 44.48217739592689,
+        "max": 44.48217739592689,
+        "per_repeat": [44.48217739592689]
+      },
+      "chrf": {
+        "mean": 38.75926695021809,
+        "sd": 0.0,
+        "min": 38.75926695021809,
+        "max": 38.75926695021809,
+        "per_repeat": [38.75926695021809]
+      },
+      "comet": {
+        "mean": 0.9162547588348389,
+        "sd": 0.0,
+        "min": 0.9162547588348389,
+        "max": 0.9162547588348389,
+        "per_repeat": [0.9162547588348389]
+      },
+      "latency_ms": {
+        "total_p50": 675.5,
+        "total_p95": 853.25,
+        "ttft_p50": 481.5,
+        "ttft_p95": 651.15,
+        "n": 2
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 384,
+        "miss": 972,
+        "out": 43,
+        "with_usage": 2
+      },
+      "checks": {
+        "outputs": 2,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 0,
+        "latin_examples": [],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_vi": {
+      "n_per_repeat": {
+        "1": 2
+      },
+      "chrf++": {
+        "mean": 57.522690935434206,
+        "sd": 0.0,
+        "min": 57.522690935434206,
+        "max": 57.522690935434206,
+        "per_repeat": [57.522690935434206]
+      },
+      "chrf": {
+        "mean": 58.92483627563794,
+        "sd": 0.0,
+        "min": 58.92483627563794,
+        "max": 58.92483627563794,
+        "per_repeat": [58.92483627563794]
+      },
+      "comet": {
+        "mean": 0.8793634176254272,
+        "sd": 0.0,
+        "min": 0.8793634176254272,
+        "max": 0.8793634176254272,
+        "per_repeat": [0.8793634176254272]
+      },
+      "latency_ms": {
+        "total_p50": 795.5,
+        "total_p95": 802.25,
+        "ttft_p50": 467.0,
+        "ttft_p95": 467.9,
+        "n": 2
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 256,
+        "miss": 836,
+        "out": 116,
+        "with_usage": 2
+      },
+      "checks": {
+        "outputs": 2,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_zh": {
+      "n_per_repeat": {
+        "1": 2
+      },
+      "chrf++": {
+        "mean": 47.715219176290205,
+        "sd": 0.0,
+        "min": 47.715219176290205,
+        "max": 47.715219176290205,
+        "per_repeat": [47.715219176290205]
+      },
+      "chrf": {
+        "mean": 41.993404752445116,
+        "sd": 0.0,
+        "min": 41.993404752445116,
+        "max": 41.993404752445116,
+        "per_repeat": [41.993404752445116]
+      },
+      "comet": {
+        "mean": 0.9166435301303864,
+        "sd": 0.0,
+        "min": 0.9166435301303864,
+        "max": 0.9166435301303864,
+        "per_repeat": [0.9166435301303864]
+      },
+      "latency_ms": {
+        "total_p50": 764.5,
+        "total_p95": 863.95,
+        "ttft_p50": 549.5,
+        "ttft_p95": 611.15,
+        "n": 2
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 256,
+        "miss": 850,
+        "out": 40,
+        "with_usage": 2
+      },
+      "checks": {
+        "outputs": 2,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 0,
+        "latin_examples": [],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_en": {
+      "n_per_repeat": {
+        "1": 2
+      },
+      "chrf++": {
+        "mean": 72.57525920201924,
+        "sd": 0.0,
+        "min": 72.57525920201924,
+        "max": 72.57525920201924,
+        "per_repeat": [72.57525920201924]
+      },
+      "chrf": {
+        "mean": 74.36411811631933,
+        "sd": 0.0,
+        "min": 74.36411811631933,
+        "max": 74.36411811631933,
+        "per_repeat": [74.36411811631933]
+      },
+      "comet": {
+        "mean": 0.8959811329841614,
+        "sd": 0.0,
+        "min": 0.8959811329841614,
+        "max": 0.8959811329841614,
+        "per_repeat": [0.8959811329841614]
+      },
+      "latency_ms": {
+        "total_p50": 565.5,
+        "total_p95": 572.25,
+        "ttft_p50": 374.5,
+        "ttft_p95": 382.15,
+        "n": 2
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 256,
+        "miss": 836,
+        "out": 55,
+        "with_usage": 2
+      },
+      "checks": {
+        "outputs": 2,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "vi_to_en": {
+      "n_per_repeat": {
+        "1": 2
+      },
+      "chrf++": {
+        "mean": 91.59923938421997,
+        "sd": 0.0,
+        "min": 91.59923938421997,
+        "max": 91.59923938421997,
+        "per_repeat": [91.59923938421997]
+      },
+      "chrf": {
+        "mean": 92.5674222597409,
+        "sd": 0.0,
+        "min": 92.5674222597409,
+        "max": 92.5674222597409,
+        "per_repeat": [92.5674222597409]
+      },
+      "comet": {
+        "mean": 0.9210954904556274,
+        "sd": 0.0,
+        "min": 0.9210954904556274,
+        "max": 0.9210954904556274,
+        "per_repeat": [0.9210954904556274]
+      },
+      "latency_ms": {
+        "total_p50": 628.5,
+        "total_p95": 663.15,
+        "ttft_p50": 461.5,
+        "ttft_p95": 499.75,
+        "n": 2
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 768,
+        "miss": 580,
+        "out": 53,
+        "with_usage": 2
+      },
+      "checks": {
+        "outputs": 2,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_vi": {
+      "n_per_repeat": {
+        "1": 2
+      },
+      "chrf++": {
+        "mean": 70.4709781629254,
+        "sd": 0.0,
+        "min": 70.4709781629254,
+        "max": 70.4709781629254,
+        "per_repeat": [70.4709781629254]
+      },
+      "chrf": {
+        "mean": 70.28699901781066,
+        "sd": 0.0,
+        "min": 70.28699901781066,
+        "max": 70.28699901781066,
+        "per_repeat": [70.28699901781066]
+      },
+      "comet": {
+        "mean": 0.9015430808067322,
+        "sd": 0.0,
+        "min": 0.9015430808067322,
+        "max": 0.9015430808067322,
+        "per_repeat": [0.9015430808067322]
+      },
+      "latency_ms": {
+        "total_p50": 928.0,
+        "total_p95": 1023.4,
+        "ttft_p50": 616.5,
+        "ttft_p95": 706.05,
+        "n": 2
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 256,
+        "miss": 842,
+        "out": 99,
+        "with_usage": 2
+      },
+      "checks": {
+        "outputs": 2,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    }
+  },
+  "decision": {
+    "rule": "flag a zh direction whose COMET mean is more than 0.03 below the vi<->en baseline mean",
+    "baseline_comet_mean": 0.9113192856311798,
+    "threshold": 0.8813192856311798,
+    "flags": {
+      "vi_to_zh": false,
+      "zh_to_vi": true,
+      "en_to_zh": false,
+      "zh_to_en": false
+    }
+  },
+  "tokens": {
+    "hit": 2176,
+    "miss": 4916,
+    "out": 406,
+    "requests": 12
+  },
+  "cost_usd": {
+    "peak": {
+      "run_total": 0.001975056,
+      "per_1000_requests": 0.164588
+    },
+    "offpeak": {
+      "run_total": 0.000987528,
+      "per_1000_requests": 0.082294
+    }
+  },
+  "price_source": "api-docs.deepseek.com/quick_start/pricing, read 2026-10-13"
+}

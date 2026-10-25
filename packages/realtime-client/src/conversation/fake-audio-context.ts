@@ -1,8 +1,9 @@
 import type {
   ClientTurnMetrics,
   ServerEvent,
+  SessionLanguagePair,
   SessionOptions,
-  TranslationDirection,
+  LanguagePair,
 } from '@chatofy/types';
 import type { TranslateSocketHandlers } from '../transport/translate-socket.js';
 
@@ -134,7 +135,7 @@ export interface SentEvent {
   turnId?: string;
   sequence?: number;
   payload?: string;
-  direction?: TranslationDirection;
+  languagePair?: SessionLanguagePair;
   /** The segments a block retranslation names. */
   segmentIds?: string[];
   /** The whole row, for the one event that carries measurements. */
@@ -165,10 +166,10 @@ export class FakeTranslateSocket {
    * has: the pipeline mints the name and keeps it across a retry, so a test that
    * has to address a turn the server refused can read it back from here.
    */
-  startSession(options: SessionOptions | TranslationDirection, turnId?: string): string {
+  startSession(options: SessionOptions | LanguagePair, turnId?: string): string {
     const id = turnId ?? `t${++this.nextTurn}`;
-    const direction = typeof options === 'string' ? options : options.direction;
-    this.sent.push({ type: 'client.session.start', direction, turnId: id });
+    const languagePair = 'languagePair' in options ? options.languagePair : options;
+    this.sent.push({ type: 'client.session.start', languagePair, turnId: id });
     return id;
   }
 

@@ -214,12 +214,32 @@ export const en = {
   'web.translate.registerNeutral': 'Neutral',
   'web.translate.registerFormal': 'Formal',
   'web.translate.registerCasual': 'Casual',
-  'web.translate.direction': 'Direction',
-  'web.translate.directionSource': 'Source',
-  'web.translate.directionTarget': 'Translation',
+  'web.translate.languagePair': 'Languages',
+  'web.translate.languagePairSource': 'Source',
+  'web.translate.languagePairTarget': 'Translation',
   // Interpolated, because the accessible name has to say what pressing it DOES:
   // "swap" alone is a verb with no object.
-  'web.translate.directionSwap': 'Swap direction — translate {from} into {to}',
+  'web.translate.languagePairSwap': 'Swap languages — translate {from} into {to}',
+  // The same button while the source is Auto-detect: there is no source language
+  // to trade places with, so the name says why it is off instead.
+  'web.translate.languagePairSwapDetect': 'Swap languages — not available with Auto-detect',
+  // The source picker's first entry: leave the spoken language to be recognised,
+  // turn by turn, and translate it into the chosen translation language.
+  'web.translate.autoDetect': 'Auto-detect',
+  // A readout under the source header, never a control: which way the running
+  // conversation actually translates, as the server answered it.
+  'web.translate.modeTwoWay': 'Both ways',
+  'web.translate.modeOneWay': 'One way',
+  // The accessible name beside a turn's short language tag.
+  'web.translate.turnLanguage': 'Spoken in {language}',
+  // A two-way conversation the service is running one way for now. Says what the
+  // reader gets instead, so a reply that is not translated is not a surprise.
+  'web.translate.twoWayUnavailable':
+    'Translating one way for now: {from} into {to}. Anything said in {to} stays untranslated.',
+  'web.translate.detectUnavailable':
+    'Auto-detect is not available right now. Choose the language being spoken to continue.',
+  'web.translate.detectBusy':
+    'Auto-detect is busy right now. Try again in a moment, or choose the language being spoken.',
   'web.translate.voiceDefault': 'Default',
   'web.translate.voiceListFailed':
     'Could not load the voice list. The gender choice above still applies.',
@@ -316,7 +336,8 @@ export const en = {
   'web.translate.minutesGenerate': 'Generate minutes',
   'web.translate.minutesRegenerate': 'Regenerate',
   'web.translate.minutesGenerating': 'Summarizing the conversation…',
-  'web.translate.minutesEmpty': 'No minutes yet — generate them once the conversation has ended.',
+  'web.translate.minutesEmpty':
+    'No minutes yet. Generate them for a summary, key points, decisions and action items.',
   'web.translate.minutesNeedsTurns':
     'Have a conversation first — there is nothing to summarize yet.',
   'web.translate.minutesFailed': 'Could not generate minutes. Try again.',
@@ -346,7 +367,7 @@ export const en = {
   // ---- web.languageName / web.languageShort: a registry language's name in
   // THIS locale ----
   //
-  // Keyed by code rather than by direction, unlike `web.history.direction*`
+  // Keyed by code rather than by pair, unlike `web.history.languagePair*`
   // below: a history row or a glossary column names one language at a time, and
   // keying by code is what makes adding a language a data change here rather
   // than a new pair of keys. Distinct from `common.language.*`, which names the
@@ -354,8 +375,10 @@ export const en = {
   // conversation is between.
   'web.languageName.vi': 'Vietnamese',
   'web.languageName.en': 'English',
+  'web.languageName.zh': 'Chinese',
   'web.languageShort.vi': 'VI',
   'web.languageShort.en': 'EN',
+  'web.languageShort.zh': 'ZH',
 
   // ---- web.history: conversations this account has finished and kept ----
   //
@@ -375,15 +398,18 @@ export const en = {
   'web.history.clearSearch': 'Clear search',
   'web.history.back': 'Back to history',
   'web.history.turnCount': '{count} lines',
+  'web.history.turnCountOne': '1 line',
   'web.history.duration': '{minutes} min',
-  // `direction` is the ACCESSIBLE name; `directionShort` is what is drawn on a
+  // `languagePair` is the ACCESSIBLE name; `languagePairShort` is what is drawn on a
   // row. "Vietnamese → English" is 21 characters printed once per row, which at
   // eight rows is the loudest thing on a screen whose subject is the previews.
   // Both take the language names as `{from}`/`{to}` — see `web.languageName.*`
-  // and `web.languageShort.*` above — rather than naming a direction, which is
+  // and `web.languageShort.*` above — rather than naming a pair, which is
   // what lets a third language reuse the same two templates.
-  'web.history.direction': '{from} → {to}',
-  'web.history.directionShort': '{from} → {to}',
+  'web.history.languagePair': '{from} → {to}',
+  'web.history.languagePairShort': '{from} → {to}',
+  // Stands in for the source of a conversation whose turns were each recognised.
+  'web.history.autoDetect': 'Auto-detect',
   'web.history.minutesReady': 'Minutes',
   'web.history.cancel': 'Cancel',
   'web.history.delete': 'Delete',
@@ -422,7 +448,7 @@ export const en = {
   // out loud — and "where a new conversation starts from" is it.
   'web.preferences.conversation': 'Defaults for new conversations',
   'web.preferences.conversationHint':
-    'A new conversation starts from these. While one is running you change what you can on the Translate page — direction and voice stay fixed until it ends.',
+    'A new conversation starts from these. While one is running you change what you can on the Translate page — languages and voice stay fixed until it ends.',
   // AI Context — the named library the translator is told about a KIND of
   // conversation from. Authored here; picked on Translate and in the extension.
   //
@@ -456,7 +482,7 @@ export const en = {
   // Says what a pair IS and what it is not, because the second half is the part
   // people get wrong: a pair is not a find-and-replace.
   'web.preferences.aiContext.glossaryHint':
-    'How a particular term should come out. Write each term in both languages; the translator uses the pair whichever way the conversation runs, and only when the term is actually said.',
+    'How a particular term should come out. Write it in at least two of the languages; the translator uses the two a conversation is in, whichever way it runs, and only when the term is actually said.',
   'web.preferences.aiContext.glossaryTooLong':
     'A rendering is a word or a short phrase — at most {max} words. Shorten this pair, or remove it.',
   'web.preferences.aiContext.glossaryAdd': 'Add a pair',
@@ -560,15 +586,18 @@ export const en = {
   //
   // Three facts in the body are there because they are the ones a reader would
   // be surprised by later, and a notice that omits the surprising part is not a
-  // notice: the recording is KEPT rather than merely used, the microphone keeps
-  // recording while a conversation is PAUSED, and the object it is kept in —
-  // see "Conversation recordings" in `docs/deployment-guide.md` — sits in a
-  // public-read bucket with no per-object auth, so its 64-bit key is the ONLY
-  // thing standing between the recording and anyone who has it. The second is a
-  // real design consequence — `use-conversation-recording.ts` runs the recorder
-  // through pause on purpose, because stopping it would desynchronise every
-  // timestamp from the audio — and someone who believes pause silences the
-  // microphone would otherwise be wrong about it in their own words. The third
+  // notice: the recording is KEPT rather than merely used, what a PAUSE does to
+  // it, and the object it is kept in — see "Conversation recordings" in
+  // `docs/deployment-guide.md` — sits in a public-read bucket with no per-object
+  // auth, so its 64-bit key is the ONLY thing standing between the recording and
+  // anyone who has it. The second used to warn that the microphone kept
+  // recording through a pause; it now says the opposite, because
+  // `use-conversation-recording.ts` pauses the recorder with the conversation
+  // and offsets are measured in active time so the timestamps still line up.
+  // It stays in the notice because pausing to say something off the record is
+  // exactly when a reader needs to know. It does not claim the microphone is
+  // released — the track stays open, and the browser's indicator says so —
+  // only that nothing said during a pause is recorded or translated. The third
   // is the whole of this product's access control for a stored recording, and a
   // notice that mentioned retention and pause but not that would let a reader
   // believe "kept" meant "kept behind a login" when it does not.
@@ -576,8 +605,18 @@ export const en = {
   // `localTitle` is ALSO the nav label for `#on-your-machine`
   // (`marketing-header.tsx`), so it has to stay short enough to sit in a header.
   'web.landing.localTitle': 'Your voice is understood on your machine',
+  // Split into the claim and the four facts a reader would be surprised by later —
+  // each fact is one sentence of the original notice, verbatim, so the notice says
+  // exactly what it said as one paragraph and can be scanned as a list.
   'web.landing.localBody':
-    'What you say is heard on your own computer — no key to obtain, and nothing is sent away to be understood. When a conversation ends, its recording and its words are saved to your history, so you can play it back and read it again. The recording is kept at an unguessable address that anyone holding the link can open, so the link is what keeps it private. The microphone keeps recording while a conversation is paused. Deleting a conversation deletes its recording with it.',
+    'What you say is heard on your own computer — no key to obtain, and nothing is sent away to be understood.',
+  'web.landing.localKeptHistory':
+    'When a conversation ends, its recording and its words are saved to your history, so you can play it back and read it again.',
+  'web.landing.localKeptLink':
+    'The recording is kept at an unguessable address that anyone holding the link can open, so the link is what keeps it private.',
+  'web.landing.localKeptPause':
+    'Pausing a conversation pauses its recording too: what is said while it is paused is neither recorded nor translated.',
+  'web.landing.localKeptDelete': 'Deleting a conversation deletes its recording with it.',
   'web.landing.hopOnDevice': 'On device',
   'web.landing.hopOverNetwork': 'Over the network',
   'web.landing.hopHears': 'Hears what you said',

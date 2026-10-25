@@ -1,45 +1,57 @@
 'use client';
 
 import type { ComponentProps } from 'react';
-import { directionLanguages, type TranslationDirection } from '@chatofy/types';
+import type { SessionLanguageMode, SessionLanguagePair } from '@chatofy/types';
 import { cn } from '@/lib/utils';
 
 import { useTranslate } from '@/i18n/provider';
-import { nativeLanguageName } from '@/i18n/direction-labels';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
-import { DirectionSwap, PanelHeader, PanelHeaders } from '@/components/translate/panel-headers';
+import {
+  LanguagePairSwap,
+  HeaderLanguage,
+  LanguageModeHint,
+  PanelHeader,
+  PanelHeaders,
+} from '@/components/translate/panel-headers';
 import { TranscriptScroller } from '@/components/translate/transcript-scroller';
 import { textSizeScale, type TranslateSettings } from '@/lib/translate-settings';
 
 /**
  * Everything a stream needs except which half of a turn it is showing, and
- * `target` — this file already derives that from `settings.direction` for its
- * own pane headers, so a caller has no second language to supply.
+ * `languagePair` — this file already holds the conversation's pair for its own
+ * pane headers, so a caller has no second one to supply.
  */
 type StreamProps = Omit<
   ComponentProps<typeof ConversationTranscript>,
-  'side' | 'speakerLabels' | 'interactive' | 'running' | 'target'
+  'side' | 'speakerLabels' | 'interactive' | 'running' | 'languagePair'
 >;
 
 interface TranscriptPanesProps {
   settings: TranslateSettings;
   running: boolean;
   onSwap: () => void;
+  /** A language picked in a header, as the whole new pair. */
+  onLanguagePair: (pair: SessionLanguagePair) => void;
+  /**
+   * How the server ran the newest turn, for the source header's readout — see
+   * `LanguageModeHint`. Null when no turn has said.
+   */
+  languageMode?: SessionLanguageMode | null;
   /** The voice, for the target header's end slot — see `panel-headers.tsx`. */
   voiceControl: React.ReactNode;
   stream: StreamProps;
   /**
    * Which language the finished turns on screen were actually translated into.
    *
-   * NOT `settings.direction` re-derived: the direction toggle stays live between
+   * NOT `settings.languagePair` re-derived: the language pickers stay live between
    * conversations (it is only disabled while `running`), so swapping it after a
    * conversation ends must not change which key `groupTranslation` reads for
    * turns that were never translated into the new target — see `use-streaming
-   * -translate.ts`'s `direction`, which is captured once at `start` for exactly
-   * this. Defaults to `settings.direction` so a caller with no conversation yet
+   * -translate.ts`'s `languagePair`, which is captured once at `start` for exactly
+   * this. Defaults to `settings.languagePair` so a caller with no conversation yet
    * (nothing captured, nothing to show) still gets the ordinary pane.
    */
-  conversationDirection?: TranslationDirection;
+  conversationLanguagePair?: SessionLanguagePair;
 }
 
 /**
@@ -105,17 +117,19 @@ export function TranscriptPanes({
   settings,
   running,
   onSwap,
+  onLanguagePair,
   voiceControl,
   stream,
-  conversationDirection,
+  conversationLanguagePair,
+  languageMode = null,
 }: TranscriptPanesProps) {
   const t = useTranslate();
-  const { source: from, target: to } = directionLanguages(settings.direction);
-  // The language a FINISHED turn's translation line reads — see the prop doc.
-  // Headers above keep reading `settings.direction`: which language is going
-  // IN or coming OUT is a fact about the upcoming conversation, and only the
+  // The pair a FINISHED turn's translation line is chosen from — see the prop
+  // doc. Per turn, not one target: a two-way reply reads the other side. Headers
+  // above keep reading `settings.languagePair`: which language is going IN or
+  // coming OUT is a fact about the upcoming conversation, and only the
   // already-spoken text must stay pinned to what it was captured for.
-  const { target: liveTarget } = directionLanguages(conversationDirection ?? settings.direction);
+  const turnPair = conversationLanguagePair ?? settings.languagePair;
 
   const split = settings.displayMode === 'split' && !settings.translationOnly;
   const column = split && settings.paneLayout === 'column';
@@ -136,7 +150,7 @@ export function TranscriptPanes({
         {...shared}
         side={side}
         interactive={interactive}
-        target={liveTarget}
+        languagePair={turnPair}
       />
     </TranscriptScroller>
   );
@@ -145,9 +159,23 @@ export function TranscriptPanes({
     const source = (
       <div className="flex min-h-0 flex-1 flex-col">
         <PanelHeader
-          role={t('web.translate.directionSource')}
-          language={nativeLanguageName(from)}
-          end={<DirectionSwap direction={settings.direction} running={running} onSwap={onSwap} />}
+          role={t('web.translate.languagePairSource')}
+          hint={<LanguageModeHint mode={languageMode} />}
+          language={
+            <HeaderLanguage
+              languagePair={settings.languagePair}
+              side="source"
+              running={running}
+              onLanguagePair={onLanguagePair}
+            />
+          }
+          end={
+            <LanguagePairSwap
+              languagePair={settings.languagePair}
+              running={running}
+              onSwap={onSwap}
+            />
+          }
         />
         {pane('source', true, t('web.translate.paneSource'))}
       </div>
@@ -155,8 +183,15 @@ export function TranscriptPanes({
     const target = (
       <div className="flex min-h-0 flex-1 flex-col">
         <PanelHeader
-          role={t('web.translate.directionTarget')}
-          language={nativeLanguageName(to)}
+          role={t('web.translate.languagePairTarget')}
+          language={
+            <HeaderLanguage
+              languagePair={settings.languagePair}
+              side="target"
+              running={running}
+              onLanguagePair={onLanguagePair}
+            />
+          }
           end={voiceControl}
         />
         {pane('target', false, t('web.translate.paneTarget'))}
@@ -193,9 +228,11 @@ export function TranscriptPanes({
   return (
     <div className="flex min-h-0 flex-1 flex-col" style={scale}>
       <PanelHeaders
-        direction={settings.direction}
+        languagePair={settings.languagePair}
         running={running}
         onSwap={onSwap}
+        onLanguagePair={onLanguagePair}
+        mode={languageMode}
         voiceControl={voiceControl}
       />
       {settings.translationOnly

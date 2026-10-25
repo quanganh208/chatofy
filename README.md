@@ -2,9 +2,20 @@
 
 Real-time multilingual voice translation app. Turborepo + pnpm workspace.
 Languages are entries in one registry (`packages/types/src/domain/languages.ts`),
-and every direction between them is derived from it. Today it holds Vietnamese
-and English, so the live directions are vi→en and en→vi. Adding a language:
+and every language pair between them is derived from it. Today it holds Vietnamese,
+English and Simplified Chinese, so every ordered pair of the three can be
+translated (vi↔en, vi↔zh, en↔zh). Adding a language:
 [checklist](./docs/architecture/contracts-and-languages.md#checklist-adding-a-language-to-the-registry).
+
+On `/translate` one source picker sets how a conversation runs. A named source
+makes a vi↔en conversation two-way: each turn is identified as one of the two
+languages, labelled, and translated into the other. **Auto-detect** identifies
+each turn as Vietnamese or English and translates it into the chosen target; a
+turn already in the target is shown as transcript only. Pairs with Chinese stay
+one-way, because Chinese is not identified. Both modes need the STT sidecar's
+language identifier (`LOCAL_STT_LID`, on in development and production; off is the
+production default when the variable is unset); without it, two-way runs one-way and says so.
+[How it works](./docs/architecture/contracts-and-languages.md#lid-and-audio-based-detection).
 
 Speech runs **locally on CPU by default** — speech-to-text and text-to-speech
 need no API key and make no cloud call. Machine translation is still a cloud
@@ -114,8 +125,8 @@ chatofy/
 │   └── realtime-client/ # Audio capture, turn-taking policy, ordered playback,
 │                        # and the /ws/translate client — shared by web + extension
 ├── services/
-│   ├── local-stt/  # local speech-to-text sidecar (vi + en) — port 8002
-│   └── local-tts/  # local speech synthesis sidecar (vi + en) — port 8003
+│   ├── local-stt/  # local speech-to-text sidecar (vi, en, zh) — port 8002
+│   └── local-tts/  # local speech synthesis sidecar (vi, en, zh) — port 8003
 ├── benchmarks/     # Measurement harnesses (STT, TTS, translation, punctuation,
 │                   #   speaker id, turn-taking) — one directory per question
 └── docs/           # Project documentation
@@ -151,7 +162,7 @@ pnpm --filter extension build
 #   → apps/extension/.output/chrome-mv3
 ```
 
-Open a meeting tab, click the Chatofy icon, pick a direction and press Start. The
+Open a meeting tab, click the Chatofy icon, pick a language pair and press Start. The
 overlay shows the transcript and an indicator saying the meeting is being captured;
 that indicator cannot be dismissed while capture is running, because the other
 participants are not told by their own client.
@@ -209,9 +220,9 @@ Tick **"Also translate what I say"** in the popup or the overlay. Then:
   must not have it translated and handed to the page.
 - Until the page carries the patch, the overlay says the translation is **for the user
   only**. On a loudspeaker their open microphone still carries it to the meeting, which
-  is the same caveat the inbound direction has always had. Headphones avoid it.
+  is the same caveat the inbound leg has always had. Headphones avoid it.
 
-It needs two things the inbound direction does not:
+It needs two things the inbound leg does not:
 
 - **A microphone grant, given once.** No manifest permission grants an extension the
   microphone (`audioCapture` is a Chrome App permission and is refused), and the
@@ -243,13 +254,17 @@ feature is not detectable as a Chatofy user. It prints what it still cannot answ
 ## Local speech stack
 
 Speech-to-text and text-to-speech run on the CPU of the machine hosting the API.
-Two sidecars, split by function — each serves both languages and picks its
+Two sidecars, split by function — each serves every language and picks its
 engine from the language it is given:
 
-| Service                                                | Port | Job | Models                                |
-| ------------------------------------------------------ | ---- | --- | ------------------------------------- |
-| [`services/local-stt`](./services/local-stt/README.md) | 8002 | STT | Zipformer-30M (vi), Parakeet-TDT (en) |
-| [`services/local-tts`](./services/local-tts/README.md) | 8003 | TTS | VieNeu v3 Turbo (vi), Kokoro-82M (en) |
+| Service                                                | Port | Job | Models                                                 |
+| ------------------------------------------------------ | ---- | --- | ------------------------------------------------------ |
+| [`services/local-stt`](./services/local-stt/README.md) | 8002 | STT | Zipformer-30M (vi), Parakeet-TDT (en), Paraformer (zh) |
+| [`services/local-tts`](./services/local-tts/README.md) | 8003 | TTS | VieNeu v3 Turbo (vi), Kokoro-82M (en, zh)              |
+
+Gemini Live (the `live` translate mode) does not translate Chinese; a zh pair is
+refused there by design (`unsupported_language_pair`) and offered only in the
+turn-by-turn mode.
 
 The API picks the backend from `AI_STT_PROVIDER` / `AI_TTS_PROVIDER`, both
 defaulting to `local`. There is no per-language exception: the language travels

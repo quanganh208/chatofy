@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from app import app
 from engines.kokoro_en import KokoroEn
+from engines.kokoro_zh import KokoroZh
 from engines.vieneu_vi import VieNeuVi
 
 pytestmark = pytest.mark.skipif(
@@ -105,7 +106,7 @@ def test_synthesize_each_gender(client, language, text, gender):
     assert is_wav(res.content)
 
 
-@pytest.mark.parametrize("language", ["en", "vi"])
+@pytest.mark.parametrize("language", ["en", "vi", "zh"])
 def test_voices_lists_the_catalog(client, language):
     res = client.get(f"/voices?language={language}")
     assert res.status_code == 200
@@ -120,14 +121,14 @@ def test_voices_unsupported_language_400(client):
     assert client.get("/voices?language=fr").status_code == 400
 
 
-@pytest.mark.parametrize("language,expected", [("en", True), ("vi", False)])
+@pytest.mark.parametrize("language,expected", [("en", True), ("vi", False), ("zh", True)])
 def test_voices_reports_speed_adjustable(client, language, expected):
     # An ENGINE capability, not a language one: Kokoro (en) honours `speed`,
     # VieNeu (vi) ignores it — see engines/base.py and engines/vieneu_vi.py.
     assert client.get(f"/voices?language={language}").json()["speedAdjustable"] is expected
 
 
-@pytest.mark.parametrize("language", ["en", "vi"])
+@pytest.mark.parametrize("language", ["en", "vi", "zh"])
 def test_voice_tokens_are_unique(client, language):
     tokens = [v["token"] for v in client.get(f"/voices?language={language}").json()["voices"]]
     assert len(tokens) == len(set(tokens))
@@ -159,7 +160,7 @@ def test_vietnamese_catalog_comes_from_the_package(client):
     assert {v["token"] for v in voices[:2]} == set(VieNeuVi.VOICES.values())
 
 
-@pytest.mark.parametrize("language", ["en", "vi"])
+@pytest.mark.parametrize("language", ["en", "vi", "zh"])
 def test_every_catalog_voice_synthesizes(client, language):
     # The check an inferred list needs: a token that does not resolve reaches
     # `_infer`, where one engine raises on int() and the other hands a stranger to
@@ -173,7 +174,7 @@ def test_every_catalog_voice_synthesizes(client, language):
         assert is_wav(res.content), entry
 
 
-@pytest.mark.parametrize("language", ["en", "vi"])
+@pytest.mark.parametrize("language", ["en", "vi", "zh"])
 @pytest.mark.parametrize("voice", ["af_sarah", "../etc/passwd", "9999", ""])
 def test_unknown_voice_falls_back_instead_of_failing(client, language, voice):
     # The failure this exists to prevent, and it is not hypothetical: a voice name
@@ -204,7 +205,7 @@ def test_no_voice_and_known_gender_is_unchanged(client):
             assert is_wav(res.content)
 
 
-@pytest.mark.parametrize("language", ["en", "vi"])
+@pytest.mark.parametrize("language", ["en", "vi", "zh"])
 def test_unknown_gender_falls_back(client, language):
     # A bad gender must not cost the caller their audio.
     res = client.post(
@@ -214,7 +215,7 @@ def test_unknown_gender_falls_back(client, language):
     assert is_wav(res.content)
 
 
-@pytest.mark.parametrize("engine_type", [KokoroEn, VieNeuVi])
+@pytest.mark.parametrize("engine_type", [KokoroEn, KokoroZh, VieNeuVi])
 def test_every_engine_covers_both_genders(engine_type):
     # A missing entry would not fail — it would quietly serve the other gender,
     # so the catalog is asserted rather than left to a listening test.
@@ -224,3 +225,4 @@ def test_every_engine_covers_both_genders(engine_type):
 def test_genders_map_to_distinct_voices():
     assert KokoroEn.VOICES["female"] != KokoroEn.VOICES["male"]
     assert VieNeuVi.VOICES["female"] != VieNeuVi.VOICES["male"]
+    assert KokoroZh.VOICES["female"] != KokoroZh.VOICES["male"]

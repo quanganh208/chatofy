@@ -246,7 +246,7 @@ describe('GeminiTranslationProvider — hints paragraph unaffected by the vi ASR
 // What a language-keyed glossary does to the block, and to whom.
 //
 // The pairs are stored once and read from BOTH sides: the extension runs two
-// concurrent sessions in opposite directions off one settings object, so the
+// concurrent sessions on reversed language pairs off one settings object, so the
 // same entry has to be correct in each. Which side is the SOURCE is resolved
 // here, against the request, because it is a property of the session and not of
 // the entry.
@@ -306,7 +306,7 @@ describe('GeminiTranslationProvider — glossary', () => {
     expect(turn.parts).toHaveLength(2);
   });
 
-  it('renders vi on the left of the arrow in a vi_to_en session', async () => {
+  it('renders vi on the left of the arrow in a vi→en session', async () => {
     const turn = await blockFor({ glossary: [pair] }, 'vi');
     expect(turn.context).toContain('Preferred renderings:');
     expect(turn.context).toContain(
@@ -314,8 +314,8 @@ describe('GeminiTranslationProvider — glossary', () => {
     );
   });
 
-  it('renders the SAME pair with en on the left in an en_to_vi session', async () => {
-    // One stored dictionary, two directions, no second dictionary. This is the
+  it('renders the SAME pair with en on the left in an en→vi session', async () => {
+    // One stored dictionary, two language pairs, no second dictionary. This is the
     // case language-keyed entries exist for.
     const turn = await blockFor({ glossary: [pair] }, 'en');
     expect(turn.context).toContain(
@@ -336,9 +336,9 @@ describe('GeminiTranslationProvider — glossary', () => {
     expect(turn.context.match(/→/g)).toHaveLength(1);
   });
 
-  it('keeps only the first of two pairs whose SOURCE folds equal, per direction', async () => {
+  it('keeps only the first of two pairs whose SOURCE folds equal, per language pair', async () => {
     // "Hòa" and "Hoà" are one name spelled two ways. They collide as sources in
-    // vi_to_en and do not collide at all in en_to_vi, where the sources are the
+    // vi→en and do not collide at all in en→vi, where the sources are the
     // distinct English sides — which is exactly why no database constraint can
     // express this rule.
     const glossary = [
@@ -384,7 +384,7 @@ describe('GeminiTranslationProvider — glossary', () => {
   it('drops the same pair read from the other side', async () => {
     // Entries are keyed by language, so a cap on the rendering side alone would
     // let the payload through simply by running the conversation the other way.
-    // The session below runs en_to_vi, which puts the sentence on the TARGET
+    // The session below runs en→vi, which puts the sentence on the TARGET
     // side — the branch the source-side check short-circuits past, and the one
     // an attack actually takes.
     mockGenerateContentStream.mockReset();
@@ -593,6 +593,23 @@ describe('GeminiTranslationProvider — carried-over speech', () => {
     expect(turn.instruction).not.toContain('earlier speech');
   });
 
+  // Chinese is one whitespace token however long it is, so the gate counts it
+  // by its words: a two-character reply is a fragment, a full sentence is not.
+  it('carries earlier speech to a short Chinese reply', async () => {
+    const turn = await turnFor(['我们明天开会吗'], undefined, '好的');
+    expect(turn.block).toContain(HEADING);
+  });
+
+  it('sends no earlier speech to a full Chinese sentence', async () => {
+    const turn = await turnFor(
+      ['我们明天开会吗'],
+      undefined,
+      '我们明天上午在会议室开会讨论这个项目的预算',
+    );
+    expect(turn.parts).toHaveLength(2);
+    expect(turn.instruction).not.toContain('earlier speech');
+  });
+
   it('still gives a long turn its operator hints', async () => {
     // The gate is about carried SPEECH. Hints are per session and were never
     // about the length of one utterance.
@@ -649,7 +666,7 @@ describe('GeminiTranslationProvider — carried-over speech', () => {
     ]);
     expect(carried.instruction).toContain('earlier speech');
     expect(carried.instruction).toContain('Never translate them');
-    // The new direction rule 5's prohibition arrives from: until now the model
+    // The new side rule 5's prohibition arrives from: until now the model
     // had nothing to invent an ending out of, and now it does.
     expect(carried.instruction).toContain(
       'never use them to finish a sentence the transcript leaves unfinished',

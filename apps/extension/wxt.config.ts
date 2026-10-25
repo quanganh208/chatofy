@@ -64,7 +64,7 @@ export default defineConfig({
       // gives to Chrome's prompt, which the offscreen document cannot raise
       // because it has no window. `src/microphone-permission.ts` owns the way
       // round that, and `entrypoints/microphone/` is the page that asks.
-      // Direction, voice, and the flag saying the first-run notice has been seen.
+      // The language pair, voice, and the flag saying the first-run notice has been seen.
       'storage',
       // `tabCapture.getMediaStreamId` needs the extension to have been INVOKED on
       // the tab. Host permissions alone do not grant that, so this is not optional.
@@ -73,7 +73,7 @@ export default defineConfig({
       // to assign the keyboard shortcut, which is why both exist.
       'contextMenus',
       // Registers the page-world microphone patch, and only while the user has
-      // the outbound direction switched on. Declaring that script in the
+      // the outbound leg switched on. Declaring that script in the
       // manifest instead would need no permission at all — and would run it for
       // everyone who installs this, on every meeting they open, replacing the
       // microphone of people who never asked for it and letting all three sites

@@ -97,6 +97,7 @@ describe('Meeting minutes (e2e)', () => {
       // No microphone was ever opened for these fixtures, which is what a null
       // origin means. It is not "unknown": there is no recording to place.
       audioOffsetMs: null,
+      pausedMs: 0,
     });
     // Under the storage ceiling, over the prompt one — saved and readable, and
     // deliberately not summarizable.
@@ -115,6 +116,7 @@ describe('Meeting minutes (e2e)', () => {
           turn(position, 'x'.repeat(MINUTES_LIMITS.MAX_TURN_CHARS)),
       ),
       audioOffsetMs: null,
+      pausedMs: 0,
     });
   });
 
@@ -173,6 +175,7 @@ describe('Meeting minutes (e2e)', () => {
       endedAt: '2026-09-03T00:10:00.000Z',
       turns: [turn(0, 'never summarized')],
       audioOffsetMs: null,
+      pausedMs: 0,
     });
 
     const res = await request(app.getHttpServer())
@@ -225,7 +228,7 @@ describe('Meeting minutes (e2e)', () => {
 function turn(position: number, sourceText: string): ConversationTurnWrite {
   return {
     position,
-    // The conversation here is en_to_vi (`languages: ['en','vi']`); speaker_a is
+    // The conversation here is en→vi (`languages: ['en','vi']`); speaker_a is
     // always the Vietnamese side (`speakerRoleFor`, `@chatofy/types`), so this
     // block's source is 'vi' and its one destination is 'en' — the pair
     // `translationTargets(['en','vi'], ['vi'])` gives.

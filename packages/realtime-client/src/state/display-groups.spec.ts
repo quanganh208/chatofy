@@ -7,6 +7,7 @@ import {
   groupSourceText,
   groupTranslation,
   groupTurnsForDisplay,
+  turnTargetLanguage,
   type DisplayGroup,
 } from './display-groups.js';
 import {
@@ -20,11 +21,9 @@ const segment = (sessionId: string, sourceText: string, targetText = 'en'): Tran
   id: `seg-${sessionId}`,
   sessionId,
   speakerRole: 'speaker_a',
-  direction: 'vi_to_en',
   sourceLanguages: ['vi'],
   translations: { en: targetText },
   sourceText,
-  targetText,
   audioUrl: null,
   createdAt: '2026-08-27T00:00:00.000Z',
 });
@@ -38,11 +37,9 @@ const enSegment = (
   id: `seg-${sessionId}`,
   sessionId,
   speakerRole: 'speaker_b',
-  direction: 'vi_to_en',
   sourceLanguages: ['en'],
   translations: { vi: targetText },
   sourceText,
-  targetText,
   audioUrl: null,
   createdAt: '2026-08-27T00:00:00.000Z',
 });
@@ -497,6 +494,17 @@ describe('group text', () => {
     expect(groupIsRepaired(group!, { a: '17 giờ,' })).toBe(true);
   });
 
+  it('does not call a Chinese line repaired when it only gained marks', () => {
+    const [group] = groupTurnsForDisplay(
+      [segment('a', '我们明天去北京', 'we go to Beijing tomorrow')],
+      captures(['a', 1_000, false, 9_000]),
+      {},
+    );
+    // A comma between two Han characters splits no word: each character is one.
+    expect(groupIsRepaired(group!, { a: '我们，明天去北京。' })).toBe(false);
+    expect(groupIsRepaired(group!, { a: '我们明天去南京。' })).toBe(true);
+  });
+
   it('drops a cut piece\u2019s full stop when the next piece continues the sentence', () => {
     const [group] = groups();
     // The second piece was punctuated reading the first as context, and opened
@@ -548,5 +556,59 @@ describe('group text', () => {
     expect(groupSourceText(group!, { a: 'Mười bảy giờ,', b: 'trời mưa?' })).toBe(
       'Mười bảy giờ, trời mưa?',
     );
+  });
+});
+
+describe('two-way turns', () => {
+  it('never merges a ceiling cut into a turn heard in the other language', () => {
+    // Forced cut, a 200ms gap, nobody named: everything else says "one
+    // utterance". The languages say two people.
+    const groups = groupTurnsForDisplay(
+      [segment('a', 'chắc rồi', 'sure'), enSegment('b', 'ready to ship?', 'sẵn sàng chưa?')],
+      captures(['a', 1_000, true, 9_000], ['b', 9_200, false, 12_000]),
+      {},
+    );
+    expect(shape(groups)).toEqual([['a'], ['b']]);
+  });
+
+  it('still merges a ceiling cut between two turns heard in the same language', () => {
+    const groups = groupTurnsForDisplay(
+      [enSegment('a', 'ready to', 'sẵn sàng'), enSegment('b', 'ship it', 'ra mắt')],
+      captures(['a', 1_000, true, 9_000], ['b', 9_200, false, 12_000]),
+      {},
+    );
+    expect(shape(groups)).toEqual([['a', 'b']]);
+  });
+});
+
+describe('turnTargetLanguage', () => {
+  it('reads a two-way turn heard in the target in the source — the reply direction', () => {
+    expect(turnTargetLanguage(['en'], { source: 'vi', target: 'en' })).toBe('vi');
+    expect(turnTargetLanguage(['vi'], { source: 'vi', target: 'en' })).toBe('en');
+  });
+
+  it('reads the target for an undecided live turn and for a mixed one', () => {
+    expect(turnTargetLanguage([], { source: 'vi', target: 'en' })).toBe('en');
+    expect(turnTargetLanguage(['vi', 'en'], { source: 'vi', target: 'en' })).toBe('en');
+  });
+
+  it('always reads the target when the source was auto-detected', () => {
+    expect(turnTargetLanguage(['vi'], { source: 'detect', target: 'en' })).toBe('en');
+    // Said in the target itself: nothing translated it there, so the turn reads
+    // as transcript only rather than borrowing another language's line.
+    expect(turnTargetLanguage(['en'], { source: 'detect', target: 'en' })).toBe('en');
+  });
+
+  it('lets a reversed turn read its own translation out of the block', () => {
+    const [group] = groupTurnsForDisplay(
+      [enSegment('a', 'ready to ship?', 'sẵn sàng ra mắt chưa?')],
+      captures(['a', 1_000, false, 9_000]),
+      {},
+    );
+    const language = turnTargetLanguage(group!.turns[0]!.sourceLanguages, {
+      source: 'vi',
+      target: 'en',
+    });
+    expect(groupTranslation(group!, language)).toBe('sẵn sàng ra mắt chưa?');
   });
 });

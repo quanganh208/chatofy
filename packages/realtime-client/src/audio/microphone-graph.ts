@@ -19,7 +19,7 @@ export interface MicrophoneGraphDeps {
    * microphone. FALSE for one handed an already-running graph, which is the
    * extension: there the context also carries the meeting's own passthrough and
    * the stream may be a captured tab, so closing either here would silence the
-   * meeting and take the OTHER direction down with it. Same field, same meaning,
+   * meeting and take the OTHER meeting leg down with it. Same field, same meaning,
    * and the same reason as `ConversationSessionDeps.ownsAudioResources`.
    */
   ownsAudioResources?: boolean;
@@ -94,8 +94,8 @@ export class MicrophoneGraph {
   mute(): void {
     if (this.node) this.node.port.onmessage = null;
     // Only a graph that opened the stream may end it. Borrowed, the same tracks
-    // are the meeting's captured tab or a microphone another direction is also
-    // reading; stopping them is not undoable and takes that direction with it.
+    // are the meeting's captured tab or a microphone the other meeting leg is also
+    // reading; stopping them is not undoable and takes that leg with it.
     // Dropping the handler above already stops this graph delivering blocks,
     // which is all `mute` promises.
     if (this.ownsResources) this.stream?.getTracks().forEach((track) => track.stop());

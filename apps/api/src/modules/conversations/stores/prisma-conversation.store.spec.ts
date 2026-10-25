@@ -21,6 +21,7 @@ const conversation: ConversationWrite = {
   startedAt: '2026-09-17T00:00:00.000Z',
   endedAt: '2026-09-17T00:01:00.000Z',
   audioOffsetMs: null,
+  pausedMs: 0,
   turns: [
     {
       position: 0,
@@ -83,13 +84,28 @@ function assertRealCommitShape(err: Error & { cause?: unknown }): void {
  * `failures` defaults to "every time" when an error is supplied, which is what
  * proves the budget is bounded rather than merely that a retry happens.
  */
-function fakePrisma(options: { failWith?: unknown; failures?: number } = {}) {
+function fakePrisma(
+  options: {
+    failWith?: unknown;
+    failures?: number;
+    /** The paused total the row already holds, as the upsert reads it back. */
+    storedPausedMs?: number;
+  } = {},
+) {
   // The order the transaction issues its statements in, which is what the lock
   // assertions below are really about.
   const calls: string[] = [];
   const upsert = vi.fn(async () => {
     calls.push('conversation.upsert');
-    return { id: 'cuid-1', minutes: null };
+    return {
+      id: 'cuid-1',
+      pausedMs: options.storedPausedMs ?? 0,
+      minutes: null,
+    };
+  });
+  const update = vi.fn(async () => {
+    calls.push('conversation.update');
+    return {};
   });
   const deleteMany = vi.fn(async () => {
     calls.push('turn.deleteMany');
@@ -110,7 +126,7 @@ function fakePrisma(options: { failWith?: unknown; failures?: number } = {}) {
 
   const tx = {
     $executeRaw: executeRaw,
-    conversation: { upsert },
+    conversation: { upsert, update },
     conversationTurn: { deleteMany, createMany },
   };
 
@@ -138,6 +154,7 @@ function fakePrisma(options: { failWith?: unknown; failures?: number } = {}) {
     settings,
     executeRaw,
     upsert,
+    update,
     deleteMany,
     createMany,
     transaction: transaction as Mock,
@@ -154,13 +171,72 @@ describe('PrismaConversationStore', () => {
     expect(createMany).toHaveBeenCalledTimes(1);
     expect(saved).toEqual({
       conversationId: 'conv-1',
-      direction: 'vi_to_en',
       languages: ['vi', 'en'],
       startedAt: '2026-09-17T00:00:00.000Z',
       endedAt: '2026-09-17T00:01:00.000Z',
       turnCount: 1,
       preview: 'xin chào',
       hasMinutes: false,
+      pausedMs: 0,
+    });
+  });
+
+  describe('paused time', () => {
+    it('writes the paused total on create', async () => {
+      const { store, upsert } = fakePrisma();
+
+      await store.save('owner-1', 'conv-1', {
+        ...conversation,
+        pausedMs: 5_000,
+      });
+
+      const [args] = upsert.mock.calls[0] as unknown as [
+        { create: Record<string, unknown> },
+      ];
+      expect(args.create.pausedMs).toBe(5_000);
+    });
+
+    it('never lists it in the update, which re-fires on every rename', async () => {
+      const { store, upsert } = fakePrisma();
+
+      await store.save('owner-1', 'conv-1', {
+        ...conversation,
+        pausedMs: 5_000,
+      });
+
+      const [args] = upsert.mock.calls[0] as unknown as [
+        { update: Record<string, unknown> },
+      ];
+      expect(args.update).not.toHaveProperty('pausedMs');
+    });
+
+    it('raises a stored total that a later save exceeds', async () => {
+      const { store, update } = fakePrisma({ storedPausedMs: 2_000 });
+
+      const saved = await store.save('owner-1', 'conv-1', {
+        ...conversation,
+        pausedMs: 5_000,
+      });
+
+      expect(update).toHaveBeenCalledWith({
+        where: { id: 'cuid-1' },
+        data: { pausedMs: 5_000 },
+      });
+      expect(saved.pausedMs).toBe(5_000);
+    });
+
+    it('keeps a stored total against a save that sends less', async () => {
+      // A tab on a bundle from before pausing stopped the clock re-saves a
+      // rename with no field at all, which parses as 0.
+      const { store, update } = fakePrisma({ storedPausedMs: 5_000 });
+
+      const saved = await store.save('owner-1', 'conv-1', {
+        ...conversation,
+        pausedMs: 0,
+      });
+
+      expect(update).not.toHaveBeenCalled();
+      expect(saved.pausedMs).toBe(5_000);
     });
   });
 
@@ -306,6 +382,7 @@ describe('PrismaConversationStore', () => {
       languages: ['vi', 'en'],
       startedAt: new Date('2026-09-17T00:00:00.000Z'),
       endedAt: new Date('2026-09-17T00:01:00.000Z'),
+      pausedMs: 0,
       minutes: null,
       _count: { turns: 1 },
       turns: [{ sourceText: 'xin chào', displayText: null }],
@@ -320,8 +397,8 @@ describe('PrismaConversationStore', () => {
       return new PrismaConversationStore(prisma);
     }
 
-    it('drops a row whose languages column cannot yield a direction, keeping the rest', async () => {
-      // `legacyDirectionOf` throws on fewer than two codes — a shape the write
+    it('drops a row whose languages column cannot yield a language pair, keeping the rest', async () => {
+      // `conversationLanguagesSchema` refuses fewer than two codes — a shape the write
       // side never stores, so reaching it here means the row is corrupt, not
       // that the request is wrong. One such row must cost its own card, not
       // the whole list.
@@ -342,7 +419,7 @@ describe('PrismaConversationStore', () => {
 
     it('drops a row naming a language this registry does not know, keeping the rest', async () => {
       // A code added, written under, then rolled back: two codes, so the
-      // direction would concatenate happily, but the client's page schema
+      // pair would read happily, but the client's page schema
       // rejects the whole page over one unknown enum value.
       const store = storeListing([
         row({
@@ -391,6 +468,7 @@ describe('PrismaConversationStore', () => {
       languages: ['vi', 'en'],
       startedAt: new Date('2026-09-17T00:00:00.000Z'),
       endedAt: new Date('2026-09-17T00:01:00.000Z'),
+      pausedMs: 0,
       audioOffsetMs: null,
       audioDurationMs: null,
       minutes: null,
@@ -428,7 +506,6 @@ describe('PrismaConversationStore', () => {
       ).get('owner-1', 'conv-1');
 
       expect(conversation?.turns[0]?.translations).toEqual({ en: 'hello' });
-      expect(conversation?.turns[0]?.targetText).toBe('hello');
     });
 
     it('drops only the turn whose source language cannot be read', async () => {
@@ -445,16 +522,26 @@ describe('PrismaConversationStore', () => {
       expect(conversation?.turnCount).toBe(1);
     });
 
+    it('reads the stored paused total back', async () => {
+      const conversation = await storeGetting(row({ pausedMs: 7_000 })).get(
+        'owner-1',
+        'conv-1',
+      );
+
+      expect(conversation?.pausedMs).toBe(7_000);
+    });
+
     it('reads a well-formed conversation through unchanged', async () => {
       const conversation = await storeGetting(row()).get('owner-1', 'conv-1');
 
       expect(conversation?.languages).toEqual(['vi', 'en']);
-      expect(conversation?.direction).toBe('vi_to_en');
       expect(conversation?.turns[0]).toMatchObject({
         sourceLanguages: ['vi'],
         translations: { en: 'hello' },
-        targetText: 'hello',
       });
+      // Stored columns only: nothing derives a legacy field back on read.
+      expect(conversation).not.toHaveProperty('direction');
+      expect(conversation?.turns[0]).not.toHaveProperty('targetText');
     });
   });
 });

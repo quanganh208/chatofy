@@ -58,7 +58,7 @@ export class PcmPlaybackQueue {
     /**
      * Where the samples go. The loudspeakers unless told otherwise.
      *
-     * The extension's outbound direction speaks the user's translation to the
+     * The extension's outbound leg speaks the user's translation to the
      * OTHER participants, which means the samples have to land in the node
      * feeding the meeting's outgoing track rather than in this machine's output.
      * Scheduling is identical either way, and a second copy of it is what this

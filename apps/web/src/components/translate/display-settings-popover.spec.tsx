@@ -116,13 +116,13 @@ describe('DisplaySettingsPopover', () => {
     expect(content?.querySelectorAll('button[disabled], [data-disabled]').length).toBe(0);
   });
 
-  it('does not name the direction, which the panel headers already do', () => {
+  it('does not name the language pair, which the panel headers already do', () => {
     open();
 
-    // The direction is on the surface now, in two headers that are always
+    // The pair is on the surface now, in two headers that are always
     // visible; repeating it here would put the authoritative statement of "which
     // way is this translating" behind a gear again.
-    expect(document.querySelector('button[aria-label^="Swap direction"]')).toBeNull();
+    expect(document.querySelector('button[aria-label^="Swap languages"]')).toBeNull();
   });
 
   it('takes its surface from the popover rather than bringing one', () => {

@@ -5,13 +5,16 @@
 // it does with `localStorage`, including when the browser refuses it.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { en, vi as viMessages } from '@chatofy/i18n';
-import { LANGUAGE_CODES } from '@chatofy/types';
+import { DEFAULT_LANGUAGE_PAIR, LANGUAGE_CODES } from '@chatofy/types';
 import {
   DEFAULT_TRANSLATE_SETTINGS,
   SPEED_PRESETS,
   TEXT_SIZE_SCALES,
   TRANSLATE_SETTINGS_STORAGE_KEY,
+  asksTwoWay,
+  canAutoDetectInto,
   loadTranslateSettings,
+  representablePair,
   saveTranslateSettings,
   textSizeScale,
 } from './translate-settings';
@@ -136,11 +139,41 @@ describe('loadTranslateSettings', () => {
     expect(loadTranslateSettings().textSize).toBe(1);
   });
 
-  it('falls back on an unknown direction or gender', () => {
-    store({ direction: 'fr_to_en', voiceGender: 'robot' });
+  it('falls back on an unknown language pair or gender', () => {
+    store({ languagePair: { source: 'fr', target: 'en' }, voiceGender: 'robot' });
     const loaded = loadTranslateSettings();
-    expect(loaded.direction).toBe(DEFAULT_TRANSLATE_SETTINGS.direction);
+    expect(loaded.languagePair).toEqual(DEFAULT_TRANSLATE_SETTINGS.languagePair);
     expect(loaded.voiceGender).toBe(DEFAULT_TRANSLATE_SETTINGS.voiceGender);
+  });
+
+  it('refuses a pair that names one language twice', () => {
+    store({ languagePair: { source: 'en', target: 'en' } });
+    expect(loadTranslateSettings().languagePair).toEqual(DEFAULT_LANGUAGE_PAIR);
+  });
+
+  it('reads the pair out of a direction string stored by an older build', () => {
+    store({ direction: 'en_to_zh' });
+    const loaded = loadTranslateSettings();
+    expect(loaded.languagePair).toEqual({ source: 'en', target: 'zh' });
+    expect(loaded).not.toHaveProperty('direction');
+  });
+
+  it('falls back to the default for an unreadable direction string', () => {
+    store({ direction: 'fr_to_en' });
+    expect(loadTranslateSettings().languagePair).toEqual(DEFAULT_LANGUAGE_PAIR);
+  });
+
+  it('prefers a stored pair over a leftover direction string', () => {
+    store({ languagePair: { source: 'zh', target: 'vi' }, direction: 'en_to_zh' });
+    expect(loadTranslateSettings().languagePair).toEqual({ source: 'zh', target: 'vi' });
+  });
+
+  it('round-trips a saved pair', () => {
+    saveTranslateSettings({
+      ...DEFAULT_TRANSLATE_SETTINGS,
+      languagePair: { source: 'zh', target: 'en' },
+    });
+    expect(loadTranslateSettings().languagePair).toEqual({ source: 'zh', target: 'en' });
   });
 
   it('falls back field by field, not wholesale', () => {
@@ -323,5 +356,45 @@ describe('the reading scale', () => {
   it('answers for a step that does not exist', () => {
     expect(textSizeScale(0)).toBe(textSizeScale(1));
     expect(textSizeScale(50)).toBe(textSizeScale(TEXT_SIZE_SCALES.length));
+  });
+});
+
+describe('an auto-detected source', () => {
+  it('survives a reload', () => {
+    store({ languagePair: { source: 'detect', target: 'en' } });
+    expect(loadTranslateSettings().languagePair).toEqual({ source: 'detect', target: 'en' });
+  });
+
+  it('is dropped, for a language, where the translation language rules it out', () => {
+    // A turn said in Chinese cannot be recognised as Chinese, so "detect into
+    // Chinese" would force it into another language — not a state to restore.
+    store({ languagePair: { source: 'detect', target: 'zh' } });
+    expect(loadTranslateSettings().languagePair).toEqual({ source: 'vi', target: 'zh' });
+  });
+
+  it('is offered exactly where a turn in the translation language can be recognised', () => {
+    expect(canAutoDetectInto('vi')).toBe(true);
+    expect(canAutoDetectInto('en')).toBe(true);
+    expect(canAutoDetectInto('zh')).toBe(false);
+  });
+
+  it('keeps every other pair untouched', () => {
+    expect(representablePair({ source: 'detect', target: 'vi' })).toEqual({
+      source: 'detect',
+      target: 'vi',
+    });
+    expect(representablePair({ source: 'en', target: 'zh' })).toEqual({
+      source: 'en',
+      target: 'zh',
+    });
+  });
+});
+
+describe('asking for two-way', () => {
+  it('asks only for a named pair both of whose languages can be told apart', () => {
+    expect(asksTwoWay({ source: 'vi', target: 'en' })).toBe(true);
+    expect(asksTwoWay({ source: 'en', target: 'vi' })).toBe(true);
+    expect(asksTwoWay({ source: 'vi', target: 'zh' })).toBe(false);
+    expect(asksTwoWay({ source: 'detect', target: 'en' })).toBe(false);
   });
 });
