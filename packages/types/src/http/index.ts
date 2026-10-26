@@ -132,6 +132,8 @@ export {
   conferenceListResponseSchema,
   conferenceMinutesResponseSchema,
   storedConferenceMinutesResponseSchema,
+  conferenceEndedAt,
+  conferenceDurationMinutes,
 } from './conference.js';
 export type {
   CreateConferenceRequest,

@@ -1,6 +1,10 @@
 'use client';
 
-import { languageCodeSchema, type ConferenceDetailResponse } from '@chatofy/types';
+import {
+  conferenceDurationMinutes,
+  languageCodeSchema,
+  type ConferenceDetailResponse,
+} from '@chatofy/types';
 import type { Translate } from '@chatofy/i18n';
 import { Card, CardContent } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
@@ -53,14 +57,14 @@ export function MeetingSummaryCard({ conference }: { conference: ConferenceDetai
 }
 
 /**
- * From the first join to the owner ending it, rounded to the minute and never
- * shown as zero. A room with no recorded start or end says so instead of
- * guessing — the last participant leaving does not end a room.
+ * From the first join to the end of the meeting, rounded to the minute and never
+ * shown as zero. The end is the owner ending the room or, as is usual — no client
+ * ends rooms — the last participant leaving (`conferenceDurationMinutes`). While
+ * someone is still in the room there is no end yet, and it says so.
  */
 function formatDuration(conference: ConferenceDetailResponse, t: Translate): string {
-  if (!conference.startedAt || !conference.endedAt) return t('web.conference.durationUnknown');
-  const ms = Date.parse(conference.endedAt) - Date.parse(conference.startedAt);
-  const total = Math.max(1, Math.round(ms / 60_000));
+  const total = conferenceDurationMinutes(conference);
+  if (total === null) return t('web.conference.durationUnknown');
   if (total < 60) return t('web.conference.durationMinutes', { minutes: String(total) });
   return t('web.conference.durationHours', {
     hours: String(Math.floor(total / 60)),

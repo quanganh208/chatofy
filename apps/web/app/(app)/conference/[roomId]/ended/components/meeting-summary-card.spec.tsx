@@ -82,8 +82,20 @@ describe('MeetingSummaryCard', () => {
     expect(duration).toBe('1 min');
   });
 
-  it('says the duration was not recorded rather than guessing', () => {
+  it('says the duration was not recorded while someone is still in the room', () => {
     const [duration] = readouts(room({ endedAt: undefined }));
     expect(duration).toBe('Not recorded');
+  });
+
+  it('runs to the last departure when everyone left without the owner ending it', () => {
+    const base = room({ endedAt: undefined });
+    const [duration] = readouts({
+      ...base,
+      participants: [
+        { ...base.participants[0]!, leftAt: '2026-10-26T09:20:00.000Z' },
+        { ...base.participants[1]!, leftAt: '2026-10-26T09:30:00.000Z' },
+      ],
+    });
+    expect(duration).toBe('30 min');
   });
 });

@@ -37,6 +37,35 @@ export const conferenceDetailResponseSchema = conferenceResponseSchema.extend({
 });
 export type ConferenceDetailResponse = z.infer<typeof conferenceDetailResponseSchema>;
 
+/**
+ * When a meeting ended: `endedAt` if the owner ended it, otherwise the moment the
+ * last participant left. Only the owner's End writes `endedAt`; a room everyone
+ * simply left stays joinable by link and is never marked ended, and that is how
+ * most meetings finish. Null while anyone is still in the room.
+ */
+export function conferenceEndedAt(
+  conference: Pick<ConferenceDetailResponse, 'endedAt' | 'participants'>,
+): string | null {
+  if (conference.endedAt) return conference.endedAt;
+  let last: string | null = null;
+  for (const { leftAt } of conference.participants) {
+    if (!leftAt) return null;
+    if (last === null || Date.parse(leftAt) > Date.parse(last)) last = leftAt;
+  }
+  return last;
+}
+
+/** How long a meeting ran, in whole minutes (at least 1); null while it is not over. */
+export function conferenceDurationMinutes(
+  conference: Pick<ConferenceDetailResponse, 'startedAt' | 'endedAt' | 'participants'>,
+): number | null {
+  const endedAt = conferenceEndedAt(conference);
+  if (!conference.startedAt || !endedAt) return null;
+  const ms = Date.parse(endedAt) - Date.parse(conference.startedAt);
+  if (!Number.isFinite(ms)) return null;
+  return Math.max(1, Math.round(ms / 60_000));
+}
+
 export const conferenceListResponseSchema = z.object({
   conferences: z.array(conferenceResponseSchema),
   total: z.number().int(),
