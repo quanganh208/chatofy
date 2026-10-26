@@ -12,7 +12,7 @@
  * is the page ground; no cards). Registered in accent-budget-app.spec.tsx.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Route } from 'next';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Users } from 'lucide-react';
@@ -97,10 +97,17 @@ export default function ConferenceRoomPage() {
 
   // The owner ended the meeting: everyone still in it lands on the end screen,
   // the same place their own Leave would have taken them. `replace`, so Back
-  // does not return to a room that refuses the join.
+  // does not return to a room that refuses the join. Only someone who was IN the
+  // call: `room-ended` is also the answer to opening an old link to a room that
+  // already ended, and that visitor gets "This meeting has ended" below, not an
+  // end screen for a meeting they may never have joined.
+  const wasInCall = useRef(false);
+  useEffect(() => {
+    if (status === 'in-call') wasInCall.current = true;
+  }, [status]);
   const ownerEnded = errorReason === 'room-ended';
   useEffect(() => {
-    if (ownerEnded) router.replace(endedPath(roomId));
+    if (ownerEnded && wasInCall.current) router.replace(endedPath(roomId));
   }, [ownerEnded, roomId, router]);
 
   // Collapsible roster panel

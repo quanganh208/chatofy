@@ -192,8 +192,14 @@ export default function ConferenceCallScreen() {
     showEndScreen();
   }, [leave, showEndScreen]);
 
+  // Only someone who was IN the call: `room-ended` also answers a join to a room
+  // that had already ended, and that visitor keeps the "meeting ended" notice.
+  const wasInCallRef = useRef(false);
   useEffect(() => {
-    if (errorReason === 'room-ended') showEndScreen();
+    if (status === 'in-call') wasInCallRef.current = true;
+  }, [status]);
+  useEffect(() => {
+    if (errorReason === 'room-ended' && wasInCallRef.current) showEndScreen();
   }, [errorReason, showEndScreen]);
 
   const banner = useMemo(() => {
