@@ -512,6 +512,8 @@ export const vi: Messages = {
   'mobile.conference.roomId': 'Mã phòng',
   'mobile.conference.roomIdPlaceholder': 'Nhập mã phòng để tham gia',
   'mobile.conference.start': 'Bắt đầu',
+  'mobile.conference.ongoingTitle': 'Đang trong cuộc họp',
+  'mobile.conference.ongoingBody': 'Micro vẫn bật khi Chatofy chạy nền. Camera sẽ tắt.',
   'mobile.conference.leave': 'Rời phòng',
   'mobile.conference.you': 'Bạn',
   'mobile.conference.connecting': 'Đang kết nối…',

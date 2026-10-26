@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { mediaDevices, type MediaStream, type RTCPeerConnection } from 'react-native-webrtc';
 import {
   ConferenceIceServerSchema,
@@ -169,6 +170,8 @@ export function useConferenceNative(
   const localStreamRef = useRef<MediaStream | null>(null);
   const localMutedRef = useRef(false);
   const localVideoEnabledRef = useRef(true);
+  /** The camera was turned off because the app went to the background, not by the user. */
+  const pausedForBackgroundRef = useRef(false);
   /** Set by leave()/unmount so nothing reconnects after an intentional leave. */
   const intentionalLeaveRef = useRef(false);
   /** Set when the call reached a final state that must not be retried. */
@@ -482,6 +485,7 @@ export function useConferenceNative(
     ws?.close();
     localMutedRef.current = false;
     localVideoEnabledRef.current = true;
+    pausedForBackgroundRef.current = false;
     setLocalMuted(false);
     setLocalVideoEnabled(true);
     setMessages([]);
@@ -503,8 +507,7 @@ export function useConferenceNative(
     }
   }, []);
 
-  const toggleVideo = useCallback(() => {
-    const nextVideo = !localVideoEnabledRef.current;
+  const setVideoEnabled = useCallback((nextVideo: boolean) => {
     localVideoEnabledRef.current = nextVideo;
     setLocalVideoEnabled(nextVideo);
     localStreamRef.current?.getVideoTracks().forEach((t) => (t.enabled = nextVideo));
@@ -512,6 +515,29 @@ export function useConferenceNative(
       send(wsRef.current, 'conference.participant.video', { videoEnabled: nextVideo });
     }
   }, []);
+
+  const toggleVideo = useCallback(() => {
+    pausedForBackgroundRef.current = false;
+    setVideoEnabled(!localVideoEnabledRef.current);
+  }, [setVideoEnabled]);
+
+  // In the background the call keeps its microphone (a foreground service, owned
+  // by the call screen) but not its camera: Android revokes it anyway, and the
+  // others would see a frozen frame. So the camera goes off the way the button
+  // turns it off — the roster shows it — and comes back on return only if it was
+  // on when the app left.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'background' && localVideoEnabledRef.current && localStreamRef.current) {
+        pausedForBackgroundRef.current = true;
+        setVideoEnabled(false);
+      } else if (next === 'active' && pausedForBackgroundRef.current) {
+        pausedForBackgroundRef.current = false;
+        setVideoEnabled(true);
+      }
+    });
+    return () => subscription.remove();
+  }, [setVideoEnabled]);
 
   // react-native-audio-api has no browser autoplay policy, so incoming TTS plays
   // as soon as a frame arrives — there is nothing to unlock.
