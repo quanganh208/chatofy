@@ -20,7 +20,7 @@ they are Vietnamese and English.
 ```
 chatofy/
 ├── apps/
-│   ├── api/       # NestJS gateway (:3000, /ws/translate — turn + live modes; /ws/conference — drives Cloudflare Realtime SFU, behind CONFERENCE_ENABLED)
+│   ├── api/       # NestJS gateway (:3000, /ws/translate — turn + live modes; /ws/conference — drives Cloudflare Realtime SFU, always loaded)
 │   ├── mobile/    # Expo RN (MVP surface)
 │   ├── web/       # Next.js app (:3001) — marketing landing, translator, history, settings
 │   └── extension/ # Chrome MV3 meeting translator (WXT; load unpacked)
@@ -75,7 +75,7 @@ All external integrations are hidden behind interfaces so impls can swap without
 **V1 Translation Pipeline:**
 
 - **STT:** `LocalSpeechSttProvider` by default (`AI_STT_PROVIDER=local`) — one backend for every language; the `services/local-stt` sidecar picks Zipformer-30M for vi, Parakeet-TDT-0.6b-v2 for en and Paraformer-zh for zh. `ElevenLabsSttProvider` (scribe_v2) stays registered for cloud comparison.
-- **Translation:** `GeminiTranslationProvider` by default (`AI_TRANSLATION_PROVIDER=gemini`), via `@google/genai` SDK; walks an ordered model list (`gemini-3.5-flash-lite` → `gemini-3.1-flash-lite`), advancing only on a quota rejection since the free tier meters requests per model. No thinking config is sent — the 3.x models reject it. Returns the model that answered so the pipeline logs it. Any other `AI_TRANSLATION_PROVIDER` value picks a row of the OpenAI-compatible host table (`deepseek`, `openai`), served by `OpenAiCompatibleTranslationProvider`. **The only cloud call left in a turn.**
+- **Translation:** `OpenAiCompatibleTranslationProvider` on the `deepseek` row by default; `GeminiTranslationProvider` when `AI_TRANSLATION_PROVIDER=gemini`, via `@google/genai` SDK; walks an ordered model list (`gemini-3.5-flash-lite` → `gemini-3.1-flash-lite`), advancing only on a quota rejection since the free tier meters requests per model. No thinking config is sent — the 3.x models reject it. Returns the model that answered so the pipeline logs it. Any other `AI_TRANSLATION_PROVIDER` value picks a row of the OpenAI-compatible host table (`deepseek`, `openai`). **The only cloud call left in a turn.**
 - **TTS:** `LocalSpeechTtsProvider` by default (`AI_TTS_PROVIDER=local`) — one backend for every language; the `services/local-tts` sidecar picks VieNeu for vi and Kokoro-82M for en and zh (one shared instance), and resolves the requested `voiceGender` against that engine's own female/male pair. `ElevenLabsTtsProvider` stays registered for cloud comparison and always speaks in its configured voice.
 - **Model selection:** owned by each provider, with no selection layer above them — Gemini holds the quota-ordered list, the ElevenLabs providers default to `scribe_v2` / `eleven_flash_v2_5`, and the local sidecars take no model argument at all
 - **Provider reuse:** `AiProvidersFactory` memoizes the provider trio per backend selection so clients/connections persist across requests
@@ -153,16 +153,16 @@ Every template uses two line forms. `KEY=` means unset, which each schema reads 
 
 - `AUTH_JWT_SECRET` (**required**, min 32 chars) — signs and verifies every access token the API issues, and derives the keys for verification and reset links. There is no "auth off" mode, so the app refuses to boot without it. Rotating it signs every user out at once — still the only blanket revocation, though a password reset now invalidates one user's earlier tokens and closes their open sockets
 - `WEB_BASE_URL` (default `http://localhost:3001`) — the origin every mailed link is built from. **Never taken from the `Host` header**, which is attacker-controlled and would make a reset link point wherever the attacker chose. Production refuses to boot while this is still the default
-- `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` — Gmail SMTP, using an **app password** (which needs 2FA on the account). Read only outside development and test, which always print the link to the console whatever is set. Elsewhere all four or none: with any missing, mail is dropped and logged, and production refuses to boot
-- `MAIL_FROM` — display name on outbound mail. The address itself must be `SMTP_USER` or Gmail rewrites it
-- `GOOGLE_CLIENT_IDS` — comma-separated OAuth client ids whose id_tokens `POST /auth/google` will accept (lazy validation; unset disables that route with a clear error rather than blocking the boot). Web's `AUTH_GOOGLE_ID` must appear in this list
+- `SMTP_USER` / `SMTP_PASS` — Gmail SMTP, using an **app password** (which needs 2FA on the account). `SMTP_HOST` / `SMTP_PORT` are optional overrides of the Gmail SMTPS default (`smtp.gmail.com`, `465`). Read only outside development and test, which always print the link to the console whatever is set. Elsewhere, without the credentials mail is dropped and logged, and production refuses to boot
+- `MAIL_FROM` — optional display name on outbound mail; unset, From is `SMTP_USER`. The address itself must be `SMTP_USER` or Gmail rewrites it
+- `GOOGLE_CLIENT_IDS` — optional comma-separated OAuth client ids whose id_tokens `POST /auth/google` will accept. Unset, the API accepts `AUTH_GOOGLE_ID` alone; with neither, that route fails with a clear error rather than blocking the boot. When set, web's `AUTH_GOOGLE_ID` must appear in this list
 - `REDIS_URL` (default `redis://localhost:6379`) — where rotating refresh-token families
   live. **Defaulted, not required**, and the API boots without a reachable Redis: a
   required value would break every e2e suite at once, and a hard-fail boot would make an
   outage worse than the 503 it already answers with. `pnpm --filter api test:e2e` DOES need
   one running, because six of those suites log in for real and login mints a family
 - `AI_STT_PROVIDER` (default: `local`) — STT implementation selector
-- `AI_TRANSLATION_PROVIDER` (default: `gemini`) — Translation implementation selector. Production runs `deepseek` since 2026-09-22; any name other than `gemini` selects a row of the OpenAI-compatible host table in `register-default-providers.ts`
+- `AI_TRANSLATION_PROVIDER` (default: `deepseek`) — Translation implementation selector. `gemini` selects Gemini; any other name selects a row of the OpenAI-compatible host table in `register-default-providers.ts`
 - `AI_TTS_PROVIDER` (default: `local`) — TTS implementation selector
 - `ELEVENLABS_API_KEY` — ElevenLabs API key (lazy validation; only needed when a provider above is set to `elevenlabs`)
 - `GEMINI_API_KEY` — Google Gemini API key, or several comma-separated to rotate across (lazy validation). Required to call `/translate` only while `AI_TRANSLATION_PROVIDER` is `gemini`; it authenticates the realtime and summarization providers regardless, so it stays required in production even though translation moved off it. Several keys only raise the quota ceiling when they come from different Google Cloud projects

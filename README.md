@@ -271,20 +271,21 @@ defaulting to `local`. There is no per-language exception: the language travels
 with each call and the sidecar resolves the engine.
 
 **Translation is still cloud** — it is the only remaining network dependency in
-a translation turn. `AI_TRANSLATION_PROVIDER` chooses the backend: `gemini` by
-default, or one of the OpenAI-compatible hosts named in
+a translation turn. `AI_TRANSLATION_PROVIDER` chooses the backend: `deepseek` by
+default (needs `OPENAI_COMPATIBLE_API_KEY`), `gemini`, or another of the
+OpenAI-compatible hosts named in
 `apps/api/src/modules/translate/providers/register-default-providers.ts`, which
 reach the same prompt through the same interface for the thesis comparison.
 
-**The deployment runs `deepseek`, not the default.** It was switched on
+**Why `deepseek` is the default.** The deployment was switched to it on
 2026-09-22 because deepseek-flash answered at p50 720ms against 1114ms for
 `gemini-3.5-flash-lite` on the same corpus and the same prompt, and because the
 sovereignty corpus found no refusal, no softening and no hedging across 84
 translations. The cost is not latency: conversation content now reaches servers
 operated in China, which is a data-governance decision and belongs in the thesis
 separately from the quality numbers. A Gemini key is still required either way —
-it also authenticates the realtime and summarization providers. Commenting out
-the one line in `prod.env` returns the deployment to Gemini.
+it also authenticates the realtime and summarization providers. Setting
+`AI_TRANSLATION_PROVIDER=gemini` returns translation to Gemini.
 
 > The free tier meters requests **per project per model**, both per minute and
 > per day, so the translate path walks an ordered list of models, moving down

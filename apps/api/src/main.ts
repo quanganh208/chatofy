@@ -51,8 +51,7 @@ async function bootstrap(): Promise<void> {
       throw new Error(
         'Refusing to boot in production: ' +
           [
-            smtpMissing &&
-              'SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS are not all set',
+            smtpMissing && 'SMTP_USER/SMTP_PASS are not both set',
             webBaseUrlIsDefault &&
               `WEB_BASE_URL is still the default (${DEFAULT_WEB_BASE_URL})`,
           ]
@@ -84,8 +83,12 @@ async function bootstrap(): Promise<void> {
   const trustProxyHops = config.get('TRUST_PROXY_HOPS', { infer: true });
   if (trustProxyHops > 0) app.set('trust proxy', trustProxyHops);
 
-  // CORS — comma-separated origins from env, fallback to wildcard
-  const corsOrigin = config.get('CORS_ORIGIN', { infer: true });
+  // CORS — the web origin unless CORS_ORIGIN lists others (or '*'). `||`, not
+  // `??`: a blank `CORS_ORIGIN=` line reaches ConfigService as '' — see
+  // mail.module.ts. `.origin` drops any path or trailing slash.
+  const corsOrigin =
+    config.get('CORS_ORIGIN', { infer: true }) ||
+    new URL(config.get('WEB_BASE_URL', { infer: true })).origin;
   const origins =
     corsOrigin === '*' ? '*' : corsOrigin.split(',').map((o) => o.trim());
   app.enableCors({ origin: origins, credentials: origins !== '*' });

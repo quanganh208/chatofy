@@ -139,7 +139,7 @@ We keep all important docs in `./docs` folder and keep updating them, structure 
 ├── deployment-guide.md
 ├── development-journey.md          # chronological record; measurements and dead ends
 ├── conference-demo-runbook.md           # local demo of video meetings
-├── video-conferencing-architecture.md   # partly built, behind CONFERENCE_ENABLED
+├── video-conferencing-architecture.md   # partly built; always loaded
 ├── database-schema-conference.md        # built: the four Conference* models
 ├── technical-risks-mitigation.md        # video meetings risk register
 └── journals/

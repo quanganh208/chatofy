@@ -18,11 +18,6 @@ export const DEFAULT_API_BASE_URL = 'http://localhost:3000';
 
 export const envSchema = z.object({
   NEXT_PUBLIC_API_BASE_URL: z.string().url().default(DEFAULT_API_BASE_URL),
-  // Video conferencing ships dark: the nav entry and every `/conference` route
-  // exist only in a build made with this set to 'true'. An enum rather than a
-  // loose string, so a typo such as `TRUE` fails the build instead of silently
-  // shipping the feature off.
-  NEXT_PUBLIC_CONFERENCE_ENABLED: z.enum(['true', 'false']).default('false'),
 });
 
 export type WebEnv = z.infer<typeof envSchema>;
@@ -30,5 +25,4 @@ export type WebEnv = z.infer<typeof envSchema>;
 // Validate at module load time; throws at startup if env is misconfigured.
 export const env: WebEnv = envSchema.parse({
   NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
-  NEXT_PUBLIC_CONFERENCE_ENABLED: process.env.NEXT_PUBLIC_CONFERENCE_ENABLED,
 });

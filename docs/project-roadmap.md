@@ -33,8 +33,8 @@ Two-way vi↔en conversations and auto-detected source language on `/translate`:
 one source picker, a language identifier in the STT sidecar, the turn's
 language decided while it is spoken. Enabled on production with
 `PROD_LOCAL_STT_LID=on` after an isolated load run, a production replay and a
-rehearsed rollback; the language label shows by 3.3 s at p95 from the start of
-speech (bar 3.5 s). Chinese is not identified and its pairs
+rehearsed rollback (the switch has since been removed; LID is always on); the
+language label shows by 3.3 s at p95 from the start of speech (bar 3.5 s). Chinese is not identified and its pairs
 stay one-way.
 
 The mobile app compiles against the new contract only; its translate screen is
@@ -45,10 +45,10 @@ measured in [development-journey.md](./development-journey.md).
 
 ## Next: video meetings
 
-**On `main` behind flags, off by default; not usable in production yet.** The API side is
-gated by `CONFERENCE_ENABLED`, the web routes by `NEXT_PUBLIC_CONFERENCE_ENABLED` (build
-time), and the mobile screens exist only in development builds
-([deployment-guide.md → Video conferencing](./deployment-guide.md#video-conferencing-disabled-by-default)).
+**On `main` and always loaded.** The API refuses to boot without the Cloudflare Realtime
+app keys, the web always shows the Conference entry and `/conference` routes, and the
+mobile screens exist only in development builds
+([deployment-guide.md → Video conferencing](./deployment-guide.md#video-conferencing)).
 What exists: rooms created by `POST /conference` (the link is the access), meeting media on
 Cloudflare Realtime SFU driven by the API (no host port), a web lobby and call screen, client-side vi↔en translation fanned out to the
 room, translated chat, and persistence of participants, turns and messages. How to run it:

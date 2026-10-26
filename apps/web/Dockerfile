@@ -32,13 +32,9 @@ ARG NEXT_PUBLIC_ENV=production
 # BuildKit warns, the value never reaches `next build`, the build goes green,
 # and every avatar in production is blocked by a CSP that omits the origin.
 ARG R2_PUBLIC_BASE_URL=
-# Video conferencing ships off. A build that wants it passes 'true'; anything
-# else is refused by src/config/env.ts at build.
-ARG NEXT_PUBLIC_CONFERENCE_ENABLED=false
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 ENV NEXT_PUBLIC_ENV=${NEXT_PUBLIC_ENV}
 ENV R2_PUBLIC_BASE_URL=${R2_PUBLIC_BASE_URL}
-ENV NEXT_PUBLIC_CONFERENCE_ENABLED=${NEXT_PUBLIC_CONFERENCE_ENABLED}
 
 # Present at build because `next build` prerenders /login, which reads the
 # server-only config and would fail the schema without it. Nothing is signed at

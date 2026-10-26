@@ -1,8 +1,7 @@
 # Technical Risks & Mitigation Plans: Video Conferencing
 
-> **Status: Design; code on `main` behind flags.** Meeting media on Cloudflare Realtime SFU
-> and client-side translation are on `main` behind `CONFERENCE_ENABLED` /
-> `NEXT_PUBLIC_CONFERENCE_ENABLED`, off by default. Translation latency is from a 2-tab local
+> **Status: Design; code on `main`.** Meeting media on Cloudflare Realtime SFU
+> and client-side translation are on `main` and always loaded. Translation latency is from a 2-tab local
 > run (#209); SFU load from #211, measured on mediasoup before Cloudflare replaced it; the
 > network path (#208) is decided. Progress: [project-roadmap.md](./project-roadmap.md).
 

@@ -1,9 +1,10 @@
 # Video conferencing: system design v2 synthesis
 
-> **Status: Built behind flags; media on Cloudflare Realtime SFU.** This document synthesises the
+> **Status: Built and always loaded; media on Cloudflare Realtime SFU.** This document synthesises the
 > decisions and findings from Issues #207–#212 and records what the code on `main` does.
-> The code is behind `CONFERENCE_ENABLED` (API) and `NEXT_PUBLIC_CONFERENCE_ENABLED` (web,
-> build time), both off by default; the mobile screens open only in development builds.
+> The API and web load it unconditionally (the former `CONFERENCE_ENABLED` /
+> `NEXT_PUBLIC_CONFERENCE_ENABLED` flags are gone); the mobile screens open only in
+> development builds.
 > [video-conferencing-architecture.md](../video-conferencing-architecture.md) keeps the
 > vision, the reuse table and the Open decisions list; this page holds their evidence.
 
@@ -21,8 +22,8 @@ reasons in
 [Decision 1 of the architecture document](../video-conferencing-architecture.md#1-media-server-sfu--resolved-cloudflare-realtime-sfu-issue-208-2026-10-25).
 Each participant has one SFU session to publish on and one to receive on, and the client
 never names the tracks it wants: a subscribe asks the server to bring the receiving session
-up to date with the room. When `CONFERENCE_ENABLED` is off the module is not imported and
-nothing talks to Cloudflare.
+up to date with the room. The module is always imported, and the API refuses to boot
+without the Realtime app id and secret.
 
 From 2026-10-05 to 2026-10-25 the module ran mediasoup 3.28 in-process instead, chosen by
 the #207 PoC; the comparison below is why mediasoup had won over LiveKit and Pion then.
@@ -100,7 +101,7 @@ latency).
 
 | Client                         | SDK                           | Status                                                                                                                                                             |
 | ------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Web (Next.js 16)**           | browser `RTCPeerConnection`   | Lobby (Create a room / Join) and call screen under `/conference`, shown only when `NEXT_PUBLIC_CONFERENCE_ENABLED=true`.                                           |
+| **Web (Next.js 16)**           | browser `RTCPeerConnection`   | Lobby (Create a room / Join) and call screen under `/conference`, always shown.                                                                                    |
 | **Mobile (Expo 55 / RN 0.83)** | `react-native-webrtc` 124.0.8 | Dev client only (not Expo Go). Two-way call proven on an Android phone with the earlier SFU (2026-10-12); on Cloudflare the device run is pending. `__DEV__` only. |
 | **Extension**                  | n/a                           | Out of scope. It translates third-party meetings via tab capture; its own SFU session is deferred.                                                                 |
 

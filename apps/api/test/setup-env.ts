@@ -29,3 +29,7 @@ process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test';
 //
 // CI supplies its own value from the service container on both e2e jobs.
 process.env.REDIS_URL ??= 'redis://localhost:6379';
+
+// Meetings always load, and the SFU client refuses to construct without both.
+process.env.CLOUDFLARE_REALTIME_APP_ID ??= 'test-realtime-app-id';
+process.env.CLOUDFLARE_REALTIME_APP_SECRET ??= 'test-realtime-app-secret';

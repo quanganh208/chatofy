@@ -89,9 +89,8 @@ export interface PullResult {
  * Realtime TURN credential endpoint. Calls are not serialized here: callers
  * hold a per-session queue, because the SFU rejects overlapping mutations.
  *
- * Constructed only when ConferenceModule loads, i.e. with CONFERENCE_ENABLED
- * on, so a missing app id or secret fails the boot of a deployment that asked
- * for conferencing and no other.
+ * Constructed whenever the API boots — meetings always load — so a missing app
+ * id or secret fails the boot rather than the first join.
  */
 @Injectable()
 export class CloudflareRealtimeClient {
@@ -107,7 +106,7 @@ export class CloudflareRealtimeClient {
     });
     if (!appId || !appSecret) {
       throw new Error(
-        'CONFERENCE_ENABLED requires CLOUDFLARE_REALTIME_APP_ID and CLOUDFLARE_REALTIME_APP_SECRET',
+        'Meetings require CLOUDFLARE_REALTIME_APP_ID and CLOUDFLARE_REALTIME_APP_SECRET',
       );
     }
     this.appBase = `${API_BASE}/apps/${encodeURIComponent(appId)}`;

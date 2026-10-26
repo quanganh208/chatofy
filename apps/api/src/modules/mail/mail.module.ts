@@ -98,7 +98,7 @@ export function buildInnerSender(config: ConfigService<Env, true>): MailSender {
   logger.warn(
     `SMTP is not configured and NODE_ENV=${nodeEnv} is not development/test — ` +
       'binding a no-op mail sender. Every send will be dropped and logged. ' +
-      'Set SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS to send real mail.',
+      'Set SMTP_USER/SMTP_PASS to send real mail (host and port default to Gmail).',
   );
   return new NoopMailSender();
 }

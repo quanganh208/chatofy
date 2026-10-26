@@ -23,7 +23,7 @@ class LanguageDecision:
 
 
 def lid_enabled() -> bool:
-    """`LOCAL_STT_LID`: on in development, off in production until it is enabled there.
+    """`LOCAL_STT_LID`: on unless set to off/0/false/no, in every environment.
 
     Off means the weights are neither fetched nor loaded, and a request naming
     candidates is refused (409) rather than silently decoded as declared.

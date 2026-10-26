@@ -12,8 +12,7 @@ name, so every section they mention is listed below with the file it now lives i
 | [Data Flow](./architecture/data-flow.md)                                       | `POST /translate` pipeline · Streaming turn (`/ws/translate`) · Live mode on the same socket · AI context and hints · Standard request/response                                                                        |
 | [Modules, Browser Extension and CI/CD](./architecture/modules-extension-ci.md) | API module organization · Browser extension path · CI/CD                                                                                                                                                               |
 
-Video meetings are on `main` behind flags that default off (`CONFERENCE_ENABLED`,
-`NEXT_PUBLIC_CONFERENCE_ENABLED`); the design and its open decisions are in
+Video meetings are on `main` and always loaded; the design and its open decisions are in
 [`video-conferencing-architecture.md`](./video-conferencing-architecture.md), and progress in
 [`project-roadmap.md`](./project-roadmap.md).
 

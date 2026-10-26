@@ -5,7 +5,7 @@
 > in-process SFU chosen in #207 (Decisions 1 and 7 in
 > [video-conferencing-architecture.md](../video-conferencing-architecture.md)). The other
 > options are kept below as the reasons they lost. The conferencing code is on `main`
-> behind `CONFERENCE_ENABLED`; what is measured so far, and the two-network run still owed,
+> and always loaded; what is measured so far, and the two-network run still owed,
 > is in [§4.2 → Measured](#measured).
 
 **Date:** 2026-10-06, decided 2026-10-25
@@ -243,4 +243,4 @@ the reasons in §4.2 and §4.5.
 - Clients: `apps/web/src/conference/` (browser `RTCPeerConnection`) and
   `apps/mobile/src/conference/` (`react-native-webrtc`).
 - Configuration: `apps/api/src/config/env.schema.ts`; the deploy steps are in
-  [deployment-guide.md → Video conferencing](../deployment-guide.md#video-conferencing-disabled-by-default).
+  [deployment-guide.md → Video conferencing](../deployment-guide.md#video-conferencing).

@@ -19,21 +19,14 @@ describe('navItemFor', () => {
   });
 });
 
-describe('the conference entry follows the build flag', () => {
-  const hrefs = (enabled: boolean) => navItems(enabled).map((item) => item.href);
-
-  it('is listed, after Translate, in a build that ships conferencing', () => {
-    expect(hrefs(true)).toEqual([
+describe('the conference entry', () => {
+  it('is listed after Translate', () => {
+    expect(navItems().map((item) => item.href)).toEqual([
       '/translate',
       '/conference',
       '/history',
       '/preferences',
       '/account',
     ]);
-  });
-
-  it('is absent in a build that does not, so no nav item leads to a 404', () => {
-    expect(hrefs(false)).toEqual(['/translate', '/history', '/preferences', '/account']);
-    expect(navItemFor('/conference', navItems(false))).toBeUndefined();
   });
 });
