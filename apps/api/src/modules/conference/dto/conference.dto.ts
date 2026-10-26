@@ -5,6 +5,9 @@ import {
   conferenceResponseSchema,
   conferenceDetailResponseSchema,
   conferenceListResponseSchema,
+  conferenceMinutesResponseSchema,
+  generateMinutesRequestSchema,
+  storedConferenceMinutesResponseSchema,
 } from '@chatofy/types';
 
 /** POST /conference body. */
@@ -36,4 +39,18 @@ export class ConferenceDetailResponseDto extends createZodDto(
 ) {}
 export class ConferenceListResponseDto extends createZodDto(
   conferenceListResponseSchema,
+) {}
+
+/**
+ * POST /conference/:id/minutes body — the conversation minutes' request, so the
+ * two generate routes accept exactly the same thing: the language to write in.
+ */
+export class GenerateConferenceMinutesRequestDto extends createZodDto(
+  generateMinutesRequestSchema,
+) {}
+export class ConferenceMinutesResponseDto extends createZodDto(
+  conferenceMinutesResponseSchema,
+) {}
+export class StoredConferenceMinutesResponseDto extends createZodDto(
+  storedConferenceMinutesResponseSchema,
 ) {}

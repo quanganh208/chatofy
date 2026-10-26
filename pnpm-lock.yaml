@@ -300,6 +300,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@chatofy/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@chatofy/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n

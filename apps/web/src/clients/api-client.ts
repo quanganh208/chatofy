@@ -2,12 +2,15 @@ import { z } from 'zod';
 import { ApiClientError, createApiClient, type ApiRequestOptions } from '@chatofy/api-client';
 import {
   authMessageSchema,
+  conferenceDetailResponseSchema,
+  conferenceMinutesResponseSchema,
   conferenceResponseSchema,
   conversationListResponseSchema,
   conversationResponseSchema,
   conversationSummaryResponseSchema,
   minutesResponseSchema,
   readableTranslationContextListSchema,
+  storedConferenceMinutesResponseSchema,
   translationContextSchema,
   userSchema,
   voiceGenderSchema,
@@ -440,6 +443,38 @@ export function createConference(body: CreateConferenceRequest = {}) {
     method: 'POST',
     body: JSON.stringify(body),
   });
+}
+
+/**
+ * One conference room with its participants, for the end screen. 404 for a room
+ * the caller neither owns nor joined — the same answer as one that does not exist.
+ */
+export function getConference(conferenceId: string) {
+  return authedFetch(
+    `/conference/${encodeURIComponent(conferenceId)}`,
+    conferenceDetailResponseSchema,
+  );
+}
+
+/** A room's stored minutes; `minutes` is null until somebody generates them. */
+export function getConferenceMinutes(conferenceId: string) {
+  return authedFetch(
+    `/conference/${encodeURIComponent(conferenceId)}/minutes`,
+    storedConferenceMinutesResponseSchema,
+  );
+}
+
+/**
+ * Generate (or regenerate) a room's minutes in `language`, replacing the one
+ * stored copy every participant reads. The transcript is the room's stored turns.
+ */
+export function generateConferenceMinutes(conferenceId: string, language?: LanguageCode) {
+  const body: GenerateMinutesRequest = language ? { language } : {};
+  return authedFetch(
+    `/conference/${encodeURIComponent(conferenceId)}/minutes`,
+    conferenceMinutesResponseSchema,
+    { method: 'POST', body: JSON.stringify(body) },
+  );
 }
 
 /**

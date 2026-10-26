@@ -486,6 +486,7 @@ model Conference {
   participants ConferenceParticipant[]
   turns        ConferenceTurn[]
   messages     ConferenceMessage[]
+  minutes      ConferenceMinutes?
 
   @@index([ownerId, createdAt(sort: Desc)])
 }
@@ -539,4 +540,45 @@ model ConferenceMessage {
   participant ConferenceParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
   @@index([conferenceId, createdAt(sort: Desc)])
+}
+
+// The one stored minutes copy of a conference room.
+//
+// The conference twin of `MeetingMinutes`, not a generalisation of it: that row
+// hangs off an owner-scoped `Conversation`, while these are read by every
+// participant of the room. Keyed by the conference alone — access is checked on
+// the Conference row (owner or participant) before this one is touched — and a
+// regenerate by any participant replaces it. Cascade-deleted with the room.
+model ConferenceMinutes {
+  id           String                        @id @default(cuid())
+  conferenceId String                        @unique
+  conference   Conference                    @relation(fields: [conferenceId], references: [id], onDelete: Cascade)
+  // 'pending' | 'generating' | 'ready' | 'failed' — validated as MinutesStatus
+  // at the application boundary, as on MeetingMinutes.
+  status       String
+  summary      String
+  keyPoints    String[]
+  decisions    String[]
+  actionItems  ConferenceMinutesActionItem[]
+  // When the READY artifact was produced; null for a failed row.
+  generatedAt  DateTime?
+  model        String?
+  createdAt    DateTime                      @default(now())
+  updatedAt    DateTime                      @updatedAt
+}
+
+// One action item of a conference's minutes — `MinutesActionItem`'s twin, for
+// the same reasons: a stable id the client addresses, and `position` to keep the
+// model's order. Cascade-deleted with its parent so a regenerate leaves no
+// orphans.
+model ConferenceMinutesActionItem {
+  id          String            @id
+  minutesId   String
+  minutes     ConferenceMinutes @relation(fields: [minutesId], references: [id], onDelete: Cascade)
+  description String
+  owner       String?
+  dueDate     String?
+  position    Int
+
+  @@index([minutesId])
 }

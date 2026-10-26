@@ -12,7 +12,7 @@
  * is the page ground; no cards). Registered in accent-budget-app.spec.tsx.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Route } from 'next';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Users } from 'lucide-react';
@@ -24,18 +24,7 @@ import { VideoGrid } from './components/video-grid';
 import { ControlBar } from './components/control-bar';
 import { ParticipantList } from './components/participant-list';
 import { ChatPanel } from './components/chat-panel';
-
-/** Where the lobby keeps the call to return to after navigating away mid-call. */
-const ACTIVE_CALL_KEY = 'conference:active';
-
-/** The route segment as a room id; a malformed escape reads as no id at all. */
-function decodeRoomId(segment: string | undefined): string {
-  try {
-    return decodeURIComponent(segment ?? '');
-  } catch {
-    return '';
-  }
-}
+import { ACTIVE_CALL_KEY, decodeRoomId, endedPath } from './utils/room-route';
 
 export default function ConferenceRoomPage() {
   const t = useTranslate();
@@ -106,13 +95,39 @@ export default function ConferenceRoomPage() {
     if (callIsOver) sessionStorage.removeItem(ACTIVE_CALL_KEY);
   }, [callIsOver]);
 
+  // The owner ended the meeting: everyone still in it lands on the end screen,
+  // the same place their own Leave would have taken them. `replace`, so Back
+  // does not return to a room that refuses the join. Only someone who was IN the
+  // call: `room-ended` is also the answer to opening an old link to a room that
+  // already ended, and that visitor gets "This meeting has ended" below, not an
+  // end screen for a meeting they may never have joined.
+  const wasInCall = useRef(false);
+  useEffect(() => {
+    if (status === 'in-call') wasInCall.current = true;
+  }, [status]);
+  const ownerEnded = errorReason === 'room-ended';
+  useEffect(() => {
+    if (ownerEnded && wasInCall.current) router.replace(endedPath(roomId));
+  }, [ownerEnded, roomId, router]);
+
   // Collapsible roster panel
   const [rosterOpen, setRosterOpen] = useState(true);
 
+  /** Out of the call and back to the lobby — for the states with no meeting to sum up. */
   function handleLeave() {
     sessionStorage.removeItem(ACTIVE_CALL_KEY);
     leave();
     router.push('/conference');
+  }
+
+  /**
+   * Leave a call that was under way, to its end screen. `replace` rather than
+   * `push`: Back would otherwise reopen this URL, and this screen joins on mount.
+   */
+  function handleLeaveCall() {
+    sessionStorage.removeItem(ACTIVE_CALL_KEY);
+    leave();
+    router.replace(endedPath(roomId));
   }
 
   // ── The room does not exist, or its meeting is over — nothing to retry ────────
@@ -302,7 +317,7 @@ export default function ConferenceRoomPage() {
         localVideoEnabled={localVideoEnabled}
         onToggleMute={toggleMute}
         onToggleVideo={toggleVideo}
-        onLeave={handleLeave}
+        onLeave={handleLeaveCall}
         muteMicLabel={t('web.conference.muteMic')}
         unmuteMicLabel={t('web.conference.unmuteMic')}
         disableCameraLabel={t('web.conference.disableCamera')}

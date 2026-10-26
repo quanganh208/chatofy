@@ -54,8 +54,20 @@ export type { TranscriptSegment, VoiceGender } from './transcript.js';
 export { translateModeSchema, DEFAULT_TRANSLATE_MODE, LIVE_LANGUAGES } from './translate-mode.js';
 export type { TranslateMode } from './translate-mode.js';
 
-export { minutesStatusSchema, actionItemSchema, meetingMinutesSchema } from './minutes.js';
-export type { MinutesStatus, ActionItem, MeetingMinutes } from './minutes.js';
+export {
+  minutesStatusSchema,
+  actionItemSchema,
+  minutesContentSchema,
+  meetingMinutesSchema,
+  conferenceMinutesSchema,
+} from './minutes.js';
+export type {
+  MinutesStatus,
+  ActionItem,
+  MinutesContent,
+  MeetingMinutes,
+  ConferenceMinutes,
+} from './minutes.js';
 
 export {
   conversationTurnSchema,

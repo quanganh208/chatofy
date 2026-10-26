@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { MeetingMinutes } from '@chatofy/types';
+import type { MinutesContent } from '@chatofy/types';
 import {
   Badge,
   Button,
@@ -14,8 +14,12 @@ import {
 import { useTranslate } from '@/i18n/provider';
 
 interface MinutesPanelProps {
-  /** The generated minutes, or null before the first pass. */
-  minutes: MeetingMinutes | null;
+  /**
+   * The generated minutes, or null before the first pass. The content shape
+   * rather than a conversation's minutes, so the conference end screen renders
+   * a room's minutes through the same panel.
+   */
+  minutes: MinutesContent | null;
   /** A generation pass is in flight. */
   loading: boolean;
   /** The last pass failed. */
@@ -101,23 +105,28 @@ export function MinutesPanel({
       <CardContent className="flex flex-col gap-4">
         {loading ? (
           <p className="text-muted-foreground">{t('web.translate.minutesGenerating')}</p>
-        ) : error ? (
-          <p className="text-destructive">{t('web.translate.minutesFailed')}</p>
-        ) : !ready ? (
-          <p className="text-muted-foreground">
-            {canGenerate
-              ? t('web.translate.minutesEmpty')
-              : (unavailableHint ?? t('web.translate.minutesNeedsTurns'))}
-          </p>
         ) : (
-          <MinutesBody minutes={minutes} />
+          <>
+            {/* A failed regenerate leaves the stored ready copy readable (the
+                server keeps it), so the failure is a line above it, not instead. */}
+            {error && <p className="text-destructive">{t('web.translate.minutesFailed')}</p>}
+            {ready ? (
+              <MinutesBody minutes={minutes} />
+            ) : error ? null : (
+              <p className="text-muted-foreground">
+                {canGenerate
+                  ? t('web.translate.minutesEmpty')
+                  : (unavailableHint ?? t('web.translate.minutesNeedsTurns'))}
+              </p>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
   );
 }
 
-function MinutesBody({ minutes }: { minutes: MeetingMinutes }) {
+function MinutesBody({ minutes }: { minutes: MinutesContent }) {
   const t = useTranslate();
   return (
     <>
@@ -183,7 +192,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /** A copyable plain-markdown rendering of the minutes. */
-function toMarkdown(minutes: MeetingMinutes, t: ReturnType<typeof useTranslate>): string {
+function toMarkdown(minutes: MinutesContent, t: ReturnType<typeof useTranslate>): string {
   const lines: string[] = [`# ${t('web.translate.minutesTitle')}`, '', minutes.summary, ''];
   if (minutes.keyPoints.length) {
     lines.push(`## ${t('web.translate.minutesKeyPoints')}`);

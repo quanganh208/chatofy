@@ -7,6 +7,7 @@ import { MINUTES_STORE } from './interfaces/minutes-store.interface';
 import { PrismaMinutesStore } from './stores/prisma-minutes.store';
 import { MinutesController } from './minutes.controller';
 import { MinutesService } from './minutes.service';
+import { MinutesSummarizer } from './minutes-summarizer.service';
 
 /**
  * Minutes module.
@@ -40,7 +41,11 @@ import { MinutesService } from './minutes.service';
       useFactory: () => registerDefaultProviders(new ProviderRegistry()),
     },
     { provide: MINUTES_STORE, useClass: PrismaMinutesStore },
+    MinutesSummarizer,
     MinutesService,
   ],
+  // The conference module summarizes its rooms with the same resolved
+  // provider, rather than building a second registry and a second cache.
+  exports: [MinutesSummarizer],
 })
 export class MinutesModule {}

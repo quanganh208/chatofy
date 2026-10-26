@@ -6,8 +6,8 @@ import type { PrismaService } from '../../src/prisma/prisma.service';
  * memory.
  *
  * Lives under `test/` like the other in-memory doubles. It understands exactly
- * the query shapes `ConferenceService` and `ConferencePersistenceService`
- * issue — no more — and enforces the same rules Postgres would for them: the
+ * the query shapes `ConferenceService`, `ConferencePersistenceService` and
+ * `ConferenceMinutesService` issue — no more — and enforces the same rules Postgres would for them: the
  * `(conferenceId, userId)` unique key, the foreign key from a participant to
  * its conference, and owner-or-participant visibility. A double that skipped
  * those would let the fast suites pass with an access bug the db suite alone
@@ -232,6 +232,24 @@ export class InMemoryConferencePrisma {
       this.turns.push(row);
       return Promise.resolve(row);
     },
+
+    /**
+     * The minutes read: a room's turns in creation order, each with its
+     * speaker's display name. Insertion order stands in for `createdAt`.
+     */
+    findMany: ({ where }: { where: { conferenceId: string } }) =>
+      Promise.resolve(
+        this.turns
+          .filter((t) => t.conferenceId === where.conferenceId)
+          .map((t) => ({
+            sourceText: t.sourceText,
+            participant: {
+              displayName:
+                this.participants.find((p) => p.id === t.participantId)
+                  ?.displayName ?? null,
+            },
+          })),
+      ),
   };
 
   conferenceMessage = {

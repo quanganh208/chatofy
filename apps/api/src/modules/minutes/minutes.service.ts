@@ -1,30 +1,16 @@
-import { randomUUID } from 'node:crypto';
 import {
-  BadGatewayException,
   BadRequestException,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
-  ServiceUnavailableException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import {
-  ProviderConfigError,
-  ProviderConnectionError,
-  ProviderResponseError,
-  ProviderRegistry,
-  type MeetingMinutesDraft,
-  type SummarizationProvider,
-} from '@chatofy/ai-providers';
-import {
-  MINUTES_LIMITS,
-  type ConversationTurn,
-  type GenerateMinutesRequest,
-  type MeetingMinutes,
-  type MinutesSourceTurn,
+import type {
+  ConversationTurn,
+  GenerateMinutesRequest,
+  MeetingMinutes,
+  MinutesSourceTurn,
 } from '@chatofy/types';
-import { Env } from '../../config/env.schema';
 import {
   CONVERSATION_STORE,
   type ConversationStore,
@@ -33,6 +19,8 @@ import {
   MINUTES_STORE,
   type MinutesStore,
 } from './interfaces/minutes-store.interface';
+import { MinutesSummarizer } from './minutes-summarizer.service';
+import { runMinutesPass } from './minutes-pass';
 
 /**
  * Fallback speaker names for the PROMPT.
@@ -52,20 +40,17 @@ const ROLE_FALLBACK: Record<string, string> = {
  * Turns a stored conversation into minutes and persists them.
  *
  * The transcript is held server-side now, so `generate` names a conversation
- * instead of carrying its turns. Everything the minutes need beyond the model's
- * own words — stable action-item ids, the generated-at instant, the persisted
- * status — is assigned HERE, keeping the provider a pure function of its prompt
- * (see the SummarizationProvider contract on why the draft carries none of it).
+ * instead of carrying its turns. The pass itself — the prompt ceiling, the
+ * minted ids and timestamp, the failure semantics and the HTTP mapping — is
+ * {@link runMinutesPass}, shared with the conference minutes; this service owns
+ * loading the conversation and where its minutes are stored.
  */
 @Injectable()
 export class MinutesService {
   private readonly logger = new Logger(MinutesService.name);
-  /** Resolved once and kept warm, like the pipeline factory's cached providers. */
-  private provider: SummarizationProvider | null = null;
 
   constructor(
-    private readonly config: ConfigService<Env, true>,
-    private readonly registry: ProviderRegistry,
+    private readonly summarizer: MinutesSummarizer,
     @Inject(MINUTES_STORE) private readonly store: MinutesStore,
     @Inject(CONVERSATION_STORE)
     private readonly conversations: ConversationStore,
@@ -85,15 +70,11 @@ export class MinutesService {
   /**
    * Generate (or regenerate) the caller's minutes from the STORED transcript.
    *
-   * The conversation is loaded first, and both refusals it can produce — 404 for
-   * an id the caller does not own, 400 for a transcript over the prompt ceiling —
-   * happen BEFORE the provider is touched, so neither spends a billed call.
-   *
-   * A provider failure is recorded as a `failed` artifact before it is rethrown,
-   * so a later GET can tell "never generated" (null) from "the last pass threw"
-   * (a stored failed record) — the distinction the status enum exists to carry.
-   * It is NOT recorded over minutes that are already readable: see
-   * {@link MinutesService.recordFailure}.
+   * The conversation is loaded first, and every refusal it can produce — 404 for
+   * an id the caller does not own, 400 for a transcript with nothing in it or
+   * over the prompt ceiling — happens BEFORE the provider is touched, so none
+   * spends a billed call. A failed pass is recorded as `failed` without ever
+   * replacing a readable copy; see {@link runMinutesPass}.
    */
   async generate(
     ownerId: string,
@@ -112,96 +93,17 @@ export class MinutesService {
       );
     }
 
-    // The ceiling moved off the request body with the turns, but it still has to
-    // be enforced: this is what the model is billed on. Deliberately NOT the
-    // storage ceiling — a conversation too long to summarize is still saved and
-    // still readable, which is why the two numbers are separate.
-    const totalChars = turns.reduce(
-      (sum, turn) => sum + turn.speakerLabel.length + turn.text.length,
-      0,
-    );
-    if (totalChars > MINUTES_LIMITS.MAX_TOTAL_CHARS) {
-      throw new BadRequestException(
-        `transcript exceeds ${MINUTES_LIMITS.MAX_TOTAL_CHARS} characters`,
-      );
-    }
-
-    const transcript = buildTranscript(turns);
-    try {
-      const draft = await this.summarizer().summarize({
-        transcript,
-        language: request.language,
-      });
-      return await this.store.put(ownerId, toMinutes(conversationId, draft));
-    } catch (err) {
-      this.logger.warn(
-        `minutes generation failed for conversation ${conversationId}: ${String(err)}`,
-      );
-      await this.recordFailure(ownerId, conversationId);
-      throw asHttpError(err);
-    }
-  }
-
-  /**
-   * Write the `failed` record — but never over minutes somebody can still read,
-   * and never let that write replace the real error.
-   *
-   * A regenerate runs against a conversation that may already HAVE minutes, and
-   * the store's `put` replaces the row wholesale. So a reader who opens a good
-   * summary, presses Regenerate and meets a provider outage would have the good
-   * summary overwritten with an empty `failed` record: a reload then shows the
-   * empty state, indistinguishable from "never generated", and the only copy of
-   * a billed result is gone. A failed attempt says nothing about the previous
-   * one, so a stored `ready` artifact stands and only the request fails — the
-   * caller is still told generation failed, by the error `generate` rethrows.
-   *
-   * Any other stored state (none, `failed`, `pending`) is replaced as before,
-   * which is what keeps "the last pass threw" tellable from "never generated".
-   *
-   * Both `put` calls became failable when minutes were re-keyed onto a
-   * conversation: the parent is an FK now, so deleting the conversation
-   * mid-generation makes the write throw. Unguarded, that throw escapes the
-   * catch block, `asHttpError` never runs, and the original cause — including a
-   * provider error for an LLM call that already succeeded and was billed — is
-   * discarded in favour of an opaque 500. The read above is inside the same
-   * guard for the same reason.
-   *
-   * Logged separately from the provider failure for the same reason: "provider
-   * threw" and "persist threw" are different faults and must not read alike.
-   */
-  private async recordFailure(
-    ownerId: string,
-    conversationId: string,
-  ): Promise<void> {
-    try {
-      const stored = await this.store.get(ownerId, conversationId);
-      if (stored?.status === 'ready') {
-        this.logger.warn(
-          `keeping the readable minutes stored for conversation ` +
-            `${conversationId}; the failed attempt is not recorded over them`,
-        );
-        return;
-      }
-      await this.store.put(ownerId, failedMinutes(conversationId));
-    } catch (err) {
-      this.logger.warn(
-        `could not persist the failed-minutes record for conversation ` +
-          `${conversationId}: ${String(err)}`,
-      );
-    }
-  }
-
-  /**
-   * `resolveOnly`, like the realtime and speaker-embedding providers: no env var
-   * selects a summarizer, so a second registration should be a loud error rather
-   * than a silent pick. The Gemini key is read here and passed raw — splitting a
-   * comma-separated pool is the provider's job.
-   */
-  private summarizer(): SummarizationProvider {
-    this.provider ??= this.registry.resolveOnly('summarization', {
-      geminiApiKey: this.config.get('GEMINI_API_KEY', { infer: true }),
+    return runMinutesPass({
+      turns,
+      language: request.language,
+      summarizer: this.summarizer,
+      logger: this.logger,
+      label: `conversation ${conversationId}`,
+      save: (content) =>
+        this.store.put(ownerId, { conversationId, ...content }),
+      storedStatus: async () =>
+        (await this.store.get(ownerId, conversationId))?.status ?? null,
     });
-    return this.provider;
   }
 }
 
@@ -229,76 +131,4 @@ function toSourceTurns(
     });
   }
   return out;
-}
-
-/** `Label: text` lines, in the order spoken — the shape the prompt expects. */
-function buildTranscript(turns: readonly MinutesSourceTurn[]): string {
-  return turns.map((t) => `${t.speakerLabel}: ${t.text}`).join('\n');
-}
-
-/** Map a model draft onto the stored domain artifact, minting ids + timestamp. */
-function toMinutes(
-  conversationId: string,
-  draft: MeetingMinutesDraft,
-): MeetingMinutes {
-  return {
-    conversationId,
-    status: 'ready',
-    summary: draft.summary,
-    keyPoints: draft.keyPoints,
-    decisions: draft.decisions,
-    actionItems: draft.actionItems.map((item) => ({
-      id: randomUUID(),
-      description: item.description,
-      owner: item.owner,
-      dueDate: item.dueDate,
-    })),
-    generatedAt: new Date().toISOString(),
-    model: draft.model,
-  };
-}
-
-/** The record written when a generation attempt throws. */
-function failedMinutes(conversationId: string): MeetingMinutes {
-  return {
-    conversationId,
-    status: 'failed',
-    summary: '',
-    keyPoints: [],
-    decisions: [],
-    actionItems: [],
-    generatedAt: null,
-    model: null,
-  };
-}
-
-/**
- * Translate a provider failure into the right HTTP status, so the caller is not
- * told "internal error" for an upstream condition it can act on.
- *
- * - No key configured / whole pool cooling down → 503: the summarizer is not
- *   available right now, and retrying later is the correct advice.
- * - The model answered but the body was unusable → 502: a bad answer from an
- *   upstream dependency, not a fault in this service.
- *
- * Anything else is returned unchanged and becomes a 500 — the honest status for
- * a cause this code did not anticipate. The AllExceptionsFilter forces a generic
- * message on every 5xx, so none of the provider's internal text leaks either
- * way; only the status differs.
- */
-function asHttpError(err: unknown): unknown {
-  if (
-    err instanceof ProviderConfigError ||
-    err instanceof ProviderConnectionError
-  ) {
-    return new ServiceUnavailableException(
-      'minutes generation is temporarily unavailable',
-    );
-  }
-  if (err instanceof ProviderResponseError) {
-    return new BadGatewayException(
-      'the summarization backend returned an unusable response',
-    );
-  }
-  return err;
 }

@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { MinutesModule } from '../minutes/minutes.module';
 import { TranslateModule } from '../translate/translate.module';
+import { ConferenceMinutesController } from './conference-minutes.controller';
+import { ConferenceMinutesService } from './services/conference-minutes.service';
+import { PrismaConferenceMinutesStore } from './stores/prisma-conference-minutes.store';
 import { CloudflareRealtimeClient } from './cloudflare-realtime.client';
 import { ConferenceController } from './conference.controller';
 import { ConferenceGateway } from './conference.gateway';
@@ -20,9 +24,13 @@ import { ConferenceTranslationRouter } from './services/conference-translation-r
  * and the `/conference` REST routes. Always imported by AppModule.
  */
 @Module({
-  imports: [AuthModule, TranslateModule],
-  controllers: [ConferenceController],
+  // MinutesModule for its MinutesSummarizer: a room's minutes run the same
+  // resolved provider the conversation minutes do.
+  imports: [AuthModule, TranslateModule, MinutesModule],
+  controllers: [ConferenceController, ConferenceMinutesController],
   providers: [
+    PrismaConferenceMinutesStore,
+    ConferenceMinutesService,
     CloudflareRealtimeClient,
     ConferenceSfuSignaling,
     ConferenceRoomRegistry,
