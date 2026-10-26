@@ -325,51 +325,70 @@ mobile. Both pass the budget.
 
 ### 4.4 End screen
 
-**Designed, not built.** A single centred summary card on the page ground.
+Built on web as `apps/web/app/(app)/conference/[roomId]/ended/page.tsx`. In-call
+**Leave** goes here, and so does everyone still in the call when the owner ends the room
+(both by `router.replace`, so Back does not rejoin). Leaving clears the
+`conference:active` session key, so the lobby does not bounce back into the room.
+Error states still offer **Back to lobby**. Mobile is not built yet (#250).
 
 ```
 ┌─────────────────────────────────────────┐
 │            Meeting ended                  │  ← heading
 │                                           │
 │   ┌───────────────────────────────┐      │
-│   │  Duration        42 min        │      │  ← summary card (1 elevated surface):
+│   │  Duration        42 min        │      │  ← summary card (surface 1):
 │   │  Participants    Alice, Bob    │      │     readout rows, no actions inside
-│   │  Languages       vi ↔ en       │      │
+│   │  Languages  Vietnamese ↔ English│     │
 │   └───────────────────────────────┘      │
 │                                           │
 │          [  Back to lobby   ]             │  ← the ONE accent
+│                                           │
+│   ┌ Minutes ──────────── [Generate] ┐    │  ← minutes panel (surface 2),
+│   │  summary · key points · ...      │    │     Generate/Regenerate is outline
+│   └──────────────────────────────────┘    │
 └─────────────────────────────────────────┘
 ```
 
-- **Accent (1):** the **Back to lobby** button (`bg-primary`), the single next step,
-  where Leave goes today.
-- **Elevated surfaces (1):** the **summary card** (`elevation-md`). It is a card because
-  you read it as a unit; it holds only readouts, no nested action.
-- **Budget: 1 accent, 1 elevated surface. PASS.**
+- **Accent (1):** **Back to lobby** (`bg-primary`), the single next step.
+- **Elevated surfaces (2):** the **summary card**, and the **minutes panel**. The panel
+  is the same `MinutesPanel` that `/translate` and history render, with
+  `emphasis="quiet"`, so Generate is outline. It is a second card, not a section inside
+  the summary card. It carries an action, and the summary card holds only readouts.
+- **Minutes are generated on demand.** One copy is stored per room
+  (`ConferenceMinutes`), written in the language of whoever generates it. Any
+  participant may regenerate it, which replaces the copy. The source is the room's
+  `ConferenceTurn` rows in creation order, labelled with each speaker's display name.
+  The owner and every participant can read it. Anyone else gets the same 404 as
+  `GET /conference/:id`. A failed pass keeps an existing `ready` copy.
+- **States:** loading, not a room the caller was in, no minutes yet, generating,
+  minutes ready, last pass failed. Each one is a row in `accent-budget-app.spec.tsx`.
+  A room with no turns disables Generate and says there is nothing to summarize.
+- **Budget: 1 accent, 2 elevated surfaces (0 while loading or refused). PASS.**
 
-**Deferred: building the end screen, and minutes on it.** Issue #210 asks for an end
-screen "with minutes". Neither is built: Leave returns to the conference lobby. Minutes
-are deferred because conferences have no minutes pipeline. The minutes on `main` belong
-to `/translate`: `MeetingMinutes` hangs off a `Conversation`, while a conference stores
-`ConferenceTurn` rows that nothing summarises. Building it needs its own decisions —
-where the minutes row lives, which participants may read it, and what triggers
-generation. When it exists, a **Minutes** readout section goes inside the summary card;
-the budget above is unchanged, and the screen states join the `SCREENS` rows of
-`accent-budget-app.spec.tsx`.
+REST, both behind the room's access rule and `ThrottlerGuard`:
+
+| Route                          | Body                               | Answer                                                                                                                                           |
+| ------------------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /conference/:id`          | —                                  | detail, now with optional `startedAt` / `endedAt` (ISO)                                                                                          |
+| `GET /conference/:id/minutes`  | —                                  | `{ minutes: ConferenceMinutes \| null }`, null until generated                                                                                   |
+| `POST /conference/:id/minutes` | `{ language?: 'vi' \| 'en' \| … }` | `{ minutes: ConferenceMinutes }`. 400 nothing said or over `MINUTES_LIMITS.MAX_TOTAL_CHARS`, 404 not in the room, 503/502 provider fault, 10/min |
+
+`ConferenceMinutes` is `{ conferenceId, status, summary, keyPoints, decisions,
+actionItems, generatedAt, model }`. That is the shared `minutesContentSchema` in
+`packages/types/src/domain/minutes.ts` under a room id.
 
 ### 4.5 Budget summary
 
-Web, as built except the end screen:
+Web, as built:
 
-| Screen state                      | Accent (≤1)       | Elevated surfaces (≤2) | Verdict | Gated |
-| --------------------------------- | ----------------- | ---------------------- | ------- | ----- |
-| Lobby                             | 1 — Create a room | 0                      | PASS    | yes   |
-| In-call, connecting, reconnecting | 1 — Leave         | 0                      | PASS    | yes   |
-| In-call with roster and chat      | 1 — Leave         | 0                      | PASS    | yes   |
-| Error and ended states            | 1 — Back to lobby | 0                      | PASS    | yes   |
-| End screen (designed)             | 1 — Back to lobby | 1 — summary card       | PASS    | no    |
-
-Every built state has headroom of two surfaces, so the end screen's card fits.
+| Screen state                             | Accent (≤1)       | Elevated surfaces (≤2)          | Verdict | Gated |
+| ---------------------------------------- | ----------------- | ------------------------------- | ------- | ----- |
+| Lobby                                    | 1 — Create a room | 0                               | PASS    | yes   |
+| In-call, connecting, reconnecting        | 1 — Leave         | 0                               | PASS    | yes   |
+| In-call with roster and chat             | 1 — Leave         | 0                               | PASS    | yes   |
+| Error and ended states                   | 1 — Back to lobby | 0                               | PASS    | yes   |
+| End screen, loading or refused           | 1 — Back to lobby | 0                               | PASS    | yes   |
+| End screen, loaded (every minutes state) | 1 — Back to lobby | 2 — summary card, minutes panel | PASS    | yes   |
 
 ---
 

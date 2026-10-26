@@ -1,9 +1,15 @@
 # Database Schema: Video Conferencing
 
-> **Status: Four models built, the rest deferred.** `Conference`, `ConferenceParticipant`,
+> **Status: Six models built, the rest deferred.** `Conference`, `ConferenceParticipant`,
 > `ConferenceTurn` and `ConferenceMessage` are in `apps/api/prisma/schema.prisma` (migration
 > `20261012144353_add_conference_models`), used by the always-loaded conference module. A
 > `Conference` row is created only by `POST /conference`; joining upserts the participant.
+> Minutes followed as `ConferenceMinutes` + `ConferenceMinutesActionItem` (migration
+> `20261026033912_add_conference_minutes`): one copy per room, cascade-deleted with it,
+> mirroring `MeetingMinutes` — see
+> [video-client-support.md §4.4](./architecture/video-client-support.md#44-end-screen).
+> It supersedes the `ConferenceMeetingMinutes` sketch in
+> [video-conferencing-architecture.md](./video-conferencing-architecture.md).
 > Recording, speakers and billing stay deferred. Progress:
 > [project-roadmap.md](./project-roadmap.md); deferred choices:
 > [Open decisions](./video-conferencing-architecture.md#open-decisions).
