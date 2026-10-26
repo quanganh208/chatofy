@@ -21,6 +21,7 @@ import { mediaDevices, RTCView, MediaStream } from 'react-native-webrtc';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import { createTranslator, en } from '@chatofy/i18n';
 import { conferenceRoomIdSchema } from '@chatofy/types/events';
+import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { LanguagePicker, type SourceLanguage } from '@/components/conference/language-picker';
 import { CreateConferenceRoomError, createConferenceRoom } from '@/conference/conference-rooms-api';
@@ -33,7 +34,9 @@ export default function ConferenceLobbyScreen() {
   const router = useRouter();
 
   const [roomId, setRoomId] = useState('');
-  const [displayName, setDisplayName] = useState('mobile-user');
+  const { session } = useAuth();
+  // Prefilled from the account; the field stays editable for this one call.
+  const [displayName, setDisplayName] = useState(session?.user.name ?? '');
   // The call screen reads `sourceLanguage` only at join, so it is chosen here in
   // the lobby and passed through as `lang`. Defaults to Vietnamese.
   const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>('vi');

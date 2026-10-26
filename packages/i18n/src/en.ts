@@ -780,6 +780,20 @@ export const en = {
   'mobile.conference.chatNotSent': 'Message not sent.',
   'mobile.home.comingSoon': 'coming soon',
   'mobile.home.joinConference': 'Join a conference',
+  'mobile.home.signIn': 'Sign in',
+  'mobile.auth.signInTitle': 'Sign in',
+  'mobile.auth.email': 'Email',
+  'mobile.auth.password': 'Password',
+  'mobile.auth.signIn': 'Sign in',
+  'mobile.auth.signingIn': 'Signing in…',
+  'mobile.auth.missingFields': 'Enter your email and password.',
+  'mobile.auth.invalidCredentials': 'Email or password is incorrect.',
+  'mobile.auth.tooManyAttempts': 'Too many attempts. Wait a minute and try again.',
+  'mobile.auth.signInFailed': 'Could not sign in. Check your connection and try again.',
+  'mobile.auth.noAccount': 'No account yet? Create one on the Chatofy website, then sign in here.',
+  'mobile.settings.signedInAs': 'Signed in as {email}',
+  'mobile.settings.signedOut': 'You are not signed in.',
+  'mobile.settings.signOut': 'Sign out',
 } as const;
 
 /** Every key any locale must carry. Derived, so a locale cannot drift from it. */

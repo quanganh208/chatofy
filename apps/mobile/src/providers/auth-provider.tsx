@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { StubAuthClient } from '@/clients/auth-client.stub';
+import { authClient } from '@/clients/auth-client';
 import type { AuthClient, AuthMessage, AuthSession } from '@/clients/auth-client.interface';
 
 interface AuthContextValue {
@@ -21,8 +21,8 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-// Swap client by passing a different AuthClient implementation as prop
-const defaultClient: AuthClient = new StubAuthClient();
+// Tests pass their own AuthClient; the app uses the shared instance.
+const defaultClient: AuthClient = authClient;
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -34,26 +34,27 @@ export function AuthProvider({ children, client = defaultClient }: AuthProviderP
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+    // Subscribed before the first read, so a refresh that ends the session (401)
+    // while the store loads still signs the app out.
+    const unsubscribe = client.onAuthChange(setSession);
 
     const init = async () => {
       try {
-        setSession(await client.getSession());
+        const stored = await client.getSession();
+        if (!cancelled) setSession(stored);
       } catch {
-        setSession(null);
+        if (!cancelled) setSession(null);
       } finally {
-        setIsLoading(false);
-      }
-
-      try {
-        unsubscribe = client.onAuthChange(setSession);
-      } catch {
-        // stub throws — acceptable in scaffold
+        if (!cancelled) setIsLoading(false);
       }
     };
 
-    init();
-    return () => unsubscribe?.();
+    void init();
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [client]);
 
   const signIn = useCallback(
@@ -93,11 +94,7 @@ export function AuthProvider({ children, client = defaultClient }: AuthProviderP
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-/**
- * Consumer surface of the auth scaffold — screens adopt this when the
- * conversation feature lands.
- * @public
- */
+/** The signed-in session and the sign-in/out actions, for screens. */
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');

@@ -5,8 +5,8 @@
 > Decision 1 in [video-conferencing-architecture.md](../video-conferencing-architecture.md)).
 > §1.1, §1.2 and §2.1 now describe the plain-WebRTC clients; the rest still holds, and it
 > designs the meeting screens. The lobby and call screens are on `main`
-> (`apps/web/app/(app)/conference/`, web, always shown; `apps/mobile/app/(app)/conference/`,
-> development builds only), and §4 records them as built. The end screen (§4.4) is
+> (`apps/web/app/(app)/conference/`, web; `apps/mobile/app/(app)/conference/`, mobile,
+> signed-in), and §4 records them as built. The end screen (§4.4) is
 > designed, not built.
 
 **Date:** 2026-10-06, revised 2026-10-26
@@ -297,7 +297,7 @@ opens and closes, so opening it changes no count.
 - **Budget: 1 accent, 0 elevated surfaces. PASS.** Rows: roster and chat open with
   messages, chat refused for sending too fast, roster closed.
 
-### Mobile (development builds)
+### Mobile
 
 `apps/mobile/app/(app)/conference/` follows the same layout, adapted to a phone. The
 controls are `TouchableOpacity` styled from `@chatofy/ui` tokens, the way the rest of the
