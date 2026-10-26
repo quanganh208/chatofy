@@ -393,6 +393,7 @@ or in the same commit as the route.
 Two different failures with two different answers:
 
 - **Bad code** — `workflow_dispatch` with an earlier ref. The layer cache makes the rebuild fast.
+  A ref older than the env consolidation (`4412b521`) needs the prod.env of its time: its compose requires `POSTGRES_USER`, `POSTGRES_DB`, `CHATOFY_ENV_FILE` and the model paths, and refuses to run without them. Restore `~/.config/chatofy/prod.env.bak-261026` first; it fails safely at config time if you forget.
 - **Bad migration** — `pg_restore` from the dump taken immediately before it. `prisma migrate deploy` is forward-only, so re-deploying older code rolls back _code_ and never _schema_; when a migration is destructive this is the only path.
 
 Backups live in `~/chatofy-backups` (14 retained).
