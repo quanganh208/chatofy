@@ -117,9 +117,9 @@ export const vi: Messages = {
   'web.auth.noticeVerified': 'Tài khoản của bạn đã sẵn sàng. Đăng nhập bên dưới để bắt đầu.',
   'web.auth.noticeReset': 'Mật khẩu của bạn đã đổi. Đăng nhập bằng mật khẩu mới.',
 
-  'web.meta.home': 'Chatofy — nói tiếng Việt, được nghe bằng tiếng Anh',
+  'web.meta.home': 'Chatofy — dịch giọng nói thời gian thực cho trò chuyện và họp trực tuyến',
   'web.meta.homeDescription':
-    'Dịch giọng nói thời gian thực, cả hai chiều. Giọng nói của bạn được xử lý ngay trên máy bạn; chỉ phần chữ là đi qua mạng.',
+    'Chatofy dịch giọng nói theo thời gian thực giữa tiếng Việt, tiếng Anh và tiếng Trung, khi trò chuyện trực tiếp, trong cuộc họp video và trên Google Meet, Zoom, Facebook.',
   'web.meta.signIn': 'Đăng nhập · Chatofy',
   'web.meta.register': 'Tạo tài khoản · Chatofy',
   'web.meta.verifyEmail': 'Xác minh email · Chatofy',
@@ -392,10 +392,10 @@ export const vi: Messages = {
   'web.account.signOutHint':
     'Chỉ đăng xuất khỏi trình duyệt này. Các thiết bị khác vẫn đăng nhập cho tới khi phiên của chúng hết hạn.',
 
-  'web.landing.heroTitle': 'Nói tiếng Việt. Được nghe bằng tiếng Anh.',
+  'web.landing.heroTitle': 'Nói bằng ngôn ngữ của bạn. Được hiểu bằng ngôn ngữ của người nghe.',
   'web.landing.heroBody':
-    'Dịch giọng nói thời gian thực, cả hai chiều. Giọng nói của bạn được xử lý ngay trên máy bạn — chỉ phần chữ là đi qua mạng.',
-  'web.landing.heroSeeHow': 'Xem cách hoạt động',
+    'Dịch giọng nói theo thời gian thực giữa tiếng Việt, tiếng Anh và tiếng Trung — khi trò chuyện trực tiếp trên trình duyệt, trong cuộc họp video, hoặc ngay trong cuộc gọi Google Meet, Zoom hoặc Facebook.',
+  'web.landing.meetingsStart': 'Tạo cuộc họp',
   'web.landing.demoListening': 'Đang nghe',
   'web.landing.demoSourceOne': 'Chào anh, mình muốn hỏi về lịch họp chiều nay.',
   'web.landing.demoTargetOne': "Hi, I'd like to ask about this afternoon's meeting schedule.",
@@ -404,21 +404,34 @@ export const vi: Messages = {
   'web.landing.howTitle': 'Cách hoạt động',
   'web.landing.howBody': 'Ba điều đáng biết trước khi bạn cấp quyền micro.',
   'web.landing.howOneTitle': 'Bấm bắt đầu, rồi cứ nói',
-  'web.landing.howOneBody': 'Không cần giữ nút, không phải chờ tín hiệu nào.',
-  'web.landing.howTwoTitle': 'Không có nút dừng',
+  'web.landing.howOneBody':
+    'Không cần giữ nút. Lượt nói kết thúc khi bạn dừng lại, và bản dịch được phát sau khoảng một giây.',
+  'web.landing.howTwoTitle': 'Tự động nhận biết ngôn ngữ',
   'web.landing.howTwoBody':
-    'Lượt nói kết thúc khi bạn ngừng nói. Khoảng một giây sau là bản dịch phát.',
+    'Chatofy tự phân biệt tiếng Việt và tiếng Anh trong lúc bạn nói. Với tiếng Trung, bạn chọn ngôn ngữ trước khi bắt đầu.',
   'web.landing.howThreeTitle': 'Nghe bản dịch, không phải đọc',
   'web.landing.howThreeBody':
     'Bản dịch được đọc thành tiếng. Phần chữ vẫn ở lại trên màn hình để bạn đối chiếu.',
-  // Xem bản tiếng Anh để biết vì sao khối này được sửa lần thứ hai: lời hứa cũ về
-  // việc âm thanh không rời khỏi máy vừa hết đúng, vì tính năng ghi âm bật sẵn cho
-  // mọi người. Tiêu đề chuyển từ chỗ giọng nói Ở LẠI sang chỗ giọng nói được HIỂU —
-  // phần mà bộ nhận dạng chạy trên máy vẫn giữ nguyên sự thật. Tiêu đề này cũng
-  // là nhãn điều hướng nên phải ngắn.
-  'web.landing.localTitle': 'Giọng nói của bạn được hiểu ngay trên máy bạn',
+  'web.landing.meetingsTitle': 'Cuộc họp đa ngôn ngữ, dịch trực tiếp',
+  'web.landing.meetingsBody':
+    'Chia sẻ một đường liên kết; mỗi người tham gia nghe cuộc họp bằng ngôn ngữ của mình.',
+  'web.landing.meetingsLinkTitle': 'Tham gia bằng một đường liên kết',
+  'web.landing.meetingsLinkBody':
+    'Người dùng có tài khoản chỉ cần mở liên kết để tham gia, không cần cài đặt.',
+  'web.landing.meetingsHearTitle': 'Phụ đề và giọng đọc theo ngôn ngữ của bạn',
+  'web.landing.meetingsHearBody':
+    'Lời của mỗi người được dịch, hiển thị phụ đề và đọc lại bằng ngôn ngữ bạn chọn.',
+  'web.landing.meetingsChatTitle': 'Tin nhắn được dịch tự động',
+  'web.landing.meetingsChatBody': 'Mỗi tin nhắn hiển thị theo ngôn ngữ của người nhận.',
+  'web.landing.meetingsMinutesTitle': 'Biên bản cuộc họp',
+  'web.landing.meetingsMinutesBody':
+    'Sau buổi họp, bạn có thể tạo biên bản gồm tóm tắt nội dung, các quyết định và đầu việc ngay tại màn hình kết thúc.',
+  'web.landing.meetingsScope': 'Hiện tại, cuộc họp hỗ trợ dịch giữa tiếng Việt và tiếng Anh.',
+  // Vì sao khối này không nói giọng nói được xử lý ở đâu: xem chú thích trong bản
+  // tiếng Anh.
+  'web.landing.localTitle': 'Dữ liệu ghi âm của bạn được xử lý thế nào',
   'web.landing.localBody':
-    'Những gì bạn nói được nghe ngay trên máy tính của bạn — không cần xin khoá nào, và không có gì phải gửi đi nơi khác để hiểu.',
+    'Dịch vụ dịch chỉ nhận văn bản, không bao giờ nhận âm thanh của bạn. Dưới đây là những gì được lưu lại và những gì không.',
   'web.landing.localKeptHistory':
     'Khi một cuộc hội thoại kết thúc, bản ghi âm cùng phần chữ được lưu vào lịch sử của bạn, để bạn nghe lại và đọc lại.',
   'web.landing.localKeptLink':
@@ -426,25 +439,25 @@ export const vi: Messages = {
   'web.landing.localKeptPause':
     'Khi tạm dừng cuộc hội thoại, bản ghi âm cũng tạm dừng theo: những gì nói trong lúc tạm dừng không được ghi lại và không được dịch.',
   'web.landing.localKeptDelete': 'Xoá một cuộc hội thoại sẽ xoá luôn bản ghi âm của nó.',
-  'web.landing.hopOnDevice': 'Trên máy',
-  'web.landing.hopOverNetwork': 'Qua mạng',
-  'web.landing.hopHears': 'Nghe những gì bạn vừa nói',
-  'web.landing.hopTranslates': 'Dịch nghĩa',
-  'web.landing.hopSpeaks': 'Đọc bản dịch thành tiếng',
+  'web.landing.localKeptMeeting':
+    'Cuộc họp lưu lời nói và tin nhắn dưới dạng văn bản, không lưu âm thanh. Mọi người đã tham gia đều đọc được, và hiện chưa có cách xoá.',
   'web.landing.surfacesTitle': 'Chatofy chạy ở đâu',
   'web.landing.surfaceBrowserTitle': 'Trên trình duyệt',
-  'web.landing.surfaceBrowserBody': 'Mở là nói được. Không phải cài gì.',
-  'web.landing.surfaceExtensionTitle': 'Tiện ích cho cuộc họp',
-  'web.landing.surfaceExtensionBody': 'Dịch hai chiều ngay trong tab Meet hoặc Zoom.',
+  'web.landing.surfaceBrowserBody':
+    'Dịch hội thoại hoặc tổ chức cuộc họp ngay trên trình duyệt, không cần cài đặt.',
+  'web.landing.surfaceExtensionTitle': 'Tiện ích cho Meet, Zoom và Facebook',
+  'web.landing.surfaceExtensionBody': 'Dịch hai chiều ngay trong cuộc gọi bạn đang dùng.',
   'web.landing.surfacePhoneTitle': 'Trên điện thoại',
-  'web.landing.surfacePhoneBody': 'Cho lúc nói chuyện trực tiếp.',
+  'web.landing.surfacePhoneBody':
+    'Đang phát triển. Đã hỗ trợ tham gia cuộc họp; chưa phát hành trên kho ứng dụng.',
   'web.landing.ctaTitle': 'Thử một cuộc hội thoại',
   'web.landing.ctaBody': 'Cần một micro và một tài khoản. Không cần thẻ.',
   'web.landing.navMenu': 'Danh mục',
+  'web.landing.navMeetings': 'Cuộc họp',
   'web.landing.navHow': 'Cách hoạt động',
   'web.landing.navLocal': 'Riêng tư',
   'web.landing.navSurfaces': 'Nơi dùng',
-  'web.landing.heroTitleEmphasis': 'Được nghe',
+  'web.landing.heroTitleEmphasis': 'Được hiểu',
 
   // ---- web.conference ----
   'web.conference.lobbyTitle': 'Hội nghị video',

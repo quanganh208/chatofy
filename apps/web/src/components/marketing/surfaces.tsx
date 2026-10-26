@@ -8,9 +8,14 @@ const DAWN_BAND = `linear-gradient(90deg, ${dawn.peach}, ${dawn.lavender}, ${daw
 /**
  * The three places this runs, all of which exist in this repository.
  *
+ * The browser holds both the translator and meetings. The extension translates a call
+ * the reader already has — Meet, Zoom's web client or Facebook. The phone tile says "in
+ * development" because the mobile app joins meetings only in development builds and is in
+ * no store; a tile promising more would be the one false line on the page.
+ *
  * No install links: the extension is a load-unpacked build and the mobile app an Expo
- * one, so a button here would point at nothing. What each tile claims is what the surface is FOR, and all three are
- * traceable to the README.
+ * one, so a button here would point at nothing. What each tile claims is what the surface
+ * is FOR, and all three are traceable to the README.
  *
  * Tiles on the page ground, each topped with a thin dawn band — decoration, never under
  * text, and the only colour in this section. Not cards and not icon circles: the three

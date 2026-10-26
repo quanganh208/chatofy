@@ -10,16 +10,15 @@ import { landingMarkdown, llmsTxt } from './landing-markdown';
  * lags the HTML is the drift this exists to stop.
  *
  * Exempt, with reasons: the nav labels and the menu title are chrome, not content;
- * the "See how it works" anchor points inside the HTML page; the italic phrase is a
- * substring of the headline; and the demo card is an illustration of the product,
- * not a claim about it.
+ * the italic phrase is a substring of the headline; and the demo card is an
+ * illustration of the product, not a claim about it.
  */
 const NOT_CONTENT = new Set<keyof Messages>([
   'web.landing.navMenu',
+  'web.landing.navMeetings',
   'web.landing.navHow',
   'web.landing.navLocal',
   'web.landing.navSurfaces',
-  'web.landing.heroSeeHow',
   'web.landing.heroTitleEmphasis',
   'web.landing.demoListening',
   'web.landing.demoSourceOne',
@@ -46,6 +45,12 @@ describe.each([
       .filter((key) => key.startsWith('web.landing.') && !NOT_CONTENT.has(key))
       .filter((key) => !markdown.includes(messages[key]));
     expect(missing).toEqual([]);
+  });
+
+  it('offers both halves of the product, as the hero does', () => {
+    expect(markdown).toContain(`](${ORIGIN}/translate)`);
+    expect(markdown).toContain(`](${ORIGIN}/conference)`);
+    expect(markdown).toContain(`## ${messages['web.landing.meetingsTitle']}`);
   });
 
   it('links absolutely, so an agent can follow it without the page', () => {

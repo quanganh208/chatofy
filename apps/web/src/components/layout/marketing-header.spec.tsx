@@ -85,15 +85,16 @@ describe('the marketing header', () => {
     expect(hrefs).not.toContain('/register');
   });
 
-  it('links three sections, and only sections that exist', async () => {
+  it('links four sections, and only sections that exist', async () => {
     session.mockResolvedValue(null);
     const hrefs = await render();
 
     // Anchors and their targets land together — `Section` owns the ids. An anchor to a
     // missing id fails silently and only for the person who clicked it.
     expect(hrefs.filter((href) => href?.startsWith('#'))).toEqual([
+      '#meetings',
       '#how-it-works',
-      '#on-your-machine',
+      '#privacy',
       '#where-it-runs',
     ]);
   });

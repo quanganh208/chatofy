@@ -19,13 +19,11 @@ export function landingMarkdown(t: Translate, origin: string): string {
     (n, i) => `${i + 1}. **${t(`web.landing.how${n}Title`)}** — ${t(`web.landing.how${n}Body`)}`,
   );
 
-  const hops = [
-    [t('web.landing.hopOnDevice'), t('web.landing.hopHears')],
-    [t('web.landing.hopOverNetwork'), t('web.landing.hopTranslates')],
-    [t('web.landing.hopOnDevice'), t('web.landing.hopSpeaks')],
-  ].map(([where, what]) => `- ${where}: ${what}`);
+  const meetings = (['Link', 'Hear', 'Chat', 'Minutes'] as const).map(
+    (m) => `- **${t(`web.landing.meetings${m}Title`)}** — ${t(`web.landing.meetings${m}Body`)}`,
+  );
 
-  const kept = (['History', 'Link', 'Pause', 'Delete'] as const).map(
+  const kept = (['History', 'Link', 'Pause', 'Delete', 'Meeting'] as const).map(
     (k) => `- ${t(`web.landing.localKept${k}`)}`,
   );
 
@@ -45,6 +43,15 @@ export function landingMarkdown(t: Translate, origin: string): string {
     t('web.landing.heroBody'),
     '',
     `[${t('web.translate.startTranslating')}](${url('/translate')})`,
+    `[${t('web.landing.meetingsStart')}](${url('/conference')})`,
+    '',
+    `## ${t('web.landing.meetingsTitle')}`,
+    '',
+    t('web.landing.meetingsBody'),
+    '',
+    ...meetings,
+    '',
+    t('web.landing.meetingsScope'),
     '',
     `## ${t('web.landing.howTitle')}`,
     '',
@@ -57,8 +64,6 @@ export function landingMarkdown(t: Translate, origin: string): string {
     t('web.landing.localBody'),
     '',
     ...kept,
-    '',
-    ...hops,
     '',
     `## ${t('web.landing.surfacesTitle')}`,
     '',
