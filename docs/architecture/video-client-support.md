@@ -35,13 +35,41 @@ mediasoup.
 The browser's own WebRTC stack does the work, so support is that of `RTCPeerConnection`
 with unified-plan transceivers in current Chrome, Firefox and Safari. Cloudflare lists the
 codecs it forwards as H.264, H.265, VP8, VP9 and AV1 for video and Opus and G.711 for audio
-([limits](https://developers.cloudflare.com/realtime/sfu/platform/limits/)). Only headless
-Chromium has been run against it (the live check, 2026-10-25).
+([limits](https://developers.cloudflare.com/realtime/sfu/platform/limits/)). It forwards
+a publisher's stream as encoded and never transcodes, so every receiver must decode what
+each publisher sends.
 
-**Known limitation not covered by this research:** Safari's WebRTC has historically had
-the most codec/behaviour quirks (VP8 vs H264, unified-plan edge cases). The PoC was
-tested on two tabs of one browser (#207 evidence); cross-browser interop (Chrome↔Safari,
-Chrome↔Firefox) is unverified. Flag as a production test-matrix item.
+**Interop matrix (2026-10-26).** Local API and Cloudflare SFU; each pair in one room for
+75–150 s, read on both sides from `getStats()` (inbound audio packets and decoded video
+frames rising) and, for Android, `dumpsys audio` and the remote tile. Browsers are
+Playwright's headless Chromium 151, Firefox 153 and WebKit 26.5 (WPE, Linux) with fake
+devices; the phone is the Galaxy A13 dev client.
+
+| Pair              | Two-way | Needed                       |
+| ----------------- | ------- | ---------------------------- |
+| Chrome ↔ Firefox  | yes     | —                            |
+| Chrome ↔ WebKit   | yes     | the TURN-URL fallback below  |
+| Firefox ↔ WebKit  | yes     | the TURN-URL fallback below  |
+| Chrome ↔ Android  | yes     | —                            |
+| Firefox ↔ Android | yes     | publishing VP8 first (below) |
+
+Two faults the matrix found, both fixed:
+
+- **WebKit refused Cloudflare's TURN URLs.** Every TURN URL carrying `?transport=` made
+  the `RTCPeerConnection` constructor throw `SyntaxError: Invalid TURN URL query string`,
+  so a WebKit client never joined; Chromium and Firefox accept them. On that refusal the
+  web client builds the connection again from the same servers without the query
+  (`apps/web/src/conference/sfu-peer-connection.ts`); the port-443 `turns:` relay stays.
+- **Firefox could not receive an Android publisher's video.** Android's libwebrtc published
+  H264, which Firefox decodes only through the OpenH264 plugin (absent from this build, and
+  from some Linux packages); the SFU then refused Firefox's whole renegotiation with
+  `invalid_session_description` and the call dropped. Every client now publishes VP8 first
+  (`withPublishVideoCodecFirst` in `@chatofy/types`), which all three engines decode; the
+  A13 encodes it in hardware (`OMX.Exynos.VP8.Encoder`).
+
+**Not covered:** real Safari on macOS or iOS. WebKit on Linux shares WebCore with Safari
+(the TURN refusal is likely the same there), but not its media stack. A Safari run belongs
+in the release checklist.
 
 ### 1.3 How joining fits the App Router auth session
 
@@ -416,6 +444,6 @@ Web, as built:
 5. **In-call accent (0 vs Leave-as-accent).** Decided 2026-10-26: keep what is built.
    Leave is the accent on web; mobile fills Leave with the destructive state colour and
    spends no accent. Both pass the budget.
-6. **Cross-browser interop test matrix.** The #207 PoC and the 2026-10-25 live check each
-   ran one browser engine; Chrome↔Safari and Chrome↔Firefox interop is unverified and
-   belongs in the production test plan.
+6. **Cross-browser interop test matrix.** Run 2026-10-26 (§1.2): Chrome, Firefox and
+   WebKit pairwise and with Android all work two-way after two fixes. Real Safari is still
+   unverified.

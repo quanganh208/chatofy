@@ -14,11 +14,13 @@ import { PermissionsAndroid, Platform } from 'react-native';
 import {
   MediaStream,
   RTCPeerConnection,
+  RTCRtpSender,
   type MediaStreamTrack,
   type RTCRtpTransceiver,
 } from 'react-native-webrtc';
 import {
   ConferenceMediaSubscribeReplySchema,
+  withPublishVideoCodecFirst,
   type ConferenceIceServer,
 } from '@chatofy/types/events';
 import {
@@ -67,7 +69,16 @@ export async function publishLocalTracks(
   pc: RTCPeerConnection,
   tracks: MediaStreamTrack[],
 ): Promise<void> {
-  for (const track of tracks) pc.addTransceiver(track, { direction: 'sendonly' });
+  for (const track of tracks) {
+    const transceiver = pc.addTransceiver(track, { direction: 'sendonly' });
+    // libwebrtc on Android would publish H264 (its hardware encoder), which a
+    // Firefox without OpenH264 cannot decode; see withPublishVideoCodecFirst.
+    if (track.kind === 'video') {
+      transceiver.setCodecPreferences(
+        withPublishVideoCodecFirst(RTCRtpSender.getCapabilities('video').codecs),
+      );
+    }
+  }
   await pc.setLocalDescription(await pc.createOffer());
   const offer = pc.localDescription?.sdp;
   if (!offer) throw new Error('send connection has no local offer');

@@ -4,6 +4,7 @@ import {
   ConferenceMediaPublishSchema,
   ConferenceMediaSubscribeReplySchema,
   MAX_CONFERENCE_SDP_CHARS,
+  withPublishVideoCodecFirst,
 } from './conference-signaling-events.js';
 
 describe('ConferenceMediaPublishSchema', () => {
@@ -63,5 +64,34 @@ describe('CONFERENCE_ERROR_CODES', () => {
   it('names SFU failures and no longer carries the old transport error code', () => {
     expect(CONFERENCE_ERROR_CODES).toContain('sfu_unavailable');
     expect(CONFERENCE_ERROR_CODES).not.toContain('transport_exists');
+  });
+});
+
+describe('withPublishVideoCodecFirst', () => {
+  it('moves VP8 ahead of H264 and keeps every other codec in order', () => {
+    const codecs = [
+      { mimeType: 'video/H264', sdpFmtpLine: 'profile-level-id=42e01f' },
+      { mimeType: 'video/rtx' },
+      { mimeType: 'video/VP9' },
+      { mimeType: 'video/VP8' },
+      { mimeType: 'video/AV1' },
+    ];
+    expect(withPublishVideoCodecFirst(codecs).map((c) => c.mimeType)).toEqual([
+      'video/VP8',
+      'video/H264',
+      'video/rtx',
+      'video/VP9',
+      'video/AV1',
+    ]);
+  });
+
+  it('matches the mime type case-insensitively and leaves a list without VP8 alone', () => {
+    expect(
+      withPublishVideoCodecFirst([{ mimeType: 'video/H264' }, { mimeType: 'video/vp8' }])[0]!
+        .mimeType,
+    ).toBe('video/vp8');
+    expect(withPublishVideoCodecFirst([{ mimeType: 'video/H264' }])).toEqual([
+      { mimeType: 'video/H264' },
+    ]);
   });
 });
