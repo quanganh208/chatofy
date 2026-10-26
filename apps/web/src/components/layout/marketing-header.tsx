@@ -33,13 +33,13 @@ import { isLiveSession } from '@/lib/session-guard';
  *
  * ## The section nav, arriving with its sections
  *
- * Three anchors, and each one now has an `id` to land on — `Section` in
+ * Four anchors, and each one has an `id` to land on — `Section` in
  * `components/marketing/` owns them, so an anchor and its target are written in the same
  * change. That was the whole reason they waited: an anchor to a missing `id` fails the
  * way a dead nav item does, silently and only for the person who clicked it.
  *
  * The mobile sheet arrives with them for the same reason. A sheet holding two buttons
- * that already fit on a phone reveals nothing; a sheet holding three links that do not
+ * that already fit on a phone reveals nothing; a sheet holding four links that do not
  * fit is doing a job.
  *
  * `/` is the only marketing route, so the anchors are bare fragments rather than
@@ -55,8 +55,9 @@ export async function MarketingHeader() {
   const t = await getT();
 
   const links: readonly MarketingMenuLink[] = [
+    { href: '#meetings', label: t('web.landing.navMeetings') },
     { href: '#how-it-works', label: t('web.landing.navHow') },
-    { href: '#on-your-machine', label: t('web.landing.navLocal') },
+    { href: '#privacy', label: t('web.landing.navLocal') },
     { href: '#where-it-runs', label: t('web.landing.navSurfaces') },
   ];
 
@@ -65,11 +66,12 @@ export async function MarketingHeader() {
       <div className={cn('mx-auto flex w-full items-center gap-4 px-6 py-4', MEASURE.marketing)}>
         <Brand size={32} />
 
-        {/* Hidden below `md`, where the sheet carries the same three. Not duplicated
-            markup with a media query each — one list, rendered twice. */}
+        {/* Hidden below `lg`, where the sheet carries the same four: at `md` the four
+            anchors and the auth pair measured 23px wider than a 768px viewport. Not
+            duplicated markup with a media query each — one list, rendered twice. */}
         <nav
           aria-label={t('web.landing.navMenu')}
-          className="hidden items-center gap-5 whitespace-nowrap md:flex"
+          className="hidden items-center gap-5 whitespace-nowrap lg:flex"
         >
           {links.map((link) => (
             <a
@@ -90,13 +92,13 @@ export async function MarketingHeader() {
               asChild
               variant="outline"
               size="sm"
-              className="hidden rounded-full md:inline-flex"
+              className="hidden rounded-full lg:inline-flex"
             >
               <Link href="/translate">{t('web.chrome.openApp')}</Link>
             </Button>
           ) : (
             <>
-              <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex">
+              <Button asChild variant="ghost" size="sm" className="hidden lg:inline-flex">
                 <Link href="/login">{t('web.auth.signIn')}</Link>
               </Button>
               {/* Quiet, not filled. The hero's "Start translating" is the one filled
@@ -107,7 +109,7 @@ export async function MarketingHeader() {
                 asChild
                 variant="outline"
                 size="sm"
-                className="hidden rounded-full md:inline-flex"
+                className="hidden rounded-full lg:inline-flex"
               >
                 <Link href="/register">{t('web.chrome.getStarted')}</Link>
               </Button>

@@ -3,7 +3,8 @@ import { getT } from '@/i18n/server';
 import { FooterCta } from '@/components/marketing/footer-cta';
 import { Hero } from '@/components/marketing/hero';
 import { HowItWorks } from '@/components/marketing/how-it-works';
-import { LocalSpeech } from '@/components/marketing/local-speech';
+import { Meetings } from '@/components/marketing/meetings';
+import { RecordingPrivacy } from '@/components/marketing/recording-privacy';
 import { StructuredData } from '@/components/marketing/structured-data';
 import { Surfaces } from '@/components/marketing/surfaces';
 
@@ -44,22 +45,25 @@ export async function generateMetadata(): Promise<Metadata> {
 /**
  * `app/opengraph-image.png`, served at its own path. English only, like the image:
  * it is the headline set in type, and the alt describes what is drawn.
+ * Source: `app/(dev)/social-card/page.tsx`.
  */
 const SOCIAL_CARD = {
   url: '/opengraph-image.png',
   width: 1200,
   height: 630,
   type: 'image/png',
-  alt: 'The chatofy wordmark and lotus over the headline "Speak Vietnamese. Be heard in English." on a dawn-coloured glow',
+  alt: 'The chatofy wordmark and lotus over the headline "Speak your language. Be understood in theirs." on a dawn-coloured glow',
 };
 
 /**
  * The landing page.
  *
- * Five bands, ending in the ask. What is deliberately absent is as much of the design as
- * what is here: no pricing on a product with no price, no testimonials from users who do
- * not exist, no logo wall, and exactly one number on the whole page — the measured
- * ~0.9 s between the end of a sentence and the start of playback, from
+ * Six bands, ending in the ask: the hero, meetings directly under it (the two halves of
+ * the product carry equal weight), how a conversation runs, the privacy notice, where it
+ * runs, and the sign-up. What is deliberately absent is as much of the design as what is
+ * here: no pricing on a product with no price, no testimonials from users who do not
+ * exist, no logo wall, and exactly one number on the whole page — the measured ~0.9 s
+ * between the end of a sentence and the start of playback (how-it-works, step one), from
  * `docs/development-journey.md`. There is nothing else to honestly count.
  *
  * **Nothing animates on scroll.** The guidelines allow a section entrance and it was not
@@ -78,8 +82,9 @@ export default function HomePage() {
     <>
       <StructuredData />
       <Hero />
+      <Meetings />
       <HowItWorks />
-      <LocalSpeech />
+      <RecordingPrivacy />
       <Surfaces />
       <FooterCta />
     </>

@@ -1,7 +1,7 @@
 [project]
 name = "local-stt-sidecar"
 version = "0.1.0"
-description = "Local HTTP sidecar wrapping sherpa-onnx for Vietnamese + English speech-to-text"
+description = "Local HTTP sidecar for Vietnamese, English and Chinese speech-to-text, with Vietnamese/English language identification"
 # 3.11.4+ needed for tarfile extraction filter="data"
 requires-python = ">=3.11.4,<3.12"
 dependencies = [

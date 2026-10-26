@@ -1,6 +1,6 @@
 # Chatofy — Voice Translator Monorepo
 
-Real-time multilingual voice translation app. Turborepo + pnpm workspace.
+Real-time multilingual voice translation and video meetings with live translation. Turborepo + pnpm workspace.
 Languages are entries in one registry (`packages/types/src/domain/languages.ts`),
 and every language pair between them is derived from it. Today it holds Vietnamese,
 English and Simplified Chinese, so every ordered pair of the three can be
@@ -13,8 +13,8 @@ languages, labelled, and translated into the other. **Auto-detect** identifies
 each turn as Vietnamese or English and translates it into the chosen target; a
 turn already in the target is shown as transcript only. Pairs with Chinese stay
 one-way, because Chinese is not identified. Both modes need the STT sidecar's
-language identifier (`LOCAL_STT_LID`, on in development and production; off is the
-production default when the variable is unset); without it, two-way runs one-way and says so.
+language identifier (`LOCAL_STT_LID`, on by default everywhere; setting it to `off` turns both modes
+off, and two-way then runs one-way and says so).
 [How it works](./docs/architecture/contracts-and-languages.md#lid-and-audio-based-detection).
 
 Speech runs **locally on CPU by default** — speech-to-text and text-to-speech
@@ -112,7 +112,7 @@ chatofy/
 ├── apps/
 │   ├── api/        # NestJS REST + WebSocket API
 │   ├── mobile/     # Expo React Native app
-│   ├── web/        # Next.js web app
+│   ├── web/        # Next.js web app: translator, video meetings, history
 │   └── extension/  # Chrome MV3 meeting translator (see below)
 ├── packages/
 │   ├── ui/           # Design tokens + the shadcn component set (@chatofy/ui,
@@ -131,6 +131,25 @@ chatofy/
 │                   #   speaker id, turn-taking) — one directory per question
 └── docs/           # Project documentation
 ```
+
+## Video meetings
+
+`/conference` on the web app creates a room. The room link is the access: anyone
+who is signed in and has the link can join.
+
+Each participant picks the language they speak. Everyone else sees subtitles and
+hears the translation in their own language. Meeting translation is
+Vietnamese↔English only today. Chat messages are translated for each recipient.
+When the meeting ends, the end screen offers minutes generated from what was said.
+
+Meeting media goes through Cloudflare Realtime SFU, driven by the API. The API
+needs the Cloudflare Realtime app keys (`CLOUDFLARE_REALTIME_APP_ID`,
+`CLOUDFLARE_REALTIME_APP_SECRET`) to boot; see
+[deployment guide](./docs/deployment-guide.md#video-conferencing). The mobile
+meeting screens exist in development builds only.
+
+How to run a local demo: [conference-demo-runbook.md](./docs/conference-demo-runbook.md).
+How it is built: [video-conferencing-architecture.md](./docs/video-conferencing-architecture.md).
 
 ## Browser extension
 

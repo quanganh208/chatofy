@@ -1,7 +1,9 @@
+import { LANGUAGE_CODES } from '@chatofy/types';
 import { Brand } from '@/components/layout/brand';
 import { MarketingHeader } from '@/components/layout/marketing-header';
 import { SkipLink } from '@/components/layout/skip-link';
 import { MEASURE } from '@/components/layout/measures';
+import { getT } from '@/i18n/server';
 import { cn } from '@/lib/utils';
 
 /**
@@ -12,13 +14,18 @@ import { cn } from '@/lib/utils';
  * value lives in `measures.ts` — this file asks for a name.
  *
  * The skip link arrives with the section nav it exists to skip: the header now holds
- * three anchors plus the auth pair, which is enough tab stops to be worth jumping.
+ * four anchors plus the auth pair, which is enough tab stops to be worth jumping.
  *
- * The footer is a rule and a mark, nothing more. A landing page with no legal pages, no
- * social accounts and no company behind it has a link list of length zero, and drawing
- * an empty one would be pretending otherwise.
+ * The footer is a rule, a mark and the languages, nothing more. A landing page with no
+ * legal pages, no social accounts and no company behind it has a link list of length
+ * zero, and drawing an empty one would be pretending otherwise. The languages are read
+ * from the registry and named in the reader's interface language, so a language added
+ * there appears here without an edit.
  */
-export default function MarketingLayout({ children }: { children: React.ReactNode }) {
+export default async function MarketingLayout({ children }: { children: React.ReactNode }) {
+  const t = await getT();
+  const languages = LANGUAGE_CODES.map((code) => t(`web.languageName.${code}`)).join(' · ');
+
   return (
     <div className="flex min-h-screen flex-col">
       <SkipLink />
@@ -33,7 +40,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <footer className="border-hairline border-t">
         <div className={cn('mx-auto flex w-full items-center gap-4 px-6 py-6', MEASURE.marketing)}>
           <Brand className="text-hint" />
-          <span className="text-hint text-muted-foreground ml-auto">Tiếng Việt ↔ English</span>
+          <span className="text-hint text-muted-foreground ml-auto">{languages}</span>
         </div>
       </footer>
     </div>

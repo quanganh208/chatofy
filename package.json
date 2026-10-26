@@ -1,5 +1,6 @@
 {
   "name": "chatofy",
+  "description": "Chatofy — real-time voice translation and video meetings with live translation (monorepo)",
   "private": true,
   "packageManager": "pnpm@11.25.0",
   "engines": {

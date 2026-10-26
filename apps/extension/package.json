@@ -1,6 +1,7 @@
 {
   "name": "extension",
   "version": "0.1.0",
+  "description": "Chatofy browser extension: two-way translation inside Google Meet, Zoom web and Facebook calls",
   "private": true,
   "type": "module",
   "scripts": {

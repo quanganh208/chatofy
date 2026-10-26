@@ -22,7 +22,7 @@ import { describe, expect, it } from 'vitest';
 const BANNED: ReadonlyArray<{ pattern: RegExp; why: string }> = [
   {
     pattern: /recognis|recogniz|synthesis|synthesi[sz]e/i,
-    why: 'names the pipeline. Say what happens to the reader — their voice is handled on their machine',
+    why: 'names the pipeline. Say what happens to the reader — what is kept, and what the translator sees',
   },
   {
     pattern: /speech.to.text|text.to.speech|\bSTT\b|\bTTS\b/i,

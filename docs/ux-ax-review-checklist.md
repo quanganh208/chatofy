@@ -38,6 +38,7 @@ as the page:
 | `noindex` on token pages              | `reset-password` and `verify-email` `generateMetadata` | Never add them to `robots.txt`: a disallowed page's `noindex` is never read                      |
 | `/index.md`                           | `app/index.md/route.ts`                                | `landing-markdown.spec.ts` fails when a landing string is missing from the twin                  |
 | `/llms.txt`                           | `app/llms.txt/route.ts`                                | Links the absolute `.md` twin                                                                    |
+| `/opengraph-image.png`                | `app/(dev)/social-card/page.tsx` (development only)    | Not a test: re-render it with the command in that file whenever `web.landing.heroTitle` changes  |
 
 `robots.ts` and `sitemap.ts` are `force-dynamic`: they read no request, so Next
 would otherwise prerender them at build time, before `WEB_BASE_URL` is set. Only a

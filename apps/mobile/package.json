@@ -2,6 +2,7 @@
   "name": "mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "description": "Chatofy mobile app (Expo): video meetings in development builds",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",

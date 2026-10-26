@@ -4,7 +4,7 @@ import { getT } from '@/i18n/server';
 import { LotusIllustration } from './lotus-illustration';
 
 /**
- * The first screen: one claim, one action, and a look at the thing itself.
+ * The first screen: one claim, two actions, and a look at the thing itself.
  *
  * **The visual is a real card, not a screenshot.** A screenshot goes stale the day
  * anything moves, renders at one theme in a page that has two, and cannot be read by
@@ -12,16 +12,19 @@ import { LotusIllustration } from './lotus-illustration';
  * product's own tokens: the translation at `text-translation` over the source at
  * `text-body`, exactly as `conversation-transcript.tsx` draws it. Getting that
  * relationship backwards here would teach the wrong thing before the reader arrives.
+ * Each turn is labelled with the language it was spoken in, through the same
+ * `web.translate.turnLanguage` string the translator shows, because telling the two
+ * languages apart on its own is half of what the page promises.
  *
  * Above it, the lotus: the brand mark grown into five dawn petals, which open once
  * and then stay still. It sits above the card and never under its text — the card is
  * opaque and the petals end where it begins.
  *
- * Two controls, one of them filled — the only filled control in the first viewport,
- * which is why the header's "Get started" is a quiet button. The secondary is a ghost
- * anchor to the section immediately below, which is where someone who is not ready to
- * sign up actually wants to go. The primary is a pill, as marketing buttons are;
- * app buttons keep the product radius.
+ * Two controls, because the page gives translation and meetings equal weight, but only
+ * one of them filled: the accent budget allows one filled control per section, and the
+ * header's "Get started" is quiet for the same reason. `/translate` takes the fill as the
+ * thing a first-time visitor can try alone; `/conference` is the outline beside it. Both
+ * are pills, as marketing buttons are; app buttons keep the product radius.
  *
  * The status pill does NOT pulse. It pulses in the product because something is
  * genuinely happening; here it is a still life, and a dot animating forever beside
@@ -44,16 +47,8 @@ export async function Hero() {
           <Button asChild size="lg" className="rounded-full">
             <Link href="/translate">{t('web.translate.startTranslating')}</Link>
           </Button>
-          {/* No side padding below `sm`. At phone width the padded pair is wider
-              than the column, so the ghost wrapped onto its own line and its text
-              sat a padding's width in from the edge everything else aligns to.
-              Unpadded, the pair fits at 375px; where it still wraps (320px), the
-              text lands on the left edge. Touch has no hover fill to frame. */}
-          <Button asChild variant="ghost" size="lg" className="rounded-full max-sm:px-0">
-            <a href="#how-it-works">
-              {t('web.landing.heroSeeHow')}
-              <span aria-hidden>→</span>
-            </a>
+          <Button asChild variant="outline" size="lg" className="rounded-full">
+            <Link href="/conference">{t('web.landing.meetingsStart')}</Link>
           </Button>
         </div>
       </div>
@@ -68,9 +63,17 @@ export async function Hero() {
                 {t('web.landing.demoListening')}
               </span>
             </div>
-            <Turn source={t('web.landing.demoSourceOne')} target={t('web.landing.demoTargetOne')} />
+            <Turn
+              language={t('web.translate.turnLanguage', { language: t('web.languageName.vi') })}
+              source={t('web.landing.demoSourceOne')}
+              target={t('web.landing.demoTargetOne')}
+            />
             <div className="border-hairline border-t" />
-            <Turn source={t('web.landing.demoSourceTwo')} target={t('web.landing.demoTargetTwo')} />
+            <Turn
+              language={t('web.translate.turnLanguage', { language: t('web.languageName.en') })}
+              source={t('web.landing.demoSourceTwo')}
+              target={t('web.landing.demoTargetTwo')}
+            />
           </CardContent>
         </Card>
       </div>
@@ -95,9 +98,10 @@ function Headline({ title, emphasis }: { title: string; emphasis: string }) {
   );
 }
 
-function Turn({ source, target }: { source: string; target: string }) {
+function Turn({ language, source, target }: { language: string; source: string; target: string }) {
   return (
     <div className="flex flex-col gap-1.5">
+      <p className="text-hint text-muted-foreground">{language}</p>
       <p className="text-muted-foreground text-body">{source}</p>
       <p className="text-translation font-medium">{target}</p>
     </div>

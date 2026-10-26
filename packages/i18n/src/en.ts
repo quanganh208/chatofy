@@ -117,9 +117,9 @@ export const en = {
   'web.auth.noticeReset': 'Your password has been changed. Sign in with your new password.',
 
   // ---- web.meta: the browser tab, which is a string a person reads ----
-  'web.meta.home': 'Chatofy — speak Vietnamese, be heard in English',
+  'web.meta.home': 'Chatofy — real-time voice translation for conversations and online meetings',
   'web.meta.homeDescription':
-    'Real-time voice translation in both directions. Your voice is handled on your own machine; only the words cross the network.',
+    'Chatofy translates speech in real time between Vietnamese, English and Chinese — in face-to-face conversations, in video meetings, and inside Google Meet, Zoom and Facebook calls.',
   'web.meta.signIn': 'Sign in · Chatofy',
   'web.meta.register': 'Create account · Chatofy',
   'web.meta.verifyEmail': 'Verify email · Chatofy',
@@ -536,17 +536,22 @@ export const en = {
   // The copy register governs here hardest. `docs/design-guidelines.md` § Copy
   // register: name the wait, the outcome, or the next step — never the pipeline.
   // "Recognise, translate, speak" and every variant is banned, which is why the
-  // privacy section talks about a voice staying on a machine rather than about
-  // which component runs where.
+  // privacy section talks about what is kept and what the translator sees rather
+  // than about which component runs where.
   //
   // Every number below comes from `docs/development-journey.md`. There is exactly
-  // one, "about a second", from the measured ~0.9 s between the end of a sentence
-  // and the start of playback. A thesis product with no users has nothing else to
-  // count.
-  'web.landing.heroTitle': 'Speak Vietnamese. Be heard in English.',
+  // one, "about a second" in `howOneBody`, from the measured ~0.9 s between the end
+  // of a sentence and the start of playback. A thesis product with no users has
+  // nothing else to count.
+  //
+  // Every scope claim is a fact about `main`: three languages in the registry, only
+  // Vietnamese and English told apart automatically, meetings translating between
+  // Vietnamese and English only. When one of those changes, the line saying it
+  // changes with it.
+  'web.landing.heroTitle': 'Speak your language. Be understood in theirs.',
   'web.landing.heroBody':
-    'Real-time voice translation, both directions. Your voice is handled on your own machine — only the words cross the network.',
-  'web.landing.heroSeeHow': 'See how it works',
+    'Real-time voice translation between Vietnamese, English and Chinese — for face-to-face conversations in the browser, video meetings, and calls in Google Meet, Zoom or Facebook.',
+  'web.landing.meetingsStart': 'Create a meeting',
   'web.landing.demoListening': 'Listening',
   'web.landing.demoSourceOne': 'Chào anh, mình muốn hỏi về lịch họp chiều nay.',
   'web.landing.demoTargetOne': "Hi, I'd like to ask about this afternoon's meeting schedule.",
@@ -556,60 +561,56 @@ export const en = {
   'web.landing.howTitle': 'How it works',
   'web.landing.howBody': 'Three things worth knowing before you grant a microphone.',
   'web.landing.howOneTitle': 'Press start, then just talk',
-  'web.landing.howOneBody': 'No button to hold, no signal to wait for.',
-  'web.landing.howTwoTitle': 'There is no stop button',
+  'web.landing.howOneBody':
+    'No button to hold. Your turn ends when you pause, and the translation plays about a second later.',
+  'web.landing.howTwoTitle': 'Automatic language detection',
   'web.landing.howTwoBody':
-    'The turn ends when you stop talking. The translation plays about a second later.',
+    'Chatofy tells Vietnamese and English apart as you speak. For Chinese, choose the language before you start.',
   'web.landing.howThreeTitle': "Hear the translation, don't read it",
   'web.landing.howThreeBody': 'It is spoken aloud. The text stays on screen for reference.',
 
-  // AMENDED when conversation history shipped, and the amendment is the point.
+  'web.landing.meetingsTitle': 'Multilingual meetings, translated live',
+  'web.landing.meetingsBody':
+    'Share one link, and every participant follows the meeting in their own language.',
+  'web.landing.meetingsLinkTitle': 'Join with a link',
+  'web.landing.meetingsLinkBody':
+    'Anyone with an account opens the link to join. Nothing to install.',
+  'web.landing.meetingsHearTitle': 'Subtitles and voice in your language',
+  'web.landing.meetingsHearBody':
+    'Each speaker is translated, subtitled and read aloud in the language you choose.',
+  'web.landing.meetingsChatTitle': 'Messages translated automatically',
+  'web.landing.meetingsChatBody': "Every message appears in the recipient's language.",
+  'web.landing.meetingsMinutesTitle': 'Meeting minutes',
+  'web.landing.meetingsMinutesBody':
+    'After the meeting, generate minutes with a summary, decisions and action items from the end screen.',
+  'web.landing.meetingsScope': 'Meetings currently translate between Vietnamese and English.',
+
+  // The product's only privacy notice: there is no separate privacy page, so this
+  // copy has to change WITH the behaviour, never after it.
   //
-  // This block used to say "nothing uploaded" and "only the words themselves
-  // cross the network, TO BE TRANSLATED". The first was unqualified and the
-  // second was a purpose limitation — and with history on by default and no
-  // retention limit, the words now cross the network AND are kept, with the
-  // speaker names the reader typed. There is no separate privacy surface in this
-  // product; this copy IS the notice, so it had to change with the behaviour
-  // rather than after it.
+  // It makes no claim about WHERE speech is processed. An earlier version said the
+  // voice was heard "on your own computer"; that held for a self-hosted checkout,
+  // but for anyone using the hosted service speech runs on Chatofy's server, not
+  // the reader's device. What survives any hosting change is what the translator
+  // receives (text, never audio) and what is kept, so that is what it says.
   //
-  // AMENDED AGAIN when conversation recording shipped, and the second amendment
-  // is the point in the same way the first was.
+  // The kept facts are the ones a reader would be surprised by later: the recording
+  // is KEPT rather than merely used; it sits at an unguessable but public address,
+  // so the link is the whole of its access control (see "Conversation recordings"
+  // in `docs/deployment-guide.md`); a pause pauses the recorder too
+  // (`use-conversation-recording.ts`); deleting deletes it; and a meeting keeps its
+  // text, never audio — the `Conference*` tables hold turns, messages and minutes —
+  // readable by every participant (`conference-access.ts`) with no way to delete it
+  // yet. When meeting deletion ships, `localKeptMeeting` changes with it.
   //
-  // The claim that survived the first amendment — "the audio never leaves the
-  // machine" — is the one that just stopped being true. Recording is ON BY
-  // DEFAULT, every conversation's audio is uploaded when it ends, and it is kept
-  // until the reader deletes the conversation. So the title can no longer be
-  // about where the voice STAYS. It is now about where the voice is UNDERSTOOD,
-  // which is the claim the local speech stack still genuinely earns: recognition
-  // runs on the reader's own CPU, with no key and no cloud call.
+  // `localBody` ("the translator only ever sees text") holds because no client offers
+  // the `live` mode, which streams raw audio to a cloud model. Putting that mode back
+  // in any UI makes this sentence false.
   //
-  // Three facts in the body are there because they are the ones a reader would
-  // be surprised by later, and a notice that omits the surprising part is not a
-  // notice: the recording is KEPT rather than merely used, what a PAUSE does to
-  // it, and the object it is kept in — see "Conversation recordings" in
-  // `docs/deployment-guide.md` — sits in a public-read bucket with no per-object
-  // auth, so its 64-bit key is the ONLY thing standing between the recording and
-  // anyone who has it. The second used to warn that the microphone kept
-  // recording through a pause; it now says the opposite, because
-  // `use-conversation-recording.ts` pauses the recorder with the conversation
-  // and offsets are measured in active time so the timestamps still line up.
-  // It stays in the notice because pausing to say something off the record is
-  // exactly when a reader needs to know. It does not claim the microphone is
-  // released — the track stays open, and the browser's indicator says so —
-  // only that nothing said during a pause is recorded or translated. The third
-  // is the whole of this product's access control for a stored recording, and a
-  // notice that mentioned retention and pause but not that would let a reader
-  // believe "kept" meant "kept behind a login" when it does not.
-  //
-  // `localTitle` is ALSO the nav label for `#on-your-machine`
-  // (`marketing-header.tsx`), so it has to stay short enough to sit in a header.
-  'web.landing.localTitle': 'Your voice is understood on your machine',
-  // Split into the claim and the four facts a reader would be surprised by later —
-  // each fact is one sentence of the original notice, verbatim, so the notice says
-  // exactly what it said as one paragraph and can be scanned as a list.
+  // `localTitle` is a section heading only; the header nav says `navLocal`.
+  'web.landing.localTitle': 'How your recordings are handled',
   'web.landing.localBody':
-    'What you say is heard on your own computer — no key to obtain, and nothing is sent away to be understood.',
+    'The translation service receives text only, never your audio. Here is what is stored, and what is not.',
   'web.landing.localKeptHistory':
     'When a conversation ends, its recording and its words are saved to your history, so you can play it back and read it again.',
   'web.landing.localKeptLink':
@@ -617,31 +618,31 @@ export const en = {
   'web.landing.localKeptPause':
     'Pausing a conversation pauses its recording too: what is said while it is paused is neither recorded nor translated.',
   'web.landing.localKeptDelete': 'Deleting a conversation deletes its recording with it.',
-  'web.landing.hopOnDevice': 'On device',
-  'web.landing.hopOverNetwork': 'Over the network',
-  'web.landing.hopHears': 'Hears what you said',
-  'web.landing.hopTranslates': 'Translates the meaning',
-  'web.landing.hopSpeaks': 'Speaks the translation',
+  'web.landing.localKeptMeeting':
+    'Meetings store speech and messages as text, never audio. Everyone who took part can read them, and they cannot be deleted yet.',
 
   'web.landing.surfacesTitle': 'Where Chatofy runs',
   'web.landing.surfaceBrowserTitle': 'In the browser',
-  'web.landing.surfaceBrowserBody': 'Open it and talk. Nothing to install.',
-  'web.landing.surfaceExtensionTitle': 'Extension for meetings',
-  'web.landing.surfaceExtensionBody': 'Two-way translation inside a Meet or Zoom tab.',
+  'web.landing.surfaceBrowserBody':
+    'Translate conversations or host meetings in the browser, with nothing to install.',
+  'web.landing.surfaceExtensionTitle': 'Extension for Meet, Zoom and Facebook',
+  'web.landing.surfaceExtensionBody': 'Two-way translation inside the call you are already in.',
   'web.landing.surfacePhoneTitle': 'On your phone',
-  'web.landing.surfacePhoneBody': 'For talking face to face.',
+  'web.landing.surfacePhoneBody':
+    'In development. Supports joining meetings; not yet released in the app stores.',
 
   'web.landing.ctaTitle': 'Try one conversation',
   'web.landing.ctaBody': 'Needs a microphone and an account. No card.',
   'web.landing.navMenu': 'Menu',
   // Short forms for the header nav, which has to fit one line beside the brand at
   // 1024px. The section headings stay as written; these only point at them.
+  'web.landing.navMeetings': 'Meetings',
   'web.landing.navHow': 'How it works',
   'web.landing.navLocal': 'Privacy',
   'web.landing.navSurfaces': 'Where it runs',
   // The part of `heroTitle` set in italic. Must appear verbatim inside it; the hero
   // falls back to an upright headline when it does not.
-  'web.landing.heroTitleEmphasis': 'Be heard',
+  'web.landing.heroTitleEmphasis': 'Be understood',
 
   // ---- web.conference: video conferencing lobby + in-call screen ----
   'web.conference.lobbyTitle': 'Video conference',

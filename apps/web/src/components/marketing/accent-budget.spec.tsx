@@ -46,7 +46,8 @@ const { MarketingHeader } = await import('@/components/layout/marketing-header')
 const { LocaleProvider } = await import('@/i18n/provider');
 const { Hero } = await import('./hero');
 const { HowItWorks } = await import('./how-it-works');
-const { LocalSpeech } = await import('./local-speech');
+const { Meetings } = await import('./meetings');
+const { RecordingPrivacy } = await import('./recording-privacy');
 const { Surfaces } = await import('./surfaces');
 const { FooterCta } = await import('./footer-cta');
 
@@ -56,8 +57,9 @@ const SECTIONS = [
   // second filled control on the screen people see first.
   { name: 'MarketingHeader', render: MarketingHeader, filled: 0 },
   { name: 'Hero', render: Hero, filled: 1 },
+  { name: 'Meetings', render: Meetings, filled: 0 },
   { name: 'HowItWorks', render: HowItWorks, filled: 0 },
-  { name: 'LocalSpeech', render: LocalSpeech, filled: 0 },
+  { name: 'RecordingPrivacy', render: RecordingPrivacy, filled: 0 },
   { name: 'Surfaces', render: Surfaces, filled: 0 },
   { name: 'FooterCta', render: FooterCta, filled: 1 },
 ] as const;

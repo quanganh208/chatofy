@@ -16,7 +16,7 @@ import {
  * The header's nav, on a screen too narrow to hold it.
  *
  * It arrives now rather than in the chrome phase because there is finally something to
- * put in it: three anchors pointing at three sections that exist. A sheet holding two
+ * put in it: anchors pointing at sections that exist (four today). A sheet holding two
  * buttons that already fit on a phone would have been a control with nothing to reveal.
  *
  * `SheetClose` around every link, and that is the part worth stating. These are in-page
@@ -46,7 +46,7 @@ export function MarketingMenu({
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-8 md:hidden" aria-label={title}>
+        <Button variant="ghost" size="icon" className="size-8 lg:hidden" aria-label={title}>
           <Menu aria-hidden />
         </Button>
       </SheetTrigger>

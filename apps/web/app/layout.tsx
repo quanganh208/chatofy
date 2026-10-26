@@ -44,7 +44,7 @@ const sans = Be_Vietnam_Pro({
  * Variable, with the optical-size axis. Newsreader's `opsz` is what makes a 44px
  * headline and a 22px heading look drawn for their sizes; without it the display
  * sizes render with text-size spacing and look loose. Italic is loaded because the
- * hero's "Be heard" is set in it.
+ * hero's "Be understood" is set in it.
  */
 const display = Newsreader({
   subsets: ['latin', 'vietnamese'],

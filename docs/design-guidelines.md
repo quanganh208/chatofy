@@ -255,7 +255,7 @@ as pinned woff2 subsets (`apps/extension/scripts/build-fonts.mjs`), and
 at weight 300, `--text-heading` at 400, and the wordmark at 500 — applied with the
 `font-display` utility beside the role size. It is a variable face loaded with its
 optical-size axis (`opsz`), which is what makes a 44px headline and a 22px heading each
-look drawn for their size, plus italic for the hero's "Be heard". Self-hosted through
+look drawn for their size, plus italic for the hero's "Be understood". Self-hosted through
 `next/font`, so the landing makes no third-party request.
 
 Where the serif is **not** used, and why:
@@ -759,7 +759,7 @@ dictionary, which is the argument for keeping that number at zero.
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/` signed out                             | `layout/marketing-header.tsx` — "Sign in" ghost, "Get started" quiet (outline); the header spends no accent, gated at 0 by `accent-budget.spec.tsx`, because the hero's one filled button shares its viewport |
 | `/` signed in                              | same line, the other branch: one "Open Chatofy" at `/translate`                                                                                                                                               |
-| landing, mobile nav closed / open          | `layout/marketing-menu.tsx:47` — the sheet; the desktop nav is hidden below `md`                                                                                                                              |
+| landing, mobile nav closed / open          | `layout/marketing-menu.tsx:47` — the sheet; the desktop nav is hidden below `lg`                                                                                                                              |
 | `/translate` mic refused                   | `translate/readiness-banner.tsx` `microphoneFault` — the banner speaks, otherwise silent                                                                                                                      |
 | `/translate` mic not asked / unknown       | same function — and neither is a fault, so neither renders anything                                                                                                                                           |
 | `/translate` mic absent                    | same function — no `audioinput` device; a refused permission still wins over it                                                                                                                               |
