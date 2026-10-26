@@ -158,7 +158,7 @@ adb reverse tcp:8081 tcp:8081
 
 Then: create a room on web (§3 step 1), open **Conference** on the phone, enter the id and
 join; grant camera and mic. Two-way audio and video were confirmed this way on an Android
-14 phone on 2026-10-12. Check the same list as §3, plus that Leave turns the camera light
+14 phone on 2026-10-12, and through Cloudflare's SFU on 2026-10-26. Check the same list as §3, plus that Leave turns the camera light
 off. The language is picked in the lobby; it is read-only during the call.
 
 | Symptom                                  | Cause                                                                                        |
@@ -166,6 +166,7 @@ off. The language is picked in the lobby; it is read-only during the call.
 | No WebSocket connection                  | `EXPO_PUBLIC_API_BASE_URL` on the wrong port or host                                         |
 | Not authenticated                        | Bench variables missing, or the account does not exist                                       |
 | Native module error                      | Running in Expo Go instead of a dev client                                                   |
+| Gradle: `SDK location not found`         | `ANDROID_HOME` unset: `export ANDROID_HOME=$HOME/Android/Sdk` (Linux default) and re-run     |
 | Joins but no media                       | The network blocks UDP: set the two `CLOUDFLARE_TURN_*` keys so the join hands out TURN      |
 | Call audio drops when translation starts | Mic contention between `react-native-webrtc` and the translation recorder; confirm by muting |
 

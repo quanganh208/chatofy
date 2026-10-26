@@ -6,9 +6,10 @@
 > §1.1, §1.2 and §2.1 now describe the plain-WebRTC clients; the rest still holds, and it
 > designs the meeting screens. The lobby and call screens are on `main`
 > (`apps/web/app/(app)/conference/`, web, always shown; `apps/mobile/app/(app)/conference/`,
-> development builds only). The end screen (§4.4) is not built.
+> development builds only), and §4 records them as built. The end screen (§4.4) is
+> designed, not built.
 
-**Date:** 2026-10-06, revised 2026-10-25
+**Date:** 2026-10-06, revised 2026-10-26
 **Media server:** Cloudflare Realtime SFU (managed; the API drives it over HTTPS)
 **Client SDK:** none on web (browser `RTCPeerConnection`); `react-native-webrtc` on mobile
 
@@ -44,16 +45,17 @@ Chrome↔Firefox) is unverified. Flag as a production test-matrix item.
 
 ### 1.3 How joining fits the App Router auth session
 
-The PoC already demonstrates the pattern, and it reuses the existing translate-socket
-auth path with no new mechanism:
+Joining reuses the existing translate-socket auth path with no new mechanism:
 
 1. `getSession()` from `next-auth/react` returns the session;
    `session.accessToken` is the 15-minute bearer (`auth.ts` exposes it in the `session`
    callback — readable from client JS by design, same as `/ws/translate`).
 2. The token rides the WebSocket subprotocol header, not a query string:
-   `new WebSocket(url, [WS_SUBPROTOCOL, token])` (`page.tsx:89`). This is the same
+   `new WebSocket(url, [WS_SUBPROTOCOL, token])`
+   (`apps/web/src/conference/conference-connection.ts`). This is the same
    `Sec-WebSocket-Protocol` handshake the API refuses-at-upgrade path already enforces.
-3. No access token → the PoC refuses to open the socket (`page.tsx:84`).
+3. No access token → the socket is not opened and the browser goes to `/login` with a
+   callback back to the room (`apps/web/src/hooks/use-conference.ts`).
 
 **Finding — no new auth work for web.** Conference signaling reuses the translate
 socket's auth exactly. The session's `error` flag (`isLiveSession`) and the
@@ -62,9 +64,8 @@ lifetime: a meeting longer than 15 minutes outlives one access token. The socket
 authenticated only at upgrade, so an established conference socket is unaffected
 mid-call; but any new signaling request that re-reads the token (a reconnect) needs the
 renewed token. `getSession()` returns the renewed value because `/api/auth/session`
-re-mints server-side — so a reconnect handler must call `getSession()` again rather than
-caching the first token. This is a client-code note for the production implementation,
-not an architecture gap.
+re-mints server-side, so the client calls `getSession()` again on every connection
+attempt rather than caching the first token (`currentAccessToken` in `use-conference.ts`).
 
 ### 1.4 CSP additions needed
 
@@ -119,20 +120,21 @@ peer `react-native >= 0.60.0`); [Realtime SFU](https://developers.cloudflare.com
 
 **Yes.** `react-native-webrtc` contains native code (Android/iOS), so it is **not
 available in Expo Go**. The mobile app must build a **custom dev client**
-(`expo-dev-client` + `expo prebuild` / EAS Build). This is the single biggest mobile
-adoption cost: the current `apps/mobile` is a managed Expo app with no custom native
-modules (its `package.json` lists only JS/Expo-managed deps, and `newArchEnabled: true`).
-Adding WebRTC moves mobile off Expo Go onto a dev-client workflow for every developer and
-every device test.
+(`expo-dev-client` + `expo prebuild` / EAS Build). This was the single biggest mobile
+adoption cost, and it has been paid: `apps/mobile` now carries `expo-dev-client`
+(`~55.0.40`), `react-native-webrtc` and `react-native-audio-api` as native modules, so
+every developer and every device test runs a dev client instead of Expo Go. The build
+steps are in [conference-demo-runbook.md §4](../conference-demo-runbook.md#4-mobile-android-dev-build-only).
 
 Source: react-native-webrtc README ("not available in the Expo Go app by default… use
 expo-dev-client").
 
 ### 2.3 Config plugin, permissions
 
-An out-of-tree Expo config plugin exists: **`@config-plugins/react-native-webrtc`**
-(latest `15.0.2`, 2026-08-15; "Config plugin to setup react-native-webrtc on prebuild").
-It wires the native module into the prebuild and declares permissions.
+The app uses the out-of-tree Expo config plugin **`@config-plugins/react-native-webrtc`**,
+pinned to **`14.0.0`**: the latest, `15.0.2`, requires Expo ≥ 56. It wires the native
+module into the prebuild and declares permissions, so `app.json` holds no hand-written
+permission entries.
 
 **iOS (`Info.plist`, added by the plugin):**
 
@@ -145,42 +147,44 @@ Plugin props: `cameraPermission`, `microphonePermission` (both strings) to local
 prompt copy.
 
 **Background audio (iOS):** the config plugin does **not** add the `audio` background
-mode. A meeting that must keep audio alive when the app is backgrounded needs
-`UIBackgroundModes` → `audio` added separately (via `expo-build-properties` or an
-`infoPlist` entry in `app.json`). Decide whether backgrounded meeting audio is in scope;
-if yes, this is an extra config step the plugin will not do for you.
+mode, and the app does not add it either. A meeting that must keep audio alive when the
+app is backgrounded needs `UIBackgroundModes` → `audio` added separately (an `infoPlist`
+entry in `app.json`). Today a backgrounded iOS app loses meeting audio.
 
-**Android:** `react-native-webrtc` requires `CAMERA` and `RECORD_AUDIO`, and typically
-`MODIFY_AUDIO_SETTINGS`, `INTERNET`, and (for foreground calls) a foreground-service
-permission. The config plugin's exact Android permission set was **not confirmed from the
-plugin docs in this research** — the README directs to the platform install guide. This
-is an **unresolved item**: confirm the plugin's Android manifest additions against the
-`@config-plugins/react-native-webrtc@15.0.2` source before relying on it, and add any
-missing permission (e.g. `FOREGROUND_SERVICE_MICROPHONE` on Android 14+) explicitly.
+**Android:** read from the `14.0.0` plugin source, the plugin adds `CAMERA`,
+`RECORD_AUDIO`, `MODIFY_AUDIO_SETTINGS`, `INTERNET`, `ACCESS_NETWORK_STATE`, `WAKE_LOCK`,
+`BLUETOOTH` and `SYSTEM_ALERT_WINDOW`. It adds **no foreground-service permission**. The
+prebuilt manifest does carry `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_MEDIA_PLAYBACK`
+(from `react-native-audio-api`), which cover playback only: with no
+`FOREGROUND_SERVICE_MICROPHONE` or `FOREGROUND_SERVICE_CAMERA`, Android 14+ cuts the
+microphone and camera once the app leaves the foreground. Keeping a call alive in the
+background needs a foreground service of those two types.
 
-**Config example (illustrative, for the production plan — not to commit now):**
+**The shipped config** (`apps/mobile/app.json`, `plugins[]`):
 
 ```jsonc
-// app.json plugins[]
 [
   "@config-plugins/react-native-webrtc",
   {
-    "cameraPermission": "Chatofy needs your camera for meetings",
-    "microphonePermission": "Chatofy needs your microphone for meetings",
+    "cameraPermission": "Chatofy uses the camera in video meetings.",
+    "microphonePermission": "Chatofy uses the microphone in video meetings.",
   },
 ]
 ```
 
+`react-native-audio-api` (the translation recorder) adds its own iOS microphone prompt
+through its plugin entry.
+
 ### 2.4 Mobile adoption risk summary
 
-| Factor              | Assessment                                                                                                                          |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| SDK works?          | Yes — plain `react-native-webrtc`; proven two-way on Android with the earlier SFU, device run on Cloudflare pending                 |
-| Expo Go?            | **No** — custom dev client / prebuild required                                                                                      |
-| Native build cost   | High for this app: it is currently pure managed Expo                                                                                |
-| New-arch (Fabric)   | `newArchEnabled: true`; `react-native-webrtc` supports the new arch on recent versions — **verify** against RN 0.83 before building |
-| Permissions         | Camera/mic via config plugin; background audio + full Android set are manual                                                        |
-| Code reuse from web | High — signaling is portable; only capture differs                                                                                  |
+| Factor              | Assessment                                                                                                                                                              |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SDK works?          | Yes — plain `react-native-webrtc` `124.0.8`; two-way audio and video on a physical Android 14 phone through Cloudflare's SFU (2026-10-26; mediasoup before, 2026-10-12) |
+| Expo Go?            | **No** — custom dev client / prebuild required                                                                                                                          |
+| Native build cost   | Paid: the app is on a dev-client workflow                                                                                                                               |
+| New-arch (Fabric)   | `newArchEnabled: true` with `124.0.8`; confirmed on device (React Native 0.80+ needs ≥ `124.0.6`)                                                                       |
+| Permissions         | Camera/mic via config plugin; iOS background audio and Android microphone/camera foreground service are not set up                                                      |
+| Code reuse from web | Design reused, code not: mobile re-implements the signaling flow (§2.1)                                                                                                 |
 
 ---
 
@@ -212,119 +216,106 @@ These are the same `(app)` chrome as the rest of web (sidebar + session menu), s
 conference content area is what the budgets below count; the sidebar's own destinations
 are not re-counted per screen (same rule that lets `/history` spend 0 accent).
 
-### 4.1 Pre-join (device check)
+### 4.1 Pre-join (lobby)
 
-**Layout.** A single centred column on the page ground:
+Built as `apps/web/app/(app)/conference/page.tsx`. A single centred column on the page
+ground; the lobby both creates a room and joins one somebody shared.
 
 ```
 ┌─────────────────────────────────────────┐
-│            Join "Team sync"               │  ← heading (text-heading, serif)
+│  Video conference                         │  ← heading
 │                                           │
 │   ┌───────────────────────────────┐      │
-│   │                               │      │  ← local camera preview (media region,
-│   │        [ camera preview ]      │      │     not a card — like the PoC's <video>)
-│   │                               │      │
+│   │        [ camera preview ]      │      │  ← media region, not a card
 │   └───────────────────────────────┘      │
 │                                           │
-│   Camera   [ FaceTime HD      ▾ ]         │  ← Select (field/well)
-│   Mic      [ MacBook Mic       ▾ ]        │  ← Select (field/well)
-│   Language [ Tiếng Việt / English ]       │  ← SegmentedControl (two named things)
+│   Your name [                    ]        │  ← Input (field)
+│   Language  [ Tiếng Việt | English ]      │  ← SegmentedControl
 │                                           │
-│            [    Join now    ]             │  ← the ONE accent
+│   [         Create a room          ]      │  ← the ONE accent
+│                                           │
+│   Room id   [              ] [ Join ]     │  ← Input + outline Button
 └─────────────────────────────────────────┘
 ```
 
-- **Accent (1):** the **Join now** button (`bg-primary`). It is the single action the
-  screen exists for.
-- **Elevated surfaces (0):** the device-check column sits on the page ground. The camera
-  preview is a media region (black `srcObject` rect), not a card. Device selectors are
-  fields (wells cut into the surface, `--inset-field`), which are not elevated surfaces.
-- Language is a `SegmentedControl` (two named things = segmented, per design-guidelines
-  "No longer duplicated"), **not** an accent — a selected segment is a readout.
-- **Budget: 1 accent, 0 elevated surfaces. PASS.**
+- **Accent (1):** **Create a room** (`variant="default"`). Join is outline: it is the
+  second way in, and it needs an id first.
+- **Elevated surfaces (0):** the preview is a media region on the page ground; the
+  inputs are fields.
+- **No device pickers.** The call uses the browser's default camera and microphone; there
+  is no Select for either. The preview is camera-only (`audio: false`).
+- **Budget: 1 accent, 0 elevated surfaces. PASS.** Gated by three rows of
+  `apps/web/src/design/accent-budget-app.spec.tsx` (plain, opened from a shared link,
+  refusing to create without a name).
 
 ### 4.2 In-call
 
-**Layout.** Participant grid fills the content area; a control bar floats at the bottom;
-name labels and the subtitle overlay sit on the video, not in a panel.
+Built as `apps/web/app/(app)/conference/[roomId]/page.tsx` with its `components/`.
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  ┌──────────────┐  ┌──────────────┐                  │
-│  │              │  │              │                  │  ← participant grid
-│  │  [video]     │  │  [video]     │                  │     (media regions)
-│  │  Alice       │  │  Bob         │   name label      │
-│  └──────────────┘  └──────────────┘   on each tile    │
-│                                                       │
-│        Bob: "Let's start with the budget."            │  ← subtitle overlay (on video,
-│                                                       │     text on scrim, no surface)
-│  ┌─────────────────────────────────────────────┐     │
-│  │  [mic] [cam]  [chat]        [ Leave ]         │     │  ← control bar (1 elevated surface)
-│  └─────────────────────────────────────────────┘     │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────┬──────────────┐
+│ <room id>                            [👥] │              │  ← header row, roster toggle (ghost)
+├──────────────────────────────────────────┤  Participants │
+│  ┌──────────────┐  ┌──────────────┐       │  Alice  🎤 📷 │  ← roster: a list
+│  │  [video]     │  │  [video]     │       │  Bob    🎤 📷 │
+│  │  Alice       │  │  Bob         │       ├──────────────┤
+│  └──────────────┘  └──────────────┘       │  Chat         │  ← chat: a region in the
+│        Bob: "Let's start with the budget." │  Bob: ...     │     same side column (§4.3)
+│                                            │  [ msg ][Send]│
+├────────────────────────────────────────────┴──────────────┤
+│                [mic]  [cam]  [  Leave  ]                   │  ← control bar: a bar, not a surface
+└────────────────────────────────────────────────────────────┘
 ```
 
-- **Accent (1):** exactly one control gets `bg-primary`. The controls split into two
-  kinds: toggles (mic, cam, chat-panel) and the terminal action (Leave). **Leave is a
-  destructive-ish terminal action, not the accent** — and mute/cam/chat are toggles
-  (readouts of state), also not the accent. That leaves a choice: the design budget needs
-  **at most** one accent, and zero is allowed. **Recommendation: spend the one accent on
-  the mic toggle's "unmute" active affordance is wrong** (a toggle is a readout). So
-  **in-call spends 0 accent** — every control is a ghost/outline icon button, Leave is an
-  outline button in the `live`/destructive treatment if needed. This mirrors `/translate`,
-  which spends its accent on Start/Generate but an _active call_ is a running state, not a
-  start action.
-  - If product wants a visible primary, the only defensible accent is **Leave** rendered
-    as the one filled control — but Leave is better as a `live`-toned outline (it ends the
-    session, like the translate Stop button which uses `liveFill`, not the accent). **So:
-    0 accent, Leave uses `liveFill` state colour (not counted as accent).**
-- **Elevated surfaces (1):** the **control bar** is one elevated surface (a panel over
-  the page, `elevation-lg`). Video tiles are media regions, not surfaces. The subtitle
-  overlay is text on a scrim on the video, not a surface.
-- **Budget: 0 accent, 1 elevated surface. PASS.** (Headroom for the chat panel, 4.3.)
+- **Accent (1):** **Leave** (`variant="default"`). Mic and camera are outline toggles,
+  readouts of state; the roster toggle is ghost. The screen spends its one accent on
+  the terminal action.
+- **Elevated surfaces (0):** the grid, the side column and the control bar are all
+  regions on the page ground split by borders. Video tiles are media regions; the
+  subtitle is text on a scrim over the video.
+- **Transient and error states keep the same count.** Connecting and reconnecting show
+  Leave as the accent; permission denied, disconnected, a generic error, room not found
+  and room ended show **Back to lobby** as the accent. Camera denied joins audio-only with
+  an inline notice; blocked autoplay adds a ghost **Enable audio** control.
+- **Budget: 1 accent, 0 elevated surfaces. PASS.** Every state above is a row in
+  `accent-budget-app.spec.tsx`.
 
-Note on the subtitle overlay: it reuses the _concept_ of the extension overlay (text over
-someone else's video) but renders in-app, so it uses app tokens, not the overlay-only
-tokens. State colours (`speaking` when a translation is playing) are allowed and are not
-the accent.
+This replaces the earlier recommendation of 0 accent in-call with Leave in the `live`
+state colour. The built screen makes Leave the accent instead; both pass the budget, and
+the gate holds the built one.
 
-### 4.3 Chat panel (overlay on in-call)
+### 4.3 Chat (inside the side column)
 
-**Layout.** A side sheet slides in over the in-call screen; the grid reflows to the
-remaining width. The chat is a `Sheet`/panel.
+The chat is not a sheet. It sits under the roster in the side column the header toggle
+opens and closes, so opening it changes no count.
 
-```
-┌───────────────────────────────┬───────────────────┐
-│  ┌──────────┐ ┌──────────┐    │  Chat             │  ← panel heading
-│  │ [video]  │ │ [video]  │    │ ───────────────   │
-│  │ Alice    │ │ Bob      │    │  Bob  10:02       │
-│  └──────────┘ └──────────┘    │  Let's start...   │  ← message list
-│                               │                   │     (list on panel ground)
-│   Bob: "..."  (subtitle)      │  Alice 10:03      │
-│                               │  Sounds good      │
-│  ┌─────────────────────────┐  │ ───────────────   │
-│  │ [mic][cam][chat] [Leave] │  │ [ type a message ]│  ← input (field) + send
-│  └─────────────────────────┘  │              [↑]  │  ← the ONE accent (send)
-└───────────────────────────────┴───────────────────┘
-```
+- **Accent (0 added):** Send is outline, the input is a field. The screen's one accent
+  stays Leave.
+- **Elevated surfaces (0 added):** the message list and the composer are regions in the
+  column. A refused message (sent too fast, or not sent) is shown as text, with no
+  control.
+- **Budget: 1 accent, 0 elevated surfaces. PASS.** Rows: roster and chat open with
+  messages, chat refused for sending too fast, roster closed.
 
-- **Accent (1):** the chat **send** button (`bg-primary`), the one action the panel adds.
-  In-call spends 0 accent (4.2), so opening the chat brings the screen-state to exactly 1.
-- **Elevated surfaces (2):** the **control bar** (still present, elevated) + the **chat
-  panel** (a `Sheet`, elevated). That is the budget's ceiling of two — which is why the
-  chat panel must be the _second_ surface and nothing else on this state may elevate. The
-  message list is a list on the panel ground, not a third surface; the input is a field.
-- **Budget: 1 accent, 2 elevated surfaces. PASS (at ceiling).**
+### Mobile (development builds)
 
-**Design constraint this creates:** because chat-open is at the 2-surface ceiling, the
-in-call state (4.2) **must** stay at one elevated surface — if the control bar ever
-became two stacked surfaces, opening chat would break the budget. The gate
-(`accent-budget-app.spec.tsx`) would catch it if these screens were added as `SCREENS`
-rows, which the production implementation should do.
+`apps/mobile/app/(app)/conference/` follows the same layout, adapted to a phone. The
+controls are `TouchableOpacity` styled from `@chatofy/ui` tokens, the way the rest of the
+app builds them, since shadcn exists only for web. No spec counts accents on mobile.
+
+| Screen state                    | Accent                                            | Elevated surfaces                     |
+| ------------------------------- | ------------------------------------------------- | ------------------------------------- |
+| Lobby                           | 1 — Create a room (filled `primary`)              | 0                                     |
+| In-call                         | 0 — Leave is filled `destructive`, a state colour | 0 — the control bar is a bordered bar |
+| Chat, roster or transcript open | 0                                                 | 1 — the bottom sheet (`Modal`)        |
+| Error states                    | 1 — Back to lobby                                 | 0                                     |
+
+Web and mobile differ on Leave: the accent on web, the destructive state colour on
+mobile. Both pass the budget.
 
 ### 4.4 End screen
 
-**Layout.** A single centred summary card on the page ground.
+**Designed, not built.** A single centred summary card on the page ground.
 
 ```
 ┌─────────────────────────────────────────┐
@@ -336,33 +327,39 @@ rows, which the production implementation should do.
 │   │  Languages       vi ↔ en       │      │
 │   └───────────────────────────────┘      │
 │                                           │
-│          [   Back to chat   ]             │  ← the ONE accent
+│          [  Back to lobby   ]             │  ← the ONE accent
 └─────────────────────────────────────────┘
 ```
 
-- **Accent (1):** the **Back to chat** button (`bg-primary`), the single next step.
+- **Accent (1):** the **Back to lobby** button (`bg-primary`), the single next step,
+  where Leave goes today.
 - **Elevated surfaces (1):** the **summary card** (`elevation-md`). It is a card because
   you read it as a unit; it holds only readouts, no nested action.
 - **Budget: 1 accent, 1 elevated surface. PASS.**
 
-**Deferred: the end screen, and minutes on it.** Issue #210 asks for an end screen "with
-minutes". Neither is built: Leave returns to the conference lobby. Minutes are deferred
-because conferences have no minutes pipeline yet. The minutes that exist on `main` are
-generated from a `/translate` conversation's stored turns; a conference stores
-`ConferenceTurn` rows, but nothing summarises them. When that pipeline exists, a
-**Minutes** readout section goes inside the summary card, keeping the budget above.
+**Deferred: building the end screen, and minutes on it.** Issue #210 asks for an end
+screen "with minutes". Neither is built: Leave returns to the conference lobby. Minutes
+are deferred because conferences have no minutes pipeline. The minutes on `main` belong
+to `/translate`: `MeetingMinutes` hangs off a `Conversation`, while a conference stores
+`ConferenceTurn` rows that nothing summarises. Building it needs its own decisions —
+where the minutes row lives, which participants may read it, and what triggers
+generation. When it exists, a **Minutes** readout section goes inside the summary card;
+the budget above is unchanged, and the screen states join the `SCREENS` rows of
+`accent-budget-app.spec.tsx`.
 
 ### 4.5 Budget summary
 
-| Screen state         | Accent (≤1)                            | Elevated surfaces (≤2)       | Verdict |
-| -------------------- | -------------------------------------- | ---------------------------- | ------- |
-| Pre-join             | 1 — Join now                           | 0                            | PASS    |
-| In-call              | 0 (Leave = `liveFill`, a state colour) | 1 — control bar              | PASS    |
-| Chat panel (on call) | 1 — send                               | 2 — control bar + chat panel | PASS    |
-| End screen           | 1 — Back to chat                       | 1 — summary card             | PASS    |
+Web, as built except the end screen:
 
-All four pass both budgets. The tightest is chat-open at exactly 2 surfaces, which pins
-in-call to one elevated surface.
+| Screen state                      | Accent (≤1)       | Elevated surfaces (≤2) | Verdict | Gated |
+| --------------------------------- | ----------------- | ---------------------- | ------- | ----- |
+| Lobby                             | 1 — Create a room | 0                      | PASS    | yes   |
+| In-call, connecting, reconnecting | 1 — Leave         | 0                      | PASS    | yes   |
+| In-call with roster and chat      | 1 — Leave         | 0                      | PASS    | yes   |
+| Error and ended states            | 1 — Back to lobby | 0                      | PASS    | yes   |
+| End screen (designed)             | 1 — Back to lobby | 1 — summary card       | PASS    | no    |
+
+Every built state has headroom of two surfaces, so the end screen's card fits.
 
 ---
 
@@ -370,21 +367,19 @@ in-call to one elevated surface.
 
 1. **Client/server version pair.** Answered by removal: the clients use plain WebRTC, so
    there is no SFU client library to keep in step with a server.
-2. **`@config-plugins/react-native-webrtc` Android permission set.** Not confirmed from
-   plugin docs in this research; verify the manifest additions against
-   `@config-plugins/react-native-webrtc@15.0.2` source, and confirm Android 14+
-   foreground-service-microphone handling.
+2. **`@config-plugins/react-native-webrtc` Android permission set.** Answered from the
+   `14.0.0` source (§2.3): no foreground-service permission. Calls stop in the background
+   on Android 14+ until a microphone/camera foreground service is added.
 3. **`react-native-webrtc` + RN 0.83 new architecture (Fabric).** Answered: `124.0.8`
    (exact) with `newArchEnabled: true` and `@config-plugins/react-native-webrtc` `14.0.0`
    (15.x needs Expo ≥ 56) gave two-way audio and video on a physical Android 14 phone on
-   2026-10-12.
-4. **Backgrounded meeting audio on iOS.** The config plugin does not add
-   `UIBackgroundModes: audio`. Decide whether meetings continue audio when backgrounded;
-   if yes, add it manually.
-5. **In-call accent (0 vs Leave-as-accent).** This document recommends 0 accent in-call
-   with Leave rendered in the `live` state colour (mirroring the translate Stop button).
-   A product decision could instead make Leave the one accent; both pass the budget, but
-   the state-colour treatment is more consistent with existing patterns.
+   2026-10-12 (mediasoup), and again on 2026-10-26 through Cloudflare's SFU.
+4. **Backgrounded meetings.** Neither iOS `UIBackgroundModes: audio` nor an Android
+   microphone/camera foreground service is set up. Decide whether a meeting continues in
+   the background; if yes, add both.
+5. **In-call accent (0 vs Leave-as-accent).** Decided 2026-10-26: keep what is built.
+   Leave is the accent on web; mobile fills Leave with the destructive state colour and
+   spends no accent. Both pass the budget.
 6. **Cross-browser interop test matrix.** The #207 PoC and the 2026-10-25 live check each
    ran one browser engine; Chrome↔Safari and Chrome↔Firefox interop is unverified and
    belongs in the production test plan.
