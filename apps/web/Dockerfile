@@ -32,9 +32,13 @@ ARG NEXT_PUBLIC_ENV=production
 # BuildKit warns, the value never reaches `next build`, the build goes green,
 # and every avatar in production is blocked by a CSP that omits the origin.
 ARG R2_PUBLIC_BASE_URL=
+# Video conferencing ships off. A build that wants it passes 'true'; anything
+# else is refused by src/config/env.ts at build.
+ARG NEXT_PUBLIC_CONFERENCE_ENABLED=false
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 ENV NEXT_PUBLIC_ENV=${NEXT_PUBLIC_ENV}
 ENV R2_PUBLIC_BASE_URL=${R2_PUBLIC_BASE_URL}
+ENV NEXT_PUBLIC_CONFERENCE_ENABLED=${NEXT_PUBLIC_CONFERENCE_ENABLED}
 
 # Present at build because `next build` prerenders /login, which reads the
 # server-only config and would fail the schema without it. Nothing is signed at
@@ -49,8 +53,12 @@ COPY . .
 # deadlocks the install outright, and the rest, paired with the `--store-dir`
 # cache mount, make the next layer's pnpm freshness check purge node_modules and
 # abort for want of a TTY.
+#
+# Scoped to web's own dependency graph plus the workspace root (turbo, husky),
+# so the image never installs or builds the api's and mobile's native
+# dependencies, which web does not import.
 RUN --mount=type=cache,id=chatofy-pnpm-store,target=/pnpm-store \
-    pnpm install --frozen-lockfile --store-dir /pnpm-store
+    pnpm install --frozen-lockfile --store-dir /pnpm-store --filter "web..." --filter "."
 
 RUN pnpm turbo run build --filter=web...
 

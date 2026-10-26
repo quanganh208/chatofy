@@ -1,6 +1,57 @@
 export { WS_SUBPROTOCOL, tokenFromSubprotocols } from './ws-handshake.js';
 
 export {
+  ConferenceTranslationAudioSchema,
+  ConferenceTranslationBroadcastSchema,
+  ConferenceTranslationSubtitleSchema,
+  MAX_CONFERENCE_AUDIO_PAYLOAD_CHARS,
+  MAX_CONFERENCE_TURN_TEXT_CHARS,
+} from './conference-translation-events.js';
+export type {
+  ConferenceTranslationAudio,
+  ConferenceTranslationBroadcast,
+  ConferenceTranslationSubtitle,
+} from './conference-translation-events.js';
+
+export { ConferenceChatMessageSchema } from './conference-chat-events.js';
+export type { ConferenceChatMessage } from './conference-chat-events.js';
+
+export {
+  CONFERENCE_CLOSE_ENDED,
+  CONFERENCE_CLOSE_REPLACED,
+  CONFERENCE_ERROR_CODES,
+  ConferenceChatSendSchema,
+  ConferenceEndedSchema,
+  ConferenceIceServerSchema,
+  ConferenceJoinSchema,
+  ConferenceMediaPublishedSchema,
+  ConferenceMediaPublishSchema,
+  ConferenceMediaRenegotiateSchema,
+  ConferenceMediaSubscribeReplySchema,
+  ConferenceMediaSubscribeSchema,
+  ConferenceParticipantMuteSchema,
+  ConferenceParticipantVideoSchema,
+  conferenceRoomIdSchema,
+  MAX_CONFERENCE_CHAT_TEXT_CHARS,
+  MAX_CONFERENCE_DISPLAY_NAME_CHARS,
+  MAX_CONFERENCE_SDP_CHARS,
+} from './conference-signaling-events.js';
+export type {
+  ConferenceChatSend,
+  ConferenceEnded,
+  ConferenceErrorCode,
+  ConferenceIceServer,
+  ConferenceJoin,
+  ConferenceMediaPublish,
+  ConferenceMediaPublished,
+  ConferenceMediaRenegotiate,
+  ConferenceMediaSubscribe,
+  ConferenceMediaSubscribeReply,
+  ConferenceParticipantMute,
+  ConferenceParticipantVideo,
+} from './conference-signaling-events.js';
+
+export {
   audioEncodingSchema,
   audioFrameSchema,
   MAX_SAMPLE_RATE,

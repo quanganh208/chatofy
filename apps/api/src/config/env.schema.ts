@@ -9,6 +9,16 @@ const emptyStringAsUndefined = <T extends z.ZodTypeAny>(schema: T) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema);
 
 /**
+ * An on/off switch. Absent means off; `1`/`0` are accepted beside `true`/`false`
+ * because the benchmark scripts already spell it that way. Anything else fails
+ * the boot rather than being read as off.
+ */
+const envFlag = z
+  .enum(['true', 'false', '1', '0'])
+  .default('false')
+  .transform((value) => value === 'true' || value === '1');
+
+/**
  * The port `apps/web` actually runs on in dev. Exported so main.ts's
  * production boot check compares WEB_BASE_URL against the exact same string
  * this schema defaults it to, rather than repeating the literal.
@@ -154,6 +164,30 @@ export const envSchema = z.object({
   // meaning of a voice differs per engine.
   LOCAL_STT_URL: z.string().url().default('http://localhost:8002'),
   LOCAL_TTS_URL: z.string().url().default('http://localhost:8003'),
+
+  // ── Video conferencing (Cloudflare Realtime SFU) ──────────────────────────
+  // OFF by default: while false the ConferenceModule is not imported at all,
+  // so neither `/ws/conference` nor `/conference` exists and nothing talks to
+  // Cloudflare. Media goes from each client straight to Cloudflare Realtime
+  // SFU; the API holds the app secret and drives the SFU over outbound HTTPS.
+  CONFERENCE_ENABLED: envFlag,
+  // The Realtime SFU app (dashboard: Realtime > Serverless SFU). Optional here
+  // so a deployment without conferencing needs neither, but required once
+  // CONFERENCE_ENABLED is on: CloudflareRealtimeClient refuses to construct
+  // without both, which fails the boot.
+  CLOUDFLARE_REALTIME_APP_ID: emptyStringAsUndefined(
+    z.string().min(1).optional(),
+  ),
+  CLOUDFLARE_REALTIME_APP_SECRET: emptyStringAsUndefined(
+    z.string().min(1).optional(),
+  ),
+  // A Realtime TURN key (dashboard: Realtime > TURN Server). TURN is on only
+  // when BOTH are set: each join then gets short-lived TURN credentials beside
+  // Cloudflare's STUN, for networks that block UDP. Free when used with the SFU.
+  CLOUDFLARE_TURN_KEY_ID: emptyStringAsUndefined(z.string().min(1).optional()),
+  CLOUDFLARE_TURN_KEY_API_TOKEN: emptyStringAsUndefined(
+    z.string().min(1).optional(),
+  ),
 });
 
 export type Env = z.infer<typeof envSchema>;

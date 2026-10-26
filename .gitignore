@@ -73,6 +73,8 @@ prompt.md
 **/.claude/hooks/.logs/
 **/.claude/session-state/
 **/.claude/settings.bak.json
+**/.claude/recovered-reports/
+**/.claude/telemetry/
 .agentkit/.lock
 
 # Gemini CLI settings

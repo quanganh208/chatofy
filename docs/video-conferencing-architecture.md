@@ -1,8 +1,13 @@
 # Chatofy: Video Conferencing + Real-time Translation Architecture
 
-> **Status: Proposal — not implemented.** No conferencing code exists on `main` as of
-> 2026-10-05. Progress is tracked in [project-roadmap.md](./project-roadmap.md); the
-> choices that must be made before building are in [Open decisions](#open-decisions).
+> **Status: Proposal, partly built.** Conferencing code is on `main` behind two flags,
+> both off by default: `CONFERENCE_ENABLED` (API) and `NEXT_PUBLIC_CONFERENCE_ENABLED`
+> (web, build time); the mobile screens are reachable only in development builds. What
+> exists is meeting media on Cloudflare Realtime SFU driven by the API (Decisions 1 and 7),
+> rooms created by `POST /conference`, signaling on `/ws/conference`, and client-side
+> translation fanned out to the room
+> ([video-translation-audio-path.md](./architecture/video-translation-audio-path.md)).
+> Progress is tracked in [project-roadmap.md](./project-roadmap.md).
 
 **Date:** 2026-09-29  
 **Scope:** Proposed evolution from standalone translation → unified video conferencing platform
@@ -649,83 +654,113 @@ Detailed analysis is in [technical-risks-mitigation.md](./technical-risks-mitiga
 
 ## 12. Next Steps
 
-1. Settle the [Open decisions](#open-decisions) (Gate 0 in
-   [project-roadmap.md](./project-roadmap.md))
-2. Review + approve architecture
-3. Create implementation plan with detailed task breakdown
-4. Set up video-provider package scaffolding
-5. Begin Phase 1 (infrastructure)
+1. Run one call on production from two networks (Wi-Fi and 4G, RTT and packet loss); the
+   table is in [video-network-path.md → Measured](./architecture/video-network-path.md#measured).
+2. Measure translation under several simultaneous speakers (Decision 4).
+3. Replace the Pion assumptions above when the next implementation plan is written.
 
 ---
 
 ## Open decisions
 
-Nothing below is settled. Each item changes what the phases above contain, and the
-other two video documents link here.
+Decisions 1, 3, 5, 6 and 7 are settled, 2 is superseded, 4 is half measured. The other
+video documents link here.
 
-### 1. Media server (SFU) — undecided
+### 1. Media server (SFU) — **Resolved: Cloudflare Realtime SFU** (Issue #208, 2026-10-25)
 
-The text above names Pion (§3.1, §7 Phase 3, §9, Appendix). That is an assumption made
-while writing, not a decision. Three candidates:
+**Decision:** Cloudflare Realtime SFU through its Sessions/Tracks API, driven by the API
+(owner decision). It replaced mediasoup, the in-process SFU the #207 PoC chose on 2026-10-05.  
+**Rejected:** mediasoup, RealtimeKit, LiveKit, Pion
 
-| Criterion                              | LiveKit                                                                                                  | mediasoup                                                                                        | Pion                                                                     |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| What it is                             | Self-hosted SFU server (Go) with JS, React and React Native SDKs                                         | Node.js library (C++ media workers); SFU primitives only                                         | Go WebRTC library; the SFU is ours to write                              |
-| Fit with the NestJS stack              | NestJS only mints access tokens and stores room metadata; media and signaling stay in the LiveKit server | Runs in or beside the Node API; signaling is ours (could ride the existing `ws` gateway pattern) | A separate Go service beside NestJS, plus a control channel between them |
-| Ops on the prod VM (~3.4 GiB headroom) | One more container; recording (Egress) is a separate, heavier service. Footprint unmeasured              | Worker processes in or beside the API container. Footprint unmeasured                            | One more service; footprint depends on our code. Unmeasured              |
-| Mobile (Expo)                          | React Native SDK; native WebRTC module, so an Expo development build rather than Expo Go                 | `mediasoup-client` over `react-native-webrtc`; development build                                 | Plain WebRTC client over `react-native-webrtc`; development build        |
-| Effort                                 | Lowest: rooms, simulcast, reconnection and recording come with it                                        | Medium: signaling, room state and simulcast layer selection are ours                             | Highest: SFU logic is ours (the Appendix's 40h assumes this)             |
+Why: the production host can accept no inbound connection (measured, Decision 7), and an
+ICE-lite server such as mediasoup needs one. Cloudflare's SFU needs none: every client
+sends media to Cloudflare's edge, and the API drives the SFU over outbound HTTPS. There is
+no SFU VM to run or pay for, since "your application does not deploy SFU servers or select
+an SFU region"
+([architecture](https://developers.cloudflare.com/realtime/sfu/concepts/architecture/)),
+and egress is free up to 1,000 GB/month, shared with TURN
+([pricing](https://developers.cloudflare.com/realtime/sfu/platform/pricing/)). RealtimeKit
+would replace the app's rooms, UI and translation hooks with its own model
+([SFU overview](https://developers.cloudflare.com/realtime/sfu/)).
 
-Common to all three: production is published through a Cloudflare Tunnel (see
-[deployment-guide.md](./deployment-guide.md)), which serves the web and API hostnames.
-How media packets reach the SFU — an open UDP port on the host or a TURN relay — is
-unresolved for every option. Any footprint figure must be measured under a
-`docker --memory` cap before it is trusted against the VM's headroom.
+**Evidence:** `plans/261025-1812-cloudflare-realtime-sfu/research/cloudflare-realtime-sfu-api.md`
+(API, limits, pricing) and `spike/results.md` beside it (the real Cloudflare app from the
+production host's network); the numbers are in
+[video-network-path.md → Measured](./architecture/video-network-path.md#measured). Why
+mediasoup had beaten LiveKit and Pion in #207, with a source for every cell:
+[video-conferencing-v2-synthesis.md → Decision 1](./architecture/video-conferencing-v2-synthesis.md#decision-1--sfu-cloudflare-realtime-sfu-replaced-mediasoup-from-207).
 
-### 2. Pion implies a Go service beside NestJS
+### 2. Pion implies a Go service beside NestJS — **Superseded by Decision 1**
 
-Every Pion reference assumes a Go process the repo does not have: no Go toolchain, CI
-job, Dockerfile or deploy step exists for one today. Choosing Pion adds a language and a
-service to build, test and deploy. The references are kept, flagged as assumptions,
-until item 1 is decided.
+Pion was rejected in #207. The Pion references in §3.1, §7 Phase 3, §9 and the Appendix are
+the proposal's original assumption, kept to show its intent; they do not describe the code.
 
-### 3. Billing vs a non-commercial thesis
+### 3. Billing vs a non-commercial thesis — **Deferred out of thesis scope** (Issue #212, 2026-10-07)
 
-The design includes per-minute billing: `ConferenceBillingLine`, the `costEstimateCents`
-/ `billingStatus` columns on `Conference`, the cost model and revenue/margin metrics in
-[technical-risks-mitigation.md](./technical-risks-mitigation.md). Chatofy is a
-non-commercial graduation thesis, and the default Vietnamese STT model is licensed for
-academic/thesis use only (see [README → Model licences](../README.md#model-licences)).
-The billing design is **kept but marked optional and out of thesis scope** pending a
-decision. Tracking API cost (not revenue) may still be useful against the free-tier
-quotas.
+The design included per-minute billing (`ConferenceBillingLine`, `costEstimateCents`,
+`billingStatus`). Chatofy is a non-commercial graduation thesis; the default Vietnamese
+STT model is licensed for academic/thesis use only (see
+[README → Model licences](../README.md#model-licences)).
 
-### 4. Stated targets are unverified on this project's hardware
+**Decision:** billing is deferred out of thesis scope; the tables stay in
+`docs/database-schema-conference.md` as a deferred-model note. Tracking API cost (not
+revenue) against free-tier quotas needs no billing tables, at most a cost column.
 
-6 participants, 720p at 60 fps, VP8, 2.5 Mbps per stream, the latency budgets, the
-effort hours (164h) and the 20-week schedule are the proposal's targets, not
-measurements. Speech runs on CPU in the sidecars, and the STT sidecar serves a bounded
-number of concurrent decodes per engine (`LOCAL_STT_CONCURRENCY`, see
-[Speech backend routing](./architecture/ai-providers.md#speech-backend-routing)); six
-simultaneous speakers have not been measured against it.
+### 4. Stated targets — **SFU measured on mediasoup; translation load not** (Issue #211, 2026-10-11)
 
-### 5. Persisting speaker embeddings
+Measured on mediasoup, the SFU since replaced (Decision 1), on the Windows 11 dev machine
+(loopback, headless Chromium via Playwright): 6 × 720p60 peers at ≈ 9.7 Mbps aggregate.
+The per-cell table is in
+[video-conferencing-v2-synthesis.md → Load constraints](./architecture/video-conferencing-v2-synthesis.md#2-load-constraints-measured-on-mediasoup--211-2026-10-11),
+and the run in [development-journey.md](./development-journey.md). Cloudflare's SFU is
+not ours to load-test; its documented limits are 50 API requests per second per session
+and 64 tracks per request
+([limits](https://developers.cloudflare.com/realtime/sfu/platform/limits/)).
 
-The schema stores CAM++ vectors (`ConferenceTurn.embedding`,
-`ConferenceSpeaker.embedding`). Today no voice vector is ever persisted — vectors stay
-in the browser tab and leave with the conversation, by design (see
+Not measured: translation under several simultaneous speakers.
+Translation latency comes only from a 2-tab local PoC (warm ~5.9 s T1→T2, cold ~9.2 s —
+[video-translation-audio-path.md → Latency](./architecture/video-translation-audio-path.md#7-latency)),
+and a meeting is bounded by the six live translation sessions the API allows server-wide.
+The latency budgets, the effort hours (164 h) and the 20-week schedule remain the
+proposal's estimates.
+
+### 5. Persisting speaker embeddings — **Deferred** (Issue #212, 2026-10-07)
+
+The original schema stored CAM++ vectors (`ConferenceTurn.embedding`,
+`ConferenceSpeaker.embedding`). Today no voice vector is persisted — vectors live in
+the browser tab for the conversation duration, by design (see
 [Per-turn speaker attribution](./architecture/ai-providers.md#per-turn-speaker-attribution)).
-With one audio track per participant the speaker may be known without acoustic
-attribution at all. Decide whether attribution is needed, and if so whether storing
-vectors is acceptable.
 
-### 6. Recording access
+**Decision:** deferred. With one WebRTC audio track per participant the speaker is known
+from the track, so the two-voice attribution cap of the turn pipeline does not apply.
+`ConferenceSpeaker` and the embedding columns are not in the migration
+(`docs/database-schema-conference.md §9`); add them only if rooms with anonymous guests
+need acoustic attribution.
 
-Recordings are proposed for R2. The project's bucket is public-read and a prefix is not
-an access boundary (see
+### 6. Recording access — **Deferred** (Issue #212, 2026-10-07)
+
+Recordings were proposed for the existing R2 bucket, which is public-read. A prefix is
+not an access boundary (see
 [Bucket layout](./architecture/authentication.md#bucket-layout-and-the-one-rule-that-governs-it)),
-so a stored meeting recording would be fetchable by anyone with its URL. Decide on a
-private bucket or another store before recording ships.
+so any recording stored there would be world-readable by URL.
+
+**Decision:** deferred until a private-bucket or signed-URL policy is decided.
+`ConferenceRecording` is not in the migration (`docs/database-schema-conference.md §9`).
+
+### 7. Network path for meeting media — **Resolved: Cloudflare Realtime SFU** (Issue #208, 2026-10-25)
+
+**Decision:** meeting media goes from each client straight to Cloudflare Realtime SFU; the
+Cloudflare Tunnel carries signaling (`/ws/conference`) and nothing else (owner decision,
+2026-10-25). **Rejected:** a public media port on the host, and mediasoup on a relay VPS.
+
+The host check on 2026-10-12 ruled out a public port: the production host sits on a
+**company network** whose router is not the operator's, so no port forward or inbound port
+can be added, the WAN address cannot be read, and UPnP and NAT-PMP are refused. A relay VPS
+would route each packet A → VPS → host → VPS → B, four legs against Cloudflare's two, and
+from the host TCP connect to `rtc.live.cloudflare.com` took ~21 ms against ~68 ms to a
+Singapore VPS region (measured 2026-10-25). TURN comes from Cloudflare too, optional and
+free when used with the SFU ([TURN](https://developers.cloudflare.com/realtime/turn/)).
+Reasoning and measurements: [video-network-path.md](./architecture/video-network-path.md).
 
 ---
 
@@ -748,16 +783,16 @@ WebSocket Pipeline      80%    16h     Adapt for multi-participant
 
 ```
 Component              New    Effort  Complexity
-WebRTC SFU            YES     40h     🔴 HIGH (Pion library — assumption)
+WebRTC SFU            YES     40h     🔴 HIGH (Cloudflare Realtime SFU — built, flagged off)
 Video Grid UI         YES     24h     🟡 MEDIUM
 Message Service       YES      8h     🟢 LOW
-Recording Compositor  YES     32h     🔴 HIGH (FFmpeg)
+Recording Compositor  YES     32h     🔴 HIGH (FFmpeg) — deferred #212
 Subtitle Overlay      YES     12h     🟡 MEDIUM
 Database Schema       YES      4h     🟢 LOW
-TOTAL                          164h   = 4-5 weeks (1 eng)
+TOTAL                          ~136h  (recording deferred; 4 weeks est. 1 eng)
 ```
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** 2026-09-29 (reconciled with the current system 2026-10-05)
+**Document Version:** 1.4  
+**Last Updated:** 2026-10-25 (Decisions 1 and 7 resolved: Cloudflare Realtime SFU)

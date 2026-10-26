@@ -44,6 +44,7 @@ export const en = {
   'web.chrome.skipToContent': 'Skip to content',
   'web.chrome.productNav': 'Product',
   'web.chrome.navTranslate': 'Translate',
+  'web.chrome.navConference': 'Conference',
   'web.chrome.navHistory': 'History',
   'web.chrome.navPreferences': 'Preferences',
   // Its own key rather than reusing `accountMenu`. That one names the avatar
@@ -641,6 +642,144 @@ export const en = {
   // The part of `heroTitle` set in italic. Must appear verbatim inside it; the hero
   // falls back to an upright headline when it does not.
   'web.landing.heroTitleEmphasis': 'Be heard',
+
+  // ---- web.conference: video conferencing lobby + in-call screen ----
+  'web.conference.lobbyTitle': 'Video conference',
+  'web.conference.create': 'Create a room',
+  'web.conference.join': 'Join a room',
+  'web.conference.yourName': 'Your name',
+  'web.conference.yourNamePlaceholder': 'How others will see you',
+  'web.conference.roomId': 'Room ID',
+  'web.conference.roomIdPlaceholder': 'Enter a room ID to join',
+  'web.conference.sourceLanguage': 'Your language',
+  'web.conference.sourceLanguageVi': 'Tiếng Việt',
+  'web.conference.sourceLanguageEn': 'English',
+  'web.conference.start': 'Start',
+  'web.conference.joining': 'Joining…',
+  'web.conference.leave': 'Leave',
+  'web.conference.waiting': 'Waiting for others to join…',
+  'web.conference.connecting': 'Connecting…',
+  'web.conference.nameRequired': 'Enter your name to continue.',
+  'web.conference.roomRequired': 'Enter a room ID to join.',
+  'web.conference.you': 'You',
+  // ---- web.conference: in-call control bar ----
+  'web.conference.muteMic': 'Mute microphone',
+  'web.conference.unmuteMic': 'Unmute microphone',
+  'web.conference.disableCamera': 'Turn off camera',
+  'web.conference.enableCamera': 'Turn on camera',
+  'web.conference.participants': 'Participants',
+  'web.conference.cameraOff': 'Camera off',
+  'web.conference.muted': 'Muted',
+  'web.conference.rosterTitle': 'In this call',
+  'web.conference.hideRoster': 'Hide participants',
+  'web.conference.showRoster': 'Show participants',
+  // ---- web.conference: in-meeting chat (Phase 4) ----
+  // Flat side region — ghost/outline controls only; Leave stays the one accent control.
+  'web.conference.chatTitle': 'Chat',
+  'web.conference.chatPlaceholder': 'Type a message…',
+  'web.conference.chatSend': 'Send',
+  'web.conference.chatEmpty': 'No messages yet.',
+  // ---- web.conference: edge-case states (Phase 5) ----
+  'web.conference.permissionDenied': 'Camera and microphone access is required.',
+  'web.conference.permissionDeniedHint':
+    'Open your browser settings and allow access to the camera and microphone, then reload this page.',
+  'web.conference.permissionDeniedAudioOnly': 'No camera access — joining with audio only.',
+  'web.conference.disconnected': 'Connection lost.',
+  'web.conference.disconnectedHint': 'The call ended. Return to the lobby to rejoin.',
+  'web.conference.backToLobby': 'Back to lobby',
+  'web.conference.errorGeneric': 'Something went wrong.',
+  // ---- web.conference: audio unlock (Phase 1) ----
+  // Inline notice when the browser's autoplay policy suspended a TTS AudioContext.
+  // No card, no elevation — ghost button only; Leave stays the one accent control.
+  'web.conference.audioBlocked': 'Sound is blocked by your browser.',
+  'web.conference.enableAudio': 'Tap to enable sound',
+  // ---- web.conference: translating indicator (Phase 2) ----
+  // Badge on the local tile from [T1] (first audio frame) to [T2] (final subtitle).
+  // Pure readout — no accent fill; Leave stays the one accent control.
+  'web.conference.translating': 'Translating…',
+  // ---- web.conference: auto-reconnect (Phase 4) ----
+  // Shown during a bounded auto-rejoin after an unexpected mid-call WS drop.
+  // {attempt} is the current attempt number (1-based); {cap} is the maximum.
+  // Leave stays the one accent control in this state too.
+  'web.conference.reconnecting': 'Reconnecting ({attempt}/{cap})…',
+  // ---- web.conference: room lifecycle ----
+  // A room exists only once POST /conference created it; the socket refuses a
+  // join to an id it does not know, or to a meeting its owner ended.
+  'web.conference.creating': 'Creating…',
+  'web.conference.createFailed': 'Could not create a room. Try again.',
+  'web.conference.roomNotFound': 'This room does not exist.',
+  'web.conference.roomEnded': 'This meeting has ended.',
+  'web.conference.chatRateLimited': 'Slow down — wait a few seconds before sending again.',
+  'web.conference.chatNotSent': 'Message not sent.',
+  'web.meta.conference': 'Conference · Chatofy',
+
+  // ---- mobile.conference: the React Native conference lobby + call screen ----
+  //
+  // A separate namespace from `web.conference.*` because a few strings name a
+  // surface the other cannot have: the permission hint points at the device's
+  // settings app rather than a browser, and there is no "reload the page" on a
+  // phone. The shared vocabulary could in principle be reused, but keeping the
+  // mobile set whole lets each platform word a prompt the way it expects without
+  // one leaking into the other.
+  'mobile.conference.lobbyTitle': 'Video conference',
+  'mobile.conference.yourName': 'Your name',
+  'mobile.conference.yourNamePlaceholder': 'How others will see you',
+  'mobile.conference.roomId': 'Room ID',
+  'mobile.conference.roomIdPlaceholder': 'Enter a room ID to join',
+  'mobile.conference.start': 'Start',
+  'mobile.conference.leave': 'Leave',
+  'mobile.conference.you': 'You',
+  'mobile.conference.connecting': 'Connecting…',
+  'mobile.conference.waiting': 'Waiting for others to join…',
+  // {attempt} is the current attempt (1-based); {cap} is the maximum.
+  'mobile.conference.reconnecting': 'Reconnecting ({attempt}/{cap})…',
+  // ---- mobile.conference: in-call controls (readouts + toggles) ----
+  'mobile.conference.muteMic': 'Mute microphone',
+  'mobile.conference.unmuteMic': 'Unmute microphone',
+  'mobile.conference.disableCamera': 'Turn off camera',
+  'mobile.conference.enableCamera': 'Turn on camera',
+  'mobile.conference.participants': 'Participants',
+  'mobile.conference.cameraOff': 'Camera off',
+  'mobile.conference.rosterTitle': 'In this call',
+  'mobile.conference.hideRoster': 'Hide participants',
+  // ---- mobile.conference: error / edge states ----
+  'mobile.conference.permissionDenied': 'Camera and microphone access is required.',
+  'mobile.conference.permissionDeniedHint':
+    'Open Settings and allow this app to use the camera and microphone, then try again.',
+  'mobile.conference.permissionDeniedAudioOnly': 'No camera access — joining with audio only.',
+  'mobile.conference.notAuthenticated': 'You need to sign in to join the call.',
+  'mobile.conference.disconnected': 'Connection lost.',
+  'mobile.conference.disconnectedHint': 'The call ended. Return to the lobby to rejoin.',
+  'mobile.conference.backToLobby': 'Back to lobby',
+  'mobile.conference.errorGeneric': 'Something went wrong.',
+  // ---- mobile.conference: translation UX (subtitles, transcript, language) ----
+  'mobile.conference.translating': 'Translating…',
+  'mobile.conference.sourceLanguage': 'Your language',
+  'mobile.conference.sourceLanguageVi': 'Tiếng Việt',
+  'mobile.conference.sourceLanguageEn': 'English',
+  // The picker only takes effect before joining; once in the call it is a readout.
+  'mobile.conference.sourceLanguageLocked': 'Language is fixed for this call.',
+  'mobile.conference.transcript': 'Transcript',
+  'mobile.conference.showTranscript': 'Show transcript',
+  'mobile.conference.hideTranscript': 'Hide transcript',
+  'mobile.conference.transcriptEmpty': 'Nothing has been said yet.',
+  // ---- mobile.conference: in-meeting chat (translated per recipient) ----
+  'mobile.conference.chat': 'Chat',
+  'mobile.conference.showChat': 'Show chat',
+  'mobile.conference.hideChat': 'Hide chat',
+  'mobile.conference.chatPlaceholder': 'Type a message…',
+  'mobile.conference.chatSend': 'Send',
+  'mobile.conference.chatEmpty': 'No messages yet.',
+  'mobile.conference.creating': 'Creating…',
+  'mobile.conference.create': 'Create a room',
+  'mobile.conference.join': 'Join a room',
+  'mobile.conference.createFailed': 'Could not create a room. Try again.',
+  'mobile.conference.roomNotFound': 'This room does not exist.',
+  'mobile.conference.roomEnded': 'This meeting has ended.',
+  'mobile.conference.chatRateLimited': 'Slow down — wait a few seconds before sending again.',
+  'mobile.conference.chatNotSent': 'Message not sent.',
+  'mobile.home.comingSoon': 'coming soon',
+  'mobile.home.joinConference': 'Join a conference',
 } as const;
 
 /** Every key any locale must carry. Derived, so a locale cannot drift from it. */

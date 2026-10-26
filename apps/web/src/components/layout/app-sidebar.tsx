@@ -16,7 +16,7 @@ import {
 } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 import { Brand } from './brand';
-import { NAV_GROUPS, navItemFor } from './nav-items';
+import { navGroups, navItemFor } from './nav-items';
 import { SessionMenu } from './session-menu';
 
 /**
@@ -62,7 +62,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {NAV_GROUPS.map((group, index) => (
+        {navGroups().map((group, index) => (
           <SidebarGroup key={group[0]?.href ?? index} className="py-0">
             {/* Between groups only, never above the first — a rule that reads better as
                 the separator belonging to the group below it than as an index test at

@@ -595,6 +595,37 @@ deletion, which requires a second API token and is out of scope.
 
 - **Tunnel** — the ingress in `/etc/cloudflared/config.yml` is root-owned and also carries the operator's SSH ingress. **CD never touches it.** Adding a hostname is a manual, one-time change: back the file up, `cloudflared tunnel ingress validate`, then restart, keeping the catch-all rule last.
 
+## Video conferencing (disabled by default)
+
+Conferencing code is on `main`, behind two flags that both default off. Meeting media goes
+from each browser or phone straight to Cloudflare Realtime SFU; the API drives the SFU over
+outbound HTTPS and signaling stays on `/ws/conference` through the tunnel. **The host opens
+no port for it**, and there is no media container or relay to run. Why this path, and what
+is measured: [video-network-path.md](./architecture/video-network-path.md) and
+[Decision 7](./video-conferencing-architecture.md#7-network-path-for-meeting-media--resolved-cloudflare-realtime-sfu-issue-208-2026-10-25).
+
+| Variable                                                       | Read by           | Effect                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CONFERENCE_ENABLED`                                           | api, at boot      | `true` imports the conference module: `/ws/conference`, the `/conference` REST routes and the Cloudflare client. Off, none of them load and nothing talks to Cloudflare.                                                                                                                                                                                  |
+| `NEXT_PUBLIC_CONFERENCE_ENABLED`                               | web, at **build** | `'true'` shows the nav entry and the `/conference` routes; `'false'` (the default) hides the entry and every `/conference` route returns 404; any other value fails the build. A build arg of `apps/web/Dockerfile`, which `docker-compose.prod.yml` passes from prod.env (default `false`). Changing it is a **web rebuild**, like `R2_PUBLIC_BASE_URL`. |
+| `CLOUDFLARE_REALTIME_APP_ID`, `CLOUDFLARE_REALTIME_APP_SECRET` | api               | The Realtime SFU app (Cloudflare dashboard, Realtime → Serverless SFU). Required once `CONFERENCE_ENABLED` is on: the API refuses to boot without both. The secret is the API's bearer token for the SFU and never reaches a client.                                                                                                                      |
+| `CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_KEY_API_TOKEN`      | api               | Optional, recommended in production. TURN is on only when both are set: each join then gets short-lived TURN credentials beside Cloudflare's STUN, for networks that block UDP. Free when used with the SFU ([TURN](https://developers.cloudflare.com/realtime/turn/)). Unset, clients get STUN only.                                                     |
+
+All six are commented, so optional, in `prod.env.example`; `scripts/check-prod-env.mjs`
+accepts prod.env with or without them. Turning meetings on is: add the four Cloudflare keys
+and both flags set to `true` to prod.env, then deploy. Turning them off is both flags back
+to `false` and a deploy; the API then never constructs the Cloudflare client.
+
+Cloudflare egress is free up to 1,000 GB/month, shared between the SFU and TURN, then
+$0.05/GB on the account bill
+([pricing](https://developers.cloudflare.com/realtime/sfu/platform/pricing/)).
+
+To check that TURN relays, use the
+[Trickle ICE page](https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/)
+with credentials from a join reply (a `relay` candidate means the relay works). `curl` tests
+nothing: TURN is not HTTP. How to run a meeting locally is in
+[conference-demo-runbook.md](./conference-demo-runbook.md).
+
 ## Known gaps
 
 - **Chinese speech has limits that are known and not fixed.** Kokoro spells Latin acronyms letter by letter ("ChatGPT"); `℃` and `¥` are not verbalized before synthesis; nobody has yet listened to the zh voices (47 `zf_xiaoxiao`, 51 `zm_yunxia`) for naturalness — they were chosen by round-trip intelligibility. Gemini Live refuses every pair with zh in it by design (`unsupported_language_pair`). Traditional-script output and Cantonese are out of scope.

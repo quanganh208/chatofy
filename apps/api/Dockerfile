@@ -106,9 +106,9 @@ USER nestjs
 
 EXPOSE 3000
 
-# busybox wget, not curl — node:alpine has no curl, and a HEALTHCHECK whose own
-# command is missing marks the container unhealthy forever.
+# Node's own fetch, so the check needs no extra package in the image — and a
+# HEALTHCHECK whose own command is missing marks the container unhealthy forever.
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
-  CMD wget -qO- http://127.0.0.1:3000/health || exit 1
+  CMD ["node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
 
 CMD ["node", "dist/main"]

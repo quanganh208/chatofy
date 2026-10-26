@@ -2506,6 +2506,34 @@ The first version changed 31 vicappunc lines and nearly all were wrong, which is
 
 Reproduce: the specs in `apps/api/src/modules/translate/providers/vietnamese-inverse-normalize.spec.ts`; `node benchmarks/stt/scripts/itn_holdout_check.mjs`; `node benchmarks/stt/scripts/itn_roundtrip_recall.mjs`.
 
+## Video conferencing: a mediasoup PoC, then a flagged build (05/10–25/10/2026)
+
+**The PoC (#207, 05/10).** Two browser tabs joined one room and exchanged audio and video through a mediasoup 3.28 worker spawned as a child process of the NestJS API, signaled over a new `/ws/conference` gateway that reuses the translate gateway's WebSocket auth. It took about a day, and it is why mediasoup beat LiveKit (one or two extra containers on a VM with ~3.4 GiB headroom) and Pion (a Go service the repo has no toolchain for). The PoC had no translation, one worker, no recording, no mobile, and rooms with no access control.
+
+**SFU load (#211, 11/10).** Headless Chromium on the Windows 11 dev machine over loopback: 6 × 720p60 sent 36.6 MB in 30 s (≈ 9.7 Mbps aggregate) and the worker stayed at 15–20 MiB. The harness labels that column `workerRssKB`, but it divides mediasoup's `ru_maxrss`, already KiB, by 1024. Worker CPU reads 0% on Windows, which does not report `ru_utime`.
+
+**Translation in a meeting (#209, 06/10).** Client-side capture over the live mode of `/ws/translate`, measured on two tabs of one browser: the first translated transcript reached the speaker tab 5.9 s after speech began on a warm session and 9.2 s on a cold one. Only that speaker-tab delta is clock-clean; the listener-tab times are page clocks.
+
+**Mobile (#210, 12/10).** Two-way audio and video on a physical Android 14 phone (Samsung Galaxy A13, `armeabi-v7a`) took `react-native-webrtc` 124.0.8 with the New Architecture on, `@config-plugins/react-native-webrtc` 14.0.0 (15.x needs Expo ≥ 56), the WebSocket subprotocol the mobile client had omitted (a 401 at upgrade), and existing producers in the join reply — without them a late joiner never consumed earlier tracks and the call ran one way.
+
+**Network path (#208, 12/10).** Opening media ports on the production host was the plan, and is impossible: the host is on a company network whose router is not ours, with no inbound port, no readable WAN address, and no UPnP or NAT-PMP. The choice between a VPS for mediasoup and Cloudflare's managed SFU is open; see Decision 7.
+
+**The API image (25/10).** The image had to leave Alpine: mediasoup ships no musl worker and its fallback compiles from source with a toolchain the image lacks. Debian bookworm was not enough either. mediasoup picks the prebuilt by the build host's kernel major, the Docker Desktop VM on the deploy host runs kernel 7, and the kernel-7 build needs glibc 2.38 and `GLIBCXX_3.4.31`, which bookworm (2.36) lacks — it would build on a kernel-6 CI runner and fail on the host that deploys. `node:24-trixie-slim` (glibc 2.41) runs both builds. The image grew from 971 MB to 1.10 GB, and `prisma migrate deploy` from the builder stage was proven against a fresh Postgres.
+
+**Merged behind flags.** The code went to `main` off by default: `CONFERENCE_ENABLED` keeps the module, the worker and both endpoints out of the API, so a broken mediasoup install cannot take the rest down, and `NEXT_PUBLIC_CONFERENCE_ENABLED` hides the web routes. Rooms exist only after `POST /conference`; the link is the access.
+
+## Video conferencing: media moves to Cloudflare Realtime SFU (25/10/2026)
+
+**The decision (#208).** The owner chose Cloudflare Realtime SFU over mediasoup on a relay VPS, which reopened and reversed the #207 choice. mediasoup is ICE-lite and must be reachable, and the host cannot accept an inbound connection (12/10). A VPS would have fixed that with a second host to run and pay for, and with a longer path. From the host, a TCP connect to `rtc.live.cloudflare.com` took ~21 ms (Cloudflare colo HKG) against ~68 ms to an OCI Singapore region. A relay VPS would route A → VPS → host → VPS → B, four legs estimated at 130–140 ms one way, where Cloudflare's SFU is two. Cloudflare's egress is free up to 1,000 GB/month, shared with TURN, and there is no SFU server to deploy. RealtimeKit was not taken: it would replace the app's rooms, UI and translation hooks.
+
+**The spike, from the prod host's network.** Two headless Chromium pages ran against the real Cloudflare app, with every Cloudflare call made from Node so the secret never reached a page. A track pulled immediately after its publish worked, with the first frame after 1,720 ms. RTT p50 was 24 ms (n 17). A video track muted with `track.enabled = false` for 45 s kept playing, so Cloudflare's 30 s no-media rule does not fire on mute, and no black-frame path was built. Two mutations sent at once on one session got 406 `invalid_session_description`, which is why the API runs every Cloudflare call on a session through one queue. TURN was not tested, because no TURN key existed yet.
+
+**What changed.** The API drives two SFU sessions per participant, one to publish and one to receive, over outbound HTTPS. A subscribe is a delta the server computes; the client never names tracks. Web and mobile dropped `mediasoup-client` for plain `RTCPeerConnection` and `react-native-webrtc`. mediasoup, the dev coturn relay, the RTC port range, `GET /conference/metrics` and the `benchmarks/video` harness are gone. The API image went back to `node:24-alpine`, ending the trixie workaround above. New configuration: `CLOUDFLARE_REALTIME_APP_ID` and `_SECRET`, required when `CONFERENCE_ENABLED` is on, and an optional TURN key pair. `NEXT_PUBLIC_CONFERENCE_ENABLED` is now passed as a production build arg, defaulting to off.
+
+**Live check.** Two headless Chromium users went through the real web UI, a local API and the real Cloudflare app, and passed 11 of 11 checks. Both played 2 videos, chat crossed, leaving dropped the tile, and there was no overflow at 768 or 375 wide. RTT was 24 ms. The API log held no SDP, bearer token or ICE password.
+
+Still open: one call between two real networks on production (Wi-Fi laptop and 4G phone), the mobile device run on Cloudflare, and the TURN path. The table is in `docs/architecture/video-network-path.md` §4.2. Evidence: `plans/261025-1812-cloudflare-realtime-sfu/` (`spike/results.md`, `research/cloudflare-realtime-sfu-api.md`).
+
 ## Adding Chinese to auto-detect, measured and stopped (24/10/2026)
 
 Identification shipped for vi and en only. The bake-off scored zh, and it failed one required criterion: short Chinese turns were right 0.569 of the time against a 0.85 bar. Before trying to fix it, the user set the terms. Three-way detect may cost short vi and en turns at most 2 points against two-way detect on the same turns, and the vi↔zh and en↔zh pairs must pass the same bar as vi↔en. That first rule was new to the gate. Without it, adding zh would have looked free: on the shipped arm it quietly costs short English 7 points and short Vietnamese 13.
@@ -2537,3 +2565,5 @@ Three voters were then measured on the same 1431 short turns, with parameters ch
 - **Their combination with Whisper-base:** passes everything in-sample and fails held-out.
 
 The only thing that passed held-out was the simplest: **Whisper medium with one zh bias**. Short en −0.8/−1.5 points, short vi +8.7, short zh 0.874/0.860, and Mainland RAMC 0.916. Medium needs 3.4 s per decision on CPU, so the question is no longer what to build. It is whether to rent a GPU.
+
+On 26/10 the owner answered it: no GPU. Auto-detect stays vi/en, and Chinese is reached by choosing it, which the production Paraformer engine already serves. The bench stays in `benchmarks/lid` for whoever reopens this with a CPU lever that meets the same bars.
