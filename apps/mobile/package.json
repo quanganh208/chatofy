@@ -12,6 +12,7 @@
     "test": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON \"src/**/*.test.ts\""
   },
   "dependencies": {
+    "@chatofy/api-client": "workspace:*",
     "@chatofy/i18n": "workspace:*",
     "@chatofy/realtime-client": "workspace:*",
     "@chatofy/types": "workspace:*",

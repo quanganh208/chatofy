@@ -319,6 +319,7 @@ app builds them, since shadcn exists only for web. No spec counts accents on mob
 | In-call                         | 0 — Leave is filled `destructive`, a state colour | 0 — the control bar is a bordered bar |
 | Chat, roster or transcript open | 0                                                 | 1 — the bottom sheet (`Modal`)        |
 | Error states                    | 1 — Back to lobby                                 | 0                                     |
+| End screen, loaded              | 1 — Back to lobby                                 | 2 — summary card, minutes card        |
 
 Web and mobile differ on Leave: the accent on web, the destructive state colour on
 mobile. Both pass the budget.
@@ -329,7 +330,10 @@ Built on web as `apps/web/app/(app)/conference/[roomId]/ended/page.tsx`. In-call
 **Leave** goes here, and so does everyone still in the call when the owner ends the room
 (both by `router.replace`, so Back does not rejoin). Leaving clears the
 `conference:active` session key, so the lobby does not bounce back into the room.
-Error states still offer **Back to lobby**. Mobile is not built yet (#250).
+Error states still offer **Back to lobby**. Mobile mirrors it as
+`apps/mobile/app/(app)/conference/ended.tsx` (Leave and owner-ended both `replace` to it),
+with the same two cards and the one accent; it writes the minutes in the language the
+caller spoke in the call, since the mobile UI has no locale of its own yet.
 
 ```
 ┌─────────────────────────────────────────┐
@@ -360,6 +364,10 @@ Error states still offer **Back to lobby**. Mobile is not built yet (#250).
   `ConferenceTurn` rows in creation order, labelled with each speaker's display name.
   The owner and every participant can read it. Anyone else gets the same 404 as
   `GET /conference/:id`. A failed pass keeps an existing `ready` copy.
+- **Duration** runs from the first join to the end of the meeting: the owner ending the
+  room, or — as is usual, since no client ends rooms — the last participant leaving
+  (`conferenceDurationMinutes` in `@chatofy/types`, shared by web and mobile). While
+  anyone is still in the room it reads "Not recorded".
 - **States:** loading, not a room the caller was in, no minutes yet, generating,
   minutes ready, last pass failed. Each one is a row in `accent-budget-app.spec.tsx`.
   A room with no turns disables Generate and says there is nothing to summarize.

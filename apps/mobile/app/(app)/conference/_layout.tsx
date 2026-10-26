@@ -28,6 +28,7 @@ export default function ConferenceLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="[roomId]" />
+      <Stack.Screen name="ended" />
     </Stack>
   );
 }

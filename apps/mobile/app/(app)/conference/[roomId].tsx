@@ -175,10 +175,26 @@ export default function ConferenceCallScreen() {
     return stopMeetingForegroundService;
   }, [callLive]);
 
-  const onLeave = useCallback(() => {
+  // A dead end (refused, not found, disconnected) goes back to the lobby.
+  const onBackToLobby = useCallback(() => {
     leave();
     router.back();
   }, [leave, router]);
+
+  // Leaving a call, or the owner ending it, lands on the end screen: the
+  // meeting's summary and its minutes. `replace`, so Back does not re-enter it.
+  const showEndScreen = useCallback(() => {
+    router.replace({ pathname: '/conference/ended', params: { roomId, lang: sourceLanguage } });
+  }, [router, roomId, sourceLanguage]);
+
+  const onLeave = useCallback(() => {
+    leave();
+    showEndScreen();
+  }, [leave, showEndScreen]);
+
+  useEffect(() => {
+    if (errorReason === 'room-ended') showEndScreen();
+  }, [errorReason, showEndScreen]);
 
   const banner = useMemo(() => {
     if (status === 'connecting') return t('mobile.conference.connecting');
@@ -220,7 +236,7 @@ export default function ConferenceCallScreen() {
         ) : null}
         <TouchableOpacity
           style={[styles.backToLobby, { backgroundColor: colors.primary }]}
-          onPress={onLeave}
+          onPress={onBackToLobby}
           activeOpacity={0.8}
           accessibilityRole="button"
         >
