@@ -1,0 +1,1912 @@
+{
+  "per_arm": {
+    "whisper_probs_base_ctx5": {
+      "variant": "src",
+      "A1.en-vi": {
+        "value": 0.9859,
+        "threshold": ">=0.97",
+        "pass": true,
+        "n": 5586,
+        "data": "real"
+      },
+      "A1.vi-zh": {
+        "value": 0.987,
+        "threshold": ">=0.97",
+        "pass": true,
+        "n": 3468,
+        "data": "mixed"
+      },
+      "A1.en-zh": {
+        "value": 0.9894,
+        "threshold": ">=0.97",
+        "pass": true,
+        "n": 4332,
+        "data": "mixed"
+      },
+      "A2.en-vi": {
+        "value": 0.9307,
+        "threshold": ">=0.90 raw OR <=0.05 err after fallback",
+        "pass": true,
+        "n": 1227,
+        "data": "real+cv"
+      },
+      "A2.en-vi.err_after_fallback": {
+        "value": 0.0733,
+        "threshold": "<=0.05",
+        "pass": false,
+        "n": 1227,
+        "data": "real+cv"
+      },
+      "A2.en-vi.edacc": {
+        "value": 0.9868,
+        "threshold": "report",
+        "pass": null,
+        "n": 911,
+        "data": "edacc"
+      },
+      "A2.en-vi.rerecorded": {
+        "value": 0.875,
+        "threshold": "report",
+        "pass": null,
+        "n": 24,
+        "data": "rerecorded"
+      },
+      "A2.en-vi.vietmed": {
+        "value": 0.8333,
+        "threshold": "report",
+        "pass": null,
+        "n": 6,
+        "data": "vietmed"
+      },
+      "A2.en-vi.vietmed-cut": {
+        "value": 0.7376,
+        "threshold": "report",
+        "pass": null,
+        "n": 282,
+        "data": "vietmed-cut"
+      },
+      "A2.en-vi.vimedcss": {
+        "value": 1.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 4,
+        "data": "vimedcss"
+      },
+      "A2.vi-zh": {
+        "value": 0.8182,
+        "threshold": ">=0.90 raw OR <=0.05 err after fallback",
+        "pass": false,
+        "n": 440,
+        "data": "real+cv"
+      },
+      "A2.vi-zh.err_after_fallback": {
+        "value": 0.1886,
+        "threshold": "<=0.05",
+        "pass": false,
+        "n": 440,
+        "data": "real+cv"
+      },
+      "A2.vi-zh.ascend": {
+        "value": 0.9828,
+        "threshold": "report",
+        "pass": null,
+        "n": 116,
+        "data": "ascend"
+      },
+      "A2.vi-zh.rerecorded": {
+        "value": 0.8438,
+        "threshold": "report",
+        "pass": null,
+        "n": 32,
+        "data": "rerecorded"
+      },
+      "A2.vi-zh.vietmed": {
+        "value": 1.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 6,
+        "data": "vietmed"
+      },
+      "A2.vi-zh.vietmed-cut": {
+        "value": 0.7305,
+        "threshold": "report",
+        "pass": null,
+        "n": 282,
+        "data": "vietmed-cut"
+      },
+      "A2.vi-zh.vimedcss": {
+        "value": 1.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 4,
+        "data": "vimedcss"
+      },
+      "A2.en-zh": {
+        "value": 0.8625,
+        "threshold": ">=0.90 raw OR <=0.05 err after fallback",
+        "pass": false,
+        "n": 2094,
+        "data": "real+cv"
+      },
+      "A2.en-zh.err_after_fallback": {
+        "value": 0.1366,
+        "threshold": "<=0.05",
+        "pass": false,
+        "n": 2094,
+        "data": "real+cv"
+      },
+      "A2.en-zh.ascend": {
+        "value": 0.8326,
+        "threshold": "report",
+        "pass": null,
+        "n": 1374,
+        "data": "ascend"
+      },
+      "A2.en-zh.edacc": {
+        "value": 0.926,
+        "threshold": "report",
+        "pass": null,
+        "n": 676,
+        "data": "edacc"
+      },
+      "A2.en-zh.rerecorded": {
+        "value": 0.8636,
+        "threshold": "report",
+        "pass": null,
+        "n": 44,
+        "data": "rerecorded"
+      },
+      "A3.long.vien": {
+        "value": 0.9801,
+        "threshold": ">=0.95",
+        "pass": true,
+        "n": 3928,
+        "data": "real"
+      },
+      "A3.long.zh": {
+        "value": 0.9921,
+        "threshold": ">=0.95",
+        "pass": true,
+        "n": 1135,
+        "data": "mixed"
+      },
+      "A3.short.vien": {
+        "value": 0.8658,
+        "threshold": ">=0.85",
+        "pass": true,
+        "n": 939,
+        "data": "real"
+      },
+      "A3.short.zh": {
+        "value": 0.7907,
+        "threshold": ">=0.85",
+        "pass": false,
+        "n": 492,
+        "data": "real"
+      },
+      "A3.long.by_lang.en": {
+        "value": 0.9778,
+        "threshold": "report",
+        "pass": null,
+        "n": 1623,
+        "data": "real"
+      },
+      "A3.long.by_lang.vi": {
+        "value": 0.9818,
+        "threshold": "report",
+        "pass": null,
+        "n": 2305,
+        "data": "real"
+      },
+      "A3.long.by_lang.zh": {
+        "value": 0.9858,
+        "threshold": "report",
+        "pass": null,
+        "n": 635,
+        "data": "real"
+      },
+      "A3.short.by_lang.en": {
+        "value": 0.9127,
+        "threshold": "report",
+        "pass": null,
+        "n": 790,
+        "data": "real"
+      },
+      "A3.short.by_lang.en.ascend": {
+        "value": 0.8798,
+        "threshold": "report",
+        "pass": null,
+        "n": 208,
+        "data": "ascend"
+      },
+      "A3.short.by_lang.en.edacc": {
+        "value": 0.925,
+        "threshold": "report",
+        "pass": null,
+        "n": 573,
+        "data": "edacc"
+      },
+      "A3.short.by_lang.en.rerecorded": {
+        "value": 0.8889,
+        "threshold": "report",
+        "pass": null,
+        "n": 9,
+        "data": "rerecorded"
+      },
+      "A3.short.by_lang.vi": {
+        "value": 0.6174,
+        "threshold": "report",
+        "pass": null,
+        "n": 149,
+        "data": "real"
+      },
+      "A3.short.by_lang.vi.rerecorded": {
+        "value": 0.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 3,
+        "data": "rerecorded"
+      },
+      "A3.short.by_lang.vi.vietmed": {
+        "value": 1.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 3,
+        "data": "vietmed"
+      },
+      "A3.short.by_lang.vi.vietmed-cut": {
+        "value": 0.617,
+        "threshold": "report",
+        "pass": null,
+        "n": 141,
+        "data": "vietmed-cut"
+      },
+      "A3.short.by_lang.vi.vimedcss": {
+        "value": 1.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 2,
+        "data": "vimedcss"
+      },
+      "A3.short.by_lang.zh": {
+        "value": 0.7907,
+        "threshold": "report",
+        "pass": null,
+        "n": 492,
+        "data": "real"
+      },
+      "A3.short.by_lang.zh.ascend": {
+        "value": 0.7912,
+        "threshold": "report",
+        "pass": null,
+        "n": 479,
+        "data": "ascend"
+      },
+      "A3.short.by_lang.zh.rerecorded": {
+        "value": 0.7692,
+        "threshold": "report",
+        "pass": null,
+        "n": 13,
+        "data": "rerecorded"
+      },
+      "detect2v3.short.vi": {
+        "value": -0.1275,
+        "threshold": ">=-0.02",
+        "pass": false,
+        "n": 149,
+        "data": "real"
+      },
+      "detect2v3.short.en": {
+        "value": -0.0747,
+        "threshold": ">=-0.02",
+        "pass": false,
+        "n": 790,
+        "data": "real"
+      },
+      "excluded.en": {
+        "value": 0.1875,
+        "threshold": "report",
+        "pass": null,
+        "n": 2970,
+        "data": "real"
+      },
+      "excluded.vi": {
+        "value": 0.0089,
+        "threshold": "report",
+        "pass": null,
+        "n": 2476,
+        "data": "real"
+      },
+      "excluded.zh": {
+        "value": 0.195,
+        "threshold": "report",
+        "pass": null,
+        "n": 1400,
+        "data": "real"
+      },
+      "A4": {
+        "value": 0.9634,
+        "threshold": ">=0.95",
+        "pass": true,
+        "n": 1833,
+        "data": "real"
+      },
+      "A5": {
+        "value": 0.9062,
+        "threshold": ">=0.90 rejected",
+        "pass": true,
+        "n": 160,
+        "data": "esc50+real"
+      },
+      "A5.esc50": {
+        "value": 0.9,
+        "threshold": "report",
+        "pass": null,
+        "n": 80,
+        "data": "esc50"
+      },
+      "A5.real": {
+        "value": 0.9125,
+        "threshold": "report",
+        "pass": null,
+        "n": 80,
+        "data": "real"
+      },
+      "A6.en-vi.first_language_p95_ms": {
+        "value": 3099.13,
+        "threshold": "<=3500",
+        "pass": true,
+        "n": 6813,
+        "data": "real"
+      },
+      "A6.en-vi.changed": {
+        "value": 0.0737,
+        "threshold": "<=0.10",
+        "pass": true,
+        "n": 6618,
+        "data": "real"
+      },
+      "lock.en-vi.accuracy": {
+        "value": 0.8996,
+        "threshold": "report",
+        "pass": null,
+        "n": 5297,
+        "data": "real"
+      },
+      "A6.vi-zh.first_language_p95_ms": {
+        "value": 3086.382,
+        "threshold": "<=3500",
+        "pass": true,
+        "n": 3908,
+        "data": "mixed"
+      },
+      "A6.vi-zh.changed": {
+        "value": 0.084,
+        "threshold": "<=0.10",
+        "pass": true,
+        "n": 3894,
+        "data": "mixed"
+      },
+      "lock.vi-zh.accuracy": {
+        "value": 0.8971,
+        "threshold": "report",
+        "pass": null,
+        "n": 3440,
+        "data": "mixed"
+      },
+      "A6.en-zh.first_language_p95_ms": {
+        "value": 3094.475,
+        "threshold": "<=3500",
+        "pass": true,
+        "n": 6426,
+        "data": "mixed"
+      },
+      "A6.en-zh.changed": {
+        "value": 0.0102,
+        "threshold": "<=0.10",
+        "pass": true,
+        "n": 6156,
+        "data": "mixed"
+      },
+      "lock.en-zh.accuracy": {
+        "value": 0.9808,
+        "threshold": "report",
+        "pass": null,
+        "n": 4052,
+        "data": "mixed"
+      },
+      "A7": {
+        "value": 125.71,
+        "threshold": "<=150 ms p95",
+        "pass": true,
+        "n": 29672,
+        "data": "mixed"
+      },
+      "A-ACC.pair": {
+        "value": 0.9756,
+        "threshold": ">=0.95",
+        "pass": true,
+        "n": 616,
+        "data": "public"
+      },
+      "A-ACC.detect": {
+        "value": 0.9636,
+        "threshold": ">=0.95",
+        "pass": true,
+        "n": 604,
+        "data": "public"
+      },
+      "A9-mono.en": {
+        "value": 0.0145,
+        "threshold": "<=0.03 err (worst source)",
+        "pass": true,
+        "n": 138,
+        "data": "real"
+      },
+      "A9-mono.vi": {
+        "value": 0.0,
+        "threshold": "<=0.03 err (worst source)",
+        "pass": true,
+        "n": 200,
+        "data": "real"
+      },
+      "zh_real.A1.vi-zh": {
+        "value": 1.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 150,
+        "data": "real"
+      },
+      "zh_real.A1.en-zh": {
+        "value": 0.9858,
+        "threshold": "report",
+        "pass": null,
+        "n": 1270,
+        "data": "real"
+      },
+      "zh_real.A3": {
+        "value": 0.7579,
+        "threshold": "report",
+        "pass": null,
+        "n": 1400,
+        "data": "real"
+      },
+      "v4.A1.en-vi": {
+        "value": 0.9849,
+        "threshold": "report",
+        "pass": null,
+        "n": 5612,
+        "data": "real"
+      },
+      "v4.A1.vi-zh": {
+        "value": 0.9857,
+        "threshold": "report",
+        "pass": null,
+        "n": 3492,
+        "data": "mixed"
+      },
+      "v4.A1.en-zh": {
+        "value": 0.9894,
+        "threshold": "report",
+        "pass": null,
+        "n": 4334,
+        "data": "mixed"
+      },
+      "v4.A2.en-vi": {
+        "value": 0.9517,
+        "threshold": "report",
+        "pass": null,
+        "n": 2050,
+        "data": "real+cv"
+      },
+      "v4.A2.en-vi.err_after_fallback": {
+        "value": 0.0512,
+        "threshold": "report",
+        "pass": null,
+        "n": 2050,
+        "data": "real+cv"
+      },
+      "v4.A2.en-vi.edacc": {
+        "value": 0.9929,
+        "threshold": "report",
+        "pass": null,
+        "n": 1682,
+        "data": "edacc"
+      },
+      "v4.A2.en-vi.rerecorded": {
+        "value": 0.9464,
+        "threshold": "report",
+        "pass": null,
+        "n": 56,
+        "data": "rerecorded"
+      },
+      "v4.A2.en-vi.vietmed": {
+        "value": 0.8333,
+        "threshold": "report",
+        "pass": null,
+        "n": 6,
+        "data": "vietmed"
+      },
+      "v4.A2.en-vi.vietmed-cut": {
+        "value": 0.71,
+        "threshold": "report",
+        "pass": null,
+        "n": 300,
+        "data": "vietmed-cut"
+      },
+      "v4.A2.en-vi.vimedcss": {
+        "value": 0.6667,
+        "threshold": "report",
+        "pass": null,
+        "n": 6,
+        "data": "vimedcss"
+      },
+      "v4.A2.vi-zh": {
+        "value": 0.813,
+        "threshold": "report",
+        "pass": null,
+        "n": 524,
+        "data": "real+cv"
+      },
+      "v4.A2.vi-zh.err_after_fallback": {
+        "value": 0.187,
+        "threshold": "report",
+        "pass": null,
+        "n": 524,
+        "data": "real+cv"
+      },
+      "v4.A2.vi-zh.ascend": {
+        "value": 0.9868,
+        "threshold": "report",
+        "pass": null,
+        "n": 152,
+        "data": "ascend"
+      },
+      "v4.A2.vi-zh.rerecorded": {
+        "value": 0.9167,
+        "threshold": "report",
+        "pass": null,
+        "n": 60,
+        "data": "rerecorded"
+      },
+      "v4.A2.vi-zh.vietmed": {
+        "value": 1.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 6,
+        "data": "vietmed"
+      },
+      "v4.A2.vi-zh.vietmed-cut": {
+        "value": 0.7033,
+        "threshold": "report",
+        "pass": null,
+        "n": 300,
+        "data": "vietmed-cut"
+      },
+      "v4.A2.vi-zh.vimedcss": {
+        "value": 0.6667,
+        "threshold": "report",
+        "pass": null,
+        "n": 6,
+        "data": "vimedcss"
+      },
+      "v4.A2.en-zh": {
+        "value": 0.7695,
+        "threshold": "report",
+        "pass": null,
+        "n": 3314,
+        "data": "real+cv"
+      },
+      "v4.A2.en-zh.err_after_fallback": {
+        "value": 0.2314,
+        "threshold": "report",
+        "pass": null,
+        "n": 3314,
+        "data": "real+cv"
+      },
+      "v4.A2.en-zh.ascend": {
+        "value": 0.663,
+        "threshold": "report",
+        "pass": null,
+        "n": 1982,
+        "data": "ascend"
+      },
+      "v4.A2.en-zh.edacc": {
+        "value": 0.9397,
+        "threshold": "report",
+        "pass": null,
+        "n": 1228,
+        "data": "edacc"
+      },
+      "v4.A2.en-zh.rerecorded": {
+        "value": 0.7596,
+        "threshold": "report",
+        "pass": null,
+        "n": 104,
+        "data": "rerecorded"
+      },
+      "v4.A3.long.vien": {
+        "value": 0.9794,
+        "threshold": "report",
+        "pass": null,
+        "n": 3941,
+        "data": "real"
+      },
+      "v4.A3.long.zh": {
+        "value": 0.9921,
+        "threshold": "report",
+        "pass": null,
+        "n": 1135,
+        "data": "mixed"
+      },
+      "v4.A3.short.vien": {
+        "value": 0.8917,
+        "threshold": "report",
+        "pass": null,
+        "n": 1505,
+        "data": "real"
+      },
+      "v4.A3.short.zh": {
+        "value": 0.5686,
+        "threshold": "report",
+        "pass": null,
+        "n": 765,
+        "data": "real"
+      },
+      "v4.A3.long.by_lang.en": {
+        "value": 0.9778,
+        "threshold": "report",
+        "pass": null,
+        "n": 1624,
+        "data": "real"
+      },
+      "v4.A3.long.by_lang.vi": {
+        "value": 0.9806,
+        "threshold": "report",
+        "pass": null,
+        "n": 2317,
+        "data": "real"
+      },
+      "v4.A3.long.by_lang.zh": {
+        "value": 0.9858,
+        "threshold": "report",
+        "pass": null,
+        "n": 635,
+        "data": "real"
+      },
+      "v4.A3.short.by_lang.en": {
+        "value": 0.9279,
+        "threshold": "report",
+        "pass": null,
+        "n": 1346,
+        "data": "real"
+      },
+      "v4.A3.short.by_lang.en.ascend": {
+        "value": 0.8854,
+        "threshold": "report",
+        "pass": null,
+        "n": 253,
+        "data": "ascend"
+      },
+      "v4.A3.short.by_lang.en.edacc": {
+        "value": 0.9373,
+        "threshold": "report",
+        "pass": null,
+        "n": 1068,
+        "data": "edacc"
+      },
+      "v4.A3.short.by_lang.en.rerecorded": {
+        "value": 0.96,
+        "threshold": "report",
+        "pass": null,
+        "n": 25,
+        "data": "rerecorded"
+      },
+      "v4.A3.short.by_lang.vi": {
+        "value": 0.5849,
+        "threshold": "report",
+        "pass": null,
+        "n": 159,
+        "data": "real"
+      },
+      "v4.A3.short.by_lang.vi.rerecorded": {
+        "value": 0.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 3,
+        "data": "rerecorded"
+      },
+      "v4.A3.short.by_lang.vi.vietmed": {
+        "value": 1.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 3,
+        "data": "vietmed"
+      },
+      "v4.A3.short.by_lang.vi.vietmed-cut": {
+        "value": 0.5867,
+        "threshold": "report",
+        "pass": null,
+        "n": 150,
+        "data": "vietmed-cut"
+      },
+      "v4.A3.short.by_lang.vi.vimedcss": {
+        "value": 0.6667,
+        "threshold": "report",
+        "pass": null,
+        "n": 3,
+        "data": "vimedcss"
+      },
+      "v4.A3.short.by_lang.zh": {
+        "value": 0.5686,
+        "threshold": "report",
+        "pass": null,
+        "n": 765,
+        "data": "real"
+      },
+      "v4.A3.short.by_lang.zh.ascend": {
+        "value": 0.5691,
+        "threshold": "report",
+        "pass": null,
+        "n": 738,
+        "data": "ascend"
+      },
+      "v4.A3.short.by_lang.zh.rerecorded": {
+        "value": 0.5556,
+        "threshold": "report",
+        "pass": null,
+        "n": 27,
+        "data": "rerecorded"
+      },
+      "v4.detect2v3.short.vi": {
+        "value": -0.1321,
+        "threshold": "report",
+        "pass": null,
+        "n": 159,
+        "data": "real"
+      },
+      "v4.detect2v3.short.en": {
+        "value": -0.0632,
+        "threshold": "report",
+        "pass": null,
+        "n": 1346,
+        "data": "real"
+      },
+      "v4.A4": {
+        "value": 0.9634,
+        "threshold": "report",
+        "pass": null,
+        "n": 1833,
+        "data": "real"
+      },
+      "v4.A5": {
+        "value": 0.9062,
+        "threshold": "report",
+        "pass": null,
+        "n": 160,
+        "data": "esc50+real"
+      },
+      "v4.A5.esc50": {
+        "value": 0.9,
+        "threshold": "report",
+        "pass": null,
+        "n": 80,
+        "data": "esc50"
+      },
+      "v4.A5.real": {
+        "value": 0.9125,
+        "threshold": "report",
+        "pass": null,
+        "n": 80,
+        "data": "real"
+      },
+      "v4.A6.en-vi.first_language_p95_ms": {
+        "value": 3096.78,
+        "threshold": "report",
+        "pass": null,
+        "n": 7662,
+        "data": "real"
+      },
+      "v4.A6.en-vi.changed": {
+        "value": 0.0734,
+        "threshold": "report",
+        "pass": null,
+        "n": 6758,
+        "data": "real"
+      },
+      "v4.lock.en-vi.accuracy": {
+        "value": 0.8974,
+        "threshold": "report",
+        "pass": null,
+        "n": 5321,
+        "data": "real"
+      },
+      "v4.A6.vi-zh.first_language_p95_ms": {
+        "value": 3086.32,
+        "threshold": "report",
+        "pass": null,
+        "n": 4016,
+        "data": "mixed"
+      },
+      "v4.A6.vi-zh.changed": {
+        "value": 0.085,
+        "threshold": "report",
+        "pass": null,
+        "n": 3952,
+        "data": "mixed"
+      },
+      "v4.lock.vi-zh.accuracy": {
+        "value": 0.8955,
+        "threshold": "report",
+        "pass": null,
+        "n": 3464,
+        "data": "mixed"
+      },
+      "v4.A6.en-zh.first_language_p95_ms": {
+        "value": 3090.15,
+        "threshold": "report",
+        "pass": null,
+        "n": 7648,
+        "data": "mixed"
+      },
+      "v4.A6.en-zh.changed": {
+        "value": 0.0098,
+        "threshold": "report",
+        "pass": null,
+        "n": 6428,
+        "data": "mixed"
+      },
+      "v4.lock.en-zh.accuracy": {
+        "value": 0.9808,
+        "threshold": "report",
+        "pass": null,
+        "n": 4052,
+        "data": "mixed"
+      },
+      "v4.A7": {
+        "value": 125.71,
+        "threshold": "report",
+        "pass": null,
+        "n": 29672,
+        "data": "mixed"
+      },
+      "v4.A-ACC.pair": {
+        "value": 0.9756,
+        "threshold": "report",
+        "pass": null,
+        "n": 616,
+        "data": "public"
+      },
+      "v4.A-ACC.detect": {
+        "value": 0.9636,
+        "threshold": "report",
+        "pass": null,
+        "n": 604,
+        "data": "public"
+      },
+      "v4.A9-mono.en": {
+        "value": 0.01,
+        "threshold": "report",
+        "pass": null,
+        "n": 200,
+        "data": "real"
+      },
+      "v4.A9-mono.vi": {
+        "value": 0.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 200,
+        "data": "real"
+      },
+      "v4.zh_real.A1.vi-zh": {
+        "value": 1.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 150,
+        "data": "real"
+      },
+      "v4.zh_real.A1.en-zh": {
+        "value": 0.9858,
+        "threshold": "report",
+        "pass": null,
+        "n": 1270,
+        "data": "real"
+      },
+      "v4.zh_real.A3": {
+        "value": 0.7579,
+        "threshold": "report",
+        "pass": null,
+        "n": 1400,
+        "data": "real"
+      }
+    },
+    "whisper_head": {
+      "variant": "src",
+      "A1.en-vi": {
+        "value": 0.9629,
+        "threshold": ">=0.97",
+        "pass": false,
+        "n": 5586,
+        "data": "real"
+      },
+      "A1.vi-zh": {
+        "value": 0.9908,
+        "threshold": ">=0.97",
+        "pass": true,
+        "n": 3468,
+        "data": "mixed"
+      },
+      "A1.en-zh": {
+        "value": 0.9453,
+        "threshold": ">=0.97",
+        "pass": false,
+        "n": 4332,
+        "data": "mixed"
+      },
+      "A2.en-vi": {
+        "value": 0.8598,
+        "threshold": ">=0.90 raw OR <=0.05 err after fallback",
+        "pass": false,
+        "n": 1227,
+        "data": "real+cv"
+      },
+      "A2.en-vi.err_after_fallback": {
+        "value": 0.1508,
+        "threshold": "<=0.05",
+        "pass": false,
+        "n": 1227,
+        "data": "real+cv"
+      },
+      "A2.en-vi.edacc": {
+        "value": 0.8716,
+        "threshold": "report",
+        "pass": null,
+        "n": 911,
+        "data": "edacc"
+      },
+      "A2.en-vi.rerecorded": {
+        "value": 0.75,
+        "threshold": "report",
+        "pass": null,
+        "n": 24,
+        "data": "rerecorded"
+      },
+      "A2.en-vi.vietmed": {
+        "value": 1.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 6,
+        "data": "vietmed"
+      },
+      "A2.en-vi.vietmed-cut": {
+        "value": 0.7801,
+        "threshold": "report",
+        "pass": null,
+        "n": 282,
+        "data": "vietmed-cut"
+      },
+      "A2.en-vi.vimedcss": {
+        "value": 1.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 4,
+        "data": "vimedcss"
+      },
+      "A2.vi-zh": {
+        "value": 0.7,
+        "threshold": ">=0.90 raw OR <=0.05 err after fallback",
+        "pass": false,
+        "n": 440,
+        "data": "real+cv"
+      },
+      "A2.vi-zh.err_after_fallback": {
+        "value": 0.3,
+        "threshold": "<=0.05",
+        "pass": false,
+        "n": 440,
+        "data": "real+cv"
+      },
+      "A2.vi-zh.ascend": {
+        "value": 0.8276,
+        "threshold": "report",
+        "pass": null,
+        "n": 116,
+        "data": "ascend"
+      },
+      "A2.vi-zh.rerecorded": {
+        "value": 0.5625,
+        "threshold": "report",
+        "pass": null,
+        "n": 32,
+        "data": "rerecorded"
+      },
+      "A2.vi-zh.vietmed": {
+        "value": 0.6667,
+        "threshold": "report",
+        "pass": null,
+        "n": 6,
+        "data": "vietmed"
+      },
+      "A2.vi-zh.vietmed-cut": {
+        "value": 0.6667,
+        "threshold": "report",
+        "pass": null,
+        "n": 282,
+        "data": "vietmed-cut"
+      },
+      "A2.vi-zh.vimedcss": {
+        "value": 0.5,
+        "threshold": "report",
+        "pass": null,
+        "n": 4,
+        "data": "vimedcss"
+      },
+      "A2.en-zh": {
+        "value": 0.5931,
+        "threshold": ">=0.90 raw OR <=0.05 err after fallback",
+        "pass": false,
+        "n": 2094,
+        "data": "real+cv"
+      },
+      "A2.en-zh.err_after_fallback": {
+        "value": 0.4069,
+        "threshold": "<=0.05",
+        "pass": false,
+        "n": 2094,
+        "data": "real+cv"
+      },
+      "A2.en-zh.ascend": {
+        "value": 0.5342,
+        "threshold": "report",
+        "pass": null,
+        "n": 1374,
+        "data": "ascend"
+      },
+      "A2.en-zh.edacc": {
+        "value": 0.7278,
+        "threshold": "report",
+        "pass": null,
+        "n": 676,
+        "data": "edacc"
+      },
+      "A2.en-zh.rerecorded": {
+        "value": 0.3636,
+        "threshold": "report",
+        "pass": null,
+        "n": 44,
+        "data": "rerecorded"
+      },
+      "A3.long.vien": {
+        "value": 0.9603,
+        "threshold": ">=0.95",
+        "pass": true,
+        "n": 3928,
+        "data": "real"
+      },
+      "A3.long.zh": {
+        "value": 0.8996,
+        "threshold": ">=0.95",
+        "pass": false,
+        "n": 1135,
+        "data": "mixed"
+      },
+      "A3.short.vien": {
+        "value": 0.7274,
+        "threshold": ">=0.85",
+        "pass": false,
+        "n": 939,
+        "data": "real"
+      },
+      "A3.short.zh": {
+        "value": 0.3069,
+        "threshold": ">=0.85",
+        "pass": false,
+        "n": 492,
+        "data": "real"
+      },
+      "A3.long.by_lang.en": {
+        "value": 0.9131,
+        "threshold": "report",
+        "pass": null,
+        "n": 1623,
+        "data": "real"
+      },
+      "A3.long.by_lang.vi": {
+        "value": 0.9935,
+        "threshold": "report",
+        "pass": null,
+        "n": 2305,
+        "data": "real"
+      },
+      "A3.long.by_lang.zh": {
+        "value": 0.8299,
+        "threshold": "report",
+        "pass": null,
+        "n": 635,
+        "data": "real"
+      },
+      "A3.short.by_lang.en": {
+        "value": 0.7544,
+        "threshold": "report",
+        "pass": null,
+        "n": 790,
+        "data": "real"
+      },
+      "A3.short.by_lang.en.ascend": {
+        "value": 0.9952,
+        "threshold": "report",
+        "pass": null,
+        "n": 208,
+        "data": "ascend"
+      },
+      "A3.short.by_lang.en.edacc": {
+        "value": 0.6684,
+        "threshold": "report",
+        "pass": null,
+        "n": 573,
+        "data": "edacc"
+      },
+      "A3.short.by_lang.en.rerecorded": {
+        "value": 0.6667,
+        "threshold": "report",
+        "pass": null,
+        "n": 9,
+        "data": "rerecorded"
+      },
+      "A3.short.by_lang.vi": {
+        "value": 0.5839,
+        "threshold": "report",
+        "pass": null,
+        "n": 149,
+        "data": "real"
+      },
+      "A3.short.by_lang.vi.rerecorded": {
+        "value": 0.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 3,
+        "data": "rerecorded"
+      },
+      "A3.short.by_lang.vi.vietmed": {
+        "value": 0.6667,
+        "threshold": "report",
+        "pass": null,
+        "n": 3,
+        "data": "vietmed"
+      },
+      "A3.short.by_lang.vi.vietmed-cut": {
+        "value": 0.5957,
+        "threshold": "report",
+        "pass": null,
+        "n": 141,
+        "data": "vietmed-cut"
+      },
+      "A3.short.by_lang.vi.vimedcss": {
+        "value": 0.5,
+        "threshold": "report",
+        "pass": null,
+        "n": 2,
+        "data": "vimedcss"
+      },
+      "A3.short.by_lang.zh": {
+        "value": 0.3069,
+        "threshold": "report",
+        "pass": null,
+        "n": 492,
+        "data": "real"
+      },
+      "A3.short.by_lang.zh.ascend": {
+        "value": 0.3132,
+        "threshold": "report",
+        "pass": null,
+        "n": 479,
+        "data": "ascend"
+      },
+      "A3.short.by_lang.zh.rerecorded": {
+        "value": 0.0769,
+        "threshold": "report",
+        "pass": null,
+        "n": 13,
+        "data": "rerecorded"
+      },
+      "detect2v3.short.vi": {
+        "value": -0.1611,
+        "threshold": ">=-0.02",
+        "pass": false,
+        "n": 149,
+        "data": "real"
+      },
+      "detect2v3.short.en": {
+        "value": -0.2329,
+        "threshold": ">=-0.02",
+        "pass": false,
+        "n": 790,
+        "data": "real"
+      },
+      "excluded.en": {
+        "value": 0.1875,
+        "threshold": "report",
+        "pass": null,
+        "n": 2970,
+        "data": "real"
+      },
+      "excluded.vi": {
+        "value": 0.0089,
+        "threshold": "report",
+        "pass": null,
+        "n": 2476,
+        "data": "real"
+      },
+      "excluded.zh": {
+        "value": 0.195,
+        "threshold": "report",
+        "pass": null,
+        "n": 1400,
+        "data": "real"
+      },
+      "A4": {
+        "value": 0.9782,
+        "threshold": ">=0.95",
+        "pass": true,
+        "n": 1833,
+        "data": "real"
+      },
+      "A5": {
+        "value": 0.9062,
+        "threshold": ">=0.90 rejected",
+        "pass": true,
+        "n": 160,
+        "data": "esc50+real"
+      },
+      "A5.esc50": {
+        "value": 0.9,
+        "threshold": "report",
+        "pass": null,
+        "n": 80,
+        "data": "esc50"
+      },
+      "A5.real": {
+        "value": 0.9125,
+        "threshold": "report",
+        "pass": null,
+        "n": 80,
+        "data": "real"
+      },
+      "A6.en-vi.first_language_p95_ms": {
+        "value": 3111.41,
+        "threshold": "<=3500",
+        "pass": true,
+        "n": 6813,
+        "data": "real"
+      },
+      "A6.en-vi.changed": {
+        "value": 0.0884,
+        "threshold": "<=0.10",
+        "pass": true,
+        "n": 6618,
+        "data": "real"
+      },
+      "lock.en-vi.accuracy": {
+        "value": 0.8699,
+        "threshold": "report",
+        "pass": null,
+        "n": 5011,
+        "data": "real"
+      },
+      "A6.vi-zh.first_language_p95_ms": {
+        "value": 3100.762,
+        "threshold": "<=3500",
+        "pass": true,
+        "n": 3908,
+        "data": "mixed"
+      },
+      "A6.vi-zh.changed": {
+        "value": 0.0483,
+        "threshold": "<=0.10",
+        "pass": true,
+        "n": 3894,
+        "data": "mixed"
+      },
+      "lock.vi-zh.accuracy": {
+        "value": 0.9422,
+        "threshold": "report",
+        "pass": null,
+        "n": 3288,
+        "data": "mixed"
+      },
+      "A6.en-zh.first_language_p95_ms": {
+        "value": 3104.95,
+        "threshold": "<=3500",
+        "pass": true,
+        "n": 6426,
+        "data": "mixed"
+      },
+      "A6.en-zh.changed": {
+        "value": 0.0505,
+        "threshold": "<=0.10",
+        "pass": true,
+        "n": 6156,
+        "data": "mixed"
+      },
+      "lock.en-zh.accuracy": {
+        "value": 0.8968,
+        "threshold": "report",
+        "pass": null,
+        "n": 3606,
+        "data": "mixed"
+      },
+      "A7": {
+        "value": 125.71,
+        "threshold": "<=150 ms p95",
+        "pass": true,
+        "n": 29672,
+        "data": "mixed"
+      },
+      "A-ACC.pair": {
+        "value": 0.8555,
+        "threshold": ">=0.95",
+        "pass": false,
+        "n": 616,
+        "data": "public"
+      },
+      "A-ACC.detect": {
+        "value": 0.8543,
+        "threshold": ">=0.95",
+        "pass": false,
+        "n": 604,
+        "data": "public"
+      },
+      "A9-mono.en": {
+        "value": 0.0725,
+        "threshold": "<=0.03 err (worst source)",
+        "pass": false,
+        "n": 138,
+        "data": "real"
+      },
+      "A9-mono.vi": {
+        "value": 0.0,
+        "threshold": "<=0.03 err (worst source)",
+        "pass": true,
+        "n": 200,
+        "data": "real"
+      },
+      "zh_real.A1.vi-zh": {
+        "value": 0.9467,
+        "threshold": "report",
+        "pass": null,
+        "n": 150,
+        "data": "real"
+      },
+      "zh_real.A1.en-zh": {
+        "value": 0.8409,
+        "threshold": "report",
+        "pass": null,
+        "n": 1270,
+        "data": "real"
+      },
+      "zh_real.A3": {
+        "value": 0.4871,
+        "threshold": "report",
+        "pass": null,
+        "n": 1400,
+        "data": "real"
+      },
+      "v4.A1.en-vi": {
+        "value": 0.9628,
+        "threshold": "report",
+        "pass": null,
+        "n": 5612,
+        "data": "real"
+      },
+      "v4.A1.vi-zh": {
+        "value": 0.9908,
+        "threshold": "report",
+        "pass": null,
+        "n": 3492,
+        "data": "mixed"
+      },
+      "v4.A1.en-zh": {
+        "value": 0.9453,
+        "threshold": "report",
+        "pass": null,
+        "n": 4334,
+        "data": "mixed"
+      },
+      "v4.A2.en-vi": {
+        "value": 0.8532,
+        "threshold": "report",
+        "pass": null,
+        "n": 2050,
+        "data": "real+cv"
+      },
+      "v4.A2.en-vi.err_after_fallback": {
+        "value": 0.1688,
+        "threshold": "report",
+        "pass": null,
+        "n": 2050,
+        "data": "real+cv"
+      },
+      "v4.A2.en-vi.edacc": {
+        "value": 0.843,
+        "threshold": "report",
+        "pass": null,
+        "n": 1682,
+        "data": "edacc"
+      },
+      "v4.A2.en-vi.rerecorded": {
+        "value": 0.8929,
+        "threshold": "report",
+        "pass": null,
+        "n": 56,
+        "data": "rerecorded"
+      },
+      "v4.A2.en-vi.vietmed": {
+        "value": 1.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 6,
+        "data": "vietmed"
+      },
+      "v4.A2.en-vi.vietmed-cut": {
+        "value": 0.7533,
+        "threshold": "report",
+        "pass": null,
+        "n": 300,
+        "data": "vietmed-cut"
+      },
+      "v4.A2.en-vi.vimedcss": {
+        "value": 0.6667,
+        "threshold": "report",
+        "pass": null,
+        "n": 6,
+        "data": "vimedcss"
+      },
+      "v4.A2.vi-zh": {
+        "value": 0.6985,
+        "threshold": "report",
+        "pass": null,
+        "n": 524,
+        "data": "real+cv"
+      },
+      "v4.A2.vi-zh.err_after_fallback": {
+        "value": 0.3015,
+        "threshold": "report",
+        "pass": null,
+        "n": 524,
+        "data": "real+cv"
+      },
+      "v4.A2.vi-zh.ascend": {
+        "value": 0.8289,
+        "threshold": "report",
+        "pass": null,
+        "n": 152,
+        "data": "ascend"
+      },
+      "v4.A2.vi-zh.rerecorded": {
+        "value": 0.6333,
+        "threshold": "report",
+        "pass": null,
+        "n": 60,
+        "data": "rerecorded"
+      },
+      "v4.A2.vi-zh.vietmed": {
+        "value": 0.6667,
+        "threshold": "report",
+        "pass": null,
+        "n": 6,
+        "data": "vietmed"
+      },
+      "v4.A2.vi-zh.vietmed-cut": {
+        "value": 0.6533,
+        "threshold": "report",
+        "pass": null,
+        "n": 300,
+        "data": "vietmed-cut"
+      },
+      "v4.A2.vi-zh.vimedcss": {
+        "value": 0.3333,
+        "threshold": "report",
+        "pass": null,
+        "n": 6,
+        "data": "vimedcss"
+      },
+      "v4.A2.en-zh": {
+        "value": 0.4526,
+        "threshold": "report",
+        "pass": null,
+        "n": 3314,
+        "data": "real+cv"
+      },
+      "v4.A2.en-zh.err_after_fallback": {
+        "value": 0.545,
+        "threshold": "report",
+        "pass": null,
+        "n": 3314,
+        "data": "real+cv"
+      },
+      "v4.A2.en-zh.ascend": {
+        "value": 0.4198,
+        "threshold": "report",
+        "pass": null,
+        "n": 1982,
+        "data": "ascend"
+      },
+      "v4.A2.en-zh.edacc": {
+        "value": 0.5293,
+        "threshold": "report",
+        "pass": null,
+        "n": 1228,
+        "data": "edacc"
+      },
+      "v4.A2.en-zh.rerecorded": {
+        "value": 0.25,
+        "threshold": "report",
+        "pass": null,
+        "n": 104,
+        "data": "rerecorded"
+      },
+      "v4.A3.long.vien": {
+        "value": 0.9602,
+        "threshold": "report",
+        "pass": null,
+        "n": 3941,
+        "data": "real"
+      },
+      "v4.A3.long.zh": {
+        "value": 0.8996,
+        "threshold": "report",
+        "pass": null,
+        "n": 1135,
+        "data": "mixed"
+      },
+      "v4.A3.short.vien": {
+        "value": 0.5748,
+        "threshold": "report",
+        "pass": null,
+        "n": 1505,
+        "data": "real"
+      },
+      "v4.A3.short.zh": {
+        "value": 0.2026,
+        "threshold": "report",
+        "pass": null,
+        "n": 765,
+        "data": "real"
+      },
+      "v4.A3.long.by_lang.en": {
+        "value": 0.9132,
+        "threshold": "report",
+        "pass": null,
+        "n": 1624,
+        "data": "real"
+      },
+      "v4.A3.long.by_lang.vi": {
+        "value": 0.9931,
+        "threshold": "report",
+        "pass": null,
+        "n": 2317,
+        "data": "real"
+      },
+      "v4.A3.long.by_lang.zh": {
+        "value": 0.8299,
+        "threshold": "report",
+        "pass": null,
+        "n": 635,
+        "data": "real"
+      },
+      "v4.A3.short.by_lang.en": {
+        "value": 0.5765,
+        "threshold": "report",
+        "pass": null,
+        "n": 1346,
+        "data": "real"
+      },
+      "v4.A3.short.by_lang.en.ascend": {
+        "value": 0.9921,
+        "threshold": "report",
+        "pass": null,
+        "n": 253,
+        "data": "ascend"
+      },
+      "v4.A3.short.by_lang.en.edacc": {
+        "value": 0.4813,
+        "threshold": "report",
+        "pass": null,
+        "n": 1068,
+        "data": "edacc"
+      },
+      "v4.A3.short.by_lang.en.rerecorded": {
+        "value": 0.44,
+        "threshold": "report",
+        "pass": null,
+        "n": 25,
+        "data": "rerecorded"
+      },
+      "v4.A3.short.by_lang.vi": {
+        "value": 0.5597,
+        "threshold": "report",
+        "pass": null,
+        "n": 159,
+        "data": "real"
+      },
+      "v4.A3.short.by_lang.vi.rerecorded": {
+        "value": 0.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 3,
+        "data": "rerecorded"
+      },
+      "v4.A3.short.by_lang.vi.vietmed": {
+        "value": 0.6667,
+        "threshold": "report",
+        "pass": null,
+        "n": 3,
+        "data": "vietmed"
+      },
+      "v4.A3.short.by_lang.vi.vietmed-cut": {
+        "value": 0.5733,
+        "threshold": "report",
+        "pass": null,
+        "n": 150,
+        "data": "vietmed-cut"
+      },
+      "v4.A3.short.by_lang.vi.vimedcss": {
+        "value": 0.3333,
+        "threshold": "report",
+        "pass": null,
+        "n": 3,
+        "data": "vimedcss"
+      },
+      "v4.A3.short.by_lang.zh": {
+        "value": 0.2026,
+        "threshold": "report",
+        "pass": null,
+        "n": 765,
+        "data": "real"
+      },
+      "v4.A3.short.by_lang.zh.ascend": {
+        "value": 0.2087,
+        "threshold": "report",
+        "pass": null,
+        "n": 738,
+        "data": "ascend"
+      },
+      "v4.A3.short.by_lang.zh.rerecorded": {
+        "value": 0.037,
+        "threshold": "report",
+        "pass": null,
+        "n": 27,
+        "data": "rerecorded"
+      },
+      "v4.detect2v3.short.vi": {
+        "value": -0.1572,
+        "threshold": "report",
+        "pass": null,
+        "n": 159,
+        "data": "real"
+      },
+      "v4.detect2v3.short.en": {
+        "value": -0.4146,
+        "threshold": "report",
+        "pass": null,
+        "n": 1346,
+        "data": "real"
+      },
+      "v4.A4": {
+        "value": 0.9782,
+        "threshold": "report",
+        "pass": null,
+        "n": 1833,
+        "data": "real"
+      },
+      "v4.A5": {
+        "value": 0.9062,
+        "threshold": "report",
+        "pass": null,
+        "n": 160,
+        "data": "esc50+real"
+      },
+      "v4.A5.esc50": {
+        "value": 0.9,
+        "threshold": "report",
+        "pass": null,
+        "n": 80,
+        "data": "esc50"
+      },
+      "v4.A5.real": {
+        "value": 0.9125,
+        "threshold": "report",
+        "pass": null,
+        "n": 80,
+        "data": "real"
+      },
+      "v4.A6.en-vi.first_language_p95_ms": {
+        "value": 3107.5345,
+        "threshold": "report",
+        "pass": null,
+        "n": 7662,
+        "data": "real"
+      },
+      "v4.A6.en-vi.changed": {
+        "value": 0.0872,
+        "threshold": "report",
+        "pass": null,
+        "n": 6758,
+        "data": "real"
+      },
+      "v4.lock.en-vi.accuracy": {
+        "value": 0.8701,
+        "threshold": "report",
+        "pass": null,
+        "n": 5035,
+        "data": "real"
+      },
+      "v4.A6.vi-zh.first_language_p95_ms": {
+        "value": 3100.58,
+        "threshold": "report",
+        "pass": null,
+        "n": 4016,
+        "data": "mixed"
+      },
+      "v4.A6.vi-zh.changed": {
+        "value": 0.0481,
+        "threshold": "report",
+        "pass": null,
+        "n": 3952,
+        "data": "mixed"
+      },
+      "v4.lock.vi-zh.accuracy": {
+        "value": 0.942,
+        "threshold": "report",
+        "pass": null,
+        "n": 3310,
+        "data": "mixed"
+      },
+      "v4.A6.en-zh.first_language_p95_ms": {
+        "value": 3100.45,
+        "threshold": "report",
+        "pass": null,
+        "n": 7648,
+        "data": "mixed"
+      },
+      "v4.A6.en-zh.changed": {
+        "value": 0.0484,
+        "threshold": "report",
+        "pass": null,
+        "n": 6428,
+        "data": "mixed"
+      },
+      "v4.lock.en-zh.accuracy": {
+        "value": 0.8968,
+        "threshold": "report",
+        "pass": null,
+        "n": 3606,
+        "data": "mixed"
+      },
+      "v4.A7": {
+        "value": 125.71,
+        "threshold": "report",
+        "pass": null,
+        "n": 29672,
+        "data": "mixed"
+      },
+      "v4.A-ACC.pair": {
+        "value": 0.8555,
+        "threshold": "report",
+        "pass": null,
+        "n": 616,
+        "data": "public"
+      },
+      "v4.A-ACC.detect": {
+        "value": 0.8543,
+        "threshold": "report",
+        "pass": null,
+        "n": 604,
+        "data": "public"
+      },
+      "v4.A9-mono.en": {
+        "value": 0.12,
+        "threshold": "report",
+        "pass": null,
+        "n": 200,
+        "data": "real"
+      },
+      "v4.A9-mono.vi": {
+        "value": 0.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 200,
+        "data": "real"
+      },
+      "v4.zh_real.A1.vi-zh": {
+        "value": 0.9467,
+        "threshold": "report",
+        "pass": null,
+        "n": 150,
+        "data": "real"
+      },
+      "v4.zh_real.A1.en-zh": {
+        "value": 0.8409,
+        "threshold": "report",
+        "pass": null,
+        "n": 1270,
+        "data": "real"
+      },
+      "v4.zh_real.A3": {
+        "value": 0.4871,
+        "threshold": "report",
+        "pass": null,
+        "n": 1400,
+        "data": "real"
+      }
+    }
+  },
+  "zh_real": {
+    "whisper_probs_base_ctx5": {
+      "zh_real.A1.vi-zh": {
+        "value": 1.0,
+        "threshold": "report",
+        "pass": null,
+        "n": 150,
+        "data": "real"
+      },
+      "zh_real.A1.en-zh": {
+        "value": 0.9858,
+        "threshold": "report",
+        "pass": null,
+        "n": 1270,
+        "data": "real"
+      },
+      "zh_real.A3": {
+        "value": 0.7579,
+        "threshold": "report",
+        "pass": null,
+        "n": 1400,
+        "data": "real"
+      }
+    },
+    "whisper_head": {
+      "zh_real.A1.vi-zh": {
+        "value": 0.9467,
+        "threshold": "report",
+        "pass": null,
+        "n": 150,
+        "data": "real"
+      },
+      "zh_real.A1.en-zh": {
+        "value": 0.8409,
+        "threshold": "report",
+        "pass": null,
+        "n": 1270,
+        "data": "real"
+      },
+      "zh_real.A3": {
+        "value": 0.4871,
+        "threshold": "report",
+        "pass": null,
+        "n": 1400,
+        "data": "real"
+      }
+    }
+  },
+  "winner": null,
+  "outcome": "INCOMPLETE",
+  "notes": [
+    "provisional G3 (winner whisper_probs_base_ctx5); not run: ['recognizer_competition', 'ambernet', 'mms_lid']"
+  ],
+  "unsound": [],
+  "prior_used": false,
+  "thresholds": {
+    "source_prior_logodds": 0.0,
+    "tau_uncertain": 0.6,
+    "tau_confident": 0.9,
+    "tau_lock": 0.7,
+    "lock_min_speech_ms": 1300,
+    "tau_noise": 0.0
+  },
+  "rss_delta_mib": null,
+  "p95_added_ms": 125.71,
+  "runtime_artifact": null,
+  "substitute_public": false,
+  "ruler": "v5"
+}

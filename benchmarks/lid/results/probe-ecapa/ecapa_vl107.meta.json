@@ -1,0 +1,13 @@
+{
+  "arm": "ecapa_vl107",
+  "kind": "lid-model",
+  "runtime": "torch-2.7.1+cpu",
+  "ceiling_probe": true,
+  "needs_gpu": false,
+  "needs_torch": true,
+  "new_model": true,
+  "latency_p95_ms": 222.7,
+  "notes": [
+    "speechbrain/lang-id-voxlingua107-ecapa@0253049ae131d6a4be1c4f0d8b0ff483a0f8c8e9, Apache-2.0; whole turns only, torch CPU, 2 threads"
+  ]
+}

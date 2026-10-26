@@ -1,0 +1,17 @@
+{
+  "arm": "whisper_head",
+  "kind": "lid-model",
+  "runtime": "onnxruntime-1.27.0",
+  "parity_passed": null,
+  "needs_gpu": false,
+  "needs_torch": false,
+  "new_model": true,
+  "cv": "logo",
+  "rss_peak_mib": 646.9,
+  "rss_delta_mib": 596.2,
+  "notes": [
+    "features from the sidecar's own Whisper-base path; its token probabilities match whisper_probs_base_ctx5 to 1.2e-7",
+    "logistic regression (arm 4's settings), final and partial models, leave one corpus out",
+    "eval-only groups: none; v5-excluded turns never train"
+  ]
+}

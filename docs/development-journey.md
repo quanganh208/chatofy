@@ -2533,3 +2533,37 @@ Reproduce: the specs in `apps/api/src/modules/translate/providers/vietnamese-inv
 **Live check.** Two headless Chromium users went through the real web UI, a local API and the real Cloudflare app, and passed 11 of 11 checks. Both played 2 videos, chat crossed, leaving dropped the tile, and there was no overflow at 768 or 375 wide. RTT was 24 ms. The API log held no SDP, bearer token or ICE password.
 
 Still open: one call between two real networks on production (Wi-Fi laptop and 4G phone), the mobile device run on Cloudflare, and the TURN path. The table is in `docs/architecture/video-network-path.md` §4.2. Evidence: `plans/261025-1812-cloudflare-realtime-sfu/` (`spike/results.md`, `research/cloudflare-realtime-sfu-api.md`).
+
+## Adding Chinese to auto-detect, measured and stopped (24/10/2026)
+
+Identification shipped for vi and en only. The bake-off scored zh, and it failed one required criterion: short Chinese turns were right 0.569 of the time against a 0.85 bar. Before trying to fix it, the user set the terms. Three-way detect may cost short vi and en turns at most 2 points against two-way detect on the same turns, and the vi↔zh and en↔zh pairs must pass the same bar as vi↔en. That first rule was new to the gate. Without it, adding zh would have looked free: on the shipped arm it quietly costs short English 7 points and short Vietnamese 13.
+
+The ruler came first. Production never decodes a turn under 300 ms of speech, and a Chinese turn of 嗯 has no language to identify, yet both counted against zh. Ruler v5 drops them for all three languages alike, using a filler list committed before any number was read under it. It prints the old figure beside every new one (`benchmarks/lid/results/conv-r4-v5/`). Short zh rose to 0.791. vi↔en still passed.
+
+Then a second Mandarin source. ASCEND, the only conversational Chinese in the bench, is bilingual students in Hong Kong. On the MagicData-RAMC test split (Mainland phone calls; its licence allows measuring, not training) the shipped path was right 0.845 of the time on short turns (Wilson 0.820–0.867) against ASCEND's 0.772 (0.730–0.810). Part of the zh failure was the corpus. What is left is mostly Chinese heard as English.
+
+Three ways to do better were measured, and none passed:
+
+- **A classifier on the encoder states.** Whisper-base already computes them for every decision. Scored leaving one corpus out, short zh fell to 0.307. With ASCEND held out, the only other Chinese to learn from is FLEURS read speech, so the classifier learned the recording channel instead of the language.
+- **Whisper medium.** It was a large gain for Vietnamese (0.56 → 0.84 on short turns) and a small one for Chinese (RAMC 0.866). It takes 3.4 s per turn on this CPU, against a 150 ms budget.
+- **Whisper-base combined with AmberNet.** The two make different mistakes. Combined, they passed vi↔zh (0.950) and brought short zh to 0.850. Short English still dropped 8 points, en↔zh stayed at 0.892, the pair costs 351 ms, and AmberNet's licence does not cover shipping it.
+
+What blocks is the user's own rule: no local model keeps short Vietnamese and English within 2 points once Chinese is a candidate. The user chose to stay at vi/en. The plan, numbers and dead ends are in `plans/261024-1545-three-language-lid/` and `benchmarks/lid/README.md`.
+
+Reproduce: `cd benchmarks/lid && uv run --frozen python scripts/attach_transcripts.py && uv run --frozen python score.py --run-tag conv-r4-v5 --ruler v5`; `scripts/prepare_ramc.py`; `arms/whisper_head/{dump_features,train}.py`; `arms/whisper_ceiling/probe.py --size medium`.
+
+## Auto-detect round 2: a fair baseline, a licence, and a GPU question (25/10/2026)
+
+The first round stopped at G3. The second began by fixing the ruler, not the models. The rule "3-way detect may cost short vi/en at most 2 points against 2-way" had been coded as each arm against its own 2-way. That reading punishes a stronger model for beating itself, and it lets a weaker one off. The user chose the reading that matches what a person feels: against the 2-way detect running in prod. Only `detect2v3` moved in the rescore; the shipped arm's numbers stayed the same to four places, which is how the change was checked.
+
+The best two-way arm turned out to be unshippable for a reason no benchmark measures. Running AmberNet only on turns under 1.5 s brought the fused arm's latency from 351 to 129 ms and passed the vi↔zh pair. But the NGC Terms of Use forbid offering the model "as a service" without a Product Agreement. That ends AmberNet as a product path, after two rounds spent measuring it. The licence should have been read first.
+
+Three voters were then measured on the same 1431 short turns, with parameters chosen with the source or the speaker held out:
+
+- **SenseVoice-Small:** almost never hears Chinese as English, but tags 74% of short Vietnamese as Chinese.
+- **ECAPA VoxLingua107 (licence-clean):** hears Vietnamese well and English badly.
+- **Their combination with Whisper-base:** passes everything in-sample and fails held-out.
+
+The only thing that passed held-out was the simplest: **Whisper medium with one zh bias**. Short en −0.8/−1.5 points, short vi +8.7, short zh 0.874/0.860, and Mainland RAMC 0.916. Medium needs 3.4 s per decision on CPU, so the question is no longer what to build. It is whether to rent a GPU.
+
+On 26/10 the owner answered it: no GPU. Auto-detect stays vi/en, and Chinese is reached by choosing it, which the production Paraformer engine already serves. The bench stays in `benchmarks/lid` for whoever reopens this with a CPU lever that meets the same bars.

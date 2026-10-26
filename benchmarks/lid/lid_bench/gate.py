@@ -39,10 +39,13 @@ REQUIRED_VIEN = (
     "A6.en-vi.first_language_p95_ms", "A6.en-vi.changed", "A7", "A-ACC.pair", "A-ACC.detect",
     "A9-mono.en", "A9-mono.vi",
 )
-#: zh's A2/A6 are reported per pair but not required: step 4 sets no short-turn
-#: or real minimum for zh, so requiring them would make G1 unreachable by
-#: construction rather than by measurement.
-REQUIRED_ZH = ("A1.vi-zh", "A1.en-zh", "A3.long.zh", "A3.short.zh")
+#: zh's short two-way turns are required at the vi<->en bar (user decision,
+#: 2026-10-24): two-way with zh is only as good as its short turns, and real
+#: short zh now exists to measure them on. Turning zh on for detect must also
+#: not cost short vi or en turns more than the budget against 2-way detect.
+#: A6 stays reported for the zh pairs.
+REQUIRED_ZH = ("A1.vi-zh", "A1.en-zh", "A3.long.zh", "A3.short.zh", "A2.vi-zh", "A2.en-zh",
+               "detect2v3.short.vi", "detect2v3.short.en")
 LATENCY_TIE_MS = 20.0
 
 

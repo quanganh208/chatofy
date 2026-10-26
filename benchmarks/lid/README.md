@@ -120,12 +120,13 @@ Real speech is **spontaneous conversation from public corpora**, plus a sample o
 it played through the laptop speaker and captured by its microphone. Revisions
 and sha256 are pinned in `scripts/conversational_pins.json`.
 
-| Corpus                                                        | What it gives                                                                                 | Licence      |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------ |
-| [EdAcc](https://huggingface.co/datasets/edinburghcstr/edacc)  | English video calls; 1,046 turns from Vietnamese-L1 and 663 from Mandarin-L1 speakers (A-ACC) | CC-BY-SA 4.0 |
-| [ASCEND](https://huggingface.co/datasets/CAiRE/ASCEND)        | real zh↔en conversations, language per utterance (`mixed` dropped); test + validation         | CC-BY-SA 4.0 |
-| [VietMed](https://huggingface.co/datasets/leduckhai/VietMed)  | Vietnamese talk show, consultations, phone-ins (`Book` = read aloud, dropped)                 | MIT          |
-| [ViMedCSS](https://huggingface.co/datasets/tensorxt/ViMedCSS) | Vietnamese with English medical terms (A4)                                                    | CC-BY-4.0    |
+| Corpus                                                        | What it gives                                                                                                                               | Licence                                                                                |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| [EdAcc](https://huggingface.co/datasets/edinburghcstr/edacc)  | English video calls; 1,046 turns from Vietnamese-L1 and 663 from Mandarin-L1 speakers (A-ACC)                                               | CC-BY-SA 4.0                                                                           |
+| [ASCEND](https://huggingface.co/datasets/CAiRE/ASCEND)        | real zh↔en conversations, language per utterance (`mixed` dropped); test + validation                                                       | CC-BY-SA 4.0                                                                           |
+| [VietMed](https://huggingface.co/datasets/leduckhai/VietMed)  | Vietnamese talk show, consultations, phone-ins (`Book` = read aloud, dropped)                                                               | MIT                                                                                    |
+| [ViMedCSS](https://huggingface.co/datasets/tensorxt/ViMedCSS) | Vietnamese with English medical terms (A4)                                                                                                  | CC-BY-4.0                                                                              |
+| [MagicData-RAMC](https://www.openslr.org/123/)                | Mainland Mandarin phone conversations, 663 speakers; release test split only (`scripts/prepare_ramc.py`, archive by hand, sha256 beside it) | CC BY-NC-ND 4.0: **measure only**, group `ramc` is `--eval-only` for every trained arm |
 
 What is constructed, and labelled so:
 
@@ -393,6 +394,94 @@ nothing unsound, LOGO. Every arm was rescored under the new budget.
   real turns, and a budget sweep through `score.score_arm`). The per-fold
   thresholds are still fitted on training folds only, but the two knobs are not,
   so G3 here is somewhat optimistic. Phase 1 should re-measure on fresh turns.
+
+### Adding zh: ruler v5, a second Mandarin source, ceiling probes (G3 holds)
+
+On 2026-10-24 the user set what zh needs before it joins detect and two-way:
+three-way detect may cost short vi and en turns at most 2 points against two-way
+detect on the same turns (`detect2v3.short.{vi,en}`, required), and A2.vi-zh /
+A2.en-zh are required at the A2.en-vi bar. No bar moved.
+
+**Ruler v5** (`score.py --ruler v5`, `conv-r4-v5`) scores only turns that carry a
+language: it drops turns under the API's 300 ms Silero floor and turns whose
+reference transcript is fillers only (`lid_bench/fillers.py`, committed before any
+number was read under it; transcripts joined by `scripts/attach_transcripts.py`).
+Every v4 row is printed beside it as `v4.*`. It drops 18.8% of real en turns, 19.5%
+of zh and 0.9% of vi. vi is low because its short turns (`vietmed-cut`) have no
+transcript of their own, so only the floor applies to them, which makes v5 harder
+on vi rather than easier.
+
+| `whisper_probs_base_ctx5`         | v4              | v5              | Bar                |
+| --------------------------------- | --------------- | --------------- | ------------------ |
+| A2 en-vi raw / err after fallback | 0.952 / 0.048   | 0.931 / 0.069   | ≥ 0.90 raw, passes |
+| A3 short vi+en                    | 0.892           | 0.865           | ≥ 0.85             |
+| A3 short zh                       | 0.569           | **0.791**       | ≥ 0.85 ✗           |
+| A2 vi-zh / en-zh                  | 0.813 / 0.769   | 0.818 / 0.862   | ≥ 0.90 ✗           |
+| detect2v3 short en / vi           | −0.062 / −0.132 | −0.076 / −0.128 | ≥ −0.02 ✗          |
+
+**A second Mandarin source.** ASCEND's speakers are bilingual students in Hong
+Kong. On the MagicData-RAMC test split (`scripts/prepare_ramc.py`, Mainland phone
+calls, measure only), the shipped path gets short zh right 0.845 of the time
+(Wilson 0.820–0.867, n 936) against 0.772 (0.730–0.810, n 421) on ASCEND. ASCEND
+makes short zh look harder than it is. What remains is heard as English.
+
+**Probes, none of which passes.** All numbers are raw per-turn accuracy on the same
+short real turns under v5. The 2-way figure is in brackets.
+
+| Arm                                                | en 3-way (2-way) | vi 3-way (2-way) | zh ASCEND / RAMC | p95 CPU |
+| -------------------------------------------------- | ---------------- | ---------------- | ---------------- | ------- |
+| base ctx5 (shipped)                                | 0.908 (0.987)    | 0.560 (0.697)    | 0.772 / 0.845    | 126 ms  |
+| head on base encoder states, LOGO (`conv-r4-head`) | 0.754            | 0.584            | **0.307** / —    | ≈ base  |
+| medium, 30 s window (`arms/whisper_ceiling/`)      | 0.990 (1.000)    | 0.844 (0.899)    | 0.789 / 0.866    | 3373 ms |
+| base ctx5 × AmberNet, equal weight, full gate      | 0.877            | 0.933            | 0.850 / —        | 351 ms  |
+
+- The head (`arms/whisper_head/`) learns each corpus's channel. With ASCEND held
+  out, the only other Mandarin to train on is FLEURS read speech.
+- Medium's gain is in vi. It cannot be windowed, because the onnx-community export
+  bakes 1500 positions into every attention reshape, so it would need a GPU.
+- The fusion passes A1, A2.en-vi and A2.vi-zh (0.950). It fails A2.en-zh (0.892),
+  the detect regression, A-ACC and A7, and AmberNet's NGC licence still does not
+  allow redistribution. No leave-one-corpus-out weight fixes en and vi together:
+  short English from EdAcc's accented speakers is heard as zh.
+
+The user chose to stay at G3: production keeps vi/en.
+
+### Round 2: prod baseline, licence, three more voters (G3 holds; medium passes raw)
+
+On 2026-10-25 the user fixed what `detect2v3` is measured against: **the 2-way
+detect prod runs** (`DETECT_BASELINE_ARM`, ctx5 choosing between vi and en), not
+each arm's own 2-way. A stronger model is no longer let off for beating itself. A run
+without ctx5 borrows it from `conv-r4-v5` (same turns, checked). Every v5 tag was
+rescored: ctx5's rows are unchanged, and only `detect2v3` moved for the other arms.
+
+**AmberNet cannot ship.** The NGC model page puts it under the NGC Terms of Use,
+which forbid offering the Technology "as a service" or making derivative works
+without a Product Agreement. Its numbers stay as a ceiling. Length-gated fusion
+(`scripts/fuse_scores.py`, AmberNet only under 1500 ms of speech; `probe-fusion-gated`)
+would otherwise have been the best two-way arm: A7 129 ms, A2.en-vi 0.958, A2.vi-zh 0.950.
+It still fails A2.en-zh (0.892) and short en in detect (−0.118 against prod).
+
+**Three more voters, raw per turn** (`scripts/raw_frontier.py`). The 1431 short real
+turns are scored under v5 against prod 2-way (en 0.987, vi 0.745). The zh bias and
+weights are chosen with the source, or the speaker, held out. RAMC is v5 too and is
+never tuned on.
+
+| Combination                                  | en                  | vi                | zh                | RAMC zh   | Runs on      |
+| -------------------------------------------- | ------------------- | ----------------- | ----------------- | --------- | ------------ |
+| ctx5 (shipped), best bias                    | −0.003              | −0.034 ✗          | 0.185 ✗           | 0.387     | CPU          |
+| ctx5 × ECAPA + SenseVoice, source / speaker  | −0.018 / −0.025 ✗   | −0.087 ✗ / −0.007 | 0.872 / 0.937     | 0.887     | CPU, >150 ms |
+| **medium, zh bias +1, source / speaker out** | **−0.008 / −0.015** | **+0.087**        | **0.874 / 0.860** | **0.916** | GPU          |
+
+- **SenseVoice-Small** (`arms/sensevoice_lid/`, the zh STT benchmark's int8 model,
+  argmax tag only): it rarely hears zh as en (0.4%). It has no Vietnamese and tags 74%
+  of short vi as zh, and it gets short en right only 0.842 of the time.
+- **ECAPA VoxLingua107** (`arms/ecapa_vl107/`, Apache-2.0, torch, run as `lidbench`):
+  vi 0.966, but en 0.622 and RAMC zh 0.727. It does not replace AmberNet on English.
+- **Whisper medium** passes all three bars under both hold-outs, with one parameter,
+  and RAMC agrees. It is not a gate verdict yet: the gate needs medium on every turn and
+  prefix (≈45k decisions, ≈42 h CPU), and shipping it needs a GPU (G5).
+
+G3 holds. The open decision is the user's: rent a GPU for medium.
 
 ## Gate
 
