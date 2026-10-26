@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { UseStreamingTranslate } from '@/hooks/use-streaming-translate';
 import type { UseConferenceReturn } from '@/hooks/use-conference';
+import type { UseConferenceEnd } from '@/hooks/use-conference-end';
 import { accentFilledControls } from './accent-count';
 import { elevatedSurfaces } from './surface-count';
 
@@ -131,6 +132,11 @@ vi.mock('next-auth/react', () => ({
 const useConference = vi.hoisted(() => vi.fn<() => UseConferenceReturn>());
 vi.mock('@/hooks/use-conference', () => ({ useConference: () => useConference() }));
 
+// The end screen's reads and its generate, as one value a row sets — the same
+// arrangement as `useMinutes` above, so a row names the state it counts.
+const useConferenceEnd = vi.hoisted(() => vi.fn<() => UseConferenceEnd>());
+vi.mock('@/hooks/use-conference-end', () => ({ useConferenceEnd: () => useConferenceEnd() }));
+
 const { CascadePanel } = await import('@/components/translate/cascade-panel');
 const { HistoryScreen } = await import('@/components/history/history-screen');
 const { ConversationDetail } = await import('@/components/history/conversation-detail');
@@ -138,6 +144,8 @@ const { default: PreferencesPage } = await import('../../app/(app)/preferences/p
 const { default: AccountPage } = await import('../../app/(app)/account/page');
 const { default: ConferenceRoomPage } = await import('../../app/(app)/conference/[roomId]/page');
 const { default: ConferenceLobbyPage } = await import('../../app/(app)/conference/page');
+const { default: ConferenceEndedPage } =
+  await import('../../app/(app)/conference/[roomId]/ended/page');
 const { LocaleProvider } = await import('@/i18n/provider');
 const { DEFAULT_TRANSLATE_SETTINGS, saveTranslateSettings } =
   await import('@/lib/translate-settings');
@@ -236,6 +244,50 @@ function inRoom(over: Partial<UseConferenceReturn> = {}) {
   return () => {
     url.query = 'name=An&lang=vi';
     useConference.mockReturnValue(call(over));
+  };
+}
+
+/** An ended room with two participants who spoke, at the shape the end screen reads. */
+const ENDED_ROOM: NonNullable<UseConferenceEnd['conference']> = {
+  id: 'cl9ebqhxk00003b600tymydho',
+  status: 'ended',
+  createdAt: '2026-10-26T09:00:00.000Z',
+  ownerId: 'u-owner',
+  startedAt: '2026-10-26T09:01:00.000Z',
+  endedAt: '2026-10-26T09:43:00.000Z',
+  participants: [
+    {
+      id: 'p-1',
+      userId: 'u-owner',
+      displayName: 'Alice',
+      sourceLanguage: 'vi',
+      status: 'left',
+      joinedAt: '2026-10-26T09:01:00.000Z',
+    },
+    {
+      id: 'p-2',
+      userId: 'u-guest',
+      displayName: 'Bob',
+      sourceLanguage: 'en',
+      status: 'left',
+      joinedAt: '2026-10-26T09:02:00.000Z',
+    },
+  ],
+  _count: { turns: 12 },
+};
+
+/** Put the end screen in a state: loaded, no minutes, unless a row says otherwise. */
+function ended(over: Partial<UseConferenceEnd> = {}) {
+  return () => {
+    useConferenceEnd.mockReturnValue({
+      load: 'ready',
+      conference: ENDED_ROOM,
+      minutes: null,
+      generating: false,
+      generateFailed: false,
+      generate: vi.fn(() => Promise.resolve()),
+      ...over,
+    });
   };
 }
 
@@ -1161,6 +1213,72 @@ const SCREENS: ScreenState[] = [
     surfaces: 0,
     setup: inRoom({ status: 'reconnecting', mySocketId: null, reconnectAttempt: 1 }),
     render: () => <ConferenceRoomPage />,
+  },
+
+  // ---- /conference/[roomId]/ended end screen ----
+  // Back to lobby is the one accent in every state. Loaded, the screen spends
+  // both surfaces: the summary card, and the minutes panel — whose Generate is
+  // outline here, because the screen's action is leaving, not summarizing.
+  {
+    name: '/conference/[roomId]/ended — loading',
+    filled: 1,
+    surfaces: 0,
+    setup: ended({ load: 'loading', conference: null }),
+    render: () => <ConferenceEndedPage />,
+  },
+  {
+    name: '/conference/[roomId]/ended — not a room the caller was in',
+    filled: 1,
+    surfaces: 0,
+    setup: ended({ load: 'not-found', conference: null }),
+    render: () => <ConferenceEndedPage />,
+  },
+  {
+    name: '/conference/[roomId]/ended — no minutes yet',
+    filled: 1,
+    surfaces: 2,
+    setup: ended(),
+    render: () => <ConferenceEndedPage />,
+    shows: 'dl',
+  },
+  {
+    name: '/conference/[roomId]/ended — generating minutes',
+    filled: 1,
+    surfaces: 2,
+    setup: ended({ generating: true }),
+    render: () => <ConferenceEndedPage />,
+  },
+  {
+    // The body and its copy control appear; copy is ghost, Regenerate outline.
+    name: '/conference/[roomId]/ended — minutes ready',
+    filled: 1,
+    surfaces: 2,
+    setup() {
+      // The same content as the history rows, under a room instead of a conversation.
+      const { summary, keyPoints, decisions, actionItems, generatedAt, model } = READY_MINUTES;
+      ended({
+        minutes: {
+          conferenceId: ENDED_ROOM.id,
+          status: 'ready',
+          summary,
+          keyPoints,
+          decisions,
+          actionItems,
+          generatedAt,
+          model,
+        },
+      })();
+    },
+    render: () => <ConferenceEndedPage />,
+    shows: 'ul',
+  },
+  {
+    name: '/conference/[roomId]/ended — the last pass failed',
+    filled: 1,
+    surfaces: 2,
+    setup: ended({ generateFailed: true }),
+    render: () => <ConferenceEndedPage />,
+    shows: '.text-destructive',
   },
 ];
 

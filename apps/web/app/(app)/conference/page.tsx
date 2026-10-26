@@ -21,11 +21,9 @@ import { Button, Input, Label, SegmentedControl } from '@chatofy/ui/react';
 import { conferenceRoomIdSchema, MAX_CONFERENCE_DISPLAY_NAME_CHARS } from '@chatofy/types/events';
 import { createConference } from '@/clients/api-client';
 import { useTranslate } from '@/i18n/provider';
+import { ACTIVE_CALL_KEY } from './[roomId]/utils/room-route';
 
 type SourceLanguage = 'vi' | 'en';
-
-/** Where the room screen keeps the call to return to after navigating away mid-call. */
-const ACTIVE_CALL_KEY = 'conference:active';
 
 function roomPath(roomId: string, name: string, lang: SourceLanguage): Route {
   const params = new URLSearchParams({ name, lang });

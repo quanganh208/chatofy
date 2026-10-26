@@ -709,6 +709,22 @@ export const en = {
   'web.conference.createFailed': 'Could not create a room. Try again.',
   'web.conference.roomNotFound': 'This room does not exist.',
   'web.conference.roomEnded': 'This meeting has ended.',
+  // ---- web.conference: the end screen, after Leave or the owner ending it ----
+  // The minutes strings themselves are `web.translate.minutes*`: the end screen
+  // renders the same minutes panel as /translate and history.
+  'web.conference.endedTitle': 'Meeting ended',
+  'web.conference.endedLoading': 'Loading the meeting…',
+  'web.conference.endedNotFound': 'You were not in this meeting, or it does not exist.',
+  'web.conference.endedLoadFailed': 'Could not load this meeting. Try again later.',
+  'web.conference.summaryDuration': 'Duration',
+  'web.conference.summaryLanguages': 'Languages',
+  'web.conference.durationMinutes': '{minutes} min',
+  'web.conference.durationHours': '{hours} h {minutes} min',
+  'web.conference.durationUnknown': 'Not recorded',
+  // A participant who joined without a name.
+  'web.conference.guest': 'Guest',
+  'web.conference.minutesNothingSaid':
+    'Nothing was said in this meeting, so there is nothing to summarize.',
   'web.conference.chatRateLimited': 'Slow down — wait a few seconds before sending again.',
   'web.conference.chatNotSent': 'Message not sent.',
   'web.meta.conference': 'Conference · Chatofy',
