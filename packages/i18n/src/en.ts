@@ -727,6 +727,9 @@ export const en = {
   'mobile.conference.roomId': 'Room ID',
   'mobile.conference.roomIdPlaceholder': 'Enter a room ID to join',
   'mobile.conference.start': 'Start',
+  'mobile.conference.ongoingTitle': 'In a meeting',
+  'mobile.conference.ongoingBody':
+    'Your microphone stays on while Chatofy is in the background. The camera turns off.',
   'mobile.conference.leave': 'Leave',
   'mobile.conference.you': 'You',
   'mobile.conference.connecting': 'Connecting…',

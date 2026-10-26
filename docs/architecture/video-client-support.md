@@ -147,9 +147,8 @@ Plugin props: `cameraPermission`, `microphonePermission` (both strings) to local
 prompt copy.
 
 **Background audio (iOS):** the config plugin does **not** add the `audio` background
-mode, and the app does not add it either. A meeting that must keep audio alive when the
-app is backgrounded needs `UIBackgroundModes` → `audio` added separately (an `infoPlist`
-entry in `app.json`). Today a backgrounded iOS app loses meeting audio.
+mode, so the app adds `UIBackgroundModes: ["audio"]` itself (`ios.infoPlist` in
+`app.json`). It is config only and unverified: no iOS build has run yet.
 
 **Android:** read from the `14.0.0` plugin source, the plugin adds `CAMERA`,
 `RECORD_AUDIO`, `MODIFY_AUDIO_SETTINGS`, `INTERNET`, `ACCESS_NETWORK_STATE`, `WAKE_LOCK`,
@@ -157,8 +156,19 @@ entry in `app.json`). Today a backgrounded iOS app loses meeting audio.
 prebuilt manifest does carry `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_MEDIA_PLAYBACK`
 (from `react-native-audio-api`), which cover playback only: with no
 `FOREGROUND_SERVICE_MICROPHONE` or `FOREGROUND_SERVICE_CAMERA`, Android 14+ cuts the
-microphone and camera once the app leaves the foreground. Keeping a call alive in the
-background needs a foreground service of those two types.
+microphone and camera once the app leaves the foreground.
+
+**A meeting in the background (decided 2026-10-26): audio stays, the camera goes off.**
+The local Expo module `apps/mobile/modules/meeting-foreground-service` runs a foreground
+service of type `microphone` while the call is live (in a call or reconnecting), with an
+ongoing "In a meeting" notification; its manifest adds `FOREGROUND_SERVICE_MICROPHONE` and
+`POST_NOTIFICATIONS`, and the lobby asks for the notification permission at join. The call
+hook turns the camera off on `AppState` `background` exactly as the camera button does, so
+the others see it off rather than a frozen frame, and turns it back on at `active` only if
+the app turned it off. Measured on the Galaxy A13: before, both recordings (WebRTC and the
+translation recorder) went `silenced:true` in `dumpsys audio`; after, they stay
+`silenced:false`, the desktop peer's received audio energy keeps rising through 35 s in the
+background, its decoded video frames stop, and they resume on return.
 
 **The shipped config** (`apps/mobile/app.json`, `plugins[]`):
 
@@ -183,7 +193,7 @@ through its plugin entry.
 | Expo Go?            | **No** — custom dev client / prebuild required                                                                                                                          |
 | Native build cost   | Paid: the app is on a dev-client workflow                                                                                                                               |
 | New-arch (Fabric)   | `newArchEnabled: true` with `124.0.8`; confirmed on device (React Native 0.80+ needs ≥ `124.0.6`)                                                                       |
-| Permissions         | Camera/mic via config plugin; iOS background audio and Android microphone/camera foreground service are not set up                                                      |
+| Permissions         | Camera/mic via config plugin; background audio via a microphone foreground service (Android) and `UIBackgroundModes` (iOS, unverified)                                  |
 | Code reuse from web | Design reused, code not: mobile re-implements the signaling flow (§2.1)                                                                                                 |
 
 ---
@@ -368,15 +378,14 @@ Every built state has headroom of two surfaces, so the end screen's card fits.
 1. **Client/server version pair.** Answered by removal: the clients use plain WebRTC, so
    there is no SFU client library to keep in step with a server.
 2. **`@config-plugins/react-native-webrtc` Android permission set.** Answered from the
-   `14.0.0` source (§2.3): no foreground-service permission. Calls stop in the background
-   on Android 14+ until a microphone/camera foreground service is added.
+   `14.0.0` source (§2.3): no foreground-service permission. The app's own microphone
+   foreground service covers it.
 3. **`react-native-webrtc` + RN 0.83 new architecture (Fabric).** Answered: `124.0.8`
    (exact) with `newArchEnabled: true` and `@config-plugins/react-native-webrtc` `14.0.0`
    (15.x needs Expo ≥ 56) gave two-way audio and video on a physical Android 14 phone on
    2026-10-12 (mediasoup), and again on 2026-10-26 through Cloudflare's SFU.
-4. **Backgrounded meetings.** Neither iOS `UIBackgroundModes: audio` nor an Android
-   microphone/camera foreground service is set up. Decide whether a meeting continues in
-   the background; if yes, add both.
+4. **Backgrounded meetings.** Decided 2026-10-26: audio stays, the camera turns off
+   (§2.3). Verified on Android; iOS is config only until an iOS build runs.
 5. **In-call accent (0 vs Leave-as-accent).** Decided 2026-10-26: keep what is built.
    Leave is the accent on web; mobile fills Leave with the destructive state colour and
    spends no accent. Both pass the budget.

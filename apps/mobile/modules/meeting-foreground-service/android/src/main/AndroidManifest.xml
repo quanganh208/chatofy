@@ -1,0 +1,14 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- A call keeps its microphone when the app is backgrounded (Android 14+ requires the typed permission). -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+  <!-- Android 13+: without it the ongoing-call notification is hidden from the shade. -->
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+  <application>
+    <service
+      android:name="expo.modules.meetingforegroundservice.MeetingForegroundService"
+      android:exported="false"
+      android:foregroundServiceType="microphone" />
+  </application>
+</manifest>

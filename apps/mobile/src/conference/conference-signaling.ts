@@ -218,5 +218,8 @@ export async function requestAndroidPermissions(): Promise<void> {
   await PermissionsAndroid.requestMultiple([
     PermissionsAndroid.PERMISSIONS.CAMERA,
     PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+    // Android 13+: shows the ongoing-meeting notification of the background
+    // microphone service. Declining it hides the notification, nothing else.
+    ...(Number(Platform.Version) >= 33 ? [PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS] : []),
   ]);
 }

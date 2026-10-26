@@ -24,6 +24,10 @@ import { TranscriptSheet, type TranscriptEntry } from '@/components/conference/t
 import { ChatPanel } from '@/components/conference/chat-panel';
 import { LanguagePicker, type SourceLanguage } from '@/components/conference/language-picker';
 import { getConferenceToken } from '@/conference/conference-token';
+import {
+  startMeetingForegroundService,
+  stopMeetingForegroundService,
+} from '../../../modules/meeting-foreground-service';
 
 // English for now; device-locale selection is a follow-up.
 const t = createTranslator(en);
@@ -157,6 +161,19 @@ export default function ConferenceCallScreen() {
 
   // The language is fixed once a join is in flight; the picker is pre-join only.
   const languageLocked = status !== 'idle';
+
+  // While a call is live, a foreground service keeps the microphone open in the
+  // background (Android silences a backgrounded app's recordings otherwise). It
+  // covers a reconnect too, so a network blip in the background does not cut it.
+  const callLive = status === 'in-call' || status === 'reconnecting';
+  useEffect(() => {
+    if (!callLive) return;
+    startMeetingForegroundService(
+      t('mobile.conference.ongoingTitle'),
+      t('mobile.conference.ongoingBody'),
+    );
+    return stopMeetingForegroundService;
+  }, [callLive]);
 
   const onLeave = useCallback(() => {
     leave();
