@@ -130,6 +130,8 @@ export {
   conferenceResponseSchema,
   conferenceDetailResponseSchema,
   conferenceListResponseSchema,
+  conferenceMinutesResponseSchema,
+  storedConferenceMinutesResponseSchema,
 } from './conference.js';
 export type {
   CreateConferenceRequest,
@@ -137,4 +139,6 @@ export type {
   ConferenceResponse,
   ConferenceDetailResponse,
   ConferenceListResponse,
+  ConferenceMinutesResponse,
+  StoredConferenceMinutesResponse,
 } from './conference.js';

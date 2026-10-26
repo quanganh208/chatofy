@@ -10,6 +10,7 @@ import type {
   CreateConferenceRequest,
 } from '@chatofy/types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { visibleToCaller } from './conference-access';
 import { ConferenceRoomRegistry } from './conference-room-registry.service';
 
 /** Whether a room id may be joined, as the gateway reports it. */
@@ -89,13 +90,7 @@ export class ConferenceService {
     callerId: string,
   ): Promise<ConferenceDetailResponse> {
     const conference = await this.prisma.conference.findFirst({
-      where: {
-        id: conferenceId,
-        OR: [
-          { ownerId: callerId },
-          { participants: { some: { userId: callerId } } },
-        ],
-      },
+      where: visibleToCaller(conferenceId, callerId),
       include: {
         participants: true,
         _count: { select: { turns: true } },
@@ -112,6 +107,10 @@ export class ConferenceService {
       title: conference.title ?? undefined,
       createdAt: conference.createdAt.toISOString(),
       ownerId: conference.ownerId,
+      // Absent rather than null, like `leftAt`: a room nobody entered has no
+      // start, and an open one no end. The end screen derives duration from both.
+      startedAt: conference.startedAt?.toISOString(),
+      endedAt: conference.endedAt?.toISOString(),
       participants: conference.participants.map((p) => ({
         id: p.id,
         userId: p.userId,

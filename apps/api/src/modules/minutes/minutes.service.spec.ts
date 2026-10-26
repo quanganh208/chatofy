@@ -24,6 +24,7 @@ import type { Env } from '../../config/env.schema';
 import type { ConversationStore } from '../conversations/interfaces/conversation-store.interface';
 import type { MinutesStore } from './interfaces/minutes-store.interface';
 import { MinutesService } from './minutes.service';
+import { MinutesSummarizer } from './minutes-summarizer.service';
 
 /**
  * Minimal in-process doubles, defined HERE rather than imported from
@@ -112,8 +113,7 @@ function makeService(
     true
   >;
   const service = new MinutesService(
-    config,
-    registry,
+    new MinutesSummarizer(config, registry),
     minutesStore,
     conversationStore as ConversationStore,
   );

@@ -35,16 +35,18 @@ export const actionItemSchema = z.object({
 export type ActionItem = z.infer<typeof actionItemSchema>;
 
 /**
- * The complete minutes artifact for one conversation.
+ * What a minutes artifact SAYS, apart from what it summarizes.
+ *
+ * Shared by the two owners of minutes — a stored conversation on `/translate`
+ * and a conference room — so the rendering, the status machine and the failure
+ * semantics are one contract, and only the parent id differs between them.
  *
  * `model` records which LLM actually produced it, so a regeneration on a
  * different model is distinguishable in storage rather than silently overwriting
  * with no trace of what changed — the same reason the translation result carries
  * the model that ran.
  */
-export const meetingMinutesSchema = z.object({
-  /** The conversation these minutes summarize — the id that appears in URLs. */
-  conversationId: z.string(),
+export const minutesContentSchema = z.object({
   status: minutesStatusSchema,
   /** Two or three sentences over the whole conversation. */
   summary: z.string(),
@@ -58,4 +60,25 @@ export const meetingMinutesSchema = z.object({
   /** The model that produced it; null for a pending/failed record. */
   model: z.string().nullable(),
 });
+export type MinutesContent = z.infer<typeof minutesContentSchema>;
+
+/** The complete minutes artifact for one stored conversation. */
+export const meetingMinutesSchema = z.object({
+  /** The conversation these minutes summarize — the id that appears in URLs. */
+  conversationId: z.string(),
+  ...minutesContentSchema.shape,
+});
 export type MeetingMinutes = z.infer<typeof meetingMinutesSchema>;
+
+/**
+ * The minutes of one conference room.
+ *
+ * One stored copy per room, readable by every participant, written in the
+ * language of whoever generated it last — a regenerate by anyone replaces it.
+ */
+export const conferenceMinutesSchema = z.object({
+  /** The conference these minutes summarize — the room id in URLs. */
+  conferenceId: z.string(),
+  ...minutesContentSchema.shape,
+});
+export type ConferenceMinutes = z.infer<typeof conferenceMinutesSchema>;

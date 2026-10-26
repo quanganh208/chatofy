@@ -88,6 +88,22 @@ describe('ConferenceService', () => {
     expect(endRoom).toHaveBeenCalledWith(room.id);
   });
 
+  it('reports when the room started and ended, and omits what has not happened', async () => {
+    const room = await service.create('alice', {});
+
+    const unopened = await service.findOne(room.id, 'alice');
+    expect(unopened.startedAt).toBeUndefined();
+    expect(unopened.endedAt).toBeUndefined();
+
+    await service.markActive(room.id);
+    await service.end(room.id, 'alice');
+    const row = prisma.conferences.get(room.id)!;
+    const detail = await service.findOne(room.id, 'alice');
+
+    expect(detail.startedAt).toBe(row.startedAt!.toISOString());
+    expect(detail.endedAt).toBe(row.endedAt!.toISOString());
+  });
+
   it('answers 404 when ending a room that does not exist', async () => {
     await expect(service.end('cmissing0000', 'alice')).rejects.toBeInstanceOf(
       NotFoundException,
