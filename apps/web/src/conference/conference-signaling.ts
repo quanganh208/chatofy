@@ -6,10 +6,15 @@
  * carrying `error` rejects here with that code rather than resolving into a
  * caller that would treat it as data.
  */
-import type { types } from 'mediasoup-client';
-import { conferenceDebug } from './conference-debug-log';
 
 const REQUEST_TIMEOUT_MS = 10_000;
+/**
+ * For `conference.media.*`: the server's worst case is several Cloudflare
+ * calls, each with its own timeout and retry, behind the session's queue.
+ * Giving up sooner would leave its late reply to the next request of the same
+ * name, which takes the first reply it sees.
+ */
+export const SFU_REQUEST_TIMEOUT_MS = 60_000;
 
 export interface SignalMessage {
   event: string;
@@ -58,7 +63,12 @@ export function send(ws: WebSocket, event: string, data: unknown): void {
  * The listener is attached BEFORE the send, so a reply can never arrive in a
  * window with nothing listening for it.
  */
-export function request(ws: WebSocket, event: string, data: unknown): Promise<unknown> {
+export function request(
+  ws: WebSocket,
+  event: string,
+  data: unknown,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const finish = () => {
       clearTimeout(timer);
@@ -80,70 +90,9 @@ export function request(ws: WebSocket, event: string, data: unknown): Promise<un
     const timer = setTimeout(() => {
       finish();
       reject(new Error(`timeout waiting for ${event}`));
-    }, REQUEST_TIMEOUT_MS);
+    }, timeoutMs);
     ws.addEventListener('message', onMessage);
     ws.addEventListener('close', onClose);
     send(ws, event, data);
   });
-}
-
-/** The reply to a transport.create, checked for the one field this code reads. */
-export function asTransportOptions(data: unknown): types.TransportOptions {
-  if (
-    typeof data !== 'object' ||
-    data === null ||
-    typeof (data as { id?: unknown }).id !== 'string'
-  ) {
-    throw new Error('transport.create reply has no transport id');
-  }
-  // mediasoup-client validates the ICE/DTLS parameters itself when the
-  // transport is created, and throws on anything it cannot use.
-  return data as types.TransportOptions;
-}
-
-function wireConnect(ws: WebSocket, transport: types.Transport): void {
-  transport.on('connect', ({ dtlsParameters }, callback, errback) => {
-    request(ws, 'conference.transport.connect', { transportId: transport.id, dtlsParameters })
-      .then(() => callback())
-      .catch((err: unknown) => errback(err instanceof Error ? err : new Error(String(err))));
-  });
-}
-
-export function wireSendTransport(ws: WebSocket, transport: types.Transport): void {
-  wireConnect(ws, transport);
-  transport.on('produce', ({ kind, rtpParameters, appData }, callback, errback) => {
-    request(ws, 'conference.produce', { kind, rtpParameters, appData })
-      .then((reply) => {
-        const id = (reply as { id?: unknown } | null)?.id;
-        if (typeof id !== 'string') throw new Error('produce reply has no producer id');
-        callback({ id });
-      })
-      .catch((err: unknown) => errback(err instanceof Error ? err : new Error(String(err))));
-  });
-}
-
-export function wireRecvTransport(ws: WebSocket, transport: types.Transport): void {
-  wireConnect(ws, transport);
-}
-
-/**
- * Consume one remote producer and hand its track over.
- *
- * Callers must SERIALISE these: replies are matched by event name, so two
- * consumes in flight at once could each take the other's reply.
- */
-export async function consumeTrack(
-  ws: WebSocket,
-  device: types.Device,
-  recvTransport: types.Transport,
-  producerId: string,
-): Promise<{ track: MediaStreamTrack; close: () => void }> {
-  const params = (await request(ws, 'conference.consume', {
-    producerId,
-    rtpCapabilities: device.rtpCapabilities,
-  })) as types.ConsumerOptions;
-  const consumer = await recvTransport.consume(params);
-  await request(ws, 'conference.consumer.resume', { consumerId: consumer.id });
-  conferenceDebug(`consumer ${consumer.id} (${consumer.kind}) resumed`);
-  return { track: consumer.track, close: () => consumer.close() };
 }

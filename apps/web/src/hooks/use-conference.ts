@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * React state for one mediasoup conference room.
+ * React state for one conference room.
  *
  * The call itself — sockets, reconnects, media, the translate leg, room events —
  * lives in `ConferenceConnection` (`src/conference/`). This hook owns only what

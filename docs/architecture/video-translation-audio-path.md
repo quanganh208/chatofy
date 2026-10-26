@@ -6,10 +6,12 @@
 > Each speaker's client sends its own microphone to the live mode of `/ws/translate`
 > and forwards the result into `/ws/conference`, which fans it out (§2). This answers
 > Issue #209. §3's per-language producer injection and §5's ducking are still
-> proposals.
+> proposals. The design was written while mediasoup was the SFU; Cloudflare Realtime SFU
+> replaced it on 2026-10-25, which changes nothing in Option A and removes the server-side
+> track access Options B and §3 relied on (§0).
 
 **Date:** 2026-10-06 (design), 2026-10-25 (as-built section)
-**Scope:** How a speaker's audio in a mediasoup meeting reaches the existing
+**Scope:** How a speaker's audio in a meeting reaches the existing
 translation pipeline, and how each listener gets the result in their own
 language.
 
@@ -42,10 +44,13 @@ Facts the rest of this document depends on, each from source:
   (`apps/extension/src/meeting-capture.ts`): it opens a `/ws/translate` session
   on `settings.direction` and a second on `reverseDirection(...)`, from one
   tab-captured audio source. This is a working two-party precedent for Option A.
-- **mediasoup is server-side**: the Worker is a C++ child process of the API;
-  rooms carry Opus (48 kHz, 2ch) + VP8/H264 codecs
-  (`conference-room-registry.service.ts`). The server CAN reach a track via a
-  mediasoup `PlainTransport`, which is the basis of Option B.
+- **The SFU is Cloudflare's, not the API's.** The API drives Cloudflare Realtime SFU over
+  HTTPS and never sees RTP. At design time the SFU was mediasoup inside the API (replaced
+  2026-10-25), whose `PlainTransport` let the server reach a track: the basis of Option B
+  and of §3's producer injection. Cloudflare's server-side track access is its WebSocket
+  adapter, which needs a publicly reachable endpoint
+  ([changelog](https://developers.cloudflare.com/realtime/sfu/platform/changelog/)), and
+  this host has none ([video-network-path.md](./video-network-path.md)).
 
 ---
 
@@ -53,17 +58,17 @@ Facts the rest of this document depends on, each from source:
 
 ### Option A — Client-side capture (each client re-sends mic to `/ws/translate`)
 
-Each participant's client opens its mic twice: once into the mediasoup
-`sendTransport` (for the SFU, unchanged from the PoC) and once into the existing
+Each participant's client opens its mic twice: once into its SFU publish
+connection (for the room) and once into the existing
 `/ws/translate` socket. This is exactly what `meeting-capture.ts` does today,
 generalized from 2 parties to N.
 
 ```
-Speaker mic ──┬── mediasoup sendTransport ── SFU ── listeners (original voice)
+Speaker mic ──┬── SFU publish session ────── SFU ── listeners (original voice)
               └── CapturePump ── /ws/translate ── STT→MT→TTS ── server.audio.frame
 ```
 
-### Option B — Server-side capture (server subscribes to the mediasoup track)
+### Option B — Server-side capture (rejected; designed on the replaced mediasoup SFU)
 
 The server, on each new audio producer, creates a mediasoup `PlainTransport`,
 `consume`s the producer to receive its RTP, decodes Opus→PCM16 (ffmpeg or an
@@ -71,7 +76,7 @@ Opus decoder lib), chunks it into turns, and feeds the existing pipeline. No
 extra client upload.
 
 ```
-Speaker mic ── mediasoup producer ── SFU ──┬── listeners (original voice)
+Speaker mic ── SFU producer ──────── SFU ──┬── listeners (original voice)
                                             └── server PlainTransport ── Opus→PCM
                                                  ── turn cut ── STT→MT→TTS
 ```
@@ -174,7 +179,7 @@ server.subtitle.live { speaker, sourceText, translations: {en:"…", vi:"…"}, 
 ```
 
 Each listener's client renders `translations[myLanguage]`. **Deliver over the
-existing conference WebSocket**, not a mediasoup data channel: the signaling
+existing conference WebSocket**, not a WebRTC data channel: the signaling
 socket already exists per peer, the payload is tiny, and the room-broadcast
 helper is already written (`ConferenceGateway.broadcast`). A data channel buys
 nothing here and adds SCTP setup.
@@ -191,8 +196,9 @@ out that one stream to every listener who wants that language.**
   (`pipeline-translator.service.ts:568`).
 - Each target language is **synthesized once** (one TTS job), producing one PCM
   stream.
-- That stream is injected back into mediasoup as a **new audio producer** via a
-  `PlainTransport` (server → RTP → SFU), tagged with its language in `appData`.
+- That stream is injected back into the SFU as a **new audio producer** (designed as a
+  mediasoup `PlainTransport`, server → RTP → SFU, before that SFU was replaced; on
+  Cloudflare it would need the WebSocket adapter, §0), tagged with its language.
   Listeners `consume` only the producer matching their language. The SFU
   forwards one stream to K subscribers — the same selective-forwarding model
   the PoC already uses for voice.
@@ -274,7 +280,7 @@ is a metered upstream stream.
 **In a conference the problem is milder than a shared phone**: each participant
 is on their own device with their own headset/speaker, so acoustic echo between
 _my_ translation playback and _my_ mic is the normal WebRTC echo case —
-`getUserMedia({ echoCancellation: true })` + mediasoup's built-in handling
+`getUserMedia({ echoCancellation: true })` + the WebRTC stack's built-in handling
 covers it. The real UX question is **talker overlap**: the original speaker's
 voice (forwarded by the SFU) still plays while the translated voice plays on
 top.
@@ -300,10 +306,9 @@ continuous, no turn cascade ([data-flow.md § Live mode](./data-flow.md#live-mod
 
 - **It fits per-direction, client-side.** A client could open one Gemini Live
   session per target language from its own clean mic PCM, exactly as it opens
-  cascade sessions today. mediasoup's server-side track access is **irrelevant**
-  to live mode as currently built, because live mode consumes client PCM over
-  the WebSocket, not RTP from the SFU. So "mediasoup does server-side track
-  access" does not enable live mode — live mode never looks at the SFU track.
+  cascade sessions today. Server-side track access is **irrelevant** to live
+  mode as currently built, because live mode consumes client PCM over the
+  WebSocket, not RTP from the SFU — live mode never looks at the SFU track.
 - **It does not fit the fan-out requirement cleanly.** Live mode is one
   bidirectional stream; the K-languages-once-each dedup in §3 assumes a
   turn-shaped result (one finished translation per language, fanned out). A
@@ -431,7 +436,7 @@ both the SFU and the WS). For a thesis-scale room (2–6) on the target VM this 
 acceptable; if it ever bites, Opus-encode the WS leg before reaching for B.
 
 **Listener delivery:** subtitles over the conference WebSocket; TTS synthesized
-once per (speaker, language) and fanned out as one mediasoup producer per
+once per (speaker, language) and fanned out as one SFU producer per
 language (§3). Build the per-listener WebSocket-frame fallback first for the
 demo, then the producer-injection dedup for scale.
 
@@ -446,8 +451,9 @@ engine (§6). The build uses it anyway, which §4 and §6 bound.
    only (Open Decision 4). The cascade limit in §4 is derived from
    `LOCAL_STT_CONCURRENCY` and per-engine TTS locking, and the live-mode ceiling is the
    six-session constant; neither has been load-tested with several speakers.
-2. **Server-side RTP injection of TTS** into mediasoup (producer-per-language,
-   §3) is unproven on this stack — the SFU only forwards client-produced tracks.
+2. **Server-side injection of TTS** into the SFU (producer-per-language, §3) is
+   unproven, and on Cloudflare it needs the WebSocket adapter's public endpoint (§0) —
+   the SFU only forwards client-published tracks.
    The WebSocket-frame fallback is the safe interim.
 3. **Speaker language per participant**: §4 assumes each participant has one
    known source language (`ConferenceParticipant.sourceLanguage`, set at join). Code-switching within one speaker is out of scope here.

@@ -9,6 +9,12 @@ import {
   WebSocketGateway,
 } from '@nestjs/websockets';
 import {
+  ConferenceMediaPublishSchema,
+  ConferenceMediaRenegotiateSchema,
+  ConferenceMediaSubscribeSchema,
+} from '@chatofy/types';
+import type { z } from 'zod';
+import {
   AUTH_ADAPTER,
   type AuthAdapter,
 } from '../auth/interfaces/auth-adapter.interface';
@@ -22,10 +28,18 @@ import {
   tokenFromUpgradeRequest,
   verifiedUserId,
 } from '../translate/ws-auth';
-import { ConferenceMediaSignaling } from './conference-media-signaling.service';
-import { ConferencePeerLifecycle } from './conference-peer-lifecycle.service';
+import { ConferenceParticipantState } from './conference-participant-state.service';
+import {
+  ConferencePeerLifecycle,
+  type Seat,
+} from './conference-peer-lifecycle.service';
+import { ConferenceSfuSignaling } from './conference-sfu-signaling.service';
 import { ConferenceSocketRegistry } from './conference-socket-registry.service';
-import { sendEvent, type ConferenceSocket } from './conference-socket';
+import {
+  parsePayload,
+  sendEvent,
+  type ConferenceSocket,
+} from './conference-socket';
 import { ConferenceChat } from './services/conference-chat.service';
 import { ConferenceTranslationRelay } from './services/conference-translation-relay.service';
 
@@ -72,7 +86,8 @@ export class ConferenceGateway
   constructor(
     private readonly sockets: ConferenceSocketRegistry,
     private readonly lifecycle: ConferencePeerLifecycle,
-    private readonly media: ConferenceMediaSignaling,
+    private readonly sfu: ConferenceSfuSignaling,
+    private readonly participantState: ConferenceParticipantState,
     private readonly translation: ConferenceTranslationRelay,
     private readonly chat: ConferenceChat,
     @Inject(AUTH_ADAPTER) private readonly auth: AuthAdapter,
@@ -152,60 +167,62 @@ export class ConferenceGateway
     sendEvent(ws, 'conference.leave', { left: true });
   }
 
-  @SubscribeMessage('conference.transport.create')
-  handleTransportCreate(
+  @SubscribeMessage('conference.media.publish')
+  handleMediaPublish(
     @ConnectedSocket() ws: ConferenceSocket,
     @MessageBody() body: unknown,
   ): Promise<void> {
-    return this.media.createTransport(ws, body);
+    return this.media(
+      ws,
+      'conference.media.publish',
+      ConferenceMediaPublishSchema,
+      body,
+      (input, seat) => this.sfu.publish(seat, input),
+    );
   }
 
-  @SubscribeMessage('conference.transport.connect')
-  handleTransportConnect(
+  @SubscribeMessage('conference.media.subscribe')
+  handleMediaSubscribe(
     @ConnectedSocket() ws: ConferenceSocket,
     @MessageBody() body: unknown,
   ): Promise<void> {
-    return this.media.connectTransport(ws, body);
+    return this.media(
+      ws,
+      'conference.media.subscribe',
+      ConferenceMediaSubscribeSchema,
+      body,
+      (_input, seat) => this.sfu.subscribe(seat),
+    );
   }
 
-  @SubscribeMessage('conference.produce')
-  handleProduce(
+  @SubscribeMessage('conference.media.renegotiate')
+  handleMediaRenegotiate(
     @ConnectedSocket() ws: ConferenceSocket,
     @MessageBody() body: unknown,
   ): Promise<void> {
-    return this.media.produce(ws, body);
-  }
-
-  @SubscribeMessage('conference.consume')
-  handleConsume(
-    @ConnectedSocket() ws: ConferenceSocket,
-    @MessageBody() body: unknown,
-  ): Promise<void> {
-    return this.media.consume(ws, body);
-  }
-
-  @SubscribeMessage('conference.consumer.resume')
-  handleConsumerResume(
-    @ConnectedSocket() ws: ConferenceSocket,
-    @MessageBody() body: unknown,
-  ): Promise<void> {
-    return this.media.resumeConsumer(ws, body);
+    return this.media(
+      ws,
+      'conference.media.renegotiate',
+      ConferenceMediaRenegotiateSchema,
+      body,
+      (input, seat) => this.sfu.renegotiate(seat, input),
+    );
   }
 
   @SubscribeMessage('conference.participant.mute')
   handleParticipantMute(
     @ConnectedSocket() ws: ConferenceSocket,
     @MessageBody() body: unknown,
-  ): Promise<void> {
-    return this.media.setMuted(ws, body);
+  ): void {
+    this.participantState.setMuted(ws, body);
   }
 
   @SubscribeMessage('conference.participant.video')
   handleParticipantVideo(
     @ConnectedSocket() ws: ConferenceSocket,
     @MessageBody() body: unknown,
-  ): Promise<void> {
-    return this.media.setVideoEnabled(ws, body);
+  ): void {
+    this.participantState.setVideoEnabled(ws, body);
   }
 
   @SubscribeMessage('conference.translation.broadcast')
@@ -222,6 +239,36 @@ export class ConferenceGateway
     @MessageBody() body: unknown,
   ): Promise<void> {
     return this.chat.send(ws, body);
+  }
+
+  /**
+   * The media envelope: parse against the shared contract, require a seated
+   * peer, hand both to the SFU signaling, and reply on the same event name.
+   * Anything unexpected becomes `internal_error`; its message never leaves.
+   */
+  private async media<T>(
+    ws: ConferenceSocket,
+    event: string,
+    schema: z.ZodType<T>,
+    body: unknown,
+    handler: (input: T, seat: Seat) => Promise<unknown>,
+  ): Promise<void> {
+    const input = parsePayload(schema, body);
+    if (input === null) {
+      sendEvent(ws, event, { error: 'invalid_payload' });
+      return;
+    }
+    const seat = this.lifecycle.resolvePeer(ws);
+    if ('error' in seat) {
+      sendEvent(ws, event, seat);
+      return;
+    }
+    try {
+      sendEvent(ws, event, await handler(input, seat));
+    } catch (err) {
+      this.logger.error(`${event} failed for ${seat.socketId}`, err);
+      sendEvent(ws, event, { error: 'internal_error' });
+    }
   }
 
   /**

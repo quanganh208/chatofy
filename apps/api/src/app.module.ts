@@ -32,9 +32,9 @@ import { envSchema } from './config/env.schema';
     StorageModule,
     TranslateModule,
     // Imported only when CONFERENCE_ENABLED is on. Off, nothing conference-
-    // related loads: no mediasoup worker, no /ws/conference, no /conference
-    // routes. Read after ConfigModule has loaded .env, through the same schema
-    // field that validates it, so the two can never disagree.
+    // related loads: no Cloudflare SFU client, no /ws/conference, no
+    // /conference routes. Read after ConfigModule has loaded .env, through
+    // the same schema field that validates it, so the two can never disagree.
     ConditionalModule.registerWhen(ConferenceModule, (env) =>
       envSchema.shape.CONFERENCE_ENABLED.parse(env['CONFERENCE_ENABLED']),
     ),

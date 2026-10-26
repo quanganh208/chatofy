@@ -5,6 +5,12 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 // imports below, which `vi.hoisted` guarantees.
 vi.hoisted(() => {
   process.env.CONFERENCE_ENABLED = 'true';
+  // Required once conferencing is on. Chat never reaches Cloudflare, and with
+  // no TURN key a join's ICE servers are STUN only, so nothing is fetched.
+  process.env.CLOUDFLARE_REALTIME_APP_ID = 'e2e-app';
+  process.env.CLOUDFLARE_REALTIME_APP_SECRET = 'e2e-secret';
+  delete process.env.CLOUDFLARE_TURN_KEY_ID;
+  delete process.env.CLOUDFLARE_TURN_KEY_API_TOKEN;
 });
 
 import { INestApplication } from '@nestjs/common';

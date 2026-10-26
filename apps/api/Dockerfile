@@ -10,20 +10,6 @@
 # docker-compose.prod.yml. That is not an optimisation — `prisma` is a
 # devDependency, so it does not survive into the runtime tree and
 # `migrate deploy` can only run from a stage that still has the dev deps.
-#
-# Debian trixie (glibc 2.41), not Alpine (musl) and not bookworm, in both
-# stages. mediasoup's postinstall downloads a prebuilt C++ worker chosen by the
-# BUILD host's kernel major (`mediasoup-worker-<ver>-linux-x64-kernel<N>.tgz`)
-# and runs it once to check it loads; if it does not, it falls back to a source
-# build that needs python3, make and a C++ toolchain, and `pnpm install` fails.
-#   - musl (Alpine): no prebuilt runs at all.
-#   - bookworm (glibc 2.36): the kernel-6 build runs, but the kernel-7 build
-#     needs GLIBC_2.38 and GLIBCXX_3.4.31. Docker Desktop's VM on the deploy host
-#     runs kernel 7, so the image would build on a kernel-6 CI runner and fail on
-#     the host that actually deploys.
-#   - trixie: both run.
-# Both stages must share the libc, because the runner executes the native
-# binaries (mediasoup, argon2) the builder installed.
 
 # ── Stage 1: builder ──────────────────────────────────────────────────────────
 # Source is copied BEFORE install, not after, and that ordering is forced rather
@@ -34,12 +20,12 @@
 # install exits non-zero.
 #
 # `--ignore-scripts` would be the wrong escape hatch here: pnpm-workspace.yaml's
-# allowBuilds list deliberately permits argon2, @prisma/engines, prisma, esbuild
-# and mediasoup to build, and those are exactly the native pieces this image needs.
+# allowBuilds list deliberately permits argon2, @prisma/engines, prisma and
+# esbuild to build, and those are exactly the native pieces this musl image needs.
 #
 # The pnpm store cache mount is what keeps this fast — package downloads survive
 # across builds even though this layer re-runs on any source change.
-FROM node:24-trixie-slim AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 RUN corepack enable
@@ -100,15 +86,13 @@ RUN pnpm --filter api deploy --prod --legacy /prod/api && \
     cp -r "$PRISMA_GEN" "/prod/api/$(dirname "$PRISMA_GEN")/"
 
 # ── Stage 2: runner ───────────────────────────────────────────────────────────
-FROM node:24-trixie-slim AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-# groupadd/useradd (passwd, essential on Debian) rather than Alpine's busybox
-# addgroup/adduser. Same ids as before, so volume ownership does not change.
-RUN groupadd --system --gid 1001 nodejs && \
-    useradd --system --uid 1001 --gid nodejs --no-create-home --shell /usr/sbin/nologin nestjs
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 --ingroup nodejs nestjs
 
 COPY --from=builder --chown=nestjs:nodejs /prod/api ./
 
@@ -122,7 +106,7 @@ USER nestjs
 
 EXPOSE 3000
 
-# Node's own fetch, not wget or curl — trixie-slim ships neither, and a
+# Node's own fetch, so the check needs no extra package in the image — and a
 # HEALTHCHECK whose own command is missing marks the container unhealthy forever.
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]

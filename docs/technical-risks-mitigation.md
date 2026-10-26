@@ -1,16 +1,18 @@
 # Technical Risks & Mitigation Plans: Video Conferencing
 
-> **Status: Design; code on `main` behind flags.** The mediasoup SFU and client-side
-> translation are on `main` behind `CONFERENCE_ENABLED` / `NEXT_PUBLIC_CONFERENCE_ENABLED`,
-> off by default. Translation latency is from a 2-tab local run (#209); SFU load from #211;
-> the network path (#208) is pending. Progress: [project-roadmap.md](./project-roadmap.md).
+> **Status: Design; code on `main` behind flags.** Meeting media on Cloudflare Realtime SFU
+> and client-side translation are on `main` behind `CONFERENCE_ENABLED` /
+> `NEXT_PUBLIC_CONFERENCE_ENABLED`, off by default. Translation latency is from a 2-tab local
+> run (#209); SFU load from #211, measured on mediasoup before Cloudflare replaced it; the
+> network path (#208) is decided. Progress: [project-roadmap.md](./project-roadmap.md).
 
 **Date:** 2026-09-29 | **Updated:** 2026-10-07 (re-rated translation lag with measured numbers, #212)  
 **Scope:** Risk analysis, impact assessment and mitigation strategies for the proposed design  
-**SFU:** mediasoup in-process (resolved #207). Billing deferred (resolved #212).
+**SFU:** Cloudflare Realtime SFU (2026-10-25; replaced the in-process mediasoup of #207). Billing deferred (resolved #212).
 
 Probabilities and cost figures are estimates unless marked **measured**. Where the
-original text said "Pion", mediasoup is the chosen SFU (resolved #207).
+original text said "Pion", read the SFU chosen since: mediasoup (#207), replaced by
+Cloudflare Realtime SFU (2026-10-25).
 
 ---
 
@@ -442,10 +444,10 @@ Monitoring:
 
 ### Risk 2.4: SFU Scalability Beyond 6 Participants
 
-> **Measured (#211, 2026-10-11, Windows dev machine, loopback SFU):** 6 × 720p60 ran at
+> **Measured on mediasoup, since replaced (#211, 2026-10-11, Windows dev machine, loopback SFU):** 6 × 720p60 ran at
 > ≈ 9.7 Mbps aggregate with a 15–20 MiB worker, so 6 participants hold for media on one
 > machine; per-cell numbers in
-> [video-conferencing-v2-synthesis.md → Load constraints](./architecture/video-conferencing-v2-synthesis.md#2-load-constraints-measured--211-2026-10-11).
+> [video-conferencing-v2-synthesis.md → Load constraints](./architecture/video-conferencing-v2-synthesis.md#2-load-constraints-measured-on-mediasoup--211-2026-10-11).
 > Translation, not the SFU, caps a meeting today: six live translation sessions server-wide.
 
 #### Description
@@ -454,7 +456,7 @@ Performance degrades or crashes when 7+ participants join (exceeds design constr
 
 **Breakdown:**
 
-- A mediasoup SFU handles N participants by forwarding N-1 video tracks (each participant gets N-1 feeds); it does NOT transcode
+- An SFU handles N participants by forwarding N-1 video tracks (each participant gets N-1 feeds); it does NOT transcode
 - At 6 participants: 6 × 5 = 30 tracks on the SFU
 - At 20 participants: 20 × 19 = 380 tracks (possible, but CPU high)
 - Goal: Graceful degradation, not crash

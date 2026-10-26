@@ -1,4 +1,3 @@
-import type { ConfigService } from '@nestjs/config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CONFERENCE_CLOSE_ENDED,
@@ -10,16 +9,15 @@ import type { AuthAdapter } from '../auth/interfaces/auth-adapter.interface';
 import { SessionTerminator } from '../auth/session-terminator';
 import type { PipelineTranslatorService } from '../translate/services/pipeline-translator.service';
 import { VERIFIED_USER_ID } from '../translate/ws-auth';
-import type { Env } from '../../config/env.schema';
+import type { CloudflareRealtimeClient } from './cloudflare-realtime.client';
 import { ConferenceGateway } from './conference.gateway';
-import { ConferenceMediaSignaling } from './conference-media-signaling.service';
+import { ConferenceParticipantState } from './conference-participant-state.service';
 import { ConferencePeerLifecycle } from './conference-peer-lifecycle.service';
 import { ConferenceRoomRegistry } from './conference-room-registry.service';
 import { ConferenceService } from './conference.service';
+import { ConferenceSfuSignaling } from './conference-sfu-signaling.service';
 import { ConferenceSocketRegistry } from './conference-socket-registry.service';
 import { SOCKET_OPEN, type ConferenceSocket } from './conference-socket';
-import { ConferenceWebRtcTransportFactory } from './conference-webrtc-transport.factory';
-import type { ConferenceWorkerService } from './conference-worker.service';
 import { CHAT_BURST, ConferenceChat } from './services/conference-chat.service';
 import { RELAY_CHAR_BURST } from './services/conference-translation-relay.service';
 import { ConferencePersistenceService } from './services/conference-persistence.service';
@@ -28,7 +26,7 @@ import { ConferenceTranslationRouter } from './services/conference-translation-r
 
 /**
  * The gateway and every service behind it run for real; only the two edges
- * are doubles — mediasoup (a router whose transports are plain objects) and
+ * are doubles — Cloudflare Realtime (a client answering every SFU call) and
  * Prisma (the in-memory conference store, which keeps Postgres's unique key,
  * foreign key and visibility rules).
  */
@@ -68,54 +66,35 @@ class FakeSocket implements ConferenceSocket {
   }
 }
 
-let transportSeq = 0;
-function fakeTransport() {
-  transportSeq += 1;
+/** A Cloudflare Realtime client that accepts every call. */
+function fakeCloudflare() {
+  let session = 0;
   return {
-    id: `t${transportSeq}`,
-    iceParameters: {},
-    iceCandidates: [],
-    dtlsParameters: {},
-    close: vi.fn(),
-    connect: vi.fn().mockResolvedValue(undefined),
-    produce: vi.fn(async ({ kind }: { kind: string }) => {
-      // Resolves on a later tick, like a real worker round trip, so calls
-      // pipelined by one client overlap.
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      transportSeq += 1;
-      return {
-        id: `p${transportSeq}`,
-        kind,
-        appData: {},
-        on: vi.fn(),
-        close: vi.fn(),
-      };
-    }),
-  };
-}
-
-function fakeRouter() {
-  return {
-    rtpCapabilities: { codecs: [] },
-    close: vi.fn(),
-    canConsume: () => true,
-    createWebRtcTransport: vi.fn(() => Promise.resolve(fakeTransport())),
+    newSession: vi.fn(() => Promise.resolve(`sess-${++session}`)),
+    pushTracks: vi.fn(
+      (
+        _id: string,
+        _sdp: string,
+        tracks: { mid: string; trackName: string }[],
+      ) => Promise.resolve({ answerSdp: 'v=0 answer', tracks }),
+    ),
+    pullTracks: vi.fn(
+      (_id: string, remotes: { sessionId: string; trackName: string }[]) =>
+        Promise.resolve({
+          offerSdp: 'v=0 sfu offer',
+          requiresImmediateRenegotiation: true,
+          tracks: remotes.map((r, i) => ({ ...r, mid: String(i) })),
+        }),
+    ),
+    renegotiate: vi.fn(() => Promise.resolve()),
+    forceCloseTracks: vi.fn(() => Promise.resolve()),
+    generateIceServers: vi.fn(() => Promise.resolve(null)),
   };
 }
 
 function buildHarness() {
   const prisma = new InMemoryConferencePrisma();
-  let workerDied: () => void = () => undefined;
-  const worker = {
-    onWorkerDied: (listener: () => void) => {
-      workerDied = listener;
-    },
-    getWorker: () => ({ createRouter: () => Promise.resolve(fakeRouter()) }),
-  } as unknown as ConferenceWorkerService;
-  const config = {
-    get: (key: keyof Env) =>
-      (({ MEDIASOUP_ANNOUNCED_IP: '127.0.0.1' }) as Partial<Env>)[key],
-  } as unknown as ConfigService<Env, true>;
+  const cloudflare = fakeCloudflare();
   const translator = {
     translateAll: ({ text, targets }: { text: string; targets: string[] }) =>
       Promise.resolve(
@@ -126,8 +105,12 @@ function buildHarness() {
     verifyToken: vi.fn().mockResolvedValue({ sub: 'unused' }),
   } as unknown as AuthAdapter;
 
-  const rooms = new ConferenceRoomRegistry(worker);
   const sockets = new ConferenceSocketRegistry();
+  const sfu = new ConferenceSfuSignaling(
+    cloudflare as unknown as CloudflareRealtimeClient,
+    sockets,
+  );
+  const rooms = new ConferenceRoomRegistry(sfu);
   const conferences = new ConferenceService(prisma.asPrismaService(), rooms);
   const persistence = new ConferencePersistenceService(
     prisma.asPrismaService(),
@@ -137,9 +120,9 @@ function buildHarness() {
     sockets,
     conferences,
     persistence,
+    sfu,
   );
-  const transports = new ConferenceWebRtcTransportFactory(config);
-  const media = new ConferenceMediaSignaling(lifecycle, sockets, transports);
+  const participantState = new ConferenceParticipantState(lifecycle, sockets);
   const relay = new ConferenceTranslationRelay(
     lifecycle,
     sockets,
@@ -151,7 +134,8 @@ function buildHarness() {
   const gateway = new ConferenceGateway(
     sockets,
     lifecycle,
-    media,
+    sfu,
+    participantState,
     relay,
     chat,
     auth,
@@ -175,7 +159,7 @@ function buildHarness() {
   };
 
   return {
-    killWorker: () => workerDied(),
+    cloudflare,
     prisma,
     rooms,
     conferences,
@@ -185,6 +169,14 @@ function buildHarness() {
     join,
   };
 }
+
+const publishBody = {
+  sdp: 'v=0 offer',
+  tracks: [
+    { mid: '0', kind: 'audio' },
+    { mid: '1', kind: 'video' },
+  ],
+};
 
 /** Let fire-and-forget persistence settle. */
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -290,9 +282,6 @@ describe('ConferenceGateway', () => {
       const first = h.connect('bob');
       await h.join(first, roomId, 'Bob', 'en');
       const room = h.rooms.getRoom(roomId);
-      const router = room?.router as unknown as {
-        close: ReturnType<typeof vi.fn>;
-      };
 
       const second = h.connect('bob');
       const reply = await h.join(second, roomId, 'Bob', 'en');
@@ -300,31 +289,34 @@ describe('ConferenceGateway', () => {
       expect(reply).toHaveProperty('socketId', second._socketId);
       expect(first.closedWith?.code).toBe(CONFERENCE_CLOSE_REPLACED);
       expect(h.rooms.getRoom(roomId)).toBe(room);
-      expect(router.close).not.toHaveBeenCalled();
       expect([...(room?.peers.keys() ?? [])]).toStrictEqual([second._socketId]);
 
-      await h.gateway.handleTransportCreate(second, { direction: 'send' });
-      expect(second.last('conference.transport.create')).toHaveProperty('id');
+      await h.gateway.handleMediaPublish(second, publishBody);
+      expect(second.last('conference.media.publish')).toStrictEqual({
+        sdp: 'v=0 answer',
+      });
     });
 
-    it('opens the room again when it was torn down mid-join while still joinable', async () => {
+    it('refuses a join whose room the owner ended while it was being seated', async () => {
       const ws = h.connect('bob');
       const status = h.conferences.joinableStatus.bind(h.conferences);
       let calls = 0;
       vi.spyOn(h.conferences, 'joinableStatus').mockImplementation(
         async (id) => {
           calls += 1;
-          // The re-check after the room was opened: the media worker dies just
-          // before it answers, dropping every room.
-          if (calls === 2) h.killWorker();
-          return status(id);
+          const answer = await status(id);
+          // The re-check read `joinable`, then the owner ended the room
+          // before the join resumed.
+          if (calls === 2) await h.conferences.end(roomId, 'alice');
+          return answer;
         },
       );
 
       const reply = await h.join(ws, roomId, 'Bob', 'en');
 
-      expect(reply).toHaveProperty('socketId', ws._socketId);
-      expect(h.rooms.getRoom(roomId)?.peers.has(ws._socketId ?? '')).toBe(true);
+      expect(reply).toStrictEqual({ error: 'room_ended' });
+      expect(ws._roomId).toBeUndefined();
+      expect(h.rooms.getRoom(roomId)).toBeUndefined();
     });
 
     it('does not drop a room another join is holding when one join aborts', async () => {
@@ -343,65 +335,120 @@ describe('ConferenceGateway', () => {
       expect([...(room?.peers.keys() ?? [])]).toStrictEqual([
         staying._socketId,
       ]);
-      await h.gateway.handleTransportCreate(staying, { direction: 'recv' });
-      expect(staying.last('conference.transport.create')).toHaveProperty('id');
+      await h.gateway.handleMediaPublish(staying, publishBody);
+      expect(staying.last('conference.media.publish')).toHaveProperty('sdp');
     });
   });
 
-  describe('produce', () => {
-    const produceBody = (kind: 'audio' | 'video') => ({
-      kind,
-      rtpParameters: { codecs: [{ mimeType: 'audio/opus' }] },
+  describe('media', () => {
+    it('hands a joiner Cloudflare STUN and who already publishes', async () => {
+      const alice = h.connect('alice');
+      await h.join(alice, roomId, 'Alice', 'vi');
+      await h.gateway.handleMediaPublish(alice, publishBody);
+
+      const bob = h.connect('bob');
+      const reply = await h.join(bob, roomId, 'Bob', 'en');
+
+      expect(reply).toMatchObject({
+        iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }],
+        peers: [{ socketId: alice._socketId, published: true }],
+      });
     });
 
-    it('counts produce calls still in flight against the per-peer cap', async () => {
-      const ws = h.connect('bob');
-      await h.join(ws, roomId, 'Bob', 'en');
-      await h.gateway.handleTransportCreate(ws, { direction: 'send' });
+    it('publishes: replies with the SFU answer and tells the room', async () => {
+      const alice = h.connect('alice');
+      const bob = h.connect('bob');
+      await h.join(alice, roomId, 'Alice', 'vi');
+      await h.join(bob, roomId, 'Bob', 'en');
 
-      await Promise.all([
-        h.gateway.handleProduce(ws, produceBody('audio')),
-        h.gateway.handleProduce(ws, produceBody('video')),
-        h.gateway.handleProduce(ws, produceBody('video')),
-      ]);
+      await h.gateway.handleMediaPublish(alice, publishBody);
 
-      const replies = ws.all('conference.produce');
-      expect(replies.filter((r) => 'id' in r)).toHaveLength(2);
-      expect(replies).toContainEqual({ error: 'limit_reached' });
+      expect(alice.last('conference.media.publish')).toStrictEqual({
+        sdp: 'v=0 answer',
+      });
+      expect(bob.last('conference.media.published')).toStrictEqual({
+        socketId: alice._socketId,
+      });
     });
-  });
 
-  describe('transport.create', () => {
-    it('allows one transport per direction', async () => {
-      const ws = h.connect('bob');
-      await h.join(ws, roomId, 'Bob', 'en');
+    it('subscribes: replies with the SFU offer and the mids, then accepts the answer', async () => {
+      const alice = h.connect('alice');
+      const bob = h.connect('bob');
+      await h.join(alice, roomId, 'Alice', 'vi');
+      await h.join(bob, roomId, 'Bob', 'en');
+      await h.gateway.handleMediaPublish(alice, publishBody);
 
-      await h.gateway.handleTransportCreate(ws, { direction: 'send' });
-      expect(ws.last('conference.transport.create')).toHaveProperty('id');
-
-      await h.gateway.handleTransportCreate(ws, { direction: 'send' });
-      expect(ws.last('conference.transport.create')).toStrictEqual({
-        error: 'transport_exists',
+      await h.gateway.handleMediaSubscribe(bob, {});
+      expect(bob.last('conference.media.subscribe')).toStrictEqual({
+        sdp: 'v=0 sfu offer',
+        mids: [
+          { mid: '0', socketId: alice._socketId, kind: 'audio' },
+          { mid: '1', socketId: alice._socketId, kind: 'video' },
+        ],
       });
 
-      await h.gateway.handleTransportCreate(ws, { direction: 'sideways' });
-      expect(ws.last('conference.transport.create')).toStrictEqual({
+      await h.gateway.handleMediaRenegotiate(bob, { sdp: 'v=0 answer' });
+      expect(bob.last('conference.media.renegotiate')).toStrictEqual({
+        ok: true,
+      });
+    });
+
+    it('refuses media events from a socket that has not joined', async () => {
+      const ws = h.connect('bob');
+
+      await h.gateway.handleMediaPublish(ws, publishBody);
+      await h.gateway.handleMediaSubscribe(ws, {});
+      await h.gateway.handleMediaRenegotiate(ws, { sdp: 'v=0 answer' });
+
+      for (const event of [
+        'conference.media.publish',
+        'conference.media.subscribe',
+        'conference.media.renegotiate',
+      ]) {
+        expect(ws.last(event)).toStrictEqual({ error: 'not_in_room' });
+      }
+      expect(h.cloudflare.newSession).not.toHaveBeenCalled();
+    });
+
+    it('refuses a media payload that does not match the contract', async () => {
+      const ws = h.connect('bob');
+      await h.join(ws, roomId, 'Bob', 'en');
+
+      await h.gateway.handleMediaPublish(ws, {
+        sdp: 'v=0 offer',
+        tracks: [
+          { mid: '0', kind: 'video' },
+          { mid: '1', kind: 'video' },
+        ],
+      });
+      await h.gateway.handleMediaRenegotiate(ws, { sdp: '' });
+
+      expect(ws.last('conference.media.publish')).toStrictEqual({
         error: 'invalid_payload',
       });
+      expect(ws.last('conference.media.renegotiate')).toStrictEqual({
+        error: 'invalid_payload',
+      });
+      expect(h.cloudflare.pushTracks).not.toHaveBeenCalled();
     });
 
-    it('refuses a second create for a direction still being created', async () => {
-      const ws = h.connect('bob');
-      await h.join(ws, roomId, 'Bob', 'en');
+    it('closes a leaver’s SFU tracks when its socket disconnects', async () => {
+      const alice = h.connect('alice');
+      const bob = h.connect('bob');
+      await h.join(alice, roomId, 'Alice', 'vi');
+      await h.join(bob, roomId, 'Bob', 'en');
+      await h.gateway.handleMediaPublish(alice, publishBody);
 
-      await Promise.all([
-        h.gateway.handleTransportCreate(ws, { direction: 'recv' }),
-        h.gateway.handleTransportCreate(ws, { direction: 'recv' }),
+      h.gateway.handleDisconnect(alice);
+      await flush();
+
+      expect(h.cloudflare.forceCloseTracks).toHaveBeenCalledWith('sess-1', [
+        '0',
+        '1',
       ]);
-
-      const replies = ws.all('conference.transport.create');
-      expect(replies.filter((r) => 'id' in r)).toHaveLength(1);
-      expect(replies).toContainEqual({ error: 'transport_exists' });
+      expect(bob.last('conference.peer.left')).toStrictEqual({
+        socketId: alice._socketId,
+      });
     });
   });
 

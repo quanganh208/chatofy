@@ -1,52 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { types } from 'mediasoup';
 import type { LanguageCode } from '@chatofy/types';
-import { ConferenceWorkerService } from './conference-worker.service';
+import { ConferenceSfuSignaling } from './conference-sfu-signaling.service';
 import type { TokenBucket } from './conference-token-bucket';
-
-/**
- * Mediasoup codec capabilities offered by every room router.
- *
- * preferredPayloadType values follow the IANA RTP payload type registry and
- * mediasoup's own defaults — required by the type in v3.28+.
- */
-const MEDIA_CODECS: types.RtpCodecCapability[] = [
-  {
-    kind: 'audio',
-    mimeType: 'audio/opus',
-    preferredPayloadType: 111,
-    clockRate: 48000,
-    channels: 2,
-  },
-  {
-    kind: 'video',
-    mimeType: 'video/VP8',
-    preferredPayloadType: 96,
-    clockRate: 90000,
-    parameters: {},
-  },
-  {
-    kind: 'video',
-    mimeType: 'video/H264',
-    preferredPayloadType: 101,
-    clockRate: 90000,
-    parameters: {
-      'packetization-mode': 1,
-      'profile-level-id': '42e01f',
-      'level-asymmetry-allowed': 1,
-    },
-  },
-];
 
 export interface ConferenceRoom {
   id: string;
-  router: types.Router;
   /** socketId → participant session */
   peers: Map<string, ParticipantSession>;
   /**
    * Joins holding this room between opening it and adding their peer. An
    * empty room with a join in flight is not dropped, or that join would be
-   * seated on a closed router.
+   * seated in a room nobody can reach.
    */
   joining: number;
 }
@@ -56,6 +20,25 @@ export interface PeerLimits {
   chat?: TokenBucket;
   relayFrames?: TokenBucket;
   relayChars?: TokenBucket;
+  /** `conference.media.*` requests, each of which drives Cloudflare calls. */
+  media?: TokenBucket;
+}
+
+export type MediaKind = 'audio' | 'video';
+
+/** A track this peer publishes on its SFU publish session. */
+export interface PublishedTrack {
+  /** The `mid` on the publisher's own session. */
+  mid: string;
+  kind: MediaKind;
+  /** The name other sessions pull it by; it is the kind. */
+  trackName: string;
+}
+
+/** Whose track a receiving `mid` carries. */
+export interface PulledFrom {
+  socketId: string;
+  kind: MediaKind;
 }
 
 export interface ParticipantSession {
@@ -66,15 +49,13 @@ export interface ParticipantSession {
   participantId: string;
   muted: boolean;
   videoEnabled: boolean;
-  sendTransport: types.WebRtcTransport | null;
-  recvTransport: types.WebRtcTransport | null;
-  /** Directions whose transport is being created right now. */
-  creatingTransports: Set<'send' | 'recv'>;
-  /** Produce / consume calls awaiting mediasoup, counted against the caps. */
-  pendingProduces: number;
-  pendingConsumes: number;
-  producers: Map<string, types.Producer>;
-  consumers: Map<string, types.Consumer>;
+  /** The SFU session this peer publishes on, created by its first publish. */
+  pubSessionId?: string;
+  /** The SFU session this peer receives on, created by its first subscribe. */
+  subSessionId?: string;
+  publishedTracks: PublishedTrack[];
+  /** `mid` on the receiving session → the peer and kind it carries. */
+  pulled: Map<string, PulledFrom>;
   /** Turns already persisted, so a repeated final frame writes nothing. */
   persistedTurnIds: Set<string>;
   limits: PeerLimits;
@@ -85,89 +66,46 @@ export type NewParticipant = Pick<
   'userId' | 'displayName' | 'sourceLanguage' | 'participantId'
 >;
 
-/**
- * Why a room is being torn down while it still has peers:
- * - `ended`: the owner ended it through `DELETE /conference/:id`.
- * - `media_restart`: the mediasoup worker died and every room went with it.
- */
-export type RoomCloseReason = 'ended' | 'media_restart';
+/** Told about a room with peers right before the owner's end tears it down. */
+export type RoomClosingListener = (room: ConferenceRoom) => void;
 
-/** Told about a room with peers right before it is torn down. */
-export type RoomClosingListener = (
-  room: ConferenceRoom,
-  reason: RoomCloseReason,
-) => void;
-
-/** A room was ended while its router was still being created. */
+/** The owner ended a room while a join was still being seated in it. */
 export class RoomClosedError extends Error {
   constructor(roomId: string) {
-    super(`room ${roomId} was closed while it was being opened`);
+    super(`room ${roomId} was closed while it was being joined`);
     this.name = 'RoomClosedError';
   }
 }
 
 /**
- * The live rooms on this API instance, one mediasoup router each.
- *
- * Creation is memoised per room id: concurrent first joins (every client
- * reconnecting after a restart) share one in-flight router instead of each
- * creating one and the last `set` orphaning the others.
+ * The live rooms on this API instance. A room is in-memory membership only:
+ * media lives on Cloudflare's SFU, so opening one costs nothing and closing
+ * one closes its peers' SFU tracks.
  */
 @Injectable()
 export class ConferenceRoomRegistry {
   private readonly logger = new Logger(ConferenceRoomRegistry.name);
   private readonly rooms = new Map<string, ConferenceRoom>();
-  private readonly pending = new Map<string, Promise<ConferenceRoom>>();
   private readonly closingListeners = new Set<RoomClosingListener>();
 
-  constructor(private readonly workerService: ConferenceWorkerService) {
-    workerService.onWorkerDied(() => this.closeAll('media_restart'));
-  }
+  constructor(private readonly sfu: ConferenceSfuSignaling) {}
 
   onRoomClosing(listener: RoomClosingListener): void {
     this.closingListeners.add(listener);
   }
 
-  getOrCreateRoom(roomId: string): Promise<ConferenceRoom> {
+  getOrCreateRoom(roomId: string): ConferenceRoom {
     const existing = this.rooms.get(roomId);
-    if (existing) return Promise.resolve(existing);
-    const inflight = this.pending.get(roomId);
-    if (inflight) return inflight;
-
-    const created: Promise<ConferenceRoom> = this.workerService
-      .getWorker()
-      .createRouter({ mediaCodecs: MEDIA_CODECS })
-      .then(
-        (router) => {
-          // `endRoom` / `closeAll` drop the pending entry to cancel a creation
-          // they raced with; a router that finishes after that is discarded.
-          if (this.pending.get(roomId) !== created) {
-            router.close();
-            throw new RoomClosedError(roomId);
-          }
-          this.pending.delete(roomId);
-          const room: ConferenceRoom = {
-            id: roomId,
-            router,
-            peers: new Map(),
-            joining: 0,
-          };
-          this.rooms.set(roomId, room);
-          this.logger.log(`Room created: ${roomId}`);
-          return room;
-        },
-        (err: unknown) => {
-          if (this.pending.get(roomId) === created) this.pending.delete(roomId);
-          throw err;
-        },
-      );
-    this.pending.set(roomId, created);
-    return created;
+    if (existing) return existing;
+    const room: ConferenceRoom = { id: roomId, peers: new Map(), joining: 0 };
+    this.rooms.set(roomId, room);
+    this.logger.log(`Room created: ${roomId}`);
+    return room;
   }
 
   /** Open (or share) the room for a join, holding it open until released. */
-  async acquireForJoin(roomId: string): Promise<ConferenceRoom> {
-    const room = await this.getOrCreateRoom(roomId);
+  acquireForJoin(roomId: string): ConferenceRoom {
+    const room = this.getOrCreateRoom(roomId);
     room.joining += 1;
     return room;
   }
@@ -200,13 +138,8 @@ export class ConferenceRoomRegistry {
       ...participant,
       muted: false,
       videoEnabled: true,
-      sendTransport: null,
-      recvTransport: null,
-      creatingTransports: new Set(),
-      pendingProduces: 0,
-      pendingConsumes: 0,
-      producers: new Map(),
-      consumers: new Map(),
+      publishedTracks: [],
+      pulled: new Map(),
       persistedTurnIds: new Set(),
       limits: {},
     };
@@ -215,14 +148,15 @@ export class ConferenceRoomRegistry {
   }
 
   /**
-   * Remove a peer and close its media. The room closes when it is left empty
-   * and no join is holding it.
+   * Remove a peer and close its SFU tracks, and every other peer's copy of
+   * them, in the background. The room closes when it is left empty and no
+   * join is holding it.
    */
   removePeer(room: ConferenceRoom, socketId: string): void {
     const peer = room.peers.get(socketId);
     if (!peer) return;
-    closePeerMedia(peer);
     room.peers.delete(socketId);
+    this.sfu.cleanupPeer(room, socketId, peer);
     this.dropIfEmpty(room);
   }
 
@@ -230,53 +164,26 @@ export class ConferenceRoomRegistry {
   dropIfEmpty(room: ConferenceRoom): void {
     if (room.peers.size > 0 || room.joining > 0 || !this.isLive(room)) return;
     this.rooms.delete(room.id);
-    room.router.close();
     this.logger.log(`Room removed (empty): ${room.id}`);
   }
 
   /**
-   * End one room: listeners notify and disconnect its peers, then every
-   * transport and the router close. Also cancels a creation still in flight.
+   * End one room: listeners notify and disconnect its peers, and every
+   * peer's SFU tracks close in the background, not awaited.
    */
   endRoom(roomId: string): void {
-    this.pending.delete(roomId);
     const room = this.rooms.get(roomId);
-    if (room) this.close(room, 'ended');
-  }
-
-  private closeAll(reason: RoomCloseReason): void {
-    this.pending.clear();
-    for (const room of [...this.rooms.values()]) this.close(room, reason);
-  }
-
-  private close(room: ConferenceRoom, reason: RoomCloseReason): void {
+    if (!room) return;
     this.rooms.delete(room.id);
     for (const listener of this.closingListeners) {
       try {
-        listener(room, reason);
+        listener(room);
       } catch (err) {
         this.logger.error('a room-closing listener threw', err);
       }
     }
-    for (const peer of room.peers.values()) closePeerMedia(peer);
+    this.sfu.cleanupRoom(room);
     room.peers.clear();
-    try {
-      room.router.close();
-    } catch (err) {
-      // A router on a dead worker may already be gone.
-      this.logger.warn(`router close failed for ${room.id}: ${String(err)}`);
-    }
-    this.logger.log(`Room closed (${reason}): ${room.id}`);
+    this.logger.log(`Room closed (ended): ${room.id}`);
   }
-}
-
-function closePeerMedia(peer: ParticipantSession): void {
-  peer.producers.forEach((p) => p.close());
-  peer.consumers.forEach((c) => c.close());
-  peer.sendTransport?.close();
-  peer.recvTransport?.close();
-  peer.producers.clear();
-  peer.consumers.clear();
-  peer.sendTransport = null;
-  peer.recvTransport = null;
 }

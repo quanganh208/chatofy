@@ -1,60 +1,42 @@
 # Video Client Support and Meeting Screen Design
 
-> **Status: Research for Issue #210, since built in part.** It confirms web and mobile
-> client SDK support for the mediasoup media server (chosen in #207, see
-> [video-conferencing-architecture.md](../video-conferencing-architecture.md) Open
-> Decision 1) and designs the meeting screens. The lobby and call screens are on `main`
+> **Status: Research for Issue #210, since built in part.** It was written for mediasoup,
+> the SFU chosen in #207 and replaced by Cloudflare Realtime SFU on 2026-10-25 (Open
+> Decision 1 in [video-conferencing-architecture.md](../video-conferencing-architecture.md)).
+> §1.1, §1.2 and §2.1 now describe the plain-WebRTC clients; the rest still holds, and it
+> designs the meeting screens. The lobby and call screens are on `main`
 > behind the conference flags (`apps/web/app/(app)/conference/`, web, when
 > `NEXT_PUBLIC_CONFERENCE_ENABLED=true`; `apps/mobile/app/(app)/conference/`, development
 > builds only). The end screen (§4.4) is not built.
 
-**Date:** 2026-10-06
-**Media server:** mediasoup (SFU library in-process with NestJS)
-**Client SDK (web):** `mediasoup-client`
+**Date:** 2026-10-06, revised 2026-10-25
+**Media server:** Cloudflare Realtime SFU (managed; the API drives it over HTTPS)
+**Client SDK:** none on web (browser `RTCPeerConnection`); `react-native-webrtc` on mobile
 
-Every SDK/version claim below cites the npm registry (queried 2026-10-06) or the
-mediasoup/library docs. "PoC" means observed on the #207 PoC page, since removed.
+SDK/version claims cite the npm registry (queried 2026-10-06) or the library docs. "PoC"
+means observed on the #207 PoC page, since removed.
 
 ---
 
 ## 1. Web client (Next.js 16)
 
-### 1.1 SDK version
+### 1.1 SDK: none
 
-`apps/web/package.json` pins `mediasoup-client` at **`3.7.18`** (exact, no caret).
-This version was published **2024-11-26**. The latest published version is **`3.24.4`**
-(2026-10-01) — the installed pin is ~23 minor releases and nearly two years behind.
-
-**Finding — version gap is an adoption risk, not a blocker.** The PoC works on 3.7.18,
-so the signaling/media path is proven. But the server-side mediasoup library version
-must match the client's negotiated capabilities, and the browser-handler set has grown
-since 3.7.18 (see 1.2). Before production, pin client and server to a current, matching
-pair and re-run the PoC. Treat this as a deliberate upgrade with a test gate, not a
-silent bump — `mediasoup-client` has had breaking changes across majors historically,
-and the server library (`mediasoup`) ships a C++ Worker whose ABI is version-coupled.
-
-Source: `https://registry.npmjs.org/mediasoup-client` dist-tags and `time` map.
+The web call is plain WebRTC: one `RTCPeerConnection` to publish and one to receive, both
+`bundlePolicy: 'max-bundle'` with the ICE servers from the join reply
+(`apps/web/src/conference/conference-sfu-media.ts`). No SFU client library is installed;
+Cloudflare's SFU speaks standard WebRTC, and the Cloudflare-specific part is the API's REST
+calls ([Realtime SFU](https://developers.cloudflare.com/realtime/sfu/)). The pinned
+`mediasoup-client` 3.7.18, and the version gap this section used to track, went with
+mediasoup.
 
 ### 1.2 Browser compatibility
 
-mediasoup-client's `Device` auto-detects the browser and selects a WebRTC handler. The
-built-in handlers (mediasoup-client API docs):
-
-| Handler          | Target                                             |
-| ---------------- | -------------------------------------------------- |
-| `Chrome111`      | Chrome/Chromium >= 111                             |
-| `Chrome74`       | Chrome/Chromium >= 74                              |
-| `Firefox120`     | Firefox >= 120                                     |
-| `Safari12`       | Safari >= 12                                       |
-| `ReactNative106` | React Native with `react-native-webrtc` >= 106.0.0 |
-
-**Chrome, Firefox and Safari are all supported** on modern versions. Web apps pass no
-`handlerName`/`handlerFactory`; the PoC relies on this auto-detection
-(`new mediasoupClient.Device()`, `page.tsx:109`). The handler table is a property of
-the installed client version — 3.7.18 predates some handler refinements, which is the
-second reason to upgrade before production (1.1).
-
-Source: mediasoup-client API docs (Device handlers).
+The browser's own WebRTC stack does the work, so support is that of `RTCPeerConnection`
+with unified-plan transceivers in current Chrome, Firefox and Safari. Cloudflare lists the
+codecs it forwards as H.264, H.265, VP8, VP9 and AV1 for video and Opus and G.711 for audio
+([limits](https://developers.cloudflare.com/realtime/sfu/platform/limits/)). Only headless
+Chromium has been run against it (the live check, 2026-10-25).
 
 **Known limitation not covered by this research:** Safari's WebRTC has historically had
 the most codec/behaviour quirks (VP8 vs H264, unified-plan edge cases). The PoC was
@@ -94,7 +76,7 @@ not an architecture gap.
 | `connect-src 'self' <api> <ws>` | API over http(s) + ws(s) | Signaling socket `/ws/conference` — **already covered** (same origin as `/ws/translate`) |
 | `media-src 'self' blob:`        | present                  | Remote `MediaStream` → `<video srcObject>` — **already covered**                         |
 | `img-src ... blob:`             | present                  | Video frame snapshots if ever used — covered                                             |
-| `worker-src 'self' blob:`       | present                  | mediasoup-client uses no extra worker origin — covered                                   |
+| `worker-src 'self' blob:`       | present                  | The WebRTC call uses no extra worker origin — covered                                    |
 
 **Finding — no CSP change is needed for same-origin signaling + SFU-relayed media.**
 This is the critical and often-misunderstood point:
@@ -107,38 +89,32 @@ required nor effective; the browser's WebRTC stack dials TURN directly, outside 
 fetch/socket model CSP sees. (This is a well-known WebRTC/CSP interaction; the W3C
 WebRTC spec routes media through the ICE agent, not the fetch stack CSP intercepts.)
 
-**One real deployment constraint, already recorded in #207:** the Cloudflare Tunnel
-fronting the web/API hostnames blocks UDP (TCP only), so media must relay through coturn
-(TURN over TCP/TLS). That is an infrastructure fact, not a CSP fact — coturn's address
-reaches the client as an ICE server in the transport params (`page.tsx:130` already logs
-`iceServers`), and the browser contacts it outside CSP.
+**The deployment constraint is not a CSP fact either.** The Cloudflare Tunnel fronting the
+web/API hostnames carries no UDP, so media goes straight to Cloudflare's SFU, with Cloudflare
+TURN for networks that block UDP
+([video-network-path.md](./video-network-path.md)). Those addresses reach the client as ICE
+servers in the join reply, and the browser contacts them outside CSP.
 
 **Only change if signaling moves off-origin.** If a future deployment puts the
-conference socket on a different host than the API (e.g. a dedicated SFU gateway domain),
-that host's `ws(s)://` origin must be added to `connect-src`. On today's in-process
-mediasoup design the socket is same-origin as the API, so nothing changes.
+conference socket on a different host than the API, that host's `ws(s)://` origin must be
+added to `connect-src`. Today the socket is same-origin as the API, and the browser never
+calls Cloudflare's REST API itself (the API does), so nothing changes.
 
 ---
 
 ## 2. Mobile client (Expo 55 / React Native 0.83)
 
-### 2.1 Does mediasoup-client work in React Native?
+### 2.1 What runs the call on React Native?
 
-**Yes, but not standalone — it requires `react-native-webrtc`.** mediasoup-client ships a
-`ReactNative106` handler that depends on `react-native-webrtc >= 106.0.0` to provide the
-`RTCPeerConnection`/`getUserMedia` native implementation (React Native has no browser
-WebRTC). The #207 comparison table already states this:
-`mediasoup-client@3.7.18 + react-native-webrtc`.
+**`react-native-webrtc`, with no SFU client library on top.** React Native has no browser
+WebRTC, so `react-native-webrtc` (pinned `124.0.8`) supplies `RTCPeerConnection` and
+`getUserMedia` natively, and the call uses it the same way the web does: one connection to
+publish and one to receive (`apps/mobile/src/conference/conference-signaling.ts`). The
+signaling flow is the web's, re-implemented, not shared (the two clients are separate code).
+Cloudflare's SFU needs nothing beyond standard WebRTC from it.
 
-So the architecture is: **same `mediasoup-client` package** as web, with
-`react-native-webrtc` supplying the native WebRTC layer and the `ReactNative106` handler
-selected (auto-detected, or forced via `handlerName`/`handlerFactory` in
-`DeviceOptions`). Signaling code (join, transport create, produce, consume) is portable
-from the web PoC; only media capture (`getUserMedia`) resolves to the native module.
-
-Sources: mediasoup-client API docs (handler list), #207 comparison table,
-`https://registry.npmjs.org/react-native-webrtc` (latest `124.0.8`, 2026-07-21,
-peer `react-native >= 0.60.0`).
+Sources: `https://registry.npmjs.org/react-native-webrtc` (latest `124.0.8`, 2026-07-21,
+peer `react-native >= 0.60.0`); [Realtime SFU](https://developers.cloudflare.com/realtime/sfu/).
 
 ### 2.2 Does it need a dev client (custom native build)?
 
@@ -200,7 +176,7 @@ missing permission (e.g. `FOREGROUND_SERVICE_MICROPHONE` on Android 14+) explici
 
 | Factor              | Assessment                                                                                                                          |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| SDK works?          | Yes — `mediasoup-client` + `react-native-webrtc` (`ReactNative106`)                                                                 |
+| SDK works?          | Yes — plain `react-native-webrtc`; proven two-way on Android with the earlier SFU, device run on Cloudflare pending                 |
 | Expo Go?            | **No** — custom dev client / prebuild required                                                                                      |
 | Native build cost   | High for this app: it is currently pure managed Expo                                                                                |
 | New-arch (Fabric)   | `newArchEnabled: true`; `react-native-webrtc` supports the new arch on recent versions — **verify** against RN 0.83 before building |
@@ -393,9 +369,8 @@ in-call to one elevated surface.
 
 ## Unresolved questions
 
-1. **mediasoup-client / mediasoup version pair.** Installed client is `3.7.18`
-   (2024-11); latest is `3.24.4` (2026-10). The production plan must choose a current,
-   matching client+server pair and re-run the PoC — do not assume 3.7.18 is the target.
+1. **Client/server version pair.** Answered by removal: the clients use plain WebRTC, so
+   there is no SFU client library to keep in step with a server.
 2. **`@config-plugins/react-native-webrtc` Android permission set.** Not confirmed from
    plugin docs in this research; verify the manifest additions against
    `@config-plugins/react-native-webrtc@15.0.2` source, and confirm Android 14+
@@ -411,5 +386,6 @@ in-call to one elevated surface.
    with Leave rendered in the `live` state colour (mirroring the translate Stop button).
    A product decision could instead make Leave the one accent; both pass the budget, but
    the state-colour treatment is more consistent with existing patterns.
-6. **Cross-browser interop test matrix.** The #207 PoC tested one browser; Chrome↔Safari
-   and Chrome↔Firefox interop is unverified and belongs in the production test plan.
+6. **Cross-browser interop test matrix.** The #207 PoC and the 2026-10-25 live check each
+   ran one browser engine; Chrome↔Safari and Chrome↔Firefox interop is unverified and
+   belongs in the production test plan.

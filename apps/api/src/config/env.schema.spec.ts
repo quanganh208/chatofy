@@ -264,6 +264,8 @@ describe('prod.env.example', () => {
     'AUTH_GOOGLE_ID',
     'AUTH_GOOGLE_SECRET',
     'NEXT_PUBLIC_API_BASE_URL',
+    // The web build arg that shows the meeting pages, read by compose.
+    'NEXT_PUBLIC_CONFERENCE_ENABLED',
     // Sidecar thread and concurrency knobs, read by docker-compose.prod.yml and
     // passed to the services under their unprefixed names. The PROD_ prefix
     // keeps them from colliding with the dev stack's values in a shell that has

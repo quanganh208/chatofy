@@ -17,15 +17,13 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { registerGlobals, mediaDevices, RTCView, MediaStream } from 'react-native-webrtc';
+import { mediaDevices, RTCView, MediaStream } from 'react-native-webrtc';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import { createTranslator, en } from '@chatofy/i18n';
 import { conferenceRoomIdSchema } from '@chatofy/types/events';
 import { useTheme } from '@/providers/theme-provider';
 import { LanguagePicker, type SourceLanguage } from '@/components/conference/language-picker';
 import { CreateConferenceRoomError, createConferenceRoom } from '@/conference/conference-rooms-api';
-
-registerGlobals();
 
 // English for now; device-locale selection is a follow-up.
 const t = createTranslator(en);

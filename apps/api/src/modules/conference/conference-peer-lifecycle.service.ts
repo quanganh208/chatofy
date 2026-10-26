@@ -11,8 +11,8 @@ import {
   RoomClosedError,
   type ConferenceRoom,
   type ParticipantSession,
-  type RoomCloseReason,
 } from './conference-room-registry.service';
+import { ConferenceSfuSignaling } from './conference-sfu-signaling.service';
 import { ConferenceSocketRegistry } from './conference-socket-registry.service';
 import {
   parsePayload,
@@ -22,9 +22,6 @@ import {
 } from './conference-socket';
 import { ConferenceService } from './conference.service';
 import { ConferencePersistenceService } from './services/conference-persistence.service';
-
-/** Close code for a room torn down by a media-server restart; clients may reconnect. */
-const CLOSE_MEDIA_RESTART = 1011;
 
 /** The caller's seat: its room, its peer session, and its socket id. */
 export interface Seat {
@@ -38,8 +35,7 @@ export type ResolvedPeer = Seat | { error: ConferenceErrorCode };
 
 /**
  * Who is in which room: join, leave, eviction, disconnect, and the endings the
- * server initiates (owner ended the room, media worker restarted, credentials
- * revoked).
+ * server initiates (owner ended the room, credentials revoked).
  *
  * A socket's `_roomId` is set only once its join has fully succeeded and is
  * cleared before the server closes it for any reason of its own, so the close
@@ -54,8 +50,9 @@ export class ConferencePeerLifecycle {
     private readonly sockets: ConferenceSocketRegistry,
     private readonly conferences: ConferenceService,
     private readonly persistence: ConferencePersistenceService,
+    private readonly sfu: ConferenceSfuSignaling,
   ) {
-    rooms.onRoomClosing((room, reason) => this.disconnectRoom(room, reason));
+    rooms.onRoomClosing((room) => this.disconnectRoom(room));
   }
 
   async join(ws: ConferenceSocket, body: unknown): Promise<void> {
@@ -88,28 +85,20 @@ export class ConferencePeerLifecycle {
       joinRecorded = true;
       // Held from here until `finally`, so neither an eviction below nor
       // another join aborting can drop the room as empty under this one.
-      room = await this.rooms.acquireForJoin(input.roomId);
+      room = this.rooms.acquireForJoin(input.roomId);
+      // Fetched before the re-check below, so nothing awaits between that
+      // check and the peer being seated.
+      const iceServers = await this.sfu.iceServersFor();
       // Re-checked after the awaits: an owner who ended the room in the
       // meantime has either flipped the status (refused here) or will close
       // this peer through the registry once it is added below.
-      let after = await this.conferences.joinableStatus(input.roomId);
-      if (after === 'joinable' && !this.rooms.isLive(room)) {
-        // Still joinable, yet torn down meanwhile — a media-worker restart.
-        // The meeting is running, so open it again once rather than report
-        // a terminal `room_ended`.
-        this.rooms.releaseJoin(room);
-        room = undefined;
-        room = await this.rooms.acquireForJoin(input.roomId);
-        after = await this.conferences.joinableStatus(input.roomId);
-      }
+      const after = await this.conferences.joinableStatus(input.roomId);
       if (after !== 'joinable') {
         reply({ error: after });
         return;
       }
-      if (!this.rooms.isLive(room)) {
-        reply({ error: 'internal_error' });
-        return;
-      }
+      // Ended between the status write and its re-check above.
+      if (!this.rooms.isLive(room)) throw new RoomClosedError(room.id);
       // The socket may have closed while this join awaited; its disconnect
       // already ran and found no room, so adding it now would leave a ghost
       // nothing evicts.
@@ -136,13 +125,12 @@ export class ConferencePeerLifecycle {
       });
       reply({
         socketId,
-        rtpCapabilities: room.router.rtpCapabilities,
+        iceServers,
         peers: this.peerList(room, socketId),
       });
     } catch (err) {
       if (err instanceof RoomClosedError) {
-        // The creation this join waited on was cancelled: by the owner ending
-        // the room, or by a worker restart (retryable).
+        // The owner ended the room while this join was being seated.
         const status = await this.conferences
           .joinableStatus(input.roomId)
           .catch(() => 'joinable' as const);
@@ -236,20 +224,16 @@ export class ConferencePeerLifecycle {
     }
   }
 
-  /** The registry is tearing `room` down: tell and disconnect its peers. */
-  private disconnectRoom(room: ConferenceRoom, reason: RoomCloseReason): void {
+  /** The owner ended `room`: tell and disconnect its peers. */
+  private disconnectRoom(room: ConferenceRoom): void {
     const ended: ConferenceEnded = { reason: 'ended_by_owner' };
     for (const [socketId, peer] of room.peers) {
       void this.persistence.recordLeave(room.id, peer.userId);
       const socket = this.sockets.get(socketId);
       if (!socket) continue;
       socket._roomId = undefined;
-      if (reason === 'ended') {
-        sendEvent(socket, 'conference.ended', ended);
-        socket.close(CONFERENCE_CLOSE_ENDED, 'ended');
-      } else {
-        socket.close(CLOSE_MEDIA_RESTART, 'media server restarted');
-      }
+      sendEvent(socket, 'conference.ended', ended);
+      socket.close(CONFERENCE_CLOSE_ENDED, 'ended');
     }
   }
 
@@ -265,12 +249,9 @@ export class ConferencePeerLifecycle {
         socketId,
         displayName: p.displayName,
         userId: p.userId,
-        // `conference.new.producer` only reaches peers already in the room, so a
-        // late joiner learns about earlier tracks from this list or never at all.
-        producers: [...p.producers.values()].map((producer) => ({
-          producerId: producer.id,
-          kind: producer.kind,
-        })),
+        // `conference.media.published` only reaches peers already in the
+        // room, so a late joiner learns who publishes from this list.
+        published: p.publishedTracks.length > 0,
       }));
   }
 }

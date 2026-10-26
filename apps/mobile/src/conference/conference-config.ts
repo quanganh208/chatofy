@@ -12,7 +12,7 @@ export const API_BASE_URL = process.env['EXPO_PUBLIC_API_BASE_URL'] ?? 'http://1
 
 const WS_BASE_URL = API_BASE_URL.replace(/^http/, 'ws');
 
-/** mediasoup signaling + room events. */
+/** SFU signaling + room events. */
 export const CONFERENCE_WS_URL = `${WS_BASE_URL}/ws/conference`;
 
 /** Live translation of this client's own mic; a second socket opened on join. */

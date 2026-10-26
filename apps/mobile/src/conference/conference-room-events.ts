@@ -1,27 +1,24 @@
 /**
  * The room-event listener for one conference socket.
  *
- * It is attached the moment the join reply arrives — before the device loads,
- * before getUserMedia, before any transport exists — because the gateway adds
- * this peer to the room before it replies, so `peer.joined`, `new.producer` and
- * the rest can arrive while the join sequence is still running. Producers
- * announced before the receive transport exists are queued and consumed once
- * {@link RoomEventListener.attachMedia} supplies it; everything else applies
- * immediately.
+ * It is attached the moment the join reply arrives — before getUserMedia,
+ * before anything is published — because the gateway adds this peer to the room
+ * before it replies, so `peer.joined`, `media.published` and the rest can arrive
+ * while the join sequence is still running. The receive side already exists by
+ * then, so every event applies immediately.
  */
 
 import type { Dispatch, SetStateAction } from 'react';
-import type { MediaStream } from 'react-native-webrtc';
-import type { types } from 'mediasoup-client';
 import {
   ConferenceChatMessageSchema,
+  ConferenceMediaPublishedSchema,
   ConferenceTranslationAudioSchema,
   ConferenceTranslationSubtitleSchema,
   type ConferenceChatMessage,
   type ConferenceTranslationSubtitle,
 } from '@chatofy/types/events';
 import type { LanguageCode } from '@chatofy/types/domain';
-import { consumeTrack, parseSignal, replyErrorCode } from './conference-signaling';
+import { parseSignal, replyErrorCode } from './conference-signaling';
 import {
   withPeerMediaState,
   withPeerSubtitle,
@@ -38,41 +35,29 @@ const SUBTITLE_LINGER_MS = 4000;
 export const CHAT_MESSAGE_CAP = 200;
 
 export interface RoomEventDeps {
-  ws: WebSocket;
   /** The language this listener speaks; picks which subtitle text to show. */
   myLanguage: LanguageCode;
   mySocketId: string;
   /** socketId → displayName, known before a tile exists. Shared with the hook. */
   peerNames: Map<string, string>;
-  /** Peers that left; a track consumed for one of them afterwards is discarded. */
+  /** Peers that left; a track received for one of them afterwards is discarded. */
   departed: Set<string>;
   setPeers: Dispatch<SetStateAction<PeerMap>>;
   setMessages: Dispatch<SetStateAction<ConferenceChatMessage[]>>;
   audioSink: () => NativeTranslationAudioSink | null;
-  onTrack: (socketId: string, stream: MediaStream) => void;
+  /** A remote peer published; bring the receive connection up to date. */
+  onPublished: () => void;
+  /** A remote peer left; forget the receiving mids it owned. */
+  onPeerLeft: (socketId: string) => void;
   /** The owner ended the meeting. */
   onEnded: () => void;
   /** The gateway refused a chat message this client sent; `code` is its error code. */
   onChatRefused: (code: string) => void;
 }
 
-export interface ProducerRef {
-  producerId: string;
-  socketId: string;
-}
-
 export interface RoomEventListener {
   /** Pass to `ws.addEventListener('message', …)`. */
   onMessage: (evt: MessageEvent<string>) => void;
-  /**
-   * Supply the receive side once it exists, then consume `initial` (the join
-   * reply's producers) and every producer announced in the meantime.
-   */
-  attachMedia: (
-    device: types.Device,
-    recvTransport: types.Transport,
-    initial: ProducerRef[],
-  ) => void;
   /** Cancel pending subtitle timers. */
   dispose: () => void;
 }
@@ -103,29 +88,9 @@ function booleanField(data: unknown, key: string): boolean | undefined {
 }
 
 export function createRoomEventListener(deps: RoomEventDeps): RoomEventListener {
-  const { ws, myLanguage, mySocketId, peerNames, departed, setPeers, setMessages } = deps;
-  let media: { device: types.Device; recvTransport: types.Transport } | null = null;
-  const pendingProducers: ProducerRef[] = [];
-  // A producer can be both in the join reply and announced while the sequence
-  // ran; consume it once.
-  const consumedProducers = new Set<string>();
-  let consumeChain: Promise<void> = Promise.resolve();
+  const { myLanguage, mySocketId, peerNames, departed, setPeers, setMessages } = deps;
   const subtitleTimers = new Set<ReturnType<typeof setTimeout>>();
   let disposed = false;
-
-  function consume(producerId: string, socketId: string): void {
-    if (!media || departed.has(socketId) || consumedProducers.has(producerId)) return;
-    consumedProducers.add(producerId);
-    const { device, recvTransport } = media;
-    // One consume (consume → resume) at a time, in arrival order, like web: the
-    // gateway's replies carry no correlation id.
-    consumeChain = consumeChain
-      .then(() => {
-        if (disposed || departed.has(socketId)) return;
-        return consumeTrack(ws, device, recvTransport, producerId, socketId, deps.onTrack);
-      })
-      .catch((err: unknown) => console.warn('[conference] consume failed', producerId, err));
-  }
 
   function onSubtitle(data: unknown): void {
     const parsed = ConferenceTranslationSubtitleSchema.safeParse(data);
@@ -171,12 +136,10 @@ export function createRoomEventListener(deps: RoomEventDeps): RoomEventListener 
     if (!msg) return;
 
     switch (msg.event) {
-      case 'conference.new.producer': {
-        const producerId = stringField(msg.data, 'producerId');
-        const socketId = stringField(msg.data, 'socketId');
-        if (!producerId || !socketId || socketId === mySocketId) return;
-        if (media) consume(producerId, socketId);
-        else pendingProducers.push({ producerId, socketId });
+      case 'conference.media.published': {
+        const parsed = ConferenceMediaPublishedSchema.safeParse(msg.data);
+        if (!parsed.success || parsed.data.socketId === mySocketId) return;
+        deps.onPublished();
         return;
       }
       case 'conference.peer.joined': {
@@ -193,6 +156,7 @@ export function createRoomEventListener(deps: RoomEventDeps): RoomEventListener 
         departed.add(socketId);
         peerNames.delete(socketId);
         deps.audioSink()?.removeSpeaker(socketId);
+        deps.onPeerLeft(socketId);
         setPeers((prev) => withoutPeer(prev, socketId));
         return;
       }
@@ -231,16 +195,8 @@ export function createRoomEventListener(deps: RoomEventDeps): RoomEventListener 
 
   return {
     onMessage,
-    attachMedia(device, recvTransport, initial) {
-      if (disposed) return;
-      media = { device, recvTransport };
-      for (const p of [...initial, ...pendingProducers.splice(0)]) {
-        consume(p.producerId, p.socketId);
-      }
-    },
     dispose() {
       disposed = true;
-      pendingProducers.length = 0;
       for (const timer of subtitleTimers) clearTimeout(timer);
       subtitleTimers.clear();
     },

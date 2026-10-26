@@ -10,7 +10,7 @@
 
 **Date:** 2026-09-29 | **Updated:** 2026-10-07 (reconciled with Prisma conventions for #212)  
 **Scope:** Proposed schema for Conference, Participants, Messages, Turns, Recording  
-**SFU:** mediasoup in-process (resolved #207). Billing deferred (resolved #212).
+**SFU:** Cloudflare Realtime SFU (2026-10-25; replaced the in-process mediasoup of #207). Billing deferred (resolved #212).
 
 **Schema conventions (`apps/api/prisma/schema.prisma`):**
 

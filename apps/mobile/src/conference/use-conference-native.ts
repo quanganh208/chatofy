@@ -6,32 +6,34 @@
  * This file owns the call lifecycle: connect (a fresh token per attempt), the
  * join sequence, bounded reconnect, final endings (room ended, socket replaced,
  * refused join), mic/cam/leave and teardown. The pieces it composes live beside
- * it: request/reply signaling and transport wiring (conference-signaling.ts), the
- * room-event listener (conference-room-events.ts), the peer map updates
- * (conference-peer-state.ts), the ending rules (conference-call-outcome.ts), the
- * translate bridge and the TTS sink. The mediasoup ↔ react-native-webrtc track
- * type mismatch is contained in native-media-adapter.ts.
+ * it: request/reply signaling and the SFU publish/subscribe steps
+ * (conference-signaling.ts), the room-event listener (conference-room-events.ts),
+ * the peer map updates (conference-peer-state.ts), the ending rules
+ * (conference-call-outcome.ts), the translate bridge and the TTS sink.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { registerGlobals, mediaDevices, type MediaStream } from 'react-native-webrtc';
-import { Device } from 'mediasoup-client';
-import type { types } from 'mediasoup-client';
-import { WS_SUBPROTOCOL, conferenceRoomIdSchema } from '@chatofy/types/events';
-import type { ConferenceChatMessage } from '@chatofy/types/events';
+import { mediaDevices, type MediaStream, type RTCPeerConnection } from 'react-native-webrtc';
+import {
+  ConferenceIceServerSchema,
+  WS_SUBPROTOCOL,
+  conferenceRoomIdSchema,
+} from '@chatofy/types/events';
+import type { ConferenceChatMessage, ConferenceIceServer } from '@chatofy/types/events';
 import type { LanguageCode } from '@chatofy/types/domain';
-import { toMediasoupTrack } from './native-media-adapter';
 import { NativeTranslationAudioSink } from './native-audio-playback';
 import { NativeAudioCapture } from './native-audio-capture';
 import { startTranslateBridge, type TranslateBridge } from './translate-bridge-native';
 import { CONFERENCE_WS_URL, TRANSLATE_WS_URL } from './conference-config';
 import {
   ConferenceRequestError,
+  createSfuPeerConnection,
+  createSfuSubscriber,
+  publishLocalTracks,
   request,
   requestAndroidPermissions,
   send,
-  wireRecvTransport,
-  wireSendTransport,
+  type SfuSubscriber,
 } from './conference-signaling';
 import { createRoomEventListener, type RoomEventListener } from './conference-room-events';
 import { withPeerTrack, type PeerMap, type PeerState } from './conference-peer-state';
@@ -45,11 +47,6 @@ import {
 
 export type { PeerState } from './conference-peer-state';
 export type { ChatRefusal, ConferenceErrorReason } from './conference-call-outcome';
-
-// MUST be called once at module load, before any Device is constructed. This installs
-// react-native-webrtc's RTCPeerConnection/MediaStream/MediaStreamTrack as the globals
-// mediasoup-client reaches for.
-registerGlobals();
 
 /** Maximum number of automatic reconnect attempts before giving up. */
 const RECONNECT_CAP = 3;
@@ -93,17 +90,18 @@ export interface UseConferenceReturn {
 
 interface JoinReply {
   socketId: string;
-  rtpCapabilities: types.RtpCapabilities;
-  peers: { socketId: string; displayName: string; producers: { producerId: string }[] }[];
+  iceServers: ConferenceIceServer[];
+  peers: { socketId: string; displayName: string; published: boolean }[];
 }
+
+const iceServersSchema = ConferenceIceServerSchema.array();
 
 function isJoinReply(data: unknown): data is JoinReply {
   if (!data || typeof data !== 'object') return false;
   const d = data as Partial<JoinReply>;
   return (
     typeof d.socketId === 'string' &&
-    typeof d.rtpCapabilities === 'object' &&
-    d.rtpCapabilities !== null &&
+    iceServersSchema.safeParse(d.iceServers).success &&
     Array.isArray(d.peers)
   );
 }
@@ -162,8 +160,12 @@ export function useConferenceNative(
   const roomEventsRef = useRef<RoomEventListener | null>(null);
   /** socketId → displayName, known before a PeerState exists (from join/peer.joined). */
   const peerNamesRef = useRef<Map<string, string>>(new Map());
-  /** Peers that left; a consume finishing after their departure is discarded. */
+  /** Peers that left; a track arriving after their departure is discarded. */
   const departedRef = useRef<Set<string>>(new Set());
+  /** The send connection publishing this client's tracks; closed on teardown. */
+  const pubPcRef = useRef<RTCPeerConnection | null>(null);
+  /** The receive connection and its subscribe chain; closed on teardown. */
+  const subscriberRef = useRef<SfuSubscriber | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const localMutedRef = useRef(false);
   const localVideoEnabledRef = useRef(true);
@@ -187,12 +189,16 @@ export function useConferenceNative(
   }, []);
 
   /**
-   * Release all media/transport resources held by a prior attempt so a reconnect
-   * (or a final state) starts clean. Does NOT touch wsRef or status.
+   * Release all media/connection resources held by a prior attempt so a
+   * reconnect (or a final state) starts clean. Does NOT touch wsRef or status.
    */
   const teardownMediaResources = useCallback(() => {
     roomEventsRef.current?.dispose();
     roomEventsRef.current = null;
+    subscriberRef.current?.close();
+    subscriberRef.current = null;
+    pubPcRef.current?.close();
+    pubPcRef.current = null;
     peerNamesRef.current.clear();
     departedRef.current.clear();
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -299,10 +305,14 @@ export function useConferenceNative(
           peerNamesRef.current.set(peer.socketId, peer.displayName);
         }
 
+        // The receive side exists before room events are heard, so a
+        // `media.published` arriving mid-sequence is subscribed to at once.
+        const subscriber = createSfuSubscriber(ws, joinResp.iceServers, onTrack);
+        subscriberRef.current = subscriber;
+
         // Listen for room events now: the gateway already counts this peer as
         // in the room, so events can arrive during the rest of the sequence.
         const room = createRoomEventListener({
-          ws,
           myLanguage: sourceLanguage,
           mySocketId: joinResp.socketId,
           peerNames: peerNamesRef.current,
@@ -310,7 +320,8 @@ export function useConferenceNative(
           setPeers,
           setMessages,
           audioSink: () => audioSinkRef.current,
-          onTrack,
+          onPublished: subscriber.subscribe,
+          onPeerLeft: subscriber.dropPeer,
           onEnded: () => endCall('error', 'room-ended'),
           onChatRefused: (code) => setChatNotice(chatRefusal(code)),
         });
@@ -318,9 +329,9 @@ export function useConferenceNative(
         ws.addEventListener('message', room.onMessage);
         audioSinkRef.current = new NativeTranslationAudioSink();
 
-        const device = new Device();
-        await device.load({ routerRtpCapabilities: joinResp.rtpCapabilities });
-        if (!isCurrent()) return;
+        // Pull the peers already publishing when we joined; anything announced
+        // since then has queued its own subscribe, and a duplicate pulls nothing.
+        if (joinResp.peers.some((peer) => peer.published)) subscriber.subscribe();
 
         const media = await acquireLocalMedia();
         if (!isCurrent()) {
@@ -339,39 +350,16 @@ export function useConferenceNative(
         stream.getAudioTracks().forEach((t) => (t.enabled = !localMutedRef.current));
         stream.getVideoTracks().forEach((t) => (t.enabled = localVideoEnabledRef.current));
 
-        const sendParams = (await request(ws, 'conference.transport.create', {
-          direction: 'send',
-        })) as types.TransportOptions;
+        const pubPc = createSfuPeerConnection(joinResp.iceServers);
+        pubPcRef.current = pubPc;
+        await publishLocalTracks(ws, pubPc, stream.getTracks());
         if (!isCurrent()) return;
-        const sendTransport = device.createSendTransport(sendParams);
-        wireSendTransport(ws, sendTransport);
-        for (const track of stream.getTracks()) {
-          await sendTransport.produce({ track: toMediasoupTrack(track) });
-          if (!isCurrent()) return;
-        }
         // The gateway starts every new peer unmuted with the camera on; after a
         // reconnect, tell the room what this user had already turned off.
         if (localMutedRef.current) send(ws, 'conference.participant.mute', { muted: true });
         if (!localVideoEnabledRef.current) {
           send(ws, 'conference.participant.video', { videoEnabled: false });
         }
-
-        const recvParams = (await request(ws, 'conference.transport.create', {
-          direction: 'recv',
-        })) as types.TransportOptions;
-        if (!isCurrent()) return;
-        const recvTransport = device.createRecvTransport(recvParams);
-        wireRecvTransport(ws, recvTransport);
-
-        // Consume the peers already producing when we joined, then anything
-        // announced while the sequence ran.
-        room.attachMedia(
-          device,
-          recvTransport,
-          joinResp.peers.flatMap((peer) =>
-            peer.producers.map((p) => ({ producerId: p.producerId, socketId: peer.socketId })),
-          ),
-        );
 
         reconnectAttemptRef.current = 0;
         setReconnectAttempt(0);
@@ -548,6 +536,8 @@ export function useConferenceNative(
       intentionalLeaveRef.current = true;
       if (reconnectTimerRef.current !== null) clearTimeout(reconnectTimerRef.current);
       roomEventsRef.current?.dispose();
+      subscriberRef.current?.close();
+      pubPcRef.current?.close();
       void translateBridgeRef.current?.stop();
       translateBridgeRef.current = null;
       audioSinkRef.current?.close();

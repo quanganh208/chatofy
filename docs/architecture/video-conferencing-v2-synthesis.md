@@ -1,6 +1,6 @@
 # Video conferencing: system design v2 synthesis
 
-> **Status: Built behind flags; network path pending.** This document synthesises the
+> **Status: Built behind flags; media on Cloudflare Realtime SFU.** This document synthesises the
 > decisions and findings from Issues #207–#212 and records what the code on `main` does.
 > The code is behind `CONFERENCE_ENABLED` (API) and `NEXT_PUBLIC_CONFERENCE_ENABLED` (web,
 > build time), both off by default; the mobile screens open only in development builds.
@@ -13,12 +13,19 @@
 
 ## 1. Decisions
 
-### Decision 1 — SFU library: mediasoup (resolved by #207)
+### Decision 1 — SFU: Cloudflare Realtime SFU (replaced mediasoup from #207)
 
-mediasoup 3.28 as an in-process NestJS module (`apps/api/src/modules/conference/`). The PoC
-proved the full signaling round-trip: two browser tabs join the same room, both produce and
-consume each other's tracks, consumer resume works. That module is what shipped, behind
-`CONFERENCE_ENABLED`; when the flag is off the module is not imported, so no worker starts.
+Meeting media runs on Cloudflare Realtime SFU, driven by the API's conference module
+(`apps/api/src/modules/conference/`) over outbound HTTPS; owner decision 2026-10-25, the
+reasons in
+[Decision 1 of the architecture document](../video-conferencing-architecture.md#1-media-server-sfu--resolved-cloudflare-realtime-sfu-issue-208-2026-10-25).
+Each participant has one SFU session to publish on and one to receive on, and the client
+never names the tracks it wants: a subscribe asks the server to bring the receiving session
+up to date with the room. When `CONFERENCE_ENABLED` is off the module is not imported and
+nothing talks to Cloudflare.
+
+From 2026-10-05 to 2026-10-25 the module ran mediasoup 3.28 in-process instead, chosen by
+the #207 PoC; the comparison below is why mediasoup had won over LiveKit and Pion then.
 
 How the shipped module behaves:
 
@@ -32,17 +39,15 @@ How the shipped module behaves:
   internal messages are never sent.
 - **Endings the server starts.** `DELETE /conference/:id` sends
   `conference.ended { reason: 'ended_by_owner' }` to every peer, closes their sockets with
-  code **4001** `ended`, closes the router and drops the room. A socket replaced because the
+  code **4001** `ended`, closes their SFU tracks and drops the room. A socket replaced because the
   same user rejoined is closed with **4000** `replaced`. Clients do not reconnect after
   either code, nor retry after `room_not_found` / `room_ended`.
 
-**Remaining gate:** `mediasoup-client` is still pinned at `3.7.18` on web and mobile; a
-current release matching the server library has not been tried.
-
-#### Comparison table (moved here from the architecture document)
+#### Comparison table from #207 (mediasoup, since replaced)
 
 Every cell cites a source or a PoC measurement. "PoC" means observed on
-`feat/207-mediasoup-poc` during local testing.
+`feat/207-mediasoup-poc` during local testing. The table predates the finding that the
+production host accepts no inbound connection, which every self-hosted row here needs.
 
 | Criterion                 | LiveKit                                                                                                                                                                                         | mediasoup                                                                                                                                                                                                   | Pion                                                                                                                                                                 |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -53,7 +58,7 @@ Every cell cites a source or a PoC measurement. "PoC" means observed on
 | **Mobile (Expo)**         | React Native SDK (`@livekit/react-native`); needs dev build because it depends on `react-native-webrtc` ([livekit/client-sdk-react-native](https://github.com/livekit/client-sdk-react-native)) | `mediasoup-client@3.7.18` + `react-native-webrtc`; also needs dev build ([mediasoup — React Native](https://mediasoup.org/documentation/v3/mediasoup-client/installation/))                                 | Plain `react-native-webrtc`; dev build still needed; no higher-level SDK                                                                                             |
 | **Signaling**             | Built in to livekit-server (gRPC + WebSocket); signaling is NOT ours ([LiveKit protocol](https://github.com/livekit/protocol))                                                                  | **Entirely ours** — mediasoup is transport-only; PoC reused the existing `@WebSocketGateway` pattern from `TranslateGateway`                                                                                | Entirely ours; same cost as mediasoup but in Go                                                                                                                      |
 | **Implementation effort** | **Lowest** — rooms, simulcast, reconnection, and recording (Egress) come with the server                                                                                                        | **Medium** — signaling, room state, and simulcast layer selection are ours; PoC took ~1 day                                                                                                                 | **Highest** — full SFU logic is ours in Go; the Appendix's 40 h estimate assumed Pion                                                                                |
-| **TURN / NAT**            | Needs an open port or TURN relay for media; same as mediasoup ([LiveKit deployment](https://docs.livekit.io/home/self-hosting/deployment/))                                                     | coturn added to `docker-compose.yml` with `--use-auth-secret`; PoC confirmed loopback works without TURN                                                                                                    | Same requirement; same coturn approach                                                                                                                               |
+| **TURN / NAT**            | Needs an open port or TURN relay for media; same as mediasoup ([LiveKit deployment](https://docs.livekit.io/home/self-hosting/deployment/))                                                     | coturn in the dev `docker-compose.yml` (since removed) with `--use-auth-secret`; PoC confirmed loopback works without TURN                                                                                  | Same requirement; same coturn approach                                                                                                                               |
 
 **Why LiveKit was rejected:** it runs as a separate Go server (container), and recording requires a
 second Egress container — two extra services for a graduation thesis VM with ~3.4 GiB headroom.
@@ -65,25 +70,22 @@ project's scope.
 
 ---
 
-### Decision 2 — Media network path: **pending** (#208)
+### Decision 2 — Media network path: Cloudflare Realtime SFU (#208, 2026-10-25)
 
-Not decided. Path A (public media ports on the production host) was recorded here as chosen
-and is impossible: the host is on a company network with no inbound port available. The
-candidates are §4.5 (mediasoup on a VPS + Cloudflare Realtime TURN) and §4.2 (Cloudflare
-Realtime SFU); the facts and the per-candidate changes are in
-[video-network-path.md](./video-network-path.md) and the decision itself is
-[Decision 7](../video-conferencing-architecture.md#7-network-path-for-meeting-media--pending-issue-208).
+Clients send media straight to Cloudflare; the tunnel carries signaling only, and the host
+opens no port. Path A (public media ports on the host) was recorded here first and is
+impossible: the host is on a company network with no inbound port available. The facts and
+the measurements are in [video-network-path.md](./video-network-path.md); the decision is
+[Decision 7](../video-conferencing-architecture.md#7-network-path-for-meeting-media--resolved-cloudflare-realtime-sfu-issue-208-2026-10-25).
 
-What the code already does, whichever path is chosen: TURN credentials are minted per join
-(TURN REST, HMAC-SHA1 over `expiry:userId` with `COTURN_SECRET`); the mediasoup worker uses
-RTC ports 50000–59999, apart from the dev coturn relay's 40000–49999; each WebRTC transport
-listens on UDP and TCP.
+Each join reply carries the ICE servers: Cloudflare's STUN, plus short-lived Cloudflare TURN
+credentials when a TURN key is configured (`conference-sfu-ice-servers.ts`).
 
 ---
 
 ### Decision 3 — Translation inside meeting: Option A client-side capture (resolved by #209)
 
-Each client sends its microphone both into the mediasoup send transport (for the room) and
+Each client sends its microphone both into its SFU publish session (for the room) and
 into the live mode of `/ws/translate`, then forwards the translated subtitle and audio as
 `conference.translation.broadcast`. The gateway fans them out as
 `conference.translation.subtitle` (to peers who speak another language) and
@@ -96,20 +98,24 @@ latency).
 
 ### Decision 4 — Client support (resolved by #210)
 
-| Client                         | SDK                                        | Status                                                                                                                                           |
-| ------------------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Web (Next.js 16)**           | `mediasoup-client` 3.7.18                  | Lobby (Create a room / Join) and call screen under `/conference`, shown only when `NEXT_PUBLIC_CONFERENCE_ENABLED=true`.                         |
-| **Mobile (Expo 55 / RN 0.83)** | `mediasoup-client` + `react-native-webrtc` | Dev client only (not Expo Go). Two-way audio and video confirmed on a physical Android phone on 2026-10-12. Screens reachable only in `__DEV__`. |
-| **Extension**                  | n/a                                        | Out of scope. It translates third-party meetings via tab capture; its own SFU session is deferred.                                               |
+| Client                         | SDK                           | Status                                                                                                                                                             |
+| ------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Web (Next.js 16)**           | browser `RTCPeerConnection`   | Lobby (Create a room / Join) and call screen under `/conference`, shown only when `NEXT_PUBLIC_CONFERENCE_ENABLED=true`.                                           |
+| **Mobile (Expo 55 / RN 0.83)** | `react-native-webrtc` 124.0.8 | Dev client only (not Expo Go). Two-way call proven on an Android phone with the earlier SFU (2026-10-12); on Cloudflare the device run is pending. `__DEV__` only. |
+| **Extension**                  | n/a                           | Out of scope. It translates third-party meetings via tab capture; its own SFU session is deferred.                                                                 |
 
 Details, including the end screen that is deferred: [video-client-support.md](./video-client-support.md).
 
 ---
 
-## 2. Load constraints (measured — #211, 2026-10-11)
+## 2. Load constraints (measured on mediasoup — #211, 2026-10-11)
 
-SFU only, on the Windows 11 dev machine (loopback, headless Chromium via Playwright), 2
-repeats per cell, averages, from `benchmarks/video/results/summary.csv`:
+The mediasoup SFU, since replaced, on the Windows 11 dev machine (loopback, headless
+Chromium via Playwright), 2 repeats per cell, averages. The harness was removed with
+mediasoup; the run is recorded in [development-journey.md](../development-journey.md).
+Cloudflare's SFU is not load-tested here; its documented limits are 50 API requests per
+second per session and 64 tracks per request
+([limits](https://developers.cloudflare.com/realtime/sfu/platform/limits/)).
 
 | Participants | Resolution | Bytes sent (MB/30 s) | Bytes recv (MB/30 s) | Worker RSS (MiB)¹ |
 | :----------: | :--------: | :------------------: | :------------------: | :---------------: |
@@ -144,16 +150,15 @@ several simultaneous speakers, nor has anything been measured on the production 
 
 ## 3. What must land before production
 
-| #   | Item                                            | Depends on         | State                    |
-| --- | ----------------------------------------------- | ------------------ | ------------------------ |
-| 1   | Choose the network path (Decision 2 / #208)     | Owner decision     | pending                  |
-| 2   | Connectivity run from 2 networks (Wi-Fi, 4G)    | 1                  | waits on 1               |
-| 3   | `mediasoup-client` upgrade, re-run web + mobile | —                  | not started              |
-| 4   | Translation load with several speakers          | Running stack      | not measured             |
-| 5   | Mobile sign-in through the real auth client     | —                  | mobile is dev-build only |
-| 6   | Meeting minutes on the end screen               | A minutes pipeline | deferred                 |
-| —   | SFU load test                                   | —                  | done (#211)              |
-| —   | Mobile real-device test                         | Dev client build   | done (2026-10-12)        |
+| #   | Item                                         | Depends on         | State                    |
+| --- | -------------------------------------------- | ------------------ | ------------------------ |
+| 1   | Connectivity run from 2 networks (Wi-Fi, 4G) | Both flags on prod | pending (owner)          |
+| 2   | Mobile device checklist on Cloudflare        | Dev client build   | pending (owner)          |
+| 3   | Translation load with several speakers       | Running stack      | not measured             |
+| 4   | Mobile sign-in through the real auth client  | —                  | mobile is dev-build only |
+| 5   | Meeting minutes on the end screen            | A minutes pipeline | deferred                 |
+| —   | Network path (Decision 2 / #208)             | Owner decision     | done (2026-10-25)        |
+| —   | Two-browser live check on Cloudflare         | Cloudflare app     | done (2026-10-25)        |
 
 ---
 
@@ -171,9 +176,9 @@ several simultaneous speakers, nor has anything been measured on the production 
 
 ## 5. Open questions (not yet decided)
 
-| #   | Question                                | Notes                                                                                                                            |
-| --- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Q1  | Recording storage path                  | R2 existing bucket (public-read) vs. a private bucket. Privacy implications unresolved.                                          |
-| Q2  | Room persistence                        | `ConferenceRoomRegistry` is in-process (lost on restart). Redis-backed room state needed for multi-instance or graceful restart. |
-| Q3  | Per-participant per-language TTS output | Today: one TTS voice per language. Multi-participant TTS voice identity (who is speaking) is not differentiated.                 |
-| Q4  | Multi-instance scaling                  | All mediasoup Workers share one server process; cross-instance rooms require a data-plane protocol (beyond thesis scope).        |
+| #   | Question                                | Notes                                                                                                                                |
+| --- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Q1  | Recording storage path                  | R2 existing bucket (public-read) vs. a private bucket. Privacy implications unresolved.                                              |
+| Q2  | Room persistence                        | `ConferenceRoomRegistry` is in-process (lost on restart). Redis-backed room state needed for multi-instance or graceful restart.     |
+| Q3  | Per-participant per-language TTS output | Today: one TTS voice per language. Multi-participant TTS voice identity (who is speaking) is not differentiated.                     |
+| Q4  | Multi-instance scaling                  | Media scales on Cloudflare, but room state is in one API process; cross-instance rooms need shared room state (beyond thesis scope). |

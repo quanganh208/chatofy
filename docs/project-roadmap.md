@@ -49,8 +49,8 @@ measured in [development-journey.md](./development-journey.md).
 gated by `CONFERENCE_ENABLED`, the web routes by `NEXT_PUBLIC_CONFERENCE_ENABLED` (build
 time), and the mobile screens exist only in development builds
 ([deployment-guide.md → Video conferencing](./deployment-guide.md#video-conferencing-disabled-by-default)).
-What exists: rooms created by `POST /conference` (the link is the access), a mediasoup SFU
-inside the API, a web lobby and call screen, client-side vi↔en translation fanned out to the
+What exists: rooms created by `POST /conference` (the link is the access), meeting media on
+Cloudflare Realtime SFU driven by the API (no host port), a web lobby and call screen, client-side vi↔en translation fanned out to the
 room, translated chat, and persistence of participants, turns and messages. How to run it:
 [conference-demo-runbook.md](./conference-demo-runbook.md).
 
@@ -65,15 +65,15 @@ Design and evidence:
 
 ### Open before production
 
-| Gate                                                   | Issue | Status                                      |
-| ------------------------------------------------------ | ----- | ------------------------------------------- |
-| Network path for media (VPS + TURN, or Cloudflare SFU) | #208  | **Pending** the owner's choice              |
-| Connectivity from ≥ 2 networks (Wi-Fi, 4G)             | #208  | Waits on the path                           |
-| Translation load with several simultaneous speakers    | —     | Not measured; six live sessions server-wide |
-| Mobile sign-in through the real auth client            | #210  | Mobile is dev-build only                    |
-| End screen with minutes                                | #210  | Deferred: no minutes pipeline for meetings  |
-| `mediasoup-client` upgrade from 3.7.18                 | #210  | Not started                                 |
-| Billing tables, recording access                       | #212  | Deferred out of thesis scope                |
+| Gate                                                | Issue | Status                                      |
+| --------------------------------------------------- | ----- | ------------------------------------------- |
+| Network path for media                              | #208  | Done: Cloudflare Realtime SFU (2026-10-25)  |
+| Connectivity from ≥ 2 networks (Wi-Fi, 4G)          | #208  | Pending: owner run on production            |
+| Translation load with several simultaneous speakers | —     | Not measured; six live sessions server-wide |
+| Mobile sign-in through the real auth client         | #210  | Mobile is dev-build only                    |
+| End screen with minutes                             | #210  | Deferred: no minutes pipeline for meetings  |
+| Mobile device run on Cloudflare                     | #210  | Pending: owner run on a dev build           |
+| Billing tables, recording access                    | #212  | Deferred out of thesis scope                |
 
 ## Known gaps
 
@@ -89,5 +89,5 @@ code change, not a doc edit.
   warning in `apps/api/src/main.ts` naming avatars only.
 - **Speaker-attribution seed-perturbation minimum** — the architecture doc says 96/94
   exact, `auto-attribution.ts` says 90/89. Needs a re-run to settle.
-- **Video meetings** — behind flags and not usable in production until the network path
-  (#208) is chosen; the remaining gates are in [Open before production](#open-before-production).
+- **Video meetings** — behind flags, off in production until the two-network run passes;
+  the remaining gates are in [Open before production](#open-before-production).

@@ -12,7 +12,7 @@ import { WsAdapter } from '@nestjs/platform-ws';
 import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { ConferenceWorkerService } from '../src/modules/conference/conference-worker.service';
+import { CloudflareRealtimeClient } from '../src/modules/conference/cloudflare-realtime.client';
 import { USER_REPOSITORY } from '../src/modules/users/interfaces/user-repository.interface';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { registerAndLogin, type Identity } from './utils/auth-fixture';
@@ -20,9 +20,9 @@ import { InMemoryUserRepository } from './utils/in-memory-user.repository';
 
 /**
  * With CONFERENCE_ENABLED off — the default — nothing of conferencing loads:
- * no mediasoup worker is spawned, `/conference` is not routed, and
- * `/ws/conference` refuses the upgrade. A broken mediasoup install therefore
- * cannot affect an API that does not use it.
+ * no Cloudflare Realtime client is built, `/conference` is not routed, and
+ * `/ws/conference` refuses the upgrade. A deployment without the Cloudflare
+ * app id and secret therefore boots as before.
  */
 describe('conferencing switched off (e2e)', () => {
   let app: INestApplication;
@@ -51,8 +51,10 @@ describe('conferencing switched off (e2e)', () => {
     await app.close();
   });
 
-  it('spawns no mediasoup worker', () => {
-    expect(() => app.get(ConferenceWorkerService, { strict: false })).toThrow();
+  it('builds no Cloudflare Realtime client', () => {
+    expect(() =>
+      app.get(CloudflareRealtimeClient, { strict: false }),
+    ).toThrow();
   });
 
   it('does not route POST /conference', async () => {

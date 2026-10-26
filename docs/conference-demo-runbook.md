@@ -5,9 +5,10 @@ optionally an Android dev build on the same LAN)
 **Last revised:** 2026-10-25
 
 Conferencing is on `main` behind flags that are off by default. Everything below is a
-local run; production has no media path yet (Decision 7 in
-[video-conferencing-architecture.md](./video-conferencing-architecture.md) is pending), so
-a remote guest cannot join.
+local run. Meeting media goes through Cloudflare Realtime SFU even locally, so the machine
+needs internet access and a Cloudflare Realtime app (Decision 7 in
+[video-conferencing-architecture.md](./video-conferencing-architecture.md)). The production
+switch is in [deployment-guide.md → Video conferencing](./deployment-guide.md#video-conferencing-disabled-by-default).
 
 ---
 
@@ -24,11 +25,17 @@ AUTH_JWT_SECRET=<32-byte base-64 string>
 # Required: a meeting translates through the live mode of /ws/translate, which is Gemini Live.
 GEMINI_API_KEY=<your key>
 
-# Off by default. Without it there is no mediasoup worker, no /ws/conference, no /conference.
+# Off by default. Without it there is no /ws/conference and no /conference.
 CONFERENCE_ENABLED=true
 
-# Loopback is right for one machine. For a phone on the LAN, use this machine's LAN IP.
-MEDIASOUP_ANNOUNCED_IP=127.0.0.1
+# Required with CONFERENCE_ENABLED: Cloudflare dashboard > Realtime > Serverless SFU.
+# The API refuses to boot without both. Never paste the secret into chat or a log.
+CLOUDFLARE_REALTIME_APP_ID=<app id>
+CLOUDFLARE_REALTIME_APP_SECRET=<app secret>
+
+# Optional: Realtime > TURN Server. Only needed on a network that blocks UDP.
+CLOUDFLARE_TURN_KEY_ID=
+CLOUDFLARE_TURN_KEY_API_TOKEN=
 ```
 
 Chat messages are translated per recipient through the configured translation provider
@@ -55,7 +62,7 @@ the API console.
 ## 2. Start sequence
 
 ```bash
-# Postgres, Redis, the speech sidecars, coturn, then the API (3000) and web (3001).
+# Postgres, Redis, the speech sidecars, then the API (3000) and web (3001).
 pnpm dev:all
 ```
 
@@ -141,8 +148,8 @@ EXPO_PUBLIC_BENCH_EMAIL=bench@dev.local
 EXPO_PUBLIC_BENCH_PASSWORD=<the bench account's password>
 ```
 
-Create the bench account with `node apps/api/scripts/create-bench-user.cjs`. For a real
-device, set `MEDIASOUP_ANNOUNCED_IP` in `apps/api/.env` to the LAN IP as well.
+Create the bench account with `node apps/api/scripts/create-bench-user.cjs`. The phone
+needs to reach the API for signaling only; its media goes to Cloudflare like the browser's.
 
 Build and run a dev client (Expo Go cannot load `react-native-webrtc`):
 
@@ -164,7 +171,7 @@ off. The language is picked in the lobby; it is read-only during the call.
 | No WebSocket connection                  | `EXPO_PUBLIC_API_BASE_URL` on the wrong port or host                                         |
 | Not authenticated                        | Bench variables missing, or the account does not exist                                       |
 | Native module error                      | Running in Expo Go instead of a dev client                                                   |
-| Joins but no media                       | `MEDIASOUP_ANNOUNCED_IP` still `127.0.0.1` while testing from a device                       |
+| Joins but no media                       | The network blocks UDP: set the two `CLOUDFLARE_TURN_*` keys so the join hands out TURN      |
 | Call audio drops when translation starts | Mic contention between `react-native-webrtc` and the translation recorder; confirm by muting |
 
 ---
@@ -184,13 +191,13 @@ off. The language is picked in the lobby; it is read-only during the call.
 
 ## 6. Known demo risks
 
-| Risk                                     | Impact                         | Note                                                                                                                       |
-| ---------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| One machine / one LAN only               | A remote guest cannot join     | The network path is pending (#208). The dev coturn relay (ports 40000–49999) is for LAN tests; mediasoup uses 50000–59999. |
-| At most six translating participants     | A seventh gets no translation  | The API allows six live translation sessions server-wide, `/translate` users included. A code constant, not an env var.    |
-| ~6 s warm translation latency            | The audience notices the delay | Measured on a 2-tab local run. Use short turns with pauses; the subtitle arrives before the audio.                         |
-| Cold first utterance (~9 s)              | First translation is slow      | Warm each profile up with one throwaway sentence before the demo.                                                          |
-| Mobile is a dev build with a bench login | Two phones share one account   | The same user joining twice replaces the first socket, so use one phone plus browser profiles.                             |
+| Risk                                     | Impact                         | Note                                                                                                                    |
+| ---------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Local API, one LAN                       | A remote guest cannot join     | Media crosses Cloudflare, but signaling needs the API; a guest elsewhere needs the production site with both flags on.  |
+| At most six translating participants     | A seventh gets no translation  | The API allows six live translation sessions server-wide, `/translate` users included. A code constant, not an env var. |
+| ~6 s warm translation latency            | The audience notices the delay | Measured on a 2-tab local run. Use short turns with pauses; the subtitle arrives before the audio.                      |
+| Cold first utterance (~9 s)              | First translation is slow      | Warm each profile up with one throwaway sentence before the demo.                                                       |
+| Mobile is a dev build with a bench login | Two phones share one account   | The same user joining twice replaces the first socket, so use one phone plus browser profiles.                          |
 
 ---
 
@@ -220,6 +227,13 @@ is not `true`, or `next dev` was not restarted after setting it.
 
 **The call never connects** — `CONFERENCE_ENABLED` is not `true` in `apps/api/.env`, so
 `/ws/conference` does not exist.
+
+**The API does not boot** — `CONFERENCE_ENABLED=true` without both
+`CLOUDFLARE_REALTIME_APP_ID` and `CLOUDFLARE_REALTIME_APP_SECRET`.
+
+**Joins, but tiles stay black** — the network blocks UDP to Cloudflare. Set both
+`CLOUDFLARE_TURN_*` keys and rejoin; `chrome://webrtc-internals` shows a `relay` candidate
+when TURN is in use.
 
 **No subtitle or translated audio** — check `GEMINI_API_KEY`. A live session refused with
 `too_many_sessions` means six are already open server-wide.
