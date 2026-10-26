@@ -35,6 +35,8 @@ export {
   MAX_CONFERENCE_CHAT_TEXT_CHARS,
   MAX_CONFERENCE_DISPLAY_NAME_CHARS,
   MAX_CONFERENCE_SDP_CHARS,
+  CONFERENCE_PUBLISH_VIDEO_MIME_TYPE,
+  withPublishVideoCodecFirst,
 } from './conference-signaling-events.js';
 export type {
   ConferenceChatSend,

@@ -147,3 +147,26 @@ export type ConferenceEnded = z.infer<typeof ConferenceEndedSchema>;
 export const CONFERENCE_CLOSE_ENDED = 4001;
 /** Close code for a socket replaced by the same user's newer join. Clients must not reconnect. */
 export const CONFERENCE_CLOSE_REPLACED = 4000;
+
+/**
+ * The video codec every client publishes first. The SFU forwards a publisher's
+ * stream as encoded and never transcodes, so the codec must be one every receiver
+ * decodes. VP8 is: Chromium, Firefox and Safari all ship it. H264 is not —
+ * Firefox decodes it only through the OpenH264 plugin, which some builds lack —
+ * and it is what Android's libwebrtc and Safari would otherwise pick. A Firefox
+ * without it could not take an Android or Safari publisher's video, and the SFU
+ * refused the whole renegotiation (`invalid_session_description`).
+ */
+export const CONFERENCE_PUBLISH_VIDEO_MIME_TYPE = 'video/VP8';
+
+/**
+ * `codecs` (a `getCapabilities('video').codecs` list) with the publish codec
+ * first and every other entry kept in order, for `setCodecPreferences`.
+ */
+export function withPublishVideoCodecFirst<C extends { mimeType: string }>(
+  codecs: readonly C[],
+): C[] {
+  const preferred = (c: C) =>
+    c.mimeType.toLowerCase() === CONFERENCE_PUBLISH_VIDEO_MIME_TYPE.toLowerCase();
+  return [...codecs.filter(preferred), ...codecs.filter((c) => !preferred(c))];
+}

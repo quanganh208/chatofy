@@ -11,6 +11,7 @@ import { z } from 'zod';
 import {
   ConferenceMediaSubscribeReplySchema,
   MAX_CONFERENCE_SDP_CHARS,
+  withPublishVideoCodecFirst,
 } from '@chatofy/types/events';
 import { conferenceDebug } from './conference-debug-log';
 import { request, SFU_REQUEST_TIMEOUT_MS } from './conference-signaling';
@@ -66,7 +67,8 @@ export class ConferenceSfuMedia {
    */
   async publish(stream: MediaStream): Promise<void> {
     for (const track of stream.getTracks()) {
-      this.pubPc.addTransceiver(track, { direction: 'sendonly' });
+      const transceiver = this.pubPc.addTransceiver(track, { direction: 'sendonly' });
+      if (track.kind === 'video') preferPublishVideoCodec(transceiver);
     }
     await this.pubPc.setLocalDescription(await this.pubPc.createOffer());
     const sdp = this.pubPc.localDescription?.sdp;
@@ -138,4 +140,14 @@ export class ConferenceSfuMedia {
     await request(ws, 'conference.media.renegotiate', { sdp: answer }, SFU_REQUEST_TIMEOUT_MS);
     return reply.retryAfterMs;
   }
+}
+
+/**
+ * Publish video in the codec every receiver decodes (`withPublishVideoCodecFirst`).
+ * A browser without `setCodecPreferences` keeps its own order.
+ */
+function preferPublishVideoCodec(transceiver: RTCRtpTransceiver): void {
+  const codecs = RTCRtpSender.getCapabilities?.('video')?.codecs;
+  if (!codecs || typeof transceiver.setCodecPreferences !== 'function') return;
+  transceiver.setCodecPreferences(withPublishVideoCodecFirst(codecs));
 }
