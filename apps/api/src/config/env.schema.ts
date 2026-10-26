@@ -9,16 +9,6 @@ const emptyStringAsUndefined = <T extends z.ZodTypeAny>(schema: T) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema);
 
 /**
- * An on/off switch. Absent means off; `1`/`0` are accepted beside `true`/`false`
- * because the benchmark scripts already spell it that way. Anything else fails
- * the boot rather than being read as off.
- */
-const envFlag = z
-  .enum(['true', 'false', '1', '0'])
-  .default('false')
-  .transform((value) => value === 'true' || value === '1');
-
-/**
  * The port `apps/web` actually runs on in dev. Exported so main.ts's
  * production boot check compares WEB_BASE_URL against the exact same string
  * this schema defaults it to, rather than repeating the literal.
@@ -53,7 +43,10 @@ export const envSchema = z.object({
   // surfaces as a 503 from POST /auth/refresh, never as a 401, because a 401 is
   // read by every client as proof the session is dead.
   REDIS_URL: z.string().url().default('redis://localhost:6379'),
-  CORS_ORIGIN: z.string().default('*'),
+  // Origins allowed to call this API with credentials. UNSET means the web
+  // origin, WEB_BASE_URL — the only browser client — so a deployment states its
+  // origin once. Set it only to allow more origins (comma-separated) or `*`.
+  CORS_ORIGIN: emptyStringAsUndefined(z.string().min(1).optional()),
   // How many reverse proxies sit in front of this app.
   //
   // 0 (the default) means none: Express reads the peer socket address as the
@@ -72,16 +65,24 @@ export const envSchema = z.object({
   // GEMINI_API_KEY: a deployment that never offers Google login should not be
   // stopped from booting over a value it has no use for.
   GOOGLE_CLIENT_IDS: emptyStringAsUndefined(z.string().min(1).optional()),
+  // The web's Google client id — the same name Auth.js reads. With no
+  // GOOGLE_CLIENT_IDS the API accepts exactly this client, so the one prod.env
+  // both apps share needs the id written once.
+  AUTH_GOOGLE_ID: emptyStringAsUndefined(z.string().min(1).optional()),
 
   // ── Mail (Gmail SMTP) ───────────────────────────────────────────────────
-  // All four OPTIONAL and lazily enforced, matching GOOGLE_CLIENT_IDS: a
-  // deployment that never sends mail (all of dev, most of test) should not
-  // be stopped from booting over values it has no use for. MailModule reads
-  // them as one unit — see getSmtpConfig in mail.module.ts — and falls back
-  // to a console or no-op sender when any is missing.
-  SMTP_HOST: emptyStringAsUndefined(z.string().min(1).optional()),
+  // Host and port default to Gmail over SMTPS, the only relay this app uses.
+  // SMTP_USER and SMTP_PASS are what switch real mail on: OPTIONAL and lazily
+  // enforced, matching GOOGLE_CLIENT_IDS, because a deployment that never sends
+  // mail (all of dev, most of test) should not be stopped from booting over
+  // values it has no use for. MailModule reads the four as one unit — see
+  // getSmtpConfig in mail.module.ts — and falls back to a console or no-op
+  // sender when the credentials are missing.
+  SMTP_HOST: emptyStringAsUndefined(
+    z.string().min(1).default('smtp.gmail.com'),
+  ),
   SMTP_PORT: emptyStringAsUndefined(
-    z.coerce.number().int().positive().optional(),
+    z.coerce.number().int().positive().default(465),
   ),
   SMTP_USER: emptyStringAsUndefined(z.string().min(1).optional()),
   SMTP_PASS: emptyStringAsUndefined(z.string().min(1).optional()),
@@ -129,10 +130,11 @@ export const envSchema = z.object({
   // ── Turn-based translate pipeline ───────────────────────────────────────
   // Provider selections for the REST /translate flow. Speech runs locally by
   // default (sherpa-onnx sidecars, no cloud call, no API key); translation is
-  // still cloud Gemini. Set these to `elevenlabs` to compare against the cloud.
+  // cloud DeepSeek through the OpenAI-compatible provider (`gemini` switches it
+  // back). Set the speech pair to `elevenlabs` to compare against the cloud.
   AI_STT_PROVIDER: z.string().default('local'),
   AI_TTS_PROVIDER: z.string().default('local'),
-  AI_TRANSLATION_PROVIDER: z.string().default('gemini'),
+  AI_TRANSLATION_PROVIDER: z.string().default('deepseek'),
   // Keys are OPTIONAL at validation time so the app and existing e2e tests can
   // boot without them; the providers factory enforces presence lazily and
   // returns a clear error when /translate is actually called without a key.
@@ -166,15 +168,13 @@ export const envSchema = z.object({
   LOCAL_TTS_URL: z.string().url().default('http://localhost:8003'),
 
   // ── Video conferencing (Cloudflare Realtime SFU) ──────────────────────────
-  // OFF by default: while false the ConferenceModule is not imported at all,
-  // so neither `/ws/conference` nor `/conference` exists and nothing talks to
-  // Cloudflare. Media goes from each client straight to Cloudflare Realtime
-  // SFU; the API holds the app secret and drives the SFU over outbound HTTPS.
-  CONFERENCE_ENABLED: envFlag,
-  // The Realtime SFU app (dashboard: Realtime > Serverless SFU). Optional here
-  // so a deployment without conferencing needs neither, but required once
-  // CONFERENCE_ENABLED is on: CloudflareRealtimeClient refuses to construct
-  // without both, which fails the boot.
+  // Media goes from each client straight to Cloudflare Realtime SFU; the API
+  // holds the app secret and drives the SFU over outbound HTTPS.
+  //
+  // The Realtime SFU app (dashboard: Realtime > Serverless SFU). REQUIRED in
+  // effect: meetings always load, and CloudflareRealtimeClient refuses to
+  // construct without both, which fails the boot. Optional in the schema only so
+  // that refusal carries a message naming the feature.
   CLOUDFLARE_REALTIME_APP_ID: emptyStringAsUndefined(
     z.string().min(1).optional(),
   ),

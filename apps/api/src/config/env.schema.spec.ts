@@ -152,6 +152,33 @@ const requiredKeys = schemaKeys.filter(
       .success,
 );
 
+describe('defaults', () => {
+  // The least an env can hold and still boot. Each default below is what a
+  // deployment used to restate in its own file; asserting them here is what
+  // keeps prod.env free of them.
+  const minimal = envSchema.parse({
+    DATABASE_URL: 'postgresql://u:p@localhost:5432/d',
+    AUTH_JWT_SECRET: 'x'.repeat(32),
+  });
+
+  it('sends mail through Gmail over SMTPS', () => {
+    expect(minimal.SMTP_HOST).toBe('smtp.gmail.com');
+    expect(minimal.SMTP_PORT).toBe(465);
+  });
+
+  it('translates with DeepSeek', () => {
+    expect(minimal.AI_TRANSLATION_PROVIDER).toBe('deepseek');
+  });
+
+  it('leaves CORS to follow WEB_BASE_URL', () => {
+    expect(minimal.CORS_ORIGIN).toBeUndefined();
+  });
+
+  it('has no switch for meetings, which always load', () => {
+    expect(minimal).not.toHaveProperty('CONFERENCE_ENABLED');
+  });
+});
+
 /**
  * The two templates and the schema must agree on what a deployment has to
  * supply. Every key with no default is required to boot, so it has to be
@@ -251,21 +278,13 @@ describe('prod.env.example', () => {
   // carries keys three other consumers read: the compose file itself, the
   // postgres image, and the web app's Auth.js setup.
   const NON_SCHEMA_KEYS = [
-    'CHATOFY_ENV_FILE',
-    'POSTGRES_USER',
     'POSTGRES_PASSWORD',
-    'POSTGRES_DB',
-    'STT_MODELS_DIR',
-    'TTS_MODELS_DIR',
     'AUTH_SECRET',
     // AUTH_URL is deliberately absent: docker-compose.prod.yml derives it from
     // WEB_BASE_URL, so setting it here would be a second copy of one value.
     // Leaving it off this list is what makes the template fail if it comes back.
-    'AUTH_GOOGLE_ID',
     'AUTH_GOOGLE_SECRET',
     'NEXT_PUBLIC_API_BASE_URL',
-    // The web build arg that shows the meeting pages, read by compose.
-    'NEXT_PUBLIC_CONFERENCE_ENABLED',
     // Sidecar thread and concurrency knobs, read by docker-compose.prod.yml and
     // passed to the services under their unprefixed names. The PROD_ prefix
     // keeps them from colliding with the dev stack's values in a shell that has
@@ -273,8 +292,6 @@ describe('prod.env.example', () => {
     'PROD_LOCAL_STT_THREADS',
     'PROD_LOCAL_TTS_THREADS',
     'PROD_LOCAL_STT_CONCURRENCY',
-    // The STT sidecar's language-identification switch, read the same way.
-    'PROD_LOCAL_STT_LID',
   ];
 
   // Supplied by docker-compose.prod.yml's per-service `environment:`, composed

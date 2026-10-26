@@ -24,3 +24,7 @@ process.env.AUTH_JWT_SECRET ??= 'db-e2e-secret-not-for-any-real-deployment';
 // is only reachable with this set. What it contains does not matter here; that
 // the allowlist is passed through correctly is covered in the verifier's spec.
 process.env.GOOGLE_CLIENT_IDS ??= 'db-e2e-google-client-id';
+
+// Meetings always load, and the SFU client refuses to construct without both.
+process.env.CLOUDFLARE_REALTIME_APP_ID ??= 'test-realtime-app-id';
+process.env.CLOUDFLARE_REALTIME_APP_SECRET ??= 'test-realtime-app-secret';

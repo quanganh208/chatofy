@@ -64,6 +64,20 @@ describe('GoogleTokenVerifier', () => {
     });
   });
 
+  it('falls back to the web client id when no allowlist is set', async () => {
+    const spy = mockGoogle(VALID);
+    const config = {
+      get: vi.fn((key: keyof Env) =>
+        key === 'AUTH_GOOGLE_ID' ? 'web-client-id' : undefined,
+      ),
+    } as unknown as ConfigService<Env, true>;
+    await new GoogleTokenVerifier(config).verify('id.token');
+    expect(spy).toHaveBeenCalledWith({
+      idToken: 'id.token',
+      audience: ['web-client-id'],
+    });
+  });
+
   it('refuses a token Google rejects — tampered, expired or wrong audience alike', async () => {
     mockGoogleRefuses();
     await expect(

@@ -35,17 +35,17 @@ Lazy config validation: API boots without keys; missing config only errors when 
 
 ### Speech backend routing
 
-| Stage       | Language | Default backend             | Where it runs                 |
-| ----------- | -------- | --------------------------- | ----------------------------- |
-| STT         | vi       | `local` → Zipformer-30M     | `services/local-stt` :8002    |
-| STT         | en       | `local` → Parakeet-TDT      | `services/local-stt` :8002    |
-| STT         | zh       | `local` → Paraformer-zh     | `services/local-stt` :8002    |
-| TTS         | vi       | `local` → VieNeu v3 Turbo   | `services/local-tts` :8003    |
-| TTS         | en, zh   | `local` → Kokoro-82M        | `services/local-tts` :8003    |
-| Translation | all      | `gemini` (prod: `deepseek`) | **Cloud** (Google / DeepSeek) |
-| Speaker     | all      | `local` → CAM++             | `services/local-stt` :8002    |
-| Display     | vi       | `local` → Dewpoint          | `services/local-stt` :8002    |
-| Display     | zh       | `local` → CT-Transformer    | `services/local-stt` :8002    |
+| Stage       | Language | Default backend           | Where it runs                 |
+| ----------- | -------- | ------------------------- | ----------------------------- |
+| STT         | vi       | `local` → Zipformer-30M   | `services/local-stt` :8002    |
+| STT         | en       | `local` → Parakeet-TDT    | `services/local-stt` :8002    |
+| STT         | zh       | `local` → Paraformer-zh   | `services/local-stt` :8002    |
+| TTS         | vi       | `local` → VieNeu v3 Turbo | `services/local-tts` :8003    |
+| TTS         | en, zh   | `local` → Kokoro-82M      | `services/local-tts` :8003    |
+| Translation | all      | `deepseek` (or `gemini`)  | **Cloud** (Google / DeepSeek) |
+| Speaker     | all      | `local` → CAM++           | `services/local-stt` :8002    |
+| Display     | vi       | `local` → Dewpoint        | `services/local-stt` :8002    |
+| Display     | zh       | `local` → CT-Transformer  | `services/local-stt` :8002    |
 
 **Chinese, end to end.** Paraformer writes no punctuation and every number as
 words, so a zh turn's display is the CT-Transformer's marks (the sidecar puts
@@ -404,9 +404,9 @@ language is passed to each provider per call.
 **Machine translation remains a cloud call**, so a translation turn is never
 fully offline. Speech is the only part that was localized.
 
-_Which host._ `AI_TRANSLATION_PROVIDER` defaults to `gemini`; production sets
-`deepseek` (`prod.env.example` records the latency measurement behind it and
-the data-governance cost: conversation content reaches servers operated in
+_Which host._ `AI_TRANSLATION_PROVIDER` defaults to `deepseek`; set it to
+`gemini` to translate with Gemini (`prod.env.example` records the latency
+measurement behind the default and the data-governance cost: conversation content reaches servers operated in
 China). Any name other than `gemini` selects a row of the OpenAI-compatible host
 table in `apps/api/src/modules/translate/providers/register-default-providers.ts`
 — endpoint, model and host flags live together there, and only the key

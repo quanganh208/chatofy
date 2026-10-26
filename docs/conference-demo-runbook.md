@@ -4,11 +4,11 @@
 optionally an Android dev build on the same LAN)
 **Last revised:** 2026-10-25
 
-Conferencing is on `main` behind flags that are off by default. Everything below is a
+Conferencing is on `main` and always loaded. Everything below is a
 local run. Meeting media goes through Cloudflare Realtime SFU even locally, so the machine
 needs internet access and a Cloudflare Realtime app (Decision 7 in
 [video-conferencing-architecture.md](./video-conferencing-architecture.md)). The production
-switch is in [deployment-guide.md → Video conferencing](./deployment-guide.md#video-conferencing-disabled-by-default).
+keys are in [deployment-guide.md → Video conferencing](./deployment-guide.md#video-conferencing).
 
 ---
 
@@ -25,10 +25,7 @@ AUTH_JWT_SECRET=<32-byte base-64 string>
 # Required: a meeting translates through the live mode of /ws/translate, which is Gemini Live.
 GEMINI_API_KEY=<your key>
 
-# Off by default. Without it there is no /ws/conference and no /conference.
-CONFERENCE_ENABLED=true
-
-# Required with CONFERENCE_ENABLED: Cloudflare dashboard > Realtime > Serverless SFU.
+# Required: Cloudflare dashboard > Realtime > Serverless SFU.
 # The API refuses to boot without both. Never paste the secret into chat or a log.
 CLOUDFLARE_REALTIME_APP_ID=<app id>
 CLOUDFLARE_REALTIME_APP_SECRET=<app secret>
@@ -39,16 +36,14 @@ CLOUDFLARE_TURN_KEY_API_TOKEN=
 ```
 
 Chat messages are translated per recipient through the configured translation provider
-(`AI_TRANSLATION_PROVIDER`, Gemini by default), so that provider's key must be set too.
+(`AI_TRANSLATION_PROVIDER`, `deepseek` by default, which reads `OPENAI_COMPATIBLE_API_KEY`),
+so that provider's key must be set too.
 
 `apps/web/.env.local`:
 
 ```bash
 AUTH_SECRET=<32-byte base-64 string>   # openssl rand -base64 32
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
-# Build-time: restart `next dev` after changing it. 'false' (default) hides the
-# Conference nav entry and makes every /conference route a 404.
-NEXT_PUBLIC_CONFERENCE_ENABLED=true
 ```
 
 ### Accounts
@@ -116,7 +111,7 @@ the other language, and translated speech reaches only listeners of its language
 
 Run once on a real stack before trusting the demo; none of this is visible to unit tests.
 
-- [ ] The **Conference** sidebar entry exists only with `NEXT_PUBLIC_CONFERENCE_ENABLED=true`.
+- [ ] The **Conference** sidebar entry is shown.
 - [ ] Create a room → the call opens; Join with the copied id from a second profile works.
 - [ ] Joining a made-up id shows room not found, without retrying.
 - [ ] vi → en and en → vi both show a subtitle and play translated audio.
@@ -222,14 +217,8 @@ pnpm dev:all
 
 ## 8. Troubleshooting
 
-**`/conference` is a 404 or the nav entry is missing** — `NEXT_PUBLIC_CONFERENCE_ENABLED`
-is not `true`, or `next dev` was not restarted after setting it.
-
-**The call never connects** — `CONFERENCE_ENABLED` is not `true` in `apps/api/.env`, so
-`/ws/conference` does not exist.
-
-**The API does not boot** — `CONFERENCE_ENABLED=true` without both
-`CLOUDFLARE_REALTIME_APP_ID` and `CLOUDFLARE_REALTIME_APP_SECRET`.
+**The API does not boot** — `CLOUDFLARE_REALTIME_APP_ID` or
+`CLOUDFLARE_REALTIME_APP_SECRET` is missing from `apps/api/.env`.
 
 **Joins, but tiles stay black** — the network blocks UDP to Cloudflare. Set both
 `CLOUDFLARE_TURN_*` keys and rejoin; `chrome://webrtc-internals` shows a `relay` candidate

@@ -27,7 +27,7 @@ export class NoopMailSender implements MailSender {
   async send(dispatch: MailDispatch): Promise<void> {
     this.logger.warn(
       `Mail dropped (purpose=${dispatch.purpose}): no mail sender configured. ` +
-        'Set SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS.',
+        'Set SMTP_USER/SMTP_PASS (host and port default to Gmail).',
     );
     throw new Error('No mail sender is configured');
   }

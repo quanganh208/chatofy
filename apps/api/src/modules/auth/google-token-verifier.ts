@@ -51,11 +51,20 @@ export class GoogleTokenVerifier {
    * login, but it must produce a clear answer when the route is actually called.
    */
   private audience(): string[] {
-    const raw = this.config.get('GOOGLE_CLIENT_IDS', { infer: true });
-    const ids = (raw ?? '')
-      .split(',')
-      .map((id) => id.trim())
-      .filter((id) => id.length > 0);
+    const parse = (raw: string | undefined) =>
+      (raw ?? '')
+        .split(',')
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0);
+    // No allowlist means "the web's own client id". Keyed on an empty list
+    // rather than `??`, because a blank `GOOGLE_CLIENT_IDS=` line arrives as ''.
+    const allowlist = parse(
+      this.config.get('GOOGLE_CLIENT_IDS', { infer: true }),
+    );
+    const ids =
+      allowlist.length > 0
+        ? allowlist
+        : parse(this.config.get('AUTH_GOOGLE_ID', { infer: true }));
     if (ids.length === 0) {
       // 501 rather than 503: this server does not implement Google login at
       // all, and retrying will not change that.

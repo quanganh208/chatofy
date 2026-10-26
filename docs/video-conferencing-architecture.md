@@ -1,8 +1,8 @@
 # Chatofy: Video Conferencing + Real-time Translation Architecture
 
-> **Status: Proposal, partly built.** Conferencing code is on `main` behind two flags,
-> both off by default: `CONFERENCE_ENABLED` (API) and `NEXT_PUBLIC_CONFERENCE_ENABLED`
-> (web, build time); the mobile screens are reachable only in development builds. What
+> **Status: Proposal, partly built.** Conferencing code is on `main` and always loaded
+> (the API refuses to boot without the Cloudflare Realtime app keys); the mobile screens
+> are reachable only in development builds. What
 > exists is meeting media on Cloudflare Realtime SFU driven by the API (Decisions 1 and 7),
 > rooms created by `POST /conference`, signaling on `/ws/conference`, and client-side
 > translation fanned out to the room

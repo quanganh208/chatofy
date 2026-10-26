@@ -57,28 +57,28 @@ values. Run it by hand with
 docker compose -f docker-compose.prod.yml --env-file ~/.config/chatofy/prod.env <cmd>
 ```
 
-Omit `--env-file` and compose refuses to run at all: the model paths, the
-postgres credentials, `CHATOFY_ENV_FILE` and `NEXT_PUBLIC_API_BASE_URL` are
-required interpolations (`${VAR:?…}`), so every command fails while loading the
-file. That is the intended failure — before those were required, an empty model
-path bind-mounted the wrong directory and the sidecars started with no weights.
-`CHATOFY_ENV_FILE` is the absolute path of `prod.env` itself, read by `env_file:`
-on api and web; compose does not expand `~` there.
+Omit `--env-file` and compose refuses to run at all: `POSTGRES_PASSWORD`,
+`NEXT_PUBLIC_API_BASE_URL` and `WEB_BASE_URL` are required interpolations
+(`${VAR:?…}`), so every command fails while loading the file. The env file path
+read by `env_file:` on api and web (`CHATOFY_ENV_FILE`) and the model
+directories (`STT_MODELS_DIR`, `TTS_MODELS_DIR`) default to their places under
+`$HOME` in `docker-compose.prod.yml`; set them only to move them, and only as
+absolute paths — compose does not expand `~` there.
 
 ### Values that are not free choices
 
 | Key                                 | Constraint                                                                                                                                                                                                                                                                                                                                                                |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`                          | Must be `production`. The schema is a strict enum with no `staging`, and any other value also flips the web CSP onto its `unsafe-eval` dev branch.                                                                                                                                                                                                                        |
+| `NODE_ENV`                          | Not in prod.env — both Docker images set `production`. The schema is a strict enum with no `staging`, and any other value also flips the web CSP onto its `unsafe-eval` dev branch.                                                                                                                                                                                       |
 | `WEB_BASE_URL`                      | The public origin, written once and read three ways: mailed links, the web's `metadataBase` (and with it every absolute URL crawlers read — canonical, `robots.txt`, `sitemap.xml`, JSON-LD, `/index.md`, `/llms.txt`), and `AUTH_URL` below. The API refuses to boot in production while this is the default. Changing the domain is this key alone.                     |
 | `AUTH_URL`                          | **Not set by hand** — `docker-compose.prod.yml` derives it from `WEB_BASE_URL`. It is still required despite `trustHost: true`: without it Auth.js builds OAuth callbacks from the container's bind address (`0.0.0.0:3001`), which Google rejects as a policy violation — the Cloud Console looks correct while sign-in fails.                                           |
 | `NEXT_PUBLIC_API_BASE_URL`          | Read at **build** time. It is inlined into the bundle _and_ generates the CSP `connect-src`, including the `wss://` origin. Changing it is a rebuild, never a restart.                                                                                                                                                                                                    |
-| `CORS_ORIGIN`                       | The exact origin, never `*` — credentials mode is enabled only when it is not the wildcard.                                                                                                                                                                                                                                                                               |
-| `SMTP_*`                            | All four, or all four absent. Absent refuses to boot (loud); a blank value is treated as absent for the same reason.                                                                                                                                                                                                                                                      |
-| `TRUST_PROXY_HOPS`                  | `1`, measured at the origin. Wrong values fail silently by collapsing the per-IP auth rate limit into one shared bucket.                                                                                                                                                                                                                                                  |
+| `CORS_ORIGIN`                       | Optional and normally unset: unset means the origin of `WEB_BASE_URL`. Set it only to allow extra origins (comma-separated) — never `*` in production, since credentials mode is enabled only when it is not the wildcard.                                                                                                                                                |
+| `SMTP_USER` / `SMTP_PASS`           | Both required: production refuses to boot without them (loud); a blank value is treated as absent for the same reason. Host and port default to Gmail SMTPS (`SMTP_HOST`/`SMTP_PORT` are overrides only); From falls back to `SMTP_USER` unless `MAIL_FROM` is set.                                                                                                       |
+| `TRUST_PROXY_HOPS`                  | **Not set by hand** — pinned to `1` (measured at the origin) in the api service of `docker-compose.prod.yml`. Wrong values fail silently by collapsing the per-IP auth rate limit into one shared bucket.                                                                                                                                                                 |
 | `R2_*`                              | All five (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`) or none. A partial set disables avatars **and conversation recordings** rather than half-working. Unlike `SMTP_*`, this does **not** refuse to boot — it warns, and the two avatar routes plus the two recording routes answer 409. See _Object storage_ below. |
 | `R2_PUBLIC_BASE_URL`                | Read by **both** services — at runtime by the API, at **build** time by web, which bakes it into the CSP `img-src`. Changing the origin is therefore a **web rebuild**, not only an API restart.                                                                                                                                                                          |
-| `STT_MODELS_DIR` / `TTS_MODELS_DIR` | Absolute paths. `services/local-*/models` is gitignored with zero tracked files, so a relative path resolves to an empty directory inside the runner's checkout.                                                                                                                                                                                                          |
+| `STT_MODELS_DIR` / `TTS_MODELS_DIR` | Optional overrides of the compose defaults; absolute paths only. `services/local-*/models` is gitignored with zero tracked files, so a relative path resolves to an empty directory inside the runner's checkout.                                                                                                                                                         |
 
 ## The deploy pipeline
 
@@ -397,13 +397,12 @@ Two different failures with two different answers:
 
 Backups live in `~/chatofy-backups` (14 retained).
 
-**Language identification** has its own switch and needs no rollback of code: set
-`PROD_LOCAL_STT_LID=off` in `prod.env`, then `docker compose -f docker-compose.prod.yml
---env-file ~/.config/chatofy/prod.env up -d local-stt`. Recognition is down for the
-~20 s the sidecar takes to come back; after that two-way starts run declared (the
-web says so) and Auto-detect is refused. Turning it back on is the same with `on`;
-the weights stay seeded. Rehearsed on production 2026-10-23. With it on, the STT
-sidecar needs `mem_limit: 5120m` and the Docker VM was raised to 10 GiB
+**Language identification** is always on in the STT sidecar (its own
+`LOCAL_STT_LID` defaults to on). The production switch `PROD_LOCAL_STT_LID`, whose
+off/on rollback was rehearsed on 2026-10-23, has since been removed; turning LID
+off now means setting `LOCAL_STT_LID=off` on the local-stt service in
+`docker-compose.prod.yml` and deploying. Without it two-way starts run declared (the
+web says so) and Auto-detect is refused. The STT sidecar needs `mem_limit: 5120m` and the Docker VM was raised to 10 GiB
 (`MemoryMiB` in `~/.docker/desktop/settings-store.json`, then `docker desktop
 restart`, which restarts every container).
 
@@ -595,26 +594,23 @@ deletion, which requires a second API token and is out of scope.
 
 - **Tunnel** — the ingress in `/etc/cloudflared/config.yml` is root-owned and also carries the operator's SSH ingress. **CD never touches it.** Adding a hostname is a manual, one-time change: back the file up, `cloudflared tunnel ingress validate`, then restart, keeping the catch-all rule last.
 
-## Video conferencing (disabled by default)
+## Video conferencing
 
-Conferencing code is on `main`, behind two flags that both default off. Meeting media goes
+Video meetings always load: there is no flag, and the API refuses to boot without the
+Realtime SFU app keys. Meeting media goes
 from each browser or phone straight to Cloudflare Realtime SFU; the API drives the SFU over
 outbound HTTPS and signaling stays on `/ws/conference` through the tunnel. **The host opens
 no port for it**, and there is no media container or relay to run. Why this path, and what
 is measured: [video-network-path.md](./architecture/video-network-path.md) and
 [Decision 7](./video-conferencing-architecture.md#7-network-path-for-meeting-media--resolved-cloudflare-realtime-sfu-issue-208-2026-10-25).
 
-| Variable                                                       | Read by           | Effect                                                                                                                                                                                                                                                                                                                                                    |
-| -------------------------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CONFERENCE_ENABLED`                                           | api, at boot      | `true` imports the conference module: `/ws/conference`, the `/conference` REST routes and the Cloudflare client. Off, none of them load and nothing talks to Cloudflare.                                                                                                                                                                                  |
-| `NEXT_PUBLIC_CONFERENCE_ENABLED`                               | web, at **build** | `'true'` shows the nav entry and the `/conference` routes; `'false'` (the default) hides the entry and every `/conference` route returns 404; any other value fails the build. A build arg of `apps/web/Dockerfile`, which `docker-compose.prod.yml` passes from prod.env (default `false`). Changing it is a **web rebuild**, like `R2_PUBLIC_BASE_URL`. |
-| `CLOUDFLARE_REALTIME_APP_ID`, `CLOUDFLARE_REALTIME_APP_SECRET` | api               | The Realtime SFU app (Cloudflare dashboard, Realtime → Serverless SFU). Required once `CONFERENCE_ENABLED` is on: the API refuses to boot without both. The secret is the API's bearer token for the SFU and never reaches a client.                                                                                                                      |
-| `CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_KEY_API_TOKEN`      | api               | Optional, recommended in production. TURN is on only when both are set: each join then gets short-lived TURN credentials beside Cloudflare's STUN, for networks that block UDP. Free when used with the SFU ([TURN](https://developers.cloudflare.com/realtime/turn/)). Unset, clients get STUN only.                                                     |
+| Variable                                                       | Read by | Effect                                                                                                                                                                                                                                                                                                |
+| -------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_REALTIME_APP_ID`, `CLOUDFLARE_REALTIME_APP_SECRET` | api     | The Realtime SFU app (Cloudflare dashboard, Realtime → Serverless SFU). Required: the API refuses to boot without both. The secret is the API's bearer token for the SFU and never reaches a client.                                                                                                  |
+| `CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_KEY_API_TOKEN`      | api     | Optional, recommended in production. TURN is on only when both are set: each join then gets short-lived TURN credentials beside Cloudflare's STUN, for networks that block UDP. Free when used with the SFU ([TURN](https://developers.cloudflare.com/realtime/turn/)). Unset, clients get STUN only. |
 
-All six are commented, so optional, in `prod.env.example`; `scripts/check-prod-env.mjs`
-accepts prod.env with or without them. Turning meetings on is: add the four Cloudflare keys
-and both flags set to `true` to prod.env, then deploy. Turning them off is both flags back
-to `false` and a deploy; the API then never constructs the Cloudflare client.
+All four are live keys in `prod.env.example`, so `scripts/check-prod-env.mjs` refuses a
+prod.env that lacks any of them.
 
 Cloudflare egress is free up to 1,000 GB/month, shared between the SFU and TURN, then
 $0.05/GB on the account bill

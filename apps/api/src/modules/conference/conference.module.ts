@@ -17,8 +17,7 @@ import { ConferenceTranslationRouter } from './services/conference-translation-r
 
 /**
  * Video conferencing: `/ws/conference` signaling for Cloudflare Realtime SFU,
- * and the `/conference` REST routes. Imported by AppModule only when
- * CONFERENCE_ENABLED is on.
+ * and the `/conference` REST routes. Always imported by AppModule.
  */
 @Module({
   imports: [AuthModule, TranslateModule],

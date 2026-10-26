@@ -432,9 +432,9 @@ turn has locked), and `server.error.detail`. The sidecar side (`candidates`,
 `/healthz`) is documented in
 [`services/local-stt/README.md`](../../services/local-stt/README.md#candidates).
 
-**One switch.** `LOCAL_STT_LID` defaults on in `docker-compose.yml` and off in
-`docker-compose.prod.yml` (`PROD_LOCAL_STT_LID`, set on in production's
-`prod.env`). Off, `/healthz` reports `lidLanguages: []`, two-way
+**One switch.** The sidecar's `LOCAL_STT_LID` defaults on, in development and
+production alike (the production-only `PROD_LOCAL_STT_LID` has been removed). Off,
+`/healthz` reports `lidLanguages: []`, two-way
 starts run declared, and detect starts are refused, so turning it off needs no
 API deploy.
 

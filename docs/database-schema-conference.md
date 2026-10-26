@@ -2,7 +2,7 @@
 
 > **Status: Four models built, the rest deferred.** `Conference`, `ConferenceParticipant`,
 > `ConferenceTurn` and `ConferenceMessage` are in `apps/api/prisma/schema.prisma` (migration
-> `20261012144353_add_conference_models`), used only when `CONFERENCE_ENABLED` is on. A
+> `20261012144353_add_conference_models`), used by the always-loaded conference module. A
 > `Conference` row is created only by `POST /conference`; joining upserts the participant.
 > Recording, speakers and billing stay deferred. Progress:
 > [project-roadmap.md](./project-roadmap.md); deferred choices:

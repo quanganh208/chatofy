@@ -195,7 +195,7 @@ describe('CloudflareRealtimeClient', () => {
     expect(() =>
       makeClient({ CLOUDFLARE_REALTIME_APP_SECRET: undefined }),
     ).toThrow(
-      'CONFERENCE_ENABLED requires CLOUDFLARE_REALTIME_APP_ID and CLOUDFLARE_REALTIME_APP_SECRET',
+      'Meetings require CLOUDFLARE_REALTIME_APP_ID and CLOUDFLARE_REALTIME_APP_SECRET',
     );
   });
 

@@ -5,9 +5,8 @@
 > Decision 1 in [video-conferencing-architecture.md](../video-conferencing-architecture.md)).
 > §1.1, §1.2 and §2.1 now describe the plain-WebRTC clients; the rest still holds, and it
 > designs the meeting screens. The lobby and call screens are on `main`
-> behind the conference flags (`apps/web/app/(app)/conference/`, web, when
-> `NEXT_PUBLIC_CONFERENCE_ENABLED=true`; `apps/mobile/app/(app)/conference/`, development
-> builds only). The end screen (§4.4) is not built.
+> (`apps/web/app/(app)/conference/`, web, always shown; `apps/mobile/app/(app)/conference/`,
+> development builds only). The end screen (§4.4) is not built.
 
 **Date:** 2026-10-06, revised 2026-10-25
 **Media server:** Cloudflare Realtime SFU (managed; the API drives it over HTTPS)

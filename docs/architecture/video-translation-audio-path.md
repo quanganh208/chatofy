@@ -1,8 +1,7 @@
 # Video Translation Audio Path — Design & Latency
 
-> **Status: Option A is built, on `main`, behind the conference flags**
-> (`CONFERENCE_ENABLED` for the API, `NEXT_PUBLIC_CONFERENCE_ENABLED` for web; see
-> [deployment-guide.md → Video conferencing](../deployment-guide.md#video-conferencing-disabled-by-default)).
+> **Status: Option A is built, on `main`, and always loaded** (see
+> [deployment-guide.md → Video conferencing](../deployment-guide.md#video-conferencing)).
 > Each speaker's client sends its own microphone to the live mode of `/ws/translate`
 > and forwards the result into `/ws/conference`, which fans it out (§2). This answers
 > Issue #209. §3's per-language producer injection and §5's ducking are still
