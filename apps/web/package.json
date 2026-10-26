@@ -1,6 +1,7 @@
 {
   "name": "web",
   "version": "0.1.0",
+  "description": "Chatofy web app: translator, video meetings, history",
   "private": true,
   "scripts": {
     "predev": "node scripts/copy-worklets.mjs",

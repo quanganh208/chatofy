@@ -1,7 +1,7 @@
 [project]
 name = "local-tts-sidecar"
 version = "0.1.0"
-description = "Local HTTP sidecar for English (Kokoro/sherpa-onnx) and Vietnamese (VieNeu) speech synthesis"
+description = "Local HTTP sidecar for Vietnamese, English and Chinese speech synthesis"
 # 3.11.4+ needed for tarfile extraction filter="data"
 requires-python = ">=3.11.4,<3.12"
 dependencies = [

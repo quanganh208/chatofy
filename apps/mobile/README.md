@@ -1,6 +1,7 @@
 # Chatofy Mobile
 
-Expo SDK 54 + expo-router app, part of the Chatofy monorepo.
+Expo SDK 55 + expo-router app, part of the Chatofy monorepo.
+Today it signs in with the real auth client and joins video meetings (development builds only); the translate screen is not built yet.
 
 ## Quick Start
 
