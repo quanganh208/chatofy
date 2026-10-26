@@ -2,7 +2,7 @@
 
 > **Status: Proposal, partly built.** Conferencing code is on `main` and always loaded
 > (the API refuses to boot without the Cloudflare Realtime app keys); the mobile screens
-> are reachable only in development builds. What
+> need a signed-in account and a dev client (not Expo Go). What
 > exists is meeting media on Cloudflare Realtime SFU driven by the API (Decisions 1 and 7),
 > rooms created by `POST /conference`, signaling on `/ws/conference`, and client-side
 > translation fanned out to the room

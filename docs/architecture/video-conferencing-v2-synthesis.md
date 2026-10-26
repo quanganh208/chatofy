@@ -99,11 +99,11 @@ latency).
 
 ### Decision 4 — Client support (resolved by #210)
 
-| Client                         | SDK                           | Status                                                                                                                                                             |
-| ------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Web (Next.js 16)**           | browser `RTCPeerConnection`   | Lobby (Create a room / Join) and call screen under `/conference`, always shown.                                                                                    |
-| **Mobile (Expo 55 / RN 0.83)** | `react-native-webrtc` 124.0.8 | Dev client only (not Expo Go). Two-way call proven on an Android phone with the earlier SFU (2026-10-12); on Cloudflare the device run is pending. `__DEV__` only. |
-| **Extension**                  | n/a                           | Out of scope. It translates third-party meetings via tab capture; its own SFU session is deferred.                                                                 |
+| Client                         | SDK                           | Status                                                                                                                                                                                |
+| ------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Web (Next.js 16)**           | browser `RTCPeerConnection`   | Lobby (Create a room / Join) and call screen under `/conference`, always shown.                                                                                                       |
+| **Mobile (Expo 55 / RN 0.83)** | `react-native-webrtc` 124.0.8 | Dev client only (not Expo Go). Two-way call proven on an Android phone with the earlier SFU (2026-10-12); again on Cloudflare (2026-10-26). Real sign-in, session in the OS keystore. |
+| **Extension**                  | n/a                           | Out of scope. It translates third-party meetings via tab capture; its own SFU session is deferred.                                                                                    |
 
 Details, including the end screen that is deferred: [video-client-support.md](./video-client-support.md).
 

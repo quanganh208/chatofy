@@ -55,7 +55,8 @@
         {
           "iosMicrophonePermission": "Chatofy uses the microphone to translate your speech in video meetings."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

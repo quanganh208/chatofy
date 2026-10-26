@@ -5,7 +5,15 @@ import type { AuthMessage, AuthSession, AuthToken } from '@chatofy/types';
 
 export type { AuthMessage, AuthSession, AuthToken };
 
-// Interface for auth providers — swap StubAuthClient for Supabase/BetterAuth without touching call sites
+/** Thrown by `getAccessToken` when no one is signed in, or the session has ended. */
+export class SignedOutError extends Error {
+  constructor(message = 'Not signed in') {
+    super(message);
+    this.name = 'SignedOutError';
+  }
+}
+
+// The app talks to auth only through this interface; `HttpAuthClient` is the concrete one.
 export interface AuthClient {
   signIn(email: string, password: string): Promise<AuthSession>;
   /**
@@ -29,5 +37,15 @@ export interface AuthClient {
    */
   refreshSession(refreshToken: string): Promise<AuthToken>;
   getSession(): Promise<AuthSession | null>;
+  /**
+   * A bearer token that is valid right now, renewing the pair first when the
+   * stored one is about to expire. Every API and socket call reads its token
+   * here, so a reconnect late in a call never presents an expired one.
+   *
+   * @throws SignedOutError when nobody is signed in or the API refused the
+   * refresh token (the session is then cleared); any other error is a transient
+   * failure and leaves the session in place.
+   */
+  getAccessToken(): Promise<string>;
   onAuthChange(callback: (session: AuthSession | null) => void): () => void;
 }

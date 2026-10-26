@@ -125,13 +125,12 @@ Run once on a real stack before trusting the demo; none of this is visible to un
 
 ---
 
-## 4. Mobile (Android dev build only)
+## 4. Mobile (Android dev client)
 
-The conference entry, lobby and call screen exist only in development builds (`__DEV__`).
-Mobile has no real sign-in for conferences yet, so a dev build logs in with a bench
-account from `EXPO_PUBLIC_BENCH_EMAIL` / `EXPO_PUBLIC_BENCH_PASSWORD`; a release build
-ignores them and has no conference screens. Never set those variables for a build you hand
-to anyone.
+The phone signs in with a real account: **Sign in** on the landing screen, or opening the
+**Conference** tab while signed out, leads to the sign-in screen. The session is kept in
+the OS keystore and renewed like the web's; **Settings → Sign out** ends it. Register the
+account on the web first (§1, Accounts): registration needs the mailed link.
 
 `apps/mobile/.env`:
 
@@ -139,12 +138,10 @@ to anyone.
 # The API port (3000), not web's. Emulator default is http://10.0.2.2:3000;
 # a real device needs this machine's LAN IP.
 EXPO_PUBLIC_API_BASE_URL=http://192.168.1.50:3000
-EXPO_PUBLIC_BENCH_EMAIL=bench@dev.local
-EXPO_PUBLIC_BENCH_PASSWORD=<the bench account's password>
 ```
 
-Create the bench account with `node apps/api/scripts/create-bench-user.cjs`. The phone
-needs to reach the API for signaling only; its media goes to Cloudflare like the browser's.
+The phone needs to reach the API for sign-in and signaling only; its media goes to
+Cloudflare like the browser's.
 
 Build and run a dev client (Expo Go cannot load `react-native-webrtc`):
 
@@ -187,13 +184,13 @@ off. The language is picked in the lobby; it is read-only during the call.
 
 ## 6. Known demo risks
 
-| Risk                                     | Impact                         | Note                                                                                                                    |
-| ---------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| Local API, one LAN                       | A remote guest cannot join     | Media crosses Cloudflare, but signaling needs the API; a guest elsewhere needs the production site with both flags on.  |
-| At most six translating participants     | A seventh gets no translation  | The API allows six live translation sessions server-wide, `/translate` users included. A code constant, not an env var. |
-| ~6 s warm translation latency            | The audience notices the delay | Measured on a 2-tab local run. Use short turns with pauses; the subtitle arrives before the audio.                      |
-| Cold first utterance (~9 s)              | First translation is slow      | Warm each profile up with one throwaway sentence before the demo.                                                       |
-| Mobile is a dev build with a bench login | Two phones share one account   | The same user joining twice replaces the first socket, so use one phone plus browser profiles.                          |
+| Risk                                 | Impact                         | Note                                                                                                                    |
+| ------------------------------------ | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Local API, one LAN                   | A remote guest cannot join     | Media crosses Cloudflare, but signaling needs the API; a guest elsewhere needs the production site with both flags on.  |
+| At most six translating participants | A seventh gets no translation  | The API allows six live translation sessions server-wide, `/translate` users included. A code constant, not an env var. |
+| ~6 s warm translation latency        | The audience notices the delay | Measured on a 2-tab local run. Use short turns with pauses; the subtitle arrives before the audio.                      |
+| Cold first utterance (~9 s)          | First translation is slow      | Warm each profile up with one throwaway sentence before the demo.                                                       |
+| One account in two places            | The first one drops out        | The same user joining twice replaces the first socket, so give every phone and profile its own account.                 |
 
 ---
 
