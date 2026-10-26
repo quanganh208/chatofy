@@ -16,6 +16,7 @@ import { conferenceDebug } from './conference-debug-log';
 import { request, SFU_REQUEST_TIMEOUT_MS } from './conference-signaling';
 import { SerialChain } from './serial-chain';
 import { SubscribeRetryScheduler } from './subscribe-retry-scheduler';
+import { createSfuPeerConnection } from './sfu-peer-connection';
 import {
   dropPeer,
   peerForMid,
@@ -47,8 +48,8 @@ export class ConferenceSfuMedia {
 
   constructor(private readonly options: ConferenceSfuMediaOptions) {
     const config: RTCConfiguration = { bundlePolicy: 'max-bundle', iceServers: options.iceServers };
-    this.pubPc = new RTCPeerConnection(config);
-    this.subPc = new RTCPeerConnection(config);
+    this.pubPc = createSfuPeerConnection(config);
+    this.subPc = createSfuPeerConnection(config);
     this.subPc.ontrack = (event) => {
       const peer = peerForMid(this.mids, event.transceiver.mid);
       if (!peer) {
