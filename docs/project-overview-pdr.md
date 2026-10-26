@@ -5,7 +5,10 @@
 Realtime multilingual voice interpreter. Each person speaks their own language and
 hears the other's translated, at sub-2-second latency. Languages are entries in one
 registry, so a new language is a data change plus its speech engines, not a
-redesign. Shipped today: Vietnamese and English.
+redesign. Shipped today: Vietnamese, English and Chinese, every ordered pair.
+Vietnamese and English are identified automatically per turn; a pair with Chinese
+is one-way. Conversations run face to face on web, inside a browser call through
+the extension, or in Chatofy's own video meetings.
 
 ## Target Users
 
@@ -15,10 +18,12 @@ redesign. Shipped today: Vietnamese and English.
 
 ## MVP Scope (6–8 weeks)
 
-- Mobile app (React Native + Expo) — still a scaffold: screens and the auth client
-  are stubs and audio capture is unimplemented. Web and the browser extension are the
-  surfaces that ship today
-- Realtime 2-way conversation between any two registered languages (VI↔EN today)
+- Mobile app (React Native + Expo) — sign-in uses the real auth client and the
+  meeting screens work in development builds; the translate screen is still a stub.
+  Web and the browser extension are the surfaces that ship today
+- Realtime 2-way conversation between any two registered languages (two-way for
+  Vietnamese↔English; auto-detect for Vietnamese and English; one-way pairs with
+  Chinese)
 - Account (email / OAuth). **Translation history is built** (web only), which is
   milestone 6 below. Seven models in the schema: `User`, `Conversation`,
   `ConversationTurn`, `MeetingMinutes`, `MinutesActionItem`, `TranslationContext`,
@@ -44,6 +49,11 @@ redesign. Shipped today: Vietnamese and English.
   document removes that path structurally. What it does NOT remove is the user's own
   microphone, which the meeting client is still transmitting — see
   [system-architecture](./architecture/modules-extension-ci.md#browser-extension-path).
+- **Video meetings** (`/conference` on web) — rooms opened by link for signed-in
+  users, media on Cloudflare Realtime SFU, Vietnamese↔English subtitles and spoken
+  translation for each listener, chat translated per recipient, and minutes on the
+  end screen. Live on production; the two-network connectivity run and a
+  multi-speaker load run are still open ([roadmap](./project-roadmap.md)).
 
 ## Out of MVP (Descoped)
 
@@ -54,9 +64,10 @@ redesign. Shipped today: Vietnamese and English.
   entry page still said "coming soon", so the placeholder was describing a product
   that no longer existed.
 - Voice cloning
-- Shipping a third language. The architecture is ready for one — see
-  [adding a language](./architecture/contracts-and-languages.md#checklist-adding-a-language-to-the-registry)
-  — but each language needs its own measured STT and TTS engines first
+- ~~Shipping a third language~~ — **Chinese shipped** through the language registry
+  (PR #180). Identifying Chinese automatically is still out: it needs a language
+  identifier that passes on CPU
+  ([three-language LID](./architecture/contracts-and-languages.md#lid-and-audio-based-detection)).
 - Payment / subscription tiering
 - Analytics / metering (beyond basic rate limits)
 - Offline mode
@@ -115,8 +126,8 @@ redesign. Shipped today: Vietnamese and English.
    were not in this slice.
 7. **TestFlight + Play Console beta** — internal users, feedback loop
 
-**Planned, not built:** a video meeting surface with translation in the call. Nothing in
-the code implements it yet; see [project-roadmap](./project-roadmap.md).
+**Video meetings** (✅ built) — rooms, translated subtitles and audio, translated chat,
+minutes; see [project-roadmap](./project-roadmap.md#video-meetings).
 
 ## Success Criteria (MVP)
 
