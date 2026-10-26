@@ -14,6 +14,11 @@ export interface ConferenceMinutesStore {
   get(conferenceId: string): Promise<ConferenceMinutes | null>;
   /** Create or replace the room's minutes, action items included. */
   put(minutes: ConferenceMinutes): Promise<ConferenceMinutes>;
+  /**
+   * Store a `failed` record unless a `ready` copy is stored, atomically;
+   * `'kept'` when the ready copy stood. `failed` carries no action items.
+   */
+  putFailedUnlessReady(failed: ConferenceMinutes): Promise<'saved' | 'kept'>;
 }
 
 /**
@@ -73,6 +78,38 @@ export class PrismaConferenceMinutesStore implements ConferenceMinutesStore {
     }
     // The input already IS what was stored, so return it rather than read back.
     return minutes;
+  }
+
+  async putFailedUnlessReady(
+    failed: ConferenceMinutes,
+  ): Promise<'saved' | 'kept'> {
+    const fields = {
+      status: failed.status,
+      summary: failed.summary,
+      keyPoints: failed.keyPoints,
+      decisions: failed.decisions,
+      generatedAt: null,
+      model: null,
+    };
+    // One conditional UPDATE: a `ready` row written by a concurrent pass is never
+    // matched, however the two interleave. Rows that are not ready hold no action
+    // items, so there is nothing to clear alongside.
+    const { count } = await this.prisma.conferenceMinutes.updateMany({
+      where: { conferenceId: failed.conferenceId, status: { not: 'ready' } },
+      data: fields,
+    });
+    if (count > 0) return 'saved';
+    try {
+      await this.prisma.conferenceMinutes.create({
+        data: { conferenceId: failed.conferenceId, ...fields },
+      });
+      return 'saved';
+    } catch (err) {
+      // The row exists: it was ready all along, or another pass just wrote it.
+      // Either way it is newer than this failure, so it stands.
+      if (isUniqueViolation(err)) return 'kept';
+      throw err;
+    }
   }
 
   private async upsert(minutes: ConferenceMinutes): Promise<void> {

@@ -48,6 +48,17 @@ function setup(summarize: SummarizationProvider['summarize']) {
       stored.set(minutes.conferenceId, minutes);
       return Promise.resolve(minutes);
     },
+    // Atomic in the fake as in Postgres: it decides on what is stored NOW.
+    putFailedUnlessReady: (failed) => {
+      if (!prisma.conferences.has(failed.conferenceId)) {
+        return Promise.reject(new Error('Foreign key constraint violated'));
+      }
+      if (stored.get(failed.conferenceId)?.status === 'ready') {
+        return Promise.resolve('kept' as const);
+      }
+      stored.set(failed.conferenceId, failed);
+      return Promise.resolve('saved' as const);
+    },
   };
   const registry = new ProviderRegistry();
   registry.register('summarization', {
@@ -220,6 +231,29 @@ describe('ConferenceMinutesService', () => {
         service.generate(room.id, 'owner', {}),
       ).rejects.toBeInstanceOf(ServiceUnavailableException);
 
+      await expect(service.get(room.id, 'owner')).resolves.toMatchObject({
+        status: 'ready',
+        summary: 'They agreed on the budget.',
+      });
+    });
+
+    it('keeps a ready copy that lands while a concurrent pass is failing', async () => {
+      const summarize = vi
+        .fn()
+        .mockResolvedValueOnce(draft)
+        .mockRejectedValue(new ProviderConnectionError('cooling down'));
+      const { service, store, room, join, say } = setup(summarize);
+      await say(await join('bob', 'Bob'), 'let us ship');
+      await service.generate(room.id, 'bob', {});
+      // The failing pass's read of the stored status ran before bob's ready copy
+      // landed: a read-then-write would trust it and write `failed` over ready.
+      const staleRead = vi.spyOn(store, 'get').mockResolvedValue(null);
+
+      await expect(
+        service.generate(room.id, 'owner', {}),
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+      staleRead.mockRestore();
       await expect(service.get(room.id, 'owner')).resolves.toMatchObject({
         status: 'ready',
         summary: 'They agreed on the budget.',

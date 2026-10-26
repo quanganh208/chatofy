@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 // Conference minutes against a REAL Postgres.
 //
@@ -18,6 +19,7 @@ import {
 } from '@chatofy/ai-providers';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { PrismaConferenceMinutesStore } from '../src/modules/conference/stores/prisma-conference-minutes.store';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 import { registerAndLogin, type Identity } from './utils/auth-fixture';
 
@@ -210,6 +212,60 @@ describe('Conference minutes (db-e2e)', () => {
       .set('authorization', owner.bearer)
       .expect(200);
     expect(get.body.data.minutes).toMatchObject({ status: 'failed' });
+  });
+
+  it('never lets a failed record replace a ready copy, even written at the same moment', async () => {
+    const store = app.get(PrismaConferenceMinutesStore);
+    const failed = (conferenceId: string) => ({
+      conferenceId,
+      status: 'failed' as const,
+      summary: '',
+      keyPoints: [],
+      decisions: [],
+      actionItems: [],
+      generatedAt: null,
+      model: null,
+    });
+
+    // No row: the failure is recorded. A failed row: it is replaced.
+    const empty = await room();
+    await expect(store.putFailedUnlessReady(failed(empty))).resolves.toBe(
+      'saved',
+    );
+    await expect(store.putFailedUnlessReady(failed(empty))).resolves.toBe(
+      'saved',
+    );
+
+    // A ready row stands, and so does one written concurrently with the failure.
+    const ready = await room();
+    await request(app.getHttpServer())
+      .post(`/conference/${ready}/minutes`)
+      .set('authorization', owner.bearer)
+      .send({})
+      .expect(201);
+    const fresh = await room();
+    const original = (await store.get(ready))!;
+    const readyCopy = {
+      ...original,
+      conferenceId: fresh,
+      // Action-item ids are primary keys; the copy needs its own.
+      actionItems: original.actionItems.map((item) => ({
+        ...item,
+        id: randomUUID(),
+      })),
+    };
+    const [, outcome] = await Promise.all([
+      store.put(readyCopy),
+      store.putFailedUnlessReady(failed(fresh)),
+    ]);
+    await expect(store.putFailedUnlessReady(failed(ready))).resolves.toBe(
+      'kept',
+    );
+    expect((await store.get(ready))?.status).toBe('ready');
+    // Whichever landed first, the room ends ready: a failure written first is
+    // replaced by the ready put; one arriving second is kept out.
+    expect(['saved', 'kept']).toContain(outcome);
+    expect((await store.get(fresh))?.status).toBe('ready');
   });
 
   it('reports when the room started and ended on the detail route', async () => {

@@ -43,6 +43,16 @@ export interface MinutesPass<T> {
   save: (content: MinutesContent) => Promise<T>;
   /** The status of the copy stored now, or null when there is none. */
   storedStatus: () => Promise<MinutesStatus | null>;
+  /**
+   * Write the failed artifact unless a `ready` copy is stored, as ONE atomic
+   * step; resolves `'kept'` when a ready copy stood. A parent several people can
+   * generate for supplies it: read-then-write lets a concurrent pass's `ready`
+   * land between the read and this write, and be replaced by `failed`. Without
+   * it, `storedStatus` then `save` is used, which is enough for a single owner.
+   */
+  saveFailedUnlessReady?: (
+    content: MinutesContent,
+  ) => Promise<'saved' | 'kept'>;
 }
 
 /**
@@ -112,14 +122,17 @@ export async function runMinutesPass<T>(pass: MinutesPass<T>): Promise<T> {
  */
 async function recordFailure<T>(pass: MinutesPass<T>): Promise<void> {
   try {
-    if ((await pass.storedStatus()) === 'ready') {
+    const outcome = pass.saveFailedUnlessReady
+      ? await pass.saveFailedUnlessReady(failedContent())
+      : (await pass.storedStatus()) === 'ready'
+        ? 'kept'
+        : (await pass.save(failedContent()), 'saved');
+    if (outcome === 'kept') {
       pass.logger.warn(
         `keeping the readable minutes stored for ${pass.label}; ` +
           `the failed attempt is not recorded over them`,
       );
-      return;
     }
-    await pass.save(failedContent());
   } catch (err) {
     pass.logger.warn(
       `could not persist the failed-minutes record for ${pass.label}: ${String(err)}`,

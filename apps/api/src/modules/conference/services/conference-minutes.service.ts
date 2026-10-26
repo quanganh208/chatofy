@@ -86,6 +86,10 @@ export class ConferenceMinutesService {
       save: (content) => this.store.put({ conferenceId, ...content }),
       storedStatus: async () =>
         (await this.store.get(conferenceId))?.status ?? null,
+      // Any participant may generate at the same moment, so the failed record
+      // must not be a read-then-write: see MinutesPass.saveFailedUnlessReady.
+      saveFailedUnlessReady: (content) =>
+        this.store.putFailedUnlessReady({ conferenceId, ...content }),
     });
   }
 
