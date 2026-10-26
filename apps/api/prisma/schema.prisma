@@ -92,6 +92,7 @@ model User {
   avatarChangedAt   DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+  glossaries        Glossary[]
 }
 
 // Generated meeting minutes for one conversation.
@@ -581,4 +582,56 @@ model ConferenceMinutesActionItem {
   position    Int
 
   @@index([minutesId])
+}
+
+// A named glossary belonging to one user — a standalone term collection
+// independent of TranslationContext.
+//
+// `clientId` is a UUID minted by the browser and sent as the PUT path
+// parameter; the server stores it here so the pair (ownerId, clientId) can
+// be used as the upsert target. The DB-generated `id` is what child rows
+// reference.
+//
+// `sourceLang` is stored as text (not a Postgres enum) so that adding a
+// language is a data change, not a column migration — the same reasoning that
+// guides the `terms` JSON column in GlossaryTerm.
+//
+// `isDefault` — at most one row per owner may be true. The service layer
+// enforces this; no partial unique index is needed for a two-value toggle
+// that is safe to do with a transactional updateMany.
+model Glossary {
+  id          String        @id @default(cuid())
+  clientId    String
+  ownerId     String
+  owner       User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  sourceLang  String
+  isActive    Boolean       @default(true)
+  isDefault   Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  items       GlossaryItem[]
+
+  @@unique([ownerId, clientId])
+}
+
+// One term pair inside a Glossary.
+//
+// `clientId` is a UUID the browser mints and sends in the POST body for
+// idempotent retries; the server stores it so a retry with the same clientId
+// does not insert a duplicate. The unique constraint (glossaryId, clientId)
+// is the idempotency gate.
+model GlossaryItem {
+  id          String   @id @default(cuid())
+  clientId    String
+  glossaryId  String
+  glossary    Glossary @relation(fields: [glossaryId], references: [id], onDelete: Cascade)
+  original    String
+  translation String
+  targetLang  String
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@unique([glossaryId, clientId])
 }
