@@ -92,6 +92,12 @@ describe('MinutesPanel', () => {
     expect(container.textContent).toContain('Could not generate minutes');
   });
 
+  it('keeps the readable minutes on screen when a regenerate fails', () => {
+    render({ minutes: ready, error: true });
+    expect(container.textContent).toContain('Could not generate minutes');
+    expect(container.textContent).toContain('We agreed to ship.');
+  });
+
   it('offers Regenerate once minutes exist', () => {
     render({ minutes: ready });
     expect(generateButton()?.textContent).toContain('Regenerate');

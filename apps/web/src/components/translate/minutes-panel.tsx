@@ -105,16 +105,21 @@ export function MinutesPanel({
       <CardContent className="flex flex-col gap-4">
         {loading ? (
           <p className="text-muted-foreground">{t('web.translate.minutesGenerating')}</p>
-        ) : error ? (
-          <p className="text-destructive">{t('web.translate.minutesFailed')}</p>
-        ) : !ready ? (
-          <p className="text-muted-foreground">
-            {canGenerate
-              ? t('web.translate.minutesEmpty')
-              : (unavailableHint ?? t('web.translate.minutesNeedsTurns'))}
-          </p>
         ) : (
-          <MinutesBody minutes={minutes} />
+          <>
+            {/* A failed regenerate leaves the stored ready copy readable (the
+                server keeps it), so the failure is a line above it, not instead. */}
+            {error && <p className="text-destructive">{t('web.translate.minutesFailed')}</p>}
+            {ready ? (
+              <MinutesBody minutes={minutes} />
+            ) : error ? null : (
+              <p className="text-muted-foreground">
+                {canGenerate
+                  ? t('web.translate.minutesEmpty')
+                  : (unavailableHint ?? t('web.translate.minutesNeedsTurns'))}
+              </p>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
