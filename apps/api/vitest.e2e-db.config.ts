@@ -20,8 +20,9 @@ export default defineConfig({
   test: {
     // This workspace's own module cache. The default sits at the monorepo root, shared
     // by every workspace, so the first parallel run after a lockfile change had them
-    // all clearing the same directory at once and one failed with ENOTEMPTY.
-    fsModuleCachePath: 'node_modules/.vitest-cache-e2e-db',
+    // all clearing the same directory at once and one failed with ENOTEMPTY. Resolved
+    // against `root` below, hence the `..` to land in this workspace's node_modules.
+    fsModuleCachePath: '../node_modules/.vitest-cache-e2e-db',
     environment: 'node',
     root: './test',
     include: ['**/*.db-e2e-spec.ts'],
