@@ -18,6 +18,11 @@ export function GlossaryPageContent() {
 
   const selectedGlossary = glossaries.find((g) => g.id === selectedId) ?? null;
 
+  async function handleDelete(glossaryId: string) {
+    await remove(glossaryId);
+    if (selectedId === glossaryId) setSelectedId(null);
+  }
+
   async function handleToggleActive(glossaryId: string) {
     const g = glossaries.find((x) => x.id === glossaryId);
     if (!g) return;
@@ -33,7 +38,7 @@ export function GlossaryPageContent() {
         onSelect={setSelectedId}
         onSave={save}
         onToggleActive={handleToggleActive}
-        onDelete={remove}
+        onDelete={handleDelete}
       />
       <GlossaryDetailPanel glossary={selectedGlossary} onPatch={patch} />
     </div>

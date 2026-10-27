@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useState } from 'react';
-import { Power, Trash2 } from 'lucide-react';
+import { Check, Power, Trash2, X } from 'lucide-react';
 import { Badge, Button } from '@chatofy/ui/react';
 import { LANGUAGES } from '@chatofy/types';
 import type { Glossary } from '@chatofy/types';
@@ -19,6 +19,7 @@ export function GlossaryCard({ glossary, isSelected, onSelect, onToggleActive, o
   const t = useTranslate();
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const langLabel = LANGUAGES[glossary.sourceLang]?.label ?? glossary.sourceLang;
 
@@ -35,6 +36,7 @@ export function GlossaryCard({ glossary, isSelected, onSelect, onToggleActive, o
   async function handleDelete(e: React.MouseEvent) {
     e.stopPropagation();
     setDeleting(true);
+    setConfirmingDelete(false);
     try {
       await onDelete();
     } finally {
@@ -72,16 +74,46 @@ export function GlossaryCard({ glossary, isSelected, onSelect, onToggleActive, o
           >
             <Power className="h-3 w-3" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 text-destructive hover:text-destructive"
-            disabled={deleting}
-            onClick={(e) => void handleDelete(e)}
-            title={t('web.glossary.delete')}
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
+          {confirmingDelete ? (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-destructive hover:text-destructive"
+                disabled={deleting}
+                onClick={(e) => void handleDelete(e)}
+                title={t('web.glossary.delete')}
+              >
+                <Check className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setConfirmingDelete(false);
+                }}
+                title={t('web.glossary.cancel')}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-destructive hover:text-destructive"
+              disabled={deleting}
+              onClick={(e) => {
+                e.stopPropagation();
+                setConfirmingDelete(true);
+              }}
+              title={t('web.glossary.delete')}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
         </div>
       </div>
     </button>

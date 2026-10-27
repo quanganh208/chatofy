@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useMemo, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Check, Trash2, X } from 'lucide-react';
 import { Button, Input, Skeleton } from '@chatofy/ui/react';
 import { LANGUAGES } from '@chatofy/types';
 import type { GlossaryItem } from '@chatofy/types';
@@ -17,6 +17,7 @@ export function GlossaryTermList({ items, status, onRemove }: Props) {
   const t = useTranslate();
   const [filter, setFilter] = useState('');
   const [removing, setRemoving] = useState<string | null>(null);
+  const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -29,6 +30,7 @@ export function GlossaryTermList({ items, status, onRemove }: Props) {
 
   async function handleRemove(itemId: string) {
     setRemoving(itemId);
+    setConfirmingRemove(null);
     try {
       await onRemove(itemId);
     } finally {
@@ -81,16 +83,40 @@ export function GlossaryTermList({ items, status, onRemove }: Props) {
                     <p className="text-hint text-muted-foreground truncate">{item.notes}</p>
                   )}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
-                  disabled={removing === item.id}
-                  onClick={() => void handleRemove(item.id)}
-                  title={t('web.glossary.removeTerm')}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                {confirmingRemove === item.id ? (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
+                      disabled={removing === item.id}
+                      onClick={() => void handleRemove(item.id)}
+                      title={t('web.glossary.removeTerm')}
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => setConfirmingRemove(null)}
+                      title={t('web.glossary.cancel')}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
+                    disabled={removing === item.id}
+                    onClick={() => setConfirmingRemove(item.id)}
+                    title={t('web.glossary.removeTerm')}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             );
           })}
