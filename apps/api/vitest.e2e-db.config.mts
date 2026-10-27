@@ -3,19 +3,18 @@ import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
 
 /**
- * The e2e suites that need no database. They override USER_REPOSITORY with an
- * in-memory implementation, so the real controller, argon2 and JWT issuance all
- * run while only the storage layer is faked.
+ * The e2e suites that need a real Postgres. Split from the plain e2e config so
+ * the fast suites are not held behind a service container.
  *
- * `setupFiles` has to land before AppModule is constructed: AUTH_JWT_SECRET is
- * required at boot with no "auth off" fallback, so without it every suite that
- * instantiates AppModule throws during module resolution. See setup-env.ts.
+ * `fileParallelism: false` replaces jest's `--runInBand`, and is required
+ * rather than tidy: these suites share one database, so running two files at
+ * once lets one suite's truncation delete rows another is mid-assertion on.
  */
 export default defineConfig({
   plugins: [swc.vite({ module: { type: 'es6' } })],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(import.meta.dirname, './src'),
     },
   },
   test: {
@@ -23,10 +22,11 @@ export default defineConfig({
     // by every workspace, so the first parallel run after a lockfile change had them
     // all clearing the same directory at once and one failed with ENOTEMPTY. Resolved
     // against `root` below, hence the `..` to land in this workspace's node_modules.
-    fsModuleCachePath: '../node_modules/.vitest-cache-e2e',
+    fsModuleCachePath: '../node_modules/.vitest-cache-e2e-db',
     environment: 'node',
     root: './test',
-    include: ['**/*.e2e-spec.ts'],
-    setupFiles: ['./setup-env.ts'],
+    include: ['**/*.db-e2e-spec.ts'],
+    setupFiles: ['./setup-env-db.ts'],
+    fileParallelism: false,
   },
 });

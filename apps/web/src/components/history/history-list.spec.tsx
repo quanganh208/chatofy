@@ -36,7 +36,7 @@ let reactErrors: string[];
  *
  * Midday, and the day fixtures below are placed at the SAME instant and exactly
  * 24h before it, so the pair straddles local midnight in every offset rather than
- * only in the one this was written on. `vitest.config.ts` pins `TZ` as well; both
+ * only in the one this was written on. `vitest.config.mts` pins `TZ` as well; both
  * are here because either alone has been enough to lose before.
  */
 const NOW = new Date('2026-09-04T12:00:00.000Z');

@@ -4,7 +4,7 @@ import { AvatarResizeError, resizeAvatar } from './resize-avatar';
 
 /**
  * Only the failure branches, and only the ones a DOM-less runner can actually
- * reach. `vitest.config.ts` sets `environment: 'node'` and happy-dom has no
+ * reach. `vitest.config.mts` sets `environment: 'node'` and happy-dom has no
  * raster backend, so the encode path cannot be exercised here — the geometry it
  * would produce is proved by `avatar-crop-geometry.spec.ts` instead, which is
  * why that function is pure.
