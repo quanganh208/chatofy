@@ -58,8 +58,16 @@ export class PeerSubtitleTracker {
     const text =
       subtitle.sourceLanguage === listenerLanguage ? subtitle.sourceText : subtitle.translatedText;
     // A frame with nothing yet on this listener's channel shows nothing new; an
-    // earlier turn's line stays rather than flashing to blank.
-    if (!text) return;
+    // earlier turn's line stays rather than flashing to blank. A final with
+    // nothing on it still ends its own turn, so that turn's provisional line
+    // clears after the hold rather than staying until the speaker talks again.
+    if (!text) {
+      if (subtitle.isFinal && active === subtitle.turnId) {
+        this.cancelClear(speaker);
+        this.scheduleClear(speaker, subtitle.turnId);
+      }
+      return;
+    }
     // An older turn than the one on screen: the line does not go back to it.
     if (active !== undefined && active !== subtitle.turnId && rank < this.rankOf(speaker, active)) {
       return;
@@ -69,17 +77,7 @@ export class PeerSubtitleTracker {
     this.activeTurn.set(speaker, subtitle.turnId);
     this.show(speaker, text);
 
-    if (!subtitle.isFinal) return;
-    const turnId = subtitle.turnId;
-    this.clearTimers.set(
-      speaker,
-      setTimeout(() => {
-        this.clearTimers.delete(speaker);
-        if (this.activeTurn.get(speaker) !== turnId) return;
-        this.activeTurn.delete(speaker);
-        this.show(speaker, undefined);
-      }, this.holdMs),
-    );
+    if (subtitle.isFinal) this.scheduleClear(speaker, subtitle.turnId);
   }
 
   /** The speaker left: drop its state without touching the display. */
@@ -114,6 +112,19 @@ export class PeerSubtitleTracker {
       turns.delete(oldest);
     }
     return rank;
+  }
+
+  /** Take the turn's line down after the hold, unless a newer turn is on screen by then. */
+  private scheduleClear(speakerSocketId: string, turnId: string): void {
+    this.clearTimers.set(
+      speakerSocketId,
+      setTimeout(() => {
+        this.clearTimers.delete(speakerSocketId);
+        if (this.activeTurn.get(speakerSocketId) !== turnId) return;
+        this.activeTurn.delete(speakerSocketId);
+        this.show(speakerSocketId, undefined);
+      }, this.holdMs),
+    );
   }
 
   private cancelClear(speakerSocketId: string): void {

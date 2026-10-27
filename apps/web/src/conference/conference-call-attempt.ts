@@ -181,11 +181,13 @@ export class CallAttempt {
    *
    * With `closeSocket` — the user left, and the conference socket is still
    * open — the translate leg first lets its in-flight turns finish (bounded),
-   * so their real finals reach the room; only then are the local tracks
-   * stopped and `closeSocket` called. Without it — the socket is gone, or the
-   * teardown is forced — the leg stops at once and relays no final.
+   * so their real finals reach the room; only then is `closeSocket` called.
+   * Without it — the socket is gone, or the teardown is forced — the leg stops
+   * at once and relays no final.
    *
-   * Everything that only RECEIVES is released immediately either way.
+   * The camera and microphone stop at once either way: the leg drains from its
+   * own clone of the microphone track, so a left user is never still captured.
+   * Everything that only RECEIVES is released immediately too.
    */
   dispose(closeSocket?: () => void): void {
     if (this.disposed) {
@@ -201,18 +203,14 @@ export class CallAttempt {
 
     const leg = this.leg;
     this.leg = null;
-    const stream = this.stream;
+    this.stream?.getTracks().forEach((track) => track.stop());
     this.stream = null;
-    const release = () => {
-      stream?.getTracks().forEach((track) => track.stop());
-      closeSocket?.();
-    };
     if (leg && closeSocket) {
-      void leg.leave().finally(release);
+      void leg.leave().finally(closeSocket);
       return;
     }
     leg?.stop();
-    release();
+    closeSocket?.();
   }
 
   /**

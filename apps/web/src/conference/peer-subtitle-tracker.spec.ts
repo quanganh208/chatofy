@@ -62,6 +62,15 @@ describe('PeerSubtitleTracker', () => {
     expect(shown['s-1']).toBe('hello');
   });
 
+  it('clears the line after the hold when the final arrives with no text on this channel', () => {
+    const { tracker, shown } = setup();
+    tracker.receive(frame({ translatedText: 'uh' }), 'en');
+    tracker.receive(frame({ translatedText: '', isFinal: true }), 'en');
+    expect(shown['s-1']).toBe('uh');
+    vi.advanceTimersByTime(SUBTITLE_HOLD_MS);
+    expect(shown['s-1']).toBeUndefined();
+  });
+
   it('clears a finished line after the hold', () => {
     const { tracker, shown } = setup();
     tracker.receive(frame({ isFinal: true }), 'en');
