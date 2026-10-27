@@ -16,7 +16,7 @@ import {
   type ConferenceCascadeLeg,
   type ConferenceLegEndReason,
 } from '@chatofy/realtime-client';
-import type { LanguageCode } from '@chatofy/types/domain';
+import type { LanguageCode, VoiceGender } from '@chatofy/types/domain';
 import type { NativeAudioCapture } from './native-audio-capture';
 import { TRANSLATE_WS_URL } from './conference-config';
 import { send } from './conference-signaling';
@@ -29,6 +29,8 @@ export interface NativeConferenceLegOptions {
   /** Read afresh for every (re)built translate session, so a late rebuild never presents an expired token. */
   getToken: () => Promise<string>;
   sourceLanguage: LanguageCode;
+  /** Chosen in the lobby; what other participants hear this speaker's translation in. */
+  voiceGender: VoiceGender;
   /** The languages the other participants speak; kept current via `setRoomLanguages`. */
   roomLanguages: Iterable<LanguageCode>;
   /** Drives the hook's `localTranslating` indicator. */
@@ -46,8 +48,8 @@ export interface NativeConferenceLegOptions {
 }
 
 /**
- * Build (not start) a speaker leg. Voices are the schema defaults: mobile has no
- * translate settings screen to inherit them from.
+ * Build (not start) a speaker leg. The voice gender is chosen in the lobby;
+ * specific voices and speed are the schema defaults.
  */
 export function createNativeConferenceLeg(
   options: NativeConferenceLegOptions,
@@ -66,6 +68,7 @@ export function createNativeConferenceLeg(
       }
     },
     sourceLanguage: options.sourceLanguage,
+    voice: { voiceGender: options.voiceGender },
     roomLanguages: options.roomLanguages,
     onTranslatingChange: options.onTranslatingChange,
     onEnded: options.onEnded,

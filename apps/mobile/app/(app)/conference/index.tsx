@@ -23,7 +23,9 @@ import { createTranslator, en } from '@chatofy/i18n';
 import { conferenceRoomIdSchema } from '@chatofy/types/events';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
+import { DEFAULT_VOICE_GENDER, type VoiceGender } from '@chatofy/types/domain';
 import { LanguagePicker, type SourceLanguage } from '@/components/conference/language-picker';
+import { VoiceGenderPicker } from '@/components/conference/voice-gender-picker';
 import { CreateConferenceRoomError, createConferenceRoom } from '@/conference/conference-rooms-api';
 
 // English for now; device-locale selection is a follow-up.
@@ -40,6 +42,8 @@ export default function ConferenceLobbyScreen() {
   // The call screen reads `sourceLanguage` only at join, so it is chosen here in
   // the lobby and passed through as `lang`. Defaults to Vietnamese.
   const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>('vi');
+  // What others hear this speaker's translation in; passed through as `voice`.
+  const [voiceGender, setVoiceGender] = useState<VoiceGender>(DEFAULT_VOICE_GENDER);
   const [preview, setPreview] = useState<MediaStream | null>(null);
   const [creating, setCreating] = useState(false);
   const [lobbyError, setLobbyError] = useState<string | undefined>(undefined);
@@ -85,10 +89,15 @@ export default function ConferenceLobbyScreen() {
       setPreview(null);
       router.push({
         pathname: '/(app)/conference/[roomId]',
-        params: { roomId: room, displayName: displayName.trim(), lang: sourceLanguage },
+        params: {
+          roomId: room,
+          displayName: displayName.trim(),
+          lang: sourceLanguage,
+          voice: voiceGender,
+        },
       });
     },
-    [displayName, sourceLanguage, router],
+    [displayName, sourceLanguage, voiceGender, router],
   );
 
   const onCreate = useCallback(async () => {
@@ -182,6 +191,7 @@ export default function ConferenceLobbyScreen() {
       </View>
 
       <LanguagePicker t={t} value={sourceLanguage} onChange={setSourceLanguage} locked={false} />
+      <VoiceGenderPicker t={t} value={voiceGender} onChange={setVoiceGender} />
 
       {lobbyError ? (
         <Text style={[styles.label, { color: colors.textSecondary }]} accessibilityRole="alert">

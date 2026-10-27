@@ -21,7 +21,7 @@ import {
   conferenceRoomIdSchema,
 } from '@chatofy/types/events';
 import type { ConferenceChatMessage, ConferenceIceServer } from '@chatofy/types/events';
-import type { LanguageCode } from '@chatofy/types/domain';
+import type { LanguageCode, VoiceGender } from '@chatofy/types/domain';
 import { NativeTranslationAudioSink } from './native-audio-playback';
 import type { ConferenceCascadeLeg } from '@chatofy/realtime-client';
 import {
@@ -145,9 +145,15 @@ async function acquireLocalMedia(): Promise<{ stream: MediaStream; audioOnly: bo
 
 export function useConferenceNative(
   roomId: string,
-  options: { displayName: string; sourceLanguage: LanguageCode; getToken: () => Promise<string> },
+  options: {
+    displayName: string;
+    sourceLanguage: LanguageCode;
+    /** The translated voice others hear this speaker in; chosen in the lobby. */
+    voiceGender: VoiceGender;
+    getToken: () => Promise<string>;
+  },
 ): UseConferenceReturn {
-  const { displayName, sourceLanguage, getToken } = options;
+  const { displayName, sourceLanguage, voiceGender, getToken } = options;
 
   const [status, setStatus] = useState<ConferenceStatus>('idle');
   const [errorReason, setErrorReason] = useState<ConferenceErrorReason | undefined>(undefined);
@@ -406,6 +412,7 @@ export function useConferenceNative(
             capture: captureRef.current,
             getToken,
             sourceLanguage,
+            voiceGender,
             roomLanguages: peerLanguagesRef.current.values(),
             onTranslatingChange: setLocalTranslating,
             onEnded: (reason) => {
@@ -428,7 +435,16 @@ export function useConferenceNative(
         endCall('error', 'generic');
       }
     },
-    [roomId, displayName, sourceLanguage, getToken, onTrack, endCall, scheduleReconnect],
+    [
+      roomId,
+      displayName,
+      sourceLanguage,
+      voiceGender,
+      getToken,
+      onTrack,
+      endCall,
+      scheduleReconnect,
+    ],
   );
 
   /**
