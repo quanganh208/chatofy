@@ -51,11 +51,14 @@ export interface UseTranslateSettings {
 }
 
 export function useTranslateSettings(): UseTranslateSettings {
-  // Read once, in the initializer. On the server this answers defaults (there is
-  // no `localStorage`, and the loader's catch says so); on a hydrating client it
+  // Read once, in the initializer. The server answers defaults without touching
+  // storage: Node 26 defines a global `localStorage` that prints an
+  // ExperimentalWarning when read without a backing file. On a hydrating client it
   // is the real stored value, held back from the output by `ready` below so the
   // hydrating render still matches what the server sent.
-  const [settings, setSettings] = useState<TranslateSettings>(loadTranslateSettings);
+  const [settings, setSettings] = useState<TranslateSettings>(() =>
+    typeof window === 'undefined' ? DEFAULT_TRANSLATE_SETTINGS : loadTranslateSettings(),
+  );
   const ready = useSyncExternalStore(
     subscribeNever,
     () => true,
