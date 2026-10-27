@@ -2,7 +2,7 @@
 
 **Target:** thesis demo on one machine (loopback, one browser with several profiles,
 optionally an Android dev build on the same LAN)
-**Last revised:** 2026-10-25
+**Last revised:** 2026-10-27
 
 Conferencing is on `main` and always loaded. Everything below is a
 local run. Meeting media goes through Cloudflare Realtime SFU even locally, so the machine
@@ -22,9 +22,6 @@ keys are in [deployment-guide.md → Video conferencing](./deployment-guide.md#v
 # Required — the API refuses to start without it (openssl rand -base64 32)
 AUTH_JWT_SECRET=<32-byte base-64 string>
 
-# Required: a meeting translates through the live mode of /ws/translate, which is Gemini Live.
-GEMINI_API_KEY=<your key>
-
 # Required: Cloudflare dashboard > Realtime > Serverless SFU.
 # The API refuses to boot without both. Never paste the secret into chat or a log.
 CLOUDFLARE_REALTIME_APP_ID=<app id>
@@ -35,9 +32,11 @@ CLOUDFLARE_TURN_KEY_ID=
 CLOUDFLARE_TURN_KEY_API_TOKEN=
 ```
 
-Chat messages are translated per recipient through the configured translation provider
-(`AI_TRANSLATION_PROVIDER`, `deepseek` by default, which reads `OPENAI_COMPATIBLE_API_KEY`),
-so that provider's key must be set too.
+Meeting speech is translated by the same cascade as /translate: local STT, the configured
+translation provider (`AI_TRANSLATION_PROVIDER`, `deepseek` by default, which reads
+`OPENAI_COMPATIBLE_API_KEY`), then local TTS. Chat messages use the same provider, so its
+key must be set. Minutes are summarized by Gemini (`GEMINI_API_KEY`). The speech
+sidecars are reached at `LOCAL_STT_URL` and `LOCAL_TTS_URL` (defaults `:8002`, `:8003`).
 
 `apps/web/.env.local`:
 
@@ -56,14 +55,31 @@ the API console.
 
 ## 2. Start sequence
 
+A meeting needs the speech sidecars: every speaker's turn goes through local STT and TTS.
+
+**On a machine without production**, start everything in Docker:
+
 ```bash
 # Postgres, Redis, the speech sidecars, then the API (3000) and web (3001).
 pnpm dev:all
 ```
 
-A meeting itself does not use the speech sidecars (live mode is speech-to-speech in the
-cloud). On a machine whose Docker VM also runs production, do not start the dev sidecars:
-they compete with production for the same memory.
+**On a machine whose Docker VM also runs production, never start the dev sidecars in
+Docker.** They share the VM's memory with production and have OOM-killed and restarted
+the production STT. Run the sidecars natively on the host with `uv` instead, on the dev
+ports, following "work on the Python directly" in
+[`services/local-stt/README.md`](../services/local-stt/README.md) and
+[`services/local-tts/README.md`](../services/local-tts/README.md) (including the
+`libonnxruntime.so` link both need after a `uv sync`). Then:
+
+```bash
+docker compose up -d --wait postgres redis
+pnpm --filter api dev          # 3000; reads LOCAL_STT_URL / LOCAL_TTS_URL
+pnpm --filter web dev          # 3001
+```
+
+Never point a benchmark or load run at the production sidecars (`:8012`, `:8013`), and
+stop the native sidecars when the demo ends.
 
 Wait for `[api] Application is running on: http://localhost:3000` and `[web] ✓ Ready`.
 
@@ -92,19 +108,27 @@ state, and an ended room shows room ended.
 ### Translation
 
 3. **A** says a short Vietnamese sentence, then pauses. **B** sees the subtitle build up
-   and hears English. The subtitle is cumulative: it grows while A speaks and settles
-   about 1.5 s after the last translated word.
+   and hears English. The subtitle grows while A speaks and settles when the server
+   finishes the turn; with one speaker the translated speech starts about 1.4 s after A
+   stops (measured on the dev stack).
 4. **B** answers in English; **A** sees and hears Vietnamese.
+5. **Three languages.** A third profile joins as **中文**. From A's next sentence on, B
+   sees English and C sees Chinese, and each hears only their own language; a sentence
+   already in flight when C joined is not translated into Chinese. B and C speaking get
+   the same treatment.
 
 Point out: each participant picks their own language; subtitles reach only listeners of
-the other language, and translated speech reaches only listeners of its language.
+another language, each in their own, and translated speech reaches only listeners of its
+language. One speaker's turn is translated once into every language in the room.
 
 ### Controls, chat, leave, end
 
-5. Mic and camera buttons: the other side's roster shows muted; the tile darkens.
-6. Chat: a message arrives translated into each recipient's language.
-7. **Leave** returns to the lobby; the other side drops the tile.
-8. Ending the room as its creator (`DELETE /conference/:id`) closes every peer's call with
+6. Mic and camera buttons: the other side's roster shows muted; the tile darkens. A muted
+   speaker is not translated.
+7. Chat: a message arrives translated into each recipient's language.
+8. **Leave** returns to the lobby; the other side drops the tile. A sentence finished just
+   before leaving is still delivered.
+9. Ending the room as its creator (`DELETE /conference/:id`) closes every peer's call with
    the room-ended state. It does not reconnect.
 
 ### Smoke checklist
@@ -115,6 +139,7 @@ Run once on a real stack before trusting the demo; none of this is visible to un
 - [ ] Create a room → the call opens; Join with the copied id from a second profile works.
 - [ ] Joining a made-up id shows room not found, without retrying.
 - [ ] vi → en and en → vi both show a subtitle and play translated audio.
+- [ ] With a zh peer, each listener gets only its own language, text and audio.
 - [ ] If audio is silent on first join, a **tap to enable sound** control appears and works.
 - [ ] A **translating…** badge shows on your own tile while you speak and clears when the
       turn settles.
@@ -140,8 +165,8 @@ account on the web first (§1, Accounts): registration needs the mailed link.
 EXPO_PUBLIC_API_BASE_URL=http://192.168.1.50:3000
 ```
 
-The phone needs to reach the API for sign-in and signaling only; its media goes to
-Cloudflare like the browser's.
+The phone reaches the API for sign-in, signaling and translation (`/ws/translate`, the
+same cascade as the web); its media goes to Cloudflare like the browser's.
 
 Build and run a dev client (Expo Go cannot load `react-native-webrtc`):
 
@@ -158,6 +183,21 @@ join; grant camera and mic. Two-way audio and video were confirmed this way on a
 14 phone on 2026-10-12, and through Cloudflare's SFU on 2026-10-26. Check the same list as §3, plus that Leave turns the camera light
 off. The language is picked in the lobby; it is read-only during the call.
 
+**Translation on the phone.** The speaker leg runs the shared cascade leg from
+`@chatofy/realtime-client`; Hermes lacks `crypto.randomUUID`, so a polyfill is imported
+first in `apps/mobile/app/_layout.tsx` (`apps/mobile/src/polyfills/`). The translation
+recorder needs the native patch `patches/react-native-audio-api@0.13.6.patch` (an
+echo-cancelling input preset), so **rebuild the dev client** (`./gradlew installDebug`)
+after pulling it: a JS reload alone keeps the unpatched recorder. On the loudspeaker the
+phone still hears loud received translations; it holds back a new turn while one plays,
+so speak after it, and keep the volume moderate or use headphones. Why:
+[video-translation-audio-path.md § 5](./architecture/video-translation-audio-path.md#5-echo--ducking--the-original-voice-while-translation-plays).
+
+**Old builds must update.** An APK built before meetings moved to the cascade speaks the
+removed live path; a server with live mode off closes that socket with 4410, so the phone
+joins the call but gets no translation. The same holds for a web tab opened before the
+deploy until it reloads.
+
 | Symptom                                  | Cause                                                                                        |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------- |
 | No WebSocket connection                  | `EXPO_PUBLIC_API_BASE_URL` on the wrong port or host                                         |
@@ -166,6 +206,7 @@ off. The language is picked in the lobby; it is read-only during the call.
 | Gradle: `SDK location not found`         | `ANDROID_HOME` unset: `export ANDROID_HOME=$HOME/Android/Sdk` (Linux default) and re-run     |
 | Joins but no media                       | The network blocks UDP: set the two `CLOUDFLARE_TURN_*` keys so the join hands out TURN      |
 | Call audio drops when translation starts | Mic contention between `react-native-webrtc` and the translation recorder; confirm by muting |
+| Joins, but never translated              | An APK from before the cascade (the API closes its live socket with 4410): rebuild it        |
 
 ---
 
@@ -184,17 +225,20 @@ off. The language is picked in the lobby; it is read-only during the call.
 
 ## 6. Known demo risks
 
-| Risk                                 | Impact                         | Note                                                                                                                    |
-| ------------------------------------ | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| Local API, one LAN                   | A remote guest cannot join     | Media crosses Cloudflare, but signaling needs the API; a guest elsewhere needs the production site with both flags on.  |
-| At most six translating participants | A seventh gets no translation  | The API allows six live translation sessions server-wide, `/translate` users included. A code constant, not an env var. |
-| ~6 s warm translation latency        | The audience notices the delay | Measured on a 2-tab local run. Use short turns with pauses; the subtitle arrives before the audio.                      |
-| Cold first utterance (~9 s)          | First translation is slow      | Warm each profile up with one throwaway sentence before the demo.                                                       |
-| One account in two places            | The first one drops out        | The same user joining twice replaces the first socket, so give every phone and profile its own account.                 |
+| Risk                                | Impact                                      | Note                                                                                                                                                              |
+| ----------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local API, one LAN                  | A remote guest cannot join                  | Media crosses Cloudflare, but signaling needs the API; a guest elsewhere needs the production site.                                                               |
+| Several people talking non-stop     | Some sentences are never translated         | Meeting legs share 4 of the server's 6 turns. Two continuous speakers lost 12–25 turns each per 200 s on the dev stack, and one can starve the other. Take turns. |
+| en → vi under load                  | Some Vietnamese audio is missing            | One continuous English speaker saturates the Vietnamese voice engine; 15–25 % of its turns failed `engine_busy` on the dev stack.                                 |
+| Phone on loudspeaker at high volume | The phone may translate the room's playback | See §4. Moderate volume or headphones.                                                                                                                            |
+| One account in two places           | The first one drops out                     | The same user joining twice replaces the first socket, so give every phone and profile its own account.                                                           |
 
 ---
 
 ## 7. Reset between runs
+
+On a host that also runs production, replace `pnpm dev:all` below with the native start
+in §2.
 
 ```bash
 pnpm dev:stop
@@ -222,8 +266,14 @@ pnpm dev:all
 `CLOUDFLARE_TURN_*` keys and rejoin; `chrome://webrtc-internals` shows a `relay` candidate
 when TURN is in use.
 
-**No subtitle or translated audio** — check `GEMINI_API_KEY`. A live session refused with
-`too_many_sessions` means six are already open server-wide.
+**No subtitle or translated audio** — check that the STT and TTS sidecars answer
+`/healthz` at `LOCAL_STT_URL` and `LOCAL_TTS_URL`, and the translation provider's key.
+`too_many_turns` in the API log means the meeting legs, or the whole server, are at their
+turn ceiling.
+
+**Translation stops after an API restart** — a speaker's leg rebuilds its translate
+socket three times (1, 2 and 4 s). An API that takes longer to come back (`nest start
+--watch` took about 11 s) ends that speaker's translation; rejoin.
 
 **Translation works one way only** — check each profile's lobby language (Tiếng Việt vs
 English); it is fixed at join.

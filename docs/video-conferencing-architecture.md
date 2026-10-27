@@ -4,8 +4,8 @@
 > (the API refuses to boot without the Cloudflare Realtime app keys); the mobile screens
 > need a signed-in account and a dev client (not Expo Go). What
 > exists is meeting media on Cloudflare Realtime SFU driven by the API (Decisions 1 and 7),
-> rooms created by `POST /conference`, signaling on `/ws/conference`, and client-side
-> translation fanned out to the room
+> rooms created by `POST /conference`, signaling on `/ws/conference`, and each speaker's
+> translation run on the /translate cascade and relayed to the room in vi, en and zh
 > ([video-translation-audio-path.md](./architecture/video-translation-audio-path.md)).
 > Progress is tracked in [project-roadmap.md](./project-roadmap.md).
 
@@ -148,6 +148,8 @@ NEW: apps/api/src/modules/messaging/
 
 ### 3.4 Real-time Translation Engine (Multi-Participant)
 
+> **Superseded** by the built path, which needed no new translate-module files: [as built](./architecture/video-translation-audio-path.md#2-as-built--option-a-over-the-cascade).
+
 ```
 EXTEND: apps/api/src/modules/translate/
 ├── session/
@@ -210,9 +212,9 @@ NEW: apps/web/app/(app)/conference/
 
 ### 4.2 Bob Speaks (Vietnamese) → Alice Hears (English)
 
-`TranslationRouter` is a proposed class; nothing by that name exists today. With one
-audio track per participant the speaker is known from the track, so the CAM++ step
-below may be unnecessary (see [Open decisions](#open-decisions)).
+> **Superseded.** Bob's client runs one cascade turn into every other room language and relays it over
+> `/ws/conference`, which routes each listener its own language; the speaker is known from the socket,
+> so there is no CAM++ step ([data flow](./architecture/data-flow.md#meeting-speaker-legs-the-same-cascade-relayed-into-a-room)). The original proposal:
 
 ```
 1. Bob sends audio frames (vi PCM16)
@@ -656,7 +658,7 @@ Detailed analysis is in [technical-risks-mitigation.md](./technical-risks-mitiga
 
 1. Run one call on production from two networks (Wi-Fi and 4G, RTT and packet loss); the
    table is in [video-network-path.md → Measured](./architecture/video-network-path.md#measured).
-2. Measure translation under several simultaneous speakers (Decision 4).
+2. Measure meeting echo on web and iOS with real speakers ([§5](./architecture/video-translation-audio-path.md#5-echo--ducking--the-original-voice-while-translation-plays)).
 3. Replace the Pion assumptions above when the next implementation plan is written.
 
 ---
@@ -706,7 +708,7 @@ STT model is licensed for academic/thesis use only (see
 `docs/database-schema-conference.md` as a deferred-model note. Tracking API cost (not
 revenue) against free-tier quotas needs no billing tables, at most a cost column.
 
-### 4. Stated targets — **SFU measured on mediasoup; translation load not** (Issue #211, 2026-10-11)
+### 4. Stated targets — **SFU measured on mediasoup; translation on the dev stack** (Issue #211, 2026-10-11)
 
 Measured on mediasoup, the SFU since replaced (Decision 1), on the Windows 11 dev machine
 (loopback, headless Chromium via Playwright): 6 × 720p60 peers at ≈ 9.7 Mbps aggregate.
@@ -717,10 +719,10 @@ not ours to load-test; its documented limits are 50 API requests per second per 
 and 64 tracks per request
 ([limits](https://developers.cloudflare.com/realtime/sfu/platform/limits/)).
 
-Not measured: translation under several simultaneous speakers.
-Translation latency comes only from a 2-tab local PoC (warm ~5.9 s T1→T2, cold ~9.2 s —
-[video-translation-audio-path.md → Latency](./architecture/video-translation-audio-path.md#7-latency)),
-and a meeting is bounded by the six live translation sessions the API allows server-wide.
+Translation in a meeting was measured on the dev stack (2026-10-26/27): one speaker's
+first translated audio p50 about 1.4 s, two continuous speakers in a vi/en/zh room
+3.5–4.1 s, and meeting legs capped at 4 of the 6 server-wide turns so /translate stays
+usable ([video-translation-audio-path.md § 4](./architecture/video-translation-audio-path.md#4-scale--stt-and-tts-job-count)).
 The latency budgets, the effort hours (164 h) and the 20-week schedule remain the
 proposal's estimates.
 

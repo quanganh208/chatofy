@@ -511,6 +511,38 @@ that call's one translation, not the legacy turn field. Glossary entries were
 already language-keyed (`translationMapSchema(glossaryTermSchema)`), and an old
 `{vi, en}` object is a valid instance of that type.
 
+### Several targets in one turn (meetings)
+
+A meeting speaker's leg is the only client that asks for more than one target. The wire
+additions are all optional, so a client or server built before them still parses
+everything; the schemas and their comments own the details.
+
+- **`alsoTranslateInto`** on `client.session.start`
+  (`packages/types/src/events/ws-events.ts`): extra languages to translate and speak each
+  turn in, beside `languagePair.target`. **Clamped, never rejected** — repeats dropped,
+  an over-long list keeps its first entries, a malformed value reads as absent — because a
+  failed start parse reaches the client as silence. Ignored for `twoWay` and detect
+  starts; an entry naming the pair's own languages is dropped by the server.
+- **`server.audio.frame.lang`** is set on every frame of a turn whose start asked for
+  `alsoTranslateInto`, even if only one language ends up voiced, and is absent otherwise
+  (`TurnSession.tagsAudioLanguage`). A client that asked for several languages can then
+  route every frame by tag; a /translate turn is unchanged.
+- **`meeting`** on `client.session.start` puts the turn under the meeting ceiling inside
+  the global one (`turn-concurrency.ts`). Absent reads as an ordinary turn.
+- **The subtitle `translations` map** (`conference-translation-events.ts`) carries every
+  target of one turn. The relay refuses a frame whose map disagrees with its own
+  `translatedText`, and the router never forwards the map: each listener gets the frame
+  narrowed to their language, or the source text until that entry exists.
+- **Peer `sourceLanguage`** on `conference.peer.joined` and in the join reply's peer
+  list is how a leg learns which languages the room holds. A peer event without it still
+  parses on web and mobile.
+- **Live starts.** Whether `client.live.start` is served is `liveModeEnabled` in
+  `apps/api/src/config/env.schema.ts` (`TRANSLATE_LIVE_MODE`, fail-closed by
+  `NODE_ENV`). A refused start gets `server.live.error` `mode_unavailable` and close code
+  4410 (`LIVE_MODE_UNAVAILABLE_CLOSE_CODE` in `translate.gateway.ts`). Live frames
+  already in flight are dropped silently, so the client sees that one error; a client
+  built for meetings on live mode stops capturing when the socket closes.
+
 ### Deferred seams
 
 These are seams the design deliberately did NOT build, because nothing
@@ -529,10 +561,12 @@ when it is actually needed — not a redesign:
    rerun of `benchmarks/prompt-injection` first.
 4. **Mid-sentence preview for more than one target.** Live preview budgets
    one target per turn (a preview translation is a metered call).
-5. **TTS / spoken audio for more than one target.** `TurnLanguagePlan.spoken`
-   is always `targets[0]`.
+5. **More than one target outside meetings.** `alsoTranslateInto` (above) is built
+   for meeting legs; `TurnLanguagePlan.spoken` stays the primary and `voiced` lists
+   every spoken language. No /translate or extension start asks for extras.
 6. **UI to choose or display more than one target.** No client surfaces more
-   than the language-pair picker today.
+   than the language-pair picker today; a meeting leg derives its extras from the
+   room, and each listener sees only its own language.
 7. **A wire field for declaring more than two conversation languages.**
    `languagePair` is the only way a conversation declares its languages; a
    detect session's candidates come from `IDENTIFIABLE_LANGUAGES`, not from the

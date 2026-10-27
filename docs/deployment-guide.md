@@ -623,9 +623,43 @@ with credentials from a join reply (a `relay` candidate means the relay works). 
 nothing: TURN is not HTTP. How to run a meeting locally is in
 [conference-demo-runbook.md](./conference-demo-runbook.md).
 
+## Deploying meetings on the cascade
+
+This repository keeps no changelog; a change that needs something from whoever deploys or
+uses it gets a section here, like the refresh-token one above.
+
+**What changes.** Meeting speakers translate through the same `/ws/translate` cascade as
+/translate (local STT, the translation provider, local TTS), in vi, en and zh rooms. Why
+and what was measured: [video-translation-audio-path.md](./architecture/video-translation-audio-path.md).
+Production needs nothing new: the sidecars and the translation key are already there.
+
+**Old clients must update.** An Android build or a web tab from before this change still
+starts meeting translation on the live mode, which production now refuses: the reply is
+`server.live.error` `mode_unavailable`, then close code 4410. The call itself keeps
+working; that participant just gets no translation. A web tab recovers on reload. A phone
+needs a new build (`./gradlew installDebug`, see
+[conference-demo-runbook.md § 4](./conference-demo-runbook.md#4-mobile-android-dev-client)),
+which also carries the recorder's native echo patch.
+
+**`TRANSLATE_LIVE_MODE`** decides whether `client.live.start` is served at all
+(`liveModeEnabled` in `apps/api/src/config/env.schema.ts`). It is fail-closed: unset, live
+mode is on only when `NODE_ENV` is exactly `development` or `test`, and the production
+image sets `production`, so production refuses it with no prod.env line.
+
+- **Rollback** of the refusal alone: add `TRANSLATE_LIVE_MODE=enabled` to prod.env (the
+  commented line in `prod.env.example`, which `check-prod-env` accepts) and restart the
+  api. No rebuild. Old clients then translate again on live mode, which uses
+  `GEMINI_API_KEY`.
+- **A host-run API that holds production keys** (`pnpm --filter api dev` with
+  `NODE_ENV=development`) serves live mode unless it sets `TRANSLATE_LIVE_MODE=disabled`.
+
+**Capacity to expect.** Meeting legs share at most 4 of the server's 6 concurrent turns,
+so /translate keeps 2. A single continuous en→vi speaker saturates the Vietnamese TTS
+engine, which /translate's vi users share; that is a known limit, not fixed here.
+
 ## Known gaps
 
-- **Chinese speech has limits that are known and not fixed.** Kokoro spells Latin acronyms letter by letter ("ChatGPT"); `℃` and `¥` are not verbalized before synthesis; nobody has yet listened to the zh voices (47 `zf_xiaoxiao`, 51 `zm_yunxia`) for naturalness — they were chosen by round-trip intelligibility. Gemini Live refuses every pair with zh in it by design (`unsupported_language_pair`). Traditional-script output and Cantonese are out of scope.
+- **Chinese speech has limits that are known and not fixed.** Kokoro spells Latin acronyms letter by letter ("ChatGPT"); `℃` and `¥` are not verbalized before synthesis; nobody has yet listened to the zh voices (47 `zf_xiaoxiao`, 51 `zm_yunxia`) for naturalness — they were chosen by round-trip intelligibility. Gemini Live, off in production, refuses every pair with zh in it by design (`unsupported_language_pair`). Traditional-script output and Cantonese are out of scope.
 - **Rebuild the extension after a registry change.** A build from before zh drops its whole saved-context list once any glossary entry has a zh side; builds since read the list entry by entry. Only the maintainer's own builds exist, so this is a rebuild-and-reload, not a store release.
 
 - **No WebSocket keepalive.** Cloudflare drops idle sockets after roughly 100 seconds, and a user pausing mid-conversation is ordinary. Localhost development never exercises this. The minimal fix is server-side (`ws.ping()` in the gateway); client reconnect is a larger follow-up.

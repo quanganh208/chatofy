@@ -110,17 +110,11 @@ translates, how many turns it keeps open, and where its audio goes. Everything e
 which is the whole turn-taking configuration, is shared through
 `src/language-pair-session.ts` so the two cannot drift.
 
-**Either backend, behind one interface.** `CaptureSettings.mode` picks the cascade
-above or the continuous model, and `createLanguagePairSession` returns a
-`ConversationSession` or a `LiveLanguagePairSession` accordingly. `MeetingCapture` drives
-both through `LegRunner` and never learns which it holds, so the ducking, the
-microphone gate, the echo monitor and the teardown ordering are written once. Both
-legs of a meeting always run the same mode — mixing them would put two unrelated
-latencies on one conversation. On the live path capture runs ungated through
-`MicrophoneGraph` (the backend ends an utterance on trailing quiet, so withholding
-silence truncates it), ducking follows audible audio because there are no open turns to
-count, and transcript text appends to one capped line per leg rather than opening
-a turn per sentence. Every piece of state they touch is
+**The cascade only, behind one interface.** `createLanguagePairSession` returns a
+`ConversationSession`; the live backend it could once return is deleted, and a stored
+`live` mode reads back as cascade. `MeetingCapture` drives each leg through `LegRunner`,
+so the ducking, the microphone gate, the echo monitor and the teardown ordering are
+written once. Every piece of state the two legs touch is
 either explicitly shared or explicitly split in two: a single flag written by both is
 not a tidier version of two flags, it is the outbound turn draining mid-inbound-sentence
 and reopening the microphone into our own loudspeaker.
@@ -133,10 +127,7 @@ concurrent sessions running on reversed language pairs off one settings object, 
 a role-keyed pair would be applied backwards in one of them with nothing on
 screen to say so. `src/translation-contexts.ts` never throws — a network failure,
 an expired session or an unparseable response all read back as an empty list with
-a message — so a context can never prevent a meeting from starting.
-`LiveLanguagePairSession.start` accepts the hints and ignores them, exactly as it
-already does for `voiceGender`, which is what keeps one `LegRunner` shape
-across two backends. The popup has a picker and no editor: authoring 24 term
+a message — so a context can never prevent a meeting from starting. The popup has a picker and no editor: authoring 24 term
 pairs is the wrong shape for a window that dies on blur, so it happens on web.
 
 The two are **not symmetric on failure**, deliberately. Losing the outbound leg

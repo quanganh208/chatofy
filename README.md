@@ -138,8 +138,8 @@ chatofy/
 who is signed in and has the link can join.
 
 Each participant picks the language they speak. Everyone else sees subtitles and
-hears the translation in their own language. Meeting translation is
-Vietnamese↔English only today. Chat messages are translated for each recipient.
+hears the translation in their own language. Meetings translate between
+Vietnamese, English and Chinese. Chat messages are translated for each recipient.
 When the meeting ends, the end screen offers minutes generated from what was said.
 
 Meeting media goes through Cloudflare Realtime SFU, driven by the API. The API

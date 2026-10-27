@@ -427,17 +427,47 @@ and the prompt is byte-identical to the one without this feature
 (`packages/ai-providers/src/interfaces/translation-provider.ts`) — which is what
 lets the recorded injection baseline keep describing the default path.
 
+### Meeting speaker legs (the same cascade, relayed into a room)
+
+A meeting speaker's translation is the streaming turn above, run by a speaker leg and
+relayed into `/ws/conference` instead of played locally. Why it is shaped this way, the
+measured capacity and echo, and the superseded live-mode build are in
+[video-translation-audio-path.md § 2](./video-translation-audio-path.md#2-as-built--option-a-over-the-cascade).
+
+```
+mic ─(web: cloned MediaStreamTrack | mobile: recorder → pushed PCM, resampled to 48 kHz)─▶ ConversationSession
+  ─ client.session.start {languagePair, alsoTranslateInto?, meeting: true, voices} ─▶ /ws/translate
+       admission: per socket 3 · per user 3 · meeting legs 4 · global 6
+  ◀─ transcript/translation deltas · server.audio.frame {lang when alsoTranslateInto was asked} · server.transcript.final
+CascadeSubtitleRelay ─▶ subtitle {turnId = server sessionId, translations?, isFinal only from the final}
+RelayPlaybackSink ─▶ per-language sequence ─▶ audio {lang, sequence}
+both ─▶ conference.translation.broadcast ─▶ ConferenceTranslationRelay (rate buckets) ─▶ ConferenceTranslationRouter
+  subtitle: to peers of another language, narrowed to theirs (map stripped)
+  audio:    to peers whose sourceLanguage === audio.lang
+  final subtitle ─▶ ConferenceTurn row (translations limited to room languages) ─▶ minutes
+```
+
+Entry points: `packages/realtime-client/src/conference/conference-cascade-leg.ts` (the
+leg), `apps/web/src/conference/conference-cascade-leg-web.ts` and
+`apps/mobile/src/conference/conference-cascade-leg-native.ts` (platform wiring),
+`apps/api/src/modules/conference/services/` (relay and router), and
+`apps/api/src/modules/translate/session/multi-language-speech.ts` (speaking one turn in
+several languages, primary first; an extra that fails is dropped without failing the
+turn).
+
 ### Live mode on the same socket
 
 `/ws/translate` carries a second, turn-less mode. A client that sends
 `client.live.start` instead of `client.session.start` gets one upstream
 speech-to-speech session (`client.live.audio` in; `server.live.transcript` and
 `server.live.audio` out, until `client.live.stop`), served by `LiveTranslateSessionService` over the
-`realtime` provider `gemini-live`. Which mode runs is purely a client choice —
-`translateModeSchema` (`cascade` | `live`, default `cascade`) in
-`packages/types/src/domain/translate-mode.ts`; the wire union is
-`packages/types/src/events/live-ws-events.ts` and the client side is
-`packages/realtime-client/src/transport/live-translate-socket.ts`. Everything
+`realtime` provider `gemini-live`. The wire union is
+`packages/types/src/events/live-ws-events.ts`. **No client opens it**: the web,
+mobile and extension clients run the cascade only, and live mode stays for
+`apps/api/test/live-translate-ws.e2e-spec.ts` and `benchmarks/live-translate`. It is
+served only where `liveModeEnabled` (`apps/api/src/config/env.schema.ts`) says so —
+`TRANSLATE_LIVE_MODE`, else `NODE_ENV` exactly `development` or `test`; anywhere else a
+live start gets `server.live.error` `mode_unavailable` and a 4410 close. Everything
 above describes the `cascade` mode.
 
 ### Standard Request/Response

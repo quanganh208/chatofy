@@ -20,7 +20,7 @@ they are Vietnamese and English.
 ```
 chatofy/
 ├── apps/
-│   ├── api/       # NestJS gateway (:3000, /ws/translate — turn + live modes; /ws/conference — drives Cloudflare Realtime SFU, always loaded)
+│   ├── api/       # NestJS gateway (:3000, /ws/translate — turn cascade, plus live mode for tests only; /ws/conference — drives Cloudflare Realtime SFU, always loaded)
 │   ├── mobile/    # Expo RN (MVP surface)
 │   ├── web/       # Next.js app (:3001) — marketing landing, translator, history, settings
 │   └── extension/ # Chrome MV3 meeting translator (WXT; load unpacked)
@@ -29,12 +29,12 @@ chatofy/
 │   ├── types/     # SINGLE source: zod schemas (domain + HTTP contracts) (@chatofy/types)
 │   ├── api-client/    # framework-agnostic API client w/ runtime contract validation (@chatofy/api-client)
 │   ├── ai-providers/  # STT/MT/TTS/Realtime interfaces + registry (@chatofy/ai-providers)
-│   ├── realtime-client/ # audio capture, turn policy, ordering, /ws/translate client (@chatofy/realtime-client)
+│   ├── realtime-client/ # audio capture, turn policy, ordering, /ws/translate client, meeting speaker leg (@chatofy/realtime-client)
 │   ├── i18n/      # every user-facing string, en + vi, parity enforced by tsc (@chatofy/i18n)
 │   └── ui/        # shadcn primitives + this product's compositions, tokens (@chatofy/ui)
 ├── services/
-│   ├── local-stt/ # speech-to-text sidecar (vi + en) — :8002
-│   └── local-tts/ # speech synthesis sidecar (vi + en) — :8003
+│   ├── local-stt/ # speech-to-text sidecar (vi, en, zh) — :8002
+│   └── local-tts/ # speech synthesis sidecar (vi, en, zh) — :8003
 ├── benchmarks/    # measurement harnesses, one directory per question
 ├── docker-compose.yml  # postgres + redis + both speech sidecars, local dev
 ├── .github/workflows/  # CI, deploy, main-failure alert
@@ -117,7 +117,7 @@ the root layout, and it is the accepted price of one URL serving two languages �
 - `POST /translate` — Turn-based audio translation between registered languages (request: `{ audioBase64, audioMimeType, languagePair?, voiceGender?, speed? }`, response: `{ sourceText, targetText, audioBase64, audioMimeType }`)
 - `WS /ws/translate` — One path, two modes, chosen by the first message the client sends and fixed for that connection:
   - `client.session.start` → turn-based cascade (STT → translate → TTS), contract `clientEventSchema` / `serverEventSchema`
-  - `client.live.start` → continuous speech-to-speech, contract `liveClientEventSchema` / `liveServerEventSchema`
+  - `client.live.start` → continuous speech-to-speech, contract `liveClientEventSchema` / `liveServerEventSchema`. Kept for the live e2e and `benchmarks/live-translate` only: refused (`mode_unavailable`, close 4410) unless `TRANSLATE_LIVE_MODE` resolves to enabled, which by default is only in development and test
   - The two contracts are separate unions and are not merged. A start from the other family on a claimed connection is refused with a `mode_conflict` error in that family's own vocabulary; open a second connection instead.
 - `POST /auth/refresh` — trades a rotating refresh token for a fresh pair. Public by
   necessity, like login: the access token it renews may already be expired. One-time-use —
@@ -174,14 +174,17 @@ The continuous speech-to-speech backend has **no** env selector. `gemini-live` i
 
 ### Choosing cascade or live
 
-A **client** choice, and there is nothing to configure on the server to match it: both backends are served on `/ws/translate` and are told apart by which start message goes out first (`client.session.start` vs `client.live.start`). The mode union is `TranslateMode` in `@chatofy/types`. No shipped client offers live today:
+Both backends are on `/ws/translate`, told apart by which start message goes out first (`client.session.start` vs `client.live.start`). The mode union is `TranslateMode` in `@chatofy/types`. The server decides whether live is served at all (`TRANSLATE_LIVE_MODE`, see [deployment-guide.md](./deployment-guide.md#deploying-meetings-on-the-cascade)), and no client opens it:
 
-| Client    | Where the choice lives                                                                                                                        |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| web       | No choice: `cascade-panel.tsx` is the only path, and the live route that used to sit beside it is deleted                                     |
-| extension | No choice either: the popup no longer offers one, and `loadSettings` (`apps/extension/src/settings.ts`) reads any stored mode back as cascade |
+| Client                 | Where the choice lives                                                                                                                        |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| web                    | No choice: `cascade-panel.tsx` is the only path, and the live route that used to sit beside it is deleted                                     |
+| extension              | No choice either: the popup no longer offers one, and `loadSettings` (`apps/extension/src/settings.ts`) reads any stored mode back as cascade |
+| meetings (web, mobile) | No choice: the speaker leg (`packages/realtime-client/src/conference/`) runs the cascade                                                      |
 
-The extension keeps the live path in code. Both legs of one meeting always run the same mode. `createLanguagePairSession` routes on `CaptureSettings.mode` and returns either a `ConversationSession` or a `LiveLanguagePairSession` — `MeetingCapture` drives whichever it is handed through the `LegRunner` interface and does not know which it holds. Three things differ on the live path: capture runs ungated through `MicrophoneGraph`, ducking follows audible audio rather than open turns (there are none to count), and transcript text appends to one line per leg instead of a turn per sentence. `voiceGender` is inert in live mode — the model has its own voice, and the popup disables the control rather than leaving it doing nothing.
+The client live code is deleted: the realtime-client live session, live socket and `MicrophoneGraph`, the extension's `LiveLanguagePairSession`, and the meeting clients' own live wiring (web `conference-translate-wiring.ts` and `subtitle-turn-accumulator.ts`, mobile `translate-bridge-native.ts` and `conference-turn-accumulator.ts`). `createLanguagePairSession` in the extension returns a `ConversationSession` only.
+
+**Meeting translation, where it lives.** The leg is written once in `packages/realtime-client/src/conference/` (`conference-cascade-leg.ts`, with the subtitle relay, restart policy and per-language sequence beside it) and shares `CASCADE_RUNTIME_OPTIONS` (`src/conversation/cascade-runtime-options.ts`) with /translate. Web wires it in `apps/web/src/conference/conference-cascade-leg-web.ts`; mobile in `apps/mobile/src/conference/conference-cascade-leg-native.ts`, feeding PCM through `native-pcm-recorder.ts` and the package's `pushed-pcm-capture.ts`. The relayed-audio sink moved from the extension to `packages/realtime-client/src/audio/relay-playback-sink.ts`. Server side: `apps/api/src/modules/conference/services/` (relay and router) and `apps/api/src/modules/translate/session/multi-language-speech.ts`. The flow is in [data-flow.md](./architecture/data-flow.md#meeting-speaker-legs-the-same-cascade-relayed-into-a-room).
 
 ## CI
 
@@ -193,13 +196,13 @@ The script pins `KNIP_DISABLE_RAW_TRANSFER=1` (via `cross-env`, since Windows `c
 
 Intentional exclusions are `ignore`/`ignoreDependencies` entries in `knip.json`, plus `@public` JSDoc tags on scaffold exports. `knip.json` carries most rationales as comments beside the entry; the ones it does not:
 
-| Exclusion                                                           | Why knip can't see the usage                                                                                                                               |
-| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `swagger-ui-express` (api)                                          | `@nestjs/swagger` requires it dynamically at runtime on the Express platform                                                                               |
-| `@chatofy/config` (api, web)                                        | the tsconfig extends the preset by relative path (package-specifier extends breaks knip's symlink resolution); the dep stays to express the workspace edge |
-| `next`, `eslint-config-*` (packages/config)                         | preset files are data, not source — nothing imports them inside the workspace                                                                              |
-| `expo-updates` (mobile)                                             | Expo plugin quirk; `app.json` declares no updates config                                                                                                   |
-| `audio-player.interface.ts`, `audio-recorder.interface.ts` (mobile) | scaffold interfaces awaiting native implementations                                                                                                        |
+| Exclusion                                   | Why knip can't see the usage                                                                                                                               |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `swagger-ui-express` (api)                  | `@nestjs/swagger` requires it dynamically at runtime on the Express platform                                                                               |
+| `@chatofy/config` (api, web)                | the tsconfig extends the preset by relative path (package-specifier extends breaks knip's symlink resolution); the dep stays to express the workspace edge |
+| `next`, `eslint-config-*` (packages/config) | preset files are data, not source — nothing imports them inside the workspace                                                                              |
+| `expo-updates` (mobile)                     | Expo plugin quirk; `app.json` declares no updates config                                                                                                   |
+| `audio-player.interface.ts` (mobile)        | scaffold interface awaiting a native implementation                                                                                                        |
 
 Husky hooks must stay LF-terminated (`.gitattributes` enforces it) — CRLF made knip read the binary as `lint-staged\r` and report the root devDependency as unused.
 

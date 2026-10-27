@@ -152,7 +152,7 @@ available in Expo Go**. The mobile app must build a **custom dev client**
 adoption cost, and it has been paid: `apps/mobile` now carries `expo-dev-client`
 (`~55.0.40`), `react-native-webrtc` and `react-native-audio-api` as native modules, so
 every developer and every device test runs a dev client instead of Expo Go. The build
-steps are in [conference-demo-runbook.md §4](../conference-demo-runbook.md#4-mobile-android-dev-build-only).
+steps are in [conference-demo-runbook.md §4](../conference-demo-runbook.md#4-mobile-android-dev-client).
 
 Source: react-native-webrtc README ("not available in the Expo Go app by default… use
 expo-dev-client").
@@ -211,7 +211,11 @@ background, its decoded video frames stop, and they resume on return.
 ```
 
 `react-native-audio-api` (the translation recorder) adds its own iOS microphone prompt
-through its plugin entry.
+through its plugin entry. On Android it is patched
+(`patches/react-native-audio-api@0.13.6.patch`) to capture with the `VoiceCommunication`
+preset and an echo canceller, so a dev client must be rebuilt after the patch changes; why
+it is needed and why it is not enough alone:
+[video-translation-audio-path.md § 5](./video-translation-audio-path.md#5-echo--ducking--the-original-voice-while-translation-plays).
 
 ### 2.4 Mobile adoption risk summary
 
