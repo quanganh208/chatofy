@@ -499,10 +499,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # One uv cache per job. The default key hashes every uv.lock in the repo,
+      # so the two sidecar jobs and Realtime replay computed the same key, ran
+      # side by side, and on any lock change all but one failed to save it:
+      # "Unable to reserve cache … another job may be creating this cache".
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+          cache-dependency-glob: services/local-tts/uv.lock
+          cache-suffix: local-tts-unit
 
       - name: Run the model-free sidecar tests
         run: >-
@@ -530,10 +536,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Its own uv cache key — see TTS sidecar unit tests.
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+          cache-dependency-glob: services/local-stt/uv.lock
+          cache-suffix: local-stt-unit
 
       - name: Run the model-free sidecar tests
         run: >-
@@ -585,11 +594,14 @@ jobs:
           path: benchmarks/realtime/fixtures
           key: realtime-fixtures-${{ hashFiles('benchmarks/realtime/generate-fixtures.mjs', 'services/local-tts/app.py', 'services/local-tts/engines/*.py', 'services/local-tts/uv.lock') }}
 
+      # Its own uv cache key — see TTS sidecar unit tests.
       - name: Install uv
         if: steps.fixtures.outputs.cache-hit != 'true'
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+          cache-dependency-glob: services/local-tts/uv.lock
+          cache-suffix: realtime-replay
 
       # Kokoro is ~380MB and VieNeu ~490MB, the latter fetched from Hugging Face
       # by the package itself on first load. Both engines load eagerly at
