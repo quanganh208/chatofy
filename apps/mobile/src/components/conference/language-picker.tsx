@@ -28,9 +28,9 @@ interface LanguagePickerProps {
 }
 
 const OPTIONS: { value: SourceLanguage; labelKey: Parameters<Translate>[0] }[] = [
-  { value: 'vi', labelKey: 'mobile.conference.sourceLanguageVi' },
-  { value: 'en', labelKey: 'mobile.conference.sourceLanguageEn' },
-  { value: 'zh', labelKey: 'mobile.conference.sourceLanguageZh' },
+  { value: 'vi', labelKey: 'common.languageName.vi' },
+  { value: 'en', labelKey: 'common.languageName.en' },
+  { value: 'zh', labelKey: 'common.languageName.zh' },
 ];
 
 export function LanguagePicker({ t, value, onChange, locked }: LanguagePickerProps) {
@@ -39,7 +39,7 @@ export function LanguagePicker({ t, value, onChange, locked }: LanguagePickerPro
   return (
     <View style={styles.wrap}>
       <Text style={[styles.label, { color: colors.textSecondary }]}>
-        {t('mobile.conference.sourceLanguage')}
+        {t('common.conference.sourceLanguage')}
       </Text>
       <View style={[styles.track, { borderColor: colors.border, backgroundColor: colors.surface }]}>
         {OPTIONS.map((opt) => {

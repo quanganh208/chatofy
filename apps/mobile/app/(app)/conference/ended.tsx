@@ -47,11 +47,11 @@ export default function ConferenceEndedScreen() {
 
   let body: React.ReactNode;
   if (end.load === 'loading') {
-    body = <Notice messageKey="mobile.conference.endedLoading" />;
+    body = <Notice messageKey="common.conference.endedLoading" />;
   } else if (end.load === 'not-found') {
-    body = <Notice messageKey="mobile.conference.endedNotFound" />;
+    body = <Notice messageKey="common.conference.endedNotFound" />;
   } else if (end.load === 'failed' || !end.conference) {
-    body = <Notice messageKey="mobile.conference.endedLoadFailed" />;
+    body = <Notice messageKey="common.conference.endedLoadFailed" />;
   } else {
     body = (
       <>
@@ -72,7 +72,7 @@ export default function ConferenceEndedScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={[styles.title, { color: colors.text }]}>
-          {t('mobile.conference.endedTitle')}
+          {t('common.conference.endedTitle')}
         </Text>
         {body}
       </ScrollView>
@@ -103,7 +103,7 @@ function BackToLobby() {
       accessibilityRole="button"
     >
       <Text style={[styles.accentText, { color: colors.primaryForeground }]}>
-        {t('mobile.conference.backToLobby')}
+        {t('common.conference.backToLobby')}
       </Text>
     </TouchableOpacity>
   );
@@ -111,9 +111,9 @@ function BackToLobby() {
 
 function formatDuration(conference: ConferenceDetailResponse): string {
   const total = conferenceDurationMinutes(conference);
-  if (total === null) return t('mobile.conference.durationUnknown');
-  if (total < 60) return t('mobile.conference.durationMinutes', { minutes: String(total) });
-  return t('mobile.conference.durationHours', {
+  if (total === null) return t('common.conference.durationUnknown');
+  if (total < 60) return t('common.conference.durationMinutes', { minutes: String(total) });
+  return t('common.conference.durationHours', {
     hours: String(Math.floor(total / 60)),
     minutes: String(total % 60),
   });
@@ -121,20 +121,20 @@ function formatDuration(conference: ConferenceDetailResponse): string {
 
 function languageName(code: string): string {
   const parsed = languageCodeSchema.safeParse(code);
-  return parsed.success ? t(`mobile.languageName.${parsed.data}`) : code;
+  return parsed.success ? t(`common.languageName.${parsed.data}`) : code;
 }
 
 function SummaryCard({ conference }: { conference: ConferenceDetailResponse }) {
   const { colors } = useTheme();
   const languages = spokenLanguages(conference).map(languageName);
   const rows: [string, string][] = [
-    [t('mobile.conference.summaryDuration'), formatDuration(conference)],
+    [t('common.conference.summaryDuration'), formatDuration(conference)],
     [
-      t('mobile.conference.participants'),
-      participantNames(conference, t('mobile.conference.guest')).join(', ') || '—',
+      t('common.conference.participants'),
+      participantNames(conference, t('common.conference.guest')).join(', ') || '—',
     ],
     [
-      t('mobile.conference.summaryLanguages'),
+      t('common.conference.summaryLanguages'),
       (languages.length === 2 ? languages.join(' ↔ ') : languages.join(', ')) || '—',
     ],
   ];
@@ -177,15 +177,9 @@ function MinutesCard({
       </View>
     );
   } else if (!canGenerate) {
-    state = (
-      <Text style={{ color: colors.textSecondary }}>
-        {t('mobile.conference.minutesNothingSaid')}
-      </Text>
-    );
+    state = <Text style={{ color: colors.textSecondary }}>{t('common.minutes.nothingSaid')}</Text>;
   } else if (failed) {
-    state = (
-      <Text style={{ color: colors.destructive }}>{t('mobile.conference.minutesFailed')}</Text>
-    );
+    state = <Text style={{ color: colors.destructive }}>{t('common.minutes.failed')}</Text>;
   } else if (!ready) {
     state = (
       <Text style={{ color: colors.textSecondary }}>{t('mobile.conference.minutesEmpty')}</Text>
@@ -194,9 +188,7 @@ function MinutesCard({
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <Text style={[styles.cardTitle, { color: colors.text }]}>
-        {t('mobile.conference.minutesTitle')}
-      </Text>
+      <Text style={[styles.cardTitle, { color: colors.text }]}>{t('common.minutes.title')}</Text>
       {state}
       {ready && !generating ? <MinutesContent minutes={ready} /> : null}
       {canGenerate ? (
@@ -209,9 +201,7 @@ function MinutesCard({
           accessibilityState={{ disabled: generating, busy: generating }}
         >
           <Text style={[styles.outlineText, { color: colors.text }]}>
-            {ready
-              ? t('mobile.conference.minutesRegenerate')
-              : t('mobile.conference.minutesGenerate')}
+            {ready ? t('common.minutes.regenerate') : t('common.minutes.generate')}
           </Text>
         </TouchableOpacity>
       ) : null}
@@ -233,31 +223,29 @@ function MinutesContent({ minutes }: { minutes: ConferenceMinutes }) {
 
   return (
     <View style={styles.sections}>
-      {heading('mobile.conference.minutesSummary')}
+      {heading('common.minutes.summary')}
       <Text style={{ color: colors.text }}>{minutes.summary}</Text>
       {minutes.keyPoints.length > 0 ? (
         <>
-          {heading('mobile.conference.minutesKeyPoints')}
+          {heading('common.minutes.keyPoints')}
           {bullets(minutes.keyPoints)}
         </>
       ) : null}
       {minutes.decisions.length > 0 ? (
         <>
-          {heading('mobile.conference.minutesDecisions')}
+          {heading('common.minutes.decisions')}
           {bullets(minutes.decisions)}
         </>
       ) : null}
-      {heading('mobile.conference.minutesActionItems')}
+      {heading('common.minutes.actionItems')}
       {minutes.actionItems.length === 0 ? (
-        <Text style={{ color: colors.textSecondary }}>
-          {t('mobile.conference.minutesNoActionItems')}
-        </Text>
+        <Text style={{ color: colors.textSecondary }}>{t('common.minutes.noActionItems')}</Text>
       ) : (
         minutes.actionItems.map((item) => (
           <Text key={item.id} style={[styles.bullet, { color: colors.text }]}>
             • {item.description}
-            {item.owner ? ` — ${t('mobile.conference.minutesOwner')}: ${item.owner}` : ''}
-            {item.dueDate ? ` — ${t('mobile.conference.minutesDue')}: ${item.dueDate}` : ''}
+            {item.owner ? ` — ${t('common.minutes.owner')}: ${item.owner}` : ''}
+            {item.dueDate ? ` — ${t('common.minutes.due')}: ${item.dueDate}` : ''}
           </Text>
         ))
       )}

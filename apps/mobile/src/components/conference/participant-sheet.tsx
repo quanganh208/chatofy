@@ -38,11 +38,11 @@ export function ParticipantSheet({
           style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}
         >
           <Text style={[styles.title, { color: colors.text }]}>
-            {t('mobile.conference.rosterTitle')}
+            {t('common.conference.rosterTitle')}
           </Text>
           <ScrollView style={styles.list}>
             <Row
-              label={`${localLabel} · ${t('mobile.conference.you')}`}
+              label={`${localLabel} · ${t('common.conference.you')}`}
               muted={localMuted}
               videoEnabled={localVideoEnabled}
             />
@@ -62,7 +62,7 @@ export function ParticipantSheet({
             accessibilityRole="button"
           >
             <Text style={[styles.closeText, { color: colors.text }]}>
-              {t('mobile.conference.hideRoster')}
+              {t('common.conference.hideRoster')}
             </Text>
           </TouchableOpacity>
         </View>

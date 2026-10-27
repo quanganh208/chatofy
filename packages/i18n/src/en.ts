@@ -35,12 +35,119 @@ export const en = {
   'common.language.english': 'English',
   'common.language.label': 'Language',
 
+  // ---- common.languageName: a registry language's name in THIS locale ----
+  //
+  // Keyed by code rather than by pair, unlike `web.history.languagePair*`
+  // below: a history row or a glossary column names one language at a time, and
+  // keying by code is what makes adding a language a data change here rather
+  // than a new pair of keys. Distinct from `common.language.*`, which names the
+  // INTERFACE locale and reads identically regardless of which two languages a
+  // conversation is between.
+  'common.languageName.vi': 'Vietnamese',
+  'common.languageName.en': 'English',
+  'common.languageName.zh': 'Chinese',
+
+  // ---- common.auth: the sign-in words web and mobile both show ----
+  'common.auth.signOut': 'Sign out',
+  'common.auth.signIn': 'Sign in',
+  'common.auth.signingIn': 'Signing in…',
+  'common.auth.email': 'Email',
+  'common.auth.password': 'Password',
+
+  // ---- common.conference: the meeting words web and mobile both show ----
+  //
+  // One key per string the two apps say identically, so they cannot drift apart:
+  // they did, while each kept its own copy. A string that names something only one
+  // platform has stays under `web.conference.*` or `mobile.conference.*` — the
+  // permission hint points at a browser on one and the Settings app on the other.
+  // `i18n-shared-keys.spec.ts` fails when a web key and a mobile key say the same
+  // thing again.
+  'common.conference.lobbyTitle': 'Video conference',
+  'common.conference.create': 'Create a room',
+  'common.conference.join': 'Join a room',
+  'common.conference.yourName': 'Your name',
+  'common.conference.yourNamePlaceholder': 'How others will see you',
+  'common.conference.roomId': 'Room ID',
+  'common.conference.roomIdPlaceholder': 'Enter a room ID to join',
+  'common.conference.sourceLanguage': 'Your language',
+  'common.conference.start': 'Start',
+  'common.conference.leave': 'Leave',
+  'common.conference.waiting': 'Waiting for others to join…',
+  'common.conference.connecting': 'Connecting…',
+  'common.conference.you': 'You',
+  'common.conference.muteMic': 'Mute microphone',
+  'common.conference.unmuteMic': 'Unmute microphone',
+  'common.conference.disableCamera': 'Turn off camera',
+  'common.conference.enableCamera': 'Turn on camera',
+  'common.conference.participants': 'Participants',
+  'common.conference.cameraOff': 'Camera off',
+  'common.conference.rosterTitle': 'In this call',
+  'common.conference.hideRoster': 'Hide participants',
+  // Flat side region — ghost/outline controls only; Leave stays the one accent control.
+  'common.conference.chatTitle': 'Chat',
+  'common.conference.chatPlaceholder': 'Type a message…',
+  'common.conference.chatSend': 'Send',
+  'common.conference.chatEmpty': 'No messages yet.',
+  'common.conference.permissionDenied': 'Camera and microphone access is required.',
+  'common.conference.permissionDeniedAudioOnly': 'No camera access — joining with audio only.',
+  'common.conference.disconnected': 'Connection lost.',
+  'common.conference.disconnectedHint': 'The call ended. Return to the lobby to rejoin.',
+  'common.conference.backToLobby': 'Back to lobby',
+  'common.conference.errorGeneric': 'Something went wrong.',
+  // Quiet readout when the speaker's translation ended for good mid-call.
+  'common.conference.translationEnded':
+    'Translation stopped — others now hear you without it. Rejoin the call to restart it.',
+  // Badge on the local tile from [T1] (first audio frame) to [T2] (final subtitle).
+  // Pure readout — no accent fill; Leave stays the one accent control.
+  'common.conference.translating': 'Translating…',
+  // Shown during a bounded auto-rejoin after an unexpected mid-call WS drop.
+  // {attempt} is the current attempt number (1-based); {cap} is the maximum.
+  // Leave stays the one accent control in this state too.
+  'common.conference.reconnecting': 'Reconnecting ({attempt}/{cap})…',
+  // A room exists only once POST /conference created it; the socket refuses a
+  // join to an id it does not know, or to a meeting its owner ended.
+  'common.conference.creating': 'Creating…',
+  'common.conference.createFailed': 'Could not create a room. Try again.',
+  'common.conference.roomNotFound': 'This room does not exist.',
+  'common.conference.roomEnded': 'This meeting has ended.',
+  // The minutes strings themselves are `common.minutes.*`: the end screen
+  // renders the same minutes panel as /translate and history.
+  'common.conference.endedTitle': 'Meeting ended',
+  'common.conference.endedLoading': 'Loading the meeting…',
+  'common.conference.endedNotFound': 'You were not in this meeting, or it does not exist.',
+  'common.conference.endedLoadFailed': 'Could not load this meeting. Try again later.',
+  'common.conference.summaryDuration': 'Duration',
+  'common.conference.summaryLanguages': 'Languages',
+  'common.conference.durationMinutes': '{minutes} min',
+  'common.conference.durationHours': '{hours} h {minutes} min',
+  'common.conference.durationUnknown': 'Not recorded',
+  // A participant who joined without a name.
+  'common.conference.guest': 'Guest',
+  'common.conference.chatRateLimited': 'Slow down — wait a few seconds before sending again.',
+  'common.conference.chatNotSent': 'Message not sent.',
+
+  // ---- common.minutes: LLM meeting minutes, on /translate, history and the meeting end screen ----
+  'common.minutes.title': 'Meeting minutes',
+  'common.minutes.generate': 'Generate minutes',
+  'common.minutes.regenerate': 'Regenerate',
+  'common.minutes.failed': 'Could not generate minutes. Try again.',
+  'common.minutes.summary': 'Summary',
+  'common.minutes.keyPoints': 'Key points',
+  'common.minutes.decisions': 'Decisions',
+  'common.minutes.actionItems': 'Action items',
+  'common.minutes.noActionItems': 'No action items.',
+  'common.minutes.owner': 'Owner',
+  'common.minutes.due': 'Due',
+  'common.minutes.nothingSaid':
+    'Nothing was said in this meeting, so there is nothing to summarize.',
+
+  'common.transcript': 'Transcript',
+
   // ---- web.chrome: the shell every route renders inside ----
   //
   // No brand key. "Chatofy" is a proper noun and reads identically in both
   // languages; putting it here would invite a translator to render it and buy
   // nothing in return.
-  'web.chrome.signOut': 'Sign out',
   'web.chrome.skipToContent': 'Skip to content',
   'web.chrome.productNav': 'Product',
   'web.chrome.navTranslate': 'Translate',
@@ -58,10 +165,6 @@ export const en = {
   'web.chrome.openApp': 'Open Chatofy',
 
   // ---- web.auth ----
-  'web.auth.signIn': 'Sign in',
-  'web.auth.signingIn': 'Signing in…',
-  'web.auth.email': 'Email',
-  'web.auth.password': 'Password',
   'web.auth.name': 'Name',
   'web.auth.newPassword': 'New password',
   'web.auth.createAccount': 'Create account',
@@ -178,7 +281,6 @@ export const en = {
   'web.translate.speed': 'Speed',
   'web.translate.volume': 'Volume',
   'web.translate.volumeAria': 'Playback volume',
-  'web.translate.transcript': 'Transcript',
   // Scroll-region names. Two regions exist under `split`, and a screen reader
   // moving between them needs each to say which half of the conversation it holds.
   'web.translate.paneSource': 'Source transcript',
@@ -332,22 +434,11 @@ export const en = {
   'web.translate.recordingUploading': 'Saving the recording…',
   'web.translate.minutesNeedsSave': 'Minutes are generated from the saved conversation.',
   // ---- web.translate.minutes: LLM meeting minutes over a finished conversation ----
-  'web.translate.minutesTitle': 'Meeting minutes',
-  'web.translate.minutesGenerate': 'Generate minutes',
-  'web.translate.minutesRegenerate': 'Regenerate',
   'web.translate.minutesGenerating': 'Summarizing the conversation…',
   'web.translate.minutesEmpty':
     'No minutes yet. Generate them for a summary, key points, decisions and action items.',
   'web.translate.minutesNeedsTurns':
     'Have a conversation first — there is nothing to summarize yet.',
-  'web.translate.minutesFailed': 'Could not generate minutes. Try again.',
-  'web.translate.minutesSummary': 'Summary',
-  'web.translate.minutesKeyPoints': 'Key points',
-  'web.translate.minutesDecisions': 'Decisions',
-  'web.translate.minutesActionItems': 'Action items',
-  'web.translate.minutesNoActionItems': 'No action items.',
-  'web.translate.minutesOwner': 'Owner',
-  'web.translate.minutesDue': 'Due',
   'web.translate.minutesCopy': 'Copy',
   'web.translate.minutesCopied': 'Copied',
 
@@ -364,18 +455,7 @@ export const en = {
     'The address may have changed, or the link that brought you here may be out of date.',
   'web.error.goToStart': 'Go to the start',
 
-  // ---- web.languageName / web.languageShort: a registry language's name in
-  // THIS locale ----
-  //
-  // Keyed by code rather than by pair, unlike `web.history.languagePair*`
-  // below: a history row or a glossary column names one language at a time, and
-  // keying by code is what makes adding a language a data change here rather
-  // than a new pair of keys. Distinct from `common.language.*`, which names the
-  // INTERFACE locale and reads identically regardless of which two languages a
-  // conversation is between.
-  'web.languageName.vi': 'Vietnamese',
-  'web.languageName.en': 'English',
-  'web.languageName.zh': 'Chinese',
+  // ---- web.languageShort: the two-letter tag beside `common.languageName` ----
   'web.languageShort.vi': 'VI',
   'web.languageShort.en': 'EN',
   'web.languageShort.zh': 'ZH',
@@ -403,7 +483,7 @@ export const en = {
   // `languagePair` is the ACCESSIBLE name; `languagePairShort` is what is drawn on a
   // row. "Vietnamese → English" is 21 characters printed once per row, which at
   // eight rows is the loudest thing on a screen whose subject is the previews.
-  // Both take the language names as `{from}`/`{to}` — see `web.languageName.*`
+  // Both take the language names as `{from}`/`{to}` — see `common.languageName.*`
   // and `web.languageShort.*` above — rather than naming a pair, which is
   // what lets a third language reuse the same two templates.
   'web.history.languagePair': '{from} → {to}',
@@ -645,203 +725,51 @@ export const en = {
   'web.landing.heroTitleEmphasis': 'Be understood',
 
   // ---- web.conference: video conferencing lobby + in-call screen ----
-  'web.conference.lobbyTitle': 'Video conference',
-  'web.conference.create': 'Create a room',
-  'web.conference.join': 'Join a room',
-  'web.conference.yourName': 'Your name',
-  'web.conference.yourNamePlaceholder': 'How others will see you',
-  'web.conference.roomId': 'Room ID',
-  'web.conference.roomIdPlaceholder': 'Enter a room ID to join',
-  'web.conference.sourceLanguage': 'Your language',
-  'web.conference.sourceLanguageVi': 'Tiếng Việt',
-  'web.conference.sourceLanguageEn': 'English',
-  'web.conference.sourceLanguageZh': '中文',
-  'web.conference.start': 'Start',
   'web.conference.joining': 'Joining…',
-  'web.conference.leave': 'Leave',
-  'web.conference.waiting': 'Waiting for others to join…',
-  'web.conference.connecting': 'Connecting…',
   'web.conference.nameRequired': 'Enter your name to continue.',
   'web.conference.roomRequired': 'Enter a room ID to join.',
-  'web.conference.you': 'You',
   // ---- web.conference: in-call control bar ----
-  'web.conference.muteMic': 'Mute microphone',
-  'web.conference.unmuteMic': 'Unmute microphone',
-  'web.conference.disableCamera': 'Turn off camera',
-  'web.conference.enableCamera': 'Turn on camera',
-  'web.conference.participants': 'Participants',
-  'web.conference.cameraOff': 'Camera off',
   'web.conference.muted': 'Muted',
-  'web.conference.rosterTitle': 'In this call',
-  'web.conference.hideRoster': 'Hide participants',
   'web.conference.showRoster': 'Show participants',
-  // ---- web.conference: in-meeting chat (Phase 4) ----
-  // Flat side region — ghost/outline controls only; Leave stays the one accent control.
-  'web.conference.chatTitle': 'Chat',
-  'web.conference.chatPlaceholder': 'Type a message…',
-  'web.conference.chatSend': 'Send',
-  'web.conference.chatEmpty': 'No messages yet.',
   // ---- web.conference: edge-case states (Phase 5) ----
-  'web.conference.permissionDenied': 'Camera and microphone access is required.',
   'web.conference.permissionDeniedHint':
     'Open your browser settings and allow access to the camera and microphone, then reload this page.',
-  'web.conference.permissionDeniedAudioOnly': 'No camera access — joining with audio only.',
-  'web.conference.disconnected': 'Connection lost.',
-  'web.conference.disconnectedHint': 'The call ended. Return to the lobby to rejoin.',
-  'web.conference.backToLobby': 'Back to lobby',
-  'web.conference.errorGeneric': 'Something went wrong.',
   // ---- web.conference: audio unlock (Phase 1) ----
   // Inline notice when the browser's autoplay policy suspended a TTS AudioContext.
   // No card, no elevation — ghost button only; Leave stays the one accent control.
   'web.conference.audioBlocked': 'Sound is blocked by your browser.',
   'web.conference.enableAudio': 'Tap to enable sound',
-  // Quiet readout when the speaker's translation ended for good mid-call.
-  'web.conference.translationEnded':
-    'Translation stopped — others now hear you without it. Rejoin the call to restart it.',
-  // ---- web.conference: translating indicator (Phase 2) ----
-  // Badge on the local tile from [T1] (first audio frame) to [T2] (final subtitle).
-  // Pure readout — no accent fill; Leave stays the one accent control.
-  'web.conference.translating': 'Translating…',
-  // ---- web.conference: auto-reconnect (Phase 4) ----
-  // Shown during a bounded auto-rejoin after an unexpected mid-call WS drop.
-  // {attempt} is the current attempt number (1-based); {cap} is the maximum.
-  // Leave stays the one accent control in this state too.
-  'web.conference.reconnecting': 'Reconnecting ({attempt}/{cap})…',
-  // ---- web.conference: room lifecycle ----
-  // A room exists only once POST /conference created it; the socket refuses a
-  // join to an id it does not know, or to a meeting its owner ended.
-  'web.conference.creating': 'Creating…',
-  'web.conference.createFailed': 'Could not create a room. Try again.',
-  'web.conference.roomNotFound': 'This room does not exist.',
-  'web.conference.roomEnded': 'This meeting has ended.',
-  // ---- web.conference: the end screen, after Leave or the owner ending it ----
-  // The minutes strings themselves are `web.translate.minutes*`: the end screen
-  // renders the same minutes panel as /translate and history.
-  'web.conference.endedTitle': 'Meeting ended',
-  'web.conference.endedLoading': 'Loading the meeting…',
-  'web.conference.endedNotFound': 'You were not in this meeting, or it does not exist.',
-  'web.conference.endedLoadFailed': 'Could not load this meeting. Try again later.',
-  'web.conference.summaryDuration': 'Duration',
-  'web.conference.summaryLanguages': 'Languages',
-  'web.conference.durationMinutes': '{minutes} min',
-  'web.conference.durationHours': '{hours} h {minutes} min',
-  'web.conference.durationUnknown': 'Not recorded',
-  // A participant who joined without a name.
-  'web.conference.guest': 'Guest',
-  'web.conference.minutesNothingSaid':
-    'Nothing was said in this meeting, so there is nothing to summarize.',
-  'web.conference.chatRateLimited': 'Slow down — wait a few seconds before sending again.',
-  'web.conference.chatNotSent': 'Message not sent.',
   'web.meta.conference': 'Conference · Chatofy',
 
   // ---- mobile.conference: the React Native conference lobby + call screen ----
   //
-  // A separate namespace from `web.conference.*` because a few strings name a
-  // surface the other cannot have: the permission hint points at the device's
-  // settings app rather than a browser, and there is no "reload the page" on a
-  // phone. The shared vocabulary could in principle be reused, but keeping the
-  // mobile set whole lets each platform word a prompt the way it expects without
-  // one leaking into the other.
-  'mobile.conference.lobbyTitle': 'Video conference',
-  'mobile.conference.yourName': 'Your name',
-  'mobile.conference.yourNamePlaceholder': 'How others will see you',
-  'mobile.conference.roomId': 'Room ID',
-  'mobile.conference.roomIdPlaceholder': 'Enter a room ID to join',
-  'mobile.conference.start': 'Start',
+  // Only what the phone says differently from the browser, or says alone: the
+  // permission hint points at the device's Settings app rather than a browser, and
+  // there is no "reload the page" on a phone. Everything both apps say the same way
+  // is `common.conference.*` — this once held a full copy, and the two drifted.
   'mobile.conference.ongoingTitle': 'In a meeting',
   'mobile.conference.ongoingBody':
     'Your microphone stays on while Chatofy is in the background. The camera turns off.',
-  'mobile.conference.leave': 'Leave',
-  'mobile.conference.you': 'You',
-  'mobile.conference.connecting': 'Connecting…',
-  'mobile.conference.waiting': 'Waiting for others to join…',
-  // {attempt} is the current attempt (1-based); {cap} is the maximum.
-  'mobile.conference.reconnecting': 'Reconnecting ({attempt}/{cap})…',
-  // ---- mobile.conference: in-call controls (readouts + toggles) ----
-  'mobile.conference.muteMic': 'Mute microphone',
-  'mobile.conference.unmuteMic': 'Unmute microphone',
-  'mobile.conference.disableCamera': 'Turn off camera',
-  'mobile.conference.enableCamera': 'Turn on camera',
-  'mobile.conference.participants': 'Participants',
-  'mobile.conference.cameraOff': 'Camera off',
-  'mobile.conference.rosterTitle': 'In this call',
-  'mobile.conference.hideRoster': 'Hide participants',
   // ---- mobile.conference: error / edge states ----
-  'mobile.conference.permissionDenied': 'Camera and microphone access is required.',
   'mobile.conference.permissionDeniedHint':
     'Open Settings and allow this app to use the camera and microphone, then try again.',
-  'mobile.conference.permissionDeniedAudioOnly': 'No camera access — joining with audio only.',
-  'mobile.conference.translationEnded':
-    'Translation stopped — others now hear you without it. Rejoin the call to restart it.',
   'mobile.conference.notAuthenticated': 'You need to sign in to join the call.',
-  'mobile.conference.disconnected': 'Connection lost.',
-  'mobile.conference.disconnectedHint': 'The call ended. Return to the lobby to rejoin.',
-  'mobile.conference.backToLobby': 'Back to lobby',
-  'mobile.conference.errorGeneric': 'Something went wrong.',
   // ---- mobile.conference: translation UX (subtitles, transcript, language) ----
-  'mobile.conference.translating': 'Translating…',
-  'mobile.conference.sourceLanguage': 'Your language',
-  'mobile.conference.sourceLanguageVi': 'Tiếng Việt',
-  'mobile.conference.sourceLanguageEn': 'English',
-  'mobile.conference.sourceLanguageZh': '中文',
   // The picker only takes effect before joining; once in the call it is a readout.
   'mobile.conference.sourceLanguageLocked': 'Language is fixed for this call.',
-  'mobile.conference.transcript': 'Transcript',
   'mobile.conference.showTranscript': 'Show transcript',
   'mobile.conference.hideTranscript': 'Hide transcript',
   'mobile.conference.transcriptEmpty': 'Nothing has been said yet.',
   // ---- mobile.conference: in-meeting chat (translated per recipient) ----
-  'mobile.conference.chat': 'Chat',
   'mobile.conference.showChat': 'Show chat',
   'mobile.conference.hideChat': 'Hide chat',
-  'mobile.conference.chatPlaceholder': 'Type a message…',
-  'mobile.conference.chatSend': 'Send',
-  'mobile.conference.chatEmpty': 'No messages yet.',
-  'mobile.conference.creating': 'Creating…',
-  'mobile.conference.create': 'Create a room',
-  'mobile.conference.join': 'Join a room',
-  'mobile.conference.createFailed': 'Could not create a room. Try again.',
-  'mobile.conference.roomNotFound': 'This room does not exist.',
-  'mobile.conference.roomEnded': 'This meeting has ended.',
-  'mobile.conference.chatRateLimited': 'Slow down — wait a few seconds before sending again.',
-  'mobile.conference.chatNotSent': 'Message not sent.',
-  'mobile.conference.endedTitle': 'Meeting ended',
-  'mobile.conference.endedLoading': 'Loading the meeting…',
-  'mobile.conference.endedNotFound': 'You were not in this meeting, or it does not exist.',
-  'mobile.conference.endedLoadFailed': 'Could not load this meeting. Try again later.',
-  'mobile.conference.summaryDuration': 'Duration',
-  'mobile.conference.summaryLanguages': 'Languages',
-  'mobile.conference.durationMinutes': '{minutes} min',
-  'mobile.conference.durationHours': '{hours} h {minutes} min',
-  'mobile.conference.durationUnknown': 'Not recorded',
-  'mobile.conference.guest': 'Guest',
-  'mobile.conference.minutesTitle': 'Meeting minutes',
-  'mobile.conference.minutesGenerate': 'Generate minutes',
-  'mobile.conference.minutesRegenerate': 'Regenerate',
   'mobile.conference.minutesGenerating': 'Summarizing the meeting…',
-  'mobile.conference.minutesFailed': 'Could not generate minutes. Try again.',
-  'mobile.conference.minutesNothingSaid':
-    'Nothing was said in this meeting, so there is nothing to summarize.',
   'mobile.conference.minutesEmpty':
     'No minutes yet. Anyone who was in the meeting can generate them.',
-  'mobile.conference.minutesSummary': 'Summary',
-  'mobile.conference.minutesKeyPoints': 'Key points',
-  'mobile.conference.minutesDecisions': 'Decisions',
-  'mobile.conference.minutesActionItems': 'Action items',
-  'mobile.conference.minutesNoActionItems': 'No action items.',
-  'mobile.conference.minutesOwner': 'Owner',
-  'mobile.conference.minutesDue': 'Due',
-  'mobile.languageName.vi': 'Vietnamese',
-  'mobile.languageName.en': 'English',
-  'mobile.languageName.zh': 'Chinese',
   'mobile.home.comingSoon': 'coming soon',
   'mobile.home.joinConference': 'Join a conference',
   'mobile.home.signIn': 'Sign in',
   'mobile.auth.signInTitle': 'Sign in',
-  'mobile.auth.email': 'Email',
-  'mobile.auth.password': 'Password',
-  'mobile.auth.signIn': 'Sign in',
-  'mobile.auth.signingIn': 'Signing in…',
   'mobile.auth.missingFields': 'Enter your email and password.',
   'mobile.auth.invalidCredentials': 'Email or password is incorrect.',
   'mobile.auth.tooManyAttempts': 'Too many attempts. Wait a minute and try again.',
@@ -849,7 +777,6 @@ export const en = {
   'mobile.auth.noAccount': 'No account yet? Create one on the Chatofy website, then sign in here.',
   'mobile.settings.signedInAs': 'Signed in as {email}',
   'mobile.settings.signedOut': 'You are not signed in.',
-  'mobile.settings.signOut': 'Sign out',
 } as const;
 
 /** Every key any locale must carry. Derived, so a locale cannot drift from it. */

@@ -64,13 +64,13 @@ export async function Hero() {
               </span>
             </div>
             <Turn
-              language={t('web.translate.turnLanguage', { language: t('web.languageName.vi') })}
+              language={t('web.translate.turnLanguage', { language: t('common.languageName.vi') })}
               source={t('web.landing.demoSourceOne')}
               target={t('web.landing.demoTargetOne')}
             />
             <div className="border-hairline border-t" />
             <Turn
-              language={t('web.translate.turnLanguage', { language: t('web.languageName.en') })}
+              language={t('web.translate.turnLanguage', { language: t('common.languageName.en') })}
               source={t('web.landing.demoSourceTwo')}
               target={t('web.landing.demoTargetTwo')}
             />

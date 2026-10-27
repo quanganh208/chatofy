@@ -20,6 +20,7 @@ import { Button } from '@chatofy/ui/react';
 import { toLanguageCode } from '@chatofy/types';
 import { conferenceRoomIdSchema } from '@chatofy/types/events';
 import { useTranslate } from '@/i18n/provider';
+import { languageNamer } from '@/i18n/language-pair-labels';
 import { useConference } from '@/hooks/use-conference';
 import { VideoGrid } from './components/video-grid';
 import { ControlBar } from './components/control-bar';
@@ -138,11 +139,11 @@ export default function ConferenceRoomPage() {
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-body font-medium">
           {errorReason === 'room-ended'
-            ? t('web.conference.roomEnded')
-            : t('web.conference.roomNotFound')}
+            ? t('common.conference.roomEnded')
+            : t('common.conference.roomNotFound')}
         </p>
         <Button variant="default" onClick={handleLeave}>
-          {t('web.conference.backToLobby')}
+          {t('common.conference.backToLobby')}
         </Button>
       </div>
     );
@@ -152,10 +153,10 @@ export default function ConferenceRoomPage() {
   if (status === 'connecting' || status === 'idle') {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
-        <p className="text-body text-textMuted">{t('web.conference.connecting')}</p>
+        <p className="text-body text-textMuted">{t('common.conference.connecting')}</p>
         {/* Leave is still the one accent-filled control even in the loading state */}
         <Button variant="default" onClick={handleLeave}>
-          {t('web.conference.leave')}
+          {t('common.conference.leave')}
         </Button>
       </div>
     );
@@ -166,14 +167,14 @@ export default function ConferenceRoomPage() {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-body text-textMuted">
-          {t('web.conference.reconnecting', {
+          {t('common.conference.reconnecting', {
             attempt: String(reconnectAttempt),
             cap: String(reconnectCap),
           })}
         </p>
         {/* Leave stays the one accent-filled control in this transient state too */}
         <Button variant="default" onClick={handleLeave}>
-          {t('web.conference.leave')}
+          {t('common.conference.leave')}
         </Button>
       </div>
     );
@@ -183,10 +184,10 @@ export default function ConferenceRoomPage() {
   if (status === 'error' && errorReason === 'permission-denied') {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="text-body font-medium">{t('web.conference.permissionDenied')}</p>
+        <p className="text-body font-medium">{t('common.conference.permissionDenied')}</p>
         <p className="text-hint text-textMuted">{t('web.conference.permissionDeniedHint')}</p>
         <Button variant="default" onClick={handleLeave}>
-          {t('web.conference.backToLobby')}
+          {t('common.conference.backToLobby')}
         </Button>
       </div>
     );
@@ -196,10 +197,10 @@ export default function ConferenceRoomPage() {
   if (status === 'disconnected') {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="text-body font-medium">{t('web.conference.disconnected')}</p>
-        <p className="text-hint text-textMuted">{t('web.conference.disconnectedHint')}</p>
+        <p className="text-body font-medium">{t('common.conference.disconnected')}</p>
+        <p className="text-hint text-textMuted">{t('common.conference.disconnectedHint')}</p>
         <Button variant="default" onClick={handleLeave}>
-          {t('web.conference.backToLobby')}
+          {t('common.conference.backToLobby')}
         </Button>
       </div>
     );
@@ -209,9 +210,9 @@ export default function ConferenceRoomPage() {
   if (status === 'error') {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
-        <p className="text-body text-live">{t('web.conference.errorGeneric')}</p>
+        <p className="text-body text-live">{t('common.conference.errorGeneric')}</p>
         <Button variant="default" onClick={handleLeave}>
-          {t('web.conference.backToLobby')}
+          {t('common.conference.backToLobby')}
         </Button>
       </div>
     );
@@ -227,7 +228,9 @@ export default function ConferenceRoomPage() {
           variant="ghost"
           size="icon"
           onClick={() => setRosterOpen((o) => !o)}
-          aria-label={rosterOpen ? t('web.conference.hideRoster') : t('web.conference.showRoster')}
+          aria-label={
+            rosterOpen ? t('common.conference.hideRoster') : t('web.conference.showRoster')
+          }
           aria-pressed={rosterOpen}
         >
           <Users className="size-4" aria-hidden />
@@ -237,7 +240,7 @@ export default function ConferenceRoomPage() {
       {/* Audio-only soft notice — no card, no elevation, inline text */}
       {errorReason === 'audio-only' && (
         <p className="text-hint text-textMuted border-border border-b px-4 py-1">
-          {t('web.conference.permissionDeniedAudioOnly')}
+          {t('common.conference.permissionDeniedAudioOnly')}
         </p>
       )}
 
@@ -249,7 +252,7 @@ export default function ConferenceRoomPage() {
           data-translation-ended
           className="text-hint text-textMuted border-border border-b px-4 py-1"
         >
-          {t('web.conference.translationEnded')}
+          {t('common.conference.translationEnded')}
         </p>
       )}
 
@@ -276,13 +279,13 @@ export default function ConferenceRoomPage() {
         <main className="min-w-0 flex-1 overflow-hidden p-2">
           <VideoGrid
             localStream={localStream}
-            localLabel={displayName || t('web.conference.you')}
+            localLabel={displayName || t('common.conference.you')}
             localMuted={localMuted}
             localVideoEnabled={localVideoEnabled}
             peers={peers}
-            waitingLabel={t('web.conference.waiting')}
+            waitingLabel={t('common.conference.waiting')}
             localTranslating={localTranslating}
-            translatingLabel={t('web.conference.translating')}
+            translatingLabel={t('common.conference.translating')}
           />
         </main>
 
@@ -290,17 +293,17 @@ export default function ConferenceRoomPage() {
         {rosterOpen && (
           <aside
             className="border-border flex w-52 shrink-0 flex-col overflow-hidden border-l"
-            aria-label={t('web.conference.rosterTitle')}
+            aria-label={t('common.conference.rosterTitle')}
           >
             <div className="shrink-0 overflow-y-auto">
               <ParticipantList
-                selfName={displayName || t('web.conference.you')}
+                selfName={displayName || t('common.conference.you')}
                 selfMuted={localMuted}
                 selfVideoEnabled={localVideoEnabled}
-                selfLanguage={sourceLanguage}
-                selfLabel={t('web.conference.you')}
+                selfLanguage={languageNamer(t)(sourceLanguage)}
+                selfLabel={t('common.conference.you')}
                 peers={peers}
-                rosterTitle={t('web.conference.rosterTitle')}
+                rosterTitle={t('common.conference.rosterTitle')}
               />
             </div>
             <div className="border-border mt-1 flex min-h-0 flex-1 flex-col border-t">
@@ -308,15 +311,15 @@ export default function ConferenceRoomPage() {
                 messages={messages}
                 mySocketId={mySocketId}
                 onSend={sendChat}
-                title={t('web.conference.chatTitle')}
-                inputPlaceholder={t('web.conference.chatPlaceholder')}
-                sendLabel={t('web.conference.chatSend')}
-                emptyLabel={t('web.conference.chatEmpty')}
+                title={t('common.conference.chatTitle')}
+                inputPlaceholder={t('common.conference.chatPlaceholder')}
+                sendLabel={t('common.conference.chatSend')}
+                emptyLabel={t('common.conference.chatEmpty')}
                 refusalLabel={
                   chatRefusal === 'rate-limited'
-                    ? t('web.conference.chatRateLimited')
+                    ? t('common.conference.chatRateLimited')
                     : chatRefusal === 'not-sent'
-                      ? t('web.conference.chatNotSent')
+                      ? t('common.conference.chatNotSent')
                       : undefined
                 }
               />
@@ -332,11 +335,11 @@ export default function ConferenceRoomPage() {
         onToggleMute={toggleMute}
         onToggleVideo={toggleVideo}
         onLeave={handleLeaveCall}
-        muteMicLabel={t('web.conference.muteMic')}
-        unmuteMicLabel={t('web.conference.unmuteMic')}
-        disableCameraLabel={t('web.conference.disableCamera')}
-        enableCameraLabel={t('web.conference.enableCamera')}
-        leaveLabel={t('web.conference.leave')}
+        muteMicLabel={t('common.conference.muteMic')}
+        unmuteMicLabel={t('common.conference.unmuteMic')}
+        disableCameraLabel={t('common.conference.disableCamera')}
+        enableCameraLabel={t('common.conference.enableCamera')}
+        leaveLabel={t('common.conference.leave')}
       />
     </div>
   );

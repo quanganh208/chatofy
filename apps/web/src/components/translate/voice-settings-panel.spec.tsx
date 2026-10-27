@@ -230,8 +230,8 @@ describe('voices per spoken language', () => {
 
   it('offers a voice for each language of a two-way pair, named by its language', async () => {
     const { text, asked, cleanup } = await renderWith({ source: 'vi', target: 'en' });
-    expect(text).toContain(`${en['web.translate.voice']} · ${en['web.languageName.en']}`);
-    expect(text).toContain(`${en['web.translate.voice']} · ${en['web.languageName.vi']}`);
+    expect(text).toContain(`${en['web.translate.voice']} · ${en['common.languageName.en']}`);
+    expect(text).toContain(`${en['web.translate.voice']} · ${en['common.languageName.vi']}`);
     expect(new Set(asked)).toEqual(new Set(['en', 'vi']));
     cleanup();
   });

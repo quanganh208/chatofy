@@ -81,7 +81,7 @@ export function AccountScreen() {
 
       <SettingsSection title={t('web.account.security')} panel>
         <SettingsSectionRow
-          label={t('web.auth.password')}
+          label={t('common.auth.password')}
           note={t('web.account.changePasswordHint')}
         >
           <Button asChild variant="outline">
@@ -99,7 +99,7 @@ export function AccountScreen() {
           onClick={() => void signOutOfChatofy()}
         >
           <LogOut aria-hidden />
-          {t('web.chrome.signOut')}
+          {t('common.auth.signOut')}
         </Button>
         <p className="text-hint text-muted-foreground max-w-prose">
           {t('web.account.signOutHint')}

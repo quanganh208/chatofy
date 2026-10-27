@@ -237,7 +237,7 @@ export function TranscriptPanes({
       />
       {settings.translationOnly
         ? pane('target', true, t('web.translate.paneTarget'))
-        : pane('both', true, t('web.translate.transcript'))}
+        : pane('both', true, t('common.transcript'))}
     </div>
   );
 }

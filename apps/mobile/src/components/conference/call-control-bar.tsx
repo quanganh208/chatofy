@@ -35,19 +35,19 @@ export function CallControlBar({
   return (
     <View style={[styles.bar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <GhostToggle
-        label={muted ? t('mobile.conference.unmuteMic') : t('mobile.conference.muteMic')}
+        label={muted ? t('common.conference.unmuteMic') : t('common.conference.muteMic')}
         active={!muted}
         onPress={onToggleMute}
       />
       <GhostToggle
         label={
-          videoEnabled ? t('mobile.conference.disableCamera') : t('mobile.conference.enableCamera')
+          videoEnabled ? t('common.conference.disableCamera') : t('common.conference.enableCamera')
         }
         active={videoEnabled}
         onPress={onToggleVideo}
       />
       <GhostToggle
-        label={`${t('mobile.conference.participants')} (${participantCount})`}
+        label={`${t('common.conference.participants')} (${participantCount})`}
         active={false}
         onPress={onShowParticipants}
       />
@@ -58,7 +58,7 @@ export function CallControlBar({
         accessibilityRole="button"
       >
         <Text style={[styles.leaveText, { color: colors.primaryForeground }]}>
-          {t('mobile.conference.leave')}
+          {t('common.conference.leave')}
         </Text>
       </TouchableOpacity>
     </View>

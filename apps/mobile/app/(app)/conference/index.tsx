@@ -105,7 +105,7 @@ export default function ConferenceLobbyScreen() {
       setLobbyError(
         notAuthenticated
           ? t('mobile.conference.notAuthenticated')
-          : t('mobile.conference.createFailed'),
+          : t('common.conference.createFailed'),
       );
     } finally {
       setCreating(false);
@@ -117,7 +117,7 @@ export default function ConferenceLobbyScreen() {
     if (!room || !displayName.trim()) return;
     // Only an id `POST /conference` minted can name a room.
     if (!conferenceRoomIdSchema.safeParse(room).success) {
-      setLobbyError(t('mobile.conference.roomNotFound'));
+      setLobbyError(t('common.conference.roomNotFound'));
       return;
     }
     setLobbyError(undefined);
@@ -131,7 +131,7 @@ export default function ConferenceLobbyScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <Text style={[styles.title, { color: colors.text }]}>
-        {t('mobile.conference.lobbyTitle')}
+        {t('common.conference.lobbyTitle')}
       </Text>
 
       {preview ? (
@@ -139,14 +139,14 @@ export default function ConferenceLobbyScreen() {
       ) : (
         <View style={[styles.preview, styles.previewOff, { backgroundColor: colors.surface }]}>
           <Text style={{ color: colors.textSecondary, fontSize: fontSize.sm }}>
-            {t('mobile.conference.cameraOff')}
+            {t('common.conference.cameraOff')}
           </Text>
         </View>
       )}
 
       <View style={styles.field}>
         <Text style={[styles.label, { color: colors.textSecondary }]}>
-          {t('mobile.conference.yourName')}
+          {t('common.conference.yourName')}
         </Text>
         <TextInput
           style={[
@@ -155,7 +155,7 @@ export default function ConferenceLobbyScreen() {
           ]}
           value={displayName}
           onChangeText={setDisplayName}
-          placeholder={t('mobile.conference.yourNamePlaceholder')}
+          placeholder={t('common.conference.yourNamePlaceholder')}
           placeholderTextColor={colors.muted}
           autoCapitalize="none"
         />
@@ -163,7 +163,7 @@ export default function ConferenceLobbyScreen() {
 
       <View style={styles.field}>
         <Text style={[styles.label, { color: colors.textSecondary }]}>
-          {t('mobile.conference.roomId')}
+          {t('common.conference.roomId')}
         </Text>
         <TextInput
           style={[
@@ -175,7 +175,7 @@ export default function ConferenceLobbyScreen() {
             setRoomId(text);
             setLobbyError(undefined);
           }}
-          placeholder={t('mobile.conference.roomIdPlaceholder')}
+          placeholder={t('common.conference.roomIdPlaceholder')}
           placeholderTextColor={colors.muted}
           autoCapitalize="none"
         />
@@ -198,7 +198,7 @@ export default function ConferenceLobbyScreen() {
         accessibilityState={{ disabled: !canCreate, busy: creating }}
       >
         <Text style={[styles.startText, { color: colors.primaryForeground }]}>
-          {creating ? t('mobile.conference.creating') : t('mobile.conference.create')}
+          {creating ? t('common.conference.creating') : t('common.conference.create')}
         </Text>
       </TouchableOpacity>
 
@@ -211,7 +211,7 @@ export default function ConferenceLobbyScreen() {
         accessibilityState={{ disabled: !canJoin }}
       >
         <Text style={[styles.startText, { color: canJoin ? colors.text : colors.muted }]}>
-          {t('mobile.conference.join')}
+          {t('common.conference.join')}
         </Text>
       </TouchableOpacity>
     </SafeAreaView>

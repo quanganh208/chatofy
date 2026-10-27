@@ -98,7 +98,7 @@ export function LoginForm() {
           (`input.tsx:74`), so this is wiring, not styling. */}
       <AuthField
         id="email"
-        label={t('web.auth.email')}
+        label={t('common.auth.email')}
         errorId={error ? 'login-error' : undefined}
         type="email"
         required
@@ -109,7 +109,7 @@ export function LoginForm() {
 
       <AuthField
         id="password"
-        label={t('web.auth.password')}
+        label={t('common.auth.password')}
         errorId={error ? 'login-error' : undefined}
         type="password"
         required
@@ -121,7 +121,7 @@ export function LoginForm() {
       <AuthAlert id="login-error" message={error} />
 
       <Button id="login-submit" type="submit" className="w-full" disabled={submitting}>
-        {submitting ? t('web.auth.signingIn') : t('web.auth.signIn')}
+        {submitting ? t('common.auth.signingIn') : t('common.auth.signIn')}
       </Button>
     </form>
   );

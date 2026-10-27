@@ -61,7 +61,7 @@ export function AiContextGlossaryFields({
                       htmlFor={`ai-context-glossary-${code}-${index}`}
                       className="text-muted-foreground text-hint truncate"
                     >
-                      {t(`web.languageName.${code}`)}
+                      {t(`common.languageName.${code}`)}
                     </Label>
                     <Input
                       id={`ai-context-glossary-${code}-${index}`}

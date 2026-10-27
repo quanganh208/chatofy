@@ -23,7 +23,7 @@ export function MeetingSummaryCard({ conference }: { conference: ConferenceDetai
   const nameOf = languageNamer(t);
 
   const names = conference.participants.map(
-    (p) => p.displayName?.trim() || t('web.conference.guest'),
+    (p) => p.displayName?.trim() || t('common.conference.guest'),
   );
   // Codes become words only through the dictionary; a code outside the registry
   // has no name to show, so it is left out rather than printed raw.
@@ -32,10 +32,10 @@ export function MeetingSummaryCard({ conference }: { conference: ConferenceDetai
     .flatMap((parsed) => (parsed.success ? [nameOf(parsed.data)] : []));
 
   const rows: [label: string, value: string][] = [
-    [t('web.conference.summaryDuration'), formatDuration(conference, t)],
-    [t('web.conference.participants'), names.join(', ') || '—'],
+    [t('common.conference.summaryDuration'), formatDuration(conference, t)],
+    [t('common.conference.participants'), names.join(', ') || '—'],
     [
-      t('web.conference.summaryLanguages'),
+      t('common.conference.summaryLanguages'),
       (languages.length === 2 ? languages.join(' ↔ ') : languages.join(', ')) || '—',
     ],
   ];
@@ -64,9 +64,9 @@ export function MeetingSummaryCard({ conference }: { conference: ConferenceDetai
  */
 function formatDuration(conference: ConferenceDetailResponse, t: Translate): string {
   const total = conferenceDurationMinutes(conference);
-  if (total === null) return t('web.conference.durationUnknown');
-  if (total < 60) return t('web.conference.durationMinutes', { minutes: String(total) });
-  return t('web.conference.durationHours', {
+  if (total === null) return t('common.conference.durationUnknown');
+  if (total < 60) return t('common.conference.durationMinutes', { minutes: String(total) });
+  return t('common.conference.durationHours', {
     hours: String(Math.floor(total / 60)),
     minutes: String(total % 60),
   });

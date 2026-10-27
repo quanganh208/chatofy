@@ -5,12 +5,12 @@ describe('createTranslator', () => {
   const t = createTranslator(en);
 
   it('reads a string', () => {
-    expect(t('web.auth.signIn')).toBe('Sign in');
+    expect(t('common.auth.signIn')).toBe('Sign in');
   });
 
   it('substitutes a placeholder', () => {
-    const local = createTranslator({ ...en, 'web.auth.signIn': 'Hello {name}' });
-    expect(local('web.auth.signIn', { name: 'Ada' })).toBe('Hello Ada');
+    const local = createTranslator({ ...en, 'common.auth.signIn': 'Hello {name}' });
+    expect(local('common.auth.signIn', { name: 'Ada' })).toBe('Hello Ada');
   });
 
   /**
@@ -24,13 +24,13 @@ describe('createTranslator', () => {
   });
 
   it('leaves a placeholder with no value as written', () => {
-    const local = createTranslator({ ...en, 'web.auth.signIn': 'Hello {name}' });
-    expect(local('web.auth.signIn', { other: 'x' })).toBe('Hello {name}');
+    const local = createTranslator({ ...en, 'common.auth.signIn': 'Hello {name}' });
+    expect(local('common.auth.signIn', { other: 'x' })).toBe('Hello {name}');
   });
 
   it('formats a number without a locale-specific separator', () => {
-    const local = createTranslator({ ...en, 'web.auth.signIn': '{n} left' });
-    expect(local('web.auth.signIn', { n: 3 })).toBe('3 left');
+    const local = createTranslator({ ...en, 'common.auth.signIn': '{n} left' });
+    expect(local('common.auth.signIn', { n: 3 })).toBe('3 left');
   });
 });
 
