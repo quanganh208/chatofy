@@ -137,6 +137,22 @@ describe('NativePcmRecorder', () => {
     assert.equal(h.recorders[0]!.stopped, 1);
   });
 
+  it('opens a fresh recorder for a start asked for after a stop of one still opening', async () => {
+    const h = setup();
+    const first = h.capture.start(h.onBuffer);
+    void h.capture.stop(); // the leg rebuilds without waiting
+    const rebuilt: number[][] = [];
+    await Promise.all([first, h.capture.start((samples) => rebuilt.push([...samples]))]);
+
+    assert.equal(h.recorders.length, 2);
+    assert.equal(h.recorders[0]!.stopped, 1);
+    h.recorders[1]!.deliver([0.4]);
+    assert.deepEqual(
+      rebuilt.map((samples) => Number(samples[0]!.toFixed(1))),
+      [0.4],
+    );
+  });
+
   it('refuses to start without microphone permission, opening no recorder', async () => {
     const h = setup('Denied');
 
