@@ -33,22 +33,26 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { ThrottlerStorage, ThrottlerStorageService } from '@nestjs/throttler';
-import request from 'supertest';
+import request, { type Response } from 'supertest';
+import { App } from 'supertest/types';
 import { randomUUID } from 'node:crypto';
 import {
   CONTEXT_LIMITS,
+  translationContextListResponseSchema,
   type SaveTranslationContextRequest,
 } from '@chatofy/types';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 import { registerAndLogin, type Identity } from './utils/auth-fixture';
+import { successBody } from './utils/response-body';
+import { TranslationContextResponseDto } from '../src/modules/translation-contexts/dto/translation-contexts.dto';
 
 /** Namespaced per run so a reused database does not collide with itself. */
 const run = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 
 describe('AI Context library (db-e2e)', () => {
-  let app: INestApplication;
+  let app: INestApplication<App>;
   let prisma: PrismaService;
   let alice: Identity;
   let bob: Identity;
@@ -105,7 +109,7 @@ describe('AI Context library (db-e2e)', () => {
     const id = randomUUID();
 
     const created = await put(id, alice).expect(200);
-    expect(created.body.data.context).toMatchObject({
+    expect(contextOf(created)).toMatchObject({
       id,
       name: 'Cardiology consult',
       topic: 'a follow-up appointment',
@@ -121,7 +125,7 @@ describe('AI Context library (db-e2e)', () => {
       alice,
       body({ name: 'Cardiology follow-up', style: 'neutral' }),
     ).expect(200);
-    expect(replaced.body.data.context).toMatchObject({
+    expect(contextOf(replaced)).toMatchObject({
       id,
       name: 'Cardiology follow-up',
       style: 'neutral',
@@ -228,7 +232,7 @@ describe('AI Context library (db-e2e)', () => {
         { vi: 'nhịp tim', en: 'heart rate' },
       ];
       const saved = await put(id, alice, body({ glossary })).expect(200);
-      expect(saved.body.data.context.glossary).toEqual(glossary);
+      expect(contextOf(saved).glossary).toEqual(glossary);
 
       const stored = await glossaryRowsFor(alice, id);
       expect(stored.map((term) => term.position)).toEqual([0, 1, 2]);
@@ -264,7 +268,7 @@ describe('AI Context library (db-e2e)', () => {
       const replaced = await put(id, alice, body({ glossary: shorter })).expect(
         200,
       );
-      expect(replaced.body.data.context.glossary).toEqual(shorter);
+      expect(contextOf(replaced).glossary).toEqual(shorter);
 
       // Delete-then-insert, not merge. A merging save would leave the two
       // dropped pairs behind at positions 1 and 2, and the operator would go on
@@ -345,7 +349,7 @@ describe('AI Context library (db-e2e)', () => {
         who,
         body({ name: 'corrected at the ceiling' }),
       ).expect(200);
-      expect(replaced.body.data.context.name).toBe('corrected at the ceiling');
+      expect(contextOf(replaced).name).toBe('corrected at the ceiling');
 
       expect(
         await prisma.translationContext.count({
@@ -491,21 +495,21 @@ function body(
   };
 }
 
-interface ListedContext {
-  id: string;
-  name: string;
-  glossary: { vi: string; en: string }[];
+/** The context a PUT answered with. */
+function contextOf(res: Response) {
+  return successBody(res, TranslationContextResponseDto.schema).data.context;
 }
 
-function idsOf(res: { body: { data: { contexts: ListedContext[] } } }) {
-  return res.body.data.contexts.map((context) => context.id);
+function contextsOf(res: Response) {
+  return successBody(res, translationContextListResponseSchema).data.contexts;
 }
 
-function contextIn(
-  res: { body: { data: { contexts: ListedContext[] } } },
-  id: string,
-): ListedContext {
-  const found = res.body.data.contexts.find((context) => context.id === id);
+function idsOf(res: Response) {
+  return contextsOf(res).map((context) => context.id);
+}
+
+function contextIn(res: Response, id: string) {
+  const found = contextsOf(res).find((context) => context.id === id);
   if (!found) throw new Error(`the list did not carry ${id}`);
   return found;
 }

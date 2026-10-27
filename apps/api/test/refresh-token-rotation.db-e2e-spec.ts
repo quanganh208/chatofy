@@ -3,6 +3,8 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
 import request from 'supertest';
+import { App } from 'supertest/types';
+import { authSessionSchema, authTokenSchema } from '@chatofy/types';
 import * as argon2 from 'argon2';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -29,6 +31,7 @@ import {
 } from '../src/modules/auth/refresh/refresh-token-secret';
 import { SessionTerminator } from '../src/modules/auth/session-terminator';
 import { RefreshTokenStore } from '../src/modules/auth/refresh/refresh-token.store';
+import { successBody } from './utils/response-body';
 
 /**
  * Rotation against a REAL Redis and a REAL Postgres.
@@ -45,7 +48,7 @@ import { RefreshTokenStore } from '../src/modules/auth/refresh/refresh-token.sto
  * time instead of waiting ten seconds per case.
  */
 describe('Refresh token rotation against Redis + Postgres (e2e)', () => {
-  let app: INestApplication;
+  let app: INestApplication<App>;
   let prisma: PrismaService;
   let users: UserRepository;
   let redis: RedisClient;
@@ -157,6 +160,15 @@ describe('Refresh token rotation against Redis + Postgres (e2e)', () => {
     if (typeof issued === 'string') mintedTokens.push(issued);
   };
 
+  /** The successor a 200 from `/auth/refresh` handed back. */
+  const successorOf = (res: request.Response) => {
+    const { refreshToken } = successBody(res, authTokenSchema).data;
+    if (refreshToken === undefined) {
+      throw new Error('the refresh answered without a successor');
+    }
+    return refreshToken;
+  };
+
   const refresh = (refreshToken: string) =>
     request(app.getHttpServer())
       .post('/auth/refresh')
@@ -197,10 +209,7 @@ describe('Refresh token rotation against Redis + Postgres (e2e)', () => {
       .send({ email, password: PASSWORD })
       .expect(200);
 
-    const token = res.body.data.token as {
-      refreshToken?: string;
-      expiresAt: string;
-    };
+    const { token } = successBody(res, authSessionSchema).data;
     mintedFamilies.push(await familyIdOf(token.refreshToken!));
     mintedTokens.push(token.refreshToken!);
     expect(token.refreshToken).toBeTruthy();
@@ -217,7 +226,7 @@ describe('Refresh token rotation against Redis + Postgres (e2e)', () => {
     const session = await signIn('rotate');
 
     const first = await refresh(session.refreshToken).expect(200);
-    const next = first.body.data.refreshToken as string;
+    const next = successorOf(first);
     expect(next).not.toBe(session.refreshToken);
 
     // The successor works.
@@ -233,7 +242,10 @@ describe('Refresh token rotation against Redis + Postgres (e2e)', () => {
     const renewed = await refresh(session.refreshToken).expect(200);
     await request(app.getHttpServer())
       .get('/auth/me')
-      .set('authorization', `Bearer ${renewed.body.data.accessToken}`)
+      .set(
+        'authorization',
+        `Bearer ${successBody(renewed, authTokenSchema).data.accessToken}`,
+      )
       .expect(200);
   });
 
@@ -254,9 +266,7 @@ describe('Refresh token rotation against Redis + Postgres (e2e)', () => {
       expect(responses.map((res) => res.status)).toEqual([
         200, 200, 200, 200, 200,
       ]);
-      const issued = responses.map(
-        (res) => res.body.data.refreshToken as string,
-      );
+      const issued = responses.map(successorOf);
       // Under the re-issue grace model each caller gets its OWN token. They are
       // NOT identical — asserting sameness would be asserting a different
       // design, the one that has to store a plaintext successor to hand back.
@@ -282,8 +292,9 @@ describe('Refresh token rotation against Redis + Postgres (e2e)', () => {
       const session = await signIn('replay');
       const familyId = await familyIdOf(session.refreshToken);
 
-      const successor = (await refresh(session.refreshToken).expect(200)).body
-        .data.refreshToken as string;
+      const successor = successorOf(
+        await refresh(session.refreshToken).expect(200),
+      );
 
       // Forgiven once, which orphans whatever succeeded it.
       await ageBeyondGrace(session.refreshToken);
@@ -314,8 +325,9 @@ describe('Refresh token rotation against Redis + Postgres (e2e)', () => {
       const session = await signIn('two-back');
       const familyId = await familyIdOf(session.refreshToken);
 
-      const second = (await refresh(session.refreshToken).expect(200)).body.data
-        .refreshToken as string;
+      const second = successorOf(
+        await refresh(session.refreshToken).expect(200),
+      );
       await refresh(second).expect(200);
 
       await ageBeyondGrace(session.refreshToken);
@@ -338,8 +350,9 @@ describe('Refresh token rotation against Redis + Postgres (e2e)', () => {
         },
       });
 
-      const second = (await refresh(session.refreshToken).expect(200)).body.data
-        .refreshToken as string;
+      const second = successorOf(
+        await refresh(session.refreshToken).expect(200),
+      );
       await refresh(second).expect(200);
 
       await ageBeyondGrace(session.refreshToken);
@@ -359,8 +372,9 @@ describe('Refresh token rotation against Redis + Postgres (e2e)', () => {
         },
       });
 
-      const successor = (await refresh(session.refreshToken).expect(200)).body
-        .data.refreshToken as string;
+      const successor = successorOf(
+        await refresh(session.refreshToken).expect(200),
+      );
       await ageBeyondGrace(session.refreshToken);
       await refresh(session.refreshToken).expect(200);
       await refresh(successor).expect(401);
@@ -376,8 +390,7 @@ describe('Refresh token rotation against Redis + Postgres (e2e)', () => {
       const session = await signIn('late-duplicate');
       const familyId = await familyIdOf(session.refreshToken);
 
-      const held = (await refresh(session.refreshToken).expect(200)).body.data
-        .refreshToken as string;
+      const held = successorOf(await refresh(session.refreshToken).expect(200));
       await ageBeyondGrace(session.refreshToken);
       await refresh(session.refreshToken).expect(200);
 

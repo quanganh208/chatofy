@@ -6,12 +6,15 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { cleanupOpenApiDoc } from 'nestjs-zod';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { serviceDescriptorSchema, userSchema } from '@chatofy/types';
 import { AppModule } from '../src/app.module';
 import { USER_REPOSITORY } from '../src/modules/users/interfaces/user-repository.interface';
 import { InMemoryUserRepository } from './utils/in-memory-user.repository';
 import { registerAndLogin, type Identity } from './utils/auth-fixture';
+import { errorBody, readBody, successBody } from './utils/response-body';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { HealthDto } from '../src/modules/health/dto/health.dto';
 
 /**
  * Boots the full AppModule so the APP_* providers (TransformInterceptor,
@@ -47,19 +50,23 @@ describe('Response envelope (e2e)', () => {
   it('wraps a successful response in the envelope + sets x-request-id', async () => {
     const res = await request(app.getHttpServer()).get('/').expect(200);
 
-    expect(res.body.success).toBe(true);
+    const body = successBody(res, serviceDescriptorSchema);
+    expect(body.success).toBe(true);
     // GET / is the enveloped route this suite anchors on. Asserted field by
     // field rather than with toEqual: `docs` is present only outside
     // production, so an exact match would make the suite NODE_ENV-dependent.
-    expect(res.body.data).toMatchObject({
-      name: expect.any(String),
-      version: expect.any(String),
-      description: expect.any(String),
+    // `expect.any` is typed `any`; held as `unknown` so the object below is
+    // not built from untyped values.
+    const anyString: unknown = expect.any(String);
+    expect(body.data).toMatchObject({
+      name: anyString,
+      version: anyString,
+      description: anyString,
       status: 'ok',
     });
-    expect(res.body.meta.requestId).toEqual(expect.any(String));
-    expect(res.body.meta.timestamp).toEqual(expect.any(String));
-    expect(res.headers['x-request-id']).toBe(res.body.meta.requestId);
+    expect(body.meta.requestId).toEqual(expect.any(String));
+    expect(body.meta.timestamp).toEqual(expect.any(String));
+    expect(res.headers['x-request-id']).toBe(body.meta.requestId);
   });
 
   it('echoes a valid inbound x-request-id', async () => {
@@ -67,7 +74,9 @@ describe('Response envelope (e2e)', () => {
       .get('/')
       .set('x-request-id', 'trace-abc123')
       .expect(200);
-    expect(res.body.meta.requestId).toBe('trace-abc123');
+    expect(successBody(res, serviceDescriptorSchema).meta.requestId).toBe(
+      'trace-abc123',
+    );
     expect(res.headers['x-request-id']).toBe('trace-abc123');
   });
 
@@ -75,9 +84,10 @@ describe('Response envelope (e2e)', () => {
     // Asserted here rather than in the health suite, which imports only
     // HealthModule + PrismaModule and so has no guarded route to miss.
     const res = await request(app.getHttpServer()).get('/auth/me').expect(401);
-    expect(res.body.success).toBe(false);
-    expect(res.body.error.code).toBe('UNAUTHORIZED');
-    expect(res.body.meta.requestId).toEqual(expect.any(String));
+    const body = errorBody(res);
+    expect(body.success).toBe(false);
+    expect(body.error.code).toBe('UNAUTHORIZED');
+    expect(body.meta.requestId).toEqual(expect.any(String));
   });
 
   it('lets the same route through with a token from the real endpoints', async () => {
@@ -85,23 +95,25 @@ describe('Response envelope (e2e)', () => {
       .get('/auth/me')
       .set('authorization', identity.bearer)
       .expect(200);
-    expect(res.body.data.id).toBe(identity.userId);
+    expect(successBody(res, userSchema).data.id).toBe(identity.userId);
   });
 
   it('returns the error envelope for unknown routes', async () => {
     const res = await request(app.getHttpServer())
       .get('/does-not-exist')
       .expect(404);
-    expect(res.body.success).toBe(false);
-    expect(res.body.error.code).toBe('NOT_FOUND');
-    expect(res.body.meta.requestId).toEqual(expect.any(String));
+    const body = errorBody(res);
+    expect(body.success).toBe(false);
+    expect(body.error.code).toBe('NOT_FOUND');
+    expect(body.meta.requestId).toEqual(expect.any(String));
   });
 
   it('leaves /health responses RAW (excluded from the envelope)', async () => {
     const res = await request(app.getHttpServer()).get('/health').expect(200);
-    expect(res.body.status).toBe('ok');
-    expect(res.body.success).toBeUndefined();
-    expect(res.body.data).toBeUndefined();
+    const body = readBody(res, HealthDto.schema);
+    expect(body.status).toBe('ok');
+    expect(body).not.toHaveProperty('success');
+    expect(body).not.toHaveProperty('data');
   });
 
   it('generates an OpenAPI doc with the envelope schema for the descriptor and plain schema for health', () => {

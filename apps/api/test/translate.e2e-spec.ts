@@ -4,10 +4,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { translateResponseSchema } from '@chatofy/types';
 import { AppModule } from '../src/app.module';
 import { USER_REPOSITORY } from '../src/modules/users/interfaces/user-repository.interface';
 import { InMemoryUserRepository } from './utils/in-memory-user.repository';
 import { registerAndLogin, type Identity } from './utils/auth-fixture';
+import { errorBody, successBody } from './utils/response-body';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AiProvidersFactory } from '../src/modules/translate/providers/ai-providers.factory';
@@ -78,8 +80,9 @@ describe('POST /translate (e2e)', () => {
       .send({ audioBase64, audioMimeType: 'audio/webm' })
       .expect(401);
 
-    expect(res.body.success).toBe(false);
-    expect(res.body.error.code).toBe('UNAUTHORIZED');
+    const body = errorBody(res);
+    expect(body.success).toBe(false);
+    expect(body.error.code).toBe('UNAUTHORIZED');
   });
 
   it('401s on a token that is not a token at all', async () => {
@@ -105,14 +108,15 @@ describe('POST /translate (e2e)', () => {
       .send({ audioBase64, audioMimeType: 'audio/webm' })
       .expect(201);
 
-    expect(res.body.success).toBe(true);
-    expect(res.body.data.sourceText).toBe('xin chào');
-    expect(res.body.data.targetText).toBe('hello');
-    expect(res.body.data.audioMimeType).toBe('audio/wav');
-    expect(res.body.data.audioBase64).toBe(
+    const body = successBody(res, translateResponseSchema);
+    expect(body.success).toBe(true);
+    expect(body.data.sourceText).toBe('xin chào');
+    expect(body.data.targetText).toBe('hello');
+    expect(body.data.audioMimeType).toBe('audio/wav');
+    expect(body.data.audioBase64).toBe(
       Buffer.from(new Uint8Array([1, 2, 3])).toString('base64'),
     );
-    expect(res.body.meta.requestId).toBeDefined();
+    expect(body.meta.requestId).toBeDefined();
   });
 
   it('refuses the removed direction string instead of translating vi→en regardless', async () => {
@@ -135,9 +139,10 @@ describe('POST /translate (e2e)', () => {
       })
       .expect(201);
 
-    expect(res.body.success).toBe(true);
+    const body = successBody(res, translateResponseSchema);
+    expect(body.success).toBe(true);
     // The container comes from the provider, not from the output language.
-    expect(res.body.data.audioMimeType).toBe('audio/wav');
+    expect(body.data.audioMimeType).toBe('audio/wav');
     // The requested gender must reach the backend that resolves it to a voice.
     expect(fakeProviders.tts.synthesize).toHaveBeenCalledWith(
       expect.objectContaining({ language: 'vi', voiceGender: 'male' }),
@@ -166,7 +171,7 @@ describe('POST /translate (e2e)', () => {
         languagePair: { source: 'fr', target: 'en' },
       })
       .expect(400);
-    expect(res.body.error.code).toBe('VALIDATION_FAILED');
+    expect(errorBody(res).error.code).toBe('VALIDATION_FAILED');
   });
 
   it('ignores a field the contract no longer carries', async () => {
@@ -181,8 +186,9 @@ describe('POST /translate (e2e)', () => {
       .send({ audioBase64, audioMimeType: 'audio/webm', quality: 0.5 })
       .expect(201);
 
-    expect(res.body.success).toBe(true);
-    expect(res.body.data.quality).toBeUndefined();
+    const body = successBody(res, translateResponseSchema);
+    expect(body.success).toBe(true);
+    expect(body.data).not.toHaveProperty('quality');
   });
 
   it('rejects an empty audioBase64 with a 400', async () => {

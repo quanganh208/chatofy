@@ -12,6 +12,7 @@ vi.hoisted(() => {
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
+import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { ProviderRegistry } from '@chatofy/ai-providers';
@@ -41,7 +42,7 @@ import { InMemoryConferencePrisma } from './utils/in-memory-conference-prisma';
  * gateway chose for that recipient.
  */
 describe('/ws/conference chat translation (e2e)', () => {
-  let app: INestApplication;
+  let app: INestApplication<Server>;
   let base: string;
   let alice: Identity;
   let bob: Identity;

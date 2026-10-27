@@ -118,7 +118,8 @@ export class FinishedSegments {
     segmentId: string,
     segment: FinishedSegment,
   ): void {
-    const segments = this.bySocket.get(socket) ?? new Map();
+    const segments =
+      this.bySocket.get(socket) ?? new Map<string, FinishedSegment>();
     segments.delete(segmentId);
     segments.set(segmentId, segment);
     while (segments.size > REMEMBERED_SEGMENTS) {

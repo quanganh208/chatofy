@@ -10,6 +10,7 @@ import {
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
+import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { ServerEvent } from '@chatofy/types';
 import { AppModule } from '../src/app.module';
@@ -33,7 +34,7 @@ import { encodePcm16Wav } from '../src/modules/translate/audio/wav-codec';
  * state machine and adapter are all real.
  */
 describe('/ws/translate (e2e)', () => {
-  let app: INestApplication;
+  let app: INestApplication<Server>;
   let identity: Identity;
   let url: string;
 

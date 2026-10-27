@@ -10,6 +10,7 @@ import {
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
+import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { ProviderRegistry } from '@chatofy/ai-providers';
 import type {
@@ -38,7 +39,7 @@ import { AiProvidersFactory } from '../src/modules/translate/providers/ai-provid
  * the gateway, the session state machine and the framing are all real.
  */
 describe('/ws/translate continuous mode (e2e)', () => {
-  let app: INestApplication;
+  let app: INestApplication<Server>;
   let identity: Identity;
   let base: string;
 
