@@ -95,11 +95,12 @@ Wait for `[api] Application is running on: http://localhost:3000` and `[web] ✓
 
 Each profile is signed in to a different account; arrange the windows side by side.
 
-1. **Profile A** opens **Conference** from the sidebar, enters a name, picks **Tiếng Việt**,
-   and clicks **Create a room**. The lobby calls `POST /conference` and opens
-   `/conference/<roomId>`. Copy the id from the URL.
-2. **Profile B** opens **Conference**, enters a name, picks **English**, pastes the id and
-   clicks **Join**. Both now see and hear each other.
+1. **Profile A** opens **Conference** from the sidebar and clicks **New meeting**. The
+   landing calls `POST /conference` and opens `/conference/<roomId>` on its pre-join
+   screen: check the preview, the mic level bar and the voice chip, pick **Tiếng Việt**,
+   then **Join now**. In the call, **Copy invite link** copies the room URL.
+2. **Profile B** opens the copied link (signed out, it signs in first and comes back),
+   picks **English** and clicks **Join now**. Both now see and hear each other.
 
 The link is the access: anyone signed in who has the id can join. There are no
 client-made ids; an id that `POST /conference` did not create shows the room-not-found
@@ -181,7 +182,8 @@ adb reverse tcp:8081 tcp:8081
 Then: create a room on web (§3 step 1), open **Conference** on the phone, enter the id and
 join; grant camera and mic. Two-way audio and video were confirmed this way on an Android
 14 phone on 2026-10-12, and through Cloudflare's SFU on 2026-10-26. Check the same list as §3, plus that Leave turns the camera light
-off. The language is picked in the lobby; it is read-only during the call.
+off. The language and the translated voice (Female/Male) are picked in the lobby; both
+are fixed during the call.
 
 **Translation on the phone.** The speaker leg runs the shared cascade leg from
 `@chatofy/realtime-client`; Hermes lacks `crypto.randomUUID`, so a polyfill is imported

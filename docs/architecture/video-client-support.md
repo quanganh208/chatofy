@@ -258,37 +258,62 @@ These are the same `(app)` chrome as the rest of web (sidebar + session menu), s
 conference content area is what the budgets below count; the sidebar's own destinations
 are not re-counted per screen (same rule that lets `/history` spend 0 accent).
 
-### 4.1 Pre-join (lobby)
+### 4.1 Landing and pre-join
 
-Built as `apps/web/app/(app)/conference/page.tsx`. A single centred column on the page
-ground; the lobby both creates a room and joins one somebody shared.
+Two screens, as in Meet: a landing that starts or finds a meeting, then a pre-join
+screen on the room's own URL. The URL is the room and nothing else
+(`/conference/<roomId>`), so it is what people share; name and language travel in the
+`conference.join` payload. Accounts only: a signed-out visitor opening a room link is sent
+to `/login?next=…` by `apps/web/proxy.ts` and lands back on the room.
+
+**Landing** — `apps/web/app/(app)/conference/page.tsx`:
 
 ```
 ┌─────────────────────────────────────────┐
-│  Video conference                         │  ← heading
+│  Video conference                         │  ← heading + one-line lead
 │                                           │
-│   ┌───────────────────────────────┐      │
-│   │        [ camera preview ]      │      │  ← media region, not a card
-│   └───────────────────────────────┘      │
+│   [        ▣ New meeting          ]       │  ← the ONE accent
 │                                           │
-│   Your name [                    ]        │  ← Input (field)
-│   Language  [ Tiếng Việt | English ]      │  ← SegmentedControl
+│   Meeting code or link                    │
+│   [                       ] [ Join ]      │  ← Input + outline Button
 │                                           │
-│   [         Create a room          ]      │  ← the ONE accent
-│                                           │
-│   Room id   [              ] [ Join ]     │  ← Input + outline Button
+│   Joining as <account name>               │  ← readout
 └─────────────────────────────────────────┘
 ```
 
-- **Accent (1):** **Create a room** (`variant="default"`). Join is outline: it is the
-  second way in, and it needs an id first.
-- **Elevated surfaces (0):** the preview is a media region on the page ground; the
-  inputs are fields.
-- **No device pickers.** The call uses the browser's default camera and microphone; there
-  is no Select for either. The preview is camera-only (`audio: false`).
-- **Budget: 1 accent, 0 elevated surfaces. PASS.** Gated by three rows of
-  `apps/web/src/design/accent-budget-app.spec.tsx` (plain, opened from a shared link,
-  refusing to create without a name).
+The code field takes a bare id or a pasted link, including an old lobby link's `?room=`
+(`utils/parse-room-input.ts`). An old `/conference?room=<id>` URL redirects to the room.
+
+**Pre-join** — `apps/web/app/(app)/conference/[roomId]/components/pre-join-stage.tsx`,
+shown while the call hook is `idle` and nobody has pressed Join now:
+
+```
+┌──────────────────────────────┬──────────────────────────┐
+│ ┌──────────────────────────┐ │  Ready to join?           │
+│ │     [ camera preview ]   │ │  Your name [An Nguyen   ] │  ← from the session, editable
+│ │        (🎤) (📷)          │ │  Your language [vi|en|zh] │  ← last used
+│ └──────────────────────────┘ │  [🔊 Voice: Female · 1×]  │  ← outline chip → popover
+│ ▁▁▁▁▁▁▁ mic level             │  [      Join now       ]  │  ← the ONE accent
+│ Microphone [▾]  Camera [▾]   │                          │
+└──────────────────────────────┴──────────────────────────┘
+```
+
+- **Preview** (`hooks/use-pre-join-media.ts`): its own stream, released when the user
+  joins; the call opens the picked devices itself (`acquireLocalMedia`, ideal `deviceId`
+  constraints, so an unplugged device falls back to the default). Mic and camera toggles
+  carry into the call.
+- **Voice chip** (`components/conference-voice-chip.tsx`): gender and speed of the voice
+  others hear this speaker's translation in. It edits `chatofy.translate-settings`, the
+  store `/translate` uses, and is saved before joining because the speaker leg reads it
+  when it is built. Changing gender clears per-language voice picks.
+- **Colour, inside the system:** mic and camera toggles turn `destructive` (the live fill)
+  when off, the mic meter fills with `speaking`, and the dawn trio glows behind the
+  preview and rings the camera-off initials (the initials sit on `card`, never on dawn).
+  None of these is the accent.
+- **Accent (1):** Join now. **Elevated surfaces:** 0, or 1 with the voice popover open.
+- **Gated** by `apps/web/src/design/accent-budget-app.spec.tsx`: two landing rows (plain;
+  opened from an old `?room=` link) and two pre-join rows (plain; voice popover open).
+- Returning to a call left by navigation lands on the pre-join screen, one Join now away.
 
 ### 4.2 In-call
 
@@ -296,7 +321,7 @@ Built as `apps/web/app/(app)/conference/[roomId]/page.tsx` with its `components/
 
 ```
 ┌──────────────────────────────────────────┬──────────────┐
-│ <room id>                            [👥] │              │  ← header row, roster toggle (ghost)
+│ MEETING CODE <id>   [🔗 Copy invite link] [👥] │        │  ← header row; link and roster ghost
 ├──────────────────────────────────────────┤  Participants │
 │  ┌──────────────┐  ┌──────────────┐       │  Alice  🎤 📷 │  ← roster: a list
 │  │  [video]     │  │  [video]     │       │  Bob    🎤 📷 │
@@ -309,6 +334,13 @@ Built as `apps/web/app/(app)/conference/[roomId]/page.tsx` with its `components/
 └────────────────────────────────────────────────────────────┘
 ```
 
+- **Phones and tablets:** the side column starts open from `md` (768px) up and closed
+  below it, and follows the breakpoint when a window crosses it. Opened below `md` it
+  covers the grid at full width instead of squeezing the video. Two or three tiles
+  stack until the grid itself is 42rem wide — a container query, because on a tablet
+  the column takes a third of the screen and side-by-side tiles became tall strips.
+- **Header:** the room id carries a "Meeting code" label, and the copy-link control
+  shows its words from `sm` up (icon with its accessible name on a phone).
 - **Accent (1):** **Leave** (`variant="default"`). Mic and camera are outline toggles,
   readouts of state; the roster toggle is ghost. The screen spends its one accent on
   the terminal action.
