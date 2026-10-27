@@ -464,8 +464,14 @@ export class CapturePump {
     this.handlers.onLevel(rms);
     // A peer's translation is playing here and nobody is mid-turn: this block is
     // the loudspeaker as much as the room, so it may not open a turn. Kept out
-    // of the pre-roll too, or the next turn would open on that playback.
-    if (this.state !== 'in-turn' && this.receivedSounding()) return;
+    // of the pre-roll too, or the next turn would open on that playback. What
+    // the pre-roll and the gate held from before the playback is dropped as
+    // well: the next turn opens on what is said after it, not seconds earlier.
+    if (this.state !== 'in-turn' && this.receivedSounding()) {
+      this.preRoll.length = 0;
+      this.gate.reset();
+      return;
+    }
     // May flip the state through onSpeechStart / onSpeechEnd.
     const isSpeech = this.gate.push(rms, blockMs);
 

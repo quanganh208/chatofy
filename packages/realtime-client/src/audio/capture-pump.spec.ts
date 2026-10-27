@@ -789,6 +789,25 @@ describe('CapturePump', () => {
       ).toEqual([]);
     });
 
+    it('keeps what was heard before the playback out of the next turn', () => {
+      let received = false;
+      const { pump, handlers } = harness({ ...LEG, receivedSounding: () => received });
+      const beforeFrom = nextTag + 1;
+      push(pump, silence, 300); // room noise, held in the pre-roll
+      const beforeTo = nextTag;
+      received = true;
+      push(pump, speech, 600);
+
+      received = false;
+      push(pump, speech, 400);
+
+      expect(handlers.onTurnOpen).toHaveBeenCalledTimes(1);
+      const preRoll = handlers.onTurnOpen.mock.calls[0]?.[0] as Int16Array[];
+      expect(
+        preRoll.filter((block) => tagOf(block) >= beforeFrom && tagOf(block) <= beforeTo),
+      ).toEqual([]);
+    });
+
     it('never cuts a turn that is already open', () => {
       let received = false;
       const { pump, handlers } = harness({ ...LEG, receivedSounding: () => received });
