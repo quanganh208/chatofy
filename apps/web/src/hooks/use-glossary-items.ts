@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { addGlossaryItem, deleteGlossaryItem, listGlossaryItems } from '@/clients/api-client';
 import type { GlossaryItem, SaveGlossaryItemRequest } from '@chatofy/types';
 
@@ -13,51 +13,57 @@ export interface GlossaryItemsValue {
   removeItem: (itemId: string) => Promise<void>;
 }
 
+/** One finished read, kept with the glossary it was for. */
+interface LoadedItems {
+  glossaryId: string;
+  items: GlossaryItem[];
+  status: 'ready' | 'failed';
+}
+
+const NO_ITEMS: GlossaryItem[] = [];
+
 /**
  * Items for the currently selected glossary.
  *
  * Pass `glossaryId = null` when no glossary is selected — the hook returns
  * idle state and makes no network request.
+ *
+ * `idle` and `loading` are derived rather than stored: a read is kept with the
+ * glossary it was for, and a selection whose read has not landed yet is
+ * loading. The effect then only ever sets state once a request settles, and a
+ * reply for a glossary that is no longer selected — a slow reload after the
+ * user moved on — is dropped instead of painting the wrong list.
  */
 export function useGlossaryItems(glossaryId: string | null): GlossaryItemsValue {
-  const [items, setItems] = useState<GlossaryItem[]>([]);
-  const [status, setStatus] = useState<GlossaryItemsState>('idle');
-
-  const reload = useCallback(async () => {
-    if (glossaryId === null) return;
-    try {
-      const result = await listGlossaryItems(glossaryId);
-      setItems(result.items);
-      setStatus('ready');
-    } catch {
-      setItems([]);
-      setStatus('failed');
-    }
-  }, [glossaryId]);
+  const [loaded, setLoaded] = useState<LoadedItems | null>(null);
+  const selected = useRef(glossaryId);
 
   useEffect(() => {
-    if (glossaryId === null) {
-      setItems([]);
-      setStatus('idle');
-      return;
-    }
-    let cancelled = false;
-    setStatus('loading');
-    listGlossaryItems(glossaryId)
-      .then((result) => {
-        if (cancelled) return;
-        setItems(result.items);
-        setStatus('ready');
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setItems([]);
-        setStatus('failed');
-      });
-    return () => {
-      cancelled = true;
-    };
+    selected.current = glossaryId;
   }, [glossaryId]);
+
+  const load = useCallback(async (id: string) => {
+    let next: LoadedItems;
+    try {
+      const result = await listGlossaryItems(id);
+      next = { glossaryId: id, items: result.items, status: 'ready' };
+    } catch {
+      next = { glossaryId: id, items: [], status: 'failed' };
+    }
+    if (selected.current === id) setLoaded(next);
+  }, []);
+
+  useEffect(() => {
+    if (glossaryId !== null) void load(glossaryId);
+  }, [glossaryId, load]);
+
+  const reload = useCallback(async () => {
+    if (glossaryId !== null) await load(glossaryId);
+  }, [glossaryId, load]);
+
+  const current = glossaryId !== null && loaded?.glossaryId === glossaryId ? loaded : null;
+  const items = current?.items ?? NO_ITEMS;
+  const status: GlossaryItemsState = glossaryId === null ? 'idle' : (current?.status ?? 'loading');
 
   const addItem = useCallback(
     async (body: SaveGlossaryItemRequest) => {
