@@ -95,7 +95,10 @@ export default function ConferenceRoomPage() {
   function copyInviteLink() {
     void navigator.clipboard
       ?.writeText(`${window.location.origin}/conference/${encodeURIComponent(roomId)}`)
-      .then(() => setCopied(true));
+      .then(() => setCopied(true))
+      .catch(() => {
+        /* clipboard refused (permission, unfocused tab): the code stays on screen */
+      });
   }
 
   // A room that is gone, or a call taken over by another tab, is not one to
@@ -146,7 +149,8 @@ export default function ConferenceRoomPage() {
 
   /**
    * Leave a call that was under way, to its end screen. `replace` rather than
-   * `push`: Back would otherwise reopen this URL, and this screen joins on mount.
+   * `push`: Back would otherwise reopen this URL, whose pre-join screen opens the
+   * camera and microphone again.
    */
   function handleLeaveCall() {
     sessionStorage.removeItem(ACTIVE_CALL_KEY);

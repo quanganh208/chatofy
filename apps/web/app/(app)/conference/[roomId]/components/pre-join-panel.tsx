@@ -24,6 +24,7 @@ import { MicLevelMeter } from './mic-level-meter';
 import { DAWN_GRADIENT, DawnGlow } from '../../components/dawn-glow';
 
 /** Radix reserves "" for a Select holding nothing, so the default needs a value of its own. */
+const SYSTEM_DEFAULT = 'default';
 
 /** Up to two initials for the camera-off tile. */
 function initials(name: string): string {
@@ -31,7 +32,6 @@ function initials(name: string): string {
   const picked = words.length > 1 ? [words[0], words[words.length - 1]] : words;
   return picked.map((word) => word!.charAt(0).toUpperCase()).join('');
 }
-const SYSTEM_DEFAULT = 'default';
 
 interface PreJoinPanelProps {
   media: PreJoinMedia;
