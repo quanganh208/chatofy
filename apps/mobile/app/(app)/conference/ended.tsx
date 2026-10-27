@@ -22,7 +22,14 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
-import { createTranslator, en, type MessageKey } from '@chatofy/i18n';
+import {
+  createTranslator,
+  en,
+  meetingDuration,
+  meetingLanguages,
+  meetingParticipants,
+  type MessageKey,
+} from '@chatofy/i18n';
 import {
   conferenceDurationMinutes,
   languageCodeSchema,
@@ -32,7 +39,6 @@ import {
 } from '@chatofy/types';
 import { useTheme } from '@/providers/theme-provider';
 import { useConferenceEnd } from '@/conference/use-conference-end';
-import { participantNames, spokenLanguages } from '@/conference/meeting-summary';
 
 // English for now, matching the conference screens; device-locale selection is a follow-up.
 const t = createTranslator(en);
@@ -109,33 +115,26 @@ function BackToLobby() {
   );
 }
 
-function formatDuration(conference: ConferenceDetailResponse): string {
-  const total = conferenceDurationMinutes(conference);
-  if (total === null) return t('common.conference.durationUnknown');
-  if (total < 60) return t('common.conference.durationMinutes', { minutes: String(total) });
-  return t('common.conference.durationHours', {
-    hours: String(Math.floor(total / 60)),
-    minutes: String(total % 60),
-  });
-}
-
-function languageName(code: string): string {
-  const parsed = languageCodeSchema.safeParse(code);
-  return parsed.success ? t(`common.languageName.${parsed.data}`) : code;
-}
-
 function SummaryCard({ conference }: { conference: ConferenceDetailResponse }) {
   const { colors } = useTheme();
-  const languages = spokenLanguages(conference).map(languageName);
   const rows: [string, string][] = [
-    [t('common.conference.summaryDuration'), formatDuration(conference)],
+    [
+      t('common.conference.summaryDuration'),
+      meetingDuration(t, conferenceDurationMinutes(conference)),
+    ],
     [
       t('common.conference.participants'),
-      participantNames(conference, t('common.conference.guest')).join(', ') || '—',
+      meetingParticipants(
+        t,
+        conference.participants.map((p) => p.displayName),
+      ),
     ],
     [
       t('common.conference.summaryLanguages'),
-      (languages.length === 2 ? languages.join(' ↔ ') : languages.join(', ')) || '—',
+      meetingLanguages(
+        t,
+        conference.participants.map((p) => p.sourceLanguage),
+      ),
     ],
   ];
   return (
