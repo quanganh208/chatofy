@@ -16,12 +16,12 @@ import type { Translate } from '@chatofy/i18n';
  * ## Language names
  *
  * In the interface locale — "Tiếng Trung" in Vietnamese, "Chinese" in English — the
- * same `web.languageName.<code>` that history rows and glossary columns use, so a
+ * same `common.languageName.<code>` that history rows and glossary columns use, so a
  * language is called one thing everywhere on web. It used to be each language's own
  * name ("简体中文"), which a reader who does not read that language cannot pick.
  */
 export function languageNamer(t: Translate): (code: LanguageCode) => string {
-  return (code) => t(`web.languageName.${code}`);
+  return (code) => t(`common.languageName.${code}`);
 }
 
 export function languagePairLabels(t: Translate): LanguagePairLabels {

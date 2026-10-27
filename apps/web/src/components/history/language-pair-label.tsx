@@ -12,7 +12,7 @@ import { useTranslate } from '@/i18n/provider';
  * spares it the arrow, a character no reader can be trusted to say usefully.
  *
  * Takes the two languages rather than a pair: naming is by registry code
- * (`web.languageName.<code>`, `web.languageShort.<code>`), not by one key per
+ * (`common.languageName.<code>`, `web.languageShort.<code>`), not by one key per
  * pair, so a third language needs no new key here — only a new registry
  * entry.
  *
@@ -31,7 +31,7 @@ export function LanguagePairLabel({ languages }: { languages: readonly LanguageC
   const [first, second] = languages as [LanguageCode, LanguageCode];
   const to = detected ? first : second;
   const fromShort = detected ? t('web.history.autoDetect') : t(`web.languageShort.${first}`);
-  const fromName = detected ? t('web.history.autoDetect') : t(`web.languageName.${first}`);
+  const fromName = detected ? t('web.history.autoDetect') : t(`common.languageName.${first}`);
 
   return (
     <span className="whitespace-nowrap">
@@ -44,7 +44,7 @@ export function LanguagePairLabel({ languages }: { languages: readonly LanguageC
       <span className="sr-only">
         {t('web.history.languagePair', {
           from: fromName,
-          to: t(`web.languageName.${to}`),
+          to: t(`common.languageName.${to}`),
         })}
       </span>
     </span>

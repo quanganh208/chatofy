@@ -99,7 +99,7 @@ export async function MarketingHeader() {
           ) : (
             <>
               <Button asChild variant="ghost" size="sm" className="hidden lg:inline-flex">
-                <Link href="/login">{t('web.auth.signIn')}</Link>
+                <Link href="/login">{t('common.auth.signIn')}</Link>
               </Button>
               {/* Quiet, not filled. The hero's "Start translating" is the one filled
                   control in the first viewport, and a filled button here would be a
@@ -121,7 +121,7 @@ export async function MarketingHeader() {
             signedIn={signedIn}
             actions={{
               openApp: t('web.chrome.openApp'),
-              signIn: t('web.auth.signIn'),
+              signIn: t('common.auth.signIn'),
               getStarted: t('web.chrome.getStarted'),
             }}
           />

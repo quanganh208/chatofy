@@ -22,6 +22,7 @@ import { toLanguageCode, type LanguageCode } from '@chatofy/types';
 import { conferenceRoomIdSchema, MAX_CONFERENCE_DISPLAY_NAME_CHARS } from '@chatofy/types/events';
 import { createConference } from '@/clients/api-client';
 import { useTranslate } from '@/i18n/provider';
+import { languageNamer } from '@/i18n/language-pair-labels';
 import { ACTIVE_CALL_KEY } from './[roomId]/utils/room-route';
 
 function roomPath(roomId: string, name: string, lang: LanguageCode): Route {
@@ -33,6 +34,7 @@ function roomPath(roomId: string, name: string, lang: LanguageCode): Route {
 
 function ConferenceLobby() {
   const t = useTranslate();
+  const nameLanguage = languageNamer(t);
   const router = useRouter();
   const searchParams = useSearchParams();
   const sharedRoom = searchParams.get('room') ?? '';
@@ -109,7 +111,7 @@ function ConferenceLobby() {
       const room = await createConference();
       router.push(roomPath(room.id, trimmed, sourceLanguage));
     } catch {
-      setError(t('web.conference.createFailed'));
+      setError(t('common.conference.createFailed'));
       setCreating(false);
     }
   }
@@ -124,7 +126,7 @@ function ConferenceLobby() {
     }
     // Only an id the API minted can name a room; anything else is answered now.
     if (!conferenceRoomIdSchema.safeParse(target).success) {
-      setError(t('web.conference.roomNotFound'));
+      setError(t('common.conference.roomNotFound'));
       return;
     }
     setError(null);
@@ -133,7 +135,7 @@ function ConferenceLobby() {
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-6 py-8">
-      <h1 className="text-heading font-semibold">{t('web.conference.lobbyTitle')}</h1>
+      <h1 className="text-heading font-semibold">{t('common.conference.lobbyTitle')}</h1>
 
       {/* Camera preview */}
       <div className="bg-muted aspect-video w-full overflow-hidden rounded-xl">
@@ -141,12 +143,12 @@ function ConferenceLobby() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="conf-name">{t('web.conference.yourName')}</Label>
+        <Label htmlFor="conf-name">{t('common.conference.yourName')}</Label>
         <Input
           id="conf-name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder={t('web.conference.yourNamePlaceholder')}
+          placeholder={t('common.conference.yourNamePlaceholder')}
           autoComplete="name"
           maxLength={MAX_CONFERENCE_DISPLAY_NAME_CHARS}
           autoFocus={Boolean(sharedRoom)}
@@ -154,13 +156,13 @@ function ConferenceLobby() {
       </div>
 
       <SegmentedControl<LanguageCode>
-        label={t('web.conference.sourceLanguage')}
+        label={t('common.conference.sourceLanguage')}
         value={sourceLanguage}
         onChange={setSourceLanguage}
         options={[
-          { value: 'vi', label: t('web.conference.sourceLanguageVi') },
-          { value: 'en', label: t('web.conference.sourceLanguageEn') },
-          { value: 'zh', label: t('web.conference.sourceLanguageZh') },
+          { value: 'vi', label: nameLanguage('vi') },
+          { value: 'en', label: nameLanguage('en') },
+          { value: 'zh', label: nameLanguage('zh') },
         ]}
       />
 
@@ -171,22 +173,22 @@ function ConferenceLobby() {
       )}
 
       <Button onClick={() => void create()} disabled={creating}>
-        {creating ? t('web.conference.creating') : t('web.conference.create')}
+        {creating ? t('common.conference.creating') : t('common.conference.create')}
       </Button>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="conf-room">{t('web.conference.roomId')}</Label>
+        <Label htmlFor="conf-room">{t('common.conference.roomId')}</Label>
         <div className="flex gap-2">
           <Input
             id="conf-room"
             value={roomId}
             onChange={(e) => setRoomId(e.target.value)}
-            placeholder={t('web.conference.roomIdPlaceholder')}
+            placeholder={t('common.conference.roomIdPlaceholder')}
             autoComplete="off"
             spellCheck={false}
           />
           <Button variant="outline" onClick={joinShared} disabled={creating}>
-            {t('web.conference.join')}
+            {t('common.conference.join')}
           </Button>
         </div>
       </div>

@@ -78,7 +78,7 @@ export default function SignInScreen() {
 
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.textSecondary }]}>
-            {t('mobile.auth.email')}
+            {t('common.auth.email')}
           </Text>
           <TextInput
             style={[
@@ -91,13 +91,13 @@ export default function SignInScreen() {
             autoComplete="email"
             keyboardType="email-address"
             textContentType="emailAddress"
-            accessibilityLabel={t('mobile.auth.email')}
+            accessibilityLabel={t('common.auth.email')}
           />
         </View>
 
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.textSecondary }]}>
-            {t('mobile.auth.password')}
+            {t('common.auth.password')}
           </Text>
           <TextInput
             style={[
@@ -111,7 +111,7 @@ export default function SignInScreen() {
             textContentType="password"
             returnKeyType="go"
             onSubmitEditing={() => void submit()}
-            accessibilityLabel={t('mobile.auth.password')}
+            accessibilityLabel={t('common.auth.password')}
           />
         </View>
 
@@ -133,7 +133,7 @@ export default function SignInScreen() {
             <ActivityIndicator color={colors.primaryForeground} />
           ) : (
             <Text style={[styles.submitText, { color: colors.primaryForeground }]}>
-              {t('mobile.auth.signIn')}
+              {t('common.auth.signIn')}
             </Text>
           )}
         </TouchableOpacity>

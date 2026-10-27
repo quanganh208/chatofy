@@ -206,11 +206,11 @@ export default function ConferenceCallScreen() {
   }, [errorReason, showEndScreen]);
 
   const banner = useMemo(() => {
-    if (status === 'connecting') return t('mobile.conference.connecting');
+    if (status === 'connecting') return t('common.conference.connecting');
     if (status === 'reconnecting')
-      return t('mobile.conference.reconnecting', { attempt: reconnectAttempt, cap: reconnectCap });
-    if (status === 'in-call' && peers.size === 0) return t('mobile.conference.waiting');
-    if (errorReason === 'audio-only') return t('mobile.conference.permissionDeniedAudioOnly');
+      return t('common.conference.reconnecting', { attempt: reconnectAttempt, cap: reconnectCap });
+    if (status === 'in-call' && peers.size === 0) return t('common.conference.waiting');
+    if (errorReason === 'audio-only') return t('common.conference.permissionDeniedAudioOnly');
     return undefined;
   }, [status, reconnectAttempt, reconnectCap, peers.size, errorReason]);
 
@@ -218,21 +218,21 @@ export default function ConferenceCallScreen() {
   if (status === 'error' || status === 'disconnected') {
     const title =
       errorReason === 'permission-denied'
-        ? t('mobile.conference.permissionDenied')
+        ? t('common.conference.permissionDenied')
         : errorReason === 'not-authenticated'
           ? t('mobile.conference.notAuthenticated')
           : errorReason === 'room-not-found'
-            ? t('mobile.conference.roomNotFound')
+            ? t('common.conference.roomNotFound')
             : errorReason === 'room-ended'
-              ? t('mobile.conference.roomEnded')
+              ? t('common.conference.roomEnded')
               : status === 'disconnected'
-                ? t('mobile.conference.disconnected')
-                : t('mobile.conference.errorGeneric');
+                ? t('common.conference.disconnected')
+                : t('common.conference.errorGeneric');
     const hint =
       errorReason === 'permission-denied'
         ? t('mobile.conference.permissionDeniedHint')
         : status === 'disconnected'
-          ? t('mobile.conference.disconnectedHint')
+          ? t('common.conference.disconnectedHint')
           : undefined;
 
     return (
@@ -250,7 +250,7 @@ export default function ConferenceCallScreen() {
           accessibilityRole="button"
         >
           <Text style={[styles.backToLobbyText, { color: colors.primaryForeground }]}>
-            {t('mobile.conference.backToLobby')}
+            {t('common.conference.backToLobby')}
           </Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -270,7 +270,7 @@ export default function ConferenceCallScreen() {
           accessibilityRole="text"
           accessibilityLiveRegion="polite"
         >
-          {t('mobile.conference.translationEnded')}
+          {t('common.conference.translationEnded')}
         </Text>
       ) : null}
 
@@ -285,16 +285,16 @@ export default function ConferenceCallScreen() {
         {localStream ? (
           <VideoGrid
             localStream={localStream}
-            localLabel={`${displayName} · ${t('mobile.conference.you')}`}
+            localLabel={`${displayName} · ${t('common.conference.you')}`}
             localMuted={localMuted}
             localVideoEnabled={localVideoEnabled}
             localTranslating={localTranslating}
-            translatingLabel={t('mobile.conference.translating')}
+            translatingLabel={t('common.conference.translating')}
             peers={peers}
           />
         ) : (
           <View style={styles.centered}>
-            <Text style={{ color: colors.textSecondary }}>{t('mobile.conference.connecting')}</Text>
+            <Text style={{ color: colors.textSecondary }}>{t('common.conference.connecting')}</Text>
           </View>
         )}
       </ScrollView>

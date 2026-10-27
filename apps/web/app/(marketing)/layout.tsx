@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils';
  */
 export default async function MarketingLayout({ children }: { children: React.ReactNode }) {
   const t = await getT();
-  const languages = LANGUAGE_CODES.map((code) => t(`web.languageName.${code}`)).join(' · ');
+  const languages = LANGUAGE_CODES.map((code) => t(`common.languageName.${code}`)).join(' · ');
 
   return (
     <div className="flex min-h-screen flex-col">

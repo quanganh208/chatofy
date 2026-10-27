@@ -86,7 +86,7 @@ export function RegisterForm() {
 
           <AuthField
             id="register-email"
-            label={t('web.auth.email')}
+            label={t('common.auth.email')}
             errorId={error ? 'register-error' : undefined}
             type="email"
             required
@@ -97,7 +97,7 @@ export function RegisterForm() {
 
           <AuthField
             id="register-password"
-            label={t('web.auth.password')}
+            label={t('common.auth.password')}
             errorId={error ? 'register-error' : undefined}
             type="password"
             required

@@ -70,7 +70,7 @@ export function ForgotPasswordForm() {
               change than this one and was deliberately not taken. */}
           <AuthField
             id="forgot-email"
-            label={t('web.auth.email')}
+            label={t('common.auth.email')}
             errorId={error ? 'forgot-error' : undefined}
             type="email"
             required

@@ -8,9 +8,10 @@
  * `docs/design-guidelines.md` names, which is why this is its own package rather
  * than a corner of `@chatofy/ui`.
  *
- * `apps/web` is the only consumer today. Its React provider stays in the app; when
- * a second DOM surface adopts, that provider moves behind a `/react` subpath here,
- * mirroring `@chatofy/ui/react`.
+ * `apps/web` and `apps/mobile` both read it; what they say identically lives under
+ * `common.*`. Web's React provider stays in the app; when a second DOM surface
+ * adopts, that provider moves behind a `/react` subpath here, mirroring
+ * `@chatofy/ui/react`.
  *
  * Both locales ship from here, `vi.ts` typed `Messages` so the compiler names every
  * key it forgets. Neither is loaded lazily: the whole dictionary is a few kilobytes of
@@ -20,6 +21,7 @@
 export { en, type MessageKey, type Messages } from './en.js';
 export { vi } from './vi.js';
 export { createTranslator, type Translate, type Vars } from './t.js';
+export { meetingDuration, meetingLanguages, meetingParticipants } from './meeting-summary.js';
 
 /** The locales this product ships. The switcher and the cookie both read from this. */
 export const LOCALES = ['en', 'vi'] as const;

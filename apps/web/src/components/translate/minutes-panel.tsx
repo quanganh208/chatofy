@@ -85,7 +85,7 @@ export function MinutesPanel({
       {/* Wraps rather than squeezes: at phone width the title broke over two lines
           beside its buttons. The title stays whole and the actions drop below it. */}
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-x-2 gap-y-3">
-        <CardTitle className="whitespace-nowrap">{t('web.translate.minutesTitle')}</CardTitle>
+        <CardTitle className="whitespace-nowrap">{t('common.minutes.title')}</CardTitle>
         <div className="flex items-center gap-2">
           {ready && (
             <Button variant="ghost" size="sm" onClick={() => void copy()}>
@@ -98,7 +98,7 @@ export function MinutesPanel({
             onClick={onGenerate}
             disabled={loading || !canGenerate}
           >
-            {minutes ? t('web.translate.minutesRegenerate') : t('web.translate.minutesGenerate')}
+            {minutes ? t('common.minutes.regenerate') : t('common.minutes.generate')}
           </Button>
         </div>
       </CardHeader>
@@ -109,7 +109,7 @@ export function MinutesPanel({
           <>
             {/* A failed regenerate leaves the stored ready copy readable (the
                 server keeps it), so the failure is a line above it, not instead. */}
-            {error && <p className="text-destructive">{t('web.translate.minutesFailed')}</p>}
+            {error && <p className="text-destructive">{t('common.minutes.failed')}</p>}
             {ready ? (
               <MinutesBody minutes={minutes} />
             ) : error ? null : (
@@ -130,12 +130,12 @@ function MinutesBody({ minutes }: { minutes: MinutesContent }) {
   const t = useTranslate();
   return (
     <>
-      <Section title={t('web.translate.minutesSummary')}>
+      <Section title={t('common.minutes.summary')}>
         <p>{minutes.summary}</p>
       </Section>
 
       {minutes.keyPoints.length > 0 && (
-        <Section title={t('web.translate.minutesKeyPoints')}>
+        <Section title={t('common.minutes.keyPoints')}>
           <ul className="list-disc pl-5">
             {minutes.keyPoints.map((point, i) => (
               <li key={i}>{point}</li>
@@ -145,7 +145,7 @@ function MinutesBody({ minutes }: { minutes: MinutesContent }) {
       )}
 
       {minutes.decisions.length > 0 && (
-        <Section title={t('web.translate.minutesDecisions')}>
+        <Section title={t('common.minutes.decisions')}>
           <ul className="list-disc pl-5">
             {minutes.decisions.map((decision, i) => (
               <li key={i}>{decision}</li>
@@ -154,9 +154,9 @@ function MinutesBody({ minutes }: { minutes: MinutesContent }) {
         </Section>
       )}
 
-      <Section title={t('web.translate.minutesActionItems')}>
+      <Section title={t('common.minutes.actionItems')}>
         {minutes.actionItems.length === 0 ? (
-          <p className="text-muted-foreground">{t('web.translate.minutesNoActionItems')}</p>
+          <p className="text-muted-foreground">{t('common.minutes.noActionItems')}</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {minutes.actionItems.map((item) => (
@@ -164,12 +164,12 @@ function MinutesBody({ minutes }: { minutes: MinutesContent }) {
                 <span>{item.description}</span>
                 {item.owner && (
                   <Badge variant="secondary">
-                    {t('web.translate.minutesOwner')}: {item.owner}
+                    {t('common.minutes.owner')}: {item.owner}
                   </Badge>
                 )}
                 {item.dueDate && (
                   <Badge variant="outline">
-                    {t('web.translate.minutesDue')}: {item.dueDate}
+                    {t('common.minutes.due')}: {item.dueDate}
                   </Badge>
                 )}
               </li>
@@ -193,25 +193,25 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 /** A copyable plain-markdown rendering of the minutes. */
 function toMarkdown(minutes: MinutesContent, t: ReturnType<typeof useTranslate>): string {
-  const lines: string[] = [`# ${t('web.translate.minutesTitle')}`, '', minutes.summary, ''];
+  const lines: string[] = [`# ${t('common.minutes.title')}`, '', minutes.summary, ''];
   if (minutes.keyPoints.length) {
-    lines.push(`## ${t('web.translate.minutesKeyPoints')}`);
+    lines.push(`## ${t('common.minutes.keyPoints')}`);
     for (const point of minutes.keyPoints) lines.push(`- ${point}`);
     lines.push('');
   }
   if (minutes.decisions.length) {
-    lines.push(`## ${t('web.translate.minutesDecisions')}`);
+    lines.push(`## ${t('common.minutes.decisions')}`);
     for (const decision of minutes.decisions) lines.push(`- ${decision}`);
     lines.push('');
   }
-  lines.push(`## ${t('web.translate.minutesActionItems')}`);
+  lines.push(`## ${t('common.minutes.actionItems')}`);
   if (minutes.actionItems.length === 0) {
-    lines.push(t('web.translate.minutesNoActionItems'));
+    lines.push(t('common.minutes.noActionItems'));
   } else {
     for (const item of minutes.actionItems) {
       const suffix = [
-        item.owner ? `${t('web.translate.minutesOwner')}: ${item.owner}` : null,
-        item.dueDate ? `${t('web.translate.minutesDue')}: ${item.dueDate}` : null,
+        item.owner ? `${t('common.minutes.owner')}: ${item.owner}` : null,
+        item.dueDate ? `${t('common.minutes.due')}: ${item.dueDate}` : null,
       ].filter(Boolean);
       lines.push(`- ${item.description}${suffix.length ? ` (${suffix.join(', ')})` : ''}`);
     }

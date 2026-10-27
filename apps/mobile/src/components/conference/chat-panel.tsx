@@ -63,12 +63,14 @@ export function ChatPanel({
         <View
           style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}
         >
-          <Text style={[styles.title, { color: colors.text }]}>{t('mobile.conference.chat')}</Text>
+          <Text style={[styles.title, { color: colors.text }]}>
+            {t('common.conference.chatTitle')}
+          </Text>
 
           <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
             {messages.length === 0 ? (
               <Text style={[styles.empty, { color: colors.textSecondary }]}>
-                {t('mobile.conference.chatEmpty')}
+                {t('common.conference.chatEmpty')}
               </Text>
             ) : (
               messages.map((m) => {
@@ -95,8 +97,8 @@ export function ChatPanel({
               accessibilityLiveRegion="polite"
             >
               {notice === 'rate-limited'
-                ? t('mobile.conference.chatRateLimited')
-                : t('mobile.conference.chatNotSent')}
+                ? t('common.conference.chatRateLimited')
+                : t('common.conference.chatNotSent')}
             </Text>
           ) : null}
 
@@ -108,7 +110,7 @@ export function ChatPanel({
               ]}
               value={draft}
               onChangeText={setDraft}
-              placeholder={t('mobile.conference.chatPlaceholder')}
+              placeholder={t('common.conference.chatPlaceholder')}
               placeholderTextColor={colors.muted}
               onSubmitEditing={submit}
               returnKeyType="send"
@@ -122,7 +124,7 @@ export function ChatPanel({
               accessibilityRole="button"
             >
               <Text style={[styles.sendText, { color: colors.text }]}>
-                {t('mobile.conference.chatSend')}
+                {t('common.conference.chatSend')}
               </Text>
             </TouchableOpacity>
           </View>

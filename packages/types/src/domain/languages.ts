@@ -24,7 +24,7 @@ interface LanguageSpec {
    *
    * Here rather than in the i18n catalogues because the extension popup has no
    * catalogue and names languages in English. Web names them in the reader's
-   * locale instead, from `web.languageName.<code>`.
+   * locale instead, from `common.languageName.<code>`.
    */
   readonly label: string;
 }

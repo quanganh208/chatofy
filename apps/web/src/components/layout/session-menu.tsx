@@ -105,7 +105,7 @@ export function SessionMenu() {
             <DropdownMenuSeparator />
             <DropdownMenuItem id="sign-out" onSelect={() => void signOutOfChatofy()}>
               <LogOut aria-hidden />
-              {t('web.chrome.signOut')}
+              {t('common.auth.signOut')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

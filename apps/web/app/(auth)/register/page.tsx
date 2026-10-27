@@ -66,7 +66,7 @@ export default async function RegisterPage() {
           wants a different return link, and a layout receives nothing from its page. */}
       <p className="text-hint text-center">
         <AuthLink href="/login">
-          {t('web.auth.haveAccountPrompt')} {t('web.auth.signIn')}
+          {t('web.auth.haveAccountPrompt')} {t('common.auth.signIn')}
         </AuthLink>
       </p>
     </>

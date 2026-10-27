@@ -37,9 +37,7 @@ export function TranscriptSheet({ t, visible, entries, onClose }: TranscriptShee
         <View
           style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}
         >
-          <Text style={[styles.title, { color: colors.text }]}>
-            {t('mobile.conference.transcript')}
-          </Text>
+          <Text style={[styles.title, { color: colors.text }]}>{t('common.transcript')}</Text>
           <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
             {entries.length === 0 ? (
               <Text style={[styles.empty, { color: colors.textSecondary }]}>

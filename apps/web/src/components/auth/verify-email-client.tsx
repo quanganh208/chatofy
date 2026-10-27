@@ -53,7 +53,7 @@ export function VerifyEmailClient() {
   if (alreadyExists) {
     return (
       <p id="verify-already-exists" role="status" className="text-prose">
-        {t('web.auth.accountExists')} <AuthLink href="/login">{t('web.auth.signIn')}</AuthLink>
+        {t('web.auth.accountExists')} <AuthLink href="/login">{t('common.auth.signIn')}</AuthLink>
       </p>
     );
   }

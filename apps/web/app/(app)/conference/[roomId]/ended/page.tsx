@@ -42,7 +42,7 @@ export default function ConferenceEndedPage() {
   // Only a server-minted cuid can name a room, so anything else is answered
   // without a request — the same rule the room screen applies.
   if (!conferenceRoomIdSchema.safeParse(roomId).success) {
-    return <EndNotice messageKey="web.conference.endedNotFound" />;
+    return <EndNotice messageKey="common.conference.endedNotFound" />;
   }
   return <EndScreen roomId={roomId} />;
 }
@@ -52,15 +52,17 @@ function EndScreen({ roomId }: { roomId: string }) {
   const locale = useLocale();
   const end = useConferenceEnd(roomId);
 
-  if (end.load === 'loading') return <EndNotice messageKey="web.conference.endedLoading" />;
-  if (end.load === 'not-found') return <EndNotice messageKey="web.conference.endedNotFound" />;
+  if (end.load === 'loading') return <EndNotice messageKey="common.conference.endedLoading" />;
+  if (end.load === 'not-found') return <EndNotice messageKey="common.conference.endedNotFound" />;
   if (end.load === 'failed' || !end.conference) {
-    return <EndNotice messageKey="web.conference.endedLoadFailed" />;
+    return <EndNotice messageKey="common.conference.endedLoadFailed" />;
   }
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 py-8">
-      <h1 className="text-heading text-center font-semibold">{t('web.conference.endedTitle')}</h1>
+      <h1 className="text-heading text-center font-semibold">
+        {t('common.conference.endedTitle')}
+      </h1>
       <MeetingSummaryCard conference={end.conference} />
       <BackToLobby />
       <MinutesPanel
@@ -70,7 +72,7 @@ function EndScreen({ roomId }: { roomId: string }) {
         // request that failed just now.
         error={end.generateFailed || end.minutes?.status === 'failed'}
         canGenerate={end.conference._count.turns > 0}
-        unavailableHint={t('web.conference.minutesNothingSaid')}
+        unavailableHint={t('common.minutes.nothingSaid')}
         emphasis="quiet"
         onGenerate={() => void end.generate(locale)}
       />
@@ -83,9 +85,9 @@ function EndNotice({
   messageKey,
 }: {
   messageKey:
-    | 'web.conference.endedLoading'
-    | 'web.conference.endedNotFound'
-    | 'web.conference.endedLoadFailed';
+    | 'common.conference.endedLoading'
+    | 'common.conference.endedNotFound'
+    | 'common.conference.endedLoadFailed';
 }) {
   const t = useTranslate();
   return (
@@ -101,7 +103,7 @@ function BackToLobby() {
   const router = useRouter();
   return (
     <Button variant="default" className="self-center" onClick={() => router.push('/conference')}>
-      {t('web.conference.backToLobby')}
+      {t('common.conference.backToLobby')}
     </Button>
   );
 }

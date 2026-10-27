@@ -157,7 +157,7 @@ function TurnLanguage({ languages }: { languages: readonly LanguageCode[] }) {
       <span aria-hidden>{languages.map((code) => t(`web.languageShort.${code}`)).join(' · ')}</span>
       <span className="sr-only">
         {t('web.translate.turnLanguage', {
-          language: languages.map((code) => t(`web.languageName.${code}`)).join(', '),
+          language: languages.map((code) => t(`common.languageName.${code}`)).join(', '),
         })}
       </span>
     </span>
