@@ -26,7 +26,15 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/translate', '/conference', '/history', '/preferences', '/account', '/api/'],
+      disallow: [
+        '/translate',
+        '/conference',
+        '/history',
+        '/glossary',
+        '/preferences',
+        '/account',
+        '/api/',
+      ],
     },
     sitemap: new URL('/sitemap.xml', serverEnv.WEB_BASE_URL).toString(),
   };

@@ -158,6 +158,7 @@ export const en = {
   'web.chrome.navTranslate': 'Translate',
   'web.chrome.navConference': 'Conference',
   'web.chrome.navHistory': 'History',
+  'web.chrome.navGlossary': 'Glossary',
   'web.chrome.navPreferences': 'Preferences',
   // Its own key rather than reusing `accountMenu`. That one names the avatar
   // control ("open your account menu"); this one names a destination, and a
@@ -764,6 +765,7 @@ export const en = {
   'web.conference.meetingCode': 'Meeting code',
   'web.conference.roomGoneHint': 'Check the link, or ask whoever invited you for a new one.',
   'web.meta.conference': 'Conference · Chatofy',
+  'web.meta.glossary': 'Glossary · Chatofy',
 
   // ---- mobile.conference: the React Native conference lobby + call screen ----
   //
@@ -801,6 +803,40 @@ export const en = {
   'mobile.auth.noAccount': 'No account yet? Create one on the Chatofy website, then sign in here.',
   'mobile.settings.signedInAs': 'Signed in as {email}',
   'mobile.settings.signedOut': 'You are not signed in.',
+
+  // ---- web.glossary ----
+  'web.glossary.title': 'Glossaries',
+  'web.glossary.new': 'New',
+  'web.glossary.loadFailed': 'Could not load your glossaries.',
+  'web.glossary.emptyList': 'No glossaries yet.',
+  'web.glossary.termCount': '{count} terms',
+  'web.glossary.badgeActive': 'Active',
+  'web.glossary.badgeInactive': 'Inactive',
+  'web.glossary.toggleActive': 'Toggle active',
+  'web.glossary.delete': 'Delete',
+  'web.glossary.nameLabel': 'Name',
+  'web.glossary.descriptionLabel': 'Description',
+  'web.glossary.sourceLangLabel': 'Source language',
+  'web.glossary.createFailed': 'Could not create the glossary. Try again.',
+  'web.glossary.creating': 'Creating…',
+  'web.glossary.create': 'Create',
+  'web.glossary.cancel': 'Cancel',
+  'web.glossary.setDefault': 'Use for every session',
+  'web.glossary.originalLabel': 'Original',
+  'web.glossary.translationLabel': 'Translation',
+  'web.glossary.targetLangLabel': 'Target language',
+  'web.glossary.notesLabel': 'Notes',
+  'web.glossary.notesPlaceholder': 'Optional note about this term',
+  'web.glossary.addTermFailed': 'Could not add the term. Try again.',
+  'web.glossary.adding': 'Adding…',
+  'web.glossary.addTerm': 'Add term',
+  'web.glossary.filterTerms': 'Filter terms…',
+  'web.glossary.loadTermsFailed': 'Could not load the terms.',
+  'web.glossary.noTermsMatch': 'No terms match that.',
+  'web.glossary.noTerms': 'No terms yet.',
+  'web.glossary.removeTerm': 'Remove term',
+  'web.glossary.selectGlossary': 'Select a glossary to see its terms.',
+  'web.glossary.termsHeading': 'Terms',
 } as const;
 
 /** Every key any locale must carry. Derived, so a locale cannot drift from it. */

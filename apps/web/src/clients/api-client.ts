@@ -8,6 +8,10 @@ import {
   conversationListResponseSchema,
   conversationResponseSchema,
   conversationSummaryResponseSchema,
+  glossaryItemListResponseSchema,
+  glossaryItemSchema,
+  glossaryListResponseSchema,
+  glossarySchema,
   minutesResponseSchema,
   readableTranslationContextListSchema,
   storedConferenceMinutesResponseSchema,
@@ -18,8 +22,11 @@ import {
   type ForgotPasswordRequest,
   type GenerateMinutesRequest,
   type LanguageCode,
+  type PatchGlossaryRequest,
   type RegisterRequest,
   type SaveConversationRequest,
+  type SaveGlossaryItemRequest,
+  type SaveGlossaryRequest,
   type SaveTranslationContextRequest,
   type ResetPasswordRequest,
   type UpdateMeRequest,
@@ -289,6 +296,66 @@ export function deleteConversation(conversationId: string) {
     method: 'DELETE',
   });
 }
+
+// ─── Glossary ────────────────────────────────────────────────────────────────
+
+/** The caller's named glossaries, newest first. */
+export function listGlossaries() {
+  return authedFetch('/glossaries', glossaryListResponseSchema);
+}
+
+/** Create or replace one glossary's metadata. 409 at the ceiling. */
+export function saveGlossary(glossaryId: string, body: SaveGlossaryRequest) {
+  return authedFetch(
+    `/glossaries/${encodeURIComponent(glossaryId)}`,
+    z.object({ glossary: glossarySchema }),
+    { method: 'PUT', body: JSON.stringify(body) },
+  );
+}
+
+/** Toggle isActive or set isDefault. */
+export function patchGlossary(glossaryId: string, body: PatchGlossaryRequest) {
+  return authedFetch(
+    `/glossaries/${encodeURIComponent(glossaryId)}`,
+    z.object({ glossary: glossarySchema }),
+    { method: 'PATCH', body: JSON.stringify(body) },
+  );
+}
+
+/** Delete a glossary and all its terms. Idempotent (204). */
+export function deleteGlossary(glossaryId: string) {
+  return authedFetch(`/glossaries/${encodeURIComponent(glossaryId)}`, z.undefined(), {
+    method: 'DELETE',
+  });
+}
+
+/** List terms in a glossary. Empty list when glossary does not exist. */
+export function listGlossaryItems(glossaryId: string) {
+  return authedFetch(
+    `/glossaries/${encodeURIComponent(glossaryId)}/items`,
+    glossaryItemListResponseSchema,
+  );
+}
+
+/** Add a term pair. clientId in body provides idempotency. */
+export function addGlossaryItem(glossaryId: string, body: SaveGlossaryItemRequest) {
+  return authedFetch(
+    `/glossaries/${encodeURIComponent(glossaryId)}/items`,
+    z.object({ item: glossaryItemSchema }),
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+}
+
+/** Delete one term. Idempotent (204). */
+export function deleteGlossaryItem(glossaryId: string, itemId: string) {
+  return authedFetch(
+    `/glossaries/${encodeURIComponent(glossaryId)}/items/${encodeURIComponent(itemId)}`,
+    z.undefined(),
+    { method: 'DELETE' },
+  );
+}
+
+// ─── Translation contexts ─────────────────────────────────────────────────────
 
 /**
  * The caller's saved AI Contexts, newest first.

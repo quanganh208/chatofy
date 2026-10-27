@@ -144,3 +144,25 @@ export type {
   ConferenceMinutesResponse,
   StoredConferenceMinutesResponse,
 } from './conference.js';
+
+// Standalone Glossary contracts — named collections of term pairs managed
+// independently of TranslationContext.
+export {
+  GLOSSARY_LIMITS,
+  saveGlossaryRequestSchema,
+  patchGlossaryRequestSchema,
+  glossarySchema,
+  glossaryListResponseSchema,
+  saveGlossaryItemRequestSchema,
+  glossaryItemSchema,
+  glossaryItemListResponseSchema,
+} from './glossaries.js';
+export type {
+  SaveGlossaryRequest,
+  PatchGlossaryRequest,
+  Glossary,
+  GlossaryListResponse,
+  SaveGlossaryItemRequest,
+  GlossaryItem,
+  GlossaryItemListResponse,
+} from './glossaries.js';

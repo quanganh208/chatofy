@@ -25,6 +25,7 @@ describe('the conference entry', () => {
       '/translate',
       '/conference',
       '/history',
+      '/glossary',
       '/preferences',
       '/account',
     ]);
