@@ -157,6 +157,18 @@ export class TurnSession {
    * `SessionOptions` literal in the monorepo stop compiling.
    */
   readonly voiceOutput: boolean;
+  /**
+   * Whether every audio frame names its language (`lang`).
+   *
+   * True for any start that asked for `alsoTranslateInto`, however many of
+   * those languages end up voiced: the client of such a turn routes audio to
+   * listeners by language, and a frame without a tag would leave it guessing
+   * when the speech engine could voice only one of them. A plain one-language
+   * turn stays untagged, as it always was.
+   */
+  readonly tagsAudioLanguage: boolean;
+  /** Whether a meeting's speaker leg opened this turn; see `SessionOptions.meeting`. */
+  readonly meeting: boolean;
   /** Speaking rate. Honoured for English output; the Vietnamese engine has none. */
   readonly speed: number;
   /** An opaque backend voice token, when the client named one. */
@@ -238,6 +250,8 @@ export class TurnSession {
     this.voiceGender = options.voiceGender;
     this.hints = options.hints;
     this.voiceOutput = options.voiceOutput ?? true;
+    this.tagsAudioLanguage = (options.alsoTranslateInto?.length ?? 0) > 0;
+    this.meeting = options.meeting ?? false;
     this.speed = options.speed ?? 1;
     this.voice = options.voice;
     this.voices = options.voices;
@@ -485,7 +499,12 @@ function defaultPlan(options: SessionOptions): TurnLanguagePlan {
   if (source === AUTO_DETECT) {
     throw new Error('A turn with an undeclared source needs its decision');
   }
-  return planForPair({ source, target }, DEFAULT_IDENTIFIER);
+  return planForPair(
+    { source, target },
+    DEFAULT_IDENTIFIER,
+    // Extras ride on a declared one-way turn only, as `start()` applies them.
+    options.twoWay ? [] : (options.alsoTranslateInto ?? []),
+  );
 }
 
 /** A plan decided before the turn starts, as the decision a turn reads it through. */

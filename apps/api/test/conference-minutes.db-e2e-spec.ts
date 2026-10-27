@@ -132,6 +132,39 @@ describe('Conference minutes (db-e2e)', () => {
       .expect(404);
   });
 
+  it('keeps a turn translated into several languages, and still writes minutes from it', async () => {
+    const id = await room();
+    const speaker = await prisma.conferenceParticipant.findFirstOrThrow({
+      where: { conferenceId: id, sourceLanguage: 'vi' },
+      select: { id: true },
+    });
+    const turn = await prisma.conferenceTurn.create({
+      data: {
+        conferenceId: id,
+        participantId: speaker.id,
+        sourceLanguage: 'vi',
+        sourceText: 'chốt thứ sáu',
+        searchText: 'chot thu sau settle friday 周五定',
+        translations: { en: 'settle Friday', zh: '周五定' },
+      },
+      select: { id: true },
+    });
+
+    const stored = await prisma.conferenceTurn.findUniqueOrThrow({
+      where: { id: turn.id },
+      select: { translations: true },
+    });
+    expect(stored.translations).toEqual({
+      en: 'settle Friday',
+      zh: '周五定',
+    });
+    await request(app.getHttpServer())
+      .post(`/conference/${id}/minutes`)
+      .set('authorization', owner.bearer)
+      .send({})
+      .expect(201);
+  });
+
   it('refuses a room where nothing was said with 400', async () => {
     const id = await room({ said: [] });
 

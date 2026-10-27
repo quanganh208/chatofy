@@ -38,6 +38,11 @@ export interface StreamedSpeechDeps {
    * throws, so a turn that breaks after N chunks is a failure, never `completed`.
    */
   fail: (err: unknown) => never;
+  /**
+   * Called when the first audio of this speech is on the wire, so speech in
+   * another language can be held back until this one has started.
+   */
+  onFirstAudio?: () => void;
   now?: () => number;
 }
 
@@ -73,7 +78,10 @@ export async function deliverStreamedSpeech(
         bytes.subarray(0, whole),
         deps.stream.sampleRate,
       );
-      firstAudioAt ??= now();
+      if (firstAudioAt === undefined) {
+        firstAudioAt = now();
+        deps.onFirstAudio?.();
+      }
       lastAudioAt = now();
     }
   } catch (err) {

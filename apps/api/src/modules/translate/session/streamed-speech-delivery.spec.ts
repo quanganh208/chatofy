@@ -100,6 +100,30 @@ describe('deliverStreamedSpeech', () => {
     });
   });
 
+  it('signals its first audio once, after that audio is on the wire', async () => {
+    const framesAtSignal: number[] = [];
+    const frames: unknown[] = [];
+    let sequence = 0;
+    await deliverStreamedSpeech({
+      stream: {
+        encoding: 'pcm16',
+        sampleRate: RATE,
+        chunks: chunksOf([Buffer.alloc(4), Buffer.alloc(4)]),
+      },
+      sessionId: 's1',
+      emit: (frame) => frames.push(frame),
+      nextSequence: () => sequence++,
+      stillWanted: () => true,
+      fail: (err) => {
+        throw err;
+      },
+      onFirstAudio: () => framesAtSignal.push(frames.length),
+    });
+
+    expect(framesAtSignal).toEqual([1]);
+    expect(frames).toHaveLength(2);
+  });
+
   it('stops at the next chunk once the listener has gone', async () => {
     const { frames, run } = harness([
       Buffer.alloc(4),

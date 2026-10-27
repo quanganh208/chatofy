@@ -27,6 +27,22 @@ import { MAX_TURN_BYTES } from './turn-audio';
 export const MAX_CONCURRENT_TURNS_PER_SOCKET = 3;
 
 /**
+ * Turns one account may hold open at once, across every socket it has.
+ *
+ * Sits between the two ceilings around it and answers what neither can. The
+ * per-socket one is blind to a second socket, and a meeting's speaker leg is
+ * one: it runs continuously for as long as the meeting does, so an account in a
+ * meeting with /translate open in another tab — or in two meetings — could hold
+ * the whole {@link MAX_CONCURRENT_TURNS_GLOBAL} that every /translate user shares.
+ * Three is one continuous speaker's worth (see the per-socket ceiling above), so
+ * a single leg never meets it; a second socket of the same account does.
+ *
+ * Turns opened without a verified user are not pooled under this ceiling: each
+ * one is attributed to its own session id, so only the other two bound them.
+ */
+export const MAX_CONCURRENT_TURNS_PER_USER = 3;
+
+/**
  * Turns open across the whole process.
  *
  * This is the ceiling that actually guards the machine, and it has to exist
@@ -43,6 +59,23 @@ export const MAX_CONCURRENT_TURNS_PER_SOCKET = 3;
  * them arrive too late rather than most of them arriving on time.
  */
 export const MAX_CONCURRENT_TURNS_GLOBAL = 6;
+
+/**
+ * Turns meeting speaker legs may hold together, inside
+ * {@link MAX_CONCURRENT_TURNS_GLOBAL}.
+ *
+ * A leg captures for the whole meeting, so two continuous speakers at
+ * {@link MAX_CONCURRENT_TURNS_PER_USER} each hold all six global slots. Measured
+ * on the dev stack with two such speakers in a vi/en/zh room, the slots stayed
+ * full for about 186 of 200 s, and a /translate user got 0 of 112 starts
+ * admitted. Four leaves two turns that only /translate can take, which is one
+ * speaker's working depth however many people talk in a meeting.
+ *
+ * Only turns that say they come from a leg (`SessionOptions.meeting`) count
+ * here. A leg built before the field existed lands in the shared pool, as every
+ * turn did before.
+ */
+export const MAX_CONCURRENT_MEETING_TURNS = 4;
 
 /**
  * How long a turn may sit without a frame before the server closes it.

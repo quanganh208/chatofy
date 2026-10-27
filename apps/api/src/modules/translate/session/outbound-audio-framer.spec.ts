@@ -109,6 +109,31 @@ describe('pushSynthesizedWav', () => {
     }
   });
 
+  it('tags every frame envelope with the language when one is given', () => {
+    const socket = new FakeSocket();
+    const session = openSession();
+
+    pushSynthesizedWav(channelFor(socket), session, ttsWav(400), 'zh');
+
+    expect(socket.sent).toHaveLength(2);
+    for (const event of socket.sent) {
+      expect(event).toMatchObject({ type: 'server.audio.frame', lang: 'zh' });
+    }
+  });
+
+  // A single-language turn's frames must stay byte-for-byte what they were.
+  it('leaves the envelope without a language when none is given', () => {
+    const socket = new FakeSocket();
+    const session = openSession();
+
+    pushSynthesizedWav(channelFor(socket), session, ttsWav(400));
+
+    expect(socket.sent).toHaveLength(2);
+    for (const event of socket.sent) {
+      expect(Object.keys(event).sort()).toEqual(['frame', 'type']);
+    }
+  });
+
   it('sends nothing at all when the payload could not be framed', () => {
     const socket = new FakeSocket();
     const session = openSession();

@@ -100,6 +100,11 @@ interface Harness {
    */
   languageRefusal: string | null;
   /**
+   * Answers `refusal()` per plan when given, overriding `languageRefusal`: for
+   * an engine that serves some spoken languages and not others.
+   */
+  refusalFor?: (plan: { spoken: LanguageCode | null }) => string | null;
+  /**
    * What the STT engine reports it can identify, or `null` when not known —
    * the state every test above this feature runs in.
    */
@@ -180,7 +185,7 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
   const languageRefusal = overrides.languageRefusal ?? null;
   const identifiable = overrides.identifiable ?? null;
   const languageSupport = {
-    refusal: () => languageRefusal,
+    refusal: overrides.refusalFor ?? (() => languageRefusal),
     identifiable: () => identifiable,
   } as unknown as SpeechLanguageSupport;
   const identifier = overrides.identifier ?? new DeclaredLanguageIdentifier();
@@ -4653,5 +4658,352 @@ describe('language fan-out (through the real pipeline)', () => {
     expect(translate).toHaveBeenCalledTimes(1);
     const [final] = socket.ofType('server.transcript.final');
     expect(Object.keys(final!.segment.translations)).toEqual(['en']);
+  });
+});
+
+/**
+ * A turn asked to speak in more languages than its pair's target: a meeting
+ * whose listeners speak several languages, served by one turn.
+ */
+describe('a turn voiced in several languages', () => {
+  const multiTarget: SessionOptions = {
+    languagePair: { source: 'vi', target: 'en' },
+    voiceGender: 'female',
+    alsoTranslateInto: ['zh'],
+  };
+  const bothTranslated = () =>
+    vi.fn().mockResolvedValue({
+      sourceText: 'xin chào',
+      translations: { en: 'hello', zh: '你好' },
+    });
+
+  const startAndEnd = async (
+    service: TranslationSessionService,
+    socket: FakeSocket,
+    options: SessionOptions = multiTarget,
+    userId?: string,
+  ) => {
+    service.start(socket, options, undefined, userId);
+    const sessionId = socket.ofType('server.session.ready').at(-1)!.sessionId;
+    service.pushFrame(socket, frame({ sessionId }));
+    await service.end(socket, sessionId);
+    return sessionId;
+  };
+
+  const audioLangs = (socket: FakeSocket) =>
+    socket.ofType('server.audio.frame').map((e) => e.lang);
+
+  it('runs as one turn translated into and spoken in every voiced language, each frame tagged', async () => {
+    const plans: TurnLanguagePlan[] = [];
+    const transcribeAndTranslate = vi.fn(
+      (_input: TranslateTurnInput, plan: TurnLanguagePlan) => {
+        plans.push(plan);
+        return Promise.resolve({
+          sourceText: 'xin chào',
+          translations: { en: 'hello', zh: '你好' },
+        });
+      },
+    );
+    const { service, synthesize } = makeService({ transcribeAndTranslate });
+    const socket = new FakeSocket();
+
+    await startAndEnd(service, socket);
+
+    expect(socket.ofType('server.session.ready')).toHaveLength(1);
+    expect(plans[0]).toMatchObject({
+      targets: ['en', 'zh'],
+      spoken: 'en',
+      voiced: ['en', 'zh'],
+    });
+    const langs = audioLangs(socket);
+    expect(langs.filter((lang) => lang === 'en')).toHaveLength(5);
+    expect(langs.filter((lang) => lang === 'zh')).toHaveLength(5);
+    expect(langs).toHaveLength(10);
+    expect(
+      (synthesize.mock.calls as [SynthesizeRequest][]).map(
+        ([request]) => request.language,
+      ),
+    ).toEqual(['en', 'zh']);
+    const [final] = socket.ofType('server.transcript.final');
+    expect(final!.segment.translations).toEqual({ en: 'hello', zh: '你好' });
+    expect(socket.ofType('server.session.ended')[0]?.reason).toBe('completed');
+  });
+
+  it('an extra language whose synthesis throws leaves the primary audio intact and reports nothing', async () => {
+    const synthesize = vi.fn((request: SynthesizeRequest) =>
+      request.language === 'zh'
+        ? Promise.reject(new Error('zh engine down'))
+        : Promise.resolve({ bytes: ttsWav(1000), mimeType: 'audio/wav' }),
+    );
+    const warn = vi.spyOn(Logger.prototype, 'warn');
+    try {
+      const { service, recorded } = makeService({
+        transcribeAndTranslate: bothTranslated(),
+        synthesize,
+      });
+      const socket = new FakeSocket();
+
+      await startAndEnd(service, socket);
+
+      expect(socket.ofType('server.error')).toHaveLength(0);
+      expect(audioLangs(socket)).toEqual(Array<string>(5).fill('en'));
+      expect(socket.ofType('server.session.ended')[0]?.reason).toBe(
+        'completed',
+      );
+      expect(recorded[0]?.completed).toBe(true);
+      expect(
+        warn.mock.calls.filter(([message]) =>
+          String(message).includes('speech in zh failed'),
+        ),
+      ).toHaveLength(1);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('starts the extra language only after the primary has delivered its first clause', async () => {
+    const order: string[] = [];
+    class OrderedSocket extends FakeSocket {
+      override send(data: string): void {
+        super.send(data);
+        const event = this.events.at(-1)!;
+        if (event.type === 'server.audio.frame')
+          order.push(`frame ${event.lang}`);
+      }
+    }
+    const synthesize = vi.fn((request: SynthesizeRequest) => {
+      order.push(`synthesize ${request.language}`);
+      return Promise.resolve({ bytes: ttsWav(400), mimeType: 'audio/wav' });
+    });
+    const { service } = makeService({
+      transcribeAndTranslate: vi.fn().mockResolvedValue({
+        sourceText: 'xin chào, bạn khỏe không',
+        translations: { en: 'hello, how are you', zh: '你好，你好吗' },
+      }),
+      synthesize,
+    });
+    const socket = new OrderedSocket();
+
+    await startAndEnd(service, socket);
+
+    expect(order[0]).toBe('synthesize en');
+    const firstExtra = order.indexOf('synthesize zh');
+    expect(order.indexOf('frame en')).toBeGreaterThan(0);
+    expect(firstExtra).toBeGreaterThan(order.indexOf('frame en'));
+    expect(order).toContain('frame zh');
+  });
+
+  it('a single-target turn carries no lang on any frame', async () => {
+    const { service } = makeService();
+    const socket = new FakeSocket();
+
+    await startAndEnd(service, socket, {
+      languagePair: { source: 'vi', target: 'en' },
+      voiceGender: 'female',
+    });
+
+    const frames = socket.ofType('server.audio.frame');
+    expect(frames).toHaveLength(5);
+    for (const event of frames) expect('lang' in event).toBe(false);
+  });
+
+  it('drops the voice of an extra the speech engine cannot speak, keeping its text and the turn', async () => {
+    const { service, synthesize } = makeService({
+      transcribeAndTranslate: bothTranslated(),
+      refusalFor: ({ spoken }) =>
+        spoken === 'zh' ? 'This server cannot speak zh right now' : null,
+    });
+    const socket = new FakeSocket();
+
+    await startAndEnd(service, socket);
+
+    expect(socket.ofType('server.error')).toHaveLength(0);
+    // One voiced language, still tagged: the start asked for several, so its
+    // client routes audio by language and an untagged frame would be dropped.
+    expect(audioLangs(socket)).toEqual(Array<string>(5).fill('en'));
+    expect(synthesize).toHaveBeenCalledTimes(1);
+    const [final] = socket.ofType('server.transcript.final');
+    expect(final!.segment.translations).toEqual({ en: 'hello', zh: '你好' });
+  });
+
+  it('ignores extras on a two-way start', async () => {
+    const plans: TurnLanguagePlan[] = [];
+    const { service } = makeService({
+      transcribeAndTranslate: vi.fn(
+        (_input: TranslateTurnInput, plan: TurnLanguagePlan) => {
+          plans.push(plan);
+          return Promise.resolve({
+            sourceText: 'xin chào',
+            translations: { en: 'hello' },
+          });
+        },
+      ),
+    });
+    const socket = new FakeSocket();
+
+    // No engine can identify here, so two-way runs as its declared pair.
+    await startAndEnd(service, socket, { ...multiTarget, twoWay: true });
+
+    expect(plans[0]?.targets).toEqual(['en']);
+    expect(plans[0]?.voiced).toEqual(['en']);
+  });
+
+  it('logs the extras a turn asked for with who asked', async () => {
+    const log = vi.spyOn(Logger.prototype, 'log');
+    try {
+      const { service } = makeService({
+        transcribeAndTranslate: bothTranslated(),
+      });
+      const socket = new FakeSocket();
+
+      await startAndEnd(service, socket, multiTarget, 'user-1');
+
+      const lines = log.mock.calls
+        .map(([message]) => String(message))
+        .filter((message) => message.includes('alsoTranslateInto='));
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toContain('user=user-1');
+      expect(lines[0]).toContain('alsoTranslateInto=zh');
+      expect(lines[0]).toContain('voiced=en,zh');
+    } finally {
+      log.mockRestore();
+    }
+  });
+});
+
+describe('the per-account turn ceiling', () => {
+  const options: SessionOptions = {
+    languagePair: { source: 'vi', target: 'en' },
+    voiceGender: 'female',
+  };
+
+  it('refuses an account holding three turns on one socket a fourth on another', () => {
+    const { service } = makeService();
+    const tab = new FakeSocket();
+    const meeting = new FakeSocket();
+    for (let i = 0; i < 3; i += 1)
+      service.start(meeting, options, undefined, 'alice');
+    expect(meeting.ofType('server.session.ready')).toHaveLength(3);
+
+    service.start(tab, options, 'turn-1', 'alice');
+
+    expect(tab.ofType('server.session.ready')).toHaveLength(0);
+    expect(tab.ofType('server.error')).toEqual([
+      expect.objectContaining({
+        code: 'too_many_turns',
+        message: 'Your account may hold 3 turns at once',
+        turnId: 'turn-1',
+      }),
+    ]);
+  });
+
+  it('admits another account, and a start with no user, on the same socket', () => {
+    const { service } = makeService();
+    const meeting = new FakeSocket();
+    const tab = new FakeSocket();
+    for (let i = 0; i < 3; i += 1)
+      service.start(meeting, options, undefined, 'alice');
+
+    service.start(tab, options, undefined, 'bob');
+    service.start(tab, options);
+
+    expect(tab.ofType('server.error')).toHaveLength(0);
+    expect(tab.ofType('server.session.ready')).toHaveLength(2);
+  });
+
+  it('frees the account slot when one of its turns ends', async () => {
+    const { service } = makeService();
+    const meeting = new FakeSocket();
+    const tab = new FakeSocket();
+    for (let i = 0; i < 3; i += 1)
+      service.start(meeting, options, undefined, 'alice');
+    const first = meeting.ofType('server.session.ready')[0]!.sessionId;
+    service.pushFrame(meeting, frame({ sessionId: first }));
+    await service.end(meeting, first);
+
+    service.start(tab, options, undefined, 'alice');
+
+    expect(tab.ofType('server.session.ready')).toHaveLength(1);
+  });
+});
+
+describe('the meeting turn ceiling', () => {
+  const plain: SessionOptions = {
+    languagePair: { source: 'vi', target: 'en' },
+    voiceGender: 'female',
+  };
+  const leg: SessionOptions = { ...plain, meeting: true };
+
+  /** Two meeting speakers, each a separate account, at their full depth of three. */
+  function busyMeeting(service: ReturnType<typeof makeService>['service']) {
+    const alice = new FakeSocket();
+    const bob = new FakeSocket();
+    for (let i = 0; i < 3; i += 1) {
+      service.start(alice, leg, undefined, 'alice');
+      service.start(bob, leg, undefined, 'bob');
+    }
+    return { alice, bob };
+  }
+
+  it('holds meeting legs to four turns between them', () => {
+    const { service } = makeService();
+    const { alice, bob } = busyMeeting(service);
+
+    const admitted =
+      alice.ofType('server.session.ready').length +
+      bob.ofType('server.session.ready').length;
+    expect(admitted).toBe(4);
+    expect([
+      ...alice.ofType('server.error'),
+      ...bob.ofType('server.error'),
+    ]).toEqual([
+      expect.objectContaining({
+        code: 'too_many_turns',
+        message: 'Meetings are at translation capacity; try again in a moment',
+      }),
+      expect.objectContaining({ code: 'too_many_turns' }),
+    ]);
+  });
+
+  it('leaves the rest of the shared ceiling to /translate', () => {
+    const { service } = makeService();
+    busyMeeting(service);
+    const tab = new FakeSocket();
+
+    service.start(tab, plain, undefined, 'carol');
+    service.start(tab, plain, undefined, 'carol');
+
+    expect(tab.ofType('server.session.ready')).toHaveLength(2);
+    expect(tab.ofType('server.error')).toHaveLength(0);
+  });
+
+  it('pools a leg that does not say it is one with ordinary turns', () => {
+    const { service } = makeService();
+    const socket = new FakeSocket();
+    for (let i = 0; i < 3; i += 1) {
+      service.start(socket, plain, undefined, 'alice');
+    }
+    const other = new FakeSocket();
+    for (let i = 0; i < 3; i += 1) {
+      service.start(other, plain, undefined, 'bob');
+    }
+
+    expect(
+      socket.ofType('server.session.ready').length +
+        other.ofType('server.session.ready').length,
+    ).toBe(6);
+  });
+
+  it('frees a meeting slot when a leg turn ends', async () => {
+    const { service } = makeService();
+    const { alice } = busyMeeting(service);
+    const first = alice.ofType('server.session.ready')[0]!.sessionId;
+    service.pushFrame(alice, frame({ sessionId: first }));
+    await service.end(alice, first);
+    const late = new FakeSocket();
+
+    service.start(late, leg, undefined, 'dave');
+
+    expect(late.ofType('server.session.ready')).toHaveLength(1);
   });
 });

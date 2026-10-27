@@ -1,3 +1,4 @@
+import type { LanguageCode } from '@chatofy/types';
 import { decodeWavToPcm16, WavFormatError } from '../audio/wav-codec';
 import type { EventChannel } from './event-channel';
 import type { TurnSession } from './turn-session';
@@ -51,6 +52,12 @@ export function pushSynthesizedWav(
   channel: EventChannel,
   session: TurnSession,
   audio: Buffer,
+  /**
+   * The language this audio is spoken in, for a turn voiced in several. Put on
+   * the envelope only when given: a single-language turn's frames stay exactly
+   * what they were.
+   */
+  lang?: LanguageCode,
 ): PushResult {
   const framed = frameSynthesizedWav(audio);
   if (!framed.ok) return framed;
@@ -66,6 +73,7 @@ export function pushSynthesizedWav(
         timestamp: Date.now(),
         payload: slice.toString('base64'),
       },
+      ...(lang === undefined ? {} : { lang }),
     });
   }
   return { ok: true };

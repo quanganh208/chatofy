@@ -19,7 +19,10 @@ import { ConferenceSfuSignaling } from './conference-sfu-signaling.service';
 import { ConferenceSocketRegistry } from './conference-socket-registry.service';
 import { SOCKET_OPEN, type ConferenceSocket } from './conference-socket';
 import { CHAT_BURST, ConferenceChat } from './services/conference-chat.service';
-import { RELAY_CHAR_BURST } from './services/conference-translation-relay.service';
+import {
+  RELAY_CHAR_BURST,
+  RELAY_FRAME_BURST,
+} from './services/conference-translation-relay.service';
 import { ConferencePersistenceService } from './services/conference-persistence.service';
 import { ConferenceTranslationRelay } from './services/conference-translation-relay.service';
 import { ConferenceTranslationRouter } from './services/conference-translation-router.service';
@@ -246,6 +249,22 @@ describe('ConferenceGateway', () => {
       expect(row?.ownerId).toBe('alice');
     });
 
+    it('tells the room and the joiner which language each peer speaks', async () => {
+      const alice = h.connect('alice');
+      await h.join(alice, roomId, 'Alice', 'vi');
+      const bob = h.connect('bob');
+
+      const reply = await h.join(bob, roomId, 'Bob', 'zh');
+
+      expect(reply).toMatchObject({
+        peers: [{ socketId: alice._socketId, sourceLanguage: 'vi' }],
+      });
+      expect(alice.last('conference.peer.joined')).toMatchObject({
+        socketId: bob._socketId,
+        sourceLanguage: 'zh',
+      });
+    });
+
     it('closes the older socket with 4000 when the same user joins again', async () => {
       const first = h.connect('bob');
       const other = h.connect('carol');
@@ -351,7 +370,9 @@ describe('ConferenceGateway', () => {
 
       expect(reply).toMatchObject({
         iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }],
-        peers: [{ socketId: alice._socketId, published: true }],
+        peers: [
+          { socketId: alice._socketId, sourceLanguage: 'vi', published: true },
+        ],
       });
     });
 
@@ -594,6 +615,257 @@ describe('ConferenceGateway', () => {
 
       expect(speaker.all('conference.translation.broadcast')).toStrictEqual([]);
       expect(listener.all('conference.translation.audio')).toHaveLength(600);
+    });
+
+    describe('a subtitle translated into several languages', () => {
+      /** A vi speaker with an en, a zh and a second vi listener. */
+      async function threeLanguageRoom() {
+        const speaker = h.connect('alice');
+        const en = h.connect('bob');
+        const zh = h.connect('carol');
+        const vi = h.connect('dave');
+        await h.join(speaker, roomId, 'Alice', 'vi');
+        await h.join(en, roomId, 'Bob', 'en');
+        await h.join(zh, roomId, 'Carol', 'zh');
+        await h.join(vi, roomId, 'Dave', 'vi');
+        return { speaker, en, zh, vi };
+      }
+      const subtitle = (
+        isFinal: boolean,
+        translations: Record<string, string> | undefined,
+        overrides: Record<string, unknown> = {},
+      ) => ({
+        subtitle: {
+          sourceLanguage: 'vi',
+          targetLanguage: 'en',
+          sourceText: 'xin chào',
+          translatedText: translations?.en ?? 'hello',
+          ...(translations ? { translations } : {}),
+          isFinal,
+          turnId,
+          ...overrides,
+        },
+      });
+
+      it('narrows the frame to each listener’s language and never forwards the map', async () => {
+        const { speaker, en, zh, vi } = await threeLanguageRoom();
+
+        h.gateway.handleTranslationBroadcast(
+          speaker,
+          subtitle(false, { en: 'hello', zh: '你好' }),
+        );
+
+        const common = {
+          sourceLanguage: 'vi',
+          sourceText: 'xin chào',
+          isFinal: false,
+          turnId,
+          speakerSocketId: speaker._socketId,
+          speakerDisplayName: 'Alice',
+        };
+        expect(en.all('conference.translation.subtitle')).toStrictEqual([
+          { ...common, targetLanguage: 'en', translatedText: 'hello' },
+        ]);
+        expect(zh.all('conference.translation.subtitle')).toStrictEqual([
+          { ...common, targetLanguage: 'zh', translatedText: '你好' },
+        ]);
+        // Same language as the speaker, and the speaker: nothing.
+        expect(vi.all('conference.translation.subtitle')).toHaveLength(0);
+        expect(speaker.all('conference.translation.subtitle')).toHaveLength(0);
+      });
+
+      it('gives a listener whose language is not in the map yet the source text, final or not', async () => {
+        const { speaker, zh } = await threeLanguageRoom();
+
+        h.gateway.handleTranslationBroadcast(
+          speaker,
+          subtitle(false, { en: 'hel' }),
+        );
+        h.gateway.handleTranslationBroadcast(
+          speaker,
+          subtitle(true, { en: 'hello' }),
+        );
+
+        expect(
+          zh.all('conference.translation.subtitle').map((frame) => ({
+            targetLanguage: frame.targetLanguage,
+            translatedText: frame.translatedText,
+            isFinal: frame.isFinal,
+          })),
+        ).toStrictEqual([
+          { targetLanguage: 'zh', translatedText: 'xin chào', isFinal: false },
+          { targetLanguage: 'zh', translatedText: 'xin chào', isFinal: true },
+        ]);
+      });
+
+      it('delivers a frame without a map unchanged, as a single-language speaker sends it', async () => {
+        const { speaker, en, zh } = await threeLanguageRoom();
+
+        h.gateway.handleTranslationBroadcast(
+          speaker,
+          subtitle(false, undefined),
+        );
+
+        const unchanged = {
+          sourceLanguage: 'vi',
+          targetLanguage: 'en',
+          sourceText: 'xin chào',
+          translatedText: 'hello',
+          isFinal: false,
+          turnId,
+          speakerSocketId: speaker._socketId,
+          speakerDisplayName: 'Alice',
+        };
+        expect(en.all('conference.translation.subtitle')).toStrictEqual([
+          unchanged,
+        ]);
+        expect(zh.all('conference.translation.subtitle')).toStrictEqual([
+          unchanged,
+        ]);
+      });
+
+      it('stores the map filtered to the other languages in the room, once per turn', async () => {
+        const speaker = h.connect('alice');
+        const en = h.connect('bob');
+        const zh = h.connect('carol');
+        await h.join(speaker, roomId, 'Alice', 'vi');
+        await h.join(en, roomId, 'Bob', 'en');
+        await h.join(zh, roomId, 'Carol', 'zh');
+        // Carol leaves before the turn ends, so nobody in the room reads zh.
+        h.gateway.handleDisconnect(zh);
+
+        const final = subtitle(true, {
+          en: ' hello ',
+          zh: '你好',
+          vi: 'xin chào',
+        });
+        final.subtitle.translatedText = ' hello ';
+        h.gateway.handleTranslationBroadcast(speaker, final);
+        h.gateway.handleTranslationBroadcast(speaker, final);
+        await flush();
+
+        expect(h.prisma.turns).toHaveLength(1);
+        expect(h.prisma.turns[0]).toMatchObject({
+          sourceLanguage: 'vi',
+          sourceText: 'xin chào',
+          translations: { en: 'hello' },
+        });
+        expect(h.prisma.turns[0]?.searchText).not.toContain('你好');
+      });
+
+      it('stores every language present, and searches across all of them', async () => {
+        const { speaker } = await threeLanguageRoom();
+
+        h.gateway.handleTranslationBroadcast(
+          speaker,
+          subtitle(true, { en: 'hello', zh: '你好' }),
+        );
+        await flush();
+
+        expect(h.prisma.turns).toHaveLength(1);
+        const [row] = h.prisma.turns;
+        expect(row?.translations).toStrictEqual({ en: 'hello', zh: '你好' });
+        expect(row?.searchText).toContain('hello');
+        expect(row?.searchText).toContain('你好');
+      });
+
+      it('refuses a frame whose map disagrees with its translatedText, routing and storing nothing', async () => {
+        const { speaker, en, zh } = await threeLanguageRoom();
+
+        h.gateway.handleTranslationBroadcast(
+          speaker,
+          subtitle(
+            true,
+            { en: 'hello', zh: '你好' },
+            { translatedText: 'goodbye' },
+          ),
+        );
+        await flush();
+
+        expect(speaker.last('conference.translation.broadcast')).toStrictEqual({
+          error: 'invalid_payload',
+        });
+        expect(en.all('conference.translation.subtitle')).toHaveLength(0);
+        expect(zh.all('conference.translation.subtitle')).toHaveLength(0);
+        expect(h.prisma.turns).toHaveLength(0);
+      });
+
+      it('counts the map against the relay budget', async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        const { speaker, en } = await threeLanguageRoom();
+        const long = 'x'.repeat(4000);
+        const heavy = subtitle(
+          false,
+          { en: long, zh: long },
+          { sourceText: long, translatedText: long },
+        );
+        // 16 k chars per frame with the map, 8 k without it.
+        const perFrame = 16_000;
+        const allowed = Math.floor(RELAY_CHAR_BURST / perFrame);
+
+        for (let i = 0; i <= allowed; i += 1) {
+          h.gateway.handleTranslationBroadcast(speaker, heavy);
+        }
+
+        // Below the frame ceiling, so only the characters can have refused it.
+        expect(allowed).toBeLessThan(RELAY_FRAME_BURST);
+        expect(en.all('conference.translation.subtitle')).toHaveLength(allowed);
+        expect(speaker.last('conference.translation.broadcast')).toStrictEqual({
+          error: 'limit_reached',
+        });
+      });
+    });
+
+    it('lets a cascade burst through: three 8 s turns voiced in two languages, with subtitle deltas', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      const speaker = h.connect('alice');
+      const en = h.connect('bob');
+      const zh = h.connect('carol');
+      await h.join(speaker, roomId, 'Alice', 'vi');
+      await h.join(en, roomId, 'Bob', 'en');
+      await h.join(zh, roomId, 'Carol', 'zh');
+      const turnIds = [
+        '5b0c8f0e-7c1a-4a7e-9d0b-1f2e3d4c5b61',
+        '5b0c8f0e-7c1a-4a7e-9d0b-1f2e3d4c5b62',
+        '5b0c8f0e-7c1a-4a7e-9d0b-1f2e3d4c5b63',
+      ];
+      const text = 'x'.repeat(400);
+
+      // All at one instant: the server delivers a turn's speech far faster
+      // than real time, and the leg relays every frame as it arrives.
+      for (const id of turnIds) {
+        for (let delta = 0; delta < 40; delta += 1) {
+          h.gateway.handleTranslationBroadcast(speaker, {
+            subtitle: {
+              sourceLanguage: 'vi',
+              targetLanguage: 'en',
+              sourceText: text,
+              translatedText: text,
+              translations: { en: text, zh: text },
+              isFinal: false,
+              turnId: id,
+            },
+          });
+        }
+        for (const lang of ['en', 'zh']) {
+          // 8 s of 24 kHz pcm16 in 200 ms frames.
+          for (let sequence = 0; sequence < 40; sequence += 1) {
+            h.gateway.handleTranslationBroadcast(speaker, {
+              audio: {
+                lang,
+                sequence,
+                sampleRate: 24000,
+                payload: 'A'.repeat(12_800),
+              },
+            });
+          }
+        }
+      }
+
+      expect(speaker.all('conference.translation.broadcast')).toStrictEqual([]);
+      expect(en.all('conference.translation.audio')).toHaveLength(120);
+      expect(zh.all('conference.translation.audio')).toHaveLength(120);
+      expect(zh.all('conference.translation.subtitle')).toHaveLength(120);
     });
 
     it('refuses a frame that does not match the contract', async () => {

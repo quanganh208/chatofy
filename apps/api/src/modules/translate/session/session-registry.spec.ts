@@ -147,6 +147,32 @@ describe('SessionRegistry', () => {
       expect(registry.countGlobal()).toBe(3);
     });
 
+    // A meeting leg and a /translate tab of one account are two sockets; only a
+    // count keyed by the account sees both.
+    it('counts one user across sockets, and never pools turns without a user', () => {
+      const registry = new SessionRegistry();
+      const one = socket();
+      const two = socket();
+      const owned = (id: string, userId: string) =>
+        new TurnSession(options, id, { userId });
+      registry.open(one, owned('a', 'alice'));
+      registry.open(one, owned('b', 'alice'));
+      registry.open(two, owned('c', 'alice'));
+      registry.open(two, owned('d', 'bob'));
+      const anonymous = turn('e');
+      registry.open(two, anonymous);
+      registry.open(two, turn('f'));
+
+      expect(registry.countForUser('alice')).toBe(3);
+      expect(registry.countForUser('bob')).toBe(1);
+      // An anonymous turn is attributed to its own session id, so it counts
+      // only itself.
+      expect(registry.countForUser(anonymous.sessionId)).toBe(1);
+
+      registry.closeAll(one);
+      expect(registry.countForUser('alice')).toBe(1);
+    });
+
     // The global count is the one that guards the sidecar, which is a single
     // shared process. A per-socket ceiling cannot see across sockets at all.
     it('drops closed turns out of both counts', () => {

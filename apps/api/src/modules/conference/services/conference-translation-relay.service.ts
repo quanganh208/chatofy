@@ -4,10 +4,14 @@ import {
   normalizeForSearch,
   type ConferenceTranslationAudio,
   type ConferenceTranslationSubtitle,
+  type LanguageCode,
 } from '@chatofy/types';
 import { ConferencePeerLifecycle } from '../conference-peer-lifecycle.service';
 import { TokenBucket } from '../conference-token-bucket';
-import type { ParticipantSession } from '../conference-room-registry.service';
+import type {
+  ConferenceRoom,
+  ParticipantSession,
+} from '../conference-room-registry.service';
 import { ConferenceSocketRegistry } from '../conference-socket-registry.service';
 import {
   parsePayload,
@@ -30,18 +34,32 @@ const EVENT = 'conference.translation.broadcast';
  * Per-peer relay limits. Every frame a peer sends is fanned out to every other
  * peer, so these bound the egress one socket can cause.
  *
- * Sized from what a live session really sends: translated speech arrives in
- * 200 ms frames (24 kHz pcm16 ≈ 12.8 k base64 chars each, 64 k/s at real time,
- * delivered in bursts faster than that) interleaved with cumulative subtitle
- * frames on each transcript delta (up to 2 × 4000 chars). The character budget
- * is the real bandwidth bound and sits several times above that; the frame
- * count is set loosely (a burst of speech frames plus a delta per token can
- * pass 40/s for a moment), so a real speaker never meets either, while a peer
- * looping maximum-size frames meets the character budget within seconds.
+ * Sized from what a cascade speaker really sends. Translated speech arrives in
+ * 200 ms frames of 24 kHz pcm16, ≈ 12.8 k base64 chars each, so 64 k chars per
+ * second of speech per language. The leg relays each frame as the server
+ * delivers it, which is faster than real time: one 8 s turn arrives as a burst
+ * of 8 × 64 k ≈ 512 k chars and 40 frames per language it is voiced in.
+ *
+ * The worst burst is a speaker with every turn in flight in a three-language
+ * room: 3 turns (the per-socket turn ceiling) × 2 languages = 6 turns of audio,
+ * ≈ 3.07 M chars and 240 frames. Beside it run the cumulative subtitle frames,
+ * one per transcript delta, each carrying the source, the primary translation
+ * and the map (the primary again plus the extra): up to 4 × 4000 = 16 k chars
+ * at the contract's text ceiling, and a few dozen frames per turn. So:
+ *
+ *  - the character burst is 4 MiB: 3.07 M of audio plus ≈ 1.1 M — some 70
+ *    maximum-size subtitle frames — of headroom;
+ *  - the frame burst is 400: 240 audio frames plus 160 subtitle deltas;
+ *  - the refills stay at 512 k chars and 100 frames a second, four times the
+ *    128 k chars a second of two languages spoken in real time, so a speaker
+ *    who never pauses drains a burst rather than accumulating one.
+ *
+ * A real speaker meets neither bound, while a peer looping maximum-size frames
+ * meets the character budget within seconds.
  */
-export const RELAY_FRAME_BURST = 300;
+export const RELAY_FRAME_BURST = 400;
 const RELAY_FRAMES_PER_SECOND = 100;
-export const RELAY_CHAR_BURST = 2 * 1024 * 1024;
+export const RELAY_CHAR_BURST = 4 * 1024 * 1024;
 const RELAY_CHARS_PER_SECOND = 512 * 1024;
 
 /**
@@ -73,6 +91,12 @@ export class ConferenceTranslationRelay {
       return;
     }
     const { room, peer, socketId } = resolved;
+    // The map repeats the primary translation; a frame whose two copies
+    // disagree would show one listener different words than it stores.
+    if (input.subtitle && !mapAgrees(input.subtitle)) {
+      sendEvent(ws, EVENT, { error: 'invalid_payload' });
+      return;
+    }
     if (!withinRelayLimits(peer, frameChars(input))) {
       sendEvent(ws, EVENT, { error: 'limit_reached' });
       return;
@@ -88,7 +112,9 @@ export class ConferenceTranslationRelay {
         speakerDisplayName: peer.displayName,
       };
       this.router.routeSubtitle(room, socketId, subtitle, deliver);
-      if (subtitle.isFinal) this.persistFinal(peer, room.id, subtitle);
+      if (subtitle.isFinal) {
+        this.persistFinal(peer, room.id, subtitle, roomLanguages(room));
+      }
     }
     if (input.audio) {
       const audio: ConferenceTranslationAudio = {
@@ -101,29 +127,47 @@ export class ConferenceTranslationRelay {
 
   /**
    * One row per turn, written from its final frame: the source-channel text
-   * in the speaker's language and the translation under its language. Frames
+   * in the speaker's language and each translation under its language. Frames
    * before the final are provisional and are never stored; a final repeated
    * for the same turn is dropped.
+   *
+   * Only translations into a language someone else in the room speaks are
+   * kept: the speaker chose what to send, and the room is what bounds what the
+   * meeting's record holds.
    */
   private persistFinal(
     peer: ParticipantSession,
     conferenceId: string,
     subtitle: ConferenceTranslationSubtitle,
+    present: ReadonlySet<LanguageCode>,
   ): void {
     if (peer.persistedTurnIds.has(subtitle.turnId)) return;
     rememberTurn(peer.persistedTurnIds, subtitle.turnId);
 
     const sourceText = subtitle.sourceText.trim();
-    const translatedText = subtitle.translatedText.trim();
-    if (!sourceText && !translatedText) return;
+    const translations: Partial<Record<LanguageCode, string>> = {};
+    const offered = subtitle.translations ?? {
+      [subtitle.targetLanguage]: subtitle.translatedText,
+    };
+    for (const [language, text] of Object.entries(offered) as [
+      LanguageCode,
+      string | undefined,
+    ][]) {
+      const kept = text?.trim();
+      if (!kept) continue;
+      if (language === subtitle.sourceLanguage || !present.has(language)) {
+        continue;
+      }
+      translations[language] = kept;
+    }
+    const translated = Object.values(translations);
+    if (!sourceText && translated.length === 0) return;
 
     void this.persistence.recordTurn(peer.participantId, conferenceId, {
       sourceLanguage: subtitle.sourceLanguage,
       sourceText,
-      searchText: normalizeForSearch(`${sourceText} ${translatedText}`),
-      translations: translatedText
-        ? { [subtitle.targetLanguage]: translatedText }
-        : {},
+      searchText: normalizeForSearch([sourceText, ...translated].join(' ')),
+      translations,
     });
   }
 }
@@ -136,14 +180,40 @@ function rememberTurn(seen: Set<string>, turnId: string): void {
   if (oldest !== undefined) seen.delete(oldest);
 }
 
-/** The variable-size part of a frame: subtitle texts plus the audio payload. */
+/** Every language spoken in the room right now. */
+function roomLanguages(room: ConferenceRoom): Set<LanguageCode> {
+  return new Set([...room.peers.values()].map((p) => p.sourceLanguage));
+}
+
+/** Whether a subtitle's map, when it has one, holds its primary translation. */
+function mapAgrees(subtitle: ConferenceTranslationSubtitle): boolean {
+  if (!subtitle.translations) return true;
+  return (
+    (subtitle.translations[subtitle.targetLanguage] ?? '') ===
+    subtitle.translatedText
+  );
+}
+
+/**
+ * The variable-size part of a frame: subtitle texts, every translation in its
+ * map, and the audio payload.
+ */
 function frameChars(input: {
-  subtitle?: { sourceText: string; translatedText: string };
+  subtitle?: {
+    sourceText: string;
+    translatedText: string;
+    translations?: Partial<Record<LanguageCode, string>>;
+  };
   audio?: { payload: string };
 }): number {
+  const { subtitle } = input;
+  const mapChars = Object.values(subtitle?.translations ?? {}).reduce(
+    (sum, text) => sum + (text?.length ?? 0),
+    0,
+  );
   return (
-    (input.subtitle
-      ? input.subtitle.sourceText.length + input.subtitle.translatedText.length
+    (subtitle
+      ? subtitle.sourceText.length + subtitle.translatedText.length + mapChars
       : 0) + (input.audio?.payload.length ?? 0)
   );
 }

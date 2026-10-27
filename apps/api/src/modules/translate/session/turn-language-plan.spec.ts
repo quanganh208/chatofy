@@ -35,6 +35,10 @@ describe('planTurnLanguages', () => {
     expect(plan.recognition).toBe('vi');
     expect(plan.spoken).toBe('vi');
   });
+
+  it('voices the spoken language alone by default', () => {
+    expect(planTurnLanguages(['vi', 'en'], ['vi']).voiced).toEqual(['en']);
+  });
 });
 
 describe('planForPair', () => {
@@ -45,6 +49,49 @@ describe('planForPair', () => {
 
     expect(identify).toHaveBeenCalledExactlyOnceWith({ declared: 'en' });
     expect(plan).toEqual(planTurnLanguages(['en', 'vi'], ['en', 'vi']));
+  });
+
+  it('voices only the spoken language when no extra target is asked for', () => {
+    const plan = planForPair(
+      { source: 'vi', target: 'en' },
+      { identify: () => ['vi'] },
+    );
+
+    expect(plan.targets).toEqual(['en']);
+    expect(plan.voiced).toEqual(['en']);
+  });
+
+  it('extra targets widen the targets and are all voiced, the pair target first', () => {
+    const plan = planForPair(
+      { source: 'vi', target: 'en' },
+      { identify: () => ['vi'] },
+      ['zh'],
+    );
+
+    expect(plan.conversation).toEqual(['vi', 'en', 'zh']);
+    expect(plan.targets).toEqual(['en', 'zh']);
+    expect(plan.spoken).toBe('en');
+    expect(plan.voiced).toEqual(['en', 'zh']);
+    expect(plan.recognition).toBe('vi');
+  });
+
+  it('drops repeated extras and extras naming the pair source or target', () => {
+    const plan = planForPair(
+      { source: 'vi', target: 'en' },
+      { identify: () => ['vi'] },
+      ['zh', 'vi', 'en', 'zh'],
+    );
+
+    expect(plan.targets).toEqual(['en', 'zh']);
+    expect(plan.voiced).toEqual(['en', 'zh']);
+  });
+
+  it('an extra list holding only the pair languages plans exactly the pair', () => {
+    const identifier = { identify: () => ['vi'] as const };
+
+    expect(
+      planForPair({ source: 'vi', target: 'en' }, identifier, ['vi', 'en']),
+    ).toEqual(planForPair({ source: 'vi', target: 'en' }, identifier));
   });
 });
 
@@ -69,5 +116,6 @@ describe('planDetectTurn', () => {
     expect(plan.recognition).toBe('en');
     expect(plan.targets).toEqual([]);
     expect(plan.spoken).toBeNull();
+    expect(plan.voiced).toEqual([]);
   });
 });
