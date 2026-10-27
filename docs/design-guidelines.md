@@ -49,15 +49,15 @@ half, and `palettes` is the pair for the surfaces that let someone choose.
 
 Warm stone, hue about 30°.
 
-| Token           | Light     | Dark      | Where                                                   |
-| --------------- | --------- | --------- | ------------------------------------------------------- |
-| `bg`            | `#F5F5F4` | `#0C0A09` | the page itself — stone, and night                      |
-| `surface`       | `#FFFFFF` | `#1C1917` | cards and panels                                        |
-| `surfaceRaised` | `#EDEBE9` | `#252220` | a well (field, track) or a control resting on a surface |
+| Token           | Light     | Dark      | Where                                            |
+| --------------- | --------- | --------- | ------------------------------------------------ |
+| `bg`            | `#F5F5F4` | `#0C0A09` | the page itself — stone, and night               |
+| `surface`       | `#FFFFFF` | `#1C1917` | cards and panels                                 |
+| `surfaceRaised` | `#EDEBE9` | `#252220` | a well (track) or a control resting on a surface |
 
 Light `surfaceRaised` is **darker** than `bg` on purpose: the C1 wells — the segmented
 track, the slider track — are cut into the page, not lifted off it. A field fills with
-`bg`, which is the same gesture on a card. In dark,
+`surface` and draws a `border` edge instead (see [Control depth](#control-depth)). In dark,
 `bg` → `surface` → `surfaceRaised` step upward and stay distinct from `border`.
 
 ### Borders
@@ -146,9 +146,9 @@ Body text reads **16.03:1** on stone and **18.11:1** on night. `textSecondary` r
 button reads 17.49 and 18.11.
 
 `borderControl` is solved against `surfaceRaised`, the tighter of its two grounds: 3.14
-light and 3.49 dark, clearing WCAG 1.4.11's 3:1. Under direction C1 it is no longer the
-edge of every control — see [Control depth](#control-depth) — but where a real boundary
-is still required it holds.
+light and 3.49 dark, clearing WCAG 1.4.11's 3:1. It is the edge of the controls
+listed under [Control depth](#control-depth) that must be found without hovering; a
+field's resting edge is the `border` hairline, and a quiet button draws neither.
 
 `borderStrong` is a divider, not a boundary: 2.31 and 2.59 against a floor of 2.0.
 `border` is a hairline: 1.28 and 1.39 against 1.2. The focus ring, `ring-ring/50` with
@@ -320,91 +320,93 @@ from `palettes` and re-exports no scale, so a screen imports these from `@chatof
 
 ## Control depth
 
-**A field is a well cut into the surface. A button is an object sitting on it.**
+**A field has a real edge. A button is an object sitting on the surface.**
 
-That opposition — the direction of depth — is how the two are told apart, and it
-is the whole of the rule:
+|       | Field (`Input`, `Textarea`, `SelectTrigger`)      | Quiet button (`Button variant="outline"`) |
+| ----- | ------------------------------------------------- | ----------------------------------------- |
+| Fill  | `card` — lighter than the page, flush on a card   | `secondary`                               |
+| Edge  | `--border` as a 1px inset ring (hairline)         | `--surface-hairline` as an inset ring     |
+| Depth | `--inset-field`, a soft recess under the edge     | `--elevation-sm`, cast outward            |
+| Hover | the edge turns to `primary` at 40%; nothing moves | lifts 1px to `--elevation-md`, fill steps |
+| Focus | the edge turns to ink inside the 3px `ring/50`    | the 3px `ring/50`                         |
+| Text  | `text-body`, and 16px under `pointer-coarse`      | `text-body`                               |
 
-|        | Field (`Input`, `SelectTrigger`) | Quiet button (`Button variant="outline"`) |
-| ------ | -------------------------------- | ----------------------------------------- |
-| Shape  | `--inset-field`, inset           | `--elevation-sm`, cast outward            |
-| Edge   | the inset shadow's second layer  | `--surface-hairline` as an inset ring     |
-| Hover  | fill deepens, **nothing moves**  | lifts 1px to `--elevation-md`, fill steps |
-| Active | nothing                          | presses 1px, back to `--elevation-sm`     |
-| Border | none                             | none                                      |
+The edge is drawn with `inset-ring-*`, which composes into `box-shadow` beside the
+recess and the focus ring rather than replacing either. The fill never changes on
+hover: a field that greys when pointed at reads as disabled.
 
-Fill cannot carry the distinction and must not be asked to: `card` and
-`secondary` are 1.19:1 apart in light and 1.11:1 in dark, a difference nobody sees. Movement is the button's
-signal and stillness is the field's.
+**16px under a touch pointer** because iOS zooms the whole page into any focused
+field set smaller than that. It is keyed to `pointer-coarse`, not to a width: an iPad
+zooms too, and the extension popup is narrow but never touched.
 
-Both must survive reduced motion. Suppressing the transition is not enough — that
-removes the easing and leaves a harder snap than before. The **transform itself**
-is zeroed per state, and the button keeps a fill step so a reader who asked for
-stillness still gets hover feedback. Dark's elevation is a single near-invisible
-layer, so on that theme the fill step is doing most of the work.
+`skin-guard.spec.ts` holds the edge, the touch size and the no-fill-on-hover rule on
+all three fields, plus the ink hover edge; `contrast-floors.spec.ts` holds `border` at
+its 1.2 floor on `bg` and `surface` in both themes.
 
-### What C1 gives up, and why it was accepted anyway
+### Why the edge came back, and why it is not 3:1 (2026-10-27)
 
-The edge a control ends up with under this rule composites to **1.13:1** in light
-and **1.16:1** in dark. WCAG **1.4.11** asks 3:1 for the visual boundary of a user
-interface component at rest. This does not meet it, knowingly.
+Direction **C1** drew no field edge: a field was told from a button by the direction
+of depth alone, and its edge composited to **1.13:1** light and **1.16:1** dark,
+under WCAG 1.4.11's 3:1. It was chosen over a measured alternative (C2, a real
+`borderControl` edge) on the argument that depth carried the distinction.
 
-The alternative was on the table and measured. Variant **C2** kept a real
-`borderControl` boundary on the field and cleared the floor; it was shown
-side by side with these numbers and **C1 was chosen deliberately**. This section
-exists so that a later accessibility audit can disagree on the merits rather than
-assume an oversight.
+In use it did not. The field filled with `bg`, so wherever a field stood on the page
+itself — the join field on `/conference`, the search on `/history` — its fill was the
+page's own colour, measured `rgb(245,245,244)` on both, and the box was findable only
+by its placeholder. On a card it was a faint grey patch. Reported as "hard to see,
+hard to use" and reversed to the C2 edge; the review and its before/after
+screenshots are in `plans/reports/enhance-ux-ax-261027-1656-form-controls.md`.
 
-Two facts bound the cost, and neither is a rationalisation after the fact:
+The C2 edge in `borderControl` (3.14–3.49:1) then read as heavy in use — a dark
+outline around every field. Four edges were compared on the `/translate` header
+(`edge-variants/sheet.png` in that report's folder), and `borderStrong` (2.1–2.6:1)
+was tried next; it still read as too dark at rest. The edge settled on the **`border`
+hairline at rest, turning to `primary` at 40% on hover** — quiet until pointed at;
+full ink was tried for hover and read as too dark beside the full-ink focus edge, so
+hover and focus now differ by strength rather than both being ink. At rest that is **under WCAG
+1.4.11's 3:1, chosen knowingly**; the `card` fill is what separates a field from the
+page, and the ink hover edge and focus ring clear 3:1 by a wide margin. A later audit
+that wants 3:1 at rest is choosing `borderControl` again, not tuning a value.
 
-- **The focus ring is untouched.** `--ring`, drawn at the 50% it renders at, measures
-  **3.21:1** at worst (light, on `surfaceRaised`) across every ground a control sits on — `card`, `background`, `surfaceRaised`,
-  `warningSubtle`, `liveSubtle` — in both themes. 1.4.11's state-indication half
-  is satisfied **for that ring**; only the at-rest boundary was traded.
+A borderless treatment for the `/translate` pane-header pickers was tried and
+rejected: every select keeps the field edge, so the header pickers match the forms.
 
-  One control state falls outside it, and outside the spec that measures it. A control
-  that is `aria-invalid` REPLACES the ring rather than adding to it —
-  `aria-invalid:focus-visible:ring-destructive/50` in `input`, `select`, `textarea` and
-  `button`; `checkbox`, `radio-group`, `toggle` and `badge` tint it
-  `aria-invalid:ring-destructive/20` instead, which nothing measures. A ring is one
-  box-shadow slot, so on an invalid AND focused control that is the only state indicator
-  drawn, and the `/50` ring measures **2.18–2.45:1** on `bg`, `surface` and
-  `surfaceRaised` — under the floor. The state predates this direction
-  and the repalette did not move it: the destructive hexes are unchanged. Closing it
-  means raising the alpha or moving `live`, which is a palette decision nobody has
-  taken yet, so it is recorded here and in `contrast-floors.spec.ts` rather than
-  asserted green.
+So no control carries a 3:1 edge at rest by default, and the focus
+ring carries 1.4.11's state-indication half — `--ring` at the 50% it is drawn
+at measures **3.21:1** worst case (light, on `surfaceRaised`).
 
-- **No softer token could have cleared it.** `borderStrong` measures 2.52/2.29
-  and `border` 1.39/1.23 on a card. Reaching 3:1 means `borderControl` or nothing, so this
-  was a choice between the C1 language and an outline, not a value to tune.
+One control state is still outside that floor. An `aria-invalid` control REPLACES the
+ring rather than adding to it — `aria-invalid:focus-visible:ring-destructive/50` in
+`input`, `select`, `textarea` and `button`; `checkbox`, `radio-group`, `toggle` and
+`badge` tint it `aria-invalid:ring-destructive/20` instead. The `/50` ring measures
+**2.18–2.45:1** on `bg`, `surface` and `surfaceRaised`. On a field the red 1px edge now
+stays drawn underneath it at full strength, so an invalid focused field is still
+bounded; the ring itself is unchanged, and closing it means raising the alpha or
+moving `live`, a palette decision nobody has taken yet.
 
-### Where a real boundary is still required
-
-`borderControl` is scoped, not retired. Use it where a boundary must be found
-without hovering:
+### Where `borderControl` is the edge
 
 - **A control inside a filled notice.** `Alert`'s `live` and `warning` variants
-  re-border their actions in the notice's own hue, at their own width. This is a
-  **recorded exception to C1** and `skin-guard.spec.ts` holds both halves of it.
+  re-border their actions in the notice's own hue, at their own width, because the
+  quiet button supplies no border. `skin-guard.spec.ts` holds both halves of it.
   The alternative — moving the hue to the fill — was rejected on measurement: the
   notice's ink on its own hue is 1.99:1 (dark `warning`), 2.43:1 (light) and
   2.71–3.01:1 on `live`, which fails 1.4.3's 4.5:1 for the LABEL of the button that
   opens the user's microphone.
-- **A checkbox or radio**, whose shape _is_ its edge — there is no room for a
-  recess in 16px.
+- **A checkbox or radio**, whose shape _is_ its edge.
 - **An invalid field or button**, where `aria-invalid` draws a 1px `destructive`
-  ring. Invalid is an escalation, and escalation is what this token is for.
+  ring — on a field, inside and outside its edge.
 
 ## Component states
 
 Every interactive element defines all six, and none of them may be the only
 signal:
 
-- **default** — the depth pair above: inset for a field, elevation for a button.
+- **default** — a field draws its `border` hairline; a button its elevation.
   An `accent` fill for the one primary action on a screen
 - **hover** — one step up the neutral scale, or `accentHover` on an accent fill.
-  A button also lifts; a field does not
+  A button also lifts; a field's edge turns to `primary/40` and its fill stays;
+  a checkbox or radio's edge turns to `primary`
 - **active** — a button presses; an accent fill, or the accent as a left rule on
   a selected row
 - **disabled** — reduced opacity **and** the depth removed, so it does not read as
@@ -416,7 +418,7 @@ signal:
 
 The focus rule is the shipped one, `ring-[3px] ring-ring/50`, settled over an older
 "2px `accentText` ring, offset 2px" that only a since-deleted app shell followed: `--ring`
-carries more of the identification load under C1, and one rule beats the better of two.
+carries the identification load on every quiet button, and one rule beats the better of two.
 
 Focus-visible is mandatory in the overlay specifically, and is worth stating
 separately: it sits on a page whose own styles guarantee nothing, so a control
@@ -470,10 +472,21 @@ pickers (`translate/voice-picker.tsx`, `translate/context-picker.tsx`) and the p
 AI Context picker (`settings-pane.tsx`). A choice between two named things is a
 `SegmentedControl` instead — see _No longer duplicated_ below.
 
-Its trigger **follows the field**, not the button: recessed, 40px, no border.
-A select shows a chosen value, which is what a field does, and stands in a form
-column beside `Input`. The chevron already says it
-opens.
+Its trigger **follows the field**, not the button: the same fill, edge and states as
+`Input`, 40px. A select shows a chosen value, which is what a field does, and stands
+in a form column beside `Input`. The chevron says it opens, so it is drawn at full
+`muted-foreground` and never faded further. Rows in the open list — and in every
+`DropdownMenu` — are 36px, 44px under `pointer-coarse`, and the highlighted row is
+`accentSubtle`, which a reader can find on the card where `secondary` was 1.19:1.
+
+**A control's label is `text-body` medium, sentence case** — `Label`, or the same
+classes on a `<span>` that names a Select or a SegmentedControl. A per-column
+sub-label (Source / Translation, the glossary's languages) is `text-hint` muted. The
+11px uppercase `text-label` is for SECTION headings only: Vietnamese capitals with
+their diacritics at 11px were the hardest text on the settings screens.
+
+A field's own error message is `text-destructive` and named by the field through
+`aria-describedby`; set in the hint's muted grey it read as one more piece of advice.
 
 `sidebar.tsx` is the largest of them and ships **variants nothing renders** — the
 `floating` and `inset` looks, the right-hand side, `SidebarGroupLabel`, `SidebarInput`,
