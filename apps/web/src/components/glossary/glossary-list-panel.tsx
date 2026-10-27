@@ -29,6 +29,7 @@ export function GlossaryListPanel({
 }: Props) {
   const t = useTranslate();
   const [creating, setCreating] = useState(false);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const atLimit = glossaries.length >= GLOSSARY_LIMITS.MAX_GLOSSARIES_PER_OWNER;
 
   async function handleCreate(body: SaveGlossaryRequest) {
@@ -74,7 +75,10 @@ export function GlossaryListPanel({
               key={g.id}
               glossary={g}
               isSelected={g.id === selectedId}
+              confirmingDelete={confirmingDeleteId === g.id}
               onSelect={() => onSelect(g.id === selectedId ? null : g.id)}
+              onArmDelete={() => setConfirmingDeleteId(g.id)}
+              onDisarmDelete={() => setConfirmingDeleteId(null)}
               onToggleActive={() => onToggleActive(g.id)}
               onDelete={() => onDelete(g.id)}
             />

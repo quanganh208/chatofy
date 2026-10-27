@@ -10,16 +10,27 @@ import { useTranslate } from '@/i18n/provider';
 interface Props {
   glossary: Glossary;
   isSelected: boolean;
+  confirmingDelete: boolean;
   onSelect: () => void;
+  onArmDelete: () => void;
+  onDisarmDelete: () => void;
   onToggleActive: () => Promise<void>;
   onDelete: () => Promise<void>;
 }
 
-export function GlossaryCard({ glossary, isSelected, onSelect, onToggleActive, onDelete }: Props) {
+export function GlossaryCard({
+  glossary,
+  isSelected,
+  confirmingDelete,
+  onSelect,
+  onArmDelete,
+  onDisarmDelete,
+  onToggleActive,
+  onDelete,
+}: Props) {
   const t = useTranslate();
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const langLabel = LANGUAGES[glossary.sourceLang]?.label ?? glossary.sourceLang;
 
@@ -36,7 +47,7 @@ export function GlossaryCard({ glossary, isSelected, onSelect, onToggleActive, o
   async function handleDelete(e: React.MouseEvent) {
     e.stopPropagation();
     setDeleting(true);
-    setConfirmingDelete(false);
+    onDisarmDelete();
     try {
       await onDelete();
     } finally {
@@ -47,7 +58,10 @@ export function GlossaryCard({ glossary, isSelected, onSelect, onToggleActive, o
   return (
     <button
       type="button"
-      onClick={onSelect}
+      onClick={() => {
+        onDisarmDelete();
+        onSelect();
+      }}
       className={[
         'w-full text-left rounded-lg border px-3 py-2.5 transition-colors',
         isSelected ? 'border-primary bg-muted' : 'hover:bg-muted/50',
@@ -92,7 +106,7 @@ export function GlossaryCard({ glossary, isSelected, onSelect, onToggleActive, o
                 className="h-6 w-6"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setConfirmingDelete(false);
+                  onDisarmDelete();
                 }}
                 title={t('web.glossary.cancel')}
               >
@@ -107,7 +121,7 @@ export function GlossaryCard({ glossary, isSelected, onSelect, onToggleActive, o
               disabled={deleting}
               onClick={(e) => {
                 e.stopPropagation();
-                setConfirmingDelete(true);
+                onArmDelete();
               }}
               title={t('web.glossary.delete')}
             >
