@@ -109,7 +109,7 @@ export function pairAfterPick(
  * always did. Which surfaces offer it, and when, is the caller's call — this
  * component cannot know whether the session it configures can identify a turn.
  */
-export interface DetectOption {
+interface DetectOption {
   label: string;
 }
 

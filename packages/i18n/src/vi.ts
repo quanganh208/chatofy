@@ -426,7 +426,7 @@ export const vi: Messages = {
   'web.landing.meetingsMinutesTitle': 'Biên bản cuộc họp',
   'web.landing.meetingsMinutesBody':
     'Sau buổi họp, bạn có thể tạo biên bản gồm tóm tắt nội dung, các quyết định và đầu việc ngay tại màn hình kết thúc.',
-  'web.landing.meetingsScope': 'Hiện tại, cuộc họp hỗ trợ dịch giữa tiếng Việt và tiếng Anh.',
+  'web.landing.meetingsScope': 'Cuộc họp hỗ trợ dịch giữa tiếng Việt, tiếng Anh và tiếng Trung.',
   // Vì sao khối này không nói giọng nói được xử lý ở đâu: xem chú thích trong bản
   // tiếng Anh.
   'web.landing.localTitle': 'Dữ liệu ghi âm của bạn được xử lý thế nào',
@@ -470,6 +470,7 @@ export const vi: Messages = {
   'web.conference.sourceLanguage': 'Ngôn ngữ của bạn',
   'web.conference.sourceLanguageVi': 'Tiếng Việt',
   'web.conference.sourceLanguageEn': 'Tiếng Anh',
+  'web.conference.sourceLanguageZh': '中文',
   'web.conference.start': 'Bắt đầu',
   'web.conference.joining': 'Đang tham gia…',
   'web.conference.leave': 'Rời phòng',
@@ -506,6 +507,8 @@ export const vi: Messages = {
   // ---- web.conference: mở khóa âm thanh (Phase 1) ----
   'web.conference.audioBlocked': 'Âm thanh bị chặn bởi trình duyệt.',
   'web.conference.enableAudio': 'Nhấn để bật âm thanh',
+  'web.conference.translationEnded':
+    'Đã dừng dịch — mọi người giờ nghe bạn mà không có bản dịch. Tham gia lại cuộc gọi để bật lại.',
   // ---- web.conference: chỉ báo đang dịch (Phase 2) ----
   'web.conference.translating': 'Đang dịch…',
   // ---- web.conference: tự động kết nối lại (Phase 4) ----
@@ -559,6 +562,8 @@ export const vi: Messages = {
   'mobile.conference.permissionDeniedHint':
     'Mở Cài đặt và cho phép ứng dụng dùng camera và micro, sau đó thử lại.',
   'mobile.conference.permissionDeniedAudioOnly': 'Không có camera — tham gia chỉ với âm thanh.',
+  'mobile.conference.translationEnded':
+    'Đã dừng dịch — mọi người giờ nghe bạn mà không có bản dịch. Tham gia lại cuộc gọi để bật lại.',
   'mobile.conference.notAuthenticated': 'Bạn cần đăng nhập để tham gia cuộc gọi.',
   'mobile.conference.disconnected': 'Mất kết nối.',
   'mobile.conference.disconnectedHint': 'Cuộc gọi đã kết thúc. Quay lại sảnh để tham gia lại.',
@@ -569,6 +574,7 @@ export const vi: Messages = {
   'mobile.conference.sourceLanguage': 'Ngôn ngữ của bạn',
   'mobile.conference.sourceLanguageVi': 'Tiếng Việt',
   'mobile.conference.sourceLanguageEn': 'English',
+  'mobile.conference.sourceLanguageZh': '中文',
   'mobile.conference.sourceLanguageLocked': 'Ngôn ngữ đã cố định cho cuộc gọi này.',
   'mobile.conference.transcript': 'Bản ghi',
   'mobile.conference.showTranscript': 'Hiện bản ghi',
