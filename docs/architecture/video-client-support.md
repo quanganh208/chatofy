@@ -130,18 +130,18 @@ calls Cloudflare's REST API itself (the API does), so nothing changes.
 
 ---
 
-## 2. Mobile client (Expo 55 / React Native 0.83)
+## 2. Mobile client (Expo 58 / React Native 0.88)
 
 ### 2.1 What runs the call on React Native?
 
 **`react-native-webrtc`, with no SFU client library on top.** React Native has no browser
-WebRTC, so `react-native-webrtc` (pinned `124.0.8`) supplies `RTCPeerConnection` and
+WebRTC, so `react-native-webrtc` (pinned `155.0.1`) supplies `RTCPeerConnection` and
 `getUserMedia` natively, and the call uses it the same way the web does: one connection to
 publish and one to receive (`apps/mobile/src/conference/conference-signaling.ts`). The
 signaling flow is the web's, re-implemented, not shared (the two clients are separate code).
 Cloudflare's SFU needs nothing beyond standard WebRTC from it.
 
-Sources: `https://registry.npmjs.org/react-native-webrtc` (latest `124.0.8`, 2026-07-21,
+Sources: `https://registry.npmjs.org/react-native-webrtc` (latest `155.0.1` as of 2026-10-27,
 peer `react-native >= 0.60.0`); [Realtime SFU](https://developers.cloudflare.com/realtime/sfu/).
 
 ### 2.2 Does it need a dev client (custom native build)?
@@ -219,14 +219,14 @@ it is needed and why it is not enough alone:
 
 ### 2.4 Mobile adoption risk summary
 
-| Factor              | Assessment                                                                                                                                                              |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| SDK works?          | Yes — plain `react-native-webrtc` `124.0.8`; two-way audio and video on a physical Android 14 phone through Cloudflare's SFU (2026-10-26; mediasoup before, 2026-10-12) |
-| Expo Go?            | **No** — custom dev client / prebuild required                                                                                                                          |
-| Native build cost   | Paid: the app is on a dev-client workflow                                                                                                                               |
-| New-arch (Fabric)   | `newArchEnabled: true` with `124.0.8`; confirmed on device (React Native 0.80+ needs ≥ `124.0.6`)                                                                       |
-| Permissions         | Camera/mic via config plugin; background audio via a microphone foreground service (Android) and `UIBackgroundModes` (iOS, unverified)                                  |
-| Code reuse from web | Design reused, code not: mobile re-implements the signaling flow (§2.1)                                                                                                 |
+| Factor              | Assessment                                                                                                                                                                                                  |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SDK works?          | Yes — plain `react-native-webrtc` `155.0.1`; two-way audio and video on a physical Android 14 phone through Cloudflare's SFU (2026-10-27 on Expo 58; `124.0.8` on Expo 55 2026-10-26, mediasoup 2026-10-12) |
+| Expo Go?            | **No** — custom dev client / prebuild required                                                                                                                                                              |
+| Native build cost   | Paid: the app is on a dev-client workflow                                                                                                                                                                   |
+| New-arch (Fabric)   | Always on since Expo 58 (`newArchEnabled` left the config schema); `155.0.1` confirmed on device 2026-10-27                                                                                                 |
+| Permissions         | Camera/mic via config plugin; background audio via a microphone foreground service (Android) and `UIBackgroundModes` (iOS, unverified)                                                                      |
+| Code reuse from web | Design reused, code not: mobile re-implements the signaling flow (§2.1)                                                                                                                                     |
 
 ---
 
@@ -443,6 +443,15 @@ Web, as built:
    (exact) with `newArchEnabled: true` and `@config-plugins/react-native-webrtc` `14.0.0`
    (15.x needs Expo ≥ 56) gave two-way audio and video on a physical Android 14 phone on
    2026-10-12 (mediasoup), and again on 2026-10-26 through Cloudflare's SFU.
+   Re-checked after the Expo 58 / RN 0.88 upgrade with `155.0.1` and plugin `15.0.2`: two-way
+   audio and video on the same phone, 2026-10-27.
+   It runs through React Native's interop layer, not as a TurboModule: the library is
+   still a bridge module, and its Fabric/TurboModule port sits unreleased on the
+   upstream `new-arch` branch (react-native-webrtc#1557, closed; Android tested there,
+   iOS not). RN 0.82–0.84 dropped the legacy architecture but kept the interop layer,
+   with no removal date, so this is why `apps/mobile/package.json` excludes the
+   package from expo-doctor's New Architecture check. Re-check on every RN bump: the
+   first release that removes the interop layer breaks calls until the port ships.
 4. **Backgrounded meetings.** Decided 2026-10-26: audio stays, the camera turns off
    (§2.3). Verified on Android; iOS is config only until an iOS build runs.
 5. **In-call accent (0 vs Leave-as-accent).** Decided 2026-10-26: keep what is built.

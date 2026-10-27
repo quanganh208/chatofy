@@ -77,7 +77,7 @@ the extension, or in Chatofy's own video meetings.
 | Area          | Choice                                                                  | Why                                                |
 | ------------- | ----------------------------------------------------------------------- | -------------------------------------------------- |
 | Monorepo      | Turborepo + pnpm                                                        | Simple + caching, startup-fit                      |
-| Mobile        | Expo SDK 55                                                             | Fastest RN iteration, EAS Build                    |
+| Mobile        | Expo SDK 58                                                             | Fastest RN iteration, EAS Build                    |
 | API           | NestJS + Express                                                        | WS support, TS DI, modular                         |
 | DB            | Postgres (Prisma)                                                       | Relational fit, Prisma DX                          |
 | Session state | Redis — rotating refresh-token families                                 | One-time-use, revocable refresh tokens             |
