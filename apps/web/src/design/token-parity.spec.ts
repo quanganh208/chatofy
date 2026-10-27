@@ -270,7 +270,7 @@ const ELEVATION_MAPPING: Record<string, keyof typeof elevation> = {
 /**
  * Every multi-layer shadow token, elevation or not.
  *
- * `--inset-field` is the C1 field recess and is shaped exactly like an elevation
+ * `--inset-field` is the field recess and is shaped exactly like an elevation
  * step — a layer list per theme — so it is subject to the same two checks: each
  * layer's colour inside its own `light-dark()`, and never the whole list inside
  * one. It is kept OUT of `ELEVATION_MAPPING` for a single reason: an elevation

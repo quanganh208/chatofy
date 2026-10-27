@@ -1,13 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Check, Languages } from 'lucide-react';
+import { Languages } from 'lucide-react';
 import { LOCALES, type Locale } from '@chatofy/i18n';
 import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@chatofy/ui/react';
 import { useSession } from 'next-auth/react';
@@ -99,21 +100,23 @@ export function LocaleSwitcher({
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
-        {LOCALES.map((locale) => (
-          <DropdownMenuItem
-            key={locale}
-            onSelect={() => {
-              document.cookie = localeCookie(locale);
-              router.refresh();
-              // Only when there is a row to write to. Signed out, the cookie is the
-              // whole story — and a 401 here would be noise, not a failure.
-              if (status === 'authenticated') void updateMe({ locale }).catch(() => {});
-            }}
-          >
-            <Check aria-hidden className={locale === active ? undefined : 'invisible'} />
-            {t(LABEL_KEY[locale])}
-          </DropdownMenuItem>
-        ))}
+        {/* A radio group, so the active language is announced as checked rather
+            than marked by a tick only sighted readers can see. */}
+        <DropdownMenuRadioGroup
+          value={active}
+          onValueChange={(next) => {
+            const locale = next as Locale;
+            document.cookie = localeCookie(locale);
+            router.refresh();
+            if (status === 'authenticated') void updateMe({ locale }).catch(() => {});
+          }}
+        >
+          {LOCALES.map((locale) => (
+            <DropdownMenuRadioItem key={locale} value={locale}>
+              {t(LABEL_KEY[locale])}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -124,10 +124,7 @@ export function VoicePicker({
 
   return (
     <div className="flex flex-col gap-2">
-      <span
-        id={labelId}
-        className="text-muted-foreground text-label font-semibold tracking-wide uppercase"
-      >
+      <span id={labelId} className="text-foreground text-body font-medium">
         {label ?? t('web.translate.voice')}
       </span>
       {catalog.status === 'loading' ? (

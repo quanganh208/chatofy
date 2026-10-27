@@ -167,6 +167,56 @@ describe('generated components carry what the palette cannot', () => {
   });
 
   /**
+   * Every field draws a light resting edge in `--border` and turns it to the
+   * primary ink on hover.
+   *
+   * Direction C1 drew no edge and its fill was the page's own colour on the page
+   * ground, so people could not find the box. `--border-control` and then
+   * `--border-strong` read as heavy at rest; the settled pair is a hairline edge
+   * on a `card` fill, with the ink edge as the hover response. Knowingly under
+   * WCAG 1.4.11's 3:1 at rest (`docs/design-guidelines.md` § Control depth).
+   * `contrast-floors.spec.ts` measures the tokens; this holds the other half,
+   * that each field still ASKS for them.
+   *
+   * `pointer-coarse:text-base` rides along because it fails the same way: iOS
+   * zooms the whole page into a focused field under 16px, and nothing renders
+   * wrong on the desktop the change is reviewed on.
+   */
+  it.each([
+    ['input.tsx', /function Input\b[\s\S]*?\n}\n/],
+    ['textarea.tsx', /function Textarea\b[\s\S]*?\n}\n/],
+    ['select.tsx', /function SelectTrigger\b[\s\S]*?\n}\n/],
+  ])('draws a resting edge and touch-size text on %s', (name, body) => {
+    const file = SOURCES.find((entry) => entry.name === name);
+    expect(file, `${name} is not in the entry`).toBeDefined();
+    const field = body.exec(file?.source ?? '')?.[0] ?? '';
+    expect(field, `${name}: field body not found`).not.toBe('');
+    expect(field, `${name} must draw --border as its resting edge`).toMatch(
+      /\binset-ring-1\b[\s\S]*\binset-ring-border(?![-\w])|\binset-ring-border(?![-\w])[\s\S]*\binset-ring-1\b/,
+    );
+    expect(field, `${name} must turn its edge to the primary ink on hover`).toMatch(
+      /(?:^|[\s'"])hover:inset-ring-primary\/40(?![-\w])/m,
+    );
+    expect(field, `${name} must set 16px text under a touch pointer`).toContain(
+      'pointer-coarse:text-base',
+    );
+    // A hover that greys the fill reads as disabled; the edge darkens instead.
+    expect(field, `${name} must not change its fill on hover`).not.toMatch(/\bhover:bg-/);
+  });
+
+  /**
+   * The chevron is the only sign a select opens. It inherits `muted-foreground`
+   * (5.27:1); halving it on top left about 2:1, under 1.4.11's 3:1.
+   */
+  it('draws the select chevron without fading it', () => {
+    const select = SOURCES.find(({ name }) => name === 'select.tsx');
+    const trigger = /function SelectTrigger\b[\s\S]*?\n}\n/.exec(select?.source ?? '')?.[0] ?? '';
+    const chevron = /<ChevronDownIcon[^>]*>/.exec(trigger)?.[0] ?? '';
+    expect(chevron, 'the trigger renders no ChevronDownIcon').not.toBe('');
+    expect(chevron).not.toMatch(/opacity-/);
+  });
+
+  /**
    * WCAG 1.4.1: a link must not be told from prose by colour alone.
    *
    * The accent is ink, the same hex as body text in both schemes, so a link

@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import { act } from 'react';
+import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -33,5 +35,34 @@ describe('LocaleSwitcher', () => {
 
   it('stays an icon in the chrome', () => {
     expect(html('en')).not.toContain('>English<');
+  });
+
+  it('announces the active language as the checked option', () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    act(() => {
+      root.render(
+        <LocaleProvider locale="vi">
+          <LocaleSwitcher />
+        </LocaleProvider>,
+      );
+    });
+    const trigger = host.querySelector('button')!;
+    act(() => {
+      trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+
+    const options = Array.from(document.querySelectorAll('[role="menuitemradio"]'));
+    expect(options.map((option) => option.getAttribute('aria-checked'))).toEqual([
+      expect.any(String),
+      expect.any(String),
+    ]);
+    const checked = options.filter((option) => option.getAttribute('aria-checked') === 'true');
+    expect(checked.map((option) => option.textContent)).toEqual(['Tiếng Việt']);
+
+    act(() => root.unmount());
+    host.remove();
   });
 });

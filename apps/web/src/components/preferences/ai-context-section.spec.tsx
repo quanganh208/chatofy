@@ -257,6 +257,17 @@ describe('AiContextSection', () => {
     expect(container.textContent).toContain(glossaryTooLong);
     expect(buttonSaying(en['web.preferences.aiContext.save'])?.hasAttribute('disabled')).toBe(true);
 
+    // Shown as an error, and named by the field it is about — not as one more hint.
+    const message = container.querySelector('#ai-context-glossary-too-long-0');
+    expect(message?.textContent).toBe(glossaryTooLong);
+    expect(message?.classList.contains('text-destructive')).toBe(true);
+    expect(
+      container.querySelector('#ai-context-glossary-vi-0')?.getAttribute('aria-describedby'),
+    ).toBe('ai-context-glossary-too-long-0');
+    expect(
+      container.querySelector('#ai-context-glossary-en-0')?.hasAttribute('aria-describedby'),
+    ).toBe(false);
+
     await click(buttonSaying(en['web.preferences.aiContext.save']));
     expect(saveTranslationContext).not.toHaveBeenCalled();
   });
