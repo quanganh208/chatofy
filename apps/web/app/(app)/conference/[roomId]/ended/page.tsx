@@ -60,9 +60,9 @@ function EndScreen({ roomId }: { roomId: string }) {
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 py-8">
-      <h1 className="text-heading text-center font-semibold">
+      <h2 className="text-heading text-center font-semibold">
         {t('common.conference.endedTitle')}
-      </h1>
+      </h2>
       <MeetingSummaryCard conference={end.conference} />
       <BackToLobby />
       <MinutesPanel

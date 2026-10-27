@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { UseConferenceReturn } from '@/hooks/use-conference';
+import { DEFAULT_TRANSLATE_SETTINGS } from '@/lib/translate-settings';
 import { LocaleProvider } from '@/i18n/provider';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -12,7 +13,20 @@ const replace = vi.hoisted(() => vi.fn());
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace, refresh: vi.fn() }),
   useParams: () => ({ roomId: 'cl9ebqhxk00003b600tymydho' }),
+  // Ignored by the room since the pre-join screen: an old link's `?name=` must
+  // neither join nor redirect.
   useSearchParams: () => new URLSearchParams('name=Alice&lang=vi'),
+}));
+vi.mock('next-auth/react', () => ({
+  useSession: () => ({ data: { user: { name: 'An Nguyen' } }, status: 'authenticated' }),
+}));
+vi.mock('@/hooks/use-translate-settings', () => ({
+  useTranslateSettings: () => ({
+    settings: DEFAULT_TRANSLATE_SETTINGS,
+    ready: true,
+    set: vi.fn(),
+    current: () => DEFAULT_TRANSLATE_SETTINGS,
+  }),
 }));
 const useConference = vi.hoisted(() => vi.fn<() => UseConferenceReturn>());
 vi.mock('@/hooks/use-conference', () => ({ useConference: () => useConference() }));
@@ -123,5 +137,77 @@ describe('ConferenceRoomPage — translation that ended mid-call', () => {
   it('shows nothing while translation runs', () => {
     render(call());
     expect(container.querySelector('[data-translation-ended]')).toBeNull();
+  });
+});
+
+describe('ConferenceRoomPage — the pre-join screen', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    replace.mockClear();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  const render = (value: UseConferenceReturn) => {
+    useConference.mockReturnValue(value);
+    act(() => {
+      root.render(
+        <LocaleProvider>
+          <ConferenceRoomPage />
+        </LocaleProvider>,
+      );
+    });
+  };
+  const idle = () => call({ status: 'idle', mySocketId: null });
+  const nameInput = () => container.querySelector<HTMLInputElement>('#conf-name')!;
+  const joinNow = () =>
+    [...container.querySelectorAll('button')].find((b) => b.textContent === 'Join now')!;
+
+  it('asks before joining, with the account name already filled in', () => {
+    render(idle());
+    expect(container.textContent).toContain('Ready to join?');
+    expect(nameInput().value).toBe('An Nguyen');
+  });
+
+  it('stays on the room URL, whatever an old link carried', () => {
+    render(idle());
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('joins with the name and language chosen here', () => {
+    const value = idle();
+    render(value);
+    act(() => joinNow().click());
+    expect(value.join).toHaveBeenCalledWith(
+      expect.objectContaining({ displayName: 'An Nguyen', sourceLanguage: 'vi' }),
+    );
+  });
+
+  it('will not join without a name', () => {
+    render(idle());
+    act(() => {
+      // Through the prototype's setter: React tracks the value an assignment on
+      // the element writes, and would treat the input event as no change.
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
+        nameInput(),
+        '',
+      );
+      nameInput().dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(joinNow().disabled).toBe(true);
+  });
+
+  it('names the voice others will hear the translation in', () => {
+    render(idle());
+    const chip = container.querySelector('[data-conference-voice-chip]');
+    expect(chip?.textContent).toContain('Female');
+    expect(chip?.textContent).toContain('1×');
   });
 });

@@ -14,7 +14,7 @@ import { closeOutcome, joinRefusalOutcome } from './conference-connection-policy
 import { conferenceDebug } from './conference-debug-log';
 import { ConferenceRequestError } from './conference-signaling';
 import type { ConferenceErrorReason, ConferenceSink, ConferenceStatus } from './conference-types';
-import { MediaPermissionError } from './acquire-local-media';
+import { MediaPermissionError, type PreferredDevices } from './acquire-local-media';
 
 export interface ConferenceConnectionOptions {
   /** Origin of the API's sockets, e.g. `wss://api.example.com`. */
@@ -29,6 +29,8 @@ export interface ConferenceConnectionOptions {
    * translate leg for every session it builds.
    */
   getToken: () => Promise<string | undefined>;
+  /** Mic and camera picked before joining; reused by every reconnect. */
+  devices?: PreferredDevices;
   sink: ConferenceSink;
 }
 
@@ -116,6 +118,7 @@ export class ConferenceConnection {
       translateSocketUrl: this.options.translateSocketUrl,
       muted: this.muted,
       videoEnabled: this.videoEnabled,
+      devices: this.options.devices,
       sink: this.options.sink,
       onEnded: () => this.stop('disconnected', 'room-ended'),
     });

@@ -1,170 +1,129 @@
 'use client';
 
 /**
- * Conference lobby — name yourself, pick your spoken language, preview your
- * camera, then create a room or join one.
+ * Conference landing — start a meeting or join one, the way Meet opens.
  *
- * "Create a room" asks the API for a new room (`POST /conference`) and goes to
- * the id it returns; that id is what the user shares. "Join" goes to an id
- * someone shared. No room id is ever minted here — the conference socket only
- * admits ids the API created. A shared link without a name lands back here with
- * `?room=` prefilled.
+ * "New meeting" asks the API for a room (`POST /conference`) and goes to its
+ * URL; "Join" takes a code or a pasted invite link. Neither asks for a name or a
+ * language: those are chosen on the room's pre-join screen, prefilled from the
+ * account, so the URL anyone shares is the room and nothing else. No room id is
+ * ever minted here — the conference socket only admits ids the API created.
  *
- * Design budget: "Create a room" is the one accent-filled control; Join is
- * outline. No cards: the preview is a region on the page ground.
+ * Design budget: "New meeting" is the one accent-filled control; Join is
+ * outline beside the code field. No cards; the dawn band is decoration.
  */
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useState, type FormEvent } from 'react';
 import type { Route } from 'next';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Button, Input, Label, SegmentedControl } from '@chatofy/ui/react';
-import { toLanguageCode, type LanguageCode } from '@chatofy/types';
-import { conferenceRoomIdSchema, MAX_CONFERENCE_DISPLAY_NAME_CHARS } from '@chatofy/types/events';
+import { useSession } from 'next-auth/react';
+import { Video } from 'lucide-react';
+import { Button, Input, Label } from '@chatofy/ui/react';
 import { createConference } from '@/clients/api-client';
 import { useTranslate } from '@/i18n/provider';
-import { languageNamer } from '@/i18n/language-pair-labels';
 import { ACTIVE_CALL_KEY } from './[roomId]/utils/room-route';
+import { parseRoomInput } from './utils/parse-room-input';
+import { DAWN_GRADIENT } from './components/dawn-glow';
 
-function roomPath(roomId: string, name: string, lang: LanguageCode): Route {
-  const params = new URLSearchParams({ name, lang });
+function roomPath(roomId: string): Route {
   // `as Route`: typedRoutes cannot validate a path built at runtime (same
   // pattern as history-screen.tsx).
-  return `/conference/${encodeURIComponent(roomId)}?${params.toString()}` as Route;
+  return `/conference/${encodeURIComponent(roomId)}` as Route;
 }
 
-function ConferenceLobby() {
+function ConferenceLanding() {
   const t = useTranslate();
-  const nameLanguage = languageNamer(t);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  const accountName = session?.user?.name?.trim() || null;
   const sharedRoom = searchParams.get('room') ?? '';
 
-  // Back to the room if the user navigated away without explicitly leaving —
-  // unless they arrived with a different room to join.
+  // A link from the old lobby named the room as `?room=`; it now goes straight
+  // to the room. Otherwise, back to a call the user navigated away from without
+  // leaving — which lands on its pre-join screen, one "Join now" away.
   useEffect(() => {
+    const shared = parseRoomInput(sharedRoom);
+    if (shared) {
+      router.replace(roomPath(shared));
+      return;
+    }
     try {
       const raw = sessionStorage.getItem(ACTIVE_CALL_KEY);
       if (!raw) return;
-      const active = JSON.parse(raw) as { roomId?: unknown; name?: unknown; lang?: unknown };
-      if (typeof active.roomId !== 'string' || typeof active.name !== 'string' || !active.name) {
+      const active = JSON.parse(raw) as { roomId?: unknown };
+      if (typeof active.roomId !== 'string' || !active.roomId) {
         sessionStorage.removeItem(ACTIVE_CALL_KEY);
         return;
       }
-      if (sharedRoom && sharedRoom !== active.roomId) return;
-      const lang = typeof active.lang === 'string' ? active.lang : '';
-      router.replace(roomPath(active.roomId, active.name, toLanguageCode(lang) ?? 'vi'));
+      router.replace(roomPath(active.roomId));
     } catch {
       sessionStorage.removeItem(ACTIVE_CALL_KEY);
     }
   }, [router, sharedRoom]);
 
-  const [name, setName] = useState('');
-  const [roomId, setRoomId] = useState(sharedRoom);
-  // Any registry language passes; anything else falls back to Vietnamese.
-  const [sourceLanguage, setSourceLanguage] = useState<LanguageCode>(
-    toLanguageCode(searchParams.get('lang') ?? '') ?? 'vi',
-  );
+  const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
-  const previewRef = useRef<HTMLVideoElement>(null);
-
-  // Local camera preview — stopped on unmount so it does not outlive the lobby.
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    let cancelled = false;
-    navigator.mediaDevices
-      ?.getUserMedia({ audio: false, video: true })
-      .then((s) => {
-        if (cancelled) {
-          s.getTracks().forEach((track) => track.stop());
-          return;
-        }
-        stream = s;
-        if (previewRef.current) previewRef.current.srcObject = s;
-      })
-      .catch(() => {
-        /* no preview if the camera is unavailable; joining still works */
-      });
-    return () => {
-      cancelled = true;
-      stream?.getTracks().forEach((track) => track.stop());
-    };
-  }, []);
-
-  /** The trimmed name, or null after saying why it cannot be used. */
-  function validName(): string | null {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      setError(t('web.conference.nameRequired'));
-      return null;
-    }
-    return trimmed;
-  }
-
   async function create() {
-    const trimmed = validName();
-    if (!trimmed) return;
     setError(null);
     setCreating(true);
     try {
       const room = await createConference();
-      router.push(roomPath(room.id, trimmed, sourceLanguage));
+      router.push(roomPath(room.id));
     } catch {
       setError(t('common.conference.createFailed'));
       setCreating(false);
     }
   }
 
-  function joinShared() {
-    const trimmed = validName();
-    if (!trimmed) return;
-    const target = roomId.trim();
-    if (!target) {
-      setError(t('web.conference.roomRequired'));
-      return;
-    }
-    // Only an id the API minted can name a room; anything else is answered now.
-    if (!conferenceRoomIdSchema.safeParse(target).success) {
+  function join(event: FormEvent) {
+    event.preventDefault();
+    const roomId = parseRoomInput(code);
+    if (!roomId) {
       setError(t('common.conference.roomNotFound'));
       return;
     }
     setError(null);
-    router.push(roomPath(target, trimmed, sourceLanguage));
+    router.push(roomPath(roomId));
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-6 py-8">
-      <h1 className="text-heading font-semibold">{t('common.conference.lobbyTitle')}</h1>
-
-      {/* Camera preview */}
-      <div className="bg-muted aspect-video w-full overflow-hidden rounded-xl">
-        <video ref={previewRef} autoPlay playsInline muted className="h-full w-full object-cover" />
-      </div>
-
+    <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="conf-name">{t('common.conference.yourName')}</Label>
-        <Input
-          id="conf-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={t('common.conference.yourNamePlaceholder')}
-          autoComplete="name"
-          maxLength={MAX_CONFERENCE_DISPLAY_NAME_CHARS}
-          autoFocus={Boolean(sharedRoom)}
+        {/* The brand cue the pre-join screen carries as a glow: here a band,
+            because every part of this column is text and dawn never sits behind it. */}
+        <div
+          aria-hidden
+          className="mb-2 h-1.5 w-24 rounded-full"
+          style={{ backgroundImage: DAWN_GRADIENT }}
         />
+        <h2 className="text-heading font-semibold">{t('common.conference.lobbyTitle')}</h2>
+        <p className="text-body text-textMuted">{t('web.conference.landingLead')}</p>
       </div>
 
-      <SegmentedControl<LanguageCode>
-        label={t('common.conference.sourceLanguage')}
-        value={sourceLanguage}
-        onChange={setSourceLanguage}
-        options={[
-          { value: 'vi', label: nameLanguage('vi') },
-          { value: 'en', label: nameLanguage('en') },
-          { value: 'zh', label: nameLanguage('zh') },
-        ]}
-      />
+      <Button onClick={() => void create()} disabled={creating}>
+        <Video aria-hidden />
+        {creating ? t('common.conference.creating') : t('web.conference.newMeeting')}
+      </Button>
+
+      <form className="flex flex-col gap-2" onSubmit={join}>
+        <Label htmlFor="conf-room">{t('web.conference.codeOrLink')}</Label>
+        <div className="flex gap-2">
+          <Input
+            id="conf-room"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder={t('web.conference.codeOrLinkPlaceholder')}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <Button type="submit" variant="outline" disabled={creating || !code.trim()}>
+            {t('web.conference.joinAction')}
+          </Button>
+        </div>
+      </form>
 
       {error && (
         <p role="alert" className="text-destructive text-hint">
@@ -172,26 +131,11 @@ function ConferenceLobby() {
         </p>
       )}
 
-      <Button onClick={() => void create()} disabled={creating}>
-        {creating ? t('common.conference.creating') : t('common.conference.create')}
-      </Button>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="conf-room">{t('common.conference.roomId')}</Label>
-        <div className="flex gap-2">
-          <Input
-            id="conf-room"
-            value={roomId}
-            onChange={(e) => setRoomId(e.target.value)}
-            placeholder={t('common.conference.roomIdPlaceholder')}
-            autoComplete="off"
-            spellCheck={false}
-          />
-          <Button variant="outline" onClick={joinShared} disabled={creating}>
-            {t('common.conference.join')}
-          </Button>
-        </div>
-      </div>
+      {accountName && (
+        <p className="text-hint text-textMuted">
+          {t('web.conference.joiningAs', { name: accountName })}
+        </p>
+      )}
     </div>
   );
 }
@@ -203,7 +147,7 @@ function ConferenceLobby() {
 export default function ConferenceLobbyPage() {
   return (
     <Suspense>
-      <ConferenceLobby />
+      <ConferenceLanding />
     </Suspense>
   );
 }

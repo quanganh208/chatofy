@@ -17,10 +17,31 @@ export class MediaPermissionError extends Error {
 const CAMERA_REFUSED = new Set(['NotAllowedError', 'PermissionDeniedError']);
 const CAMERA_MISSING = new Set(['NotFoundError', 'DevicesNotFoundError', 'OverconstrainedError']);
 
-export async function acquireLocalMedia(): Promise<{ stream: MediaStream; audioOnly: boolean }> {
+/** The microphone and camera chosen before joining; unset means the system default. */
+export interface PreferredDevices {
+  audioDeviceId?: string;
+  videoDeviceId?: string;
+}
+
+/**
+ * A device id as an IDEAL constraint, never `{ exact }`: a device unplugged since
+ * it was picked would raise `OverconstrainedError`, which reads below as "no
+ * camera" and would silently drop video instead of using the default one.
+ */
+function constraint(deviceId: string | undefined): MediaTrackConstraints | true {
+  return deviceId ? { deviceId } : true;
+}
+
+export async function acquireLocalMedia(
+  devices: PreferredDevices = {},
+): Promise<{ stream: MediaStream; audioOnly: boolean }> {
+  const audio = constraint(devices.audioDeviceId);
   try {
     return {
-      stream: await navigator.mediaDevices.getUserMedia({ audio: true, video: true }),
+      stream: await navigator.mediaDevices.getUserMedia({
+        audio,
+        video: constraint(devices.videoDeviceId),
+      }),
       audioOnly: false,
     };
   } catch (err) {
@@ -29,7 +50,7 @@ export async function acquireLocalMedia(): Promise<{ stream: MediaStream; audioO
   }
   try {
     return {
-      stream: await navigator.mediaDevices.getUserMedia({ audio: true, video: false }),
+      stream: await navigator.mediaDevices.getUserMedia({ audio, video: false }),
       audioOnly: true,
     };
   } catch {

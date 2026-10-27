@@ -33,14 +33,17 @@ export function computeGridLayout(count: number): GridLayout {
 
   if (count === 2) {
     return {
-      containerClass: 'grid grid-cols-2',
+      // Stacked until the grid itself is 42rem wide — a container query, not a
+      // viewport one: on a tablet the roster takes a third of the screen, and
+      // side by side each tile would be a tall strip.
+      containerClass: 'grid grid-cols-1 @2xl:grid-cols-2',
       tiles: [{ className: '' }, { className: '' }],
     };
   }
 
   if (count === 3) {
     return {
-      containerClass: 'grid grid-cols-3',
+      containerClass: 'grid grid-cols-1 @2xl:grid-cols-3',
       tiles: [{ className: '' }, { className: '' }, { className: '' }],
     };
   }

@@ -10,7 +10,7 @@ import { z } from 'zod';
 import type { LanguageCode } from '@chatofy/types';
 import { ConferenceIceServerSchema } from '@chatofy/types/events';
 import { TranslationAudioSink } from '@/hooks/use-translation-audio-sink';
-import { acquireLocalMedia } from './acquire-local-media';
+import { acquireLocalMedia, type PreferredDevices } from './acquire-local-media';
 import { conferenceDebug } from './conference-debug-log';
 import { createWebConferenceLeg, type WebConferenceLeg } from './conference-cascade-leg-web';
 import { parseRoomEvent, peerLanguageSchema, type RoomEvent } from './conference-room-events';
@@ -53,6 +53,8 @@ export interface CallAttemptOptions {
   /** Applied to the new local tracks, so a reconnect keeps the user muted. */
   muted: boolean;
   videoEnabled: boolean;
+  /** Mic and camera picked before joining; reused by every reconnect. */
+  devices?: PreferredDevices;
   sink: ConferenceSink;
   /** The owner ended the meeting. */
   onEnded: () => void;
@@ -126,7 +128,7 @@ export class CallAttempt {
     }
     if (reply.peers.some((peer) => peer.published)) media.subscribe();
 
-    const { stream, audioOnly } = await acquireLocalMedia();
+    const { stream, audioOnly } = await acquireLocalMedia(this.options.devices);
     if (this.disposed) {
       stream.getTracks().forEach((track) => track.stop());
       throw new AttemptDisposedError();

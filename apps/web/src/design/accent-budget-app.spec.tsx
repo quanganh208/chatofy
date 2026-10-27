@@ -1062,10 +1062,9 @@ const SCREENS: ScreenState[] = [
   },
   ...ARRANGEMENTS,
 
-  // ---- /conference lobby ----
+  // ---- /conference landing ----
   //
-  // "Create a room" is the one accent; Join is outline beside the room field.
-  // The camera preview is a muted region on the page ground, not a card.
+  // "New meeting" is the one accent; Join is outline beside the code field.
   {
     name: '/conference — lobby',
     filled: 1,
@@ -1084,16 +1083,33 @@ const SCREENS: ScreenState[] = [
     render: () => <ConferenceLobbyPage />,
     shows: '#conf-room',
   },
+
+  // ---- /conference/[roomId] pre-join screen ----
+  //
+  // "Join now" is the one accent. The mic and camera toggles and the voice chip
+  // are outline, the device pickers are fields. The preview is a muted region on
+  // the page ground, not a card; the voice popover is the one surface it opens.
   {
-    // Pressing Create with no name: the line that explains it is text, not a
-    // second filled control.
-    name: '/conference — lobby, refusing to create without a name',
+    name: '/conference/[roomId] — pre-join',
     filled: 1,
     surfaces: 0,
-    setup() {},
-    render: () => <ConferenceLobbyPage />,
-    press: 'button[data-variant="default"]',
-    shows: '[role="alert"]',
+    setup() {
+      url.query = '';
+      useConference.mockReturnValue(call({ status: 'idle', mySocketId: null }));
+    },
+    render: () => <ConferenceRoomPage />,
+    shows: '#conf-name',
+  },
+  {
+    name: '/conference/[roomId] — pre-join, voice popover open',
+    filled: 1,
+    surfaces: 1,
+    setup() {
+      url.query = '';
+      useConference.mockReturnValue(call({ status: 'idle', mySocketId: null }));
+    },
+    render: () => <ConferenceRoomPage />,
+    open: '[data-conference-voice-chip]',
   },
 
   // ---- /conference/[roomId] in-call screen ----
