@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AUTO_DETECT,
   DEFAULT_LANGUAGE_PAIR,
+  defaultTargetFor,
   IDENTIFIABLE_LANGUAGES,
   LANGUAGE_CODES,
   allLanguagePairs,
@@ -15,6 +16,7 @@ import {
   languagePairSchema,
   pairLanguages,
   reversePair,
+  roomTargets,
   samePair,
   sourceLanguagesSchema,
   speakerRoleFor,
@@ -94,6 +96,32 @@ describe('translationTargets', () => {
 
   it('a source outside the conversation leaves the whole set as targets', () => {
     expect(translationTargets<string>(THREE, ['fr'])).toEqual(['vi', 'en', 'ja']);
+  });
+});
+
+describe('roomTargets', () => {
+  it("lists each other language once, without the speaker's own", () => {
+    expect(roomTargets('vi', ['en', 'vi', 'en'])).toEqual(['en']);
+  });
+
+  it('keeps registry order whatever order the peers joined in', () => {
+    expect(roomTargets('en', ['zh', 'vi'])).toEqual(['vi', 'zh']);
+  });
+
+  it('is empty when the room holds no other language', () => {
+    expect(roomTargets('vi', [])).toEqual([]);
+    expect(roomTargets('vi', ['vi'])).toEqual([]);
+  });
+});
+
+describe('defaultTargetFor', () => {
+  it("pairs the default pair's languages with each other", () => {
+    expect(defaultTargetFor('vi')).toBe('en');
+    expect(defaultTargetFor('en')).toBe('vi');
+  });
+
+  it('sends any other language into English', () => {
+    expect(defaultTargetFor('zh')).toBe('en');
   });
 });
 
