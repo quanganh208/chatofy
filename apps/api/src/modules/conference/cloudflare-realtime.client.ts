@@ -61,7 +61,7 @@ const iceServersResponseSchema = z.object({
   ),
 });
 
-export interface PushedTrack {
+interface PushedTrack {
   mid: string;
   trackName: string;
   errorCode?: string;

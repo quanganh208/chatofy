@@ -206,6 +206,61 @@ describe('sessionOptionsSchema', () => {
   });
 });
 
+describe('sessionOptionsSchema alsoTranslateInto', () => {
+  const start = (alsoTranslateInto: unknown) =>
+    sessionOptionsSchema.parse({ languagePair: { source: 'vi', target: 'en' }, alsoTranslateInto });
+
+  it('is absent when the client does not ask', () => {
+    const parsed = sessionOptionsSchema.parse({ languagePair: { source: 'vi', target: 'en' } });
+    expect(parsed.alsoTranslateInto).toBeUndefined();
+  });
+
+  it('carries a list within the ceiling unchanged', () => {
+    expect(start(['zh']).alsoTranslateInto).toEqual(['zh']);
+  });
+
+  it('drops repeats', () => {
+    expect(start(['zh', 'zh']).alsoTranslateInto).toEqual(['zh']);
+  });
+
+  it('keeps the first entries of an over-long list rather than dropping it', () => {
+    expect(start(['zh', 'vi', 'en']).alsoTranslateInto).toEqual(['zh']);
+  });
+
+  it('reads a malformed value as absent instead of refusing the session', () => {
+    expect(start('zh').alsoTranslateInto).toBeUndefined();
+    expect(start(['zh', 'fr']).alsoTranslateInto).toBeUndefined();
+    expect(start([1]).alsoTranslateInto).toBeUndefined();
+  });
+});
+
+describe('server.audio.frame', () => {
+  const frame = {
+    sessionId: 's1',
+    encoding: 'pcm16',
+    sampleRate: 24000,
+    sequence: 0,
+    timestamp: 0,
+    payload: 'AAAA',
+  };
+
+  it('parses an envelope without lang, as every older server sends it', () => {
+    const parsed = serverEventSchema.parse({ type: 'server.audio.frame', frame });
+    expect(parsed.type === 'server.audio.frame' && parsed.lang).toBeUndefined();
+  });
+
+  it('carries the language of a frame from a multi-language turn', () => {
+    const parsed = serverEventSchema.parse({ type: 'server.audio.frame', frame, lang: 'zh' });
+    expect(parsed.type === 'server.audio.frame' && parsed.lang).toBe('zh');
+  });
+
+  it('refuses a language outside the registry', () => {
+    expect(
+      serverEventSchema.safeParse({ type: 'server.audio.frame', frame, lang: 'fr' }).success,
+    ).toBe(false);
+  });
+});
+
 describe('sessionOptionsSchema languagePair', () => {
   it('refuses the old direction string — a stale tab must reload', () => {
     expect(sessionOptionsSchema.safeParse({ direction: 'vi_to_en' }).success).toBe(false);

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { languagePairPickerLanguages, loadSettings, saveSettings } from './settings';
+import { loadSettings, saveSettings } from './settings';
 import type { CaptureSettings } from './messages';
 
 /**
@@ -168,15 +168,5 @@ describe('saveSettings', () => {
       contextId: 'ctx-123',
     });
     expect((await loadSettings()).contextId).toBe('ctx-123');
-  });
-});
-
-describe('languagePairPickerLanguages', () => {
-  it('offers every registry language in the turn-by-turn mode', () => {
-    expect(languagePairPickerLanguages('cascade')).toEqual(['vi', 'en', 'zh']);
-  });
-
-  it('offers no zh pair in live mode, which the live gateway refuses', () => {
-    expect(languagePairPickerLanguages('live')).toEqual(['vi', 'en']);
   });
 });

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { audioFrameSchema } from './audio-frame.js';
 import { speakerRoleSchema } from '../domain/session.js';
 import {
+  LANGUAGE_CODES,
   languageCodeSchema,
   sessionLanguagePairSchema,
   translationMapSchema,
@@ -189,6 +190,14 @@ export const translationHintsSchema = z.object({
 });
 export type TranslationHints = z.infer<typeof translationHintsSchema>;
 
+/** Most extra targets a turn may ask for: every registry language but the pair's two. */
+const MAX_EXTRA_TARGETS = LANGUAGE_CODES.length - 2;
+
+/** Dedupes `alsoTranslateInto` and keeps its first entries up to the ceiling. */
+function clampExtraTargets<L extends string>(languages: readonly L[]): L[] {
+  return [...new Set(languages)].slice(0, MAX_EXTRA_TARGETS);
+}
+
 /**
  * Everything a turn needs to be decided before the first frame arrives.
  *
@@ -283,6 +292,37 @@ export const sessionOptionsSchema = z.object({
    * Additive: a declared one-way session keeps sending `voice` alone.
    */
   voices: z.partialRecord(languageCodeSchema, z.string().max(64)).optional(),
+  /**
+   * More languages to receive the translation of each turn in, beside
+   * `languagePair.target`: the client opts in to several languages of text and
+   * audio for one turn (a meeting where listeners speak different languages).
+   * Ignored with `twoWay` or a `'detect'` source, whose target is not one fixed
+   * language.
+   *
+   * CLAMPED, never rejected, for the reason {@link speed} records: a failed
+   * parse of `client.session.start` is silence. Repeats are dropped and an
+   * over-long list keeps its FIRST entries (`.max()` would discard the whole
+   * list and quietly degrade the turn to one target); a value that is not a list
+   * of registry codes reads as absent. The ceiling is every language but the
+   * pair's two. This field cannot see the pair, so an entry naming its source
+   * or target survives here and is dropped by the server.
+   */
+  alsoTranslateInto: z
+    .array(languageCodeSchema)
+    // Transform BEFORE `.optional()`: a transform on the outside would make the
+    // key required in `SessionOptions` (the output type), breaking every
+    // existing literal that omits it.
+    .transform(clampExtraTargets)
+    .optional()
+    .catch(undefined),
+  /**
+   * This turn comes from a meeting's speaker leg, which captures for as long as
+   * the meeting runs. The server admits such turns under a ceiling of their own
+   * inside the shared one, so a busy meeting cannot take every turn a /translate
+   * user needs. Absent reads as an ordinary turn, which is what a client built
+   * before the field existed sends.
+   */
+  meeting: z.boolean().optional().catch(undefined),
   /**
    * Ask for a speaker embedding per turn, so this client can guess who spoke.
    *
@@ -866,6 +906,13 @@ const serverBlockTranslatedSchema = z.object({
 const serverAudioFrameSchema = z.object({
   type: z.literal('server.audio.frame'),
   frame: audioFrameSchema,
+  /**
+   * Language of the synthesized speech, when a turn is voiced in more than one
+   * (`alsoTranslateInto`). On the envelope rather than on the frame, because
+   * the client→server frame shares `audioFrameSchema`. Absent means the turn's
+   * own target, which is all a single-target session ever receives.
+   */
+  lang: languageCodeSchema.optional(),
 });
 
 const serverSessionEndedSchema = z.object({

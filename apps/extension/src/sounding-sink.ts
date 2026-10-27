@@ -1,3 +1,4 @@
+import type { LanguageCode } from '@chatofy/types';
 import type { PlaybackSink } from '@chatofy/realtime-client';
 
 /**
@@ -40,8 +41,9 @@ export class SoundingSink implements PlaybackSink {
     private readonly onSoundingChanged: (sounding: boolean) => void,
   ) {}
 
-  enqueue(turnKey: string, samples: Int16Array, sampleRate: number): void {
-    this.delegate.enqueue(turnKey, samples, sampleRate);
+  /** `lang` passes through untouched: the delegate decides what a language means. */
+  enqueue(turnKey: string, samples: Int16Array, sampleRate: number, lang?: LanguageCode): void {
+    this.delegate.enqueue(turnKey, samples, sampleRate, lang);
     this.report();
   }
 

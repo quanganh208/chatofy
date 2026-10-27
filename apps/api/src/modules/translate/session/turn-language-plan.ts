@@ -55,6 +55,16 @@ export interface TurnLanguagePlan {
    * be translated into is shown as transcript and neither translated nor spoken.
    */
   readonly spoken: LanguageCode | null;
+  /**
+   * Every language this turn's translation is SPOKEN in, {@link spoken} first.
+   *
+   * `[spoken]` (or empty, when nothing is spoken) unless the client asked for
+   * extra targets with `alsoTranslateInto`; then every target is voiced, so a
+   * room whose listeners speak different languages hears one turn in each.
+   * `spoken` stays the primary: the timeline, the live preview and the metrics
+   * read it alone.
+   */
+  readonly voiced: readonly LanguageCode[];
 }
 
 /** A plan from a declared pair, which always has a language to speak. */
@@ -84,6 +94,7 @@ export function planTurnLanguages(
     // empty array.
     recognition: sourceLanguages[0]!,
     spoken: targets[0] ?? null,
+    voiced: targets.slice(0, 1),
   };
 }
 
@@ -106,11 +117,16 @@ export function planDetectTurn(
     targets,
     recognition: heard,
     spoken: targets[0] ?? null,
+    voiced: targets,
   };
 }
 
 /**
  * Decide a turn's language plan from the language pair the client declared.
+ *
+ * `extra` are further languages to translate into and speak in, beside the
+ * pair's target (`alsoTranslateInto`). Repeats, and entries naming the pair's
+ * own languages, are dropped; with none left the plan is exactly the pair's.
  *
  * The ONE place a transport turns a language pair into a plan: the WS path calls
  * it once per turn in `TranslationSessionService.start` (and hands the result
@@ -122,11 +138,18 @@ export function planDetectTurn(
 export function planForPair(
   pair: LanguagePair,
   identifier: LanguageIdentifier,
+  extra: readonly LanguageCode[] = [],
 ): DeclaredTurnLanguagePlan {
-  const conversation = pairLanguages(pair);
+  const pairOnly = pairLanguages(pair);
+  const extras = [...new Set(extra)].filter(
+    (language) => !pairOnly.includes(language),
+  );
+  // The extras come after the pair, so `translationTargets` keeps the pair's
+  // target first and it stays the language spoken as the primary.
+  const conversation = [...pairOnly, ...extras];
   const plan = planTurnLanguages(
     conversation,
-    identifier.identify({ declared: conversation[0] }),
+    identifier.identify({ declared: pairOnly[0] }),
   );
   const { spoken } = plan;
   // A pair holds two distinct languages and the identifier answers a non-empty
@@ -136,5 +159,9 @@ export function planForPair(
       `A declared pair planned no target: ${pair.source}→${pair.target}`,
     );
   }
-  return { ...plan, spoken };
+  return {
+    ...plan,
+    spoken,
+    voiced: extras.length > 0 ? plan.targets : [spoken],
+  };
 }

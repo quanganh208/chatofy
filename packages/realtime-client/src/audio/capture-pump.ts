@@ -186,6 +186,22 @@ export interface CapturePumpOptions {
    * every existing test — on exactly the behaviour they had.
    */
   sounding?: () => boolean;
+  /**
+   * Whether another participant's translation is sounding RIGHT NOW on this
+   * device's loudspeaker — audio we received, not audio we produced.
+   *
+   * An onset gate only. While it is true and no turn is open, blocks are kept
+   * from the speech gate, so what the loudspeaker plays cannot open a turn. A
+   * turn already open keeps every block and is never closed by it: someone who
+   * talks over a peer's translation, the ordinary case in a room of three, is
+   * not cut. It touches neither {@link sounding}, the echo count, nor
+   * {@link fullDuplex}.
+   *
+   * For a meeting device whose speaker-leg microphone hears the room's
+   * playback; absent everywhere else, which keeps every other caller on the
+   * behaviour it had.
+   */
+  receivedSounding?: () => boolean;
 }
 
 export class CapturePump {
@@ -221,6 +237,7 @@ export class CapturePump {
   private readonly fullDuplex: boolean;
   private readonly continuous: boolean;
   private readonly sounding: () => boolean;
+  private readonly receivedSounding: () => boolean;
   /**
    * Whether the meter has already been told the microphone is being ignored.
    *
@@ -264,6 +281,7 @@ export class CapturePump {
     this.fullDuplex = options.fullDuplex ?? false;
     this.continuous = options.continuous ?? false;
     this.sounding = options.sounding ?? (() => false);
+    this.receivedSounding = options.receivedSounding ?? (() => false);
 
     const blockMs = (blockSamples / TARGET_SAMPLE_RATE) * 1000;
     this.preRollBlocks = Math.max(1, Math.round(PRE_ROLL_MS / blockMs));
@@ -444,6 +462,16 @@ export class CapturePump {
     this.levelZeroed = false;
 
     this.handlers.onLevel(rms);
+    // A peer's translation is playing here and nobody is mid-turn: this block is
+    // the loudspeaker as much as the room, so it may not open a turn. Kept out
+    // of the pre-roll too, or the next turn would open on that playback. What
+    // the pre-roll and the gate held from before the playback is dropped as
+    // well: the next turn opens on what is said after it, not seconds earlier.
+    if (this.state !== 'in-turn' && this.receivedSounding()) {
+      this.preRoll.length = 0;
+      this.gate.reset();
+      return;
+    }
     // May flip the state through onSpeechStart / onSpeechEnd.
     const isSpeech = this.gate.push(rms, blockMs);
 

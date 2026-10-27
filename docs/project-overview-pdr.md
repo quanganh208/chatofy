@@ -50,9 +50,9 @@ the extension, or in Chatofy's own video meetings.
   microphone, which the meeting client is still transmitting — see
   [system-architecture](./architecture/modules-extension-ci.md#browser-extension-path).
 - **Video meetings** (`/conference` on web) — rooms opened by link for signed-in
-  users, media on Cloudflare Realtime SFU, Vietnamese↔English subtitles and spoken
-  translation for each listener, chat translated per recipient, and minutes on the
-  end screen. Live on production; the two-network connectivity run and a
+  users, media on Cloudflare Realtime SFU, subtitles and spoken translation between
+  Vietnamese, English and Chinese for each listener, chat translated per recipient,
+  and minutes on the end screen. Live on production; the two-network connectivity run and a
   multi-speaker load run are still open ([roadmap](./project-roadmap.md)).
 
 ## Out of MVP (Descoped)

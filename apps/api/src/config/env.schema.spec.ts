@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { envSchema } from './env.schema';
+import { envSchema, liveModeEnabled, type Env } from './env.schema';
 
 /**
  * Holds the two `.env` templates and the schema together.
@@ -176,6 +176,63 @@ describe('defaults', () => {
 
   it('has no switch for meetings, which always load', () => {
     expect(minimal).not.toHaveProperty('CONFERENCE_ENABLED');
+  });
+});
+
+/**
+ * Live mode is fail-closed: on only when asked for, or when NODE_ENV is exactly
+ * one of the two environments that never face users.
+ */
+describe('liveModeEnabled', () => {
+  const resolve = (
+    NODE_ENV: Env['NODE_ENV'],
+    TRANSLATE_LIVE_MODE?: Env['TRANSLATE_LIVE_MODE'],
+  ) => liveModeEnabled({ NODE_ENV, TRANSLATE_LIVE_MODE });
+
+  it('is off in production when unset', () => {
+    expect(resolve('production')).toBe(false);
+  });
+
+  it('is on in development when unset', () => {
+    expect(resolve('development')).toBe(true);
+  });
+
+  it('is on in test when unset', () => {
+    expect(resolve('test')).toBe(true);
+  });
+
+  it('is off for a NODE_ENV it does not know, when unset', () => {
+    // The schema refuses such a value at boot; the function must still not
+    // read it as "not production, so on" if one ever reaches it.
+    expect(resolve('staging' as Env['NODE_ENV'])).toBe(false);
+  });
+
+  it('is on in production when explicitly enabled', () => {
+    expect(resolve('production', 'enabled')).toBe(true);
+  });
+
+  it('is off in development when explicitly disabled', () => {
+    expect(resolve('development', 'disabled')).toBe(false);
+  });
+
+  it('reads an empty value as unset, so production stays off', () => {
+    const parsed = envSchema.parse({
+      DATABASE_URL: 'postgresql://u:p@localhost:5432/d',
+      AUTH_JWT_SECRET: 'x'.repeat(32),
+      NODE_ENV: 'production',
+      TRANSLATE_LIVE_MODE: '',
+    });
+    expect(liveModeEnabled(parsed)).toBe(false);
+  });
+
+  it('refuses a boolean-looking value rather than guessing', () => {
+    expect(envSchema.shape.TRANSLATE_LIVE_MODE.safeParse('false').success).toBe(
+      false,
+    );
+  });
+
+  it('runs under NODE_ENV=test in vitest, so the live e2e keeps live mode', () => {
+    expect(process.env.NODE_ENV).toBe('test');
   });
 });
 

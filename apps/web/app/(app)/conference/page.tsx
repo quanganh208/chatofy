@@ -18,14 +18,13 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import type { Route } from 'next';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button, Input, Label, SegmentedControl } from '@chatofy/ui/react';
+import { toLanguageCode, type LanguageCode } from '@chatofy/types';
 import { conferenceRoomIdSchema, MAX_CONFERENCE_DISPLAY_NAME_CHARS } from '@chatofy/types/events';
 import { createConference } from '@/clients/api-client';
 import { useTranslate } from '@/i18n/provider';
 import { ACTIVE_CALL_KEY } from './[roomId]/utils/room-route';
 
-type SourceLanguage = 'vi' | 'en';
-
-function roomPath(roomId: string, name: string, lang: SourceLanguage): Route {
+function roomPath(roomId: string, name: string, lang: LanguageCode): Route {
   const params = new URLSearchParams({ name, lang });
   // `as Route`: typedRoutes cannot validate a path built at runtime (same
   // pattern as history-screen.tsx).
@@ -50,7 +49,8 @@ function ConferenceLobby() {
         return;
       }
       if (sharedRoom && sharedRoom !== active.roomId) return;
-      router.replace(roomPath(active.roomId, active.name, active.lang === 'en' ? 'en' : 'vi'));
+      const lang = typeof active.lang === 'string' ? active.lang : '';
+      router.replace(roomPath(active.roomId, active.name, toLanguageCode(lang) ?? 'vi'));
     } catch {
       sessionStorage.removeItem(ACTIVE_CALL_KEY);
     }
@@ -58,8 +58,9 @@ function ConferenceLobby() {
 
   const [name, setName] = useState('');
   const [roomId, setRoomId] = useState(sharedRoom);
-  const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>(
-    searchParams.get('lang') === 'en' ? 'en' : 'vi',
+  // Any registry language passes; anything else falls back to Vietnamese.
+  const [sourceLanguage, setSourceLanguage] = useState<LanguageCode>(
+    toLanguageCode(searchParams.get('lang') ?? '') ?? 'vi',
   );
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -152,13 +153,14 @@ function ConferenceLobby() {
         />
       </div>
 
-      <SegmentedControl<SourceLanguage>
+      <SegmentedControl<LanguageCode>
         label={t('web.conference.sourceLanguage')}
         value={sourceLanguage}
         onChange={setSourceLanguage}
         options={[
           { value: 'vi', label: t('web.conference.sourceLanguageVi') },
           { value: 'en', label: t('web.conference.sourceLanguageEn') },
+          { value: 'zh', label: t('web.conference.sourceLanguageZh') },
         ]}
       />
 

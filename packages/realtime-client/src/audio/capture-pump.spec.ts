@@ -748,6 +748,118 @@ describe('CapturePump', () => {
     });
   });
 
+  /**
+   * A phone on its loudspeaker hears the peers' translations at its own
+   * microphone, and at a loud volume the echo canceller lets them through. The
+   * onset gate keeps that playback from opening turns, without ever cutting
+   * someone who is already talking.
+   */
+  describe('received-audio onset gate', () => {
+    const LEG = { fullDuplex: true, continuous: true, maxUtteranceMs: 8000, cutLookaheadMs: 500 };
+
+    it('opens no turn while a received translation sounds', () => {
+      let received = false;
+      const { pump, handlers } = harness({ ...LEG, receivedSounding: () => received });
+      push(pump, silence, 200);
+
+      received = true;
+      push(pump, speech, 1500); // the peer's translation, out of the loudspeaker
+
+      expect(handlers.onTurnOpen).not.toHaveBeenCalled();
+      expect(handlers.onAudio).not.toHaveBeenCalled();
+    });
+
+    it('keeps the playback out of the pre-roll of the next turn', () => {
+      let received = false;
+      const { pump, handlers } = harness({ ...LEG, receivedSounding: () => received });
+      push(pump, silence, 200);
+      received = true;
+      const playbackFrom = nextTag + 1;
+      push(pump, speech, 600);
+      const playbackTo = nextTag;
+
+      received = false;
+      push(pump, speech, 400);
+
+      expect(handlers.onTurnOpen).toHaveBeenCalledTimes(1);
+      const preRoll = handlers.onTurnOpen.mock.calls[0]?.[0] as Int16Array[];
+      expect(preRoll.length).toBeGreaterThan(0);
+      expect(
+        preRoll.filter((block) => tagOf(block) >= playbackFrom && tagOf(block) <= playbackTo),
+      ).toEqual([]);
+    });
+
+    it('keeps what was heard before the playback out of the next turn', () => {
+      let received = false;
+      const { pump, handlers } = harness({ ...LEG, receivedSounding: () => received });
+      const beforeFrom = nextTag + 1;
+      push(pump, silence, 300); // room noise, held in the pre-roll
+      const beforeTo = nextTag;
+      received = true;
+      push(pump, speech, 600);
+
+      received = false;
+      push(pump, speech, 400);
+
+      expect(handlers.onTurnOpen).toHaveBeenCalledTimes(1);
+      const preRoll = handlers.onTurnOpen.mock.calls[0]?.[0] as Int16Array[];
+      expect(
+        preRoll.filter((block) => tagOf(block) >= beforeFrom && tagOf(block) <= beforeTo),
+      ).toEqual([]);
+    });
+
+    it('never cuts a turn that is already open', () => {
+      let received = false;
+      const { pump, handlers } = harness({ ...LEG, receivedSounding: () => received });
+      push(pump, speech, 400);
+      expect(handlers.onTurnOpen).toHaveBeenCalledTimes(1);
+      const before = handlers.onAudio.mock.calls.length;
+
+      received = true; // a peer's translation starts while this speaker talks on
+      push(pump, speech, 1000);
+      push(pump, silence, 600);
+
+      expect(handlers.onAudio.mock.calls.length - before).toBeGreaterThanOrEqual(1000 / BLOCK_MS);
+      expect(handlers.onTurnClose).toHaveBeenCalledTimes(1);
+      expect(handlers.onTurnClose).not.toHaveBeenCalledWith('interrupted');
+    });
+
+    it('leaves the mute and the echo count as they are', () => {
+      const run = (options: CapturePumpOptions, gated: boolean) => {
+        let sounding = false;
+        let received = false;
+        const onMuted = vi.fn();
+        const h = harness({
+          ...options,
+          sounding: () => sounding,
+          ...(gated ? { receivedSounding: () => received } : {}),
+        });
+        // `onMuted` is optional on the handlers; set it on the instance the pump holds.
+        (h.handlers as { onMuted?: (muted: boolean) => void }).onMuted = onMuted;
+        push(h.pump, speech, 400);
+        push(h.pump, silence, 600);
+        sounding = true;
+        received = true;
+        push(h.pump, speech, 400);
+        const mutedDuring = h.pump.isMuted;
+        sounding = false;
+        received = false;
+        push(h.pump, silence, 400);
+        return {
+          echo: h.handlers.onEchoHeard.mock.calls.length,
+          dropped: h.pump.droppedBlocksWhileSounding,
+          mutedDuring,
+          muted: onMuted.mock.calls,
+        };
+      };
+      for (const options of [{ ...LEG }, { ...LEG, fullDuplex: false }]) {
+        const gated = run(options, true);
+        expect(gated.echo).toBeGreaterThan(0);
+        expect(gated).toEqual(run(options, false));
+      }
+    });
+  });
+
   // The guarantee `apps/web` rests on: with the ceiling off, the sequence of
   // events is the one it has always been.
   it('produces an unchanged event sequence when the ceiling is off', () => {

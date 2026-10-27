@@ -87,7 +87,7 @@ credentials when a TURN key is configured (`conference-sfu-ice-servers.ts`).
 ### Decision 3 — Translation inside meeting: Option A client-side capture (resolved by #209)
 
 Each client sends its microphone both into its SFU publish session (for the room) and
-into the live mode of `/ws/translate`, then forwards the translated subtitle and audio as
+into the turn cascade of `/ws/translate` (its live mode in the first build), then forwards the translated subtitle and audio as
 `conference.translation.broadcast`. The gateway fans them out as
 `conference.translation.subtitle` (to peers who speak another language) and
 `conference.translation.audio` (to peers who speak the audio's language). No server-side
@@ -140,12 +140,10 @@ peers. Worker CPU reads 0% because Windows does not expose `ru_utime` through `g
 6 × 720p60 is ≈ 9.7 Mbps aggregate (36.6 MB sent in 30 s), in line with the proposal's
 ~1.6 Mbps per stream.
 
-**Translation is the tighter limit, and it is not measured.** Each participant whose
-translation is on holds one live session of `/ws/translate`, and the API allows six live
-sessions server-wide (a constant, `MAX_CONCURRENT_TURNS_GLOBAL`); a seventh is refused with
-`too_many_sessions`. On the turn path the sidecars bound it instead
-(`LOCAL_STT_CONCURRENCY`, default 4 decodes per engine). Neither has been load-tested with
-several simultaneous speakers, nor has anything been measured on the production host.
+**Translation is the tighter limit.** Meeting speakers run cascade turns that share at
+most 4 of the server's 6 concurrent turns (`turn-concurrency.ts`), and the TTS engines
+saturate first. Measured on the dev stack with two continuous speakers, not on the
+production host: [video-translation-audio-path.md § 4](./video-translation-audio-path.md#4-scale--stt-and-tts-job-count).
 
 ---
 
@@ -155,7 +153,7 @@ several simultaneous speakers, nor has anything been measured on the production 
 | --- | -------------------------------------------- | ------------------ | ------------------------ |
 | 1   | Connectivity run from 2 networks (Wi-Fi, 4G) | Both flags on prod | pending (owner)          |
 | 2   | Mobile device checklist on Cloudflare        | Dev client build   | pending (owner)          |
-| 3   | Translation load with several speakers       | Running stack      | not measured             |
+| 3   | Translation load with several speakers       | Running stack      | measured on dev stack    |
 | 4   | Mobile sign-in through the real auth client  | —                  | mobile is dev-build only |
 | 5   | Meeting minutes on the end screen            | A minutes pipeline | deferred                 |
 | —   | Network path (Decision 2 / #208)             | Owner decision     | done (2026-10-25)        |
@@ -165,8 +163,8 @@ several simultaneous speakers, nor has anything been measured on the production 
 
 ## 4. What is NOT changing
 
-- `/ws/translate` — unchanged; a conference client opens a live session on it like any
-  other client.
+- `/ws/translate` — a conference client opens cascade turns on it like any other client,
+  with `alsoTranslateInto` and `meeting: true` as optional additions.
 - Auth — the conference gateway authenticates the WebSocket upgrade the same way as
   `/ws/translate`.
 - Redis — no new use; room state is in-process (`ConferenceRoomRegistry`).

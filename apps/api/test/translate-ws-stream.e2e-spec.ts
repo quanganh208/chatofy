@@ -334,6 +334,59 @@ describe('/ws/translate (e2e)', () => {
     }
   }, 20000);
 
+  it('translates and speaks one turn in every language it asks for, tagging each frame', async () => {
+    fakeProviders.tts.synthesize.mockClear();
+    const client = await Client.connect(url);
+    try {
+      client.send('client.session.start', {
+        type: 'client.session.start',
+        languagePair: { source: 'vi', target: 'en' },
+        alsoTranslateInto: ['zh'],
+        turnId: 'turn-multi',
+      });
+      const { sessionId } = await client.waitFor('server.session.ready');
+      client.send('client.audio.frame', frame(sessionId, 0));
+      client.send('client.audio.frame', frame(sessionId, 1));
+      client.send('client.session.end', {
+        type: 'client.session.end',
+        sessionId,
+      });
+
+      const ended = await client.waitFor('server.session.ended');
+      expect(ended.reason).toBe('completed');
+      expect(
+        client.events.filter((e) => e.type === 'server.session.ready'),
+      ).toHaveLength(1);
+      expect(client.events.filter((e) => e.type === 'server.error')).toEqual(
+        [],
+      );
+
+      const transcript = await client.waitFor('server.transcript.final');
+      expect(Object.keys(transcript.segment.translations).sort()).toEqual([
+        'en',
+        'zh',
+      ]);
+
+      const audio = client.events.filter(
+        (e) => e.type === 'server.audio.frame',
+      );
+      const langs = new Set(audio.map((e) => e.lang));
+      expect([...langs].sort()).toEqual(['en', 'zh']);
+      // Each language carries the whole of its own speech: two clauses each.
+      for (const lang of ['en', 'zh'] as const) {
+        expect(
+          Buffer.concat(
+            audio
+              .filter((e) => e.lang === lang)
+              .map((e) => Buffer.from(e.frame.payload, 'base64')),
+          ).equals(Buffer.concat([ttsPcm, ttsPcm])),
+        ).toBe(true);
+      }
+    } finally {
+      client.close();
+    }
+  }, 20000);
+
   it('starts the text half early when the client suspects the end', async () => {
     fakeProviders.translation.translate.mockClear();
     const client = await Client.connect(url);

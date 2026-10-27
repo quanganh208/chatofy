@@ -6,6 +6,7 @@
  * them and for anything that fails its schema.
  */
 import { z } from 'zod';
+import { languageCodeSchema, type LanguageCode } from '@chatofy/types';
 import {
   ConferenceChatMessageSchema,
   ConferenceMediaPublishedSchema,
@@ -20,7 +21,21 @@ import type { ConferenceChatRefusal } from './conference-types';
 
 const socketIdSchema = z.string().min(1).max(64);
 
-const peerJoinedSchema = z.object({ socketId: socketIdSchema, displayName: z.string() });
+/**
+ * A peer's spoken language, when the gateway names one this build knows.
+ *
+ * Optional, and an unknown code is dropped rather than refusing the frame: a
+ * gateway from before the field, or one that speaks a language added later,
+ * must still have its joins read. The speaker leg treats that peer's language
+ * as unknown.
+ */
+export const peerLanguageSchema = languageCodeSchema.optional().catch(undefined);
+
+const peerJoinedSchema = z.object({
+  socketId: socketIdSchema,
+  displayName: z.string(),
+  sourceLanguage: peerLanguageSchema,
+});
 const peerLeftSchema = z.object({ socketId: socketIdSchema });
 const participantStateSchema = z.object({
   socketId: socketIdSchema,
@@ -30,17 +45,20 @@ const participantStateSchema = z.object({
 // The gateway answers a refused `conference.chat` on the same event name; a
 // sent message that is accepted comes back as `conference.chat.message`.
 const chatRefusalSchema = z.object({ error: z.string() });
+// A refused `conference.translation.broadcast` is answered on its own name.
+const broadcastRefusalSchema = z.object({ error: z.string() });
 const endedSchema = z.object({ reason: z.string().optional() }).optional();
 
 export type RoomEvent =
   | { type: 'media-published'; socketId: string }
-  | { type: 'peer-joined'; socketId: string; displayName: string }
+  | { type: 'peer-joined'; socketId: string; displayName: string; sourceLanguage?: LanguageCode }
   | { type: 'peer-left'; socketId: string }
   | { type: 'participant-state'; socketId: string; muted?: boolean; videoEnabled?: boolean }
   | { type: 'subtitle'; subtitle: ConferenceTranslationSubtitle }
   | { type: 'audio'; audio: ConferenceTranslationAudio & { speakerSocketId: string } }
   | { type: 'chat'; message: ConferenceChatMessage }
   | { type: 'chat-refused'; refusal: ConferenceChatRefusal }
+  | { type: 'broadcast-refused'; code: string }
   | { type: 'ended' };
 
 export function parseRoomEvent(signal: SignalMessage): RoomEvent | null {
@@ -52,7 +70,14 @@ export function parseRoomEvent(signal: SignalMessage): RoomEvent | null {
     }
     case 'conference.peer.joined': {
       const parsed = peerJoinedSchema.safeParse(data);
-      return parsed.success ? { type: 'peer-joined', ...parsed.data } : null;
+      if (!parsed.success) return null;
+      const { socketId, displayName, sourceLanguage } = parsed.data;
+      return {
+        type: 'peer-joined',
+        socketId,
+        displayName,
+        ...(sourceLanguage === undefined ? {} : { sourceLanguage }),
+      };
     }
     case 'conference.peer.left': {
       const parsed = peerLeftSchema.safeParse(data);
@@ -86,6 +111,10 @@ export function parseRoomEvent(signal: SignalMessage): RoomEvent | null {
         type: 'chat-refused',
         refusal: parsed.data.error === 'limit_reached' ? 'rate-limited' : 'not-sent',
       };
+    }
+    case 'conference.translation.broadcast': {
+      const parsed = broadcastRefusalSchema.safeParse(data);
+      return parsed.success ? { type: 'broadcast-refused', code: parsed.data.error } : null;
     }
     case 'conference.ended':
       return endedSchema.safeParse(data).success ? { type: 'ended' } : null;

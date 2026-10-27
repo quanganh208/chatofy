@@ -15,7 +15,10 @@ import { getSession } from 'next-auth/react';
 import type { LanguageCode } from '@chatofy/types';
 import { ConferenceConnection } from '@/conference/conference-connection';
 import { RECONNECT_CAP } from '@/conference/conference-connection-policy';
-import { conferenceSocketBaseUrl } from '@/conference/conference-socket-url';
+import {
+  conferenceSocketBaseUrl,
+  conferenceTranslateSocketUrl,
+} from '@/conference/conference-socket-url';
 import { env } from '@/config/env';
 import type {
   ConferenceChatMessage,
@@ -26,15 +29,11 @@ import type {
   PeerState,
 } from '@/conference/conference-types';
 
-export type {
-  ConferenceChatMessage,
-  ConferenceChatRefusal,
-  ConferenceErrorReason,
-  ConferenceStatus,
-  PeerState,
-} from '@/conference/conference-types';
+export type { ConferenceChatMessage, PeerState } from '@/conference/conference-types';
 
 const API_WS_URL = conferenceSocketBaseUrl(env.NEXT_PUBLIC_API_BASE_URL);
+/** From the HTTP base, not from `API_WS_URL` — see `conferenceTranslateSocketUrl`. */
+const API_TRANSLATE_URL = conferenceTranslateSocketUrl(env.NEXT_PUBLIC_API_BASE_URL);
 
 /** Max chat messages retained per meeting (ephemeral, bounded). */
 const CHAT_MESSAGE_CAP = 200;
@@ -61,6 +60,12 @@ export interface UseConferenceReturn {
   audioBlocked: boolean;
   /** True while the local speaker's current subtitle turn is open. */
   localTranslating: boolean;
+  /**
+   * The speaker's translation ended for good mid-call (no token, refused, or
+   * the translator kept dropping): the others hear the speaker untranslated.
+   * Cleared when the call view resets, including a reconnect.
+   */
+  translationEnded: boolean;
   /** Current reconnect attempt (1-based); 0 when not reconnecting. */
   reconnectAttempt: number;
   /** Maximum reconnect attempts before giving up to `disconnected`. */
@@ -108,6 +113,7 @@ export function useConference(
   const [localVideoEnabled, setLocalVideoEnabled] = useState(true);
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [localTranslating, setLocalTranslating] = useState(false);
+  const [translationEnded, setTranslationEnded] = useState(false);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [messages, setMessages] = useState<ConferenceChatMessage[]>([]);
   const [chatRefusal, setChatRefusal] = useState<ConferenceChatRefusal | null>(null);
@@ -129,6 +135,7 @@ export function useConference(
       peers: setPeers,
       audioBlocked: setAudioBlocked,
       translating: setLocalTranslating,
+      translationEnded: setTranslationEnded,
       chat(message) {
         setMessages((prev) => {
           const next = [...prev, message];
@@ -146,6 +153,7 @@ export function useConference(
     connectionRef.current?.leave();
     const connection = new ConferenceConnection({
       wsBaseUrl: API_WS_URL,
+      translateSocketUrl: API_TRANSLATE_URL,
       roomId,
       displayName: displayName.trim(),
       sourceLanguage,
@@ -214,6 +222,7 @@ export function useConference(
     localVideoEnabled,
     audioBlocked,
     localTranslating,
+    translationEnded,
     reconnectAttempt,
     reconnectCap: RECONNECT_CAP,
     join,

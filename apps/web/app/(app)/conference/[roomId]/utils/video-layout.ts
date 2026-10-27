@@ -11,7 +11,7 @@
  * 7+ → 3 cols (best-effort)
  */
 
-export interface TileLayout {
+interface TileLayout {
   /** Extra Tailwind classes applied to this specific tile's wrapper. */
   className: string;
 }

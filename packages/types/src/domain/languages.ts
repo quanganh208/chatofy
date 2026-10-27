@@ -201,6 +201,27 @@ export function translationTargets<L extends string>(
 }
 
 /**
+ * The languages a speaker in a room should be translated INTO: every distinct
+ * language the other participants speak, except the speaker's own, in registry
+ * order so that every client derives the same list from the same room.
+ */
+export function roomTargets(own: LanguageCode, peers: Iterable<LanguageCode>): LanguageCode[] {
+  const present = new Set(peers);
+  return LANGUAGE_CODES.filter((code) => code !== own && present.has(code));
+}
+
+/**
+ * The target a speaker gets when nothing else names one, such as a room with no
+ * other language in it yet: the other side of {@link DEFAULT_LANGUAGE_PAIR} for
+ * either of its languages, and English for any other source.
+ */
+export function defaultTargetFor(source: LanguageCode): LanguageCode {
+  if (source === DEFAULT_LANGUAGE_PAIR.source) return DEFAULT_LANGUAGE_PAIR.target;
+  if (source === DEFAULT_LANGUAGE_PAIR.target) return DEFAULT_LANGUAGE_PAIR.source;
+  return 'en';
+}
+
+/**
  * The binary speaker role of a turn said in `source`.
  *
  * The conversation's registry-first language is `speaker_a`, whatever order the

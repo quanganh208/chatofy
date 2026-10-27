@@ -66,15 +66,15 @@ Design and evidence:
 
 ### Still open
 
-| Gate                                                | Issue | Status                                      |
-| --------------------------------------------------- | ----- | ------------------------------------------- |
-| Network path for media                              | #208  | Done: Cloudflare Realtime SFU (2026-10-25)  |
-| Connectivity from ≥ 2 networks (Wi-Fi, 4G)          | #208  | Pending: owner run on production            |
-| Translation load with several simultaneous speakers | —     | Not measured; six live sessions server-wide |
-| Mobile sign-in through the real auth client         | #210  | Done: PR #255 (2026-10-26)                  |
-| End screen with minutes                             | #210  | Done: PR #256 (2026-10-26)                  |
-| Mobile device run on Cloudflare                     | #210  | Pending: owner run on a dev build           |
-| Billing tables, recording access                    | #212  | Deferred out of thesis scope                |
+| Gate                                                | Issue | Status                                                         |
+| --------------------------------------------------- | ----- | -------------------------------------------------------------- |
+| Network path for media                              | #208  | Done: Cloudflare Realtime SFU (2026-10-25)                     |
+| Connectivity from ≥ 2 networks (Wi-Fi, 4G)          | #208  | Pending: owner run on production                               |
+| Translation load with several simultaneous speakers | —     | Measured on the dev stack; meeting legs capped at 4 of 6 turns |
+| Mobile sign-in through the real auth client         | #210  | Done: PR #255 (2026-10-26)                                     |
+| End screen with minutes                             | #210  | Done: PR #256 (2026-10-26)                                     |
+| Mobile device run on Cloudflare                     | #210  | Pending: owner run on a dev build                              |
+| Billing tables, recording access                    | #212  | Deferred out of thesis scope                                   |
 
 ## Known gaps
 

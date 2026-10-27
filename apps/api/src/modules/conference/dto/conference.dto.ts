@@ -16,13 +16,13 @@ export class CreateConferenceRequestDto extends createZodDto(
 ) {}
 
 /** :id path parameter — validated as cuid-length string. */
-export const conferenceIdParamSchema = z.object({ id: z.string().min(1) });
+const conferenceIdParamSchema = z.object({ id: z.string().min(1) });
 export class ConferenceIdParamDto extends createZodDto(
   conferenceIdParamSchema,
 ) {}
 
 /** Pagination query — ?page and ?limit. */
-export const conferenceListQuerySchema = z.object({
+const conferenceListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });

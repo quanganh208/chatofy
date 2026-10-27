@@ -1,4 +1,5 @@
 import { Inject, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   ConnectedSocket,
   MessageBody,
@@ -21,6 +22,7 @@ import {
   AUTH_ADAPTER,
   type AuthAdapter,
 } from '../auth/interfaces/auth-adapter.interface';
+import { liveModeEnabled, type Env } from '../../config/env.schema';
 import { SessionTerminator } from '../auth/session-terminator';
 import type { TerminableTransport } from '../auth/session-terminator';
 import { parseWsEvent } from './parse-ws-event';
@@ -49,6 +51,13 @@ type CloseableSocket = StreamSocket & {
   close?: (code?: number, reason?: string) => void;
   terminate?: () => void;
 };
+
+/**
+ * Application close code for a socket that asked for live mode on a server that
+ * does not offer it. In the 4000–4999 private range, which clients treat as
+ * final: a reconnect would be refused the same way.
+ */
+export const LIVE_MODE_UNAVAILABLE_CLOSE_CODE = 4410;
 
 /**
  * WebSocket gateway for real-time translation.
@@ -130,12 +139,24 @@ export class TranslateGateway
    */
   private readonly userBySocket = new WeakMap<CloseableSocket, string>();
 
+  /**
+   * Whether `client.live.start` is served at all — see `liveModeEnabled`. Read
+   * once: the env is fixed for the process's life, and the audio path checks it
+   * on every frame.
+   */
+  private readonly liveEnabled: boolean;
+
   constructor(
     private readonly sessions: TranslationSessionService,
     private readonly live: LiveTranslateSessionService,
     @Inject(AUTH_ADAPTER) private readonly auth: AuthAdapter,
     private readonly terminator: SessionTerminator,
+    config: ConfigService<Env, true>,
   ) {
+    this.liveEnabled = liveModeEnabled({
+      NODE_ENV: config.get('NODE_ENV', { infer: true }),
+      TRANSLATE_LIVE_MODE: config.get('TRANSLATE_LIVE_MODE', { infer: true }),
+    });
     // The gateway registers ITSELF. Auth never names a gateway, a socket, or
     // `ws` — it asks for a user's live connections to end and this answers.
     this.terminator.register(this);
@@ -302,6 +323,33 @@ export class TranslateGateway
     return true;
   }
 
+  /**
+   * Answer a live start on a server that does not offer live mode, then close
+   * the socket.
+   *
+   * The close is the part an outdated client acts on. One built when meetings
+   * ran on live mode stops capturing when its socket closes; left open, it would
+   * keep streaming `client.live.audio` into a server with no session for it.
+   * Frames already in flight before the close are dropped silently by the audio
+   * and stop handlers, so the client sees this one error and nothing after it.
+   */
+  private refuseDisabledLive(client: CloseableSocket): void {
+    this.logger.warn('Refused a live start: live mode is not offered here');
+    this.emit(client, {
+      type: 'server.live.error',
+      code: 'mode_unavailable',
+      message: 'Live translation is not offered on this server',
+    });
+    try {
+      // `ws` flushes the error frame queued above before the close frame.
+      if (client.close)
+        client.close(LIVE_MODE_UNAVAILABLE_CLOSE_CODE, 'mode_unavailable');
+      else client.terminate?.();
+    } catch {
+      // Already gone; the refusal has nothing left to reach.
+    }
+  }
+
   /** Push one contract event, never letting a dead socket take the process down. */
   private emit(
     client: StreamSocket,
@@ -424,8 +472,12 @@ export class TranslateGateway
   @SubscribeMessage('client.live.start')
   handleLiveStart(
     @MessageBody() payload: unknown,
-    @ConnectedSocket() client: StreamSocket,
+    @ConnectedSocket() client: CloseableSocket,
   ): Promise<void> {
+    if (!this.liveEnabled) {
+      this.refuseDisabledLive(client);
+      return Promise.resolve();
+    }
     if (this.refuseLegacyStart(client, payload, 'live'))
       return Promise.resolve();
     if (this.refuseUnservedStart(client, payload)) return Promise.resolve();
@@ -439,6 +491,9 @@ export class TranslateGateway
     @MessageBody() payload: unknown,
     @ConnectedSocket() client: StreamSocket,
   ): Promise<void> {
+    // Silent, not `no_live_session` per frame: the start was already refused
+    // and its socket closed.
+    if (!this.liveEnabled) return Promise.resolve();
     const event = this.parseLiveEvent(payload, 'client.live.audio');
     return this.live.pushFrame(client, event.frame);
   }
@@ -448,6 +503,7 @@ export class TranslateGateway
     @MessageBody() payload: unknown,
     @ConnectedSocket() client: StreamSocket,
   ): Promise<void> {
+    if (!this.liveEnabled) return Promise.resolve();
     this.parseLiveEvent(payload, 'client.live.stop');
     return this.live.stop(client, 'client_stopped');
   }

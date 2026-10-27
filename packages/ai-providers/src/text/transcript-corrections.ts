@@ -22,7 +22,7 @@ export interface TranscriptCorrection {
 }
 
 /** A run of letters and digits: one word. */
-export const WORD = /[\p{L}\p{N}]+/gu;
+const WORD = /[\p{L}\p{N}]+/gu;
 
 /**
  * `text`'s words, lowercased and NFC, as a correction's `at` counts them.

@@ -19,10 +19,15 @@ import { MediaPermissionError } from './acquire-local-media';
 export interface ConferenceConnectionOptions {
   /** Origin of the API's sockets, e.g. `wss://api.example.com`. */
   wsBaseUrl: string;
+  /** Full `ws(s)://…/ws/translate` endpoint for the speaker's translate leg. */
+  translateSocketUrl: string;
   roomId: string;
   displayName: string;
   sourceLanguage: LanguageCode;
-  /** Resolves the CURRENT access token; called once per attempt. */
+  /**
+   * Resolves the CURRENT access token; called once per attempt, and by the
+   * translate leg for every session it builds.
+   */
   getToken: () => Promise<string | undefined>;
   sink: ConferenceSink;
 }
@@ -90,7 +95,7 @@ export class ConferenceConnection {
 
     const ws = new WebSocket(`${this.options.wsBaseUrl}/ws/conference`, [WS_SUBPROTOCOL, token]);
     this.ws = ws;
-    ws.addEventListener('open', () => void this.runAttempt(ws, token, isReconnect));
+    ws.addEventListener('open', () => void this.runAttempt(ws, isReconnect));
     ws.addEventListener('close', (evt: CloseEvent) => {
       if (ws !== this.ws) return;
       conferenceDebug(`socket closed (${evt.code})`);
@@ -100,15 +105,15 @@ export class ConferenceConnection {
     });
   }
 
-  private async runAttempt(ws: WebSocket, token: string, isReconnect: boolean): Promise<void> {
+  private async runAttempt(ws: WebSocket, isReconnect: boolean): Promise<void> {
     if (ws !== this.ws || this.closed) return;
     const attempt = new CallAttempt({
       ws,
       roomId: this.options.roomId,
       displayName: this.options.displayName,
       sourceLanguage: this.options.sourceLanguage,
-      token,
-      translateUrl: this.options.wsBaseUrl,
+      getToken: this.options.getToken,
+      translateSocketUrl: this.options.translateSocketUrl,
       muted: this.muted,
       videoEnabled: this.videoEnabled,
       sink: this.options.sink,
@@ -174,11 +179,23 @@ export class ConferenceConnection {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    this.releaseAttempt();
     const ws = this.ws;
     this.ws = null;
-    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-      ws.close(1000, 'left');
+    const close = () => {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        ws.close(1000, 'left');
+      }
+    };
+    const attempt = this.attempt;
+    this.attempt = null;
+    if (attempt && status === 'idle' && ws?.readyState === WebSocket.OPEN) {
+      // The user left an open call: the attempt lets the translate leg's
+      // in-flight turns reach the room, then closes the socket itself. Its
+      // close event is ignored — `this.ws` no longer points at it.
+      attempt.dispose(close);
+    } else {
+      attempt?.dispose();
+      close();
     }
     this.resetCallView();
     this.options.sink.reconnectAttempt(0);
@@ -198,5 +215,6 @@ export class ConferenceConnection {
     sink.selfSocketId(null);
     sink.audioBlocked(false);
     sink.translating(false);
+    sink.translationEnded(false);
   }
 }

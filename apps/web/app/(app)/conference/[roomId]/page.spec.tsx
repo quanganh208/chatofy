@@ -30,6 +30,7 @@ function call(over: Partial<UseConferenceReturn> = {}): UseConferenceReturn {
     localVideoEnabled: true,
     audioBlocked: false,
     localTranslating: false,
+    translationEnded: false,
     reconnectAttempt: 0,
     reconnectCap: 3,
     join: vi.fn(() => Promise.resolve()),
@@ -83,5 +84,44 @@ describe('ConferenceRoomPage — a room that ended', () => {
     render();
     expect(replace).not.toHaveBeenCalledWith(`/conference/${ROOM}/ended`);
     expect(container.textContent).toContain('This meeting has ended');
+  });
+});
+
+describe('ConferenceRoomPage — translation that ended mid-call', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  const render = (value: UseConferenceReturn) => {
+    useConference.mockReturnValue(value);
+    act(() => {
+      root.render(
+        <LocaleProvider>
+          <ConferenceRoomPage />
+        </LocaleProvider>,
+      );
+    });
+  };
+
+  it('says so in one quiet line while the call goes on', () => {
+    render(call({ translationEnded: true }));
+    const notice = container.querySelectorAll('[data-translation-ended]');
+    expect(notice).toHaveLength(1);
+    expect(notice[0]!.textContent).toContain('Translation stopped');
+    expect(notice[0]!.querySelector('button')).toBeNull();
+  });
+
+  it('shows nothing while translation runs', () => {
+    render(call());
+    expect(container.querySelector('[data-translation-ended]')).toBeNull();
   });
 });

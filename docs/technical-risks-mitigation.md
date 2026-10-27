@@ -1,9 +1,10 @@
 # Technical Risks & Mitigation Plans: Video Conferencing
 
-> **Status: Design; code on `main`.** Meeting media on Cloudflare Realtime SFU
-> and client-side translation are on `main` and always loaded. Translation latency is from a 2-tab local
-> run (#209); SFU load from #211, measured on mediasoup before Cloudflare replaced it; the
-> network path (#208) is decided. Progress: [project-roadmap.md](./project-roadmap.md).
+> **Status: Design; code on `main`.** Meeting media on Cloudflare Realtime SFU and
+> client-side translation on the /translate cascade are on `main` and always loaded.
+> Translation latency, capacity and echo were measured on the dev stack (2026-10-26/27);
+> SFU load from #211, on mediasoup before Cloudflare replaced it; the network path (#208)
+> is decided. Progress: [project-roadmap.md](./project-roadmap.md).
 
 **Date:** 2026-09-29 | **Updated:** 2026-10-07 (re-rated translation lag with measured numbers, #212)  
 **Scope:** Risk analysis, impact assessment and mitigation strategies for the proposed design  
@@ -17,18 +18,21 @@ Cloudflare Realtime SFU (2026-10-25).
 
 ## Risk Matrix Overview
 
-| Risk                                           | Probability                   | Impact      | Effort to Mitigate | Priority |
-| ---------------------------------------------- | ----------------------------- | ----------- | ------------------ | -------- |
-| **Video Latency > 2s**                         | HIGH (80%)                    | CRITICAL 🔴 | Medium             | P1       |
-| **Translation lag delays video**               | CERTAIN (measured ~5.9–9.2 s) | HIGH 🔴     | Medium             | P1       |
-| **Speaker attribution wrong**                  | MEDIUM (50%)                  | MEDIUM 🟡   | Low                | P2       |
-| **Subtitle mismatch (timing)**                 | MEDIUM (60%)                  | MEDIUM 🟡   | Medium             | P2       |
-| **Recording composition fails**                | LOW (20%)                     | HIGH 🔴     | Medium             | P2       |
-| **SFU scalability beyond 6 participants**      | MEDIUM (50%)                  | HIGH 🔴     | High               | P2       |
-| **Redis room state lost (crash)**              | LOW (10%)                     | MEDIUM 🟡   | Low                | P3       |
-| **Translation cost explosion**                 | MEDIUM (40%)                  | HIGH 🔴     | Low                | P2       |
-| **Browser compatibility (codec)**              | LOW (15%)                     | LOW 🟢      | Low                | P3       |
-| **Database write contention (turns/messages)** | MEDIUM (45%)                  | MEDIUM 🟡   | Low                | P3       |
+| Risk                                           | Probability                  | Impact      | Effort to Mitigate | Priority |
+| ---------------------------------------------- | ---------------------------- | ----------- | ------------------ | -------- |
+| **Video Latency > 2s**                         | HIGH (80%)                   | CRITICAL 🔴 | Medium             | P1       |
+| **Translation lag delays video**               | CERTAIN (measured 1.4–4.1 s) | MEDIUM 🟡   | Medium             | P1       |
+| **Meeting turns lost under overload**          | HIGH (measured)              | MEDIUM 🟡   | Low                | P2       |
+| **Vietnamese TTS saturated by one speaker**    | HIGH (measured)              | MEDIUM 🟡   | Medium             | P2       |
+| **Phone echo read back as speech**             | MEDIUM (measured on Android) | HIGH 🔴     | Low                | P2       |
+| **Speaker attribution wrong**                  | MEDIUM (50%)                 | MEDIUM 🟡   | Low                | P2       |
+| **Subtitle mismatch (timing)**                 | MEDIUM (60%)                 | MEDIUM 🟡   | Medium             | P2       |
+| **Recording composition fails**                | LOW (20%)                    | HIGH 🔴     | Medium             | P2       |
+| **SFU scalability beyond 6 participants**      | MEDIUM (50%)                 | HIGH 🔴     | High               | P2       |
+| **Redis room state lost (crash)**              | LOW (10%)                    | MEDIUM 🟡   | Low                | P3       |
+| **Translation cost explosion**                 | MEDIUM (40%)                 | HIGH 🔴     | Low                | P2       |
+| **Browser compatibility (codec)**              | LOW (15%)                    | LOW 🟢      | Low                | P3       |
+| **Database write contention (turns/messages)** | MEDIUM (45%)                 | MEDIUM 🟡   | Low                | P3       |
 
 ---
 
@@ -125,17 +129,11 @@ After mitigation:
 Video (fast, ~300ms latency) arrives before translated subtitle, creating a mismatch:
 the listener sees the speaker's video before the translated subtitle appears.
 
-**Measured breakdown (Issue #209, local dev, 2-tab PoC, 2026-10-06):**
-
-- Video path: Capture → Network → SFU → Client (~300 ms, PoC)
-- Translation path: Capture → `/ws/translate` STT→MT→TTS → transcript received by speaker
-  - Warm session (model already streaming): **~5.9 s** T1→T2
-  - Cold session (first utterance): **~9.2 s** T1→T2
-- **Measured gap: 5.6–8.9 s** (not the ~1 s estimated in the original proposal)
-
-The proposal's per-stage sum was 1.2–1.8 s; the measured path is the live (speech-to-speech)
-mode, which emits only after buffering enough audio. Warm ~5.9 s is the steady state; the
-cold penalty (~3 s) hits each session's first utterance.
+**Measured (dev stack, 2026-10-26/27, cascade):** video ~300 ms (PoC); end of speech to
+first translated audio p50 **1.38–1.52 s** for one speaker, **3.5–4.1 s** for two continuous
+speakers in a vi/en/zh room
+([video-translation-audio-path.md § 4](./architecture/video-translation-audio-path.md#4-scale--stt-and-tts-job-count)).
+The superseded live-mode build measured 5.9 s warm and 9.2 s cold (#209).
 
 #### Why It Happens
 
@@ -447,7 +445,7 @@ Monitoring:
 > ≈ 9.7 Mbps aggregate with a 15–20 MiB worker, so 6 participants hold for media on one
 > machine; per-cell numbers in
 > [video-conferencing-v2-synthesis.md → Load constraints](./architecture/video-conferencing-v2-synthesis.md#2-load-constraints-measured-on-mediasoup--211-2026-10-11).
-> Translation, not the SFU, caps a meeting today: six live translation sessions server-wide.
+> Translation, not the SFU, caps a meeting today: meeting speakers share 4 of the server's 6 concurrent turns.
 
 #### Description
 
@@ -635,6 +633,14 @@ Monitoring:
 ```
 
 ---
+
+### Risk 2.6: Meeting translation under load, and echo (measured)
+
+Dev stack, 2026-10-26/27; method and numbers in [video-translation-audio-path.md § 4–5](./architecture/video-translation-audio-path.md#measured-capacity-dev-stack-2026-10-26-and-2026-10-27).
+
+- **Overload.** Meeting legs share 4 of the global 6 turns, so /translate stays usable (0/112 starts admitted before, 4/4 turns after); two continuous speakers then lose 12–25 turns each per 200 s, and one leg can starve the other. Open: a per-leg cap of 2 or a longer pending window.
+- **VieNeu.** One continuous en→vi speaker holds the vi engine 94–97 % of the time and 15–25 % of its turns fail `engine_busy`, shared with /translate vi users. Accepted as a known limit.
+- **Echo.** An Android phone on its loudspeaker read the room's playback back as speech (47 rows in 3.5 min). The recorder patch's echo canceller fails at full volume (40 rows), so mobile keeps a received-audio onset gate that never cuts an open turn. Unmeasured: that gate at full volume, iOS, web.
 
 ## P3 Risks: Lower Priority
 

@@ -12,10 +12,10 @@ import { Section } from './section';
  * four. Nothing here mentions recording, because a meeting keeps no audio; that fact lives
  * in the privacy notice, where a reader looks for it.
  *
- * The scope line is the honesty line. Meetings translate between Vietnamese and English
- * only, while the translator also does Chinese, and a page that let the second fact stand
- * for the first would be promising a meeting the product cannot hold. It changes when the
- * meeting languages change.
+ * The scope line is the honesty line: it names the languages a meeting translates between
+ * (Vietnamese, English and Chinese), separately from what the translator does, so the page
+ * never promises a meeting the product cannot hold. It changes when the meeting languages
+ * change.
  *
  * Items on the page ground, not cards: they are read and compared, not acted on as units.
  * The one action is an outline button: the section sits directly under the hero, whose

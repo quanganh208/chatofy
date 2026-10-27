@@ -12,10 +12,10 @@
  * so on `server.session.ready`; only an undeclared source, which has nothing to
  * fall back to, is refused.
  */
-export const MAX_LID_SOCKETS_PER_USER = 1;
+const MAX_LID_SOCKETS_PER_USER = 1;
 
 /** The production sidecar's lanes per engine (`PROD_LOCAL_STT_CONCURRENCY`). */
-export const MAX_LID_SOCKETS = 4;
+const MAX_LID_SOCKETS = 4;
 
 export class LidAdmission<Socket = string> {
   private readonly holders = new Map<Socket, string>();

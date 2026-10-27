@@ -1,3 +1,5 @@
+import type { LanguageCode } from '@chatofy/types';
+
 /**
  * What this class needs from a playback queue, and nothing more.
  *
@@ -7,10 +9,12 @@
  * dependency makes that requirement visible, and lets a test drive the distinction
  * directly instead of trying to provoke real starvation out of the Web Audio clock.
  *
- * {@link PcmPlaybackQueue} satisfies it structurally.
+ * {@link PcmPlaybackQueue} satisfies it structurally, ignoring `lang`: a
+ * loudspeaker plays whatever language it is given. `lang` is for a sink whose
+ * audio goes to several listeners at once, each hearing one language of a turn.
  */
 export interface PlaybackSink {
-  enqueue(turnKey: string, samples: Int16Array, sampleRate: number): void;
+  enqueue(turnKey: string, samples: Int16Array, sampleRate: number, lang?: LanguageCode): void;
   isPlayingTurn(turnKey: string): boolean;
   readonly isPlaying: boolean;
   stop(): void;
@@ -85,6 +89,8 @@ const RETAINED_PLAYED_TURNS = 32;
 interface HeldFrame {
   samples: Int16Array;
   sampleRate: number;
+  /** Carried to the sink when the frame is released, or it plays as the wrong language. */
+  lang?: LanguageCode;
 }
 
 interface Turn {
@@ -92,8 +98,16 @@ interface Turn {
   /** Position in speaking order, assigned at {@link OrderedPlayback.open}. */
   readonly order: number;
   frames: HeldFrame[];
-  /** Milliseconds of audio buffered for this turn. */
-  bufferedMs: number;
+  /**
+   * Milliseconds of audio buffered for this turn, per language (`''` when a
+   * frame named none).
+   *
+   * Per language because a turn voiced in two languages plays both at once, to
+   * different listeners: its wait is its longest language, not the sum. Summed,
+   * two 7 s turns in two languages read as 28 s and are dropped at a ceiling
+   * written for one loudspeaker. See {@link heldMs}.
+   */
+  bufferedMs: Map<string, number>;
   /** The server has closed this turn: no further audio is coming. */
   ended: boolean;
   /** This turn's frames are going to the queue. */
@@ -172,7 +186,7 @@ export class OrderedPlayback {
       key: turnKey,
       order: this.nextOrder++,
       frames: [],
-      bufferedMs: 0,
+      bufferedMs: new Map(),
       ended: false,
       released: false,
       firstAudioAt: 0,
@@ -183,7 +197,7 @@ export class OrderedPlayback {
   }
 
   /** Audio arrived for a turn. Played now if it is the head, held otherwise. */
-  push(turnKey: string, samples: Int16Array, sampleRate: number): void {
+  push(turnKey: string, samples: Int16Array, sampleRate: number, lang?: LanguageCode): void {
     const turn = this.turns.get(turnKey);
     // A turn that was dropped, or one that never opened, has nowhere to play. Its
     // audio is discarded rather than played out of order.
@@ -191,13 +205,17 @@ export class OrderedPlayback {
 
     if (turn.released) {
       this.markSounding(turn);
-      this.queue.enqueue(turnKey, samples, sampleRate);
+      this.queue.enqueue(turnKey, samples, sampleRate, lang);
       this.reportPlaying();
       return;
     }
 
-    turn.frames.push({ samples, sampleRate });
-    turn.bufferedMs += (samples.length / sampleRate) * 1000;
+    turn.frames.push({ samples, sampleRate, lang });
+    const key = lang ?? '';
+    turn.bufferedMs.set(
+      key,
+      (turn.bufferedMs.get(key) ?? 0) + (samples.length / sampleRate) * 1000,
+    );
     this.enforceBacklog();
   }
 
@@ -230,7 +248,7 @@ export class OrderedPlayback {
     this.queue.stopTurn(turnKey);
     this.handlers.onDropped?.(turnKey, reason);
     this.handlers.onLog?.(
-      `dropped turn ${turnKey} (${reason}): ${Math.round(turn.bufferedMs)}ms of audio discarded`,
+      `dropped turn ${turnKey} (${reason}): ${Math.round(heldMs(turn))}ms of audio discarded`,
     );
     this.handlers.onRetired?.(turnKey);
     this.pump();
@@ -261,7 +279,7 @@ export class OrderedPlayback {
   get backlogMs(): number {
     let total = 0;
     for (const turn of this.turns.values()) {
-      if (!turn.released) total += turn.bufferedMs;
+      if (!turn.released) total += heldMs(turn);
     }
     return total;
   }
@@ -316,10 +334,10 @@ export class OrderedPlayback {
         head.queuedAheadMs = this.backlogAheadOf(head);
         const frames = head.frames;
         head.frames = [];
-        head.bufferedMs = 0;
+        head.bufferedMs = new Map();
         for (const frame of frames) {
           this.markSounding(head);
-          this.queue.enqueue(head.key, frame.samples, frame.sampleRate);
+          this.queue.enqueue(head.key, frame.samples, frame.sampleRate, frame.lang);
         }
       }
 
@@ -359,7 +377,7 @@ export class OrderedPlayback {
   private backlogAheadOf(turn: Turn): number {
     let ahead = 0;
     for (const other of this.turns.values()) {
-      if (other.order < turn.order && !other.released) ahead += other.bufferedMs;
+      if (other.order < turn.order && !other.released) ahead += heldMs(other);
     }
     return Math.round(ahead);
   }
@@ -480,4 +498,16 @@ export class OrderedPlayback {
     this.wasPlaying = playing;
     this.handlers.onPlayingChanged?.(playing);
   }
+}
+
+/**
+ * How long a held turn takes to play: its longest language.
+ *
+ * For a single-language turn this is exactly the buffered total, so the
+ * ceiling keeps its one-loudspeaker meaning.
+ */
+function heldMs(turn: Turn): number {
+  let longest = 0;
+  for (const ms of turn.bufferedMs.values()) longest = Math.max(longest, ms);
+  return longest;
 }

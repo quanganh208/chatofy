@@ -1,9 +1,9 @@
 /**
  * Per-speaker ordering of translated-speech frames.
  *
- * Each speaker's frames carry the sequence counter of THAT speaker's live
- * translate session, which keeps counting for the whole call. So a listener
- * cannot assume sequence 0: the cursor starts at the first sequence seen per
+ * Each speaker's frames carry THAT speaker's translation leg's counter for the
+ * listener's language, which keeps counting for the whole call, across turns
+ * and translate-socket restarts. So a listener cannot assume sequence 0: the cursor starts at the first sequence seen per
  * speaker. Frames play in order; a frame that arrives early waits for its
  * predecessor, but never for long — if the gap is still open after
  * {@link GAP_SKIP_MS}, or more than {@link MAX_BUFFERED_FRAMES} frames are waiting,
@@ -15,10 +15,10 @@
  */
 
 /** How long a missing frame may hold back the frames behind it. */
-export const GAP_SKIP_MS = 500;
+const GAP_SKIP_MS = 500;
 
 /** Most frames held behind a gap before it is skipped without waiting. */
-export const MAX_BUFFERED_FRAMES = 50;
+const MAX_BUFFERED_FRAMES = 50;
 
 export interface ResequencerTimers {
   set: (fn: () => void, ms: number) => unknown;
@@ -76,8 +76,8 @@ export class TranslationAudioResequencer<T> {
     }
 
     if (sequence < cursor.nextSeq) {
-      // Far behind the cursor means the speaker's live session started over
-      // (its counter restarted); anything else is a duplicate or a frame that
+      // Far behind the cursor means the speaker's leg started over (a rejoin
+      // restarts its counter); anything else is a duplicate or a frame that
       // was already skipped.
       if (cursor.nextSeq - sequence <= this.maxBufferedFrames) return;
       this.cancelGapTimer(cursor);

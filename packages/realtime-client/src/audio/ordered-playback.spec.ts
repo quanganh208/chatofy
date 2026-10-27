@@ -419,4 +419,78 @@ describe('OrderedPlayback', () => {
       expect(h.playback.isBusy).toBe(false);
     });
   });
+
+  describe('turns voiced in several languages', () => {
+    /** Seconds of 16 kHz audio, tagged with its language by the caller. */
+    const seconds = (n: number) => new Int16Array(16000 * n);
+
+    function multi() {
+      const enqueued: { turnKey: string; lang?: string }[] = [];
+      const sounding = new Set<string>();
+      const dropped: string[] = [];
+      const sink: PlaybackSink = {
+        enqueue: (turnKey, _samples, _rate, lang) => {
+          enqueued.push({ turnKey, lang });
+          sounding.add(turnKey);
+        },
+        isPlayingTurn: (turnKey) => sounding.has(turnKey),
+        get isPlaying() {
+          return sounding.size > 0;
+        },
+        stop: () => sounding.clear(),
+        stopTurn: (turnKey) => sounding.delete(turnKey),
+      };
+      const playback = new OrderedPlayback(sink, {
+        onDropped: (turnKey) => dropped.push(turnKey),
+      });
+      const drain = (turnKey: string) => {
+        sounding.delete(turnKey);
+        playback.onTurnDrained(turnKey);
+      };
+      return { playback, enqueued, dropped, drain };
+    }
+
+    it('counts a held turn by its longest language, so two 7 s turns in two languages survive', () => {
+      // Summed, the held turn alone reads as 14 s against a 12 s ceiling and is
+      // dropped, though each language plays to its own listeners at once.
+      const h = multi();
+      h.playback.open('A');
+      h.playback.open('B');
+      for (const lang of ['en', 'zh'] as const) h.playback.push('A', seconds(7), 16000, lang);
+      for (const lang of ['en', 'zh'] as const) h.playback.push('B', seconds(7), 16000, lang);
+
+      expect(h.dropped).toEqual([]);
+      expect(h.playback.backlogMs).toBe(7000);
+    });
+
+    it('keeps the language of every frame, the head and the ones held behind it', () => {
+      const h = multi();
+      h.playback.open('A');
+      h.playback.open('B');
+      h.playback.push('B', seconds(1), 16000, 'zh');
+      h.playback.push('B', seconds(1), 16000, 'en');
+      h.playback.push('A', seconds(1), 16000, 'en');
+      h.playback.push('A', seconds(1), 16000, 'zh');
+      h.playback.finish('A');
+      h.drain('A');
+
+      expect(h.enqueued).toEqual([
+        { turnKey: 'A', lang: 'en' },
+        { turnKey: 'A', lang: 'zh' },
+        { turnKey: 'B', lang: 'zh' },
+        { turnKey: 'B', lang: 'en' },
+      ]);
+    });
+
+    it('still drops when one language alone is past the ceiling', () => {
+      const h = multi();
+      h.playback.open('A');
+      h.playback.open('B');
+      h.playback.open('C');
+      h.playback.push('B', seconds(7), 16000, 'en');
+      h.playback.push('C', seconds(7), 16000, 'en');
+
+      expect(h.dropped).toEqual(['B']);
+    });
+  });
 });

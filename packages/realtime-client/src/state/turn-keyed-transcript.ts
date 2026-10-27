@@ -466,28 +466,6 @@ interface TurnCaptureRecorded {
 }
 
 /**
- * A piece of continuous-mode text, which arrives as a delta and names no turn.
- *
- * The live backend has no turn boundaries: it emits `server.live.transcript`
- * deltas under one session id for as long as the conversation lasts. So this is
- * an APPEND, where every turn-based partial above is a wholesale rewrite — the
- * recogniser there re-reads the utterance and may revise a word, while here the
- * text already delivered is final and only grows.
- *
- * Also not faked as a `server.*` event, for the reason given on
- * {@link TranscriptReset}: `server.live.transcript` carries a delta, and
- * pretending it is a `server.transcript.partial` would put a whole-line meaning
- * on a field the schema says is a fragment.
- */
-interface LiveTextAppended {
-  type: 'transcript.liveDelta';
-  sessionId: string;
-  /** Which of the two texts grew: what was heard, or what was said back. */
-  channel: 'source' | 'target';
-  delta: string;
-}
-
-/**
  * Roster and attribution edits, all of them made by a person.
  *
  * Client-only for the same reason the three actions above are: no server event
@@ -550,7 +528,6 @@ export type TurnKeyedAction =
   | ServerEvent
   | TranscriptReset
   | TurnAbandoned
-  | LiveTextAppended
   | SpeakerAdded
   | SpeakerRenamed
   | SpeakerRemoved
@@ -726,17 +703,6 @@ export function turnKeyedTranscriptReducer(
           event.speakerId,
         ),
       };
-
-    case 'transcript.liveDelta': {
-      const current = state.live[event.sessionId] ?? { text: '', translation: '' };
-      return patchLive(
-        state,
-        event.sessionId,
-        event.channel === 'source'
-          ? { text: appendCapped(current.text, event.delta) }
-          : { translation: appendCapped(current.translation, event.delta) },
-      );
-    }
 
     case 'server.transcript.partial':
       // A turn that has been given settled text belongs to that event. Rewriting

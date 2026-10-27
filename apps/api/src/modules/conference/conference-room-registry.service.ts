@@ -16,7 +16,7 @@ export interface ConferenceRoom {
 }
 
 /** Per-peer rate limits, created lazily by the handler that owns each one. */
-export interface PeerLimits {
+interface PeerLimits {
   chat?: TokenBucket;
   relayFrames?: TokenBucket;
   relayChars?: TokenBucket;
@@ -27,7 +27,7 @@ export interface PeerLimits {
 export type MediaKind = 'audio' | 'video';
 
 /** A track this peer publishes on its SFU publish session. */
-export interface PublishedTrack {
+interface PublishedTrack {
   /** The `mid` on the publisher's own session. */
   mid: string;
   kind: MediaKind;
@@ -36,7 +36,7 @@ export interface PublishedTrack {
 }
 
 /** Whose track a receiving `mid` carries. */
-export interface PulledFrom {
+interface PulledFrom {
   socketId: string;
   kind: MediaKind;
 }

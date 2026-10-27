@@ -163,6 +163,12 @@ export interface ConversationRuntimeOptions {
    */
   ownsEchoMeasurement?: boolean;
   /**
+   * Whether another participant's translation is sounding on this device's
+   * loudspeaker right now. Passed to the capture pump as its onset gate: while
+   * true, no new turn opens; an open turn is never cut by it.
+   */
+  receivedSounding?: () => boolean;
+  /**
    * Report per-turn timings to the server, which logs them.
    *
    * Off by default: the numbers are only useful while someone is collecting
@@ -866,7 +872,9 @@ export class ConversationSession {
         },
         maxInFlight,
       );
-      pipeline.configure(options);
+      // `this.options`, not the argument: a `reconfigure` that landed during the
+      // awaits above is newer than what this run was started with.
+      pipeline.configure(this.options);
       local.pipeline = pipeline;
 
       const pump = new CapturePump(
@@ -931,6 +939,7 @@ export class ConversationSession {
           // Omitted for a caller that owns the measurement: the pump would
           // otherwise count the people it is listening TO as echo.
           sounding: runtime.ownsEchoMeasurement ? undefined : () => playback.isPlaying,
+          receivedSounding: runtime.receivedSounding,
         },
       );
       local.pump = pump;
@@ -971,6 +980,19 @@ export class ConversationSession {
         err instanceof Error ? err.message : 'Could not start the conversation',
       );
     }
+  }
+
+  /**
+   * Change the settings the NEXT turn opens with, without restarting.
+   *
+   * A turn already open keeps what it was started with: the server fixed its
+   * languages and voice at `client.session.start`. Safe at any moment — before a
+   * run, during the awaits of `start()` (which reads these settings once its
+   * pipeline exists, so the newer ones win), or mid-conversation.
+   */
+  reconfigure(options: SessionOptions): void {
+    this.options = options;
+    this.live?.pipeline?.configure(options);
   }
 
   /**
@@ -1220,7 +1242,15 @@ export class ConversationSession {
         // does not exist yet. The pipeline is the join.
         const turnKey = pipeline?.turnIdFor(event.frame.sessionId);
         if (!turnKey) break;
-        ordered?.push(turnKey, base64ToPcm16(event.frame.payload), event.frame.sampleRate);
+        // `lang` names the language of a turn voiced in several; a sink that
+        // relays to listeners of different languages needs it, a loudspeaker
+        // ignores it.
+        ordered?.push(
+          turnKey,
+          base64ToPcm16(event.frame.payload),
+          event.frame.sampleRate,
+          event.lang,
+        );
         break;
       }
 

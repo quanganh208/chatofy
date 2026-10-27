@@ -8,6 +8,8 @@ import type {
   TranscriptSegment,
 } from '@chatofy/types';
 import {
+  CASCADE_RUNTIME_OPTIONS,
+  CASCADE_STREAM_COMMITTED,
   ConversationSession,
   PcmPlaybackQueue,
   TranslateSocket,
@@ -49,7 +51,7 @@ import type { Translate } from '@chatofy/i18n';
 export type StartOptions = Omit<SessionOptions, 'twoWay'>;
 
 /** What the server said about the languages of the newest turn. */
-export interface LanguageModeAnswer {
+interface LanguageModeAnswer {
   mode: SessionLanguageMode;
   /** Why `mode` is less than was asked for; absent when it is not. */
   reason?: string;
@@ -75,31 +77,12 @@ const WORKLET_URL = '/worklets/mic-capture-processor.js';
 /** No pauses, with one identity, so a memo keyed on it does not re-run. */
 const NO_PAUSES: readonly PauseInterval[] = [];
 
-/** Turns this page will have open at the server at once. */
-const MAX_IN_FLIGHT = 3;
-
-/**
- * Longest a single turn may run before it is cut.
- *
- * Continuous capture needs one: in a real conversation people speak for tens of
- * seconds without ever leaving a full hangover of silence, so a gate that only
- * ends turns on silence would open one turn and never close it. 8s matches the
- * extension, which has run this configuration on real calls.
- *
- * It has a measurement consequence worth stating where the value is set: it
- * RIGHT-CENSORS the turn-length distribution, so "how many turns run past N
- * seconds" is partly a property of this constant. Anything reading that
- * distribution has to report the ceiling beside it and treat `cutForced` turns
- * as censored rather than as observations.
- */
-const MAX_UTTERANCE_MS = 8_000;
-
 /**
  * Playback gain never exceeds unity.
  *
  * Above 1 the samples clip, and it raises the loudspeaker level feeding the
- * microphone — which is the loop `fullDuplex: true` below deliberately accepts the
- * risk of. Boosting is not worth making that loop more likely to close.
+ * microphone — which is the loop full duplex (`CASCADE_RUNTIME_OPTIONS`)
+ * deliberately accepts the risk of. Boosting is not worth making that loop more likely to close.
  */
 const clampVolume = (volume: number): number => Math.min(1, Math.max(0, volume));
 
@@ -432,7 +415,7 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       onLevel: setLevel,
       // Nothing left to report. The microphone is honoured throughout playback
       // now, and the pump raises this only when it is ignoring input, so on this
-      // page the edge cannot fire — see `fullDuplex` below. Required by the
+      // page the edge cannot fire — see `fullDuplex` in `CASCADE_RUNTIME_OPTIONS`. Required by the
       // session because the extension and the single-turn path both use it.
       onMuted: () => {},
       // Every connection failure asks whether the session is still valid before
@@ -512,29 +495,10 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // recogniser fault.
       onLog: (message) => console.warn(`[chatofy] ${message}`),
     },
-    () => ({
-      // The microphone is honoured while our own translation plays, so someone
-      // may talk over it and be heard. What this costs is an acoustic loop —
-      // loudspeaker into microphone, and the app translates its own voice — and
-      // whether that loop closes is a property of the device, not of the code.
-      // Switched on for the laptop this is developed and demonstrated on, whose
-      // built-in cancellation holds: playback was verified never to reopen the
-      // gate while someone was speaking. `echoHeard` is what says otherwise on a
-      // machine where it does not hold, and it is on screen the moment it moves.
-      fullDuplex: true,
-      // Capture does not stop between turns either: the microphone is no longer
-      // shut for the whole turn cycle waiting to be re-armed.
-      continuous: true,
-      // Matches the extension and the server's own per-socket ceiling; higher
-      // only earns `too_many_turns`.
-      maxInFlight: MAX_IN_FLIGHT,
-      maxUtteranceMs: MAX_UTTERANCE_MS,
-      // Per-turn rows for the server's metrics log. The turn-length distribution and the
-      // request-per-model rate are computed from these, and both are client
-      // facts: the server cannot know when someone began speaking, nor when a
-      // loudspeaker produced sound. Always sent; the server only logs them.
-      reportMetrics: true,
-    }),
+    // Full duplex, continuous capture, the shared in-flight and length ceilings,
+    // and per-turn metrics: the tuning every cascade client shares, with the
+    // reasons beside each value where it is defined.
+    () => CASCADE_RUNTIME_OPTIONS,
   );
   const session = sessionRef.current;
 
@@ -582,17 +546,14 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       setFinishedRecording(null);
       resetRecording();
       askedBlocks.current.clear();
-      // Asked for here rather than defaulted on the server, because the client
-      // union is strict: a build that predates the event would report a parse
-      // failure once per round instead of ignoring it. Only a client that knows
-      // the event asks for it, and this is that client.
+      // Settled text is asked for on every start; see `CASCADE_STREAM_COMMITTED`.
       //
       // `twoWay` rides only when asked, so a declared start is byte-for-byte
       // what it was before the field existed.
       return session.start({
         ...options,
         ...(twoWay ? { twoWay: true } : {}),
-        streamCommitted: true,
+        streamCommitted: CASCADE_STREAM_COMMITTED,
       });
     },
     [session, resetRecording],

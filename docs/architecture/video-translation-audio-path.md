@@ -1,15 +1,16 @@
 # Video Translation Audio Path — Design & Latency
 
-> **Status: Option A is built, on `main`, and always loaded** (see
+> **Status: Option A is built and always loaded** (see
 > [deployment-guide.md → Video conferencing](../deployment-guide.md#video-conferencing)).
-> Each speaker's client sends its own microphone to the live mode of `/ws/translate`
-> and forwards the result into `/ws/conference`, which fans it out (§2). This answers
-> Issue #209. §3's per-language producer injection and §5's ducking are still
-> proposals. The design was written while mediasoup was the SFU; Cloudflare Realtime SFU
-> replaced it on 2026-10-25, which changes nothing in Option A and removes the server-side
-> track access Options B and §3 relied on (§0).
+> Each speaker's client runs the same turn cascade the /translate page runs, over
+> `/ws/translate`, and relays the result into `/ws/conference`, which narrows it per
+> listener (§2). An earlier build ran meetings on the live (Gemini Live) mode instead; that
+> path is gone from every client and production refuses it (§6). §3's per-language producer
+> injection and §5's ducking are still proposals. The design was written while mediasoup
+> was the SFU; Cloudflare Realtime SFU replaced it on 2026-10-25, which changes nothing in
+> Option A and removes the server-side track access Options B and §3 relied on (§0).
 
-**Date:** 2026-10-06 (design), 2026-10-25 (as-built section)
+**Date:** 2026-10-06 (design), 2026-10-27 (as-built section and measurements)
 **Scope:** How a speaker's audio in a meeting reaches the existing
 translation pipeline, and how each listener gets the result in their own
 language.
@@ -37,11 +38,11 @@ Facts the rest of this document depends on, each from source:
   refused **503**, not queued — [ai-providers.md § STT sidecar concurrency](./ai-providers.md#speech-backend-routing)).
   Sidecars lock **per engine**, so a `vi` turn and an `en` turn are genuinely
   concurrent.
-- **Translation is a cloud call** (Gemini default, DeepSeek in prod) — a
+- **Translation is a cloud call** (`AI_TRANSLATION_PROVIDER`, DeepSeek by default) — a
   translation turn is never fully offline ([ai-providers.md](./ai-providers.md)).
 - **The browser extension already translates one meeting in both directions**
   (`apps/extension/src/meeting-capture.ts`): it opens a `/ws/translate` session
-  on `settings.direction` and a second on `reverseDirection(...)`, from one
+  on `settings.languagePair` and a second on `reversePair(...)`, from one
   tab-captured audio source. This is a working two-party precedent for Option A.
 - **The SFU is Cloudflare's, not the API's.** The API drives Cloudflare Realtime SFU over
   HTTPS and never sees RTP. At design time the SFU was mediasoup inside the API (replaced
@@ -100,53 +101,66 @@ client; B costs more server CPU and a large net-new segmentation module.
 
 ---
 
-## 2. As built — Option A over live mode
+## 2. As built — Option A over the cascade
 
-The shipped path is Option A, run on the **live** mode of `/ws/translate`
-(`client.live.start`, served by `LiveTranslateSessionService` over `gemini-live`,
-[data-flow.md § Live mode](./data-flow.md#live-mode-on-the-same-socket)), not the
-turn cascade §0 describes. §6 explains why that was flagged as a cost risk at design
-time; it is the path that existed to reuse.
+Each speaker's client runs a **speaker leg**: the `ConversationSession` the /translate page
+runs, over the same `/ws/translate`, with its output relayed into the room instead of
+played locally. The leg is written once,
+`packages/realtime-client/src/conference/conference-cascade-leg.ts`; web
+(`apps/web/src/conference/conference-cascade-leg-web.ts`) and mobile
+(`apps/mobile/src/conference/conference-cascade-leg-native.ts`) only hand it their capture
+and sockets. Both read one tuning object, `CASCADE_RUNTIME_OPTIONS`
+(`packages/realtime-client/src/conversation/cascade-runtime-options.ts`).
 
 ```
-Speaker client          /ws/translate (live)        /ws/conference              Listener client
-     │                          │                          │                           │
-     ├─ conference.join ───────────────────────────────────►│ (room must exist:         │
-     │                          │                          │  POST /conference)         │
-     ├─ client.live.start ─────►│  languagePair {source,   │                           │
-     │   target = other of vi/en│  target}                 │                           │
-     ├─ client.live.audio ─────►│ ── speech-to-speech ──   │                           │
-     │◄─ server.live.transcript ┤  (source + target deltas)│                           │
-     │◄─ server.live.audio ─────┤                          │                           │
-     ├─ conference.translation.broadcast {subtitle?, audio?} ─►│                        │
-     │                          │                          ├─ conference.translation.subtitle ─►│
-     │                          │                          ├─ conference.translation.audio ────►│
+mic ─(web: cloned track | mobile: recorder → pushed PCM)─▶ ConversationSession
+  ─ client.session.start {languagePair, alsoTranslateInto?, meeting: true} ─▶ /ws/translate
+       STT → MT into every target → TTS per voiced language
+  ◀─ transcript/translation deltas · server.audio.frame {lang?} · server.transcript.final
+leg ─▶ conference.translation.broadcast {subtitle?, audio?} ─▶ /ws/conference
+  ─▶ ConferenceTranslationRouter ─▶ each listener: its own language only
+  final subtitle ─▶ one ConferenceTurn row
 ```
 
-What each side does, as the contract in
-`packages/types/src/events/conference-translation-events.ts` and the gateway define it:
+Why each part is shaped the way it is (the code owns the details):
 
-- **Target language.** vi↔en only: the target is the other member of the pair
-  (`source === 'en' ? 'vi' : 'en'`), sent as `client.live.start { languagePair }`.
-- **Turns are closed by the client.** The live stream has no utterance boundary. The
-  speaker client accumulates `source`- and `target`-channel deltas into the current
-  turn and sends a **cumulative** subtitle (`isFinal: false`) on every delta. After
-  **1500 ms** with no delta on either channel it sends one `isFinal: true` frame and
-  mints a new `turnId` (uuid) for the next delta. Listeners replace by `turnId`.
-- **Subtitle** = `{ sourceLanguage, targetLanguage, sourceText, translatedText,
-isFinal, turnId, speakerSocketId?, speakerDisplayName? }`, each text ≤ 4000 chars.
-  The server overwrites the speaker fields, sends the subtitle to every other peer
-  whose `sourceLanguage` differs from the speaker's (`ConferenceTranslationRouter`),
-  and stores each final frame as one `ConferenceTurn` row.
-- **Audio** = `{ lang, sequence, sampleRate 8000–48000, payload ≤ 320000 chars,
-speakerSocketId? }`. The server overwrites `speakerSocketId` and delivers it only
-  to peers whose `sourceLanguage === audio.lang`, so nobody hears a voice in a
-  language they did not choose. Listeners resequence per speaker: `nextSeq` starts
-  at the first frame seen from that speaker, and a gap is skipped after about
-  500 ms or once more than 50 frames are buffered, so a late joiner hears a speaker
-  who has already spoken.
-- **Delivery is per listener over the conference WebSocket** — the fallback §3
-  names, not producer injection.
+- **Targets come from the room.** The first other language present is the turn's
+  primary target; the rest go in `alsoTranslateInto`, so one turn slot carries every
+  language instead of one turn per language (`roomTargets` in
+  `packages/types/src/domain/languages.ts`). A peer who joins mid-call is in the next
+  turn, not the one already running. With nobody else in the room the leg asks for text
+  only.
+- **The server closes turns.** `turnId` is the server's session id, and the only
+  `isFinal: true` frame is the one built from `server.transcript.final`, carrying the
+  server's text (`cascade-subtitle-relay.ts`). Stop, abandon or socket loss emit no
+  final; `leave()` waits up to 3 s for an in-flight turn's real final.
+- **One subtitle frame, narrowed per listener.** The frame carries the primary
+  translation and, for several targets, a `translations` map. The router
+  (`apps/api/src/modules/conference/services/conference-translation-router.service.ts`)
+  sends each listener the frame narrowed to their language and never forwards the map,
+  so listener parsing did not change; a language with no entry yet shows the source
+  text. Audio still goes only to peers whose `sourceLanguage` equals its `lang`.
+- **Audio language and order.** The leg tags each relayed frame with the server's
+  `lang`, or the turn's primary when the server sent none, and numbers each language's
+  frames itself (`leg-sequence-counter.ts`), so a sequence never resets across turns or
+  restarts. Untagged audio of an unknown turn is dropped rather than guessed.
+- **What is stored.** One row per final, with translations filtered to languages someone
+  else in the room speaks (`conference-translation-relay.service.ts`). Minutes read only
+  `sourceText`.
+- **Restarts.** A dropped translate socket is rebuilt up to 3 times (1/2/4 s), with a
+  fresh token each time, and never after a 1008 or 4xxx close
+  (`conference-leg-restart-policy.ts`). Muting pauses the leg, so a muted speaker holds
+  no turn.
+- **Relay limits** are sized for a cascade burst: the relay sends faster than real time,
+  so a three-language speaker with every turn in flight can burst about 3 M characters.
+  The arithmetic is in the comment above `RELAY_CHAR_BURST`.
+
+**Superseded: the live-mode build.** Until the cascade leg, meetings ran on the live mode
+(`client.live.start` over `gemini-live`, vi↔en only). The live stream has no utterance
+boundary, so the client closed its own turns after 1500 ms with no delta and minted its
+own `turnId`, and meetings ran on a second, metered engine beside the cascade /translate
+uses, with no Chinese. The client code for it is deleted (web `conference-translate-wiring.ts`,
+mobile `translate-bridge-native.ts`, the realtime-client live session and socket).
 
 ### The failure case Option B would have had
 
@@ -165,6 +179,10 @@ speaker's client sees the error and the media of the call is untouched.
 ---
 
 ## 3. Listener delivery at scale (proposed, not built)
+
+What shipped is this section's fallback: one translation per (speaker, language) with
+the `translations` map on the subtitle, delivered per listener over the conference
+WebSocket (§2). The SFU producer per language below is still a proposal.
 
 Two independent channels, matching how `/ws/translate` already splits them:
 
@@ -206,7 +224,7 @@ So for N participants and K languages, the room carries at most **K translated
 audio producers**, regardless of listener count — not N×(N−1) streams.
 
 Fallback when server-side RTP injection is not built yet: send TTS as
-`server.audio.frame` over the per-listener WebSocket (today's path). This is
+`conference.translation.audio` over each listener's conference WebSocket (today's path). This is
 correct but does **not** deduplicate — it sends the same language stream once
 per listener. Acceptable for a thesis demo of 2–4; the producer-injection model
 is the scale answer.
@@ -228,8 +246,9 @@ most one person speaks at a time (meetings mostly hold this).
 Each STT engine serves `LOCAL_STT_CONCURRENCY` (default 4) concurrent decodes
 per language before refusing 503
 ([ai-providers.md](./ai-providers.md#speech-backend-routing)). TTS locks **per
-engine for the whole turn** ([data-flow.md § Streaming Turn](./data-flow.md) —
-a second `vi` turn waits up to 15 s, then 503 `engine_busy`).
+engine**: VieNeu (vi) for a whole streamed turn, Kokoro (en and zh, one shared lock) per
+clause ([data-flow.md § Streaming Turn](./data-flow.md) — a waiter gives up after 15 s
+with 503 `engine_busy`).
 
 **Worst case — simultaneous speakers.** If M people speak at once in distinct
 languages, STT load is M concurrent decodes (fine up to 4 per engine) but TTS is
@@ -237,27 +256,62 @@ M×(K−1) syntheses competing for per-engine locks. With a single `vi` TTS engi
 and two `vi` turns needing synthesis, the second waits ≤15 s or fails
 `engine_busy`.
 
-**The limit, stated plainly:** at RTF 1× and per-engine TTS locking, the room
-is comfortable at **K=2 languages and 1–2 concurrent speakers**. Beyond that,
-TTS is the bottleneck — concurrent same-language turns serialize on the engine
-lock. This matches Open Decision 4's unmeasured-capacity flag; it has **not**
-been measured on this project's hardware (§8).
+**The design-time estimate** was that a room is comfortable at K=2 and 1–2 concurrent
+speakers, with TTS the bottleneck. The measurements below replace it.
 
-Mitigations (all proposed): cap room language count; prioritize the active
-speaker and drop translation for interrupted overlap; run more TTS engine
-instances behind the sidecar; accept subtitles-only above a threshold.
+### The ceilings that bind the build
 
-**The ceiling that binds the build (§2) is a different one.** Live mode does not use
-the sidecars. Each participant whose translation is on holds one live session, and
-`LiveTranslateSessionService` refuses a new one with `too_many_sessions` once
-`MAX_CONCURRENT_TURNS_GLOBAL` (6) live sessions are open **server-wide**, counting
-`/translate` users in live mode too. So at most six participants across all rooms get
-translation at once. The number is a constant in
-`apps/api/src/modules/translate/session/turn-concurrency.ts`, not an environment
-variable: raising it is a code change, and a capacity decision, because each session
-is a metered upstream stream.
+All in `apps/api/src/modules/translate/session/turn-concurrency.ts`, as code constants
+rather than env vars (each carries its reasoning):
 
----
+| Ceiling                  | Value                  | Why                                                                          |
+| ------------------------ | ---------------------- | ---------------------------------------------------------------------------- |
+| per socket               | 3                      | one continuous speaker's working depth                                       |
+| per user, across sockets | 3                      | a meeting leg plus a /translate tab, or two meetings, cannot pin the process |
+| meeting legs together    | 4, inside the global 6 | two continuous meeting speakers otherwise hold all 6                         |
+| global                   | 6                      | two full-rate speakers on the shared sidecars                                |
+
+A leg says it is one with `meeting: true` on `client.session.start`; a start without the
+field lands in the shared pool. A turn holds its slot until its slowest language is
+delivered.
+
+### Measured capacity (dev stack, 2026-10-26 and 2026-10-27)
+
+Fake-audio Playwright peers, 180 s of continuous speech per run, against native STT and
+TTS sidecars outside the Docker VM with production idle; TTS lock holds were logged by an
+instrumented launcher. Ranges are across repetitions. "Extra" is the zh voice a speaker
+adds when a zh listener is present.
+
+| Measure                                          | One speaker (vi→en, + zh extra)         | Two continuous speakers, vi/en/zh room |
+| ------------------------------------------------ | --------------------------------------- | -------------------------------------- |
+| Primary first audio, p50, sentence turns         | 1.38–1.43 s; 1.42–1.52 s with the extra | 3.5–4.1 s (vi speaker)                 |
+| Primary first audio, p50, 8 s turns              | 1.65–1.70 s; 1.76–2.00 s with the extra | 4.3–5.8 s (vi speaker)                 |
+| Extra (zh) first audio, p50                      | 1–1.5 s after the primary               | 7.5–20 s                               |
+| Kokoro lock occupancy (en and zh share one lock) | 0.26–0.28; 0.52–0.60 with the extra     | 0.91–0.97                              |
+| Slot hold, p50                                   | 4.7–5.8 s (sentence), 9.7–12.1 s (8 s)  | 10–16 s (sentence), 23–41 s (8 s)      |
+| `limit_reached` on the relay                     | 0                                       | 0                                      |
+
+- **Extras cost the primary little.** A zh extra doubles Kokoro time per turn (0.9 →
+  1.85 s per sentence turn, 2.0 → 4.3 s per 8 s turn) but moves the primary's p50 by
+  0.07–0.3 s. The primary is spoken first; each extra starts after its first audio.
+- **VieNeu saturates with one speaker.** A single continuous en→vi speaker holds the
+  Vietnamese engine 0.94–0.97 of the time with or without extras, and 15–25 % of its
+  turns fail `engine_busy` after the 15 s lock wait
+  (`ENGINE_LOCK_WAIT_S`, `services/local-tts/engines/base.py`). This is the engine's
+  whole-turn lock, not the meeting path, and it is a known limit: /translate vi users
+  share that engine.
+- **/translate during a busy meeting.** Before the meeting ceiling, a /translate user
+  got 0 of 112 starts admitted in 5 of 6 runs while two continuous meeting speakers ran.
+  With it, 4 of 4 /translate turns were admitted and finished in all 5 runs.
+- **The meeting pays for it.** With two continuous speakers the legs sit at the meeting
+  ceiling for 178–190 s of 200. Refused turns are retried and given up after the
+  client's pending window (`MAX_PENDING_MS`,
+  `packages/realtime-client/src/conversation/turn-pipeline.ts`): in the sentence-turn
+  runs 12–25 turns per leg per 200 s were never translated. The per-user 3 lets one leg take 3 of the 4 slots and
+  starve the other (9 vs 17 rows in one run, 23 vs 10 in the next).
+- **A speaker slower than real time loses audio.** The relay sink drops the audio of
+  some turns for backlog (up to 37 per leg per run under two speakers); their subtitles and rows
+  still arrive.
 
 ## 5. Echo / ducking — the original voice while translation plays
 
@@ -292,6 +346,58 @@ for that speaker is currently sounding. Listeners who prefer original audio
 only new wiring is driving `setBusy` from the translated-producer playback state
 instead of `OrderedPlayback.isBusy`.
 
+### Measured: a phone on its loudspeaker (2026-10-26 and 2026-10-27)
+
+The paragraph above assumed each device's echo canceller covers its own playback. On
+Android it did not. The leg's recorder is a second microphone stream beside WebRTC's, and
+`react-native-audio-api` opened it with no input preset, so it captured as
+`VOICE_RECOGNITION` with no effects. Received translations play as media
+(`USAGE_MEDIA`, the music volume), the peer's original voice as a call.
+
+Galaxy A13 joined as vi on its loudspeaker with nobody near it; one en web peer talked
+continuously for 3.5 min. A phantom is an A13 row that is really the room's playback.
+
+| Recorder                                      | Onset gate | Media volume    | Phantom rows | Of which the peer's translation       |
+| --------------------------------------------- | ---------- | --------------- | ------------ | ------------------------------------- |
+| no preset (`VOICE_RECOGNITION`, no effects)   | off        | 1/15            | 47           | 0 (23 were the peer's original voice) |
+| no preset                                     | on         | 1/15            | 0            | 0                                     |
+| `VoiceCommunication` preset only              | off        | 1/15            | 0            | 0, but no echo canceller attached     |
+| preset + session id (echo canceller attached) | off        | 1/15            | 0            | 0                                     |
+| preset + session id                           | off        | 10/15           | 1            | 0                                     |
+| preset + session id                           | off        | 15/15, call 8/8 | 40           | 35                                    |
+
+A same-language peer, whose translation never plays on the phone, gave 0 rows.
+
+What this settled:
+
+- **The recorder patch.** `patches/react-native-audio-api@0.13.6.patch` sets the
+  `VoiceCommunication` input preset and an allocated session id. The preset alone opened
+  AAudio's MMAP path, which runs no effects; the session id forces the legacy path, where
+  `dumpsys audio` shows `'Acoustic Echo Canceler'` on the leg recorder. The reason is in
+  `pnpm-workspace.yaml` beside the patch entry.
+- **The patch is not enough on its own.** At 1/15 the playback peaks around −35 dBFS at
+  the recorder, just under the lowest level the speech gate can open on (about −33 dBFS,
+  `MIN_NOISE_FLOOR + SPEECH_MARGIN` in `packages/realtime-client/src/audio/speech-gate.ts`);
+  the canceller did not measurably lower that peak. At full volume the translation reaches
+  the recorder at about −18 dBFS median and is read back as the phone's own speech.
+- **So mobile keeps the received-audio onset gate.** While any received translation is
+  sounding on the device and no turn is open, capture blocks do not reach the speech gate,
+  so playback cannot open a turn. An open turn is never cut by it, which is why it is not
+  the half-duplex mute: in a three-person room the speaker who talks over a peer's
+  translation would be cut on every block. It is an optional `receivedSounding` option on
+  the capture pump and the leg; only mobile sets it
+  (`apps/mobile/src/conference/use-conference-native.ts`, over
+  `NativeTranslationAudioSink.isAnySounding()`), and /translate never does.
+- **What the gate does not cover.** It keys on received translations, not on the peer's
+  WebRTC voice: at full volume one row per run still matched the peer's original words.
+
+**Not yet measured.** The gate-on run at full volume (the phone was in use); a person
+speaking at the phone while a translation plays; iOS, whose capture probably has no voice
+processing because the library never enables it on its input node (unverified, no iOS
+build); and web on Chrome and Firefox, which needs a machine with a microphone and
+speakers. Web does not wire the gate, by the rule that it ships only where a measurement
+fails.
+
 ---
 
 ## 6. Gemini Live — does live mode fit a meeting?
@@ -322,10 +428,18 @@ continuous, no turn cascade ([data-flow.md § Live mode](./data-flow.md#live-mod
 latency, speech-to-speech), **not** the multi-party room engine. It is orthogonal to
 the Option A/B choice because it bypasses the SFU track entirely.
 
-**What was built anyway (§2):** one live session per participant, with K = 2 (vi↔en),
-so N×(K−1) = N sessions — the N×(K−1) growth above has not bitten at two languages.
-It is the reason a third room language is not a configuration change, and the reason
-for the six-session ceiling in §4.
+**What happened.** A first build used it anyway: one live session per participant,
+vi↔en only, bounded by six live sessions server-wide. The cascade leg (§2) replaced it,
+for one engine across /translate and meetings, Chinese in rooms, and turns the server
+closes.
+
+**Where live mode is today.** Server-side only, for `apps/api/test/live-translate-ws.e2e-spec.ts`
+and the `benchmarks/live-translate` harness, which run against a dev API. Whether it is
+served is `liveModeEnabled` in `apps/api/src/config/env.schema.ts`: an explicit
+`TRANSLATE_LIVE_MODE` wins, and unset it is on only when `NODE_ENV` is exactly
+`development` or `test`. Elsewhere `client.live.start` is answered with
+`server.live.error` `mode_unavailable` and the socket is closed with 4410, so a client
+built for the old path stops streaming instead of sending audio into errors.
 
 ---
 
@@ -334,7 +448,16 @@ for the six-session ceiling in §4.
 Per-hop numbers come from the project's own measurements where they exist;
 everything else is labelled **estimated**.
 
-### Measured in a meeting (2-tab PoC, 2026-10-06)
+### Measured in a meeting on the cascade (2026-10-26 and 2026-10-27)
+
+Endpoint to the first translated audio on the speaker's socket, one speaker, from the
+capacity runs in §4: **p50 1.38–1.43 s, p95 1.73–2.08 s** on sentence turns, and p50
+1.42–1.52 s with a zh extra, whose own audio follows about 1 s later. Under two continuous
+speakers in a vi/en/zh room the primary p50 rises to 3.5–4.1 s. These are dev-stack
+numbers with fake-audio peers on one machine; the relay hop to the listener is not
+included.
+
+### Superseded: measured on live mode (2-tab PoC, 2026-10-06)
 
 One machine (Windows 11, Docker Desktop, both sidecars healthy), two tabs in one
 browser, `client.live.*` path. T1 = first speech frame sent, T2 = first
@@ -349,10 +472,9 @@ listener tab against its own page clock, so they are not deltas from T1.
 | T3 final subtitle at listener (page-clock)  | 14 779 ms            | 15 983 ms            |
 | T4 first TTS audio at listener (page-clock) | 11 957 ms            | 10 158 ms            |
 
-About 6 s warm, with a ~3 s cold-session penalty on the first utterance. These were
-taken on the PoC page, with its `[T1]`–`[T4]` console timings, before the client
-closed turns itself (§2); they have not been re-measured on the current clients. The cascade hops below are much faster because the
-cascade is turn-shaped; they are what Option A would cost on the turn path.
+About 6 s warm, with a ~3 s cold-session penalty on the first utterance, on the live
+path meetings no longer use. The cascade hops below are much faster because the cascade
+is turn-shaped.
 
 ### Measured hops (from the shipped cascade)
 
@@ -411,8 +533,8 @@ measure.
 
 ## 8. Recommendation
 
-**Adopt Option A (client-side capture)** — adopted and built (§2), on live mode rather
-than the cascade. Ranked rationale at design time:
+**Adopt Option A (client-side capture)** — adopted and built (§2), first on live mode,
+now on the cascade. Ranked rationale at design time:
 
 1. **It is already built and tuned.** `meeting-capture.ts` runs the exact
    pattern — one client, N `/ws/translate` sessions, ducking, echo monitoring —
@@ -440,22 +562,25 @@ language (§3). Build the per-listener WebSocket-frame fallback first for the
 demo, then the producer-injection dedup for scale.
 
 **Gemini Live:** recommended as a separate 1:1/demo path, not the multi-party room
-engine (§6). The build uses it anyway, which §4 and §6 bound.
+engine (§6). A first build used it anyway; meetings have since moved to the cascade.
 
 ---
 
 ## Unresolved questions
 
-1. **Translation capacity in a meeting is unmeasured.** The #211 run measured the SFU
-   only (Open Decision 4). The cascade limit in §4 is derived from
-   `LOCAL_STT_CONCURRENCY` and per-engine TTS locking, and the live-mode ceiling is the
-   six-session constant; neither has been load-tested with several speakers.
-2. **Server-side injection of TTS** into the SFU (producer-per-language, §3) is
+1. **Meeting fairness under overload.** With two continuous speakers one leg can take 3
+   of the 4 meeting slots and starve the other, and both lose turns (§4). A per-leg cap
+   of 2, or a longer pending window for legs, is an open owner decision.
+2. **VieNeu capacity.** One continuous en→vi speaker saturates the Vietnamese engine (§4);
+   accepted as a known limit for now.
+3. **Echo still to measure** (§5): the mobile gate at full volume, barge-in at the phone,
+   iOS, and web on Chrome and Firefox with real speakers.
+4. **Server-side injection of TTS** into the SFU (producer-per-language, §3) is
    unproven, and on Cloudflare it needs the WebSocket adapter's public endpoint (§0) —
    the SFU only forwards client-published tracks.
-   The WebSocket-frame fallback is the safe interim.
-3. **Speaker language per participant**: §4 assumes each participant has one
-   known source language (`ConferenceParticipant.sourceLanguage`, set at join). Code-switching within one speaker is out of scope here.
-4. **TTS voice per translated producer**: should a listener hear a consistent
-   voice per remote speaker, or one voice per language? Affects whether TTS
-   fan-out is per-(speaker,language) or per-language only.
+5. **Speaker language per participant**: each participant has one known source
+   language (`ConferenceParticipant.sourceLanguage`, set at join). Code-switching within
+   one speaker is out of scope here.
+6. **Who picks the translated voice**: today the speaker does (web reuses their
+   /translate voice settings, mobile the defaults), so a listener may hear a different
+   voice per remote speaker and cannot choose one.

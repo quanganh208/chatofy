@@ -7,7 +7,7 @@
 // before anything is fanned out or persisted.
 import { z } from 'zod';
 
-import { languageCodeSchema } from '../domain/languages.js';
+import { languageCodeSchema, translationMapSchema } from '../domain/languages.js';
 
 /** Longest accumulated text one turn may carry on either channel. */
 export const MAX_CONFERENCE_TURN_TEXT_CHARS = 4000;
@@ -25,12 +25,11 @@ export const MAX_CONFERENCE_AUDIO_PAYLOAD_CHARS = 320_000;
 /**
  * conference.translation.subtitle
  *
- * One utterance of one speaker. The live translate stream has no utterance
- * boundary of its own, so the speaker's client closes a turn after a quiet gap
- * and mints a fresh `turnId` for the next one. Every frame carries the text
- * ACCUMULATED so far on each channel, so a listener replaces rather than
- * appends; the closing frame is sent once with `isFinal: true` and is the only
- * frame the gateway persists.
+ * One turn of one speaker: the speaker's own translate session decides where a
+ * turn starts and ends, and `turnId` is that server turn's session id. Every
+ * frame carries the text ACCUMULATED so far on each channel, so a listener
+ * replaces rather than appends; the closing frame is sent once with
+ * `isFinal: true` and is the only frame the gateway persists.
  */
 export const ConferenceTranslationSubtitleSchema = z.object({
   /** Overwritten by the gateway with the sending socket's id. */
@@ -45,8 +44,16 @@ export const ConferenceTranslationSubtitleSchema = z.object({
   sourceText: z.string().max(MAX_CONFERENCE_TURN_TEXT_CHARS),
   /** Target-channel text translated so far in this turn. */
   translatedText: z.string().max(MAX_CONFERENCE_TURN_TEXT_CHARS),
+  /**
+   * The same turn translated into every language the speaker asked for,
+   * `targetLanguage` included, when it was translated into more than one.
+   * `targetLanguage`/`translatedText` stay the primary language. The gateway
+   * narrows the map to each listener's language and strips it before delivery,
+   * so a listener never receives it.
+   */
+  translations: translationMapSchema(z.string().max(MAX_CONFERENCE_TURN_TEXT_CHARS)).optional(),
   isFinal: z.boolean(),
-  /** Correlates every frame of one utterance. */
+  /** The speaker's server turn session id; correlates every frame of one turn. */
   turnId: z.uuid(),
 });
 export type ConferenceTranslationSubtitle = z.infer<typeof ConferenceTranslationSubtitleSchema>;
@@ -54,10 +61,10 @@ export type ConferenceTranslationSubtitle = z.infer<typeof ConferenceTranslation
 /**
  * conference.translation.audio
  *
- * One frame of the speaker's translated speech. `sequence` is the live
- * session's own counter, so it does not start at zero for a listener who joins
- * mid-call: a listener's resequencer starts from the first sequence it sees
- * per speaker.
+ * One frame of the speaker's translated speech. `sequence` is the speaker
+ * leg's own counter per language: it never resets within a call attempt, so it
+ * does not start at zero for a listener who joins mid-call, and a listener's
+ * resequencer starts from the first sequence it sees per speaker and language.
  */
 export const ConferenceTranslationAudioSchema = z.object({
   /** Overwritten by the gateway with the sending socket's id. */

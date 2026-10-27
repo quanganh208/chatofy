@@ -545,8 +545,8 @@ export const en = {
   // nothing else to count.
   //
   // Every scope claim is a fact about `main`: three languages in the registry, only
-  // Vietnamese and English told apart automatically, meetings translating between
-  // Vietnamese and English only. When one of those changes, the line saying it
+  // Vietnamese and English told apart automatically (on /translate), meetings
+  // translating between all three. When one of those changes, the line saying it
   // changes with it.
   'web.landing.heroTitle': 'Speak your language. Be understood in theirs.',
   'web.landing.heroBody':
@@ -583,7 +583,7 @@ export const en = {
   'web.landing.meetingsMinutesTitle': 'Meeting minutes',
   'web.landing.meetingsMinutesBody':
     'After the meeting, generate minutes with a summary, decisions and action items from the end screen.',
-  'web.landing.meetingsScope': 'Meetings currently translate between Vietnamese and English.',
+  'web.landing.meetingsScope': 'Meetings translate between Vietnamese, English and Chinese.',
 
   // The product's only privacy notice: there is no separate privacy page, so this
   // copy has to change WITH the behaviour, never after it.
@@ -655,6 +655,7 @@ export const en = {
   'web.conference.sourceLanguage': 'Your language',
   'web.conference.sourceLanguageVi': 'Tiếng Việt',
   'web.conference.sourceLanguageEn': 'English',
+  'web.conference.sourceLanguageZh': '中文',
   'web.conference.start': 'Start',
   'web.conference.joining': 'Joining…',
   'web.conference.leave': 'Leave',
@@ -694,6 +695,9 @@ export const en = {
   // No card, no elevation — ghost button only; Leave stays the one accent control.
   'web.conference.audioBlocked': 'Sound is blocked by your browser.',
   'web.conference.enableAudio': 'Tap to enable sound',
+  // Quiet readout when the speaker's translation ended for good mid-call.
+  'web.conference.translationEnded':
+    'Translation stopped — others now hear you without it. Rejoin the call to restart it.',
   // ---- web.conference: translating indicator (Phase 2) ----
   // Badge on the local tile from [T1] (first audio frame) to [T2] (final subtitle).
   // Pure readout — no accent fill; Leave stays the one accent control.
@@ -767,6 +771,8 @@ export const en = {
   'mobile.conference.permissionDeniedHint':
     'Open Settings and allow this app to use the camera and microphone, then try again.',
   'mobile.conference.permissionDeniedAudioOnly': 'No camera access — joining with audio only.',
+  'mobile.conference.translationEnded':
+    'Translation stopped — others now hear you without it. Rejoin the call to restart it.',
   'mobile.conference.notAuthenticated': 'You need to sign in to join the call.',
   'mobile.conference.disconnected': 'Connection lost.',
   'mobile.conference.disconnectedHint': 'The call ended. Return to the lobby to rejoin.',
@@ -777,6 +783,7 @@ export const en = {
   'mobile.conference.sourceLanguage': 'Your language',
   'mobile.conference.sourceLanguageVi': 'Tiếng Việt',
   'mobile.conference.sourceLanguageEn': 'English',
+  'mobile.conference.sourceLanguageZh': '中文',
   // The picker only takes effect before joining; once in the call it is a readout.
   'mobile.conference.sourceLanguageLocked': 'Language is fixed for this call.',
   'mobile.conference.transcript': 'Transcript',

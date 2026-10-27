@@ -51,6 +51,7 @@ import { splitIntoClauses } from '../audio/clause-splitter';
 import { EventChannel, type TurnRef } from '../session/event-channel';
 import { pushSynthesizedWav } from '../session/outbound-audio-framer';
 import { deliverStreamedSpeech } from '../session/streamed-speech-delivery';
+import { speakEveryLanguage } from '../session/multi-language-speech';
 import { TurnSession } from '../session/turn-session';
 import type { TurnAudio } from '../session/turn-audio';
 import {
@@ -93,6 +94,7 @@ import {
   planDetectTurn,
   planForPair,
   planTurnLanguages,
+  type DeclaredTurnLanguagePlan,
   type TurnLanguagePlan,
 } from '../session/turn-language-plan';
 import { languagePairLabel } from '../language-pair-label';
@@ -109,8 +111,10 @@ import {
   SPECULATION_MODELS,
 } from '../session/translation-model-policy';
 import {
+  MAX_CONCURRENT_MEETING_TURNS,
   MAX_CONCURRENT_TURNS_GLOBAL,
   MAX_CONCURRENT_TURNS_PER_SOCKET,
+  MAX_CONCURRENT_TURNS_PER_USER,
   MAX_REMEMBERED_METRICS_ROWS,
   TURN_IDLE_SWEEP_MS,
   TURN_IDLE_TIMEOUT_MS,
@@ -149,6 +153,18 @@ const SERVED_MODES: readonly SessionLanguageMode[] = [
  * the cap. A two-way start runs one-way for it; a detect start is refused.
  */
 const LID_CAPACITY_REASON = 'lid_capacity';
+
+/** How one language of a turn is spoken; see `TranslationSessionService.speakIn`. */
+interface SpeechLanguageOptions {
+  /** The turn's stopwatch, for the primary language only; absent for an extra. */
+  timeline?: TurnTimeline;
+  /** Settles once the turn's final line is out; see `end()`. */
+  afterLine?: Promise<void>;
+  /** Tag for every frame, set whenever the start asked for extra languages. */
+  lang?: LanguageCode;
+  /** Called once this language's first audio is on the wire. */
+  onFirstAudio?: () => void;
+}
 
 /**
  * Per-connection state machine for the WebSocket translation path.
@@ -288,9 +304,9 @@ export class TranslationSessionService implements OnModuleDestroy {
     // `TurnSession.acceptFrame` stops a frame landing in a buffer that `end()` is
     // already reading.
     //
-    // Both ceilings are checked here, and each answers a question the other
-    // cannot. Refused before any turn exists, so the only name these failures can
-    // carry is the one the client supplied.
+    // All three ceilings are checked here, and each answers a question the
+    // others cannot. Refused before any turn exists, so the only name these
+    // failures can carry is the one the client supplied.
     if (this.registry.count(socket) >= MAX_CONCURRENT_TURNS_PER_SOCKET) {
       this.channelFor(socket, { turnId }).fail(
         'too_many_turns',
@@ -298,10 +314,34 @@ export class TranslationSessionService implements OnModuleDestroy {
       );
       return;
     }
+    // A start with no verified user has no account to pool under; the two
+    // ceilings around this one still bound it.
+    if (
+      userId !== undefined &&
+      this.registry.countForUser(userId) >= MAX_CONCURRENT_TURNS_PER_USER
+    ) {
+      this.channelFor(socket, { turnId }).fail(
+        'too_many_turns',
+        `Your account may hold ${MAX_CONCURRENT_TURNS_PER_USER} turns at once`,
+      );
+      return;
+    }
     if (this.registry.countGlobal() >= MAX_CONCURRENT_TURNS_GLOBAL) {
       this.channelFor(socket, { turnId }).fail(
         'too_many_turns',
         'The translator is at capacity; try again in a moment',
+      );
+      return;
+    }
+    // Meeting legs share a smaller ceiling inside the global one, so the rest
+    // stays free for /translate while a meeting talks continuously.
+    if (
+      options.meeting === true &&
+      this.registry.countMeeting() >= MAX_CONCURRENT_MEETING_TURNS
+    ) {
+      this.channelFor(socket, { turnId }).fail(
+        'too_many_turns',
+        'Meetings are at translation capacity; try again in a moment',
       );
       return;
     }
@@ -358,17 +398,23 @@ export class TranslationSessionService implements OnModuleDestroy {
         : mode === 'two-way'
           ? twoWayDecision(admission.pair)
           : undefined;
-    const plan =
+    // Extra targets ride on a declared one-way turn only: a two-way or detect
+    // turn's target is not one fixed language to add others beside.
+    const extras =
+      mode === 'declared' && !options.twoWay
+        ? (options.alsoTranslateInto ?? [])
+        : [];
+    const pairPlan =
       admission.mode === 'detect'
         ? undefined
-        : planForPair(admission.pair, this.identifier);
+        : planForPair(admission.pair, this.identifier, extras);
     // A turn whose language is decided while it is spoken may run as any of
     // its candidates, so every one has to be served: recognised in each, and
     // spoken in whatever each translates into — a detect turn heard in its
     // target speaks nothing, so only the target is ever asked to speak.
     const languageRefusal = (
       decision?.candidates.map((language) => decision.planIn(language)) ??
-      (plan ? [plan] : [])
+      (pairPlan ? [pairPlan] : [])
     )
       .map((turnPlan) =>
         this.languageSupport.refusal({
@@ -388,6 +434,10 @@ export class TranslationSessionService implements OnModuleDestroy {
       );
       return;
     }
+    // Refused on the primary only. An extra the speech engine cannot speak is
+    // still translated, and only its voice is dropped: the turn serves every
+    // listener it can rather than none.
+    const plan = pairPlan && this.servedVoices(pairPlan, options, turnId);
 
     const session = new TurnSession(options, turnId, {
       budget: this.budget,
@@ -412,6 +462,13 @@ export class TranslationSessionService implements OnModuleDestroy {
     this.logger.log(
       `session.start ${sessionId} pair=${languagePairLabel(options.languagePair)} mode=${mode}${modeReason ? ` (${modeReason})` : ''} voice=${options.voiceGender}`,
     );
+    // Extra targets are extra translation and synthesis spend per turn, so who
+    // asked for them is on record.
+    if (extras.length > 0 && plan) {
+      this.logger.log(
+        `session.start ${sessionId} user=${userId ?? 'none'} alsoTranslateInto=${extras.join(',')} targets=${plan.targets.join(',')} voiced=${plan.voiced.join(',')}`,
+      );
+    }
     this.channelFor(socket, session).emit({
       type: 'server.session.ready',
       sessionId,
@@ -419,6 +476,32 @@ export class TranslationSessionService implements OnModuleDestroy {
       mode,
       ...(modeReason ? { modeReason } : {}),
     });
+  }
+
+  /**
+   * The plan with every extra voice the speech engine cannot speak right now
+   * dropped, each with one warning. The primary was already checked.
+   */
+  private servedVoices(
+    plan: DeclaredTurnLanguagePlan,
+    options: SessionOptions,
+    turnId: string | undefined,
+  ): DeclaredTurnLanguagePlan {
+    if (plan.voiced.length <= 1) return plan;
+    const voiced = plan.voiced.filter((language) => {
+      if (language === plan.spoken) return true;
+      const refusal = this.languageSupport.refusal({
+        recognition: plan.recognition,
+        spoken: language,
+        voiceOutput: options.voiceOutput ?? true,
+      });
+      if (refusal === null) return true;
+      this.logger.warn(
+        `turn ${turnId ?? '(no turn id)'}: not voicing ${language}: ${refusal}`,
+      );
+      return false;
+    });
+    return voiced.length === plan.voiced.length ? plan : { ...plan, voiced };
   }
 
   /** Refuse a start on language grounds, with a detail a client can act on. */
@@ -1909,17 +1992,21 @@ export class TranslationSessionService implements OnModuleDestroy {
   }
 
   /**
-   * Speak a translated turn: streamed whole when the backend can stream, clause
-   * by clause when it cannot.
+   * Speak a translated turn in every language it is voiced in.
    *
-   * The stream is opened only for a turn that wants audio and is still held;
-   * everything else — voice off, a client already gone — goes through
-   * `streamClauses`, which owns the ordering of those two checks and the reasons
-   * they record. A backend without a stream (or a sidecar deployed before it
-   * had one) lands there too, so either service can be upgraded first.
+   * One language is today's turn exactly, its frames untagged unless the start
+   * asked for `alsoTranslateInto` (see `TurnSession.tagsAudioLanguage`): an
+   * extra the engine cannot voice leaves one language whose client still routes
+   * audio by tag. Several are spoken by {@link speakEveryLanguage}: the
+   * primary (`plan.spoken`) first, each extra once the primary's first audio
+   * is out, every frame tagged with its `lang`.
+   * The extras never fail the turn, and the turn holds its slot until the
+   * slowest language is delivered.
    *
-   * A streamed turn counts as ONE synthesis unit in the timeline: the whole
-   * text went to the backend in one request, whatever it did inside.
+   * All languages draw on the turn's one `nextOutboundSequence()`, so frames of
+   * different languages interleave in one numbering. That is harmless: the
+   * client does not order playback by `frame.sequence`, and a meeting leg
+   * renumbers each language's frames itself before relaying them.
    */
   private async speak(
     socket: StreamSocket,
@@ -1929,14 +2016,67 @@ export class TranslationSessionService implements OnModuleDestroy {
     /** Settles once the turn's final line is out; see `end()`. */
     afterLine: Promise<void> = Promise.resolve(),
   ): Promise<ClauseDelivery> {
-    // Speech is a budget of exactly one target — `plan.spoken` — never every
-    // target a fan-out turn was translated into (TTS for all of them is a
-    // deferred seam; see `docs/system-architecture.md`).
-    const language = session.languages.spoken;
+    const { spoken, voiced } = session.languages;
     // A transcript-only turn has nothing to speak: it is done the way a turn
     // that asked for text only is.
-    if (language === null) return this.textOnly(socket, session);
+    if (spoken === null) return this.textOnly(socket, session);
+    if (voiced.length <= 1 || !session.voiceOutput) {
+      return this.speakIn(socket, session, translated, spoken, {
+        timeline,
+        afterLine,
+        ...(session.tagsAudioLanguage ? { lang: spoken } : {}),
+      });
+    }
+    return speakEveryLanguage({
+      primary: spoken,
+      extras: voiced.filter((language) => language !== spoken),
+      speakIn: (language, isPrimary, onFirstAudio) =>
+        this.speakIn(socket, session, translated, language, {
+          // The timeline measures the primary listener's experience only.
+          timeline: isPrimary ? timeline : undefined,
+          afterLine,
+          lang: language,
+          onFirstAudio,
+        }),
+      onExtraFailed: (language, err) =>
+        this.logger.warn(
+          `turn ${session.sessionId}: speech in ${language} failed, the turn goes on without it: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+    });
+  }
+
+  /**
+   * Speak a translated turn in one language: streamed whole when the backend
+   * can stream, clause by clause when it cannot.
+   *
+   * The stream is opened only for a turn that wants audio and is still held;
+   * everything else — voice off, a client already gone — goes through
+   * `streamClauses`, which owns the ordering of those two checks and the reasons
+   * they record. A backend without a stream (or a sidecar deployed before it
+   * had one) lands there too, so either service can be upgraded first.
+   *
+   * A streamed turn counts as ONE synthesis unit in the timeline: the whole
+   * text went to the backend in one request, whatever it did inside.
+   *
+   * An extra language (no `timeline`) is the primary's twin with one rule
+   * changed: it never reports a failure to the client. A fault it meets is
+   * thrown to {@link speakEveryLanguage}, which logs and drops it.
+   */
+  private async speakIn(
+    socket: StreamSocket,
+    session: TurnSession,
+    translated: TranslatedTurnText,
+    language: LanguageCode,
+    how: SpeechLanguageOptions,
+  ): Promise<ClauseDelivery> {
+    const { timeline, lang, onFirstAudio } = how;
     const spokenText = translated.translations[language] ?? '';
+    // The primary may fall back to the session's single voice; an extra
+    // language only takes a voice named for it, since that voice belongs to
+    // another language's engine.
+    const voice =
+      session.voices?.[language] ??
+      (language === session.languages.spoken ? session.voice : undefined);
     let stream: TtsAudioStream | null = null;
     // Blank text has nothing to stream, and the sidecar refuses it: it takes the
     // clause path, which speaks zero clauses and completes, as it always has.
@@ -1953,9 +2093,7 @@ export class TranslationSessionService implements OnModuleDestroy {
             language,
             voiceGender: session.voiceGender,
             speed: session.speed,
-            // A two-way turn may be spoken in either language, so the voice is
-            // the one chosen for the language this turn speaks.
-            voice: session.voices?.[language] ?? session.voice,
+            voice,
           },
           session.released,
         );
@@ -1965,7 +2103,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           return { stoppedBy: 'client_gone' };
         }
         if (err instanceof SpeechEngineBusyException) {
-          timeline.markClauses(1, 'stream');
+          timeline?.markClauses(1, 'stream');
           return this.engineBusy(session);
         }
         throw err;
@@ -1974,19 +2112,28 @@ export class TranslationSessionService implements OnModuleDestroy {
 
     if (!stream) {
       const clauses = splitIntoClauses(spokenText);
-      timeline.markClauses(clauses.length, 'clauses');
-      return this.streamClauses(socket, session, clauses, language, afterLine);
+      timeline?.markClauses(clauses.length, 'clauses');
+      return this.streamClauses(socket, session, clauses, language, {
+        ...how,
+        voice,
+      });
     }
 
-    timeline.markClauses(1, 'stream');
+    timeline?.markClauses(1, 'stream');
     const channel = this.channelFor(socket, session);
     return deliverStreamedSpeech({
       stream,
       sessionId: session.sessionId,
-      emit: (frame) => channel.emit({ type: 'server.audio.frame', frame }),
+      emit: (frame) =>
+        channel.emit({
+          type: 'server.audio.frame',
+          frame,
+          ...(lang === undefined ? {} : { lang }),
+        }),
       nextSequence: () => session.nextOutboundSequence(),
       stillWanted: () => this.registry.holds(socket, session),
       fail: (err) => this.pipeline.failSynthesis(err),
+      onFirstAudio,
     });
   }
 
@@ -2016,8 +2163,11 @@ export class TranslationSessionService implements OnModuleDestroy {
     session: TurnSession,
     clauses: string[],
     language: LanguageCode,
-    afterLine: Promise<void> = Promise.resolve(),
+    how: SpeechLanguageOptions & { voice?: string },
   ): Promise<ClauseDelivery> {
+    const { afterLine = Promise.resolve(), lang, onFirstAudio, voice } = how;
+    // Only the primary language reports to the client; see `speakIn`.
+    const isPrimary = how.timeline !== undefined;
     let firstAudioAt: number | undefined;
     let lastAudioAt: number | undefined;
 
@@ -2046,7 +2196,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           language,
           voiceGender: session.voiceGender,
           speed: session.speed,
-          voice: session.voices?.[language] ?? session.voice,
+          voice,
         });
       } catch (err) {
         if (err instanceof SpeechEngineBusyException) {
@@ -2058,6 +2208,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         this.channelFor(socket, session),
         session,
         Buffer.from(speech.bytes),
+        lang,
       );
       if (!pushed.ok) {
         // Reported once, then the turn's audio stops — the transcript already
@@ -2065,6 +2216,11 @@ export class TranslationSessionService implements OnModuleDestroy {
         this.logger.error(
           `cannot frame ${speech.mimeType} output: ${pushed.detail}`,
         );
+        // An extra language's audio stopping is not the turn's fault to report:
+        // the primary listener's turn is going on.
+        if (!isPrimary) {
+          return { firstAudioAt, lastAudioAt, stoppedBy: 'unsupported_audio' };
+        }
         // Never ahead of the line: the client forgets a turn on this error.
         await afterLine;
         this.channelFor(socket, session).fail(
@@ -2073,7 +2229,10 @@ export class TranslationSessionService implements OnModuleDestroy {
         );
         return { firstAudioAt, lastAudioAt, stoppedBy: 'unsupported_audio' };
       }
-      firstAudioAt ??= Date.now();
+      if (firstAudioAt === undefined) {
+        firstAudioAt = Date.now();
+        onFirstAudio?.();
+      }
       lastAudioAt = Date.now();
     }
 

@@ -13,7 +13,7 @@
  */
 
 /** How long a request waits for its reply, measured from when it is sent. */
-export const REQUEST_TIMEOUT_MS = 10_000;
+const REQUEST_TIMEOUT_MS = 10_000;
 /**
  * For `conference.media.*`: the server's worst case is several Cloudflare
  * calls, each with its own timeout and retry, behind the session's queue.

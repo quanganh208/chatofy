@@ -1,14 +1,15 @@
+import { pcm16ToBase64, RelayPlaybackSink } from '@chatofy/realtime-client';
 import { createLanguagePairSession } from '../../src/language-pair-session';
 import { EchoMonitor } from '../../src/echo-monitor';
 import { getFreshAccessToken } from '../../src/access-token';
 import { MeetingCapture } from '../../src/meeting-capture';
 import { openGatedMicrophone } from '../../src/outbound-mic';
-import { PagePlaybackSink } from '../../src/page-playback-sink';
 import { loadSettings } from '../../src/settings';
 import { listTranslationContexts, resolveContext, toHints } from '../../src/translation-contexts';
 import { openTabAudio } from '../../src/tab-audio-source';
 import { VoiceHold } from '../../src/outbound-voice-lease';
 import { forContext } from '../../src/messages';
+import type { OutboundCommand } from '../../src/outbound-channel';
 
 /**
  * The offscreen document: the browser half of the audio graph.
@@ -26,6 +27,9 @@ const send = (message: unknown) => {
   void chrome.runtime.sendMessage(message).catch(() => undefined);
 };
 
+const sendOutbound = (command: OutboundCommand) =>
+  send({ to: 'worker', type: 'outbound.command', command });
+
 const capture = new MeetingCapture({
   createContext: () => new AudioContext(),
   openTab: openTabAudio,
@@ -34,9 +38,19 @@ const capture = new MeetingCapture({
   createSession: createLanguagePairSession,
   // The relay into the meeting page. This document may only use
   // `chrome.runtime`, so every frame goes offscreen → worker → tab → page.
+  // Base64 rather than a typed array because `chrome.runtime` messages are
+  // JSON — an `Int16Array` arrives as an object with numeric keys.
   createPageSink: (onTurnDrained) =>
-    new PagePlaybackSink({
-      send: (command) => send({ to: 'worker', type: 'outbound.command', command }),
+    new RelayPlaybackSink({
+      sendAudio: (turnKey, samples, sampleRate) =>
+        sendOutbound({
+          type: 'chatofy:audio',
+          turnKey,
+          payload: pcm16ToBase64(samples),
+          sampleRate,
+        }),
+      sendDrop: (turnKey) => sendOutbound({ type: 'chatofy:drop', turnKey }),
+      sendSilence: () => sendOutbound({ type: 'chatofy:silence' }),
       onTurnDrained,
     }),
   // Same relay, different lifetime: this one is held for the whole session and

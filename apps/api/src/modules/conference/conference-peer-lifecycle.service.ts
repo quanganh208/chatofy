@@ -118,10 +118,13 @@ export class ConferencePeerLifecycle {
         this.logger.error(`markActive failed for ${room?.id}`, err);
       });
 
+      // `sourceLanguage` tells the room which languages it holds, so each
+      // speaker knows which extra languages to translate into.
       this.sockets.sendToRoom(room, socketId, 'conference.peer.joined', {
         socketId,
         displayName: peer.displayName,
         userId,
+        sourceLanguage: peer.sourceLanguage,
       });
       reply({
         socketId,
@@ -249,6 +252,7 @@ export class ConferencePeerLifecycle {
         socketId,
         displayName: p.displayName,
         userId: p.userId,
+        sourceLanguage: p.sourceLanguage,
         // `conference.media.published` only reaches peers already in the
         // room, so a late joiner learns who publishes from this list.
         published: p.publishedTracks.length > 0,

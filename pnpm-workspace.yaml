@@ -144,6 +144,12 @@ minimumReleaseAgeExclude:
   - '@vitejs/plugin-react@6.1.0'
 patchedDependencies:
   metro@0.83.6: patches/metro@0.83.6.patch
+  # The Android recorder opens Oboe with no input preset, so it captures through
+  # VOICE_RECOGNITION with no echo canceller. A meeting phone on its loudspeaker
+  # then transcribed the remote peer's voice as its own turns. The patch sets the
+  # VoiceCommunication preset and a session id (without one AAudio takes its MMAP
+  # path, which runs no effects). Drop it once the library exposes the preset.
+  react-native-audio-api@0.13.6: patches/react-native-audio-api@0.13.6.patch
 
 # Advisories that have no patched version in existence, so no floor and no
 # `--audit-level` can answer them: the newest published release is itself the

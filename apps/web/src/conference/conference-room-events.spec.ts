@@ -49,3 +49,49 @@ describe('parseRoomEvent — media', () => {
     expect(parseRoomEvent({ event: 'conference.media.published', data: {} })).toBeNull();
   });
 });
+
+describe('parseRoomEvent — peers', () => {
+  it('reads a join that names the peer’s language', () => {
+    expect(
+      parseRoomEvent({
+        event: 'conference.peer.joined',
+        data: { socketId: 's-1', displayName: 'Alice', userId: 'u-1', sourceLanguage: 'zh' },
+      }),
+    ).toEqual({ type: 'peer-joined', socketId: 's-1', displayName: 'Alice', sourceLanguage: 'zh' });
+  });
+
+  it('still reads a join from a gateway that does not send the language', () => {
+    expect(
+      parseRoomEvent({
+        event: 'conference.peer.joined',
+        data: { socketId: 's-1', displayName: 'Alice' },
+      }),
+    ).toEqual({ type: 'peer-joined', socketId: 's-1', displayName: 'Alice' });
+  });
+
+  it('keeps a join whose language this build does not know, without the language', () => {
+    expect(
+      parseRoomEvent({
+        event: 'conference.peer.joined',
+        data: { socketId: 's-1', displayName: 'Alice', sourceLanguage: 'fr' },
+      }),
+    ).toEqual({ type: 'peer-joined', socketId: 's-1', displayName: 'Alice' });
+  });
+});
+
+describe('parseRoomEvent — translation broadcast refusals', () => {
+  it('reads a refused broadcast with its code', () => {
+    expect(
+      parseRoomEvent({
+        event: 'conference.translation.broadcast',
+        data: { error: 'limit_reached' },
+      }),
+    ).toEqual({ type: 'broadcast-refused', code: 'limit_reached' });
+  });
+
+  it('ignores a broadcast frame that carries no refusal', () => {
+    expect(
+      parseRoomEvent({ event: 'conference.translation.broadcast', data: { audio: {} } }),
+    ).toBeNull();
+  });
+});

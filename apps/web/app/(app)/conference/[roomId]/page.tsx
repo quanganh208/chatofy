@@ -17,6 +17,7 @@ import type { Route } from 'next';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Users } from 'lucide-react';
 import { Button } from '@chatofy/ui/react';
+import { toLanguageCode } from '@chatofy/types';
 import { conferenceRoomIdSchema } from '@chatofy/types/events';
 import { useTranslate } from '@/i18n/provider';
 import { useConference } from '@/hooks/use-conference';
@@ -34,7 +35,7 @@ export default function ConferenceRoomPage() {
 
   const roomId = decodeRoomId(params.roomId);
   const displayName = (searchParams.get('name') ?? '').trim();
-  const sourceLanguage = searchParams.get('lang') === 'en' ? 'en' : 'vi';
+  const sourceLanguage = toLanguageCode(searchParams.get('lang') ?? '') ?? 'vi';
   // A room id is a server-minted cuid; anything else can never name a room, so
   // it is answered here instead of with a socket round trip.
   const roomIdValid = conferenceRoomIdSchema.safeParse(roomId).success;
@@ -49,6 +50,7 @@ export default function ConferenceRoomPage() {
     localVideoEnabled,
     audioBlocked,
     localTranslating,
+    translationEnded,
     reconnectAttempt,
     reconnectCap,
     messages,
@@ -236,6 +238,18 @@ export default function ConferenceRoomPage() {
       {errorReason === 'audio-only' && (
         <p className="text-hint text-textMuted border-border border-b px-4 py-1">
           {t('web.conference.permissionDeniedAudioOnly')}
+        </p>
+      )}
+
+      {/* Translation ended for good — a readout like the audio-only notice: no
+          card, no control; the call itself goes on untranslated. */}
+      {translationEnded && (
+        <p
+          role="status"
+          data-translation-ended
+          className="text-hint text-textMuted border-border border-b px-4 py-1"
+        >
+          {t('web.conference.translationEnded')}
         </p>
       )}
 

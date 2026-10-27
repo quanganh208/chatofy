@@ -18,6 +18,8 @@ export {
   DEFAULT_LANGUAGE_PAIR,
   pairLanguages,
   translationTargets,
+  roomTargets,
+  defaultTargetFor,
   speakerRoleFor,
   toLanguageCode,
   conversationLanguagesSchema,

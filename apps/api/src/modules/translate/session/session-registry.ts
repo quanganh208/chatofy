@@ -132,6 +132,23 @@ export class SessionRegistry {
   }
 
   /**
+   * Turns open for one account, across every socket it holds. Guards the shared
+   * ceiling against one account on several sockets.
+   *
+   * Matched on `TurnSession.userId`, which falls back to the turn's own session
+   * id when no user was named, so turns without a user never pool here.
+   */
+  countForUser(userId: string): number {
+    let total = 0;
+    for (const turns of this.sessions.values()) {
+      for (const session of turns.values()) {
+        if (session.userId === userId) total += 1;
+      }
+    }
+    return total;
+  }
+
+  /**
    * Turns open across the whole process.
    *
    * This is the number that guards the machine. The STT and TTS sidecars are one
@@ -142,6 +159,17 @@ export class SessionRegistry {
   countGlobal(): number {
     let total = 0;
     for (const turns of this.sessions.values()) total += turns.size;
+    return total;
+  }
+
+  /** Turns open for meeting speaker legs, across the whole process. */
+  countMeeting(): number {
+    let total = 0;
+    for (const turns of this.sessions.values()) {
+      for (const session of turns.values()) {
+        if (session.meeting) total += 1;
+      }
+    }
     return total;
   }
 
