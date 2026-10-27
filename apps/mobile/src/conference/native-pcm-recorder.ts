@@ -69,6 +69,8 @@ export class NativePcmRecorder implements PushedPcmSource {
   private recorder: NativeRecorderHandle | null = null;
   private recording = false;
   private paused = false;
+  /** The start in flight, so a stop that lands during it waits rather than no-ops. */
+  private starting: Promise<void> | null = null;
   // A plain field, not a parameter property: node runs this file's tests with
   // type stripping only, which cannot transform one.
   private readonly api: NativeRecorderApi;
@@ -88,9 +90,17 @@ export class NativePcmRecorder implements PushedPcmSource {
     this.paused = paused;
   }
 
-  async start(onBuffer: (samples: Float32Array, sampleRate: number) => void): Promise<void> {
-    if (this.recording) return;
+  start(onBuffer: (samples: Float32Array, sampleRate: number) => void): Promise<void> {
+    if (this.recording) return Promise.resolve();
+    // A second start while one is opening joins it instead of opening another
+    // native recorder that nothing would ever stop.
+    this.starting ??= this.open(onBuffer).finally(() => {
+      this.starting = null;
+    });
+    return this.starting;
+  }
 
+  private async open(onBuffer: (samples: Float32Array, sampleRate: number) => void): Promise<void> {
     this.api.configureSession();
     const permission = await this.api.requestPermission();
     if (permission !== 'Granted') {
@@ -137,6 +147,16 @@ export class NativePcmRecorder implements PushedPcmSource {
    * shared session calls this on every teardown, including a mid-call rebuild.
    */
   async stop(): Promise<void> {
+    // A stop during an open start would otherwise find nothing recording yet,
+    // and the recorder would come up after the call had left. A start that
+    // failed left nothing open.
+    if (this.starting) {
+      try {
+        await this.starting;
+      } catch {
+        return;
+      }
+    }
     if (!this.recording) return;
     this.recording = false;
     const recorder = this.recorder;

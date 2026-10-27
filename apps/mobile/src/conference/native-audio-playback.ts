@@ -77,10 +77,14 @@ export class NativeTranslationAudioSink {
    * The speaker leg's microphone hears this playback through the loudspeaker,
    * and at a loud volume the echo canceller lets it through; this is what keeps
    * that playback from opening a turn of its own.
+   *
+   * Only a running context counts: a suspended one (a phone call or Siri took
+   * the audio, or `resume()` failed) never ends its queued sounds, and counting
+   * them would hold the gate shut on the user's speech for the rest of the call.
    */
   isAnySounding(): boolean {
     for (const output of this.outputs.values()) {
-      if (output.queue.isPlaying) return true;
+      if (output.ctx.state === 'running' && output.queue.isPlaying) return true;
     }
     return false;
   }

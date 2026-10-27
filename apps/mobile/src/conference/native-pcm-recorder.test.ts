@@ -117,6 +117,26 @@ describe('NativePcmRecorder', () => {
     assert.deepEqual(h.heard, []);
   });
 
+  it('stops a recorder whose start was still opening when the call left', async () => {
+    const h = setup();
+    const starting = h.capture.start(h.onBuffer);
+    const stopping = h.capture.releaseSession();
+    await Promise.all([starting, stopping]);
+
+    assert.equal(h.recorders.length, 1);
+    assert.equal(h.recorders[0]!.stopped, 1);
+    assert.equal(h.calls.deactivated, 1);
+  });
+
+  it('opens one recorder for two overlapping starts', async () => {
+    const h = setup();
+    await Promise.all([h.capture.start(h.onBuffer), h.capture.start(h.onBuffer)]);
+    await h.capture.stop();
+
+    assert.equal(h.recorders.length, 1);
+    assert.equal(h.recorders[0]!.stopped, 1);
+  });
+
   it('refuses to start without microphone permission, opening no recorder', async () => {
     const h = setup('Denied');
 
