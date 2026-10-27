@@ -16,15 +16,9 @@ import { ElapsedClock } from '@/components/translate/elapsed-clock';
 import { Button } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
 import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
-import {
-  AUTO_DETECT,
-  LANGUAGE_CODES,
-  languagePairOf,
-  reversePair,
-  type LanguageCode,
-} from '@chatofy/types';
+import { AUTO_DETECT, languagePairOf, reversePair } from '@chatofy/types';
 import { toConversationTurns } from '@chatofy/realtime-client';
-import { asksTwoWay, type TranslateSettings } from '@/lib/translate-settings';
+import { asksTwoWay, chosenVoices, type TranslateSettings } from '@/lib/translate-settings';
 import { languageNamer } from '@/i18n/language-pair-labels';
 import { recordingOffsetMs } from '@/lib/transcript-time';
 import { useLocale, useTranslate } from '@/i18n/provider';
@@ -95,20 +89,6 @@ import { resolveContext, toHints, useTranslationContexts } from '@/hooks/use-tra
  * write originate here; the settings VALUES belong to the page, which is the only
  * place allowed to call `useTranslateSettings`.
  */
-
-/**
- * The chosen voice per language, for a start whose spoken language is only
- * known per turn. Languages with no choice are left out, which the server reads
- * as "the gender default" — exactly what an unset token means everywhere else.
- */
-function chosenVoices(voice: TranslateSettings['voice']): Partial<Record<LanguageCode, string>> {
-  const voices: Partial<Record<LanguageCode, string>> = {};
-  for (const code of LANGUAGE_CODES) {
-    const token = voice[code];
-    if (token) voices[code] = token;
-  }
-  return voices;
-}
 
 /**
  * Status → dictionary key. The words moved to `@chatofy/i18n`; this table keeps

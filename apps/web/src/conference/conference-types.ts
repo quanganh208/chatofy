@@ -62,6 +62,8 @@ export interface ConferenceSink {
   peers(update: (prev: PeerMap) => PeerMap): void;
   audioBlocked(blocked: boolean): void;
   translating(active: boolean): void;
+  /** The speaker's translation ended for good while the call goes on. */
+  translationEnded(ended: boolean): void;
   chat(message: ConferenceChatMessage): void;
   /** The server refused the last chat message this client sent. */
   chatRefused(refusal: ConferenceChatRefusal): void;

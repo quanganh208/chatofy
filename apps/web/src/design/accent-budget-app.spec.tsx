@@ -225,6 +225,7 @@ function call(over: Partial<UseConferenceReturn> = {}): UseConferenceReturn {
     localVideoEnabled: true,
     audioBlocked: false,
     localTranslating: false,
+    translationEnded: false,
     reconnectAttempt: 0,
     reconnectCap: 3,
     join: vi.fn(() => Promise.resolve()),
@@ -1205,6 +1206,15 @@ const SCREENS: ScreenState[] = [
     surfaces: 0,
     setup: inRoom({ errorReason: 'audio-only', localVideoEnabled: false }),
     render: () => <ConferenceRoomPage />,
+  },
+  {
+    // Translation ended for good is a quiet readout — still one accent (Leave), zero surfaces.
+    name: '/conference/[roomId] — translation ended mid-call',
+    filled: 1,
+    surfaces: 0,
+    setup: inRoom({ peers: ALICE, translationEnded: true }),
+    render: () => <ConferenceRoomPage />,
+    shows: '[data-translation-ended]',
   },
   {
     // Reconnecting is a transient mid-call state — one accent (Leave), zero surfaces.

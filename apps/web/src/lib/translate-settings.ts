@@ -485,6 +485,24 @@ export function representablePair(pair: SessionLanguagePair): SessionLanguagePai
   return { source, target: pair.target };
 }
 
+/**
+ * The chosen voice per language, for a start whose spoken language is only
+ * known per turn: /translate's two-way start and a meeting speaker's leg, which
+ * may voice several languages. Languages with no choice are left out, which the
+ * server reads as "the gender default" — exactly what an unset token means
+ * everywhere else.
+ */
+export function chosenVoices(
+  voice: TranslateSettings['voice'],
+): Partial<Record<LanguageCode, string>> {
+  const voices: Partial<Record<LanguageCode, string>> = {};
+  for (const code of LANGUAGE_CODES) {
+    const token = voice[code];
+    if (token) voices[code] = token;
+  }
+  return voices;
+}
+
 export function saveTranslateSettings(settings: TranslateSettings): void {
   try {
     // The stamp travels with the write, not with the type: a save is a deliberate

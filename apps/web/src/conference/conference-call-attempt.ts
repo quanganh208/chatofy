@@ -11,10 +11,11 @@ import type { LanguageCode } from '@chatofy/types';
 import { ConferenceIceServerSchema } from '@chatofy/types/events';
 import { TranslationAudioSink } from '@/hooks/use-translation-audio-sink';
 import { acquireLocalMedia } from './acquire-local-media';
-import { parseRoomEvent, type RoomEvent } from './conference-room-events';
+import { conferenceDebug } from './conference-debug-log';
+import { createWebConferenceLeg, type WebConferenceLeg } from './conference-cascade-leg-web';
+import { parseRoomEvent, peerLanguageSchema, type RoomEvent } from './conference-room-events';
 import { ConferenceSfuMedia } from './conference-sfu-media';
 import { parseSignal, request, send } from './conference-signaling';
-import { wireTranslate, type TranslateHandle } from './conference-translate-wiring';
 import type { ConferenceSink, PeerMap } from './conference-types';
 import { PeerSubtitleTracker } from './peer-subtitle-tracker';
 
@@ -25,6 +26,7 @@ const joinReplySchema = z.object({
     z.object({
       socketId: z.string().min(1),
       displayName: z.string(),
+      sourceLanguage: peerLanguageSchema,
       published: z.boolean(),
     }),
   ),
@@ -44,8 +46,10 @@ export interface CallAttemptOptions {
   roomId: string;
   displayName: string;
   sourceLanguage: LanguageCode;
-  token: string;
-  translateUrl: string;
+  /** Resolves the CURRENT access token; the translate leg reads it per session it builds. */
+  getToken: () => Promise<string | undefined>;
+  /** Full `ws(s)://…/ws/translate` endpoint for the speaker's translate leg. */
+  translateSocketUrl: string;
   /** Applied to the new local tracks, so a reconnect keeps the user muted. */
   muted: boolean;
   videoEnabled: boolean;
@@ -56,12 +60,16 @@ export interface CallAttemptOptions {
 
 export class CallAttempt {
   private disposed = false;
+  /** Starts as the option; a toggle during the join lands on the tracks acquired after it. */
+  private muted: boolean;
   private media: ConferenceSfuMedia | null = null;
-  private translate: TranslateHandle | null = null;
+  private leg: WebConferenceLeg | null = null;
   private stream: MediaStream | null = null;
   private readonly audio = new TranslationAudioSink();
   private readonly subtitles: PeerSubtitleTracker;
   private readonly peerNames = new Map<string, string>();
+  /** socketId → the language that peer speaks, for peers that said. Feeds the leg's targets. */
+  private readonly peerLanguages = new Map<string, LanguageCode>();
   private readonly departed = new Set<string>();
   private readonly onMessage = (evt: MessageEvent) => {
     const signal = parseSignal(evt.data);
@@ -70,6 +78,7 @@ export class CallAttempt {
   };
 
   constructor(private readonly options: CallAttemptOptions) {
+    this.muted = options.muted;
     this.subtitles = new PeerSubtitleTracker((socketId, text) =>
       options.sink.peers((prev) => {
         const entry = prev.get(socketId);
@@ -111,7 +120,10 @@ export class CallAttempt {
     this.media = media;
     ws.addEventListener('message', this.onMessage);
     sink.selfSocketId(reply.socketId);
-    for (const peer of reply.peers) this.peerNames.set(peer.socketId, peer.displayName);
+    for (const peer of reply.peers) {
+      this.peerNames.set(peer.socketId, peer.displayName);
+      if (peer.sourceLanguage) this.peerLanguages.set(peer.socketId, peer.sourceLanguage);
+    }
     if (reply.peers.some((peer) => peer.published)) media.subscribe();
 
     const { stream, audioOnly } = await acquireLocalMedia();
@@ -120,25 +132,18 @@ export class CallAttempt {
       throw new AttemptDisposedError();
     }
     this.stream = stream;
-    stream.getAudioTracks().forEach((track) => (track.enabled = !this.options.muted));
+    stream.getAudioTracks().forEach((track) => (track.enabled = !this.muted));
     stream.getVideoTracks().forEach((track) => (track.enabled = this.options.videoEnabled));
     sink.localStream(stream);
 
     await media.publish(stream);
     this.assertLive();
-    if (this.options.muted) send(ws, 'conference.participant.mute', { muted: true });
+    if (this.muted) send(ws, 'conference.participant.mute', { muted: true });
     if (!this.options.videoEnabled) {
       send(ws, 'conference.participant.video', { videoEnabled: false });
     }
 
-    this.translate = wireTranslate({
-      translateUrl: this.options.translateUrl,
-      conferenceSocket: ws,
-      stream,
-      sourceLanguage: this.options.sourceLanguage,
-      token: this.options.token,
-      onTranslating: (active) => sink.translating(active),
-    });
+    this.startLeg(stream);
 
     await media.settled();
     this.assertLive();
@@ -149,7 +154,11 @@ export class CallAttempt {
   }
 
   setMuted(muted: boolean): void {
-    this.stream?.getAudioTracks().forEach((track) => (track.enabled = !muted));
+    this.muted = muted;
+    // The leg mutes the published track with its own; before it exists there
+    // is only the published track.
+    if (this.leg) this.leg.setMuted(muted);
+    else this.stream?.getAudioTracks().forEach((track) => (track.enabled = !muted));
     send(this.options.ws, 'conference.participant.mute', { muted });
   }
 
@@ -167,21 +176,79 @@ export class CallAttempt {
     this.options.sink.audioBlocked(this.audio.isAnySuspended());
   }
 
-  /** Release everything this attempt holds. Idempotent. */
-  dispose(): void {
-    if (this.disposed) return;
+  /**
+   * Release everything this attempt holds. Idempotent.
+   *
+   * With `closeSocket` — the user left, and the conference socket is still
+   * open — the translate leg first lets its in-flight turns finish (bounded),
+   * so their real finals reach the room; only then are the local tracks
+   * stopped and `closeSocket` called. Without it — the socket is gone, or the
+   * teardown is forced — the leg stops at once and relays no final.
+   *
+   * Everything that only RECEIVES is released immediately either way.
+   */
+  dispose(closeSocket?: () => void): void {
+    if (this.disposed) {
+      closeSocket?.();
+      return;
+    }
     this.disposed = true;
     this.options.ws.removeEventListener('message', this.onMessage);
-    // First, while the conference socket may still be open: stopping the
-    // translate leg sends the open turn's final frame through it.
-    this.translate?.stop();
-    this.translate = null;
     this.subtitles.dispose();
     this.audio.close();
     this.media?.close();
     this.media = null;
-    this.stream?.getTracks().forEach((track) => track.stop());
+
+    const leg = this.leg;
+    this.leg = null;
+    const stream = this.stream;
     this.stream = null;
+    const release = () => {
+      stream?.getTracks().forEach((track) => track.stop());
+      closeSocket?.();
+    };
+    if (leg && closeSocket) {
+      void leg.leave().finally(release);
+      return;
+    }
+    leg?.stop();
+    release();
+  }
+
+  /**
+   * Start the speaker's translate leg. Never fails the call: a meeting without
+   * translation is still a meeting, so a leg that cannot start is logged.
+   */
+  private startLeg(stream: MediaStream): void {
+    const { options } = this;
+    try {
+      const leg = createWebConferenceLeg({
+        ws: options.ws,
+        stream,
+        sourceLanguage: options.sourceLanguage,
+        roomLanguages: this.peerLanguages.values(),
+        translateSocketUrl: options.translateSocketUrl,
+        getToken: options.getToken,
+        muted: this.muted,
+        onTranslatingChange: (active) => {
+          if (!this.disposed) options.sink.translating(active);
+        },
+        onEnded: (reason) => {
+          conferenceDebug(`translation ended: ${reason}`);
+          if (!this.disposed) options.sink.translationEnded(true);
+        },
+        onLog: conferenceDebug,
+      });
+      this.leg = leg;
+      leg.start().catch((err: unknown) => conferenceDebug(`translate leg failed: ${String(err)}`));
+    } catch (err) {
+      conferenceDebug(`translate leg failed: ${String(err)}`);
+    }
+  }
+
+  /** The room's languages changed: the leg retargets its next turn. */
+  private roomLanguagesChanged(): void {
+    this.leg?.setRoomLanguages(this.peerLanguages.values());
   }
 
   private assertLive(): void {
@@ -196,6 +263,10 @@ export class CallAttempt {
         return;
       case 'peer-joined':
         this.peerNames.set(event.socketId, event.displayName);
+        if (event.sourceLanguage) {
+          this.peerLanguages.set(event.socketId, event.sourceLanguage);
+          this.roomLanguagesChanged();
+        }
         return;
       case 'peer-left':
         this.forgetPeer(event.socketId);
@@ -234,6 +305,9 @@ export class CallAttempt {
       case 'chat-refused':
         sink.chatRefused(event.refusal);
         return;
+      case 'broadcast-refused':
+        this.leg?.noteRelayError(event.code);
+        return;
       case 'ended':
         this.options.onEnded();
         return;
@@ -242,6 +316,7 @@ export class CallAttempt {
 
   private forgetPeer(socketId: string): void {
     this.peerNames.delete(socketId);
+    if (this.peerLanguages.delete(socketId)) this.roomLanguagesChanged();
     this.departed.add(socketId);
     this.media?.forgetPeer(socketId);
     this.audio.forget(socketId);

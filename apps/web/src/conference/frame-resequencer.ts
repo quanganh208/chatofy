@@ -16,7 +16,7 @@
 /** How long a gap is waited for before it is skipped. */
 export const GAP_TIMEOUT_MS = 500;
 /** How many out-of-order frames may be held before a gap is skipped. */
-export const MAX_BUFFERED_FRAMES = 50;
+const MAX_BUFFERED_FRAMES = 50;
 
 export interface FrameResequencerOptions<T> {
   onFrame: (frame: T, sequence: number) => void;
