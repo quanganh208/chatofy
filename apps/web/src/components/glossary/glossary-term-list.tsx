@@ -55,11 +55,11 @@ export function GlossaryTermList({ items, status, onRemove }: Props) {
       )}
 
       {status === 'failed' && (
-        <p className="text-sm text-destructive">{t('web.glossary.loadTermsFailed')}</p>
+        <p className="text-body text-destructive">{t('web.glossary.loadTermsFailed')}</p>
       )}
 
       {status === 'ready' && filtered.length === 0 && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           {filter ? t('web.glossary.noTermsMatch') : t('web.glossary.noTerms')}
         </p>
       )}
@@ -72,13 +72,13 @@ export function GlossaryTermList({ items, status, onRemove }: Props) {
               <div key={item.id} className="flex items-start gap-3 px-3 py-2.5 hover:bg-muted/40">
                 <div className="flex-1 min-w-0 space-y-0.5">
                   <div className="flex items-baseline gap-1.5 flex-wrap">
-                    <span className="font-medium text-sm">{item.original}</span>
-                    <span className="text-muted-foreground text-xs">â†’</span>
-                    <span className="text-sm">{item.translation}</span>
-                    <span className="text-xs text-muted-foreground">({langLabel})</span>
+                    <span className="font-medium text-body">{item.original}</span>
+                    <span className="text-muted-foreground text-hint">→</span>
+                    <span className="text-body">{item.translation}</span>
+                    <span className="text-hint text-muted-foreground">({langLabel})</span>
                   </div>
                   {item.notes && (
-                    <p className="text-xs text-muted-foreground truncate">{item.notes}</p>
+                    <p className="text-hint text-muted-foreground truncate">{item.notes}</p>
                   )}
                 </div>
                 <Button

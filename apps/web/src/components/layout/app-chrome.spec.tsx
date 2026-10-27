@@ -72,7 +72,14 @@ describe('the product sidebar', () => {
     // The full set, in order. It is complete now, so this asserts against additions
     // as much as omissions. History arrived at PDR milestone 6, with its route —
     // which is the rule this assertion exists to hold anything else to.
-    expect(navLinks).toEqual(['/translate', '/conference', '/history', '/preferences', '/account']);
+    expect(navLinks).toEqual([
+      '/translate',
+      '/conference',
+      '/history',
+      '/glossary',
+      '/preferences',
+      '/account',
+    ]);
   });
 
   it('separates the two groups without captioning either', () => {

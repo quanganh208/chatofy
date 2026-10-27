@@ -40,7 +40,7 @@ export function GlossaryListPanel({
   return (
     <div className="flex flex-col w-72 shrink-0 border-r h-full">
       <div className="flex items-center justify-between px-4 py-3 border-b">
-        <h2 className="font-semibold text-sm">{t('web.glossary.title')}</h2>
+        <h2 className="font-semibold text-body">{t('web.glossary.title')}</h2>
         {!creating && !atLimit && (
           <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
             {t('web.glossary.new')}
@@ -61,11 +61,11 @@ export function GlossaryListPanel({
         )}
 
         {status === 'failed' && (
-          <p className="text-sm text-destructive px-1">{t('web.glossary.loadFailed')}</p>
+          <p className="text-body text-destructive px-1">{t('web.glossary.loadFailed')}</p>
         )}
 
         {status === 'ready' && glossaries.length === 0 && !creating && (
-          <p className="text-sm text-muted-foreground px-1">{t('web.glossary.emptyList')}</p>
+          <p className="text-body text-muted-foreground px-1">{t('web.glossary.emptyList')}</p>
         )}
 
         {status === 'ready' &&

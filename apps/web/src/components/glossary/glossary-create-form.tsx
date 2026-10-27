@@ -82,7 +82,7 @@ export function GlossaryCreateForm({ onSave, onCancel }: Props) {
           </SelectContent>
         </Select>
       </div>
-      {failed && <p className="text-sm text-destructive">{t('web.glossary.createFailed')}</p>}
+      {failed && <p className="text-body text-destructive">{t('web.glossary.createFailed')}</p>}
       <div className="flex gap-2">
         <Button
           onClick={() => void handleSave()}

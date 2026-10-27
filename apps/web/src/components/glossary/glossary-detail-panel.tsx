@@ -24,7 +24,7 @@ export function GlossaryDetailPanel({ glossary, onPatch }: Props) {
   if (glossary === null) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-sm text-muted-foreground">{t('web.glossary.selectGlossary')}</p>
+        <p className="text-body text-muted-foreground">{t('web.glossary.selectGlossary')}</p>
       </div>
     );
   }
@@ -44,7 +44,7 @@ export function GlossaryDetailPanel({ glossary, onPatch }: Props) {
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-medium">
+          <h4 className="text-body font-medium">
             {t('web.glossary.termsHeading')}
             {status === 'ready' && (
               <span className="ml-1.5 text-muted-foreground font-normal">({items.length})</span>

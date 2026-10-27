@@ -48,18 +48,18 @@ export function GlossaryCard({ glossary, isSelected, onSelect, onToggleActive, o
       onClick={onSelect}
       className={[
         'w-full text-left rounded-lg border px-3 py-2.5 transition-colors',
-        isSelected ? 'border-primary bg-primary/5' : 'hover:bg-muted/50',
+        isSelected ? 'border-primary bg-muted' : 'hover:bg-muted/50',
       ].join(' ')}
     >
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
-          <p className="font-medium truncate text-sm">{glossary.name}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {langLabel} Â· {t('web.glossary.termCount', { count: glossary.itemCount })}
+          <p className="font-medium truncate text-body">{glossary.name}</p>
+          <p className="text-hint text-muted-foreground mt-0.5">
+            {langLabel} · {t('web.glossary.termCount', { count: glossary.itemCount })}
           </p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <Badge variant={glossary.isActive ? 'default' : 'secondary'} className="text-xs">
+          <Badge variant={glossary.isActive ? 'default' : 'secondary'} className="text-hint">
             {glossary.isActive ? t('web.glossary.badgeActive') : t('web.glossary.badgeInactive')}
           </Badge>
           <Button
