@@ -136,6 +136,8 @@ export interface SentEvent {
   sequence?: number;
   payload?: string;
   languagePair?: SessionLanguagePair;
+  /** Everything a `client.session.start` asked for, for a test about more than the pair. */
+  options?: SessionOptions;
   /** The segments a block retranslation names. */
   segmentIds?: string[];
   /** The whole row, for the one event that carries measurements. */
@@ -169,7 +171,12 @@ export class FakeTranslateSocket {
   startSession(options: SessionOptions | LanguagePair, turnId?: string): string {
     const id = turnId ?? `t${++this.nextTurn}`;
     const languagePair = 'languagePair' in options ? options.languagePair : options;
-    this.sent.push({ type: 'client.session.start', languagePair, turnId: id });
+    this.sent.push({
+      type: 'client.session.start',
+      languagePair,
+      turnId: id,
+      ...('languagePair' in options ? { options } : {}),
+    });
     return id;
   }
 

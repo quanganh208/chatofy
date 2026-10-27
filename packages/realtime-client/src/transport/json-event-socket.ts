@@ -1,10 +1,9 @@
 import { WS_SUBPROTOCOL } from '@chatofy/types';
 
 /**
- * The shape both `serverEventSchema` and `liveServerEventSchema` already have.
- * Declared locally instead of importing zod's `ZodSchema`: this package only
- * depends on `@chatofy/types`, and a schema's `safeParse` is all either socket
- * ever calls.
+ * The shape `serverEventSchema` already has. Declared locally instead of
+ * importing zod's `ZodSchema`: this package only depends on `@chatofy/types`,
+ * and a schema's `safeParse` is all the socket ever calls.
  */
 export interface JsonEventSchema<TEvent> {
   safeParse(data: unknown): { success: true; data: TEvent } | { success: false };
@@ -41,8 +40,8 @@ export type NotifyJsonSocketClosed = (socket: WebSocket, code: number, reason: s
  * way to record the socket until the handshake resolved, and a `close()` — or a
  * second overlapping `connect()` — arriving before then found nothing to close:
  * the pending socket went on to open, installed itself with live handlers, and
- * for `LiveTranslateSocket` specifically it could go on to `start()` a Gemini
- * Live session nobody would ever consume. Handing back the socket up front lets
+ * could go on to start a session nobody would ever consume. Handing back the
+ * socket up front lets
  * the owner assign its own field before awaiting anything, exactly as it did
  * when `new WebSocket(...)` was called inline.
  */
@@ -63,15 +62,11 @@ export interface JsonSocketConnection {
  * {@link detachJsonSocket} has already removed the `onerror` that was `ready`'s
  * only other way out — so the owner's `await` dangled forever.
  */
-export class JsonSocketAbortedError extends Error {
+class JsonSocketAbortedError extends Error {
   constructor() {
     super('Connection closed before the handshake completed');
     this.name = 'JsonSocketAbortedError';
   }
-}
-
-export function isJsonSocketAborted(err: unknown): err is JsonSocketAbortedError {
-  return err instanceof JsonSocketAbortedError;
 }
 
 /**
@@ -83,15 +78,12 @@ const pendingHandshakes = new WeakMap<WebSocket, () => void>();
 
 /**
  * Open a `WS_SUBPROTOCOL` websocket and wire its message/close/handshake
- * handlers, shared by `TranslateSocket` and `LiveTranslateSocket`.
+ * handlers. `TranslateSocket` is the caller.
  *
- * Neither class hands this its `this.socket` field: each still owns that
- * itself, because a turn socket and a live socket are never interchangeable
- * and neither gains anything from routing through the other's storage. This
- * function only owns the wiring, not the connection's lifetime — `onClosed`
- * fires when the SERVER closes the socket; a caller-initiated close (see
- * {@link detachJsonSocket}) never reaches it, exactly as before this was
- * shared.
+ * The caller does not hand this its `this.socket` field: it owns that itself.
+ * This function only owns the wiring, not the connection's lifetime —
+ * `onClosed` fires when the SERVER closes the socket; a caller-initiated close
+ * (see {@link detachJsonSocket}) never reaches it.
  *
  * Returns synchronously — see {@link JsonSocketConnection}. `ready` resolves
  * once the handshake completes, and rejects with {@link JsonSocketAbortedError}

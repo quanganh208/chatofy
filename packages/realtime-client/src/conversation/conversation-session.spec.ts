@@ -80,14 +80,19 @@ const endedEvent = (sessionId = 's1'): ServerEvent => ({
  * layer or the next turn never plays.
  */
 class RecordingSink implements PlaybackSink {
-  readonly enqueued: { turnKey: string; samples: number; sampleRate: number }[] = [];
+  readonly enqueued: { turnKey: string; samples: number; sampleRate: number; lang?: string }[] = [];
   readonly stopped: string[] = [];
   private readonly sounding = new Set<string>();
 
   constructor(private readonly onTurnDrained: (turnKey: string) => void) {}
 
-  enqueue(turnKey: string, samples: Int16Array, sampleRate: number): void {
-    this.enqueued.push({ turnKey, samples: samples.length, sampleRate });
+  enqueue(turnKey: string, samples: Int16Array, sampleRate: number, lang?: string): void {
+    this.enqueued.push({
+      turnKey,
+      samples: samples.length,
+      sampleRate,
+      ...(lang === undefined ? {} : { lang }),
+    });
     this.sounding.add(turnKey);
   }
 
@@ -1955,6 +1960,78 @@ describe('ConversationSession', () => {
         code: 'language_unavailable',
         detail: 'language_detection',
       });
+    });
+  });
+
+  describe('turns voiced in several languages', () => {
+    it('hands each frame its language, for the head turn and for one held behind it', async () => {
+      let sink: RecordingSink | undefined;
+      const h = harness({
+        runtime: { continuous: true, maxInFlight: 3 },
+        sink: (s) => {
+          sink = s;
+        },
+      });
+      await h.session.start(startOptions);
+      h.talk();
+      h.hush();
+      h.talk();
+      h.hush();
+      const [t1, t2] = h
+        .socket()
+        .sent.filter((e) => e.type === 'client.session.start')
+        .map((e) => e.turnId);
+      h.socket().emit({ ...readyEvent('s1'), turnId: t1 } as ServerEvent);
+      h.socket().emit({ ...readyEvent('s2'), turnId: t2 } as ServerEvent);
+
+      // The second turn answers first, so its frame is held behind the head.
+      h.socket().emit({ ...audioFrameEvent('s2'), lang: 'zh' } as ServerEvent);
+      h.socket().emit({ ...audioFrameEvent('s1'), lang: 'en' } as ServerEvent);
+      h.socket().emit(endedEvent('s1'));
+      sink!.drain(t1!);
+
+      expect(sink!.enqueued.map(({ turnKey, lang }) => ({ turnKey, lang }))).toEqual([
+        { turnKey: t1, lang: 'en' },
+        { turnKey: t2, lang: 'zh' },
+      ]);
+    });
+  });
+
+  describe('reconfigure', () => {
+    it('opens the next turn with the new settings', async () => {
+      const h = harness({ runtime: { continuous: true, maxInFlight: 3 } });
+      await h.session.start(startOptions);
+
+      h.session.reconfigure({ ...startOptions, alsoTranslateInto: ['zh'] });
+      h.talk();
+
+      const start = h.socket().sent.find((e) => e.type === 'client.session.start');
+      expect(start?.options?.alsoTranslateInto).toEqual(['zh']);
+    });
+
+    it('is not overwritten by a start still awaiting its socket', async () => {
+      let connect: () => void = () => {};
+      const h = harness({
+        runtime: { continuous: true, maxInFlight: 3 },
+        createSocket: (handlers) => {
+          const socket = new FakeTranslateSocket(handlers);
+          socket.connect = () =>
+            new Promise<void>((resolve) => {
+              connect = resolve;
+            });
+          return socket;
+        },
+      });
+      const started = h.session.start(startOptions);
+      await flushMicrotasks();
+
+      h.session.reconfigure({ ...startOptions, alsoTranslateInto: ['zh'] });
+      connect();
+      await started;
+      h.talk();
+
+      const start = h.socket().sent.find((e) => e.type === 'client.session.start');
+      expect(start?.options?.alsoTranslateInto).toEqual(['zh']);
     });
   });
 });

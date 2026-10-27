@@ -31,18 +31,6 @@ export { pausedMsBefore, type PauseInterval } from './conversation/pause-interva
 export { TranslateSocket, translateSocketUrl } from './transport/translate-socket.js';
 export type { TranslateSocketHandlers } from './transport/translate-socket.js';
 
-// The continuous speech-to-speech path. A sibling of the turn machinery above,
-// sharing the capture format and the playback leaf and nothing else — see the
-// class comment on `LiveSession` for why the gate must not reach it.
-export { LiveTranslateSocket, liveTranslateSocketUrl } from './transport/live-translate-socket.js';
-export type { LiveTranslateSocketHandlers } from './transport/live-translate-socket.js';
-export { LiveSession } from './conversation/live-session.js';
-export type {
-  LiveSessionDeps,
-  LiveSessionListeners,
-  LiveSessionStatus,
-} from './conversation/live-session.js';
-
 // The playback leaf, for a caller whose output device is not this machine's
 // loudspeakers. `PlaybackSink` is the contract `ConversationSession.deps
 // .createPlaybackSink` accepts; `PcmPlaybackQueue` is the implementation that
@@ -50,13 +38,39 @@ export type {
 // can reuse the scheduling rather than growing a second copy of it.
 export { PcmPlaybackQueue } from './audio/pcm-playback-queue.js';
 export type { PlaybackSink } from './audio/ordered-playback.js';
+// The same leaf for a caller whose audio goes to OTHER people: it hands each
+// chunk over as it arrives and keeps only the drain bookkeeping on a clock.
+export { RelayPlaybackSink } from './audio/relay-playback-sink.js';
+export type { RelayPlaybackSinkDeps } from './audio/relay-playback-sink.js';
+// A recorder that pushes Float32 buffers (React Native), presented to the
+// session as the Web Audio graph it expects, at the block size web captures in.
+export { pushedCaptureDeps } from './audio/pushed-pcm-capture.js';
+export type { CaptureDeps, PushedPcmSource } from './audio/pushed-pcm-capture.js';
 
-// Microphone capture with no turn-taking policy attached, for the live path.
-// `CapturePump` is the other half of this choice and is deliberately NOT what
-// the live path uses: it withholds audio outside a confirmed utterance, which
-// truncates a translation the backend ends from trailing quiet.
-export { MicrophoneGraph } from './audio/microphone-graph.js';
-export type { MicrophoneBlockHandler, MicrophoneGraphDeps } from './audio/microphone-graph.js';
+// The tuning every hands-free cascade client runs on: /translate and both
+// conference speaker legs. A caller overrides a field by spreading it.
+export {
+  CASCADE_MAX_IN_FLIGHT,
+  CASCADE_MAX_UTTERANCE_MS,
+  CASCADE_RUNTIME_OPTIONS,
+  CASCADE_STREAM_COMMITTED,
+} from './conversation/cascade-runtime-options.js';
+
+// A meeting speaker's translation: the /translate cascade, relayed into the
+// room as `conference.translation.broadcast` envelopes. Web and mobile only
+// wire it to their platform.
+export {
+  CONFERENCE_LEG_RUNTIME_OPTIONS,
+  createConferenceCascadeLeg,
+} from './conference/conference-cascade-leg.js';
+export type {
+  ConferenceCascadeLeg,
+  ConferenceCascadeLegOptions,
+  ConferenceLegEndReason,
+  ConferenceLegVoice,
+} from './conference/conference-cascade-leg.js';
+
+// The wire's audio encoding: 16 kHz PCM16 up, base64 frames both ways.
 export {
   base64ToPcm16,
   downsampleToPcm16,
