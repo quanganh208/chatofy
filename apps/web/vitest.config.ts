@@ -26,6 +26,7 @@ export default defineConfig({
     // all clearing the same directory at once and one failed with ENOTEMPTY.
     fsModuleCachePath: 'node_modules/.vitest-cache',
     environment: 'node',
+    setupFiles: ['./vitest.setup.ts'],
     // Node 26 defines a global `localStorage` that warns when read without a
     // backing file. The DOM environments copy globals across on setup, so every
     // run printed that warning; the specs that need storage get the DOM's own.

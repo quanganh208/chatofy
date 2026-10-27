@@ -206,16 +206,18 @@ describe('LoginForm', () => {
     expect(push).not.toHaveBeenCalled();
   });
 
-  it('submits what the fields hold even when no input event ever fired', () => {
+  it('submits what the fields hold even when no input event ever fired', async () => {
     // A value typed or autofilled before hydration reaches the DOM with no React
     // event. Controlled fields kept their empty state and sent that, so the reader
     // was told their password did not match.
     render();
     signIn.mockResolvedValueOnce(undefined);
-    act(() => {
+    await act(async () => {
       inputById('email').value = 'early@example.com';
       inputById('password').value = 'typed-before-hydration';
       inputById('email').form!.requestSubmit();
+      // The handler awaits `signIn`, then sets state; let that land in here.
+      for (let tick = 0; tick < 5; tick += 1) await Promise.resolve();
     });
     expect(signIn).toHaveBeenCalledWith(
       'credentials',

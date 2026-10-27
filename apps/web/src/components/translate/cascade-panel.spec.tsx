@@ -128,7 +128,16 @@ const conversation: UseStreamingTranslate = {
   setVolume: vi.fn(),
 };
 
-function render(save: Pick<UseConversationSave, 'saved' | 'failure'>): void {
+/**
+ * The mount starts the readiness probes and the context list; each settles a
+ * microtask or two later. Letting them land inside the same `act` keeps their
+ * state updates from arriving after it, unwrapped.
+ */
+async function settleProbes(): Promise<void> {
+  for (let i = 0; i < 5; i += 1) await Promise.resolve();
+}
+
+async function render(save: Pick<UseConversationSave, 'saved' | 'failure'>): Promise<void> {
   checkHealth.mockResolvedValue(undefined);
   permissionQuery.mockResolvedValue({
     state: 'granted',
@@ -137,7 +146,7 @@ function render(save: Pick<UseConversationSave, 'saved' | 'failure'>): void {
   });
   useStreamingTranslate.mockReturnValue(conversation);
   useConversationSave.mockReturnValue({ ...save, saving: false, retry: vi.fn() });
-  act(() => {
+  await act(async () => {
     root.render(
       <LocaleProvider>
         <CascadePanel
@@ -147,6 +156,7 @@ function render(save: Pick<UseConversationSave, 'saved' | 'failure'>): void {
         />
       </LocaleProvider>,
     );
+    await settleProbes();
   });
 }
 
@@ -216,24 +226,24 @@ describe('CascadePanel', () => {
     expect(alerts.length, 'the fault is reported once, by the reactive path').toBe(1);
   });
 
-  it('keeps the minutes panel when a stored conversation fails a later edit', () => {
+  it('keeps the minutes panel when a stored conversation fails a later edit', async () => {
     // The conversation was written; renaming a speaker afterwards was refused
     // for good. Nothing about that unstores the row, so the summary stays
     // reachable — and one already generated stays on screen.
-    render({ saved: true, failure: 'terminal' });
+    await render({ saved: true, failure: 'terminal' });
 
     expect(container.textContent).toContain('Meeting minutes');
     expect(generateButton()?.disabled).toBe(false);
   });
 
-  it('drops the minutes panel when nothing was stored and no retry can change that', () => {
-    render({ saved: false, failure: 'terminal' });
+  it('drops the minutes panel when nothing was stored and no retry can change that', async () => {
+    await render({ saved: false, failure: 'terminal' });
 
     expect(container.textContent).not.toContain('Meeting minutes');
   });
 
-  it('keeps the minutes panel while a failed save can still be retried', () => {
-    render({ saved: false, failure: 'retryable' });
+  it('keeps the minutes panel while a failed save can still be retried', async () => {
+    await render({ saved: false, failure: 'retryable' });
 
     expect(container.textContent).toContain('Meeting minutes');
     // Not yet stored, so there is nothing to summarize from until the retry
@@ -241,7 +251,7 @@ describe('CascadePanel', () => {
     expect(generateButton()?.disabled).toBe(true);
   });
 
-  it('saves the pair the conversation was captured with, not a later swap', () => {
+  it('saves the pair the conversation was captured with, not a later swap', async () => {
     // The language pickers stay live once `running` is false, so a reader can
     // swap it between End and pressing Start again for the NEXT conversation.
     // The already-finished one on screen must still be stored under the
@@ -262,7 +272,7 @@ describe('CascadePanel', () => {
       saving: false,
       retry: vi.fn(),
     });
-    act(() => {
+    await act(async () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
@@ -275,6 +285,7 @@ describe('CascadePanel', () => {
           />
         </LocaleProvider>,
       );
+      await settleProbes();
     });
 
     expect(useConversationSave).toHaveBeenCalledWith(
@@ -298,7 +309,9 @@ describe('the recording upload alert', () => {
     },
   };
 
-  function renderWithRecording(save: Pick<UseConversationSave, 'saved' | 'failure'>): void {
+  async function renderWithRecording(
+    save: Pick<UseConversationSave, 'saved' | 'failure'>,
+  ): Promise<void> {
     checkHealth.mockResolvedValue(undefined);
     permissionQuery.mockResolvedValue({
       state: 'granted',
@@ -307,7 +320,7 @@ describe('the recording upload alert', () => {
     });
     useStreamingTranslate.mockReturnValue(recordingConversation);
     useConversationSave.mockReturnValue({ ...save, saving: false, retry: vi.fn() });
-    act(() => {
+    await act(async () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
@@ -317,12 +330,13 @@ describe('the recording upload alert', () => {
           />
         </LocaleProvider>,
       );
+      await settleProbes();
     });
   }
 
   it('stays on screen through a retry instead of vanishing until the next failure', async () => {
     uploadConversationAudio.mockRejectedValueOnce(new Error('down'));
-    renderWithRecording({ saved: true, failure: null });
+    await renderWithRecording({ saved: true, failure: null });
     // The automatic upload the effect fires on mount: the fetch starts, the
     // rejection settles it, the alert renders on the render after that.
     await act(async () => {
@@ -373,7 +387,7 @@ describe('the recording upload alert', () => {
  * would file the conversation as finished halfway through it.
  */
 describe('the dock, pausing and resuming', () => {
-  function renderAt(status: UseStreamingTranslate['status']) {
+  async function renderAt(status: UseStreamingTranslate['status']) {
     checkHealth.mockResolvedValue(undefined);
     permissionQuery.mockResolvedValue({
       state: 'granted',
@@ -387,7 +401,7 @@ describe('the dock, pausing and resuming', () => {
       saving: false,
       retry: vi.fn(),
     });
-    act(() => {
+    await act(async () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
@@ -397,6 +411,7 @@ describe('the dock, pausing and resuming', () => {
           />
         </LocaleProvider>,
       );
+      await settleProbes();
     });
   }
 
@@ -405,36 +420,36 @@ describe('the dock, pausing and resuming', () => {
       (button) => button.textContent?.trim() === text,
     );
 
-  it('offers Pause beside End while listening', () => {
-    renderAt('listening');
+  it('offers Pause beside End while listening', async () => {
+    await renderAt('listening');
 
     expect(buttonSaying(en['web.translate.pause'])).toBeDefined();
     expect(buttonSaying(en['web.translate.end'])).toBeDefined();
     expect(buttonSaying(en['web.translate.resume'])).toBeUndefined();
   });
 
-  it('swaps Pause for Resume once paused, and keeps End reachable', () => {
-    renderAt('paused');
+  it('swaps Pause for Resume once paused, and keeps End reachable', async () => {
+    await renderAt('paused');
 
     expect(buttonSaying(en['web.translate.resume'])).toBeDefined();
     expect(buttonSaying(en['web.translate.end'])).toBeDefined();
     expect(buttonSaying(en['web.translate.pause'])).toBeUndefined();
   });
 
-  it('calls pause and resume rather than stop', () => {
-    renderAt('listening');
+  it('calls pause and resume rather than stop', async () => {
+    await renderAt('listening');
     act(() => buttonSaying(en['web.translate.pause'])!.click());
     expect(conversation.pause).toHaveBeenCalledTimes(1);
 
-    renderAt('paused');
+    await renderAt('paused');
     act(() => buttonSaying(en['web.translate.resume'])!.click());
     expect(conversation.resume).toHaveBeenCalledTimes(1);
     // The conversation must survive a pause; stopping it is the other button.
     expect(conversation.stop).not.toHaveBeenCalled();
   });
 
-  it('shows the elapsed clock while paused, because the conversation is still open', () => {
-    renderAt('paused');
+  it('shows the elapsed clock while paused, because the conversation is still open', async () => {
+    await renderAt('paused');
 
     // Named rather than matched on digits: the value moves every second.
     expect(container.querySelector(`[aria-label="${en['web.translate.elapsedLabel']}"]`)).not.toBe(
@@ -442,16 +457,16 @@ describe('the dock, pausing and resuming', () => {
     );
   });
 
-  it('reports a paused conversation as still running to everything below the dock', () => {
-    renderAt('paused');
+  it('reports a paused conversation as still running to everything below the dock', async () => {
+    await renderAt('paused');
 
     // What appears only after a conversation has ENDED. Its absence here is the
     // observable form of "pause did not end anything".
     expect(container.textContent).not.toContain('Meeting minutes');
   });
 
-  it('ends gracefully rather than cutting, so the last translation is spoken', () => {
-    renderAt('listening');
+  it('ends gracefully rather than cutting, so the last translation is spoken', async () => {
+    await renderAt('listening');
     act(() => buttonSaying(en['web.translate.end'])!.click());
 
     expect(conversation.end).toHaveBeenCalledTimes(1);
@@ -460,8 +475,8 @@ describe('the dock, pausing and resuming', () => {
     expect(conversation.stop).not.toHaveBeenCalled();
   });
 
-  it('offers nothing to pause while the microphone prompt is still open', () => {
-    renderAt('connecting');
+  it('offers nothing to pause while the microphone prompt is still open', async () => {
+    await renderAt('connecting');
 
     // There is no microphone open to turn off yet, so Pause here could only be
     // a control that does nothing for as long as the prompt is on screen.
@@ -471,8 +486,8 @@ describe('the dock, pausing and resuming', () => {
     expect(buttonSaying(en['web.translate.end'])).toBeDefined();
   });
 
-  it('offers nothing to pause while the conversation is finishing', () => {
-    renderAt('finishing');
+  it('offers nothing to pause while the conversation is finishing', async () => {
+    await renderAt('finishing');
 
     expect(buttonSaying(en['web.translate.pause'])).toBeUndefined();
     expect(buttonSaying(en['web.translate.resume'])).toBeUndefined();
@@ -497,7 +512,7 @@ describe('the dock, pausing and resuming', () => {
  * screen whose whole job is to be readable while someone talks.
  */
 describe('what sits below the dock', () => {
-  const renderRunning = () => {
+  const renderRunning = async () => {
     checkHealth.mockResolvedValue(undefined);
     permissionQuery.mockResolvedValue({
       state: 'granted',
@@ -511,7 +526,7 @@ describe('what sits below the dock', () => {
       saving: false,
       retry: vi.fn(),
     });
-    act(() => {
+    await act(async () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
@@ -521,25 +536,26 @@ describe('what sits below the dock', () => {
           />
         </LocaleProvider>,
       );
+      await settleProbes();
     });
     return container.firstElementChild;
   };
 
-  it('renders nothing after the dock while a conversation is running', () => {
+  it('renders nothing after the dock while a conversation is running', async () => {
     // Asserted through position rather than through the absence of two known
     // strings: a third thing added under the dock would pass an absence check
     // and still break the layout.
-    const panel = renderRunning();
+    const panel = await renderRunning();
     const dock = panel?.lastElementChild;
 
     expect(dock?.textContent).toContain(en['web.translate.end']);
   });
 
-  it('puts the results below the dock once the talking stops', () => {
+  it('puts the results below the dock once the talking stops', async () => {
     // The other half of the same rule. Stats and minutes are meant to be down
     // there — the column simply grows past the viewport and the page scrolls,
     // which is fine when nobody is mid-sentence.
-    render({ saved: true, failure: null });
+    await render({ saved: true, failure: null });
     const panel = container.firstElementChild;
 
     expect(panel?.lastElementChild?.textContent).toContain('Meeting minutes');
@@ -776,7 +792,10 @@ describe('a stored context that has not settled', () => {
  * turn, and the screen follows the server's answer rather than the request.
  */
 describe('CascadePanel two-way and auto-detect', () => {
-  function mount(settings: Partial<TranslateSettings>, state: Partial<UseStreamingTranslate> = {}) {
+  async function mount(
+    settings: Partial<TranslateSettings>,
+    state: Partial<UseStreamingTranslate> = {},
+  ): Promise<void> {
     checkHealth.mockResolvedValue(undefined);
     permissionQuery.mockResolvedValue({
       state: 'granted',
@@ -790,7 +809,7 @@ describe('CascadePanel two-way and auto-detect', () => {
       saving: false,
       retry: vi.fn(),
     });
-    act(() => {
+    await act(async () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
@@ -800,6 +819,7 @@ describe('CascadePanel two-way and auto-detect', () => {
           />
         </LocaleProvider>,
       );
+      await settleProbes();
     });
   }
 
@@ -814,8 +834,8 @@ describe('CascadePanel two-way and auto-detect', () => {
 
   const VOICE_PER_LANGUAGE = { vi: 'vi-voice', en: 'en-voice' };
 
-  it('speaks a reversed turn with the voice chosen for its language', () => {
-    mount({ languagePair: { source: 'vi', target: 'en' }, voice: VOICE_PER_LANGUAGE });
+  it('speaks a reversed turn with the voice chosen for its language', async () => {
+    await mount({ languagePair: { source: 'vi', target: 'en' }, voice: VOICE_PER_LANGUAGE });
     const options = pressStart();
     // A turn heard in English is answered in Vietnamese, so the map must carry
     // the Vietnamese voice — the one `voice` alone could never name.
@@ -825,20 +845,20 @@ describe('CascadePanel two-way and auto-detect', () => {
     expect(options?.voice).toBe('en-voice');
   });
 
-  it('sends the voice map for an auto-detected source too', () => {
-    mount({ languagePair: { source: 'detect', target: 'en' }, voice: VOICE_PER_LANGUAGE });
+  it('sends the voice map for an auto-detected source too', async () => {
+    await mount({ languagePair: { source: 'detect', target: 'en' }, voice: VOICE_PER_LANGUAGE });
     expect(pressStart()?.voices).toEqual(VOICE_PER_LANGUAGE);
   });
 
-  it('keeps a pair it cannot identify on the one voice it always sent', () => {
-    mount({ languagePair: { source: 'vi', target: 'zh' }, voice: { zh: 'zh-voice' } });
+  it('keeps a pair it cannot identify on the one voice it always sent', async () => {
+    await mount({ languagePair: { source: 'vi', target: 'zh' }, voice: { zh: 'zh-voice' } });
     const options = pressStart();
     expect(options?.voice).toBe('zh-voice');
     expect(options).not.toHaveProperty('voices');
   });
 
-  it('shows one-way when the server answers declared for a two-way start', () => {
-    mount(
+  it('shows one-way when the server answers declared for a two-way start', async () => {
+    await mount(
       {},
       {
         status: 'listening',
@@ -854,16 +874,19 @@ describe('CascadePanel two-way and auto-detect', () => {
     );
   });
 
-  it('says nothing extra when the server runs the two-way start it was asked for', () => {
-    mount({}, { status: 'listening', twoWayRequested: true, languageMode: { mode: 'two-way' } });
+  it('says nothing extra when the server runs the two-way start it was asked for', async () => {
+    await mount(
+      {},
+      { status: 'listening', twoWayRequested: true, languageMode: { mode: 'two-way' } },
+    );
     expect(container.querySelector('[data-two-way-unavailable]')).toBeNull();
     expect(container.querySelector('[data-language-mode="two-way"]')?.textContent).toBe(
       en['web.translate.modeTwoWay'],
     );
   });
 
-  it('does not call a declared answer a downgrade when two-way was never asked', () => {
-    mount(
+  it('does not call a declared answer a downgrade when two-way was never asked', async () => {
+    await mount(
       { languagePair: { source: 'vi', target: 'zh' } },
       {
         status: 'listening',
