@@ -1,15 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock, Mocked } from 'vitest';
 import { WsException } from '@nestjs/websockets';
+import type { ConfigService } from '@nestjs/config';
+import type { Env } from '../../config/env.schema';
 import type { AuthAdapter } from '../auth/interfaces/auth-adapter.interface';
 import { SessionTerminator } from '../auth/session-terminator';
 import { VERIFIED_USER_ID } from './ws-auth';
-import { TranslateGateway } from './translate.gateway';
+import {
+  LIVE_MODE_UNAVAILABLE_CLOSE_CODE,
+  TranslateGateway,
+} from './translate.gateway';
 import type {
   StreamSocket,
   TranslationSessionService,
 } from './services/translation-session.service';
 import type { LiveTranslateSessionService } from './services/live-translate-session.service';
+
+/**
+ * The two keys the gateway reads, behind the one method it calls. The real
+ * resolution (`liveModeEnabled`) runs on them, so `test` with no mode set is
+ * live-enabled exactly as it is in the e2e.
+ */
+const configFor = (
+  env: Pick<Env, 'NODE_ENV' | 'TRANSLATE_LIVE_MODE'>,
+): ConfigService<Env, true> =>
+  ({
+    get: (key: keyof typeof env) => env[key],
+  }) as unknown as ConfigService<Env, true>;
 
 describe('TranslateGateway', () => {
   let sessions: Mocked<
@@ -54,6 +71,7 @@ describe('TranslateGateway', () => {
       live as unknown as LiveTranslateSessionService,
       auth,
       new SessionTerminator(),
+      configFor({ NODE_ENV: 'test', TRANSLATE_LIVE_MODE: undefined }),
     );
     // The socket is shared across tests while the gateway is not, so without
     // this a `toContainEqual` on sent events could be satisfied by an event the
@@ -354,6 +372,117 @@ describe('TranslateGateway', () => {
     });
   });
 
+  /**
+   * A server that does not offer live mode — production unless the operator
+   * enables it. Turns are untouched; a live start is refused and its socket
+   * closed so an outdated client stops capturing.
+   */
+  describe('live mode disabled', () => {
+    const disabledGateway = (
+      env: Pick<Env, 'NODE_ENV' | 'TRANSLATE_LIVE_MODE'> = {
+        NODE_ENV: 'production',
+        TRANSLATE_LIVE_MODE: undefined,
+      },
+    ) =>
+      new TranslateGateway(
+        sessions as unknown as TranslationSessionService,
+        live as unknown as LiveTranslateSessionService,
+        auth,
+        new SessionTerminator(),
+        configFor(env),
+      );
+    const client = () => ({ send: vi.fn(), close: vi.fn() });
+    const sent = (c: ReturnType<typeof client>) =>
+      c.send.mock.calls.map(
+        ([body]) => JSON.parse(String(body)) as { type: string; code?: string },
+      );
+    const liveStart = {
+      type: 'client.live.start',
+      languagePair: { source: 'vi', target: 'en' },
+    };
+
+    it('answers a live start with mode_unavailable and closes with 4410', async () => {
+      const own = disabledGateway();
+      const c = client();
+      await own.handleLiveStart(liveStart, c);
+
+      expect(live.start).not.toHaveBeenCalled();
+      expect(sent(c)).toStrictEqual([
+        expect.objectContaining({
+          type: 'server.live.error',
+          code: 'mode_unavailable',
+        }),
+      ]);
+      expect(LIVE_MODE_UNAVAILABLE_CLOSE_CODE).toBe(4410);
+      expect(c.close).toHaveBeenCalledWith(4410, 'mode_unavailable');
+    });
+
+    it('sends at most one error for a refused start and the frames behind it', async () => {
+      // Frames already in flight before the close arrive after the refusal.
+      // Answering each with `no_live_session` would be an error storm on a
+      // client that is about to stop anyway.
+      const own = disabledGateway();
+      const c = client();
+      await own.handleLiveStart(liveStart, c);
+      for (let sequence = 0; sequence < 5; sequence += 1) {
+        await own.handleLiveAudio(
+          { type: 'client.live.audio', frame: { ...validFrame, sequence } },
+          c,
+        );
+      }
+      await own.handleLiveStop({ type: 'client.live.stop' }, c);
+
+      expect(live.pushFrame).not.toHaveBeenCalled();
+      expect(live.stop).not.toHaveBeenCalled();
+      expect(
+        sent(c).filter((event) => event.type === 'server.live.error'),
+      ).toHaveLength(1);
+    });
+
+    it('still serves a socket that only ever starts turns', () => {
+      const own = disabledGateway();
+      const c = client();
+      own.handleSessionStart(
+        {
+          type: 'client.session.start',
+          languagePair: { source: 'vi', target: 'en' },
+        },
+        c,
+      );
+
+      expect(sessions.start).toHaveBeenCalledTimes(1);
+      expect(c.close).not.toHaveBeenCalled();
+      expect(sent(c)).toStrictEqual([]);
+    });
+
+    it('starts live in production when the operator enables it', async () => {
+      const own = disabledGateway({
+        NODE_ENV: 'production',
+        TRANSLATE_LIVE_MODE: 'enabled',
+      });
+      const c = client();
+      await own.handleLiveStart(liveStart, c);
+
+      expect(live.start).toHaveBeenCalledWith(c, {
+        source: 'vi',
+        target: 'en',
+      });
+      expect(c.close).not.toHaveBeenCalled();
+    });
+
+    it('refuses live in development when the operator disables it', async () => {
+      const own = disabledGateway({
+        NODE_ENV: 'development',
+        TRANSLATE_LIVE_MODE: 'disabled',
+      });
+      const c = client();
+      await own.handleLiveStart(liveStart, c);
+
+      expect(live.start).not.toHaveBeenCalled();
+      expect(c.close).toHaveBeenCalledWith(4410, 'mode_unavailable');
+    });
+  });
+
   describe('contract validation', () => {
     it('rejects a payload missing required fields', () => {
       expect(() =>
@@ -595,6 +724,7 @@ describe('TranslateGateway', () => {
         live as unknown as LiveTranslateSessionService,
         auth,
         terminator,
+        configFor({ NODE_ENV: 'test', TRANSLATE_LIVE_MODE: undefined }),
       );
       const client = { send: vi.fn(), close: vi.fn() };
       own.handleConnection(client, {

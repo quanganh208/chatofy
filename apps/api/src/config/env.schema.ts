@@ -167,6 +167,23 @@ export const envSchema = z.object({
   LOCAL_STT_URL: z.string().url().default('http://localhost:8002'),
   LOCAL_TTS_URL: z.string().url().default('http://localhost:8003'),
 
+  // Whether /ws/translate offers continuous speech-to-speech (`client.live.start`,
+  // one Gemini Live session per socket). Meetings and the translate page run the
+  // turn cascade; live mode stays only for the live e2e and the
+  // benchmarks/live-translate harness, which run against a dev API.
+  //
+  // OPTIONAL with no schema default, because the default depends on NODE_ENV —
+  // see liveModeEnabled below. Fail-closed: unset means on only for exactly
+  // development or test, so a production image (NODE_ENV=production from the
+  // Dockerfile) refuses live starts with no prod.env line. `enabled` turns it
+  // back on anywhere, which is the rollback; `disabled` turns it off in dev, for
+  // a host-run API pointed at production keys.
+  //
+  // An enum, not a boolean: `z.coerce.boolean()` reads the string "false" as true.
+  TRANSLATE_LIVE_MODE: emptyStringAsUndefined(
+    z.enum(['enabled', 'disabled']).optional(),
+  ),
+
   // ── Video conferencing (Cloudflare Realtime SFU) ──────────────────────────
   // Media goes from each client straight to Cloudflare Realtime SFU; the API
   // holds the app secret and drives the SFU over outbound HTTPS.
@@ -191,6 +208,26 @@ export const envSchema = z.object({
 });
 
 export type Env = z.infer<typeof envSchema>;
+
+/**
+ * Whether this server answers `client.live.start` with a live session.
+ *
+ * An explicit TRANSLATE_LIVE_MODE wins. Unset, live is on only when NODE_ENV is
+ * exactly `development` or `test` — the same fail-closed rule MailModule uses to
+ * pick its console sender — never "anything but production", so a NODE_ENV this
+ * code does not know falls on the safe side.
+ *
+ * A function beside the schema rather than a cross-field `.transform`, so the
+ * schema stays a plain object whose shape env.schema.spec.ts can walk.
+ */
+export function liveModeEnabled(
+  env: Pick<Env, 'NODE_ENV' | 'TRANSLATE_LIVE_MODE'>,
+): boolean {
+  if (env.TRANSLATE_LIVE_MODE !== undefined) {
+    return env.TRANSLATE_LIVE_MODE === 'enabled';
+  }
+  return env.NODE_ENV === 'development' || env.NODE_ENV === 'test';
+}
 
 /**
  * Validates process.env against envSchema.

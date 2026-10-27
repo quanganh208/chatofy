@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
@@ -48,6 +48,17 @@ describe('diffEnvKeys', () => {
       missing: [],
       unknown: ['AUTH_URL'],
     });
+  });
+});
+
+describe('the real prod.env.example', () => {
+  const real = readFileSync(fileURLToPath(new URL('../prod.env.example', import.meta.url)), 'utf8');
+  // Every key the template requires, each set to a placeholder.
+  const complete = [...liveKeys(real)].map((key) => `${key}=x`).join('\n');
+
+  it('accepts the live-mode rollback, so re-enabling it passes the deploy gate', () => {
+    const prod = `${complete}\nTRANSLATE_LIVE_MODE=enabled\n`;
+    assert.deepEqual(diffEnvKeys(prod, real), { missing: [], unknown: [] });
   });
 });
 
