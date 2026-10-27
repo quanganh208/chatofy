@@ -36,14 +36,17 @@ describe('PreJoinStage — the voice chosen here is the voice the call uses', ()
     vi.useRealTimers();
   });
 
-  it('keeps a voice changed well before Join is pressed', () => {
+  it('keeps a voice changed well before Join is pressed', async () => {
     const onJoin = vi.fn();
-    act(() => {
+    await act(async () => {
       root.render(
         <LocaleProvider>
           <PreJoinStage onJoin={onJoin} />
         </LocaleProvider>,
       );
+      // The preview opens asynchronously and stores what it got (here nothing:
+      // happy-dom has no camera); let that land inside this act.
+      await Promise.resolve();
     });
 
     act(() => {
