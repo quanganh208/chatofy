@@ -1,7 +1,5 @@
 import {
   ConversationSession,
-  LiveTranslateSocket,
-  liveTranslateSocketUrl,
   PcmPlaybackQueue,
   TranslateSocket,
   translateSocketUrl,
@@ -9,7 +7,6 @@ import {
   type TurnKeyedAction,
 } from '@chatofy/realtime-client';
 import type { LanguagePair } from '@chatofy/types';
-import { LiveLanguagePairSession } from './live-language-pair-session';
 import type { LegRunner } from './meeting-capture';
 import type { CaptureSettings } from './messages';
 import { SoundingSink } from './sounding-sink';
@@ -58,11 +55,8 @@ export interface LanguagePairSessionDeps {
    */
   createSink?: (onTurnDrained: (turnKey: string) => void) => PlaybackSink;
   /**
-   * Something the transcript should fold in.
-   *
-   * Wider than `ServerEvent` because the continuous backend's text names no turn
-   * and arrives as a delta, which the transcript accepts as its own action
-   * rather than as a `server.*` event it never sent.
+   * Something the transcript should fold in. Typed as the transcript's own
+   * action, which every `ServerEvent` is, so the caller forwards it unchanged.
    */
   onServerEvent: (event: TurnKeyedAction) => void;
   /** Cleared when a run starts over. */
@@ -98,31 +92,9 @@ export interface LanguagePairSessionDeps {
  *                  of seconds, so length is what has to end a turn.
  */
 export function createLanguagePairSession(deps: LanguagePairSessionDeps): LegRunner {
-  // The mode is a client choice and nothing else: both backends are served on
-  // `/ws/translate` and are told apart by which start message goes out first, so
-  // there is no server setting to agree with and nothing to deploy differently.
-  //
-  // Routed here rather than at the offscreen entrypoint because `MeetingCapture`
-  // is what holds the settings, and this keeps it from having to know there are
-  // two kinds of session at all — it drives whichever it is handed through
-  // `LegRunner`.
-  if (deps.settings.mode === 'live') {
-    // The browser globals are supplied HERE rather than reached for inside that
-    // class, which is what keeps its wiring — the duck signal, the teardown
-    // ordering — reachable from a node test. This function is the untested
-    // layer on purpose.
-    return new LiveLanguagePairSession(deps, {
-      createWorkletNode: (ctx) => new AudioWorkletNode(ctx, 'mic-capture-processor'),
-      createSocket: (handlers) =>
-        new LiveTranslateSocket(
-          liveTranslateSocketUrl(deps.settings.apiBaseUrl),
-          handlers,
-          deps.accessToken,
-        ),
-      createQueue: (context, onDrained) => new PcmPlaybackQueue(context, onDrained),
-    });
-  }
-
+  // The cascade is the only mode this client runs. The server's continuous
+  // speech-to-speech backend is a comparison instrument for its own tests and
+  // benchmarks, and no client opens it.
   return new ConversationSession(
     {
       // Already open, and owned by the caller: this is either the captured tab

@@ -115,4 +115,16 @@ describe('SoundingSink', () => {
 
     expect(h.changed.mock.calls).toEqual([[false]]);
   });
+
+  it('passes each chunk’s language through to the sink it wraps', () => {
+    const enqueue = vi.fn();
+    const wrapped = new SoundingSink(
+      { enqueue, isPlayingTurn: () => false, isPlaying: false, stop: vi.fn(), stopTurn: vi.fn() },
+      vi.fn(),
+    );
+
+    wrapped.enqueue('turn-1', chunk(), 24000, 'zh');
+
+    expect(enqueue).toHaveBeenCalledWith('turn-1', expect.any(Int16Array), 24000, 'zh');
+  });
 });

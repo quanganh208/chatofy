@@ -175,32 +175,9 @@ describe('MeetingCapture', () => {
       expect(microphone.suppressed).toBe(false);
     });
 
-    /**
-     * The gate assumes playback has gaps. The continuous backend has none.
-     *
-     * It trails the speaker by seconds and keeps talking through their pauses, so
-     * "is anything audible" is true for almost the whole meeting. Gating on it
-     * there does not quieten the microphone between sentences — it holds it at
-     * zero from the first translated sample onward, and the user gets to say
-     * exactly one sentence before nothing they say is ever heard again.
-     */
-    it('does NOT hold the microphone shut on audible playback in live mode', async () => {
-      const h = harness();
-      await new MeetingCapture(h.deps).begin(
-        'stream-1',
-        settings({ mode: 'live', outbound: true }),
-      );
-      const microphone = h.microphones[0]!;
-
-      h.sessions.inbound!.deps.onSounding(true);
-
-      expect(microphone.suppressed).toBe(false);
-    });
-
-    it('still shuts the microphone when the meeting client mutes it in live mode', async () => {
-      // The privacy rule is not a mode setting. Whatever the backend, speech the
-      // user believes is private must never be captured, translated, or handed
-      // to the page.
+    it('shuts the microphone when the meeting client mutes it', async () => {
+      // Speech the user believes is private must never be captured, translated,
+      // or handed to the page.
       const h = harness();
       const capture = new MeetingCapture({
         ...h.deps,
@@ -212,7 +189,7 @@ describe('MeetingCapture', () => {
           stopTurn: () => {},
         }),
       });
-      await capture.begin('stream-1', settings({ mode: 'live', outbound: true }), true);
+      await capture.begin('stream-1', settings({ outbound: true }), true);
 
       capture.setTransmitting(false);
 
