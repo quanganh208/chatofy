@@ -55,39 +55,30 @@ const PAIRS: ReadonlyArray<readonly [Token, Token, number, string]> = [
   // difference is a real distinction in the spec rather than a threshold lowered
   // because it failed.
   //
-  // These two rows used to be introduced as "a control's boundary — it does not
-  // recede under the elevation direction". Direction C1 made that false, and the
-  // rows are rewritten rather than deleted because what they measure is still
-  // load-bearing; only what they CLAIM had to change.
+  // `borderControl` is the boundary that must be found without hovering: a
+  // checkbox or radio whose shape IS its edge, an invalid control, and a
+  // notice's action (which has a row of its own below). It holds 1.4.11's 3:1 on
+  // every ground a control stands on.
   //
-  // What they claimed: that every control carries a 3:1 outline. Under C1 no
-  // control does by default — a field is a well and a button is an object on the
-  // surface, and the edge each ends up with composites to 1.13:1 light and 1.17:1
-  // dark. Deliberate, measured, recorded in `docs/design-guidelines.md`. Left as
-  // they were, these would be green rows asking a question nothing answers, which
-  // is worse than a red one: the next reader takes them as proof the floor is met
-  // everywhere.
+  // It is NOT the resting edge of a field. That is `border` (rows further down),
+  // turning to the primary ink on hover: `borderControl` and then `borderStrong`
+  // were tried at rest and read as heavy, and the hairline was chosen knowing it
+  // sits under 3:1. `docs/design-guidelines.md` §
+  // Control depth has the record, including direction C1, which drew no field
+  // edge at all and composited to 1.13:1.
   //
-  // What they claim now: `borderControl` is the token used WHERE A REAL BOUNDARY
-  // IS STILL REQUIRED, and it still clears the floor on the grounds those cases
-  // stand on. The escalation list is in the guidelines and is short — a checkbox
-  // or radio whose shape is its edge, an invalid field, a notice's action (which
-  // has a row of its own below). `surfaceRaised` stays alongside `surface`
-  // because it is the tighter of the two grounds, not because a control is
-  // presumed to sit on it.
-  //
-  // Nothing here can see whether a component still ASKS for this token. That is
+  // Nothing here can see whether a component still ASKS for a token. That is
   // `packages/ui/src/react/skin-guard.spec.ts`, which reads component source; a
   // ratio between two tokens cannot.
+  ['borderControl', 'bg', 3.0, 'escalation boundary on the page ground — WCAG 1.4.11'],
   ['borderControl', 'surface', 3.0, 'escalation boundary on a card — WCAG 1.4.11'],
   ['borderControl', 'surfaceRaised', 3.0, 'escalation boundary on a raised ground'],
   // A control inside a filled notice — the "Allow microphone" button, and any
   // other action an Alert carries.
   //
-  // This block is the RECORDED EXCEPTION to direction C1 and is deliberately
-  // unchanged by it. C1 took the outline off every other control and accepted a
-  // 1.13:1 at-rest edge; on a filled notice that trade was refused, so this row
-  // goes on measuring a treatment that goes on rendering. The rejected
+  // A notice's action is a quiet BUTTON, which still draws no border of its own,
+  // so the notice re-borders it. This row goes on measuring a treatment that goes
+  // on rendering. The rejected
   // alternative was moving the hue to the fill, at 1.90:1 for the notice's own
   // ink in dark — see `alert.tsx`.
   //
@@ -115,7 +106,12 @@ const PAIRS: ReadonlyArray<readonly [Token, Token, number, string]> = [
   // has replaced what they measure on the surfaces still using a border, and
   // lowering a floor is a decision rather than a consequence.
   ['borderStrong', 'bg', 2.0, 'emphasised divider — visible, not a boundary'],
-  ['border', 'bg', 1.2, 'hairline between surfaces'],
+  // `border` is also every field's resting edge, on a `card` fill that already
+  // separates it from the page. Under 1.4.11's 3:1 by decision (see the
+  // `borderControl` rows above); the hover edge is the primary ink, measured by
+  // `token-contrast.spec.ts` against both grounds.
+  ['border', 'bg', 1.2, 'hairline between surfaces, and a field edge on the page'],
+  ['border', 'surface', 1.2, 'a field edge on a card'],
 ];
 
 /**

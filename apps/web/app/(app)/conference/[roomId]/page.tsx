@@ -1,23 +1,24 @@
 'use client';
 
 /**
- * In-call screen.
+ * A room: the pre-join screen first, then the call.
  *
- * Layout: video grid (center), control bar (bottom), participant roster and
- * chat (collapsible side region). Loading, error and ended states use tokens +
- * i18n.
+ * The URL is the room and nothing else, so it is what people share. Before
+ * joining, `PreJoinStage` shows the camera and microphone, the name (from the
+ * account), the spoken language and the translated voice; "Join now" is that
+ * state's one accent. In the call: video grid (center), control bar (bottom),
+ * participant roster and chat (collapsible side region).
  *
- * Design budget: Leave (or Back to lobby) is the ONE accent-filled control.
- * Mic and camera toggles are outline. Zero elevated surfaces (the call screen
- * is the page ground; no cards). Registered in accent-budget-app.spec.tsx.
+ * Design budget in the call: Leave (or Back to lobby) is the ONE accent-filled
+ * control. Mic and camera toggles are outline. Zero elevated surfaces (the call
+ * screen is the page ground; no cards). Registered in accent-budget-app.spec.tsx.
  */
 
 import { useEffect, useRef, useState } from 'react';
-import type { Route } from 'next';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Users } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import { Link as LinkIcon, Users } from 'lucide-react';
 import { Button } from '@chatofy/ui/react';
-import { toLanguageCode } from '@chatofy/types';
+import type { LanguageCode } from '@chatofy/types';
 import { conferenceRoomIdSchema } from '@chatofy/types/events';
 import { useTranslate } from '@/i18n/provider';
 import { languageNamer } from '@/i18n/language-pair-labels';
@@ -26,17 +27,18 @@ import { VideoGrid } from './components/video-grid';
 import { ControlBar } from './components/control-bar';
 import { ParticipantList } from './components/participant-list';
 import { ChatPanel } from './components/chat-panel';
+import { PreJoinStage, type PreJoinChoice } from './components/pre-join-stage';
 import { ACTIVE_CALL_KEY, decodeRoomId, endedPath } from './utils/room-route';
+
+/** The roster sits beside the grid from Tailwind's `md` up; below it, it covers the grid. */
+const ROSTER_BESIDE_QUERY = '(min-width: 768px)';
 
 export default function ConferenceRoomPage() {
   const t = useTranslate();
   const router = useRouter();
   const params = useParams<{ roomId: string }>();
-  const searchParams = useSearchParams();
 
   const roomId = decodeRoomId(params.roomId);
-  const displayName = (searchParams.get('name') ?? '').trim();
-  const sourceLanguage = toLanguageCode(searchParams.get('lang') ?? '') ?? 'vi';
   // A room id is a server-minted cuid; anything else can never name a room, so
   // it is answered here instead of with a socket round trip.
   const roomIdValid = conferenceRoomIdSchema.safeParse(roomId).success;
@@ -62,30 +64,42 @@ export default function ConferenceRoomPage() {
     toggleVideo,
     resumeAudio,
     sendChat,
-  } = useConference(roomId, { displayName, sourceLanguage });
+  } = useConference(roomId);
 
-  // A shared link carries only the room: the name is asked for in the lobby,
-  // with the room already filled in, and the lobby brings the user back here.
-  useEffect(() => {
-    if (!roomIdValid || displayName) return;
-    const query = new URLSearchParams({ room: roomId, lang: sourceLanguage });
-    router.replace(`/conference?${query.toString()}` as Route);
-  }, [roomIdValid, displayName, roomId, sourceLanguage, router]);
+  // Who joined, once "Join now" was pressed. Null is the pre-join screen. The
+  // hook leaves on unmount, which stops the camera, the microphone and the
+  // translate session when the user navigates away mid-call; the active-call key
+  // is kept so the landing can bring them back to this room.
+  const [joinedAs, setJoinedAs] = useState<{ name: string; language: LanguageCode } | null>(null);
 
-  // Join on mount, leave on unmount. Leaving on unmount is what stops the
-  // camera, the microphone and the translate session when the user navigates
-  // away mid-call; the active-call key is kept so the lobby can bring them back.
+  function handleJoin(choice: PreJoinChoice) {
+    // The hook starts unmuted with video on; match what the preview was left at.
+    if (!choice.micOn) toggleMute();
+    if (!choice.camOn) toggleVideo();
+    sessionStorage.setItem(ACTIVE_CALL_KEY, JSON.stringify({ roomId }));
+    setJoinedAs({ name: choice.displayName, language: choice.sourceLanguage });
+    void join({
+      displayName: choice.displayName,
+      sourceLanguage: choice.sourceLanguage,
+      devices: choice.devices,
+    });
+  }
+
+  // "Copy invite link" says so for a moment, then goes quiet again.
+  const [copied, setCopied] = useState(false);
   useEffect(() => {
-    if (!roomIdValid || !displayName) return;
-    sessionStorage.setItem(
-      ACTIVE_CALL_KEY,
-      JSON.stringify({ roomId, name: displayName, lang: sourceLanguage }),
-    );
-    void join();
-    return leave;
-    // Mount-only: the room and the name are fixed for the life of this screen.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  function copyInviteLink() {
+    void navigator.clipboard
+      ?.writeText(`${window.location.origin}/conference/${encodeURIComponent(roomId)}`)
+      .then(() => setCopied(true))
+      .catch(() => {
+        /* clipboard refused (permission, unfocused tab): the code stays on screen */
+      });
+  }
 
   // A room that is gone, or a call taken over by another tab, is not one to
   // bounce back into from the lobby.
@@ -113,8 +127,18 @@ export default function ConferenceRoomPage() {
     if (ownerEnded && wasInCall.current) router.replace(endedPath(roomId));
   }, [ownerEnded, roomId, router]);
 
-  // Collapsible roster panel
-  const [rosterOpen, setRosterOpen] = useState(true);
+  // Collapsible roster panel: open beside the grid from `md` up, closed below it,
+  // where it would cover the video. Follows the breakpoint when it is crossed
+  // (a rotated tablet, a resized window); a tap in between still wins until then.
+  const [rosterOpen, setRosterOpen] = useState(
+    () => typeof window === 'undefined' || window.matchMedia(ROSTER_BESIDE_QUERY).matches,
+  );
+  useEffect(() => {
+    const query = window.matchMedia(ROSTER_BESIDE_QUERY);
+    const follow = (event: MediaQueryListEvent) => setRosterOpen(event.matches);
+    query.addEventListener('change', follow);
+    return () => query.removeEventListener('change', follow);
+  }, []);
 
   /** Out of the call and back to the lobby — for the states with no meeting to sum up. */
   function handleLeave() {
@@ -125,7 +149,8 @@ export default function ConferenceRoomPage() {
 
   /**
    * Leave a call that was under way, to its end screen. `replace` rather than
-   * `push`: Back would otherwise reopen this URL, and this screen joins on mount.
+   * `push`: Back would otherwise reopen this URL, whose pre-join screen opens the
+   * camera and microphone again.
    */
   function handleLeaveCall() {
     sessionStorage.removeItem(ACTIVE_CALL_KEY);
@@ -142,6 +167,7 @@ export default function ConferenceRoomPage() {
             ? t('common.conference.roomEnded')
             : t('common.conference.roomNotFound')}
         </p>
+        <p className="text-hint text-textMuted">{t('web.conference.roomGoneHint')}</p>
         <Button variant="default" onClick={handleLeave}>
           {t('common.conference.backToLobby')}
         </Button>
@@ -149,8 +175,18 @@ export default function ConferenceRoomPage() {
     );
   }
 
+  // ── Pre-join: not yet joined. `leave()` also reports 'idle', and Leave calls
+  // it before navigating, so `joinedAs` is what keeps this screen from flashing
+  // back (and reopening the camera) on the way out of a call. ─────────────────
+  if (status === 'idle' && joinedAs === null) {
+    return <PreJoinStage onJoin={handleJoin} />;
+  }
+  // Idle after joining is only ever the way out: Leave has called `leave()` and
+  // the navigation is on its way. Nothing to show for that frame.
+  if (status === 'idle') return null;
+
   // ── Connecting state ────────────────────────────────────────────────────────
-  if (status === 'connecting' || status === 'idle') {
+  if (status === 'connecting') {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3">
         <p className="text-body text-textMuted">{t('common.conference.connecting')}</p>
@@ -223,18 +259,41 @@ export default function ConferenceRoomPage() {
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Room header */}
       <div className="border-border flex items-center justify-between border-b px-4 py-2">
-        <span className="text-hint text-textMuted truncate">{roomId}</span>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setRosterOpen((o) => !o)}
-          aria-label={
-            rosterOpen ? t('common.conference.hideRoster') : t('web.conference.showRoster')
-          }
-          aria-pressed={rosterOpen}
-        >
-          <Users className="size-4" aria-hidden />
-        </Button>
+        <p className="text-hint text-textMuted min-w-0 truncate">
+          <span className="text-label mr-2 font-semibold uppercase tracking-wide">
+            {t('web.conference.meetingCode')}
+          </span>
+          {roomId}
+        </p>
+        <div className="flex shrink-0 items-center gap-1">
+          {copied && (
+            <span role="status" className="text-hint text-textMuted">
+              {t('web.conference.inviteLinkCopied')}
+            </span>
+          )}
+          {/* Words from `sm` up, so the way to invite is found without hovering
+              an icon; the phone keeps the icon and its accessible name. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={copyInviteLink}
+            aria-label={t('web.conference.copyInviteLink')}
+          >
+            <LinkIcon className="size-4" aria-hidden />
+            <span className="hidden sm:inline">{t('web.conference.copyInviteLink')}</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setRosterOpen((o) => !o)}
+            aria-label={
+              rosterOpen ? t('common.conference.hideRoster') : t('web.conference.showRoster')
+            }
+            aria-pressed={rosterOpen}
+          >
+            <Users className="size-4" aria-hidden />
+          </Button>
+        </div>
       </div>
 
       {/* Audio-only soft notice — no card, no elevation, inline text */}
@@ -274,12 +333,13 @@ export default function ConferenceRoomPage() {
       )}
 
       {/* Main area: grid + optional roster */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Video grid — takes all remaining horizontal space */}
-        <main className="min-w-0 flex-1 overflow-hidden p-2">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        {/* Video grid — takes all remaining horizontal space. A div, not <main>:
+            the app chrome already renders the page's one main landmark. */}
+        <div className="@container min-w-0 flex-1 overflow-hidden p-2">
           <VideoGrid
             localStream={localStream}
-            localLabel={displayName || t('common.conference.you')}
+            localLabel={joinedAs?.name ?? t('common.conference.you')}
             localMuted={localMuted}
             localVideoEnabled={localVideoEnabled}
             peers={peers}
@@ -287,20 +347,22 @@ export default function ConferenceRoomPage() {
             localTranslating={localTranslating}
             translatingLabel={t('common.conference.translating')}
           />
-        </main>
+        </div>
 
         {/* Participant roster + chat — collapsible side region, flat (no cards) */}
         {rosterOpen && (
           <aside
-            className="border-border flex w-52 shrink-0 flex-col overflow-hidden border-l"
+            // Beside the grid from `md` up; below it, over the grid at full
+            // width rather than squeezing the video into strips.
+            className="border-border bg-background absolute inset-0 z-10 flex flex-col overflow-hidden md:static md:w-64 md:shrink-0 md:border-l xl:w-72"
             aria-label={t('common.conference.rosterTitle')}
           >
             <div className="shrink-0 overflow-y-auto">
               <ParticipantList
-                selfName={displayName || t('common.conference.you')}
+                selfName={joinedAs?.name ?? t('common.conference.you')}
                 selfMuted={localMuted}
                 selfVideoEnabled={localVideoEnabled}
-                selfLanguage={languageNamer(t)(sourceLanguage)}
+                selfLanguage={languageNamer(t)(joinedAs?.language ?? 'vi')}
                 selfLabel={t('common.conference.you')}
                 peers={peers}
                 rosterTitle={t('common.conference.rosterTitle')}

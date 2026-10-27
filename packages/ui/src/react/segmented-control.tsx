@@ -139,9 +139,7 @@ export function SegmentedControl<T extends string>({
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <span className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
-        {label}
-      </span>
+      <span className="text-foreground text-body font-medium">{label}</span>
       <ToggleGroup
         ref={trackRef}
         type="single"

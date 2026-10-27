@@ -26,6 +26,7 @@ import { TranscriptSheet, type TranscriptEntry } from '@/components/conference/t
 import { ChatPanel } from '@/components/conference/chat-panel';
 import { LanguagePicker, type SourceLanguage } from '@/components/conference/language-picker';
 import { getConferenceToken } from '@/conference/conference-token';
+import { parseVoiceGenderParam } from '@/conference/conference-voice-param';
 import {
   startMeetingForegroundService,
   stopMeetingForegroundService,
@@ -88,7 +89,12 @@ function foldTranscript(
 export default function ConferenceCallScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const params = useLocalSearchParams<{ roomId: string; displayName?: string; lang?: string }>();
+  const params = useLocalSearchParams<{
+    roomId: string;
+    displayName?: string;
+    lang?: string;
+    voice?: string;
+  }>();
   // The hook refuses an id that is not one `POST /conference` minted.
   const roomId = typeof params.roomId === 'string' ? params.roomId : '';
   const displayName =
@@ -97,6 +103,8 @@ export default function ConferenceCallScreen() {
       : 'mobile-user';
   const initialLang: SourceLanguage =
     toLanguageCode(typeof params.lang === 'string' ? params.lang : '') ?? 'vi';
+  // Chosen in the lobby; the speaker leg is built with it at join.
+  const voiceGender = parseVoiceGenderParam(params.voice);
 
   const [sheetVisible, setSheetVisible] = useState(false);
   const [transcriptVisible, setTranscriptVisible] = useState(false);
@@ -113,6 +121,7 @@ export default function ConferenceCallScreen() {
   const conference = useConferenceNative(roomId, {
     displayName,
     sourceLanguage,
+    voiceGender,
     getToken: getConferenceToken,
   });
 

@@ -68,6 +68,9 @@ export function AiContextGlossaryFields({
                       value={row[code]}
                       maxLength={CONTEXT_LIMITS.MAX_GLOSSARY_TERM_CHARS}
                       aria-invalid={tooLongByCode[code]}
+                      aria-describedby={
+                        tooLongByCode[code] ? `ai-context-glossary-too-long-${index}` : undefined
+                      }
                       onChange={(event) =>
                         onChange(
                           rows.map((entry, at) =>
@@ -92,8 +95,13 @@ export function AiContextGlossaryFields({
                   list — with 24 pairs on screen, a single message below
                   everything left the writer counting all the boxes by
                   hand to find the one it meant. */}
+              {/* In the error colour, not the hint's: muted, it read as one more
+                  piece of advice rather than the reason Save is refusing. */}
               {anyTooLong ? (
-                <span className="text-muted-foreground text-hint">
+                <span
+                  id={`ai-context-glossary-too-long-${index}`}
+                  className="text-destructive text-hint"
+                >
                   {t('web.preferences.aiContext.glossaryTooLong', {
                     max: CONTEXT_LIMITS.MAX_GLOSSARY_TERM_WORDS,
                   })}

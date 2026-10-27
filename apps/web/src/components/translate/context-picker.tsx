@@ -73,11 +73,7 @@ export function ContextPicker({
     <div className="flex min-w-0 flex-col gap-2">
       <span
         id={labelId}
-        className={
-          showLabel
-            ? 'text-muted-foreground text-label font-semibold tracking-wide uppercase'
-            : 'sr-only'
-        }
+        className={showLabel ? 'text-foreground text-body font-medium' : 'sr-only'}
       >
         {t('web.translate.context')}
       </span>

@@ -75,6 +75,11 @@ export const vi: Messages = {
   'common.conference.waiting': 'Đang chờ người khác tham gia…',
   'common.conference.connecting': 'Đang kết nối…',
   'common.conference.you': 'Bạn',
+  // The translated voice: what others hear this speaker's translation in.
+  'common.conference.translatedVoice': 'Giọng dịch',
+  'common.conference.translatedVoiceHint': 'Người khác nghe bản dịch lời bạn bằng giọng này.',
+  'common.conference.voiceFemale': 'Nữ',
+  'common.conference.voiceMale': 'Nam',
   'common.conference.muteMic': 'Tắt micro',
   'common.conference.unmuteMic': 'Bật micro',
   'common.conference.disableCamera': 'Tắt camera',
@@ -523,8 +528,6 @@ export const vi: Messages = {
 
   // ---- web.conference ----
   'web.conference.joining': 'Đang tham gia…',
-  'web.conference.nameRequired': 'Nhập tên của bạn để tiếp tục.',
-  'web.conference.roomRequired': 'Nhập mã phòng để tham gia.',
   // ---- web.conference: in-call control bar ----
   'web.conference.muted': 'Đã tắt tiếng',
   'web.conference.showRoster': 'Xem danh sách',
@@ -534,6 +537,27 @@ export const vi: Messages = {
   // ---- web.conference: mở khóa âm thanh (Phase 1) ----
   'web.conference.audioBlocked': 'Âm thanh bị chặn bởi trình duyệt.',
   'web.conference.enableAudio': 'Nhấn để bật âm thanh',
+  // ---- web.conference: landing and pre-join room ----
+  'web.conference.newMeeting': 'Cuộc họp mới',
+  'web.conference.codeOrLink': 'Mã hoặc link cuộc họp',
+  'web.conference.codeOrLinkPlaceholder': 'Dán link hoặc nhập mã',
+  'web.conference.joinAction': 'Tham gia',
+  'web.conference.joiningAs': 'Tham gia với tên {name}',
+  'web.conference.landingLead': 'Họp với giọng nói và phụ đề được dịch.',
+  'web.conference.readyToJoin': 'Sẵn sàng tham gia?',
+  'web.conference.joinNow': 'Tham gia ngay',
+  'web.conference.microphone': 'Micrô',
+  'web.conference.camera': 'Camera',
+  'web.conference.defaultDevice': 'Mặc định của hệ thống',
+  'web.conference.noCameraPreview': 'Camera đang tắt',
+  'web.conference.micLevel': 'Mức âm micrô',
+  'web.conference.translatedVoiceChip': 'Giọng: {gender} · {speed}×',
+  'web.conference.translatedVoiceHint':
+    'Người khác nghe bản dịch lời bạn bằng giọng này. Đây cũng là cài đặt ở trang Dịch.',
+  'web.conference.copyInviteLink': 'Sao chép link mời',
+  'web.conference.inviteLinkCopied': 'Đã sao chép link',
+  'web.conference.meetingCode': 'Mã cuộc họp',
+  'web.conference.roomGoneHint': 'Kiểm tra lại link, hoặc nhờ người mời gửi link mới.',
   'web.meta.conference': 'Hội nghị · Chatofy',
 
   // ---- mobile.conference: sảnh và màn hình gọi của ứng dụng React Native ----

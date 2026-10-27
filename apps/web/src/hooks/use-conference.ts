@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSession } from 'next-auth/react';
 import type { LanguageCode } from '@chatofy/types';
+import type { PreferredDevices } from '@/conference/acquire-local-media';
 import { ConferenceConnection } from '@/conference/conference-connection';
 import { RECONNECT_CAP } from '@/conference/conference-connection-policy';
 import {
@@ -37,6 +38,13 @@ const API_TRANSLATE_URL = conferenceTranslateSocketUrl(env.NEXT_PUBLIC_API_BASE_
 
 /** Max chat messages retained per meeting (ephemeral, bounded). */
 const CHAT_MESSAGE_CAP = 200;
+
+/** Who joins and with which devices — chosen on the pre-join screen, not at mount. */
+export interface ConferenceJoinParams {
+  displayName: string;
+  sourceLanguage: LanguageCode;
+  devices?: PreferredDevices;
+}
 
 export interface UseConferenceReturn {
   status: ConferenceStatus;
@@ -70,7 +78,7 @@ export interface UseConferenceReturn {
   reconnectAttempt: number;
   /** Maximum reconnect attempts before giving up to `disconnected`. */
   reconnectCap: number;
-  join: () => Promise<void>;
+  join: (params: ConferenceJoinParams) => Promise<void>;
   leave: () => void;
   toggleMute: () => void;
   toggleVideo: () => void;
@@ -94,16 +102,12 @@ async function currentAccessToken(): Promise<string | undefined> {
 /** Send the browser to sign-in and back here afterwards. */
 function redirectToLogin(): void {
   if (typeof window === 'undefined') return;
-  const callbackUrl = encodeURIComponent(window.location.pathname + window.location.search);
-  window.location.replace(`/login?callbackUrl=${callbackUrl}`);
+  // `next`, because that is the parameter the login form reads back.
+  const next = encodeURIComponent(window.location.pathname + window.location.search);
+  window.location.replace(`/login?next=${next}`);
 }
 
-export function useConference(
-  roomId: string,
-  options: { displayName: string; sourceLanguage: LanguageCode },
-): UseConferenceReturn {
-  const { displayName, sourceLanguage } = options;
-
+export function useConference(roomId: string): UseConferenceReturn {
   const [status, setStatusValue] = useState<ConferenceStatus>('idle');
   const [errorReason, setErrorReason] = useState<ConferenceErrorReason | undefined>(undefined);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -148,24 +152,29 @@ export function useConference(
     [],
   );
 
-  const join = useCallback((): Promise<void> => {
-    if (!displayName.trim()) return Promise.resolve();
-    connectionRef.current?.leave();
-    const connection = new ConferenceConnection({
-      wsBaseUrl: API_WS_URL,
-      translateSocketUrl: API_TRANSLATE_URL,
-      roomId,
-      displayName: displayName.trim(),
-      sourceLanguage,
-      getToken: currentAccessToken,
-      sink,
-    });
-    connectionRef.current = connection;
-    connection.setMuted(localMutedRef.current);
-    connection.setVideoEnabled(localVideoEnabledRef.current);
-    connection.start();
-    return Promise.resolve();
-  }, [roomId, displayName, sourceLanguage, sink]);
+  const join = useCallback(
+    (params: ConferenceJoinParams): Promise<void> => {
+      const displayName = params.displayName.trim();
+      if (!displayName) return Promise.resolve();
+      connectionRef.current?.leave();
+      const connection = new ConferenceConnection({
+        wsBaseUrl: API_WS_URL,
+        translateSocketUrl: API_TRANSLATE_URL,
+        roomId,
+        displayName,
+        sourceLanguage: params.sourceLanguage,
+        devices: params.devices,
+        getToken: currentAccessToken,
+        sink,
+      });
+      connectionRef.current = connection;
+      connection.setMuted(localMutedRef.current);
+      connection.setVideoEnabled(localVideoEnabledRef.current);
+      connection.start();
+      return Promise.resolve();
+    },
+    [roomId, sink],
+  );
 
   const leave = useCallback(() => {
     connectionRef.current?.leave();

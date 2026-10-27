@@ -60,8 +60,10 @@ existed. Blocking any crawler is an owner decision.
 
 ## Signed-in pages
 
-`/translate`, `/history`, `/history/[id]`, `/preferences` and `/account` are behind
-sign-in, so the discovery surfaces don't apply. Review them for UX only. First run and
+`/translate`, `/conference`, `/history`, `/history/[id]`, `/preferences` and `/account`
+are behind sign-in, so the discovery surfaces don't apply. `robots.txt` disallows every
+one of them, and `robots-covers-signed-in-routes.spec.ts` fails when a sidebar
+destination is missing — `/conference` once shipped crawlable. Review them for UX only. First run and
 its evidence: `plans/reports/enhance-ux-ax-261013-1018-auth-pages.md`.
 
 - **Use a local test account, never a real one.** Register it through
@@ -84,4 +86,8 @@ its evidence: `plans/reports/enhance-ux-ax-261013-1018-auth-pages.md`.
   only real-length turns showed it. Measure the text column (≥ 260px at 375px).
 - **Reviewing production is read-only.** Route every non-GET except `/api/auth/*` to
   an abort, and keep screenshots of real conversations out of the repository.
+- **Review a call with two accounts, resizing one live page.** One participant hides
+  the grid's layout, and resizing in place catches state chosen once at mount: the
+  side column once stayed open over a phone-width grid after a desktop start. The capture script for the conference run is
+  `plans/reports/enhance-ux-ax-261027-1636-conference/capture-conference.mjs`.
 - **Delete the test account and its data afterwards.**

@@ -93,10 +93,10 @@ describe('text on a ground', () => {
    * treatment nothing shipped: the components draw `ring-[3px] ring-ring/50`, and
    * `--ring` is this same token. The geometry changed; what is measured did not.
    *
-   * It matters more than it did. Direction C1 gave up the at-rest 3:1 boundary on
-   * controls — see `docs/design-guidelines.md` — so the ring is now carrying
-   * 1.4.11's state-indication half on its own. These rows are the floor under
-   * that.
+   * No control carries a 3:1 edge at rest by default — a field's `border` edge
+   * is a hairline that turns to ink on hover, and a quiet button has none, see
+   * `docs/design-guidelines.md` § Control depth — so the ring carries 1.4.11's
+   * state-indication half on its own. These rows are the floor under that.
    */
   it.each([
     ['bg', color.bg],
@@ -114,16 +114,14 @@ describe('component boundaries', () => {
   });
 
   /**
-   * `borderControl` is no longer the edge of every control — under direction C1
-   * nothing draws it by default — so this measures the token where it is still
-   * required: a notice's action, a checkbox or radio whose shape IS its edge, an
-   * invalid field. The guidelines carry that list.
-   *
-   * Kept rather than deleted, and rescoped rather than left implying
-   * universality. What this cannot see is whether any component still ASKS for
-   * the token; that is `skin-guard.spec.ts`, which reads component source.
+   * `borderControl` is the edge where a boundary must be found without hovering:
+   * a checkbox or radio whose shape IS its edge, an invalid control and a
+   * notice's action. A field's resting edge is the `border` hairline.
+   * What this cannot see is whether a component still ASKS for the token; that
+   * is `skin-guard.spec.ts`, which reads component source.
    */
   it('keeps an escalation edge perceivable where a decorative one need not be', () => {
+    expect(contrast(color.borderControl, color.bg)).toBeGreaterThanOrEqual(COMPONENT);
     expect(contrast(color.borderControl, color.surface)).toBeGreaterThanOrEqual(COMPONENT);
     expect(contrast(color.borderControl, color.surfaceRaised)).toBeGreaterThanOrEqual(COMPONENT);
   });

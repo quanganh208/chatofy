@@ -75,6 +75,11 @@ export const en = {
   'common.conference.waiting': 'Waiting for others to join…',
   'common.conference.connecting': 'Connecting…',
   'common.conference.you': 'You',
+  // The translated voice: what others hear this speaker's translation in.
+  'common.conference.translatedVoice': 'Translated voice',
+  'common.conference.translatedVoiceHint': 'Others hear your translated speech in this voice.',
+  'common.conference.voiceFemale': 'Female',
+  'common.conference.voiceMale': 'Male',
   'common.conference.muteMic': 'Mute microphone',
   'common.conference.unmuteMic': 'Unmute microphone',
   'common.conference.disableCamera': 'Turn off camera',
@@ -726,8 +731,6 @@ export const en = {
 
   // ---- web.conference: video conferencing lobby + in-call screen ----
   'web.conference.joining': 'Joining…',
-  'web.conference.nameRequired': 'Enter your name to continue.',
-  'web.conference.roomRequired': 'Enter a room ID to join.',
   // ---- web.conference: in-call control bar ----
   'web.conference.muted': 'Muted',
   'web.conference.showRoster': 'Show participants',
@@ -739,6 +742,27 @@ export const en = {
   // No card, no elevation — ghost button only; Leave stays the one accent control.
   'web.conference.audioBlocked': 'Sound is blocked by your browser.',
   'web.conference.enableAudio': 'Tap to enable sound',
+  // ---- web.conference: landing and pre-join room ----
+  'web.conference.newMeeting': 'New meeting',
+  'web.conference.codeOrLink': 'Meeting code or link',
+  'web.conference.codeOrLinkPlaceholder': 'Paste a link or enter a code',
+  'web.conference.joinAction': 'Join',
+  'web.conference.joiningAs': 'Joining as {name}',
+  'web.conference.landingLead': 'Meet with translated speech and captions.',
+  'web.conference.readyToJoin': 'Ready to join?',
+  'web.conference.joinNow': 'Join now',
+  'web.conference.microphone': 'Microphone',
+  'web.conference.camera': 'Camera',
+  'web.conference.defaultDevice': 'System default',
+  'web.conference.noCameraPreview': 'Camera is off',
+  'web.conference.micLevel': 'Microphone level',
+  'web.conference.translatedVoiceChip': 'Voice: {gender} · {speed}×',
+  'web.conference.translatedVoiceHint':
+    'Others hear your translated speech in this voice. It is the same setting as on Translate.',
+  'web.conference.copyInviteLink': 'Copy invite link',
+  'web.conference.inviteLinkCopied': 'Link copied',
+  'web.conference.meetingCode': 'Meeting code',
+  'web.conference.roomGoneHint': 'Check the link, or ask whoever invited you for a new one.',
   'web.meta.conference': 'Conference · Chatofy',
 
   // ---- mobile.conference: the React Native conference lobby + call screen ----

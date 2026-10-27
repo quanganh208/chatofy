@@ -216,9 +216,7 @@ export function LanguagePairPicker<P extends SessionLanguagePair = LanguagePair>
 
   return (
     <div className="@container flex flex-col gap-2">
-      <span className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
-        {labels.pair}
-      </span>
+      <span className="text-foreground text-body font-medium">{labels.pair}</span>
       <div className="flex flex-col gap-2 @2xs:flex-row @2xs:items-end">
         <Side role={labels.source}>
           <LanguageSelect<SourceChoice>
@@ -271,7 +269,7 @@ const TIGHT = 'w-full gap-1 px-2.5';
 function Side({ role, children }: { role: string; children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1">
-      <span aria-hidden className="text-muted-foreground text-label tracking-wide uppercase">
+      <span aria-hidden className="text-muted-foreground text-hint">
         {role}
       </span>
       {children}
