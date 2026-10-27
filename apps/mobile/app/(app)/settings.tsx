@@ -4,7 +4,8 @@
  * be replayed after it.
  */
 
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import { createTranslator, en } from '@chatofy/i18n';
@@ -20,7 +21,10 @@ export default function SettingsScreen() {
   const { session, signOut } = useAuth();
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      edges={['left', 'right']}
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <Text style={[styles.account, { color: colors.text }]}>
         {session
           ? t('mobile.settings.signedInAs', { email: session.user.email })

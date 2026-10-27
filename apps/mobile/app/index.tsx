@@ -1,4 +1,5 @@
-import { SafeAreaView, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { createTranslator, en } from '@chatofy/i18n';
 import { useAuth } from '@/providers/auth-provider';

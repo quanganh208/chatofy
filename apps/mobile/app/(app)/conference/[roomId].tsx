@@ -11,7 +11,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SafeAreaView, View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import { createTranslator, en } from '@chatofy/i18n';
@@ -237,6 +238,7 @@ export default function ConferenceCallScreen() {
 
     return (
       <SafeAreaView
+        edges={['left', 'right']}
         style={[styles.container, styles.centered, { backgroundColor: colors.background }]}
       >
         <Text style={[styles.errorTitle, { color: colors.text }]}>{title}</Text>
@@ -258,7 +260,10 @@ export default function ConferenceCallScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      edges={['left', 'right']}
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       {banner ? (
         <Text style={[styles.banner, { color: colors.textSecondary }]}>{banner}</Text>
       ) : null}
