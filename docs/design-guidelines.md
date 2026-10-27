@@ -658,7 +658,7 @@ pipeline-and-latency copy, and the popup's `Report timings for measurement` chec
 
 **Language codes are never user-facing.** Codes still enter the app as data — a
 language pair is `{ source: 'vi', target: 'en' }` — and become words only through the language registry
-(`packages/types/src/domain/languages.ts`) or the dictionary's `web.languageName.<code>`
+(`packages/types/src/domain/languages.ts`) or the dictionary's `common.languageName.<code>`
 keys.
 
 **Exempt, with reasons.** Safety text keeps its meaning even when its register
@@ -687,7 +687,7 @@ test the exemptions above use, applied one locale at a time.
 `LanguagePairPicker` defaults to the registry's English interface name (`label`:
 "Chinese"), which is right for the popup with no locale. Everywhere on web — the
 pickers (`languageNamer` in `apps/web/src/i18n/language-pair-labels.ts`), history rows and
-glossary columns — a language is the interface locale's `web.languageName.<code>`.
+glossary columns — a language is the interface locale's `common.languageName.<code>`.
 Not the language's own name: "简体中文" is unreadable to most of the readers choosing it.
 
 **The register of address is neutral "bạn"**, everywhere. Not "quý
