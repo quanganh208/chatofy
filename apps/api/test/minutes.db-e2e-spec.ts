@@ -29,17 +29,23 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { ThrottlerStorage, ThrottlerStorageService } from '@nestjs/throttler';
-import request from 'supertest';
+import request, { type Response } from 'supertest';
+import { App } from 'supertest/types';
 import { randomUUID } from 'node:crypto';
 import {
   ProviderConnectionError,
   ProviderRegistry,
 } from '@chatofy/ai-providers';
-import { MINUTES_LIMITS } from '@chatofy/types';
+import {
+  conversationListResponseSchema,
+  MINUTES_LIMITS,
+  minutesResponseSchema,
+} from '@chatofy/types';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 import { registerAndLogin, type Identity } from './utils/auth-fixture';
+import { errorBody, successBody } from './utils/response-body';
 
 /** Namespaced per run so a reused database does not collide with itself. */
 const run = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
@@ -67,7 +73,7 @@ interface SaveConversationBody {
 }
 
 describe('Prisma-backed minutes (db-e2e)', () => {
-  let app: INestApplication;
+  let app: INestApplication<App>;
   let prisma: PrismaService;
   let alice: Identity;
   let bob: Identity;
@@ -144,19 +150,19 @@ describe('Prisma-backed minutes (db-e2e)', () => {
       .send({})
       .expect(201);
 
-    expect(post.body.data.minutes).toMatchObject({
+    expect(minutesOf(post)).toMatchObject({
       conversationId: id,
       status: 'ready',
       summary: 'first pass',
       model: 'gemini-3.5-flash',
     });
-    expect(post.body.data.minutes.actionItems).toHaveLength(2);
+    expect(minutesOf(post).actionItems).toHaveLength(2);
 
     const get = await request(app.getHttpServer())
       .get(`/conversations/${id}/minutes`)
       .set('authorization', alice.bearer)
       .expect(200);
-    expect(get.body.data.minutes.summary).toBe('first pass');
+    expect(minutesOf(get).summary).toBe('first pass');
   });
 
   it("404s another user's minutes — exactly 404, never a validation refusal", async () => {
@@ -230,11 +236,9 @@ describe('Prisma-backed minutes (db-e2e)', () => {
       .expect(200);
 
     // The second pass had ONE item; a merge bug would show three.
-    expect(get.body.data.minutes.summary).toBe('second pass');
-    expect(get.body.data.minutes.actionItems).toHaveLength(1);
-    expect(get.body.data.minutes.actionItems[0].description).toBe(
-      'only remaining',
-    );
+    expect(minutesOf(get).summary).toBe('second pass');
+    expect(minutesOf(get).actionItems).toHaveLength(1);
+    expect(minutesOf(get).actionItems[0]!.description).toBe('only remaining');
   });
 
   it('keeps the stored minutes readable when a regenerate fails', async () => {
@@ -260,11 +264,11 @@ describe('Prisma-backed minutes (db-e2e)', () => {
       .get(`/conversations/${id}/minutes`)
       .set('authorization', alice.bearer)
       .expect(200);
-    expect(get.body.data.minutes).toMatchObject({
+    expect(minutesOf(get)).toMatchObject({
       status: 'ready',
       summary: 'first pass',
     });
-    expect(get.body.data.minutes.actionItems).toHaveLength(2);
+    expect(minutesOf(get).actionItems).toHaveLength(2);
   });
 
   it('deleting a conversation removes its minutes and action items', async () => {
@@ -305,7 +309,10 @@ describe('Prisma-backed minutes (db-e2e)', () => {
       .get('/conversations')
       .set('authorization', carol.bearer)
       .expect(200);
-    expect(before.body.data.conversations[0].hasMinutes).toBe(false);
+    expect(
+      successBody(before, conversationListResponseSchema).data.conversations[0]!
+        .hasMinutes,
+    ).toBe(false);
 
     await request(app.getHttpServer())
       .post(`/conversations/${id}/minutes`)
@@ -317,7 +324,10 @@ describe('Prisma-backed minutes (db-e2e)', () => {
       .get('/conversations')
       .set('authorization', carol.bearer)
       .expect(200);
-    expect(after.body.data.conversations[0].hasMinutes).toBe(true);
+    expect(
+      successBody(after, conversationListResponseSchema).data.conversations[0]!
+        .hasMinutes,
+    ).toBe(true);
 
     await prisma.conversation.deleteMany({ where: { ownerId: carol.userId } });
     await prisma.user.deleteMany({ where: { id: carol.userId } });
@@ -384,7 +394,7 @@ describe('Prisma-backed minutes (db-e2e)', () => {
       .set('authorization', alice.bearer)
       .send({});
     expect(res.status).toBe(500);
-    expect(res.body.error.code).toBe('INTERNAL_ERROR');
+    expect(errorBody(res).error.code).toBe('INTERNAL_ERROR');
   });
 
   it('ignores a legacy turns field and summarizes the stored transcript', async () => {
@@ -397,7 +407,7 @@ describe('Prisma-backed minutes (db-e2e)', () => {
       .set('authorization', alice.bearer)
       .send({ turns: [{ speakerLabel: 'Ghost', text: 'not this' }] })
       .expect(201);
-    expect(post.body.data.minutes.summary).toBe('first pass');
+    expect(minutesOf(post).summary).toBe('first pass');
   });
 
   /** Stores a conversation for `who` and returns its client-minted id. */
@@ -454,4 +464,9 @@ function secondDraft() {
     ],
     model: 'gemini-3.5-flash',
   };
+}
+
+/** The minutes a POST or GET answered with. */
+function minutesOf(res: Response) {
+  return successBody(res, minutesResponseSchema).data.minutes;
 }

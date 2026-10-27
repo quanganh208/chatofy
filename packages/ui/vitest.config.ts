@@ -24,6 +24,10 @@ export default defineConfig({
   // output, where it fails to parse.
   plugins: [react()],
   test: {
+    // This workspace's own module cache. The default sits at the monorepo root, shared
+    // by every workspace, so the first parallel run after a lockfile change had them
+    // all clearing the same directory at once and one failed with ENOTEMPTY.
+    fsModuleCachePath: 'node_modules/.vitest-cache',
     environment: 'node',
     include: ['src/**/*.spec.{ts,tsx}'],
   },

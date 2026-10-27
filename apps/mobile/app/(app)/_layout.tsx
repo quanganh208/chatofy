@@ -1,13 +1,18 @@
 import type { ComponentProps } from 'react';
+import type { ColorValue } from 'react-native';
 import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@react-native-vector-icons/ionicons/static';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
+type IoniconColor = ComponentProps<typeof Ionicons>['color'];
 
 /** Build a tabBarIcon render fn so each tab shows a real glyph, not a missing-glyph box. */
 function tabIcon(name: IoniconName) {
-  const Icon = ({ color, size }: { color: string; size: number }) => (
-    <Ionicons name={name} color={color} size={size} />
+  const Icon = ({ color, size }: { color: ColorValue; size: number }) => (
+    // The tab bar hands over React Native's full ColorValue (null and processed
+    // numbers included). The icon renders it through <Text>, which takes all of
+    // those; only the icon set's own prop type is narrower.
+    <Ionicons name={name} color={color as IoniconColor} size={size} />
   );
   Icon.displayName = `TabIcon(${name})`;
   return Icon;

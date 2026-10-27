@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { SEARCH_LIMITS, type ConversationSummary } from '@chatofy/types';
 import { listConversations } from '@/clients/api-client';
 
@@ -66,19 +66,33 @@ export function useConversationHistory(q = ''): UseConversationHistory {
   const listKey = `${generation}:${searchable}`;
   const activeList = useRef(listKey);
 
-  useEffect(() => {
-    activeList.current = listKey;
-    let cancelled = false;
+  // A new list starts loading with no error and no cursor. Adjusted during render,
+  // as React recommends for state that follows a changed input, so the previous
+  // list's flags never commit alongside the new key.
+  //
+  // A cursor belongs to ONE list. Holding the previous one across a term change
+  // let `loadMore` fetch the old keyset under the new query — the `activeList`
+  // guard below cannot catch that, because the ref is already the new key by the
+  // time the click happens. Clearing it also drops `hasMore`, so the control that
+  // would trip this is not on screen while the first page is in flight.
+  const [flagsFor, setFlagsFor] = useState(listKey);
+  if (flagsFor !== listKey) {
+    setFlagsFor(listKey);
     setLoading(true);
     setError(false);
     setLoadMoreError(false);
-    // A cursor belongs to ONE list. Holding the previous one across a term change
-    // let `loadMore` fetch the old keyset under the new query — the `activeList`
-    // guard below cannot catch that, because the ref is already the new key by the
-    // time the click happens. Clearing it also drops `hasMore`, so the control that
-    // would trip this is not on screen while the first page is in flight.
     setCursor(null);
+  }
 
+  // In the same commit as the reset above, not after paint: a page from the old
+  // list settling in between would otherwise pass the guard and restore its cursor
+  // over the cleared one.
+  useLayoutEffect(() => {
+    activeList.current = listKey;
+  }, [listKey]);
+
+  useEffect(() => {
+    let cancelled = false;
     listConversations({ q: searchable })
       .then((page) => {
         if (cancelled) return;

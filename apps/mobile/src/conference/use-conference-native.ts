@@ -152,7 +152,7 @@ export function useConferenceNative(
   const [status, setStatus] = useState<ConferenceStatus>('idle');
   const [errorReason, setErrorReason] = useState<ConferenceErrorReason | undefined>(undefined);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [peers, setPeers] = useState<PeerMap>(new Map());
+  const [peers, setPeers] = useState<PeerMap>(() => new Map());
   const [mySocketId, setMySocketId] = useState<string | null>(null);
   const [localMuted, setLocalMuted] = useState(false);
   const [localVideoEnabled, setLocalVideoEnabled] = useState(true);
@@ -175,6 +175,10 @@ export function useConferenceNative(
    */
   const captureRef = useRef<NativeAudioCapture | null>(null);
   /** socketId → spoken language of the others; the leg translates into these. */
+  // The callback reads legRef only when a peer's language changes (a socket
+  // event), never during render; the rule cannot see that a constructor stores
+  // rather than calls it.
+  // eslint-disable-next-line react-hooks/refs
   const peerLanguagesRef = useRef(new PeerLanguages((l) => legRef.current?.setRoomLanguages(l)));
   /** Room-event listener of the current socket. */
   const roomEventsRef = useRef<RoomEventListener | null>(null);

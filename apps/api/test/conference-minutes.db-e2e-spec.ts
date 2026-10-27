@@ -11,7 +11,14 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { ThrottlerStorage, ThrottlerStorageService } from '@nestjs/throttler';
-import request from 'supertest';
+import request, { type Response } from 'supertest';
+import { App } from 'supertest/types';
+import {
+  conferenceDetailResponseSchema,
+  conferenceMinutesResponseSchema,
+  conferenceResponseSchema,
+  storedConferenceMinutesResponseSchema,
+} from '@chatofy/types';
 import {
   ProviderConnectionError,
   ProviderRegistry,
@@ -22,12 +29,13 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { PrismaConferenceMinutesStore } from '../src/modules/conference/stores/prisma-conference-minutes.store';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 import { registerAndLogin, type Identity } from './utils/auth-fixture';
+import { successBody } from './utils/response-body';
 
 /** Namespaced per run so a reused database does not collide with itself. */
 const run = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 
 describe('Conference minutes (db-e2e)', () => {
-  let app: INestApplication;
+  let app: INestApplication<App>;
   let prisma: PrismaService;
   let owner: Identity;
   let guest: Identity;
@@ -93,14 +101,16 @@ describe('Conference minutes (db-e2e)', () => {
       .get(`/conference/${id}/minutes`)
       .set('authorization', guest.bearer)
       .expect(200);
-    expect(empty.body.data.minutes).toBeNull();
+    expect(storedMinutesOf(empty)).toBeNull();
 
     const post = await request(app.getHttpServer())
       .post(`/conference/${id}/minutes`)
       .set('authorization', guest.bearer)
       .send({ language: 'vi' })
       .expect(201);
-    expect(post.body.data.minutes).toMatchObject({
+    expect(
+      successBody(post, conferenceMinutesResponseSchema).data.minutes,
+    ).toMatchObject({
       conferenceId: id,
       status: 'ready',
       summary: 'first',
@@ -110,7 +120,9 @@ describe('Conference minutes (db-e2e)', () => {
       .get(`/conference/${id}/minutes`)
       .set('authorization', owner.bearer)
       .expect(200);
-    expect(get.body.data.minutes).toEqual(post.body.data.minutes);
+    expect(storedMinutesOf(get)).toEqual(
+      successBody(post, conferenceMinutesResponseSchema).data.minutes,
+    );
   });
 
   it('answers exactly 404 to somebody who was not in the room, on both routes', async () => {
@@ -222,7 +234,7 @@ describe('Conference minutes (db-e2e)', () => {
       .get(`/conference/${id}/minutes`)
       .set('authorization', guest.bearer)
       .expect(200);
-    expect(get.body.data.minutes).toMatchObject({
+    expect(storedMinutesOf(get)).toMatchObject({
       status: 'ready',
       summary: 'first',
     });
@@ -244,7 +256,7 @@ describe('Conference minutes (db-e2e)', () => {
       .get(`/conference/${id}/minutes`)
       .set('authorization', owner.bearer)
       .expect(200);
-    expect(get.body.data.minutes).toMatchObject({ status: 'failed' });
+    expect(storedMinutesOf(get)).toMatchObject({ status: 'failed' });
   });
 
   it('never lets a failed record replace a ready copy, even written at the same moment', async () => {
@@ -309,8 +321,9 @@ describe('Conference minutes (db-e2e)', () => {
       .set('authorization', guest.bearer)
       .expect(200);
 
-    expect(detail.body.data.startedAt).toEqual(expect.any(String));
-    expect(detail.body.data.endedAt).toEqual(expect.any(String));
+    const conference = successBody(detail, conferenceDetailResponseSchema).data;
+    expect(conference.startedAt).toEqual(expect.any(String));
+    expect(conference.endedAt).toEqual(expect.any(String));
   });
 
   it('deletes the minutes with their conference', async () => {
@@ -340,7 +353,7 @@ describe('Conference minutes (db-e2e)', () => {
       .set('authorization', owner.bearer)
       .send({})
       .expect(201);
-    const id = created.body.data.id as string;
+    const { id } = successBody(created, conferenceResponseSchema).data;
 
     const speakers = await Promise.all(
       [owner, guest].map((who, i) =>
@@ -389,4 +402,9 @@ function draft(summary: string): MeetingMinutesDraft {
     ],
     model: 'gemini-3.5-flash',
   };
+}
+
+/** What `GET /conference/:id/minutes` answered: the stored copy, or null. */
+function storedMinutesOf(res: Response) {
+  return successBody(res, storedConferenceMinutesResponseSchema).data.minutes;
 }

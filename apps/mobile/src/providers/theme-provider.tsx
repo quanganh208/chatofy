@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, use, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 import { colors, type ColorScheme, type ThemeColors } from '@/ui/theme';
 
@@ -17,11 +17,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const raw = useColorScheme();
   const scheme: ColorScheme = raw === 'dark' ? 'dark' : 'light';
 
-  return (
-    <ThemeContext.Provider value={{ scheme, colors: colors[scheme] }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext value={{ scheme, colors: colors[scheme] }}>{children}</ThemeContext>;
 }
 
 /**
@@ -30,7 +26,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
  * @public
  */
 export function useTheme(): ThemeContextValue {
-  const ctx = useContext(ThemeContext);
+  const ctx = use(ThemeContext);
   if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
   return ctx;
 }

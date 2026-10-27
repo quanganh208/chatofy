@@ -14,10 +14,13 @@
 # Source before install — see apps/api/Dockerfile for the full reasoning. Short
 # version: packages/types and packages/ui run tsup from a `prepare` script during
 # install, so a manifests-only layer fails with "no input files".
-FROM node:24-alpine AS builder
+FROM node:26-alpine AS builder
 WORKDIR /app
 
-RUN corepack enable
+# Node 25 stopped shipping Corepack with the runtime, so it is installed from npm
+# first. Pinned, because this layer is what turns `packageManager` into the pnpm
+# that installs everything after it.
+RUN npm install -g corepack@0.36.0 && corepack enable
 
 ARG NEXT_PUBLIC_API_BASE_URL
 ARG NEXT_PUBLIC_ENV=production
@@ -73,7 +76,7 @@ RUN set -eu; \
     cp -r "$SRC"/. "$DEST"/
 
 # ── Stage 2: runner ───────────────────────────────────────────────────────────
-FROM node:24-alpine AS runner
+FROM node:26-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

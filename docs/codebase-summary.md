@@ -7,11 +7,11 @@ they are Vietnamese and English.
 ## Stack
 
 - **Monorepo:** Turborepo + pnpm workspaces
-- **Mobile:** Expo SDK 55 (React Native) + expo-router — still a scaffold
+- **Mobile:** Expo SDK 58 (React Native) + expo-router — still a scaffold
 - **API:** NestJS 12 + Express + Prisma + WebSocket (`ws`)
 - **Web:** Next.js 16 App Router + Auth.js
 - **Extension:** WXT, Chrome MV3
-- **DB:** Postgres 16 (via Prisma); Redis (node-redis v5) for rotating refresh-token families
+- **DB:** Postgres 16 (via Prisma); Redis (node-redis v6) for rotating refresh-token families
 - **Speech:** two Python sidecars in `services/` (local STT, local TTS), run in Docker
 - **Language:** TypeScript strict + zod runtime validation
 
@@ -58,7 +58,7 @@ All external integrations are hidden behind interfaces so impls can swap without
 | `ConversationStore` (`CONVERSATION_STORE`)              | `apps/api/src/modules/conversations/interfaces/conversation-store.interface.ts`               | `PrismaConversationStore` — the stored transcript; exported so the minutes module can generate from it                                      |
 | `TranslationContextStore` (`TRANSLATION_CONTEXT_STORE`) | `apps/api/src/modules/translation-contexts/interfaces/translation-context-store.interface.ts` | `PrismaTranslationContextStore` — the saved AI Context library; NOT exported, because the client resolves a context into hints itself       |
 | `AuthAdapter` (`AUTH_ADAPTER` symbol)                   | `apps/api/src/modules/auth/interfaces/auth-adapter.interface.ts`                              | `JwtAuthAdapter` — the API signs and verifies its own access tokens                                                                         |
-| `RedisClient` (`REDIS_CLIENT` symbol)                   | `apps/api/src/modules/redis/redis-client.provider.ts`                                         | node-redis v5, non-blocking connect and `disableOfflineQueue` so the API boots without Redis; imported by `AuthModule` alone                |
+| `RedisClient` (`REDIS_CLIENT` symbol)                   | `apps/api/src/modules/redis/redis-client.provider.ts`                                         | node-redis v6, non-blocking connect and `disableOfflineQueue` so the API boots without Redis; imported by `AuthModule` alone                |
 | `UserRepository` (`USER_REPOSITORY`)                    | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`                          | `PrismaUserRepository`                                                                                                                      |
 | `AvatarStorage` / `ConversationAudioStorage`            | `apps/api/src/modules/storage/interfaces/*.interface.ts`                                      | R2 implementations when all `R2_*` keys are set, disabled ones otherwise                                                                    |
 | `StreamSocket`                                          | `apps/api/src/modules/translate/session/stream-socket.ts`                                     | any `ws` connection (structural — the state machine only pushes events); the session service re-exports it for existing importers           |

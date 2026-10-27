@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@11.25.0",
   "engines": {
-    "node": ">=22",
+    "node": ">=26",
     "pnpm": ">=9"
   },
   "scripts": {
@@ -23,13 +23,13 @@
   "devDependencies": {
     "@commitlint/cli": "^21.2.4",
     "@commitlint/config-conventional": "^21.2.4",
-    "@types/node": "^24.19.2",
+    "@types/node": "^26.6.5",
     "cross-env": "^10.1.0",
     "husky": "^9.1.7",
-    "knip": "^6.27.0",
+    "knip": "^6.43.0",
     "lint-staged": "^17.6.0",
     "prettier": "^3.9.10",
     "turbo": "^2.11.10",
-    "typescript": "^5.9.3"
+    "typescript": "npm:@typescript/typescript6@^6.0.2"
   }
 }

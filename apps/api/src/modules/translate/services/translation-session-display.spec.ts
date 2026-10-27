@@ -188,7 +188,7 @@ function makeService(
         _text: string,
         spans: string[],
         _translation: string,
-        han = false,
+        han: boolean = false,
       ) => {
         respellCalls.push(spans);
         respellHan.push(han);

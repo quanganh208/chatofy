@@ -87,17 +87,24 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
   const totalMs =
     conversation?.audioDurationMs ?? (conversation ? activeDurationMs(conversation) : 0);
 
-  useEffect(() => {
-    let cancelled = false;
+  // Reset all three when the id changes, or a second `conversationId` inherits
+  // the first one's verdict: a conversation that loads fine renders as "no longer
+  // here" after one that did not, with the previous conversation's date and counts
+  // in the header, which is now a worse lie than it was before those facts were
+  // shown. No UI links one detail page to another today, so every arrival
+  // remounts and this is unreachable — it is a few lines, and the day a link is
+  // added it is silent. Adjusted during render rather than in the effect, so the
+  // stale verdict is never committed even for a frame.
+  const [shownFor, setShownFor] = useState(conversationId);
+  if (shownFor !== conversationId) {
+    setShownFor(conversationId);
     setLoading(true);
-    // Reset both, or a second `conversationId` inherits the first one's verdict:
-    // a conversation that loads fine renders as "no longer here" after one that
-    // did not, with the previous conversation's date and counts in the header,
-    // which is now a worse lie than it was before those facts were shown. No UI
-    // links one detail page to another today, so every arrival remounts and this
-    // is unreachable — it is one line, and the day a link is added it is silent.
     setMissing(false);
     setConversation(null);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
     getConversation(conversationId)
       .then(({ conversation: loaded }) => {
         if (!cancelled) setConversation(loaded);

@@ -6,7 +6,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { randomUUID } from 'node:crypto';
 import { ProviderRegistry } from '@chatofy/ai-providers';
-import { MINUTES_LIMITS } from '@chatofy/types';
+import { MINUTES_LIMITS, minutesResponseSchema } from '@chatofy/types';
 import type { ConversationTurnWrite } from '../src/modules/conversations/interfaces/conversation-store.interface';
 import { AppModule } from '../src/app.module';
 import { USER_REPOSITORY } from '../src/modules/users/interfaces/user-repository.interface';
@@ -16,6 +16,7 @@ import { InMemoryUserRepository } from './utils/in-memory-user.repository';
 import { InMemoryConversationStore } from './utils/in-memory-conversation.store';
 import { InMemoryMinutesStore } from './utils/in-memory-minutes.store';
 import { registerAndLogin, type Identity } from './utils/auth-fixture';
+import { errorBody, successBody } from './utils/response-body';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -132,22 +133,21 @@ describe('Meeting minutes (e2e)', () => {
       .send({})
       .expect(201);
 
-    expect(post.body.success).toBe(true);
-    expect(post.body.data.minutes).toMatchObject({
+    const posted = successBody(post, minutesResponseSchema);
+    expect(posted.success).toBe(true);
+    expect(posted.data.minutes).toMatchObject({
       conversationId,
       status: 'ready',
       summary: 'They agreed on the release date.',
       model: 'gemini-3.5-flash',
     });
-    expect(post.body.data.minutes.actionItems[0].id).toEqual(
-      expect.any(String),
-    );
+    expect(posted.data.minutes.actionItems[0]!.id).toEqual(expect.any(String));
 
     const get = await request(app.getHttpServer())
       .get(`/conversations/${conversationId}/minutes`)
       .set('authorization', alice.bearer)
       .expect(200);
-    expect(get.body.data.minutes.summary).toBe(
+    expect(successBody(get, minutesResponseSchema).data.minutes.summary).toBe(
       'They agreed on the release date.',
     );
   });
@@ -162,7 +162,7 @@ describe('Meeting minutes (e2e)', () => {
       .send({ turns: [{ speakerLabel: 'Ghost', text: 'not this' }] })
       .expect(201);
 
-    expect(post.body.data.minutes.summary).toBe(
+    expect(successBody(post, minutesResponseSchema).data.minutes.summary).toBe(
       'They agreed on the release date.',
     );
   });
@@ -182,8 +182,9 @@ describe('Meeting minutes (e2e)', () => {
       .get(`/conversations/${empty}/minutes`)
       .set('authorization', alice.bearer)
       .expect(404);
-    expect(res.body.success).toBe(false);
-    expect(res.body.error.code).toBe('NOT_FOUND');
+    const body = errorBody(res);
+    expect(body.success).toBe(false);
+    expect(body.error.code).toBe('NOT_FOUND');
   });
 
   it("does not let another user read the owner's minutes (404, not leak)", async () => {
@@ -221,7 +222,7 @@ describe('Meeting minutes (e2e)', () => {
       .set('authorization', alice.bearer)
       .send({})
       .expect(400);
-    expect(res.body.error.code).toBe('VALIDATION_FAILED');
+    expect(errorBody(res).error.code).toBe('VALIDATION_FAILED');
   });
 });
 

@@ -2,9 +2,11 @@ import type { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import request from 'supertest';
-import { WS_SUBPROTOCOL } from '@chatofy/types';
+import { App } from 'supertest/types';
+import { WS_SUBPROTOCOL, authSessionSchema } from '@chatofy/types';
 import { USER_REPOSITORY } from '../../src/modules/users/interfaces/user-repository.interface';
 import type { UserRepository } from '../../src/modules/users/interfaces/user-repository.interface';
+import { successBody } from './response-body';
 
 export interface Identity {
   userId: string;
@@ -47,7 +49,7 @@ let counter = 0;
  * coverage that auth routes are throttled at all.
  */
 export async function registerAndLogin(
-  app: INestApplication,
+  app: INestApplication<App>,
   overrides: { email?: string; password?: string; name?: string } = {},
 ): Promise<Identity> {
   const email =
@@ -69,7 +71,7 @@ export async function registerAndLogin(
     .send({ email, password })
     .expect(200);
 
-  const accessToken = res.body.data.token.accessToken as string;
+  const { accessToken } = successBody(res, authSessionSchema).data.token;
   return {
     userId: created.id,
     email,

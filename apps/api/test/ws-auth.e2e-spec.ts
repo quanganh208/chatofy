@@ -87,7 +87,7 @@ function attemptUpgrade(
 }
 
 describe('WebSocket upgrade auth (e2e)', () => {
-  let app: INestApplication;
+  let app: INestApplication<http.Server>;
   let port: number;
   let identity: Identity;
   let startTurn: MockInstance;

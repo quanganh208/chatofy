@@ -35,23 +35,23 @@ export function useConferenceEnd(conferenceId: string): UseConferenceEnd {
   const [minutes, setMinutes] = useState<ConferenceMinutes | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generateFailed, setGenerateFailed] = useState(false);
-  const mounted = useRef(true);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    mounted.current = true;
+    mountedRef.current = true;
     Promise.all([getConference(conferenceId), getConferenceMinutes(conferenceId)])
       .then(([detail, stored]) => {
-        if (!mounted.current) return;
+        if (!mountedRef.current) return;
         setConference(detail);
         setMinutes(stored.minutes);
         setLoad('ready');
       })
       .catch((err: unknown) => {
-        if (!mounted.current) return;
+        if (!mountedRef.current) return;
         setLoad(err instanceof ApiClientError && err.status === 404 ? 'not-found' : 'failed');
       });
     return () => {
-      mounted.current = false;
+      mountedRef.current = false;
     };
   }, [conferenceId]);
 
@@ -61,11 +61,11 @@ export function useConferenceEnd(conferenceId: string): UseConferenceEnd {
       setGenerateFailed(false);
       try {
         const { minutes: result } = await generateConferenceMinutes(conferenceId, language);
-        if (mounted.current) setMinutes(result);
+        if (mountedRef.current) setMinutes(result);
       } catch {
-        if (mounted.current) setGenerateFailed(true);
+        if (mountedRef.current) setGenerateFailed(true);
       } finally {
-        if (mounted.current) setGenerating(false);
+        if (mountedRef.current) setGenerating(false);
       }
     },
     [conferenceId],

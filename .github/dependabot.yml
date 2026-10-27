@@ -44,9 +44,7 @@ updates:
       - dependency-name: husky
       - dependency-name: lint-staged
       - dependency-name: '@commitlint/*'
-      # ESLint stack. `eslint` itself is allow-listed but then fully ignored
-      # below — the workspace runs two eslint majors and Dependabot cannot
-      # hold that split. See the ignore block for the manual bump procedure.
+      # ESLint stack. Every workspace, mobile included, runs eslint 10.
       - dependency-name: eslint
       - dependency-name: '@eslint/*'
       - dependency-name: typescript-eslint
@@ -54,6 +52,9 @@ updates:
       - dependency-name: eslint-config-prettier
       - dependency-name: eslint-plugin-prettier
       - dependency-name: eslint-plugin-unused-imports
+      - dependency-name: eslint-plugin-react-hooks
+      - dependency-name: '@eslint-react/*'
+      - dependency-name: eslint-plugin-expo
       - dependency-name: globals
       # UI layer. Shared components live in packages/ui behind a `/react`
       # subpath and are consumed by apps/web and the extension popup. These are
@@ -84,34 +85,15 @@ updates:
       - dependency-name: tsconfig-paths
       - dependency-name: source-map-support
     ignore:
-      # tsup 8.5.1 (rollup-plugin-dts) injects a deprecated `baseUrl` that
-      # TypeScript 6.0 rejects (TS5101), breaking the dts build. Hold TS on
-      # the 5.x line until the build toolchain supports the 6.0 major.
+      # `typescript` is an alias for `@typescript/typescript6`: the JS API that
+      # typescript-eslint, tsup's dts step, nest build and next build load. TS 7.0
+      # ships no JS API, so a major here would remove what those tools import.
+      # The `tsc` binary is TS 7 through the `@typescript/native` alias, bumped by
+      # hand. Lift this once typescript-eslint and tsup accept TS 7's API.
       - dependency-name: typescript
         update-types: ['version-update:semver-major']
-      # eslint is bumped by hand, never by Dependabot.
-      #
-      # This workspace deliberately runs two eslint majors at once: apps/mobile
-      # is stuck on 9.x because eslint-config-expo pulls eslint-plugin-react and
-      # eslint-plugin-import, whose newest published versions (7.37.5 and 2.32.0)
-      # still cap their eslint peer at ^9 — eslint-plugin-react crashes outright
-      # under 10 with `contextOrFilename.getFilename is not a function`. Every
-      # other workspace runs 10.x.
-      #
-      # Dependabot resolves a dependency to ONE version per workspace and cannot
-      # hold that split. An `update-types: [version-update:semver-major]` ignore
-      # here does not preserve it either: the rule is evaluated against the 9.x
-      # instance, caps the unified target at the newest 9.x, and then rewrites
-      # the 10.x manifests DOWN to it. That is a silent major downgrade that CI
-      # cannot catch, because eslint 9 lints these flat configs just fine.
-      #
-      # So ignore eslint outright and bump each line manually:
-      #   pnpm --filter <pkg> up eslint@^10   # api, web, extension, realtime-client
-      #   pnpm --filter mobile up eslint@^9   # until eslint-plugin-react ships 10
-      # Collapse this back to a normal allow entry once mobile can reach 10.
-      - dependency-name: eslint
       # Keep @types/node on the major the code actually runs on. .nvmrc and
-      # CI both pin Node 24 (Active LTS) and engines allows >=22, so types
+      # CI both pin Node 26 (Active LTS) and engines requires >=26, so types
       # from a later major describe APIs that are absent at runtime — tsc
       # accepts them and every gate here stays green. Raise this together
       # with .nvmrc and NODE_VERSION, not ahead of them.

@@ -26,8 +26,9 @@
   },
   "devDependencies": {
     "@chatofy/config": "workspace:*",
-    "tsup": "^8.5.1",
-    "typescript": "^5.9.3",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "tsup": "^9.0.0",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vitest": "^5.0.5"
   }
 }

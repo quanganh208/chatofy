@@ -166,10 +166,13 @@ describe('limitConcurrentAudioUploads', () => {
 
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(429);
+    // `expect.any` is typed `any`; held as `unknown` so the object below is
+    // not built from an untyped value.
+    const anyMessage: unknown = expect.any(String);
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({
         success: false,
-        error: { code: 'RATE_LIMITED', message: expect.any(String) },
+        error: { code: 'RATE_LIMITED', message: anyMessage },
       }),
     );
   });

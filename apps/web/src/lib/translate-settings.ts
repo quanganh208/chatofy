@@ -1,7 +1,7 @@
 /**
  * What the translator remembers between visits.
  *
- * One object, one key, read once after mount. The shape is declared whole here —
+ * One object, one key, read once per mount. The shape is declared whole here —
  * including fields no UI writes yet — so the schema and its spec are written once
  * rather than edited by every phase that adds a control.
  *
@@ -12,9 +12,9 @@
  * exactly that with a stored mode whose control had been removed.
  *
  * Nothing here affects first paint, so unlike the theme (`app/layout.tsx`) this
- * needs no blocking script and must be read after mount. Reading it in a
- * `useState` initializer would render one value on the server and another on the
- * client.
+ * needs no blocking script — but it must not reach the hydrating render, which
+ * would then show one value on the server and another on the client.
+ * `useTranslateSettings` holds it back until hydration is done.
  */
 import { z } from 'zod';
 import {

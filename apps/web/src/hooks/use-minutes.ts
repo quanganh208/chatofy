@@ -76,12 +76,21 @@ export function useMinutes(loadFor?: string): UseMinutes {
     [],
   );
 
-  // The opt-in initial read. Cancelled on unmount and on an id change so a slow
-  // response cannot write the previous conversation's minutes onto a new screen.
+  // The opt-in initial read starts `loading` for each id it is given. Adjusted
+  // during render, as React recommends for state that follows a changed prop: the
+  // starting value is `undefined`, so the first render with an id adjusts too, and
+  // the panel never commits a frame claiming there is nothing to show yet.
+  const [readFor, setReadFor] = useState<string | undefined>(undefined);
+  if (readFor !== loadFor) {
+    setReadFor(loadFor);
+    if (loadFor) setLoading(true);
+  }
+
+  // Cancelled on unmount and on an id change so a slow response cannot write the
+  // previous conversation's minutes onto a new screen.
   useEffect(() => {
     if (!loadFor) return;
     let cancelled = false;
-    setLoading(true);
     getMinutes(loadFor)
       .then(({ minutes: existing }) => {
         if (!cancelled) setMinutes(existing);

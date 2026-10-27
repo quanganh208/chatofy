@@ -12,7 +12,12 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
 import request from 'supertest';
-import { userSchema } from '@chatofy/types';
+import { App } from 'supertest/types';
+import {
+  authMessageSchema,
+  authSessionSchema,
+  userSchema,
+} from '@chatofy/types';
 import * as argon2 from 'argon2';
 import { OAuth2Client } from 'google-auth-library';
 import { AppModule } from '../src/app.module';
@@ -35,6 +40,7 @@ import {
   AUTH_ADAPTER,
   type AuthAdapter,
 } from '../src/modules/auth/interfaces/auth-adapter.interface';
+import { errorBody, successBody } from './utils/response-body';
 
 /**
  * Auth against a REAL Postgres.
@@ -47,7 +53,7 @@ import {
  * service container of its own.
  */
 describe('Auth against Postgres (e2e)', () => {
-  let app: INestApplication;
+  let app: INestApplication<App>;
   let prisma: PrismaService;
   let users: UserRepository;
   let tokens: PurposeTokenService;
@@ -191,7 +197,9 @@ describe('Auth against Postgres (e2e)', () => {
 
     // 202 and no session — registering creates nothing.
     const accepted = await register(email).expect(202);
-    expect(accepted.body.data.token).toBeUndefined();
+    expect(successBody(accepted, authMessageSchema).data).not.toHaveProperty(
+      'token',
+    );
     expect(await prisma.user.findUnique({ where: { email } })).toBeNull();
 
     // The link the API actually mailed — not one minted by the test. This is the
@@ -205,7 +213,9 @@ describe('Auth against Postgres (e2e)', () => {
       .post('/auth/verify-email')
       .send({ token: tokenFromLink(sentMail[0]!.link) })
       .expect(200);
-    expect(verified.body.data.token).toBeUndefined();
+    expect(successBody(verified, authMessageSchema).data).not.toHaveProperty(
+      'token',
+    );
 
     const row = await prisma.user.findUnique({ where: { email } });
     expect(row).not.toBeNull();
@@ -217,11 +227,15 @@ describe('Auth against Postgres (e2e)', () => {
 
     const me = await request(app.getHttpServer())
       .get('/auth/me')
-      .set('authorization', `Bearer ${loggedIn.body.data.token.accessToken}`)
+      .set(
+        'authorization',
+        `Bearer ${successBody(loggedIn, authSessionSchema).data.token.accessToken}`,
+      )
       .expect(200);
 
-    expect(me.body.data.id).toBe(row!.id);
-    expect(me.body.data.email).toBe(email);
+    const user = successBody(me, userSchema).data;
+    expect(user.id).toBe(row!.id);
+    expect(user.email).toBe(email);
   });
 
   it('answers a fresh and an already-registered address identically', async () => {
@@ -234,7 +248,9 @@ describe('Auth against Postgres (e2e)', () => {
     const fresh = await register(freshEmail).expect(202);
     const taken = await register(takenEmail).expect(202);
 
-    expect(taken.body.data).toEqual(fresh.body.data);
+    expect(successBody(taken, authMessageSchema).data).toEqual(
+      successBody(fresh, authMessageSchema).data,
+    );
     expect(
       await prisma.user.findUnique({ where: { email: freshEmail } }),
     ).toBeNull();
@@ -255,8 +271,11 @@ describe('Auth against Postgres (e2e)', () => {
       .send({ token })
       .expect(200);
 
-    expect(second.body.data.message).not.toBe(first.body.data.message);
-    expect(second.body.data.message).toContain('already exists');
+    const secondMessage = successBody(second, authMessageSchema).data.message;
+    expect(secondMessage).not.toBe(
+      successBody(first, authMessageSchema).data.message,
+    );
+    expect(secondMessage).toContain('already exists');
     expect(await prisma.user.count({ where: { email } })).toBe(1);
   });
 
@@ -280,7 +299,9 @@ describe('Auth against Postgres (e2e)', () => {
     // Strict: a plain parse would ignore an extra passwordHash key rather than
     // reject it, which is the whole failure being guarded against.
     expect(() =>
-      userSchema.strict().parse(loggedIn.body.data.user),
+      userSchema
+        .strict()
+        .parse(successBody(loggedIn, authSessionSchema).data.user),
     ).not.toThrow();
     expect(JSON.stringify(loggedIn.body)).not.toContain('$argon2');
   });
@@ -303,12 +324,17 @@ describe('Auth against Postgres (e2e)', () => {
 
     const me = await request(app.getHttpServer())
       .get('/auth/me')
-      .set('authorization', `Bearer ${loggedIn.body.data.token.accessToken}`)
+      .set(
+        'authorization',
+        `Bearer ${successBody(loggedIn, authSessionSchema).data.token.accessToken}`,
+      )
       .expect(200);
 
     // Strict, so an extra key is a failure rather than something the parse
     // quietly drops.
-    expect(() => userSchema.strict().parse(me.body.data)).not.toThrow();
+    expect(() =>
+      userSchema.strict().parse(successBody(me, userSchema).data),
+    ).not.toThrow();
     expect(JSON.stringify(me.body)).not.toContain('passwordChangedAt');
   });
 
@@ -324,7 +350,7 @@ describe('Auth against Postgres (e2e)', () => {
         .post('/auth/login')
         .send({ email, password })
         .expect(200);
-      return res.body.data.token.accessToken as string;
+      return successBody(res, authSessionSchema).data.token.accessToken;
     };
 
     it('refuses a token issued before the password changed', async () => {
@@ -464,7 +490,7 @@ describe('Auth against Postgres (e2e)', () => {
         .post('/auth/login')
         .send({ email, password })
         .expect(200);
-      return res.body.data.token.accessToken as string;
+      return successBody(res, authSessionSchema).data.token.accessToken;
     };
 
     it('answers a known and an unknown address identically', async () => {
@@ -474,7 +500,9 @@ describe('Auth against Postgres (e2e)', () => {
       const withAccount = await forgot(known).expect(202);
       const without = await forgot(emailFor('forgot-unknown')).expect(202);
 
-      expect(without.body.data).toEqual(withAccount.body.data);
+      expect(successBody(without, authMessageSchema).data).toEqual(
+        successBody(withAccount, authMessageSchema).data,
+      );
     });
 
     it('lets Alice@ reset the account stored as alice@', async () => {
@@ -535,8 +563,9 @@ describe('Auth against Postgres (e2e)', () => {
         })
         .expect(200);
 
-      expect(res.body.data.token).toBeUndefined();
-      expect(res.body.data.user).toBeUndefined();
+      const message = successBody(res, authMessageSchema).data;
+      expect(message).not.toHaveProperty('token');
+      expect(message).not.toHaveProperty('user');
     });
 
     it('refuses a reset link that has already been spent', async () => {
@@ -640,7 +669,7 @@ describe('Auth against Postgres (e2e)', () => {
       });
 
       const res = await googleLogin().expect(200);
-      expect(res.body.data.user.email).toBe(email);
+      expect(successBody(res, authSessionSchema).data.user.email).toBe(email);
 
       const row = await prisma.user.findUnique({ where: { email } });
       expect(row?.passwordHash).toBeNull();
@@ -665,7 +694,7 @@ describe('Auth against Postgres (e2e)', () => {
       asGoogle({ sub: `sub-${run}-link`, email, email_verified: true });
       const res = await googleLogin().expect(200);
 
-      expect(res.body.data.user.id).toBe(created.id);
+      expect(successBody(res, authSessionSchema).data.user.id).toBe(created.id);
       expect(await prisma.user.count({ where: { email } })).toBe(1);
     });
 
@@ -700,10 +729,11 @@ describe('Auth against Postgres (e2e)', () => {
       });
       const res = await googleLogin().expect(409);
 
-      expect(res.body.error.code).toBe('CONFLICT');
+      const refused = errorBody(res);
+      expect(refused.error.code).toBe('CONFLICT');
       // No session was issued, and the row was NOT linked — a later Google
       // login must not walk straight in either.
-      expect(res.body.data).toBeUndefined();
+      expect(refused).not.toHaveProperty('data');
       const after = await prisma.user.findUnique({
         where: { email: victimEmail },
       });
@@ -770,15 +800,13 @@ describe('Auth against Postgres (e2e)', () => {
         .send({ email: passwordEmail, password: 'a-real-db-password' })
         .expect(200);
 
-      expect(Object.keys(viaGoogle.body.data).sort()).toEqual(
-        Object.keys(viaPassword.body.data).sort(),
+      const google = successBody(viaGoogle, authSessionSchema).data;
+      const password = successBody(viaPassword, authSessionSchema).data;
+      expect(Object.keys(google).sort()).toEqual(Object.keys(password).sort());
+      expect(Object.keys(google.token).sort()).toEqual(
+        Object.keys(password.token).sort(),
       );
-      expect(Object.keys(viaGoogle.body.data.token).sort()).toEqual(
-        Object.keys(viaPassword.body.data.token).sort(),
-      );
-      expect(() =>
-        userSchema.strict().parse(viaGoogle.body.data.user),
-      ).not.toThrow();
+      expect(() => userSchema.strict().parse(google.user)).not.toThrow();
     });
   });
 
@@ -819,8 +847,13 @@ describe('Auth against Postgres (e2e)', () => {
         .set('authorization', `Bearer ${token}`)
         .expect(200);
 
-      expect(me.body.data).toHaveProperty('avatarUrl', null);
-      expect(() => userSchema.strict().parse(me.body.data)).not.toThrow();
+      expect(successBody(me, userSchema).data).toHaveProperty(
+        'avatarUrl',
+        null,
+      );
+      expect(() =>
+        userSchema.strict().parse(successBody(me, userSchema).data),
+      ).not.toThrow();
     });
 
     it('refuses an unauthenticated upload', async () => {
@@ -841,8 +874,9 @@ describe('Auth against Postgres (e2e)', () => {
         .send({ image: Buffer.from('RIFF\0\0\0\0WEBPx').toString('base64') })
         .expect(409);
 
-      expect(refused.body.error.code).toBe('CONFLICT');
-      expect(refused.body.error.message).toContain('not configured');
+      const { error } = errorBody(refused);
+      expect(error.code).toBe('CONFLICT');
+      expect(error.message).toContain('not configured');
     });
 
     it('answers a removal with an enveloped 409 and leaves the row alone', async () => {
@@ -859,7 +893,7 @@ describe('Auth against Postgres (e2e)', () => {
         .set('authorization', `Bearer ${token}`)
         .expect(409);
 
-      expect(refused.body.error.code).toBe('CONFLICT');
+      expect(errorBody(refused).error.code).toBe('CONFLICT');
       const row = await prisma.user.findUnique({ where: { email } });
       expect(row!.avatarKey).toBe('avatars/seeded/k.webp');
       expect(row!.avatarChangedAt).toBeNull();
@@ -877,7 +911,7 @@ describe('Auth against Postgres (e2e)', () => {
         .send({ image: Buffer.from('<html>hi</html>').toString('base64') })
         .expect(409);
 
-      expect(refused.body.error.message).toContain('not configured');
+      expect(errorBody(refused).error.message).toContain('not configured');
     });
   });
 

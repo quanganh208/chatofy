@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { fetchConversationAudio } from '@/clients/api-client';
 
 export interface UseConversationPlayer {
@@ -71,8 +71,8 @@ export interface UseConversationPlayer {
  *
  * ## Why a fetch carries a generation, not just an abort signal
  *
- * `conversationId` can change under a live hook instance — the reset effect
- * below exists for exactly that, because nothing today guarantees this
+ * `conversationId` can change under a live hook instance — the reset below
+ * exists for exactly that, because nothing today guarantees this
  * component remounts between two detail pages. An in-flight fetch that resolves
  * after the id has moved on must neither attach its bytes under the new id nor
  * report the new id's player as failed. The generation counter is what tells a
@@ -105,16 +105,27 @@ export function useConversationPlayer(
   // Forget everything when the screen is pointed at a different conversation.
   //
   // `conversation-detail.tsx` resets its own state for exactly this reason and
-  // says why — "one line, and the day a link is added it is silent". The player
-  // needs the same line and for a worse failure: `load()` returns early while
-  // `src` is set, so without this, pressing play on conversation B would sound
-  // conversation A's audio under B's transcript.
-  useEffect(() => {
+  // says why — "the day a link is added it is silent". The player needs the same
+  // reset and for a worse failure: `load()` returns early while `src` is set, so
+  // without this, pressing play on conversation B would sound conversation A's
+  // audio under B's transcript. Adjusted during render, as React recommends for
+  // state derived from a prop change, so B never commits holding A's state.
+  const [stateFor, setStateFor] = useState(conversationId);
+  if (stateFor !== conversationId) {
+    setStateFor(conversationId);
     setSrc(null);
     setPlaying(false);
     setLoading(false);
     setFailed(false);
     setPositionMs(0);
+  }
+
+  // The refs half of that reset, which cannot happen during render. A layout
+  // effect rather than a passive one: the state above is already B's when this
+  // commits, so the stale fetch must be superseded in the same commit — a passive
+  // cleanup runs after paint, leaving a window in which A's fetch could settle and
+  // attach its bytes under B.
+  useLayoutEffect(() => {
     pendingSeekRef.current = null;
     return () => {
       // Runs before the next conversation's reset, and on unmount. Either way,
@@ -168,7 +179,7 @@ export function useConversationPlayer(
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
       // A superseded generation's `loading` was already settled — either the
-      // reset effect above cleared it for the new conversation, or a newer load
+      // reset above cleared it for the new conversation, or a newer load
       // is still the one holding it true. Clearing it here for an old, unrelated
       // fetch would flip a spinner off mid-fetch for whatever replaced it.
       if (generation === generationRef.current) setLoading(false);

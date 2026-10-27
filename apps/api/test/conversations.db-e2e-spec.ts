@@ -14,6 +14,7 @@ import { WsAdapter } from '@nestjs/platform-ws';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
+import { App } from 'supertest/types';
 import { randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
 import {
@@ -21,6 +22,9 @@ import {
   HISTORY_LIMITS,
   isAutoDetectConversation,
   speakerRoleFor,
+  conversationListResponseSchema,
+  conversationResponseSchema,
+  conversationSummaryResponseSchema,
   type Conversation,
 } from '@chatofy/types';
 import { AppModule } from '../src/app.module';
@@ -28,6 +32,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 import { registerNarrowBodyLimits } from '../src/common/middleware/narrow-body-limits';
 import { registerAndLogin, type Identity } from './utils/auth-fixture';
+import { errorBody, successBody } from './utils/response-body';
 import {
   CONVERSATION_AUDIO_STORAGE,
   ConversationAudioUnavailableError,
@@ -141,7 +146,7 @@ describe('Conversation history (db-e2e)', () => {
         .set('authorization', alice.bearer)
         .expect(200);
 
-      expect(res.body.data.conversation).toMatchObject({
+      expect(conversationOf(res)).toMatchObject({
         conversationId: id,
         languages: ['vi', 'en'],
         turnCount: 2,
@@ -149,7 +154,7 @@ describe('Conversation history (db-e2e)', () => {
       });
       // Exactly the stored columns come back on every turn: no legacy
       // `targetText` is derived on read.
-      expect(res.body.data.conversation.turns).toEqual([
+      expect(conversationOf(res).turns).toEqual([
         {
           position: 0,
           speakerRole: 'speaker_a',
@@ -196,7 +201,7 @@ describe('Conversation history (db-e2e)', () => {
     // Identical apart from the envelope meta (a fresh requestId and timestamp
     // per request) and the id each message echoes back. Anything else that
     // differed would say whether the conversation exists.
-    expect(comparableError(foreign.body)).toEqual(comparableError(absent.body));
+    expect(comparableError(foreign)).toEqual(comparableError(absent));
   });
 
   it('a re-save replaces the stored turns rather than appending them', async () => {
@@ -213,9 +218,9 @@ describe('Conversation history (db-e2e)', () => {
       .expect(200);
 
     // A merge bug would show three turns, or the old label on the first.
-    expect(res.body.data.conversation.turns).toHaveLength(1);
-    expect(res.body.data.conversation.turns[0].speakerLabel).toBe('Renamed');
-    expect(res.body.data.conversation.turnCount).toBe(1);
+    expect(conversationOf(res).turns).toHaveLength(1);
+    expect(conversationOf(res).turns[0]!.speakerLabel).toBe('Renamed');
+    expect(conversationOf(res).turnCount).toBe(1);
   });
 
   it('two overlapping CREATES of one conversation both resolve without a unique violation', async () => {
@@ -236,7 +241,7 @@ describe('Conversation history (db-e2e)', () => {
       .get(`/conversations/${id}`)
       .set('authorization', alice.bearer)
       .expect(200);
-    expect(res.body.data.conversation.turns).toHaveLength(2);
+    expect(conversationOf(res).turns).toHaveLength(2);
   });
 
   it('two overlapping REPLACES of one conversation store one of them whole', async () => {
@@ -357,7 +362,7 @@ describe('Conversation history (db-e2e)', () => {
       .get(`/conversations/${id}`)
       .set('authorization', alice.bearer)
       .expect(200);
-    expect(still.body.data.conversation.turns).toHaveLength(2);
+    expect(conversationOf(still).turns).toHaveLength(2);
   });
 
   it('refuses a save over HISTORY_LIMITS.MAX_TOTAL_CHARS with 400', async () => {
@@ -522,9 +527,7 @@ describe('Conversation history (db-e2e)', () => {
         .send(webmBytes)
         .expect(404);
 
-      expect(comparableError(foreign.body)).toEqual(
-        comparableError(absent.body),
-      );
+      expect(comparableError(foreign)).toEqual(comparableError(absent));
     });
 
     it('refuses a body over MAX_CONVERSATION_AUDIO_BYTES with 413 before the route runs', async () => {
@@ -809,7 +812,7 @@ describe('Conversation history (db-e2e)', () => {
         .set('authorization', alice.bearer)
         .expect(200);
 
-      expect(res.body.data.conversation.audioOffsetMs).toBe(2750);
+      expect(conversationOf(res).audioOffsetMs).toBe(2750);
     });
 
     it('GET /conversations/:id reports hasRecording, audioOffsetMs and audioDurationMs', async () => {
@@ -820,7 +823,7 @@ describe('Conversation history (db-e2e)', () => {
         .get(`/conversations/${id}`)
         .set('authorization', alice.bearer)
         .expect(200);
-      expect(before.body.data.conversation).toMatchObject({
+      expect(conversationOf(before)).toMatchObject({
         hasRecording: false,
         audioOffsetMs: null,
         audioDurationMs: null,
@@ -837,7 +840,7 @@ describe('Conversation history (db-e2e)', () => {
         .get(`/conversations/${id}`)
         .set('authorization', alice.bearer)
         .expect(200);
-      expect(after.body.data.conversation).toMatchObject({
+      expect(conversationOf(after)).toMatchObject({
         hasRecording: true,
         audioOffsetMs: 1400,
         audioDurationMs: 60000,
@@ -866,12 +869,12 @@ describe('Conversation history (db-e2e)', () => {
         .get(`/conversations/${id}`)
         .set('authorization', alice.bearer)
         .expect(200);
-      expect(res.body.data.conversation).toMatchObject({
+      expect(conversationOf(res)).toMatchObject({
         hasRecording: true,
         audioOffsetMs: 1400,
         audioDurationMs: 60000,
       });
-      expect(res.body.data.conversation.turns[0].speakerLabel).toBe('Renamed');
+      expect(conversationOf(res).turns[0]!.speakerLabel).toBe('Renamed');
 
       await request(app.getHttpServer())
         .get(`/conversations/${id}/audio`)
@@ -894,7 +897,7 @@ describe('Conversation history (db-e2e)', () => {
         .set('authorization', alice.bearer)
         .expect(200);
 
-      expect(res.body.data.conversation).toMatchObject({
+      expect(conversationOf(res)).toMatchObject({
         audioOffsetMs: 1400,
         // Still nothing to play: the origin says where the recording BEGAN, and
         // only a stored object makes a player appear.
@@ -922,7 +925,7 @@ describe('Conversation history (db-e2e)', () => {
         .set('authorization', alice.bearer)
         .expect(200);
 
-      expect(res.body.data.conversation.audioOffsetMs).toBe(1400);
+      expect(conversationOf(res).audioOffsetMs).toBe(1400);
     });
 
     it('two overlapping first uploads settle on one key, leaving nothing stranded', async () => {
@@ -1038,19 +1041,22 @@ describe('Conversation history (db-e2e)', () => {
 
   describe('paused time', () => {
     const read = async (id: string) =>
-      (
+      conversationOf(
         await request(app.getHttpServer())
           .get(`/conversations/${id}`)
           .set('authorization', alice.bearer)
-          .expect(200)
-      ).body.data.conversation as Conversation;
+          .expect(200),
+      );
 
     it('round trips pausedMs through the save, the detail and the list', async () => {
       const id = randomUUID();
       const paused = body();
       paused.pausedMs = 15_000;
       const saved = await put(id, alice, paused).expect(200);
-      expect(saved.body.data.conversation.pausedMs).toBe(15_000);
+      expect(
+        successBody(saved, conversationSummaryResponseSchema).data.conversation
+          .pausedMs,
+      ).toBe(15_000);
 
       expect((await read(id)).pausedMs).toBe(15_000);
 
@@ -1059,7 +1065,7 @@ describe('Conversation history (db-e2e)', () => {
         .set('authorization', alice.bearer)
         .expect(200);
       const card = (
-        list.body.data.conversations as {
+        pageOf(list).conversations as {
           conversationId: string;
           pausedMs: number;
         }[]
@@ -1115,8 +1121,8 @@ describe('Conversation history (db-e2e)', () => {
       .get(`/conversations?limit=${HISTORY_LIMITS.MAX_PAGE_SIZE}`)
       .set('authorization', alice.bearer)
       .expect(200);
-    expect(Array.isArray(ok.body.data.conversations)).toBe(true);
-    expect(ok.body.data).toHaveProperty('nextCursor');
+    expect(Array.isArray(pageOf(ok).conversations)).toBe(true);
+    expect(pageOf(ok)).toHaveProperty('nextCursor');
   });
 
   it('lists the caller conversations newest first and pages by cursor', async () => {
@@ -1131,22 +1137,22 @@ describe('Conversation history (db-e2e)', () => {
       .set('authorization', carol.bearer)
       .expect(200);
     expect(
-      first.body.data.conversations.map(
+      pageOf(first).conversations.map(
         (c: { conversationId: string }) => c.conversationId,
       ),
     ).toEqual([ids[2], ids[1]]);
-    expect(first.body.data.nextCursor).not.toBeNull();
+    expect(pageOf(first).nextCursor).not.toBeNull();
 
     const next = await request(app.getHttpServer())
-      .get(`/conversations?limit=2&cursor=${first.body.data.nextCursor}`)
+      .get(`/conversations?limit=2&cursor=${pageOf(first).nextCursor}`)
       .set('authorization', carol.bearer)
       .expect(200);
     expect(
-      next.body.data.conversations.map(
+      pageOf(next).conversations.map(
         (c: { conversationId: string }) => c.conversationId,
       ),
     ).toEqual([ids[0]]);
-    expect(next.body.data.nextCursor).toBeNull();
+    expect(pageOf(next).nextCursor).toBeNull();
 
     // Carol's rows are not in Alice's list, and vice versa.
     const alicesList = await request(app.getHttpServer())
@@ -1154,7 +1160,7 @@ describe('Conversation history (db-e2e)', () => {
       .set('authorization', alice.bearer)
       .expect(200);
     expect(
-      alicesList.body.data.conversations.map(
+      pageOf(alicesList).conversations.map(
         (c: { conversationId: string }) => c.conversationId,
       ),
     ).not.toContain(ids[0]);
@@ -1221,7 +1227,7 @@ describe('Conversation history (db-e2e)', () => {
         .get(`/conversations/${id}`)
         .set('authorization', alice.bearer)
         .expect(200);
-      expect(res.body.data.conversation.turns[0]).toMatchObject({
+      expect(conversationOf(res).turns[0]).toMatchObject({
         sourceLanguages: ['vi', 'en'],
         translations: { vi: 'quả chuối vàng', en: 'yellow banana fruit' },
       });
@@ -1231,7 +1237,7 @@ describe('Conversation history (db-e2e)', () => {
         .set('authorization', alice.bearer)
         .expect(200);
       expect(
-        foundByEn.body.data.conversations.map(
+        pageOf(foundByEn).conversations.map(
           (c: { conversationId: string }) => c.conversationId,
         ),
       ).toContain(id);
@@ -1241,7 +1247,7 @@ describe('Conversation history (db-e2e)', () => {
         .set('authorization', alice.bearer)
         .expect(200);
       expect(
-        foundByVi.body.data.conversations.map(
+        pageOf(foundByVi).conversations.map(
           (c: { conversationId: string }) => c.conversationId,
         ),
       ).toContain(id);
@@ -1286,7 +1292,7 @@ describe('Conversation history (db-e2e)', () => {
         .get(`/conversations/${id}`)
         .set('authorization', alice.bearer)
         .expect(200);
-      const conversation = res.body.data.conversation as Conversation;
+      const conversation = conversationOf(res);
       expect(conversation.languages).toEqual(['en', 'vi', 'zh']);
       expect(isAutoDetectConversation(conversation.languages)).toBe(true);
       expect(
@@ -1393,7 +1399,7 @@ describe('Conversation history (db-e2e)', () => {
         .set('authorization', who.bearer);
 
     const ids = (res: request.Response): string[] =>
-      res.body.data.conversations.map(
+      pageOf(res).conversations.map(
         (c: { conversationId: string }) => c.conversationId,
       );
 
@@ -1487,7 +1493,7 @@ describe('Conversation history (db-e2e)', () => {
     it('returns an empty list rather than a 404 when nothing matches', async () => {
       const res = await search('nothing here matches this', alice).expect(200);
       expect(ids(res)).toEqual([]);
-      expect(res.body.data.nextCursor).toBeNull();
+      expect(pageOf(res).nextCursor).toBeNull();
     });
   });
 
@@ -1502,7 +1508,7 @@ describe('Conversation history (db-e2e)', () => {
       .send(payload);
   }
 
-  async function bootSecondApp(): Promise<INestApplication> {
+  async function bootSecondApp(): Promise<INestApplication<App>> {
     const fixture = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -1544,11 +1550,19 @@ function body(): SaveConversationBody {
   };
 }
 
+/** The conversation, turns included, that `GET /conversations/:id` answered with. */
+function conversationOf(res: request.Response) {
+  return successBody(res, conversationResponseSchema).data.conversation;
+}
+
+/** One page of `GET /conversations`. */
+function pageOf(res: request.Response) {
+  return successBody(res, conversationListResponseSchema).data;
+}
+
 /** An error body with the per-request meta and the echoed id normalized away. */
-function comparableError(envelope: {
-  success: boolean;
-  error: { code: string; message: string };
-}): unknown {
+function comparableError(res: request.Response): unknown {
+  const envelope = errorBody(res);
   return {
     success: envelope.success,
     error: {

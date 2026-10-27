@@ -25,14 +25,15 @@
   },
   "dependencies": {
     "@chatofy/types": "workspace:*",
-    "@google/genai": "^2.16.0",
+    "@google/genai": "^2.31.0",
     "opencc-js": "1.4.2"
   },
   "devDependencies": {
     "@chatofy/config": "workspace:*",
-    "@types/node": "^24.19.2",
-    "tsup": "^8.5.1",
-    "typescript": "^5.9.3",
+    "@types/node": "^26.6.5",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "tsup": "^9.0.0",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vitest": "^5.0.5"
   }
 }

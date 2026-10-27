@@ -4,7 +4,7 @@ import {
   Logger,
   type OnModuleDestroy,
 } from '@nestjs/common';
-import { createClient } from 'redis';
+import { createClient, type RedisClientType } from 'redis';
 
 /**
  * The injection token every Redis consumer asks for. A token rather than the
@@ -14,7 +14,7 @@ import { createClient } from 'redis';
 export const REDIS_CLIENT = Symbol('REDIS_CLIENT');
 
 /** The shape `REDIS_CLIENT` resolves to. */
-export type RedisClient = ReturnType<typeof createClient>;
+export type RedisClient = RedisClientType;
 
 /**
  * Builds the client and starts connecting WITHOUT blocking the boot.

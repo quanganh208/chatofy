@@ -59,8 +59,11 @@ export interface RecalledUtterance {
   readonly language?: LanguageCode;
 }
 
+/** Somebody waiting on a turn's text. */
+type Waiter = (text: string | undefined) => void;
+
 /** A turn somebody is waiting on, and who. */
-type Waiters = Map<string, Array<(text: string | undefined) => void>>;
+type Waiters = Map<string, Waiter[]>;
 
 export class ConversationContext {
   private readonly recent = new WeakMap<StreamSocket, Utterance[]>();
@@ -237,7 +240,7 @@ export class ConversationContext {
     const settled = this.settledText(socket, sessionId);
     if (settled !== null) return Promise.resolve(settled.text);
     return new Promise((resolve) => {
-      const waiters = this.waiters.get(socket) ?? new Map();
+      const waiters = this.waiters.get(socket) ?? new Map<string, Waiter[]>();
       this.waiters.set(socket, waiters);
       const list = waiters.get(sessionId) ?? [];
       waiters.set(sessionId, list);

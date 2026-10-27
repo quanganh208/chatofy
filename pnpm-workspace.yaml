@@ -8,7 +8,7 @@ packages:
 # breaking every suite with `clearMocksOnScope is not a function`.
 #
 # Pin @types/node to the major the code actually runs on. .nvmrc and CI both
-# pin Node 24, but only api, web and ai-providers declare @types/node — vitest,
+# pin Node 26, but only api, web and ai-providers declare @types/node — vitest,
 # vite and @commitlint/cli take it as an optional peer, so root, ui and
 # api-client would silently resolve a later major and typecheck against APIs
 # absent at runtime. One version everywhere keeps that from drifting back.
@@ -28,7 +28,14 @@ overrides:
   jest-environment-node: ^30
   '@jest/environment': ^30
   '@jest/fake-timers': ^30
-  '@types/node': ^24
+  '@types/node': ^26
+  # React Native 0.88's renderer is built against react 19.3.0 exactly and
+  # refuses any other version at runtime, so mobile cannot move past it. Web,
+  # ui and the extension sit on the same release so the workspace holds one
+  # react, which is what expo-doctor's duplicate check asks for. Raise all of
+  # them together with the Expo SDK that ships the next renderer.
+  react: 19.3.0
+  react-dom: 19.3.0
   # GHSA-c83g-rgw3-j3cx, GHSA-73wf-gq98-2v4g — high, <=4.28.6. Build-time only.
   browserslist: '>=4.28.8'
   # GHSA-587h-7wmj-h5pm — high, >=8.0.0 <=8.1.5: launch-editor's existence check
@@ -47,8 +54,10 @@ overrides:
   # GHSA-qw65-cvwx-89v3, GHSA-58mr-gqgx-xq4g — high, <3.1.7: authority injection
   # via an unvalidated port, and host confusion via an unclosed bracket. Capped
   # below 4: every consumer is ajv, which asks for ^3, and an open floor would
-  # hand it the 4.x line.
-  fast-uri: '>=3.1.7 <4'
+  # hand it the 4.x line. GHSA-w74x-v6f9-j3xg, GHSA-wjr9-j795-jxcr (moderate) and
+  # GHSA-xhq7-xmqj-769h, GHSA-333x-w4r6-6crp (low), <3.1.9 — more scheme and host
+  # confusion — moved it to 3.1.9.
+  fast-uri: '>=3.1.9 <4'
   # GHSA-w2rr-34g9-rvrj and seven siblings — high, <=0.8.14: prototype pollution
   # and several parser confusions. Transitive only, under the Expo and Prisma
   # trees; nothing here imports an XML parser directly.
@@ -98,12 +107,9 @@ overrides:
   # GHSA-6g55-p6wh-862q, GHSA-r28c-9q8g-f849 — high, <=8.5.17. @expo/metro-config
   # pins ~8.4.32; a minor bump inside postcss 8 is the only way past it.
   postcss: '>=8.5.18 <9'
-  # GHSA-5p2g-fcmc-qvqq, GHSA-w3rx-r6r6-pgpr — high, <=2.0.2, and no 1.x patch
-  # exists. The only consumer is metro, whose ^1.0.2 range this overrides across
-  # a major: 2.x reads buffers only, so `patches/metro@0.83.6.patch` makes metro
-  # read the asset before measuring it. Drop both once Expo ships a metro that
-  # no longer depends on image-size.
-  image-size: '>=2.0.3 <3'
+  # Deprecated as CWE-502 (unsafe deserialization) below 1.3.1. Reached only
+  # through the Expo tree, which asks for ^1.3.0, so the patch sits inside it.
+  '@ungap/structured-clone': '>=1.3.1 <2'
   # GHSA-ggr8-5vv4-36mx — high, <8.0.0. @prisma/config pins 7.1.5 exactly and
   # only calls `deepmerge`, whose signature 8.x keeps.
   deepmerge-ts: '>=8.0.0 <9'
@@ -137,13 +143,7 @@ allowBuilds:
   '@parcel/watcher': false
   '@scarf/scarf': false
   protobufjs: false
-minimumReleaseAgeExclude:
-  - playwright-core@1.62.1
-  - playwright@1.62.1
-  - '@google/genai@2.16.0'
-  - '@vitejs/plugin-react@6.1.0'
 patchedDependencies:
-  metro@0.83.6: patches/metro@0.83.6.patch
   # The Android recorder opens Oboe with no input preset, so it captures through
   # VOICE_RECOGNITION with no echo canceller. A meeting phone on its loudspeaker
   # then transcribed the remote peer's voice as its own turns. The patch sets the
@@ -168,16 +168,15 @@ auditConfig:
     # GHSA-86w9-cpqp-85rv — node-forge <=1.4.0, and 1.4.0 is the newest release.
     # Reached only by apps/mobile, through @expo/cli and its
     # code-signing-certificates; the api, web and extension runtimes never load
-    # it, and neither does any other workspace package. Clears when Expo ships a
-    # CLI on a patched node-forge.
+    # it, and neither does any other workspace package. node-forge 1.4.1
+    # (2026-10-27) fixes it; swap this entry for a `node-forge: '>=1.4.1 <2'`
+    # floor once that release clears the one-day minimumReleaseAge gate.
     - GHSA-86w9-cpqp-85rv
     # GHSA-vfj7-8cjw-p6xm — braces <=3.0.3, and 3.0.3 is the newest release.
     # Stack exhaustion from a deeply nested pattern. One direct parent,
-    # micromatch@4.0.8, reached from two workspace packages: apps/mobile via
-    # metro-file-map and babel-jest, and packages/config via
-    # eslint-config-next's fast-glob. Both routes are build- and lint-time over
-    # this repo's own file tree, never over anything a user sends. Clears when
-    # micromatch moves to a patched braces.
+    # micromatch@4.0.8, reached only from apps/mobile through metro-file-map:
+    # bundle-time globbing over this repo's own file tree, never over anything a
+    # user sends. Clears when micromatch moves to a patched braces.
     - GHSA-vfj7-8cjw-p6xm
     # GHSA-mrhx-c7xc-m3w5 — zod <4.6.6: memory exhaustion validating a large
     # array against an unbounded array schema. Every workspace package already

@@ -601,9 +601,10 @@ describe('TranslationSessionService', () => {
       service.pushFrame(socket, frame({ sessionId }));
       await service.end(socket);
 
-      expect(
-        transcribeAndTranslate.mock.calls[0]?.[0].scriptRetry?.allow,
-      ).toBeTypeOf('function');
+      const [input] = transcribeAndTranslate.mock.calls[0] as [
+        TranslateTurnInput,
+      ];
+      expect(input.scriptRetry).toHaveProperty('allow', expect.any(Function));
     });
 
     it('discards speculated work when the speaker carried on', async () => {
@@ -3941,11 +3942,14 @@ describe('splitting a turn where the voice changes', () => {
     // The live preview's re-read asks for none; the whole turn's final and
     // each piece's do.
     expect(asked).toEqual([undefined, true, true, true]);
+    const corrected = correctTranscript.mock.calls as [
+      string,
+      string,
+      string[],
+      string[] | undefined,
+    ][];
     expect(
-      correctTranscript.mock.calls.map(([text, , , alternates]) => [
-        text,
-        alternates,
-      ]),
+      corrected.map(([text, , , alternates]) => [text, alternates]),
     ).toEqual([
       ['first voice', ['first choice']],
       ['second voice', ['second choice']],

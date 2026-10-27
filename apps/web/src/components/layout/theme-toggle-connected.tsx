@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { ThemeToggle, type ThemeChoice } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 import { applyChoice, readChoice, writeChoice } from '@/lib/theme';
@@ -16,18 +16,24 @@ import { applyChoice, readChoice, writeChoice } from '@/lib/theme';
  *
  * The `undefined` start is the part worth keeping. Server and client both render
  * with no selection marked, so the first paint agrees; the stored choice arrives
- * in the effect below. The blocking script in `app/layout.tsx` has already put
+ * the render after hydration, through `useSyncExternalStore`'s server snapshot.
+ * Nothing but this control writes the choice, so the store never notifies, and a
+ * pick made here is held in state over it. The blocking script in `app/layout.tsx` has already put
  * the class on the document by then, so nothing visibly changes — what would be
  * visible is the alternative, a frame showing `system` selected to someone who
  * chose otherwise.
  */
-export function ConnectedThemeToggle({ className }: { className?: string }) {
-  const [choice, setChoice] = useState<ThemeChoice | undefined>(undefined);
-  const t = useTranslate();
+const subscribeNever = () => () => {};
 
-  useEffect(() => {
-    setChoice(readChoice());
-  }, []);
+export function ConnectedThemeToggle({ className }: { className?: string }) {
+  const stored = useSyncExternalStore<ThemeChoice | undefined>(
+    subscribeNever,
+    readChoice,
+    () => undefined,
+  );
+  const [picked, setPicked] = useState<ThemeChoice | undefined>(undefined);
+  const choice = picked ?? stored;
+  const t = useTranslate();
 
   return (
     <ThemeToggle
@@ -43,7 +49,7 @@ export function ConnectedThemeToggle({ className }: { className?: string }) {
         group: t('common.theme.label'),
       }}
       onChange={(next) => {
-        setChoice(next);
+        setPicked(next);
         writeChoice(next);
         applyChoice(next);
       }}

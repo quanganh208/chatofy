@@ -4,6 +4,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { HealthModule } from '../src/modules/health/health.module';
+import { HealthDto } from '../src/modules/health/dto/health.dto';
+import { readBody } from './utils/response-body';
 
 /**
  * Minimal e2e smoke test for the health endpoint. No PrismaModule import and no
@@ -28,7 +30,8 @@ describe('HealthController (e2e)', () => {
 
   it('GET /health returns 200 with status ok', async () => {
     const res = await request(app.getHttpServer()).get('/health').expect(200);
-    expect(res.body.status).toBe('ok');
-    expect(res.body.time).toBeDefined();
+    const body = readBody(res, HealthDto.schema);
+    expect(body.status).toBe('ok');
+    expect(body.time).toBeDefined();
   });
 });

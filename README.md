@@ -421,8 +421,9 @@ utterance instead of ~0.1s. Measurement details:
 
 ## Requirements
 
-- Node >= 22 (`.nvmrc` pins 24; run `nvm use`)
-- pnpm 11 via Corepack (`corepack enable` — version pinned by `packageManager`)
+- Node >= 26 (`.nvmrc` pins 26; run `nvm use`)
+- pnpm 11 via Corepack, which Node 26 no longer bundles: `npm install -g corepack`,
+  then `corepack enable` (the version is pinned by `packageManager`)
 - Docker with Compose v2, for Postgres, Redis and the two speech sidecars
 
 Ports 5432, 6379, 8002 and 8003 have to be free: the compose file binds them, so a

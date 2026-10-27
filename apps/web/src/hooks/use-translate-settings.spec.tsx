@@ -61,14 +61,15 @@ afterEach(() => {
 });
 
 describe('useTranslateSettings', () => {
-  it('reads stored settings after mount rather than during render', () => {
+  it('reports stored settings once ready', () => {
     localStorage.setItem(
       TRANSLATE_SETTINGS_STORAGE_KEY,
       JSON.stringify({ ...DEFAULT_TRANSLATE_SETTINGS, volume: 0.25 }),
     );
     mount();
-    // Reading in a useState initializer would render one value on the server and
-    // another on the client; the effect is what keeps them the same.
+    // A non-hydrating mount has no server output to agree with, so it is ready on
+    // its first render. Hydration holds the stored value back until the render
+    // after, which is what keeps server and client output the same.
     expect(latest.ready).toBe(true);
     expect(latest.settings.volume).toBe(0.25);
   });
@@ -97,9 +98,9 @@ describe('useTranslateSettings', () => {
   });
 
   it('writes what the ref holds, not what the timer captured', () => {
-    // The failure this guards: a child effect calls `set` before the parent's load
-    // effect has installed the stored settings. A timer holding a captured value
-    // would then overwrite the real ones 200ms later, and it would survive a reload.
+    // The failure this guards: a patch persisted over defaults rather than over
+    // what was stored would overwrite the real settings 200ms later, and it would
+    // survive a reload.
     localStorage.setItem(
       TRANSLATE_SETTINGS_STORAGE_KEY,
       JSON.stringify({ ...DEFAULT_TRANSLATE_SETTINGS, voiceGender: 'male', volume: 0.3 }),

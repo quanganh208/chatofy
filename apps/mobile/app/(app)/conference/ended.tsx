@@ -213,12 +213,19 @@ function MinutesContent({ minutes }: { minutes: ConferenceMinutes }) {
   const heading = (key: MessageKey) => (
     <Text style={[styles.sectionHeading, { color: colors.textSecondary }]}>{t(key)}</Text>
   );
-  const bullets = (items: string[]) =>
-    items.map((item, i) => (
-      <Text key={i} style={[styles.bullet, { color: colors.text }]}>
-        • {item}
-      </Text>
-    ));
+  // Keyed by text plus its occurrence, so two identical bullets stay distinct.
+  const bullets = (items: string[]) => {
+    const seen = new Map<string, number>();
+    return items.map((item) => {
+      const occurrence = (seen.get(item) ?? 0) + 1;
+      seen.set(item, occurrence);
+      return (
+        <Text key={`${occurrence}:${item}`} style={[styles.bullet, { color: colors.text }]}>
+          • {item}
+        </Text>
+      );
+    });
+  };
 
   return (
     <View style={styles.sections}>

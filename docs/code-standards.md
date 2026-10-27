@@ -5,7 +5,7 @@ rule that lives only in prose drifts; if you add one, add the check with it.
 
 ## Toolchain
 
-- **Node 24** (`.nvmrc`; CI pins the same), **pnpm 11** via Corepack (`packageManager`
+- **Node 26** (`.nvmrc`; CI and the Docker images pin the same), **pnpm 11** via Corepack (`packageManager`
   in the root `package.json`), Turborepo for every cross-workspace task (`turbo.json`).
 - Workspaces: `apps/*` and `packages/*` (`pnpm-workspace.yaml`). The Python sidecars in
   `services/` and the harnesses in `benchmarks/` are standalone `uv` projects, outside
@@ -30,19 +30,29 @@ not a review topic.
 - `strict`, plus `noUncheckedIndexedAccess` — an indexed read is `T | undefined`.
 - `verbatimModuleSyntax` with `NodeNext` resolution — type-only imports must say so.
 - `pnpm typecheck` runs `tsc --noEmit` (or `tsc -b --noEmit`) in every workspace.
+- Two compilers sit side by side, per Microsoft's TypeScript 7 layout. The `tsc` binary
+  is TypeScript 7 (Go), installed as `"@typescript/native": "npm:typescript@^7"`. The
+  `typescript` package resolves to `@typescript/typescript6`, because 7.0 ships no JS
+  API and everything that imports `typescript` needs one: typescript-eslint (`<6.1.0`),
+  tsup's `.d.ts` build, `nest build` and `next build`. Bump both entries together, and
+  move the API side to 7 once 7.1 ships its API and those tools support it.
+  `apps/mobile` lists `typescript` under `expo.install.exclude`, because
+  `expo install --fix` would otherwise overwrite the alias.
 
 ## Linting
 
-Flat ESLint presets in `packages/config/eslint/`: `base.cjs`, extended by `nestjs.cjs`,
-`nextjs.cjs` and `react-native.cjs`.
+Each workspace that lints owns a flat `eslint.config.mjs` (ESLint 10); there is no
+shared preset package. Two shapes:
 
-| Rule                                         | Level | Note                                    |
-| -------------------------------------------- | ----- | --------------------------------------- |
-| `@typescript-eslint/consistent-type-imports` | error | inline `type` imports                   |
-| `unused-imports/no-unused-imports`           | error | auto-fixed by `--fix`                   |
-| `unused-imports/no-unused-vars`              | warn  | prefix with `_` to mark intentional     |
-| `@typescript-eslint/no-explicit-any`         | warn  |                                         |
-| `no-console`                                 | warn  | `off` in the NestJS preset (server log) |
+- **api, web, extension, realtime-client** — `@eslint/js` recommended,
+  typescript-eslint `recommendedTypeChecked`, and `eslint-plugin-prettier`. The
+  `no-unsafe-*` family is `warn` rather than `error`, and web adds
+  `eslint-plugin-react-hooks`.
+- **mobile** — `@eslint/js` and typescript-eslint `recommended` (untyped), React's
+  component rules from `@eslint-react`, hooks from `eslint-plugin-react-hooks`, and
+  Expo's own rules from `eslint-plugin-expo`. It replaces `eslint-config-expo`, whose
+  eslint-plugin-react and eslint-plugin-import do not run on ESLint 10; the file
+  header says what was kept.
 
 Mobile lints through `expo lint`. `pnpm knip` (`knip.json`) reports unused files,
 exports and dependencies; its per-workspace entries explain the non-obvious ones (WXT

@@ -12,13 +12,13 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import { createTranslator, en, type MessageKey } from '@chatofy/i18n';
