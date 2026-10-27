@@ -54,7 +54,7 @@ export class NativeTranslationAudioSink {
    * Decode and schedule a base64 PCM16-LE TTS frame for ordered playback.
    *
    * @param speakerSocketId - Identifies which speaker's stream this frame belongs to.
-   * @param sequence        - The speaker's live-session frame counter.
+   * @param sequence        - The speaker's leg frame counter for this listener's language.
    * @param sampleRate      - PCM sample rate of this frame (TTS, typically 24000).
    * @param payloadB64      - Base64-encoded little-endian PCM16 samples.
    */
@@ -69,6 +69,20 @@ export class NativeTranslationAudioSink {
       return;
     }
     this.resequencer.push(speakerSocketId, sequence, { samples, sampleRate });
+  }
+
+  /**
+   * Whether any peer's translation is sounding on this device right now.
+   *
+   * The speaker leg's microphone hears this playback through the loudspeaker,
+   * and at a loud volume the echo canceller lets it through; this is what keeps
+   * that playback from opening a turn of its own.
+   */
+  isAnySounding(): boolean {
+    for (const output of this.outputs.values()) {
+      if (output.queue.isPlaying) return true;
+    }
+    return false;
   }
 
   /** Stop and release one speaker's playback (they left the room). */

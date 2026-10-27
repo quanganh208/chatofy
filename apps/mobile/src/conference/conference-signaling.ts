@@ -44,7 +44,6 @@ export {
   replyErrorCode,
   request,
   send,
-  type SignalMessage,
 } from './conference-request';
 
 /** Both SFU connections bundle every m-line onto one transport, as Cloudflare's examples do. */

@@ -9,7 +9,7 @@
  * it: request/reply signaling and the SFU publish/subscribe steps
  * (conference-signaling.ts), the room-event listener (conference-room-events.ts),
  * the peer map updates (conference-peer-state.ts), the ending rules
- * (conference-call-outcome.ts), the translate bridge and the TTS sink.
+ * (conference-call-outcome.ts), the speaker's translation leg and the TTS sink.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -23,9 +23,15 @@ import {
 import type { ConferenceChatMessage, ConferenceIceServer } from '@chatofy/types/events';
 import type { LanguageCode } from '@chatofy/types/domain';
 import { NativeTranslationAudioSink } from './native-audio-playback';
+import type { ConferenceCascadeLeg } from '@chatofy/realtime-client';
+import {
+  createNativeConferenceLeg,
+  drainLegThenClose,
+  releaseCapture,
+} from './conference-cascade-leg-native';
 import { NativeAudioCapture } from './native-audio-capture';
-import { startTranslateBridge, type TranslateBridge } from './translate-bridge-native';
-import { CONFERENCE_WS_URL, TRANSLATE_WS_URL } from './conference-config';
+import { PeerLanguages, peerSourceLanguage } from './conference-room-peer-language';
+import { CONFERENCE_WS_URL } from './conference-config';
 import {
   ConferenceRequestError,
   createSfuPeerConnection,
@@ -47,14 +53,13 @@ import {
 } from './conference-call-outcome';
 
 export type { PeerState } from './conference-peer-state';
-export type { ChatRefusal, ConferenceErrorReason } from './conference-call-outcome';
 
 /** Maximum number of automatic reconnect attempts before giving up. */
 const RECONNECT_CAP = 3;
 /** Backoff delays (ms) indexed by attempt number (0-based). */
 const RECONNECT_BACKOFF_MS = [1000, 2000, 4000] as const;
 
-export type ConferenceStatus =
+type ConferenceStatus =
   'idle' | 'connecting' | 'in-call' | 'error' | 'disconnected' | 'reconnecting';
 
 export interface UseConferenceReturn {
@@ -71,6 +76,11 @@ export interface UseConferenceReturn {
   audioBlocked: boolean;
   /** True while one of this speaker's turns is open (speech heard, not yet closed). */
   localTranslating: boolean;
+  /**
+   * The speaker's translation ended for good mid-call (no token, refused, or the
+   * translator kept dropping); cleared when the call view resets.
+   */
+  translationEnded: boolean;
   /** Current reconnect attempt (1-based). 0 when not reconnecting. */
   reconnectAttempt: number;
   /** Maximum reconnect attempts before giving up to `disconnected`. */
@@ -92,7 +102,7 @@ export interface UseConferenceReturn {
 interface JoinReply {
   socketId: string;
   iceServers: ConferenceIceServer[];
-  peers: { socketId: string; displayName: string; published: boolean }[];
+  peers: { socketId: string; displayName: string; published: boolean; sourceLanguage?: unknown }[];
 }
 
 const iceServersSchema = ConferenceIceServerSchema.array();
@@ -147,6 +157,7 @@ export function useConferenceNative(
   const [localMuted, setLocalMuted] = useState(false);
   const [localVideoEnabled, setLocalVideoEnabled] = useState(true);
   const [localTranslating, setLocalTranslating] = useState(false);
+  const [translationEnded, setTranslationEnded] = useState(false);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [messages, setMessages] = useState<ConferenceChatMessage[]>([]);
   /** Why the last chat message was refused; cleared by the next send. */
@@ -155,8 +166,16 @@ export function useConferenceNative(
   const wsRef = useRef<WebSocket | null>(null);
   /** Ordered per-speaker TTS playback sink; created on join, closed on leave. */
   const audioSinkRef = useRef<NativeTranslationAudioSink | null>(null);
-  /** Live translate bridge (mic → /ws/translate → broadcast); stopped on leave. */
-  const translateBridgeRef = useRef<TranslateBridge | null>(null);
+  /** This speaker's translation (mic → /ws/translate cascade → broadcast). */
+  const legRef = useRef<ConferenceCascadeLeg | null>(null);
+  /**
+   * The call's microphone, shared by every leg the call builds. Released — and
+   * the iOS audio session with it — only when the call ends, never when a leg
+   * rebuilds or the room reconnects.
+   */
+  const captureRef = useRef<NativeAudioCapture | null>(null);
+  /** socketId → spoken language of the others; the leg translates into these. */
+  const peerLanguagesRef = useRef(new PeerLanguages((l) => legRef.current?.setRoomLanguages(l)));
   /** Room-event listener of the current socket. */
   const roomEventsRef = useRef<RoomEventListener | null>(null);
   /** socketId → displayName, known before a PeerState exists (from join/peer.joined). */
@@ -203,16 +222,17 @@ export function useConferenceNative(
     pubPcRef.current?.close();
     pubPcRef.current = null;
     peerNamesRef.current.clear();
+    peerLanguagesRef.current.clear();
     departedRef.current.clear();
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     localStreamRef.current = null;
-    // Release the translate bridge (recorder + socket) and the playback sink so
-    // no mic/AudioContext is left held.
-    void translateBridgeRef.current?.stop();
-    translateBridgeRef.current = null;
+    // A lost socket cannot carry a final any more; a leave detaches and drains the leg first.
+    legRef.current?.stop();
+    legRef.current = null;
     audioSinkRef.current?.close();
     audioSinkRef.current = null;
     setLocalTranslating(false);
+    setTranslationEnded(false);
     setLocalStream(null);
     setPeers((prev) => {
       prev.forEach((p) => p.stream.getTracks().forEach((t) => t.stop()));
@@ -236,6 +256,8 @@ export function useConferenceNative(
       reconnectAttemptRef.current = 0;
       setReconnectAttempt(0);
       teardownMediaResources();
+      releaseCapture(captureRef.current);
+      captureRef.current = null;
       const ws = wsRef.current;
       wsRef.current = null;
       ws?.close();
@@ -275,7 +297,7 @@ export function useConferenceNative(
    * neither overwrites the newer state nor leaks the camera.
    */
   const runJoinSequence = useCallback(
-    async (ws: WebSocket, token: string) => {
+    async (ws: WebSocket) => {
       const isCurrent = () =>
         wsRef.current === ws && !intentionalLeaveRef.current && !terminalRef.current;
 
@@ -306,6 +328,7 @@ export function useConferenceNative(
         setMySocketId(joinResp.socketId);
         for (const peer of joinResp.peers) {
           peerNamesRef.current.set(peer.socketId, peer.displayName);
+          peerLanguagesRef.current.set(peer.socketId, peerSourceLanguage(peer));
         }
 
         // The receive side exists before room events are heard, so a
@@ -325,6 +348,8 @@ export function useConferenceNative(
           audioSink: () => audioSinkRef.current,
           onPublished: subscriber.subscribe,
           onPeerLeft: subscriber.dropPeer,
+          onPeerLanguage: peerLanguagesRef.current.set,
+          onRelayError: (code) => legRef.current?.noteRelayError(code),
           onEnded: () => endCall('error', 'room-ended'),
           onChatRefused: (code) => setChatNotice(chatRefusal(code)),
         });
@@ -368,31 +393,30 @@ export function useConferenceNative(
         setReconnectAttempt(0);
         setStatus('in-call');
 
-        // Live translation of our own mic. A capture failure (e.g. mic contention
-        // with webrtc) must not drop the video call — translation just doesn't start.
+        // Translation of our own mic. A capture failure (e.g. mic contention with
+        // webrtc) must not drop the video call — translation just doesn't start.
         try {
-          const bridge = await startTranslateBridge({
+          captureRef.current ??= new NativeAudioCapture();
+          const leg = createNativeConferenceLeg({
             confWs: ws,
-            capture: new NativeAudioCapture(),
-            socketId: joinResp.socketId,
-            speakerDisplayName: displayName,
+            capture: captureRef.current,
+            getToken,
             sourceLanguage,
-            translateUrl: TRANSLATE_WS_URL,
-            subprotocol: WS_SUBPROTOCOL,
-            token,
-            setLocalTranslating,
-            log: (m) => console.log(m),
+            roomLanguages: peerLanguagesRef.current.values(),
+            onTranslatingChange: setLocalTranslating,
+            onEnded: (reason) => {
+              console.log(`[conference] translation ended: ${reason}`);
+              // A leg already replaced by a reconnect says nothing about this call.
+              if (legRef.current === leg) setTranslationEnded(true);
+            },
+            // A user muted before a reconnect is not transcribed by the fresh leg.
+            muted: localMutedRef.current,
+            receivedSounding: () => audioSinkRef.current?.isAnySounding() ?? false,
           });
-          if (!isCurrent()) {
-            void bridge.stop();
-            return;
-          }
-          translateBridgeRef.current = bridge;
-          // Carry the mute state across a reconnect: a user muted before the
-          // drop must not resume being transcribed on the fresh bridge.
-          if (localMutedRef.current) bridge.setPaused(true);
-        } catch (bridgeErr) {
-          console.error('[conference] translate bridge failed to start', bridgeErr);
+          legRef.current = leg; // any teardown from here finds and ends it
+          await leg.start();
+        } catch (legErr) {
+          console.error('[conference] translation failed to start', legErr);
         }
       } catch (err) {
         if (!isCurrent()) return;
@@ -400,7 +424,7 @@ export function useConferenceNative(
         endCall('error', 'generic');
       }
     },
-    [roomId, displayName, sourceLanguage, onTrack, endCall, scheduleReconnect],
+    [roomId, displayName, sourceLanguage, getToken, onTrack, endCall, scheduleReconnect],
   );
 
   /**
@@ -425,7 +449,7 @@ export function useConferenceNative(
     wsRef.current = ws;
 
     ws.addEventListener('open', () => {
-      if (wsRef.current === ws) void runJoinSequence(ws, token);
+      if (wsRef.current === ws) void runJoinSequence(ws);
     });
 
     ws.addEventListener('close', (evt: { code?: number }) => {
@@ -477,12 +501,15 @@ export function useConferenceNative(
     cancelReconnectTimer();
     reconnectAttemptRef.current = 0;
     setReconnectAttempt(0);
-    // Stop capture + translate socket and close the playback sink first so the
-    // mic and all AudioContexts are released before the signaling socket drops.
+    // Detach the leg so the teardown does not cut it; it drains, then the socket closes.
+    const leg = legRef.current;
+    legRef.current = null;
     teardownMediaResources();
     const ws = wsRef.current;
     wsRef.current = null;
-    ws?.close();
+    const capture = captureRef.current;
+    captureRef.current = null;
+    drainLegThenClose(leg, ws, capture);
     localMutedRef.current = false;
     localVideoEnabledRef.current = true;
     pausedForBackgroundRef.current = false;
@@ -499,9 +526,10 @@ export function useConferenceNative(
     localMutedRef.current = nextMuted;
     setLocalMuted(nextMuted);
     localStreamRef.current?.getAudioTracks().forEach((t) => (t.enabled = !nextMuted));
-    // Mute must also stop the translation recorder, not just the WebRTC track —
-    // otherwise a muted user is still transcribed and translated (privacy).
-    translateBridgeRef.current?.setPaused(nextMuted);
+    // Mute must also stop translation (down to the recorder), not just the WebRTC
+    // track — otherwise a muted user is still transcribed and translated (privacy).
+    if (nextMuted) legRef.current?.pause();
+    else legRef.current?.resume();
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       send(wsRef.current, 'conference.participant.mute', { muted: nextMuted });
     }
@@ -564,11 +592,11 @@ export function useConferenceNative(
       roomEventsRef.current?.dispose();
       subscriberRef.current?.close();
       pubPcRef.current?.close();
-      void translateBridgeRef.current?.stop();
-      translateBridgeRef.current = null;
       audioSinkRef.current?.close();
       audioSinkRef.current = null;
-      wsRef.current?.close();
+      drainLegThenClose(legRef.current, wsRef.current, captureRef.current);
+      captureRef.current = null;
+      legRef.current = null;
       wsRef.current = null;
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
     },
@@ -585,6 +613,7 @@ export function useConferenceNative(
     localVideoEnabled,
     audioBlocked: false,
     localTranslating,
+    translationEnded,
     reconnectAttempt,
     reconnectCap: RECONNECT_CAP,
     join,

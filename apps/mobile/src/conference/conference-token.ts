@@ -12,7 +12,7 @@ import { authClient } from '@/clients/auth-client';
 import { SignedOutError } from '@/clients/auth-client.interface';
 
 /** Thrown when nobody is signed in, or the session has ended. */
-export class ConferenceAuthUnavailableError extends Error {
+class ConferenceAuthUnavailableError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'ConferenceAuthUnavailableError';

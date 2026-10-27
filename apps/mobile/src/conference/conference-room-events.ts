@@ -27,12 +27,14 @@ import {
   type PeerMap,
 } from './conference-peer-state';
 import type { NativeTranslationAudioSink } from './native-audio-playback';
+import { peerSourceLanguage } from './conference-room-peer-language';
+import { SubtitleTurnOrder } from './subtitle-turn-order';
 
 /** How long a closed turn's subtitle stays on the tile. */
 const SUBTITLE_LINGER_MS = 4000;
 
 /** Max chat messages retained per meeting (ephemeral, bounded). Same as web. */
-export const CHAT_MESSAGE_CAP = 200;
+const CHAT_MESSAGE_CAP = 200;
 
 export interface RoomEventDeps {
   /** The language this listener speaks; picks which subtitle text to show. */
@@ -49,6 +51,10 @@ export interface RoomEventDeps {
   onPublished: () => void;
   /** A remote peer left; forget the receiving mids it owned. */
   onPeerLeft: (socketId: string) => void;
+  /** A peer joined speaking `language`, or left (`undefined`; also when the server did not say). */
+  onPeerLanguage: (socketId: string, language: LanguageCode | undefined) => void;
+  /** The gateway refused one of this speaker's translation broadcasts. */
+  onRelayError: (code: string) => void;
   /** The owner ended the meeting. */
   onEnded: () => void;
   /** The gateway refused a chat message this client sent; `code` is its error code. */
@@ -68,7 +74,7 @@ export interface RoomEventListener {
  * cross-language listener sees nothing until translated text exists, rather
  * than a provisional line in a language they did not choose.
  */
-export function subtitleTextFor(
+function subtitleTextFor(
   subtitle: Pick<ConferenceTranslationSubtitle, 'sourceLanguage' | 'sourceText' | 'translatedText'>,
   myLanguage: LanguageCode,
 ): string {
@@ -90,6 +96,7 @@ function booleanField(data: unknown, key: string): boolean | undefined {
 export function createRoomEventListener(deps: RoomEventDeps): RoomEventListener {
   const { myLanguage, mySocketId, peerNames, departed, setPeers, setMessages } = deps;
   const subtitleTimers = new Set<ReturnType<typeof setTimeout>>();
+  const turnOrder = new SubtitleTurnOrder();
   let disposed = false;
 
   function onSubtitle(data: unknown): void {
@@ -100,8 +107,15 @@ export function createRoomEventListener(deps: RoomEventDeps): RoomEventListener 
     if (!speaker || speaker === mySocketId) return;
 
     const text = subtitleTextFor(subtitle, myLanguage);
+    // A speaker's turns overlap; once a newer one is on screen, an older one's
+    // frames (its late final included) must not take the line back.
+    if (!turnOrder.accept(speaker, subtitle.turnId, text.length > 0)) return;
     if (text.length > 0) {
       setPeers((prev) => withPeerSubtitle(prev, speaker, subtitle.turnId, text));
+    } else if (!subtitle.isFinal) {
+      // An empty non-final frame is the speaker's way of saying this turn ended
+      // with no final (no speech, or the turn failed): take its line down now.
+      setPeers((prev) => withoutPeerSubtitle(prev, speaker, subtitle.turnId));
     }
     if (subtitle.isFinal) {
       const timer = setTimeout(() => {
@@ -148,6 +162,7 @@ export function createRoomEventListener(deps: RoomEventDeps): RoomEventListener 
         if (!socketId) return;
         departed.delete(socketId);
         peerNames.set(socketId, displayName ?? socketId);
+        deps.onPeerLanguage(socketId, peerSourceLanguage(msg.data));
         return;
       }
       case 'conference.peer.left': {
@@ -155,6 +170,8 @@ export function createRoomEventListener(deps: RoomEventDeps): RoomEventListener 
         if (!socketId) return;
         departed.add(socketId);
         peerNames.delete(socketId);
+        turnOrder.forget(socketId);
+        deps.onPeerLanguage(socketId, undefined);
         deps.audioSink()?.removeSpeaker(socketId);
         deps.onPeerLeft(socketId);
         setPeers((prev) => withoutPeer(prev, socketId));
@@ -183,6 +200,12 @@ export function createRoomEventListener(deps: RoomEventDeps): RoomEventListener 
       case 'conference.chat': {
         const code = replyErrorCode(msg.data);
         if (code) deps.onChatRefused(code);
+        return;
+      }
+      // A refused `conference.translation.broadcast` comes back on its own name.
+      case 'conference.translation.broadcast': {
+        const code = replyErrorCode(msg.data);
+        if (code) deps.onRelayError(code);
         return;
       }
       case 'conference.ended':

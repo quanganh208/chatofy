@@ -1,0 +1,20 @@
+diff --git a/android/src/main/cpp/audioapi/android/core/AndroidAudioRecorder.cpp b/android/src/main/cpp/audioapi/android/core/AndroidAudioRecorder.cpp
+index 0f997f8ebaae0243057cc920be5c86a7fbf679ad..e1fffcea50fe5ebbcb41b587d48fa39389790851 100644
+--- a/android/src/main/cpp/audioapi/android/core/AndroidAudioRecorder.cpp
++++ b/android/src/main/cpp/audioapi/android/core/AndroidAudioRecorder.cpp
+@@ -71,6 +71,15 @@ Result<NoneType, std::string> AndroidAudioRecorder::openAudioStream() {
+   oboe::AudioStreamBuilder builder;
+   builder.setSharingMode(oboe::SharingMode::Exclusive)
+       ->setDirection(oboe::Direction::Input)
++      // Chatofy: capture through the VOICE_COMMUNICATION source so the platform's
++      // echo canceller and noise suppressor run on this stream. Oboe's default
++      // preset is VoiceRecognition, which applies no effects, so a meeting peer's
++      // voice played on the loudspeaker was transcribed as the phone user's speech.
++      ->setInputPreset(oboe::InputPreset::VoiceCommunication)
++      // A session id keeps AAudio off its MMAP path, which runs no effects at all:
++      // with the preset alone the stream opened as MMAP and the canceller never
++      // attached.
++      ->setSessionId(oboe::SessionId::Allocate)
+       ->setFormat(oboe::AudioFormat::Float)
+       ->setFormatConversionAllowed(true)
+       ->setPerformanceMode(oboe::PerformanceMode::LowLatency)

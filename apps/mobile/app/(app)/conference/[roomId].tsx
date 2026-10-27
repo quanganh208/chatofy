@@ -15,6 +15,7 @@ import { SafeAreaView, View, Text, ScrollView, TouchableOpacity, StyleSheet } fr
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import { createTranslator, en } from '@chatofy/i18n';
+import { toLanguageCode } from '@chatofy/types/domain';
 import { useTheme } from '@/providers/theme-provider';
 import { useConferenceNative, type PeerState } from '@/conference/use-conference-native';
 import { VideoGrid } from '@/components/conference/video-grid';
@@ -93,7 +94,8 @@ export default function ConferenceCallScreen() {
     typeof params.displayName === 'string' && params.displayName.length > 0
       ? params.displayName
       : 'mobile-user';
-  const initialLang: SourceLanguage = params.lang === 'en' ? 'en' : 'vi';
+  const initialLang: SourceLanguage =
+    toLanguageCode(typeof params.lang === 'string' ? params.lang : '') ?? 'vi';
 
   const [sheetVisible, setSheetVisible] = useState(false);
   const [transcriptVisible, setTranscriptVisible] = useState(false);
@@ -121,6 +123,7 @@ export default function ConferenceCallScreen() {
     localMuted,
     localVideoEnabled,
     localTranslating,
+    translationEnded,
     reconnectAttempt,
     reconnectCap,
     mySocketId,
@@ -258,6 +261,17 @@ export default function ConferenceCallScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {banner ? (
         <Text style={[styles.banner, { color: colors.textSecondary }]}>{banner}</Text>
+      ) : null}
+      {/* Translation ended for good: a readout in the banner's quiet style, no
+          control — the call itself goes on untranslated. */}
+      {translationEnded ? (
+        <Text
+          style={[styles.banner, { color: colors.textSecondary }]}
+          accessibilityRole="text"
+          accessibilityLiveRegion="polite"
+        >
+          {t('mobile.conference.translationEnded')}
+        </Text>
       ) : null}
 
       <ScrollView contentContainerStyle={styles.scroll}>

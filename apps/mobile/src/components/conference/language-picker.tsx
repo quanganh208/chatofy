@@ -1,5 +1,5 @@
 /**
- * Source-language selector (vi / en) for the call.
+ * Source-language selector (vi / en / zh) for the call.
  *
  * Mirrors web's lobby SegmentedControl. The native hook reads `sourceLanguage`
  * only at `join()` and wires the translate direction from it, so there is no
@@ -14,9 +14,10 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { space, radius, fontSize, fontWeight } from '@chatofy/ui';
 import type { Translate } from '@chatofy/i18n';
+import type { LanguageCode } from '@chatofy/types/domain';
 import { useTheme } from '@/providers/theme-provider';
 
-export type SourceLanguage = 'vi' | 'en';
+export type SourceLanguage = LanguageCode;
 
 interface LanguagePickerProps {
   t: Translate;
@@ -29,6 +30,7 @@ interface LanguagePickerProps {
 const OPTIONS: { value: SourceLanguage; labelKey: Parameters<Translate>[0] }[] = [
   { value: 'vi', labelKey: 'mobile.conference.sourceLanguageVi' },
   { value: 'en', labelKey: 'mobile.conference.sourceLanguageEn' },
+  { value: 'zh', labelKey: 'mobile.conference.sourceLanguageZh' },
 ];
 
 export function LanguagePicker({ t, value, onChange, locked }: LanguagePickerProps) {
