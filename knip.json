@@ -32,7 +32,7 @@
       "entry": ["babel.config.js"],
       "paths": { "@/*": ["src/*"] },
       "project": ["app/**/*.{ts,tsx}", "src/**/*.{ts,tsx}", "*.{ts,tsx,js,cjs}"],
-      "ignore": ["src/audio/audio-player.interface.ts", "src/audio/audio-recorder.interface.ts"],
+      "ignore": ["src/audio/audio-player.interface.ts"],
       "ignoreDependencies": ["expo-updates"]
     },
     "packages/types": {

@@ -71,7 +71,7 @@ export const MIN_RESPELLING_SIMILARITY = 0.5;
  * 约书亚·本吉奥 seven. A longer "rendering" is a clause, and pointing at a
  * clause attests nothing about one name.
  */
-export const MAX_RENDERING_LENGTH = 12;
+const MAX_RENDERING_LENGTH = 12;
 
 /** Longest accepted spelling; the same ceiling as one hotword term. */
 export const MAX_RESPELLING_LENGTH = 64;

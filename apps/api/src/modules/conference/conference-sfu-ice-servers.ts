@@ -1,7 +1,7 @@
 import type { ConferenceIceServer } from '@chatofy/types';
 
 /** Cloudflare's public STUN: free, unlimited, and always offered. */
-export const CLOUDFLARE_STUN: ConferenceIceServer = {
+const CLOUDFLARE_STUN: ConferenceIceServer = {
   urls: 'stun:stun.cloudflare.com:3478',
 };
 

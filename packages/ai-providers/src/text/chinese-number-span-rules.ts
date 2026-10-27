@@ -10,7 +10,7 @@ export const NUM = '[零〇一幺二两三四五六七八九十百千万亿]';
 export const DIGIT = '[零〇一幺二三四五六七八九]';
 
 /** An integer part: a cardinal (`三`, `十五`) or a digit run (`八零二`). */
-export function integerPart(text: string): string | undefined {
+function integerPart(text: string): string | undefined {
   if (DIGIT_RUN.test(text) && text.length > 1) return digitRunValue(text);
   const value = chineseCardinal(text);
   return value === null ? undefined : String(value);

@@ -38,7 +38,7 @@ export interface LanguagePlan {
 }
 
 /** Why a session runs less than it asked for, or cannot run at all. */
-export const LANGUAGE_DETECTION_REASON = 'language_detection';
+const LANGUAGE_DETECTION_REASON = 'language_detection';
 
 /** What a start asks for, language-wise, and what this process can give it. */
 export interface LanguageModeRequest {
