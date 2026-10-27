@@ -10,7 +10,7 @@ export interface CoverCrop {
  * The largest centred SQUARE inside a source image.
  *
  * Split out as a pure function on purpose. The canvas path around it cannot be
- * tested in this app's runner — `vitest.config.ts` sets `environment: 'node'`,
+ * tested in this app's runner — `vitest.config.mts` sets `environment: 'node'`,
  * happy-dom has no raster backend, and there is no canvas package — so a spec
  * that asserted the produced blob's dimensions could only be asserting against
  * its own stubs. The geometry is the part that can actually be wrong (a squashed

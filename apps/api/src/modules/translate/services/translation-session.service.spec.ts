@@ -3464,7 +3464,7 @@ describe('speaker embedding', () => {
     });
     const embedSpeaker = vi.fn(async () => {
       embedCalledDuringTranslation = true;
-      return [0.6, 0.8];
+      return { vector: [0.6, 0.8], dim: 2, speechMs: 1480 };
     });
 
     const { service } = makeService({ transcribeAndTranslate, embedSpeaker });
@@ -3478,6 +3478,10 @@ describe('speaker embedding', () => {
 
     releaseTranslation(undefined);
     await finished;
+    // Starting early must not cost the turn: it still completes and carries the
+    // vector the sidecar answered with.
+    expect(socket.ofType('server.error')).toHaveLength(0);
+    expect(socket.ofType('server.turn.embedding')).toHaveLength(1);
   });
 
   it('sends the vector after the transcript, never before it', async () => {

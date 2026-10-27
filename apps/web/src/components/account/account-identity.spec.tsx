@@ -13,7 +13,7 @@ import { ApiClientError } from '@chatofy/api-client';
  * as a copy simplification rather than a bug.
  *
  * There is NO spec here asserting the produced blob is 128x128 or "not
- * squashed". `vitest.config.ts` sets `environment: 'node'` and the only DOM
+ * squashed". `vitest.config.mts` sets `environment: 'node'` and the only DOM
  * available is happy-dom — no canvas raster backend, no `createImageBitmap`, no
  * working `toBlob`, and no canvas package in the dependency tree. Such a spec
  * could only assert against its own stubs. The geometry is proved by

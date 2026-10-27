@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 // that call, so `auth` is stubbed rather than pulling in the real module.
 //
 // Placed under `src/` rather than beside `proxy.ts` at the app root: vitest's
-// `include` glob only reaches `src/**` and `app/**` (see `vitest.config.ts`), so
+// `include` glob only reaches `src/**` and `app/**` (see `vitest.config.mts`), so
 // a spec sitting next to `proxy.ts` itself would be collected by nothing —
 // passing by never running, the failure mode that reads most like success.
 vi.doMock('@/../auth', () => ({ auth: (handler: unknown) => handler }));
