@@ -2,7 +2,7 @@
 #
 # Production image for the NestJS API.
 #
-# Node 24, not 20: the root package.json declares `engines.node >=22` and
+# Node 26, the Active LTS: the root package.json declares `engines.node >=26` and
 # `.npmrc` sets `engine-strict=true`, so an older base makes `pnpm install`
 # refuse outright.
 #
@@ -25,7 +25,7 @@
 #
 # The pnpm store cache mount is what keeps this fast — package downloads survive
 # across builds even though this layer re-runs on any source change.
-FROM node:24-alpine AS builder
+FROM node:26-alpine AS builder
 WORKDIR /app
 
 RUN corepack enable
@@ -86,7 +86,7 @@ RUN pnpm --filter api deploy --prod --legacy /prod/api && \
     cp -r "$PRISMA_GEN" "/prod/api/$(dirname "$PRISMA_GEN")/"
 
 # ── Stage 2: runner ───────────────────────────────────────────────────────────
-FROM node:24-alpine AS runner
+FROM node:26-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

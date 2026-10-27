@@ -23,7 +23,6 @@
     // compiles to JS fine and then fails to produce types — a confusing place to
     // learn about a path mapping. Re-skinning a generated component includes
     // rewriting its `@/lib/utils` import to a relative one.
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     }

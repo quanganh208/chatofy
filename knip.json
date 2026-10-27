@@ -10,12 +10,12 @@
     },
     "apps/api": {
       "entry": ["src/main.ts", "src/**/*.spec.ts", "test/**/*.ts"],
-      "project": ["src/**/*.ts", "test/**/*.ts"],
+      "project": ["src/**/*.ts", "test/**/*.ts", "prisma/**/*.prisma"],
       "ignoreDependencies": ["swagger-ui-express", "@chatofy/config"]
     },
     "apps/web": {
       "paths": { "@/*": ["src/*"] },
-      "project": ["app/**/*.{ts,tsx}", "src/**/*.{ts,tsx}", "*.{ts,mjs,cjs}"],
+      "project": ["app/**/*.{ts,tsx,css}", "src/**/*.{ts,tsx}", "*.{ts,mjs,cjs}"],
       "entry": ["src/**/*.spec.ts"],
       "ignoreDependencies": ["@chatofy/config"]
     },
@@ -26,10 +26,9 @@
       // `wxt.config.ts` is left out: knip's own wxt plugin already finds it, and
       // naming it here is reported as redundant.
       "entry": ["entrypoints/**/*.{ts,html}", "scripts/*.mjs"],
-      "project": ["entrypoints/**/*.ts", "src/**/*.ts", "*.{ts,mjs}", "scripts/*.mjs"]
+      "project": ["entrypoints/**/*.{ts,css}", "src/**/*.ts", "*.{ts,mjs}", "scripts/*.mjs"]
     },
     "apps/mobile": {
-      "entry": ["babel.config.js"],
       "paths": { "@/*": ["src/*"] },
       "project": ["app/**/*.{ts,tsx}", "src/**/*.{ts,tsx}", "*.{ts,tsx,js,cjs}"],
       "ignore": ["src/audio/audio-player.interface.ts"],
@@ -66,9 +65,9 @@
       "ignoreDependencies": ["@chatofy/config"]
     },
     "packages/config": {
-      "entry": ["eslint/*.cjs"],
-      "project": ["**/*.cjs"],
-      "ignoreDependencies": ["next", "eslint-config-expo", "eslint-config-next"]
+      // `tsconfig/nextjs.json` names the `next` TypeScript plugin, which tsc loads
+      // from the app extending it (apps/web), not from this package.
+      "ignoreDependencies": ["next"]
     },
     "packages/i18n": {
       // `@chatofy/config` reaches this package through a relative `extends` in

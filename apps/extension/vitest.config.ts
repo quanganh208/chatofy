@@ -22,6 +22,10 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   test: {
+    // This workspace's own module cache. The default sits at the monorepo root, shared
+    // by every workspace, so the first parallel run after a lockfile change had them
+    // all clearing the same directory at once and one failed with ENOTEMPTY.
+    fsModuleCachePath: 'node_modules/.vitest-cache',
     environment: 'node',
     // `.tsx` too: a component spec placed in a package whose glob stops at
     // `.ts` is collected by nothing and reports nothing.

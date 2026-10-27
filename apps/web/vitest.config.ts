@@ -21,7 +21,15 @@ export default defineConfig({
     },
   },
   test: {
+    // This workspace's own module cache. The default sits at the monorepo root, shared
+    // by every workspace, so the first parallel run after a lockfile change had them
+    // all clearing the same directory at once and one failed with ENOTEMPTY.
+    fsModuleCachePath: 'node_modules/.vitest-cache',
     environment: 'node',
+    // Node 26 defines a global `localStorage` that warns when read without a
+    // backing file. The DOM environments copy globals across on setup, so every
+    // run printed that warning; the specs that need storage get the DOM's own.
+    execArgv: ['--no-experimental-webstorage'],
     // The machine's own offset is not a property of the code under test. Without
     // this, anything that renders a local calendar day passes or fails on where
     // the contributor lives: the history day headings were green on UTC+7 and red
