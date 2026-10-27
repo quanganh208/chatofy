@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import { Trash2 } from 'lucide-react';
@@ -68,13 +68,13 @@ export function GlossaryTermList({ items, status, onRemove }: Props) {
         <div className="divide-y rounded-lg border overflow-hidden">
           {filtered.map((item) => {
             const langLabel =
-              LANGUAGES[item.targetLang as keyof typeof LANGUAGES]?.nativeName ?? item.targetLang;
+              LANGUAGES[item.targetLang as keyof typeof LANGUAGES]?.label ?? item.targetLang;
             return (
               <div key={item.id} className="flex items-start gap-3 px-3 py-2.5 hover:bg-muted/40">
                 <div className="flex-1 min-w-0 space-y-0.5">
                   <div className="flex items-baseline gap-1.5 flex-wrap">
                     <span className="font-medium text-sm">{item.original}</span>
-                    <span className="text-muted-foreground text-xs">→</span>
+                    <span className="text-muted-foreground text-xs">â†’</span>
                     <span className="text-sm">{item.translation}</span>
                     <span className="text-xs text-muted-foreground">({langLabel})</span>
                   </div>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { Power, Trash2 } from 'lucide-react';
@@ -21,7 +21,7 @@ export function GlossaryCard({ glossary, isSelected, onSelect, onToggleActive, o
   const [deleting, setDeleting] = useState(false);
 
   const langLabel =
-    LANGUAGES[glossary.sourceLang as keyof typeof LANGUAGES]?.nativeName ?? glossary.sourceLang;
+    LANGUAGES[glossary.sourceLang as keyof typeof LANGUAGES]?.label ?? glossary.sourceLang;
 
   async function handleToggle(e: React.MouseEvent) {
     e.stopPropagation();
@@ -56,7 +56,7 @@ export function GlossaryCard({ glossary, isSelected, onSelect, onToggleActive, o
         <div className="flex-1 min-w-0">
           <p className="font-medium truncate text-sm">{glossary.name}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {langLabel} · {t('web.glossary.termCount', { count: glossary.itemCount })}
+            {langLabel} Â· {t('web.glossary.termCount', { count: glossary.itemCount })}
           </p>
         </div>
         <div className="flex items-center gap-1 shrink-0">

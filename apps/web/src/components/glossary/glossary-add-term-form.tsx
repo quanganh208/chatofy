@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import {
@@ -82,7 +82,7 @@ export function GlossaryAddTermForm({ onAdd, onCancel }: Props) {
           <SelectContent>
             {LANGUAGE_CODES.map((code) => (
               <SelectItem key={code} value={code}>
-                {LANGUAGES[code].nativeName}
+                {LANGUAGES[code].label}
               </SelectItem>
             ))}
           </SelectContent>

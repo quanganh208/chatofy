@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { Badge } from '@chatofy/ui/react';
@@ -15,7 +15,7 @@ export function GlossaryDetailHeader({ glossary, onSetDefault }: Props) {
   const t = useTranslate();
   const [pending, setPending] = useState(false);
   const langLabel =
-    LANGUAGES[glossary.sourceLang as keyof typeof LANGUAGES]?.nativeName ?? glossary.sourceLang;
+    LANGUAGES[glossary.sourceLang as keyof typeof LANGUAGES]?.label ?? glossary.sourceLang;
 
   async function handleToggleDefault(checked: boolean) {
     setPending(true);
