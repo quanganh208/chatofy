@@ -28,7 +28,10 @@
 FROM node:26-alpine AS builder
 WORKDIR /app
 
-RUN corepack enable
+# Node 25 stopped shipping Corepack with the runtime, so it is installed from npm
+# first. Pinned, because this layer is what turns `packageManager` into the pnpm
+# that installs everything after it.
+RUN npm install -g corepack@0.36.0 && corepack enable
 
 COPY . .
 
