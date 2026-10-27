@@ -1,5 +1,13 @@
 ﻿import type { Route } from 'next';
-import { BookOpen, History, Mic, SlidersHorizontal, User, Video, type LucideIcon } from 'lucide-react';
+import {
+  BookOpen,
+  History,
+  Mic,
+  SlidersHorizontal,
+  User,
+  Video,
+  type LucideIcon,
+} from 'lucide-react';
 import type { MessageKey } from '@chatofy/i18n';
 
 /**
@@ -86,4 +94,3 @@ export function navItemFor(
 ): NavItem | undefined {
   return items.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
 }
-

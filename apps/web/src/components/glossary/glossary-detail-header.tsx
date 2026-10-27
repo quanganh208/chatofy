@@ -14,8 +14,7 @@ interface Props {
 export function GlossaryDetailHeader({ glossary, onSetDefault }: Props) {
   const t = useTranslate();
   const [pending, setPending] = useState(false);
-  const langLabel =
-    LANGUAGES[glossary.sourceLang as keyof typeof LANGUAGES]?.label ?? glossary.sourceLang;
+  const langLabel = LANGUAGES[glossary.sourceLang]?.label ?? glossary.sourceLang;
 
   async function handleToggleDefault(checked: boolean) {
     setPending(true);

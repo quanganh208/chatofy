@@ -20,8 +20,7 @@ export function GlossaryCard({ glossary, isSelected, onSelect, onToggleActive, o
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const langLabel =
-    LANGUAGES[glossary.sourceLang as keyof typeof LANGUAGES]?.label ?? glossary.sourceLang;
+  const langLabel = LANGUAGES[glossary.sourceLang]?.label ?? glossary.sourceLang;
 
   async function handleToggle(e: React.MouseEvent) {
     e.stopPropagation();

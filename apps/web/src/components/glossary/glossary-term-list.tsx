@@ -67,8 +67,7 @@ export function GlossaryTermList({ items, status, onRemove }: Props) {
       {status === 'ready' && filtered.length > 0 && (
         <div className="divide-y rounded-lg border overflow-hidden">
           {filtered.map((item) => {
-            const langLabel =
-              LANGUAGES[item.targetLang as keyof typeof LANGUAGES]?.label ?? item.targetLang;
+            const langLabel = LANGUAGES[item.targetLang]?.label ?? item.targetLang;
             return (
               <div key={item.id} className="flex items-start gap-3 px-3 py-2.5 hover:bg-muted/40">
                 <div className="flex-1 min-w-0 space-y-0.5">
