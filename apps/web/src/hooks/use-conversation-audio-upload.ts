@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { HISTORY_LIMITS } from '@chatofy/types';
 import { uploadConversationAudio } from '@/clients/api-client';
 import { classifyApiFailure, type ApiFailure } from '@/lib/api-failure';
@@ -67,75 +67,86 @@ export function useConversationAudioUpload({
   recording,
   saved,
 }: ConversationAudioUploadInput): UseConversationAudioUpload {
-  const [uploaded, setUploaded] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [failure, setFailure] = useState<ApiFailure | null>(null);
+  // How the last attempt for `id` ended. Tagged with its conversation rather than
+  // reset when the id changes: an outcome read under any other id is no outcome,
+  // so the second conversation in a sitting cannot look uploaded, nor hold the
+  // first one's `failure` — whose Retry would call `send` with nothing to send,
+  // `recording` being already null for the new conversation.
+  const [result, setResult] = useState<{ id: string; outcome: 'uploaded' | ApiFailure } | null>(
+    null,
+  );
 
-  // Which conversation the flags above describe. A new conversation resets them;
-  // without this, the second conversation in a sitting would look uploaded.
+  // Which conversation the first attempt was made for, so a transcript re-save
+  // cannot start another.
   const attemptedFor = useRef<string | null>(null);
   // Which conversation a settling `send` still speaks for. `send` is async and
   // `conversationId` can move on before it resolves — starting a new
   // conversation while the previous one's upload is still in flight, or while a
   // Retry on it is. Tagging each call with the id it was issued for is what lets
-  // its resolution recognize itself as stale instead of setting `failure` or
-  // `uploaded` on a conversation the reader already left.
+  // its resolution recognize itself as stale instead of overwriting the outcome
+  // of a conversation the reader has moved on to.
   const currentIdRef = useRef<string | null>(conversationId);
 
-  // The conversation changed under this hook: forget what the LAST one reported.
-  // Without this, conversation 2 renders holding conversation 1's `failure` —
-  // `recording` here is already null for conversation 2, so its Retry button
-  // would call `send` with nothing to send.
-  useEffect(() => {
+  // In the commit that changes the id rather than after paint, so a send for the
+  // previous id that settles in between already recognizes itself as stale.
+  useLayoutEffect(() => {
     currentIdRef.current = conversationId;
-    setUploaded(false);
-    setUploading(false);
-    setFailure(null);
   }, [conversationId]);
 
   const send = useCallback(
     async (id: string, blob: Blob, timing: { offsetMs: number; durationMs: number }) => {
-      setUploading(true);
-      setFailure(null);
+      let outcome: 'uploaded' | ApiFailure;
       try {
         await uploadConversationAudio(id, blob, timing);
-        if (currentIdRef.current !== id) return;
-        setUploaded(true);
+        outcome = 'uploaded';
       } catch (err) {
-        if (currentIdRef.current !== id) return;
-        setFailure(classifyApiFailure(err));
-      } finally {
-        if (currentIdRef.current === id) setUploading(false);
+        outcome = classifyApiFailure(err);
       }
+      if (currentIdRef.current === id) setResult({ id, outcome });
     },
     [],
   );
+
+  // Everything below is derived from the inputs and the outcome, so nothing has
+  // to be set when an attempt starts. `ready` is the gate the attempt waits on.
+  const ready = Boolean(conversationId && startedAt && recording?.blob && saved);
+  const outcome = result && result.id === conversationId ? result.outcome : null;
+  // Over the cap is terminal without a request: resending the same bytes cannot
+  // make them smaller, which is exactly what `terminal` means.
+  const tooLarge =
+    ready && (recording?.blob?.size ?? 0) > HISTORY_LIMITS.MAX_CONVERSATION_AUDIO_BYTES;
+  const failure: ApiFailure | null = tooLarge
+    ? 'terminal'
+    : outcome === 'uploaded'
+      ? null
+      : outcome;
 
   useEffect(() => {
     if (!conversationId || !startedAt || !recording?.blob || !saved) return;
     if (attemptedFor.current === conversationId) return;
 
     attemptedFor.current = conversationId;
-    setUploaded(false);
-    setFailure(null);
-
-    if (recording.blob.size > HISTORY_LIMITS.MAX_CONVERSATION_AUDIO_BYTES) {
-      // Terminal without a request: resending the same bytes cannot make them
-      // smaller, which is exactly what `terminal` means.
-      setFailure('terminal');
-      return;
-    }
+    if (tooLarge) return;
 
     void send(conversationId, recording.blob, timingOf(recording, startedAt));
-  }, [conversationId, startedAt, recording, saved, send]);
+  }, [conversationId, startedAt, recording, saved, send, tooLarge]);
 
   const retry = useCallback(() => {
     if (failure !== 'retryable') return;
     if (!conversationId || !startedAt || !recording?.blob) return;
+    // Clearing the outcome is what reads as "uploading" again.
+    setResult(null);
     void send(conversationId, recording.blob, timingOf(recording, startedAt));
   }, [failure, conversationId, startedAt, recording, send]);
 
-  return { uploaded, uploading, failure, retry };
+  return {
+    uploaded: outcome === 'uploaded',
+    // In flight from the moment the gate opens until an outcome lands — the
+    // effect above starts the attempt in that same commit.
+    uploading: ready && !tooLarge && outcome === null,
+    failure,
+    retry,
+  };
 }
 
 /**
