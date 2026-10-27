@@ -1006,6 +1006,12 @@ export class PipelineTranslatorService {
    * request against (today) the same model ladder, and a turn with several
    * targets must not wait on them one at a time. One target costs exactly what
    * a single `translate` call always cost.
+   *
+   * The first target is the turn's primary (the plan's `spoken`) and its
+   * failure is the call's. Every later one is an extra (`alsoTranslateInto`, or
+   * a chat message's other room languages): one that fails is logged and left
+   * out of the map, so a room's zh listener losing a line never costs its en
+   * listener theirs.
    */
   async translateAll(req: {
     text: string;
@@ -1019,25 +1025,34 @@ export class PipelineTranslatorService {
   }): Promise<TranslationMap> {
     // A transcript-only turn: nothing to translate into, so no provider call.
     if (req.targets.length === 0) return {};
-    const entries = await Promise.all(
-      req.targets.map(
-        async (target) =>
-          [
-            target,
-            await this.translate({
-              text: req.text,
-              source: req.source,
-              target,
-              models: req.models,
-              hints: req.hints,
-              context: req.context,
-              continuesCut: req.continuesCut,
-              scriptRetry: req.scriptRetry,
-            }),
-          ] as const,
-      ),
+    const translating = req.targets.map((target) =>
+      this.translate({
+        text: req.text,
+        source: req.source,
+        target,
+        models: req.models,
+        hints: req.hints,
+        context: req.context,
+        continuesCut: req.continuesCut,
+        scriptRetry: req.scriptRetry,
+      }),
     );
-    return Object.fromEntries(entries);
+    // All settled together, so no rejection is ever left unhandled while
+    // another target is still awaited.
+    const [primary, ...extras] = await Promise.allSettled(translating);
+    if (primary!.status === 'rejected') throw primary!.reason;
+    const translations: TranslationMap = { [req.targets[0]!]: primary!.value };
+    extras.forEach((result, index) => {
+      const target = req.targets[index + 1]!;
+      if (result.status === 'fulfilled') {
+        translations[target] = result.value;
+        return;
+      }
+      this.logger.warn(
+        `translation into ${target} failed, left out: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
+      );
+    });
+    return translations;
   }
 
   /**

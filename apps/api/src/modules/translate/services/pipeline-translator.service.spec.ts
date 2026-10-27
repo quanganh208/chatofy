@@ -640,6 +640,48 @@ describe('PipelineTranslatorService', () => {
       expect(translate).toHaveBeenCalledTimes(1);
       expect(translations).toEqual({ en: 'hello' });
     });
+
+    it('leaves out an extra target that fails and keeps the primary', async () => {
+      const translate = vi
+        .fn()
+        .mockImplementation(({ targetLanguage }: { targetLanguage: string }) =>
+          targetLanguage === 'zh'
+            ? Promise.reject(new Error('429'))
+            : Promise.resolve({ text: `<${targetLanguage}>` }),
+        );
+      const trio = fakeTrio({
+        translation: { name: 'fake-translation', translate },
+      });
+
+      const translations = await serviceWith(trio).translateAll({
+        text: 'xin chào',
+        source: 'vi',
+        targets: ['en', 'zh'],
+      });
+
+      expect(translations).toEqual({ en: '<en>' });
+    });
+
+    it('fails when the primary target fails', async () => {
+      const translate = vi
+        .fn()
+        .mockImplementation(({ targetLanguage }: { targetLanguage: string }) =>
+          targetLanguage === 'en'
+            ? Promise.reject(new Error('timeout'))
+            : Promise.resolve({ text: `<${targetLanguage}>` }),
+        );
+      const trio = fakeTrio({
+        translation: { name: 'fake-translation', translate },
+      });
+
+      await expect(
+        serviceWith(trio).translateAll({
+          text: 'xin chào',
+          source: 'vi',
+          targets: ['en', 'zh'],
+        }),
+      ).rejects.toThrow();
+    });
   });
 
   describe('translations into the wrong script', () => {

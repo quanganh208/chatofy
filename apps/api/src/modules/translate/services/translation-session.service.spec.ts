@@ -4761,6 +4761,25 @@ describe('a turn voiced in several languages', () => {
     }
   });
 
+  it('speaks no extra whose translation was left out, keeping the primary and the turn', async () => {
+    const { service, synthesize } = makeService({
+      transcribeAndTranslate: vi.fn().mockResolvedValue({
+        sourceText: 'xin chào',
+        translations: { en: 'hello' },
+      }),
+    });
+    const socket = new FakeSocket();
+
+    await startAndEnd(service, socket);
+
+    expect(socket.ofType('server.error')).toHaveLength(0);
+    expect(audioLangs(socket)).toEqual(Array<string>(5).fill('en'));
+    expect(synthesize).toHaveBeenCalledTimes(1);
+    const [final] = socket.ofType('server.transcript.final');
+    expect(final!.segment.translations).toEqual({ en: 'hello' });
+    expect(socket.ofType('server.session.ended')[0]?.reason).toBe('completed');
+  });
+
   it('starts the extra language only after the primary has delivered its first clause', async () => {
     const order: string[] = [];
     class OrderedSocket extends FakeSocket {
