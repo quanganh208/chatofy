@@ -45,7 +45,7 @@ export function GlossaryDetailHeader({ glossary, onSetDefault }: Props) {
           type="checkbox"
           checked={glossary.isDefault}
           disabled={pending}
-          onChange={(e) => handleToggleDefault(e.target.checked)}
+          onChange={(e) => void handleToggleDefault(e.target.checked)}
           className="h-4 w-4 rounded border-input accent-primary"
         />
         {t('web.glossary.setDefault')}

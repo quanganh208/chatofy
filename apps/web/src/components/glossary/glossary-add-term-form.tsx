@@ -102,7 +102,7 @@ export function GlossaryAddTermForm({ onAdd, onCancel }: Props) {
       {failed && <p className="text-sm text-destructive">{t('web.glossary.addTermFailed')}</p>}
       <div className="flex gap-2">
         <Button
-          onClick={handleAdd}
+          onClick={() => void handleAdd()}
           disabled={!valid || saving}
           className="bg-primary text-primary-foreground"
         >

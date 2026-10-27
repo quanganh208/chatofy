@@ -87,7 +87,7 @@ export function GlossaryTermList({ items, status, onRemove }: Props) {
                   size="icon"
                   className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
                   disabled={removing === item.id}
-                  onClick={() => handleRemove(item.id)}
+                  onClick={() => void handleRemove(item.id)}
                   title={t('web.glossary.removeTerm')}
                 >
                   <Trash2 className="h-3.5 w-3.5" />

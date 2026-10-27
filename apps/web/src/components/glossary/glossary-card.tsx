@@ -68,7 +68,7 @@ export function GlossaryCard({ glossary, isSelected, onSelect, onToggleActive, o
             size="icon"
             className="h-6 w-6"
             disabled={toggling}
-            onClick={handleToggle}
+            onClick={(e) => void handleToggle(e)}
             title={t('web.glossary.toggleActive')}
           >
             <Power className="h-3 w-3" />
@@ -78,7 +78,7 @@ export function GlossaryCard({ glossary, isSelected, onSelect, onToggleActive, o
             size="icon"
             className="h-6 w-6 text-destructive hover:text-destructive"
             disabled={deleting}
-            onClick={handleDelete}
+            onClick={(e) => void handleDelete(e)}
             title={t('web.glossary.delete')}
           >
             <Trash2 className="h-3 w-3" />

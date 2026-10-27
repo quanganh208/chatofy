@@ -85,7 +85,7 @@ export function GlossaryCreateForm({ onSave, onCancel }: Props) {
       {failed && <p className="text-sm text-destructive">{t('web.glossary.createFailed')}</p>}
       <div className="flex gap-2">
         <Button
-          onClick={handleSave}
+          onClick={() => void handleSave()}
           disabled={!valid || saving}
           className="bg-primary text-primary-foreground"
         >
