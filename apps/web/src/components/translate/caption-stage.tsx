@@ -29,6 +29,11 @@ import { cn } from '@/lib/utils';
  * For the same reason the names on turns are copies, never the attribution
  * control (`interactive` is off).
  *
+ * The one control it can carry is its own close, and only where nothing else
+ * offers one: fullscreen on a phone has no Esc key. The caption window already
+ * has the browser's close in its title bar — a Picture-in-Picture window's, or
+ * the popup's own — and a second X under it closed the same window twice over.
+ *
  * One merged stream rather than the page's split, because two columns do not fit
  * the window and a room reads one line at a time. `translationOnly` is still
  * honoured: it is about what the reader wants to see, not about arrangement.
@@ -46,8 +51,7 @@ export function CaptionStage({
   running,
   stream,
   languagePair,
-  onClose,
-  closeLabel,
+  close,
   focusOnMount = false,
   className,
 }: {
@@ -56,9 +60,11 @@ export function CaptionStage({
   stream: StreamProps;
   /** The pair the turns on screen were translated for — see `TranscriptPanes`. */
   languagePair: SessionLanguagePair;
-  onClose: () => void;
-  /** What closing does here: leaving fullscreen, or closing the window. */
-  closeLabel: string;
+  /**
+   * The stage's own close control, and what it says it does. Absent in the
+   * caption window, whose browser frame already closes it.
+   */
+  close?: { label: string; onClose: () => void };
   /**
    * Move focus to the close control on mount. Fullscreen wants it — the control
    * that opened it is now outside the fullscreen element. The caption window must
@@ -87,17 +93,19 @@ export function CaptionStage({
             and the page it came from already spends its one filled action on Start.
             Its own row rather than floated over the corner: floated, it sat on the
             first line of captions at phone width, which is where they start. */}
-        <div className="flex shrink-0 justify-end p-1">
-          <Button
-            ref={closeButton}
-            variant="ghost"
-            size="icon"
-            aria-label={closeLabel}
-            onClick={onClose}
-          >
-            <X aria-hidden />
-          </Button>
-        </div>
+        {close ? (
+          <div className="flex shrink-0 justify-end p-1">
+            <Button
+              ref={closeButton}
+              variant="ghost"
+              size="icon"
+              aria-label={close.label}
+              onClick={close.onClose}
+            >
+              <X aria-hidden />
+            </Button>
+          </div>
+        ) : null}
         <TranscriptScroller
           label={t('web.translate.captionStage')}
           freeScroll={settings.freeScroll}

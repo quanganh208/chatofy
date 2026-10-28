@@ -318,7 +318,6 @@ export const en = {
   'web.translate.fullscreenExit': 'Exit full screen',
   'web.translate.pip': 'Picture-in-picture',
   'web.translate.miniWindow': 'Mini window',
-  'web.translate.captionWindowClose': 'Close caption window',
   'web.translate.captionWindowBlocked':
     'The browser blocked the mini window. Allow pop-ups for this site and try again.',
   'web.translate.captionWindowFailed': 'Picture-in-picture could not open. Try again.',

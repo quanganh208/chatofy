@@ -432,8 +432,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             running={running}
             stream={stream}
             languagePair={conversation.languagePair ?? settings.languagePair}
-            onClose={exitFullscreen}
-            closeLabel={t('web.translate.fullscreenExit')}
+            close={{ label: t('web.translate.fullscreenExit'), onClose: exitFullscreen }}
             focusOnMount
           />
         ) : (
@@ -475,8 +474,6 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           running={running}
           stream={stream}
           languagePair={conversation.languagePair ?? settings.languagePair}
-          onClose={captionWindow.close}
-          closeLabel={t('web.translate.captionWindowClose')}
         />
       ) : null}
 
