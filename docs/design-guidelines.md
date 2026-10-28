@@ -631,7 +631,9 @@ live in `apps/web/src/lib/reading-appearance.ts`, and the controls sit in the di
   column) in the stage look. Headers name the pair as text, and speaker names are copies.
   A bar over the pane headers carries the status, Start / Pause / End, the display gear and
   the exit. It hides after 3 s alone and returns on any pointer move, tap or key. It stays up
-  while hovered, while it holds keyboard focus, or while the gear's panel is open. The panel
+  while it holds keyboard focus or while the gear's panel is open, but not for a pointer
+  resting on it: after a click on Start that pointer stays put, and the bar covered the pair
+  for good. The panel
   is portalled into the fullscreen element (`PopoverContent`'s `container`), because the
   browser draws nothing outside it. The dock is `inert` meanwhile and does not render its
   Start (`fullscreen-stage.tsx`).

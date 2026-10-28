@@ -32,8 +32,13 @@ import { cn } from '@/lib/utils';
  * headers rather than taking a row of its own, so it can come and go without
  * moving a line of the transcript — the newest line, at the bottom, is the one
  * being read. It hides after a few seconds alone and comes back on any pointer
- * move, tap or key, and it does not hide while it is being used: hovered,
- * holding keyboard focus, or with the gear's panel open.
+ * move, tap or key, and it does not hide while it is being used: holding
+ * keyboard focus, or with the gear's panel open.
+ *
+ * A pointer resting on it is not a hold. It held once, and the commonest way in
+ * — click Start in the bar, then read — left the pointer on the bar, so the bar
+ * never hid and the pane headers under it, which name the pair, never showed.
+ * A pointer that is still on the bar after three seconds is not using it either.
  *
  * The focus hold is for KEYBOARD focus only. A mouse click leaves focus on the
  * button it pressed, and a bar held up by that would never hide for anyone who
@@ -82,9 +87,8 @@ export function FullscreenStage({
   const t = useTranslate();
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [hovered, setHovered] = useState(false);
   const [keyboardFocus, setKeyboardFocus] = useState(false);
-  const awake = useIdleReveal(root, { hold: settingsOpen || hovered || keyboardFocus });
+  const awake = useIdleReveal(root, { hold: settingsOpen || keyboardFocus });
   // The ground the captions are read on, for the bar and the panel too: a light
   // bar over the default black stage was a strip of page left on top of it.
   const scheme = readingSchemeClass(effectiveStageAppearance(settings).appearance);
@@ -94,7 +98,6 @@ export function FullscreenStage({
   // so it holds nothing: someone who pressed Full screen with Enter gets a
   // `:focus-visible` exit button, and a hold on it kept the bar up for good.
   const exitButton = useRef<HTMLButtonElement>(null);
-  const bar = useRef<HTMLDivElement>(null);
   const arriving = useRef(true);
   useEffect(() => {
     exitButton.current?.focus();
@@ -104,15 +107,9 @@ export function FullscreenStage({
   return (
     <div
       ref={setRoot}
-      // Hover is read from where the pointer IS, on every move, rather than from
-      // enter/leave: the panel is the bar's child in React but not in the DOM, and
-      // when it closed under the pointer no leave ever fired — the bar stayed up
-      // for good. A hand on the pointer also ends a keyboard hold: whoever pressed
-      // Esc out of the panel with focus left on the gear is not still using it.
-      onPointerMove={(event) => {
-        setHovered(event.target instanceof Node && !!bar.current?.contains(event.target));
-        setKeyboardFocus(false);
-      }}
+      // A hand on the pointer ends a keyboard hold: whoever pressed Esc out of the
+      // panel with focus left on the gear is not still using it.
+      onPointerMove={() => setKeyboardFocus(false)}
       className={cn(
         'bg-background text-foreground relative flex min-h-0 flex-1 flex-col',
         scheme,
@@ -122,7 +119,6 @@ export function FullscreenStage({
       )}
     >
       <div
-        ref={bar}
         data-stage-bar
         data-awake={awake}
         className={cn(
