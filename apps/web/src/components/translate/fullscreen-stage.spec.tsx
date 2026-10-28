@@ -162,8 +162,9 @@ describe('FullscreenStage bar', () => {
     vi.useFakeTimers();
     render();
     // Arrival focuses the exit, and a test DOM calls every focus keyboard focus —
-    // which holds the bar. A reader who clicked their way in has neither.
-    act(() => (document.activeElement as HTMLElement).blur());
+    // as Chromium does for a reader who pressed Full screen with Enter. That focus
+    // is the stage's doing, not the reader's, and must not hold the bar.
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('Exit full screen');
     expect(bar().dataset.awake).toBe('true');
     act(() => {
       vi.advanceTimersByTime(IDLE_REVEAL_DELAY_MS);
@@ -171,6 +172,16 @@ describe('FullscreenStage bar', () => {
     expect(bar().dataset.awake).toBe('false');
     act(() => {
       bar().parentElement!.dispatchEvent(new Event('pointermove', { bubbles: true }));
+    });
+    expect(bar().dataset.awake).toBe('true');
+  });
+
+  it('stays up while the reader has moved keyboard focus within it', () => {
+    vi.useFakeTimers();
+    render();
+    act(() => button('Display settings')!.focus());
+    act(() => {
+      vi.advanceTimersByTime(IDLE_REVEAL_DELAY_MS * 3);
     });
     expect(bar().dataset.awake).toBe('true');
   });

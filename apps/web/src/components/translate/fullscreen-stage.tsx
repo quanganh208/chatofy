@@ -90,11 +90,15 @@ export function FullscreenStage({
   const scheme = readingSchemeClass(effectiveStageAppearance(settings).appearance);
 
   // The control that opened fullscreen is outside it now (or under the cover), so
-  // focus starts on the way back out.
+  // focus starts on the way back out. That focus is not the reader using the bar,
+  // so it holds nothing: someone who pressed Full screen with Enter gets a
+  // `:focus-visible` exit button, and a hold on it kept the bar up for good.
   const exitButton = useRef<HTMLButtonElement>(null);
   const bar = useRef<HTMLDivElement>(null);
+  const arriving = useRef(true);
   useEffect(() => {
     exitButton.current?.focus();
+    arriving.current = false;
   }, []);
 
   return (
@@ -128,7 +132,9 @@ export function FullscreenStage({
           // and Tab still reaches them — the key itself wakes the bar.
           awake ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
-        onFocus={(event) => setKeyboardFocus(matchesFocusVisible(event.target))}
+        onFocus={(event) => {
+          if (!arriving.current) setKeyboardFocus(matchesFocusVisible(event.target));
+        }}
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget)) setKeyboardFocus(false);
         }}
