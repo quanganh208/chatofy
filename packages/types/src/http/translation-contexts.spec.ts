@@ -38,6 +38,7 @@ it('absent optional fields default to null and empty arrays', () => {
     hotwords: [],
     glossary: [],
     style: null,
+    glossaryId: null,
   });
 });
 
@@ -115,6 +116,9 @@ describe('readTranslationContextList', () => {
     hotwords: [],
     glossary,
     style: null,
+    glossaryId: null,
+    linkedGlossaryId: null,
+    linkedGlossaryName: null,
     updatedAt: '2026-10-13T00:00:00.000Z',
   });
   const A = '00000000-0000-4000-8000-00000000000a';

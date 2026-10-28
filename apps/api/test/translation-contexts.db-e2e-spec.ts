@@ -491,6 +491,7 @@ function body(
       { vi: 'huyết áp', en: 'blood pressure' },
       { vi: 'đơn thuốc', en: 'prescription' },
     ],
+    glossaryId: null,
     ...overrides,
   };
 }

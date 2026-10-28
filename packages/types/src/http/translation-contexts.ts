@@ -53,8 +53,12 @@ export const saveTranslationContextRequestSchema = z.object({
     .array(z.string().min(1).max(CONTEXT_LIMITS.MAX_HOTWORD_CHARS))
     .max(CONTEXT_LIMITS.MAX_HOTWORDS)
     .default([]),
+  // Inline preferred renderings. Ignored by the server when glossaryId is set —
+  // the linked Glossary's items take over as the preferred renderings.
   glossary: z.array(glossaryEntrySchema).max(CONTEXT_LIMITS.MAX_GLOSSARY).default([]),
   style: translationHintsSchema.shape.style.unwrap().nullable().default(null),
+  // When set, the context draws its preferred renderings from this Glossary.
+  glossaryId: z.string().uuid().nullable().default(null),
 });
 export type SaveTranslationContextRequest = z.infer<typeof saveTranslationContextRequestSchema>;
 
@@ -62,6 +66,10 @@ export const translationContextSchema = saveTranslationContextRequestSchema.exte
   /** The client-minted id, echoed. Never a server cuid — see the Prisma model. */
   id: z.uuid(),
   updatedAt: z.string(),
+  /** The id of the linked Glossary, if any. Echoed from the save request. */
+  linkedGlossaryId: z.string().uuid().nullable(),
+  /** Display name of the linked Glossary, for the picker UI. */
+  linkedGlossaryName: z.string().nullable(),
 });
 export type TranslationContext = z.infer<typeof translationContextSchema>;
 

@@ -68,6 +68,12 @@ interface ContextRow {
   style: string | null;
   updatedAt: Date;
   glossary: { terms: unknown }[];
+  glossaryId: string | null;
+  linkedGlossary: {
+    name: string;
+    sourceLang: string;
+    items: { original: string; translation: string; targetLang: string }[];
+  } | null;
 }
 
 /**
@@ -197,6 +203,7 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
       topic: body.topic,
       hotwords: body.hotwords,
       style: body.style,
+      glossaryId: body.glossaryId,
     };
 
     for (let attempt = 1; ; attempt += 1) {
@@ -365,9 +372,31 @@ const CONTEXT_SELECT = {
     orderBy: { position: 'asc' },
     select: { terms: true },
   },
+  glossaryId: true,
+  linkedGlossary: {
+    select: {
+      name: true,
+      sourceLang: true,
+      items: {
+        select: { original: true, translation: true, targetLang: true },
+      },
+    },
+  },
 } as const;
 
 function toContext(row: ContextRow): TranslationContext {
+  // When a Glossary is linked, derive preferred renderings from its items.
+  // Otherwise fall back to the inline GlossaryTerm rows.
+  const glossary = row.linkedGlossary
+    ? glossaryItemsToEntries(
+        row.linkedGlossary.sourceLang,
+        row.linkedGlossary.items,
+      )
+    : row.glossary
+        .map((entry) => entry.terms)
+        .map(asGlossaryEntry)
+        .filter(isNotNull);
+
   return {
     id: row.clientId,
     name: row.name,
@@ -377,12 +406,38 @@ function toContext(row: ContextRow): TranslationContext {
     // rather than trusted, because the column admits anything a past write put
     // there and the contract admits three values.
     style: asStyle(row.style),
-    glossary: row.glossary
-      .map((entry) => entry.terms)
-      .map(asGlossaryEntry)
-      .filter(isNotNull),
+    glossary,
+    glossaryId: row.glossaryId,
+    linkedGlossaryId: row.glossaryId,
+    linkedGlossaryName: row.linkedGlossary?.name ?? null,
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+/**
+ * Convert a Glossary's items into the multilang `GlossaryEntry[]` format that
+ * the translation prompt expects.
+ *
+ * Groups items by their `original` term so all target languages for the same
+ * source phrase end up in a single entry. Only entries with at least two
+ * language sides pass `glossaryEntrySchema` and are kept.
+ */
+function glossaryItemsToEntries(
+  sourceLang: string,
+  items: { original: string; translation: string; targetLang: string }[],
+): GlossaryEntry[] {
+  const byOriginal = new Map<string, Record<string, string>>();
+  for (const item of items) {
+    const entry = byOriginal.get(item.original) ?? {
+      [sourceLang]: item.original,
+    };
+    entry[item.targetLang] = item.translation;
+    byOriginal.set(item.original, entry);
+  }
+  return [...byOriginal.values()]
+    .map(asGlossaryEntry)
+    .filter(isNotNull)
+    .slice(0, CONTEXT_LIMITS.MAX_GLOSSARY);
 }
 
 /**

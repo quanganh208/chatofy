@@ -636,6 +636,10 @@ export const en = {
     'A rendering is a word or a short phrase — at most {max} words. Shorten this pair, or remove it.',
   'web.preferences.aiContext.glossaryAdd': 'Add a pair',
   'web.preferences.aiContext.glossaryRemove': 'Remove this pair',
+  'web.preferences.aiContext.glossaryLink': 'Glossary',
+  'web.preferences.aiContext.glossaryLinkNone': 'None',
+  'web.preferences.aiContext.glossaryLinkHint':
+    'Terms from this glossary will guide the AI when translating.',
   'web.preferences.aiContext.register': 'Register',
   // The words explain the refusal rather than leaving a control dead.
   'web.preferences.aiContext.limitReached':
