@@ -41,11 +41,11 @@ export function TranscriptSourceLine({ text, raw, repaired }: TranscriptSourceLi
   const t = useTranslate();
   const [showRaw, setShowRaw] = useState(false);
 
-  if (!repaired) return <p className="text-prose text-source">{text}</p>;
+  if (!repaired) return <p className="reading-source text-source">{text}</p>;
 
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-prose text-source">{text}</p>
+      <p className="reading-source text-source">{text}</p>
       <button
         type="button"
         onClick={() => setShowRaw((open) => !open)}

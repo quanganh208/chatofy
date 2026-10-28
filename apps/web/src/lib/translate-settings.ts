@@ -31,6 +31,12 @@ import {
   type LanguageTable,
   type SessionLanguagePair,
 } from '@chatofy/types';
+import {
+  DEFAULT_READING_APPEARANCE,
+  pickReadingAppearance,
+  readingAppearanceShape,
+  type ReadingAppearance,
+} from '@/lib/reading-appearance';
 
 export const TRANSLATE_SETTINGS_STORAGE_KEY = 'chatofy.translate-settings';
 
@@ -207,6 +213,49 @@ export interface TranslateSettings {
    * use, where the list has resolved, and reads as "no context".
    */
   contextId: string | null;
+  /** How the transcript looks on the page. See `reading-appearance.ts`. */
+  appearance: ReadingAppearance;
+  /** How it looks in fullscreen and in the floating caption window. */
+  stage: StageAppearance;
+}
+
+/**
+ * The stage's look: its own appearance and its own text size, or the page's.
+ *
+ * Separate because the stage is read differently — across a room, or in a small
+ * window floating over a video — and the size and ground that suit a desk are the
+ * wrong ones there. `followPage` exists for the reader who wants one look
+ * everywhere; it ignores the stored stage values rather than overwriting them, so
+ * switching it off returns what was set before.
+ */
+export interface StageAppearance extends ReadingAppearance {
+  followPage: boolean;
+  /** 1..10 into {@link TEXT_SIZE_SCALES}, like the page's. */
+  textSize: number;
+}
+
+/**
+ * Captions, not a page: black ground, bold translation, text two steps past the
+ * middle. The black ground forces the dark scheme on what it paints, so the
+ * default inks come out light without being set.
+ */
+export const DEFAULT_STAGE_APPEARANCE: StageAppearance = Object.freeze({
+  ...DEFAULT_READING_APPEARANCE,
+  background: 'black',
+  targetWeight: 'bold',
+  followPage: false,
+  textSize: 6,
+});
+
+/** What the stage draws with, after `followPage`. */
+export function effectiveStageAppearance(settings: TranslateSettings): {
+  appearance: ReadingAppearance;
+  textSize: number;
+} {
+  if (settings.stage.followPage) {
+    return { appearance: settings.appearance, textSize: settings.textSize };
+  }
+  return { appearance: pickReadingAppearance(settings.stage), textSize: settings.stage.textSize };
 }
 
 /**
@@ -245,6 +294,8 @@ export const DEFAULT_TRANSLATE_SETTINGS: TranslateSettings = Object.freeze({
   freeScroll: false,
   textSize: DEFAULT_TEXT_SIZE,
   contextId: null,
+  appearance: DEFAULT_READING_APPEARANCE,
+  stage: DEFAULT_STAGE_APPEARANCE,
 });
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -385,6 +436,18 @@ const storedSettingsSchema = z.object({
   // Bounded, never checked against the list, and dropped rather than truncated
   // for the same reason the voice token is: half an id is not a shorter id.
   contextId: z.string().max(64).nullable().catch(DEFAULT_TRANSLATE_SETTINGS.contextId),
+  // Per field inside, and the whole object only when it is not an object at all —
+  // a stored appearance missing one field written by a newer build keeps the rest.
+  appearance: z
+    .object(readingAppearanceShape(DEFAULT_READING_APPEARANCE))
+    .catch(DEFAULT_READING_APPEARANCE),
+  stage: z
+    .object({
+      ...readingAppearanceShape(DEFAULT_STAGE_APPEARANCE),
+      followPage: z.boolean().catch(DEFAULT_STAGE_APPEARANCE.followPage),
+      textSize: z.number().catch(DEFAULT_STAGE_APPEARANCE.textSize).transform(snapTextSize),
+    })
+    .catch(DEFAULT_STAGE_APPEARANCE),
 });
 
 /**
@@ -420,6 +483,8 @@ export function loadTranslateSettings(): TranslateSettings {
       freeScroll: parsed.freeScroll,
       textSize: parsed.textSize,
       contextId: parsed.contextId,
+      appearance: parsed.appearance,
+      stage: parsed.stage,
     };
     return settings;
   } catch {

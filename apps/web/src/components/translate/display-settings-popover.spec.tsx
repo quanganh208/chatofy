@@ -145,3 +145,15 @@ describe('DisplaySettingsPopover', () => {
     expect(container.getAttribute('aria-hidden')).toBeNull();
   });
 });
+
+describe('DisplaySettingsPopover, in tabs', () => {
+  const tabs = () =>
+    Array.from(document.querySelectorAll('[role="tab"]')).map((node) => node.textContent);
+
+  it('asks the three questions in one popover', () => {
+    open();
+    expect(tabs()).toEqual(['Arrangement', 'Text & color', 'Captions']);
+    // Still one elevated surface: three tabs, not three popovers.
+    expect(document.querySelectorAll('[data-slot="popover-content"]').length).toBe(1);
+  });
+});

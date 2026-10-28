@@ -6,7 +6,7 @@ import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { useMinutes } from '@/hooks/use-minutes';
 import { useConversationAudioUpload } from '@/hooks/use-conversation-audio-upload';
 import { useConversationSave } from '@/hooks/use-conversation-save';
-import { TranscriptPanes } from '@/components/translate/transcript-panes';
+import { TranscriptPanes, type StreamProps } from '@/components/translate/transcript-panes';
 import { MinutesPanel } from '@/components/translate/minutes-panel';
 import { DisplaySettingsPopover } from '@/components/translate/display-settings-popover';
 import { VoiceSettingsPopover } from '@/components/translate/voice-settings-popover';
@@ -23,6 +23,12 @@ import { languageNamer } from '@/i18n/language-pair-labels';
 import { recordingOffsetMs } from '@/lib/transcript-time';
 import { useLocale, useTranslate } from '@/i18n/provider';
 import { ContextPicker } from '@/components/translate/context-picker';
+import { CaptionStage } from '@/components/translate/caption-stage';
+import { CaptionWindowPortal } from '@/components/translate/caption-window-portal';
+import { StageControls } from '@/components/translate/stage-controls';
+import { useFullscreen } from '@/hooks/use-fullscreen';
+import { useCaptionWindow } from '@/hooks/use-caption-window';
+import { cn } from '@/lib/utils';
 import { resolveContext, toHints, useTranslationContexts } from '@/hooks/use-translation-contexts';
 
 /**
@@ -158,6 +164,16 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   const awaitingContext = settings.contextId !== null && contextStatus === 'loading';
   const contextUnready = settings.contextId !== null && contextStatus === 'failed';
   const locale = useLocale();
+  // Destructured: one of these goes to `ref=`, and the compiler's refs rule would
+  // otherwise treat every field read off the same object as a ref read in render.
+  const {
+    attach: attachFullscreen,
+    active: fullscreenActive,
+    emulated: fullscreenEmulated,
+    enter: enterFullscreen,
+    exit: exitFullscreen,
+  } = useFullscreen<HTMLElement>();
+  const captionWindow = useCaptionWindow(t('web.translate.captionWindowTitle'));
   // Stable, so the session built on first render keeps reading the live value.
   const readVolume = useCallback(() => getVolume(), [getVolume]);
   const conversation = useStreamingTranslate(readVolume);
@@ -316,6 +332,42 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   // it is still there to work from.
   const unstored = save.failure === 'terminal' && !save.saved;
 
+  // One stream for every view of the conversation — the page's panes, the
+  // fullscreen stage and the caption window — so none of them can show a
+  // different conversation from the others.
+  const stream: StreamProps = {
+    turns: conversation.turns,
+    liveTurns: conversation.liveTurns,
+    captures: conversation.captures,
+    // Live only. `toConversationTurns` above builds the SAVED record,
+    // where this has no meaning: what a listener did or did not hear is
+    // a fact about the run, not about the conversation.
+    unheard: conversation.unheard,
+    displays: conversation.displays,
+    blockTranslations: conversation.blockTranslations,
+    // The two origins a turn's timestamp is measured from. The first is
+    // what `toConversationTurns` above measures the STORED offset from,
+    // and the second is what history shifts that offset by — so the
+    // number on screen now is the number read back later.
+    startedAtMs: conversation.startedAt ? Date.parse(conversation.startedAt) : null,
+    audioOffsetMs,
+    // The pauses the stored offset leaves out, left out here too.
+    pauses: conversation.offsetPauses,
+    speakers: conversation.speakers,
+    attributions: conversation.attributions,
+    onAttribute: conversation.attributeTurn,
+    onUnattribute: conversation.unattributeTurn,
+    onAddSpeaker: conversation.addSpeaker,
+    // Naming people is never disabled while running, unlike the settings
+    // that ride `session.start`. Those configure a session and cannot
+    // change under one; people join a conversation midway, and a roster
+    // that locked when the microphone opened would be useless in the case
+    // it exists for.
+    onRenameSpeaker: conversation.renameSpeaker,
+    onRemoveSpeaker: conversation.removeSpeaker,
+    languageModes: conversation.languageModes,
+  };
+
   return (
     // `min-h-0 flex-1` so the pair below can grow into the slack a tall screen
     // leaves. This chain is what makes the transcript FILL; it is not what bounds
@@ -361,67 +413,72 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           topbar, the column's padding, the gap below, and the dock. The panel
           headers are NOT in that number any more — they are inside the box being
           capped. */}
-      <section className="border-hairline relative flex max-h-[calc(100svh-12.5rem)] min-h-64 flex-1 flex-col overflow-hidden rounded-xl border">
-        <TranscriptPanes
+      {/* Fullscreen is THIS element, so the stage replaces the panes in place and
+          leaving it returns them where they were. Native fullscreen lifts the
+          height cap itself (`:fullscreen` is sized by the browser); the emulated
+          layer — iPhone Safari, a frame without `allowfullscreen` — draws the same
+          state with a fixed cover. */}
+      <section
+        ref={attachFullscreen}
+        className={cn(
+          'border-hairline relative flex max-h-[calc(100svh-12.5rem)] min-h-64 flex-1 flex-col overflow-hidden rounded-xl border',
+          fullscreenActive && 'rounded-none border-0',
+          fullscreenEmulated && 'fixed inset-0 z-50 max-h-none',
+        )}
+      >
+        {fullscreenActive ? (
+          <CaptionStage
+            settings={settings}
+            running={running}
+            stream={stream}
+            languagePair={conversation.languagePair ?? settings.languagePair}
+            onClose={exitFullscreen}
+            closeLabel={t('web.translate.fullscreenExit')}
+            focusOnMount
+          />
+        ) : (
+          <TranscriptPanes
+            settings={settings}
+            running={running}
+            // Same capture as the save above, and for the same reason: a stop-then
+            // -swap must not flip which language a finished turn's translation
+            // line reads from.
+            conversationLanguagePair={conversation.languagePair ?? settings.languagePair}
+            onSwap={() => {
+              // The swap is disabled for an auto-detected source; this keeps the
+              // handler honest about the one pair it cannot reverse.
+              const { source, target } = settings.languagePair;
+              if (source === AUTO_DETECT) return;
+              onChange({ languagePair: reversePair(languagePairOf(source, target)) });
+            }}
+            languageMode={conversation.languageMode?.mode ?? null}
+            onLanguagePair={(languagePair) => onChange({ languagePair })}
+            // The voice belongs beside the panel it speaks for, not behind the gear
+            // at the far end of the dock beside the page settings.
+            voiceControl={
+              <VoiceSettingsPopover
+                settings={settings}
+                running={running}
+                onChange={onChange}
+                onVolumeChange={conversation.setVolume}
+              />
+            }
+            stream={stream}
+          />
+        )}
+      </section>
+
+      {captionWindow.container ? (
+        <CaptionWindowPortal
+          container={captionWindow.container}
           settings={settings}
           running={running}
-          // Same capture as the save above, and for the same reason: a stop-then
-          // -swap must not flip which language a finished turn's translation
-          // line reads from.
-          conversationLanguagePair={conversation.languagePair ?? settings.languagePair}
-          onSwap={() => {
-            // The swap is disabled for an auto-detected source; this keeps the
-            // handler honest about the one pair it cannot reverse.
-            const { source, target } = settings.languagePair;
-            if (source === AUTO_DETECT) return;
-            onChange({ languagePair: reversePair(languagePairOf(source, target)) });
-          }}
-          languageMode={conversation.languageMode?.mode ?? null}
-          onLanguagePair={(languagePair) => onChange({ languagePair })}
-          // The voice belongs beside the panel it speaks for, not behind the gear
-          // at the far end of the dock beside the page settings.
-          voiceControl={
-            <VoiceSettingsPopover
-              settings={settings}
-              running={running}
-              onChange={onChange}
-              onVolumeChange={conversation.setVolume}
-            />
-          }
-          stream={{
-            turns: conversation.turns,
-            liveTurns: conversation.liveTurns,
-            captures: conversation.captures,
-            // Live only. `toConversationTurns` above builds the SAVED record,
-            // where this has no meaning: what a listener did or did not hear is
-            // a fact about the run, not about the conversation.
-            unheard: conversation.unheard,
-            displays: conversation.displays,
-            blockTranslations: conversation.blockTranslations,
-            // The two origins a turn's timestamp is measured from. The first is
-            // what `toConversationTurns` above measures the STORED offset from,
-            // and the second is what history shifts that offset by — so the
-            // number on screen now is the number read back later.
-            startedAtMs: conversation.startedAt ? Date.parse(conversation.startedAt) : null,
-            audioOffsetMs,
-            // The pauses the stored offset leaves out, left out here too.
-            pauses: conversation.offsetPauses,
-            speakers: conversation.speakers,
-            attributions: conversation.attributions,
-            onAttribute: conversation.attributeTurn,
-            onUnattribute: conversation.unattributeTurn,
-            onAddSpeaker: conversation.addSpeaker,
-            // Naming people is never disabled while running, unlike the settings
-            // that ride `session.start`. Those configure a session and cannot
-            // change under one; people join a conversation midway, and a roster
-            // that locked when the microphone opened would be useless in the case
-            // it exists for.
-            onRenameSpeaker: conversation.renameSpeaker,
-            onRemoveSpeaker: conversation.removeSpeaker,
-            languageModes: conversation.languageModes,
-          }}
+          stream={stream}
+          languagePair={conversation.languagePair ?? settings.languagePair}
+          onClose={captionWindow.close}
+          closeLabel={t('web.translate.captionWindowClose')}
         />
-      </section>
+      ) : null}
 
       {/* A two-way start the server is running one way — it could not tell the
           two languages apart right now. Said as what the reader gets instead,
@@ -651,9 +708,28 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             running={running}
             onChange={(contextId) => onChange({ contextId })}
           />
+          <StageControls
+            onFullscreen={enterFullscreen}
+            windowKind={captionWindow.kind}
+            windowOpen={captionWindow.container !== null}
+            onToggleWindow={captionWindow.container ? captionWindow.close : captionWindow.open}
+          />
           <DisplaySettingsPopover settings={settings} onChange={onChange} />
         </div>
       </div>
+
+      {/* Why no window appeared. The blocker is the one refusal the reader can act
+          on, so it says what to do; a failed Picture-in-Picture request says only
+          that it failed. A readout, like the declined two-way line above. */}
+      {captionWindow.failure ? (
+        <p role="status" className="text-muted-foreground text-hint">
+          {t(
+            captionWindow.failure === 'blocked'
+              ? 'web.translate.captionWindowBlocked'
+              : 'web.translate.captionWindowFailed',
+          )}
+        </p>
+      ) : null}
 
       {/* Read back once the talking has stopped. It reports what happened and
           asks for nothing: the audience for these numbers is whoever decides

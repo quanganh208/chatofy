@@ -15,13 +15,14 @@ import {
 } from '@/components/translate/panel-headers';
 import { TranscriptScroller } from '@/components/translate/transcript-scroller';
 import { textSizeScale, type TranslateSettings } from '@/lib/translate-settings';
+import { readingSchemeClass, readingStyle } from '@/lib/reading-appearance';
 
 /**
  * Everything a stream needs except which half of a turn it is showing, and
  * `languagePair` — this file already holds the conversation's pair for its own
  * pane headers, so a caller has no second one to supply.
  */
-type StreamProps = Omit<
+export type StreamProps = Omit<
   ComponentProps<typeof ConversationTranscript>,
   'side' | 'speakerLabels' | 'interactive' | 'running' | 'languagePair'
 >;
@@ -134,13 +135,17 @@ export function TranscriptPanes({
   const split = settings.displayMode === 'split' && !settings.translationOnly;
   const column = split && settings.paneLayout === 'column';
 
-  // The one place `--reading-scale` is written. Everything under it that carries
-  // `text-source` or `text-target` scales together; see `app/globals.css`.
-  const scale = { '--reading-scale': textSizeScale(settings.textSize) } as React.CSSProperties;
+  // The one place `--reading-scale` and the reader's appearance are written on
+  // the page. Everything under it that carries `text-source` or `text-target`
+  // scales together, and the `reading-*` utilities read the rest; see
+  // `app/globals.css`. The stage writes its own — `caption-stage.tsx`.
+  const scale = readingStyle(settings.appearance, textSizeScale(settings.textSize));
+  const scheme = readingSchemeClass(settings.appearance);
 
   const shared = {
     running,
     speakerLabels: settings.speakerLabels,
+    showTime: settings.appearance.showTime,
     ...stream,
   };
 
@@ -201,7 +206,8 @@ export function TranscriptPanes({
     return (
       <div
         className={cn(
-          'relative flex min-h-0 flex-1',
+          'reading-frame relative flex min-h-0 flex-1',
+          scheme,
           // One column below `sm` and two above it for `row`, in CSS rather than
           // in JavaScript: a `matchMedia` fork would render one thing on the
           // server and another on the client, which is a hydration mismatch and a
@@ -226,7 +232,7 @@ export function TranscriptPanes({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col" style={scale}>
+    <div className={cn('reading-frame flex min-h-0 flex-1 flex-col', scheme)} style={scale}>
       <PanelHeaders
         languagePair={settings.languagePair}
         running={running}

@@ -601,6 +601,38 @@ The e2e suite is what makes this safe to change: it asserts the popup does not
 scroll sideways at 320px across every state, and that Start stays above the 600px
 cap. Both still pass.
 
+## Reader appearance
+
+On `/translate` the reader can restyle the transcript itself. There are two profiles: one for the
+page, and one for the stage, which is what fullscreen and the floating caption window draw. They
+live in `apps/web/src/lib/reading-appearance.ts`, and the controls sit in the display popover's
+"Text & color" and "Captions" tabs.
+
+- **Applied as variables, on one element.** `readingStyle` writes `--reading-*` next to
+  `--reading-scale`. The `reading-*` utilities and `text-source` / `text-target` in
+  `globals.css` read them, and every fallback is the old look. The default appearance writes
+  no variable at all, which is why `/history` (same transcript, no variables) is unchanged.
+  `reading-scale.spec.ts` holds each fallback.
+- **Raw tokens, not `--color-*` aliases.** The reading utilities read `--foreground`,
+  `--prose` and `--muted-foreground` directly. The aliases are declared on `:root` and
+  arrive already resolved, so they would carry the page's scheme into a forced ground.
+- **A ground can force a scheme.** A fixed ground forces its scheme from its own luminance:
+  black, navy, white, or a custom hex. It adds `reading-scheme-dark` / `reading-scheme-light`,
+  and the token block is declared on those two classes as well as on `:root`. The build
+  compiles `light-dark()` into a toggle that resolves where a token is declared, so a token
+  declared only on the root could never flip inside the island.
+- **Presets are held to 4.5:1. Custom colours are measured, never refused.** Every ink preset
+  clears 4.5:1 on `surface` and on every ground preset of its scheme. Every ground clears
+  4.5:1 against the default text, secondary and muted inks (`reading-appearance.spec.ts`).
+  A custom hex shows its ratio against the drawn ground, which is composited at its opacity.
+  It warns in words when it falls under the floor, or when it fails in the theme not on
+  screen.
+- **The stage is captions, not a page.** It shows one stream with no pane headers, pickers or
+  attribution control. The session stays on the page. By default it uses a black ground,
+  a bold translation and text size 6/10, and "Same as page" mirrors the page profile instead.
+- **No accent.** The fullscreen and caption-window buttons are outline controls in the dock.
+  A chosen swatch shows a ring, never a fill.
+
 ## Motion
 
 **Never in the way of reading a translation.** That invariant is the whole of what

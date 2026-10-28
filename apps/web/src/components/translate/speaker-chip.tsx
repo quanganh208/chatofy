@@ -94,7 +94,7 @@ interface SpeakerChipProps {
 type ChipFace = 'chip' | 'picking' | 'managing';
 
 const CHIP_TONE: Record<AttributionOrigin, string> = {
-  confirmed: 'border-border text-foreground',
+  confirmed: 'border-border text-[color:var(--reading-speaker,var(--foreground))]',
   // Dashed and italic — borrowed verbatim from the live line, so a label that
   // may still change never looks like one that will not.
   //
@@ -104,7 +104,8 @@ const CHIP_TONE: Record<AttributionOrigin, string> = {
   // to the same spec for the same reason. Two states of one control had one
   // defect and only one of them was fixed; the provisional reading was already
   // being carried by the border and the italics either way.
-  suggested: 'border-border border-dashed text-muted-foreground italic',
+  suggested:
+    'border-border border-dashed text-[color:var(--reading-speaker,var(--muted-foreground))] italic',
   // Dotted rather than dashed.
   //
   // **It carries no name yet, but it may not whisper it.** The first version of

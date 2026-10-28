@@ -1,8 +1,21 @@
 'use client';
 
 import { Settings2 } from 'lucide-react';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@chatofy/ui/react';
+import {
+  Button,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@chatofy/ui/react';
+import { AppearanceSettingsPanel } from '@/components/translate/appearance-settings-panel';
 import { DisplaySettingsPanel } from '@/components/translate/display-settings-panel';
+import { StageSettingsPanel } from '@/components/translate/stage-settings-panel';
+import { useResolvedColorScheme } from '@/hooks/use-resolved-color-scheme';
+import { DEFAULT_READING_APPEARANCE } from '@/lib/reading-appearance';
 import type { TranslateSettings } from '@/lib/translate-settings';
 import { useTranslate } from '@/i18n/provider';
 
@@ -33,6 +46,7 @@ export function DisplaySettingsPopover({
 }) {
   const t = useTranslate();
   const label = t('web.translate.displaySettings');
+  const scheme = useResolvedColorScheme();
 
   return (
     <Popover>
@@ -49,9 +63,37 @@ export function DisplaySettingsPopover({
         align="end"
         side="top"
         aria-label={label}
-        className="max-h-[min(34rem,calc(100vh-5rem))] w-85 overflow-y-auto"
+        className="max-h-[min(36rem,calc(100vh-5rem))] w-96 max-w-[calc(100vw-2rem)] overflow-y-auto"
       >
-        <DisplaySettingsPanel settings={settings} onChange={onChange} />
+        {/* Three tabs in the one popover rather than three popovers: it stays one
+            elevated surface, and "how the page is arranged", "how the text looks"
+            and "how the captions look" are one question asked three ways. The
+            arrangement tab keeps the panel as it was. */}
+        <Tabs defaultValue="layout" className="gap-5">
+          <TabsList className="w-full">
+            <TabsTrigger value="layout">{t('web.translate.displayTabLayout')}</TabsTrigger>
+            <TabsTrigger value="appearance">{t('web.translate.displayTabAppearance')}</TabsTrigger>
+            <TabsTrigger value="stage">{t('web.translate.displayTabStage')}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="layout">
+            <DisplaySettingsPanel settings={settings} onChange={onChange} />
+          </TabsContent>
+          <TabsContent value="appearance">
+            <AppearanceSettingsPanel
+              appearance={settings.appearance}
+              defaults={DEFAULT_READING_APPEARANCE}
+              scheme={scheme}
+              onChange={(patch) => onChange({ appearance: { ...settings.appearance, ...patch } })}
+            />
+          </TabsContent>
+          <TabsContent value="stage">
+            <StageSettingsPanel
+              stage={settings.stage}
+              scheme={scheme}
+              onChange={(stage) => onChange({ stage })}
+            />
+          </TabsContent>
+        </Tabs>
       </PopoverContent>
     </Popover>
   );

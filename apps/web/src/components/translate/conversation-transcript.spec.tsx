@@ -555,3 +555,27 @@ describe('ConversationTranscript in a two-way conversation', () => {
     expect(blocks()[0]?.querySelector('p.text-target')?.textContent).toBe('see you tomorrow');
   });
 });
+
+describe('ConversationTranscript and the reader appearance', () => {
+  it('shows each block its time by default', () => {
+    render({ startedAtMs: 0 });
+    expect(container.querySelectorAll('time').length).toBeGreaterThan(0);
+  });
+
+  it('drops the time when the reader turned it off', () => {
+    render({ startedAtMs: 0, showTime: false });
+    expect(container.querySelectorAll('time').length).toBe(0);
+  });
+
+  it('draws the reading lines through the appearance utilities, not fixed colours', () => {
+    // A fixed `text-prose` or `font-medium` here would beat the reader's choice.
+    render({ startedAtMs: 0 });
+    const source = container.querySelector('.text-source');
+    const target = container.querySelector('.text-target');
+    expect(source?.classList.contains('reading-source')).toBe(true);
+    expect(source?.classList.contains('text-prose')).toBe(false);
+    expect(target?.classList.contains('reading-target')).toBe(true);
+    expect(target?.classList.contains('font-medium')).toBe(false);
+    expect(container.querySelector('time')?.parentElement?.classList).toContain('reading-time');
+  });
+});
