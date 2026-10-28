@@ -5,7 +5,8 @@ import { Plus } from 'lucide-react';
 import { Button, Skeleton } from '@chatofy/ui/react';
 import { CONTEXT_LIMITS, type TranslationContext } from '@chatofy/types';
 import { AiContextEditor } from './ai-context-editor';
-import { draftOf, emptyDraft, glossaryOf, keywordsOf, type Draft } from './ai-context-draft';
+import { draftOf, emptyDraft, keywordsOf, type Draft } from './ai-context-draft';
+import { useGlossaries } from '@/hooks/use-glossaries';
 import { ConfirmDeleteButton } from '@/components/layout/confirm-delete-button';
 import { SettingsSection } from '@/components/layout/settings-section';
 import { useTranslationContexts } from '@/hooks/use-translation-contexts';
@@ -43,13 +44,14 @@ function summaryOf(context: TranslationContext): string {
   const parts: string[] = [];
   if (context.topic) parts.push(context.topic);
   if (context.hotwords.length) parts.push(`${context.hotwords.length} terms`);
-  if (context.glossary.length) parts.push(`${context.glossary.length} renderings`);
+  if (context.linkedGlossaryName) parts.push(context.linkedGlossaryName);
   return parts.join(' · ');
 }
 
 export function AiContextSection() {
   const t = useTranslate();
   const { contexts, status, save, remove } = useTranslationContexts();
+  const { glossaries } = useGlossaries();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
@@ -72,8 +74,9 @@ export function AiContextSection() {
         name: draft.name.trim(),
         topic: draft.topic.trim() || null,
         hotwords: keywordsOf(draft.hotwords),
-        glossary: glossaryOf(draft.glossary),
+        glossary: [],
         style: draft.style,
+        glossaryId: draft.glossaryId,
       });
       setDraft(null);
     } catch {
@@ -176,6 +179,7 @@ export function AiContextSection() {
               saving={saving}
               saveFailed={saveFailed}
               atLimitForNew={atLimit && !editingExisting}
+              glossaries={glossaries}
               onSave={() => void saveDraft()}
               onCancel={() => setDraft(null)}
             />
