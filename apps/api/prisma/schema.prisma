@@ -424,6 +424,11 @@ model TranslationContext {
   // value must not be a column migration.
   style     String?
   glossary  GlossaryTerm[]
+  // When set, this context's preferred renderings come from the linked Glossary's
+  // items rather than from the inline GlossaryTerm rows. SetNull so deleting a
+  // Glossary degrades gracefully (no renderings) rather than cascading the context.
+  glossaryId     String?
+  linkedGlossary Glossary? @relation(fields: [glossaryId], references: [id], onDelete: SetNull)
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
@@ -611,7 +616,8 @@ model Glossary {
   isDefault   Boolean       @default(false)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
-  items       GlossaryItem[]
+  items    GlossaryItem[]
+  contexts TranslationContext[]
 
   @@unique([ownerId, clientId])
 }

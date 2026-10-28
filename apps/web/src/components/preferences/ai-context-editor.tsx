@@ -1,15 +1,21 @@
 'use client';
 
-import { Button, Input, Label, SegmentedControl, Separator, Textarea } from '@chatofy/ui/react';
-import { CONTEXT_LIMITS } from '@chatofy/types';
-import { AiContextGlossaryFields } from './ai-context-glossary-fields';
 import {
-  hotwordLinesOf,
-  hotwordTooLong,
-  tooLong,
-  tooManyHotwords,
-  type Draft,
-} from './ai-context-draft';
+  Button,
+  Input,
+  Label,
+  SegmentedControl,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Separator,
+  Textarea,
+} from '@chatofy/ui/react';
+import { CONTEXT_LIMITS } from '@chatofy/types';
+import type { Glossary } from '@chatofy/types';
+import { hotwordLinesOf, hotwordTooLong, tooManyHotwords, type Draft } from './ai-context-draft';
 import { useTranslate } from '@/i18n/provider';
 
 /**
@@ -31,12 +37,15 @@ import { useTranslate } from '@/i18n/provider';
  * "this stored one", and what clears a failed save on the way in. A copy of the
  * state down here would make each of those a message passed back up.
  */
+const NO_GLOSSARY = '__none__';
+
 export function AiContextEditor({
   draft,
   patch,
   saving,
   saveFailed,
   atLimitForNew,
+  glossaries,
   onSave,
   onCancel,
 }: {
@@ -46,12 +55,13 @@ export function AiContextEditor({
   saveFailed: boolean;
   /** The library is full and this draft would add to it rather than replace a row. */
   atLimitForNew: boolean;
+  /** The caller's glossary list, for the picker. */
+  glossaries: Glossary[];
   onSave: () => void;
   onCancel: () => void;
 }) {
   const t = useTranslate();
 
-  const hasOverlongPair = draft.glossary.some(tooLong);
   const hasOverlongHotword = hotwordTooLong(draft.hotwords);
   const hasTooManyHotwords = tooManyHotwords(draft.hotwords);
   const hotwordCount = hotwordLinesOf(draft.hotwords).length;
@@ -124,10 +134,35 @@ export function AiContextEditor({
           ) : null}
         </div>
 
-        <AiContextGlossaryFields
-          rows={draft.glossary}
-          onChange={(glossary) => patch({ glossary })}
-        />
+        {glossaries.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="ai-context-glossary-link">
+              {t('web.preferences.aiContext.glossaryLink')}
+            </Label>
+            <Select
+              value={draft.glossaryId ?? NO_GLOSSARY}
+              onValueChange={(value) => patch({ glossaryId: value === NO_GLOSSARY ? null : value })}
+            >
+              <SelectTrigger id="ai-context-glossary-link">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_GLOSSARY}>
+                  {t('web.preferences.aiContext.glossaryLinkNone')}
+                </SelectItem>
+                {glossaries.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.name}
+                    {g.itemCount > 0 ? ` (${g.itemCount})` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-muted-foreground text-hint">
+              {t('web.preferences.aiContext.glossaryLinkHint')}
+            </span>
+          </div>
+        ) : null}
 
         <SegmentedControl
           label={t('web.preferences.aiContext.register')}
@@ -153,7 +188,6 @@ export function AiContextEditor({
             disabled={
               saving ||
               !draft.name.trim() ||
-              hasOverlongPair ||
               hasOverlongHotword ||
               hasTooManyHotwords ||
               atLimitForNew

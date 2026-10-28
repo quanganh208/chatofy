@@ -50,6 +50,7 @@ const body: SaveTranslationContextRequest = {
     { vi: 'luận văn', en: 'thesis' },
   ],
   style: 'formal',
+  glossaryId: null,
 };
 
 /**

@@ -28,6 +28,7 @@ const body: SaveTranslationContextRequest = {
   hotwords: [],
   glossary: [],
   style: null,
+  glossaryId: null,
 };
 
 const context = (id: string): TranslationContext => ({
@@ -37,6 +38,9 @@ const context = (id: string): TranslationContext => ({
   hotwords: [],
   glossary: [],
   style: null,
+  glossaryId: null,
+  linkedGlossaryId: null,
+  linkedGlossaryName: null,
   updatedAt: '2026-09-17T00:00:00.000Z',
 });
 

@@ -38,6 +38,7 @@ const body: SaveTranslationContextRequest = {
   hotwords: [],
   glossary: [{ vi: 'hội đồng phản biện', en: 'thesis defense committee' }],
   style: null,
+  glossaryId: null,
 };
 
 /** A store keyed the way the real one is: by (ownerId, clientId). */
@@ -53,6 +54,9 @@ function fakeStore(seed: { ownerId: string; id: string; name: string }[] = []) {
         hotwords: [],
         glossary: [],
         style: null,
+        glossaryId: null,
+        linkedGlossaryId: null,
+        linkedGlossaryName: null,
         updatedAt: '2026-09-17T00:00:00.000Z',
       },
     ]),
@@ -76,6 +80,8 @@ function fakeStore(seed: { ownerId: string; id: string; name: string }[] = []) {
         ownerId,
         id: contextId,
         ...saved,
+        linkedGlossaryId: null,
+        linkedGlossaryName: null,
         updatedAt: '2026-09-17T12:00:00.000Z',
       };
       rows.set(key, row);

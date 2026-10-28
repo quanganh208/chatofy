@@ -431,6 +431,10 @@ export const vi: Messages = {
     'Cách dịch chỉ nên là một từ hoặc một cụm ngắn — tối đa {max} chữ. Hãy rút gọn cặp này, hoặc xoá nó đi.',
   'web.preferences.aiContext.glossaryAdd': 'Thêm một cặp',
   'web.preferences.aiContext.glossaryRemove': 'Xoá cặp này',
+  'web.preferences.aiContext.glossaryLink': 'Bộ từ điển',
+  'web.preferences.aiContext.glossaryLinkNone': 'Không có',
+  'web.preferences.aiContext.glossaryLinkHint':
+    'Các thuật ngữ trong bộ từ điển này sẽ được ưu tiên khi AI dịch.',
   'web.preferences.aiContext.register': 'Văn phong',
   'web.preferences.aiContext.limitReached':
     'Bạn đã đạt số ngữ cảnh tối đa. Hãy xoá bớt một cái để tạo cái mới.',
