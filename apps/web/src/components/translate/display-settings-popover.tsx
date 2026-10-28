@@ -40,16 +40,31 @@ import { useTranslate } from '@/i18n/provider';
 export function DisplaySettingsPopover({
   settings,
   onChange,
+  container,
+  side = 'top',
+  open,
+  onOpenChange,
 }: {
   settings: TranslateSettings;
   onChange: (patch: Partial<TranslateSettings>) => void;
+  /**
+   * Where the panel opens into. The fullscreen stage passes its own element: the
+   * browser draws nothing outside a fullscreen element, so a panel portalled to
+   * the body would open unseen.
+   */
+  container?: HTMLElement | null;
+  /** Above the dock at the foot of the page; below the stage's bar at its head. */
+  side?: 'top' | 'bottom';
+  /** Controlled by the stage, which keeps its bar up while the panel is open. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const t = useTranslate();
   const label = t('web.translate.displaySettings');
   const scheme = useResolvedColorScheme();
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         {/* Outline, not ghost: it sits on the page ground at the end of the dock
             rather than among the topbar's other icons, and a control with no edge
@@ -61,7 +76,11 @@ export function DisplaySettingsPopover({
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        side="top"
+        side={side}
+        // Clear of the screen's edge on a phone, where the panel is nearly as wide
+        // as the viewport and would otherwise sit flush against one side.
+        collisionPadding={16}
+        container={container}
         aria-label={label}
         className="max-h-[min(36rem,calc(100vh-5rem))] w-96 max-w-[calc(100vw-2rem)] overflow-y-auto"
       >

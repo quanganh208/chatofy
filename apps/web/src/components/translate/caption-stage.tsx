@@ -1,9 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import type { SessionLanguagePair } from '@chatofy/types';
-import { X } from 'lucide-react';
-import { Button } from '@chatofy/ui/react';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
 import { TranscriptScroller } from '@/components/translate/transcript-scroller';
 import type { StreamProps } from '@/components/translate/transcript-panes';
@@ -17,42 +14,41 @@ import { useTranslate } from '@/i18n/provider';
 import { cn } from '@/lib/utils';
 
 /**
- * The conversation as captions: what fullscreen and the floating caption window
- * draw.
+ * The conversation as captions: what the floating caption window draws.
+ *
+ * Fullscreen used to draw this too, and stopped: a reader going fullscreen
+ * expected the screen they were reading, split as they had split it, and the
+ * settings they would otherwise have to leave for — `fullscreen-stage.tsx`.
  *
  * ## One stream, no frame
  *
- * Read across a room or in a window the size of a stamp, so none of the page's
- * frame comes along: no pane headers, no language pickers, no voice control.
- * Those configure the session, and the session belongs to the page — a picker
- * here would be a second control for one piece of state with nothing saying so.
- * For the same reason the names on turns are copies, never the attribution
- * control (`interactive` is off).
+ * Read in a window the size of a stamp, so none of the page's frame comes along:
+ * no pane headers, no language pickers, no voice control. Those configure the
+ * session, and the session belongs to the page — a picker here would be a second
+ * control for one piece of state with nothing saying so. For the same reason the
+ * names on turns are copies, never the attribution control (`interactive` is off).
  *
- * The one control it can carry is its own close, and only where nothing else
- * offers one: fullscreen on a phone has no Esc key. The caption window already
- * has the browser's close in its title bar — a Picture-in-Picture window's, or
- * the popup's own — and a second X under it closed the same window twice over.
+ * No control of its own either: the browser's close in the window's title bar —
+ * a Picture-in-Picture window's, or the popup's — is the way out, and a second X
+ * under it closed the same window twice over.
  *
  * One merged stream rather than the page's split, because two columns do not fit
- * the window and a room reads one line at a time. `translationOnly` is still
- * honoured: it is about what the reader wants to see, not about arrangement.
+ * the window. `translationOnly` is still honoured: it is about what the reader
+ * wants to see, not about arrangement.
  *
  * ## Its own look
  *
  * The stage profile, through the same `readingStyle` the page uses, so the two
  * cannot drift apart in how a look is applied — only in which look it is. The
  * opaque `bg-background` underneath is what a translucent stage ground mixes
- * with: a fullscreen element has nothing behind it but the browser's black
- * backdrop, which the light theme's ink cannot be read on.
+ * with: a freshly opened window has nothing behind it but the browser's own
+ * blank ground, which the theme's ink was never checked against.
  */
 export function CaptionStage({
   settings,
   running,
   stream,
   languagePair,
-  close,
-  focusOnMount = false,
   className,
 }: {
   settings: TranslateSettings;
@@ -60,24 +56,9 @@ export function CaptionStage({
   stream: StreamProps;
   /** The pair the turns on screen were translated for — see `TranscriptPanes`. */
   languagePair: SessionLanguagePair;
-  /**
-   * The stage's own close control, and what it says it does. Absent in the
-   * caption window, whose browser frame already closes it.
-   */
-  close?: { label: string; onClose: () => void };
-  /**
-   * Move focus to the close control on mount. Fullscreen wants it — the control
-   * that opened it is now outside the fullscreen element. The caption window must
-   * not: focusing inside it would pull focus off the page someone is working in.
-   */
-  focusOnMount?: boolean;
   className?: string;
 }) {
   const t = useTranslate();
-  const closeButton = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (focusOnMount) closeButton.current?.focus();
-  }, [focusOnMount]);
   const { appearance, textSize } = effectiveStageAppearance(settings);
 
   return (
@@ -89,23 +70,6 @@ export function CaptionStage({
         )}
         style={readingStyle(appearance, textSizeScale(textSize))}
       >
-        {/* Ghost, in a row of its own, and never accent: the stage's only control,
-            and the page it came from already spends its one filled action on Start.
-            Its own row rather than floated over the corner: floated, it sat on the
-            first line of captions at phone width, which is where they start. */}
-        {close ? (
-          <div className="flex shrink-0 justify-end p-1">
-            <Button
-              ref={closeButton}
-              variant="ghost"
-              size="icon"
-              aria-label={close.label}
-              onClick={close.onClose}
-            >
-              <X aria-hidden />
-            </Button>
-          </div>
-        ) : null}
         <TranscriptScroller
           label={t('web.translate.captionStage')}
           freeScroll={settings.freeScroll}

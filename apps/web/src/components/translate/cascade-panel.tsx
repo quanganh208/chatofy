@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo } from 'react';
-import { Mic, MicOff, Pause } from 'lucide-react';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { useMinutes } from '@/hooks/use-minutes';
 import { useConversationAudioUpload } from '@/hooks/use-conversation-audio-upload';
@@ -11,11 +10,8 @@ import { MinutesPanel } from '@/components/translate/minutes-panel';
 import { DisplaySettingsPopover } from '@/components/translate/display-settings-popover';
 import { VoiceSettingsPopover } from '@/components/translate/voice-settings-popover';
 import { ReadinessBanner } from '@/components/translate/readiness-banner';
-import { MicMeter } from '@/components/translate/mic-meter';
-import { ElapsedClock } from '@/components/translate/elapsed-clock';
-import { Button } from '@chatofy/ui/react';
-import { Alert, AlertDescription } from '@chatofy/ui/react';
-import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
+import { SessionActions, SessionReadouts } from '@/components/translate/session-controls';
+import { Alert, AlertDescription, Button } from '@chatofy/ui/react';
 import { AUTO_DETECT, languagePairOf, reversePair } from '@chatofy/types';
 import { toConversationTurns } from '@chatofy/realtime-client';
 import { asksTwoWay, chosenVoices, type TranslateSettings } from '@/lib/translate-settings';
@@ -23,7 +19,7 @@ import { languageNamer } from '@/i18n/language-pair-labels';
 import { recordingOffsetMs } from '@/lib/transcript-time';
 import { useLocale, useTranslate } from '@/i18n/provider';
 import { ContextPicker } from '@/components/translate/context-picker';
-import { CaptionStage } from '@/components/translate/caption-stage';
+import { FullscreenStage } from '@/components/translate/fullscreen-stage';
 import { CaptionWindowPortal } from '@/components/translate/caption-window-portal';
 import { StageControls } from '@/components/translate/stage-controls';
 import { useFullscreen } from '@/hooks/use-fullscreen';
@@ -96,44 +92,6 @@ import { resolveContext, toHints, useTranslationContexts } from '@/hooks/use-tra
  * place allowed to call `useTranslateSettings`.
  */
 
-/**
- * Status → dictionary key. The words moved to `@chatofy/i18n`; this table keeps
- * naming which status says which thing, which is the part that is about this
- * component rather than about language.
- */
-const STATUS_KEY = {
-  idle: 'web.translate.notListening',
-  connecting: 'web.translate.connecting',
-  listening: 'web.translate.listening',
-  'hearing-speech': 'web.translate.hearingYou',
-  translating: 'web.translate.translating',
-  playing: 'web.translate.speaking',
-  paused: 'web.translate.paused',
-  finishing: 'web.translate.finishing',
-} as const;
-
-/**
- * Colour per status, alongside the label rather than instead of it.
- *
- * `live` and `speaking` are red and green on the same dot, so the label is what
- * carries the difference for a colour blind reader — see `status-indicator.tsx`.
- */
-const STATUS_TONE: Record<keyof typeof STATUS_KEY, StatusTone> = {
-  idle: 'idle',
-  connecting: 'busy',
-  listening: 'live',
-  'hearing-speech': 'live',
-  translating: 'busy',
-  playing: 'speaking',
-  // The one running state that gets the resting dot. `live` would pulse at a
-  // reader whose microphone is off, which is the single thing this indicator
-  // exists to be honest about.
-  paused: 'idle',
-  // Still speaking, so it keeps the speaking tone: the loudspeaker is the one
-  // thing still happening, and this is the same green it had a moment ago.
-  finishing: 'speaking',
-};
-
 interface CascadePanelProps {
   settings: TranslateSettings;
   onChange: (patch: Partial<TranslateSettings>) => void;
@@ -182,10 +140,6 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   // fires on its falling edge above all — must not fire when the microphone goes
   // off, because the conversation has not ended.
   const running = conversation.status !== 'idle';
-  const paused = conversation.status === 'paused';
-  const finishing = conversation.status === 'finishing';
-  // Running, but nothing is open yet: the microphone prompt is still on screen.
-  const connecting = conversation.status === 'connecting';
 
   // Minutes are summarized after the talking stops, from the STORED transcript —
   // the client no longer sends the turns, it names the conversation. Keyed by the
@@ -332,6 +286,52 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   // it is still there to work from.
   const unstored = save.failure === 'terminal' && !save.saved;
 
+  // What Start sends, for both of the places Start can be pressed — the dock and
+  // the fullscreen bar.
+  const startConversation = () =>
+    void conversation.start({
+      languagePair: settings.languagePair,
+      voiceGender: settings.voiceGender,
+      voiceOutput: settings.voiceOutput,
+      // Sent regardless of the pair. The server hands it to whichever
+      // engine speaks the output language, and the one without a rate
+      // control ignores it — the UI disables the picker there so the
+      // choice is never silently inert, but the value itself is honest.
+      speed: settings.speed,
+      // The target's token, for the language a declared turn speaks —
+      // and what a two-way start the server runs one way falls back
+      // to. Settings keep one per language because the two engines
+      // share no vocabulary.
+      voice: settings.voice[settings.languagePair.target],
+      // A start whose spoken language is decided per turn also
+      // carries the whole map, so a reply is read out in the voice
+      // chosen for ITS language rather than the target's.
+      ...(identifiesTurns ? { voices: chosenVoices(settings.voice) } : {}),
+      // Always asked for; the server decides whether to answer. A
+      // tab loaded before this field existed simply never asks, so
+      // it is never sent an event its copy of the contract cannot
+      // parse — which is the whole reason the opt-in is per client
+      // rather than server-side alone.
+      embedSpeaker: true,
+      // Same opt-in again: a tab that cannot join a piece of a
+      // split turn back to the turn it opened is never sent one.
+      splitSpeakers: true,
+      // Same opt-in, same reason: a tab loaded before the display
+      // rendering existed never asks, so it is never sent something
+      // its copy of the contract would reject. The name is a
+      // misnomer now — nothing repairs anything, the rendering is
+      // computed in process — and renaming it is a breaking change
+      // taken separately or not at all.
+      repairDisplay: true,
+      // `undefined`, not an empty object, when no context is selected
+      // — a request with no hints produces a prompt byte-identical to
+      // the one without this feature, which is what lets the recorded
+      // injection baseline keep describing the default path. A
+      // contextId naming a context that no longer exists resolves to
+      // null here and reads as "no context".
+      hints: toHints(resolveContext(contexts, settings.contextId)),
+    });
+
   // One stream for every view of the conversation — the page's panes, the
   // fullscreen stage and the caption window — so none of them can show a
   // different conversation from the others.
@@ -414,7 +414,8 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           headers are NOT in that number any more — they are inside the box being
           capped. */}
       {/* Fullscreen is THIS element, so the stage replaces the panes in place and
-          leaving it returns them where they were. Native fullscreen lifts the
+          leaving it returns them where they were. The stage draws the same panes
+          in the stage's look, under a bar that carries the dock's controls. Native fullscreen lifts the
           height cap itself (`:fullscreen` is sized by the browser); the emulated
           layer — iPhone Safari, a frame without `allowfullscreen` — draws the same
           state with a fixed cover. */}
@@ -427,13 +428,18 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
         )}
       >
         {fullscreenActive ? (
-          <CaptionStage
+          <FullscreenStage
             settings={settings}
+            onChange={onChange}
             running={running}
             stream={stream}
-            languagePair={conversation.languagePair ?? settings.languagePair}
-            close={{ label: t('web.translate.fullscreenExit'), onClose: exitFullscreen }}
-            focusOnMount
+            conversationLanguagePair={conversation.languagePair ?? settings.languagePair}
+            languageMode={conversation.languageMode?.mode ?? null}
+            conversation={conversation}
+            onStart={startConversation}
+            awaitingContext={awaitingContext}
+            contextUnready={contextUnready}
+            onExit={exitFullscreen}
           />
         ) : (
           <TranscriptPanes
@@ -566,131 +572,22 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           both end the microphone, and they differ only in whether the
           conversation survives it. Anything else that wanted a place in the dock
           would go to a panel instead. */}
-      <div className="grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <StatusIndicator
-            tone={STATUS_TONE[conversation.status]}
-            label={t(STATUS_KEY[conversation.status])}
-          />
-          <MicMeter level={conversation.level} />
-          {running ? (
-            <ElapsedClock startedAt={conversation.startedAt} pauses={conversation.pauses} />
-          ) : null}
-        </div>
+      {/* Inert while fullscreen: the stage's bar carries the session then, and on
+          the emulated route this dock is still in the document under the cover —
+          tabbable, and its live status announced twice, if it were not. */}
+      <div inert={fullscreenActive} className="grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
+        <SessionReadouts conversation={conversation} />
 
         <div className="flex items-center gap-2 justify-self-stretch sm:justify-self-center">
-          {running ? (
-            <>
-              {/* Outline while listening, accent while paused. The screen's one
-                  filled control is whatever the reader has to do next, and a
-                  paused conversation is waiting on exactly one thing.
-
-                  Neither appears while finishing: the conversation is already
-                  ending, so there is nothing to pause and nothing to come back
-                  to. End stays, and a second press there cuts the tail.
-
-                  Nor while connecting, for the mirror reason: no microphone is
-                  open yet to turn off. That window is exactly as long as the
-                  browser's permission prompt, and a Pause standing there through
-                  it was a control that could only do nothing. End stays there
-                  too and cancels the pending start — `conversation-session.ts`
-                  says how. */}
-              {connecting || finishing ? null : paused ? (
-                <Button
-                  size="lg"
-                  className="flex-1 rounded-full sm:flex-none"
-                  onClick={conversation.resume}
-                >
-                  <Mic aria-hidden /> {t('web.translate.resume')}
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="flex-1 rounded-full sm:flex-none"
-                  onClick={conversation.pause}
-                >
-                  <Pause aria-hidden /> {t('web.translate.pause')}
-                </Button>
-              )}
-              {/* `end`, not `stop`: the sentence just finished still gets
-                  spoken. `stop` is for the page going away. */}
-              <Button
-                variant="live"
-                size="lg"
-                className="flex-1 rounded-full sm:flex-none"
-                onClick={conversation.end}
-              >
-                <MicOff aria-hidden /> {t('web.translate.end')}
-              </Button>
-            </>
-          ) : (
-            <div className="flex w-full flex-col items-center gap-2 sm:w-auto">
-              <Button
-                size="lg"
-                className="w-full rounded-full sm:w-auto"
-                disabled={awaitingContext}
-                onClick={() =>
-                  void conversation.start({
-                    languagePair: settings.languagePair,
-                    voiceGender: settings.voiceGender,
-                    voiceOutput: settings.voiceOutput,
-                    // Sent regardless of the pair. The server hands it to whichever
-                    // engine speaks the output language, and the one without a rate
-                    // control ignores it — the UI disables the picker there so the
-                    // choice is never silently inert, but the value itself is honest.
-                    speed: settings.speed,
-                    // The target's token, for the language a declared turn speaks —
-                    // and what a two-way start the server runs one way falls back
-                    // to. Settings keep one per language because the two engines
-                    // share no vocabulary.
-                    voice: settings.voice[settings.languagePair.target],
-                    // A start whose spoken language is decided per turn also
-                    // carries the whole map, so a reply is read out in the voice
-                    // chosen for ITS language rather than the target's.
-                    ...(identifiesTurns ? { voices: chosenVoices(settings.voice) } : {}),
-                    // Always asked for; the server decides whether to answer. A
-                    // tab loaded before this field existed simply never asks, so
-                    // it is never sent an event its copy of the contract cannot
-                    // parse — which is the whole reason the opt-in is per client
-                    // rather than server-side alone.
-                    embedSpeaker: true,
-                    // Same opt-in again: a tab that cannot join a piece of a
-                    // split turn back to the turn it opened is never sent one.
-                    splitSpeakers: true,
-                    // Same opt-in, same reason: a tab loaded before the display
-                    // rendering existed never asks, so it is never sent something
-                    // its copy of the contract would reject. The name is a
-                    // misnomer now — nothing repairs anything, the rendering is
-                    // computed in process — and renaming it is a breaking change
-                    // taken separately or not at all.
-                    repairDisplay: true,
-                    // `undefined`, not an empty object, when no context is selected
-                    // — a request with no hints produces a prompt byte-identical to
-                    // the one without this feature, which is what lets the recorded
-                    // injection baseline keep describing the default path. A
-                    // contextId naming a context that no longer exists resolves to
-                    // null here and reads as "no context".
-                    hints: toHints(resolveContext(contexts, settings.contextId)),
-                  })
-                }
-              >
-                <Mic aria-hidden /> {t('web.translate.startConversation')}
-              </Button>
-              {/* Words explain the gate, and only while it applies. `awaitingContext`
-                  is transient — the list settles in one request — and
-                  `contextUnready` is not a gate at all: Start stays pressable, and
-                  this is what stops that from being silent. */}
-              {awaitingContext ? (
-                <span className="text-muted-foreground text-hint">
-                  {t('web.translate.contextLoading')}
-                </span>
-              ) : contextUnready ? (
-                <span className="text-muted-foreground text-hint">
-                  {t('web.translate.contextUnavailable')}
-                </span>
-              ) : null}
-            </div>
+          {/* Rendered once on the screen: here, or in the fullscreen bar. Both at
+              once would be two Starts, which the accent budget counts. */}
+          {fullscreenActive ? null : (
+            <SessionActions
+              conversation={conversation}
+              onStart={startConversation}
+              awaitingContext={awaitingContext}
+              contextUnready={contextUnready}
+            />
           )}
         </div>
 
