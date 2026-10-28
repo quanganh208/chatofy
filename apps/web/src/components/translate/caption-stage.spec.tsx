@@ -58,7 +58,7 @@ afterEach(() => {
   container.remove();
 });
 
-function render(overrides: Partial<TranslateSettings> = {}, onClose = vi.fn()) {
+function render(overrides: Partial<TranslateSettings> = {}) {
   act(() => {
     root.render(
       <LocaleProvider>
@@ -67,12 +67,10 @@ function render(overrides: Partial<TranslateSettings> = {}, onClose = vi.fn()) {
           running
           stream={STREAM}
           languagePair={{ source: 'vi', target: 'en' }}
-          close={{ label: 'Exit full screen', onClose }}
         />
       </LocaleProvider>,
     );
   });
-  return onClose;
 }
 
 const look = () => container.querySelector<HTMLElement>('[style*="--reading-scale"]')!;
@@ -106,13 +104,9 @@ describe('CaptionStage', () => {
     expect(container.textContent).toContain('Hello');
   });
 
-  it('carries no control but its own close — names are copies here', () => {
-    const onClose = render();
-    const buttons = container.querySelectorAll('button');
-    expect(buttons.length).toBe(1);
-    expect(buttons[0]!.getAttribute('aria-label')).toBe('Exit full screen');
-    act(() => buttons[0]!.click());
-    expect(onClose).toHaveBeenCalledOnce();
+  it('carries no control at all — names are copies here', () => {
+    render();
+    expect(container.querySelectorAll('button').length).toBe(0);
   });
 
   it('honours the stage’s own time switch', () => {
@@ -120,28 +114,6 @@ describe('CaptionStage', () => {
     expect(container.querySelector('time')).not.toBeNull();
     render({ stage: { ...DEFAULT_STAGE_APPEARANCE, showTime: false } });
     expect(container.querySelector('time')).toBeNull();
-  });
-});
-
-describe('CaptionStage focus', () => {
-  it('takes focus only when asked, as fullscreen does', () => {
-    render();
-    expect(document.activeElement?.getAttribute('aria-label')).not.toBe('Exit full screen');
-    act(() => {
-      root.render(
-        <LocaleProvider>
-          <CaptionStage
-            settings={DEFAULT_TRANSLATE_SETTINGS}
-            running
-            stream={STREAM}
-            languagePair={{ source: 'vi', target: 'en' }}
-            close={{ label: 'Exit full screen', onClose: vi.fn() }}
-            focusOnMount
-          />
-        </LocaleProvider>,
-      );
-    });
-    expect(document.activeElement?.getAttribute('aria-label')).toBe('Exit full screen');
   });
 });
 

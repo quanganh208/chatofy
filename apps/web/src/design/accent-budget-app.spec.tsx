@@ -451,7 +451,9 @@ interface ScreenState {
    */
   open?: string;
   /**
-   * A control to press once the screen is up, by selector.
+   * A control to press once the screen is up, by selector. Pressed BEFORE `open`,
+   * so a row can reach a state and then open a popover in it — the gear inside
+   * fullscreen is one.
    *
    * `open` above asserts a popover appeared and is only for popovers. This is the
    * plainer case: a state a screen can only REACH by being used. The recording
@@ -546,6 +548,64 @@ const SCREENS: ScreenState[] = [
       });
     },
     render: translate(),
+  },
+  // Fullscreen carries the dock's controls in its own bar, and the dock's copy
+  // of Start is not rendered meanwhile — both at once would be two accents on a
+  // screen whose reader sees only one of them, which is exactly what this table
+  // could not tell apart from the right answer if the dock kept its copy.
+  {
+    name: '/translate — fullscreen, before anything starts',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      useStreamingTranslate.mockReturnValue(conversation());
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    render: translate(),
+    press: 'button[aria-label="Full screen"]',
+    shows: '[data-stage-bar] button.bg-primary',
+  },
+  {
+    name: '/translate — fullscreen, running',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      useStreamingTranslate.mockReturnValue(conversation({ status: 'listening' }));
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    render: translate(),
+    press: 'button[aria-label="Full screen"]',
+    shows: '[data-stage-bar] button[aria-label="Exit full screen"]',
+  },
+  {
+    // The gear opened from inside fullscreen: its panel is the one surface, and
+    // it lands inside the stage — where the browser draws it — not on the body.
+    name: '/translate — fullscreen, display settings open',
+    filled: 1,
+    surfaces: 1,
+    setup() {
+      useStreamingTranslate.mockReturnValue(conversation());
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    render: translate(),
+    press: 'button[aria-label="Full screen"]',
+    open: '[data-stage-bar] button[aria-label="Display settings"]',
+    shows: 'section [data-slot="popover-content"]',
   },
   // The source picker's "Auto-detect" and what it reaches. Every readout it adds —
   // the mode beside the source role, a turn's language tag, the line saying a
@@ -1401,6 +1461,18 @@ async function show(screen: ScreenState): Promise<void> {
   screen.setup();
   await mount(screen.render());
 
+  if (screen.press) {
+    const control = document.querySelector<HTMLElement>(screen.press);
+    expect(control, `${screen.name}: nothing matches ${screen.press}`).not.toBeNull();
+    await act(async () => {
+      control?.click();
+      // Two turns: the click starts the fetch, the rejection settles it, and the
+      // failed line renders on the render after that.
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  }
+
   if (screen.open) {
     const trigger = document.querySelector<HTMLElement>(screen.open);
     expect(trigger, `${screen.name}: nothing matches ${screen.open}`).not.toBeNull();
@@ -1412,18 +1484,6 @@ async function show(screen: ScreenState): Promise<void> {
       document.querySelector('[data-slot="popover-content"]'),
       `${screen.name}: the popover never opened, so nothing inside it was counted`,
     ).not.toBeNull();
-  }
-
-  if (screen.press) {
-    const control = document.querySelector<HTMLElement>(screen.press);
-    expect(control, `${screen.name}: nothing matches ${screen.press}`).not.toBeNull();
-    await act(async () => {
-      control?.click();
-      // Two turns: the click starts the fetch, the rejection settles it, and the
-      // failed line renders on the render after that.
-      await Promise.resolve();
-      await Promise.resolve();
-    });
   }
 
   if (!screen.shows) return;

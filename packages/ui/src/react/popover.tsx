@@ -15,10 +15,18 @@ function PopoverContent({
   className,
   align = 'center',
   sideOffset = 4,
+  container,
   ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+}: React.ComponentProps<typeof PopoverPrimitive.Content> & {
+  /**
+   * Where the panel is portalled to — `document.body` when absent. A trigger
+   * inside a fullscreen element needs that element here: the browser draws only
+   * the fullscreen subtree, so a panel portalled to the body opens unseen.
+   */
+  container?: React.ComponentProps<typeof PopoverPrimitive.Portal>['container'];
+}) {
   return (
-    <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Portal container={container}>
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}

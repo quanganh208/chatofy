@@ -14,7 +14,11 @@ import {
   PanelHeaders,
 } from '@/components/translate/panel-headers';
 import { TranscriptScroller } from '@/components/translate/transcript-scroller';
-import { textSizeScale, type TranslateSettings } from '@/lib/translate-settings';
+import {
+  effectiveStageAppearance,
+  textSizeScale,
+  type TranslateSettings,
+} from '@/lib/translate-settings';
 import { readingSchemeClass, readingStyle } from '@/lib/reading-appearance';
 
 /**
@@ -30,16 +34,23 @@ export type StreamProps = Omit<
 interface TranscriptPanesProps {
   settings: TranslateSettings;
   running: boolean;
-  onSwap: () => void;
-  /** A language picked in a header, as the whole new pair. */
-  onLanguagePair: (pair: SessionLanguagePair) => void;
+  /**
+   * The fullscreen stage: the stage's look instead of the page's, every header a
+   * readout, every speaker name a copy. The arrangement is the page's either way
+   * — fullscreen is this screen bigger, not a different one.
+   */
+  stage?: boolean;
+  /** Not offered on the stage — see `stage`. */
+  onSwap?: () => void;
+  /** A language picked in a header, as the whole new pair. Not offered on the stage. */
+  onLanguagePair?: (pair: SessionLanguagePair) => void;
   /**
    * How the server ran the newest turn, for the source header's readout — see
    * `LanguageModeHint`. Null when no turn has said.
    */
   languageMode?: SessionLanguageMode | null;
   /** The voice, for the target header's end slot — see `panel-headers.tsx`. */
-  voiceControl: React.ReactNode;
+  voiceControl?: React.ReactNode;
   stream: StreamProps;
   /**
    * Which language the finished turns on screen were actually translated into.
@@ -113,10 +124,15 @@ interface TranscriptPanesProps {
  * with nothing telling the reader they are the same control. It is whichever
  * stream is primary: the merged one in `list`, the source pane in `split`, and in
  * `translationOnly` the translation — there, it is the only stream there is.
+ *
+ * None of them on the stage. It is read across a room and changes nothing, so a
+ * chip there would be a second control for the attribution with nothing saying
+ * so — the reason `caption-stage.tsx` gives for the caption window.
  */
 export function TranscriptPanes({
   settings,
   running,
+  stage = false,
   onSwap,
   onLanguagePair,
   voiceControl,
@@ -138,23 +154,27 @@ export function TranscriptPanes({
   // The one place `--reading-scale` and the reader's appearance are written on
   // the page. Everything under it that carries `text-source` or `text-target`
   // scales together, and the `reading-*` utilities read the rest; see
-  // `app/globals.css`. The stage writes its own — `caption-stage.tsx`.
-  const scale = readingStyle(settings.appearance, textSizeScale(settings.textSize));
-  const scheme = readingSchemeClass(settings.appearance);
+  // `app/globals.css`. On the stage it is the stage's look instead, which the
+  // caption window also draws with — `caption-stage.tsx`.
+  const { appearance, textSize } = stage
+    ? effectiveStageAppearance(settings)
+    : { appearance: settings.appearance, textSize: settings.textSize };
+  const scale = readingStyle(appearance, textSizeScale(textSize));
+  const scheme = readingSchemeClass(appearance);
 
   const shared = {
     running,
     speakerLabels: settings.speakerLabels,
-    showTime: settings.appearance.showTime,
+    showTime: appearance.showTime,
     ...stream,
   };
 
-  const pane = (side: 'both' | 'source' | 'target', interactive: boolean, label: string) => (
+  const pane = (side: 'both' | 'source' | 'target', primary: boolean, label: string) => (
     <TranscriptScroller label={label} freeScroll={settings.freeScroll}>
       <ConversationTranscript
         {...shared}
         side={side}
-        interactive={interactive}
+        interactive={primary && !stage}
         languagePair={turnPair}
       />
     </TranscriptScroller>
@@ -175,11 +195,13 @@ export function TranscriptPanes({
             />
           }
           end={
-            <LanguagePairSwap
-              languagePair={settings.languagePair}
-              running={running}
-              onSwap={onSwap}
-            />
+            onSwap ? (
+              <LanguagePairSwap
+                languagePair={settings.languagePair}
+                running={running}
+                onSwap={onSwap}
+              />
+            ) : null
           }
         />
         {pane('source', true, t('web.translate.paneSource'))}

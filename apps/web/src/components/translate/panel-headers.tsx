@@ -17,9 +17,13 @@ interface PanelHeadersProps {
   languagePair: SessionLanguagePair;
   /** A conversation is running, so the pair is fixed for its duration. */
   running: boolean;
-  onSwap: () => void;
-  /** A language picked on one side, as the whole new pair. */
-  onLanguagePair: (pair: SessionLanguagePair) => void;
+  /** Absent on the fullscreen stage, which names the pair and changes nothing. */
+  onSwap?: () => void;
+  /**
+   * A language picked on one side, as the whole new pair. Absent on the stage:
+   * each side is then its name as text — see {@link HeaderLanguage}.
+   */
+  onLanguagePair?: (pair: SessionLanguagePair) => void;
   /**
    * How the server is running the newest turn, or null when no turn has said —
    * see {@link LanguageModeHint}.
@@ -32,7 +36,7 @@ interface PanelHeadersProps {
    * the swap between them. What goes in it reads and writes the whole settings
    * object, which is the page's to own — see `translate/page.tsx`.
    */
-  voiceControl: React.ReactNode;
+  voiceControl?: React.ReactNode;
 }
 
 /**
@@ -145,12 +149,14 @@ export function PanelHeaders({
           32px tall: 14px icon + 16px padding + 2px border, since `size-auto`
           overrides the shared icon size. Half of that is the offset that actually
           centres it. */}
-      <LanguagePairSwap
-        languagePair={languagePair}
-        running={running}
-        onSwap={onSwap}
-        className="absolute top-1/2 right-3 z-[2] -mt-4"
-      />
+      {onSwap ? (
+        <LanguagePairSwap
+          languagePair={languagePair}
+          running={running}
+          onSwap={onSwap}
+          className="absolute top-1/2 right-3 z-[2] -mt-4"
+        />
+      ) : null}
     </div>
   );
 }
@@ -208,10 +214,14 @@ export function LanguageModeHint({ mode }: { mode: SessionLanguageMode | null })
 }
 
 /**
- * One side's language, as a picker.
+ * One side's language, as a picker — or as its name, with no handler to pick.
  *
  * Disabled while running, for the reason the swap is: the pair rides
  * `client.session.start` and holds for the whole run.
+ *
+ * The name alone is the fullscreen stage's: a picker there would portal its list
+ * to the body, which the browser does not draw over a fullscreen element, and the
+ * pair is the page's setting to change in any case.
  */
 export function HeaderLanguage({
   languagePair,
@@ -222,9 +232,17 @@ export function HeaderLanguage({
   languagePair: SessionLanguagePair;
   side: 'source' | 'target';
   running: boolean;
-  onLanguagePair: (pair: SessionLanguagePair) => void;
+  onLanguagePair?: (pair: SessionLanguagePair) => void;
 }) {
   const t = useTranslate();
+  if (!onLanguagePair) {
+    const code = languagePair[side];
+    return (
+      <span className="text-body font-medium">
+        {code === AUTO_DETECT ? t('web.translate.autoDetect') : languageNamer(t)(code)}
+      </span>
+    );
+  }
   const shared = {
     disabled: running,
     nameLanguage: languageNamer(t),
