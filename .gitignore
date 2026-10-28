@@ -80,6 +80,9 @@ prompt.md
 # Gemini CLI settings
 .gemini/settings.json
 
+# Command Code learned preferences (per-user, machine-local)
+.commandcode/
+
 # External repos for study/reference
 external/
 
@@ -98,6 +101,9 @@ worktrees/
 # Expo
 .expo
 .expo-shared
+
+# Gradle project cache (created by any local Android/Kotlin build, at any depth)
+.gradle/
 
 # Local env overrides
 .env.local
