@@ -176,6 +176,19 @@ describe('FullscreenStage bar', () => {
     expect(bar().dataset.awake).toBe('true');
   });
 
+  it('hides with the pointer left resting on it, as after a click on Start', () => {
+    vi.useFakeTimers();
+    render();
+    act(() => {
+      bar().dispatchEvent(new Event('pointermove', { bubbles: true }));
+      bar().dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    });
+    act(() => {
+      vi.advanceTimersByTime(IDLE_REVEAL_DELAY_MS);
+    });
+    expect(bar().dataset.awake).toBe('false');
+  });
+
   it('stays up while the reader has moved keyboard focus within it', () => {
     vi.useFakeTimers();
     render();

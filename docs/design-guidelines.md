@@ -629,12 +629,14 @@ live in `apps/web/src/lib/reading-appearance.ts`, and the controls sit in the di
   screen.
 - **Fullscreen is the page, bigger.** It keeps the page's arrangement (split or list, row or
   column) in the stage look. Headers name the pair as text, and speaker names are copies.
-  A bar over the pane headers carries the status, Start / Pause / End, the display gear and
-  the exit. It hides after 3 s alone and returns on any pointer move, tap or key. It stays up
-  while hovered, while it holds keyboard focus, or while the gear's panel is open. The panel
-  is portalled into the fullscreen element (`PopoverContent`'s `container`), because the
-  browser draws nothing outside it. The dock is `inert` meanwhile and does not render its
-  Start (`fullscreen-stage.tsx`).
+  A bar in a row of its own at the foot carries the status, Start / Pause / End, the display
+  gear and the exit, so it covers neither the pane headers nor the newest line. It hides
+  after 3 s alone by fading, keeping its row so the transcript never moves, and returns on
+  any pointer move, tap or key. It stays up while it holds keyboard focus or while the
+  gear's panel is open, but not for a pointer resting on it: after a click on Start that
+  pointer stays put, and the bar never hid. The panel is portalled into the fullscreen
+  element (`PopoverContent`'s `container`), because the browser draws nothing outside it.
+  The dock is `inert` meanwhile and does not render its Start (`fullscreen-stage.tsx`).
 - **The caption window is captions, not a page.** It shows one stream with no pane headers,
   pickers or attribution control. The session stays on the page.
 - **The stage look.** By default it uses a black ground, a bold translation and text size

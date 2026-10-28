@@ -415,7 +415,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           capped. */}
       {/* Fullscreen is THIS element, so the stage replaces the panes in place and
           leaving it returns them where they were. The stage draws the same panes
-          in the stage's look, under a bar that carries the dock's controls. Native
+          in the stage's look, above a bar that carries the dock's controls. Native
           fullscreen lifts the height cap itself (`:fullscreen` is sized by the
           browser); the emulated
           layer — iPhone Safari, a frame without `allowfullscreen` — draws the same
