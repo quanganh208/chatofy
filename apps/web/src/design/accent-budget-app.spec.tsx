@@ -94,6 +94,7 @@ vi.mock('@/clients/api-client', () => ({
   listTranslationContexts: () => listTranslationContexts(),
   saveTranslationContext: vi.fn(),
   deleteTranslationContext: vi.fn(),
+  listGlossaries: vi.fn().mockResolvedValue({ glossaries: [] }),
   createConference: () => createConference(),
 }));
 
