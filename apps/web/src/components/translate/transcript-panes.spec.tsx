@@ -322,3 +322,31 @@ describe('TranscriptPanes and the reading size', () => {
     expect(Number(scale())).toBe(1);
   });
 });
+
+describe('TranscriptPanes and the reader appearance', () => {
+  const frame = () => container.querySelector<HTMLElement>('[style*="--reading-scale"]');
+
+  it('writes no appearance variable for the default look', () => {
+    render();
+    expect(frame()?.getAttribute('style')).not.toContain('--reading-target');
+    expect(frame()?.getAttribute('style')).not.toContain('--reading-bg');
+  });
+
+  it.each(['split', 'list'] as const)(
+    'writes the appearance on the same one element as the scale, in %s',
+    (displayMode) => {
+      render({
+        displayMode,
+        appearance: {
+          ...DEFAULT_TRANSLATE_SETTINGS.appearance,
+          targetColor: '#abcdef',
+          background: 'black',
+        },
+      });
+      expect(container.querySelectorAll('[style*="--reading-target"]').length).toBe(1);
+      expect(frame()?.style.getPropertyValue('--reading-target')).toBe('#abcdef');
+      expect(frame()?.classList).toContain('reading-scheme-dark');
+      expect(frame()?.classList).toContain('reading-frame');
+    },
+  );
+});

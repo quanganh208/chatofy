@@ -210,7 +210,9 @@
   --color-sidebar-ring: var(--ring);
 }
 
-:root {
+:root,
+.reading-scheme-light,
+.reading-scheme-dark {
   /*
    * Both halves, declared once.
    *
@@ -388,12 +390,68 @@
  */
 @utility text-source {
   font-size: calc(var(--text-body) * var(--reading-scale, 1));
-  line-height: var(--text-body--line-height);
+  line-height: calc(var(--text-body--line-height) * var(--reading-leading, 1));
+  font-family: var(--reading-font, inherit);
 }
 
 @utility text-target {
   font-size: calc(var(--text-translation) * var(--reading-scale, 1));
-  line-height: var(--text-translation--line-height);
+  line-height: calc(var(--text-translation--line-height) * var(--reading-leading, 1));
+  font-family: var(--reading-font, inherit);
+}
+
+/*
+ * The reader's appearance — see `src/lib/reading-appearance.ts`.
+ *
+ * Written on the same element as `--reading-scale`, and like it read only here.
+ * Every fallback is the look the transcript had before a reader could change it,
+ * which is what keeps `/history` (the same transcript, no variables) as it was:
+ * the default appearance writes no variable at all.
+ *
+ * Colours are their own utilities rather than folded into `text-source` and
+ * `text-target`, because those two carry SIZE and the raw-recognizer line uses
+ * `text-source` at the muted colour on purpose — it is the record, not the
+ * reading, and must stay told apart from it.
+ */
+@utility reading-source {
+  color: var(--reading-source, var(--prose));
+}
+
+@utility reading-target {
+  color: var(--reading-target, inherit);
+  font-weight: var(--reading-target-weight, 500);
+}
+
+@utility reading-time {
+  color: var(--reading-time, var(--muted-foreground));
+}
+
+/* `start` and `center` are values of both properties, so one variable drives the
+   prose and the flex row of a turn's meta line together. */
+@utility reading-turn {
+  text-align: var(--reading-align, start);
+}
+
+@utility reading-meta {
+  justify-content: var(--reading-align, normal);
+}
+
+/* The ground. On the wrapper, so in `split` both panes and their headers sit on
+   it; a fixed ground also puts `reading-scheme-*` there, which flips every token
+   underneath to the scheme it is readable in — see that class below.
+
+   `color` is re-declared here, and that is load-bearing: `light-dark()` resolves
+   where the property is DECLARED, and `body` declares the foreground — so without
+   this the ink inherited into a forced-dark ground is the light theme's, already
+   resolved, and the default text on black is black. Declared at the frame, it
+   resolves in the frame's scheme. Outside a forced ground it is the body's value.
+
+   The raw tokens (`--foreground`, `--prose`, `--muted-foreground`), never the
+   `--color-*` aliases: the aliases are declared on `:root` only and arrive
+   resolved, so they would carry the page's scheme into the island. */
+@utility reading-frame {
+  background-color: var(--reading-bg, transparent);
+  color: var(--foreground);
 }
 
 /*
@@ -435,6 +493,34 @@
 }
 
 :root.dark {
+  color-scheme: dark;
+}
+
+/*
+ * A ground that forces a scheme on the transcript it paints — see `reading-frame`
+ * and `groundScheme` in `src/lib/reading-appearance.ts`. A black caption ground
+ * under the light theme must read in dark tokens.
+ *
+ * The token block above is declared on these two as well as on `:root`, and that
+ * is what makes this work: every token is a `light-dark()` pair, which the build
+ * compiles to a toggle resolved WHERE THE TOKEN IS DECLARED. Declared only on the
+ * root, a token arrives in the island already resolved in the page's scheme and no
+ * `color-scheme` below can flip it. Re-declared on the island from the same block,
+ * it resolves against the island's scheme — with no second copy of any value.
+ */
+.reading-scheme-light,
+.reading-scheme-dark {
+  /* The one alias read outside a utility: the base layer's default border. The
+     rest of the aliases are only reached through utilities that read the raw
+     tokens, so this is the one that would otherwise keep the page's scheme. */
+  --color-border: var(--border);
+}
+
+.reading-scheme-light {
+  color-scheme: light;
+}
+
+.reading-scheme-dark {
   color-scheme: dark;
 }
 

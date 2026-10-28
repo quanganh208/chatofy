@@ -43,7 +43,7 @@ export function SpeakerLabel({
   return (
     <p
       className={cn(
-        'text-muted-foreground text-hint font-medium',
+        'text-hint font-medium text-[color:var(--reading-speaker,var(--muted-foreground))]',
         (origin === 'suggested' || origin === 'pending') && 'italic',
       )}
     >

@@ -105,6 +105,12 @@ interface ConversationTranscriptProps {
   /** Whether a turn says who spoke it at all. */
   speakerLabels?: boolean;
   /**
+   * Whether a turn says WHEN. Off drops the time, and with it the meta line when
+   * there is nothing else to put on it. The reader's choice on /translate; history
+   * never passes it, because there the time is the seek target.
+   */
+  showTime?: boolean;
+  /**
    * Whether the name on a turn is the CONTROL or a copy of it.
    *
    * Exactly one stream on screen may be interactive — see `transcript-panes.tsx`
@@ -219,6 +225,7 @@ export function ConversationTranscript({
   running,
   side = 'both',
   speakerLabels = true,
+  showTime = true,
   interactive = true,
   speakers,
   attributions,
@@ -326,7 +333,7 @@ export function ConversationTranscript({
             // screens, one rule — which is the only way the number a reader sees
             // during the conversation is the number they see reading it back.
             const at =
-              startedAtMs === null
+              !showTime || startedAtMs === null
                 ? null
                 : mediaOffset(
                     displayGroupOffsetMs(group, captures, startedAtMs, pauses),
@@ -343,7 +350,7 @@ export function ConversationTranscript({
             // that pane reads — and a pane holding both halves shows them once.
             const inTarget = spoken.length === 1 && spoken[0] === translationLanguage;
             return (
-              <li key={group.key} className={cn('border-primary', turnFrame)}>
+              <li key={group.key} className={cn('border-primary reading-turn', turnFrame)}>
                 {/* The block's meta line. It exists when there is a name to show,
                     a time to show, or both — with speaker labels off and no
                     capture record yet there is nothing to put on it, and an empty
@@ -372,7 +379,7 @@ export function ConversationTranscript({
                     level with the badge's top border rather than its text, so
                     the time would read as sitting high. */}
                 {speakerLabels || at !== null || tagged ? (
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <div className="reading-meta flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     {speakerLabels ? (
                       interactive ? (
                         <SpeakerChip
@@ -410,7 +417,7 @@ export function ConversationTranscript({
                     ) : null}
                     {tagged ? <TurnLanguage languages={spoken} /> : null}
                     {at === null ? null : (
-                      <span className="text-label text-muted-foreground tabular-nums">
+                      <span className="text-label reading-time tabular-nums">
                         <time dateTime={isoDuration(at)}>{formatOffset(at)}</time>
                       </span>
                     )}
@@ -424,7 +431,7 @@ export function ConversationTranscript({
                   />
                 ) : null}
                 {showsTarget && !(inTarget && showsSource) ? (
-                  <p className="text-target font-medium">
+                  <p className="reading-target text-target">
                     {inTarget
                       ? groupSourceText(group, displays, blockTranslations)
                       : groupTranslation(group, translationLanguage, blockTranslations)}
@@ -487,7 +494,7 @@ export function ConversationTranscript({
                 it. The finished turn's tag replaces this, and may differ. */}
             {live.language ? <TurnLanguage languages={[live.language]} /> : null}
             {showsSource && live.text ? (
-              <p className="text-source text-prose italic">
+              <p className="reading-source text-source italic">
                 {/* Two layers, one line. The head is text the recogniser has
                     stopped revising; the tail is still a guess. Splitting them
                     is the whole point of the settled-text event — without it the

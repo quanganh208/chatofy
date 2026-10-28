@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Be_Vietnam_Pro, Newsreader } from 'next/font/google';
+import { Be_Vietnam_Pro, Lexend, Newsreader } from 'next/font/google';
 import { AppSessionProvider } from '@/components/session-provider';
 import { LocaleProvider } from '@/i18n/provider';
 import { getLocale, getT } from '@/i18n/server';
@@ -55,6 +55,24 @@ const display = Newsreader({
 });
 
 /**
+ * The transcript's "legible" face, and nothing else's — a reader picks it in the
+ * appearance panel (`src/lib/reading-appearance.ts`).
+ *
+ * Not preloaded: almost nobody chooses it, and a preload would put its files on
+ * the critical path of every page for them. `next/font` still declares the
+ * `@font-face`, and a browser only fetches a face something on screen uses, so
+ * the files arrive the first time the transcript asks for them.
+ *
+ * Declared after `sans`, for the reason given above `display`.
+ */
+const legible = Lexend({
+  subsets: ['latin', 'vietnamese'],
+  variable: '--font-legible',
+  display: 'swap',
+  preload: false,
+});
+
+/**
  * The tab, in the reader's language.
  *
  * `generateMetadata` rather than a static object, for the same reason every visible
@@ -99,7 +117,11 @@ export default async function RootLayout({
     //
     // `lang` DOES come from the server, for the reason above — and it has to be
     // right: it is what a screen reader picks a voice from.
-    <html lang={locale} className={`${sans.variable} ${display.variable}`} suppressHydrationWarning>
+    <html
+      lang={locale}
+      className={`${sans.variable} ${display.variable} ${legible.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         {/*
           Runs before the first paint, which is the whole point.

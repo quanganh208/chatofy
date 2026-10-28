@@ -7,12 +7,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { en, vi as viMessages } from '@chatofy/i18n';
 import { DEFAULT_LANGUAGE_PAIR, LANGUAGE_CODES } from '@chatofy/types';
 import {
+  DEFAULT_STAGE_APPEARANCE,
   DEFAULT_TRANSLATE_SETTINGS,
   SPEED_PRESETS,
   TEXT_SIZE_SCALES,
   TRANSLATE_SETTINGS_STORAGE_KEY,
   asksTwoWay,
   canAutoDetectInto,
+  effectiveStageAppearance,
   loadTranslateSettings,
   representablePair,
   saveTranslateSettings,
@@ -396,5 +398,82 @@ describe('asking for two-way', () => {
     expect(asksTwoWay({ source: 'en', target: 'vi' })).toBe(true);
     expect(asksTwoWay({ source: 'vi', target: 'zh' })).toBe(false);
     expect(asksTwoWay({ source: 'detect', target: 'en' })).toBe(false);
+  });
+});
+
+describe('the reader appearance', () => {
+  it('reads a store written before it existed as the old look, page and stage', () => {
+    store({ volume: 0.5, version: 3 });
+    const loaded = loadTranslateSettings();
+    expect(loaded.appearance).toEqual(DEFAULT_TRANSLATE_SETTINGS.appearance);
+    expect(loaded.stage).toEqual(DEFAULT_STAGE_APPEARANCE);
+  });
+
+  it('round-trips a chosen appearance', () => {
+    const appearance = {
+      ...DEFAULT_TRANSLATE_SETTINGS.appearance,
+      targetColor: 'amber' as const,
+      background: '#123456' as const,
+      backgroundOpacity: 60,
+      font: 'serif' as const,
+      showTime: false,
+    };
+    saveTranslateSettings({ ...DEFAULT_TRANSLATE_SETTINGS, appearance });
+    expect(loadTranslateSettings().appearance).toEqual(appearance);
+  });
+
+  it('falls back per field inside an appearance, not for the whole object', () => {
+    store({
+      version: 3,
+      appearance: { targetColor: 'not-a-colour', sourceColor: 'rose', font: 'comic' },
+    });
+    const { appearance } = loadTranslateSettings();
+    expect(appearance.targetColor).toBe('default');
+    expect(appearance.sourceColor).toBe('rose');
+    expect(appearance.font).toBe('sans');
+  });
+
+  it('reads an appearance that is not an object as the defaults', () => {
+    store({ version: 3, appearance: 'bright', stage: 7 });
+    const loaded = loadTranslateSettings();
+    expect(loaded.appearance).toEqual(DEFAULT_TRANSLATE_SETTINGS.appearance);
+    expect(loaded.stage).toEqual(DEFAULT_STAGE_APPEARANCE);
+  });
+
+  it('lowercases a stored hex and refuses one that is not six digits', () => {
+    store({ version: 3, appearance: { timeColor: '#ABCDEF', speakerColor: '#abc' } });
+    const { appearance } = loadTranslateSettings();
+    expect(appearance.timeColor).toBe('#abcdef');
+    expect(appearance.speakerColor).toBe('default');
+  });
+
+  it('snaps an opacity and a stage text size onto their grids', () => {
+    store({ version: 3, appearance: { backgroundOpacity: 133 }, stage: { textSize: 6.6 } });
+    const loaded = loadTranslateSettings();
+    expect(loaded.appearance.backgroundOpacity).toBe(100);
+    expect(loaded.stage.textSize).toBe(7);
+  });
+});
+
+describe('the stage', () => {
+  it('starts as captions: black ground, bold translation, larger text', () => {
+    expect(DEFAULT_STAGE_APPEARANCE.background).toBe('black');
+    expect(DEFAULT_STAGE_APPEARANCE.targetWeight).toBe('bold');
+    expect(DEFAULT_STAGE_APPEARANCE.textSize).toBeGreaterThan(DEFAULT_TRANSLATE_SETTINGS.textSize);
+    expect(DEFAULT_STAGE_APPEARANCE.followPage).toBe(false);
+  });
+
+  it('draws with its own values unless it follows the page', () => {
+    const own = effectiveStageAppearance(DEFAULT_TRANSLATE_SETTINGS);
+    expect(own.textSize).toBe(DEFAULT_STAGE_APPEARANCE.textSize);
+    expect(own.appearance.background).toBe('black');
+    expect(own.appearance).not.toHaveProperty('followPage');
+
+    const following = effectiveStageAppearance({
+      ...DEFAULT_TRANSLATE_SETTINGS,
+      textSize: 2,
+      stage: { ...DEFAULT_STAGE_APPEARANCE, followPage: true },
+    });
+    expect(following).toEqual({ appearance: DEFAULT_TRANSLATE_SETTINGS.appearance, textSize: 2 });
   });
 });

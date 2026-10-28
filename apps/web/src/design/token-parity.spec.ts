@@ -370,7 +370,7 @@ describe.each(SURFACES)('$label agrees with @chatofy/ui', ({ label, path, scope 
    * aliases, and matching those would compare a token to `var(--background)`.
    */
   const rootDeclarations = (): Map<string, string> =>
-    declarationsIn(blockNamed(/:root\s*\{([\s\S]*?)\n\}/, ':root'));
+    declarationsIn(blockNamed(/:root(?:,\s*\.reading-scheme-\w+)*\s*\{([\s\S]*?)\n\}/, ':root'));
 
   const themeAliases = (): Map<string, string> =>
     declarationsIn(blockNamed(/@theme inline\s*\{([\s\S]*?)\n\}/, '@theme inline'));
@@ -531,7 +531,10 @@ describe.each(SURFACES)('$label agrees with @chatofy/ui', ({ label, path, scope 
     // file. Aliases are `var()` references and are checked separately below.
     const outside = [
       ...declarationsIn(
-        WITHOUT_COMMENTS.replace(blockNamed(/:root\s*\{([\s\S]*?)\n\}/, ':root'), ''),
+        WITHOUT_COMMENTS.replace(
+          blockNamed(/:root(?:,\s*\.reading-scheme-\w+)*\s*\{([\s\S]*?)\n\}/, ':root'),
+          '',
+        ),
       ).entries(),
     ]
       .filter(([, value]) => COLOUR_LIKE.test(value))
