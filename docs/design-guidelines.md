@@ -627,11 +627,21 @@ live in `apps/web/src/lib/reading-appearance.ts`, and the controls sit in the di
   A custom hex shows its ratio against the drawn ground, which is composited at its opacity.
   It warns in words when it falls under the floor, or when it fails in the theme not on
   screen.
-- **The stage is captions, not a page.** It shows one stream with no pane headers, pickers or
-  attribution control. The session stays on the page. By default it uses a black ground,
-  a bold translation and text size 6/10, and "Same as page" mirrors the page profile instead.
-- **No accent.** The fullscreen and caption-window buttons are outline controls in the dock.
-  A chosen swatch shows a ring, never a fill.
+- **Fullscreen is the page, bigger.** It keeps the page's arrangement (split or list, row or
+  column) in the stage look. Headers name the pair as text, and speaker names are copies.
+  A bar over the pane headers carries the status, Start / Pause / End, the display gear and
+  the exit. It hides after 3 s alone and returns on any pointer move, tap or key. It stays up
+  while hovered, while it holds keyboard focus, or while the gear's panel is open. The panel
+  is portalled into the fullscreen element (`PopoverContent`'s `container`), because the
+  browser draws nothing outside it. The dock is `inert` meanwhile and does not render its
+  Start (`fullscreen-stage.tsx`).
+- **The caption window is captions, not a page.** It shows one stream with no pane headers,
+  pickers or attribution control. The session stays on the page.
+- **The stage look.** By default it uses a black ground, a bold translation and text size
+  6/10, and "Same as page" mirrors the page profile instead.
+- **One accent.** The fullscreen and caption-window buttons are outline controls in the dock.
+  In fullscreen, Start (or Resume) in the bar is the one filled control, the gear is outline
+  and the exit is ghost. A chosen swatch shows a ring, never a fill.
 
 ## Motion
 
