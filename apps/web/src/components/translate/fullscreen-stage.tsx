@@ -28,17 +28,19 @@ import { cn } from '@/lib/utils';
  * ## A bar that gets out of the way
  *
  * Everything a reader would otherwise leave fullscreen for: the status, Start or
- * Pause and End, the display gear, and the way out. It lies over the pane
- * headers rather than taking a row of its own, so it can come and go without
- * moving a line of the transcript — the newest line, at the bottom, is the one
- * being read. It hides after a few seconds alone and comes back on any pointer
- * move, tap or key, and it does not hide while it is being used: holding
- * keyboard focus, or with the gear's panel open.
+ * Pause and End, the display gear, and the way out. It is a row of its own at the
+ * foot, under the panes. It lay over the pane headers once, so as not to cover
+ * the newest line, and then it covered the pair those headers name instead. In a
+ * row of its own it covers neither, and since it fades rather than unmounts the
+ * row keeps its height, so no line of the transcript moves when it comes or goes.
+ * It hides after a few seconds alone and comes back on any pointer move, tap or
+ * key, and it does not hide while it is being used: holding keyboard focus, or
+ * with the gear's panel open.
  *
  * A pointer resting on it is not a hold. It held once, and the commonest way in
  * — click Start in the bar, then read — left the pointer on the bar, so the bar
- * never hid and the pane headers under it, which name the pair, never showed.
- * A pointer that is still on the bar after three seconds is not using it either.
+ * never hid. A pointer that is still on the bar after three seconds is not using
+ * it.
  *
  * The focus hold is for KEYBOARD focus only. A mouse click leaves focus on the
  * button it pressed, and a bar held up by that would never hide for anyone who
@@ -118,11 +120,20 @@ export function FullscreenStage({
         !awake && 'cursor-none',
       )}
     >
+      <TranscriptPanes
+        stage
+        settings={settings}
+        running={running}
+        stream={stream}
+        conversationLanguagePair={conversationLanguagePair}
+        languageMode={languageMode}
+      />
+
       <div
         data-stage-bar
         data-awake={awake}
         className={cn(
-          'border-hairline bg-background/95 absolute inset-x-0 top-0 z-10 flex flex-wrap items-center gap-2 border-b px-3 py-2 backdrop-blur-sm',
+          'border-hairline flex shrink-0 flex-wrap items-center gap-2 border-t px-3 py-2',
           'transition-opacity duration-200 motion-reduce:transition-none',
           // Faded rather than unmounted: the same buttons stay in the same places,
           // and Tab still reaches them — the key itself wakes the bar.
@@ -150,7 +161,6 @@ export function FullscreenStage({
             settings={settings}
             onChange={onChange}
             container={root}
-            side="bottom"
             open={settingsOpen}
             onOpenChange={setSettingsOpen}
           />
@@ -165,15 +175,6 @@ export function FullscreenStage({
           </Button>
         </div>
       </div>
-
-      <TranscriptPanes
-        stage
-        settings={settings}
-        running={running}
-        stream={stream}
-        conversationLanguagePair={conversationLanguagePair}
-        languageMode={languageMode}
-      />
     </div>
   );
 }

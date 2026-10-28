@@ -41,7 +41,6 @@ export function DisplaySettingsPopover({
   settings,
   onChange,
   container,
-  side = 'top',
   open,
   onOpenChange,
 }: {
@@ -53,8 +52,6 @@ export function DisplaySettingsPopover({
    * the body would open unseen.
    */
   container?: HTMLElement | null;
-  /** Above the dock at the foot of the page; below the stage's bar at its head. */
-  side?: 'top' | 'bottom';
   /** Controlled by the stage, which keeps its bar up while the panel is open. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -76,7 +73,7 @@ export function DisplaySettingsPopover({
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        side={side}
+        side="top"
         // Clear of the screen's edge on a phone, where the panel is nearly as wide
         // as the viewport and would otherwise sit flush against one side.
         collisionPadding={16}
