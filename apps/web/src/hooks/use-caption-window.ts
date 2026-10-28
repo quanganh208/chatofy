@@ -14,9 +14,10 @@ import { cloneDocumentStyles } from '@/lib/clone-document-styles';
  * Nothing about the conversation moves. The microphone, the socket and the voice
  * stay on the page, and the window is a portal target: `CaptionWindowPortal`
  * renders the stage into the element this hook hands back. React registers its
- * event listeners on a portal's container as well as on its root, so the close
- * button and the scroll region inside a window in ANOTHER document still work,
- * and every context (locale, theme) flows through unchanged. Closing the window
+ * event listeners on a portal's container as well as on its root, so the scroll
+ * region inside a window in ANOTHER document still works, and every context
+ * (locale, theme) flows through unchanged. The window is closed from its own
+ * frame — the browser's close, which fires the `pagehide` below — and closing it
  * therefore ends nothing but the window.
  *
  * ## Two lifetimes to follow

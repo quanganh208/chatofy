@@ -262,7 +262,6 @@ export const vi: Messages = {
   'web.translate.fullscreenExit': 'Thoát toàn màn hình',
   'web.translate.pip': 'Hình trong hình',
   'web.translate.miniWindow': 'Cửa sổ mini',
-  'web.translate.captionWindowClose': 'Đóng cửa sổ phụ đề',
   'web.translate.captionWindowBlocked':
     'Trình duyệt đã chặn cửa sổ mini. Hãy cho phép cửa sổ bật lên cho trang này rồi thử lại.',
   'web.translate.captionWindowFailed': 'Không mở được hình trong hình. Hãy thử lại.',

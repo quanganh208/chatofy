@@ -67,8 +67,7 @@ function render(overrides: Partial<TranslateSettings> = {}, onClose = vi.fn()) {
           running
           stream={STREAM}
           languagePair={{ source: 'vi', target: 'en' }}
-          onClose={onClose}
-          closeLabel="Exit full screen"
+          close={{ label: 'Exit full screen', onClose }}
         />
       </LocaleProvider>,
     );
@@ -136,8 +135,7 @@ describe('CaptionStage focus', () => {
             running
             stream={STREAM}
             languagePair={{ source: 'vi', target: 'en' }}
-            onClose={vi.fn()}
-            closeLabel="Exit full screen"
+            close={{ label: 'Exit full screen', onClose: vi.fn() }}
             focusOnMount
           />
         </LocaleProvider>,
@@ -148,13 +146,13 @@ describe('CaptionStage focus', () => {
 });
 
 describe('CaptionWindowPortal', () => {
-  it('renders into another document, and its close still reaches the page', () => {
-    // The assumption the caption window rests on: React listens on a portal's
-    // container, so a click inside a different document still dispatches.
+  it('renders into another document, with no close of its own', () => {
+    // The browser frame around the window already closes it — a Picture-in-
+    // Picture window's title bar, or the popup's own — so a second X inside
+    // would close the same window twice over.
     const other = document.implementation.createHTMLDocument('');
     const mount = other.createElement('div');
     other.body.append(mount);
-    const onClose = vi.fn();
     act(() => {
       root.render(
         <LocaleProvider>
@@ -164,15 +162,12 @@ describe('CaptionWindowPortal', () => {
             running
             stream={STREAM}
             languagePair={{ source: 'vi', target: 'en' }}
-            onClose={onClose}
-            closeLabel="Close caption window"
           />
         </LocaleProvider>,
       );
     });
     expect(mount.textContent).toContain('Hello');
     expect(container.textContent).toBe('');
-    act(() => mount.querySelector('button')!.click());
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(mount.querySelectorAll('button')).toHaveLength(0);
   });
 });
