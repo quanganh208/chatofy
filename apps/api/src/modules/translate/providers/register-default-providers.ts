@@ -75,11 +75,6 @@ export interface AiProviderResolveConfig extends ProviderConfig {
   openAiCompatibleApiKey?: string;
   /** Command Code's key; the `commandcode` selection's fallback reads the one above. */
   commandCodeApiKey?: string;
-  /**
-   * `AI_TRANSLATION_PROVIDER`, read by the minutes entry only: the selection
-   * that sends translation to Command Code sends minutes there too.
-   */
-  summarizationHost?: string;
   localSttUrl?: string;
   localTtsUrl?: string;
 }
@@ -358,37 +353,44 @@ export function registerDefaultProviders(
     },
   });
 
-  // Minutes over a FINISHED conversation, not a live turn. One name only, like
-  // `realtime` and `speakerEmbedding` above: no environment variable selects it,
-  // so the minutes module resolves it with `resolveOnly` and a second
-  // registration would be the loud moment to decide how a caller should choose.
+  // Minutes over a FINISHED conversation, not a live turn. Selected by name,
+  // like the respeller and the polisher: `MinutesSummarizer` reads
+  // AI_SUMMARIZATION_PROVIDER, or follows AI_TRANSLATION_PROVIDER when that is
+  // unset. Each entry owns its endpoint and its model, so a host is one more
+  // entry here rather than another branch inside one.
   //
-  // Under `commandcode`, Command Code's gemini-3.7-flash writes them and Gemini
-  // direct is the fallback: chosen by the 2026-10-29 minutes bench, where it
+  // `commandcode` writes with Command Code's gemini-3.7-flash and hands any
+  // failure to Gemini direct: chosen by the 2026-10-29 minutes bench, where it
   // judged at least as useful as gemini-3.5-flash direct (8.08 against 7.75)
   // at 5.9 s against 9.6 s, and never emitted an injection canary
   // (plans/reports/brainstorm-261029-0923-command-code-other-ai-parts.md).
+  const minutesQuotaCooldown = ({
+    model,
+    cooldownMs,
+  }: {
+    model: string;
+    cooldownMs: number;
+  }) => {
+    recordQuotaCooldown(model);
+    quotaLogger.warn(`rate limited on ${model}; cooling for ${cooldownMs}ms`);
+  };
   registry.register('summarization', {
-    name: 'minutes',
+    name: 'gemini',
     create: (cfg: ProviderConfig): SummarizationProvider => {
       const c = cfg as AiProviderResolveConfig;
-      const viaCommandCode =
-        c.summarizationHost === 'commandcode' && !!c.commandCodeApiKey;
-      // Without Command Code a missing Gemini key still throws here, as it
-      // always has; with it, Gemini is only the fallback and may be absent.
-      const gemini =
-        viaCommandCode && !c.geminiApiKey
-          ? null
-          : new GeminiSummarizationProvider({
-              apiKey: c.geminiApiKey,
-              onQuotaCooldown: ({ model, cooldownMs }) => {
-                recordQuotaCooldown(model);
-                quotaLogger.warn(
-                  `rate limited on ${model}; cooling for ${cooldownMs}ms`,
-                );
-              },
-            });
-      if (!viaCommandCode) return gemini!;
+      return new GeminiSummarizationProvider({
+        apiKey: c.geminiApiKey,
+        onQuotaCooldown: minutesQuotaCooldown,
+      });
+    },
+  });
+  registry.register('summarization', {
+    name: 'commandcode',
+    create: (cfg: ProviderConfig): SummarizationProvider => {
+      const c = cfg as AiProviderResolveConfig;
+      // No key-presence guard: a missing Command Code key throws here, as the
+      // translation entries do, rather than quietly answering from Gemini.
+      // Gemini is only the fallback, so it may be absent.
       return new FailoverSummarizationProvider({
         name: 'commandcode',
         primary: new OpenAiCompatibleSummarizationProvider({
@@ -397,7 +399,12 @@ export function registerDefaultProviders(
           model: 'google/gemini-3.7-flash',
           name: 'commandcode-minutes',
         }),
-        secondary: gemini,
+        secondary: c.geminiApiKey
+          ? new GeminiSummarizationProvider({
+              apiKey: c.geminiApiKey,
+              onQuotaCooldown: minutesQuotaCooldown,
+            })
+          : null,
         circuit: commandCodeCircuit,
       });
     },

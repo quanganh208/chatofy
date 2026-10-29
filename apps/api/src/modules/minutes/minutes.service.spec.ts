@@ -108,10 +108,12 @@ function makeService(
     name: 'gemini',
     create: () => ({ name: 'gemini', summarize }),
   });
-  const config = { get: () => 'test-key' } as unknown as ConfigService<
-    Env,
-    true
-  >;
+  // Only the key is set: the summarizer is then selected by the default
+  // derivation, which names the `gemini` entry registered above.
+  const config = {
+    get: (key: keyof Env) =>
+      key === 'GEMINI_API_KEY' ? 'test-key' : undefined,
+  } as unknown as ConfigService<Env, true>;
   const service = new MinutesService(
     new MinutesSummarizer(config, registry),
     minutesStore,

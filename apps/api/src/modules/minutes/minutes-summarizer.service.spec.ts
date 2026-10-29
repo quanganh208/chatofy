@@ -143,4 +143,52 @@ describe('MinutesSummarizer', () => {
       status: 401,
     });
   });
+
+  // AI_SUMMARIZATION_PROVIDER names the entry outright, whatever translation runs on.
+  it('writes minutes on Gemini direct when AI_SUMMARIZATION_PROVIDER=gemini, even under commandcode', async () => {
+    const fetchMock = stubCommandCode(() => new Response('', { status: 500 }));
+    const draft = await summarizer({
+      AI_TRANSLATION_PROVIDER: 'commandcode',
+      AI_SUMMARIZATION_PROVIDER: 'gemini',
+      COMMAND_CODE_API_KEY: 'cc',
+      GEMINI_API_KEY: 'g',
+    }).summarize(request);
+
+    expect(draft.model).toBe('gemini-3.5-flash');
+    expect(mockGenerateContent).toHaveBeenCalledOnce();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('writes minutes on Command Code when AI_SUMMARIZATION_PROVIDER=commandcode under another translation provider', async () => {
+    const fetchMock = stubCommandCode(
+      () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: JSON.stringify(MINUTES) } }],
+          }),
+          { status: 200 },
+        ),
+    );
+    const draft = await summarizer({
+      AI_TRANSLATION_PROVIDER: 'deepseek',
+      AI_SUMMARIZATION_PROVIDER: 'commandcode',
+      COMMAND_CODE_API_KEY: 'cc',
+      GEMINI_API_KEY: 'g',
+    }).summarize(request);
+
+    expect(draft.model).toBe('google/gemini-3.7-flash');
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(mockGenerateContent).not.toHaveBeenCalled();
+  });
+
+  it('refuses an explicit commandcode selection with no Command Code key', () => {
+    // Loud rather than quietly answering from Gemini: a missing key is a
+    // deployment error, and falling back would hide it.
+    expect(() =>
+      summarizer({
+        AI_SUMMARIZATION_PROVIDER: 'commandcode',
+        GEMINI_API_KEY: 'g',
+      }),
+    ).toThrow(/apiKey/);
+  });
 });

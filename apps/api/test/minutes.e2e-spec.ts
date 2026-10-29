@@ -57,14 +57,17 @@ describe('Meeting minutes (e2e)', () => {
   // One registry holding only a fake summarization provider. The override
   // replaces the token app-wide; the translate module also receives it but is
   // never exercised here.
+  // Registered under both entry names: which one the summarizer picks depends
+  // on the developer's AI_SUMMARIZATION_PROVIDER / AI_TRANSLATION_PROVIDER, and
+  // this suite is about the routes, not that choice.
   const fakeRegistry = new ProviderRegistry();
-  fakeRegistry.register('summarization', {
-    name: 'gemini',
-    create: () => ({
-      name: 'gemini',
-      summarize: vi.fn().mockResolvedValue(draft),
-    }),
-  });
+  const fakeSummarize = vi.fn().mockResolvedValue(draft);
+  for (const name of ['gemini', 'commandcode']) {
+    fakeRegistry.register('summarization', {
+      name,
+      create: () => ({ name, summarize: fakeSummarize }),
+    });
+  }
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({

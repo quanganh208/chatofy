@@ -14,7 +14,7 @@ import { MinutesSummarizer } from './minutes-summarizer.service';
  *
  * POST /conversations/:conversationId/minutes runs one LLM pass over a STORED
  * conversation and persists the result; GET reads it back. The summarization
- * provider is resolved by `resolveOnly` through the ProviderRegistry populated
+ * provider is resolved by name (see `MinutesSummarizer`) through the ProviderRegistry populated
  * from the shared composition root (register-default-providers.ts) — the same
  * registry the translate module builds, constructed here independently so the
  * two modules share the registration list without depending on each other's
