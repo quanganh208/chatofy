@@ -444,7 +444,8 @@ first to Command Code (`https://api.commandcode.ai/provider/v1`,
   the line and the saved record. No fallback for it — with the circuit open,
   the draft stands. Budgeted 20 per user per minute.
 - Meeting minutes go to Command Code `google/gemini-3.7-flash` too, with
-  `GeminiSummarizationProvider` behind them (see "Meeting minutes" below).
+  `GeminiSummarizationProvider` behind them, unless `AI_SUMMARIZATION_PROVIDER`
+  names another host (see "Meeting minutes" below).
 
 Measured 2026-10-28 on 240 paired FLEURS segments (COMET wmt22, against direct
 DeepSeek): v4-flash-fast via Command Code −0.0015 (within noise) at a 0.41 s
@@ -531,19 +532,55 @@ and asks the SDK for `application/json`, and the model ladder leads with a
 non-lite flash model because reasoning over the whole conversation earns the
 extra few hundred milliseconds a live turn could not spend.
 
-Under `AI_TRANSLATION_PROVIDER=commandcode` the same pass runs on Command Code
-`google/gemini-3.7-flash` (`OpenAiCompatibleSummarizationProvider`: the same
-instruction, fenced transcript and reminder, JSON mode, 30 s ceiling), and
-`FailoverSummarizationProvider` hands any failure to the Gemini provider
-above. Minutes are not latency-critical, so unlike the respeller a failed
-primary is followed by a second call. `MinutesModule` builds its own registry,
-so its Command Code circuit is its own: it opens on its first usage-limit or
-401/403 answer, not the translator's. Both hosts read their answer through one
-parser (`providers/minutes-draft-parser.ts`). Measured 2026-10-29 on 6 real
-conversations × 2, judged blind: 8.08 useful at a 5.9 s median, against 7.75 at
-9.6 s for gemini-3.5-flash direct (paired +0.33 [−0.17, +0.83], so not worse
-rather than better). It emitted no canary in `benchmarks/minutes-injection`,
-which now takes `--host commandcode` (8/8 over 2 repeats). Full table:
+**Which host writes them is configuration.** `AI_SUMMARIZATION_PROVIDER` names
+one of two `summarization` entries in `register-default-providers.ts`, resolved
+by name in `MinutesSummarizer` the way the respeller and the polisher are:
+
+- `commandcode` — Command Code `google/gemini-3.7-flash`
+  (`OpenAiCompatibleSummarizationProvider`: the same instruction, fenced
+  transcript and reminder, JSON mode, 30 s ceiling), with
+  `FailoverSummarizationProvider` handing any failure to the Gemini provider
+  above. Minutes are not latency-critical, so unlike the respeller a failed
+  primary is followed by a second call. An explicit `commandcode` with no
+  `COMMAND_CODE_API_KEY` refuses to resolve rather than quietly using Gemini.
+- `gemini` — `GeminiSummarizationProvider` alone.
+
+Unset, it follows `AI_TRANSLATION_PROVIDER`: `commandcode` there means
+`commandcode` here and anything else `gemini`, so a deployment that only moved
+translation keeps the minutes it had. There is no model variable beside it, for
+the reason the host table gives: a model id only means something next to the
+endpoint that serves it, so each entry owns both. `MinutesModule` builds its own
+registry, so its Command Code circuit is its own: it opens on its first
+usage-limit or 401/403 answer, not the translator's. Both hosts send one prompt
+(`providers/minutes-prompt-builder.ts`) and read their answer through one parser
+(`providers/minutes-draft-parser.ts`), which is why both files sit beside the
+vendor folders rather than in one. The prompt describes a conversation or a
+meeting of any number of speakers and asks for points, decisions and owners to
+be attributed to the label the transcript gives them.
+
+The minutes are written in the request's `language`. The server has no default
+of its own: the web client sends its UI locale, the mobile room screen sends the
+caller's spoken language, and an omitted one lets the model mirror the
+conversation.
+
+**Quality is measured by `benchmarks/minutes-quality`.** It regenerates minutes
+through the shipped provider, one host per arm with the drafting model pinned,
+for the 6 real Vietnamese conversations (gitignored production transcripts) and
+3 committed fictional meetings of 3–4 speakers, twice each. `claude-sonnet-5-5`
+grades every minutes object blind on faithfulness, coverage, language,
+usefulness and speaker attribution and counts hallucinations, and `score.mjs`
+compares two runs by a paired bootstrap. Only numbers are committed. It gates any
+change to the minutes prompt together with `benchmarks/minutes-injection`
+(8/8 on both hosts for the multi-speaker wording). Paired against the two-person prompt it replaced
+(18 pairs, 95% CI), Command Code `google/gemini-3.7-flash` passed the gate:
+usefulness −0.06 [−0.22, +0.11], hallucinations +0.06 [−0.28, +0.39], speaker
+attribution +0.17 [0.00, +0.42] on the real conversations. The Gemini arm still
+has no valid comparison. The first one let the provider's flash → flash-lite
+ladder pick the drafting model, so 11 of 18 pairs mixed two models, and it was
+discarded. The pinned rerun then ran out of free-tier quota. Earlier, on
+2026-10-29, the same judge put Command Code at 8.08 useful (5.9 s median)
+against 7.75 (9.6 s) for gemini-3.5-flash direct, paired +0.33 [−0.17, +0.83]:
+not worse, but not provably better. Full table:
 `plans/reports/brainstorm-261029-0923-command-code-other-ai-parts.md`.
 
 The transcript crosses the same **data-not-instruction boundary** as translation
