@@ -1,0 +1,318 @@
+{
+  "run": "261028-screen-cc-qwen38-27b-low",
+  "directions": {
+    "vi_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 33.32174663495667,
+        "sd": 0.0,
+        "min": 33.32174663495667,
+        "max": 33.32174663495667,
+        "per_repeat": [33.32174663495667]
+      },
+      "chrf": {
+        "mean": 28.124863656035632,
+        "sd": 0.0,
+        "min": 28.124863656035632,
+        "max": 28.124863656035632,
+        "per_repeat": [28.124863656035632]
+      },
+      "comet": {
+        "mean": 0.8158653542399407,
+        "sd": 0.0,
+        "min": 0.8158653542399407,
+        "max": 0.8158653542399407,
+        "per_repeat": [0.8158653542399407]
+      },
+      "latency_ms": {
+        "total_p50": 3059.5,
+        "total_p95": 4519.25,
+        "ttft_p50": 2875.0,
+        "ttft_p95": 4333.0,
+        "n": 36
+      },
+      "failures": 4,
+      "tokens": {
+        "hit": 0,
+        "miss": 28239,
+        "out": 11023,
+        "with_usage": 39
+      },
+      "checks": {
+        "outputs": 36,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 0,
+        "latin_examples": [],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 45.90280358449605,
+        "sd": 0.0,
+        "min": 45.90280358449605,
+        "max": 45.90280358449605,
+        "per_repeat": [45.90280358449605]
+      },
+      "chrf": {
+        "mean": 46.371082268185845,
+        "sd": 0.0,
+        "min": 46.371082268185845,
+        "max": 46.371082268185845,
+        "per_repeat": [46.371082268185845]
+      },
+      "comet": {
+        "mean": 0.8374372459948063,
+        "sd": 0.0,
+        "min": 0.8374372459948063,
+        "max": 0.8374372459948063,
+        "per_repeat": [0.8374372459948063]
+      },
+      "latency_ms": {
+        "total_p50": 3356.0,
+        "total_p95": 5375.399999999993,
+        "ttft_p50": 3045.5,
+        "ttft_p95": 5139.299999999994,
+        "n": 38
+      },
+      "failures": 2,
+      "tokens": {
+        "hit": 0,
+        "miss": 27581,
+        "out": 12527,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 38,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 44.47943299615251,
+        "sd": 0.0,
+        "min": 44.47943299615251,
+        "max": 44.47943299615251,
+        "per_repeat": [44.47943299615251]
+      },
+      "chrf": {
+        "mean": 38.520145024967725,
+        "sd": 0.0,
+        "min": 38.520145024967725,
+        "max": 38.520145024967725,
+        "per_repeat": [38.520145024967725]
+      },
+      "comet": {
+        "mean": 0.8867364749312401,
+        "sd": 0.0,
+        "min": 0.8867364749312401,
+        "max": 0.8867364749312401,
+        "per_repeat": [0.8867364749312401]
+      },
+      "latency_ms": {
+        "total_p50": 2670.5,
+        "total_p95": 6748.099999999984,
+        "ttft_p50": 2488.5,
+        "ttft_p95": 6156.599999999983,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 24417,
+        "out": 8440,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 1,
+        "latin_examples": [
+          {
+            "id": 1680,
+            "repeat": 1,
+            "hyp": "作为一只全能型运动员，老虎能够攀爬（虽然不太擅长）、游泳、远距离跳跃，并且能 exert 一个强壮人类五倍的力量来拉拽。",
+            "ref": "老虎是全能运动员，它会攀爬（虽然攀爬能力不是很强）、游泳、跳远，拉力能达到人类大力士的五倍。"
+          }
+        ],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 55.71864871652218,
+        "sd": 0.0,
+        "min": 55.71864871652218,
+        "max": 55.71864871652218,
+        "per_repeat": [55.71864871652218]
+      },
+      "chrf": {
+        "mean": 58.196410817035684,
+        "sd": 0.0,
+        "min": 58.196410817035684,
+        "max": 58.196410817035684,
+        "per_repeat": [58.196410817035684]
+      },
+      "comet": {
+        "mean": 0.8462737590074539,
+        "sd": 0.0,
+        "min": 0.8462737590074539,
+        "max": 0.8462737590074539,
+        "per_repeat": [0.8462737590074539]
+      },
+      "latency_ms": {
+        "total_p50": 2832.0,
+        "total_p95": 5895.000000000005,
+        "ttft_p50": 2543.0,
+        "ttft_p95": 5298.700000000001,
+        "n": 39
+      },
+      "failures": 1,
+      "tokens": {
+        "hit": 0,
+        "miss": 26892,
+        "out": 9072,
+        "with_usage": 39
+      },
+      "checks": {
+        "outputs": 39,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "vi_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 57.92868343231077,
+        "sd": 0.0,
+        "min": 57.92868343231077,
+        "max": 57.92868343231077,
+        "per_repeat": [57.92868343231077]
+      },
+      "chrf": {
+        "mean": 59.95248164543049,
+        "sd": 0.0,
+        "min": 59.95248164543049,
+        "max": 59.95248164543049,
+        "per_repeat": [59.95248164543049]
+      },
+      "comet": {
+        "mean": 0.8488706581294536,
+        "sd": 0.0,
+        "min": 0.8488706581294536,
+        "max": 0.8488706581294536,
+        "per_repeat": [0.8488706581294536]
+      },
+      "latency_ms": {
+        "total_p50": 3084.5,
+        "total_p95": 8791.949999999997,
+        "ttft_p50": 2959.0,
+        "ttft_p95": 8626.699999999997,
+        "n": 38
+      },
+      "failures": 2,
+      "tokens": {
+        "hit": 0,
+        "miss": 28639,
+        "out": 10959,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 38,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 51.96256970653975,
+        "sd": 0.0,
+        "min": 51.96256970653975,
+        "max": 51.96256970653975,
+        "per_repeat": [51.96256970653975]
+      },
+      "chrf": {
+        "mean": 52.134780127077626,
+        "sd": 0.0,
+        "min": 52.134780127077626,
+        "max": 52.134780127077626,
+        "per_repeat": [52.134780127077626]
+      },
+      "comet": {
+        "mean": 0.8352719310671091,
+        "sd": 0.0,
+        "min": 0.8352719310671091,
+        "max": 0.8352719310671091,
+        "per_repeat": [0.8352719310671091]
+      },
+      "latency_ms": {
+        "total_p50": 3262.0,
+        "total_p95": 5535.75,
+        "ttft_p50": 2945.0,
+        "ttft_p95": 5324.0,
+        "n": 36
+      },
+      "failures": 4,
+      "tokens": {
+        "hit": 0,
+        "miss": 23487,
+        "out": 11897,
+        "with_usage": 39
+      },
+      "checks": {
+        "outputs": 36,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    }
+  },
+  "decision": {
+    "rule": "flag a zh direction whose COMET mean is more than 0.03 below the vi<->en baseline mean",
+    "baseline_comet_mean": 0.8420712945982813,
+    "threshold": 0.8120712945982813,
+    "flags": {
+      "vi_to_zh": false,
+      "zh_to_vi": false,
+      "en_to_zh": false,
+      "zh_to_en": false
+    }
+  },
+  "tokens": {
+    "hit": 0,
+    "miss": 159255,
+    "out": 63918,
+    "requests": 240
+  },
+  "cost_usd": {
+    "peak": {
+      "run_total": 0.1244781,
+      "per_1000_requests": 0.5186587500000001
+    },
+    "offpeak": {
+      "run_total": 0.06223905,
+      "per_1000_requests": 0.25932937500000003
+    }
+  },
+  "price_source": "api-docs.deepseek.com/quick_start/pricing, read 2026-10-13"
+}

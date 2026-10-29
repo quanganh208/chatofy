@@ -1,0 +1,324 @@
+{
+  "run": "261028-screen-cc-minimax-m31-flash",
+  "directions": {
+    "vi_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 35.366468336041734,
+        "sd": 0.0,
+        "min": 35.366468336041734,
+        "max": 35.366468336041734,
+        "per_repeat": [35.366468336041734]
+      },
+      "chrf": {
+        "mean": 29.468963976451214,
+        "sd": 0.0,
+        "min": 29.468963976451214,
+        "max": 29.468963976451214,
+        "per_repeat": [29.468963976451214]
+      },
+      "comet": {
+        "mean": 0.8456236496567726,
+        "sd": 0.0,
+        "min": 0.8456236496567726,
+        "max": 0.8456236496567726,
+        "per_repeat": [0.8456236496567726]
+      },
+      "latency_ms": {
+        "total_p50": 3579.5,
+        "total_p95": 6655.899999999999,
+        "ttft_p50": 3562.0,
+        "ttft_p95": 6304.749999999998,
+        "n": 38
+      },
+      "failures": 2,
+      "tokens": {
+        "hit": 0,
+        "miss": 36062,
+        "out": 9259,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 38,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 2,
+        "latin_examples": [
+          {
+            "id": 1703,
+            "repeat": 1,
+            "hyp": "马尔泰利昨天在 newly 组成的临时选举委员会（Provisional Electoral Council，CEP）九名成员面前宣誓就职。",
+            "ref": "昨天，马尔泰利在由 9 名成员组成的新临时选举委员会 (CEP)中宣誓就职。"
+          },
+          {
+            "id": 1708,
+            "repeat": 1,
+            "hyp": "Huhne已经辞职，Ed Davey议员将接替他在内阁中的职位。预计Norman Lamb议员",
+            "ref": "胡纳已经辞职，他在内阁中的位置将由国会议员埃德·戴维 (Ed Davey) 接替。预计国会议员诺曼·兰姆 (Norman Lamb) 将接替戴维空出的商务部长一职。"
+          }
+        ],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 46.788137738735244,
+        "sd": 0.0,
+        "min": 46.788137738735244,
+        "max": 46.788137738735244,
+        "per_repeat": [46.788137738735244]
+      },
+      "chrf": {
+        "mean": 47.316614574022026,
+        "sd": 0.0,
+        "min": 47.316614574022026,
+        "max": 47.316614574022026,
+        "per_repeat": [47.316614574022026]
+      },
+      "comet": {
+        "mean": 0.8474845618009568,
+        "sd": 0.0,
+        "min": 0.8474845618009568,
+        "max": 0.8474845618009568,
+        "per_repeat": [0.8474845618009568]
+      },
+      "latency_ms": {
+        "total_p50": 3832.5,
+        "total_p95": 7192.95,
+        "ttft_p50": 3299.5,
+        "ttft_p95": 6466.65,
+        "n": 38
+      },
+      "failures": 2,
+      "tokens": {
+        "hit": 0,
+        "miss": 32056,
+        "out": 11896,
+        "with_usage": 39
+      },
+      "checks": {
+        "outputs": 38,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 44.856792004873945,
+        "sd": 0.0,
+        "min": 44.856792004873945,
+        "max": 44.856792004873945,
+        "per_repeat": [44.856792004873945]
+      },
+      "chrf": {
+        "mean": 38.87707674323918,
+        "sd": 0.0,
+        "min": 38.87707674323918,
+        "max": 38.87707674323918,
+        "per_repeat": [38.87707674323918]
+      },
+      "comet": {
+        "mean": 0.8910698443651199,
+        "sd": 0.0,
+        "min": 0.8910698443651199,
+        "max": 0.8910698443651199,
+        "per_repeat": [0.8910698443651199]
+      },
+      "latency_ms": {
+        "total_p50": 2594.0,
+        "total_p95": 7144.8499999999985,
+        "ttft_p50": 2436.0,
+        "ttft_p95": 6771.949999999999,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 29778,
+        "out": 6133,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 0,
+        "latin_examples": [],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 56.19419468942842,
+        "sd": 0.0,
+        "min": 56.19419468942842,
+        "max": 56.19419468942842,
+        "per_repeat": [56.19419468942842]
+      },
+      "chrf": {
+        "mean": 59.03506920050518,
+        "sd": 0.0,
+        "min": 59.03506920050518,
+        "max": 59.03506920050518,
+        "per_repeat": [59.03506920050518]
+      },
+      "comet": {
+        "mean": 0.8569952875375748,
+        "sd": 0.0,
+        "min": 0.8569952875375748,
+        "max": 0.8569952875375748,
+        "per_repeat": [0.8569952875375748]
+      },
+      "latency_ms": {
+        "total_p50": 2719.0,
+        "total_p95": 8912.900000000007,
+        "ttft_p50": 2508.0,
+        "ttft_p95": 8560.000000000007,
+        "n": 39
+      },
+      "failures": 1,
+      "tokens": {
+        "hit": 0,
+        "miss": 32865,
+        "out": 6383,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 39,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "vi_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 49.871678314948866,
+        "sd": 0.0,
+        "min": 49.871678314948866,
+        "max": 49.871678314948866,
+        "per_repeat": [49.871678314948866]
+      },
+      "chrf": {
+        "mean": 52.20396811663057,
+        "sd": 0.0,
+        "min": 52.20396811663057,
+        "max": 52.20396811663057,
+        "per_repeat": [52.20396811663057]
+      },
+      "comet": {
+        "mean": 0.8033206395804882,
+        "sd": 0.0,
+        "min": 0.8033206395804882,
+        "max": 0.8033206395804882,
+        "per_repeat": [0.8033206395804882]
+      },
+      "latency_ms": {
+        "total_p50": 3106.0,
+        "total_p95": 6406.799999999997,
+        "ttft_p50": 2889.0,
+        "ttft_p95": 6245.5999999999985,
+        "n": 35
+      },
+      "failures": 5,
+      "tokens": {
+        "hit": 0,
+        "miss": 35017,
+        "out": 9095,
+        "with_usage": 39
+      },
+      "checks": {
+        "outputs": 35,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 50.48146623615162,
+        "sd": 0.0,
+        "min": 50.48146623615162,
+        "max": 50.48146623615162,
+        "per_repeat": [50.48146623615162]
+      },
+      "chrf": {
+        "mean": 50.5899573974843,
+        "sd": 0.0,
+        "min": 50.5899573974843,
+        "max": 50.5899573974843,
+        "per_repeat": [50.5899573974843]
+      },
+      "comet": {
+        "mean": 0.8422700949013233,
+        "sd": 0.0,
+        "min": 0.8422700949013233,
+        "max": 0.8422700949013233,
+        "per_repeat": [0.8422700949013233]
+      },
+      "latency_ms": {
+        "total_p50": 4581.0,
+        "total_p95": 9957.399999999996,
+        "ttft_p50": 3670.0,
+        "ttft_p95": 8888.799999999994,
+        "n": 37
+      },
+      "failures": 3,
+      "tokens": {
+        "hit": 0,
+        "miss": 29619,
+        "out": 11903,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 37,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    }
+  },
+  "decision": {
+    "rule": "flag a zh direction whose COMET mean is more than 0.03 below the vi<->en baseline mean",
+    "baseline_comet_mean": 0.8227953672409057,
+    "threshold": 0.7927953672409057,
+    "flags": {
+      "vi_to_zh": false,
+      "zh_to_vi": false,
+      "en_to_zh": false,
+      "zh_to_en": false
+    }
+  },
+  "tokens": {
+    "hit": 0,
+    "miss": 195397,
+    "out": 54669,
+    "requests": 240
+  },
+  "cost_usd": {
+    "peak": {
+      "run_total": 0.1242219,
+      "per_1000_requests": 0.51759125
+    },
+    "offpeak": {
+      "run_total": 0.06211095,
+      "per_1000_requests": 0.258795625
+    }
+  },
+  "price_source": "api-docs.deepseek.com/quick_start/pricing, read 2026-10-13"
+}

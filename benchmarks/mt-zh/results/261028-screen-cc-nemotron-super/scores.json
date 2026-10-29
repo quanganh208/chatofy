@@ -1,0 +1,324 @@
+{
+  "run": "261028-screen-cc-nemotron-super",
+  "directions": {
+    "vi_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 14.392303864506523,
+        "sd": 0.0,
+        "min": 14.392303864506523,
+        "max": 14.392303864506523,
+        "per_repeat": [14.392303864506523]
+      },
+      "chrf": {
+        "mean": 11.906450268273822,
+        "sd": 0.0,
+        "min": 11.906450268273822,
+        "max": 11.906450268273822,
+        "per_repeat": [11.906450268273822]
+      },
+      "comet": {
+        "mean": 0.5252948470413685,
+        "sd": 0.0,
+        "min": 0.5252948470413685,
+        "max": 0.5252948470413685,
+        "per_repeat": [0.5252948470413685]
+      },
+      "latency_ms": {
+        "total_p50": 1781.0,
+        "total_p95": 2406.0,
+        "ttft_p50": 1734.0,
+        "ttft_p95": 2329.0,
+        "n": 17
+      },
+      "failures": 23,
+      "tokens": {
+        "hit": 0,
+        "miss": 27810,
+        "out": 16703,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 17,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 1,
+        "latin_examples": [
+          {
+            "id": 1710,
+            "repeat": 1,
+            "hyp": "上周，METI 通报称，Apple 已向他们报告了另外 34 起过热事件，该公司称这些事件“不严重”。",
+            "ref": "上周，日本经济产业省 (METI) 宣布，苹果公司向该部门通报另外 34 起过热造成的事故，尽管该公司称这些事故“并不严重”。"
+          }
+        ],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 13.918767491095158,
+        "sd": 0.0,
+        "min": 13.918767491095158,
+        "max": 13.918767491095158,
+        "per_repeat": [13.918767491095158]
+      },
+      "chrf": {
+        "mean": 13.859832911887091,
+        "sd": 0.0,
+        "min": 13.859832911887091,
+        "max": 13.859832911887091,
+        "per_repeat": [13.859832911887091]
+      },
+      "comet": {
+        "mean": 0.46230743527412416,
+        "sd": 0.0,
+        "min": 0.46230743527412416,
+        "max": 0.46230743527412416,
+        "per_repeat": [0.46230743527412416]
+      },
+      "latency_ms": {
+        "total_p50": 1137.0,
+        "total_p95": 2658.6499999999996,
+        "ttft_p50": 990.5,
+        "ttft_p95": 2618.2999999999997,
+        "n": 12
+      },
+      "failures": 28,
+      "tokens": {
+        "hit": 0,
+        "miss": 26991,
+        "out": 16913,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 12,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 23.351503833792016,
+        "sd": 0.0,
+        "min": 23.351503833792016,
+        "max": 23.351503833792016,
+        "per_repeat": [23.351503833792016]
+      },
+      "chrf": {
+        "mean": 20.534173295442635,
+        "sd": 0.0,
+        "min": 20.534173295442635,
+        "max": 20.534173295442635,
+        "per_repeat": [20.534173295442635]
+      },
+      "comet": {
+        "mean": 0.5979112699627877,
+        "sd": 0.0,
+        "min": 0.5979112699627877,
+        "max": 0.5979112699627877,
+        "per_repeat": [0.5979112699627877]
+      },
+      "latency_ms": {
+        "total_p50": 1904.0,
+        "total_p95": 2429.4,
+        "ttft_p50": 1852.5,
+        "ttft_p95": 2327.9500000000003,
+        "n": 20
+      },
+      "failures": 20,
+      "tokens": {
+        "hit": 0,
+        "miss": 23125,
+        "out": 16134,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 20,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 0,
+        "latin_examples": [],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 42.195263506913136,
+        "sd": 0.0,
+        "min": 42.195263506913136,
+        "max": 42.195263506913136,
+        "per_repeat": [42.195263506913136]
+      },
+      "chrf": {
+        "mean": 44.28622942864226,
+        "sd": 0.0,
+        "min": 44.28622942864226,
+        "max": 44.28622942864226,
+        "per_repeat": [44.28622942864226]
+      },
+      "comet": {
+        "mean": 0.6748117364943027,
+        "sd": 0.0,
+        "min": 0.6748117364943027,
+        "max": 0.6748117364943027,
+        "per_repeat": [0.6748117364943027]
+      },
+      "latency_ms": {
+        "total_p50": 1669.0,
+        "total_p95": 2632.5,
+        "ttft_p50": 1605.5,
+        "ttft_p95": 2606.5,
+        "n": 26
+      },
+      "failures": 14,
+      "tokens": {
+        "hit": 0,
+        "miss": 26991,
+        "out": 14271,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 26,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "vi_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 39.50463450117987,
+        "sd": 0.0,
+        "min": 39.50463450117987,
+        "max": 39.50463450117987,
+        "per_repeat": [39.50463450117987]
+      },
+      "chrf": {
+        "mean": 41.29140841589066,
+        "sd": 0.0,
+        "min": 41.29140841589066,
+        "max": 41.29140841589066,
+        "per_repeat": [41.29140841589066]
+      },
+      "comet": {
+        "mean": 0.6852370910346508,
+        "sd": 0.0,
+        "min": 0.6852370910346508,
+        "max": 0.6852370910346508,
+        "per_repeat": [0.6852370910346508]
+      },
+      "latency_ms": {
+        "total_p50": 1763.0,
+        "total_p95": 3233.2999999999993,
+        "ttft_p50": 1726.0,
+        "ttft_p95": 3159.3999999999996,
+        "n": 27
+      },
+      "failures": 13,
+      "tokens": {
+        "hit": 0,
+        "miss": 26783,
+        "out": 13725,
+        "with_usage": 39
+      },
+      "checks": {
+        "outputs": 27,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 27.833007384395835,
+        "sd": 0.0,
+        "min": 27.833007384395835,
+        "max": 27.833007384395835,
+        "per_repeat": [27.833007384395835]
+      },
+      "chrf": {
+        "mean": 27.833420485370453,
+        "sd": 0.0,
+        "min": 27.833420485370453,
+        "max": 27.833420485370453,
+        "per_repeat": [27.833420485370453]
+      },
+      "comet": {
+        "mean": 0.5750775173306465,
+        "sd": 0.0,
+        "min": 0.5750775173306465,
+        "max": 0.5750775173306465,
+        "per_repeat": [0.5750775173306465]
+      },
+      "latency_ms": {
+        "total_p50": 1793.0,
+        "total_p95": 2638.55,
+        "ttft_p50": 1738.5,
+        "ttft_p95": 2573.3,
+        "n": 20
+      },
+      "failures": 20,
+      "tokens": {
+        "hit": 0,
+        "miss": 22806,
+        "out": 15780,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 20,
+        "cjk_in_output": 1,
+        "cjk_examples": [
+          {
+            "id": 1728,
+            "repeat": 1,
+            "hyp": "Nước dổi cải thay đổi màu sắc tùy theo chất hóa học đó có axit hoặc bazen (kiềm)程度."
+          }
+        ]
+      }
+    }
+  },
+  "decision": {
+    "rule": "flag a zh direction whose COMET mean is more than 0.03 below the vi<->en baseline mean",
+    "baseline_comet_mean": 0.6301573041826487,
+    "threshold": 0.6001573041826487,
+    "flags": {
+      "vi_to_zh": true,
+      "zh_to_vi": true,
+      "en_to_zh": true,
+      "zh_to_en": false
+    }
+  },
+  "tokens": {
+    "hit": 0,
+    "miss": 154506,
+    "out": 93526,
+    "requests": 240
+  },
+  "cost_usd": {
+    "peak": {
+      "run_total": 0.158583,
+      "per_1000_requests": 0.6607625
+    },
+    "offpeak": {
+      "run_total": 0.0792915,
+      "per_1000_requests": 0.33038125
+    }
+  },
+  "price_source": "api-docs.deepseek.com/quick_start/pricing, read 2026-10-13"
+}

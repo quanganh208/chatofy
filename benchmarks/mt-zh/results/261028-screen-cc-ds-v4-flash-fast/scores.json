@@ -1,0 +1,330 @@
+{
+  "run": "261028-screen-cc-ds-v4-flash-fast",
+  "directions": {
+    "vi_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 34.65440920681209,
+        "sd": 0.0,
+        "min": 34.65440920681209,
+        "max": 34.65440920681209,
+        "per_repeat": [34.65440920681209]
+      },
+      "chrf": {
+        "mean": 28.66552425995838,
+        "sd": 0.0,
+        "min": 28.66552425995838,
+        "max": 28.66552425995838,
+        "per_repeat": [28.66552425995838]
+      },
+      "comet": {
+        "mean": 0.8576081573963166,
+        "sd": 0.0,
+        "min": 0.8576081573963166,
+        "max": 0.8576081573963166,
+        "per_repeat": [0.8576081573963166]
+      },
+      "latency_ms": {
+        "total_p50": 659.5,
+        "total_p95": 1165.4999999999995,
+        "ttft_p50": 413.0,
+        "ttft_p95": 656.3999999999991,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 27589,
+        "out": 1007,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 3,
+        "latin_examples": [
+          {
+            "id": 1683,
+            "repeat": 1,
+            "hyp": "Many men and women are still alive who survived the time of imprisonment here, and many more have relatives who were murdered or worked to death at this place, both Jews and non-Jews.",
+            "ref": "还是有许多男女在这里幸存了下来，他们如今仍然健在；而更多人的亲人，有的在那里被屠杀，有的一直做苦工到死，犹太人和非犹太人都是如此。"
+          },
+          {
+            "id": 1703,
+            "repeat": 1,
+            "hyp": "Martelly已于昨日为新成立的九人临时选举委员会（CEP）宣誓就职。",
+            "ref": "昨天，马尔泰利在由 9 名成员组成的新临时选举委员会 (CEP)中宣誓就职。"
+          },
+          {
+            "id": 1715,
+            "repeat": 1,
+            "hyp": "Metro区域内的一般通知仅以加泰罗尼亚语播放，但在突发事故情况下，通知将通过自动系统以多种语言发布，包括西班牙语、英语、法语、阿拉伯语和日语。",
+            "ref": "地铁里的定期广播只有加泰罗尼亚语，但自动系统会用多种语言进行临时广播，包括西班牙语、英语、法语、阿拉伯语和日语。"
+          }
+        ],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 49.14198724698131,
+        "sd": 0.0,
+        "min": 49.14198724698131,
+        "max": 49.14198724698131,
+        "per_repeat": [49.14198724698131]
+      },
+      "chrf": {
+        "mean": 49.4228111040292,
+        "sd": 0.0,
+        "min": 49.4228111040292,
+        "max": 49.4228111040292,
+        "per_repeat": [49.4228111040292]
+      },
+      "comet": {
+        "mean": 0.8733749449253082,
+        "sd": 0.0,
+        "min": 0.8733749449253082,
+        "max": 0.8733749449253082,
+        "per_repeat": [0.8733749449253082]
+      },
+      "latency_ms": {
+        "total_p50": 856.0,
+        "total_p95": 1313.4499999999996,
+        "ttft_p50": 402.0,
+        "ttft_p95": 620.3999999999999,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 25271,
+        "out": 2510,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 46.31417608929216,
+        "sd": 0.0,
+        "min": 46.31417608929216,
+        "max": 46.31417608929216,
+        "per_repeat": [46.31417608929216]
+      },
+      "chrf": {
+        "mean": 40.29598360528912,
+        "sd": 0.0,
+        "min": 40.29598360528912,
+        "max": 40.29598360528912,
+        "per_repeat": [40.29598360528912]
+      },
+      "comet": {
+        "mean": 0.8849765971302986,
+        "sd": 0.0,
+        "min": 0.8849765971302986,
+        "max": 0.8849765971302986,
+        "per_repeat": [0.8849765971302986]
+      },
+      "latency_ms": {
+        "total_p50": 659.0,
+        "total_p95": 911.0499999999998,
+        "ttft_p50": 401.5,
+        "ttft_p95": 674.3,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 22155,
+        "out": 1032,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 0,
+        "latin_examples": [],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 59.33102357047174,
+        "sd": 0.0,
+        "min": 59.33102357047174,
+        "max": 59.33102357047174,
+        "per_repeat": [59.33102357047174]
+      },
+      "chrf": {
+        "mean": 62.12469615440573,
+        "sd": 0.0,
+        "min": 62.12469615440573,
+        "max": 62.12469615440573,
+        "per_repeat": [62.12469615440573]
+      },
+      "comet": {
+        "mean": 0.8731442525982857,
+        "sd": 0.0,
+        "min": 0.8731442525982857,
+        "max": 0.8731442525982857,
+        "per_repeat": [0.8731442525982857]
+      },
+      "latency_ms": {
+        "total_p50": 607.0,
+        "total_p95": 1085.149999999999,
+        "ttft_p50": 407.5,
+        "ttft_p95": 755.8499999999999,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 25271,
+        "out": 1201,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "vi_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 61.08557213242803,
+        "sd": 0.0,
+        "min": 61.08557213242803,
+        "max": 61.08557213242803,
+        "per_repeat": [61.08557213242803]
+      },
+      "chrf": {
+        "mean": 63.22540759806108,
+        "sd": 0.0,
+        "min": 63.22540759806108,
+        "max": 63.22540759806108,
+        "per_repeat": [63.22540759806108]
+      },
+      "comet": {
+        "mean": 0.8789253115653992,
+        "sd": 0.0,
+        "min": 0.8789253115653992,
+        "max": 0.8789253115653992,
+        "per_repeat": [0.8789253115653992]
+      },
+      "latency_ms": {
+        "total_p50": 601.5,
+        "total_p95": 1171.7,
+        "ttft_p50": 403.5,
+        "ttft_p95": 799.1999999999998,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 27429,
+        "out": 1166,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 58.52393036085982,
+        "sd": 0.0,
+        "min": 58.52393036085982,
+        "max": 58.52393036085982,
+        "per_repeat": [58.52393036085982]
+      },
+      "chrf": {
+        "mean": 58.61219636206446,
+        "sd": 0.0,
+        "min": 58.61219636206446,
+        "max": 58.61219636206446,
+        "per_repeat": [58.61219636206446]
+      },
+      "comet": {
+        "mean": 0.888865664601326,
+        "sd": 0.0,
+        "min": 0.888865664601326,
+        "max": 0.888865664601326,
+        "per_repeat": [0.888865664601326]
+      },
+      "latency_ms": {
+        "total_p50": 810.0,
+        "total_p95": 1886.599999999998,
+        "ttft_p50": 417.0,
+        "ttft_p95": 660.9999999999993,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 21995,
+        "out": 2377,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    }
+  },
+  "decision": {
+    "rule": "flag a zh direction whose COMET mean is more than 0.03 below the vi<->en baseline mean",
+    "baseline_comet_mean": 0.8838954880833626,
+    "threshold": 0.8538954880833626,
+    "flags": {
+      "vi_to_zh": false,
+      "zh_to_vi": false,
+      "en_to_zh": false,
+      "zh_to_en": false
+    }
+  },
+  "tokens": {
+    "hit": 0,
+    "miss": 149710,
+    "out": 9293,
+    "requests": 240
+  },
+  "cost_usd": {
+    "peak": {
+      "run_total": 0.0560646,
+      "per_1000_requests": 0.2336025
+    },
+    "offpeak": {
+      "run_total": 0.0280323,
+      "per_1000_requests": 0.11680125
+    }
+  },
+  "price_source": "api-docs.deepseek.com/quick_start/pricing, read 2026-10-13"
+}

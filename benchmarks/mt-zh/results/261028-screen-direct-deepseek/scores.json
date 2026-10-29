@@ -1,0 +1,325 @@
+{
+  "run": "261028-screen-direct-deepseek",
+  "directions": {
+    "vi_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 37.21506641326558,
+        "sd": 0.0,
+        "min": 37.21506641326558,
+        "max": 37.21506641326558,
+        "per_repeat": [37.21506641326558]
+      },
+      "chrf": {
+        "mean": 31.387043246292407,
+        "sd": 0.0,
+        "min": 31.387043246292407,
+        "max": 31.387043246292407,
+        "per_repeat": [31.387043246292407]
+      },
+      "comet": {
+        "mean": 0.8681204006075859,
+        "sd": 0.0,
+        "min": 0.8681204006075859,
+        "max": 0.8681204006075859,
+        "per_repeat": [0.8681204006075859]
+      },
+      "latency_ms": {
+        "total_p50": 841.5,
+        "total_p95": 1173.55,
+        "ttft_p50": 606.0,
+        "ttft_p95": 847.15,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 15360,
+        "miss": 12269,
+        "out": 1006,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 1,
+        "latin_examples": [
+          {
+            "id": 1708,
+            "repeat": 1,
+            "hyp": "Huhne已经辞职，议员Ed Davey将接替他在内阁中的职位。预计议员Norman Lamb将担任Davey空出的经济部长一职。",
+            "ref": "胡纳已经辞职，他在内阁中的位置将由国会议员埃德·戴维 (Ed Davey) 接替。预计国会议员诺曼·兰姆 (Norman Lamb) 将接替戴维空出的商务部长一职。"
+          }
+        ],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 50.36033980012697,
+        "sd": 0.0,
+        "min": 50.36033980012697,
+        "max": 50.36033980012697,
+        "per_repeat": [50.36033980012697]
+      },
+      "chrf": {
+        "mean": 50.77390177903912,
+        "sd": 0.0,
+        "min": 50.77390177903912,
+        "max": 50.77390177903912,
+        "per_repeat": [50.77390177903912]
+      },
+      "comet": {
+        "mean": 0.8746795520186424,
+        "sd": 0.0,
+        "min": 0.8746795520186424,
+        "max": 0.8746795520186424,
+        "per_repeat": [0.8746795520186424]
+      },
+      "latency_ms": {
+        "total_p50": 979.0,
+        "total_p95": 1286.4499999999998,
+        "ttft_p50": 627.5,
+        "ttft_p95": 830.3999999999999,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 16000,
+        "miss": 9311,
+        "out": 2472,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 46.42001774517174,
+        "sd": 0.0,
+        "min": 46.42001774517174,
+        "max": 46.42001774517174,
+        "per_repeat": [46.42001774517174]
+      },
+      "chrf": {
+        "mean": 40.476026981834615,
+        "sd": 0.0,
+        "min": 40.476026981834615,
+        "max": 40.476026981834615,
+        "per_repeat": [40.476026981834615]
+      },
+      "comet": {
+        "mean": 0.887702539563179,
+        "sd": 0.0,
+        "min": 0.887702539563179,
+        "max": 0.887702539563179,
+        "per_repeat": [0.887702539563179]
+      },
+      "latency_ms": {
+        "total_p50": 807.0,
+        "total_p95": 1115.25,
+        "ttft_p50": 549.0,
+        "ttft_p95": 768.0999999999996,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 10240,
+        "miss": 11955,
+        "out": 1010,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 1,
+        "latin_examples": [
+          {
+            "id": 1708,
+            "repeat": 1,
+            "hyp": "Huhne已经辞职，他在内阁中的职位将由议员Ed Davey接替。预计议员Norman Lamb将接任Davey空出的商务部长一职。",
+            "ref": "胡纳已经辞职，他在内阁中的位置将由国会议员埃德·戴维 (Ed Davey) 接替。预计国会议员诺曼·兰姆 (Norman Lamb) 将接替戴维空出的商务部长一职。"
+          }
+        ],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 58.281071558895945,
+        "sd": 0.0,
+        "min": 58.281071558895945,
+        "max": 58.281071558895945,
+        "per_repeat": [58.281071558895945]
+      },
+      "chrf": {
+        "mean": 61.078538437241335,
+        "sd": 0.0,
+        "min": 61.078538437241335,
+        "max": 61.078538437241335,
+        "per_repeat": [61.078538437241335]
+      },
+      "comet": {
+        "mean": 0.8735077098011971,
+        "sd": 0.0,
+        "min": 0.8735077098011971,
+        "max": 0.8735077098011971,
+        "per_repeat": [0.8735077098011971]
+      },
+      "latency_ms": {
+        "total_p50": 844.0,
+        "total_p95": 1008.3,
+        "ttft_p50": 617.0,
+        "ttft_p95": 768.1,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 16000,
+        "miss": 9311,
+        "out": 1164,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "vi_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 59.640588513053096,
+        "sd": 0.0,
+        "min": 59.640588513053096,
+        "max": 59.640588513053096,
+        "per_repeat": [59.640588513053096]
+      },
+      "chrf": {
+        "mean": 61.923624265828145,
+        "sd": 0.0,
+        "min": 61.923624265828145,
+        "max": 61.923624265828145,
+        "per_repeat": [61.923624265828145]
+      },
+      "comet": {
+        "mean": 0.8740491360425949,
+        "sd": 0.0,
+        "min": 0.8740491360425949,
+        "max": 0.8740491360425949,
+        "per_repeat": [0.8740491360425949]
+      },
+      "latency_ms": {
+        "total_p50": 896.0,
+        "total_p95": 1177.6499999999999,
+        "ttft_p50": 647.5,
+        "ttft_p95": 830.9999999999995,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 15360,
+        "miss": 12109,
+        "out": 1166,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 58.88120014773772,
+        "sd": 0.0,
+        "min": 58.88120014773772,
+        "max": 58.88120014773772,
+        "per_repeat": [58.88120014773772]
+      },
+      "chrf": {
+        "mean": 58.86652910732661,
+        "sd": 0.0,
+        "min": 58.86652910732661,
+        "max": 58.86652910732661,
+        "per_repeat": [58.86652910732661]
+      },
+      "comet": {
+        "mean": 0.8878121212124824,
+        "sd": 0.0,
+        "min": 0.8878121212124824,
+        "max": 0.8878121212124824,
+        "per_repeat": [0.8878121212124824]
+      },
+      "latency_ms": {
+        "total_p50": 968.0,
+        "total_p95": 1339.6499999999999,
+        "ttft_p50": 593.5,
+        "ttft_p95": 852.0999999999998,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 10240,
+        "miss": 11795,
+        "out": 2347,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    }
+  },
+  "decision": {
+    "rule": "flag a zh direction whose COMET mean is more than 0.03 below the vi<->en baseline mean",
+    "baseline_comet_mean": 0.8809306286275387,
+    "threshold": 0.8509306286275387,
+    "flags": {
+      "vi_to_zh": false,
+      "zh_to_vi": false,
+      "en_to_zh": false,
+      "zh_to_en": false
+    }
+  },
+  "tokens": {
+    "hit": 83200,
+    "miss": 66750,
+    "out": 9165,
+    "requests": 240
+  },
+  "cost_usd": {
+    "peak": {
+      "run_total": 0.0315222,
+      "per_1000_requests": 0.1313425
+    },
+    "offpeak": {
+      "run_total": 0.0157611,
+      "per_1000_requests": 0.06567125
+    }
+  },
+  "price_source": "api-docs.deepseek.com/quick_start/pricing, read 2026-10-13"
+}

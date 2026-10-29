@@ -1,0 +1,331 @@
+{
+  "run": "261028-screen-cc-minimax-m3",
+  "directions": {
+    "vi_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 36.179800872339506,
+        "sd": 0.0,
+        "min": 36.179800872339506,
+        "max": 36.179800872339506,
+        "per_repeat": [36.179800872339506]
+      },
+      "chrf": {
+        "mean": 30.200615339475966,
+        "sd": 0.0,
+        "min": 30.200615339475966,
+        "max": 30.200615339475966,
+        "per_repeat": [30.200615339475966]
+      },
+      "comet": {
+        "mean": 0.8698736369609833,
+        "sd": 0.0,
+        "min": 0.8698736369609833,
+        "max": 0.8698736369609833,
+        "per_repeat": [0.8698736369609833]
+      },
+      "latency_ms": {
+        "total_p50": 2254.5,
+        "total_p95": 6174.099999999999,
+        "ttft_p50": 1580.5,
+        "ttft_p95": 4619.4999999999945,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 34967,
+        "out": 1050,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 2,
+        "latin_examples": [
+          {
+            "id": 1703,
+            "repeat": 1,
+            "hyp": "马特利昨天在临时选举委员会（Provisional Electoral Council，CEP）新组成的九人委员会中宣誓就职。",
+            "ref": "昨天，马尔泰利在由 9 名成员组成的新临时选举委员会 (CEP)中宣誓就职。"
+          },
+          {
+            "id": 1710,
+            "repeat": 1,
+            "hyp": "上周，日本经济产业省（METI）宣布，Apple已向该部门报告了另外34起过热事故，而该公司称这些问题“并不严重”。",
+            "ref": "上周，日本经济产业省 (METI) 宣布，苹果公司向该部门通报另外 34 起过热造成的事故，尽管该公司称这些事故“并不严重”。"
+          }
+        ],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 48.11303968068936,
+        "sd": 0.0,
+        "min": 48.11303968068936,
+        "max": 48.11303968068936,
+        "per_repeat": [48.11303968068936]
+      },
+      "chrf": {
+        "mean": 48.678041496272776,
+        "sd": 0.0,
+        "min": 48.678041496272776,
+        "max": 48.678041496272776,
+        "per_repeat": [48.678041496272776]
+      },
+      "comet": {
+        "mean": 0.8686464264988899,
+        "sd": 0.0,
+        "min": 0.8686464264988899,
+        "max": 0.8686464264988899,
+        "per_repeat": [0.8686464264988899]
+      },
+      "latency_ms": {
+        "total_p50": 2922.0,
+        "total_p95": 7177.84999999999,
+        "ttft_p50": 1449.5,
+        "ttft_p95": 5922.249999999992,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 31799,
+        "out": 3237,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 43.70175553333561,
+        "sd": 0.0,
+        "min": 43.70175553333561,
+        "max": 43.70175553333561,
+        "per_repeat": [43.70175553333561]
+      },
+      "chrf": {
+        "mean": 37.709930574779236,
+        "sd": 0.0,
+        "min": 37.709930574779236,
+        "max": 37.709930574779236,
+        "per_repeat": [37.709930574779236]
+      },
+      "comet": {
+        "mean": 0.8879064977169037,
+        "sd": 0.0,
+        "min": 0.8879064977169037,
+        "max": 0.8879064977169037,
+        "per_repeat": [0.8879064977169037]
+      },
+      "latency_ms": {
+        "total_p50": 2204.0,
+        "total_p95": 9341.05,
+        "ttft_p50": 1606.0,
+        "ttft_p95": 6636.399999999991,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 28697,
+        "out": 1023,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 1,
+        "latin_examples": [
+          {
+            "id": 1693,
+            "repeat": 1,
+            "hyp": "但是，在失去队长 wickets 后，印度队仅得到 36 分，并损失 7 个 wickets，最终结束了这一轮击球。",
+            "ref": "但在队长输掉三柱门后，印度在结束这一局的比赛时只得了 36 分，输掉 7 个三柱门。"
+          }
+        ],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 57.24618489299983,
+        "sd": 0.0,
+        "min": 57.24618489299983,
+        "max": 57.24618489299983,
+        "per_repeat": [57.24618489299983]
+      },
+      "chrf": {
+        "mean": 59.927494369066835,
+        "sd": 0.0,
+        "min": 59.927494369066835,
+        "max": 59.927494369066835,
+        "per_repeat": [59.927494369066835]
+      },
+      "comet": {
+        "mean": 0.869443878531456,
+        "sd": 0.0,
+        "min": 0.869443878531456,
+        "max": 0.869443878531456,
+        "per_repeat": [0.869443878531456]
+      },
+      "latency_ms": {
+        "total_p50": 2357.0,
+        "total_p95": 7942.949999999999,
+        "ttft_p50": 1874.5,
+        "ttft_p95": 7422.949999999999,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 31773,
+        "out": 1189,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "vi_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 58.708247735521205,
+        "sd": 0.0,
+        "min": 58.708247735521205,
+        "max": 58.708247735521205,
+        "per_repeat": [58.708247735521205]
+      },
+      "chrf": {
+        "mean": 60.975656469379366,
+        "sd": 0.0,
+        "min": 60.975656469379366,
+        "max": 60.975656469379366,
+        "per_repeat": [60.975656469379366]
+      },
+      "comet": {
+        "mean": 0.8673510402441025,
+        "sd": 0.0,
+        "min": 0.8673510402441025,
+        "max": 0.8673510402441025,
+        "per_repeat": [0.8673510402441025]
+      },
+      "latency_ms": {
+        "total_p50": 2494.0,
+        "total_p95": 6771.949999999997,
+        "ttft_p50": 1895.5,
+        "ttft_p95": 5693.399999999995,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 34807,
+        "out": 1191,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 54.6357962203726,
+        "sd": 0.0,
+        "min": 54.6357962203726,
+        "max": 54.6357962203726,
+        "per_repeat": [54.6357962203726]
+      },
+      "chrf": {
+        "mean": 54.69164599699867,
+        "sd": 0.0,
+        "min": 54.69164599699867,
+        "max": 54.69164599699867,
+        "per_repeat": [54.69164599699867]
+      },
+      "comet": {
+        "mean": 0.8806520193815232,
+        "sd": 0.0,
+        "min": 0.8806520193815232,
+        "max": 0.8806520193815232,
+        "per_repeat": [0.8806520193815232]
+      },
+      "latency_ms": {
+        "total_p50": 3073.0,
+        "total_p95": 7129.049999999991,
+        "ttft_p50": 1771.0,
+        "ttft_p95": 4323.849999999994,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 28563,
+        "out": 3139,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    }
+  },
+  "decision": {
+    "rule": "flag a zh direction whose COMET mean is more than 0.03 below the vi<->en baseline mean",
+    "baseline_comet_mean": 0.8740015298128128,
+    "threshold": 0.8440015298128127,
+    "flags": {
+      "vi_to_zh": false,
+      "zh_to_vi": false,
+      "en_to_zh": false,
+      "zh_to_en": false
+    }
+  },
+  "tokens": {
+    "hit": 0,
+    "miss": 190606,
+    "out": 10829,
+    "requests": 240
+  },
+  "cost_usd": {
+    "peak": {
+      "run_total": 0.07017659999999999,
+      "per_1000_requests": 0.2924025
+    },
+    "offpeak": {
+      "run_total": 0.035088299999999996,
+      "per_1000_requests": 0.14620125
+    }
+  },
+  "price_source": "api-docs.deepseek.com/quick_start/pricing, read 2026-10-13"
+}
