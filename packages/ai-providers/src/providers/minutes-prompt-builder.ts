@@ -10,9 +10,12 @@
 // instruction pins the shape and the provider parses it. A model that ignores
 // the shape fails loudly at the parse rather than returning prose nobody asked
 // for.
+//
+// Every summarization host sends this same prompt, which is why it sits beside
+// `minutes-draft-parser.ts` rather than inside one vendor's folder.
 import { LANGUAGES } from '@chatofy/types';
-import type { LanguageCode } from '../../interfaces/provider-types.js';
-import { wrapTranscript } from './prompt-builder.js';
+import type { LanguageCode } from '../interfaces/provider-types.js';
+import { wrapTranscript } from './gemini/prompt-builder.js';
 
 const nameOf = (language: LanguageCode | undefined): string =>
   language ? LANGUAGES[language].englishName : 'the same language as the conversation';

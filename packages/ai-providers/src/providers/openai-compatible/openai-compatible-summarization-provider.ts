@@ -19,7 +19,7 @@ import {
   buildMinutesInstruction,
   buildMinutesReminder,
   wrapMinutesTranscript,
-} from '../gemini/minutes-prompt-builder.js';
+} from '../minutes-prompt-builder.js';
 import { truncate } from '../http-util.js';
 import { parseMinutesDraft } from '../minutes-draft-parser.js';
 

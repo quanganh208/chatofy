@@ -38,7 +38,7 @@ import {
   buildMinutesInstruction,
   buildMinutesReminder,
   wrapMinutesTranscript,
-} from './minutes-prompt-builder.js';
+} from '../minutes-prompt-builder.js';
 import { parseMinutesDraft } from '../minutes-draft-parser.js';
 
 const DEFAULT_MODELS = ['gemini-3.5-flash', 'gemini-3.5-flash-lite'];

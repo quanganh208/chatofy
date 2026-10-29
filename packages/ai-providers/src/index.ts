@@ -160,7 +160,7 @@ export {
   buildMinutesInstruction,
   buildMinutesReminder,
   wrapMinutesTranscript,
-} from './providers/gemini/minutes-prompt-builder.js';
+} from './providers/minutes-prompt-builder.js';
 export {
   GeminiLiveTranslateProvider,
   INPUT_SAMPLE_RATE as GEMINI_LIVE_INPUT_SAMPLE_RATE,
