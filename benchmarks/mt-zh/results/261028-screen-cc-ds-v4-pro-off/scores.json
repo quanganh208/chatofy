@@ -1,0 +1,318 @@
+{
+  "run": "261028-screen-cc-ds-v4-pro-off",
+  "directions": {
+    "vi_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 37.7575986233954,
+        "sd": 0.0,
+        "min": 37.7575986233954,
+        "max": 37.7575986233954,
+        "per_repeat": [37.7575986233954]
+      },
+      "chrf": {
+        "mean": 31.66852153430154,
+        "sd": 0.0,
+        "min": 31.66852153430154,
+        "max": 31.66852153430154,
+        "per_repeat": [31.66852153430154]
+      },
+      "comet": {
+        "mean": 0.87103773355484,
+        "sd": 0.0,
+        "min": 0.87103773355484,
+        "max": 0.87103773355484,
+        "per_repeat": [0.87103773355484]
+      },
+      "latency_ms": {
+        "total_p50": 2318.0,
+        "total_p95": 3048.649999999998,
+        "ttft_p50": 1630.0,
+        "ttft_p95": 2549.449999999999,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 27589,
+        "out": 989,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 1,
+        "latin_examples": [
+          {
+            "id": 1703,
+            "repeat": 1,
+            "hyp": "Martelly已于昨天在新的九人临时选举委员会（Provisional Electoral Council，CEP）中宣誓就职。",
+            "ref": "昨天，马尔泰利在由 9 名成员组成的新临时选举委员会 (CEP)中宣誓就职。"
+          }
+        ],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 49.62464255636154,
+        "sd": 0.0,
+        "min": 49.62464255636154,
+        "max": 49.62464255636154,
+        "per_repeat": [49.62464255636154]
+      },
+      "chrf": {
+        "mean": 49.9867448675716,
+        "sd": 0.0,
+        "min": 49.9867448675716,
+        "max": 49.9867448675716,
+        "per_repeat": [49.9867448675716]
+      },
+      "comet": {
+        "mean": 0.8793785333633423,
+        "sd": 0.0,
+        "min": 0.8793785333633423,
+        "max": 0.8793785333633423,
+        "per_repeat": [0.8793785333633423]
+      },
+      "latency_ms": {
+        "total_p50": 2737.0,
+        "total_p95": 3627.2,
+        "ttft_p50": 1543.0,
+        "ttft_p95": 2154.6499999999983,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 25271,
+        "out": 2450,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 46.04243274191428,
+        "sd": 0.0,
+        "min": 46.04243274191428,
+        "max": 46.04243274191428,
+        "per_repeat": [46.04243274191428]
+      },
+      "chrf": {
+        "mean": 40.009592689004656,
+        "sd": 0.0,
+        "min": 40.009592689004656,
+        "max": 40.009592689004656,
+        "per_repeat": [40.009592689004656]
+      },
+      "comet": {
+        "mean": 0.8847931489348412,
+        "sd": 0.0,
+        "min": 0.8847931489348412,
+        "max": 0.8847931489348412,
+        "per_repeat": [0.8847931489348412]
+      },
+      "latency_ms": {
+        "total_p50": 2361.5,
+        "total_p95": 2936.6499999999996,
+        "ttft_p50": 1593.5,
+        "ttft_p95": 2253.2499999999995,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 22155,
+        "out": 1005,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 0,
+        "latin_examples": [],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 59.433066571756335,
+        "sd": 0.0,
+        "min": 59.433066571756335,
+        "max": 59.433066571756335,
+        "per_repeat": [59.433066571756335]
+      },
+      "chrf": {
+        "mean": 62.14457646901027,
+        "sd": 0.0,
+        "min": 62.14457646901027,
+        "max": 62.14457646901027,
+        "per_repeat": [62.14457646901027]
+      },
+      "comet": {
+        "mean": 0.8735590949654579,
+        "sd": 0.0,
+        "min": 0.8735590949654579,
+        "max": 0.8735590949654579,
+        "per_repeat": [0.8735590949654579]
+      },
+      "latency_ms": {
+        "total_p50": 2213.5,
+        "total_p95": 2612.2999999999997,
+        "ttft_p50": 1581.0,
+        "ttft_p95": 2055.249999999999,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 25271,
+        "out": 1158,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "vi_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 62.40083670792366,
+        "sd": 0.0,
+        "min": 62.40083670792366,
+        "max": 62.40083670792366,
+        "per_repeat": [62.40083670792366]
+      },
+      "chrf": {
+        "mean": 64.60949983314308,
+        "sd": 0.0,
+        "min": 64.60949983314308,
+        "max": 64.60949983314308,
+        "per_repeat": [64.60949983314308]
+      },
+      "comet": {
+        "mean": 0.880523057281971,
+        "sd": 0.0,
+        "min": 0.880523057281971,
+        "max": 0.880523057281971,
+        "per_repeat": [0.880523057281971]
+      },
+      "latency_ms": {
+        "total_p50": 2210.5,
+        "total_p95": 2740.7,
+        "ttft_p50": 1546.0,
+        "ttft_p95": 1959.0999999999995,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 27429,
+        "out": 1129,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 58.23192239840519,
+        "sd": 0.0,
+        "min": 58.23192239840519,
+        "max": 58.23192239840519,
+        "per_repeat": [58.23192239840519]
+      },
+      "chrf": {
+        "mean": 58.28624780270747,
+        "sd": 0.0,
+        "min": 58.28624780270747,
+        "max": 58.28624780270747,
+        "per_repeat": [58.28624780270747]
+      },
+      "comet": {
+        "mean": 0.8862345367670059,
+        "sd": 0.0,
+        "min": 0.8862345367670059,
+        "max": 0.8862345367670059,
+        "per_repeat": [0.8862345367670059]
+      },
+      "latency_ms": {
+        "total_p50": 2778.0,
+        "total_p95": 3661.0,
+        "ttft_p50": 1613.0,
+        "ttft_p95": 1997.95,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 21995,
+        "out": 2310,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    }
+  },
+  "decision": {
+    "rule": "flag a zh direction whose COMET mean is more than 0.03 below the vi<->en baseline mean",
+    "baseline_comet_mean": 0.8833787970244884,
+    "threshold": 0.8533787970244884,
+    "flags": {
+      "vi_to_zh": false,
+      "zh_to_vi": false,
+      "en_to_zh": false,
+      "zh_to_en": false
+    }
+  },
+  "tokens": {
+    "hit": 0,
+    "miss": 149710,
+    "out": 9041,
+    "requests": 240
+  },
+  "cost_usd": {
+    "peak": {
+      "run_total": 0.0557622,
+      "per_1000_requests": 0.2323425
+    },
+    "offpeak": {
+      "run_total": 0.0278811,
+      "per_1000_requests": 0.11617125
+    }
+  },
+  "price_source": "api-docs.deepseek.com/quick_start/pricing, read 2026-10-13"
+}

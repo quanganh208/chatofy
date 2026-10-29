@@ -1,0 +1,337 @@
+{
+  "run": "261028-screen-cc-ds-v41-flash-fast-off",
+  "directions": {
+    "vi_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 37.64373721871133,
+        "sd": 0.0,
+        "min": 37.64373721871133,
+        "max": 37.64373721871133,
+        "per_repeat": [37.64373721871133]
+      },
+      "chrf": {
+        "mean": 31.694105780281355,
+        "sd": 0.0,
+        "min": 31.694105780281355,
+        "max": 31.694105780281355,
+        "per_repeat": [31.694105780281355]
+      },
+      "comet": {
+        "mean": 0.8656474560499191,
+        "sd": 0.0,
+        "min": 0.8656474560499191,
+        "max": 0.8656474560499191,
+        "per_repeat": [0.8656474560499191]
+      },
+      "latency_ms": {
+        "total_p50": 1509.5,
+        "total_p95": 1762.5,
+        "ttft_p50": 1277.5,
+        "ttft_p95": 1534.1,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 27629,
+        "out": 1018,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 3,
+        "latin_examples": [
+          {
+            "id": 1700,
+            "repeat": 1,
+            "hyp": "它在月海（maria）区域下方更薄，在高地区域更厚。",
+            "ref": "阴暗面下面的地壳薄一些，高地下的地壳厚一些。"
+          },
+          {
+            "id": 1703,
+            "repeat": 1,
+            "hyp": "马特利昨天在新成立的由九名成员组成的临时选举委员会（Provisional Electoral Council, CEP）中宣誓就职。",
+            "ref": "昨天，马尔泰利在由 9 名成员组成的新临时选举委员会 (CEP)中宣誓就职。"
+          },
+          {
+            "id": 1708,
+            "repeat": 1,
+            "hyp": "Huhne已经辞职，Ed Davey议员将接替他在内阁中的职位。预计Norman Lamb议员将担任Davey空出的经济部长一职。",
+            "ref": "胡纳已经辞职，他在内阁中的位置将由国会议员埃德·戴维 (Ed Davey) 接替。预计国会议员诺曼·兰姆 (Norman Lamb) 将接替戴维空出的商务部长一职。"
+          }
+        ],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 50.02550237964354,
+        "sd": 0.0,
+        "min": 50.02550237964354,
+        "max": 50.02550237964354,
+        "per_repeat": [50.02550237964354]
+      },
+      "chrf": {
+        "mean": 50.37244684829296,
+        "sd": 0.0,
+        "min": 50.37244684829296,
+        "max": 50.37244684829296,
+        "per_repeat": [50.37244684829296]
+      },
+      "comet": {
+        "mean": 0.8776214361190796,
+        "sd": 0.0,
+        "min": 0.8776214361190796,
+        "max": 0.8776214361190796,
+        "per_repeat": [0.8776214361190796]
+      },
+      "latency_ms": {
+        "total_p50": 1668.0,
+        "total_p95": 2049.8,
+        "ttft_p50": 1245.5,
+        "ttft_p95": 1512.6499999999999,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 25311,
+        "out": 2452,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 45.870161587042254,
+        "sd": 0.0,
+        "min": 45.870161587042254,
+        "max": 45.870161587042254,
+        "per_repeat": [45.870161587042254]
+      },
+      "chrf": {
+        "mean": 39.84059171942464,
+        "sd": 0.0,
+        "min": 39.84059171942464,
+        "max": 39.84059171942464,
+        "per_repeat": [39.84059171942464]
+      },
+      "comet": {
+        "mean": 0.8856135621666908,
+        "sd": 0.0,
+        "min": 0.8856135621666908,
+        "max": 0.8856135621666908,
+        "per_repeat": [0.8856135621666908]
+      },
+      "latency_ms": {
+        "total_p50": 1486.0,
+        "total_p95": 1834.699999999999,
+        "ttft_p50": 1230.5,
+        "ttft_p95": 1558.4499999999996,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 22195,
+        "out": 1005,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 1,
+        "latin_examples": [
+          {
+            "id": 1693,
+            "repeat": 1,
+            "hyp": "但输掉队长的 wicket 之后，印度仅得了36分，丢了7个 wicket，结束了这一局。",
+            "ref": "但在队长输掉三柱门后，印度在结束这一局的比赛时只得了 36 分，输掉 7 个三柱门。"
+          }
+        ],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 59.969706383976586,
+        "sd": 0.0,
+        "min": 59.969706383976586,
+        "max": 59.969706383976586,
+        "per_repeat": [59.969706383976586]
+      },
+      "chrf": {
+        "mean": 62.63117536308365,
+        "sd": 0.0,
+        "min": 62.63117536308365,
+        "max": 62.63117536308365,
+        "per_repeat": [62.63117536308365]
+      },
+      "comet": {
+        "mean": 0.8761531248688698,
+        "sd": 0.0,
+        "min": 0.8761531248688698,
+        "max": 0.8761531248688698,
+        "per_repeat": [0.8761531248688698]
+      },
+      "latency_ms": {
+        "total_p50": 1444.5,
+        "total_p95": 1873.0999999999997,
+        "ttft_p50": 1202.0,
+        "ttft_p95": 1541.6999999999996,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 25311,
+        "out": 1179,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "vi_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 60.31365944670338,
+        "sd": 0.0,
+        "min": 60.31365944670338,
+        "max": 60.31365944670338,
+        "per_repeat": [60.31365944670338]
+      },
+      "chrf": {
+        "mean": 62.4941528012949,
+        "sd": 0.0,
+        "min": 62.4941528012949,
+        "max": 62.4941528012949,
+        "per_repeat": [62.4941528012949]
+      },
+      "comet": {
+        "mean": 0.8799254283308983,
+        "sd": 0.0,
+        "min": 0.8799254283308983,
+        "max": 0.8799254283308983,
+        "per_repeat": [0.8799254283308983]
+      },
+      "latency_ms": {
+        "total_p50": 1478.0,
+        "total_p95": 2129.5499999999965,
+        "ttft_p50": 1236.0,
+        "ttft_p95": 1851.349999999996,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 27469,
+        "out": 1165,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 58.453295442588484,
+        "sd": 0.0,
+        "min": 58.453295442588484,
+        "max": 58.453295442588484,
+        "per_repeat": [58.453295442588484]
+      },
+      "chrf": {
+        "mean": 58.43632893102518,
+        "sd": 0.0,
+        "min": 58.43632893102518,
+        "max": 58.43632893102518,
+        "per_repeat": [58.43632893102518]
+      },
+      "comet": {
+        "mean": 0.8927907615900039,
+        "sd": 0.0,
+        "min": 0.8927907615900039,
+        "max": 0.8927907615900039,
+        "per_repeat": [0.8927907615900039]
+      },
+      "latency_ms": {
+        "total_p50": 1598.0,
+        "total_p95": 2321.499999999997,
+        "ttft_p50": 1195.5,
+        "ttft_p95": 1615.549999999996,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 22035,
+        "out": 2328,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    }
+  },
+  "decision": {
+    "rule": "flag a zh direction whose COMET mean is more than 0.03 below the vi<->en baseline mean",
+    "baseline_comet_mean": 0.886358094960451,
+    "threshold": 0.856358094960451,
+    "flags": {
+      "vi_to_zh": false,
+      "zh_to_vi": false,
+      "en_to_zh": false,
+      "zh_to_en": false
+    }
+  },
+  "tokens": {
+    "hit": 0,
+    "miss": 149950,
+    "out": 9147,
+    "requests": 240
+  },
+  "cost_usd": {
+    "peak": {
+      "run_total": 0.0559614,
+      "per_1000_requests": 0.2331725
+    },
+    "offpeak": {
+      "run_total": 0.0279807,
+      "per_1000_requests": 0.11658625
+    }
+  },
+  "price_source": "api-docs.deepseek.com/quick_start/pricing, read 2026-10-13"
+}

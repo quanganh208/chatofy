@@ -2,6 +2,8 @@
 //
 //   DEEPSEEK_API_KEY=... node benchmarks/mt-zh/run.mjs --tag 261013-deepseek
 //   DEEPSEEK_API_KEY=... node benchmarks/mt-zh/run.mjs --tag smoke-1 --limit 2 --repeats 1
+//   node benchmarks/mt-zh/run.mjs --tag <tag> --provider openai-compatible \
+//     --base-url <url> --api-key-env <VAR> --model <id> [--gap-ms n] [--extra-body json]
 //
 // Spends real money; run by hand, never from CI.
 //
@@ -28,7 +30,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { makeTranslationProvider } from '../translation-providers.mjs';
+import { makeTranslationProvider, takeProviderArgs } from '../translation-providers.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../..');
@@ -36,7 +38,14 @@ const REPO = resolve(HERE, '../..');
 const DIRECTIONS = ['vi_to_zh', 'zh_to_vi', 'en_to_zh', 'zh_to_en', 'vi_to_en', 'en_to_vi'];
 
 function parseArgs(argv) {
-  const args = { tag: null, repeats: 3, limit: null, directions: DIRECTIONS };
+  const args = {
+    tag: null,
+    repeats: 3,
+    limit: null,
+    directions: DIRECTIONS,
+    model: undefined,
+    gapMs: undefined,
+  };
   for (let i = 0; i < argv.length; i += 2) {
     const flag = argv[i];
     const raw = argv[i + 1];
@@ -45,6 +54,12 @@ function parseArgs(argv) {
       if (!/^[\w.-]+$/.test(raw))
         throw new Error(`--tag must be [A-Za-z0-9_.-]+, got ${JSON.stringify(raw)}`);
       args.tag = raw;
+    } else if (flag === '--model') {
+      args.model = raw;
+    } else if (flag === '--gap-ms') {
+      const value = Number(raw);
+      if (!Number.isInteger(value) || value < 0) throw new Error(`--gap-ms needs an integer >= 0`);
+      args.gapMs = value;
     } else if (flag === '--repeats' || flag === '--limit') {
       const value = Number(raw);
       if (!Number.isInteger(value) || value < 1) throw new Error(`${flag} needs an integer >= 1`);
@@ -57,7 +72,10 @@ function parseArgs(argv) {
     } else throw new Error(`unknown argument: ${flag}`);
   }
   if (!args.tag)
-    throw new Error('usage: run.mjs --tag <tag> [--repeats 3] [--limit n] [--directions a,b]');
+    throw new Error(
+      'usage: run.mjs --tag <tag> [--repeats 3] [--limit n] [--directions a,b] ' +
+        '[--model m] [--gap-ms n] [--provider p --base-url u --api-key-env V --extra-body json]',
+    );
   return args;
 }
 
@@ -129,7 +147,10 @@ function installFetchTap() {
   return tap;
 }
 
-const args = parseArgs(process.argv.slice(2));
+// The provider flags are the shared ones `translation-providers.mjs` parses; with
+// none given the run measures the shipped `deepseek` preset exactly as before.
+const { provider: providerArgs, rest: ownArgs } = takeProviderArgs(process.argv.slice(2));
+const args = parseArgs(ownArgs);
 const outDir = join(HERE, 'results', args.tag);
 if (existsSync(outDir))
   throw new Error(`${outDir} exists; results are never overwritten. Pick a new --tag.`);
@@ -138,7 +159,12 @@ const types = await providerTypesModule();
 if (!types.LANGUAGES.zh) throw new Error('the registry has no zh; rebuild packages/types');
 
 const tap = installFetchTap();
-const { provider, models, gapMs, label } = makeTranslationProvider({ preset: 'deepseek' });
+const { provider, models, gapMs, label } = makeTranslationProvider({
+  preset: 'deepseek',
+  ...providerArgs,
+  models: args.model ? [args.model] : undefined,
+  gapMs: args.gapMs,
+});
 const [model] = models;
 const sentences = args.limit ? readSentences().slice(0, args.limit) : readSentences();
 
@@ -149,6 +175,8 @@ const meta = {
   gitHead: gitHead(),
   node: process.version,
   preset: label,
+  baseUrl: providerArgs.baseUrl ?? null,
+  extraBody: providerArgs.extraBody ?? null,
   model,
   gapMs,
   repeats: args.repeats,

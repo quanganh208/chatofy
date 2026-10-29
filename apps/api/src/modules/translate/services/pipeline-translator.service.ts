@@ -21,6 +21,7 @@ import {
   type LoanwordRespeller,
   type SpeakerEmbeddingResult,
   type TranslationHints,
+  type TranslationPolisher,
   type TtsAudioStream,
   type TtsProvider,
   type TtsSynthesizeRequest,
@@ -546,6 +547,22 @@ export class PipelineTranslatorService {
       audioBase64: Buffer.from(speech.bytes).toString('base64'),
       audioMimeType: speech.mimeType,
     };
+  }
+
+  /**
+   * The second pass over a finished turn's translation, or null when this
+   * deployment's host has none — or cannot build one, because a missing key is
+   * a reason to keep the draft, never to fail the session that asked.
+   */
+  makeTranslationPolisher(): TranslationPolisher | null {
+    try {
+      return this.providers.makeTranslationPolisher();
+    } catch (err) {
+      this.logger.warn(
+        `translation polish unavailable: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return null;
+    }
   }
 
   /**

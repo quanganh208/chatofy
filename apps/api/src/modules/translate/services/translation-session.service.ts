@@ -82,6 +82,7 @@ import {
   type SegmentBlock,
 } from '../session/finished-segments';
 import { BlockRetranslator } from '../session/block-retranslator';
+import { TurnPolisher } from '../session/turn-polisher';
 import {
   admitLanguageMode,
   SpeechLanguageSupport,
@@ -203,6 +204,8 @@ export class TranslationSessionService implements OnModuleDestroy {
   private readonly finished = new FinishedSegments();
   /** Answers `client.block.retranslate`; see {@link BlockRetranslator}. */
   private readonly blocks: BlockRetranslator;
+  /** The second pass over each finished turn's translation; see `TurnPolisher`. */
+  private readonly polisher: TurnPolisher;
   /**
    * The turn a continuation is the rest of, for continuations only. Keyed by
    * the session object so it goes when the session does.
@@ -249,6 +252,11 @@ export class TranslationSessionService implements OnModuleDestroy {
     // `target: ES2022` field initializers run before the parameter properties
     // are assigned, so `this.pipeline` would still be undefined up there.
     this.preview = new LivePreview(this.pipeline, this.logger);
+    this.polisher = new TurnPolisher(
+      this.pipeline.makeTranslationPolisher(),
+      this.logger,
+      (socket) => this.gone.has(socket),
+    );
     this.blocks = new BlockRetranslator(
       this.finished,
       this.pipeline,
@@ -1115,6 +1123,18 @@ export class TranslationSessionService implements OnModuleDestroy {
             ),
             ...(display === undefined ? {} : { display }),
           });
+          // After the line is out and never awaited: the draft is what the
+          // listener hears, and the edit only replaces what they read. The
+          // server's own record (`rememberSegment`) keeps the draft; it holds
+          // only the source for later context and block joins, which the
+          // polish never changes.
+          this.polisher.polish(socket, this.channelFor(socket, session), {
+            userId: session.userId,
+            sessionId: session.sessionId,
+            sourceText: translated.sourceText,
+            source: session.languages.recognition,
+            translations: translated.translations,
+          });
           this.rememberSegment(
             socket,
             session,
@@ -1539,6 +1559,13 @@ export class TranslationSessionService implements OnModuleDestroy {
           endMs: piece.endMs,
           reachesEnd: piece.reachesEnd,
         },
+      });
+      this.polisher.polish(socket, channel, {
+        userId: session.userId,
+        sessionId: ids[index]!,
+        sourceText: piece.sourceText,
+        source: session.languages.recognition,
+        translations: piece.translations,
       });
       this.rememberSegment(
         socket,

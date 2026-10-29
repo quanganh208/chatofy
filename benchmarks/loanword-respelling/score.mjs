@@ -19,7 +19,7 @@ import {
   respellingKey,
   unresolvedSpans,
 } from '../../packages/ai-providers/dist/index.js';
-import { PRESETS, readApiKey } from '../translation-providers.mjs';
+import { respellerHostFromArgs } from '../translation-providers.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -34,14 +34,9 @@ const han = isWrittenInHan(target);
 
 const turns = JSON.parse(readFileSync(resolve(HERE, 'data/turns.json'), 'utf8'));
 const truth = JSON.parse(readFileSync(resolve(HERE, 'data/truth.json'), 'utf8'));
-const preset = PRESETS.deepseek;
-const respeller = new OpenAiCompatibleLoanwordRespeller({
-  apiKey: readApiKey(preset.apiKeyEnv),
-  baseUrl: preset.baseUrl,
-  model: preset.models[0],
-  name: 'deepseek',
-  extraBody: preset.extraBody,
-});
+// The production host unless `--provider`/`--base-url`/`--model` say otherwise.
+const host = respellerHostFromArgs(args);
+const respeller = new OpenAiCompatibleLoanwordRespeller(host);
 
 const letters = (text) => (text ?? '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 const totals = [];
@@ -69,7 +64,7 @@ for (let run = 1; run <= repeats; run++) {
           return {};
         });
       accepted = acceptRespellings(spans, proposals, translations);
-      await new Promise((done) => setTimeout(done, preset.gapMs ?? 200));
+      await new Promise((done) => setTimeout(done, host.gapMs));
     }
     for (const span of spans) {
       const key = respellingKey(span.text);

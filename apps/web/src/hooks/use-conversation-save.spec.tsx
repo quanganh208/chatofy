@@ -198,6 +198,21 @@ describe('useConversationSave', () => {
     expect(bodyOf(1).turns[0]?.speakerLabel).toBe('An');
   });
 
+  it('re-saves when a translation is polished after the conversation ended', async () => {
+    const draft = turn('xin chào');
+    await render({ ...baseInput, running: false, turns: [draft] });
+    expect(saveConversation).toHaveBeenCalledTimes(1);
+
+    await render({
+      ...baseInput,
+      running: false,
+      turns: [{ ...draft, translations: { ...draft.translations, en: 'Hello there.' } }],
+    });
+    await flushEdits();
+    expect(saveConversation).toHaveBeenCalledTimes(2);
+    expect(bodyOf(1).turns[0]?.translations.en).toBe('Hello there.');
+  });
+
   it('coalesces a burst of name keystrokes into one write', async () => {
     await render({ ...baseInput, running: false, turns: [turn('xin chào')] });
     expect(saveConversation).toHaveBeenCalledTimes(1);

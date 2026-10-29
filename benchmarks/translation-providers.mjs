@@ -100,7 +100,11 @@ export function readApiKey(variable) {
     if (err?.code !== 'ENOENT') throw err;
     throw new Error(`set ${variable}, or put it in ${envPath}`);
   }
-  const key = new RegExp(`^${variable}=(.*)$`, 'm').exec(file)?.[1]?.trim();
+  // A dotenv value may be quoted; the quotes are not part of the key.
+  const key = new RegExp(`^${variable}=(.*)$`, 'm')
+    .exec(file)?.[1]
+    ?.trim()
+    .replace(/^["']|["']$/g, '');
   if (!key) throw new Error(`${variable} not found in ${envPath}`);
   return key;
 }
@@ -202,4 +206,42 @@ export function takeProviderArgs(argv) {
   }
 
   return { provider, rest };
+}
+
+/**
+ * The host a respeller-based ruler (loanword respelling, homophone repair,
+ * recognizer fusion) calls, as constructor options for
+ * `OpenAiCompatibleLoanwordRespeller`.
+ *
+ * With no flags it is the `deepseek` preset, which is what production runs, so
+ * a recorded number keeps meaning what it meant. The same `--provider`,
+ * `--base-url`, `--api-key-env` and `--extra-body` flags as the translation
+ * harnesses, plus `--model`, point it at another OpenAI-compatible host.
+ */
+export function respellerHostFromArgs(argv) {
+  const { provider: flags } = takeProviderArgs(argv);
+  const modelAt = argv.indexOf('--model');
+  const model = modelAt >= 0 ? argv[modelAt + 1] : undefined;
+  const presetName = flags.preset ?? 'deepseek';
+  const known = PRESETS[presetName];
+  if (known?.kind === 'gemini')
+    throw new Error('the respeller rulers need an OpenAI-compatible host');
+  if (!known && presetName !== 'openai-compatible') {
+    throw new Error(`unknown --provider ${JSON.stringify(presetName)}`);
+  }
+  const spec = known ?? {};
+  const baseUrl = flags.baseUrl ?? spec.baseUrl;
+  const apiKeyEnv = flags.apiKeyEnv ?? spec.apiKeyEnv;
+  const resolvedModel = model ?? spec.models?.[0];
+  if (!baseUrl || !apiKeyEnv || !resolvedModel) {
+    throw new Error('--base-url, --api-key-env and --model are required off the deepseek preset');
+  }
+  return {
+    apiKey: readApiKey(apiKeyEnv),
+    baseUrl,
+    model: resolvedModel,
+    name: presetName,
+    extraBody: flags.extraBody ?? spec.extraBody,
+    gapMs: spec.gapMs ?? 200,
+  };
 }

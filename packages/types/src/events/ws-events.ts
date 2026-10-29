@@ -903,6 +903,21 @@ const serverBlockTranslatedSchema = z.object({
   display: z.string().min(1).optional(),
 });
 
+/**
+ * A finished turn's translations after a second, stronger pass over them.
+ *
+ * Replaces the turn's `segment.translations` for display AND for the saved
+ * record. The draft it replaces was already shown and already spoken: audio is
+ * never re-synthesized for it, so what was heard can differ slightly from what
+ * the line ends up reading. Sent at most once per turn, and only when some
+ * translation actually changed; a turn without one simply keeps its draft.
+ */
+const serverTranslationPolishedSchema = z.object({
+  type: z.literal('server.translation.polished'),
+  sessionId: z.string(),
+  translations: translationMapSchema(z.string()),
+});
+
 const serverAudioFrameSchema = z.object({
   type: z.literal('server.audio.frame'),
   frame: audioFrameSchema,
@@ -962,6 +977,7 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   serverTranscriptFinalSchema,
   serverTranscriptDisplaySchema,
   serverBlockTranslatedSchema,
+  serverTranslationPolishedSchema,
   serverTurnEmbeddingSchema,
   serverAudioFrameSchema,
   serverSessionEndedSchema,

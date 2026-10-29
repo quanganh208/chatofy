@@ -160,6 +160,22 @@ export const envSchema = z.object({
   OPENAI_COMPATIBLE_API_KEY: emptyStringAsUndefined(
     z.string().min(1).optional(),
   ),
+  // The Command Code plan's key, for `AI_TRANSLATION_PROVIDER=commandcode`.
+  //
+  // Its own variable, against the reasoning above, because that provider is the
+  // one selection that calls TWO hosts: Command Code first, and the DeepSeek
+  // row as the fallback, which still reads OPENAI_COMPATIBLE_API_KEY. One
+  // variable cannot hold two hosts' keys.
+  COMMAND_CODE_API_KEY: emptyStringAsUndefined(z.string().min(1).optional()),
+  // Which registered summarizer writes meeting minutes: `commandcode` (Command
+  // Code's gemini-3.7-flash, Gemini direct behind it) or `gemini` (Gemini
+  // direct). Unset, it follows AI_TRANSLATION_PROVIDER — `commandcode` there
+  // means `commandcode` here, anything else `gemini` — so a deployment that only
+  // moved translation keeps today's minutes. No model variable beside it: each
+  // entry owns its endpoint and model, for the reason the host table gives.
+  AI_SUMMARIZATION_PROVIDER: emptyStringAsUndefined(
+    z.enum(['commandcode', 'gemini']).optional(),
+  ),
   // Local speech sidecars (services/local-stt, services/local-tts). Each serves
   // both vi and en and picks its engine from the language it is given, so there
   // is no per-language URL. Default voices belong to the sidecars, since the

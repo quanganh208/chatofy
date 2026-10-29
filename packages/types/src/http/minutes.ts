@@ -66,7 +66,11 @@ export type MinutesSourceTurn = z.infer<typeof minutesSourceTurnSchema>;
  * summarized.
  */
 export const generateMinutesRequestSchema = z.object({
-  /** Defaults to the app's UI language. */
+  /**
+   * The language to write the minutes in. The server has no default: omitted,
+   * the model mirrors the conversation. Web sends its UI locale; mobile sends
+   * the caller's spoken language.
+   */
   language: languageCodeSchema.optional(),
 });
 export type GenerateMinutesRequest = z.infer<typeof generateMinutesRequestSchema>;

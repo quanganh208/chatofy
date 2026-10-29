@@ -35,17 +35,17 @@ Lazy config validation: API boots without keys; missing config only errors when 
 
 ### Speech backend routing
 
-| Stage       | Language | Default backend           | Where it runs                 |
-| ----------- | -------- | ------------------------- | ----------------------------- |
-| STT         | vi       | `local` → Zipformer-30M   | `services/local-stt` :8002    |
-| STT         | en       | `local` → Parakeet-TDT    | `services/local-stt` :8002    |
-| STT         | zh       | `local` → Paraformer-zh   | `services/local-stt` :8002    |
-| TTS         | vi       | `local` → VieNeu v3 Turbo | `services/local-tts` :8003    |
-| TTS         | en, zh   | `local` → Kokoro-82M      | `services/local-tts` :8003    |
-| Translation | all      | `deepseek` (or `gemini`)  | **Cloud** (Google / DeepSeek) |
-| Speaker     | all      | `local` → CAM++           | `services/local-stt` :8002    |
-| Display     | vi       | `local` → Dewpoint        | `services/local-stt` :8002    |
-| Display     | zh       | `local` → CT-Transformer  | `services/local-stt` :8002    |
+| Stage       | Language | Default backend                         | Where it runs                                |
+| ----------- | -------- | --------------------------------------- | -------------------------------------------- |
+| STT         | vi       | `local` → Zipformer-30M                 | `services/local-stt` :8002                   |
+| STT         | en       | `local` → Parakeet-TDT                  | `services/local-stt` :8002                   |
+| STT         | zh       | `local` → Paraformer-zh                 | `services/local-stt` :8002                   |
+| TTS         | vi       | `local` → VieNeu v3 Turbo               | `services/local-tts` :8003                   |
+| TTS         | en, zh   | `local` → Kokoro-82M                    | `services/local-tts` :8003                   |
+| Translation | all      | `deepseek` (or `gemini`, `commandcode`) | **Cloud** (Google / DeepSeek / Command Code) |
+| Speaker     | all      | `local` → CAM++                         | `services/local-stt` :8002                   |
+| Display     | vi       | `local` → Dewpoint                      | `services/local-stt` :8002                   |
+| Display     | zh       | `local` → CT-Transformer                | `services/local-stt` :8002                   |
 
 **Chinese, end to end.** Paraformer writes no punctuation and every number as
 words, so a zh turn's display is the CT-Transformer's marks (the sidecar puts
@@ -415,8 +415,50 @@ environment. `OpenAiCompatibleTranslationProvider` imports the shipped prompt
 rather than owning one, and has no key rotation and no cooldown memory: those
 hosts meter per account, not per project per model. It also serves only its
 row's model, so the Gemini model ladders in
-`session/translation-model-policy.ts` do not apply to it. The rest of this
-section describes the Gemini provider.
+`session/translation-model-policy.ts` do not apply to it.
+
+_Command Code, with DeepSeek behind it._ `AI_TRANSLATION_PROVIDER=commandcode`
+is the one selection that calls two hosts. Every translate-path call — the
+speculative guesses, the turn's final, block retranslation, and the
+respeller's homophone repair, recognizer fusion and loanword respelling — goes
+first to Command Code (`https://api.commandcode.ai/provider/v1`,
+`deepseek/deepseek-v4-flash-fast`, key `COMMAND_CODE_API_KEY`), and the
+`deepseek` row (`OPENAI_COMPATIBLE_API_KEY`) is the fallback.
+
+- `FailoverTranslationProvider` falls back on **any** primary failure, since a
+  refusal from one host is no evidence about the other; a stream that failed
+  part-way restarts on the fallback's first chunk.
+- `FailoverLoanwordRespeller` never chains two calls inside its 1.2–2.5 s
+  budgets: a primary failure is rethrown, which those callers read as "no
+  correction this turn".
+- One `HostCircuit` per registry, shared by all three, opens on the plan's
+  spent usage window (429 `RATE_LIMITED`, "usage limit") and on 401/403, for a
+  fixed 5 minutes; the next call after that is the probe. The transient 429
+  ("Upstream model provider is temporarily unavailable") does not open it.
+  Transitions are logged at warn under `CommandCodeCircuit`.
+- After each `server.transcript.final`, `TurnPolisher`
+  (`session/turn-polisher.ts`) offers every translation once to `gpt-5.6-sol`
+  as a post-edit (`OpenAiCompatibleTranslationPolisher`: source, draft and
+  earlier speech as fenced data) and sends `server.translation.polished` when
+  one changed. It is never awaited: TTS speaks the draft, the client replaces
+  the line and the saved record. No fallback for it — with the circuit open,
+  the draft stands. Budgeted 20 per user per minute.
+- Meeting minutes go to Command Code `google/gemini-3.7-flash` too, with
+  `GeminiSummarizationProvider` behind them, unless `AI_SUMMARIZATION_PROVIDER`
+  names another host (see "Meeting minutes" below).
+
+Measured 2026-10-28 on 240 paired FLEURS segments (COMET wmt22, against direct
+DeepSeek): v4-flash-fast via Command Code −0.0015 (within noise) at a 0.41 s
+first token against 0.61 s; `gpt-5.6-sol` +0.0066 at ~1.5 s, too slow for a
+line someone waits on. The polish over v4-flash-fast drafts (2026-10-29, same
+segments) scored 0.8813: +0.0052 over the draft [+0.0017, +0.0091] and +0.0037
+over direct DeepSeek, still 0.0029 below `gpt-5.6-sol` translating alone. It
+changed 81% of lines, at p50 2.0 s / p90 3.6 s after the final. The GOAT plan's
+5-hour window ran out after ~5,300 calls; production at its current traffic was
+judged to fit. Full numbers:
+`plans/reports/benchmark-261028-1636-command-code-models.md`.
+
+The rest of this section describes the Gemini provider.
 
 The Gemini free tier meters
 requests **per project per model**, and `GeminiTranslationProvider` walks both
@@ -489,6 +531,58 @@ call — minutes are not latency-critical, so the pass **blocks** (no streaming)
 and asks the SDK for `application/json`, and the model ladder leads with a
 non-lite flash model because reasoning over the whole conversation earns the
 extra few hundred milliseconds a live turn could not spend.
+
+**Which host writes them is configuration.** `AI_SUMMARIZATION_PROVIDER` names
+one of two `summarization` entries in `register-default-providers.ts`, resolved
+by name in `MinutesSummarizer` the way the respeller and the polisher are:
+
+- `commandcode` — Command Code `google/gemini-3.7-flash`
+  (`OpenAiCompatibleSummarizationProvider`: the same instruction, fenced
+  transcript and reminder, JSON mode, 30 s ceiling), with
+  `FailoverSummarizationProvider` handing any failure to the Gemini provider
+  above. Minutes are not latency-critical, so unlike the respeller a failed
+  primary is followed by a second call. An explicit `commandcode` with no
+  `COMMAND_CODE_API_KEY` refuses to resolve rather than quietly using Gemini.
+- `gemini` — `GeminiSummarizationProvider` alone.
+
+Unset, it follows `AI_TRANSLATION_PROVIDER`: `commandcode` there means
+`commandcode` here and anything else `gemini`, so a deployment that only moved
+translation keeps the minutes it had. There is no model variable beside it, for
+the reason the host table gives: a model id only means something next to the
+endpoint that serves it, so each entry owns both. `MinutesModule` builds its own
+registry, so its Command Code circuit is its own: it opens on its first
+usage-limit or 401/403 answer, not the translator's. Both hosts send one prompt
+(`providers/minutes-prompt-builder.ts`) and read their answer through one parser
+(`providers/minutes-draft-parser.ts`), which is why both files sit beside the
+vendor folders rather than in one. The prompt describes a conversation or a
+meeting of any number of speakers and asks for points, decisions and owners to
+be attributed to the label the transcript gives them.
+
+The minutes are written in the request's `language`. The server has no default
+of its own: the web client sends its UI locale, the mobile room screen sends the
+caller's spoken language, and an omitted one lets the model mirror the
+conversation.
+
+**Quality is measured by `benchmarks/minutes-quality`.** It regenerates minutes
+through the shipped provider, one host per arm with the drafting model pinned,
+for the 6 real Vietnamese conversations (gitignored production transcripts) and
+3 committed fictional meetings of 3–4 speakers, twice each. `claude-sonnet-5-5`
+grades every minutes object blind on faithfulness, coverage, language,
+usefulness and speaker attribution and counts hallucinations, and `score.mjs`
+compares two runs by a paired bootstrap. Only numbers are committed. It gates any
+change to the minutes prompt together with `benchmarks/minutes-injection`
+(8/8 on both hosts for the multi-speaker wording). Paired against the two-person prompt it replaced
+(18 pairs, 95% CI), Command Code `google/gemini-3.7-flash` passed the gate:
+usefulness −0.06 [−0.22, +0.11], hallucinations +0.06 [−0.28, +0.39], speaker
+attribution +0.00 [−0.67, +0.67] on the synthetic meetings, the only items whose
+lines carry names. The Gemini arm still
+has no valid comparison. The first one let the provider's flash → flash-lite
+ladder pick the drafting model, so 11 of 18 pairs mixed two models, and it was
+discarded. The pinned rerun then ran out of free-tier quota. Earlier, on
+2026-10-29, the same judge put Command Code at 8.08 useful (5.9 s median)
+against 7.75 (9.6 s) for gemini-3.5-flash direct, paired +0.33 [−0.17, +0.83]:
+not worse, but not provably better. Full table:
+`plans/reports/brainstorm-261029-0923-command-code-other-ai-parts.md`.
 
 The transcript crosses the same **data-not-instruction boundary** as translation
 — it is wrapped in a `<transcript>` block by the exact `wrapTranscript` /

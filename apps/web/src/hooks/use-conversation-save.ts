@@ -344,8 +344,14 @@ const classify = classifyApiFailure;
  * whole hook from a diff.
  */
 function signatureOf(turns: readonly ConversationTurn[]): string {
+  // The translations are part of it because they can change after the end: a
+  // turn's polished translation lands a second or two after its draft, which
+  // for the last turn is after the conversation stopped and was first saved.
   return turns
-    .map((turn) => `${turn.speakerLabel ?? ''}|${turn.displayText ?? turn.sourceText}`)
+    .map(
+      (turn) =>
+        `${turn.speakerLabel ?? ''}|${turn.displayText ?? turn.sourceText}|${JSON.stringify(turn.translations)}`,
+    )
     .join('\0');
 }
 

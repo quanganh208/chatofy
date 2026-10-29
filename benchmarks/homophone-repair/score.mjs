@@ -20,7 +20,7 @@ import {
   applyTranscriptCorrections,
   OpenAiCompatibleLoanwordRespeller,
 } from '../../packages/ai-providers/dist/index.js';
-import { PRESETS, readApiKey } from '../translation-providers.mjs';
+import { respellerHostFromArgs } from '../translation-providers.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -33,14 +33,9 @@ const BEFORE = 2;
 const CHUNK_WORDS = 18;
 
 const conversations = JSON.parse(readFileSync(resolve(HERE, 'data/conversations.json'), 'utf8'));
-const preset = PRESETS.deepseek;
-const checker = new OpenAiCompatibleLoanwordRespeller({
-  apiKey: readApiKey(preset.apiKeyEnv),
-  baseUrl: preset.baseUrl,
-  model: preset.models[0],
-  name: 'deepseek',
-  extraBody: preset.extraBody,
-});
+// The production host unless `--provider`/`--base-url`/`--model` say otherwise.
+const host = respellerHostFromArgs(args);
+const checker = new OpenAiCompatibleLoanwordRespeller(host);
 
 const words = (text) =>
   text

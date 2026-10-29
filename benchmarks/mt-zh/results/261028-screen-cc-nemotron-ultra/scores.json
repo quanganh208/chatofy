@@ -1,0 +1,318 @@
+{
+  "run": "261028-screen-cc-nemotron-ultra",
+  "directions": {
+    "vi_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 35.871448600270035,
+        "sd": 0.0,
+        "min": 35.871448600270035,
+        "max": 35.871448600270035,
+        "per_repeat": [35.871448600270035]
+      },
+      "chrf": {
+        "mean": 29.82644227865185,
+        "sd": 0.0,
+        "min": 29.82644227865185,
+        "max": 29.82644227865185,
+        "per_repeat": [29.82644227865185]
+      },
+      "comet": {
+        "mean": 0.8678390055894851,
+        "sd": 0.0,
+        "min": 0.8678390055894851,
+        "max": 0.8678390055894851,
+        "per_repeat": [0.8678390055894851]
+      },
+      "latency_ms": {
+        "total_p50": 1166.5,
+        "total_p95": 1448.5499999999995,
+        "ttft_p50": 988.5,
+        "ttft_p95": 1225.8999999999996,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 27843,
+        "out": 1591,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 0,
+        "latin_examples": [],
+        "vietnamese_diacritics_in_output": 0
+      }
+    },
+    "zh_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 47.22784069548978,
+        "sd": 0.0,
+        "min": 47.22784069548978,
+        "max": 47.22784069548978,
+        "per_repeat": [47.22784069548978]
+      },
+      "chrf": {
+        "mean": 47.62531175390619,
+        "sd": 0.0,
+        "min": 47.62531175390619,
+        "max": 47.62531175390619,
+        "per_repeat": [47.62531175390619]
+      },
+      "comet": {
+        "mean": 0.8626138672232628,
+        "sd": 0.0,
+        "min": 0.8626138672232628,
+        "max": 0.8626138672232628,
+        "per_repeat": [0.8626138672232628]
+      },
+      "latency_ms": {
+        "total_p50": 1235.0,
+        "total_p95": 1492.5499999999997,
+        "ttft_p50": 969.0,
+        "ttft_p95": 1197.15,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 27024,
+        "out": 1722,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_zh": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 44.25768518121445,
+        "sd": 0.0,
+        "min": 44.25768518121445,
+        "max": 44.25768518121445,
+        "per_repeat": [44.25768518121445]
+      },
+      "chrf": {
+        "mean": 38.430239317859126,
+        "sd": 0.0,
+        "min": 38.430239317859126,
+        "max": 38.430239317859126,
+        "per_repeat": [38.430239317859126]
+      },
+      "comet": {
+        "mean": 0.8777386486530304,
+        "sd": 0.0,
+        "min": 0.8777386486530304,
+        "max": 0.8777386486530304,
+        "per_repeat": [0.8777386486530304]
+      },
+      "latency_ms": {
+        "total_p50": 1159.5,
+        "total_p95": 1396.6999999999996,
+        "ttft_p50": 991.0,
+        "ttft_p95": 1090.3,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 23158,
+        "out": 1562,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "traditional_chars_outputs": 0,
+        "traditional_chars_references": 0,
+        "traditional_examples": [],
+        "more_latin_words_than_reference": 1,
+        "latin_examples": [
+          {
+            "id": 1708,
+            "repeat": 1,
+            "hyp": "Huhne 已辞职,他将由议员 Ed Davey 取代进入内阁。预计议员 Norman Lamb 将接任 Davey 空出的商业部长职位。",
+            "ref": "胡纳已经辞职，他在内阁中的位置将由国会议员埃德·戴维 (Ed Davey) 接替。预计国会议员诺曼·兰姆 (Norman Lamb) 将接替戴维空出的商务部长一职。"
+          }
+        ],
+        "vietnamese_diacritics_in_output": 1
+      }
+    },
+    "zh_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 59.90393879378577,
+        "sd": 0.0,
+        "min": 59.90393879378577,
+        "max": 59.90393879378577,
+        "per_repeat": [59.90393879378577]
+      },
+      "chrf": {
+        "mean": 62.58626322791614,
+        "sd": 0.0,
+        "min": 62.58626322791614,
+        "max": 62.58626322791614,
+        "per_repeat": [62.58626322791614]
+      },
+      "comet": {
+        "mean": 0.8754301190376281,
+        "sd": 0.0,
+        "min": 0.8754301190376281,
+        "max": 0.8754301190376281,
+        "per_repeat": [0.8754301190376281]
+      },
+      "latency_ms": {
+        "total_p50": 1072.0,
+        "total_p95": 1311.05,
+        "ttft_p50": 948.5,
+        "ttft_p95": 1106.2499999999998,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 27024,
+        "out": 1204,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "vi_to_en": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 59.666108049348765,
+        "sd": 0.0,
+        "min": 59.666108049348765,
+        "max": 59.666108049348765,
+        "per_repeat": [59.666108049348765]
+      },
+      "chrf": {
+        "mean": 61.79665038095708,
+        "sd": 0.0,
+        "min": 61.79665038095708,
+        "max": 61.79665038095708,
+        "per_repeat": [61.79665038095708]
+      },
+      "comet": {
+        "mean": 0.8746802225708962,
+        "sd": 0.0,
+        "min": 0.8746802225708962,
+        "max": 0.8746802225708962,
+        "per_repeat": [0.8746802225708962]
+      },
+      "latency_ms": {
+        "total_p50": 1108.5,
+        "total_p95": 1293.0499999999993,
+        "ttft_p50": 1001.0,
+        "ttft_p95": 1171.7499999999993,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 27523,
+        "out": 1211,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    },
+    "en_to_vi": {
+      "n_per_repeat": {
+        "1": 40
+      },
+      "chrf++": {
+        "mean": 52.83111922868701,
+        "sd": 0.0,
+        "min": 52.83111922868701,
+        "max": 52.83111922868701,
+        "per_repeat": [52.83111922868701]
+      },
+      "chrf": {
+        "mean": 52.971783387009296,
+        "sd": 0.0,
+        "min": 52.971783387009296,
+        "max": 52.971783387009296,
+        "per_repeat": [52.971783387009296]
+      },
+      "comet": {
+        "mean": 0.8685311049222946,
+        "sd": 0.0,
+        "min": 0.8685311049222946,
+        "max": 0.8685311049222946,
+        "per_repeat": [0.8685311049222946]
+      },
+      "latency_ms": {
+        "total_p50": 1218.0,
+        "total_p95": 1697.3999999999987,
+        "ttft_p50": 985.5,
+        "ttft_p95": 1262.4499999999996,
+        "n": 40
+      },
+      "failures": 0,
+      "tokens": {
+        "hit": 0,
+        "miss": 22838,
+        "out": 1647,
+        "with_usage": 40
+      },
+      "checks": {
+        "outputs": 40,
+        "cjk_in_output": 0,
+        "cjk_examples": []
+      }
+    }
+  },
+  "decision": {
+    "rule": "flag a zh direction whose COMET mean is more than 0.03 below the vi<->en baseline mean",
+    "baseline_comet_mean": 0.8716056637465954,
+    "threshold": 0.8416056637465954,
+    "flags": {
+      "vi_to_zh": false,
+      "zh_to_vi": false,
+      "en_to_zh": false,
+      "zh_to_en": false
+    }
+  },
+  "tokens": {
+    "hit": 0,
+    "miss": 155410,
+    "out": 8937,
+    "requests": 240
+  },
+  "cost_usd": {
+    "peak": {
+      "run_total": 0.0573474,
+      "per_1000_requests": 0.2389475
+    },
+    "offpeak": {
+      "run_total": 0.0286737,
+      "per_1000_requests": 0.11947375
+    }
+  },
+  "price_source": "api-docs.deepseek.com/quick_start/pricing, read 2026-10-13"
+}
