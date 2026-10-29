@@ -574,7 +574,8 @@ change to the minutes prompt together with `benchmarks/minutes-injection`
 (8/8 on both hosts for the multi-speaker wording). Paired against the two-person prompt it replaced
 (18 pairs, 95% CI), Command Code `google/gemini-3.7-flash` passed the gate:
 usefulness −0.06 [−0.22, +0.11], hallucinations +0.06 [−0.28, +0.39], speaker
-attribution +0.17 [0.00, +0.42] on the real conversations. The Gemini arm still
+attribution +0.00 [−0.67, +0.67] on the synthetic meetings, the only items whose
+lines carry names. The Gemini arm still
 has no valid comparison. The first one let the provider's flash → flash-lite
 ladder pick the drafting model, so 11 of 18 pairs mixed two models, and it was
 discarded. The pinned rerun then ran out of free-tier quota. Earlier, on

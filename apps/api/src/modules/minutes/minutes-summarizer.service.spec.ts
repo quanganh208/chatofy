@@ -181,6 +181,17 @@ describe('MinutesSummarizer', () => {
     expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 
+  it('refuses the derived commandcode selection with no Command Code key', () => {
+    // Minutes used to drop to Gemini here. Translation already cannot start in
+    // this configuration, so a loud error costs no working deployment.
+    expect(() =>
+      summarizer({
+        AI_TRANSLATION_PROVIDER: 'commandcode',
+        GEMINI_API_KEY: 'g',
+      }),
+    ).toThrow(/apiKey/);
+  });
+
   it('refuses an explicit commandcode selection with no Command Code key', () => {
     // Loud rather than quietly answering from Gemini: a missing key is a
     // deployment error, and falling back would hide it.

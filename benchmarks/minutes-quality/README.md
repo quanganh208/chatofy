@@ -32,12 +32,14 @@ The harness takes `GEMINI_API_KEY` and `COMMAND_CODE_API_KEY` from the environme
    - **hallucinations**: how many distinct claims, decisions, owners or dates are unsupported?
 3. **Compare.** `score.mjs` pairs two runs on (conversation, repeat) and bootstraps a 95% interval over the paired deltas, using a fixed seed. It prints the deltas for all pairs, for the synthetic subset and for the real subset. It refuses to compare runs whose corpus or judge differ.
 
-**Gate (`--gate`).** It fails when the lower bound on usefulness is below −0.5, or when the lower bound on hallucinations is above 0, meaning there are provably more of them. Run it, together with `benchmarks/minutes-injection`, before shipping any change to `packages/ai-providers/src/providers/minutes-prompt-builder.ts`.
+**Gate (`--gate`).** It fails when the lower bound on usefulness is below −0.5, or when the lower bound on hallucinations is above 0, meaning there are provably more of them. It also fails when fewer than 75% of the rows pair, or when the candidate's drafts failed more than once beyond the baseline's: errored rows drop out of the pairing, and a change that breaks most drafts must not be judged on the few that survived. Judge failures do not count against the arm. Run it, together with `benchmarks/minutes-injection`, before shipping any change to `packages/ai-providers/src/providers/minutes-prompt-builder.ts`.
 
 ## Corpus, and what is committed
 
 - **Real:** the 6 Vietnamese conversations in `benchmarks/homophone-repair/data/conversations.json`. They are noisy machine turns plus an accurate `reference`. That directory is gitignored because the turns are production transcripts. On a machine without it, the run says `real corpus missing; synthetic only` and continues.
 - **Synthetic:** 3 fictional meetings with 3–4 named speakers each (`synthetic-corpus.mjs`). Every real conversation has two people, so these are what measure attribution in a room of several. Nobody in them is real, which is why they can be committed. Their reference is the transcript itself.
+
+The real turns carry no roles, so every line is labelled `Speaker`. Production labels an unattributed block `Speaker A` or `Speaker B` by its role, so on the real subset speakerAttribution only measures "invents no owner". The synthetic meetings are where attribution is actually tested.
 
 Each run writes `rows.jsonl` and `summary.json`:
 

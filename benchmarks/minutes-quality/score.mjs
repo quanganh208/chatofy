@@ -24,6 +24,8 @@ const FIELDS = [
 const RESAMPLES = 10_000;
 /** Usefulness may drop by at most this much at the CI's lower bound. */
 const USEFULNESS_FLOOR = -0.5;
+/** At least this share of the rows must pair, or the comparison is too thin to gate on. */
+const MIN_PAIRED_SHARE = 0.75;
 
 /** mulberry32: small, seeded, and enough for a bootstrap. */
 function prng(seed) {
@@ -88,7 +90,12 @@ function main() {
   console.log(
     `candidate ${cand.arm} ${cand.models.join(',')} prompt ${cand.promptSha256.slice(0, 12)}`,
   );
-  if (base.corpus.realSha256 !== cand.corpus.realSha256) {
+  // Older summaries carry no synthetic hash; compare it only when both do.
+  const synthetic = [base, cand].map((s) => s.corpus.syntheticSha256);
+  if (
+    base.corpus.realSha256 !== cand.corpus.realSha256 ||
+    (synthetic[0] && synthetic[1] && synthetic[0] !== synthetic[1])
+  ) {
     console.error('WARNING corpus differs');
     process.exit(2);
   }
@@ -121,6 +128,17 @@ function main() {
 
   if (!gate) return;
   const reasons = [];
+  // Errored rows drop out of the pairing, so without these two checks a
+  // change that broke most drafts would be judged on the few that survived.
+  const minPairs = Math.ceil(MIN_PAIRED_SHARE * Math.max(base.rows.length, cand.rows.length));
+  if (pairs.length < minPairs) reasons.push(`only ${pairs.length} pairs, need ${minPairs}`);
+  const draftErrors = (s) =>
+    s.rows.filter((r) => r.error && (r.errorKind ?? 'draft') === 'draft').length;
+  if (draftErrors(cand) > draftErrors(base) + 1) {
+    reasons.push(
+      `candidate drafts failed ${draftErrors(cand)} times, baseline ${draftErrors(base)}`,
+    );
+  }
   if (!all.usefulness || all.usefulness.lo < USEFULNESS_FLOOR) {
     reasons.push(
       `usefulness lower bound ${all.usefulness ? fmt(all.usefulness.lo) : 'n/a'} < ${USEFULNESS_FLOOR}`,

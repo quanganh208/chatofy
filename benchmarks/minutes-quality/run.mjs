@@ -157,7 +157,8 @@ async function summarizeWithPatience(provider, request) {
       const draft = await provider.summarize(request);
       return { draft, ms: Date.now() - t0 };
     } catch (err) {
-      if (attempt >= GENERATION_RETRY_MS.length) throw err;
+      // A rejected key or a missing model will not heal in a minute.
+      if (attempt >= GENERATION_RETRY_MS.length || err?.name === 'ProviderConfigError') throw err;
       console.log(
         `  retrying in ${GENERATION_RETRY_MS[attempt] / 1000}s: ${String(err?.message ?? err).slice(0, 80)}`,
       );
@@ -211,6 +212,13 @@ async function judge(apiKey, input, draft) {
       for (const key of [...SCORES, 'hallucinations']) {
         if (typeof grade[key] !== 'number') throw new Error(`judge omitted ${key}`);
       }
+      for (const key of SCORES) {
+        if (grade[key] < 1 || grade[key] > 10)
+          throw new Error(`judge scored ${key} ${grade[key]}, outside 1-10`);
+      }
+      if (grade.hallucinations < 0) {
+        throw new Error(`judge counted ${grade.hallucinations} hallucinations`);
+      }
       return grade;
     } catch (err) {
       lastError = err;
@@ -235,7 +243,15 @@ async function main() {
     console.error(`refusing to overwrite ${args.out}`);
     process.exit(1);
   }
+  // rows.jsonl quotes production transcripts, and only results/ ignores it.
+  const resultsDir = resolve(HERE, 'results');
+  const inRepo = args.out.startsWith(`${REPO}/`);
+  if (inRepo && !args.out.startsWith(`${resultsDir}/`)) {
+    console.error(`--out inside the repository must sit under ${resultsDir}`);
+    process.exit(1);
+  }
   const { inputs, realSha256 } = loadInputs(args.corpus);
+  const syntheticSha256 = sha256(JSON.stringify(SYNTHETIC));
   const provider = makeMinutesProvider({ host: args.arm, models: [args.model] });
   const judgeKey = readApiKey('COMMAND_CODE_API_KEY');
   mkdirSync(args.out, { recursive: true });
@@ -263,6 +279,9 @@ async function main() {
       } catch (err) {
         row.ms ||= Date.now() - t0;
         row.error = String(err?.message ?? err).slice(0, 200);
+        // A draft that never arrived is the arm failing; a grade that never
+        // arrived is the judge failing. The gate counts only the first.
+        row.errorKind = row.draft ? 'judge' : 'draft';
       }
       writeFileSync(rowsPath, `${JSON.stringify(row)}\n`, { flag: 'a' });
       const numbers = {
@@ -272,6 +291,7 @@ async function main() {
         model: row.draft?.model ?? null,
         ms: row.ms,
         error: row.error !== null,
+        errorKind: row.errorKind ?? null,
       };
       for (const key of [...SCORES, 'hallucinations']) numbers[key] = row.grade?.[key] ?? null;
       scored.push(numbers);
@@ -289,6 +309,7 @@ async function main() {
     judgeSystemSha256: sha256(JUDGE_SYSTEM),
     corpus: {
       realSha256,
+      syntheticSha256,
       realCount: inputs.filter((i) => i.kind === 'real').length,
       syntheticCount: inputs.filter((i) => i.kind === 'synthetic').length,
     },

@@ -100,7 +100,11 @@ export function readApiKey(variable) {
     if (err?.code !== 'ENOENT') throw err;
     throw new Error(`set ${variable}, or put it in ${envPath}`);
   }
-  const key = new RegExp(`^${variable}=(.*)$`, 'm').exec(file)?.[1]?.trim();
+  // A dotenv value may be quoted; the quotes are not part of the key.
+  const key = new RegExp(`^${variable}=(.*)$`, 'm')
+    .exec(file)?.[1]
+    ?.trim()
+    .replace(/^["']|["']$/g, '');
   if (!key) throw new Error(`${variable} not found in ${envPath}`);
   return key;
 }
