@@ -126,6 +126,42 @@ export type { OpenAiCompatibleLoanwordRespellerConfig } from './providers/openai
 export { GeminiSummarizationProvider } from './providers/gemini/gemini-summarization-provider.js';
 export type { GeminiSummarizationConfig } from './providers/gemini/gemini-summarization-provider.js';
 export {
+  HostCircuit,
+  isCredentialError,
+  isUsageLimitError,
+  tripOnPersistentFailure,
+} from './providers/failover/host-circuit.js';
+export type { CircuitState, HostCircuitConfig } from './providers/failover/host-circuit.js';
+export type {
+  TranslationPolishRequest,
+  TranslationPolisher,
+} from './interfaces/translation-polisher.js';
+export {
+  OpenAiCompatibleTranslationPolisher,
+  POLISH_TIMEOUT_MS,
+} from './providers/openai-compatible/openai-compatible-translation-polisher.js';
+export type { OpenAiCompatibleTranslationPolisherConfig } from './providers/openai-compatible/openai-compatible-translation-polisher.js';
+export {
+  buildPolishInstruction,
+  buildPolishUserMessage,
+} from './providers/openai-compatible/translation-polish-prompt.js';
+export { FailoverTranslationProvider } from './providers/failover/failover-translation-provider.js';
+export type { FailoverTranslationProviderConfig } from './providers/failover/failover-translation-provider.js';
+export { FailoverLoanwordRespeller } from './providers/failover/failover-loanword-respeller.js';
+export type { FailoverLoanwordRespellerConfig } from './providers/failover/failover-loanword-respeller.js';
+export { FailoverSummarizationProvider } from './providers/failover/failover-summarization-provider.js';
+export type { FailoverSummarizationProviderConfig } from './providers/failover/failover-summarization-provider.js';
+export {
+  OpenAiCompatibleSummarizationProvider,
+  SUMMARIZATION_TIMEOUT_MS,
+} from './providers/openai-compatible/openai-compatible-summarization-provider.js';
+export type { OpenAiCompatibleSummarizationConfig } from './providers/openai-compatible/openai-compatible-summarization-provider.js';
+export {
+  buildMinutesInstruction,
+  buildMinutesReminder,
+  wrapMinutesTranscript,
+} from './providers/gemini/minutes-prompt-builder.js';
+export {
   GeminiLiveTranslateProvider,
   INPUT_SAMPLE_RATE as GEMINI_LIVE_INPUT_SAMPLE_RATE,
 } from './providers/gemini-live/gemini-live-translate-provider.js';

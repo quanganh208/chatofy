@@ -39,6 +39,7 @@ import {
   buildMinutesReminder,
   wrapMinutesTranscript,
 } from './minutes-prompt-builder.js';
+import { parseMinutesDraft } from '../minutes-draft-parser.js';
 
 const DEFAULT_MODELS = ['gemini-3.5-flash', 'gemini-3.5-flash-lite'];
 
@@ -49,14 +50,6 @@ export interface GeminiSummarizationConfig {
   models?: string[];
   /** A rate limit was absorbed — one (key, model) pair went on cooldown. */
   onQuotaCooldown?: (event: { model: string; cooldownMs: number }) => void;
-}
-
-/** The JSON the model is asked to return, before the app adds ids/timestamps. */
-interface RawMinutes {
-  summary?: unknown;
-  keyPoints?: unknown;
-  decisions?: unknown;
-  actionItems?: unknown;
 }
 
 export class GeminiSummarizationProvider implements SummarizationProvider {
@@ -191,52 +184,6 @@ export class GeminiSummarizationProvider implements SummarizationProvider {
     if (!body) {
       throw new ProviderResponseError(`${model} returned an empty response`);
     }
-    return this.parse(body, model);
+    return parseMinutesDraft(body, model);
   }
-
-  /**
-   * Parse the model's JSON into a draft, defensively.
-   *
-   * A malformed body is a response-shape failure, not a transport one — the
-   * request succeeded and the model simply did not produce the object it was
-   * asked for. Every array coerces to `[]` and every missing string to `''`
-   * rather than throwing on a partial object: a minutes pass over a short
-   * exchange legitimately has no decisions or action items, and that must read
-   * as an empty list, not as a failed generation.
-   */
-  private parse(body: string, model: string): MeetingMinutesDraft {
-    let raw: RawMinutes;
-    try {
-      raw = JSON.parse(body) as RawMinutes;
-    } catch {
-      throw new ProviderResponseError(`${model} returned non-JSON minutes`);
-    }
-    return {
-      summary: typeof raw.summary === 'string' ? raw.summary : '',
-      keyPoints: asStringArray(raw.keyPoints),
-      decisions: asStringArray(raw.decisions),
-      actionItems: asActionItems(raw.actionItems),
-      model,
-    };
-  }
-}
-
-function asStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
-}
-
-function asActionItems(value: unknown): MeetingMinutesDraft['actionItems'] {
-  if (!Array.isArray(value)) return [];
-  const items: MeetingMinutesDraft['actionItems'] = [];
-  for (const entry of value) {
-    if (typeof entry !== 'object' || entry === null) continue;
-    const e = entry as Record<string, unknown>;
-    if (typeof e.description !== 'string' || !e.description) continue;
-    items.push({
-      description: e.description,
-      owner: typeof e.owner === 'string' ? e.owner : null,
-      dueDate: typeof e.dueDate === 'string' ? e.dueDate : null,
-    });
-  }
-  return items;
 }
