@@ -653,6 +653,21 @@ export function turnKeyedTranscriptReducer(
       // lose a repair to any ordering the transport does not actually guarantee.
       return { ...state, displays: { ...state.displays, [event.sessionId]: event.text } };
 
+    case 'server.translation.polished': {
+      // The second pass over a finished turn: the draft was shown and spoken,
+      // and this replaces what the line READS and what is saved. Written into
+      // the segment itself, unlike a block's translation, because it is the
+      // same turn's translation improved rather than a regrouping that may be
+      // undone. A turn this client does not hold is ignored: unlike a display,
+      // a translation with no turn under it has nothing to render.
+      const index = state.turns.findIndex((turn) => turn.sessionId === event.sessionId);
+      if (index < 0) return state;
+      const turns = [...state.turns];
+      const turn = turns[index]!;
+      turns[index] = { ...turn, translations: { ...turn.translations, ...event.translations } };
+      return { ...state, turns };
+    }
+
     case 'server.block.translated':
       // Answers land in any order, and each is for exactly one shape of a block.
       return {

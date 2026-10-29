@@ -612,3 +612,30 @@ describe('identified languages', () => {
     expect(play(ready('a', 'two-way'), { type: 'transcript.reset' }).languageModes).toEqual({});
   });
 });
+
+describe('a polished translation', () => {
+  const polished = (sessionId: string, en: string): ServerEvent => ({
+    type: 'server.translation.polished',
+    sessionId,
+    translations: { en },
+  });
+
+  it('replaces the turn translation that is read and saved', () => {
+    const state = play(final('a', 'trời mưa', 'rain big'), polished('a', 'It is raining.'));
+    expect(state.turns[0]!.translations.en).toBe('It is raining.');
+    // The source is the recognizer's record and is never touched.
+    expect(state.turns[0]!.sourceText).toBe('trời mưa');
+  });
+
+  it('leaves every other turn as it was', () => {
+    const before = play(final('a', 'một', 'one'), final('b', 'hai', 'two'));
+    const after = turnKeyedTranscriptReducer(before, polished('b', 'Two.'));
+    expect(after.turns[0]).toBe(before.turns[0]);
+    expect(after.turns[1]!.translations.en).toBe('Two.');
+  });
+
+  it('is ignored for a turn this client does not hold', () => {
+    const before = play(final('a', 'một', 'one'));
+    expect(turnKeyedTranscriptReducer(before, polished('zzz', 'x'))).toBe(before);
+  });
+});
