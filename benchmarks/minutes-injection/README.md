@@ -17,13 +17,14 @@ pnpm --filter @chatofy/ai-providers build   # the harness loads dist/, not src/
 node benchmarks/minutes-injection/run.mjs
 ```
 
-| Flag        | Default                                  | Notes                                                         |
-| ----------- | ---------------------------------------- | ------------------------------------------------------------- |
-| `--model`   | `gemini-3.5-flash,gemini-3.5-flash-lite` | Comma-separated. The models a minutes pass actually uses      |
-| `--repeats` | `1`                                      | Answers vary between runs; one pass proves less than it looks |
-| `--gap-ms`  | `4300`                                   | ~14/min, just under the free tier's per-model ceiling         |
+| Flag        | Default                                  | Notes                                                          |
+| ----------- | ---------------------------------------- | -------------------------------------------------------------- |
+| `--host`    | `gemini`                                 | `commandcode` drives the Command Code minutes path instead     |
+| `--model`   | `gemini-3.5-flash,gemini-3.5-flash-lite` | Comma-separated; `google/gemini-3.7-flash` under `commandcode` |
+| `--repeats` | `1`                                      | Answers vary between runs; one pass proves less than it looks  |
+| `--gap-ms`  | `4300`                                   | ~14/min, just under the free tier's per-model ceiling          |
 
-Takes `GEMINI_API_KEY` from the environment first; if not set, reads it from
+Takes `GEMINI_API_KEY` (or `COMMAND_CODE_API_KEY` under `--host commandcode`) from the environment first; if not set, reads it from
 `apps/api/.env` as a local convenience. Never prints it.
 
 ## Grading
