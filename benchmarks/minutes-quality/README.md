@@ -9,19 +9,20 @@ node benchmarks/minutes-quality/run.mjs --arm gemini
 node benchmarks/minutes-quality/score.mjs benchmarks/minutes-quality/results/<baseline> benchmarks/minutes-quality/results/<candidate> --gate
 ```
 
-| Flag        | Default                          | Notes                                                              |
-| ----------- | -------------------------------- | ------------------------------------------------------------------ |
-| `--arm`     | required                         | `commandcode` or `gemini`; the hosts in `../minutes-providers.mjs` |
-| `--repeats` | `2`                              | Answers vary between runs                                          |
-| `--corpus`  | `all`                            | `synthetic` skips the real conversations                           |
-| `--gap-ms`  | `4300` for gemini, `0` otherwise | Keeps a free Gemini key under its per-model ceiling                |
-| `--out`     | `results/<YYMMDD-HHMM>-<arm>`    | Must not exist; a run never writes into an older one               |
+| Flag        | Default                                        | Notes                                                              |
+| ----------- | ---------------------------------------------- | ------------------------------------------------------------------ |
+| `--arm`     | required                                       | `commandcode` or `gemini`; the hosts in `../minutes-providers.mjs` |
+| `--repeats` | `2`                                            | Answers vary between runs                                          |
+| `--corpus`  | `all`                                          | `synthetic` skips the real conversations                           |
+| `--model`   | `gemini-3.5-flash` / `google/gemini-3.7-flash` | One model, pinned: the API's flash→lite ladder is off              |
+| `--gap-ms`  | `8000` for gemini, `0` otherwise               | Half a free Gemini key's per-model ceiling                         |
+| `--out`     | `results/<YYMMDD-HHMM>-<arm>`                  | Must not exist; a run never writes into an older one               |
 
 The harness takes `GEMINI_API_KEY` and `COMMAND_CODE_API_KEY` from the environment first, or else from `apps/api/.env`. It never prints them. The judge always runs on Command Code.
 
 ## What it does
 
-1. **Generate.** It drives the shipped provider for one host (`makeMinutesProvider`), so it measures the prompt production sends. The API's failover from Command Code to Gemini is not reproduced, because each arm measures exactly one host.
+1. **Generate.** It drives the shipped provider for one host (`makeMinutesProvider`), so it measures the prompt production sends. The API's failover from Command Code to Gemini is not reproduced, because each arm measures exactly one host. The drafting model is pinned as well. In production Gemini drops from flash to flash-lite whenever the free tier cools flash down, and the first comparison run this way mixed models in 11 of 18 pairs: it failed the gate on a prompt change that had not altered what flash writes. Every row records its model, and `score.mjs` warns when a pair mixes two.
 2. **Judge.** `claude-sonnet-5-5` grades each minutes object on its own against an accurate reference transcript. It never sees the host or the model name. The rubric scores five things from 1 to 10 and counts one:
    - **faithfulness**: is every claim supported by the transcript?
    - **coverage**: is the important content captured?

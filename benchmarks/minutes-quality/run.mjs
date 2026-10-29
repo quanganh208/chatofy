@@ -62,7 +62,7 @@ const JUDGE_SYSTEM =
 const sha256 = (text) => createHash('sha256').update(text).digest('hex');
 
 function parseArgs(argv) {
-  const args = { arm: null, repeats: 2, corpus: 'all', gapMs: null, out: null };
+  const args = { arm: null, model: null, repeats: 2, corpus: 'all', gapMs: null, out: null };
   for (let i = 0; i < argv.length; i += 2) {
     const flag = argv[i];
     const raw = argv[i + 1];
@@ -78,6 +78,8 @@ function parseArgs(argv) {
       }
       if (flag === '--repeats') args.repeats = value;
       else args.gapMs = value;
+    } else if (flag === '--model') {
+      args.model = raw;
     } else if (flag === '--corpus') {
       if (!['all', 'synthetic'].includes(raw)) throw new Error('--corpus must be all or synthetic');
       args.corpus = raw;
@@ -86,7 +88,13 @@ function parseArgs(argv) {
   }
   if (!args.arm) throw new Error('--arm is required (gemini or commandcode)');
   // A free Gemini key allows ~14 requests a minute per model; Command Code does not need pacing.
-  args.gapMs ??= args.arm === 'gemini' ? 4300 : 0;
+  // Pinned, never the provider's fallback ladder: a paired comparison has to
+  // hold the drafting model fixed, and the ladder moves to flash-lite whenever
+  // the free tier cools flash down — once mixing models in 11 of 18 pairs and
+  // failing the gate on a prompt that had not changed what flash writes.
+  args.model ??= args.arm === 'gemini' ? 'gemini-3.5-flash' : MINUTES_HOSTS.commandcode.model;
+  // ~7.5 requests a minute on a free Gemini key, half its per-model ceiling.
+  args.gapMs ??= args.arm === 'gemini' ? 8000 : 0;
   args.out ??= resolve(HERE, 'results', `${stamp(new Date())}-${args.arm}`);
   return args;
 }
@@ -131,6 +139,31 @@ function loadInputs(corpus) {
     });
   }
   return { inputs, realSha256 };
+}
+
+/**
+ * Waits before a generation is retried. The model is pinned, so a free Gemini
+ * key that cools it down cannot fall back to flash-lite; one pinned run lost 10
+ * of 18 drafts that way at 8 s spacing. Waiting the minute out keeps the row
+ * on the same model instead of dropping its pair.
+ */
+const GENERATION_RETRY_MS = [65_000, 65_000, 65_000];
+
+/** The draft, and how long the attempt that produced it took (waits excluded). */
+async function summarizeWithPatience(provider, request) {
+  for (let attempt = 0; ; attempt++) {
+    const t0 = Date.now();
+    try {
+      const draft = await provider.summarize(request);
+      return { draft, ms: Date.now() - t0 };
+    } catch (err) {
+      if (attempt >= GENERATION_RETRY_MS.length) throw err;
+      console.log(
+        `  retrying in ${GENERATION_RETRY_MS[attempt] / 1000}s: ${String(err?.message ?? err).slice(0, 80)}`,
+      );
+      await sleep(GENERATION_RETRY_MS[attempt]);
+    }
+  }
 }
 
 /**
@@ -203,7 +236,7 @@ async function main() {
     process.exit(1);
   }
   const { inputs, realSha256 } = loadInputs(args.corpus);
-  const provider = makeMinutesProvider({ host: args.arm });
+  const provider = makeMinutesProvider({ host: args.arm, models: [args.model] });
   const judgeKey = readApiKey('COMMAND_CODE_API_KEY');
   mkdirSync(args.out, { recursive: true });
 
@@ -219,11 +252,11 @@ async function main() {
       const t0 = Date.now();
       const row = { id: input.id, kind: input.kind, repeat, ms: 0, error: null };
       try {
-        const draft = await provider.summarize({
+        const { draft, ms } = await summarizeWithPatience(provider, {
           transcript: input.transcript,
           language: input.language,
         });
-        row.ms = Date.now() - t0;
+        row.ms = ms;
         models.add(draft.model);
         row.draft = draft;
         row.grade = await judge(judgeKey, input, draft);
@@ -232,7 +265,14 @@ async function main() {
         row.error = String(err?.message ?? err).slice(0, 200);
       }
       writeFileSync(rowsPath, `${JSON.stringify(row)}\n`, { flag: 'a' });
-      const numbers = { id: row.id, kind: row.kind, repeat, ms: row.ms, error: row.error !== null };
+      const numbers = {
+        id: row.id,
+        kind: row.kind,
+        repeat,
+        model: row.draft?.model ?? null,
+        ms: row.ms,
+        error: row.error !== null,
+      };
       for (const key of [...SCORES, 'hallucinations']) numbers[key] = row.grade?.[key] ?? null;
       scored.push(numbers);
       console.log(`${row.id} r${repeat} ${row.ms}ms ${row.error ? `error ${row.error}` : 'ok'}`);

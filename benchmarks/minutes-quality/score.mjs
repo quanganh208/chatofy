@@ -112,6 +112,12 @@ function main() {
     'real',
     pairs.filter(([, b]) => b.kind === 'real'),
   );
+  // Diagnostic only, never gated: a pair whose two drafts came from different
+  // models measures the models, not the change. Shown so a mix is visible.
+  const mixed = pairs.filter(([a, b]) => a.model && b.model && a.model !== b.model).length;
+  if (mixed) {
+    console.log(`\nWARNING ${mixed} of ${pairs.length} pairs mix drafting models`);
+  }
 
   if (!gate) return;
   const reasons = [];
