@@ -177,6 +177,8 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
     failSynthesis: (err: unknown) => {
       throw err;
     },
+    // No second pass: these specs pin the turn, and the polish is its own spec.
+    makeTranslationPolisher: () => null,
   } as unknown as PipelineTranslatorService;
   const metrics = {
     record: (m: TurnMetrics) => recorded.push(m),

@@ -272,6 +272,203 @@ describe('AiProvidersFactory (memoization)', () => {
       expect(openai.url).toContain('api.openai.com');
       expect(openai.body.model).toBe('gpt-5-nano');
     });
+
+    it('reaches Command Code first on the fast model, with no reasoning flag', async () => {
+      const sent = await bodySentBy('commandcode', {
+        COMMAND_CODE_API_KEY: 'cc-key',
+        OPENAI_COMPATIBLE_API_KEY: 'ds-key',
+      });
+
+      expect(sent.url).toBe(
+        'https://api.commandcode.ai/provider/v1/chat/completions',
+      );
+      expect(sent.body.model).toBe('deepseek/deepseek-v4-flash-fast');
+      // The host answers 400 to `reasoning_effort` on this model.
+      expect(sent.body).not.toHaveProperty('reasoning_effort');
+      expect(sent.body).not.toHaveProperty('thinking');
+    });
+
+    it('falls back to the DeepSeek row when Command Code refuses', async () => {
+      const urls: string[] = [];
+      const encoder = new TextEncoder();
+      globalThis.fetch = vi.fn(async (url: unknown) => {
+        urls.push(String(url));
+        if (String(url).includes('commandcode')) {
+          return {
+            ok: false,
+            status: 429,
+            text: async () =>
+              '{"error":{"message":"You\'ve reached your 5-hour usage limit","code":"RATE_LIMITED"}}',
+          } as unknown as Response;
+        }
+        return {
+          ok: true,
+          status: 200,
+          body: new ReadableStream({
+            start(controller) {
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ choices: [{ delta: { content: 'hello' } }] })}\n`,
+                ),
+              );
+              controller.close();
+            },
+          }),
+          text: async () => '',
+        } as unknown as Response;
+      });
+
+      const factory = makeFactory({
+        AI_TRANSLATION_PROVIDER: 'commandcode',
+        COMMAND_CODE_API_KEY: 'cc-key',
+        OPENAI_COMPATIBLE_API_KEY: 'ds-key',
+      });
+      const result = await factory.makeProviders().translation.translate({
+        text: 'xin chào',
+        sourceLanguage: 'vi',
+        targetLanguage: 'en',
+      });
+
+      expect(result.text).toBe('hello');
+      expect(urls).toEqual([
+        'https://api.commandcode.ai/provider/v1/chat/completions',
+        'https://api.deepseek.com/chat/completions',
+      ]);
+    });
+  });
+
+  describe('the translation polisher', () => {
+    it('exists only on the commandcode selection', () => {
+      expect(
+        makeFactory({
+          AI_TRANSLATION_PROVIDER: 'deepseek',
+        }).makeTranslationPolisher(),
+      ).toBeNull();
+      expect(
+        makeFactory({
+          AI_TRANSLATION_PROVIDER: 'gemini',
+        }).makeTranslationPolisher(),
+      ).toBeNull();
+      const polisher = makeFactory({
+        AI_TRANSLATION_PROVIDER: 'commandcode',
+        COMMAND_CODE_API_KEY: 'cc-key',
+      }).makeTranslationPolisher();
+      expect(polisher?.name).toBe('commandcode-polish');
+    });
+
+    it('keeps translation on Command Code when only the polish model is refused', async () => {
+      const REAL_FETCH = globalThis.fetch;
+      try {
+        const urls: string[] = [];
+        globalThis.fetch = vi.fn(async (url: unknown, init: unknown) => {
+          urls.push(String(url));
+          const model = (
+            JSON.parse((init as { body: string }).body) as { model: string }
+          ).model;
+          if (model === 'gpt-5.6-sol') {
+            return {
+              ok: false,
+              status: 403,
+              text: async () => 'MODEL_NOT_IN_PLAN',
+            } as unknown as Response;
+          }
+          return {
+            ok: true,
+            status: 200,
+            body: new ReadableStream({
+              start(controller) {
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `data: ${JSON.stringify({ choices: [{ delta: { content: 'hi' } }] })}\n`,
+                  ),
+                );
+                controller.close();
+              },
+            }),
+            text: async () => '',
+          } as unknown as Response;
+        });
+        const factory = makeFactory({
+          AI_TRANSLATION_PROVIDER: 'commandcode',
+          COMMAND_CODE_API_KEY: 'cc-key',
+          OPENAI_COMPATIBLE_API_KEY: 'ds-key',
+        });
+        const polish = () =>
+          factory.makeTranslationPolisher()!.polish({
+            source: 'xin chào',
+            draft: 'hi',
+            sourceLanguage: 'vi',
+            targetLanguage: 'en',
+          });
+
+        await expect(polish()).rejects.toMatchObject({ status: 403 });
+        // Switched off locally: no second request for the polish model.
+        await expect(polish()).resolves.toBeNull();
+        await factory.makeProviders().translation.translate({
+          text: 'xin chào',
+          sourceLanguage: 'vi',
+          targetLanguage: 'en',
+        });
+        expect(urls.filter((u) => u.includes('commandcode'))).toHaveLength(2);
+        expect(urls.some((u) => u.includes('deepseek.com'))).toBe(false);
+      } finally {
+        globalThis.fetch = REAL_FETCH;
+      }
+    });
+
+    it('lets the draft stand without a request while the host is out', async () => {
+      const REAL_FETCH = globalThis.fetch;
+      try {
+        // A spent window seen by the TRANSLATOR must stop the polisher too:
+        // the circuit is one per registry, shared by every Command Code caller.
+        globalThis.fetch = vi.fn(async (url: unknown) =>
+          String(url).includes('commandcode')
+            ? ({
+                ok: false,
+                status: 429,
+                text: async () => 'usage limit RATE_LIMITED',
+              } as unknown as Response)
+            : ({
+                ok: true,
+                status: 200,
+                body: new ReadableStream({
+                  start(controller) {
+                    controller.enqueue(
+                      new TextEncoder().encode(
+                        `data: ${JSON.stringify({ choices: [{ delta: { content: 'hi' } }] })}\n`,
+                      ),
+                    );
+                    controller.close();
+                  },
+                }),
+                text: async () => '',
+              } as unknown as Response),
+        );
+        const factory = makeFactory({
+          AI_TRANSLATION_PROVIDER: 'commandcode',
+          COMMAND_CODE_API_KEY: 'cc-key',
+          OPENAI_COMPATIBLE_API_KEY: 'ds-key',
+        });
+        await factory.makeProviders().translation.translate({
+          text: 'xin chào',
+          sourceLanguage: 'vi',
+          targetLanguage: 'en',
+        });
+        const calls = vi.mocked(globalThis.fetch).mock.calls.length;
+
+        await expect(
+          factory.makeTranslationPolisher()!.polish({
+            source: 'xin chào',
+            draft: 'hi',
+            sourceLanguage: 'vi',
+            targetLanguage: 'en',
+          }),
+        ).resolves.toBeNull();
+        expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(calls);
+      } finally {
+        globalThis.fetch = REAL_FETCH;
+      }
+    });
   });
 });
 

@@ -160,6 +160,13 @@ export const envSchema = z.object({
   OPENAI_COMPATIBLE_API_KEY: emptyStringAsUndefined(
     z.string().min(1).optional(),
   ),
+  // The Command Code plan's key, for `AI_TRANSLATION_PROVIDER=commandcode`.
+  //
+  // Its own variable, against the reasoning above, because that provider is the
+  // one selection that calls TWO hosts: Command Code first, and the DeepSeek
+  // row as the fallback, which still reads OPENAI_COMPATIBLE_API_KEY. One
+  // variable cannot hold two hosts' keys.
+  COMMAND_CODE_API_KEY: emptyStringAsUndefined(z.string().min(1).optional()),
   // Local speech sidecars (services/local-stt, services/local-tts). Each serves
   // both vi and en and picks its engine from the language it is given, so there
   // is no per-language URL. Default voices belong to the sidecars, since the

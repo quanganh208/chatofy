@@ -4,6 +4,7 @@ import {
   ProviderRegistry,
   type DisplayRestorer,
   type LoanwordRespeller,
+  type TranslationPolisher,
   type SpeakerEmbeddingProvider,
   type SttProvider,
   type TranslationProvider,
@@ -46,6 +47,7 @@ export class AiProvidersFactory {
   private speakerEmbedding: SpeakerEmbeddingProvider | null = null;
   private displayRestorer: DisplayRestorer | null = null;
   private loanwordRespeller: LoanwordRespeller | null | undefined;
+  private translationPolisher: TranslationPolisher | null | undefined;
 
   constructor(
     private readonly config: ConfigService<Env, true>,
@@ -75,6 +77,9 @@ export class AiProvidersFactory {
       // as a usable key.
       geminiApiKey: this.config.get('GEMINI_API_KEY', { infer: true }),
       openAiCompatibleApiKey: this.config.get('OPENAI_COMPATIBLE_API_KEY', {
+        infer: true,
+      }),
+      commandCodeApiKey: this.config.get('COMMAND_CODE_API_KEY', {
         infer: true,
       }),
       localSttUrl: this.config.get('LOCAL_STT_URL', { infer: true }),
@@ -144,8 +149,33 @@ export class AiProvidersFactory {
           openAiCompatibleApiKey: this.config.get('OPENAI_COMPATIBLE_API_KEY', {
             infer: true,
           }),
+          commandCodeApiKey: this.config.get('COMMAND_CODE_API_KEY', {
+            infer: true,
+          }),
         } satisfies AiProviderResolveConfig)
       : null;
     return this.loanwordRespeller;
+  }
+
+  /**
+   * The second pass over a finished turn's translation, or null when the
+   * selected host has none — every host but `commandcode`.
+   *
+   * Resolved by the translation's name for the same reason the respeller is:
+   * the polish belongs to the host row that wrote the draft.
+   */
+  makeTranslationPolisher(): TranslationPolisher | null {
+    if (this.translationPolisher !== undefined) return this.translationPolisher;
+    const name = this.config.get('AI_TRANSLATION_PROVIDER', { infer: true });
+    this.translationPolisher = this.registry
+      .list('translationPolisher')
+      .includes(name)
+      ? this.registry.resolve('translationPolisher', name, {
+          commandCodeApiKey: this.config.get('COMMAND_CODE_API_KEY', {
+            infer: true,
+          }),
+        } satisfies AiProviderResolveConfig)
+      : null;
+    return this.translationPolisher;
   }
 }

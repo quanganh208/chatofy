@@ -4,6 +4,15 @@
 import { Logger } from '@nestjs/common';
 import {
   ElevenLabsSttProvider,
+  FailoverLoanwordRespeller,
+  FailoverSummarizationProvider,
+  FailoverTranslationProvider,
+  HostCircuit,
+  isUsageLimitError,
+  OpenAiCompatibleTranslationPolisher,
+  tripOnPersistentFailure,
+  type SummarizationProvider,
+  type TranslationPolisher,
   ElevenLabsTtsProvider,
   GeminiLiveTranslateProvider,
   GeminiSummarizationProvider,
@@ -11,6 +20,7 @@ import {
   LocalSpeechDisplayRestorer,
   LocalSpeechEmbeddingProvider,
   OpenAiCompatibleLoanwordRespeller,
+  OpenAiCompatibleSummarizationProvider,
   OpenAiCompatibleTranslationProvider,
   LocalSpeechSttProvider,
   LocalSpeechTtsProvider,
@@ -27,6 +37,12 @@ import { recordQuotaCooldown } from '../quota-cooldown-meter';
  * makes it greppable in a log.
  */
 const quotaLogger = new Logger('GeminiQuota');
+
+/** Where the Command Code circuit says it opened or closed. */
+const circuitLogger = new Logger('CommandCodeCircuit');
+
+/** Command Code's OpenAI-compatible endpoint; one URL serves every plan tier. */
+const COMMAND_CODE_BASE_URL = 'https://api.commandcode.ai/provider/v1';
 
 /**
  * Superset config bag passed on every registry resolve. Each entry picks the
@@ -57,6 +73,13 @@ export interface AiProviderResolveConfig extends ProviderConfig {
    * 400 on every turn.
    */
   openAiCompatibleApiKey?: string;
+  /** Command Code's key; the `commandcode` selection's fallback reads the one above. */
+  commandCodeApiKey?: string;
+  /**
+   * `AI_TRANSLATION_PROVIDER`, read by the minutes entry only: the selection
+   * that sends translation to Command Code sends minutes there too.
+   */
+  summarizationHost?: string;
   localSttUrl?: string;
   localTtsUrl?: string;
 }
@@ -229,22 +252,153 @@ export function registerDefaultProviders(
     });
   }
 
+  // `commandcode`: every translate-path call on Command Code, with the DeepSeek
+  // row above as the fallback.
+  //
+  // Measured on 2026-10-28 (plans/reports/benchmark-261028-1636-command-code-models.md):
+  // `deepseek/deepseek-v4-flash-fast` there matched DeepSeek direct on COMET
+  // (−0.0015, within noise) with a first token at 0.41 s against 0.61 s, so it
+  // carries the live path; `gpt-5.6-sol` scored +0.0066 at ~1.5 s, too slow for
+  // a line someone is waiting on, so it only edits a line already delivered.
+  // The fast model takes no `reasoning_effort` — it has no reasoning to turn
+  // off, and the host answers 400 to the flag.
+  //
+  // ONE circuit for all three, made here rather than per provider, because the
+  // failure it tracks is the plan's usage window, which is account-wide: once
+  // the translator has seen it, the respeller and the polisher would only pay
+  // a failed round-trip each to learn the same thing.
+  const commandCodeCircuit = new HostCircuit({
+    onTransition: (state, reason) =>
+      circuitLogger.warn(`command code circuit ${state}: ${reason}`),
+  });
+  const deepseek = openAiCompatibleHosts.find(
+    (host) => host.name === 'deepseek',
+  )!;
+
+  registry.register('translation', {
+    name: 'commandcode',
+    create: (cfg: ProviderConfig) => {
+      const c = cfg as AiProviderResolveConfig;
+      return new FailoverTranslationProvider({
+        name: 'commandcode',
+        circuit: commandCodeCircuit,
+        primary: new OpenAiCompatibleTranslationProvider({
+          apiKey: c.commandCodeApiKey,
+          baseUrl: COMMAND_CODE_BASE_URL,
+          models: ['deepseek/deepseek-v4-flash-fast'],
+          name: 'commandcode',
+        }),
+        secondary: new OpenAiCompatibleTranslationProvider({
+          apiKey: c.openAiCompatibleApiKey,
+          baseUrl: deepseek.baseUrl,
+          models: [deepseek.model],
+          name: deepseek.name,
+          extraBody: deepseek.extraBody,
+        }),
+      });
+    },
+  });
+  registry.register('loanwordRespeller', {
+    name: 'commandcode',
+    create: (cfg: ProviderConfig) => {
+      const c = cfg as AiProviderResolveConfig;
+      return new FailoverLoanwordRespeller({
+        name: 'commandcode',
+        circuit: commandCodeCircuit,
+        primary: new OpenAiCompatibleLoanwordRespeller({
+          apiKey: c.commandCodeApiKey,
+          baseUrl: COMMAND_CODE_BASE_URL,
+          model: 'deepseek/deepseek-v4-flash-fast',
+          name: 'commandcode',
+        }),
+        secondary: new OpenAiCompatibleLoanwordRespeller({
+          apiKey: c.openAiCompatibleApiKey,
+          baseUrl: deepseek.baseUrl,
+          model: deepseek.model,
+          name: deepseek.name,
+          extraBody: deepseek.extraBody,
+        }),
+      });
+    },
+  });
+  // No fallback for the polish: DeepSeek is the model that wrote the draft, so
+  // asking it to edit its own line buys nothing. While the circuit is open the
+  // draft simply stands.
+  registry.register('translationPolisher', {
+    name: 'commandcode',
+    create: (cfg: ProviderConfig): TranslationPolisher => {
+      const c = cfg as AiProviderResolveConfig;
+      const polisher = new OpenAiCompatibleTranslationPolisher({
+        apiKey: c.commandCodeApiKey,
+        baseUrl: COMMAND_CODE_BASE_URL,
+        model: 'gpt-5.6-sol',
+        name: 'commandcode-polish',
+      });
+      // A spent usage window is the plan's, so it trips the shared circuit. A
+      // rejection, though, is this MODEL's: a plan without `gpt-5.6-sol` would
+      // answer 403 here while the fast model still serves translation, so it
+      // only switches the polish off, on a circuit of its own.
+      const polishOnly = new HostCircuit({
+        onTransition: (state, reason) =>
+          circuitLogger.warn(`command code polish ${state}: ${reason}`),
+      });
+      return {
+        name: polisher.name,
+        polish: async (req) => {
+          if (commandCodeCircuit.isOpen() || polishOnly.isOpen()) return null;
+          try {
+            return await polisher.polish(req);
+          } catch (err) {
+            if (isUsageLimitError(err)) commandCodeCircuit.trip('usage limit');
+            else tripOnPersistentFailure(polishOnly, err);
+            throw err;
+          }
+        },
+      };
+    },
+  });
+
   // Minutes over a FINISHED conversation, not a live turn. One name only, like
   // `realtime` and `speakerEmbedding` above: no environment variable selects it,
   // so the minutes module resolves it with `resolveOnly` and a second
   // registration would be the loud moment to decide how a caller should choose.
+  //
+  // Under `commandcode`, Command Code's gemini-3.7-flash writes them and Gemini
+  // direct is the fallback: chosen by the 2026-10-29 minutes bench, where it
+  // judged at least as useful as gemini-3.5-flash direct (8.08 against 7.75)
+  // at 5.9 s against 9.6 s, and never emitted an injection canary
+  // (plans/reports/brainstorm-261029-0923-command-code-other-ai-parts.md).
   registry.register('summarization', {
-    name: 'gemini',
-    create: (cfg: ProviderConfig) => {
+    name: 'minutes',
+    create: (cfg: ProviderConfig): SummarizationProvider => {
       const c = cfg as AiProviderResolveConfig;
-      return new GeminiSummarizationProvider({
-        apiKey: c.geminiApiKey,
-        onQuotaCooldown: ({ model, cooldownMs }) => {
-          recordQuotaCooldown(model);
-          quotaLogger.warn(
-            `rate limited on ${model}; cooling for ${cooldownMs}ms`,
-          );
-        },
+      const viaCommandCode =
+        c.summarizationHost === 'commandcode' && !!c.commandCodeApiKey;
+      // Without Command Code a missing Gemini key still throws here, as it
+      // always has; with it, Gemini is only the fallback and may be absent.
+      const gemini =
+        viaCommandCode && !c.geminiApiKey
+          ? null
+          : new GeminiSummarizationProvider({
+              apiKey: c.geminiApiKey,
+              onQuotaCooldown: ({ model, cooldownMs }) => {
+                recordQuotaCooldown(model);
+                quotaLogger.warn(
+                  `rate limited on ${model}; cooling for ${cooldownMs}ms`,
+                );
+              },
+            });
+      if (!viaCommandCode) return gemini!;
+      return new FailoverSummarizationProvider({
+        name: 'commandcode',
+        primary: new OpenAiCompatibleSummarizationProvider({
+          apiKey: c.commandCodeApiKey,
+          baseUrl: COMMAND_CODE_BASE_URL,
+          model: 'google/gemini-3.7-flash',
+          name: 'commandcode-minutes',
+        }),
+        secondary: gemini,
+        circuit: commandCodeCircuit,
       });
     },
   });

@@ -183,6 +183,7 @@ function makeService(
       Promise.resolve(blockRestored?.(text)),
     ),
     canRespellLoanwords: vi.fn(() => true),
+    makeTranslationPolisher: () => null,
     respellLoanwords: vi.fn(
       async (
         _text: string,
