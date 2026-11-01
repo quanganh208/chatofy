@@ -680,7 +680,26 @@ export const en = {
   'web.account.security': 'Security',
   'web.account.changePassword': 'Change password',
   'web.account.changePasswordHint':
-    'We email you a link. Completing it also invalidates sessions on your other devices and closes any translation still open.',
+    'Signs out your other devices and closes any translation or meeting still open. This browser stays signed in.',
+  'web.account.currentPassword': 'Current password',
+  'web.account.confirmNewPassword': 'Confirm new password',
+  'web.account.changePasswordSubmit': 'Save new password',
+  'web.account.changingPassword': 'Saving…',
+  'web.account.changePasswordCancel': 'Cancel',
+  'web.account.passwordsDoNotMatch': 'The two new passwords do not match.',
+  'web.account.passwordChanged': 'Password changed. Your other devices have been signed out.',
+  // One per failure, because each needs a different next step: retype, use the
+  // reset flow, wait, sign in again, or retry. The API's own messages are English
+  // and are never rendered.
+  'web.account.currentPasswordWrong': 'Your current password is incorrect.',
+  'web.account.noPasswordYet':
+    'This account signs in with Google and has no password yet. Use "Forgot your password?" to set one.',
+  'web.account.changePasswordThrottled': 'Too many attempts. Wait a minute and try again.',
+  'web.account.changePasswordSessionExpired':
+    'Your session has ended. Sign in again, then change your password.',
+  'web.account.changePasswordInvalid': 'Check the new password and try again.',
+  'web.account.changePasswordFailed':
+    'Could not change the password — nothing was changed. Try again.',
   'web.account.signOutHint':
     'Signs out of this browser only. Other devices stay signed in until their session expires.',
 

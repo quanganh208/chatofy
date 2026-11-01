@@ -15,6 +15,54 @@ export type SessionRefetch = () => Promise<Session | null | undefined>;
 export type RecoveryOutcome = 'refreshed' | 'signed-out' | 'transient';
 
 /**
+ * How long to wait for a replacement session before forcing a renewal.
+ *
+ * Generous on purpose. What it waits for is one server round trip — the password
+ * change's response reaching this browser and writing its cookie — and every
+ * genuine 401 recovery pays it, which is cheap only because those are rare: an
+ * ageing token is renewed ahead of its expiry, so a 401 means a revocation.
+ */
+export const REPLACEMENT_SETTLE_MS = 1500;
+
+/** A passive session read, and the wait between two of them. */
+export interface ReplacementCheck {
+  /** Reads the session WITHOUT forcing a renewal. */
+  peek: SessionRefetch;
+  settleMs?: number;
+}
+
+/**
+ * Has this browser's cookie already been given a different, live token?
+ *
+ * THE OTHER TAB OF A PASSWORD CHANGE. Changing the password on `/account` revokes
+ * every credential issued before it, and the API closes this user's sockets AT
+ * ONCE — including ones held by other tabs of the very browser making the change,
+ * whose replacement session has not reached the cookie yet. Those tabs see a dead
+ * socket, probe, get a 401 and land here. Forcing a renewal at that moment renews
+ * with the OLD cookie's refresh family, which the change revoked: the session is
+ * marked terminal, and the sign-out that follows either revokes the replacement
+ * family or overwrites the replacement cookie. The person who just changed their
+ * password is signed out by their own success.
+ *
+ * So before forcing anything, look — passively — for a token that is already
+ * different, now and again after the change has had time to land. A different
+ * token without the terminal flag is exactly what a forced renewal would have
+ * produced, minus the race. Nothing here signs anyone out; a session that is
+ * still the old one falls through to the forced path, unchanged.
+ */
+async function replacedMeanwhile(
+  { peek, settleMs = REPLACEMENT_SETTLE_MS }: ReplacementCheck,
+  previousAccessToken: string | undefined,
+): Promise<boolean> {
+  const isReplacement = (session: Session | null | undefined) =>
+    !!session?.accessToken && !session.error && session.accessToken !== previousAccessToken;
+
+  if (isReplacement(await peek())) return true;
+  await new Promise((resolve) => setTimeout(resolve, settleMs));
+  return isReplacement(await peek());
+}
+
+/**
  * THE 401 path — one of them, for every transport.
  *
  * A 401 is ambiguous on its own: the access token may simply have aged out, or
@@ -41,7 +89,12 @@ export type RecoveryOutcome = 'refreshed' | 'signed-out' | 'transient';
 export async function recoverFromUnauthorized(
   refetch: SessionRefetch,
   previousAccessToken: string | undefined,
+  replacement?: ReplacementCheck,
 ): Promise<RecoveryOutcome> {
+  if (replacement && (await replacedMeanwhile(replacement, previousAccessToken))) {
+    return 'refreshed';
+  }
+
   const session = await refetch();
 
   // `undefined` is NOT `null`, and the difference decides whether somebody is

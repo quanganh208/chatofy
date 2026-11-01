@@ -1028,6 +1028,25 @@ const SCREENS: ScreenState[] = [
     render: () => <AccountPage />,
   },
   {
+    // The password form open inside the security panel. Its submit is the state's
+    // one filled control; the outline button that opened it is gone while it is
+    // open, and the form adds no surface because it sits in the existing panel.
+    name: '/account — changing password',
+    filled: 1,
+    surfaces: 1,
+    setup() {
+      getMe.mockResolvedValue({
+        id: 'u1',
+        email: 'a@b.co',
+        name: 'Quang Anh',
+        createdAt: '2026-01-09T00:00:00.000Z',
+      });
+    },
+    press: '#change-password-open',
+    shows: '#change-password-submit',
+    render: () => <AccountPage />,
+  },
+  {
     // The profile request failed, which on this screen means the join date holds
     // a place and nothing else changes. The panel is still the screen's one
     // surface and sign-out is still ghost — a failure does not promote anything.

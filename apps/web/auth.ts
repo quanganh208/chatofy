@@ -1,4 +1,4 @@
-import NextAuth, { type NextAuthConfig } from 'next-auth';
+import NextAuth, { CredentialsSignin, type NextAuthConfig } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
 import type { AuthSession } from '@chatofy/types';
@@ -6,6 +6,7 @@ import { env } from '@/config/env';
 import { googleConfigured, serverEnv } from '@/config/server-env';
 import { refreshAccessToken } from '@/lib/refresh-access-token';
 import { applyRenewal } from '@/lib/session-renewal';
+import { requestPasswordChange, type ChangePasswordFailure } from '@/lib/change-password-handoff';
 
 /**
  * NextAuth as a thin session shell over the Nest API.
@@ -78,6 +79,22 @@ async function postToApi(path: string, body: unknown): Promise<ApiResult> {
     return { session: null, serverFault: res.status >= 500 };
   }
   return { session: envelope.data };
+}
+
+/**
+ * The refusal the `password-change` provider throws, carrying its reason.
+ *
+ * Auth.js puts a `CredentialsSignin`'s `code` on the sign-in redirect, and
+ * `signIn(..., { redirect: false })` hands it back as `result.code` — which is how
+ * the form tells the failures apart. A fault is NOT one of these: like login, it is
+ * thrown as a plain Error, so it surfaces as `CallbackRouteError` and is never shown
+ * as a wrong password.
+ */
+class ChangePasswordRefused extends CredentialsSignin {
+  constructor(failure: Exclude<ChangePasswordFailure, 'server'>) {
+    super();
+    this.code = failure;
+  }
 }
 
 /**
@@ -229,6 +246,64 @@ function buildAuthConfig({ canPersist }: { canPersist: boolean }): NextAuthConfi
             accessToken: result.session.token.accessToken,
             refreshToken: result.session.token.refreshToken,
             expiresAt: toEpochSeconds(result.session.token.expiresAt),
+          };
+        },
+      }),
+      /**
+       * Changing the password from `/account`, which REPLACES this browser's session.
+       *
+       * A second Credentials provider rather than a branch in the `jwt` callback.
+       * The change revokes every token issued before it, this browser's too, so the
+       * replacement pair the API returns has to reach the cookie — and the one path
+       * that writes a fresh pair into the cookie without it passing through client
+       * JS is a sign-in pass. `update()` was the alternative and is worse: its
+       * payload comes from the browser, and `session-renewal.ts` deliberately
+       * ignores it.
+       *
+       * Not a second way in. It takes nothing a caller does not already hold: the
+       * API refuses unless the bearer token is live AND the current password is
+       * right, and it is the API, not this function, that decides both.
+       *
+       * Refusals are thrown as `ChangePasswordRefused`, whose `code` reaches the
+       * form; a fault is thrown plain, exactly like the login branch above, so it
+       * is never shown as a wrong password.
+       */
+      Credentials({
+        id: 'password-change',
+        credentials: {
+          accessToken: { type: 'text' },
+          currentPassword: { type: 'password' },
+          newPassword: { type: 'password' },
+        },
+        async authorize(credentials) {
+          const { accessToken, currentPassword, newPassword } = credentials ?? {};
+          if (
+            typeof accessToken !== 'string' ||
+            typeof currentPassword !== 'string' ||
+            typeof newPassword !== 'string'
+          ) {
+            throw new ChangePasswordRefused('invalid');
+          }
+
+          const outcome = await requestPasswordChange(fetch, env.NEXT_PUBLIC_API_BASE_URL, {
+            accessToken,
+            currentPassword,
+            newPassword,
+          });
+          if ('failure' in outcome) {
+            if (outcome.failure === 'server') throw new Error('password change is unavailable');
+            throw new ChangePasswordRefused(outcome.failure);
+          }
+
+          const { session } = outcome;
+          return {
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.name,
+            image: session.user.avatarUrl,
+            accessToken: session.token.accessToken,
+            refreshToken: session.token.refreshToken,
+            expiresAt: toEpochSeconds(session.token.expiresAt),
           };
         },
       }),

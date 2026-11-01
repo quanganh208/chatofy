@@ -518,7 +518,23 @@ export const vi: Messages = {
   'web.account.security': 'Bảo mật',
   'web.account.changePassword': 'Đổi mật khẩu',
   'web.account.changePasswordHint':
-    'Chúng tôi gửi cho bạn một liên kết qua email. Hoàn tất liên kết đó cũng sẽ vô hiệu phiên đăng nhập trên các thiết bị khác của bạn và đóng cuộc dịch nào còn đang mở.',
+    'Đăng xuất các thiết bị khác của bạn và đóng cuộc dịch hoặc cuộc họp nào còn đang mở. Trình duyệt này vẫn giữ đăng nhập.',
+  'web.account.currentPassword': 'Mật khẩu hiện tại',
+  'web.account.confirmNewPassword': 'Nhập lại mật khẩu mới',
+  'web.account.changePasswordSubmit': 'Lưu mật khẩu mới',
+  'web.account.changingPassword': 'Đang lưu…',
+  'web.account.changePasswordCancel': 'Huỷ',
+  'web.account.passwordsDoNotMatch': 'Hai mật khẩu mới không khớp nhau.',
+  'web.account.passwordChanged': 'Đã đổi mật khẩu. Các thiết bị khác của bạn đã bị đăng xuất.',
+  'web.account.currentPasswordWrong': 'Mật khẩu hiện tại không đúng.',
+  'web.account.noPasswordYet':
+    'Tài khoản này đăng nhập bằng Google và chưa có mật khẩu. Hãy dùng "Quên mật khẩu?" để đặt mật khẩu.',
+  'web.account.changePasswordThrottled': 'Bạn thử quá nhiều lần. Hãy đợi một phút rồi thử lại.',
+  'web.account.changePasswordSessionExpired':
+    'Phiên đăng nhập đã kết thúc. Hãy đăng nhập lại rồi đổi mật khẩu.',
+  'web.account.changePasswordInvalid': 'Hãy kiểm tra lại mật khẩu mới rồi thử lại.',
+  'web.account.changePasswordFailed':
+    'Chưa đổi được mật khẩu — không có gì bị thay đổi. Hãy thử lại.',
   'web.account.signOutHint':
     'Chỉ đăng xuất khỏi trình duyệt này. Các thiết bị khác vẫn đăng nhập cho tới khi phiên của chúng hết hạn.',
 
