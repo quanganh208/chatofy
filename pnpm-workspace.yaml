@@ -58,6 +58,13 @@ overrides:
   # GHSA-xhq7-xmqj-769h, GHSA-333x-w4r6-6crp (low), <3.1.9 — more scheme and host
   # confusion — moved it to 3.1.9.
   fast-uri: '>=3.1.9 <4'
+  # GHSA-86w9-cpqp-85rv, GHSA-hqq3-7jhf-c5jx, GHSA-5x38-2vff-x55p — high,
+  # <=1.4.0: certificate-chain and basicConstraints verification bypasses.
+  # Reached only by apps/mobile, through @expo/cli and its
+  # code-signing-certificates — build tooling the api, web and extension
+  # runtimes never load. Capped below 2 so Expo's `^1` is not moved across a
+  # major. Remove once @expo/cli itself depends on a patched release.
+  node-forge: '>=1.4.1 <2'
   # GHSA-w2rr-34g9-rvrj and seven siblings — high, <=0.8.14: prototype pollution
   # and several parser confusions. Transitive only, under the Expo and Prisma
   # trees; nothing here imports an XML parser directly.
@@ -165,13 +172,6 @@ patchedDependencies:
 # condition that clears it.
 auditConfig:
   ignoreGhsas:
-    # GHSA-86w9-cpqp-85rv — node-forge <=1.4.0, and 1.4.0 is the newest release.
-    # Reached only by apps/mobile, through @expo/cli and its
-    # code-signing-certificates; the api, web and extension runtimes never load
-    # it, and neither does any other workspace package. node-forge 1.4.1
-    # (2026-10-27) fixes it; swap this entry for a `node-forge: '>=1.4.1 <2'`
-    # floor once that release clears the one-day minimumReleaseAge gate.
-    - GHSA-86w9-cpqp-85rv
     # GHSA-vfj7-8cjw-p6xm — braces <=3.0.3, and 3.0.3 is the newest release.
     # Stack exhaustion from a deeply nested pattern. One direct parent,
     # micromatch@4.0.8, reached only from apps/mobile through metro-file-map:
