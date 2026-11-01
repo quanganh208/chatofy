@@ -178,7 +178,15 @@ export class PasswordResetService {
     // to land inside it AND to cross a second boundary. Closing it entirely would
     // need the stamp to come from the committed write itself.
     const changedAt = new Date(Math.ceil(Date.now() / 1000) * 1000);
-    await this.users.updatePasswordHash(userId, passwordHash, changedAt);
+    // The stamp written may be later than `changedAt` — it only moves forward —
+    // which is all a reset needs: nothing is minted from it. Null means the row
+    // went away between the verify and the write.
+    const written = await this.users.updatePasswordHash(
+      userId,
+      passwordHash,
+      changedAt,
+    );
+    if (!written) throw new UnauthorizedException(BAD_RESET_LINK);
 
     // Revocation at the upgrade does not reach a socket that is already open,
     // and no frame re-authenticates — so without this a stolen token keeps

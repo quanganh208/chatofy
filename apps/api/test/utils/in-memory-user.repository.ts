@@ -2,6 +2,7 @@ import type {
   CreateUserDto,
   UserAuthState,
   UserCredentials,
+  PasswordHashWrite,
   UserRecord,
   UserRepository,
 } from '../../src/modules/users/interfaces/user-repository.interface';
@@ -91,16 +92,25 @@ export class InMemoryUserRepository implements UserRepository {
     id: string,
     passwordHash: string,
     changedAt: Date,
-  ): Promise<UserRecord> {
+    expectedHash?: string,
+  ): Promise<PasswordHashWrite | null> {
     const row = this.rows.get(id);
-    if (!row) throw new Error(`No such user: ${id}`);
+    if (!row) return null;
+    if (expectedHash !== undefined && row.passwordHash !== expectedHash) {
+      return null;
+    }
+    // Strictly after the previous stamp, as the Prisma implementation writes it.
+    const floor = row.passwordChangedAt
+      ? row.passwordChangedAt.getTime() + 1000
+      : 0;
+    const stamp = new Date(Math.max(changedAt.getTime(), floor));
     // Both fields together, as the Prisma implementation writes them in one
     // statement — a double that could leave the timestamp behind would let a
     // suite pass while the deployed API revoked nothing.
     row.passwordHash = passwordHash;
-    row.passwordChangedAt = changedAt;
+    row.passwordChangedAt = stamp;
     row.updatedAt = new Date();
-    return InMemoryUserRepository.toRecord(row);
+    return { user: InMemoryUserRepository.toRecord(row), changedAt: stamp };
   }
 
   async create(dto: CreateUserDto): Promise<UserRecord> {

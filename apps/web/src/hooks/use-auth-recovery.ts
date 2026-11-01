@@ -87,7 +87,14 @@ export function useAuthRecovery(token: AccessTokenReader): AuthRecovery {
     // REVOCATION — a password change on another device — is unrecoverable until
     // the clock happens to reach the skew window, because the callback returns
     // the same dead token and recovery reads that as transient.
-    return (await recoverFromUnauthorized(() => update({}), accessToken)) === 'signed-out';
+    //
+    // `update()` — NO argument — is the passive read checked first: a GET, which
+    // cannot force a renewal, and which still writes the result into provider
+    // state, so a replacement found there is what the reconnect dials with.
+    return (
+      (await recoverFromUnauthorized(() => update({}), accessToken, { peek: () => update() })) ===
+      'signed-out'
+    );
   }, [token, update]);
 
   return useMemo(() => ({ handleConnectionFailure }), [handleConnectionFailure]);

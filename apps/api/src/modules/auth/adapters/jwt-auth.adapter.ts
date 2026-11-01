@@ -5,6 +5,7 @@ import { isRevokedByPasswordChange } from '../password-change-revocation';
 import {
   AuthAdapter,
   AuthClaims,
+  IssueTokenOptions,
   UserIdentity,
 } from '../interfaces/auth-adapter.interface';
 
@@ -103,8 +104,18 @@ export class JwtAuthAdapter implements AuthAdapter {
     };
   }
 
-  /** Signs an access token. Lifetime comes from JwtModule's registration. */
-  async issueToken(userId: string): Promise<string> {
-    return this.jwt.signAsync({ sub: userId });
+  /**
+   * Signs an access token. Lifetime comes from JwtModule's registration.
+   *
+   * An explicit `iat` is honoured by `jsonwebtoken`, which measures `exp` from
+   * it, and nothing here rejects one up to a second ahead of the clock — verify
+   * checks `iat` only when a `maxAge` is set, and none is.
+   */
+  async issueToken(userId: string, opts?: IssueTokenOptions): Promise<string> {
+    return this.jwt.signAsync(
+      opts?.issuedAtSeconds === undefined
+        ? { sub: userId }
+        : { sub: userId, iat: opts.issuedAtSeconds },
+    );
   }
 }

@@ -90,12 +90,18 @@ export class RefreshTokenStore {
    *
    * `gen` starts at 1 against `lastUsedGen` 0, so the first token is not
    * already behind its own family.
+   *
+   * `issuedAtSeconds` overrides the family's `issuedAt` for a password change,
+   * whose replacement family must not predate the stamp it was minted after.
    */
-  async issueFamily(userId: string): Promise<IssuedRefreshToken> {
+  async issueFamily(
+    userId: string,
+    issuedAtSeconds?: number,
+  ): Promise<IssuedRefreshToken> {
     const familyId = randomUUID();
     const refreshToken = mintRefreshToken();
     const leafKey = tokenKey(hashRefreshToken(refreshToken));
-    const issuedAt = Math.floor(Date.now() / 1000);
+    const issuedAt = Math.floor(issuedAtSeconds ?? Date.now() / 1000);
     const famExpiresAt = issuedAt + REFRESH_TOKEN_TTL_SECONDS;
 
     await this.redis

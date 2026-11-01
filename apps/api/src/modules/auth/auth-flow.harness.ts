@@ -149,7 +149,12 @@ export function realHasher(): PasswordHasher {
  * gate to whatever the store hands back.
  */
 export class FakeRefreshTokenStore {
-  readonly issued: { userId: string; token: string; familyId: string }[] = [];
+  readonly issued: {
+    userId: string;
+    token: string;
+    familyId: string;
+    issuedAt: number;
+  }[] = [];
   readonly revoked: string[] = [];
 
   /** Overridden per test to drive a specific verdict. */
@@ -161,15 +166,12 @@ export class FakeRefreshTokenStore {
     familyIssuedAt: Math.floor(Date.now() / 1000),
   }));
 
-  async issueFamily(userId: string) {
+  async issueFamily(userId: string, issuedAtSeconds?: number) {
     const familyId = `fam_${this.issued.length + 1}`;
     const token = `refresh_${this.issued.length + 1}`;
-    this.issued.push({ userId, token, familyId });
-    return {
-      refreshToken: token,
-      familyId,
-      issuedAt: Math.floor(Date.now() / 1000),
-    };
+    const issuedAt = Math.floor(issuedAtSeconds ?? Date.now() / 1000);
+    this.issued.push({ userId, token, familyId, issuedAt });
+    return { refreshToken: token, familyId, issuedAt };
   }
 
   async revokeFamily(familyId: string): Promise<boolean> {

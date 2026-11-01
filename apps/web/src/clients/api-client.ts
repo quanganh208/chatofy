@@ -62,6 +62,13 @@ function withAuth(
   return { ...init, headers: { ...init?.headers, authorization: `Bearer ${accessToken}` } };
 }
 
+/**
+ * The passive read `recoverFromUnauthorized` checks before forcing a renewal, so a
+ * session another tab just replaced — a password change — is used rather than
+ * raced. `getSession` is a GET and cannot force anything.
+ */
+const PEEK = { peek: () => getSession() };
+
 /** A 401 from the API, as opposed to any other failure. */
 function isUnauthorized(err: unknown): err is ApiClientError {
   return err instanceof ApiClientError && err.status === 401;
@@ -101,7 +108,7 @@ async function authedFetch<T extends z.ZodType>(
     // looking at a clock that says there is nothing to do, so it hands back the
     // same dead token and this reads as transient for the rest of the token's
     // nominal life.
-    if ((await recoverFromUnauthorized(refetchSessionForcingRenewal, sent)) !== 'refreshed') {
+    if ((await recoverFromUnauthorized(refetchSessionForcingRenewal, sent, PEEK)) !== 'refreshed') {
       throw err;
     }
     const renewed = (await getSession())?.accessToken;
@@ -143,7 +150,7 @@ async function authedRaw(path: string, init: RequestInit): Promise<Response> {
 
   // A FORCING read, for the reason `authedFetch` gives: the 401 is positive
   // evidence the token is dead whatever its `expiresAt` says.
-  if ((await recoverFromUnauthorized(refetchSessionForcingRenewal, sent)) !== 'refreshed') {
+  if ((await recoverFromUnauthorized(refetchSessionForcingRenewal, sent, PEEK)) !== 'refreshed') {
     return failOnError(response);
   }
   const renewed = (await getSession())?.accessToken;

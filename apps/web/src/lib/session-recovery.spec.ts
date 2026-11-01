@@ -72,6 +72,52 @@ describe('recoverFromUnauthorized', () => {
     expect(signOut).not.toHaveBeenCalled();
   });
 
+  describe('a session another tab replaced', () => {
+    // A password change in tab A closes tab B's sockets before A's replacement
+    // cookie lands. Forcing a renewal then would renew with the revoked family and
+    // sign the whole browser out, so recovery looks passively first.
+    const forced = vi.fn(() => Promise.resolve(sessionWith({ error: 'RefreshTokenError' })));
+    beforeEach(() => forced.mockClear());
+
+    it('uses a replacement already in the cookie, without forcing a renewal', async () => {
+      const peek = vi.fn(() => Promise.resolve(sessionWith({ accessToken: 'replacement' })));
+      const outcome = await recoverFromUnauthorized(forced, 'revoked', { peek, settleMs: 0 });
+
+      expect(outcome).toBe('refreshed');
+      expect(forced).not.toHaveBeenCalled();
+      expect(signOut).not.toHaveBeenCalled();
+    });
+
+    it('waits once for the replacement to land', async () => {
+      const peek = vi
+        .fn<() => Promise<Session | null>>()
+        .mockResolvedValueOnce(sessionWith({ accessToken: 'revoked' }))
+        .mockResolvedValueOnce(sessionWith({ accessToken: 'replacement' }));
+      const outcome = await recoverFromUnauthorized(forced, 'revoked', { peek, settleMs: 0 });
+
+      expect(outcome).toBe('refreshed');
+      expect(peek).toHaveBeenCalledTimes(2);
+      expect(forced).not.toHaveBeenCalled();
+    });
+
+    it('falls through to the forced renewal when nothing replaced it', async () => {
+      const peek = vi.fn(() => Promise.resolve(sessionWith({ accessToken: 'revoked' })));
+      const outcome = await recoverFromUnauthorized(forced, 'revoked', { peek, settleMs: 0 });
+
+      expect(forced).toHaveBeenCalledOnce();
+      expect(outcome).toBe('signed-out');
+    });
+
+    it('does not take a terminal session for a replacement', async () => {
+      const peek = vi.fn(() =>
+        Promise.resolve(sessionWith({ accessToken: 'other', error: 'RefreshTokenError' })),
+      );
+      await recoverFromUnauthorized(forced, 'revoked', { peek, settleMs: 0 });
+
+      expect(forced).toHaveBeenCalledOnce();
+    });
+  });
+
   it('agrees with the guard: an errored session is never signed in', () => {
     // The loop case, asserted from the other side. If recovery signs this
     // session out but `isLiveSession` still called it live, /login would

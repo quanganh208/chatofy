@@ -145,7 +145,10 @@ describe('PasswordResetService', () => {
 
     it('writes the new hash and a ceiled timestamp in one call', async () => {
       users.findCredentialsById.mockResolvedValue(credentials());
-      users.updatePasswordHash.mockResolvedValue(record());
+      users.updatePasswordHash.mockResolvedValue({
+        user: record(),
+        changedAt: new Date(),
+      });
       const token = await tokens.issuePasswordReset('user_1', HASH);
 
       await service.resetPassword({ token, password: 'a-brand-new-password' });
@@ -179,7 +182,10 @@ describe('PasswordResetService', () => {
        * days. Real wall-clock values, so JWT verification still behaves.
        */
       users.findCredentialsById.mockResolvedValue(credentials());
-      users.updatePasswordHash.mockResolvedValue(record());
+      users.updatePasswordHash.mockResolvedValue({
+        user: record(),
+        changedAt: new Date(),
+      });
       const token = await tokens.issuePasswordReset('user_1', HASH);
 
       const base = Math.ceil(Date.now() / 1000) * 1000;
@@ -205,7 +211,10 @@ describe('PasswordResetService', () => {
 
     it('signs nobody in', async () => {
       users.findCredentialsById.mockResolvedValue(credentials());
-      users.updatePasswordHash.mockResolvedValue(record());
+      users.updatePasswordHash.mockResolvedValue({
+        user: record(),
+        changedAt: new Date(),
+      });
       const token = await tokens.issuePasswordReset('user_1', HASH);
 
       const result = await service.resetPassword({
@@ -225,7 +234,10 @@ describe('PasswordResetService', () => {
         .mockReturnValue(2);
       terminator.register({ closeSessionsFor });
       users.findCredentialsById.mockResolvedValue(credentials());
-      users.updatePasswordHash.mockResolvedValue(record());
+      users.updatePasswordHash.mockResolvedValue({
+        user: record(),
+        changedAt: new Date(),
+      });
       const token = await tokens.issuePasswordReset('user_1', HASH);
 
       await service.resetPassword({ token, password: 'a-brand-new-password' });
@@ -274,7 +286,10 @@ describe('PasswordResetService', () => {
       // same proof Google's `emailVerified` attested. And the answer does not
       // branch on account type, which would be an account-shape oracle.
       users.findCredentialsById.mockResolvedValue(credentials(null));
-      users.updatePasswordHash.mockResolvedValue(record());
+      users.updatePasswordHash.mockResolvedValue({
+        user: record(),
+        changedAt: new Date(),
+      });
       const token = await tokens.issuePasswordReset('user_1', null);
 
       const answered = await service.resetPassword({
