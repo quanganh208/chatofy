@@ -7,6 +7,7 @@ import {
   UserAlreadyExistsError,
   UserCredentials,
   UserRecord,
+  PasswordHashWrite,
   UserRepository,
 } from '../interfaces/user-repository.interface';
 
@@ -187,16 +188,35 @@ export class PrismaUserRepository implements UserRepository {
     id: string,
     passwordHash: string,
     changedAt: Date,
-  ): Promise<UserRecord> {
-    const row = await this.prisma.user.update({
-      where: { id },
-      // Both columns in one statement. A hash written without its timestamp is a
-      // password change that revokes nothing, and the gap between two writes is
-      // exactly the window an attacker's live token would survive.
-      data: { passwordHash, passwordChangedAt: changedAt },
-      select: RECORD_SELECT,
+    expectedHash?: string,
+  ): Promise<PasswordHashWrite | null> {
+    return this.prisma.$transaction(async (tx) => {
+      // Locked, so two changes to one row are serialised and the second reads the
+      // first's stamp — which is what lets "strictly after the previous stamp" be
+      // true rather than a hope. See the interface for why it must be.
+      const [locked] = await tx.$queryRaw<
+        { passwordHash: string | null; passwordChangedAt: Date | null }[]
+      >`SELECT "passwordHash", "passwordChangedAt" FROM "User" WHERE "id" = ${id} FOR UPDATE`;
+      if (!locked) return null;
+      if (expectedHash !== undefined && locked.passwordHash !== expectedHash) {
+        return null;
+      }
+
+      const floor = locked.passwordChangedAt
+        ? locked.passwordChangedAt.getTime() + 1000
+        : 0;
+      const stamp = new Date(Math.max(changedAt.getTime(), floor));
+
+      const row = await tx.user.update({
+        where: { id },
+        // Both columns in one statement. A hash written without its timestamp is
+        // a password change that revokes nothing, and the gap between two writes
+        // is exactly the window an attacker's live token would survive.
+        data: { passwordHash, passwordChangedAt: stamp },
+        select: RECORD_SELECT,
+      });
+      return { user: toRecord(row), changedAt: stamp };
     });
-    return toRecord(row);
   }
 
   async create(dto: CreateUserDto): Promise<UserRecord> {

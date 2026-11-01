@@ -82,6 +82,29 @@ describe('SessionRefreshService', () => {
       );
     });
 
+    it('mints an ordinary token when the family is in the past', async () => {
+      await service.refresh('presented');
+      expect(issueToken.mock.calls[0]).toEqual(['user_1', undefined]);
+    });
+
+    it('never mints a token older than its family', async () => {
+      // A password change stamps the family it mints up to a second ahead of the
+      // clock. A renewal inside that second must not hand back `iat = now`, which
+      // the gate would refuse on its first use.
+      const ahead = Math.floor(Date.now() / 1000) + 1;
+      store.rotate.mockResolvedValue(rotated({ familyIssuedAt: ahead }));
+
+      const token = await service.refresh('presented');
+
+      expect(issueToken.mock.calls[0]).toEqual([
+        'user_1',
+        { issuedAtSeconds: ahead },
+      ]);
+      expect(new Date(token.expiresAt).getTime()).toBe(
+        (ahead + ACCESS_TOKEN_TTL_SECONDS) * 1000,
+      );
+    });
+
     it('returns no profile, so a renewal cannot overwrite an edited one', async () => {
       const token = await service.refresh('presented');
       expect(token).not.toHaveProperty('user');

@@ -76,6 +76,12 @@ export interface UserCredentials {
  * one careless mapper away from a payload. Nothing above the auth path can even
  * name this shape.
  */
+/** What `updatePasswordHash` wrote: the row, and the stamp it actually recorded. */
+export interface PasswordHashWrite {
+  user: UserRecord;
+  changedAt: Date;
+}
+
 export interface UserAuthState {
   id: string;
   /**
@@ -172,12 +178,27 @@ export interface UserRepository {
    * `changedAt` is supplied by the caller from the app clock — the same clock
    * that stamps a token's `iat` — rather than defaulted here, so the comparison
    * has no skew to reason about.
+   *
+   * THE STAMP ONLY MOVES FORWARD, by at least a second. What is written is
+   * `max(changedAt, previous + 1s)`, and the value actually written is returned.
+   * Two changes ceiled into the same second would otherwise share a stamp, and a
+   * password change mints its caller a session AT its stamp — so a reset
+   * completed in that same second would compare equal against it and let the
+   * session it exists to end survive. The caller must use the returned stamp,
+   * never its own `changedAt`, for anything it mints.
+   *
+   * `expectedHash`, when given, makes the write conditional on the row still
+   * holding the hash the caller verified against: the read-then-write window is
+   * one argon2 hash long, and without it a change could overwrite a reset that
+   * committed inside it. Null when that condition fails or the row is gone — a
+   * lost race, not an error.
    */
   updatePasswordHash(
     id: string,
     passwordHash: string,
     changedAt: Date,
-  ): Promise<UserRecord>;
+    expectedHash?: string,
+  ): Promise<PasswordHashWrite | null>;
   /**
    * Attaches a Google identity to a row that has none.
    *

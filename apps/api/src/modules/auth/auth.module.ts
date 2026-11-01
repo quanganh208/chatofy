@@ -11,6 +11,8 @@ import { UsersModule } from '../users/users.module';
 import { RedisModule } from '../redis/redis.module';
 import { JwtAuthAdapter } from './adapters/jwt-auth.adapter';
 import { AuthController } from './auth.controller';
+import { PasswordChangeController } from './password-change.controller';
+import { PasswordChangeService } from './password-change.service';
 import { AuthService } from './auth.service';
 import { AuthMailer } from './auth-mailer';
 import { PasswordHasher } from './password-hasher';
@@ -79,7 +81,7 @@ import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
       throttlers: [{ name: 'default', limit: 60, ttl: 60_000 }],
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, PasswordChangeController],
   providers: [
     // Three flow services rather than one: signing in, registering, and
     // recovering share hashing, mailing and address folding — the three
@@ -93,6 +95,9 @@ import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
     // owns the gate that stops a refresh token resurrecting a session a
     // password reset killed.
     SessionRefreshService,
+    // The fifth: a signed-in user replacing their password. Revokes like a reset,
+    // then mints the asking device a replacement session through AuthService.
+    PasswordChangeService,
     PasswordHasher,
     AuthMailer,
     GoogleTokenVerifier,

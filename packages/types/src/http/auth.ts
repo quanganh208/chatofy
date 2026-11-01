@@ -182,6 +182,24 @@ export const resetPasswordRequestSchema = z.object({
 export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
 
 /**
+ * POST /auth/change-password — a signed-in user replacing their own password.
+ *
+ * `currentPassword` is checked, not ruled: bounded like login's field and for the
+ * same reason, so a seven-character current password gets "incorrect" rather than a
+ * validation error about rules it was never subject to. `newPassword` is the one
+ * password RULE, shared with register and reset so none of the three can set a
+ * password another would refuse.
+ *
+ * No user id, and there must not be one: the row is the caller's, named by the
+ * verified token. A field naming whose password to change is an account takeover.
+ */
+export const changePasswordRequestSchema = z.object({
+  currentPassword: z.string().min(1).max(AUTH_LIMITS.maxPassword),
+  newPassword: passwordSchema,
+});
+export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
+
+/**
  * What register, verify, forgot and reset answer with.
  *
  * One shape for all four, and it carries a message and nothing else. That is not

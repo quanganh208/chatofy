@@ -3,6 +3,7 @@ import {
   authMessageSchema,
   authSessionSchema,
   authTokenSchema,
+  changePasswordRequestSchema,
   refreshRequestSchema,
   revokeRequestSchema,
   forgotPasswordRequestSchema,
@@ -38,6 +39,11 @@ export class ForgotPasswordRequestDto extends createZodDto(
 /** POST /auth/reset-password body — the token plus the new password. */
 export class ResetPasswordRequestDto extends createZodDto(
   resetPasswordRequestSchema,
+) {}
+
+/** POST /auth/change-password body — the current password plus the new one. */
+export class ChangePasswordRequestDto extends createZodDto(
+  changePasswordRequestSchema,
 ) {}
 
 /**

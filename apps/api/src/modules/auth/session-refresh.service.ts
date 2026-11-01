@@ -136,11 +136,21 @@ export class SessionRefreshService {
     if (!this.auth.issueToken) {
       throw new Error('The bound auth adapter cannot issue tokens');
     }
+    // Never earlier than the family. A family minted by a password change is
+    // stamped up to a second ahead of the clock (see PasswordChangeService), so a
+    // renewal inside that second would otherwise mint `iat = now` — before the
+    // stamp — and hand back a token the gate refuses on its first use.
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const issuedAtSeconds = Math.max(nowSeconds, rotation.familyIssuedAt);
     return {
-      accessToken: await this.auth.issueToken(rotation.userId),
+      accessToken: await this.auth.issueToken(
+        rotation.userId,
+        issuedAtSeconds === nowSeconds ? undefined : { issuedAtSeconds },
+      ),
       refreshToken: rotation.refreshToken,
       expiresAt: new Date(
-        Date.now() + ACCESS_TOKEN_TTL_SECONDS * 1000,
+        (issuedAtSeconds === nowSeconds ? Date.now() : issuedAtSeconds * 1000) +
+          ACCESS_TOKEN_TTL_SECONDS * 1000,
       ).toISOString(),
     };
   }

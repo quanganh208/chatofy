@@ -459,11 +459,19 @@ export class AuthService {
    * The one place a session is minted, so password login and Google login cannot
    * drift into returning different shapes.
    */
-  async sessionFor(user: UserRecord): Promise<AuthSession> {
+  async sessionFor(
+    user: UserRecord,
+    opts: { issuedAtSeconds?: number } = {},
+  ): Promise<AuthSession> {
     if (!this.auth.issueToken) {
       throw new Error('The bound auth adapter cannot issue tokens');
     }
-    const accessToken = await this.auth.issueToken(user.id);
+    // `issuedAtSeconds` is set only by a password change; see PasswordChangeService.
+    const { issuedAtSeconds } = opts;
+    const accessToken = await this.auth.issueToken(
+      user.id,
+      issuedAtSeconds === undefined ? undefined : { issuedAtSeconds },
+    );
     // A fresh FAMILY per sign-in, not per user: two browsers hold two
     // independent lineages, so a replay detected in one does not sign the other
     // out, and signing out of one revokes only its own.
@@ -472,14 +480,22 @@ export class AuthService {
     // Postgres, Redis sits beside it, and a session minted without a renewable
     // half would die fifteen minutes later with no way back — a worse outcome
     // than a login that fails honestly and can be retried.
-    const family = await this.refreshTokens.issueFamily(user.id);
+    const family = await this.refreshTokens.issueFamily(
+      user.id,
+      issuedAtSeconds,
+    );
     return {
       user: toUserContract(user, this.avatarBaseUrl),
       token: {
         accessToken,
         refreshToken: family.refreshToken,
+        // Measured from the same instant `exp` is, so the two still agree when
+        // the token's `iat` was set ahead of the clock.
         expiresAt: new Date(
-          Date.now() + ACCESS_TOKEN_TTL_SECONDS * 1000,
+          (issuedAtSeconds === undefined
+            ? Date.now()
+            : issuedAtSeconds * 1000) +
+            ACCESS_TOKEN_TTL_SECONDS * 1000,
         ).toISOString(),
       },
     };
