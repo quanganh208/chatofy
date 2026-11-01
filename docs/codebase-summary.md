@@ -129,6 +129,12 @@ the root layout, and it is the accepted price of one URL serving two languages �
   **whether or not the token matched**, so it is not an oracle for "is this token live" and
   a person leaving is never blocked. Closes no sockets: that is the difference between a
   voluntary sign-out and detected theft
+- `POST /auth/change-password` — the signed-in caller replaces their password with
+  the current one plus a new one. Guarded, throttled **per user** (5/min), and it names no
+  user id. Revokes every token, refresh family and socket issued before it, like a reset,
+  and answers `200` with a **replacement session** for the calling device. A wrong current
+  password is `403`, never `401`, and an account with no password is `409`. See
+  [authentication](architecture/authentication.md#changing-a-password-while-signed-in)
 - `GET /auth/me` — the caller's own profile (`userSchema` in `packages/types/src/domain/user.ts`). Guarded
 - `PATCH /auth/me` — changes the language this account's MAIL is written in. Guarded, and it names
   no user id: which row changes is decided by the verified token. Strict about the value,

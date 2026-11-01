@@ -14,21 +14,22 @@ fails the multi-client requirement outright: `apps/mobile` and `apps/extension`
 can never hold a NextAuth cookie, and v5 session tokens are JWE, so Nest would
 have to reimplement Auth.js key derivation.
 
-| Concern               | Owner                                                                                                                     |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Password hashing      | `PasswordHasher`, the only file that names argon2id, so a bcryptjs swap is one file                                       |
-| Token issue/verify    | `JwtAuthAdapter`, bound to the pre-existing `AUTH_ADAPTER` seam                                                           |
-| Google verification   | `GoogleTokenVerifier` via `google-auth-library`, audience as an allowlist                                                 |
-| HTTP enforcement      | `JwtAuthGuard` as `APP_GUARD`, registered in `AuthModule`                                                                 |
-| WebSocket enforcement | `verifyClient` on the `ws` server, installed in the gateway's `afterInit`                                                 |
-| Token revocation      | `JwtAuthAdapter.verifyToken` — one indexed read per request and per upgrade                                               |
-| Socket termination    | `SessionTerminator`; `TranslateGateway` registers itself and closes the sockets                                           |
-| Refresh rotation      | `RefreshTokenStore` — the only class that talks to Redis; one Lua script rotates, detects reuse, and re-issues atomically |
-| Session renewal       | `SessionRefreshService` — `POST /auth/refresh`, and the gate that stops a refresh token resurrecting a reset session      |
-| Purpose tokens        | `PurposeTokenService` — verification and reset links, keyed off `AUTH_JWT_SECRET`                                         |
-| Mail delivery         | `MAIL_SENDER` (`MailModule`) — SMTP, console or no-op, always wrapped by the guard                                        |
-| Web session           | `apps/web/auth.ts` — jwt strategy, no adapter; renews inside the `jwt` callback and publishes one `session.error` signal  |
-| Session liveness      | `apps/web/src/lib/session-guard.ts` — one `isLiveSession` predicate, read at all five session-gating sites                |
+| Concern               | Owner                                                                                                                      |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Password hashing      | `PasswordHasher`, the only file that names argon2id, so a bcryptjs swap is one file                                        |
+| Token issue/verify    | `JwtAuthAdapter`, bound to the pre-existing `AUTH_ADAPTER` seam                                                            |
+| Google verification   | `GoogleTokenVerifier` via `google-auth-library`, audience as an allowlist                                                  |
+| HTTP enforcement      | `JwtAuthGuard` as `APP_GUARD`, registered in `AuthModule`                                                                  |
+| WebSocket enforcement | `verifyClient` on the `ws` server, installed in the gateway's `afterInit`                                                  |
+| Token revocation      | `JwtAuthAdapter.verifyToken` — one indexed read per request and per upgrade                                                |
+| Socket termination    | `SessionTerminator`; `TranslateGateway` registers itself and closes the sockets                                            |
+| Refresh rotation      | `RefreshTokenStore` — the only class that talks to Redis; one Lua script rotates, detects reuse, and re-issues atomically  |
+| Session renewal       | `SessionRefreshService` — `POST /auth/refresh`, and the gate that stops a refresh token resurrecting a reset session       |
+| Purpose tokens        | `PurposeTokenService` — verification and reset links, keyed off `AUTH_JWT_SECRET`                                          |
+| Password change       | `PasswordChangeService` — `POST /auth/change-password`; revokes like a reset, then mints this device a replacement session |
+| Mail delivery         | `MAIL_SENDER` (`MailModule`) — SMTP, console or no-op, always wrapped by the guard                                         |
+| Web session           | `apps/web/auth.ts` — jwt strategy, no adapter; renews inside the `jwt` callback and publishes one `session.error` signal   |
+| Session liveness      | `apps/web/src/lib/session-guard.ts` — one `isLiveSession` predicate, read at all five session-gating sites                 |
 
 ### Tokens
 
@@ -196,6 +197,72 @@ both into 401 would turn a thirty-second database blip into a forced sign-out of
 every active user — `use-auth-recovery.ts` reads a 401 from `GET /auth/me` as
 proof the session is gone — who then could not sign back in, because login needs
 the same database.
+
+#### Changing a password while signed in
+
+`POST /auth/change-password` is the signed-in path, next to the mailed reset. It
+takes the current password and a new one, and it revokes **exactly what a reset
+revokes**, through the same code. It writes the new hash with a ceiled
+`passwordChangedAt` stamp, and `SessionTerminator` closes the user's sockets. So
+every access token, refresh family and open socket issued before the change stops
+working, including the ones held by the device making the call.
+
+The difference is what the call returns. The caller has just proved both a live
+session and the current password, so it gets a **replacement session** instead
+of being sent back to sign in. Every other device is signed out.
+
+- **The replacement is minted at the stamp, not at now.** The gate refuses a
+  credential when `floor(issuedAt) < changedAt`, and the stamp is ceiled to the
+  next whole second. A token issued with `iat = now`, inside the current second,
+  would therefore be refused on its first use, and the device would be signed
+  out by its own success. The access token is signed with `iat` equal to the
+  stamp, and the refresh family records `issuedAt` equal to the stamp. That puts
+  them exactly on the boundary, where the strict `<` lets them through.
+  `jsonwebtoken` measures `exp` from that `iat`. It also accepts an `iat` up to a
+  second ahead of the clock, because `verify` checks `iat` only when `maxAge` is
+  set, and none is. `password-change.service.spec.ts` pins this with the clock
+  200 ms past a second boundary.
+- **The stamp only moves forward.** `updatePasswordHash` writes
+  `max(changedAt, previous + 1s)` under a row lock and returns the stamp it
+  actually wrote, and the session is minted from that value. Without this, a
+  reset completed in the same second as a change would compute the same ceiled
+  stamp. It would compare equal against the session the change minted and let
+  that session survive, possibly an attacker's who knew the old password. The
+  write is also conditional on the hash the change verified, so a reset that
+  commits during the change's argon2 hash is not overwritten. Losing that race
+  answers 403.
+- **A renewal never mints an access token older than its family.** A replacement
+  family is stamped up to a second ahead of the clock. `SessionRefreshService`
+  therefore mints with `iat = max(now, family.issuedAt)`, so a renewal inside
+  that second does not hand back a token the gate refuses.
+- **Other tabs of the same browser look before they force.** The API closes
+  this user's sockets at once, including ones held by other tabs of the browser
+  that made the change, whose new cookie has not landed yet. Those tabs probe and
+  get a 401. Forcing a renewal at that point would renew with the revoked family
+  and sign out the whole browser. `recoverFromUnauthorized` therefore reads the
+  session passively first, again after `REPLACEMENT_SETTLE_MS`, and uses a token
+  that is already different and live. It forces a renewal only when nothing
+  replaced the old one.
+- **A wrong current password is 403, never 401.** Every client reads a 401 as a
+  dead session, so a typo would sign out the person correcting it. A row with no
+  password (Google-first) gets 409, which points the user at forgot-password, the
+  flow that can set a first password. The caller is authenticated, so saying
+  what kind of account it is leaks nothing.
+- **Throttled per user, not per IP.** The limit is 5 per minute per account, in
+  its own controller with `UserThrottlerGuard`. Web calls arrive from the Next
+  server, so an IP key would be one global allowance (the problem
+  `POST /auth/refresh` documents). The account is also the right key for abuse:
+  the attempts to bound are guesses of the current password made with a stolen
+  access token.
+- **The web hands the session off through a second Credentials provider,
+  `password-change`, in `apps/web/auth.ts`.** Its `authorize()` runs on the Next
+  server, calls the API with the caller's bearer token, and returns the new pair.
+  Auth.js then writes the cookie through an ordinary sign-in pass, so the refresh
+  token never reaches client JS. `update()` was rejected because its payload
+  comes from the browser, and `session-renewal.ts` deliberately ignores it.
+  Refusals reach the form as the `code` of a `CredentialsSignin` subclass. The
+  status-to-reason mapping lives in `src/lib/change-password-handoff.ts`, where
+  vitest can see it.
 
 #### What it still does not cover
 
