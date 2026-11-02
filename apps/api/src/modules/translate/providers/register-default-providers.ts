@@ -28,6 +28,7 @@ import {
   type ProviderConfig,
 } from '@chatofy/ai-providers';
 import { recordQuotaCooldown } from '../quota-cooldown-meter';
+import { logLlmCall } from './llm-call-log';
 
 /**
  * Where absorbed rate limits are reported.
@@ -222,6 +223,10 @@ export function registerDefaultProviders(
           name: host.name,
           extraBody: host.extraBody,
           maxOutputTokensField: host.maxOutputTokensField,
+          onCall: logLlmCall,
+          // DeepSeek accepts `stream_options.include_usage` (probed on
+          // 2026-11-02); the OpenAI row stays off until a probe says it does.
+          reportStreamUsage: host.name === 'deepseek',
           // No `onQuotaCooldown` on any of these: the signal it carries is a
           // free tier running out, and none of these hosts has such a wall.
         });
@@ -242,6 +247,7 @@ export function registerDefaultProviders(
           name: host.name,
           extraBody: host.extraBody,
           maxOutputTokensField: host.maxOutputTokensField,
+          onCall: logLlmCall,
         });
       },
     });
@@ -282,6 +288,10 @@ export function registerDefaultProviders(
           baseUrl: COMMAND_CODE_BASE_URL,
           models: ['deepseek/deepseek-v4-flash-fast'],
           name: 'commandcode',
+          onCall: logLlmCall,
+          // The proxy answers `stream_options.include_usage` with token counts
+          // and cache hits (probed on 2026-11-02).
+          reportStreamUsage: true,
         }),
         secondary: new OpenAiCompatibleTranslationProvider({
           apiKey: c.openAiCompatibleApiKey,
@@ -289,6 +299,8 @@ export function registerDefaultProviders(
           models: [deepseek.model],
           name: deepseek.name,
           extraBody: deepseek.extraBody,
+          onCall: logLlmCall,
+          reportStreamUsage: true,
         }),
       });
     },
@@ -305,6 +317,7 @@ export function registerDefaultProviders(
           baseUrl: COMMAND_CODE_BASE_URL,
           model: 'deepseek/deepseek-v4-flash-fast',
           name: 'commandcode',
+          onCall: logLlmCall,
         }),
         secondary: new OpenAiCompatibleLoanwordRespeller({
           apiKey: c.openAiCompatibleApiKey,
@@ -312,6 +325,7 @@ export function registerDefaultProviders(
           model: deepseek.model,
           name: deepseek.name,
           extraBody: deepseek.extraBody,
+          onCall: logLlmCall,
         }),
       });
     },
@@ -328,6 +342,7 @@ export function registerDefaultProviders(
         baseUrl: COMMAND_CODE_BASE_URL,
         model: 'gpt-5.6-sol',
         name: 'commandcode-polish',
+        onCall: logLlmCall,
       });
       // A spent usage window is the plan's, so it trips the shared circuit. A
       // rejection, though, is this MODEL's: a plan without `gpt-5.6-sol` would

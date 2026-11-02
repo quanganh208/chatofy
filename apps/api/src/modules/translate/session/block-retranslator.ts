@@ -88,6 +88,8 @@ export interface BlockTranslator {
     models?: string[];
     hints?: TranslationHints;
     scriptRetry?: ScriptRetry;
+    /** Always `'block'` from here; logged on the call's `llm` line. */
+    purpose?: 'block';
   }): Promise<TranslationMap>;
 }
 
@@ -205,6 +207,7 @@ export class BlockRetranslator {
         source: block.recognition,
         targets: block.targets,
         models: FINAL_MODELS,
+        purpose: 'block',
         hints: block.hints,
         // A block is a final translation: it gets the one retry a turn's final
         // gets when it leaks a foreign script, charged to this block budget.

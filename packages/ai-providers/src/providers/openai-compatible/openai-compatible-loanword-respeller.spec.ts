@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { LlmCallListener } from '../../interfaces/llm-call-event.js';
 import { ProviderConfigError, ProviderResponseError } from '../../errors/provider-errors.js';
 import {
   HOMOPHONE_REPAIR_TIMEOUT_MS,
@@ -230,5 +231,63 @@ describe('parseProposals', () => {
 
   it.each(['not json', '[]', 'null', ''])('reads %j as no proposals', (content) => {
     expect(parseProposals(content, ['deep fred'])).toEqual({});
+  });
+});
+
+describe('OpenAiCompatibleLoanwordRespeller call reporting', () => {
+  const withUsage = (content: unknown, usage: Record<string, unknown>) => {
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ choices: [{ message: { content } }], usage }),
+      text: async () => '',
+    })) as unknown as typeof fetch;
+  };
+  const reporting = (onCall: LlmCallListener) =>
+    new OpenAiCompatibleLoanwordRespeller({
+      apiKey: 'test-key',
+      baseUrl: 'https://host.example/',
+      model: 'flash',
+      name: 'host',
+      onCall,
+    });
+
+  it('counts each method under its own kind, with the token counts of the response', async () => {
+    const onCall = vi.fn<LlmCallListener>();
+    withUsage('{"corrections":[]}', {
+      prompt_tokens: 50,
+      completion_tokens: 5,
+      prompt_cache_hit_tokens: 40,
+    });
+    await reporting(onCall).repairHomophones({ transcript: 'đâm giao', before: [] });
+    withUsage('{"text":"x"}', { prompt_tokens: 60, completion_tokens: 6 });
+    await reporting(onCall).fuseRecognizers({ transcript: 'a b', alternates: ['a c'], before: [] });
+    withUsage('{"deep fred":"deepfake"}', { prompt_tokens: 70, completion_tokens: 7 });
+    await reporting(onCall).respell(REQUEST);
+
+    expect(onCall.mock.calls.map((call) => call[0].kind)).toEqual([
+      'homophones',
+      'fusion',
+      'respell',
+    ]);
+    expect(onCall.mock.calls[0]![0]).toMatchObject({
+      host: 'host',
+      model: 'flash',
+      ok: true,
+      inputTokens: 50,
+      outputTokens: 5,
+      cachedInputTokens: 40,
+    });
+    expect(onCall.mock.calls[0]![0].promptHash).toMatch(/^[0-9a-f]{8}$/);
+  });
+
+  it('reports a refused request as failed and still throws', async () => {
+    const onCall = vi.fn<LlmCallListener>();
+    answering('', { ok: false, status: 500 });
+
+    await expect(
+      reporting(onCall).repairHomophones({ transcript: 'đâm giao', before: [] }),
+    ).rejects.toBeInstanceOf(ProviderResponseError);
+    expect(onCall.mock.calls[0]![0]).toMatchObject({ kind: 'homophones', ok: false });
   });
 });

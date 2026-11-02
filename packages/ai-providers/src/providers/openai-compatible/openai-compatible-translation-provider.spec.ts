@@ -291,3 +291,103 @@ describe('OpenAiCompatibleTranslationProvider', () => {
       });
   });
 });
+
+describe('OpenAiCompatibleTranslationProvider call reporting', () => {
+  const usageChunk = (usage: Record<string, unknown>) =>
+    `data: ${JSON.stringify({ choices: [], usage })}\n`;
+
+  it('reports one event with the token counts of the usage chunk', async () => {
+    answering(
+      sse(
+        delta('I want to book a table'),
+        usageChunk({ prompt_tokens: 120, completion_tokens: 30, prompt_cache_hit_tokens: 64 }),
+        'data: [DONE]\n',
+      ),
+    );
+    const onCall = vi.fn();
+
+    await provider({ onCall }).translate({ ...request, purpose: 'final' });
+
+    expect(onCall).toHaveBeenCalledTimes(1);
+    const event = onCall.mock.calls[0]![0];
+    expect(event).toMatchObject({
+      kind: 'translate',
+      purpose: 'final',
+      host: 'example',
+      model: 'fast-1',
+      ok: true,
+      inputTokens: 120,
+      outputTokens: 30,
+      cachedInputTokens: 64,
+    });
+    expect(event.promptHash).toMatch(/^[0-9a-f]{8}$/);
+    expect(typeof event.ms).toBe('number');
+  });
+
+  it('reads cached tokens from prompt_tokens_details when the host reports them there', async () => {
+    answering(
+      sse(
+        delta('ok'),
+        usageChunk({
+          prompt_tokens: 10,
+          completion_tokens: 2,
+          prompt_tokens_details: { cached_tokens: 8 },
+        }),
+      ),
+    );
+    const onCall = vi.fn();
+
+    await provider({ onCall }).translate(request);
+
+    expect(onCall.mock.calls[0]![0]).toMatchObject({ cachedInputTokens: 8 });
+    expect(onCall.mock.calls[0]![0]).not.toHaveProperty('purpose');
+  });
+
+  it('asks for stream usage only when the host is configured to accept it', async () => {
+    const asked = answering(sse(delta('ok')));
+    await provider({ reportStreamUsage: true }).translate(request);
+    expect(at(asked, 0).body.stream_options).toEqual({ include_usage: true });
+
+    const plain = answering(sse(delta('ok')));
+    await provider().translate(request);
+    expect(at(plain, 0).body).not.toHaveProperty('stream_options');
+  });
+
+  it('reports a failed request and still rejects as before', async () => {
+    answering(sse(), { ok: false, status: 400 });
+    const onCall = vi.fn();
+
+    await expect(provider({ onCall }).translate(request)).rejects.toBeInstanceOf(
+      ProviderResponseError,
+    );
+    expect(onCall).toHaveBeenCalledTimes(1);
+    expect(onCall.mock.calls[0]![0]).toMatchObject({ ok: false, kind: 'translate' });
+    expect(onCall.mock.calls[0]![0]).not.toHaveProperty('inputTokens');
+  });
+
+  it('gives the same hash to the same prompt and a different one to a different prompt', async () => {
+    const onCall = vi.fn();
+    answering(sse(delta('ok')));
+    await provider({ onCall }).translate(request);
+    answering(sse(delta('ok')));
+    await provider({ onCall }).translate(request);
+    answering(sse(delta('ok')));
+    await provider({ onCall }).translate({ ...request, text: 'xin chào' });
+
+    const [first, second, third] = onCall.mock.calls.map((call) => call[0].promptHash);
+    expect(first).toBe(second);
+    expect(third).not.toBe(first);
+  });
+
+  it('keeps the translation when the listener throws', async () => {
+    answering(sse(delta('I want to book a table')));
+    const onCall = vi.fn(() => {
+      throw new Error('listener broke');
+    });
+
+    await expect(provider({ onCall }).translate(request)).resolves.toEqual({
+      text: 'I want to book a table',
+      model: 'fast-1',
+    });
+  });
+});

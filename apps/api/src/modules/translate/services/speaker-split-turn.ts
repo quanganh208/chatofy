@@ -223,6 +223,8 @@ export async function translateSplitTurn(
         continuesCut:
           k === 0 && firstIsOpening && (options.continuesCut ?? false),
         scriptRetry: options.scriptRetry,
+        // A split turn's pieces are each a final answer.
+        purpose: 'final',
       }),
     ),
   );

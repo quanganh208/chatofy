@@ -18,6 +18,7 @@ import {
   wordsOf,
   type TranscriptCorrection,
   type LoanwordProposal,
+  type LlmCallPurpose,
   type LoanwordRespeller,
   type SpeakerEmbeddingResult,
   type TranslationHints,
@@ -175,6 +176,8 @@ export interface TranslateTurnInput {
    * caller runs the check then, with `retryAdopted`.
    */
   scriptRetry?: ScriptRetry;
+  /** Which lane asked, logged on the translation's `llm` line only. */
+  purpose?: LlmCallPurpose;
   /**
    * Languages the recognizer should choose between, the decoded one among
    * them. Absent (or one language) is a declared decode, as every turn was
@@ -300,18 +303,30 @@ export const CORRECTION_GRACE_MS = 250;
  * `correcting` if it settles within {@link CORRECTION_GRACE_MS} of now, else
  * undefined. For the moment the translation is in: only the wait from here on
  * is the reader's.
+ *
+ * `onLate` is told when the grace ran out first. The checks behind a correction
+ * are paid calls, and one that answers after its turn was shown bought nothing;
+ * counting those is how their cost is weighed against what they deliver.
  */
 export async function settleCorrections(
   correcting: Promise<TranscriptCorrection[] | undefined> | undefined | null,
+  onLate?: () => void,
 ): Promise<TranscriptCorrection[] | undefined> {
   if (!correcting) return undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const late = new Promise<undefined>((resolve) => {
-    timer = setTimeout(() => resolve(undefined), CORRECTION_GRACE_MS);
+  const LATE = Symbol('late');
+  const late = new Promise<typeof LATE>((resolve) => {
+    timer = setTimeout(() => resolve(LATE), CORRECTION_GRACE_MS);
   });
   try {
     // A display correction never fails the turn it rides on.
-    return await Promise.race([correcting.catch(() => undefined), late]);
+    const settled = await Promise.race([
+      correcting.catch(() => undefined),
+      late,
+    ]);
+    if (settled !== LATE) return settled;
+    onLate?.();
+    return undefined;
   } finally {
     clearTimeout(timer);
   }
@@ -529,7 +544,8 @@ export class PipelineTranslatorService {
     plan: DeclaredTurnLanguagePlan,
   ): Promise<TranslateResponse> {
     const { sourceText, translations } = await this.transcribeAndTranslate(
-      input,
+      // A REST turn is one finished utterance answered once: always the final lane.
+      { ...input, purpose: 'final' },
       plan,
     );
     const targetText = translations[plan.spoken] ?? '';
@@ -953,6 +969,8 @@ export class PipelineTranslatorService {
     onChunk?: (delta: string, restart: boolean) => void;
     /** One more call if the answer leaks a foreign script; see `ScriptRetry`. */
     scriptRetry?: ScriptRetry;
+    /** Which lane asked; logged only. */
+    purpose?: LlmCallPurpose;
   }): Promise<string> {
     try {
       const trio = this.providers.makeProviders();
@@ -970,6 +988,7 @@ export class PipelineTranslatorService {
             context: req.context,
             continuesCut: req.continuesCut,
             onChunk,
+            purpose: req.purpose,
           });
           this.logger.log(
             `translate(${model ?? trio.translation.name}) ${Date.now() - start}ms`,
@@ -1009,6 +1028,7 @@ export class PipelineTranslatorService {
           target,
           models: req.models,
           hints: req.hints,
+          purpose: 'retry',
         }),
       req.scriptRetry,
       this.logger,
@@ -1039,6 +1059,7 @@ export class PipelineTranslatorService {
     context?: string[];
     continuesCut?: boolean;
     scriptRetry?: ScriptRetry;
+    purpose?: LlmCallPurpose;
   }): Promise<TranslationMap> {
     // A transcript-only turn: nothing to translate into, so no provider call.
     if (req.targets.length === 0) return {};
@@ -1052,6 +1073,7 @@ export class PipelineTranslatorService {
         context: req.context,
         continuesCut: req.continuesCut,
         scriptRetry: req.scriptRetry,
+        purpose: req.purpose,
       }),
     );
     // All settled together, so no rejection is ever left unhandled while
@@ -1192,9 +1214,12 @@ export class PipelineTranslatorService {
         context: input.context,
         continuesCut: input.continuesCut,
         scriptRetry: input.scriptRetry,
+        purpose: input.purpose,
       });
       const restored = await restoring;
-      const corrections = await settleCorrections(correcting);
+      const corrections = await settleCorrections(correcting, () =>
+        this.logger.log('correction late, dropped'),
+      );
 
       return {
         sourceText,

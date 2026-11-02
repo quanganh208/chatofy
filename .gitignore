@@ -127,3 +127,4 @@ worktrees/
 # Punctuation benchmark: downloaded public rulers (fetched by punct_bench.rulers)
 **/benchmarks/punct/data/external/
 **/benchmarks/punct/results/smoke/
+**/benchmarks/call-budget/results/

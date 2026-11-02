@@ -625,6 +625,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           audio: audio.toWav(),
           mimeType: 'audio/wav',
           models: SPECULATION_MODELS,
+          purpose: 'speculation',
           // The speculative pass must carry the same hints as the final one.
           // `usableSpeculation()` reuses this result verbatim when the audio has
           // not grown, so a speculation translated without the session's context
@@ -987,6 +988,7 @@ export class TranslationSessionService implements OnModuleDestroy {
                     audio: audio.toWav(),
                     mimeType: 'audio/wav',
                     models: FINAL_MODELS,
+                    purpose: 'final',
                     hints: session.hints,
                     learnedTerms: this.context.learnedTerms(socket),
                     context: continuation.context,
@@ -1451,6 +1453,7 @@ export class TranslationSessionService implements OnModuleDestroy {
             audio: audio.toWav(),
             mimeType: 'audio/wav',
             models: FINAL_MODELS,
+            purpose: 'final',
             hints,
             learnedTerms,
             context: turn.context,
@@ -1495,13 +1498,16 @@ export class TranslationSessionService implements OnModuleDestroy {
       source: plan.recognition,
       targets: plan.targets,
       models: FINAL_MODELS,
+      purpose: 'final',
       hints,
       context: turn.context,
       continuesCut: turn.continuesCut,
       scriptRetry: this.scriptRetryFor(session),
     });
     const restored = await restoring;
-    const corrections = await settleCorrections(correcting);
+    const corrections = await settleCorrections(correcting, () =>
+      this.logger.log('correction late, dropped'),
+    );
     return {
       translated: {
         sourceText,

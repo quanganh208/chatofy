@@ -122,6 +122,7 @@ export class ConferenceChat {
         text,
         source,
         targets,
+        purpose: 'chat',
       });
       for (const target of targets) {
         byLang.set(target, translations[target] ?? text);

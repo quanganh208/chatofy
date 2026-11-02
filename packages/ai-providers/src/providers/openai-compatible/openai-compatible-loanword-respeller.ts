@@ -10,7 +10,9 @@ import type {
   LoanwordRespeller,
   RecognizerFusionRequest,
 } from '../../interfaces/loanword-respeller.js';
+import type { LlmCallKind, LlmCallListener } from '../../interfaces/llm-call-event.js';
 import { truncate } from '../http-util.js';
+import { emitLlmCall, promptHash, usageFields, type OpenAiUsage } from './llm-call-reporting.js';
 import {
   HOMOPHONE_REPAIR_INSTRUCTION,
   homophoneRepairMessage,
@@ -72,10 +74,13 @@ export interface OpenAiCompatibleLoanwordRespellerConfig {
   timeoutMs?: number;
   /** Ceiling on a homophone repair; see {@link HOMOPHONE_REPAIR_TIMEOUT_MS}. */
   repairTimeoutMs?: number;
+  /** Told about every request this respeller makes, after it settles. */
+  onCall?: LlmCallListener;
 }
 
 interface CompletionBody {
   choices?: { message?: { content?: string | null } }[];
+  usage?: OpenAiUsage | null;
 }
 
 /**
@@ -95,6 +100,7 @@ export class OpenAiCompatibleLoanwordRespeller implements LoanwordRespeller {
   private readonly maxOutputTokensField: 'max_tokens' | 'max_completion_tokens';
   private readonly timeoutMs: number;
   private readonly repairTimeoutMs: number;
+  private readonly onCall: LlmCallListener | undefined;
 
   constructor(config: OpenAiCompatibleLoanwordRespellerConfig) {
     const apiKey = config.apiKey?.trim();
@@ -110,6 +116,7 @@ export class OpenAiCompatibleLoanwordRespeller implements LoanwordRespeller {
     this.maxOutputTokensField = config.maxOutputTokensField ?? 'max_tokens';
     this.timeoutMs = config.timeoutMs ?? RESPELL_TIMEOUT_MS;
     this.repairTimeoutMs = config.repairTimeoutMs ?? HOMOPHONE_REPAIR_TIMEOUT_MS;
+    this.onCall = config.onCall;
   }
 
   async respell(request: LoanwordRespellRequest): Promise<Record<string, LoanwordProposal>> {
@@ -121,6 +128,7 @@ export class OpenAiCompatibleLoanwordRespeller implements LoanwordRespeller {
       han ? MAX_OUTPUT_TOKENS_HAN : MAX_OUTPUT_TOKENS,
       'respelling',
       this.timeoutMs,
+      'respell',
     );
     return parseProposals(content, request.spans, han);
   }
@@ -133,6 +141,7 @@ export class OpenAiCompatibleLoanwordRespeller implements LoanwordRespeller {
       MAX_OUTPUT_TOKENS,
       'homophone repair',
       this.repairTimeoutMs,
+      'homophones',
     );
     return parseCorrections(content);
   }
@@ -149,6 +158,7 @@ export class OpenAiCompatibleLoanwordRespeller implements LoanwordRespeller {
       MAX_FUSION_OUTPUT_TOKENS,
       'recognizer fusion',
       this.repairTimeoutMs,
+      'fusion',
     );
     return parseObject(content)?.text;
   }
@@ -160,6 +170,8 @@ export class OpenAiCompatibleLoanwordRespeller implements LoanwordRespeller {
     maxOutputTokens: number,
     what: string,
     timeoutMs: number,
+    /** How the call is counted; `what` is prose for error messages, not a key. */
+    kind: LlmCallKind,
   ): Promise<string | null | undefined> {
     const body = {
       ...this.extraBody,
@@ -173,29 +185,47 @@ export class OpenAiCompatibleLoanwordRespeller implements LoanwordRespeller {
       ],
     };
 
-    let response: Response;
+    const started = Date.now();
+    let ok = false;
+    let usage: OpenAiUsage | null | undefined;
     try {
-      response = await fetch(this.endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-    } catch (err) {
-      throw new ProviderConnectionError(`${this.name} ${this.model} ${what} failed`, err);
-    }
-    if (!response.ok) {
-      const detail = await response.text().catch(() => '');
-      throw new ProviderResponseError(
-        `${this.name} ${this.model} ${what} answered ${response.status}: ${truncate(detail)}`,
-        response.status,
-      );
-    }
+      let response: Response;
+      try {
+        response = await fetch(this.endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+      } catch (err) {
+        throw new ProviderConnectionError(`${this.name} ${this.model} ${what} failed`, err);
+      }
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        throw new ProviderResponseError(
+          `${this.name} ${this.model} ${what} answered ${response.status}: ${truncate(detail)}`,
+          response.status,
+        );
+      }
 
-    return ((await response.json()) as CompletionBody).choices?.[0]?.message?.content;
+      const parsed = (await response.json()) as CompletionBody;
+      ok = true;
+      usage = parsed.usage;
+      return parsed.choices?.[0]?.message?.content;
+    } finally {
+      emitLlmCall(this.onCall, {
+        kind,
+        host: this.name,
+        model: this.model,
+        ms: Date.now() - started,
+        ok,
+        ...usageFields(usage),
+        promptHash: promptHash(this.model, body.messages),
+      });
+    }
   }
 }
 
