@@ -1,13 +1,15 @@
 ---
 phase: 4
 title: 'Replay arms and choose cuts'
-status: pending
+status: in-progress
 priority: P1
 effort: '0.5d'
 dependencies: [3]
 ---
 
 # Phase 04: Replay arms and choose cuts
+
+> **State (2026-11-02):** Tasks 4.0–4.3 done. Arm cut+K6+scale 3 passed all three gates: 5.67 calls/turn (54.3%), 4,081 tokens/turn (58.9%), p50 1,307 ms (104.6%). Answer prompts matched the baseline 100%. Digest headroom is 0.59 calls a turn. The live-translate chrF++ run in Task 4.2 step 1 was replaced, at the user's decision, by the free answer-prompt comparison. Task 4.4: a PR makes these values the schema defaults. After it deploys, the three keys come out of `prod.env`. Report: `plans/reports/benchmark-261102-1421-call-budget-cut-arms.md`.
 
 ## Goal
 

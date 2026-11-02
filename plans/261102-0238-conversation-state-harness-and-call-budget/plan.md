@@ -47,7 +47,7 @@ Source contract: `plans/reports/brainstorm-261102-0930-conversation-state-harnes
 | 01  | [Instrument every cloud LLM call](./phase-01-instrument-llm-calls.md)                 | —                         | Done (PR #278)          |
 | 02  | [Baseline on prod](./phase-02-baseline-on-prod.md)                                    | 01                        | Done (10.43 calls/turn) |
 | 03  | [Cost knobs, default off](./phase-03-cost-knobs.md)                                   | 02                        | Done (PR #280)          |
-| 04  | [Replay arms and choose cuts](./phase-04-replay-arms-and-cut-selection.md)            | 03                        | Pending                 |
+| 04  | [Replay arms and choose cuts](./phase-04-replay-arms-and-cut-selection.md)            | 03                        | Gates pass; 4.4 in PR   |
 | 05  | [Ordered-conversation corpus](./phase-05-ordered-conversation-corpus.md)              | 01 (can run beside 03–04) | Pending                 |
 | 06  | [ConversationState and digest, flag off](./phase-06-conversation-state-and-digest.md) | 04, 05                    | Pending                 |
 | 07  | [Digest measurement and rollout](./phase-07-digest-measurement-and-rollout.md)        | 06                        | Pending                 |
