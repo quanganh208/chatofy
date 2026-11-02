@@ -521,15 +521,15 @@ describe('CapturePump', () => {
       expect(stopped.handlers.onTurnClose).toHaveBeenCalledWith('hangover');
     });
 
-    // Every cut turn must still buy its head start, or it pays the full endpoint
-    // price: ~1760ms to first audio instead of ~870ms.
-    it('speculates for a turn that was cut, not only for one that paused', () => {
+    // A guess made at the arm mark can never be reused: the cut turn ends on more
+    // audio than it heard. See `SpeechGate.armIfDue` for the replayed numbers.
+    it('asks no guess for a turn the ceiling cut with no pause anywhere', () => {
       const { pump, handlers } = harness(CONTINUOUS);
 
       push(pump, speech, 9000); // one full turn, cut with no pause anywhere
 
       expect(handlers.onTurnClose).toHaveBeenCalledTimes(1);
-      expect(handlers.onProbableEnd).toHaveBeenCalledTimes(1);
+      expect(handlers.onProbableEnd).not.toHaveBeenCalled();
     });
 
     // The echo gate is built without the ceiling on purpose. Given one, it would
