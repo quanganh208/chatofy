@@ -8,12 +8,12 @@ let container: HTMLDivElement;
 let root: Root;
 
 function Probe({ target, hold = false }: { target: string; hold?: boolean }) {
-  const { shown, ref } = useSmoothTextReveal(target, {
+  const { shown, attach } = useSmoothTextReveal(target, {
     initialIntervalMs: 300,
     holdWhilePrefix: hold,
   });
   return (
-    <span data-testid="probe" ref={ref}>
+    <span data-testid="probe" ref={attach}>
       {shown}
     </span>
   );

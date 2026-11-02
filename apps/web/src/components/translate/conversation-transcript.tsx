@@ -20,18 +20,15 @@ import {
   type BlockTranslation,
   type SessionSpeaker,
 } from '@chatofy/realtime-client';
-import type {
-  LanguageCode,
-  SessionLanguageMode,
-  SessionLanguagePair,
-  TranscriptSegment,
-} from '@chatofy/types';
+import type { SessionLanguageMode, SessionLanguagePair, TranscriptSegment } from '@chatofy/types';
 import { cn } from '@/lib/utils';
 import { formatOffset, isoDuration, mediaOffset } from '@/lib/transcript-time';
 import { useTranslate } from '@/i18n/provider';
 import { SpeakerChip } from '@/components/translate/speaker-chip';
 import { SpeakerLabel } from '@/components/translate/speaker-label';
 import { TranscriptSourceLine } from '@/components/translate/transcript-source-line';
+import { TurnLanguage } from '@/components/translate/turn-language-tag';
+import { LiveTurnLine } from '@/components/translate/live-turn-line';
 
 /** Which halves of a turn this stream renders. */
 type TranscriptSide = 'both' | 'source' | 'target';
@@ -150,25 +147,6 @@ interface ConversationTranscriptProps {
 /** Whether a turn's language was decided by identification rather than declared. */
 const identified = (mode: SessionLanguageMode | undefined) =>
   mode === 'two-way' || mode === 'detect';
-
-/**
- * Which language a turn was heard in, as a short muted tag — a readout beside the
- * speaker's name, never a control and never the accent. The tag is drawn short
- * ("EN") and said in full, the arrangement history rows use for the same fact.
- */
-function TurnLanguage({ languages }: { languages: readonly LanguageCode[] }) {
-  const t = useTranslate();
-  return (
-    <span className="text-label text-muted-foreground" data-turn-language={languages.join(' ')}>
-      <span aria-hidden>{languages.map((code) => t(`web.languageShort.${code}`)).join(' · ')}</span>
-      <span className="sr-only">
-        {t('web.translate.turnLanguage', {
-          language: languages.map((code) => t(`common.languageName.${code}`)).join(', '),
-        })}
-      </span>
-    </span>
-  );
-}
 
 /**
  * One stream of turns, newest last, so the exchange reads top to bottom like a
@@ -478,48 +456,13 @@ export function ConversationTranscript({
         className={cn('flex flex-col gap-5', visibleLive.length > 0 ? 'pt-5 pb-4' : 'pb-4')}
       >
         {visibleLive.map((live) => (
-          <div
+          <LiveTurnLine
             key={live.sessionId}
-            // Dashed rule and italics say "unfinished". An `opacity-80` said it too
-            // and cost the floor: composited over the page it took this line — the
-            // most-watched one on the screen — to 3.98:1 dark and 3.33:1 light,
-            // under the 4.5 every token here clears on its own.
-            // `contrast-floors.spec.ts` reads TOKENS and cannot see a composited
-            // alpha, so the dim passed every gate while breaking the rule they
-            // exist for.
-            className={cn('border-border border-dashed', turnFrame)}
-          >
-            {/* Present only once the server has decided the turn's language —
-                a declared turn never carries one, so nothing here changes for
-                it. The finished turn's tag replaces this, and may differ. */}
-            {live.language ? <TurnLanguage languages={[live.language]} /> : null}
-            {showsSource && live.text ? (
-              <p className="reading-source text-source italic">
-                {/* Two layers, one line. The head is text the recogniser has
-                    stopped revising; the tail is still a guess. Splitting them
-                    is the whole point of the settled-text event — without it the
-                    reader cannot tell which half is safe to read.
-
-                    `?? live.text.length` is what a client that never receives
-                    the settled event sees: the whole line as the head, which is
-                    exactly the old rendering.
-
-                    A colour token, never `opacity`, and the comment above says
-                    why in this very file. */}
-                {live.text.slice(0, live.committedChars ?? live.text.length)}
-                {live.committedChars === undefined ? null : (
-                  <span className="text-muted-foreground">
-                    {live.text.slice(live.committedChars)}
-                  </span>
-                )}
-              </p>
-            ) : null}
-            {/* Only on turns long enough for the wait to be felt; short ones have
-                their real translation before a guess would be read. */}
-            {showsTarget && live.translation ? (
-              <p className="text-muted-foreground text-target italic">{live.translation}</p>
-            ) : null}
-          </div>
+            live={live}
+            showsSource={showsSource}
+            showsTarget={showsTarget}
+            frameClassName={turnFrame}
+          />
         ))}
       </div>
     </div>

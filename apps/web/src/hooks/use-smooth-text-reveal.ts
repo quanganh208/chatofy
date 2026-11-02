@@ -14,7 +14,7 @@ export interface UseSmoothTextReveal {
   /** What to draw now. */
   shown: string;
   /** Attach to the element that draws `shown`; frames are scheduled on ITS window. */
-  ref: (element: HTMLElement | null) => void;
+  attach: (element: HTMLElement | null) => void;
 }
 
 interface RevealController {
@@ -158,7 +158,7 @@ export function useSmoothTextReveal(
   // Stable for the component's life. A new callback each render would be called
   // with null and then the element every render, cancelling and rescheduling the
   // frame sixty times a second.
-  const ref = useCallback(
+  const attach = useCallback(
     (element: HTMLElement | null) => controller.attach(element),
     [controller],
   );
@@ -172,5 +172,5 @@ export function useSmoothTextReveal(
 
   useEffect(() => () => controller.dispose(), [controller]);
 
-  return { shown, ref };
+  return { shown, attach };
 }
