@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: 'ConversationState and digest, flag off'
-status: pending
+status: cancelled
 priority: P1
 effort: '2d'
 dependencies: [4, 5]

@@ -2587,3 +2587,20 @@ One speaker's first translated audio: p50 1.38–1.43 s; a zh extra moves it by 
 Still owed: the gate-on run at full volume (the phone was in use), barge-in at the phone, iOS, and web on real speakers, which this desktop cannot do: it has no microphone.
 
 **Harness lessons.** An API restart through `nest start --watch` took 11 s, longer than the leg's three rebuilds (1, 2, 4 s), so the first mute-across-restart run ended translation; a respawn loop on the built API restarts in about 1 s. Closing the browser right after a leave killed the 3 s drain and lost the last row; a real tab stays open.
+
+## A cheaper turn, and a conversation digest measured and not built (02/11/2026)
+
+Prod spent 10.43 cloud LLM calls per turn. Speculative overlap and the homophone check bought little: 20 homophone calls yielded 1 accepted repair. Three cost knobs replayed on prod recordings set the new defaults: speculation overlap off, homophones off, live commit scale 3. The result is 5.67 calls/turn (54% of baseline) and 59% of tokens, at a p50 latency of 105% (PRs #280, #283; `plans/reports/benchmark-261102-1421-call-budget-cut-arms.md`).
+
+The same plan proposed a rolling conversation digest. It would remember the terms and topic of a conversation and feed them into each later turn's prompt. Before writing it, an oracle measured a perfect digest built from the corpus itself. The corpus was three recorded conversations, 79 turns plus 11 anchoring controls, and each arm ran 3 repeats on DeepSeek (540 calls). The user chose not to write references, so the run scored terms only.
+
+- Term accuracy was 0.973 for the baseline and 1.000 for the oracle. The gain per turn was 0.033 with a 95% CI of [0.000, 0.089], so it is not real. The baseline missed 3 of 111 term checks: there was no headroom.
+- Later turns did not gain more than early ones: 0.032 for turns 16+ against 0.111 for turns 1–5.
+- The glossary flipped 8 of 33 anchoring controls, against 0 for the baseline. Three examples:
+  - "Chuyện tình cảm…" became "love story".
+  - "anh tiến hành" became "Tien's company".
+  - "stone portal" became "cổng thông tin".
+
+  A recurring term matched by its text cannot tell its sense, and word boundaries would not fix these cases.
+
+Verdict NO-GO: the digest was not built. `deepseek-flash` already keeps names consistent from the turn and its four-utterance context. A glossary adds little where the model is right and hurts where a term recurs in another sense. Revisiting it would need a sense-aware match, which is a new design. The tooling stays in `benchmarks/conversation-context/`, and the report is `plans/reports/benchmark-261102-1702-conversation-context-oracle.md`.
