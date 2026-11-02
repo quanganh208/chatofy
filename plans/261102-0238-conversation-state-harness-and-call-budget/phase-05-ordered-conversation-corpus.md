@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: 'Ordered-conversation corpus'
-status: pending
+status: in-progress
 priority: P1
 effort: '1d + user reference time'
 dependencies: [1]
@@ -64,6 +64,8 @@ Plus, per conversation, one line in `data/conversations.jsonl`: `{"conv":"…","
 - If it fails: STOP and tell the user the numbers. The options are (a) record new longer conversations, or (b) lower the bucket boundaries to 1–3 / 4–8 / 9+. It is their call (Failure Protocol does not apply: this is a data gap, not a failure).
 - Verify: the command prints ≥ 2 rows and their counts sum to ≥ 60.
 
+- **Re-ran 2026-11-02 after the new recordings: PASSED.** Three conversations reach 20 turns: 25320f62 (31, vi↔en), 2ee8e184 (27, an English podcast with no stored translations, so its rows have no `draft`) and a68ec3c8 (21), 79 turns in total.
+
 - **Ran early on 2026-11-02 (read-only): FAILED the pass condition.** The owner has 15 conversations with 97 turns in total, bucketed by length: 1–4 turns ×6 (19 turns), 5–9 ×7 (45), 10–19 ×1 (12), 20+ ×1 (21). Only one conversation reaches 20 turns. **User chose (a) on 2026-11-02: they will record more long conversations** (≥ 2, about 30 turns each, with recurring names and terms). The buckets stay 1–5 / 6–15 / 16+. Re-run this task once they say the recordings exist.
 
 ### Task 5.2 — Export draft rows
@@ -71,6 +73,8 @@ Plus, per conversation, one line in `data/conversations.jsonl`: `{"conv":"…","
 - Target: `export-turns.mjs --conv <clientId,…>`. It reads via the same psql command, writes `data/corpus.jsonl` and `data/conversations.jsonl`, and never writes outside `data/`.
 - Steps: per turn fill `source`, `draft` (the translation from `translations` for the conversation's other language), `words` (`countTermWords` from the built `@chatofy/types`), `bucket` from the turn index in that conversation (1–5, 6–15, 16+), `reference: null`, and `terms` pre-suggested as Latin-script or capitalised spans that already occurred in an earlier turn, each with `mustMatch: null`.
 - Verify: `node benchmarks/conversation-context/export-turns.mjs --conv <ids>` exits 0 and `wc -l benchmarks/conversation-context/data/corpus.jsonl` ≥ 60.
+
+- **Done 2026-11-02:** 79 rows exported (buckets 1–5: 15, 6–15: 30, 16+: 34; 15 term suggestions). The runner plans 237 calls per arm at `--repeats 3` and refuses the unfinished corpus with exit 2. The 13 offline tests pass.
 
 ### Task 5.3 — User gate: references
 
