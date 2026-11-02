@@ -2604,3 +2604,18 @@ The same plan proposed a rolling conversation digest. It would remember the term
   A recurring term matched by its text cannot tell its sense, and word boundaries would not fix these cases.
 
 Verdict NO-GO: the digest was not built. `deepseek-flash` already keeps names consistent from the turn and its four-utterance context. A glossary adds little where the model is right and hurts where a term recurs in another sense. Revisiting it would need a sense-aware match, which is a new design. The tooling stays in `benchmarks/conversation-context/`. The plan and its reports were removed with the `plans/` tree; they remain in git history before the commit that retired them.
+
+## A ruler for translation quality: where the errors come from (02/11/2026)
+
+The digest oracle left a question open: how good are prod translations, and what goes wrong in them? Nobody could say. The user would not grade by hand or write references, so an LLM judge was the ruler. It annotates errors in MQM style and blames each one on an origin: hearing (`asr`), translating (`mt`) or the turn cut. Each prod turn's recording was transcribed again by Scribe, so the judge could tell a mistranslation from a faithful rendering of a mishearing. The code is `benchmarks/translation-judge/`.
+
+**The judge was not taken on trust.** The run used `claude-opus-5-5` at effort `high`; Gemini's free tier, at 20 requests a day per model, could not carry it. Translations were broken by fixed rules: flipped negation, swapped name, dropped clause, shifted number. The judge caught 93.3% of 30 breaks and blamed none on hearing. It flagged 1 of 40 clean turns, and that one had a real omission. Its repeats agreed on 100%.
+
+**On 162 turns from 17 recorded conversations, 22.2% show a seriously wrong translation.** Hearing and translating split the serious findings 53.5% to 46.5%. The split runs along the direction:
+
+- **en→vi:** 1.3% of turns have a serious translation error. Its failures are mishearings, five of them Vietnamese speech decoded as English in a two-way conversation.
+- **vi→en:** 23.7% of turns have one. The errors are semantic, not terminological. "Ai" (AI) became "whoever"; a listed expense became an invented sentence; self-talk became a question.
+
+Terminology and segmentation caused no serious errors, which closes domain packs and committer work as the next lever. The next lever is a review pass on vi→en in the polish lane, measured with this ruler. STT stays a lever in both directions.
+
+All judge calls cost $8.63 of the $100 allowed. The report is `plans/reports/benchmark-261102-1911-translation-judge-ruler.md`. Two things are still open. The CometKiwi cross-check needs a Hugging Face login. And whether a stored translation was already polished is not recorded.
