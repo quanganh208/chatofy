@@ -657,8 +657,9 @@ a settled line that is transform and opacity only.
 words every ~300ms, and a new provisional translation used to blank its line and regrow it,
 which read as the screen jumping rather than as speech arriving. The line is now revealed one
 grapheme at a time (`apps/web/src/lib/smooth-text-reveal.ts`), so each frame changes less
-than a jump did. When it falls behind it types faster, at most three graphemes per frame,
-and never shows the rest at once. Finished lines are never typed. It is not CSS motion, so the
+than a jump did. When it falls behind it types faster, at most three graphemes per frame on the source
+and four on the translation, and never shows the rest at once. A revised word is replaced in
+place, never retyped. Finished lines are never typed. It is not CSS motion, so the
 reduced-motion check below cannot see it: the hook gates reduced motion in JavaScript, and
 `use-smooth-text-reveal.spec.tsx` asserts that the line is drawn whole under it.
 
