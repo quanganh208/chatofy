@@ -16,6 +16,7 @@ import {
   PipelineTranslatorService,
   RESTORE_BUDGET_MS,
   SpeechEngineBusyException,
+  settleCorrections,
 } from './pipeline-translator.service';
 import type {
   AiProvidersFactory,
@@ -460,6 +461,7 @@ describe('PipelineTranslatorService', () => {
       text: 'xin chào',
       sourceLanguage: 'vi',
       targetLanguage: 'en',
+      purpose: 'final',
     });
     expect(result).toEqual({
       sourceText: 'xin chào',
@@ -499,6 +501,7 @@ describe('PipelineTranslatorService', () => {
       text: 'hello',
       sourceLanguage: 'en',
       targetLanguage: 'vi',
+      purpose: 'final',
     });
     expect(synthesize).toHaveBeenCalledWith(
       expect.objectContaining({ language: 'vi', voiceGender: 'male' }),
@@ -1494,5 +1497,51 @@ describe('PipelineTranslatorService', () => {
         speedAdjustable: false,
       });
     });
+  });
+});
+
+describe('settleCorrections', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('drops a correction that answers after the grace, and says so once', async () => {
+    vi.useFakeTimers();
+    const onLate = vi.fn();
+    const correcting = new Promise<undefined>((resolve) =>
+      setTimeout(() => resolve(undefined), CORRECTION_GRACE_MS + 50),
+    );
+
+    const settled = settleCorrections(correcting, onLate);
+    await vi.advanceTimersByTimeAsync(CORRECTION_GRACE_MS + 100);
+
+    await expect(settled).resolves.toBeUndefined();
+    expect(onLate).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a correction that answers inside the grace, without calling onLate', async () => {
+    vi.useFakeTimers();
+    const onLate = vi.fn();
+    const correction = [{ from: 'giao', to: 'dao' }] as never;
+    const correcting = new Promise<typeof correction>((resolve) =>
+      setTimeout(() => resolve(correction), 10),
+    );
+
+    const settled = settleCorrections(correcting, onLate);
+    await vi.advanceTimersByTimeAsync(20);
+
+    await expect(settled).resolves.toBe(correction);
+    expect(onLate).not.toHaveBeenCalled();
+  });
+
+  it('does not call onLate for a check that answered nothing in time', async () => {
+    vi.useFakeTimers();
+    const onLate = vi.fn();
+
+    const settled = settleCorrections(Promise.resolve(undefined), onLate);
+    await vi.advanceTimersByTimeAsync(0);
+
+    await expect(settled).resolves.toBeUndefined();
+    expect(onLate).not.toHaveBeenCalled();
   });
 });

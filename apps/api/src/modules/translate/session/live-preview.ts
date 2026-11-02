@@ -239,6 +239,7 @@ export class LivePreview {
         // translates into (see `docs/system-architecture.md`).
         target,
         models: LIVE_TRANSLATION_MODELS,
+        purpose: 'live',
         onChunk: (delta, restart) => {
           // Behind the same opt-in as the settled transcript, and for the same
           // reason: a client parses server events against a strict union and

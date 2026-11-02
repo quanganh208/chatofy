@@ -45,6 +45,10 @@ export type {
   TtsVoice,
   TtsVoiceCatalog,
   TtsAudioStream,
+  LlmCallEvent,
+  LlmCallKind,
+  LlmCallListener,
+  LlmCallPurpose,
 } from './interfaces/index.js';
 
 export {

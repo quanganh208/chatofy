@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { LlmCallListener } from '../../interfaces/llm-call-event.js';
 import { ProviderConfigError, ProviderResponseError } from '../../errors/provider-errors.js';
 import { OpenAiCompatibleTranslationPolisher } from './openai-compatible-translation-polisher.js';
 
@@ -122,5 +123,53 @@ describe('OpenAiCompatibleTranslationPolisher', () => {
       (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string,
     );
     expect(body.messages[1].content.match(/<\/draft>/g)).toHaveLength(1);
+  });
+});
+
+describe('OpenAiCompatibleTranslationPolisher call reporting', () => {
+  const reporting = (onCall: LlmCallListener) =>
+    new OpenAiCompatibleTranslationPolisher({
+      apiKey: 'k',
+      baseUrl: 'https://host.example/v1/',
+      model: 'gpt-5.6-sol',
+      name: 'commandcode-polish',
+      onCall,
+    });
+
+  it('reports a polish with the token counts of the response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              choices: [{ message: { content: 'It is raining very heavily today.' } }],
+              usage: { prompt_tokens: 200, completion_tokens: 12 },
+            }),
+            { status: 200 },
+          ),
+      ),
+    );
+    const onCall = vi.fn<LlmCallListener>();
+
+    await reporting(onCall).polish(request);
+
+    expect(onCall).toHaveBeenCalledTimes(1);
+    expect(onCall.mock.calls[0]![0]).toMatchObject({
+      kind: 'polish',
+      host: 'commandcode-polish',
+      model: 'gpt-5.6-sol',
+      ok: true,
+      inputTokens: 200,
+      outputTokens: 12,
+    });
+  });
+
+  it('reports a refused polish as failed and still throws', async () => {
+    answer('no', 503);
+    const onCall = vi.fn<LlmCallListener>();
+
+    await expect(reporting(onCall).polish(request)).rejects.toBeInstanceOf(ProviderResponseError);
+    expect(onCall.mock.calls[0]![0]).toMatchObject({ kind: 'polish', ok: false });
   });
 });

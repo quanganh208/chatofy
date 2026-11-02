@@ -16,7 +16,9 @@ import type {
 } from '../../interfaces/translation-polisher.js';
 import { leaksForeignScript, toTargetScript } from '../../text/translation-script.js';
 import { stripTranscriptTags } from '../gemini/prompt-builder.js';
+import type { LlmCallListener } from '../../interfaces/llm-call-event.js';
 import { truncate } from '../http-util.js';
+import { emitLlmCall, promptHash, usageFields, type OpenAiUsage } from './llm-call-reporting.js';
 import { buildPolishInstruction, buildPolishUserMessage } from './translation-polish-prompt.js';
 
 /**
@@ -37,10 +39,13 @@ export interface OpenAiCompatibleTranslationPolisherConfig {
   extraBody?: Record<string, unknown>;
   maxOutputTokensField?: 'max_tokens' | 'max_completion_tokens';
   timeoutMs?: number;
+  /** Told about every request this polisher makes, after it settles. */
+  onCall?: LlmCallListener;
 }
 
 interface CompletionBody {
   choices?: { message?: { content?: string | null } }[];
+  usage?: OpenAiUsage | null;
 }
 
 export class OpenAiCompatibleTranslationPolisher implements TranslationPolisher {
@@ -51,6 +56,7 @@ export class OpenAiCompatibleTranslationPolisher implements TranslationPolisher 
   private readonly extraBody: Record<string, unknown>;
   private readonly maxOutputTokensField: 'max_tokens' | 'max_completion_tokens';
   private readonly timeoutMs: number;
+  private readonly onCall: LlmCallListener | undefined;
 
   constructor(config: OpenAiCompatibleTranslationPolisherConfig) {
     const apiKey = config.apiKey?.trim();
@@ -65,6 +71,7 @@ export class OpenAiCompatibleTranslationPolisher implements TranslationPolisher 
     this.extraBody = config.extraBody ?? {};
     this.maxOutputTokensField = config.maxOutputTokensField ?? 'max_tokens';
     this.timeoutMs = config.timeoutMs ?? POLISH_TIMEOUT_MS;
+    this.onCall = config.onCall;
   }
 
   async polish(req: TranslationPolishRequest): Promise<string | null> {
@@ -81,29 +88,48 @@ export class OpenAiCompatibleTranslationPolisher implements TranslationPolisher 
       ],
     };
 
-    let response: Response;
+    const started = Date.now();
+    let ok = false;
+    let usage: OpenAiUsage | null | undefined;
+    let content: string | null | undefined;
     try {
-      response = await fetch(this.endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(this.timeoutMs),
-      });
-    } catch (err) {
-      throw new ProviderConnectionError(`${this.name} ${this.model} polish failed`, err);
-    }
-    if (!response.ok) {
-      const detail = await response.text().catch(() => '');
-      throw new ProviderResponseError(
-        `${this.name} ${this.model} polish answered ${response.status}: ${truncate(detail)}`,
-        response.status,
-      );
-    }
+      let response: Response;
+      try {
+        response = await fetch(this.endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(this.timeoutMs),
+        });
+      } catch (err) {
+        throw new ProviderConnectionError(`${this.name} ${this.model} polish failed`, err);
+      }
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        throw new ProviderResponseError(
+          `${this.name} ${this.model} polish answered ${response.status}: ${truncate(detail)}`,
+          response.status,
+        );
+      }
 
-    const content = ((await response.json()) as CompletionBody).choices?.[0]?.message?.content;
+      const parsed = (await response.json()) as CompletionBody;
+      ok = true;
+      usage = parsed.usage;
+      content = parsed.choices?.[0]?.message?.content;
+    } finally {
+      emitLlmCall(this.onCall, {
+        kind: 'polish',
+        host: this.name,
+        model: this.model,
+        ms: Date.now() - started,
+        ok,
+        ...usageFields(usage),
+        promptHash: promptHash(this.model, body.messages),
+      });
+    }
     return this.accept(req, content ?? '');
   }
 

@@ -36,6 +36,7 @@ import {
   ProviderError,
   ProviderResponseError,
 } from '../../errors/provider-errors.js';
+import type { LlmCallListener } from '../../interfaces/llm-call-event.js';
 import type {
   TranslationProvider,
   TranslationRequest,
@@ -58,6 +59,13 @@ import {
   wrapTranscript,
 } from '../gemini/prompt-builder.js';
 import { StreamForwarder } from '../gemini/stream-forwarder.js';
+import {
+  emitLlmCall,
+  promptHash,
+  usageFields,
+  type OpenAiUsage,
+  type UsageFields,
+} from './llm-call-reporting.js';
 
 /**
  * How long one translation may take, in three bounds rather than one.
@@ -136,12 +144,28 @@ export interface OpenAiCompatibleTranslationConfig {
    * chosen rather than added.
    */
   maxOutputTokensField?: 'max_tokens' | 'max_completion_tokens';
+  /** Told about every request this provider makes, after it settles. */
+  onCall?: LlmCallListener;
+  /**
+   * Ask the host for token counts on the stream, with
+   * `stream_options: { include_usage: true }`.
+   *
+   * Opt-in per host because the field is an extension of the streaming API: a
+   * host that does not know it may reject the whole request, and only a probe
+   * against the live host says which kind it is.
+   */
+  reportStreamUsage?: boolean;
 }
 
 /** The slice of a chat-completions stream chunk this provider reads. */
 interface StreamChunk {
   choices?: { delta?: { content?: string | null }; finish_reason?: string | null }[];
+  /** On the last chunk, when `stream_options.include_usage` was asked for. */
+  usage?: OpenAiUsage | null;
 }
+
+/** The two messages one request sends, in the order it sends them. */
+type ChatMessages = [{ role: 'system'; content: string }, { role: 'user'; content: string }];
 
 export class OpenAiCompatibleTranslationProvider implements TranslationProvider {
   readonly name: string;
@@ -151,6 +175,8 @@ export class OpenAiCompatibleTranslationProvider implements TranslationProvider 
   private readonly extraBody: Record<string, unknown>;
   private readonly maxOutputTokens: number;
   private readonly maxOutputTokensField: 'max_tokens' | 'max_completion_tokens';
+  private readonly onCall: LlmCallListener | undefined;
+  private readonly reportStreamUsage: boolean;
 
   constructor(config: OpenAiCompatibleTranslationConfig) {
     const apiKey = config.apiKey?.trim();
@@ -178,6 +204,8 @@ export class OpenAiCompatibleTranslationProvider implements TranslationProvider 
     // Defaulted to the older name because that is what every host this has been
     // measured against accepts, OpenAI's own non-reasoning models included.
     this.maxOutputTokensField = config.maxOutputTokensField ?? 'max_tokens';
+    this.onCall = config.onCall;
+    this.reportStreamUsage = config.reportStreamUsage ?? false;
   }
 
   async translate(req: TranslationRequest): Promise<TranslationResult> {
@@ -207,12 +235,23 @@ export class OpenAiCompatibleTranslationProvider implements TranslationProvider 
       .filter((part): part is string => Boolean(part))
       .join('\n\n');
 
+    const messages: ChatMessages = [
+      { role: 'system', content: instruction },
+      { role: 'user', content: user },
+    ];
     const ladder = this.ladderFor(req.models);
     let lastError: unknown;
     for (const model of ladder) {
+      // Reported per model tried, because each attempt is a request the host
+      // may bill, and a ladder walk that fails twice before answering cost
+      // three of them.
+      const started = Date.now();
       try {
-        return await this.generate(model, instruction, user, req.onChunk);
+        const { result, usage } = await this.generate(model, messages, req.onChunk);
+        this.report(req, model, messages, started, true, usage);
+        return result;
       } catch (err) {
+        this.report(req, model, messages, started, false, {});
         lastError = err;
         // Only a busy or broken HOST says anything about the next model being
         // worth trying. A rejected key, a malformed request or an unusable body
@@ -265,21 +304,18 @@ export class OpenAiCompatibleTranslationProvider implements TranslationProvider 
    */
   private async generate(
     model: string,
-    systemInstruction: string,
-    user: string,
+    messages: ChatMessages,
     onChunk?: (delta: string, restart: boolean) => void,
-  ): Promise<TranslationResult> {
+  ): Promise<{ result: TranslationResult; usage: UsageFields }> {
     const body = {
       // Caller extensions first, so a vendor flag can never silently replace
       // the fields this provider depends on to work at all.
       ...this.extraBody,
       model,
       stream: true,
+      ...(this.reportStreamUsage ? { stream_options: { include_usage: true } } : {}),
       [this.maxOutputTokensField]: this.maxOutputTokens,
-      messages: [
-        { role: 'system', content: systemInstruction },
-        { role: 'user', content: user },
-      ],
+      messages,
     };
 
     const { response, chunks, discard } = await fetchStreamWithDeadlines(
@@ -315,6 +351,7 @@ export class OpenAiCompatibleTranslationProvider implements TranslationProvider 
 
     let translated = '';
     let reason: string | undefined;
+    let usage: OpenAiUsage | null | undefined;
     // One forwarder per attempt, so a retry on the next model announces its own
     // restart rather than appending to what the abandoned attempt showed.
     const forwarder = onChunk ? new StreamForwarder(onChunk) : null;
@@ -331,6 +368,9 @@ export class OpenAiCompatibleTranslationProvider implements TranslationProvider 
         buffered = buffered.slice(cut + 1);
         const event = parseEventLine(line);
         if (!event) continue;
+        // Usage rides the last chunk: DeepSeek puts it on the final content
+        // chunk, OpenAI on a trailing chunk with an empty `choices`.
+        if (event.usage) usage = event.usage;
         translated += event.choices?.[0]?.delta?.content ?? '';
         reason ??= event.choices?.[0]?.finish_reason ?? undefined;
         forwarder?.push(translated);
@@ -348,7 +388,27 @@ export class OpenAiCompatibleTranslationProvider implements TranslationProvider 
         }`,
       );
     }
-    return { text: translated, model };
+    return { result: { text: translated, model }, usage: usageFields(usage) };
+  }
+
+  private report(
+    req: TranslationRequest,
+    model: string,
+    messages: ChatMessages,
+    started: number,
+    ok: boolean,
+    usage: UsageFields,
+  ): void {
+    emitLlmCall(this.onCall, {
+      kind: 'translate',
+      ...(req.purpose === undefined ? {} : { purpose: req.purpose }),
+      host: this.name,
+      model,
+      ms: Date.now() - started,
+      ok,
+      ...usage,
+      promptHash: promptHash(model, messages),
+    });
   }
 }
 

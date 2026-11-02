@@ -1,4 +1,5 @@
 // TranslationProvider contract — text-to-text translation (e.g. GPT-4o, DeepL)
+import type { LlmCallPurpose } from './llm-call-event.js';
 import type { GlossaryEntry, LanguageCode, ProviderConfig } from './provider-types.js';
 
 export type { GlossaryEntry };
@@ -139,6 +140,14 @@ export interface TranslationRequest {
    * replacement for it — a caller may ignore it entirely and lose nothing.
    */
   onChunk?: (delta: string, restart: boolean) => void;
+  /**
+   * Which lane of the turn asked: a provisional preview, a speculative guess,
+   * the final answer, a script retry or a block retranslation.
+   *
+   * Logged only, so the cost of each lane can be counted. A provider must not
+   * behave differently because of it.
+   */
+  purpose?: LlmCallPurpose;
 }
 
 export interface TranslationResult {

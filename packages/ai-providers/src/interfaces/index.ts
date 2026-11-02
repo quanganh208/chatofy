@@ -7,6 +7,12 @@ export type {
 } from './realtime-provider.js';
 export type { DisplayRestoreOptions, DisplayRestorer } from './display-restorer.js';
 export type {
+  LlmCallEvent,
+  LlmCallKind,
+  LlmCallListener,
+  LlmCallPurpose,
+} from './llm-call-event.js';
+export type {
   HomophoneRepairRequest,
   LoanwordProposal,
   LoanwordRespellRequest,
