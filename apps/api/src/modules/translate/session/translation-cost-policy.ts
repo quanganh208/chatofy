@@ -5,12 +5,13 @@ import type { Env } from '../../../config/env.schema';
  * How much a turn is allowed to spend on paid model calls beyond its one
  * final translation.
  *
- * Each knob was added because the replay baseline
- * (`plans/reports/benchmark-261102-1151-call-budget-baseline.md`, 10.4 calls a
- * turn) showed its lane spending at least a fifth of the calls. The defaults
- * are the combination a replay arm measured at 5.7 calls a turn with the same
- * final-translation inputs
- * (`plans/reports/benchmark-261102-1421-call-budget-cut-arms.md`).
+ * Each knob was added because the replay baseline on prod recordings (10.4
+ * calls and about 6,930 billed tokens a turn) showed its lane spending at
+ * least a fifth of the calls: overlapping speculation wasted 27.8% of
+ * translate calls and live previews were 31.2% of all calls. The defaults are
+ * the combination a replay arm measured at 5.7 calls (54% of baseline) and 59%
+ * of the tokens a turn, with the same final-translation inputs and p50 within
+ * 5%. The record is in `docs/development-journey.md` ("A cheaper turn…").
  */
 export interface TranslationCostPolicy {
   /**

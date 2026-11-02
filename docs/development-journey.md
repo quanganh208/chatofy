@@ -2590,7 +2590,7 @@ Still owed: the gate-on run at full volume (the phone was in use), barge-in at t
 
 ## A cheaper turn, and a conversation digest measured and not built (02/11/2026)
 
-Prod spent 10.43 cloud LLM calls per turn. Speculative overlap and the homophone check bought little: 20 homophone calls yielded 1 accepted repair. Three cost knobs replayed on prod recordings set the new defaults: speculation overlap off, homophones off, live commit scale 3. The result is 5.67 calls/turn (54% of baseline) and 59% of tokens, at a p50 latency of 105% (PRs #280, #283; `plans/reports/benchmark-261102-1421-call-budget-cut-arms.md`).
+Prod spent 10.43 cloud LLM calls per turn. Speculative overlap and the homophone check bought little: 20 homophone calls yielded 1 accepted repair. Three cost knobs replayed on prod recordings set the new defaults: speculation overlap off, homophones off, live commit scale 3. The result is 5.67 calls/turn (54% of baseline) and 59% of tokens, at a p50 latency of 105% (PRs #280, #283). Overlapping speculation had wasted 27.8% of translate calls and live previews were 31.2% of all calls; every final translation in the cut arm got the same input as the baseline.
 
 The same plan proposed a rolling conversation digest. It would remember the terms and topic of a conversation and feed them into each later turn's prompt. Before writing it, an oracle measured a perfect digest built from the corpus itself. The corpus was three recorded conversations, 79 turns plus 11 anchoring controls, and each arm ran 3 repeats on DeepSeek (540 calls). The user chose not to write references, so the run scored terms only.
 
@@ -2603,4 +2603,4 @@ The same plan proposed a rolling conversation digest. It would remember the term
 
   A recurring term matched by its text cannot tell its sense, and word boundaries would not fix these cases.
 
-Verdict NO-GO: the digest was not built. `deepseek-flash` already keeps names consistent from the turn and its four-utterance context. A glossary adds little where the model is right and hurts where a term recurs in another sense. Revisiting it would need a sense-aware match, which is a new design. The tooling stays in `benchmarks/conversation-context/`, and the report is `plans/reports/benchmark-261102-1702-conversation-context-oracle.md`.
+Verdict NO-GO: the digest was not built. `deepseek-flash` already keeps names consistent from the turn and its four-utterance context. A glossary adds little where the model is right and hurts where a term recurs in another sense. Revisiting it would need a sense-aware match, which is a new design. The tooling stays in `benchmarks/conversation-context/`. The plan and its reports were removed with the `plans/` tree; they remain in git history before the commit that retired them.
