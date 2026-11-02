@@ -25,6 +25,7 @@ const FIXTURE = [
   llm({ kind: 'polish', in: 200, out: 20, h: 'eeeeeeee' }),
   nest('PipelineTranslatorService', 'homophones(commandcode) 2350ms accepted=1'),
   nest('PipelineTranslatorService', 'correction late, dropped'),
+  nest('PipelineTranslatorService', 'fusion(deepseek) 512ms accepted=2'),
   nest(
     'TurnMetricsRecorder',
     'turn t1 ok (voice_off) firstAudio=900ms translated=900ms clauses=1 speculation=hit/2 live=1',
@@ -40,6 +41,10 @@ const FIXTURE = [
   nest(
     'TurnMetricsRecorder',
     'turn t1 client outcome=played captured=2000ms held=0ms cut=hangover echo=0',
+  ),
+  nest(
+    'TurnMetricsRecorder',
+    'turn t2 client outcome=played captured=8000ms held=0ms cut=forced echo=0',
   ),
 ].join('\n');
 
@@ -85,4 +90,16 @@ test('parses an llm line with missing counts as undefined', () => {
   assert.equal(call.purpose, undefined);
   assert.equal(call.in, undefined);
   assert.equal(call.ok, false);
+});
+
+test('counts fusion corrections and splits guesses by how the turn ended', () => {
+  const result = analyze(FIXTURE);
+  assert.equal(result.fusionLines, 1);
+  assert.equal(result.fusionAccepted, 2);
+  assert.deepEqual(result.guessesByCut, {
+    hangover: { 'hit/2': 1 },
+    forced: { 'miss/1': 1 },
+    unknown: { 'miss/0': 1 },
+  });
+  assert.match(render(result), /^guesses on forced turns: miss\/1×1$/m);
 });

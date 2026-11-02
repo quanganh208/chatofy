@@ -57,16 +57,29 @@ The shares at or above 20% are live, homophones and speculation. Homophones and 
 
 The pilot was one run of an earlier version of the tool, without `repairDisplay` and without block requests, on the proxy before the window ran out. It measured 6.27 calls per turn and 4,927 billed tokens per turn. Polish was 19 calls, 0.23 per turn, about 8.1k of about 395k tokens. These numbers are kept only as the measurement of polish.
 
-## Cut candidates (gates from Phase 03)
+## Cut candidates (gates from Phase 03, amended with kongming counsel)
 
-| Knob                                    | Gate                                                                    | Baseline                                             | Verdict        |
-| --------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------- | -------------- |
-| K1 max speculations                     | always                                                                  | hits at index ≤ 2 to be checked per turn in Phase 03 | implement      |
-| K2 no overlapping speculation           | wasted ≥ 20% of translate calls                                         | 27.8%                                                | **implement**  |
-| K3 no transcript checks on speculations | (homophones + fusion) ≥ 20% of calls, and accepted ≤ 10% of their calls | 35.6%; about 10 accepted of about 300 (≈ 3%)         | **implement**  |
-| K4 fewer live previews                  | live ≥ 20% of calls                                                     | 31.2%                                                | **implement**  |
-| K5 prompt memo                          | duplicates ≥ 10% of translate calls                                     | 7.0%                                                 | skip: 7.0 < 10 |
-| Polish                                  | ≥ 30% of billed tokens → ask the user                                   | about 2% (pilot)                                     | no action      |
+Recounted from the same three log windows, at no cost. Two numbers changed the gates.
+
+- **Fusion is the most useful call in the budget:** 93–97 answered per run, 57–59 accepted (61%). Homophones: 203–204 answered, 8–11 accepted (4.9%). So the combined "(homophones + fusion) accepted ≤ 10%" gate fails at about 22%. Homophones alone pass it.
+- **Guesses split cleanly by how the turn ended** (totals over 3 runs, 243 turns):
+  - **Hangover turns (90):** the speaker ended them, and every one hits: index 1 ×36, 2 ×36, 3 ×9, 4 ×9.
+  - **Ceiling-cut turns (153):** they almost always miss: hit 3 ×12; miss 1 ×36, 2 ×45, 3 ×21, 4 ×39.
+  - About 115 of each run's 150 wasted guesses are on ceiling-cut turns.
+  - The cause is structural. The speech gate arms a guess at 6.5 s while the speaker is still talking (`speech-gate.ts` `armIfDue`). The cut then flushes more audio, so the guess can never match the end bytes. The 12 hits arm and cut in the same block, so they buy no head start.
+
+| Knob                                       | Gate                                      | Baseline                                        | Verdict                                                                                                                                                   |
+| ------------------------------------------ | ----------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| K1 max speculations                        | arm value = 95th-percentile hit index     | 4 even on hangover turns (72/90 ≤ 2, 81/90 ≤ 3) | skip: equals the default                                                                                                                                  |
+| K2 no overlapping speculation              | wasted ≥ 20% of translate calls           | 27.8%                                           | **implement**; judge on calls and p50 together, because a blocked would-be hit becomes a final                                                            |
+| K3 no transcript checks on speculations    | (homophones + fusion) accepted ≤ 10%      | about 22%                                       | **fails**                                                                                                                                                 |
+| K3h no **homophone** check on speculations | homophones ≥ 20% of calls, accepted ≤ 10% | 24.3%, 4.9%                                     | **implement**; hit turns lose about 3–4 homophone corrections per 81 turns                                                                                |
+| K4 fewer live previews                     | live ≥ 20% of calls                       | 31.2%                                           | **implement**; report live previews per turn beside p50                                                                                                   |
+| K5 prompt memo                             | duplicates ≥ 10% of translate calls       | 7.0%                                            | skip                                                                                                                                                      |
+| Polish                                     | ≥ 30% of billed tokens                    | about 2% (pilot)                                | no action                                                                                                                                                 |
+| K6 no guess at the 6.5 s arm               | not in the plan                           | about 47 wasted guesses/run, about 11% of calls | **proposed follow-up**: a client change in `packages/realtime-client` that reverses a documented design claim. Raised with the user at Phase 04 Task 4.0. |
+
+Bias to keep in mind: 51 of 81 replay turns are ceiling cuts. That matches the owner's prod sessions, but it inflates live previews and in-turn guesses compared with short-turn speech. Phase 04 arms must run on the same host as this baseline (DeepSeek direct, polish absent).
 
 Run consumption, all measured from the log lines:
 
