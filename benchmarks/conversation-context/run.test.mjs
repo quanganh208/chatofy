@@ -76,3 +76,15 @@ test('an unfinished corpus is refused with every reason', () => {
   );
   assert.equal(problems.length, 5);
 });
+
+test('a terms-only corpus needs no reference but still needs finished terms', () => {
+  const problems = corpusProblems(
+    [
+      { ...turn(1, 'x', [{ source: 'A', mustMatch: 'A', target: 'A' }]), reference: null },
+      { ...turn(2, 'y', [{ source: 'B', mustMatch: null, target: 'B' }]), reference: null },
+    ],
+    [{ conv: 'c', domain: 'demo' }],
+    { needDomain: true, needReference: false },
+  );
+  assert.deepEqual(problems, ['c#2: terms[0] (B) has no mustMatch; fill it or delete the term']);
+});

@@ -146,8 +146,14 @@ export function verdict({ termCi, gainLate, gainEarly, flipsArm, flipsBase }) {
 function chrfMetric(runs) {
   const pairs = [];
   for (const rows of runs) {
-    for (const row of rows)
+    for (const row of rows) {
+      if (typeof row.reference !== 'string' || !row.reference.trim()) {
+        throw new Error(
+          `${row.conv}#${row.pos} has no reference; score a terms-only run with --no-chrf`,
+        );
+      }
       pairs.push({ hyp: row.error ? '' : row.hypothesis, ref: row.reference });
+    }
   }
   const run = spawnSync(
     'uv',

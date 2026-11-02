@@ -40,6 +40,8 @@ A third arm, `digest`, is reserved for the real digest and is refused until it e
 
    Results go to `results/<arm>-r<k>/rows.jsonl` (gitignored).
 
+   **Terms-only corpus.** The verdict below reads only term accuracy and anchoring flips, not the references. A corpus with no `reference` can still run with `--terms-only`, which skips the reference check. Score it with `--no-chrf`. Its terms, controls and domains must still be finished, and a reference, when present, must still be a person's words.
+
 5. **Score.** This needs `uv`; sacrebleu is fetched on demand for chrF++. Pass `--no-chrf` to skip it.
 
    ```bash
