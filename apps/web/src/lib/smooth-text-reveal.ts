@@ -115,7 +115,9 @@ export function needsFrame(state: RevealState): boolean {
 
 /** Graphemes of the target not yet on screen. */
 export function backlog(state: RevealState): number {
-  if (!state.target.startsWith(state.shown)) return graphemes(state.target).length;
+  // Invariant: `shown` is always a grapheme prefix of `target`. Every writer
+  // keeps it — `retarget` (clear, hold, substitute), the idle release, a frame,
+  // and the hook's snap — so the remainder is simply what follows it.
   return graphemes(state.target.slice(state.shown.length)).length;
 }
 

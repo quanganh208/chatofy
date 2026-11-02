@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act } from 'react';
+import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSmoothTextReveal } from './use-smooth-text-reveal';
@@ -129,6 +129,33 @@ describe('useSmoothTextReveal', () => {
     advance(1000);
     render('Hello', true);
     expect(probe()).toBe('Hello my friend');
+  });
+
+  it('types again once a hidden document is visible', () => {
+    render('xin chào');
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(probe()).toBe('xin chào');
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    render('xin chào các bạn');
+    expect(probe()).toBe('xin chào');
+    advance(1000);
+    expect(probe()).toBe('xin chào các bạn');
+  });
+
+  it('reveals the whole line under StrictMode and leaves nothing scheduled', () => {
+    act(() => {
+      root.render(
+        <StrictMode>
+          <Probe target="xin chào bạn" />
+        </StrictMode>,
+      );
+    });
+    advance(1000);
+    expect(probe()).toBe('xin chào bạn');
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('leaves no frame pending after unmounting mid-reveal', () => {
