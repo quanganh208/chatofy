@@ -22,6 +22,15 @@ export interface TurnPolishInput {
   sourceText: string;
   source: LanguageCode;
   translations: TranslationMap;
+  /**
+   * What was said before this turn, oldest first. The pass needs it for the
+   * errors it exists to catch: measured on prod turns, "ai" is read as "AI"
+   * rather than "whoever" only from the turns around it, and with context the
+   * vi→en turns carrying a serious translation error fell from 9.2% to 1.3%
+   * (`benchmarks/translation-judge`, review arms). That replay ran the pass on
+   * `deepseek-v4-pro`; the model prod polishes with is not yet measured.
+   */
+  context?: readonly string[];
 }
 
 /**
@@ -83,6 +92,7 @@ export class TurnPolisher {
             draft,
             sourceLanguage: input.source,
             targetLanguage: target,
+            ...(input.context?.length ? { context: [...input.context] } : {}),
           })
           .then((text): [LanguageCode, string | null] => [target, text]),
       );

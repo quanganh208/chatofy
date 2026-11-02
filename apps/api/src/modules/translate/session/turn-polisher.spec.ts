@@ -105,6 +105,19 @@ describe('TurnPolisher', () => {
     ).resolves.toEqual([]);
   });
 
+  it('passes the earlier turns to every target, and no context when there is none', async () => {
+    const polisher = polisherAnswering({ en: null, zh: null });
+    await run(polisher, false, { context: ['Hôm nay nói về AI'] });
+    await run(polisher, false, { context: [] });
+    const asked = polisher.polish.mock.calls.map(([req]) => req.context);
+    expect(asked).toEqual([
+      ['Hôm nay nói về AI'],
+      ['Hôm nay nói về AI'],
+      undefined,
+      undefined,
+    ]);
+  });
+
   it('skips empty drafts', async () => {
     const polisher = polisherAnswering({ en: 'better' });
     await run(polisher, false, { translations: { en: 'x', zh: '  ' } });
