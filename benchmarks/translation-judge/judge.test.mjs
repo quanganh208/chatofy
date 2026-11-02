@@ -9,6 +9,8 @@ import { pendingCalls } from './judge.mjs';
 import { KINDS, RULES, perturbRows, pickCandidates, wordError } from './perturb.mjs';
 import { bootstrap, judgedTurns, stats, verdict } from './score.mjs';
 import { judgeRows, mediaMs } from './export-conversations.mjs';
+import { armRow, costOf, polishRequest } from './review-arms.mjs';
+import { pairTurns, pairedBootstrap, pairedStats, percentile } from './compare.mjs';
 
 const err = (origin, severity = 'major', category = 'mistranslation') => ({
   span: 'x',
@@ -255,4 +257,82 @@ test('recorded spend sums every run under the results root', async () => {
   }
   mkdirSync(join(root, 'empty'));
   assert.equal(recordedSpend(root), 1.75);
+});
+
+const corpusRow = (over = {}) => ({
+  conv: 'c1',
+  pos: 2,
+  direction: 'vi_to_en',
+  source: 'Ai sẽ thay thế lập trình viên',
+  translation: 'Whoever will replace programmers',
+  context: [
+    { source: 'Hôm nay nói về AI', translation: 'Today we talk about AI' },
+    { source: '', translation: '' },
+  ],
+  ...over,
+});
+
+test('a review arm asks the prod polisher with or without the earlier sources', () => {
+  const blind = polishRequest(corpusRow(), 1);
+  assert.deepEqual(blind, {
+    source: 'Ai sẽ thay thế lập trình viên',
+    draft: 'Whoever will replace programmers',
+    sourceLanguage: 'vi',
+    targetLanguage: 'en',
+  });
+  assert.deepEqual(polishRequest(corpusRow(), 2).context, ['Hôm nay nói về AI']);
+});
+
+test('a declined or failed polish leaves the stored line, marked as not rewritten', () => {
+  const kept = armRow(corpusRow(), 2, { text: null, ms: 900, costUsd: 0.001 });
+  assert.equal(kept.translation, 'Whoever will replace programmers');
+  assert.equal(kept.rewritten, false);
+  const failed = armRow(corpusRow(), 2, { error: 'timeout', ms: 8000, costUsd: 0 });
+  assert.equal(failed.rewritten, false);
+  assert.equal(failed.failed, 'timeout');
+  const edited = armRow(corpusRow(), 2, {
+    text: 'AI will replace programmers',
+    ms: 1200,
+    costUsd: 0,
+  });
+  assert.equal(edited.translation, 'AI will replace programmers');
+  assert.equal(edited.rewritten, true);
+});
+
+test('reviewer cost uses the conservative per-token price', () => {
+  assert.equal(costOf(1_000_000, 0), 1.74);
+  assert.equal(costOf(undefined, undefined), 0);
+});
+
+test('a paired comparison keeps the baseline judgement for turns the arm left alone', () => {
+  const mtErr = ans(err('mt'));
+  const clean = ans();
+  const base = new Map([
+    ['c1#0', [mtErr, mtErr, clean]],
+    ['c1#1', [clean, clean, clean]],
+    ['c2#0', [mtErr, mtErr, mtErr]],
+    ['c2#1', [clean, clean, clean]],
+  ]);
+  const arm = new Map([
+    ['c1#0', [clean, clean, mtErr]],
+    ['c1#1', [mtErr, mtErr, clean]],
+  ]);
+  const rows = [
+    { conv: 'c1', pos: 0, direction: 'vi_to_en', rewritten: true, ms: 100 },
+    { conv: 'c1', pos: 1, direction: 'vi_to_en', rewritten: true, ms: 200 },
+    { conv: 'c2', pos: 0, direction: 'vi_to_en', rewritten: false, ms: 300 },
+    { conv: 'c2', pos: 1, direction: 'vi_to_en', rewritten: true, ms: 400 },
+  ];
+  const { turns, missing } = pairTurns(rows, base, arm);
+  assert.equal(missing, 1, 'a rewritten turn without arm judgements is counted, not scored');
+  assert.equal(turns.length, 3);
+  const point = pairedStats(turns);
+  assert.equal(point['base:mt'], 2 / 3);
+  assert.equal(point['arm:mt'], 2 / 3);
+  assert.equal(point['fixed:mt'], 1);
+  assert.equal(point['broken:mt'], 1);
+  assert.equal(point['diff:mt'], 0);
+  const ci = pairedBootstrap(turns, 200);
+  assert.ok(ci.mt[0] <= 0 && ci.mt[1] >= 0);
+  assert.equal(percentile([300, 100, 200], 0.95), 300);
 });

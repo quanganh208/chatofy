@@ -87,6 +87,27 @@ node calibrate.mjs --clean results/cal-clean-<model> --perturbed results/cal-bro
 - **Spend:** $8.63.
 - **Report:** `plans/reports/benchmark-261102-1911-translation-judge-ruler.md`.
 
+## Review arms: testing a second pass before it ships
+
+An arm replays the prod polisher (`OpenAiCompatibleTranslationPolisher` and its prompt, imported from `@chatofy/ai-providers`, so build it first) over the corpus. The judge then grades only the lines the arm rewrote. A line it left alone keeps the baseline judgement, because judging identical text again would only add the judge's noise.
+
+```bash
+pnpm --filter @chatofy/ai-providers build
+node review-arms.mjs --arm 2                        # 1: no context (prod before), 2: earlier turns as context
+node -e "…keep rows with rewritten: true…" > data/arms/arm-2-rewritten.jsonl
+node judge.mjs --in data/arms/arm-2-rewritten.jsonl --out results/arm2-<reviewer>-claude-opus-5-5 \
+  --model claude-opus-5-5 --effort high --repeats 3 --limit-calls <3 × rows>
+node compare.mjs --base results/full-claude-opus-5-5 --arm results/arm2-<reviewer>-claude-opus-5-5 \
+  --arm-turns data/arms/arm-2-deepseek-v4-pro.jsonl
+```
+
+- **Billing:** the reviewer bills `OPENAI_COMPATIBLE_API_KEY`, which is the DeepSeek key prod translates with. The rig refuses to start under a $1.00 balance and stops at `--budget-usd` (default $0.50).
+- **Result (2026-11-02, reviewer `deepseek-v4-pro`):**
+  - vi→en turns with a serious `mt` error: 23.7% stored, 9.2% with the polisher and no context, **1.3% with context** (−22.4 points, interval [−40.4, −11.6]);
+  - en→vi: not hurt;
+  - CometKiwi: 0.753 → 0.768.
+- **Report:** `plans/reports/benchmark-261102-2130-vi-en-review-arms.md`.
+
 ## Recordings and consent
 
 **Recorded 2026-11-02.** The 18 recordings are conversations from the maintainer's own Chatofy account. Some are the maintainer speaking; others are podcasts and videos played into the microphone, so those voices belong to their publishers. The maintainer approved sending all of them to ElevenLabs Scribe, and their transcripts and translations to the LLM judge (Gemini, then Claude on the Anthropic API), for this benchmark (2026-11-02). Nothing under `data/` or `results/` is committed: both are gitignored.
