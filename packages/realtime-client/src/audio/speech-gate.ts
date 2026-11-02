@@ -38,6 +38,8 @@ const SPEECH_HANGOVER_MS = 500;
  * It used to take one guess per turn: measured over 32 synthesized Vietnamese
  * turns that survived only 19, and the gap was large — 870ms to first audio
  * when it held, 1760ms when it did not. See `capture-pump.replay.spec.ts`.
+ * That is a property of turns the speaker ends; a turn the ceiling cuts gets
+ * no guess at all, for the reason on {@link SpeechGate.armIfDue}.
  *
  * Every guess costs a translation request against a per-model per-minute
  * ceiling and all but the last are discarded, which is why this is not lowered
@@ -340,27 +342,30 @@ export class SpeechGate {
   /**
    * Enter the window where the next pause of {@link CUT_MIN_QUIET_MS} ends the turn.
    *
-   * Arming is also where the head start is bought. `onProbableEnd` is what tells
-   * the server to begin transcribing early, and it otherwise fires only after
-   * {@link PROBABLE_END_MS} of silence — which a forced cut never reaches, because
-   * it happens while the speaker is still going. Without this, every cut turn
-   * would pay the full price at the endpoint instead: measured on this repo,
-   * first audio moves from ~870ms to ~1760ms when the guess is lost. It also holds
-   * the turn's slot open longer, pushing the system into the concurrency ceiling.
+   * Arming asks for NO speculative guess, and that is measured. It used to fire
+   * `onProbableEnd` here, so that a turn the ceiling cuts would get a head start
+   * too. The guess can never be the answer:
+   * - arming happens while the speaker is still going, so the speech after it
+   *   reaches the server and the turn's end carries more audio than the guess
+   *   heard, which makes the server refuse to reuse it;
+   * - no later guess can follow, because the cut lands on a pause of
+   *   {@link CUT_MIN_QUIET_MS}, shorter than the {@link PROBABLE_END_MS} a guess
+   *   needs.
    *
-   * Fires once per turn, since {@link armed} is only set once and `reset()` is the
-   * only way back.
+   * Replayed through the API (`benchmarks/call-budget`, 2026-11-02), 141 of 153
+   * ceiling-cut turns missed. The 12 that hit armed and cut on the same block,
+   * so they started no earlier than a final would. Every one of those guesses was
+   * a transcription, a translation and a homophone check paid for nothing.
+   *
+   * {@link probableEndFired} is still set, so the silence run this may be sitting
+   * in does not fire the guess a moment later instead.
    */
   private armIfDue(): void {
     if (this.armed || !this.hasCeiling) return;
     if (this.utteranceMs < this.maxUtteranceMs - this.cutLookaheadMs) return;
 
     this.armed = true;
-    // Suppresses an immediate second call from the silence run this may be
-    // sitting in; a later run resets it and may legitimately renew the guess,
-    // which the server is built to accept.
     this.probableEndFired = true;
-    this.handlers.onProbableEnd?.();
   }
 
   private cut(): void {

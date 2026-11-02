@@ -107,6 +107,21 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
    The guesses that miss are not free: 35 turns cost 45 translation requests,
    a 22% overhead against a per-model per-minute ceiling.
 
+   A turn the 8 s ceiling cuts asks for no guess. The client used to make one
+   when it armed the cut, 1.5 s before the ceiling, while the speaker was still
+   going. That guess could never be the answer:
+   - the speech after arming reaches the server, so the turn's end carries more
+     audio than the guess heard;
+   - the cut then lands on a 100 ms pause, too short for the 150 ms a second
+     guess needs.
+
+   Replayed through the API on 2026-11-02 (`benchmarks/call-budget`), 141 of
+   153 cut turns missed. The 12 that hit armed and cut on the same block, so they
+   started no earlier than a final would. Since then a cut turn speculates only
+   at the pauses it had before arming, as any turn does
+   (`SpeechGate.armIfDue`). The 870 ms above is a figure for turns the speaker
+   ends.
+
 4. **`client.session.end`** → the turn runs:
    - Buffered frames get a WAV header (`encodePcm16Wav`) — the STT sidecar
      decodes with PyAV, which opens a container and cannot read raw samples

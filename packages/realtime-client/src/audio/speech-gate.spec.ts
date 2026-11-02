@@ -201,28 +201,34 @@ describe('SpeechGate', () => {
       expect(handlers.onSpeechEnd).not.toHaveBeenCalled();
     });
 
-    // A forced cut happens while the speaker is still going, so the silence-based
-    // onProbableEnd never fires — and without a head start the cut turn pays the
-    // full endpoint price. Measured on this repo: ~870ms to first audio when the
-    // guess survives, ~1760ms when it does not.
-    it('buys the head start once per cut turn, at the arm mark', () => {
+    // A guess at the arm mark is made while the speaker is still going, so the
+    // cut turn always ends on more audio than it heard and the server cannot use
+    // it; replayed through the API, 141 of 153 cut turns missed. See `armIfDue`.
+    it('asks no guess at the arm mark of a turn the ceiling cuts', () => {
       const { handlers, events, feed } = harness(CEILING);
 
       feed(LOUD, 9000);
 
-      expect(handlers.onProbableEnd).toHaveBeenCalledTimes(1);
-      // Before the cut, or the server has nothing to start early on.
-      expect(events.indexOf('probableEnd')).toBeLessThan(events.indexOf('end:forced'));
+      expect(events).toContain('end:forced');
+      expect(handlers.onProbableEnd).not.toHaveBeenCalled();
     });
 
-    it('arms each new turn afresh, so every cut turn gets its own head start', () => {
+    it('arms each new turn afresh and still asks no guess in continuous speech', () => {
       const { handlers, feed } = harness(CEILING);
 
       feed(LOUD, 24_000);
 
-      const cuts = handlers.onSpeechEnd.mock.calls.length;
-      expect(cuts).toBeGreaterThanOrEqual(2);
-      expect(handlers.onProbableEnd.mock.calls.length).toBeGreaterThanOrEqual(cuts);
+      expect(handlers.onSpeechEnd.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(handlers.onProbableEnd).not.toHaveBeenCalled();
+    });
+
+    it('still guesses at a real pause before the arm mark', () => {
+      const { handlers, feed } = harness(CEILING);
+
+      feed(LOUD, 2000);
+      feed(QUIET, 300);
+
+      expect(handlers.onProbableEnd).toHaveBeenCalledTimes(1);
     });
 
     // The ceiling counts wall time in the turn, pauses included: a pause delays
