@@ -33,7 +33,11 @@ import type { TurnMetrics, TurnMetricsRecorder } from './turn-metrics.recorder';
 import { encodePcm16Wav } from '../audio/wav-codec';
 import type { ConfigService } from '@nestjs/config';
 import { validateEnv, type Env } from '../../../config/env.schema';
-import { ProviderAbortedError } from '@chatofy/ai-providers';
+import {
+  ProviderAbortedError,
+  type TranslationPolishRequest,
+  type TranslationPolisher,
+} from '@chatofy/ai-providers';
 import type { SpeechLanguageSupport } from '../providers/speech-language-support';
 import {
   DeclaredLanguageIdentifier,
@@ -120,6 +124,8 @@ interface Harness {
    * single source equal to the pair's declared source.
    */
   identifier: LanguageIdentifier;
+  /** The second pass; `null` (the default) leaves every draft standing. */
+  polisher?: TranslationPolisher | null;
 }
 
 /** A ConfigService over what the schema makes of `values`, for the cost knobs. */
@@ -210,8 +216,9 @@ function makeService(
     failSynthesis: (err: unknown) => {
       throw err;
     },
-    // No second pass: these specs pin the turn, and the polish is its own spec.
-    makeTranslationPolisher: () => null,
+    // No second pass unless a spec asks for one: these specs pin the turn,
+    // and the polish is its own spec.
+    makeTranslationPolisher: () => overrides.polisher ?? null,
   } as unknown as PipelineTranslatorService;
   const metrics = {
     record: (m: TurnMetrics) => recorded.push(m),
@@ -3223,6 +3230,31 @@ describe('TranslationSessionService', () => {
       service.pushFrame(socket, frame({ sessionId }));
       await service.end(socket);
     };
+
+    it('hands the polish what was said before the turn, never the turn itself', async () => {
+      const { transcribeAndTranslate } = recording([
+        'Hôm nay nói về AI',
+        'Ai sẽ thay thế lập trình viên',
+      ]);
+      const asked: TranslationPolishRequest[] = [];
+      const polisher: TranslationPolisher = {
+        name: 'fake',
+        polish: (req) => {
+          asked.push(req);
+          return Promise.resolve(null);
+        },
+      };
+      const { service } = makeService({ transcribeAndTranslate, polisher });
+      const socket = new FakeSocket();
+
+      await runTurn(service, socket);
+      await runTurn(service, socket);
+
+      expect(asked.map((req) => req.context)).toEqual([
+        undefined,
+        ['Hôm nay nói về AI'],
+      ]);
+    });
 
     it('sends no context on the first turn of a connection', async () => {
       const { seen, transcribeAndTranslate } = recording(['Tôi đề ra']);

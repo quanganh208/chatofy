@@ -1063,6 +1063,10 @@ export class TranslationSessionService implements OnModuleDestroy {
       //
       // A transcript-only turn is not: it was translated against nothing, and
       // the turns that are translated read this list as their context.
+      //
+      // What came BEFORE this turn is read first: the polish below reads it as
+      // context, and must not be handed the very turn it is editing.
+      const earlier = this.context.recall(socket);
       if (session.languages.targets.length > 0) {
         for (const piece of split?.pieces ?? [translated]) {
           this.context.remember(
@@ -1132,7 +1136,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         }
 
         if (split) {
-          await this.emitPieces(socket, session, split, respellings);
+          await this.emitPieces(socket, session, split, respellings, earlier);
         } else {
           // Computed BEFORE the emit so the finished line arrives already typeset.
           // Reached only from this point — after a FINAL transcript, on the turn's
@@ -1172,6 +1176,7 @@ export class TranslationSessionService implements OnModuleDestroy {
             sourceText: translated.sourceText,
             source: session.languages.recognition,
             translations: translated.translations,
+            context: earlier,
           });
           this.rememberSegment(
             socket,
@@ -1572,6 +1577,8 @@ export class TranslationSessionService implements OnModuleDestroy {
     { pieces, vectors }: SplitTurn,
     /** Each piece's accepted respellings, by piece index. */
     respellings: readonly Respellings[],
+    /** What was said before this turn, for the polish; each piece adds its predecessors. */
+    earlier: readonly string[] = [],
   ): Promise<void> {
     const channel = this.channelFor(socket, session);
     const ids = pieces.map((_, index) => `${session.sessionId}#${index}`);
@@ -1613,6 +1620,10 @@ export class TranslationSessionService implements OnModuleDestroy {
         sourceText: piece.sourceText,
         source: session.languages.recognition,
         translations: piece.translations,
+        context: [
+          ...earlier,
+          ...pieces.slice(0, index).map((before) => before.sourceText),
+        ],
       });
       this.rememberSegment(
         socket,
