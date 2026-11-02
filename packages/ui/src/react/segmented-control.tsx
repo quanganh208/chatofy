@@ -39,6 +39,11 @@ export interface SegmentedOption<T extends string> {
 interface SegmentedControlProps<T extends string> {
   /** Shown above the group and announced as its name. */
   label: string;
+  /**
+   * Announce the label without drawing it, for a group whose place on screen
+   * already names it — a row beside the picker it qualifies.
+   */
+  labelHidden?: boolean;
   value: T;
   options: ReadonlyArray<SegmentedOption<T>>;
   disabled?: boolean;
@@ -77,6 +82,7 @@ const ARROWS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 
 export function SegmentedControl<T extends string>({
   label,
+  labelHidden = false,
   value,
   options,
   disabled,
@@ -139,7 +145,7 @@ export function SegmentedControl<T extends string>({
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <span className="text-foreground text-body font-medium">{label}</span>
+      {labelHidden ? null : <span className="text-foreground text-body font-medium">{label}</span>}
       <ToggleGroup
         ref={trackRef}
         type="single"

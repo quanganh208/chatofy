@@ -12,11 +12,13 @@ import {
   LanguageModeHint,
   PanelHeader,
   PanelHeaders,
+  SourceHeaderLanguage,
 } from '@/components/translate/panel-headers';
 import { TranscriptScroller } from '@/components/translate/transcript-scroller';
 import {
   effectiveStageAppearance,
   textSizeScale,
+  type ConversationMode,
   type TranslateSettings,
 } from '@/lib/translate-settings';
 import { readingSchemeClass, readingStyle } from '@/lib/reading-appearance';
@@ -44,6 +46,8 @@ interface TranscriptPanesProps {
   onSwap?: () => void;
   /** A language picked in a header, as the whole new pair. Not offered on the stage. */
   onLanguagePair?: (pair: SessionLanguagePair) => void;
+  /** The one-way / two-way choice, made in the source header. Not offered on the stage. */
+  onConversationMode?: (mode: ConversationMode) => void;
   /**
    * How the server ran the newest turn, for the source header's readout — see
    * `LanguageModeHint`. Null when no turn has said.
@@ -135,6 +139,7 @@ export function TranscriptPanes({
   stage = false,
   onSwap,
   onLanguagePair,
+  onConversationMode,
   voiceControl,
   stream,
   conversationLanguagePair,
@@ -187,11 +192,12 @@ export function TranscriptPanes({
           role={t('web.translate.languagePairSource')}
           hint={<LanguageModeHint mode={languageMode} />}
           language={
-            <HeaderLanguage
+            <SourceHeaderLanguage
               languagePair={settings.languagePair}
-              side="source"
               running={running}
               onLanguagePair={onLanguagePair}
+              conversationMode={settings.conversationMode}
+              onConversationMode={onConversationMode}
             />
           }
           end={
@@ -260,6 +266,8 @@ export function TranscriptPanes({
         running={running}
         onSwap={onSwap}
         onLanguagePair={onLanguagePair}
+        conversationMode={settings.conversationMode}
+        onConversationMode={onConversationMode}
         mode={languageMode}
         voiceControl={voiceControl}
       />

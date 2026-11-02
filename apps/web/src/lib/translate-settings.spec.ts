@@ -399,6 +399,23 @@ describe('asking for two-way', () => {
     expect(asksTwoWay({ source: 'vi', target: 'zh' })).toBe(false);
     expect(asksTwoWay({ source: 'detect', target: 'en' })).toBe(false);
   });
+
+  it('asks nothing when the reader chose one way', () => {
+    expect(asksTwoWay({ source: 'vi', target: 'en' }, 'one-way')).toBe(false);
+    expect(asksTwoWay({ source: 'vi', target: 'en' }, 'two-way')).toBe(true);
+    expect(asksTwoWay({ source: 'vi', target: 'zh' }, 'two-way')).toBe(false);
+  });
+
+  it('remembers the choice, and defaults to both ways', () => {
+    expect(DEFAULT_TRANSLATE_SETTINGS.conversationMode).toBe('two-way');
+    saveTranslateSettings({ ...DEFAULT_TRANSLATE_SETTINGS, conversationMode: 'one-way' });
+    expect(loadTranslateSettings().conversationMode).toBe('one-way');
+    localStorage.setItem(
+      TRANSLATE_SETTINGS_STORAGE_KEY,
+      JSON.stringify({ conversationMode: 'sideways' }),
+    );
+    expect(loadTranslateSettings().conversationMode).toBe('two-way');
+  });
 });
 
 describe('the reader appearance', () => {

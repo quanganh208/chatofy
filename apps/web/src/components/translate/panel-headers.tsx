@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowLeftRight } from 'lucide-react';
-import { Button, LanguageSelect, pairAfterPick } from '@chatofy/ui/react';
+import { Button, LanguageSelect, pairAfterPick, SegmentedControl } from '@chatofy/ui/react';
 import {
   AUTO_DETECT,
   type LanguageCode,
@@ -10,7 +10,12 @@ import {
 } from '@chatofy/types';
 import { useTranslate } from '@/i18n/provider';
 import { languageNamer } from '@/i18n/language-pair-labels';
-import { canAutoDetectInto, representablePair } from '@/lib/translate-settings';
+import {
+  canAutoDetectInto,
+  canRunTwoWay,
+  representablePair,
+  type ConversationMode,
+} from '@/lib/translate-settings';
 import { cn } from '@/lib/utils';
 
 interface PanelHeadersProps {
@@ -29,6 +34,10 @@ interface PanelHeadersProps {
    * see {@link LanguageModeHint}.
    */
   mode?: SessionLanguageMode | null;
+  /** The reader's one-way / two-way choice — see {@link SourceHeaderLanguage}. */
+  conversationMode?: ConversationMode;
+  /** Absent on the stage, which shows the choice nowhere. */
+  onConversationMode?: (mode: ConversationMode) => void;
   /**
    * The voice control, rendered at the end of the target header.
    *
@@ -107,6 +116,8 @@ export function PanelHeaders({
   onSwap,
   onLanguagePair,
   mode = null,
+  conversationMode,
+  onConversationMode,
   voiceControl,
 }: PanelHeadersProps) {
   const t = useTranslate();
@@ -119,11 +130,12 @@ export function PanelHeaders({
         role={t('web.translate.languagePairSource')}
         hint={<LanguageModeHint mode={mode} />}
         language={
-          <HeaderLanguage
+          <SourceHeaderLanguage
             languagePair={languagePair}
-            side="source"
             running={running}
             onLanguagePair={onLanguagePair}
+            conversationMode={conversationMode}
+            onConversationMode={onConversationMode}
           />
         }
         className="border-hairline border-b"
@@ -196,12 +208,12 @@ export function PanelHeader({
  * Which way the running conversation translates, as the server answered it —
  * a readout, never a control.
  *
- * There is no mode switch: the source picker decides what is ASKED ("detect"
- * runs one way, a named language both ways), and this says what the newest turn
- * actually ran, which can be less — a server that cannot tell the two languages
- * apart right now runs a two-way start one way. Nothing at all before a turn
- * has said: a guess drawn from the pair would claim "both ways" on a server
- * that is about to answer otherwise.
+ * What is ASKED is the source picker plus the reader's one-way / two-way choice
+ * ({@link SourceHeaderLanguage}); this says what the newest turn actually ran,
+ * which can be less — a server that cannot tell the two languages apart right
+ * now runs a two-way start one way. Nothing at all before a turn has said: a
+ * guess drawn from the settings would claim "both ways" on a server that is
+ * about to answer otherwise.
  */
 export function LanguageModeHint({ mode }: { mode: SessionLanguageMode | null }) {
   const t = useTranslate();
@@ -283,6 +295,62 @@ export function HeaderLanguage({
 }
 
 type SourceChoice = LanguageCode | typeof AUTO_DETECT;
+
+/**
+ * The source picker, and beside it whether the other side may speak too.
+ *
+ * The choice exists because the server cannot make it: in a two-way start a
+ * short turn's language is guessed, and a Vietnamese turn under 1.3 s is heard
+ * as Vietnamese only about two times in three, so a conversation where nobody
+ * speaks the other language still loses its short turns to it. One way declares
+ * every turn to be in the source, and nothing is guessed.
+ *
+ * Offered only for a pair that can run both ways (not "detect", not a pair the
+ * shipped identification cannot tell apart), disabled while running for the
+ * reason the pickers are, and never on the stage. Not accent-filled: the
+ * screen's one accent is Start.
+ */
+export function SourceHeaderLanguage({
+  languagePair,
+  running,
+  onLanguagePair,
+  conversationMode,
+  onConversationMode,
+}: {
+  languagePair: SessionLanguagePair;
+  running: boolean;
+  onLanguagePair?: (pair: SessionLanguagePair) => void;
+  conversationMode?: ConversationMode;
+  onConversationMode?: (mode: ConversationMode) => void;
+}) {
+  const t = useTranslate();
+  const picker = (
+    <HeaderLanguage
+      languagePair={languagePair}
+      side="source"
+      running={running}
+      onLanguagePair={onLanguagePair}
+    />
+  );
+  if (!onConversationMode || !conversationMode || !canRunTwoWay(languagePair)) return picker;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      {picker}
+      <SegmentedControl<ConversationMode>
+        label={t('web.translate.conversationMode')}
+        labelHidden
+        density="compact"
+        value={conversationMode}
+        disabled={running}
+        onChange={onConversationMode}
+        options={[
+          { value: 'one-way', label: t('web.translate.modeOneWay') },
+          { value: 'two-way', label: t('web.translate.modeTwoWay') },
+        ]}
+      />
+    </div>
+  );
+}
 
 /**
  * The pair, reversed.
