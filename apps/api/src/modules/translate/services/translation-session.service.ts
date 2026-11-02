@@ -267,7 +267,8 @@ export class TranslationSessionService implements OnModuleDestroy {
     this.logger.log(
       `cost policy: speculationOverlap=${this.costPolicy.speculationOverlap ? 'on' : 'off'} ` +
         `speculationHomophones=${this.costPolicy.speculationHomophones ? 'on' : 'off'} ` +
-        `liveCommitScale=${this.costPolicy.liveCommitScale}`,
+        `liveCommitScale=${this.costPolicy.liveCommitScale}` +
+        (config ? '' : ' (no config: defaults)'),
     );
     // Built in the constructor body, not as a field initializer. Under
     // `target: ES2022` field initializers run before the parameter properties

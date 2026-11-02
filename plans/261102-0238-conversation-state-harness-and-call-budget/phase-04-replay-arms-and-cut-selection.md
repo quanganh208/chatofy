@@ -37,7 +37,7 @@ the combination that meets AC-C1, AC-C2, AC-L and AC-Q1.
 ### Task 4.1 — Arm `cut`: 3 replay runs
 
 - Steps:
-  1. After the user-approved env change, check that `docker exec chatofy_prod_api printenv TRANSLATE_MAX_SPECULATIONS` (and each other set key) prints the arm value.
+  1. After the user-approved env change, check that `docker exec chatofy_prod_api printenv TRANSLATE_SPECULATION_OVERLAP` (and `TRANSLATE_SPECULATION_HOMOPHONES`, `TRANSLATE_LIVE_COMMIT_SCALE`) prints the arm value, AND that `docker logs chatofy_prod_api --since 10m 2>&1 | grep 'cost policy:'` shows the arm values (the line is written once per process start).
   2. Run Phase 02 Task 2.3 (fresh token) and Task 2.4 with tags `arm-cut-1..3`.
 - Verify: `grep -h "calls/turn" benchmarks/call-budget/results/arm-cut-*/summary.md | wc -l` prints `3`.
 
@@ -45,7 +45,9 @@ the combination that meets AC-C1, AC-C2, AC-L and AC-Q1.
 
 - Steps:
   1. `benchmarks/live-translate/data/` is gitignored and absent locally: build the fixtures first with `build-fixtures.mjs` (its README names the source corpora). Then run `node benchmarks/live-translate/run-arms.mjs --api http://127.0.0.1:4000 --arms cascade --limit 25` with the owner token, passed the way its flag parser accepts (`--token`, or `--email/--password`; read `run-arms.mjs` ~L458-478 and prefer a file or env path so the token is not in argv). It has no `--repeats`: run it 3 times per arm, once set in arm `cut` and once with knobs reset to defaults. These are prod-host calls, counted against the Command Code window, not the DeepSeek-direct cap. Score with `score-adequacy.py`, then compare chrF++ with paired bootstrap (pattern `benchmarks/mt-zh/paired-bootstrap.py`).
-  2. If K3 is on: count `homophones … accepted=N` (N summed) per turn in the arm windows versus the baseline windows. Report the corrections lost per 100 turns.
+  2. If K3h is on (`TRANSLATE_SPECULATION_HOMOPHONES=off`): count `homophones … accepted=N` (N summed) per turn in the arm windows versus the baseline windows. Report the corrections lost per 100 turns.
+  3. Break the arm report down further, because each knob costs different turns: K2's hit rate split by continuation versus standalone turns (overlap off makes a continuation guess parked behind `PREDECESSOR_WAIT_MS` block renewals), K4's live-call reduction split by direction (the en clause rule ignores the scale), and live previews per turn beside p50.
+- Host: run every arm on the same host as the baseline (DeepSeek direct, polish absent while the Command Code circuit is open). An arm on the proxy against a DeepSeek baseline confounds polish calls and token accounting.
 - Pass conditions:
   - chrF++ CI lower bound of (cut − baseline) ≥ −0.5;
   - K3 only: the user is shown the lost corrections number and accepts it (ask; if no, set K3 back to `on` and re-run Task 4.1 once).
@@ -64,7 +66,7 @@ the combination that meets AC-C1, AC-C2, AC-L and AC-Q1.
 ### Task 4.4 — Leave prod in the chosen state
 
 - Steps: ask the user to confirm the final `prod.env` knob values (the passing arm). Then propose a small PR that changes the schema defaults to those values. Defaults live in the schema, not in `prod.env` (consolidated env, 20 keys). Merge only with user approval.
-- Verify: after deploy, `docker exec chatofy_prod_api printenv | grep -cE '^TRANSLATE_(MAX_SPECULATIONS|SPECULATION_OVERLAP|SPECULATION_CORRECTIONS|LIVE_COMMIT_SCALE|PROMPT_MEMO)='` prints `0` (the values now come from schema defaults; `TRANSLATE_LIVE_MODE` is a separate legitimate key and is not counted), and one replay recording passes Task 2.2's Verify.
+- Verify: after deploy, `docker exec chatofy_prod_api printenv | grep -cE '^TRANSLATE_(SPECULATION_OVERLAP|SPECULATION_HOMOPHONES|LIVE_COMMIT_SCALE)='` prints `0` (the values now come from schema defaults; `TRANSLATE_LIVE_MODE` is a separate legitimate key and is not counted), and one replay recording passes Task 2.2's Verify.
 
 ## Failure Protocol
 
