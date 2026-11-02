@@ -65,7 +65,7 @@ I read 15 turns with serious errors, sampled by hash, against Scribe and the app
 
 ## Limits
 
-- **One judge, one family.** Calibration bounds its errors on known breaks, but its severity on subtle meaning is still its opinion. The CometKiwi cross-check (AC-4) did not run: `Unbabel/wmt22-cometkiwi-da` is gated on Hugging Face, and this machine is not logged in.
+- **One judge, one family.** Calibration bounds its errors on known breaks, but its severity on subtle meaning is still its opinion. An independent witness agrees with it: CometKiwi (`Unbabel/wmt22-cometkiwi-da`, no reference, source = Scribe's hearing) correlates with the judge's per-turn severity at Spearman −0.591 over 162 turns. Mean Kiwi is 0.753 overall and 0.806 on turns the judge found clean.
 - **Small and narrow corpus.** It is 17 conversations from one account, and podcasts and news dominate. The intervals are wide, especially per direction.
 - **What was judged is what was stored.** A stored translation may already be the polisher's edit, and the corpus does not record which. The polisher runs on Command Code, which was at its weekly limit on 2026-11-02, so recent turns are likely unpolished.
 - **Slicing.** A spot check found 1 of 10 turns taking a clause from its neighbour. The judge is told to ignore edge words.
@@ -73,4 +73,3 @@ I read 15 turns with serious errors, sampled by hash, against Scribe and the app
 ## Unresolved questions
 
 - Was each stored translation polished or not? The answer changes whether a vi→en review loop is new work or a fix to the existing polisher's reach.
-- Should CometKiwi run? It needs `huggingface-cli login` and acceptance of the model licence.

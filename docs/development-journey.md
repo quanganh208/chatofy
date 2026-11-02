@@ -2618,4 +2618,4 @@ The digest oracle left a question open: how good are prod translations, and what
 
 Terminology and segmentation caused no serious errors, which closes domain packs and committer work as the next lever. The next lever is a review pass on vi→en in the polish lane, measured with this ruler. STT stays a lever in both directions.
 
-All judge calls cost $8.63 of the $100 allowed. The report is `plans/reports/benchmark-261102-1911-translation-judge-ruler.md`. Two things are still open. The CometKiwi cross-check needs a Hugging Face login. And whether a stored translation was already polished is not recorded.
+All judge calls cost $8.63 of the $100 allowed. The report is `plans/reports/benchmark-261102-1911-translation-judge-ruler.md`. CometKiwi, a reference-free scorer from a different family, agrees with the judge: its score falls as the judge's severity rises (Spearman −0.591 over 162 turns). One thing is still open: whether a stored translation was already polished is not recorded.

@@ -35,18 +35,18 @@ Source contract: `plans/reports/brainstorm-261102-1718-llm-judge-translation-rul
 
 ## Phases
 
-| #   | Phase                                                                             | Status                   | Effort | Depends |
-| --- | --------------------------------------------------------------------------------- | ------------------------ | ------ | ------- |
-| 01  | [Corpus with Scribe sources](phase-01-corpus-with-scribe-sources.md)              | completed                | 1d     | —       |
-| 02  | [Judge and calibration gate](phase-02-judge-and-calibration-gate.md)              | completed                | 1d     | 01      |
-| 03  | [Full run, cross-check and verdict](phase-03-full-run-cross-check-and-verdict.md) | completed (AC-4 blocked) | 0.5–1d | 02      |
+| #   | Phase                                                                             | Status    | Effort | Depends |
+| --- | --------------------------------------------------------------------------------- | --------- | ------ | ------- |
+| 01  | [Corpus with Scribe sources](phase-01-corpus-with-scribe-sources.md)              | completed | 1d     | —       |
+| 02  | [Judge and calibration gate](phase-02-judge-and-calibration-gate.md)              | completed | 1d     | 01      |
+| 03  | [Full run, cross-check and verdict](phase-03-full-run-cross-check-and-verdict.md) | completed | 0.5–1d | 02      |
 
 ## Outcome (2026-11-02)
 
 - AC-1 met: 162 judged turns from 17 conversations.
 - AC-2 met: recall 93.3%, clean flags 2.5%, agreement 100%.
 - AC-3 met: the error table is in the report.
-- AC-4 blocked: CometKiwi is gated on Hugging Face and no login exists on this machine.
+- AC-4 met: CometKiwi vs judge severity, Spearman −0.591 over 162 turns (mean Kiwi 0.753; 0.806 on judge-clean turns).
 - AC-5 met: the next lever is a vi→en review loop in the polish lane; STT remains a lever. Report: `plans/reports/benchmark-261102-1911-translation-judge-ruler.md`.
 - AC-6 met: 17 node tests and 9 pytest tests pass.
 
