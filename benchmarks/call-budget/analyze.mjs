@@ -45,6 +45,8 @@ const START = /TranslationSessionService\]\s+session\.start (\S+)/;
 const TRANSLATED = /translated=(\d+)ms/;
 const SPECULATION = /speculation=(hit|miss)\/(\d+)/;
 const HOMOPHONES = /homophones\([^)]*\) \d+ms accepted=(\d+)/;
+const FUSION = /fusion\([^)]*\) \d+ms accepted=(\d+)/;
+const CLIENT_CUT = /TurnMetricsRecorder\]\s+turn (\S+) client outcome=.*cut=(forced|hangover)/;
 
 function percentile(sorted, p) {
   if (sorted.length === 0) return undefined;
@@ -62,6 +64,11 @@ export function analyze(text) {
   let late = 0;
   let homophoneLines = 0;
   let homophonesAccepted = 0;
+  let fusionLines = 0;
+  let fusionAccepted = 0;
+  // turn id → `hit|miss/K`, and turn id → how the client closed it.
+  const guessByTurn = new Map();
+  const cutByTurn = new Map();
 
   for (const raw of text.split('\n')) {
     const line = raw.replace(ANSI, '');
@@ -78,6 +85,13 @@ export function analyze(text) {
       homophoneLines += 1;
       homophonesAccepted += Number(homophones[1]);
     }
+    const fusion = FUSION.exec(line);
+    if (fusion) {
+      fusionLines += 1;
+      fusionAccepted += Number(fusion[1]);
+    }
+    const cut = CLIENT_CUT.exec(line);
+    if (cut) cutByTurn.set(cut[1], cut[2]);
     const turn = TURN.exec(line);
     if (!turn || line.includes('client outcome=')) continue;
     turns.add(turn[1]);
@@ -87,6 +101,7 @@ export function analyze(text) {
     if (guess) {
       const spent = Number(guess[2]);
       speculation[guess[1]] += 1;
+      guessByTurn.set(turn[1], `${guess[1]}/${guess[2]}`);
       speculation.spent += spent;
       // On a hit the last guess is the answer and every earlier one was not;
       // on a miss every guess was thrown away.
@@ -116,6 +131,16 @@ export function analyze(text) {
     }
   }
 
+  // Where the guesses land, split by how the turn ended: a turn the speaker
+  // ended and a turn the 8 s ceiling cut behave differently, and a single
+  // histogram over both hides which one wastes the calls.
+  const guessesByCut = {};
+  for (const [id, outcome] of guessByTurn) {
+    const cut = cutByTurn.get(id) ?? 'unknown';
+    guessesByCut[cut] ??= {};
+    guessesByCut[cut][outcome] = (guessesByCut[cut][outcome] ?? 0) + 1;
+  }
+
   const sorted = [...translatedMs].sort((a, b) => a - b);
   const billed = calls.reduce((sum, call) => sum + (call.in ?? 0) + (call.out ?? 0), 0);
   return {
@@ -131,6 +156,9 @@ export function analyze(text) {
     late,
     homophoneLines,
     homophonesAccepted,
+    fusionLines,
+    fusionAccepted,
+    guessesByCut,
     translatedP50: percentile(sorted, 50),
     translatedP95: percentile(sorted, 95),
     speculation,
@@ -172,6 +200,16 @@ export function render(result) {
     `duplicate prompts: ${result.duplicates} of ${result.translateCalls} translate calls (${share(result.duplicates, result.translateCalls)})`,
     `speculation: hit=${speculation.hit} miss=${speculation.miss} spent=${speculation.spent} wasted=${speculation.wasted} (${share(speculation.wasted, result.translateCalls)} of translate calls)`,
     `homophones: ${result.homophoneLines} answered, ${result.homophonesAccepted} corrections accepted`,
+    `fusion: ${result.fusionLines} answered, ${result.fusionAccepted} corrections accepted`,
+    ...Object.entries(result.guessesByCut)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(
+        ([cut, outcomes]) =>
+          `guesses on ${cut} turns: ${Object.entries(outcomes)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([outcome, count]) => `${outcome}×${count}`)
+            .join(' ')}`,
+      ),
     `corrections late, dropped: ${result.late}`,
     '',
   );

@@ -36,6 +36,13 @@ behavior**. It is unit-tested and ready to be switched on for a replay arm in Ph
 | K5 per-turn prompt memo          | `TRANSLATE_PROMPT_MEMO` (`off`)            | duplicate-prompt share ≥ 10% of translate calls                                                                                                                           | `on`                                                   |
 | Polish                           | —                                          | if polish ≥ 30% of billed tokens: **STOP and ask the user** (polish has a measured quality gain in `docs/architecture/ai-providers.md`; cutting it is a product decision) | —                                                      |
 
+**Filled on 2026-11-02 from the baseline** (`plans/reports/benchmark-261102-1151-call-budget-baseline.md`, with kongming counsel). Implement **K2, K3h, K4**:
+
+- **K1 skipped:** the 95th-percentile hit index is 4, which equals the default.
+- **K3 fails its own gate:** fusion accepts 61%, so the combined accepted rate is about 22%. It is replaced by **K3h**: turn off only the homophone check on speculations, keeping fusion. The env key is `TRANSLATE_SPECULATION_HOMOPHONES` (`on|off`, default `on`). `correctTranscript` takes a `homophones` flag, which is ANDed into its homophone branch and into the early return, while fusion still runs when the alternate differs. Task 3.4 is executed as K3h. Its spec checks that `homophones: false` means `repairHomophones` is never called and `fuseRecognizers` is still called when the alternate differs.
+- **K5 skipped:** duplicates are 7.0% < 10%.
+- **K6** (no guess at the 6.5 s arm, client side) is out of this phase and raised at Phase 04 Task 4.0.
+
 A knob whose gate is not met is **not implemented**. Write "skipped: <number> < <threshold>" in the PR body.
 
 ## Files to Create / Modify
