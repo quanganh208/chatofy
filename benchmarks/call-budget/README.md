@@ -43,3 +43,24 @@ replay window it must match the number of turns the replay sent; more means
 someone else used prod during the window.
 
 Nothing under `results/` is committed.
+
+## Replaying recordings
+
+`replay-recordings.mts` plays the owner's recordings in
+`benchmarks/speaker-id/rulers/conversations/` through the API as the web client
+would. It uses the shipped `CapturePump`, `TurnPipeline` and `TranslateSocket`
+with `CASCADE_RUNTIME_OPTIONS`, a vi↔en two-way session, and voice off.
+
+```bash
+cd apps/api && npx tsx ../../benchmarks/call-budget/replay-recordings.mts \
+  --api http://127.0.0.1:4000 --token-file "$SCRATCHPAD/owner-token" --run-tag baseline-1
+```
+
+It prints `window-start=` and `window-end=` (UTC) for the analysis, and writes
+`results/<run-tag>/rows.jsonl` with one row per turn whose start it sent. Rows
+carry ids, timings and outcomes, never text. The token comes from a 0600 file.
+
+The five recordings come to 530 s of audio. The client cuts them into 81 turns,
+51 of them at the 8 s ceiling, and raises 188 "probably over" signals. This was
+counted offline through the same pump, at no cost. One run takes about 9 minutes,
+and every call it makes goes to the prod translation host.
