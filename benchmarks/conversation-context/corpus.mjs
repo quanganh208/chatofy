@@ -4,8 +4,10 @@
 // One file of turns (`data/corpus.jsonl`) and one of conversations
 // (`data/conversations.jsonl`). The turns are written by `export-turns.mjs` as
 // drafts and finished by hand: `reference`, each kept term's `mustMatch` and
-// `target`, and each conversation's `domain` are the user's words, never a
-// model's (a model-written reference would score the model against itself).
+// `target`, and each conversation's `domain`. A reference must be a person's
+// words, never a model's (a model-written reference would score the model
+// against itself). A terms-only corpus carries no references: the go/no-go
+// reads only term accuracy and anchoring flips, and chrF++ is skipped.
 import { readFileSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -60,7 +62,11 @@ export const isControl = (row) => row.control === 'anchoring';
  * `mustMatch`, and a run that discovers that after spending its calls has
  * bought nothing.
  */
-export function corpusProblems(rows, conversations, { needDomain = false } = {}) {
+export function corpusProblems(
+  rows,
+  conversations,
+  { needDomain = false, needReference = true } = {},
+) {
   const problems = [];
   const seen = new Set();
   for (const row of rows) {
@@ -69,7 +75,7 @@ export function corpusProblems(rows, conversations, { needDomain = false } = {})
     seen.add(at);
     if (!LANGUAGES[row.direction]) problems.push(`${at}: no usable direction`);
     if (typeof row.source !== 'string' || !row.source.trim()) problems.push(`${at}: no source`);
-    if (typeof row.reference !== 'string' || !row.reference.trim()) {
+    if (needReference && (typeof row.reference !== 'string' || !row.reference.trim())) {
       problems.push(`${at}: no reference`);
     }
     for (const [i, term] of (row.terms ?? []).entries()) {

@@ -1,7 +1,7 @@
 ---
 phase: 7
 title: 'Digest measurement and rollout'
-status: pending
+status: cancelled
 priority: P1
 effort: '1.5d'
 dependencies: [6]

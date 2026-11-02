@@ -1,7 +1,11 @@
 // Translate the corpus turn by turn, in conversation order, once per repeat.
 //
 //   DEEPSEEK_API_KEY=… node benchmarks/conversation-context/run.mjs \
-//     --arm baseline|oracle --repeats 3 --limit-calls <n> [--data <dir>] [--provider deepseek]
+//     --arm baseline|oracle --repeats 3 --limit-calls <n> [--data <dir>] [--terms-only]
+//     [--provider deepseek]
+//
+// `--terms-only` accepts a corpus with no references: only term accuracy and
+// anchoring flips can be scored from it (`score.mjs --no-chrf`).
 //
 // Spends real money: one paid call per row per repeat. It prints the planned
 // count first and refuses (exit 2, no call made) when the corpus is not
@@ -49,7 +53,11 @@ const MAX_FRAGMENT_WORDS = 4;
 const ARMS = ['baseline', 'oracle', 'digest'];
 
 function parseArgs(argv) {
-  const args = { arm: null, repeats: 1, limitCalls: null, data: DATA };
+  const args = { arm: null, repeats: 1, limitCalls: null, data: DATA, termsOnly: false };
+  if (argv.includes('--terms-only')) {
+    args.termsOnly = true;
+    argv = argv.filter((flag) => flag !== '--terms-only');
+  }
   for (let i = 0; i < argv.length; i += 2) {
     const flag = argv[i];
     const raw = argv[i + 1];
@@ -136,7 +144,10 @@ if (isMain) {
   const planned = rows.length * args.repeats;
   console.error(`planned: ${planned} calls (${rows.length} rows × ${args.repeats} repeats)`);
 
-  const problems = corpusProblems(rows, conversations, { needDomain: args.arm === 'oracle' });
+  const problems = corpusProblems(rows, conversations, {
+    needDomain: args.arm === 'oracle',
+    needReference: !args.termsOnly,
+  });
   if (problems.length) {
     console.error(`refused, the corpus is not finished (${problems.length}):`);
     for (const problem of problems.slice(0, 40)) console.error(`  ${problem}`);

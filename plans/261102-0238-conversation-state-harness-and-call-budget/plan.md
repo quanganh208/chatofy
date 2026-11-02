@@ -1,7 +1,7 @@
 ---
 title: 'Conversation state harness and per-turn LLM call budget'
 description: 'Measure every cloud LLM call per turn, cut the wasteful ones behind knobs, then add a gated conversation digest so later turns know what the conversation is about.'
-status: pending
+status: completed
 priority: P1
 effort: '6-8d'
 branch: quanganh208/feat/conversation-state-call-budget
@@ -32,25 +32,25 @@ Source contract: `plans/reports/brainstorm-261102-0930-conversation-state-harnes
 
 ## User decisions (settled 2026-11-02; do not re-ask)
 
-| Decision                                       | Value                                                                                                                                                                                                 |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Conversation understanding wanted              | Yes. The rolling digest is in scope, gated.                                                                                                                                                           |
-| Digest terms enter the translation prompt      | Yes, in **both** one-way and two-way. This reverses the recorded decision "learned terms never enter the translation prompt" (journey §"Garbled loanwords…", 07/10/2026).                             |
-| References for the ordered-conversation corpus | The **user writes them**. The harness exports draft rows; it refuses to run while any row lacks a human `reference`. Model-written references are forbidden.                                          |
-| Thresholds                                     | calls/turn ≤ 60% of baseline; billed tokens/turn ≤ 70%; chrF++ CI lower bound ≥ −0.5; turn p50 `translated=` ≤ +5%.                                                                                   |
-| Paid measurement budget                        | DeepSeek **direct** (`api.deepseek.com`, key `OPENAI_COMPATIBLE_API_KEY` in `chatofy_prod_api`), cap **3,000 calls** total across all benchmark runs. State the expected call count before every run. |
+| Decision                                       | Value                                                                                                                                                                                                                                                                                                                                                                          |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Conversation understanding wanted              | Yes. The rolling digest is in scope, gated.                                                                                                                                                                                                                                                                                                                                    |
+| Digest terms enter the translation prompt      | Yes, in **both** one-way and two-way. This reverses the recorded decision "learned terms never enter the translation prompt" (journey §"Garbled loanwords…", 07/10/2026).                                                                                                                                                                                                      |
+| References for the ordered-conversation corpus | **Changed 2026-11-02: none are written.** The user chose not to write them. The go/no-go reads only term accuracy and anchoring flips, so the corpus runs `--terms-only` and chrF++ is skipped. Claude wrote the terms (`mustMatch` accepts every correct rendering, not just the hinted one), 11 anchoring controls and the domains. Model-written references stay forbidden. |
+| Thresholds                                     | calls/turn ≤ 60% of baseline; billed tokens/turn ≤ 70%; chrF++ CI lower bound ≥ −0.5; turn p50 `translated=` ≤ +5%.                                                                                                                                                                                                                                                            |
+| Paid measurement budget                        | DeepSeek **direct** (`api.deepseek.com`, key `OPENAI_COMPATIBLE_API_KEY` in `chatofy_prod_api`), cap **3,000 calls** total across all benchmark runs. State the expected call count before every run.                                                                                                                                                                          |
 
 ## Phases
 
-| #   | Phase                                                                                 | Depends on                | Status                              |
-| --- | ------------------------------------------------------------------------------------- | ------------------------- | ----------------------------------- |
-| 01  | [Instrument every cloud LLM call](./phase-01-instrument-llm-calls.md)                 | —                         | Done (PR #278)                      |
-| 02  | [Baseline on prod](./phase-02-baseline-on-prod.md)                                    | 01                        | Done (10.43 calls/turn)             |
-| 03  | [Cost knobs, default off](./phase-03-cost-knobs.md)                                   | 02                        | Done (PR #280)                      |
-| 04  | [Replay arms and choose cuts](./phase-04-replay-arms-and-cut-selection.md)            | 03                        | Done (5.67 calls/turn)              |
-| 05  | [Ordered-conversation corpus](./phase-05-ordered-conversation-corpus.md)              | 01 (can run beside 03–04) | Rows exported; waits for references |
-| 06  | [ConversationState and digest, flag off](./phase-06-conversation-state-and-digest.md) | 04, 05                    | Pending                             |
-| 07  | [Digest measurement and rollout](./phase-07-digest-measurement-and-rollout.md)        | 06                        | Pending                             |
+| #   | Phase                                                                                 | Depends on                | Status                  |
+| --- | ------------------------------------------------------------------------------------- | ------------------------- | ----------------------- |
+| 01  | [Instrument every cloud LLM call](./phase-01-instrument-llm-calls.md)                 | —                         | Done (PR #278)          |
+| 02  | [Baseline on prod](./phase-02-baseline-on-prod.md)                                    | 01                        | Done (10.43 calls/turn) |
+| 03  | [Cost knobs, default off](./phase-03-cost-knobs.md)                                   | 02                        | Done (PR #280)          |
+| 04  | [Replay arms and choose cuts](./phase-04-replay-arms-and-cut-selection.md)            | 03                        | Done (5.67 calls/turn)  |
+| 05  | [Ordered-conversation corpus](./phase-05-ordered-conversation-corpus.md)              | 01 (can run beside 03–04) | Done: oracle NO-GO      |
+| 06  | [ConversationState and digest, flag off](./phase-06-conversation-state-and-digest.md) | 04, 05                    | Cancelled (NO-GO)       |
+| 07  | [Digest measurement and rollout](./phase-07-digest-measurement-and-rollout.md)        | 06                        | Cancelled (NO-GO)       |
 
 ## Acceptance criteria (whole plan)
 

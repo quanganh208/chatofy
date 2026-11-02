@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: 'Ordered-conversation corpus'
-status: in-progress
+status: completed
 priority: P1
 effort: '1d + user reference time'
 dependencies: [1]
@@ -20,6 +20,8 @@ This phase can run beside Phases 03–04. It depends only on Phase 01, for the `
 > **State (2026-11-02):** the tools for Tasks 5.2, 5.4 and 5.5 are built and tested, with no paid call made. The 13 offline tests pass, the runner refuses an unfinished corpus with exit 2, and the export was checked read-only against two stored conversations (33 rows) whose data was then deleted. Task 5.1 still waits for the user's new long recordings.
 >
 > One change from the row format below: each kept term also carries a `target`, the rendering the user's reference uses. The oracle's glossary needs a rendering, and `mustMatch` is a regex, not a rendering. Anchoring-control rows are marked `"control": "anchoring"`.
+
+> **Result (2026-11-02): NO-GO.** Terms-only run, 540 calls: term gain 0.033 [0.000, 0.089], 16+ gain 0.032 vs 1–5 gain 0.111, anchoring flips 8/33 vs 0/33. See `plans/reports/benchmark-261102-1702-conversation-context-oracle.md`. Phases 06–07 are cancelled.
 
 ## Context to read first
 
