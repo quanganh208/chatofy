@@ -60,6 +60,8 @@ Plus, per conversation, one line in `data/conversations.jsonl`: `{"conv":"…","
 - If it fails: STOP and tell the user the numbers. The options are (a) record new longer conversations, or (b) lower the bucket boundaries to 1–3 / 4–8 / 9+. It is their call (Failure Protocol does not apply: this is a data gap, not a failure).
 - Verify: the command prints ≥ 2 rows and their counts sum to ≥ 60.
 
+- **Ran early on 2026-11-02 (read-only): FAILED the pass condition.** The owner has 15 conversations with 97 turns in total, bucketed by length: 1–4 turns ×6 (19 turns), 5–9 ×7 (45), 10–19 ×1 (12), 20+ ×1 (21). Only one conversation reaches 20 turns. Waiting on the user's choice between options (a) and (b).
+
 ### Task 5.2 — Export draft rows
 
 - Target: `export-turns.mjs --conv <clientId,…>`. It reads via the same psql command, writes `data/corpus.jsonl` and `data/conversations.jsonl`, and never writes outside `data/`.
