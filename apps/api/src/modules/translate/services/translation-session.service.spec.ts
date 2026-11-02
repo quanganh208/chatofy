@@ -4014,9 +4014,15 @@ describe('splitting a turn where the voice changes', () => {
           ? [{ heard: 'voice', said: 'choice', at: 1 }]
           : undefined,
     );
+    // A translation that does not echo the source: one that spelled the heard
+    // words would, rightly, keep them (`keepWhatTheTranslationSpelled`).
+    const translateAll = vi.fn(
+      async ({ targets }: { targets: readonly string[] }) =>
+        Object.fromEntries(targets.map((target) => [target, 'translated'])),
+    );
     const { socket } = await run(
       twoVoices,
-      { correctTranscript },
+      { correctTranscript, translateAll },
       { repairDisplay: true },
     );
 

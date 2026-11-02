@@ -88,6 +88,7 @@ export {
   type TranscriptCorrection,
 } from './text/transcript-corrections.js';
 export { acceptRecognizerFusion } from './text/recognizer-fusion.js';
+export { keepWhatTheTranslationSpelled } from './text/translation-spelled-words-guard.js';
 export {
   acceptHomophoneRepairs,
   MAX_REPAIR_WORDS,
