@@ -151,8 +151,37 @@ describe('PanelHeaders', () => {
     expect(onSwap).toHaveBeenCalledTimes(1);
   });
 
+  it('offers one way or both beside the source, and reports the pick', () => {
+    const onConversationMode = vi.fn();
+    render({ conversationMode: 'two-way', onConversationMode });
+    const group = container.querySelector('[role="radiogroup"]');
+    expect(group?.getAttribute('aria-label')).toBe('Conversation mode');
+    const [oneWay, twoWay] = [...container.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+    expect(twoWay?.getAttribute('aria-checked')).toBe('true');
+    act(() => oneWay?.click());
+    expect(onConversationMode).toHaveBeenCalledWith('one-way');
+  });
+
+  it('offers no mode where the pair cannot run both ways, nor on the stage', () => {
+    render({
+      languagePair: { source: 'detect', target: 'en' },
+      conversationMode: 'two-way',
+      onConversationMode: vi.fn(),
+    });
+    expect(container.querySelector('[role="radiogroup"]')).toBeNull();
+    render({ conversationMode: 'two-way' });
+    expect(container.querySelector('[role="radiogroup"]')).toBeNull();
+  });
+
+  it('fixes the mode while a conversation runs', () => {
+    render({ running: true, conversationMode: 'one-way', onConversationMode: vi.fn() });
+    const radios = [...container.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+    expect(radios.length).toBe(2);
+    expect(radios.every((radio) => radio.disabled)).toBe(true);
+  });
+
   it('spends no accent: the pickers are fields and the swap is outline', () => {
-    render();
+    render({ conversationMode: 'two-way', onConversationMode: vi.fn() });
     expect(container.querySelector('.bg-primary')).toBeNull();
   });
 

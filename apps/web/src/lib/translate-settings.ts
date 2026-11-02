@@ -100,6 +100,18 @@ const VOICE_TOKEN_MAX = 64;
  * `split` returns the arrangement the reader last chose rather than the default.
  */
 const displayModeSchema = z.enum(['split', 'list']);
+
+/**
+ * Whether a conversation's turns may be in either language of the pair.
+ *
+ * `two-way` asks the server to decide each turn's language; `one-way` declares
+ * every turn to be in the source. The choice is the reader's because the server
+ * cannot make it well: a Vietnamese turn under 1.3 s is heard as Vietnamese only
+ * about two times in three (`benchmarks/lid`), so a conversation in which nobody
+ * speaks the other language still loses its short turns to it.
+ */
+const conversationModeSchema = z.enum(['one-way', 'two-way']);
+export type ConversationMode = z.infer<typeof conversationModeSchema>;
 type DisplayMode = z.infer<typeof displayModeSchema>;
 
 const paneLayoutSchema = z.enum(['row', 'column']);
@@ -177,6 +189,11 @@ export interface TranslateSettings {
   voiceGender: z.infer<typeof voiceGenderSchema>;
   /** Whether the translation is spoken at all. */
   voiceOutput: boolean;
+  /**
+   * Whether turns may be in either language, for a pair that can run both
+   * ways — see {@link asksTwoWay}. Ignored for a pair that cannot.
+   */
+  conversationMode: ConversationMode;
   /**
    * Speaking rate. Whether it does anything is a property of the running TTS
    * engine, not of the output language — see `VoiceSettingsPanel`'s
@@ -275,6 +292,8 @@ export const DEFAULT_TRANSLATE_SETTINGS: TranslateSettings = Object.freeze({
   languagePair: DEFAULT_LANGUAGE_PAIR,
   voiceGender: DEFAULT_VOICE_GENDER,
   voiceOutput: true,
+  // Both ways, as every identifiable pair ran before the choice existed.
+  conversationMode: 'two-way',
   speed: 1,
   voice: Object.freeze({}),
   volume: 1,
@@ -416,6 +435,7 @@ function migrate(stored: Record<string, unknown>): Record<string, unknown> {
 const storedSettingsSchema = z.object({
   voiceGender: voiceGenderSchema.catch(DEFAULT_TRANSLATE_SETTINGS.voiceGender),
   voiceOutput: z.boolean().catch(DEFAULT_TRANSLATE_SETTINGS.voiceOutput),
+  conversationMode: conversationModeSchema.catch(DEFAULT_TRANSLATE_SETTINGS.conversationMode),
   speed: z.number().catch(DEFAULT_TRANSLATE_SETTINGS.speed).transform(snapSpeed),
   // A token longer than the cap is dropped rather than truncated: half a token is
   // not a shorter token, it is a different one, and it would be refused downstream
@@ -473,6 +493,7 @@ export function loadTranslateSettings(): TranslateSettings {
       languagePair: storedLanguagePair(stored),
       voiceGender: parsed.voiceGender,
       voiceOutput: parsed.voiceOutput,
+      conversationMode: parsed.conversationMode,
       speed: parsed.speed,
       voice: parsed.voice,
       volume: parsed.volume,
@@ -525,14 +546,27 @@ export function canAutoDetectInto(target: LanguageCode): boolean {
 }
 
 /**
+ * Whether a conversation in `pair` can be run two-way at all: a named source,
+ * and two languages the shipped identification can tell apart. Where it cannot,
+ * the one-way / two-way choice is not offered.
+ */
+export function canRunTwoWay(pair: SessionLanguagePair): boolean {
+  return pair.source !== AUTO_DETECT && canIdentify(pair, true);
+}
+
+/**
  * Whether a conversation started in `pair` asks the server to run it two-way.
  *
  * A request, which the server may answer with less — the screen follows the
  * mode `server.session.ready` reports, never this. A pair with a language the
- * shipped identification cannot tell apart stays declared without asking.
+ * shipped identification cannot tell apart stays declared without asking, and
+ * so does one the reader set to `one-way`.
  */
-export function asksTwoWay(pair: SessionLanguagePair): boolean {
-  return pair.source !== AUTO_DETECT && canIdentify(pair, true);
+export function asksTwoWay(
+  pair: SessionLanguagePair,
+  mode: ConversationMode = DEFAULT_TRANSLATE_SETTINGS.conversationMode,
+): boolean {
+  return mode === 'two-way' && canRunTwoWay(pair);
 }
 
 /**

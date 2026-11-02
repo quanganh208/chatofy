@@ -45,8 +45,11 @@ import { languageNamer } from '@/i18n/language-pair-labels';
  */
 
 /** The languages a conversation started from `pair` may speak, target first. */
-function spokenLanguages(pair: TranslateSettings['languagePair']): LanguageCode[] {
-  return pair.source !== AUTO_DETECT && asksTwoWay(pair)
+function spokenLanguages({
+  languagePair: pair,
+  conversationMode,
+}: Pick<TranslateSettings, 'languagePair' | 'conversationMode'>): LanguageCode[] {
+  return pair.source !== AUTO_DETECT && asksTwoWay(pair, conversationMode)
     ? [pair.target, pair.source]
     : [pair.target];
 }
@@ -68,7 +71,7 @@ export function VoiceSettingsPanel({
 }: VoiceSettingsPanelProps) {
   const t = useTranslate();
   const nameLanguage = languageNamer(t);
-  const languages = spokenLanguages(settings.languagePair);
+  const languages = spokenLanguages(settings);
   const [outputLanguage, otherLanguage] = languages as [LanguageCode, LanguageCode | undefined];
   // Two calls, always, so the hook count never changes with the pair. With one
   // spoken language the second asks for the same list, which the catalog cache

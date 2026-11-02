@@ -267,7 +267,8 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   // Whether a start from the CURRENT settings would have its spoken language
   // decided per turn — both ways, or auto-detected.
   const identifiesTurns =
-    settings.languagePair.source === AUTO_DETECT || asksTwoWay(settings.languagePair);
+    settings.languagePair.source === AUTO_DETECT ||
+    asksTwoWay(settings.languagePair, settings.conversationMode);
   // Asked for both ways, answered one way: the pair it runs in, or null. Read
   // off the newest turn's answer, and only while running — the answer belongs
   // to the conversation in progress.
@@ -291,6 +292,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   const startConversation = () =>
     void conversation.start({
       languagePair: settings.languagePair,
+      conversationMode: settings.conversationMode,
       voiceGender: settings.voiceGender,
       voiceOutput: settings.voiceOutput,
       // Sent regardless of the pair. The server hands it to whichever
@@ -459,6 +461,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             }}
             languageMode={conversation.languageMode?.mode ?? null}
             onLanguagePair={(languagePair) => onChange({ languagePair })}
+            onConversationMode={(conversationMode) => onChange({ conversationMode })}
             // The voice belongs beside the panel it speaks for, not behind the gear
             // at the far end of the dock beside the page settings.
             voiceControl={

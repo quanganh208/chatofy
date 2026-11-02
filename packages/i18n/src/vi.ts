@@ -333,6 +333,7 @@ export const vi: Messages = {
   'web.translate.autoDetect': 'Tự nhận diện',
   'web.translate.modeTwoWay': 'Hai chiều',
   'web.translate.modeOneWay': 'Một chiều',
+  'web.translate.conversationMode': 'Chế độ hội thoại',
   'web.translate.turnLanguage': 'Nói bằng {language}',
   'web.translate.twoWayUnavailable':
     'Tạm thời chỉ dịch một chiều: {from} sang {to}. Câu nói bằng {to} sẽ không được dịch.',

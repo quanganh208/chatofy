@@ -401,6 +401,8 @@ export const en = {
   // conversation actually translates, as the server answered it.
   'web.translate.modeTwoWay': 'Both ways',
   'web.translate.modeOneWay': 'One way',
+  // The one-way / two-way choice beside the source language, announced only.
+  'web.translate.conversationMode': 'Conversation mode',
   // The accessible name beside a turn's short language tag.
   'web.translate.turnLanguage': 'Spoken in {language}',
   // A two-way conversation the service is running one way for now. Says what the

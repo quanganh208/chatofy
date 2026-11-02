@@ -39,16 +39,19 @@ import {
 } from '@/hooks/use-conversation-recording';
 import { useTranslate } from '@/i18n/provider';
 import { openMicrophone } from '@/lib/open-microphone';
-import { asksTwoWay } from '@/lib/translate-settings';
+import { asksTwoWay, type ConversationMode } from '@/lib/translate-settings';
 import { env } from '@/config/env';
 import type { Translate } from '@chatofy/i18n';
 
 /**
  * What a caller starts a conversation with. `twoWay` is not among it: whether
- * to ask for it follows from the pair alone (`asksTwoWay`), so one rule decides
- * it for every start rather than each caller deciding again.
+ * to ask for it follows from the pair and the reader's mode (`asksTwoWay`), so
+ * one rule decides it for every start rather than each caller deciding again.
  */
-export type StartOptions = Omit<SessionOptions, 'twoWay'>;
+export type StartOptions = Omit<SessionOptions, 'twoWay'> & {
+  /** The reader's one-way / two-way choice; `asksTwoWay` turns it into the request. */
+  conversationMode?: ConversationMode;
+};
 
 /** What the server said about the languages of the newest turn. */
 interface LanguageModeAnswer {
@@ -523,8 +526,8 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   const [finishedRecording, setFinishedRecording] = useState<ConversationRecording | null>(null);
 
   const start = useCallback(
-    (options: StartOptions) => {
-      const twoWay = asksTwoWay(options.languagePair);
+    ({ conversationMode, ...options }: StartOptions) => {
+      const twoWay = asksTwoWay(options.languagePair, conversationMode);
       // Before `session.start`, which is what dispatches the reset: the id and
       // the transcript it names must change together, or a save fired on the
       // edge could carry the new turns under the previous id.
