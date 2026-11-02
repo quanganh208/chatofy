@@ -3,8 +3,16 @@ import {
   Inject,
   Injectable,
   Logger,
+  Optional,
   type OnModuleDestroy,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { Env } from '../../../config/env.schema';
+import {
+  costPolicyFromEnv,
+  DEFAULT_COST_POLICY,
+  type TranslationCostPolicy,
+} from '../session/translation-cost-policy';
 import {
   AUTO_DETECT,
   IDENTIFIABLE_LANGUAGES,
@@ -240,6 +248,8 @@ export class TranslationSessionService implements OnModuleDestroy {
    * held for the life of the process.
    */
   private readonly gone = new WeakSet<StreamSocket>();
+  /** What a turn may spend beyond its final translation; see the type. */
+  private readonly costPolicy: TranslationCostPolicy;
 
   constructor(
     private readonly pipeline: PipelineTranslatorService,
@@ -247,7 +257,18 @@ export class TranslationSessionService implements OnModuleDestroy {
     private readonly languageSupport: SpeechLanguageSupport,
     @Inject(LANGUAGE_IDENTIFIER)
     private readonly identifier: LanguageIdentifier,
+    // Optional so a spec that builds this service by hand runs today's
+    // behaviour without a config; the app always provides one.
+    @Optional() @Inject(ConfigService) config?: ConfigService<Env, true>,
   ) {
+    this.costPolicy = config ? costPolicyFromEnv(config) : DEFAULT_COST_POLICY;
+    // Once per process, so a replay arm can confirm from the log which policy
+    // the turns it measured actually ran under.
+    this.logger.log(
+      `cost policy: speculationOverlap=${this.costPolicy.speculationOverlap ? 'on' : 'off'} ` +
+        `speculationHomophones=${this.costPolicy.speculationHomophones ? 'on' : 'off'} ` +
+        `liveCommitScale=${this.costPolicy.liveCommitScale}`,
+    );
     // Built in the constructor body, not as a field initializer. Under
     // `target: ES2022` field initializers run before the parameter properties
     // are assigned, so `this.pipeline` would still be undefined up there.
@@ -452,7 +473,12 @@ export class TranslationSessionService implements OnModuleDestroy {
       // Counted in the language the turn is RECOGNIZED in: that is the text
       // the trigger reads as it settles. A two-way turn's is known only once
       // its preview locks, which is also the first moment it can translate.
-      commitChars: (language) => LIVE_TRANSLATION_COMMIT_CHARS[language],
+      commitChars: (language) =>
+        Math.ceil(
+          LIVE_TRANSLATION_COMMIT_CHARS[language] *
+            this.costPolicy.liveCommitScale,
+        ),
+      speculationOverlap: this.costPolicy.speculationOverlap,
       userId,
       ...(plan ? { languages: plan } : {}),
       ...(decision ? { decision } : {}),
@@ -626,6 +652,9 @@ export class TranslationSessionService implements OnModuleDestroy {
           mimeType: 'audio/wav',
           models: SPECULATION_MODELS,
           purpose: 'speculation',
+          // A guess most turns throw away; the homophone repair on it costs
+          // a call whether or not the guess is the one shown.
+          homophones: this.costPolicy.speculationHomophones,
           // The speculative pass must carry the same hints as the final one.
           // `usableSpeculation()` reuses this result verbatim when the audio has
           // not grown, so a speculation translated without the session's context

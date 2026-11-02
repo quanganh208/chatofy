@@ -24,6 +24,22 @@ export class TurnSpeculation {
   private current: Guess | null = null;
   /** How many guesses this turn has spent, against the cap. */
   private spent = 0;
+  /** Whether {@link current} has answered, either way. */
+  private settled = true;
+
+  constructor(
+    /** Guesses one turn may spend; see `MAX_SPECULATIONS_PER_TURN`. */
+    private readonly max: number = MAX_SPECULATIONS_PER_TURN,
+    /**
+     * Whether a guess may start while the previous one is still in flight.
+     *
+     * A renewal is only asked for after more audio arrived, so the guess still
+     * in flight is already one that cannot be used. Off stops paying for the
+     * second request: the turn then waits for that guess to answer before it
+     * may guess again. See `TranslationCostPolicy.speculationOverlap`.
+     */
+    private readonly overlap: boolean = true,
+  ) {}
 
   get count(): number {
     return this.spent;
@@ -34,9 +50,12 @@ export class TurnSpeculation {
     // Nothing new to transcribe: a second guess over identical audio would buy
     // an identical answer for another request.
     if (this.current?.atBytes === bufferedBytes) return false;
+    // The guess in flight is over audio that has since grown; with overlap off
+    // its answer is awaited rather than paid for twice.
+    if (!this.overlap && !this.settled) return false;
     // A client that suspects the end constantly must not be able to spend the
     // quota of one that talks normally.
-    return this.spent < MAX_SPECULATIONS_PER_TURN;
+    return this.spent < this.max;
   }
 
   start(atBytes: number, work: Promise<TranslatedTurnText>): void {
@@ -47,6 +66,13 @@ export class TurnSpeculation {
     // Attached here rather than left to the caller: the cost of forgetting it
     // is the whole process, and this way there is nothing to forget.
     work.catch(() => undefined);
+    this.settled = false;
+    const settle = () => {
+      // Only the newest guess counts: an older one answering late says
+      // nothing about whether the one in flight now has.
+      if (this.current?.work === work) this.settled = true;
+    };
+    work.then(settle, settle);
 
     // The superseded guess is dropped rather than cancelled — the pipeline has
     // no cancellation, so its cost is already spent either way.
