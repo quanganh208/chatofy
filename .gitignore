@@ -130,3 +130,5 @@ worktrees/
 **/benchmarks/call-budget/results/
 **/benchmarks/conversation-context/data/
 **/benchmarks/conversation-context/results/
+**/benchmarks/translation-judge/data/
+**/benchmarks/translation-judge/results/

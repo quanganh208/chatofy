@@ -1,0 +1,9 @@
+{
+  "name": "translation-judge-benchmark",
+  "private": true,
+  "type": "module",
+  "description": "Measurement-only; not part of the pnpm workspace. Holds the Anthropic SDK the judge calls.",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0"
+  }
+}
