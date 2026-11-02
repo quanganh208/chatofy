@@ -2673,4 +2673,5 @@ The first engine diffed by common prefix: what no longer agreed was cut, then re
 Known limits:
 
 1. The lag metric is per grapheme position, so it cannot see a held translation that is stale but the same length.
-2. The recogniser flipped a line's opening words back and forth 9 times in 277 source updates. The display shows that as it is, rather than smoothing it over and lying for a cadence.
+2. A substitution that shifts word boundaries can leave a cut-off word at the cursor for a few frames, until the new text is typed past it.
+3. The recogniser flipped a line's opening words back and forth 9 times in 277 source updates. The display shows that as it is, rather than smoothing it over and lying for a cadence.
