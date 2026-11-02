@@ -2642,3 +2642,16 @@ Two things remain:
 2. **The gain depends on the polish running.** The user decided that when Command Code is spent, the draft stands. The stored lines improving even under the no-context arm suggests the polish rarely reached them.
 
 The plan and its reports were removed with the `plans/` tree; they remain in git history before the commit that retired them.
+
+## The live line is typed in, not dropped in (02/11/2026)
+
+The user reported that live text arrived word by word, sometimes several words at once, and did not feel real-time on either pane. Two causes, both upstream of the screen. The recogniser re-reads the whole utterance at a 300 ms cadence with one read in flight, so each update adds one to three words. And every new provisional translation is a new generation, which the reducer replaces rather than extends: the line blanked to its first token and regrew.
+
+Neither cause was fixed at the source. A faster cadence or a streaming recogniser would cost CPU that the shared prod VM does not have. The fix is presentation only:
+
+- **A grapheme reveal engine** spreads each update over the frames until the next one is expected, learning that interval from arrivals. Vietnamese is often decomposed, so it counts graphemes and never draws a base letter before its tone mark.
+- **It never jumps.** A line that falls behind types faster, at most three graphemes per 60 Hz frame, instead of showing the rest at once. The user chose this over a draft that snapped past a backlog cap.
+- **Hold-until-diverge.** While a new provisional translation is still a prefix of the one on screen, the old one stays. It lives in the web hook, not the shared reducer, because pacing is presentation.
+- **Frames come from the drawing window.** The caption window is a Picture-in-Picture or popup document that stays visible while the opener tab is hidden, and a hidden tab's frames do not run.
+
+Measured on a real prod timeline: TBD (phase 05).
