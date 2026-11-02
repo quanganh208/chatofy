@@ -2642,3 +2642,36 @@ Two things remain:
 2. **The gain depends on the polish running.** The user decided that when Command Code is spent, the draft stands. The stored lines improving even under the no-context arm suggests the polish rarely reached them.
 
 The plan and its reports were removed with the `plans/` tree; they remain in git history before the commit that retired them.
+
+## The live line is typed in, not dropped in (02/11/2026)
+
+The user reported that live text arrived word by word, sometimes several words at once, and did not feel real-time on either pane. Two causes, both upstream of the screen. The recogniser re-reads the whole utterance at a 300 ms cadence with one read in flight, so each update adds one to three words. And every new provisional translation is a new generation, which the reducer replaces rather than extends: the line blanked to its first token and regrew.
+
+Neither cause was fixed at the source. A faster cadence or a streaming recogniser would cost CPU that the shared prod VM does not have. The fix is presentation only:
+
+- **A grapheme reveal engine** spreads each update over the frames until the next one is expected, learning that interval from arrivals. Vietnamese is often decomposed, so it counts graphemes and never draws a base letter before its tone mark.
+- **It never jumps.** A line that falls behind types faster instead of showing the rest at once: at most three graphemes per 60 Hz frame on the source line and four on the translation. The user chose this over a draft that snapped past a backlog cap, and chose four for the translation from the measured trade-off below.
+- **A revision is a substitution.** The changed words are replaced in place at once and only new text is typed.
+- **Hold-until-diverge, revised to hold-while-shorter.** While a new provisional translation is shorter than the one on screen, the old one stays. It is released when the new one catches up, or after 400 ms without an update. It lives in the web hook, not the shared reducer, because pacing is presentation.
+- **Frames come from the drawing window.** The caption window is a Picture-in-Picture or popup document that stays visible while the opener tab is hidden, and a hidden tab's frames do not run.
+
+**Measured on a real conversation, which the unit tests could not have caught.** One 155-second recording (23 turns) was replayed over the prod socket under the owner's account. The server events were timed, then drawn through the shipped reducer on a simulated 60 Hz clock: once as delivered, and once through the engine.
+
+The first engine diffed by common prefix: what no longer agreed was cut, then retyped. On this timeline it blanked the source line 85 times, against 12 as delivered, and trailed by 3.8 s at p95. Of 144 source revisions, 88 changed one word near the start of the line and left the rest as it was. The recogniser substitutes; it does not retract. Replacing the changed words in place fixed it.
+
+|                                | as delivered | engine, source cap 3 | engine, translation cap 3 | engine, translation cap 4 (shipped) |
+| ------------------------------ | ------------ | -------------------- | ------------------------- | ----------------------------------- |
+| graphemes added per frame, p95 | 19 / 23      | 2                    | 3                         | 4                                   |
+| reveal lag, p95                | 0            | 300 ms               | 400 ms                    | 283 ms                              |
+| translation blank-outs         | 9            | —                    | 0                         | 0                                   |
+| source blank-outs              | 12           | 12                   | —                         | —                                   |
+
+- **Per-frame ceilings.** Translation text arrives a sentence at a time, at up to ~230 graphemes/s, so its lag is set by the ceiling rather than by the pacing. The plan's p95 ≤ 2 per frame gate was unattainable from that input and was replaced by "never above the ceiling" (0 breaches).
+- **Source pacing.** The source line finishes each update in 0.7 of the expected interval; at the whole interval it trailed by 383 ms at p95.
+- **The remaining source blank-outs** are the recogniser genuinely shortening the line, and they occur as delivered too.
+
+Known limits:
+
+1. The lag metric is per grapheme position, so it cannot see a held translation that is stale but the same length.
+2. A substitution that shifts word boundaries can leave a cut-off word at the cursor for a few frames, until the new text is typed past it.
+3. The recogniser flipped a line's opening words back and forth 9 times in 277 source updates. The display shows that as it is, rather than smoothing it over and lying for a cadence.

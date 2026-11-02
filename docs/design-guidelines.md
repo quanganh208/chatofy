@@ -652,6 +652,17 @@ survives from the previous rule, and it still decides every case: no continuous 
 beside transcript text, no animating a line while it is being read, and an entrance for
 a settled line that is transform and opacity only.
 
+**The live line is the one exception: it is typed in.** This was the user's decision
+(02/11/2026). The server delivers the sentence still being spoken in jumps of one to three
+words every ~300ms, and a new provisional translation used to blank its line and regrow it,
+which read as the screen jumping rather than as speech arriving. The line is now revealed one
+grapheme at a time (`apps/web/src/lib/smooth-text-reveal.ts`), so each frame changes less
+than a jump did. When it falls behind it types faster, at most three graphemes per 60 Hz frame (scaled for slower windows) on the source
+and four on the translation, and never shows the rest at once. A revised word is replaced in
+place, never retyped. Finished lines are never typed. It is not CSS motion, so the
+reduced-motion check below cannot see it: the hook gates reduced motion in JavaScript, and
+`use-smooth-text-reveal.spec.tsx` asserts that the line is drawn whole under it.
+
 What replaced the rest was a whitelist of four permitted motions. It was not a scale —
 there were no duration or easing tokens at all, so everything animated ran on Tailwind's
 default 150ms because no call site had anything else to ask for, and nothing was in step
