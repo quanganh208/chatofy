@@ -128,3 +128,5 @@ worktrees/
 **/benchmarks/punct/data/external/
 **/benchmarks/punct/results/smoke/
 **/benchmarks/call-budget/results/
+**/benchmarks/conversation-context/data/
+**/benchmarks/conversation-context/results/

@@ -17,6 +17,10 @@ against references the user wrote. It answers, before any digest code exists, wh
 
 This phase can run beside Phases 03–04. It depends only on Phase 01, for the `purpose` field.
 
+> **State (2026-11-02):** the tools for Tasks 5.2, 5.4 and 5.5 are built and tested, with no paid call made. The 13 offline tests pass, the runner refuses an unfinished corpus with exit 2, and the export was checked read-only against two stored conversations (33 rows) whose data was then deleted. Task 5.1 still waits for the user's new long recordings.
+>
+> One change from the row format below: each kept term also carries a `target`, the rendering the user's reference uses. The oracle's glossary needs a rendering, and `mustMatch` is a regex, not a rendering. Anchoring-control rows are marked `"control": "anchoring"`.
+
 ## Context to read first
 
 - `apps/api/prisma/schema.prisma` `model ConversationTurn` (~L279: `position`, `sourceText`, `sourceLanguages`, `translations Json`) and `model Conversation` (`clientId`, `ownerId`, `languages`).
