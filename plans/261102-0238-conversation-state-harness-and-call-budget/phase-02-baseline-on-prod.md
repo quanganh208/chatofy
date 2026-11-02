@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: 'Baseline on prod'
-status: pending
+status: completed
 priority: P1
 effort: '0.5d'
 dependencies: [1]
@@ -36,6 +36,8 @@ deterministic replay of real recordings through the prod API with Phase 01 deplo
 ## Tasks
 
 ### Task 2.0 — User gate: deploy Phase 01 and approve the replay budget
+
+- **Counted offline on 2026-11-02:** the 5 recordings with a turn list come to 530 s and 81 client turns per run (51 cut at the 8 s ceiling, 188 probable-end signals). At the logged ~4.4–6 calls per turn, that is **~360–490 prod-host calls per run, ~1.1k–1.5k for 3 runs**, plus block retranslations after forced cuts. One run takes ~9 minutes.
 
 - Goal: Phase 01 is live on prod, and the user has approved the replay's paid calls.
 - Steps:
