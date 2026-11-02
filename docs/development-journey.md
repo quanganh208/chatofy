@@ -2618,7 +2618,7 @@ The digest oracle left a question open: how good are prod translations, and what
 
 Terminology and segmentation caused no serious errors, which closes domain packs and committer work as the next lever. The next lever is a review pass on vi→en in the polish lane, measured with this ruler. STT stays a lever in both directions.
 
-All judge calls cost $8.63 of the $100 allowed. The report is `plans/reports/benchmark-261102-1911-translation-judge-ruler.md`. CometKiwi, a reference-free scorer from a different family, agrees with the judge: its score falls as the judge's severity rises (Spearman −0.591 over 162 turns). One thing is still open: whether a stored translation was already polished is not recorded.
+All judge calls cost $8.63 of the $100 allowed. CometKiwi, a reference-free scorer from a different family, agrees with the judge: its score falls as the judge's severity rises (Spearman −0.591 over 162 turns). One thing is still open: whether a stored translation was already polished is not recorded.
 
 ## The polisher was running blind: context fixes vi→en (02/11/2026)
 
@@ -2641,4 +2641,4 @@ Two things remain:
 1. **Prod polishes on `gpt-5.6-sol`, not DeepSeek.** The arm is to be re-run on it once Command Code's weekly window reopens (2026-11-04).
 2. **The gain depends on the polish running.** The user decided that when Command Code is spent, the draft stands. The stored lines improving even under the no-context arm suggests the polish rarely reached them.
 
-The report is `plans/reports/benchmark-261102-2130-vi-en-review-arms.md`.
+The plan and its reports were removed with the `plans/` tree; they remain in git history before the commit that retired them.

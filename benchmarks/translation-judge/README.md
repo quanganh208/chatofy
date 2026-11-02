@@ -85,7 +85,7 @@ node calibrate.mjs --clean results/cal-clean-<model> --perturbed results/cal-bro
   - vi→en: 23.7% of turns have a serious `mt` error.
   - Terminology and segmentation caused no serious errors.
 - **Spend:** $8.63.
-- **Report:** `plans/reports/benchmark-261102-1911-translation-judge-ruler.md`.
+- **Record:** `docs/development-journey.md`, "A ruler for translation quality".
 
 ## Review arms: testing a second pass before it ships
 
@@ -106,7 +106,7 @@ node compare.mjs --base results/full-claude-opus-5-5 --arm results/arm2-<reviewe
   - vi→en turns with a serious `mt` error: 23.7% stored, 9.2% with the polisher and no context, **1.3% with context** (−22.4 points, interval [−40.4, −11.6]);
   - en→vi: not hurt;
   - CometKiwi: 0.753 → 0.768.
-- **Report:** `plans/reports/benchmark-261102-2130-vi-en-review-arms.md`.
+- **Record:** `docs/development-journey.md`, "The polisher was running blind".
 
 ## Recordings and consent
 
