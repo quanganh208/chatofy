@@ -201,18 +201,19 @@ export const envSchema = z.object({
   ),
 
   // ── Translation cost knobs ────────────────────────────────────────────────
-  // Each one's default is today's behaviour, so leaving them unset changes
-  // nothing. They exist to measure a cheaper turn against the replay baseline
-  // (`benchmarks/call-budget`); what each one trades is on its field in
-  // `modules/translate/session/translation-cost-policy.ts`.
+  // The defaults are the cheaper turn the replay measured against the baseline
+  // (`benchmarks/call-budget`): about 54% of the calls and 59% of the billed
+  // tokens, with the same final translations and p50 within 5%. Setting
+  // `on`, `on`, `1` restores the turn as it was before. What each one trades is
+  // on its field in `modules/translate/session/translation-cost-policy.ts`.
   TRANSLATE_SPECULATION_OVERLAP: emptyStringAsUndefined(
-    z.enum(['on', 'off']).default('on'),
+    z.enum(['on', 'off']).default('off'),
   ),
   TRANSLATE_SPECULATION_HOMOPHONES: emptyStringAsUndefined(
-    z.enum(['on', 'off']).default('on'),
+    z.enum(['on', 'off']).default('off'),
   ),
   TRANSLATE_LIVE_COMMIT_SCALE: emptyStringAsUndefined(
-    z.coerce.number().min(1).max(4).default(1),
+    z.coerce.number().min(1).max(4).default(3),
   ),
 
   // ── Video conferencing (Cloudflare Realtime SFU) ──────────────────────────

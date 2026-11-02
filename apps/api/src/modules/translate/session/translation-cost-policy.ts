@@ -5,11 +5,12 @@ import type { Env } from '../../../config/env.schema';
  * How much a turn is allowed to spend on paid model calls beyond its one
  * final translation.
  *
- * Every field's default is what the turn did before these knobs existed, so an
- * unset environment changes nothing. Each was added because the replay
- * baseline (`plans/reports/benchmark-261102-1151-call-budget-baseline.md`,
- * 10.4 calls a turn) showed its lane spending at least a fifth of the calls,
- * and each is switched on only after a replay arm measures what it costs.
+ * Each knob was added because the replay baseline
+ * (`plans/reports/benchmark-261102-1151-call-budget-baseline.md`, 10.4 calls a
+ * turn) showed its lane spending at least a fifth of the calls. The defaults
+ * are the combination a replay arm measured at 5.7 calls a turn with the same
+ * final-translation inputs
+ * (`plans/reports/benchmark-261102-1421-call-budget-cut-arms.md`).
  */
 export interface TranslationCostPolicy {
   /**
@@ -33,19 +34,20 @@ export interface TranslationCostPolicy {
   speculationHomophones: boolean;
   /**
    * Multiplier on the characters a live preview waits for before it is
-   * translated again (`LIVE_TRANSLATION_COMMIT_CHARS`). 2 asks for roughly half
-   * as many previews, at the price of a provisional line that moves in bigger
-   * steps.
+   * translated again (`LIVE_TRANSLATION_COMMIT_CHARS`). 3 asks for under half
+   * as many previews as 1 (1.5 a turn instead of 3.3 on the replay), at the
+   * price of a provisional line that moves in bigger steps. English moves
+   * less, because its clause rule fires whatever the scale.
    */
   liveCommitScale: number;
 }
 
-/** What every turn did before the knobs existed. */
+/** The measured cheaper turn; the schema defaults say the same. */
 export const DEFAULT_COST_POLICY: Readonly<TranslationCostPolicy> =
   Object.freeze({
-    speculationOverlap: true,
-    speculationHomophones: true,
-    liveCommitScale: 1,
+    speculationOverlap: false,
+    speculationHomophones: false,
+    liveCommitScale: 3,
   });
 
 /** The policy the environment asks for; unset keys fall back to {@link DEFAULT_COST_POLICY}. */

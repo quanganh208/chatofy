@@ -135,10 +135,21 @@ function configFrom(values: Record<string, string>): ConfigService<Env, true> {
   >;
 }
 
+/**
+ * The turn as it was before the cost knobs: overlapping guesses, the homophone
+ * check on guesses, a live preview every 15 characters. Most tests below were
+ * written against that turn, and keep it so each still drives the lane it names.
+ */
+const TURN_BEFORE_COST_KNOBS: Record<string, string> = {
+  TRANSLATE_SPECULATION_OVERLAP: 'on',
+  TRANSLATE_SPECULATION_HOMOPHONES: 'on',
+  TRANSLATE_LIVE_COMMIT_SCALE: '1',
+};
+
 function makeService(
   overrides: Partial<Harness> = {},
-  /** Cost knobs as env keys; none given builds the service with no config at all. */
-  costEnv?: Record<string, string>,
+  /** Cost knobs as env keys; `null` builds the service with no config at all. */
+  costEnv: Record<string, string> | null = TURN_BEFORE_COST_KNOBS,
 ): Harness {
   const synthesized: string[] = [];
   const recorded: TurnMetrics[] = [];
@@ -220,7 +231,7 @@ function makeService(
       metrics,
       languageSupport,
       identifier,
-      costEnv === undefined ? undefined : configFrom(costEnv),
+      costEnv === null ? undefined : configFrom(costEnv),
     ),
     transcribe,
     translate,
@@ -577,8 +588,8 @@ describe('TranslationSessionService', () => {
   // suspected` in `packages/realtime-client/src/audio/capture-pump.spec.ts` — if that one goes,
   // these keep passing and the saving quietly disappears again.
   describe('cost knobs', () => {
-    it('asks a speculation for the homophone repair by default, and not with the knob off', () => {
-      const plain = makeService();
+    it('asks a speculation for no homophone repair by default, and for one with the knob on', () => {
+      const plain = makeService({}, {});
       const plainSocket = new FakeSocket();
       plain.service.pushFrame(
         plainSocket,
@@ -586,25 +597,25 @@ describe('TranslationSessionService', () => {
       );
       plain.service.speculate(plainSocket);
       expect(plain.transcribeAndTranslate.mock.calls[0]?.[0]).toMatchObject({
-        homophones: true,
+        homophones: false,
         purpose: 'speculation',
       });
 
-      const off = makeService({}, { TRANSLATE_SPECULATION_HOMOPHONES: 'off' });
-      const offSocket = new FakeSocket();
-      off.service.pushFrame(
-        offSocket,
-        frame({ sessionId: open(off.service, offSocket) }),
+      const on = makeService({}, { TRANSLATE_SPECULATION_HOMOPHONES: 'on' });
+      const onSocket = new FakeSocket();
+      on.service.pushFrame(
+        onSocket,
+        frame({ sessionId: open(on.service, onSocket) }),
       );
-      off.service.speculate(offSocket);
-      expect(off.transcribeAndTranslate.mock.calls[0]?.[0]).toMatchObject({
-        homophones: false,
+      on.service.speculate(onSocket);
+      expect(on.transcribeAndTranslate.mock.calls[0]?.[0]).toMatchObject({
+        homophones: true,
       });
     });
 
-    it('with overlap off, makes no second guess while the first is in flight', () => {
+    it('by default makes no second guess while the first is in flight, and does with overlap on', () => {
       const never = () => new Promise<never>(() => undefined);
-      const run = (costEnv?: Record<string, string>) => {
+      const run = (costEnv: Record<string, string> | null = {}) => {
         const harness = makeService(
           { transcribeAndTranslate: vi.fn(never) },
           costEnv,
@@ -618,12 +629,13 @@ describe('TranslationSessionService', () => {
         return harness.transcribeAndTranslate.mock.calls.length;
       };
 
-      expect(run()).toBe(2);
-      expect(run({ TRANSLATE_SPECULATION_OVERLAP: 'off' })).toBe(1);
+      expect(run()).toBe(1);
+      expect(run(null)).toBe(1);
+      expect(run({ TRANSLATE_SPECULATION_OVERLAP: 'on' })).toBe(2);
     });
 
     it('scales the characters a live preview waits for', () => {
-      const thresholdFor = (costEnv?: Record<string, string>) => {
+      const thresholdFor = (costEnv: Record<string, string> | null = {}) => {
         const { service } = makeService({}, costEnv);
         const socket = new FakeSocket();
         const sessionId = open(service, socket);
@@ -640,9 +652,10 @@ describe('TranslationSessionService', () => {
         return trigger.commitChars();
       };
 
-      expect(thresholdFor()).toBe(LIVE_TRANSLATION_COMMIT_CHARS.vi);
-      expect(thresholdFor({ TRANSLATE_LIVE_COMMIT_SCALE: '2' })).toBe(
-        LIVE_TRANSLATION_COMMIT_CHARS.vi * 2,
+      expect(thresholdFor()).toBe(LIVE_TRANSLATION_COMMIT_CHARS.vi * 3);
+      expect(thresholdFor(null)).toBe(LIVE_TRANSLATION_COMMIT_CHARS.vi * 3);
+      expect(thresholdFor({ TRANSLATE_LIVE_COMMIT_SCALE: '1' })).toBe(
+        LIVE_TRANSLATION_COMMIT_CHARS.vi,
       );
     });
   });

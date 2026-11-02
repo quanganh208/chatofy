@@ -24,6 +24,14 @@ describe('costPolicyFromEnv', () => {
     expect(costPolicyFromEnv(configFrom({}))).toEqual(DEFAULT_COST_POLICY);
   });
 
+  it('defaults to the cheaper turn the replay measured', () => {
+    expect(DEFAULT_COST_POLICY).toEqual({
+      speculationOverlap: false,
+      speculationHomophones: false,
+      liveCommitScale: 3,
+    });
+  });
+
   it('treats an empty value as unset', () => {
     expect(
       costPolicyFromEnv(
@@ -38,24 +46,22 @@ describe('costPolicyFromEnv', () => {
 
   it('changes exactly the field each key names', () => {
     expect(
-      costPolicyFromEnv(configFrom({ TRANSLATE_SPECULATION_OVERLAP: 'off' })),
+      costPolicyFromEnv(configFrom({ TRANSLATE_SPECULATION_OVERLAP: 'on' })),
     ).toEqual({
       ...DEFAULT_COST_POLICY,
-      speculationOverlap: false,
+      speculationOverlap: true,
     });
     expect(
-      costPolicyFromEnv(
-        configFrom({ TRANSLATE_SPECULATION_HOMOPHONES: 'off' }),
-      ),
+      costPolicyFromEnv(configFrom({ TRANSLATE_SPECULATION_HOMOPHONES: 'on' })),
     ).toEqual({
       ...DEFAULT_COST_POLICY,
-      speculationHomophones: false,
+      speculationHomophones: true,
     });
     expect(
-      costPolicyFromEnv(configFrom({ TRANSLATE_LIVE_COMMIT_SCALE: '2' })),
+      costPolicyFromEnv(configFrom({ TRANSLATE_LIVE_COMMIT_SCALE: '1' })),
     ).toEqual({
       ...DEFAULT_COST_POLICY,
-      liveCommitScale: 2,
+      liveCommitScale: 1,
     });
   });
 
