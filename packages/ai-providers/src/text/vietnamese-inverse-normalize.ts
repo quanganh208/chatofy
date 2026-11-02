@@ -220,6 +220,29 @@ const clock: Rule = (context, start) => {
   return { end: cursor, text: `${hour}:${pad(minute)}` };
 };
 
+/** The numerals that name a weekday after `thứ`: Monday is `thứ hai`, Saturday `thứ bảy`. */
+const WEEKDAY_NUMERALS = new Set(['hai', 'ba', 'tư', 'năm', 'sáu', 'bảy']);
+
+/**
+ * A weekday followed by a clock: `thứ sáu tám giờ` -> `thứ sáu 8:00`.
+ *
+ * Without it the weekday's numeral joins the hour as one run, `sáu tám` cannot
+ * be an hour, and the quantity rule reads the run as 68: heard on prod as
+ * `thứ 68 giờ tối`. The weekday stays a word, as a weekday with no clock after
+ * it already does, and only the clock is typeset.
+ */
+const weekdayClock: Rule = (context, start) => {
+  if (wordAt(context, start) !== 'thứ') return null;
+  if (!WEEKDAY_NUMERALS.has(wordAt(context, start + 1))) return null;
+  if (start + 2 >= context.limit) return null;
+  const time = clock(context, start + 2);
+  if (!time) return null;
+  return {
+    end: time.end,
+    text: `${rawAt(context, start)} ${rawAt(context, start + 1)} ${time.text}`,
+  };
+};
+
 function parseMinute(words: string[]): number | null {
   const cardinal = parseCardinal(words);
   if (cardinal !== null && cardinal <= 59) return cardinal;
@@ -365,5 +388,5 @@ function asDigitString(words: string[], single: boolean, ambiguousHead: boolean)
 
 export const VIETNAMESE_ITN: LanguageItn = {
   tiers: VIETNAMESE_TIERS,
-  rules: [letterThenNumber, numberThenLetter, date, year, clock, decimal, quantity],
+  rules: [weekdayClock, letterThenNumber, numberThenLetter, date, year, clock, decimal, quantity],
 };

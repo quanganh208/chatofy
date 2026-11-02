@@ -31,6 +31,7 @@ import {
   isWrittenInHan,
   ProviderAbortedError,
   unresolvedSpans,
+  keepWhatTheTranslationSpelled,
   type TranscriptCorrection,
   type Respellings,
   type SpeakerEmbeddingResult,
@@ -1137,13 +1138,18 @@ export class TranslationSessionService implements OnModuleDestroy {
           // Reached only from this point — after a FINAL transcript, on the turn's
           // real text — which is what keeps "never for a speculation" true by
           // construction rather than by a check: `speculate()` has no path here.
+          const corrections = this.keepTranslatedSpellings(
+            translated.sourceText,
+            translated.corrections,
+            translated.translations,
+          );
           const display = this.displayFor(
             session,
             translated.sourceText,
             translated.restored,
             translated.translations,
             respellings[0],
-            translated.corrections,
+            corrections,
           );
 
           this.channelFor(socket, session).emit({
@@ -1172,7 +1178,7 @@ export class TranslationSessionService implements OnModuleDestroy {
             session,
             session.sessionId,
             translated.sourceText,
-            translated,
+            { ...translated, corrections },
             respellings[0],
           );
 
@@ -1570,13 +1576,18 @@ export class TranslationSessionService implements OnModuleDestroy {
     const channel = this.channelFor(socket, session);
     const ids = pieces.map((_, index) => `${session.sessionId}#${index}`);
     pieces.forEach((piece, index) => {
+      const corrections = this.keepTranslatedSpellings(
+        piece.sourceText,
+        piece.corrections,
+        piece.translations,
+      );
       const display = this.displayFor(
         session,
         piece.sourceText,
         piece.restored,
         piece.translations,
         respellings[index],
-        piece.corrections,
+        corrections,
       );
       channel.emit({
         type: 'server.transcript.final',
@@ -1608,7 +1619,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         session,
         ids[index]!,
         piece.sourceText,
-        piece,
+        { ...piece, corrections },
         respellings[index],
       );
     });
@@ -1817,6 +1828,31 @@ export class TranslationSessionService implements OnModuleDestroy {
       respellings,
       corrections,
     );
+  }
+
+  /**
+   * A turn's corrections less those its own translation contradicts
+   * ({@link keepWhatTheTranslationSpelled}). Applied once, before the line is
+   * typeset AND before the segment is remembered, so a block joined later keeps
+   * exactly what its pieces showed.
+   */
+  private keepTranslatedSpellings(
+    sourceText: string,
+    corrections: readonly TranscriptCorrection[] | undefined,
+    translations: Partial<Record<LanguageCode, string>>,
+  ): TranscriptCorrection[] | undefined {
+    if (!corrections?.length) return corrections === undefined ? undefined : [];
+    const kept = keepWhatTheTranslationSpelled(
+      sourceText,
+      corrections,
+      Object.values(translations).filter((text): text is string => !!text),
+    );
+    if (kept.length < corrections.length) {
+      this.logger.log(
+        `corrections refused by the translation: ${corrections.length - kept.length}/${corrections.length}`,
+      );
+    }
+    return kept;
   }
 
   /**

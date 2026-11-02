@@ -917,6 +917,46 @@ describe('words misheard as a word that sounds the same', () => {
   });
 });
 
+describe('a correction the translation contradicts', () => {
+  it('keeps a name the translation spelled, and keeps it in the block too', async () => {
+    // Heard on prod: the second recognizer heard "thì minh", the fusion took
+    // it, and the same turn's translation said "Thuy Minh".
+    const harness = makeService('', undefined, {
+      transcripts: ['chào các bạn', 'những khách mời thùy minh cũng là'],
+      translations: { en: "The guests on Thuy Minh's show" },
+      corrections: (text) =>
+        text.startsWith('những')
+          ? [{ heard: 'thùy', said: 'thì', at: 3 }]
+          : undefined,
+      blockRestored: (text) =>
+        `${text.charAt(0).toUpperCase()}${text.slice(1)}.`,
+    });
+    const socket = new FakeSocket();
+    const first = await runTurn(harness.service, socket);
+    const second = await runTurn(harness.service, socket);
+
+    expect(
+      socket.ofType('server.transcript.final').at(-1)!.display,
+    ).toBeUndefined();
+    await harness.service.retranslateBlock(socket, [first, second], 'user-1');
+    expect(socket.ofType('server.block.translated').at(-1)!.display).toContain(
+      'khách mời thùy minh',
+    );
+  });
+
+  it('still applies a correction the translation does not contradict', async () => {
+    const { service } = makeService('khách mời thùy minh', undefined, {
+      translation: 'the guests',
+      corrections: [{ heard: 'thùy', said: 'thì', at: 2 }],
+    });
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+    expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(
+      'khách mời thì minh',
+    );
+  });
+});
+
 describe('garbled foreign words with a translation in Han characters', () => {
   it('asks for renderings and shows the spelling the rendering attests', async () => {
     const harness = makeService(

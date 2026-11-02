@@ -257,6 +257,24 @@ describe('inverseNormalizeTranscript (vi)', () => {
       expect(itn('hai giờ rưỡi')).toBe('2:30');
     });
 
+    it('keeps a weekday out of the hour that follows it', () => {
+      // Heard on prod: `thứ sáu tám giờ tối` (Friday, eight in the evening)
+      // came out as `thứ 68 giờ tối`. The weekday's numeral and the hour are
+      // two numbers, and the weekday stays a word.
+      expect(itn('lên sóng vào thứ sáu tám giờ tối')).toBe(
+        'lên sóng vào thứ sáu 8:00 tối',
+      );
+      expect(itn('thứ hai tám giờ sáng')).toBe('thứ hai 8:00 sáng');
+      expect(itn('thứ ba mười giờ rưỡi')).toBe('thứ ba 10:30');
+      expect(itn('thứ bảy hai mươi giờ')).toBe('thứ bảy 20:00');
+      expect(itn('thứ tư lúc chín giờ')).toBe('thứ tư lúc 9:00');
+    });
+
+    it('still reads an ordinal that is not a weekday', () => {
+      expect(itn('lần thứ hai')).toBe('lần thứ hai');
+      expect(itn('ngày thứ sáu tám giờ')).toBe('ngày thứ sáu 8:00');
+    });
+
     it('does not fire on a `giờ` with no hour before it', () => {
       expect(digitsIn(itn('nghỉ giữa giờ'))).toEqual([]);
     });
