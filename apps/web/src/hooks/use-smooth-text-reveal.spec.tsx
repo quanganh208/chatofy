@@ -10,7 +10,7 @@ let root: Root;
 function Probe({ target, hold = false }: { target: string; hold?: boolean }) {
   const { shown, attach } = useSmoothTextReveal(target, {
     initialIntervalMs: 300,
-    holdWhilePrefix: hold,
+    holdWhileShorter: hold,
   });
   return (
     <span data-testid="probe" ref={attach}>
@@ -115,11 +115,11 @@ describe('useSmoothTextReveal', () => {
     expect(spy).toHaveBeenCalled();
   });
 
-  it('removes a retracted word in the same render, then types the correction', () => {
+  it('replaces a revised word in the same render, then types what is new', () => {
     render('xin chào bạn');
     advance(1000);
     render('xin chào các bạn');
-    expect(probe()).toBe('xin chào ');
+    expect(probe()).toBe('xin chào các');
     advance(1000);
     expect(probe()).toBe('xin chào các bạn');
   });

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
-  backlog,
+  needsFrame,
   createRevealState,
   retarget,
   stepReveal,
@@ -68,7 +68,10 @@ function createRevealController(draw: (shown: string) => void): RevealController
   const snap = () => {
     cancel();
     if (!state) return;
-    state = { ...state, shown: state.target, carry: 0 };
+    // A held translation resolves to the one that replaced it: with no reveal,
+    // there is nothing to hold for.
+    const latest = state.pending ?? state.target;
+    state = { ...state, shown: latest, target: latest, carry: 0, pending: null };
     draw(state.shown);
   };
 
@@ -95,12 +98,12 @@ function createRevealController(draw: (shown: string) => void): RevealController
     const previous = state.shown;
     state = stepReveal(state, scheduledOn.performance.now(), frameMs);
     if (state.shown !== previous) draw(state.shown);
-    if (backlog(state) > 0) schedule();
+    if (needsFrame(state)) schedule();
     else lastFrameAt = null;
   };
 
   function schedule() {
-    if (frame || !state || backlog(state) === 0) return;
+    if (frame || !state || !needsFrame(state)) return;
     const target = view();
     if (!target) return;
     if (isInstant(target)) {
@@ -128,8 +131,8 @@ function createRevealController(draw: (shown: string) => void): RevealController
         snap();
         return;
       }
-      // Drawn at once, not on the next frame: a revision removes the words that
-      // no longer agree, and showing retracted words for even a frame longer is
+      // Drawn at once, not on the next frame: a revision replaces the words that
+      // changed, and showing replaced words for even a frame longer is
       // the one thing a correction must not do.
       draw(state.shown);
       schedule();
@@ -147,9 +150,9 @@ function createRevealController(draw: (shown: string) => void): RevealController
  */
 export function useSmoothTextReveal(
   target: string,
-  options: { initialIntervalMs: number; holdWhilePrefix?: boolean },
+  options: { initialIntervalMs: number; holdWhileShorter?: boolean; maxGraphemesPerFrame?: number },
 ): UseSmoothTextReveal {
-  const { initialIntervalMs, holdWhilePrefix = false } = options;
+  const { initialIntervalMs, holdWhileShorter = false, maxGraphemesPerFrame } = options;
   const [shown, setShown] = useState(() =>
     typeof window !== 'undefined' && isInstant(window) ? target : '',
   );
@@ -163,12 +166,12 @@ export function useSmoothTextReveal(
     [controller],
   );
 
-  // A layout effect, so a revision's removal lands in the same paint as the
+  // A layout effect, so a revision's replacement lands in the same paint as the
   // commit that carried it. Ref callbacks run before layout effects, so the
   // element — and with it the right window — is already attached here.
   useLayoutEffect(() => {
-    controller.setTarget(target, { initialIntervalMs, holdWhilePrefix });
-  }, [controller, target, initialIntervalMs, holdWhilePrefix]);
+    controller.setTarget(target, { initialIntervalMs, holdWhileShorter, maxGraphemesPerFrame });
+  }, [controller, target, initialIntervalMs, holdWhileShorter, maxGraphemesPerFrame]);
 
   useEffect(() => () => controller.dispose(), [controller]);
 

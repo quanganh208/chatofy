@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   backlog,
-  commonGraphemePrefix,
+  needsFrame,
+  REVEAL_HOLD_IDLE_RELEASE_MS,
   createRevealState,
   graphemes,
   retarget,
@@ -11,8 +12,8 @@ import {
 } from './smooth-text-reveal';
 
 const FRAME = 16.67;
-const SOURCE: RevealOptions = { initialIntervalMs: 300, holdWhilePrefix: false };
-const TRANSLATION: RevealOptions = { initialIntervalMs: 120, holdWhilePrefix: true };
+const SOURCE: RevealOptions = { initialIntervalMs: 300, holdWhileShorter: false };
+const TRANSLATION: RevealOptions = { initialIntervalMs: 120, holdWhileShorter: true };
 
 /** Steps until nothing is owed, returning every intermediate `shown`. */
 function drain(start: RevealState, from: number, frameMs = FRAME, maxFrames = 1000) {
@@ -41,12 +42,6 @@ describe('graphemes', () => {
   it('counts a Vietnamese letter with its marks as one, composed or not', () => {
     expect(graphemes('Việt')).toHaveLength(4);
     expect(graphemes('Việt')).toHaveLength(4);
-  });
-});
-
-describe('commonGraphemePrefix', () => {
-  it('stops at the first grapheme that differs', () => {
-    expect(commonGraphemePrefix('xin chào', 'xin chàu')).toBe('xin chà');
   });
 });
 
@@ -97,6 +92,16 @@ describe('stepReveal', () => {
     expect(Math.max(...graphemeSteps(shownAfterEachStep))).toBeLessThanOrEqual(9);
   });
 
+  it('lets a line be given a higher per-frame ceiling', () => {
+    const options: RevealOptions = { ...TRANSLATION, maxGraphemesPerFrame: 4 };
+    const { shownAfterEachStep } = drain(
+      retarget(createRevealState(options, 0), 'a'.repeat(100), 0, options),
+      0,
+    );
+    const steps = graphemeSteps(shownAfterEachStep);
+    expect(Math.max(...steps)).toBe(4);
+  });
+
   it('never shows a base letter without the marks that belong to it', () => {
     const target = 'Tiếng Việt rất hay'.normalize('NFD');
     const targetGraphemes = graphemes(target);
@@ -113,20 +118,45 @@ describe('stepReveal', () => {
 });
 
 describe('retarget', () => {
-  it('snaps back to what still agrees on a revision, then types forward', () => {
+  it('replaces a revised word in place instead of retyping the line', () => {
+    // The recogniser's commonest revision: one early word changes, the rest stays.
+    const state = revealed('mai mình đi học nhé', SOURCE);
+    const revised = retarget(state, 'hai mình đi học nhé', 1000, SOURCE);
+    expect(revised.shown).toBe('hai mình đi học nhé');
+    expect(backlog(revised)).toBe(0);
+  });
+
+  it('types only what a revision adds beyond what was on screen', () => {
     const state = revealed('xin chào bạn', SOURCE);
     const revised = retarget(state, 'xin chào các bạn', 1000, SOURCE);
-    expect(revised.shown).toBe('xin chào ');
+    expect(revised.shown).toBe('xin chào các');
     expect(drain(revised, 1000).state.shown).toBe('xin chào các bạn');
   });
 
-  it('holds a translation while the new one is still a prefix of it', () => {
+  it('holds a translation while the new one is shorter, and swaps once it catches up', () => {
     const state = revealed('Hello my friend', TRANSLATION);
-    const held = retarget(state, 'Hello', 1000, TRANSLATION);
+    const held = retarget(state, 'Hi', 1000, TRANSLATION);
     expect(held.shown).toBe('Hello my friend');
     expect(backlog(held)).toBe(0);
-    const diverged = retarget(held, 'Hello my dear friend', 1100, TRANSLATION);
-    expect(diverged.shown).toBe('Hello my ');
+    const caughtUp = retarget(held, 'Hi there my good friend', 1100, TRANSLATION);
+    expect(caughtUp.shown).toBe('Hi there my goo');
+    expect(drain(caughtUp, 1100).state.shown).toBe('Hi there my good friend');
+  });
+
+  it('releases a held translation once the new one stops arriving', () => {
+    const held = retarget(revealed('Hello my friend', TRANSLATION), 'Hi', 1000, TRANSLATION);
+    expect(needsFrame(held)).toBe(true);
+    expect(stepReveal(held, 1000 + REVEAL_HOLD_IDLE_RELEASE_MS - 10, FRAME).shown).toBe(
+      'Hello my friend',
+    );
+    const released = stepReveal(held, 1000 + REVEAL_HOLD_IDLE_RELEASE_MS, FRAME);
+    expect(released.shown).toBe('Hi');
+    expect(needsFrame(released)).toBe(false);
+  });
+
+  it('ignores a repeat of the held target', () => {
+    const held = retarget(revealed('Hello my friend', TRANSLATION), 'Hi', 1000, TRANSLATION);
+    expect(retarget(held, 'Hi', 1200, TRANSLATION)).toBe(held);
   });
 
   it('does not hold the source line: a shorter reading is a real correction', () => {

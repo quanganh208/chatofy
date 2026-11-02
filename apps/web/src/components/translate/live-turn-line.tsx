@@ -42,11 +42,13 @@ export function LiveTurnLine({
     initialIntervalMs: 300,
   });
   // A provisional translation streams in token by token and restarts for each
-  // longer prefix, so its updates come faster than the recogniser's, and it holds
-  // the previous guess until the new one disagrees with it.
+  // longer prefix, so its updates come faster than the recogniser's. It holds the
+  // previous guess while the new one is still shorter, and may type a little
+  // faster, because a whole sentence often lands at once.
   const { shown: targetShown, attach: attachTarget } = useSmoothTextReveal(targetText, {
     initialIntervalMs: 120,
-    holdWhilePrefix: true,
+    holdWhileShorter: true,
+    maxGraphemesPerFrame: 4,
   });
 
   // The committed index is into the server's string; the typed one is a prefix

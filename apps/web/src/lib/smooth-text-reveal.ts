@@ -26,12 +26,22 @@ export interface RevealOptions {
   /** Expected ms between target updates, before any has been measured. */
   initialIntervalMs: number;
   /**
-   * For the translation line: while a new target is a strict prefix of what is
-   * shown, keep showing it. A new provisional translation streams in from its
-   * first token, and its opening words usually match the previous one's — so the
-   * previous text is still true until the new one says something different.
+   * For the translation line: while a new target is SHORTER than what is shown,
+   * keep showing what is shown. A new provisional translation streams in from its
+   * first token, so for most of its life it is shorter than the one on screen —
+   * and drawing it as it grows would cut the line back to a few words and regrow
+   * it, which is the blank this exists to remove. The held text is released when
+   * the new one catches up, or when it stops arriving: then it is finished and
+   * genuinely shorter, and it is the truth.
    */
-  holdWhilePrefix: boolean;
+  holdWhileShorter: boolean;
+  /**
+   * Most graphemes one 60 Hz frame may add; scaled by frame length. Defaults to
+   * {@link REVEAL_MAX_GRAPHEMES_PER_FRAME}. The translation line is given 4: its
+   * text arrives a sentence at a time, and at 3 it trailed by 400 ms at p95
+   * against 283 ms at 4 on a real conversation — the user chose 4.
+   */
+  maxGraphemesPerFrame?: number;
 }
 
 export interface RevealState {
@@ -45,6 +55,10 @@ export interface RevealState {
   intervalMs: number;
   /** Fractional graphemes owed from earlier frames. */
   carry: number;
+  /** A held target, waiting to catch up with what is shown. */
+  pending: string | null;
+  /** Per-frame ceiling, fixed for the line's life. */
+  maxGraphemesPerFrame: number;
 }
 
 /** Slowest rate, so a trickle of text still moves visibly. */
@@ -53,10 +67,22 @@ export const REVEAL_FLOOR_GRAPHEMES_PER_SECOND = 25;
 export const REVEAL_MAX_GRAPHEMES_PER_FRAME = 3;
 /** Never plan to drain the backlog faster than this, so a late update speeds up instead of jumping. */
 export const REVEAL_MIN_DRAIN_MS = 100;
+/**
+ * Aim to finish typing an update within this share of the expected interval.
+ * At the whole interval the source line trailed by 383 ms at p95 on a real
+ * conversation; at 0.7 it is 300 ms, still within three graphemes a frame.
+ */
+export const REVEAL_DRAIN_FRACTION = 0.7;
 export const REVEAL_INTERVAL_MIN_MS = 50;
 export const REVEAL_INTERVAL_MAX_MS = 1000;
 /** Weight of the newest interval sample. */
 export const REVEAL_EMA_WEIGHT = 0.3;
+/**
+ * A held translation is released after this long without an update: three to
+ * four of the provisional translation's ~100 ms cadences, so a stream still
+ * arriving is not cut off mid-way, but a finished shorter one is not held long.
+ */
+export const REVEAL_HOLD_IDLE_RELEASE_MS = 400;
 
 const SIXTY_HZ_FRAME_MS = 16.67;
 
@@ -67,13 +93,24 @@ export function graphemes(text: string): string[] {
   return Array.from(segmenter.segment(text), (part) => part.segment);
 }
 
-/** The longest run of leading graphemes `a` and `b` share. */
-export function commonGraphemePrefix(a: string, b: string): string {
-  const left = graphemes(a);
-  const right = graphemes(b);
-  let prefix = '';
-  for (let i = 0; i < right.length && left[i] === right[i]; i++) prefix += right[i];
-  return prefix;
+/**
+ * What to show once the target becomes `next`: as much of `next` as was already
+ * on screen, so revised words are REPLACED in place and only new text is typed.
+ *
+ * Not the common prefix. Measured on a real conversation, 88 of 144 revisions
+ * changed one word near the start of the line and left the rest as it was;
+ * cutting back to the first difference blanked the line and retyped it, and put
+ * the source line 3.8 s behind at p95. The recogniser substitutes, it does not
+ * retract, so a substitution is drawn as one.
+ */
+function substituted(shown: string, next: string): string {
+  const nextGraphemes = graphemes(next);
+  return nextGraphemes.slice(0, Math.min(graphemes(shown).length, nextGraphemes.length)).join('');
+}
+
+/** Whether the reveal still has work to do on later frames. */
+export function needsFrame(state: RevealState): boolean {
+  return state.pending !== null || backlog(state) > 0;
 }
 
 /** Graphemes of the target not yet on screen. */
@@ -89,6 +126,8 @@ export function createRevealState(options: RevealOptions, now: number): RevealSt
     lastTargetAt: now,
     intervalMs: options.initialIntervalMs,
     carry: 0,
+    pending: null,
+    maxGraphemesPerFrame: options.maxGraphemesPerFrame ?? REVEAL_MAX_GRAPHEMES_PER_FRAME,
   };
 }
 
@@ -107,10 +146,10 @@ export function retarget(
   now: number,
   options: RevealOptions,
 ): RevealState {
-  if (next === state.target) return state;
+  if (next === (state.pending ?? state.target)) return state;
   // An empty piece is how the server withdraws a translation of words that were
   // taken back, so it always clears, held or not.
-  if (next === '') return { ...state, shown: '', target: '', carry: 0 };
+  if (next === '') return { ...state, shown: '', target: '', carry: 0, pending: null };
 
   // The first text after an empty line opens a new run; the gap before it is
   // silence, not a cadence.
@@ -121,16 +160,23 @@ export function retarget(
         REVEAL_EMA_WEIGHT *
           clamp(now - state.lastTargetAt, REVEAL_INTERVAL_MIN_MS, REVEAL_INTERVAL_MAX_MS);
 
-  if (options.holdWhilePrefix && state.shown.startsWith(next) && next.length < state.shown.length) {
-    // Hold until the new translation diverges. Bounded: the finished turn
-    // replaces the live line, so a held guess cannot outlive its sentence.
-    return { ...state, target: state.shown, lastTargetAt: now, intervalMs };
+  if (options.holdWhileShorter && graphemes(next).length < graphemes(state.shown).length) {
+    // Bounded twice over: released by `stepReveal` once the stream goes quiet,
+    // and the finished turn replaces the live line in any case.
+    return { ...state, target: state.shown, pending: next, lastTargetAt: now, intervalMs };
   }
 
-  // A revision: what no longer agrees disappears at once — animating a deletion
-  // would show retracted words for longer — and the new text types forward.
-  const shown = commonGraphemePrefix(state.shown, next);
-  return { ...state, shown, target: next, lastTargetAt: now, intervalMs };
+  // A revision replaces the words that changed at once, in place — typing them
+  // would animate text being read and show the wrong word for longer — and only
+  // what is new types forward.
+  return {
+    ...state,
+    shown: substituted(state.shown, next),
+    target: next,
+    pending: null,
+    lastTargetAt: now,
+    intervalMs,
+  };
 }
 
 /**
@@ -138,18 +184,32 @@ export function retarget(
  * next update is expected, so a line normally finishes typing just as new text
  * arrives — and one that is behind speeds up, capped per frame.
  */
-export function stepReveal(state: RevealState, now: number, frameMs: number): RevealState {
+export function stepReveal(current: RevealState, now: number, frameMs: number): RevealState {
+  let state = current;
+  if (state.pending !== null && now - state.lastTargetAt >= REVEAL_HOLD_IDLE_RELEASE_MS) {
+    // The new translation stopped arriving while still shorter: it is finished,
+    // and holding the old one any longer would show a guess it has replaced.
+    state = {
+      ...state,
+      shown: substituted(state.shown, state.pending),
+      target: state.pending,
+      pending: null,
+    };
+  }
   const owed = backlog(state);
   if (owed === 0) return state;
 
-  const timeLeft = Math.max(state.intervalMs - (now - state.lastTargetAt), REVEAL_MIN_DRAIN_MS);
+  const timeLeft = Math.max(
+    state.intervalMs * REVEAL_DRAIN_FRACTION - (now - state.lastTargetAt),
+    REVEAL_MIN_DRAIN_MS,
+  );
   const rate = Math.max((owed / timeLeft) * 1000, REVEAL_FLOOR_GRAPHEMES_PER_SECOND);
   let carry = state.carry + (rate * frameMs) / 1000;
   let count = Math.floor(carry);
   carry -= count;
   const perFrameCap = Math.max(
     1,
-    Math.round((REVEAL_MAX_GRAPHEMES_PER_FRAME * frameMs) / SIXTY_HZ_FRAME_MS),
+    Math.round((state.maxGraphemesPerFrame * frameMs) / SIXTY_HZ_FRAME_MS),
   );
   // The excess is dropped rather than banked: banked, it would come out as a
   // jump on the next frame.
