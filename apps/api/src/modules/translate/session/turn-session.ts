@@ -15,7 +15,10 @@ import {
 import { PartialTranscriptScheduler } from '../audio/partial-transcript-scheduler';
 import { LiveTranslationTrigger } from '../audio/live-translation-trigger';
 import { TranslationBudget } from '../audio/translation-budget';
-import { LIVE_TRANSLATION_MODELS } from './translation-model-policy';
+import {
+  LIVE_TRANSLATION_MODELS,
+  MAX_SPECULATIONS_PER_TURN,
+} from './translation-model-policy';
 import { StreamingCommitter } from '../audio/streaming-committer';
 import type { TranslatedTurnText } from '../services/pipeline-translator.service';
 import { MAX_TURN_SECONDS, TurnAudio } from './turn-audio';
@@ -73,6 +76,12 @@ export interface TurnSessionDeps {
    * language the settled text is in, which is only known once the turn locks.
    */
   commitChars?: number | ((language: LanguageCode) => number);
+  /**
+   * Whether a speculation may start while the previous one is in flight.
+   * Absent is today's behaviour, overlap allowed; see
+   * `TranslationCostPolicy.speculationOverlap`.
+   */
+  speculationOverlap?: boolean;
   userId?: string;
   /**
    * What the conversation had learned when this turn opened, for the live
@@ -132,7 +141,7 @@ export class TurnSession {
   private readonly releaseController = new AbortController();
   /** Which translation of this turn is being written. Rises on every request. */
   private translationGeneration = 0;
-  private readonly speculation = new TurnSpeculation();
+  private readonly speculation: TurnSpeculation;
 
   /** The pair as the client declared it, echoed on this turn's events. */
   readonly languagePair: SessionLanguagePair;
@@ -245,6 +254,10 @@ export class TurnSession {
     deps: TurnSessionDeps = {},
   ) {
     this.languagePair = options.languagePair;
+    this.speculation = new TurnSpeculation(
+      MAX_SPECULATIONS_PER_TURN,
+      deps.speculationOverlap ?? true,
+    );
     this.decision =
       deps.decision ?? declaredDecision(deps.languages ?? defaultPlan(options));
     this.voiceGender = options.voiceGender;

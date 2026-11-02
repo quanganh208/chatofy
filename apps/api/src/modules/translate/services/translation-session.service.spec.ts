@@ -12,7 +12,10 @@ import {
   TranslationSessionService,
   type StreamSocket,
 } from './translation-session.service';
-import { STT_MIN_SPEECH_MS } from '../session/turn-tuning';
+import {
+  LIVE_TRANSLATION_COMMIT_CHARS,
+  STT_MIN_SPEECH_MS,
+} from '../session/turn-tuning';
 import {
   NoSpeechDetectedException,
   PipelineTranslatorService as RealPipelineTranslatorService,
@@ -28,6 +31,8 @@ import type { AiProvidersFactory } from '../providers/ai-providers.factory';
 import type { ClientTurnMetrics } from '@chatofy/types';
 import type { TurnMetrics, TurnMetricsRecorder } from './turn-metrics.recorder';
 import { encodePcm16Wav } from '../audio/wav-codec';
+import type { ConfigService } from '@nestjs/config';
+import { validateEnv, type Env } from '../../../config/env.schema';
 import { ProviderAbortedError } from '@chatofy/ai-providers';
 import type { SpeechLanguageSupport } from '../providers/speech-language-support';
 import {
@@ -117,7 +122,24 @@ interface Harness {
   identifier: LanguageIdentifier;
 }
 
-function makeService(overrides: Partial<Harness> = {}): Harness {
+/** A ConfigService over what the schema makes of `values`, for the cost knobs. */
+function configFrom(values: Record<string, string>): ConfigService<Env, true> {
+  const env = validateEnv({
+    DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
+    AUTH_JWT_SECRET: 'x'.repeat(32),
+    ...values,
+  });
+  return { get: (key: keyof Env) => env[key] } as unknown as ConfigService<
+    Env,
+    true
+  >;
+}
+
+function makeService(
+  overrides: Partial<Harness> = {},
+  /** Cost knobs as env keys; none given builds the service with no config at all. */
+  costEnv?: Record<string, string>,
+): Harness {
   const synthesized: string[] = [];
   const recorded: TurnMetrics[] = [];
   const recordedClient: ClientTurnMetrics[] = [];
@@ -198,6 +220,7 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
       metrics,
       languageSupport,
       identifier,
+      costEnv === undefined ? undefined : configFrom(costEnv),
     ),
     transcribe,
     translate,
@@ -553,6 +576,77 @@ describe('TranslationSessionService', () => {
   // that. The half that decides it is `sends nothing once the end is
   // suspected` in `packages/realtime-client/src/audio/capture-pump.spec.ts` — if that one goes,
   // these keep passing and the saving quietly disappears again.
+  describe('cost knobs', () => {
+    it('asks a speculation for the homophone repair by default, and not with the knob off', () => {
+      const plain = makeService();
+      const plainSocket = new FakeSocket();
+      plain.service.pushFrame(
+        plainSocket,
+        frame({ sessionId: open(plain.service, plainSocket) }),
+      );
+      plain.service.speculate(plainSocket);
+      expect(plain.transcribeAndTranslate.mock.calls[0]?.[0]).toMatchObject({
+        homophones: true,
+        purpose: 'speculation',
+      });
+
+      const off = makeService({}, { TRANSLATE_SPECULATION_HOMOPHONES: 'off' });
+      const offSocket = new FakeSocket();
+      off.service.pushFrame(
+        offSocket,
+        frame({ sessionId: open(off.service, offSocket) }),
+      );
+      off.service.speculate(offSocket);
+      expect(off.transcribeAndTranslate.mock.calls[0]?.[0]).toMatchObject({
+        homophones: false,
+      });
+    });
+
+    it('with overlap off, makes no second guess while the first is in flight', () => {
+      const never = () => new Promise<never>(() => undefined);
+      const run = (costEnv?: Record<string, string>) => {
+        const harness = makeService(
+          { transcribeAndTranslate: vi.fn(never) },
+          costEnv,
+        );
+        const socket = new FakeSocket();
+        const sessionId = open(harness.service, socket);
+        harness.service.pushFrame(socket, frame({ sessionId, sequence: 0 }));
+        harness.service.speculate(socket);
+        harness.service.pushFrame(socket, frame({ sessionId, sequence: 1 }));
+        harness.service.speculate(socket);
+        return harness.transcribeAndTranslate.mock.calls.length;
+      };
+
+      expect(run()).toBe(2);
+      expect(run({ TRANSLATE_SPECULATION_OVERLAP: 'off' })).toBe(1);
+    });
+
+    it('scales the characters a live preview waits for', () => {
+      const thresholdFor = (costEnv?: Record<string, string>) => {
+        const { service } = makeService({}, costEnv);
+        const socket = new FakeSocket();
+        const sessionId = open(service, socket);
+        const registry = (
+          service as unknown as {
+            registry: {
+              get(s: FakeSocket, id: string): { liveTranslation: unknown };
+            };
+          }
+        ).registry;
+        const trigger = registry.get(socket, sessionId).liveTranslation as {
+          commitChars: () => number;
+        };
+        return trigger.commitChars();
+      };
+
+      expect(thresholdFor()).toBe(LIVE_TRANSLATION_COMMIT_CHARS.vi);
+      expect(thresholdFor({ TRANSLATE_LIVE_COMMIT_SCALE: '2' })).toBe(
+        LIVE_TRANSLATION_COMMIT_CHARS.vi * 2,
+      );
+    });
+  });
+
   describe('speculation', () => {
     it('reuses speculated work when no more audio arrived', async () => {
       const { service, transcribeAndTranslate, recorded } = makeService();

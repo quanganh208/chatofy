@@ -179,6 +179,11 @@ export interface TranslateTurnInput {
   /** Which lane asked, logged on the translation's `llm` line only. */
   purpose?: LlmCallPurpose;
   /**
+   * Whether the transcript checks may include the homophone repair. Absent is
+   * true. A speculation passes its cost policy here; the final never does.
+   */
+  homophones?: boolean;
+  /**
    * Languages the recognizer should choose between, the decoded one among
    * them. Absent (or one language) is a declared decode, as every turn was
    * before identification existed.
@@ -665,8 +670,14 @@ export class PipelineTranslatorService {
     alternates: readonly string[] = [],
     /** The turn's hint terms, whose words a fusion never changes. */
     keep: readonly string[] = [],
+    /**
+     * Whether to ask for the homophone repair. False skips it and leaves the
+     * fusion to run alone; see `TranslationCostPolicy.speculationHomophones`.
+     */
+    homophones = true,
   ): Promise<TranscriptCorrection[] | undefined> {
     if (!text.trim()) return undefined;
+    const repairs = homophones && REPAIRS_HOMOPHONES[recognition];
     const heard = wordsOf(text).join(' ');
     // An alternate that heard the same words has nothing to offer, and on the
     // measured set half the turns were such: those cost no call.
@@ -677,8 +688,7 @@ export class PipelineTranslatorService {
           .slice(0, 1)
           .filter((alternate) => wordsOf(alternate).join(' ') !== heard)
       : [];
-    if (!REPAIRS_HOMOPHONES[recognition] && differing.length === 0)
-      return undefined;
+    if (!repairs && differing.length === 0) return undefined;
     let checker: LoanwordRespeller | null;
     try {
       checker = this.providers.makeLoanwordRespeller();
@@ -707,7 +717,7 @@ export class PipelineTranslatorService {
             ),
           )
         : [],
-      REPAIRS_HOMOPHONES[recognition]
+      repairs
         ? this.check('homophones', checker, async () =>
             acceptHomophoneRepairs(
               text,
@@ -1203,6 +1213,7 @@ export class PipelineTranslatorService {
             input.context,
             alternates,
             mergeHotwords(input.hints?.hotwords, input.learnedTerms),
+            input.homophones ?? true,
           )
         : undefined;
       const translations = await this.translateAll({

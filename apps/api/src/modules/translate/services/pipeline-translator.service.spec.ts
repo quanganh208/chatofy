@@ -1215,6 +1215,58 @@ describe('PipelineTranslatorService', () => {
       });
     });
 
+    it('skips only the homophone repair when asked to, and still fuses', async () => {
+      const run = async (homophones: boolean) => {
+        const repairHomophones = vi.fn().mockResolvedValue([]);
+        const fuseRecognizers = vi.fn().mockResolvedValue(undefined);
+        await serviceWith(fakeTrio(), undefined, {
+          repairHomophones,
+          fuseRecognizers,
+        }).correctTranscript(
+          'xin chào',
+          'vi',
+          [],
+          ['xin trào'],
+          [],
+          homophones,
+        );
+        return { repairHomophones, fuseRecognizers };
+      };
+
+      const both = await run(true);
+      expect(both.repairHomophones).toHaveBeenCalledTimes(1);
+      expect(both.fuseRecognizers).toHaveBeenCalledTimes(1);
+
+      const fusionOnly = await run(false);
+      expect(fusionOnly.repairHomophones).not.toHaveBeenCalled();
+      expect(fusionOnly.fuseRecognizers).toHaveBeenCalledTimes(1);
+    });
+
+    it('asks no checker at all with the repair off and no differing alternate', async () => {
+      const repairHomophones = vi.fn().mockResolvedValue([]);
+      const fuseRecognizers = vi.fn().mockResolvedValue(undefined);
+      const corrections = await serviceWith(fakeTrio(), undefined, {
+        repairHomophones,
+        fuseRecognizers,
+      }).correctTranscript('xin chào', 'vi', [], ['xin chào'], [], false);
+
+      expect(corrections).toBeUndefined();
+      expect(repairHomophones).not.toHaveBeenCalled();
+      expect(fuseRecognizers).not.toHaveBeenCalled();
+    });
+
+    it('passes a turn input that asks for no homophone repair down to the checks', async () => {
+      const repairHomophones = vi.fn().mockResolvedValue([]);
+      await serviceWith(fakeTrio(), undefined, {
+        repairHomophones,
+      }).transcribeAndTranslate(
+        { ...input, restoreDisplay: { terms: [] }, homophones: false },
+        VI_TO_EN,
+      );
+
+      expect(repairHomophones).not.toHaveBeenCalled();
+    });
+
     it('asks nothing for a turn that wants no display', async () => {
       const repairHomophones = vi.fn().mockResolvedValue([]);
       const result = await serviceWith(fakeTrio(), undefined, {
