@@ -47,7 +47,9 @@ const MIN_SPLIT_PAUSE_MS = 300;
  * CAM++ on half a second is noisy, and a vector on less decides nothing. Shorter
  * pieces — "Nice.", "What rule?" — ride with the piece before them. That loses
  * the interjections, which are a small share of the time, in exchange for not
- * cutting a sentence on a vector that means nothing.
+ * cutting a sentence on a vector that means nothing. The one exception is a
+ * short OPENING, which is compared against the previous turn's voice instead —
+ * see {@link MIN_LEAD_MS}.
  */
 const MIN_PIECE_MS = 500;
 
@@ -79,7 +81,48 @@ export const MAX_PIECES = 12;
 export interface Span {
   startMs: number;
   endMs: number;
+  /**
+   * The previous turn's speaker said this: a short opening the ceiling cut off
+   * the end of their sentence ("…discuss it with | friends. Absolutely."). The
+   * piece is too short to carry a vector of its own that a clusterer could
+   * trust, so it is attributed with the previous turn's voice instead.
+   */
+  continuesPrevious?: true;
+  /**
+   * A short closing piece whose speaker is decided by the NEXT turn: the voice
+   * it is closer to — that turn's or the rest of this one — is the one it is
+   * attributed with. Its words and translation go out at once like any piece;
+   * only its label waits.
+   */
+  awaitsNextVoice?: {
+    /**
+     * What it is sent with when no next voice decides it: `rest` for a piece
+     * carved off a run it used to ride with, `own` for one the ordinary
+     * judgement had already cut off as a different voice.
+     */
+    fallback: 'own' | 'rest';
+  };
 }
+
+/**
+ * Shortest edge piece — an opening or a closing — compared against a
+ * neighbouring turn's voice.
+ *
+ * Below {@link MIN_PIECE_MS} a vector cannot be trusted against a threshold —
+ * measured on Scribe-diarized recordings, a 150–500 ms piece's cosine to its
+ * own speaker's speech had a 10th percentile of 0.03–0.20 — but it can still be
+ * trusted in a COMPARISON between two voices (31 of 36 right). Under 200 ms
+ * nothing was measured.
+ */
+const MIN_LEAD_MS = 200;
+/*
+ * Which edge pieces count as short is read two ways. The floor is the piece's
+ * span, as measured: the replays placed openings right down to one holding
+ * 140 ms of voice in a 260 ms span. The ceiling is its VOICE, because an edge
+ * piece also holds the pre-roll or the hangover: "Perfect." in prod spanned
+ * 650 ms, was judged on its own vector, and that vector put it on the wrong
+ * speaker — about 400 ms of it was voice.
+ */
 
 /**
  * Pauses of at least {@link MIN_SPLIT_PAUSE_MS} strictly inside the turn.
@@ -88,9 +131,22 @@ export interface Span {
  * a gap between two people, and is never returned.
  */
 export function findInternalPauses(pcm: Buffer, sampleRate: number): Span[] {
+  const levels = measureLevels(pcm, sampleRate);
+  return levels ? pausesIn(levels) : [];
+}
+
+/** Each frame's level and the turn's own speech threshold. */
+interface Levels {
+  rms: Float64Array;
+  threshold: number;
+  frameSamples: number;
+  sampleRate: number;
+}
+
+function measureLevels(pcm: Buffer, sampleRate: number): Levels | null {
   const frameSamples = Math.round((sampleRate * FRAME_MS) / 1000);
   const frames = Math.floor(pcm.length / 2 / frameSamples);
-  if (frames < 3) return [];
+  if (frames < 3) return null;
 
   const rms = new Float64Array(frames);
   for (let f = 0; f < frames; f += 1) {
@@ -108,11 +164,21 @@ export function findInternalPauses(pcm: Buffer, sampleRate: number): Span[] {
     MIN_NOISE_FLOOR,
     sorted[Math.floor(FLOOR_PERCENTILE * (frames - 1))] ?? 0,
   );
-  const threshold = floor + SPEECH_MARGIN;
-  const minFrames = Math.ceil(MIN_SPLIT_PAUSE_MS / FRAME_MS);
-  const msAt = (frame: number) =>
-    Math.round((frame * frameSamples * 1000) / sampleRate);
+  return { rms, threshold: floor + SPEECH_MARGIN, frameSamples, sampleRate };
+}
 
+/** From the sample index, not `frame × FRAME_MS`, so a long turn does not drift. */
+function msAtFrame(
+  { frameSamples, sampleRate }: Levels,
+  frame: number,
+): number {
+  return Math.round((frame * frameSamples * 1000) / sampleRate);
+}
+
+function pausesIn(levels: Levels): Span[] {
+  const { rms, threshold } = levels;
+  const frames = rms.length;
+  const minFrames = Math.ceil(MIN_SPLIT_PAUSE_MS / FRAME_MS);
   const pauses: Span[] = [];
   let f = 0;
   while (f < frames) {
@@ -124,13 +190,28 @@ export function findInternalPauses(pcm: Buffer, sampleRate: number): Span[] {
     while (f < frames && rms[f]! < threshold) f += 1;
     const touchesEdge = start === 0 || f === frames;
     if (!touchesEdge && f - start >= minFrames) {
-      // From the sample index, not `f * FRAME_MS`: at a rate that does not
-      // divide into 20ms frames, the rounded frame is slightly longer and the
-      // difference accumulates over a long turn.
-      pauses.push({ startMs: msAt(start), endMs: msAt(f) });
+      pauses.push({
+        startMs: msAtFrame(levels, start),
+        endMs: msAtFrame(levels, f),
+      });
     }
   }
   return pauses;
+}
+
+/** The voice inside a span: from its first frame over the threshold to its last. */
+function speechMsIn(levels: Levels, span: Span): number {
+  const { rms, threshold, frameSamples, sampleRate } = levels;
+  const frameAt = (ms: number) =>
+    Math.min(rms.length, Math.floor((ms * sampleRate) / 1000 / frameSamples));
+  let first = -1;
+  let last = -1;
+  for (let f = frameAt(span.startMs); f < frameAt(span.endMs); f += 1) {
+    if (rms[f]! < threshold) continue;
+    if (first < 0) first = f;
+    last = f;
+  }
+  return first < 0 ? 0 : msAtFrame(levels, last + 1) - msAtFrame(levels, first);
 }
 
 /** The speech between the pauses: one more piece than there are pauses. */
@@ -188,6 +269,39 @@ export function groupByVoice(pieces: JudgedPiece[]): [number, number][] {
   return runs;
 }
 
+/**
+ * Whether a short opening sounds more like the previous turn than like the rest
+ * of its own run.
+ *
+ * Today such a piece always rides with the run after it. Replayed through the
+ * capture pump over eight Scribe-diarized recordings, 7 of 12 short openings
+ * were then on the wrong speaker — a ceiling cut leaves the end of one person's
+ * sentence at the start of the next turn, right before the other person
+ * answers. Comparing the two voices moved 7: 5 fixed, none broken, and 2 whose
+ * speaker was the same either way.
+ */
+function opensWithPreviousVoice(
+  lead: number[],
+  previous: readonly number[],
+  judged: JudgedPiece[],
+  runs: [number, number][],
+): boolean {
+  // The voice the opening would otherwise be heard with: the run that piece 1
+  // belongs to, without the opening itself.
+  const [first, last] = runs.find(([f, l]) => f <= 1 && 1 <= l) ?? [1, 0];
+  let rest: number[] | null = null;
+  for (let k = Math.max(first, 1); k <= last; k += 1) {
+    const piece = judged[k]!;
+    if (!piece.vector) continue;
+    const weight = piece.endMs - piece.startMs;
+    rest ??= new Array<number>(piece.vector.length).fill(0);
+    for (let i = 0; i < rest.length; i += 1)
+      rest[i]! += piece.vector[i]! * weight;
+  }
+  if (!rest) return false;
+  return cosine(lead, [...previous]) > cosine(lead, rest);
+}
+
 function cosine(a: number[], b: number[]): number {
   let dot = 0;
   let na = 0;
@@ -205,6 +319,8 @@ export interface SplitCandidate {
   durationMs: number;
   pauses: Span[];
   pieces: Span[];
+  /** Voice inside the first and the last piece, pre-roll and hangover left out. */
+  edgeSpeechMs: readonly [number, number];
 }
 
 /**
@@ -218,15 +334,36 @@ export interface SplitCandidate {
 export function findSplitCandidate(
   pcm: Buffer,
   sampleRate: number,
+  { hasPreviousVoice = false }: { hasPreviousVoice?: boolean } = {},
 ): SplitCandidate | null {
-  const pauses = findInternalPauses(pcm, sampleRate);
+  const levels = measureLevels(pcm, sampleRate);
+  if (!levels) return null;
+  const pauses = pausesIn(levels);
   if (pauses.length === 0) return null;
   const durationMs = Math.floor((pcm.length / 2 / sampleRate) * 1000);
   const pieces = piecesBetween(durationMs, pauses);
   if (pieces.length > MAX_PIECES) return null;
+  const edgeSpeechMs = [
+    speechMsIn(levels, pieces[0]!),
+    speechMsIn(levels, pieces[pieces.length - 1]!),
+  ] as const;
+  const first = pieces[0]!;
+  const last = pieces[pieces.length - 1]!;
+  const candidate = { durationMs, pauses, pieces, edgeSpeechMs };
   const judgeable = pieces.filter((p) => p.endMs - p.startMs >= MIN_PIECE_MS);
-  if (judgeable.length < 2) return null;
-  return { durationMs, pauses, pieces };
+  if (judgeable.length >= 2) return candidate;
+  if (judgeable.length !== 1) return null;
+  // One voice to judge inside the turn, but a short edge that may belong to a
+  // neighbouring turn: an opening when the turn before has a voice to compare
+  // with, and a closing always, because the turn after will.
+  if (hasPreviousVoice && isShortEdge(first, edgeSpeechMs[0])) return candidate;
+  if (isShortEdge(last, edgeSpeechMs[1])) return candidate;
+  return null;
+}
+
+/** Too little voice to judge alone, yet enough audio to compare. */
+function isShortEdge(piece: Span, speechMs: number): boolean {
+  return piece.endMs - piece.startMs >= MIN_LEAD_MS && speechMs < MIN_PIECE_MS;
 }
 
 /**
@@ -240,19 +377,60 @@ export function findSplitCandidate(
  * null when it could not get one — a failed call costs the split, never the turn.
  */
 export async function planSpeakerSplit(
-  { durationMs, pauses, pieces }: SplitCandidate,
+  { durationMs, pauses, pieces, edgeSpeechMs }: SplitCandidate,
   embed: (span: Span) => Promise<number[] | null>,
+  previousVoice: readonly number[] | null = null,
 ): Promise<Span[] | null> {
-  const vectors = await Promise.all(
-    pieces.map((p) =>
-      p.endMs - p.startMs >= MIN_PIECE_MS ? embed(p) : Promise.resolve(null),
+  const lastIndex = pieces.length - 1;
+  const judgedAlone = (k: number) =>
+    pieces[k]!.endMs - pieces[k]!.startMs >= MIN_PIECE_MS;
+  const compareLead =
+    previousVoice !== null &&
+    lastIndex > 0 &&
+    isShortEdge(pieces[0]!, edgeSpeechMs[0]);
+  const [vectors, leadOnly] = await Promise.all([
+    Promise.all(
+      pieces.map((p, k) => (judgedAlone(k) ? embed(p) : Promise.resolve(null))),
     ),
-  );
+    // An opening too short to be judged still gets a vector to compare with.
+    compareLead && !judgedAlone(0) ? embed(pieces[0]!) : Promise.resolve(null),
+  ]);
   const judged = pieces.map((p, k) => ({ ...p, vector: vectors[k] ?? null }));
   const runs = groupByVoice(judged);
+
+  const leadVector = leadOnly ?? (compareLead ? judged[0]!.vector : null);
+  const leadIsPrevious =
+    leadVector !== null &&
+    opensWithPreviousVoice(leadVector, previousVoice!, judged, runs);
+  if (leadIsPrevious) {
+    // Already alone when the ordinary judgement cut it off; carved off if not.
+    const [, last] = runs[0]!;
+    if (last > 0) runs.splice(0, 1, [0, 0], [1, last]);
+  }
+
+  // A short closing waits for the next turn to decide whose it is: carved off
+  // the run it used to ride with, or, when the ordinary judgement had already
+  // cut it off on its own noisy vector, kept apart and marked the same way.
+  let tail: Span['awaitsNextVoice'];
+  if (lastIndex > 0 && isShortEdge(pieces[lastIndex]!, edgeSpeechMs[1])) {
+    const [tailFirst] = runs[runs.length - 1]!;
+    if (tailFirst < lastIndex) {
+      runs.splice(
+        runs.length - 1,
+        1,
+        [tailFirst, lastIndex - 1],
+        [lastIndex, lastIndex],
+      );
+      tail = { fallback: 'rest' };
+    } else {
+      tail = { fallback: 'own' };
+    }
+  }
   if (runs.length < 2) return null;
 
   return runs.map(([first, last], r) => ({
+    ...(r === 0 && leadIsPrevious ? { continuesPrevious: true as const } : {}),
+    ...(r === runs.length - 1 && tail ? { awaitsNextVoice: tail } : {}),
     startMs:
       r === 0
         ? 0

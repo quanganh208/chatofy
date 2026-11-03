@@ -3865,6 +3865,115 @@ describe('splitting a turn where the voice changes', () => {
     );
   });
 
+  it("gives a short opening the previous turn's voice when it sounds like it", async () => {
+    // "…discuss it with | friends. — Absolutely…": the ceiling cut the first
+    // speaker's last word into the next turn, right before the other answers.
+    const socket = new FakeSocket();
+    const harness = makeService({
+      ...fakes(),
+      // A short clip gets a vector of its own that leans the first voice's way
+      // without matching it, so a vector that comes out EXACTLY [1, 0] for the
+      // opening can only be the previous turn's.
+      embedSpeaker: vi.fn(async ({ audio }: TranslateTurnInput) => ({
+        vector:
+          audio.byteLength < SAMPLE_RATE
+            ? [0.9, 0.1]
+            : peakOf(audio) > 10000
+              ? [0, 1]
+              : [1, 0],
+        dim: 2,
+        speechMs: 900,
+      })),
+    });
+    const turn = async (payload: string) => {
+      harness.service.start(socket, {
+        languagePair: { source: 'vi', target: 'en' },
+        voiceGender: 'female',
+        embedSpeaker: true,
+        splitSpeakers: true,
+      });
+      const sessionId = socket.ofType('server.session.ready').at(-1)!.sessionId;
+      harness.service.pushFrame(socket, frame({ sessionId, payload }));
+      await harness.service.end(socket, sessionId);
+      return sessionId;
+    };
+
+    await turn(pcmOf(stretch(QUIET, 1500)));
+    const second = await turn(
+      pcmOf(stretch(QUIET, 300), stretch(0, 500), stretch(LOUD, 1500)),
+    );
+
+    const vectors = socket
+      .ofType('server.turn.embedding')
+      .filter((v) => v.sessionId.startsWith(second));
+    expect(vectors.map((v) => [v.sessionId, v.vector])).toEqual([
+      [`${second}#0`, [1, 0]],
+      [`${second}#1`, [0, 1]],
+    ]);
+  });
+
+  describe('a short closing before the next voice', () => {
+    // "…training our brains. | Perfect." — the second voice's first word.
+    const answerThenTail = pcmOf(
+      stretch(LOUD, 1500),
+      stretch(0, 500),
+      stretch(QUIET, 400),
+    );
+    const open = (
+      harness: ReturnType<typeof makeService>,
+      socket: FakeSocket,
+      payload: string,
+    ) => {
+      harness.service.start(socket, {
+        languagePair: { source: 'vi', target: 'en' },
+        voiceGender: 'female',
+        embedSpeaker: true,
+        splitSpeakers: true,
+      });
+      const sessionId = socket.ofType('server.session.ready').at(-1)!.sessionId;
+      harness.service.pushFrame(socket, frame({ sessionId, payload }));
+      return sessionId;
+    };
+    const tailVector = (socket: FakeSocket, sessionId: string) =>
+      socket
+        .ofType('server.turn.embedding')
+        .find((v) => v.sessionId === `${sessionId}#1`)?.vector;
+
+    it("takes the next turn's voice when that turn is already open", async () => {
+      const socket = new FakeSocket();
+      const harness = makeService(fakes());
+      const first = open(harness, socket, answerThenTail);
+      const second = open(harness, socket, pcmOf(stretch(QUIET, 1500)));
+      const ending = harness.service.end(socket, first);
+      await harness.service.end(socket, second);
+      await ending;
+
+      // Split, with the closing's words out as its own line at once…
+      expect(
+        socket
+          .ofType('server.transcript.final')
+          .filter((f) => f.sessionId.startsWith(first))
+          .map((f) => f.sessionId),
+      ).toEqual([`${first}#0`, `${first}#1`]);
+      // …and its label the second voice's, not the first piece's.
+      expect(tailVector(socket, first)).toEqual([1, 0]);
+    });
+
+    it("keeps its own turn's voice when nothing is open after it", async () => {
+      const { socket, sessionId } = await run(answerThenTail);
+      expect(tailVector(socket, sessionId)).toEqual([0, 1]);
+    });
+  });
+
+  it('leaves a short opening with its turn when there is no previous voice', async () => {
+    const { socket, sessionId } = await run(
+      pcmOf(stretch(QUIET, 300), stretch(0, 500), stretch(LOUD, 1500)),
+    );
+    expect(
+      socket.ofType('server.transcript.final').map((f) => f.sessionId),
+    ).toEqual([sessionId]);
+  });
+
   describe('retranslating a block', () => {
     const finalIds = (socket: FakeSocket) =>
       socket.ofType('server.transcript.final').map((f) => f.sessionId);

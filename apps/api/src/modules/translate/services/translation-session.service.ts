@@ -115,6 +115,7 @@ import {
   STT_MIN_SPEECH_MS,
 } from '../session/turn-tuning';
 import type { StreamSocket } from '../session/stream-socket';
+import { HeldClosingVoices } from '../session/held-closing-voices';
 import { LivePreview } from '../session/live-preview';
 import {
   FINAL_MODELS,
@@ -225,6 +226,15 @@ export class TranslationSessionService implements OnModuleDestroy {
    * two-way final falls back on is that turn's decided language.
    */
   private readonly openedBefore = new WeakMap<TurnSession, string>();
+  /**
+   * The last voice each connection sent a vector for: the speaker a short
+   * opening of the next turn is compared against (`planSpeakerSplit`).
+   */
+  private readonly lastVoices = new WeakMap<StreamSocket, number[]>();
+  /** The turn opened most recently on each connection, for a held closing to wait on. */
+  private readonly latestOpened = new WeakMap<StreamSocket, TurnSession>();
+  /** Short closing pieces whose label waits for the next turn's voice. */
+  private readonly closings = new HeldClosingVoices();
   /** Which sockets may identify languages; see {@link LidAdmission}. */
   private readonly lidAdmission = new LidAdmission<StreamSocket>();
   /** Each identifying connection's lean towards its declared source, if it declared one. */
@@ -487,6 +497,7 @@ export class TranslationSessionService implements OnModuleDestroy {
       learnedTerms: this.context.learnedTerms(socket),
     });
     this.registry.open(socket, session);
+    this.latestOpened.set(socket, session);
     const sessionId = session.sessionId;
     // Every accepted turn is noted, so the predecessor is always the turn
     // opened immediately before this one.
@@ -979,7 +990,9 @@ export class TranslationSessionService implements OnModuleDestroy {
       // takes exactly the path it always took.
       const candidate =
         embedding && session.splitSpeakers
-          ? findSplitCandidate(audio.pcm(), audio.sampleRate)
+          ? findSplitCandidate(audio.pcm(), audio.sampleRate, {
+              hasPreviousVoice: this.lastVoices.has(socket),
+            })
           : null;
       // The earlier speech this turn is translated against, resolved only by
       // the paths that send a request. For a continuation that may mean waiting
@@ -1195,6 +1208,10 @@ export class TranslationSessionService implements OnModuleDestroy {
           // must win over `embedding`, the WHOLE turn's vector, because the whole
           // turn includes the dropped non-speech the survivor does not.
           const heard = await (vector ?? embedding);
+          if (heard && carriesVoice(heard.vector)) {
+            this.lastVoices.set(socket, heard.vector);
+            this.closings.heard(socket, session, heard.vector);
+          }
           if (heard && this.registry.holds(socket, session)) {
             this.channelFor(socket, session).emit({
               type: 'server.turn.embedding',
@@ -1362,17 +1379,24 @@ export class TranslationSessionService implements OnModuleDestroy {
     void wholeSource?.catch(() => undefined);
 
     const started = Date.now();
+    // Read once: the same voice plans the split and stands in for an opening
+    // that belongs to it, even if another turn's vector lands in between.
+    const previousVoice = this.lastVoices.get(socket) ?? null;
     const spans = await withDeadline(
-      planSpeakerSplit(candidate, async (span) => {
-        const piece = await this.pipeline.embedSpeaker({
-          audio: audio.toWav(
-            audio.byteAtMs(span.startMs),
-            audio.byteAtMs(span.endMs),
-          ),
-          mimeType: 'audio/wav',
-        });
-        return piece?.vector ?? null;
-      }).catch(() => null),
+      planSpeakerSplit(
+        candidate,
+        async (span) => {
+          const piece = await this.pipeline.embedSpeaker({
+            audio: audio.toWav(
+              audio.byteAtMs(span.startMs),
+              audio.byteAtMs(span.endMs),
+            ),
+            mimeType: 'audio/wav',
+          });
+          return piece?.vector ?? null;
+        },
+        previousVoice,
+      ).catch(() => null),
       SPLIT_PLAN_DEADLINE_MS,
     );
     const planMs = Date.now() - started;
@@ -1427,6 +1451,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           ),
           minSpeechMs,
           scriptRetry: this.scriptRetryFor(session),
+          previousVoice,
           logger: this.logger,
         });
       } catch (err) {
@@ -1443,7 +1468,8 @@ export class TranslationSessionService implements OnModuleDestroy {
           ? `pieces=${split.pieces.length} cuts=${spans!
               .slice(1)
               .map((s) => s.startMs)
-              .join(',')}ms`
+              .join(',')}ms` +
+            (spans![0]!.continuesPrevious ? ' lead=previous' : '')
           : 'whole'),
     );
     if (split) {
@@ -1638,16 +1664,50 @@ export class TranslationSessionService implements OnModuleDestroy {
     // sidecar, a sentence never does.
     const heard = await vectors;
     if (!this.registry.holds(socket, session)) return;
-    heard.forEach((vector, index) => {
-      if (!vector) return;
+    const send = (
+      index: number,
+      vector: readonly number[],
+      speechMs: number,
+    ) => {
+      if (this.gone.has(socket)) return;
       channel.emit({
         type: 'server.turn.embedding',
         sessionId: ids[index]!,
-        vector: vector.vector,
-        dim: vector.vector.length,
+        vector: [...vector],
+        dim: vector.length,
         audioMs: pieces[index]!.endMs - pieces[index]!.startMs,
-        speechMs: vector.speechMs,
+        speechMs,
       });
+    };
+    heard.forEach((vector, index) => {
+      if (!vector) return;
+      const piece = pieces[index]!;
+      const rest = heard[index - 1]?.vector;
+      if (piece.awaitsNextVoice && rest && carriesVoice(vector.vector)) {
+        // Its label waits for the next turn; the line itself is already out.
+        const latest = this.latestOpened.get(socket);
+        this.closings.hold(
+          socket,
+          {
+            own: vector.vector,
+            rest,
+            fallback:
+              piece.awaitsNextVoice.fallback === 'own' ? vector.vector : rest,
+            send: (chosen) => send(index, chosen, vector.speechMs),
+          },
+          latest !== session ? latest : undefined,
+        );
+        return;
+      }
+      if (carriesVoice(vector.vector)) {
+        this.lastVoices.set(socket, vector.vector);
+        // Only a voice this turn's own audio produced decides a held closing,
+        // not the previous turn's voice an opening was handed.
+        if (!piece.continuesPrevious) {
+          this.closings.heard(socket, session, vector.vector);
+        }
+      }
+      send(index, vector.vector, vector.speechMs);
     });
   }
 
@@ -2068,6 +2128,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     // addressed to — the turn finished, the client closed the tab, and the model
     // is still typesetting.
     this.gone.add(socket);
+    this.closings.drop(socket);
     this.lidAdmission.release(socket);
     // The conversation is over, so its transcript history has no reader left.
     // The `WeakMap` would release it anyway once the socket became garbage; this
@@ -2576,4 +2637,12 @@ function twoWayDecision(pair: LanguagePair): TurnLanguageDecision {
     pair.source,
     (language) => planTurnLanguages(conversation, [language]),
   );
+}
+
+/**
+ * Whether a vector says anything about a voice. The sidecar answers silence with
+ * zeros, and a zero vector would compare as identical to everything.
+ */
+function carriesVoice(vector: readonly number[]): boolean {
+  return vector.some((value) => value !== 0);
 }

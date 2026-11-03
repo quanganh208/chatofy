@@ -104,6 +104,12 @@ export async function translateSplitTurn(
     minSpeechMs?: number;
     /** One more translation per piece and target that leaks a foreign script. */
     scriptRetry?: ScriptRetry;
+    /**
+     * The voice a `continuesPrevious` piece is attributed with, in place of its
+     * own: the piece is under half a second, too short for a vector a
+     * clusterer can trust, and the plan already decided whose it is.
+     */
+    previousVoice?: readonly number[] | null;
     /** Logs which piece was dropped and how long it was — never its text. */
     logger: Pick<Logger, 'warn'>;
   },
@@ -153,9 +159,16 @@ export async function translateSplitTurn(
 
   // Started once the split is certain, beside the translations. `embedSpeaker`
   // never rejects, so this cannot surface as an unhandled rejection.
+  const previousVoice = options.previousVoice;
   const vectors = Promise.all(
-    survivors.map(({ wav }) =>
-      pipeline.embedSpeaker({ audio: wav, mimeType: 'audio/wav' }),
+    survivors.map(({ span, wav }) =>
+      span.continuesPrevious && previousVoice
+        ? Promise.resolve({
+            vector: [...previousVoice],
+            dim: previousVoice.length,
+            speechMs: span.endMs - span.startMs,
+          })
+        : pipeline.embedSpeaker({ audio: wav, mimeType: 'audio/wav' }),
     ),
   );
   // Each piece is fanned out to every one of the turn's targets, same as the
