@@ -89,4 +89,35 @@ describe('FinishedSegments block text', () => {
         'That is four steps.',
     );
   });
+
+  describe('before', () => {
+    const socket = { send: () => undefined };
+    const recordAll = (finished: FinishedSegments, ids: string[]) => {
+      for (const id of ids) {
+        finished.record(socket, id, {
+          sourceText: `text ${id}`,
+          recognition: 'en',
+          targets: ['vi'],
+        });
+      }
+    };
+
+    it('returns the speech before a segment, oldest first, without the segment', () => {
+      const finished = new FinishedSegments();
+      recordAll(finished, ['s1', 's2', 's3', 's4']);
+      expect(finished.before(socket, 's3')).toEqual(['text s1', 'text s2']);
+    });
+
+    it('keeps only the most recent ones', () => {
+      const finished = new FinishedSegments();
+      recordAll(finished, ['s1', 's2', 's3', 's4', 's5', 's6']);
+      expect(finished.before(socket, 's6', 2)).toEqual(['text s4', 'text s5']);
+    });
+
+    it('returns nothing for a segment this connection does not know', () => {
+      const finished = new FinishedSegments();
+      recordAll(finished, ['s1', 's2']);
+      expect(finished.before(socket, 'nope')).toEqual([]);
+    });
+  });
 });

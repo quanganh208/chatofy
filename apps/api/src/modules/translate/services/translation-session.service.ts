@@ -303,6 +303,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         typeset: (block, restored, translations) =>
           this.typesetBlock(block, restored, translations),
       },
+      this.pipeline.makeTranslationPolisher(),
     );
 
     // ONE budget for the process, built here rather than per turn. A bucket per

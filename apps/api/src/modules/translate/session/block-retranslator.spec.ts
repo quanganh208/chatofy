@@ -268,4 +268,112 @@ describe('BlockRetranslator display', () => {
     ]);
     expect(typeset).not.toHaveBeenCalled();
   });
+
+  describe('polish', () => {
+    /** Six finished pieces, a display, and a polisher the test controls. */
+    function polished(
+      polish: (req: { context?: string[] }) => Promise<string | null>,
+    ) {
+      const socket = new FakeSocket();
+      const finished = new FinishedSegments();
+      for (let i = 0; i < 6; i += 1) {
+        finished.record(socket, `s${i}`, {
+          sourceText: `piece ${i}`,
+          recognition: 'en',
+          targets: ['vi'],
+        });
+      }
+      const gone = new Set<StreamSocket>();
+      const polisher = { name: 'fake', polish: vi.fn(polish) };
+      const retranslator = new BlockRetranslator(
+        finished,
+        { translateAll: async () => ({ vi: 'draft' }) },
+        silentLogger(),
+        (s) => gone.has(s),
+        { restore: async () => 'Piece 4 piece 5.', typeset: () => 'DISPLAY' },
+        polisher,
+      );
+      return { socket, retranslator, polisher, gone };
+    }
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+    it('answers the draft, then the polish with the same display', async () => {
+      const { socket, retranslator, polisher } = polished(
+        async () => 'POLISHED',
+      );
+
+      await retranslator.retranslate(socket, ['s4', 's5']);
+      await settle();
+
+      expect(socket.answers).toHaveLength(2);
+      expect(socket.answers[0]).toMatchObject({
+        translations: { vi: 'draft' },
+        display: 'DISPLAY',
+      });
+      expect(socket.answers[1]).toMatchObject({
+        segmentIds: ['s4', 's5'],
+        translations: { vi: 'POLISHED' },
+        display: 'DISPLAY',
+      });
+      // The speech before the block, never the block's own pieces.
+      expect(polisher.polish.mock.calls[0]?.[0].context).toEqual([
+        'piece 0',
+        'piece 1',
+        'piece 2',
+        'piece 3',
+      ]);
+    });
+
+    it('answers once when the polish keeps the draft', async () => {
+      const { socket, retranslator } = polished(async () => null);
+
+      await retranslator.retranslate(socket, ['s4', 's5']);
+      await settle();
+
+      expect(socket.answers).toHaveLength(1);
+    });
+
+    it('answers once when the polish fails', async () => {
+      const { socket, retranslator } = polished(() =>
+        Promise.reject(new Error('host down')),
+      );
+
+      await retranslator.retranslate(socket, ['s4', 's5']);
+      await settle();
+
+      expect(socket.answers).toHaveLength(1);
+      expect(socket.answers[0]?.translations).toEqual({ vi: 'draft' });
+    });
+
+    it('sends nothing more to a client that left before the polish landed', async () => {
+      let land!: (text: string) => void;
+      const { socket, retranslator, gone } = polished(
+        () => new Promise((resolve) => (land = resolve)),
+      );
+
+      await retranslator.retranslate(socket, ['s4', 's5']);
+      gone.add(socket);
+      land('POLISHED');
+      await settle();
+
+      expect(socket.answers).toHaveLength(1);
+    });
+
+    it('stops polishing once its own budget is spent, without refusing blocks', async () => {
+      const { socket, retranslator, polisher } = polished(
+        async () => 'POLISHED',
+      );
+
+      for (let i = 0; i < 13; i += 1) {
+        await retranslator.retranslate(socket, ['s4', 's5'], 'user-1');
+        await settle();
+      }
+
+      // Twelve polishes a minute, and the thirteenth block still answered.
+      expect(polisher.polish).toHaveBeenCalledTimes(12);
+      expect(
+        socket.answers.filter((a) => a.translations.vi === 'draft'),
+      ).toHaveLength(12);
+    });
+  });
 });

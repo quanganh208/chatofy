@@ -135,6 +135,25 @@ export class FinishedSegments {
   }
 
   /**
+   * The source text of up to `count` segments this connection finished before
+   * `segmentId`, oldest first: the speech a block continues, for its polish.
+   *
+   * Never the block's own segments, so a block is not its own context. Empty
+   * when `segmentId` is unknown here — a block that cannot name where it starts
+   * gets no context rather than some other stretch of the conversation.
+   */
+  before(socket: StreamSocket, segmentId: string, count = 4): string[] {
+    const segments = this.bySocket.get(socket);
+    if (!segments?.has(segmentId)) return [];
+    const earlier: string[] = [];
+    for (const [id, segment] of segments) {
+      if (id === segmentId) break;
+      if (segment.sourceText.trim()) earlier.push(segment.sourceText);
+    }
+    return earlier.slice(-count);
+  }
+
+  /**
    * The named segments joined in the order given, or null when any is unknown to
    * this connection, empty, or was spoken in another language or translated into
    * other targets — one translation cannot serve two plans.
