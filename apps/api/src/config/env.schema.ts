@@ -141,7 +141,7 @@ export const envSchema = z.object({
   // One key, or several comma-separated: the translator rotates across them.
   // Gemini meters quota per PROJECT per model, so several keys only raise the
   // ceiling when they come from different Google Cloud projects — see
-  // apps/api/.env.example.
+  // docs/environment-variables.md.
   GEMINI_API_KEY: emptyStringAsUndefined(z.string().min(1).optional()),
   // The credential for whichever OpenAI-compatible host `AI_TRANSLATION_PROVIDER`
   // names — `deepseek`, `openai`, or any later row of the table in
