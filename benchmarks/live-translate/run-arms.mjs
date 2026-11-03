@@ -7,10 +7,11 @@
 //             headlessly, and that means IT decides when `client.session.end`
 //             is sent. That choice sets the cascade's measured latency and is
 //             the single most load-bearing decision in this file. See below.
-//   live    — /ws/translate opened with `client.live.start`, the continuous
-//               speech-to-speech mode. One
-//             session per utterance, so output is attributable without forced
-//             alignment and the ~30-minute token window cannot expire mid-run.
+//   live    — Gemini Live (`gemini-3.5-live-translate-preview`), dialed
+//             directly from this process with GEMINI_API_KEY; the app no longer
+//             has a live mode. One session per utterance, so output is
+//             attributable without forced alignment and the ~30-minute session
+//             window cannot expire mid-run.
 //
 // Interleaved: utterance i goes through both arms back to back, same machine,
 // same network, one window. A preview model updated between two sequential arms
@@ -23,13 +24,15 @@
 //   node benchmarks/live-translate/run-arms.mjs --api http://localhost:3000
 //   node benchmarks/live-translate/run-arms.mjs --only vi --limit 5
 //   node benchmarks/live-translate/run-arms.mjs --arms cascade   # skip the live arm
+//   node benchmarks/live-translate/run-arms.mjs --arms live --limit 1 --out /tmp/x  # no API needed
 //
 // `--arms cascade` runs the cascade alone — for measuring a change to the
 // cascade itself, where spending the live arm's preview quota buys nothing.
 // Rows from such a run are not an interleaved comparison and must not be read
 // as one.
 //
-// /ws/translate requires a token. By default the harness mints a throwaway
+// The cascade's /ws/translate requires a token; the live arm needs none, only
+// GEMINI_API_KEY (environment first, then the repo-root .env). By default the harness mints a throwaway
 // account on first use, keeps it in an untracked file beside this script, and
 // reuses it on later runs; pass --token to supply one instead, or
 // --email/--password to name the account it should use.
@@ -39,6 +42,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { speechEndMs, firstSpeechSampleIndex, speechDurationMs } from './vad-anchor.mjs';
+import { resolveGeminiApiKey } from './gemini-api-key.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DATA = join(HERE, 'data');
@@ -359,11 +363,68 @@ async function runCascade(apiWsBase, accessToken, utterance, samples, vadEnd, ou
   return result;
 }
 
-/** Stream one utterance through the continuous path. */
-async function runLive(apiWsBase, accessToken, utterance, samples, vadEnd, outDir) {
+/** The model the live arm measures, recorded on every live row. */
+const LIVE_MODEL = 'gemini-3.5-live-translate-preview';
+
+/** The Gemini Developer API's bidirectional Live endpoint, v1beta as the SDK uses. */
+const LIVE_URL =
+  'wss://generativelanguage.googleapis.com/ws/' +
+  'google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
+
+/**
+ * Languages a detected tag is recognised as, mirrored from the app's registry.
+ *
+ * A tag outside this set is recorded as the source language, exactly as the
+ * app-side provider used to report it, so `analyze.mjs`'s wrong-language count
+ * keeps the meaning it had on rows taken before the live arm went direct.
+ */
+const KNOWN_LANGS = new Set(['vi', 'en', 'zh']);
+
+/** `vi-VN` → `vi`; an absent or unknown tag → the language the fixture is in. */
+function detectedLang(tag, fallback) {
+  const primary = (tag ?? '').trim().toLowerCase().split(/[-_]/)[0];
+  return KNOWN_LANGS.has(primary) ? primary : fallback;
+}
+
+/**
+ * The sample rate out of `audio/pcm;rate=24000`. Read rather than assumed: the
+ * output rate is the model's and differs from the 16 kHz input, and a wrong
+ * guess yields audio at the wrong speed that no byte count would catch.
+ */
+function rateFromMimeType(mimeType) {
+  const match = /rate=(\d+)/.exec(mimeType ?? '');
+  const rate = match ? Number.parseInt(match[1], 10) : NaN;
+  return Number.isFinite(rate) && rate > 0 ? rate : null;
+}
+
+/**
+ * Stream one utterance through Gemini Live, dialed directly from this process.
+ *
+ * Speaks the raw BidiGenerateContent protocol over Node's global WebSocket, so
+ * the harness needs no SDK and never touches the app. The setup message is the
+ * one the SDK builds for the configuration the app used to ship: audio out,
+ * both transcriptions on, and a translation config that names the target only.
+ * The model detects the source itself; there is no field to tell it.
+ *
+ * Timed at the same boundary as the cascade — this process, on receipt — and
+ * paced the same way, 100 ms chunks at wall clock with the 4 s trailing silence
+ * the continuous model needs to know the utterance ended.
+ */
+async function runLive(apiKey, utterance, samples, vadEnd, outDir) {
   const result = blankResult('live', utterance);
   result.vadEndMs = vadEnd;
-  const socket = await connect(`${apiWsBase}/ws/translate`, accessToken);
+  const { source, target } = languagePairOf(result.direction);
+
+  const socket = await new Promise((resolve, reject) => {
+    const ws = new WebSocket(`${LIVE_URL}?key=${encodeURIComponent(apiKey)}`);
+    ws.binaryType = 'arraybuffer';
+    ws.addEventListener('open', () => resolve(ws), { once: true });
+    // The URL carries the key, so it is never put in the message.
+    ws.addEventListener('error', () => reject(new Error('cannot open the Gemini Live socket')), {
+      once: true,
+    });
+  });
+
   const chunks = [];
   let outRate = 0;
   let firstAudioAt = null;
@@ -371,61 +432,104 @@ async function runLive(apiWsBase, accessToken, utterance, samples, vadEnd, outDi
   let lastEventAt = Date.now();
   let ready = false;
   let ended = false;
+  let closingOurselves = false;
 
   socket.addEventListener('message', (event) => {
-    const msg = JSON.parse(String(event.data));
-    if (msg.type === 'server.live.ready') ready = true;
-    if (msg.type === 'server.live.transcript') {
-      lastEventAt = Date.now();
-      if (msg.channel === 'target') result.transcript += msg.delta;
-      else if (!result.detectedLangs.includes(msg.lang)) result.detectedLangs.push(msg.lang);
+    let msg;
+    try {
+      const text =
+        typeof event.data === 'string' ? event.data : Buffer.from(event.data).toString('utf8');
+      msg = JSON.parse(text);
+    } catch {
+      result.error ??= 'unparseable message from Gemini Live';
+      return;
     }
-    if (msg.type === 'server.live.audio') {
-      const pcm = Buffer.from(msg.frame.payload, 'base64');
-      outRate = msg.frame.sampleRate;
+    if (msg.setupComplete) ready = true;
+    if (msg.error) result.error ??= `upstream: ${JSON.stringify(msg.error).slice(0, 300)}`;
+
+    const content = msg.serverContent;
+    if (!content) return;
+    const input = content.inputTranscription;
+    if (input?.text) {
+      lastEventAt = Date.now();
+      const lang = detectedLang(input.languageCode, source);
+      if (!result.detectedLangs.includes(lang)) result.detectedLangs.push(lang);
+    }
+    if (content.outputTranscription?.text) {
+      lastEventAt = Date.now();
+      result.transcript += content.outputTranscription.text;
+    }
+    for (const part of content.modelTurn?.parts ?? []) {
+      const inline = part?.inlineData;
+      if (!inline?.data) continue;
+      const rate = rateFromMimeType(inline.mimeType);
+      if (rate === null) {
+        result.error ??= `audio with an unreadable rate: ${inline.mimeType}`;
+        continue;
+      }
+      const pcm = Buffer.from(inline.data, 'base64');
+      outRate = rate;
       chunks.push(pcm);
       result.outputBytes += pcm.length;
+      // First audio means first SPEECH: the model mirrors input silence back.
       if (firstAudioAt === null && firstSpeechSampleIndex(pcm, outRate) !== null) {
         firstAudioAt = Date.now();
       }
       lastAudioAt = Date.now();
       lastEventAt = Date.now();
     }
-    if (msg.type === 'server.live.ended') ended = true;
-    if (msg.type === 'server.live.error') result.error = `${msg.code}: ${msg.message}`;
   });
 
-  const send = (event, data) => socket.send(JSON.stringify({ event, data }));
-  send('client.live.start', {
-    type: 'client.live.start',
-    languagePair: languagePairOf(result.direction),
+  // The Live API reports a rejected key, an unknown model or exhausted quota by
+  // closing the socket with a reason, not with an error message.
+  socket.addEventListener('close', (event) => {
+    ended = true;
+    if (!closingOurselves && event.code !== 1000) {
+      result.error ??= `closed ${event.code}: ${event.reason || 'no reason given'}`;
+    }
   });
 
-  // Dialing the upstream is not part of the latency being measured; the clock
+  socket.send(
+    JSON.stringify({
+      setup: {
+        model: `models/${LIVE_MODEL}`,
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          // False, so speech already in the target language is silenced rather
+          // than repeated — the setting the app shipped.
+          translationConfig: { targetLanguageCode: target, echoTargetLanguage: false },
+        },
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+      },
+    }),
+  );
+
+  // Dialing and setup are not part of the latency being measured; the clock
   // starts when audio does.
   const readyDeadline = Date.now() + 15000;
-  while (!ready && Date.now() < readyDeadline) await sleep(50);
+  while (!ready && !ended && Date.now() < readyDeadline) await sleep(50);
   if (!ready) {
+    closingOurselves = true;
     socket.close();
-    result.error ??= 'never became ready';
+    result.error ??= 'never received setupComplete';
     return result;
   }
 
   const bytesPerChunk = (IN_RATE * 2 * CHUNK_MS) / 1000;
   const startedAt = Date.now();
   const vadEndAt = startedAt + vadEnd;
-  for (let offset = 0, i = 0; offset < samples.length; offset += bytesPerChunk, i += 1) {
-    send('client.live.audio', {
-      type: 'client.live.audio',
-      frame: {
-        sessionId: 'harness',
-        encoding: 'pcm16',
-        sampleRate: IN_RATE,
-        sequence: i,
-        timestamp: Date.now(),
-        payload: samples.subarray(offset, offset + bytesPerChunk).toString('base64'),
-      },
-    });
+  for (let offset = 0, i = 0; offset < samples.length && !ended; offset += bytesPerChunk, i += 1) {
+    socket.send(
+      JSON.stringify({
+        realtimeInput: {
+          audio: {
+            data: samples.subarray(offset, offset + bytesPerChunk).toString('base64'),
+            mimeType: `audio/pcm;rate=${IN_RATE}`,
+          },
+        },
+      }),
+    );
     const wait = startedAt + (i + 1) * CHUNK_MS - Date.now();
     if (wait > 0) await sleep(wait);
   }
@@ -435,9 +539,8 @@ async function runLive(apiWsBase, accessToken, utterance, samples, vadEnd, outDi
     if (Date.now() - lastEventAt > QUIET_MS && chunks.length > 0) break;
     await sleep(100);
   }
-  send('client.live.stop', { type: 'client.live.stop' });
-  await sleep(200);
-  socket.close();
+  closingOurselves = true;
+  socket.close(1000);
 
   const pcm = Buffer.concat(chunks);
   if (pcm.length > 0) {
@@ -460,30 +563,37 @@ async function main() {
   const limit = Number(argOf('--limit', Infinity));
   const armNames = argOf('--arms', 'cascade,live').split(',');
   const arms = [
-    ['cascade', runCascade],
-    ['live', runLive],
+    ['cascade', (...rest) => runCascade(wsBase, accessToken, ...rest)],
+    ['live', (...rest) => runLive(geminiApiKey, ...rest)],
   ].filter(([name]) => armNames.includes(name));
   if (arms.length === 0) throw new Error(`--arms must name cascade and/or live, got ${armNames}`);
   const wsBase = api.replace(/^http/, 'ws');
+  const runsCascade = arms.some(([name]) => name === 'cascade');
+  const runsLive = arms.some(([name]) => name === 'live');
 
   // Before anything is measured: /ws/translate refuses an unauthenticated
-  // upgrade, and a run that discovers that on utterance 1 has already built
-  // fixtures and opened an output directory for nothing.
-  const accessToken =
-    argOf('--token', null) ??
-    (await obtainToken(
-      api,
-      harnessAccount({
-        email: argOf('--email', null),
-        password: argOf('--password', null),
-      }),
-    ));
+  // upgrade, and Gemini Live refuses a missing key — a run that discovers either
+  // on utterance 1 has already opened an output directory for nothing.
+  const accessToken = runsCascade
+    ? (argOf('--token', null) ??
+      (await obtainToken(
+        api,
+        harnessAccount({
+          email: argOf('--email', null),
+          password: argOf('--password', null),
+        }),
+      )))
+    : null;
+  const geminiApiKey = runsLive ? resolveGeminiApiKey() : null;
+  if (runsLive && !geminiApiKey) {
+    throw new Error('the live arm needs GEMINI_API_KEY in the environment or the repo-root .env');
+  }
 
   const manifest = JSON.parse(readFileSync(join(DATA, 'manifest.json'), 'utf8'));
   const utterances = manifest.utterances.filter((u) => !only || u.lang === only).slice(0, limit);
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const outDir = join(RESULTS, stamp);
+  const outDir = argOf('--out', join(RESULTS, stamp));
   mkdirSync(join(outDir, 'audio'), { recursive: true });
   const rowsPath = join(outDir, 'rows.jsonl');
 
@@ -500,13 +610,13 @@ async function main() {
     }
 
     // Back to back, so nothing that drifts over a run can favour one arm.
-    for (const [, run] of arms) {
+    for (const [arm, run] of arms) {
       let row;
       try {
-        row = await run(wsBase, accessToken, utterance, samples, vadEnd, join(outDir, 'audio'));
+        row = await run(utterance, samples, vadEnd, join(outDir, 'audio'));
       } catch (err) {
         row = {
-          ...blankResult(run === runCascade ? 'cascade' : 'live', utterance),
+          ...blankResult(arm, utterance),
           error: String(err),
         };
       }
@@ -514,7 +624,7 @@ async function main() {
       // change under a run, and a table that cannot say when a row was taken
       // cannot defend itself.
       row.at = new Date().toISOString();
-      row.model = row.arm === 'live' ? 'gemini-3.5-live-translate-preview' : 'cascade-default';
+      row.model = row.arm === 'live' ? LIVE_MODEL : 'cascade-default';
       appendFileSync(rowsPath, `${JSON.stringify(row)}\n`);
       const latency = row.firstAudioAfterSpeechEndMs;
       console.log(

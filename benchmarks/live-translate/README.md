@@ -19,25 +19,35 @@ measurement use only, no redistribution.
 
 ## The arms
 
-|           | cascade                                                                                                 | live                                     |
-| --------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| Path      | `/ws/translate`                                                                                         | `/ws/translate`                          |
-| Opened by | `client.session.start`                                                                                  | `client.live.start`                      |
-| Stages    | local STT → Gemini MT → local TTS                                                                       | one model, speech to speech              |
-| Config    | the shipped default: `AI_STT_PROVIDER=local`, `AI_TRANSLATION_PROVIDER=gemini`, `AI_TTS_PROVIDER=local` | none — the backend is not env-selectable |
-| Unit      | a turn                                                                                                  | a session, one per utterance             |
+|           | cascade                                                                                                 | live                                                           |
+| --------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Path      | the API's `/ws/translate`                                                                               | Gemini Live `BidiGenerateContent`, dialed by the harness       |
+| Opened by | `client.session.start`                                                                                  | a raw `setup` message, `GEMINI_API_KEY` (first of the list)    |
+| Stages    | local STT → Gemini MT → local TTS                                                                       | one model, speech to speech                                    |
+| Config    | the shipped default: `AI_STT_PROVIDER=local`, `AI_TRANSLATION_PROVIDER=gemini`, `AI_TTS_PROVIDER=local` | audio out, both transcriptions, target-only translation config |
+| Unit      | a turn                                                                                                  | a session, one per utterance                                   |
 
 The cascade under test is the **shipped default**, because that is the product.
 An ElevenLabs-backed cascade is a different system and cannot share a row.
 
-**The arms used to be told apart by URL** — `/ws/translate` against
-`/ws/live-translate`. They now share one path and are told apart by the message
-that opens the session. Rows collected before and after that change remain
-comparable: the cascade's transport is byte-identical across it, and the live arm
-changed only which URL it dials. No timing path was touched. The live backend is
-no longer selected by `AI_REALTIME_PROVIDER`; that variable is gone, and
-`gemini-live` is named once at the API's provider composition root
-(`apps/api/src/modules/translate/providers/register-default-providers.ts`).
+**The live arm no longer goes through the app.** Gemini Live exists only in
+this harness now: the app has no live mode, so `run-arms.mjs` speaks the raw
+Live protocol over Node's global `WebSocket` — no SDK, no dependencies, the same
+no-install convention `segment-vs-whole.mjs` follows with `fetch`. The setup is
+the one the app used to send: `responseModalities: AUDIO`, input and output
+transcription on, `translationConfig { targetLanguageCode, echoTargetLanguage:
+false }`, 16 kHz PCM in, output rate read from each chunk's `mimeType`.
+
+**Comparability note.** Live-arm rows recorded before this change travelled
+harness → local API → Gemini and back, so they include one extra local
+WebSocket hop (plus the API's base64 re-framing) in every latency figure. Rows
+recorded after it do not. The hop is on loopback and small next to the model's
+own latency, but the two sets are not the same measurement: do not pool them in
+one table without saying so. The cascade's transport is unchanged.
+
+Before that, the arms were told apart by URL (`/ws/translate` against
+`/ws/live-translate`) and later by the message that opened the session; neither
+change touched a timing path.
 
 ## The anchor, and why the obvious one is wrong
 
@@ -93,7 +103,7 @@ must say this in as many words.
 - **One measurement boundary.** Both arms are timed _in this process, on
   receipt_. Taking the cascade's numbers from its server-side JSONL and the live
   arm's from here would be an asymmetry a committee can attack — which is why
-  the server's own `live` rows are operational telemetry, not evidence.
+  the server's own rows are operational telemetry, not evidence.
 - **First audio means first speech.** The onset detector is a tested function
   (`vad-anchor.mjs --self-test`), because the live model mirrors input silence
   back into its output and a first-audio timestamp that measured a silence frame
@@ -116,8 +126,9 @@ defect in either.
 ## Running it
 
 ```bash
-# 1. The API, the two speech sidecars, and a Gemini key.
-#    No live-specific env: the realtime backend is fixed in code.
+# 1. The API and the two speech sidecars, for the cascade arm. The live arm
+#    needs only GEMINI_API_KEY (environment first, then the repo-root .env);
+#    `--arms live` runs without the API at all.
 pnpm dev:all
 
 # 2. Fixtures. Needs ffmpeg: LibriSpeech is served as FLAC, VIVOS as WAV.
@@ -142,7 +153,8 @@ PYTHONUNBUFFERED=1 uv run python score-adequacy.py results/<stamp>/rows.jsonl | 
 ```
 
 Smoke it first: `--only vi --limit 3` costs three sessions and proves the whole
-chain before a full run spends quota.
+chain before a full run spends quota. `--out <dir>` sends a smoke run's rows and
+audio somewhere other than `results/`, so it never mixes with a recorded run.
 
 ## Reference translations
 
