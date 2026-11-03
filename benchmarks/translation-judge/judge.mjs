@@ -5,7 +5,7 @@
 //     [--effort medium] [--budget-usd 100] [--resume]
 //
 // A `claude-*` model runs on the Anthropic API (key from ANTHROPIC_API_KEY, else
-// that line of apps/api/.env); any other on Gemini (GEMINI_API_KEY, several
+// that line of the repo-root .env); any other on Gemini (GEMINI_API_KEY, several
 // comma-separated keys rotated on 429). See `judge-providers.mjs`.
 //
 // Every row needs `conv`, `pos`, `direction`, `source`, `translation`; an `id`
@@ -90,13 +90,14 @@ export function recordedSpend(root = RESULTS) {
 
 function loadAnthropicKey() {
   if (process.env.ANTHROPIC_API_KEY) return;
-  const env = resolve(HERE, '..', '..', 'apps', 'api', '.env');
+  const env = resolve(HERE, '..', '..', '.env');
   const line =
     existsSync(env) &&
     readFileSync(env, 'utf8')
       .split('\n')
       .find((l) => l.startsWith('ANTHROPIC_API_KEY='));
-  if (!line) throw new Error('ANTHROPIC_API_KEY is not set in the environment or apps/api/.env');
+  if (!line)
+    throw new Error('ANTHROPIC_API_KEY is not set in the environment or the repo-root .env');
   process.env.ANTHROPIC_API_KEY = line
     .slice('ANTHROPIC_API_KEY='.length)
     .trim()

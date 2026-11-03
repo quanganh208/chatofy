@@ -83,8 +83,7 @@ sudo useradd --create-home --shell /bin/bash lidbench
 # The home directory is 750: lidbench may traverse it, and is denied every other entry on the way down.
 sudo setfacl -m u:lidbench:x ~
 for e in ~/.[!.]* ~/*; do [ "$e" = ~/Documents ] || sudo setfacl -m u:lidbench:--- "$e"; done
-# (same for the siblings of Documents/QuangAnh and of chatofy, and for chatofy's .env, apps/api/.env,
-#  apps/web/.env.local and .git)
+# (same for the siblings of Documents/QuangAnh and of chatofy, and for chatofy's .env and .git)
 # Write access only where the arms write: their envs, the exported model, results.
 for d in results arms/ambernet arms/whisper_probs arms/mms_lid models; do
   sudo setfacl -R -m u:lidbench:rwX,d:u:lidbench:rwX,d:u:$USER:rwX benchmarks/lid/$d; done

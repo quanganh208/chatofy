@@ -142,7 +142,7 @@ function resolveApiKey() {
   const fromEnv = process.env.GEMINI_API_KEY;
   if (fromEnv?.trim()) return fromEnv.split(',')[0].trim();
 
-  const envFile = join(HERE, '..', '..', 'apps', 'api', '.env');
+  const envFile = join(HERE, '..', '..', '.env');
   if (!existsSync(envFile)) return null;
   const line = readFileSync(envFile, 'utf8')
     .split('\n')
@@ -302,7 +302,7 @@ async function main() {
 
   const apiKey = resolveApiKey();
   if (!apiKey) {
-    console.error('No GEMINI_API_KEY in the environment or apps/api/.env.');
+    console.error('No GEMINI_API_KEY in the environment or the repo-root .env.');
     process.exit(1);
   }
 

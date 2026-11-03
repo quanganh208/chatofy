@@ -7,7 +7,10 @@ import { envSchema } from './env';
 import { serverEnvSchema } from './server-env';
 
 /**
- * Holds `.env.example` and the two config schemas together.
+ * Holds the repo-root `.env.example` and the web's two config schemas together.
+ * That file is shared with the api and Compose; the api's env.schema.spec owns
+ * the check that it documents nothing any reader ignores, so this one only
+ * proves the web's own keys are there and honest.
  *
  * The api spec of the same shape explains the convention in full; the short of
  * it is that a template restating a default creates a second place to maintain
@@ -96,8 +99,8 @@ const defaultFor = (key: string): string | undefined => {
   return spelled;
 };
 
-describe('apps/web/.env.example', () => {
-  const text = readFileSync(resolve(__dirname, '../..', '.env.example'), 'utf8');
+describe('.env.example (repo root), web keys', () => {
+  const text = readFileSync(resolve(__dirname, '../../../..', '.env.example'), 'utf8');
   const live = collect(text, LIVE_LINE);
   const commented = collect(text, COMMENTED_LINE);
   const documented = [...live, ...commented];
@@ -113,12 +116,16 @@ describe('apps/web/.env.example', () => {
     expect(schemaKeys.filter((key) => !documentedKeys.includes(key))).toStrictEqual([]);
   });
 
-  it('documents nothing the app cannot read', () => {
-    expect(
-      documented
-        .map((line) => line.key)
-        .filter((key) => !schemaKeys.includes(key) && !NON_SCHEMA_KEYS.includes(key)),
-    ).toStrictEqual([]);
+  // The api spec allowlists these as web keys when it polices the shared file
+  // for unread lines; if the web ever stops reading one, this fails first, and
+  // the key comes out of the template and that allowlist together.
+  it('still reads every key the api spec leaves to the web', () => {
+    const WEB_ONLY_KEYS = ['AUTH_SECRET', 'AUTH_GOOGLE_SECRET', 'NEXT_PUBLIC_API_BASE_URL'];
+    expect(WEB_ONLY_KEYS.filter((key) => !schemaKeys.includes(key))).toStrictEqual([]);
+  });
+
+  it('documents the R2 origin next.config bakes into the CSP', () => {
+    expect(documented.map((line) => line.key)).toContain('R2_PUBLIC_BASE_URL');
   });
 
   it('leaves no commented line ambiguous between a default and prose', () => {

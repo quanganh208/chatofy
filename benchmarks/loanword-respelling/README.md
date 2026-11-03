@@ -15,7 +15,7 @@ node benchmarks/loanword-respelling/score.mjs --repeats 3              # English
 node benchmarks/loanword-respelling/score.mjs --repeats 3 --target zh  # Chinese translations
 ```
 
-The script takes `DEEPSEEK_API_KEY` from the environment, falling back to `apps/api/.env`. It never prints the key. In non-thinking mode the host pins `temperature` to 1.0, so a single run proves less than it looks. Use `--repeats`.
+The script takes `DEEPSEEK_API_KEY` from the environment, falling back to the repo-root `.env`. It never prints the key. In non-thinking mode the host pins `temperature` to 1.0, so a single run proves less than it looks. Use `--repeats`.
 
 ## Data
 

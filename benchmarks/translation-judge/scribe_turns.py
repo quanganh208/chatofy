@@ -14,7 +14,7 @@ of what was said can separate them. Scribe is the reference that put prod's
 Vietnamese STT at 8.6% WER.
 
 The key is read from `ELEVENLABS_API_KEY` in the environment, else from that
-line of `apps/api/.env`, and never from argv (argv is visible in `ps`).
+line of the repo-root `.env`, and never from argv (argv is visible in `ps`).
 
 `--consent-recorded` is required. It is the operator saying the README's
 "Recordings and consent" section names whose voices these are and that sending
@@ -79,13 +79,13 @@ def slice_words(words: list[tuple[float, float, str]], starts_ms: list[int | Non
 def api_key() -> str:
     key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
     if not key:
-        env = REPO / "apps" / "api" / ".env"
+        env = REPO / ".env"
         if env.exists():
             for line in env.read_text().splitlines():
                 if line.startswith("ELEVENLABS_API_KEY="):
                     key = line.split("=", 1)[1].strip().strip('"').strip("'")
     if not key:
-        raise SystemExit("ELEVENLABS_API_KEY is not set in the environment or apps/api/.env")
+        raise SystemExit("ELEVENLABS_API_KEY is not set in the environment or the repo-root .env")
     return key
 
 

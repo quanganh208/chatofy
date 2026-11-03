@@ -535,7 +535,7 @@ anything else that must not be world-readable still needs a second bucket.
 The bucket is `chatofy`, and **development and production share it**. That was
 chosen deliberately over a bucket per environment, and it has a cost worth
 stating rather than discovering: the credentials in a developer's
-`apps/api/.env` can write and delete production avatars and recordings, and the removal path is
+`.env` can write and delete production avatars and recordings, and the removal path is
 authoritative, so a bug exercised locally acts on real objects. Nothing in the
 code knows which environment it is talking to. The mitigation that costs nothing
 is a separate R2 token per environment, both scoped to this one bucket, so a

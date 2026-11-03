@@ -25,7 +25,7 @@ Measurement-only. It is **not** part of the pnpm/turbo workspace and never impor
    python3 -I benchmarks/translation-judge/scribe_turns.py --consent-recorded --limit-calls <n>
    ```
 
-   The key comes from `ELEVENLABS_API_KEY` in the environment or `apps/api/.env`, never argv. Answers are cached in `data/scribe/`, so a recording is sent once. A turn owns the Scribe words whose midpoints fall between its start (less 300 ms) and the next turn's start. On the 2026-11-02 export, a spot check of 10 turns found 1 that took a whole clause from the next turn: words spoken in a gap between turns go to the turn before. The judge is told that edge words may belong to a neighbour. Median word error between the app's hearing and Scribe's was 4%, and the 90th percentile 39%.
+   The key comes from `ELEVENLABS_API_KEY` in the environment or the repo-root `.env`, never argv. Answers are cached in `data/scribe/`, so a recording is sent once. A turn owns the Scribe words whose midpoints fall between its start (less 300 ms) and the next turn's start. On the 2026-11-02 export, a spot check of 10 turns found 1 that took a whole clause from the next turn: words spoken in a gap between turns go to the turn before. The judge is told that edge words may belong to a neighbour. Median word error between the app's hearing and Scribe's was 4%, and the 90th percentile 39%.
 
 4. **Install** the judge's one dependency, the Anthropic SDK: `cd benchmarks/translation-judge && npm install`.
 5. **Calibrate** (below), then **judge** the corpus:
@@ -37,7 +37,7 @@ Measurement-only. It is **not** part of the pnpm/turbo workspace and never impor
    node score.mjs --run results/<run> --turns data/turns.scribed.jsonl
    ```
 
-   - **Model:** a `claude-*` model runs on the Anthropic API, with the key from `ANTHROPIC_API_KEY` or `apps/api/.env`. Any other model runs on Gemini, with `GEMINI_API_KEY`; several comma-separated keys rotate on 429.
+   - **Model:** a `claude-*` model runs on the Anthropic API, with the key from `ANTHROPIC_API_KEY` or the repo-root `.env`. Any other model runs on Gemini, with `GEMINI_API_KEY`; several comma-separated keys rotate on 429.
    - **Limits:** `judge.mjs` prints the planned calls and refuses above `--limit-calls` before the first request. `--out` must be new unless `--resume`, which adds only the missing (turn, repeat) answers.
    - **Budget:** `--budget-usd` caps the spend of every run under `results/` together, summed from each answer's recorded `costUsd`. No new call starts once it is reached.
    - **Refusals:** no server-side fallback is enabled, so a declined turn fails and is never answered by a different model inside a one-model run.

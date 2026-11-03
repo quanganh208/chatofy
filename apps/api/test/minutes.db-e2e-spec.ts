@@ -82,19 +82,24 @@ describe('Prisma-backed minutes (db-e2e)', () => {
   /** Set by a test that needs the conversation to vanish mid-generation. */
   let onSummarize: (() => Promise<void>) | null = null;
 
+  // Registered under both entry names: the summarizer follows
+  // AI_TRANSLATION_PROVIDER (default commandcode) unless the developer's env
+  // names one, and this suite is about the routes, not that choice.
   const fakeRegistry = new ProviderRegistry();
-  fakeRegistry.register('summarization', {
-    name: 'gemini',
-    // Returns whatever the current test has staged, so a regenerate can hand
-    // back a different action-item set to prove replacement.
-    create: () => ({
-      name: 'gemini',
-      summarize: async () => {
-        if (onSummarize) await onSummarize();
-        return draftRef.current;
-      },
-    }),
-  });
+  for (const name of ['gemini', 'commandcode']) {
+    fakeRegistry.register('summarization', {
+      name,
+      // Returns whatever the current test has staged, so a regenerate can hand
+      // back a different action-item set to prove replacement.
+      create: () => ({
+        name,
+        summarize: async () => {
+          if (onSummarize) await onSummarize();
+          return draftRef.current;
+        },
+      }),
+    });
+  }
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({

@@ -13,7 +13,7 @@ pnpm --filter @chatofy/ai-providers build      # the ruler loads the built packa
 node benchmarks/homophone-repair/score.mjs --repeats 3
 ```
 
-The script takes `DEEPSEEK_API_KEY` from the environment, falling back to `apps/api/.env`. It never prints the key. In non-thinking mode the host pins `temperature` to 1.0, so use `--repeats`.
+The script takes `DEEPSEEK_API_KEY` from the environment, falling back to the repo-root `.env`. It never prints the key. In non-thinking mode the host pins `temperature` to 1.0, so use `--repeats`.
 
 ## Two numbers
 

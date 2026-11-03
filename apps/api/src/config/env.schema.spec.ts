@@ -6,7 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { envSchema, liveModeEnabled, type Env } from './env.schema';
 
 /**
- * Holds the two `.env` templates and the schema together.
+ * Holds the two `.env` templates — the repo-root dev one and prod.env.example —
+ * and the schema together.
  *
  * They are two descriptions of one thing, and they drifted apart the first time
  * the schema gained a key: the two live-translation knobs landed in the schema
@@ -166,8 +167,8 @@ describe('defaults', () => {
     expect(minimal.SMTP_PORT).toBe(465);
   });
 
-  it('translates with DeepSeek', () => {
-    expect(minimal.AI_TRANSLATION_PROVIDER).toBe('deepseek');
+  it('translates with Command Code', () => {
+    expect(minimal.AI_TRANSLATION_PROVIDER).toBe('commandcode');
   });
 
   it('leaves CORS to follow WEB_BASE_URL', () => {
@@ -248,8 +249,8 @@ describe('required keys', () => {
       (line) => line.key,
     );
 
-  it('are all listed in apps/api/.env.example', () => {
-    const present = namesIn(read('.env.example'));
+  it('are all listed in the repo-root .env.example', () => {
+    const present = namesIn(read('../../.env.example'));
     expect(requiredKeys.filter((key) => !present.includes(key))).toStrictEqual(
       [],
     );
@@ -265,15 +266,37 @@ describe('required keys', () => {
   });
 });
 
-describe('apps/api/.env.example', () => {
-  const text = read('.env.example');
+describe('.env.example (repo root)', () => {
+  const text = read('../../.env.example');
   const live = collect(text, LIVE_LINE);
   const commented = collect(text, COMMENTED_LINE);
   const documented = [...live, ...commented];
 
   // Read by Prisma's own CLI rather than by this app, so it is deliberately
   // absent from the schema — see the note on the key in the template.
-  const NON_SCHEMA_KEYS = ['SHADOW_DATABASE_URL'];
+  // The one dev file serves more readers than this schema, and this block owns
+  // the "nothing nobody reads" check for all of them.
+  const composeDefaults = new Map(
+    [
+      ...read('../../docker-compose.yml').matchAll(
+        /\$\{([A-Z][A-Z0-9_]*):-([^}]*)\}/g,
+      ),
+    ].map((match) => [match[1] ?? '', match[2] ?? '']),
+  );
+  const NON_SCHEMA_KEYS = [
+    // The web, through apps/web/src/config. Mirrored as WEB_ONLY_KEYS in
+    // apps/web/src/config/env-example.spec.ts, which fails if the web stops
+    // reading one.
+    'AUTH_SECRET',
+    'AUTH_GOOGLE_SECRET',
+    'NEXT_PUBLIC_API_BASE_URL',
+    // Tooling: prisma's migrate diff, model downloads, the translation judge.
+    'SHADOW_DATABASE_URL',
+    'HF_TOKEN',
+    'ANTHROPIC_API_KEY',
+    // Docker Compose interpolation.
+    ...composeDefaults.keys(),
+  ];
 
   it('documents every key the schema reads', () => {
     const documentedKeys = documented.map((line) => line.key);
@@ -322,6 +345,30 @@ describe('apps/api/.env.example', () => {
       commented
         .filter((line) => showsStaleDefault(line))
         .map((line) => `${line.key}=${line.value}`),
+    ).toStrictEqual([]);
+  });
+
+  it('documents every variable docker-compose.yml reads', () => {
+    const documentedKeys = documented.map((line) => line.key);
+    expect(
+      [...composeDefaults.keys()].filter(
+        (key) => !documentedKeys.includes(key),
+      ),
+    ).toStrictEqual([]);
+  });
+
+  it('shows the same default Compose applies', () => {
+    expect(
+      commented
+        .filter(
+          (line) =>
+            composeDefaults.has(line.key) &&
+            composeDefaults.get(line.key) !== line.value,
+        )
+        .map(
+          (line) =>
+            `${line.key}: compose=${composeDefaults.get(line.key)} template=${line.value}`,
+        ),
     ).toStrictEqual([]);
   });
 });
@@ -398,58 +445,6 @@ describe('prod.env.example', () => {
       commented
         .filter((line) => showsStaleDefault(line))
         .map((line) => `${line.key}=${line.value}`),
-    ).toStrictEqual([]);
-  });
-});
-
-/**
- * The root template is not about this schema at all — Compose is its only
- * consumer, and every key it names carries its default inline as
- * `${KEY:-value}`. Same convention, different authority, so it is checked the
- * same way: nothing Compose reads may go undocumented, and no documented
- * default may disagree with the one Compose applies.
- *
- * It lives in this file because the api spec already gates a repo-root
- * template, and a second runner at the root would exist for two assertions.
- */
-describe('.env.example (repo root)', () => {
-  const composeDefaults = new Map(
-    [
-      ...read('../../docker-compose.yml').matchAll(
-        /\$\{([A-Z][A-Z0-9_]*):-([^}]*)\}/g,
-      ),
-    ].map((match) => [match[1] ?? '', match[2] ?? '']),
-  );
-  const documented = new Map(
-    collect(read('../../.env.example'), COMMENTED_LINE).map((line) => [
-      line.key,
-      line.value,
-    ]),
-  );
-
-  it('documents every variable docker-compose.yml reads', () => {
-    expect(
-      [...composeDefaults.keys()].filter((key) => !documented.has(key)),
-    ).toStrictEqual([]);
-  });
-
-  it('leaves no commented line ambiguous between a default and prose', () => {
-    expect(
-      ambiguousLines(read('../../.env.example'), [...composeDefaults.keys()]),
-    ).toStrictEqual([]);
-  });
-
-  it('shows the same default Compose applies', () => {
-    expect(
-      [...composeDefaults]
-        .filter(
-          ([key, value]) =>
-            documented.has(key) && documented.get(key) !== value,
-        )
-        .map(
-          ([key, value]) =>
-            `${key}: compose=${value} template=${documented.get(key)}`,
-        ),
     ).toStrictEqual([]);
   });
 });

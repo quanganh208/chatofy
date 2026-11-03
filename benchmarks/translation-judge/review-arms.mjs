@@ -60,14 +60,16 @@ export const costOf = (inputTokens = 0, outputTokens = 0) =>
 
 export function loadKey() {
   if (process.env.OPENAI_COMPATIBLE_API_KEY) return process.env.OPENAI_COMPATIBLE_API_KEY;
-  const env = resolve(HERE, '..', '..', 'apps', 'api', '.env');
+  const env = resolve(HERE, '..', '..', '.env');
   const line =
     existsSync(env) &&
     readFileSync(env, 'utf8')
       .split('\n')
       .find((l) => l.startsWith('OPENAI_COMPATIBLE_API_KEY='));
   if (!line)
-    throw new Error('OPENAI_COMPATIBLE_API_KEY is not set in the environment or apps/api/.env');
+    throw new Error(
+      'OPENAI_COMPATIBLE_API_KEY is not set in the environment or the repo-root .env',
+    );
   return line
     .slice('OPENAI_COMPATIBLE_API_KEY='.length)
     .trim()

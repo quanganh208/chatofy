@@ -7,8 +7,9 @@ NestJS REST + WebSocket API for Chatofy: auth, the `/ws/translate` translation t
 Run from the monorepo root.
 
 ```bash
-# The env file; src/config/env.schema.ts is the authority for every key
-cp apps/api/.env.example apps/api/.env
+# The ONE dev env file, at the repo root; src/config/env.schema.ts is the
+# authority for every api key (see docs/environment-variables.md)
+cp .env.example .env
 # Set AUTH_JWT_SECRET (the api refuses to start without it):
 #   openssl rand -base64 32
 # Set CLOUDFLARE_REALTIME_APP_ID and CLOUDFLARE_REALTIME_APP_SECRET as well:

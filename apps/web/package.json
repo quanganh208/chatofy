@@ -20,6 +20,7 @@
     "@chatofy/realtime-client": "workspace:*",
     "@chatofy/types": "workspace:*",
     "@chatofy/ui": "workspace:*",
+    "@next/env": "16.4.3",
     "clsx": "^2.1.1",
     "lucide-react": "^1.64.0",
     "next": "16.4.3",

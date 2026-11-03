@@ -18,7 +18,7 @@ node benchmarks/minutes-quality/score.mjs benchmarks/minutes-quality/results/<ba
 | `--gap-ms`  | `8000` for gemini, `0` otherwise               | Half a free Gemini key's per-model ceiling                         |
 | `--out`     | `results/<YYMMDD-HHMM>-<arm>`                  | Must not exist; a run never writes into an older one               |
 
-The harness takes `GEMINI_API_KEY` and `COMMAND_CODE_API_KEY` from the environment first, or else from `apps/api/.env`. It never prints them. The judge always runs on Command Code.
+The harness takes `GEMINI_API_KEY` and `COMMAND_CODE_API_KEY` from the environment first, or else from the repo-root `.env`. It never prints them. The judge always runs on Command Code.
 
 ## What it does
 

@@ -46,14 +46,19 @@ describe('Conference minutes (db-e2e)', () => {
     result: () => draft('first'),
   };
 
+  // Registered under both entry names: the summarizer follows
+  // AI_TRANSLATION_PROVIDER (default commandcode) unless the developer's env
+  // names one, and this suite is about the routes, not that choice.
   const fakeRegistry = new ProviderRegistry();
-  fakeRegistry.register('summarization', {
-    name: 'gemini',
-    create: () => ({
-      name: 'gemini',
-      summarize: () => Promise.resolve().then(next.result),
-    }),
-  });
+  for (const name of ['gemini', 'commandcode']) {
+    fakeRegistry.register('summarization', {
+      name,
+      create: () => ({
+        name,
+        summarize: () => Promise.resolve().then(next.result),
+      }),
+    });
+  }
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({

@@ -1,7 +1,12 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
 import path from 'node:path';
 import { defineConfig } from 'prisma/config';
 import { PrismaPg } from '@prisma/adapter-pg';
+
+// The dev env lives in the repo-root .env, shared with every app; real
+// environment variables still win. Absent in the images, where compose supplies
+// DATABASE_URL and dotenv returns an error object rather than throwing.
+config({ path: path.resolve(__dirname, '../..', '.env'), quiet: true });
 
 export default defineConfig({
   schema: path.join(__dirname, 'prisma/schema.prisma'),

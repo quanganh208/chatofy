@@ -15,7 +15,7 @@
 # already scopes container and volume names by project, and the project defaults
 # to the directory name, so a worktree gets its own set for free; the host ports
 # were the only globally shared resource left. Set the three PORT variables in a
-# root `.env` in that worktree, and keep apps/api/.env pointing at them.
+# root `.env` in that worktree, and point its DATABASE_URL and the other URLs at them.
 #
 # `restart: 'no'` everywhere below, deliberately. Docker restarts `always` and
 # `unless-stopped` containers whenever the daemon starts, and the daemon now
