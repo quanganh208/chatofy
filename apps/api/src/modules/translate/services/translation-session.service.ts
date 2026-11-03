@@ -1023,6 +1023,7 @@ export class TranslationSessionService implements OnModuleDestroy {
               continuation,
               minSpeechMs,
               this.context.learnedTerms(socket),
+              timeline,
             ),
           )
         : {
@@ -1321,6 +1322,8 @@ export class TranslationSessionService implements OnModuleDestroy {
     minSpeechMs: number,
     /** This conversation's learned spellings, as recognizer hotwords. */
     learnedTerms: string[],
+    /** Told when the guess is rejected, so the turn's row says so. */
+    timeline: TurnTimeline,
   ): Promise<{
     translated: TranslatedTurnText;
     split: SplitTurn | null;
@@ -1509,7 +1512,14 @@ export class TranslationSessionService implements OnModuleDestroy {
     }
 
     if (reusable) {
-      const adopted = await this.adoptIfAgreed(socket, session, reusable);
+      // `adoptOrNote`, not `adoptIfAgreed`: a guess decided in another language
+      // is not the turn's text, and the row must not say it was.
+      const adopted = await this.adoptOrNote(
+        socket,
+        session,
+        reusable,
+        timeline,
+      );
       if (adopted !== null) return { translated: adopted, split: null };
     }
     const {

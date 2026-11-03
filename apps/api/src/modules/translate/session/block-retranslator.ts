@@ -236,11 +236,8 @@ export class BlockRetranslator {
       });
       // After the translation, because it spells the names the restorer
       // cannot ("OpenAI"); the restore itself ran beside it.
-      const display = this.display.typeset(
-        block,
-        await restoring,
-        translations,
-      );
+      const restored = await restoring;
+      const display = this.display.typeset(block, restored, translations);
       this.answer(socket, segmentIds, translations, display);
       // The draft goes out first and the polish replaces it when it lands, as
       // a turn's does: the block's own job, joining the seam, must not wait
@@ -250,9 +247,15 @@ export class BlockRetranslator {
         segmentIds,
         block,
         translations,
-        display,
+        restored,
         userId,
-      );
+      ).catch((err: unknown) => {
+        this.logger.warn(
+          `block polish failed (${segmentIds.length} segments): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      });
     } catch (err) {
       // Warn, unlike the refusals: a failed call is bounded by the budget, and
       // it is the one outcome here that says something is wrong upstream.
@@ -272,16 +275,25 @@ export class BlockRetranslator {
    * Charged to this class's budget under its own key, so it has its own
    * buckets: a block is asked for about as often as a turn, and sharing the
    * retranslations' bucket would refuse blocks once polishes filled it, while
-   * the turns' polish budget would spend the turns' polishes first. The second answer repeats the
-   * first one's `display`, because the client replaces the whole entry for a
-   * block and an answer without one would erase it.
+   * the turns' polish budget would spend the turns' polishes first.
+   *
+   * The second answer carries a `display` typeset again from the polished
+   * text, because the client replaces the whole entry for a block: an answer
+   * without one would erase it, and the draft's would put back the names the
+   * polish changed.
+   *
+   * Two limits, both shared with the turns' polish. A block answered while the
+   * conversation drains is saved with its draft: the polish lands after the
+   * socket is gone and is dropped. And the context is the speech recorded
+   * before the block's first segment in finish order, which is speech order
+   * except when a later turn finished first.
    */
   private async polish(
     socket: StreamSocket,
     segmentIds: string[],
     block: SegmentBlock,
     drafts: TranslationMap,
-    display: string | undefined,
+    restored: string | undefined,
     userId: string,
   ): Promise<void> {
     const polisher = this.polisher;
@@ -323,7 +335,12 @@ export class BlockRetranslator {
       }
     }
     if (!changed || this.isGone(socket)) return;
-    this.answer(socket, segmentIds, polished, display);
+    this.answer(
+      socket,
+      segmentIds,
+      polished,
+      this.display.typeset(block, restored, polished),
+    );
   }
 
   /**
