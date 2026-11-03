@@ -13,8 +13,7 @@
  * talking continuously lock everyone else out, and a purely per-user one lets
  * enough people together sail past a ceiling that belongs to the whole process.
  * `turn-concurrency.ts` reaches the same conclusion for a different resource and
- * says so at length; `live-session-limits.ts` puts it in one line — a limit each
- * path could exhaust independently is not a limit.
+ * says so at length.
  *
  * Deliberately absent, and not to be added back:
  *

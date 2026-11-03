@@ -104,9 +104,9 @@ export function registerDefaultProviders(
   });
 
   // Voice vectors for per-turn speaker attribution, from the same sidecar over
-  // its own endpoint. One name only: nothing selects it
-  // from the environment, so registering a second would be the moment to decide
-  // how a caller should choose.
+  // its own endpoint. One name only: nothing selects it from the environment,
+  // so registering a second would be the moment to decide how a caller should
+  // choose.
   registry.register('speakerEmbedding', {
     name: 'local',
     create: (cfg: ProviderConfig) => {

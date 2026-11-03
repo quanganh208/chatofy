@@ -67,10 +67,11 @@ export class TranslateGateway
    * Who each open socket belongs to, so a completed password reset can close
    * them.
    *
-   * A STRONG map, keyed by user to the set of their sockets. Weak keys would defeat the purpose: the whole
-   * job is to hold a reference long enough to close it on demand. Entries are
-   * removed in `handleDisconnect`, and the user's entry is dropped when their
-   * last socket goes, so an account that comes and goes leaves nothing behind.
+   * A STRONG map, keyed by user to the set of their sockets. Weak keys would
+   * defeat the purpose: the whole job is to hold a reference long enough to
+   * close it on demand. Entries are removed in `handleDisconnect`, and the
+   * user's entry is dropped when their last socket goes, so an account that
+   * comes and goes leaves nothing behind.
    */
   private readonly socketsByUser = new Map<string, Set<CloseableSocket>>();
   /**
@@ -123,11 +124,11 @@ export class TranslateGateway
    *
    * Its start is malformed either way, but a malformed start is THROWN and
    * reaches the client as silence — the adapter swallows a throw and the socket
-   * simply goes quiet — so the stale page would
-   * sit in "connecting" with nothing telling it to reload. Emitted instead, in
-   * a shape the old client already parses — both error schemas take any code
-   * string. Any `direction` key is refused, even beside a `languagePair`,
-   * matching REST `/translate`: no current client sends one.
+   * simply goes quiet — so the stale page would sit in "connecting" with
+   * nothing telling it to reload. Emitted instead, in a shape the old client
+   * already parses — `server.error` takes any code string. Any `direction` key
+   * is refused, even beside a `languagePair`, matching REST `/translate`: no
+   * current client sends one.
    */
   private refuseLegacyStart(client: StreamSocket, payload: unknown): boolean {
     if (typeof payload !== 'object' || payload === null) return false;
