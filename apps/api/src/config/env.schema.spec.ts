@@ -166,8 +166,8 @@ describe('defaults', () => {
     expect(minimal.SMTP_PORT).toBe(465);
   });
 
-  it('translates with DeepSeek', () => {
-    expect(minimal.AI_TRANSLATION_PROVIDER).toBe('deepseek');
+  it('translates with Command Code', () => {
+    expect(minimal.AI_TRANSLATION_PROVIDER).toBe('commandcode');
   });
 
   it('leaves CORS to follow WEB_BASE_URL', () => {

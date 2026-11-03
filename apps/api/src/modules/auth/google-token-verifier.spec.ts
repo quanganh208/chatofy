@@ -52,29 +52,12 @@ describe('GoogleTokenVerifier', () => {
     });
   });
 
-  it('passes the whole allowlist as the audience', async () => {
-    // A list, not a value: mobile's per-platform client ids are different ids
-    // for the same product, and a single-value audience would make adding them
-    // a breaking change.
+  it('accepts exactly the web client id as the audience', async () => {
     const spy = mockGoogle(VALID);
-    await verifierWith(' client-a , client-b ').verify('id.token');
+    await verifierWith(' web-client-id ').verify('id.token');
     expect(spy).toHaveBeenCalledWith({
       idToken: 'id.token',
-      audience: ['client-a', 'client-b'],
-    });
-  });
-
-  it('falls back to the web client id when no allowlist is set', async () => {
-    const spy = mockGoogle(VALID);
-    const config = {
-      get: vi.fn((key: keyof Env) =>
-        key === 'AUTH_GOOGLE_ID' ? 'web-client-id' : undefined,
-      ),
-    } as unknown as ConfigService<Env, true>;
-    await new GoogleTokenVerifier(config).verify('id.token');
-    expect(spy).toHaveBeenCalledWith({
-      idToken: 'id.token',
-      audience: ['web-client-id'],
+      audience: 'web-client-id',
     });
   });
 
@@ -110,8 +93,8 @@ describe('GoogleTokenVerifier', () => {
     await expect(
       verifierWith(undefined).verify('id.token'),
     ).rejects.toBeInstanceOf(NotImplementedException);
-    await expect(
-      verifierWith('  ,  ').verify('id.token'),
-    ).rejects.toBeInstanceOf(NotImplementedException);
+    await expect(verifierWith('   ').verify('id.token')).rejects.toBeInstanceOf(
+      NotImplementedException,
+    );
   });
 });

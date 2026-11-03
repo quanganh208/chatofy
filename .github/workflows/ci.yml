@@ -281,7 +281,7 @@ jobs:
       # Google's verification is stubbed in the suite; the route still refuses
       # before calling out unless an allowlist exists, so the linking policy is
       # only reachable with this set.
-      GOOGLE_CLIENT_IDS: ci-only-google-client-id
+      AUTH_GOOGLE_ID: ci-only-google-client-id
     steps:
       - uses: actions/checkout@v7
 

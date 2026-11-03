@@ -206,7 +206,6 @@ services:
         # restart — set it at runtime instead and the browser blocks every
         # request the app makes.
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?set NEXT_PUBLIC_API_BASE_URL in prod.env}
-        NEXT_PUBLIC_ENV: ${NEXT_PUBLIC_ENV:-production}
         # The SAME variable the api reads from env_file at runtime — one origin,
         # one name, so the pair cannot drift. It reaches web as a build arg
         # because next.config bakes it into the CSP's img-src at build time, so

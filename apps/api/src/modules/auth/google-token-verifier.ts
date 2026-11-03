@@ -35,9 +35,9 @@ export interface GoogleIdentity {
  * means owning key rotation and issuer checks, which is a lot of security
  * surface for no gain.
  *
- * The audience is a list, not a value. It costs nothing today — the option takes
- * either — and mobile's per-platform client ids arrive with different ids for
- * the same product, which would otherwise be a breaking change to this contract.
+ * The audience is the web's client id, AUTH_GOOGLE_ID — the name Auth.js reads,
+ * so the env both apps share states it once. A second client (mobile's
+ * per-platform ids) is a new variable when that client exists.
  */
 @Injectable()
 export class GoogleTokenVerifier {
@@ -50,22 +50,13 @@ export class GoogleTokenVerifier {
    * not stop the whole API booting for deployments that never offer Google
    * login, but it must produce a clear answer when the route is actually called.
    */
-  private audience(): string[] {
-    const parse = (raw: string | undefined) =>
-      (raw ?? '')
-        .split(',')
-        .map((id) => id.trim())
-        .filter((id) => id.length > 0);
-    // No allowlist means "the web's own client id". Keyed on an empty list
-    // rather than `??`, because a blank `GOOGLE_CLIENT_IDS=` line arrives as ''.
-    const allowlist = parse(
-      this.config.get('GOOGLE_CLIENT_IDS', { infer: true }),
-    );
-    const ids =
-      allowlist.length > 0
-        ? allowlist
-        : parse(this.config.get('AUTH_GOOGLE_ID', { infer: true }));
-    if (ids.length === 0) {
+  private audience(): string {
+    // Trimmed and checked for empty rather than `??`: a blank `AUTH_GOOGLE_ID=`
+    // line arrives as ''.
+    const id = (
+      this.config.get('AUTH_GOOGLE_ID', { infer: true }) ?? ''
+    ).trim();
+    if (id.length === 0) {
       // 501 rather than 503: this server does not implement Google login at
       // all, and retrying will not change that.
       //
@@ -79,7 +70,7 @@ export class GoogleTokenVerifier {
         'Google login is not configured on this server',
       );
     }
-    return ids;
+    return id;
   }
 
   async verify(idToken: string): Promise<GoogleIdentity> {

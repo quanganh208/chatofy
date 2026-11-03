@@ -59,21 +59,17 @@ export const envSchema = z.object({
   // attacker-controlled, and a limiter keyed on a spoofable value is no
   // limiter — set it to the exact number of hops you operate.
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
-  // Every OAuth client id allowed to mint an id_token this API will accept,
-  // comma-separated — web today, per-platform mobile ids later. OPTIONAL at
-  // validation time and enforced when POST /auth/google is called, matching
-  // GEMINI_API_KEY: a deployment that never offers Google login should not be
-  // stopped from booting over a value it has no use for.
-  GOOGLE_CLIENT_IDS: emptyStringAsUndefined(z.string().min(1).optional()),
-  // The web's Google client id — the same name Auth.js reads. With no
-  // GOOGLE_CLIENT_IDS the API accepts exactly this client, so the one prod.env
-  // both apps share needs the id written once.
+  // The web's Google client id — the same name Auth.js reads — and the only
+  // audience POST /auth/google accepts, so the env both apps share states it
+  // once. OPTIONAL at validation time and enforced when the route is called: a
+  // deployment that never offers Google login should not be stopped from
+  // booting over a value it has no use for.
   AUTH_GOOGLE_ID: emptyStringAsUndefined(z.string().min(1).optional()),
 
   // ── Mail (Gmail SMTP) ───────────────────────────────────────────────────
   // Host and port default to Gmail over SMTPS, the only relay this app uses.
   // SMTP_USER and SMTP_PASS are what switch real mail on: OPTIONAL and lazily
-  // enforced, matching GOOGLE_CLIENT_IDS, because a deployment that never sends
+  // enforced, matching AUTH_GOOGLE_ID, because a deployment that never sends
   // mail (all of dev, most of test) should not be stopped from booting over
   // values it has no use for. MailModule reads the four as one unit — see
   // getSmtpConfig in mail.module.ts — and falls back to a console or no-op
@@ -129,12 +125,15 @@ export const envSchema = z.object({
 
   // ── Turn-based translate pipeline ───────────────────────────────────────
   // Provider selections for the REST /translate flow. Speech runs locally by
-  // default (sherpa-onnx sidecars, no cloud call, no API key); translation is
-  // cloud DeepSeek through the OpenAI-compatible provider (`gemini` switches it
-  // back). Set the speech pair to `elevenlabs` to compare against the cloud.
+  // default (sherpa-onnx sidecars, no cloud call, no API key). Translation
+  // defaults to `commandcode`, what production runs: Command Code first, the
+  // DeepSeek row behind it, so it needs COMMAND_CODE_API_KEY AND
+  // OPENAI_COMPATIBLE_API_KEY. A missing key is not failed over — it throws on
+  // first use — so a machine holding only the OpenAI-compatible key selects
+  // `deepseek`. Set the speech pair to `elevenlabs` to compare against the cloud.
   AI_STT_PROVIDER: z.string().default('local'),
   AI_TTS_PROVIDER: z.string().default('local'),
-  AI_TRANSLATION_PROVIDER: z.string().default('deepseek'),
+  AI_TRANSLATION_PROVIDER: z.string().default('commandcode'),
   // Keys are OPTIONAL at validation time so the app and existing e2e tests can
   // boot without them; the providers factory enforces presence lazily and
   // returns a clear error when /translate is actually called without a key.

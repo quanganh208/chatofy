@@ -20,10 +20,10 @@ if (!process.env.DATABASE_URL) {
 process.env.AUTH_JWT_SECRET ??= 'db-e2e-secret-not-for-any-real-deployment';
 
 // Google's own verification is stubbed in the suite, but the route refuses
-// before it calls out when no client id is allowlisted — so the linking policy
+// before it calls out when no client id is configured — so the linking policy
 // is only reachable with this set. What it contains does not matter here; that
-// the allowlist is passed through correctly is covered in the verifier's spec.
-process.env.GOOGLE_CLIENT_IDS ??= 'db-e2e-google-client-id';
+// the id is passed through as the audience is covered in the verifier's spec.
+process.env.AUTH_GOOGLE_ID ??= 'db-e2e-google-client-id';
 
 // Meetings always load, and the SFU client refuses to construct without both.
 process.env.CLOUDFLARE_REALTIME_APP_ID ??= 'test-realtime-app-id';
