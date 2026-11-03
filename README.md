@@ -28,18 +28,17 @@ call, so the app is not fully offline. See
 # Install dependencies (also generates the Prisma client via api postinstall)
 pnpm install
 
-# Configure the API environment — required for the api to boot
-cp apps/api/.env.example apps/api/.env
+# Configure the environment: ONE .env at the repo root, read by Compose, the
+# api, the web, prisma and the benchmarks (see docs/environment-variables.md)
+cp .env.example .env
 # The default DATABASE_URL already matches the Postgres in docker-compose.yml.
-# Set AUTH_JWT_SECRET (the api refuses to start without it — no auth-off mode):
+# Set AUTH_JWT_SECRET (the api refuses to start without it — no auth-off mode),
+# AUTH_SECRET (signs the web's session cookie) and the two
+# CLOUDFLARE_REALTIME_APP_* keys (meetings always load):
 #   openssl rand -base64 32
-# No SMTP setup is needed in dev: with SMTP_* unset, verification and password
-# reset links are printed to the api's console instead of emailed, so the whole
+# No SMTP setup is needed in dev: verification and password reset links are
+# printed to the api's console instead of emailed, so the whole
 # register → verify → reset flow works without a Gmail account.
-
-# Configure the web environment — AUTH_SECRET signs the session cookie
-cp apps/web/.env.example apps/web/.env.local
-#   openssl rand -base64 32
 
 # Apply the schema (starts Postgres if it is not already up)
 docker compose up -d --wait postgres
@@ -62,7 +61,7 @@ pnpm --filter web dev
 
 > Everything that is not a Node app runs in Docker — see `docker-compose.yml`.
 > Nothing needs to be installed on the host for it: no Postgres, no Python, no
-> `uv`. `web` needs only `AUTH_SECRET` in `apps/web/.env.local`.
+> `uv`. `web` needs only `AUTH_SECRET` in the root `.env`.
 
 ### If `migrate deploy` refuses on a database you already had
 
@@ -328,7 +327,7 @@ it also authenticates the realtime and summarization providers. Setting
 > also accepts several keys separated by commas, and the provider rotates
 > across them with one warm client each — multiplying the ceiling when (and
 > only when) the keys come from different Google Cloud projects. See
-> `apps/api/.env.example` for the conditions that make extra keys worth having.
+> `docs/environment-variables.md` for the conditions that make extra keys worth having.
 >
 > The request is **streamed** (`generateContentStream`). Not for incremental
 > delivery — a one-sentence turn arrives in very few chunks — but for the
@@ -442,12 +441,13 @@ Compose reads a root `.env`, pnpm and turbo read no `.env` at all.
 | Redis     | 6379    | `REDIS_PORT` — root `.env`                        |
 | local-stt | 8002    | `LOCAL_STT_PORT` — root `.env`                    |
 | local-tts | 8003    | `LOCAL_TTS_PORT` — root `.env`                    |
-| api       | 3000    | `PORT` — `apps/api/.env`                          |
+| api       | 3000    | `PORT` — root `.env`                              |
 | web       | 3001    | `WEB_PORT` — the shell (`WEB_PORT=3003 pnpm dev`) |
 
 Then point the clients at the moved ports, or the worktree will talk to the
 other stack: `DATABASE_URL`, `REDIS_URL`, `LOCAL_STT_URL` and `LOCAL_TTS_URL` in
-`apps/api/.env`, and `NEXT_PUBLIC_API_BASE_URL` in `apps/web/.env.local`.
+the worktree's root `.env`, along with `NEXT_PUBLIC_API_BASE_URL`. A new
+worktree has no `.env` (it is gitignored): copy the main checkout's.
 
 Containers and volumes need no attention — Compose scopes those by project
 name, which defaults to the directory the worktree lives in.

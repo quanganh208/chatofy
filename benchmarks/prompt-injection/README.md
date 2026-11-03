@@ -25,7 +25,7 @@ node benchmarks/prompt-injection/run.mjs
 | `--gap-ms`  | `4300`                                        | ~14/min, just under the free tier's per-model ceiling              |
 
 Takes `GEMINI_API_KEY` from the environment first; if not set, reads from
-`apps/api/.env` as a local convenience. A missing file is not an error when the
+the repo-root `.env` as a local convenience. A missing file is not an error when the
 environment variable is set. Never prints it.
 
 ## Another host

@@ -25,7 +25,7 @@ node benchmarks/minutes-injection/run.mjs
 | `--gap-ms`  | `4300`                                   | ~14/min, just under the free tier's per-model ceiling          |
 
 Takes `GEMINI_API_KEY` (or `COMMAND_CODE_API_KEY` under `--host commandcode`) from the environment first; if not set, reads it from
-`apps/api/.env` as a local convenience. Never prints it.
+the repo-root `.env` as a local convenience. Never prints it.
 
 ## Grading
 

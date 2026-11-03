@@ -40,9 +40,10 @@ The production environment file lives **outside the repository** at
 `~/.config/chatofy/prod.env`, mode `600`. It is deliberately not in git and
 deliberately not in GitHub Actions secrets — the deploy target is the same
 machine that runs the workflow, so routing secrets through GitHub would add
-exposure and buy nothing. `prod.env.example` in the repo root documents every
-key; read it before changing anything, as several values are forced rather than
-chosen.
+exposure and buy nothing. `prod.env.example` in the repo root lists every
+key, and [environment-variables.md](./environment-variables.md) explains each
+one; read them before changing anything, as several values are forced rather
+than chosen.
 
 `prod.env.example` is also the canonical key list: the deploy workflow runs
 `scripts/check-prod-env.mjs` first and refuses to continue if `prod.env` lacks a
@@ -394,6 +395,7 @@ Two different failures with two different answers:
 
 - **Bad code** — `workflow_dispatch` with an earlier ref. The layer cache makes the rebuild fast.
   A ref older than the env consolidation (`4412b521`) needs the prod.env of its time, and no copy of it is kept. Its deploy refuses any key its `prod.env.example` does not list and any it lists that is missing, so add back every live key of `git show <ref>:prod.env.example` before dispatching. The values that are not secrets are fixed: `NODE_ENV=production`, `CORS_ORIGIN` equal to `WEB_BASE_URL`, `TRUST_PROXY_HOPS=1`, `POSTGRES_USER=chatofy`, `POSTGRES_DB=chatofy`, `GOOGLE_CLIENT_IDS` equal to `AUTH_GOOGLE_ID`, `AI_TRANSLATION_PROVIDER=deepseek`, `CHATOFY_ENV_FILE=$HOME/.config/chatofy/prod.env` and the two model paths under `$HOME/chatofy/models/`, all spelled out as absolute paths. Optional lines that keep production as it was: `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`, `CONFERENCE_ENABLED=true`, `NEXT_PUBLIC_CONFERENCE_ENABLED=true` and `PROD_LOCAL_STT_LID=on` — without the last three, meetings and language identification switch off. Forgetting a required key fails safely at config time, before any container moves.
+  A ref older than the change that made `commandcode` the default translation host needs `AI_TRANSLATION_PROVIDER=commandcode` added to prod.env first, or it translates on that ref's default (`deepseek`).
 - **Bad migration** — `pg_restore` from the dump taken immediately before it. `prisma migrate deploy` is forward-only, so re-deploying older code rolls back _code_ and never _schema_; when a migration is destructive this is the only path.
 
 Backups live in `~/chatofy-backups` (14 retained).

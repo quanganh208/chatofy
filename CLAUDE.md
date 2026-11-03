@@ -137,6 +137,7 @@ We keep all important docs in `./docs` folder and keep updating them, structure 
 ├── ux-ax-review-checklist.md       # UX/AX review pass for public pages
 ├── brand-mark.md
 ├── deployment-guide.md
+├── environment-variables.md          # every env key: where it lives, who reads it
 ├── development-journey.md          # chronological record; measurements and dead ends
 ├── conference-demo-runbook.md           # local demo of video meetings
 ├── video-conferencing-architecture.md   # partly built; always loaded

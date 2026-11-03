@@ -14,9 +14,10 @@ keys are in [deployment-guide.md → Video conferencing](./deployment-guide.md#v
 
 ## 1. Prerequisites
 
-### Environment files
+### Environment file
 
-`apps/api/.env`, at minimum:
+The repo-root `.env` (copy `.env.example`; see
+[environment-variables.md](./environment-variables.md)), at minimum:
 
 ```bash
 # Required — the API refuses to start without it (openssl rand -base64 32)
@@ -33,12 +34,13 @@ CLOUDFLARE_TURN_KEY_API_TOKEN=
 ```
 
 Meeting speech is translated by the same cascade as /translate: local STT, the configured
-translation provider (`AI_TRANSLATION_PROVIDER`, `deepseek` by default, which reads
-`OPENAI_COMPATIBLE_API_KEY`), then local TTS. Chat messages use the same provider, so its
-key must be set. Minutes are summarized by Gemini (`GEMINI_API_KEY`). The speech
+translation provider (`AI_TRANSLATION_PROVIDER`, `commandcode` by default, which reads
+`COMMAND_CODE_API_KEY` and `OPENAI_COMPATIBLE_API_KEY`; set `deepseek` to need only the
+second), then local TTS. Chat messages use the same provider, so its keys must be set.
+Minutes follow the translation provider, with Gemini (`GEMINI_API_KEY`) as fallback. The speech
 sidecars are reached at `LOCAL_STT_URL` and `LOCAL_TTS_URL` (defaults `:8002`, `:8003`).
 
-`apps/web/.env.local`:
+In the same file, for the web:
 
 ```bash
 AUTH_SECRET=<32-byte base-64 string>   # openssl rand -base64 32
@@ -262,7 +264,7 @@ pnpm dev:all
 ## 8. Troubleshooting
 
 **The API does not boot** — `CLOUDFLARE_REALTIME_APP_ID` or
-`CLOUDFLARE_REALTIME_APP_SECRET` is missing from `apps/api/.env`.
+`CLOUDFLARE_REALTIME_APP_SECRET` is missing from the root `.env`.
 
 **Joins, but tiles stay black** — the network blocks UDP to Cloudflare. Set both
 `CLOUDFLARE_TURN_*` keys and rejoin; `chrome://webrtc-internals` shows a `relay` candidate

@@ -149,32 +149,7 @@ the root layout, and it is the accepted price of one URL serving two languages �
 
 ## Env Files
 
-Each app has `.env.example`. Copy it to `.env` — except web, which reads `.env.local`. Root `.env.example` documents Docker Compose overrides.
-
-Every template uses two line forms. `KEY=` means unset, which each schema reads as absent. `# KEY=value` is a default that already lives somewhere else — the zod schema for an app, `${KEY:-value}` in `docker-compose.yml` for the root file — shown for reference, so uncomment it only to override. A copied default is a second place to keep in step, and the api schema and its template did drift apart once. Two specs now hold them together: `apps/api/src/config/env.schema.spec.ts` covers `apps/api/.env.example` and `prod.env.example`, `apps/web/src/config/env-example.spec.ts` covers the web template. Each fails if a key goes undocumented, if a template names a key no schema reads, or if a live line restates a default.
-
-**Web env (apps/web/.env.example):** `AUTH_SECRET` is required — it signs the session cookie, and `next build` needs it too because `/login` is prerendered. `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` are optional and enable the Google button only when both are set. All three are server-only and live in `src/config/server-env.ts` behind `import 'server-only'`, never in `src/config/env.ts` — that module parses at import time and is imported by `'use client'` hooks, so a required key there throws in the browser.
-
-**API env (apps/api/.env.example):**
-
-- `AUTH_JWT_SECRET` (**required**, min 32 chars) — signs and verifies every access token the API issues, and derives the keys for verification and reset links. There is no "auth off" mode, so the app refuses to boot without it. Rotating it signs every user out at once — still the only blanket revocation, though a password reset now invalidates one user's earlier tokens and closes their open sockets
-- `WEB_BASE_URL` (default `http://localhost:3001`) — the origin every mailed link is built from. **Never taken from the `Host` header**, which is attacker-controlled and would make a reset link point wherever the attacker chose. Production refuses to boot while this is still the default
-- `SMTP_USER` / `SMTP_PASS` — Gmail SMTP, using an **app password** (which needs 2FA on the account). `SMTP_HOST` / `SMTP_PORT` are optional overrides of the Gmail SMTPS default (`smtp.gmail.com`, `465`). Read only outside development and test, which always print the link to the console whatever is set. Elsewhere, without the credentials mail is dropped and logged, and production refuses to boot
-- `MAIL_FROM` — optional display name on outbound mail; unset, From is `SMTP_USER`. The address itself must be `SMTP_USER` or Gmail rewrites it
-- `GOOGLE_CLIENT_IDS` — optional comma-separated OAuth client ids whose id_tokens `POST /auth/google` will accept. Unset, the API accepts `AUTH_GOOGLE_ID` alone; with neither, that route fails with a clear error rather than blocking the boot. When set, web's `AUTH_GOOGLE_ID` must appear in this list
-- `REDIS_URL` (default `redis://localhost:6379`) — where rotating refresh-token families
-  live. **Defaulted, not required**, and the API boots without a reachable Redis: a
-  required value would break every e2e suite at once, and a hard-fail boot would make an
-  outage worse than the 503 it already answers with. `pnpm --filter api test:e2e` DOES need
-  one running, because six of those suites log in for real and login mints a family
-- `AI_STT_PROVIDER` (default: `local`) — STT implementation selector
-- `AI_TRANSLATION_PROVIDER` (default: `deepseek`) — Translation implementation selector. `gemini` selects Gemini; any other name selects a row of the OpenAI-compatible host table in `register-default-providers.ts`
-- `AI_TTS_PROVIDER` (default: `local`) — TTS implementation selector
-- `ELEVENLABS_API_KEY` — ElevenLabs API key (lazy validation; only needed when a provider above is set to `elevenlabs`)
-- `GEMINI_API_KEY` — Google Gemini API key, or several comma-separated to rotate across (lazy validation). Required to call `/translate` only while `AI_TRANSLATION_PROVIDER` is `gemini`; it authenticates the realtime and summarization providers regardless, so it stays required in production even though translation moved off it. Several keys only raise the quota ceiling when they come from different Google Cloud projects
-- `OPENAI_COMPATIBLE_API_KEY` — the credential for whichever OpenAI-compatible host `AI_TRANSLATION_PROVIDER` names (lazy validation). One variable for the whole family: the endpoint, model and per-host flags live beside the host name in the table, not in env, because a model id only means anything against the endpoint serving it
-- `LOCAL_STT_URL` / `LOCAL_TTS_URL` — local speech sidecars (`services/local-stt` :8002, `services/local-tts` :8003)
-- `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` / `R2_PUBLIC_BASE_URL` — Cloudflare R2 for avatars and conversation recordings. Optional and read as one unit: with any missing the avatar routes answer 409 and the API still boots
+Development uses ONE `.env` at the repo root (template `.env.example`), read by Docker Compose, the api, the web, prisma and the benchmarks; mobile and extension keep their own `.env`. Production uses `~/.config/chatofy/prod.env` (template `prod.env.example`). Every key — who reads it, whether it is required, its default and the reasoning behind it — is in [environment-variables.md](./environment-variables.md). The authorities for types and defaults are `apps/api/src/config/env.schema.ts` and `apps/web/src/config/{env,server-env}.ts`; `env.schema.spec.ts` and `env-example.spec.ts` hold the templates to them.
 
 The continuous speech-to-speech backend has **no** env selector. `gemini-live` is named once, at the provider composition root (`apps/api/src/modules/translate/providers/register-default-providers.ts`), and the live session path imports that name. There is one implementation, so a selector would be a knob with one position; adding a second means adding a `register()` call and a way to choose between them. It uses `GEMINI_API_KEY`, first key only — a live session connects once and holds, so it has no point at which to rotate.
 
