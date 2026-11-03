@@ -30,7 +30,7 @@ const BASE_URL = 'https://api.deepseek.com';
  * towards stopping early. The balance delta printed at the end is the truth.
  */
 const PRICE = { input: 1.74, output: 3.96 };
-const BALANCE_FLOOR_USD = 1.0;
+export const BALANCE_FLOOR_USD = 1.0;
 
 export const languagesOf = (row) => row.direction.split('_to_');
 
@@ -58,7 +58,7 @@ export function armRow(row, arm, outcome) {
 export const costOf = (inputTokens = 0, outputTokens = 0) =>
   (inputTokens * PRICE.input + outputTokens * PRICE.output) / 1e6;
 
-function loadKey() {
+export function loadKey() {
   if (process.env.OPENAI_COMPATIBLE_API_KEY) return process.env.OPENAI_COMPATIBLE_API_KEY;
   const env = resolve(HERE, '..', '..', 'apps', 'api', '.env');
   const line =
@@ -74,7 +74,7 @@ function loadKey() {
     .replace(/^["']|["']$/g, '');
 }
 
-async function balance(key) {
+export async function balance(key) {
   const response = await fetch(`${BASE_URL}/user/balance`, {
     headers: { Authorization: `Bearer ${key}` },
   });
