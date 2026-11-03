@@ -55,9 +55,6 @@ export { joinAtSeams } from './seam-join.js';
 export { transcriptSegmentSchema, voiceGenderSchema, DEFAULT_VOICE_GENDER } from './transcript.js';
 export type { TranscriptSegment, VoiceGender } from './transcript.js';
 
-export { translateModeSchema, DEFAULT_TRANSLATE_MODE, LIVE_LANGUAGES } from './translate-mode.js';
-export type { TranslateMode } from './translate-mode.js';
-
 export {
   minutesStatusSchema,
   actionItemSchema,

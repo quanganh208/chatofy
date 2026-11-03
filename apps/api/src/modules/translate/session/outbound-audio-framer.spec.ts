@@ -149,11 +149,11 @@ describe('pushSynthesizedWav', () => {
 });
 
 /**
- * The headerless sibling, used by the continuous path.
+ * The headerless sibling, used by streamed synthesis.
  *
- * Separate from the WAV tests above because the input is different in kind: the
- * speech-to-speech backend answers with raw PCM and a rate that travels beside
- * it, so there is no container to strip and nothing that can fail to parse.
+ * Separate from the WAV tests above because the input is different in kind:
+ * raw PCM with a rate that travels beside it, so there is no container to strip
+ * and nothing that can fail to parse.
  */
 describe('pushTranslatedPcm', () => {
   /** Collects the frames the caller would have put on the wire. */

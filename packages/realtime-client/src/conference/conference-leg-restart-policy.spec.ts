@@ -25,7 +25,7 @@ describe('isRefusal', () => {
   it.each([
     [1008, true],
     [4000, true],
-    [4410, true],
+    [4001, true],
     [4999, true],
     [1000, false],
     [1006, false],
@@ -55,7 +55,7 @@ describe('LegRestartPolicy', () => {
   it('ends at once on a refusal close, without a rebuild', () => {
     const h = policy();
 
-    expect(h.p.stopped({ closeCode: 4410, beforeSocket: false })).toBe('refused');
+    expect(h.p.stopped({ closeCode: 4001, beforeSocket: false })).toBe('refused');
     vi.advanceTimersByTime(10_000);
     expect(h.restart).not.toHaveBeenCalled();
   });

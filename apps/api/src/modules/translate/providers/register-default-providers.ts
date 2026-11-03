@@ -12,7 +12,6 @@ import {
   tripOnPersistentFailure,
   type SummarizationProvider,
   type TranslationPolisher,
-  GeminiLiveTranslateProvider,
   GeminiSummarizationProvider,
   GeminiTranslationProvider,
   LocalSpeechDisplayRestorer,
@@ -105,7 +104,7 @@ export function registerDefaultProviders(
   });
 
   // Voice vectors for per-turn speaker attribution, from the same sidecar over
-  // its own endpoint. One name only, like `realtime` below: nothing selects it
+  // its own endpoint. One name only: nothing selects it
   // from the environment, so registering a second would be the moment to decide
   // how a caller should choose.
   registry.register('speakerEmbedding', {
@@ -123,20 +122,6 @@ export function registerDefaultProviders(
     create: (cfg: ProviderConfig) => {
       const c = cfg as AiProviderResolveConfig;
       return new LocalSpeechDisplayRestorer({ baseUrl: c.localSttUrl });
-    },
-  });
-
-  // Speech-to-speech in one stream, as the comparison baseline against the
-  // STT → translate → TTS trio below. The ONLY realtime entry, and the live
-  // session path resolves it with `resolveOnly` — so this name is a registry
-  // key and nothing else: no environment variable selects it, and no other
-  // module repeats it. Registering a second one turns that resolve into a loud
-  // error, which is the right moment to decide how a caller should choose.
-  registry.register('realtime', {
-    name: 'gemini-live',
-    create: (cfg: ProviderConfig) => {
-      const c = cfg as AiProviderResolveConfig;
-      return new GeminiLiveTranslateProvider({ apiKey: c.geminiApiKey });
     },
   });
 

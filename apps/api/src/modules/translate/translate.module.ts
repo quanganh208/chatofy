@@ -7,8 +7,6 @@ import { SpeechLanguageSupport } from './providers/speech-language-support';
 import { PipelineTranslatorService } from './services/pipeline-translator.service';
 import { TranslationSessionService } from './services/translation-session.service';
 import { TurnMetricsRecorder } from './services/turn-metrics.recorder';
-import { LiveSessionMetricsRecorder } from './services/live-session-metrics.recorder';
-import { LiveTranslateSessionService } from './services/live-translate-session.service';
 import {
   DeclaredLanguageIdentifier,
   LANGUAGE_IDENTIFIER,
@@ -28,24 +26,12 @@ import { TranslateGateway } from './translate.gateway';
  * - WS: /ws/translate → TranslateGateway (transport + validation) →
  *   TranslationSessionService (per-connection state machine) → the same
  *   pipeline.
- *
- * A THIRD transport shares that path and none of the pipeline:
- *
- * - WS: /ws/translate, opened with `client.live.start` → the same
- *   TranslateGateway → LiveTranslateSessionService → a RealtimeProvider, which
- *   does speech-to-speech in one upstream stream. It exists to be compared
- *   against the trio above, so it deliberately reuses nothing that would make
- *   the two paths share a fate — separate contract, separate state machine,
- *   separate metrics row. What it does share is the path, the provider registry,
- *   the outbound frame slicer and the concurrency ceiling.
  */
 @Module({
   imports: [AuthModule],
   controllers: [TranslateController],
   providers: [
     TranslateGateway,
-    LiveTranslateSessionService,
-    LiveSessionMetricsRecorder,
     {
       provide: ProviderRegistry,
       useFactory: () => registerDefaultProviders(new ProviderRegistry()),

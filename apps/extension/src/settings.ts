@@ -1,5 +1,4 @@
 import {
-  DEFAULT_TRANSLATE_MODE,
   DEFAULT_VOICE_GENDER,
   languagePairFromStoredDirection,
   languagePairSchema,
@@ -51,7 +50,6 @@ export const DEFAULT_CAPTURE_PAIR: LanguagePair = languagePairOf('en', 'vi');
 
 const DEFAULT_SETTINGS: CaptureSettings = {
   languagePair: DEFAULT_CAPTURE_PAIR,
-  mode: DEFAULT_TRANSLATE_MODE,
   voiceGender: DEFAULT_VOICE_GENDER,
   apiBaseUrl: API_BASE_URL,
   reportMetrics: false,
@@ -59,7 +57,7 @@ const DEFAULT_SETTINGS: CaptureSettings = {
   // into the meeting; it is not something to discover after the fact.
   outbound: false,
   // No context until the popup's picker writes one. Absent here rather than
-  // whitelisted below: unlike `mode` and `apiBaseUrl`, a stale id from an older
+  // whitelisted below: unlike `apiBaseUrl`, a stale id from an older
   // build is harmless — it resolves to nothing at the point of use and reads as
   // "no context" rather than as a state with no control left to leave it by.
   contextId: undefined,
@@ -82,23 +80,18 @@ function storedLanguagePair(value: Record<string, unknown> | undefined): Languag
 
 export async function loadSettings(): Promise<CaptureSettings> {
   const stored = await chrome.storage.local.get(KEY);
-  const value = stored[KEY] as (Partial<CaptureSettings> & { direction?: unknown }) | undefined;
+  const value = stored[KEY] as
+    (Partial<CaptureSettings> & { direction?: unknown; mode?: unknown }) | undefined;
   // Merged over the defaults rather than used as-is: a stored object written by an
   // older version is missing whatever has been added since, and a missing
-  // `apiBaseUrl` would make the socket URL `undefined` at connect time. The
-  // pre-pair key is left out so it is not written back by the next save.
-  const { direction: _superseded, ...current } = value ?? {};
+  // `apiBaseUrl` would make the socket URL `undefined` at connect time. Keys
+  // older builds kept — the pre-pair `direction`, and `mode` from when a second
+  // translation backend existed — are left out so the next save drops them.
+  const { direction: _superseded, mode: _retired, ...current } = value ?? {};
   const merged = { ...DEFAULT_SETTINGS, ...current };
   return {
     ...merged,
     languagePair: storedLanguagePair(value),
-    // Anything other than the cascade is read back as the cascade. The popup no
-    // longer offers a choice, so a stored value from when it did would pin that
-    // profile to a backend with no surface left to leave it by — and the profiles
-    // most likely to hold one belong to whoever was comparing the two. Written as
-    // a whitelist rather than a check for the one mode that was removed, so a
-    // corrupt or future value lands on the same safe side.
-    mode: merged.mode === 'cascade' ? 'cascade' : DEFAULT_TRANSLATE_MODE,
     // Never restored from storage. The build decides this now, and a value saved
     // by an older version points at whatever host that machine was developing
     // against.

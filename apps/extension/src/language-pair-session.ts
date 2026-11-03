@@ -92,9 +92,6 @@ export interface LanguagePairSessionDeps {
  *                  of seconds, so length is what has to end a turn.
  */
 export function createLanguagePairSession(deps: LanguagePairSessionDeps): LegRunner {
-  // The cascade is the only mode this client runs. The server's continuous
-  // speech-to-speech backend is a comparison instrument for its own tests and
-  // benchmarks, and no client opens it.
   return new ConversationSession(
     {
       // Already open, and owned by the caller: this is either the captured tab
