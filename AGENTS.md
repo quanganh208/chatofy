@@ -6,7 +6,7 @@ This file provides guidance to OpenCode when working with code in this repositor
 
 **Name:** chatofy
 **Type:** Node.js/TypeScript (Turborepo + pnpm monorepo)
-**Description:** Real-time voice translation app. Directions: vi→en (ElevenLabs voice) and en→vi (local VieNeu voice via a Python sidecar). Apps: NestJS API, Expo React Native mobile, Next.js web. See `./README.md` for structure and quick start.
+**Description:** Real-time voice translation app. Speech is self-hosted: STT and TTS run in two Python sidecars (VieNeu for vi, Kokoro for en/zh). Apps: NestJS API, Expo React Native mobile, Next.js web. See `./README.md` for structure and quick start.
 
 ## Role & Responsibilities
 

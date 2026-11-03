@@ -187,8 +187,7 @@ const CONTEXT_TAG = /<\s*\/?\s*context\b[^>]*>/gi;
  * angle brackets — the Vietnamese engine emits lowercase BPE and the English
  * one emits words with ordinary punctuation. The boundary is nonetheless
  * enforced at this edge rather than left to any one recognizer's vocabulary —
- * `AI_STT_PROVIDER` also accepts a cloud backend — or argued for in the
- * instruction, because a transcript that closed the block would be read as
+ * the sidecar's engines change — or argued for in the instruction, because a transcript that closed the block would be read as
  * instruction, which is the one thing this design must not allow.
  */
 function asTranscriptData(text: string): string {

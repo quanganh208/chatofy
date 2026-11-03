@@ -422,7 +422,7 @@ CREATE TABLE "ConferenceBillingLine" (
   durationSeconds INT,
 
   -- Costs (all in cents USD)
-  sttCostCents INT, -- STT API cost (today STT is a local sidecar by default; ElevenLabs is the cloud comparison path)
+  sttCostCents INT, -- STT API cost (STT is always the self-hosted sidecar, so 0 today)
   translationCostCents INT, -- Gemini API cost
   ttsCostCents INT, -- TTS API cost (if using cloud)
   recordingStorageCostCents INT, -- R2 storage

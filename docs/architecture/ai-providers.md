@@ -12,20 +12,18 @@ Dual-build (CommonJS + ESM via tsup) for NestJS (CJS require) + frontend (ESM im
 
 - `interfaces/` — Provider contracts: `SttProvider`, `TranslationProvider`, `TtsProvider`, `RealtimeProvider`, `SpeakerEmbeddingProvider`, `DisplayRestorer`, `SummarizationProvider`
   - Each provider declares `readonly name: string` for logging
-  - `TtsProvider` additionally declares `readonly outputMimeType` (ElevenLabs → `audio/mpeg`, local → `audio/wav`)
+  - `TtsProvider` additionally declares `readonly outputMimeType` (local → `audio/wav`)
 - `errors/` — Typed error classes: abstract `ProviderError` base + `ProviderResponseError` (non-2xx/malformed, carries `status`), `ProviderConnectionError` (transport, carries `cause`), `ProviderBusyError` (a `ProviderResponseError`: the sidecar's `503` with `X-Engine-Busy`), `ProviderAbortedError` (the caller's signal fired), `ProviderConfigError`, `ProviderNotImplementedError`
 - `providers/` — Concrete implementations:
-  - `ElevenLabsSttProvider` — STT via ElevenLabs Scribe v2 API (raw fetch)
   - `GeminiTranslationProvider` — Translation via Google Gemini API (@google/genai SDK)
   - `OpenAiCompatibleTranslationProvider` — Translation over the OpenAI chat-completions wire format (raw fetch), one class for every such host; production runs it against DeepSeek (see "Machine translation" below)
   - `GeminiSummarizationProvider` — meeting minutes (see "Meeting minutes" below)
   - `GeminiLiveTranslateProvider` — speech-to-speech in one upstream stream, the `realtime` kind behind the `live` translate mode (see [Data Flow](./data-flow.md#live-mode-on-the-same-socket))
   - `LocalSpeechDisplayRestorer` — the display restore via the local sidecar (`services/local-stt`, `POST /restore`): punctuation and case for Vietnamese (Dewpoint), punctuation for Chinese (CT-Transformer)
-  - `ElevenLabsTtsProvider` — TTS via ElevenLabs TTS API (raw fetch, `audio/mpeg`)
   - `LocalSpeechSttProvider` — STT via the local sidecar (`services/local-stt`, HTTP multipart); one backend serves every language, the sidecar picks Zipformer-30M for `vi`, Parakeet-TDT-0.6b-v2 for `en` and Paraformer-zh for `zh`
   - `LocalSpeechEmbeddingProvider` — speaker vectors via the local sidecar (`services/local-stt`, `POST /embed`). A **separate endpoint from `/transcribe`, deliberately**: translation cannot start until it has the transcript text, so an embedding returned in that same response would land its cost before the translation instead of beside it. A second localhost upload of a few-second clip costs single-digit ms
   - `LocalSpeechTtsProvider` — TTS via the local sidecar (`services/local-tts`, HTTP, `audio/wav`); one backend serves every language, the sidecar picks VieNeu for `vi` and Kokoro-82M for `en` and `zh` (one shared instance). Carries no default voice: a voice is a speaker id for one engine and a preset name for the other, so only the engine can default it
-- Each provider owns its own model default — there is no model-selection layer above them. Gemini holds the ordered quota-fallback list; an OpenAI-compatible host takes its one model from its row in the host table; the ElevenLabs providers default to `scribe_v2` / `eleven_flash_v2_5`; the local sidecars pick their engine from the language and take no model argument at all
+- Each provider owns its own model default — there is no model-selection layer above them. Gemini holds the ordered quota-fallback list; an OpenAI-compatible host takes its one model from its row in the host table; the local sidecars pick their engine from the language and take no model argument at all
 - `registry/` — `ProviderRegistry`, typed via the `ProviderKindMap` mapped type
   - Holds implementations by kind (stt/translation/tts/realtime/speakerEmbedding/displayRestorer/summarization) and name, resolved at runtime
   - `AiProvidersFactory` lives in the API (`apps/api/src/modules/translate/providers/`) and builds the trio from the registry (no name-construction conditionals)
@@ -115,8 +113,7 @@ rather than merely whether a floor was requested, so an empty decode raises
 'no_speech')`, `close(..., 'no_speech')`, no `server.transcript.final`, no
 `server.turn.embedding`, no `turn_failed` banner, mapped by the client to
 `no_audio` — only when `speechMs` itself came back below the floor. An empty
-decode with no `speechMs` at all (ElevenLabs, which cannot gate on speech, or
-a local sidecar that predates the field) and an empty decode whose `speechMs`
+decode with no `speechMs` at all (a local sidecar that predates the field) and an empty decode whose `speechMs`
 cleared the floor (the decoder lost the utterance the gate let through) both
 still surface the ordinary banner. Rolling the gate back is a revert of that
 constant. A gated split piece is dropped before
@@ -223,9 +220,9 @@ of scope. One narrow exception is described next.
 **A turn that holds two voices is split at the pause between them.** Fast
 turn-taking, such as a podcast or an interview, hands over in 300–560ms, which
 is shorter than the gate's 500ms hangover. A turn then ends only at the length
-ceiling and carries both people. On a two-host podcast checked against
-ElevenLabs Scribe, 14 of 26 turns held both voices, and the whole conversation
-came out as one speaker. With turns cut at Scribe's boundaries, this layer
+ceiling and carries both people. On a two-host podcast checked against the
+benchmarks' ElevenLabs Scribe reference, 14 of 26 turns held both voices, and
+the whole conversation came out as one speaker. With turns cut at Scribe's boundaries, this layer
 labelled 27/27 correctly, so the fault was the segmentation, not the
 clustering.
 
@@ -395,10 +392,13 @@ clusterer is judged good enough to keep, or once no acoustic layer ships at all,
 and survives only a decision to try a different acoustic axis, which would reopen
 the enrolment-versus-online comparison it is one side of.
 
-`AI_STT_PROVIDER` and `AI_TTS_PROVIDER` default to `local`; setting either to
-`elevenlabs` restores the cloud path for comparison. There is no per-language
-routing exception in `AiProvidersFactory` — every provider handles both
-languages, so the trio does not depend on the translation direction and the
+Speech is always the local sidecars: `stt` and `tts` each register one
+provider, `local`, and `AiProvidersFactory` takes it with `resolveOnly`, so no
+environment variable selects a recognizer or a synthesizer and a second
+registration is a loud error. ElevenLabs is not a provider; it survives only in
+`benchmarks/` as the Scribe reference that grades conversation quality. There
+is no per-language routing exception in `AiProvidersFactory` — every provider
+handles both languages, so the trio does not depend on the translation direction and the
 language is passed to each provider per call.
 
 **Machine translation remains a cloud call**, so a translation turn is never
@@ -509,8 +509,8 @@ verbatim on some inputs, and
 `clause-splitter.ts` hands translated text straight to synthesis, so a surviving
 tag would be spoken into the meeting. The local recognizers cannot emit an angle
 bracket, so no real utterance loses anything to the inbound guard — and because
-the guard does not depend on which recognizer produced the text, a cloud
-`AI_STT_PROVIDER` changes nothing. Verified by
+the guard does not depend on which recognizer produced the text, a change of
+sidecar engine changes nothing. Verified by
 [`benchmarks/prompt-injection`](../../benchmarks/prompt-injection/README.md), which
 drives the real provider and is run by hand because it spends metered quota.
 

@@ -83,8 +83,7 @@ export class SpeechEngineBusyException extends ServiceUnavailableException {
  * empty decode keeps today's `turn_failed` banner. Thrown only when the
  * SIDECAR'S OWN VERDICT says the gate refused the turn — a floor was asked for
  * AND the backend reported `speechMs` below it — see `transcribeAndTranslate`.
- * A floor asked for but never answered (ElevenLabs, or a sidecar that predates
- * `speechMs`) and a floor cleared but the decoder still returned nothing both
+ * A floor asked for but never answered (a sidecar that predates `speechMs`) and a floor cleared but the decoder still returned nothing both
  * keep the plain exception, because neither is the gate's doing.
  */
 export class NoSpeechDetectedException extends BadRequestException {
@@ -779,11 +778,6 @@ export class PipelineTranslatorService {
       timer = setTimeout(() => resolve(undefined), budgetMs);
     });
     try {
-      // Only a transcript from the local recognizer arrives bare. A cloud one
-      // already punctuates and cases its own output, and the restorer — which
-      // lowercases every word before tagging — would replace that with its
-      // own, weaker reading.
-      if (!this.providers.sttWritesBareText()) return undefined;
       const restorer = this.providers.makeDisplayRestorer();
       const start = Date.now();
       const restored = await Promise.race([
@@ -1184,9 +1178,9 @@ export class PipelineTranslatorService {
         // shapes, and only the first is the gate's doing:
         //   - `speechMs` came back below the floor — Silero measured too little
         //     speech, the decoder never ran, `text` is empty by construction;
-        //   - `speechMs` is undefined — the backend cannot gate on speech
-        //     (ElevenLabs) or predates the field, so the floor was silently
-        //     ignored and this empty decode means something else entirely;
+        //   - `speechMs` is undefined — the sidecar predates the field, so the
+        //     floor was silently ignored and this empty decode means something
+        //     else entirely;
         //   - `speechMs` came back AT OR ABOVE the floor — Silero heard enough
         //     speech, the decoder ran anyway, and still answered nothing. That
         //     is the exact "lost utterance" case the warning above exists to
@@ -1283,9 +1277,9 @@ export class PipelineTranslatorService {
     }
 
     const trio = this.providers.makeProviders();
-    // An explicit `false`, not "unknown": the only backend without a catalog
-    // (ElevenLabs) sends no rate parameter at all, so the rate control would
-    // silently do nothing and the client should hide it.
+    // An explicit `false`, not "unknown": a backend without a catalog sends no
+    // rate parameter at all, so the rate control would silently do nothing and
+    // the client should hide it.
     if (!trio.tts.listVoices) return { voices: [], speedAdjustable: false };
 
     const catalog = await trio.tts.listVoices(language);

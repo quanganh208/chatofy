@@ -59,19 +59,14 @@ export class AiProvidersFactory {
    * the language pair — each backend is told the language per call.
    */
   makeProviders(): PipelineProviders {
-    const sttName = this.config.get('AI_STT_PROVIDER', { infer: true });
-    const ttsName = this.config.get('AI_TTS_PROVIDER', { infer: true });
-    const translationName = this.config.get('AI_TRANSLATION_PROVIDER', {
-      infer: true,
-    });
-
-    const key = [sttName, ttsName, translationName].join('|');
+    // Speech is always the self-hosted sidecars, so only the translation host
+    // is selectable and only it keys the cache.
+    const key = this.config.get('AI_TRANSLATION_PROVIDER', { infer: true });
 
     const cached = this.cache.get(key);
     if (cached) return cached;
 
     const resolveConfig: AiProviderResolveConfig = {
-      elevenLabsApiKey: this.config.get('ELEVENLABS_API_KEY', { infer: true }),
       // Passed through raw. One key or a comma-separated pool are the same
       // variable, and splitting it is the provider's job — it owns what counts
       // as a usable key.
@@ -87,13 +82,9 @@ export class AiProvidersFactory {
     };
 
     const trio: PipelineProviders = {
-      stt: this.registry.resolve('stt', sttName, resolveConfig),
-      translation: this.registry.resolve(
-        'translation',
-        translationName,
-        resolveConfig,
-      ),
-      tts: this.registry.resolve('tts', ttsName, resolveConfig),
+      stt: this.registry.resolveOnly('stt', resolveConfig),
+      translation: this.registry.resolve('translation', key, resolveConfig),
+      tts: this.registry.resolveOnly('tts', resolveConfig),
     };
     this.cache.set(key, trio);
     return trio;
@@ -111,17 +102,6 @@ export class AiProvidersFactory {
       localSttUrl: this.config.get('LOCAL_STT_URL', { infer: true }),
     } satisfies AiProviderResolveConfig);
     return this.speakerEmbedding;
-  }
-
-  /**
-   * Whether the selected recognizer returns bare text — no punctuation, no
-   * case — which is what the display restorer exists for.
-   *
-   * Only the local sidecar does. Read from config on every call, like the trio,
-   * so a changed selection is never answered from a stale flag.
-   */
-  sttWritesBareText(): boolean {
-    return this.config.get('AI_STT_PROVIDER', { infer: true }) === 'local';
   }
 
   makeDisplayRestorer(): DisplayRestorer {

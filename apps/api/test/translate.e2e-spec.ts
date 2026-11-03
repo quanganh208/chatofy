@@ -17,7 +17,7 @@ import { AiProvidersFactory } from '../src/modules/translate/providers/ai-provid
 /**
  * Boots the full AppModule with the provider factory overridden by fakes, so the
  * REST pipeline (controller → DTO validation → pipeline service → envelope) is
- * exercised end-to-end with no real ElevenLabs/Gemini calls and no API keys.
+ * exercised end-to-end with no real sidecar or LLM calls and no API keys.
  */
 describe('POST /translate (e2e)', () => {
   let app: INestApplication<App>;

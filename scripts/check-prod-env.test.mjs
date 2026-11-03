@@ -15,7 +15,7 @@ const EXAMPLE = [
   'DATABASE_URL=',
   'export AUTH_JWT_SECRET=',
   '',
-  '# AI_STT_PROVIDER=local',
+  '# AI_SUMMARIZATION_PROVIDER=commandcode',
   '#   INDENTED_EXAMPLE=key-a,key-b',
 ].join('\n');
 
@@ -25,13 +25,13 @@ describe('key parsing', () => {
   });
 
   it('reads only `# KEY=` lines as optional keys, not indented prose', () => {
-    assert.deepEqual([...optionalKeys(EXAMPLE)], ['AI_STT_PROVIDER']);
+    assert.deepEqual([...optionalKeys(EXAMPLE)], ['AI_SUMMARIZATION_PROVIDER']);
   });
 });
 
 describe('diffEnvKeys', () => {
   it('reports nothing for a matching file, optional keys included', () => {
-    const prod = 'DATABASE_URL=x\nAUTH_JWT_SECRET=y\nAI_STT_PROVIDER=local\n';
+    const prod = 'DATABASE_URL=x\nAUTH_JWT_SECRET=y\nAI_SUMMARIZATION_PROVIDER=commandcode\n';
     assert.deepEqual(diffEnvKeys(prod, EXAMPLE), { missing: [], unknown: [] });
   });
 

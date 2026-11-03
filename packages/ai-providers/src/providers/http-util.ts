@@ -79,15 +79,6 @@ export const LOCAL_TTS_VOICES_TIMEOUT_MS = 5_000;
 export const LOCAL_HEALTHZ_TIMEOUT_MS = 5_000;
 
 /**
- * ElevenLabs cloud calls (STT and TTS). Not the production backend —
- * `AI_STT_PROVIDER`/`AI_TTS_PROVIDER` default to `local` — but selectable, and
- * a hung cloud call pins a turn slot exactly like a hung local one. Cloud
- * latency varies with network in a way localhost does not, so the budget is
- * looser than the local ones while still bounding the hang.
- */
-export const ELEVENLABS_TIMEOUT_MS = 30_000;
-
-/**
  * `fetch` that cannot hang, reporting a timeout as distinct from a refusal.
  *
  * Shared rather than repeated at each call site: all provider calls wrap the

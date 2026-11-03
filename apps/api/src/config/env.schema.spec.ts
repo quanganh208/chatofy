@@ -290,10 +290,12 @@ describe('.env.example (repo root)', () => {
     'AUTH_SECRET',
     'AUTH_GOOGLE_SECRET',
     'NEXT_PUBLIC_API_BASE_URL',
-    // Tooling: prisma's migrate diff, model downloads, the translation judge.
+    // Tooling: prisma's migrate diff, model downloads, the translation judge,
+    // and the ElevenLabs Scribe reference the benchmarks grade against.
     'SHADOW_DATABASE_URL',
     'HF_TOKEN',
     'ANTHROPIC_API_KEY',
+    'ELEVENLABS_API_KEY',
     // Docker Compose interpolation.
     ...composeDefaults.keys(),
   ];

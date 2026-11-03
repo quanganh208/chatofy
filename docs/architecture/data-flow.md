@@ -223,8 +223,8 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
    - a pipeline fault (STT, translation, synthesis) closes with reason `error`,
      including a stream that breaks part-way or ends mid-sample
    - a busy speech engine is not a fault: see `engine_busy` above
-   - a TTS backend that does not emit 16-bit PCM WAV (ElevenLabs returns
-     `audio/mpeg`) is reported rather than framed into noise, and closes with
+   - a TTS backend that does not emit 16-bit PCM WAV (an `audio/mpeg`
+     payload, say) is reported rather than framed into noise, and closes with
      reason `unsupported_audio` — the listener heard less than the whole turn, so
      neither the reason nor the metrics row may call it completed
    - a client that leaves part-way through delivery is told nothing and recorded
