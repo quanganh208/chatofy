@@ -470,20 +470,13 @@ leg), `apps/web/src/conference/conference-cascade-leg-web.ts` and
 several languages, primary first; an extra that fails is dropped without failing the
 turn).
 
-### Live mode on the same socket
+### Live mode on the same socket (retired)
 
-`/ws/translate` carries a second, turn-less mode. A client that sends
-`client.live.start` instead of `client.session.start` gets one upstream
-speech-to-speech session (`client.live.audio` in; `server.live.transcript` and
-`server.live.audio` out, until `client.live.stop`), served by `LiveTranslateSessionService` over the
-`realtime` provider `gemini-live`. The wire union is
-`packages/types/src/events/live-ws-events.ts`. **No client opens it**: the web,
-mobile and extension clients run the cascade only, and live mode stays for
-`apps/api/test/live-translate-ws.e2e-spec.ts` and `benchmarks/live-translate`. It is
-served only where `liveModeEnabled` (`apps/api/src/config/env.schema.ts`) says so —
-`TRANSLATE_LIVE_MODE`, else `NODE_ENV` exactly `development` or `test`; anywhere else a
-live start gets `server.live.error` `mode_unavailable` and a 4410 close. Everything
-above describes the `cascade` mode.
+`/ws/translate` used to carry a second, turn-less mode: continuous speech-to-speech
+over Gemini Live, opened by `client.live.start`. It is retired from the app in every
+environment; Gemini Live is measured only in `benchmarks/live-translate`, which dials it
+directly. The gateway has no handler for `client.live.*`, so a client built before the
+removal gets no reply. Everything above describes the cascade, the only mode.
 
 ### Standard Request/Response
 

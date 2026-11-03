@@ -65,11 +65,10 @@ D = dev root `.env`, P = prod.env. "Pinned" means compose sets it per service;
 | `AI_TRANSLATION_PROVIDER`                                                          | api                                     | no                                      | `commandcode`                    | default          | default        |
 | `COMMAND_CODE_API_KEY`                                                             | api                                     | for `commandcode`                       | —                                | ✓                | ✓              |
 | `OPENAI_COMPATIBLE_API_KEY`                                                        | api, benchmarks                         | for `commandcode`, `deepseek`, `openai` | —                                | ✓                | ✓              |
-| `GEMINI_API_KEY`                                                                   | api, benchmarks                         | live mode, minutes fallback             | —                                | ✓                | ✓              |
+| `GEMINI_API_KEY`                                                                   | api, benchmarks                         | for `gemini`, minutes fallback          | —                                | ✓                | ✓              |
 | `AI_SUMMARIZATION_PROVIDER`                                                        | api                                     | no                                      | follows translation              | —                | —              |
 | `ELEVENLABS_API_KEY`                                                               | benchmarks only (Scribe reference)      | no                                      | —                                | ✓                | —              |
 | `LOCAL_STT_URL`, `LOCAL_TTS_URL`                                                   | api                                     | no                                      | `http://localhost:8002` / `8003` | default          | pinned         |
-| `TRANSLATE_LIVE_MODE`                                                              | api                                     | no                                      | on in development/test only      | —                | —              |
 | `TRANSLATE_SPECULATION_OVERLAP`, `_HOMOPHONES`                                     | api                                     | no                                      | `off`                            | default          | default        |
 | `TRANSLATE_LIVE_COMMIT_SCALE`                                                      | api                                     | no                                      | `3`                              | default          | default        |
 | `AUTH_SECRET`                                                                      | web                                     | yes                                     | —                                | ✓                | ✓              |
@@ -169,9 +168,11 @@ gemini-3.5-flash-lite, with no refusal, softening or hedging across the
 sovereignty corpus. The cost is data governance rather than latency:
 conversation content reaches servers operated in China.
 
-`GEMINI_API_KEY` is not a translation key. It authenticates live mode and the
-minutes fallback, which are selected independently of translation. It takes
-several keys, comma-separated, and the translator rotates turns across them.
+`GEMINI_API_KEY` is not the production translation key. It authenticates the
+minutes fallback, which is selected independently of translation, the `gemini`
+translation provider, and the benchmarks, whose `live-translate` arm dials
+Gemini Live directly. It takes several keys, comma-separated, and the
+translator rotates turns across them.
 Gemini meters quota per **project** per model, so keys from the same Google
 Cloud project share one bucket and rotation buys nothing. Enabling billing on a
 project removes its free tier.
@@ -181,12 +182,6 @@ project removes its free tier.
 translation: `commandcode` there means `commandcode` here, anything else
 `gemini`. With the defaults, minutes therefore also run on Command Code; set
 `gemini` to keep them on Gemini direct.
-
-`TRANSLATE_LIVE_MODE` controls continuous speech-to-speech (`client.live.start`).
-Unset, it is on only when `NODE_ENV` is exactly `development` or `test`, so
-production refuses it without a line of its own. `enabled` is the rollback;
-`disabled` turns it off on a laptop holding production keys. Meetings and the
-translate page do not use it.
 
 The cost knobs default to the cheaper turn measured in `benchmarks/call-budget`:
 about 54% of the calls and 59% of the billed tokens, the same final translations,

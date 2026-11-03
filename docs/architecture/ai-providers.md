@@ -4,13 +4,13 @@ Part of the [system architecture](../system-architecture.md).
 
 ## AI Provider Abstraction
 
-All AI integrations (STT, Translation, TTS, Realtime, plus speaker embedding, display restore and summarization) are behind interfaces so implementations can swap without code churn.
+All AI integrations (STT, Translation, TTS, plus speaker embedding, display restore and summarization) are behind interfaces so implementations can swap without code churn.
 
 **`@chatofy/ai-providers`** (`packages/ai-providers`)
 
 Dual-build (CommonJS + ESM via tsup) for NestJS (CJS require) + frontend (ESM import) compatibility.
 
-- `interfaces/` — Provider contracts: `SttProvider`, `TranslationProvider`, `TtsProvider`, `RealtimeProvider`, `SpeakerEmbeddingProvider`, `DisplayRestorer`, `SummarizationProvider`
+- `interfaces/` — Provider contracts: `SttProvider`, `TranslationProvider`, `TtsProvider`, `SpeakerEmbeddingProvider`, `DisplayRestorer`, `SummarizationProvider`
   - Each provider declares `readonly name: string` for logging
   - `TtsProvider` additionally declares `readonly outputMimeType` (local → `audio/wav`)
 - `errors/` — Typed error classes: abstract `ProviderError` base + `ProviderResponseError` (non-2xx/malformed, carries `status`), `ProviderConnectionError` (transport, carries `cause`), `ProviderBusyError` (a `ProviderResponseError`: the sidecar's `503` with `X-Engine-Busy`), `ProviderAbortedError` (the caller's signal fired), `ProviderConfigError`, `ProviderNotImplementedError`
@@ -18,14 +18,13 @@ Dual-build (CommonJS + ESM via tsup) for NestJS (CJS require) + frontend (ESM im
   - `GeminiTranslationProvider` — Translation via Google Gemini API (@google/genai SDK)
   - `OpenAiCompatibleTranslationProvider` — Translation over the OpenAI chat-completions wire format (raw fetch), one class for every such host; production runs it against DeepSeek (see "Machine translation" below)
   - `GeminiSummarizationProvider` — meeting minutes (see "Meeting minutes" below)
-  - `GeminiLiveTranslateProvider` — speech-to-speech in one upstream stream, the `realtime` kind behind the `live` translate mode (see [Data Flow](./data-flow.md#live-mode-on-the-same-socket))
   - `LocalSpeechDisplayRestorer` — the display restore via the local sidecar (`services/local-stt`, `POST /restore`): punctuation and case for Vietnamese (Dewpoint), punctuation for Chinese (CT-Transformer)
   - `LocalSpeechSttProvider` — STT via the local sidecar (`services/local-stt`, HTTP multipart); one backend serves every language, the sidecar picks Zipformer-30M for `vi`, Parakeet-TDT-0.6b-v2 for `en` and Paraformer-zh for `zh`
   - `LocalSpeechEmbeddingProvider` — speaker vectors via the local sidecar (`services/local-stt`, `POST /embed`). A **separate endpoint from `/transcribe`, deliberately**: translation cannot start until it has the transcript text, so an embedding returned in that same response would land its cost before the translation instead of beside it. A second localhost upload of a few-second clip costs single-digit ms
   - `LocalSpeechTtsProvider` — TTS via the local sidecar (`services/local-tts`, HTTP, `audio/wav`); one backend serves every language, the sidecar picks VieNeu for `vi` and Kokoro-82M for `en` and `zh` (one shared instance). Carries no default voice: a voice is a speaker id for one engine and a preset name for the other, so only the engine can default it
 - Each provider owns its own model default — there is no model-selection layer above them. Gemini holds the ordered quota-fallback list; an OpenAI-compatible host takes its one model from its row in the host table; the local sidecars pick their engine from the language and take no model argument at all
 - `registry/` — `ProviderRegistry`, typed via the `ProviderKindMap` mapped type
-  - Holds implementations by kind (stt/translation/tts/realtime/speakerEmbedding/displayRestorer/summarization) and name, resolved at runtime
+  - Holds implementations by kind (stt/translation/tts/speakerEmbedding/displayRestorer/summarization) and name, resolved at runtime
   - `AiProvidersFactory` lives in the API (`apps/api/src/modules/translate/providers/`) and builds the trio from the registry (no name-construction conditionals)
   - Default providers registered at composition root (`apps/api/src/modules/translate/providers/register-default-providers.ts`)
 
@@ -59,8 +58,7 @@ recorded DeepSeek output: 3 Traditional outputs in 1,200 and 3 zh→vi leaks in
 600, 0 in every other direction. Kokoro speaks zh from the instance it holds for
 en, with both lexicons and **no rule FSTs**: all three zh FSTs rewrite English
 digits, so the zh engine verbalizes its own digits
-(`services/local-tts/engines/zh_number_verbalizer.py`). Gemini Live refuses any
-pair with zh in it (`LIVE_LANGUAGES`, `unsupported_language_pair`).
+(`services/local-tts/engines/zh_number_verbalizer.py`).
 
 **STT sidecar concurrency.** Each STT engine serves several decodes at once
 through a lane semaphore over its one recognizer (`LOCAL_STT_CONCURRENCY`,

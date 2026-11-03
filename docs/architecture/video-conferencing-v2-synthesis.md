@@ -87,7 +87,7 @@ credentials when a TURN key is configured (`conference-sfu-ice-servers.ts`).
 ### Decision 3 — Translation inside meeting: Option A client-side capture (resolved by #209)
 
 Each client sends its microphone both into its SFU publish session (for the room) and
-into the turn cascade of `/ws/translate` (its live mode in the first build), then forwards the translated subtitle and audio as
+into the turn cascade of `/ws/translate` (its since-retired live mode in the first build), then forwards the translated subtitle and audio as
 `conference.translation.broadcast`. The gateway fans them out as
 `conference.translation.subtitle` (to peers who speak another language) and
 `conference.translation.audio` (to peers who speak the audio's language). No server-side

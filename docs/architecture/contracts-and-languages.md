@@ -247,8 +247,6 @@ exactly how far that reaches. Production uses today:
   and `RESTORED_RECOGNITION` (`display-restore-request.ts`) — which recognition
   languages get a loanword respelling, a homophone repair, a second recognizer
   fused into the display, and a display restore;
-- `LIVE_LANGUAGES` (`packages/types/src/domain/translate-mode.ts`) — which
-  languages the live mode serves, read by the gateway and the extension picker;
 - `LIVE_TRANSLATION_COMMIT_CHARS` (`session/turn-tuning.ts`) — settled
   characters per provisional translation, per recognition language;
 - the per-language voice-token schema (`storedVoiceSelectionSchema` in
@@ -397,11 +395,8 @@ socket per user and `MAX_LID_SOCKETS` in the process. Over the cap a two-way
 start runs declared with `modeReason: 'lid_capacity'`, and a detect start is
 refused with `detail: 'lid_capacity'`.
 
-**Other transports.** `client.live.start` asking for `twoWay` or a detected
-source is answered `server.live.error` `language_unavailable` before the parse
-(`refuseUnservedStart` in `translate.gateway.ts`): the live schema knows
-neither field, and a parse failure would reach the client as silence. REST
-`POST /translate` keeps `languagePairSchema`, so a detect source is a 400.
+**Other transports.** REST `POST /translate` keeps `languagePairSchema`, so a
+detect source is a 400.
 
 **Context stays in one language.** A two-way conversation holds speech in both
 languages, and a turn is translated only against earlier speech in its own
@@ -504,7 +499,7 @@ extension builds that exist are the maintainer's own (see
 `docs/deployment-guide.md`), so no store build could still be sending the old
 shape; a browser tab opened before the deploy is refused and recovers on
 reload. On the socket that refusal is emitted, not thrown: a start carrying any
-`direction` key gets `server.error` (or `server.live.error`) with code
+`direction` key gets `server.error` with code
 `client_outdated`, because a thrown one reaches the client as silence and the
 stale page would hang in "connecting". The REST `POST /translate` response keeps a `targetText` field: it is
 that call's one translation, not the legacy turn field. Glossary entries were
@@ -536,12 +531,9 @@ everything; the schemas and their comments own the details.
 - **Peer `sourceLanguage`** on `conference.peer.joined` and in the join reply's peer
   list is how a leg learns which languages the room holds. A peer event without it still
   parses on web and mobile.
-- **Live starts.** Whether `client.live.start` is served is `liveModeEnabled` in
-  `apps/api/src/config/env.schema.ts` (`TRANSLATE_LIVE_MODE`, fail-closed by
-  `NODE_ENV`). A refused start gets `server.live.error` `mode_unavailable` and close code
-  4410 (`LIVE_MODE_UNAVAILABLE_CLOSE_CODE` in `translate.gateway.ts`). Live frames
-  already in flight are dropped silently, so the client sees that one error; a client
-  built for meetings on live mode stops capturing when the socket closes.
+- **Live starts.** Live mode is removed from the app, in every environment, and the
+  server has no handler for any `client.live.*` message: an old client that sends one
+  gets no reply at all.
 
 ### Deferred seams
 
@@ -635,7 +627,6 @@ until a turn in the new language runs:
   the recognizer writes no punctuation, the script its translations are
   displayed in, and a check that translations into OTHER languages do not slip
   into it.
-- **Mode support.** Whether the live mode serves it (`LIVE_LANGUAGES`).
 - **Clients that read stored data.** A saved glossary entry with the new key is
   unreadable to a build from before it; both clients read lists entry by entry
   (`readTranslationContextList`), and the extension must be rebuilt.
