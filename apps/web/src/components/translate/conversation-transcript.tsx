@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { VolumeX } from 'lucide-react';
 import type {
   CapturesBySession,
@@ -28,6 +29,13 @@ import { SpeakerChip } from '@/components/translate/speaker-chip';
 import { SpeakerLabel } from '@/components/translate/speaker-label';
 import { TranscriptSourceLine } from '@/components/translate/transcript-source-line';
 import { TurnLanguage } from '@/components/translate/turn-language-tag';
+import { MorphingText } from '@/components/translate/morphing-text';
+import { flipFromLiveLine } from '@/components/translate/flip-from-live-line';
+import {
+  LiveLineHandoffContext,
+  createLiveLineRegistry,
+  markLiveLineRegistryReady,
+} from '@/components/translate/live-line-handoff';
 import { LiveTurnLine } from '@/components/translate/live-turn-line';
 
 /** Which halves of a turn this stream renders. */
@@ -216,6 +224,15 @@ export function ConversationTranscript({
   languageModes = {},
 }: ConversationTranscriptProps) {
   const t = useTranslate();
+  // Where each live line was and what it showed, so the finished turn that
+  // replaces it can start from there (`live-line-handoff.ts`). This
+  // transcript's own: another pane draws the same turn elsewhere.
+  const [handoff] = useState(createLiveLineRegistry);
+  // After the first commit: what mounted with the transcript is drawn whole,
+  // what arrives later is typed in.
+  useEffect(() => {
+    markLiveLineRegistryReady(handoff);
+  }, [handoff]);
   const showsSource = side !== 'target';
   const showsTarget = side !== 'source';
 
@@ -245,91 +262,101 @@ export function ConversationTranscript({
   const turnFrame = 'mr-8 ml-3.5 flex flex-col gap-1.5 border-l-2 pl-4';
 
   return (
-    <div>
-      {empty ? (
-        // An empty state that says what to do. Rendering nothing left the page
-        // looking broken before the first turn, which is exactly when a new user
-        // is deciding whether it works.
-        //
-        // Each pane says its own sentence. A pane cannot borrow the other's
-        // explanation, and in `split` the two are separated by a gap or by half
-        // the screen.
-        <div className="flex flex-col gap-4 px-8 py-7">
-          <p className={cn('text-prose text-body', side === 'both' && 'text-center')}>
-            {side === 'source'
-              ? t('web.translate.panelSourceEmpty')
-              : side === 'target'
-                ? t('web.translate.panelTargetEmpty')
-                : `${running ? t('web.translate.transcriptListening') : t('web.translate.transcriptEmpty')} ${t('web.translate.transcriptAttribution')}`}
-          </p>
-          {/* That turns can be marked with who said them used to be said by the
+    <LiveLineHandoffContext value={handoff}>
+      <div>
+        {empty ? (
+          // An empty state that says what to do. Rendering nothing left the page
+          // looking broken before the first turn, which is exactly when a new user
+          // is deciding whether it works.
+          //
+          // Each pane says its own sentence. A pane cannot borrow the other's
+          // explanation, and in `split` the two are separated by a gap or by half
+          // the screen.
+          <div className="flex flex-col gap-4 px-8 py-7">
+            <p className={cn('text-prose text-body', side === 'both' && 'text-center')}>
+              {side === 'source'
+                ? t('web.translate.panelSourceEmpty')
+                : side === 'target'
+                  ? t('web.translate.panelTargetEmpty')
+                  : `${running ? t('web.translate.transcriptListening') : t('web.translate.transcriptEmpty')} ${t('web.translate.transcriptAttribution')}`}
+            </p>
+            {/* That turns can be marked with who said them used to be said by the
               roster sitting under this panel. The roster is now a face of the
               chip, and a chip only exists once a turn does — so with nothing on
               screen yet, this is the only place left that can say it. On the
               interactive stream only: it points at a control the other stream
               does not have. */}
-          {interactive && speakerLabels && speakers.length === 0 ? (
-            <p className="text-muted-foreground text-hint">
-              {t('web.translate.speakerRosterHint')}
-            </p>
-          ) : null}
-        </div>
-      ) : groups.length === 0 ? null : (
-        // Rendered only when there is something settled to list. A live-only
-        // transcript used to draw an empty `<ol>` — an empty list in the
-        // accessibility tree, plus its padding stacked on the region's, for 36px
-        // of nothing above the first line anybody is waiting to read.
-        <ol className="flex flex-col gap-5 pt-4">
-          {groups.map((group) => {
-            // Read the member with the most authority, not simply the first.
-            //
-            // A group splits only when both sides are confirmed and name
-            // different people, so a group can hold one named member beside
-            // unnamed ones — and it routinely does: capture records arrive after
-            // the segments they describe, so the halves render separately for a
-            // moment and a name can land on one of them in that window. Reading
-            // `sessionIds[0]` there would show `fallback` while state says
-            // otherwise, and the next tap would silently overwrite the name the
-            // screen never showed.
-            //
-            // `suggested` joined this order on 2026-09-01, when the acoustic
-            // layer started naming turns on its own. Before that nothing produced
-            // it and preferring `confirmed` alone was complete; after it, most
-            // members of most groups are `suggested`, and stopping at `confirmed`
-            // would have shown an empty chip over a block state had labelled.
-            const chipSessionId =
-              (['confirmed', 'suggested', 'pending'] as const)
-                .map((origin) =>
-                  group.sessionIds.find((sessionId) => attributions[sessionId]?.origin === origin),
-                )
-                .find((sessionId) => sessionId !== undefined) ?? group.sessionIds[0]!;
-            const origin = attributions[chipSessionId]?.origin ?? 'fallback';
-            const speaker = speakerFor(speakers, attributions, chipSessionId);
-            // The position this block will be stored at, shown the way history
-            // will show it: the same `displayGroupOffsetMs` the save projection
-            // uses, shifted by the same recording origin history shifts by. Two
-            // screens, one rule — which is the only way the number a reader sees
-            // during the conversation is the number they see reading it back.
-            const at =
-              !showTime || startedAtMs === null
-                ? null
-                : mediaOffset(
-                    displayGroupOffsetMs(group, captures, startedAtMs, pauses),
-                    audioOffsetMs,
-                  );
-            // One language per block: grouping never merges turns heard in
-            // different ones, so the first member speaks for all of them.
-            const spoken = group.turns[0]!.sourceLanguages;
-            const tagged = identified(languageModes[group.sessionIds[0]!]);
-            const translationLanguage = turnTargetLanguage(spoken, languagePair);
-            // An auto-detected turn said in the target itself: nothing to
-            // translate, so it is transcript only. The translation pane shows
-            // its words as they were said — they are already in the language
-            // that pane reads — and a pane holding both halves shows them once.
-            const inTarget = spoken.length === 1 && spoken[0] === translationLanguage;
-            return (
-              <li key={group.key} className={cn('border-primary reading-turn', turnFrame)}>
-                {/* The block's meta line. It exists when there is a name to show,
+            {interactive && speakerLabels && speakers.length === 0 ? (
+              <p className="text-muted-foreground text-hint">
+                {t('web.translate.speakerRosterHint')}
+              </p>
+            ) : null}
+          </div>
+        ) : groups.length === 0 ? null : (
+          // Rendered only when there is something settled to list. A live-only
+          // transcript used to draw an empty `<ol>` — an empty list in the
+          // accessibility tree, plus its padding stacked on the region's, for 36px
+          // of nothing above the first line anybody is waiting to read.
+          <ol className="flex flex-col gap-5 pt-4">
+            {groups.map((group, index) => {
+              // Only the newest blocks may type themselves in when they first
+              // appear (`MorphingText`); anything older was already there.
+              const newest = index >= groups.length - 2;
+              // Read the member with the most authority, not simply the first.
+              //
+              // A group splits only when both sides are confirmed and name
+              // different people, so a group can hold one named member beside
+              // unnamed ones — and it routinely does: capture records arrive after
+              // the segments they describe, so the halves render separately for a
+              // moment and a name can land on one of them in that window. Reading
+              // `sessionIds[0]` there would show `fallback` while state says
+              // otherwise, and the next tap would silently overwrite the name the
+              // screen never showed.
+              //
+              // `suggested` joined this order on 2026-09-01, when the acoustic
+              // layer started naming turns on its own. Before that nothing produced
+              // it and preferring `confirmed` alone was complete; after it, most
+              // members of most groups are `suggested`, and stopping at `confirmed`
+              // would have shown an empty chip over a block state had labelled.
+              const chipSessionId =
+                (['confirmed', 'suggested', 'pending'] as const)
+                  .map((origin) =>
+                    group.sessionIds.find(
+                      (sessionId) => attributions[sessionId]?.origin === origin,
+                    ),
+                  )
+                  .find((sessionId) => sessionId !== undefined) ?? group.sessionIds[0]!;
+              const origin = attributions[chipSessionId]?.origin ?? 'fallback';
+              const speaker = speakerFor(speakers, attributions, chipSessionId);
+              // The position this block will be stored at, shown the way history
+              // will show it: the same `displayGroupOffsetMs` the save projection
+              // uses, shifted by the same recording origin history shifts by. Two
+              // screens, one rule — which is the only way the number a reader sees
+              // during the conversation is the number they see reading it back.
+              const at =
+                !showTime || startedAtMs === null
+                  ? null
+                  : mediaOffset(
+                      displayGroupOffsetMs(group, captures, startedAtMs, pauses),
+                      audioOffsetMs,
+                    );
+              // One language per block: grouping never merges turns heard in
+              // different ones, so the first member speaks for all of them.
+              const spoken = group.turns[0]!.sourceLanguages;
+              const tagged = identified(languageModes[group.sessionIds[0]!]);
+              const translationLanguage = turnTargetLanguage(spoken, languagePair);
+              // An auto-detected turn said in the target itself: nothing to
+              // translate, so it is transcript only. The translation pane shows
+              // its words as they were said — they are already in the language
+              // that pane reads — and a pane holding both halves shows them once.
+              const inTarget = spoken.length === 1 && spoken[0] === translationLanguage;
+              return (
+                <li
+                  key={group.key}
+                  ref={(element) => flipFromLiveLine(element, handoff, group.sessionIds)}
+                  className={cn('border-primary reading-turn', turnFrame)}
+                >
+                  {/* The block's meta line. It exists when there is a name to show,
                     a time to show, or both — with speaker labels off and no
                     capture record yet there is nothing to put on it, and an empty
                     row would still spend the column's gap.
@@ -356,66 +383,75 @@ export function ConversationTranscript({
                     added under it. `items-start` would hold it still too, but
                     level with the badge's top border rather than its text, so
                     the time would read as sitting high. */}
-                {speakerLabels || at !== null || tagged ? (
-                  <div className="reading-meta flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    {speakerLabels ? (
-                      interactive ? (
-                        <SpeakerChip
-                          speakers={speakers}
-                          speaker={speaker}
-                          origin={origin}
-                          attributions={attributions}
-                          onRenameSpeaker={onRenameSpeaker}
-                          onRemoveSpeaker={onRemoveSpeaker}
-                          // Written to EVERY member, not just the one the chip reads.
-                          // Attribution state is per turn, so leaving the rest
-                          // unattributed would split the block the moment somebody
-                          // tapped it — the tap would visibly undo the grouping it was
-                          // meant to label.
-                          //
-                          // Worth knowing before the acoustic layer is switched on: only
-                          // CONFIRMED turns seed a voice profile, so one tap here
-                          // confirms every member and a wrongly merged block would fold
-                          // a second person's voice into one centroid. The merge is
-                          // display-only today; that is what would make it acoustically
-                          // load-bearing.
-                          onAttribute={(speakerId) =>
-                            group.sessionIds.forEach((sessionId) =>
-                              onAttribute(sessionId, speakerId),
-                            )
-                          }
-                          onUnattribute={() =>
-                            group.sessionIds.forEach((sessionId) => onUnattribute(sessionId))
-                          }
-                          onAddSpeaker={onAddSpeaker}
-                        />
-                      ) : (
-                        <SpeakerLabel speaker={speaker} origin={origin} />
-                      )
-                    ) : null}
-                    {tagged ? <TurnLanguage languages={spoken} /> : null}
-                    {at === null ? null : (
-                      <span className="text-label reading-time tabular-nums">
-                        <time dateTime={isoDuration(at)}>{formatOffset(at)}</time>
-                      </span>
-                    )}
-                  </div>
-                ) : null}
-                {showsSource ? (
-                  <TranscriptSourceLine
-                    text={groupSourceText(group, displays, blockTranslations)}
-                    raw={groupRawSourceText(group)}
-                    repaired={groupIsRepaired(group, displays, blockTranslations)}
-                  />
-                ) : null}
-                {showsTarget && !(inTarget && showsSource) ? (
-                  <p className="reading-target text-target">
-                    {inTarget
-                      ? groupSourceText(group, displays, blockTranslations)
-                      : groupTranslation(group, translationLanguage, blockTranslations)}
-                  </p>
-                ) : null}
-                {/* Said on the turn it happened to, because that is the only
+                  {speakerLabels || at !== null || tagged ? (
+                    <div className="reading-meta flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      {speakerLabels ? (
+                        interactive ? (
+                          <SpeakerChip
+                            speakers={speakers}
+                            speaker={speaker}
+                            origin={origin}
+                            attributions={attributions}
+                            onRenameSpeaker={onRenameSpeaker}
+                            onRemoveSpeaker={onRemoveSpeaker}
+                            // Written to EVERY member, not just the one the chip reads.
+                            // Attribution state is per turn, so leaving the rest
+                            // unattributed would split the block the moment somebody
+                            // tapped it — the tap would visibly undo the grouping it was
+                            // meant to label.
+                            //
+                            // Worth knowing before the acoustic layer is switched on: only
+                            // CONFIRMED turns seed a voice profile, so one tap here
+                            // confirms every member and a wrongly merged block would fold
+                            // a second person's voice into one centroid. The merge is
+                            // display-only today; that is what would make it acoustically
+                            // load-bearing.
+                            onAttribute={(speakerId) =>
+                              group.sessionIds.forEach((sessionId) =>
+                                onAttribute(sessionId, speakerId),
+                              )
+                            }
+                            onUnattribute={() =>
+                              group.sessionIds.forEach((sessionId) => onUnattribute(sessionId))
+                            }
+                            onAddSpeaker={onAddSpeaker}
+                          />
+                        ) : (
+                          <SpeakerLabel speaker={speaker} origin={origin} />
+                        )
+                      ) : null}
+                      {tagged ? <TurnLanguage languages={spoken} /> : null}
+                      {at === null ? null : (
+                        <span className="text-label reading-time tabular-nums">
+                          <time dateTime={isoDuration(at)}>{formatOffset(at)}</time>
+                        </span>
+                      )}
+                    </div>
+                  ) : null}
+                  {showsSource ? (
+                    <TranscriptSourceLine
+                      sessionIds={group.sessionIds}
+                      typeInWhenNew={newest}
+                      text={groupSourceText(group, displays, blockTranslations)}
+                      raw={groupRawSourceText(group)}
+                      repaired={groupIsRepaired(group, displays, blockTranslations)}
+                    />
+                  ) : null}
+                  {showsTarget && !(inTarget && showsSource) ? (
+                    <p className="reading-target text-target">
+                      <MorphingText
+                        half="target"
+                        sessionIds={group.sessionIds}
+                        typeInWhenNew={newest}
+                        text={
+                          inTarget
+                            ? groupSourceText(group, displays, blockTranslations)
+                            : groupTranslation(group, translationLanguage, blockTranslations)
+                        }
+                      />
+                    </p>
+                  ) : null}
+                  {/* Said on the turn it happened to, because that is the only
                     place it means anything: this text is on screen and was never
                     spoken. A grouped block carries it if ANY of its turns went
                     unheard — the ceiling split one utterance, and a part of it
@@ -425,19 +461,19 @@ export function ConversationTranscript({
                     drawn: with `translationOnly` off and `split` on, the reader
                     watching the source side would otherwise be the one person
                     told nothing. */}
-                {group.sessionIds.some((sessionId) => unheard[sessionId]) ? (
-                  <p className="text-muted-foreground text-hint flex items-center gap-1.5">
-                    <VolumeX aria-hidden className="size-3.5 shrink-0" />
-                    {t('web.translate.turnUnheard')}
-                  </p>
-                ) : null}
-              </li>
-            );
-          })}
-        </ol>
-      )}
+                  {group.sessionIds.some((sessionId) => unheard[sessionId]) ? (
+                    <p className="text-muted-foreground text-hint flex items-center gap-1.5">
+                      <VolumeX aria-hidden className="size-3.5 shrink-0" />
+                      {t('web.translate.turnUnheard')}
+                    </p>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
+        )}
 
-      {/* ONE live region, and it is rendered in EVERY state including the empty
+        {/* ONE live region, and it is rendered in EVERY state including the empty
           one. It used to be an `aria-live` on each unsettled `<li>`, which is a
           region that is created together with the content it should announce —
           and a live region that did not exist a moment before its content
@@ -451,20 +487,21 @@ export function ConversationTranscript({
           In `split` there are two of these, one per pane, and that is correct:
           each announces the half its own pane shows, and a reader hearing both
           hears the sentence and then its translation. */}
-      <div
-        aria-live="polite"
-        className={cn('flex flex-col gap-5', visibleLive.length > 0 ? 'pt-5 pb-4' : 'pb-4')}
-      >
-        {visibleLive.map((live) => (
-          <LiveTurnLine
-            key={live.sessionId}
-            live={live}
-            showsSource={showsSource}
-            showsTarget={showsTarget}
-            frameClassName={turnFrame}
-          />
-        ))}
+        <div
+          aria-live="polite"
+          className={cn('flex flex-col gap-5', visibleLive.length > 0 ? 'pt-5 pb-4' : 'pb-4')}
+        >
+          {visibleLive.map((live) => (
+            <LiveTurnLine
+              key={live.sessionId}
+              live={live}
+              showsSource={showsSource}
+              showsTarget={showsTarget}
+              frameClassName={turnFrame}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+    </LiveLineHandoffContext>
   );
 }
