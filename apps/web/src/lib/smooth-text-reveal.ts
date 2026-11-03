@@ -1,5 +1,5 @@
 /**
- * Paces how much of a live line is on screen, one grapheme at a time.
+ * Paces how a transcript line changes on screen, one grapheme at a time.
  *
  * The server does not deliver a live line smoothly, and nothing upstream can make
  * it: the recogniser re-reads the whole utterance every ~300ms and each reading
@@ -7,6 +7,13 @@
  * again from its first token. Drawn as they arrive, the source line moves in word
  * jumps and the translation blanks and regrows. This module spreads each jump over
  * the frames until the next one is expected.
+ *
+ * Every change is drawn as typing. New text is typed in; a revised word is
+ * erased where it stands and its replacement typed in its place; text that goes
+ * away is erased. The user asked for that on 03/11/2026, after the first version
+ * swapped revised words in a single frame and the swap read as the line jumping.
+ * Which graphemes to erase and type is `text-morph-diff.ts`; how fast is this
+ * module.
  *
  * Two promises shape every rule below:
  *
@@ -21,6 +28,14 @@
  * Pure and DOM-free on purpose: the hook drives it on animation frames, and the
  * measurement replay drives it on a simulated clock from plain `tsx`.
  */
+
+import {
+  applyMorphSteps,
+  graphemes,
+  morphSegments,
+  morphSteps,
+  type MorphSegment,
+} from './text-morph-diff';
 
 export interface RevealOptions {
   /** Expected ms between target updates, before any has been measured. */
@@ -42,6 +57,15 @@ export interface RevealOptions {
    * against 283 ms at 4 on a real conversation — the user chose 4.
    */
   maxGraphemesPerFrame?: number;
+  /**
+   * For a FINISHED line: every change completes within this many ms, typing
+   * faster than the per-frame ceiling if it has to. A settled line is rewritten
+   * while somebody is reading it — its polished translation, or a block
+   * retranslated whole about a second after it finished — and a long block typed
+   * at the live line's ceiling would keep it moving for seconds. The user chose
+   * a time bound over both (03/11/2026). Unset on live lines.
+   */
+  maxMorphMs?: number;
 }
 
 export interface RevealState {
@@ -59,6 +83,40 @@ export interface RevealState {
   pending: string | null;
   /** Per-frame ceiling, fixed for the line's life. */
   maxGraphemesPerFrame: number;
+  /** Time bound on one change, for a finished line; `null` on a live line. */
+  maxMorphMs: number | null;
+  /**
+   * The erase-and-type script from what was on screen when the target last
+   * changed, and how many of its steps are done; `shown` is always the script
+   * played that far.
+   *
+   * Planned once per change rather than re-diffed every frame: half-erased words
+   * align differently from whole ones, so a fresh diff each frame could change
+   * its mind mid-word and erase text it had just typed.
+   */
+  plan: MorphSegment[];
+  planSteps: number;
+  planDone: number;
+}
+
+/** `state` now heading for `target`, scripted from what is on screen. */
+function planned(state: RevealState, target: string): RevealState {
+  const plan = morphSegments(state.shown, target);
+  return { ...state, target, plan, planSteps: morphSteps(plan), planDone: 0 };
+}
+
+/** `state` showing `text` with nothing left to do. */
+export function settledAt(state: RevealState, text: string): RevealState {
+  return {
+    ...state,
+    shown: text,
+    target: text,
+    pending: null,
+    carry: 0,
+    plan: [],
+    planSteps: 0,
+    planDone: 0,
+  };
 }
 
 /** Slowest rate, so a trickle of text still moves visibly. */
@@ -86,39 +144,17 @@ export const REVEAL_HOLD_IDLE_RELEASE_MS = 400;
 
 const SIXTY_HZ_FRAME_MS = 16.67;
 
-const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-
-/** The user-perceived characters of `text`, unnormalized, joining back to `text`. */
-export function graphemes(text: string): string[] {
-  return Array.from(segmenter.segment(text), (part) => part.segment);
-}
-
-/**
- * What to show once the target becomes `next`: as much of `next` as was already
- * on screen, so revised words are REPLACED in place and only new text is typed.
- *
- * Not the common prefix. Measured on a real conversation, 88 of 144 revisions
- * changed one word near the start of the line and left the rest as it was;
- * cutting back to the first difference blanked the line and retyped it, and put
- * the source line 3.8 s behind at p95. The recogniser substitutes, it does not
- * retract, so a substitution is drawn as one.
- */
-function substituted(shown: string, next: string): string {
-  const nextGraphemes = graphemes(next);
-  return nextGraphemes.slice(0, Math.min(graphemes(shown).length, nextGraphemes.length)).join('');
-}
+/** Re-exported: callers count graphemes the same way the morph does. */
+export { graphemes };
 
 /** Whether the reveal still has work to do on later frames. */
 export function needsFrame(state: RevealState): boolean {
   return state.pending !== null || backlog(state) > 0;
 }
 
-/** Graphemes of the target not yet on screen. */
+/** Graphemes still to erase or type before what is shown reads as the target. */
 export function backlog(state: RevealState): number {
-  // Invariant: `shown` is always a grapheme prefix of `target`. Every writer
-  // keeps it — `retarget` (clear, hold, substitute), the idle release, a frame,
-  // and the hook's snap — so the remainder is simply what follows it.
-  return graphemes(state.target.slice(state.shown.length)).length;
+  return state.planSteps - state.planDone;
 }
 
 export function createRevealState(options: RevealOptions, now: number): RevealState {
@@ -130,6 +166,10 @@ export function createRevealState(options: RevealOptions, now: number): RevealSt
     carry: 0,
     pending: null,
     maxGraphemesPerFrame: options.maxGraphemesPerFrame ?? REVEAL_MAX_GRAPHEMES_PER_FRAME,
+    maxMorphMs: options.maxMorphMs ?? null,
+    plan: [],
+    planSteps: 0,
+    planDone: 0,
   };
 }
 
@@ -150,8 +190,8 @@ export function retarget(
 ): RevealState {
   if (next === (state.pending ?? state.target)) return state;
   // An empty piece is how the server withdraws a translation of words that were
-  // taken back, so it always clears, held or not.
-  if (next === '') return { ...state, shown: '', target: '', carry: 0, pending: null };
+  // taken back, so it is never held: the line is erased.
+  if (next === '') return { ...planned(state, ''), pending: null, lastTargetAt: now };
 
   // The first text after an empty line opens a new run; the gap before it is
   // silence, not a cadence.
@@ -164,21 +204,14 @@ export function retarget(
 
   if (options.holdWhileShorter && graphemes(next).length < graphemes(state.shown).length) {
     // Bounded twice over: released by `stepReveal` once the stream goes quiet,
-    // and the finished turn replaces the live line in any case.
-    return { ...state, target: state.shown, pending: next, lastTargetAt: now, intervalMs };
+    // and the finished turn replaces the live line in any case. A change already
+    // under way carries on: freezing it would leave a half-erased word standing.
+    return { ...state, pending: next, lastTargetAt: now, intervalMs };
   }
 
-  // A revision replaces the words that changed at once, in place — typing them
-  // would animate text being read and show the wrong word for longer — and only
-  // what is new types forward.
-  return {
-    ...state,
-    shown: substituted(state.shown, next),
-    target: next,
-    pending: null,
-    lastTargetAt: now,
-    intervalMs,
-  };
+  // Nothing changes on screen yet: the frames erase the words that changed and
+  // type their replacements, leaving every word that still agrees where it is.
+  return { ...planned(state, next), pending: null, lastTargetAt: now, intervalMs };
 }
 
 /**
@@ -191,28 +224,30 @@ export function stepReveal(current: RevealState, now: number, frameMs: number): 
   if (state.pending !== null && now - state.lastTargetAt >= REVEAL_HOLD_IDLE_RELEASE_MS) {
     // The new translation stopped arriving while still shorter: it is finished,
     // and holding the old one any longer would show a guess it has replaced.
-    state = {
-      ...state,
-      shown: substituted(state.shown, state.pending),
-      target: state.pending,
-      pending: null,
-    };
+    // Its own change, so a finished line's time bound starts here.
+    state = { ...planned(state, state.pending), pending: null, lastTargetAt: now };
   }
   const owed = backlog(state);
   if (owed === 0) return state;
 
-  const timeLeft = Math.max(
-    state.intervalMs * REVEAL_DRAIN_FRACTION - (now - state.lastTargetAt),
-    REVEAL_MIN_DRAIN_MS,
-  );
+  const elapsed = now - state.lastTargetAt;
+  let timeLeft = Math.max(state.intervalMs * REVEAL_DRAIN_FRACTION - elapsed, REVEAL_MIN_DRAIN_MS);
+  // A finished line must be done by its bound, so the bound shortens the plan
+  // and, below, lifts the ceiling — down to the last frame, never past it.
+  const boundLeft = state.maxMorphMs === null ? null : state.maxMorphMs - elapsed;
+  if (boundLeft !== null) timeLeft = Math.max(Math.min(timeLeft, boundLeft), frameMs);
   const rate = Math.max((owed / timeLeft) * 1000, REVEAL_FLOOR_GRAPHEMES_PER_SECOND);
   let carry = state.carry + (rate * frameMs) / 1000;
   let count = Math.floor(carry);
   carry -= count;
-  const perFrameCap = Math.max(
+  const ceiling = Math.max(
     1,
     Math.round((state.maxGraphemesPerFrame * frameMs) / SIXTY_HZ_FRAME_MS),
   );
+  const perFrameCap =
+    boundLeft === null
+      ? ceiling
+      : Math.max(ceiling, Math.ceil(owed / Math.max(1, Math.floor(boundLeft / frameMs))));
   // The excess is dropped rather than banked: banked, it would come out as a
   // jump on the next frame.
   if (count > perFrameCap) {
@@ -222,7 +257,7 @@ export function stepReveal(current: RevealState, now: number, frameMs: number): 
   count = Math.min(count, owed);
   if (count === 0) return { ...state, carry };
 
-  const added = graphemes(state.target.slice(state.shown.length)).slice(0, count).join('');
-  const shown = state.shown + added;
-  return { ...state, shown, carry: shown === state.target ? 0 : carry };
+  const planDone = state.planDone + count;
+  const shown = applyMorphSteps(state.plan, planDone);
+  return { ...state, shown, planDone, carry: planDone === state.planSteps ? 0 : carry };
 }

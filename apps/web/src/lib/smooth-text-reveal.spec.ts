@@ -38,6 +38,29 @@ const graphemeSteps = (steps: string[]) =>
     (shown, i) => graphemes(shown).length - (i === 0 ? 0 : graphemes(steps[i - 1]!).length),
   );
 
+/** Fewest grapheme edits between two texts: what a frame visibly changed. */
+function editDistance(from: string, to: string): number {
+  const a = graphemes(from);
+  const b = graphemes(to);
+  let row = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i];
+    for (let j = 1; j <= b.length; j++) {
+      next[j] = Math.min(
+        row[j]! + 1,
+        next[j - 1]! + 1,
+        row[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    row = next;
+  }
+  return row[b.length]!;
+}
+
+/** Graphemes visibly changed between each consecutive pair of `shown` values. */
+const stepSizes = (steps: string[]) =>
+  steps.slice(1).map((shown, i) => editDistance(steps[i]!, shown));
+
 describe('graphemes', () => {
   it('counts a Vietnamese letter with its marks as one, composed or not', () => {
     expect(graphemes('Việt')).toHaveLength(4);
@@ -118,40 +141,68 @@ describe('stepReveal', () => {
 });
 
 describe('retarget', () => {
-  it('replaces a revised word in place instead of retyping the line', () => {
+  it('erases a revised word where it stands and types its replacement', () => {
     // The recogniser's commonest revision: one early word changes, the rest stays.
     const state = revealed('mai mình đi học nhé', SOURCE);
     const revised = retarget(state, 'hai mình đi học nhé', 1000, SOURCE);
-    expect(revised.shown).toBe('hai mình đi học nhé');
-    expect(backlog(revised)).toBe(0);
+    // Nothing is swapped in the frame the revision arrives.
+    expect(revised.shown).toBe('mai mình đi học nhé');
+    expect(backlog(revised)).toBe(6);
+    const { state: done, shownAfterEachStep } = drain(revised, 1000);
+    expect(done.shown).toBe('hai mình đi học nhé');
+    // The words that agree never move, and the wrong word is gone before the
+    // right one starts.
+    for (const shown of shownAfterEachStep) expect(shown.endsWith(' mình đi học nhé')).toBe(true);
+    const heads = shownAfterEachStep.map((shown) => shown.slice(0, -' mình đi học nhé'.length));
+    expect(heads.some((head) => head === '')).toBe(true);
+    expect(stepSizes([state.shown, ...shownAfterEachStep]).every((n) => n <= 3)).toBe(true);
   });
 
-  it('types only what a revision adds beyond what was on screen', () => {
+  it('types only what a revision adds, erasing nothing', () => {
     const state = revealed('xin chào bạn', SOURCE);
     const revised = retarget(state, 'xin chào các bạn', 1000, SOURCE);
-    expect(revised.shown).toBe('xin chào các');
-    expect(drain(revised, 1000).state.shown).toBe('xin chào các bạn');
+    expect(revised.shown).toBe('xin chào bạn');
+    const { state: done, shownAfterEachStep } = drain(revised, 1000);
+    expect(done.shown).toBe('xin chào các bạn');
+    const lengths = shownAfterEachStep.map((shown) => graphemes(shown).length);
+    lengths.forEach((length, i) => expect(length).toBeGreaterThanOrEqual(lengths[i - 1] ?? 12));
   });
 
-  it('holds a translation while the new one is shorter, and swaps once it catches up', () => {
+  it('keeps a word still being typed instead of erasing it', () => {
+    let state = retarget(createRevealState(SOURCE, 0), 'xin chào', 0, SOURCE);
+    state = stepReveal(stepReveal(state, FRAME, FRAME), 2 * FRAME, FRAME);
+    while (graphemes(state.shown).length < 7) state = stepReveal(state, 3 * FRAME, FRAME);
+    const midWord = state.shown;
+    const extended = retarget(state, 'xin chào bạn', 100, SOURCE);
+    const { shownAfterEachStep } = drain(extended, 100);
+    for (const shown of shownAfterEachStep) expect(shown.startsWith(midWord)).toBe(true);
+  });
+
+  it('holds a translation while the new one is shorter, and morphs once it catches up', () => {
     const state = revealed('Hello my friend', TRANSLATION);
     const held = retarget(state, 'Hi', 1000, TRANSLATION);
     expect(held.shown).toBe('Hello my friend');
     expect(backlog(held)).toBe(0);
     const caughtUp = retarget(held, 'Hi there my good friend', 1100, TRANSLATION);
-    expect(caughtUp.shown).toBe('Hi there my goo');
-    expect(drain(caughtUp, 1100).state.shown).toBe('Hi there my good friend');
+    expect(caughtUp.shown).toBe('Hello my friend');
+    const { state: done, shownAfterEachStep } = drain(caughtUp, 1100);
+    expect(done.shown).toBe('Hi there my good friend');
+    // ` my ` and `friend` agree, so they stay on screen throughout.
+    for (const shown of shownAfterEachStep) expect(shown).toMatch(/ my .*friend$/);
   });
 
-  it('releases a held translation once the new one stops arriving', () => {
+  it('erases a held translation down to the new one once it stops arriving', () => {
     const held = retarget(revealed('Hello my friend', TRANSLATION), 'Hi', 1000, TRANSLATION);
     expect(needsFrame(held)).toBe(true);
     expect(stepReveal(held, 1000 + REVEAL_HOLD_IDLE_RELEASE_MS - 10, FRAME).shown).toBe(
       'Hello my friend',
     );
     const released = stepReveal(held, 1000 + REVEAL_HOLD_IDLE_RELEASE_MS, FRAME);
-    expect(released.shown).toBe('Hi');
-    expect(needsFrame(released)).toBe(false);
+    expect(released.pending).toBeNull();
+    expect(released.shown).not.toBe('Hi');
+    const { state: done } = drain(released, 1000 + REVEAL_HOLD_IDLE_RELEASE_MS);
+    expect(done.shown).toBe('Hi');
+    expect(needsFrame(done)).toBe(false);
   });
 
   it('ignores a repeat of the held target', () => {
@@ -159,14 +210,58 @@ describe('retarget', () => {
     expect(retarget(held, 'Hi', 1200, TRANSLATION)).toBe(held);
   });
 
-  it('does not hold the source line: a shorter reading is a real correction', () => {
+  it('does not hold the source line: a shorter reading is erased back to', () => {
     const state = revealed('Hello my friend', SOURCE);
-    expect(retarget(state, 'Hello', 1000, SOURCE).shown).toBe('Hello');
+    const shorter = retarget(state, 'Hello', 1000, SOURCE);
+    expect(shorter.shown).toBe('Hello my friend');
+    const { state: done, shownAfterEachStep } = drain(shorter, 1000);
+    expect(done.shown).toBe('Hello');
+    for (const shown of shownAfterEachStep) expect('Hello my friend'.startsWith(shown)).toBe(true);
   });
 
-  it('clears at once on an empty target, even while holding', () => {
+  it('erases the line on an empty target, even while holding', () => {
     const state = revealed('Hello my friend', TRANSLATION);
-    expect(retarget(state, '', 1000, TRANSLATION).shown).toBe('');
+    const held = retarget(state, 'Hi', 900, TRANSLATION);
+    const cleared = retarget(held, '', 1000, TRANSLATION);
+    expect(cleared.shown).toBe('Hello my friend');
+    expect(cleared.pending).toBeNull();
+    const { state: done, shownAfterEachStep } = drain(cleared, 1000);
+    expect(done.shown).toBe('');
+    expect(shownAfterEachStep.length).toBeGreaterThan(3);
+    for (const shown of shownAfterEachStep) expect('Hello my friend'.startsWith(shown)).toBe(true);
+  });
+
+  it('re-plans from what is on screen when a new target lands mid-change', () => {
+    const target = 'Tiếng Việt rất hay'.normalize('NFD');
+    let state = retarget(revealed('Hôm nay trời đẹp'.normalize('NFD'), SOURCE), target, 0, SOURCE);
+    state = stepReveal(state, FRAME, FRAME);
+    state = stepReveal(state, 2 * FRAME, FRAME);
+    const next = 'Tiếng Việt rất là hay'.normalize('NFD');
+    const { state: done, shownAfterEachStep } = drain(retarget(state, next, 40, SOURCE), 40);
+    expect(done.shown).toBe(next);
+    for (const shown of shownAfterEachStep) expect(graphemes(shown).join('')).toBe(shown);
+    for (const shown of shownAfterEachStep) {
+      // No bare combining mark: every grapheme starts with a base character.
+      for (const g of graphemes(shown)) expect(/^\p{M}/u.test(g)).toBe(false);
+    }
+  });
+
+  it('finishes a settled line within its time bound, typing faster to do it', () => {
+    const options: RevealOptions = { ...TRANSLATION, holdWhileShorter: false, maxMorphMs: 800 };
+    const before = 'one two three four five six seven eight nine ten '.repeat(6).trim();
+    const after = 'uno dos tres cuatro cinco seis siete ocho nueve diez '.repeat(6).trim();
+    const state = retarget(revealed(before, options), after, 5000, options);
+    const { state: done, shownAfterEachStep } = drain(state, 5000);
+    expect(done.shown).toBe(after);
+    expect(shownAfterEachStep.length * FRAME).toBeLessThanOrEqual(800 + FRAME);
+  });
+
+  it('keeps the live ceiling on a line without a time bound', () => {
+    const before = 'one two three four five six seven eight nine ten '.repeat(6).trim();
+    const after = 'uno dos tres cuatro cinco seis siete ocho nueve diez '.repeat(6).trim();
+    const state = retarget(revealed(before, SOURCE), after, 5000, SOURCE);
+    const { shownAfterEachStep } = drain(state, 5000);
+    expect(Math.max(...stepSizes([before, ...shownAfterEachStep]))).toBeLessThanOrEqual(3);
   });
 
   it('returns the same state for the same target', () => {

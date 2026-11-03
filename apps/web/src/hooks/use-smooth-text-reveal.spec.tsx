@@ -19,6 +19,32 @@ function Probe({ target, hold = false }: { target: string; hold?: boolean }) {
   );
 }
 
+function SettledProbe({
+  target,
+  seed,
+}: {
+  target: string;
+  seed?: (target: string, shown: string) => string | null;
+}) {
+  const { shown, attach } = useSmoothTextReveal(target, {
+    initialIntervalMs: 300,
+    instantInitial: true,
+    maxMorphMs: 800,
+    seed,
+  });
+  return (
+    <span data-testid="probe" ref={attach}>
+      {shown}
+    </span>
+  );
+}
+
+const renderSettled = (target: string, seed?: () => string | null): void => {
+  act(() => {
+    root.render(<SettledProbe target={target} seed={seed} />);
+  });
+};
+
 const probe = () => container.querySelector('[data-testid="probe"]')!.textContent;
 const render = (target: string, hold = false): void => {
   act(() => {
@@ -115,13 +141,44 @@ describe('useSmoothTextReveal', () => {
     expect(spy).toHaveBeenCalled();
   });
 
-  it('replaces a revised word in the same render, then types what is new', () => {
+  it('morphs a revision over the frames that follow, not in the render that carried it', () => {
+    render('mai mình đi học');
+    advance(1000);
+    render('hai mình đi học');
+    expect(probe()).toBe('mai mình đi học');
+    advance(100);
+    expect(probe()).not.toBe('mai mình đi học');
+    expect(probe()).toMatch(/ mình đi học$/);
+    advance(1000);
+    expect(probe()).toBe('hai mình đi học');
+  });
+
+  it('erases the line when its text goes away', () => {
     render('xin chào bạn');
     advance(1000);
-    render('xin chào các bạn');
-    expect(probe()).toBe('xin chào các');
+    render('');
+    expect(probe()).toBe('xin chào bạn');
+    advance(100);
+    expect('xin chào bạn'.startsWith(probe())).toBe(true);
+    expect(probe()).not.toBe('xin chào bạn');
     advance(1000);
-    expect(probe()).toBe('xin chào các bạn');
+    expect(probe()).toBe('');
+  });
+
+  it('draws the first text whole when told to, and morphs only later changes', () => {
+    renderSettled('Hello my friend');
+    expect(probe()).toBe('Hello my friend');
+    renderSettled('Hello my good friend');
+    expect(probe()).toBe('Hello my friend');
+    advance(1000);
+    expect(probe()).toBe('Hello my good friend');
+  });
+
+  it('starts from a seed instead of from what is drawn', () => {
+    renderSettled('Hello my friend', () => 'Hullo my fiend');
+    expect(probe()).toBe('Hullo my fiend');
+    advance(1000);
+    expect(probe()).toBe('Hello my friend');
   });
 
   it('keeps a held translation on screen', () => {
