@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
-// Verifies the factory memoizes the provider trio per backend selection so the
-// GoogleGenAI client + its connection pool persist across requests (no
+// Verifies the factory memoizes the provider trio per translation selection so
+// the GoogleGenAI client + its connection pool persist across requests (no
 // per-request `new`), and still rebuilds when the selection changes.
 // A function expression rather than an arrow: the factory reaches this through
 // `new GoogleGenAI(...)`, and an arrow cannot be constructed.
@@ -15,6 +15,7 @@ import { GoogleGenAI } from '@google/genai';
 import {
   ProviderNotImplementedError,
   ProviderRegistry,
+  type TranslationProvider,
   type TtsProvider,
 } from '@chatofy/ai-providers';
 import type { ConfigService } from '@nestjs/config';
@@ -22,10 +23,7 @@ import { AiProvidersFactory } from './ai-providers.factory';
 import { registerDefaultProviders } from './register-default-providers';
 
 const DEFAULT_ENV: Record<string, unknown> = {
-  AI_STT_PROVIDER: 'elevenlabs',
-  AI_TTS_PROVIDER: 'elevenlabs',
   AI_TRANSLATION_PROVIDER: 'gemini',
-  ELEVENLABS_API_KEY: 'eleven-key',
   GEMINI_API_KEY: 'gemini-key',
   LOCAL_STT_URL: 'http://localhost:8002',
   LOCAL_TTS_URL: 'http://localhost:8003',
@@ -77,18 +75,21 @@ describe('AiProvidersFactory (memoization)', () => {
     expect(GoogleGenAI).toHaveBeenCalledTimes(1);
   });
 
-  it('rebuilds the trio when the backend selection changes', () => {
-    // The cache is keyed by the selected backend names, so a selection change
-    // must not be served from a trio built for the previous one.
-    const env = { ...DEFAULT_ENV };
+  it('rebuilds the trio when the translation selection changes', () => {
+    // The cache is keyed by the selected translation host, so a selection
+    // change must not be served from a trio built for the previous one.
+    const env: Record<string, unknown> = {
+      ...DEFAULT_ENV,
+      OPENAI_COMPATIBLE_API_KEY: 'deepseek-key',
+    };
     const factory = new AiProvidersFactory(
       configFrom(env),
       registerDefaultProviders(new ProviderRegistry()),
     );
 
-    expect(factory.makeProviders().tts.name).toBe('elevenlabs');
-    env.AI_TTS_PROVIDER = 'local';
-    expect(factory.makeProviders().tts.name).toBe('local');
+    const before = factory.makeProviders().translation;
+    env.AI_TRANSLATION_PROVIDER = 'deepseek';
+    expect(factory.makeProviders().translation).not.toBe(before);
   });
 
   it('isolates cache per factory instance', () => {
@@ -97,20 +98,12 @@ describe('AiProvidersFactory (memoization)', () => {
     expect(b.translation).not.toBe(a.translation);
   });
 
-  it('honours AI_TTS_PROVIDER with no per-language exception', () => {
-    // Both output languages resolve the same backend; each provider is told
-    // the language per call and picks its own engine.
-    const factory = makeFactory();
-    expect(factory.makeProviders().tts.name).toBe('elevenlabs');
-
-    const local = makeFactory({ AI_TTS_PROVIDER: 'local' });
-    expect(local.makeProviders().tts.name).toBe('local');
-  });
-
-  it('resolves the local sidecars for both speech stages when selected', () => {
+  it('always resolves the self-hosted sidecars for both speech stages', () => {
+    // Speech is never selectable: a leftover selector in the environment is
+    // not read, and no cloud speech credential is needed to build the trio.
     const factory = makeFactory({
-      AI_STT_PROVIDER: 'local',
-      AI_TTS_PROVIDER: 'local',
+      AI_STT_PROVIDER: 'cloud',
+      AI_TTS_PROVIDER: 'cloud',
     });
     const trio = factory.makeProviders();
 
@@ -118,25 +111,9 @@ describe('AiProvidersFactory (memoization)', () => {
     expect(trio.tts.name).toBe('local');
   });
 
-  it('builds the local trio without any ElevenLabs key', () => {
-    // Proves the default local path needs no cloud credentials — the
-    // ElevenLabs providers throw from their constructors when the key is
-    // missing, so this would fail if `local` still resolved through them.
-    const factory = makeFactory({
-      AI_STT_PROVIDER: 'local',
-      AI_TTS_PROVIDER: 'local',
-      ELEVENLABS_API_KEY: undefined,
-    });
-    expect(() => factory.makeProviders()).not.toThrow();
-  });
-
-  it('surfaces an unknown provider selection as ProviderNotImplementedError', () => {
-    const factory = makeFactory({ AI_STT_PROVIDER: 'nope' });
-    expect(() => factory.makeProviders()).toThrow(ProviderNotImplementedError);
-  });
-
-  it('supports a new backend via registry registration alone (open-closed)', () => {
-    // A hypothetical 4th provider: one register() call, zero factory edits.
+  it('fails loudly when a second speech backend is registered', () => {
+    // `resolveOnly` refuses to pick between two: adding one is the moment to
+    // decide how a caller chooses, not a silent first-wins.
     const fakeTts: TtsProvider = {
       name: 'fake4th',
       outputMimeType: 'audio/x-fake',
@@ -145,9 +122,33 @@ describe('AiProvidersFactory (memoization)', () => {
     const registry = registerDefaultProviders(new ProviderRegistry());
     registry.register('tts', { name: 'fake4th', create: () => fakeTts });
 
-    const factory = makeFactory({ AI_TTS_PROVIDER: 'fake4th' }, registry);
-    const trio = factory.makeProviders();
-    expect(trio.tts).toBe(fakeTts);
+    expect(() => makeFactory({}, registry).makeProviders()).toThrow(
+      ProviderNotImplementedError,
+    );
+  });
+
+  it('surfaces an unknown translation selection as ProviderNotImplementedError', () => {
+    const factory = makeFactory({ AI_TRANSLATION_PROVIDER: 'nope' });
+    expect(() => factory.makeProviders()).toThrow(ProviderNotImplementedError);
+  });
+
+  it('supports a new translation host via registry registration alone (open-closed)', () => {
+    // A hypothetical extra host: one register() call, zero factory edits.
+    const fakeTranslation: TranslationProvider = {
+      name: 'fake4th',
+      translate: () => Promise.reject(new Error('unused')),
+    };
+    const registry = registerDefaultProviders(new ProviderRegistry());
+    registry.register('translation', {
+      name: 'fake4th',
+      create: () => fakeTranslation,
+    });
+
+    const factory = makeFactory(
+      { AI_TRANSLATION_PROVIDER: 'fake4th' },
+      registry,
+    );
+    expect(factory.makeProviders().translation).toBe(fakeTranslation);
   });
 
   // Gemini meters quota per project, so a pool of keys from separate projects
@@ -512,23 +513,5 @@ describe('AiProvidersFactory (memoization)', () => {
         globalThis.fetch = REAL_FETCH;
       }
     });
-  });
-});
-
-describe('AiProvidersFactory.sttWritesBareText', () => {
-  it('is true only for the local recognizer, read on every call', () => {
-    const env: Record<string, unknown> = {
-      ...DEFAULT_ENV,
-      AI_STT_PROVIDER: 'local',
-    };
-    const factory = new AiProvidersFactory(
-      configFrom(env),
-      registerDefaultProviders(new ProviderRegistry()),
-    );
-    expect(factory.sttWritesBareText()).toBe(true);
-
-    // A cloud recognizer punctuates and cases its own transcript.
-    env.AI_STT_PROVIDER = 'elevenlabs';
-    expect(factory.sttWritesBareText()).toBe(false);
   });
 });

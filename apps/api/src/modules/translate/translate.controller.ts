@@ -129,9 +129,9 @@ export class TranslateController {
    *
    * Answered from the backend itself rather than from a list kept here, because
    * which voices exist is a property of whatever is deployed. A client that
-   * hardcoded them would be wrong the day `AI_TTS_PROVIDER` changed — and that is
-   * not hypothetical: a voice name meant for one backend once reached another and
-   * took Vietnamese synthesis down entirely.
+   * hardcoded them would be wrong the day the sidecar's engines changed — and
+   * that is not hypothetical: a voice name meant for one backend once reached
+   * another and took Vietnamese synthesis down entirely.
    *
    * An empty list is a real answer, meaning "this backend offers no choice", and
    * a client should show gender alone. It is NOT the same as this call failing,

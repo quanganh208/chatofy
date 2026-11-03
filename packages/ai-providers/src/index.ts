@@ -1,5 +1,5 @@
 // Root barrel — re-exports all public contracts, errors, registry utilities, and
-// the concrete ElevenLabs/Gemini/local-sidecar provider implementations. Each
+// the concrete Gemini, OpenAI-compatible and local-sidecar provider implementations. Each
 // provider owns its own model defaults, so no model selection layer sits above
 // them.
 
@@ -114,10 +114,6 @@ export { ProviderRegistry } from './registry/index.js';
 export type { ProviderKind, ProviderKindMap, ProviderEntry } from './registry/index.js';
 
 // Concrete provider implementations.
-export { ElevenLabsSttProvider } from './providers/elevenlabs/elevenlabs-stt-provider.js';
-export type { ElevenLabsSttConfig } from './providers/elevenlabs/elevenlabs-stt-provider.js';
-export { ElevenLabsTtsProvider } from './providers/elevenlabs/elevenlabs-tts-provider.js';
-export type { ElevenLabsTtsConfig } from './providers/elevenlabs/elevenlabs-tts-provider.js';
 export { GeminiTranslationProvider } from './providers/gemini/gemini-translation-provider.js';
 export type { GeminiTranslationConfig } from './providers/gemini/gemini-translation-provider.js';
 export { OpenAiCompatibleTranslationProvider } from './providers/openai-compatible/openai-compatible-translation-provider.js';

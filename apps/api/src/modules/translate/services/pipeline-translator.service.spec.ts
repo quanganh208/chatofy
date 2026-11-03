@@ -58,11 +58,9 @@ function serviceWith(
   trio: PipelineProviders,
   restore?: (text: string, options: unknown) => Promise<string>,
   {
-    localStt = true,
     repairHomophones,
     fuseRecognizers,
   }: {
-    localStt?: boolean;
     /** The translation host's homophone repair; absent is a host without one. */
     repairHomophones?: (request: unknown) => Promise<unknown[]>;
     /** The translation host's recognizer fusion; answers nothing when absent. */
@@ -71,7 +69,6 @@ function serviceWith(
 ): PipelineTranslatorService {
   const factory = {
     makeProviders: vi.fn().mockReturnValue(trio),
-    sttWritesBareText: vi.fn().mockReturnValue(localStt),
     makeLoanwordRespeller: vi.fn().mockReturnValue(
       repairHomophones || fuseRecognizers
         ? {
@@ -398,8 +395,7 @@ describe('PipelineTranslatorService', () => {
     });
 
     // H1: a floor was asked for, but the backend never answered `speechMs` at
-    // all — ElevenLabs, which cannot gate on speech, or a local sidecar that
-    // predates the field. The floor was silently ignored, so this empty decode
+    // all — a local sidecar that predates the field. The floor was silently ignored, so this empty decode
     // is not the gate's doing and must keep the banner.
     it('throws the plain exception when the backend reported no speechMs at all', async () => {
       const trio = fakeTrio({
@@ -1078,19 +1074,6 @@ describe('PipelineTranslatorService', () => {
       );
 
       expect(restore).toHaveBeenCalledTimes(2);
-    });
-
-    it('leaves a cloud recognizer’s own punctuation alone', async () => {
-      // Only the local recognizer writes bare text; restoring a cased,
-      // punctuated transcript would replace it with a weaker reading.
-      const restore = vi.fn().mockResolvedValue('xin chào.');
-
-      const result = await serviceWith(fakeTrio(), restore, {
-        localStt: false,
-      }).transcribeAndTranslate({ ...input, restoreDisplay: {} }, VI_TO_EN);
-
-      expect(restore).not.toHaveBeenCalled();
-      expect(result).not.toHaveProperty('restored');
     });
 
     it('stops asking a restorer nobody is listening for, and logs it once', async () => {

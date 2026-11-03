@@ -127,9 +127,9 @@ export function pushTranslatedPcm(
  * Split synthesized audio into raw PCM frames, or say why it could not be done.
  *
  * The shared contract carries samples, not containers, so the WAV the TTS
- * sidecar returns is unwrapped here. A backend that emits anything else — the
- * ElevenLabs path returns `audio/mpeg` — cannot feed this route, and saying so
- * beats shipping frames the client would decode as noise.
+ * sidecar returns is unwrapped here. A backend that emits anything else — an
+ * `audio/mpeg` payload, say — cannot feed this route, and saying so beats
+ * shipping frames the client would decode as noise.
  */
 export function frameSynthesizedWav(audio: Buffer): FramingResult {
   let pcm;

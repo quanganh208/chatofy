@@ -1730,8 +1730,7 @@ describe('TranslationSessionService', () => {
       );
     });
 
-    // The ElevenLabs backend returns audio/mpeg, which cannot be framed as raw
-    // samples — saying so beats sending frames the client decodes as noise.
+    // An audio/mpeg payload cannot be framed as raw samples — saying so beats sending frames the client decodes as noise.
     it('reports a TTS backend whose output is not PCM WAV', async () => {
       const { service, synthesize, recorded } = makeService({
         transcribeAndTranslate: vi.fn().mockResolvedValue({

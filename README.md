@@ -284,9 +284,9 @@ Gemini Live (the `live` translate mode) does not translate Chinese; a zh pair is
 refused there by design (`unsupported_language_pair`) and offered only in the
 turn-by-turn mode.
 
-The API picks the backend from `AI_STT_PROVIDER` / `AI_TTS_PROVIDER`, both
-defaulting to `local`. There is no per-language exception: the language travels
-with each call and the sidecar resolves the engine.
+Speech is always self-hosted: the API has no cloud STT or TTS provider and no
+variable to select one. There is no per-language exception either: the language
+travels with each call and the sidecar resolves the engine.
 
 **Translation is still cloud** — it is the only remaining network dependency in
 a translation turn. `AI_TRANSLATION_PROVIDER` chooses the backend: `deepseek` by
@@ -383,11 +383,12 @@ works — see its README. That path needs a symlink the images already carry:
 `sherpa-onnx`'s wheel omits `libonnxruntime.so`, so `import sherpa_onnx` fails
 until it is linked to the versioned file `onnxruntime` ships.
 
-### Switching back to the cloud
+### Cloud speech is for grading only
 
-Set `AI_STT_PROVIDER=elevenlabs` and/or `AI_TTS_PROVIDER=elevenlabs` with a
-valid `ELEVENLABS_API_KEY`. The ElevenLabs providers are kept precisely so the
-two paths can be compared.
+ElevenLabs Scribe appears only in `benchmarks/`, as the reference transcript a
+conversation's quality is graded against (`benchmarks/translation-judge`,
+`benchmarks/stt`). Those scripts read `ELEVENLABS_API_KEY` themselves; the API
+never does.
 
 ### Model licences
 

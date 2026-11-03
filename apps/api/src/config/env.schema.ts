@@ -124,20 +124,17 @@ export const envSchema = z.object({
   R2_BUCKET: emptyStringAsUndefined(z.string().min(1).optional()),
 
   // ── Turn-based translate pipeline ───────────────────────────────────────
-  // Provider selections for the REST /translate flow. Speech runs locally by
-  // default (sherpa-onnx sidecars, no cloud call, no API key). Translation
-  // defaults to `commandcode`, what production runs: Command Code first, the
-  // DeepSeek row behind it, so it needs COMMAND_CODE_API_KEY AND
-  // OPENAI_COMPATIBLE_API_KEY. A missing key is not failed over — it throws on
-  // first use — so a machine holding only the OpenAI-compatible key selects
-  // `deepseek`. Set the speech pair to `elevenlabs` to compare against the cloud.
-  AI_STT_PROVIDER: z.string().default('local'),
-  AI_TTS_PROVIDER: z.string().default('local'),
+  // Provider selection for the REST /translate flow. Speech always runs in the
+  // self-hosted sherpa-onnx sidecars (LOCAL_STT_URL / LOCAL_TTS_URL), so only
+  // the translation host is selectable. It defaults to `commandcode`, what
+  // production runs: Command Code first, the DeepSeek row behind it, so it
+  // needs COMMAND_CODE_API_KEY AND OPENAI_COMPATIBLE_API_KEY. A missing key is
+  // not failed over — it throws on first use — so a machine holding only the
+  // OpenAI-compatible key selects `deepseek`.
   AI_TRANSLATION_PROVIDER: z.string().default('commandcode'),
   // Keys are OPTIONAL at validation time so the app and existing e2e tests can
   // boot without them; the providers factory enforces presence lazily and
   // returns a clear error when /translate is actually called without a key.
-  ELEVENLABS_API_KEY: emptyStringAsUndefined(z.string().min(1).optional()),
   // One key, or several comma-separated: the translator rotates across them.
   // Gemini meters quota per PROJECT per model, so several keys only raise the
   // ceiling when they come from different Google Cloud projects — see

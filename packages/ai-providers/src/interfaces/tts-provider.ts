@@ -1,4 +1,4 @@
-// TtsProvider contract — text-to-speech synthesis (e.g. ElevenLabs, OpenAI TTS)
+// TtsProvider contract — text-to-speech synthesis (the local sidecar's VieNeu/Kokoro)
 import type { AudioFormat, LanguageCode, ProviderConfig, VoiceGender } from './provider-types.js';
 import type { ServedLanguages } from './stt-provider.js';
 

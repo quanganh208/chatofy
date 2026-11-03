@@ -16,7 +16,7 @@ export interface SttTranscriptResult {
    * How much of the audio the backend's own speech detector measured as
    * speech, in ms — set only by a backend that ran one (the local sidecar,
    * when `minSpeechMs` was passed). Undefined from a backend that has no such
-   * detector (ElevenLabs) or from a local sidecar that predates the field.
+   * detector or from a local sidecar that predates the field.
    *
    * This is what lets a caller tell "the gate refused this turn" from "the
    * recognizer decoded and simply heard nothing": both produce an empty
@@ -100,7 +100,7 @@ export interface SttTranscribeOptions {
    * transcript without decoding.
    *
    * Optional for the backend, exactly like {@link hotwords}: a provider that
-   * cannot gate on speech (ElevenLabs) ignores it rather than failing, and a
+   * cannot gate on speech ignores it rather than failing, and a
    * caller must not read the silent pass-through as the floor having been
    * applied. `0` or absent both mean "no floor" — the caller decides which of
    * the two it sends.

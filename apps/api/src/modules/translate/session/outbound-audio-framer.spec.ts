@@ -58,8 +58,7 @@ describe('frameSynthesizedWav', () => {
     expect(first).toHaveLength(9600);
   });
 
-  // The ElevenLabs backend returns audio/mpeg, which is not a container this
-  // path can unwrap.
+  // An audio/mpeg payload is not a container this path can unwrap.
   it('explains a payload it cannot unwrap instead of throwing', () => {
     const framed = frameSynthesizedWav(Buffer.from('ID3 mp3 payload'));
 

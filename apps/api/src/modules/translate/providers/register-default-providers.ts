@@ -3,7 +3,6 @@
 // untouched (they resolve by name through the registry abstraction).
 import { Logger } from '@nestjs/common';
 import {
-  ElevenLabsSttProvider,
   FailoverLoanwordRespeller,
   FailoverSummarizationProvider,
   FailoverTranslationProvider,
@@ -13,7 +12,6 @@ import {
   tripOnPersistentFailure,
   type SummarizationProvider,
   type TranslationPolisher,
-  ElevenLabsTtsProvider,
   GeminiLiveTranslateProvider,
   GeminiSummarizationProvider,
   GeminiTranslationProvider,
@@ -66,7 +64,6 @@ const DEEPSEEK_POLISH_MODEL = 'deepseek-v4-pro';
  * there is nothing above them to keep in sync.
  */
 export interface AiProviderResolveConfig extends ProviderConfig {
-  elevenLabsApiKey?: string;
   /** One Gemini key, or several comma-separated to rotate across. */
   geminiApiKey?: string;
   /**
@@ -95,16 +92,10 @@ export interface AiProviderResolveConfig extends ProviderConfig {
 export function registerDefaultProviders(
   registry: ProviderRegistry,
 ): ProviderRegistry {
-  registry.register('stt', {
-    name: 'elevenlabs',
-    create: (cfg: ProviderConfig) => {
-      const c = cfg as AiProviderResolveConfig;
-      return new ElevenLabsSttProvider({ apiKey: c.elevenLabsApiKey });
-    },
-  });
-
-  // Local sherpa-onnx sidecar: one backend serving both vi and en — it picks
-  // the engine from the language passed to transcribe().
+  // Local sherpa-onnx sidecar: the only recognizer, serving every language — it
+  // picks the engine from the language passed to transcribe(). One name only,
+  // resolved with `resolveOnly`: speech is always self-hosted, so nothing in
+  // the environment selects a recognizer.
   registry.register('stt', {
     name: 'local',
     create: (cfg: ProviderConfig) => {
@@ -457,18 +448,9 @@ export function registerDefaultProviders(
     },
   });
 
-  registry.register('tts', {
-    name: 'elevenlabs',
-    create: (cfg: ProviderConfig) => {
-      const c = cfg as AiProviderResolveConfig;
-      // No voice is passed: the provider owns its default (`Rachel`), and a
-      // second copy of that id here would be two places to change.
-      return new ElevenLabsTtsProvider({ apiKey: c.elevenLabsApiKey });
-    },
-  });
-
-  // One local backend covers both output languages; the sidecar picks the
-  // engine from the language and owns each one's default voice.
+  // The only synthesizer: one local backend covers every output language; the
+  // sidecar picks the engine from the language and owns each one's default
+  // voice. Resolved with `resolveOnly`, like the recognizer above.
   registry.register('tts', {
     name: 'local',
     create: (cfg: ProviderConfig) => {

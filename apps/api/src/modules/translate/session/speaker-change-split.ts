@@ -4,8 +4,9 @@
  * The gate ends a turn after 500ms of silence, and fast turn-taking — a podcast,
  * an interview — hands over in 300–560ms. Such a turn carries both people, its
  * one vector is a blend of them, and the clusterer can only put it under one
- * name. Measured on a two-host podcast checked against ElevenLabs Scribe: 14 of
- * 26 turns held both voices and the whole conversation came out as one speaker.
+ * name. Measured on a two-host podcast checked against the benchmarks' Scribe
+ * reference transcript: 14 of 26 turns held both voices and the whole
+ * conversation came out as one speaker.
  *
  * Shortening the hangover fixed the labels and broke the translation: every
  * mid-sentence pause became a cut, and chrF++ fell by 1–6 points over three
