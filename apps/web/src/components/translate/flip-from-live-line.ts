@@ -32,7 +32,9 @@ export function flipFromLiveLine(
   queueMicrotask(() => {
     const view = element.ownerDocument.defaultView;
     if (!view || !element.isConnected) return;
-    const snapshot = claimLiveLine(registry, sessionIds, 'position', view.performance.now(), {
+    // The page's clock, not the drawing window's: the live line stamped its end
+    // with it, and a caption window's clock starts when that window opened.
+    const snapshot = claimLiveLine(registry, sessionIds, 'position', performance.now(), {
       ownLineOnly: true,
     });
     if (!snapshot?.rect) return;
@@ -49,12 +51,13 @@ export function flipFromLiveLine(
       element.style.transition = ENTRANCE;
       element.style.transform = '';
     });
-    element.addEventListener(
-      'transitionend',
-      () => {
-        element.style.transition = '';
-      },
-      { once: true },
-    );
+    // Children's transitions bubble here too; only this element's own slide
+    // ending may clear it, or a chip's hover would cut the slide short.
+    const onEnd = (event: TransitionEvent) => {
+      if (event.target !== element) return;
+      element.style.transition = '';
+      element.removeEventListener('transitionend', onEnd);
+    };
+    element.addEventListener('transitionend', onEnd);
   });
 }
