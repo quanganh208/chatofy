@@ -81,7 +81,7 @@ export const PRESETS = {
  * The key for one host; never printed.
  *
  * The environment wins, so this runs anywhere the key is exported. Reading
- * `apps/api/.env` is only a local convenience — it is where a key already lives
+ * the repo-root `.env` is only a local convenience — it is where a key already lives
  * on a dev machine — and a missing file is not an error while the variable is
  * set.
  */
@@ -89,7 +89,7 @@ export function readApiKey(variable) {
   const fromEnv = process.env[variable]?.trim();
   if (fromEnv) return fromEnv;
 
-  const envPath = resolve(REPO, 'apps/api/.env');
+  const envPath = resolve(REPO, '.env');
   let file = '';
   try {
     file = readFileSync(envPath, 'utf8');

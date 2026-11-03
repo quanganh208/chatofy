@@ -1,3 +1,5 @@
+import './load-root-env';
+
 import type { NextConfig } from 'next';
 
 import { DEFAULT_API_BASE_URL } from './src/config/env';

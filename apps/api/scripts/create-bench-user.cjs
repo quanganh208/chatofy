@@ -7,7 +7,7 @@
 // many accounts — bench@, bench+2@, bench+3@ … — because the conference
 // gateway keeps one socket per user in a room, so every benchmark peer needs
 // its own account. Existing accounts are left as they are. DATABASE_URL comes from the
-// environment, or else from apps/api/.env (resolved relative to this script so
+// environment, or else from the repo-root .env (resolved relative to this script so
 // it works from any working directory). Never point this at production.
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
@@ -16,7 +16,7 @@ const fs = require('fs');
 const path = require('path');
 
 function databaseUrlFromDotenv() {
-  const envPath = path.join(__dirname, '..', '.env');
+  const envPath = path.join(__dirname, '..', '..', '..', '.env');
   if (!fs.existsSync(envPath)) return undefined;
   const line = fs
     .readFileSync(envPath, 'utf8')
@@ -43,7 +43,9 @@ function benchEmail(index) {
 }
 
 if (!dbUrl) {
-  fail('DATABASE_URL is not set and apps/api/.env has no DATABASE_URL line.');
+  fail(
+    'DATABASE_URL is not set and the repo-root .env has no DATABASE_URL line.',
+  );
 }
 if (!Number.isInteger(userCount) || userCount < 1) {
   fail('BENCH_USERS must be a positive integer.');
