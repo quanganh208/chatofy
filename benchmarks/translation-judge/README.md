@@ -107,6 +107,7 @@ node compare.mjs --base results/full-claude-opus-5-5 --arm results/arm2-<reviewe
   - en→vi: not hurt;
   - CometKiwi: 0.753 → 0.768.
 - **Record:** `docs/development-journey.md`, "The polisher was running blind".
+- **Fallback model (2026-11-03, arm 2, reviewer `deepseek-flash`):** vi→en serious mt 23.7% → 6.6% (15 fixed, 2 broken); en→vi the same as `deepseek-v4-pro`. The reviewer cost $0.01 for 162 turns, against about $0.15 for v4-pro. v4-pro was chosen as the polish fallback while Command Code is out; judge spend reached $21.56.
 
 ## Recordings and consent
 

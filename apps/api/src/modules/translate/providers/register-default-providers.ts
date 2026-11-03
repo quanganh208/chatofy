@@ -46,6 +46,18 @@ const circuitLogger = new Logger('CommandCodeCircuit');
 const COMMAND_CODE_BASE_URL = 'https://api.commandcode.ai/provider/v1';
 
 /**
+ * The model that polishes on DeepSeek direct while Command Code is out.
+ *
+ * Judged over the 162 prod turns with earlier turns as context (2026-11-03,
+ * `benchmarks/translation-judge` review arms): vi→en turns with a serious
+ * translation error went 23.7% → 1.3% (18 fixed, 1 broken) on this model,
+ * against 6.6% (15 fixed, 2 broken) on `deepseek-flash`. It costs about $0.001
+ * a turn against flash's $0.0001, and the polish is off the listener's path,
+ * so its ~1.3 s is not waited on.
+ */
+const DEEPSEEK_POLISH_MODEL = 'deepseek-v4-pro';
+
+/**
  * Superset config bag passed on every registry resolve. Each entry picks the
  * fields it needs; unset fields surface as ProviderConfigError inside the
  * provider constructor (lazy key enforcement, same as before the registry).
@@ -330,9 +342,13 @@ export function registerDefaultProviders(
       });
     },
   });
-  // No fallback for the polish: DeepSeek is the model that wrote the draft, so
-  // asking it to edit its own line buys nothing. While the circuit is open the
-  // draft simply stands.
+  // While Command Code is out the polish moves to DeepSeek direct, on the same
+  // key the translation falls back to. A second pass by the drafting host still
+  // pays: run over the 162 judged prod turns with earlier turns as context,
+  // `deepseek-v4-pro` cut vi→en turns with a serious translation error from
+  // 23.7% to 1.3% (`benchmarks/translation-judge`, review arms), and the pass
+  // restores a closing sentence the translator drops ("…two. Understand and
+  // respond.") 28 times in 30 on either DeepSeek model.
   registry.register('translationPolisher', {
     name: 'commandcode',
     create: (cfg: ProviderConfig): TranslationPolisher => {
@@ -344,10 +360,24 @@ export function registerDefaultProviders(
         name: 'commandcode-polish',
         onCall: logLlmCall,
       });
+      // Without a DeepSeek key there is nowhere to move to, and the draft
+      // stands while Command Code is out, as it always did.
+      const fallback = c.openAiCompatibleApiKey
+        ? new OpenAiCompatibleTranslationPolisher({
+            apiKey: c.openAiCompatibleApiKey,
+            baseUrl: deepseek.baseUrl,
+            model: DEEPSEEK_POLISH_MODEL,
+            name: 'deepseek-polish',
+            extraBody: deepseek.extraBody,
+            onCall: logLlmCall,
+          })
+        : null;
       // A spent usage window is the plan's, so it trips the shared circuit. A
       // rejection, though, is this MODEL's: a plan without `gpt-5.6-sol` would
       // answer 403 here while the fast model still serves translation, so it
-      // only switches the polish off, on a circuit of its own.
+      // only moves the polish, on a circuit of its own. Either way a failed
+      // call is rethrown rather than retried on DeepSeek at once — the turn
+      // keeps its draft, and the next turn goes to DeepSeek.
       const polishOnly = new HostCircuit({
         onTransition: (state, reason) =>
           circuitLogger.warn(`command code polish ${state}: ${reason}`),
@@ -355,7 +385,9 @@ export function registerDefaultProviders(
       return {
         name: polisher.name,
         polish: async (req) => {
-          if (commandCodeCircuit.isOpen() || polishOnly.isOpen()) return null;
+          if (commandCodeCircuit.isOpen() || polishOnly.isOpen()) {
+            return fallback ? fallback.polish(req) : null;
+          }
           try {
             return await polisher.polish(req);
           } catch (err) {
