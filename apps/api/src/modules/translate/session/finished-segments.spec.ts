@@ -68,3 +68,25 @@ describe('FinishedSegments across languages', () => {
     expect(finished.block(socket, ['a', 'b'])).toBeNull();
   });
 });
+
+describe('FinishedSegments block text', () => {
+  it('drops the mark a cut forced on a piece when the next opens in lowercase', () => {
+    const finished = new FinishedSegments();
+    finished.record(
+      socket,
+      'a',
+      segment('then think of my response in my native language.'),
+    );
+    finished.record(
+      socket,
+      'b',
+      segment('and then translate it back to English.'),
+    );
+    finished.record(socket, 'c', segment('That is four steps.'));
+
+    expect(finished.block(socket, ['a', 'b', 'c'])?.sourceText).toBe(
+      'then think of my response in my native language and then translate it back to English. ' +
+        'That is four steps.',
+    );
+  });
+});

@@ -50,6 +50,8 @@ export {
   wordsOf,
 } from './script-words.js';
 
+export { joinAtSeams } from './seam-join.js';
+
 export { transcriptSegmentSchema, voiceGenderSchema, DEFAULT_VOICE_GENDER } from './transcript.js';
 export type { TranscriptSegment, VoiceGender } from './transcript.js';
 
