@@ -2,6 +2,30 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { ClientTurnMetrics, SessionLanguagePair } from '@chatofy/types';
 
 /**
+ * How a turn's final source text was produced, in counts only.
+ *
+ * Exists for one question the log could not answer: a prod turn was finalized
+ * as one word while the same audio, decoded again through the same sidecar and
+ * replayed twice through the shipped client, always came back as the whole
+ * clause. Which stage wrote the short text — the recognizer, a reused
+ * speculation, or the split — is what these fields say next time. Never text:
+ * log lines are read by people and kept by machines.
+ */
+export interface FinalSourceDiagnostics {
+  /** Which path produced the text the final carries. */
+  src: 'speculation' | 'fresh' | 'split';
+  /** Bytes of turn audio at the endpoint. */
+  bytes: number;
+  /** Bytes the reused guess was started at; equal to `bytes` by construction. */
+  specAtBytes?: number;
+  /** Characters and words of the final source text. */
+  chars: number;
+  words: number;
+  /** Speech the recognizer's gate measured, when it reported it. */
+  speechMs?: number;
+}
+
+/**
  * One streamed turn, timed stage by stage. Every duration is milliseconds from
  * the moment the client said the turn was over, which is the only origin the
  * user can perceive.
@@ -53,6 +77,8 @@ export interface TurnMetrics {
    * a latency table cannot show the saving without the bill beside it.
    */
   speculations: number;
+  /** How the final source text was produced; absent on a turn with no final. */
+  finalSource?: FinalSourceDiagnostics;
   /**
    * Provisional translations this turn spent.
    *
@@ -149,7 +175,8 @@ export class TurnMetricsRecorder {
         `firstAudio=${metrics.firstAudioAtMs}ms translated=${metrics.translatedAtMs}ms ` +
         `clauses=${metrics.clauses}${metrics.ttsDelivery ? `/${metrics.ttsDelivery}` : ''} ` +
         `speculation=${metrics.speculationUsed ? 'hit' : 'miss'}/${metrics.speculations} ` +
-        `live=${metrics.liveTranslations}`,
+        `live=${metrics.liveTranslations}` +
+        finalSourceFields(metrics.finalSource),
     );
   }
 
@@ -169,4 +196,13 @@ export class TurnMetricsRecorder {
         `cut=${metrics.cutForced ? 'forced' : 'hangover'} echo=${metrics.echoEvents}`,
     );
   }
+}
+
+/** The diagnostics as ` key=value` fields, or nothing when the turn had no final. */
+function finalSourceFields(d: FinalSourceDiagnostics | undefined): string {
+  if (!d) return '';
+  return (
+    ` final=${d.src} bytes=${d.bytes} specAt=${d.specAtBytes ?? '-'}` +
+    ` chars=${d.chars} words=${d.words} speechMs=${d.speechMs ?? '-'}`
+  );
 }

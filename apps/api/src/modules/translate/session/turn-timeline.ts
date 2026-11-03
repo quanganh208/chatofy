@@ -1,4 +1,7 @@
-import type { TurnMetrics } from '../services/turn-metrics.recorder';
+import type {
+  FinalSourceDiagnostics,
+  TurnMetrics,
+} from '../services/turn-metrics.recorder';
 import { quotaCooldownCount } from '../quota-cooldown-meter';
 import type { TurnAudio } from './turn-audio';
 import type { TurnSession } from './turn-session';
@@ -51,6 +54,7 @@ export class TurnTimeline {
   private clauses = 0;
   private ttsDelivery?: TtsDelivery;
   private speculationUsed = false;
+  private finalSource?: FinalSourceDiagnostics;
 
   constructor(private readonly now: () => number = Date.now) {
     this.endpointAt = this.now();
@@ -65,6 +69,16 @@ export class TurnTimeline {
    */
   markSpeculationReused(used: boolean): void {
     this.speculationUsed = used;
+  }
+
+  /** Whether the endpoint ended up using a speculation's answer. */
+  get reusedSpeculation(): boolean {
+    return this.speculationUsed;
+  }
+
+  /** How the final's source text was produced; see {@link FinalSourceDiagnostics}. */
+  markFinalSource(diagnostics: FinalSourceDiagnostics): void {
+    this.finalSource = diagnostics;
   }
 
   markTranslated(translation: string): void {
@@ -122,6 +136,7 @@ export class TurnTimeline {
       ...(this.ttsDelivery ? { ttsDelivery: this.ttsDelivery } : {}),
       speculationUsed: this.speculationUsed,
       speculations: session.speculationCount,
+      ...(this.finalSource ? { finalSource: this.finalSource } : {}),
       liveTranslations: session.liveTranslation.spentCount,
       quotaCooldowns: quotaCooldownCount(session.liveTranslation.meteredModel),
       reanchors: session.committer.reanchors,

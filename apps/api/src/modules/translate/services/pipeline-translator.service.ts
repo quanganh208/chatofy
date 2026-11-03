@@ -422,6 +422,12 @@ export interface TranslatedTurnText {
    */
   language?: LanguageCode;
   heard?: HeardLanguage;
+  /**
+   * Speech the recognizer's gate measured in the audio it decoded, when the
+   * floor was asked for. Carried for the per-turn diagnostics line: a final
+   * whose text is short against a long `speechMs` heard speech it did not write.
+   */
+  speechMs?: number;
 }
 
 /**
@@ -1242,6 +1248,7 @@ export class PipelineTranslatorService {
         ...(heard === undefined
           ? {}
           : { language: decided.recognition, heard }),
+        ...(speechMs === undefined ? {} : { speechMs }),
       };
     } catch (err) {
       return this.handlePipelineError(err);
