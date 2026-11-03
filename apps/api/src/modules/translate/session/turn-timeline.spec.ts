@@ -181,4 +181,29 @@ describe('TurnTimeline', () => {
       expect(metrics.committedChars).toBeGreaterThan(0);
     });
   });
+
+  it('carries the final-source diagnostics into the row only once marked', () => {
+    const session = openSession();
+    const audio = audioOf(3200);
+    const unmarked = new TurnTimeline();
+    expect(unmarked.toMetrics(session, audio, true)).not.toHaveProperty(
+      'finalSource',
+    );
+
+    const timeline = new TurnTimeline();
+    timeline.markSpeculationReused(true);
+    expect(timeline.reusedSpeculation).toBe(true);
+    const diagnostics = {
+      src: 'speculation' as const,
+      bytes: 3200,
+      specAtBytes: 3200,
+      chars: 9,
+      words: 1,
+      speechMs: 3354,
+    };
+    timeline.markFinalSource(diagnostics);
+    expect(timeline.toMetrics(session, audio, true).finalSource).toEqual(
+      diagnostics,
+    );
+  });
 });

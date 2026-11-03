@@ -80,6 +80,11 @@ export class TurnSpeculation {
     this.spent += 1;
   }
 
+  /** Bytes the most recent guess was started at, or null before any guess. */
+  get currentAtBytes(): number | null {
+    return this.current?.atBytes ?? null;
+  }
+
   /** The guess the endpoint may still reuse, if there is one. */
   usable(bufferedBytes: number): Promise<TranslatedTurnText> | null {
     // A speculation is only usable if no further audio arrived after it

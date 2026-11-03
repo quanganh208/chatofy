@@ -48,7 +48,10 @@ import {
   type TranslatedTurnText,
   type TurnLanguageResolver,
 } from './pipeline-translator.service';
-import { TurnMetricsRecorder } from './turn-metrics.recorder';
+import {
+  TurnMetricsRecorder,
+  type FinalSourceDiagnostics,
+} from './turn-metrics.recorder';
 import type { ScriptRetry } from './foreign-script-retry';
 import {
   adoptTranslatedCasing,
@@ -300,6 +303,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         typeset: (block, restored, translations) =>
           this.typesetBlock(block, restored, translations),
       },
+      this.pipeline.makeTranslationPolisher(),
     );
 
     // ONE budget for the process, built here rather than per turn. A bucket per
@@ -1019,6 +1023,7 @@ export class TranslationSessionService implements OnModuleDestroy {
               continuation,
               minSpeechMs,
               this.context.learnedTerms(socket),
+              timeline,
             ),
           )
         : {
@@ -1067,6 +1072,9 @@ export class TranslationSessionService implements OnModuleDestroy {
       // number feeds a latency table built around what the listener actually
       // hears.
       timeline.markTranslated(spokenTextOf(session, translated));
+      timeline.markFinalSource(
+        finalSourceOf(session, audio, translated, split, vector, timeline),
+      );
       // Recorded HERE, at the first point the turn has a final source text —
       // before the emit, the embedding, and the clause-by-clause delivery, any
       // of which can take seconds while the next turn is already being
@@ -1314,6 +1322,8 @@ export class TranslationSessionService implements OnModuleDestroy {
     minSpeechMs: number,
     /** This conversation's learned spellings, as recognizer hotwords. */
     learnedTerms: string[],
+    /** Told when the guess is rejected, so the turn's row says so. */
+    timeline: TurnTimeline,
   ): Promise<{
     translated: TranslatedTurnText;
     split: SplitTurn | null;
@@ -1502,7 +1512,14 @@ export class TranslationSessionService implements OnModuleDestroy {
     }
 
     if (reusable) {
-      const adopted = await this.adoptIfAgreed(socket, session, reusable);
+      // `adoptOrNote`, not `adoptIfAgreed`: a guess decided in another language
+      // is not the turn's text, and the row must not say it was.
+      const adopted = await this.adoptOrNote(
+        socket,
+        session,
+        reusable,
+        timeline,
+      );
       if (adopted !== null) return { translated: adopted, split: null };
     }
     const {
@@ -2645,4 +2662,39 @@ function twoWayDecision(pair: LanguagePair): TurnLanguageDecision {
  */
 function carriesVoice(vector: readonly number[]): boolean {
   return vector.some((value) => value !== 0);
+}
+
+/**
+ * Counts describing where a turn's final source text came from. The split
+ * reports the joined pieces, which is what the line on screen carries.
+ */
+function finalSourceOf(
+  session: TurnSession,
+  audio: TurnAudio,
+  translated: TranslatedTurnText,
+  split: { pieces: readonly { sourceText: string }[] } | null,
+  vector: unknown,
+  timeline: TurnTimeline,
+): FinalSourceDiagnostics {
+  const text = split
+    ? split.pieces.map((piece) => piece.sourceText).join(' ')
+    : translated.sourceText;
+  const src: FinalSourceDiagnostics['src'] =
+    split || vector
+      ? 'split'
+      : timeline.reusedSpeculation
+        ? 'speculation'
+        : 'fresh';
+  return {
+    src,
+    bytes: audio.byteLength,
+    ...(src === 'speculation' && session.speculationAtBytes !== null
+      ? { specAtBytes: session.speculationAtBytes }
+      : {}),
+    chars: text.length,
+    words: text.trim().split(/\s+/).filter(Boolean).length,
+    ...(translated.speechMs === undefined
+      ? {}
+      : { speechMs: translated.speechMs }),
+  };
 }

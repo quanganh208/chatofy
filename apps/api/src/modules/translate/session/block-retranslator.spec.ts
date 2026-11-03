@@ -1,6 +1,6 @@
 import type { Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import type { ServerEvent } from '@chatofy/types';
+import type { LanguageCode, ServerEvent } from '@chatofy/types';
 import { BlockRetranslator, MAX_WAITING_BLOCKS } from './block-retranslator';
 import { FinishedSegments } from './finished-segments';
 import type { StreamSocket } from './stream-socket';
@@ -267,5 +267,130 @@ describe('BlockRetranslator display', () => {
       },
     ]);
     expect(typeset).not.toHaveBeenCalled();
+  });
+
+  describe('polish', () => {
+    /** Six finished pieces, a display, and a polisher the test controls. */
+    function polished(
+      polish: (req: { context?: string[] }) => Promise<string | null>,
+      targets: LanguageCode[] = ['vi'],
+    ) {
+      const socket = new FakeSocket();
+      const finished = new FinishedSegments();
+      for (let i = 0; i < 6; i += 1) {
+        finished.record(socket, `s${i}`, {
+          sourceText: `piece ${i}`,
+          recognition: 'en',
+          targets,
+        });
+      }
+      const gone = new Set<StreamSocket>();
+      const polisher = { name: 'fake', polish: vi.fn(polish) };
+      const retranslator = new BlockRetranslator(
+        finished,
+        {
+          translateAll: async () =>
+            Object.fromEntries(targets.map((t) => [t, 'draft'])),
+        },
+        silentLogger(),
+        (s) => gone.has(s),
+        {
+          restore: async () => 'Piece 4 piece 5.',
+          typeset: (_block, restored, translations) =>
+            `${restored} / ${translations.vi}`,
+        },
+        polisher,
+      );
+      return { socket, retranslator, polisher, gone };
+    }
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+    it('answers the draft, then the polish with its display typeset again', async () => {
+      const { socket, retranslator, polisher } = polished(
+        async () => 'POLISHED',
+      );
+
+      await retranslator.retranslate(socket, ['s4', 's5']);
+      await settle();
+
+      expect(socket.answers).toHaveLength(2);
+      expect(socket.answers[0]).toMatchObject({
+        translations: { vi: 'draft' },
+        display: 'Piece 4 piece 5. / draft',
+      });
+      // From the polished text: the draft's display would undo the polish.
+      expect(socket.answers[1]).toMatchObject({
+        segmentIds: ['s4', 's5'],
+        translations: { vi: 'POLISHED' },
+        display: 'Piece 4 piece 5. / POLISHED',
+      });
+      // The speech before the block, never the block's own pieces.
+      expect(polisher.polish.mock.calls[0]?.[0].context).toEqual([
+        'piece 0',
+        'piece 1',
+        'piece 2',
+        'piece 3',
+      ]);
+    });
+
+    it('answers once when the polish keeps the draft', async () => {
+      const { socket, retranslator } = polished(async () => null);
+
+      await retranslator.retranslate(socket, ['s4', 's5']);
+      await settle();
+
+      expect(socket.answers).toHaveLength(1);
+    });
+
+    it('answers once when the polish fails', async () => {
+      const { socket, retranslator } = polished(() =>
+        Promise.reject(new Error('host down')),
+      );
+
+      await retranslator.retranslate(socket, ['s4', 's5']);
+      await settle();
+
+      expect(socket.answers).toHaveLength(1);
+      expect(socket.answers[0]?.translations).toEqual({ vi: 'draft' });
+    });
+
+    it('sends nothing more to a client that left before the polish landed', async () => {
+      let land!: (text: string) => void;
+      const { socket, retranslator, gone } = polished(
+        () => new Promise((resolve) => (land = resolve)),
+      );
+
+      await retranslator.retranslate(socket, ['s4', 's5']);
+      gone.add(socket);
+      land('POLISHED');
+      await settle();
+
+      expect(socket.answers).toHaveLength(1);
+    });
+
+    it('stops polishing once its own budget is spent, without refusing blocks', async () => {
+      // Two targets spend two polishes per block, so the polish budget (12 a
+      // minute) runs out at block six while the blocks' own (also 12) does not:
+      // one shared bucket would refuse blocks from the fifth on.
+      const { socket, retranslator, polisher } = polished(
+        async () => 'POLISHED',
+        ['vi', 'zh'],
+      );
+
+      for (let i = 0; i < 12; i += 1) {
+        await retranslator.retranslate(socket, ['s4', 's5'], 'user-1');
+        await settle();
+      }
+
+      expect(polisher.polish).toHaveBeenCalledTimes(12);
+      const drafts = socket.answers.filter(
+        (a) => a.translations.vi === 'draft',
+      );
+      const polishes = socket.answers.filter(
+        (a) => a.translations.vi === 'POLISHED',
+      );
+      expect(drafts).toHaveLength(12);
+      expect(polishes).toHaveLength(6);
+    });
   });
 });

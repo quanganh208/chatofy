@@ -723,6 +723,35 @@ describe('TranslationSessionService', () => {
       expect(input.scriptRetry).toHaveProperty('allow', expect.any(Function));
     });
 
+    it('records that the final came from the reused guess, in counts only', async () => {
+      const { service, recorded } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      service.speculate(socket);
+      await service.end(socket);
+
+      const source = recorded[0]?.finalSource;
+      expect(source?.src).toBe('speculation');
+      expect(source?.specAtBytes).toBe(source?.bytes);
+      expect(source?.chars).toBeGreaterThan(0);
+      expect(source?.words).toBeGreaterThan(0);
+    });
+
+    it('records a final transcribed at the endpoint as fresh', async () => {
+      const { service, recorded } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId, sequence: 0 }));
+      service.speculate(socket);
+      service.pushFrame(socket, frame({ sessionId, sequence: 1 }));
+      await service.end(socket);
+
+      expect(recorded[0]?.finalSource?.src).toBe('fresh');
+      expect(recorded[0]?.finalSource).not.toHaveProperty('specAtBytes');
+    });
+
     it('discards speculated work when the speaker carried on', async () => {
       const { service, transcribeAndTranslate, recorded } = makeService();
       const socket = new FakeSocket();

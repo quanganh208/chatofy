@@ -1,4 +1,5 @@
 import type { Logger } from '@nestjs/common';
+import type { TranslationPolisher } from '@chatofy/ai-providers';
 import type { LanguageCode, TranslationHints } from '@chatofy/types';
 import { TranslationBudget } from '../audio/translation-budget';
 import { EventChannel } from './event-channel';
@@ -60,6 +61,9 @@ const BLOCK_RETRANSLATION_GLOBAL_RPM = BLOCK_RETRANSLATION_RPM * 4;
  * by a client-chosen id, from growing with how fast a client can send; past it
  * the request is answered empty at once.
  */
+/** The budget key block polishes are counted under, apart from translations. */
+const BLOCK_POLISH_BUDGET_KEY = 'block-polish';
+
 export const MAX_WAITING_BLOCKS = BLOCK_RETRANSLATION_RPM - 1;
 
 /** How a block's display is made: a restore beside the translation, then typesetting. */
@@ -121,6 +125,16 @@ export class BlockRetranslator {
     private readonly isGone: (socket: StreamSocket) => boolean,
     /** How a block's display is made; without one, blocks carry none. */
     private readonly display: BlockDisplay = NO_DISPLAY,
+    /**
+     * The second pass a turn's translation gets, given to its block as well.
+     *
+     * The client shows a block's translation in place of its pieces', polished
+     * or not, so a block translated without one undid the polish on every
+     * forced cut. Replayed over the judged prod corpus, polishing the block
+     * with the speech before it took block rows with a serious error from
+     * 26.3% to 10.5% (10 fixed, 1 broken; vi→en 37.5% → 12.5%).
+     */
+    private readonly polisher: TranslationPolisher | null = null,
   ) {}
 
   /**
@@ -220,14 +234,28 @@ export class BlockRetranslator {
           },
         },
       });
-      this.answer(
+      // After the translation, because it spells the names the restorer
+      // cannot ("OpenAI"); the restore itself ran beside it.
+      const restored = await restoring;
+      const display = this.display.typeset(block, restored, translations);
+      this.answer(socket, segmentIds, translations, display);
+      // The draft goes out first and the polish replaces it when it lands, as
+      // a turn's does: the block's own job, joining the seam, must not wait
+      // seconds on a second model.
+      void this.polish(
         socket,
         segmentIds,
+        block,
         translations,
-        // After the translation, because it spells the names the restorer
-        // cannot ("OpenAI"); the restore itself ran beside it.
-        this.display.typeset(block, await restoring, translations),
-      );
+        restored,
+        userId,
+      ).catch((err: unknown) => {
+        this.logger.warn(
+          `block polish failed (${segmentIds.length} segments): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      });
     } catch (err) {
       // Warn, unlike the refusals: a failed call is bounded by the budget, and
       // it is the one outcome here that says something is wrong upstream.
@@ -238,6 +266,81 @@ export class BlockRetranslator {
       );
       this.answer(socket, segmentIds, {});
     }
+  }
+
+  /**
+   * Polish each target of an answered block with the speech before it, and
+   * answer again if anything changed.
+   *
+   * Charged to this class's budget under its own key, so it has its own
+   * buckets: a block is asked for about as often as a turn, and sharing the
+   * retranslations' bucket would refuse blocks once polishes filled it, while
+   * the turns' polish budget would spend the turns' polishes first.
+   *
+   * The second answer carries a `display` typeset again from the polished
+   * text, because the client replaces the whole entry for a block: an answer
+   * without one would erase it, and the draft's would put back the names the
+   * polish changed.
+   *
+   * Two limits, both shared with the turns' polish. A block answered while the
+   * conversation drains is saved with its draft: the polish lands after the
+   * socket is gone and is dropped. And the context is the speech recorded
+   * before the block's first segment in finish order, which is speech order
+   * except when a later turn finished first.
+   */
+  private async polish(
+    socket: StreamSocket,
+    segmentIds: string[],
+    block: SegmentBlock,
+    drafts: TranslationMap,
+    restored: string | undefined,
+    userId: string,
+  ): Promise<void> {
+    const polisher = this.polisher;
+    if (!polisher) return;
+    const context = this.finished.before(socket, segmentIds[0]!);
+    const asked: Promise<[LanguageCode, string | null]>[] = [];
+    for (const [target, draft] of Object.entries(drafts) as [
+      LanguageCode,
+      string | undefined,
+    ][]) {
+      if (!draft?.trim()) continue;
+      if (!this.budget.canSpend(userId, BLOCK_POLISH_BUDGET_KEY)) break;
+      this.budget.spend(userId, BLOCK_POLISH_BUDGET_KEY);
+      asked.push(
+        polisher
+          .polish({
+            source: block.sourceText,
+            draft,
+            sourceLanguage: block.recognition,
+            targetLanguage: target,
+            ...(context.length ? { context } : {}),
+          })
+          .then((text): [LanguageCode, string | null] => [target, text])
+          .catch((err: unknown): [LanguageCode, null] => {
+            this.logger.debug(
+              `block polish failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+            return [target, null];
+          }),
+      );
+    }
+    if (!asked.length) return;
+    const polished: TranslationMap = { ...drafts };
+    let changed = false;
+    for (const [target, text] of await Promise.all(asked)) {
+      if (text && text !== drafts[target]) {
+        polished[target] = text;
+        changed = true;
+      }
+    }
+    if (!changed || this.isGone(socket)) return;
+    this.answer(
+      socket,
+      segmentIds,
+      polished,
+      this.display.typeset(block, restored, polished),
+    );
   }
 
   /**

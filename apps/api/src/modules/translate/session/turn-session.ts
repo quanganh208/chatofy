@@ -480,6 +480,11 @@ export class TurnSession {
     this.speculation.start(atBytes, work);
   }
 
+  /** Bytes the most recent guess was started at, or null before any guess. */
+  get speculationAtBytes(): number | null {
+    return this.speculation.currentAtBytes;
+  }
+
   /** The guess the endpoint may still reuse, if there is one. */
   usableSpeculation(): Promise<TranslatedTurnText> | null {
     if (!this.audio) return null;
