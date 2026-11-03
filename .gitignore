@@ -132,3 +132,6 @@ worktrees/
 **/benchmarks/conversation-context/results/
 **/benchmarks/translation-judge/data/
 **/benchmarks/translation-judge/results/
+
+# Speaker edge replay: private recordings, Scribe answers and the CAM++ model
+**/benchmarks/speaker-id/edge-replay/data/
