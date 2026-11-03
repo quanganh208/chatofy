@@ -180,7 +180,8 @@ project removes its free tier.
 `AI_SUMMARIZATION_PROVIDER` picks the minutes host: `commandcode`
 (gemini-3.7-flash, with Gemini direct as fallback) or `gemini`. Unset, it follows
 translation: `commandcode` there means `commandcode` here, anything else
-`gemini`.
+`gemini`. With the defaults, minutes therefore also run on Command Code; set
+`gemini` to keep them on Gemini direct.
 
 `TRANSLATE_LIVE_MODE` controls continuous speech-to-speech (`client.live.start`).
 Unset, it is on only when `NODE_ENV` is exactly `development` or `test`, so
@@ -263,7 +264,11 @@ deploy smoke asserts the served `img-src` against this value.
 is built (Next inlines the first; `next.config.ts` derives the CSP from both), so
 changing either is a rebuild. The api hostname is a sibling
 (`chatofy-api.<apex>`) for the same certificate reason as the CDN. Prod compose
-passes both as build args. Turbo includes them in the web build's cache key.
+passes both as build args. Turbo hashes them into the web build's cache key
+only when they are real environment variables (CI, Docker). A local `turbo run
+build` that takes them from the root `.env` does not see them in the hash, so
+after changing either one, rebuild with `--force` or a stale CSP can be
+replayed from cache.
 
 ## Compose
 

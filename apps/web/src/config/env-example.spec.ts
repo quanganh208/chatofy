@@ -116,6 +116,14 @@ describe('.env.example (repo root), web keys', () => {
     expect(schemaKeys.filter((key) => !documentedKeys.includes(key))).toStrictEqual([]);
   });
 
+  // The api spec allowlists these as web keys when it polices the shared file
+  // for unread lines; if the web ever stops reading one, this fails first, and
+  // the key comes out of the template and that allowlist together.
+  it('still reads every key the api spec leaves to the web', () => {
+    const WEB_ONLY_KEYS = ['AUTH_SECRET', 'AUTH_GOOGLE_SECRET', 'NEXT_PUBLIC_API_BASE_URL'];
+    expect(WEB_ONLY_KEYS.filter((key) => !schemaKeys.includes(key))).toStrictEqual([]);
+  });
+
   it('documents the R2 origin next.config bakes into the CSP', () => {
     expect(documented.map((line) => line.key)).toContain('R2_PUBLIC_BASE_URL');
   });

@@ -284,7 +284,9 @@ describe('.env.example (repo root)', () => {
     ].map((match) => [match[1] ?? '', match[2] ?? '']),
   );
   const NON_SCHEMA_KEYS = [
-    // The web, through apps/web/src/config (its env-example.spec checks them).
+    // The web, through apps/web/src/config. Mirrored as WEB_ONLY_KEYS in
+    // apps/web/src/config/env-example.spec.ts, which fails if the web stops
+    // reading one.
     'AUTH_SECRET',
     'AUTH_GOOGLE_SECRET',
     'NEXT_PUBLIC_API_BASE_URL',
