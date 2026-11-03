@@ -2714,3 +2714,28 @@ Known limits:
 4. An item remounted by a group-key change starts from the text of the groups its turns were in. When groups merge, that is the joined text; when a block splits, each half is drawn whole rather than both starting from the full old text.
 5. The first piece of a split turn starts from the parent's whole live line and erases the words that belong to the second piece, which then types in. Not seen as a jump in the replay, but it is a regrowth.
 6. Turns restored into a transcript after its first render are drawn whole, except the newest two blocks, which type in.
+
+## A dropped closing sentence, a seam period, and a polish that no longer stops (03/11/2026)
+
+A prod English podcast (`0f6b735a`) was checked against Scribe v2. STT came in at 1.15% WER, and speakers were right on 43 of 44 rows. The visible damage was in the translation, and none of it ran through a polish: Command Code's window was spent at the session's first call, and the polish had no fallback.
+
+- **A closing sentence the translator treats as its own task is deleted.** "That's four steps when it should just be two. Understand and respond." lost its second sentence in 19 of 20 runs. The ruler had the same line from an earlier recording (`3a66b74e#25`), as its only major mt omission. Rule 2 already forbade this, and the prompt-injection corpus (201/201) had no row of the shape.
+  - Stating the sentence count in the closing reminder took a 24-sentence probe from 6/72 failures to 0/120. The hardest case still fails 11 of 20, so it is a reduction, not a fix.
+  - A sentence-count guard was rejected. It flags 7 of 76 vi→en turns whose restored punctuation merely merged differently.
+  - What fixes it is the polish: 28 of 30 runs on either DeepSeek model.
+- **The polish now falls back to DeepSeek direct** while Command Code is out, or while its polish model is refused. This reverses the earlier decision to let the draft stand. The old reasoning, that the drafting host "buys nothing", was measured wrong, so the user asked for a benchmarked fallback.
+  - Arm 2 over the 162 judged turns, vi→en serious mt: stored 23.7%, `deepseek-flash` 6.6%, `deepseek-v4-pro` 1.3%. en→vi was the same on both.
+  - v4-pro ships, at about $0.001 a turn. It bills the same DeepSeek key that prod translation falls back to.
+- **A ceiling cut's period reached the block translation.** The screen drops a piece's closing mark when the next piece opens in lowercase, but the server joined the raw pieces for `client.block.retranslate`. So "…native language. and then…" came back as "…tiếng mẹ đẻ. và sau đó…" in 8 of 8 runs, and the repaired text came back clean in 8 of 8. Both sides now join through `joinAtSeams` in `@chatofy/types`.
+
+**A short word at either edge of a turn is now attributed to the speaker who said it.** "…discuss it with | friends. — Absolutely" put "friends." on the next speaker, and "…our brains. | Perfect." put the next speaker's "Perfect." on this one. The split planner never trusted a piece under 500 ms.
+
+- **What a short piece's vector can do:** on eight Scribe-diarized recordings, a 150–500 ms piece's cosine to its own speaker's speech had a 10th percentile of 0.03–0.20, so no threshold can tell. Comparing it against two voices put it right in 31 of 36 cases.
+- **Opening:** a short opening is compared against the previous turn's vector and against the rest of its own run. If it is closer to the previous turn, it is split off and sent with that turn's vector, so the client puts it under that speaker, and display grouping joins it to their line.
+- **Closing:** the next turn's voice does not exist when the plan runs, so a short closing is split off and its words go out at once, while only its label waits (`HeldClosingVoices`). When the next turn's own voice arrives, the piece is sent with whichever of the two it is closer to.
+  - It waits only while a later turn is already open on the connection. Otherwise, as when the user stops, it is sent at once with what it had before. It also waits at most 12 s.
+  - Rewriting a line already sent was rejected: the client ignores a second embedding for a turn, and changing that would touch mobile and the extension too.
+- **"Short" is measured two ways.** The ceiling is the VOICE inside the piece: in prod, "Perfect." spanned 650 ms with the hangover, was judged on its own vector, and landed on the wrong speaker, though only about 400 ms of it was voice. The floor stays on the span (200 ms): an opening holding 140 ms of voice in a 260 ms span was placed right.
+- **Measured on the same recordings, replayed through the capture pump and the real planner:** 6 of 6 openings and 8 of 8 closings were marked right. Words on the wrong speaker went from 150 to 144 of 3,646, against a baseline that credits every short vector the client clusters, and nothing was made worse. The prod "Perfect." cut, rebuilt from the saved rows, goes to the next speaker.
+
+Report: `plans/reports/brainstorm-261103-1111-en-podcast-conversation-improvements.md`.

@@ -174,6 +174,10 @@ export class AiProvidersFactory {
           commandCodeApiKey: this.config.get('COMMAND_CODE_API_KEY', {
             infer: true,
           }),
+          // DeepSeek direct, where the polish moves while Command Code is out.
+          openAiCompatibleApiKey: this.config.get('OPENAI_COMPATIBLE_API_KEY', {
+            infer: true,
+          }),
         } satisfies AiProviderResolveConfig)
       : null;
     return this.translationPolisher;

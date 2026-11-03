@@ -1,5 +1,9 @@
 import { countWords, type TranscriptCorrection } from '@chatofy/ai-providers';
-import type { LanguageCode, TranslationHints } from '@chatofy/types';
+import {
+  joinAtSeams,
+  type LanguageCode,
+  type TranslationHints,
+} from '@chatofy/types';
 import type { DisplayRestoreRequest } from '../services/pipeline-translator.service';
 import type { StreamSocket } from './stream-socket';
 
@@ -158,7 +162,11 @@ export class FinishedSegments {
       }
     }
     return {
-      sourceText: found.map((segment) => segment!.sourceText.trim()).join(' '),
+      // Joined the way the screen joins them: a closing mark the ceiling forced
+      // on a piece would otherwise reach the translator as a sentence break.
+      sourceText: joinAtSeams(
+        found.map((segment) => segment!.sourceText.trim()),
+      ),
       recognition: first.recognition,
       targets: [...first.targets],
       ...(first.hints ? { hints: first.hints } : {}),

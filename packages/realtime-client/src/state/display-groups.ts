@@ -1,6 +1,7 @@
 import {
   AUTO_DETECT,
   MAX_BLOCK_SEGMENTS,
+  joinAtSeams,
   wordsOf,
   type LanguageCode,
   type SessionLanguagePair,
@@ -228,15 +229,9 @@ export function groupTurnsForDisplay(
 /**
  * One block's source text, repaired where a repair exists.
  *
- * Joined with a space, and the one seam repair that needs no guessing: a
- * piece's closing sentence mark (. ? or !) is dropped when the next piece opens
- * in lowercase. Each piece is punctuated as it arrives as a complete text, so one
- * cut by the ceiling is forced to end on whichever of the three the model finds
- * likeliest — a question mark as readily as a full stop. The piece after it was
- * punctuated reading that
- * one as context, and a lowercase opening is its verdict that no sentence ended
- * there. Words are never touched — a forced cut can land mid-word, and
- * repairing THAT would mean guessing at a word neither half contains.
+ * Joined by {@link joinAtSeams}, which drops a piece's closing sentence mark
+ * when the next piece opens in lowercase — the one seam repair that needs no
+ * guessing.
  */
 export function groupSourceText(
   group: DisplayGroup,
@@ -247,32 +242,12 @@ export function groupSourceText(
   // translation does: each piece was punctuated as a complete sentence with
   // nothing after it, so the joined pieces close sentences at the cuts and put
   // marks where the following clause would have said otherwise. The seam rule
-  // below still joins whatever pieces the block does not cover yet.
+  // still joins whatever pieces the block does not cover yet.
   const block = coveringDisplay(group, blocks);
   const rest = group.turns
     .slice(block?.length ?? 0)
     .map((turn) => displays[turn.sessionId] ?? turn.sourceText);
-  const pieces = block ? [block.text, ...rest] : rest;
-  return pieces
-    .map((piece, index) => {
-      const next = pieces[index + 1];
-      return next !== undefined && /[.?!]$/.test(piece) && opensLowercase(next)
-        ? piece.slice(0, -1)
-        : piece;
-    })
-    .join(' ');
-}
-
-/**
- * Whether a line opens on a lowercase letter — a continuation, not a sentence.
- *
- * A line that opens on a numeral says nothing either way: the ITN turned a
- * capitalised "Bảy" into "7", and reading past it to the next word would mistake
- * a new sentence for the rest of the last one.
- */
-function opensLowercase(text: string): boolean {
-  const first = text.match(/[\p{L}\p{N}]/u)?.[0];
-  return first !== undefined && /\p{L}/u.test(first) && first !== first.toUpperCase();
+  return joinAtSeams(block ? [block.text, ...rest] : rest);
 }
 
 /**

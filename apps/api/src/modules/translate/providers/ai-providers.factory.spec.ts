@@ -356,7 +356,7 @@ describe('AiProvidersFactory (memoization)', () => {
       expect(polisher?.name).toBe('commandcode-polish');
     });
 
-    it('keeps translation on Command Code when only the polish model is refused', async () => {
+    it('keeps translation on Command Code and polishes on DeepSeek when only the polish model is refused', async () => {
       const REAL_FETCH = globalThis.fetch;
       try {
         const urls: string[] = [];
@@ -386,6 +386,10 @@ describe('AiProvidersFactory (memoization)', () => {
               },
             }),
             text: async () => '',
+            // The polisher reads one JSON answer rather than a stream.
+            json: async () => ({
+              choices: [{ message: { content: 'hello' } }],
+            }),
           } as unknown as Response;
         });
         const factory = makeFactory({
@@ -402,21 +406,52 @@ describe('AiProvidersFactory (memoization)', () => {
           });
 
         await expect(polish()).rejects.toMatchObject({ status: 403 });
-        // Switched off locally: no second request for the polish model.
-        await expect(polish()).resolves.toBeNull();
+        // Moved locally: the next polish goes to DeepSeek, not the refused model.
+        await polish();
         await factory.makeProviders().translation.translate({
           text: 'xin chào',
           sourceLanguage: 'vi',
           targetLanguage: 'en',
         });
         expect(urls.filter((u) => u.includes('commandcode'))).toHaveLength(2);
-        expect(urls.some((u) => u.includes('deepseek.com'))).toBe(false);
+        expect(urls.filter((u) => u.includes('deepseek.com'))).toHaveLength(1);
       } finally {
         globalThis.fetch = REAL_FETCH;
       }
     });
 
-    it('lets the draft stand without a request while the host is out', async () => {
+    it('lets the draft stand while the host is out when there is no DeepSeek key', async () => {
+      const REAL_FETCH = globalThis.fetch;
+      try {
+        globalThis.fetch = vi.fn(
+          async () =>
+            ({
+              ok: false,
+              status: 429,
+              text: async () => 'usage limit RATE_LIMITED',
+            }) as unknown as Response,
+        );
+        const polisher = makeFactory({
+          AI_TRANSLATION_PROVIDER: 'commandcode',
+          COMMAND_CODE_API_KEY: 'cc-key',
+        }).makeTranslationPolisher()!;
+        const polish = () =>
+          polisher.polish({
+            source: 'xin chào',
+            draft: 'hi',
+            sourceLanguage: 'vi',
+            targetLanguage: 'en',
+          });
+
+        await expect(polish()).rejects.toMatchObject({ status: 429 });
+        await expect(polish()).resolves.toBeNull();
+        expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      } finally {
+        globalThis.fetch = REAL_FETCH;
+      }
+    });
+
+    it('polishes on DeepSeek, never Command Code, while the host is out', async () => {
       const REAL_FETCH = globalThis.fetch;
       try {
         // A spent window seen by the TRANSLATOR must stop the polisher too:
@@ -442,6 +477,9 @@ describe('AiProvidersFactory (memoization)', () => {
                   },
                 }),
                 text: async () => '',
+                json: async () => ({
+                  choices: [{ message: { content: 'hello' } }],
+                }),
               } as unknown as Response),
         );
         const factory = makeFactory({
@@ -456,15 +494,20 @@ describe('AiProvidersFactory (memoization)', () => {
         });
         const calls = vi.mocked(globalThis.fetch).mock.calls.length;
 
-        await expect(
-          factory.makeTranslationPolisher()!.polish({
-            source: 'xin chào',
-            draft: 'hi',
-            sourceLanguage: 'vi',
-            targetLanguage: 'en',
-          }),
-        ).resolves.toBeNull();
-        expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(calls);
+        await factory.makeTranslationPolisher()!.polish({
+          source: 'xin chào',
+          draft: 'hi',
+          sourceLanguage: 'vi',
+          targetLanguage: 'en',
+        });
+        const after = vi.mocked(globalThis.fetch).mock.calls.slice(calls);
+        expect(after).toHaveLength(1);
+        const [url, init] = after[0] as [unknown, { body: string }];
+        expect(String(url)).toContain('api.deepseek.com');
+        expect(JSON.parse(init.body)).toMatchObject({
+          model: 'deepseek-v4-pro',
+          thinking: { type: 'disabled' },
+        });
       } finally {
         globalThis.fetch = REAL_FETCH;
       }

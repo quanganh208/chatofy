@@ -154,10 +154,11 @@ describe('findSplitCandidate', () => {
     expect(findSplitCandidate(pcmOf(['speech', 3000]), RATE)).toBeNull();
   });
 
-  it('turns away a turn with only one side long enough to judge', () => {
+  it('turns away a turn with only one side long enough to judge or compare', () => {
+    // The other side is under the 200 ms an edge needs to be compared at all.
     expect(
       findSplitCandidate(
-        pcmOf(['speech', 1500], ['silence', 400], ['speech', 300]),
+        pcmOf(['speech', 1500], ['silence', 400], ['speech', 150]),
         RATE,
       ),
     ).toBeNull();
@@ -240,3 +241,160 @@ describe('planSpeakerSplit', () => {
     expect(embed).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('a short opening after another voice', () => {
+  // "…discuss it with | friends. — Absolutely, okay Sarah…": the ceiling cut the
+  // first speaker's last word into the next turn, just before the other answers.
+  const tailThenAnswer = pcmOf(
+    ['speech', 300],
+    ['silence', 500],
+    ['speech', 1500],
+  );
+
+  it('is not a candidate without the previous voice', () => {
+    expect(findSplitCandidate(tailThenAnswer, RATE)).toBeNull();
+  });
+
+  it('is a candidate when the previous voice is known', () => {
+    expect(
+      findSplitCandidate(tailThenAnswer, RATE, { hasPreviousVoice: true })
+        ?.pieces,
+    ).toHaveLength(2);
+  });
+
+  it('splits off and marks the opening when it sounds like the previous turn', async () => {
+    const candidate = findSplitCandidate(tailThenAnswer, RATE, {
+      hasPreviousVoice: true,
+    })!;
+    const embed = async ({ startMs }: { startMs: number }) =>
+      startMs === 0 ? A : B;
+    const plan = await planSpeakerSplit(candidate, embed, A);
+    expect(plan).toHaveLength(2);
+    expect(plan![0]!.continuesPrevious).toBe(true);
+    expect(plan![1]!.continuesPrevious).toBeUndefined();
+    expect(plan![0]!.endMs).toBe(plan![1]!.startMs);
+  });
+
+  it('leaves the opening with its run when it sounds like that run', async () => {
+    const candidate = findSplitCandidate(tailThenAnswer, RATE, {
+      hasPreviousVoice: true,
+    })!;
+    expect(await planSpeakerSplit(candidate, async () => B, A)).toBeNull();
+  });
+
+  it('keeps the ordinary split, unmarked, when the previous voice is not given', async () => {
+    const twoVoices = findSplitCandidate(
+      pcmOf(
+        ['speech', 300],
+        ['silence', 500],
+        ['speech', 1000],
+        ['silence', 400],
+        ['speech', 1000],
+      ),
+      RATE,
+    )!;
+    const embed = async ({ startMs }: { startMs: number }) =>
+      startMs < 1500 ? B : A;
+    const plan = await planSpeakerSplit(twoVoices, embed);
+    expect(plan).toHaveLength(2);
+    expect(plan!.some((span) => span.continuesPrevious)).toBe(false);
+  });
+
+  it('marks the opening and still cuts at the later change of voice', async () => {
+    const three = findSplitCandidate(
+      pcmOf(
+        ['speech', 300],
+        ['silence', 500],
+        ['speech', 1000],
+        ['silence', 400],
+        ['speech', 1000],
+      ),
+      RATE,
+      { hasPreviousVoice: true },
+    )!;
+    // Opening sounds like the previous turn (A), then B, then A again.
+    const embed = async ({ startMs }: { startMs: number }) =>
+      startMs === 0 ? A : startMs < 1500 ? B : A;
+    const plan = await planSpeakerSplit(three, embed, A);
+    expect(plan).toHaveLength(3);
+    expect(plan![0]!.continuesPrevious).toBe(true);
+  });
+});
+
+describe('a short closing before another voice', () => {
+  // "…training our brains. | Perfect." — the next speaker's first word, caught
+  // at the end of this turn after a pause.
+  const answerThenTail = pcmOf(
+    ['speech', 1500],
+    ['silence', 500],
+    ['speech', 400],
+  );
+
+  it('is a candidate without any previous voice', () => {
+    expect(findSplitCandidate(answerThenTail, RATE)?.pieces).toHaveLength(2);
+  });
+
+  it('is carved off and left for the next turn to attribute', async () => {
+    const candidate = findSplitCandidate(answerThenTail, RATE)!;
+    const plan = await planSpeakerSplit(candidate, async () => A);
+    expect(plan).toHaveLength(2);
+    expect(plan![1]!.awaitsNextVoice).toEqual({ fallback: 'rest' });
+    expect(plan![0]!.awaitsNextVoice).toBeUndefined();
+    expect(plan![1]!.endMs).toBe(2400);
+  });
+
+  it('is carved off after an ordinary change of voice too', async () => {
+    const candidate = findSplitCandidate(
+      pcmOf(
+        ['speech', 1000],
+        ['silence', 400],
+        ['speech', 1000],
+        ['silence', 400],
+        ['speech', 300],
+      ),
+      RATE,
+    )!;
+    const embed = async ({ startMs }: { startMs: number }) =>
+      startMs === 0 ? A : B;
+    const plan = await planSpeakerSplit(candidate, embed);
+    expect(plan).toHaveLength(3);
+    expect(plan!.map((span) => span.awaitsNextVoice ?? null)).toEqual([
+      null,
+      null,
+      { fallback: 'rest' },
+    ]);
+  });
+
+  it('marks a closing the ordinary judgement already cut off, when its voice is short', async () => {
+    // "Perfect." in prod: 400 ms of voice, but with the hangover the piece
+    // spans more than 500 ms, so it was judged — on a vector too short to trust.
+    const candidate = findSplitCandidate(
+      pcmOf(
+        ['speech', 1500],
+        ['silence', 500],
+        ['speech', 400],
+        ['silence', 400],
+      ),
+      RATE,
+    )!;
+    expect(candidate.edgeSpeechMs[1]).toBeGreaterThanOrEqual(380);
+    expect(candidate.edgeSpeechMs[1]).toBeLessThan(500);
+    const embed = async ({ startMs }: { startMs: number }) =>
+      startMs === 0 ? A : B;
+    const plan = await planSpeakerSplit(candidate, embed);
+    expect(plan).toHaveLength(2);
+    expect(plan![1]!.awaitsNextVoice).toEqual({ fallback: 'own' });
+  });
+
+  it('leaves a long closing to the ordinary judgement', async () => {
+    const candidate = findSplitCandidate(twoVoicesForTail, RATE)!;
+    const plan = await planSpeakerSplit(candidate, async () => A);
+    expect(plan).toBeNull();
+  });
+});
+
+const twoVoicesForTail = pcmOf(
+  ['speech', 1000],
+  ['silence', 400],
+  ['speech', 1000],
+);

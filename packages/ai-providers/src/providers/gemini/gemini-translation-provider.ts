@@ -157,7 +157,7 @@ export class GeminiTranslationProvider implements TranslationProvider {
       context !== null,
       context?.hasPriorSpeech ?? false,
     );
-    const reminder = buildReminder(req.targetLanguage);
+    const reminder = buildReminder(req.targetLanguage, text, req.sourceLanguage);
 
     return this.walk(req.models, (client, model) =>
       this.generate(client, model, instruction, reminder, text, context?.text ?? null, req.onChunk),
