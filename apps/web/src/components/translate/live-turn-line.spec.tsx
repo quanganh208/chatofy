@@ -14,7 +14,7 @@ const render = (live: LiveTurn, sides: { source?: boolean; target?: boolean } = 
     root.render(
       <LocaleProvider>
         <LiveTurnLine
-          live={live}
+          live={{ ...live, sessionId: 's1' }}
           showsSource={sides.source ?? true}
           showsTarget={sides.target ?? true}
           frameClassName="border-l-2"

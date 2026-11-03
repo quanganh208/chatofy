@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useState } from 'react';
 import {
   needsFrame,
   createRevealState,
   retarget,
+  settledAt,
   stepReveal,
   type RevealOptions,
   type RevealState,
@@ -20,7 +21,30 @@ export interface UseSmoothTextReveal {
 interface RevealController {
   attach(element: HTMLElement | null): void;
   setTarget(target: string, options: RevealOptions): void;
+  /** Treat `text` as what is on screen, so the next target morphs from it. */
+  reseed(text: string, options: RevealOptions): void;
   dispose(): void;
+}
+
+export interface SmoothTextRevealOptions {
+  initialIntervalMs: number;
+  holdWhileShorter?: boolean;
+  maxGraphemesPerFrame?: number;
+  /** See {@link RevealOptions.maxMorphMs}. */
+  maxMorphMs?: number;
+  /**
+   * Draw the first text this line is given whole, with no reveal. For a
+   * finished line: it is typed only when it CHANGES, so a transcript that
+   * mounts full — reopened, scrolled back, or remounted — is not retyped.
+   */
+  instantInitial?: boolean;
+  /**
+   * Asked whenever the target changes, before the change is planned: a text to
+   * treat as on screen instead, or `null` to morph from what is. This is how a
+   * finished line takes over from the live line it replaces — it starts from the
+   * words the reader was looking at, not from nothing.
+   */
+  seed?: (target: string, shown: string) => string | null;
 }
 
 const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
@@ -49,8 +73,13 @@ function isInstant(view: Window): boolean {
  * the reader looks at it precisely while this tab is in the background — where
  * this tab's own `requestAnimationFrame` is paused and the caption would freeze.
  */
-function createRevealController(draw: (shown: string) => void): RevealController {
+function createRevealController(
+  draw: (shown: string) => void,
+  instantInitial: boolean,
+): RevealController {
   let element: HTMLElement | null = null;
+  // Spent by the first non-empty target, or by a seed, whichever comes first.
+  let instantNext = instantInitial;
   let state: RevealState | null = null;
   let frame: { view: Window; id: number } | null = null;
   let lastFrameAt: number | null = null;
@@ -70,8 +99,7 @@ function createRevealController(draw: (shown: string) => void): RevealController
     if (!state) return;
     // A held translation resolves to the one that replaced it: with no reveal,
     // there is nothing to hold for.
-    const latest = state.pending ?? state.target;
-    state = { ...state, shown: latest, target: latest, carry: 0, pending: null };
+    state = settledAt(state, state.pending ?? state.target);
     draw(state.shown);
   };
 
@@ -127,15 +155,23 @@ function createRevealController(draw: (shown: string) => void): RevealController
       if (!current) return;
       const now = current.performance.now();
       state = retarget(state ?? createRevealState(options, now), target, now, options);
+      if (instantNext && target !== '') {
+        instantNext = false;
+        snap();
+        return;
+      }
       if (isInstant(current)) {
         snap();
         return;
       }
-      // Drawn at once, not on the next frame: a revision replaces the words that
-      // changed, and showing replaced words for even a frame longer is
-      // the one thing a correction must not do.
-      draw(state.shown);
       schedule();
+    },
+    reseed(text, options) {
+      const current = view();
+      if (!current) return;
+      instantNext = false;
+      state = settledAt(state ?? createRevealState(options, current.performance.now()), text);
+      draw(text);
     },
     dispose() {
       cancel();
@@ -145,18 +181,28 @@ function createRevealController(draw: (shown: string) => void): RevealController
 }
 
 /**
- * Types a live line in grapheme by grapheme, catching up by typing faster
- * rather than by jumping. See `@/lib/smooth-text-reveal` for the pacing.
+ * Types a transcript line in and morphs it on every change, grapheme by grapheme,
+ * catching up by typing faster rather than by jumping. See `@/lib/smooth-text-reveal`.
  */
 export function useSmoothTextReveal(
   target: string,
-  options: { initialIntervalMs: number; holdWhileShorter?: boolean; maxGraphemesPerFrame?: number },
+  options: SmoothTextRevealOptions,
 ): UseSmoothTextReveal {
-  const { initialIntervalMs, holdWhileShorter = false, maxGraphemesPerFrame } = options;
+  const {
+    initialIntervalMs,
+    holdWhileShorter = false,
+    maxGraphemesPerFrame,
+    maxMorphMs,
+    instantInitial = false,
+    seed,
+  } = options;
   const [shown, setShown] = useState(() =>
-    typeof window !== 'undefined' && isInstant(window) ? target : '',
+    instantInitial || (typeof window !== 'undefined' && isInstant(window)) ? target : '',
   );
-  const [controller] = useState(() => createRevealController(setShown));
+  const [controller] = useState(() => createRevealController(setShown, instantInitial));
+  // An effect event, so a new `seed` closure each render neither re-runs the
+  // layout effect below nor is read stale by it.
+  const seedFor = useEffectEvent((next: string): string | null => seed?.(next, shown) ?? null);
 
   // Stable for the component's life. A new callback each render would be called
   // with null and then the element every render, cancelling and rescheduling the
@@ -166,12 +212,15 @@ export function useSmoothTextReveal(
     [controller],
   );
 
-  // A layout effect, so a revision's replacement lands in the same paint as the
-  // commit that carried it. Ref callbacks run before layout effects, so the
-  // element — and with it the right window — is already attached here.
+  // A layout effect, so a seed lands before the first paint of a new target.
+  // Ref callbacks run before layout effects, so the element — and with it the
+  // right window — is already attached here.
   useLayoutEffect(() => {
-    controller.setTarget(target, { initialIntervalMs, holdWhileShorter, maxGraphemesPerFrame });
-  }, [controller, target, initialIntervalMs, holdWhileShorter, maxGraphemesPerFrame]);
+    const revealOptions = { initialIntervalMs, holdWhileShorter, maxGraphemesPerFrame, maxMorphMs };
+    const seeded = seedFor(target);
+    if (seeded !== null) controller.reseed(seeded, revealOptions);
+    controller.setTarget(target, revealOptions);
+  }, [controller, target, initialIntervalMs, holdWhileShorter, maxGraphemesPerFrame, maxMorphMs]);
 
   useEffect(() => () => controller.dispose(), [controller]);
 

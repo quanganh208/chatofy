@@ -552,7 +552,9 @@ describe('ConversationTranscript in a two-way conversation', () => {
       languagePair: { source: 'detect', target: 'en' },
       languageModes: { a: 'detect' },
     });
-    expect(blocks()[0]?.querySelector('p.text-target')?.textContent).toBe('see you tomorrow');
+    expect(blocks()[0]?.querySelector('p.text-target > span:first-child')?.textContent).toBe(
+      'see you tomorrow',
+    );
   });
 });
 

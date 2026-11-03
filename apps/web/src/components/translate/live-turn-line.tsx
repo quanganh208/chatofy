@@ -1,12 +1,18 @@
 'use client';
 
+import { useLayoutEffect, useRef } from 'react';
 import type { LiveTurn } from '@chatofy/realtime-client';
 import { cn } from '@/lib/utils';
 import { useSmoothTextReveal } from '@/hooks/use-smooth-text-reveal';
 import { TurnLanguage } from '@/components/translate/turn-language-tag';
+import {
+  endLiveLine,
+  recordLiveLine,
+  useLiveLineHandoff,
+} from '@/components/translate/live-line-handoff';
 
 interface LiveTurnLineProps {
-  live: LiveTurn;
+  live: LiveTurn & { sessionId: string };
   showsSource: boolean;
   showsTarget: boolean;
   /** The rule and insets every turn on the stream shares. */
@@ -51,12 +57,50 @@ export function LiveTurnLine({
     maxGraphemesPerFrame: 4,
   });
 
+  // What this line shows and where, for the finished line that will replace it
+  // (`live-line-handoff.ts`). The text after every commit, which is cheap. The
+  // box only when the server's text changes, about three times a second rather
+  // than on every typed frame, and in a microtask after the commit: the
+  // transcript scroller pins the view in ITS layout effect, which runs after
+  // this one, and the box worth recording is the one that is then painted.
+  const registry = useLiveLineHandoff();
+  const frame = useRef<HTMLDivElement>(null);
+  const rect = useRef<DOMRect | null>(null);
+  const sessionId = live.sessionId;
+  useLayoutEffect(() => {
+    if (registry) {
+      recordLiveLine(registry, sessionId, {
+        source: sourceShown,
+        target: targetShown,
+        rect: rect.current,
+      });
+    }
+  });
+  useLayoutEffect(() => {
+    if (!registry) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      rect.current = frame.current?.getBoundingClientRect() ?? null;
+      const snapshot = registry.lines.get(sessionId);
+      if (snapshot) snapshot.rect = rect.current;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [registry, sessionId, sourceText, targetText]);
+  useLayoutEffect(() => {
+    if (!registry) return;
+    return () => endLiveLine(registry, sessionId, performance.now());
+  }, [registry, sessionId]);
+
   // The committed index is into the server's string; the typed one is a prefix
   // of it, so the split is wherever the shorter of the two ends.
   const head = Math.min(live.committedChars ?? sourceShown.length, sourceShown.length);
 
   return (
     <div
+      ref={frame}
       // Dashed rule and italics say "unfinished". An `opacity-80` said it too
       // and cost the floor: composited over the page it took this line — the
       // most-watched one on the screen — to 3.98:1 dark and 3.33:1 light,
@@ -70,7 +114,9 @@ export function LiveTurnLine({
           a declared turn never carries one, so nothing here changes for
           it. The finished turn's tag replaces this, and may differ. */}
       {live.language ? <TurnLanguage languages={[live.language]} /> : null}
-      {sourceText ? (
+      {/* Kept while text is still being erased, so a line that goes away is
+          seen going rather than simply missing. */}
+      {sourceText || sourceShown ? (
         <p className="reading-source text-source italic">
           {/* Two layers, one line. The head is text the recogniser has
               stopped revising; the tail is still a guess. Splitting them
@@ -94,7 +140,7 @@ export function LiveTurnLine({
       ) : null}
       {/* Only on turns long enough for the wait to be felt; short ones have
           their real translation before a guess would be read. */}
-      {targetText ? (
+      {targetText || targetShown ? (
         <p className="text-muted-foreground text-target italic">
           <span aria-hidden ref={attachTarget}>
             {targetShown}

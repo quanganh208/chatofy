@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslate } from '@/i18n/provider';
+import { MorphingText } from '@/components/translate/morphing-text';
 
 interface TranscriptSourceLineProps {
   /** What to show: the repaired rendering where one exists, raw otherwise. */
@@ -12,6 +13,10 @@ interface TranscriptSourceLineProps {
   raw: string;
   /** Whether `text` differs from `raw` because a repair landed. */
   repaired: boolean;
+  /** The turns this line shows, so a just-finished one can continue its live line. */
+  sessionIds: readonly string[];
+  /** See `MorphingText`'s prop of the same name. */
+  typeInWhenNew: boolean;
 }
 
 /**
@@ -25,8 +30,8 @@ interface TranscriptSourceLineProps {
  * person who can — the speaker, reading their own sentence back.
  *
  * So the toggle is offered only when there is genuinely something else to see.
- * A turn with no repair renders exactly the paragraph it rendered before this
- * existed: no control, no marker, nothing to explain. Showing a disclosure on
+ * A turn with no repair renders only its paragraph: no control, no marker,
+ * nothing to explain. Showing a disclosure on
  * every turn would teach people to ignore it on the turns where it matters.
  *
  * Deliberately NOT an accent control. Every screen in this app spends its one
@@ -37,34 +42,52 @@ interface TranscriptSourceLineProps {
  * about reading, it belongs to no session, and it must not survive the
  * conversation.
  */
-export function TranscriptSourceLine({ text, raw, repaired }: TranscriptSourceLineProps) {
+export function TranscriptSourceLine({
+  text,
+  raw,
+  repaired,
+  sessionIds,
+  typeInWhenNew,
+}: TranscriptSourceLineProps) {
   const t = useTranslate();
   const [showRaw, setShowRaw] = useState(false);
-
-  if (!repaired) return <p className="reading-source text-source">{text}</p>;
+  // The same root in both states, so a repair landing — which adds the toggle
+  // — keeps this line mounted and its morph running instead of restarting it.
+  const line = (
+    <p className="reading-source text-source">
+      <MorphingText
+        half="source"
+        sessionIds={sessionIds}
+        text={text}
+        typeInWhenNew={typeInWhenNew}
+      />
+    </p>
+  );
 
   return (
     <div className="flex flex-col gap-1">
-      <p className="reading-source text-source">{text}</p>
-      <button
-        type="button"
-        onClick={() => setShowRaw((open) => !open)}
-        // `aria-expanded` rather than a label that changes meaning: a screen
-        // reader announces the state from the attribute, so the name can stay
-        // constant and describe the thing being disclosed.
-        aria-expanded={showRaw}
-        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex w-fit items-center gap-1 rounded text-hint focus-visible:ring-2 focus-visible:outline-none"
-      >
-        <ChevronDown
-          aria-hidden
-          className={cn(
-            'size-3 transition-transform motion-reduce:transition-none',
-            showRaw && 'rotate-180',
-          )}
-        />
-        {t('web.translate.sourceRawToggle')}
-      </button>
-      {showRaw ? (
+      {line}
+      {repaired ? (
+        <button
+          type="button"
+          onClick={() => setShowRaw((open) => !open)}
+          // `aria-expanded` rather than a label that changes meaning: a screen
+          // reader announces the state from the attribute, so the name can stay
+          // constant and describe the thing being disclosed.
+          aria-expanded={showRaw}
+          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex w-fit items-center gap-1 rounded text-hint focus-visible:ring-2 focus-visible:outline-none"
+        >
+          <ChevronDown
+            aria-hidden
+            className={cn(
+              'size-3 transition-transform motion-reduce:transition-none',
+              showRaw && 'rotate-180',
+            )}
+          />
+          {t('web.translate.sourceRawToggle')}
+        </button>
+      ) : null}
+      {repaired && showRaw ? (
         // Marked as machine output in words, not only in styling. Somebody
         // reading two similar Vietnamese sentences has no way to tell which is
         // which from a shade of grey, and getting that backwards is worse than

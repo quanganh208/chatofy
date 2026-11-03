@@ -2675,3 +2675,42 @@ Known limits:
 1. The lag metric is per grapheme position, so it cannot see a held translation that is stale but the same length.
 2. A substitution that shifts word boundaries can leave a cut-off word at the cursor for a few frames, until the new text is typed past it.
 3. The recogniser flipped a line's opening words back and forth 9 times in 277 source updates. The display shows that as it is, rather than smoothing it over and lying for a cadence.
+
+## Every change to transcript text is typed, not swapped (03/11/2026)
+
+The user reported that the live line still jumped after it was typed in: words vanished when a sentence was revised or its spelling corrected, and they asked that text going away be erased one character at a time, like text arriving. The same recorded conversation (155 s, 23 turns) was replayed through the shipped engine to find where. Typing was not the problem. Replacement was:
+
+- **At finish**, the live line was removed and the finished turn appeared above it as a new list item, with a meta row and different words. Against the live line's last text, the final translation differed in about 60% of its words (median 13 of 21), and the source in a median of 6, because the typeset rendering rewrites numbers and punctuation ("bốn giờ" → "4:00").
+- **While speaking**, 144 of 368 source updates revised earlier words (median 2, at most 6), and 52 shortened the line. The engine swapped the changed words in a single frame.
+- **After finish**, a block's translation was rewritten whole 0.7–1.7 s after its last turn, while the reader was on it, and polished translations replaced drafts the same way.
+
+What changed:
+
+- **A word-level morph.** The two texts are aligned word by word (LCS over words and spaces), and each changed word is erased from its right end and its replacement typed where it stands. The words around it never move. The script is planned once per change, not re-diffed each frame, because a half-erased word aligns differently and a fresh diff could erase text it had just typed. An inserted word carries its space in front, so `Hi th my` is drawn rather than `Hi thmy`.
+- **Erasing shares typing's budget** (the user's choice), and an empty target is erased rather than cleared.
+- **Finished lines morph too, bounded at 800 ms** (the user's choice over an unbounded morph and over leaving them instant). A long block types faster than the live ceiling (up to 10 graphemes a frame was measured) to finish in time. This is a deliberate exception to "no animating a line while it is being read".
+- **The handoff.** Each transcript keeps a registry of what its live lines showed and where. A finished turn starts from those words and morphs to the final ones, and a new list item slides from the live line's painted position into its own. Both are measured in a microtask after the commit, because the scroller pins the view after the children's layout effects. A turn with no live line types in if it is one of the two newest blocks; an item that remounts under a new group key starts from the text it already showed; the transcript's first render is drawn whole.
+
+Measured on the same recording through the reducer on a simulated 60 Hz clock, old engine against new:
+
+|                                   | old source | new source | old translation | new translation |
+| --------------------------------- | ---------- | ---------- | --------------- | --------------- |
+| frames changing more than the cap | 113        | 0          | 11              | 0               |
+| most graphemes changed in a frame | 29         | 3          | 62              | 4               |
+| time to reach a target, p50       | 183 ms     | 233 ms     | 317 ms          | 350 ms          |
+| time to reach a target, p95       | 317 ms     | 367 ms     | 433 ms          | 667 ms          |
+
+Settled lines, 800 ms bound: the morph at finish took p50 317 ms / p95 683 ms on the source and 517 / 783 ms on the translation; block retranslations took 783 ms.
+
+Then in Chromium, by a temporary dev page that replayed the same timeline through the real reducer and `ConversationTranscript` (not committed), sampling the DOM every frame for the whole replay at 1440×900 and for 60 s at 768×1024 and 375×812. The largest change to all transcript text in one frame was 9–14 graphemes, which is several lines each within their ceiling; before the type-in rule for turns with no live line, it was 305. At finish the newest sentence moved 0 px and −6 px in the two frames where it changed element. With `reducedMotion: 'reduce'`, every sampled line was drawn whole and no element transitioned.
+
+**Cadence.** Moving from the swap to the morph alone cut the stalls of 100 ms or more before an update, while speech continued, from 111 to 89 (41.9 s to 22.8 s in total). Draining at 0.85 or 1.0 of the interval instead of 0.7 cut them to 80 and 71 but put the source p95 at 400 and 450 ms, so 0.7 stays. A translation ceiling of 5 or 6 left its p95 at 667 ms: that figure is set by the 400 ms hold before a shorter translation is released, plus the morph, not by the ceiling.
+
+Known limits:
+
+1. The translation now takes longer to reach a new target (p95 433 → 667 ms), because the words it replaces are erased instead of swapped. That is the cost of the requested behaviour.
+2. The transcript scroller pins the view instantly when a line wraps, which moves the text up by a line height in one frame (up to 44 px measured). It is a deliberate scroller rule and was left alone here.
+3. A live turn that is abandoned, or whose translation is withdrawn on a pane that shows nothing else, still disappears at once: the line unmounts with its state.
+4. An item remounted by a group-key change starts from the text of the groups its turns were in. When groups merge, that is the joined text; when a block splits, each half is drawn whole rather than both starting from the full old text.
+5. The first piece of a split turn starts from the parent's whole live line and erases the words that belong to the second piece, which then types in. Not seen as a jump in the replay, but it is a regrowth.
+6. Turns restored into a transcript after its first render are drawn whole, except the newest two blocks, which type in.
