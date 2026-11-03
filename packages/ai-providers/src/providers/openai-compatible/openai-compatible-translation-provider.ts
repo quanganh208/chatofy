@@ -231,7 +231,11 @@ export class OpenAiCompatibleTranslationProvider implements TranslationProvider 
     // order for the same reason: context must be in view before the transcript
     // to disambiguate it, and the reminder must be last because the last thing
     // in a turn is what a model weighs most.
-    const user = [context?.text, wrapTranscript(text), buildReminder(req.targetLanguage)]
+    const user = [
+      context?.text,
+      wrapTranscript(text),
+      buildReminder(req.targetLanguage, text, req.sourceLanguage),
+    ]
       .filter((part): part is string => Boolean(part))
       .join('\n\n');
 
