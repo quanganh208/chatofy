@@ -71,7 +71,6 @@ function installChrome({
   const store: Record<string, unknown> = {
     'chatofy.settings': {
       languagePair: { source: 'en', target: 'vi' },
-      mode: 'cascade',
       voiceGender: 'female',
       reportMetrics: true,
       outbound: false,

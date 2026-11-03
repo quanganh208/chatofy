@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
-import { DEFAULT_TRANSLATE_MODE } from '@chatofy/types';
 import type { TranslationContext } from '@chatofy/types';
 import type { CaptureSettings, OverlayState } from '../../src/messages';
 import {
@@ -155,7 +154,6 @@ export function usePopup() {
         to: 'worker',
         type: 'settings',
         languagePair: next.languagePair,
-        mode: DEFAULT_TRANSLATE_MODE,
         voiceGender: next.voiceGender,
         outbound: next.outbound,
       })
@@ -275,7 +273,7 @@ export function usePopup() {
       // that dropped it would reset it because someone picked a different voice.
       if (settings) {
         const { apiBaseUrl: _ignored, ...writable } = settings;
-        await saveSettings({ ...writable, mode: DEFAULT_TRANSLATE_MODE });
+        await saveSettings(writable);
       }
 
       if (capturing) {

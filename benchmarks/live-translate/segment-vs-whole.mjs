@@ -31,9 +31,10 @@
 //   node benchmarks/live-translate/segment-vs-whole.mjs                 # dry run: the bill
 //   node benchmarks/live-translate/segment-vs-whole.mjs --run --limit 12
 //   uv run python score-segments.py results/<stamp>/segments.jsonl
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveGeminiApiKey } from './gemini-api-key.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -128,31 +129,6 @@ function segmentProportionally(text, speechMs) {
     parts.push(words.slice(i, i + perChunk).join(' '));
   }
   return parts;
-}
-
-/**
- * The API key, without ever printing it.
- *
- * Read from the environment first; otherwise lifted out of the api's own env
- * file, which is where this repo keeps it. Only the FIRST of a comma-separated
- * pool is used — this harness makes a handful of calls and has no reason to
- * spread them.
- */
-function resolveApiKey() {
-  const fromEnv = process.env.GEMINI_API_KEY;
-  if (fromEnv?.trim()) return fromEnv.split(',')[0].trim();
-
-  const envFile = join(HERE, '..', '..', '.env');
-  if (!existsSync(envFile)) return null;
-  const line = readFileSync(envFile, 'utf8')
-    .split('\n')
-    .find((l) => l.startsWith('GEMINI_API_KEY='));
-  if (!line) return null;
-  const value = line
-    .slice('GEMINI_API_KEY='.length)
-    .trim()
-    .replace(/^["']|["']$/g, '');
-  return value ? value.split(',')[0].trim() : null;
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -300,7 +276,7 @@ async function main() {
     return;
   }
 
-  const apiKey = resolveApiKey();
+  const apiKey = resolveGeminiApiKey();
   if (!apiKey) {
     console.error('No GEMINI_API_KEY in the environment or the repo-root .env.');
     process.exit(1);

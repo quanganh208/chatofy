@@ -198,8 +198,8 @@ so speak after it, and keep the volume moderate or use headphones. Why:
 [video-translation-audio-path.md § 5](./architecture/video-translation-audio-path.md#5-echo--ducking--the-original-voice-while-translation-plays).
 
 **Old builds must update.** An APK built before meetings moved to the cascade speaks the
-removed live path; a server with live mode off closes that socket with 4410, so the phone
-joins the call but gets no translation. The same holds for a web tab opened before the
+removed live path, which the server no longer answers, so the phone joins the call but gets
+no translation. The same holds for a web tab opened before the
 deploy until it reloads.
 
 | Symptom                                  | Cause                                                                                        |
@@ -210,7 +210,7 @@ deploy until it reloads.
 | Gradle: `SDK location not found`         | `ANDROID_HOME` unset: `export ANDROID_HOME=$HOME/Android/Sdk` (Linux default) and re-run     |
 | Joins but no media                       | The network blocks UDP: set the two `CLOUDFLARE_TURN_*` keys so the join hands out TURN      |
 | Call audio drops when translation starts | Mic contention between `react-native-webrtc` and the translation recorder; confirm by muting |
-| Joins, but never translated              | An APK from before the cascade (the API closes its live socket with 4410): rebuild it        |
+| Joins, but never translated              | An APK from before the cascade (the API ignores its live messages): rebuild it               |
 
 ---
 

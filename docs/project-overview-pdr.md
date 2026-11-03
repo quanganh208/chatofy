@@ -115,8 +115,9 @@ the extension, or in Chatofy's own video meetings.
 
 1. **Scaffold** (✅ done) — monorepo + interfaces + empty screens
 2. **V1 Translation Pipeline** (✅ done) — STT → Gemini translation → TTS, web test UI, no auth
-3. **AI pipeline expansion** (✅ spiked) — Gemini Live speech-to-speech is served on
-   `/ws/translate` as a comparison baseline; no client offers it today
+3. **AI pipeline expansion** (✅ spiked) — Gemini Live speech-to-speech was served on
+   `/ws/translate` as a comparison baseline, then retired from the app; it is measured
+   only in `benchmarks/live-translate`
 4. **Auth + account** (✅ done) — email + Google sign-in, API-issued JWTs behind
    `AuthAdapter`, rotating refresh tokens
 5. **Mobile audio capture + WS streaming** — `/ws/translate` streaming is built and used

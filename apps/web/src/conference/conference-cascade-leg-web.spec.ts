@@ -310,7 +310,7 @@ describe('createWebConferenceLeg', () => {
     await leg.start();
     await settle();
 
-    sockets.at(-1)!.drop(4410);
+    sockets.at(-1)!.drop(4001);
     await settle();
 
     expect(ended).toEqual(['refused']);

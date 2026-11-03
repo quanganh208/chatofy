@@ -21,7 +21,6 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { USER_REPOSITORY } from '../src/modules/users/interfaces/user-repository.interface';
 import { AiProvidersFactory } from '../src/modules/translate/providers/ai-providers.factory';
 import { TranslationSessionService } from '../src/modules/translate/services/translation-session.service';
-import { LiveTranslateSessionService } from '../src/modules/translate/services/live-translate-session.service';
 import { PurposeTokenService } from '../src/modules/auth/purpose-token';
 import { InMemoryUserRepository } from './utils/in-memory-user.repository';
 import {
@@ -91,7 +90,6 @@ describe('WebSocket upgrade auth (e2e)', () => {
   let port: number;
   let identity: Identity;
   let startTurn: MockInstance;
-  let startLive: MockInstance;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -112,12 +110,10 @@ describe('WebSocket upgrade auth (e2e)', () => {
     identity = await registerAndLogin(app);
 
     startTurn = vi.spyOn(app.get(TranslationSessionService), 'start');
-    startLive = vi.spyOn(app.get(LiveTranslateSessionService), 'start');
   });
 
   afterEach(() => {
     startTurn.mockClear();
-    startLive.mockClear();
   });
 
   afterAll(async () => {
@@ -195,7 +191,7 @@ describe('WebSocket upgrade auth (e2e)', () => {
     expect((await attemptUpgrade(port, WS_SUBPROTOCOL)).status).toBe(401);
   });
 
-  it('never reaches a session service, even when a start frame is pipelined into the same tick', async () => {
+  it('never reaches the session service, even when a start frame is pipelined into the same tick', async () => {
     // The behavioural claim, not merely that the connection ended: a rejected
     // upgrade leaves no socket for Nest to bind handlers to, so a start frame
     // written the instant the request goes out has nothing to dispatch to.
@@ -229,7 +225,6 @@ describe('WebSocket upgrade auth (e2e)', () => {
     expect(status).toBe(401);
     await new Promise((r) => setTimeout(r, 100));
     expect(startTurn).not.toHaveBeenCalled();
-    expect(startLive).not.toHaveBeenCalled();
   });
 
   /**

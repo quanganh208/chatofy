@@ -92,10 +92,9 @@ function describeApi(summary: string): string {
     '',
     'Real-time translation is **not** in this document: OpenAPI describes',
     'request/response routes, and that surface is a message stream. It lives at',
-    '`ws://<host>/ws/translate`, authenticated with the same access token, and',
-    'the first message picks the mode — `client.session.start` for the turn-based',
-    'cascade, `client.live.start` for continuous speech-to-speech. The message',
-    'contracts are the zod schemas in `@chatofy/types` (`clientEventSchema`,',
-    '`liveClientEventSchema` and their server counterparts).',
+    '`ws://<host>/ws/translate`, authenticated with the same access token;',
+    '`client.session.start` opens a turn of the STT → translate → TTS cascade.',
+    'The message contracts are the zod schemas in `@chatofy/types`',
+    '(`clientEventSchema` and `serverEventSchema`).',
   ].join('\n');
 }

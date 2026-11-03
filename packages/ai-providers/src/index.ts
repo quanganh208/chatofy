@@ -16,10 +16,6 @@ export type {
   LoanwordRespeller,
   RecognizerFusionRequest,
   RenderedSpelling,
-  RealtimeProviderConfig,
-  RealtimeStartParams,
-  RealtimeStreamEvents,
-  RealtimeProvider,
   SpeakerEmbeddingProvider,
   SpeakerEmbeddingResult,
   SttProviderConfig,
@@ -162,11 +158,6 @@ export {
   buildMinutesReminder,
   wrapMinutesTranscript,
 } from './providers/minutes-prompt-builder.js';
-export {
-  GeminiLiveTranslateProvider,
-  INPUT_SAMPLE_RATE as GEMINI_LIVE_INPUT_SAMPLE_RATE,
-} from './providers/gemini-live/gemini-live-translate-provider.js';
-export type { GeminiLiveTranslateConfig } from './providers/gemini-live/gemini-live-translate-provider.js';
 export { LocalSpeechDisplayRestorer } from './providers/local-speech/local-speech-display-restorer.js';
 export type { LocalSpeechDisplayRestorerConfig } from './providers/local-speech/local-speech-display-restorer.js';
 export { LocalSpeechEmbeddingProvider } from './providers/local-speech/local-speech-embedding-provider.js';

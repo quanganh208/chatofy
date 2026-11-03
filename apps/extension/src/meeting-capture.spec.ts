@@ -16,7 +16,6 @@ import type { CaptureSettings } from './messages';
 
 const settings = (overrides: Partial<CaptureSettings> = {}): CaptureSettings => ({
   languagePair: { source: 'en', target: 'vi' },
-  mode: 'cascade',
   voiceGender: 'female',
   apiBaseUrl: 'http://localhost:3000',
   reportMetrics: false,

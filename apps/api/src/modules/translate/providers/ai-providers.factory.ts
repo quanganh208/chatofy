@@ -93,9 +93,8 @@ export class AiProvidersFactory {
   /**
    * The speaker-embedding backend.
    *
-   * `resolveOnly`, like the realtime provider: no environment variable selects
-   * one, so a second registration should be a loud error rather than a silent
-   * pick.
+   * `resolveOnly`: no environment variable selects one, so a second
+   * registration should be a loud error rather than a silent pick.
    */
   makeSpeakerEmbedding(): SpeakerEmbeddingProvider {
     this.speakerEmbedding ??= this.registry.resolveOnly('speakerEmbedding', {

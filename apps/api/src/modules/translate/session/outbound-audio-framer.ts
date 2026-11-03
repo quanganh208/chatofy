@@ -82,18 +82,18 @@ export function pushSynthesizedWav(
 /**
  * Push already-raw PCM to the client, frame by frame.
  *
- * The sibling above exists because the TTS sidecar returns a WAV and the wire
- * contract carries samples, so the container has to come off. This path has no
- * container to remove: the speech-to-speech backend answers with headerless
- * 24 kHz PCM. Wrapping it in a WAV header only for `frameSynthesizedWav` to
- * strip one line later would be work that can only introduce a bug.
+ * The sibling above exists because a whole TTS reply arrives as a WAV and the
+ * wire contract carries samples, so the container has to come off. This path
+ * has no container to remove: streamed synthesis (`streamed-speech-delivery.ts`)
+ * hands over headerless PCM chunk by chunk. Wrapping it in a WAV header only for
+ * `frameSynthesizedWav` to strip one line later would be work that can only
+ * introduce a bug.
  *
  * The rate is a parameter rather than a constant because it belongs to the
- * backend and travels with each chunk — `audioFrameSchema` already accepts
- * 8000–48000, so nothing about the contract has to change for 24 kHz.
+ * stream and travels with it — `audioFrameSchema` already accepts 8000–48000.
  *
- * Takes a plain frame sink rather than a `TurnSession` because the continuous
- * path has no turns; sequence numbering is the caller's, exactly as it is here.
+ * Takes a plain frame sink rather than a `TurnSession`; sequence numbering is
+ * the caller's, exactly as it is here.
  */
 export function pushTranslatedPcm(
   emit: (frame: {

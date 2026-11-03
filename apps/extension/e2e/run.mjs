@@ -1292,7 +1292,6 @@ try {
   const popupUrl = `chrome-extension://${extensionId}/popup.html`;
   const BASE_SETTINGS = {
     languagePair: { source: 'en', target: 'vi' },
-    mode: 'cascade',
     voiceGender: 'female',
     reportMetrics: false,
     outbound: false,

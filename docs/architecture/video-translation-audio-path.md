@@ -5,7 +5,7 @@
 > Each speaker's client runs the same turn cascade the /translate page runs, over
 > `/ws/translate`, and relays the result into `/ws/conference`, which narrows it per
 > listener (§2). An earlier build ran meetings on the live (Gemini Live) mode instead; that
-> path is gone from every client and production refuses it (§6). §3's per-language producer
+> mode is retired from the app and the server refuses it in every environment (§6). §3's per-language producer
 > injection and §5's ducking are still proposals. The design was written while mediasoup
 > was the SFU; Cloudflare Realtime SFU replaced it on 2026-10-25, which changes nothing in
 > Option A and removes the server-side track access Options B and §3 relied on (§0).
@@ -402,17 +402,17 @@ fails.
 
 ## 6. Gemini Live — does live mode fit a meeting?
 
-**Live mode today** (`GeminiLiveTranslateProvider`, the `realtime` kind behind
-`translateMode: 'live'`) is one upstream speech-to-speech session per
+**Live mode as it was built** (`GeminiLiveTranslateProvider`, the `realtime` kind behind
+`translateMode: 'live'`, both since removed) was one upstream speech-to-speech session per
 `/ws/translate` connection: `client.live.audio` in, `server.live.audio` out,
-continuous, no turn cascade ([data-flow.md § Live mode](./data-flow.md#live-mode-on-the-same-socket)).
+continuous, no turn cascade ([data-flow.md § Live mode](./data-flow.md#live-mode-on-the-same-socket-retired)).
 
 **Does it fit a meeting?** Partially, and only under Option A:
 
 - **It fits per-direction, client-side.** A client could open one Gemini Live
   session per target language from its own clean mic PCM, exactly as it opens
   cascade sessions today. Server-side track access is **irrelevant** to live
-  mode as currently built, because live mode consumes client PCM over the
+  mode as it was built, because live mode consumes client PCM over the
   WebSocket, not RTP from the SFU — live mode never looks at the SFU track.
 - **It does not fit the fan-out requirement cleanly.** Live mode is one
   bidirectional stream; the K-languages-once-each dedup in §3 assumes a
@@ -433,13 +433,10 @@ vi↔en only, bounded by six live sessions server-wide. The cascade leg (§2) re
 for one engine across /translate and meetings, Chinese in rooms, and turns the server
 closes.
 
-**Where live mode is today.** Server-side only, for `apps/api/test/live-translate-ws.e2e-spec.ts`
-and the `benchmarks/live-translate` harness, which run against a dev API. Whether it is
-served is `liveModeEnabled` in `apps/api/src/config/env.schema.ts`: an explicit
-`TRANSLATE_LIVE_MODE` wins, and unset it is on only when `NODE_ENV` is exactly
-`development` or `test`. Elsewhere `client.live.start` is answered with
-`server.live.error` `mode_unavailable` and the socket is closed with 4410, so a client
-built for the old path stops streaming instead of sending audio into errors.
+**Where live mode is today.** Retired from the app, in every environment. Gemini Live is
+measured only by the `benchmarks/live-translate` harness, which dials it directly rather
+than through the API. The gateway has no handler for `client.live.*`, so a client built
+for the old path gets no reply and no translation.
 
 ---
 
@@ -562,7 +559,8 @@ language (§3). Build the per-listener WebSocket-frame fallback first for the
 demo, then the producer-injection dedup for scale.
 
 **Gemini Live:** recommended as a separate 1:1/demo path, not the multi-party room
-engine (§6). A first build used it anyway; meetings have since moved to the cascade.
+engine (§6). A first build used it anyway; meetings have since moved to the cascade, and
+live mode is retired from the app.
 
 ---
 

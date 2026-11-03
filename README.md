@@ -280,10 +280,6 @@ engine from the language it is given:
 | [`services/local-stt`](./services/local-stt/README.md) | 8002 | STT | Zipformer-30M (vi), Parakeet-TDT (en), Paraformer (zh) |
 | [`services/local-tts`](./services/local-tts/README.md) | 8003 | TTS | VieNeu v3 Turbo (vi), Kokoro-82M (en, zh)              |
 
-Gemini Live (the `live` translate mode) does not translate Chinese; a zh pair is
-refused there by design (`unsupported_language_pair`) and offered only in the
-turn-by-turn mode.
-
 Speech is always self-hosted: the API has no cloud STT or TTS provider and no
 variable to select one. There is no per-language exception either: the language
 travels with each call and the sidecar resolves the engine.

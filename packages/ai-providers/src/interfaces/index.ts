@@ -1,10 +1,4 @@
 export type { LanguageCode, AudioFormat, StreamHandle, ProviderConfig } from './provider-types.js';
-export type {
-  RealtimeProviderConfig,
-  RealtimeStartParams,
-  RealtimeStreamEvents,
-  RealtimeProvider,
-} from './realtime-provider.js';
 export type { DisplayRestoreOptions, DisplayRestorer } from './display-restorer.js';
 export type {
   LlmCallEvent,

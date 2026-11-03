@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { loadSettings, saveSettings } from './settings';
-import type { CaptureSettings } from './messages';
 
 /**
  * `settings.ts` is the only module under `src/` that reaches for a Chrome API
@@ -29,25 +28,14 @@ const KEY = 'chatofy.settings';
 const VI_TO_EN = { source: 'vi', target: 'en' } as const;
 
 describe('loadSettings', () => {
-  it('reads a stored live mode back as the cascade', async () => {
-    store.set(KEY, { mode: 'live' } satisfies Partial<CaptureSettings>);
-    expect((await loadSettings()).mode).toBe('cascade');
-  });
-
-  // The popup no longer offers the choice, so there is no surface left to leave a
-  // stored mode by. Coercing only the one mode that was removed would let a
-  // corrupt value — or a mode added later and rolled back — pin a profile the same
-  // way. Anything that is not the cascade is read as the cascade.
-  it('reads any non-cascade mode back as the cascade', async () => {
-    for (const mode of ['live', 'gibberish', '', null, undefined]) {
-      store.set(KEY, { mode });
-      expect((await loadSettings()).mode).toBe('cascade');
-    }
-  });
-
-  it('keeps a stored cascade', async () => {
-    store.set(KEY, { mode: 'cascade' });
-    expect((await loadSettings()).mode).toBe('cascade');
+  // `mode` named a second translation backend that no longer exists. It is
+  // dropped on load so the next save does not write it back.
+  it('drops a mode stored by an older build', async () => {
+    store.set(KEY, { languagePair: VI_TO_EN, mode: 'live' });
+    const settings = await loadSettings();
+    expect(settings).not.toHaveProperty('mode');
+    await saveSettings(settings);
+    expect(store.get(KEY)).not.toHaveProperty('mode');
   });
 
   // The field the popup used to expose is gone, so the build owns this value. A
@@ -74,7 +62,7 @@ describe('loadSettings', () => {
   });
 
   // A stale id is harmless — it resolves to nothing where the list is fetched —
-  // so unlike `mode` and `apiBaseUrl` it is not whitelisted away. This is the
+  // so unlike `apiBaseUrl` it is not whitelisted away. This is the
   // load half of that: nothing here should reject or rewrite it.
   it('a stored object with no contextId loads', async () => {
     store.set(KEY, { languagePair: VI_TO_EN });
@@ -146,7 +134,6 @@ describe('saveSettings', () => {
   it('round-trips the settings a user does control', async () => {
     await saveSettings({
       languagePair: VI_TO_EN,
-      mode: 'cascade',
       voiceGender: 'male',
       reportMetrics: true,
       outbound: true,
@@ -161,7 +148,6 @@ describe('saveSettings', () => {
   it('a contextId survives the round-trip', async () => {
     await saveSettings({
       languagePair: { source: 'en', target: 'vi' },
-      mode: 'cascade',
       voiceGender: 'female',
       reportMetrics: false,
       outbound: false,

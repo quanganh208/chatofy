@@ -513,7 +513,7 @@ describe('createConferenceCascadeLeg', () => {
       expect(h.translating).toEqual([true, false]);
     });
 
-    it.each([1008, 4001, 4410])('does not reconnect after a %i close', async (code) => {
+    it.each([1008, 4001, 4999])('does not reconnect after a %i close', async (code) => {
       const h = harness();
       await h.leg.start();
 
@@ -611,7 +611,7 @@ describe('createConferenceCascadeLeg', () => {
       expect(h.ended).toEqual(['no_token']);
     });
 
-    it.each([1008, 4001, 4410])('reports a %i close as a refusal, once', async (code) => {
+    it.each([1008, 4001, 4999])('reports a %i close as a refusal, once', async (code) => {
       const h = harness();
       await h.leg.start();
 
