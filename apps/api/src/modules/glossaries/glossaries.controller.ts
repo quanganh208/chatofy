@@ -80,9 +80,9 @@ export class GlossariesController {
   @ApiBearerAuth()
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiOperation({
-    summary: 'Toggle active state or set as default',
+    summary: 'Toggle active state',
     description:
-      'Setting isDefault: true clears the previous default atomically on the server.',
+      'An inactive glossary stays linked to its contexts but no longer reaches the translator.',
   })
   @ApiEnvelopeResponse(GlossaryResponseDto)
   @ApiErrorResponses(400, 401, 404, 429)

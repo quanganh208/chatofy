@@ -77,6 +77,7 @@ CREATE INDEX ON "Conference"(recordingStatus) WHERE recordingStatus != 'complete
 **Notes:**
 
 - `translationContextId` is optional; if set, all participants share it (per design)
+- **Built schema:** `translationContextId` was dropped 2026-11-04 — nothing read or wrote it; per-conference AI context is not stored
 - `costEstimateCents` would be calculated post-meeting by the billing job (optional; see Open decisions)
 - `recordingKey` format: `recordings/{conferenceId}/{ISO_TIMESTAMP}.mp4`
 - No `participantInvites` column; participants join via room link or code
@@ -241,6 +242,7 @@ CREATE INDEX ON "ConferenceTurn"(translations) USING GIN; -- Search translations
 - `translations` is a partial map; only keys actually translated are present
 - `sourceTextNormalized` for search (diacritic-insensitive, lowercase), the role `ConversationTurn.searchText` plays today via `normalizeForSearch`; that column also folds `displayText` and every translation, not only the source
 - `audioStartMs` is relative to conference start, NOT to participant join
+- **Built schema:** `audioStartMs`, `audioDurationMs`, `searchText` and the `(conferenceId, audioStartMs)` index were dropped 2026-11-04; turns are ordered by `createdAt` through a `(conferenceId, createdAt)` index, and conference turns have no search column
 - `displayText` would be kept in sync by client-side display-group merge (as `ConversationTurn` rows are written after the client merges blocks). In the current schema search reads `searchText`, not `displayText`
 
 ---

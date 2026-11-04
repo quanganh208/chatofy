@@ -499,7 +499,6 @@ model Conference {
   startedAt            DateTime?
   endedAt              DateTime?
   status               String    @default("waiting")
-  translationContextId String?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
@@ -535,16 +534,15 @@ model ConferenceTurn {
   participantId   String
   sourceLanguage  String
   sourceText      String
-  searchText      String?
   translations    Json?
-  audioStartMs    Int?
-  audioDurationMs Int?
   createdAt       DateTime @default(now())
 
   conference  Conference            @relation(fields: [conferenceId], references: [id], onDelete: Cascade)
   participant ConferenceParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
-  @@index([conferenceId, audioStartMs])
+  // The minutes read is `where conferenceId orderBy createdAt, id`; this is the
+  // only index leading with conferenceId (Postgres gets no implicit FK index).
+  @@index([conferenceId, createdAt])
   @@index([participantId])
 }
 
@@ -615,9 +613,8 @@ model ConferenceMinutesActionItem {
 // language is a data change, not a column migration — the same reasoning that
 // guides the `terms` JSON column in GlossaryTerm.
 //
-// `isDefault` — at most one row per owner may be true. The service layer
-// enforces this; no partial unique index is needed for a two-value toggle
-// that is safe to do with a transactional updateMany.
+// `isActive` — an inactive glossary stays linked to its contexts but no longer
+// reaches the translator; the context's inline GlossaryTerm rows apply instead.
 model Glossary {
   id          String        @id @default(cuid())
   clientId    String
@@ -627,7 +624,6 @@ model Glossary {
   description String?
   sourceLang  String
   isActive    Boolean       @default(true)
-  isDefault   Boolean       @default(false)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   items    GlossaryItem[]

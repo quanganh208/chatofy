@@ -108,8 +108,8 @@ export class ConferenceMinutesService {
   /**
    * The room's turns as labelled prompt lines, in the order they were spoken.
    *
-   * Ordered by creation: `audioStartMs` is never written today (the gateway
-   * records a turn when it settles), so creation order IS speaking order, and
+   * Ordered by creation: the gateway records a turn when it settles, so
+   * creation order IS speaking order, and
    * the id breaks a tie between two turns settled in the same millisecond.
    * The line is the speaker's own words (`sourceText`); the model is given the
    * meeting as it was held, not a translation of it. Blank turns are dropped.

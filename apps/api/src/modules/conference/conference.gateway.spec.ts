@@ -750,10 +750,9 @@ describe('ConferenceGateway', () => {
           sourceText: 'xin chào',
           translations: { en: 'hello' },
         });
-        expect(h.prisma.turns[0]?.searchText).not.toContain('你好');
       });
 
-      it('stores every language present, and searches across all of them', async () => {
+      it('stores every language present', async () => {
         const { speaker } = await threeLanguageRoom();
 
         h.gateway.handleTranslationBroadcast(
@@ -765,8 +764,6 @@ describe('ConferenceGateway', () => {
         expect(h.prisma.turns).toHaveLength(1);
         const [row] = h.prisma.turns;
         expect(row?.translations).toStrictEqual({ en: 'hello', zh: '你好' });
-        expect(row?.searchText).toContain('hello');
-        expect(row?.searchText).toContain('你好');
       });
 
       it('refuses a frame whose map disagrees with its translatedText, routing and storing nothing', async () => {

@@ -698,7 +698,6 @@ export const vi: Messages = {
   'web.glossary.creating': 'Đang tạo…',
   'web.glossary.create': 'Tạo',
   'web.glossary.cancel': 'Huỷ',
-  'web.glossary.setDefault': 'Dùng cho mỗi phiên dịch',
   'web.glossary.originalLabel': 'Từ gốc',
   'web.glossary.translationLabel': 'Bản dịch',
   'web.glossary.targetLangLabel': 'Ngôn ngữ đích',

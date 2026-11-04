@@ -68,6 +68,13 @@ function fakePrisma(
     exists?: boolean;
     /** Rows `list()` reads back. Defaults to one valid row. */
     listedGlossary?: { terms: unknown }[];
+    /** A Glossary linked to the listed row. Defaults to none. */
+    listedLinkedGlossary?: {
+      name: string;
+      sourceLang: string;
+      isActive: boolean;
+      items: { original: string; translation: string; targetLang: string }[];
+    };
     /**
      * Rows already in the database for the context being saved, read by the
      * preserve-on-replace check BEFORE the delete. Defaults to none, so the
@@ -108,7 +115,12 @@ function fakePrisma(
     },
   );
   const findMany = vi.fn(async () => [
-    row(options.listedGlossary ? { glossary: options.listedGlossary } : {}),
+    row({
+      ...(options.listedGlossary ? { glossary: options.listedGlossary } : {}),
+      ...(options.listedLinkedGlossary
+        ? { glossaryId: 'g-1', linkedGlossary: options.listedLinkedGlossary }
+        : {}),
+    }),
   ]);
   const glossaryFindMany = vi.fn(async () => {
     calls.push('glossary.findMany');
@@ -166,6 +178,32 @@ describe('PrismaTranslationContextStore', () => {
   });
 
   describe('reading a stored glossary', () => {
+    const inline = [{ terms: { vi: 'hội đồng', en: 'committee' } }];
+    const linked = (isActive: boolean) => ({
+      name: 'Board terms',
+      sourceLang: 'vi',
+      isActive,
+      items: [{ original: 'ban', translation: 'board', targetLang: 'en' }],
+    });
+
+    it('uses the linked glossary items when the glossary is active', async () => {
+      const { store } = fakePrisma({
+        listedGlossary: inline,
+        listedLinkedGlossary: linked(true),
+      });
+      const [context] = await store.list('owner-1');
+      expect(context?.glossary).toEqual([{ vi: 'ban', en: 'board' }]);
+    });
+
+    it('falls back to the inline terms when the linked glossary is inactive', async () => {
+      const { store } = fakePrisma({
+        listedGlossary: inline,
+        listedLinkedGlossary: linked(false),
+      });
+      const [context] = await store.list('owner-1');
+      expect(context?.glossary).toEqual([{ vi: 'hội đồng', en: 'committee' }]);
+    });
+
     it('validates each row against glossaryEntrySchema on the way out', async () => {
       const { store } = fakePrisma({
         listedGlossary: [{ terms: { vi: 'hội đồng', en: 'committee' } }],

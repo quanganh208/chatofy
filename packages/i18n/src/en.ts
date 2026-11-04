@@ -919,7 +919,6 @@ export const en = {
   'web.glossary.creating': 'Creating…',
   'web.glossary.create': 'Create',
   'web.glossary.cancel': 'Cancel',
-  'web.glossary.setDefault': 'Use for every session',
   'web.glossary.originalLabel': 'Original',
   'web.glossary.translationLabel': 'Translation',
   'web.glossary.targetLangLabel': 'Target language',

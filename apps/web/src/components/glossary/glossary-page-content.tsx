@@ -35,7 +35,7 @@ export function GlossaryPageContent() {
         onToggleActive={handleToggleActive}
         onDelete={remove}
       />
-      <GlossaryDetailPanel glossary={selectedGlossary} onPatch={patch} />
+      <GlossaryDetailPanel glossary={selectedGlossary} />
     </div>
   );
 }

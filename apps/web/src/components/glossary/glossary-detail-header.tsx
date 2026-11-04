@@ -1,6 +1,5 @@
 ﻿'use client';
 
-import { useState } from 'react';
 import { Badge } from '@chatofy/ui/react';
 import { LANGUAGES } from '@chatofy/types';
 import type { Glossary } from '@chatofy/types';
@@ -8,22 +7,11 @@ import { useTranslate } from '@/i18n/provider';
 
 interface Props {
   glossary: Glossary;
-  onSetDefault: (isDefault: boolean) => Promise<void>;
 }
 
-export function GlossaryDetailHeader({ glossary, onSetDefault }: Props) {
+export function GlossaryDetailHeader({ glossary }: Props) {
   const t = useTranslate();
-  const [pending, setPending] = useState(false);
   const langLabel = LANGUAGES[glossary.sourceLang]?.label ?? glossary.sourceLang;
-
-  async function handleToggleDefault(checked: boolean) {
-    setPending(true);
-    try {
-      await onSetDefault(checked);
-    } finally {
-      setPending(false);
-    }
-  }
 
   return (
     <div className="flex items-start justify-between px-4 py-3 border-b gap-3">
@@ -41,16 +29,6 @@ export function GlossaryDetailHeader({ glossary, onSetDefault }: Props) {
           </p>
         )}
       </div>
-      <label className="flex items-center gap-2 shrink-0 cursor-pointer select-none text-body whitespace-nowrap">
-        <input
-          type="checkbox"
-          checked={glossary.isDefault}
-          disabled={pending}
-          onChange={(e) => void handleToggleDefault(e.target.checked)}
-          className="h-4 w-4 rounded border-input accent-primary"
-        />
-        {t('web.glossary.setDefault')}
-      </label>
     </div>
   );
 }

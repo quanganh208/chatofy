@@ -162,7 +162,6 @@ describe('Conference minutes (db-e2e)', () => {
         participantId: speaker.id,
         sourceLanguage: 'vi',
         sourceText: 'chốt thứ sáu',
-        searchText: 'chot thu sau settle friday 周五定',
         translations: { en: 'settle Friday', zh: '周五定' },
       },
       select: { id: true },

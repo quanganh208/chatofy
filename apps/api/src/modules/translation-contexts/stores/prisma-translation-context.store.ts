@@ -72,6 +72,7 @@ interface ContextRow {
   linkedGlossary: {
     name: string;
     sourceLang: string;
+    isActive: boolean;
     items: { original: string; translation: string; targetLang: string }[];
   } | null;
 }
@@ -377,6 +378,7 @@ const CONTEXT_SELECT = {
     select: {
       name: true,
       sourceLang: true,
+      isActive: true,
       items: {
         select: { original: true, translation: true, targetLang: true },
       },
@@ -385,13 +387,13 @@ const CONTEXT_SELECT = {
 } as const;
 
 function toContext(row: ContextRow): TranslationContext {
-  // When a Glossary is linked, derive preferred renderings from its items.
-  // Otherwise fall back to the inline GlossaryTerm rows.
-  const glossary = row.linkedGlossary
-    ? glossaryItemsToEntries(
-        row.linkedGlossary.sourceLang,
-        row.linkedGlossary.items,
-      )
+  // When an ACTIVE Glossary is linked, derive preferred renderings from its
+  // items. An inactive or absent one falls back to the inline GlossaryTerm rows:
+  // switching a glossary off must stop it reaching the translator, while the
+  // link itself stays visible in the editor.
+  const linked = row.linkedGlossary?.isActive ? row.linkedGlossary : null;
+  const glossary = linked
+    ? glossaryItemsToEntries(linked.sourceLang, linked.items)
     : row.glossary
         .map((entry) => entry.terms)
         .map(asGlossaryEntry)
