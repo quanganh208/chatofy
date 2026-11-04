@@ -1,11 +1,11 @@
 # Database Schema: Video Conferencing
 
 > **Status: Six models built, the rest deferred.** `Conference`, `ConferenceParticipant`,
-> `ConferenceTurn` and `ConferenceMessage` are in `apps/api/prisma/schema.prisma` (migration
-> `20261012144353_add_conference_models`), used by the always-loaded conference module. A
+> `ConferenceTurn` and `ConferenceMessage` are in `apps/api/prisma/schema.prisma` (first added
+> by `20261012144353_add_conference_models`, now part of the 2026-11-04 baseline), used by the always-loaded conference module. A
 > `Conference` row is created only by `POST /conference`; joining upserts the participant.
-> Minutes followed as `ConferenceMinutes` + `ConferenceMinutesActionItem` (migration
-> `20261026033912_add_conference_minutes`): one copy per room, cascade-deleted with it,
+> Minutes followed as `ConferenceMinutes` + `ConferenceMinutesActionItem` (first added by
+> `20261026033912_add_conference_minutes`, now part of the baseline): one copy per room, cascade-deleted with it,
 > mirroring `MeetingMinutes` — see
 > [video-client-support.md §4.4](./architecture/video-client-support.md#44-end-screen).
 > It supersedes the `ConferenceMeetingMinutes` sketch in

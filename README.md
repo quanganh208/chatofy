@@ -63,46 +63,45 @@ pnpm --filter web dev
 > Nothing needs to be installed on the host for it: no Postgres, no Python, no
 > `uv`. `web` needs only `AUTH_SECRET` in the root `.env`.
 
-### If `migrate deploy` refuses on a database you already had
+### If `migrate deploy` fails on a database you already had
 
-The migration history starts from a single baseline, `20260917024800_init`,
-squashed from the ten migrations that built the schema between 2026-08-23 and 2026-09-14. A
-database created before that squash still has the ten recorded in
-`_prisma_migrations`, and Prisma stops rather than guess:
+The migration history is a single baseline, `20261104064523_init`, squashed on 2026-11-04 from
+the eleven migrations that had built the schema since the previous baseline. A
+database created before that squash still has the old names recorded in
+`_prisma_migrations`, and `migrate deploy` then tries to APPLY the baseline over
+tables that already exist. It fails with P3018 (`42P07`, relation already
+exists) and records a failed row:
 
 ```
-The migration(s) ... have been applied to the database but are missing from the
-local migrations directory
+Error: P3018
+A migration failed to apply. New migrations cannot be applied before the error is recovered from.
 ```
 
 A fresh checkout never sees this. On a database you already had, the schema is
-already exactly what the baseline builds — this squash collapsed the PATH taken
-and changed no end state, verified by applying both chains to empty databases
-and diffing `pg_dump --schema-only` — so the quickest fix is to recreate it:
+already what the baseline builds — the squash changed no end state, verified by
+applying both chains to empty databases and diffing `pg_dump --schema-only` — so
+the quickest fix is to recreate it:
 
 ```bash
 docker compose down -v postgres && docker compose up -d --wait postgres
 pnpm --filter api exec prisma migrate deploy
 ```
 
-To keep the rows instead, replace the ledger and leave the tables alone. Unlike
-the previous squash, which had to rename a column and drop two tables first,
-**no DDL is needed here**. `migrate resolve --applied` records the baseline
-_without_ running its SQL, which is what you want when the schema already
-matches:
+To keep the rows instead, replace the ledger and leave the tables alone. No DDL
+is needed: `migrate resolve --applied` records the baseline _without_ running
+its SQL. Deleting every row also clears the failed one from an earlier attempt:
 
 ```bash
 pg_dump "$DATABASE_URL" > before-rebaseline.sql   # the ledger lives in here too
 psql "$DATABASE_URL" -c 'DELETE FROM "_prisma_migrations";'
-pnpm --filter api exec prisma migrate resolve --applied 20260917024800_init
-pnpm --filter api exec prisma migrate deploy   # the migrations after the baseline
+pnpm --filter api exec prisma migrate resolve --applied 20261104064523_init
+pnpm --filter api exec prisma migrate deploy   # prints "No pending migrations to apply."
 ```
 
-The one thing the baseline does not recreate is the `unaccent` extension. A
-pre-squash database keeps it and a fresh one never gets it; neither reads it,
-because both the write path and the query path fold text through
-`normalizeForSearch` in `@chatofy/types` rather than in SQL. The extension
-existed only for a one-time backfill that can no longer have rows to touch.
+A database older than the 2026-09-17 squash may also carry `unaccent`,
+`pgcrypto` and `uuid-ossp`. The baseline creates only `pg_trgm`; nothing reads
+the others, because both the write path and the query path fold text through
+`normalizeForSearch` in `@chatofy/types` rather than in SQL.
 
 ## Structure
 

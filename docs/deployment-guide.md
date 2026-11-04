@@ -131,25 +131,33 @@ something an operator does INSTEAD of letting a push deploy, by holding the merg
 until they are at the keyboard. Written down here it looks like a gate; in the
 pipeline it is not one.
 
-The chain starts from a single baseline, `20260917024800_init`, squashed on
-2026-09-17 from the ten that built the schema between 2026-08-23 and 2026-09-14;
-later migrations stack on it (`apps/api/prisma/migrations/` is the list). Every
-one of those ten had shipped to production; the squash reproduces their end
-state exactly and changes no DDL, verified by applying both chains to empty
-databases and diffing `pg_dump --schema-only`.
+The chain starts from a single baseline, `20261104064523_init`, squashed on 2026-11-04 from the
+eleven migrations applied since the previous baseline (`20260917024800_init`,
+itself a squash of ten, on 2026-09-17). Every one of them had shipped to
+production; the squash reproduces their end state exactly and changes no DDL,
+verified by applying both chains to empty databases and diffing
+`pg_dump --schema-only`. Production compared the same way matches in every type,
+constraint and index, differing only in column order on three tables and in three
+unused extensions, all from before the first squash.
 
 What that means operationally:
 
 - **On a fresh database** the baseline is pure creation — tables, indexes and the
   `pg_trgm` extension the trigram index needs. Later destructive migrations act on
   empty tables there, so a fresh database never needs a window.
-- **On the production database**, which already has all ten recorded, the baseline
+- **On the production database**, which had the old chain recorded, the baseline
   must never be _applied_. Its ledger row is written with
-  `migrate resolve --applied` and the tables are left untouched; the README has
-  the exact commands. Running `migrate deploy` against a pre-squash database does
-  not do this by itself — it stops with "applied to the database but are missing
-  from the local migrations directory" and changes nothing, which is the safe
-  outcome, not a failure to work around.
+  `migrate resolve --applied` after deleting the old rows, and the tables are left
+  untouched; the README has the exact commands. Production's ledger was replaced
+  this way on 2026-11-04, before the deploy that carried the squash reached its
+  migrate step. `migrate deploy` does NOT refuse safely against an old ledger: it
+  tries to apply the baseline, fails with P3018 on the first `CREATE TABLE`, and
+  records a failed row that blocks every later deploy with P3009 until the ledger
+  is replaced.
+- **Rolling back to a ref from before 2026-11-04** therefore needs the ledger
+  swapped back first: restore `_prisma_migrations` from a pre-squash dump in
+  `~/chatofy-backups`, or delete its rows and `migrate resolve --applied` each old
+  migration name from that ref's `apps/api/prisma/migrations/`.
 
 The rest of this section is the procedure for running one. It is not
 hypothetical: two destructive migrations have already shipped this way — see
@@ -195,8 +203,9 @@ is in the dump. Deal with the rows the guard found first, either way.
 Two destructive migrations, both from the pluggable-languages work, sort in the
 order they had to deploy in. Both are applied in production (they shipped with
 the pluggable-languages merge on 2026-09-29; the production `_prisma_migrations`
-ledger lists both as finished). What remains useful below is the rehearsal
-record and the rollback path.
+ledger lists both as finished). Both were folded into the 2026-11-04 baseline, so
+their files no longer exist on `main`: what follows is a historical rehearsal
+record, and its rollback path applies only to a ref from before that squash.
 
 1. `20260928114332_glossary_terms_by_language` — drops `GlossaryTerm.vi`/`.en`,
    replaces them with one `terms` JSONB column (a language-keyed map).
