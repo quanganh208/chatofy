@@ -94,7 +94,7 @@ export async function MarketingHeader() {
               size="sm"
               className="hidden rounded-full lg:inline-flex"
             >
-              <Link href="/translate">{t('web.chrome.openApp')}</Link>
+              <Link href="/translate/one-way">{t('web.chrome.openApp')}</Link>
             </Button>
           ) : (
             <>

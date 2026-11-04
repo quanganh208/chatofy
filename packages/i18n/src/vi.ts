@@ -138,7 +138,8 @@ export const vi: Messages = {
 
   'web.chrome.skipToContent': 'Tới nội dung chính',
   'web.chrome.productNav': 'Sản phẩm',
-  'web.chrome.navTranslate': 'Dịch',
+  'web.chrome.navTranslate': 'Dịch một chiều',
+  'web.chrome.navTranslateTwoWay': 'Dịch hai chiều',
   'web.chrome.navConference': 'Hội thảo',
   'web.chrome.navHistory': 'Lịch sử',
   'web.chrome.navGlossary': 'Bảng thuật ngữ',
@@ -208,7 +209,8 @@ export const vi: Messages = {
   'web.meta.verifyEmail': 'Xác minh email · Chatofy',
   'web.meta.forgotPassword': 'Quên mật khẩu · Chatofy',
   'web.meta.resetPassword': 'Đặt lại mật khẩu · Chatofy',
-  'web.meta.translate': 'Dịch · Chatofy',
+  'web.meta.translate': 'Dịch một chiều · Chatofy',
+  'web.meta.translateTwoWay': 'Dịch hai chiều · Chatofy',
   'web.meta.history': 'Lịch sử · Chatofy',
   'web.meta.preferences': 'Tuỳ chọn · Chatofy',
   'web.meta.account': 'Tài khoản · Chatofy',
@@ -333,7 +335,7 @@ export const vi: Messages = {
   'web.translate.autoDetect': 'Tự nhận diện',
   'web.translate.modeTwoWay': 'Hai chiều',
   'web.translate.modeOneWay': 'Một chiều',
-  'web.translate.conversationMode': 'Chế độ hội thoại',
+  'web.translate.twoWayLanguageUnavailable': 'chưa hỗ trợ hai chiều',
   'web.translate.turnLanguage': 'Nói bằng {language}',
   'web.translate.twoWayUnavailable':
     'Tạm thời chỉ dịch một chiều: {from} sang {to}. Câu nói bằng {to} sẽ không được dịch.',

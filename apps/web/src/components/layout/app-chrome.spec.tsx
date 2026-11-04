@@ -18,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * `aria-label` and the sidebar still looks right in every screenshot.
  */
 
-const pathname = vi.fn(() => '/translate');
+const pathname = vi.fn(() => '/translate/one-way');
 vi.mock('next/navigation', () => ({
   usePathname: () => pathname(),
   // The topbar's language switcher asks the server to render again rather than
@@ -41,7 +41,7 @@ let container: HTMLElement;
 beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
-  pathname.mockReturnValue('/translate');
+  pathname.mockReturnValue('/translate/one-way');
 });
 
 afterEach(() => {
@@ -73,7 +73,8 @@ describe('the product sidebar', () => {
     // as much as omissions. History arrived at PDR milestone 6, with its route —
     // which is the rule this assertion exists to hold anything else to.
     expect(navLinks).toEqual([
-      '/translate',
+      '/translate/one-way',
+      '/translate/two-way',
       '/conference',
       '/history',
       '/glossary',
@@ -99,14 +100,14 @@ describe('the product sidebar', () => {
   });
 
   it('names its icon-only items without relying on the tooltip', () => {
-    const item = render().querySelector('a[href="/translate"]');
-    expect(item?.getAttribute('aria-label')).toBe('Translate');
+    const item = render().querySelector('a[href="/translate/one-way"]');
+    expect(item?.getAttribute('aria-label')).toBe('One-way translation');
   });
 
   it('marks the current route active', () => {
-    expect(render().querySelector('a[href="/translate"]')?.getAttribute('data-active')).toBe(
-      'true',
-    );
+    expect(
+      render().querySelector('a[href="/translate/one-way"]')?.getAttribute('data-active'),
+    ).toBe('true');
   });
 });
 
@@ -137,6 +138,11 @@ describe('the product frame', () => {
     // The collapse rule is route-driven and lives in `RAIL_ROUTES`. The cookie the
     // primitive still writes is inert; if it ever becomes authoritative again this is
     // where the two mechanisms start disagreeing.
+    render();
+    expect(container.querySelector('[data-state="collapsed"]')).not.toBeNull();
+    act(() => root?.unmount());
+
+    pathname.mockReturnValue('/translate/two-way');
     render();
     expect(container.querySelector('[data-state="collapsed"]')).not.toBeNull();
     act(() => root?.unmount());

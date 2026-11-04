@@ -10,7 +10,11 @@ import { DisplaySettingsPopover } from '@/components/translate/display-settings-
 import { SessionActions, SessionReadouts } from '@/components/translate/session-controls';
 import { TranscriptPanes, type StreamProps } from '@/components/translate/transcript-panes';
 import { readingSchemeClass } from '@/lib/reading-appearance';
-import { effectiveStageAppearance, type TranslateSettings } from '@/lib/translate-settings';
+import {
+  effectiveStageAppearance,
+  type ConversationMode,
+  type TranslateSettings,
+} from '@/lib/translate-settings';
 import { useTranslate } from '@/i18n/provider';
 import { cn } from '@/lib/utils';
 
@@ -59,6 +63,7 @@ import { cn } from '@/lib/utils';
  */
 export function FullscreenStage({
   settings,
+  conversationMode,
   onChange,
   running,
   stream,
@@ -71,6 +76,8 @@ export function FullscreenStage({
   onExit,
 }: {
   settings: TranslateSettings;
+  /** Which page this stage is the fullscreen of — see `TranscriptPanes`. */
+  conversationMode: ConversationMode;
   onChange: (patch: Partial<TranslateSettings>) => void;
   running: boolean;
   stream: StreamProps;
@@ -123,6 +130,7 @@ export function FullscreenStage({
       <TranscriptPanes
         stage
         settings={settings}
+        conversationMode={conversationMode}
         running={running}
         stream={stream}
         conversationLanguagePair={conversationLanguagePair}

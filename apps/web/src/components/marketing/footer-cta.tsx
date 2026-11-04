@@ -40,7 +40,7 @@ export async function FooterCta() {
         <p className="text-prose text-body max-w-prose">{t('web.landing.ctaBody')}</p>
         {signedIn ? null : (
           <Button asChild size="lg" className="mt-2 rounded-full">
-            <Link href="/translate">{t('web.translate.startTranslating')}</Link>
+            <Link href="/translate/one-way">{t('web.translate.startTranslating')}</Link>
           </Button>
         )}
       </div>

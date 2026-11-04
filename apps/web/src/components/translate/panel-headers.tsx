@@ -1,9 +1,11 @@
 'use client';
 
 import { ArrowLeftRight } from 'lucide-react';
-import { Button, LanguageSelect, pairAfterPick, SegmentedControl } from '@chatofy/ui/react';
+import { Button, LanguageSelect, pairAfterPick } from '@chatofy/ui/react';
 import {
   AUTO_DETECT,
+  IDENTIFIABLE_LANGUAGES,
+  LANGUAGE_CODES,
   type LanguageCode,
   type SessionLanguageMode,
   type SessionLanguagePair,
@@ -12,7 +14,6 @@ import { useTranslate } from '@/i18n/provider';
 import { languageNamer } from '@/i18n/language-pair-labels';
 import {
   canAutoDetectInto,
-  canRunTwoWay,
   representablePair,
   type ConversationMode,
 } from '@/lib/translate-settings';
@@ -34,10 +35,11 @@ interface PanelHeadersProps {
    * see {@link LanguageModeHint}.
    */
   mode?: SessionLanguageMode | null;
-  /** The reader's one-way / two-way choice — see {@link SourceHeaderLanguage}. */
-  conversationMode?: ConversationMode;
-  /** Absent on the stage, which shows the choice nowhere. */
-  onConversationMode?: (mode: ConversationMode) => void;
+  /**
+   * Which page this is: `/translate/one-way` or `/translate/two-way`. Decides
+   * what the source header offers — see {@link SourceHeaderLanguage}.
+   */
+  conversationMode: ConversationMode;
   /**
    * The voice control, rendered at the end of the target header.
    *
@@ -76,12 +78,14 @@ interface PanelHeadersProps {
  * selects. It is `outline` and the selects are fields, so the screen still spends
  * its one accent on Start.
  *
- * ## The source picker decides the mode
+ * ## The page decides the mode
  *
- * Its first entry is "Auto-detect": each turn's language is recognised and
- * translated one way into the target. A named source asks for both ways — the
- * pair as a set, each turn translated into the other side. There is no mode
- * switch; what the server actually ran is a readout beside the source role
+ * One-way and two-way are separate pages, `/translate/one-way` and `/translate/two-way`, so
+ * nothing here switches between them. On the one-way page the source picker's
+ * first entry is "Auto-detect": each turn's language is recognised and
+ * translated one way into the target. On the two-way page both sides are
+ * languages, and the ones the shipped identification cannot tell apart are
+ * listed but not pickable. What the server actually ran is a readout beside the source role
  * (`LanguageModeHint`), because the server may answer a two-way start one way.
  *
  * ## Disabled, not hidden, while running
@@ -117,7 +121,6 @@ export function PanelHeaders({
   onLanguagePair,
   mode = null,
   conversationMode,
-  onConversationMode,
   voiceControl,
 }: PanelHeadersProps) {
   const t = useTranslate();
@@ -135,7 +138,6 @@ export function PanelHeaders({
             running={running}
             onLanguagePair={onLanguagePair}
             conversationMode={conversationMode}
-            onConversationMode={onConversationMode}
           />
         }
         className="border-hairline border-b"
@@ -148,6 +150,7 @@ export function PanelHeaders({
             side="target"
             running={running}
             onLanguagePair={onLanguagePair}
+            conversationMode={conversationMode}
           />
         }
         end={voiceControl}
@@ -208,7 +211,7 @@ export function PanelHeader({
  * Which way the running conversation translates, as the server answered it —
  * a readout, never a control.
  *
- * What is ASKED is the source picker plus the reader's one-way / two-way choice
+ * What is ASKED is the page — one-way or two-way — and its pair
  * ({@link SourceHeaderLanguage}); this says what the newest turn actually ran,
  * which can be less — a server that cannot tell the two languages apart right
  * now runs a two-way start one way. Nothing at all before a turn has said: a
@@ -234,17 +237,26 @@ export function LanguageModeHint({ mode }: { mode: SessionLanguageMode | null })
  * The name alone is the fullscreen stage's: a picker there would portal its list
  * to the body, which the browser does not draw over a fullscreen element, and the
  * pair is the page's setting to change in any case.
+ *
+ * On the one-way page the source list leads with "Auto-detect", offered only
+ * where it can be served as Saydi means it — see `canAutoDetectInto`. Hidden
+ * rather than disabled there: nothing on this side of the header would make it
+ * work. On the two-way page there is no Auto-detect, and a language the shipped
+ * identification cannot tell apart is listed disabled, with the reason, on both
+ * sides.
  */
 export function HeaderLanguage({
   languagePair,
   side,
   running,
   onLanguagePair,
+  conversationMode,
 }: {
   languagePair: SessionLanguagePair;
   side: 'source' | 'target';
   running: boolean;
   onLanguagePair?: (pair: SessionLanguagePair) => void;
+  conversationMode: ConversationMode;
 }) {
   const t = useTranslate();
   if (!onLanguagePair) {
@@ -255,16 +267,25 @@ export function HeaderLanguage({
       </span>
     );
   }
+  const twoWay = conversationMode === 'two-way';
   const shared = {
     disabled: running,
     nameLanguage: languageNamer(t),
     size: 'sm' as const,
     className: 'font-medium',
+    unavailable: twoWay
+      ? {
+          codes: LANGUAGE_CODES.filter((language) => !IDENTIFIABLE_LANGUAGES.includes(language)),
+          reason: t('web.translate.twoWayLanguageUnavailable'),
+        }
+      : undefined,
   };
-  // Through `representablePair`, because a picked TARGET can be the one that
-  // rules detection out — the source then becomes a language, visibly, rather
-  // than a conversation starting in a mode nothing on screen offered.
-  const pick = (pair: SessionLanguagePair) => onLanguagePair(representablePair(pair));
+  // Through `representablePair` on the one-way page, because a picked TARGET can
+  // be the one that rules detection out — the source then becomes a language,
+  // visibly, rather than a conversation starting in a mode nothing on screen
+  // offered. The two-way pair never holds "detect".
+  const pick = (pair: SessionLanguagePair) =>
+    onLanguagePair(twoWay ? pair : representablePair(pair));
 
   if (side === 'target') {
     return (
@@ -282,11 +303,8 @@ export function HeaderLanguage({
       value={languagePair.source}
       onPick={(code) => pick(pairAfterPick(languagePair, 'source', code))}
       label={t('web.translate.languagePairSource')}
-      // Offered only where it can be served as Saydi means it — see
-      // `canAutoDetectInto`. Hidden rather than disabled: there is no step the
-      // reader could take on this screen to make it work.
       detectOption={
-        canAutoDetectInto(languagePair.target)
+        !twoWay && canAutoDetectInto(languagePair.target)
           ? { label: t('web.translate.autoDetect') }
           : undefined
       }
@@ -297,58 +315,28 @@ export function HeaderLanguage({
 type SourceChoice = LanguageCode | typeof AUTO_DETECT;
 
 /**
- * The source picker, and beside it whether the other side may speak too.
- *
- * The choice exists because the server cannot make it: in a two-way start a
- * short turn's language is guessed, and a Vietnamese turn under 1.3 s is heard
- * as Vietnamese only about two times in three, so a conversation where nobody
- * speaks the other language still loses its short turns to it. One way declares
- * every turn to be in the source, and nothing is guessed.
- *
- * Offered only for a pair that can run both ways (not "detect", not a pair the
- * shipped identification cannot tell apart), disabled while running for the
- * reason the pickers are, and never on the stage. Not accent-filled: the
- * screen's one accent is Start.
+ * The source header's language. One picker on either page: the page only
+ * decides what that picker offers — see {@link HeaderLanguage}.
  */
 export function SourceHeaderLanguage({
   languagePair,
   running,
   onLanguagePair,
   conversationMode,
-  onConversationMode,
 }: {
   languagePair: SessionLanguagePair;
   running: boolean;
   onLanguagePair?: (pair: SessionLanguagePair) => void;
-  conversationMode?: ConversationMode;
-  onConversationMode?: (mode: ConversationMode) => void;
+  conversationMode: ConversationMode;
 }) {
-  const t = useTranslate();
-  const picker = (
+  return (
     <HeaderLanguage
       languagePair={languagePair}
       side="source"
       running={running}
       onLanguagePair={onLanguagePair}
+      conversationMode={conversationMode}
     />
-  );
-  if (!onConversationMode || !conversationMode || !canRunTwoWay(languagePair)) return picker;
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-      {picker}
-      <SegmentedControl<ConversationMode>
-        label={t('web.translate.conversationMode')}
-        labelHidden
-        density="compact"
-        value={conversationMode}
-        disabled={running}
-        onChange={onConversationMode}
-        options={[
-          { value: 'one-way', label: t('web.translate.modeOneWay') },
-          { value: 'two-way', label: t('web.translate.modeTwoWay') },
-        ]}
-      />
-    </div>
   );
 }
 

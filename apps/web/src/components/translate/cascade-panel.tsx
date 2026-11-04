@@ -14,7 +14,14 @@ import { SessionActions, SessionReadouts } from '@/components/translate/session-
 import { Alert, AlertDescription, Button } from '@chatofy/ui/react';
 import { AUTO_DETECT, languagePairOf, reversePair } from '@chatofy/types';
 import { toConversationTurns } from '@chatofy/realtime-client';
-import { asksTwoWay, chosenVoices, type TranslateSettings } from '@/lib/translate-settings';
+import {
+  asksTwoWay,
+  chosenVoices,
+  pairFor,
+  pairPatchFor,
+  type ConversationMode,
+  type TranslateSettings,
+} from '@/lib/translate-settings';
 import { languageNamer } from '@/i18n/language-pair-labels';
 import { recordingOffsetMs } from '@/lib/transcript-time';
 import { useLocale, useTranslate } from '@/i18n/provider';
@@ -93,14 +100,30 @@ import { resolveContext, toHints, useTranslationContexts } from '@/hooks/use-tra
  */
 
 interface CascadePanelProps {
+  /**
+   * Which page this is: `/translate/one-way` runs one way — a declared source, or
+   * auto-detected — and `/translate/two-way` runs both ways. Each keeps its own stored
+   * pair (`pairFor`), so a choice on one page never opens the other in a state
+   * it cannot run.
+   */
+  conversationMode: ConversationMode;
   settings: TranslateSettings;
   onChange: (patch: Partial<TranslateSettings>) => void;
   /** Reader for the saved volume — see `useStreamingTranslate`. */
   getVolume: () => number;
 }
 
-export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProps) {
+export function CascadePanel({
+  conversationMode,
+  settings,
+  onChange,
+  getVolume,
+}: CascadePanelProps) {
   const t = useTranslate();
+  // The pair this page shows and starts in, and how a pick on it is stored.
+  const languagePair = pairFor(settings, conversationMode);
+  const setLanguagePair = (pair: Parameters<typeof pairPatchFor>[1]) =>
+    onChange(pairPatchFor(conversationMode, pair));
   // Called HERE, the page-level component for `/translate`. The stored id is
   // resolved into hints by the CLIENT rather than server-side, because
   // `client.session.start` fires once per TURN and a server that looked the id up
@@ -224,9 +247,9 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
     // Captured at `start`, not read live from `settings`: the language pickers
     // are only disabled while running, so a swap between End and the next Start
     // must not flip what an already-finished conversation is stored as. Falls
-    // back to `settings.languagePair` only before the first `start`, when nothing
+    // back to the page's stored pair only before the first `start`, when nothing
     // has been captured yet and `turns` is empty so the fallback never saves.
-    languagePair: conversation.languagePair ?? settings.languagePair,
+    languagePair: conversation.languagePair ?? languagePair,
     running,
     turns: conversationTurns,
     // Stored by the TRANSCRIPT save, not only by the recording upload, because
@@ -267,8 +290,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   // Whether a start from the CURRENT settings would have its spoken language
   // decided per turn — both ways, or auto-detected.
   const identifiesTurns =
-    settings.languagePair.source === AUTO_DETECT ||
-    asksTwoWay(settings.languagePair, settings.conversationMode);
+    languagePair.source === AUTO_DETECT || asksTwoWay(languagePair, conversationMode);
   // Asked for both ways, answered one way: the pair it runs in, or null. Read
   // off the newest turn's answer, and only while running — the answer belongs
   // to the conversation in progress.
@@ -291,8 +313,8 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   // the fullscreen bar.
   const startConversation = () =>
     void conversation.start({
-      languagePair: settings.languagePair,
-      conversationMode: settings.conversationMode,
+      languagePair,
+      mode: conversationMode,
       voiceGender: settings.voiceGender,
       voiceOutput: settings.voiceOutput,
       // Sent regardless of the pair. The server hands it to whichever
@@ -304,7 +326,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
       // and what a two-way start the server runs one way falls back
       // to. Settings keep one per language because the two engines
       // share no vocabulary.
-      voice: settings.voice[settings.languagePair.target],
+      voice: settings.voice[languagePair.target],
       // A start whose spoken language is decided per turn also
       // carries the whole map, so a reply is read out in the voice
       // chosen for ITS language rather than the target's.
@@ -433,10 +455,11 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
         {fullscreenActive ? (
           <FullscreenStage
             settings={settings}
+            conversationMode={conversationMode}
             onChange={onChange}
             running={running}
             stream={stream}
-            conversationLanguagePair={conversation.languagePair ?? settings.languagePair}
+            conversationLanguagePair={conversation.languagePair ?? languagePair}
             languageMode={conversation.languageMode?.mode ?? null}
             conversation={conversation}
             onStart={startConversation}
@@ -451,22 +474,23 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             // Same capture as the save above, and for the same reason: a stop-then
             // -swap must not flip which language a finished turn's translation
             // line reads from.
-            conversationLanguagePair={conversation.languagePair ?? settings.languagePair}
+            conversationLanguagePair={conversation.languagePair ?? languagePair}
             onSwap={() => {
               // The swap is disabled for an auto-detected source; this keeps the
               // handler honest about the one pair it cannot reverse.
-              const { source, target } = settings.languagePair;
+              const { source, target } = languagePair;
               if (source === AUTO_DETECT) return;
-              onChange({ languagePair: reversePair(languagePairOf(source, target)) });
+              setLanguagePair(reversePair(languagePairOf(source, target)));
             }}
             languageMode={conversation.languageMode?.mode ?? null}
-            onLanguagePair={(languagePair) => onChange({ languagePair })}
-            onConversationMode={(conversationMode) => onChange({ conversationMode })}
+            conversationMode={conversationMode}
+            onLanguagePair={setLanguagePair}
             // The voice belongs beside the panel it speaks for, not behind the gear
             // at the far end of the dock beside the page settings.
             voiceControl={
               <VoiceSettingsPopover
                 settings={settings}
+                mode={conversationMode}
                 running={running}
                 onChange={onChange}
                 onVolumeChange={conversation.setVolume}
@@ -483,7 +507,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           settings={settings}
           running={running}
           stream={stream}
-          languagePair={conversation.languagePair ?? settings.languagePair}
+          languagePair={conversation.languagePair ?? languagePair}
         />
       ) : null}
 

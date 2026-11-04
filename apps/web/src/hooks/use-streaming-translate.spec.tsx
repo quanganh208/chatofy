@@ -96,6 +96,7 @@ vi.mock('@/i18n/provider', () => ({
 const options: StartOptions = {
   languagePair: { source: 'vi', target: 'en' },
   voiceGender: 'female',
+  mode: 'two-way',
 };
 
 let container: HTMLDivElement;
@@ -356,6 +357,14 @@ describe('useStreamingTranslate languages', () => {
   it('asks for two-way when the pair can be told apart, and says so', async () => {
     expect(await startIn({ source: 'vi', target: 'en' })).toMatchObject({ twoWay: true });
     expect(latest.twoWayRequested).toBe(true);
+  });
+
+  it('never asks two-way from the one-way page, whatever the pair', async () => {
+    await act(async () => {
+      await latest.start({ ...options, mode: 'one-way' });
+    });
+    expect(FakeConversationSession.last!.startedWith.at(-1)).not.toHaveProperty('twoWay');
+    expect(latest.twoWayRequested).toBe(false);
   });
 
   it('never asks two-way for an auto-detected source or a pair it cannot identify', async () => {

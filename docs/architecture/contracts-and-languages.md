@@ -357,9 +357,12 @@ A streaming session runs in one of three modes (`sessionLanguageModeSchema`):
 The candidates a turn chooses between are `turnCandidates(pair, twoWay)`.
 `IDENTIFIABLE_LANGUAGES` (`packages/types/src/domain/languages.ts`) holds vi
 and en: zh missed the accuracy bar the vi↔en pair met on the same labelled
-set, so a pair with zh stays declared one-way and the web picker offers neither
-two-way nor auto-detect with it. The choice of identifier and the numbers are
-in `benchmarks/lid/README.md` and the development journey.
+set, so a pair with zh stays declared one-way. On the web the modes are two
+pages: `/translate/one-way` sends `declared` or `detect` (Auto-detect leads its
+source list, offered only into vi or en), and `/translate/two-way` sends
+`twoWay: true`, with zh listed but not pickable. Each page stores its own pair
+(`apps/web/src/lib/translate-settings.ts`). The choice of identifier and the
+numbers are in `benchmarks/lid/README.md` and the development journey.
 
 **Admission** is decided once per start, by `admitLanguageMode`
 (`providers/speech-language-support.ts`). Identification is used only when the

@@ -4,7 +4,13 @@ import { useState } from 'react';
 import { Volume2, Volume1 } from 'lucide-react';
 import { SegmentedControl, Slider, Switch } from '@chatofy/ui/react';
 import { AUTO_DETECT, type LanguageCode } from '@chatofy/types';
-import { SPEED_PRESETS, asksTwoWay, type TranslateSettings } from '@/lib/translate-settings';
+import {
+  SPEED_PRESETS,
+  asksTwoWay,
+  pairFor,
+  type ConversationMode,
+  type TranslateSettings,
+} from '@/lib/translate-settings';
 import { VoiceScopeToggle, type VoiceScope } from '@/components/translate/voice-scope-toggle';
 import { VoicePicker } from '@/components/translate/voice-picker';
 import { SettingsRow } from '@/components/translate/settings-row';
@@ -44,18 +50,21 @@ import { languageNamer } from '@/i18n/language-pair-labels';
  * The gender scope above them is shared: it is one stored setting.
  */
 
-/** The languages a conversation started from `pair` may speak, target first. */
-function spokenLanguages({
-  languagePair: pair,
-  conversationMode,
-}: Pick<TranslateSettings, 'languagePair' | 'conversationMode'>): LanguageCode[] {
-  return pair.source !== AUTO_DETECT && asksTwoWay(pair, conversationMode)
+/** The languages a conversation started in `mode` may speak, target first. */
+function spokenLanguages(settings: TranslateSettings, mode: ConversationMode): LanguageCode[] {
+  const pair = pairFor(settings, mode);
+  return pair.source !== AUTO_DETECT && asksTwoWay(pair, mode)
     ? [pair.target, pair.source]
     : [pair.target];
 }
 
 interface VoiceSettingsPanelProps {
   settings: TranslateSettings;
+  /**
+   * Which page's pair the voices are for — a two-way conversation speaks both
+   * of its languages, a one-way one only its target.
+   */
+  mode: ConversationMode;
   /** A conversation is running, so everything but volume is fixed for its duration. */
   running: boolean;
   onChange: (patch: Partial<TranslateSettings>) => void;
@@ -65,13 +74,14 @@ interface VoiceSettingsPanelProps {
 
 export function VoiceSettingsPanel({
   settings,
+  mode,
   running,
   onChange,
   onVolumeChange,
 }: VoiceSettingsPanelProps) {
   const t = useTranslate();
   const nameLanguage = languageNamer(t);
-  const languages = spokenLanguages(settings);
+  const languages = spokenLanguages(settings, mode);
   const [outputLanguage, otherLanguage] = languages as [LanguageCode, LanguageCode | undefined];
   // Two calls, always, so the hook count never changes with the pair. With one
   // spoken language the second asks for the same list, which the catalog cache

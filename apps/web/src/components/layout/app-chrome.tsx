@@ -35,17 +35,17 @@ import { MEASURE } from './measures';
  * ## Why the measure is here and not in the page
  *
  * Same reason it was in the old shell: a route asks for a name, never a width. `wide` is
- * the app default; `/translate` asks for `workspace`, because two columns of transcript
+ * the app default; the two translator pages ask for `workspace`, because two columns of transcript
  * need twice the room one column does. See `measures.ts`.
  */
 
 /**
  * Routes that open as a rail (exact match).
  *
- * One entry, and it is exact rather than a prefix — a prefix match would quietly start
- * claiming `/translate/history` the day it exists.
+ * The two translator pages, each matched exactly rather than by a `/translate/` prefix —
+ * a prefix match would quietly start claiming `/translate/history` the day it exists.
  */
-const RAIL_ROUTES: readonly Route[] = ['/translate'];
+const RAIL_ROUTES: readonly Route[] = ['/translate/one-way', '/translate/two-way'];
 
 /**
  * Route prefixes that also open as a rail.
@@ -68,7 +68,7 @@ const opensExpanded = (pathname: string) =>
  * `/translate/history` exists it does not silently inherit a measure nobody
  * chose for it.
  */
-const WORKSPACE_ROUTES: readonly Route[] = ['/translate'];
+const WORKSPACE_ROUTES: readonly Route[] = ['/translate/one-way', '/translate/two-way'];
 
 const measureFor = (pathname: string) =>
   WORKSPACE_ROUTES.some((route) => route === pathname) ? MEASURE.workspace : MEASURE.wide;

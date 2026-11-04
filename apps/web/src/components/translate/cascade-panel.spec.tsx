@@ -6,7 +6,11 @@ import type { UseStreamingTranslate } from '@/hooks/use-streaming-translate';
 import type { UseConversationSave } from '@/hooks/use-conversation-save';
 import { CascadePanel } from './cascade-panel';
 import { LocaleProvider } from '@/i18n/provider';
-import { DEFAULT_TRANSLATE_SETTINGS, type TranslateSettings } from '@/lib/translate-settings';
+import {
+  DEFAULT_TRANSLATE_SETTINGS,
+  type ConversationMode,
+  type TranslateSettings,
+} from '@/lib/translate-settings';
 import { en } from '@chatofy/i18n';
 
 /**
@@ -150,6 +154,7 @@ async function render(save: Pick<UseConversationSave, 'saved' | 'failure'>): Pro
     root.render(
       <LocaleProvider>
         <CascadePanel
+          conversationMode="one-way"
           settings={DEFAULT_TRANSLATE_SETTINGS}
           onChange={vi.fn()}
           getVolume={() => 1}
@@ -211,6 +216,7 @@ describe('CascadePanel', () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
+            conversationMode="one-way"
             settings={DEFAULT_TRANSLATE_SETTINGS}
             onChange={vi.fn()}
             getVolume={() => 1}
@@ -276,6 +282,7 @@ describe('CascadePanel', () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
+            conversationMode="one-way"
             settings={{
               ...DEFAULT_TRANSLATE_SETTINGS,
               languagePair: { source: 'en', target: 'vi' },
@@ -324,6 +331,7 @@ describe('the recording upload alert', () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
+            conversationMode="one-way"
             settings={DEFAULT_TRANSLATE_SETTINGS}
             onChange={vi.fn()}
             getVolume={() => 1}
@@ -405,6 +413,7 @@ describe('the dock, pausing and resuming', () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
+            conversationMode="one-way"
             settings={DEFAULT_TRANSLATE_SETTINGS}
             onChange={vi.fn()}
             getVolume={() => 1}
@@ -530,6 +539,7 @@ describe('what sits below the dock', () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
+            conversationMode="one-way"
             settings={DEFAULT_TRANSLATE_SETTINGS}
             onChange={vi.fn()}
             getVolume={() => 1}
@@ -606,6 +616,7 @@ describe('the context a conversation starts under', () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
+            conversationMode="one-way"
             settings={{ ...DEFAULT_TRANSLATE_SETTINGS, contextId }}
             onChange={vi.fn()}
             getVolume={() => 1}
@@ -696,6 +707,7 @@ describe('a stored context that has not settled', () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
+            conversationMode="one-way"
             settings={{ ...DEFAULT_TRANSLATE_SETTINGS, contextId: 'ctx-stored' }}
             onChange={vi.fn()}
             getVolume={() => 1}
@@ -736,6 +748,7 @@ describe('a stored context that has not settled', () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
+            conversationMode="one-way"
             settings={{ ...DEFAULT_TRANSLATE_SETTINGS, contextId: null }}
             onChange={vi.fn()}
             getVolume={() => 1}
@@ -769,6 +782,7 @@ describe('a stored context that has not settled', () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
+            conversationMode="one-way"
             settings={{ ...DEFAULT_TRANSLATE_SETTINGS, contextId: 'ctx-stored' }}
             onChange={vi.fn()}
             getVolume={() => 1}
@@ -787,7 +801,7 @@ describe('a stored context that has not settled', () => {
 });
 
 /**
- * The source picker decides what a start asks for; the server decides what it
+ * The page decides what a start asks for; the server decides what it
  * gets. Voices travel per language whenever the spoken language is decided per
  * turn, and the screen follows the server's answer rather than the request.
  */
@@ -795,6 +809,7 @@ describe('CascadePanel two-way and auto-detect', () => {
   async function mount(
     settings: Partial<TranslateSettings>,
     state: Partial<UseStreamingTranslate> = {},
+    conversationMode: ConversationMode = 'two-way',
   ): Promise<void> {
     checkHealth.mockResolvedValue(undefined);
     permissionQuery.mockResolvedValue({
@@ -813,6 +828,7 @@ describe('CascadePanel two-way and auto-detect', () => {
       root.render(
         <LocaleProvider>
           <CascadePanel
+            conversationMode={conversationMode}
             settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...settings }}
             onChange={vi.fn()}
             getVolume={() => 1}
@@ -835,7 +851,7 @@ describe('CascadePanel two-way and auto-detect', () => {
   const VOICE_PER_LANGUAGE = { vi: 'vi-voice', en: 'en-voice' };
 
   it('speaks a reversed turn with the voice chosen for its language', async () => {
-    await mount({ languagePair: { source: 'vi', target: 'en' }, voice: VOICE_PER_LANGUAGE });
+    await mount({ twoWayPair: { source: 'vi', target: 'en' }, voice: VOICE_PER_LANGUAGE });
     const options = pressStart();
     // A turn heard in English is answered in Vietnamese, so the map must carry
     // the Vietnamese voice — the one `voice` alone could never name.
@@ -846,12 +862,20 @@ describe('CascadePanel two-way and auto-detect', () => {
   });
 
   it('sends the voice map for an auto-detected source too', async () => {
-    await mount({ languagePair: { source: 'detect', target: 'en' }, voice: VOICE_PER_LANGUAGE });
+    await mount(
+      { languagePair: { source: 'detect', target: 'en' }, voice: VOICE_PER_LANGUAGE },
+      {},
+      'one-way',
+    );
     expect(pressStart()?.voices).toEqual(VOICE_PER_LANGUAGE);
   });
 
   it('keeps a pair it cannot identify on the one voice it always sent', async () => {
-    await mount({ languagePair: { source: 'vi', target: 'zh' }, voice: { zh: 'zh-voice' } });
+    await mount(
+      { languagePair: { source: 'vi', target: 'zh' }, voice: { zh: 'zh-voice' } },
+      {},
+      'one-way',
+    );
     const options = pressStart();
     expect(options?.voice).toBe('zh-voice');
     expect(options).not.toHaveProperty('voices');
@@ -894,7 +918,70 @@ describe('CascadePanel two-way and auto-detect', () => {
         twoWayRequested: false,
         languageMode: { mode: 'declared' },
       },
+      'one-way',
     );
     expect(container.querySelector('[data-two-way-unavailable]')).toBeNull();
+  });
+});
+
+describe('CascadePanel asks for two-way only on the two-way page', () => {
+  async function startFrom(
+    conversationMode: ConversationMode,
+    settings: Partial<TranslateSettings>,
+  ) {
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    const start = vi.fn();
+    useStreamingTranslate.mockReturnValue({ ...conversation, start });
+    useConversationSave.mockReturnValue({
+      saved: false,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+    await act(async () => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            conversationMode={conversationMode}
+            settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...settings }}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+      await settleProbes();
+    });
+    const button = Array.from(container.querySelectorAll('button')).find((candidate) =>
+      candidate.textContent?.includes(en['web.translate.startConversation']),
+    );
+    act(() => button?.click());
+    return start.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+  }
+
+  it('starts the one-way page in its own pair, one way', async () => {
+    const options = await startFrom('one-way', {
+      languagePair: { source: 'vi', target: 'en' },
+      twoWayPair: { source: 'en', target: 'vi' },
+    });
+    expect(options).toMatchObject({
+      languagePair: { source: 'vi', target: 'en' },
+      mode: 'one-way',
+    });
+  });
+
+  it('starts the two-way page in its own pair, both ways', async () => {
+    const options = await startFrom('two-way', {
+      languagePair: { source: 'detect', target: 'en' },
+      twoWayPair: { source: 'en', target: 'vi' },
+    });
+    expect(options).toMatchObject({
+      languagePair: { source: 'en', target: 'vi' },
+      mode: 'two-way',
+    });
   });
 });

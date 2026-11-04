@@ -37,6 +37,7 @@ describe('the signed-out-redirect matcher', () => {
 
   it.each([
     '/translate',
+    '/translate/two-way',
     '/sessions/8f3a',
     '/registersomething',
     '/verify-emailx',

@@ -68,6 +68,7 @@ function render(
     root.render(
       <LocaleProvider>
         <FullscreenStage
+          conversationMode="one-way"
           settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...overrides }}
           onChange={vi.fn()}
           running={status !== 'idle'}

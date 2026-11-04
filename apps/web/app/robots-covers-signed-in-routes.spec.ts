@@ -17,6 +17,10 @@ describe('robots.txt', () => {
     const disallowed = (Array.isArray(rules) ? rules : [rules]).flatMap((rule) =>
       Array.isArray(rule.disallow) ? rule.disallow : rule.disallow ? [rule.disallow] : [],
     );
-    for (const { href } of navItems()) expect(disallowed).toContain(href);
+    // By prefix, as a crawler reads `Disallow`: `/translate` covers both of its
+    // children, so each translation page needs no line of its own.
+    for (const { href } of navItems()) {
+      expect(disallowed.some((path) => href === path || href.startsWith(`${path}/`))).toBe(true);
+    }
   });
 });

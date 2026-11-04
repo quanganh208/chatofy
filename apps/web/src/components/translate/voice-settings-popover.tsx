@@ -3,7 +3,7 @@
 import { ChevronDown, Volume2, VolumeX } from 'lucide-react';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@chatofy/ui/react';
 import { VoiceSettingsPanel } from '@/components/translate/voice-settings-panel';
-import type { TranslateSettings } from '@/lib/translate-settings';
+import type { ConversationMode, TranslateSettings } from '@/lib/translate-settings';
 import { useTranslate } from '@/i18n/provider';
 
 /**
@@ -53,6 +53,8 @@ import { useTranslate } from '@/i18n/provider';
 
 interface VoiceSettingsPopoverProps {
   settings: TranslateSettings;
+  /** The page's mode — see `VoiceSettingsPanel`. */
+  mode: ConversationMode;
   running: boolean;
   onChange: (patch: Partial<TranslateSettings>) => void;
   onVolumeChange: (volume: number) => void;
@@ -60,6 +62,7 @@ interface VoiceSettingsPopoverProps {
 
 export function VoiceSettingsPopover({
   settings,
+  mode,
   running,
   onChange,
   onVolumeChange,
@@ -100,6 +103,7 @@ export function VoiceSettingsPopover({
       >
         <VoiceSettingsPanel
           settings={settings}
+          mode={mode}
           running={running}
           onChange={onChange}
           onVolumeChange={onVolumeChange}

@@ -306,16 +306,24 @@ const ALICE: UseConferenceReturn['peers'] = new Map([
   ],
 ]);
 
-const translate = (settings: Partial<typeof DEFAULT_TRANSLATE_SETTINGS> = {}) =>
+const translate = (
+  settings: Partial<typeof DEFAULT_TRANSLATE_SETTINGS> = {},
+  conversationMode: 'one-way' | 'two-way' = 'one-way',
+) =>
   function Translate() {
     return (
       <CascadePanel
+        conversationMode={conversationMode}
         settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...settings }}
         onChange={vi.fn()}
         getVolume={() => 1}
       />
     );
   };
+
+/** The same screen as `/translate/two-way` draws it: both ways, its own pair. */
+const twoWay = (settings: Partial<typeof DEFAULT_TRANSLATE_SETTINGS> = {}) =>
+  translate(settings, 'two-way');
 
 /** The idle mocks, shared by the arrangement rows below. */
 function idle() {
@@ -505,12 +513,12 @@ interface ScreenState {
  * appears in ONE of them is exactly what these rows catch.
  */
 const ARRANGEMENTS = [
-  { name: '/translate — one merged list', settings: { displayMode: 'list' as const } },
+  { name: '/translate/one-way — one merged list', settings: { displayMode: 'list' as const } },
   {
-    name: '/translate — panes stacked',
+    name: '/translate/one-way — panes stacked',
     settings: { displayMode: 'split' as const, paneLayout: 'column' as const },
   },
-  { name: '/translate — translation only', settings: { translationOnly: true } },
+  { name: '/translate/one-way — translation only', settings: { translationOnly: true } },
 ].map(({ name, settings }) => ({
   name,
   filled: 1,
@@ -521,7 +529,7 @@ const ARRANGEMENTS = [
 
 const SCREENS: ScreenState[] = [
   {
-    name: '/translate — before anything starts',
+    name: '/translate/one-way — before anything starts',
     filled: 1,
     surfaces: 0,
     setup() {
@@ -536,7 +544,7 @@ const SCREENS: ScreenState[] = [
     render: translate(),
   },
   {
-    name: '/translate — running',
+    name: '/translate/one-way — running',
     filled: 0,
     surfaces: 0,
     setup() {
@@ -555,7 +563,7 @@ const SCREENS: ScreenState[] = [
   // screen whose reader sees only one of them, which is exactly what this table
   // could not tell apart from the right answer if the dock kept its copy.
   {
-    name: '/translate — fullscreen, before anything starts',
+    name: '/translate/one-way — fullscreen, before anything starts',
     filled: 1,
     surfaces: 0,
     setup() {
@@ -572,7 +580,7 @@ const SCREENS: ScreenState[] = [
     shows: '[data-stage-bar] button.bg-primary',
   },
   {
-    name: '/translate — fullscreen, running',
+    name: '/translate/one-way — fullscreen, running',
     filled: 0,
     surfaces: 0,
     setup() {
@@ -591,7 +599,7 @@ const SCREENS: ScreenState[] = [
   {
     // The gear opened from inside fullscreen: its panel is the one surface, and
     // it lands inside the stage — where the browser draws it — not on the body.
-    name: '/translate — fullscreen, display settings open',
+    name: '/translate/one-way — fullscreen, display settings open',
     filled: 1,
     surfaces: 1,
     setup() {
@@ -608,12 +616,46 @@ const SCREENS: ScreenState[] = [
     open: '[data-stage-bar] button[aria-label="Display settings"]',
     shows: 'section [data-slot="popover-content"]',
   },
-  // The source picker's "Auto-detect" and what it reaches. Every readout it adds —
+  // `/translate/two-way` is the same panel run both ways: two language pickers, no
+  // source control, and Start as the one accent — at rest and in fullscreen.
+  {
+    name: '/translate/two-way — before anything starts',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      useStreamingTranslate.mockReturnValue(conversation());
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    render: twoWay(),
+  },
+  {
+    name: '/translate/two-way — fullscreen, before anything starts',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      useStreamingTranslate.mockReturnValue(conversation());
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    render: twoWay(),
+    press: 'button[aria-label="Full screen"]',
+    shows: '[data-stage-bar] button.bg-primary',
+  },
+  // The one-way source picker's "Auto-detect" and what it reaches. Every readout it adds —
   // the mode beside the source role, a turn's language tag, the line saying a
   // two-way start is running one way — is muted text, so each of these states
   // spends exactly what its declared twin above spends.
   {
-    name: '/translate — auto-detect, before anything starts',
+    name: '/translate/one-way — auto-detect, before anything starts',
     filled: 1,
     surfaces: 0,
     setup() {
@@ -630,7 +672,7 @@ const SCREENS: ScreenState[] = [
     render: translate({ languagePair: { source: 'detect', target: 'en' } }),
   },
   {
-    name: '/translate — auto-detect, running',
+    name: '/translate/one-way — auto-detect, running',
     filled: 0,
     surfaces: 0,
     setup() {
@@ -653,7 +695,7 @@ const SCREENS: ScreenState[] = [
     render: translate({ languagePair: { source: 'detect', target: 'en' } }),
   },
   {
-    name: '/translate — two-way, running with a turn from each side',
+    name: '/translate/two-way — running with a turn from each side',
     filled: 0,
     surfaces: 0,
     setup() {
@@ -686,10 +728,10 @@ const SCREENS: ScreenState[] = [
       });
     },
     shows: '[data-turn-language="en"]',
-    render: translate(),
+    render: twoWay(),
   },
   {
-    name: '/translate — two-way asked, running one way',
+    name: '/translate/two-way — asked both ways, running one way',
     filled: 0,
     surfaces: 0,
     setup() {
@@ -710,7 +752,7 @@ const SCREENS: ScreenState[] = [
       });
     },
     shows: '[data-two-way-unavailable]',
-    render: translate(),
+    render: twoWay(),
   },
   {
     // One, where `— running` spends none. The microphone is off and the screen
@@ -719,7 +761,7 @@ const SCREENS: ScreenState[] = [
     //
     // Still zero surfaces: paused is a RUNNING state, so nothing that appears
     // after a conversation ends is on screen yet.
-    name: '/translate — paused',
+    name: '/translate/one-way — paused',
     filled: 1,
     surfaces: 0,
     setup() {
@@ -737,7 +779,7 @@ const SCREENS: ScreenState[] = [
     // Zero, like `— running`. The conversation is ending on its own and the one
     // control left is End, which is `live` rather than the accent. There is
     // nothing here the reader has to do.
-    name: '/translate — finishing',
+    name: '/translate/one-way — finishing',
     filled: 0,
     surfaces: 0,
     setup() {
@@ -752,7 +794,7 @@ const SCREENS: ScreenState[] = [
     render: translate(),
   },
   {
-    name: '/translate — ended, turns stored',
+    name: '/translate/one-way — ended, turns stored',
     filled: 1,
     surfaces: 1,
     setup() {
@@ -772,7 +814,7 @@ const SCREENS: ScreenState[] = [
     // The alert carries no elevation token, and its Retry is `outline`, so the
     // counts are identical to the row above; what changes is that this row
     // actually presses the code path that draws it.
-    name: '/translate — the recording failed to upload',
+    name: '/translate/one-way — the recording failed to upload',
     filled: 1,
     surfaces: 1,
     setup() {
@@ -1065,7 +1107,7 @@ const SCREENS: ScreenState[] = [
     // `data-[state=checked]:bg-primary`, which is a state variant rather than an
     // accent; the slider paints its range on a `div`. Neither is a control that
     // reads as THE action, and `accent-count.ts` says why.
-    name: '/translate — display settings open',
+    name: '/translate/one-way — display settings open',
     filled: 1,
     surfaces: 1,
     open: 'button[aria-label="Display settings"]',
@@ -1094,7 +1136,7 @@ const SCREENS: ScreenState[] = [
     // while being named for a full one, and the counts matched either way. `shows`
     // is what keeps it honest: the voice Select exists only when there are voices
     // to list.
-    name: '/translate — voice settings open',
+    name: '/translate/one-way — voice settings open',
     filled: 1,
     surfaces: 1,
     open: 'button[aria-label^="Voice settings"]',
@@ -1120,7 +1162,7 @@ const SCREENS: ScreenState[] = [
     // Zero surfaces and one accent: `/translate` before a conversation starts
     // draws none of its own, and Start remains the screen's single accent. The
     // picker is a `Select`, which spends none.
-    name: '/translate — a context selected',
+    name: '/translate/one-way — a context selected',
     filled: 1,
     surfaces: 0,
     setup() {

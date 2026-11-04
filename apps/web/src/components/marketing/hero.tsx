@@ -45,7 +45,7 @@ export async function Hero() {
         <p className="text-prose text-body max-w-prose">{t('web.landing.heroBody')}</p>
         <div className="flex flex-wrap items-center gap-3">
           <Button asChild size="lg" className="rounded-full">
-            <Link href="/translate">{t('web.translate.startTranslating')}</Link>
+            <Link href="/translate/one-way">{t('web.translate.startTranslating')}</Link>
           </Button>
           <Button asChild variant="outline" size="lg" className="rounded-full">
             <Link href="/conference">{t('web.landing.meetingsStart')}</Link>

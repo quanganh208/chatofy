@@ -42,7 +42,7 @@ export function landingMarkdown(t: Translate, origin: string): string {
     '',
     t('web.landing.heroBody'),
     '',
-    `[${t('web.translate.startTranslating')}](${url('/translate')})`,
+    `[${t('web.translate.startTranslating')}](${url('/translate/one-way')})`,
     `[${t('web.landing.meetingsStart')}](${url('/conference')})`,
     '',
     `## ${t('web.landing.meetingsTitle')}`,
@@ -73,7 +73,7 @@ export function landingMarkdown(t: Translate, origin: string): string {
     '',
     t('web.landing.ctaBody'),
     '',
-    `[${t('web.translate.startTranslating')}](${url('/translate')})`,
+    `[${t('web.translate.startTranslating')}](${url('/translate/one-way')})`,
     '',
   ].join('\n');
 }

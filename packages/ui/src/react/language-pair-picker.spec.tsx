@@ -214,3 +214,43 @@ describe('LanguagePairPicker with a detect option', () => {
     ).toBe(true);
   });
 });
+
+describe('LanguagePairPicker with unavailable languages', () => {
+  const unavailable = { codes: ['zh'] as const, reason: 'not available two-way' };
+
+  it('lists them disabled, with the reason, on both sides', async () => {
+    render(
+      <LanguagePairPicker
+        value={{ source: 'vi', target: 'en' }}
+        onChange={vi.fn()}
+        unavailable={unavailable}
+      />,
+    );
+    for (const side of ['Source', 'Translation']) {
+      await userEvent.click(screen.getByRole('combobox', { name: side }));
+      const option = screen.getByRole('option', { name: /Chinese/ });
+      expect(option.getAttribute('aria-disabled')).toBe('true');
+      expect(option.textContent).toContain('not available two-way');
+      expect(
+        screen.getByRole('option', { name: 'English' }).getAttribute('aria-disabled'),
+      ).not.toBe('true');
+      await userEvent.keyboard('{Escape}');
+    }
+  });
+
+  it('cannot be picked', async () => {
+    const onChange = vi.fn();
+    render(
+      <LanguagePairPicker
+        value={{ source: 'vi', target: 'en' }}
+        onChange={onChange}
+        unavailable={unavailable}
+      />,
+    );
+    await userEvent.click(screen.getByRole('combobox', { name: 'Translation' }));
+    await userEvent.click(screen.getByRole('option', { name: /Chinese/ }), {
+      pointerEventsCheck: 0,
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
