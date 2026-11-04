@@ -23,8 +23,8 @@ RATE = 16000
 EDGE_S = 2.5
 #: A voice change leaves a short left piece. These widths reproduce that shape.
 SHORT_LEFT_S = (0.8, 1.4, 2.0)
-#: The client's cut is contiguous unless the gate re-opened on a later word.
-MAX_GAP_MS = 400
+#: The longest gap the client still joins into a block (`MAX_CAPTURE_GAP_MS`).
+MAX_GAP_MS = 1200
 
 
 def recognizer(lang: str, models: Path, threads: int):

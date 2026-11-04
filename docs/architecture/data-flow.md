@@ -261,6 +261,18 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      its shorter self without displacing another block, and the superseded
      request is answered empty; an identical re-ask merges with the waiting copy,
      since the client keys blocks by their ids.
+   - A cut can lose words: the recognizer may drop the end of a turn stopped
+     mid-sentence. Before translating, the block re-reads 2.5 s of audio each
+     side of every cut (en and vi) and inserts the words the clip heard between
+     the two turns' edges (`session/seam-word-repair.ts`). It never replaces a
+     word, and it adds nothing unless the clip agrees with both turns up to its
+     own outer edges. Those words reach the translation and `display`, not
+     `sourceText` or the speech already played. Cuts are read one at a time and
+     once each, for at most 1 s per block; a failed or late read leaves the seam
+     unrepaired. English has no restorer, so a repaired block sends a `display`
+     of its own. A Vietnamese block whose restore fails keeps its punctuated
+     pieces, so the words are then in the translation only. Each segment keeps
+     5 s of audio for this, bounded by the 24 segments kept per connection.
    - Answers are kept per block shape (`blockKey`). `groupTranslation` uses the
      longest answered shape that is a prefix of the group, so a block that
      shrinks when a speaker is named reads the answer for its new shape, and

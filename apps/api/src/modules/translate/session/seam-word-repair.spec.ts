@@ -7,7 +7,7 @@ describe('wordsLostAtSeam', () => {
       wordsLostAtSeam(
         'Exactly.',
         'crucial because it gets your brain thinking flexibly in English.',
-        'Exactly, and this is crucial because',
+        'Exactly, and this is crucial because it gets',
       ),
     ).toBe('and this is');
   });
@@ -17,7 +17,7 @@ describe('wordsLostAtSeam', () => {
       wordsLostAtSeam(
         'The problem is not knowledge.',
         'Activation.',
-        'is not knowledge. Its activation.',
+        'The problem is not knowledge. Its activation.',
       ),
     ).toBe('Its');
   });
@@ -76,6 +76,52 @@ describe('wordsLostAtSeam', () => {
   it('does not take the right edge from before the left edge', () => {
     expect(
       wordsLostAtSeam('three four', 'one two', 'one two three four'),
+    ).toBeNull();
+  });
+
+  // Each of these reached a turn's words through a two-word match elsewhere in
+  // the clip, which is what a clip reading one word differently looks like.
+  it.each([
+    [
+      'a right edge that matches only later in the clip',
+      'so we were at',
+      'of the people of the nation',
+      'so we were at of a people of the nation',
+    ],
+    [
+      'a left edge repeated earlier in the clip',
+      'p q you know r s you know',
+      'and then we left today',
+      'you know r t you know and then we left today',
+    ],
+    [
+      'a gap that repeats the left turn',
+      'i went to the shop and to the',
+      'market and bought it',
+      'to the shop and two the market and bought it',
+    ],
+    ['a stutter of the right edge', 'one two', 'yes', 'one two yes yes yes'],
+  ])('adds nothing for %s', (_name, left, right, clip) => {
+    expect(wordsLostAtSeam(left, right, clip)).toBeNull();
+  });
+
+  it('forgives a fragment at the outer edges of the clip', () => {
+    expect(
+      wordsLostAtSeam(
+        'so we went home',
+        'for the whole night',
+        'ome we went home late for the whole ni',
+      ),
+    ).toBe('late');
+  });
+
+  it('adds nothing when the clip fits two different gaps', () => {
+    expect(wordsLostAtSeam('a b', 'c d', 'a b x a b y c d')).toBeNull();
+  });
+
+  it('adds nothing when the gap only repeats a word of the left edge', () => {
+    expect(
+      wordsLostAtSeam('one two', 'four five', 'one two two four five'),
     ).toBeNull();
   });
 

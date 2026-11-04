@@ -660,7 +660,7 @@ describe('a block typeset as one text', () => {
   describe('with words recovered at the cut', () => {
     const clause = {
       transcripts: ['Exactly.', 'crucial because it matters.'],
-      seamClip: 'Exactly, and this is crucial because it',
+      seamClip: 'Exactly, and this is crucial because it matters.',
       translation: 'Chính xác, điều này rất quan trọng',
     };
     const english = { source: 'en', target: 'vi' } as const;
@@ -713,12 +713,26 @@ describe('a block typeset as one text', () => {
       ).not.toHaveProperty('display');
     });
 
-    it('keeps them when the block restore changed the words', async () => {
+    it('keeps the punctuated pieces when a restored language lost its restore', async () => {
       const socket = await runBlock(
         makeService('', undefined, {
           transcripts: ['thưa quý vị', 'theo ủy ban'],
           seamClip: 'thưa quý vị xin mời theo ủy ban',
           blockRestored: () => 'Một câu khác hẳn.',
+        }),
+      );
+
+      expect(
+        socket.ofType('server.block.translated').at(-1),
+      ).not.toHaveProperty('display');
+    });
+
+    it('sends a restore that changed nothing, because the pieces lack the words', async () => {
+      const socket = await runBlock(
+        makeService('', undefined, {
+          transcripts: ['thưa quý vị', 'theo ủy ban'],
+          seamClip: 'thưa quý vị xin mời theo ủy ban',
+          blockRestored: (text) => text,
         }),
       );
 

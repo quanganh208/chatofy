@@ -159,7 +159,7 @@ describe('FinishedSegments recovered words', () => {
   });
 });
 
-describe('FinishedSegments seams', () => {
+describe('FinishedSegments unread seams', () => {
   const edges = (sampleRate: number, head: number[], tail: number[]) => ({
     sampleRate,
     head: Buffer.from(head),
@@ -177,14 +177,32 @@ describe('FinishedSegments seams', () => {
       seamEdges: edges(16000, [3], [4]),
     });
 
-    expect(finished.seams(socket, ['a', 'b'])).toEqual([
+    expect(finished.unreadSeams(socket, ['a', 'b'])).toEqual([
       expect.objectContaining({
-        index: 0,
+        leftId: 'a',
+        rightId: 'b',
         left: 'một',
         right: 'hai',
         clip: Buffer.from([2, 3]),
       }),
     ]);
+  });
+
+  it('skips a cut once a read answered, and finds its words by place', () => {
+    const finished = new FinishedSegments();
+    for (const id of ['z', 'a', 'b']) {
+      finished.record(socket, id, {
+        ...segment('một'),
+        seamEdges: edges(16000, [1], [2]),
+      });
+    }
+    finished.rememberSeamRead(socket, { leftId: 'a', rightId: 'b' }, 'xin mời');
+
+    expect(finished.unreadSeams(socket, ['a', 'b'])).toEqual([]);
+    expect(finished.recoveredWords(socket, ['z', 'a', 'b'])).toEqual(
+      new Map([[1, 'xin mời']]),
+    );
+    expect(finished.recoveredWords(socket, ['a', 'z'])).toEqual(new Map());
   });
 
   it('skips a seam missing audio or mixing sample rates', () => {
@@ -199,6 +217,6 @@ describe('FinishedSegments seams', () => {
       seamEdges: edges(48000, [5], [6]),
     });
 
-    expect(finished.seams(socket, ['a', 'b', 'c'])).toEqual([]);
+    expect(finished.unreadSeams(socket, ['a', 'b', 'c'])).toEqual([]);
   });
 });

@@ -91,6 +91,7 @@ import {
 } from '../session/turn-language-decision';
 import {
   FinishedSegments,
+  SEAM_REPAIR_LANGUAGES,
   type BlockSeam,
   type SegmentBlock,
 } from '../session/finished-segments';
@@ -2030,8 +2031,7 @@ export class TranslationSessionService implements OnModuleDestroy {
    *
    * Only a block the restorer answered is worth a display: each piece already
    * carries its own marks and numerals, so a block typeset without the restore
-   * would be the ITN alone — fewer marks than the pieces it replaces. The one
-   * exception is a block with recovered words, which the pieces do not have.
+   * would be the ITN alone — fewer marks than the pieces it replaces.
    */
   private typesetBlock(
     block: SegmentBlock,
@@ -2045,26 +2045,36 @@ export class TranslationSessionService implements OnModuleDestroy {
       );
       return this.unrestoredBlockDisplay(block);
     }
-    return typesetTranscript(
-      block.sourceText,
-      adoptTranslatedCasing(restored, translations),
-      block.recognition,
-      this.logger,
-      // The pieces' own accepted spellings and repairs, so a block typeset as
-      // one keeps what each piece already showed rather than reverting it.
-      block.respellings,
-      block.corrections,
+    const adopted = adoptTranslatedCasing(restored, translations);
+    return (
+      typesetTranscript(
+        block.sourceText,
+        adopted,
+        block.recognition,
+        this.logger,
+        // The pieces' own accepted spellings and repairs, so a block typeset as
+        // one keeps what each piece already showed rather than reverting it.
+        block.respellings,
+        block.corrections,
+        // Undefined means "nothing changed", which is only true of the
+        // recognizer's words: the pieces do not have recovered ones.
+      ) ?? (block.seamRepaired ? adopted : undefined)
     );
   }
 
   /**
-   * The display of a block no restore answered: none, unless a seam repair
-   * added words. Then the display is the only place they can reach the screen,
-   * so it is sent even when typesetting changed nothing else, and that is
-   * always the case for English, which has no restorer.
+   * The display of a block no restore answered: none, except for words a seam
+   * repair added to a language that has no restorer. English pieces already
+   * carry the recognizer's marks, so nothing is lost by joining them.
+   *
+   * Not for a restored language whose restore failed: its pieces have marks and
+   * this text has none, so a few recovered words would cost the whole block its
+   * punctuation. The words are still in its translation.
    */
   private unrestoredBlockDisplay(block: SegmentBlock): string | undefined {
-    if (!block.seamRepaired || !block.repairDisplay) return undefined;
+    if (!block.seamRepaired || !block.repairDisplay || block.restore) {
+      return undefined;
+    }
     return (
       typesetTranscript(
         block.sourceText,
@@ -2087,7 +2097,6 @@ export class TranslationSessionService implements OnModuleDestroy {
       }),
       mimeType: 'audio/wav',
       language: seam.recognition,
-      ...(seam.hints ? { hints: seam.hints } : {}),
     });
     return text;
   }
@@ -2115,7 +2124,9 @@ export class TranslationSessionService implements OnModuleDestroy {
       undefined,
       this.context.learnedTerms(socket),
     );
-    const seamEdges = session.buffered?.seamEdges(span?.startMs, span?.endMs);
+    const seamEdges = SEAM_REPAIR_LANGUAGES.has(session.languages.recognition)
+      ? session.buffered?.seamEdges(span?.startMs, span?.endMs)
+      : undefined;
     this.finished.record(socket, segmentId, {
       ...(seamEdges ? { seamEdges } : {}),
       ...(session.repairDisplay ? { repairDisplay: true } : {}),

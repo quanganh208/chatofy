@@ -24,7 +24,7 @@ Never decode against the prod sidecar on port 8012. A sweep there killed it on 2
 
 ## Results, 2026-11-04
 
-7 English recordings (2,614 words, 82 forced cuts) and 6 Vietnamese (2,640 words, 66), Parakeet and Zipformer 30M, against Scribe.
+7 English recordings (2,614 words, 88 forced cuts) and 6 Vietnamese (2,640 words, 68), Parakeet and Zipformer 30M, against Scribe.
 
 | Arm                                 | en WER | vi WER | Note                                   |
 | ----------------------------------- | ------ | ------ | -------------------------------------- |
@@ -36,4 +36,8 @@ Never decode against the prod sidecar on port 8012. A sweep there killed it on 2
 | Whole-block re-decode               | 4.63%  |        | worse, and memory-bound on the sidecar |
 | Pump opens the next turn at the cut | 3.94%  |        | 3 fixed, 2 new                         |
 
-The short-left arm reproduces a piece left by a voice change, at 0.8, 1.4 and 2 s. All 16 English insertions were words said at that seam. On Vietnamese, one of 3 dropped a word ("XIN MỜI VÂNG" for "XIN MỜI ANH VÂNG") but added none that was not said.
+The other arms were measured on a scratch copy of the first version, over the 82 and 66 cuts with a gap under 400 ms.
+
+The short-left arm reproduces a piece left by a voice change, at 0.8, 1.4 and 2 s. Of 17 English insertions, one was a mishearing, "see" for "sleep", on a 0.8 s piece. On Vietnamese, one of 3 dropped a word ("XIN MỜI VÂNG" for "XIN MỜI ANH VÂNG") but added none that was not said.
+
+`check` marks an insertion Scribe did not say more often than the turns kept it. A word as common as "the" can trip that on a right insertion, so read those by hand. Clean clips cannot exercise the anchors: the spec holds clips that disagree with a turn.

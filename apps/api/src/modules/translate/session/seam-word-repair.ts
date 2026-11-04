@@ -11,7 +11,8 @@ import { wordsOf } from '@chatofy/types';
  * turns' own edges. It never replaces a word either turn kept. Replacing was
  * measured and rejected: it fixed more English errors, but it took Vietnamese
  * from 5.98% to 6.89% WER by deleting a phrase the clip decoded differently.
- * Inserting added 6 runs of words across 148 seams, all of them right.
+ * The clip also has to agree with both turns up to its own outer edges, so a
+ * clip that reads a turn differently adds nothing.
  */
 
 /** How much of each turn is read around a cut. Measured against 1.5 s and 4 s. */
@@ -20,11 +21,17 @@ export const SEAM_EDGE_SECONDS = 2.5;
 /** How many words a repair may add. A longer gap means the clip disagrees. */
 export const MAX_INSERTED_WORDS = 6;
 
-/** The longest edge compared against the clip, in words. */
-const MAX_ANCHOR_WORDS = 5;
+/**
+ * The fewest words a side must agree on, or all of them for a shorter side.
+ * Two is not enough: "of the" fits a later "of the" with one word to forgive.
+ */
+const MIN_AGREEING_WORDS = 3;
 
-/** The shortest edge believed anywhere in the clip, in words. */
-const MIN_ANCHOR_WORDS = 2;
+/**
+ * Words at each end of the clip that may disagree with the turn. The clip is
+ * cut mid-speech there, so its outermost word is often a fragment.
+ */
+const OUTER_WORDS = 1;
 
 interface Word {
   spelled: string;
@@ -39,45 +46,72 @@ function wordsIn(text: string): Word[] {
     .filter((word) => word.compared);
 }
 
-function matchesAt(clip: Word[], at: number, edge: Word[]): boolean {
-  return edge.every(
-    (word, index) => clip[at + index]?.compared === word.compared,
-  );
-}
-
 /**
- * Where the clip stops repeating `left`, or null when it never does.
+ * Whether the clip, read backwards from `at`, is the end of `left`.
+ *
+ * It has to agree all the way to the clip's outer edge, not just on a word or
+ * two: a two-word match alone also fits a common phrase said seconds earlier,
+ * and a clip that reads the turn differently is one this repair must not trust.
  *
  * A side that is a single word has nothing longer to offer, and a voice change
  * can leave exactly that ("Exactly." on its own). One word proves little, so it
  * counts only as the clip's very first word, where that side's audio starts.
  */
-function afterLeft(clip: Word[], left: Word[]): number | null {
-  if (left.length === 1) return matchesAt(clip, 0, left) ? 1 : null;
-  const longest = Math.min(MAX_ANCHOR_WORDS, left.length);
-  for (let size = longest; size >= MIN_ANCHOR_WORDS; size -= 1) {
-    const edge = left.slice(-size);
-    for (let at = 0; at + size <= clip.length; at += 1) {
-      if (matchesAt(clip, at, edge)) return at + size;
-    }
+function endsLeft(clip: Word[], left: Word[], at: number): boolean {
+  if (left.length === 1) {
+    return at === 1 && clip[0]?.compared === left[0]?.compared;
   }
-  return null;
+  let agreed = 0;
+  while (
+    agreed < at &&
+    agreed < left.length &&
+    clip[at - 1 - agreed]?.compared === left[left.length - 1 - agreed]?.compared
+  ) {
+    agreed += 1;
+  }
+  return (
+    agreed >= Math.min(MIN_AGREEING_WORDS, left.length) &&
+    at - agreed <= OUTER_WORDS
+  );
 }
 
-/** Where the clip starts repeating `right` after `from`, or null. */
-function beforeRight(clip: Word[], right: Word[], from: number): number | null {
+/** Whether the clip, read forwards from `at`, is the start of `right`. */
+function startsRight(clip: Word[], right: Word[], at: number): boolean {
   if (right.length === 1) {
-    const last = clip.length - 1;
-    return last >= from && matchesAt(clip, last, right) ? last : null;
+    return at === clip.length - 1 && clip[at]?.compared === right[0]?.compared;
   }
-  const longest = Math.min(MAX_ANCHOR_WORDS, right.length);
-  for (let size = longest; size >= MIN_ANCHOR_WORDS; size -= 1) {
-    const edge = right.slice(0, size);
-    for (let at = from; at + size <= clip.length; at += 1) {
-      if (matchesAt(clip, at, edge)) return at;
-    }
+  let agreed = 0;
+  while (
+    at + agreed < clip.length &&
+    agreed < right.length &&
+    clip[at + agreed]?.compared === right[agreed]?.compared
+  ) {
+    agreed += 1;
   }
-  return null;
+  return (
+    agreed >= Math.min(MIN_AGREEING_WORDS, right.length) &&
+    clip.length - at - agreed <= OUTER_WORDS
+  );
+}
+
+/** Each pair of neighbouring words, as one string. */
+function pairsIn(words: Word[]): string[] {
+  return words
+    .slice(1)
+    .map((word, index) => `${words[index]!.compared} ${word.compared}`);
+}
+
+/**
+ * Whether a gap only says again what a turn kept, which is a clip misreading
+ * the turn rather than a word the turn lost.
+ */
+function repeatsTurn(lost: Word[], left: Word[], right: Word[]): boolean {
+  const kept = new Set([...pairsIn(left), ...pairsIn(right)]);
+  return (
+    pairsIn(lost).some((pair) => kept.has(pair)) ||
+    lost[0]?.compared === left[left.length - 1]?.compared ||
+    lost[lost.length - 1]?.compared === right[0]?.compared
+  );
 }
 
 /**
@@ -85,8 +119,9 @@ function beforeRight(clip: Word[], right: Word[], from: number): number | null {
  * spelled as the clip spelled them, or null when there is nothing to add.
  *
  * `clip` is the recognizer's reading of the audio around the cut. Null covers
- * every case that is not a clean insertion: an edge the clip does not repeat,
- * no gap between the edges, or a gap too long to be a dropped tail.
+ * every case that is not one clean insertion: a clip that disagrees with a
+ * side, that reads both sides with no gap, that fits two different gaps, or
+ * whose gap is too long or repeats a turn.
  */
 export function wordsLostAtSeam(
   left: string,
@@ -98,12 +133,16 @@ export function wordsLostAtSeam(
   const clipWords = wordsIn(clip);
   if (!leftWords.length || !rightWords.length) return null;
 
-  const start = afterLeft(clipWords, leftWords);
-  if (start === null) return null;
-  const end = beforeRight(clipWords, rightWords, start);
-  if (end === null) return null;
-
-  const lost = clipWords.slice(start, end);
-  if (lost.length === 0 || lost.length > MAX_INSERTED_WORDS) return null;
-  return lost.map((word) => word.spelled).join(' ');
+  let gap: Word[] | null = null;
+  for (let start = 0; start <= clipWords.length; start += 1) {
+    if (!endsLeft(clipWords, leftWords, start)) continue;
+    const last = Math.min(start + MAX_INSERTED_WORDS, clipWords.length);
+    for (let end = start; end <= last; end += 1) {
+      if (!startsRight(clipWords, rightWords, end)) continue;
+      if (end === start || gap) return null;
+      gap = clipWords.slice(start, end);
+    }
+  }
+  if (!gap || repeatsTurn(gap, leftWords, rightWords)) return null;
+  return gap.map((word) => word.spelled).join(' ');
 }

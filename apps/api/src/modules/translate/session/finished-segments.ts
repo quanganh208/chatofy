@@ -27,7 +27,7 @@ import type { SeamEdges } from './turn-audio';
  * plus the turns that finished around it while it was being asked for.
  *
  * Also what bounds the audio kept for seam repair: 5 s per segment, about 4 MB
- * per connection at 16 kHz.
+ * per connection at 16 kHz and 11.5 MB at the 48 kHz a client may declare.
  */
 const REMEMBERED_SEGMENTS = 24;
 
@@ -36,7 +36,10 @@ const REMEMBERED_SEGMENTS = 24;
  * Chinese is not one: Paraformer writes no spaces, so a clip has no words to
  * compare at the turns' edges.
  */
-const SEAM_REPAIR_LANGUAGES: ReadonlySet<LanguageCode> = new Set(['en', 'vi']);
+export const SEAM_REPAIR_LANGUAGES: ReadonlySet<LanguageCode> = new Set([
+  'en',
+  'vi',
+]);
 
 export interface FinishedSegment {
   sourceText: string;
@@ -55,16 +58,20 @@ export interface FinishedSegment {
   seamEdges?: SeamEdges;
   /** Whether the client asked for a display, for a language with no restore too. */
   repairDisplay?: boolean;
+  /**
+   * What re-reading the cut after this segment found, once it answered. Kept so
+   * a block that grows reads each cut once, and a repair cannot come and go.
+   */
+  seamRead?: { rightId: string; lost: string | null };
 }
 
 /** The cut between two neighbouring segments of a block. */
 export interface BlockSeam {
-  /** The left segment's place in the block. */
-  index: number;
+  leftId: string;
+  rightId: string;
   left: string;
   right: string;
   recognition: LanguageCode;
-  hints?: TranslationHints;
   sampleRate: number;
   /** PCM16 of the left segment's end, then of the right segment's start. */
   clip: Buffer;
@@ -210,29 +217,62 @@ export class FinishedSegments {
   }
 
   /**
-   * The cuts between the named segments that can be re-read: both sides kept
-   * their audio at one sample rate, in a language the repair was measured on.
+   * The cuts between the named segments still to be read: both sides kept their
+   * audio at one sample rate, in a language the repair was measured on, and no
+   * read has answered yet.
    */
-  seams(socket: StreamSocket, segmentIds: readonly string[]): BlockSeam[] {
+  unreadSeams(
+    socket: StreamSocket,
+    segmentIds: readonly string[],
+  ): BlockSeam[] {
     const segments = this.bySocket.get(socket);
     const seams: BlockSeam[] = [];
     for (let index = 0; index + 1 < segmentIds.length; index += 1) {
-      const left = segments?.get(segmentIds[index]!);
-      const right = segments?.get(segmentIds[index + 1]!);
+      const leftId = segmentIds[index]!;
+      const rightId = segmentIds[index + 1]!;
+      const left = segments?.get(leftId);
+      const right = segments?.get(rightId);
       if (!left?.seamEdges || !right?.seamEdges) continue;
       if (left.seamEdges.sampleRate !== right.seamEdges.sampleRate) continue;
       if (!SEAM_REPAIR_LANGUAGES.has(left.recognition)) continue;
+      if (left.seamRead?.rightId === rightId) continue;
       seams.push({
-        index,
+        leftId,
+        rightId,
         left: left.sourceText,
         right: right.sourceText,
         recognition: left.recognition,
-        ...(left.hints ? { hints: left.hints } : {}),
         sampleRate: left.seamEdges.sampleRate,
         clip: Buffer.concat([left.seamEdges.tail, right.seamEdges.head]),
       });
     }
     return seams;
+  }
+
+  /** Keep what a read of the cut after `leftId` found, null being nothing. */
+  rememberSeamRead(
+    socket: StreamSocket,
+    { leftId, rightId }: Pick<BlockSeam, 'leftId' | 'rightId'>,
+    lost: string | null,
+  ): void {
+    const left = this.bySocket.get(socket)?.get(leftId);
+    if (left) left.seamRead = { rightId, lost };
+  }
+
+  /** The words recovered at the named segments' cuts, by the left one's place. */
+  recoveredWords(
+    socket: StreamSocket,
+    segmentIds: readonly string[],
+  ): Map<number, string> {
+    const segments = this.bySocket.get(socket);
+    const recovered = new Map<number, string>();
+    segmentIds.slice(0, -1).forEach((id, index) => {
+      const read = segments?.get(id)?.seamRead;
+      if (read?.lost && read.rightId === segmentIds[index + 1]) {
+        recovered.set(index, read.lost);
+      }
+    });
+    return recovered;
   }
 
   /**

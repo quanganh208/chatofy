@@ -83,10 +83,18 @@ export interface BlockDisplay {
   ): string | undefined;
 }
 
+/**
+ * How long a block waits on its seams before translating without them.
+ *
+ * A block's answer has about 3 s of grace at the end of a run, and the
+ * translation itself takes about 1 s of it.
+ */
+export const SEAM_READ_BUDGET_MS = 1_000;
+
 /** Reads the audio around a cut. May reject; the seam then stays as it is. */
 export type SeamReader = (seam: BlockSeam) => Promise<string>;
 
-const NO_SEAM_READER: SeamReader = async () => '';
+const NO_SEAM_READER: SeamReader = () => Promise.resolve('');
 
 const NO_DISPLAY: BlockDisplay = {
   restore: async () => undefined,
@@ -208,29 +216,41 @@ export class BlockRetranslator {
   }
 
   /**
-   * The words each of a block's cuts lost, by the left segment's place.
+   * Read a block's unread cuts, one at a time, for at most
+   * {@link SEAM_READ_BUDGET_MS}.
    *
-   * After the budget check, so a refused block costs no decode. Never rejects:
-   * a sidecar that is busy or down leaves the block as it would have been.
+   * One at a time because the sidecar refuses rather than queues, and a live
+   * turn waiting behind these reads is the one that would fail. Each cut is read
+   * once for good, so a client cannot ask for more reads than it sent cuts.
+   * Never rejects: a sidecar that is busy or down leaves the seam unrepaired, and
+   * a read that answers past the budget still serves the block when it grows.
    */
-  private async recoverSeams(
+  private async readSeams(
+    socket: StreamSocket,
     seams: readonly BlockSeam[],
-  ): Promise<Map<number, string>> {
-    const read = await Promise.allSettled(
-      seams.map((seam) => this.readSeam(seam)),
-    );
-    const recovered = new Map<number, string>();
-    read.forEach((result, at) => {
-      if (result.status !== 'fulfilled') return;
-      const seam = seams[at]!;
-      const lost = wordsLostAtSeam(seam.left, seam.right, result.value);
-      if (lost) recovered.set(seam.index, lost);
+  ): Promise<void> {
+    let waiting = true;
+    const reading = (async () => {
+      for (const seam of seams) {
+        if (!waiting || this.isGone(socket)) return;
+        try {
+          const clip = await this.readSeam(seam);
+          const lost = wordsLostAtSeam(seam.left, seam.right, clip);
+          this.finished.rememberSeamRead(socket, seam, lost);
+        } catch (err) {
+          this.logger.debug(
+            `seam read failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+    })();
+    let timer: NodeJS.Timeout | undefined;
+    const expired = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, SEAM_READ_BUDGET_MS);
     });
-    // Counts only: a transcript has no place in a log line.
-    this.logger.log(
-      `seam repair: seams=${seams.length} inserted=${recovered.size}`,
-    );
-    return recovered;
+    await Promise.race([reading, expired]);
+    clearTimeout(timer);
+    waiting = false;
   }
 
   private async translateBlock(
@@ -253,10 +273,22 @@ export class BlockRetranslator {
     // Before everything that reads the block's text, so the restore, the
     // translation, the polish and the display all carry the same words. The
     // segments can age out during the read; the block then goes unrepaired.
-    const seams = this.finished.seams(socket, segmentIds);
-    const recovered = seams.length ? await this.recoverSeams(seams) : null;
+    const seams = this.finished.unreadSeams(socket, segmentIds);
+    if (seams.length > 0) {
+      await this.readSeams(socket, seams);
+      // Nothing can be answered now, so spend no model call on it.
+      if (this.isGone(socket)) return;
+    }
+    const recovered = this.finished.recoveredWords(socket, segmentIds);
+    if (seams.length > 0) {
+      // Counts only: a transcript has no place in a log line.
+      this.logger.log(
+        `seam repair: read=${seams.length} inserted=${recovered.size}`,
+      );
+    }
     const block =
-      (recovered?.size && this.finished.block(socket, segmentIds, recovered)) ||
+      (recovered.size > 0 &&
+        this.finished.block(socket, segmentIds, recovered)) ||
       asked;
     // Beside the translation, on the same budget: a restore is local and a few
     // hundred milliseconds, and the reader gets both in the one answer.

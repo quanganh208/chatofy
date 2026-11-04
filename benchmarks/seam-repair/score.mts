@@ -60,13 +60,23 @@ function distance(a: string[], b: string[]): number {
   return row[b.length]!;
 }
 
-/** Whether Scribe said these words, in a row, around the cut. */
-function heardNearby(words: ScribeWord[], cutMs: number, inserted: string): boolean {
+/**
+ * Whether Scribe said these words, in a row, more often around the cut than the
+ * two turns already do. Said once and kept once is a duplicate, not a recovery.
+ */
+function heardNearby(
+  words: ScribeWord[],
+  cutMs: number,
+  inserted: string,
+  kept: string,
+): boolean {
   const near = words
     .filter((word) => Math.abs(word.start - cutMs / 1000) <= SEARCH_S)
     .flatMap((word) => norm(word.text));
   const want = norm(inserted);
-  return near.some((_, at) => want.every((word, k) => near[at + k] === word));
+  const count = (text: string[]) =>
+    text.filter((_, at) => want.every((word, k) => text[at + k] === word)).length;
+  return count(near) > count(norm(kept).slice(-40));
 }
 
 const rows = readFileSync(join(dir!, `seams-${lang}.jsonl`), 'utf8')
@@ -98,8 +108,8 @@ for (const { conv, texts, seams: found } of rows) {
     const lost = wordsLostAtSeam(texts[seam.turn]!, texts[seam.turn + 1]!, seam.clip);
     if (lost) {
       repaired[seam.turn + 1] = `${lost} ${repaired[seam.turn + 1]}`;
-      const ok = heardNearby(words, seam.cutMs, lost);
-      inserted.push(`${ok ? 'ok   ' : 'WRONG'} ${conv} ${Math.round(seam.cutMs)}ms: ${lost}`);
+      const ok = heardNearby(words, seam.cutMs, lost, `${texts[seam.turn]} ${texts[seam.turn + 1]}`);
+      inserted.push(`${ok ? 'ok   ' : 'check'} ${conv} ${Math.round(seam.cutMs)}ms: ${lost}`);
     }
     for (const short of seam.shorts) {
       const stats = shortStats.get(short.width) ?? { tried: 0, added: 0, wrong: [] };
@@ -109,7 +119,7 @@ for (const { conv, texts, seams: found } of rows) {
         stats.added += 1;
         const oneWord = norm(short.left).length === 1 ? ' [one-word left]' : '';
         shortInserted.push(`${short.width}s${oneWord} "${short.left}" + ${piece}`);
-        if (!heardNearby(words, seam.cutMs, piece)) {
+        if (!heardNearby(words, seam.cutMs, piece, `${short.left} ${texts[seam.turn + 1]}`)) {
           stats.wrong.push(`${conv} ${Math.round(seam.cutMs)}ms left="${short.left}": ${piece}`);
         }
       }
