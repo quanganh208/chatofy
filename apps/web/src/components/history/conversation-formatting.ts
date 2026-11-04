@@ -1,3 +1,4 @@
+import type { Translate } from '@chatofy/i18n';
 import type { ConversationSummary } from '@chatofy/types';
 
 /** One run of consecutive conversations that share a calendar day. */
@@ -74,6 +75,18 @@ export function groupByDay(conversations: ConversationSummary[], locale: string)
 /** The time of day a conversation started, in the reader's locale. */
 export function formatTime(iso: string, locale: string): string {
   return new Date(iso).toLocaleTimeString(locale, { timeStyle: 'short' });
+}
+
+/** "09:12–09:40": when the conversation started and ended, in the reader's locale. */
+export function formatTimeRange(
+  conversation: Pick<ConversationSummary, 'startedAt' | 'endedAt'>,
+  locale: string,
+  t: Translate,
+): string {
+  return t('web.history.timeRange', {
+    start: formatTime(conversation.startedAt, locale),
+    end: formatTime(conversation.endedAt, locale),
+  });
 }
 
 /** Local calendar day, not UTC: the heading has to match the reader's own midnight. */

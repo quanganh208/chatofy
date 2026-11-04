@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { ConversationSummary } from '@chatofy/types';
-import { activeDurationMs, durationMinutes } from './conversation-formatting';
+import { createTranslator, en } from '@chatofy/i18n';
+import {
+  activeDurationMs,
+  durationMinutes,
+  formatTime,
+  formatTimeRange,
+} from './conversation-formatting';
 
 /**
  * The rounding the history row prints, pinned because the docblock above it was
@@ -20,6 +26,11 @@ const conversation = (startedAt: string, endedAt: string, pausedMs = 0): Convers
   preview: 'xin chào',
   hasMinutes: false,
   pausedMs,
+  title: null,
+  kind: 'one-way',
+  hasRecording: false,
+  speakerCount: 0,
+  speakers: [],
 });
 
 describe('durationMinutes', () => {
@@ -65,5 +76,17 @@ describe('activeDurationMs', () => {
         conversation('2026-09-03T10:00:00.000Z', '2026-09-03T10:01:00.000Z', 120_000),
       ),
     ).toBe(0);
+  });
+});
+
+describe('formatTimeRange', () => {
+  it("joins the start and end times in the reader's locale", () => {
+    const conversation = {
+      startedAt: '2026-11-04T02:12:00.000Z',
+      endedAt: '2026-11-04T02:40:00.000Z',
+    };
+    expect(formatTimeRange(conversation, 'en', createTranslator(en))).toBe(
+      `${formatTime(conversation.startedAt, 'en')}–${formatTime(conversation.endedAt, 'en')}`,
+    );
   });
 });

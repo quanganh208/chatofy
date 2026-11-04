@@ -37,8 +37,8 @@ export const en = {
 
   // ---- common.languageName: a registry language's name in THIS locale ----
   //
-  // Keyed by code rather than by pair, unlike `web.history.languagePair*`
-  // below: a history row or a glossary column names one language at a time, and
+  // Keyed by code rather than by pair: a history row or a glossary column names
+  // one language at a time, and
   // keying by code is what makes adding a language a data change here rather
   // than a new pair of keys. Distinct from `common.language.*`, which names the
   // INTERFACE locale and reads identically regardless of which two languages a
@@ -555,17 +555,23 @@ export const en = {
   'web.history.turnCount': '{count} lines',
   'web.history.turnCountOne': '1 line',
   'web.history.duration': '{minutes} min',
-  // `languagePair` is the ACCESSIBLE name; `languagePairShort` is what is drawn on a
-  // row. "Vietnamese → English" is 21 characters printed once per row, which at
-  // eight rows is the loudest thing on a screen whose subject is the previews.
-  // Both take the language names as `{from}`/`{to}` — see `common.languageName.*`
-  // and `web.languageShort.*` above — rather than naming a pair, which is
-  // what lets a third language reuse the same two templates.
-  'web.history.languagePair': '{from} → {to}',
-  'web.history.languagePairShort': '{from} → {to}',
   // Stands in for the source of a conversation whose turns were each recognised.
   'web.history.autoDetect': 'Auto-detect',
   'web.history.minutesReady': 'Minutes',
+  // How a conversation ran, as its history row names it: the kind word, then
+  // the languages in full with a direction icon between them.
+  'web.history.kindOneWay': 'One-way',
+  'web.history.kindTwoWay': 'Two-way',
+  // Spoken in place of the direction icon, which screen readers skip.
+  'web.history.pairToSpoken': 'to',
+  'web.history.pairAndSpoken': 'and',
+  'web.history.timeRange': '{start}–{end}',
+  'web.history.speakerCount': '{count} speakers',
+  'web.history.speakerCountOne': '1 speaker',
+  'web.history.speakersNamed': '{count} speakers: {names}',
+  'web.history.speakersNamedOne': '1 speaker: {names}',
+  'web.history.recording': 'Recording',
+  'web.history.untitled': 'Untitled conversation',
   'web.history.cancel': 'Cancel',
   'web.history.delete': 'Delete',
   'web.history.deleteConfirm': 'Delete this conversation and its minutes? This cannot be undone.',

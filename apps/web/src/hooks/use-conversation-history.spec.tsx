@@ -29,6 +29,11 @@ const summary = (id: string): ConversationSummary => ({
   preview: id,
   hasMinutes: false,
   pausedMs: 0,
+  title: null,
+  kind: 'one-way',
+  hasRecording: false,
+  speakerCount: 0,
+  speakers: [],
 });
 
 const ids = (): string[] => latest.conversations.map((c) => c.conversationId);

@@ -13,10 +13,9 @@ import { deleteConversation, getConversation } from '@/clients/api-client';
 import { useConversationPlayer } from '@/hooks/use-conversation-player';
 import { useMinutes } from '@/hooks/use-minutes';
 import { useLocale, useTranslate } from '@/i18n/provider';
-import { activeDurationMs, durationMinutes, formatTime } from './conversation-formatting';
+import { activeDurationMs } from './conversation-formatting';
 import { formatOffset } from '@/lib/transcript-time';
-import { LanguagePairLabel } from './language-pair-label';
-import { turnCountLabel } from './turn-count-label';
+import { ConversationMetaLine } from './conversation-meta-line';
 
 interface ConversationDetailProps {
   conversationId: string;
@@ -130,22 +129,33 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
             <ArrowLeft aria-hidden /> {t('web.history.back')}
           </Link>
         </Button>
-        {/* The row's own facts, following the reader in: arriving from a list of
-            previews, this is what confirms WHICH conversation opened. */}
-        {conversation ? (
-          <p className="text-muted-foreground text-hint flex flex-wrap items-center gap-1.5">
-            {new Date(conversation.startedAt).toLocaleDateString(locale, { dateStyle: 'medium' })}
-            <Dot />
-            {formatTime(conversation.startedAt, locale)}
-            <Dot />
-            <LanguagePairLabel languages={conversation.languages} />
-            <Dot />
-            {turnCountLabel(t, conversation.turnCount)}
-            <Dot />
-            {t('web.history.duration', { minutes: durationMinutes(conversation) })}
-          </p>
-        ) : null}
       </div>
+
+      {/* The row's own title and facts, following the reader in: arriving from a
+          list of topics, this is what confirms WHICH conversation opened. An
+          `h2`, because the topbar holds the screen's `h1`. Text on the page
+          ground, not a card — the two cards below are this screen's whole
+          budget of elevated surfaces. */}
+      {conversation ? (
+        <header className="flex min-w-0 flex-col gap-1.5">
+          <h2
+            className={
+              conversation.title
+                ? 'text-heading font-display font-normal tracking-tight text-balance'
+                : 'text-heading font-display text-muted-foreground font-normal tracking-tight text-balance'
+            }
+          >
+            {conversation.title ?? (conversation.preview || t('web.history.untitled'))}
+          </h2>
+          <ConversationMetaLine
+            conversation={conversation}
+            showTimeRange
+            leading={new Date(conversation.startedAt).toLocaleDateString(locale, {
+              dateStyle: 'medium',
+            })}
+          />
+        </header>
+      ) : null}
 
       {loading ? (
         <LoadingRecords label={t('web.history.loading')} />
@@ -266,14 +276,6 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
         </>
       )}
     </div>
-  );
-}
-
-function Dot() {
-  return (
-    <span aria-hidden className="text-border-strong">
-      ·
-    </span>
   );
 }
 

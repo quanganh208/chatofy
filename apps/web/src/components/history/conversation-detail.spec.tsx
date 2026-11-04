@@ -42,6 +42,10 @@ const conversation: Conversation = {
   preview: 'xin chào',
   hasMinutes: false,
   pausedMs: 0,
+  title: null,
+  kind: 'one-way',
+  speakerCount: 0,
+  speakers: [],
   turns: [
     {
       position: 0,
@@ -138,7 +142,22 @@ describe('ConversationDetail', () => {
 
     expect(container.textContent).toContain('15 lines');
     expect(container.textContent).toContain('11 min');
-    expect(container.textContent).toContain('VI → EN');
+    expect(container.textContent).toContain('One-way');
+    expect(container.textContent).toContain('Vietnamese');
+    expect(container.textContent).not.toMatch(/[→⇄]/);
+  });
+
+  it('heads the page with the topic title, or the first line until there is one', async () => {
+    getConversation.mockResolvedValue({
+      conversation: { ...conversation, title: 'Hợp đồng thuê nhà' },
+    });
+    await mount();
+    expect(container.querySelector('h2')?.textContent).toBe('Hợp đồng thuê nhà');
+
+    act(() => root?.unmount());
+    getConversation.mockResolvedValue({ conversation });
+    await mount();
+    expect(container.querySelector('h2')?.textContent).toBe(conversation.preview);
   });
 
   it('does not draw a conversation that is still arriving as one that is gone', async () => {

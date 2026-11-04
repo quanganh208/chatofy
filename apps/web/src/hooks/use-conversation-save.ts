@@ -82,6 +82,17 @@ export interface ConversationSaveInput {
    * conversation closes the pause it ended in.
    */
   pausedMs: number;
+  /**
+   * Whether the conversation was started on the two-way page — captured at
+   * `start` like `languagePair`, and stored as the conversation's mode so
+   * History can say how it ran. Read through `latest`, never a save trigger.
+   */
+  twoWayRequested: boolean;
+  /**
+   * The interface language, which the API writes the conversation's title in.
+   * Never stored, and never a save trigger.
+   */
+  titleLanguage: LanguageCode;
 }
 
 /**
@@ -141,8 +152,17 @@ const EDIT_COALESCE_MS = 800;
  * client should not be generating the collisions in the first place.
  */
 export function useConversationSave(input: ConversationSaveInput): UseConversationSave {
-  const { conversationId, startedAt, languagePair, running, turns, audioOffsetMs, pausedMs } =
-    input;
+  const {
+    conversationId,
+    startedAt,
+    languagePair,
+    running,
+    turns,
+    audioOffsetMs,
+    pausedMs,
+    twoWayRequested,
+    titleLanguage,
+  } = input;
 
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -177,6 +197,8 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
     saved,
     audioOffsetMs,
     pausedMs,
+    twoWayRequested,
+    titleLanguage,
   });
   useEffect(() => {
     latest.current = {
@@ -187,8 +209,20 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
       saved,
       audioOffsetMs,
       pausedMs,
+      twoWayRequested,
+      titleLanguage,
     };
-  }, [conversationId, startedAt, languagePair, turns, saved, audioOffsetMs, pausedMs]);
+  }, [
+    conversationId,
+    startedAt,
+    languagePair,
+    turns,
+    saved,
+    audioOffsetMs,
+    pausedMs,
+    twoWayRequested,
+    titleLanguage,
+  ]);
 
   const enqueue = useCallback(() => {
     const {
@@ -198,6 +232,8 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
       turns: rows,
       audioOffsetMs: recordingOffset,
       pausedMs: paused,
+      twoWayRequested: requested,
+      titleLanguage: writeTitleIn,
     } = latest.current;
     if (!id || !began || rows.length === 0) return;
 
@@ -216,6 +252,8 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
           endedAt: ended,
           turns: rows,
           audioOffsetMs: recordingOffset,
+          mode: requested ? 'two-way' : 'one-way',
+          titleLanguage: writeTitleIn,
           // Bounded by the span here, where the span is known. The paused total
           // is summed from wall-clock readings, and a clock that steps (a time
           // sync mid-pause) could push it past the conversation's length — which
