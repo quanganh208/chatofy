@@ -64,6 +64,10 @@ interface Args {
   seconds: number;
   runTag: string;
   watchProd: boolean;
+  /** How many speakers talk; the rest sit in the room as listeners. */
+  active: number | null;
+  /** Start a recording again when it runs out, so a capacity run keeps talking. */
+  loop: boolean;
 }
 
 interface Speaker {
@@ -127,6 +131,8 @@ function parseArgs(argv: string[]): Args {
     seconds: 60,
     runTag: '',
     watchProd: false,
+    active: null,
+    loop: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
@@ -142,6 +148,8 @@ function parseArgs(argv: string[]): Args {
     else if (flag === '--seconds') args.seconds = Number(next());
     else if (flag === '--run-tag') args.runTag = next();
     else if (flag === '--watch-prod') args.watchProd = true;
+    else if (flag === '--active') args.active = Number(next());
+    else if (flag === '--loop') args.loop = true;
     else throw new Error(`unknown flag ${flag}`);
   }
   if (args.tokenFiles.length < 2) throw new Error('--token-file is required once per speaker, at least twice');
@@ -367,10 +375,12 @@ async function main() {
             for (let i = 0; !stopFeeding; i += 1) {
               const elapsed = Date.now() - playStart;
               const block = new Float32Array(BLOCK_SAMPLES);
+              if (args.loop && speaker.position + BLOCK_SAMPLES > speaker.samples.length) speaker.position = 0;
               const speaking =
+                index < (args.active ?? speakers.length) &&
                 elapsed < speechEndMs &&
                 speaker.position + BLOCK_SAMPLES <= speaker.samples.length &&
-                holdsFloor(args.arm, index, speakers.length, elapsed);
+                holdsFloor(args.arm, index, args.active ?? speakers.length, elapsed);
               if (speaking) {
                 block.set(speaker.samples.subarray(speaker.position, speaker.position + BLOCK_SAMPLES));
                 speaker.position += BLOCK_SAMPLES;
