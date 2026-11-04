@@ -113,6 +113,19 @@ interface DetectOption {
   label: string;
 }
 
+/**
+ * Languages listed but not pickable, and why.
+ *
+ * Listed rather than left out, because a missing language reads as one the
+ * product does not have; a disabled one with its reason says the product has it
+ * and this use of it is what is missing — Chinese on the two-way page, which the
+ * shipped turn identification cannot tell apart from the other two.
+ */
+export interface UnavailableLanguages {
+  codes: readonly LanguageCode[];
+  reason: string;
+}
+
 interface LanguageSelectProps<V extends SourceChoice> {
   value: V;
   onPick: (code: V) => void;
@@ -128,6 +141,7 @@ interface LanguageSelectProps<V extends SourceChoice> {
    * passed where `onPick` accepts that value.
    */
   detectOption?: typeof AUTO_DETECT extends V ? DetectOption : never;
+  unavailable?: UnavailableLanguages;
 }
 
 /**
@@ -147,6 +161,7 @@ export function LanguageSelect<V extends SourceChoice = LanguageCode>({
   size = 'default',
   className,
   detectOption,
+  unavailable,
 }: LanguageSelectProps<V>) {
   return (
     <Select value={value} onValueChange={(code) => onPick(code as V)} disabled={disabled}>
@@ -155,11 +170,19 @@ export function LanguageSelect<V extends SourceChoice = LanguageCode>({
       </SelectTrigger>
       <SelectContent>
         {detectOption ? <SelectItem value={AUTO_DETECT}>{detectOption.label}</SelectItem> : null}
-        {languages.map((code) => (
-          <SelectItem key={code} value={code}>
-            {nameLanguage(code)}
-          </SelectItem>
-        ))}
+        {languages.map((code) =>
+          unavailable?.codes.includes(code) ? (
+            // Never the selected value, so the reason never reaches the trigger:
+            // it is said only here, beside the name it qualifies.
+            <SelectItem key={code} value={code} disabled>
+              {nameLanguage(code)} <span className="text-hint">{unavailable.reason}</span>
+            </SelectItem>
+          ) : (
+            <SelectItem key={code} value={code}>
+              {nameLanguage(code)}
+            </SelectItem>
+          ),
+        )}
       </SelectContent>
     </Select>
   );
@@ -180,6 +203,8 @@ interface LanguagePairPickerProps<P extends SessionLanguagePair> {
    * to swap it with.
    */
   detectOption?: typeof AUTO_DETECT extends P['source'] ? DetectOption : never;
+  /** Listed on both sides but not pickable — see {@link UnavailableLanguages}. */
+  unavailable?: UnavailableLanguages;
 }
 
 /**
@@ -206,6 +231,7 @@ export function LanguagePairPicker<P extends SessionLanguagePair = LanguagePair>
   nameLanguage = englishLabel,
   languages = LANGUAGE_CODES,
   detectOption,
+  unavailable,
 }: LanguagePairPickerProps<P>) {
   const { source, target } = value;
   // The one cast here, and it is sound: a pick only yields `'detect'` from the
@@ -228,6 +254,7 @@ export function LanguagePairPicker<P extends SessionLanguagePair = LanguagePair>
             nameLanguage={nameLanguage}
             className={TIGHT}
             detectOption={detectOption}
+            unavailable={unavailable}
           />
         </Side>
         <Button
@@ -256,6 +283,7 @@ export function LanguagePairPicker<P extends SessionLanguagePair = LanguagePair>
             disabled={disabled}
             nameLanguage={nameLanguage}
             className={TIGHT}
+            unavailable={unavailable}
           />
         </Side>
       </div>

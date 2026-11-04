@@ -45,12 +45,12 @@ import type { Translate } from '@chatofy/i18n';
 
 /**
  * What a caller starts a conversation with. `twoWay` is not among it: whether
- * to ask for it follows from the pair and the reader's mode (`asksTwoWay`), so
+ * to ask for it follows from the pair and the page's mode (`asksTwoWay`), so
  * one rule decides it for every start rather than each caller deciding again.
  */
 export type StartOptions = Omit<SessionOptions, 'twoWay'> & {
-  /** The reader's one-way / two-way choice; `asksTwoWay` turns it into the request. */
-  conversationMode?: ConversationMode;
+  /** The page's mode — `/translate/one-way` or `/translate/two-way`; `asksTwoWay` turns it into the request. */
+  mode: ConversationMode;
 };
 
 /** What the server said about the languages of the newest turn. */
@@ -526,8 +526,8 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   const [finishedRecording, setFinishedRecording] = useState<ConversationRecording | null>(null);
 
   const start = useCallback(
-    ({ conversationMode, ...options }: StartOptions) => {
-      const twoWay = asksTwoWay(options.languagePair, conversationMode);
+    ({ mode, ...options }: StartOptions) => {
+      const twoWay = asksTwoWay(options.languagePair, mode);
       // Before `session.start`, which is what dispatches the reset: the id and
       // the transcript it names must change together, or a save fired on the
       // edge could carry the new turns under the previous id.

@@ -33,6 +33,7 @@ async function render(overrides: Partial<TranslateSettings> = {}): Promise<void>
       <LocaleProvider>
         <VoiceSettingsPanel
           settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...overrides }}
+          mode="one-way"
           running={false}
           onChange={vi.fn()}
           onVolumeChange={vi.fn()}
@@ -99,6 +100,7 @@ describe('the rate control', () => {
         <FreshLocaleProvider>
           <FreshPanel
             settings={{ ...freshDefaults, voiceOutput: true }}
+            mode="one-way"
             running={false}
             onChange={vi.fn()}
             onVolumeChange={vi.fn()}
@@ -183,7 +185,8 @@ describe('what is reachable with playback off', () => {
  */
 describe('voices per spoken language', () => {
   async function renderWith(
-    languagePair: TranslateSettings['languagePair'],
+    pair: Pick<TranslateSettings, 'languagePair'> | Pick<TranslateSettings, 'twoWayPair'>,
+    mode: 'one-way' | 'two-way',
   ): Promise<{ text: string | null; asked: string[]; cleanup: () => void }> {
     vi.resetModules();
     const asked: string[] = [];
@@ -208,7 +211,8 @@ describe('voices per spoken language', () => {
       freshRoot.render(
         <FreshLocaleProvider>
           <FreshPanel
-            settings={{ ...freshDefaults, voiceOutput: true, languagePair }}
+            settings={{ ...freshDefaults, voiceOutput: true, ...pair }}
+            mode={mode}
             running={false}
             onChange={vi.fn()}
             onVolumeChange={vi.fn()}
@@ -229,7 +233,10 @@ describe('voices per spoken language', () => {
   }
 
   it('offers a voice for each language of a two-way pair, named by its language', async () => {
-    const { text, asked, cleanup } = await renderWith({ source: 'vi', target: 'en' });
+    const { text, asked, cleanup } = await renderWith(
+      { twoWayPair: { source: 'vi', target: 'en' } },
+      'two-way',
+    );
     expect(text).toContain(`${en['web.translate.voice']} · ${en['common.languageName.en']}`);
     expect(text).toContain(`${en['web.translate.voice']} · ${en['common.languageName.vi']}`);
     expect(new Set(asked)).toEqual(new Set(['en', 'vi']));
@@ -237,7 +244,10 @@ describe('voices per spoken language', () => {
   });
 
   it('offers one voice, the translation language’s, for an auto-detected source', async () => {
-    const { text, asked, cleanup } = await renderWith({ source: 'detect', target: 'en' });
+    const { text, asked, cleanup } = await renderWith(
+      { languagePair: { source: 'detect', target: 'en' } },
+      'one-way',
+    );
     expect(text).toContain(en['web.translate.voice']);
     expect(text).not.toContain(`${en['web.translate.voice']} · `);
     expect(new Set(asked)).toEqual(new Set(['en']));
@@ -245,8 +255,21 @@ describe('voices per spoken language', () => {
   });
 
   it('keeps one voice for a pair it cannot run both ways', async () => {
-    const { text, cleanup } = await renderWith({ source: 'vi', target: 'zh' });
+    const { text, cleanup } = await renderWith(
+      { languagePair: { source: 'vi', target: 'zh' } },
+      'one-way',
+    );
     expect(text).not.toContain(`${en['web.translate.voice']} · `);
+    cleanup();
+  });
+
+  it('keeps one voice for a two-way-capable pair on the one-way page', async () => {
+    const { text, asked, cleanup } = await renderWith(
+      { languagePair: { source: 'vi', target: 'en' } },
+      'one-way',
+    );
+    expect(text).not.toContain(`${en['web.translate.voice']} · `);
+    expect(new Set(asked)).toEqual(new Set(['en']));
     cleanup();
   });
 });

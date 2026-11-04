@@ -50,6 +50,7 @@ function render(
           running={false}
           onSwap={onSwap}
           onLanguagePair={onLanguagePair}
+          conversationMode="two-way"
           voiceControl={<button type="button">voice slot</button>}
           {...props}
         />
@@ -110,7 +111,7 @@ describe('PanelHeaders', () => {
   });
 
   it('names the languages in the Vietnamese interface in Vietnamese', () => {
-    render({ languagePair: { source: 'zh', target: 'vi' } }, 'vi');
+    render({ conversationMode: 'one-way', languagePair: { source: 'zh', target: 'vi' } }, 'vi');
     expect(pickers().map((picker) => picker.textContent)).toEqual(['Tiếng Trung', 'Tiếng Việt']);
     expect(container.textContent).not.toContain('中文');
   });
@@ -151,37 +152,10 @@ describe('PanelHeaders', () => {
     expect(onSwap).toHaveBeenCalledTimes(1);
   });
 
-  it('offers one way or both beside the source, and reports the pick', () => {
-    const onConversationMode = vi.fn();
-    render({ conversationMode: 'two-way', onConversationMode });
-    const group = container.querySelector('[role="radiogroup"]');
-    expect(group?.getAttribute('aria-label')).toBe('Conversation mode');
-    const [oneWay, twoWay] = [...container.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
-    expect(twoWay?.getAttribute('aria-checked')).toBe('true');
-    act(() => oneWay?.click());
-    expect(onConversationMode).toHaveBeenCalledWith('one-way');
-  });
-
-  it('offers no mode where the pair cannot run both ways, nor on the stage', () => {
-    render({
-      languagePair: { source: 'detect', target: 'en' },
-      conversationMode: 'two-way',
-      onConversationMode: vi.fn(),
-    });
-    expect(container.querySelector('[role="radiogroup"]')).toBeNull();
-    render({ conversationMode: 'two-way' });
-    expect(container.querySelector('[role="radiogroup"]')).toBeNull();
-  });
-
-  it('fixes the mode while a conversation runs', () => {
-    render({ running: true, conversationMode: 'one-way', onConversationMode: vi.fn() });
-    const radios = [...container.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
-    expect(radios.length).toBe(2);
-    expect(radios.every((radio) => radio.disabled)).toBe(true);
-  });
-
   it('spends no accent: the pickers are fields and the swap is outline', () => {
-    render({ conversationMode: 'two-way', onConversationMode: vi.fn() });
+    render({ conversationMode: 'two-way' });
+    expect(container.querySelector('.bg-primary')).toBeNull();
+    render({ conversationMode: 'one-way' });
     expect(container.querySelector('.bg-primary')).toBeNull();
   });
 
@@ -220,45 +194,76 @@ describe('PanelHeaders', () => {
     expect(slot()?.disabled).toBe(false);
   });
 
-  it('leads the source picker with Auto-detect, and only the source picker', () => {
-    render();
-    const [source, target] = pickers();
-    expect(offered(source!)).toEqual(['Auto-detect', 'Vietnamese', 'English', 'Chinese']);
-    expect(offered(target!)).toEqual(['Vietnamese', 'English', 'Chinese']);
-  });
-
-  it('offers no Auto-detect into a language a turn cannot be recognised in', () => {
-    // Chinese misses the identification bar, so a turn said in it could not be
-    // kept as transcript-only — the one thing Auto-detect promises about the
-    // translation language itself.
-    render({ languagePair: { source: 'vi', target: 'zh' } });
-    expect(offered(pickers()[0]!)).toEqual(['Vietnamese', 'English', 'Chinese']);
-  });
-
-  it('shows Auto-detect as the source, with no swap to offer', () => {
-    render({ languagePair: { source: 'detect', target: 'en' } });
-    expect(pickers()[0]?.textContent).toBe('Auto-detect');
-    expect(swap()?.disabled).toBe(true);
-    // Not "translate English into Auto-detect": that names a direction that
-    // does not exist.
-    expect(swap()?.getAttribute('aria-label')).toBe(
-      'Swap languages — not available with Auto-detect',
-    );
-  });
-
-  it('drops Auto-detect when the translation picked rules it out', () => {
-    const { onLanguagePair } = render({ languagePair: { source: 'detect', target: 'en' } });
-    const target = pickers()[1]!;
-    act(() => {
-      target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  describe('on the one-way page', () => {
+    it('leads the source picker with Auto-detect, and only the source picker', () => {
+      render({ conversationMode: 'one-way' });
+      const [source, target] = pickers();
+      expect(offered(source!)).toEqual(['Auto-detect', 'Vietnamese', 'English', 'Chinese']);
+      expect(offered(target!)).toEqual(['Vietnamese', 'English', 'Chinese']);
     });
-    const chinese = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
-      (option) => option.textContent === 'Chinese',
-    );
-    act(() => {
-      chinese?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    it('offers no Auto-detect into a language a turn cannot be recognised in', () => {
+      // Chinese misses the identification bar, so a turn said in it could not be
+      // kept as transcript-only — the one thing Auto-detect promises about the
+      // translation language itself.
+      render({ conversationMode: 'one-way', languagePair: { source: 'vi', target: 'zh' } });
+      expect(offered(pickers()[0]!)).toEqual(['Vietnamese', 'English', 'Chinese']);
     });
-    expect(onLanguagePair).toHaveBeenCalledWith({ source: 'vi', target: 'zh' });
+
+    it('shows Auto-detect as the source, with no swap to offer', () => {
+      render({ conversationMode: 'one-way', languagePair: { source: 'detect', target: 'en' } });
+      expect(pickers()[0]?.textContent).toBe('Auto-detect');
+      expect(swap()?.disabled).toBe(true);
+      // Not "translate English into Auto-detect": that names a direction that
+      // does not exist.
+      expect(swap()?.getAttribute('aria-label')).toBe(
+        'Swap languages — not available with Auto-detect',
+      );
+    });
+
+    it('drops Auto-detect when the translation picked rules it out', () => {
+      const { onLanguagePair } = render({
+        conversationMode: 'one-way',
+        languagePair: { source: 'detect', target: 'en' },
+      });
+      const target = pickers()[1]!;
+      act(() => {
+        target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      });
+      const chinese = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+        (option) => option.textContent === 'Chinese',
+      );
+      act(() => {
+        chinese?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      });
+      expect(onLanguagePair).toHaveBeenCalledWith({ source: 'vi', target: 'zh' });
+    });
+  });
+
+  describe('on the two-way page', () => {
+    it('offers no Auto-detect on either side', () => {
+      render({ conversationMode: 'two-way' });
+      for (const picker of pickers()) expect(offered(picker)).not.toContain('Auto-detect');
+    });
+
+    it('lists a language it cannot tell apart, disabled and with the reason, on both sides', () => {
+      render({ conversationMode: 'two-way' });
+      for (const picker of pickers()) {
+        act(() => {
+          picker.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        });
+        const chinese = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+          (option) => option.textContent?.startsWith('Chinese'),
+        );
+        expect(chinese?.getAttribute('aria-disabled')).toBe('true');
+        expect(chinese?.textContent).toContain('not available two-way yet');
+        act(() => {
+          document.activeElement?.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+          );
+        });
+      }
+    });
   });
 
   it('says nothing about the mode until a turn has answered', () => {

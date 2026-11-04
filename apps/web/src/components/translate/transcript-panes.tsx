@@ -17,6 +17,7 @@ import {
 import { TranscriptScroller } from '@/components/translate/transcript-scroller';
 import {
   effectiveStageAppearance,
+  pairFor,
   textSizeScale,
   type ConversationMode,
   type TranslateSettings,
@@ -46,8 +47,8 @@ interface TranscriptPanesProps {
   onSwap?: () => void;
   /** A language picked in a header, as the whole new pair. Not offered on the stage. */
   onLanguagePair?: (pair: SessionLanguagePair) => void;
-  /** The one-way / two-way choice, made in the source header. Not offered on the stage. */
-  onConversationMode?: (mode: ConversationMode) => void;
+  /** Which page this is — `/translate/one-way` or `/translate/two-way`. Picks the pair the headers show. */
+  conversationMode: ConversationMode;
   /**
    * How the server ran the newest turn, for the source header's readout — see
    * `LanguageModeHint`. Null when no turn has said.
@@ -59,12 +60,12 @@ interface TranscriptPanesProps {
   /**
    * Which language the finished turns on screen were actually translated into.
    *
-   * NOT `settings.languagePair` re-derived: the language pickers stay live between
+   * NOT the page's stored pair re-derived: the language pickers stay live between
    * conversations (it is only disabled while `running`), so swapping it after a
    * conversation ends must not change which key `groupTranslation` reads for
    * turns that were never translated into the new target — see `use-streaming
    * -translate.ts`'s `languagePair`, which is captured once at `start` for exactly
-   * this. Defaults to `settings.languagePair` so a caller with no conversation yet
+   * this. Defaults to the page's stored pair so a caller with no conversation yet
    * (nothing captured, nothing to show) still gets the ordinary pane.
    */
   conversationLanguagePair?: SessionLanguagePair;
@@ -139,7 +140,7 @@ export function TranscriptPanes({
   stage = false,
   onSwap,
   onLanguagePair,
-  onConversationMode,
+  conversationMode,
   voiceControl,
   stream,
   conversationLanguagePair,
@@ -148,10 +149,11 @@ export function TranscriptPanes({
   const t = useTranslate();
   // The pair a FINISHED turn's translation line is chosen from — see the prop
   // doc. Per turn, not one target: a two-way reply reads the other side. Headers
-  // above keep reading `settings.languagePair`: which language is going IN or
+  // above keep reading the page's stored pair: which language is going IN or
   // coming OUT is a fact about the upcoming conversation, and only the
   // already-spoken text must stay pinned to what it was captured for.
-  const turnPair = conversationLanguagePair ?? settings.languagePair;
+  const languagePair = pairFor(settings, conversationMode);
+  const turnPair = conversationLanguagePair ?? languagePair;
 
   const split = settings.displayMode === 'split' && !settings.translationOnly;
   const column = split && settings.paneLayout === 'column';
@@ -193,20 +195,15 @@ export function TranscriptPanes({
           hint={<LanguageModeHint mode={languageMode} />}
           language={
             <SourceHeaderLanguage
-              languagePair={settings.languagePair}
+              languagePair={languagePair}
               running={running}
               onLanguagePair={onLanguagePair}
-              conversationMode={settings.conversationMode}
-              onConversationMode={onConversationMode}
+              conversationMode={conversationMode}
             />
           }
           end={
             onSwap ? (
-              <LanguagePairSwap
-                languagePair={settings.languagePair}
-                running={running}
-                onSwap={onSwap}
-              />
+              <LanguagePairSwap languagePair={languagePair} running={running} onSwap={onSwap} />
             ) : null
           }
         />
@@ -219,10 +216,11 @@ export function TranscriptPanes({
           role={t('web.translate.languagePairTarget')}
           language={
             <HeaderLanguage
-              languagePair={settings.languagePair}
+              languagePair={languagePair}
               side="target"
               running={running}
               onLanguagePair={onLanguagePair}
+              conversationMode={conversationMode}
             />
           }
           end={voiceControl}
@@ -262,12 +260,11 @@ export function TranscriptPanes({
   return (
     <div className={cn('reading-frame flex min-h-0 flex-1 flex-col', scheme)} style={scale}>
       <PanelHeaders
-        languagePair={settings.languagePair}
+        languagePair={languagePair}
         running={running}
         onSwap={onSwap}
         onLanguagePair={onLanguagePair}
-        conversationMode={settings.conversationMode}
-        onConversationMode={onConversationMode}
+        conversationMode={conversationMode}
         mode={languageMode}
         voiceControl={voiceControl}
       />

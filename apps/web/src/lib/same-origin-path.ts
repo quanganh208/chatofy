@@ -38,7 +38,7 @@ import type { Route } from 'next';
  * FALLBACK only — an explicit, validated `?next=` still wins, so a link into
  * `/preferences` survives the sign-in it triggered.
  */
-export const DEFAULT_NEXT = '/translate';
+export const DEFAULT_NEXT = '/translate/one-way';
 
 /**
  * The return type is `Route`, and the assertion that produces it is the only one

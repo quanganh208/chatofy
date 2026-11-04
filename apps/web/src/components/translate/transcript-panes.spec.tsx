@@ -60,6 +60,7 @@ function render(overrides: Partial<TranslateSettings> = {}) {
     root.render(
       <LocaleProvider>
         <TranscriptPanes
+          conversationMode="one-way"
           settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...overrides }}
           running={false}
           onSwap={vi.fn()}
@@ -186,6 +187,7 @@ describe('TranscriptPanes and the conversation-captured language pair', () => {
       root.render(
         <LocaleProvider>
           <TranscriptPanes
+            conversationMode="one-way"
             settings={{
               ...DEFAULT_TRANSLATE_SETTINGS,
               displayMode: 'split',
@@ -236,6 +238,7 @@ describe('TranscriptPanes in a two-way conversation', () => {
       root.render(
         <LocaleProvider>
           <TranscriptPanes
+            conversationMode="one-way"
             settings={{ ...DEFAULT_TRANSLATE_SETTINGS, displayMode }}
             running
             onSwap={vi.fn()}

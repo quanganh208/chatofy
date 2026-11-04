@@ -1,13 +1,18 @@
 'use client';
 
-import type { SessionLanguagePair } from '@chatofy/types';
+import {
+  IDENTIFIABLE_LANGUAGES,
+  LANGUAGE_CODES,
+  type LanguagePair,
+  type SessionLanguagePair,
+} from '@chatofy/types';
 import { LanguagePairPicker, Separator, Skeleton } from '@chatofy/ui/react';
 import { SettingsSection, SettingsSectionRow } from '@/components/layout/settings-section';
 import { ContextPicker } from '@/components/translate/context-picker';
 import { VoiceSettingsPanel } from '@/components/translate/voice-settings-panel';
 import { DisplaySettingsPanel } from '@/components/translate/display-settings-panel';
 import { useTranslateSettings } from '@/hooks/use-translate-settings';
-import { canAutoDetectInto, representablePair } from '@/lib/translate-settings';
+import { canAutoDetectInto, pairPatchFor, representablePair } from '@/lib/translate-settings';
 import { useTranslationContexts } from '@/hooks/use-translation-contexts';
 import { useTranslate } from '@/i18n/provider';
 import { languagePairLabels, languageNamer } from '@/i18n/language-pair-labels';
@@ -57,22 +62,36 @@ export function ConversationDefaultsSection() {
           `/translate` waits, and the same shape reserved so nothing below moves. */}
       {ready ? (
         <div className="flex flex-col gap-5">
-          {/* The pair is a setting HERE and nowhere else. `/translate` names it in
-              two permanent panel headers with the swap between them, which is a
-              better answer than a row in a popover; this page has no such headers,
-              and the pair a new conversation starts in is what it is for. */}
-          {/* The same "Auto-detect" entry, on the same rule, as the `/translate`
-              source header: one setting, so the two must offer the same values. */}
+          {/* The pairs are a setting HERE and nowhere else. `/translate` and
+              `/translate/two-way` name theirs in permanent panel headers with the swap
+              between them, which is a better answer than a row in a popover; this
+              page has no such headers, and the pair a new conversation starts in is
+              what it is for. One row per page, each headed by the page's own name,
+              because each page keeps its own pair. */}
+          {/* Auto-detect, on the same rule as the `/translate` source control: one
+              setting, so the two must offer the same values. */}
           <LanguagePairPicker<SessionLanguagePair>
             value={settings.languagePair}
             onChange={(languagePair) => set({ languagePair: representablePair(languagePair) })}
-            labels={languagePairLabels(t)}
+            labels={{ ...languagePairLabels(t), pair: t('web.chrome.navTranslate') }}
             nameLanguage={languageNamer(t)}
             detectOption={
               canAutoDetectInto(settings.languagePair.target)
                 ? { label: t('web.translate.autoDetect') }
                 : undefined
             }
+          />
+          {/* The `/translate/two-way` pair: no Auto-detect, and the languages its turn
+              identification cannot tell apart listed but not pickable, as there. */}
+          <LanguagePairPicker<LanguagePair>
+            value={settings.twoWayPair}
+            onChange={(pair) => set(pairPatchFor('two-way', pair))}
+            labels={{ ...languagePairLabels(t), pair: t('web.chrome.navTranslateTwoWay') }}
+            nameLanguage={languageNamer(t)}
+            unavailable={{
+              codes: LANGUAGE_CODES.filter((code) => !IDENTIFIABLE_LANGUAGES.includes(code)),
+              reason: t('web.translate.twoWayLanguageUnavailable'),
+            }}
           />
 
           {/* Which context a NEW conversation starts under, beside the pair
@@ -100,6 +119,10 @@ export function ConversationDefaultsSection() {
 
           <VoiceSettingsPanel
             settings={settings}
+            // The two-way pair's languages: a two-way conversation speaks both,
+            // and they are the languages Auto-detect translates into. A voice
+            // for a one-way target outside them is chosen on `/translate`.
+            mode="two-way"
             // No conversation on this page, so the rows that ride
             // `client.session.start` are all editable.
             running={false}

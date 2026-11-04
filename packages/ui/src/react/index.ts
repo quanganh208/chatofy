@@ -138,6 +138,7 @@ export {
   LanguageSelect,
   pairAfterPick,
   type LanguagePairLabels,
+  type UnavailableLanguages,
 } from './language-pair-picker.js';
 export { SegmentedControl, type SegmentedOption } from './segmented-control.js';
 export { StatusIndicator, type StatusTone } from './status-indicator.js';

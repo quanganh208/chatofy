@@ -30,14 +30,14 @@ describe('FooterCta', () => {
   it('asks a signed-out visitor to start', async () => {
     session.mockResolvedValue(null);
     const html = await render();
-    expect(html).toContain('href="/translate"');
+    expect(html).toContain('href="/translate/one-way"');
     expect(html).toContain(en['web.translate.startTranslating']);
   });
 
   it('asks nothing of someone who already signed in', async () => {
     session.mockResolvedValue({ user: { email: 'a@b.co' } });
     const html = await render();
-    expect(html).not.toContain('href="/translate"');
+    expect(html).not.toContain('href="/translate/one-way"');
     // The section itself stays: the closing statement is still worth reading, and
     // deleting it would leave the page ending on a feature list.
     expect(html).toContain(en['web.landing.ctaTitle']);

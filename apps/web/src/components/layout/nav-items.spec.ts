@@ -17,12 +17,19 @@ describe('navItemFor', () => {
   it('matches nothing outside the product', () => {
     expect(navItemFor('/')).toBeUndefined();
   });
+
+  it('tells the two translation pages apart', () => {
+    expect(navItemFor('/translate/one-way')?.href).toBe('/translate/one-way');
+    expect(navItemFor('/translate')).toBeUndefined();
+    expect(navItemFor('/translate/two-way')?.href).toBe('/translate/two-way');
+  });
 });
 
 describe('the conference entry', () => {
-  it('is listed after Translate', () => {
+  it('is listed after the two translation pages', () => {
     expect(navItems().map((item) => item.href)).toEqual([
-      '/translate',
+      '/translate/one-way',
+      '/translate/two-way',
       '/conference',
       '/history',
       '/glossary',

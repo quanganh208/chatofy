@@ -16,6 +16,8 @@ import {
   canAutoDetectInto,
   effectiveStageAppearance,
   loadTranslateSettings,
+  pairFor,
+  pairPatchFor,
   representablePair,
   saveTranslateSettings,
   textSizeScale,
@@ -393,28 +395,86 @@ describe('an auto-detected source', () => {
 });
 
 describe('asking for two-way', () => {
-  it('asks only for a named pair both of whose languages can be told apart', () => {
-    expect(asksTwoWay({ source: 'vi', target: 'en' })).toBe(true);
-    expect(asksTwoWay({ source: 'en', target: 'vi' })).toBe(true);
-    expect(asksTwoWay({ source: 'vi', target: 'zh' })).toBe(false);
-    expect(asksTwoWay({ source: 'detect', target: 'en' })).toBe(false);
-  });
-
-  it('asks nothing when the reader chose one way', () => {
-    expect(asksTwoWay({ source: 'vi', target: 'en' }, 'one-way')).toBe(false);
+  it('asks only from the two-way page, for a pair whose languages can be told apart', () => {
     expect(asksTwoWay({ source: 'vi', target: 'en' }, 'two-way')).toBe(true);
+    expect(asksTwoWay({ source: 'en', target: 'vi' }, 'two-way')).toBe(true);
     expect(asksTwoWay({ source: 'vi', target: 'zh' }, 'two-way')).toBe(false);
+    expect(asksTwoWay({ source: 'detect', target: 'en' }, 'two-way')).toBe(false);
+    expect(asksTwoWay({ source: 'vi', target: 'en' }, 'one-way')).toBe(false);
+  });
+});
+
+describe('one pair per page', () => {
+  it('defaults the two-way pair to the default pair', () => {
+    expect(DEFAULT_TRANSLATE_SETTINGS.twoWayPair).toEqual(DEFAULT_LANGUAGE_PAIR);
   });
 
-  it('remembers the choice, and defaults to both ways', () => {
-    expect(DEFAULT_TRANSLATE_SETTINGS.conversationMode).toBe('two-way');
-    saveTranslateSettings({ ...DEFAULT_TRANSLATE_SETTINGS, conversationMode: 'one-way' });
-    expect(loadTranslateSettings().conversationMode).toBe('one-way');
-    localStorage.setItem(
-      TRANSLATE_SETTINGS_STORAGE_KEY,
-      JSON.stringify({ conversationMode: 'sideways' }),
-    );
-    expect(loadTranslateSettings().conversationMode).toBe('two-way');
+  it('keeps a pick on one page off the other', () => {
+    const oneWay = {
+      ...DEFAULT_TRANSLATE_SETTINGS,
+      ...pairPatchFor('one-way', { source: 'detect', target: 'en' }),
+    };
+    expect(pairFor(oneWay, 'one-way')).toEqual({ source: 'detect', target: 'en' });
+    expect(pairFor(oneWay, 'two-way')).toEqual(DEFAULT_TRANSLATE_SETTINGS.twoWayPair);
+
+    const twoWay = {
+      ...DEFAULT_TRANSLATE_SETTINGS,
+      ...pairPatchFor('two-way', { source: 'en', target: 'vi' }),
+    };
+    expect(pairFor(twoWay, 'two-way')).toEqual({ source: 'en', target: 'vi' });
+    expect(pairFor(twoWay, 'one-way')).toEqual(DEFAULT_TRANSLATE_SETTINGS.languagePair);
+  });
+
+  it('refuses a two-way pair that cannot run two-way', () => {
+    expect(pairPatchFor('two-way', { source: 'detect', target: 'en' })).toEqual({});
+    expect(pairPatchFor('two-way', { source: 'zh', target: 'vi' })).toEqual({});
+  });
+
+  it('round-trips both pairs independently', () => {
+    saveTranslateSettings({
+      ...DEFAULT_TRANSLATE_SETTINGS,
+      languagePair: { source: 'detect', target: 'vi' },
+      twoWayPair: { source: 'en', target: 'vi' },
+    });
+    const loaded = loadTranslateSettings();
+    expect(loaded.languagePair).toEqual({ source: 'detect', target: 'vi' });
+    expect(loaded.twoWayPair).toEqual({ source: 'en', target: 'vi' });
+  });
+
+  it('falls back when the stored two-way pair cannot run two-way', () => {
+    store({ twoWayPair: { source: 'zh', target: 'vi' } });
+    expect(loadTranslateSettings().twoWayPair).toEqual(DEFAULT_LANGUAGE_PAIR);
+  });
+
+  describe('from a build that stored one pair and a mode', () => {
+    it('carries a two-way pair over to the two-way page, and keeps it for one-way', () => {
+      store({ languagePair: { source: 'en', target: 'vi' }, conversationMode: 'two-way' });
+      const loaded = loadTranslateSettings();
+      expect(loaded.twoWayPair).toEqual({ source: 'en', target: 'vi' });
+      expect(loaded.languagePair).toEqual({ source: 'en', target: 'vi' });
+    });
+
+    it('carries a pair stored before the mode existed, which ran two-way', () => {
+      store({ languagePair: { source: 'en', target: 'vi' } });
+      expect(loadTranslateSettings().twoWayPair).toEqual({ source: 'en', target: 'vi' });
+    });
+
+    it('does not carry an explicit one-way pair', () => {
+      store({ languagePair: { source: 'en', target: 'vi' }, conversationMode: 'one-way' });
+      expect(loadTranslateSettings().twoWayPair).toEqual(DEFAULT_LANGUAGE_PAIR);
+    });
+
+    it('does not carry a detected source or a pair two-way cannot run', () => {
+      store({ languagePair: { source: 'detect', target: 'vi' } });
+      expect(loadTranslateSettings().twoWayPair).toEqual(DEFAULT_LANGUAGE_PAIR);
+      store({ languagePair: { source: 'zh', target: 'en' } });
+      expect(loadTranslateSettings().twoWayPair).toEqual(DEFAULT_LANGUAGE_PAIR);
+    });
+
+    it('drops the mode itself', () => {
+      store({ conversationMode: 'one-way' });
+      expect(loadTranslateSettings()).not.toHaveProperty('conversationMode');
+    });
   });
 });
 

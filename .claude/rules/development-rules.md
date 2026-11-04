@@ -25,7 +25,7 @@ Use this file when editing code, tests, scripts, or configuration.
 ## UI review — the two rules, both now gated
 
 **One accent-filled control per app screen**, and **at most two elevated surfaces**.
-`bg-primary` fills at most one control on `/translate`, `/history`,
+`bg-primary` fills at most one control on `/translate/one-way`, `/translate/two-way`, `/history`,
 `/history/[conversationId]`, `/preferences`, `/account`; everything else is ghost,
 outline, or a readout. A card is for a thing you act on as a unit — everything else is a
 list, a bar, or a region on the page ground.

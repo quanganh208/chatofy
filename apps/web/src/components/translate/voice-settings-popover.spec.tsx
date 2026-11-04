@@ -51,6 +51,7 @@ function render(running: boolean, voiceOutput = true) {
     root.render(
       <LocaleProvider>
         <VoiceSettingsPopover
+          mode="one-way"
           settings={{ ...DEFAULT_TRANSLATE_SETTINGS, voiceOutput }}
           running={running}
           onChange={() => {}}

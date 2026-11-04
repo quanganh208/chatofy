@@ -20,6 +20,7 @@ import { z } from 'zod';
 import {
   AUTO_DETECT,
   DEFAULT_LANGUAGE_PAIR,
+  languagePairSchema,
   DEFAULT_VOICE_GENDER,
   IDENTIFIABLE_LANGUAGES,
   LANGUAGE_CODES,
@@ -28,6 +29,7 @@ import {
   sessionLanguagePairSchema,
   voiceGenderSchema,
   type LanguageCode,
+  type LanguagePair,
   type LanguageTable,
   type SessionLanguagePair,
 } from '@chatofy/types';
@@ -105,13 +107,18 @@ const displayModeSchema = z.enum(['split', 'list']);
  * Whether a conversation's turns may be in either language of the pair.
  *
  * `two-way` asks the server to decide each turn's language; `one-way` declares
- * every turn to be in the source. The choice is the reader's because the server
- * cannot make it well: a Vietnamese turn under 1.3 s is heard as Vietnamese only
- * about two times in three (`benchmarks/lid`), so a conversation in which nobody
- * speaks the other language still loses its short turns to it.
+ * every turn to be in the source, or leaves it to auto-detection. The choice is
+ * the reader's because the server cannot make it well: a Vietnamese turn under
+ * 1.3 s is heard as Vietnamese only about two times in three (`benchmarks/lid`),
+ * so a conversation in which nobody speaks the other language still loses its
+ * short turns to it.
+ *
+ * Not a stored setting: each mode is its own page (`/translate/one-way` and
+ * `/translate/two-way`), so the route the reader opened IS the choice. An older build
+ * stored it as `conversationMode`; the whitelist strips that key, and it is read
+ * once, raw, to seed {@link TranslateSettings.twoWayPair}.
  */
-const conversationModeSchema = z.enum(['one-way', 'two-way']);
-export type ConversationMode = z.infer<typeof conversationModeSchema>;
+export type ConversationMode = 'one-way' | 'two-way';
 type DisplayMode = z.infer<typeof displayModeSchema>;
 
 const paneLayoutSchema = z.enum(['row', 'column']);
@@ -190,10 +197,13 @@ export interface TranslateSettings {
   /** Whether the translation is spoken at all. */
   voiceOutput: boolean;
   /**
-   * Whether turns may be in either language, for a pair that can run both
-   * ways — see {@link asksTwoWay}. Ignored for a pair that cannot.
+   * The pair `/translate/two-way` starts in. Its own field rather than a mode applied
+   * to {@link languagePair}, because the one-way pair may be `'detect'` and a
+   * two-way conversation has no such thing: sharing one pair would let a choice
+   * made on one page open the other in a state it cannot run. Always a pair
+   * {@link canRunTwoWay} accepts — see `storedTwoWayPair`.
    */
-  conversationMode: ConversationMode;
+  twoWayPair: LanguagePair;
   /**
    * Speaking rate. Whether it does anything is a property of the running TTS
    * engine, not of the output language — see `VoiceSettingsPanel`'s
@@ -292,8 +302,7 @@ export const DEFAULT_TRANSLATE_SETTINGS: TranslateSettings = Object.freeze({
   languagePair: DEFAULT_LANGUAGE_PAIR,
   voiceGender: DEFAULT_VOICE_GENDER,
   voiceOutput: true,
-  // Both ways, as every identifiable pair ran before the choice existed.
-  conversationMode: 'two-way',
+  twoWayPair: DEFAULT_LANGUAGE_PAIR,
   speed: 1,
   voice: Object.freeze({}),
   volume: 1,
@@ -435,7 +444,6 @@ function migrate(stored: Record<string, unknown>): Record<string, unknown> {
 const storedSettingsSchema = z.object({
   voiceGender: voiceGenderSchema.catch(DEFAULT_TRANSLATE_SETTINGS.voiceGender),
   voiceOutput: z.boolean().catch(DEFAULT_TRANSLATE_SETTINGS.voiceOutput),
-  conversationMode: conversationModeSchema.catch(DEFAULT_TRANSLATE_SETTINGS.conversationMode),
   speed: z.number().catch(DEFAULT_TRANSLATE_SETTINGS.speed).transform(snapSpeed),
   // A token longer than the cap is dropped rather than truncated: half a token is
   // not a shorter token, it is a different one, and it would be refused downstream
@@ -493,7 +501,7 @@ export function loadTranslateSettings(): TranslateSettings {
       languagePair: storedLanguagePair(stored),
       voiceGender: parsed.voiceGender,
       voiceOutput: parsed.voiceOutput,
-      conversationMode: parsed.conversationMode,
+      twoWayPair: storedTwoWayPair(stored),
       speed: parsed.speed,
       voice: parsed.voice,
       volume: parsed.volume,
@@ -531,6 +539,32 @@ function storedLanguagePair(stored: Record<string, unknown>): SessionLanguagePai
 }
 
 /**
+ * The stored two-way pair, falling back to what an older build implied.
+ *
+ * Read raw, like {@link storedLanguagePair}, because an absent value has a
+ * second source: before the two modes were separate pages, one stored pair
+ * served both, with `conversationMode` saying which. A named pair that could
+ * run both ways and was not set to one-way is exactly the pair that reader was
+ * conversing in, so it carries over; anything else — `'detect'`, a pair the
+ * shipped identification cannot tell apart, an explicit one-way — says nothing
+ * about a two-way conversation, and the default stands.
+ *
+ * A stored pair that cannot run two-way is refused for the same reason the
+ * picker refuses it: a state the page cannot start in is a state the reader
+ * cannot leave.
+ */
+function storedTwoWayPair(stored: Record<string, unknown>): LanguagePair {
+  const own = languagePairSchema.safeParse(stored.twoWayPair);
+  if (own.success) return canRunTwoWay(own.data) ? own.data : DEFAULT_LANGUAGE_PAIR;
+
+  const shared = languagePairSchema.safeParse(stored.languagePair);
+  if (shared.success && stored.conversationMode !== 'one-way' && canRunTwoWay(shared.data)) {
+    return shared.data;
+  }
+  return DEFAULT_LANGUAGE_PAIR;
+}
+
+/**
  * Whether "detect it" is offered for a conversation translated into `target`.
  *
  * Two conditions, and the second is the one `canIdentify` alone does not ask:
@@ -558,15 +592,33 @@ export function canRunTwoWay(pair: SessionLanguagePair): boolean {
  * Whether a conversation started in `pair` asks the server to run it two-way.
  *
  * A request, which the server may answer with less — the screen follows the
- * mode `server.session.ready` reports, never this. A pair with a language the
- * shipped identification cannot tell apart stays declared without asking, and
- * so does one the reader set to `one-way`.
+ * mode `server.session.ready` reports, never this. Only `/translate/two-way` asks, and
+ * even there a pair the shipped identification cannot tell apart stays
+ * declared without asking.
  */
-export function asksTwoWay(
-  pair: SessionLanguagePair,
-  mode: ConversationMode = DEFAULT_TRANSLATE_SETTINGS.conversationMode,
-): boolean {
+export function asksTwoWay(pair: SessionLanguagePair, mode: ConversationMode): boolean {
   return mode === 'two-way' && canRunTwoWay(pair);
+}
+
+/** The pair a page in `mode` shows and starts in. */
+export function pairFor(settings: TranslateSettings, mode: ConversationMode): SessionLanguagePair {
+  return mode === 'two-way' ? settings.twoWayPair : settings.languagePair;
+}
+
+/**
+ * The settings change that stores `pair` as `mode`'s pair.
+ *
+ * Two-way never holds `'detect'` and never a pair it cannot run; a pick that
+ * would produce one is dropped rather than stored, since the two-way picker
+ * offers neither and anything else reaching here is a caller's mistake.
+ */
+export function pairPatchFor(
+  mode: ConversationMode,
+  pair: SessionLanguagePair,
+): Partial<TranslateSettings> {
+  if (mode === 'one-way') return { languagePair: representablePair(pair) };
+  if (pair.source === AUTO_DETECT || !canRunTwoWay(pair)) return {};
+  return { twoWayPair: { source: pair.source, target: pair.target } };
 }
 
 /**

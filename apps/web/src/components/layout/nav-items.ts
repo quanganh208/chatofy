@@ -1,5 +1,6 @@
 ﻿import type { Route } from 'next';
 import {
+  ArrowLeftRight,
   BookOpen,
   History,
   Mic,
@@ -50,7 +51,10 @@ export interface NavItem {
  */
 const GROUPS: readonly (readonly NavItem[])[] = [
   [
-    { href: '/translate', labelKey: 'web.chrome.navTranslate', icon: Mic },
+    // One-way and two-way are separate pages, so separate items: which kind of
+    // conversation this is gets chosen before the screen opens, not inside it.
+    { href: '/translate/one-way', labelKey: 'web.chrome.navTranslate', icon: Mic },
+    { href: '/translate/two-way', labelKey: 'web.chrome.navTranslateTwoWay', icon: ArrowLeftRight },
     { href: '/conference', labelKey: 'web.chrome.navConference', icon: Video },
     { href: '/history', labelKey: 'web.chrome.navHistory', icon: History },
     { href: '/glossary', labelKey: 'web.chrome.navGlossary', icon: BookOpen },

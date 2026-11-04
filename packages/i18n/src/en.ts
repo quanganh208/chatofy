@@ -155,7 +155,9 @@ export const en = {
   // nothing in return.
   'web.chrome.skipToContent': 'Skip to content',
   'web.chrome.productNav': 'Product',
-  'web.chrome.navTranslate': 'Translate',
+  // Two items, one per conversation mode: each is its own page.
+  'web.chrome.navTranslate': 'One-way translation',
+  'web.chrome.navTranslateTwoWay': 'Two-way translation',
   'web.chrome.navConference': 'Conference',
   'web.chrome.navHistory': 'History',
   'web.chrome.navGlossary': 'Glossary',
@@ -234,7 +236,8 @@ export const en = {
   'web.meta.verifyEmail': 'Verify email · Chatofy',
   'web.meta.forgotPassword': 'Forgot password · Chatofy',
   'web.meta.resetPassword': 'Reset password · Chatofy',
-  'web.meta.translate': 'Translate · Chatofy',
+  'web.meta.translate': 'One-way translation · Chatofy',
+  'web.meta.translateTwoWay': 'Two-way translation · Chatofy',
   'web.meta.history': 'History · Chatofy',
   'web.meta.preferences': 'Preferences · Chatofy',
   'web.meta.account': 'Account · Chatofy',
@@ -394,15 +397,16 @@ export const en = {
   // The same button while the source is Auto-detect: there is no source language
   // to trade places with, so the name says why it is off instead.
   'web.translate.languagePairSwapDetect': 'Swap languages — not available with Auto-detect',
-  // The source picker's first entry: leave the spoken language to be recognised,
-  // turn by turn, and translate it into the chosen translation language.
+  // The one-way source picker's first entry: leave the spoken language to be
+  // recognised, turn by turn, and translate it into the chosen translation language.
   'web.translate.autoDetect': 'Auto-detect',
   // A readout under the source header, never a control: which way the running
   // conversation actually translates, as the server answered it.
   'web.translate.modeTwoWay': 'Both ways',
   'web.translate.modeOneWay': 'One way',
-  // The one-way / two-way choice beside the source language, announced only.
-  'web.translate.conversationMode': 'Conversation mode',
+  // Beside a language the two-way page lists but cannot run: its turns cannot be
+  // told apart from the other language's yet.
+  'web.translate.twoWayLanguageUnavailable': 'not available two-way yet',
   // The accessible name beside a turn's short language tag.
   'web.translate.turnLanguage': 'Spoken in {language}',
   // A two-way conversation the service is running one way for now. Says what the

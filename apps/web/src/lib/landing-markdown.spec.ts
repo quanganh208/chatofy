@@ -48,7 +48,7 @@ describe.each([
   });
 
   it('offers both halves of the product, as the hero does', () => {
-    expect(markdown).toContain(`](${ORIGIN}/translate)`);
+    expect(markdown).toContain(`](${ORIGIN}/translate/one-way)`);
     expect(markdown).toContain(`](${ORIGIN}/conference)`);
     expect(markdown).toContain(`## ${messages['web.landing.meetingsTitle']}`);
   });
