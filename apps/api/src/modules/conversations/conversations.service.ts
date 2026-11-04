@@ -30,6 +30,30 @@ import {
   type ConversationWrite,
   type ListConversationsQuery,
 } from './interfaces/conversation-store.interface';
+import { MinutesSummarizer } from '../minutes/minutes-summarizer.service';
+
+/** The opening of the transcript a title is drawn from — a topic shows early. */
+const TITLE_SOURCE_MAX_CHARS = 2_000;
+/**
+ * Below this there is nothing to name: a "xin chào" conversation reads better
+ * as its own first line than with a guessed topic, and skipping it saves a call.
+ */
+const TITLE_SOURCE_MIN_CHARS = 40;
+/** The stored ceiling, whatever a provider returns. */
+const TITLE_MAX_CHARS = 80;
+/**
+ * How many conversations this process remembers having tried to title. Bounds
+ * the memory of {@link ConversationsService.titleAttempted}; past it the oldest
+ * is forgotten, which at worst buys that conversation one more attempt.
+ */
+const TITLE_ATTEMPTS_REMEMBERED = 10_000;
+/**
+ * The one retry's wait. Measured on dev: three titles at once had two fail —
+ * Command Code refused, then Gemini answered 504 DEADLINE_EXCEEDED — so a burst
+ * is the likely failure, and a pause outlasts it. One retry, not a loop: the
+ * cost ceiling is two calls per conversation.
+ */
+export const TITLE_RETRY_DELAY_MS = 15_000;
 
 /**
  * The bytes are not a container this API will store.
@@ -58,15 +82,27 @@ class UnsupportedConversationAudioError extends UnsupportedMediaTypeException {
 @Injectable()
 export class ConversationsService {
   private readonly logger = new Logger(ConversationsService.name);
+  /**
+   * Conversations this process has already tried to title — in flight or
+   * done, succeeded or failed. ONE attempt each: a save re-fires on every
+   * rename, so without this a conversation whose title keeps failing would
+   * spend a summarizer call per save, at the save throttle rather than the
+   * minutes one, out of the same quota and failover circuit minutes use.
+   * Insertion-ordered, so the oldest is evicted first.
+   */
+  private readonly titleAttempted = new Set<string>();
+  /** Whether "no summarizer configured" has been said once already. */
+  private titleUnavailableLogged = false;
 
   constructor(
     @Inject(CONVERSATION_STORE) private readonly store: ConversationStore,
     @Inject(CONVERSATION_AUDIO_STORAGE)
     private readonly audio: ConversationAudioStorage,
+    private readonly summarizer: MinutesSummarizer,
   ) {}
 
   /** Create or fully replace the caller's conversation under this id. */
-  save(
+  async save(
     ownerId: string,
     conversationId: string,
     body: SaveConversationRequest,
@@ -76,7 +112,90 @@ export class ConversationsService {
     // refused — no storage configured, a body over the cap — still has to
     // read the way it read while it was being spoken. Everything else goes
     // through `toConversationWrite`, the one narrowing to stored columns.
-    return this.store.save(ownerId, conversationId, toConversationWrite(body));
+    const summary = await this.store.save(
+      ownerId,
+      conversationId,
+      toConversationWrite(body),
+    );
+    if (summary.title === null) {
+      this.titleInBackground(ownerId, conversationId, body);
+    }
+    return summary;
+  }
+
+  /**
+   * Name the conversation's topic, after the save has answered.
+   *
+   * Fire-and-forget by design: the save is what the reader is waiting on, and a
+   * title is a nicety the list falls back from (to the first line). So nothing
+   * here can delay, fail or change the save's response, and every failure ends
+   * in a warn.
+   *
+   * `setTitleIfEmpty` is the real guard — it writes only where no title is
+   * stored, which covers re-saves and two API instances racing. The in-memory
+   * set caps the COST: one attempt per conversation per process, so a failing
+   * title is not retried on every rename. A restart forgets it, which is one
+   * more attempt for a conversation still being edited, and that is fine.
+   *
+   * Neither the transcript nor the title is logged: both are what someone said.
+   */
+  private titleInBackground(
+    ownerId: string,
+    conversationId: string,
+    body: SaveConversationRequest,
+  ): void {
+    const key = `${ownerId}:${conversationId}`;
+    if (this.titleAttempted.has(key)) return;
+
+    // Measured on what was SAID, not on the labelled source: a `Speaker A: `
+    // prefix per line would let three "xin chào" turns clear the bar.
+    const spoken = body.turns.reduce(
+      (sum, turn) => sum + (turn.displayText ?? turn.sourceText).trim().length,
+      0,
+    );
+    if (spoken < TITLE_SOURCE_MIN_CHARS) return;
+    const transcript = titleSource(body.turns);
+
+    this.titleAttempted.add(key);
+    if (this.titleAttempted.size > TITLE_ATTEMPTS_REMEMBERED) {
+      const oldest = this.titleAttempted.values().next().value;
+      if (oldest !== undefined) this.titleAttempted.delete(oldest);
+    }
+    try {
+      const provider = this.summarizer.get();
+      const request = { transcript, language: body.titleLanguage };
+      void provider
+        .title(request)
+        .catch(async () => {
+          await new Promise((resolve) =>
+            setTimeout(resolve, TITLE_RETRY_DELAY_MS),
+          );
+          return provider.title(request);
+        })
+        .then((title) =>
+          this.store.setTitleIfEmpty(
+            ownerId,
+            conversationId,
+            title.slice(0, TITLE_MAX_CHARS),
+          ),
+        )
+        // Load-bearing: nothing else catches this chain, and the process has no
+        // unhandled-rejection handler to fall back on.
+        .catch((err: unknown) => {
+          this.logger.warn(
+            `title for conversation ${conversationId} failed: ${errorName(err)}`,
+          );
+        });
+    } catch (err) {
+      // `get()` resolves the provider and throws when none is configured. Said
+      // once per process: an unkeyed deployment would otherwise warn per save.
+      if (!this.titleUnavailableLogged) {
+        this.titleUnavailableLogged = true;
+        this.logger.warn(
+          `conversation titles are off: no summarizer (${errorName(err)})`,
+        );
+      }
+    }
   }
 
   async get(ownerId: string, conversationId: string): Promise<Conversation> {
@@ -341,7 +460,36 @@ function toConversationWrite(body: SaveConversationRequest): ConversationWrite {
     audioOffsetMs: body.audioOffsetMs,
     pausedMs: body.pausedMs,
     turns: body.turns.map(toTurnWrite),
+    ...(body.mode === undefined ? {} : { mode: body.mode }),
   };
+}
+
+/**
+ * The opening of the conversation as `Label: text` lines, in the order spoken,
+ * cut at {@link TITLE_SOURCE_MAX_CHARS}. The first line is always kept (cut to
+ * the ceiling itself), so a conversation of one long turn still has a source.
+ */
+function titleSource(turns: readonly SaveConversationTurn[]): string {
+  const lines = [...turns]
+    .sort((a, b) => a.position - b.position)
+    .map(
+      (turn) =>
+        `${turn.speakerLabel ?? (turn.speakerRole === 'speaker_a' ? 'Speaker A' : 'Speaker B')}: ${turn.displayText ?? turn.sourceText}`,
+    );
+  let source = '';
+  for (const line of lines) {
+    const next = source ? `${source}\n${line}` : line;
+    if (next.length > TITLE_SOURCE_MAX_CHARS) {
+      return source || line.slice(0, TITLE_SOURCE_MAX_CHARS);
+    }
+    source = next;
+  }
+  return source;
+}
+
+/** An error's class name only — a provider message can quote the transcript. */
+function errorName(err: unknown): string {
+  return err instanceof Error ? err.name : 'error';
 }
 
 /** One turn's write shape: the turn columns Postgres stores. */

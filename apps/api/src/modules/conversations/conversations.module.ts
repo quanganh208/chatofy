@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { StorageModule } from '../storage/storage.module';
+import { SummarizationModule } from '../summarization/summarization.module';
 import { CONVERSATION_STORE } from './interfaces/conversation-store.interface';
 import { PrismaConversationStore } from './stores/prisma-conversation.store';
 import { ConversationsController } from './conversations.controller';
@@ -22,7 +23,8 @@ import { ConversationsService } from './conversations.service';
   // `StorageModule` for `CONVERSATION_AUDIO_STORAGE`. It is the module that
   // decides whether R2 is configured, so importing it — rather than reading env
   // here — is what keeps the deployment question in one place.
-  imports: [AuthModule, StorageModule],
+  // SummarizationModule, not MinutesModule: that one imports this one.
+  imports: [AuthModule, StorageModule, SummarizationModule],
   controllers: [ConversationsController],
   providers: [
     ConversationsService,

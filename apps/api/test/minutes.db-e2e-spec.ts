@@ -93,6 +93,7 @@ describe('Prisma-backed minutes (db-e2e)', () => {
       // back a different action-item set to prove replacement.
       create: () => ({
         name,
+        title: async () => 'Test title',
         summarize: async () => {
           if (onSummarize) await onSummarize();
           return draftRef.current;

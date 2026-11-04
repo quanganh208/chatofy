@@ -677,6 +677,35 @@ the parent is an FK now: deleting the conversation mid-generation makes the
 failure write throw, and unguarded it would escape the catch block and replace the
 real cause with an opaque 500.
 
+### Conversation titles (LLM)
+
+Each saved conversation gets a short topic title for `/history`, written by the
+same `MinutesSummarizer` provider through `SummarizationProvider.title()`. The
+prompt keeps the minutes' `<transcript>` injection boundary word for word and asks
+for `{"title": string}`; `parseTitle` collapses it to one plain line of at most
+80 characters. The language is the reader's interface language at save time
+(`titleLanguage` on the save body, never stored).
+
+**Fire-and-forget, set once.** `ConversationsService.save` answers first, then
+starts the pass only when the stored row has no title, and only for a transcript
+of 40 characters or more (the opening 2,000 characters are sent). The store
+writes it with `updateMany … WHERE title IS NULL`, so a re-save after a rename,
+a burst of saves, or two API instances can never replace one. A failed call is retried
+once after 15 s (a burst of three on dev had Command Code refuse and Gemini answer
+504), and never again in that process. Any final failure — no
+key configured, a refused call, an unparseable answer — is a warn (logged once per
+process for a missing provider) and the list keeps showing the first line. Old
+conversations are not backfilled. `SummarizationModule` owns the provider so
+`ConversationsModule` and `MinutesModule` share one instance without importing
+each other.
+
+The history row also carries a server-resolved `kind` (`one-way` | `two-way` |
+`auto-detect`): auto-detect from `languages`, otherwise the stored
+`Conversation.mode` the client sends, otherwise — rows saved before that column —
+two-way only when turns exist in BOTH speaker roles. A role follows the language
+registry order (`speakerRoleFor`), so `speaker_b` alone is just a one-way en→vi
+conversation.
+
 ### History search
 
 `pg_trgm` trigram search over a NORMALIZED copy of each turn's text, held in
@@ -707,6 +736,10 @@ this feature most needs to keep structurally hard to omit, so one duplicated tex
 column is the cheaper side of that trade. A Postgres `GENERATED` column is not an
 option either — Prisma cannot see it, so declaring it makes `migrate diff` ask to
 add a second one, permanently.
+
+The generated title is searchable too, through `Conversation.searchTitle` — the
+same `normalizeForSearch` fold, ORed with the turn match. It has no trigram index:
+one short string per conversation, scanned only within one owner's rows.
 
 `ownerId` is the first filter on every search query: search narrows a caller's own
 history and is never a second route into someone else's.

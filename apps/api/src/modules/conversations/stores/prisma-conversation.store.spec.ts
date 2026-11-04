@@ -100,6 +100,9 @@ function fakePrisma(
     return {
       id: 'cuid-1',
       pausedMs: options.storedPausedMs ?? 0,
+      title: null,
+      mode: null,
+      audioDurationMs: null,
       minutes: null,
     };
   });
@@ -178,6 +181,70 @@ describe('PrismaConversationStore', () => {
       preview: 'xin chào',
       hasMinutes: false,
       pausedMs: 0,
+      title: null,
+      kind: 'one-way',
+      hasRecording: false,
+      speakerCount: 1,
+      speakers: [],
+    });
+  });
+
+  describe('mode', () => {
+    it('writes the page mode on create and update when the client sent it', async () => {
+      const { store, upsert } = fakePrisma();
+
+      await store.save('owner-1', 'conv-1', {
+        ...conversation,
+        mode: 'two-way',
+      });
+
+      const [args] = upsert.mock.calls[0] as unknown as [
+        { create: Record<string, unknown>; update: Record<string, unknown> },
+      ];
+      expect(args.create.mode).toBe('two-way');
+      expect(args.update.mode).toBe('two-way');
+    });
+
+    it('leaves the stored mode alone when an older bundle sends none', async () => {
+      const { store, upsert } = fakePrisma();
+
+      await store.save('owner-1', 'conv-1', conversation);
+
+      const [args] = upsert.mock.calls[0] as unknown as [
+        { update: Record<string, unknown> },
+      ];
+      expect(args.update).not.toHaveProperty('mode');
+      expect(args.update).not.toHaveProperty('title');
+    });
+  });
+
+  describe('setTitleIfEmpty', () => {
+    function storeTitling(count: number) {
+      const updateMany = vi.fn().mockResolvedValue({ count });
+      const prisma = {
+        conversation: { updateMany },
+      } as unknown as PrismaService;
+      return { store: new PrismaConversationStore(prisma), updateMany };
+    }
+
+    it('writes the title and its folded search form only where none is stored', async () => {
+      const { store, updateMany } = storeTitling(1);
+
+      await expect(
+        store.setTitleIfEmpty('owner-1', 'conv-1', 'Thuê Căn Hộ'),
+      ).resolves.toBe(true);
+
+      expect(updateMany).toHaveBeenCalledWith({
+        where: { ownerId: 'owner-1', clientId: 'conv-1', title: null },
+        data: { title: 'Thuê Căn Hộ', searchTitle: 'thue can ho' },
+      });
+    });
+
+    it('answers false when the row is gone or already titled', async () => {
+      const { store } = storeTitling(0);
+      await expect(
+        store.setTitleIfEmpty('owner-1', 'conv-1', 'x'),
+      ).resolves.toBe(false);
     });
   });
 
@@ -383,19 +450,100 @@ describe('PrismaConversationStore', () => {
       startedAt: new Date('2026-09-17T00:00:00.000Z'),
       endedAt: new Date('2026-09-17T00:01:00.000Z'),
       pausedMs: 0,
+      title: null,
+      mode: null,
+      audioDurationMs: null,
       minutes: null,
       _count: { turns: 1 },
       turns: [{ sourceText: 'xin chào', displayText: null }],
       ...over,
     });
 
-    function storeListing(rows: unknown[]) {
+    function storeListing(rows: unknown[], groups: unknown[] = []) {
       const findMany = vi.fn().mockResolvedValue(rows);
+      const groupBy = vi.fn().mockResolvedValue(groups);
       const prisma = {
         conversation: { findMany },
+        conversationTurn: { groupBy },
       } as unknown as PrismaService;
-      return new PrismaConversationStore(prisma);
+      return Object.assign(new PrismaConversationStore(prisma), {
+        findMany,
+        groupBy,
+      });
     }
+
+    const group = (
+      speakerRole: string,
+      speakerLabel: string | null,
+      position: number,
+      conversationId = 'cuid-1',
+    ) => ({
+      conversationId,
+      speakerRole,
+      speakerLabel,
+      _min: { position },
+    });
+
+    it('reads who spoke from one grouped query for the page', async () => {
+      const store = storeListing(
+        [row()],
+        [group('speaker_b', 'John', 2), group('speaker_a', 'Lan', 0)],
+      );
+
+      const page = await store.list('owner-1', { limit: 30 });
+
+      expect(store.groupBy).toHaveBeenCalledTimes(1);
+      expect(page.conversations[0]).toMatchObject({
+        speakerCount: 2,
+        speakers: ['Lan', 'John'],
+        // A legacy row: no stored mode, and both roles spoke.
+        kind: 'two-way',
+      });
+    });
+
+    it('reads a legacy row whose turns are all speaker_b as one-way', async () => {
+      const store = storeListing(
+        [row({ languages: ['en', 'vi'] })],
+        [group('speaker_b', null, 0)],
+      );
+
+      const page = await store.list('owner-1', { limit: 30 });
+
+      expect(page.conversations[0]?.kind).toBe('one-way');
+    });
+
+    it('carries the title and the recording marker', async () => {
+      const store = storeListing([
+        row({ title: 'Thuê căn hộ', mode: 'one-way', audioDurationMs: 1_200 }),
+      ]);
+
+      const page = await store.list('owner-1', { limit: 30 });
+
+      expect(page.conversations[0]).toMatchObject({
+        title: 'Thuê căn hộ',
+        kind: 'one-way',
+        hasRecording: true,
+      });
+    });
+
+    it('matches a search term against the title as well as the turns', async () => {
+      const store = storeListing([]);
+
+      await store.list('owner-1', { limit: 30, q: 'Căn hộ' });
+
+      const [args] = store.findMany.mock.calls[0] as [
+        { where: Record<string, unknown> },
+      ];
+      expect(args.where).toEqual({
+        ownerId: 'owner-1',
+        OR: [
+          { turns: { some: { searchText: { contains: 'can ho' } } } },
+          { searchTitle: { contains: 'can ho' } },
+        ],
+      });
+      // No page, no grouped query.
+      expect(store.groupBy).not.toHaveBeenCalled();
+    });
 
     it('drops a row whose languages column cannot yield a language pair, keeping the rest', async () => {
       // `conversationLanguagesSchema` refuses fewer than two codes — a shape the write
@@ -469,6 +617,8 @@ describe('PrismaConversationStore', () => {
       startedAt: new Date('2026-09-17T00:00:00.000Z'),
       endedAt: new Date('2026-09-17T00:01:00.000Z'),
       pausedMs: 0,
+      title: null,
+      mode: null,
       audioOffsetMs: null,
       audioDurationMs: null,
       minutes: null,

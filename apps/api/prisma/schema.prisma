@@ -213,6 +213,20 @@ model Conversation {
   // what their duration meant. A save never lowers it (see the store's `save`):
   // a tab on an older bundle re-saving a rename sends none.
   pausedMs        Int                @default(0)
+  // The AI-written topic shown on history, or NULL until it is generated (or
+  // when generation failed). Written once, by the background title pass under
+  // `WHERE title IS NULL` — never by a save, so a re-save after a rename keeps
+  // the title it already has.
+  title           String?
+  // `normalizeForSearch(title)`, so the list's search folds the title the same
+  // way it folds `ConversationTurn.searchText`. No trigram index: one short
+  // string per conversation, scanned only inside one owner's rows.
+  searchTitle     String?
+  // 'one-way' | 'two-way' — the page the conversation ran on, as the client
+  // reported it. NULL on rows saved before the field existed; the read side
+  // infers those from their turns. Auto-detect is not stored here: more than
+  // two `languages` already says so.
+  mode            String?
   // The server instant the record landed. The list's sort key, and the only
   // timestamp here the server can vouch for.
   createdAt       DateTime           @default(now())

@@ -56,6 +56,7 @@ describe('Conference minutes (db-e2e)', () => {
       create: () => ({
         name,
         summarize: () => Promise.resolve().then(next.result),
+        title: async () => 'Test title',
       }),
     });
   }

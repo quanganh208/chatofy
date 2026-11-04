@@ -8,6 +8,7 @@ import type {
   MeetingMinutesDraft,
   SummarizationProvider,
   SummarizationRequest,
+  TitleRequest,
 } from '../../interfaces/summarization-provider.js';
 import { type HostCircuit, tripOnPersistentFailure } from './host-circuit.js';
 
@@ -32,16 +33,25 @@ export class FailoverSummarizationProvider implements SummarizationProvider {
     this.circuit = config.circuit;
   }
 
-  async summarize(req: SummarizationRequest): Promise<MeetingMinutesDraft> {
+  summarize(req: SummarizationRequest): Promise<MeetingMinutesDraft> {
+    return this.run((provider) => provider.summarize(req));
+  }
+
+  title(req: TitleRequest): Promise<string> {
+    return this.run((provider) => provider.title(req));
+  }
+
+  /** Minutes and titles share one circuit: a spent primary is spent for both. */
+  private async run<T>(call: (provider: SummarizationProvider) => Promise<T>): Promise<T> {
     // With nothing behind it, an open circuit would only turn a working answer
     // into a refusal, so the primary is still asked.
-    if (this.secondary && this.circuit.isOpen()) return this.secondary.summarize(req);
+    if (this.secondary && this.circuit.isOpen()) return call(this.secondary);
     try {
-      return await this.primary.summarize(req);
+      return await call(this.primary);
     } catch (err) {
       tripOnPersistentFailure(this.circuit, err);
       if (!this.secondary) throw err;
-      return this.secondary.summarize(req);
+      return call(this.secondary);
     }
   }
 }

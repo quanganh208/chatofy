@@ -25,6 +25,7 @@ export type {
   ServedLanguages,
   SummarizationProviderConfig,
   SummarizationRequest,
+  TitleRequest,
   MeetingMinutesDraft,
   ActionItemDraft,
   SummarizationProvider,

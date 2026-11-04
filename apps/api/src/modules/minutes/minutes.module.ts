@@ -1,24 +1,19 @@
 import { Module } from '@nestjs/common';
-import { ProviderRegistry } from '@chatofy/ai-providers';
 import { AuthModule } from '../auth/auth.module';
 import { ConversationsModule } from '../conversations/conversations.module';
-import { registerDefaultProviders } from '../translate/providers/register-default-providers';
+import { SummarizationModule } from '../summarization/summarization.module';
 import { MINUTES_STORE } from './interfaces/minutes-store.interface';
 import { PrismaMinutesStore } from './stores/prisma-minutes.store';
 import { MinutesController } from './minutes.controller';
 import { MinutesService } from './minutes.service';
-import { MinutesSummarizer } from './minutes-summarizer.service';
 
 /**
  * Minutes module.
  *
  * POST /conversations/:conversationId/minutes runs one LLM pass over a STORED
  * conversation and persists the result; GET reads it back. The summarization
- * provider is resolved by name (see `MinutesSummarizer`) through the ProviderRegistry populated
- * from the shared composition root (register-default-providers.ts) — the same
- * registry the translate module builds, constructed here independently so the
- * two modules share the registration list without depending on each other's
- * lifecycle.
+ * provider is resolved by name (see `MinutesSummarizer`), which lives in
+ * `SummarizationModule` because conversation titles use the same one.
  *
  * `useClass`, not a `useFactory` reading an env var. Which backend stores
  * minutes was never a deployment decision worth making: the switch that used to
@@ -33,19 +28,14 @@ import { MinutesSummarizer } from './minutes-summarizer.service';
  * it.
  */
 @Module({
-  imports: [AuthModule, ConversationsModule],
+  imports: [AuthModule, ConversationsModule, SummarizationModule],
   controllers: [MinutesController],
   providers: [
-    {
-      provide: ProviderRegistry,
-      useFactory: () => registerDefaultProviders(new ProviderRegistry()),
-    },
     { provide: MINUTES_STORE, useClass: PrismaMinutesStore },
-    MinutesSummarizer,
     MinutesService,
   ],
   // The conference module summarizes its rooms with the same resolved
   // provider, rather than building a second registry and a second cache.
-  exports: [MinutesSummarizer],
+  exports: [SummarizationModule],
 })
 export class MinutesModule {}
