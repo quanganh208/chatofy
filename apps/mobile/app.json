@@ -8,6 +8,7 @@
     "scheme": "chatofy",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "dev.quanganh208.chatofy",
       "supportsTablet": true,
       "bitcode": false,
       "infoPlist": {
@@ -22,7 +23,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.quanganh208.mobile"
+      "package": "dev.quanganh208.chatofy"
     },
     "web": {
       "output": "static",
@@ -59,7 +60,7 @@
       ],
       "expo-secure-store",
       "expo-font",
-      "@react-native-vector-icons/ionicons"
+      "@react-native-vector-icons/ionicons/app.plugin.js"
     ],
     "experiments": {
       "typedRoutes": true,
