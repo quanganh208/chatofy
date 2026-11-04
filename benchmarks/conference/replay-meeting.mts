@@ -100,6 +100,8 @@ interface TurnRow {
   audioFrames: number;
   audioFramesDelivered: number;
   polishedMs: number | null;
+  /** When a listener received the polished translation, once the room carries it. */
+  revisedMs: number | null;
   endReason: string | null;
   error: string | null;
 }
@@ -329,6 +331,9 @@ async function main() {
       if (!row) return;
       if (row.firstSubtitleMs === null && (data.translatedText || data.sourceText)) row.firstSubtitleMs = now();
       if (data.isFinal === true) row.listenerFinalMs ??= now();
+    } else if (event === 'conference.translation.revised') {
+      const row = rows.get(String(data.turnId));
+      if (row) row.revisedMs ??= now();
     } else if (event === 'conference.translation.audio') {
       const row = audioFrames.get(`${String(data.speakerSocketId)}|${String(data.lang)}|${String(data.sequence)}`);
       if (!row) return;
@@ -449,6 +454,7 @@ async function main() {
           audioFrames: 0,
           audioFramesDelivered: 0,
           polishedMs: null,
+          revisedMs: null,
           endReason: null,
           error: null,
         };

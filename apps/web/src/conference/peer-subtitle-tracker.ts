@@ -15,6 +15,11 @@
  *
  * A frame with no text on either channel is the speaker's clear: the turn ended
  * with no final. It takes that turn's line down, and nobody else's.
+ *
+ * A revision is a finished turn's better translation, and it arrives whenever the
+ * second pass does. It replaces the words of a line still on screen and leaves
+ * its clear running. For a line already gone it does nothing: bringing back a
+ * sentence the speaker has moved on from would be worse than the draft.
  */
 import type { ConferenceTranslationSubtitle } from '@chatofy/types/events';
 
@@ -78,6 +83,12 @@ export class PeerSubtitleTracker {
     this.show(speaker, text);
 
     if (subtitle.isFinal) this.scheduleClear(speaker, subtitle.turnId);
+  }
+
+  /** A finished turn's new text; see the file comment. */
+  revise(speakerSocketId: string, turnId: string, text: string): void {
+    if (this.activeTurn.get(speakerSocketId) !== turnId) return;
+    this.show(speakerSocketId, text);
   }
 
   /** The speaker left: drop its state without touching the display. */

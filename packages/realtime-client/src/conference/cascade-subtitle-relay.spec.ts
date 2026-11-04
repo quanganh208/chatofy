@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   MAX_CONFERENCE_TURN_TEXT_CHARS,
+  type ConferenceTranslationRevision,
   type ConferenceTranslationSubtitle,
   type LanguageCode,
   type ServerEvent,
@@ -12,14 +13,16 @@ const S2 = '0a1b2c3d-4e5f-4a6b-9c7d-8e9f0a1b2c3d';
 
 function relay(primary: (sessionId: string) => LanguageCode = () => 'en') {
   const frames: ConferenceTranslationSubtitle[] = [];
+  const revisions: ConferenceTranslationRevision[] = [];
   const counts: number[] = [];
   const r = new CascadeSubtitleRelay({
     sourceLanguage: 'vi',
     primary,
     emit: (frame) => frames.push(frame),
+    emitRevision: (revision) => revisions.push(revision),
     onOpenTurnCountChange: (count) => counts.push(count),
   });
-  return { r, frames, counts, finals: () => frames.filter((f) => f.isFinal) };
+  return { r, frames, revisions, counts, finals: () => frames.filter((f) => f.isFinal) };
 }
 
 const delta = (sessionId: string, committed: string): ServerEvent => ({
@@ -199,6 +202,7 @@ describe('CascadeSubtitleRelay', () => {
       sourceLanguage: 'vi',
       primary: () => primary,
       emit: (frame) => frames.push(frame),
+      emitRevision: () => {},
     });
     r.handle(final(S1, 'một', { en: 'one' }));
     primary = 'zh';
@@ -216,6 +220,7 @@ describe('CascadeSubtitleRelay', () => {
       sourceLanguage: 'vi',
       primary: () => 'en',
       emit: () => {},
+      emitRevision: () => {},
       onOpenTurnCountChange,
     });
     r.handle(ended(S1, 'no_speech'));
@@ -267,5 +272,49 @@ describe('CascadeSubtitleRelay', () => {
         [S2, 'zh'],
       ]);
     });
+  });
+});
+
+describe('a finished turn changing later', () => {
+  const polished = (sessionId: string): ServerEvent => ({
+    type: 'server.translation.polished',
+    sessionId,
+    translations: { en: 'Hello there.' },
+  });
+
+  it('reads the readable rendering on the final when the server sent one', () => {
+    const { r, finals } = relay();
+    r.handle({ ...final(S1, 'xin chao', { en: 'hello' }), display: 'Xin chào.' } as ServerEvent);
+    expect(finals()[0]?.sourceText).toBe('Xin chào.');
+  });
+
+  it('keeps the plain source when there is no rendering', () => {
+    const { r, finals } = relay();
+    r.handle(final(S1, 'xin chao', { en: 'hello' }));
+    expect(finals()[0]?.sourceText).toBe('xin chao');
+  });
+
+  it('sends a polish after the final as one revision, never as another final', () => {
+    const { r, frames, revisions, finals } = relay();
+    r.handle(final(S1, 'xin chao', { en: 'hello' }));
+    const before = frames.length;
+    r.handle(polished(S1));
+    expect(revisions).toEqual([{ turnId: S1, translations: { en: 'Hello there.' } }]);
+    expect(frames).toHaveLength(before);
+    expect(finals()).toHaveLength(1);
+  });
+
+  it('sends nothing for a polish of a turn it never finalized', () => {
+    const { r, revisions } = relay();
+    r.handle(polished(S2));
+    expect(revisions).toEqual([]);
+  });
+
+  it('sends nothing for a turn that closed without a final', () => {
+    const { r, revisions } = relay();
+    r.handle(delta(S1, 'xin'));
+    r.handle({ type: 'server.session.ended', sessionId: S1, reason: 'no_speech' });
+    r.handle(polished(S1));
+    expect(revisions).toEqual([]);
   });
 });

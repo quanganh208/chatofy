@@ -1,5 +1,6 @@
 import {
   MAX_CONFERENCE_TURN_TEXT_CHARS,
+  type ConferenceTranslationRevision,
   type ConferenceTranslationSubtitle,
   type LanguageCode,
   type ServerEvent,
@@ -24,6 +25,11 @@ import {
  *
  * What closes a turn without a final emits a non-final CLEAR (empty text), so a
  * listener's line goes away and nothing is persisted.
+ *
+ * A finished turn can still change once: `server.translation.polished` arrives
+ * after its final, which is why it is read before the closed-turn check. It
+ * leaves as a revision and never as another final. A turn that closed without a
+ * final has no row to revise, so it gets none.
  */
 
 /** Turns tracked at once, open or recently closed. Oldest is forgotten first. */
@@ -39,11 +45,32 @@ export interface CascadeSubtitleRelayOptions {
    */
   primary: (sessionId: string) => LanguageCode;
   emit: (subtitle: ConferenceTranslationSubtitle) => void;
+  /** A finalized turn's stronger translations. */
+  emitRevision: (revision: ConferenceTranslationRevision) => void;
   /** The number of turns with a live line changed. */
   onOpenTurnCountChange?: (count: number) => void;
 }
 
 const clip = (text: string): string => text.slice(0, MAX_CONFERENCE_TURN_TEXT_CHARS);
+
+function clipTranslations(
+  translations: Partial<Record<LanguageCode, string>>,
+): Partial<Record<LanguageCode, string>> {
+  const clipped: Partial<Record<LanguageCode, string>> = {};
+  for (const [lang, text] of Object.entries(translations) as [LanguageCode, string][]) {
+    clipped[lang] = clip(text);
+  }
+  return clipped;
+}
+
+/** Forget the oldest turns; sets iterate in insertion order. */
+function trim(turns: Set<string>): void {
+  while (turns.size > MAX_TRACKED_TURNS) {
+    const oldest = turns.values().next().value;
+    if (oldest === undefined) break;
+    turns.delete(oldest);
+  }
+}
 
 export class CascadeSubtitleRelay {
   /** Only live lines are kept; finished turns leave nothing behind here. */
@@ -52,6 +79,8 @@ export class CascadeSubtitleRelay {
   private readonly open = new Map<string, string>();
   /** Turns that are over. Later events for them are ignored. */
   private readonly closed = new Set<string>();
+  /** Turns whose final went out, the only ones a revision may name. */
+  private readonly finalized = new Set<string>();
   /** Each live turn's primary, read at first sight; see the `primary` option. */
   private readonly primaries = new Map<string, LanguageCode>();
 
@@ -64,6 +93,15 @@ export class CascadeSubtitleRelay {
 
   handle(event: ServerEvent): void {
     const sessionId = 'sessionId' in event ? event.sessionId : undefined;
+    if (event.type === 'server.translation.polished') {
+      if (this.finalized.has(event.sessionId)) {
+        this.options.emitRevision({
+          turnId: event.sessionId,
+          translations: clipTranslations(event.translations),
+        });
+      }
+      return;
+    }
     if (sessionId !== undefined && this.closed.has(sessionId)) return;
     if (sessionId !== undefined) this.primaryOf(sessionId);
 
@@ -74,7 +112,13 @@ export class CascadeSubtitleRelay {
     if (sessionId === undefined) return;
 
     if (event.type === 'server.transcript.final') {
-      this.finalize(sessionId, event.segment.sourceText, event.segment.translations);
+      // `display` is the same words punctuated, cased and with digits, which is
+      // what a meeting's record and minutes should read.
+      this.finalize(
+        sessionId,
+        event.display ?? event.segment.sourceText,
+        event.segment.translations,
+      );
       return;
     }
     if (event.type === 'server.session.ended') {
@@ -148,12 +192,11 @@ export class CascadeSubtitleRelay {
     translations: Partial<Record<LanguageCode, string>>,
   ): void {
     const primary = this.primaryOf(sessionId);
-    const clipped: Partial<Record<LanguageCode, string>> = {};
-    for (const [lang, text] of Object.entries(translations) as [LanguageCode, string][]) {
-      clipped[lang] = clip(text);
-    }
+    const clipped = clipTranslations(translations);
     const wasOpen = this.open.delete(sessionId);
     this.markClosed(sessionId);
+    this.finalized.add(sessionId);
+    trim(this.finalized);
     this.options.emit({
       sourceLanguage: this.options.sourceLanguage,
       targetLanguage: primary,
@@ -190,11 +233,7 @@ export class CascadeSubtitleRelay {
   private markClosed(sessionId: string): void {
     this.primaries.delete(sessionId);
     this.closed.add(sessionId);
-    while (this.closed.size > MAX_TRACKED_TURNS) {
-      const oldest = this.closed.values().next().value;
-      if (oldest === undefined) break;
-      this.closed.delete(oldest);
-    }
+    trim(this.closed);
   }
 
   /** Open turns are bounded too; the oldest is cleared, never finalized. */

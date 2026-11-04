@@ -287,6 +287,13 @@ export class CallAttempt {
       case 'subtitle':
         this.subtitles.receive(event.subtitle, this.options.sourceLanguage);
         return;
+      case 'subtitle-revised':
+        this.subtitles.revise(
+          event.revised.speakerSocketId,
+          event.revised.turnId,
+          event.revised.translatedText,
+        );
+        return;
       case 'audio':
         // The gateway already routes by language; this keeps a stray frame in
         // the wrong language from ever reaching the speakers.

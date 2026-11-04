@@ -93,6 +93,17 @@ export function withPeerSubtitle(
   return next;
 }
 
+/** Replace the words of a subtitle that still shows `turnId`; a cleared line stays cleared. */
+export function withRevisedPeerSubtitle(
+  prev: PeerMap,
+  socketId: string,
+  turnId: string,
+  text: string,
+): PeerMap {
+  if (prev.get(socketId)?.subtitleTurnId !== turnId) return prev;
+  return withPeerSubtitle(prev, socketId, turnId, text);
+}
+
 /** Clear a peer's subtitle only if it still shows `turnId`. */
 export function withoutPeerSubtitle(prev: PeerMap, socketId: string, turnId: string): PeerMap {
   const entry = prev.get(socketId);

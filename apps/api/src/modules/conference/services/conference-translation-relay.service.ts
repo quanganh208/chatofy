@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   ConferenceTranslationBroadcastSchema,
   type ConferenceTranslationAudio,
+  type ConferenceTranslationRevision,
   type ConferenceTranslationSubtitle,
   type LanguageCode,
 } from '@chatofy/types';
@@ -122,6 +123,51 @@ export class ConferenceTranslationRelay {
       };
       this.router.routeAudio(room, socketId, audio, deliver);
     }
+    if (input.revision) {
+      this.applyRevision(room, peer, socketId, input.revision, deliver);
+    }
+  }
+
+  /**
+   * Store a finished turn's stronger translations and tell the listeners.
+   *
+   * Only for a turn this peer finalized, so a peer can rewrite nothing but its
+   * own record, and under the rule a final is stored by: only languages someone
+   * else in the room speaks. It is chained on the turn's entry because two
+   * revisions are both read-modify-write of one JSON column, and because the
+   * row may not exist yet when the first one lands.
+   */
+  private applyRevision(
+    room: ConferenceRoom,
+    peer: ParticipantSession,
+    socketId: string,
+    revision: ConferenceTranslationRevision,
+    deliver: (to: string, event: string, data: unknown) => void,
+  ): void {
+    const stored = peer.persistedTurns.get(revision.turnId);
+    if (stored === undefined) return;
+    const translations = keptTranslations(
+      revision.translations,
+      peer.sourceLanguage,
+      roomLanguages(room),
+    );
+    if (Object.keys(translations).length === 0) return;
+    this.router.routeRevision(
+      room,
+      socketId,
+      peer.sourceLanguage,
+      revision.turnId,
+      translations,
+      deliver,
+    );
+    peer.persistedTurns.set(
+      revision.turnId,
+      stored.then(async (rowId) => {
+        if (rowId !== null)
+          await this.persistence.reviseTurn(rowId, translations);
+        return rowId;
+      }),
+    );
   }
 
   /**
@@ -140,42 +186,61 @@ export class ConferenceTranslationRelay {
     subtitle: ConferenceTranslationSubtitle,
     present: ReadonlySet<LanguageCode>,
   ): void {
-    if (peer.persistedTurnIds.has(subtitle.turnId)) return;
-    rememberTurn(peer.persistedTurnIds, subtitle.turnId);
+    if (peer.persistedTurns.has(subtitle.turnId)) return;
 
     const sourceText = subtitle.sourceText.trim();
-    const translations: Partial<Record<LanguageCode, string>> = {};
-    const offered = subtitle.translations ?? {
-      [subtitle.targetLanguage]: subtitle.translatedText,
-    };
-    for (const [language, text] of Object.entries(offered) as [
-      LanguageCode,
-      string | undefined,
-    ][]) {
-      const kept = text?.trim();
-      if (!kept) continue;
-      if (language === subtitle.sourceLanguage || !present.has(language)) {
-        continue;
-      }
-      translations[language] = kept;
-    }
-    const translated = Object.values(translations);
-    if (!sourceText && translated.length === 0) return;
-
-    void this.persistence.recordTurn(peer.participantId, conferenceId, {
-      sourceLanguage: subtitle.sourceLanguage,
-      sourceText,
-      translations,
-    });
+    const translations = keptTranslations(
+      subtitle.translations ?? {
+        [subtitle.targetLanguage]: subtitle.translatedText,
+      },
+      subtitle.sourceLanguage,
+      present,
+    );
+    const nothingToStore =
+      !sourceText && Object.keys(translations).length === 0;
+    rememberTurn(
+      peer.persistedTurns,
+      subtitle.turnId,
+      nothingToStore
+        ? Promise.resolve(null)
+        : this.persistence.recordTurn(peer.participantId, conferenceId, {
+            sourceLanguage: subtitle.sourceLanguage,
+            sourceText,
+            translations,
+          }),
+    );
   }
 }
 
-function rememberTurn(seen: Set<string>, turnId: string): void {
-  seen.add(turnId);
+function rememberTurn(
+  seen: Map<string, Promise<string | null>>,
+  turnId: string,
+  row: Promise<string | null>,
+): void {
+  seen.set(turnId, row);
   if (seen.size <= REMEMBERED_TURNS_PER_PEER) return;
-  // Sets iterate in insertion order, so the first entry is the oldest.
-  const oldest = seen.values().next().value;
+  // Maps iterate in insertion order, so the first entry is the oldest.
+  const oldest = seen.keys().next().value;
   if (oldest !== undefined) seen.delete(oldest);
+}
+
+/** The translations a meeting keeps: trimmed, into a language someone else speaks. */
+function keptTranslations(
+  offered: Partial<Record<LanguageCode, string>>,
+  sourceLanguage: LanguageCode,
+  present: ReadonlySet<LanguageCode>,
+): Partial<Record<LanguageCode, string>> {
+  const kept: Partial<Record<LanguageCode, string>> = {};
+  for (const [language, text] of Object.entries(offered) as [
+    LanguageCode,
+    string | undefined,
+  ][]) {
+    const trimmed = text?.trim();
+    if (!trimmed) continue;
+    if (language === sourceLanguage || !present.has(language)) continue;
+    kept[language] = trimmed;
+  }
+  return kept;
 }
 
 /** Every language spoken in the room right now. */
@@ -203,16 +268,26 @@ function frameChars(input: {
     translations?: Partial<Record<LanguageCode, string>>;
   };
   audio?: { payload: string };
+  revision?: { translations: Partial<Record<LanguageCode, string>> };
 }): number {
   const { subtitle } = input;
-  const mapChars = Object.values(subtitle?.translations ?? {}).reduce(
-    (sum, text) => sum + (text?.length ?? 0),
-    0,
-  );
   return (
     (subtitle
-      ? subtitle.sourceText.length + subtitle.translatedText.length + mapChars
-      : 0) + (input.audio?.payload.length ?? 0)
+      ? subtitle.sourceText.length +
+        subtitle.translatedText.length +
+        mapChars(subtitle.translations)
+      : 0) +
+    (input.audio?.payload.length ?? 0) +
+    mapChars(input.revision?.translations)
+  );
+}
+
+function mapChars(
+  translations: Partial<Record<LanguageCode, string>> | undefined,
+): number {
+  return Object.values(translations ?? {}).reduce(
+    (sum, text) => sum + (text?.length ?? 0),
+    0,
   );
 }
 

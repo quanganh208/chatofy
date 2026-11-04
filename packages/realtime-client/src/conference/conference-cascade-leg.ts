@@ -138,6 +138,7 @@ class CascadeLeg implements ConferenceCascadeLeg {
       // only a fallback for a turn this leg never saw start.
       primary: (sessionId) => this.primaries.get(sessionId) ?? this.targets().primary,
       emit: (subtitle) => o.sendBroadcast({ subtitle }),
+      emitRevision: (revision) => o.sendBroadcast({ revision }),
       onOpenTurnCountChange: (count) => {
         if (count > 0 === this.translating) return;
         this.translating = count > 0;
@@ -247,6 +248,9 @@ class CascadeLeg implements ConferenceCascadeLeg {
       meeting: true,
       voiceOutput: voiced,
       streamCommitted: CASCADE_STREAM_COMMITTED,
+      // The record and the minutes read this turn's source, so it should read
+      // the way /translate's does. Listeners see it only on the final.
+      repairDisplay: true,
       voiceGender: voice.voiceGender ?? DEFAULT_VOICE_GENDER,
       ...(voice.speed === undefined ? {} : { speed: voice.speed }),
       ...(voice.voices === undefined ? {} : { voices: voice.voices }),

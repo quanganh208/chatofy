@@ -78,14 +78,14 @@ export class ConferencePersistenceService {
     });
   }
 
-  /** Persist one finished speech turn. Never rejects. */
+  /** Persist one finished speech turn. Never rejects; null when nothing was stored. */
   async recordTurn(
     participantId: string,
     conferenceId: string,
     data: RecordTurnData,
-  ): Promise<void> {
+  ): Promise<string | null> {
     try {
-      await this.prisma.conferenceTurn.create({
+      const row = await this.prisma.conferenceTurn.create({
         data: {
           conferenceId,
           participantId,
@@ -93,12 +93,38 @@ export class ConferencePersistenceService {
           sourceText: data.sourceText,
           translations: data.translations,
         },
+        select: { id: true },
       });
+      return row.id;
     } catch (err) {
       this.logger.error(
         `recordTurn failed for participant ${participantId} in conference ${conferenceId}`,
         err,
       );
+      return null;
+    }
+  }
+
+  /** Lay stronger translations over a stored turn's. Never rejects. */
+  async reviseTurn(
+    turnId: string,
+    translations: Partial<Record<LanguageCode, string>>,
+  ): Promise<void> {
+    try {
+      const row = await this.prisma.conferenceTurn.findUnique({
+        where: { id: turnId },
+        select: { translations: true },
+      });
+      if (!row) return;
+      const stored = (row.translations ?? {}) as Partial<
+        Record<LanguageCode, string>
+      >;
+      await this.prisma.conferenceTurn.update({
+        where: { id: turnId },
+        data: { translations: { ...stored, ...translations } },
+      });
+    } catch (err) {
+      this.logger.error(`reviseTurn failed for turn ${turnId}`, err);
     }
   }
 

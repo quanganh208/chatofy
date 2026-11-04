@@ -13,6 +13,7 @@ import {
   ConferenceChatMessageSchema,
   ConferenceMediaPublishedSchema,
   ConferenceTranslationAudioSchema,
+  ConferenceTranslationRevisedSchema,
   ConferenceTranslationSubtitleSchema,
   type ConferenceChatMessage,
   type ConferenceTranslationSubtitle,
@@ -22,6 +23,7 @@ import { parseSignal, replyErrorCode } from './conference-signaling';
 import {
   withPeerMediaState,
   withPeerSubtitle,
+  withRevisedPeerSubtitle,
   withoutPeer,
   withoutPeerSubtitle,
   type PeerMap,
@@ -127,6 +129,13 @@ export function createRoomEventListener(deps: RoomEventDeps): RoomEventListener 
     }
   }
 
+  function onSubtitleRevised(data: unknown): void {
+    const parsed = ConferenceTranslationRevisedSchema.safeParse(data);
+    if (!parsed.success) return;
+    const { speakerSocketId, turnId, translatedText } = parsed.data;
+    setPeers((prev) => withRevisedPeerSubtitle(prev, speakerSocketId, turnId, translatedText));
+  }
+
   function onAudio(data: unknown): void {
     const parsed = ConferenceTranslationAudioSchema.safeParse(data);
     if (!parsed.success) return;
@@ -187,6 +196,9 @@ export function createRoomEventListener(deps: RoomEventDeps): RoomEventListener 
       }
       case 'conference.translation.subtitle':
         onSubtitle(msg.data);
+        return;
+      case 'conference.translation.revised':
+        onSubtitleRevised(msg.data);
         return;
       case 'conference.translation.audio':
         onAudio(msg.data);
