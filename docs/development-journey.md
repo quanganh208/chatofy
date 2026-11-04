@@ -2751,3 +2751,22 @@ A prod English interview (`7a5c5edb`, en→vi, 3 min 22 s) was checked against S
 - **A clause that went missing still has no cause.** Turn c75158bd was finalized as "politics." while the same audio, decoded again and replayed twice on prod through the shipped client (voice on and off), always returned the whole clause. The client sent the audio; a stale speculation, a busy sidecar, the speaker split and partial fallbacks were all ruled out; the recording shows no echo of the translated voice. The metrics line now also says which path wrote each final (reused speculation, fresh decode or split), with its bytes, the speculation's offset, and the final's characters, words and gate speech. Counts only.
 - **Telling the polisher the earlier translations did not keep the address form.** The guest went from "bạn" to "anh/chị" to "ông". With the delivered translations in the context and an explicit rule, switches stayed at 3 on the interview and 10 on the 80 judged en→vi rows. Reverted.
 - **No change to speaker splitting helped the interview's three interjections.** "You can ask me…" is overlapped speech the planner already splits as well as it can. "We've covered- | God, I'm…" and "Not enough math." have no pause at the voice change. A 200 ms pause floor took wrong-speaker words from 161 to 102 of 4,256 over 10 recordings, but that harness credits every span with its own majority speaker, so more splits score better by construction. It fixed none of the three cases. The harness now lives in `benchmarks/speaker-id/edge-replay/`, with a per-case tracer.
+
+## Words lost at a ceiling cut are recovered on the block (04/11/2026)
+
+A prod English lesson (`5ba1c1c1`, en→vi, 104 s) scored WER 1.07% against Scribe, 20 of 20 speaker labels right, and 0 of 20 serious translation errors. The one real loss was at a cut: "Exactly, and this is crucial" was saved as "Exactly. crucial". The cut fell just before "crucial", and every crop ending there returned "Exactly.", with or without the speaker split.
+
+- **Inserting beat every other arm that was safe on both languages.** Replayed through the capture pump on 7 English and 6 Vietnamese recordings, 156 forced cuts, against Scribe. Today was 4.02% and 5.98%. Words were added at 6 cuts, and all 6 were right: 3.71% and 5.83%.
+- **What lost, with numbers:**
+  - Re-decoding the whole block: 4.63% on English, worse than today, and long chains hit the sidecar's memory limit. It looked like the answer on the one seam that started this.
+  - Replacing text from the seam window: 3.48% on English, but 6.89% on Vietnamese, where it deleted an 18-word phrase.
+  - 300 ms of trailing silence on every turn: 3.67%, 8 new errors, and it invented endings ("And this is correct.", "crazy.", "critical.").
+  - Giving the next turn the previous 2.5 s as left context: 3.71% with 5 new errors, though it was the only arm that could reach live speech.
+- **Two things only the code showed:**
+  - English blocks sent no `display`, because a display needed a restore, so the words would never have reached the screen.
+  - A voice change can leave the left side a single word, "Exactly.", which two-word anchors miss. One-word anchors are allowed only for a side that is one word in total, at the clip's edge. Short-piece replays at 0.8, 1.4 and 2 s added 17 English runs. One was a mishearing, "see" for "sleep", on a 0.8 s piece.
+- **Review found the first version could insert wrong words.** Its two-word anchors took the earliest match, so a clip reading one word differently could re-insert words a turn had kept, and the spec and ruler both missed it because their clips were clean. The clip now has to agree with both turns up to its outer word, on at least 3 words or a whole shorter side, and a gap that repeats a turn is refused. All six real recoveries survived, and the ruler now flags duplicates.
+- **Reads are bounded by what was spoken.** Each cut is read once, however often its block grows, one at a time per block, with a 1 s budget, because the sidecar refuses rather than queues and a block has about 3 s of grace at the end of a run.
+- **Local end to end:** the recording went through the shipped client against an API on this branch. The row came back as "Exactly. And this is crucial because…", translated "Chính xác. Và điều này rất quan trọng vì…". Speech already played does not change.
+
+Ruler: `benchmarks/seam-repair/`. Report: `plans/reports/brainstorm-261104-1416-seam-word-loss-and-conversation-defects.md`.

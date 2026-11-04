@@ -111,6 +111,8 @@ interface Harness {
   respellCalls: string[][];
   /** Whether each respelling call was told its translation is in Han characters. */
   respellHan: boolean[];
+  /** What the pipeline was asked to translate, for a block. */
+  translateAll: ReturnType<typeof vi.fn>;
 }
 
 function makeService(
@@ -125,7 +127,10 @@ function makeService(
     corrections,
     translations,
     transcripts,
+    seamClip,
   }: {
+    /** What the recognizer hears in the audio around a cut. */
+    seamClip?: string;
     /** Each turn's transcript in call order, when turns differ; else `sourceText`. */
     transcripts?: string[];
     translation?: string;
@@ -154,6 +159,7 @@ function makeService(
   const inputs: TranslateTurnInput[] = [];
   const respellCalls: string[][] = [];
   const respellHan: boolean[] = [];
+  const translateAll = vi.fn().mockResolvedValue({ en: translation });
 
   const pipeline = {
     transcribeAndTranslate: vi.fn((input: TranslateTurnInput) => {
@@ -174,7 +180,7 @@ function makeService(
             }),
       });
     }),
-    translateAll: vi.fn().mockResolvedValue({ en: translation }),
+    translateAll,
     retryAdopted: vi.fn(
       async (translated: { translations: Record<string, string> }) =>
         translated.translations,
@@ -206,7 +212,7 @@ function makeService(
     embedSpeaker: vi.fn().mockResolvedValue(null),
     // The live preview reaches for these on every frame. Stubbed rather than
     // omitted: a turn that cannot run its preview throws inside `pushFrame`.
-    transcribe: vi.fn().mockResolvedValue(''),
+    transcribe: vi.fn().mockResolvedValue({ text: seamClip ?? '' }),
     translate: vi.fn().mockResolvedValue(''),
   } as unknown as PipelineTranslatorService;
 
@@ -231,6 +237,7 @@ function makeService(
     inputs,
     respellCalls,
     respellHan,
+    translateAll,
   };
 }
 
@@ -648,6 +655,104 @@ describe('a block typeset as one text', () => {
     expect(socket.ofType('server.block.translated').at(-1)).not.toHaveProperty(
       'display',
     );
+  });
+
+  describe('with words recovered at the cut', () => {
+    const clause = {
+      transcripts: ['Exactly.', 'crucial because it matters.'],
+      seamClip: 'Exactly, and this is crucial because it matters.',
+      translation: 'Chính xác, điều này rất quan trọng',
+    };
+    const english = { source: 'en', target: 'vi' } as const;
+
+    async function runEnglishBlock(
+      harness: Harness,
+      wantsDisplay = true,
+    ): Promise<FakeSocket> {
+      const socket = new FakeSocket();
+      const first = await runTurn(harness.service, socket, {
+        languagePair: english,
+        wantsDisplay,
+      });
+      const second = await runTurn(harness.service, socket, {
+        languagePair: english,
+        wantsDisplay,
+        continuesCut: true,
+      });
+      await harness.service.retranslateBlock(socket, [first, second], 'user-1');
+      return socket;
+    }
+
+    it('shows them on English, which has no restorer to send a display', async () => {
+      const socket = await runEnglishBlock(makeService('', undefined, clause));
+
+      expect(socket.ofType('server.block.translated').at(-1)!.display).toBe(
+        'Exactly and this is crucial because it matters.',
+      );
+    });
+
+    it('translates them', async () => {
+      const harness = makeService('', undefined, clause);
+      await runEnglishBlock(harness);
+
+      expect(harness.translateAll).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: 'Exactly and this is crucial because it matters.',
+        }),
+      );
+    });
+
+    it('sends no display to a client that renders the raw line', async () => {
+      const socket = await runEnglishBlock(
+        makeService('', undefined, clause),
+        false,
+      );
+
+      expect(
+        socket.ofType('server.block.translated').at(-1),
+      ).not.toHaveProperty('display');
+    });
+
+    it('keeps the punctuated pieces when a restored language lost its restore', async () => {
+      const socket = await runBlock(
+        makeService('', undefined, {
+          transcripts: ['thưa quý vị', 'theo ủy ban'],
+          seamClip: 'thưa quý vị xin mời theo ủy ban',
+          blockRestored: () => 'Một câu khác hẳn.',
+        }),
+      );
+
+      expect(
+        socket.ofType('server.block.translated').at(-1),
+      ).not.toHaveProperty('display');
+    });
+
+    it('sends a restore that changed nothing, because the pieces lack the words', async () => {
+      const socket = await runBlock(
+        makeService('', undefined, {
+          transcripts: ['thưa quý vị', 'theo ủy ban'],
+          seamClip: 'thưa quý vị xin mời theo ủy ban',
+          blockRestored: (text) => text,
+        }),
+      );
+
+      expect(socket.ofType('server.block.translated').at(-1)!.display).toBe(
+        'thưa quý vị xin mời theo ủy ban',
+      );
+    });
+
+    it('sends no display when the cut lost nothing', async () => {
+      const socket = await runEnglishBlock(
+        makeService('', undefined, {
+          ...clause,
+          seamClip: 'Exactly. crucial because it matters.',
+        }),
+      );
+
+      expect(
+        socket.ofType('server.block.translated').at(-1),
+      ).not.toHaveProperty('display');
+    });
   });
 
   it('sends no display when the block restore changed the words', async () => {

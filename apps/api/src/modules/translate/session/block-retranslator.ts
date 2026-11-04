@@ -3,7 +3,12 @@ import type { TranslationPolisher } from '@chatofy/ai-providers';
 import type { LanguageCode, TranslationHints } from '@chatofy/types';
 import { TranslationBudget } from '../audio/translation-budget';
 import { EventChannel } from './event-channel';
-import type { FinishedSegments, SegmentBlock } from './finished-segments';
+import type {
+  BlockSeam,
+  FinishedSegments,
+  SegmentBlock,
+} from './finished-segments';
+import { wordsLostAtSeam } from './seam-word-repair';
 import type { StreamSocket } from './stream-socket';
 import { FINAL_MODELS } from './translation-model-policy';
 import type { TranslationMap } from './turn-language-plan';
@@ -78,6 +83,19 @@ export interface BlockDisplay {
   ): string | undefined;
 }
 
+/**
+ * How long a block waits on its seams before translating without them.
+ *
+ * A block's answer has about 3 s of grace at the end of a run, and the
+ * translation itself takes about 1 s of it.
+ */
+export const SEAM_READ_BUDGET_MS = 1_000;
+
+/** Reads the audio around a cut. May reject; the seam then stays as it is. */
+export type SeamReader = (seam: BlockSeam) => Promise<string>;
+
+const NO_SEAM_READER: SeamReader = () => Promise.resolve('');
+
 const NO_DISPLAY: BlockDisplay = {
   restore: async () => undefined,
   typeset: () => undefined,
@@ -135,6 +153,8 @@ export class BlockRetranslator {
      * 26.3% to 10.5% (10 fixed, 1 broken; vi→en 37.5% → 12.5%).
      */
     private readonly polisher: TranslationPolisher | null = null,
+    /** How a cut's audio is read again; without one, blocks are not repaired. */
+    private readonly readSeam: SeamReader = NO_SEAM_READER,
   ) {}
 
   /**
@@ -195,6 +215,44 @@ export class BlockRetranslator {
     }
   }
 
+  /**
+   * Read a block's unread cuts, one at a time, for at most
+   * {@link SEAM_READ_BUDGET_MS}.
+   *
+   * One at a time because the sidecar refuses rather than queues, and a live
+   * turn waiting behind these reads is the one that would fail. Each cut is read
+   * once for good, so a client cannot ask for more reads than it sent cuts.
+   * Never rejects: a sidecar that is busy or down leaves the seam unrepaired, and
+   * a read that answers past the budget still serves the block when it grows.
+   */
+  private async readSeams(
+    socket: StreamSocket,
+    seams: readonly BlockSeam[],
+  ): Promise<void> {
+    let waiting = true;
+    const reading = (async () => {
+      for (const seam of seams) {
+        if (!waiting || this.isGone(socket)) return;
+        try {
+          const clip = await this.readSeam(seam);
+          const lost = wordsLostAtSeam(seam.left, seam.right, clip);
+          this.finished.rememberSeamRead(socket, seam, lost);
+        } catch (err) {
+          this.logger.debug(
+            `seam read failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+    })();
+    let timer: NodeJS.Timeout | undefined;
+    const expired = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, SEAM_READ_BUDGET_MS);
+    });
+    await Promise.race([reading, expired]);
+    clearTimeout(timer);
+    waiting = false;
+  }
+
   private async translateBlock(
     socket: StreamSocket,
     segmentIds: string[],
@@ -202,8 +260,8 @@ export class BlockRetranslator {
   ): Promise<void> {
     // Checked again here, not only when queued: a segment can age out of the
     // socket's window while its block waits.
-    const block = this.finished.block(socket, segmentIds);
-    if (!block) {
+    const asked = this.finished.block(socket, segmentIds);
+    if (!asked) {
       return this.refuse(socket, segmentIds, 'segments not all known here');
     }
     const model = FINAL_MODELS[0] ?? '';
@@ -212,6 +270,26 @@ export class BlockRetranslator {
       return this.refuse(socket, segmentIds, 'budget spent');
     }
     this.budget.spend(userId, model);
+    // Before everything that reads the block's text, so the restore, the
+    // translation, the polish and the display all carry the same words. The
+    // segments can age out during the read; the block then goes unrepaired.
+    const seams = this.finished.unreadSeams(socket, segmentIds);
+    if (seams.length > 0) {
+      await this.readSeams(socket, seams);
+      // Nothing can be answered now, so spend no model call on it.
+      if (this.isGone(socket)) return;
+    }
+    const recovered = this.finished.recoveredWords(socket, segmentIds);
+    if (seams.length > 0) {
+      // Counts only: a transcript has no place in a log line.
+      this.logger.log(
+        `seam repair: read=${seams.length} inserted=${recovered.size}`,
+      );
+    }
+    const block =
+      (recovered.size > 0 &&
+        this.finished.block(socket, segmentIds, recovered)) ||
+      asked;
     // Beside the translation, on the same budget: a restore is local and a few
     // hundred milliseconds, and the reader gets both in the one answer.
     const restoring = this.display.restore(block);

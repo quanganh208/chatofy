@@ -91,8 +91,11 @@ import {
 } from '../session/turn-language-decision';
 import {
   FinishedSegments,
+  SEAM_REPAIR_LANGUAGES,
+  type BlockSeam,
   type SegmentBlock,
 } from '../session/finished-segments';
+import { encodePcm16Wav } from '../audio/wav-codec';
 import { BlockRetranslator } from '../session/block-retranslator';
 import { TurnPolisher } from '../session/turn-polisher';
 import {
@@ -304,6 +307,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           this.typesetBlock(block, restored, translations),
       },
       this.pipeline.makeTranslationPolisher(),
+      (seam) => this.readSeam(seam),
     );
 
     // ONE budget for the process, built here rather than per turn. A bucket per
@@ -1675,6 +1679,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         piece.sourceText,
         { ...piece, corrections },
         respellings[index],
+        piece.span,
       );
     });
     // After every line is out, as for a whole turn: a label may wait on the
@@ -2033,23 +2038,67 @@ export class TranslationSessionService implements OnModuleDestroy {
     restored: string | undefined,
     translations: Partial<Record<LanguageCode, string>>,
   ): string | undefined {
-    if (restored === undefined) return undefined;
+    if (restored === undefined) return this.unrestoredBlockDisplay(block);
     if (!restoreKeepsWords(block.sourceText, restored)) {
       this.logger.warn(
         'block display restore changed the words, the block keeps its pieces',
       );
+      return this.unrestoredBlockDisplay(block);
+    }
+    const adopted = adoptTranslatedCasing(restored, translations);
+    return (
+      typesetTranscript(
+        block.sourceText,
+        adopted,
+        block.recognition,
+        this.logger,
+        // The pieces' own accepted spellings and repairs, so a block typeset as
+        // one keeps what each piece already showed rather than reverting it.
+        block.respellings,
+        block.corrections,
+        // Undefined means "nothing changed", which is only true of the
+        // recognizer's words: the pieces do not have recovered ones.
+      ) ?? (block.seamRepaired ? adopted : undefined)
+    );
+  }
+
+  /**
+   * The display of a block no restore answered: none, except for words a seam
+   * repair added to a language that has no restorer. English pieces already
+   * carry the recognizer's marks, so nothing is lost by joining them.
+   *
+   * Not for a restored language whose restore failed: its pieces have marks and
+   * this text has none, so a few recovered words would cost the whole block its
+   * punctuation. The words are still in its translation.
+   */
+  private unrestoredBlockDisplay(block: SegmentBlock): string | undefined {
+    if (!block.seamRepaired || !block.repairDisplay || block.restore) {
       return undefined;
     }
-    return typesetTranscript(
-      block.sourceText,
-      adoptTranslatedCasing(restored, translations),
-      block.recognition,
-      this.logger,
-      // The pieces' own accepted spellings and repairs, so a block typeset as
-      // one keeps what each piece already showed rather than reverting it.
-      block.respellings,
-      block.corrections,
+    return (
+      typesetTranscript(
+        block.sourceText,
+        undefined,
+        block.recognition,
+        this.logger,
+        block.respellings,
+        block.corrections,
+      ) ?? block.sourceText
     );
+  }
+
+  /** A second reading of the audio around a cut, for a block's seam repair. */
+  private async readSeam(seam: BlockSeam): Promise<string> {
+    const { text } = await this.pipeline.transcribe({
+      audio: encodePcm16Wav({
+        samples: seam.clip,
+        sampleRate: seam.sampleRate,
+        channels: 1,
+      }),
+      mimeType: 'audio/wav',
+      language: seam.recognition,
+    });
+    return text;
   }
 
   private rememberSegment(
@@ -2067,13 +2116,20 @@ export class TranslationSessionService implements OnModuleDestroy {
       corrections?: readonly TranscriptCorrection[];
     },
     respellings: Respellings = {},
+    /** Where the segment sits in the turn's audio, for a piece of one. */
+    span?: { startMs: number; endMs: number },
   ): void {
     const restore = restoreRequestFor(
       session,
       undefined,
       this.context.learnedTerms(socket),
     );
+    const seamEdges = SEAM_REPAIR_LANGUAGES.has(session.languages.recognition)
+      ? session.buffered?.seamEdges(span?.startMs, span?.endMs)
+      : undefined;
     this.finished.record(socket, segmentId, {
+      ...(seamEdges ? { seamEdges } : {}),
+      ...(session.repairDisplay ? { repairDisplay: true } : {}),
       ...(Object.keys(respellings).length > 0 ? { respellings } : {}),
       ...(corrections?.length ? { corrections } : {}),
       sourceText,

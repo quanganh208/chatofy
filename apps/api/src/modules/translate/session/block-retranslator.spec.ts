@@ -1,8 +1,12 @@
 import type { Logger } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { LanguageCode, ServerEvent } from '@chatofy/types';
-import { BlockRetranslator, MAX_WAITING_BLOCKS } from './block-retranslator';
-import { FinishedSegments } from './finished-segments';
+import {
+  BlockRetranslator,
+  MAX_WAITING_BLOCKS,
+  SEAM_READ_BUDGET_MS,
+} from './block-retranslator';
+import { FinishedSegments, type BlockSeam } from './finished-segments';
 import type { StreamSocket } from './stream-socket';
 import type { TranslationMap } from './turn-language-plan';
 
@@ -181,6 +185,227 @@ describe('BlockRetranslator', () => {
  * The block's display: restored as one text beside the translation, finished
  * once the translation is in, and absent whenever the restore did not answer.
  */
+describe('BlockRetranslator seam repair', () => {
+  const edges = {
+    sampleRate: 16000,
+    head: Buffer.from([1, 0]),
+    tail: Buffer.from([2, 0]),
+  };
+
+  const repairHarness = (
+    readSeam: (seam: BlockSeam) => Promise<string>,
+    recognition: LanguageCode = 'en',
+    gone: { now: boolean } = { now: false },
+  ) => {
+    const socket = new FakeSocket();
+    const finished = new FinishedSegments();
+    ['Exactly.', 'crucial because it matters.'].forEach((sourceText, i) =>
+      finished.record(socket, `s${i}`, {
+        sourceText,
+        recognition,
+        targets: ['vi'],
+        seamEdges: edges,
+      }),
+    );
+    const translateAll = vi.fn(
+      async ({ text }: { text: string }): Promise<TranslationMap> => ({
+        vi: `<${text}>`,
+      }),
+    );
+    const logger = { debug: vi.fn(), warn: vi.fn(), log: vi.fn() };
+    const retranslator = new BlockRetranslator(
+      finished,
+      { translateAll },
+      logger as unknown as Logger,
+      () => gone.now,
+      undefined,
+      null,
+      readSeam,
+    );
+    return { socket, retranslator, translateAll, logger, finished };
+  };
+
+  it('translates the words the cut lost', async () => {
+    const readSeam = vi.fn(
+      async () => 'Exactly, and this is crucial because it matters.',
+    );
+    const { socket, retranslator, translateAll, logger } =
+      repairHarness(readSeam);
+
+    await retranslator.retranslate(socket, ['s0', 's1']);
+
+    expect(readSeam).toHaveBeenCalledWith(
+      expect.objectContaining({
+        leftId: 's0',
+        rightId: 's1',
+        clip: Buffer.from([2, 0, 1, 0]),
+      }),
+    );
+    expect(translateAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'Exactly and this is crucial because it matters.',
+      }),
+    );
+    expect(logger.log).toHaveBeenCalledWith('seam repair: read=1 inserted=1');
+  });
+
+  it('answers the block as it was when the sidecar fails', async () => {
+    const { socket, retranslator, translateAll } = repairHarness(async () => {
+      throw new Error('503');
+    });
+
+    await retranslator.retranslate(socket, ['s0', 's1']);
+
+    expect(translateAll).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'Exactly crucial because it matters.' }),
+    );
+    expect(socket.answers).toHaveLength(1);
+  });
+
+  it('reads a cut once as its block grows, keeping what it found', async () => {
+    const readSeam = vi.fn(
+      async () => 'Exactly, and this is crucial because it matters.',
+    );
+    const { socket, retranslator, translateAll, finished } =
+      repairHarness(readSeam);
+    finished.record(socket, 's2', {
+      sourceText: 'It really does.',
+      recognition: 'en',
+      targets: ['vi'],
+    });
+
+    await retranslator.retranslate(socket, ['s0', 's1']);
+    await retranslator.retranslate(socket, ['s0', 's1', 's2']);
+
+    expect(readSeam).toHaveBeenCalledTimes(1);
+    expect(translateAll).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        text: 'Exactly and this is crucial because it matters. It really does.',
+      }),
+    );
+  });
+
+  it('reads the cut again after a failure', async () => {
+    const readSeam = vi
+      .fn<() => Promise<string>>()
+      .mockRejectedValueOnce(new Error('503'))
+      .mockResolvedValue('Exactly, and this is crucial because it matters.');
+    const { socket, retranslator, translateAll } = repairHarness(readSeam);
+
+    await retranslator.retranslate(socket, ['s0', 's1']);
+    await retranslator.retranslate(socket, ['s0', 's1']);
+
+    expect(translateAll).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        text: 'Exactly and this is crucial because it matters.',
+      }),
+    );
+  });
+
+  it('reads one cut at a time', async () => {
+    let running = 0;
+    let most = 0;
+    const readSeam = vi.fn(async () => {
+      running += 1;
+      most = Math.max(most, running);
+      await Promise.resolve();
+      running -= 1;
+      return '';
+    });
+    const { socket, retranslator, finished } = repairHarness(readSeam);
+    finished.record(socket, 's2', {
+      sourceText: 'It really does.',
+      recognition: 'en',
+      targets: ['vi'],
+      seamEdges: edges,
+    });
+
+    await retranslator.retranslate(socket, ['s0', 's1', 's2']);
+
+    expect(readSeam).toHaveBeenCalledTimes(2);
+    expect(most).toBe(1);
+  });
+
+  it('translates without a read that outlives its budget', async () => {
+    vi.useFakeTimers();
+    try {
+      const { socket, retranslator, translateAll } = repairHarness(
+        () => new Promise(() => {}),
+      );
+
+      const running = retranslator.retranslate(socket, ['s0', 's1']);
+      await vi.advanceTimersByTimeAsync(SEAM_READ_BUDGET_MS);
+      await running;
+
+      expect(translateAll).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: 'Exactly crucial because it matters.',
+        }),
+      );
+      expect(socket.answers).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('spends no model call once the client has gone during a read', async () => {
+    const gone = { now: false };
+    const { socket, retranslator, translateAll } = repairHarness(
+      async () => {
+        gone.now = true;
+        return 'Exactly, and this is crucial because it matters.';
+      },
+      'en',
+      gone,
+    );
+
+    await retranslator.retranslate(socket, ['s0', 's1']);
+
+    expect(translateAll).not.toHaveBeenCalled();
+    expect(socket.answers).toEqual([]);
+  });
+
+  it('answers unrepaired when the segments aged out during the read', async () => {
+    const { socket, retranslator, translateAll, finished } = repairHarness(
+      async () => {
+        for (let i = 0; i < 24; i += 1) {
+          finished.record(socket, `later${i}`, {
+            sourceText: 'x',
+            recognition: 'en',
+            targets: ['vi'],
+          });
+        }
+        return 'Exactly, and this is crucial because it matters.';
+      },
+    );
+
+    await retranslator.retranslate(socket, ['s0', 's1']);
+
+    expect(translateAll).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'Exactly crucial because it matters.' }),
+    );
+  });
+
+  it('decodes nothing for a language it was not measured on', async () => {
+    const readSeam = vi.fn(async () => '');
+    const { socket, retranslator } = repairHarness(readSeam, 'zh');
+
+    await retranslator.retranslate(socket, ['s0', 's1']);
+
+    expect(readSeam).not.toHaveBeenCalled();
+  });
+
+  it('decodes nothing for a block the budget refused', async () => {
+    const readSeam = vi.fn(async () => '');
+    const { socket, retranslator } = repairHarness(readSeam);
+
+    await retranslator.retranslate(socket, ['s0', 'unknown']);
+
+    expect(readSeam).not.toHaveBeenCalled();
+    expect(socket.answers[0]?.translations).toEqual({});
+  });
+});
+
 describe('BlockRetranslator display', () => {
   const displayHarness = (opts: {
     asksDisplay: boolean;
