@@ -63,10 +63,26 @@ interface Args {
   tokenFile: string;
   ids: string[] | null;
   runTag: string;
+  /** Where the WAVs are; the speaker-id ruler's folder unless named. */
+  dir: string;
+  /** `source:target` per id: a declared one-way start, as a meeting leg makes. */
+  oneWay: Pair[] | null;
+}
+
+interface Pair {
+  source: string;
+  target: string;
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { api: 'http://127.0.0.1:4000', tokenFile: '', ids: null, runTag: '' };
+  const args: Args = {
+    api: 'http://127.0.0.1:4000',
+    tokenFile: '',
+    ids: null,
+    runTag: '',
+    dir: CONVERSATIONS,
+    oneWay: null,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
     const next = () => {
@@ -78,10 +94,23 @@ function parseArgs(argv: string[]): Args {
     else if (flag === '--token-file') args.tokenFile = next();
     else if (flag === '--ids') args.ids = next().split(',').filter(Boolean);
     else if (flag === '--run-tag') args.runTag = next();
+    else if (flag === '--conversations-dir') args.dir = next();
+    else if (flag === '--one-way') {
+      args.oneWay = next()
+        .split(',')
+        .map((pair) => {
+          const [source, target] = pair.split(':');
+          if (!source || !target) throw new Error(`--one-way wants source:target, got ${pair}`);
+          return { source, target };
+        });
+    }
     else throw new Error(`unknown flag ${flag}`);
   }
   if (!args.tokenFile) throw new Error('--token-file is required');
   if (!args.runTag) throw new Error('--run-tag is required');
+  if (args.oneWay && args.oneWay.length !== args.ids?.length) {
+    throw new Error('--one-way needs one pair per id in --ids');
+  }
   return args;
 }
 
@@ -158,12 +187,22 @@ const silentSink = (): PlaybackSink => ({
   stopTurn: () => undefined,
 });
 
-async function replayRecording(id: string, args: Args, out: string): Promise<number> {
-  const { samples, rate } = readWav(join(CONVERSATIONS, `${id}.wav`));
+async function replayRecording(
+  id: string,
+  args: Args,
+  out: string,
+  textOut: string,
+  pair: Pair | undefined,
+): Promise<number> {
+  const { samples, rate } = readWav(join(args.dir, `${id}.wav`));
   const token = readToken(args.tokenFile);
   const rows = new Map<string, Row>();
   const byServerId = new Map<string, string>();
   const started = Date.now();
+  /** How far into the recording the audio has been played, for each turn's text row. */
+  let playedSamples = 0;
+  const startMedia = new Map<string, number>();
+  const texts = new Map<string, Record<string, unknown>>();
 
   // The page's transcript state, so blocks are asked for exactly when it would ask.
   let transcript = initialTurnKeyedTranscript;
@@ -184,6 +223,7 @@ async function replayRecording(id: string, args: Args, out: string): Promise<num
   // `session.start` the server will log.
   class RecordingSocket extends TranslateSocket {
     override startSession(options: SessionOptions, turnId: string): void {
+      startMedia.set(turnId, Math.round((playedSamples / rate) * 1000));
       rows.set(turnId, {
         recording: id,
         turnId,
@@ -212,6 +252,19 @@ async function replayRecording(id: string, args: Args, out: string): Promise<num
       row.closeReason = event.reason;
     } else if (event.type === 'server.error' && row.error === null) {
       row.error = event.code;
+    } else if (event.type === 'server.transcript.final') {
+      texts.set(event.sessionId, {
+        recording: id,
+        sessionId: event.sessionId,
+        language: pair?.source ?? event.segment.sourceLanguage,
+        mediaMs: startMedia.get(row.turnId) ?? 0,
+        source: event.segment.sourceText,
+        translations: event.segment.translations,
+        polished: null,
+      });
+    } else if (event.type === 'server.translation.polished') {
+      const text = texts.get(event.sessionId);
+      if (text) text.polished = event.translations;
     }
   };
 
@@ -228,6 +281,7 @@ async function replayRecording(id: string, args: Args, out: string): Promise<num
         const playStart = Date.now();
         for (let offset = 0, i = 0; offset < audio.length; offset += WORKLET_BLOCK_SAMPLES, i += 1) {
           onBuffer(audio.slice(offset, offset + WORKLET_BLOCK_SAMPLES), rate);
+          playedSamples = offset;
           const wait = playStart + (i + 1) * blockMs - Date.now();
           if (wait > 0) await sleep(wait);
         }
@@ -272,14 +326,14 @@ async function replayRecording(id: string, args: Args, out: string): Promise<num
 
   // What the page starts a vi↔en two-way conversation with (`cascade-panel.tsx`
   // and `use-streaming-translate.ts`), with voice off and no AI context.
+  // `--one-way` is the same start without the identifying and the speaker
+  // split a meeting leg never asks for, so the two compare one pipeline.
   await session.start({
-    languagePair: { source: 'vi', target: 'en' },
-    twoWay: true,
+    languagePair: pair ?? { source: 'vi', target: 'en' },
+    ...(pair ? {} : { twoWay: true, embedSpeaker: true, splitSpeakers: true }),
     voiceGender: 'female',
     voiceOutput: false,
     speed: 1,
-    embedSpeaker: true,
-    splitSpeakers: true,
     repairDisplay: true,
     streamCommitted: true,
   } as SessionOptions);
@@ -294,6 +348,7 @@ async function replayRecording(id: string, args: Args, out: string): Promise<num
     if (row.closedMs === null && row.error === null) row.error = 'timeout';
     appendFileSync(out, `${JSON.stringify(row)}\n`);
   }
+  for (const text of texts.values()) appendFileSync(textOut, `${JSON.stringify(text)}\n`);
   console.log(`${id} blocks-asked=${askedBlocks.size}`);
   return rows.size;
 }
@@ -304,10 +359,11 @@ async function main() {
   const dir = join(HERE, 'results', args.runTag);
   mkdirSync(dir, { recursive: true });
   const out = join(dir, 'rows.jsonl');
+  const textOut = join(dir, 'text.jsonl');
   console.log(`window-start=${new Date().toISOString()}`);
   let turns = 0;
-  for (const id of ids) {
-    const sent = await replayRecording(id, args, out);
+  for (const [index, id] of ids.entries()) {
+    const sent = await replayRecording(id, args, out, textOut, args.oneWay?.[index]);
     turns += sent;
     console.log(`${id} turns=${sent}`);
   }

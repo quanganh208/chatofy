@@ -135,3 +135,7 @@ worktrees/
 
 # Speaker edge replay: private recordings, Scribe answers and the CAM++ model
 **/benchmarks/speaker-id/edge-replay/data/
+
+# Meeting ruler: decoded recordings and per-run results stay local
+**/benchmarks/conference/data/
+**/benchmarks/conference/results/
