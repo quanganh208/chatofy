@@ -67,8 +67,10 @@ overrides:
   node-forge: '>=1.4.1 <2'
   # GHSA-w2rr-34g9-rvrj and seven siblings — high, <=0.8.14: prototype pollution
   # and several parser confusions. Transitive only, under the Expo and Prisma
-  # trees; nothing here imports an XML parser directly.
-  '@xmldom/xmldom': '>=0.8.15'
+  # trees; nothing here imports an XML parser directly. Capped below 0.9: 0.9
+  # made parseFromString's mimeType mandatory, and @expo/plist (expo prebuild)
+  # still calls it without one, so `expo run:ios` fails writing Info.plist.
+  '@xmldom/xmldom': '>=0.8.15 <0.9'
   # GHSA-2883-xcg3-v3hh — high. The advisory covers both live major lines, so
   # each gets its own floor and each is CAPPED. An open `>=4.3.2` is what an
   # unscoped floor looks like in practice: it resolved the v4 consumers to 5.4.1,
