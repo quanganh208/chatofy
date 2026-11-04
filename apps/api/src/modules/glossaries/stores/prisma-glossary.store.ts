@@ -72,21 +72,9 @@ export class PrismaGlossaryStore implements GlossaryStore {
       });
       if (held === null) return null;
 
-      // When setting this glossary as default, clear all other defaults first.
-      if (body.isDefault === true) {
-        await tx.glossary.updateMany({
-          where: { ownerId, isDefault: true, NOT: { id: held.id } },
-          data: { isDefault: false },
-        });
-      }
-
-      const update: { isActive?: boolean; isDefault?: boolean } = {};
-      if (body.isActive !== undefined) update.isActive = body.isActive;
-      if (body.isDefault !== undefined) update.isDefault = body.isDefault;
-
       const row = await tx.glossary.update({
         where: { id: held.id },
-        data: update,
+        data: { isActive: body.isActive },
         select: GLOSSARY_SELECT,
       });
       return toGlossary(row);
@@ -189,7 +177,6 @@ interface GlossaryRow {
   description: string | null;
   sourceLang: string;
   isActive: boolean;
-  isDefault: boolean;
   createdAt: Date;
   updatedAt: Date;
   _count: { items: number };
@@ -211,7 +198,6 @@ const GLOSSARY_SELECT = {
   description: true,
   sourceLang: true,
   isActive: true,
-  isDefault: true,
   createdAt: true,
   updatedAt: true,
   _count: { select: { items: true } },
@@ -234,7 +220,6 @@ function toGlossary(row: GlossaryRow): Glossary {
     description: row.description,
     sourceLang: row.sourceLang as LanguageCode,
     isActive: row.isActive,
-    isDefault: row.isDefault,
     itemCount: row._count.items,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

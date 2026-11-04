@@ -36,10 +36,7 @@ export interface GlossaryStore {
   ): Promise<Glossary | null>;
 
   /**
-   * Toggle `isActive` or set `isDefault` on one glossary.
-   *
-   * Setting `isDefault: true` clears `isDefault` on every other row for this
-   * owner atomically. Returns `null` when the glossary does not exist or does
+   * Toggle `isActive` on one glossary. Returns `null` when the glossary does not exist or does
    * not belong to `ownerId`.
    */
   patchGlossary(

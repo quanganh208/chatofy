@@ -31,19 +31,12 @@ export const saveGlossaryRequestSchema = z.object({
 export type SaveGlossaryRequest = z.infer<typeof saveGlossaryRequestSchema>;
 
 /**
- * PATCH body for toggling a glossary's active state or default flag.
- *
- * At most one glossary per owner may be the default; the server clears the
- * previous default when a new one is set.
+ * PATCH body for toggling a glossary's active state. An inactive glossary stays
+ * linked to its contexts but no longer reaches the translator.
  */
-export const patchGlossaryRequestSchema = z
-  .object({
-    isActive: z.boolean().optional(),
-    isDefault: z.boolean().optional(),
-  })
-  .refine((body) => body.isActive !== undefined || body.isDefault !== undefined, {
-    message: 'At least one of isActive or isDefault is required.',
-  });
+export const patchGlossaryRequestSchema = z.object({
+  isActive: z.boolean(),
+});
 export type PatchGlossaryRequest = z.infer<typeof patchGlossaryRequestSchema>;
 
 /** One glossary, as the API returns it. */
@@ -54,7 +47,6 @@ export const glossarySchema = z.object({
   description: z.string().nullable(),
   sourceLang: languageCodeSchema,
   isActive: z.boolean(),
-  isDefault: z.boolean(),
   /** Denormalised count — avoids a second round-trip just to show "N terms". */
   itemCount: z.number().int().nonnegative(),
   createdAt: z.string(),

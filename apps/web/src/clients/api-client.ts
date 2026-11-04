@@ -320,7 +320,7 @@ export function saveGlossary(glossaryId: string, body: SaveGlossaryRequest) {
   );
 }
 
-/** Toggle isActive or set isDefault. */
+/** Toggle isActive. */
 export function patchGlossary(glossaryId: string, body: PatchGlossaryRequest) {
   return authedFetch(
     `/glossaries/${encodeURIComponent(glossaryId)}`,
