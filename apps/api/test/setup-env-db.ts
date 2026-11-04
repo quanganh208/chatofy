@@ -5,13 +5,21 @@
  * NOT defaulted — a silent fallback to a URL nothing is listening on turns a
  * missing service container into an obscure connection error several seconds
  * into the run. It fails here instead, saying what is missing.
+ *
+ * The hint uses host port 5434 on purpose: the production compose stack binds
+ * its Postgres to 127.0.0.1:5433 (docs/deployment-guide.md), so a test database
+ * on 5433 either fails to start or, worse, points the suite at production data.
+ * Redis is listed because the app needs it at boot; without it requests answer
+ * 500 and the failures look like a regression rather than a missing service.
  */
 if (!process.env.DATABASE_URL) {
   throw new Error(
     'The database-backed e2e suite needs DATABASE_URL pointing at a real Postgres.\n' +
-      '  docker run --rm -d -p 5433:5432 -e POSTGRES_USER=chatofy \\\n' +
+      '  docker run --rm -d -p 5434:5432 -e POSTGRES_USER=chatofy \\\n' +
       '    -e POSTGRES_PASSWORD=chatofy -e POSTGRES_DB=chatofy postgres:16-alpine\n' +
-      '  DATABASE_URL=postgresql://chatofy:chatofy@localhost:5433/chatofy pnpm --filter api test:e2e:db',
+      '  docker run --rm -d -p 127.0.0.1:6379:6379 redis:8-alpine\n' +
+      '  DATABASE_URL=postgresql://chatofy:chatofy@localhost:5434/chatofy pnpm --filter api test:e2e:db\n' +
+      'Never use 5433 here: that is the production Postgres on the deploy host.',
   );
 }
 
