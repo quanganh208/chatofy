@@ -5,7 +5,6 @@ import { PrismaService } from '../../../prisma/prisma.service';
 export interface RecordTurnData {
   sourceLanguage: LanguageCode;
   sourceText: string;
-  searchText?: string;
   translations: Partial<Record<LanguageCode, string>>;
 }
 
@@ -92,7 +91,6 @@ export class ConferencePersistenceService {
           participantId,
           sourceLanguage: data.sourceLanguage,
           sourceText: data.sourceText,
-          searchText: data.searchText ?? null,
           translations: data.translations,
         },
       });

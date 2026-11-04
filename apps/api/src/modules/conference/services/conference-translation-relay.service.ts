@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
   ConferenceTranslationBroadcastSchema,
-  normalizeForSearch,
   type ConferenceTranslationAudio,
   type ConferenceTranslationSubtitle,
   type LanguageCode,
@@ -166,7 +165,6 @@ export class ConferenceTranslationRelay {
     void this.persistence.recordTurn(peer.participantId, conferenceId, {
       sourceLanguage: subtitle.sourceLanguage,
       sourceText,
-      searchText: normalizeForSearch([sourceText, ...translated].join(' ')),
       translations,
     });
   }

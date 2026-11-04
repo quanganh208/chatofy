@@ -103,7 +103,6 @@ function setup(summarize: SummarizationProvider['summarize']) {
         participantId,
         sourceLanguage: 'en',
         sourceText,
-        searchText: null,
         translations: {},
       },
     });

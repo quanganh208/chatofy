@@ -42,7 +42,6 @@ export interface TurnRow {
   participantId: string;
   sourceLanguage: string;
   sourceText: string;
-  searchText: string | null;
   translations: unknown;
 }
 
