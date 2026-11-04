@@ -131,6 +131,21 @@ export function primaryTranslation(
 }
 
 /**
+ * How a stored conversation ran, as history displays it — resolved by the
+ * server, because the legacy rows that predate the stored mode have to be
+ * inferred from their turns.
+ */
+export const conversationKindSchema = z.enum(['one-way', 'two-way', 'auto-detect']);
+export type ConversationKind = z.infer<typeof conversationKindSchema>;
+
+/**
+ * What a save reports the reader asked for: the page it ran on. Auto-detect is
+ * not among it — it is read from `languages`, which already says so.
+ */
+export const conversationModeSchema = z.enum(['one-way', 'two-way']);
+export type StoredConversationMode = z.infer<typeof conversationModeSchema>;
+
+/**
  * A conversation as the history LIST renders it — no turns.
  *
  * `startedAt`/`endedAt` are reported by the browser and exist to show a
@@ -168,24 +183,16 @@ export const conversationSummarySchema = z.object({
    * from before this field sends none, and a list must still parse.
    */
   pausedMs: z.number().int().min(0).default(0),
-});
-export type ConversationSummary = z.infer<typeof conversationSummarySchema>;
-
-/**
- * One conversation with its full transcript, for the detail screen.
- *
- * The three recording fields are on the DETAIL contract only.
- * `conversationSummarySchema` is deliberately untouched: the list card shows no
- * recording marker, and adding one is scope this feature was not asked for.
- *
- * Note what is absent — the object KEY. The detail screen needs to know whether
- * a recording exists and how to place a timestamp inside it; it never needs to
- * address the object, because the API route is the way in. Putting the key in a
- * contract would publish it to every caller and make the storage layout a public
- * interface.
- */
-export const conversationSchema = conversationSummarySchema.extend({
-  turns: z.array(conversationTurnSchema),
+  /**
+   * The AI-written topic of the conversation, or null until one is generated
+   * (or when generation failed). Set once by the server and never by a save.
+   *
+   * Every field below is defaulted for the same rollback `pausedMs` names: an
+   * API build that predates it sends none, and a list must still parse.
+   */
+  title: z.string().max(120).nullable().default(null),
+  /** One-way, two-way or auto-detected — see `conversationKindSchema`. */
+  kind: conversationKindSchema.default('one-way'),
   /**
    * Whether a playable recording was stored.
    *
@@ -195,11 +202,30 @@ export const conversationSchema = conversationSummarySchema.extend({
    * upload that has not finished, and stays present after one that failed.
    * The duration is written only once the bytes are stored, which is the
    * question this field is actually asked: is there something to play.
-   *
-   * Defaulted to `false` — see `audioOffsetMs` below for why the whole detail
-   * response tolerates a build that predates it.
    */
   hasRecording: z.boolean().default(false),
+  /** Distinct speakers, each keyed by its confirmed name or else its role. */
+  speakerCount: z.number().int().min(0).default(0),
+  /** The confirmed speaker names in order of first appearance, at most four. */
+  speakers: z.array(z.string()).max(4).default([]),
+});
+export type ConversationSummary = z.infer<typeof conversationSummarySchema>;
+
+/**
+ * One conversation with its full transcript, for the detail screen.
+ *
+ * `hasRecording` is on the summary, because the list marks which conversations
+ * can be played. The two timing fields below stay on the DETAIL contract only:
+ * placing a timestamp inside the media is a detail-screen job.
+ *
+ * Note what is absent — the object KEY. The detail screen needs to know whether
+ * a recording exists and how to place a timestamp inside it; it never needs to
+ * address the object, because the API route is the way in. Putting the key in a
+ * contract would publish it to every caller and make the storage layout a public
+ * interface.
+ */
+export const conversationSchema = conversationSummarySchema.extend({
+  turns: z.array(conversationTurnSchema),
   /**
    * Milliseconds between the conversation's `startedAt` and the first recorded
    * sample, or NULL when the client never reported one.

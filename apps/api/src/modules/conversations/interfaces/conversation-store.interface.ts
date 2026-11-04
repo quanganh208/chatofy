@@ -42,6 +42,8 @@ export interface ConversationWrite {
   audioOffsetMs: number | null;
   /** Total paused time, in ms; an update keeps the larger of stored and sent. */
   pausedMs: number;
+  /** The page it ran on. Absent from older bundles; leaves the stored value alone. */
+  mode?: 'one-way' | 'two-way';
 }
 
 /** One page of the caller's history, newest first. */
@@ -108,6 +110,18 @@ export interface ConversationStore {
     conversationId: string,
     conversation: ConversationWrite,
   ): Promise<ConversationSummary>;
+  /**
+   * Store the generated title, but only where none is stored yet.
+   *
+   * Owner-scoped like every method here, and never an overwrite: resolves
+   * `false` when the row is gone (deleted mid-pass) or already titled, so a
+   * second pass racing the first is a no-op rather than a replacement.
+   */
+  setTitleIfEmpty(
+    ownerId: string,
+    conversationId: string,
+    title: string,
+  ): Promise<boolean>;
   /** One conversation with its turns, or null when the caller has no such row. */
   get(ownerId: string, conversationId: string): Promise<Conversation | null>;
   /** The caller's conversations, newest first. */

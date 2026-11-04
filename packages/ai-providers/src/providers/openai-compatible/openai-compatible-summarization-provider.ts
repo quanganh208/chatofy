@@ -14,6 +14,7 @@ import type {
   MeetingMinutesDraft,
   SummarizationProvider,
   SummarizationRequest,
+  TitleRequest,
 } from '../../interfaces/summarization-provider.js';
 import {
   buildMinutesInstruction,
@@ -22,6 +23,8 @@ import {
 } from '../minutes-prompt-builder.js';
 import { truncate } from '../http-util.js';
 import { parseMinutesDraft } from '../minutes-draft-parser.js';
+import { buildTitleInstruction, buildTitleReminder } from '../title-prompt-builder.js';
+import { parseTitle } from '../title-parser.js';
 
 /**
  * Ceiling on one minutes pass. Measured at a 5.9 s median on Command Code's
@@ -32,6 +35,9 @@ export const SUMMARIZATION_TIMEOUT_MS = 30_000;
 
 /** A whole conversation's minutes, with room to spare. */
 const MAX_OUTPUT_TOKENS = 4_000;
+
+/** One short JSON line, with room for a reasoning model's preamble to be cut. */
+const MAX_TITLE_TOKENS = 200;
 
 /** One fenced block around the whole answer, which some proxies add in JSON mode. */
 const FENCED = /^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i;
@@ -72,20 +78,45 @@ export class OpenAiCompatibleSummarizationProvider implements SummarizationProvi
   }
 
   async summarize(req: SummarizationRequest): Promise<MeetingMinutesDraft> {
+    const text = await this.complete(
+      'minutes',
+      MAX_OUTPUT_TOKENS,
+      buildMinutesInstruction(req.language),
+      `${wrapMinutesTranscript(req.transcript)}\n\n${buildMinutesReminder()}`,
+    );
+    return parseMinutesDraft(text, this.model);
+  }
+
+  async title(req: TitleRequest): Promise<string> {
+    const text = await this.complete(
+      'title',
+      MAX_TITLE_TOKENS,
+      buildTitleInstruction(req.language),
+      `${wrapMinutesTranscript(req.transcript)}\n\n${buildTitleReminder()}`,
+    );
+    return parseTitle(text, this.model);
+  }
+
+  /**
+   * One JSON-mode chat completion, unfenced and trimmed. Shared by minutes and
+   * titles so both map a transport failure, a refusal and an empty answer the
+   * same way; `what` only names the call in the error.
+   */
+  private async complete(
+    what: string,
+    maxTokens: number,
+    system: string,
+    user: string,
+  ): Promise<string> {
     const body = {
-      // Caller extensions first, as everywhere on this wire: a vendor flag can
-      // add a field but never replace one this class depends on.
       ...this.extraBody,
       model: this.model,
       stream: false,
-      max_tokens: MAX_OUTPUT_TOKENS,
+      max_tokens: maxTokens,
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: buildMinutesInstruction(req.language) },
-        {
-          role: 'user',
-          content: `${wrapMinutesTranscript(req.transcript)}\n\n${buildMinutesReminder()}`,
-        },
+        { role: 'system', content: system },
+        { role: 'user', content: user },
       ],
     };
 
@@ -101,12 +132,12 @@ export class OpenAiCompatibleSummarizationProvider implements SummarizationProvi
         signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch (err) {
-      throw new ProviderConnectionError(`${this.name} ${this.model} minutes failed`, err);
+      throw new ProviderConnectionError(`${this.name} ${this.model} ${what} failed`, err);
     }
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
       throw new ProviderResponseError(
-        `${this.name} ${this.model} minutes answered ${response.status}: ${truncate(detail)}`,
+        `${this.name} ${this.model} ${what} answered ${response.status}: ${truncate(detail)}`,
         response.status,
       );
     }
@@ -114,6 +145,6 @@ export class OpenAiCompatibleSummarizationProvider implements SummarizationProvi
     const content = ((await response.json()) as CompletionBody).choices?.[0]?.message?.content;
     const text = (content ?? '').trim();
     if (!text) throw new ProviderResponseError(`${this.model} returned an empty response`);
-    return parseMinutesDraft(text.replace(FENCED, '$1').trim(), this.model);
+    return text.replace(FENCED, '$1').trim();
   }
 }

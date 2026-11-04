@@ -45,6 +45,8 @@ const baseInput: ConversationSaveInput = {
   turns: [],
   audioOffsetMs: null,
   pausedMs: 0,
+  twoWayRequested: false,
+  titleLanguage: 'en',
 };
 
 /** The body of the nth write. `mock.calls` is untyped, and the assertions are not. */
@@ -101,6 +103,23 @@ afterEach(() => {
 });
 
 describe('useConversationSave', () => {
+  it('reports the page the conversation ran on and the language for its title', async () => {
+    await render({ ...baseInput, running: true, turns: [turn('xin chào')] });
+    await render({ ...baseInput, running: false, turns: [turn('xin chào')] });
+
+    expect(bodyOf(0).mode).toBe('one-way');
+    expect(bodyOf(0).titleLanguage).toBe('en');
+  });
+
+  it('reports two-way for a conversation started on the two-way page', async () => {
+    const twoWay = { ...baseInput, twoWayRequested: true, titleLanguage: 'vi' as const };
+    await render({ ...twoWay, running: true, turns: [turn('xin chào')] });
+    await render({ ...twoWay, running: false, turns: [turn('xin chào')] });
+
+    expect(bodyOf(0).mode).toBe('two-way');
+    expect(bodyOf(0).titleLanguage).toBe('vi');
+  });
+
   it('never sends more paused time than the conversation lasted', async () => {
     // A wall clock that stepped during a pause can sum to more than the span;
     // the API refuses that with a 400 that is never retried.

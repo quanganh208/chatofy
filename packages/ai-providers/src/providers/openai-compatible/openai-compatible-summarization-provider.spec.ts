@@ -111,4 +111,19 @@ describe('OpenAiCompatibleSummarizationProvider', () => {
     );
     await expect(provider().summarize(request)).rejects.toBeInstanceOf(ProviderConnectionError);
   });
+
+  it('asks for a title in the requested language and reads it back', async () => {
+    const fetchMock = answer(JSON.stringify({ title: 'Hợp đồng thuê nhà' }));
+    await expect(provider().title({ transcript: 'An: thuê nhà', language: 'vi' })).resolves.toBe(
+      'Hợp đồng thuê nhà',
+    );
+    const init = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1];
+    const body = JSON.parse(String(init.body)) as {
+      max_tokens: number;
+      messages: { role: string; content: string }[];
+    };
+    expect(body.messages[0]!.content).toContain('Write the title in Vietnamese');
+    expect(body.messages[1]!.content).toContain('<transcript>');
+    expect(body.max_tokens).toBeLessThan(1_000);
+  });
 });

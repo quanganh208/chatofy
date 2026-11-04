@@ -6,10 +6,15 @@
 // never a global key — uniqueness is `(ownerId, clientId)` — and a guessed id
 // resolves to nothing rather than to a 409 that would reveal it exists.
 import { z } from 'zod';
-import { conversationSchema, conversationSummarySchema } from '../domain/conversation.js';
+import {
+  conversationModeSchema,
+  conversationSchema,
+  conversationSummarySchema,
+} from '../domain/conversation.js';
 import { speakerRoleSchema } from '../domain/session.js';
 import {
   conversationLanguagesSchema,
+  languageCodeSchema,
   sourceLanguagesSchema,
   speakerRoleFor,
   translationMapSchema,
@@ -200,6 +205,17 @@ export const saveConversationRequestSchema = z
      * by a later save; see the store's `save`.
      */
     pausedMs: z.number().int().min(0).max(HISTORY_LIMITS.MAX_DURATION_MS).default(0),
+    /**
+     * The page the conversation ran on. Optional: a tab on an older bundle
+     * sends none, and a save without it leaves the stored mode alone rather
+     * than clearing it.
+     */
+    mode: conversationModeSchema.optional(),
+    /**
+     * The language to write the generated title in — the reader's interface
+     * language. Never stored; it only steers the one title pass.
+     */
+    titleLanguage: languageCodeSchema.optional(),
   })
   .refine(
     (body) =>

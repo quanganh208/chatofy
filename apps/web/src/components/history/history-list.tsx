@@ -6,9 +6,8 @@ import { ChevronRight, MessagesSquare, SearchX } from 'lucide-react';
 import type { ConversationSummary } from '@chatofy/types';
 import { Badge, Button, Skeleton } from '@chatofy/ui/react';
 import { useLocale, useTranslate } from '@/i18n/provider';
-import { durationMinutes, formatTime, groupByDay } from './conversation-formatting';
-import { LanguagePairLabel } from './language-pair-label';
-import { turnCountLabel } from './turn-count-label';
+import { formatTime, groupByDay } from './conversation-formatting';
+import { ConversationMetaLine } from './conversation-meta-line';
 
 interface HistoryListProps {
   conversations: ConversationSummary[];
@@ -193,19 +192,26 @@ function Row({ conversation }: { conversation: ConversationSummary }) {
       </time>
 
       <div className="col-start-2 row-start-1 min-w-0 max-[460px]:col-start-1 max-[460px]:col-end-3 max-[460px]:row-start-2">
-        {/* The preview is what IDENTIFIES a conversation, so it is the ink line;
-            the time only orders them. One line, not two: two lines times eight
-            rows is sixteen lines of grey. */}
-        <p className="text-body truncate">{conversation.preview}</p>
-        <p className="text-hint text-muted-foreground mt-0.5 flex flex-wrap items-center gap-1.5">
-          <span className="text-foreground font-medium">
-            <LanguagePairLabel languages={conversation.languages} />
-          </span>
-          <Dot />
-          {turnCountLabel(t, conversation.turnCount)}
-          <Dot />
-          {t('web.history.duration', { minutes: durationMinutes(conversation) })}
-        </p>
+        {/* The title is what IDENTIFIES a conversation — its topic, written by
+            the API after the save — so it is the ink line; the time only orders
+            them. Until a title exists, or when none could be written, the first
+            line stands in, drawn at regular weight so a reader can tell a guess
+            at the topic from what someone actually said. With a title, that
+            first line follows it in grey: it is what jogs the memory once the
+            topic has narrowed it down. */}
+        {conversation.title ? (
+          <>
+            <p className="text-body truncate font-medium">{conversation.title}</p>
+            {conversation.preview ? (
+              <p className="text-hint text-muted-foreground truncate">{conversation.preview}</p>
+            ) : null}
+          </>
+        ) : (
+          <p className="text-body truncate">{conversation.preview || t('web.history.untitled')}</p>
+        )}
+        <div className="mt-0.5">
+          <ConversationMetaLine conversation={conversation} />
+        </div>
       </div>
 
       <span className="col-start-3 row-start-1 flex items-center gap-2 pt-px max-[460px]:col-start-2">
@@ -219,14 +225,6 @@ function Row({ conversation }: { conversation: ConversationSummary }) {
         <ChevronRight aria-hidden className="text-muted-foreground size-4 shrink-0" />
       </span>
     </Link>
-  );
-}
-
-function Dot() {
-  return (
-    <span aria-hidden className="text-border-strong">
-      ·
-    </span>
   );
 }
 

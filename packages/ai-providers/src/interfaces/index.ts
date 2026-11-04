@@ -28,6 +28,7 @@ export type {
 export type {
   SummarizationProviderConfig,
   SummarizationRequest,
+  TitleRequest,
   MeetingMinutesDraft,
   ActionItemDraft,
   SummarizationProvider,

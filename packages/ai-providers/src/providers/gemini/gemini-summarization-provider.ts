@@ -18,6 +18,7 @@ import type {
   MeetingMinutesDraft,
   SummarizationProvider,
   SummarizationRequest,
+  TitleRequest,
 } from '../../interfaces/summarization-provider.js';
 import {
   ProviderConfigError,
@@ -40,6 +41,8 @@ import {
   wrapMinutesTranscript,
 } from '../minutes-prompt-builder.js';
 import { parseMinutesDraft } from '../minutes-draft-parser.js';
+import { buildTitleInstruction, buildTitleReminder } from '../title-prompt-builder.js';
+import { parseTitle } from '../title-parser.js';
 
 const DEFAULT_MODELS = ['gemini-3.5-flash', 'gemini-3.5-flash-lite'];
 
@@ -72,8 +75,17 @@ export class GeminiSummarizationProvider implements SummarizationProvider {
     const instruction = buildMinutesInstruction(req.language);
     const reminder = buildMinutesReminder();
     const wrapped = wrapMinutesTranscript(req.transcript);
-    return this.walk((client, model) =>
-      this.generate(client, model, instruction, reminder, wrapped),
+    return this.walk(async (client, model) =>
+      parseMinutesDraft(await this.generate(client, model, instruction, reminder, wrapped), model),
+    );
+  }
+
+  async title(req: TitleRequest): Promise<string> {
+    const instruction = buildTitleInstruction(req.language);
+    const reminder = buildTitleReminder();
+    const wrapped = wrapMinutesTranscript(req.transcript);
+    return this.walk(async (client, model) =>
+      parseTitle(await this.generate(client, model, instruction, reminder, wrapped), model),
     );
   }
 
@@ -87,9 +99,7 @@ export class GeminiSummarizationProvider implements SummarizationProvider {
    * shared walk is a refactor to make once a THIRD caller needs it, not the
    * second (see rule-of-three).
    */
-  private async walk(
-    attempt: (client: GoogleGenAI, model: string) => Promise<MeetingMinutesDraft>,
-  ): Promise<MeetingMinutesDraft> {
+  private async walk<T>(attempt: (client: GoogleGenAI, model: string) => Promise<T>): Promise<T> {
     const keys = this.keys.order();
     let lastError: unknown;
     let attempted = false;
@@ -156,14 +166,14 @@ export class GeminiSummarizationProvider implements SummarizationProvider {
       : new ProviderConnectionError('Gemini summarization request failed', lastError);
   }
 
-  /** One blocking round-trip asking for a JSON minutes object. */
+  /** One blocking round-trip asking for a JSON object; returns its raw text. */
   private async generate(
     client: GoogleGenAI,
     model: string,
     systemInstruction: string,
     reminder: string,
     wrappedTranscript: string,
-  ): Promise<MeetingMinutesDraft> {
+  ): Promise<string> {
     const response = await client.models.generateContent({
       model,
       contents: [
@@ -184,6 +194,6 @@ export class GeminiSummarizationProvider implements SummarizationProvider {
     if (!body) {
       throw new ProviderResponseError(`${model} returned an empty response`);
     }
-    return parseMinutesDraft(body, model);
+    return body;
   }
 }

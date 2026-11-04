@@ -65,7 +65,11 @@ describe('Meeting minutes (e2e)', () => {
   for (const name of ['gemini', 'commandcode']) {
     fakeRegistry.register('summarization', {
       name,
-      create: () => ({ name, summarize: fakeSummarize }),
+      create: () => ({
+        name,
+        summarize: fakeSummarize,
+        title: async () => 'Test title',
+      }),
     });
   }
 

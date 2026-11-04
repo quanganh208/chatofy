@@ -261,6 +261,11 @@ export function CascadePanel({
     // What History takes off `endedAt - startedAt`, so the card's duration is
     // the time the clock on this screen counted.
     pausedMs: conversation.pausedMs,
+    // Captured at `start` with the pair, so the page the conversation ran on
+    // is what History calls it — not whichever page the reader is on now.
+    twoWayRequested: conversation.twoWayRequested,
+    // The title is written in the reader's language, like the minutes.
+    titleLanguage: locale,
   });
 
   // Gated on `save.saved`, not merely on the conversation having ended: the row

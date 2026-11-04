@@ -46,7 +46,23 @@ export interface MeetingMinutesDraft {
   model: string;
 }
 
+export interface TitleRequest {
+  /**
+   * The opening of the conversation as newline-joined `Label: text` lines —
+   * data behind the same prompt-injection boundary as the minutes transcript,
+   * never instruction.
+   */
+  transcript: string;
+  /** Language to WRITE the title in. Omitted lets the model mirror the input. */
+  language?: LanguageCode;
+}
+
 export interface SummarizationProvider {
   readonly name: string;
   summarize(req: SummarizationRequest): Promise<MeetingMinutesDraft>;
+  /**
+   * One short topic line for a history list. Rejects rather than resolving an
+   * empty string, so a caller never stores a blank title.
+   */
+  title(req: TitleRequest): Promise<string>;
 }

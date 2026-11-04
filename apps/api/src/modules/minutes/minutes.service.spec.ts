@@ -106,7 +106,11 @@ function makeService(
   const registry = new ProviderRegistry();
   registry.register('summarization', {
     name: 'gemini',
-    create: () => ({ name: 'gemini', summarize }),
+    create: () => ({
+      name: 'gemini',
+      summarize,
+      title: async () => 'Test title',
+    }),
   });
   // Only the key is set: the summarizer is then selected by the default
   // derivation, which names the `gemini` entry registered above.
@@ -130,6 +134,10 @@ function makeService(
       preview: rows[0]?.sourceText ?? '',
       hasMinutes: false,
       pausedMs: 0,
+      title: null,
+      kind: 'one-way',
+      speakerCount: 0,
+      speakers: [],
       turns: rows,
       // No recording on these fixtures. Minutes read the transcript only, so the
       // generator must work identically whether or not audio was kept.

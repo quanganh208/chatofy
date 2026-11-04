@@ -117,6 +117,31 @@ describe('saveConversationRequestSchema', () => {
     });
   });
 
+  describe('mode and titleLanguage', () => {
+    it('are optional, so a body from an older bundle still parses', () => {
+      const parsed = saveConversationRequestSchema.safeParse(body([turn()]));
+      expect(parsed.success).toBe(true);
+      expect(parsed.success && parsed.data.mode).toBeUndefined();
+      expect(parsed.success && parsed.data.titleLanguage).toBeUndefined();
+    });
+
+    it('accepts the page mode and the interface language', () => {
+      const parsed = saveConversationRequestSchema.safeParse({
+        ...body([turn()]),
+        mode: 'two-way',
+        titleLanguage: 'vi',
+      });
+      expect(parsed.success && parsed.data.mode).toBe('two-way');
+      expect(parsed.success && parsed.data.titleLanguage).toBe('vi');
+    });
+
+    it('refuses a mode that is not a page', () => {
+      expect(
+        saveConversationRequestSchema.safeParse({ ...body([turn()]), mode: 'sideways' }).success,
+      ).toBe(false);
+    });
+  });
+
   describe('pausedMs', () => {
     it('defaults to 0 for a body from a build that never paused the clock', () => {
       const parsed = saveConversationRequestSchema.safeParse(body([turn()]));

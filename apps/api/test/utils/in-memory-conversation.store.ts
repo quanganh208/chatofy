@@ -9,6 +9,10 @@ import type {
   ConversationWrite,
   ListConversationsQuery,
 } from '../../src/modules/conversations/interfaces/conversation-store.interface';
+import {
+  conversationKind,
+  speakersOf,
+} from '../../src/modules/conversations/stores/conversation-display-facts';
 
 /**
  * A ConversationStore that keeps conversations in a Map.
@@ -34,6 +38,8 @@ export class InMemoryConversationStore implements ConversationStore {
    * `findAudioKey` needs somewhere else to keep it.
    */
   private readonly audioKeys = new Map<string, string>();
+  /** The mode each conversation was last saved with, as the durable column. */
+  private readonly modes = new Map<string, string>();
 
   save(
     ownerId: string,
@@ -49,6 +55,9 @@ export class InMemoryConversationStore implements ConversationStore {
     // store does by writing that column only when it is present.
     const previous = this.byOwnerClient.get(key(ownerId, conversationId));
     const turns = conversation.turns.map((turn) => ({ ...turn }));
+    const k = key(ownerId, conversationId);
+    // Written only when sent, as the durable store spreads it.
+    if (conversation.mode !== undefined) this.modes.set(k, conversation.mode);
     const stored: Conversation = {
       conversationId,
       languages: conversation.languages,
@@ -64,8 +73,21 @@ export class InMemoryConversationStore implements ConversationStore {
       audioOffsetMs:
         conversation.audioOffsetMs ?? previous?.audioOffsetMs ?? null,
       audioDurationMs: previous?.audioDurationMs ?? null,
+      // Never written by a save, so a re-save keeps the title it had.
+      title: previous?.title ?? null,
+      kind: conversationKind(
+        conversation.languages,
+        this.modes.get(k) ?? null,
+        turns.map((turn) => turn.speakerRole),
+      ),
+      ...speakersOf(
+        turns.map((turn) => ({
+          speakerRole: turn.speakerRole,
+          speakerLabel: turn.speakerLabel,
+          firstPosition: turn.position,
+        })),
+      ),
     };
-    const k = key(ownerId, conversationId);
     if (!this.byOwnerClient.has(k)) this.order.unshift(k);
     this.byOwnerClient.set(k, stored);
     return Promise.resolve(summaryOf(stored));
@@ -93,6 +115,8 @@ export class InMemoryConversationStore implements ConversationStore {
       .filter(
         (stored) =>
           !term ||
+          (stored.title !== null &&
+            normalizeForSearch(stored.title).includes(term)) ||
           stored.turns.some((turn) =>
             // Every translation, as `PrismaConversationStore` folds them.
             normalizeForSearch(
@@ -176,6 +200,17 @@ export class InMemoryConversationStore implements ConversationStore {
     return Promise.resolve({ removed: existed, audioKey });
   }
 
+  setTitleIfEmpty(
+    ownerId: string,
+    conversationId: string,
+    title: string,
+  ): Promise<boolean> {
+    const stored = this.byOwnerClient.get(key(ownerId, conversationId));
+    if (!stored || stored.title !== null) return Promise.resolve(false);
+    stored.title = title;
+    return Promise.resolve(true);
+  }
+
   /** Marks a conversation as having minutes, for a `hasMinutes` assertion. */
   markMinutes(ownerId: string, conversationId: string): void {
     const stored = this.byOwnerClient.get(key(ownerId, conversationId));
@@ -193,6 +228,11 @@ function summaryOf(stored: Conversation): ConversationSummary {
     preview: stored.preview,
     hasMinutes: stored.hasMinutes,
     pausedMs: stored.pausedMs,
+    title: stored.title,
+    kind: stored.kind,
+    hasRecording: stored.hasRecording,
+    speakerCount: stored.speakerCount,
+    speakers: stored.speakers,
   };
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { primaryTranslation } from './conversation.js';
+import { conversationSummarySchema, primaryTranslation } from './conversation.js';
 
 describe('primaryTranslation', () => {
   it('picks the other language of a vi→en conversation for a vi turn', () => {
@@ -53,5 +53,53 @@ describe('primaryTranslation', () => {
     expect(primaryTranslation({ sourceLanguages: ['vi'], translations: {} }, ['vi', 'en'])).toBe(
       '',
     );
+  });
+});
+
+describe('conversationSummarySchema display fields', () => {
+  const summary = {
+    conversationId: 'c1',
+    languages: ['vi', 'en'],
+    startedAt: '2026-11-04T02:00:00.000Z',
+    endedAt: '2026-11-04T02:10:00.000Z',
+    turnCount: 2,
+    preview: 'Xin chào',
+    hasMinutes: false,
+  };
+
+  it('defaults every display field for a list from a build that predates them', () => {
+    const parsed = conversationSummarySchema.parse(summary);
+    expect(parsed).toMatchObject({
+      title: null,
+      kind: 'one-way',
+      hasRecording: false,
+      speakerCount: 0,
+      speakers: [],
+    });
+  });
+
+  it('keeps the display fields a current build sends', () => {
+    const parsed = conversationSummarySchema.parse({
+      ...summary,
+      title: 'Thuê căn hộ',
+      kind: 'two-way',
+      hasRecording: true,
+      speakerCount: 2,
+      speakers: ['Lan', 'John'],
+    });
+    expect(parsed).toMatchObject({
+      title: 'Thuê căn hộ',
+      kind: 'two-way',
+      hasRecording: true,
+      speakerCount: 2,
+      speakers: ['Lan', 'John'],
+    });
+  });
+
+  it('refuses more than four listed speakers', () => {
+    expect(
+      conversationSummarySchema.safeParse({ ...summary, speakers: ['a', 'b', 'c', 'd', 'e'] })
+        .success,
+    ).toBe(false);
   });
 });

@@ -50,6 +50,11 @@ const summary = (overrides: Partial<ConversationSummary> = {}): ConversationSumm
   preview: 'xin chào',
   hasMinutes: false,
   pausedMs: 0,
+  title: null,
+  kind: 'one-way',
+  hasRecording: false,
+  speakerCount: 0,
+  speakers: [],
   ...overrides,
 });
 
@@ -167,15 +172,14 @@ describe('HistoryList', () => {
     ).toContain('Minutes');
   });
 
-  it('draws the language pair short and says it in full', () => {
-    const { container } = render({ conversations: [summary({ turnCount: 12 })] });
-    // What is drawn. The long form is 21 characters on every row, which at eight
-    // rows is the loudest thing on a screen whose subject is the previews.
-    expect(container.textContent).toContain('VI → EN');
-    // What is announced. Hidden text, so it is in `textContent` either way —
-    // what this holds is that the arrow is not the only rendering of the fact.
-    const row = container.querySelector('a[href^="/history/"]');
-    expect(row?.querySelector('.sr-only')?.textContent).toBe('Vietnamese → English');
+  it('names how the conversation ran in full words, not language codes', () => {
+    const { container } = render({
+      conversations: [summary({ turnCount: 12, kind: 'two-way' })],
+    });
+    expect(container.textContent).toContain('Two-way');
+    expect(container.textContent).toContain('Vietnamese');
+    expect(container.querySelector('svg.lucide-arrow-left-right')).not.toBeNull();
+    expect(container.textContent).not.toMatch(/VI|EN|[→⇄]/);
     expect(container.textContent).toContain('12 lines');
   });
 
@@ -183,11 +187,33 @@ describe('HistoryList', () => {
     // Stored target first, then every other registry language — the count is
     // what marks it, so no recognised language is drawn as if it were declared.
     const { container } = render({
-      conversations: [summary({ languages: ['en', 'vi', 'zh'] })],
+      conversations: [summary({ languages: ['en', 'vi', 'zh'], kind: 'auto-detect' })],
     });
-    expect(container.textContent).toContain('Auto-detect → EN');
-    const row = container.querySelector('a[href^="/history/"]');
-    expect(row?.querySelector('.sr-only')?.textContent).toBe('Auto-detect → English');
+    expect(container.textContent).toContain('Auto-detect');
+    expect(container.querySelector('svg.lucide-arrow-right')).not.toBeNull();
+  });
+
+  it('leads with the topic title, with the first line beneath it', () => {
+    const { container } = render({
+      conversations: [summary({ title: 'Hợp đồng thuê nhà', preview: 'xin chào anh' })],
+    });
+    const lines = [...container.querySelectorAll('a[href^="/history/"] p')].map(
+      (p) => p.textContent,
+    );
+    expect(lines[0]).toBe('Hợp đồng thuê nhà');
+    expect(lines[1]).toBe('xin chào anh');
+  });
+
+  it('falls back to the first line when there is no title yet', () => {
+    const { container } = render({
+      conversations: [summary({ title: null, preview: 'xin chào anh' })],
+    });
+    const lines = [...container.querySelectorAll('a[href^="/history/"] p')].map(
+      (p) => p.textContent,
+    );
+    expect(lines[0]).toBe('xin chào anh');
+    // No second, repeated line under it.
+    expect(lines.filter((line) => line === 'xin chào anh')).toHaveLength(1);
   });
 
   it('rounds a short conversation up rather than reporting zero minutes', () => {

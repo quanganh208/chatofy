@@ -63,7 +63,11 @@ function setup(summarize: SummarizationProvider['summarize']) {
   const registry = new ProviderRegistry();
   registry.register('summarization', {
     name: 'gemini',
-    create: () => ({ name: 'gemini', summarize }),
+    create: () => ({
+      name: 'gemini',
+      summarize,
+      title: async () => 'Test title',
+    }),
   });
   // Only the key is set: the summarizer is then selected by the default
   // derivation, which names the `gemini` entry registered above.

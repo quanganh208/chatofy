@@ -25,8 +25,12 @@ const draft = (model: string): MeetingMinutesDraft => ({
   model,
 });
 
-function fake(name: string, run: SummarizationProvider['summarize']) {
-  return { name, summarize: vi.fn(run) } satisfies SummarizationProvider;
+function fake(
+  name: string,
+  run: SummarizationProvider['summarize'],
+  title: SummarizationProvider['title'] = async () => `${name} title`,
+) {
+  return { name, summarize: vi.fn(run), title: vi.fn(title) } satisfies SummarizationProvider;
 }
 
 const request = { transcript: 'An: hi' };
@@ -96,5 +100,23 @@ describe('FailoverSummarizationProvider', () => {
     circuit.trip('usage limit');
     await expect(provider.summarize(request)).resolves.toMatchObject({ model: 'cc' });
     expect(primary.summarize).toHaveBeenCalledOnce();
+  });
+
+  it('falls back to the secondary title when the primary title fails', async () => {
+    const circuit = new HostCircuit();
+    const provider = new FailoverSummarizationProvider({
+      name: 'minutes',
+      primary: fake(
+        'primary',
+        async () => draft('cc'),
+        async () => {
+          throw USAGE_LIMIT;
+        },
+      ),
+      secondary: fake('secondary', async () => draft('gemini')),
+      circuit,
+    });
+    await expect(provider.title(request)).resolves.toBe('secondary title');
+    expect(circuit.isOpen()).toBe(true);
   });
 });

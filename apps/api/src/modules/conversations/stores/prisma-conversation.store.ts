@@ -24,6 +24,11 @@ import type {
   ConversationWrite,
   ListConversationsQuery,
 } from '../interfaces/conversation-store.interface';
+import {
+  conversationKind,
+  speakersOf,
+  type SpeakerEntry,
+} from './conversation-display-facts';
 
 /**
  * How many times a transient conflict is re-attempted before it surfaces.
@@ -94,14 +99,16 @@ interface ConversationRow {
   startedAt: Date;
   endedAt: Date;
   pausedMs: number;
+  title: string | null;
+  mode: string | null;
+  audioDurationMs: number | null;
 }
 
 /**
  * The recording columns a DETAIL read selects.
  *
- * Separate from {@link ConversationRow} because the list does not select them:
- * `toSummary` serves both reads, and the summary contract carries no recording
- * fields at all. `audioKey` itself is not here — `toAudio` derives
+ * Separate from {@link ConversationRow}, which carries only the duration — the
+ * list marks a recording's presence, and nothing more. `audioKey` itself is not here — `toAudio` derives
  * `hasRecording` from `audioDurationMs`, and the key never travels to the
  * caller (see the docblock on `toAudio`), so a detail read has no use for it.
  */
@@ -230,6 +237,12 @@ export class PrismaConversationStore implements ConversationStore {
         ? {}
         : { audioOffsetMs: conversation.audioOffsetMs };
 
+    // The page the conversation ran on, written only when the client sent it —
+    // the same spread as `recordingOrigin`, for the same reason: a tab on an
+    // older bundle re-saving a rename sends no mode, and must not clear one.
+    const askedMode =
+      conversation.mode === undefined ? {} : { mode: conversation.mode };
+
     for (let attempt = 1; ; attempt += 1) {
       try {
         return await this.prisma.$transaction(
@@ -248,6 +261,7 @@ export class PrismaConversationStore implements ConversationStore {
                 clientId: conversationId,
                 ...parent,
                 ...recordingOrigin,
+                ...askedMode,
                 pausedMs: conversation.pausedMs,
               },
               // `parent` is languages/startedAt/endedAt and MUST stay exactly
@@ -262,10 +276,18 @@ export class PrismaConversationStore implements ConversationStore {
               // so the same protection holds for `audioOffsetMs`: the rename that
               // would clear it writes no key for it, and a rename that does carry
               // it writes the value it already had.
-              update: { ...parent, ...recordingOrigin },
+              //
+              // `askedMode` is safe here for the same reason: it is spread only
+              // when sent, and every save of one conversation sends the same one.
+              // `title` is never written by a save at all — the background title
+              // pass owns it.
+              update: { ...parent, ...recordingOrigin, ...askedMode },
               select: {
                 id: true,
                 pausedMs: true,
+                title: true,
+                mode: true,
+                audioDurationMs: true,
                 minutes: { select: { id: true } },
               },
             });
@@ -305,10 +327,18 @@ export class PrismaConversationStore implements ConversationStore {
             });
 
             return toSummary(
-              { clientId: conversationId, ...parent, pausedMs },
+              {
+                clientId: conversationId,
+                ...parent,
+                pausedMs,
+                title: row.title,
+                mode: row.mode,
+                audioDurationMs: row.audioDurationMs,
+              },
               conversation.turns.length,
               previewOf(conversation.turns),
               row.minutes,
+              speakerEntriesOf(conversation.turns),
             );
           },
           {
@@ -368,6 +398,8 @@ export class PrismaConversationStore implements ConversationStore {
         startedAt: true,
         endedAt: true,
         pausedMs: true,
+        title: true,
+        mode: true,
         audioOffsetMs: true,
         audioDurationMs: true,
         minutes: { select: { id: true } },
@@ -405,7 +437,13 @@ export class PrismaConversationStore implements ConversationStore {
       .map((turn) => toTurn(turn))
       .filter((turn): turn is ConversationTurn => turn !== null);
     return {
-      ...toSummary(row, turns.length, previewOf(turns), row.minutes),
+      ...toSummary(
+        row,
+        turns.length,
+        previewOf(turns),
+        row.minutes,
+        speakerEntriesOf(turns),
+      ),
       turns,
       ...toAudio(row),
     };
@@ -439,6 +477,9 @@ export class PrismaConversationStore implements ConversationStore {
         startedAt: true,
         endedAt: true,
         pausedMs: true,
+        title: true,
+        mode: true,
+        audioDurationMs: true,
         minutes: { select: { id: true } },
         _count: { select: { turns: true } },
         // Without the explicit orderBy Prisma returns an ARBITRARY row for a
@@ -452,6 +493,9 @@ export class PrismaConversationStore implements ConversationStore {
     });
 
     const page = rows.slice(0, query.limit);
+    const speakers = await this.speakerEntriesByConversation(
+      page.map((row) => row.id),
+    );
     return {
       // Per-row, not a bare `.map`: `toSummary` throws on a `languages` column
       // the registry schema rejects — fewer than two codes, a repeat, or a code
@@ -470,6 +514,7 @@ export class PrismaConversationStore implements ConversationStore {
               row._count.turns,
               previewOf(row.turns),
               row.minutes,
+              speakers.get(row.id) ?? [],
             );
           } catch (err) {
             this.logger.warn(
@@ -488,6 +533,50 @@ export class PrismaConversationStore implements ConversationStore {
       // and a cuid is not one.
       nextCursor: rows.length > query.limit ? (page.at(-1)?.id ?? null) : null,
     };
+  }
+
+  /**
+   * Each listed conversation's distinct speakers, in ONE query for the page.
+   *
+   * The list selects a single turn per row for its preview, so who spoke —
+   * and, for a row saved before the mode was stored, which roles spoke — is
+   * read here as distinct (role, label) groups with where each first appears.
+   */
+  private async speakerEntriesByConversation(
+    conversationIds: readonly string[],
+  ): Promise<Map<string, SpeakerEntry[]>> {
+    const byConversation = new Map<string, SpeakerEntry[]>();
+    if (conversationIds.length === 0) return byConversation;
+    const groups = await this.prisma.conversationTurn.groupBy({
+      by: ['conversationId', 'speakerRole', 'speakerLabel'],
+      where: { conversationId: { in: [...conversationIds] } },
+      _min: { position: true },
+    });
+    for (const group of groups) {
+      const entries = byConversation.get(group.conversationId) ?? [];
+      entries.push({
+        speakerRole: group.speakerRole,
+        speakerLabel: group.speakerLabel,
+        firstPosition: group._min.position ?? 0,
+      });
+      byConversation.set(group.conversationId, entries);
+    }
+    return byConversation;
+  }
+
+  async setTitleIfEmpty(
+    ownerId: string,
+    conversationId: string,
+    title: string,
+  ): Promise<boolean> {
+    // `title: null` in the filter is the whole guard: a re-save never touches
+    // the column, and two passes racing for one conversation (two API
+    // instances, or a retried save) land exactly one title.
+    const { count } = await this.prisma.conversation.updateMany({
+      where: { ownerId, clientId: conversationId, title: null },
+      data: { title, searchTitle: normalizeForSearch(title) },
+    });
+    return count === 1;
   }
 
   async findAudioKey(
@@ -651,6 +740,7 @@ function toSummary(
   turnCount: number,
   preview: string,
   minutes: MinutesPresence,
+  speakerEntries: readonly SpeakerEntry[],
 ): ConversationSummary {
   // Throws rather than casts, so `list`'s per-row catch drops the one card the
   // client could not parse instead of the client rejecting the whole page.
@@ -668,7 +758,32 @@ function toSummary(
     preview,
     hasMinutes: minutes !== null,
     pausedMs: row.pausedMs,
+    title: row.title,
+    kind: conversationKind(
+      languages,
+      row.mode,
+      speakerEntries.map((entry) => entry.speakerRole),
+    ),
+    // The same rule as `toAudio`, so the list and the detail never disagree
+    // about whether there is something to play.
+    hasRecording: row.audioDurationMs !== null,
+    ...speakersOf(speakerEntries),
   };
+}
+
+/** Speaker entries from turns already in hand (a save's body, a detail read). */
+function speakerEntriesOf(
+  turns: readonly {
+    position: number;
+    speakerRole: string;
+    speakerLabel: string | null;
+  }[],
+): SpeakerEntry[] {
+  return turns.map((turn) => ({
+    speakerRole: turn.speakerRole,
+    speakerLabel: turn.speakerLabel,
+    firstPosition: turn.position,
+  }));
 }
 
 /**
@@ -779,7 +894,13 @@ function searchTextFor(turn: {
 function searchFilter(q: string | undefined) {
   if (!q) return {};
   const contains = escapeLikePattern(normalizeForSearch(q));
-  return { turns: { some: { searchText: { contains } } } };
+  // Spread beside `ownerId` by `list`, so this OR is ANDed with the owner.
+  return {
+    OR: [
+      { turns: { some: { searchText: { contains } } } },
+      { searchTitle: { contains } },
+    ],
+  };
 }
 
 /**

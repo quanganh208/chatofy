@@ -74,6 +74,14 @@ export {
   conversationTurnSchema,
   conversationSummarySchema,
   conversationSchema,
+  conversationKindSchema,
+  conversationModeSchema,
   primaryTranslation,
 } from './conversation.js';
-export type { ConversationTurn, ConversationSummary, Conversation } from './conversation.js';
+export type {
+  ConversationTurn,
+  ConversationSummary,
+  Conversation,
+  ConversationKind,
+  StoredConversationMode,
+} from './conversation.js';
