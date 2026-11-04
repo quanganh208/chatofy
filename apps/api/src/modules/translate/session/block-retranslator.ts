@@ -3,7 +3,12 @@ import type { TranslationPolisher } from '@chatofy/ai-providers';
 import type { LanguageCode, TranslationHints } from '@chatofy/types';
 import { TranslationBudget } from '../audio/translation-budget';
 import { EventChannel } from './event-channel';
-import type { FinishedSegments, SegmentBlock } from './finished-segments';
+import type {
+  BlockSeam,
+  FinishedSegments,
+  SegmentBlock,
+} from './finished-segments';
+import { wordsLostAtSeam } from './seam-word-repair';
 import type { StreamSocket } from './stream-socket';
 import { FINAL_MODELS } from './translation-model-policy';
 import type { TranslationMap } from './turn-language-plan';
@@ -78,6 +83,11 @@ export interface BlockDisplay {
   ): string | undefined;
 }
 
+/** Reads the audio around a cut. May reject; the seam then stays as it is. */
+export type SeamReader = (seam: BlockSeam) => Promise<string>;
+
+const NO_SEAM_READER: SeamReader = async () => '';
+
 const NO_DISPLAY: BlockDisplay = {
   restore: async () => undefined,
   typeset: () => undefined,
@@ -135,6 +145,8 @@ export class BlockRetranslator {
      * 26.3% to 10.5% (10 fixed, 1 broken; vi→en 37.5% → 12.5%).
      */
     private readonly polisher: TranslationPolisher | null = null,
+    /** How a cut's audio is read again; without one, blocks are not repaired. */
+    private readonly readSeam: SeamReader = NO_SEAM_READER,
   ) {}
 
   /**
@@ -195,6 +207,32 @@ export class BlockRetranslator {
     }
   }
 
+  /**
+   * The words each of a block's cuts lost, by the left segment's place.
+   *
+   * After the budget check, so a refused block costs no decode. Never rejects:
+   * a sidecar that is busy or down leaves the block as it would have been.
+   */
+  private async recoverSeams(
+    seams: readonly BlockSeam[],
+  ): Promise<Map<number, string>> {
+    const read = await Promise.allSettled(
+      seams.map((seam) => this.readSeam(seam)),
+    );
+    const recovered = new Map<number, string>();
+    read.forEach((result, at) => {
+      if (result.status !== 'fulfilled') return;
+      const seam = seams[at]!;
+      const lost = wordsLostAtSeam(seam.left, seam.right, result.value);
+      if (lost) recovered.set(seam.index, lost);
+    });
+    // Counts only: a transcript has no place in a log line.
+    this.logger.log(
+      `seam repair: seams=${seams.length} inserted=${recovered.size}`,
+    );
+    return recovered;
+  }
+
   private async translateBlock(
     socket: StreamSocket,
     segmentIds: string[],
@@ -202,8 +240,8 @@ export class BlockRetranslator {
   ): Promise<void> {
     // Checked again here, not only when queued: a segment can age out of the
     // socket's window while its block waits.
-    const block = this.finished.block(socket, segmentIds);
-    if (!block) {
+    const asked = this.finished.block(socket, segmentIds);
+    if (!asked) {
       return this.refuse(socket, segmentIds, 'segments not all known here');
     }
     const model = FINAL_MODELS[0] ?? '';
@@ -212,6 +250,14 @@ export class BlockRetranslator {
       return this.refuse(socket, segmentIds, 'budget spent');
     }
     this.budget.spend(userId, model);
+    // Before everything that reads the block's text, so the restore, the
+    // translation, the polish and the display all carry the same words. The
+    // segments can age out during the read; the block then goes unrepaired.
+    const seams = this.finished.seams(socket, segmentIds);
+    const recovered = seams.length ? await this.recoverSeams(seams) : null;
+    const block =
+      (recovered?.size && this.finished.block(socket, segmentIds, recovered)) ||
+      asked;
     // Beside the translation, on the same budget: a restore is local and a few
     // hundred milliseconds, and the reader gets both in the one answer.
     const restoring = this.display.restore(block);

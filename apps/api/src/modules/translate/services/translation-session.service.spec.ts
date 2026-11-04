@@ -4099,7 +4099,8 @@ describe('splitting a turn where the voice changes', () => {
       void service.retranslateBlock(socket, [b, c]);
       void service.retranslateBlock(socket, [a, b, c]);
       void service.retranslateBlock(socket, [a, b, c]);
-      expect(translateAll).toHaveBeenCalledTimes(1);
+      // After the running block's seam has been read.
+      await vi.waitFor(() => expect(translateAll).toHaveBeenCalledTimes(1));
       // The waiting `[a, b]` was replaced by its grown self and told so at once,
       // so the client stops waiting for a shape it will never get.
       expect(socket.ofType('server.block.translated')).toEqual([

@@ -899,6 +899,10 @@ const serverBlockTranslatedSchema = z.object({
    * nothing after it, so the pieces' joined displays close sentences at the cuts
    * and misplace marks a following clause would have settled. Absent when the
    * restorer did not answer: the client then keeps the pieces' own displays.
+   *
+   * The one case where it differs in words: a seam repair recovered what a cut
+   * dropped. It is then sent with or without a restore, because the pieces do
+   * not have those words and `sourceText` is never replaced.
    */
   display: z.string().min(1).optional(),
 });

@@ -40,6 +40,8 @@ export interface TranslatedPiece extends Span {
    * `pieceCapture` in `packages/realtime-client/src/state/turn-keyed-transcript.ts`.
    */
   reachesEnd: boolean;
+  /** Where the piece sits in its turn's audio, in ms. */
+  span: { startMs: number; endMs: number };
 }
 
 export interface SplitTurn {
@@ -264,6 +266,7 @@ export async function translateSplitTurn(
         ? {}
         : { leadPause: survivorLeads[k] }),
       reachesEnd: span.endMs === lastSpanEndMs,
+      span: { startMs: span.startMs, endMs: span.endMs },
     })),
     vectors,
   };

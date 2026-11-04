@@ -121,3 +121,84 @@ describe('FinishedSegments block text', () => {
     });
   });
 });
+
+describe('FinishedSegments recovered words', () => {
+  it('keeps pauses aligned with the words around a recovered piece', () => {
+    const finished = new FinishedSegments();
+    finished.record(socket, 'a', segment('cuộc thử', [0, 90], 0));
+    finished.record(socket, 'b', segment('một bài', [0, 400], 280));
+
+    const block = finished.block(socket, ['a', 'b'], new Map([[0, 'xin mời']]));
+
+    expect(block?.sourceText).toBe('cuộc thử xin mời một bài');
+    expect(block?.restore?.pauses).toEqual([0, 90, 0, 280, 0, 400]);
+    expect(block?.seamRepaired).toBe(true);
+  });
+
+  it('moves a later correction past the recovered words', () => {
+    const finished = new FinishedSegments();
+    finished.record(socket, 'a', segment('cuộc thử'));
+    finished.record(socket, 'b', {
+      ...segment('một bài'),
+      corrections: [{ heard: 'bài', said: 'bầy', at: 1 }],
+    });
+
+    const block = finished.block(socket, ['a', 'b'], new Map([[0, 'xin mời']]));
+
+    expect(block?.corrections).toEqual([{ heard: 'bài', said: 'bầy', at: 5 }]);
+  });
+
+  it('marks nothing when nothing was recovered', () => {
+    const finished = new FinishedSegments();
+    finished.record(socket, 'a', segment('cuộc thử'));
+    finished.record(socket, 'b', segment('một bài'));
+
+    expect(finished.block(socket, ['a', 'b'])).not.toHaveProperty(
+      'seamRepaired',
+    );
+  });
+});
+
+describe('FinishedSegments seams', () => {
+  const edges = (sampleRate: number, head: number[], tail: number[]) => ({
+    sampleRate,
+    head: Buffer.from(head),
+    tail: Buffer.from(tail),
+  });
+
+  it('joins the left end to the right start', () => {
+    const finished = new FinishedSegments();
+    finished.record(socket, 'a', {
+      ...segment('một'),
+      seamEdges: edges(16000, [1], [2]),
+    });
+    finished.record(socket, 'b', {
+      ...segment('hai'),
+      seamEdges: edges(16000, [3], [4]),
+    });
+
+    expect(finished.seams(socket, ['a', 'b'])).toEqual([
+      expect.objectContaining({
+        index: 0,
+        left: 'một',
+        right: 'hai',
+        clip: Buffer.from([2, 3]),
+      }),
+    ]);
+  });
+
+  it('skips a seam missing audio or mixing sample rates', () => {
+    const finished = new FinishedSegments();
+    finished.record(socket, 'a', segment('một'));
+    finished.record(socket, 'b', {
+      ...segment('hai'),
+      seamEdges: edges(16000, [3], [4]),
+    });
+    finished.record(socket, 'c', {
+      ...segment('ba'),
+      seamEdges: edges(48000, [5], [6]),
+    });
+
+    expect(finished.seams(socket, ['a', 'b', 'c'])).toEqual([]);
+  });
+});

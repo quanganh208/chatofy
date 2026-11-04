@@ -6,6 +6,7 @@ import {
 } from '@chatofy/types';
 import type { DisplayRestoreRequest } from '../services/pipeline-translator.service';
 import type { StreamSocket } from './stream-socket';
+import type { SeamEdges } from './turn-audio';
 
 /**
  * The finished segments of each connection, by `segment.sessionId`, so a run of
@@ -24,8 +25,18 @@ import type { StreamSocket } from './stream-socket';
  * Segments kept per connection. A block is at most `MAX_BLOCK_SEGMENTS` long and
  * is asked for as soon as its last piece lands, so twice that covers a block
  * plus the turns that finished around it while it was being asked for.
+ *
+ * Also what bounds the audio kept for seam repair: 5 s per segment, about 4 MB
+ * per connection at 16 kHz.
  */
 const REMEMBERED_SEGMENTS = 24;
+
+/**
+ * Languages whose seams are repaired, the two the repair was measured on.
+ * Chinese is not one: Paraformer writes no spaces, so a clip has no words to
+ * compare at the turns' edges.
+ */
+const SEAM_REPAIR_LANGUAGES: ReadonlySet<LanguageCode> = new Set(['en', 'vi']);
 
 export interface FinishedSegment {
   sourceText: string;
@@ -40,6 +51,23 @@ export interface FinishedSegment {
   respellings?: Readonly<Record<string, string>>;
   /** Guarded corrections the segment's own display applied. */
   corrections?: readonly TranscriptCorrection[];
+  /** The segment's audio around its ends, to re-read a cut beside it. */
+  seamEdges?: SeamEdges;
+  /** Whether the client asked for a display, for a language with no restore too. */
+  repairDisplay?: boolean;
+}
+
+/** The cut between two neighbouring segments of a block. */
+export interface BlockSeam {
+  /** The left segment's place in the block. */
+  index: number;
+  left: string;
+  right: string;
+  recognition: LanguageCode;
+  hints?: TranslationHints;
+  sampleRate: number;
+  /** PCM16 of the left segment's end, then of the right segment's start. */
+  clip: Buffer;
 }
 
 /**
@@ -87,6 +115,34 @@ export interface SegmentBlock {
   respellings?: Readonly<Record<string, string>>;
   /** Every piece's corrections together, so the block keeps them. */
   corrections?: readonly TranscriptCorrection[];
+  /** Whether a seam repair added words the pieces' own displays do not have. */
+  seamRepaired?: boolean;
+  /** Whether the client asked for a display. */
+  repairDisplay?: boolean;
+}
+
+/**
+ * Words a seam repair recovered, as a piece of their own between two segments.
+ *
+ * A piece because everything a block derives from its pieces then stays right
+ * with no index arithmetic: the join, the pause per word, and the word offsets
+ * of later corrections. No pause is measured for these words, and a zero says
+ * nothing to the restorer.
+ */
+function recoveredPiece(
+  sourceText: string,
+  like: FinishedSegment,
+): FinishedSegment {
+  return {
+    sourceText,
+    recognition: like.recognition,
+    targets: like.targets,
+    leadPause: 0,
+    restore: {
+      terms: [],
+      pauses: Array.from({ length: countWords(sourceText) }, () => 0),
+    },
+  };
 }
 
 /**
@@ -154,13 +210,43 @@ export class FinishedSegments {
   }
 
   /**
+   * The cuts between the named segments that can be re-read: both sides kept
+   * their audio at one sample rate, in a language the repair was measured on.
+   */
+  seams(socket: StreamSocket, segmentIds: readonly string[]): BlockSeam[] {
+    const segments = this.bySocket.get(socket);
+    const seams: BlockSeam[] = [];
+    for (let index = 0; index + 1 < segmentIds.length; index += 1) {
+      const left = segments?.get(segmentIds[index]!);
+      const right = segments?.get(segmentIds[index + 1]!);
+      if (!left?.seamEdges || !right?.seamEdges) continue;
+      if (left.seamEdges.sampleRate !== right.seamEdges.sampleRate) continue;
+      if (!SEAM_REPAIR_LANGUAGES.has(left.recognition)) continue;
+      seams.push({
+        index,
+        left: left.sourceText,
+        right: right.sourceText,
+        recognition: left.recognition,
+        ...(left.hints ? { hints: left.hints } : {}),
+        sampleRate: left.seamEdges.sampleRate,
+        clip: Buffer.concat([left.seamEdges.tail, right.seamEdges.head]),
+      });
+    }
+    return seams;
+  }
+
+  /**
    * The named segments joined in the order given, or null when any is unknown to
    * this connection, empty, or was spoken in another language or translated into
    * other targets — one translation cannot serve two plans.
+   *
+   * `recovered` holds words a seam repair found after the segment at each
+   * index, joined in as pieces of their own.
    */
   block(
     socket: StreamSocket,
     segmentIds: readonly string[],
+    recovered: ReadonlyMap<number, string> = new Map(),
   ): SegmentBlock | null {
     const segments = this.bySocket.get(socket);
     if (!segments || new Set(segmentIds).size !== segmentIds.length)
@@ -180,17 +266,21 @@ export class FinishedSegments {
         return null;
       }
     }
+    const pieces = (found as FinishedSegment[]).flatMap((segment, index) => {
+      const words = recovered.get(index);
+      return words ? [segment, recoveredPiece(words, first)] : [segment];
+    });
     return {
       // Joined the way the screen joins them: a closing mark the ceiling forced
       // on a piece would otherwise reach the translator as a sentence break.
-      sourceText: joinAtSeams(
-        found.map((segment) => segment!.sourceText.trim()),
-      ),
+      sourceText: joinAtSeams(pieces.map((piece) => piece.sourceText.trim())),
       recognition: first.recognition,
       targets: [...first.targets],
       ...(first.hints ? { hints: first.hints } : {}),
-      ...blockRespellings(found as FinishedSegment[]),
-      ...blockCorrections(found as FinishedSegment[]),
+      ...blockRespellings(pieces),
+      ...blockCorrections(pieces),
+      ...(pieces.length > found.length ? { seamRepaired: true } : {}),
+      ...(first.repairDisplay ? { repairDisplay: true } : {}),
       // Terms, and pauses when every piece has them: a block starts a display
       // group, so it continues nothing and the first piece's seam context does
       // not apply to it. The pauses join piece after piece, each seam's
@@ -199,7 +289,7 @@ export class FinishedSegments {
         ? {
             restore: {
               terms: first.restore.terms ?? [],
-              ...blockPauses(found as FinishedSegment[]),
+              ...blockPauses(pieces),
             },
           }
         : {}),

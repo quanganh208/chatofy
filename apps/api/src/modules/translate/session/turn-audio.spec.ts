@@ -40,6 +40,43 @@ describe('TurnAudio', () => {
     expect(audio.secondsAt(BYTES_PER_SECOND * 5)).toBe(5);
   });
 
+  describe('seamEdges', () => {
+    const SECOND = SAMPLE_RATE * 2;
+
+    it('keeps the first and last seconds of a long turn', () => {
+      const audio = new TurnAudio(SAMPLE_RATE);
+      audio.append(pcm(SAMPLE_RATE * 6));
+
+      const { head, tail } = audio.seamEdges();
+
+      expect(head.length).toBe(SECOND * 2.5);
+      expect(tail.length).toBe(SECOND * 2.5);
+      expect(tail.equals(audio.pcm().subarray(-SECOND * 2.5))).toBe(true);
+    });
+
+    it('stays inside the stretch it was asked for', () => {
+      const audio = new TurnAudio(SAMPLE_RATE);
+      audio.append(pcm(SAMPLE_RATE * 6));
+
+      const { head, tail } = audio.seamEdges(1000, 2000);
+
+      const stretch = audio.pcm().subarray(SECOND, SECOND * 2);
+      expect(head.equals(stretch)).toBe(true);
+      expect(tail.equals(stretch)).toBe(true);
+    });
+
+    it('copies, so the edges do not pin the turn', () => {
+      const audio = new TurnAudio(SAMPLE_RATE);
+      audio.append(pcm(SAMPLE_RATE));
+
+      const { head } = audio.seamEdges();
+      const first = head[0];
+      audio.pcm()[0] = first! ^ 0xff;
+
+      expect(head[0]).toBe(first);
+    });
+  });
+
   describe('toWav', () => {
     it('round-trips the whole buffer through the decoder', () => {
       const audio = new TurnAudio(SAMPLE_RATE);

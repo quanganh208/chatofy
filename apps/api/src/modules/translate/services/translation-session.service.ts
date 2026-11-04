@@ -91,8 +91,10 @@ import {
 } from '../session/turn-language-decision';
 import {
   FinishedSegments,
+  type BlockSeam,
   type SegmentBlock,
 } from '../session/finished-segments';
+import { encodePcm16Wav } from '../audio/wav-codec';
 import { BlockRetranslator } from '../session/block-retranslator';
 import { TurnPolisher } from '../session/turn-polisher';
 import {
@@ -304,6 +306,7 @@ export class TranslationSessionService implements OnModuleDestroy {
           this.typesetBlock(block, restored, translations),
       },
       this.pipeline.makeTranslationPolisher(),
+      (seam) => this.readSeam(seam),
     );
 
     // ONE budget for the process, built here rather than per turn. A bucket per
@@ -1675,6 +1678,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         piece.sourceText,
         { ...piece, corrections },
         respellings[index],
+        piece.span,
       );
     });
     // After every line is out, as for a whole turn: a label may wait on the
@@ -2026,19 +2030,20 @@ export class TranslationSessionService implements OnModuleDestroy {
    *
    * Only a block the restorer answered is worth a display: each piece already
    * carries its own marks and numerals, so a block typeset without the restore
-   * would be the ITN alone — fewer marks than the pieces it replaces.
+   * would be the ITN alone — fewer marks than the pieces it replaces. The one
+   * exception is a block with recovered words, which the pieces do not have.
    */
   private typesetBlock(
     block: SegmentBlock,
     restored: string | undefined,
     translations: Partial<Record<LanguageCode, string>>,
   ): string | undefined {
-    if (restored === undefined) return undefined;
+    if (restored === undefined) return this.unrestoredBlockDisplay(block);
     if (!restoreKeepsWords(block.sourceText, restored)) {
       this.logger.warn(
         'block display restore changed the words, the block keeps its pieces',
       );
-      return undefined;
+      return this.unrestoredBlockDisplay(block);
     }
     return typesetTranscript(
       block.sourceText,
@@ -2050,6 +2055,41 @@ export class TranslationSessionService implements OnModuleDestroy {
       block.respellings,
       block.corrections,
     );
+  }
+
+  /**
+   * The display of a block no restore answered: none, unless a seam repair
+   * added words. Then the display is the only place they can reach the screen,
+   * so it is sent even when typesetting changed nothing else, and that is
+   * always the case for English, which has no restorer.
+   */
+  private unrestoredBlockDisplay(block: SegmentBlock): string | undefined {
+    if (!block.seamRepaired || !block.repairDisplay) return undefined;
+    return (
+      typesetTranscript(
+        block.sourceText,
+        undefined,
+        block.recognition,
+        this.logger,
+        block.respellings,
+        block.corrections,
+      ) ?? block.sourceText
+    );
+  }
+
+  /** A second reading of the audio around a cut, for a block's seam repair. */
+  private async readSeam(seam: BlockSeam): Promise<string> {
+    const { text } = await this.pipeline.transcribe({
+      audio: encodePcm16Wav({
+        samples: seam.clip,
+        sampleRate: seam.sampleRate,
+        channels: 1,
+      }),
+      mimeType: 'audio/wav',
+      language: seam.recognition,
+      ...(seam.hints ? { hints: seam.hints } : {}),
+    });
+    return text;
   }
 
   private rememberSegment(
@@ -2067,13 +2107,18 @@ export class TranslationSessionService implements OnModuleDestroy {
       corrections?: readonly TranscriptCorrection[];
     },
     respellings: Respellings = {},
+    /** Where the segment sits in the turn's audio, for a piece of one. */
+    span?: { startMs: number; endMs: number },
   ): void {
     const restore = restoreRequestFor(
       session,
       undefined,
       this.context.learnedTerms(socket),
     );
+    const seamEdges = session.buffered?.seamEdges(span?.startMs, span?.endMs);
     this.finished.record(socket, segmentId, {
+      ...(seamEdges ? { seamEdges } : {}),
+      ...(session.repairDisplay ? { repairDisplay: true } : {}),
       ...(Object.keys(respellings).length > 0 ? { respellings } : {}),
       ...(corrections?.length ? { corrections } : {}),
       sourceText,

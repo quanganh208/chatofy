@@ -1,5 +1,6 @@
 import { MAX_SAMPLE_RATE } from '@chatofy/types';
 import { encodePcm16Wav } from '../audio/wav-codec';
+import { SEAM_EDGE_SECONDS } from './seam-word-repair';
 
 /** Inbound audio is mono; the contract carries no channel count. */
 const INBOUND_CHANNELS = 1;
@@ -27,6 +28,15 @@ export const MAX_TURN_SECONDS = 60;
  */
 export const MAX_TURN_BYTES =
   MAX_SAMPLE_RATE * INBOUND_CHANNELS * 2 * MAX_TURN_SECONDS;
+
+/** The two ends of a stretch of speech, kept to re-read the cut beside it. */
+export interface SeamEdges {
+  sampleRate: number;
+  /** PCM16 of the stretch's first seconds. */
+  head: Buffer;
+  /** PCM16 of the stretch's last seconds. */
+  tail: Buffer;
+}
 
 /**
  * The inbound audio of one turn, and everything derived from its sample rate.
@@ -105,6 +115,24 @@ export class TurnAudio {
       sampleRate: this.sampleRate,
       channels: INBOUND_CHANNELS,
     });
+  }
+
+  /**
+   * The ends of the stretch from `startMs` to `endMs`, by default the whole turn.
+   *
+   * Copied, because these outlive the turn: a slice would pin its entire buffer.
+   */
+  seamEdges(startMs = 0, endMs = Number.POSITIVE_INFINITY): SeamEdges {
+    const from = this.byteAtMs(startMs);
+    const to = this.byteAtMs(endMs);
+    const size =
+      Math.round(this.sampleRate * SEAM_EDGE_SECONDS) * INBOUND_CHANNELS * 2;
+    const samples = this.pcm();
+    return {
+      sampleRate: this.sampleRate,
+      head: Buffer.from(samples.subarray(from, Math.min(to, from + size))),
+      tail: Buffer.from(samples.subarray(Math.max(from, to - size), to)),
+    };
   }
 
   /** The turn's raw little-endian PCM16, frames concatenated in arrival order. */
