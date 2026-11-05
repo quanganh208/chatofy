@@ -93,8 +93,6 @@ export default function SignUpScreen() {
         autoComplete="name"
         textContentType="name"
       />
-
-      <GoogleSignInButton onSignedIn={() => router.replace('/translate')} onError={setError} />
       <TextField
         label={t('common.auth.email')}
         value={email}
@@ -130,6 +128,7 @@ export default function SignUpScreen() {
         onPress={() => void submit()}
         busy={submitting}
       />
+      <GoogleSignInButton onSignedIn={() => router.replace('/translate')} onError={setError} />
       <GhostButton
         variant="link"
         label={t('web.auth.backToSignIn')}

@@ -1,6 +1,6 @@
 /**
- * "Continue with Google": opens Google's sheet through Expo's auth session, takes
- * the id_token it returns and trades it for a session at `POST /auth/google`.
+ * "Continue with Google": opens Google's sheet through Expo's auth session, trades
+ * the code it returns for an id_token, and that for a session at `POST /auth/google`.
  *
  * Rendered only where a client id is configured for the platform. The hook that
  * builds the request lives in an inner component because it refuses to be called
@@ -9,10 +9,11 @@
 
 import { useState } from 'react';
 import { Platform } from 'react-native';
+import { exchangeCodeAsync } from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { createTranslator, en, type MessageKey } from '@chatofy/i18n';
-import { clientIdFor, googleFailureMessage, readGoogleResponse } from '@/auth/google-sign-in';
+import { clientIdFor, finishGoogleSignIn } from '@/auth/google-sign-in';
 import { GOOGLE_CLIENT_IDS } from '@/config/google-client-ids';
 import { useAuth } from '@/providers/auth-provider';
 import { GhostButton } from '@/ui/components/ghost-button';
@@ -35,28 +36,40 @@ export function GoogleSignInButton(props: GoogleSignInButtonProps) {
 function ConfiguredGoogleButton({ onSignedIn, onError }: GoogleSignInButtonProps) {
   const { signInWithGoogle } = useAuth();
   const [busy, setBusy] = useState(false);
-  const [request, , promptAsync] = Google.useIdTokenAuthRequest({
+  // The hook's own exchange is off: `promptAsync` resolves before it runs, and a
+  // failure there rejects with nobody listening.
+  const [request, , promptAsync] = Google.useAuthRequest({
     iosClientId: GOOGLE_CLIENT_IDS.ios,
     androidClientId: GOOGLE_CLIENT_IDS.android,
+    shouldAutoExchangeCode: false,
   });
 
-  // `promptAsync` resolves with the result, so the exchange runs from the press
-  // itself and a re-render can never send the one-use token twice.
   async function start() {
-    if (busy) return;
+    if (busy || !request) return;
     onError(null);
     setBusy(true);
-    try {
-      const outcome = readGoogleResponse(await promptAsync());
-      if (outcome.kind === 'idToken') {
-        await signInWithGoogle(outcome.idToken);
-        onSignedIn();
-        return;
-      }
-      if (outcome.kind === 'failed') onError('web.auth.signInUnavailable');
-    } catch (err) {
-      onError(googleFailureMessage(err));
+    const response = await promptAsync().catch(() => ({ type: 'error' }) as const);
+    const result = await finishGoogleSignIn(response, {
+      // PKCE: the redirect and verifier must be the ones the prompt was opened with.
+      exchangeCode: async (code) => {
+        const tokens = await exchangeCodeAsync(
+          {
+            clientId: request.clientId,
+            redirectUri: request.redirectUri,
+            code,
+            extraParams: { code_verifier: request.codeVerifier ?? '' },
+          },
+          Google.discovery,
+        );
+        return tokens.idToken;
+      },
+      signIn: signInWithGoogle,
+    });
+    if (result.kind === 'signedIn') {
+      onSignedIn();
+      return;
     }
+    if (result.kind === 'failed') onError(result.message);
     setBusy(false);
   }
 

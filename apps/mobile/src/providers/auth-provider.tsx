@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { authClient } from '@/clients/auth-client';
 import type { AuthClient, AuthMessage, AuthSession } from '@/clients/auth-client.interface';
 
@@ -14,8 +15,8 @@ interface AuthContextValue {
   session: AuthSession | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  /** Resolves with what to tell the user; it does not sign them in. */
   signInWithGoogle: (idToken: string) => Promise<void>;
+  /** Resolves with what to tell the user; it does not sign them in. */
   signUp: (email: string, password: string, name: string) => Promise<AuthMessage>;
   signOut: () => Promise<void>;
   forgotPassword: (email: string) => Promise<AuthMessage>;
@@ -36,6 +37,13 @@ interface AuthProviderProps {
 export function AuthProvider({ children, client = defaultClient }: AuthProviderProps) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  // Query keys do not name the account, so what one person fetched must not be
+  // there for the next to sign in on this phone.
+  useEffect(() => {
+    if (!isLoading && session === null) queryClient.clear();
+  }, [isLoading, session, queryClient]);
 
   useEffect(() => {
     let cancelled = false;

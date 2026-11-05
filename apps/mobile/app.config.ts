@@ -4,10 +4,10 @@ import { googleIosRedirectScheme } from './src/auth/google-redirect-scheme.ts';
 /**
  * `app.json` stays the base; this adds what depends on the build's environment.
  *
- * Google returns an iOS sign-in to the reversed client id (`com.googleusercontent
- * .apps.<id>`) and an Android one to the package name, and both must be URL
- * schemes the app owns. The iOS one is derived from the client id so it is not
- * copied by hand; without a client id the scheme list is just the app's own.
+ * Expo's Google provider redirects to `<application id>:/oauthredirect`, so the
+ * package name must be a URL scheme the app owns. The reversed iOS client id
+ * (`com.googleusercontent.apps.<id>`) is registered beside it as the other form
+ * Google accepts for an iOS client; it is derived so it is not copied by hand.
  */
 export default ({ config }: ConfigContext): ExpoConfig => {
   const own = typeof config.scheme === 'string' ? [config.scheme] : (config.scheme ?? []);
