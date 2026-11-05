@@ -638,6 +638,8 @@ Monitoring:
 
 Dev stack, 2026-10-26/27; method and numbers in [video-translation-audio-path.md § 4–5](./architecture/video-translation-audio-path.md#measured-capacity-dev-stack-2026-10-26-and-2026-10-27).
 
+On production, 2026-11-05, two speakers lost no turns and every turn was voiced, even talking at once. Three continuous speakers on the dev stack lose 21–36% of turns. A local sweep kept the 4/6 ceiling: 5/6 costs /translate about six times the refusals, and 6/8 turns lost subtitles into silent turns (79% voiced) and adds about 2 s. The dev stack was slower than production, so neither result projects onto it.
+
 - **Overload.** Meeting legs share 4 of the global 6 turns, so /translate stays usable (0/112 starts admitted before, 4/4 turns after); two continuous speakers then lose 12–25 turns each per 200 s, and one leg can starve the other. Open: a per-leg cap of 2 or a longer pending window.
 - **VieNeu.** One continuous en→vi speaker holds the vi engine 94–97 % of the time and 15–25 % of its turns fail `engine_busy`, shared with /translate vi users. Accepted as a known limit.
 - **Echo.** An Android phone on its loudspeaker read the room's playback back as speech (47 rows in 3.5 min). The recorder patch's echo canceller fails at full volume (40 rows), so mobile keeps a received-audio onset gate that never cuts an open turn. Unmeasured: that gate at full volume, iOS, web.

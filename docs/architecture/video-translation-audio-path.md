@@ -147,6 +147,12 @@ Why each part is shaped the way it is (the code owns the details):
 - **What is stored.** One row per final, with translations filtered to languages someone
   else in the room speaks (`conference-translation-relay.service.ts`). Minutes read only
   `sourceText`.
+- **Polish and readable source.** The leg sets `repairDisplay`, and the final's
+  `sourceText` is the server's `display`. `server.translation.polished` lands after the
+  final, so it leaves as a `revision` on the same envelope: the API takes one per turn,
+  from the peer that finalized it, updates the row and sends listeners
+  `conference.translation.revised`, narrowed like a subtitle. Clients that do not know the
+  event ignore it.
 - **Restarts.** A dropped translate socket is rebuilt up to 3 times (1/2/4 s), with a
   fresh token each time, and never after a 1008 or 4xxx close
   (`conference-leg-restart-policy.ts`). Muting pauses the leg, so a muted speaker holds
@@ -444,6 +450,24 @@ for the old path gets no reply and no translation.
 
 Per-hop numbers come from the project's own measurements where they exist;
 everything else is labelled **estimated**.
+
+### Measured on production (2026-11-05)
+
+The ruler is [`benchmarks/conference`](../../benchmarks/conference/README.md): the shipped
+leg on real sockets, two speakers, four runs, 178 turns, real recordings.
+
+| Measure                     | Turn-taking | Both talking at once |
+| --------------------------- | ----------- | -------------------- |
+| First subtitle, p50         | 0.37–0.39 s | 0.34–0.39 s          |
+| First translated audio, p50 | 2.1–2.2 s   | 3.7–4.6 s            |
+| Turns lost                  | 0           | 0                    |
+
+149 of 178 turns were polished, about 2 s after the final, and every revision reached the
+listener. Compared with `/translate` on the same audio, serious errors per turn are 19.6%
+vs 17.1% on vi→en and 9.1% vs 4.9% on en→vi, down from 39.1% and 9.1% when polish was
+dropped. Two conversations per direction cannot separate that gap from noise. Word error
+is 8.0% vs 6.8% per turn and 5.0% vs 4.2% concatenated: floors cut every 20 s, which
+per-turn scoring penalizes.
 
 ### Measured in a meeting on the cascade (2026-10-26 and 2026-10-27)
 

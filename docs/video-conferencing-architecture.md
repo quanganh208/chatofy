@@ -635,7 +635,7 @@ Detailed analysis is in [technical-risks-mitigation.md](./technical-risks-mitiga
 
 ---
 
-## 11. Success Metrics (proposed targets, unverified)
+## 11. Success Metrics (production targets measured, the rest proposed)
 
 ### Phase Completion (0-20 weeks)
 
@@ -646,11 +646,19 @@ Detailed analysis is in [technical-risks-mitigation.md](./technical-risks-mitiga
 
 ### Production (Post-launch)
 
-- [ ] P50 latency: audio → translation → subtitle < 1.5s
-- [ ] P99 latency < 3s
-- [ ] Video frame drop rate < 1%
-- [ ] Subtitle accuracy > 95%
-- [ ] Speaker attribution > 90%
+Two speakers on production, by [the meeting ruler](../benchmarks/conference/README.md). Numbers are in [video-translation-audio-path.md § 7](./architecture/video-translation-audio-path.md#measured-on-production-2026-11-05).
+
+- [x] First subtitle: p50 ≤ 3 s, p95 ≤ 6 s
+- [ ] First translated audio: p50 ≤ 4 s. Passes turn-taking; one of two overlap runs is 4.6 s
+- [x] Turn loss ≤ 2%, subtitle delivery ≥ 98%
+- [ ] Translation within 2 points of `/translate` per direction: +2.5 and +4.2, one turn over each
+- [ ] Word error within 1 point of `/translate`: +1.2
+- [x] Packet loss < 1% on the host network, and a call connects through forced TURN
+- [ ] Two-network call: not measured
+- [ ] No turns from a silent listener on real speakers: not measured
+- [ ] Speaker attribution > 90%: proposed, not measured
+
+One hour of a two-person meeting costs about 3,350 Command Code calls against about 5,300 in the 5-hour window.
 
 ---
 
@@ -659,7 +667,8 @@ Detailed analysis is in [technical-risks-mitigation.md](./technical-risks-mitiga
 1. Run one call on production from two networks (Wi-Fi and 4G, RTT and packet loss); the
    table is in [video-network-path.md → Measured](./architecture/video-network-path.md#measured).
 2. Measure meeting echo on web and iOS with real speakers ([§5](./architecture/video-translation-audio-path.md#5-echo--ducking--the-original-voice-while-translation-plays)).
-3. Replace the Pion assumptions above when the next implementation plan is written.
+3. Lower first translated audio when two people talk at once, then revisit the turn ceiling.
+4. Replace the Pion assumptions above when the next implementation plan is written.
 
 ---
 
