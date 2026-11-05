@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import type {
   ConferenceTranslationAudio,
+  ConferenceTranslationRevised,
   ConferenceTranslationSubtitle,
+  LanguageCode,
 } from '@chatofy/types';
 import type { ConferenceRoom } from '../conference-room-registry.service';
 
@@ -62,6 +64,29 @@ export class ConferenceTranslationRouter {
       if (socketId === senderSocketId) continue;
       if (peer.sourceLanguage !== audio.lang) continue;
       deliver(socketId, 'conference.translation.audio', audio);
+    }
+  }
+
+  /** Each peer with a translation in its language gets that one, as subtitles do. */
+  routeRevision(
+    room: ConferenceRoom,
+    senderSocketId: string,
+    sourceLanguage: LanguageCode,
+    turnId: string,
+    translations: Partial<Record<LanguageCode, string>>,
+    deliver: Deliver,
+  ): void {
+    for (const [socketId, peer] of room.peers) {
+      if (socketId === senderSocketId) continue;
+      if (peer.sourceLanguage === sourceLanguage) continue;
+      const translatedText = translations[peer.sourceLanguage];
+      if (translatedText === undefined) continue;
+      const revised: ConferenceTranslationRevised = {
+        speakerSocketId: senderSocketId,
+        turnId,
+        translatedText,
+      };
+      deliver(socketId, 'conference.translation.revised', revised);
     }
   }
 }

@@ -2,6 +2,8 @@ export { WS_SUBPROTOCOL, tokenFromSubprotocols } from './ws-handshake.js';
 
 export {
   ConferenceTranslationAudioSchema,
+  ConferenceTranslationRevisedSchema,
+  ConferenceTranslationRevisionSchema,
   ConferenceTranslationBroadcastSchema,
   ConferenceTranslationSubtitleSchema,
   MAX_CONFERENCE_AUDIO_PAYLOAD_CHARS,
@@ -9,6 +11,8 @@ export {
 } from './conference-translation-events.js';
 export type {
   ConferenceTranslationAudio,
+  ConferenceTranslationRevised,
+  ConferenceTranslationRevision,
   ConferenceTranslationBroadcast,
   ConferenceTranslationSubtitle,
 } from './conference-translation-events.js';

@@ -56,8 +56,13 @@ export interface ParticipantSession {
   publishedTracks: PublishedTrack[];
   /** `mid` on the receiving session → the peer and kind it carries. */
   pulled: Map<string, PulledFrom>;
-  /** Turns already persisted, so a repeated final frame writes nothing. */
-  persistedTurnIds: Set<string>;
+  /**
+   * Turns already persisted, so a repeated final frame writes nothing. Each maps
+   * to its row id, once known, so a revision never lands before the row exists;
+   * that id resolves to null when there is no row. The entry itself is null once
+   * the turn's one revision has been taken.
+   */
+  persistedTurns: Map<string, Promise<string | null> | null>;
   limits: PeerLimits;
 }
 
@@ -140,7 +145,7 @@ export class ConferenceRoomRegistry {
       videoEnabled: true,
       publishedTracks: [],
       pulled: new Map(),
-      persistedTurnIds: new Set(),
+      persistedTurns: new Map(),
       limits: {},
     };
     room.peers.set(socketId, peer);

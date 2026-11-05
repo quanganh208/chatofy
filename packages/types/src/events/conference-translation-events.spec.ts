@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ConferenceTranslationBroadcastSchema,
+  ConferenceTranslationRevisionSchema,
   ConferenceTranslationSubtitleSchema,
   MAX_CONFERENCE_TURN_TEXT_CHARS,
 } from './conference-translation-events.js';
@@ -44,5 +46,30 @@ describe('ConferenceTranslationSubtitleSchema translations', () => {
   it('still requires the primary target fields', () => {
     const { translatedText: _dropped, ...rest } = subtitle({ translations: { en: 'hello' } });
     expect(ConferenceTranslationSubtitleSchema.safeParse(rest).success).toBe(false);
+  });
+});
+
+describe('ConferenceTranslationRevisionSchema', () => {
+  const turnId = '6f1d2a8e-3b4c-4d5e-8f60-718293a4b5c6';
+
+  it('travels in the broadcast envelope', () => {
+    const parsed = ConferenceTranslationBroadcastSchema.parse({
+      revision: { turnId, translations: { en: 'hello' } },
+    });
+    expect(parsed.revision?.translations.en).toBe('hello');
+  });
+
+  it('refuses a turn id that is not a uuid', () => {
+    expect(
+      ConferenceTranslationRevisionSchema.safeParse({ turnId: 'x', translations: { en: 'a' } })
+        .success,
+    ).toBe(false);
+  });
+
+  it('refuses a language the registry does not hold', () => {
+    expect(
+      ConferenceTranslationRevisionSchema.safeParse({ turnId, translations: { fr: 'salut' } })
+        .success,
+    ).toBe(false);
   });
 });

@@ -80,13 +80,44 @@ export const ConferenceTranslationAudioSchema = z.object({
 export type ConferenceTranslationAudio = z.infer<typeof ConferenceTranslationAudioSchema>;
 
 /**
+ * A finished turn's translations after a second, stronger pass, sent by the
+ * speaker's client inside the broadcast envelope.
+ *
+ * Its own field rather than a second final frame: a listener shows every final,
+ * so a repeated one would bring back a line that had already cleared, and a tab
+ * loaded before this field existed would do exactly that. The gateway accepts it
+ * only for a turn that peer has already finalized, and stores it over that row.
+ */
+export const ConferenceTranslationRevisionSchema = z.object({
+  /** The finished turn, as `turnId` on its subtitle frames. */
+  turnId: z.uuid(),
+  translations: translationMapSchema(z.string().max(MAX_CONFERENCE_TURN_TEXT_CHARS)),
+});
+export type ConferenceTranslationRevision = z.infer<typeof ConferenceTranslationRevisionSchema>;
+
+/**
+ * conference.translation.revised
+ *
+ * What a listener receives for a revision: the new text in their own language.
+ * A client that does not know this event ignores it, and keeps the draft.
+ */
+export const ConferenceTranslationRevisedSchema = z.object({
+  /** Stamped by the gateway with the speaker's socket id. */
+  speakerSocketId: z.string().max(64),
+  turnId: z.uuid(),
+  translatedText: z.string().max(MAX_CONFERENCE_TURN_TEXT_CHARS),
+});
+export type ConferenceTranslationRevised = z.infer<typeof ConferenceTranslationRevisedSchema>;
+
+/**
  * conference.translation.broadcast
  *
- * The combined envelope the speaker's client sends — one message may carry
- * subtitle only, audio only, or both.
+ * The combined envelope the speaker's client sends. One message may carry any of
+ * a subtitle, audio and a revision.
  */
 export const ConferenceTranslationBroadcastSchema = z.object({
   subtitle: ConferenceTranslationSubtitleSchema.optional(),
   audio: ConferenceTranslationAudioSchema.optional(),
+  revision: ConferenceTranslationRevisionSchema.optional(),
 });
 export type ConferenceTranslationBroadcast = z.infer<typeof ConferenceTranslationBroadcastSchema>;

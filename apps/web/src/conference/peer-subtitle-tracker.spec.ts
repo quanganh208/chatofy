@@ -173,3 +173,34 @@ describe('PeerSubtitleTracker', () => {
     expect(shown['s-1']).toBe('hello');
   });
 });
+
+describe('PeerSubtitleTracker.revise', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('replaces the words of a line still on screen and leaves its clear running', () => {
+    const { tracker, shown } = setup();
+    tracker.receive(frame({ isFinal: true }), 'en');
+    vi.advanceTimersByTime(SUBTITLE_HOLD_MS / 2);
+    tracker.revise('s-1', TURN_A, 'Hello there.');
+    expect(shown['s-1']).toBe('Hello there.');
+    vi.advanceTimersByTime(SUBTITLE_HOLD_MS / 2);
+    expect(shown['s-1']).toBeUndefined();
+  });
+
+  it('never brings back a line that already cleared', () => {
+    const { tracker, shown } = setup();
+    tracker.receive(frame({ isFinal: true }), 'en');
+    vi.advanceTimersByTime(SUBTITLE_HOLD_MS);
+    tracker.revise('s-1', TURN_A, 'Hello there.');
+    expect(shown['s-1']).toBeUndefined();
+  });
+
+  it('does not touch a newer line of the same speaker', () => {
+    const { tracker, shown } = setup();
+    tracker.receive(frame({ isFinal: true }), 'en');
+    tracker.receive(frame({ turnId: TURN_B, translatedText: 'next' }), 'en');
+    tracker.revise('s-1', TURN_A, 'Hello there.');
+    expect(shown['s-1']).toBe('next');
+  });
+});

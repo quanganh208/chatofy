@@ -515,7 +515,7 @@ export class TranslationSessionService implements OnModuleDestroy {
       this.predecessors.set(session, predecessor);
     }
     this.logger.log(
-      `session.start ${sessionId} pair=${languagePairLabel(options.languagePair)} mode=${mode}${modeReason ? ` (${modeReason})` : ''} voice=${options.voiceGender}`,
+      `session.start ${sessionId} pair=${languagePairLabel(options.languagePair)} mode=${mode}${modeReason ? ` (${modeReason})` : ''} voice=${options.voiceGender} meeting=${options.meeting === true}`,
     );
     // Extra targets are extra translation and synthesis spend per turn, so who
     // asked for them is on record.

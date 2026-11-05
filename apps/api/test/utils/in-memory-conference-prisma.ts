@@ -232,6 +232,22 @@ export class InMemoryConferencePrisma {
       return Promise.resolve(row);
     },
 
+    findUnique: ({ where }: { where: { id: string } }) =>
+      Promise.resolve(this.turns.find((t) => t.id === where.id) ?? null),
+
+    update: ({
+      where,
+      data,
+    }: {
+      where: { id: string };
+      data: Partial<TurnRow>;
+    }) => {
+      const row = this.turns.find((t) => t.id === where.id);
+      if (!row) return Promise.reject(new Error('turn not found'));
+      Object.assign(row, data);
+      return Promise.resolve(row);
+    },
+
     /**
      * The minutes read: a room's turns in creation order, each with its
      * speaker's display name. Insertion order stands in for `createdAt`.

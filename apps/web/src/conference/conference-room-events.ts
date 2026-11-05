@@ -11,9 +11,11 @@ import {
   ConferenceChatMessageSchema,
   ConferenceMediaPublishedSchema,
   ConferenceTranslationAudioSchema,
+  ConferenceTranslationRevisedSchema,
   ConferenceTranslationSubtitleSchema,
   type ConferenceChatMessage,
   type ConferenceTranslationAudio,
+  type ConferenceTranslationRevised,
   type ConferenceTranslationSubtitle,
 } from '@chatofy/types/events';
 import type { SignalMessage } from './conference-signaling';
@@ -55,6 +57,7 @@ export type RoomEvent =
   | { type: 'peer-left'; socketId: string }
   | { type: 'participant-state'; socketId: string; muted?: boolean; videoEnabled?: boolean }
   | { type: 'subtitle'; subtitle: ConferenceTranslationSubtitle }
+  | { type: 'subtitle-revised'; revised: ConferenceTranslationRevised }
   | { type: 'audio'; audio: ConferenceTranslationAudio & { speakerSocketId: string } }
   | { type: 'chat'; message: ConferenceChatMessage }
   | { type: 'chat-refused'; refusal: ConferenceChatRefusal }
@@ -90,6 +93,10 @@ export function parseRoomEvent(signal: SignalMessage): RoomEvent | null {
     case 'conference.translation.subtitle': {
       const parsed = ConferenceTranslationSubtitleSchema.safeParse(data);
       return parsed.success ? { type: 'subtitle', subtitle: parsed.data } : null;
+    }
+    case 'conference.translation.revised': {
+      const parsed = ConferenceTranslationRevisedSchema.safeParse(data);
+      return parsed.success ? { type: 'subtitle-revised', revised: parsed.data } : null;
     }
     case 'conference.translation.audio': {
       const parsed = ConferenceTranslationAudioSchema.safeParse(data);

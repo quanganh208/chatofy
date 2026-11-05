@@ -71,7 +71,7 @@ function harness() {
       videoEnabled: true,
       publishedTracks: [],
       pulled: new Map(),
-      persistedTurnIds: new Set(),
+      persistedTurns: new Map(),
       limits: {},
     };
     room.peers.set(socketId, peer);
