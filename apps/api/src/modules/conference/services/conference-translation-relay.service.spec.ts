@@ -14,7 +14,7 @@ const peer = (sourceLanguage: string) => ({
   sourceLanguage,
   displayName: sourceLanguage,
   limits: {},
-  persistedTurns: new Map<string, Promise<string | null>>(),
+  persistedTurns: new Map<string, Promise<string | null> | null>(),
 });
 
 function setup() {
@@ -112,26 +112,28 @@ describe('a revision of a finished turn', () => {
     expect(persistence.reviseTurn).toHaveBeenCalledTimes(1);
   });
 
-  it('applies two revisions of one turn in order, not at once', async () => {
-    const { final, revise, persistence, resolveRow } = setup();
-    let release!: () => void;
-    persistence.reviseTurn.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          release = resolve;
-        }),
-    );
+  it('takes one revision of a turn and drops the rest', async () => {
+    const { final, revise, revisions, persistence, resolveRow } = setup();
     final();
     resolveRow('row-1');
     revise({ en: 'first' });
     revise({ en: 'second' });
     await settle();
     expect(persistence.reviseTurn).toHaveBeenCalledTimes(1);
-    release();
-    await settle();
-    expect(persistence.reviseTurn).toHaveBeenLastCalledWith('row-1', {
-      en: 'second',
+    expect(persistence.reviseTurn).toHaveBeenCalledWith('row-1', {
+      en: 'first',
     });
+    expect(revisions()).toHaveLength(1);
+  });
+
+  it('still treats a repeated final as already stored after its revision', async () => {
+    const { final, revise, persistence, resolveRow } = setup();
+    final();
+    resolveRow('row-1');
+    revise({ en: 'first' });
+    final();
+    await settle();
+    expect(persistence.recordTurn).toHaveBeenCalledTimes(1);
   });
 
   it('keeps nothing for a language nobody else in the room speaks', async () => {

@@ -26,7 +26,7 @@ import {
  * What closes a turn without a final emits a non-final CLEAR (empty text), so a
  * listener's line goes away and nothing is persisted.
  *
- * A finished turn can still change once: `server.translation.polished` arrives
+ * A finished turn can still change once, and the server keeps only one: `server.translation.polished` arrives
  * after its final, which is why it is read before the closed-turn check. It
  * leaves as a revision and never as another final. A turn that closed without a
  * final has no row to revise, so it gets none.

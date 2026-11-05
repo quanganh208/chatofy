@@ -133,9 +133,10 @@ export class ConferenceTranslationRelay {
    *
    * Only for a turn this peer finalized, so a peer can rewrite nothing but its
    * own record, and under the rule a final is stored by: only languages someone
-   * else in the room speaks. It is chained on the turn's entry because two
-   * revisions are both read-modify-write of one JSON column, and because the
-   * row may not exist yet when the first one lands.
+   * else in the room speaks. It waits on the turn's entry because the row may
+   * not exist yet when it lands. A turn is polished once, so its entry is spent
+   * here and any further revision is dropped: each would cost a database
+   * read and write, and a client decides how often they arrive.
    */
   private applyRevision(
     room: ConferenceRoom,
@@ -145,7 +146,7 @@ export class ConferenceTranslationRelay {
     deliver: (to: string, event: string, data: unknown) => void,
   ): void {
     const stored = peer.persistedTurns.get(revision.turnId);
-    if (stored === undefined) return;
+    if (!stored) return;
     const translations = keptTranslations(
       revision.translations,
       peer.sourceLanguage,
@@ -160,14 +161,11 @@ export class ConferenceTranslationRelay {
       translations,
       deliver,
     );
-    peer.persistedTurns.set(
-      revision.turnId,
-      stored.then(async (rowId) => {
-        if (rowId !== null)
-          await this.persistence.reviseTurn(rowId, translations);
-        return rowId;
-      }),
-    );
+    peer.persistedTurns.set(revision.turnId, null);
+    void stored.then(async (rowId) => {
+      if (rowId !== null)
+        await this.persistence.reviseTurn(rowId, translations);
+    });
   }
 
   /**
@@ -213,7 +211,7 @@ export class ConferenceTranslationRelay {
 }
 
 function rememberTurn(
-  seen: Map<string, Promise<string | null>>,
+  seen: ParticipantSession['persistedTurns'],
   turnId: string,
   row: Promise<string | null>,
 ): void {

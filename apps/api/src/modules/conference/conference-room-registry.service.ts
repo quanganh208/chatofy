@@ -58,10 +58,11 @@ export interface ParticipantSession {
   pulled: Map<string, PulledFrom>;
   /**
    * Turns already persisted, so a repeated final frame writes nothing. Each maps
-   * to its row id, once known; a revision chains on this promise, so revisions of
-   * one turn land in order and never before the row exists. Null means no row.
+   * to its row id, once known, so a revision never lands before the row exists;
+   * that id resolves to null when there is no row. The entry itself is null once
+   * the turn's one revision has been taken.
    */
-  persistedTurns: Map<string, Promise<string | null>>;
+  persistedTurns: Map<string, Promise<string | null> | null>;
   limits: PeerLimits;
 }
 
