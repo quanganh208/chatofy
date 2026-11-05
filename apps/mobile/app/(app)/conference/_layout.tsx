@@ -1,29 +1,15 @@
-import { useEffect } from 'react';
-import { Stack, useRouter } from 'expo-router';
-import { useAuth } from '@/providers/auth-provider';
+import { Stack } from 'expo-router';
 
 /**
  * Stacks the conference lobby (`index`) and the call view (`[roomId]`) under the
  * single "Conference" tab, so `[roomId]` pushes over the lobby rather than becoming
  * its own tab. Headers are owned by the screens.
  *
- * Signed-in only: the socket and the REST lobby need a bearer token. Signing out —
- * or a refresh the API refuses mid-call — sends the user to sign in, then back to
- * the lobby.
- *
- * The stack stays mounted and the redirect is an effect. Rendering `<Redirect>` in
- * its place swaps the native stack out from under a mounted tab, which Fabric
- * refuses ("addViewAt: View already has a parent") and the app crashes.
+ * Signed-in only: the socket and the REST lobby need a bearer token. The tab
+ * layout one level up sends a signed-out user (or a refresh the API refuses
+ * mid-call) to sign in, then back to where they were.
  */
 export default function ConferenceLayout() {
-  const router = useRouter();
-  const { session, isLoading } = useAuth();
-  const signedOut = !isLoading && !session;
-
-  useEffect(() => {
-    if (signedOut) router.replace({ pathname: '/sign-in', params: { next: '/conference' } });
-  }, [signedOut, router]);
-
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />

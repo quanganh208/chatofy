@@ -18,6 +18,8 @@ import { vi } from './vi.js';
 const PLATFORM_WORDED = new Set<string>([
   // A browser's site settings and a reload, against the phone's Settings app.
   'conference.permissionDeniedHint',
+  // A browser's site permission prompt against the phone's Settings app.
+  'translate.micDenied',
 ]);
 
 const keys = Object.keys(en) as MessageKey[];

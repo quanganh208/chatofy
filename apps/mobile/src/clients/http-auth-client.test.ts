@@ -221,4 +221,62 @@ describe('HttpAuthClient', () => {
     const { impl } = fakeFetch({});
     assert.equal(await client(broken, impl).getSession(), null);
   });
+
+  it('asks the API for an app link when registering and when asking for a reset', async () => {
+    const message = { code: 'REGISTRATION_ACCEPTED', message: 'ok' };
+    const f = fakeFetch({
+      '/auth/register': () => envelope(message, 202),
+      '/auth/forgot-password': () => envelope({ code: 'RESET_REQUESTED', message: 'ok' }, 202),
+    });
+    const c = client(new MemoryStore(), f.impl);
+
+    await c.signUp('a@example.com', 'a long password', 'A');
+    await c.forgotPassword('a@example.com');
+
+    assert.deepEqual(f.calls[0]?.body, {
+      email: 'a@example.com',
+      password: 'a long password',
+      name: 'A',
+      client: 'mobile',
+    });
+    assert.deepEqual(f.calls[1]?.body, { email: 'a@example.com', client: 'mobile' });
+  });
+
+  it('redeems mailed tokens without signing anyone in', async () => {
+    const f = fakeFetch({
+      '/auth/verify-email': () => envelope({ code: 'ACCOUNT_CREATED', message: 'ok' }),
+      '/auth/reset-password': () => envelope({ code: 'PASSWORD_RESET_DONE', message: 'ok' }),
+    });
+    const store = new MemoryStore();
+    const c = client(store, f.impl);
+
+    assert.equal((await c.verifyEmail('t'.repeat(40))).code, 'ACCOUNT_CREATED');
+    assert.equal(
+      (await c.resetPassword('t'.repeat(40), 'new long password')).code,
+      'PASSWORD_RESET_DONE',
+    );
+
+    assert.equal(store.value, null);
+    assert.deepEqual(f.calls[1]?.body, { token: 't'.repeat(40), password: 'new long password' });
+  });
+
+  it('surfaces a refused reset with its status', async () => {
+    const f = fakeFetch({ '/auth/reset-password': () => new Response('{}', { status: 401 }) });
+    await assert.rejects(
+      client(new MemoryStore(), f.impl).resetPassword('t'.repeat(40), 'new long password'),
+      (err: unknown) => err instanceof AuthRequestError && err.status === 401,
+    );
+  });
+
+  it('signs in with a Google id_token and stores the session', async () => {
+    const issued = session('google-access', 3_600_000);
+    const f = fakeFetch({ '/auth/google': () => envelope(issued) });
+    const store = new MemoryStore();
+
+    const result = await client(store, f.impl).signInWithGoogle('google.id.token');
+
+    assert.deepEqual(f.calls[0]?.body, { idToken: 'google.id.token' });
+    assert.equal(result.token.accessToken, 'google-access');
+    assert.equal(store.value?.token.accessToken, 'google-access');
+  });
 });

@@ -51,7 +51,7 @@ export default function SettingsScreen() {
           accessibilityRole="button"
         >
           <Text style={[styles.signOutText, { color: colors.text }]}>
-            {t('mobile.home.signIn')}
+            {t('common.auth.signIn')}
           </Text>
         </TouchableOpacity>
       )}

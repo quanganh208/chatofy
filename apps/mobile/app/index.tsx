@@ -1,65 +1,27 @@
-import { Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { createTranslator, en } from '@chatofy/i18n';
+import { ActivityIndicator, View } from 'react-native';
+import { Redirect, type Href } from 'expo-router';
+import { entryRedirect } from '@/auth/route-guard';
 import { useAuth } from '@/providers/auth-provider';
+import { useTheme } from '@/providers/theme-provider';
 
-// English for now, matching the conference screens; device-locale selection is a follow-up.
-const t = createTranslator(en);
-
-export default function LandingScreen() {
-  const router = useRouter();
+/** A cold start lands on the app for a stored session, on sign-in without one. */
+export default function EntryScreen() {
   const { session, isLoading } = useAuth();
+  const { colors } = useTheme();
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Chatofy</Text>
-      <Text style={styles.subtitle}>{t('mobile.home.comingSoon')}</Text>
-
-      {/* The conference stack asks a signed-out user to sign in first. */}
-      {isLoading ? null : (
-        <TouchableOpacity
-          style={styles.cta}
-          onPress={() => router.push(session ? '/(app)/conference' : '/sign-in')}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-        >
-          <Text style={styles.ctaText}>
-            {session ? t('mobile.home.joinConference') : t('mobile.home.signIn')}
-          </Text>
-        </TouchableOpacity>
-      )}
-    </SafeAreaView>
-  );
+  if (isLoading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.background,
+        }}
+      >
+        <ActivityIndicator color={colors.textSecondary} />
+      </View>
+    );
+  }
+  return <Redirect href={entryRedirect(session !== null) as Href} />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  title: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: '#000000',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6E6E73',
-    marginTop: 8,
-  },
-  cta: {
-    marginTop: 32,
-    backgroundColor: '#000000',
-    borderRadius: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-  },
-  ctaText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

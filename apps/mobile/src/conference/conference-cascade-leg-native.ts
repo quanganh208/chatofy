@@ -19,6 +19,7 @@ import {
 import type { LanguageCode, VoiceGender } from '@chatofy/types/domain';
 import type { NativeAudioCapture } from './native-audio-capture';
 import { TRANSLATE_WS_URL } from './conference-config';
+import { micLock } from '@/translate/mic-lock';
 import { send } from './conference-signaling';
 
 export interface NativeConferenceLegOptions {
@@ -105,6 +106,8 @@ export function drainLegThenClose(
 
 /** The call is over: stop the microphone and give the audio session back. */
 export function releaseCapture(capture: NativeAudioCapture | null): void {
+  // The call no longer holds the microphone, whether or not a recorder was opened.
+  micLock.release('conference');
   capture
     ?.releaseSession()
     .catch((err: unknown) => console.error('[conference] audio session release failed', err));

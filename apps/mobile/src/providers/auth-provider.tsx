@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { authClient } from '@/clients/auth-client';
 import type { AuthClient, AuthMessage, AuthSession } from '@/clients/auth-client.interface';
 
@@ -14,9 +15,13 @@ interface AuthContextValue {
   session: AuthSession | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: (idToken: string) => Promise<void>;
   /** Resolves with what to tell the user; it does not sign them in. */
   signUp: (email: string, password: string, name: string) => Promise<AuthMessage>;
   signOut: () => Promise<void>;
+  forgotPassword: (email: string) => Promise<AuthMessage>;
+  verifyEmail: (token: string) => Promise<AuthMessage>;
+  resetPassword: (token: string, password: string) => Promise<AuthMessage>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -32,6 +37,13 @@ interface AuthProviderProps {
 export function AuthProvider({ children, client = defaultClient }: AuthProviderProps) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  // Query keys do not name the account, so what one person fetched must not be
+  // there for the next to sign in on this phone.
+  useEffect(() => {
+    if (!isLoading && session === null) queryClient.clear();
+  }, [isLoading, session, queryClient]);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,6 +76,13 @@ export function AuthProvider({ children, client = defaultClient }: AuthProviderP
     [client],
   );
 
+  const signInWithGoogle = useCallback(
+    async (idToken: string) => {
+      setSession(await client.signInWithGoogle(idToken));
+    },
+    [client],
+  );
+
   /**
    * Begins registration; it does NOT produce a session.
    *
@@ -84,11 +103,40 @@ export function AuthProvider({ children, client = defaultClient }: AuthProviderP
     setSession(null);
   }, [client]);
 
+  // These begin or finish an email flow; none of them touches the session, so they
+  // pass straight through to the client.
+  const forgotPassword = useCallback((email: string) => client.forgotPassword(email), [client]);
+  const verifyEmail = useCallback((token: string) => client.verifyEmail(token), [client]);
+  const resetPassword = useCallback(
+    (token: string, password: string) => client.resetPassword(token, password),
+    [client],
+  );
+
   // Referentially stable context value — consumers only re-render when the
   // session/loading state actually changes, not on every provider render.
   const value = useMemo(
-    () => ({ session, isLoading, signIn, signUp, signOut }),
-    [session, isLoading, signIn, signUp, signOut],
+    () => ({
+      session,
+      isLoading,
+      signIn,
+      signInWithGoogle,
+      signUp,
+      signOut,
+      forgotPassword,
+      verifyEmail,
+      resetPassword,
+    }),
+    [
+      session,
+      isLoading,
+      signIn,
+      signInWithGoogle,
+      signUp,
+      signOut,
+      forgotPassword,
+      verifyEmail,
+      resetPassword,
+    ],
   );
 
   return <AuthContext value={value}>{children}</AuthContext>;
