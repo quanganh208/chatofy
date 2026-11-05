@@ -35,9 +35,9 @@ export interface GoogleIdentity {
  * means owning key rotation and issuer checks, which is a lot of security
  * surface for no gain.
  *
- * The audience is the web's client id, AUTH_GOOGLE_ID — the name Auth.js reads,
- * so the env both apps share states it once. A second client (mobile's
- * per-platform ids) is a new variable when that client exists.
+ * The audience is an allowlist: the web's client id, AUTH_GOOGLE_ID — the name
+ * Auth.js reads, so the env both apps share states it once — and the mobile
+ * app's per-platform ids, AUTH_GOOGLE_MOBILE_IDS.
  */
 @Injectable()
 export class GoogleTokenVerifier {
@@ -46,17 +46,27 @@ export class GoogleTokenVerifier {
   constructor(private readonly config: ConfigService<Env, true>) {}
 
   /**
-   * Enforced lazily, matching how GEMINI_API_KEY is handled: an unset value must
-   * not stop the whole API booting for deployments that never offer Google
-   * login, but it must produce a clear answer when the route is actually called.
+   * The client ids an id_token may have been issued to: the web's, then the
+   * mobile app's per-platform ones. Enforced lazily, matching how GEMINI_API_KEY
+   * is handled: an unset value must not stop the whole API booting for
+   * deployments that never offer Google login, but it must produce a clear
+   * answer when the route is actually called.
    */
-  private audience(): string {
+  private audiences(): string[] {
     // Trimmed and checked for empty rather than `??`: a blank `AUTH_GOOGLE_ID=`
     // line arrives as ''.
-    const id = (
+    const web = (
       this.config.get('AUTH_GOOGLE_ID', { infer: true }) ?? ''
     ).trim();
-    if (id.length === 0) {
+    const mobile = (
+      this.config.get('AUTH_GOOGLE_MOBILE_IDS', { infer: true }) ?? ''
+    )
+      .split(',')
+      .map((id) => id.trim());
+    // An allowlist of named ids; an empty entry (a stray comma) is dropped, never
+    // read as "any".
+    const ids = [...new Set([web, ...mobile].filter((id) => id.length > 0))];
+    if (ids.length === 0) {
       // 501 rather than 503: this server does not implement Google login at
       // all, and retrying will not change that.
       //
@@ -70,11 +80,11 @@ export class GoogleTokenVerifier {
         'Google login is not configured on this server',
       );
     }
-    return id;
+    return ids;
   }
 
   async verify(idToken: string): Promise<GoogleIdentity> {
-    const audience = this.audience();
+    const audience = this.audiences();
 
     let payload;
     try {

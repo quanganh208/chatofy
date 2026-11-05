@@ -89,6 +89,8 @@ describe('RegisterForm', () => {
       // because there is no row yet to store it on — the row is what redeeming that
       // mail's link creates.
       locale: 'en',
+      // The web's link in that mail points at the web, not at the phone app.
+      client: 'web',
     });
     // The API answers a fresh and an already-registered address identically —
     // the confirmation is a fixed string, not the API's own message, so it

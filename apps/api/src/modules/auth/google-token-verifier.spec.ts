@@ -5,9 +5,13 @@ import type { ConfigService } from '@nestjs/config';
 import { GoogleTokenVerifier } from './google-token-verifier';
 import type { Env } from '../../config/env.schema';
 
-function verifierWith(clientIds: string | undefined) {
+function verifierWith(clientIds: string | undefined, mobileIds?: string) {
+  const values: Record<string, string | undefined> = {
+    AUTH_GOOGLE_ID: clientIds,
+    AUTH_GOOGLE_MOBILE_IDS: mobileIds,
+  };
   const config = {
-    get: vi.fn().mockReturnValue(clientIds),
+    get: vi.fn((key: string) => values[key]),
   } as unknown as ConfigService<Env, true>;
   return new GoogleTokenVerifier(config);
 }
@@ -57,7 +61,27 @@ describe('GoogleTokenVerifier', () => {
     await verifierWith(' web-client-id ').verify('id.token');
     expect(spy).toHaveBeenCalledWith({
       idToken: 'id.token',
-      audience: 'web-client-id',
+      audience: ['web-client-id'],
+    });
+  });
+
+  it('accepts the web id and each named mobile id, and nothing else', async () => {
+    const spy = mockGoogle(VALID);
+    await verifierWith('web-id', ' ios-id, android-id ,, web-id ').verify(
+      'id.token',
+    );
+    expect(spy).toHaveBeenCalledWith({
+      idToken: 'id.token',
+      audience: ['web-id', 'ios-id', 'android-id'],
+    });
+  });
+
+  it('works with mobile ids alone', async () => {
+    const spy = mockGoogle(VALID);
+    await verifierWith(undefined, 'ios-id').verify('id.token');
+    expect(spy).toHaveBeenCalledWith({
+      idToken: 'id.token',
+      audience: ['ios-id'],
     });
   });
 
@@ -96,5 +120,8 @@ describe('GoogleTokenVerifier', () => {
     await expect(verifierWith('   ').verify('id.token')).rejects.toBeInstanceOf(
       NotImplementedException,
     );
+    await expect(
+      verifierWith(undefined, ' , ').verify('id.token'),
+    ).rejects.toBeInstanceOf(NotImplementedException);
   });
 });

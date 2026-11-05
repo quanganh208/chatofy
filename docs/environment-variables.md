@@ -59,6 +59,7 @@ D = dev root `.env`, P = prod.env. "Pinned" means compose sets it per service;
 | `CLOUDFLARE_REALTIME_APP_ID`, `_SECRET`                                            | api                                     | yes (boot refuses)                      | —                                | ✓                | ✓              |
 | `CLOUDFLARE_TURN_KEY_ID`, `_API_TOKEN`                                             | api                                     | no; TURN on when both set               | —                                | ✓                | ✓              |
 | `WEB_BASE_URL`                                                                     | api, web, compose (`AUTH_URL`)          | prod yes                                | `http://localhost:3001`          | default          | ✓              |
+| `MOBILE_LINK_SCHEME`                                                               | api                                     | no                                      | `chatofy`                        | default          | —              |
 | `CORS_ORIGIN`                                                                      | api                                     | no                                      | `WEB_BASE_URL`                   | —                | —              |
 | `TRUST_PROXY_HOPS`                                                                 | api                                     | prod yes                                | `0`                              | default          | pinned `1`     |
 | `REDIS_URL`                                                                        | api                                     | no                                      | `redis://localhost:6379`         | default          | pinned         |
@@ -74,6 +75,7 @@ D = dev root `.env`, P = prod.env. "Pinned" means compose sets it per service;
 | `AUTH_SECRET`                                                                      | web                                     | yes                                     | —                                | ✓                | ✓              |
 | `AUTH_GOOGLE_ID`                                                                   | web, api                                | no; both halves or neither              | —                                | ✓                | ✓              |
 | `AUTH_GOOGLE_SECRET`                                                               | web                                     | no                                      | —                                | ✓                | ✓              |
+| `AUTH_GOOGLE_MOBILE_IDS`                                                           | api                                     | no                                      | —                                | —                | —              |
 | `NEXT_PUBLIC_API_BASE_URL`                                                         | web (build time)                        | prod yes                                | `http://localhost:3000`          | default          | ✓              |
 | `SMTP_USER`, `SMTP_PASS`                                                           | api                                     | prod yes                                | —                                | ignored          | ✓              |
 | `SMTP_HOST`, `SMTP_PORT`                                                           | api                                     | no                                      | `smtp.gmail.com`, `465`          | —                | —              |
@@ -120,6 +122,21 @@ attacker-supplied host into a poisoned link inside a signed, mailed URL. The api
 refuses to boot in production while the value is still the localhost default,
 because a plausible-looking wrong origin in a mailed link is worse than an
 obviously broken one.
+
+## MOBILE_LINK_SCHEME
+
+The URL scheme the phone app registers (`scheme` in `apps/mobile/app.json`,
+`chatofy`). When register or forgot-password is called with `client: 'mobile'`,
+the mailed link is `<scheme>://verify-email?token=…` (or `reset-password`,
+`forgot-password`, `sign-up`) instead of a web link, so following it opens the app.
+
+Like `WEB_BASE_URL` it is configuration, never taken from the request: `client` only
+chooses between the two values the operator set, and anything but `mobile` reads as
+`web`. A stranger can therefore make a victim's mail carry the app link instead of
+the web link, but cannot change where the token goes, and the token reaches only the
+mailbox. The cost is inconvenience (the app link does nothing on a computer), not a
+leak. A custom scheme can be claimed by another Android app; before the app is
+published to a store, move these links to verified app links on the web origin.
 
 ## TRUST_PROXY_HOPS
 
@@ -193,8 +210,25 @@ is documented in `apps/api/src/modules/translate/session/translation-cost-policy
 `AUTH_GOOGLE_ID` is the web's OAuth client id, the name Auth.js reads, and the
 only audience `POST /auth/google` accepts. Both web halves or neither: the button
 is offered only when `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` are set. Unset on
-the api, the route answers 501 rather than blocking the boot. A second client
-(mobile's per-platform ids) will be a new variable when that client exists.
+the api, the route answers 501 rather than blocking the boot.
+
+`AUTH_GOOGLE_MOBILE_IDS` adds the phone app's clients to the accepted audiences: a
+comma-separated list of OAuth client ids (iOS, Android, and the web-type id), each
+named, never a wildcard. The route accepts an id_token issued to any id in
+`AUTH_GOOGLE_ID` plus this list. With only mobile ids set the route still works.
+
+Creating the mobile clients (Google Cloud Console → APIs & Services → Credentials):
+
+1. iOS: a client of type iOS with bundle id `dev.quanganh208.chatofy`.
+2. Android: a client of type Android with package `dev.quanganh208.chatofy` and the SHA-1
+   of the keystore that signs the build (a debug build uses the debug keystore's).
+3. Put the ids in `apps/mobile/.env` as `EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS` and
+   `EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID`, and the same ids in the api's
+   `AUTH_GOOGLE_MOBILE_IDS`. The mobile ids are inlined at build time, so rebuild the
+   dev client after a change. A platform with no id does not show "Continue with Google".
+
+`apps/mobile/app.config.ts` derives the iOS redirect scheme from the iOS client id,
+so no URL scheme is copied by hand.
 
 Production reuses the dev client on purpose: one Google client carries several
 redirect URIs. The redirect URI must be registered exactly:

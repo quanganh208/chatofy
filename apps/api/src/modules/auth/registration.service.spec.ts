@@ -49,6 +49,7 @@ describe('RegistrationService', () => {
         password: 'correct horse battery',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
       await settle();
 
@@ -62,6 +63,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
 
       users.findByEmail.mockResolvedValue(record());
@@ -70,6 +72,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
 
       expect(taken).toEqual(fresh);
@@ -96,6 +99,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
 
       expect(hashSpy.mock.calls.length).toBeGreaterThan(0);
@@ -114,6 +118,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
       await settle();
 
@@ -138,6 +143,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
       await settle();
 
@@ -169,6 +175,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
       expect(typeof answered.message).toBe('string');
 
@@ -186,6 +193,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: '\n\nSecurity alert: confirm at https://evil.tld\n\n',
         locale: 'en',
+        client: 'web',
       });
       await settle();
 
@@ -215,6 +223,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
       expect(typeof answered.message).toBe('string');
       await settle();
@@ -297,6 +306,7 @@ describe('RegistrationService', () => {
         password: 'a-long-enough-password',
         name: 'A',
         locale: 'en',
+        client: 'web',
       });
       // The folded address is what the existence check asks about, and what the
       // verification link is later minted for. `auth.service.spec.ts` proves
