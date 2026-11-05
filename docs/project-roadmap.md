@@ -37,8 +37,9 @@ rehearsed rollback (the switch has since been removed; LID is always on); the
 language label shows by 3.3 s at p95 from the start of speech (bar 3.5 s). Chinese is not identified and its pairs
 stay one-way.
 
-The mobile app compiles against the new contract only; its translate screen is
-planned separately.
+The mobile translate screen speaks the same contract: one source picker, two-way,
+auto-detect, spoken translations, and a saved conversation that appears in History.
+Device runs are the owner's gate (see [apps/mobile/README.md](../apps/mobile/README.md)).
 
 Described in [Contracts and Languages](./architecture/contracts-and-languages.md#lid-and-audio-based-detection);
 measured in [development-journey.md](./development-journey.md).
@@ -65,15 +66,16 @@ Design and evidence:
 
 ### Still open
 
-| Gate                                                | Issue | Status                                                         |
-| --------------------------------------------------- | ----- | -------------------------------------------------------------- |
-| Network path for media                              | #208  | Done: Cloudflare Realtime SFU (2026-10-25)                     |
-| Connectivity from ≥ 2 networks (Wi-Fi, 4G)          | #208  | Pending: owner run on production                               |
-| Translation load with several simultaneous speakers | —     | Measured on the dev stack; meeting legs capped at 4 of 6 turns |
-| Mobile sign-in through the real auth client         | #210  | Done: PR #255 (2026-10-26)                                     |
-| End screen with minutes                             | #210  | Done: PR #256 (2026-10-26)                                     |
-| Mobile device run on Cloudflare                     | #210  | Pending: owner run on a dev build                              |
-| Billing tables, recording access                    | #212  | Deferred out of thesis scope                                   |
+| Gate                                                | Issue | Status                                                             |
+| --------------------------------------------------- | ----- | ------------------------------------------------------------------ |
+| Network path for media                              | #208  | Done: Cloudflare Realtime SFU (2026-10-25)                         |
+| Connectivity from ≥ 2 networks (Wi-Fi, 4G)          | #208  | Pending: owner run on production                                   |
+| Translation load with several simultaneous speakers | —     | Measured on the dev stack; meeting legs capped at 4 of 6 turns     |
+| Mobile sign-in through the real auth client         | #210  | Done: PR #255 (2026-10-26)                                         |
+| End screen with minutes                             | #210  | Done: PR #256 (2026-10-26)                                         |
+| Mobile device run on Cloudflare                     | #210  | Pending: owner run on a dev build                                  |
+| Mobile register, Google sign-in, translate, History | —     | Built; pending: owner run on a dev build (needs Google client ids) |
+| Billing tables, recording access                    | #212  | Deferred out of thesis scope                                       |
 
 ## Known gaps
 

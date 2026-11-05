@@ -7,7 +7,7 @@ they are Vietnamese and English.
 ## Stack
 
 - **Monorepo:** Turborepo + pnpm workspaces
-- **Mobile:** Expo SDK 58 (React Native) + expo-router — still a scaffold
+- **Mobile:** Expo SDK 58 (React Native) + expo-router — sign-in and registration, live translate, History and video meetings (dev builds)
 - **API:** NestJS 12 + Express + Prisma + WebSocket (`ws`)
 - **Web:** Next.js 16 App Router + Auth.js
 - **Extension:** WXT, Chrome MV3
